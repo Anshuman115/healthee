@@ -61,9 +61,7 @@ def _default_derive(conn: Connection[TupleRow], days: list[date]) -> None:
     derive/ lands, and it must FAIL LOUDLY at runtime if derive/ is missing
     (ingest that silently skipped derivation would leave stale dashboards).
     """
-    # derive/ is delivered by WP2; this import resolves at integration. The
-    # pyright ignore is scoped to that seam only — remove it once WP2 merges.
-    from healthee.derive import derive_days  # pyright: ignore[reportMissingImports]
+    from healthee.derive import derive_days
 
     derive_days(conn, days)
 

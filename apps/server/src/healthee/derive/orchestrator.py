@@ -74,15 +74,16 @@ def derive_day(cur: Cur, day: date) -> dict:
 
 
 def derive_days(conn: Connection[TupleRow], days: list[date]) -> None:
-    """Derive every day in one transaction on `conn`, committing at the end.
+    """Derive every day within the CALLER's open transaction on `conn`.
 
-    The ingest path calls this after upserting a push's new samples/sessions so the
-    materialized daily rows reflect them.
+    Does NOT commit — the caller owns the transaction boundary. The ingest path
+    calls this mid-push (after upserting new samples/sessions, before the
+    daily-total override) so the whole push stays atomic: a failure anywhere rolls
+    back the upserts, the derivation, and the override together.
     """
     with conn.cursor() as cur:
         for day in days:
             derive_day(cur, day)
-    conn.commit()
 
 
 def derive_all_nights() -> dict[str, dict]:
