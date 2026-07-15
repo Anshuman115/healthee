@@ -38,10 +38,25 @@ From the repo root, the [`Makefile`](Makefile) wraps the common tasks:
 | `make test` | `pytest` with a coverage report |
 | `make fix` | `ruff check --fix` + `ruff format` |
 | `make ci` | Everything CI runs (lint + test) |
+| `make db-up` / `make db-down` | Start/stop a local dev TimescaleDB (host port 5544) |
 
 Server-only, from `apps/server/`: `uv run pytest`, `uv run ruff check`,
 `uv run pyright`. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for commit
 conventions, the branch strategy, and how the hooks and CI gates fit together.
+
+### Local database
+
+`make db-up` runs just TimescaleDB (same image as prod) on host port 5544. Point
+the server at it and apply the schema:
+
+```sh
+export POSTGRES_HOST=localhost POSTGRES_PORT=5544 POSTGRES_PASSWORD=healthee
+uv run --directory apps/server python -m healthee.db.migrate   # apply migrations
+uv run --directory apps/server uvicorn healthee.api.app:app    # serves /healthz
+```
+
+Integration tests (`pytest -m integration`) auto-skip when no database is
+reachable and run against this DB (or the CI service container) when it is.
 
 ### Deploying
 

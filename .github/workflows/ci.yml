@@ -37,6 +37,22 @@ jobs:
     defaults:
       run:
         working-directory: apps/server
+    # TimescaleDB for the integration tests (same image as prod). Unit tests
+    # don't need it; the `integration`-marked tests connect here.
+    services:
+      db:
+        image: timescale/timescaledb:latest-pg17
+        env:
+          POSTGRES_USER: healthee
+          POSTGRES_PASSWORD: healthee
+          POSTGRES_DB: healthee
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U healthee -d healthee"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
@@ -53,6 +69,15 @@ jobs:
       - name: Pyright type check
         run: uv run pyright
       - name: Pytest (with coverage report)
+        # POSTGRES_* point at the service container so integration tests run
+        # here (they auto-skip locally when the DB env is unreachable).
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: healthee
+          POSTGRES_USER: healthee
+          POSTGRES_PASSWORD: healthee
+          REALTIME_INGEST_TOKEN: ci-test-token
         run: uv run pytest
 
   # ── Secret scanning (Addendum §H) ──────────────────────────────────────
