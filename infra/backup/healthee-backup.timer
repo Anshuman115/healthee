@@ -1,0 +1,19 @@
+# Healthee backup timer — runs the backup daily.
+# Enable: systemctl enable --now healthee-backup.timer
+# Inspect: systemctl list-timers healthee-backup.timer
+
+[Unit]
+Description=Daily Healthee Postgres backup
+Requires=healthee-backup.service
+
+[Timer]
+# Daily at 03:30 local time.
+OnCalendar=*-*-* 03:30:00
+# Run on next boot if the machine was off at the scheduled time.
+Persistent=true
+# Spread load / avoid exact-time collisions.
+RandomizedDelaySec=300
+Unit=healthee-backup.service
+
+[Install]
+WantedBy=timers.target
