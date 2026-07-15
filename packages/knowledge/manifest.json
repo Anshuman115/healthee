@@ -150,19 +150,24 @@
         "sleep",
         "recommendations"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "caffeine",
+        "alcohol"
+      ],
       "applies_to_metrics": [
-        "asleep",
-        "hrv_rmssd_ms",
-        "rhr_daily"
+        "tst_min",
+        "hrv_sleep_avg",
+        "rhr_daily",
+        "sleep_health_score_4dim"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Probable",
       "id": "caffeine_alcohol_cutoff_plan",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "Implementation plan — personal caffeine/alcohol cutoff-time finder using existing logs + correlation engine",
       "path": "notes/sleep/caffeine_alcohol_cutoff_plan.md",
+      "population": "general",
       "summary": "Implementation plan — personal caffeine/alcohol cutoff-time finder using existing logs + correlation engine"
     },
     {
@@ -766,21 +771,22 @@
         "sleep_timing",
         "mood"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "morning_light"
+      ],
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min",
+        "sleep_regularity_index",
+        "sleep_health_score_4dim",
         "rhr_daily"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Established",
       "id": "morning_light_circadian",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Morning bright-light exposure entrains circadian rhythm and improves sleep timing",
       "path": "notes/sleep/morning_light_circadian.md",
+      "population": "general",
       "summary": "Morning bright-light exposure entrains circadian rhythm and improves sleep timing"
     },
     {
@@ -843,15 +849,16 @@
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "sleep_score"
+        "sleep_health_score_4dim"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Established",
       "id": "no_validated_sleep_score",
-      "last_reviewed": "2026-05-12",
+      "last_reviewed": "2026-07-15",
       "name": "No peer-reviewed composite \"sleep score\" exists for wearable data",
       "path": "notes/sleep/no_validated_sleep_score.md",
+      "population": "general",
       "summary": "No peer-reviewed composite \"sleep score\" exists for wearable data"
     },
     {
@@ -1314,15 +1321,19 @@
       "applies_to_interventions": [],
       "applies_to_metrics": [
         "recovery_score",
-        "sleep_health_score_4dim"
+        "sleep_health_score_4dim",
+        "sleep_need_min",
+        "sleep_debt_min",
+        "tst_min"
       ],
       "category": "metrics",
       "collection": "sports_science",
       "grade": "Probable",
       "id": "sleep_and_recovery",
-      "last_reviewed": "2026-06-29",
+      "last_reviewed": "2026-07-15",
       "name": "Sleep & Recovery",
       "path": "sports-science/metrics/sleep-and-recovery.md",
+      "population": "runners",
       "summary": "The most potent recovery process; protect 7–9 h, treat short nights as cumulative debt, and never design plans that require sleep restriction."
     },
     {
@@ -1330,22 +1341,25 @@
         "sleep",
         "circadian",
         "metabolism",
-        "cv_risk"
+        "cv_risk",
+        "consistency"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "sleep_consistency",
+        "bedtime_consistency"
+      ],
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min"
+        "sleep_regularity_index",
+        "sleep_health_score_4dim"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Established",
       "id": "sleep_consistency",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Day-to-day sleep timing variability is independently linked to cardiometabolic risk",
       "path": "notes/sleep/sleep_consistency.md",
+      "population": "general",
       "summary": "Day-to-day sleep timing variability is independently linked to cardiometabolic risk"
     },
     {
@@ -1381,41 +1395,43 @@
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
+        "sleep_health_score_4dim",
         "sleep_regularity_index",
-        "sleep_light_min",
-        "sleep_deep_min"
+        "tst_min"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Probable",
       "id": "sleep_health_score_multidim",
-      "last_reviewed": "2026-05-13",
+      "last_reviewed": "2026-07-15",
       "name": "Multi-dimensional sleep health composites (RU-SATED binary sums) — what is and is not validated for wearable-only data",
       "path": "notes/sleep/sleep_health_score_multidim.md",
+      "population": "general",
       "summary": "Multi-dimensional sleep health composites (RU-SATED binary sums) — what is and is not validated for wearable-only data"
     },
     {
       "aliases": [
         "sleep",
         "circadian",
-        "recovery"
+        "recovery",
+        "sleep_need",
+        "sleep_debt"
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "asleep",
         "sleep_need_min",
         "sleep_debt_min",
-        "tst_min"
+        "tst_min",
+        "sleep_health_score_4dim"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Probable",
       "id": "sleep_need_debt",
-      "last_reviewed": "2026-06-05",
+      "last_reviewed": "2026-07-15",
       "name": "Personal sleep need (age-based) and rolling cumulative sleep debt — the evidence-based version of Whoop/Oura \"sleep need / debt\"",
       "path": "notes/sleep/sleep_need_debt.md",
+      "population": "general",
       "summary": "Personal sleep need (age-based) and rolling cumulative sleep debt — the evidence-based version of Whoop/Oura \"sleep need / debt\""
     },
     {
@@ -1423,22 +1439,23 @@
         "sleep",
         "regularity",
         "mortality",
-        "cardiometabolic"
+        "cardiometabolic",
+        "sri"
       ],
       "applies_to_interventions": [
         "sleep_consistency"
       ],
       "applies_to_metrics": [
-        "asleep",
         "sleep_regularity_index"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Established",
       "id": "sleep_regularity_index",
-      "last_reviewed": "2026-06-09",
+      "last_reviewed": "2026-07-15",
       "name": "Sleep Regularity Index (SRI) — single-number sleep metric with mortality validation",
       "path": "notes/sleep/sleep_regularity_index.md",
+      "population": "general",
       "summary": "Sleep Regularity Index (SRI) — single-number sleep metric with mortality validation"
     },
     {
@@ -1451,19 +1468,18 @@
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
+        "sleep_health_score_4dim",
         "sleep_regularity_index",
-        "sleep_light_min",
-        "sleep_deep_min"
+        "tst_min"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Probable",
       "id": "sleep_score_implementation_plan",
-      "last_reviewed": "2026-05-13",
+      "last_reviewed": "2026-07-15",
       "name": "How healthee should display a multi-dimensional sleep score given the evidence in sleep_health_score_multidim",
       "path": "notes/sleep/sleep_score_implementation_plan.md",
+      "population": "general",
       "summary": "How healthee should display a multi-dimensional sleep score given the evidence in sleep_health_score_multidim"
     },
     {
@@ -1481,17 +1497,17 @@
         "wind_down"
       ],
       "applies_to_metrics": [
-        "asleep",
-        "sleep_midpoint",
-        "sleep_onset"
+        "sleep_health_score_4dim",
+        "sleep_regularity_index"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Probable",
       "id": "sleep_timing_chronotype",
-      "last_reviewed": "2026-06-09",
+      "last_reviewed": "2026-07-15",
       "name": "Sleep timing (when to sleep/wake), chronotype, and the bedtime that lowers CVD risk",
       "path": "notes/sleep/sleep_timing_chronotype.md",
+      "population": "general",
       "summary": "Sleep timing (when to sleep/wake), chronotype, and the bedtime that lowers CVD risk"
     },
     {

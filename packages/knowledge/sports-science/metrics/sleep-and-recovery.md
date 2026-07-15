@@ -3,12 +3,14 @@ id: sleep_and_recovery
 name: "Sleep & Recovery"
 category: metrics
 grade: Probable
+evidence_grade: 2
 summary: "The most potent recovery process; protect 7–9 h, treat short nights as cumulative debt, and never design plans that require sleep restriction."
 aliases: ["sleep-and-recovery", "sleep", "sleep hygiene", "sleep extension", "sleep debt", "sleep deprivation", "sleep quality", "recovery", "rest", "REM", "slow-wave sleep", "deep sleep", "sleep stages", "recovery sleep", "sleep loss", "banking sleep", "sleep duration"]
-applies_to_metrics: ["recovery_score", "sleep_health_score_4dim"]
+applies_to_metrics: ["recovery_score", "sleep_health_score_4dim", "sleep_need_min", "sleep_debt_min", "tst_min"]
 applies_to_interventions: []
-last_reviewed: 2026-06-29
-related: ["heart-rate-variability", "resting-heart-rate", "training-load-acwr", "fitness-fatigue-form", "training-stress-score"]
+population: runners
+last_reviewed: 2026-07-15
+related: ["heart_rate_variability", "resting_heart_rate", "training-load-acwr", "fitness-fatigue-form", "training-stress-score", "recovery_readiness", "sleep_need_debt", "no_validated_sleep_score", "wearable_sleep_stage_validity"]
 daud_metrics: ["sleepDurationNightly", "sleepDebt7d"]
 units: "hours (sleep duration); minutes (stage time); AU (subjective recovery)"
 ---
@@ -320,3 +322,34 @@ Decision logic, scaled by stage (Stage 1 beginner → Stage 3 racing):
   sleep is associated with increased sports injury in adolescents: a systematic
   review and meta-analysis.* Orthopaedic Journal of Sports Medicine, 7(3 suppl).
   https://doi.org/10.1177/2325967119S00132
+
+## Healthee implementation & honesty policy
+
+This is the **athletic sleep-science** complement to the consumer sleep notes; it is
+the fuller sleep-physiology reference, while the shipped Healthee metrics live in the
+sibling notes it cross-links.
+
+- **Field mapping (daud → Healthee):** the SS `sleepDurationNightly` ≈ Healthee
+  `tst_min` (total sleep time, from `sleep_health_score_4dim` flags); `sleepDebt7d`
+  ≈ Healthee `sleep_debt_min` — but Healthee ships a **rolling 14-night** cumulative
+  debt with surplus credited at 0.5× and an age-based `sleep_need_min` (NSF 2015),
+  `derive/sleep_score.py::derive_sleep_debt` (canonical detail in `sleep_need_debt`).
+  There is ONE canonical sleep-debt definition — the shipped 14-night model — and
+  this note's "rolling 7-day `Σ max(0, target − actual)`" is described as the SS
+  proxy, not a second shipped definition.
+- **Recovery is NOT reduced to one number here or in Healthee.** Sleep is read
+  *alongside* morning HRV/RHR, subjective wellness, and acute:chronic load. Healthee's
+  transparent `recovery_score` (with its always-shown per-factor breakdown, including
+  sleep-vs-absolute-need) is the shipped realisation of that triangulation — see
+  `recovery_readiness`, which grafts this note's triangulation + subjective-wellness
+  atoms into the shipped formula.
+- **Composite honesty:** Healthee ships no proprietary 0–100 sleep score
+  (`no_validated_sleep_score`); only the transparent 0–4 `sleep_health_score_4dim`
+  shown with its dimensions.
+- **Ground-truth caveat (mirrored):** stage estimates (REM/deep/light) from consumer
+  wrist devices are weak vs PSG (`wearable_sleep_stage_validity`); the coach weights
+  **duration trends** far above device "deep sleep minutes."
+- **Safety guardrail (mirrored in code, `@daud/core` → Healthee guardrails):** never
+  prescribe or endorse habitual sleep restriction to fit training; treat persistent
+  severe short sleep as a flag to *reduce* load; escalate a sleep-collapse + rising
+  RHR + low mood + falling performance pattern to a deload / medical review.
