@@ -78,6 +78,44 @@ copied into 11 files, and five features silently dead behind swallowed errors.
 - Delete, don't comment out. Delete, don't keep "just in case" — git has it.
   Unused dependencies are removed in the same PR that orphans them.
 
+### Performance is a requirement, not an aspiration
+Fast is a top product priority. A change that blows a budget is rejected in
+review exactly like a failing test.
+
+**Budgets (measured on typical real data, not empty DBs):**
+
+| Surface | Budget |
+|---|---|
+| Server read endpoints (non-LLM) | p95 < 100 ms |
+| Ingest push (one normal day of new data) | < 5 s end-to-end |
+| LLM endpoints | pre-warmed/cached per day; generation never blocks a sync or a read path |
+| App cold start → first meaningful paint | < 2 s (cache-first render) |
+| Tab switch / scroll | 60 fps — no dropped-frame jank; charts never rebuild on scroll |
+| Full incremental BLE sync (typical day) | < 30 s |
+
+**Rules that keep the budgets:**
+- **Measure, don't guess.** Any PR claiming or affecting performance carries
+  numbers (before/after). Suspicion of jank → profile (DevTools / py-spy),
+  don't speculate.
+- **Bound the round-trips.** No N+1 queries; bulk writes use
+  `executemany`/pipelining (the legacy push once did one round-trip per sample
+  and hit 180 s timeouts); no per-item connections — the pool is the only way
+  in.
+- **Hot loops vectorize.** Per-minute day-windows (1440 iterations) in
+  Python use numpy/polars when they're on a request or sync path.
+- **Caching is a design element, not a patch**: stale-while-revalidate on
+  device, per-day kv cache for generated text, mtime-cached corpus manifest,
+  pre-warmed daily insights in the scheduler.
+- **Unbounded data is windowed** — every list endpoint paginates; every chart
+  query has a range.
+- **Flutter:** `const` constructors wherever possible, `ListView.builder` for
+  any list, granular provider `select` to minimize rebuilds, `RepaintBoundary`
+  around chart painters, no synchronous I/O on the UI isolate, heavy parsing
+  in `compute()` isolates.
+- **Never trade correctness for speed silently** — if an optimization changes
+  results (sampling, approximation), the honesty contract applies: it's
+  documented and surfaced.
+
 ---
 
 ## 2. Server standards (`apps/server`, Python 3.13)

@@ -38,6 +38,10 @@ Helio Strap ──BLE (RE'd Huami/ZeppOS)──▶ Mobile app ──POST /ingest
 4. Science is a pipeline — graded notes, calibrated language, safety directives
    as hard guardrails.
 5. The user owns the data — self-hosted, on-device history, backups, export.
+6. **Fast is a feature** — the app renders instantly from local data (never
+   blocks on the network), the server answers reads in <100 ms p95, LLM work
+   is pre-warmed and cached off the hot path. Concrete budgets are binding in
+   ENGINEERING_STANDARDS.md ("Performance is a requirement").
 
 ## Phase plan
 
