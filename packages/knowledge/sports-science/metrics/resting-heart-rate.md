@@ -3,13 +3,14 @@ id: resting_heart_rate
 name: "Resting Heart Rate (RHR)"
 category: metrics
 grade: Established
-summary: "A cheap waking-pulse trend; a sustained multi-day rise above the runner's own baseline flags fatigue, under-recovery, or oncoming illness."
-aliases: ["resting-heart-rate", "RHR", "resting HR", "resting pulse", "waking heart rate", "morning heart rate", "basal heart rate", "athlete bradycardia", "sinus bradycardia"]
+evidence_grade: 3
+summary: "A cheap waking-pulse trend; a sustained multi-day rise above the person's own baseline flags fatigue, under-recovery, or oncoming illness — and at population scale a lower RHR tracks better fitness and lower mortality (never a personal death-risk number)."
+aliases: ["resting-heart-rate", "RHR", "resting HR", "resting pulse", "waking heart rate", "morning heart rate", "basal heart rate", "athlete bradycardia", "sinus bradycardia", "resting_hr_health_marker", "rhr mortality marker", "cardiovascular risk marker", "autonomic marker"]
 applies_to_metrics: ["rhr_daily"]
-applies_to_interventions: []
-last_reviewed: 2026-06-29
+applies_to_interventions: ["exercise", "meditation"]
+population: general
+last_reviewed: 2026-07-15
 related: ["heart-rate-variability", "sleep-and-recovery", "maximum-heart-rate", "heart-rate-zones", "vo2max", "training-load-acwr", "individualization"]
-daud_metrics: ["restingHeartRate", "rhrBaseline", "rhrDeviation"]
 units: "bpm"
 ---
 # Resting Heart Rate (RHR)
@@ -40,7 +41,8 @@ Why RHR *rises* acutely: anything that raises sympathetic drive or withdraws vag
 ## The evidence
 
 ### Lower RHR ↔ better fitness and lower mortality
-- **[Established] Higher resting heart rate predicts higher all-cause and cardiovascular mortality, in a graded dose-response.** *Two large systematic reviews / dose-response meta-analyses agree.* Zhang et al. pooled 46 studies (1,246,203 participants, 78,349 deaths for the all-cause analysis) and found each **+10 bpm RHR raised all-cause mortality ~9% (RR 1.09, 95% CI 1.07–1.12) and cardiovascular mortality ~8%** (RR 1.08, 1.06–1.10) [Zhang 2016]. Aune et al. pooled 87 prospective studies and found steeper estimates — **+17% all-cause mortality (RR 1.17, 1.14–1.19) and +15% cardiovascular disease (RR 1.15, 1.11–1.18) per +10 bpm** [Aune 2017]. *Consistent direction across both; this is an epidemiological association (low RHR is a marker of fitness/health), not proof that lowering your pulse per se extends life.* Population-level, general-adult evidence — not athlete-specific.
+- **[Established] Higher resting heart rate predicts higher all-cause and cardiovascular mortality, in a graded dose-response.** *Two large systematic reviews / dose-response meta-analyses agree.* Zhang et al. pooled 46 studies (1,246,203 participants, 78,349 deaths for the all-cause analysis) and found each **+10 bpm RHR raised all-cause mortality ~9% (RR 1.09, 95% CI 1.07–1.12) and cardiovascular mortality ~8%** (RR 1.08, 1.06–1.10) [Zhang 2016]. Aune et al. pooled 87 prospective studies (n ≈ 1.2 million) and found steeper estimates — **+17% all-cause mortality (RR 1.17, 1.14–1.19) and +15% cardiovascular disease (RR 1.15, 1.11–1.18) per +10 bpm** [Aune 2017]. *Consistent direction across both; this is an epidemiological association (low RHR is a marker of fitness/health), not proof that lowering your pulse per se extends life.* Population-level, general-adult evidence — not athlete-specific. The dose-response is **approximately log-linear**, the association holds **independent of traditional risk factors** (blood pressure, cholesterol, BMI, smoking, diabetes), and it is one of the most replicated findings in cardiovascular epidemiology [Aune 2017; Cooney 2010].
+- **[Established] The absolute-band contrast is large but must never be personalised.** In some large general-population cohorts, subjects with RHR > 80 bpm carried **~45% higher all-cause mortality than those with RHR < 60 bpm** [Cooney 2010]. A separate Zhang et al. meta-analysis of resting HR against coronary artery disease, stroke, and sudden death found the same graded direction across cardiovascular endpoints [Zhang 2016b]. *These are population effect sizes — not a personal prognosis; a group-level 45% is not an individual's risk (see Honesty).*
 - **[Established] Lower RHR is associated with higher aerobic fitness (VO₂max).** RHR falls as stroke volume and aerobic conditioning improve; cross-sectionally, fitter people have lower resting pulses. This is the physiological logic behind using a *downward* RHR trend over months as one (weak, indirect) corroborating sign that aerobic base is building. The relationship is real but loose at the individual level — RHR is set by genetics and autonomic make-up as much as by fitness, so it is a poor *absolute* fitness yardstick between people (see Honesty).
 
 ### How much does training actually lower RHR?
@@ -73,7 +75,7 @@ Why RHR *rises* acutely: anything that raises sympathetic drive or withdraws vag
 
 **Measurement accuracy.** PPG (optical wrist/ring) sensors are **well validated at rest and during sleep**, where there is little motion artefact — this is PPG's best-case scenario, unlike high-intensity exercise where it degrades. Device agreement at rest is generally good but **not interchangeable across brands**: validation studies show meaningful between-device differences (e.g. some watches/rings agree closely with ECG while others show poorer agreement) [Nuuttila 2021; Dial 2025]. **Implication: never compare RHR across two different devices as if equivalent; re-baseline whenever the runner changes hardware.** Chest-strap ECG is the most accurate but impractical for daily resting measurement; finger/ring and sleep-tracking optical sensors are the realistic daily tools.
 
-**Ownership in `@daud/core`:** `restingHeartRate` ingestion and the `rhrBaseline` / `rhrDeviation` derivations are the intended owners — **flag as not-yet-verified-in-code** until those functions and tests exist. Until then the coach computes baselines defensively and labels single readings as low-confidence.
+**Healthee ownership:** the nightly value is `rhr_daily`, computed by `derive/rhr.py::derive_rhr` (minimum of 5-min rolling-average sleeping HR; exact provenance and the baseline/deviation interpretive layer are in the implementation section below). `rhrBaseline` / `rhrDeviation` are the interpretive concepts the coach computes over that field; single readings are labelled low-confidence until a personal baseline exists.
 
 ## How the coach uses it
 Core principle: **RHR is a per-runner trend signal read against the runner's own rolling baseline — never an absolute number, never a single-day verdict.**
@@ -98,7 +100,9 @@ By stage:
 - **Mechanism of athlete bradycardia is contested** (intrinsic HCN4 remodelling vs enhanced vagal tone) [D'Souza 2014; Billman 2015]. This doesn't affect coaching but the coach should not assert a single confident "cause."
 - **Devices aren't interchangeable and PPG has limits.** Brand-to-brand differences are real; switching hardware resets the baseline. Optical sensors are good at rest but can mis-sample with poor fit, cold extremities, arrhythmia, or motion.
 - **Bradycardia has a rare pathological tail.** Very low RHR is usually benign in trained athletes, but symptomatic bradycardia (dizziness, syncope, exertional intolerance, palpitations) is not "just fitness" and needs medical evaluation; lifelong endurance athletes carry a modestly higher later-life sinus-node-disease risk [Bradycardia in Athletes review 2026].
-- **Causation caveat on mortality data.** Low RHR *predicts* longevity at population scale, but this is association — largely because low RHR marks fitness/health. The coach must not imply that artificially lowering one's pulse is itself life-extending.
+- **Causation caveat on mortality data.** Low RHR *predicts* longevity at population scale, but this is association — largely because low RHR marks fitness/health. The evidence is observational and **reverse causation is possible** (underlying disease elevates RHR), so the coach must not imply that artificially lowering one's pulse is itself life-extending.
+- **Population effect sizes are not a personal prognosis.** The ~9–17%-per-10-bpm and >80-vs-<60 figures are group-level associations; an n = 1 mortality/risk projection from a single person's RHR is not appropriate and must never be shown. **Never present RHR as a "death-risk" number** — frame it as an autonomic / fitness marker read in context.
+- **Medication confound.** β-blockers and other rate-limiting drugs **suppress RHR independently of fitness**, so a low pulse in a medicated person is not evidence of aerobic conditioning and invalidates the fitness read.
 
 ## Safety bounds
 - **Symptomatic bradycardia is a medical red flag, not a training metric.** A low resting pulse *with* dizziness, light-headedness, fainting/near-fainting, unexplained exertional intolerance, chest discomfort, or irregular/erratic beats → advise medical evaluation; never reassure these away as "athlete heart." (Mirror as guardrail.)
@@ -136,6 +140,8 @@ By stage:
 - **D10 (safety, mirrored guardrail):** When a sustained RHR elevation co-occurs with illness signs (fever, malaise, systemic symptoms), do not train through it — default to rest given cardiac risk of exercising while acutely ill. — confidence: Established
 - **D11:** Expect alcohol the prior evening to raise next-morning RHR by ~several bpm; attribute and discount such elevations rather than reading them as fatigue. — confidence: Established
 - **D12:** Require an established baseline (≥1–2 weeks of consistent readings) before driving any decision from RHR; with no baseline, defer to RPE, sleep, and load. — confidence: Probable
+- **D13:** **Never present RHR as a death-risk or mortality number**, and never project population effect sizes (~9–17%/10 bpm, >80-vs-<60) onto an individual; surface RHR as an autonomic/fitness marker with context. — confidence: Established
+- **D14:** If a rate-limiting medication (e.g. β-blocker) is flagged, do not read a low RHR as fitness; treat the fitness inference as invalidated and say so. — confidence: Established
 
 ## Key references
 - Zhang, D., Shen, X., & Qi, X. (2016). *Resting heart rate and all-cause and cardiovascular mortality in the general population: a meta-analysis.* CMAJ, 188(3), E53–E63. https://doi.org/10.1503/cmaj.150535
@@ -152,3 +158,17 @@ By stage:
 - *Bradycardia in athletes: prevalence, mechanisms, and risks.* (2026). Circulation. https://doi.org/10.1161/CIRCULATIONAHA.125.076170 (PMID 41410046) — review of athlete sinus bradycardia prevalence, benign vs pathological features, and sinus-node-disease risk.
 - Nuuttila, O.-P., Korhonen, E., Laukkanen, J., & Kyröläinen, H. (2021). *Validity of the wrist-worn Polar Vantage V2 to measure heart rate and heart rate variability at rest.* Sensors, 22(1), 137. https://doi.org/10.3390/s22010137 ; https://pmc.ncbi.nlm.nih.gov/articles/PMC8747571/
 - Dial, M. B., Hollander, M. E., Vatne, E. A., Emerson, A. M., Edwards, N. A., & Hagen, J. A. (2025). *Validation of nocturnal resting heart rate and heart rate variability in consumer wearables.* Physiological Reports, 13, e70527. https://doi.org/10.14814/phy2.70527
+- Cooney, M. T., Vartiainen, E., Laatikainen, T., Juolevi, A., Dudina, A., & Graham, I. M. (2010). *Elevated resting heart rate is an independent risk factor for cardiovascular disease in healthy men and women.* American Heart Journal, 159(4), 612–619.e3. https://doi.org/10.1016/j.ahj.2009.12.029
+- Zhang, D., Wang, W., & Li, F. (2016). *Association between resting heart rate and coronary artery disease, stroke, sudden death and noncardiovascular diseases: a meta-analysis.* CMAJ, 188(15), E384–E392. https://doi.org/10.1503/cmaj.160050 (cited as Zhang 2016b — distinct from the all-cause/CV-mortality meta-analysis Zhang 2016.)
+
+## Healthee implementation & honesty policy
+- **Derived field: `rhr_daily`** (bpm) in `derived_daily`. Provenance: `derive/rhr.py::derive_rhr` computes the **minimum over 5-minute rolling-average HR inside the sleep window** — the lowest sustained at-rest pulse of the night. Only 5-min buckets with **≥ 3 HR samples** count, HR is bounded to a physiological **30–220 bpm**, and `(None, 0)` is returned when the window holds no qualifying HR (so "no data" stays distinct from a real value; no row is written). Ported **verbatim** from the legacy v2 `derive_rhr` — science code, not to be "simplified" on refactor. This realises the note's "sleeping RHR is preferred for trend tracking" method automatically.
+- **Interpretive layer (baseline + deviation).** The decision variables are a **personal rolling baseline** and today's deviation from it — the concepts the legacy note carried as `rhrBaseline` / `rhrDeviation`. Two windows apply to two purposes and must not be conflated:
+  - **Recovery / illness flag (sensitive):** a robust baseline over ~7–30 nights; flag when the deviation is **≥ ~5 bpm (or ≥ ~1.5–2 baseline SD)** for ≥ 2–3 consecutive nights.
+  - **Health-marker attention (coarse):** a **median + IQR over 30–90 days**; a **~10 bpm sustained** rise vs that baseline warrants a check-in (sleep, alcohol, illness, load), citing this note.
+- **Downstream:** `rhr_daily` is the **second-highest-weighted input (0.28)** to `recovery_score` (`derive/recovery.py`, `RECOVERY_WEIGHTS`), scored as a robust z vs the person's own baseline with **higher = worse** (a rise lowers recovery). It is also read alongside `respiratory_rate_sleep` / `skin_temp_c` by the illness early-warning flag (see `illness_flag_plan`).
+- **Device accuracy:** wrist/strap PPG is well-validated at rest and during sleep (its best case), so `rhr_daily` is reliable as a personal trend; it is **not interchangeable across devices** — re-baseline on a hardware change (see `wearable_hr_validity`).
+- **Honesty rules (carry into UI + LLM):**
+  - **Never show a death-risk / mortality number**, and never project a population effect size onto the individual — RHR is an autonomic/fitness marker, read in context.
+  - **Trends over the personal baseline are the signal; single readings are noise.** Screen confounders (alcohol, short/poor sleep, prior hard session, stress, heat, dehydration, illness, β-blockers, new device) before attributing an elevation to fatigue.
+  - **Symptomatic bradycardia is medical, not a metric** (mirror the safety directives): a low pulse with dizziness, syncope, chest discomfort, exertional intolerance, or irregular beats routes to medical evaluation, never "athlete heart" reassurance.

@@ -3,13 +3,14 @@ id: maximum_heart_rate
 name: "Maximum Heart Rate (HRmax)"
 category: metrics
 grade: Established
+evidence_grade: 3
 summary: "The stable, age-declining, non-trainable HR ceiling that anchors every %HRmax zone — use Tanaka, not 220−age, and override with any observed peak."
 aliases: ["maximum-heart-rate", "HRmax", "max heart rate", "maximal heart rate", "max hr", "220 minus age", "220-age", "tanaka formula", "fox formula", "gellish formula", "nes formula", "hunt formula", "peak heart rate", "age-predicted max heart rate", "apmhr", "mhr"]
-applies_to_metrics: ["max_hr_daily", "cardio_load", "vo2max_estimate"]
+applies_to_metrics: ["max_hr_daily"]
 applies_to_interventions: []
-last_reviewed: 2026-06-29
+population: general
+last_reviewed: 2026-07-15
 related: ["heart-rate-zones", "resting-heart-rate", "heart-rate-variability", "lactate-threshold", "vo2max", "individualization"]
-daud_metrics: ["estimateHrMax", "hrMaxObserved", "hrMaxConfidence"]
 units: "bpm"
 ---
 # Maximum Heart Rate (HRmax)
@@ -128,3 +129,13 @@ Cross-checks the coach must apply:
 - Sarzynski, M. A., Rankinen, T., Earnest, C. P., Leon, A. S., Rao, D. C., Skinner, J. S., & Bouchard, C. (2013). *Measured maximal heart rates compared to commonly used age-based prediction equations in the HERITAGE Family Study*. American Journal of Human Biology, 25(5), 695–701. https://doi.org/10.1002/ajhb.22431
 - Shookster, D., Lindsey, B., Cortes, N., & Martin, J. R. (2020). *Accuracy of commonly used age-predicted maximal heart rate equations*. International Journal of Exercise Science, 13(7), 1242–1250. https://pmc.ncbi.nlm.nih.gov/articles/PMC7523886/
 - Nikolaidis, P. T., Rosemann, T., & Knechtle, B. (2018). *Age-predicted maximal heart rate in recreational marathon runners: A cross-sectional study on Fox's and Tanaka's equations*. Frontiers in Physiology, 9, 226. https://doi.org/10.3389/fphys.2018.00226
+
+## Healthee implementation & honesty policy
+- **How HRmax exists in Healthee today: an inline Tanaka constant, not a stored per-user metric.** `HRmax = 208 − 0.7 × age` (Tanaka 2001) is computed **inline** wherever a %HRmax anchor is needed — `derive/cardio_load.py` (`hrmax = 208 - 0.7 * age`, anchoring the Edwards zone thresholds and the TRIMP cardio-load term) and `derive/gps.py` (`hrmax_tanaka`, anchoring per-workout GPS effort zones). Age comes from the `profile` row (`dob`).
+- **`max_hr_daily` is a registry name that v2 does not currently emit.** `analytics/metrics.py` explicitly lists `max_hr_daily` among the v1 names **DROPPED** on v2 — no `derive/` `_upsert_daily` writes it to `derived_daily`. So `applies_to_metrics: ["max_hr_daily"]` names the metric this note *backs*, not one presently computed; treat it as **not-yet-computed**. When per-user HRmax is stored, this is the field it lands in.
+- **The observed-peak override is documented but not yet wired.** The note's core rule — ratchet HRmax up toward any credible observed peak, prefer a measured maximal test, attach a ±10–12 bpm band to any formula value — is the target behaviour; the shipped code uses the age formula only. Until an observed-peak/measured path exists, %HRmax zones inherit the formula's ±10–12 bpm individual error, so RPE / talk-test remain the primary intensity guides and the artefact-rejection bounds (reject > ~220 bpm or > ~15–20 bpm/s jumps) apply to any future peak-ingestion path.
+- **Honesty rules (carry into UI + LLM):**
+  - **A formula HRmax is a population placeholder, never exact** — communicate the ±10–12 bpm uncertainty and never present it as a measured ceiling.
+  - **Never use `220 − age`**; if a user cites it, correct gently (it under-predicts in older adults). Default to Tanaka.
+  - **A flat or slightly falling HRmax is not lost fitness** — HRmax is not trainable.
+  - If a rate-limiting medication (e.g. β-blocker) is present, disable formula-HRmax/zone prescription and fall back to RPE / talk test.

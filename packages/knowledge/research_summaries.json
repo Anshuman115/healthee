@@ -32,10 +32,10 @@
     },
     {
       "applies_to_metrics": [
-        "biological_age_delta",
+        "biological_age",
         "vo2max_estimate",
-        "asleep",
-        "sleep_regularity_index"
+        "sleep_regularity_index",
+        "sleep_health_score_4dim"
       ],
       "grade": "Probable",
       "id": "biological_age_estimate",
@@ -188,7 +188,7 @@
       "applies_to_metrics": [
         "skin_temp_c",
         "respiratory_rate_sleep",
-        "hrv_rmssd_ms",
+        "hrv_sleep_avg",
         "rhr_daily"
       ],
       "grade": "Probable",
@@ -235,9 +235,7 @@
     },
     {
       "applies_to_metrics": [
-        "max_hr_daily",
-        "cardio_load",
-        "vo2max_estimate"
+        "max_hr_daily"
       ],
       "grade": "Established",
       "id": "maximum_heart_rate",
@@ -397,17 +395,7 @@
       "grade": "Established",
       "id": "resting_heart_rate",
       "name": "Resting Heart Rate (RHR)",
-      "summary": "A cheap waking-pulse trend; a sustained multi-day rise above the runner's own baseline flags fatigue, under-recovery, or oncoming illness."
-    },
-    {
-      "applies_to_metrics": [
-        "hr",
-        "rhr_daily"
-      ],
-      "grade": "Established",
-      "id": "resting_hr_health_marker",
-      "name": "Resting heart rate is an independent predictor of cardiovascular and all-cause mortality",
-      "summary": "Resting heart rate is an independent predictor of cardiovascular and all-cause mortality"
+      "summary": "A cheap waking-pulse trend; a sustained multi-day rise above the person's own baseline flags fatigue, under-recovery, or oncoming illness — and at population scale a lower RHR tracks better fitness and lower mortality (never a personal death-risk number)."
     },
     {
       "applies_to_metrics": [],
@@ -678,7 +666,6 @@
     },
     {
       "applies_to_metrics": [
-        "hr",
         "rhr_daily",
         "max_hr_daily"
       ],
@@ -689,11 +676,7 @@
     },
     {
       "applies_to_metrics": [
-        "sleep_stage",
-        "sleep_light_min",
-        "sleep_deep_min",
-        "sleep_awake_min",
-        "sleep_score"
+        "sleep_health_score_4dim"
       ],
       "grade": "Established",
       "id": "wearable_sleep_stage_validity",
@@ -702,7 +685,8 @@
     },
     {
       "applies_to_metrics": [
-        "spo2"
+        "spo2_overnight",
+        "spo2_overnight_min"
       ],
       "grade": "Established",
       "id": "wearable_spo2_validity",

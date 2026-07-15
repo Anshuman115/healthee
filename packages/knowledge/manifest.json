@@ -73,27 +73,22 @@
       "summary": "What actually changes health behavior — BCT taxonomy, self-monitoring, and personalization effect sizes"
     },
     {
-      "aliases": [
-        "longevity",
-        "fitness",
-        "sleep",
-        "composite",
-        "motivational"
-      ],
+      "aliases": [],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "biological_age_delta",
+        "biological_age",
         "vo2max_estimate",
-        "asleep",
-        "sleep_regularity_index"
+        "sleep_regularity_index",
+        "sleep_health_score_4dim"
       ],
       "category": "metrics",
       "collection": "legacy",
       "grade": "Probable",
       "id": "biological_age_estimate",
-      "last_reviewed": "2026-06-06",
+      "last_reviewed": "2026-07-15",
       "name": "A motivational \"biological age\" from wearable metrics via the Gompertz hazard→years conversion (the WHOOP-Age method) — a DOCUMENTED EXCEPTION to the no-composite rule",
       "path": "notes/metrics/biological_age_estimate.md",
+      "population": "general",
       "summary": "A motivational \"biological age\" from wearable metrics via the Gompertz hazard→years conversion (the WHOOP-Age method) — a DOCUMENTED EXCEPTION to the no-composite rule"
     },
     {
@@ -500,27 +495,22 @@
       "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
     },
     {
-      "aliases": [
-        "implementation",
-        "illness",
-        "recovery",
-        "early-warning",
-        "dashboard"
-      ],
+      "aliases": [],
       "applies_to_interventions": [],
       "applies_to_metrics": [
         "skin_temp_c",
         "respiratory_rate_sleep",
-        "hrv_rmssd_ms",
+        "hrv_sleep_avg",
         "rhr_daily"
       ],
       "category": "metrics",
       "collection": "legacy",
       "grade": "Probable",
       "id": "illness_flag_plan",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "Implementation plan — nightly illness/recovery early-warning flag from skin temp + RR baselines",
       "path": "notes/metrics/illness_flag_plan.md",
+      "population": "general",
       "summary": "Implementation plan — nightly illness/recovery early-warning flag from skin temp + RR baselines"
     },
     {
@@ -684,17 +674,16 @@
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "max_hr_daily",
-        "cardio_load",
-        "vo2max_estimate"
+        "max_hr_daily"
       ],
       "category": "metrics",
       "collection": "sports_science",
       "grade": "Established",
       "id": "maximum_heart_rate",
-      "last_reviewed": "2026-06-29",
+      "last_reviewed": "2026-07-15",
       "name": "Maximum Heart Rate (HRmax)",
       "path": "sports-science/metrics/maximum-heart-rate.md",
+      "population": "general",
       "summary": "The stable, age-declining, non-trainable HR ceiling that anchors every %HRmax zone — use Tanaka, not 220−age, and override with any observed peak."
     },
     {
@@ -1110,11 +1099,7 @@
       "summary": "Daily recovery / readiness from wearable autonomic + sleep markers"
     },
     {
-      "aliases": [
-        "respiratory_rate",
-        "sleep",
-        "autonomic"
-      ],
+      "aliases": [],
       "applies_to_interventions": [],
       "applies_to_metrics": [
         "respiratory_rate_sleep"
@@ -1123,9 +1108,10 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "respiratory_rate_normal",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Respiratory rate during sleep — normal ranges and what shifts mean",
       "path": "notes/metrics/respiratory_rate_normal.md",
+      "population": "general",
       "summary": "Respiratory rate during sleep — normal ranges and what shifts mean"
     },
     {
@@ -1138,9 +1124,16 @@
         "morning heart rate",
         "basal heart rate",
         "athlete bradycardia",
-        "sinus bradycardia"
+        "sinus bradycardia",
+        "resting_hr_health_marker",
+        "rhr mortality marker",
+        "cardiovascular risk marker",
+        "autonomic marker"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "exercise",
+        "meditation"
+      ],
       "applies_to_metrics": [
         "rhr_daily"
       ],
@@ -1148,34 +1141,11 @@
       "collection": "sports_science",
       "grade": "Established",
       "id": "resting_heart_rate",
-      "last_reviewed": "2026-06-29",
+      "last_reviewed": "2026-07-15",
       "name": "Resting Heart Rate (RHR)",
       "path": "sports-science/metrics/resting-heart-rate.md",
-      "summary": "A cheap waking-pulse trend; a sustained multi-day rise above the runner's own baseline flags fatigue, under-recovery, or oncoming illness."
-    },
-    {
-      "aliases": [
-        "rhr",
-        "autonomic",
-        "mortality",
-        "cv_risk"
-      ],
-      "applies_to_interventions": [
-        "exercise",
-        "meditation"
-      ],
-      "applies_to_metrics": [
-        "hr",
-        "rhr_daily"
-      ],
-      "category": "metrics",
-      "collection": "legacy",
-      "grade": "Established",
-      "id": "resting_hr_health_marker",
-      "last_reviewed": "2026-05-11",
-      "name": "Resting heart rate is an independent predictor of cardiovascular and all-cause mortality",
-      "path": "notes/metrics/resting_hr_health_marker.md",
-      "summary": "Resting heart rate is an independent predictor of cardiovascular and all-cause mortality"
+      "population": "general",
+      "summary": "A cheap waking-pulse trend; a sustained multi-day rise above the person's own baseline flags fatigue, under-recovery, or oncoming illness — and at population scale a lower RHR tracks better fitness and lower mortality (never a personal death-risk number)."
     },
     {
       "aliases": [
@@ -1280,11 +1250,7 @@
       "summary": "Prolonged sedentary time elevates mortality risk, especially in low-activity individuals"
     },
     {
-      "aliases": [
-        "methodology",
-        "temperature",
-        "accuracy"
-      ],
+      "aliases": [],
       "applies_to_interventions": [],
       "applies_to_metrics": [
         "skin_temp_c"
@@ -1293,9 +1259,10 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "skin_temp_signals",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Wrist skin temperature — what it does and doesn't track",
       "path": "notes/metrics/skin_temp_signals.md",
+      "population": "general",
       "summary": "Wrist skin temperature — what it does and doesn't track"
     },
     {
@@ -1893,15 +1860,9 @@
       "summary": "Raising VO₂max — protocol + trainability trajectory"
     },
     {
-      "aliases": [
-        "methodology",
-        "hr",
-        "ppg",
-        "accuracy"
-      ],
+      "aliases": [],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "hr",
         "rhr_daily",
         "max_hr_daily"
       ],
@@ -1909,53 +1870,43 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "wearable_hr_validity",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Optical wrist HR (PPG) accuracy vs ECG",
       "path": "notes/metrics/wearable_hr_validity.md",
+      "population": "general",
       "summary": "Optical wrist HR (PPG) accuracy vs ECG"
     },
     {
-      "aliases": [
-        "methodology",
-        "sleep",
-        "sleep_staging",
-        "accuracy"
-      ],
+      "aliases": [],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "sleep_stage",
-        "sleep_light_min",
-        "sleep_deep_min",
-        "sleep_awake_min",
-        "sleep_score"
+        "sleep_health_score_4dim"
       ],
       "category": "metrics",
       "collection": "legacy",
       "grade": "Established",
       "id": "wearable_sleep_stage_validity",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Wrist/strap sleep stage scoring vs polysomnography",
       "path": "notes/metrics/wearable_sleep_stage_validity.md",
+      "population": "general",
       "summary": "Wrist/strap sleep stage scoring vs polysomnography"
     },
     {
-      "aliases": [
-        "methodology",
-        "spo2",
-        "ppg",
-        "accuracy"
-      ],
+      "aliases": [],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "spo2"
+        "spo2_overnight",
+        "spo2_overnight_min"
       ],
       "category": "metrics",
       "collection": "legacy",
       "grade": "Established",
       "id": "wearable_spo2_validity",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Wrist optical SpO2 accuracy and limits",
       "path": "notes/metrics/wearable_spo2_validity.md",
+      "population": "general",
       "summary": "Wrist optical SpO2 accuracy and limits"
     }
   ]
