@@ -85,13 +85,19 @@ def test_parses_both_formats_over_real_corpus() -> None:
 
 def test_real_corpus_grades_and_ids() -> None:
     records, _ = gen.build_records()
+    ids = [r["id"] for r in records]
+    # every id is snake_case (citable) and unique — robust to reconciliation, which
+    # consolidates/renames notes; assert invariants, not specific consolidatable ids.
+    assert all(gen.ID_RE.fullmatch(i) for i in ids)
+    assert len(set(ids)) == len(ids)
+    # grade mapping produces the unified vocabulary across the real corpus
+    grades = {r["grade"] for r in records}
+    assert grades <= {"Established", "Probable", "Emerging", "Contested", "Myth", "Refuted"}
+    assert "Established" in grades and "Probable" in grades  # legacy 3->Established, 2->Probable
+    # a stable sports-science note keeps its snake_case id + a v2 metric mapping
     by_id = {r["id"]: r for r in records}
-    # legacy evidence_grade 3 -> Established
-    assert by_id["hrv_recovery_marker"]["grade"] == "Established"
-    # sports-science id is snake_case and keeps its own grade
     assert by_id["heart_rate_zones"]["grade"] == "Probable"
-    assert by_id["heart_rate_zones"]["applies_to_metrics"] == ["cardio_load"]
-    assert all(gen.ID_RE.fullmatch(r["id"]) for r in records)
+    assert "cardio_load" in by_id["heart_rate_zones"]["applies_to_metrics"]
 
 
 # ── grade mapping ──────────────────────────────────────────────────────────
