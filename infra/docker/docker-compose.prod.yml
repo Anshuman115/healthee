@@ -1,0 +1,110 @@
+# Healthee — production compose stack (run on the VPS via infra/deploy.sh).
+#
+#   db   — TimescaleDB (Postgres 17 + timescaledb), data on a named volume,
+#          internal-only (never published to the host).
+#   api  — FastAPI app, bound to 127.0.0.1:8765 (nginx reverse-proxies to it).
+#
+# Env comes from infra/.env (see infra/.env.example). Validate config with:
+#   docker compose --env-file .env.example -f docker-compose.prod.yml config -q
+#
+# Build context is the repo root so the Dockerfile can reach apps/server.
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg17
+    container_name: healthee-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - healthee-pgdata:/var/lib/postgresql/data
+    # Internal-only — Postgres is never exposed to the host. The api service
+    # reaches it by the service name 'db' on the compose network.
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - healthee-net
+
+  api:
+    build:
+      # Repo root — the Dockerfile copies apps/server/*.
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.server
+    image: healthee-api:latest
+    container_name: healthee-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # DB — service name 'db' resolves on the compose network.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # API auth + LLM (optional keys degrade to no-op when blank).
+      REALTIME_INGEST_TOKEN: ${REALTIME_INGEST_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      API_HOST: 0.0.0.0
+      API_PORT: 8765
+      # Telegram notifications (optional).
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    # Bind ONLY to localhost — nginx on the host reverse-proxies here. Never
+    # expose 8765 publicly; auth is Bearer-token only.
+    ports:
+      - "127.0.0.1:8765:8765"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8765/healthz', timeout=2)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - healthee-net
+
+  # ── scheduler — arrives in Phase 1 ─────────────────────────────────────
+  # Supervised job runner (daily-sync + weekly recompute). Same image as api,
+  # CMD overridden to `python -m healthee.jobs.scheduler`. Uncomment once the
+  # jobs module lands (docs/ARCHITECTURE.md, Phase 1).
+  #
+  # scheduler:
+  #   image: healthee-api:latest
+  #   container_name: healthee-scheduler
+  #   restart: unless-stopped
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+  #   command: ["python", "-m", "healthee.jobs.scheduler"]
+  #   environment:
+  #     POSTGRES_HOST: db
+  #     POSTGRES_PORT: 5432
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  #     TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  #     TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+  #   networks:
+  #     - healthee-net
+
+volumes:
+  healthee-pgdata:
+
+networks:
+  healthee-net:
+    driver: bridge

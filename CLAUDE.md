@@ -46,6 +46,11 @@ docs/             architecture · standards
   section; directives blocks — safety-critical directives are hard guardrails
   in code, never overridable by the LLM.
 
+## Commits & CI
+
+Conventional Commits, small thematic batches, short-lived branches, hooks via
+`scripts/setup-dev.sh`, CI gates on every push — all in **CONTRIBUTING.md**.
+
 ## Hard rules (learned the expensive way in the legacy repo)
 
 - **Never** add a `Co-Authored-By: Claude` trailer to commits.

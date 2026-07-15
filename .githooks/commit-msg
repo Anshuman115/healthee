@@ -1,0 +1,44 @@
+#!/bin/sh
+# commit-msg — enforce Conventional Commits and reject Claude co-author trailers.
+#
+# Portable POSIX sh (no bashisms) so it runs on any dev machine. Enabled via
+# `scripts/setup-dev.sh` (sets core.hooksPath=.githooks). See CONTRIBUTING.md.
+#
+# Rules enforced:
+#   1. Subject matches: type(optional-scope)!: description
+#      types: feat|fix|docs|chore|refactor|test|perf|ci|build|style|revert
+#   2. No `Co-Authored-By: ... Claude` trailer (repo hard rule).
+
+set -eu
+
+msg_file="$1"
+subject="$(sed -n '1p' "$msg_file")"
+
+# Allow merge/revert/fixup commits through untouched.
+case "$subject" in
+	Merge\ * | Revert\ * | "fixup! "* | "squash! "*)
+		exit 0
+		;;
+esac
+
+# Conventional Commits subject line.
+pattern='^(feat|fix|docs|chore|refactor|test|perf|ci|build|style|revert)(\([a-z0-9./-]+\))?!?: .+'
+
+if ! printf '%s' "$subject" | grep -Eq "$pattern"; then
+	echo "commit-msg: rejected — subject is not a Conventional Commit." >&2
+	echo "  got:    $subject" >&2
+	echo "  format: type(scope)?: description" >&2
+	echo "  types:  feat fix docs chore refactor test perf ci build style revert" >&2
+	echo "  scopes: server: mobile: knowledge: infra: (optional)" >&2
+	echo "  e.g.:   feat(server): add /healthz endpoint" >&2
+	exit 1
+fi
+
+# Reject Claude co-author trailers (case-insensitive on the whole message).
+if grep -Eiq '^Co-Authored-By:.*claude' "$msg_file"; then
+	echo "commit-msg: rejected — remove the 'Co-Authored-By: ... Claude' trailer." >&2
+	echo "  This repo never attributes commits to Claude (see CONTRIBUTING.md)." >&2
+	exit 1
+fi
+
+exit 0

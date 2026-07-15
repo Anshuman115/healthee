@@ -1,0 +1,24 @@
+# Healthee Postgres backup — oneshot unit, triggered by healthee-backup.timer.
+#
+# Install (as root):
+#   cp infra/backup/healthee-backup.{service,timer} /etc/systemd/system/
+#   # edit WorkingDirectory/ExecStart below to your checkout path + user
+#   systemctl daemon-reload
+#   systemctl enable --now healthee-backup.timer
+#   systemctl start healthee-backup.service   # run once now to verify
+#
+# Check results:  journalctl -u healthee-backup.service --since today
+
+[Unit]
+Description=Healthee Postgres backup (pg_dump -> gzip -> prune)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Adjust to the deploy user + checkout path on your VPS.
+User=ashish
+WorkingDirectory=/home/ashish/healthee
+ExecStart=/home/ashish/healthee/infra/backup/pg_dump_backup.sh
+# The script exits non-zero on failure; systemd records it as failed so a
+# journal/alert watcher can catch it.

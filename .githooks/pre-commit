@@ -1,0 +1,92 @@
+#!/bin/sh
+# pre-commit — fast local gates on staged files (<2s target).
+#
+# Portable POSIX sh. Enabled via `scripts/setup-dev.sh`. See CONTRIBUTING.md.
+#
+# Runs, in order, over the STAGED files only:
+#   1. file-length gate (scripts/check_file_length.py) on staged *.py / *.dart
+#   2. obvious-secret sanity grep on all staged text (dependency-free)
+#   3. ruff check + ruff format --check on staged *.py (only if ruff is found)
+#
+# gitleaks (CI) is the thorough secret layer; this is the fast first line.
+
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+fail=0
+
+# Staged (Added/Copied/Modified) files, NUL-safe, survives spaces in names.
+staged_all="$(git diff --cached --name-only --diff-filter=ACM)"
+[ -z "$staged_all" ] && exit 0
+
+# ── 1. File-length gate on staged code ──────────────────────────────────
+staged_code=""
+for f in $staged_all; do
+	case "$f" in
+	*.py | *.dart)
+		[ -f "$f" ] && staged_code="$staged_code $f"
+		;;
+	esac
+done
+
+if [ -n "$staged_code" ]; then
+	# shellcheck disable=SC2086
+	if ! python3 "$repo_root/scripts/check_file_length.py" $staged_code; then
+		fail=1
+	fi
+fi
+
+# ── 2. Obvious-secret sanity grep ───────────────────────────────────────
+# Fast dependency-free first line. Patterns: OpenRouter keys, private-key
+# blocks, hardcoded bearer tokens. gitleaks in CI is the thorough scan.
+secret_pattern='sk-or-v1-[A-Za-z0-9]|-----BEGIN[A-Z ]*PRIVATE KEY-----|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
+for f in $staged_all; do
+	[ -f "$f" ] || continue
+	case "$f" in
+	*.env.example | .gitleaks.toml | .githooks/pre-commit)
+		continue # placeholders / the pattern definition itself
+		;;
+	esac
+	if git show ":$f" 2>/dev/null | grep -Eiq "$secret_pattern"; then
+		echo "pre-commit: possible secret in staged file: $f" >&2
+		echo "  matched a key/token pattern. Remove it or use .env (gitignored)." >&2
+		fail=1
+	fi
+done
+
+# ── 3. Ruff on staged Python (only if available) ────────────────────────
+staged_py=""
+for f in $staged_all; do
+	case "$f" in
+	*.py) [ -f "$f" ] && staged_py="$staged_py $f" ;;
+	esac
+done
+
+if [ -n "$staged_py" ]; then
+	# Absolute paths so the ruff invocation is cwd-independent.
+	abs_py=""
+	for f in $staged_py; do
+		abs_py="$abs_py $repo_root/$f"
+	done
+	if command -v ruff >/dev/null 2>&1; then
+		# shellcheck disable=SC2086
+		ruff check $abs_py || fail=1
+		# shellcheck disable=SC2086
+		ruff format --check $abs_py || fail=1
+	elif [ -f "$repo_root/apps/server/pyproject.toml" ] &&
+		command -v uv >/dev/null 2>&1; then
+		# Run ruff from the server project (its pyproject holds the config).
+		# shellcheck disable=SC2086
+		(cd "$repo_root/apps/server" && uv run --quiet ruff check $abs_py) || fail=1
+		# shellcheck disable=SC2086
+		(cd "$repo_root/apps/server" && uv run --quiet ruff format --check $abs_py) || fail=1
+	else
+		echo "pre-commit: ruff not found — skipping lint (CI still enforces it)." >&2
+	fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+	echo "pre-commit: gate(s) failed — commit aborted." >&2
+	exit 1
+fi
+exit 0
