@@ -12,7 +12,7 @@ applies_to_metrics: ["steps_per_minute", "moderate_min", "vigorous_min", "mvpa_m
 applies_to_interventions: ["exercise"]
 population: general
 last_reviewed: 2026-07-15
-related: ["mvpa_minutes_mortality", "cadence_intensity", "pai_activity_score"]
+related: ["mvpa_minutes_mortality", "cadence_intensity"]
 ---
 
 # MVPA derivation & weekly-target plan
@@ -141,8 +141,7 @@ unlogged (under-count).
   `steps_per_minute` + `session(kind='workout')`.
 - **`/api/today` payload** carries an `mvpa` object: `today_min`, `week_min` (current ISO
   week so far), `week_target` (150), `moderate_min_week`, `vigorous_min_week`, and the
-  citing research note. Sits next to the PAI card (PAI = intensity-weighted weekly; MVPA =
-  raw-time view — complementary; see [[pai_activity_score]]).
+  citing research note.
 - **Honesty rules**: cadence-based estimate footer; 150 is a lower bound; surface likely
   under-count when workouts are unlogged.
 - **Out of scope**: HR-zone-based MVPA (PAI already does that); per-age recalibration of

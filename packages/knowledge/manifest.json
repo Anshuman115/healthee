@@ -702,7 +702,10 @@
         "mhr"
       ],
       "applies_to_interventions": [],
-      "applies_to_metrics": [],
+      "applies_to_metrics": [
+        "cardio_load",
+        "vo2max_submax"
+      ],
       "category": "metrics",
       "collection": "sports_science",
       "grade": "Established",
@@ -932,30 +935,6 @@
       "path": "sports-science/metrics/pace-zones.md",
       "population": "runners",
       "summary": "Speed bands anchored to threshold pace; pace is instantaneous external load (what you did), HR is lagging internal load (what it cost)."
-    },
-    {
-      "aliases": [
-        "pai",
-        "personalized activity intelligence",
-        "personal activity intelligence",
-        "pai score",
-        "hr-zone activity score",
-        "pai_activity_score"
-      ],
-      "applies_to_interventions": [
-        "aerobic_activity",
-        "exercise_minutes"
-      ],
-      "applies_to_metrics": [],
-      "category": "activity",
-      "collection": "legacy",
-      "grade": "Established",
-      "id": "pai_activity_score",
-      "last_reviewed": "2026-07-15",
-      "name": "Personalized Activity Intelligence (PAI) — composite weekly activity score with mortality validation",
-      "path": "notes/activity/pai_activity_score.md",
-      "population": "general",
-      "summary": "Personalized Activity Intelligence (PAI) — composite weekly activity score with mortality validation"
     },
     {
       "aliases": [

@@ -12,7 +12,7 @@ applies_to_metrics: ["moderate_min", "vigorous_min", "mvpa_min", "steps_per_minu
 applies_to_interventions: ["exercise"]
 population: general
 last_reviewed: 2026-07-15
-related: ["cadence_intensity", "mvpa_weekly_plan", "steps_mortality", "exercise_mortality", "pai_activity_score", "vo2max"]
+related: ["cadence_intensity", "mvpa_weekly_plan", "steps_mortality", "exercise_mortality", "vo2max"]
 ---
 
 # MVPA minutes and mortality (150-min target)
@@ -79,9 +79,7 @@ derivation — cadence thresholds, debouncing, workout handling, and the weekly 
   dose-response continues past 300 min/week with smaller marginal gains.
 - **Surface progress weekly, not daily** — single days don't move the mortality math.
 - Credit **brief vigorous bursts (VILPA)** — they count even without a workout.
-- Cite this note + [[cadence_intensity]] when displaying derived MVPA. Pair with
-  [[pai_activity_score]] (PAI = intensity-weighted weekly composite; MVPA minutes = the
-  raw-time view — both valid, PAI more sensitive to intensity differences).
+- Cite this note + [[cadence_intensity]] when displaying derived MVPA.
 
 ## Safety bounds
 
@@ -142,5 +140,4 @@ cadence proxy's accuracy, and any causal magnitude.
   [[cadence_intensity]]).
 - **Honesty rules**: 150 min/week is a *lower bound*; surface weekly trends, not single
   days; label the number a cadence-based estimate; never a death-risk figure; the
-  1-vig-=-2-mod rule is a practical simplification. Pair with [[pai_activity_score]] as the
-  intensity-weighted complement.
+  1-vig-=-2-mod rule is a practical simplification.

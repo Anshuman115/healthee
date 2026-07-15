@@ -6,7 +6,7 @@ grade: Established
 evidence_grade: 3
 summary: "The stable, age-declining, non-trainable HR ceiling that anchors every %HRmax zone — use Tanaka, not 220−age, and override with any observed peak."
 aliases: ["maximum-heart-rate", "HRmax", "max heart rate", "maximal heart rate", "max hr", "220 minus age", "220-age", "tanaka formula", "fox formula", "gellish formula", "nes formula", "hunt formula", "peak heart rate", "age-predicted max heart rate", "apmhr", "mhr"]
-applies_to_metrics: []
+applies_to_metrics: ["cardio_load", "vo2max_submax"]
 applies_to_interventions: []
 population: general
 last_reviewed: 2026-07-15
@@ -132,7 +132,7 @@ Cross-checks the coach must apply:
 
 ## Healthee implementation & honesty policy
 - **How HRmax exists in Healthee today: an inline Tanaka constant, not a stored per-user metric.** `HRmax = 208 − 0.7 × age` (Tanaka 2001) is computed **inline** wherever a %HRmax anchor is needed — `derive/cardio_load.py` (`hrmax = 208 - 0.7 * age`, anchoring the Edwards zone thresholds and the TRIMP cardio-load term) and `derive/gps.py` (`hrmax_tanaka`, anchoring per-workout GPS effort zones). Age comes from the `profile` row (`dob`).
-- **`max_hr_daily` is a registry name that v2 does not currently emit.** `analytics/metrics.py` explicitly lists `max_hr_daily` among the v1 names **DROPPED** on v2 — no `derive/` `_upsert_daily` writes it to `derived_daily`. So this note binds **no** metric (`applies_to_metrics: []`) rather than name a dropped one; when a per-user HRmax is stored, `max_hr_daily` is the field it would land in and this note would bind it then.
+- **HRmax anchors real metrics, not a stored `max_hr_daily` row.** `analytics/metrics.py` lists `max_hr_daily` among the v1 names **DROPPED** on v2 — no `derive/` `_upsert_daily` writes it. Instead the Tanaka HRmax is computed **inline** and feeds two metrics this note therefore binds: **`cardio_load`** (its Edwards zones + the TRIMP term, `derive/cardio_load.py`) and **`vo2max_submax`** (per-workout GPS effort, `derive/gps.py`). So the note surfaces whenever training-load / zones are in play. If a standalone per-user HRmax is later stored, `max_hr_daily` is the field it would land in and this note would bind that too.
 - **The observed-peak override is documented but not yet wired.** The note's core rule — ratchet HRmax up toward any credible observed peak, prefer a measured maximal test, attach a ±10–12 bpm band to any formula value — is the target behaviour; the shipped code uses the age formula only. Until an observed-peak/measured path exists, %HRmax zones inherit the formula's ±10–12 bpm individual error, so RPE / talk-test remain the primary intensity guides and the artefact-rejection bounds (reject > ~220 bpm or > ~15–20 bpm/s jumps) apply to any future peak-ingestion path.
 - **Honesty rules (carry into UI + LLM):**
   - **A formula HRmax is a population placeholder, never exact** — communicate the ±10–12 bpm uncertainty and never present it as a measured ceiling.
