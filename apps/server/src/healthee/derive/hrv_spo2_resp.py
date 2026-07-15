@@ -1,0 +1,45 @@
+"""Overnight autonomic/respiratory window means for one sleep session.
+
+Mean overnight HRV (RMSSD) and SpO2 (plus the overnight SpO2 minimum) and
+respiratory rate, each a bounded average over the sleep window. Ported verbatim
+from the legacy v2 ``derive_night`` window-stat blocks. Knowledge notes:
+``hrv_recovery_marker`` / ``heart_rate_variability`` (nightly RMSSD as an
+autonomic-recovery marker), ``wearable_spo2_validity``, ``respiratory_rate_normal``.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+
+from healthee.derive._common import Cur, _upsert_daily, _window_stat
+
+
+def derive_night_vitals(cur: Cur, day: date, start_ts: datetime, end_ts: datetime) -> dict:
+    """Upsert overnight HRV / SpO2 / SpO2-min / respiratory-rate for the wake day.
+
+    Each metric is a bounded window mean (SpO2 also carries its window minimum).
+    Missing metrics are simply omitted (no row written), so "no data" stays
+    distinct from a real value. Returns the rounded values that were written.
+    """
+    out: dict = {}
+
+    hrv = _window_stat(cur, "hrv", start_ts, end_ts, 5, 200)
+    if hrv is not None:
+        _upsert_daily(cur, day, "hrv_sleep_avg", hrv)
+        out["hrv_sleep_avg"] = round(hrv, 2)
+
+    spo2 = _window_stat(cur, "spo2", start_ts, end_ts, 70, 100)
+    if spo2 is not None:
+        _upsert_daily(cur, day, "spo2_overnight", spo2)
+        out["spo2_overnight"] = round(spo2, 2)
+        lo = _window_stat(cur, "spo2", start_ts, end_ts, 70, 100, stat="MIN")
+        if lo is not None:
+            _upsert_daily(cur, day, "spo2_overnight_min", lo)
+            out["spo2_overnight_min"] = round(lo, 2)
+
+    rr = _window_stat(cur, "respiratory_rate", start_ts, end_ts, 4, 40)
+    if rr is not None:
+        _upsert_daily(cur, day, "respiratory_rate_sleep", rr)
+        out["respiratory_rate_sleep"] = round(rr, 2)
+
+    return out
