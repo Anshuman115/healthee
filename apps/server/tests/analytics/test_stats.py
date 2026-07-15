@@ -105,8 +105,9 @@ def test_mann_whitney_underpowered_is_none() -> None:
 
 
 def test_rank_biserial_sign_matches_shift() -> None:
-    # Treated clearly higher than control → negative rank-biserial (legacy sign).
+    # Treated clearly higher than control → +1 under the standard convention
+    # (rb = 2U/n1n2 − 1; positive ⇒ treated tends larger).
     got = stats.mann_whitney_groups([10.0] * 6, [1.0] * 12, 5, 10)
     assert got is not None
-    assert got[0] == pytest.approx(-1.0)
+    assert got[0] == pytest.approx(1.0)
     assert math.isclose(got[4], 10.0) and math.isclose(got[5], 1.0)

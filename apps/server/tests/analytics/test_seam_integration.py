@@ -75,24 +75,23 @@ def test_cutoff_finder_reads_v2_tst(db: None) -> None:  # noqa: ARG001
     and the finder returned nothing. v2 reads TST from ``sleep_session`` stage
     minutes — so nights load with real TST and the finder fires end-to-end.
 
-    NB the seeded caffeine→longer-sleep separation is chosen only to drive the
-    verbatim Mann-Whitney significance gate (whose rank-biserial sign convention
-    is ported verbatim from legacy; a realistically-directioned effect is skipped
-    by that gate — a separate latent legacy bug, flagged for its own PR, NOT
-    changed here). What this test proves is the TST *read* seam, not the effect
-    direction.
+    The seed is the realistically-directioned effect (caffeine → SHORTER, worse
+    sleep + lower HRV + higher RHR — Drake 2013): with the corrected rank-biserial
+    sign, the direction gate now ACCEPTS this (the earlier inverted-sign gate only
+    accepted the *wrong* direction). Proves the TST read seam AND that the finder
+    fires on a realistic effect.
     """
     _reset()
     nights = sd.recent_days(30, end_offset=1)
     caffeine_nights, control_nights = nights[:15], nights[15:]
     with transaction() as cur:
         for d in caffeine_nights:
-            sd.seed_night(cur, d, rem=100, light=300, deep=100, wake=20)  # separable
+            sd.seed_night(cur, d, rem=60, light=200, deep=40, wake=60)  # caffeine → worse
             sd.seed_caffeine(cur, d, hour_ist=21)
         for d in control_nights:
-            sd.seed_night(cur, d, rem=60, light=200, deep=40, wake=60)
-        _seed_night_vitals(cur, caffeine_nights, hrv=55.0, rhr=52.0)
-        _seed_night_vitals(cur, control_nights, hrv=40.0, rhr=60.0)
+            sd.seed_night(cur, d, rem=100, light=300, deep=100, wake=20)  # better
+        _seed_night_vitals(cur, caffeine_nights, hrv=40.0, rhr=60.0)  # lower HRV, higher RHR
+        _seed_night_vitals(cur, control_nights, hrv=55.0, rhr=52.0)
 
     # Direct proof of the exact bug: nights now load carrying real TST.
     with transaction() as cur:
@@ -104,7 +103,13 @@ def test_cutoff_finder_reads_v2_tst(db: None) -> None:  # noqa: ARG001
     findings = cutoffs.compute_cutoff_findings()
     caffeine = [f for f in findings if f.event_kind == "caffeine" and f.kind == "personal_cutoff"]
     assert caffeine, "the caffeine cutoff must be found (this is the dead-bug proof)"
-    assert any(f.details["outcome"] == "tst_min" for f in caffeine)
+    tst = next(f for f in caffeine if f.details["outcome"] == "tst_min")
+    # The corrected sign fix: the accepted effect goes the *realistic* way —
+    # caffeine nights sleep less (median_after < median_other), and the standard
+    # rank-biserial is negative (after-H group smaller). The old inverted gate
+    # would have skipped this and only accepted caffeine→longer.
+    assert tst.details["median_after"] < tst.details["median_other"]
+    assert tst.effect_size < 0
 
     written = cutoffs.persist_cutoff_findings(findings)
     assert written == len(findings)

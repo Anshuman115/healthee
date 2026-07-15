@@ -105,7 +105,10 @@ def _rank_biserial(
 ) -> tuple[float, float, int, int] | None:
     """Two-sided Mann-Whitney U + rank-biserial effect size, or None if too small.
 
-    rank-biserial r = 1 - 2U / (n1·n2) — the standard Mann-Whitney effect size.
+    rank-biserial r = 2U / (n1·n2) − 1 — the standard Mann-Whitney effect size,
+    signed so **positive ⇒ the treated group tends larger** than control (U is
+    scipy's U for the treated sample). The legacy formula (1 − 2U/n1n2) was the
+    negation of this and silently inverted the cutoff-finder's direction gate.
     """
     if len(treated) < min_treated or len(control) < min_control:
         return None
@@ -116,7 +119,7 @@ def _rank_biserial(
     u_stat = float(res.statistic)
     p = float(res.pvalue)
     n1, n2 = len(treated), len(control)
-    rb = 1.0 - (2.0 * u_stat) / (n1 * n2)
+    rb = (2.0 * u_stat) / (n1 * n2) - 1.0
     return float(rb), float(p), n1, n2
 
 
