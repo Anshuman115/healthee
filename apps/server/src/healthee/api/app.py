@@ -51,6 +51,10 @@ def create_app() -> FastAPI:
     isolated instances."""
     app = FastAPI(title="Healthee", version="0.1.0", lifespan=lifespan)
     app.include_router(health.router)
+    # WP8 note: the daily chain runs on the scheduler timer (jobs.scheduler).
+    # An optional future one-line wire — call jobs.chain.run_chain(day) after a
+    # successful ingest push — would make recs refresh event-driven too; the
+    # frozen ingest/ router is intentionally left untouched for now.
     app.include_router(ingest.router)
     # WP7 read routers (today / sleep / activity / workouts / history+profile / logs / gps).
     for read_router in (today, sleep, activity, workouts, history, logs, gps):
