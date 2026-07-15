@@ -38,10 +38,14 @@ def test_batched_baselines_match_single_metric(db: None) -> None:  # noqa: ARG00
         sd.seed_daily(cur, "hrv_sleep_avg", {d: 40.0 + (i % 7) for i, d in enumerate(days)})
         sd.seed_daily(cur, "steps_total", {d: 3000.0 + i * 137 for i, d in enumerate(days)})
 
+    # Pin end_date to the seeded window so the test is timezone-independent: the
+    # seed days are anchored to the user tz while compute_baselines defaults to the
+    # machine's date.today(), which disagree across the UTC/IST midnight boundary.
+    end = max(days)
     metrics = ["rhr_daily", "hrv_sleep_avg", "steps_total"]
-    batch = compute_baselines(metrics, window_days=30)
+    batch = compute_baselines(metrics, window_days=30, end_date=end)
     for m in metrics:
-        single = compute_baseline(m, window_days=30)
+        single = compute_baseline(m, window_days=30, end_date=end)
         b = batch[m]
         assert (b.n, b.median, b.mad, b.p25, b.p75, b.min, b.max) == (
             single.n,
@@ -62,7 +66,7 @@ def test_baseline_known_values(db: None) -> None:  # noqa: ARG001
     with transaction() as cur:
         sd.seed_daily(cur, "rhr_daily", dict(zip(days, vals, strict=True)))
 
-    b = compute_baselines(["rhr_daily"], window_days=30)["rhr_daily"]
+    b = compute_baselines(["rhr_daily"], window_days=30, end_date=max(days))["rhr_daily"]
     assert b.n == 5
     assert b.median == 54.0
     assert b.p25 == 52.0
@@ -83,7 +87,7 @@ def test_baseline_respects_per_metric_sentinel_filter(db: None) -> None:  # noqa
     with transaction() as cur:
         sd.seed_daily(cur, "rhr_daily", dict(zip(days, vals, strict=True)))
 
-    b = compute_baselines(["rhr_daily"], window_days=30)["rhr_daily"]
+    b = compute_baselines(["rhr_daily"], window_days=30, end_date=max(days))["rhr_daily"]
     assert b.n == 3  # the 10 and 200 were filtered out
     assert b.median == 52.0
     assert b.max == 54.0  # NOT 200 — the sentinel is gone
