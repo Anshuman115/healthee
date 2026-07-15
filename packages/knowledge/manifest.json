@@ -1880,6 +1880,30 @@
       "path": "notes/metrics/wearable_spo2_validity.md",
       "population": "general",
       "summary": "Wrist optical SpO2 accuracy and limits"
+    },
+    {
+      "aliases": [
+        "wearable_stress_scores",
+        "stress score",
+        "stress",
+        "zepp stress",
+        "body battery",
+        "firstbeat stress",
+        "hrv stress"
+      ],
+      "applies_to_interventions": [],
+      "applies_to_metrics": [
+        "stress"
+      ],
+      "category": "metrics",
+      "collection": "legacy",
+      "grade": "Probable",
+      "id": "wearable_stress_validity",
+      "last_reviewed": "2026-07-16",
+      "name": "Consumer wearable \"stress\" 0–100 scores — what they index and what they don't",
+      "path": "notes/metrics/wearable_stress_validity.md",
+      "population": "general",
+      "summary": "Consumer wearable \"stress\" 0–100 scores — what they index and what they don't"
     }
   ]
 }

@@ -637,6 +637,15 @@
       "id": "wearable_spo2_validity",
       "name": "Wrist optical SpO2 accuracy and limits",
       "summary": "Wrist optical SpO2 accuracy and limits"
+    },
+    {
+      "applies_to_metrics": [
+        "stress"
+      ],
+      "grade": "Probable",
+      "id": "wearable_stress_validity",
+      "name": "Consumer wearable \"stress\" 0–100 scores — what they index and what they don't",
+      "summary": "Consumer wearable \"stress\" 0–100 scores — what they index and what they don't"
     }
   ]
 }
