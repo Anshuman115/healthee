@@ -24,6 +24,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.15.12",
     "pyright>=1.1.390",
+    "pyyaml>=6.0.3",
 ]
 
 # ── Ruff — exactly per Engineering Standards §2 ──────────────────────────
