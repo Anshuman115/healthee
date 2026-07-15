@@ -7,8 +7,8 @@ summary: "Acute vs chronic workload ratio; a descriptive load-spike signal whose
 population: runners
 aliases: ["training-load-acwr", "acwr", "acute chronic workload ratio", "acute:chronic", "workload ratio", "training load ratio", "acute load", "chronic load", "ewma acwr", "rolling average acwr", "sweet spot", "10 percent rule", "ten percent rule", "load spike", "training monotony", "workload management"]
 applies_to_metrics: ["cardio_load"]
-applies_to_interventions: []
-last_reviewed: 2026-06-29
+applies_to_interventions: ["exercise"]
+last_reviewed: 2026-07-15
 related: ["fitness-fatigue-form", "training-stress-score", "sleep-and-recovery", "heart-rate-variability", "periodization", "individualization"]
 daud_metrics: ["computeACWR", "acuteLoad", "chronicLoad", "trainingLoad", "weeklyLoadRamp"]
 units: "ratio (AU/AU, dimensionless); load in AU (TSS, sRPE·min, km, or min)"
@@ -378,3 +378,31 @@ arithmetic, and neither method is clearly superior for actually predicting injur
 - Impellizzeri, F. M., Woodcock, S., McCall, A., Ward, P., & Coutts, A. J. (2019). *The
   acute-chronic workload ratio-injury figure and its 'sweet spot' are flawed.* SportRxiv preprint.
   https://doi.org/10.31236/osf.io/gs8yu
+
+## Healthee implementation & honesty policy
+
+**The load currency Healthee feeds this ratio is `cardio_load` (Banister HR-reserve
+TRIMP)** — not TSS. The `@daud/core` compute above is the running-coach reference; in
+Healthee, `acute` and `chronic` are windowed sums/averages of the daily `cardio_load`
+(see `training-stress-score` for how that load is derived, and `load_currency` for why
+TRIMP, not TSS, is the single currency). ACWR is **load-currency agnostic** by
+construction, so feeding it TRIMP is legitimate — but a ratio is only as trustworthy as
+the load underneath it, and Healthee's TRIMP inherits HR_max estimation error, so the
+ratio is treated as a **coarse trend**, never a precise number.
+
+**How Healthee surfaces it — descriptive spike signal only, never a gate.** Consistent
+with this note's evidence (the injury-prediction claim is discredited: mathematical
+coupling, non-reproducible cut-offs, and a null RCT), Healthee:
+- uses the today-vs-7-/30-day comparison as a **descriptive "above your usual load"**
+  cue (a ratio of our own measured loads — not a proprietary composite);
+- **suppresses ACWR entirely when chronic history < 28 days or chronic load ≈ 0** (the
+  small denominator manufactures alarming ratios for new/returning users);
+- never blocks or auto-cuts training on the ratio alone, and always weights it **below**
+  the user's recovery/readiness, HRV, sleep, and any pain/soreness report;
+- presents the 0.8–1.3 / >1.5 bands as **soft heuristics, not validated thresholds**.
+
+**Honesty rule (composite policy):** an acute:chronic ratio of one measured metric is
+descriptive and allowed; it must **never** be dressed up as a black-box injury-risk or
+"strain-vs-recovery" score. The durable, confidently-stated takeaway is the *principle*
+— avoid sudden large load spikes, build a chronic base patiently — not the ratio's
+discredited numeric verdict.

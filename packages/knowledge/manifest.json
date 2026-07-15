@@ -188,30 +188,6 @@
     },
     {
       "aliases": [
-        "activity",
-        "cardiovascular",
-        "training-load",
-        "heart-rate"
-      ],
-      "applies_to_interventions": [
-        "exercise"
-      ],
-      "applies_to_metrics": [
-        "hr",
-        "cardio_load",
-        "hr_zone_minutes"
-      ],
-      "category": "activity",
-      "collection": "legacy",
-      "grade": "Probable",
-      "id": "cardio_load_trimp",
-      "last_reviewed": "2026-06-05",
-      "name": "Quantifying daily cardiovascular load (training impulse) from heart rate — the evidence-based alternative to a proprietary \"Strain\" score",
-      "path": "notes/activity/cardio_load_trimp.md",
-      "summary": "Quantifying daily cardiovascular load (training impulse) from heart rate — the evidence-based alternative to a proprietary \"Strain\" score"
-    },
-    {
-      "aliases": [
         "critical-speed",
         "critical speed",
         "critical power",
@@ -486,21 +462,27 @@
         "seiler 3-zone",
         "intensity distribution",
         "%hrmax",
-        "max heart rate"
+        "max heart rate",
+        "hr_zone_minutes",
+        "time in zones",
+        "edwards zones"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "exercise"
+      ],
       "applies_to_metrics": [
-        "cardio_load"
+        "cardio_load",
+        "hr_zone_minutes"
       ],
       "category": "metrics",
       "collection": "sports_science",
       "grade": "Probable",
       "id": "heart_rate_zones",
-      "last_reviewed": "2026-06-29",
+      "last_reviewed": "2026-07-15",
       "name": "Heart-Rate Training Zones",
       "path": "sports-science/metrics/heart-rate-zones.md",
       "population": "runners",
-      "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy."
+      "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
     },
     {
       "aliases": [
@@ -694,6 +676,31 @@
       "name": "Safety guardrails for LLM-generated health recommendations — what we will and will not do",
       "path": "notes/recs/llm_health_advice_safety.md",
       "summary": "Safety guardrails for LLM-generated health recommendations — what we will and will not do"
+    },
+    {
+      "aliases": [
+        "methodology",
+        "training-load",
+        "trimp",
+        "tss",
+        "cardio-load",
+        "heart-rate"
+      ],
+      "applies_to_interventions": [
+        "exercise"
+      ],
+      "applies_to_metrics": [
+        "cardio_load"
+      ],
+      "category": "activity",
+      "collection": "legacy",
+      "grade": "Probable",
+      "id": "load_currency",
+      "last_reviewed": "2026-07-15",
+      "name": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable",
+      "path": "notes/activity/load_currency.md",
+      "population": "general",
+      "summary": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable"
     },
     {
       "aliases": [
@@ -1775,7 +1782,9 @@
         "training monotony",
         "workload management"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "exercise"
+      ],
       "applies_to_metrics": [
         "cardio_load"
       ],
@@ -1783,7 +1792,7 @@
       "collection": "sports_science",
       "grade": "Contested",
       "id": "training_load_acwr",
-      "last_reviewed": "2026-06-29",
+      "last_reviewed": "2026-07-15",
       "name": "Training Load & Acute:Chronic Workload Ratio (ACWR)",
       "path": "sports-science/metrics/training-load-acwr.md",
       "population": "runners",
@@ -1808,21 +1817,33 @@
         "trimp",
         "session rpe",
         "srpe",
-        "training impulse"
+        "training impulse",
+        "cardio_load_trimp",
+        "cardio load",
+        "cardio-load",
+        "banister trimp",
+        "edwards trimp",
+        "summated heart-rate zone",
+        "strain",
+        "strain 0-21",
+        "strain score"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "exercise"
+      ],
       "applies_to_metrics": [
-        "cardio_load"
+        "cardio_load",
+        "hr_zone_minutes"
       ],
       "category": "metrics",
       "collection": "sports_science",
       "grade": "Probable",
       "id": "training_stress_score",
-      "last_reviewed": "2026-06-29",
+      "last_reviewed": "2026-07-15",
       "name": "Training Stress Score (TSS) and Session Load Quantification",
       "path": "sports-science/metrics/training-stress-score.md",
       "population": "runners",
-      "summary": "One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose."
+      "summary": "One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose. Healthee computes this load as Banister TRIMP (HR-based), surfaced as `cardio_load`."
     },
     {
       "aliases": [

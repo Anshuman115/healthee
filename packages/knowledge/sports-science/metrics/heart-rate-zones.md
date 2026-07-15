@@ -3,12 +3,13 @@ id: heart_rate_zones
 name: "Heart-Rate Training Zones"
 category: metrics
 grade: Probable
-summary: "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy."
+evidence_grade: 2
+summary: "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
 population: runners
-aliases: ["heart-rate-zones", "hr zones", "heart rate zones", "training zones", "zone 2", "karvonen", "heart rate reserve", "hrr", "lthr", "polarized training", "seiler 3-zone", "intensity distribution", "%hrmax", "max heart rate"]
-applies_to_metrics: ["cardio_load"]
-applies_to_interventions: []
-last_reviewed: 2026-06-29
+aliases: ["heart-rate-zones", "hr zones", "heart rate zones", "training zones", "zone 2", "karvonen", "heart rate reserve", "hrr", "lthr", "polarized training", "seiler 3-zone", "intensity distribution", "%hrmax", "max heart rate", "hr_zone_minutes", "time in zones", "edwards zones"]
+applies_to_metrics: ["cardio_load", "hr_zone_minutes"]
+applies_to_interventions: ["exercise"]
+last_reviewed: 2026-07-15
 related: ["aerobic-base", "lactate-threshold", "training-intensity-distribution", "cardiac-drift", "hrv", "effort-rpe"]
 daud_metrics: ["estimateHrMax", "computeHrZones", "zoneForHr", "timeInZones", "hrFractionToEffort"]
 units: "bpm, %HRmax, %HRR, AU"
@@ -379,3 +380,28 @@ Decision logic, by stage:
 - Granata, C., Jamnick, N. A., & Bishop, D. J. (2018). *Training-induced changes in mitochondrial content and respiratory function in human skeletal muscle.* Sports Medicine, 48(8), 1809–1828. https://doi.org/10.1007/s40279-018-0936-y
 - Mølmen, K. S., Almquist, N. W., & Skattebo, Ø. (2025). *Effects of exercise training on mitochondrial and capillary growth in human skeletal muscle: a systematic review and meta-regression.* Sports Medicine, 55(1), 115–144. https://doi.org/10.1007/s40279-024-02120-2
 - Coyle, E. F., & González-Alonso, J. (2001). *Cardiovascular drift during prolonged exercise: new perspectives.* Exercise and Sport Sciences Reviews, 29(2), 88–92. https://doi.org/10.1097/00003677-200104000-00009
+
+## Healthee implementation & honesty policy
+
+**What Healthee computes.** The `@daud/core/zones.ts` functions above (`computeHrZones`,
+`zoneForHr`, `timeInZones`, LTHR field test) are the running-coach corpus's reference
+implementation. Healthee's own use is narrower and HR-only: it bins each **per-minute
+HR** sample into **five %HR_max zones** and stores the minutes-per-zone strip in
+`derived_daily` as **`hr_zone_minutes`**. Those same per-minute zone minutes are then
+weighted into the Edwards summated-load breakdown — but the load weighting and the
+headline `cardio_load` (Banister TRIMP) live in `training-stress-score`, which owns the
+load side; this note owns the **zone boundaries and their anchoring**. One definition per
+metric: the zone cut-points are defined here, the load math there.
+
+- **Anchoring — Tanaka + Karvonen, matching this note's own guidance.** HR_max is
+  estimated with **Tanaka (2001): 208 − 0.7 × age** (never Fox `220 − age`), and zones
+  are set on **%HR_max** for the `hr_zone_minutes` strip. (The Karvonen %HRR method this
+  note recommends as the *better default* is used wherever Healthee sets **effort**
+  targets and in the TRIMP HR-reserve term; the zone-minutes display strip is %HR_max for
+  a legible five-band breakdown.) Both corpora agree on Tanaka + Karvonen — no conflict.
+- **Honesty rules.** Tanaka's SEE ≈ 10 bpm means every zone edge is soft (±10–20 bpm at
+  the individual level); treat boundaries as ±1 zone, never a knife-edge. HR lags fast
+  intervals and drifts up in heat / late in long runs, so `hr_zone_minutes` slightly
+  over-reads zone during cardiac drift and under-reads short surges — the coach weights
+  pace/RPE over HR in those conditions (see the cross-checks above). Healthee does not
+  currently field-test LTHR, so threshold-region zones inherit the HRmax estimate error.
