@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import StubLLM
 
 from healthee.api.app import create_app
@@ -42,17 +43,18 @@ _DAY = date(2026, 7, 15)
 # TWO recs: the first is fully citable; the second cites an unknown note ONLY in
 # its research_note_ids array (inline cite is valid, so the whole response still
 # passes the choke point) — it must be dropped by the per-rec check.
+# __EST__ is substituted with a real current Established id (robust to reconciliation).
 _GOOD_PLUS_UNCITABLE = """{"recommendations": [
   {"action": "Aim for a 30-minute brisk walk today.",
-   "rationale": "Consistent moderate activity may support recovery [hrv_recovery_marker].",
+   "rationale": "Consistent moderate activity may support recovery [__EST__].",
    "expected_effect": "chips away at your weekly MVPA gap",
    "category": "activity", "evidence_grade": 3,
-   "research_note_ids": ["hrv_recovery_marker"], "signal_source": "mvpa_gap"},
+   "research_note_ids": ["__EST__"], "signal_source": "mvpa_gap"},
   {"action": "Wind down 30 minutes earlier tonight.",
-   "rationale": "An earlier wind-down may lengthen time in bed [hrv_recovery_marker].",
+   "rationale": "An earlier wind-down may lengthen time in bed [__EST__].",
    "category": "sleep", "evidence_grade": 2,
    "research_note_ids": ["not_a_real_note"], "signal_source": "sleep_debt"}
-]}"""
+]}""".replace("__EST__", ESTABLISHED_ID)
 
 # Inline citation is fabricated → the blocking validator rejects it (both tries) →
 # the choke point returns its honest fallback → recs parses nothing.
@@ -100,7 +102,7 @@ def test_recs_persist_with_citations_and_audit_columns(db: None) -> None:  # noq
     rank, action, note_ids, raw_prompt, raw_response = rows[0]
     assert rank == 1
     assert "walk" in action.lower()
-    assert note_ids == ["hrv_recovery_marker"]  # resolvable citation
+    assert note_ids == [ESTABLISHED_ID]  # resolvable citation
     assert raw_prompt and "SIGNALS" in raw_prompt  # audit trail written
     assert raw_response and "recommendations" in raw_response
 
@@ -126,7 +128,7 @@ def test_today_endpoint_returns_the_persisted_recommendations(
     assert resp.status_code == 200
     recommendations = resp.json()["recommendations"]
     assert recommendations  # non-empty — the field /api/today used to return []
-    assert recommendations[0]["research_note_ids"] == ["hrv_recovery_marker"]
+    assert recommendations[0]["research_note_ids"] == [ESTABLISHED_ID]
     get_settings.cache_clear()
 
 
