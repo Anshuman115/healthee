@@ -62,9 +62,10 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "hrv_rmssd_ms",
-        "rhr_daily"
+        "tst_min",
+        "hrv_sleep_avg",
+        "rhr_daily",
+        "sleep_health_score_4dim"
       ],
       "grade": "Probable",
       "id": "caffeine_alcohol_cutoff_plan",
@@ -264,10 +265,8 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min",
+        "sleep_regularity_index",
+        "sleep_health_score_4dim",
         "rhr_daily"
       ],
       "grade": "Established",
@@ -301,7 +300,7 @@
     },
     {
       "applies_to_metrics": [
-        "sleep_score"
+        "sleep_health_score_4dim"
       ],
       "grade": "Established",
       "id": "no_validated_sleep_score",
@@ -457,7 +456,10 @@
     {
       "applies_to_metrics": [
         "recovery_score",
-        "sleep_health_score_4dim"
+        "sleep_health_score_4dim",
+        "sleep_need_min",
+        "sleep_debt_min",
+        "tst_min"
       ],
       "grade": "Probable",
       "id": "sleep_and_recovery",
@@ -466,10 +468,8 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min"
+        "sleep_regularity_index",
+        "sleep_health_score_4dim"
       ],
       "grade": "Established",
       "id": "sleep_consistency",
@@ -491,11 +491,9 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
+        "sleep_health_score_4dim",
         "sleep_regularity_index",
-        "sleep_light_min",
-        "sleep_deep_min"
+        "tst_min"
       ],
       "grade": "Probable",
       "id": "sleep_health_score_multidim",
@@ -504,10 +502,10 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
         "sleep_need_min",
         "sleep_debt_min",
-        "tst_min"
+        "tst_min",
+        "sleep_health_score_4dim"
       ],
       "grade": "Probable",
       "id": "sleep_need_debt",
@@ -516,7 +514,6 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
         "sleep_regularity_index"
       ],
       "grade": "Established",
@@ -526,11 +523,9 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
+        "sleep_health_score_4dim",
         "sleep_regularity_index",
-        "sleep_light_min",
-        "sleep_deep_min"
+        "tst_min"
       ],
       "grade": "Probable",
       "id": "sleep_score_implementation_plan",
@@ -539,9 +534,8 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "sleep_midpoint",
-        "sleep_onset"
+        "sleep_health_score_4dim",
+        "sleep_regularity_index"
       ],
       "grade": "Probable",
       "id": "sleep_timing_chronotype",
