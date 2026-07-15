@@ -16,10 +16,33 @@ import pytest
 from healthee.core import db as db_module
 from healthee.core.config import get_settings
 
+# Vars with defaults that the defaults tests assert on — cleared so the unit
+# environment is hermetic (a dev shell that exports e.g. POSTGRES_PORT must not
+# leak into a test asserting the default value).
+_DEFAULTED_ENV_VARS = (
+    "POSTGRES_HOST",
+    "POSTGRES_PORT",
+    "POSTGRES_DB",
+    "POSTGRES_USER",
+    "LOG_LEVEL",
+    "API_HOST",
+    "API_PORT",
+    "OPENROUTER_API_KEY",
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_CHAT_ID",
+)
+
 
 @pytest.fixture
 def env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Minimal valid environment for constructing Settings in a unit test."""
+    """Minimal, hermetic environment for constructing Settings in a unit test.
+
+    Only the two effectively-required vars are set; every var that has a default
+    is cleared so a test of the defaults sees the code's defaults, not whatever
+    the ambient shell exported.
+    """
+    for var in _DEFAULTED_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("POSTGRES_PASSWORD", "unit-test-pw")
     monkeypatch.setenv("REALTIME_INGEST_TOKEN", "unit-test-token")
     get_settings.cache_clear()

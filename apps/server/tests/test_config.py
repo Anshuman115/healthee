@@ -33,6 +33,10 @@ def test_env_vars_override_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_db_url_is_libpq_conninfo(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Clear ambient host/port/user so the conninfo reflects the code defaults,
+    # not whatever a dev shell exported.
+    for var in ("POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_USER"):
+        monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("POSTGRES_PASSWORD", "s3cret")
     monkeypatch.setenv("POSTGRES_DB", "healthee")
     get_settings.cache_clear()
