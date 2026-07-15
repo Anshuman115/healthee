@@ -1,0 +1,490 @@
+<title>Healthee — Architecture &amp; Build Plan</title>
+<style>
+  :root {
+    --paper: #FAFBF9;
+    --ink: #16211D;
+    --muted: #5E6E67;
+    --line: #DCE4DF;
+    --accent: #2E9E77;
+    --accent-ink: #1E7A5A;
+    --fix: #C96F3B;
+    --fix-bg: #FBF1EA;
+    --card: #F2F6F3;
+    --code-bg: #EDF2EF;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #101815; --ink: #E5EDE8; --muted: #93A69C; --line: #263A31;
+      --accent: #4CC79A; --accent-ink: #4CC79A; --fix: #E1946A; --fix-bg: #241A13;
+      --card: #17221D; --code-bg: #1A2620;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101815; --ink: #E5EDE8; --muted: #93A69C; --line: #263A31;
+    --accent: #4CC79A; --accent-ink: #4CC79A; --fix: #E1946A; --fix-bg: #241A13;
+    --card: #17221D; --code-bg: #1A2620;
+  }
+  :root[data-theme="light"] {
+    --paper: #FAFBF9; --ink: #16211D; --muted: #5E6E67; --line: #DCE4DF;
+    --accent: #2E9E77; --accent-ink: #1E7A5A; --fix: #C96F3B; --fix-bg: #FBF1EA;
+    --card: #F2F6F3; --code-bg: #EDF2EF;
+  }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: var(--sans); line-height: 1.65; font-size: 16px;
+    margin: 0; padding: 0 20px;
+  }
+  main { max-width: 76ch; margin: 0 auto; padding: 48px 0 96px; }
+  h1, h2, h3 { font-family: var(--serif); line-height: 1.2; text-wrap: balance; }
+  h1 { font-size: 2.3rem; font-weight: 600; margin: 8px 0 4px; }
+  h2 { font-size: 1.55rem; font-weight: 600; margin: 0 0 12px; }
+  h3 { font-size: 1.15rem; font-weight: 600; margin: 28px 0 8px; }
+  section { border-top: 1px solid var(--line); margin-top: 48px; padding-top: 32px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent-ink); margin: 0 0 6px;
+  }
+  .lede { font-size: 1.08rem; color: var(--muted); max-width: 62ch; }
+  p { max-width: 70ch; }
+  a { color: var(--accent-ink); }
+  code, .path {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
+  }
+  pre.tree {
+    font-family: var(--mono); font-size: 0.82rem; line-height: 1.55;
+    background: var(--code-bg); padding: 16px 20px; border-radius: 8px;
+    overflow-x: auto; margin: 12px 0;
+  }
+  pre.tree b { color: var(--accent-ink); font-weight: 600; }
+  pre.tree i { color: var(--muted); font-style: normal; }
+  .diagram { overflow-x: auto; margin: 16px 0; padding: 8px 0; }
+  table {
+    border-collapse: collapse; font-size: 0.88rem; width: 100%;
+    font-variant-numeric: tabular-nums;
+  }
+  .tablewrap { overflow-x: auto; margin: 12px 0; }
+  th { text-align: left; font-family: var(--mono); font-size: 0.7rem;
+       letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+       border-bottom: 1px solid var(--ink); padding: 6px 14px 6px 0; }
+  td { border-bottom: 1px solid var(--line); padding: 7px 14px 7px 0; vertical-align: top; }
+  td:first-child { white-space: nowrap; }
+  .principles { display: grid; gap: 14px; margin: 20px 0; }
+  .principle {
+    background: var(--card); border-radius: 8px; padding: 14px 18px;
+  }
+  .principle b { font-family: var(--serif); font-size: 1.02rem; }
+  .principle p { margin: 4px 0 0; color: var(--muted); font-size: 0.92rem; }
+  .phase {
+    display: grid; grid-template-columns: 56px 1fr; gap: 0 18px;
+    margin: 26px 0; align-items: start;
+  }
+  .phase-num {
+    font-family: var(--serif); font-size: 1.9rem; color: var(--accent-ink);
+    line-height: 1; padding-top: 2px; font-variant-numeric: tabular-nums;
+  }
+  .phase-body h3 { margin-top: 0; }
+  .phase-meta { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  ul { padding-left: 1.2em; } li { margin: 4px 0; max-width: 68ch; }
+  .accept {
+    border-left: none; background: var(--card); border-radius: 8px;
+    padding: 10px 16px; margin: 12px 0; font-size: 0.9rem;
+  }
+  .accept b { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent-ink); display: block; margin-bottom: 4px; }
+  .fixtag {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    color: var(--fix); background: var(--fix-bg); border-radius: 4px;
+    padding: 1px 6px; white-space: nowrap;
+  }
+  .toc { font-size: 0.92rem; columns: 2; column-gap: 32px; margin: 16px 0 0; }
+  .toc li { margin: 3px 0; }
+  @media (max-width: 640px) { .toc { columns: 1; } .phase { grid-template-columns: 40px 1fr; } .phase-num { font-size: 1.4rem; } }
+  .kicker { color: var(--muted); font-size: 0.88rem; font-family: var(--mono); }
+</style>
+
+<main>
+  <header>
+    <p class="eyebrow">Healthee · engineering blueprint · 2026-07-15</p>
+    <h1>The Honest Health Companion</h1>
+    <p class="lede">From a working single-user prototype to a modular, offline-capable, science-grounded companion — the complete target architecture, the on-device data tier, and a phase-wise plan that folds in every defect found in the full-codebase audit.</p>
+  </header>
+
+  <section id="toc">
+    <p class="eyebrow">Contents</p>
+    <ol class="toc">
+      <li>Product thesis — the honesty contract</li>
+      <li>Where we are → where we're going</li>
+      <li>End-to-end architecture</li>
+      <li>Backend modularization</li>
+      <li>App modularization</li>
+      <li>On-device data tier (60 days)</li>
+      <li>On-device analytics engine</li>
+      <li>Companion intelligence layer</li>
+      <li>Build plan — Phases 0–6</li>
+      <li>Appendix — full findings catalogue</li>
+    </ol>
+  </section>
+
+  <section id="thesis">
+    <p class="eyebrow">1 · Product thesis</p>
+    <h2>The honesty contract</h2>
+    <p>Healthee is not a wellness app that congratulates you. It is a companion that tells the truth about your body, grounded in graded research, and nudges you toward the next achievable improvement. Every architectural decision below serves five principles — most already live in the codebase in some form; the plan makes them systemic rather than incidental.</p>
+    <div class="principles">
+      <div class="principle"><b>Never lies, never flatters.</b>
+        <p>Every interpretive sentence carries a citation into the graded research corpus or it doesn't ship — the existing validator contract (<code>llm/validator.py</code>, cite-or-refuse) becomes a platform guarantee enforced at one choke point, not per-endpoint.</p></div>
+      <div class="principle"><b>Confidence is part of the answer.</b>
+        <p>Every number the user sees carries its data quality: how many days fed it, whether a feed is stale, whether the value is measured, derived, or provisional. "Not enough data" is always preferred over an optimistic guess. The Data-check banner grows into a per-metric confidence system.</p></div>
+      <div class="principle"><b>Nudge, don't please.</b>
+        <p>The recovery score, challenges with frozen outcome ledgers, and adaptive difficulty already measure real change instead of streak theater. The weekly review closes the loop: what actually improved, what didn't, and the one thing to focus on next — even when the news is bad.</p></div>
+      <div class="principle"><b>Science is a pipeline, not a vibe.</b>
+        <p>The 55-note research corpus with evidence grades (2/3) and primary-source verification is the product's spine. Derivations (Phillips SRI, Tanaka HRmax, Banister TRIMP, Gompertz bio-age…) stay documented, tested, and traceable to their notes.</p></div>
+      <div class="principle"><b>The user owns the data.</b>
+        <p>Self-hosted backend, and after this plan: 60 days of history living on the device itself, offline analytics, off-box backups, and CSV/PDF export. The companion works on an airplane and survives a dead VPS.</p></div>
+    </div>
+  </section>
+
+  <section id="delta">
+    <p class="eyebrow">2 · Current → target</p>
+    <h2>Where we are, where we're going</h2>
+    <div class="tablewrap"><table>
+      <tr><th>Dimension</th><th>Today</th><th>Target</th></tr>
+      <tr><td>Backend shape</td><td>4,463-line <code>api/app.py</code> monolith + clean v2 core; v1-compat views with 5 confirmed consumer-drift bugs</td><td>Domain packages behind thin routers; v2-native reads; compat views retired; bugs fixed in Phase 0</td></tr>
+      <tr><td>App shape</td><td>49 flat files; 1,571-line Today screen; 11 copies of one helper; 4 <code>HelioApi</code> instances</td><td><code>features/</code> modules + <code>core/</code> + <code>shared/</code>; one env, one API client, no file over ~500 lines</td></tr>
+      <tr><td>Device data</td><td>SQLite as a sync buffer only; UI dead without the server</td><td>60-day local tier: samples, sessions, daily metrics — full offline rendering + local analytics</td></tr>
+      <tr><td>Analytics locus</td><td>Server-only; first paint depends on a network round-trip</td><td>Two-tier: device computes provisional baselines/trends/recovery instantly; server remains source of truth and reconciles</td></tr>
+      <tr><td>Failure behavior</td><td>Silent — <code>except: pass</code>, <code>catch (_) {}</code>, features die unnoticed for weeks</td><td>Failures are loud: Telegram alerts on chain breaks, in-app sync health, version-guarded parsers that fail fast</td></tr>
+      <tr><td>Data safety</td><td>No backup; one Docker volume between you and total loss</td><td>Nightly <code>pg_dump</code> off-box + tested restore + device as 60-day tertiary copy</td></tr>
+      <tr><td>Verification</td><td>Zero Python tests, 2 Dart tests, no CI</td><td>Golden-blob parser tests, seeded-DB integration test, device/server parity suite, CI on every push</td></tr>
+    </table></div>
+  </section>
+
+  <section id="architecture">
+    <p class="eyebrow">3 · End-to-end architecture</p>
+    <h2>One system, three tiers</h2>
+    <p>The strap is the sensor. The phone is the collector <em>and</em> a first-class analytical node with 60 days of memory. The server is the canonical brain — full history, the science layer, and the grounded intelligence. Everything the user sees works offline; everything interpretive is grounded in research.</p>
+    <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  subgraph STRAP["Amazfit Helio Strap"]
+    FW["sensors + firmware buffers<br/>hr · steps · stress · spo2 · hrv<br/>temp · sleep · workouts · daily totals"]
+  end
+  subgraph PHONE["Phone — Flutter app"]
+    BLEKIT["ble kit<br/>ECDH auth · fetch pager<br/>gap-skip · parsers (version-guarded)"]
+    LSTORE[("local store — SQLite<br/>60d samples · 400d sessions<br/>400d daily metrics · watermarks")]
+    DEVANA["device analytics<br/>baselines · trends · anomalies<br/>provisional recovery · confidence"]
+    SYNCENG["sync engine<br/>fg/bg/pull · push up · sync down<br/>reconcile · prune · health status"]
+    UIF["features<br/>Today · Sleep · Activity<br/>Insights · Actions · Coach"]
+  end
+  subgraph VPS["VPS — Python backend"]
+    GATE["API gateway<br/>auth · routers per domain"]
+    INGEST["ingest<br/>validate · upsert · idempotent"]
+    CANON[("TimescaleDB — canonical<br/>sample · sleep_session · workout<br/>derived_daily · ledgers")]
+    DERIVE["derive — science layer<br/>RHR · HRV · MVPA · TEE · VO2max<br/>TRIMP · sleep health · recovery"]
+    ANALYTIC["analytics<br/>baselines · correlations (BH-FDR)<br/>anomalies · cutoffs · bio-age"]
+    INSIGHT["insight engine<br/>grounded ask · validator<br/>recs · challenges · coach tools"]
+    JOBS["jobs<br/>event chain + crons<br/>errors → notify"]
+    BACKUP[("nightly pg_dump<br/>shipped off-box")]
+  end
+  CORPUS["research corpus<br/>55 graded notes · cite-or-refuse"]
+  ORLLM["OpenRouter LLM"]
+  TG["Telegram"]
+
+  FW <--"BLE GATT"--> BLEKIT
+  BLEKIT --> LSTORE
+  LSTORE --> DEVANA --> UIF
+  LSTORE <--> SYNCENG
+  SYNCENG --"POST /ingest/helio"--> GATE
+  GATE --"GET /api/sync/down"--> SYNCENG
+  GATE --> INGEST --> CANON
+  INGEST --> DERIVE --> CANON
+  CANON --> ANALYTIC --> CANON
+  CANON --> INSIGHT
+  CORPUS --> INSIGHT
+  CORPUS -.->|"bundled summaries"| DEVANA
+  INSIGHT <--> ORLLM
+  JOBS --> ANALYTIC & INSIGHT & BACKUP
+  JOBS --> TG
+  UIF --"reads /api/*"--> GATE
+</pre>
+    </div>
+    <h3>The flow, end to end</h3>
+    <ul>
+      <li><b>Collect.</b> The BLE kit authenticates (ECDH sect163k1), pages every fetch type with keep-on-device ACKs and gap-skip, parses with version-guarded layouts, and lands everything in the local store with per-metric watermarks. Nothing is destructive; partial syncs always resume.</li>
+      <li><b>Render instantly.</b> The UI never waits on the network. Device analytics computes provisional baselines, trends, and a provisional recovery score straight from the local store — tagged <em>provisional</em> until the server confirms.</li>
+      <li><b>Push up, sync down.</b> The sync engine pushes new data to <code>/ingest/helio</code> (idempotent), then pulls <code>/api/sync/down?since=</code> to mirror server-derived dailies back into the local store. Server values replace provisional ones; disagreements beyond tolerance are logged — the honesty contract applies internally too.</li>
+      <li><b>Derive &amp; analyze.</b> The server derives the full science layer per day/night, runs the analytics chain (correlate → recs → insight) as supervised jobs whose failures page you on Telegram instead of vanishing.</li>
+      <li><b>Ground &amp; speak.</b> Every LLM surface — recs, insights, coach, weekly review — passes through one grounded-ask choke point: research citations validated, refusal domains enforced, confidence attached. The coach acts only through typed tools and never claims an action it didn't perform.</li>
+      <li><b>Survive.</b> Nightly dumps off-box; the device itself holds 60 days; a dead VPS means degraded (no LLM, no full history), not dead.</li>
+    </ul>
+  </section>
+
+  <section id="backend">
+    <p class="eyebrow">4 · Backend modularization</p>
+    <h2>From one file to domain packages</h2>
+    <p>The v2 core (<code>derive.py</code>, <code>vo2max_submax.py</code>, <code>dem.py</code>, <code>ingest.py</code>) is already clean — it moves, it doesn't change. The work is dismantling <code>api/app.py</code> (4,463 lines) into routers that own nothing but HTTP, and giving every module explicit, one-directional dependencies.</p>
+    <pre class="tree">src/healthee/
+  <b>core/</b>        config · db (one psycopg_pool) · auth (bearer dep) · notify (telegram)
+  <b>ingest/</b>      helio payload validation · upserts · daily-total overrides   <i>← v2/ingest.py</i>
+  <b>derive/</b>      science layer, unchanged                                     <i>← v2/derive.py, vo2max_submax.py, dem.py</i>
+  <b>analytics/</b>   baselines · correlations · anomalies · cutoffs · bio-age     <i>← v2-native queries (seam fixed)</i>
+  <b>insights/</b>    llm client · grounded ask · validator · context · recs
+               challenges · programs · coach tools                         <i>← llm/*, no upward imports</i>
+  <b>research/</b>    corpus loader (mtime-cached) · grading · note export
+  <b>api/</b>         app.py (wiring only, &lt;150 lines) + routers/
+                 ingest · today · sleep · activity · workouts · recovery
+                 insightsx · coach · challenges · programs · logs · gps
+                 profile · syncdown
+  <b>jobs/</b>        scheduler · event chain with per-step capture → notify       <i>← replaces Popen(shell=True)</i>
+  <b>db/</b>          schema_v2 · migrations (numbered) · backup entrypoint</pre>
+    <h3>Rules that keep it modular</h3>
+    <ul>
+      <li><b>Dependency direction:</b> <code>api → insights/analytics → derive/ingest → core</code>. Nothing imports upward (kills <code>recs.py:393</code> importing the API app, and the <code>ask.py:75</code> reflection hack).</li>
+      <li><b>One connection pool</b> in <code>core/db.py</code>, one transaction convention (context-managed, no autocommit mix). Kills the connection-per-metric pattern in context building.</li>
+      <li><b>One grounded-ask choke point</b> in <code>insights/</code>: prompt → LLM → citation validation → confidence tagging. Every surface calls it; no endpoint talks to the LLM client directly.</li>
+      <li><b>The event chain becomes a job:</b> in-process <code>run_chain(day)</code> with per-step try/except → Telegram on failure, replacing <code>Popen("healthee correlate &amp;&amp; …", shell=True)</code>.</li>
+      <li><b>v2-native reads:</b> analytics and insights query <code>sample</code>/<code>derived_daily</code>/<code>sleep_session</code> directly. The v1-compat views (source of the five live bugs) are frozen in Phase 0 and deleted at the end of Phase 1.</li>
+      <li><b>Delete on sight:</b> <code>v2/api.py</code> (self-documented dead), v1 ingest endpoints (would crash on the non-updatable view), the JSON-file profile, <code>db/init.py</code>+v1 schema paths.</li>
+      <li><b>Migration safety net:</b> before the split, snapshot every endpoint's JSON for a fixed test day; after each router extraction, responses must be byte-identical. The split is pure motion, zero behavior.</li>
+    </ul>
+  </section>
+
+  <section id="appmod">
+    <p class="eyebrow">5 · App modularization</p>
+    <h2>Feature modules over a shared core</h2>
+    <pre class="tree">app/lib/
+  <b>core/</b>        env.dart (single source for AUTHKEY · MAC · HELIO_API · HELIO_TOKEN)
+               utils.dart (the one and only `cd` coercion helper)
+               theme_controller.dart (Riverpod — ends the 10-param prop drill)
+  <b>ble/</b>         as-is: auth · chunked transport · fetcher · parsers (version-guarded in Phase 0)
+  <b>data/</b>        store.dart (60-day tier, §6) · helio_api.dart (one instance via provider)
+               sync_engine.dart (fg/bg/pull unified · push · sync-down · prune · health)
+               api_cache.dart · models
+  <b>analytics/</b>   device analytics engine (§7) — pure Dart, golden-tested vs Python
+  <b>features/</b>    today/ (screen + one file per module: recovery · vo2 · mvpa · cardio_load
+               sleep_debt · bio_age · stress · spo2 …)
+               sleep/ · activity/ · insights/ · actions/ · coach/ · profile/ · workouts/
+  <b>shared/</b>      charts (instrument painters, one per file) · refresh_scaffold
+               stale_banner (one copy) · error_view · skeletons · ai_insight · metric_info</pre>
+    <ul>
+      <li><b>Screens become thin:</b> each feature folder owns its screen, widgets, and providers. <code>today_screen.dart</code> (1,571 lines, 24 classes) becomes ~10 focused files.</li>
+      <li><b>One env, one client:</b> the four dart-define constants collapse into <code>core/env.dart</code>; every consumer takes <code>HelioApi</code> from the provider. The hardcoded MAC default leaves source — builds fail loud if <code>MAC</code> isn't defined.</li>
+      <li><b>Shared instead of copied:</b> the 11 copies of <code>_d</code>/<code>cd</code>, the duplicated <code>_StaleSleepBanner</code>, and the five copies of the RefreshIndicator boilerplate each become one shared implementation.</li>
+      <li><b>Decide the abstractions:</b> the vestigial <code>HealthRepository</code>/typed-models layer is deleted (UI reads maps by design — own that); <code>go_router</code> and <code>_ComingSoon</code> go with it.</li>
+      <li><b>Timezone becomes profile data</b> (default Asia/Kolkata) rather than a string literal in the notification and push paths — cheap now, mandatory before <code>multi-user</code>.</li>
+    </ul>
+  </section>
+
+  <section id="localdata">
+    <p class="eyebrow">6 · On-device data tier</p>
+    <h2>Sixty days in your pocket</h2>
+    <p>The SQLite store graduates from sync buffer to first-class data tier. The app renders everything from local data and treats the network as an enhancer, not a dependency.</p>
+    <div class="tablewrap"><table>
+      <tr><th>Table</th><th>Retention</th><th>Contents &amp; size</th></tr>
+      <tr><td><code>sample</code></td><td>60 days</td><td>Per-minute metrics (hr, steps, stress, spo2, hrv, temp, resp) — ~500k rows ≈ 15–25 MB. Pruned after each successful push; watermarks unaffected (MAX ts).</td></tr>
+      <tr><td><code>sleep_session</code></td><td>400 days</td><td>Nights + naps with stage timelines — tiny, keep long for regularity analytics.</td></tr>
+      <tr><td><code>workout</code></td><td>400 days</td><td>Summaries + local GPS tracks for recorded routes.</td></tr>
+      <tr><td><code>daily_metric</code> <span class="kicker">new</span></td><td>400 days</td><td>Mirror of server <code>derived_daily</code> (~40 metrics/day ≈ 16k rows/year — negligible). Each row tagged <code>origin: server | provisional</code>.</td></tr>
+      <tr><td><code>meta</code></td><td>—</td><td>Watermarks, sync health, backfill guards, last reconcile.</td></tr>
+    </table></div>
+    <h3>Sync-down &amp; reconciliation</h3>
+    <ul>
+      <li><b>New endpoint</b> <code>GET /api/sync/down?since=YYYY-MM-DD</code> returns <code>derived_daily</code> rows (+ flags, + sleep-session summaries) since the device's last reconcile. Called after every successful push; a full 400-day pull on fresh install restores history to a new phone in one request.</li>
+      <li><b>Server wins.</b> Provisional device values are replaced by server values on reconcile. A disagreement beyond tolerance (e.g. recovery ±5 pts) is recorded in sync health — drift between the two engines is a bug and gets surfaced, never hidden.</li>
+      <li><b>Offline behavior:</b> no network → the entire app renders from <code>daily_metric</code> + local samples, with a quiet <em>offline · provisional</em> tag on derived values. LLM surfaces show their last cached text with its date, clearly stamped — a stale insight presented as fresh would violate the contract.</li>
+      <li><b>Tertiary backup for free:</b> with 60 days of raw samples + 400 days of dailies on-device, a dead VPS loses no recent data — re-ingest from the device rebuilds the canonical store (push is already idempotent).</li>
+    </ul>
+  </section>
+
+  <section id="devanalytics">
+    <p class="eyebrow">7 · On-device analytics</p>
+    <h2>A small, honest engine in Dart</h2>
+    <p>Not a port of the whole science layer — a deliberate subset that makes the device self-sufficient for <em>descriptive</em> analytics, while inference (correlations, cutoffs, bio-age, LLM) stays server-side where full history lives.</p>
+    <div class="tablewrap"><table>
+      <tr><th>Module</th><th>Computes</th><th>Mirrors</th></tr>
+      <tr><td>baselines</td><td>28-day median ± MAD per metric, personal bands</td><td><code>analytics/baselines.py</code></td></tr>
+      <tr><td>trends</td><td>7 vs 28-day deltas, direction + magnitude for sparkline cards</td><td>server trend logic</td></tr>
+      <tr><td>anomalies</td><td>robust z ≥ 2 flags on today's values</td><td><code>analytics/anomalies.py</code></td></tr>
+      <tr><td>recovery</td><td>provisional recovery score from local HRV/RHR/sleep/load inputs</td><td><code>derive.py</code> recovery</td></tr>
+      <tr><td>sleep</td><td>debt vs need, 14-day SRI, tonight's lever inputs</td><td>sleep-health derive</td></tr>
+      <tr><td>confidence</td><td>per-metric data coverage: feed freshness, days-of-data, gaps</td><td>Data-check logic, deepened</td></tr>
+    </table></div>
+    <ul>
+      <li><b>Pure functions, shared fixtures.</b> Every module is side-effect-free Dart. The Python engine exports golden fixtures (input day-window → expected outputs); the Dart suite must match within tolerance. Parity is CI-enforced — two engines, one truth.</li>
+      <li><b>Wake-up moment:</b> strap syncs at 6:30, recovery score and tonight's sleep lever are on screen before the server round-trip finishes — then quietly confirmed.</li>
+      <li><b>Grounding travels:</b> a generated <code>research_summaries.json</code> (note id, claim, grade) ships in app assets, so even offline cards can cite — e.g. <em>“SRI ≥ 70 associates with lower mortality [sleep_regularity_index]”</em> — from the same corpus the server cites.</li>
+    </ul>
+  </section>
+
+  <section id="intelligence">
+    <p class="eyebrow">8 · Companion intelligence</p>
+    <h2>Making honesty a feature, not a tone</h2>
+    <ul>
+      <li><b>Confidence on every card.</b> Each metric card exposes its evidence: days of data, feed freshness, measured/derived/provisional origin, evidence grade of the interpretation. Low confidence changes the copy — “HRV trend unclear: only 4 nights of data” — instead of hiding.</li>
+      <li><b>The weekly review.</b> Sunday digest, in-app + Telegram: the week against your own baselines, challenge outcomes from the frozen ledger, what measurably improved / regressed / stayed flat, and <em>one</em> focus for next week. Generated through grounded-ask; unflinching by design — a bad week is reported as a bad week, with the mechanism and the smallest next step.</li>
+      <li><b>Coach with a memory.</b> The outcome ledger, adherence rates, and past week-over-week deltas enter coach context — “last time we raised MVPA 20% your HRV followed in 10 days” is measured personal evidence, the strongest nudge there is. The anti-hallucination guard (never claim an unexecuted action) stays absolute.</li>
+      <li><b>Graduated plans.</b> The sleep “Tonight” lever grows into the multi-week ladder (already roadmapped) using the programs machinery; the VO₂max plan keeps its projected-trajectory honesty — projections labeled as projections.</li>
+      <li><b>Export.</b> CSV per metric + PDF summary. A companion that hides your data from you isn't yours.</li>
+      <li><b>Recovery-weight tuning</b> after ~90 days of real use: validate score weights against your own outcome data (did high-recovery days actually precede better sessions?) — self-honesty about our own model.</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <p class="eyebrow">9 · Build plan</p>
+    <h2>Six phases, each independently shippable</h2>
+    <p>Ordering logic: stop the bleeding first (live bugs, backup), then modularize the backend <em>with</em> the test bed that makes refactoring safe, then the app, then the two on-device tiers, then the intelligence layer that rides on all of it. Sizes are working sessions of the kind we've been doing.</p>
+
+    <div class="phase"><div class="phase-num">0</div><div class="phase-body">
+      <h3>Stabilize — fix what's silently broken</h3>
+      <p class="phase-meta">~2 sessions · highest value per hour in the plan</p>
+      <ul>
+        <li><span class="fixtag">bug</span> Add <code>tst_minutes</code> to the session view summary (<code>schema_v2.sql:266</code>) — revives the caffeine/alcohol cutoff finder (<code>cutoff_finder.py:88</code>) and recs sleep-debt (<code>recs.py:269</code>).</li>
+        <li><span class="fixtag">bug</span> Fix <code>context.py:240</code> source filter — restores the daily-metrics table to every coach/insight context.</li>
+        <li><span class="fixtag">bug</span> Align <code>recs.py:538</code> insert with the v2 <code>recommendation</code> schema; check prod for silently-failed nightly recs; switch <code>recs.py:227</code> to the DB profile.</li>
+        <li><span class="fixtag">bug</span> Update <code>baselines.py</code>/<code>correlations.py</code> v1 metric names to v2 (+ fix the duplicate <code>hrv_sleep_avg_ms</code> key).</li>
+        <li><span class="fixtag">risk</span> Nightly <code>pg_dump | gzip</code> shipped off-box + documented restore, <b>drilled once</b>.</li>
+        <li><span class="fixtag">risk</span> Failure visibility: Telegram alert on analytics-chain failure; in-app sync-health surface (last sync, last push, last error) replacing debugPrint-only logging.</li>
+        <li><span class="fixtag">ble</span> Filter <code>0xFF</code> in <code>_temperature</code>; add <code>0x2E</code> to gap-skip; centralize the 4-vs-8-byte record heuristic; version-guard sleep-blob and workout layouts (fail loud on firmware drift); lift the 2033 epoch ceiling.</li>
+        <li><span class="fixtag">cleanup</span> Delete <code>v2/api.py</code>, v1 ingest endpoints, junk root files; pick one scheduler model (compose service; retire systemd timers).</li>
+      </ul>
+      <div class="accept"><b>Done when</b> Cutoff finder emits cutoffs on prod data · coach context contains the daily table · recommendation rows land nightly · restore drill passes · a forced chain failure produces a Telegram ping · a corrupted sleep blob produces a loud sync error, not bad data.</div>
+    </div></div>
+
+    <div class="phase"><div class="phase-num">1</div><div class="phase-body">
+      <h3>Backend modules + the test bed</h3>
+      <p class="phase-meta">~3–4 sessions · pure motion, zero behavior change</p>
+      <ul>
+        <li>Snapshot all endpoint JSON for a fixed day (contract fixtures) <em>before</em> touching anything.</li>
+        <li>Extract <code>core/</code> (config, pooled db, auth, notify) → carve routers out of <code>app.py</code> one domain at a time, contract-checking after each → move analytics/insights into packages with one-directional imports.</li>
+        <li>Replace the <code>Popen</code> chain with <code>jobs/run_chain()</code>; mtime-cache the research loader; remove the reflection hack and upward imports.</li>
+        <li>Migrate analytics/insights to v2-native queries; delete the compat views last.</li>
+        <li>CI (GitHub Actions): ruff + pytest (seeded-DB integration test of ingest→derive→analytics) + <code>flutter analyze</code>/<code>test</code> + golden-blob parser tests from captured raw data.</li>
+      </ul>
+      <div class="accept"><b>Done when</b> <code>api/app.py</code> is wiring only (&lt;150 lines) · all contract snapshots byte-identical · compat views deleted · CI green on every push · one prod deploy verified live.</div>
+    </div></div>
+
+    <div class="phase"><div class="phase-num">2</div><div class="phase-body">
+      <h3>App modules</h3>
+      <p class="phase-meta">~2–3 sessions · mechanical, protected by flutter analyze + goldens</p>
+      <ul>
+        <li><code>core/env.dart</code> + single <code>HelioApi</code> provider everywhere; MAC default out of source.</li>
+        <li><code>features/</code> + <code>shared/</code> restructure; split Today into per-module files; one <code>cd</code>, one stale banner, one refresh scaffold; theme controller ends the prop drill.</li>
+        <li>Delete <code>HealthRepository</code>/vestigial models, <code>go_router</code>, <code>_ComingSoon</code>; replace swallow-all catches with logged-and-surfaced handling via sync health.</li>
+      </ul>
+      <div class="accept"><b>Done when</b> No lib file &gt; ~500 lines · every helper defined once · analyze clean · APK on device, all five tabs verified.</div>
+    </div></div>
+
+    <div class="phase"><div class="phase-num">3</div><div class="phase-body">
+      <h3>On-device 60-day data tier</h3>
+      <p class="phase-meta">~2–3 sessions</p>
+      <ul>
+        <li>Store migration: <code>daily_metric</code> table + origin tags + retention pruning (60d samples post-push / 400d sessions &amp; dailies).</li>
+        <li>Backend <code>GET /api/sync/down?since=</code>; sync engine pulls after each push; fresh-install pulls full history.</li>
+        <li>Offline-first rendering: sections fall back to local data with the <em>offline · provisional</em> tag; cached LLM text clearly date-stamped.</li>
+      </ul>
+      <div class="accept"><b>Done when</b> Airplane mode shows 60 days of fully-functional Today/Sleep/Activity/Insights · DB size stays bounded across a simulated 90-day run · reinstall repopulates 400 days of dailies in one sync.</div>
+    </div></div>
+
+    <div class="phase"><div class="phase-num">4</div><div class="phase-body">
+      <h3>On-device analytics engine</h3>
+      <p class="phase-meta">~3 sessions · parity-driven</p>
+      <ul>
+        <li>Python exports golden fixtures; build <code>lib/analytics/</code> (baselines, trends, anomalies, provisional recovery, sleep debt/SRI, confidence) as pure functions against them.</li>
+        <li>Wire provisional values into the UI (instant wake-up recovery) with server reconciliation + drift logging.</li>
+        <li>Bundle <code>research_summaries.json</code> so offline cards cite the corpus.</li>
+      </ul>
+      <div class="accept"><b>Done when</b> Parity suite green in CI (device ≡ server within tolerance) · recovery score renders offline seconds after a strap sync · reconcile replaces provisional values and logs drift.</div>
+    </div></div>
+
+    <div class="phase"><div class="phase-num">5</div><div class="phase-body">
+      <h3>Companion intelligence</h3>
+      <p class="phase-meta">~3–4 sessions · the visible payoff</p>
+      <ul>
+        <li>Per-card confidence system (grows from the Data-check banner) — coverage, freshness, origin, evidence grade, honest low-data copy.</li>
+        <li>Weekly review digest: measured week vs baselines + challenge ledger outcomes + one next focus; in-app + Telegram; grounded and validator-checked.</li>
+        <li>Coach memory: ledger + adherence + measured personal deltas into context.</li>
+        <li>Sleep Tonight → multi-week ladder on the programs machinery; CSV/PDF export; recovery-weight validation against ~90 days of real outcomes.</li>
+      </ul>
+      <div class="accept"><b>Done when</b> Every card shows its confidence · first weekly review delivered and factually checked against the DB · coach cites a measured personal outcome in a real conversation · export produces a complete archive.</div>
+    </div></div>
+
+    <div class="phase"><div class="phase-num">6</div><div class="phase-body">
+      <h3>Multi-user readiness <span class="kicker">(parked, branch exists)</span></h3>
+      <p class="phase-meta">unsized · only sequenced, not scoped</p>
+      <ul>
+        <li>Everything above lowers the cost: modules give auth/tenancy a seam; timezone is already data; per-user tokens replace the shared bearer; profile singleton → keyed. The single-user honesty product comes first.</li>
+      </ul>
+    </div></div>
+  </section>
+
+  <section id="appendix">
+    <p class="eyebrow">10 · Appendix</p>
+    <h2>Full findings catalogue (audit of 2026-07-15)</h2>
+    <p class="kicker">Every item found in the four-agent exploration. ✔ = verified directly in source this session.</p>
+
+    <h3>A · Confirmed live bugs — the v1→v2 view seam</h3>
+    <div class="tablewrap"><table>
+      <tr><th>#</th><th>Where</th><th>Defect → effect</th></tr>
+      <tr><td>A1 ✔</td><td><code>schema_v2.sql:266</code> vs <code>cutoff_finder.py:88</code></td><td>Session view summary lacks <code>tst_minutes</code> → every night skipped → caffeine/alcohol cutoff finder permanently silent.</td></tr>
+      <tr><td>A2 ✔</td><td><code>recs.py:269</code></td><td>Same missing key → recs sleep-debt signal always ~0.</td></tr>
+      <tr><td>A3 ✔</td><td><code>context.py:240</code></td><td>Filters <code>metric_sample source='zepp_cloud'</code>; view emits only gadgetbridge/derived → "Recent daily metrics" empty in every coach/insight context.</td></tr>
+      <tr><td>A4 ✔</td><td><code>recs.py:538</code> vs <code>schema_v2.sql:111</code></td><td>Inserts <code>raw_llm_prompt/raw_llm_response</code> — columns absent from v2 <code>recommendation</code>; nightly recs likely failing silently. Verify prod, then fix.</td></tr>
+      <tr><td>A5</td><td><code>recs.py:227</code>; <code>baselines.py:24</code>; <code>correlations.py:38</code></td><td>JSON-file profile instead of DB; v1 metric names (<code>max_hr_daily</code>, <code>sleep_score</code>, <code>distance_m</code>, <code>moderate_min/vigorous_min</code>, <code>pai_*</code>) unpopulated on v2; duplicate <code>hrv_sleep_avg_ms</code> key (<code>baselines.py:59,78</code>).</td></tr>
+    </table></div>
+
+    <h3>B · Data safety &amp; process</h3>
+    <div class="tablewrap"><table>
+      <tr><th>#</th><th>Finding</th></tr>
+      <tr><td>B1</td><td>No Postgres backup anywhere; prod history lives on one unmanaged Docker volume (<code>healthee-pgdata</code>). Total-loss exposure.</td></tr>
+      <tr><td>B2</td><td>No CI; zero Python tests; only 2 Dart tests (ECDH, chunking). The byte-offset parsers are untested exactly where firmware changes bite.</td></tr>
+      <tr><td>B3</td><td>Pervasive silent failure: bare <code>except: pass</code> across ingest/coach/DEM/seed; ~15 <code>catch (_) {}</code> in the app; push failures debugPrint-only (<code>main.dart:253</code>); bg task always returns success.</td></tr>
+      <tr><td>B4</td><td>Live secrets in plaintext working-tree <code>.env</code> (OpenRouter key, Zepp password) — never committed (verified against full git history), but don't sync the dir; rotate if ever shared.</td></tr>
+    </table></div>
+
+    <h3>C · BLE layer</h3>
+    <div class="tablewrap"><table>
+      <tr><th>#</th><th>Where</th><th>Finding</th></tr>
+      <tr><td>C1</td><td><code>activity_parser.dart:56</code></td><td><code>_temperature</code> doesn't filter <code>0xFF</code> sentinel → pushes skin_temp −0.01 °C on dead rounds; <code>0x2E</code> also missing from gap-skip.</td></tr>
+      <tr><td>C2</td><td><code>activity_parser.dart:71</code> + <code>activity_fetcher.dart:180</code></td><td>4-vs-8-byte record heuristic (<code>len % 8</code>) duplicated in two files; can misparse and can diverge.</td></tr>
+      <tr><td>C3</td><td><code>sleep_parser.dart</code>, <code>workout_parser.dart:61</code></td><td>Hardcoded 594-byte offsets and a literal-bytes stream split with no version/magic guards — firmware drift corrupts silently (has already happened twice).</td></tr>
+      <tr><td>C4</td><td><code>sleep_parser.dart:145</code></td><td>Timestamp validity ceiling epoch 2000000000 → rejects real records from 2033.</td></tr>
+      <tr><td>C5</td><td><code>strap_client.dart</code></td><td>No BLE reconnect; mid-fetch disconnect fails out via serial 30–150 s timeouts. Workout/sleep raw blobs parsed twice per sync.</td></tr>
+      <tr><td>C6</td><td><code>main.dart:39</code>, <code>sync_task.dart:13</code></td><td>Strap MAC committed as dart-define default (low impact, still shouldn't be in source).</td></tr>
+    </table></div>
+
+    <h3>D · Backend hygiene</h3>
+    <div class="tablewrap"><table>
+      <tr><th>#</th><th>Where</th><th>Finding</th></tr>
+      <tr><td>D1</td><td><code>v2/api.py</code>; <code>app.py</code> v1 ingest routes</td><td>Dead code; the v1 routes would crash on v2 (INSERT into a non-updatable view).</td></tr>
+      <tr><td>D2</td><td><code>app.py:933</code></td><td>Analytics chain via <code>Popen(shell=True)</code> from a request task; failures swallowed.</td></tr>
+      <tr><td>D3</td><td><code>context.py</code>, all modules</td><td>New connection per metric per context build; no pooling anywhere; mixed autocommit conventions.</td></tr>
+      <tr><td>D4</td><td><code>research.py</code></td><td><code>load_all()</code> re-parses all 55 notes from disk on every call, called repeatedly per context.</td></tr>
+      <tr><td>D5</td><td><code>ask.py:75</code>; <code>recs.py:393</code></td><td><code>__import__</code> reflection hack; LLM layer importing the 4,463-line API module (upward dependency).</td></tr>
+      <tr><td>D6</td><td><code>dem.py:46</code></td><td>SRTM tiles cached in <code>/tmp</code> — re-downloaded after every container restart, mid-request.</td></tr>
+      <tr><td>D7</td><td>compose + <code>scripts/*.timer</code></td><td>Two coexisting scheduler deployment models — double-cron risk.</td></tr>
+      <tr><td>D8</td><td>auth model</td><td>Single shared static bearer on all endpoints, embedded client-side; fine single-user, blocks multi-user. SQL parameterization is consistently safe (checked).</td></tr>
+    </table></div>
+
+    <h3>E · App hygiene</h3>
+    <div class="tablewrap"><table>
+      <tr><th>#</th><th>Where</th><th>Finding</th></tr>
+      <tr><td>E1</td><td><code>today_screen.dart</code></td><td>1,571 lines / 24 classes in one file; sleep_screen 900; instrument_charts 704.</td></tr>
+      <tr><td>E2</td><td>11 files</td><td><code>_d</code>/<code>cd</code> coercion helper copy-pasted 11×; <code>_StaleSleepBanner</code> defined twice; refresh boilerplate 5×.</td></tr>
+      <tr><td>E3</td><td>4 files</td><td>dart-define constants redeclared 4×; <code>HelioApi</code> instantiated 4× bypassing its own provider.</td></tr>
+      <tr><td>E4</td><td><code>repository.dart</code>, <code>models.dart</code>, <code>go_router</code>, <code>_ComingSoon</code></td><td>Vestigial/dead abstractions and an unused dependency.</td></tr>
+      <tr><td>E5</td><td><code>notifications.dart:26</code>, <code>helio_api.dart:80</code></td><td>Hardcoded Asia/Kolkata timezone assumptions.</td></tr>
+      <tr><td>E6</td><td><code>helio_api.dart:171,285,205</code></td><td>Empty-string returns on non-200 (no error/no-data distinction); retry helper exists but only GPS reads use it.</td></tr>
+    </table></div>
+
+    <h3>F · Repo cleanup</h3>
+    <div class="tablewrap"><table>
+      <tr><th>#</th><th>Finding</th></tr>
+      <tr><td>F1</td><td>Junk: <code>hc_steps copy.json</code>, <code>Health Dashboard.prj.xml</code>, untracked <code>healthee*.png</code>, empty <code>data/postgres/</code>, stale <code>web/*.tsbuildinfo</code>.</td></tr>
+      <tr><td>F2</td><td>Worth saying: the v2 science core, the keep-on-device ACK + watermark sync design, the grounding/validator contract, and the challenge outcome ledger are all genuinely well built — the plan preserves them untouched.</td></tr>
+    </table></div>
+  </section>
+</main>

@@ -1,0 +1,152 @@
+---
+name: resting-heart-rate
+title: Resting Heart Rate (RHR)
+category: cardiovascular
+aliases: [RHR, resting HR, resting pulse, waking heart rate, morning heart rate, basal heart rate, athlete bradycardia, sinus bradycardia]
+related: [heart-rate-variability, sleep-and-recovery, maximum-heart-rate, heart-rate-zones, vo2max, training-load-acwr, individualization]
+metrics: [restingHeartRate, rhrBaseline, rhrDeviation]
+units: bpm
+evidence_overall: Established
+last_reviewed: 2026-06-29
+---
+
+# Resting Heart Rate (RHR)
+
+## Summary
+Resting heart rate is the number of heart beats per minute at complete rest — a cheap, robust, individually-anchored window onto cardiovascular health and recovery state. Two facts are well established: a **lower RHR tracks better aerobic fitness and lower mortality at the population level** (each ~10 bpm higher RHR carries roughly +9% to +17% all-cause mortality risk across million-person meta-analyses), and **a sustained multi-day rise above a runner's own baseline is a genuine, if non-specific, flag for fatigue, under-recovery, or oncoming illness.** The single most important coaching rule: **RHR is only useful relative to the individual's own rolling baseline, measured the same way every day (ideally during sleep or supine on waking).** It is a slow, low-noise *trend* signal — a multi-day deviation tool, not a same-day verdict — and it must always be read alongside sleep, life stress, alcohol, and training load before any conclusion is drawn.
+
+## What it is
+RHR is the heart rate (bpm) measured when the body is fully at rest — awake but lying quietly, or, better, asleep — with no recent physical exertion, food, caffeine, or emotional arousal. It reflects the baseline rate at which the sinoatrial (SA) node fires when cardiac demand is minimal.
+
+Typical ranges:
+- **General adult population:** ~60–100 bpm is the textbook "normal" band, with most healthy adults sitting ~60–80 bpm.
+- **Recreationally trained runners:** commonly ~50–65 bpm.
+- **Well-trained / competitive endurance athletes:** frequently ~40–55 bpm.
+- **Elite endurance athletes:** often 30–50 bpm; values in the 30s while awake and high-20s/low-30s during sleep are not unusual and are usually benign ("athlete bradycardia"). Sinus bradycardia is present in roughly 80% of highly trained athletes [Bradycardia in Athletes review 2026].
+
+What matters for coaching is **not the absolute number but its position relative to that runner's personal baseline and its trend over days and weeks.** A genuine 48-bpm runner waking at 56 bpm for three mornings carries far more information than any population cut-off.
+
+## Physiology / mechanism
+At rest, heart rate is set by the intrinsic firing rate of the SA node, modulated by the autonomic nervous system — strong parasympathetic (vagal) "brake" tone slows it, sympathetic drive speeds it. Resting HR is low when vagal tone dominates and/or the intrinsic pacemaker rate is low.
+
+Two adaptations lower RHR with endurance training:
+1. **Cardiac (stroke-volume) remodelling.** Endurance training enlarges the left ventricle and increases stroke volume (the "athlete's heart"). A bigger per-beat output means the same resting cardiac output is delivered at fewer beats per minute — fewer beats needed to circulate the same blood.
+2. **Pacemaker / autonomic remodelling.** The SA node itself fires more slowly in trained individuals. **Whether this is primarily an autonomic (enhanced vagal tone) or an intrinsic (electrical remodelling of the pacemaker) change is genuinely contested** (see The evidence). The leading molecular candidate is downregulation of the "funny" current (I_f) carried by the HCN4 channel, which slows spontaneous SA-node depolarisation.
+
+Why RHR *rises* acutely: anything that raises sympathetic drive or withdraws vagal tone lifts resting HR — psychological stress, incomplete recovery from hard training, dehydration, fever/immune activation, alcohol, stimulants, heat, and poor sleep. This is the basis of RHR as a recovery and illness signal: an elevated morning pulse is the autonomic nervous system reporting an unpaid recovery debt or a metabolic/immune cost the body is currently carrying.
+
+## The evidence
+
+### Lower RHR ↔ better fitness and lower mortality
+- **[Established] Higher resting heart rate predicts higher all-cause and cardiovascular mortality, in a graded dose-response.** *Two large systematic reviews / dose-response meta-analyses agree.* Zhang et al. pooled 46 studies (1,246,203 participants, 78,349 deaths for the all-cause analysis) and found each **+10 bpm RHR raised all-cause mortality ~9% (RR 1.09, 95% CI 1.07–1.12) and cardiovascular mortality ~8%** (RR 1.08, 1.06–1.10) [Zhang 2016]. Aune et al. pooled 87 prospective studies and found steeper estimates — **+17% all-cause mortality (RR 1.17, 1.14–1.19) and +15% cardiovascular disease (RR 1.15, 1.11–1.18) per +10 bpm** [Aune 2017]. *Consistent direction across both; this is an epidemiological association (low RHR is a marker of fitness/health), not proof that lowering your pulse per se extends life.* Population-level, general-adult evidence — not athlete-specific.
+- **[Established] Lower RHR is associated with higher aerobic fitness (VO₂max).** RHR falls as stroke volume and aerobic conditioning improve; cross-sectionally, fitter people have lower resting pulses. This is the physiological logic behind using a *downward* RHR trend over months as one (weak, indirect) corroborating sign that aerobic base is building. The relationship is real but loose at the individual level — RHR is set by genetics and autonomic make-up as much as by fitness, so it is a poor *absolute* fitness yardstick between people (see Honesty).
+
+### How much does training actually lower RHR?
+- **[Established] Endurance training lowers RHR, but the effect is modest and slow.** The gold-standard intervention data come from the *HERITAGE Family Study*: 20 weeks of standardised endurance training in previously sedentary adults lowered RHR by only **~2.6–2.7 bpm on average despite a +17.7% gain in VO₂max** [Wilmore 1996]. So the heart's pumping efficiency improved far more than the resting pulse moved — RHR is a *lagging, low-amplitude* fitness signal. A *systematic review and meta-analysis of interventional studies* (Reimers et al.) confirmed that exercise lowers RHR overall, with **endurance training and yoga the modalities that significantly reduced it**, and larger reductions in those with higher baseline RHR [Reimers 2018]. *Consistent: real but small effect; expect bpm-scale, multi-week change, not dramatic drops.*
+
+### Athlete bradycardia — mechanism is contested
+- **[Established] Marked sinus bradycardia is a normal, well-tolerated adaptation in trained endurance athletes.** A contemporary review reports sinus bradycardia in ~80% of highly trained athletes, with resting rates ≤40 bpm and brief sinus pauses being common and generally benign in the absence of symptoms [Bradycardia in Athletes review 2026]. *Caveat: the same literature notes lifelong endurance athletes have a higher later-life incidence of sinus-node disease and pacemaker implantation — the adaptation is mostly benign but not entirely without a tail risk.*
+- **[Contested] Is training bradycardia driven by intrinsic pacemaker remodelling or by enhanced vagal tone?** Genuinely unsettled, and the disagreement is between high-quality animal studies. *Rodent work* (D'Souza, Boyett et al.) showed training-induced bradycardia **persisted after full autonomic blockade and in the denervated SA node**, and was abolished by blocking I_f — pointing to **intrinsic electrical remodelling via HCN4 downregulation** as the cause, not autonomics [D'Souza 2014]. *Canine work* (Billman et al.) found the opposite: after autonomic blockade, intrinsic heart rate was **identical** in trained vs sedentary dogs, with HCN4 if anything increased — pointing to **enhanced parasympathetic regulation** as the driver [Billman 2015]. Different species, different conclusions; the honest synthesis is that **both mechanisms contribute and their relative weight is unresolved (and may differ across species and training history).** For coaching this nuance is moot — *that* RHR drops with training is settled; *why* is not.
+
+### Multi-day RHR elevation as a fatigue / illness / overtraining signal
+- **[Probable] A sustained multi-day rise in RHR above an individual's baseline flags under-recovery or oncoming illness — but it is non-specific.** This is long-standing practitioner consensus and is physiologically sound (sympathetic activation / immune cost), and consumer-wearable studies now support the illness half strongly. *But the overtraining half is weaker than folklore implies.* The best evidence is a *systematic review and meta-analysis* of autonomic HR markers in athletes (Bellenger et al.): during functional overreaching, **resting HR and resting HRV were largely unchanged or inconsistent**, and *submaximal/exercise* heart rate fell in **both** positively-adapting and overreached athletes — i.e. resting autonomic markers were not a clean, specific overtraining test [Bellenger 2016]. *Interpretation: a multi-day RHR rise is a useful prompt to check in and consider easing off, but it is a sensitive-not-specific screen, not a diagnosis. Absence of a rise does not rule out overreaching.* Grade the "RHR up ≥ X bpm = overtraining" rule as **Probable as a soft flag, not a hard test.**
+- **[Probable] Wearable RHR detects infection (incl. COVID-19 / influenza-like illness) early, often before symptoms.** *Multiple consumer-wearable cohort studies.* Mishra et al. showed smartwatch RHR elevations could flag COVID-19, with ~63% of cases detectable at or before symptom onset using individual-baseline RHR deviation [Mishra 2020]. Radin et al. showed Fitbit RHR data improved real-time influenza-like-illness surveillance at the population level [Radin 2020]. *Consistent and now fairly robust for "something is wrong," but the signal cannot tell you what (it does not distinguish COVID from flu from a hard hangover from heat) — non-specific by nature.*
+
+### Confounders raise RHR independent of fitness/fatigue
+- **[Established] Acute alcohol raises nocturnal/resting heart rate.** A *prospective within-subject wearable study* (n=40) found moderate alcohol (40 g women / 60 g men) raised **nocturnal RHR by ~3 bpm** (63.6 → 66.6 bpm, p<0.001), normalising within days after stopping — and notably the HR rise occurred even when objective sleep architecture looked unchanged [Strüven 2025]. *Consistent with the well-known sympathetic/vagal-withdrawal effect of alcohol; one night's drinking can fully account for a next-morning RHR spike.*
+- **[Probable] Caffeine's effect on resting HR is small and inconsistent.** A *meta-analysis of RCTs* found regular coffee (3–6 cups/day) produced a **negligible +0.4 bpm change in resting HR (95% CI −0.78 to 1.57, NS)**, though caffeine does acutely raise blood pressure [Han 2024]. *Caveat: this is chronic-intake data; a single large acute dose in a non-habituated person can transiently raise (or, via baroreflex, slightly lower) HR, and tolerance develops. Practically: caffeine is a weak and unreliable RHR confounder compared with alcohol, sleep loss, or stress — but a fresh pre-measurement coffee is best avoided.*
+- **[Probable] Psychological stress, poor/short sleep, dehydration, heat, and illness all elevate resting HR via sympathetic activation.** Broadly accepted and physiologically established; these are the dominant day-to-day confounders that make a *single* elevated reading uninterpretable in isolation. (Sleep and recovery are covered in `sleep-and-recovery`.)
+
+## How we compute it
+**Definition.** RHR = mean heart rate (bpm) over a quiet resting window. Two acceptable acquisition methods, in order of preference for a *stable baseline*:
+
+1. **Nocturnal / sleeping RHR (preferred for trend tracking).** The lowest stable HR during sleep (many wearables report the night's minimum or a sleep-average). Least contaminated by waking arousal, posture changes, and "white-coat" effects; most reproducible night-to-night, which is exactly what a deviation-from-baseline signal needs.
+2. **Waking supine RHR (classic morning pulse).** Measured immediately on waking, still lying down, before sitting up, eating, caffeine, or phone-checking. The traditional athlete protocol; valid if done *consistently* (same posture, same time).
+
+**Standardisation is the whole game.** Posture matters (supine < sitting < standing by several bpm), as do time of day, recency of food/caffeine/alcohol, and arousal. Mixing methods (one day sleeping, next day standing) destroys the signal. Pick one method and hold it constant.
+
+**Derived quantities the coach uses:**
+- `rhrBaseline` = a rolling personal baseline, e.g. the trimmed mean/median of the last ~7–30 days of same-method readings (robust to single outliers).
+- `rhrDeviation` = today's reading − `rhrBaseline` (bpm), the actual decision variable. Optionally expressed in baseline standard deviations (z-score) so the threshold self-calibrates to each runner's noise.
+
+**Measurement accuracy.** PPG (optical wrist/ring) sensors are **well validated at rest and during sleep**, where there is little motion artefact — this is PPG's best-case scenario, unlike high-intensity exercise where it degrades. Device agreement at rest is generally good but **not interchangeable across brands**: validation studies show meaningful between-device differences (e.g. some watches/rings agree closely with ECG while others show poorer agreement) [Nuuttila 2021; Dial 2025]. **Implication: never compare RHR across two different devices as if equivalent; re-baseline whenever the runner changes hardware.** Chest-strap ECG is the most accurate but impractical for daily resting measurement; finger/ring and sleep-tracking optical sensors are the realistic daily tools.
+
+**Ownership in `@daud/core`:** `restingHeartRate` ingestion and the `rhrBaseline` / `rhrDeviation` derivations are the intended owners — **flag as not-yet-verified-in-code** until those functions and tests exist. Until then the coach computes baselines defensively and labels single readings as low-confidence.
+
+## How the coach uses it
+Core principle: **RHR is a per-runner trend signal read against the runner's own rolling baseline — never an absolute number, never a single-day verdict.**
+
+- **Establish a personal baseline first.** Collect ≥1–2 weeks of consistent same-method readings before acting on deviations. With no baseline, RHR is uninterpretable; lean on RPE, sleep, and training load instead.
+- **Act on multi-day deviations, not single readings.** A useful default flag: **RHR ≥ ~5 bpm (or ≥ ~1.5–2 baseline SD) above baseline for ≥2–3 consecutive mornings, without an obvious benign cause.** A one-morning blip is noise (or last night's wine).
+- **Always check confounders before concluding fatigue.** Walk the checklist — alcohol last night, short/poor sleep, late hard session, life stress, illness symptoms, heat, dehydration, new device. A confound-explained elevation is informational, not a training-change trigger.
+- **What an unexplained sustained elevation drives:** reduce intensity/volume, insert an easy day or recovery day, prioritise sleep, and watch for illness onset. Treat it as a *prompt to reassess*, escalating if it co-occurs with poor sleep, low HRV, high perceived fatigue, or rising training load (`heart-rate-variability`, `sleep-and-recovery`, `training-load-acwr`).
+- **A downward RHR trend over weeks–months** is a soft, corroborating positive — consistent with improving aerobic fitness — but weak on its own (HERITAGE: large VO₂max gains moved RHR only ~2–3 bpm). Use pace-at-HR, decoupling, and VO₂max trends as the primary fitness read; treat falling RHR as supportive colour, not proof.
+- **Cross-check, never decide alone.** RHR is most powerful as one input in a small panel (RHR + HRV + sleep + subjective wellness + load). Any single metric flagging alone warrants a lighter touch; convergence of several is a strong signal.
+
+By stage:
+- **Stage 1 (beginner):** keep it simple and reassuring. Explain that a 30s–50s resting pulse is a healthy adaptation, not a problem. Use RHR mainly to teach the recovery concept and to catch illness; do not over-interpret daily wobble or build rigid rules on a still-forming baseline.
+- **Stage 2 (developing):** use an established baseline to flag under-recovery and to time easy days; begin pairing RHR with HRV and sleep for a fuller recovery picture.
+- **Stage 3 (racing / high load):** RHR becomes a daily monitoring input alongside HRV and load during heavy blocks and tapers; a creeping multi-day baseline rise during an overload block is an early sign to back off before non-functional overreaching sets in. Around tapers, a settling/falling RHR alongside freshening subjective state is a reassuring sign.
+
+## Honesty & uncertainty
+- **Absolute RHR is a poor between-person fitness yardstick.** It is strongly shaped by genetics and autonomic make-up; a naturally low-pulsed unfit person can out-bradycardia a fitter peer. RHR informs about *this runner over time*, not about *who is fitter than whom*.
+- **Single readings are noisy and confounder-dominated.** One elevated morning can be entirely explained by alcohol, a bad night, a full bladder, anxiety, or simply standing up to measure. The signal lives in the multi-day trend, not the point reading.
+- **The overtraining signal is sensitive, not specific — and not very sensitive either.** Meta-analytic data show resting autonomic markers (resting HR/HRV) are often *unchanged* during functional overreaching, and exercise-HR changes don't distinguish good adaptation from bad [Bellenger 2016]. A flat RHR does **not** clear a runner of overreaching; an elevated RHR does **not** prove it. Use RHR as a screen that prompts a closer look, never as a standalone diagnosis.
+- **The illness signal can't name the cause.** Wearable RHR elevations reliably say "something physiological is off," but cannot distinguish infection from a hangover, heat stress, or a hard prior day [Mishra 2020; Radin 2020]. Interpret in context.
+- **Mechanism of athlete bradycardia is contested** (intrinsic HCN4 remodelling vs enhanced vagal tone) [D'Souza 2014; Billman 2015]. This doesn't affect coaching but the coach should not assert a single confident "cause."
+- **Devices aren't interchangeable and PPG has limits.** Brand-to-brand differences are real; switching hardware resets the baseline. Optical sensors are good at rest but can mis-sample with poor fit, cold extremities, arrhythmia, or motion.
+- **Bradycardia has a rare pathological tail.** Very low RHR is usually benign in trained athletes, but symptomatic bradycardia (dizziness, syncope, exertional intolerance, palpitations) is not "just fitness" and needs medical evaluation; lifelong endurance athletes carry a modestly higher later-life sinus-node-disease risk [Bradycardia in Athletes review 2026].
+- **Causation caveat on mortality data.** Low RHR *predicts* longevity at population scale, but this is association — largely because low RHR marks fitness/health. The coach must not imply that artificially lowering one's pulse is itself life-extending.
+
+## Safety bounds
+- **Symptomatic bradycardia is a medical red flag, not a training metric.** A low resting pulse *with* dizziness, light-headedness, fainting/near-fainting, unexplained exertional intolerance, chest discomfort, or irregular/erratic beats → advise medical evaluation; never reassure these away as "athlete heart." (Mirror as guardrail.)
+- **A large, unexplained sustained RHR elevation deserves caution, not a hard workout.** A multi-day baseline rise combined with malaise, fever, sore throat, or other illness signs → do not train through it; reduce/withhold load and consider that training while acutely ill (especially with fever or systemic symptoms) carries cardiac risk (e.g. myocarditis). When illness is suspected, default to rest. (Mirror as guardrail.)
+- **Never push a runner toward a target RHR.** RHR is observed, not prescribed; the coach must not set "lower your resting pulse" as a goal or interpret a naturally higher resting pulse as a deficiency to be drilled away.
+- Otherwise RHR monitoring is low-risk: the main failure mode is *over-reacting* to noise (cutting good training on a single high reading) — bias toward requiring a multi-day, confound-checked deviation before changing the plan.
+
+## Bottom line
+
+**Act on confidently (conclusive):**
+- Lower RHR tracks better aerobic fitness and lower population mortality, in a graded dose-response (~+9% to +17% all-cause mortality per +10 bpm) [Zhang 2016; Aune 2017].
+- Endurance training lowers RHR, but **modestly and slowly** (~2–3 bpm even alongside large VO₂max gains) — it's a lagging, low-amplitude fitness signal [Wilmore 1996; Reimers 2018].
+- Marked sinus bradycardia (often 30–50 bpm) is a normal, benign adaptation in trained endurance athletes [Bradycardia review 2026].
+- RHR is only meaningful **relative to the individual's own baseline, measured the same way every day** (sleep or supine-waking), and is a multi-day *trend* tool, not a single-day verdict.
+- Acute alcohol reliably raises resting/nocturnal HR (~+3 bpm) and is a dominant overnight confounder [Strüven 2025].
+- Wearable RHR can flag infection early, often before symptoms — but only says "something is wrong," not what [Mishra 2020; Radin 2020].
+
+**Hold loosely (unsettled):**
+- "RHR up ≥5 bpm = overtraining" — a useful *soft flag*, but resting autonomic markers are often unchanged in overreaching and are non-specific; not a diagnostic test [Bellenger 2016].
+- The exact deviation threshold and window (≥5 bpm? ≥1.5 SD? 2 vs 3 days?) — individualise; there is no universally validated cut-off.
+- *Why* athletes get bradycardia (intrinsic pacemaker remodelling vs vagal tone) — genuinely contested [D'Souza 2014; Billman 2015].
+- A *falling* RHR trend as proof of rising fitness — supportive colour at best; weak and slow at the individual level.
+- Caffeine as a meaningful RHR confounder — small/inconsistent for habitual users [Han 2024].
+
+## Coach Directives
+- **D1:** Interpret RHR only relative to the runner's own rolling baseline (`rhrBaseline`, ~7–30 day robust mean of same-method readings); never judge a runner against population norms. — confidence: Established
+- **D2:** Require a consistent measurement method (preferably sleeping or supine-on-waking RHR) and re-baseline whenever the runner changes device; never compare RHR across two different devices as equivalent. — confidence: Established
+- **D3:** Do not act on a single elevated reading. Treat RHR as a multi-day trend signal; flag when `rhrDeviation` ≥ ~5 bpm (or ≥ ~1.5–2 baseline SD) for ≥2–3 consecutive days. — confidence: Probable
+- **D4:** Before attributing an elevation to fatigue, screen confounders (alcohol, short/poor sleep, late hard session, stress, heat, dehydration, illness, new device); a confound-explained rise is not a training trigger. — confidence: Established
+- **D5:** On an unexplained sustained elevation, prompt easier training (reduce intensity/volume, add recovery, prioritise sleep) and watch for illness — as a reassessment prompt, not a diagnosis. — confidence: Probable
+- **D6:** Do not treat RHR as a standalone overtraining test; a flat RHR does not clear overreaching and an elevated one does not confirm it. Use RHR as one input in a panel (HRV + sleep + subjective + load). — confidence: Probable
+- **D7:** Treat a slowly falling RHR over weeks/months as supportive (not proof) of improving aerobic fitness; rely on pace-at-HR, decoupling, and VO₂max trends as the primary fitness read. — confidence: Established
+- **D8:** Reassure that a low resting pulse (e.g. 30s–50s) is a normal, healthy endurance adaptation; never set "lower your RHR" as a goal or frame a higher resting pulse as a defect. — confidence: Established
+- **D9 (safety, mirrored guardrail):** On low RHR *with* symptoms (dizziness, syncope/near-syncope, chest discomfort, exertional intolerance, irregular beats), advise medical evaluation; never dismiss symptomatic bradycardia as "athlete heart." — confidence: Established
+- **D10 (safety, mirrored guardrail):** When a sustained RHR elevation co-occurs with illness signs (fever, malaise, systemic symptoms), do not train through it — default to rest given cardiac risk of exercising while acutely ill. — confidence: Established
+- **D11:** Expect alcohol the prior evening to raise next-morning RHR by ~several bpm; attribute and discount such elevations rather than reading them as fatigue. — confidence: Established
+- **D12:** Require an established baseline (≥1–2 weeks of consistent readings) before driving any decision from RHR; with no baseline, defer to RPE, sleep, and load. — confidence: Probable
+
+## Key references
+- Zhang, D., Shen, X., & Qi, X. (2016). *Resting heart rate and all-cause and cardiovascular mortality in the general population: a meta-analysis.* CMAJ, 188(3), E53–E63. https://doi.org/10.1503/cmaj.150535
+- Aune, D., Sen, A., ó'Hartaigh, B., Janszky, I., Romundstad, P. R., Tonstad, S., & Vatten, L. J. (2017). *Resting heart rate and the risk of cardiovascular disease, total cancer, and all-cause mortality — A systematic review and dose–response meta-analysis of prospective studies.* Nutrition, Metabolism and Cardiovascular Diseases, 27(6), 504–517. https://doi.org/10.1016/j.numecd.2017.04.004
+- Wilmore, J. H., Stanforth, P. R., Gagnon, J., Leon, A. S., Rao, D. C., Skinner, J. S., & Bouchard, C. (1996). *Endurance exercise training has a minimal effect on resting heart rate: the HERITAGE Study.* Medicine & Science in Sports & Exercise, 28(7), 829–835. https://doi.org/10.1097/00005768-199607000-00009
+- Reimers, A. K., Knapp, G., & Reimers, C.-D. (2018). *Effects of exercise on the resting heart rate: a systematic review and meta-analysis of interventional studies.* Journal of Clinical Medicine, 7(12), 503. https://doi.org/10.3390/jcm7120503
+- D'Souza, A., Bucchi, A., Johnsen, A. B., Logantha, S. J. R. J., Monfredi, O., Yanni, J., … Boyett, M. R. (2014). *Exercise training reduces resting heart rate via downregulation of the funny channel HCN4.* Nature Communications, 5, 3775. https://doi.org/10.1038/ncomms4775
+- Billman, G. E., Cagnoli, K. L., Csepe, T., Li, N., Wright, P., Mohler, P. J., & Fedorov, V. V. (2015). *Exercise training-induced bradycardia: evidence for enhanced parasympathetic regulation without changes in intrinsic sinoatrial node function.* Journal of Applied Physiology, 118(11), 1344–1355. https://pmc.ncbi.nlm.nih.gov/articles/PMC4451292/
+- Bellenger, C. R., Fuller, J. T., Thomson, R. L., Davison, K., Robertson, E. Y., & Buckley, J. D. (2016). *Monitoring athletic training status through autonomic heart rate regulation: a systematic review and meta-analysis.* Sports Medicine, 46(10), 1461–1486. https://doi.org/10.1007/s40279-016-0484-2
+- Mishra, T., Wang, M., Metwally, A. A., Bogu, G. K., Brooks, A. W., Bahmani, A., … Snyder, M. P. (2020). *Pre-symptomatic detection of COVID-19 from smartwatch data.* Nature Biomedical Engineering, 4(12), 1208–1220. https://doi.org/10.1038/s41551-020-00640-6
+- Radin, J. M., Wineinger, N. E., Topol, E. J., & Steinhubl, S. R. (2020). *Harnessing wearable device data to improve state-level real-time surveillance of influenza-like illness in the USA: a population-based study.* The Lancet Digital Health, 2(2), e85–e93. https://doi.org/10.1016/S2589-7500(19)30222-5
+- Strüven, A., et al. (2025). *The impact of alcohol on sleep physiology: a prospective observational study on nocturnal resting heart rate using smartwatch technology.* Nutrients, 17(9), 1470. https://doi.org/10.3390/nu17091470
+- Han, S., Qiu, Y., Zhang, G.-Q., Lian, F., & Zhang, W. (2024). *A meta-analysis and systematic review of randomized clinical trials on the effect of coffee consumption on heart rate.* Nutrition Reviews, 82(8), 1046–1055. https://doi.org/10.1093/nutrit/nuad110
+- *Bradycardia in athletes: prevalence, mechanisms, and risks.* (2026). Circulation. https://doi.org/10.1161/CIRCULATIONAHA.125.076170 (PMID 41410046) — review of athlete sinus bradycardia prevalence, benign vs pathological features, and sinus-node-disease risk.
+- Nuuttila, O.-P., Korhonen, E., Laukkanen, J., & Kyröläinen, H. (2021). *Validity of the wrist-worn Polar Vantage V2 to measure heart rate and heart rate variability at rest.* Sensors, 22(1), 137. https://doi.org/10.3390/s22010137 ; https://pmc.ncbi.nlm.nih.gov/articles/PMC8747571/
+- Dial, M. B., Hollander, M. E., Vatne, E. A., Emerson, A. M., Edwards, N. A., & Hagen, J. A. (2025). *Validation of nocturnal resting heart rate and heart rate variability in consumer wearables.* Physiological Reports, 13, e70527. https://doi.org/10.14814/phy2.70527
