@@ -1,0 +1,293 @@
+"""Deterministic v2 dataset for the WP7 read-endpoint contract + integration tests.
+
+Seeds every table a read endpoint touches with a small, KNOWN fixture anchored to
+the user timezone so a snapshot is reproducible: profile, weight, raw samples,
+sleep sessions (+ a nap), a workout, the ``derived_daily`` rows (with the flags the
+payloads read), manual entries (+ an open fast), an illness flag, a recommendation,
+a finding, and a GPS track. Values are chosen so derived numbers are stable.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, date, datetime, time, timedelta
+
+from healthee.core.db import transaction
+from healthee.db import migrate
+from healthee.read.common import USER_TZ
+
+_TABLES = (
+    "sample, sleep_session, workout, derived_daily, weight_log, profile, manual_entry, "
+    "illness_flag, recommendation, finding, gps_track, gps_point, kv"
+)
+
+
+def _ms(dt: datetime) -> float:
+    return dt.timestamp() * 1000
+
+
+def reset() -> None:
+    """Apply migrations and truncate every table the read layer reads."""
+    migrate.apply_migrations()
+    with transaction() as cur:
+        cur.execute(f"TRUNCATE {_TABLES}")
+
+
+def _today_local() -> date:
+    return datetime.now(tz=USER_TZ).date()
+
+
+def seed_all() -> None:
+    """Populate the whole fixture in one transaction."""
+    reset()
+    today = _today_local()
+    with transaction() as cur:
+        _seed_profile(cur)
+        _seed_samples(cur, today)
+        _seed_sleep(cur, today)
+        _seed_workout(cur, today)
+        _seed_derived(cur, today)
+        _seed_manual(cur)
+        _seed_illness(cur, today)
+        _seed_recommendation(cur, today)
+        _seed_finding(cur)
+        _seed_gps(cur)
+
+
+def _seed_profile(cur) -> None:
+    cur.execute(
+        "INSERT INTO profile (id, name, height_cm, sex, dob) "
+        "VALUES (1,'Test',176,'male','1990-05-01') "
+        "ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name",
+    )
+    cur.execute("INSERT INTO weight_log (ts, kg) VALUES (now(), 72.5) ON CONFLICT DO NOTHING")
+
+
+def _seed_samples(cur, today: date) -> None:
+    """Intraday raw samples for today (drives HR/step/stress shapes + data-health)."""
+    base = datetime.combine(today, time(6, 0), tzinfo=USER_TZ).astimezone(UTC)
+    rows: list[tuple] = []
+    for i in range(48):  # every 15 min from 06:00, ~12h of data
+        ts = base + timedelta(minutes=15 * i)
+        rows.append((ts, "hr", 62 + (i % 20)))
+        rows.append((ts, "steps_per_minute", 40 + (i % 30)))
+        rows.append((ts, "stress", 30 + (i % 25)))
+    for metric, val in (
+        ("hrv", 45.0),
+        ("spo2", 97.0),
+        ("respiratory_rate", 14.0),
+        ("skin_temp_c", 33.2),
+    ):
+        rows.append((base, metric, val))
+    cur.executemany(
+        "INSERT INTO sample (ts, metric, value) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING", rows
+    )
+
+
+def _seed_sleep(cur, today: date) -> None:
+    """Seven main nights + one nap. Stages carry a small hypnogram so timelines
+    render and the physiology window has data."""
+    for n in range(7):
+        wake_date = today - timedelta(days=n)
+        start = datetime.combine(wake_date - timedelta(days=1), time(23, 0), tzinfo=USER_TZ)
+        end = datetime.combine(wake_date, time(6, 30), tzinfo=USER_TZ)
+        stages = [
+            [int(_ms(start)), int(_ms(start + timedelta(minutes=200))), 4],
+            [int(_ms(start + timedelta(minutes=200))), int(_ms(start + timedelta(minutes=290))), 5],
+            [int(_ms(start + timedelta(minutes=290))), int(_ms(end)), 8],
+        ]
+        cur.execute(
+            "INSERT INTO sleep_session "
+            "(start_ts,end_ts,kind,score,avg_hr,rem_min,light_min,deep_min,wake_min,stages) "
+            "VALUES (%s,%s,'main',86,58,90,200,90,20,%s) ON CONFLICT (start_ts) DO NOTHING",
+            (start.astimezone(UTC), end.astimezone(UTC), json.dumps(stages)),
+        )
+    nap_start = datetime.combine(today, time(14, 0), tzinfo=USER_TZ)
+    nap_end = nap_start + timedelta(minutes=35)
+    cur.execute(
+        "INSERT INTO sleep_session "
+        "(start_ts,end_ts,kind,rem_min,light_min,deep_min,wake_min,stages) "
+        "VALUES (%s,%s,'nap',0,30,5,0,'[]'::jsonb) ON CONFLICT (start_ts) DO NOTHING",
+        (nap_start.astimezone(UTC), nap_end.astimezone(UTC)),
+    )
+
+
+def _seed_workout(cur, today: date) -> None:
+    start = datetime.combine(today, time(7, 0), tzinfo=USER_TZ).astimezone(UTC)
+    cur.execute(
+        "INSERT INTO workout (start_ts,sport,duration_s,calories,distance_m,avg_hr,max_hr,min_hr) "
+        "VALUES (%s,1,1800,250,4200,135,168,95) ON CONFLICT (start_ts) DO NOTHING",
+        (start,),
+    )
+    # Minute HR inside the workout window so the detail endpoint has a profile.
+    cur.executemany(
+        "INSERT INTO sample (ts, metric, value) VALUES (%s,'hr',%s) ON CONFLICT DO NOTHING",
+        [(start + timedelta(minutes=i), 120 + (i % 40)) for i in range(30)],
+    )
+
+
+def _dd(cur, day: date, metric: str, value: float, flags: dict | None = None) -> None:
+    cur.execute(
+        "INSERT INTO derived_daily (day, metric, value, flags) VALUES (%s,%s,%s,%s) "
+        "ON CONFLICT (day, metric) DO UPDATE SET value=EXCLUDED.value, flags=EXCLUDED.flags",
+        (day, metric, value, json.dumps(flags or {})),
+    )
+
+
+def _seed_derived(cur, today: date) -> None:
+    """derived_daily rows across a 30-day window (steady values → stable baselines)."""
+    for n in range(30):
+        day = today - timedelta(days=n)
+        _seed_derived_day(cur, day, today)
+
+
+def _seed_derived_day(cur, day: date, today: date) -> None:
+    sleep_flags = {
+        "tst_min": 380,
+        "tib_min": 450,
+        "efficiency_pct": 84.4,
+        "midpoint_local": f"{day.isoformat()}T02:45:00+05:30",
+        "session_source": "zepp_cloud",
+        "sri": 74.0,
+    }
+    _dd(cur, day, "rhr_daily", 55.0, {"n": 120})
+    _dd(cur, day, "hrv_sleep_avg", 45.0)
+    _dd(cur, day, "spo2_overnight", 97.0)
+    _dd(cur, day, "spo2_overnight_min", 93.0)
+    _dd(cur, day, "respiratory_rate_sleep", 14.0)
+    _dd(cur, day, "sleep_health_score_4dim", 3, sleep_flags)
+    for dim in ("duration", "efficiency", "timing", "regularity"):
+        _dd(cur, day, f"sleep_dim_{dim}", 1 if dim != "timing" else 0, sleep_flags)
+    _dd(cur, day, "sleep_regularity_index", 74.0, sleep_flags)
+    _dd(cur, day, "sleep_need_min", 480.0, {"basis": "NSF2015", "age": 35})
+    _dd(
+        cur,
+        day,
+        "sleep_debt_min",
+        120.0,
+        {
+            "window_nights": 14,
+            "nights": 14,
+            "avg_tst_min": 380,
+            "avg_deficit_min": 100,
+            "nights_below": 12,
+        },
+    )
+    _dd(cur, day, "steps_total", 8200.0)
+    _dd(cur, day, "distance_m_daily", 6100.0, {"method": "stride", "stride_m": 0.744})
+    _dd(cur, day, "total_calories", 2350.0)
+    _dd(cur, day, "active_calories", 620.0)
+    _dd(cur, day, "basal_calories", 1730.0)
+    _dd(cur, day, "mvpa_min", 32.0, {"moderate": 24, "vigorous": 4})
+    _dd(
+        cur,
+        day,
+        "cardio_load",
+        55.0,
+        {
+            "method": "banister",
+            "hrmax": 185,
+            "rhr": 55,
+            "zone_min": [20, 15, 8, 3, 1],
+            "edwards_tl": 120,
+            "hr_minutes": 47,
+        },
+    )
+    _dd(
+        cur,
+        day,
+        "recovery_score",
+        72.0,
+        {
+            "factors": {
+                "sleep": {"sub": 60},
+                "hrv": {"sub": 80},
+                "rhr": {"sub": 70},
+                "rr": {"sub": 75},
+            },
+            "weights": {"sleep": 0.4, "hrv": 0.3, "rhr": 0.2, "rr": 0.1},
+        },
+    )
+    _dd(
+        cur,
+        day,
+        "vo2max_estimate",
+        41.5,
+        {
+            "rhr_med": 55.0,
+            "srpa": 3,
+            "bmi": 23.4,
+            "age_years": 35,
+            "sex": "male",
+            "see_ml_kg_min": 5.6,
+        },
+    )
+    if day == today:
+        _dd(cur, day, "vo2max_submax", 43.0, {"r2": 0.82, "speed_kmh": 8.1})
+
+
+def _seed_manual(cur) -> None:
+    cur.execute(
+        "INSERT INTO manual_entry (kind, ts, amount, unit) "
+        "VALUES ('caffeine', now() - interval '3 hours', 80, 'mg')"
+    )
+    cur.execute(
+        "INSERT INTO manual_entry (kind, ts, end_ts, name, amount, unit) "
+        "VALUES ('meditation', now() - interval '2 hours', now() - interval '110 minutes', "
+        "'mindfulness', 10, 'min')"
+    )
+    cur.execute(
+        "INSERT INTO manual_entry (kind, ts, name, amount, unit) "
+        "VALUES ('exercise', now() - interval '1 day', 'strength', 45, 'min')"
+    )
+    cur.execute(
+        "INSERT INTO manual_entry (kind, ts) VALUES ('fasting', now() - interval '5 hours')"
+    )
+
+
+def _seed_illness(cur, today: date) -> None:
+    cur.execute(
+        "INSERT INTO illness_flag (date, severity, rr_delta_bpm, temp_delta_c, sustained, "
+        "research_note_ids) VALUES (%s,'moderate',2.4,0.35,false,%s) ON CONFLICT (date) DO NOTHING",
+        (today, ["respiratory_rate_normal", "skin_temp_signals"]),
+    )
+
+
+def _seed_recommendation(cur, today: date) -> None:
+    cur.execute(
+        "INSERT INTO recommendation (date, rank, action, rationale, expected_effect, category, "
+        "evidence_grade, research_note_ids, signal_source) VALUES "
+        "(%s,1,'Sleep earlier tonight','Debt is 120 min','Lower debt','sleep',3,%s,'sleep_debt') "
+        "ON CONFLICT (date, rank) DO NOTHING",
+        (today, ["sleep_need_debt"]),
+    )
+
+
+def _seed_finding(cur) -> None:
+    cur.execute(
+        "INSERT INTO finding (kind, description, metric_a, metric_b, lag_days, effect_size, "
+        "effect_metric, p_value, q_value, n_samples, significant, research_note_ids) "
+        "VALUES ('pairwise_lag','Caffeine ↔ sleep','caffeine','sleep_health_score_4dim',0,-0.42,"
+        "'rho',0.01,0.03,24,true,%s) ON CONFLICT DO NOTHING",
+        (["caffeine_sleep"],),
+    )
+
+
+def _seed_gps(cur) -> None:
+    start = datetime.now(tz=UTC) - timedelta(hours=3)
+    end = start + timedelta(minutes=30)
+    cur.execute(
+        "INSERT INTO gps_track (start_ts,end_ts,source,distance_m,duration_s,avg_hr,ele_gain_m,"
+        "vo2max_submax,r2) VALUES (%s,%s,'phone',4200,1800,135,60,43.0,0.82) RETURNING id",
+        (start, end),
+    )
+    track_id = cur.fetchone()[0]
+    pts = [
+        (track_id, start + timedelta(seconds=30 * i), 12.9 + i * 1e-4, 77.6 + i * 1e-4, 10.0 + i)
+        for i in range(20)
+    ]
+    cur.executemany(
+        "INSERT INTO gps_point (track_id, ts, lat, lng, ele_m) VALUES (%s,%s,%s,%s,%s) "
+        "ON CONFLICT DO NOTHING",
+        pts,
+    )

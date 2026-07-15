@@ -1,0 +1,40 @@
+{
+  "entries": [
+    {
+      "amount": 72.5,
+      "ts": 1784109587554,
+      "type": "weight",
+      "unit": "kg"
+    },
+    {
+      "amount": 10.0,
+      "name": "mindfulness",
+      "notes": null,
+      "ts": 1784102387554,
+      "type": "meditation",
+      "unit": "min"
+    },
+    {
+      "amount": 80.0,
+      "name": null,
+      "notes": null,
+      "ts": 1784098787554,
+      "type": "caffeine",
+      "unit": "mg"
+    },
+    {
+      "amount": 45.0,
+      "name": "strength",
+      "notes": null,
+      "ts": 1784023187554,
+      "type": "exercise",
+      "unit": "min"
+    }
+  ],
+  "fast": {
+    "current": {
+      "duration_min": 300
+    },
+    "open": true
+  }
+}
