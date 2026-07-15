@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from healthee.api.routers import health
+from healthee.api.routers import health, ingest
 from healthee.core.db import close_pool
 from healthee.core.logging import configure_logging, get_logger
 
@@ -39,6 +39,7 @@ def create_app() -> FastAPI:
     isolated instances."""
     app = FastAPI(title="Healthee", version="0.1.0", lifespan=lifespan)
     app.include_router(health.router)
+    app.include_router(ingest.router)
     return app
 
 
