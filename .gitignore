@@ -12,6 +12,11 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # flutter / dart
 apps/mobile/.dart_tool/
