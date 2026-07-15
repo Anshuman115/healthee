@@ -421,7 +421,7 @@
       "last_reviewed": "2026-06-29",
       "name": "Fueling & Hydration",
       "path": "sports-science/wellness/fueling-and-hydration.md",
-      "population": "runners",
+      "population": "general",
       "summary": "Carbs are the limiter past ~90 min (30–90 g/h, gut-trained); drink to thirst — over-drinking risks dangerous hyponatremia."
     },
     {
@@ -564,6 +564,7 @@
       "last_reviewed": "2026-06-29",
       "name": "Individualization — Training the Runner, Not the Population",
       "path": "sports-science/principles/individualization.md",
+      "population": "runners",
       "summary": "Two runners on the same plan adapt very differently; treat every population default as a starting estimate and re-anchor to the runner's own measured response."
     },
     {
@@ -755,7 +756,7 @@
       "last_reviewed": "2026-06-29",
       "name": "Menstrual Cycle & Training",
       "path": "sports-science/wellness/menstrual-cycle-and-training.md",
-      "population": "runners",
+      "population": "general",
       "summary": "Average cycle-phase performance effect is trivial on low-quality evidence — no generic phase plan; but low energy availability / REDs is a safety-critical red flag."
     },
     {
@@ -993,6 +994,7 @@
       "last_reviewed": "2026-06-29",
       "name": "Periodization & Tapering",
       "path": "sports-science/principles/periodization.md",
+      "population": "runners",
       "summary": "Phase training (base→build→peak→taper); the ~2-week taper (cut volume 41–60%, hold intensity) is the best-evidenced piece — the macro model choice is not."
     },
     {
@@ -1024,6 +1026,7 @@
       "last_reviewed": "2026-06-29",
       "name": "Polarized & Intensity-Distribution Training",
       "path": "sports-science/principles/polarized-training.md",
+      "population": "runners",
       "summary": "Successful endurance training is ~80% easy / ~20% hard, avoiding the moderate \"black hole\"; whether the hard 20% is polarized vs pyramidal is genuinely contested."
     },
     {
@@ -1061,6 +1064,7 @@
       "last_reviewed": "2026-06-29",
       "name": "Progressive Overload & Adaptation",
       "path": "sports-science/principles/progressive-overload.md",
+      "population": "runners",
       "summary": "Stress → recovery → adaptation; cap single-run distance spikes tightly, deload periodically — but the \"10% per week\" rule is a soft heuristic, not a law."
     },
     {
@@ -1583,6 +1587,7 @@
       "last_reviewed": "2026-06-29",
       "name": "Specificity & Recovery",
       "path": "sports-science/principles/specificity-and-recovery.md",
+      "population": "runners",
       "summary": "SAID: the body adapts to the exact stress imposed, and adaptation happens during recovery — stress and recovery are one system; protect the easy–hard polarity."
     },
     {

@@ -3,14 +3,14 @@ id: injury_prevention
 name: "Running Injury Prevention"
 category: wellness
 grade: Probable
+evidence_grade: 2
 summary: "Most running injuries are overuse from load outrunning tissue capacity; strength training and load management are first-line, and bone-stress/REDs is a hard stop."
 population: runners
 aliases: ["injury-prevention", "injury risk", "running-related injury", "RRI", "overuse injury", "training load management", "load spike", "10% rule", "ten percent rule", "ACWR", "acute chronic workload ratio", "bone stress injury", "stress fracture", "RED-S", "relative energy deficiency in sport", "low energy availability", "female athlete triad", "return to running", "return to run", "walk-run", "shin splints", "medial tibial stress syndrome", "patellofemoral pain", "runner's knee", "IT band syndrome", "plantar fasciitis", "Achilles tendinopathy", "cadence retraining", "strength training for runners"]
 applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
-related: ["training-load-acwr", "cadence", "periodization", "individualization", "sleep-and-recovery", "fueling-and-hydration"]
-daud_metrics: ["acwr", "weeklyDistance", "weeklyLoad", "sessionLoad", "cadence"]
+related: ["training_load_acwr", "cadence", "periodization", "individualization", "sleep-and-recovery", "fueling-and-hydration"]
 units: "injuries per 1000 h, % (load progression), ratio (ACWR, AU), spm (cadence)"
 ---
 # Running Injury Prevention
@@ -441,3 +441,35 @@ in `@daud/core` and may not be overridden by the AI:
 - George, C. A., Sheerin, K. R., & Reid, D. (2024). *Criteria and Guidelines for
   Returning to Running Following a Tibial Bone Stress Injury: A Scoping Review.*
   Sports Medicine, 54(11), 2247–2265. https://doi.org/10.1007/s40279-024-02051-y
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** Daud does not measure
+  tissue capacity, bone density, or energy availability. The body's `@daud/core` quantities
+  (`acwr` / `weeklyDistance` / `weeklyLoad` / `sessionLoad` / `cadence`, and load-progression
+  %) are training-derived proxies and self-report screens, not Healthee `derived_daily`
+  fields created by this note; ACWR itself is owned by `training_load_acwr`.
+- **Cross-link (kept separate, complementary):** the load-progression / ACWR framing lives in
+  the reconciled `training_load_acwr`; this note is the *injury* application (bone-stress,
+  RED-S, strength/cadence). Cite both, don't duplicate.
+- **Best-evidenced levers + safety-critical guardrails to mirror in code (not
+  LLM-overridable):**
+  - **Suspected bone-stress injury** (localised bony tenderness, pain on hopping, pain
+    worsening through/after a run or at rest) → **stop running and refer** (D9,
+    SAFETY-CRITICAL); **return-to-run after a BSI** is gated on resolved tenderness +
+    pain-free walking (+ confirmed healing for high-risk sites), then walk-run,
+    distance-before-speed, symptom-guided, slower for females/high-risk sites — **not** a
+    generic 10%/week ramp (D10, SAFETY-CRITICAL).
+  - **Screen for RED-S / low energy availability** (restrictive eating, rapid weight loss,
+    menstrual dysfunction, repeated bone-stress injuries) → **do not increase load; flag and
+    refer**; never advise further restriction (D8, SAFETY-CRITICAL; cross-link
+    `fueling_and_hydration`, `menstrual_cycle_and_training`).
+  - First-line active prevention is **lower-limb strength ~2×/week** (halves overuse risk,
+    dose-dependent) and a **~5–10% cadence increase** for knee/shin problems — framed as load
+    reduction, **not** a fixed 180 spm rule.
+- **Honesty rules (carry into UI + LLM):**
+  - Be confident in the **principle** (don't spike load; strength prevents injury; LEA drives
+    bone-stress injury) but honest that **precise numbers are weak** — the **10% rule failed
+    its one RCT** and **ACWR is contested and team-sport-derived** (monitoring flags, never
+    guarantees of safety) (D2, D7).
+  - Every threshold is a **population starting point**; **prior injury is the strongest
+    individual predictor** — weight the runner's own history over any population number.

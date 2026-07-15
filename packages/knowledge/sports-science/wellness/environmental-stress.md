@@ -3,14 +3,14 @@ id: environmental_stress
 name: "Heat & Altitude"
 category: wellness
 grade: Established
+evidence_grade: 3
 summary: "Heat acclimatization is one of sport's best-evidenced gains (~10–14 days); read effort/pace alongside HR in heat. Altitude (LHTL) is smaller and contested."
 population: runners
 aliases: ["environmental-stress", "heat acclimatization", "heat acclimation", "heat adaptation", "training in heat", "humidity", "WBGT", "dew point", "core temperature", "plasma volume", "heat illness", "heat stroke", "altitude training", "live high train low", "LHTL", "hypoxia", "EPO", "hemoglobin mass", "acclimatization", "pace adjustment heat", "HR drift heat"]
 applies_to_metrics: []
 applies_to_interventions: ["sauna", "heat"]
 last_reviewed: 2026-06-29
-related: ["fueling-and-hydration", "heart-rate-zones", "pace-zones", "aerobic-decoupling", "vo2max", "individualization"]
-daud_metrics: ["environmentTempC", "relativeHumidity", "dewPointC", "wbgt", "altitudeM", "heartRate", "paceAdjustment"]
+related: ["fueling-and-hydration", "heart-rate-zones", "pace-zones", "aerobic-decoupling", "vo2max", "individualization", "sauna_cv_benefits"]
 units: "°C, % RH, °C (dew point/WBGT), m (altitude), bpm, %, sec/km"
 ---
 # Heat & Altitude
@@ -416,3 +416,37 @@ guardrails in `@daud/core` and may not be overridden by the AI:
   using normobaric hypoxia: a double-blinded, placebo-controlled study.* Journal of
   Applied Physiology, 112(1), 106–117.
   https://doi.org/10.1152/japplphysiol.00388.2011
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** Daud does not measure
+  core temperature, plasma volume, or red-cell mass. The body's `@daud/core` quantities
+  (`environmentTempC` / `relativeHumidity` / `dewPointC` / `wbgt` / `altitudeM` /
+  `heartRate` / `paceAdjustment`, and a `heatStressIndex()`-style classifier) are
+  environmental inputs and estimates, not Healthee `derived_daily` fields. Acclimatization
+  state is tracked *behaviorally* (count of heat exposures in the last ~2 weeks + the trend in
+  HR-at-pace / aerobic decoupling), never by measuring plasma volume.
+- **Cross-link (kept separate, complementary):** heat *training* adaptation here vs sauna →
+  **mortality / cardiovascular** benefit in `sauna_cv_benefits` — same exposure (heat),
+  different endpoint (performance-in-heat vs long-term CV/health). Do not conflate the two
+  evidence bases.
+- **Safety-critical guardrails to mirror in code (not LLM-overridable):**
+  - **Exertional heat illness is a medical emergency** — on red-flag symptoms (confusion,
+    collapse, disorientation, vomiting, altered behavior) during/after hot exercise, **stop
+    training advice and direct to immediate cooling + urgent medical care** (D12,
+    SAFETY-CRITICAL).
+  - In **extreme heat/WBGT, scale back, move cooler, or postpone**, especially for
+    unacclimatized runners (D11, SAFETY-CRITICAL); on **altitude-illness** symptoms
+    (worsening headache, severe breathlessness, confusion, ataxia) advise **descent and
+    medical care** (D13, SAFETY-CRITICAL).
+  - **Never coach drinking ahead of thirst, even in heat** (hyponatremia risk) — defer to
+    `fueling_and_hydration` (D14, SAFETY-CRITICAL).
+- **Honesty rules (carry into UI + LLM):**
+  - **Heat acclimatization in the heat is Established and stated plainly** (~10–14 days;
+    ~11 bpm HR, ~0.3 °C core, ~15–23% performance); its **cool-weather carry-over is
+    Contested** (one positive study, one failed replication) and **altitude/LHTL is the
+    genuinely contested topic** (~1–4% mean, real responders/non-responders, shrinks under
+    placebo control) — never promise either.
+  - **HR misleads in heat** (cardiovascular drift inflates HR at a fixed pace) — weight
+    effort/pace alongside HR; do not read a hot-day slowdown as lost fitness (see
+    `aerobic-decoupling`). Every number here is a population starting point to refine from the
+    runner's own HR-at-effort trend.

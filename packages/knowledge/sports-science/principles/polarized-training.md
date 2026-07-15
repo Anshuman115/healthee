@@ -3,13 +3,14 @@ id: polarized_training
 name: "Polarized & Intensity-Distribution Training"
 category: principles
 grade: Probable
+evidence_grade: 2
 summary: "Successful endurance training is ~80% easy / ~20% hard, avoiding the moderate \"black hole\"; whether the hard 20% is polarized vs pyramidal is genuinely contested."
 aliases: ["polarized-training", "polarized training", "polarised training", "80/20 training", "80-20 rule", "training intensity distribution", "TID", "intensity distribution", "pyramidal training", "threshold training", "junk miles", "black hole training", "no man's land", "moderate intensity trap", "three-zone model", "Seiler", "easy hard distribution"]
 applies_to_metrics: []
 applies_to_interventions: []
+population: runners
 last_reviewed: 2026-06-29
 related: ["periodization", "individualization", "easy-running", "lactate-threshold", "vo2max", "training-load"]
-daud_metrics: ["intensiteDistribution", "timeInZone", "weeklyEasyShare", "trimp"]
 units: "\"% of training time/volume, zones (Z1/Z2/Z3)\""
 ---
 # Polarized & Intensity-Distribution Training
@@ -344,3 +345,26 @@ coach must speak confidently about the base and hedge about the shape.
   Physiology and Performance, 13(9), 1114–1121.
   https://doi.org/10.1123/ijspp.2017-0327 (PMID 29182410)
 </content>
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** This note backs
+  *plan design*, not a computed metric: it sets the intensity-distribution policy the
+  challenges/programs builder and the coach's session planning reason over (keep ~80% of
+  weekly time easy; cap hard days at ~2/week; police easy-day drift into Z2). The body's
+  `@daud/core` mapping (`intensiteDistribution` / `timeInZone` / `weeklyEasyShare` /
+  `trimp`) names the load/zone quantities a future TID computation would consume; none is a
+  Healthee `derived_daily` field today.
+- **Where it plugs in:** the coach cites this note when it evaluates a runner's easy/hard
+  split, flags grey-zone creep, or shapes a training block; the programs/challenges layer
+  uses the 80/20 rule and the ≤~2–3 hard-sessions/week guardrail as design constraints. Zone
+  boundaries must be anchored to the runner's own thresholds where known, not population
+  %HRmax (see `individualization`).
+- **Honesty rules (carry into UI + LLM):**
+  - State the **80/20 easy-base rule and the moderate-"black hole" cost plainly** (well
+    replicated); present **polarized-vs-pyramidal as genuinely contested** — never claim
+    polarized is universally optimal (D4).
+  - Always **declare the measurement method** (time-in-zone vs session-goal) when quoting a
+    TID number, and treat computed easy/hard splits as **±5–10%** estimates, not ground
+    truth.
+  - The easy base is **protective, not junk** — frame accumulating sustainable easy volume
+    above fine-tuning the exact ratio.
