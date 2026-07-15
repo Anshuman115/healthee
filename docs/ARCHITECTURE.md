@@ -48,7 +48,7 @@ Helio Strap ──BLE (RE'd Huami/ZeppOS)──▶ Mobile app ──POST /ingest
 | Phase | Scope | Done when |
 |---|---|---|
 | 0 ✅ | Foundations: repo scaffold, CI + gates, hooks, infra (docker/nginx/deploy/backup) | CI runs the gates on every push |
-| 1 🔄 | Server core: core/ingest/derive/analytics/insights ported/rebuilt clean; the 5 legacy view-seam bugs fixed by design (v2-native reads); seeded-DB + contract tests | All legacy /api/* endpoints reproduced, contract-tested; deployable |
+| 1 ✅ | Server core: core/ingest/derive/analytics/insights/jobs rebuilt clean; the 5 legacy view-seam bugs fixed by design (v2-native reads); grounded coach through a blocking validator; seeded-DB + contract tests. **DONE** — 227 tests green on a real DB, deployable | All legacy /api/* endpoints reproduced, contract-tested; deployable |
 | 2 | Mobile core: ble/ ported (version-guarded, sentinel-filtered), core/data layers, features rebuilt clean screen-by-screen | APK on device, all tabs live against the new server |
 | 3 | On-device 60-day tier: local daily_metric mirror, /api/sync/down, retention pruning, offline-first rendering | Airplane mode = fully functional app; reinstall repopulates in one sync |
 | 4 | Device analytics: baselines/trends/anomalies/provisional recovery/confidence in Dart, parity-tested vs server goldens | Parity suite green in CI; instant wake-up score |
@@ -64,12 +64,12 @@ Dependency order, not calendar order.
 |---|---|---|---|
 | WP1 | `core/` (config·pooled db·auth·notify·logging) + `db/` schema + migrations + `/healthz` | — | ✅ merged |
 | WP4 | `packages/knowledge` — sports-science made citable + manifest generator + CI freshness | — | ✅ merged |
-| WP2 | `derive/` — science layer ported **verbatim**, split ≤400 lines, parity-tested vs legacy | WP1 | 🔄 building |
-| WP3 | `ingest/` + `POST /ingest/helio` — wire-compatible with the installed app; executemany perf | WP1 | 🔄 building |
-| WP6 | `analytics/` — baselines·correlations·anomalies·cutoffs·bio-age, **v2-native (the 5 seam bugs die here)** | WP1·WP2 | queued |
-| WP7 | read routers (today·sleep·activity·workouts·recovery·history·profile·logs·gps) + `packages/contracts` snapshot tests | WP2·WP3·WP6 | queued |
-| WP5 | `insights/` — grounded-ask **choke point**, **blocking validator v2** (grade-calibrated), manifest retrieval, coach (6 tools incl. get_knowledge), recs | WP1·WP4·WP7 | queued |
-| WP8 | `jobs/` — scheduler + the supervised event chain (ingest→derive→analytics→insight) replacing legacy `Popen`; errors → Telegram | WP6·WP5 | queued |
+| WP2 | derive verbatim + parity-tested | WP1 | ✅ merged |
+| WP3 | ingest + /ingest/helio | WP1 | ✅ merged |
+| WP6 | analytics v2-native (5 seam bugs dead) | WP1·WP2 | ✅ merged |
+| WP7 | read routers + contracts | WP2·WP3·WP6 | ✅ merged |
+| WP5 | `insights/` — grounded-ask **choke point**, **blocking validator v2** (grade-calibrated), manifest retrieval, coach (5 tools; adopt_challenge deferred) | WP1·WP4·WP7 | ✅ merged |
+| WP8 | `jobs/` — scheduler + the supervised event chain replacing legacy `Popen`; recs through the choke point; errors → Telegram | WP6·WP5 | ✅ merged |
 
 Sequencing notes (deltas from the phase table above, kept honest):
 - **`packages/contracts`** moved from Phase 0 → **WP7**: contract snapshots need real
