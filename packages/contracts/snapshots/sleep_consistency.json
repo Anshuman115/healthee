@@ -12,5 +12,6 @@
   "onset_sd_min": 0.0,
   "sri": 74.0,
   "target": "keep sleep & wake within a ~1-hour band, weekends included",
+  "tonight": null,
   "wake_sd_min": 0.0
 }
