@@ -679,6 +679,31 @@
     },
     {
       "aliases": [
+        "methodology",
+        "training-load",
+        "trimp",
+        "tss",
+        "cardio-load",
+        "heart-rate"
+      ],
+      "applies_to_interventions": [
+        "exercise"
+      ],
+      "applies_to_metrics": [
+        "cardio_load"
+      ],
+      "category": "activity",
+      "collection": "legacy",
+      "grade": "Probable",
+      "id": "load_currency",
+      "last_reviewed": "2026-07-15",
+      "name": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable",
+      "path": "notes/activity/load_currency.md",
+      "population": "general",
+      "summary": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable"
+    },
+    {
+      "aliases": [
         "maximum-heart-rate",
         "HRmax",
         "max heart rate",

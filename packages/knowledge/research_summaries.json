@@ -244,6 +244,15 @@
     },
     {
       "applies_to_metrics": [
+        "cardio_load"
+      ],
+      "grade": "Probable",
+      "id": "load_currency",
+      "name": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable",
+      "summary": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable"
+    },
+    {
+      "applies_to_metrics": [
         "max_hr_daily",
         "cardio_load",
         "vo2max_estimate"
