@@ -14,26 +14,49 @@ import random
 import pytest
 
 from healthee.derive.dem import _tile_name
-from healthee.derive.mvpa import _mvpa_to_pa_score
+from healthee.derive.mvpa import _weekly_mvpa_to_srpa
+from healthee.derive.sleep_score import _sleep_efficiency
 from healthee.derive.vo2max import _vo2max_jurca
 from healthee.derive.vo2max_submax import SubmaxResult, _vo2_speed_grade, vo2max_from_track
 
 # ── Jurca 2005 non-exercise VO2max ───────────────────────────────────────────
+# CRF_METs = 18.07 + 2.77*sex - 0.10*age - 0.17*bmi - 0.03*rhr + srpa; VO2 = CRF*3.5.
+# Jurca et al. 2005, Am J Prev Med 29(3):185-193 [[non_exercise_vo2max]].
 
 
 def test_vo2max_jurca_male_known_value() -> None:
-    # 56.363 + 1.921*3 - 0.381*36 - 0.754*23.5 - 0.084*56 = 25.987
-    assert _vo2max_jurca(36, "male", 23.5, 56, 3) == pytest.approx(25.987, abs=1e-3)
+    # A median 40yo male: (18.07 + 2.77 - 0.10*40 - 0.17*24 - 0.03*55) * 3.5
+    # = 11.11 * 3.5 = 38.885 ml/kg/min — a plausible value near the ~38 population
+    # median for that age/sex. The OLD (biased-low) equation returned ~24 here.
+    assert _vo2max_jurca(40, "male", 24.0, 55, 0) == pytest.approx(38.885, abs=0.5)
+    assert _vo2max_jurca(40, "male", 24.0, 55, 0) > 30.0  # never the old ~24 bug
 
 
 def test_vo2max_jurca_female_known_value() -> None:
-    # 50.513 + 1.589*3 - 0.289*36 - 0.552*23.5 - 0.085*56 = 27.144
-    assert _vo2max_jurca(36, "female", 23.5, 56, 3) == pytest.approx(27.144, abs=1e-3)
+    # Female drops the +2.77 sex term: (18.07 - 4.0 - 4.08 - 1.65) * 3.5
+    # = 8.34 * 3.5 = 29.19 ml/kg/min.
+    assert _vo2max_jurca(40, "female", 24.0, 55, 0) == pytest.approx(29.19, abs=1e-2)
 
 
 def test_vo2max_jurca_floors_at_20() -> None:
     # A very unfit profile drives the regression below 20; the floor holds.
     assert _vo2max_jurca(80, "male", 40.0, 100, 0) == 20.0
+
+
+# ── Sleep efficiency is asleep/(asleep+awake) — never > 100% (C2) ────────────
+
+
+def test_sleep_efficiency_perfect_night_is_100() -> None:
+    # 23:00-07:00, stages 300+90+90 = 480 min asleep, 0 awake -> exactly 100%.
+    eff = _sleep_efficiency(480, 0)
+    assert round(eff * 100, 1) == 100.0
+
+
+def test_sleep_efficiency_never_exceeds_100_on_overshoot() -> None:
+    # Pathological input where staged minutes overshoot the wall-clock span: the
+    # legacy TST/TIB form reported >100%; the timeline form is clamped to <= 100.
+    for tst, wake in [(500, 0), (490, 20), (600, 50)]:
+        assert round(_sleep_efficiency(tst, wake) * 100, 1) <= 100.0
 
 
 # ── ACSM x Minetti VO2 from speed + grade ────────────────────────────────────
@@ -56,15 +79,37 @@ def test_vo2_speed_grade_uphill_costs_more_than_downhill() -> None:
     assert up > level > down  # Minetti U-shape: uphill dearer, gentle downhill cheaper
 
 
-# ── Jurca 0-7 activity score from weekly MVPA minutes ────────────────────────
+# ── Jurca 0-4 SRPA category from weekly MVPA-EQUIVALENT minutes ──────────────
+# Bands: 0:<10  1:10-19  2:20-59  3:60-179  4:>=180 (min/wk) [[non_exercise_vo2max]].
 
 
 @pytest.mark.parametrize(
-    ("weekly_mvpa", "expected"),
-    [(0, 0), (30, 1), (90, 2), (150, 3), (200, 4), (400, 5), (500, 6), (700, 7)],
+    ("weekly_equiv", "expected"),
+    [
+        (0, 0),
+        (5, 0),
+        (10, 1),
+        (19, 1),
+        (20, 2),
+        (30, 2),
+        (59, 2),
+        (60, 3),
+        (179, 3),
+        (180, 4),
+        (210, 4),
+    ],
 )
-def test_mvpa_to_pa_score_boundaries(weekly_mvpa: float, expected: int) -> None:
-    assert _mvpa_to_pa_score(weekly_mvpa) == expected
+def test_weekly_mvpa_to_srpa_boundaries(weekly_equiv: float, expected: int) -> None:
+    assert _weekly_mvpa_to_srpa(weekly_equiv) == expected
+
+
+def test_weekly_mvpa_equivalent_doubles_vigorous() -> None:
+    # WHO rule: 10 moderate + 10 vigorous -> 10 + 2*10 = 30 equivalent min (not 20),
+    # which lands in SRPA band 2 (20-59). [[cadence_intensity]]
+    moderate, vigorous = 10, 10
+    weekly_equiv = moderate + 2 * vigorous
+    assert weekly_equiv == 30
+    assert _weekly_mvpa_to_srpa(weekly_equiv) == 2
 
 
 # ── SRTM tile naming ─────────────────────────────────────────────────────────

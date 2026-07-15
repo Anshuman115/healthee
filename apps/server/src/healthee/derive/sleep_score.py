@@ -31,6 +31,18 @@ SLEEP_RECOVERY_CREDIT = 0.5  # surplus sleep repays debt at half value (partial 
 _AWAKE_STAGE = 7  # stage type code for "awake" in the hypnogram triples
 
 
+def _sleep_efficiency(tst_min: int, wake_min: int) -> float:
+    """Sleep efficiency from the sleep timeline: asleep / (asleep + awake-in-bed).
+
+    Bounded to [0, 1] by construction (belt-and-suspenders clamp), so
+    ``efficiency_pct`` can never exceed 100. Legacy divided TST by wall-clock TIB,
+    which could report an impossible >100% when the staged asleep+wake minutes
+    overshot the session span. [[no_validated_sleep_score]].
+    """
+    total = tst_min + wake_min
+    return min(1.0, tst_min / total) if total > 0 else 0.0
+
+
 def _compute_sri(cur: Cur, night_date: date) -> float | None:
     """Sleep Regularity Index over the 7-day window ending on `night_date`.
 
@@ -83,7 +95,7 @@ def derive_sleep_score(
     rem: int,
     light: int,
     deep: int,
-    wake: int,  # noqa: ARG001 — kept for signature parity with the legacy caller
+    wake: int,
     night_date: date,
 ) -> dict:
     """4-dimension sleep-health score (duration, efficiency, timing, regularity).
@@ -94,9 +106,9 @@ def derive_sleep_score(
     a single validated score [[no_validated_sleep_score]].
     """
     tst = light + deep + rem
-    tib = max(1, int((end_ts - start_ts).total_seconds() / 60))
+    tib = max(1, int((end_ts - start_ts).total_seconds() / 60))  # raw wall-clock span
     p_dur = 1 if SLEEP_DURATION_MIN_H <= tst / 60.0 <= SLEEP_DURATION_MAX_H else 0
-    eff = tst / tib if tib else 0.0
+    eff = _sleep_efficiency(tst, wake)  # <= 1 by construction (never >100%)
     p_eff = 1 if (tst > 0 and eff >= SLEEP_EFFICIENCY_MIN) else 0
     mid = (start_ts + (end_ts - start_ts) / 2).astimezone(USER_TZ)
     p_tim = 1 if SLEEP_TIMING_RANGE[0] <= mid.hour < SLEEP_TIMING_RANGE[1] else 0
