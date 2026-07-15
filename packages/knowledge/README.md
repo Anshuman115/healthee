@@ -28,7 +28,7 @@ layer; Healthee's equivalents live in `apps/server/src/healthee/derive`.
 
 The 55 notes carried over from the legacy repo (activity, sleep, hrv, metrics,
 recovery, intake, meditation, recs, protocol). Written to the older convention
-(numeric grades: 2 → Established, 3 → Probable; no Honesty/Directives sections
+(numeric grades: 3 (★★★) → Established, 2 (★★) → Probable, 1 → Emerging; no Honesty/Directives sections
 yet). Phase 5 migrates these to the template above — until then they remain
 citable as-is.
 

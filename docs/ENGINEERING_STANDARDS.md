@@ -221,7 +221,7 @@ test/          parser goldens + analytics parity + widget smoke tests
 - **Per-claim evidence grades** with calibrated language: Established (state
   plainly) · Probable (light hedge) · Emerging (flag uncertainty) · Contested
   (present as debated) · Myth/Refuted (correct gently). Legacy numeric grades
-  map: 2 → Established, 3 → Probable.
+  map: 3 (★★★) → Established, 2 (★★) → Probable, 1 → Emerging.
 - **Citations are real or absent** — a claim that can't be sourced is labelled
   practitioner consensus or omitted. Verify primary sources BEFORE writing.
 - **Honesty section is mandatory** in every note: confounders, individual
