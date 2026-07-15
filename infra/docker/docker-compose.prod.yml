@@ -77,30 +77,32 @@ services:
     networks:
       - healthee-net
 
-  # ── scheduler — arrives in Phase 1 ─────────────────────────────────────
-  # Supervised job runner (daily-sync + weekly recompute). Same image as api,
-  # CMD overridden to `python -m healthee.jobs.scheduler`. Uncomment once the
-  # jobs module lands (docs/ARCHITECTURE.md, Phase 1).
-  #
-  # scheduler:
-  #   image: healthee-api:latest
-  #   container_name: healthee-scheduler
-  #   restart: unless-stopped
-  #   depends_on:
-  #     api:
-  #       condition: service_healthy
-  #   command: ["python", "-m", "healthee.jobs.scheduler"]
-  #   environment:
-  #     POSTGRES_HOST: db
-  #     POSTGRES_PORT: 5432
-  #     POSTGRES_DB: ${POSTGRES_DB}
-  #     POSTGRES_USER: ${POSTGRES_USER}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  #     OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-  #     TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-  #     TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-  #   networks:
-  #     - healthee-net
+  # ── scheduler (WP8) ────────────────────────────────────────────────────
+  # Supervised in-process job runner: the self-rescheduling loop that fires the
+  # correlate → recs → briefing chain steps on their daily IST timers. Same image
+  # as the api, CMD overridden to the module entrypoint (NO subprocess/shell — the
+  # steps are in-process supervised functions; standards §2, docs/ARCHITECTURE WP8).
+  scheduler:
+    image: healthee-api:latest
+    container_name: healthee-scheduler
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["python", "-m", "healthee.jobs.scheduler"]
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Grounded recs + briefing go through the LLM choke point; Telegram carries
+      # the morning briefing and every supervised step failure. Blank ⇒ no-op.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    networks:
+      - healthee-net
 
 volumes:
   healthee-pgdata:
