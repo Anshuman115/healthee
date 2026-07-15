@@ -7,13 +7,14 @@ call" without any network.
 
 from __future__ import annotations
 
+from tests.insights._ids import ESTABLISHED_ID
+
 from healthee.insights.client import ChatResponse
 
 # A response that passes the blocking validator: one descriptive sentence + one
 # interpretive sentence citing a real Established note (plain wording is fine).
 VALID_TEXT = (
-    "Your recent numbers look steady. Consistent activity may support fitness "
-    "[hrv_recovery_marker]."
+    f"Your recent numbers look steady. Consistent activity may support fitness [{ESTABLISHED_ID}]."
 )
 
 

@@ -8,6 +8,7 @@ FALLBACK — never the unvalidated model text (legacy shipped it anyway, §5.2).
 from __future__ import annotations
 
 import pytest
+from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import VALID_TEXT, StubLLM
 
 from healthee.insights import grounded, prompts
@@ -36,7 +37,7 @@ def test_retry_succeeds_after_a_nudge() -> None:
     result = grounded.grounded_ask("how am I doing?", client=stub)
     assert result.text == VALID_TEXT
     assert result.validated is True
-    assert "hrv_recovery_marker" in result.citations
+    assert ESTABLISHED_ID in result.citations
     assert stub.calls == 2
 
 

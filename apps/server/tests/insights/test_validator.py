@@ -8,12 +8,14 @@ distinct from population note ids.
 
 from __future__ import annotations
 
+from tests.insights._ids import CONTESTED_ID, ESTABLISHED_ID, PROBABLE_ID
+
 from healthee.insights.validator import extract_citations, validate
 
-# Real manifest ids at known grades (confirmed in the generated manifest):
-_ESTABLISHED = "hrv_recovery_marker"
-_PROBABLE = "cardio_load_trimp"
-_CONTESTED = "training_load_acwr"
+# Real manifest ids at known grades, resolved live (robust to reconciliation):
+_ESTABLISHED = ESTABLISHED_ID
+_PROBABLE = PROBABLE_ID
+_CONTESTED = CONTESTED_ID
 
 
 def test_fabricated_citation_is_blocked() -> None:
