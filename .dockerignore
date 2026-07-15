@@ -1,0 +1,36 @@
+# Keep the build context small — only apps/server/{pyproject.toml,uv.lock,src}
+# are needed by infra/docker/Dockerfile.server. Everything else is excluded.
+
+# VCS + CI
+.git/
+.github/
+.githooks/
+
+# Python envs / caches / build output
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/htmlcov/
+**/.coverage
+
+# Server tests aren't needed in the runtime image.
+apps/server/tests/
+
+# The mobile app + knowledge corpus + docs are not part of the server image.
+apps/mobile/
+packages/
+docs/
+research/
+
+# Local env, scratch, images, editor
+**/.env
+**/.env.*
+!**/.env.example
+*.png
+*.apk
+scratch/
+.idea/
+.vscode/

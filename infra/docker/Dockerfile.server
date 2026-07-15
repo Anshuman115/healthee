@@ -3,7 +3,13 @@
 #
 # Build context is the REPO ROOT (see docker-compose.prod.yml `context: ../..`)
 # so the deps layer can copy apps/server/{pyproject.toml,uv.lock}.
-FROM ghcr.io/astral-sh/uv:0.11-python3.13-bookworm-slim
+#
+# Tag pins Python 3.13 (the runtime-reproducibility axis) and tracks the latest
+# uv, which is backward-compatible with the lockfile it reads. To pin uv too,
+# switch to a published version tag once one matching the lock's revision exists
+# (e.g. ghcr.io/astral-sh/uv:0.11.x-python3.13-bookworm-slim). BuildKit required
+# (the cache mounts below) — enabled by default on modern Docker.
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
