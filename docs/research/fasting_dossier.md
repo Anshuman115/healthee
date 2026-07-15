@@ -1,12 +1,13 @@
 # Fasting × tracked-metrics — research dossier (WIP, verified evidence)
 
-**Status:** raw verified evidence from the deep-research run of 2026-07-15. The
-run reached the synthesis step but the session limit cut it before the final
-merged note. **This dossier is the saved evidence, NOT the finished knowledge
-note.** Next step (after session reset): author the unified-template note
-`packages/knowledge/notes/intake/fasting.md` from this, verifying each citation
-against its primary source (feedback: verify-primary-sources) and re-running the
-5 unverified claims below.
+**Status:** evidence dossier for the FINAL note at
+`packages/knowledge/notes/intake/fasting.md` (written 2026-07-15). The note is
+complete: HRV/RHR + body-composition/metabolic sections use the 3-vote-verified
+claims below; sleep (Bohlman 2024 Front Nutr), performance (Abaïdia 2020 Sports
+Med, PMID 31960369), and safety (Blumberg 2023 Clin Diabetes Endocrinol) were
+each verified directly against their primary source before writing; temperature
+and respiratory rate are honestly marked thin/absent. This dossier remains the
+audit trail. Any future addition still follows verify-primary-sources.
 
 Method: 5 search angles → 24 sources → 108 extracted claims → 25 adversarially
 verified (3-vote). Result: **19 confirmed, 1 refuted, 5 unverified (errored on
