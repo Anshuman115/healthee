@@ -456,9 +456,18 @@
         "parasympathetic activity",
         "autonomic balance",
         "morning HRV",
-        "readiness"
+        "cardiac vagal tone",
+        "hrv_improvement",
+        "hrv_recovery_marker",
+        "hrv_rmssd_ms",
+        "hrv_sleep_avg_ms"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "exercise",
+        "meditation",
+        "alcohol",
+        "caffeine"
+      ],
       "applies_to_metrics": [
         "hrv_sleep_avg"
       ],
@@ -466,10 +475,11 @@
       "collection": "sports_science",
       "grade": "Probable",
       "id": "heart_rate_variability",
-      "last_reviewed": "2026-06-29",
+      "last_reviewed": "2026-07-15",
       "name": "Heart-Rate Variability (HRV)",
       "path": "sports-science/metrics/heart-rate-variability.md",
-      "summary": "Beat-to-beat vagal-tone signal (lnRMSSD vs personal baseline); a noisy daily autoregulation tool, never an overreaching detector on its own."
+      "population": "general",
+      "summary": "Beat-to-beat vagal-tone signal (overnight RMSSD vs personal baseline); a noisy daily autoregulation tool, never an overreaching detector on its own — raised chronically by aerobic exercise, sleep and slow breathing, suppressed acutely by alcohol and short sleep."
     },
     {
       "aliases": [
@@ -501,60 +511,6 @@
       "path": "sports-science/metrics/heart-rate-zones.md",
       "population": "runners",
       "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy."
-    },
-    {
-      "aliases": [
-        "hrv",
-        "recovery",
-        "autonomic",
-        "vagal_tone",
-        "exercise",
-        "breathing",
-        "sleep",
-        "alcohol"
-      ],
-      "applies_to_interventions": [
-        "exercise",
-        "meditation",
-        "alcohol",
-        "caffeine",
-        "fasting"
-      ],
-      "applies_to_metrics": [
-        "hrv_rmssd_ms",
-        "hrv_sleep_avg_ms"
-      ],
-      "category": "hrv",
-      "collection": "legacy",
-      "grade": "Established",
-      "id": "hrv_improvement",
-      "last_reviewed": "2026-06-09",
-      "name": "Evidence-based interventions that raise nightly HRV (RMSSD) and the acute behaviours that suppress it",
-      "path": "notes/hrv/hrv_improvement.md",
-      "summary": "Evidence-based interventions that raise nightly HRV (RMSSD) and the acute behaviours that suppress it"
-    },
-    {
-      "aliases": [
-        "hrv",
-        "recovery",
-        "autonomic",
-        "vagal_tone"
-      ],
-      "applies_to_interventions": [
-        "exercise",
-        "meditation"
-      ],
-      "applies_to_metrics": [
-        "hrv_rmssd_ms"
-      ],
-      "category": "hrv",
-      "collection": "legacy",
-      "grade": "Established",
-      "id": "hrv_recovery_marker",
-      "last_reviewed": "2026-05-11",
-      "name": "Nightly HRV (RMSSD) is a valid marker of autonomic recovery and acute stressor response",
-      "path": "notes/hrv/hrv_recovery_marker.md",
-      "summary": "Nightly HRV (RMSSD) is a valid marker of autonomic recovery and acute stressor response"
     },
     {
       "aliases": [
@@ -1091,35 +1047,6 @@
     },
     {
       "aliases": [
-        "readiness",
-        "readiness score",
-        "daily readiness",
-        "training readiness",
-        "recovery score",
-        "recovery status",
-        "body battery",
-        "go no-go",
-        "green light",
-        "autoregulation",
-        "morning check-in",
-        "wellness check",
-        "am I ready to train"
-      ],
-      "applies_to_interventions": [],
-      "applies_to_metrics": [
-        "recovery_score"
-      ],
-      "category": "metrics",
-      "collection": "sports_science",
-      "grade": "Probable",
-      "id": "readiness",
-      "last_reviewed": "2026-06-29",
-      "name": "Readiness (Composite)",
-      "path": "sports-science/metrics/readiness.md",
-      "summary": "A triangulated read of HRV + sleep + RHR + load + subjective wellness; no single input is decisive — a prompt to ask a question, never a verdict."
-    },
-    {
-      "aliases": [
         "implementation",
         "recs",
         "llm",
@@ -1137,22 +1064,35 @@
       "summary": "Implementation plan — daily AI recommendations engine that synthesizes findings into 1–3 action items"
     },
     {
-      "aliases": [],
+      "aliases": [
+        "readiness",
+        "readiness score",
+        "daily readiness",
+        "training readiness",
+        "recovery score",
+        "recovery status",
+        "body battery",
+        "go no-go",
+        "green light",
+        "autoregulation",
+        "morning check-in",
+        "wellness check",
+        "am I ready to train",
+        "recovery",
+        "recovery_readiness"
+      ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "recovery_score",
-        "hrv_sleep_avg",
-        "rhr_daily",
-        "respiratory_rate_sleep",
-        "tst_min",
-        "cardio_load"
+        "recovery_score"
       ],
       "category": "recovery",
       "collection": "legacy",
       "grade": "Probable",
       "id": "recovery_readiness",
+      "last_reviewed": "2026-07-15",
       "name": "Daily recovery / readiness from wearable autonomic + sleep markers",
       "path": "notes/recovery/recovery_readiness.md",
+      "population": "general",
       "summary": "Daily recovery / readiness from wearable autonomic + sleep markers"
     },
     {
