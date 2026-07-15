@@ -227,22 +227,36 @@ def _seed_derived_day(cur, day: date, today: date) -> None:
 
 
 def _seed_manual(cur) -> None:
+    # "Today's" logs are anchored to the user-local day, not a UTC `now() - Nh`
+    # offset — the latter can cross local midnight and land on yesterday's local
+    # date, silently dropping the caffeine/meditation/fasting keys from
+    # logs_summary (a snapshot flake for any run in the post-midnight window).
+    caffeine_ts = _recent_today(hours=3)
+    med_ts = _recent_today(hours=2)
+    fast_ts = _recent_today(hours=5)
     cur.execute(
-        "INSERT INTO manual_entry (kind, ts, amount, unit) "
-        "VALUES ('caffeine', now() - interval '3 hours', 80, 'mg')"
+        "INSERT INTO manual_entry (kind, ts, amount, unit) VALUES ('caffeine', %s, 80, 'mg')",
+        (caffeine_ts,),
     )
     cur.execute(
         "INSERT INTO manual_entry (kind, ts, end_ts, name, amount, unit) "
-        "VALUES ('meditation', now() - interval '2 hours', now() - interval '110 minutes', "
-        "'mindfulness', 10, 'min')"
+        "VALUES ('meditation', %s, %s, 'mindfulness', 10, 'min')",
+        (med_ts, med_ts + timedelta(minutes=10)),
     )
     cur.execute(
         "INSERT INTO manual_entry (kind, ts, name, amount, unit) "
         "VALUES ('exercise', now() - interval '1 day', 'strength', 45, 'min')"
     )
-    cur.execute(
-        "INSERT INTO manual_entry (kind, ts) VALUES ('fasting', now() - interval '5 hours')"
-    )
+    cur.execute("INSERT INTO manual_entry (kind, ts) VALUES ('fasting', %s)", (fast_ts,))
+
+
+def _recent_today(hours: float) -> datetime:
+    """A tz-aware instant ~``hours`` before now, clamped to stay on today's user-local
+    date, so ``(ts AT TIME ZONE USER_TZ)::date == user_today()`` no matter when the
+    test runs (including just after local midnight)."""
+    now_local = datetime.now(tz=USER_TZ)
+    floor = datetime.combine(now_local.date(), time(0, 1), tzinfo=USER_TZ)
+    return max(now_local - timedelta(hours=hours), floor)
 
 
 def _seed_illness(cur, today: date) -> None:
