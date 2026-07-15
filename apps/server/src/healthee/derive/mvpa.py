@@ -19,23 +19,24 @@ _VIGOROUS_SPM = 130
 _VIGOROUS_PRIOR_SPM = 110
 
 
-def _mvpa_to_pa_score(weekly_mvpa_min: float) -> int:
-    """Weekly MVPA minutes -> Jurca 0-7 activity score [[non_exercise_vo2max]]."""
-    if weekly_mvpa_min <= 0:
+def _weekly_mvpa_to_srpa(weekly_mvpa_equiv_min: float) -> int:
+    """Weekly MVPA-EQUIVALENT minutes -> Jurca SRPA category (0-4).
+
+    Input is the WHO-weighted weekly total (moderate + 2*vigorous — 1 vigorous
+    minute counts as 2 moderate; computed by the caller from the daily flags
+    [[cadence_intensity]]). Bands map to Jurca's five self-reported physical-
+    activity levels [[non_exercise_vo2max]]:
+        0: <10   1: 10-19   2: 20-59   3: 60-179   4: >=180  (min/week)
+    """
+    if weekly_mvpa_equiv_min < 10:
         return 0
-    if weekly_mvpa_min < 60:
+    if weekly_mvpa_equiv_min < 20:
         return 1
-    if weekly_mvpa_min < 120:
+    if weekly_mvpa_equiv_min < 60:
         return 2
-    if weekly_mvpa_min < 180:
+    if weekly_mvpa_equiv_min < 180:
         return 3
-    if weekly_mvpa_min < 300:
-        return 4
-    if weekly_mvpa_min < 450:
-        return 5
-    if weekly_mvpa_min < 600:
-        return 6
-    return 7
+    return 4
 
 
 def derive_mvpa(cur: Cur, day: date) -> dict | None:

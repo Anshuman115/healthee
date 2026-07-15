@@ -16,7 +16,7 @@ a treadmill / CPET. The most-cited and best-replicated is **Jurca et al.
 2005** (n=2,801 healthy adults in the Aerobics Center Longitudinal
 Study, ACLS, validated against measured VO2max). Inputs: age, sex,
 BMI **or** waist circumference, resting heart rate, and a self-reported
-physical activity score (0–7). Cross-validation r ≈ 0.78.
+physical-activity (SRPA) category. Cross-validation r ≈ 0.78.
 
 The **HUNT3 model** (Nes 2011, Norway, n=4,637) updated the approach
 with the same input shape but a population-calibrated equation. Both
@@ -37,40 +37,45 @@ extending it to non-exercise estimates carries error.
   ml/kg/min. So non-exercise estimates are noisier than submaximal
   but adequate for **tracking change within a person over time**.
 
-## The Jurca 2005 equation (BMI-based, sex-stratified)
+## The Jurca 2005 equation (BMI-based, single model)
+
+Jurca's model predicts **cardiorespiratory fitness in METs** from a single
+equation in which sex is a *term* (not two sex-stratified equations). Convert
+to VO2max with the standard 1 MET = 3.5 ml O₂ / kg / min:
 
 ```
-VO2max_men   = 56.363
-              + 1.921 × PA_score
-              - 0.381 × age
-              - 0.754 × BMI
-              + 0.394 × WAIST_INCHES   # alternative if available
-              - 0.084 × RHR
-VO2max_women = 50.513
-              + 1.589 × PA_score
-              - 0.289 × age
-              - 0.552 × BMI
-              - 0.085 × RHR
+CRF_METs = 18.07
+          + 2.77  × sex          # sex = 1 if male, 0 if female
+          - 0.10  × age          # years
+          - 0.17  × BMI          # kg/m²  (waist-girth variant exists too)
+          - 0.03  × RHR          # resting HR, bpm
+          +         SRPA          # self-reported PA category, 0–4
+
+VO2max_ml_kg_min = CRF_METs × 3.5     # floored at 20 in code
 ```
 
-Where `PA_score` is a 0–7 self-rated activity scale:
-- 0: completely inactive
-- 1–3: light activity (walking, gardening) hours/week graded
-- 4–5: moderate weekly exercise 1–3 h
-- 6–7: heavy / vigorous weekly exercise 3+ h
+`SRPA` is Jurca's five-level self-reported physical-activity category (0–4):
+- 0: inactive (essentially no regular activity)
+- 1: very light activity
+- 2: light-to-moderate activity
+- 3: moderate weekly exercise (~1–3 h)
+- 4: vigorous / high-volume weekly exercise (≥3 h)
 
-In practice, this project can derive PA_score from observed data:
-- map weekly MVPA minutes (see [[mvpa_minutes_mortality]] +
-  [[cadence_intensity]]) → 0–7 score using the ACLS recoding:
-  - 0 min/week → 0
-  - 1–60 → 1
-  - 61–120 → 2
-  - 121–180 → 3
-  - 181–300 → 4
-  - 301–450 → 5
-  - 451–600 → 6
-  - >600 → 7
-- this is a heuristic mapping; the model is robust to ±1 score noise.
+In practice this project derives SRPA from observed data by mapping the
+**weekly MVPA-equivalent** minutes to a 0–4 category. Weekly MVPA-equivalent
+applies the WHO rule that one vigorous minute counts as two moderate
+(`moderate + 2 × vigorous`; see [[cadence_intensity]] +
+[[mvpa_minutes_mortality]]):
+  - < 10 min/week → 0
+  - 10–19 → 1
+  - 20–59 → 2
+  - 60–179 (1–3 h) → 3
+  - ≥ 180 (>3 h) → 4
+- this is a heuristic mapping; the model is robust to ±1 category noise.
+
+A worked check: a median 40-year-old male, BMI 24, RHR 55, SRPA 0 →
+CRF = 18.07 + 2.77 − 4.0 − 4.08 − 1.65 = 11.11 METs → **≈ 38.9 ml/kg/min**,
+consistent with population medians for that age and sex.
 
 ## Evidence strength
 
@@ -96,15 +101,16 @@ In practice, this project can derive PA_score from observed data:
   comparisons or absolute-number interpretations are weaker.
 - **Out-of-range inputs**: model was validated for ages 20–70, BMI
   16–45, RHR 40–100. Outside that, errors grow.
-- **PA_score derivation**: mapping observed MVPA to a 0–7 score adds
-  another small error layer. The model is robust but not immune.
+- **SRPA derivation**: mapping observed weekly MVPA-equivalent minutes to a
+  0–4 category adds another small error layer. The model is robust but not
+  immune.
 - **Beta-blockers, atropine, conditioning extremes** can decouple RHR
   from VO2max; flag if known.
 
 ## Operational use
 
 - Compute nightly (after midnight) using the previous 7-day MVPA-
-  derived PA_score, today's RHR, and `profile.py` age/sex/BMI.
+  derived SRPA category, today's RHR, and `profile.py` age/sex/BMI.
 - Write to `metric_sample` with `metric = vo2max_estimate`,
   `source = 'derived'`, anchored at 23:59 IST.
 - On the dashboard show:

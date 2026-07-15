@@ -1,8 +1,10 @@
 """Non-exercise VO2max estimate (Jurca 2005) for one local day.
 
-Profile (age, sex, BMI) + a 7-day median resting HR + a 7-day MVPA->activity
-score feed the Jurca regression; the result also anchors the energy model. Ported
-verbatim from legacy v2. Knowledge: ``non_exercise_vo2max`` (Jurca 2005 + HUNT3),
+Profile (age, sex, BMI) + a 7-day median resting HR + a 7-day self-reported
+physical-activity category (SRPA 0-4, mapped from weekly MVPA-equivalent minutes)
+feed the Jurca regression; the result also anchors the energy model. Knowledge:
+``non_exercise_vo2max`` (Jurca 2005: CRF in METs, x3.5 -> ml/kg/min),
+``cadence_intensity`` (weekly MVPA-equivalent = moderate + 2*vigorous),
 ``vo2max_fitness_mortality``.
 """
 
@@ -11,23 +13,27 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from healthee.derive._common import Cur, _age, _load_profile, _scalar, _upsert_daily
-from healthee.derive.mvpa import _mvpa_to_pa_score
+from healthee.derive.mvpa import _weekly_mvpa_to_srpa
 
 _VO2MAX_FLOOR = 20.0  # floor keeps EE sane on sparse data
 _JURCA_SEE_ML_KG_MIN = 5.6  # standard error of estimate (reported in flags)
+_METS_TO_ML_KG_MIN = 3.5  # 1 MET = 3.5 ml O2 / kg / min
 
 
-def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, pa_score: int = 3) -> float:
-    """Jurca 2005 non-exercise VO2max (ml/kg/min), floored at 20.
+def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, srpa: int = 0) -> float:
+    """Jurca 2005 non-exercise cardiorespiratory fitness -> VO2max (ml/kg/min).
 
-    `pa_score` is the 0-7 physical-activity score (defaults to 3 until the MVPA
-    chain feeds it). [[non_exercise_vo2max]].
+    ONE equation for both sexes — sex is a term, not a sex-stratified model:
+        CRF_METs = 18.07 + 2.77*sex - 0.10*age - 0.17*bmi - 0.03*rhr + srpa
+    with sex = 1 (male) / 0 (female) and `srpa` the 0-4 self-reported physical-
+    activity category. VO2max = CRF_METs * 3.5, floored at 20.
+
+    Jurca et al. 2005, Am J Prev Med 29(3):185-193; CRF in METs, x3.5 ->
+    ml/kg/min. [[non_exercise_vo2max]].
     """
-    if sex == "male":
-        v = 56.363 + 1.921 * pa_score - 0.381 * age - 0.754 * bmi - 0.084 * rhr
-    else:
-        v = 50.513 + 1.589 * pa_score - 0.289 * age - 0.552 * bmi - 0.085 * rhr
-    return max(v, _VO2MAX_FLOOR)
+    sex_term = 1.0 if sex == "male" else 0.0
+    crf_mets = 18.07 + 2.77 * sex_term - 0.10 * age - 0.17 * bmi - 0.03 * rhr + srpa
+    return max(crf_mets * _METS_TO_ML_KG_MIN, _VO2MAX_FLOOR)
 
 
 def derive_vo2max(cur: Cur, day: date) -> dict | None:
@@ -52,13 +58,17 @@ def derive_vo2max(cur: Cur, day: date) -> dict | None:
     rhr_med = rhrs[n // 2] if n % 2 else 0.5 * (rhrs[n // 2 - 1] + rhrs[n // 2])
     if not (40 <= rhr_med <= 100):
         return None
+    # Weekly MVPA-EQUIVALENT applies the WHO rule (1 vigorous min = 2 moderate),
+    # so we sum moderate + 2*vigorous from the daily mvpa_min flags — the stored
+    # mvpa_min value itself stays raw (moderate + vigorous). [[cadence_intensity]]
     cur.execute(
-        "SELECT COALESCE(SUM(value),0) FROM derived_daily WHERE metric='mvpa_min' "
-        "AND day<=%s AND day>%s",
+        "SELECT COALESCE("
+        "SUM((flags->>'moderate')::float + 2 * (flags->>'vigorous')::float), 0) "
+        "FROM derived_daily WHERE metric='mvpa_min' AND day<=%s AND day>%s",
         (day, day - timedelta(days=7)),
     )
-    pa = _mvpa_to_pa_score(_scalar(cur))
-    vo2 = _vo2max_jurca(age, prof["sex"], bmi, rhr_med, pa)
+    srpa = _weekly_mvpa_to_srpa(_scalar(cur))
+    vo2 = _vo2max_jurca(age, prof["sex"], bmi, rhr_med, srpa)
     _upsert_daily(
         cur,
         day,
@@ -66,7 +76,7 @@ def derive_vo2max(cur: Cur, day: date) -> dict | None:
         vo2,
         {
             "rhr_med": round(rhr_med, 1),
-            "pa_score": pa,
+            "srpa": srpa,
             "bmi": round(bmi, 1),
             "age_years": age,
             "sex": prof["sex"],
