@@ -3,6 +3,7 @@ id: fitness_fatigue_form
 name: "Fitness / Fatigue / Form (CTL, ATL, TSB)"
 category: metrics
 grade: Probable
+evidence_grade: 2
 summary: "Impulse-response bookkeeping: CTL≈fitness, ATL≈fatigue, TSB≈form; useful for trends and tapering, but coarse and never overrides subjective/HRV signals."
 population: runners
 aliases: ["fitness-fatigue-form", "ctl", "atl", "tsb", "training stress balance", "chronic training load", "acute training load", "fitness fatigue form", "banister model", "impulse response model", "performance management chart", "pmc", "form", "freshness", "training load model"]
@@ -10,7 +11,6 @@ applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["acute-chronic-workload-ratio", "training-stress-score", "tapering", "periodisation", "recovery", "hrv"]
-daud_metrics: ["computeCTL", "computeATL", "computeTSB", "trainingLoad"]
 units: "TSS/day (AU) for CTL/ATL; TSS (AU) for TSB; days for time constants"
 ---
 # Fitness / Fatigue / Form (CTL, ATL, TSB)
@@ -410,3 +410,26 @@ result history.
   https://www.trainingpeaks.com/learn/articles/the-science-of-the-performance-manager/
 - Friel, J. *Applying the numbers, part 3: Training Stress Balance.* TrainingPeaks.
   https://www.trainingpeaks.com/learn/articles/applying-the-numbers-part-3-training-stress-balance/
+
+## Healthee implementation & honesty policy
+- **Not currently computed.** Healthee runs no Banister impulse-response model: no
+  CTL, ATL or TSB field, and no `computeCTL`/`computeATL`/`computeTSB` in `derive/`.
+  It does derive a per-day **cardio-load** (`derive/cardio_load.py`), but does not
+  run the exponentially-weighted moving averages that turn a load stream into
+  fitness/fatigue/form. This note is **reference science + a future-metric
+  candidate** (`applies_to_metrics: []`; `daud_metrics` provenance dropped — those
+  helpers are legacy `@daud/core`).
+- **Future-metric candidate (feasible once one load currency is settled).**
+  CTL/ATL/TSB are just EWMAs (≈42-day and ≈7-day time constants) over a daily
+  training-load series — computable directly from Healthee's existing daily
+  cardio-load once the corpus settles a **single load currency** (the
+  legacy-TRIMP-vs-TSS `load_currency` reconciliation); without one canonical
+  currency, an impulse-response chart would silently mix units.
+- **Population: runners** (endurance-load bookkeeping); loosely generalises to
+  other trained aerobic activity but is calibrated on endurance training.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - This is **coarse bookkeeping**, not physiology — the time constants are
+    conventions, and CTL/ATL/TSB **must never override** subjective wellness, HRV,
+    sleep or the recovery signals Healthee already derives.
+  - **TSB (form) is not readiness** — a "fresh" TSB does not clear a fatigued or
+    ill athlete; present it as a trend/taper aid, not a green light.

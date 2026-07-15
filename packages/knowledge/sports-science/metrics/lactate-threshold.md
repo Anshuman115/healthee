@@ -3,6 +3,7 @@ id: lactate_threshold
 name: "Lactate Threshold (LT1, LT2, LTHR)"
 category: metrics
 grade: Established
+evidence_grade: 3
 summary: "The intensity where lactate accumulates; LT2/MLSS is the single best — and most trainable — endurance predictor, the central dial the coach turns."
 population: runners
 aliases: ["lactate-threshold", "lactate threshold", "LT1", "LT2", "LTHR", "aerobic threshold", "anaerobic threshold", "MLSS", "maximal lactate steady state", "critical speed", "OBLA", "threshold pace", "threshold heart rate"]
@@ -10,7 +11,6 @@ applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["vo2max", "heart-rate-zones", "critical-speed", "running-economy", "training-intensity-distribution"]
-daud_metrics: ["lactateThresholdHr", "lactateThresholdPace", "criticalSpeed"]
 units: "bpm, sec/km, %HRmax, mmol/L"
 ---
 # Lactate Threshold (LT1, LT2, LTHR)
@@ -372,3 +372,25 @@ tracking**. Core logic:
   of smartwatch-derived estimates of lactate threshold heart rate and pace compared
   to graded exercise testing.* Frontiers in Physiology, 16, 1621996.
   https://doi.org/10.3389/fphys.2025.1621996
+
+## Healthee implementation & honesty policy
+- **Not currently computed.** Healthee measures no blood lactate, runs no threshold
+  test protocol, and derives no LTHR / LT-pace field (no `lactateThresholdHr`/
+  `lactateThresholdPace` in `derive/`). This note is **reference science + a
+  future-metric candidate** (`applies_to_metrics: []`; `daud_metrics` provenance
+  dropped — those helpers are legacy `@daud/core`).
+- **Future-metric candidate (feasible from existing data).** LT-pace / LTHR can be
+  *estimated* (not lab-measured) from a sustained GPS threshold effort or from an
+  HR-vs-pace deflection — and Healthee already regresses VO₂ against HR over
+  steady GPS segments in `derive/vo2max_submax.py`, so the machinery for a
+  HR-vs-pace threshold estimate is partly in place. It would also anchor
+  `pace-zones`. Estimate, never a measured MLSS.
+- **Population: runners** (endurance threshold); the concept is running/endurance
+  specific.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - The **many "threshold" definitions disagree** (LT1, LT2/MLSS, OBLA,
+    ventilatory) — target LT2/MLSS/~1-hour pace and present it as a **band**, not
+    an exact number; a field/wearable estimate is not a lab MLSS.
+  - LT2 is the **single best and most trainable endurance predictor** — state that
+    plainly (Established) while being honest that Healthee is not yet the thing
+    measuring it.
