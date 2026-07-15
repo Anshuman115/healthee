@@ -3,13 +3,14 @@ id: progressive_overload
 name: "Progressive Overload & Adaptation"
 category: principles
 grade: Probable
+evidence_grade: 2
 summary: "Stress → recovery → adaptation; cap single-run distance spikes tightly, deload periodically — but the \"10% per week\" rule is a soft heuristic, not a law."
 aliases: ["progressive-overload", "progressive overload", "overload", "load progression", "training progression", "ramp rate", "10% rule", "ten percent rule", "supercompensation", "super-compensation", "adaptation", "deload", "deload week", "down week", "recovery week", "cutback week", "overreaching", "functional overreaching", "non-functional overreaching", "overtraining", "overtraining syndrome", "OTS", "too much too soon"]
 applies_to_metrics: []
 applies_to_interventions: []
+population: runners
 last_reviewed: 2026-06-29
 related: ["periodization", "training-load", "recovery", "acwr", "individualization", "polarized-training"]
-daud_metrics: ["ctl", "atl", "tsb", "acwr", "weekly-volume"]
 units: "\"%, weeks, AU\""
 ---
 # Progressive Overload & Adaptation
@@ -442,3 +443,27 @@ Implementation notes:
   reloaded the gun": coaches' perceptions, practices and experiences of deloading
   in strength and physique sports.* Frontiers in Sports and Active Living, 4,
   1073223. https://doi.org/10.3389/fspor.2022.1073223
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** This is a
+  *planning + monitoring* principle, not a computed metric. It informs the
+  challenges/programs builder (ramp cadence, deload scheduling, one-variable-at-a-time
+  progression) and the coach's load-safety reasoning. The body's `@daud/core` quantities
+  (`ctl` / `atl` / `tsb` / `acwr` / weekly-volume, and the single-run distance-spike check)
+  name the load-model inputs a future progression engine would consume; none is a Healthee
+  `derived_daily` field today.
+- **Best-evidenced guardrail to mirror in code:** the **single-run distance spike** check —
+  `runDistance / max(longest run, prior 30 days)`, flag >1.10, warn >1.30, near-hard-stop
+  >2.0 [Frandsen 2025] — is the running-specific load guardrail (D2) and belongs in code as a
+  hard guardrail, not LLM-overridable. The deload cadence and the ~5–10%/week weekly ramp are
+  **soft defaults**, not safety laws.
+- **Honesty rules (carry into UI + LLM):**
+  - **Never present the "10% per week" rule as proven injury prevention** — it failed its RCT
+    and was rejected by systematic review (D3); it is a conservative default only.
+  - Show **ACWR as a soft monitoring flag, never a gate** (D9) — it is contested and did not
+    predict running injury in the largest cohort.
+  - On a multi-week pattern of unexplained decline + fatigue/mood/sleep/RHR disturbance,
+    **surface a back-off, not a push** — NFOR vs OTS is only knowable in hindsight (D8);
+    functional-overreaching blocks are experienced-athlete-only.
+  - Treat every ramp/threshold number as a **prior to overwrite from the runner's own injury
+    history and measured response** (see `individualization`).

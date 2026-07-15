@@ -3,13 +3,14 @@ id: individualization
 name: "Individualization — Training the Runner, Not the Population"
 category: principles
 grade: Established
+evidence_grade: 3
 summary: "Two runners on the same plan adapt very differently; treat every population default as a starting estimate and re-anchor to the runner's own measured response."
 aliases: ["individualization", "individual variability", "trainability", "responders", "non-responders", "HERITAGE", "individualized training", "personalization", "n-of-1", "individual response", "HRV-guided training"]
 applies_to_metrics: []
 applies_to_interventions: []
+population: runners
 last_reviewed: 2026-06-29
 related: ["hrv", "training-load", "vo2max", "progressive-overload", "recovery", "easy-running", "polarized-training"]
-daud_metrics: ["trainabilityEstimate", "individualBaseline", "hrvBaseline", "responseTracking"]
 units: "AU, %, ml/min, ms"
 ---
 # Individualization — Training the Runner, Not the Population
@@ -335,3 +336,31 @@ By stage:
   performance: a methodological systematic review with meta-analysis.*
   International Journal of Environmental Research and Public Health, 18(19), 10299.
   https://doi.org/10.3390/ijerph181910299
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** Individualization is a
+  *policy applied to every other metric*, not a standalone number. It governs how the coach
+  and the programs/challenges builder treat population defaults — as priors to re-anchor to
+  the runner's measured baselines. The body's `@daud/core` quantities (`trainabilityEstimate`
+  / `individualBaseline` / `hrvBaseline` / `responseTracking`) name the personal-anchor
+  computations this policy would drive; several are "not yet computed" and none is a Healthee
+  `derived_daily` field today.
+- **Where it plugs in:** wherever a threshold is quoted (zones, ramp rates, taper length, HRV
+  baseline), this note requires the coach to (a) start from the population default and *say
+  so* on cold start, (b) re-anchor to the runner's own baseline once ≥2–4 weeks of clean data
+  exist, and (c) require any inferred change to exceed the runner's own day-to-day noise
+  before acting. This is the corpus-wide rationale for Healthee's "score vs the person's own
+  baseline, not a population norm" honesty stance (see `recovery_readiness`,
+  `heart_rate_variability`).
+- **Honesty & safety rules (carry into UI + LLM):**
+  - **Never brand a runner a permanent "non-responder"** — non-response is largely
+    dose/measurement-driven and was abolished at higher dose; run the dose → measurement →
+    recovery → modality ladder first (D3).
+  - **Heritability ≠ destiny**, and there is **no validated genetic or blood test to predict
+    an individual's trainability in advance** — infer it only retrospectively from observed
+    response, and never promise an outcome magnitude from population averages or "genetic
+    potential" (D9).
+  - **Safety directive (D8):** if tracked cardiometabolic markers (e.g. resting BP) worsen
+    persistently beyond noise (~8–13% can show adverse responses), flag for medical review
+    rather than intensifying training — personalization tunes *within* safety bounds, never
+    past them.

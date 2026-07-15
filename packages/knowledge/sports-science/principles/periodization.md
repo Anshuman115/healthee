@@ -3,13 +3,14 @@ id: periodization
 name: "Periodization & Tapering"
 category: principles
 grade: Probable
+evidence_grade: 2
 summary: "Phase training (base→build→peak→taper); the ~2-week taper (cut volume 41–60%, hold intensity) is the best-evidenced piece — the macro model choice is not."
 aliases: ["periodization", "periodisation", "taper", "tapering", "base building", "build phase", "peak phase", "macrocycle", "mesocycle", "microcycle", "block periodization", "linear periodization", "undulating periodization", "peaking", "race week", "specificity"]
 applies_to_metrics: []
 applies_to_interventions: []
+population: runners
 last_reviewed: 2026-06-29
 related: ["training-load", "recovery", "supercompensation", "polarized-training", "vo2max", "race-pace"]
-daud_metrics: ["ctl", "atl", "tsb", "acwr", "weekly-volume"]
 units: "weeks, %, AU"
 ---
 # Periodization & Tapering
@@ -360,3 +361,26 @@ Implementation notes:
 - Banister, E. W., Calvert, T. W., Savage, M. V., & Bach, T. (1975). *A systems
   model of training for athletic performance.* Australian Journal of Sports
   Medicine, 7(3), 57–61. (Foundational fitness–fatigue / TRIMP model.)
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** Periodization is a
+  *planning* layer, not a metric. It informs the challenges/programs builder
+  (base→build→peak→taper scheduling from a goal-race date) and the coach's taper logic. The
+  body's `@daud/core` quantities (`ctl` / `atl` / `tsb` / `acwr` / weekly-volume) name the
+  fitness–fatigue inputs a scheduler would reason over — `tsb = ctl − atl ≈ form` is the
+  direct analogue of preparedness — but none is a Healthee `derived_daily` field today, and
+  the phase schedule is **not yet auto-computed**.
+- **Where it plugs in:** the coach cites this note when it builds or explains a phase plan or
+  a taper; the strongest, code-worthy piece is the **taper prescription** (cut volume to
+  ~40–60% of peak, hold intensity, keep frequency ~80–100%, over ~10–14 days) and the **hard
+  cap** — do not cut volume by >~60% and do not zero-out intensity (D8).
+- **Honesty rules (carry into UI + LLM):**
+  - **Taper science is Established and stated plainly** (~3% gain); **which macro model
+    (block/linear/undulating) is "best" is Contested** — never assert a model is superior
+    (D6). Consistency, progressive overload, recovery and a good taper matter more than the
+    label.
+  - Present **form (TSB) as an estimate, not a measurement** — sleep, illness, heat, and life
+    stress can swamp it on race day; the taper improves the odds of a good day, it does not
+    guarantee one.
+  - Individual taper duration ranges ~4–>28 days — the population optimum is a **prior to tune
+    from the runner's own form response** (see `individualization`).

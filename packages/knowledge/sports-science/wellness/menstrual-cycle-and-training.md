@@ -4,13 +4,12 @@ name: "Menstrual Cycle & Training"
 category: wellness
 grade: Contested
 summary: "Average cycle-phase performance effect is trivial on low-quality evidence — no generic phase plan; but low energy availability / REDs is a safety-critical red flag."
-population: runners
+population: general
 aliases: ["menstrual-cycle-and-training", "menstrual cycle", "period", "follicular phase", "luteal phase", "ovulation", "estrogen", "oestrogen", "progesterone", "cycle tracking", "cycle syncing", "period tracking", "hormonal contraception", "oral contraceptive", "the pill", "birth control", "IUD", "PMS", "premenstrual symptoms", "dysmenorrhea", "amenorrhea", "RED-S", "REDs", "relative energy deficiency", "low energy availability", "female athlete triad", "female physiology", "training around your cycle"]
 applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["individualization", "fueling-and-hydration", "sleep-and-recovery", "heart-rate-variability", "periodization", "resting-heart-rate"]
-daud_metrics: ["energyAvailability", "cyclePhase", "perceivedSymptomLoad"]
 units: "kcal/kg FFM/day (energy availability), cycle day, n/a"
 ---
 # Menstrual Cycle & Training
@@ -420,3 +419,33 @@ Mirrored as guardrails in `@daud/core`; the AI may not override them:
   exercise metabolism: implications for exercise performance in eumenorrhoeic
   women.* Sports Medicine, 40(3), 207–227.
   https://doi.org/10.2165/11317090-000000000-00000
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** Daud does **not** infer
+  cycle phase from physiology and does **not** auto-generate a phase-based plan; all inputs
+  are opt-in and runner-supplied. The body's `@daud/core` quantities (`energyAvailability` /
+  `cyclePhase` / `perceivedSymptomLoad`) are self-reported/estimated, not Healthee
+  `derived_daily` fields; calendar-only phasing is explicitly flagged as approximate and
+  unverified.
+- **Confound to encode:** **resting HR and HRV shift across the cycle** (often higher RHR /
+  altered HRV in the luteal phase). Readiness logic must treat cycle phase as a **known
+  confounder** and not over-react to a single luteal-phase reading (D9) — this is the
+  product's honesty stance for `recovery_readiness` / `heart_rate_variability` inputs.
+- **Safety-critical guardrails to mirror in code (not LLM-overridable):**
+  - **Amenorrhea / new menstrual irregularity in a non-HC runner is a red flag** — surface
+    it, explain the low-energy-availability & bone-health link, and recommend clinician
+    evaluation; never frame it as a normal/desirable training sign (D5, SAFETY-CRITICAL).
+  - **Never prescribe, endorse, or normalise low energy availability / weight loss as a
+    performance tactic** — sustained under-fuelling causes **REDs** (D6, SAFETY-CRITICAL);
+    **do not treat a withdrawal bleed on hormonal contraception as evidence of energy
+    adequacy or bone health** (D7). **Stay in scope** — refer contraceptive choice / suspected
+    REDs / persistent menstrual problems to a healthcare professional (D10, SAFETY-CRITICAL).
+    Cross-links: `fueling_and_hydration`, `injury_prevention`.
+- **Honesty rules (carry into UI + LLM):**
+  - Calibrate to the evidence: the **average cycle-phase performance effect is trivial on
+    low-quality data** — **no generic cycle-syncing plan** (D1); but **group-trivial ≠
+    individually-irrelevant**, so support *her own* tracked patterns with explicit
+    uncertainty. Never inflate into "your cycle controls your performance," nor deny it can
+    matter for some.
+  - **30 kcal/kg FFM/day is a caution heuristic, not a hard threshold** (Contested); weight
+    cumulative deficit and symptoms.

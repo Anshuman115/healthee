@@ -3,14 +3,14 @@ id: fueling_and_hydration
 name: "Fueling & Hydration"
 category: wellness
 grade: Established
+evidence_grade: 3
 summary: "Carbs are the limiter past ~90 min (30–90 g/h, gut-trained); drink to thirst — over-drinking risks dangerous hyponatremia."
-population: runners
+population: general
 aliases: ["fueling-and-hydration", "carbohydrate intake", "carbs per hour", "gels", "glycogen", "hitting the wall", "bonking", "gut training", "drinking to thirst", "euhydration", "sodium", "electrolytes", "hyponatremia", "fasted running", "train low", "low-carb", "ketogenic diet", "race fueling"]
 applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["carbohydrate-availability", "glycogen", "recovery-nutrition", "heat-and-hydration", "long-run", "race-day-strategy"]
-daud_metrics: ["carbsPerHour", "fluidPerHour", "sessionDurationHours", "sessionIntensity"]
 units: "g/h (carbohydrate), g/kg/day (daily carbohydrate), mL/h (fluid), mmol/L (serum sodium)"
 ---
 # Fueling & Hydration
@@ -442,3 +442,32 @@ overridden by the AI:
   Required: A Theoretical Framework for Carbohydrate Periodization and the
   Glycogen Threshold Hypothesis.* Sports Medicine, 48(5), 1031–1048.
   https://doi.org/10.1007/s40279-018-0867-7
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** Daud does not measure
+  glycogen or serum sodium; fueling/hydration is a *prescription* layer. The body's
+  `@daud/core` quantities (`carbsPerHour` / `fluidPerHour` / `sessionDurationHours` /
+  `sessionIntensity`, and a `fuelPlan()`-style mapping) name the literature-anchored
+  recommendation the coach generates from session duration/intensity — none is a Healthee
+  `derived_daily` field today. Sweat rate = (pre-mass − post-mass + fluid ingested −
+  urine)/hours is the only individualising fluid measurement, and it is noisy and opt-in.
+- **Safety-critical guardrails to mirror in code (not LLM-overridable):**
+  - **Never advise drinking beyond thirst / in excess of sweat losses** — over-drinking is
+    the proximate cause of exercise-associated **hyponatremia**, which can be fatal; in-run
+    **weight gain is an EAH red flag** (D8, SAFETY-CRITICAL). **Sodium supplementation is not
+    a reliable EAH prophylactic** if fluid intake is excessive.
+  - On **confusion, severe headache, vomiting, seizure, or altered consciousness** during/
+    after long or hot efforts, **stop fueling advice and direct the runner to urgent medical
+    care** (possible EAH or heat illness) (D12, SAFETY-CRITICAL).
+  - **Do not prescribe chronic ketogenic/severe carbohydrate restriction** for
+    endurance-performance goals; flag the economy cost and, for under-fuelling patterns,
+    **RED-S** risk (cross-link `menstrual_cycle_and_training`, `injury_prevention`).
+- **Honesty rules (carry into UI + LLM):**
+  - The **carbohydrate dose map is settled** (30–60 g/h single-source; up to ~90 g/h **only**
+    as glucose+fructose ~2:1) and stated plainly; **gut training is "Probable"** (human
+    mechanism inferred) and **train-low is unsettled for performance** (only ~37% of studies
+    show gains) — hedge accordingly.
+  - Every g/h, mL/h and the ~30 km "wall" are **population starting points**; gut tolerance,
+    sweat rate and sweat-sodium vary several-fold and must be refined from the runner's own
+    logged data. Daud **never knows a runner's actual glycogen or sodium state**.
+  - **Never debut a new race-day fueling rate or product on race day.**

@@ -3,14 +3,14 @@ id: strength_training_for_runners
 name: "Strength Training for Runners"
 category: wellness
 grade: Established
+evidence_grade: 3
 summary: "Heavy lifting + plyometrics improve running economy ~2–8% with no bulk, and roughly halve overuse-injury risk — recommend to essentially every runner."
 population: runners
 aliases: ["strength-training-for-runners", "resistance training", "lifting for runners", "heavy strength", "plyometrics", "plyos", "weights", "gym work", "neuromuscular training", "strength and conditioning", "running economy strength", "injury prevention strength", "concurrent training", "S&C"]
 applies_to_metrics: ["strength_min_weekly"]
 applies_to_interventions: ["strength"]
 last_reviewed: 2026-06-29
-related: ["running-economy", "vo2max", "periodization", "individualization", "training-load-acwr", "polarized-training", "lactate-threshold"]
-daud_metrics: ["runningEconomy", "vVO2max", "trainingLoad"]
+related: ["running-economy", "vo2max", "periodization", "individualization", "training-load-acwr", "polarized-training", "lactate-threshold", "strength_training_mortality", "strength_adherence_plan"]
 units: "%1RM (load), sets x reps, sessions/week, % (running-economy change), RR (injury risk ratio)"
 ---
 # Strength Training for Runners
@@ -392,3 +392,32 @@ properly dosed strength training does **not** harm body composition or VO₂max
   *Effect of Strength Training on Biomechanical and Neuromuscular Variables in
   Distance Runners: A Systematic Review and Meta-Analysis.* Sports Medicine,
   50(1), 133–150. https://doi.org/10.1007/s40279-019-01184-9
+
+## Healthee implementation & honesty policy
+- **Backs the `strength_min_weekly` metric** (`applies_to_metrics: ["strength_min_weekly"]`)
+  and the `strength` intervention — the coach's strength *prescription*, not a lab
+  measurement. Daud does not measure 1RM, tendon stiffness, or lab running economy; strength
+  dose (modality, %1RM band, sets×reps, sessions/week) is a literature-anchored recommendation
+  generated from the runner's stage, phase, and injury history, refined from logged response
+  and soreness. Running economy (`running-economy`) is the *target* metric, watched as a trend
+  over an 8–14-week block, not a single reading. There is no `@daud/core` function that
+  computes strength prescriptions today.
+- **Load accounting:** heavy lower-body / plyometric sessions add neuromuscular/recovery load
+  that **running-only TSS/ACWR misses** (`training_load_acwr`) — count them as real training
+  load when scheduling hard runs (D10).
+- **Cross-links (kept separate, complementary):** this note is the **economy/injury dose** for
+  runners; `strength_training_mortality` is the **all-cause-mortality (health) dose** and
+  `strength_adherence_plan` the **adherence/health-dose plan** — different endpoints
+  (run-faster vs live-longer), so cite the right one and don't blur the advice.
+- **Honesty & safety rules (carry into UI + LLM):**
+  - The **economy benefit (~2–8%, no VO₂max loss, no bulk) and injury reduction (~halved
+    overuse risk, dose-dependent) are Established and stated plainly**; the **mechanism of
+    transfer is a partial black box** and **"heavy > plyometric" is a soft ranking**
+    (overlapping CIs) — promise the outcome, not the cause, and don't over-rank the modality.
+  - Injury-reduction magnitudes come largely from **mixed-sport RCTs** — read ~66%/~50% as "a
+    large effect," not a per-runner guarantee.
+  - **Progress load gradually, prioritise technique**, introduce plyometric volume
+    conservatively (avoid stacking heavy impact on a **bone-stress history**), and treat
+    **sharp/joint/worsening pain as stop-and-assess** — do not use strength to paper over
+    under-fuelling/RED-S (D11–D12, safety). No hard numeric `@daud/core` guardrail is mandated
+    here (unlike hyponatremia).

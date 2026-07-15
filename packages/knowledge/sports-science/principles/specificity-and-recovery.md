@@ -3,13 +3,14 @@ id: specificity_and_recovery
 name: "Specificity & Recovery"
 category: principles
 grade: Established
+evidence_grade: 3
 summary: "SAID: the body adapts to the exact stress imposed, and adaptation happens during recovery — stress and recovery are one system; protect the easy–hard polarity."
 aliases: ["specificity-and-recovery", "specificity", "SAID principle", "specific adaptation to imposed demands", "principle of specificity", "training specificity", "recovery", "rest days", "rest day", "adaptation", "supercompensation", "stress-recovery-adaptation", "overload-recovery", "hard-easy", "hard easy principle", "easy-hard polarity", "overreaching", "functional overreaching", "non-functional overreaching", "overtraining", "overtraining syndrome", "detraining", "cross-training transfer", "recovery is when you adapt"]
 applies_to_metrics: []
 applies_to_interventions: []
+population: runners
 last_reviewed: 2026-06-29
 related: ["polarized-training", "periodization", "individualization", "training-load-acwr", "fitness-fatigue-form", "sleep-and-recovery", "heart-rate-variability", "vo2max", "aerobic-decoupling"]
-daud_metrics: ["trainingLoad", "acwr", "form", "fitnessFatigue", "hrv"]
 units: "\"n/a (principle); supporting metrics in AU, days, % of baseline\""
 ---
 # Specificity & Recovery
@@ -161,3 +162,29 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 - Manresa-Rocamora, A., Sarabia, J. M., Javaloyes, A., Flatt, A. A., & Moya-Ramón, M. (2021). *Heart rate variability-guided training for enhancing cardiac-vagal modulation, aerobic fitness, and endurance performance: a methodological systematic review with meta-analysis.* International Journal of Environmental Research and Public Health, 18(19), 10299. https://doi.org/10.3390/ijerph181910299
 - Buist, I., Bredeweg, S. W., van Mechelen, W., Lemmink, K. A. P. M., Pepping, G.-J., & Diercks, R. L. (2008). *No effect of a graded training program on the number of running-related injuries in novice runners: a randomized controlled trial.* American Journal of Sports Medicine, 36(1), 33–39. https://doi.org/10.1177/0363546507307505
 - Mah, C. D., Mah, K. E., Kezirian, E. J., & Dement, W. C. (2011). *The effects of sleep extension on the athletic performance of collegiate basketball players.* Sleep, 34(7), 943–950. https://doi.org/10.5665/SLEEP.1132
+
+## Healthee implementation & honesty policy
+- **No `derived_daily` field of its own (`applies_to_metrics: []`).** These are *principles*
+  operationalised through other metrics, not a standalone number. They shape the
+  programs/challenges builder (hard–easy sequencing, rest-day and recovery-week cadence,
+  taper) and the coach's recovery reasoning. The body's `@daud/core` quantities
+  (`trainingLoad` / `acwr` / `form` / `fitnessFatigue` / `hrv`) name the stress/recovery
+  inputs; there is **no direct "adaptation meter"** — adaptation is inferred retrospectively
+  from performance trend, decoupling, HR-at-pace, and subjective readiness, and none of these
+  is itself a Healthee `derived_daily` field created by this note.
+- **Where it plugs in:** the coach cites this note to justify inserting rest, spacing hard
+  days, and reading recovery *clusters* rather than single readings; "recovery is when you
+  adapt" and the easy–hard-polarity rule are design constraints for any generated plan.
+- **Safety directives to respect (mirror in code):** **never program ≥2 consecutive genuine
+  hard days** (D3, safety-critical); on an adverse **cluster** of recovery signals (multi-day
+  fatigue + performance decline + elevated RHR/suppressed HRV + mood/sleep disturbance)
+  **down-regulate load, insert recovery, and screen for illness/under-fuelling/RED-S** (D8) —
+  do not push through suspected NFOR/OTS.
+- **Honesty rules (carry into UI + LLM):**
+  - State **SAID and "recovery is when you adapt" plainly**; present **HRV-guided scheduling,
+    ACWR thresholds, and the 10%/week cap as genuinely unsettled** (soft inputs, never
+    controllers).
+  - **Brief rest (1–3 days) is not detraining** — reassure anxious runners; meaningful decay
+    begins only after ~1.5–3 weeks off.
+  - **No reliable overtraining biomarker exists** — detect trajectories and clusters, never a
+    single threshold, and rule out anaemia/illness/under-fuelling/life stress first.
