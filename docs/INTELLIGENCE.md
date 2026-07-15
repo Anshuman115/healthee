@@ -213,7 +213,7 @@ N = packages/knowledge/notes, SS = packages/knowledge/sports-science.
 | **Stress (Zepp 0–100)** | ingested; app.py:1773 | **NONE** |
 | Calories / TEE | derive.py:350 | N energy_expenditure_derivation |
 | Distance | derive.py:329 | N distance_from_steps |
-| PAI | app.py:1281 | N pai_activity_score (retired metric) |
+| PAI | app.py:1281 | ~~pai_activity_score~~ — note removed 2026-07-16 (PAI not derived in v2; owner decision) |
 | ACWR | app.py:2593 | SS training-load-acwr |
 | HRmax (Tanaka) | derive.py:230; vo2max_submax.py | SS maximum-heart-rate; N wearable_hr_validity (partial) |
 | **Weight (`weight_kg`)** | weight_log; feeds BMI/VO2max/calories derive.py:204 | **NONE** |

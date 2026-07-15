@@ -71,9 +71,15 @@ Complementary → keep two cross-linked docs; near-duplicate → one merged note
 | Sauna / heat | keep both | — | sauna→mortality (legacy) vs heat-acclimatization (SS), cross-linked |
 
 Legacy-only unique coverage that MUST survive untouched: respiratory rate,
-SpO2, skin temp, illness flag, biological age, PAI, distance, energy/TEE, SRI /
+SpO2, skin temp, illness flag, biological age, distance, energy/TEE, SRI /
 sleep-regularity, chronotype, sleep-composite-validity. These have no SS
 counterpart — they are migrated to the unified template, not merged.
+
+Exception (owner decision, 2026-07-16): the **PAI** note (`pai_activity_score`)
+was **removed** — PAI is not computed anywhere in v2 (the derive layer emits no
+`pai_*` row; the Today `pai` card is always null), so its note documented a
+metric the app does not have. Deleted at the owner's direction; recoverable from
+git history if PAI is ever reinstated as a tracked metric.
 
 ## Gap backlog (new docs — primary-source-verified)
 
