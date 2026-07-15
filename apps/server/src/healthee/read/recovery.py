@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 
 from healthee.analytics.baselines import compute_baseline
 from healthee.derive._common import Cur
-from healthee.read.common import USER_TZ_NAME, latest_derived, sport_name, user_today
+from healthee.read.common import USER_TZ_NAME, TodayReads, latest_derived, sport_name, user_today
 
 _MAD_TO_SD = 1.4826  # MAD→σ for a normal distribution [[baselines]]
 
@@ -35,11 +35,11 @@ _FACTOR_TAILS = {
 }
 
 
-def recovery_score_payload(cur: Cur) -> dict | None:
+def recovery_score_payload(cur: Cur, reads: TodayReads | None = None) -> dict | None:
     """Morning recovery (0-100) + LIVE readiness that decays with today's strain.
     Always returns the per-factor breakdown so no bare number is shown.
     research/recovery/recovery_readiness.md."""
-    latest = latest_derived(cur, "recovery_score")
+    latest = reads.latest.get("recovery_score") if reads else latest_derived(cur, "recovery_score")
     if not latest:
         return None
     day, score, flags = latest
@@ -99,11 +99,12 @@ def _guidance(band: str, readiness: int, recovery: int, factors: dict) -> str:
     return _BASE_GUIDANCE[band] + tail
 
 
-def recovery_signals(cur: Cur) -> dict | None:
+def recovery_signals(cur: Cur, reads: TodayReads | None = None) -> dict | None:
     """Individual recovery markers (RHR / sleep duration / overnight HRV), each with
     its evidence citation. No composite score — the literature backs the markers
     individually but has no replicated composite formula. Ported to v2-native reads."""
-    signals = [s for s in (_rhr_signal(cur), _sleep_signal(cur), _hrv_signal(cur)) if s]
+    candidates = (_rhr_signal(cur, reads), _sleep_signal(cur), _hrv_signal(cur, reads))
+    signals = [s for s in candidates if s]
     if not signals:
         return None
     favorable = sum(1 for s in signals if s["direction"] == "favorable")
@@ -125,13 +126,15 @@ def recovery_signals(cur: Cur) -> dict | None:
     }
 
 
-def _rhr_signal(cur: Cur) -> dict | None:
+def _rhr_signal(cur: Cur, reads: TodayReads | None = None) -> dict | None:
     """Resting HR vs personal baseline — LOWER is favourable (Aune 2017)."""
-    latest = latest_derived(cur, "rhr_daily")
+    latest = reads.latest.get("rhr_daily") if reads else latest_derived(cur, "rhr_daily")
     if not latest:
         return None
     value = latest[1]
-    b = compute_baseline("rhr_daily", window_days=30)
+    b = (reads.baselines.get("rhr_daily") if reads else None) or compute_baseline(
+        "rhr_daily", window_days=30
+    )
     if b.median is None or not b.robust_sd:
         return None
     z = (value - b.median) / b.robust_sd
@@ -186,13 +189,15 @@ def _sleep_signal(cur: Cur) -> dict | None:
     }
 
 
-def _hrv_signal(cur: Cur) -> dict | None:
+def _hrv_signal(cur: Cur, reads: TodayReads | None = None) -> dict | None:
     """Overnight HRV vs personal usual — HIGHER is favourable (Plews 2013)."""
-    latest = latest_derived(cur, "hrv_sleep_avg")
+    latest = reads.latest.get("hrv_sleep_avg") if reads else latest_derived(cur, "hrv_sleep_avg")
     if not latest:
         return None
     value = latest[1]
-    b = compute_baseline("hrv_sleep_avg", window_days=30)
+    b = (reads.baselines.get("hrv_sleep_avg") if reads else None) or compute_baseline(
+        "hrv_sleep_avg", window_days=30
+    )
     if b.median is None or not b.robust_sd:
         return None
     z = (value - b.median) / b.robust_sd
@@ -225,10 +230,14 @@ def data_health_payload(cur: Cur) -> dict:
     NOTHING within its cadence. Reads the v2 ``sample`` table (already v2-native)."""
     now = datetime.now(tz=UTC)
     items, degraded = [], []
+    # One grouped scan for all feeds' last-seen instead of a probe per metric.
+    cur.execute(
+        "SELECT metric, max(ts) FROM sample WHERE metric = ANY(%s) GROUP BY metric",
+        ([m for m, _, _ in _DATA_HEALTH_SPEC],),
+    )
+    last_by_metric = {m: ts for m, ts in cur.fetchall()}
     for metric, label, days in _DATA_HEALTH_SPEC:
-        cur.execute("SELECT max(ts) FROM sample WHERE metric=%s", (metric,))
-        r = cur.fetchone()
-        last = r[0] if r and r[0] else None
+        last = last_by_metric.get(metric)
         age_h = (now - last).total_seconds() / 3600 if last else None
         status = "unavailable" if (age_h is None or age_h > days * 24) else "ok"
         if status != "ok":

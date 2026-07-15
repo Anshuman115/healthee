@@ -11,10 +11,13 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-# /api/today aggregates ~30 blocks. The count is a small fixed constant (per-block
-# reads + the ~10 compute_baseline/finding sub-queries on their own connections) —
-# NOT proportional to the number of days/rows. This bound catches an accidental N+1.
-_MAX_TODAY_QUERIES = 90
+# /api/today aggregates ~30 blocks. After the fan-out consolidation the seeded
+# snapshot issues ~37 statements — the per-metric latest-value fan-out is one
+# DISTINCT ON, the ~8 per-metric baselines are one grouped CTE (on ONE connection,
+# not 8), data-health is one grouped scan, and the sparklines are one batched read.
+# The count is a small fixed constant, NOT proportional to days/rows. This bound
+# catches both an accidental N+1 AND a regression of the consolidation.
+_MAX_TODAY_QUERIES = 45
 
 
 def test_today_query_count_is_bounded(seeded_client: tuple, monkeypatch) -> None:

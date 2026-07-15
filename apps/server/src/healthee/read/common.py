@@ -5,10 +5,13 @@ sport-code names. One definition, reused by every read service (standards
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import LiteralString, cast
 from zoneinfo import ZoneInfo
 
+from healthee.analytics.baselines import Baseline, compute_baselines
 from healthee.analytics.metrics import metric_filter
 from healthee.derive._common import Cur
 
@@ -51,6 +54,75 @@ def latest_derived(cur: Cur, metric: str) -> tuple[date, float, dict] | None:
     if not row:
         return None
     return row[0], float(row[1]), (row[2] or {})
+
+
+def latest_derived_many(cur: Cur, metrics: Sequence[str]) -> dict[str, tuple[date, float, dict]]:
+    """Most recent ``derived_daily`` row for each metric in ONE ``DISTINCT ON`` query.
+
+    Same shape and semantics as calling :func:`latest_derived` per metric (latest
+    row wins, no sentinel filter), but collapses the N-metric fan-out to a single
+    statement — the ``/api/today`` aggregator's latest-value loader. Metrics with no
+    rows are simply absent from the result (mirroring ``latest_derived`` → None)."""
+    out: dict[str, tuple[date, float, dict]] = {}
+    wanted = list(dict.fromkeys(metrics))
+    if not wanted:
+        return out
+    cur.execute(
+        "SELECT DISTINCT ON (metric) metric, day, value, flags FROM derived_daily "
+        "WHERE metric = ANY(%s) ORDER BY metric, day DESC",
+        (wanted,),
+    )
+    for metric, day, value, flags in cur.fetchall():
+        out[metric] = (day, float(value), (flags or {}))
+    return out
+
+
+def derived_series_many(cur: Cur, metrics: Sequence[str], days: int) -> dict[str, list[dict]]:
+    """Last ``days`` days of several ``derived_daily`` metrics in ONE query.
+
+    Batched form of :func:`derived_series` (same per-metric sentinel filter, same
+    window, oldest-first) so the Today sparklines load in a single statement
+    instead of one query per slot. Every requested metric gets a key (empty list
+    when it has no rows)."""
+    out: dict[str, list[dict]] = {m: [] for m in dict.fromkeys(metrics)}
+    if not out:
+        return out
+    wanted = list(out)
+    # Per-metric sentinel filter OR'd — each fragment is a METRIC_FILTERS constant.
+    where = " OR ".join(f"(metric = %s AND {metric_filter(m)})" for m in wanted)
+    cur.execute(
+        cast(
+            LiteralString,
+            "SELECT metric, day, value FROM derived_daily "
+            "WHERE day > (current_date - %s::int) AND (" + where + ") "
+            "ORDER BY metric, day",
+        ),
+        (days, *wanted),
+    )
+    for metric, day, value in cur.fetchall():
+        out[metric].append({"date": day.isoformat(), "value": float(value)})
+    return out
+
+
+@dataclass(frozen=True)
+class TodayReads:
+    """Per-request preloaded reads for the Today aggregator, so the per-metric card
+    and recovery-signal payloads look values up instead of each issuing their own
+    ``latest_derived`` + ``compute_baseline`` fan-out. ``None`` is never stored —
+    an absent metric simply isn't a key."""
+
+    latest: dict[str, tuple[date, float, dict]]
+    baselines: dict[str, Baseline]
+
+
+def build_today_reads(
+    cur: Cur, latest_metrics: Sequence[str], baseline_metrics: Sequence[str]
+) -> TodayReads:
+    """Preload the Today latest-values (1 query) + 30-day baselines (1 query)."""
+    return TodayReads(
+        latest=latest_derived_many(cur, latest_metrics),
+        baselines=compute_baselines(list(baseline_metrics), window_days=30),
+    )
 
 
 # Device sport codes (Zepp/Amazfit Huami) → display name. Ported verbatim from

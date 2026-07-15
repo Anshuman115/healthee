@@ -10,9 +10,10 @@ is the seam fix — values come from ``derived_daily`` (one canonical row per
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import LiteralString, cast
+from typing import Any, LiteralString, cast
 
 from healthee.analytics.metrics import MAD_TO_SD, V2_DAILY_METRICS, metric_filter
 from healthee.core.db import transaction
@@ -50,62 +51,84 @@ class Baseline:
 
 
 def compute_baseline(metric: str, window_days: int = 30, end_date: date | None = None) -> Baseline:
-    """Median/MAD/quartile baseline for a metric over the trailing window."""
+    """Median/MAD/quartile baseline for a metric over the trailing window.
+
+    Thin single-metric wrapper over :func:`compute_baselines` — ONE implementation
+    of the baseline maths, so the single- and batched-metric paths cannot diverge
+    (standards §"one canonical definition").
+    """
+    return compute_baselines((metric,), window_days, end_date)[metric]
+
+
+def compute_baselines(
+    metrics: Sequence[str], window_days: int = 30, end_date: date | None = None
+) -> dict[str, Baseline]:
+    """Robust baselines for many metrics in ONE grouped query on ONE connection.
+
+    The ``/api/today`` aggregator needs ~8 baselines per request; computing them
+    one metric at a time meant N separate ``transaction()`` checkouts × 2 queries
+    each (a pool-starvation hazard under concurrency). This collapses them to a
+    single connection and a single statement.
+
+    Numerically identical to the per-metric path: the SAME ``percentile_cont``
+    aggregates, grouped ``BY metric``, each metric gated by its own
+    ``METRIC_FILTERS`` sentinel (the ONE canonical constant, never re-typed). A
+    metric with no valid rows in the window comes back as an ``n=0`` empty
+    baseline, exactly as the per-metric path returned.
+    """
+    wanted = list(dict.fromkeys(metrics))  # de-dup, preserve order
+    result = {m: _empty_baseline(m, window_days) for m in wanted}
+    if not wanted:
+        return result
     end_date = end_date or date.today()
     start_date = end_date - timedelta(days=window_days - 1)
-    flt = metric_filter(metric)  # constant from METRIC_FILTERS — safe to interpolate
-    with transaction() as cur:
-        summary_sql = cast(
-            LiteralString,
-            """
-            SELECT COUNT(*),
-              percentile_cont(0.5)  WITHIN GROUP (ORDER BY value),
-              percentile_cont(0.25) WITHIN GROUP (ORDER BY value),
-              percentile_cont(0.75) WITHIN GROUP (ORDER BY value),
-              MIN(value), MAX(value)
-            FROM derived_daily
-            WHERE metric = %s AND day BETWEEN %s AND %s AND """
-            + flt,
-        )
-        cur.execute(summary_sql, (metric, start_date, end_date))
-        row = cur.fetchone()
-        n, median, p25, p75, mn, mx = row if row else (0, None, None, None, None, None)
-        mad = (
-            _compute_mad(cur, metric, flt, median, start_date, end_date)
-            if n and median is not None
-            else None
-        )
-    return Baseline(
-        metric=metric,
-        window_days=window_days,
-        n=int(n or 0),
-        median=float(median) if median is not None else None,
-        mad=float(mad) if mad is not None else None,
-        p25=float(p25) if p25 is not None else None,
-        p75=float(p75) if p75 is not None else None,
-        min=float(mn) if mn is not None else None,
-        max=float(mx) if mx is not None else None,
-    )
-
-
-def _compute_mad(
-    cur, metric: str, flt: str, median: float, start_date: date, end_date: date
-) -> float | None:
-    """Median absolute deviation about ``median`` over the same filtered window."""
-    mad_sql = cast(
+    # Per-metric sentinel filters OR'd together — each fragment is a hardcoded
+    # METRIC_FILTERS constant (never caller input), so interpolating it is safe
+    # (standards §2). Metric names + the window bound stay parameterized.
+    where = " OR ".join(f"(metric = %s AND {metric_filter(m)})" for m in wanted)
+    sql = cast(
         LiteralString,
-        """
-        SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY abs_dev)
-        FROM (
-          SELECT abs(value - %s::float8) AS abs_dev
-          FROM derived_daily
-          WHERE metric = %s AND day BETWEEN %s AND %s AND """
-        + flt
-        + ") t",
+        "WITH win AS ("
+        "  SELECT metric, value FROM derived_daily "
+        "  WHERE day BETWEEN %s AND %s AND (" + where + ")"
+        "), summ AS ("
+        "  SELECT metric, COUNT(*) AS n, "
+        "    percentile_cont(0.5)  WITHIN GROUP (ORDER BY value) AS median, "
+        "    percentile_cont(0.25) WITHIN GROUP (ORDER BY value) AS p25, "
+        "    percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75, "
+        "    MIN(value) AS mn, MAX(value) AS mx "
+        "  FROM win GROUP BY metric"
+        ") "
+        "SELECT s.metric, s.n, s.median, s.p25, s.p75, s.mn, s.mx, "
+        "  percentile_cont(0.5) WITHIN GROUP (ORDER BY abs(w.value - s.median)) AS mad "
+        "FROM summ s JOIN win w USING (metric) "
+        "GROUP BY s.metric, s.n, s.median, s.p25, s.p75, s.mn, s.mx",
     )
-    cur.execute(mad_sql, (float(median), metric, start_date, end_date))
-    row = cur.fetchone()
-    return row[0] if row else None
+    with transaction() as cur:
+        cur.execute(sql, (start_date, end_date, *wanted))
+        rows = cur.fetchall()
+    for metric, n, median, p25, p75, mn, mx, mad in rows:
+        result[metric] = Baseline(
+            metric=metric,
+            window_days=window_days,
+            n=int(n or 0),
+            median=_f(median),
+            mad=_f(mad),
+            p25=_f(p25),
+            p75=_f(p75),
+            min=_f(mn),
+            max=_f(mx),
+        )
+    return result
+
+
+def _empty_baseline(metric: str, window_days: int) -> Baseline:
+    """The ``n=0`` baseline a metric gets when it has no rows in the window."""
+    return Baseline(metric, window_days, 0, None, None, None, None, None, None)
+
+
+def _f(v: Any) -> float | None:
+    return float(v) if v is not None else None
 
 
 def compute_all(

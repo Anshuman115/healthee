@@ -11,36 +11,47 @@ from __future__ import annotations
 
 from healthee.analytics.baselines import compute_baseline
 from healthee.derive._common import Cur
-from healthee.read.common import USER_TZ_NAME, derived_series, latest_derived, user_today
+from healthee.read.common import (
+    USER_TZ_NAME,
+    TodayReads,
+    derived_series_many,
+    latest_derived,
+    user_today,
+)
 from healthee.read.meta import METRIC_META, TODAY_SECONDARY_METRICS
 
 
-def secondary_cards(cur: Cur) -> list[dict]:
+def secondary_cards(cur: Cur, reads: TodayReads | None = None) -> list[dict]:
     """RHR / steps / calories / distance / weight cards — first candidate with data
-    wins, each with its 30-day median + z-anomaly flag."""
+    wins, each with its 30-day median + z-anomaly flag. ``reads`` (when supplied by
+    the Today aggregator) serves latest-values + baselines from a single preloaded
+    batch instead of a per-card query fan-out."""
     out: list[dict] = []
     for candidates in TODAY_SECONDARY_METRICS:
-        card = _card_for(cur, candidates)
+        card = _card_for(cur, candidates, reads)
         if card:
             out.append(card)
     return out
 
 
-def _card_for(cur: Cur, candidates: list[str]) -> dict | None:
+def _card_for(cur: Cur, candidates: list[str], reads: TodayReads | None) -> dict | None:
     for cand in candidates:
-        picked = _weight_card(cur) if cand == "weight_kg" else _derived_card(cur, cand)
+        picked = _weight_card(cur) if cand == "weight_kg" else _derived_card(cur, cand, reads)
         if picked:
             return picked
     return None
 
 
-def _derived_card(cur: Cur, metric: str) -> dict | None:
-    latest = latest_derived(cur, metric)
+def _derived_card(cur: Cur, metric: str, reads: TodayReads | None) -> dict | None:
+    latest = reads.latest.get(metric) if reads else latest_derived(cur, metric)
     if not latest:
         return None
     day, value, _flags = latest
     meta = METRIC_META[metric]
-    baseline = compute_baseline(metric, window_days=30)
+    # Preloaded baseline when the aggregator supplied one; else compute on demand.
+    baseline = (reads.baselines.get(metric) if reads else None) or compute_baseline(
+        metric, window_days=30
+    )
     z = baseline.z_score(value)
     return {
         "metric": metric,
@@ -89,9 +100,14 @@ _SPARKLINE_METRICS: dict[str, str | None] = {
 
 
 def sparklines(cur: Cur) -> dict[str, list[dict]]:
-    """14-day daily series per Today sparkline slot (empty for v2 gaps)."""
+    """14-day daily series per Today sparkline slot (empty for v2 gaps).
+
+    All backed slots load in ONE batched query (``derived_series_many``) rather
+    than a query per slot; the v2-gap slots (metric ``None``) stay empty."""
+    backed = {key: m for key, m in _SPARKLINE_METRICS.items() if m}
+    series = derived_series_many(cur, list(backed.values()), 14)
     return {
-        key: (derived_series(cur, metric, 14) if metric else [])
+        key: (series.get(metric, []) if metric else [])
         for key, metric in _SPARKLINE_METRICS.items()
     }
 

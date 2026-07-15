@@ -15,17 +15,19 @@ from datetime import timedelta
 
 from healthee.analytics.biological_age import compute_biological_age
 from healthee.derive._common import Cur
-from healthee.read.common import latest_derived, user_today
+from healthee.read.common import TodayReads, latest_derived, user_today
 
 
-def sleep_debt_payload(cur: Cur) -> dict | None:
+def sleep_debt_payload(cur: Cur, reads: TodayReads | None = None) -> dict | None:
     """Sleep need (NSF age-band) + rolling cumulative debt + Sleep Performance %.
     [[sleep_need_debt]]."""
-    debt = latest_derived(cur, "sleep_debt_min")
+    debt = reads.latest.get("sleep_debt_min") if reads else latest_derived(cur, "sleep_debt_min")
     if not debt:
         return None
     _day, debt_min, flags = debt
-    need_row = latest_derived(cur, "sleep_need_min")
+    need_row = (
+        reads.latest.get("sleep_need_min") if reads else latest_derived(cur, "sleep_need_min")
+    )
     need = need_row[1] if need_row else 480.0
     last_tst = _last_tst(cur)
     return {

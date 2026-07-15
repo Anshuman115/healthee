@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from healthee.derive._common import Cur
-from healthee.read.common import user_today
+from healthee.read.common import TodayReads, build_today_reads, user_today
 from healthee.read.findings import top_findings
 from healthee.read.fitness import (
     cardio_load_payload,
@@ -53,13 +53,27 @@ from healthee.read.today_series import (
     stress_series,
 )
 
+# Metrics the aggregator preloads once (latest row per metric + 30-day baselines)
+# so the per-card and recovery-signal payloads look them up instead of each
+# issuing its own latest_derived + compute_baseline. Baselines are only needed for
+# the metrics that carry a z-anomaly (the cards + RHR/HRV signals).
+_LATEST_METRICS: tuple[str, ...] = (
+    "rhr_daily", "steps_total", "active_calories", "total_calories", "basal_calories",
+    "distance_m_daily", "hrv_sleep_avg", "recovery_score", "sleep_debt_min", "sleep_need_min",
+)  # fmt: skip
+_BASELINE_METRICS: tuple[str, ...] = (
+    "rhr_daily", "steps_total", "active_calories", "total_calories", "basal_calories",
+    "distance_m_daily", "hrv_sleep_avg",
+)  # fmt: skip
+
 
 def today_snapshot(cur: Cur) -> dict:
     """Assemble the whole Today payload from a single cursor."""
-    payload = {"date": user_today().isoformat(), "metrics": secondary_cards(cur)}
+    reads = build_today_reads(cur, _LATEST_METRICS, _BASELINE_METRICS)
+    payload = {"date": user_today().isoformat(), "metrics": secondary_cards(cur, reads)}
     payload.update(_sleep_blocks(cur))
-    payload.update(_metric_blocks(cur))
-    payload.update(_signal_blocks(cur))
+    payload.update(_metric_blocks(cur, reads))
+    payload.update(_signal_blocks(cur, reads))
     payload.update(_series_blocks(cur))
     payload["anomalies"] = []  # legacy computed these live; app reads /api/notable (WP5)
     payload["top_findings"] = top_findings()
@@ -80,7 +94,7 @@ def _sleep_blocks(cur: Cur) -> dict:
     }
 
 
-def _metric_blocks(cur: Cur) -> dict:
+def _metric_blocks(cur: Cur, reads: TodayReads) -> dict:
     """The headline metric payloads (each renders with its own breakdown)."""
     return {
         "pai": pai_payload(cur),  # WP7 gap: PAI not derived in v2 → None (see report)
@@ -88,18 +102,18 @@ def _metric_blocks(cur: Cur) -> dict:
         "strength": strength_payload(cur),
         "vo2max": vo2max_payload(cur),
         "cardio_load": cardio_load_payload(cur),
-        "sleep_debt": sleep_debt_payload(cur),
+        "sleep_debt": sleep_debt_payload(cur, reads),
         "biological_age": biological_age_payload(cur),
         "illness_flag": illness_flag_payload(cur),
     }
 
 
-def _signal_blocks(cur: Cur) -> dict:
+def _signal_blocks(cur: Cur, reads: TodayReads) -> dict:
     """Recovery + data-trust + routine + today's recommendations."""
     return {
         "recommendations": _recommendations_today(cur),
-        "recovery": recovery_signals(cur),
-        "recovery_score": recovery_score_payload(cur),
+        "recovery": recovery_signals(cur, reads),
+        "recovery_score": recovery_score_payload(cur, reads),
         "data_health": data_health_payload(cur),
         "routine": routine_today(cur),
     }
