@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 
 from healthee.core.auth import require_token
 from healthee.core.db import transaction
+from healthee.insights import coaching
 from healthee.read.sleep_extras import sleep_consistency
 from healthee.read.sleep_page import sleep_health_score, sleep_page
 
@@ -35,7 +36,10 @@ def get_sleep_health_score(days: int = 30) -> dict:
 def get_sleep_consistency(days: int = 28) -> dict:
     """Bedtime/wake regularity numbers + surfaced odd nights.
 
-    WP5: the ``action`` / ``tonight`` / ``coach`` LLM fields are added by insights.
+    The ``tonight`` field is the WP5 grounded coaching one-liner: read-only from the
+    per-day cache (``None`` until warmed), so this read path never calls the LLM.
     """
     with transaction() as cur:
-        return sleep_consistency(cur, days)
+        payload = sleep_consistency(cur, days)
+    payload["tonight"] = coaching.cached_line(coaching.SLEEP_TONIGHT_KEY)
+    return payload

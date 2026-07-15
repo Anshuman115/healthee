@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 
 from healthee.core.auth import require_token
 from healthee.core.db import transaction
+from healthee.insights import coaching
 from healthee.read.today import today_snapshot
 
 router = APIRouter(tags=["today"], dependencies=[Depends(require_token)])
@@ -18,6 +19,12 @@ router = APIRouter(tags=["today"], dependencies=[Depends(require_token)])
 
 @router.get("/api/today")
 def get_today() -> dict:
-    """Aggregated snapshot for the Today page."""
+    """Aggregated snapshot for the Today page + the grounded daily action line.
+
+    The ``action`` is the WP5 coaching one-liner: read-only from the per-day cache
+    (``None`` until the scheduler warms it), so this read path never calls the LLM.
+    """
     with transaction() as cur:
-        return today_snapshot(cur)
+        payload = today_snapshot(cur)
+    payload["action"] = coaching.cached_line(coaching.DAILY_ACTION_KEY)
+    return payload
