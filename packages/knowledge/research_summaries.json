@@ -88,8 +88,7 @@
     },
     {
       "applies_to_metrics": [
-        "distance_m_daily",
-        "distance_m"
+        "distance_m_daily"
       ],
       "grade": "Probable",
       "id": "distance_from_steps",
@@ -230,9 +229,7 @@
       "summary": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable"
     },
     {
-      "applies_to_metrics": [
-        "max_hr_daily"
-      ],
+      "applies_to_metrics": [],
       "grade": "Established",
       "id": "maximum_heart_rate",
       "name": "Maximum Heart Rate (HRmax)",
@@ -316,13 +313,7 @@
       "summary": "Speed bands anchored to threshold pace; pace is instantaneous external load (what you did), HR is lagging internal load (what it cost)."
     },
     {
-      "applies_to_metrics": [
-        "pai_today",
-        "pai_total",
-        "minutes_low_zone",
-        "minutes_moderate_zone",
-        "minutes_high_zone"
-      ],
+      "applies_to_metrics": [],
       "grade": "Established",
       "id": "pai_activity_score",
       "name": "Personalized Activity Intelligence (PAI) — composite weekly activity score with mortality validation",
@@ -625,7 +616,7 @@
     {
       "applies_to_metrics": [
         "rhr_daily",
-        "max_hr_daily"
+        "hr"
       ],
       "grade": "Established",
       "id": "wearable_hr_validity",

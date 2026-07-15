@@ -8,7 +8,7 @@ evidence_grade: 3
 summary: "PAI is a device-computed weekly activity score from HR-zone minutes, individualized to age + resting HR + max HR; unlike proprietary black-box scores it has direct mortality validation (HUNT3), where keeping PAI ≥ 100 per rolling 7 days is associated with ~17% lower all-cause and ~25% lower CV mortality."
 aliases: ["pai", "personalized activity intelligence", "personal activity intelligence", "pai score", "hr-zone activity score", "pai_activity_score"]
 tags: ["pai", "personalized activity intelligence", "personal activity intelligence", "pai score", "hr-zone activity score", "pai_activity_score"]
-applies_to_metrics: ["pai_today", "pai_total", "minutes_low_zone", "minutes_moderate_zone", "minutes_high_zone"]
+applies_to_metrics: []
 applies_to_interventions: ["aerobic_activity", "exercise_minutes"]
 population: general
 last_reviewed: 2026-07-15
@@ -65,21 +65,26 @@ fitness pathway ([[vo2max]]) that underlies the mortality benefit.
 
 ## How we compute it
 
-PAI is **device-computed, not Healthee-derived**: we read PAI_TODAY (today's accumulated
-PAI), PAI_TOTAL (7-day rolling), and per-zone minutes (low / moderate / high) from
-`HUAMI_PAI_SAMPLE`. Because it is a *validated, published* composite (Nes 2017) rather than
-a Healthee-invented one, it is not subject to the no-composite-score rule — but it is
-surfaced with its threshold and caveats, never as a bare proprietary number.
+**Not currently derived in Healthee v2 — a documented gap.** PAI is a *device-computed*
+composite (originally read from `HUAMI_PAI_SAMPLE`), never Healthee-derived; the v2 `derive`
+layer emits no `pai_*` metric, so the Today `pai` card is always null and there is no metric
+to bind to (hence `applies_to_metrics: []`). The science below is retained as reference. If a
+PAI stream is later captured from the device, this note governs how to present it: because
+PAI is a *validated, published* composite (Nes 2017) rather than a Healthee-invented one, it
+is the documented exception to the no-composite-score rule — surfaced with its threshold and
+caveats, never as a bare proprietary number.
 
 ## How the coach uses it
 
+PAI is not surfaced in v2, so the coach does **not** cite a PAI number today — it leans on
+MVPA minutes ([[mvpa_minutes_mortality]]) as the available intensity-weighted signal. Were a
+PAI stream captured in future, the intended use is:
+
 - Surface **PAI_TOTAL** as a card with the **cutoff 100** (Nes 2017 threshold for the
   mortality benefit).
-- Feed `pai_today`, `pai_total`, `minutes_moderate_zone`, `minutes_high_zone` into the
-  correlation engine — they should associate positively with HRV, RHR improvement, and
-  overall recovery markers.
-- Present PAI alongside MVPA minutes ([[mvpa_minutes_mortality]]) as the intensity-weighted
-  complement to raw activity time.
+- Feed the PAI series into the correlation engine — it should associate positively with HRV,
+  RHR improvement, and overall recovery markers.
+- Present PAI alongside MVPA minutes as the intensity-weighted complement to raw activity time.
 
 ## Safety bounds
 
@@ -110,8 +115,10 @@ generalizability, and the proprietary formula details.
 
 ## Coach Directives
 
-1. Surface **PAI_TOTAL vs the 100/week** threshold; treat 100 as an evidence-based aim, not
-   a clinical target. *(confidence: high)*
+1. PAI is **not surfaced in Healthee v2** — do NOT cite a PAI number (there is none); use MVPA
+   minutes as the intensity signal. *If* a PAI stream is later captured, surface **PAI_TOTAL
+   vs the 100/week** threshold, treating 100 as an evidence-based aim, not a clinical target.
+   *(confidence: high)*
 2. Caveat that **220−age under-estimates max HR (5–10 bpm)** so PAI may accumulate slower
    than reality for some users. *(high)*
 3. Present PAI as the **intensity-weighted complement** to MVPA minutes; never as a bare
@@ -133,12 +140,13 @@ generalizability, and the proprietary formula details.
 
 ## Healthee implementation & honesty policy
 
-- **Device-provided, not derived**: `pai_today`, `pai_total`, and per-zone minutes
-  (`minutes_low_zone` / `minutes_moderate_zone` / `minutes_high_zone`) are read from
-  `HUAMI_PAI_SAMPLE`. Being a *published, validated* composite (Nes 2017), PAI is the
-  documented exception to the no-composite rule — surfaced with its 100/week threshold and
-  the max-HR caveat, never as a bare number.
+- **Not derived in v2 (gap)**: the `derive` layer writes no `pai_*` row and the Today `pai`
+  card is always null, so there is no metric to bind to (hence `applies_to_metrics: []`). PAI
+  is *device-computed* (originally from `HUAMI_PAI_SAMPLE`), never Healthee-derived — if it is
+  captured later, being a *published, validated* composite (Nes 2017) it is the documented
+  exception to the no-composite rule, surfaced with its 100/week threshold and the max-HR
+  caveat, never as a bare number.
 - **Honesty rules**: 100/week is a population aim, not clinical; flag the 220−age max-HR
   under-estimate; present as the intensity-weighted complement to MVPA minutes; never a
-  death-risk figure. (If PAI is not actively surfaced in the current app build, the science
-  and validation still stand and it remains the intensity-weighted reference.)
+  death-risk figure. The science and validation stand independently of whether the app
+  currently surfaces a PAI number.

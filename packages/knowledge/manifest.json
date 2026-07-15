@@ -233,8 +233,7 @@
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "distance_m_daily",
-        "distance_m"
+        "distance_m_daily"
       ],
       "category": "activity",
       "collection": "legacy",
@@ -703,9 +702,7 @@
         "mhr"
       ],
       "applies_to_interventions": [],
-      "applies_to_metrics": [
-        "max_hr_daily"
-      ],
+      "applies_to_metrics": [],
       "category": "metrics",
       "collection": "sports_science",
       "grade": "Established",
@@ -949,13 +946,7 @@
         "aerobic_activity",
         "exercise_minutes"
       ],
-      "applies_to_metrics": [
-        "pai_today",
-        "pai_total",
-        "minutes_low_zone",
-        "minutes_moderate_zone",
-        "minutes_high_zone"
-      ],
+      "applies_to_metrics": [],
       "category": "activity",
       "collection": "legacy",
       "grade": "Established",
@@ -1866,7 +1857,7 @@
       "applies_to_interventions": [],
       "applies_to_metrics": [
         "rhr_daily",
-        "max_hr_daily"
+        "hr"
       ],
       "category": "metrics",
       "collection": "legacy",

@@ -8,7 +8,7 @@ evidence_grade: 2
 summary: "The strap reports no distance over BLE, so distance is derived from steps × a height-based step length (walking k ≈ 0.414), refined by cadence when moving fast; a rough ±10–20% daily-total proxy (not route distance), always labelled an estimate, and superseded by the device's own GPS distance during workouts."
 aliases: ["distance from steps", "step length", "stride length distance", "walking distance derivation", "distance_from_steps"]
 tags: ["distance from steps", "step length", "stride length distance", "walking distance derivation", "distance_from_steps"]
-applies_to_metrics: ["distance_m_daily", "distance_m"]
+applies_to_metrics: ["distance_m_daily"]
 applies_to_interventions: []
 population: general
 last_reviewed: 2026-07-15
