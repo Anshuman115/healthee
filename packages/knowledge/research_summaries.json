@@ -459,11 +459,7 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min",
-        "rhr_daily"
+        "sleep_health_score_4dim"
       ],
       "grade": "Established",
       "id": "sleep_duration_mortality",

@@ -1380,26 +1380,19 @@
       "summary": "Day-to-day sleep timing variability is independently linked to cardiometabolic risk"
     },
     {
-      "aliases": [
-        "sleep",
-        "mortality",
-        "longevity"
-      ],
+      "aliases": [],
       "applies_to_interventions": [],
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min",
-        "rhr_daily"
+        "sleep_health_score_4dim"
       ],
       "category": "sleep",
       "collection": "legacy",
       "grade": "Established",
       "id": "sleep_duration_mortality",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Sleep duration and all-cause mortality (U-shaped curve)",
       "path": "notes/sleep/sleep_duration_mortality.md",
+      "population": "general",
       "summary": "Sleep duration and all-cause mortality (U-shaped curve)"
     },
     {
