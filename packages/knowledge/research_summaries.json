@@ -84,17 +84,6 @@
       "summary": "Caffeine taken up to 6 hours before bed measurably disrupts sleep"
     },
     {
-      "applies_to_metrics": [
-        "hr",
-        "cardio_load",
-        "hr_zone_minutes"
-      ],
-      "grade": "Probable",
-      "id": "cardio_load_trimp",
-      "name": "Quantifying daily cardiovascular load (training impulse) from heart rate — the evidence-based alternative to a proprietary \"Strain\" score",
-      "summary": "Quantifying daily cardiovascular load (training impulse) from heart rate — the evidence-based alternative to a proprietary \"Strain\" score"
-    },
-    {
       "applies_to_metrics": [],
       "grade": "Established",
       "id": "critical_speed",
@@ -186,12 +175,13 @@
     },
     {
       "applies_to_metrics": [
-        "cardio_load"
+        "cardio_load",
+        "hr_zone_minutes"
       ],
       "grade": "Probable",
       "id": "heart_rate_zones",
       "name": "Heart-Rate Training Zones",
-      "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy."
+      "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
     },
     {
       "applies_to_metrics": [
@@ -666,12 +656,13 @@
     },
     {
       "applies_to_metrics": [
-        "cardio_load"
+        "cardio_load",
+        "hr_zone_minutes"
       ],
       "grade": "Probable",
       "id": "training_stress_score",
       "name": "Training Stress Score (TSS) and Session Load Quantification",
-      "summary": "One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose."
+      "summary": "One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose. Healthee computes this load as Banister TRIMP (HR-based), surfaced as `cardio_load`."
     },
     {
       "applies_to_metrics": [

@@ -3,12 +3,13 @@ id: training_stress_score
 name: "Training Stress Score (TSS) and Session Load Quantification"
 category: metrics
 grade: Probable
-summary: "One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose."
+evidence_grade: 2
+summary: "One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose. Healthee computes this load as Banister TRIMP (HR-based), surfaced as `cardio_load`."
 population: runners
-aliases: ["training-stress-score", "tss", "rtss", "hrtss", "training stress score", "training load", "session load", "intensity factor", "IF", "normalized power", "normalized graded pace", "NGP", "grade adjusted pace", "GAP", "trimp", "session rpe", "srpe", "training impulse"]
-applies_to_metrics: ["cardio_load"]
-applies_to_interventions: []
-last_reviewed: 2026-06-29
+aliases: ["training-stress-score", "tss", "rtss", "hrtss", "training stress score", "training load", "session load", "intensity factor", "IF", "normalized power", "normalized graded pace", "NGP", "grade adjusted pace", "GAP", "trimp", "session rpe", "srpe", "training impulse", "cardio_load_trimp", "cardio load", "cardio-load", "banister trimp", "edwards trimp", "summated heart-rate zone", "strain", "strain 0-21", "strain score"]
+applies_to_metrics: ["cardio_load", "hr_zone_minutes"]
+applies_to_interventions: ["exercise"]
+last_reviewed: 2026-07-15
 related: ["training-load-acwr", "fitness-fatigue-form", "grade-adjusted-pace", "lactate-threshold", "running-economy", "vo2max", "sleep-and-recovery"]
 daud_metrics: ["computeSessionLoad", "rTSS", "hrTSS", "gradeAdjustedPace"]
 units: "AU (arbitrary units; ~100 AU = 1 h at threshold)"
@@ -117,6 +118,15 @@ not as an easy jog.
   interchangeable proxies for the same underlying construct — but agreement varies
   between individuals, intensities and session types (sRPE–TRIMP agreement is
   weaker for high-intensity work than for low) [Haddad et al. 2017].
+- **[Probable]** **The HR-based TRIMP variants agree with each other and with sRPE.**
+  Banister's HR-reserve TRIMP and Edwards' summated-HR-zone score correlate strongly
+  across cohorts (r ≈ 0.7–0.95) and both track sRPE-based internal load [Edwards 1993;
+  convergent-validity studies, e.g. Vasquez-Bonilla et al. 2022, PMC9536392]. This is
+  the basis for using an HR-derived TRIMP as an internal-load currency when power/pace
+  are unavailable — Healthee's case (see the implementation section). Banister TRIMP is
+  the better-derived of the two: Edwards' 1→5 zone weights are **arbitrary, with no
+  physiological derivation**, so Edwards is best used only as a readable zone
+  *breakdown*, not the headline load value [Edwards 1993].
 - **[Probable]** **sRPE (RPE × minutes) is a valid, low-cost internal-load
   measure** and is often the best single predictor of adaptation/fatigue,
   capturing cognitive and environmental stress that HR and pace miss [Foster et
@@ -362,6 +372,13 @@ guardrails** that are:
 - Morton, R. H., Fitz-Clarke, J. R., & Banister, E. W. (1990). *Modeling human
   performance in running.* Journal of Applied Physiology, 69(3), 1171–1177.
   https://doi.org/10.1152/jappl.1990.69.3.1171
+- Edwards, S. (1993). *The Heart Rate Monitor Book.* Polar Electro Oy / Fleet Feet
+  Press. (Origin of the summated-HR-zone training-load score; the 1→5 zone weights
+  are a practitioner convention with no physiological derivation — Healthee uses it
+  only as a readable zone breakdown, not the headline load value.)
+- Vasquez-Bonilla, A. A., et al. (2022). *Training load, TRIMP and internal-load
+  convergent-validity references* (representative of the HR-TRIMP validation
+  literature; Banister ↔ Edwards ↔ sRPE agreement r ≈ 0.7–0.95). PMC9536392.
 - Coggan, A. R., & Allen, H. (2010). *Training and Racing with a Power Meter* (2nd
   ed.). VeloPress. (Defines TSS, Normalized Power, and Intensity Factor; basis for
   rTSS/NGP and hrTSS.)
@@ -396,3 +413,91 @@ guardrails** that are:
   stress in distance runners: the development of the GOVSS algorithm.* Technical
   white paper. https://runscribe.com/wp-content/uploads/power/GOVSS.pdf
   (Non-peer-reviewed; basis for several running-power load estimates.)
+
+## Healthee implementation & honesty policy
+
+**Healthee does NOT compute TSS / rTSS / NGP.** The `@daud/core` preference order
+above (power → rTSS → hrTSS → sRPE) is the general reference method from the
+running-coach corpus. Healthee has **no power meter, no FTP, and no reliable
+per-second running pace** — only per-minute heart rate from an Amazfit Helio Strap.
+So Healthee's single session/day load currency is **Banister HR-reserve TRIMP**,
+surfaced in `derived_daily` as **`cardio_load`**. TSS is documented here for
+cross-reference and shared vocabulary only; the two units are **not
+interchangeable** (see `load_currency`).
+
+**The load Healthee actually computes — Banister TRIMP (primary).** Per-minute HR is
+weighted by how hard the heart was working, using Karvonen HR-reserve and a
+lactate-derived exponential so high-intensity minutes count disproportionately
+(matching the non-linear blood-lactate response). Verified against Banister (1991):
+
+```
+ΔHR   = (HR_ex − HR_rest) / (HR_max − HR_rest)     # Karvonen HR-reserve fraction, 0–1
+y     = 0.64 · e^(1.92 · ΔHR)   (men)              # lactate weighting factor
+        0.86 · e^(1.67 · ΔHR)   (women)
+TRIMP = Σ_minutes ( 1 min · ΔHR · y )              # summed over all non-sleep HR minutes
+```
+
+- **Inputs we already have:** per-minute HR (`hr`); **measured** resting HR
+  (`rhr_daily`, taken from the sleep window — preferred over a generic 60); HR_max
+  from **Tanaka (2001): HR_max = 208 − 0.7 × age** (materially better than Fox
+  `220 − age`, which overestimates in the young and underestimates in the old).
+  Anchoring is **Tanaka HRmax + Karvonen HRR — identical to the sports-science
+  `heart-rate-zones` note** (no conflict between the two corpora on this).
+- **Science code is sacred** (Engineering Standards §1): the TRIMP function ports
+  verbatim from legacy, cites this note, and carries a known-value test. The
+  sex-split lactate coefficients are named constants, never "simplified."
+
+**Edwards summated-HR-zone score (secondary — the readable zone breakdown → `hr_zone_minutes`).**
+Per-minute HR is binned into five %HR_max zones; the minutes-per-zone strip is stored
+as **`hr_zone_minutes`**. Edwards' weighted-sum load is shown only as a breakdown, not
+the headline number, because the 1→5 weights are arbitrary (see Evidence):
+
+| zone | %HR_max | weight |
+|------|---------|--------|
+| 1 | 50–60% | 1 |
+| 2 | 60–70% | 2 |
+| 3 | 70–80% | 3 |
+| 4 | 80–90% | 4 |
+| 5 | 90–100% | 5 |
+
+`Edwards TL = Σ_z (minutes_in_zone_z · weight_z)`. (The zone *boundaries* and their
+anchoring live in `heart-rate-zones`; this note owns only how the minutes are summed
+into load.)
+
+**Strain 0–21 (added on informed user request) — a single-signal rescale, NOT a composite.**
+Strain is the **same** `cardio_load` rescaled onto a personal 0–21 scale:
+
+```
+Strain = 21 · (cardio_load / P95)^0.75
+```
+
+where **0 = zero load** and the user's own **rolling 90-day P95 of `cardio_load` = 21**,
+with a mild concave exponent (0.75) so the scale tracks perceived exertion. It is
+anchored to **P95, not the personal min/max** — so a quiet or partial day reads
+genuinely low rather than a misleading 0, and a single freak day does not peg the
+scale. Because it is a monotonic rescale of **one measured metric**, it stays inside
+the **no-composite-score rule**: it is not a multi-marker index.
+
+**Acute:chronic context.** Comparing today's `cardio_load` to the user's 7-/30-day
+average is fine — it is a **ratio of our own measured loads** (descriptive), not a
+proprietary composite. The full ACWR treatment (windows, EWMA, the discredited
+injury-prediction claim, safety bounds) lives in `training-load-acwr`, which reasons
+over this same `cardio_load` currency.
+
+**Honesty rules the coach must obey.**
+- **Never present load as a proprietary black-box "Strain/Recovery" number.** Label it
+  plainly as *cardio load* (a published TRIMP), always alongside the user's own
+  baseline ("today is above your usual") — never a cross-person absolute. HR_max is
+  estimated (Tanaka SEE ≈ 10 bpm, so an individual can sit ±10–20 bpm off), which makes
+  absolute TRIMP a **personal-trend** signal; **direction and day-to-day change are the
+  trustworthy parts**, not the absolute value — especially for untrained users, since
+  Banister's lactate weighting was derived in trained adults.
+- **TRIMP captures cardiovascular load only.** It under-credits resistance training,
+  isometrics, and very short maximal efforts where HR lags — pair it with device-measured
+  workout calories / strength minutes, do not let it replace them.
+- **Wrist/optical HR is noisier during high-intensity intervals** (motion artefact — see
+  `wearable-hr-validity`): the daily aggregate load is robust, but a single hard interval
+  session may be under-counted.
+- **UI evidence label:** ★★ Probable for the load construct (a validated
+  load-quantification method, **not** a health-outcome score with its own risk ratio);
+  the HR_max basis (Tanaka 2001) is ★★★ Established.
