@@ -18,15 +18,13 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from pathlib import Path
 
+from healthee.core.knowledge import knowledge_dir
 from healthee.core.logging import get_logger
 
 log = get_logger(__name__)
 
-# manifest.json lives at repo-root/packages/knowledge; this file sits at
-# apps/server/src/healthee/analytics/notes.py → parents[5] is the repo root.
-_MANIFEST_PATH = Path(__file__).resolve().parents[5] / "packages" / "knowledge" / "manifest.json"
+_MANIFEST_PATH = knowledge_dir() / "manifest.json"
 
 # Unified evidence grade → legacy numeric rank, for the min-grade gate.
 _GRADE_RANK: dict[str, int] = {

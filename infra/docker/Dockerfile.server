@@ -30,6 +30,13 @@ COPY apps/server/src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
+# ── Knowledge corpus ────────────────────────────────────────────────────
+# The grounded LLM layer reads the manifest + note bodies from here. Resolved
+# via HEALTHEE_KNOWLEDGE_DIR (core/knowledge.py) — NOT a parents[n] offset,
+# which only works in the dev tree.
+COPY packages/knowledge ./packages/knowledge
+ENV HEALTHEE_KNOWLEDGE_DIR=/app/packages/knowledge
+
 ENV PATH="/opt/venv/bin:$PATH"
 
 EXPOSE 8765

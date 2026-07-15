@@ -21,14 +21,13 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
 
+from healthee.core.knowledge import knowledge_dir
 from healthee.core.logging import get_logger
 
 log = get_logger(__name__)
 
-# This file: apps/server/src/healthee/insights/manifest.py → parents[5] = repo root.
-_KNOWLEDGE_DIR = Path(__file__).resolve().parents[5] / "packages" / "knowledge"
+_KNOWLEDGE_DIR = knowledge_dir()
 _MANIFEST_PATH = _KNOWLEDGE_DIR / "manifest.json"
 
 # Unified evidence grade → numeric rank (legacy 3/2/1 scale). Used for the

@@ -22,6 +22,8 @@ apps/server/tests/
 # The mobile app + knowledge corpus + docs are not part of the server image.
 apps/mobile/
 packages/
+!packages/knowledge
+!packages/knowledge/**
 docs/
 research/
 
