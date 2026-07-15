@@ -22,6 +22,7 @@ from healthee.api.routers import (
     health,
     history,
     ingest,
+    insights,
     logs,
     sleep,
     today,
@@ -53,6 +54,8 @@ def create_app() -> FastAPI:
     # WP7 read routers (today / sleep / activity / workouts / history+profile / logs / gps).
     for read_router in (today, sleep, activity, workouts, history, logs, gps):
         app.include_router(read_router.router)
+    # WP5 grounded insight surfaces (sleep/activity/metric/workout/notable).
+    app.include_router(insights.router)
     return app
 
 
