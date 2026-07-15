@@ -13,6 +13,22 @@ identical without depending on the legacy tree.
 
 Auto-skips when no TimescaleDB is reachable (laptop); runs in CI against the service
 container.
+
+DOCUMENTED DIVERGENCES FROM LEGACY (the fixture was re-baselined for these — every
+other row is byte-identical to legacy):
+
+  C1  vo2max_estimate.value — legacy used a biased-low, mis-transcribed Jurca
+      equation (a median 40yo male scored ~24 ml/kg/min). Corrected to the
+      primary-source Jurca 2005 CRF-in-METs form (×3.5 → ml/kg/min), so the six
+      vo2max_estimate rows now read ~51-55 instead of ~24-26.
+  M1  vo2max_estimate.flags — the `pa_score` (0-7) flag is replaced by `srpa`
+      (0-4), the self-reported-PA category fed to Jurca. The weekly rollup that
+      derives it now applies the WHO rule (moderate + 2×vigorous), so the seed's
+      20 moderate + 5 vigorous min/day → 30 equiv/day lifts the category vs legacy.
+  C2  sleep efficiency — the formula changed to tst/(tst+wake) (≤100% by
+      construction) but the seed's tst+wake (480) equals its wall-clock span (480),
+      so efficiency_pct stays 95.8 and NO sleep row moves. Verified: zero sleep
+      diffs here — the correction only bites when staged minutes overshoot the span.
 """
 
 from __future__ import annotations
