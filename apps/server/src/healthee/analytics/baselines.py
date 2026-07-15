@@ -82,11 +82,23 @@ def compute_baselines(
         return result
     end_date = end_date or date.today()
     start_date = end_date - timedelta(days=window_days - 1)
-    # Per-metric sentinel filters OR'd together — each fragment is a hardcoded
-    # METRIC_FILTERS constant (never caller input), so interpolating it is safe
-    # (standards §2). Metric names + the window bound stay parameterized.
+    with transaction() as cur:
+        cur.execute(_baselines_sql(wanted), (start_date, end_date, *wanted))
+        rows = cur.fetchall()
+    for row in rows:
+        result[row[0]] = _row_to_baseline(row, window_days)
+    return result
+
+
+def _baselines_sql(wanted: list[str]) -> LiteralString:
+    """The grouped summary + MAD statement for :func:`compute_baselines`.
+
+    Each metric's sentinel filter is a hardcoded ``METRIC_FILTERS`` constant
+    (never caller input) OR'd into the window predicate — safe to interpolate
+    (standards §2); the metric names and window bounds stay parameterized (``%s``).
+    """
     where = " OR ".join(f"(metric = %s AND {metric_filter(m)})" for m in wanted)
-    sql = cast(
+    return cast(
         LiteralString,
         "WITH win AS ("
         "  SELECT metric, value FROM derived_daily "
@@ -104,22 +116,22 @@ def compute_baselines(
         "FROM summ s JOIN win w USING (metric) "
         "GROUP BY s.metric, s.n, s.median, s.p25, s.p75, s.mn, s.mx",
     )
-    with transaction() as cur:
-        cur.execute(sql, (start_date, end_date, *wanted))
-        rows = cur.fetchall()
-    for metric, n, median, p25, p75, mn, mx, mad in rows:
-        result[metric] = Baseline(
-            metric=metric,
-            window_days=window_days,
-            n=int(n or 0),
-            median=_f(median),
-            mad=_f(mad),
-            p25=_f(p25),
-            p75=_f(p75),
-            min=_f(mn),
-            max=_f(mx),
-        )
-    return result
+
+
+def _row_to_baseline(row: tuple, window_days: int) -> Baseline:
+    """Map one grouped-query row to a Baseline (``_f`` NULL-guards every stat)."""
+    metric, n, median, p25, p75, mn, mx, mad = row
+    return Baseline(
+        metric=metric,
+        window_days=window_days,
+        n=int(n or 0),
+        median=_f(median),
+        mad=_f(mad),
+        p25=_f(p25),
+        p75=_f(p75),
+        min=_f(mn),
+        max=_f(mx),
+    )
 
 
 def _empty_baseline(metric: str, window_days: int) -> Baseline:
