@@ -1,30 +1,17 @@
 ---
-name: vo2max
-title: VO₂max (Maximal Oxygen Uptake)
-category: cardiovascular
-aliases:
-  [
-    vo2max,
-    vo2 max,
-    vo2peak,
-    maximal oxygen uptake,
-    maximal oxygen consumption,
-    maximal aerobic capacity,
-    aerobic power,
-    maximal aerobic power,
-    aerobic ceiling,
-    cardiorespiratory fitness,
-    CRF,
-    mL/kg/min,
-  ]
-related:
-  [lactate-threshold, running-economy, critical-speed, race-prediction, maximum-heart-rate, heart-rate-zones, polarized-training]
-metrics: [vo2max, vVO2max, maximalAerobicSpeed]
-units: mL/kg/min (or L/min absolute)
-evidence_overall: Established
+id: vo2max
+name: "VO₂max (Maximal Oxygen Uptake)"
+category: metrics
+grade: Established
+summary: "The aerobic ceiling — one of three performance determinants, slow-moving, large wearable error; a trend tool, not a race predictor."
+aliases: ["vo2max", "vo2 max", "vo2peak", "maximal oxygen uptake", "maximal oxygen consumption", "maximal aerobic capacity", "aerobic power", "maximal aerobic power", "aerobic ceiling", "cardiorespiratory fitness", "CRF", "mL/kg/min"]
+applies_to_metrics: ["vo2max_estimate"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["lactate-threshold", "running-economy", "critical-speed", "race-prediction", "maximum-heart-rate", "heart-rate-zones", "polarized-training"]
+daud_metrics: ["vo2max", "vVO2max", "maximalAerobicSpeed"]
+units: "mL/kg/min (or L/min absolute)"
 ---
-
 # VO₂max (Maximal Oxygen Uptake)
 
 ## Summary

@@ -1,33 +1,18 @@
 ---
-name: critical-speed
-title: Critical Speed / Critical Power
-category: pace
-aliases:
-  [
-    critical speed,
-    critical power,
-    CS,
-    CP,
-    critical velocity,
-    CV,
-    D-prime,
-    D',
-    W-prime,
-    W',
-    anaerobic distance capacity,
-    power-duration relationship,
-    speed-duration relationship,
-    3-min all-out test,
-    severe intensity domain,
-  ]
-related:
-  [lactate-threshold, vo2max, training-intensity-distribution, race-pacing, threshold-pace]
-metrics: [criticalSpeed, dPrime]
-units: m/s (CS) · m (D') · W (CP) · J or kJ (W')
-evidence_overall: Established
+id: critical_speed
+name: "Critical Speed / Critical Power"
+category: metrics
+grade: Established
+summary: "The highest metabolically steady-state speed — a hard ceiling; pace above it draws on a finite tank (D′) with predictable time-to-exhaustion."
+population: runners
+aliases: ["critical-speed", "critical speed", "critical power", "CS", "CP", "critical velocity", "CV", "D-prime", "D", "W-prime", "W", "anaerobic distance capacity", "power-duration relationship", "speed-duration relationship", "3-min all-out test", "severe intensity domain"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["lactate-threshold", "vo2max", "training-intensity-distribution", "race-pacing", "threshold-pace"]
+daud_metrics: ["criticalSpeed", "dPrime"]
+units: "m/s (CS) · m (D') · W (CP) · J or kJ (W')"
 ---
-
 # Critical Speed / Critical Power
 
 ## Summary

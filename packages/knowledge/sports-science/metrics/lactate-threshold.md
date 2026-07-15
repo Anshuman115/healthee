@@ -1,30 +1,18 @@
 ---
-name: lactate-threshold
-title: Lactate Threshold (LT1, LT2, LTHR)
-category: cardiovascular
-aliases:
-  [
-    lactate threshold,
-    LT1,
-    LT2,
-    LTHR,
-    aerobic threshold,
-    anaerobic threshold,
-    MLSS,
-    maximal lactate steady state,
-    critical speed,
-    OBLA,
-    threshold pace,
-    threshold heart rate,
-  ]
-related:
-  [vo2max, heart-rate-zones, critical-speed, running-economy, training-intensity-distribution]
-metrics: [lactateThresholdHr, lactateThresholdPace, criticalSpeed]
-units: bpm, sec/km, %HRmax, mmol/L
-evidence_overall: Established
+id: lactate_threshold
+name: "Lactate Threshold (LT1, LT2, LTHR)"
+category: metrics
+grade: Established
+summary: "The intensity where lactate accumulates; LT2/MLSS is the single best — and most trainable — endurance predictor, the central dial the coach turns."
+population: runners
+aliases: ["lactate-threshold", "lactate threshold", "LT1", "LT2", "LTHR", "aerobic threshold", "anaerobic threshold", "MLSS", "maximal lactate steady state", "critical speed", "OBLA", "threshold pace", "threshold heart rate"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["vo2max", "heart-rate-zones", "critical-speed", "running-economy", "training-intensity-distribution"]
+daud_metrics: ["lactateThresholdHr", "lactateThresholdPace", "criticalSpeed"]
+units: "bpm, sec/km, %HRmax, mmol/L"
 ---
-
 # Lactate Threshold (LT1, LT2, LTHR)
 
 ## Summary

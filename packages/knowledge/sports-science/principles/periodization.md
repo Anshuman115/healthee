@@ -1,34 +1,17 @@
 ---
-name: periodization
-title: Periodization & Tapering
-category: principle
-aliases:
-  [
-    periodization,
-    periodisation,
-    taper,
-    tapering,
-    base building,
-    build phase,
-    peak phase,
-    macrocycle,
-    mesocycle,
-    microcycle,
-    block periodization,
-    linear periodization,
-    undulating periodization,
-    peaking,
-    race week,
-    specificity,
-  ]
-related:
-  [training-load, recovery, supercompensation, polarized-training, vo2max, race-pace]
-metrics: [ctl, atl, tsb, acwr, weekly-volume]
-units: weeks, %, AU
-evidence_overall: Probable
+id: periodization
+name: "Periodization & Tapering"
+category: principles
+grade: Probable
+summary: "Phase training (base→build→peak→taper); the ~2-week taper (cut volume 41–60%, hold intensity) is the best-evidenced piece — the macro model choice is not."
+aliases: ["periodization", "periodisation", "taper", "tapering", "base building", "build phase", "peak phase", "macrocycle", "mesocycle", "microcycle", "block periodization", "linear periodization", "undulating periodization", "peaking", "race week", "specificity"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["training-load", "recovery", "supercompensation", "polarized-training", "vo2max", "race-pace"]
+daud_metrics: ["ctl", "atl", "tsb", "acwr", "weekly-volume"]
+units: "weeks, %, AU"
 ---
-
 # Periodization & Tapering
 
 ## Summary

@@ -1,31 +1,18 @@
 ---
-name: aerobic-decoupling
-title: Aerobic Decoupling & Cardiac Drift
-category: cardiovascular
-aliases:
-  - decoupling
-  - cardiac drift
-  - heart rate drift
-  - Pa:HR
-  - Pw:HR
-  - aerobic durability
-  - efficiency factor
-  - HR drift
-  - heart rate recovery
-  - HRR
-  - cardiovascular drift
-related:
-  - hrv
-  - aerobic-base
-  - easy-running
-  - heat-acclimatization
-metrics:
-  - computeDecoupling
-units: "%, bpm"
-evidence_overall: Probable
+id: aerobic_decoupling
+name: "Aerobic Decoupling & Cardiac Drift"
+category: metrics
+grade: Probable
+summary: "How much HR drifts up over a steady run; a durability gauge that must be cross-checked against heat, fuelling, and effort."
+population: runners
+aliases: ["aerobic-decoupling", "decoupling", "cardiac drift", "heart rate drift", "Pa:HR", "Pw:HR", "aerobic durability", "efficiency factor", "HR drift", "heart rate recovery", "HRR", "cardiovascular drift"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["hrv", "aerobic-base", "easy-running", "heat-acclimatization"]
+daud_metrics: ["computeDecoupling"]
+units: "\"%, bpm\""
 ---
-
 # Aerobic Decoupling & Cardiac Drift
 
 ## Summary

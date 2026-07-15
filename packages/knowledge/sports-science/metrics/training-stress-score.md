@@ -1,15 +1,18 @@
 ---
-name: training-stress-score
-title: Training Stress Score (TSS) and Session Load Quantification
-category: load-recovery
-aliases: [tss, rtss, hrtss, training stress score, training load, session load, intensity factor, IF, normalized power, normalized graded pace, NGP, grade adjusted pace, GAP, trimp, session rpe, srpe, training impulse]
-related: [training-load-acwr, fitness-fatigue-form, grade-adjusted-pace, lactate-threshold, running-economy, vo2max, sleep-and-recovery]
-metrics: [computeSessionLoad, rTSS, hrTSS, gradeAdjustedPace]
-units: AU (arbitrary units; ~100 AU = 1 h at threshold)
-evidence_overall: Probable
+id: training_stress_score
+name: "Training Stress Score (TSS) and Session Load Quantification"
+category: metrics
+grade: Probable
+summary: "One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose."
+population: runners
+aliases: ["training-stress-score", "tss", "rtss", "hrtss", "training stress score", "training load", "session load", "intensity factor", "IF", "normalized power", "normalized graded pace", "NGP", "grade adjusted pace", "GAP", "trimp", "session rpe", "srpe", "training impulse"]
+applies_to_metrics: ["cardio_load"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["training-load-acwr", "fitness-fatigue-form", "grade-adjusted-pace", "lactate-threshold", "running-economy", "vo2max", "sleep-and-recovery"]
+daud_metrics: ["computeSessionLoad", "rTSS", "hrTSS", "gradeAdjustedPace"]
+units: "AU (arbitrary units; ~100 AU = 1 h at threshold)"
 ---
-
 # Training Stress Score (TSS) and Session Load Quantification
 
 ## Summary

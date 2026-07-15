@@ -1,34 +1,17 @@
 ---
-name: polarized-training
-title: Polarized & Intensity-Distribution Training
-category: principle
-aliases:
-  [
-    polarized training,
-    polarised training,
-    80/20 training,
-    80-20 rule,
-    training intensity distribution,
-    TID,
-    intensity distribution,
-    pyramidal training,
-    threshold training,
-    junk miles,
-    black hole training,
-    no man's land,
-    moderate intensity trap,
-    three-zone model,
-    Seiler,
-    easy hard distribution,
-  ]
-related:
-  [periodization, individualization, easy-running, lactate-threshold, vo2max, training-load]
-metrics: [intensiteDistribution, timeInZone, weeklyEasyShare, trimp]
-units: "% of training time/volume, zones (Z1/Z2/Z3)"
-evidence_overall: Probable
+id: polarized_training
+name: "Polarized & Intensity-Distribution Training"
+category: principles
+grade: Probable
+summary: "Successful endurance training is ~80% easy / ~20% hard, avoiding the moderate \"black hole\"; whether the hard 20% is polarized vs pyramidal is genuinely contested."
+aliases: ["polarized-training", "polarized training", "polarised training", "80/20 training", "80-20 rule", "training intensity distribution", "TID", "intensity distribution", "pyramidal training", "threshold training", "junk miles", "black hole training", "no man's land", "moderate intensity trap", "three-zone model", "Seiler", "easy hard distribution"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["periodization", "individualization", "easy-running", "lactate-threshold", "vo2max", "training-load"]
+daud_metrics: ["intensiteDistribution", "timeInZone", "weeklyEasyShare", "trimp"]
+units: "\"% of training time/volume, zones (Z1/Z2/Z3)\""
 ---
-
 # Polarized & Intensity-Distribution Training
 
 ## Summary

@@ -1,15 +1,17 @@
 ---
-name: readiness
-title: Readiness (Composite)
-category: load-recovery
-aliases: [readiness, readiness score, daily readiness, training readiness, recovery score, recovery status, body battery, go no-go, green light, autoregulation, morning check-in, wellness check, am I ready to train]
-related: [heart-rate-variability, resting-heart-rate, sleep-and-recovery, training-load-acwr, fitness-fatigue-form, training-stress-score, individualization]
-metrics: [readiness, recoveryScore]
-units: composite band (go / modify / rest) or 0–100 index; component units vary (ms, bpm, h, AU, 1–5)
-evidence_overall: Probable
+id: readiness
+name: "Readiness (Composite)"
+category: metrics
+grade: Probable
+summary: "A triangulated read of HRV + sleep + RHR + load + subjective wellness; no single input is decisive — a prompt to ask a question, never a verdict."
+aliases: ["readiness", "readiness score", "daily readiness", "training readiness", "recovery score", "recovery status", "body battery", "go no-go", "green light", "autoregulation", "morning check-in", "wellness check", "am I ready to train"]
+applies_to_metrics: ["recovery_score"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["heart-rate-variability", "resting-heart-rate", "sleep-and-recovery", "training-load-acwr", "fitness-fatigue-form", "training-stress-score", "individualization"]
+daud_metrics: ["readiness", "recoveryScore"]
+units: "composite band (go / modify / rest) or 0–100 index; component units vary (ms, bpm, h, AU, 1–5)"
 ---
-
 # Readiness (Composite)
 
 ## Summary

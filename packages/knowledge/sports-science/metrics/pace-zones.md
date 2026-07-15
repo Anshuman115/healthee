@@ -1,29 +1,18 @@
 ---
-name: pace-zones
-title: Pace Zones & Threshold Pace
-category: pace
-aliases:
-  [
-    pace zones,
-    threshold pace,
-    T-pace,
-    tempo pace,
-    Daniels zones,
-    VDOT,
-    lactate threshold pace,
-    critical speed,
-    pace vs heart rate,
-    external load,
-    grade-adjusted pace,
-  ]
-related:
-  [heart-rate-zones, lactate-threshold, critical-speed, aerobic-decoupling, grade-adjusted-pace, race-prediction, polarized-training]
-metrics: [computePaceZones, gradeAdjustedPace, aerobicDecoupling]
-units: sec/km
-evidence_overall: Established
+id: pace_zones
+name: "Pace Zones & Threshold Pace"
+category: metrics
+grade: Established
+summary: "Speed bands anchored to threshold pace; pace is instantaneous external load (what you did), HR is lagging internal load (what it cost)."
+population: runners
+aliases: ["pace-zones", "pace zones", "threshold pace", "T-pace", "tempo pace", "Daniels zones", "VDOT", "lactate threshold pace", "critical speed", "pace vs heart rate", "external load", "grade-adjusted pace"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["heart-rate-zones", "lactate-threshold", "critical-speed", "aerobic-decoupling", "grade-adjusted-pace", "race-prediction", "polarized-training"]
+daud_metrics: ["computePaceZones", "gradeAdjustedPace", "aerobicDecoupling"]
+units: "sec/km"
 ---
-
 # Pace Zones & Threshold Pace
 
 ## Summary

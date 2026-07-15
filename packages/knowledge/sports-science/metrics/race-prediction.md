@@ -1,15 +1,18 @@
 ---
-name: race-prediction
-title: Race-Time Prediction
-category: pace
-aliases: [race time predictor, finish time estimate, race equivalency, riegel, vdot, race calculator, predicted race pace, equivalent performances, what could i run]
-related: [vdot, critical-speed, training-paces, lactate-threshold, marathon-pacing]
-metrics: [predictRaceTime, vdot, equivalentPerformance]
-units: sec (time), sec/km (pace), dimensionless (fatigue exponent)
-evidence_overall: Probable
+id: race_prediction
+name: "Race-Time Prediction"
+category: metrics
+grade: Probable
+summary: "Estimates a finish time from a known race via Riegel's power law; well-calibrated short-to-mid, optimistic for under-trained marathoners."
+population: runners
+aliases: ["race-prediction", "race time predictor", "finish time estimate", "race equivalency", "riegel", "vdot", "race calculator", "predicted race pace", "equivalent performances", "what could i run"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["vdot", "critical-speed", "training-paces", "lactate-threshold", "marathon-pacing"]
+daud_metrics: ["predictRaceTime", "vdot", "equivalentPerformance"]
+units: "sec (time), sec/km (pace), dimensionless (fatigue exponent)"
 ---
-
 # Race-Time Prediction
 
 ## Summary

@@ -1,15 +1,17 @@
 ---
-name: resting-heart-rate
-title: Resting Heart Rate (RHR)
-category: cardiovascular
-aliases: [RHR, resting HR, resting pulse, waking heart rate, morning heart rate, basal heart rate, athlete bradycardia, sinus bradycardia]
-related: [heart-rate-variability, sleep-and-recovery, maximum-heart-rate, heart-rate-zones, vo2max, training-load-acwr, individualization]
-metrics: [restingHeartRate, rhrBaseline, rhrDeviation]
-units: bpm
-evidence_overall: Established
+id: resting_heart_rate
+name: "Resting Heart Rate (RHR)"
+category: metrics
+grade: Established
+summary: "A cheap waking-pulse trend; a sustained multi-day rise above the runner's own baseline flags fatigue, under-recovery, or oncoming illness."
+aliases: ["resting-heart-rate", "RHR", "resting HR", "resting pulse", "waking heart rate", "morning heart rate", "basal heart rate", "athlete bradycardia", "sinus bradycardia"]
+applies_to_metrics: ["rhr_daily"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["heart-rate-variability", "sleep-and-recovery", "maximum-heart-rate", "heart-rate-zones", "vo2max", "training-load-acwr", "individualization"]
+daud_metrics: ["restingHeartRate", "rhrBaseline", "rhrDeviation"]
+units: "bpm"
 ---
-
 # Resting Heart Rate (RHR)
 
 ## Summary

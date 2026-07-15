@@ -1,15 +1,18 @@
 ---
-name: fitness-fatigue-form
-title: Fitness / Fatigue / Form (CTL, ATL, TSB)
-category: load-recovery
-aliases: [ctl, atl, tsb, training stress balance, chronic training load, acute training load, fitness fatigue form, banister model, impulse response model, performance management chart, pmc, form, freshness, training load model]
-related: [acute-chronic-workload-ratio, training-stress-score, tapering, periodisation, recovery, hrv]
-metrics: [computeCTL, computeATL, computeTSB, trainingLoad]
-units: TSS/day (AU) for CTL/ATL; TSS (AU) for TSB; days for time constants
-evidence_overall: Probable
+id: fitness_fatigue_form
+name: "Fitness / Fatigue / Form (CTL, ATL, TSB)"
+category: metrics
+grade: Probable
+summary: "Impulse-response bookkeeping: CTL≈fitness, ATL≈fatigue, TSB≈form; useful for trends and tapering, but coarse and never overrides subjective/HRV signals."
+population: runners
+aliases: ["fitness-fatigue-form", "ctl", "atl", "tsb", "training stress balance", "chronic training load", "acute training load", "fitness fatigue form", "banister model", "impulse response model", "performance management chart", "pmc", "form", "freshness", "training load model"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["acute-chronic-workload-ratio", "training-stress-score", "tapering", "periodisation", "recovery", "hrv"]
+daud_metrics: ["computeCTL", "computeATL", "computeTSB", "trainingLoad"]
+units: "TSS/day (AU) for CTL/ATL; TSS (AU) for TSB; days for time constants"
 ---
-
 # Fitness / Fatigue / Form (CTL, ATL, TSB)
 
 ## Summary

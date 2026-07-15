@@ -1,15 +1,17 @@
 ---
-name: running-economy
-title: Running Economy
-category: pace
-aliases: [running economy, RE, oxygen cost of running, energy cost of running, metabolic cost of running, running efficiency, cost of transport, submaximal vo2]
-related: [vo2max, lactate-threshold, critical-speed, cadence, stride-length, running-form-metrics, race-prediction]
-metrics: []
-units: mL·kg⁻¹·min⁻¹ or mL·kg⁻¹·km⁻¹ (O₂ cost); kcal·kg⁻¹·km⁻¹ (energy cost)
-evidence_overall: Established
+id: running_economy
+name: "Running Economy"
+category: metrics
+grade: Established
+summary: "The energy cost of holding a pace — among similar-VO₂max runners it explains who races faster; trainable for a whole career."
+population: runners
+aliases: ["running-economy", "running economy", "RE", "oxygen cost of running", "energy cost of running", "metabolic cost of running", "running efficiency", "cost of transport", "submaximal vo2"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["vo2max", "lactate-threshold", "critical-speed", "cadence", "stride-length", "running-form-metrics", "race-prediction"]
+units: "mL·kg⁻¹·min⁻¹ or mL·kg⁻¹·km⁻¹ (O₂ cost); kcal·kg⁻¹·km⁻¹ (energy cost)"
 ---
-
 # Running Economy
 
 ## Summary

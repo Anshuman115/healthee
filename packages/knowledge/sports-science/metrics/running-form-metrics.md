@@ -1,34 +1,18 @@
 ---
-name: running-form-metrics
-title: Advanced Form Metrics & Running Power
-category: form
-aliases:
-  [
-    ground contact time,
-    GCT,
-    vertical oscillation,
-    vertical ratio,
-    leg stiffness,
-    vertical stiffness,
-    spring-mass model,
-    running power,
-    Stryd,
-    Garmin running power,
-    COROS power,
-    running dynamics,
-    running economy,
-    form drift,
-    biomechanics,
-  ]
-related:
-  [running-economy, cadence, running-efficiency, fatigue-and-recovery, pacing]
-metrics:
-  [groundContactTime, verticalOscillation, verticalRatio, legStiffness, runningPower]
-units: ms, cm, %, kN/m, W (watts), AU
-evidence_overall: Contested
+id: running_form_metrics
+name: "Advanced Form Metrics & Running Power"
+category: metrics
+grade: Contested
+summary: "GCT, vertical oscillation/ratio, leg stiffness, running power — device-dependent, trend-only signals; power is a proprietary model, not interchangeable across brands."
+population: runners
+aliases: ["running-form-metrics", "ground contact time", "GCT", "vertical oscillation", "vertical ratio", "leg stiffness", "vertical stiffness", "spring-mass model", "running power", "Stryd", "Garmin running power", "COROS power", "running dynamics", "running economy", "form drift", "biomechanics"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["running-economy", "cadence", "running-efficiency", "fatigue-and-recovery", "pacing"]
+daud_metrics: ["groundContactTime", "verticalOscillation", "verticalRatio", "legStiffness", "runningPower"]
+units: "ms, cm, %, kN/m, W (watts), AU"
 ---
-
 # Advanced Form Metrics & Running Power
 
 ## Summary

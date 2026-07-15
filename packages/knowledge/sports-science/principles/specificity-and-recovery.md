@@ -1,51 +1,17 @@
 ---
-name: specificity-and-recovery
-title: Specificity & Recovery
-category: principle
-aliases:
-  [
-    specificity,
-    SAID principle,
-    specific adaptation to imposed demands,
-    principle of specificity,
-    training specificity,
-    recovery,
-    rest days,
-    rest day,
-    adaptation,
-    supercompensation,
-    stress-recovery-adaptation,
-    overload-recovery,
-    hard-easy,
-    hard easy principle,
-    easy-hard polarity,
-    overreaching,
-    functional overreaching,
-    non-functional overreaching,
-    overtraining,
-    overtraining syndrome,
-    detraining,
-    cross-training transfer,
-    recovery is when you adapt,
-  ]
-related:
-  [
-    polarized-training,
-    periodization,
-    individualization,
-    training-load-acwr,
-    fitness-fatigue-form,
-    sleep-and-recovery,
-    heart-rate-variability,
-    vo2max,
-    aerobic-decoupling,
-  ]
-metrics: [trainingLoad, acwr, form, fitnessFatigue, hrv]
-units: "n/a (principle); supporting metrics in AU, days, % of baseline"
-evidence_overall: Established
+id: specificity_and_recovery
+name: "Specificity & Recovery"
+category: principles
+grade: Established
+summary: "SAID: the body adapts to the exact stress imposed, and adaptation happens during recovery — stress and recovery are one system; protect the easy–hard polarity."
+aliases: ["specificity-and-recovery", "specificity", "SAID principle", "specific adaptation to imposed demands", "principle of specificity", "training specificity", "recovery", "rest days", "rest day", "adaptation", "supercompensation", "stress-recovery-adaptation", "overload-recovery", "hard-easy", "hard easy principle", "easy-hard polarity", "overreaching", "functional overreaching", "non-functional overreaching", "overtraining", "overtraining syndrome", "detraining", "cross-training transfer", "recovery is when you adapt"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["polarized-training", "periodization", "individualization", "training-load-acwr", "fitness-fatigue-form", "sleep-and-recovery", "heart-rate-variability", "vo2max", "aerobic-decoupling"]
+daud_metrics: ["trainingLoad", "acwr", "form", "fitnessFatigue", "hrv"]
+units: "\"n/a (principle); supporting metrics in AU, days, % of baseline\""
 ---
-
 # Specificity & Recovery
 
 ## Summary
