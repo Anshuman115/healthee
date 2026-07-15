@@ -1,15 +1,18 @@
 ---
-name: injury-prevention
-title: Running Injury Prevention
+id: injury_prevention
+name: "Running Injury Prevention"
 category: wellness
-aliases: [injury risk, running-related injury, RRI, overuse injury, training load management, load spike, 10% rule, ten percent rule, ACWR, acute chronic workload ratio, bone stress injury, stress fracture, RED-S, relative energy deficiency in sport, low energy availability, female athlete triad, return to running, return to run, walk-run, shin splints, medial tibial stress syndrome, patellofemoral pain, runner's knee, IT band syndrome, plantar fasciitis, Achilles tendinopathy, cadence retraining, strength training for runners]
-related: [training-load-acwr, cadence, periodization, individualization, sleep-and-recovery, fueling-and-hydration]
-metrics: [acwr, weeklyDistance, weeklyLoad, sessionLoad, cadence]
-units: injuries per 1000 h, % (load progression), ratio (ACWR, AU), spm (cadence)
-evidence_overall: Probable
+grade: Probable
+summary: "Most running injuries are overuse from load outrunning tissue capacity; strength training and load management are first-line, and bone-stress/REDs is a hard stop."
+population: runners
+aliases: ["injury-prevention", "injury risk", "running-related injury", "RRI", "overuse injury", "training load management", "load spike", "10% rule", "ten percent rule", "ACWR", "acute chronic workload ratio", "bone stress injury", "stress fracture", "RED-S", "relative energy deficiency in sport", "low energy availability", "female athlete triad", "return to running", "return to run", "walk-run", "shin splints", "medial tibial stress syndrome", "patellofemoral pain", "runner's knee", "IT band syndrome", "plantar fasciitis", "Achilles tendinopathy", "cadence retraining", "strength training for runners"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["training-load-acwr", "cadence", "periodization", "individualization", "sleep-and-recovery", "fueling-and-hydration"]
+daud_metrics: ["acwr", "weeklyDistance", "weeklyLoad", "sessionLoad", "cadence"]
+units: "injuries per 1000 h, % (load progression), ratio (ACWR, AU), spm (cadence)"
 ---
-
 # Running Injury Prevention
 
 ## Summary

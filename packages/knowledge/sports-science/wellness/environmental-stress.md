@@ -1,15 +1,18 @@
 ---
-name: environmental-stress
-title: Heat & Altitude
+id: environmental_stress
+name: "Heat & Altitude"
 category: wellness
-aliases: [heat acclimatization, heat acclimation, heat adaptation, training in heat, humidity, WBGT, dew point, core temperature, plasma volume, heat illness, heat stroke, altitude training, live high train low, LHTL, hypoxia, EPO, hemoglobin mass, acclimatization, pace adjustment heat, HR drift heat]
-related: [fueling-and-hydration, heart-rate-zones, pace-zones, aerobic-decoupling, vo2max, individualization]
-metrics: [environmentTempC, relativeHumidity, dewPointC, wbgt, altitudeM, heartRate, paceAdjustment]
-units: °C, % RH, °C (dew point/WBGT), m (altitude), bpm, %, sec/km
-evidence_overall: Established
+grade: Established
+summary: "Heat acclimatization is one of sport's best-evidenced gains (~10–14 days); read effort/pace alongside HR in heat. Altitude (LHTL) is smaller and contested."
+population: runners
+aliases: ["environmental-stress", "heat acclimatization", "heat acclimation", "heat adaptation", "training in heat", "humidity", "WBGT", "dew point", "core temperature", "plasma volume", "heat illness", "heat stroke", "altitude training", "live high train low", "LHTL", "hypoxia", "EPO", "hemoglobin mass", "acclimatization", "pace adjustment heat", "HR drift heat"]
+applies_to_metrics: []
+applies_to_interventions: ["sauna", "heat"]
 last_reviewed: 2026-06-29
+related: ["fueling-and-hydration", "heart-rate-zones", "pace-zones", "aerobic-decoupling", "vo2max", "individualization"]
+daud_metrics: ["environmentTempC", "relativeHumidity", "dewPointC", "wbgt", "altitudeM", "heartRate", "paceAdjustment"]
+units: "°C, % RH, °C (dew point/WBGT), m (altitude), bpm, %, sec/km"
 ---
-
 # Heat & Altitude
 
 ## Summary

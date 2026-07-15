@@ -1,15 +1,17 @@
 ---
-name: heart-rate-variability
-title: Heart-Rate Variability (HRV)
-category: load-recovery
-aliases: [HRV, RMSSD, lnRMSSD, rMSSD, vagal tone, parasympathetic activity, autonomic balance, morning HRV, readiness]
-related: [resting-heart-rate, training-load, recovery, overreaching, sleep]
-metrics: [hrvBaseline, hrvCv]
-units: ms (RMSSD); lnRMSSD is unitless (ln of ms); CV in %
-evidence_overall: Probable
+id: heart_rate_variability
+name: "Heart-Rate Variability (HRV)"
+category: metrics
+grade: Probable
+summary: "Beat-to-beat vagal-tone signal (lnRMSSD vs personal baseline); a noisy daily autoregulation tool, never an overreaching detector on its own."
+aliases: ["heart-rate-variability", "HRV", "RMSSD", "lnRMSSD", "vagal tone", "parasympathetic activity", "autonomic balance", "morning HRV", "readiness"]
+applies_to_metrics: ["hrv_sleep_avg"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["resting-heart-rate", "training-load", "recovery", "overreaching", "sleep"]
+daud_metrics: ["hrvBaseline", "hrvCv"]
+units: "ms (RMSSD); lnRMSSD is unitless (ln of ms); CV in %"
 ---
-
 # Heart-Rate Variability (HRV)
 
 ## Summary

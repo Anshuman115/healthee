@@ -1,15 +1,17 @@
 ---
-name: individualization
-title: Individualization — Training the Runner, Not the Population
-category: principle
-aliases: [individual variability, trainability, responders, non-responders, HERITAGE, individualized training, personalization, n-of-1, individual response, HRV-guided training]
-related: [hrv, training-load, vo2max, progressive-overload, recovery, easy-running, polarized-training]
-metrics: [trainabilityEstimate, individualBaseline, hrvBaseline, responseTracking]
-units: AU, %, ml/min, ms
-evidence_overall: Established
+id: individualization
+name: "Individualization — Training the Runner, Not the Population"
+category: principles
+grade: Established
+summary: "Two runners on the same plan adapt very differently; treat every population default as a starting estimate and re-anchor to the runner's own measured response."
+aliases: ["individualization", "individual variability", "trainability", "responders", "non-responders", "HERITAGE", "individualized training", "personalization", "n-of-1", "individual response", "HRV-guided training"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["hrv", "training-load", "vo2max", "progressive-overload", "recovery", "easy-running", "polarized-training"]
+daud_metrics: ["trainabilityEstimate", "individualBaseline", "hrvBaseline", "responseTracking"]
+units: "AU, %, ml/min, ms"
 ---
-
 # Individualization — Training the Runner, Not the Population
 
 ## Summary

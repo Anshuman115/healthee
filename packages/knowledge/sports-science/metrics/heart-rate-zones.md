@@ -1,15 +1,18 @@
 ---
-name: heart-rate-zones
-title: Heart-Rate Training Zones
-category: cardiovascular
-aliases: [hr zones, heart rate zones, training zones, zone 2, karvonen, heart rate reserve, hrr, lthr, polarized training, seiler 3-zone, intensity distribution, %hrmax, max heart rate]
-related: [aerobic-base, lactate-threshold, training-intensity-distribution, cardiac-drift, hrv, effort-rpe]
-metrics: [estimateHrMax, computeHrZones, zoneForHr, timeInZones, hrFractionToEffort]
-units: bpm, %HRmax, %HRR, AU
-evidence_overall: Probable
+id: heart_rate_zones
+name: "Heart-Rate Training Zones"
+category: metrics
+grade: Probable
+summary: "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy."
+population: runners
+aliases: ["heart-rate-zones", "hr zones", "heart rate zones", "training zones", "zone 2", "karvonen", "heart rate reserve", "hrr", "lthr", "polarized training", "seiler 3-zone", "intensity distribution", "%hrmax", "max heart rate"]
+applies_to_metrics: ["cardio_load"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["aerobic-base", "lactate-threshold", "training-intensity-distribution", "cardiac-drift", "hrv", "effort-rpe"]
+daud_metrics: ["estimateHrMax", "computeHrZones", "zoneForHr", "timeInZones", "hrFractionToEffort"]
+units: "bpm, %HRmax, %HRR, AU"
 ---
-
 # Heart-Rate Training Zones
 
 ## Summary

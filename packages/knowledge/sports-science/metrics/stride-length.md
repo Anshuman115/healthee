@@ -1,15 +1,18 @@
 ---
-name: stride-length
-title: Stride Length
-category: form
-aliases: [stride length, step length, stride, overstriding, overstride, stride rate, cadence vs stride, pace decomposition, foot strike position]
-related: [cadence, running-economy, running-form, injury-load, pace]
-metrics: [strideLength, cadence, speed]
-units: m (stride length), spm (cadence), m/s (speed)
-evidence_overall: Probable
+id: stride_length
+name: "Stride Length"
+category: metrics
+grade: Probable
+summary: "Distance per stride; speed = cadence × stride length, self-selected stride is near-optimal — flag overstriding, never chase a target number."
+population: runners
+aliases: ["stride-length", "stride length", "step length", "stride", "overstriding", "overstride", "stride rate", "cadence vs stride", "pace decomposition", "foot strike position"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["cadence", "running-economy", "running-form", "injury-load", "pace"]
+daud_metrics: ["strideLength", "cadence", "speed"]
+units: "m (stride length), spm (cadence), m/s (speed)"
 ---
-
 # Stride Length
 
 ## Summary

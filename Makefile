@@ -4,10 +4,11 @@
 SERVER := apps/server
 UV     := uv
 
-DEV_COMPOSE := infra/docker/docker-compose.dev.yml
+DEV_COMPOSE   := infra/docker/docker-compose.dev.yml
+KNOWLEDGE_GEN := ../../packages/knowledge/tools/gen_manifest.py
 
 .DEFAULT_GOAL := help
-.PHONY: help setup setup-server lint test fix ci gate db-up db-down
+.PHONY: help setup setup-server lint test fix ci gate db-up db-down knowledge knowledge-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -40,4 +41,10 @@ db-up: ## Start the local dev TimescaleDB (host port 5544)
 db-down: ## Stop the local dev TimescaleDB (keeps the data volume)
 	docker compose -f $(DEV_COMPOSE) down
 
-ci: lint test ## Everything CI runs locally (lint + test)
+knowledge: ## Regenerate the knowledge manifest + research summaries
+	cd $(SERVER) && $(UV) run python $(KNOWLEDGE_GEN)
+
+knowledge-check: ## Fail if the committed manifest is stale/hand-edited
+	cd $(SERVER) && $(UV) run python $(KNOWLEDGE_GEN) --check
+
+ci: lint test knowledge-check ## Everything CI runs locally (lint + test + knowledge)

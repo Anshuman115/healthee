@@ -1,15 +1,17 @@
 ---
-name: sleep-and-recovery
-title: Sleep & Recovery
-category: load-recovery
-aliases: [sleep, sleep hygiene, sleep extension, sleep debt, sleep deprivation, sleep quality, recovery, rest, REM, slow-wave sleep, deep sleep, sleep stages, recovery sleep, sleep loss, banking sleep, sleep duration]
-related: [heart-rate-variability, resting-heart-rate, training-load-acwr, fitness-fatigue-form, training-stress-score]
-metrics: [sleepDurationNightly, sleepDebt7d]
-units: hours (sleep duration); minutes (stage time); AU (subjective recovery)
-evidence_overall: Probable
+id: sleep_and_recovery
+name: "Sleep & Recovery"
+category: metrics
+grade: Probable
+summary: "The most potent recovery process; protect 7–9 h, treat short nights as cumulative debt, and never design plans that require sleep restriction."
+aliases: ["sleep-and-recovery", "sleep", "sleep hygiene", "sleep extension", "sleep debt", "sleep deprivation", "sleep quality", "recovery", "rest", "REM", "slow-wave sleep", "deep sleep", "sleep stages", "recovery sleep", "sleep loss", "banking sleep", "sleep duration"]
+applies_to_metrics: ["recovery_score", "sleep_health_score_4dim"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["heart-rate-variability", "resting-heart-rate", "training-load-acwr", "fitness-fatigue-form", "training-stress-score"]
+daud_metrics: ["sleepDurationNightly", "sleepDebt7d"]
+units: "hours (sleep duration); minutes (stage time); AU (subjective recovery)"
 ---
-
 # Sleep & Recovery
 
 ## Summary

@@ -1,15 +1,18 @@
 ---
-name: grade-adjusted-pace
-title: Grade-Adjusted Pace (GAP)
-category: pace
-aliases: [GAP, grade adjusted pace, gradient adjusted pace, hill-adjusted pace, equivalent flat pace, cost of transport, metabolic cost of gradient running, Minetti curve, NGP, normalized graded pace]
-related: [running-economy, pace-zones, training-load, heart-rate-zones, vertical-gain]
-metrics: [gradeAdjustedPace, gradeAdjustmentFactor]
-units: sec/km, %, J·kg⁻¹·m⁻¹
-evidence_overall: Probable
+id: grade_adjusted_pace
+name: "Grade-Adjusted Pace (GAP)"
+category: metrics
+grade: Probable
+summary: "Converts hill pace to the equivalent flat pace by metabolic cost (Minetti); judge effort by GAP on hills, cross-checked with HR/RPE."
+population: runners
+aliases: ["grade-adjusted-pace", "GAP", "grade adjusted pace", "gradient adjusted pace", "hill-adjusted pace", "equivalent flat pace", "cost of transport", "metabolic cost of gradient running", "Minetti curve", "NGP", "normalized graded pace"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["running-economy", "pace-zones", "training-load", "heart-rate-zones", "vertical-gain"]
+daud_metrics: ["gradeAdjustedPace", "gradeAdjustmentFactor"]
+units: "sec/km, %, J·kg⁻¹·m⁻¹"
 ---
-
 # Grade-Adjusted Pace (GAP)
 
 ## Summary

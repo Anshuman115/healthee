@@ -1,15 +1,18 @@
 ---
-name: menstrual-cycle-and-training
-title: Menstrual Cycle & Training
+id: menstrual_cycle_and_training
+name: "Menstrual Cycle & Training"
 category: wellness
-aliases: [menstrual cycle, period, follicular phase, luteal phase, ovulation, estrogen, oestrogen, progesterone, cycle tracking, cycle syncing, period tracking, hormonal contraception, oral contraceptive, the pill, birth control, IUD, PMS, premenstrual symptoms, dysmenorrhea, amenorrhea, RED-S, REDs, relative energy deficiency, low energy availability, female athlete triad, female physiology, training around your cycle]
-related: [individualization, fueling-and-hydration, sleep-and-recovery, heart-rate-variability, periodization, resting-heart-rate]
-metrics: [energyAvailability, cyclePhase, perceivedSymptomLoad]
-units: kcal/kg FFM/day (energy availability), cycle day, n/a
-evidence_overall: Contested
+grade: Contested
+summary: "Average cycle-phase performance effect is trivial on low-quality evidence — no generic phase plan; but low energy availability / REDs is a safety-critical red flag."
+population: runners
+aliases: ["menstrual-cycle-and-training", "menstrual cycle", "period", "follicular phase", "luteal phase", "ovulation", "estrogen", "oestrogen", "progesterone", "cycle tracking", "cycle syncing", "period tracking", "hormonal contraception", "oral contraceptive", "the pill", "birth control", "IUD", "PMS", "premenstrual symptoms", "dysmenorrhea", "amenorrhea", "RED-S", "REDs", "relative energy deficiency", "low energy availability", "female athlete triad", "female physiology", "training around your cycle"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["individualization", "fueling-and-hydration", "sleep-and-recovery", "heart-rate-variability", "periodization", "resting-heart-rate"]
+daud_metrics: ["energyAvailability", "cyclePhase", "perceivedSymptomLoad"]
+units: "kcal/kg FFM/day (energy availability), cycle day, n/a"
 ---
-
 # Menstrual Cycle & Training
 
 ## Summary

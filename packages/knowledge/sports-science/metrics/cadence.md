@@ -1,15 +1,18 @@
 ---
-name: cadence
-title: Cadence (Step Rate)
-category: form
-aliases: [cadence, step rate, stride frequency, step frequency, spm, steps per minute, turnover, 180 cadence, leg turnover]
-related: [overstriding, running-economy, bone-stress-injury, patellofemoral-pain, running-form]
-metrics: [CadenceSplit, cadence-fade]
-units: spm (steps per minute)
-evidence_overall: Probable
+id: cadence
+name: "Cadence (Step Rate)"
+category: metrics
+grade: Probable
+summary: "Steps per minute; the \"180 for everyone\" rule is a myth — nudge an individual +5–10% above their own baseline only when overstriding/injury justifies it."
+population: runners
+aliases: ["cadence", "step rate", "stride frequency", "step frequency", "spm", "steps per minute", "turnover", "180 cadence", "leg turnover"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["overstriding", "running-economy", "bone-stress-injury", "patellofemoral-pain", "running-form"]
+daud_metrics: ["CadenceSplit", "cadence-fade"]
+units: "spm (steps per minute)"
 ---
-
 # Cadence (Step Rate)
 
 ## Summary

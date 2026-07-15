@@ -1,15 +1,18 @@
 ---
-name: fueling-and-hydration
-title: Fueling & Hydration
+id: fueling_and_hydration
+name: "Fueling & Hydration"
 category: wellness
-aliases: [carbohydrate intake, carbs per hour, gels, glycogen, hitting the wall, bonking, gut training, drinking to thirst, euhydration, sodium, electrolytes, hyponatremia, fasted running, train low, low-carb, ketogenic diet, race fueling]
-related: [carbohydrate-availability, glycogen, recovery-nutrition, heat-and-hydration, long-run, race-day-strategy]
-metrics: [carbsPerHour, fluidPerHour, sessionDurationHours, sessionIntensity]
-units: g/h (carbohydrate), g/kg/day (daily carbohydrate), mL/h (fluid), mmol/L (serum sodium)
-evidence_overall: Established
+grade: Established
+summary: "Carbs are the limiter past ~90 min (30–90 g/h, gut-trained); drink to thirst — over-drinking risks dangerous hyponatremia."
+population: runners
+aliases: ["fueling-and-hydration", "carbohydrate intake", "carbs per hour", "gels", "glycogen", "hitting the wall", "bonking", "gut training", "drinking to thirst", "euhydration", "sodium", "electrolytes", "hyponatremia", "fasted running", "train low", "low-carb", "ketogenic diet", "race fueling"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["carbohydrate-availability", "glycogen", "recovery-nutrition", "heat-and-hydration", "long-run", "race-day-strategy"]
+daud_metrics: ["carbsPerHour", "fluidPerHour", "sessionDurationHours", "sessionIntensity"]
+units: "g/h (carbohydrate), g/kg/day (daily carbohydrate), mL/h (fluid), mmol/L (serum sodium)"
 ---
-
 # Fueling & Hydration
 
 ## Summary

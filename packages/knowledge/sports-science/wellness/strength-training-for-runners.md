@@ -1,15 +1,18 @@
 ---
-name: strength-training-for-runners
-title: Strength Training for Runners
+id: strength_training_for_runners
+name: "Strength Training for Runners"
 category: wellness
-aliases: [resistance training, lifting for runners, heavy strength, plyometrics, plyos, weights, gym work, neuromuscular training, strength and conditioning, running economy strength, injury prevention strength, concurrent training, S&C]
-related: [running-economy, vo2max, periodization, individualization, training-load-acwr, polarized-training, lactate-threshold]
-metrics: [runningEconomy, vVO2max, trainingLoad]
-units: %1RM (load), sets x reps, sessions/week, % (running-economy change), RR (injury risk ratio)
-evidence_overall: Established
+grade: Established
+summary: "Heavy lifting + plyometrics improve running economy ~2–8% with no bulk, and roughly halve overuse-injury risk — recommend to essentially every runner."
+population: runners
+aliases: ["strength-training-for-runners", "resistance training", "lifting for runners", "heavy strength", "plyometrics", "plyos", "weights", "gym work", "neuromuscular training", "strength and conditioning", "running economy strength", "injury prevention strength", "concurrent training", "S&C"]
+applies_to_metrics: ["strength_min_weekly"]
+applies_to_interventions: ["strength"]
 last_reviewed: 2026-06-29
+related: ["running-economy", "vo2max", "periodization", "individualization", "training-load-acwr", "polarized-training", "lactate-threshold"]
+daud_metrics: ["runningEconomy", "vVO2max", "trainingLoad"]
+units: "%1RM (load), sets x reps, sessions/week, % (running-economy change), RR (injury risk ratio)"
 ---
-
 # Strength Training for Runners
 
 ## Summary

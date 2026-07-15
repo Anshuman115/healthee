@@ -1,15 +1,17 @@
 ---
-name: maximum-heart-rate
-title: Maximum Heart Rate (HRmax)
-category: cardiovascular
-aliases: [HRmax, max heart rate, maximal heart rate, max hr, 220 minus age, 220-age, tanaka formula, fox formula, gellish formula, nes formula, hunt formula, peak heart rate, age-predicted max heart rate, apmhr, mhr]
-related: [heart-rate-zones, resting-heart-rate, heart-rate-variability, lactate-threshold, vo2max, individualization]
-metrics: [estimateHrMax, hrMaxObserved, hrMaxConfidence]
-units: bpm
-evidence_overall: Established
+id: maximum_heart_rate
+name: "Maximum Heart Rate (HRmax)"
+category: metrics
+grade: Established
+summary: "The stable, age-declining, non-trainable HR ceiling that anchors every %HRmax zone — use Tanaka, not 220−age, and override with any observed peak."
+aliases: ["maximum-heart-rate", "HRmax", "max heart rate", "maximal heart rate", "max hr", "220 minus age", "220-age", "tanaka formula", "fox formula", "gellish formula", "nes formula", "hunt formula", "peak heart rate", "age-predicted max heart rate", "apmhr", "mhr"]
+applies_to_metrics: ["max_hr_daily", "cardio_load", "vo2max_estimate"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["heart-rate-zones", "resting-heart-rate", "heart-rate-variability", "lactate-threshold", "vo2max", "individualization"]
+daud_metrics: ["estimateHrMax", "hrMaxObserved", "hrMaxConfidence"]
+units: "bpm"
 ---
-
 # Maximum Heart Rate (HRmax)
 
 ## Summary

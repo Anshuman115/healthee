@@ -1,40 +1,17 @@
 ---
-name: progressive-overload
-title: Progressive Overload & Adaptation
-category: principle
-aliases:
-  [
-    progressive overload,
-    overload,
-    load progression,
-    training progression,
-    ramp rate,
-    10% rule,
-    ten percent rule,
-    supercompensation,
-    super-compensation,
-    adaptation,
-    deload,
-    deload week,
-    down week,
-    recovery week,
-    cutback week,
-    overreaching,
-    functional overreaching,
-    non-functional overreaching,
-    overtraining,
-    overtraining syndrome,
-    OTS,
-    too much too soon,
-  ]
-related:
-  [periodization, training-load, recovery, acwr, individualization, polarized-training]
-metrics: [ctl, atl, tsb, acwr, weekly-volume]
-units: "%, weeks, AU"
-evidence_overall: Probable
+id: progressive_overload
+name: "Progressive Overload & Adaptation"
+category: principles
+grade: Probable
+summary: "Stress → recovery → adaptation; cap single-run distance spikes tightly, deload periodically — but the \"10% per week\" rule is a soft heuristic, not a law."
+aliases: ["progressive-overload", "progressive overload", "overload", "load progression", "training progression", "ramp rate", "10% rule", "ten percent rule", "supercompensation", "super-compensation", "adaptation", "deload", "deload week", "down week", "recovery week", "cutback week", "overreaching", "functional overreaching", "non-functional overreaching", "overtraining", "overtraining syndrome", "OTS", "too much too soon"]
+applies_to_metrics: []
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["periodization", "training-load", "recovery", "acwr", "individualization", "polarized-training"]
+daud_metrics: ["ctl", "atl", "tsb", "acwr", "weekly-volume"]
+units: "\"%, weeks, AU\""
 ---
-
 # Progressive Overload & Adaptation
 
 ## Summary

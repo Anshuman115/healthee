@@ -1,15 +1,18 @@
 ---
-name: training-load-acwr
-title: Training Load & Acute:Chronic Workload Ratio (ACWR)
-category: load-recovery
-aliases: [acwr, acute chronic workload ratio, acute:chronic, workload ratio, training load ratio, acute load, chronic load, ewma acwr, rolling average acwr, sweet spot, 10 percent rule, ten percent rule, load spike, training monotony, workload management]
-related: [fitness-fatigue-form, training-stress-score, sleep-and-recovery, heart-rate-variability, periodization, individualization]
-metrics: [computeACWR, acuteLoad, chronicLoad, trainingLoad, weeklyLoadRamp]
-units: ratio (AU/AU, dimensionless); load in AU (TSS, sRPE·min, km, or min)
-evidence_overall: Contested
+id: training_load_acwr
+name: "Training Load & Acute:Chronic Workload Ratio (ACWR)"
+category: metrics
+grade: Contested
+summary: "Acute vs chronic workload ratio; a descriptive load-spike signal whose injury-prediction claim is discredited — avoid spikes, but don't gate on the numbers."
+population: runners
+aliases: ["training-load-acwr", "acwr", "acute chronic workload ratio", "acute:chronic", "workload ratio", "training load ratio", "acute load", "chronic load", "ewma acwr", "rolling average acwr", "sweet spot", "10 percent rule", "ten percent rule", "load spike", "training monotony", "workload management"]
+applies_to_metrics: ["cardio_load"]
+applies_to_interventions: []
 last_reviewed: 2026-06-29
+related: ["fitness-fatigue-form", "training-stress-score", "sleep-and-recovery", "heart-rate-variability", "periodization", "individualization"]
+daud_metrics: ["computeACWR", "acuteLoad", "chronicLoad", "trainingLoad", "weeklyLoadRamp"]
+units: "ratio (AU/AU, dimensionless); load in AU (TSS, sRPE·min, km, or min)"
 ---
-
 # Training Load & Acute:Chronic Workload Ratio (ACWR)
 
 ## Summary
