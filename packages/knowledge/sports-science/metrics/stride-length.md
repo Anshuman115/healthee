@@ -3,6 +3,7 @@ id: stride_length
 name: "Stride Length"
 category: metrics
 grade: Probable
+evidence_grade: 2
 summary: "Distance per stride; speed = cadence × stride length, self-selected stride is near-optimal — flag overstriding, never chase a target number."
 population: runners
 aliases: ["stride-length", "stride length", "step length", "stride", "overstriding", "overstride", "stride rate", "cadence vs stride", "pace decomposition", "foot strike position"]
@@ -10,7 +11,6 @@ applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["cadence", "running-economy", "running-form", "injury-load", "pace"]
-daud_metrics: ["strideLength", "cadence", "speed"]
 units: "m (stride length), spm (cadence), m/s (speed)"
 ---
 # Stride Length
@@ -386,3 +386,28 @@ By **stage**:
 - Moore, I. S. (2016). *Is there an economical running technique? A review of
   modifiable biomechanical factors affecting running economy.* Sports Medicine,
   46(6), 793–807. https://doi.org/10.1007/s40279-016-0474-4
+
+## Healthee implementation & honesty policy
+- **Not currently computed as a running-form metric — but a coarse stride estimate
+  already exists for other purposes.** Healthee derives no per-run stride-length
+  form signal and has no `strideLength` form field. It *does* use a **population
+  height-fraction constant**, `stride_m ≈ 0.414 × height`
+  (`derive/activity.py`, `derive/energy.py`), to convert steps to distance and to
+  feed the MET energy model — that is a **fixed scalar for distance/energy, not a
+  measured or per-stride running-form value**, and must not be read as this note's
+  metric. So this note is **reference science + a future-metric candidate**
+  (`applies_to_metrics: []`; `daud_metrics` provenance dropped — `strideLength`/
+  `cadence`/`speed` are legacy `@daud/core`).
+- **Future-metric candidate (feasible from existing data).** Per-minute
+  `steps_per_minute` samples combined with GPS speed on a recorded run give
+  **measured** stride length via `speed = cadence × stride length` — a real
+  overstriding/form signal, distinct from the constant `stride_m` used for
+  distance.
+- **Population: runners.** Overstriding and the pace decomposition are
+  running-form concerns, not general activity.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - **Self-selected stride is near-optimal** — flag overstriding (foot landing well
+    ahead of the centre of mass), never chase a target stride number.
+  - Stride is only interpretable **relative to the same runner at the same pace**;
+    it rises with speed and scales with leg length, so cross-runner comparison is
+    meaningless.

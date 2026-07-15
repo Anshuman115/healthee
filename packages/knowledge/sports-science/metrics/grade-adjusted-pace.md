@@ -3,6 +3,7 @@ id: grade_adjusted_pace
 name: "Grade-Adjusted Pace (GAP)"
 category: metrics
 grade: Probable
+evidence_grade: 2
 summary: "Converts hill pace to the equivalent flat pace by metabolic cost (Minetti); judge effort by GAP on hills, cross-checked with HR/RPE."
 population: runners
 aliases: ["grade-adjusted-pace", "GAP", "grade adjusted pace", "gradient adjusted pace", "hill-adjusted pace", "equivalent flat pace", "cost of transport", "metabolic cost of gradient running", "Minetti curve", "NGP", "normalized graded pace"]
@@ -10,7 +11,6 @@ applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["running-economy", "pace-zones", "training-load", "heart-rate-zones", "vertical-gain"]
-daud_metrics: ["gradeAdjustedPace", "gradeAdjustmentFactor"]
 units: "sec/km, %, J·kg⁻¹·m⁻¹"
 ---
 # Grade-Adjusted Pace (GAP)
@@ -331,3 +331,31 @@ This section is mandatory — GAP is a useful estimate wrapped in real uncertain
 - Schroeder, A. *Reverse-engineering Strava's Grade Adjusted Pace.*
   https://aaron-schroeder.github.io/reverse-engineering/grade-adjusted-pace.html
 - fellrnr. *Grade Adjusted Pace.* https://fellrnr.com/wiki/Grade_Adjusted_Pace
+
+## Healthee implementation & honesty policy
+- **Not surfaced as a standalone metric — but the core math is already in-repo.**
+  Healthee does not write a grade-adjusted-pace `derived_daily` field. However,
+  the **Minetti 2002 gradient-cost model this note describes is already
+  implemented** and used internally: `derive/vo2max_submax.py::_vo2_speed_grade`
+  scales the ACSM level VO₂ by the Minetti gradient-cost ratio (correct uphill
+  *and* downhill), with per-point grade taken from a terrain DEM
+  (`derive/dem.py`, not noisy GPS altitude) and the gradient clamped to Minetti's
+  **±0.45** validity range — inside the submaximal-VO₂max estimator, not as a
+  user-facing GAP number. So the note is **reference science + a strong,
+  low-effort future-metric candidate**: the validated cost model is ported and
+  tested; surfacing a flat-equivalent pace per GPS segment is a small addition.
+  (`applies_to_metrics: []` today; `daud_metrics` provenance dropped — the
+  `gradeAdjustedPace`/`gradeAdjustmentFactor` helpers are the legacy `@daud/core`
+  naming.)
+- **Future-metric candidate (feasible from existing data).** `derive/gps.py`
+  already yields per-segment speed and DEM-corrected grade over a recorded
+  workout; feeding those through the existing Minetti ratio gives GAP directly,
+  and it would immediately feed grade-aware `pace-zones` and `aerobic-decoupling`.
+- **Population: runners** (and grade-affected walking); applies to graded outdoor
+  GPS efforts, not to the flat step/MVPA activity Healthee derives today.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - GAP is **valid only within ±45% grade** and **overstates achievable downhill
+    speed** — it captures metabolic cost, not the eccentric/braking limit — so on
+    steep descents cross-check with HR/RPE, never trust GAP alone.
+  - GAP answers *what the flat-equivalent effort was*, not what it cost
+    physiologically that day; pair with HR/effort as heat and fatigue accumulate.

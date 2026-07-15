@@ -3,6 +3,7 @@ id: running_form_metrics
 name: "Advanced Form Metrics & Running Power"
 category: metrics
 grade: Contested
+evidence_grade: 1
 summary: "GCT, vertical oscillation/ratio, leg stiffness, running power — device-dependent, trend-only signals; power is a proprietary model, not interchangeable across brands."
 population: runners
 aliases: ["running-form-metrics", "ground contact time", "GCT", "vertical oscillation", "vertical ratio", "leg stiffness", "vertical stiffness", "spring-mass model", "running power", "Stryd", "Garmin running power", "COROS power", "running dynamics", "running economy", "form drift", "biomechanics"]
@@ -10,7 +11,6 @@ applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["running-economy", "cadence", "running-efficiency", "fatigue-and-recovery", "pacing"]
-daud_metrics: ["groundContactTime", "verticalOscillation", "verticalRatio", "legStiffness", "runningPower"]
 units: "ms, cm, %, kN/m, W (watts), AU"
 ---
 # Advanced Form Metrics & Running Power
@@ -135,3 +135,28 @@ Critically, runners self-optimise this. Moore et al. found that trained enduranc
 - Garmin. *Vertical ratio* (Running Science / Running Dynamics). https://www.garmin.com/en-US/garmin-technology/running-science/running-dynamics/vertical-ratio/ — manufacturer definition of vertical ratio and typical ranges.
 - DC Rainmaker (2022). *Apple Watch running power data comparison (vs Garmin/Stryd/Polar/COROS)*. https://www.dcrainmaker.com/2022/06/running-comparison-garmin.html — practitioner cross-device comparison (non–peer-reviewed); ~30% inter-brand power spread.
 - SportTracks (2018). *Running power options: the differences between Stryd, Garmin, Coros, RunScribe, and Polar*. https://www.sporttracks.mobi/blog/how-to-choose-a-running-power-meter — practitioner consensus on non-interchangeability of running power.
+
+## Healthee implementation & honesty policy
+- **Not currently computed, and not a near-term candidate.** Healthee ingests **no
+  running-dynamics data** — no ground-contact time, vertical oscillation/ratio, leg
+  stiffness, or running power; the Amazfit Helio strap does not expose them and no
+  such stream reaches `derive/`. This note is **reference science + a future
+  candidate that depends on hardware/data Healthee does not have** (`applies_to_metrics: []`;
+  `daud_metrics` provenance dropped — `groundContactTime`/`verticalOscillation`/
+  `verticalRatio`/`legStiffness`/`runningPower` are legacy `@daud/core`).
+- **Why the numeric ship-tier is 1 (`evidence_grade: 1`).** The note's overall
+  grade is **Contested**; the unified numeric mirror only spans 3/2/1, so a
+  Contested note takes the **lowest ship tier** — the coach must present these as
+  debated, device-locked, trend-only signals, never state them plainly. (Flagged
+  for the reviewing lead as the one non-obvious mapping: Contested → 1.)
+- **Future-metric candidate (only if a dynamics-capable device is added).** These
+  would require a footpod / dynamics-capable watch or a running-power meter, plus a
+  policy for the fact that the numbers are **not comparable across brands**.
+- **Population: runners.**
+- **Honesty rules (carry into any future UI + the coach today):**
+  - Running **power is a proprietary model, not a measurement**, and differs ~30%
+    across brands — **never compare power across devices** or treat it like cycling
+    watts.
+  - GCT, vertical oscillation/ratio and leg stiffness are **device-dependent,
+    trend-only** — compare a runner only to their own history on the same device;
+    absolute cross-device or cross-runner comparisons are invalid.

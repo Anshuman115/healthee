@@ -3,6 +3,7 @@ id: aerobic_decoupling
 name: "Aerobic Decoupling & Cardiac Drift"
 category: metrics
 grade: Probable
+evidence_grade: 2
 summary: "How much HR drifts up over a steady run; a durability gauge that must be cross-checked against heat, fuelling, and effort."
 population: runners
 aliases: ["aerobic-decoupling", "decoupling", "cardiac drift", "heart rate drift", "Pa:HR", "Pw:HR", "aerobic durability", "efficiency factor", "HR drift", "heart rate recovery", "HRR", "cardiovascular drift"]
@@ -10,7 +11,6 @@ applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["hrv", "aerobic-base", "easy-running", "heat-acclimatization"]
-daud_metrics: ["computeDecoupling"]
 units: "\"%, bpm\""
 ---
 # Aerobic Decoupling & Cardiac Drift
@@ -394,3 +394,25 @@ the clinical ≤12 bpm figure, for training decisions.
   greater improvements in acute heart rate recovery and anaerobic power than high
   volume low intensity training.* Frontiers in Physiology, 8, 562.
   https://doi.org/10.3389/fphys.2017.00562
+
+## Healthee implementation & honesty policy
+- **Not currently computed — but every input already exists.** Healthee derives no
+  decoupling field and has no `computeDecoupling` in `derive/`. It **does** record
+  outdoor GPS workouts and, in `derive/gps.py`, already builds per-segment pace and
+  interpolates the sparse strap HR (~1/min) across the track — which is exactly the
+  pace-per-heartbeat time series a split-half Pa:HR decoupling needs. This note is
+  therefore **reference science + a strong future-metric candidate** (`applies_to_metrics: []`;
+  `daud_metrics` provenance dropped — `computeDecoupling` is legacy `@daud/core`).
+- **Future-metric candidate (feasible, low effort).** Split a steady GPS run in
+  half, take pace/HR (or GAP/HR) in each half, and report the % change — a direct
+  addition on top of `derive/gps.py`'s existing pace + HR-interpolation, gated on a
+  long-enough steady effort with adequate HR coverage.
+- **Population: runners** (steady aerobic GPS efforts); not applicable to daily
+  step activity.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - The **~5% cutoff is a practitioner convention, not a validated threshold**;
+    the signal is the **trend across comparable sessions**, not one run.
+  - Decoupling is **heavily confounded** by heat, dehydration, under-fuelling,
+    caffeine, cardiovascular drift and pace variability — always cross-check the
+    conditions before reading a high value as lost durability; only valid on a
+    genuinely *steady* effort.

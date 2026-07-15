@@ -3,6 +3,7 @@ id: critical_speed
 name: "Critical Speed / Critical Power"
 category: metrics
 grade: Established
+evidence_grade: 3
 summary: "The highest metabolically steady-state speed — a hard ceiling; pace above it draws on a finite tank (D′) with predictable time-to-exhaustion."
 population: runners
 aliases: ["critical-speed", "critical speed", "critical power", "CS", "CP", "critical velocity", "CV", "D-prime", "D", "W-prime", "W", "anaerobic distance capacity", "power-duration relationship", "speed-duration relationship", "3-min all-out test", "severe intensity domain"]
@@ -10,7 +11,6 @@ applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["lactate-threshold", "vo2max", "training-intensity-distribution", "race-pacing", "threshold-pace"]
-daud_metrics: ["criticalSpeed", "dPrime"]
 units: "m/s (CS) · m (D') · W (CP) · J or kJ (W')"
 ---
 # Critical Speed / Critical Power
@@ -371,3 +371,25 @@ predictions, re-fit CS from those races.
 - Black, M. I., Simpson, L. P., Goulding, R. P., et al. (2022). *A critique of "A critical
   review of critical power".* European Journal of Applied Physiology.
   https://doi.org/10.1007/s00421-022-04959-7
+
+## Healthee implementation & honesty policy
+- **Not currently computed.** Healthee derives no critical-speed / D′ (or CP / W′)
+  field, and there is no `criticalSpeed`/`dPrime` fit in `derive/`. Estimating CS
+  requires **several maximal efforts of differing duration** (e.g. 3-, 6-, 12-min
+  time-trials, or a 3-min all-out test) that Healthee does not prompt for or
+  detect. This note is **reference science + a future-metric candidate**
+  (`applies_to_metrics: []`; `daud_metrics` provenance dropped — the `criticalSpeed`
+  /`dPrime` helpers are legacy `@daud/core`).
+- **Future-metric candidate (data-hungry).** Healthee already records outdoor GPS
+  workouts with per-segment pace (`derive/gps.py`); a CS/D′ fit could be estimated
+  from a set of recent near-maximal GPS efforts spanning ~2–15 min — but only when
+  enough genuine max efforts exist, which is a strong data precondition. Lower
+  priority than `grade-adjusted-pace`/`aerobic-decoupling`, which need no maximal
+  testing.
+- **Population: runners.** CS is a running/endurance ceiling concept, not
+  applicable to general daily activity.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - CS is a **modelled ceiling, not a measured value**; the estimate shifts with
+    the effort durations used to fit it — quote it as a band and name the inputs.
+  - D′ (the finite tank above CS) is even noisier than CS; never present exact
+    time-to-exhaustion figures as promises.

@@ -3,6 +3,7 @@ id: running_economy
 name: "Running Economy"
 category: metrics
 grade: Established
+evidence_grade: 3
 summary: "The energy cost of holding a pace — among similar-VO₂max runners it explains who races faster; trainable for a whole career."
 population: runners
 aliases: ["running-economy", "running economy", "RE", "oxygen cost of running", "energy cost of running", "metabolic cost of running", "running efficiency", "cost of transport", "submaximal vo2"]
@@ -340,3 +341,25 @@ exceeding load or progression limits.
 - Moore, I. S. (2016). *Is there an economical running technique? A review of
   modifiable biomechanical factors affecting running economy.* Sports Medicine,
   46(6), 793–807. https://doi.org/10.1007/s40279-016-0474-4
+
+## Healthee implementation & honesty policy
+- **Not currently computed.** Healthee derives no running-economy field. True RE
+  requires **steady-state submaximal O₂ measurement** (a metabolic cart), which no
+  wearable — including the Helio strap — provides; Healthee has no O₂ signal.
+  (This note has no `daud_metrics` provenance to drop.) It is **reference science +
+  a weak future-metric candidate** (`applies_to_metrics: []`).
+- **Future-metric candidate (proxy only, not true RE).** From existing GPS pace +
+  interpolated strap HR (`derive/gps.py`) Healthee could compute an
+  **efficiency-factor-style proxy** (speed per heartbeat on a standardised easy
+  effort) and track its *trend*. That is **not** running economy — it is an HR-cost
+  surrogate confounded by everything HR is — and must never be labelled as measured
+  RE. Note that the submaximal-VO₂max estimator (`derive/vo2max_submax.py`) already
+  models VO₂ from speed+grade, so a related O₂-cost proxy is conceptually reachable
+  but still an estimate, not lab RE.
+- **Population: runners.** RE is a running-specific efficiency construct.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - **RE is lab-grade; wearable proxies are not interchangeable with measured O₂
+    cost** — never present a speed-per-heartbeat number as "your running economy".
+  - RE is **individual and trainable over a whole career**; among runners of
+    similar VO₂max it helps explain who races faster — frame it as a long-horizon
+    trend, not a day-to-day readout.

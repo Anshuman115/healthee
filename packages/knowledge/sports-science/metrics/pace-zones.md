@@ -3,6 +3,7 @@ id: pace_zones
 name: "Pace Zones & Threshold Pace"
 category: metrics
 grade: Established
+evidence_grade: 3
 summary: "Speed bands anchored to threshold pace; pace is instantaneous external load (what you did), HR is lagging internal load (what it cost)."
 population: runners
 aliases: ["pace-zones", "pace zones", "threshold pace", "T-pace", "tempo pace", "Daniels zones", "VDOT", "lactate threshold pace", "critical speed", "pace vs heart rate", "external load", "grade-adjusted pace"]
@@ -10,7 +11,6 @@ applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
 related: ["heart-rate-zones", "lactate-threshold", "critical-speed", "aerobic-decoupling", "grade-adjusted-pace", "race-prediction", "polarized-training"]
-daud_metrics: ["computePaceZones", "gradeAdjustedPace", "aerobicDecoupling"]
 units: "sec/km"
 ---
 # Pace Zones & Threshold Pace
@@ -386,3 +386,33 @@ down-weight pace as conditions degrade it.**
 - TrainingPeaks. Aerobic decoupling (Pa:HR / Pw:HR) and Efficiency Factor (EF).
   Practitioner reference. https://help.trainingpeaks.com/hc/en-us/articles/204071724-Aerobic-Decoupling-Pw-Hr-and-Pa-HR-and-Efficiency-Factor-EF
   (Cited as practitioner consensus, not peer-reviewed.)
+
+## Healthee implementation & honesty policy
+- **Not currently computed.** Healthee derives **no pace-zone metric** — there is
+  no `derived_daily` field for threshold pace or zone bounds, and no
+  `computePaceZones` in `derive/`. Healthee has never estimated a runner's
+  **threshold pace anchor**, so it cannot scale zones. This note is **reference
+  science + a future-metric candidate**, retrievable by alias/keyword for the
+  coach, not a live signal. (`applies_to_metrics: []`; `daud_metrics` provenance
+  intentionally dropped — the `computePaceZones`/`gradeAdjustedPace`/
+  `aerobicDecoupling` functions live in the legacy `@daud/core`, not this repo.)
+- **Future-metric candidate (feasible from existing data).** Healthee already
+  records outdoor GPS workouts (`gps_track`/`gps_point`) and interpolates strap HR
+  across them (`derive/gps.py`), and already computes per-segment pace and grade.
+  A threshold-pace anchor could be estimated from a recent GPS race/time-trial
+  (or via the `race-prediction`/VDOT path), after which zone bands follow directly
+  from `computePaceZones`'s speed-fraction table. Grade adjustment for hilly
+  targets is already available in-repo (Minetti — see `grade-adjusted-pace`). This
+  is a plausible near-term addition; it is not built.
+- **Population: runners.** Pace-zone anchoring is running-specific and assumes a
+  trained runner with a stable threshold; it does not apply to the general
+  step/MVPA activity Healthee currently derives.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - Never present pace zones without a **fresh personal threshold anchor**; a
+    stale or guessed anchor mis-scales every zone. Quote thresholds and zone edges
+    as **bands, not exact seconds**.
+  - **Pace is instantaneous external load; HR is a lagging, drifting internal
+    response.** Down-weight pace as heat/hills/fatigue accumulate; use
+    grade-adjusted pace on graded terrain and let effort/HR lead in the heat.
+  - Until Healthee computes this, the coach may cite this note for education but
+    must not imply the app is measuring the user's zones.

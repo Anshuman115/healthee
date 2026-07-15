@@ -3,14 +3,14 @@ id: cadence
 name: "Cadence (Step Rate)"
 category: metrics
 grade: Probable
+evidence_grade: 2
 summary: "Steps per minute; the \"180 for everyone\" rule is a myth — nudge an individual +5–10% above their own baseline only when overstriding/injury justifies it."
 population: runners
 aliases: ["cadence", "step rate", "stride frequency", "step frequency", "spm", "steps per minute", "turnover", "180 cadence", "leg turnover"]
 applies_to_metrics: []
 applies_to_interventions: []
 last_reviewed: 2026-06-29
-related: ["overstriding", "running-economy", "bone-stress-injury", "patellofemoral-pain", "running-form"]
-daud_metrics: ["CadenceSplit", "cadence-fade"]
+related: ["overstriding", "running-economy", "bone-stress-injury", "patellofemoral-pain", "running-form", "cadence_intensity"]
 units: "spm (steps per minute)"
 ---
 # Cadence (Step Rate)
@@ -345,3 +345,35 @@ healthy runners (Contested / insufficient evidence).
 - Willson, J. D., Sharpee, R., Meardon, S. A., & Kernozek, T. W. (2014). *Effects of step length on patellofemoral joint stress in female runners with and without patellofemoral pain.* Clinical Biomechanics, 29(3), 243–247. https://doi.org/10.1016/j.clinbiomech.2013.12.016
 - van Oeveren, B. T., de Ruiter, C. J., Beek, P. J., & van Dieën, J. H. (2017). *Optimal stride frequencies in running at different speeds.* PLOS ONE, 12(10), e0184273. https://doi.org/10.1371/journal.pone.0184273
 - de Ruiter, C. J., van Daal, S., & van Dieën, J. H. (2020). *Individual optimal step frequency during outdoor running.* European Journal of Sport Science, 20(2), 182–190. https://doi.org/10.1080/17461391.2019.1626911
+
+## Healthee implementation & honesty policy
+- **Not currently computed as a running-form metric.** Healthee derives no
+  running cadence field, no `CadenceSplit`, and no `cadence-fade` flag. This note
+  is **reference science + a future-metric candidate** (`applies_to_metrics: []`;
+  `daud_metrics` provenance intentionally dropped — `CadenceSplit`/`cadence-fade`
+  live in the legacy `@daud/core`).
+- **Complementary to `cadence_intensity` — keep separate (see `related`).**
+  Healthee *does* record per-minute `steps_per_minute` samples and already uses
+  them for **cadence-as-intensity**: `derive/mvpa.py` classifies each minute's
+  step cadence into MVPA bands (the legacy `cadence_intensity` note), and
+  `derive/activity.py`/`derive/energy.py` use a stride estimate for distance and
+  energy. That is **walking/step-intensity cadence**, a different construct from
+  the **running-form cadence** this note covers (step rate vs overstriding/joint
+  load). The two are cross-linked, not merged: `cadence_intensity` = how hard the
+  minute was; `cadence` (this note) = running form/turnover.
+- **Future-metric candidate (feasible from existing data).** Per-minute
+  `steps_per_minute` during a recorded GPS run, split first-half vs second-half,
+  would yield running cadence and a `cadence-fade` fatigue flag directly from data
+  Healthee already stores.
+- **Population: runners.** The +5–10% form nudge and the fade flag are
+  running-specific; the MVPA cadence bands (`cadence_intensity`) are the general
+  activity angle.
+- **Honesty rules (carry into any future UI + the coach today):**
+  - **"180 spm for everyone" is a myth** — correct it gently; optimal cadence is
+    individual and rises with speed.
+  - Express cadence **only relative to the runner's own habitual value at a
+    comparable pace**; never compare across runners or paces, and never prescribe
+    an absolute target. Any cued change is capped at **+5–10%**, phased in
+    gradually, and justified by overstriding/injury.
+  - Report the **verified** effect sizes (peak PFJ force ≈ −14% at +10% [Lenhart
+    2014]); do not repeat the inflated "−26% PFJ / −14% tibial shock" headline.
