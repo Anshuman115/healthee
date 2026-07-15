@@ -1,0 +1,32 @@
+# Healthee — local dev database only (TimescaleDB, same image as prod).
+#
+# Brings up just Postgres+TimescaleDB on host port 5544 (legacy dev port, chosen
+# to avoid clashing with a system Postgres on 5432). The app runs on the host via
+# `uv run uvicorn …`; point it at this DB with:
+#
+#   POSTGRES_HOST=localhost POSTGRES_PORT=5544 POSTGRES_PASSWORD=healthee \
+#     uv run python -m healthee.db.migrate
+#
+# Start/stop with the Makefile: `make db-up` / `make db-down`.
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg17
+    container_name: healthee-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: healthee
+      POSTGRES_PASSWORD: healthee
+      POSTGRES_DB: healthee
+    ports:
+      - "5544:5432"
+    volumes:
+      - healthee-dev-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthee -d healthee"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  healthee-dev-pgdata:

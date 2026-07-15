@@ -4,8 +4,10 @@
 SERVER := apps/server
 UV     := uv
 
+DEV_COMPOSE := infra/docker/docker-compose.dev.yml
+
 .DEFAULT_GOAL := help
-.PHONY: help setup setup-server lint test fix ci gate
+.PHONY: help setup setup-server lint test fix ci gate db-up db-down
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -31,5 +33,11 @@ test: ## Run server tests (pytest + coverage report)
 fix: ## Auto-fix: ruff --fix + ruff format
 	cd $(SERVER) && $(UV) run ruff check --fix
 	cd $(SERVER) && $(UV) run ruff format
+
+db-up: ## Start the local dev TimescaleDB (host port 5544)
+	docker compose -f $(DEV_COMPOSE) up -d
+
+db-down: ## Stop the local dev TimescaleDB (keeps the data volume)
+	docker compose -f $(DEV_COMPOSE) down
 
 ci: lint test ## Everything CI runs locally (lint + test)

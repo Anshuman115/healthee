@@ -9,6 +9,8 @@ dependencies = [
     "psycopg[binary]>=3.3.4",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.1",
+    "psycopg-pool>=3.3.1",
+    "httpx>=0.28.1",
 ]
 
 [build-system]
@@ -57,3 +59,6 @@ venv = ".venv"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=healthee --cov-report=term"
+markers = [
+    "integration: requires a reachable TimescaleDB; auto-skips when the DB env is unset/unreachable (runs in CI).",
+]
