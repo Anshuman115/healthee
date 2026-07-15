@@ -7,7 +7,15 @@ import pytest
 from healthee.core.config import Settings, get_settings
 
 
-def test_defaults_apply_when_only_required_var_set(env: None) -> None:  # noqa: ARG001
+def test_defaults_apply_when_only_required_var_set(
+    env: None,  # noqa: ARG001 — sets the required password
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Clear any ambient POSTGRES_* (a developer shell or CI with POSTGRES_PORT set
+    # would otherwise fail this defaults test) so it exercises the code defaults.
+    for var in ("POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_DB", "POSTGRES_USER"):
+        monkeypatch.delenv(var, raising=False)
+    get_settings.cache_clear()
     settings = get_settings()
     assert settings.postgres_host == "localhost"
     assert settings.postgres_port == 5432
@@ -33,6 +41,7 @@ def test_env_vars_override_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_db_url_is_libpq_conninfo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("POSTGRES_HOST", raising=False)  # assert the default host
     monkeypatch.setenv("POSTGRES_PASSWORD", "s3cret")
     monkeypatch.setenv("POSTGRES_DB", "healthee")
     get_settings.cache_clear()
