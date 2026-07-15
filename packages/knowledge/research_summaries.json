@@ -171,7 +171,7 @@
       "grade": "Probable",
       "id": "heart_rate_variability",
       "name": "Heart-Rate Variability (HRV)",
-      "summary": "Beat-to-beat vagal-tone signal (lnRMSSD vs personal baseline); a noisy daily autoregulation tool, never an overreaching detector on its own."
+      "summary": "Beat-to-beat vagal-tone signal (overnight RMSSD vs personal baseline); a noisy daily autoregulation tool, never an overreaching detector on its own — raised chronically by aerobic exercise, sleep and slow breathing, suppressed acutely by alcohol and short sleep."
     },
     {
       "applies_to_metrics": [
@@ -182,25 +182,6 @@
       "id": "heart_rate_zones",
       "name": "Heart-Rate Training Zones",
       "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
-    },
-    {
-      "applies_to_metrics": [
-        "hrv_rmssd_ms",
-        "hrv_sleep_avg_ms"
-      ],
-      "grade": "Established",
-      "id": "hrv_improvement",
-      "name": "Evidence-based interventions that raise nightly HRV (RMSSD) and the acute behaviours that suppress it",
-      "summary": "Evidence-based interventions that raise nightly HRV (RMSSD) and the acute behaviours that suppress it"
-    },
-    {
-      "applies_to_metrics": [
-        "hrv_rmssd_ms"
-      ],
-      "grade": "Established",
-      "id": "hrv_recovery_marker",
-      "name": "Nightly HRV (RMSSD) is a valid marker of autonomic recovery and acute stressor response",
-      "summary": "Nightly HRV (RMSSD) is a valid marker of autonomic recovery and acute stressor response"
     },
     {
       "applies_to_metrics": [
@@ -386,15 +367,6 @@
       "summary": "Estimates a finish time from a known race via Riegel's power law; well-calibrated short-to-mid, optimistic for under-trained marathoners."
     },
     {
-      "applies_to_metrics": [
-        "recovery_score"
-      ],
-      "grade": "Probable",
-      "id": "readiness",
-      "name": "Readiness (Composite)",
-      "summary": "A triangulated read of HRV + sleep + RHR + load + subjective wellness; no single input is decisive — a prompt to ask a question, never a verdict."
-    },
-    {
       "applies_to_metrics": [],
       "grade": "Probable",
       "id": "recommendations_engine_plan",
@@ -403,12 +375,7 @@
     },
     {
       "applies_to_metrics": [
-        "recovery_score",
-        "hrv_sleep_avg",
-        "rhr_daily",
-        "respiratory_rate_sleep",
-        "tst_min",
-        "cardio_load"
+        "recovery_score"
       ],
       "grade": "Probable",
       "id": "recovery_readiness",

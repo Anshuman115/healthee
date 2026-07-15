@@ -3,13 +3,14 @@ id: heart_rate_variability
 name: "Heart-Rate Variability (HRV)"
 category: metrics
 grade: Probable
-summary: "Beat-to-beat vagal-tone signal (lnRMSSD vs personal baseline); a noisy daily autoregulation tool, never an overreaching detector on its own."
-aliases: ["heart-rate-variability", "HRV", "RMSSD", "lnRMSSD", "vagal tone", "parasympathetic activity", "autonomic balance", "morning HRV", "readiness"]
+evidence_grade: 2
+summary: "Beat-to-beat vagal-tone signal (overnight RMSSD vs personal baseline); a noisy daily autoregulation tool, never an overreaching detector on its own — raised chronically by aerobic exercise, sleep and slow breathing, suppressed acutely by alcohol and short sleep."
+aliases: ["heart-rate-variability", "HRV", "RMSSD", "lnRMSSD", "vagal tone", "parasympathetic activity", "autonomic balance", "morning HRV", "cardiac vagal tone", "hrv_improvement", "hrv_recovery_marker", "hrv_rmssd_ms", "hrv_sleep_avg_ms"]
 applies_to_metrics: ["hrv_sleep_avg"]
-applies_to_interventions: []
-last_reviewed: 2026-06-29
-related: ["resting-heart-rate", "training-load", "recovery", "overreaching", "sleep"]
-daud_metrics: ["hrvBaseline", "hrvCv"]
+applies_to_interventions: ["exercise", "meditation", "alcohol", "caffeine"]
+population: general
+last_reviewed: 2026-07-15
+related: ["resting-heart-rate", "training-load", "recovery_readiness", "overreaching", "sleep_and_recovery"]
 units: "ms (RMSSD); lnRMSSD is unitless (ln of ms); CV in %"
 ---
 # Heart-Rate Variability (HRV)
@@ -48,7 +49,8 @@ endurance monitoring.
 loose orientation, morning supine RMSSD often falls in the ~20–100+ ms range; well-trained
 endurance athletes tend toward the higher end, and HRV declines with age. These numbers are
 context only — the coaching signal is always *the individual's reading relative to their own
-recent baseline*, never an absolute population cut-off.
+recent baseline*, never an absolute population cut-off. (Standardised metric definitions and
+the reference norms behind these orientation ranges are catalogued in [Shaffer & Ginsberg 2017].)
 
 ## Physiology / mechanism
 The sinoatrial node's firing rate is continuously modulated by the autonomic nervous system:
@@ -130,23 +132,72 @@ simple "low = tired" reading.
   worthwhile change is itself individual. This is widely held by HRV-monitoring researchers
   [Plews 2013; Buchheit 2014] but lacks a single definitive trial quantifying it across populations.
 
-## How we compute it
-Owned by **`@daud/core` `hrv.ts`** (`hrvBaseline`, `hrvCv`); inputs are daily morning
-`HrvSample { date, rmssd (ms) }`.
+## Raising and suppressing HRV — the modifiable levers
+Overnight RMSSD is not just a passive readout; it is **modifiable on two distinct
+timescales**, and keeping them separate is the whole game — chronic levers move the
+*baseline* over weeks, acute exposures move a *single night*. Conflating them is the most
+common misuse (don't promise a one-night fix from a chronic lever, and don't read one bad
+night as a baseline change — see Honesty).
 
-- **Work in lnRMSSD.** Raw RMSSD is right-skewed, so the baseline and the change band are
-  computed on `ln(rmssd)`.
-- **Baseline** = rolling **7-day** mean of daily morning lnRMSSD, reported back in raw ms as the
-  geometric mean, `exp(mean(lnRMSSD))`.
-- **Direction / smallest-worthwhile-change band**: a reading is flagged `rising` / `falling` only
-  when today's lnRMSSD sits **outside the 7-day mean ± 1 SD** of lnRMSSD; otherwise it's `flat`
-  (i.e. within normal individual noise).
-- **`hrvCv`** = coefficient of variation (%) of the last 7 days of raw RMSSD — a **noise gauge**.
-  A rising CV (instability of the daily values) is itself informative: it can flag a runner who is
-  not coping with load even when the mean has not yet dropped.
-- Ground-truth caveat: RMSSD itself is measured (not estimated), but **acquisition error** dominates
-  — posture, breathing, time-of-day, sensor (PPG vs ECG), and motion all move the number. The 7-day
-  average and CV exist to manage that noise, not eliminate it.
+**Chronic — raises the personal baseline (weeks–months):**
+- **[Established] Regular aerobic exercise / improved cardiorespiratory fitness is the single
+  largest controllable lever.** A meta-analysis of RCTs in healthy adults found aerobic
+  training raised vagally-mediated HRV by a *large* margin: **RMSSD SMD ≈ 0.84**, HF-power
+  SMD ≈ 0.89, SDNN SMD ≈ 0.58 vs controls [Exercise-Training-HRV meta 2024, PMID 39015867].
+- **[Probable] Slow-paced breathing at resonance frequency (~6 breaths/min) / HRV
+  biofeedback** raises resting HRV with sustained practice — a **small-to-moderate** chronic
+  effect (pooled g ≈ 0.2–0.3) — and produces a *much larger acute* RMSSD increase during the
+  session itself. Best framed as a daily 10–20 min practice at ~4.5–7 breaths/min
+  (individually ~6), not a one-off [Lehrer & Gevirtz 2014; Shaffer & Meehan 2020].
+- **[Probable] Adequate, regular sleep supports a higher baseline;** habitual short sleep is
+  associated with chronically reduced parasympathetic tone [Sleep-Deprivation-HRV meta 2025].
+
+**Acute — suppresses a single night (same night):**
+- **[Established] Evening alcohol is the single most reproducible acute suppressor, and it is
+  dose-dependent.** During the first hours of sleep, RMSSD fell by **≈ 2 ms (low dose),
+  ≈ 6 ms (moderate), ≈ 13 ms (high dose)**, alongside elevated heart rate; the effect is
+  **larger in younger adults** (≈ −11 ms for a high dose at age 30 vs ≈ −5 ms at 60)
+  [Pietilä 2018; Spaak 2010]. A common cause of an isolated low-HRV night.
+- **[Established] Short or fragmented sleep** lowers RMSSD and raises LF/HF (a shift toward
+  sympathetic predominance) [Sleep-Deprivation-HRV meta 2025].
+- **[Probable] A hard training session the day before, late caffeine, late heavy meals, and
+  acute psychological stress** all push autonomic balance toward sympathetic dominance and
+  lower that night's RMSSD (stress is a well-replicated HRV suppressor [Kim 2018]).
+
+**So the read is:** a single night *below* the personal baseline is usually an **acute**
+signal — check the prior day's evening alcohol, sleep, training and stress first — while
+**sustained** low HRV is what the chronic levers are for. Within-individual deviations of
+**>1 SD from the personal rolling baseline correlate with acute stressors the day before**;
+between-individual differences track fitness, age and cardiometabolic status, but the
+within-individual signal is what consumer wearable HRV is actually good for [Shaffer &
+Ginsberg 2017; Plews 2013]. To *raise* the baseline, the evidence-ranked order is: (1)
+regular aerobic exercise (zone-2 / MVPA volume), (2) consistent adequate sleep (the largest
+lever for a habitual short sleeper), (3) a daily slow-breathing practice, (4) reducing
+evening alcohol.
+
+## How we compute it
+Healthee derives the daily metric **`hrv_sleep_avg`** — the **bounded mean of overnight
+RMSSD** across the sleep window (`derive/hrv_spo2_resp.py`; exact provenance in the
+implementation section). The interpretive layer that turns that number into a *signal*
+follows the field-standard method:
+
+- **Work in lnRMSSD for the baseline.** Raw RMSSD is right-skewed, so a baseline and the
+  change band are best computed on `ln(rmssd)` and reported back in raw ms as the geometric
+  mean, `exp(mean(lnRMSSD))`.
+- **Baseline = a personal rolling average, not a population norm.** The field standard is a
+  rolling **7-day** mean of lnRMSSD (a **28-day** window is a common longer reference); the
+  Healthee recovery scorer uses a **robust ~6-week (42-day) personal median ± MAD-scaled SD**
+  so a few odd nights cannot move the reference (see `recovery_readiness`).
+- **Direction / smallest-worthwhile-change band**: flag a reading `rising` / `falling` only
+  when it sits **outside the baseline ± ~1 SD** of lnRMSSD; otherwise it's `flat` (within
+  normal individual noise) — the unit of action is the trend, never a single raw value.
+- **Coefficient of variation (CV, %)** of the recent daily RMSSD is a useful **noise gauge**:
+  a rising CV (instability of the daily values) can flag someone not coping with load even
+  when the mean has not yet dropped.
+- Ground-truth caveat: RMSSD itself is measured (not estimated), but **acquisition error**
+  dominates — posture, breathing, time-of-day, sensor (PPG vs ECG), and motion all move the
+  number. The overnight window, the rolling average and the CV exist to manage that noise, not
+  eliminate it.
 
 ## How the coach uses it
 Core logic: **HRV times intensity; it does not set the plan.** The plan comes from periodisation;
@@ -164,6 +215,15 @@ HRV decides whether *today* is a good day to deliver the planned hard stimulus.
 - **Always cross-check**: read HRV alongside resting HR, sleep, subjective wellness/soreness, and
   recent training load. Concordant signals (low HRV + bad sleep + high recent load + heavy legs)
   warrant action; an isolated low HRV with everything else normal usually does not.
+- **On a below-baseline night, name the likely *acute* cause before alarming on the number** —
+  surface the prior day's evening alcohol, short/poor sleep, a hard workout, or late caffeine from
+  the user's own logged/derived data, rather than treating the dip as a verdict.
+- **When HRV is *chronically* low and the goal is to raise the baseline, recommend the
+  evidence-ranked levers** — regular aerobic exercise first, then consistent adequate sleep, then a
+  daily slow-breathing practice, then cutting evening alcohol — always paired with the user's own
+  data (their baseline, their logged alcohol/sleep) and cited to this note. Frame breathing/
+  biofeedback as **moderate-confidence** for chronic baseline change but reliable for acute,
+  in-session vagal activation.
 
 By **stage**:
 - **Stage 1 (beginner)**: HRV is informational/educational, not directive. Daily noise and a still-
@@ -201,6 +261,15 @@ This metric is genuinely useful **and** genuinely noisy. Be calibrated, not evan
   most reliable effect of HRV-guidance is on vagal HRV itself, with fitness gains modest and more
   evident in amateurs than elites [Granero-Gallegos 2020]. Sell it as a *timing/autoregulation* tool,
   not a magic performance unlock.
+- **Chronic and acute timescales must not be conflated.** Aerobic exercise and slow breathing move
+  the *baseline* over weeks; alcohol and a short night move a *single* reading. Don't promise a
+  one-night fix from a chronic lever, and don't read one suppressed night as a baseline change.
+- **An acute post-exercise dip is expected recovery, not harm.** Exercise *raises* HRV chronically,
+  yet a hard session can lower HRV the following night; that transient suppression is the normal
+  autonomic cost of the stimulus, not a warning sign.
+- **The breathing-practice dose is only loosely established.** "~10–20 min/day at ~6 breaths/min" is
+  a pragmatic, not precisely-calibrated, prescription; minutes/day and weeks-to-effect are not firmly
+  quantified.
 - **What's still unknown / debated**: the optimal averaging window and decision band; whether CV adds
   reliably beyond the mean; how to weight HRV vs subjective wellness; and reliable individual rules for
   reading parasympathetic hyperactivity. Treat advanced interpretation as Emerging.
@@ -262,8 +331,16 @@ safety-adjacent rules apply:
   when the mean has not dropped. — confidence: Emerging
 - **D10**: In Stage 1, keep HRV **informational/educational only**; begin HRV-guided autoregulation
   in Stage 2 and full hard-session timing in Stage 3. — confidence: Probable
+- **D11**: To raise a **chronically** low HRV baseline, prioritise the levers in evidence order —
+  regular aerobic exercise > consistent adequate sleep > daily slow breathing (~6/min) > less evening
+  alcohol — and frame chronic levers as week-scale, never a one-night fix. — confidence: Probable
+- **D12**: When HRV drops **below baseline**, surface the most likely **acute** cause (evening
+  alcohol, short/poor sleep, prior hard session, late caffeine) from the user's own data **before**
+  alarming on the number. — confidence: Probable
+- **D13**: **Never conflate timescales** — an acute post-exercise or post-alcohol dip is expected
+  physiology/recovery, not a baseline change or a sign of harm. — confidence: Probable
 
-## Key references
+## References
 
 - Buchheit, M. (2014). *Monitoring training status with HR measures: do all roads lead to Rome?*
   Frontiers in Physiology, 5, 73. https://doi.org/10.3389/fphys.2014.00073
@@ -303,3 +380,49 @@ safety-adjacent rules apply:
 - Nuuttila, O.-P., Kyröläinen, H., Kokkonen, V.-P., & Uusitalo, A. (2024). *Morning versus nocturnal
   heart rate and heart rate variability responses to intensified training in recreational runners.*
   Sports Medicine - Open, 10, 120. https://doi.org/10.1186/s40798-024-00779-5
+- Shaffer, F., & Ginsberg, J. P. (2017). *An overview of heart rate variability metrics and norms.*
+  Frontiers in Public Health, 5, 258. https://doi.org/10.3389/fpubh.2017.00258
+- (Exercise-Training-HRV meta) (2024). *Effects of exercise training on heart rate variability in
+  healthy adults: a systematic review and meta-analysis of randomized controlled trials.* PMID: 39015867.
+  (RCT meta-analysis; RMSSD SMD ≈ 0.84.)
+- Lehrer, P. M., & Gevirtz, R. (2014). *Heart rate variability biofeedback: how and why does it work?*
+  Frontiers in Psychology, 5, 756. https://doi.org/10.3389/fpsyg.2014.00756
+- Shaffer, F., & Meehan, Z. M. (2020). *A practical guide to resonance frequency assessment for heart
+  rate variability biofeedback.* Frontiers in Neuroscience, 14, 570400. PMC7793964.
+  https://doi.org/10.3389/fnins.2020.570400
+- Pietilä, J., Helander, E., Korhonen, I., Myllymäki, T., Kujala, U. M., & Lindholm, H. (2018). *Acute
+  effect of alcohol intake on cardiovascular autonomic regulation during the first hours of sleep in a
+  large real-world sample of Finnish employees: observational study.* JMIR Mental Health, 5(1), e23.
+  PMC5878366. https://doi.org/10.2196/mental.9519
+- Spaak, J., Tomlinson, G., McGowan, C. L., et al. (2010). *Dose-related effects of red wine and alcohol
+  on heart rate variability.* American Journal of Physiology - Heart and Circulatory Physiology, 298(6),
+  H2226–H2231. https://doi.org/10.1152/ajpheart.00700.2009
+- (Sleep-Deprivation-HRV meta) (2025). *Effects of sleep deprivation on heart rate variability: a
+  systematic review and meta-analysis.* Frontiers in Neurology. PMC12394884.
+- Kim, H.-G., Cheon, E.-J., Bai, D.-S., Lee, Y. H., & Koo, B.-H. (2018). *Stress and heart rate
+  variability: a meta-analytic review of the literature.* Psychiatry Investigation, 15(3), 235–245.
+  https://doi.org/10.30773/pi.2017.08.17
+
+## Healthee implementation & honesty policy
+- **Derived field: `hrv_sleep_avg`** (ms) in `derived_daily`. Provenance:
+  `derive/hrv_spo2_resp.py::derive_night_vitals` computes the **bounded mean of overnight RMSSD**
+  over the sleep window via `_window_stat` with a physiological validity range of **5–200 ms**
+  (out-of-range and sentinel samples are dropped, so "no data" stays distinct from a real value; no
+  row is written when the window has no valid RMSSD). Ported verbatim from the legacy v2
+  `derive_night` window-stat blocks — science code, not to be "simplified" on refactor.
+- **Raw source:** the per-sample metric is `hrv` (RMSSD in ms) sampled across the night; the
+  legacy note names `hrv_rmssd_ms` / `hrv_sleep_avg_ms` map to the v2 derived metric
+  **`hrv_sleep_avg`** (carried as aliases).
+- **Downstream:** `hrv_sleep_avg` is the **highest-weighted input (0.42)** to `recovery_score`
+  (`derive/recovery.py`), scored as a robust z vs the person's own ~42-day median (see
+  `recovery_readiness`), and is referenced by the fasting note (fasting shifts overnight HRV in a
+  direction that depends on fast length — a "better" fasted-night HRV can be meal-timing physiology,
+  not recovery).
+- **Honesty rules (carry into UI + LLM):**
+  - **Never compare absolute ms between users** — a 35 ms night can be low for one person and high for
+    another; only intra-individual change vs the personal baseline is a valid signal.
+  - **Trends are reliable; exact ms values are not** (wrist/strap PPG < ECG). Compare like-for-like
+    (overnight window only); never mix protocols/devices.
+  - **Never present HRV as a health-status or overtraining verdict.** Always pair a below-baseline
+    reading with the likely acute cause from the user's own data, and require the personal rolling
+    baseline (≥2–3 weeks of data) before trusting any direction.
