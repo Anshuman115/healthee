@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "phase-*/**"
+      - "feat/**"
+      - "fix/**"
+  pull_request:
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Repo-wide file-length gate (Engineering Standards §1) ──────────────
+  gates:
+    name: File-length gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check file lengths (repo-wide)
+        run: python3 scripts/check_file_length.py
+
+  # ── Server: lint, format, types, tests ─────────────────────────────────
+  server:
+    name: Server (ruff · pyright · pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+      - name: Sync dependencies
+        run: uv sync --frozen
+      - name: Ruff lint
+        run: uv run ruff check
+      - name: Ruff format check
+        run: uv run ruff format --check
+      - name: Pyright type check
+        run: uv run pyright
+      - name: Pytest (with coverage report)
+        run: uv run pytest
+
+  # ── Secret scanning (Addendum §H) ──────────────────────────────────────
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  # ── Mobile: only runs when apps/mobile exists (Phase 2) ────────────────
+  mobile:
+    name: Mobile (flutter analyze · test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Flutter app
+        id: detect
+        run: |
+          if [ -f apps/mobile/pubspec.yaml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::apps/mobile/pubspec.yaml not found — skipping mobile job (arrives in Phase 2)."
+          fi
+      - name: Set up Flutter
+        if: steps.detect.outputs.present == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Pub get
+        if: steps.detect.outputs.present == 'true'
+        working-directory: apps/mobile
+        run: flutter pub get
+      - name: Analyze (zero warnings)
+        if: steps.detect.outputs.present == 'true'
+        working-directory: apps/mobile
+        run: flutter analyze --fatal-warnings --fatal-infos
+      - name: Test
+        if: steps.detect.outputs.present == 'true'
+        working-directory: apps/mobile
+        run: flutter test

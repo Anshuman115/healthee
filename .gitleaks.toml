@@ -1,0 +1,31 @@
+# gitleaks config — extends the built-in ruleset, adds Healthee allowlists.
+# Used by CI (.github/workflows/ci.yml, `secrets` job) via GITLEAKS_CONFIG.
+# The pre-commit hook does a fast grep; this is the thorough scan.
+
+title = "Healthee gitleaks config"
+
+[extend]
+# Inherit gitleaks' default rules; only add allowlisting below.
+useDefault = true
+
+[allowlist]
+description = "Paths and placeholders that are safe by construction"
+
+# The research corpus is prose with DOIs, PubMed IDs, and study URLs that can
+# trip entropy/URL rules. It contains no credentials.
+# Env EXAMPLES ship placeholder values only (real .env is gitignored).
+# The pre-commit hook itself embeds the secret-pattern regexes it searches for.
+paths = [
+  '''packages/knowledge/.*''',
+  '''.*\.env\.example$''',
+  '''infra/\.env\.example$''',
+  '''\.githooks/pre-commit''',
+  '''\.gitleaks\.toml''',
+]
+
+# Obvious placeholder tokens used across docs/examples.
+regexes = [
+  '''change-me-please''',
+  '''your-[a-z-]+-here''',
+  '''<[a-z-]+>''',
+]
