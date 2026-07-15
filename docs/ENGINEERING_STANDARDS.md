@@ -78,6 +78,16 @@ copied into 11 files, and five features silently dead behind swallowed errors.
 - Delete, don't comment out. Delete, don't keep "just in case" — git has it.
   Unused dependencies are removed in the same PR that orphans them.
 
+### Dependencies are current at write time
+- When adding any dependency, GitHub Action, base image, or tool pin: **look up
+  the current version at write time** (`uv add` resolution, `pip index
+  versions`, `gh api …/releases/latest`, registry tags) — never write a version
+  from memory. A dep that's stale on day one is instant dependabot noise.
+- Dependabot (monthly) is the backstop, not the mechanism. Take its bumps
+  promptly; CI validates them.
+- Major-version bumps of runtime deps get a changelog skim in the PR
+  description — one line on what changed.
+
 ### Performance is a requirement, not an aspiration
 Fast is a top product priority. A change that blows a budget is rejected in
 review exactly like a failing test.
