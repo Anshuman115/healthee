@@ -16,7 +16,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from healthee.api.routers import health, ingest
+from healthee.api.routers import (
+    activity,
+    gps,
+    health,
+    history,
+    ingest,
+    logs,
+    sleep,
+    today,
+    workouts,
+)
 from healthee.core.db import close_pool
 from healthee.core.logging import configure_logging, get_logger
 
@@ -40,6 +50,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Healthee", version="0.1.0", lifespan=lifespan)
     app.include_router(health.router)
     app.include_router(ingest.router)
+    # WP7 read routers (today / sleep / activity / workouts / history+profile / logs / gps).
+    for read_router in (today, sleep, activity, workouts, history, logs, gps):
+        app.include_router(read_router.router)
     return app
 
 

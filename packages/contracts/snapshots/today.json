@@ -1,0 +1,1790 @@
+{
+  "anomalies": [],
+  "biological_age": {
+    "biological_age": 35.2,
+    "chronological_age": 36,
+    "contributions": [
+      {
+        "delta_years": -0.3,
+        "hr": 0.977,
+        "target": 41,
+        "term": "fitness",
+        "unit": "ml/kg/min VO\u2082max",
+        "value": 41.5
+      },
+      {
+        "delta_years": 0.4,
+        "hr": 1.04,
+        "target": "7\u20139",
+        "term": "sleep duration",
+        "unit": "h/night",
+        "value": 6.3
+      },
+      {
+        "delta_years": -1.0,
+        "hr": 0.914,
+        "target": "\u226575",
+        "term": "regularity",
+        "unit": "SRI",
+        "value": 74
+      }
+    ],
+    "delta_years": -0.8,
+    "disclaimer": "Motivational estimate from population data \u2014 not a clinical or diagnostic age.",
+    "research_notes": [
+      "biological_age_estimate"
+    ]
+  },
+  "cardio_load": {
+    "as_of_date": "2026-07-15",
+    "baseline_30d": 55.0,
+    "edwards_tl": 120,
+    "hr_minutes": 47,
+    "hrmax": 185,
+    "load": 55.0,
+    "research_notes": [
+      "cardio_load_trimp"
+    ],
+    "rhr": 55,
+    "strain": 21.0,
+    "strain_max": 21.0,
+    "trend_30d": [
+      {
+        "date": "2026-06-16",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-17",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-18",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-19",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-20",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-21",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-22",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-23",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-24",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-25",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-26",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-27",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-28",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-29",
+        "value": 55.0
+      },
+      {
+        "date": "2026-06-30",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-01",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-02",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 55.0
+      }
+    ],
+    "zone_minutes": [
+      20,
+      15,
+      8,
+      3,
+      1
+    ]
+  },
+  "data_health": {
+    "degraded": [],
+    "items": [
+      {
+        "age_h": -2.3,
+        "label": "Heart rate",
+        "last_iso": "2026-07-15T12:15:00+00:00",
+        "metric": "hr",
+        "status": "ok"
+      },
+      {
+        "age_h": -2.3,
+        "label": "Steps",
+        "last_iso": "2026-07-15T12:15:00+00:00",
+        "metric": "steps_per_minute",
+        "status": "ok"
+      },
+      {
+        "age_h": 9.5,
+        "label": "HRV",
+        "last_iso": "2026-07-15T00:30:00+00:00",
+        "metric": "hrv",
+        "status": "ok"
+      },
+      {
+        "age_h": 9.5,
+        "label": "Blood oxygen",
+        "last_iso": "2026-07-15T00:30:00+00:00",
+        "metric": "spo2",
+        "status": "ok"
+      },
+      {
+        "age_h": 9.5,
+        "label": "Breathing",
+        "last_iso": "2026-07-15T00:30:00+00:00",
+        "metric": "respiratory_rate",
+        "status": "ok"
+      },
+      {
+        "age_h": -2.3,
+        "label": "Stress",
+        "last_iso": "2026-07-15T12:15:00+00:00",
+        "metric": "stress",
+        "status": "ok"
+      }
+    ],
+    "overall": "ok",
+    "sync_status": "ok",
+    "synced_age_h": -2.3,
+    "synced_iso": "2026-07-15T12:15:00+00:00"
+  },
+  "date": "2026-07-15",
+  "illness_flag": {
+    "date": "2026-07-15",
+    "framing": "Possible early signal \u2014 consider lighter activity today. Breathing rate +2.4 bpm vs your 14-day baseline; skin temperature +0.35\u00b0c. Not a diagnosis.",
+    "research_note_ids": [
+      "respiratory_rate_normal",
+      "skin_temp_signals"
+    ],
+    "rr_delta_bpm": 2.4,
+    "severity": "moderate",
+    "sustained": false,
+    "temp_delta_c": 0.35
+  },
+  "last_sleep": {
+    "avg_hr": null,
+    "duration_min": 380,
+    "end_iso": "2026-07-15T01:00:00+00:00",
+    "score": 86,
+    "stages": [
+      {
+        "duration_min": 200.0,
+        "end_offset_min": 200.0,
+        "stage": "light",
+        "start_offset_min": 0.0
+      },
+      {
+        "duration_min": 90.0,
+        "end_offset_min": 290.0,
+        "stage": "deep",
+        "start_offset_min": 200.0
+      },
+      {
+        "duration_min": 160.0,
+        "end_offset_min": 450.0,
+        "stage": "rem",
+        "start_offset_min": 290.0
+      }
+    ],
+    "start_iso": "2026-07-14T17:30:00+00:00",
+    "totals": {
+      "awake": 20,
+      "deep": 90,
+      "light": 200,
+      "rem": 90
+    }
+  },
+  "last_sleep_extras": {
+    "hrv_rmssd_ms": 45,
+    "respiratory_rate": 14,
+    "skin_temp_c": 33.2,
+    "spo2_avg": 97,
+    "spo2_min": 97
+  },
+  "metrics": [
+    {
+      "anomalous": false,
+      "label": "Resting HR",
+      "median_30d": 55.0,
+      "metric": "rhr_daily",
+      "unit": "bpm",
+      "value": 55.0,
+      "z": null
+    },
+    {
+      "anomalous": false,
+      "label": "Steps",
+      "median_30d": 8200.0,
+      "metric": "steps_total",
+      "unit": null,
+      "value": 8200.0,
+      "z": null
+    },
+    {
+      "anomalous": false,
+      "label": "Active calories",
+      "median_30d": 620.0,
+      "metric": "active_calories",
+      "unit": "kcal",
+      "value": 620.0,
+      "z": null
+    },
+    {
+      "anomalous": false,
+      "label": "Total calories",
+      "median_30d": 2350.0,
+      "metric": "total_calories",
+      "unit": "kcal",
+      "value": 2350.0,
+      "z": null
+    },
+    {
+      "anomalous": false,
+      "label": "BMR (resting)",
+      "median_30d": 1730.0,
+      "metric": "basal_calories",
+      "unit": "kcal",
+      "value": 1730.0,
+      "z": null
+    },
+    {
+      "anomalous": false,
+      "label": "Distance",
+      "median_30d": 6100.0,
+      "metric": "distance_m_daily",
+      "unit": "m",
+      "value": 6100.0,
+      "z": null
+    },
+    {
+      "anomalous": false,
+      "label": "Weight",
+      "median_30d": null,
+      "metric": "weight_kg",
+      "unit": "kg",
+      "value": 72.5,
+      "z": null
+    }
+  ],
+  "mvpa": {
+    "daily": [
+      {
+        "date": "2026-07-08",
+        "moderate_min": 24,
+        "mvpa_min": 32,
+        "vigorous_min": 4
+      },
+      {
+        "date": "2026-07-09",
+        "moderate_min": 24,
+        "mvpa_min": 32,
+        "vigorous_min": 4
+      },
+      {
+        "date": "2026-07-10",
+        "moderate_min": 24,
+        "mvpa_min": 32,
+        "vigorous_min": 4
+      },
+      {
+        "date": "2026-07-11",
+        "moderate_min": 24,
+        "mvpa_min": 32,
+        "vigorous_min": 4
+      },
+      {
+        "date": "2026-07-12",
+        "moderate_min": 24,
+        "mvpa_min": 32,
+        "vigorous_min": 4
+      },
+      {
+        "date": "2026-07-13",
+        "moderate_min": 24,
+        "mvpa_min": 32,
+        "vigorous_min": 4
+      },
+      {
+        "date": "2026-07-14",
+        "moderate_min": 24,
+        "mvpa_min": 32,
+        "vigorous_min": 4
+      },
+      {
+        "date": "2026-07-15",
+        "moderate_min": 24,
+        "mvpa_min": 32,
+        "vigorous_min": 4
+      }
+    ],
+    "research_notes": [
+      "mvpa_minutes_mortality",
+      "cadence_intensity"
+    ],
+    "today_min": 32,
+    "week_min": 96,
+    "week_moderate_min": 72,
+    "week_start_iso": "2026-07-13",
+    "week_target": 150,
+    "week_vigorous_min": 12
+  },
+  "pai": null,
+  "recommendations": [
+    {
+      "action": "Sleep earlier tonight",
+      "adopted": null,
+      "category": "sleep",
+      "date": "2026-07-15",
+      "evidence_grade": 3,
+      "expected_effect": "Lower debt",
+      "id": 3,
+      "rank": 1,
+      "rationale": "Debt is 120 min",
+      "research_note_ids": [
+        "sleep_need_debt"
+      ],
+      "signal_source": "sleep_debt"
+    }
+  ],
+  "recovery": {
+    "favorable": 1,
+    "neutral": 0,
+    "signals": [
+      {
+        "baseline": 380.0,
+        "direction": "favorable",
+        "name": "Sleep duration",
+        "research_note_id": "sleep_duration_mortality",
+        "unit": "min",
+        "value": 380.0,
+        "z": 0.0
+      }
+    ],
+    "summary": "Recovery signals lean favorable",
+    "total": 1,
+    "unfavorable": 0
+  },
+  "recovery_score": {
+    "band": "high",
+    "date": "2026-07-15",
+    "factors": {
+      "hrv": {
+        "sub": 80
+      },
+      "rhr": {
+        "sub": 70
+      },
+      "rr": {
+        "sub": 75
+      },
+      "sleep": {
+        "sub": 60
+      }
+    },
+    "guidance": "Well recovered \u2014 a good day to push: intervals or a harder session are on the table. Today's training has already used some of your capacity.",
+    "note_id": "recovery_readiness",
+    "readiness": 36,
+    "recovery": 72,
+    "strain_today": 55.0,
+    "typical_strain": 55.0,
+    "weights": {
+      "hrv": 0.3,
+      "rhr": 0.2,
+      "rr": 0.1,
+      "sleep": 0.4
+    }
+  },
+  "routine": {
+    "logs_summary": {
+      "caffeine": {
+        "count": 1,
+        "total": 80.0
+      },
+      "fasting": {
+        "count": 1,
+        "total": 0.0
+      },
+      "meditation": {
+        "count": 1,
+        "total": 10.0
+      }
+    },
+    "meditation_today": {
+      "count": 1,
+      "minutes": 10
+    },
+    "open_fast": {
+      "elapsed_min": 300,
+      "id": "c86c33f4-a1e0-4e36-9001-3cefb927cb51",
+      "start_iso": "2026-07-15T04:59:47.554661+00:00"
+    },
+    "workouts": [
+      {
+        "duration_min": 30,
+        "end_iso": "2026-07-15T02:00:00+00:00",
+        "intensity": null,
+        "kind": "workout",
+        "source": "strap",
+        "start_iso": "2026-07-15T01:30:00+00:00",
+        "type": "Outdoor run"
+      }
+    ]
+  },
+  "sleep_debt": {
+    "avg_deficit_min": 100,
+    "avg_tst_min": 380,
+    "debt_min": 120,
+    "last_tst_min": 380,
+    "need_min": 480,
+    "nights": 14,
+    "nights_below": 12,
+    "performance_pct": 79,
+    "research_notes": [
+      "sleep_need_debt",
+      "sleep_duration_mortality"
+    ],
+    "window_nights": 14
+  },
+  "sleep_health": {
+    "cutoffs": {
+      "duration_hours": [
+        7.0,
+        9.0
+      ],
+      "efficiency_min": 0.85,
+      "sri_min": 70.0,
+      "timing_hour_band": [
+        2,
+        4
+      ]
+    },
+    "date": "2026-07-15",
+    "efficiency_pct": 84.4,
+    "max_score": 4,
+    "midpoint_local": "2026-07-15T02:45:00+05:30",
+    "point_duration": 1,
+    "point_efficiency": 1,
+    "point_regularity": 1,
+    "point_timing": 0,
+    "research_notes": [
+      "sleep_score_implementation_plan",
+      "sleep_health_score_multidim",
+      "sleep_duration_mortality",
+      "sleep_regularity_index"
+    ],
+    "score": 3,
+    "session_source": "zepp_cloud",
+    "sri": 74.0,
+    "tib_min": 450,
+    "tst_min": 380
+  },
+  "sleep_history_7d": [
+    {
+      "awake": 20,
+      "date": "2026-07-09",
+      "deep": 90,
+      "duration_min": 380,
+      "light": 200,
+      "rem": 90,
+      "score": 86
+    },
+    {
+      "awake": 20,
+      "date": "2026-07-10",
+      "deep": 90,
+      "duration_min": 380,
+      "light": 200,
+      "rem": 90,
+      "score": 86
+    },
+    {
+      "awake": 20,
+      "date": "2026-07-11",
+      "deep": 90,
+      "duration_min": 380,
+      "light": 200,
+      "rem": 90,
+      "score": 86
+    },
+    {
+      "awake": 20,
+      "date": "2026-07-12",
+      "deep": 90,
+      "duration_min": 380,
+      "light": 200,
+      "rem": 90,
+      "score": 86
+    },
+    {
+      "awake": 20,
+      "date": "2026-07-13",
+      "deep": 90,
+      "duration_min": 380,
+      "light": 200,
+      "rem": 90,
+      "score": 86
+    },
+    {
+      "awake": 20,
+      "date": "2026-07-14",
+      "deep": 90,
+      "duration_min": 380,
+      "light": 200,
+      "rem": 90,
+      "score": 86
+    },
+    {
+      "awake": 20,
+      "date": "2026-07-15",
+      "deep": 90,
+      "duration_min": 380,
+      "light": 200,
+      "rem": 90,
+      "score": 86
+    }
+  ],
+  "sparklines": {
+    "hrv_sleep_avg": [
+      {
+        "date": "2026-07-02",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 45.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 45.0
+      }
+    ],
+    "pai_total": [],
+    "respiratory_rate_sleep": [
+      {
+        "date": "2026-07-02",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 14.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 14.0
+      }
+    ],
+    "rhr_daily": [
+      {
+        "date": "2026-07-02",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 55.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 55.0
+      }
+    ],
+    "sleep_health_score_4dim": [
+      {
+        "date": "2026-07-02",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 3.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 3.0
+      }
+    ],
+    "sleep_regularity_index": [
+      {
+        "date": "2026-07-02",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 74.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 74.0
+      }
+    ],
+    "sleep_score": [],
+    "spo2_overnight": [
+      {
+        "date": "2026-07-02",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 97.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 97.0
+      }
+    ],
+    "spo2_overnight_min": [
+      {
+        "date": "2026-07-02",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 93.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 93.0
+      }
+    ],
+    "stress": [],
+    "total_calories": [
+      {
+        "date": "2026-07-02",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-03",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-04",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-05",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-06",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-07",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-08",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-09",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-10",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-11",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-12",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-13",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-14",
+        "value": 2350.0
+      },
+      {
+        "date": "2026-07-15",
+        "value": 2350.0
+      }
+    ]
+  },
+  "strength": {
+    "research_note": "strength_training_mortality",
+    "sessions": 1,
+    "target_high": 60,
+    "target_low": 30,
+    "types": [
+      "strength"
+    ],
+    "week_min": 45,
+    "week_start_iso": "2026-07-13"
+  },
+  "today_hr_series": [
+    {
+      "avg": 64,
+      "hour": 6,
+      "hour_iso": "2026-07-15T06:00:00",
+      "max": 65,
+      "min": 62
+    },
+    {
+      "avg": 127,
+      "hour": 7,
+      "hour_iso": "2026-07-15T07:00:00",
+      "max": 149,
+      "min": 66
+    },
+    {
+      "avg": 72,
+      "hour": 8,
+      "hour_iso": "2026-07-15T08:00:00",
+      "max": 73,
+      "min": 70
+    },
+    {
+      "avg": 76,
+      "hour": 9,
+      "hour_iso": "2026-07-15T09:00:00",
+      "max": 77,
+      "min": 74
+    },
+    {
+      "avg": 80,
+      "hour": 10,
+      "hour_iso": "2026-07-15T10:00:00",
+      "max": 81,
+      "min": 78
+    },
+    {
+      "avg": 64,
+      "hour": 11,
+      "hour_iso": "2026-07-15T11:00:00",
+      "max": 65,
+      "min": 62
+    },
+    {
+      "avg": 68,
+      "hour": 12,
+      "hour_iso": "2026-07-15T12:00:00",
+      "max": 69,
+      "min": 66
+    },
+    {
+      "avg": 72,
+      "hour": 13,
+      "hour_iso": "2026-07-15T13:00:00",
+      "max": 73,
+      "min": 70
+    },
+    {
+      "avg": 76,
+      "hour": 14,
+      "hour_iso": "2026-07-15T14:00:00",
+      "max": 77,
+      "min": 74
+    },
+    {
+      "avg": 80,
+      "hour": 15,
+      "hour_iso": "2026-07-15T15:00:00",
+      "max": 81,
+      "min": 78
+    },
+    {
+      "avg": 64,
+      "hour": 16,
+      "hour_iso": "2026-07-15T16:00:00",
+      "max": 65,
+      "min": 62
+    },
+    {
+      "avg": 68,
+      "hour": 17,
+      "hour_iso": "2026-07-15T17:00:00",
+      "max": 69,
+      "min": 66
+    }
+  ],
+  "today_step_buckets": [
+    {
+      "bucket": 24,
+      "calories": 0,
+      "distance_m": 31,
+      "steps": 40,
+      "time": "06:00"
+    },
+    {
+      "bucket": 25,
+      "calories": 0,
+      "distance_m": 32,
+      "steps": 41,
+      "time": "06:15"
+    },
+    {
+      "bucket": 26,
+      "calories": 0,
+      "distance_m": 33,
+      "steps": 42,
+      "time": "06:30"
+    },
+    {
+      "bucket": 27,
+      "calories": 0,
+      "distance_m": 34,
+      "steps": 43,
+      "time": "06:45"
+    },
+    {
+      "bucket": 28,
+      "calories": 0,
+      "distance_m": 34,
+      "steps": 44,
+      "time": "07:00"
+    },
+    {
+      "bucket": 29,
+      "calories": 0,
+      "distance_m": 35,
+      "steps": 45,
+      "time": "07:15"
+    },
+    {
+      "bucket": 30,
+      "calories": 0,
+      "distance_m": 36,
+      "steps": 46,
+      "time": "07:30"
+    },
+    {
+      "bucket": 31,
+      "calories": 0,
+      "distance_m": 37,
+      "steps": 47,
+      "time": "07:45"
+    },
+    {
+      "bucket": 32,
+      "calories": 0,
+      "distance_m": 37,
+      "steps": 48,
+      "time": "08:00"
+    },
+    {
+      "bucket": 33,
+      "calories": 0,
+      "distance_m": 38,
+      "steps": 49,
+      "time": "08:15"
+    },
+    {
+      "bucket": 34,
+      "calories": 0,
+      "distance_m": 39,
+      "steps": 50,
+      "time": "08:30"
+    },
+    {
+      "bucket": 35,
+      "calories": 0,
+      "distance_m": 40,
+      "steps": 51,
+      "time": "08:45"
+    },
+    {
+      "bucket": 36,
+      "calories": 0,
+      "distance_m": 41,
+      "steps": 52,
+      "time": "09:00"
+    },
+    {
+      "bucket": 37,
+      "calories": 0,
+      "distance_m": 41,
+      "steps": 53,
+      "time": "09:15"
+    },
+    {
+      "bucket": 38,
+      "calories": 0,
+      "distance_m": 42,
+      "steps": 54,
+      "time": "09:30"
+    },
+    {
+      "bucket": 39,
+      "calories": 0,
+      "distance_m": 43,
+      "steps": 55,
+      "time": "09:45"
+    },
+    {
+      "bucket": 40,
+      "calories": 0,
+      "distance_m": 44,
+      "steps": 56,
+      "time": "10:00"
+    },
+    {
+      "bucket": 41,
+      "calories": 0,
+      "distance_m": 44,
+      "steps": 57,
+      "time": "10:15"
+    },
+    {
+      "bucket": 42,
+      "calories": 0,
+      "distance_m": 45,
+      "steps": 58,
+      "time": "10:30"
+    },
+    {
+      "bucket": 43,
+      "calories": 0,
+      "distance_m": 46,
+      "steps": 59,
+      "time": "10:45"
+    },
+    {
+      "bucket": 44,
+      "calories": 0,
+      "distance_m": 47,
+      "steps": 60,
+      "time": "11:00"
+    },
+    {
+      "bucket": 45,
+      "calories": 0,
+      "distance_m": 48,
+      "steps": 61,
+      "time": "11:15"
+    },
+    {
+      "bucket": 46,
+      "calories": 0,
+      "distance_m": 48,
+      "steps": 62,
+      "time": "11:30"
+    },
+    {
+      "bucket": 47,
+      "calories": 0,
+      "distance_m": 49,
+      "steps": 63,
+      "time": "11:45"
+    },
+    {
+      "bucket": 48,
+      "calories": 0,
+      "distance_m": 50,
+      "steps": 64,
+      "time": "12:00"
+    },
+    {
+      "bucket": 49,
+      "calories": 0,
+      "distance_m": 51,
+      "steps": 65,
+      "time": "12:15"
+    },
+    {
+      "bucket": 50,
+      "calories": 0,
+      "distance_m": 51,
+      "steps": 66,
+      "time": "12:30"
+    },
+    {
+      "bucket": 51,
+      "calories": 0,
+      "distance_m": 52,
+      "steps": 67,
+      "time": "12:45"
+    },
+    {
+      "bucket": 52,
+      "calories": 0,
+      "distance_m": 53,
+      "steps": 68,
+      "time": "13:00"
+    },
+    {
+      "bucket": 53,
+      "calories": 0,
+      "distance_m": 54,
+      "steps": 69,
+      "time": "13:15"
+    },
+    {
+      "bucket": 54,
+      "calories": 0,
+      "distance_m": 31,
+      "steps": 40,
+      "time": "13:30"
+    },
+    {
+      "bucket": 55,
+      "calories": 0,
+      "distance_m": 32,
+      "steps": 41,
+      "time": "13:45"
+    },
+    {
+      "bucket": 56,
+      "calories": 0,
+      "distance_m": 33,
+      "steps": 42,
+      "time": "14:00"
+    },
+    {
+      "bucket": 57,
+      "calories": 0,
+      "distance_m": 34,
+      "steps": 43,
+      "time": "14:15"
+    },
+    {
+      "bucket": 58,
+      "calories": 0,
+      "distance_m": 34,
+      "steps": 44,
+      "time": "14:30"
+    },
+    {
+      "bucket": 59,
+      "calories": 0,
+      "distance_m": 35,
+      "steps": 45,
+      "time": "14:45"
+    },
+    {
+      "bucket": 60,
+      "calories": 0,
+      "distance_m": 36,
+      "steps": 46,
+      "time": "15:00"
+    },
+    {
+      "bucket": 61,
+      "calories": 0,
+      "distance_m": 37,
+      "steps": 47,
+      "time": "15:15"
+    },
+    {
+      "bucket": 62,
+      "calories": 0,
+      "distance_m": 37,
+      "steps": 48,
+      "time": "15:30"
+    },
+    {
+      "bucket": 63,
+      "calories": 0,
+      "distance_m": 38,
+      "steps": 49,
+      "time": "15:45"
+    },
+    {
+      "bucket": 64,
+      "calories": 0,
+      "distance_m": 39,
+      "steps": 50,
+      "time": "16:00"
+    },
+    {
+      "bucket": 65,
+      "calories": 0,
+      "distance_m": 40,
+      "steps": 51,
+      "time": "16:15"
+    },
+    {
+      "bucket": 66,
+      "calories": 0,
+      "distance_m": 41,
+      "steps": 52,
+      "time": "16:30"
+    },
+    {
+      "bucket": 67,
+      "calories": 0,
+      "distance_m": 41,
+      "steps": 53,
+      "time": "16:45"
+    },
+    {
+      "bucket": 68,
+      "calories": 0,
+      "distance_m": 42,
+      "steps": 54,
+      "time": "17:00"
+    },
+    {
+      "bucket": 69,
+      "calories": 0,
+      "distance_m": 43,
+      "steps": 55,
+      "time": "17:15"
+    },
+    {
+      "bucket": 70,
+      "calories": 0,
+      "distance_m": 44,
+      "steps": 56,
+      "time": "17:30"
+    },
+    {
+      "bucket": 71,
+      "calories": 0,
+      "distance_m": 44,
+      "steps": 57,
+      "time": "17:45"
+    }
+  ],
+  "today_stress_series": [
+    {
+      "avg": 32,
+      "hour": 6,
+      "hour_iso": "2026-07-15T06:00:00",
+      "max": 33,
+      "n": 4
+    },
+    {
+      "avg": 36,
+      "hour": 7,
+      "hour_iso": "2026-07-15T07:00:00",
+      "max": 37,
+      "n": 4
+    },
+    {
+      "avg": 40,
+      "hour": 8,
+      "hour_iso": "2026-07-15T08:00:00",
+      "max": 41,
+      "n": 4
+    },
+    {
+      "avg": 44,
+      "hour": 9,
+      "hour_iso": "2026-07-15T09:00:00",
+      "max": 45,
+      "n": 4
+    },
+    {
+      "avg": 48,
+      "hour": 10,
+      "hour_iso": "2026-07-15T10:00:00",
+      "max": 49,
+      "n": 4
+    },
+    {
+      "avg": 52,
+      "hour": 11,
+      "hour_iso": "2026-07-15T11:00:00",
+      "max": 53,
+      "n": 4
+    },
+    {
+      "avg": 37,
+      "hour": 12,
+      "hour_iso": "2026-07-15T12:00:00",
+      "max": 54,
+      "n": 4
+    },
+    {
+      "avg": 34,
+      "hour": 13,
+      "hour_iso": "2026-07-15T13:00:00",
+      "max": 36,
+      "n": 4
+    },
+    {
+      "avg": 38,
+      "hour": 14,
+      "hour_iso": "2026-07-15T14:00:00",
+      "max": 40,
+      "n": 4
+    },
+    {
+      "avg": 42,
+      "hour": 15,
+      "hour_iso": "2026-07-15T15:00:00",
+      "max": 44,
+      "n": 4
+    },
+    {
+      "avg": 46,
+      "hour": 16,
+      "hour_iso": "2026-07-15T16:00:00",
+      "max": 48,
+      "n": 4
+    },
+    {
+      "avg": 50,
+      "hour": 17,
+      "hour_iso": "2026-07-15T17:00:00",
+      "max": 52,
+      "n": 4
+    }
+  ],
+  "top_findings": [
+    {
+      "description_raw": "Caffeine \u2194 sleep",
+      "effect_metric": "rho",
+      "effect_size": -0.42,
+      "event_kind": null,
+      "kind": "pairwise_lag",
+      "lag_days": 0,
+      "metric_a": "caffeine",
+      "metric_b": "sleep_health_score_4dim",
+      "n_samples": 24,
+      "q_value": 0.03,
+      "research_note_ids": [
+        "caffeine_sleep"
+      ]
+    }
+  ],
+  "vo2max": {
+    "age_years": 35,
+    "as_of_date": "2026-07-15",
+    "delta_from_median": 0.5,
+    "estimate": 41.5,
+    "inputs": {
+      "bmi": 23.4,
+      "pa_score": 3,
+      "rhr_med_7d": 55.0,
+      "weekly_mvpa_min": null
+    },
+    "median_for_age": 41.0,
+    "research_notes": [
+      "vo2max_fitness_mortality",
+      "non_exercise_vo2max"
+    ],
+    "see_ml_kg_min": 5.6,
+    "sex": "male",
+    "submax": {
+      "as_of_date": "2026-07-15",
+      "last_r2": 0.82,
+      "last_speed_kmh": 8.1,
+      "latest": 43.0,
+      "median": 43.0,
+      "n_sessions": 1,
+      "trend": [
+        {
+          "date": "2026-07-15",
+          "value": 43.0
+        }
+      ],
+      "vs_jurca": 1.5
+    },
+    "trend_90d": [
+      {
+        "date": "2026-06-16",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-17",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-18",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-19",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-20",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-21",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-22",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-23",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-24",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-25",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-26",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-27",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-28",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-29",
+        "value": 41.5
+      },
+      {
+        "date": "2026-06-30",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-01",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-02",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-03",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-04",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-05",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-06",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-07",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-08",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-09",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-10",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-11",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-12",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-13",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-14",
+        "value": 41.5
+      },
+      {
+        "date": "2026-07-15",
+        "value": 41.5
+      }
+    ]
+  }
+}

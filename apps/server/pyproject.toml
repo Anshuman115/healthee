@@ -61,6 +61,9 @@ venv = ".venv"
 # ── Pytest + coverage (reporting only — no fail-under until Phase 1) ──────
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# apps/server on sys.path so the contract bed's `tests.contracts.*` helper modules
+# (seed / endpoints / shape) import as a package across test files.
+pythonpath = ["."]
 addopts = "--cov=healthee --cov-report=term"
 markers = [
     "integration: requires a reachable TimescaleDB; auto-skips when the DB env is unset/unreachable (runs in CI).",
