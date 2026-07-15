@@ -35,23 +35,23 @@
         "hrv",
         "autonomic"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "alcohol"
+      ],
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min",
-        "hrv_rmssd_ms",
-        "hr",
+        "tst_min",
+        "sleep_health_score_4dim",
+        "hrv_sleep_avg",
         "rhr_daily"
       ],
       "category": "intake",
       "collection": "legacy",
       "grade": "Established",
       "id": "alcohol_sleep",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Alcohol disrupts second-half sleep architecture and acutely lowers HRV",
       "path": "notes/intake/alcohol_sleep.md",
+      "population": "general",
       "summary": "Alcohol disrupts second-half sleep architecture and acutely lowers HRV"
     },
     {
@@ -67,9 +67,10 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "behavior_change_and_personalization",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "What actually changes health behavior — BCT taxonomy, self-monitoring, and personalization effect sizes",
       "path": "notes/recs/behavior_change_and_personalization.md",
+      "population": "general",
       "summary": "What actually changes health behavior — BCT taxonomy, self-monitoring, and personalization effect sizes"
     },
     {
@@ -174,20 +175,21 @@
         "caffeine",
         "sleep"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "caffeine"
+      ],
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min"
+        "tst_min",
+        "sleep_health_score_4dim"
       ],
       "category": "intake",
       "collection": "legacy",
       "grade": "Established",
       "id": "caffeine_sleep",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Caffeine taken up to 6 hours before bed measurably disrupts sleep",
       "path": "notes/intake/caffeine_sleep.md",
+      "population": "general",
       "summary": "Caffeine taken up to 6 hours before bed measurably disrupts sleep"
     },
     {
@@ -649,9 +651,10 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "llm_health_advice_safety",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "Safety guardrails for LLM-generated health recommendations — what we will and will not do",
       "path": "notes/recs/llm_health_advice_safety.md",
+      "population": "general",
       "summary": "Safety guardrails for LLM-generated health recommendations — what we will and will not do"
     },
     {
@@ -765,18 +768,16 @@
         "meditation"
       ],
       "applies_to_metrics": [
-        "subj_stress",
-        "mood",
-        "energy",
-        "hrv_rmssd_ms"
+        "hrv_sleep_avg"
       ],
       "category": "meditation",
       "collection": "legacy",
       "grade": "Established",
       "id": "mindfulness_anxiety_depression",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Mindfulness meditation has moderate effect on anxiety, depression, and pain",
       "path": "notes/meditation/mindfulness_anxiety_depression.md",
+      "population": "general",
       "summary": "Mindfulness meditation has moderate effect on anxiety, depression, and pain"
     },
     {
@@ -1100,9 +1101,10 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "recommendations_engine_plan",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "Implementation plan — daily AI recommendations engine that synthesizes findings into 1–3 action items",
       "path": "notes/recs/recommendations_engine_plan.md",
+      "population": "general",
       "summary": "Implementation plan — daily AI recommendations engine that synthesizes findings into 1–3 action items"
     },
     {
@@ -1532,17 +1534,17 @@
         "meditation"
       ],
       "applies_to_metrics": [
-        "hrv_rmssd_ms",
-        "hr",
+        "hrv_sleep_avg",
         "respiratory_rate_sleep"
       ],
       "category": "meditation",
       "collection": "legacy",
       "grade": "Established",
       "id": "slow_breathing_hrv_acute",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Slow-paced breathing (~6 breaths/min) acutely increases HRV",
       "path": "notes/meditation/slow_breathing_hrv_acute.md",
+      "population": "general",
       "summary": "Slow-paced breathing (~6 breaths/min) acutely increases HRV"
     },
     {

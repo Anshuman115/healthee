@@ -10,12 +10,9 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min",
-        "hrv_rmssd_ms",
-        "hr",
+        "tst_min",
+        "sleep_health_score_4dim",
+        "hrv_sleep_avg",
         "rhr_daily"
       ],
       "grade": "Established",
@@ -74,10 +71,8 @@
     },
     {
       "applies_to_metrics": [
-        "asleep",
-        "sleep_score",
-        "sleep_light_min",
-        "sleep_deep_min"
+        "tst_min",
+        "sleep_health_score_4dim"
       ],
       "grade": "Established",
       "id": "caffeine_sleep",
@@ -252,10 +247,7 @@
     },
     {
       "applies_to_metrics": [
-        "subj_stress",
-        "mood",
-        "energy",
-        "hrv_rmssd_ms"
+        "hrv_sleep_avg"
       ],
       "grade": "Established",
       "id": "mindfulness_anxiety_depression",
@@ -533,8 +525,7 @@
     },
     {
       "applies_to_metrics": [
-        "hrv_rmssd_ms",
-        "hr",
+        "hrv_sleep_avg",
         "respiratory_rate_sleep"
       ],
       "grade": "Established",
