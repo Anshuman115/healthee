@@ -120,7 +120,8 @@
     },
     {
       "applies_to_metrics": [
-        "steps_total"
+        "steps_total",
+        "mvpa_min"
       ],
       "grade": "Established",
       "id": "exercise_mortality",
@@ -292,12 +293,12 @@
         "steps_per_minute",
         "moderate_min",
         "vigorous_min",
-        "mvpa_min_weekly"
+        "mvpa_min"
       ],
       "grade": "Probable",
       "id": "mvpa_weekly_plan",
-      "name": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + HC workouts; weekly progress card vs 150-min target",
-      "summary": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + HC workouts; weekly progress card vs 150-min target"
+      "name": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + workouts; weekly progress card vs 150-min target",
+      "summary": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + workouts; weekly progress card vs 150-min target"
     },
     {
       "applies_to_metrics": [
@@ -315,8 +316,8 @@
       ],
       "grade": "Probable",
       "id": "non_exercise_vo2max",
-      "name": "Estimating VO2max without a maximal exercise test — Jurca model + HUNT3 update",
-      "summary": "Estimating VO2max without a maximal exercise test — Jurca model + HUNT3 update"
+      "name": "Estimating VO2max without a maximal exercise test — Jurca 2005 model + HUNT3 update, and the nightly non-exercise estimate",
+      "summary": "Estimating VO2max without a maximal exercise test — Jurca 2005 model + HUNT3 update, and the nightly non-exercise estimate"
     },
     {
       "applies_to_metrics": [],
@@ -437,8 +438,8 @@
     {
       "applies_to_metrics": [
         "steps_total",
-        "distance_m",
-        "calories"
+        "distance_m_daily",
+        "total_calories"
       ],
       "grade": "Established",
       "id": "sedentary_mortality",
@@ -569,7 +570,7 @@
     {
       "applies_to_metrics": [
         "steps_total",
-        "distance_m"
+        "distance_m_daily"
       ],
       "grade": "Established",
       "id": "steps_mortality",
@@ -595,7 +596,9 @@
       "summary": "Heavy lifting + plyometrics improve running economy ~2–8% with no bulk, and roughly halve overuse-injury risk — recommend to essentially every runner."
     },
     {
-      "applies_to_metrics": [],
+      "applies_to_metrics": [
+        "strength_min_weekly"
+      ],
       "grade": "Established",
       "id": "strength_training_mortality",
       "name": "Muscle-strengthening (resistance) training and all-cause mortality",
@@ -611,6 +614,7 @@
     {
       "applies_to_metrics": [
         "vo2max_estimate",
+        "vo2max_submax",
         "hr",
         "steps_per_minute",
         "rhr_daily",
@@ -647,40 +651,7 @@
       "grade": "Established",
       "id": "vo2max",
       "name": "VO₂max (Maximal Oxygen Uptake)",
-      "summary": "The aerobic ceiling — one of three performance determinants, slow-moving, large wearable error; a trend tool, not a race predictor."
-    },
-    {
-      "applies_to_metrics": [
-        "vo2max_estimate",
-        "rhr_daily",
-        "moderate_min",
-        "vigorous_min",
-        "mvpa_min"
-      ],
-      "grade": "Probable",
-      "id": "vo2max_estimate_plan",
-      "name": "Implementation plan — nightly Jurca non-exercise VO2max estimate + Today trend card",
-      "summary": "Implementation plan — nightly Jurca non-exercise VO2max estimate + Today trend card"
-    },
-    {
-      "applies_to_metrics": [
-        "vo2max_estimate"
-      ],
-      "grade": "Established",
-      "id": "vo2max_fitness_mortality",
-      "name": "Cardiorespiratory fitness (VO2max) — the strongest modifiable longevity marker",
-      "summary": "Cardiorespiratory fitness (VO2max) — the strongest modifiable longevity marker"
-    },
-    {
-      "applies_to_metrics": [
-        "vo2max_estimate",
-        "mvpa_min",
-        "cardio_load"
-      ],
-      "grade": "Established",
-      "id": "vo2max_training_program",
-      "name": "Raising VO₂max — protocol + trainability trajectory",
-      "summary": "Raising VO₂max — protocol + trainability trajectory"
+      "summary": "The aerobic ceiling — one of three performance determinants and the single strongest modifiable longevity marker (CRF↔mortality); slow-moving, large wearable error; a trend tool, not a race predictor or a death-risk number."
     },
     {
       "applies_to_metrics": [

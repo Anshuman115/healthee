@@ -3,12 +3,14 @@ id: vo2max
 name: "VO₂max (Maximal Oxygen Uptake)"
 category: metrics
 grade: Established
-summary: "The aerobic ceiling — one of three performance determinants, slow-moving, large wearable error; a trend tool, not a race predictor."
-aliases: ["vo2max", "vo2 max", "vo2peak", "maximal oxygen uptake", "maximal oxygen consumption", "maximal aerobic capacity", "aerobic power", "maximal aerobic power", "aerobic ceiling", "cardiorespiratory fitness", "CRF", "mL/kg/min"]
+evidence_grade: 3
+summary: "The aerobic ceiling — one of three performance determinants and the single strongest modifiable longevity marker (CRF↔mortality); slow-moving, large wearable error; a trend tool, not a race predictor or a death-risk number."
+aliases: ["vo2max", "vo2 max", "vo2peak", "maximal oxygen uptake", "maximal oxygen consumption", "maximal aerobic capacity", "aerobic power", "maximal aerobic power", "aerobic ceiling", "cardiorespiratory fitness", "CRF", "cardiorespiratory-fitness", "mL/kg/min", "vo2max_fitness_mortality", "vo2max_training_program"]
 applies_to_metrics: ["vo2max_estimate"]
-applies_to_interventions: []
-last_reviewed: 2026-06-29
-related: ["lactate-threshold", "running-economy", "critical-speed", "race-prediction", "maximum-heart-rate", "heart-rate-zones", "polarized-training"]
+applies_to_interventions: ["exercise"]
+population: general
+last_reviewed: 2026-07-15
+related: ["lactate-threshold", "running-economy", "critical-speed", "race-prediction", "maximum-heart-rate", "heart-rate-zones", "polarized-training", "non_exercise_vo2max", "submaximal_vo2max", "mvpa_minutes_mortality", "steps_mortality", "strength_training_mortality", "recovery_readiness"]
 daud_metrics: ["vo2max", "vVO2max", "maximalAerobicSpeed"]
 units: "mL/kg/min (or L/min absolute)"
 ---
@@ -26,6 +28,15 @@ VO₂max as a slow-moving ceiling worth raising early in a runner's development,
 **do not predict race times from it, do not chase it once it plateaus, and never
 trust a wearable's VO₂max as an exact number** — its individual error band is large
 (roughly ±5–10 mL/kg/min), so it is a trend tool, not a measurement.
+
+Beyond performance, VO₂max is also the single **strongest modifiable predictor of
+all-cause and cardiovascular mortality** in epidemiology — a low cardiorespiratory
+fitness (CRF) carries risk larger than smoking, hypertension or diabetes taken
+individually, and CRF is trainable. This makes VO₂max the highest-leverage *longevity*
+metric to track and raise, not just an athletic ceiling. Healthee therefore surfaces a
+VO₂max **estimate** (never a lab measurement — see the estimator notes
+[[non_exercise_vo2max]] and [[submaximal_vo2max]]) and frames it as a fitness
+*trajectory*, never as a "death-risk" number.
 
 ## What it is
 
@@ -179,6 +190,48 @@ and threshold keep improving for years.
   low *group* bias but poor *individual* validity — good for tracking your own trend,
   unreliable as an absolute or for cross-person comparison.
 
+### Cardiorespiratory fitness and mortality (the longevity case)
+
+- **[Established]** **CRF (VO₂max) is among the strongest known modifiable predictors
+  of all-cause and cardiovascular mortality — an association stronger than smoking,
+  hypertension, diabetes, or hypercholesterolaemia taken individually, holding across
+  age, sex and BMI.** *Largest cohort with directly-measured fitness:* in 122,007
+  adults undergoing treadmill testing (Cleveland Clinic, 1991–2014), **elite fitness
+  (>2.0× age/sex-predicted) vs low (<25th percentile) carried HR 0.20 (95% CI
+  0.16–0.24) — ~80% lower all-cause mortality**, each 1-MET higher CRF ≈ 10–15% lower
+  mortality, and the hazard of *low* CRF exceeded that of current smoking, diabetes and
+  end-stage renal disease modelled in the same population [Mandsager et al. 2018]. The
+  American Heart Association added CRF to its list of clinical vital signs in 2016
+  [Ross et al. 2016].
+- **[Established]** *Meta-analysis (33 studies, n=102,980):* **each 1-MET higher CRF ≈
+  13% lower all-cause and 15% lower cardiovascular mortality**; low (<7.9 METs) vs high
+  (>10.9 METs) CRF pooled HR 0.30 (CV events) / 0.35 (CV mortality) [Kodama et al.
+  2009].
+- **[Established]** *Directly-measured VO₂max, 25-year follow-up (BALL State LLS,
+  n=4,876):* **each 1 mL/kg/min higher VO₂max ≈ 9% lower all-cause mortality**
+  [Imboden et al. 2019]. Because VO₂max is *trainable* (HERITAGE and the trainability
+  evidence above), this longevity association is the highest-leverage modifiable target
+  we track — but the mortality effect sizes are anchored on **CPET-measured** fitness,
+  so extending them to a wearable/non-exercise *estimate* carries the estimator's error
+  (see [[non_exercise_vo2max]], [[submaximal_vo2max]]) and must never be recited to the
+  user as a personal death-risk number.
+
+### Raising VO₂max — how much, how fast (trainability, expanded)
+
+- **[Established]** *Meta-analysis (37 studies, n=334, 6–13 wk):* interval/combined
+  training raised VO₂max **+0.51 L·min⁻¹ (95% CI 0.43–0.60)**; the longer **3–5 min
+  intervals produced ~0.8–0.9 L·min⁻¹**, continuous-only training only ~0.2–0.4
+  [Bacon et al. 2013]. For an ~80 kg adult, +0.51 L·min⁻¹ ≈ **+6.4 mL/kg/min** in young
+  untrained people over ~10 weeks — the upper end; Healthee deliberately projects
+  **~half** of that for real-world adherence and a recovery-limited user (see the
+  implementation section). Combined with Milanović et al. 2015 (HIIT > MICT by
+  ~1.2 mL/kg/min), the practical protocol is **polarized**: a large easy aerobic base
+  plus a small dose of hard, ~vVO₂max intervals or vigorous bursts.
+- **[Established]** **Brief, non-exercise vigorous bursts ("VILPA") also raise fitness
+  and sharply lower mortality** — a median 4.4 min/day associated with HR ≈ 0.62 for
+  all-cause mortality [Stamatakis et al. 2022]; see [[mvpa_minutes_mortality]]. So the
+  hard-stimulus half of the plan need not be a structured workout.
+
 ## How we compute it
 
 **Lab gold standard (ground truth).** Graded maximal exercise test (treadmill or
@@ -225,6 +278,19 @@ threshold pace/HR and running economy as the operational anchors (see
   early-stage, has stagnated, or is building toward shorter races — gated by recovery
   rules and kept a small fraction of weekly volume.
 - **Track long-term trend**, not week-to-week noise.
+
+**The raising-VO₂max protocol (polarized — easy base + a hard stimulus).** When a phase
+of VO₂max work is justified (low-fit or stalled user, longevity goal), the
+evidence-backed shape is:
+- **Aerobic base** — ~3 sessions/week, 30–45 min easy/conversational (~60–70% HRmax,
+  zone 2). Builds the mitochondrial/aerobic base and carries the bulk of the volume.
+- **One weekly high-intensity stimulus** — intervals (e.g. 4–5 × 1–4 min hard, or
+  3–5 min reps at ~95–100% vVO₂max) **or** VILPA (short all-out bursts: stairs, a hill,
+  a fast walk-to-jog). This is the part that actually drives the ceiling up
+  [Bacon et al. 2013; Stamatakis et al. 2022].
+- Polarized (mostly easy + a little very hard) beats all-moderate for VO₂max, and the
+  hard fraction stays **small and recovery-gated** (Safety bounds). Scale the intensity
+  to recovery — no hard session on a low-recovery day (see [[recovery_readiness]]).
 
 **By stage:**
 
@@ -393,3 +459,58 @@ threshold pace/HR and running economy as the operational anchors (see
   accuracy of smartwatch-based estimation of maximum oxygen uptake using the Apple
   Watch Series 7: validation study.* JMIR Biomedical Engineering, 9, e59459.
   https://doi.org/10.2196/59459
+- Mandsager, K., Harb, S., Cremer, P., Phelan, D., Nissen, S. E., & Jaber, W. (2018).
+  *Association of cardiorespiratory fitness with long-term mortality among adults
+  undergoing exercise treadmill testing.* JAMA Network Open, 1(6), e183605.
+  https://doi.org/10.1001/jamanetworkopen.2018.3605
+- Kodama, S., Saito, K., Tanaka, S., et al. (2009). *Cardiorespiratory fitness as a
+  quantitative predictor of all-cause mortality and cardiovascular events in healthy men
+  and women: a meta-analysis.* JAMA, 301(19), 2024–2035.
+  https://doi.org/10.1001/jama.2009.681
+- Imboden, M. T., Harber, M. P., Whaley, M. H., et al. (2019). *The association between
+  the change in directly measured cardiorespiratory fitness across time and mortality: an
+  observational study.* Progress in Cardiovascular Diseases, 62(2), 157–162.
+  https://doi.org/10.1016/j.pcad.2018.12.003
+- Ross, R., Blair, S. N., Arena, R., et al. (2016). *Importance of assessing
+  cardiorespiratory fitness in clinical practice: a case for fitness as a clinical vital
+  sign* (AHA scientific statement). Circulation, 134(24), e653–e699.
+  https://doi.org/10.1161/CIR.0000000000000461
+- Stamatakis, E., Ahmadi, M. N., Gill, J. M. R., et al. (2022). *Association of wearable
+  device-measured vigorous intermittent lifestyle physical activity with mortality.*
+  Nature Medicine, 28, 2521–2529. https://doi.org/10.1038/s41591-022-02100-x
+
+## Healthee implementation & honesty policy
+
+- **Derived field: `vo2max_estimate`** (mL/kg/min) in `derived_daily` — an **estimate,
+  never a lab value.** Healthee never runs a CPET; it derives the number by a tiered
+  estimator and the maths live in two companion notes (this physiology note does not
+  duplicate them): a **submaximal HR-vs-pace extrapolation** as the primary path when a
+  workout has good steady-state HR+pace data ([[submaximal_vo2max]]), falling back to the
+  **Jurca 2005 non-exercise model** from resting HR + demographics + activity
+  ([[non_exercise_vo2max]]). Report the **7-day median + trend**, not a single value.
+- **Projected-trajectory feature (the "visible plan").** Healthee shows a 12-week
+  *projected* VO₂max gain to motivate the raising-VO₂max protocol above. The projection
+  scales with the **gap to the age-median** (low fitness = more trainable headroom),
+  bounded **+2 to +5 mL/kg/min**: `gain = clamp(0.4 × gap, 2, 5)` — i.e. ~40% of the gap
+  closed in a 12-week block. This sits at the **conservative end** of the trainability
+  literature (Bacon 2013's ~+6.4 mL/kg/min in young untrained would be the optimistic
+  bound; we project ~half) and is physiologically right (bigger headroom → bigger
+  response). It is shown as "≈{current}→{projected} in 12 wk **if you follow the plan**"
+  with the citation, and **re-anchors to the user's own measured VO₂max estimate each
+  week** so the projection cannot drift away from reality.
+- **Age/sex percentile.** The value is shown against age- and sex-adjusted norms
+  (Mandsager 2018 quintile table / ACSM) so the user sees a *percentile trajectory*, not
+  an absolute — approximate, not clinical-grade.
+- **Honesty rules (carry into UI + LLM):**
+  - **Always labelled "estimate"** with a ±SEE / uncertainty band; never a single
+    two-decimal number, and the **trend over months** is the signal, not the level.
+  - **Never present absolute VO₂max as a "death-risk" number.** The CRF↔mortality
+    evidence justifies *why we track and raise it* and frames it as a fitness
+    *trajectory*; it is never converted into a personal hazard figure.
+  - **Never compare two people's estimates** (large individual error; over-estimates the
+    unfit, under-estimates the fit).
+  - Relative VO₂max (mL/kg/min) **moves with body mass** — separate a weight change from
+    a real aerobic change before interpreting a shift.
+  - The projection is an **estimate of typical response, never a promise**; it depends on
+    adherence and recovery, and for a recovery-limited/short-sleeping user, recovery is
+    the binding constraint (tie intensity to [[recovery_readiness]]).

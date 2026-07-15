@@ -122,10 +122,13 @@
     },
     {
       "aliases": [
-        "methodology",
         "cadence",
-        "mvpa",
-        "intensity"
+        "step cadence",
+        "steps per minute",
+        "spm",
+        "walking cadence",
+        "cadence intensity",
+        "cadence_intensity"
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
@@ -137,9 +140,10 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "cadence_intensity",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "Step cadence (steps/min) as a practical proxy for ambulatory exercise intensity",
       "path": "notes/activity/cadence_intensity.md",
+      "population": "general",
       "summary": "Step cadence (steps/min) as a practical proxy for ambulatory exercise intensity"
     },
     {
@@ -218,7 +222,13 @@
       "summary": "The highest metabolically steady-state speed — a hard ceiling; pace above it draws on a finite tank (D′) with predictable time-to-exhaustion."
     },
     {
-      "aliases": [],
+      "aliases": [
+        "distance from steps",
+        "step length",
+        "stride length distance",
+        "walking distance derivation",
+        "distance_from_steps"
+      ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
         "distance_m_daily",
@@ -228,12 +238,22 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "distance_from_steps",
+      "last_reviewed": "2026-07-15",
       "name": "Deriving walking/running distance from step count + profile",
       "path": "notes/activity/distance_from_steps.md",
+      "population": "general",
       "summary": "Deriving walking/running distance from step count + profile"
     },
     {
-      "aliases": [],
+      "aliases": [
+        "energy expenditure",
+        "calories derivation",
+        "TEE",
+        "total energy expenditure",
+        "active calories",
+        "MET-by-state",
+        "energy_expenditure_derivation"
+      ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
         "total_calories",
@@ -244,8 +264,10 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "energy_expenditure_derivation",
+      "last_reviewed": "2026-07-15",
       "name": "Deriving daily energy expenditure (calories) — free-living, anchored",
       "path": "notes/activity/energy_expenditure_derivation.md",
+      "population": "general",
       "summary": "Deriving daily energy expenditure (calories) — free-living, anchored"
     },
     {
@@ -289,23 +311,27 @@
     },
     {
       "aliases": [
-        "exercise",
-        "activity",
-        "mortality"
+        "exercise mortality",
+        "minimum exercise",
+        "15 minutes exercise",
+        "physical activity mortality",
+        "exercise_mortality"
       ],
       "applies_to_interventions": [
         "exercise"
       ],
       "applies_to_metrics": [
-        "steps_total"
+        "steps_total",
+        "mvpa_min"
       ],
       "category": "activity",
       "collection": "legacy",
       "grade": "Established",
       "id": "exercise_mortality",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Even 15 minutes of moderate daily exercise reduces all-cause mortality",
       "path": "notes/activity/exercise_mortality.md",
+      "population": "general",
       "summary": "Even 15 minutes of moderate daily exercise reduces all-cause mortality"
     },
     {
@@ -786,9 +812,11 @@
     {
       "aliases": [
         "mvpa",
-        "activity",
-        "mortality",
-        "who-guidelines"
+        "moderate-to-vigorous physical activity",
+        "150 minutes",
+        "who activity guidelines",
+        "vilpa",
+        "mvpa_minutes_mortality"
       ],
       "applies_to_interventions": [
         "exercise"
@@ -803,18 +831,19 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "mvpa_minutes_mortality",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "Moderate-to-vigorous physical activity minutes (MVPA) and the 150 min/week target",
       "path": "notes/activity/mvpa_minutes_mortality.md",
+      "population": "general",
       "summary": "Moderate-to-vigorous physical activity minutes (MVPA) and the 150 min/week target"
     },
     {
       "aliases": [
-        "implementation",
-        "mvpa",
-        "cadence",
-        "activity",
-        "dashboard"
+        "mvpa derivation",
+        "mvpa card",
+        "weekly mvpa plan",
+        "cadence mvpa derivation",
+        "mvpa_weekly_plan"
       ],
       "applies_to_interventions": [
         "exercise"
@@ -823,16 +852,17 @@
         "steps_per_minute",
         "moderate_min",
         "vigorous_min",
-        "mvpa_min_weekly"
+        "mvpa_min"
       ],
       "category": "activity",
       "collection": "legacy",
       "grade": "Probable",
       "id": "mvpa_weekly_plan",
-      "last_reviewed": "2026-05-15",
-      "name": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + HC workouts; weekly progress card vs 150-min target",
+      "last_reviewed": "2026-07-15",
+      "name": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + workouts; weekly progress card vs 150-min target",
       "path": "notes/activity/mvpa_weekly_plan.md",
-      "summary": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + HC workouts; weekly progress card vs 150-min target"
+      "population": "general",
+      "summary": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + workouts; weekly progress card vs 150-min target"
     },
     {
       "aliases": [
@@ -856,9 +886,15 @@
     },
     {
       "aliases": [
-        "methodology",
-        "vo2max",
-        "non-exercise-test"
+        "non-exercise vo2max",
+        "jurca",
+        "jurca 2005",
+        "hunt3",
+        "non-exercise-test",
+        "cardiorespiratory fitness estimate",
+        "vo2max_estimate_plan",
+        "non_exercise_vo2max",
+        "methodology"
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
@@ -869,10 +905,11 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "non_exercise_vo2max",
-      "last_reviewed": "2026-05-15",
-      "name": "Estimating VO2max without a maximal exercise test — Jurca model + HUNT3 update",
+      "last_reviewed": "2026-07-15",
+      "name": "Estimating VO2max without a maximal exercise test — Jurca 2005 model + HUNT3 update, and the nightly non-exercise estimate",
       "path": "notes/activity/non_exercise_vo2max.md",
-      "summary": "Estimating VO2max without a maximal exercise test — Jurca model + HUNT3 update"
+      "population": "general",
+      "summary": "Estimating VO2max without a maximal exercise test — Jurca 2005 model + HUNT3 update, and the nightly non-exercise estimate"
     },
     {
       "aliases": [
@@ -903,11 +940,12 @@
     },
     {
       "aliases": [
-        "activity",
-        "mortality",
-        "cardiometabolic",
-        "hr-zones",
-        "hunt3"
+        "pai",
+        "personalized activity intelligence",
+        "personal activity intelligence",
+        "pai score",
+        "hr-zone activity score",
+        "pai_activity_score"
       ],
       "applies_to_interventions": [
         "aerobic_activity",
@@ -924,9 +962,10 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "pai_activity_score",
-      "last_reviewed": "2026-05-13",
+      "last_reviewed": "2026-07-15",
       "name": "Personalized Activity Intelligence (PAI) — composite weekly activity score with mortality validation",
       "path": "notes/activity/pai_activity_score.md",
+      "population": "general",
       "summary": "Personalized Activity Intelligence (PAI) — composite weekly activity score with mortality validation"
     },
     {
@@ -1228,9 +1267,11 @@
     {
       "aliases": [
         "sauna",
-        "heat_exposure",
-        "cardiovascular",
-        "mortality"
+        "sauna bathing",
+        "heat exposure mortality",
+        "finnish sauna",
+        "sauna cardiovascular",
+        "sauna_cv_benefits"
       ],
       "applies_to_interventions": [
         "exercise"
@@ -1243,33 +1284,36 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "sauna_cv_benefits",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Frequent sauna bathing and cardiovascular / all-cause mortality",
       "path": "notes/activity/sauna_cv_benefits.md",
+      "population": "general",
       "summary": "Frequent sauna bathing and cardiovascular / all-cause mortality"
     },
     {
       "aliases": [
-        "sedentary",
-        "sitting",
-        "activity",
-        "mortality"
+        "sedentary time",
+        "sitting time",
+        "sedentary behaviour",
+        "prolonged sitting",
+        "sedentary_mortality"
       ],
       "applies_to_interventions": [
         "exercise"
       ],
       "applies_to_metrics": [
         "steps_total",
-        "distance_m",
-        "calories"
+        "distance_m_daily",
+        "total_calories"
       ],
       "category": "activity",
       "collection": "legacy",
       "grade": "Established",
       "id": "sedentary_mortality",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Prolonged sedentary time elevates mortality risk, especially in low-activity individuals",
       "path": "notes/activity/sedentary_mortality.md",
+      "population": "general",
       "summary": "Prolonged sedentary time elevates mortality risk, especially in low-activity individuals"
     },
     {
@@ -1558,32 +1602,37 @@
     },
     {
       "aliases": [
-        "steps",
-        "activity",
-        "mortality"
+        "daily steps",
+        "step count",
+        "10000 steps",
+        "steps mortality",
+        "step plateau",
+        "steps_mortality"
       ],
       "applies_to_interventions": [
         "exercise"
       ],
       "applies_to_metrics": [
         "steps_total",
-        "distance_m"
+        "distance_m_daily"
       ],
       "category": "activity",
       "collection": "legacy",
       "grade": "Established",
       "id": "steps_mortality",
-      "last_reviewed": "2026-05-11",
+      "last_reviewed": "2026-07-15",
       "name": "Daily step count and all-cause mortality (plateau around 6,000–8,000 steps)",
       "path": "notes/activity/steps_mortality.md",
+      "population": "general",
       "summary": "Daily step count and all-cause mortality (plateau around 6,000–8,000 steps)"
     },
     {
       "aliases": [
-        "implementation",
-        "strength",
-        "activity",
-        "dashboard"
+        "strength minutes",
+        "strength tally",
+        "strength card",
+        "weekly strength plan",
+        "strength_adherence_plan"
       ],
       "applies_to_interventions": [
         "exercise"
@@ -1595,9 +1644,10 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "strength_adherence_plan",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "Implementation plan — weekly strength-training minutes tally vs 30–60 min/week sweet spot",
       "path": "notes/activity/strength_adherence_plan.md",
+      "population": "general",
       "summary": "Implementation plan — weekly strength-training minutes tally vs 30–60 min/week sweet spot"
     },
     {
@@ -1635,22 +1685,26 @@
     },
     {
       "aliases": [
-        "strength",
-        "resistance-training",
-        "mortality",
-        "sarcopenia"
+        "strength training",
+        "resistance training",
+        "muscle strengthening",
+        "weight training mortality",
+        "strength_training_mortality"
       ],
       "applies_to_interventions": [
         "exercise"
       ],
-      "applies_to_metrics": [],
+      "applies_to_metrics": [
+        "strength_min_weekly"
+      ],
       "category": "activity",
       "collection": "legacy",
       "grade": "Established",
       "id": "strength_training_mortality",
-      "last_reviewed": "2026-05-15",
+      "last_reviewed": "2026-07-15",
       "name": "Muscle-strengthening (resistance) training and all-cause mortality",
       "path": "notes/activity/strength_training_mortality.md",
+      "population": "general",
       "summary": "Muscle-strengthening (resistance) training and all-cause mortality"
     },
     {
@@ -1680,15 +1734,19 @@
     },
     {
       "aliases": [
-        "methodology",
-        "vo2max",
-        "submaximal",
-        "heart-rate",
-        "wearable"
+        "submaximal vo2max",
+        "hr-vs-pace vo2max",
+        "firstbeat vo2max",
+        "wearable vo2max estimate",
+        "submaximal-extrapolation",
+        "vo2max_submax",
+        "submaximal_vo2max",
+        "methodology"
       ],
       "applies_to_interventions": [],
       "applies_to_metrics": [
         "vo2max_estimate",
+        "vo2max_submax",
         "hr",
         "steps_per_minute",
         "rhr_daily",
@@ -1698,9 +1756,10 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "submaximal_vo2max",
-      "last_reviewed": "2026-06-10",
+      "last_reviewed": "2026-07-15",
       "name": "Submaximal HR-during-activity VO2max estimation — the wearable method, vs the Jurca non-exercise baseline",
       "path": "notes/activity/submaximal_vo2max.md",
+      "population": "general",
       "summary": "Submaximal HR-during-activity VO2max estimation — the wearable method, vs the Jurca non-exercise baseline"
     },
     {
@@ -1798,9 +1857,14 @@
         "aerobic ceiling",
         "cardiorespiratory fitness",
         "CRF",
-        "mL/kg/min"
+        "cardiorespiratory-fitness",
+        "mL/kg/min",
+        "vo2max_fitness_mortality",
+        "vo2max_training_program"
       ],
-      "applies_to_interventions": [],
+      "applies_to_interventions": [
+        "exercise"
+      ],
       "applies_to_metrics": [
         "vo2max_estimate"
       ],
@@ -1808,73 +1872,11 @@
       "collection": "sports_science",
       "grade": "Established",
       "id": "vo2max",
-      "last_reviewed": "2026-06-29",
+      "last_reviewed": "2026-07-15",
       "name": "VO₂max (Maximal Oxygen Uptake)",
       "path": "sports-science/metrics/vo2max.md",
-      "summary": "The aerobic ceiling — one of three performance determinants, slow-moving, large wearable error; a trend tool, not a race predictor."
-    },
-    {
-      "aliases": [
-        "implementation",
-        "vo2max",
-        "dashboard"
-      ],
-      "applies_to_interventions": [],
-      "applies_to_metrics": [
-        "vo2max_estimate",
-        "rhr_daily",
-        "moderate_min",
-        "vigorous_min",
-        "mvpa_min"
-      ],
-      "category": "activity",
-      "collection": "legacy",
-      "grade": "Probable",
-      "id": "vo2max_estimate_plan",
-      "last_reviewed": "2026-05-15",
-      "name": "Implementation plan — nightly Jurca non-exercise VO2max estimate + Today trend card",
-      "path": "notes/activity/vo2max_estimate_plan.md",
-      "summary": "Implementation plan — nightly Jurca non-exercise VO2max estimate + Today trend card"
-    },
-    {
-      "aliases": [
-        "vo2max",
-        "cardiorespiratory-fitness",
-        "mortality",
-        "longevity"
-      ],
-      "applies_to_interventions": [
-        "exercise"
-      ],
-      "applies_to_metrics": [
-        "vo2max_estimate"
-      ],
-      "category": "activity",
-      "collection": "legacy",
-      "grade": "Established",
-      "id": "vo2max_fitness_mortality",
-      "last_reviewed": "2026-05-15",
-      "name": "Cardiorespiratory fitness (VO2max) — the strongest modifiable longevity marker",
-      "path": "notes/activity/vo2max_fitness_mortality.md",
-      "summary": "Cardiorespiratory fitness (VO2max) — the strongest modifiable longevity marker"
-    },
-    {
-      "aliases": [],
-      "applies_to_interventions": [
-        "exercise"
-      ],
-      "applies_to_metrics": [
-        "vo2max_estimate",
-        "mvpa_min",
-        "cardio_load"
-      ],
-      "category": "activity",
-      "collection": "legacy",
-      "grade": "Established",
-      "id": "vo2max_training_program",
-      "name": "Raising VO₂max — protocol + trainability trajectory",
-      "path": "notes/activity/vo2max_training_program.md",
-      "summary": "Raising VO₂max — protocol + trainability trajectory"
+      "population": "general",
+      "summary": "The aerobic ceiling — one of three performance determinants and the single strongest modifiable longevity marker (CRF↔mortality); slow-moving, large wearable error; a trend tool, not a race predictor or a death-risk number."
     },
     {
       "aliases": [
