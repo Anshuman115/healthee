@@ -40,7 +40,7 @@ def test_env_vars_override_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     get_settings.cache_clear()
 
 
-def test_db_url_is_libpq_conninfo(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_admin_db_url_is_libpq_conninfo(monkeypatch: pytest.MonkeyPatch) -> None:
     # Clear ambient host/port/user so the conninfo reflects the code defaults,
     # not whatever a dev shell exported.
     for var in ("POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_USER"):
@@ -48,11 +48,53 @@ def test_db_url_is_libpq_conninfo(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("POSTGRES_PASSWORD", "s3cret")
     monkeypatch.setenv("POSTGRES_DB", "healthee")
     get_settings.cache_clear()
-    url = get_settings().db_url
+    url = get_settings().admin_db_url
     assert "dbname=healthee" in url
     assert "password=s3cret" in url
     assert "host=localhost" in url
     get_settings.cache_clear()
+
+
+# ── the app-role credential split (6.5b-1, MULTI_USER.md §3.3) ────────────────
+
+
+def test_app_db_url_falls_back_to_the_admin_creds(env: None) -> None:  # noqa: ARG001
+    """Unset app creds ⇒ exactly the pre-split behaviour, so this is safe to deploy
+    before the role is provisioned. `core/db` warns that RLS cannot apply."""
+    settings = get_settings()
+    assert settings.app_role_configured is False
+    assert settings.app_db_url == settings.admin_db_url
+
+
+def test_app_db_url_uses_the_app_creds_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("POSTGRES_PASSWORD", "admin-pw")
+    monkeypatch.setenv("POSTGRES_USER", "healthee")
+    monkeypatch.setenv("POSTGRES_APP_USER", "healthee_app")
+    monkeypatch.setenv("POSTGRES_APP_PASSWORD", "app-pw")
+    get_settings.cache_clear()
+    settings = get_settings()
+    assert settings.app_role_configured is True
+    assert "user=healthee_app " in settings.app_db_url
+    assert "password=app-pw" in settings.app_db_url
+    # The admin identity is unchanged — the two never bleed into each other.
+    assert "user=healthee " in settings.admin_db_url
+    assert "password=admin-pw" in settings.admin_db_url
+    get_settings.cache_clear()
+
+
+def test_half_set_app_creds_are_a_loud_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refuse the ambiguity: silently connecting as the ADMIN while the operator
+    believes the least-privilege role is in force is the exact security theatre the
+    split exists to end."""
+    monkeypatch.setenv("POSTGRES_PASSWORD", "admin-pw")
+    monkeypatch.setenv("POSTGRES_APP_USER", "healthee_app")
+    monkeypatch.delenv("POSTGRES_APP_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="must be set together"):
+        Settings()
+    monkeypatch.delenv("POSTGRES_APP_USER")
+    monkeypatch.setenv("POSTGRES_APP_PASSWORD", "app-pw")
+    with pytest.raises(ValueError, match="must be set together"):
+        Settings()
 
 
 def test_missing_password_is_a_loud_failure(monkeypatch: pytest.MonkeyPatch) -> None:

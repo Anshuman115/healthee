@@ -21,7 +21,7 @@ _TOKEN = "contract-token"
 def _db_reachable() -> bool:
     try:
         settings = get_settings()
-        with psycopg.connect(settings.db_url, connect_timeout=3) as conn:
+        with psycopg.connect(settings.admin_db_url, connect_timeout=3) as conn:
             conn.execute("SELECT 1")
     except Exception:
         return False

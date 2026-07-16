@@ -24,6 +24,8 @@ _DEFAULTED_ENV_VARS = (
     "POSTGRES_PORT",
     "POSTGRES_DB",
     "POSTGRES_USER",
+    "POSTGRES_APP_USER",
+    "POSTGRES_APP_PASSWORD",
     "LOG_LEVEL",
     "API_HOST",
     "API_PORT",
@@ -65,7 +67,7 @@ def _db_reachable() -> bool:
     except Exception:  # Settings can't even be built (e.g. no password) → skip
         return False
     try:
-        with psycopg.connect(settings.db_url, connect_timeout=3) as conn:
+        with psycopg.connect(settings.admin_db_url, connect_timeout=3) as conn:
             conn.execute("SELECT 1")
     except Exception:
         return False

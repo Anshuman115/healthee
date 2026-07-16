@@ -23,8 +23,9 @@ fails loudly instead of silently defaulting.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Self
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,11 +44,29 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "healthee"
+    # The OWNER/ADMIN identity: owns the tables, runs migrations (DDL),
+    # `db.claim_sentinel`, `db.provision_app_role`, and the test reset. It is NOT
+    # the identity that serves requests — see the app role below. Prod already has
+    # these set and their meaning is unchanged.
     postgres_user: str = "healthee"
     # Effectively required — a blank DB password is a misconfiguration, not a
     # default. The validator below turns "unset/empty" into a loud failure while
     # keeping the field constructible from the environment.
     postgres_password: str = ""
+
+    # ── Postgres application role (least privilege — MULTI_USER.md §3.3) ──
+    # The identity the request/job pool connects as. It is deliberately NOT a
+    # superuser and NOT the table owner, because a superuser BYPASSES Row-Level
+    # Security unconditionally (`rolbypassrls`) — RLS policies added on top of a
+    # superuser connection are decoration, not isolation.
+    #
+    # Blank ⇒ the pool falls back to the admin creds above, i.e. exactly the
+    # pre-split behaviour, so this change is safe to deploy BEFORE the role is
+    # provisioned. The fallback is not silent: `core/db` logs a prominent WARNING
+    # naming the over-privileged role at pool open. Provision the role with
+    # `python -m healthee.db.provision_app_role` (run as the admin), then set these.
+    postgres_app_user: str = ""
+    postgres_app_password: str = ""
 
     # ── API auth (required in production; blank means "reject everything") ──
     # Bearer token expected on every /ingest/* and /api/* request.
@@ -108,6 +127,24 @@ class Settings(BaseSettings):
             raise ValueError("POSTGRES_PASSWORD must be set")
         return value
 
+    @model_validator(mode="after")
+    def _require_app_creds_together(self) -> Self:
+        """App user and password are both-or-neither — never one alone.
+
+        Half-set creds are the dangerous case: the pool would either try a
+        passwordless login or connect as the ADMIN while the operator believes the
+        least-privilege role is in force. Both failure modes are silent, and the
+        second one is the exact security theatre this split exists to end. Refuse
+        the ambiguity instead of picking an interpretation.
+        """
+        if bool(self.postgres_app_user) != bool(self.postgres_app_password):
+            raise ValueError(
+                "POSTGRES_APP_USER and POSTGRES_APP_PASSWORD must be set together "
+                "(set both to use the least-privilege app role, or neither to fall "
+                "back to the admin creds)"
+            )
+        return self
+
     @property
     def signup_allowlist_emails(self) -> frozenset[str]:
         """The invite allowlist as lowercased emails — the ONE parse of that var.
@@ -122,13 +159,39 @@ class Settings(BaseSettings):
         )
 
     @property
-    def db_url(self) -> str:
-        """libpq connection string for psycopg (used by the pool in core/db)."""
+    def app_role_configured(self) -> bool:
+        """True when a dedicated least-privilege app role is configured.
+
+        False ⇒ the pool falls back to the admin creds (`core/db` warns).
+        """
+        return bool(self.postgres_app_user)
+
+    def _conninfo(self, user: str, password: str) -> str:
+        """libpq connection string for one identity — the ONE place it is formatted."""
         return (
             f"host={self.postgres_host} port={self.postgres_port} "
-            f"dbname={self.postgres_db} user={self.postgres_user} "
-            f"password={self.postgres_password}"
+            f"dbname={self.postgres_db} user={user} password={password}"
         )
+
+    @property
+    def app_db_url(self) -> str:
+        """Conninfo for the APPLICATION pool (`core/db.get_pool`).
+
+        The least-privilege role when configured, else the admin creds — the
+        backwards-compatible fallback, which `core/db` announces with a WARNING.
+        """
+        if self.app_role_configured:
+            return self._conninfo(self.postgres_app_user, self.postgres_app_password)
+        return self.admin_db_url
+
+    @property
+    def admin_db_url(self) -> str:
+        """Conninfo for the OWNER/ADMIN identity — DDL, TRUNCATE, re-keying.
+
+        Only `core/db.admin_connection()` may use this; see its docstring for who
+        is allowed to call it and why.
+        """
+        return self._conninfo(self.postgres_user, self.postgres_password)
 
 
 @lru_cache(maxsize=1)

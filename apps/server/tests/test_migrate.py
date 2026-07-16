@@ -95,10 +95,10 @@ def test_apply_records_each_migration_version(monkeypatch: pytest.MonkeyPatch) -
     calls: list[tuple[str, object]] = []
 
     @contextmanager
-    def _fake_connection() -> Iterator[_RecordingConn]:
+    def _fake_admin_connection() -> Iterator[_RecordingConn]:
         yield _RecordingConn(_RecordingCursor(calls))
 
-    monkeypatch.setattr(migrate, "connection", _fake_connection)
+    monkeypatch.setattr(migrate, "admin_connection", _fake_admin_connection)
     baseline = next(p for p in migrate._migration_files() if p.stem == "0001_initial")
     monkeypatch.setattr(migrate, "pending_migrations", lambda: [baseline])
 

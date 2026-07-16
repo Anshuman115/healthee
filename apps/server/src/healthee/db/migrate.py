@@ -8,6 +8,10 @@ which keeps a half-applied file safe to replay.
 Run it as a module against a configured database:
 
     uv run python -m healthee.db.migrate
+
+It connects as the OWNER/ADMIN role (`core.db.admin_connection`), not the app pool:
+migrations are DDL, and the least-privilege app role deliberately has no CREATE or
+ALTER (Phase 6.5b-1, MULTI_USER.md §3.3).
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ import re
 from pathlib import Path
 from typing import LiteralString, cast
 
-from healthee.core.db import connection
+from healthee.core.db import admin_connection
 from healthee.core.logging import configure_logging, get_logger
 
 log = get_logger(__name__)
@@ -54,7 +58,7 @@ def _migration_files() -> list[Path]:
 
 def _applied_versions() -> set[str]:
     """Versions already recorded in schema_migrations (creating it if absent)."""
-    with connection() as conn, conn.cursor() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(_CREATE_LEDGER)
         cur.execute("SELECT version FROM schema_migrations")
         return {row[0] for row in cur.fetchall()}
@@ -74,7 +78,7 @@ def _apply_one(path: Path) -> None:
     failure rolls back the whole file.
     """
     statements = _split_statements(path.read_text())
-    with connection() as conn, conn.cursor() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         for statement in statements:
             # Trusted SQL — from committed migration files, never user input.
             cur.execute(cast("LiteralString", statement))

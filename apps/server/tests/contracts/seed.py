@@ -23,7 +23,7 @@ import json
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection, transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 
@@ -42,9 +42,17 @@ def _ms(dt: datetime) -> float:
 
 
 def reset() -> None:
-    """Apply migrations and truncate every table the read layer reads."""
+    """Apply migrations and truncate every table the read layer reads.
+
+    The ADMIN path (`admin_connection`), because both halves are owner-only: the
+    migrations are DDL and `TRUNCATE` is never granted to the app role — the app
+    must not be able to erase a life's health data (6.5b-1, MULTI_USER.md §3.3).
+    The seeding INSERTs that follow deliberately stay on the app pool, so the
+    fixture itself exercises the privileges the running app actually has.
+    """
     migrate.apply_migrations()
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
+        # Trusted SQL — a module-level constant list of table names, never input.
         cur.execute(f"TRUNCATE {_TABLES}")
 
 

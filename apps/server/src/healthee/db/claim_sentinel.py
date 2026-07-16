@@ -44,6 +44,15 @@ Safety: dry-run by default; refuses anything ambiguous rather than guessing; and
 whole apply runs in ONE transaction ending in a post-check that no row anywhere still
 belongs to the sentinel — the real net, since it catches a missed table regardless of
 mechanism. Any failure rolls the entire re-key back.
+
+## Why it connects as the ADMIN, not the app pool
+
+It re-keys `app_user` itself and must see across ALL owners at once. Under 6.5b-2's
+Row-Level Security an app-role connection would silently filter both the counts and
+`_verify`'s post-check to the current tenant — i.e. to nothing — and the post-check
+would report a clean pass over a re-key it never actually looked at. A verification
+that cannot see what it is verifying is worse than none, so this runs as the owner
+(`core.db.admin_connection`; Phase 6.5b-1, MULTI_USER.md §3.3).
 """
 
 from __future__ import annotations
@@ -56,7 +65,7 @@ from uuid import UUID
 from psycopg import Cursor, sql
 from psycopg.rows import TupleRow
 
-from healthee.core.db import connection
+from healthee.core.db import admin_connection
 from healthee.core.logging import configure_logging, get_logger
 from healthee.core.tenancy import SENTINEL_USER_ID
 
@@ -232,7 +241,7 @@ def claim(target: UUID, *, apply: bool = False) -> ClaimPlan | None:
     One transaction: the plan, the re-key, and the post-check all share it, so a failed
     verification rolls the whole thing back rather than leaving data split in two.
     """
-    with connection() as conn, conn.cursor() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         claim_plan = plan(cur, target)
         if claim_plan is None:
             return None

@@ -76,7 +76,7 @@ def _auth(sub: UUID) -> dict[str, str]:
 
 def _db_reachable() -> bool:
     try:
-        with psycopg.connect(get_settings().db_url, connect_timeout=3) as conn:
+        with psycopg.connect(get_settings().admin_db_url, connect_timeout=3) as conn:
             conn.execute("SELECT 1")
     except Exception:
         return False

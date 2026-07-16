@@ -20,6 +20,23 @@ callers get a cursor directly):
 Every tenant table needs the owner named explicitly: `0007` dropped the transitional
 `user_id` DEFAULT, so a write that omits it now raises NotNullViolation rather than
 silently attributing someone's health data to the sentinel.
+
+## Two identities (Phase 6.5b-1, MULTI_USER.md §3.3)
+
+There are TWO credential sets, and the difference is a security boundary:
+
+  * the **app pool** (`get_pool` / `connection` / `transaction`) connects as the
+    least-privilege `POSTGRES_APP_USER` — everything that serves a request or runs
+    a job goes through it. It can read/write the data tables and nothing else.
+  * `admin_connection()` connects as the owner `POSTGRES_USER` — DDL, TRUNCATE,
+    re-keying. It is deliberately awkward and explicitly named; see its docstring
+    for the closed list of callers.
+
+The split is the prerequisite for RLS (6.5b-2), not a nicety: a superuser
+connection **bypasses Row-Level Security unconditionally**, so policies written
+over one are theatre — they test green and protect nothing. When the app creds are
+unset the pool falls back to the admin creds (pre-split behaviour, safe to deploy
+before the role exists) and `_warn_if_privileged` logs a loud WARNING saying so.
 """
 
 from __future__ import annotations
@@ -27,6 +44,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+import psycopg
 from psycopg import Connection, Cursor
 from psycopg.rows import TupleRow
 from psycopg_pool import ConnectionPool
@@ -45,17 +63,52 @@ _Pool = ConnectionPool[Connection[TupleRow]]
 _pool: _Pool | None = None
 
 
+def _warn_if_privileged(pool: _Pool) -> None:
+    """Log a loud WARNING when the app pool is connected as an over-privileged role.
+
+    A role with `rolsuper` or `rolbypassrls` ignores Row-Level Security entirely —
+    `FORCE ROW LEVEL SECURITY` does not touch it either. This warning is the whole
+    reason the fallback to the admin creds is allowed to exist: it keeps a
+    transitional deploy working while making the missing half impossible to forget,
+    and it is how 6.5b-2 knows whether it can rely on RLS at all.
+
+    Asked of the database rather than inferred from config, because only the server
+    knows what the role actually is.
+    """
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+        )
+        row = cur.fetchone()
+    if row is None:  # a login role always has a pg_roles row; treat absence as unknown
+        log.warning("could not determine the privileges of the connected DB role")
+        return
+    role, is_super, bypasses_rls = row
+    if not (is_super or bypasses_rls):
+        log.info("db pool connected as least-privilege role %r", role)
+        return
+    log.warning(
+        "SECURITY: the app pool is connected as %r, which is %s — this role BYPASSES "
+        "Row-Level Security, so RLS policies cannot isolate tenants on it. Provision the "
+        "least-privilege role (python -m healthee.db.provision_app_role) and set "
+        "POSTGRES_APP_USER / POSTGRES_APP_PASSWORD.",
+        role,
+        "a SUPERUSER" if is_super else "marked BYPASSRLS",
+    )
+
+
 def get_pool() -> _Pool:
     """Return the process-wide connection pool, opening it on first use.
 
     Lazy so importing this module never touches the network or requires config —
-    the pool opens the first time a query is actually run.
+    the pool opens the first time a query is actually run. It connects as the
+    least-privilege app role (falling back to the admin creds with a WARNING).
     """
     global _pool
     if _pool is None:
         settings = get_settings()
         pool: _Pool = ConnectionPool(
-            conninfo=settings.db_url,
+            conninfo=settings.app_db_url,
             min_size=_POOL_MIN_SIZE,
             max_size=_POOL_MAX_SIZE,
             name="healthee",
@@ -71,6 +124,7 @@ def get_pool() -> _Pool:
             _POOL_MAX_SIZE,
         )
         _pool = pool
+        _warn_if_privileged(pool)
     return _pool
 
 
@@ -96,6 +150,36 @@ def transaction() -> Iterator[Cursor[TupleRow]]:
     """
     with get_pool().connection() as conn, conn.cursor() as cur:
         yield cur
+
+
+@contextmanager
+def admin_connection() -> Iterator[Connection[TupleRow]]:
+    """Borrow a one-shot connection as the OWNER/ADMIN role. **Not for app code.**
+
+    Commits on a clean exit, rolls back on any exception, and closes afterwards —
+    unpooled on purpose: this identity can `DROP TABLE`, and a pool of such
+    connections sitting around for ordinary code to reach into is precisely the
+    problem the app-role split removes. Every request and every job uses
+    `transaction()` / `connection()` instead.
+
+    ### Who may call this, and why — the complete list
+
+    * `db/migrate.py` — DDL. The app role has no `CREATE`/`ALTER`, by design.
+    * `db/provision_app_role.py` — creates and grants to the app role; a role
+      cannot bootstrap its own privileges.
+    * `db/claim_sentinel.py` — re-keys `app_user` and must see across ALL owners.
+      Under 6.5b-2's RLS an app-role connection would silently filter its
+      verification SELECTs down to nothing and turn the post-check into a false
+      pass — a partial re-key reported as success.
+    * `tests/contracts/seed.py::reset` — `apply_migrations()` + `TRUNCATE`, which
+      the app role deliberately cannot do.
+
+    Anything else belongs on the app pool. If you are reaching for this to make a
+    permission error go away, the answer is a grant in `provision_app_role`, not a
+    superuser connection.
+    """
+    with psycopg.connect(get_settings().admin_db_url) as conn:
+        yield conn
 
 
 def close_pool() -> None:
