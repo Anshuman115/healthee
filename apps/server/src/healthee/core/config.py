@@ -48,6 +48,23 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"  # noqa: S104 — LAN-reachable by design (mobile app)
     api_port: int = 8765
 
+    # ── Supabase auth (Phase 6 identity — verify JWTs, never issue) ───────
+    # Supabase is the managed auth provider; the API is a resource server that
+    # VERIFIES the access JWT (never mints one). The legacy HS256 shared secret
+    # signs the token — we verify with the same secret. Blank ⇒ auth fails closed.
+    supabase_jwt_secret: str = ""
+    # Service-role key for later admin/webhook work (delete-user cascade, §4.5).
+    supabase_service_role_key: str = ""
+    # Project ref builds the expected issuer https://<ref>.supabase.co/auth/v1;
+    # blank ⇒ the `iss` check is skipped (dev / self-signed test tokens).
+    supabase_project_ref: str = ""
+    # Expected `aud` claim on a Supabase access token (default for its auth server).
+    supabase_jwt_aud: str = "authenticated"
+    # Invite-only by default: signup gating is enforced at Supabase (§4). The
+    # backend simply provisions any validly-authenticated user; this flag is a
+    # forward hook for self-serve onboarding.
+    signups_open: bool = False
+
     # ── OpenRouter (optional — grounded LLM insights, wired in a later WP) ─
     openrouter_api_key: str = ""
     # LLM model ids — kept in env (DEFAULT_MODEL / COACH_MODEL), NOT hardcoded, so the

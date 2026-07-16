@@ -25,7 +25,15 @@ def _table_exists(name: str) -> bool:
 
 def test_apply_migrations_creates_schema(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
-    for table in ("sample", "sleep_session", "derived_daily", "finding", "gps_point"):
+    for table in (
+        "sample",
+        "sleep_session",
+        "derived_daily",
+        "finding",
+        "gps_point",
+        "app_user",  # 0002_identity
+        "device_token",  # 0002_identity
+    ):
         assert _table_exists(table), f"missing table {table}"
     assert _table_exists("schema_migrations")
 

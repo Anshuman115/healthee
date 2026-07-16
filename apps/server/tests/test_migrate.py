@@ -38,7 +38,15 @@ def test_migration_files_are_sorted_and_include_baseline() -> None:
 
 
 def test_pending_excludes_already_applied(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An applied version is dropped from pending; other numbered migrations remain.
     monkeypatch.setattr(migrate, "_applied_versions", lambda: {"0001_initial"})
+    pending = [p.stem for p in migrate.pending_migrations()]
+    assert "0001_initial" not in pending
+
+
+def test_pending_empty_when_all_applied(monkeypatch: pytest.MonkeyPatch) -> None:
+    applied = {p.stem for p in migrate._migration_files()}
+    monkeypatch.setattr(migrate, "_applied_versions", lambda: applied)
     assert migrate.pending_migrations() == []
 
 

@@ -18,6 +18,7 @@ from fastapi import FastAPI
 
 from healthee.api.routers import (
     activity,
+    auth,
     coach,
     gps,
     health,
@@ -62,6 +63,9 @@ def create_app() -> FastAPI:
     # WP5 grounded insight surfaces (sleep/activity/metric/workout/notable) + coach.
     app.include_router(insights.router)
     app.include_router(coach.router)
+    # Phase 6.1 identity — Supabase-JWT-authed /api/me + /api/device. Additive:
+    # existing routers keep their shared-token guard until the 6.4 flip.
+    app.include_router(auth.router)
     return app
 
 

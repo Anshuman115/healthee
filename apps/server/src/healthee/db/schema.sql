@@ -13,6 +13,7 @@
 
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- gen_random_uuid() on older PG; core on PG13+
+CREATE EXTENSION IF NOT EXISTS citext;    -- case-insensitive email (0002_identity)
 
 -- ── sample ───────────────────────────────────────────────────────────────
 -- Raw time-series hypertable: one row per (metric, ts). Re-ingest is idempotent.
@@ -263,3 +264,27 @@ CREATE TABLE IF NOT EXISTS gps_point (
   ele_m     DOUBLE PRECISION,
   PRIMARY KEY (track_id, ts)
 );
+
+-- ── app_user (0002_identity) ───────────────────────────────────────────────
+-- Local mirror of the Supabase user; the tenant key everywhere is this UUID.
+-- No passwords here — Supabase owns credentials/sessions. JIT-provisioned on the
+-- first authenticated request (MULTI_USER.md §4.4).
+CREATE TABLE IF NOT EXISTS app_user (
+  id          UUID         PRIMARY KEY,               -- = Supabase auth.users.id (sub)
+  email       CITEXT,                                 -- mirrored for convenience/joins
+  status      TEXT         NOT NULL DEFAULT 'active',
+  timezone    TEXT         NOT NULL DEFAULT 'UTC',    -- IANA name, per-user
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- ── device_token (0002_identity) ───────────────────────────────────────────
+-- Per-strap/app long-lived ingest credential; only the SHA-256 hash is stored.
+CREATE TABLE IF NOT EXISTS device_token (
+  id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID         NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  token_hash  TEXT         NOT NULL,                  -- SHA-256 hex of the raw token
+  label       TEXT,
+  last_seen   TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS device_token_hash_idx ON device_token (token_hash);
