@@ -1,9 +1,18 @@
 """Application settings — the ONE place environment variables are read.
 
-Every var lives in `infra/.env.example`; docker-compose injects them into the
-container environment, and pydantic-settings reads them here. No other module in
-the codebase may touch `os.environ` — they call `get_settings()` instead
-(standards §2: "config (pydantic-settings ONLY)").
+There are TWO env templates, one per deployment context, and every var must be
+present in the one(s) that need it — they are not copies of each other:
+  * `infra/.env.example` — the compose/prod template (consumed by
+    docker-compose.prod.yml, deploy.sh, backup/). Its Postgres host is the `db`
+    service name, and it carries the deploy/backup vars the container never sees.
+  * `apps/server/.env.example` — the local-dev template for `apps/server/.env`
+    (Postgres on localhost; what the test suite and `scripts/model_eval.py` read).
+Adding a setting below means adding it to BOTH unless it is genuinely
+context-specific — a var that exists in only one silently defaults in the other,
+which is how a blank model id reaches OpenRouter as a 400 in prod.
+
+No other module in the codebase may touch `os.environ` — they call
+`get_settings()` instead (standards §2: "config (pydantic-settings ONLY)").
 
 The accessor is import-safe: nothing is constructed at import time, so importing
 this module never fails even when required vars are unset. `get_settings()`
