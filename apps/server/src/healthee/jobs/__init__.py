@@ -13,7 +13,8 @@ Modules:
   * ``recs``       — daily recommendations, v2-native, THROUGH the grounded
                      choke point (``insights.grounded``), cite-or-drop;
   * ``briefing``   — the morning Telegram "daily-insight", grounded + validated;
-  * ``chain``      — ``run_chain`` (ordered, dependency-aware, deduped) + the
-                     supervised single-step runner both it and the scheduler use;
-  * ``scheduler``  — the self-rescheduling loop (``python -m healthee.jobs.scheduler``).
+  * ``chain``      — ``run_chain``: ordered, dependency-aware, supervised, and
+                     deduped per owner per local day;
+  * ``scheduler``  — the tick loop that runs each owner's chain at THEIR local
+                     fire time (``python -m healthee.jobs.scheduler``).
 """

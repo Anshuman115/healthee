@@ -273,23 +273,51 @@ Guardrail: a lint/test that greps for tenant-table `execute` calls lacking a
 
 ## 6. Per-user jobs
 
-**Status: DONE in 6.3c**, except the per-user fire *times* (6.4).
+**Status: DONE** (6.3c: the per-owner sweep · 6.4c: per-user fire times).
 
-- **Scheduler** (`jobs/scheduler.py`): each daily timer now fires a **sweep** —
-  `for tenant in active_users(): run_step(step, user_id=tenant.id, tz=tenant.tz)`.
+- **Scheduler** (`jobs/scheduler.py`): a **tick loop**. It does not compute a next
+  fire instant and sleep to it; it wakes every `_TICK_INTERVAL_S` (5 min) and asks
+  of each `active_users()` owner: *is their local wall clock past `DAILY_FIRE`
+  (10:30 in **their** `app_user.timezone`), and has their chain not already run for
+  their local day?* If so, `run_chain(tenant.id, tenant.tz, their_local_day)`.
   `core/tenancy.active_users()` returns a frozen `Tenant(id, tz)` per active owner
   (deliberately NOT `RequestUser` — that would couple the science/jobs layers to
-  auth; 6.4 converts `RequestUser` → `Tenant` at the edge). One owner's failure is
-  isolated in `_fire_for` (logged + Telegram-notified, sweep continues); a failure
-  of the owner *lookup* propagates, since that is an outage rather than one
+  auth; 6.4b converts `RequestUser` → `Tenant` at the edge). One owner's failure is
+  isolated in `Sweeper._run_for` (logged + Telegram-notified, sweep continues); a
+  failure of the owner *lookup* propagates, since that is an outage rather than one
   tenant's problem.
-- **Per-user timezone**: `run_step`/`run_chain` default `day` to **that owner's**
-  local today, computed from their `app_user.timezone`.
-- **Fire times are still global** (`scheduler.TZ` = the sweep cadence, not "the
-  user's timezone"). An owner far from that zone gets their chain at an awkward
-  local hour — accepted for now; the fix is **6.4**, and the better end-state is
-  ingest-triggered per-user chains (each strap syncs on its own schedule) plus a
-  nightly sweep for stragglers.
+- **Why a tick, not a timer** (6.4c): `next_fire()` returns *tomorrow* once an
+  instant has passed, and the loop fired the single earliest job. Extended
+  per-owner, that fires owner A at their 10:30, then recomputes and sees owner B's
+  identical 10:30 as already past → B is deferred to tomorrow, **every day,
+  forever** (simulated over 3 days: A fires 3×, B fires 0×). A tick asks a question
+  about the *present*, where "already past" is the condition to RUN, so it cannot
+  express that bug. It is also self-healing by construction: a missed tick, a
+  container restart, a slow run, or an owner who signs up *after* their own fire
+  time all resolve on the next tick.
+- **Idempotence is the marker's job, not the loop's.** `run_chain`'s per-owner
+  per-day `kv` marker is what makes a repeating tick safe; the scheduler holds no
+  dedup of its own.
+- **One chain per owner per local day** — the 10:30/10:45/11:00 stagger is **gone**.
+  It was not spreading LLM load (fixed order, fixed offsets, and the sweep already
+  ran every owner back-to-back inside one timer); `run_chain` already sequences
+  correlate → recs → briefing *with* the dependency, so the stagger only
+  re-implemented that ordering with `sleep()`. `chain.run_step`/`STEP_NAMES` were
+  orphaned by the collapse and deleted.
+- **Retry budget** (`_ATTEMPT_BUDGET = 3`, in-memory): the marker is only set once
+  correlate succeeds, so a *failing* chain stays unmarked — under a 5-minute tick it
+  would otherwise be retried ~150× per owner-day (150 Telegram alerts + 150 re-sent
+  briefings, since briefing runs even when correlate fails). The budget keeps the
+  transient-blip retry and bounds the storm; exhaustion is announced once. It is NOT
+  idempotence (the marker is), and it lives in memory deliberately: a restart is
+  itself a good reason to try again.
+- **No global fire zone**: `scheduler.TZ` is deleted. An owner's own timezone is now
+  the only zone in play for them.
+- **Per-user timezone**: `run_chain` defaults `day` to **that owner's** local today,
+  computed from their `app_user.timezone`.
+- The better end-state at scale remains **ingest-triggered per-user chains** (each
+  strap syncs on its own schedule) with this tick as the straggler sweep. Noted, not
+  built.
 - **Chain dedup** (`jobs/chain.py`) and the **kv cache** (`insights/cache.py`):
   **keys are NOT namespaced by user, and must not be.** This supersedes the
   original plan (`job:chain_done:{user_id}:{day}`, `DAILY_ACTION_KEY:{user_id}`),
@@ -382,7 +410,7 @@ there is no legacy app to convert — just design it in.
 | **6.1 Identity ✅** | `app_user` + `device_token` tables (`0002_identity`) + `core/supabase_auth.py` (VERIFY the Supabase JWT — HS256, pinned algs; JIT-provision `app_user`; mint/resolve hash-only device tokens) + thin `/api/me` + `/api/device`. No local credentials/argon2/login-endpoints (Supabase owns them). Additive — existing shared-token auth untouched, nothing reads `user_id` yet. | login works; existing endpoints unaffected |
 | **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
 | **6.3 Thread scoping ✅** | Shipped in three slices. **6.3a** (`0004`): folded `user_id` into every natural PK/UNIQUE, retargeted every `ON CONFLICT`, made every tenant WRITE set the owner; added `core/tenancy.SENTINEL_USER_ID`. **6.3b**: scoped every tenant READ with `AND user_id = %s`, killed the seven duplicate `Asia/Kolkata` constants for `SENTINEL_TZ` threaded as `tz: str`, and added the AST completeness guard (`tests/db/test_tenant_read_scoping.py` — any new unscoped tenant SQL now fails the build) + read-isolation tests. **6.3c** (`0005`): re-keyed `profile` by `user_id` (dropped `id`/`CHECK (id = 1)`, retargeted `upsert_profile`'s conflict to the owner — it was silently overwriting another owner's demographics), per-user job sweep (`active_users()` → `Tenant`, per-owner local day, isolated failures), and the two-tenant seed + cross-tenant leakage suite (§10). Cache-key namespacing was **dropped as redundant** (see §6). Everything still resolves to the sentinel by default. | every query scoped; single-user behavior identical (contract snapshots byte-identical) |
-| **6.4 Flip identity** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **`jobs/` still hardwires `SENTINEL_USER_ID`** — per-user fire times are 6.4c. **6.4c**: per-user scheduler fire times; re-key the sentinel owner to the real Supabase UUID (`UPDATE app_user …`, cascades via `ON UPDATE CASCADE`). | second real user works end-to-end, isolated |
+| **6.4 Flip identity** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Still to land: re-key the sentinel owner to the real Supabase UUID. | second real user works end-to-end, isolated |
 | **6.5 Harden** | Postgres RLS + policies; cross-tenant leakage tests; self-serve signup/onboarding (or invite gating); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the

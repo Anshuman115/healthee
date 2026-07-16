@@ -17,8 +17,10 @@ health surface"). The chain then applies dependency logic:
 
 The chain is deduped per day via the ``kv`` table: once a day's chain has run its
 generating steps, a second ``run_chain`` for that day is a no-op (legacy deduped
-on last-night's sleep landing). ``run_step`` exposes the same supervised runner
-for the scheduler, which fires the steps on their own daily timers.
+on last-night's sleep landing). That marker is what lets the scheduler tick
+repeatedly and still run each owner's chain exactly once per their local day
+(6.4c) — it is the whole idempotence story, so the scheduler owns no dedup of its
+own.
 """
 
 from __future__ import annotations
@@ -38,8 +40,6 @@ from healthee.jobs import correlate as correlate_mod
 from healthee.jobs import recs as recs_mod
 
 log = get_logger(__name__)
-
-STEP_NAMES = ("correlate", "recs", "briefing")
 
 # kv key prefix; the per-day marker is f"{_DONE_KEY}:{day}". The OWNER is deliberately
 # NOT in this string: 0004 folded user_id into the kv PRIMARY KEY and every read of it
@@ -110,32 +110,6 @@ def _run_supervised(name: str, run: Callable[[], dict]) -> StepOutcome:
         return StepOutcome(name=name, status="failed", error=str(exc))
     log.info("chain step '%s' ok: %s", name, detail)
     return StepOutcome(name=name, status="ok", detail=detail)
-
-
-def run_step(
-    name: str,
-    user_id: UUID,
-    tz: str,
-    day: date | None = None,
-    *,
-    client: LLMClient | None = None,
-) -> StepOutcome:
-    """Supervised single-step run for ONE owner (used by the scheduler's sweep).
-
-    ``day`` defaults to THAT owner's local today (from their ``tz``) — a global
-    "today" would put a user several zones away on the wrong day's data.
-
-    Dispatches to the module-level ``step_*`` functions by name (resolved at call
-    time, so they stay individually patchable/testable).
-    """
-    day = day or user_today(tz)
-    if name == "correlate":
-        return _run_supervised(name, lambda: step_correlate(day, user_id, tz, client=client))
-    if name == "recs":
-        return _run_supervised(name, lambda: step_recs(day, user_id, tz, client=client))
-    if name == "briefing":
-        return _run_supervised(name, lambda: step_briefing(day, user_id, tz, client=client))
-    raise ValueError(f"unknown chain step: {name!r}")
 
 
 # ── the chain ──────────────────────────────────────────────────────────────────
