@@ -15,6 +15,7 @@ pairs) — no ML.
 from __future__ import annotations
 
 from datetime import date
+from uuid import UUID
 
 from healthee.analytics.finding import EFFECT_MANN_WHITNEY, EFFECT_SPEARMAN, Finding
 from healthee.analytics.metrics import EVENT_KINDS, FLAG_DERIVED_METRICS, V2_DAILY_METRICS
@@ -36,13 +37,17 @@ _MIN_EVENT_DAYS = 3
 
 
 def compute_all_findings(
+    user_id: UUID,
+    tz: str,
     pairwise_lags: tuple[int, ...] = (0, 1),
     event_lags: tuple[int, ...] = (0, 1),
 ) -> list[Finding]:
     """Compute every candidate finding, FDR-adjust, and mark significance."""
     with transaction() as cur:
-        series = {m: daily_series(cur, m) for m in CORRELATED_METRICS}
-        events = {label: event_days(cur, kind) for label, (_, kind) in EVENT_KINDS.items()}
+        series = {m: daily_series(cur, user_id, m) for m in CORRELATED_METRICS}
+        events = {
+            label: event_days(cur, user_id, tz, kind) for label, (_, kind) in EVENT_KINDS.items()
+        }
 
     findings = _pairwise_findings(series, pairwise_lags)
     findings += _event_findings(series, events, event_lags)

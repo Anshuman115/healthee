@@ -18,8 +18,9 @@ import bisect
 from collections.abc import Callable
 from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
-from healthee.derive._common import USER_TZ, Cur, _age, _load_profile, _upsert_daily
+from healthee.derive._common import Cur, _age, _load_profile, _upsert_daily
 from healthee.derive.dem import elevations
 from healthee.derive.vo2max_submax import _haversine_m, vo2max_from_track
 
@@ -59,19 +60,22 @@ def make_hr_interpolator(
     return hr_at
 
 
-def _track_window(cur: Cur, track_id: str) -> tuple[datetime, datetime] | None:
-    """(start_ts, end_ts) for a track, or None if it does not exist."""
-    cur.execute("SELECT start_ts, end_ts FROM gps_track WHERE id=%s", (track_id,))
+def _track_window(cur: Cur, user_id: UUID, track_id: str) -> tuple[datetime, datetime] | None:
+    """(start_ts, end_ts) for one owner's track, or None if it does not exist."""
+    cur.execute(
+        "SELECT start_ts, end_ts FROM gps_track WHERE user_id = %s AND id=%s",
+        (user_id, track_id),
+    )
     tr = cur.fetchone()
     return (tr[0], tr[1]) if tr else None
 
 
-def _load_points(cur: Cur, track_id: str) -> list[Point]:
+def _load_points(cur: Cur, user_id: UUID, track_id: str) -> list[Point]:
     """All fixes for a track, time-ordered, as (ts_epoch_s, lat, lng, ele|None)."""
     cur.execute(
         "SELECT extract(epoch FROM ts), lat, lng, ele_m FROM gps_point "
-        "WHERE track_id=%s ORDER BY ts",
-        (track_id,),
+        "WHERE user_id = %s AND track_id=%s ORDER BY ts",
+        (user_id, track_id),
     )
     return [
         (float(r[0]), float(r[1]), float(r[2]), float(r[3]) if r[3] is not None else None)
@@ -79,13 +83,15 @@ def _load_points(cur: Cur, track_id: str) -> list[Point]:
     ]
 
 
-def _load_hr(cur: Cur, start_ts: datetime, end_ts: datetime) -> tuple[list[float], list[float]]:
+def _load_hr(
+    cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datetime
+) -> tuple[list[float], list[float]]:
     """(timestamps, values) for bounded HR samples across the track window."""
     cur.execute(
         "SELECT extract(epoch FROM ts), value FROM sample "
-        "WHERE metric='hr' AND value BETWEEN 30 AND 220 "
+        "WHERE user_id = %s AND metric='hr' AND value BETWEEN 30 AND 220 "
         "AND ts BETWEEN %s AND %s ORDER BY ts",
-        (start_ts, end_ts),
+        (user_id, start_ts, end_ts),
     )
     rows = cur.fetchall()
     return [float(r[0]) for r in rows], [float(r[1]) for r in rows]
@@ -105,26 +111,26 @@ def _dem_corrected(points: list[Point]) -> tuple[list[Point], str, int]:
     return corrected, grade_source, dem_hits
 
 
-def derive_vo2max_submax(cur: Cur, user_id: UUID, track_id: str) -> dict:
+def derive_vo2max_submax(cur: Cur, user_id: UUID, tz: str, track_id: str) -> dict:
     """Submaximal HR-vs-pace VO2max for one GPS track; stored as ``vo2max_submax``.
 
     Returns {"ok": True, ...} with the estimate + fit diagnostics, or {"ok": False,
     "reason": ...} when the track/HR/profile are missing or the fit is unusable.
     [[submaximal_vo2max]].
     """
-    window = _track_window(cur, track_id)
+    window = _track_window(cur, user_id, track_id)
     if not window:
         return {"ok": False, "reason": "track not found"}
     start_ts, end_ts = window
-    points = _load_points(cur, track_id)
+    points = _load_points(cur, user_id, track_id)
     if len(points) < 10:
         return {"ok": False, "reason": "too few GPS points"}
     points, grade_source, dem_hits = _dem_corrected(points)
-    hr_ts, hr_val = _load_hr(cur, start_ts, end_ts)
+    hr_ts, hr_val = _load_hr(cur, user_id, start_ts, end_ts)
     if len(hr_ts) < _MIN_HR_SAMPLES_VO2:
         return {"ok": False, "reason": "no HR for this window (was the strap worn?)"}
-    day = start_ts.astimezone(USER_TZ).date()
-    prof = _load_profile(cur, day)
+    day = start_ts.astimezone(ZoneInfo(tz)).date()
+    prof = _load_profile(cur, user_id, tz, day)
     if not prof:
         return {"ok": False, "reason": "no profile"}
     hrmax = 208 - 0.7 * _age(prof["dob"], day)  # Tanaka 2001
@@ -206,12 +212,13 @@ def _build_detail_points(
     return out, dist_m, gain, loss, moving_s, hrs, eles
 
 
-def _read_submax(cur: Cur, track_id: str) -> dict | None:
+def _read_submax(cur: Cur, user_id: UUID, track_id: str) -> dict | None:
     """Read back the stored VO2max_submax result for this track, if any."""
     cur.execute(
-        "SELECT value, flags FROM derived_daily WHERE metric='vo2max_submax' "
+        "SELECT value, flags FROM derived_daily "
+        "WHERE user_id = %s AND metric='vo2max_submax' "
         "AND flags->>'track_id'=%s ORDER BY day DESC LIMIT 1",
-        (str(track_id),),
+        (user_id, str(track_id)),
     )
     vr = cur.fetchone()
     if not vr:
@@ -262,25 +269,25 @@ def _detail_summary(
     }
 
 
-def gps_track_detail(cur: Cur, track_id: str) -> dict | None:
+def gps_track_detail(cur: Cur, user_id: UUID, track_id: str) -> dict | None:
     """Full detail for one recorded outdoor workout — for the route-map view.
 
     Per-point [t, lat, lng, DEM-corrected ele, interpolated hr, pace] plus a
     summary (distance, moving time, pace, HR, elevation gain/loss, and the stored
     vo2max_submax). None if the track or its points are missing. Pure read.
     """
-    window = _track_window(cur, track_id)
+    window = _track_window(cur, user_id, track_id)
     if not window:
         return None
     start_ts, end_ts = window
-    pts = _load_points(cur, track_id)
+    pts = _load_points(cur, user_id, track_id)
     if len(pts) < 2:
         return None
     dem, _ = elevations([(p[1], p[2]) for p in pts])
     ele = [dem[i] if dem[i] is not None else pts[i][3] for i in range(len(pts))]
-    hr_at = make_hr_interpolator(*_load_hr(cur, start_ts, end_ts))
+    hr_at = make_hr_interpolator(*_load_hr(cur, user_id, start_ts, end_ts))
     out, dist_m, gain, loss, moving_s, hrs, eles = _build_detail_points(pts, ele, hr_at)
-    vo2 = _read_submax(cur, track_id)
+    vo2 = _read_submax(cur, user_id, track_id)
     return {
         "track_id": str(track_id),
         "start_ts": start_ts.isoformat(),

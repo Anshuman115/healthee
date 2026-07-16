@@ -8,35 +8,37 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 
 from healthee.derive._common import Cur
-from healthee.read.common import USER_TZ, sport_name
+from healthee.read.common import sport_name
 from healthee.read.fitness import cardio_load_payload, vo2max_payload
 
 # Banister TRIMP sex weights (a, b): female / male. [[cardio_load_trimp]].
 _TRIMP_W = {"female": (0.86, 1.67), "male": (0.64, 1.92)}
 
 
-def workout_detail(cur: Cur, start: str) -> dict:
+def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
     """Workout summary + HR series + zones + derived metrics for one session."""
     ts = _parse_start(start)
     cur.execute(
         "SELECT start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr "
-        "FROM workout WHERE start_ts >= %s - interval '3 seconds' "
+        "FROM workout WHERE user_id = %s AND start_ts >= %s - interval '3 seconds' "
         "AND start_ts <= %s + interval '3 seconds' ORDER BY start_ts LIMIT 1",
-        (ts, ts),
+        (user_id, ts, ts),
     )
     row = cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="workout not found")
     start_ts, sport, dur_s, cal, dist, avg_hr, max_hr, min_hr = row
     end_ts = start_ts + timedelta(seconds=int(dur_s or 0))
-    hrs, series = _hr_profile(cur, start_ts, end_ts)
-    hrmax = (cardio_load_payload(cur) or {}).get("hrmax")
-    rhr = (cardio_load_payload(cur) or {}).get("rhr")
-    sex = (vo2max_payload(cur) or {}).get("sex") or "male"
+    hrs, series = _hr_profile(cur, user_id, tz, start_ts, end_ts)
+    hrmax = (cardio_load_payload(cur, user_id) or {}).get("hrmax")
+    rhr = (cardio_load_payload(cur, user_id) or {}).get("rhr")
+    sex = (vo2max_payload(cur, user_id) or {}).get("sex") or "male"
     zones = _zone_minutes(hrs, hrmax)
     dur_min = round((dur_s or 0) / 60) if dur_s else None
     metrics = _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones)
@@ -57,19 +59,21 @@ def _parse_start(start: str) -> datetime:
         return datetime.fromtimestamp(int(start) / 1000, tz=UTC)
 
 
-def _hr_profile(cur: Cur, start_ts: datetime, end_ts: datetime) -> tuple[list[int], list[dict]]:
+def _hr_profile(
+    cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: datetime
+) -> tuple[list[int], list[dict]]:
     """Minute-resolution HR series over the workout window (raw ``sample`` table)."""
     cur.execute(
-        "SELECT ts, value FROM sample WHERE metric='hr' AND value > 30 AND value < 220 "
-        "AND ts >= %s AND ts <= %s ORDER BY ts",
-        (start_ts, end_ts),
+        "SELECT ts, value FROM sample WHERE user_id = %s AND metric='hr' "
+        "AND value > 30 AND value < 220 AND ts >= %s AND ts <= %s ORDER BY ts",
+        (user_id, start_ts, end_ts),
     )
     hrs, series = [], []
     for t, v in cur.fetchall():
         hr = int(v)
         hrs.append(hr)
         off = int((t - start_ts).total_seconds() // 60)
-        series.append({"min": off, "hr": hr, "t": t.astimezone(USER_TZ).strftime("%H:%M")})
+        series.append({"min": off, "hr": hr, "t": t.astimezone(ZoneInfo(tz)).strftime("%H:%M")})
     return hrs, series
 
 

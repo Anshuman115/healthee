@@ -33,12 +33,6 @@ from healthee.ingest.models import (
 
 Cur = Cursor[TupleRow]
 
-# Single-user timezone. Pending a profile/config-sourced tz field, this is the
-# ONE place the user's zone is named — weight de-dup and the affected-day
-# computation both read it here rather than string-literal it at each site.
-USER_TZ_NAME = "Asia/Kolkata"
-USER_TZ = ZoneInfo(USER_TZ_NAME)
-
 # A ts above this is epoch-milliseconds; at/below it is epoch-seconds. The app
 # sends ms, but tolerate seconds so a future producer can't silently shift 1000×.
 _MS_THRESHOLD = 10**12
@@ -56,9 +50,9 @@ def epoch_to_utc(ts: int) -> datetime:
     return datetime.fromtimestamp(seconds, tz=UTC)
 
 
-def local_date(ts: int) -> date:
-    """The user-local calendar date an epoch-ms timestamp falls on."""
-    return epoch_to_utc(ts).astimezone(USER_TZ).date()
+def local_date(ts: int, tz: str) -> date:
+    """The owner-local calendar date an epoch-ms timestamp falls on."""
+    return epoch_to_utc(ts).astimezone(ZoneInfo(tz)).date()
 
 
 def upsert_samples(cur: Cur, user_id: UUID, samples: list[SampleIn]) -> tuple[int, int]:
@@ -170,21 +164,31 @@ def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
     return len(workouts)
 
 
-def upsert_profile(cur: Cur, profile: ProfileIn) -> None:
-    """Upsert the single-user profile row (id fixed at 1). `name` is preserved
-    when the push omits it (COALESCE); weight is handled by `upsert_weight`."""
+def upsert_profile(cur: Cur, user_id: UUID, profile: ProfileIn) -> None:
+    """Upsert the single-user profile row (id fixed at 1) under `user_id`.
+
+    `name` is preserved when the push omits it (COALESCE); weight is handled by
+    `upsert_weight`.
+
+    The owner is written EXPLICITLY rather than left to 0003's column DEFAULT —
+    this was the one tenant write 6.3a missed, and 6.3b's profile reads now filter
+    on `user_id`, so the two must agree by construction and not by the accident of
+    the DEFAULT being the sentinel (6.5 drops that DEFAULT). The conflict target
+    stays `(id)`: re-keying profile by `user_id` is 6.3c, and until then `id = 1`
+    means only one owner can hold a profile row at all.
+    """
     dob = epoch_to_utc(profile.dob).date() if profile.dob else None
     cur.execute(
-        "INSERT INTO profile (id, name, height_cm, sex, dob, updated_at) "
-        "VALUES (1, %s, %s, %s, %s, now()) "
+        "INSERT INTO profile (id, user_id, name, height_cm, sex, dob, updated_at) "
+        "VALUES (1, %s, %s, %s, %s, %s, now()) "
         "ON CONFLICT (id) DO UPDATE SET "
         "name = COALESCE(EXCLUDED.name, profile.name), height_cm = EXCLUDED.height_cm, "
         "sex = EXCLUDED.sex, dob = EXCLUDED.dob, updated_at = now()",
-        (profile.name, profile.height_cm, profile.sex, dob),
+        (user_id, profile.name, profile.height_cm, profile.sex, dob),
     )
 
 
-def upsert_weight(cur: Cur, user_id: UUID, weight_kg: float) -> None:
+def upsert_weight(cur: Cur, user_id: UUID, tz: str, weight_kg: float) -> None:
     """Record body weight, deduped to one row per local day and only when it
     actually changed — otherwise every profile push would spam a new row."""
     kg = float(weight_kg)
@@ -192,7 +196,7 @@ def upsert_weight(cur: Cur, user_id: UUID, weight_kg: float) -> None:
         "SELECT ts, kg FROM weight_log "
         "WHERE user_id = %s AND (ts AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date "
         "ORDER BY ts DESC LIMIT 1",
-        (user_id, USER_TZ_NAME, USER_TZ_NAME),
+        (user_id, tz, tz),
     )
     row = cur.fetchone()
     if row is None:

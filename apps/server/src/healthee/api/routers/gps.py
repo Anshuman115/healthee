@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from healthee.core.auth import require_token
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.read.gps import GpsTrackIn, gps_detail, ingest_gps_track, list_gps_tracks
 
 router = APIRouter(tags=["gps"], dependencies=[Depends(require_token)])
@@ -20,21 +20,21 @@ def post_gps_track(req: GpsTrackIn) -> dict:
     TODO(6.4): write under the authenticated `RequestUser.id`, not the sentinel.
     """
     with transaction() as cur:
-        return ingest_gps_track(cur, SENTINEL_USER_ID, req)
+        return ingest_gps_track(cur, SENTINEL_USER_ID, SENTINEL_TZ, req)
 
 
 @router.get("/api/workout/gps")
 def get_gps_tracks(limit: int = 30) -> dict:
     """Recent phone-recorded outdoor workouts (lightweight summary)."""
     with transaction() as cur:
-        return list_gps_tracks(cur, limit)
+        return list_gps_tracks(cur, SENTINEL_USER_ID, limit)
 
 
 @router.get("/api/workout/gps/{track_id}")
 def get_gps_track(track_id: str) -> dict:
     """Full GPS track for the route-map view (per-point + summary)."""
     with transaction() as cur:
-        detail = gps_detail(cur, track_id)
+        detail = gps_detail(cur, SENTINEL_USER_ID, track_id)
     if not detail:
         raise HTTPException(status_code=404, detail="track not found")
     return detail

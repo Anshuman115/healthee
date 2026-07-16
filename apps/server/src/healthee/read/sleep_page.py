@@ -8,6 +8,8 @@ strap tagged ``kind='nap'`` — no time-of-day heuristic.
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from healthee.derive._common import Cur
 from healthee.read.findings import sleep_findings
 from healthee.read.sleep_common import (
@@ -60,10 +62,10 @@ _HEALTH_SCORE_FIELDS = (
 )
 
 
-def sleep_health_score(cur: Cur, days: int = 30) -> dict:
+def sleep_health_score(cur: Cur, user_id: UUID, days: int = 30) -> dict:
     """Per-night 4-dim score + per-dimension raw measurements (``/api/sleep/health_score``)."""
     days = _clamp_days(days)
-    pivot = derived_night_pivot(cur, days, _HEALTH_SCORE_METRICS)
+    pivot = derived_night_pivot(cur, user_id, days, _HEALTH_SCORE_METRICS)
     nights = [
         {"date": d, **{k: row.get(k) for k in _HEALTH_SCORE_FIELDS}} for d, row in pivot.items()
     ]
@@ -71,22 +73,22 @@ def sleep_health_score(cur: Cur, days: int = 30) -> dict:
     return {"nights": nights, "cutoffs": SLEEP_CUTOFFS, "research_notes": SLEEP_RESEARCH_NOTES}
 
 
-def sleep_page(cur: Cur, days: int = 30) -> dict:
+def sleep_page(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict:
     """Everything the Sleep page needs in one call (``/api/sleep``)."""
     days = _clamp_days(days)
-    nights = _session_nights(cur, days)
-    pivot = derived_night_pivot(cur, days, _SLEEP_PAGE_METRICS)
+    nights = _session_nights(cur, user_id, tz, days)
+    pivot = derived_night_pivot(cur, user_id, days, _SLEEP_PAGE_METRICS)
     for date_iso, derived in pivot.items():
         nights.setdefault(date_iso, _stub_night(date_iso)).update(
             {k: v for k, v in derived.items() if k in _DERIVED_NIGHT_FIELDS}
         )
-    _apply_physiology(cur, days, nights)
+    _apply_physiology(cur, user_id, tz, days, nights)
     nights_list = sorted(nights.values(), key=lambda r: r["date"], reverse=True)
     return {
         "nights": nights_list,
-        "naps": _naps(cur, days),
+        "naps": _naps(cur, user_id, tz, days),
         "cutoffs": SLEEP_CUTOFFS,
-        "findings": sleep_findings(),
+        "findings": sleep_findings(user_id),
         "research_notes": SLEEP_RESEARCH_NOTES,
     }
 
@@ -107,11 +109,11 @@ _DERIVED_NIGHT_FIELDS = (
 )
 
 
-def _session_nights(cur: Cur, days: int) -> dict[str, dict]:
+def _session_nights(cur: Cur, user_id: UUID, tz: str, days: int) -> dict[str, dict]:
     """One main session per wake-date → the session half of each night's payload."""
     out: dict[str, dict] = {}
     for local_date, start_ts, end_ts, light, deep, rem, wake, score, stages in main_sessions(
-        cur, days
+        cur, user_id, tz, days
     ):
         date_iso = local_date.isoformat()
         night = _stub_night(date_iso)
@@ -162,10 +164,10 @@ def _stub_night(date_iso: str) -> dict:
     }
 
 
-def _apply_physiology(cur: Cur, days: int, nights: dict[str, dict]) -> None:
+def _apply_physiology(cur: Cur, user_id: UUID, tz: str, days: int, nights: dict[str, dict]) -> None:
     """Average SpO2 / breathing / skin-temp inside each main-session window (v2 raw
     ``sample`` metrics: spo2, respiratory_rate, skin_temp_c)."""
-    for local_date, start_ts, end_ts, *_rest in main_sessions(cur, days):
+    for local_date, start_ts, end_ts, *_rest in main_sessions(cur, user_id, tz, days):
         row = nights.get(local_date.isoformat())
         if row is None:
             continue
@@ -174,8 +176,8 @@ def _apply_physiology(cur: Cur, days: int, nights: dict[str, dict]) -> None:
             "  MIN(CASE WHEN metric='spo2' THEN value END), "
             "  ROUND(AVG(CASE WHEN metric='respiratory_rate' THEN value END)::numeric,1), "
             "  ROUND(AVG(CASE WHEN metric='skin_temp_c' AND value>25 THEN value END)::numeric,1) "
-            "FROM sample WHERE ts >= %s AND ts < %s",
-            (start_ts, end_ts),
+            "FROM sample WHERE user_id = %s AND ts >= %s AND ts < %s",
+            (user_id, start_ts, end_ts),
         )
         spo2_avg, spo2_min, resp, temp = cur.fetchone() or (None, None, None, None)
         row["spo2_avg"] = float(spo2_avg) if spo2_avg is not None else None
@@ -184,18 +186,18 @@ def _apply_physiology(cur: Cur, days: int, nights: dict[str, dict]) -> None:
         row["skin_temp_c"] = float(temp) if temp is not None else None
 
 
-def _naps(cur: Cur, days: int) -> list[dict]:
+def _naps(cur: Cur, user_id: UUID, tz: str, days: int) -> list[dict]:
     """Sessions the strap tagged ``kind='nap'`` (>=5 min), newest first."""
     cur.execute(
-        "SELECT start_ts, end_ts, (start_ts AT TIME ZONE 'Asia/Kolkata')::date, "
+        "SELECT start_ts, end_ts, (start_ts AT TIME ZONE %s)::date, "
         "  EXTRACT(EPOCH FROM (end_ts - start_ts))::int / 60, "
-        "  TO_CHAR((start_ts + (end_ts - start_ts)/2) AT TIME ZONE 'Asia/Kolkata', 'HH24:MI'), "
+        "  TO_CHAR((start_ts + (end_ts - start_ts)/2) AT TIME ZONE %s, 'HH24:MI'), "
         "  stages "
-        "FROM sleep_session WHERE kind='nap' "
+        "FROM sleep_session WHERE user_id = %s AND kind='nap' "
         "  AND start_ts > (current_date - %s::int) "
         "  AND EXTRACT(EPOCH FROM (end_ts - start_ts)) / 60 >= 5 "
         "ORDER BY start_ts DESC",
-        (days,),
+        (tz, tz, user_id, days),
     )
     return [
         {

@@ -26,21 +26,21 @@ def derive_night_vitals(
     """
     out: dict = {}
 
-    hrv = _window_stat(cur, "hrv", start_ts, end_ts, 5, 200)
+    hrv = _window_stat(cur, user_id, "hrv", start_ts, end_ts, 5, 200)
     if hrv is not None:
         _upsert_daily(cur, user_id, day, "hrv_sleep_avg", hrv)
         out["hrv_sleep_avg"] = round(hrv, 2)
 
-    spo2 = _window_stat(cur, "spo2", start_ts, end_ts, 70, 100)
+    spo2 = _window_stat(cur, user_id, "spo2", start_ts, end_ts, 70, 100)
     if spo2 is not None:
         _upsert_daily(cur, user_id, day, "spo2_overnight", spo2)
         out["spo2_overnight"] = round(spo2, 2)
-        lo = _window_stat(cur, "spo2", start_ts, end_ts, 70, 100, stat="MIN")
+        lo = _window_stat(cur, user_id, "spo2", start_ts, end_ts, 70, 100, stat="MIN")
         if lo is not None:
             _upsert_daily(cur, user_id, day, "spo2_overnight_min", lo)
             out["spo2_overnight_min"] = round(lo, 2)
 
-    rr = _window_stat(cur, "respiratory_rate", start_ts, end_ts, 4, 40)
+    rr = _window_stat(cur, user_id, "respiratory_rate", start_ts, end_ts, 4, 40)
     if rr is not None:
         _upsert_daily(cur, user_id, day, "respiratory_rate_sleep", rr)
         out["respiratory_rate_sleep"] = round(rr, 2)

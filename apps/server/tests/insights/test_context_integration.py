@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.insights.context import _recent_daily, build_context
 
@@ -39,7 +40,7 @@ def _seed_recent() -> None:
 def test_recent_daily_metrics_nonempty_on_v2_data(db: None) -> None:  # noqa: ARG001
     _seed_recent()
     with transaction() as cur:
-        md = _recent_daily(cur, days=20)
+        md = _recent_daily(cur, SENTINEL_USER_ID, SENTINEL_TZ, days=20)
     assert md  # legacy returned "" here on v2 data — non-empty is the regression proof
     assert "Recent daily metrics" in md
     assert "RHR" in md and "steps" in md
@@ -49,7 +50,9 @@ def test_recent_daily_metrics_nonempty_on_v2_data(db: None) -> None:  # noqa: AR
 
 def test_build_context_is_nonempty_on_v2_data(db: None) -> None:  # noqa: ARG001
     _seed_recent()
-    md = build_context(days=20, question="how is my resting heart rate?")
+    md = build_context(
+        SENTINEL_USER_ID, SENTINEL_TZ, days=20, question="how is my resting heart rate?"
+    )
     assert md
     assert "Recent daily metrics" in md
     assert "Personal baselines" in md

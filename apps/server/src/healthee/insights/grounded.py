@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from uuid import UUID
 
 from healthee.core.logging import get_logger
 from healthee.insights import prompts
@@ -49,9 +50,11 @@ class GroundedResult:
     data: dict | None = None
 
 
-def _build_messages(question: str, metrics: list[str], context_days: int) -> list[dict]:
+def _build_messages(
+    question: str, user_id: UUID, tz: str, metrics: list[str], context_days: int
+) -> list[dict]:
     """System prompt + one user payload (v2 context + ranked evidence + the task)."""
-    context_md = build_context(days=context_days, question=question)
+    context_md = build_context(user_id, tz, days=context_days, question=question)
     evidence_md, top_ids = evidence_section(question, metrics)
     log.info("grounded context: %d evidence notes in full", len(top_ids))
     user = f"# CONTEXT\n\n{context_md}\n\n{evidence_md}\n\n# USER QUESTION / TASK\n\n{question}"
@@ -63,6 +66,8 @@ def _build_messages(question: str, metrics: list[str], context_days: int) -> lis
 
 def grounded_ask(
     question: str,
+    user_id: UUID,
+    tz: str,
     *,
     metrics: list[str] | None = None,
     context_days: int = 14,
@@ -71,7 +76,10 @@ def grounded_ask(
     model: str | None = None,
     client: LLMClient | None = None,
 ) -> GroundedResult:
-    """Answer ``question`` grounded in the user's v2 data + the graded corpus.
+    """Answer ``question`` grounded in ``user_id``'s v2 data + the graded corpus.
+
+    ``user_id``/``tz`` scope every context read to the owner and anchor its day
+    boundaries; the callers hardwire the sentinel until 6.4 supplies the real user.
 
     ``response_format="json"`` switches on the JSON output seam: the client is
     asked for a JSON object and the answer is checked by the JSON-aware validator
@@ -86,7 +94,7 @@ def grounded_ask(
         return GroundedResult(text=refusal.template, refused=True)
 
     client = client or get_client()
-    messages = _build_messages(question, metrics or [], context_days)
+    messages = _build_messages(question, user_id, tz, metrics or [], context_days)
     return _complete_with_validation(client, messages, model, response_format)
 
 

@@ -101,14 +101,14 @@ def _record_fast(cur: Cur, user_id: UUID, t: str, ts: datetime, notes: str | Non
     return {"ok": True}
 
 
-def log_recent(cur: Cur, days: int = 7) -> dict:
+def log_recent(cur: Cur, user_id: UUID, days: int = 7) -> dict:
     """Recent manual logs + current fasting status (the log feed)."""
     entries: list[dict] = []
     cur.execute(
         "SELECT kind, ts, name, amount, unit, notes FROM manual_entry "
-        "WHERE kind <> 'fasting' AND ts >= now() - (%s || ' days')::interval "
+        "WHERE user_id = %s AND kind <> 'fasting' AND ts >= now() - (%s || ' days')::interval "
         "ORDER BY ts DESC LIMIT 80",
-        (days,),
+        (user_id, days),
     )
     for k, ts, name, amount, unit, notes in cur.fetchall():
         entries.append(
@@ -121,7 +121,9 @@ def log_recent(cur: Cur, days: int = 7) -> dict:
                 "notes": notes,
             }
         )
-    cur.execute("SELECT ts, kg FROM weight_log ORDER BY ts DESC LIMIT 1")
+    cur.execute(
+        "SELECT ts, kg FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1", (user_id,)
+    )
     wr = cur.fetchone()
     if wr:
         entries.append(
@@ -133,13 +135,14 @@ def log_recent(cur: Cur, days: int = 7) -> dict:
             }
         )
     entries.sort(key=lambda e: e["ts"], reverse=True)
-    return {"entries": entries, "fast": _fast_status(cur)}
+    return {"entries": entries, "fast": _fast_status(cur, user_id)}
 
 
-def _fast_status(cur: Cur) -> dict:
+def _fast_status(cur: Cur, user_id: UUID) -> dict:
     cur.execute(
-        "SELECT ts FROM manual_entry WHERE kind='fasting' AND end_ts IS NULL "
-        "ORDER BY ts DESC LIMIT 1"
+        "SELECT ts FROM manual_entry WHERE user_id = %s AND kind='fasting' AND end_ts IS NULL "
+        "ORDER BY ts DESC LIMIT 1",
+        (user_id,),
     )
     r = cur.fetchone()
     if not r:

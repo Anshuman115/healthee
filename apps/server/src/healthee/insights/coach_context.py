@@ -12,7 +12,10 @@ default window and add today's recovery so "what should I do today?" respects it
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.context import build_context
 from healthee.insights.retrieval import evidence_section
 from healthee.read.recovery import recovery_score_payload
@@ -22,11 +25,17 @@ from healthee.read.recovery import recovery_score_payload
 DEFAULT_COACH_DAYS = 30
 
 
-def build_coach_context(question: str, *, days: int = DEFAULT_COACH_DAYS) -> str:
+def build_coach_context(
+    question: str,
+    user_id: UUID = SENTINEL_USER_ID,
+    tz: str = SENTINEL_TZ,
+    *,
+    days: int = DEFAULT_COACH_DAYS,
+) -> str:
     """The full coach context markdown: v2 history/trends/logs + today's recovery."""
-    context = build_context(days=days, question=question)
+    context = build_context(user_id, tz, days=days, question=question)
     with transaction() as cur:
-        recovery = recovery_score_payload(cur)
+        recovery = recovery_score_payload(cur, user_id, tz)
     parts = [context, _recovery_block(recovery)]
     return "\n\n".join(p for p in parts if p)
 

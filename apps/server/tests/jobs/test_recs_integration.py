@@ -26,6 +26,7 @@ from tests.insights._stub import StubLLM
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.jobs import recs
 from healthee.jobs.recs_context import build_recs_signals
@@ -109,7 +110,7 @@ def test_recs_persist_with_citations_and_audit_columns(db: None) -> None:  # noq
 
 def test_signals_read_the_db_profile_not_a_json_file(db: None) -> None:  # noqa: ARG001
     _seed(dob=date.today().replace(year=date.today().year - 34))
-    signals = build_recs_signals()
+    signals = build_recs_signals(SENTINEL_USER_ID, SENTINEL_TZ)
     assert "Profile:" in signals
     assert "age 34" in signals  # computed from the profile.dob row, v2-native
 

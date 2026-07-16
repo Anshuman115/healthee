@@ -16,6 +16,7 @@ endpoint).
 from __future__ import annotations
 
 from datetime import timedelta
+from uuid import UUID
 
 from healthee.derive._common import Cur
 from healthee.read.common import TodayReads, build_today_reads, user_today
@@ -67,77 +68,81 @@ _BASELINE_METRICS: tuple[str, ...] = (
 )  # fmt: skip
 
 
-def today_snapshot(cur: Cur) -> dict:
+def today_snapshot(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Assemble the whole Today payload from a single cursor."""
-    reads = build_today_reads(cur, _LATEST_METRICS, _BASELINE_METRICS)
-    payload = {"date": user_today().isoformat(), "metrics": secondary_cards(cur, reads)}
-    payload.update(_sleep_blocks(cur))
-    payload.update(_metric_blocks(cur, reads))
-    payload.update(_signal_blocks(cur, reads))
-    payload.update(_series_blocks(cur))
+    reads = build_today_reads(cur, user_id, _LATEST_METRICS, _BASELINE_METRICS)
+    payload = {
+        "date": user_today(tz).isoformat(),
+        "metrics": secondary_cards(cur, user_id, reads),
+    }
+    payload.update(_sleep_blocks(cur, user_id, tz))
+    payload.update(_metric_blocks(cur, user_id, tz, reads))
+    payload.update(_signal_blocks(cur, user_id, tz, reads))
+    payload.update(_series_blocks(cur, user_id, tz))
     payload["anomalies"] = []  # legacy computed these live; app reads /api/notable (WP5)
-    payload["top_findings"] = top_findings()
+    payload["top_findings"] = top_findings(user_id)
     return payload
 
 
-def _sleep_blocks(cur: Cur) -> dict:
+def _sleep_blocks(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Last-night sleep + its physiology extras + 4-dim health + 7-night history."""
-    session = latest_main_session(cur)
+    session = latest_main_session(cur, user_id)
     extras = None
     if session is not None:
-        extras = last_sleep_extras(cur, session[0], session[1])
+        extras = last_sleep_extras(cur, user_id, session[0], session[1])
     return {
         "last_sleep": last_sleep(session),
         "last_sleep_extras": extras,
-        "sleep_health": sleep_health_today(cur),
-        "sleep_history_7d": sleep_history_7d(cur),
+        "sleep_health": sleep_health_today(cur, user_id),
+        "sleep_history_7d": sleep_history_7d(cur, user_id, tz),
     }
 
 
-def _metric_blocks(cur: Cur, reads: TodayReads) -> dict:
+def _metric_blocks(cur: Cur, user_id: UUID, tz: str, reads: TodayReads) -> dict:
     """The headline metric payloads (each renders with its own breakdown)."""
     return {
-        "pai": pai_payload(cur),  # WP7 gap: PAI not derived in v2 → None (see report)
-        "mvpa": mvpa_payload(cur),
-        "strength": strength_payload(cur),
-        "vo2max": vo2max_payload(cur),
-        "cardio_load": cardio_load_payload(cur),
-        "sleep_debt": sleep_debt_payload(cur, reads),
-        "biological_age": biological_age_payload(cur),
-        "illness_flag": illness_flag_payload(cur),
+        # WP7 gap: PAI not derived in v2 → None (see report)
+        "pai": pai_payload(cur, user_id),
+        "mvpa": mvpa_payload(cur, user_id, tz),
+        "strength": strength_payload(cur, user_id, tz),
+        "vo2max": vo2max_payload(cur, user_id),
+        "cardio_load": cardio_load_payload(cur, user_id),
+        "sleep_debt": sleep_debt_payload(cur, user_id, reads),
+        "biological_age": biological_age_payload(cur, user_id, tz),
+        "illness_flag": illness_flag_payload(cur, user_id, tz),
     }
 
 
-def _signal_blocks(cur: Cur, reads: TodayReads) -> dict:
+def _signal_blocks(cur: Cur, user_id: UUID, tz: str, reads: TodayReads) -> dict:
     """Recovery + data-trust + routine + today's recommendations."""
     return {
-        "recommendations": _recommendations_today(cur),
-        "recovery": recovery_signals(cur, reads),
-        "recovery_score": recovery_score_payload(cur, reads),
-        "data_health": data_health_payload(cur),
-        "routine": routine_today(cur),
+        "recommendations": _recommendations_today(cur, user_id, tz),
+        "recovery": recovery_signals(cur, user_id, reads),
+        "recovery_score": recovery_score_payload(cur, user_id, tz, reads),
+        "data_health": data_health_payload(cur, user_id),
+        "routine": routine_today(cur, user_id, tz),
     }
 
 
-def _series_blocks(cur: Cur) -> dict:
+def _series_blocks(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Sparklines + today's intraday HR / step / stress shapes."""
     return {
-        "sparklines": sparklines(cur),
-        "today_hr_series": hr_hourly(cur),
-        "today_step_buckets": step_buckets(cur),
-        "today_stress_series": stress_series(cur),
+        "sparklines": sparklines(cur, user_id),
+        "today_hr_series": hr_hourly(cur, user_id, tz),
+        "today_step_buckets": step_buckets(cur, user_id, tz),
+        "today_stress_series": stress_series(cur, user_id, tz),
     }
 
 
-def _recommendations_today(cur: Cur) -> list[dict]:
+def _recommendations_today(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """Latest set of 1-3 recommendation rows (falls back up to 2 days). The row
     CONTENT is authored by WP5/WP8 into the ``recommendation`` table; here we only
     read the most-recent day's rows."""
     cur.execute(
         "SELECT id, date, rank, action, rationale, expected_effect, category, evidence_grade, "
         "  research_note_ids, signal_source, adopted FROM recommendation "
-        "WHERE date >= %s ORDER BY date DESC, rank ASC",
-        (user_today() - timedelta(days=2),),
+        "WHERE user_id = %s AND date >= %s ORDER BY date DESC, rank ASC",
+        (user_id, user_today(tz) - timedelta(days=2)),
     )
     rows = cur.fetchall()
     if not rows:

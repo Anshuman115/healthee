@@ -9,10 +9,11 @@ analytics/metrics.py). Documented in the WP7 report.
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from healthee.analytics.baselines import compute_baseline
 from healthee.derive._common import Cur
 from healthee.read.common import (
-    USER_TZ_NAME,
     TodayReads,
     derived_series_many,
     latest_derived,
@@ -21,36 +22,42 @@ from healthee.read.common import (
 from healthee.read.meta import METRIC_META, TODAY_SECONDARY_METRICS
 
 
-def secondary_cards(cur: Cur, reads: TodayReads | None = None) -> list[dict]:
+def secondary_cards(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> list[dict]:
     """RHR / steps / calories / distance / weight cards — first candidate with data
     wins, each with its 30-day median + z-anomaly flag. ``reads`` (when supplied by
     the Today aggregator) serves latest-values + baselines from a single preloaded
     batch instead of a per-card query fan-out."""
     out: list[dict] = []
     for candidates in TODAY_SECONDARY_METRICS:
-        card = _card_for(cur, candidates, reads)
+        card = _card_for(cur, user_id, candidates, reads)
         if card:
             out.append(card)
     return out
 
 
-def _card_for(cur: Cur, candidates: list[str], reads: TodayReads | None) -> dict | None:
+def _card_for(
+    cur: Cur, user_id: UUID, candidates: list[str], reads: TodayReads | None
+) -> dict | None:
     for cand in candidates:
-        picked = _weight_card(cur) if cand == "weight_kg" else _derived_card(cur, cand, reads)
+        picked = (
+            _weight_card(cur, user_id)
+            if cand == "weight_kg"
+            else _derived_card(cur, user_id, cand, reads)
+        )
         if picked:
             return picked
     return None
 
 
-def _derived_card(cur: Cur, metric: str, reads: TodayReads | None) -> dict | None:
-    latest = reads.latest.get(metric) if reads else latest_derived(cur, metric)
+def _derived_card(cur: Cur, user_id: UUID, metric: str, reads: TodayReads | None) -> dict | None:
+    latest = reads.latest.get(metric) if reads else latest_derived(cur, user_id, metric)
     if not latest:
         return None
     day, value, _flags = latest
     meta = METRIC_META[metric]
     # Preloaded baseline when the aggregator supplied one; else compute on demand.
     baseline = (reads.baselines.get(metric) if reads else None) or compute_baseline(
-        metric, window_days=30
+        user_id, metric, window_days=30
     )
     z = baseline.z_score(value)
     return {
@@ -64,9 +71,9 @@ def _derived_card(cur: Cur, metric: str, reads: TodayReads | None) -> dict | Non
     }
 
 
-def _weight_card(cur: Cur) -> dict | None:
+def _weight_card(cur: Cur, user_id: UUID) -> dict | None:
     """Weight is stored in ``weight_log`` (not derived_daily); no derived baseline."""
-    cur.execute("SELECT kg FROM weight_log ORDER BY ts DESC LIMIT 1")
+    cur.execute("SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1", (user_id,))
     r = cur.fetchone()
     if not r:
         return None
@@ -99,27 +106,27 @@ _SPARKLINE_METRICS: dict[str, str | None] = {
 }
 
 
-def sparklines(cur: Cur) -> dict[str, list[dict]]:
+def sparklines(cur: Cur, user_id: UUID) -> dict[str, list[dict]]:
     """14-day daily series per Today sparkline slot (empty for v2 gaps).
 
     All backed slots load in ONE batched query (``derived_series_many``) rather
     than a query per slot; the v2-gap slots (metric ``None``) stay empty."""
     backed = {key: m for key, m in _SPARKLINE_METRICS.items() if m}
-    series = derived_series_many(cur, list(backed.values()), 14)
+    series = derived_series_many(cur, user_id, list(backed.values()), 14)
     return {
         key: (series.get(metric, []) if metric else [])
         for key, metric in _SPARKLINE_METRICS.items()
     }
 
 
-def hr_hourly(cur: Cur) -> list[dict]:
+def hr_hourly(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """Hourly avg/min/max HR for today (local) — today's heart-rate shape."""
     cur.execute(
         "SELECT date_trunc('hour', ts AT TIME ZONE %s) AS h, ROUND(AVG(value))::int, "
         "  MIN(value)::int, MAX(value)::int "
-        "FROM sample WHERE metric='hr' AND value > 30 AND value < 220 "
+        "FROM sample WHERE user_id = %s AND metric='hr' AND value > 30 AND value < 220 "
         "  AND (ts AT TIME ZONE %s)::date = %s GROUP BY 1 ORDER BY 1",
-        (USER_TZ_NAME, USER_TZ_NAME, user_today()),
+        (tz, user_id, tz, user_today(tz)),
     )
     return [
         {"hour_iso": h.isoformat(), "hour": h.hour, "avg": avg, "min": mn, "max": mx}
@@ -127,16 +134,17 @@ def hr_hourly(cur: Cur) -> list[dict]:
     ]
 
 
-def step_buckets(cur: Cur) -> list[dict]:
+def step_buckets(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """Today's 15-minute step buckets (distance ≈ steps × 0.78 m stride)."""
     cur.execute(
         "SELECT (time_bucket('15 minutes', ts) AT TIME ZONE %s)::time AS local_t, "
         "  SUM(value)::int AS steps, (SUM(value) * 0.78)::int AS dis_m, "
         "  (EXTRACT(HOUR FROM time_bucket('15 minutes', ts) AT TIME ZONE %s)::int * 4 "
         "   + EXTRACT(MINUTE FROM time_bucket('15 minutes', ts) AT TIME ZONE %s)::int / 15)::int "
-        "FROM sample WHERE metric='steps_per_minute' AND (ts AT TIME ZONE %s)::date = %s "
+        "FROM sample WHERE user_id = %s AND metric='steps_per_minute' "
+        "AND (ts AT TIME ZONE %s)::date = %s "
         "GROUP BY 1, 4 HAVING SUM(value) > 0 ORDER BY 1",
-        (USER_TZ_NAME, USER_TZ_NAME, USER_TZ_NAME, USER_TZ_NAME, user_today()),
+        (tz, tz, tz, user_id, tz, user_today(tz)),
     )
     return [
         {
@@ -150,14 +158,14 @@ def step_buckets(cur: Cur) -> list[dict]:
     ]
 
 
-def stress_series(cur: Cur) -> list[dict]:
+def stress_series(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """Hourly stress averages for today (local). Empty if no stress rows."""
     cur.execute(
         "SELECT date_trunc('hour', ts AT TIME ZONE %s) AS h, ROUND(AVG(value))::int, "
         "  MAX(value)::int, COUNT(*)::int "
-        "FROM sample WHERE metric='stress' AND value BETWEEN 0 AND 100 "
+        "FROM sample WHERE user_id = %s AND metric='stress' AND value BETWEEN 0 AND 100 "
         "  AND (ts AT TIME ZONE %s)::date = %s GROUP BY 1 ORDER BY 1",
-        (USER_TZ_NAME, USER_TZ_NAME, user_today()),
+        (tz, user_id, tz, user_today(tz)),
     )
     return [
         {"hour_iso": h.isoformat(), "hour": h.hour, "avg": avg, "max": mx, "n": n}

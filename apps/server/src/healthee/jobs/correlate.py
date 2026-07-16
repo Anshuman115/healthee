@@ -18,7 +18,7 @@ from healthee.analytics.correlations import compute_all_findings
 from healthee.analytics.cutoffs import compute_cutoff_findings, persist_cutoff_findings
 from healthee.analytics.finding import persist_findings
 from healthee.core.logging import get_logger
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 
 log = get_logger(__name__)
 
@@ -29,11 +29,12 @@ def run_correlate() -> dict:
     Errors propagate to the supervised chain runner (``chain._run_supervised``),
     which logs + Telegram-notifies — this function never swallows (standards §1).
     """
-    findings = compute_all_findings()
+    # 6.4: source the owner + tz from the authenticated user / per-user job loop.
+    findings = compute_all_findings(SENTINEL_USER_ID, SENTINEL_TZ)
     n_findings = persist_findings(SENTINEL_USER_ID, findings)
     n_significant = sum(1 for f in findings if f.significant)
 
-    cutoffs = compute_cutoff_findings()
+    cutoffs = compute_cutoff_findings(SENTINEL_USER_ID, SENTINEL_TZ)
     n_cutoffs = persist_cutoff_findings(cutoffs)
 
     log.info(

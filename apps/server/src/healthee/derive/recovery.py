@@ -25,15 +25,16 @@ _DEFAULT_NEED_MIN = 480.0  # sleep-need fallback
 
 
 def _recovery_baseline(
-    cur: Cur, metric: str, day: date, days: int = _BASELINE_DAYS
+    cur: Cur, user_id: UUID, metric: str, day: date, days: int = _BASELINE_DAYS
 ) -> tuple[float | None, float | None]:
     """Robust personal baseline (median + MAD*1.4826) over the trailing window.
 
     Excludes the day itself. (None, None) when fewer than 5 points are available.
     """
     cur.execute(
-        "SELECT value FROM derived_daily WHERE metric=%s AND day < %s AND day >= %s",
-        (metric, day, day - timedelta(days=days)),
+        "SELECT value FROM derived_daily "
+        "WHERE user_id = %s AND metric=%s AND day < %s AND day >= %s",
+        (user_id, metric, day, day - timedelta(days=days)),
     )
     vals = sorted(float(r[0]) for r in cur.fetchall())
     if len(vals) < _BASELINE_MIN_POINTS:
@@ -45,12 +46,22 @@ def _recovery_baseline(
     return med, max(mad * _MAD_TO_SD, _MIN_SD)
 
 
-def _personal_factor(
-    cur: Cur, day: date, factors: dict, key: str, metric: str, k: float, higher_better: bool
+def _personal_factor(  # noqa: PLR0913 — one factor needs all its scoring inputs
+    cur: Cur,
+    user_id: UUID,
+    day: date,
+    factors: dict,
+    key: str,
+    metric: str,
+    k: float,
+    higher_better: bool,
 ) -> None:
     """Score one personal-baseline factor (50 + k*z, direction by `higher_better`)."""
-    med, sd = _recovery_baseline(cur, metric, day)
-    cur.execute("SELECT value FROM derived_daily WHERE metric=%s AND day=%s", (metric, day))
+    med, sd = _recovery_baseline(cur, user_id, metric, day)
+    cur.execute(
+        "SELECT value FROM derived_daily WHERE user_id = %s AND metric=%s AND day=%s",
+        (user_id, metric, day),
+    )
     r = cur.fetchone()
     if not r or r[0] is None or med is None or sd is None:
         return
@@ -65,18 +76,18 @@ def _personal_factor(
     }
 
 
-def _sleep_factor(cur: Cur, day: date, factors: dict) -> None:
+def _sleep_factor(cur: Cur, user_id: UUID, day: date, factors: dict) -> None:
     """Score sleep vs ABSOLUTE need (not the personal baseline)."""
     cur.execute(
         "SELECT (flags->>'tst_min')::float FROM derived_daily "
-        "WHERE metric='sleep_health_score_4dim' AND day=%s",
-        (day,),
+        "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND day=%s",
+        (user_id, day),
     )
     sr = cur.fetchone()
     cur.execute(
-        "SELECT value FROM derived_daily WHERE metric='sleep_need_min' "
+        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='sleep_need_min' "
         "AND day<=%s ORDER BY day DESC LIMIT 1",
-        (day,),
+        (user_id, day),
     )
     nr = cur.fetchone()
     need = float(nr[0]) if nr and nr[0] else _DEFAULT_NEED_MIN
@@ -98,10 +109,12 @@ def derive_recovery(cur: Cur, user_id: UUID, day: date) -> dict | None:
     RHR). [[recovery_readiness]].
     """
     factors: dict = {}
-    _personal_factor(cur, day, factors, "hrv", "hrv_sleep_avg", 20.0, higher_better=True)
-    _personal_factor(cur, day, factors, "rhr", "rhr_daily", 20.0, higher_better=False)
-    _personal_factor(cur, day, factors, "rr", "respiratory_rate_sleep", 15.0, higher_better=False)
-    _sleep_factor(cur, day, factors)
+    _personal_factor(cur, user_id, day, factors, "hrv", "hrv_sleep_avg", 20.0, higher_better=True)
+    _personal_factor(cur, user_id, day, factors, "rhr", "rhr_daily", 20.0, higher_better=False)
+    _personal_factor(
+        cur, user_id, day, factors, "rr", "respiratory_rate_sleep", 15.0, higher_better=False
+    )
+    _sleep_factor(cur, user_id, day, factors)
 
     if "hrv" not in factors and "rhr" not in factors:
         return None

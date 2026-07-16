@@ -1,6 +1,12 @@
-"""Shared read-layer primitives: the user timezone, daily-series helpers, and the
-sport-code names. One definition, reused by every read service (standards
+"""Shared read-layer primitives: the local-day helper, daily-series helpers, and
+the sport-code names. One definition, reused by every read service (standards
 §Duplication).
+
+The timezone is threaded in as an IANA name (``tz: str``) — 6.3b removed the
+single-tenant ``USER_TZ_NAME``/``USER_TZ`` constants in favour of
+``core.tenancy.SENTINEL_TZ``, hardwired at the read entry points until 6.4 sources
+it from the authenticated user. It is always bound as a ``%s`` parameter to
+``AT TIME ZONE`` so every day-bucketing query stays parameterized.
 """
 
 from __future__ import annotations
@@ -9,27 +15,22 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import LiteralString, cast
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from healthee.analytics.baselines import Baseline, compute_baselines
 from healthee.analytics.metrics import metric_filter
 from healthee.derive._common import Cur
 
-# Single-tenant timezone name, passed as a %s parameter to ``AT TIME ZONE`` so
-# every day-bucketing query stays parameterized (never string-interpolated). Same
-# constant the derive layer anchors daily metrics to (derive/_common USER_TZ).
-USER_TZ_NAME = "Asia/Kolkata"
-USER_TZ = ZoneInfo(USER_TZ_NAME)
 
-
-def user_today() -> date:
+def user_today(tz: str) -> date:
     """Today's date in the user's timezone."""
-    return datetime.now(tz=USER_TZ).date()
+    return datetime.now(tz=ZoneInfo(tz)).date()
 
 
-def derived_series(cur: Cur, metric: str, days: int) -> list[dict]:
-    """Last ``days`` days of a ``derived_daily`` metric, oldest first, sentinel-
-    filtered. Replaces the legacy ``_series_for_metric`` (which read the
+def derived_series(cur: Cur, user_id: UUID, metric: str, days: int) -> list[dict]:
+    """Last ``days`` days of one owner's ``derived_daily`` metric, oldest first,
+    sentinel-filtered. Replaces the legacy ``_series_for_metric`` (which read the
     ``metric_sample`` view). The filter fragment is a hardcoded constant from the
     metric registry — safe to interpolate (standards §2)."""
     flt = metric_filter(metric)  # constant from METRIC_FILTERS — safe to interpolate
@@ -37,18 +38,20 @@ def derived_series(cur: Cur, metric: str, days: int) -> list[dict]:
         cast(
             LiteralString,
             "SELECT day, value FROM derived_daily "
-            f"WHERE metric = %s AND {flt} AND day > (current_date - %s::int) ORDER BY day",
+            f"WHERE user_id = %s AND metric = %s AND {flt} "
+            "AND day > (current_date - %s::int) ORDER BY day",
         ),
-        (metric, days),
+        (user_id, metric, days),
     )
     return [{"date": r[0].isoformat(), "value": float(r[1])} for r in cur.fetchall()]
 
 
-def latest_derived(cur: Cur, metric: str) -> tuple[date, float, dict] | None:
-    """Most recent ``derived_daily`` row for a metric as (day, value, flags)."""
+def latest_derived(cur: Cur, user_id: UUID, metric: str) -> tuple[date, float, dict] | None:
+    """Most recent ``derived_daily`` row for one owner's metric as (day, value, flags)."""
     cur.execute(
-        "SELECT day, value, flags FROM derived_daily WHERE metric=%s ORDER BY day DESC LIMIT 1",
-        (metric,),
+        "SELECT day, value, flags FROM derived_daily WHERE user_id = %s AND metric=%s "
+        "ORDER BY day DESC LIMIT 1",
+        (user_id, metric),
     )
     row = cur.fetchone()
     if not row:
@@ -56,7 +59,9 @@ def latest_derived(cur: Cur, metric: str) -> tuple[date, float, dict] | None:
     return row[0], float(row[1]), (row[2] or {})
 
 
-def latest_derived_many(cur: Cur, metrics: Sequence[str]) -> dict[str, tuple[date, float, dict]]:
+def latest_derived_many(
+    cur: Cur, user_id: UUID, metrics: Sequence[str]
+) -> dict[str, tuple[date, float, dict]]:
     """Most recent ``derived_daily`` row for each metric in ONE ``DISTINCT ON`` query.
 
     Same shape and semantics as calling :func:`latest_derived` per metric (latest
@@ -69,15 +74,17 @@ def latest_derived_many(cur: Cur, metrics: Sequence[str]) -> dict[str, tuple[dat
         return out
     cur.execute(
         "SELECT DISTINCT ON (metric) metric, day, value, flags FROM derived_daily "
-        "WHERE metric = ANY(%s) ORDER BY metric, day DESC",
-        (wanted,),
+        "WHERE user_id = %s AND metric = ANY(%s) ORDER BY metric, day DESC",
+        (user_id, wanted),
     )
     for metric, day, value, flags in cur.fetchall():
         out[metric] = (day, float(value), (flags or {}))
     return out
 
 
-def derived_series_many(cur: Cur, metrics: Sequence[str], days: int) -> dict[str, list[dict]]:
+def derived_series_many(
+    cur: Cur, user_id: UUID, metrics: Sequence[str], days: int
+) -> dict[str, list[dict]]:
     """Last ``days`` days of several ``derived_daily`` metrics in ONE query.
 
     Batched form of :func:`derived_series` (same per-metric sentinel filter, same
@@ -94,10 +101,10 @@ def derived_series_many(cur: Cur, metrics: Sequence[str], days: int) -> dict[str
         cast(
             LiteralString,
             "SELECT metric, day, value FROM derived_daily "
-            "WHERE day > (current_date - %s::int) AND (" + where + ") "
+            "WHERE user_id = %s AND day > (current_date - %s::int) AND (" + where + ") "
             "ORDER BY metric, day",
         ),
-        (days, *wanted),
+        (user_id, days, *wanted),
     )
     for metric, day, value in cur.fetchall():
         out[metric].append({"date": day.isoformat(), "value": float(value)})
@@ -116,12 +123,12 @@ class TodayReads:
 
 
 def build_today_reads(
-    cur: Cur, latest_metrics: Sequence[str], baseline_metrics: Sequence[str]
+    cur: Cur, user_id: UUID, latest_metrics: Sequence[str], baseline_metrics: Sequence[str]
 ) -> TodayReads:
     """Preload the Today latest-values (1 query) + 30-day baselines (1 query)."""
     return TodayReads(
-        latest=latest_derived_many(cur, latest_metrics),
-        baselines=compute_baselines(list(baseline_metrics), window_days=30),
+        latest=latest_derived_many(cur, user_id, latest_metrics),
+        baselines=compute_baselines(user_id, list(baseline_metrics), window_days=30),
     )
 
 

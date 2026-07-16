@@ -30,4 +30,4 @@ def post_log(req: LogRequest) -> dict:
 def get_log_recent(days: int = 7) -> dict:
     """Recent manual logs + current fasting status."""
     with transaction() as cur:
-        return log_recent(cur, days)
+        return log_recent(cur, SENTINEL_USER_ID, days)

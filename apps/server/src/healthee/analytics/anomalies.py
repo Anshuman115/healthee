@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import LiteralString, cast
+from uuid import UUID
 
 from healthee.analytics.baselines import DEFAULT_DAILY_METRICS, Baseline, compute_baseline
 from healthee.analytics.metrics import metric_filter
@@ -33,8 +34,8 @@ class Anomaly:
     research_note_ids: list[str]
 
 
-def _daily_values(cur, metric: str, days_back: int) -> list[tuple[date, float]]:
-    """The last ``days_back`` days of a metric from ``derived_daily``, filtered.
+def _daily_values(cur, user_id: UUID, metric: str, days_back: int) -> list[tuple[date, float]]:
+    """The last ``days_back`` days of one owner's metric from ``derived_daily``, filtered.
 
     One canonical row per day already lives in ``derived_daily`` — no source
     preference/dedup (that was a v1 multi-source artifact).
@@ -42,14 +43,15 @@ def _daily_values(cur, metric: str, days_back: int) -> list[tuple[date, float]]:
     flt = metric_filter(metric)  # constant from METRIC_FILTERS — safe to interpolate
     query = cast(
         LiteralString,
-        f"SELECT day, value FROM derived_daily WHERE metric = %s AND {flt} "
+        f"SELECT day, value FROM derived_daily WHERE user_id = %s AND metric = %s AND {flt} "
         "AND day > (current_date - %s::int) ORDER BY day DESC",
     )
-    cur.execute(query, (metric, days_back))
+    cur.execute(query, (user_id, metric, days_back))
     return [(r[0], float(r[1])) for r in cur.fetchall()]
 
 
 def detect(
+    user_id: UUID,
     metrics: tuple[str, ...] = DEFAULT_DAILY_METRICS,
     days_back: int = 14,
     window_days: int = 30,
@@ -60,9 +62,9 @@ def detect(
     for metric in metrics:
         note_ids = notes_for([metric])
         with transaction() as cur:
-            values = _daily_values(cur, metric, days_back)
+            values = _daily_values(cur, user_id, metric, days_back)
         for d, v in values:
-            anomaly = _evaluate(metric, d, v, window_days, z_threshold, note_ids)
+            anomaly = _evaluate(user_id, metric, d, v, window_days, z_threshold, note_ids)
             if anomaly is not None:
                 out.append(anomaly)
     out.sort(key=lambda a: (a.when, abs(a.z)), reverse=True)
@@ -70,6 +72,7 @@ def detect(
 
 
 def _evaluate(
+    user_id: UUID,
     metric: str,
     d: date,
     v: float,
@@ -78,7 +81,7 @@ def _evaluate(
     note_ids: list[str],
 ) -> Anomaly | None:
     """Baseline (excluding day ``d``) and flag ``v`` if |z| ≥ threshold."""
-    baseline = compute_baseline(metric, window_days, end_date=d - timedelta(days=1))
+    baseline = compute_baseline(user_id, metric, window_days, end_date=d - timedelta(days=1))
     z = baseline.z_score(v)
     if z is None or abs(z) < z_threshold:
         return None

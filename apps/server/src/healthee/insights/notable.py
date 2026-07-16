@@ -12,7 +12,7 @@ from __future__ import annotations
 import time
 
 from healthee.analytics.anomalies import Anomaly, detect
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
 from healthee.read.meta import METRIC_META
@@ -75,20 +75,27 @@ def _attach_meanings(items: list[dict], text: str) -> None:
 def notable(*, refresh: bool = False) -> dict:
     """Deduped notable shifts across daily metrics, each with a grounded meaning."""
     if not refresh:
-        cached = get_cached(SENTINEL_USER_ID, "notable_insight")
+        cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, "notable_insight")
         if cached is not None:
             return cached
-    items = [_shift_item(a) for a in _dedupe(detect(days_back=14, window_days=30))]
+    # 6.4: source the owner + tz from the authenticated user.
+    items = [
+        _shift_item(a) for a in _dedupe(detect(SENTINEL_USER_ID, days_back=14, window_days=30))
+    ]
     validated = True
     if items:
         result = grounded_ask(
-            _meaning_task(items), metrics=[it["metric"] for it in items], context_days=14
+            _meaning_task(items),
+            SENTINEL_USER_ID,
+            SENTINEL_TZ,
+            metrics=[it["metric"] for it in items],
+            context_days=14,
         )
         validated = result.validated
         _attach_meanings(items, result.text)
     out = {
         "items": items,
-        "date": today_iso(),
+        "date": today_iso(SENTINEL_TZ),
         "generated_at": int(time.time()),
         "validated": validated,
     }

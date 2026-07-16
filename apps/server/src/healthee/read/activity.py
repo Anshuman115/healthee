@@ -5,6 +5,8 @@ acute:chronic ratio), and workouts. Pure aggregation over the fitness services.
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from healthee.derive._common import Cur
 from healthee.read.fitness import (
     activity_metric,
@@ -17,20 +19,20 @@ from healthee.read.fitness import (
 )
 
 
-def activity_snapshot(cur: Cur) -> dict:
+def activity_snapshot(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Assemble the Activity tab from one cursor (no per-block reconnect)."""
-    cardio = cardio_load_payload(cur)
+    cardio = cardio_load_payload(cur, user_id)
     return {
-        "vo2max": vo2max_payload(cur),
-        "fitness_plan": fitness_plan_payload(cur),
+        "vo2max": vo2max_payload(cur, user_id),
+        "fitness_plan": fitness_plan_payload(cur, user_id, tz),
         "cardio_load": cardio,
         "acwr": acwr(cardio),
-        "mvpa": mvpa_payload(cur),
-        "steps": activity_metric(cur, ["steps_total"]),
-        "active_calories": activity_metric(cur, ["active_calories"]),
-        "total_calories": activity_metric(cur, ["total_calories"]),
-        "distance": activity_metric(cur, ["distance_m_daily"]),
-        "workouts": workouts_list(cur),
+        "mvpa": mvpa_payload(cur, user_id, tz),
+        "steps": activity_metric(cur, user_id, ["steps_total"]),
+        "active_calories": activity_metric(cur, user_id, ["active_calories"]),
+        "total_calories": activity_metric(cur, user_id, ["total_calories"]),
+        "distance": activity_metric(cur, user_id, ["distance_m_daily"]),
+        "workouts": workouts_list(cur, user_id),
         "research_notes": [
             "vo2max_fitness_mortality",
             "mvpa_minutes_mortality",

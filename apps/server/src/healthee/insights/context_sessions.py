@@ -14,10 +14,10 @@ model (and the validator) keep them distinct from population research (§3).
 from __future__ import annotations
 
 import re
+from uuid import UUID
 
 from healthee.analytics.finding import get_significant_findings
 
-_USER_TZ = "Asia/Kolkata"
 _WORD = re.compile(r"[a-z0-9_]+")
 
 # Sleep-window physiology overlays: v2 sample metric name → column label.
@@ -30,7 +30,7 @@ _OVERLAY_METRICS: tuple[tuple[str, str], ...] = (
 )
 
 
-def sleep_section(cur, days: int) -> str:
+def sleep_section(cur, user_id: UUID, tz: str, days: int) -> str:
     """Recent sleep sessions with stage minutes + physiology overlays per night."""
     cur.execute(
         """
@@ -44,13 +44,14 @@ def sleep_section(cur, days: int) -> str:
                ROUND(AVG(CASE WHEN m.metric='respiratory_rate'  THEN m.value END))::int,
                ROUND(AVG(CASE WHEN m.metric='skin_temp_c'       THEN m.value END)::numeric, 1)
         FROM sleep_session s
-        LEFT JOIN sample m ON m.ts >= s.start_ts AND m.ts < s.end_ts
-        WHERE (s.end_ts AT TIME ZONE %s)::date > (current_date - %s::int)
+        LEFT JOIN sample m
+          ON m.user_id = s.user_id AND m.ts >= s.start_ts AND m.ts < s.end_ts
+        WHERE s.user_id = %s AND (s.end_ts AT TIME ZONE %s)::date > (current_date - %s::int)
         GROUP BY s.start_ts, s.end_ts, s.kind, s.score,
                  s.light_min, s.deep_min, s.rem_min, s.wake_min
         ORDER BY d DESC, s.start_ts
         """,
-        (_USER_TZ, _USER_TZ, _USER_TZ, _USER_TZ, days),
+        (tz, tz, tz, user_id, tz, days),
     )
     rows = cur.fetchall()
     if not rows:
@@ -67,21 +68,21 @@ def sleep_section(cur, days: int) -> str:
     return "\n".join(lines)
 
 
-def manual_entries_section(cur, days: int) -> str:
+def manual_entries_section(cur, user_id: UUID, tz: str, days: int) -> str:
     """Recent user-logged events (caffeine/alcohol/meditation/exercise/fasting/…)."""
     cur.execute(
         """
         SELECT ts AT TIME ZONE %s, kind, name, amount, unit, notes
         FROM manual_entry
-        WHERE (ts AT TIME ZONE %s)::date > (current_date - %s::int)
+        WHERE user_id = %s AND (ts AT TIME ZONE %s)::date > (current_date - %s::int)
         ORDER BY ts DESC LIMIT 200
         """,
-        (_USER_TZ, _USER_TZ, days),
+        (tz, user_id, tz, days),
     )
     rows = cur.fetchall()
     if not rows:
         return ""
-    lines = [f"## Manual entries (last {days} days, {_USER_TZ})"]
+    lines = [f"## Manual entries (last {days} days, {tz})"]
     for ts, kind, name, amount, unit, notes in rows:
         bits = [ts.strftime("%Y-%m-%d %H:%M"), kind]
         if name:
@@ -107,14 +108,14 @@ def _rank_findings(findings: list[dict], question: str | None) -> list[dict]:
     return sorted(findings, key=key)
 
 
-def findings_section(question: str | None) -> str:
+def findings_section(user_id: UUID, question: str | None) -> str:
     """The user's FDR-significant personal patterns — n=1, NOT citations.
 
     Ranked toward the question when one is given. Each is tagged with a
     ``[personal_finding:<id>]`` token so the model references it as personal
     evidence (the validator treats these as distinct from note ids).
     """
-    findings = get_significant_findings(limit=50)
+    findings = get_significant_findings(user_id, limit=50)
     if not findings:
         return ""
     findings = _rank_findings(findings, question)[:12]

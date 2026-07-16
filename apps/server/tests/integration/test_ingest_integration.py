@@ -19,7 +19,7 @@ import pytest
 from psycopg import Connection
 
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.ingest import HelioPayload, ingest_helio
 
@@ -34,11 +34,13 @@ def _reset() -> None:
         cur.execute(f"TRUNCATE {_TABLES}")
 
 
-def _noop_derive(conn: Connection, user_id: UUID, days: list[Any]) -> None:  # noqa: ARG001
+def _noop_derive(conn: Connection, user_id: UUID, tz: str, days: list[Any]) -> None:  # noqa: ARG001
     """Derive stub: does nothing (WP2 owns real derivation)."""
 
 
-def _placeholder_steps_derive(conn: Connection, user_id: UUID, days: list[Any]) -> None:
+def _placeholder_steps_derive(  # noqa: ARG001 — stub mirrors the DeriveTrigger shape
+    conn: Connection, user_id: UUID, tz: str, days: list[Any]
+) -> None:
     """Derive stub that writes a WRONG steps_total for each day, so the override
     test proves apply_daily_totals runs after (and beats) derive."""
     with conn.cursor() as cur:
@@ -102,7 +104,7 @@ def _basic_payload() -> HelioPayload:
 
 def test_push_lands_raw_and_typed_rows(db: None) -> None:  # noqa: ARG001
     _reset()
-    summary = ingest_helio(_basic_payload(), SENTINEL_USER_ID, derive=_noop_derive)
+    summary = ingest_helio(_basic_payload(), SENTINEL_USER_ID, SENTINEL_TZ, derive=_noop_derive)
     assert summary.samples_accepted == 2
     assert summary.samples_rejected == 1
     assert summary.sleep == 1
@@ -122,7 +124,7 @@ def test_push_attributes_every_row_to_the_passed_owner(db: None) -> None:  # noq
     sentinel and pass a weaker check — is caught once 6.4 passes a real user.
     """
     _reset()
-    ingest_helio(_basic_payload(), SENTINEL_USER_ID, derive=_noop_derive)
+    ingest_helio(_basic_payload(), SENTINEL_USER_ID, SENTINEL_TZ, derive=_noop_derive)
     for table in ("sample", "sleep_session", "workout"):
         total = _count(f"SELECT count(*) FROM {table}")  # noqa: S608 — constant table name
         owned = _count(
@@ -135,10 +137,10 @@ def test_push_attributes_every_row_to_the_passed_owner(db: None) -> None:  # noq
 
 def test_second_identical_push_is_idempotent(db: None) -> None:  # noqa: ARG001
     _reset()
-    ingest_helio(_basic_payload(), SENTINEL_USER_ID, derive=_noop_derive)
+    ingest_helio(_basic_payload(), SENTINEL_USER_ID, SENTINEL_TZ, derive=_noop_derive)
     before = _count("SELECT count(*) FROM sample")
     sessions_before = _count("SELECT count(*) FROM sleep_session")
-    ingest_helio(_basic_payload(), SENTINEL_USER_ID, derive=_noop_derive)
+    ingest_helio(_basic_payload(), SENTINEL_USER_ID, SENTINEL_TZ, derive=_noop_derive)
     assert _count("SELECT count(*) FROM sample") == before
     assert _count("SELECT count(*) FROM sleep_session") == sessions_before
 
@@ -153,7 +155,7 @@ def test_daily_total_override_beats_derive(db: None) -> None:  # noqa: ARG001
             "daily_totals": [{"day": "2026-06-16", "steps": 9264, "distance_m": 5081}],
         }
     )
-    summary = ingest_helio(payload, SENTINEL_USER_ID, derive=_placeholder_steps_derive)
+    summary = ingest_helio(payload, SENTINEL_USER_ID, SENTINEL_TZ, derive=_placeholder_steps_derive)
     assert summary.daily_totals == 1
     steps = _count(
         "SELECT value FROM derived_daily WHERE day = '2026-06-16' AND metric = 'steps_total'"
@@ -189,7 +191,10 @@ def test_fresh_gating_skips_old_night_reemit(db: None) -> None:  # noqa: ARG001
     }
     # Push A: only the old night → new → fresh → emits its per-minute rows.
     ingest_helio(
-        HelioPayload.model_validate({"sleep": [old]}), SENTINEL_USER_ID, derive=_noop_derive
+        HelioPayload.model_validate({"sleep": [old]}),
+        SENTINEL_USER_ID,
+        SENTINEL_TZ,
+        derive=_noop_derive,
     )
     old_lo, old_hi = old_start, old_start + timedelta(minutes=10)
     emitted = _count(
@@ -215,6 +220,7 @@ def test_fresh_gating_skips_old_night_reemit(db: None) -> None:  # noqa: ARG001
     ingest_helio(
         HelioPayload.model_validate({"sleep": [old, tonight]}),
         SENTINEL_USER_ID,
+        SENTINEL_TZ,
         derive=_noop_derive,
     )
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.ingest.models import SampleIn, SleepIn
 from healthee.ingest.upsert import (
     build_fresh_predicate,
@@ -104,7 +104,7 @@ def test_fresh_predicate_all_new_when_table_empty() -> None:
 
 def test_weight_inserts_when_no_row_today() -> None:
     cur = FakeCursor(fetchone=[None])
-    upsert_weight(cur, SENTINEL_USER_ID, 72.5)  # type: ignore[arg-type]
+    upsert_weight(cur, SENTINEL_USER_ID, SENTINEL_TZ, 72.5)  # type: ignore[arg-type]
     assert len(cur.executed) == 2  # SELECT + INSERT
     assert "INSERT INTO weight_log" in cur.executed[1][0]
     assert cur.executed[1][1] == (SENTINEL_USER_ID, 72.5)
@@ -112,14 +112,14 @@ def test_weight_inserts_when_no_row_today() -> None:
 
 def test_weight_skips_when_unchanged_today() -> None:
     cur = FakeCursor(fetchone=[(datetime(2026, 6, 20, 7, tzinfo=UTC), 72.5)])
-    upsert_weight(cur, SENTINEL_USER_ID, 72.505)  # type: ignore[arg-type]  # <0.01 kg → no write
+    upsert_weight(cur, SENTINEL_USER_ID, SENTINEL_TZ, 72.505)  # type: ignore[arg-type]  # <0.01 kg → no write
     assert len(cur.executed) == 1  # only the SELECT ran
 
 
 def test_weight_updates_when_changed_today() -> None:
     ts = datetime(2026, 6, 20, 7, tzinfo=UTC)
     cur = FakeCursor(fetchone=[(ts, 72.5)])
-    upsert_weight(cur, SENTINEL_USER_ID, 74.0)  # type: ignore[arg-type]
+    upsert_weight(cur, SENTINEL_USER_ID, SENTINEL_TZ, 74.0)  # type: ignore[arg-type]
     assert len(cur.executed) == 2  # SELECT + UPDATE
     assert "UPDATE weight_log" in cur.executed[1][0]
     assert cur.executed[1][1] == (74.0, SENTINEL_USER_ID, ts)

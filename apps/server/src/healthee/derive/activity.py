@@ -17,7 +17,7 @@ from healthee.derive.energy import derive_calories
 _STRIDE_HEIGHT_FRACTION = 0.414  # stride length ~= 0.414 x height [[distance_from_steps]]
 
 
-def derive_daily_activity(cur: Cur, user_id: UUID, day: date) -> dict:
+def derive_daily_activity(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
     """steps_total, distance_m_daily, and total/active/basal calories for a day.
 
     steps_total is always upserted (0 is valid, so re-derivation overwrites stale
@@ -25,18 +25,19 @@ def derive_daily_activity(cur: Cur, user_id: UUID, day: date) -> dict:
     and are skipped when it is absent.
     """
     out: dict = {}
-    start_utc, end_utc = _day_bounds_utc(day)
+    start_utc, end_utc = _day_bounds_utc(day, tz)
 
     cur.execute(
-        "SELECT COALESCE(SUM(value),0) FROM sample WHERE metric='steps_per_minute' "
+        "SELECT COALESCE(SUM(value),0) FROM sample "
+        "WHERE user_id = %s AND metric='steps_per_minute' "
         "AND value < 250 AND ts >= %s AND ts <= %s",
-        (start_utc, end_utc),
+        (user_id, start_utc, end_utc),
     )
     steps = _scalar(cur)
     _upsert_daily(cur, user_id, day, "steps_total", steps)
     out["steps_total"] = round(steps, 0)
 
-    prof = _load_profile(cur, day)
+    prof = _load_profile(cur, user_id, tz, day)
     if prof:
         stride_m = _STRIDE_HEIGHT_FRACTION * prof["height_cm"] / 100.0
         dist = steps * stride_m

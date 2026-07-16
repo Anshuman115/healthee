@@ -17,6 +17,7 @@ from ``sleep_session`` (``rem_min + light_min + deep_min``) and the per-night HR
 from __future__ import annotations
 
 from datetime import date
+from uuid import UUID
 
 from healthee.analytics.finding import EFFECT_MANN_WHITNEY, Finding, replace_findings_of_kind
 from healthee.analytics.series import Cur
@@ -59,7 +60,7 @@ SUBSTANCE_CONFIG: dict[str, dict] = {
 _SECONDS_PER_DAY = 24 * 3600
 
 
-def _load_sleep_nights(cur: Cur) -> list[dict]:
+def _load_sleep_nights(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """One row per main-sleep night with the outcomes the finder tests.
 
     TST from ``sleep_session`` stage minutes (the seam fix); efficiency from
@@ -68,19 +69,20 @@ def _load_sleep_nights(cur: Cur) -> list[dict]:
     cur.execute(
         """
         SELECT start_ts,
-               (end_ts AT TIME ZONE 'Asia/Kolkata')::date AS wake_date,
+               (end_ts AT TIME ZONE %s)::date AS wake_date,
                (rem_min + light_min + deep_min)::float AS tst_min,
                EXTRACT(EPOCH FROM (end_ts - start_ts)) / 60.0 AS tib_min
         FROM sleep_session
-        WHERE kind = 'main'
+        WHERE user_id = %s AND kind = 'main'
         ORDER BY start_ts
-        """
+        """,
+        (tz, user_id),
     )
     # Materialise the session rows BEFORE issuing more queries on this cursor —
     # _daily_map re-executes it, which would otherwise discard this result set.
     session_rows = cur.fetchall()
-    hrv = _daily_map(cur, "hrv_sleep_avg")
-    rhr = _daily_map(cur, "rhr_daily")
+    hrv = _daily_map(cur, user_id, "hrv_sleep_avg")
+    rhr = _daily_map(cur, user_id, "rhr_daily")
     nights: list[dict] = []
     for start_ts, wake_date, tst_min, tib_min in session_rows:
         if tst_min is None or tib_min is None or tib_min <= 0:
@@ -99,22 +101,25 @@ def _load_sleep_nights(cur: Cur) -> list[dict]:
     return nights
 
 
-def _daily_map(cur: Cur, metric: str) -> dict[date, float]:
+def _daily_map(cur: Cur, user_id: UUID, metric: str) -> dict[date, float]:
     """day → value for a ``derived_daily`` metric (for the per-night join)."""
-    cur.execute("SELECT day, value FROM derived_daily WHERE metric = %s", (metric,))
+    cur.execute(
+        "SELECT day, value FROM derived_daily WHERE user_id = %s AND metric = %s",
+        (user_id, metric),
+    )
     return {r[0]: float(r[1]) for r in cur.fetchall()}
 
 
-def _load_substance_events(cur: Cur, kind: str) -> list[dict]:
-    """All ``manual_entry`` rows for the substance with local-IST hour-of-day."""
+def _load_substance_events(cur: Cur, user_id: UUID, tz: str, kind: str) -> list[dict]:
+    """All ``manual_entry`` rows for the substance with local hour-of-day."""
     cur.execute(
         """
         SELECT ts,
-               EXTRACT(HOUR   FROM (ts AT TIME ZONE 'Asia/Kolkata'))::int AS h,
-               EXTRACT(MINUTE FROM (ts AT TIME ZONE 'Asia/Kolkata'))::int AS mn
-        FROM manual_entry WHERE kind = %s ORDER BY ts
+               EXTRACT(HOUR   FROM (ts AT TIME ZONE %s))::int AS h,
+               EXTRACT(MINUTE FROM (ts AT TIME ZONE %s))::int AS mn
+        FROM manual_entry WHERE user_id = %s AND kind = %s ORDER BY ts
         """,
-        (kind,),
+        (tz, tz, user_id, kind),
     )
     return [{"ts": r[0], "hour_local": r[1] + r[2] / 60.0} for r in cur.fetchall()]
 
@@ -145,13 +150,15 @@ def _values(group: list[dict], outcome: str) -> list[float]:
     return [n[outcome] for n in group if n.get(outcome) is not None]
 
 
-def compute_cutoff_findings() -> list[Finding]:
+def compute_cutoff_findings(user_id: UUID, tz: str) -> list[Finding]:
     """Detect personal cutoffs for caffeine + alcohol; FDR within the family."""
     with transaction() as cur:
-        nights = _load_sleep_nights(cur)
+        nights = _load_sleep_nights(cur, user_id, tz)
         if len(nights) < MIN_CONTROL_NIGHTS:
             return []
-        substance_events = {s: _load_substance_events(cur, s) for s in SUBSTANCE_CONFIG}
+        substance_events = {
+            s: _load_substance_events(cur, user_id, tz, s) for s in SUBSTANCE_CONFIG
+        }
 
     candidates: list[Finding] = []
     for substance, cfg in SUBSTANCE_CONFIG.items():

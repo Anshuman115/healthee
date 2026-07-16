@@ -9,6 +9,8 @@ v2-native).
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from healthee.analytics.finding import get_significant_findings
 
 # Definitionally/derived-related pairs whose correlation is uninformative.
@@ -87,10 +89,10 @@ def _shape(f: dict) -> dict:
     }
 
 
-def top_findings(limit: int = 5) -> list[dict]:
+def top_findings(user_id: UUID, limit: int = 5) -> list[dict]:
     """Up to ``limit`` non-trivial findings for the Today page (legacy top_findings)."""
     out: list[dict] = []
-    for f in get_significant_findings(limit=40):
+    for f in get_significant_findings(user_id, limit=40):
         if is_trivial_finding(f):
             continue
         out.append(_shape(f))
@@ -99,10 +101,10 @@ def top_findings(limit: int = 5) -> list[dict]:
     return out
 
 
-def sleep_findings(limit: int = 10) -> list[dict]:
+def sleep_findings(user_id: UUID, limit: int = 10) -> list[dict]:
     """Sleep-related non-trivial findings for the Sleep page (legacy sleep slice)."""
     out: list[dict] = []
-    for f in get_significant_findings(limit=80):
+    for f in get_significant_findings(user_id, limit=80):
         a, b = f.get("metric_a"), f.get("metric_b")
         is_cutoff = f.get("kind") == "personal_cutoff"
         related = is_cutoff or a in _SLEEP_FINDING_METRICS or b in _SLEEP_FINDING_METRICS

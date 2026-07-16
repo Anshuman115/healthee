@@ -31,7 +31,7 @@ from uuid import UUID
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.client import LLMClient
 from healthee.jobs import briefing as briefing_mod
 from healthee.jobs import correlate as correlate_mod
@@ -108,7 +108,7 @@ def run_step(name: str, day: date | None = None, *, client: LLMClient | None = N
     Dispatches to the module-level ``step_*`` functions by name (resolved at call
     time, so they stay individually patchable/testable).
     """
-    day = day or user_today()
+    day = day or user_today(SENTINEL_TZ)
     if name == "correlate":
         return _run_supervised(name, lambda: step_correlate(day, client=client))
     if name == "recs":
@@ -130,7 +130,7 @@ def run_chain(
     findings it writes). A ``briefing`` failure never undoes persisted recs. A
     second call for an already-run day is a no-op unless ``force``.
     """
-    day = day or user_today()
+    day = day or user_today(SENTINEL_TZ)
     if not force and _chain_done(SENTINEL_USER_ID, day):
         log.info("chain for %s already ran — dedup no-op", day)
         return ChainResult(day=day, deduped=True)

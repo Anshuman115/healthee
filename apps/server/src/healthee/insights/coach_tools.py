@@ -21,7 +21,7 @@ from healthee.analytics.metrics import EVENT_KINDS
 from healthee.analytics.series import daily_series, event_days
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights import manifest
 from healthee.insights.retrieval import rank_notes
 from healthee.read.logs import LogRequest, record_log
@@ -145,8 +145,11 @@ def execute_tool(name: str, args: dict[str, Any]) -> dict:
             str(args.get("event", "")), str(args.get("metric", "")), args.get("days", 60)
         )
     if name == "sleep_consistency":
+        # 6.4: source the owner + tz from the authenticated user.
         with transaction() as cur:
-            return _sleep_consistency(cur, int(args.get("days", 28) or 28))
+            return _sleep_consistency(
+                cur, SENTINEL_USER_ID, SENTINEL_TZ, int(args.get("days", 28) or 28)
+            )
     if name == "log_entry":
         return log_entry(str(args.get("type", "")), args.get("amount"), args.get("minutes"))
     if name == "get_knowledge":
@@ -168,7 +171,7 @@ def query_metric(metric: str, days: Any = 30, stat: str | None = None) -> dict:
     stat = stat or "avg"
     cutoff = date.today() - timedelta(days=days)
     with transaction() as cur:
-        series = daily_series(cur, metric)
+        series = daily_series(cur, SENTINEL_USER_ID, metric)
     windowed = {d: v for d, v in series.items() if d >= cutoff}
     if not windowed:
         return {"metric": metric, "days": days, "note": "no data for this metric/range"}
@@ -210,7 +213,7 @@ def compare_event(event: str, metric: str, days: Any = 60) -> dict:
     ev = event.lower().strip()
     with transaction() as cur:
         on_days = _event_dates(cur, ev)
-        series = daily_series(cur, metric)
+        series = daily_series(cur, SENTINEL_USER_ID, metric)
     daily = {d: v for d, v in series.items() if d >= cutoff}
     if not daily:
         return {"event": event, "metric": metric, "note": f"no data for metric {metric}"}
@@ -231,11 +234,11 @@ def _event_dates(cur: Any, ev: str) -> set[date]:
     """Local dates the event occurred: a known EVENT_KIND, else any manual_entry kind/habit."""
     spec = EVENT_KINDS.get(ev)
     if spec:
-        return event_days(cur, spec[1])
+        return event_days(cur, SENTINEL_USER_ID, SENTINEL_TZ, spec[1])
     cur.execute(
-        "SELECT DISTINCT (ts AT TIME ZONE 'Asia/Kolkata')::date FROM manual_entry "
-        "WHERE kind=%s OR (kind='habit' AND name ILIKE %s)",
-        (ev, f"%{ev}%"),
+        "SELECT DISTINCT (ts AT TIME ZONE %s)::date FROM manual_entry "
+        "WHERE user_id = %s AND (kind=%s OR (kind='habit' AND name ILIKE %s))",
+        (SENTINEL_TZ, SENTINEL_USER_ID, ev, f"%{ev}%"),
     )
     return {r[0] for r in cur.fetchall()}
 

@@ -12,24 +12,31 @@ DROPPED), so ``pai_payload`` always returns ``None`` — the Today key stays pre
 from __future__ import annotations
 
 from datetime import timedelta
+from uuid import UUID
 
 from healthee.analytics.biological_age import compute_biological_age
 from healthee.derive._common import Cur
 from healthee.read.common import TodayReads, latest_derived, user_today
 
 
-def sleep_debt_payload(cur: Cur, reads: TodayReads | None = None) -> dict | None:
+def sleep_debt_payload(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
     """Sleep need (NSF age-band) + rolling cumulative debt + Sleep Performance %.
     [[sleep_need_debt]]."""
-    debt = reads.latest.get("sleep_debt_min") if reads else latest_derived(cur, "sleep_debt_min")
+    debt = (
+        reads.latest.get("sleep_debt_min")
+        if reads
+        else latest_derived(cur, user_id, "sleep_debt_min")
+    )
     if not debt:
         return None
     _day, debt_min, flags = debt
     need_row = (
-        reads.latest.get("sleep_need_min") if reads else latest_derived(cur, "sleep_need_min")
+        reads.latest.get("sleep_need_min")
+        if reads
+        else latest_derived(cur, user_id, "sleep_need_min")
     )
     need = need_row[1] if need_row else 480.0
-    last_tst = _last_tst(cur)
+    last_tst = _last_tst(cur, user_id)
     return {
         "need_min": round(need),
         "debt_min": round(debt_min),
@@ -52,30 +59,32 @@ def sleep_performance_pct(last_tst: float | None, need: float) -> int | None:
     return round(min(100.0, 100.0 * last_tst / need))
 
 
-def _last_tst(cur: Cur) -> float | None:
+def _last_tst(cur: Cur, user_id: UUID) -> float | None:
     """Last night's total sleep time from the sleep-score flags."""
     cur.execute(
         "SELECT (flags->>'tst_min')::float FROM derived_daily "
-        "WHERE metric='sleep_health_score_4dim' AND flags ? 'tst_min' ORDER BY day DESC LIMIT 1",
+        "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND flags ? 'tst_min' "
+        "ORDER BY day DESC LIMIT 1",
+        (user_id,),
     )
     r = cur.fetchone()
     return float(r[0]) if r and r[0] is not None else None
 
 
-def biological_age_payload(cur: Cur) -> dict | None:
+def biological_age_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Motivational biological-age estimate (Gompertz hazard→years). Thin wrapper over
     the shared analytics module. research/metrics/biological_age_estimate.md."""
-    return compute_biological_age(cur)
+    return compute_biological_age(cur, user_id, tz)
 
 
-def illness_flag_payload(cur: Cur) -> dict | None:
+def illness_flag_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Latest active illness flag (within 2 days). Auto-clears when the deltas fall
     below threshold (no row → no flag). The "framing" is deterministic metric text,
     not LLM. [[respiratory_rate_normal]], [[skin_temp_signals]]."""
     cur.execute(
         "SELECT date, severity, rr_delta_bpm, temp_delta_c, sustained, research_note_ids "
-        "FROM illness_flag WHERE date >= %s ORDER BY date DESC LIMIT 1",
-        (user_today() - timedelta(days=2),),
+        "FROM illness_flag WHERE user_id = %s AND date >= %s ORDER BY date DESC LIMIT 1",
+        (user_id, user_today(tz) - timedelta(days=2)),
     )
     row = cur.fetchone()
     if not row:
@@ -108,7 +117,7 @@ def _illness_framing(rr_delta, temp_delta, sustained: bool) -> str:
     )
 
 
-def pai_payload(cur: Cur) -> None:  # noqa: ARG001 — v2 gap: no pai metric derived
+def pai_payload(cur: Cur, user_id: UUID) -> None:  # noqa: ARG001 — v2 gap: no pai metric
     """PAI is not derived in v2 (analytics/metrics.py lists pai_* DROPPED). Always
     None so the Today key stays present without fabricating a number. See report."""
     return None

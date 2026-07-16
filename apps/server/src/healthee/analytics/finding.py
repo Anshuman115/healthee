@@ -125,13 +125,13 @@ _SELECT_KEYS = (
 )
 
 
-def get_significant_findings(limit: int = 30) -> list[dict]:
-    """Read significant findings, largest |effect| first (bounded by ``limit``)."""
+def get_significant_findings(user_id: UUID, limit: int = 30) -> list[dict]:
+    """Read one owner's significant findings, largest |effect| first (bounded by ``limit``)."""
     with transaction() as cur:
         cur.execute(
             f"SELECT {', '.join(_SELECT_KEYS)} FROM finding "
-            "WHERE significant = TRUE ORDER BY ABS(effect_size) DESC LIMIT %s",
-            (limit,),
+            "WHERE user_id = %s AND significant = TRUE ORDER BY ABS(effect_size) DESC LIMIT %s",
+            (user_id, limit),
         )
         rows = cur.fetchall()
     return [dict(zip(_SELECT_KEYS, r, strict=True)) for r in rows]

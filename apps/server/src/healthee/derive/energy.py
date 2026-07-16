@@ -28,7 +28,7 @@ _WALK_RUN_SPEED_M_MIN = 134  # ACSM equation switch (m/min): walking vs running 
 
 
 def _tee_met(
-    cur: Cur, start_utc: datetime, end_utc: datetime, bmr: float, stride_m: float
+    cur: Cur, user_id: UUID, start_utc: datetime, end_utc: datetime, bmr: float, stride_m: float
 ) -> float:
     """Total EE for one day via state->MET, anchored to BMR (1 MET == BMR/min).
 
@@ -38,19 +38,22 @@ def _tee_met(
     """
     bmr_min = bmr / 1440.0
     cur.execute(
-        "SELECT start_ts, end_ts FROM sleep_session WHERE end_ts>=%s AND start_ts<=%s",
-        (start_utc, end_utc),
+        "SELECT start_ts, end_ts FROM sleep_session "
+        "WHERE user_id = %s AND end_ts>=%s AND start_ts<=%s",
+        (user_id, start_utc, end_utc),
     )
     sleep_wins = cur.fetchall()
     cur.execute(
-        "SELECT start_ts, duration_s FROM workout WHERE start_ts>=%s AND start_ts<=%s",
-        (start_utc, end_utc),
+        "SELECT start_ts, duration_s FROM workout "
+        "WHERE user_id = %s AND start_ts>=%s AND start_ts<=%s",
+        (user_id, start_utc, end_utc),
     )
     wk_wins = [(w[0], w[0] + timedelta(seconds=int(w[1] or 0))) for w in cur.fetchall()]
     cur.execute(
         "SELECT date_trunc('minute', ts) m, SUM(value) FROM sample "
-        "WHERE metric='steps_per_minute' AND value < 250 AND ts>=%s AND ts<=%s GROUP BY m",
-        (start_utc, end_utc),
+        "WHERE user_id = %s AND metric='steps_per_minute' AND value < 250 "
+        "AND ts>=%s AND ts<=%s GROUP BY m",
+        (user_id, start_utc, end_utc),
     )
     steps_by_min = {r[0]: float(r[1]) for r in cur.fetchall()}
 
@@ -108,10 +111,11 @@ def derive_calories(
         - 5 * age
         + (5 if prof["sex"] == "male" else -161)
     )
-    total = _tee_met(cur, start_utc, end_utc, bmr, stride_m)
+    total = _tee_met(cur, user_id, start_utc, end_utc, bmr, stride_m)
     cur.execute(
-        "SELECT COALESCE(SUM(calories),0) FROM workout WHERE start_ts >= %s AND start_ts <= %s",
-        (start_utc, end_utc),
+        "SELECT COALESCE(SUM(calories),0) FROM workout "
+        "WHERE user_id = %s AND start_ts >= %s AND start_ts <= %s",
+        (user_id, start_utc, end_utc),
     )
     workout_cal = _scalar(cur)
     total += workout_cal

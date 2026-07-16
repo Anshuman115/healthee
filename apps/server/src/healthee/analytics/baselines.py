@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, LiteralString, cast
+from uuid import UUID
 
 from healthee.analytics.metrics import MAD_TO_SD, V2_DAILY_METRICS, metric_filter
 from healthee.core.db import transaction
@@ -50,18 +51,23 @@ class Baseline:
         return (value - self.median) / self.robust_sd
 
 
-def compute_baseline(metric: str, window_days: int = 30, end_date: date | None = None) -> Baseline:
-    """Median/MAD/quartile baseline for a metric over the trailing window.
+def compute_baseline(
+    user_id: UUID, metric: str, window_days: int = 30, end_date: date | None = None
+) -> Baseline:
+    """Median/MAD/quartile baseline for one owner's metric over the trailing window.
 
     Thin single-metric wrapper over :func:`compute_baselines` — ONE implementation
     of the baseline maths, so the single- and batched-metric paths cannot diverge
     (standards §"one canonical definition").
     """
-    return compute_baselines((metric,), window_days, end_date)[metric]
+    return compute_baselines(user_id, (metric,), window_days, end_date)[metric]
 
 
 def compute_baselines(
-    metrics: Sequence[str], window_days: int = 30, end_date: date | None = None
+    user_id: UUID,
+    metrics: Sequence[str],
+    window_days: int = 30,
+    end_date: date | None = None,
 ) -> dict[str, Baseline]:
     """Robust baselines for many metrics in ONE grouped query on ONE connection.
 
@@ -83,7 +89,7 @@ def compute_baselines(
     end_date = end_date or date.today()
     start_date = end_date - timedelta(days=window_days - 1)
     with transaction() as cur:
-        cur.execute(_baselines_sql(wanted), (start_date, end_date, *wanted))
+        cur.execute(_baselines_sql(wanted), (user_id, start_date, end_date, *wanted))
         rows = cur.fetchall()
     for row in rows:
         result[row[0]] = _row_to_baseline(row, window_days)
@@ -102,7 +108,7 @@ def _baselines_sql(wanted: list[str]) -> LiteralString:
         LiteralString,
         "WITH win AS ("
         "  SELECT metric, value FROM derived_daily "
-        "  WHERE day BETWEEN %s AND %s AND (" + where + ")"
+        "  WHERE user_id = %s AND day BETWEEN %s AND %s AND (" + where + ")"
         "), summ AS ("
         "  SELECT metric, COUNT(*) AS n, "
         "    percentile_cont(0.5)  WITHIN GROUP (ORDER BY value) AS median, "
@@ -144,24 +150,25 @@ def _f(v: Any) -> float | None:
 
 
 def compute_all(
+    user_id: UUID,
     metrics: tuple[str, ...] = DEFAULT_DAILY_METRICS,
     window_days: int = 30,
     end_date: date | None = None,
 ) -> list[Baseline]:
     """Baselines for every metric in ``metrics`` over the trailing window."""
-    return [compute_baseline(m, window_days, end_date) for m in metrics]
+    return [compute_baseline(user_id, m, window_days, end_date) for m in metrics]
 
 
-def latest_value(metric: str) -> tuple[date, float] | None:
-    """(day, value) of the most recent valid ``derived_daily`` row for a metric."""
+def latest_value(user_id: UUID, metric: str) -> tuple[date, float] | None:
+    """(day, value) of the most recent valid ``derived_daily`` row for one owner's metric."""
     flt = metric_filter(metric)  # constant from METRIC_FILTERS — safe to interpolate
     with transaction() as cur:
         query = cast(
             LiteralString,
-            f"SELECT day, value FROM derived_daily WHERE metric = %s AND {flt} "
+            f"SELECT day, value FROM derived_daily WHERE user_id = %s AND metric = %s AND {flt} "
             "ORDER BY day DESC LIMIT 1",
         )
-        cur.execute(query, (metric,))
+        cur.execute(query, (user_id, metric))
         row = cur.fetchone()
         if not row:
             return None

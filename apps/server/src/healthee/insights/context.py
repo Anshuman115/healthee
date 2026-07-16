@@ -14,6 +14,7 @@ orchestrates all of them into one markdown context string.
 from __future__ import annotations
 
 from datetime import date, timedelta
+from uuid import UUID
 
 from healthee.analytics import anomalies as anomalies_mod
 from healthee.analytics.baselines import (
@@ -28,11 +29,6 @@ from healthee.insights.context_sessions import (
     manual_entries_section,
     sleep_section,
 )
-
-# Local (user) timezone for day-anchoring — matches how derive stamps
-# derived_daily.day and how analytics/series.py anchors (a documented constant,
-# not a scattered literal; single-tenant until the multi-user work lands).
-_USER_TZ = "Asia/Kolkata"
 
 # The subset shown in the compact "recent daily metrics" pivot: (metric, column).
 # All are derived_daily rows (v2 names) — the exact set legacy's broken v1 query
@@ -51,7 +47,7 @@ _RECENT_COLUMNS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _today_snapshot() -> str:
+def _today_snapshot(user_id: UUID) -> str:
     """Latest value per daily metric vs its personal 30-day baseline (z-score)."""
     lines = [
         "## Today snapshot (latest day vs personal 30d baseline)",
@@ -60,12 +56,12 @@ def _today_snapshot() -> str:
     ]
     any_row = False
     for metric in DEFAULT_DAILY_METRICS:
-        latest = latest_value(metric)
+        latest = latest_value(user_id, metric)
         if latest is None:
             continue
         any_row = True
         day, value = latest
-        baseline = compute_baseline(metric, window_days=30)
+        baseline = compute_baseline(user_id, metric, window_days=30)
         z = baseline.z_score(value)
         z_str = (
             f"{z:+.2f}σ{' ⚠️' if z is not None and abs(z) >= 2 else ''}" if z is not None else "-"
@@ -75,7 +71,7 @@ def _today_snapshot() -> str:
     return "\n".join(lines) if any_row else ""
 
 
-def _trends() -> str:
+def _trends(user_id: UUID) -> str:
     """7-day average vs 30-day median per metric — trend direction."""
     lines = [
         "## Trend summary (7-day avg vs 30-day median)",
@@ -85,8 +81,8 @@ def _trends() -> str:
     any_row = False
     with transaction() as cur:
         for metric in DEFAULT_DAILY_METRICS:
-            row = _seven_day_avg(cur, metric)
-            baseline = compute_baseline(metric, window_days=30)
+            row = _seven_day_avg(cur, user_id, metric)
+            baseline = compute_baseline(user_id, metric, window_days=30)
             if row is None or baseline.median is None:
                 continue
             any_row = True
@@ -102,18 +98,18 @@ def _trends() -> str:
     return "\n".join(lines) if any_row else ""
 
 
-def _seven_day_avg(cur, metric: str) -> float | None:
+def _seven_day_avg(cur, user_id: UUID, metric: str) -> float | None:
     """Mean of a metric's last 7 days from ``derived_daily`` (sentinel unfiltered
     is fine here — these are already-derived canonical daily values)."""
     cur.execute(
-        "SELECT AVG(value) FROM derived_daily WHERE metric=%s AND day > %s",
-        (metric, date.today() - timedelta(days=7)),
+        "SELECT AVG(value) FROM derived_daily WHERE user_id = %s AND metric=%s AND day > %s",
+        (user_id, metric, date.today() - timedelta(days=7)),
     )
     row = cur.fetchone()
     return float(row[0]) if row and row[0] is not None else None
 
 
-def _recent_daily(cur, days: int) -> str:
+def _recent_daily(cur, user_id: UUID, tz: str, days: int) -> str:
     """Compact per-day table over ``derived_daily`` — the regression-tested section.
 
     On v2 data this MUST be non-empty (legacy returned empty here). Pivoted in
@@ -122,8 +118,9 @@ def _recent_daily(cur, days: int) -> str:
     metrics = [m for m, _ in _RECENT_COLUMNS]
     cur.execute(
         "SELECT (day)::date AS d, metric, value FROM derived_daily "
-        "WHERE metric = ANY(%s) AND day > (current_date - %s::int) ORDER BY d DESC",
-        (metrics, days),
+        "WHERE user_id = %s AND metric = ANY(%s) AND day > (current_date - %s::int) "
+        "ORDER BY d DESC",
+        (user_id, metrics, days),
     )
     by_day: dict[date, dict[str, float]] = {}
     for d, metric, value in cur.fetchall():
@@ -132,7 +129,7 @@ def _recent_daily(cur, days: int) -> str:
         return ""
     header = "| date | " + " | ".join(label for _, label in _RECENT_COLUMNS) + " |"
     sep = "|" + "---|" * (len(_RECENT_COLUMNS) + 1)
-    lines = [f"## Recent daily metrics (last {days} days, {_USER_TZ})", header, sep]
+    lines = [f"## Recent daily metrics (last {days} days, {tz})", header, sep]
     for d in sorted(by_day, reverse=True):
         cells = [_fmt(by_day[d].get(m)) for m, _ in _RECENT_COLUMNS]
         lines.append(f"| {d} | " + " | ".join(cells) + " |")
@@ -145,7 +142,7 @@ def _fmt(value: float | None) -> str:
     return str(int(value)) if float(value).is_integer() else f"{value:.1f}"
 
 
-def _baselines() -> str:
+def _baselines(user_id: UUID) -> str:
     """Robust personal baselines (median ± σ, quartiles) for the daily metrics."""
     lines = [
         "## Personal baselines (trailing 30d, robust median ± σ)",
@@ -153,7 +150,7 @@ def _baselines() -> str:
         "|---|---|---|---|---|",
     ]
     any_row = False
-    for b in compute_all(DEFAULT_DAILY_METRICS, 30):
+    for b in compute_all(user_id, DEFAULT_DAILY_METRICS, 30):
         if b.median is None:
             continue
         any_row = True
@@ -164,9 +161,9 @@ def _baselines() -> str:
     return "\n".join(lines) if any_row else ""
 
 
-def _anomalies() -> str:
+def _anomalies(user_id: UUID) -> str:
     """Recent |z|≥2 deviations vs personal baseline, each with its note ids."""
-    rows = anomalies_mod.detect(days_back=14, window_days=30)
+    rows = anomalies_mod.detect(user_id, days_back=14, window_days=30)
     if not rows:
         return ""
     lines = [
@@ -182,7 +179,7 @@ def _anomalies() -> str:
     return "\n".join(lines)
 
 
-def build_context(*, days: int = 14, question: str | None = None) -> str:
+def build_context(user_id: UUID, tz: str, *, days: int = 14, question: str | None = None) -> str:
     """Assemble the full v2-native LLM context; empty sections are skipped.
 
     Opens its own reads (insights owns its context queries) — the caller does not
@@ -191,16 +188,16 @@ def build_context(*, days: int = 14, question: str | None = None) -> str:
     """
     with transaction() as cur:
         session_sections = [
-            _recent_daily(cur, days),
-            sleep_section(cur, days),
-            manual_entries_section(cur, days),
+            _recent_daily(cur, user_id, tz, days),
+            sleep_section(cur, user_id, tz, days),
+            manual_entries_section(cur, user_id, tz, days),
         ]
     sections = [
-        _today_snapshot(),
-        _trends(),
+        _today_snapshot(user_id),
+        _trends(user_id),
         *session_sections,
-        _baselines(),
-        _anomalies(),
-        findings_section(question),
+        _baselines(user_id),
+        _anomalies(user_id),
+        findings_section(user_id, question),
     ]
     return "\n\n".join(s for s in sections if s)

@@ -37,20 +37,21 @@ def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, srpa: int = 0) -> 
     return max(crf_mets * _METS_TO_ML_KG_MIN, _VO2MAX_FLOOR)
 
 
-def derive_vo2max(cur: Cur, user_id: UUID, day: date) -> dict | None:
+def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     """Non-exercise VO2max: profile + 7-day median rhr_daily + 7-day MVPA score.
 
     None until at least 3 resting-HR days are present and the median RHR is a
     plausible 40-100 bpm. [[non_exercise_vo2max]].
     """
-    prof = _load_profile(cur, day)
+    prof = _load_profile(cur, user_id, tz, day)
     if not prof:
         return None
     age = _age(prof["dob"], day)
     bmi = prof["weight_kg"] / ((prof["height_cm"] / 100) ** 2)
     cur.execute(
-        "SELECT value FROM derived_daily WHERE metric='rhr_daily' AND day<=%s AND day>%s",
-        (day, day - timedelta(days=7)),
+        "SELECT value FROM derived_daily "
+        "WHERE user_id = %s AND metric='rhr_daily' AND day<=%s AND day>%s",
+        (user_id, day, day - timedelta(days=7)),
     )
     rhrs = sorted(float(r[0]) for r in cur.fetchall())
     if len(rhrs) < 3:
@@ -65,8 +66,8 @@ def derive_vo2max(cur: Cur, user_id: UUID, day: date) -> dict | None:
     cur.execute(
         "SELECT COALESCE("
         "SUM((flags->>'moderate')::float + 2 * (flags->>'vigorous')::float), 0) "
-        "FROM derived_daily WHERE metric='mvpa_min' AND day<=%s AND day>%s",
-        (day, day - timedelta(days=7)),
+        "FROM derived_daily WHERE user_id = %s AND metric='mvpa_min' AND day<=%s AND day>%s",
+        (user_id, day, day - timedelta(days=7)),
     )
     srpa = _weekly_mvpa_to_srpa(_scalar(cur))
     vo2 = _vo2max_jurca(age, prof["sex"], bmi, rhr_med, srpa)

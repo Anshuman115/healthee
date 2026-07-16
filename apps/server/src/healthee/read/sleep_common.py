@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import LiteralString, cast
+from uuid import UUID
 
 from healthee.derive._common import Cur
 
@@ -64,23 +65,32 @@ def stage_totals(light: int | None, deep: int | None, rem: int | None, wake: int
     return {"light": light or 0, "deep": deep or 0, "rem": rem or 0, "awake": wake or 0}
 
 
-def main_sessions(cur: Cur, days: int) -> list[tuple]:
+def main_sessions(cur: Cur, user_id: UUID, tz: str, days: int) -> list[tuple]:
     """One main sleep session per local wake-date over the window, newest first.
     The main sleep is the LONGEST session of the wake-date (keeps a short daytime
     session from ever being picked as the night)."""
+    # The local wake-date is computed ONCE in a subquery: with server-side binding
+    # each `AT TIME ZONE %s` is a DISTINCT parameter, so repeating the expression
+    # would make DISTINCT ON and ORDER BY non-matching expressions (a hard error)
+    # even though the bound values are equal.
     cur.execute(
-        "SELECT DISTINCT ON ((end_ts AT TIME ZONE 'Asia/Kolkata')::date) "
-        "  (end_ts AT TIME ZONE 'Asia/Kolkata')::date AS local_date, "
+        "SELECT DISTINCT ON (local_date) local_date, "
         "  start_ts, end_ts, light_min, deep_min, rem_min, wake_min, score, stages "
-        "FROM sleep_session WHERE kind='main' "
-        "  AND (end_ts AT TIME ZONE 'Asia/Kolkata')::date > (current_date - %s::int) "
-        "ORDER BY (end_ts AT TIME ZONE 'Asia/Kolkata')::date, (end_ts - start_ts) DESC",
-        (days,),
+        "FROM ("
+        "  SELECT (end_ts AT TIME ZONE %s)::date AS local_date, start_ts, end_ts, "
+        "    light_min, deep_min, rem_min, wake_min, score, stages "
+        "  FROM sleep_session WHERE user_id = %s AND kind='main'"
+        ") s "
+        "WHERE local_date > (current_date - %s::int) "
+        "ORDER BY local_date, (end_ts - start_ts) DESC",
+        (tz, user_id, days),
     )
     return cur.fetchall()
 
 
-def derived_night_pivot(cur: Cur, days: int, metrics: tuple[str, ...]) -> dict[str, dict]:
+def derived_night_pivot(
+    cur: Cur, user_id: UUID, days: int, metrics: tuple[str, ...]
+) -> dict[str, dict]:
     """Pivot the derived per-night rows (score, dims, SRI, HRV, RHR) into
     {date_iso: {field: value}} for the requested metric set."""
     # `placeholders` is only "%s, %s, …" (count of the metrics tuple) — never
@@ -90,9 +100,10 @@ def derived_night_pivot(cur: Cur, days: int, metrics: tuple[str, ...]) -> dict[s
         cast(
             LiteralString,
             "SELECT day, metric, value, flags FROM derived_daily "
-            f"WHERE metric IN ({placeholders}) AND day > (current_date - %s::int)",
+            f"WHERE user_id = %s AND metric IN ({placeholders}) "
+            "AND day > (current_date - %s::int)",
         ),
-        (*metrics, days),
+        (user_id, *metrics, days),
     )
     out: dict[str, dict] = {}
     for day, metric, value, flags in cur.fetchall():

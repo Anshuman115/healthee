@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 
 from healthee.core.auth import require_token
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights import coaching
 from healthee.read.today import today_snapshot
 
@@ -24,7 +25,8 @@ def get_today() -> dict:
     The ``action`` is the WP5 coaching one-liner: read-only from the per-day cache
     (``None`` until the scheduler warms it), so this read path never calls the LLM.
     """
+    # 6.4: source the owner + tz from the authenticated user.
     with transaction() as cur:
-        payload = today_snapshot(cur)
+        payload = today_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     payload["action"] = coaching.cached_line(coaching.DAILY_ACTION_KEY)
     return payload

@@ -11,10 +11,15 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_TZ
 from healthee.db import migrate
-from healthee.read.common import USER_TZ
+
+# The sentinel owner's zone — the seed anchors its local days exactly as the read
+# layer does (6.3b threads the IANA name; ZoneInfo is built once here).
+USER_TZ = ZoneInfo(SENTINEL_TZ)
 
 _TABLES = (
     "sample, sleep_session, workout, derived_daily, weight_log, profile, manual_entry, "

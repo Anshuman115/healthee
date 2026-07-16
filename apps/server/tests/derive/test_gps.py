@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 import pytest
 
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.derive.gps import derive_vo2max_submax, gps_track_detail, make_hr_interpolator
 from healthee.derive.vo2max_submax import VO2MAX_HI, VO2MAX_LO, _vo2_speed_grade
@@ -108,7 +108,7 @@ def test_derive_vo2max_submax_end_to_end(db: None) -> None:  # noqa: ARG001 — 
     migrate.apply_migrations()
     with transaction() as cur:
         track_id = _seed_track(cur)
-        result = derive_vo2max_submax(cur, SENTINEL_USER_ID, track_id)
+        result = derive_vo2max_submax(cur, SENTINEL_USER_ID, SENTINEL_TZ, track_id)
     assert result["ok"] is True, result
     assert VO2MAX_LO <= result["vo2max_submax"] <= VO2MAX_HI
     assert result["r2"] >= 0.5
@@ -120,7 +120,7 @@ def test_gps_track_detail_summary(db: None) -> None:  # noqa: ARG001 — DB gate
     migrate.apply_migrations()
     with transaction() as cur:
         track_id = _seed_track(cur)
-        detail = gps_track_detail(cur, track_id)
+        detail = gps_track_detail(cur, SENTINEL_USER_ID, track_id)
     assert detail is not None
     summary = detail["summary"]
     assert summary["n_points"] == len(detail["points"]) > 100

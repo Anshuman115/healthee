@@ -9,11 +9,14 @@ legacy v2 ``derive_rhr``. Knowledge notes: ``resting_hr_health_marker`` (Aune
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from healthee.derive._common import Cur
 
 
-def derive_rhr(cur: Cur, start_ts: datetime, end_ts: datetime) -> tuple[float | None, int]:
+def derive_rhr(
+    cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datetime
+) -> tuple[float | None, int]:
     """Min of 5-min rolling-average HR in the sleep window.
 
     Returns (rhr_bpm, n_samples). Only 5-min buckets with >=3 HR samples count,
@@ -26,13 +29,13 @@ def derive_rhr(cur: Cur, start_ts: datetime, end_ts: datetime) -> tuple[float | 
         FROM (
           SELECT AVG(value) AS bucket_avg, COUNT(*) AS n
           FROM sample
-          WHERE metric='hr' AND value BETWEEN 30 AND 220
+          WHERE user_id = %s AND metric='hr' AND value BETWEEN 30 AND 220
             AND ts >= %s AND ts < %s
           GROUP BY time_bucket('5 minutes', ts)
           HAVING COUNT(*) >= 3
         ) buckets
         """,
-        (start_ts, end_ts),
+        (user_id, start_ts, end_ts),
     )
     row = cur.fetchone()
     if not row or row[0] is None:

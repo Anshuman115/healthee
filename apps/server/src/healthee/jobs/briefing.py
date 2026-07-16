@@ -14,6 +14,7 @@ from datetime import date
 
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.client import LLMClient
 from healthee.insights.grounded import grounded_ask
 from healthee.read.common import user_today
@@ -37,8 +38,16 @@ def send_briefing(day: date | None = None, *, client: LLMClient | None = None) -
     ``client`` is injectable for tests. Errors from generation propagate to the
     supervised chain runner; the Telegram send itself never raises (``core.notify``).
     """
-    day = day or user_today()
-    result = grounded_ask(BRIEFING_TASK, metrics=BRIEFING_METRICS, context_days=14, client=client)
+    # 6.4: source the owner + tz from the authenticated user / per-user job loop.
+    day = day or user_today(SENTINEL_TZ)
+    result = grounded_ask(
+        BRIEFING_TASK,
+        SENTINEL_USER_ID,
+        SENTINEL_TZ,
+        metrics=BRIEFING_METRICS,
+        context_days=14,
+        client=client,
+    )
     message = _compose(day, result.text)
     sent = send_telegram(message)
     log.info(

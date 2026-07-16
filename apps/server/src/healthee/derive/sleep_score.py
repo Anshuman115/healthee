@@ -13,8 +13,9 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
-from healthee.derive._common import USER_TZ, Cur, _age, _load_profile, _upsert_daily
+from healthee.derive._common import Cur, _age, _load_profile, _upsert_daily
 
 # ── 4-dimension sleep score cutoffs — sleep_score_implementation_plan ─────────
 SLEEP_DURATION_MIN_H, SLEEP_DURATION_MAX_H = 7.0, 9.0  # Cappuccio 2010
@@ -44,7 +45,7 @@ def _sleep_efficiency(tst_min: int, wake_min: int) -> float:
     return min(1.0, tst_min / total) if total > 0 else 0.0
 
 
-def _compute_sri(cur: Cur, night_date: date) -> float | None:
+def _compute_sri(cur: Cur, user_id: UUID, tz: str, night_date: date) -> float | None:
     """Sleep Regularity Index over the 7-day window ending on `night_date`.
 
     Built from main-sleep hypnogram stages (asleep = any non-awake stage): the
@@ -53,14 +54,15 @@ def _compute_sri(cur: Cur, night_date: date) -> float | None:
     present. Phillips 2017 [[sleep_regularity_index]].
     """
     start_local = datetime(
-        night_date.year, night_date.month, night_date.day, tzinfo=USER_TZ
+        night_date.year, night_date.month, night_date.day, tzinfo=ZoneInfo(tz)
     ) - timedelta(days=SRI_DAYS - 1)
     end_local = start_local + timedelta(days=SRI_DAYS)
     cur.execute(
-        "SELECT stages FROM sleep_session WHERE kind='main' AND end_ts>=%s AND start_ts<%s",
-        (start_local.astimezone(UTC), end_local.astimezone(UTC)),
+        "SELECT stages FROM sleep_session "
+        "WHERE user_id = %s AND kind='main' AND end_ts>=%s AND start_ts<%s",
+        (user_id, start_local.astimezone(UTC), end_local.astimezone(UTC)),
     )
-    grid = _sri_minute_grid(cur.fetchall(), start_local.date())
+    grid = _sri_minute_grid(cur.fetchall(), start_local.date(), tz)
     if len(grid) < SRI_DAYS:
         return None
     minutes_per_day, days = 1440, SRI_DAYS
@@ -70,8 +72,9 @@ def _compute_sri(cur: Cur, night_date: date) -> float | None:
     return round(-100.0 + (200.0 / (minutes_per_day * (days - 1))) * matches, 2)
 
 
-def _sri_minute_grid(rows: list, start_date: date) -> dict[int, set[int]]:
+def _sri_minute_grid(rows: list, start_date: date, tz: str) -> dict[int, set[int]]:
     """Map each day-index -> set of minute-of-day the person is asleep."""
+    zone = ZoneInfo(tz)
     grid: dict[int, set[int]] = defaultdict(set)
     for (stages,) in rows:
         for st in stages or []:
@@ -81,7 +84,7 @@ def _sri_minute_grid(rows: list, start_date: date) -> dict[int, set[int]]:
             end = datetime.fromtimestamp(st[1] / 1000, tz=UTC)
             minute = start
             while minute < end:
-                local = minute.astimezone(USER_TZ)
+                local = minute.astimezone(zone)
                 day_index = (local.date() - start_date).days
                 if 0 <= day_index < SRI_DAYS:
                     grid[day_index].add(local.hour * 60 + local.minute)
@@ -92,6 +95,7 @@ def _sri_minute_grid(rows: list, start_date: date) -> dict[int, set[int]]:
 def derive_sleep_score(
     cur: Cur,
     user_id: UUID,
+    tz: str,
     start_ts: datetime,
     end_ts: datetime,
     rem: int,
@@ -112,9 +116,9 @@ def derive_sleep_score(
     p_dur = 1 if SLEEP_DURATION_MIN_H <= tst / 60.0 <= SLEEP_DURATION_MAX_H else 0
     eff = _sleep_efficiency(tst, wake)  # <= 1 by construction (never >100%)
     p_eff = 1 if (tst > 0 and eff >= SLEEP_EFFICIENCY_MIN) else 0
-    mid = (start_ts + (end_ts - start_ts) / 2).astimezone(USER_TZ)
+    mid = (start_ts + (end_ts - start_ts) / 2).astimezone(ZoneInfo(tz))
     p_tim = 1 if SLEEP_TIMING_RANGE[0] <= mid.hour < SLEEP_TIMING_RANGE[1] else 0
-    sri = _compute_sri(cur, night_date)
+    sri = _compute_sri(cur, user_id, tz, night_date)
     p_reg = 1 if (sri is not None and sri >= SRI_GOOD) else 0
     score = p_dur + p_eff + p_tim + p_reg
     flags = {
@@ -159,7 +163,7 @@ def _sleep_debt_stats(tsts: list[float], need: int) -> dict:
     }
 
 
-def derive_sleep_debt(cur: Cur, user_id: UUID, day: date) -> dict | None:
+def derive_sleep_debt(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     """Age-based sleep need (NSF 2015) + rolling 14-night cumulative debt.
 
     Debt = shortfall minus half the surplus (partial recovery), over recorded
@@ -167,16 +171,16 @@ def derive_sleep_debt(cur: Cur, user_id: UUID, day: date) -> dict | None:
     Reads TST from the sleep-score flags. None without a profile or any recorded
     night. [[sleep_need_debt]].
     """
-    prof = _load_profile(cur, day)
+    prof = _load_profile(cur, user_id, tz, day)
     if not prof:
         return None
     age = _age(prof["dob"], day)
     need = SLEEP_NEED_MIN_65P if age >= 65 else SLEEP_NEED_MIN_18_64
     cur.execute(
         "SELECT (flags->>'tst_min')::float FROM derived_daily "
-        "WHERE metric='sleep_health_score_4dim' AND day<=%s AND day>%s "
+        "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND day<=%s AND day>%s "
         "AND flags ? 'tst_min' ORDER BY day",
-        (day, day - timedelta(days=SLEEP_DEBT_WINDOW)),
+        (user_id, day, day - timedelta(days=SLEEP_DEBT_WINDOW)),
     )
     tsts = [float(t[0]) for t in cur.fetchall() if t[0] is not None]
     if not tsts:

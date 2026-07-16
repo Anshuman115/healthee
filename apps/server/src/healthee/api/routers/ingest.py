@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from healthee.core.auth import require_token
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.ingest import HelioPayload, IngestSummary, ingest_helio
 
 router = APIRouter(tags=["ingest"])
@@ -29,4 +29,4 @@ def post_helio(payload: HelioPayload) -> IngestSummary:
     (`resolve_device_token` → user UUID) instead of the sentinel; the shared-token
     `require_token` dep carries no identity (MULTI_USER.md §7).
     """
-    return ingest_helio(payload, SENTINEL_USER_ID)
+    return ingest_helio(payload, SENTINEL_USER_ID, SENTINEL_TZ)

@@ -19,6 +19,7 @@ import pytest
 from healthee.analytics import baselines, biological_age, correlations, cutoffs
 from healthee.analytics.anomalies import detect
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -46,11 +47,11 @@ def test_baselines_and_anomalies_nonempty_on_v2_names(db: None) -> None:  # noqa
         sd.seed_daily(cur, "rhr_daily", values)
 
     # Baseline is non-empty on the v2 name (legacy read `metric_sample` → 0 rows).
-    base = baselines.compute_baseline("rhr_daily", window_days=30)
+    base = baselines.compute_baseline(SENTINEL_USER_ID, "rhr_daily", window_days=30)
     assert base.n > 0
     assert base.median is not None and 53 <= base.median <= 57
 
-    anomalies = detect(metrics=("rhr_daily",), days_back=14, window_days=30)
+    anomalies = detect(SENTINEL_USER_ID, metrics=("rhr_daily",), days_back=14, window_days=30)
     hits = [a for a in anomalies if a.metric == "rhr_daily" and a.direction == "high"]
     assert hits, "the seeded spike must surface as a high anomaly"
     assert hits[0].when == spike_day
@@ -95,12 +96,12 @@ def test_cutoff_finder_reads_v2_tst(db: None) -> None:  # noqa: ARG001
 
     # Direct proof of the exact bug: nights now load carrying real TST.
     with transaction() as cur:
-        loaded = cutoffs._load_sleep_nights(cur)
+        loaded = cutoffs._load_sleep_nights(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     assert loaded, "sleep nights must load (legacy discarded all — tst_minutes NULL)"
     assert all(n["tst_min"] and n["tst_min"] > 0 for n in loaded)
 
     # End-to-end: the finder now emits + persists a caffeine personal_cutoff.
-    findings = cutoffs.compute_cutoff_findings()
+    findings = cutoffs.compute_cutoff_findings(SENTINEL_USER_ID, SENTINEL_TZ)
     caffeine = [f for f in findings if f.event_kind == "caffeine" and f.kind == "personal_cutoff"]
     assert caffeine, "the caffeine cutoff must be found (this is the dead-bug proof)"
     tst = next(f for f in caffeine if f.details["outcome"] == "tst_min")
@@ -133,7 +134,7 @@ def test_correlations_write_findings_from_derived_daily(db: None) -> None:  # no
         sd.seed_daily(cur, "steps_total", steps)
         sd.seed_daily(cur, "active_calories", active)
 
-    findings = correlations.compute_all_findings()
+    findings = correlations.compute_all_findings(SENTINEL_USER_ID, SENTINEL_TZ)
     assert findings, "v2-native series must yield candidate findings"
     pair = [
         f
@@ -143,12 +144,11 @@ def test_correlations_write_findings_from_derived_daily(db: None) -> None:  # no
     assert pair, "the strong steps↔active-calories correlation should be significant"
 
     from healthee.analytics.finding import get_significant_findings, persist_findings
-    from healthee.core.tenancy import SENTINEL_USER_ID
 
     assert persist_findings(SENTINEL_USER_ID, findings) == len(findings)
     assert any(
         {r["metric_a"], r["metric_b"]} == {"steps_total", "active_calories"}
-        for r in get_significant_findings()
+        for r in get_significant_findings(SENTINEL_USER_ID)
     )
 
 
@@ -164,7 +164,7 @@ def test_biological_age_from_v2_derived_daily(db: None) -> None:  # noqa: ARG001
         sd.seed_daily(cur, "sleep_regularity_index", {today: 80.0})
         tst_rows = {d: (2.0, {"tst_min": 450}) for d in sd.recent_days(14)}
         sd.seed_daily_with_flags(cur, "sleep_health_score_4dim", tst_rows)
-        result = biological_age.compute_biological_age(cur)
+        result = biological_age.compute_biological_age(cur, SENTINEL_USER_ID, SENTINEL_TZ)
 
     assert result is not None
     terms = {c["term"] for c in result["contributions"]}

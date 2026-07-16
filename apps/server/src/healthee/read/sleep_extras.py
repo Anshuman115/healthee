@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import statistics
 from datetime import datetime
+from uuid import UUID
 
 from healthee.derive._common import Cur
 from healthee.read.sleep_common import (
@@ -20,11 +21,13 @@ from healthee.read.sleep_common import (
 )
 
 
-def latest_main_session(cur: Cur) -> tuple | None:
+def latest_main_session(cur: Cur, user_id: UUID) -> tuple | None:
     """The most recent main sleep session (raw sleep_session row) or None."""
     cur.execute(
         "SELECT start_ts, end_ts, light_min, deep_min, rem_min, wake_min, score, stages "
-        "FROM sleep_session WHERE kind='main' ORDER BY start_ts DESC LIMIT 1",
+        "FROM sleep_session WHERE user_id = %s AND kind='main' "
+        "ORDER BY start_ts DESC LIMIT 1",
+        (user_id,),
     )
     return cur.fetchone()
 
@@ -45,7 +48,7 @@ def last_sleep(session: tuple | None) -> dict | None:
     }
 
 
-def last_sleep_extras(cur: Cur, start_ts: datetime, end_ts: datetime) -> dict:
+def last_sleep_extras(cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datetime) -> dict:
     """SpO2 / breathing / skin-temp / HRV averaged across the last-sleep window."""
     cur.execute(
         "SELECT ROUND(AVG(CASE WHEN metric='spo2' THEN value END))::int, "
@@ -53,8 +56,8 @@ def last_sleep_extras(cur: Cur, start_ts: datetime, end_ts: datetime) -> dict:
         "  ROUND(AVG(CASE WHEN metric='respiratory_rate' THEN value END))::int, "
         "  ROUND(AVG(CASE WHEN metric='skin_temp_c' THEN value END)::numeric, 1), "
         "  ROUND(AVG(CASE WHEN metric='hrv' THEN value END))::int "
-        "FROM sample WHERE ts >= %s AND ts < %s",
-        (start_ts, end_ts),
+        "FROM sample WHERE user_id = %s AND ts >= %s AND ts < %s",
+        (user_id, start_ts, end_ts),
     )
     spo2_avg, spo2_min, resp, temp, hrv = cur.fetchone() or (None, None, None, None, None)
     return {
@@ -66,15 +69,22 @@ def last_sleep_extras(cur: Cur, start_ts: datetime, end_ts: datetime) -> dict:
     }
 
 
-def sleep_history_7d(cur: Cur) -> list[dict]:
+def sleep_history_7d(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """Last 7 nights of main sleep for the mini history bar."""
+    # Local wake-date computed ONCE in a subquery — see main_sessions: repeating
+    # `AT TIME ZONE %s` yields distinct bound parameters, which would break the
+    # DISTINCT ON / ORDER BY expression match.
     cur.execute(
-        "SELECT DISTINCT ON ((end_ts AT TIME ZONE 'Asia/Kolkata')::date) "
-        "  (end_ts AT TIME ZONE 'Asia/Kolkata')::date, "
+        "SELECT DISTINCT ON (local_date) local_date, "
         "  light_min, deep_min, rem_min, wake_min, score "
-        "FROM sleep_session WHERE kind='main' "
-        "  AND (end_ts AT TIME ZONE 'Asia/Kolkata')::date > (current_date - 8) "
-        "ORDER BY (end_ts AT TIME ZONE 'Asia/Kolkata')::date, (end_ts - start_ts) DESC",
+        "FROM ("
+        "  SELECT (end_ts AT TIME ZONE %s)::date AS local_date, start_ts, end_ts, "
+        "    light_min, deep_min, rem_min, wake_min, score "
+        "  FROM sleep_session WHERE user_id = %s AND kind='main'"
+        ") s "
+        "WHERE local_date > (current_date - 8) "
+        "ORDER BY local_date, (end_ts - start_ts) DESC",
+        (tz, user_id),
     )
     rows = cur.fetchall()
     rows.sort(key=lambda r: r[0])
@@ -92,13 +102,15 @@ def sleep_history_7d(cur: Cur) -> list[dict]:
     ]
 
 
-def sleep_health_today(cur: Cur) -> dict | None:
+def sleep_health_today(cur: Cur, user_id: UUID) -> dict | None:
     """Latest 4-dim sleep-health score + per-dimension breakdown for Today."""
     cur.execute(
         "SELECT day, metric, value, flags FROM derived_daily "
-        "WHERE metric IN ('sleep_health_score_4dim','sleep_dim_duration','sleep_dim_efficiency',"
+        "WHERE user_id = %s AND metric IN "
+        "  ('sleep_health_score_4dim','sleep_dim_duration','sleep_dim_efficiency',"
         "  'sleep_dim_timing','sleep_dim_regularity','sleep_regularity_index') "
         "ORDER BY day DESC LIMIT 100",
+        (user_id,),
     )
     rows = cur.fetchall()
     if not rows:
@@ -165,17 +177,18 @@ def _pct(xs: list[int], p: float) -> int:
     return sx[round((len(sx) - 1) * p)]
 
 
-def sleep_consistency(cur: Cur, days: int = 28) -> dict:
+def sleep_consistency(cur: Cur, user_id: UUID, tz: str, days: int = 28) -> dict:
     """Bedtime/wake REGULARITY over the last ``days`` nights (main sleep only):
     median bedtime, onset/wake spread vs the ~1-hour target, and the odd nights
     SURFACED (not hidden). [[sleep_regularity_index]], [[sleep_timing_chronotype]]."""
     days = max(7, min(int(days or 28), 90))
     cur.execute(
-        "SELECT (start_ts AT TIME ZONE 'Asia/Kolkata')::date, "
-        "  start_ts AT TIME ZONE 'Asia/Kolkata', end_ts AT TIME ZONE 'Asia/Kolkata' "
-        "FROM sleep_session WHERE kind='main' AND start_ts >= now() - (%s || ' days')::interval "
+        "SELECT (start_ts AT TIME ZONE %s)::date, "
+        "  start_ts AT TIME ZONE %s, end_ts AT TIME ZONE %s "
+        "FROM sleep_session WHERE user_id = %s AND kind='main' "
+        "AND start_ts >= now() - (%s || ' days')::interval "
         "ORDER BY start_ts",
-        (days,),
+        (tz, tz, tz, user_id, days),
     )
     rows = cur.fetchall()
     if len(rows) < 3:
@@ -183,11 +196,26 @@ def sleep_consistency(cur: Cur, days: int = 28) -> dict:
     # onset anchored at 18:00 (minutes past 6 PM) so evening→morning doesn't wrap.
     onset = [((s.hour * 60 + s.minute) - 1080) % 1440 for _, s, _ in rows]
     wake = [(e.hour * 60 + e.minute) for _, _, e in rows]
-    return _consistency_payload(cur, days, rows, onset, wake)
+    return _consistency_payload(cur, user_id, days, rows, onset, wake)
 
 
-def _consistency_payload(
-    cur: Cur, days: int, rows: list, onset: list[int], wake: list[int]
+def _latest_sri(cur: Cur, user_id: UUID) -> float | None:
+    """The owner's most recent Sleep Regularity Index, or None if never derived.
+
+    Extracted (unchanged) from ``_consistency_payload`` so that function stays
+    inside the 40-line gate once the owner is threaded through its read.
+    """
+    cur.execute(
+        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='sleep_regularity_index' "
+        "ORDER BY day DESC LIMIT 1",
+        (user_id,),
+    )
+    r = cur.fetchone()
+    return round(float(r[0]), 1) if r else None
+
+
+def _consistency_payload(  # noqa: PLR0913 — the regularity payload needs all its series
+    cur: Cur, user_id: UUID, days: int, rows: list, onset: list[int], wake: list[int]
 ) -> dict:
     """Assemble the regularity numbers + surfaced odd nights + SRI (verbatim math)."""
     med_on = statistics.median(onset)
@@ -200,12 +228,7 @@ def _consistency_payload(
                 {"date": d.isoformat(), "bedtime": _clk(1080 + o), "delta_h": round(delta, 1)}
             )
     irregular.sort(key=lambda x: -abs(x["delta_h"]))
-    cur.execute(
-        "SELECT value FROM derived_daily WHERE metric='sleep_regularity_index' "
-        "ORDER BY day DESC LIMIT 1",
-    )
-    r = cur.fetchone()
-    sri = round(float(r[0]), 1) if r else None
+    sri = _latest_sri(cur, user_id)
     median_bed_min = (1080 + round(med_on)) % 1440
     band = (
         "tight — top-quintile territory (~1 h band)"

@@ -23,29 +23,31 @@ EDWARDS_ZONE_LO = (0.50, 0.60, 0.70, 0.80, 0.90)
 _RHR_FALLBACK = 60.0  # when no measured resting HR is available
 
 
-def derive_cardio_load(cur: Cur, user_id: UUID, day: date) -> dict | None:
+def derive_cardio_load(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     """Banister TRIMP + Edwards training load over waking minutes for one day.
 
     None without a profile, without a usable HR reserve, or with no waking HR.
     """
-    prof = _load_profile(cur, day)
+    prof = _load_profile(cur, user_id, tz, day)
     if not prof:
         return None
     age = _age(prof["dob"], day)
     hrmax = 208 - 0.7 * age  # Tanaka 2001
-    rhr = _measured_rhr(cur, day)
+    rhr = _measured_rhr(cur, user_id, day)
     if hrmax - rhr < 1:
         return None
-    start_utc, end_utc = _day_bounds_utc(day)
+    start_utc, end_utc = _day_bounds_utc(day, tz)
     cur.execute(
-        "SELECT start_ts, end_ts FROM sleep_session WHERE end_ts>=%s AND start_ts<=%s",
-        (start_utc, end_utc),
+        "SELECT start_ts, end_ts FROM sleep_session "
+        "WHERE user_id = %s AND end_ts>=%s AND start_ts<=%s",
+        (user_id, start_utc, end_utc),
     )
     sleep_wins = cur.fetchall()
     cur.execute(
         "SELECT date_trunc('minute', ts) m, AVG(value) FROM sample "
-        "WHERE metric='hr' AND value BETWEEN 30 AND 220 AND ts>=%s AND ts<=%s GROUP BY m",
-        (start_utc, end_utc),
+        "WHERE user_id = %s AND metric='hr' AND value BETWEEN 30 AND 220 "
+        "AND ts>=%s AND ts<=%s GROUP BY m",
+        (user_id, start_utc, end_utc),
     )
     rows = cur.fetchall()
 
@@ -67,12 +69,12 @@ def derive_cardio_load(cur: Cur, user_id: UUID, day: date) -> dict | None:
     return {"cardio_load": round(trimp, 1), "edwards_tl": edwards, "zone_min": zones}
 
 
-def _measured_rhr(cur: Cur, day: date) -> float:
+def _measured_rhr(cur: Cur, user_id: UUID, day: date) -> float:
     """Most-recent measured resting HR on/before the day; falls back to 60."""
     cur.execute(
-        "SELECT value FROM derived_daily WHERE metric='rhr_daily' AND day<=%s "
+        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='rhr_daily' AND day<=%s "
         "ORDER BY day DESC LIMIT 1",
-        (day,),
+        (user_id, day),
     )
     r = cur.fetchone()
     return float(r[0]) if r and r[0] is not None else _RHR_FALLBACK

@@ -40,7 +40,7 @@ from healthee.ingest.upsert import (
 log = get_logger(__name__)
 
 # derive_days(conn, user_id, days) is WP2's contract. Injectable so tests need no derive/.
-DeriveTrigger = Callable[[Connection[TupleRow], UUID, list[date]], None]
+DeriveTrigger = Callable[[Connection[TupleRow], UUID, str, list[date]], None]
 
 
 class IngestSummary(BaseModel):
@@ -55,7 +55,7 @@ class IngestSummary(BaseModel):
     server_ts: int
 
 
-def _default_derive(conn: Connection[TupleRow], user_id: UUID, days: list[date]) -> None:
+def _default_derive(conn: Connection[TupleRow], user_id: UUID, tz: str, days: list[date]) -> None:
     """Default derive trigger — resolves WP2 at integration time.
 
     The import is intentionally local: it lets ingest build and be tested before
@@ -64,30 +64,30 @@ def _default_derive(conn: Connection[TupleRow], user_id: UUID, days: list[date])
     """
     from healthee.derive import derive_days
 
-    derive_days(conn, user_id, days)
+    derive_days(conn, user_id, tz, days)
 
 
-def _affected_days(payload: HelioPayload, is_fresh: Callable[..., bool]) -> list[date]:
+def _affected_days(payload: HelioPayload, tz: str, is_fresh: Callable[..., bool]) -> list[date]:
     """The user-local dates this push touched — every day that got new samples,
     a workout, a daily total, or a fresh night. Fresh-gating the sleep dates
     keeps a re-push of ~80 historical nights from re-deriving all of them."""
     days: set[date] = set()
     for sample in payload.samples:
         if sample.metric in ALLOWED_METRICS:
-            days.add(local_date(sample.ts))
+            days.add(local_date(sample.ts, tz))
     for workout in payload.workouts:
-        days.add(local_date(workout.start_ts))
+        days.add(local_date(workout.start_ts, tz))
     for total in payload.daily_totals:
         days.add(total.day)
     for session in payload.sleep:
         if session.kind != "nap" and is_fresh(session):
-            days.add(local_date(session.start_ts))
-            days.add(local_date(session.end_ts))
+            days.add(local_date(session.start_ts, tz))
+            days.add(local_date(session.end_ts, tz))
     return sorted(days)
 
 
 def ingest_helio(
-    payload: HelioPayload, user_id: UUID, *, derive: DeriveTrigger = _default_derive
+    payload: HelioPayload, user_id: UUID, tz: str, *, derive: DeriveTrigger = _default_derive
 ) -> IngestSummary:
     """Apply a push end-to-end under `user_id` and return the counts.
 
@@ -103,13 +103,13 @@ def ingest_helio(
         n_sleep = upsert_sleep(cur, user_id, payload.sleep, is_fresh)
         n_workouts = upsert_workouts(cur, user_id, payload.workouts)
         if payload.profile is not None:
-            upsert_profile(cur, payload.profile)
+            upsert_profile(cur, user_id, payload.profile)
             if payload.profile.weight_kg is not None:
-                upsert_weight(cur, user_id, payload.profile.weight_kg)
+                upsert_weight(cur, user_id, tz, payload.profile.weight_kg)
 
-        days = _affected_days(payload, is_fresh)
+        days = _affected_days(payload, tz, is_fresh)
         if days:
-            derive(conn, user_id, days)
+            derive(conn, user_id, tz, days)
         # Daily-total override runs AFTER derive on purpose (it overrides the
         # steps_total derive just computed with the strap's real counter).
         n_totals = apply_daily_totals(cur, user_id, payload.daily_totals)

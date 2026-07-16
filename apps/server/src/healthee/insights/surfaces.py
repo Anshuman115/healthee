@@ -19,7 +19,7 @@ from datetime import datetime
 
 from healthee.analytics.series import daily_series
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
 
@@ -45,17 +45,20 @@ def _generate(
 ) -> dict:
     """Cache-or-generate one grounded surface. Only validated output is cached."""
     if not refresh:
-        cached = get_cached(SENTINEL_USER_ID, key)
+        cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, key)
         if cached is not None:
             return cached
-    result = grounded_ask(prompt, metrics=metrics, context_days=context_days)
+    # 6.4: source the owner + tz from the authenticated user.
+    result = grounded_ask(
+        prompt, SENTINEL_USER_ID, SENTINEL_TZ, metrics=metrics, context_days=context_days
+    )
     out = {
         "insight": result.text,
         "citations": result.citations,
         "grade_floor": result.grade_floor,
         "refused": result.refused,
         "validated": result.validated,
-        "date": today_iso(),
+        "date": today_iso(SENTINEL_TZ),
         "generated_at": int(time.time()),
     }
     if result.validated and not result.refused:
@@ -89,21 +92,21 @@ def metric_insight(metric: str, label: str = "", *, refresh: bool = False) -> di
     """Grounded 1–2 line interpretation of one metric; '' when data is too thin."""
     key = f"metric_insight:{metric}"
     if not refresh:
-        cached = get_cached(SENTINEL_USER_ID, key)
+        cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, key)
         if cached is not None:
             return cached
     numbers = _metric_numbers(metric)
     if numbers is None:
-        return {"date": today_iso(), "metric": metric, "insight": "", "citations": []}
+        return {"date": today_iso(SENTINEL_TZ), "metric": metric, "insight": "", "citations": []}
     prompt = (
         f"In 1–2 short sentences, interpret my {label or metric} for me right now. "
         f"{numbers} If it's off my baseline, give the most likely cause from my recent "
         "context plus one evidence-based lever. Cite [note_id] for any health claim; if "
         "nothing fits, say the cause is unclear. n=1, honest, no diagnosis."
     )
-    result = grounded_ask(prompt, metrics=[metric], context_days=14)
+    result = grounded_ask(prompt, SENTINEL_USER_ID, SENTINEL_TZ, metrics=[metric], context_days=14)
     out = {
-        "date": today_iso(),
+        "date": today_iso(SENTINEL_TZ),
         "metric": metric,
         "insight": result.text,
         "citations": result.citations,
@@ -118,7 +121,7 @@ def metric_insight(metric: str, label: str = "", *, refresh: bool = False) -> di
 def _metric_numbers(metric: str) -> str | None:
     """A compact 'latest X, 30d median Y, recent [...]' line, or None if <3 points."""
     with transaction() as cur:
-        series = daily_series(cur, metric)
+        series = daily_series(cur, SENTINEL_USER_ID, metric)
     if len(series) < 3:
         return None
     ordered = [series[d] for d in sorted(series)]
@@ -134,7 +137,7 @@ def workout_insight(start: str, *, refresh: bool = False) -> dict:
         return {"insight": "", "citations": [], "error": "workout not found"}
     key = f"workout_insight:{start}"
     if not refresh:
-        cached = get_cached(SENTINEL_USER_ID, key)
+        cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, key)
         if cached is not None:
             return cached
     prompt = (
@@ -143,13 +146,19 @@ def workout_insight(start: str, *, refresh: bool = False) -> dict:
         "low VO2max; and one concrete fix for the NEXT session. Cite [note_id] for "
         f"health claims. No diagnosis.\n\nWORKOUT:\n{numbers}"
     )
-    result = grounded_ask(prompt, metrics=["cardio_load", "vo2max_estimate"], context_days=7)
+    result = grounded_ask(
+        prompt,
+        SENTINEL_USER_ID,
+        SENTINEL_TZ,
+        metrics=["cardio_load", "vo2max_estimate"],
+        context_days=7,
+    )
     out = {
         "insight": result.text,
         "citations": result.citations,
         "grade_floor": result.grade_floor,
         "validated": result.validated,
-        "date": today_iso(),
+        "date": today_iso(SENTINEL_TZ),
         "generated_at": int(time.time()),
     }
     if result.validated and not result.refused:
@@ -166,9 +175,10 @@ def _workout_numbers(start: str) -> str | None:
     with transaction() as cur:
         cur.execute(
             "SELECT sport, duration_s, calories, distance_m, avg_hr, max_hr FROM workout "
-            "WHERE start_ts BETWEEN %s - interval '3 seconds' AND %s + interval '3 seconds' "
+            "WHERE user_id = %s "
+            "AND start_ts BETWEEN %s - interval '3 seconds' AND %s + interval '3 seconds' "
             "ORDER BY start_ts LIMIT 1",
-            (ts, ts),
+            (SENTINEL_USER_ID, ts, ts),
         )
         row = cur.fetchone()
     if not row:

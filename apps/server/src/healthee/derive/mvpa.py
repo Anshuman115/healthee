@@ -40,13 +40,13 @@ def _weekly_mvpa_to_srpa(weekly_mvpa_equiv_min: float) -> int:
     return 4
 
 
-def derive_mvpa(cur: Cur, user_id: UUID, day: date) -> dict | None:
+def derive_mvpa(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     """Cadence-based MVPA minutes for one local day. None when no steps recorded."""
-    start_utc, end_utc = _day_bounds_utc(day)
+    start_utc, end_utc = _day_bounds_utc(day, tz)
     cur.execute(
-        "SELECT ts, value FROM sample WHERE metric='steps_per_minute' "
+        "SELECT ts, value FROM sample WHERE user_id = %s AND metric='steps_per_minute' "
         "AND value>0 AND value<250 AND ts>=%s AND ts<=%s ORDER BY ts",
-        (start_utc, end_utc),
+        (user_id, start_utc, end_utc),
     )
     rows = cur.fetchall()
     if not rows:

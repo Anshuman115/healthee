@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 from tests.insights._stub import StubLLM
 
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights import refusals
 from healthee.insights.grounded import grounded_ask
 
@@ -32,7 +33,7 @@ def test_domain_classifier_hits(name: str, question: str, template: str) -> None
 @pytest.mark.parametrize(("name", "question", "template"), _CASES)
 def test_refusal_bypasses_the_llm(name: str, question: str, template: str) -> None:  # noqa: ARG001
     stub = StubLLM()
-    result = grounded_ask(question, client=stub)
+    result = grounded_ask(question, SENTINEL_USER_ID, SENTINEL_TZ, client=stub)
     assert result.refused is True
     assert result.text == template
     assert stub.calls == 0  # the model is never called on a refusal

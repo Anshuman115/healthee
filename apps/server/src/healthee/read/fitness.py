@@ -13,10 +13,12 @@ audit-verified science, cited inline.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from healthee.analytics.biological_age import vo2max_median_for
 from healthee.derive._common import Cur
-from healthee.read.common import USER_TZ, derived_series, latest_derived, sport_name, user_today
+from healthee.read.common import derived_series, latest_derived, sport_name, user_today
 
 # Auto-detected sub-10-min bouts are movement noise, not structured exercise
 # (WHO / US Activity Guidelines floor). Legacy ``_MIN_WORKOUT_S``.
@@ -29,12 +31,14 @@ _STRENGTH_TYPES = {
 _YOGA_MIN_DURATION = 30  # generic yoga counts only if >=30 min, at 50% credit
 
 
-def vo2max_payload(cur: Cur) -> dict | None:
+def vo2max_payload(cur: Cur, user_id: UUID) -> dict | None:
     """Latest Jurca non-exercise VO2max + 90-day trend + submax GPS estimate.
     [[vo2max_fitness_mortality]] (Mandsager 2018); derivation [[non_exercise_vo2max]]."""
     cur.execute(
-        "SELECT day, value, flags FROM derived_daily WHERE metric='vo2max_estimate' "
+        "SELECT day, value, flags FROM derived_daily "
+        "WHERE user_id = %s AND metric='vo2max_estimate' "
         "AND day >= (current_date - 95) ORDER BY day",
+        (user_id,),
     )
     rows = cur.fetchall()
     if not rows:
@@ -46,7 +50,7 @@ def vo2max_payload(cur: Cur) -> dict | None:
     median_ref = vo2max_median_for(age, sex) if age else None
     delta = round(latest_value - median_ref, 1) if median_ref else None
     return {
-        "submax": _submax_block(cur, latest_value),
+        "submax": _submax_block(cur, user_id, latest_value),
         "estimate": round(latest_value, 1),
         "see_ml_kg_min": float(flags.get("see_ml_kg_min", 5.6)),
         "as_of_date": latest_date.isoformat(),
@@ -67,11 +71,13 @@ def vo2max_payload(cur: Cur) -> dict | None:
     }
 
 
-def _submax_block(cur: Cur, jurca_estimate: float) -> dict | None:
+def _submax_block(cur: Cur, user_id: UUID, jurca_estimate: float) -> dict | None:
     """Submaximal HR-vs-pace VO2max from GPS workouts (``vo2max_submax``)."""
     cur.execute(
-        "SELECT day, value, flags FROM derived_daily WHERE metric='vo2max_submax' "
+        "SELECT day, value, flags FROM derived_daily "
+        "WHERE user_id = %s AND metric='vo2max_submax' "
         "AND day >= (current_date - 95) ORDER BY day",
+        (user_id,),
     )
     rows = cur.fetchall()
     if not rows:
@@ -92,12 +98,14 @@ def _submax_block(cur: Cur, jurca_estimate: float) -> dict | None:
     }
 
 
-def cardio_load_payload(cur: Cur) -> dict | None:
+def cardio_load_payload(cur: Cur, user_id: UUID) -> dict | None:
     """Daily cardio load (Banister TRIMP) + strain 0-21 + 30-day trend/baseline.
     [[cardio_load_trimp]]."""
     cur.execute(
-        "SELECT day, value, flags FROM derived_daily WHERE metric='cardio_load' "
+        "SELECT day, value, flags FROM derived_daily "
+        "WHERE user_id = %s AND metric='cardio_load' "
         "AND day >= (current_date - 35) ORDER BY day",
+        (user_id,),
     )
     rows = cur.fetchall()
     if not rows:
@@ -108,7 +116,7 @@ def cardio_load_payload(cur: Cur) -> dict | None:
     baseline = round(sum(prior) / len(prior), 1) if prior else None
     return {
         "load": round(latest_value, 1),
-        "strain": _strain(cur, latest_value),
+        "strain": _strain(cur, user_id, latest_value),
         "strain_max": 21.0,
         "as_of_date": rows[-1][0].isoformat(),
         "baseline_30d": baseline,
@@ -132,36 +140,39 @@ def strain_from_load(load: float, p95: float | None) -> float | None:
     return round(max(0.0, min(21.0, 21.0 * (load / p95) ** 0.75)), 1)
 
 
-def _strain(cur: Cur, latest_load: float) -> float | None:
+def _strain(cur: Cur, user_id: UUID, latest_load: float) -> float | None:
     """Read the personal 90-day P95 of cardio-load and map ``latest_load`` onto 0-21."""
     cur.execute(
         "SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY value) FROM derived_daily "
-        "WHERE metric='cardio_load' AND value > 0 AND day >= (current_date - 90)",
+        "WHERE user_id = %s AND metric='cardio_load' AND value > 0 "
+        "AND day >= (current_date - 90)",
+        (user_id,),
     )
     row = cur.fetchone()
     p95 = float(row[0]) if row and row[0] else None
     return strain_from_load(latest_load, p95)
 
 
-def _weekly_mvpa_rows(cur: Cur, days: int) -> list[tuple]:
+def _weekly_mvpa_rows(cur: Cur, user_id: UUID, days: int) -> list[tuple]:
     """(day, moderate, vigorous, mvpa) for the last ``days`` days — moderate/vigorous
     read from the ``mvpa_min`` flags (v2 stores them there, not as own rows)."""
     cur.execute(
         "SELECT day, COALESCE((flags->>'moderate')::float,0), "
         "COALESCE((flags->>'vigorous')::float,0), value FROM derived_daily "
-        "WHERE metric='mvpa_min' AND day > (current_date - %s::int) ORDER BY day",
-        (days,),
+        "WHERE user_id = %s AND metric='mvpa_min' AND day > (current_date - %s::int) "
+        "ORDER BY day",
+        (user_id, days),
     )
     return cur.fetchall()
 
 
-def mvpa_payload(cur: Cur) -> dict | None:
+def mvpa_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Weekly moderate-to-vigorous minutes vs the WHO 150-min target + 8-day
     breakdown. [[mvpa_minutes_mortality]], [[cadence_intensity]]."""
-    rows = _weekly_mvpa_rows(cur, 8)
+    rows = _weekly_mvpa_rows(cur, user_id, 8)
     if not rows:
         return None
-    today = user_today()
+    today = user_today(tz)
     monday = today - timedelta(days=today.weekday())
     daily, week_mod, week_vig, week_mvpa, today_mvpa = [], 0, 0, 0, 0
     for d, m, v, mv in rows:
@@ -185,14 +196,14 @@ def mvpa_payload(cur: Cur) -> dict | None:
     }
 
 
-def strength_payload(cur: Cur) -> dict:
+def strength_payload(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Weekly strength-training minutes vs the 30-60 min sweet spot (Momma 2022).
     v2-native: manual ``exercise`` logs + strength-coded device ``workout`` rows
     (legacy read the v1 ``session`` table). [[strength_training_mortality]]."""
-    today = user_today()
+    today = user_today(tz)
     monday = today - timedelta(days=today.weekday())
-    minutes, sessions, types = _strength_manual(cur, monday)
-    m2, s2, t2 = _strength_workouts(cur, monday)
+    minutes, sessions, types = _strength_manual(cur, user_id, tz, monday)
+    m2, s2, t2 = _strength_workouts(cur, user_id, tz, monday)
     minutes, sessions, types = minutes + m2, sessions + s2, types | t2
     return {
         "week_min": int(round(minutes)),
@@ -205,11 +216,12 @@ def strength_payload(cur: Cur) -> dict:
     }
 
 
-def _strength_manual(cur: Cur, monday) -> tuple[float, int, set[str]]:
+def _strength_manual(cur: Cur, user_id: UUID, tz: str, monday) -> tuple[float, int, set[str]]:
     """Strength minutes from manual ``exercise`` entries since Monday (v2-native)."""
     cur.execute(
-        "SELECT ts, end_ts, name, amount FROM manual_entry WHERE kind='exercise' AND ts >= %s",
-        (_monday_utc(monday),),
+        "SELECT ts, end_ts, name, amount FROM manual_entry "
+        "WHERE user_id = %s AND kind='exercise' AND ts >= %s",
+        (user_id, _monday_utc(monday, tz)),
     )
     minutes, sessions, types = 0.0, 0, set()
     for ts, end_ts, name, amount in cur.fetchall():
@@ -226,11 +238,12 @@ def _strength_manual(cur: Cur, monday) -> tuple[float, int, set[str]]:
     return minutes, sessions, types
 
 
-def _strength_workouts(cur: Cur, monday) -> tuple[float, int, set[str]]:
+def _strength_workouts(cur: Cur, user_id: UUID, tz: str, monday) -> tuple[float, int, set[str]]:
     """Strength minutes from strength-coded device ``workout`` rows since Monday."""
     cur.execute(
-        "SELECT sport, duration_s FROM workout WHERE sport = ANY(%s) AND start_ts >= %s",
-        (list(_STRENGTH_SPORTS), _monday_utc(monday)),
+        "SELECT sport, duration_s FROM workout "
+        "WHERE user_id = %s AND sport = ANY(%s) AND start_ts >= %s",
+        (user_id, list(_STRENGTH_SPORTS), _monday_utc(monday, tz)),
     )
     minutes, sessions, types = 0.0, 0, set()
     for sport, dur_s in cur.fetchall():
@@ -242,9 +255,9 @@ def _strength_workouts(cur: Cur, monday) -> tuple[float, int, set[str]]:
     return minutes, sessions, types
 
 
-def _monday_utc(monday: date) -> datetime:
+def _monday_utc(monday: date, tz: str) -> datetime:
     """UTC-aware instant for the start of the local week."""
-    return datetime(monday.year, monday.month, monday.day, tzinfo=USER_TZ)
+    return datetime(monday.year, monday.month, monday.day, tzinfo=ZoneInfo(tz))
 
 
 def acwr(cardio: dict | None) -> dict | None:
@@ -277,19 +290,19 @@ def acwr(cardio: dict | None) -> dict | None:
     }
 
 
-def fitness_plan_payload(cur: Cur) -> dict | None:
+def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """VO2max-raising weekly Rx + a 12-week projected trajectory (an estimate of
     typical response, bounded +2..+5 ml/kg/min, never a promise). [[vo2max_training_program]]."""
-    vo = vo2max_payload(cur)
+    vo = vo2max_payload(cur, user_id)
     if not vo or vo.get("estimate") is None:
         return None
     cur_vo = float(vo["estimate"])
     median = float(vo.get("median_for_age") or 41)
     gain = round(min(5.0, max(2.0, 0.4 * max(0.0, median - cur_vo))), 1)
-    today = user_today()
+    today = user_today(tz)
     monday = today - timedelta(days=today.weekday())
     wk = {m: 0.0 for m in ("moderate_min", "vigorous_min")}
-    for _d, mod, vig, _mv in _weekly_mvpa_rows(cur, (today - monday).days + 1):
+    for _d, mod, vig, _mv in _weekly_mvpa_rows(cur, user_id, (today - monday).days + 1):
         wk["moderate_min"] += mod
         wk["vigorous_min"] += vig
     return {
@@ -312,28 +325,29 @@ def fitness_plan_payload(cur: Cur) -> dict | None:
     }
 
 
-def activity_metric(cur: Cur, candidates: list[str], days: int = 30) -> dict | None:
+def activity_metric(cur: Cur, user_id: UUID, candidates: list[str], days: int = 30) -> dict | None:
     """Latest value + date + N-day series for the first candidate metric with data
     (steps/calories/distance). v2-native ``derived_daily`` read."""
     for cand in candidates:
-        latest = latest_derived(cur, cand)
+        latest = latest_derived(cur, user_id, cand)
         if latest:
             day, value, _flags = latest
             return {
                 "metric": cand,
                 "value": round(value, 1),
                 "as_of_date": day.isoformat(),
-                "trend": derived_series(cur, cand, days),
+                "trend": derived_series(cur, user_id, cand, days),
             }
     return None
 
 
-def workouts_list(cur: Cur, limit: int = 100) -> list[dict]:
+def workouts_list(cur: Cur, user_id: UUID, limit: int = 100) -> list[dict]:
     """Device-recorded workouts (>=10 min) with HR detail, newest first."""
     cur.execute(
         "SELECT start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr "
-        "FROM workout WHERE COALESCE(duration_s, 0) >= %s ORDER BY start_ts DESC LIMIT %s",
-        (_MIN_WORKOUT_S, limit),
+        "FROM workout WHERE user_id = %s AND COALESCE(duration_s, 0) >= %s "
+        "ORDER BY start_ts DESC LIMIT %s",
+        (user_id, _MIN_WORKOUT_S, limit),
     )
     out = []
     for start_ts, sport, dur_s, cal, dist, avg_hr, max_hr, min_hr in cur.fetchall():

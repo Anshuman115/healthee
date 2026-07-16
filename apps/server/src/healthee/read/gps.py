@@ -25,7 +25,7 @@ class GpsTrackIn(BaseModel):
     points: list[list[float | None]]
 
 
-def ingest_gps_track(cur: Cur, user_id: UUID, req: GpsTrackIn) -> dict:
+def ingest_gps_track(cur: Cur, user_id: UUID, tz: str, req: GpsTrackIn) -> dict:
     """Store a track + its points under ``user_id``, derive submax VO2max,
     denormalise the summary."""
     pts = [
@@ -49,14 +49,14 @@ def ingest_gps_track(cur: Cur, user_id: UUID, req: GpsTrackIn) -> dict:
         "VALUES (%s, %s, to_timestamp(%s), %s, %s, %s) ON CONFLICT DO NOTHING",
         [(user_id, track_id, p[0], p[1], p[2], (p[3] if len(p) > 3 else None)) for p in pts],
     )
-    vo2 = derive_vo2max_submax(cur, user_id, track_id)
+    vo2 = derive_vo2max_submax(cur, user_id, tz, track_id)
     _denormalise_summary(cur, user_id, track_id, vo2)
     return {"ok": True, "track_id": str(track_id), "points": len(pts), "vo2max": vo2}
 
 
 def _denormalise_summary(cur: Cur, user_id: UUID, track_id: str, vo2: dict) -> None:
     """Write distance/duration/HR/elevation + submax onto the track row for lists."""
-    det = gps_track_detail(cur, track_id)
+    det = gps_track_detail(cur, user_id, track_id)
     if not det:
         return
     s = det["summary"]
@@ -76,12 +76,13 @@ def _denormalise_summary(cur: Cur, user_id: UUID, track_id: str, vo2: dict) -> N
     )
 
 
-def list_gps_tracks(cur: Cur, limit: int = 30) -> dict:
+def list_gps_tracks(cur: Cur, user_id: UUID, limit: int = 30) -> dict:
     """Recent phone-recorded outdoor workouts (lightweight summary) for the list."""
     cur.execute(
         "SELECT id, start_ts, end_ts, distance_m, duration_s, avg_hr, ele_gain_m, "
-        "vo2max_submax, r2 FROM gps_track ORDER BY start_ts DESC LIMIT %s",
-        (max(1, min(limit, 100)),),
+        "vo2max_submax, r2 FROM gps_track WHERE user_id = %s "
+        "ORDER BY start_ts DESC LIMIT %s",
+        (user_id, max(1, min(limit, 100))),
     )
     tracks = [
         {
@@ -100,6 +101,6 @@ def list_gps_tracks(cur: Cur, limit: int = 30) -> dict:
     return {"tracks": tracks}
 
 
-def gps_detail(cur: Cur, track_id: str) -> dict | None:
+def gps_detail(cur: Cur, user_id: UUID, track_id: str) -> dict | None:
     """Full GPS track for the route-map view (per-point + summary). None if missing."""
-    return gps_track_detail(cur, track_id)
+    return gps_track_detail(cur, user_id, track_id)

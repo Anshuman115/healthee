@@ -13,10 +13,11 @@ LLM field — legacy generated it in-process without a model, so it ports here.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from healthee.analytics.baselines import compute_baseline
 from healthee.derive._common import Cur
-from healthee.read.common import USER_TZ_NAME, TodayReads, latest_derived, sport_name, user_today
+from healthee.read.common import TodayReads, latest_derived, sport_name, user_today
 
 _MAD_TO_SD = 1.4826  # MAD→σ for a normal distribution [[baselines]]
 
@@ -35,16 +36,22 @@ _FACTOR_TAILS = {
 }
 
 
-def recovery_score_payload(cur: Cur, reads: TodayReads | None = None) -> dict | None:
+def recovery_score_payload(
+    cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None
+) -> dict | None:
     """Morning recovery (0-100) + LIVE readiness that decays with today's strain.
     Always returns the per-factor breakdown so no bare number is shown.
     research/recovery/recovery_readiness.md."""
-    latest = reads.latest.get("recovery_score") if reads else latest_derived(cur, "recovery_score")
+    latest = (
+        reads.latest.get("recovery_score")
+        if reads
+        else latest_derived(cur, user_id, "recovery_score")
+    )
     if not latest:
         return None
     day, score, flags = latest
     recovery = round(score)
-    readiness, strain_today, typical = _live_readiness(cur, day, recovery)
+    readiness, strain_today, typical = _live_readiness(cur, user_id, tz, day, recovery)
     band = "high" if recovery >= 67 else "moderate" if recovery >= 34 else "low"
     return {
         "recovery": recovery,
@@ -60,17 +67,23 @@ def recovery_score_payload(cur: Cur, reads: TodayReads | None = None) -> dict | 
     }
 
 
-def _live_readiness(cur: Cur, day, recovery: int) -> tuple[int, float | None, float | None]:
+def _live_readiness(
+    cur: Cur, user_id: UUID, tz: str, day, recovery: int
+) -> tuple[int, float | None, float | None]:
     """Only TODAY's recovery decays (recovery is set at wake). Decay scales with
     today's cardio-load vs the personal 30-day median, capped at -50%. Ported
     VERBATIM — conservative + transparent (no validated intraday formula)."""
-    if day != user_today():
+    if day != user_today(tz):
         return recovery, None, None
-    cur.execute("SELECT value FROM derived_daily WHERE metric='cardio_load' AND day=%s", (day,))
+    cur.execute(
+        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='cardio_load' AND day=%s",
+        (user_id, day),
+    )
     cr = cur.fetchone()
     cur.execute(
-        "SELECT value FROM derived_daily WHERE metric='cardio_load' AND day < %s AND day >= %s",
-        (day, day - timedelta(days=30)),
+        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='cardio_load' "
+        "AND day < %s AND day >= %s",
+        (user_id, day, day - timedelta(days=30)),
     )
     hist = sorted(float(r[0]) for r in cur.fetchall() if r[0] is not None)
     if not (cr and cr[0] is not None and len(hist) >= 5):
@@ -99,11 +112,15 @@ def _guidance(band: str, readiness: int, recovery: int, factors: dict) -> str:
     return _BASE_GUIDANCE[band] + tail
 
 
-def recovery_signals(cur: Cur, reads: TodayReads | None = None) -> dict | None:
+def recovery_signals(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
     """Individual recovery markers (RHR / sleep duration / overnight HRV), each with
     its evidence citation. No composite score — the literature backs the markers
     individually but has no replicated composite formula. Ported to v2-native reads."""
-    candidates = (_rhr_signal(cur, reads), _sleep_signal(cur), _hrv_signal(cur, reads))
+    candidates = (
+        _rhr_signal(cur, user_id, reads),
+        _sleep_signal(cur, user_id),
+        _hrv_signal(cur, user_id, reads),
+    )
     signals = [s for s in candidates if s]
     if not signals:
         return None
@@ -126,14 +143,14 @@ def recovery_signals(cur: Cur, reads: TodayReads | None = None) -> dict | None:
     }
 
 
-def _rhr_signal(cur: Cur, reads: TodayReads | None = None) -> dict | None:
+def _rhr_signal(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
     """Resting HR vs personal baseline — LOWER is favourable (Aune 2017)."""
-    latest = reads.latest.get("rhr_daily") if reads else latest_derived(cur, "rhr_daily")
+    latest = reads.latest.get("rhr_daily") if reads else latest_derived(cur, user_id, "rhr_daily")
     if not latest:
         return None
     value = latest[1]
     b = (reads.baselines.get("rhr_daily") if reads else None) or compute_baseline(
-        "rhr_daily", window_days=30
+        user_id, "rhr_daily", window_days=30
     )
     if b.median is None or not b.robust_sd:
         return None
@@ -150,20 +167,22 @@ def _rhr_signal(cur: Cur, reads: TodayReads | None = None) -> dict | None:
     }
 
 
-def _sleep_signal(cur: Cur) -> dict | None:
+def _sleep_signal(cur: Cur, user_id: UUID) -> dict | None:
     """Last night's total sleep vs personal usual — Cappuccio 2010 (v2: TST from
     sleep_session stage minutes)."""
     cur.execute(
-        "SELECT (light_min+deep_min+rem_min) FROM sleep_session WHERE kind='main' "
-        "ORDER BY start_ts DESC LIMIT 1",
+        "SELECT (light_min+deep_min+rem_min) FROM sleep_session "
+        "WHERE user_id = %s AND kind='main' ORDER BY start_ts DESC LIMIT 1",
+        (user_id,),
     )
     row = cur.fetchone()
     if not row or not row[0]:
         return None
     today_dur = float(row[0])
     cur.execute(
-        "SELECT (light_min+deep_min+rem_min) FROM sleep_session WHERE kind='main' "
-        "AND start_ts > now() - interval '30 days'",
+        "SELECT (light_min+deep_min+rem_min) FROM sleep_session "
+        "WHERE user_id = %s AND kind='main' AND start_ts > now() - interval '30 days'",
+        (user_id,),
     )
     durs = sorted(float(r[0]) for r in cur.fetchall() if r[0])
     if len(durs) < 5:
@@ -189,14 +208,18 @@ def _sleep_signal(cur: Cur) -> dict | None:
     }
 
 
-def _hrv_signal(cur: Cur, reads: TodayReads | None = None) -> dict | None:
+def _hrv_signal(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
     """Overnight HRV vs personal usual — HIGHER is favourable (Plews 2013)."""
-    latest = reads.latest.get("hrv_sleep_avg") if reads else latest_derived(cur, "hrv_sleep_avg")
+    latest = (
+        reads.latest.get("hrv_sleep_avg")
+        if reads
+        else latest_derived(cur, user_id, "hrv_sleep_avg")
+    )
     if not latest:
         return None
     value = latest[1]
     b = (reads.baselines.get("hrv_sleep_avg") if reads else None) or compute_baseline(
-        "hrv_sleep_avg", window_days=30
+        user_id, "hrv_sleep_avg", window_days=30
     )
     if b.median is None or not b.robust_sd:
         return None
@@ -224,7 +247,7 @@ _DATA_HEALTH_SPEC = [
 ]
 
 
-def data_health_payload(cur: Cur) -> dict:
+def data_health_payload(cur: Cur, user_id: UUID) -> dict:
     """Per-feed freshness + sync recency so the app flags stale/dead data instead of
     rendering it as real. Conservative: only 'unavailable' when a feed delivered
     NOTHING within its cadence. Reads the v2 ``sample`` table (already v2-native)."""
@@ -232,8 +255,9 @@ def data_health_payload(cur: Cur) -> dict:
     items, degraded = [], []
     # One grouped scan for all feeds' last-seen instead of a probe per metric.
     cur.execute(
-        "SELECT metric, max(ts) FROM sample WHERE metric = ANY(%s) GROUP BY metric",
-        ([m for m, _, _ in _DATA_HEALTH_SPEC],),
+        "SELECT metric, max(ts) FROM sample "
+        "WHERE user_id = %s AND metric = ANY(%s) GROUP BY metric",
+        (user_id, [m for m, _, _ in _DATA_HEALTH_SPEC]),
     )
     last_by_metric = {m: ts for m, ts in cur.fetchall()}
     for metric, label, days in _DATA_HEALTH_SPEC:
@@ -251,12 +275,12 @@ def data_health_payload(cur: Cur) -> dict:
                 "status": status,
             }
         )
-    return _sync_recency(cur, now, items, degraded)
+    return _sync_recency(cur, user_id, now, items, degraded)
 
 
-def _sync_recency(cur: Cur, now, items: list[dict], degraded: list[str]) -> dict:
+def _sync_recency(cur: Cur, user_id: UUID, now, items: list[dict], degraded: list[str]) -> dict:
     """Sync recency = newest sample of ANY metric; overall trust rollup."""
-    cur.execute("SELECT max(ts) FROM sample")
+    cur.execute("SELECT max(ts) FROM sample WHERE user_id = %s", (user_id,))
     r = cur.fetchone()
     newest = r[0] if r and r[0] else None
     age_h = (now - newest).total_seconds() / 3600 if newest else None
@@ -280,20 +304,21 @@ def _sync_recency(cur: Cur, now, items: list[dict], degraded: list[str]) -> dict
     }
 
 
-def routine_today(cur: Cur) -> dict:
+def routine_today(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Open fast + today's meditation, workouts, and manual-log counts."""
     return {
-        "open_fast": _open_fast(cur),
-        "meditation_today": _meditation_today(cur),
-        "workouts": _workouts_today(cur),
-        "logs_summary": _logs_summary(cur),
+        "open_fast": _open_fast(cur, user_id),
+        "meditation_today": _meditation_today(cur, user_id, tz),
+        "workouts": _workouts_today(cur, user_id, tz),
+        "logs_summary": _logs_summary(cur, user_id, tz),
     }
 
 
-def _open_fast(cur: Cur) -> dict | None:
+def _open_fast(cur: Cur, user_id: UUID) -> dict | None:
     cur.execute(
-        "SELECT id, ts FROM manual_entry WHERE kind='fasting' AND end_ts IS NULL "
-        "ORDER BY ts DESC LIMIT 1",
+        "SELECT id, ts FROM manual_entry WHERE user_id = %s AND kind='fasting' "
+        "AND end_ts IS NULL ORDER BY ts DESC LIMIT 1",
+        (user_id,),
     )
     row = cur.fetchone()
     if not row:
@@ -302,23 +327,23 @@ def _open_fast(cur: Cur) -> dict | None:
     return {"id": str(row[0]), "start_iso": row[1].isoformat(), "elapsed_min": elapsed}
 
 
-def _meditation_today(cur: Cur) -> dict:
+def _meditation_today(cur: Cur, user_id: UUID, tz: str) -> dict:
     cur.execute(
-        "SELECT COUNT(*), COALESCE(SUM(amount),0) FROM manual_entry WHERE kind='meditation' "
-        "AND (ts AT TIME ZONE %s)::date = %s",
-        (USER_TZ_NAME, user_today()),
+        "SELECT COUNT(*), COALESCE(SUM(amount),0) FROM manual_entry "
+        "WHERE user_id = %s AND kind='meditation' AND (ts AT TIME ZONE %s)::date = %s",
+        (user_id, tz, user_today(tz)),
     )
     c, m = cur.fetchone() or (0, 0)
     return {"count": int(c or 0), "minutes": int(m or 0)}
 
 
-def _workouts_today(cur: Cur) -> list[dict]:
+def _workouts_today(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """Today's device workouts (>=10 min), newest first."""
     cur.execute(
-        "SELECT start_ts, duration_s, sport FROM workout "
-        "WHERE (start_ts AT TIME ZONE %s)::date = %s AND COALESCE(duration_s,0) >= 600 "
+        "SELECT start_ts, duration_s, sport FROM workout WHERE user_id = %s "
+        "AND (start_ts AT TIME ZONE %s)::date = %s AND COALESCE(duration_s,0) >= 600 "
         "ORDER BY start_ts DESC",
-        (USER_TZ_NAME, user_today()),
+        (user_id, tz, user_today(tz)),
     )
     out = []
     for start_ts, dur_s, sport in cur.fetchall():
@@ -338,10 +363,10 @@ def _workouts_today(cur: Cur) -> list[dict]:
     return out
 
 
-def _logs_summary(cur: Cur) -> dict:
+def _logs_summary(cur: Cur, user_id: UUID, tz: str) -> dict:
     cur.execute(
         "SELECT kind, COUNT(*), COALESCE(SUM(amount),0) FROM manual_entry "
-        "WHERE (ts AT TIME ZONE %s)::date = %s GROUP BY kind",
-        (USER_TZ_NAME, user_today()),
+        "WHERE user_id = %s AND (ts AT TIME ZONE %s)::date = %s GROUP BY kind",
+        (user_id, tz, user_today(tz)),
     )
     return {k: {"count": int(c), "total": float(t or 0)} for k, c, t in cur.fetchall()}

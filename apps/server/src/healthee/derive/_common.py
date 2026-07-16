@@ -6,9 +6,11 @@ clamp. Ported verbatim from the legacy v2 derive module — only the data plumbi
 (the DB pool lives in ``healthee.core.db``) and the type hints are new; the SQL,
 rounding, and math are identical.
 
-``USER_TZ`` is a single-tenant constant (the legacy product is one user): all
-daily metrics anchor on the user's local wake date. A multi-user rebuild would
-lift this to per-profile config — out of scope for this verbatim port.
+All daily metrics anchor on the user's local wake date. The timezone is threaded
+in as an IANA name (``tz: str``) rather than read from a module constant: 6.3b
+removed the single-tenant ``USER_TZ``, and 6.4 sources the value from the
+authenticated user's ``app_user.timezone``. SQL binds it to ``AT TIME ZONE %s``;
+Python datetime math builds a local ``ZoneInfo(tz)``.
 """
 
 from __future__ import annotations
@@ -21,9 +23,6 @@ from zoneinfo import ZoneInfo
 
 from psycopg import Cursor
 from psycopg.rows import TupleRow
-
-# Anchor daily metrics to the user's timezone (wake date) — same as legacy v1/v2.
-USER_TZ = ZoneInfo("Asia/Kolkata")
 
 # A cursor over plain tuple rows — the row shape every derivation reads.
 Cur = Cursor[TupleRow]
@@ -62,6 +61,7 @@ def _upsert_daily(
 
 def _window_stat(
     cur: Cur,
+    user_id: UUID,
     metric: str,
     start_ts: datetime,
     end_ts: datetime,
@@ -69,7 +69,7 @@ def _window_stat(
     hi: float,
     stat: str = "AVG",
 ) -> float | None:
-    """Aggregate one metric over the [start, end) window, bounded to [lo, hi]."""
+    """Aggregate one owner's metric over the [start, end) window, bounded to [lo, hi]."""
     if stat not in _ALLOWED_STATS:  # guard the interpolated aggregate name
         raise ValueError(f"unsupported stat {stat!r}")
     # `stat` is interpolated but validated against the hardcoded allowlist above,
@@ -77,21 +77,21 @@ def _window_stat(
     query = cast(
         LiteralString,
         f"SELECT {stat}(value)::float FROM sample "
-        "WHERE metric=%s AND value BETWEEN %s AND %s AND ts >= %s AND ts < %s",
+        "WHERE user_id = %s AND metric=%s AND value BETWEEN %s AND %s AND ts >= %s AND ts < %s",
     )
-    cur.execute(query, (metric, lo, hi, start_ts, end_ts))
+    cur.execute(query, (user_id, metric, lo, hi, start_ts, end_ts))
     row = cur.fetchone()
     return float(row[0]) if row and row[0] is not None else None
 
 
-def _wake_date(end_ts: datetime) -> date:
+def _wake_date(end_ts: datetime, tz: str) -> date:
     """Daily metrics anchor on the local wake (session end) date."""
-    return end_ts.astimezone(USER_TZ).date()
+    return end_ts.astimezone(ZoneInfo(tz)).date()
 
 
-def _day_bounds_utc(day: date) -> tuple[datetime, datetime]:
-    """UTC [start, end] instants bracketing one local (USER_TZ) calendar day."""
-    start = datetime(day.year, day.month, day.day, 0, 0, 0, tzinfo=USER_TZ)
+def _day_bounds_utc(day: date, tz: str) -> tuple[datetime, datetime]:
+    """UTC [start, end] instants bracketing one local (``tz``) calendar day."""
+    start = datetime(day.year, day.month, day.day, 0, 0, 0, tzinfo=ZoneInfo(tz))
     return start.astimezone(UTC), (start.replace(hour=23, minute=59, second=59)).astimezone(UTC)
 
 
@@ -103,19 +103,22 @@ def _age(dob: date, on: date) -> int:
     return years
 
 
-def _load_profile(cur: Cur, day: date | None = None) -> dict | None:
+def _load_profile(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
     """Profile + weight as-of `day` (weight is a time-series, read at that date).
 
     Weight uses the most recent `weight_log` entry logged on or before `day`, so
     updating today's weight never retroactively rewrites past days; days before
     the first entry fall back to the earliest logged weight. With `day=None` the
     latest weight is used. Returns None if the profile or any weight is missing.
+
+    `profile` keeps its `id = 1` predicate alongside the owner filter — the re-key
+    to a `user_id` PK is 6.3c.
     """
-    cur.execute("SELECT height_cm, sex, dob FROM profile WHERE id=1")
+    cur.execute("SELECT height_cm, sex, dob FROM profile WHERE id=1 AND user_id = %s", (user_id,))
     prof = cur.fetchone()
     if not prof or prof[0] is None or prof[1] is None or prof[2] is None:
         return None
-    weight = _weight_as_of(cur, day)
+    weight = _weight_as_of(cur, user_id, tz, day)
     if not weight:
         return None
     return {
@@ -126,20 +129,23 @@ def _load_profile(cur: Cur, day: date | None = None) -> dict | None:
     }
 
 
-def _weight_as_of(cur: Cur, day: date | None) -> tuple | None:
+def _weight_as_of(cur: Cur, user_id: UUID, tz: str, day: date | None) -> tuple | None:
     """Most-recent weight_log row on/before `day` (earliest if none), or latest."""
     if day is not None:
         cur.execute(
-            "SELECT kg FROM weight_log WHERE (ts AT TIME ZONE 'Asia/Kolkata')::date <= %s "
-            "ORDER BY ts DESC LIMIT 1",
-            (day,),
+            "SELECT kg FROM weight_log WHERE user_id = %s "
+            "AND (ts AT TIME ZONE %s)::date <= %s ORDER BY ts DESC LIMIT 1",
+            (user_id, tz, day),
         )
         weight = cur.fetchone()
         if not weight:
-            cur.execute("SELECT kg FROM weight_log ORDER BY ts ASC LIMIT 1")
+            cur.execute(
+                "SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts ASC LIMIT 1",
+                (user_id,),
+            )
             weight = cur.fetchone()
         return weight
-    cur.execute("SELECT kg FROM weight_log ORDER BY ts DESC LIMIT 1")
+    cur.execute("SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1", (user_id,))
     return cur.fetchone()
 
 
@@ -161,7 +167,6 @@ def _scalar(cur: Cur) -> float:
 
 
 __all__ = [
-    "USER_TZ",
     "Cur",
     "_age",
     "_clamp100",

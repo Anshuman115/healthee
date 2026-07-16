@@ -31,16 +31,16 @@ from healthee.derive.sleep_score import derive_sleep_debt, derive_sleep_score
 from healthee.derive.vo2max import derive_vo2max
 
 
-def derive_night(cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datetime) -> dict:
+def derive_night(cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: datetime) -> dict:
     """Derive per-night metrics for one sleep session; returns what was written.
 
-    Every metric is materialized under `user_id` (0004 folded the owner into the
-    derived_daily key). Reads are still un-scoped — single-tenant makes that
-    identical today, and the read-path filter is 6.3b."""
-    day = _wake_date(end_ts)
+    Every metric is read and materialized under `user_id` (0004 folded the owner
+    into the derived_daily key; 6.3b scoped the reads), anchored on the owner's
+    local `tz` wake date."""
+    day = _wake_date(end_ts, tz)
     out: dict = {}
 
-    rhr, n = derive_rhr(cur, start_ts, end_ts)
+    rhr, n = derive_rhr(cur, user_id, start_ts, end_ts)
     if rhr is not None:
         _upsert_daily(cur, user_id, day, "rhr_daily", rhr, {"n": n})
         out["rhr_daily"] = round(rhr, 2)
@@ -48,39 +48,40 @@ def derive_night(cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datetime) 
     out.update(derive_night_vitals(cur, user_id, day, start_ts, end_ts))
 
     cur.execute(
-        "SELECT rem_min, light_min, deep_min, wake_min FROM sleep_session WHERE start_ts=%s",
-        (start_ts,),
+        "SELECT rem_min, light_min, deep_min, wake_min FROM sleep_session "
+        "WHERE user_id = %s AND start_ts=%s",
+        (user_id, start_ts),
     )
     sr = cur.fetchone()
     if sr:
         out.update(
-            derive_sleep_score(cur, user_id, start_ts, end_ts, sr[0], sr[1], sr[2], sr[3], day)
+            derive_sleep_score(cur, user_id, tz, start_ts, end_ts, sr[0], sr[1], sr[2], sr[3], day)
         )
     return out
 
 
-def derive_day(cur: Cur, user_id: UUID, day: date) -> dict:
+def derive_day(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
     """Full daily derive pass in dependency order.
 
     MVPA -> activity/calories -> VO2max (needs MVPA + rhr) -> cardio-load (needs
     rhr) -> sleep debt (needs TST) -> recovery (needs hrv/rhr/rr + sleep need).
     """
     out: dict = {}
-    if m := derive_mvpa(cur, user_id, day):
+    if m := derive_mvpa(cur, user_id, tz, day):
         out.update(m)
-    out.update(derive_daily_activity(cur, user_id, day))
-    if v := derive_vo2max(cur, user_id, day):
+    out.update(derive_daily_activity(cur, user_id, tz, day))
+    if v := derive_vo2max(cur, user_id, tz, day):
         out.update(v)
-    if c := derive_cardio_load(cur, user_id, day):
+    if c := derive_cardio_load(cur, user_id, tz, day):
         out.update(c)
-    if s := derive_sleep_debt(cur, user_id, day):
+    if s := derive_sleep_debt(cur, user_id, tz, day):
         out.update(s)
     if rec := derive_recovery(cur, user_id, day):
         out.update(rec)
     return out
 
 
-def derive_days(conn: Connection[TupleRow], user_id: UUID, days: list[date]) -> None:
+def derive_days(conn: Connection[TupleRow], user_id: UUID, tz: str, days: list[date]) -> None:
     """Derive every day within the CALLER's open transaction on `conn`.
 
     Does NOT commit — the caller owns the transaction boundary. The ingest path
@@ -90,10 +91,10 @@ def derive_days(conn: Connection[TupleRow], user_id: UUID, days: list[date]) -> 
     """
     with conn.cursor() as cur:
         for day in days:
-            derive_day(cur, user_id, day)
+            derive_day(cur, user_id, tz, day)
 
 
-def derive_all_nights(user_id: UUID) -> dict[str, dict]:
+def derive_all_nights(user_id: UUID, tz: str) -> dict[str, dict]:
     """Derive per-night metrics for every stored main sleep session of `user_id`."""
     results: dict[str, dict] = {}
     with connection() as conn, conn.cursor() as cur:
@@ -103,5 +104,5 @@ def derive_all_nights(user_id: UUID) -> dict[str, dict]:
             (user_id,),
         )
         for start_ts, end_ts in cur.fetchall():
-            results[start_ts.isoformat()] = derive_night(cur, user_id, start_ts, end_ts)
+            results[start_ts.isoformat()] = derive_night(cur, user_id, tz, start_ts, end_ts)
     return results

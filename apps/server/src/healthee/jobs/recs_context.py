@@ -16,6 +16,7 @@ aggregate levers that ``build_context`` does not compute as gaps/targets.
 from __future__ import annotations
 
 from datetime import date
+from uuid import UUID
 
 from healthee.analytics.finding import get_significant_findings
 from healthee.core.db import transaction
@@ -26,21 +27,24 @@ from healthee.read.recovery import recovery_score_payload
 _TARGET_MVPA_MIN = 150  # WHO weekly moderate-to-vigorous target [mvpa_minutes_mortality]
 
 
-def build_recs_signals() -> str:
+def build_recs_signals(user_id: UUID, tz: str) -> str:
     """Assemble the compact v2-native signals block the recs prompt anchors to."""
     with transaction() as cur:
         parts = [
-            _profile_line(cur, user_today()),
-            _recovery_line(cur),
-            _mvpa_line(cur),
+            _profile_line(cur, user_id, user_today(tz)),
+            _recovery_line(cur, user_id, tz),
+            _mvpa_line(cur, user_id, tz),
         ]
-    parts.append(_findings_block())
+    parts.append(_findings_block(user_id))
     return "\n".join(p for p in parts if p)
 
 
-def _profile_line(cur, today: date) -> str:
-    """Profile from the DB ``profile`` table (id=1) — never the legacy JSON file."""
-    cur.execute("SELECT sex, height_cm, dob FROM profile WHERE id = 1")
+def _profile_line(cur, user_id: UUID, today: date) -> str:
+    """Profile from the DB ``profile`` table (id=1) — never the legacy JSON file.
+
+    The ``id = 1`` predicate stays alongside the owner filter; the re-key is 6.3c.
+    """
+    cur.execute("SELECT sex, height_cm, dob FROM profile WHERE id = 1 AND user_id = %s", (user_id,))
     row = cur.fetchone()
     if not row:
         return "- Profile: not configured."
@@ -56,9 +60,9 @@ def _age(dob: date, today: date) -> int:
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
 
-def _recovery_line(cur) -> str:
+def _recovery_line(cur, user_id: UUID, tz: str) -> str:
     """Recovery band SETS today's intensity ceiling (recs must respect it)."""
-    payload = recovery_score_payload(cur)
+    payload = recovery_score_payload(cur, user_id, tz)
     if not payload:
         return ""
     return (
@@ -69,9 +73,9 @@ def _recovery_line(cur) -> str:
     )
 
 
-def _mvpa_line(cur) -> str:
+def _mvpa_line(cur, user_id: UUID, tz: str) -> str:
     """This week's MVPA vs the 150-min target, framed as the remaining gap."""
-    payload = mvpa_payload(cur)
+    payload = mvpa_payload(cur, user_id, tz)
     if not payload:
         return ""
     week = payload["week_min"]
@@ -81,9 +85,9 @@ def _mvpa_line(cur) -> str:
     )
 
 
-def _findings_block() -> str:
+def _findings_block(user_id: UUID) -> str:
     """The strongest personal findings (incl. caffeine/alcohol cutoffs), cited."""
-    findings = get_significant_findings(limit=6)
+    findings = get_significant_findings(user_id, limit=6)
     if not findings:
         return "- Personal findings: none above the significance threshold yet."
     lines = ["- Personal findings (your own n=1 patterns — cite as [personal_finding:…]):"]

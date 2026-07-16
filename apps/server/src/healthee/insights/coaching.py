@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import time
 
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
 
@@ -38,7 +38,7 @@ _SLEEP_TONIGHT_PROMPT = (
 
 def cached_line(key: str) -> str | None:
     """The cached coaching text for ``key`` if warmed today, else None (never generates)."""
-    cached = get_cached(SENTINEL_USER_ID, key)
+    cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, key)
     if cached is None:
         return None
     return cached.get("text")
@@ -69,17 +69,20 @@ def warm_sleep_tonight(*, refresh: bool = False) -> dict:
 def _warm(key: str, prompt: str, *, metrics: list[str], context_days: int, refresh: bool) -> dict:
     """Cache-or-generate one grounded line through the choke point (validated only cached)."""
     if not refresh:
-        cached = get_cached(SENTINEL_USER_ID, key)
+        cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, key)
         if cached is not None:
             return cached
-    result = grounded_ask(prompt, metrics=metrics, context_days=context_days)
+    # 6.4: source the owner + tz from the authenticated user.
+    result = grounded_ask(
+        prompt, SENTINEL_USER_ID, SENTINEL_TZ, metrics=metrics, context_days=context_days
+    )
     out = {
         "text": result.text,
         "citations": result.citations,
         "grade_floor": result.grade_floor,
         "refused": result.refused,
         "validated": result.validated,
-        "date": today_iso(),
+        "date": today_iso(SENTINEL_TZ),
         "generated_at": int(time.time()),
     }
     if result.validated and not result.refused:
