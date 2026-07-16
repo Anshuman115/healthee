@@ -166,6 +166,58 @@ The app sets `SET LOCAL healthee.user_id = <uuid>` at the start of each request'
 transaction. Then even a query that forgets `WHERE user_id` cannot see another
 tenant's rows. This is the "real framework" isolation backstop. **[D3]**
 
+#### 3.3a The app role — the prerequisite (**DONE, 6.5b-1**)
+
+The policies above are inert against a superuser, and the app **was** one. Probed
+on the live DB before writing any of them:
+
+```
+healthee  superuser=true  bypassrls=true
+```
+
+A `rolsuper`/`rolbypassrls` role bypasses RLS unconditionally — `FORCE ROW LEVEL
+SECURITY` does not reach it either. Shipping §3.3 onto that connection would have
+produced green tests and **zero isolation**. So the role split lands first:
+
+- **Two credential sets.** `POSTGRES_USER`/`POSTGRES_PASSWORD` keep their existing
+  meaning — the owner/admin (migrations, `claim_sentinel`, `provision_app_role`,
+  the test reset), reached only via `core.db.admin_connection()`. The new
+  `POSTGRES_APP_USER`/`POSTGRES_APP_PASSWORD` are what the request/job pool
+  (`core.db.get_pool`) connects as.
+- **Fallback.** App creds unset ⇒ the pool uses the admin creds, i.e. today's
+  behaviour — so the code is safe to merge and deploy before the role exists. It is
+  not silent: the pool queries `pg_roles` at open and logs a prominent WARNING
+  naming the role and stating that RLS cannot apply to it.
+- **The role** (`python -m healthee.db.provision_app_role`, run as the admin,
+  idempotent, password from the env only): `LOGIN NOSUPERUSER NOBYPASSRLS
+  NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION`, `SELECT/INSERT/UPDATE/DELETE`
+  on the 16 tenant tables + `app_user` + `device_token`, `USAGE, SELECT` on the
+  three BIGSERIAL sequences, plus `ALTER DEFAULT PRIVILEGES` so a table added by a
+  future migration is granted automatically. **No TRUNCATE, no DDL, no ownership.**
+- **Consequence for 6.5b-2:** because the app role is a non-superuser that does
+  **not own** the tables, plain `ENABLE ROW LEVEL SECURITY` suffices — `FORCE` is
+  only needed when the *connecting* role owns them.
+
+Proved by connecting as the role, not by inspection: `tests/db/test_app_role.py`
+provisions it, writes + reads the `sample` hypertable (the row lands in a
+`_timescaledb_internal` chunk, whose privileges are inherited from the parent — so
+it is proved, not assumed), draws from the sequences, renders `/api/today`, and
+asserts it **cannot** TRUNCATE / DROP / ALTER and that `rolsuper` and
+`rolbypassrls` are false in `pg_roles`.
+
+##### Deploy order (⚠ a PROD CREDENTIAL CHANGE — the wrong order is an outage)
+
+1. **Deploy the code.** The fallback keeps the running app alive.
+2. **Provision the role as the admin**, password in the environment:
+   `POSTGRES_APP_USER=healthee_app POSTGRES_APP_PASSWORD='<secret>' docker compose
+   --env-file infra/.env -f infra/docker/docker-compose.prod.yml exec api python -m
+   healthee.db.provision_app_role`
+3. **Set both vars** in `infra/.env`, then restart api + scheduler (`infra/deploy.sh`).
+4. **Confirm** the startup log says `connected as least-privilege role`.
+
+Setting the vars before step 2 means the app cannot authenticate at all. Full
+details in `infra/.env.example`.
+
 ---
 
 ## 4. Identity & auth — **Supabase Auth** (managed)
@@ -679,10 +731,27 @@ closed by signature verification.
   no session table) vs server-side sessions (revocable, needs a table)?
   *Recommend:* JWT access + refresh-rotation, a small `session` table only if you
   want instant revoke.
-- **[D3] RLS now or later:** enable Postgres Row-Level Security in 6.5 as the
-  isolation backstop (recommended — it's the "real framework" guarantee), or rely
-  on app-layer filtering only? *Recommend:* do it; it's cheap insurance for
-  health data.
+- **[D3] RLS now or later — TAKEN: do it, in two steps (§3.3/§3.3a).** Enable RLS
+  as the isolation backstop, but a probe before writing any policy found the
+  premise was false: **the app connected to Postgres as a SUPERUSER**
+  (`healthee: rolsuper=true, bypassrls=true`). With `ENABLE` + `FORCE ROW LEVEL
+  SECURITY` and a policy in place, an owner-scoped query still returned **every**
+  row, and an **unset** `healthee.user_id` returned every row instead of failing
+  closed — superusers bypass RLS entirely, and `FORCE` does not touch them. So
+  shipping §3.3 as written would have been **security theatre**: green tests, zero
+  protection, and a documented guarantee that did not exist. The work splits:
+  - **6.5b-1 (DONE)** — the prerequisite: make the app connect as a non-superuser,
+    non-owner role (§3.3a). Correct on its own merits regardless of RLS: an app
+    that can `DROP TABLE` is a problem by itself.
+  - **6.5b-2 (next)** — the policies + `SET LOCAL healthee.user_id` per
+    transaction, on top of a role that can actually be constrained by them. Plain
+    `ENABLE` is enough (the app role does not own the tables).
+
+  **The durable lesson:** an isolation mechanism must be verified by *defeating*
+  it — asserting that a wrong/unset tenant sees **nothing**. A test that only
+  checks "the right tenant sees their rows" passes identically against no
+  isolation at all. The app-role attributes are asserted from `pg_roles` in
+  `tests/db/test_app_role.py` for exactly this reason.
 - **[D4] Billing provider (premium gating, §12):** **Stripe** vs **Polar**
   (Merchant-of-Record — handles global tax for you) vs **donations**
   (Stripe one-time / Polar pay-what-you-want) — or a mix. *Recommend:* Polar if
