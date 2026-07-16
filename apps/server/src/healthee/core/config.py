@@ -60,10 +60,21 @@ class Settings(BaseSettings):
     supabase_project_ref: str = ""
     # Expected `aud` claim on a Supabase access token (default for its auth server).
     supabase_jwt_aud: str = "authenticated"
-    # Invite-only by default: signup gating is enforced at Supabase (§4). The
-    # backend simply provisions any validly-authenticated user; this flag is a
-    # forward hook for self-serve onboarding.
+    # ── Signup gating (MULTI_USER.md §4, §13 [D1]) ────────────────────────
+    # Invite-gated by config now, self-serve flippable later. The SERVER is the
+    # trust boundary (§12.7), so this is enforced here — in `supabase_auth.
+    # _provision_user` — and not merely as a Supabase dashboard toggle. It gates
+    # the creation of a NEW `app_user` row only; an owner who already has a row is
+    # always let through (gating accounts, not access).
+    #   signups_open=True                  ⇒ anyone Supabase authenticates.
+    #   signups_open=False + allowlist     ⇒ only those verified emails.
+    #   signups_open=False + no allowlist  ⇒ nobody new (the default).
     signups_open: bool = False
+    # Comma-separated invite allowlist, e.g. "a@b.com, c@d.com". A plain str (not
+    # list[str]) because pydantic-settings parses complex types as JSON, and an
+    # operator setting one env var should not have to write a JSON array. Read it
+    # via `signup_allowlist_emails`, never raw.
+    signup_allowlist: str = ""
 
     # ── OpenRouter (optional — grounded LLM insights, wired in a later WP) ─
     openrouter_api_key: str = ""
@@ -87,6 +98,19 @@ class Settings(BaseSettings):
         if not value:
             raise ValueError("POSTGRES_PASSWORD must be set")
         return value
+
+    @property
+    def signup_allowlist_emails(self) -> frozenset[str]:
+        """The invite allowlist as lowercased emails — the ONE parse of that var.
+
+        Lowercased (not casefolded) to match `app_user.email`'s CITEXT semantics,
+        which compare via `lower()`: an allowlist entry and the mirrored row must
+        agree about what "the same email" means. Blank entries are dropped, so a
+        trailing comma or an empty var can never allow anyone.
+        """
+        return frozenset(
+            entry.strip().lower() for entry in self.signup_allowlist.split(",") if entry.strip()
+        )
 
     @property
     def db_url(self) -> str:

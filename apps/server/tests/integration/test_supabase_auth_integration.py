@@ -52,6 +52,10 @@ def supabase_secret(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("SUPABASE_JWT_SECRET", _SECRET)
     monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
     monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
+    # These tests are about what happens AFTER an account exists (provisioning,
+    # device tokens, /api/me). Signups are open so the gate isn't the thing under
+    # test here — the gate itself is owned by `tests/test_signup_gate.py`.
+    monkeypatch.setenv("SIGNUPS_OPEN", "true")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

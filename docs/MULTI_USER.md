@@ -240,6 +240,60 @@ holder forge a permanent per-user token that outlives the transition.
 login, or at **6.5**, whichever is first. A shared token that maps to a real tenant
 MUST NOT survive into public signups (§12.7 — the server is the trust boundary).
 
+### 4.4b The signup gate — server-enforced invite-only (**resolves [D1]**)
+
+`current_user` → `_provision_user` JIT-provisions an `app_user` row on first sight.
+**That provisioning is gated in `core/supabase_auth.py`** — not at Supabase. The
+config flag `signups_open` previously claimed this protection and enforced nothing;
+`_provision_user`'s docstring asserted invite-gating "is enforced at Supabase", which
+is a *dashboard toggle, not a control this server owns* (§12.7: the server is the
+trust boundary, every client is adversarial).
+
+**What it protects is cost, not isolation.** A stranger's tenant is empty and stays
+isolated. But since 6.4c the scheduler runs a nightly LLM `run_chain` for **every
+active owner**, so uncontrolled signup is uncontrolled LLM spend — and `PRICING.md`
+§6 calls free-tier cost control existential.
+
+| Presented | Outcome |
+|---|---|
+| verified JWT, **existing** `app_user` row | **always 200** — gating creates accounts, it never gates access |
+| verified JWT, new owner, `signups_open=true` | provisioned, 200 |
+| verified JWT, new owner, email on `signup_allowlist` | provisioned, 200 |
+| verified JWT, new owner, neither (incl. no `email` claim) | **403**, and **no row is written** |
+| the legacy shared token | the sentinel — whose row `0003` already seeds, so the gate cannot touch it |
+
+- **`signup_allowlist`** is a comma-separated, case-insensitive list (pydantic-settings,
+  `core/config.py`). Matching is lowercased to mirror `app_user.email`'s **CITEXT**
+  semantics. Empty allowlist + closed signups = nobody new (the default posture).
+- The **email comes from the verified JWT claim** — trustworthy *because* the signature
+  was checked first (Supabase populates it from the authenticated identity). A token
+  with no email is refused while signups are closed: it cannot be on a list it has no
+  name for.
+- **403, not 401.** They authenticated fine; they simply may not create an account. A
+  401 would mean "your credentials failed" and invite a retry of a login that already
+  succeeded. The body is clear and secret-free; the refusal is logged with the email +
+  UUID (an operator needs to see blocked attempts), never the token.
+- Refusal happens **before any write** — a refused signup leaves no `app_user` row.
+
+**Bootstrap procedure — the owner's first sign-in → claim.** This is the deadlock the
+allowlist exists to resolve: `db/claim_sentinel.py` refuses a target who has never
+signed in (it needs their `app_user` row), but with signups closed they could never
+*get* a row. So:
+
+1. put the owner's email in `SIGNUP_ALLOWLIST` (infra `.env`) and restart the API;
+2. have them sign in once with Supabase — the gate lets them through and JIT-provisions
+   their row under their real UUID;
+3. `uv run python -m healthee.db.claim_sentinel <their-uuid>` (dry run — confirm the
+   printed email is the right human), then re-run with `--apply` (§8);
+4. optionally clear the allowlist again. They keep working: they now have a row, and an
+   existing owner is never gated.
+
+**Public signup must NOT be opened before the Phase-2 app ships Supabase login.** The
+legacy shared-token branch (§4.4a) cannot die until then, and a shared secret that
+resolves to a real tenant must never coexist with public signups (§12.7) — anyone
+holding it would read and write that tenant's health data. `signups_open=true` is
+therefore gated on that removal, not merely on this flag existing.
+
 ### 4.5 Deletion / GDPR
 A Supabase **auth delete webhook** → purge that UUID's health data (cascade via
 the `app_user` FK). Data export is already free (own-your-data).

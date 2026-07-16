@@ -90,6 +90,10 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
     monkeypatch.setenv("REALTIME_INGEST_TOKEN", _LEGACY_TOKEN)
     monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
+    # Isolation is what this file proves, not the signup gate (`tests/test_signup_gate.py`):
+    # `test_a_brand_new_user_sees_no_one_elses_data` needs a brand-new owner to actually
+    # get provisioned, so signups are open for its fixture.
+    monkeypatch.setenv("SIGNUPS_OPEN", "true")
     get_settings.cache_clear()
     db_module.close_pool()
     if not _db_reachable():

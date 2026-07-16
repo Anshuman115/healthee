@@ -58,6 +58,9 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setenv("SUPABASE_JWT_SECRET", _SECRET)
     monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
     monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
+    # This file asks *who* a token resolves to, not *whether* a stranger may sign up
+    # (that is `tests/test_signup_gate.py`), so signups are open for its fixtures.
+    monkeypatch.setenv("SIGNUPS_OPEN", "true")
     get_settings.cache_clear()
     db_module.close_pool()
     if not _db_reachable():
