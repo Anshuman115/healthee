@@ -6,28 +6,24 @@ transaction and call the read service (writes go to ``manual_entry`` / ``weight_
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from healthee.core.auth import require_token
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.request_auth import CurrentUser
 from healthee.read.logs import LogRequest, log_recent, record_log
 
-router = APIRouter(tags=["logs"], dependencies=[Depends(require_token)])
+router = APIRouter(tags=["logs"])
 
 
 @router.post("/api/log")
-def post_log(req: LogRequest) -> dict:
-    """Record a manual log (caffeine/alcohol/meditation/exercise/weight/fasting…).
-
-    TODO(6.4): write under the authenticated `RequestUser.id`, not the sentinel.
-    """
+def post_log(user: CurrentUser, req: LogRequest) -> dict:
+    """Record a manual log (caffeine/alcohol/meditation/exercise/weight/fasting…)."""
     with transaction() as cur:
-        return record_log(cur, SENTINEL_USER_ID, req)
+        return record_log(cur, user.id, req)
 
 
 @router.get("/api/log/recent")
-def get_log_recent(days: int = 7) -> dict:
+def get_log_recent(user: CurrentUser, days: int = 7) -> dict:
     """Recent manual logs + current fasting status."""
     with transaction() as cur:
-        return log_recent(cur, SENTINEL_USER_ID, days)
+        return log_recent(cur, user.id, days)

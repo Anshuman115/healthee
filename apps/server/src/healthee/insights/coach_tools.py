@@ -16,12 +16,12 @@ from __future__ import annotations
 import json
 from datetime import date, timedelta
 from typing import Any
+from uuid import UUID
 
 from healthee.analytics.metrics import EVENT_KINDS
 from healthee.analytics.series import daily_series, event_days
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights import manifest
 from healthee.insights.retrieval import rank_notes
 from healthee.read.logs import LogRequest, record_log
@@ -136,22 +136,31 @@ COACH_TOOLS: list[dict] = [
 ]
 
 
-def execute_tool(name: str, args: dict[str, Any]) -> dict:
-    """Dispatch one tool call to its implementation; unknown names fail honestly."""
+def execute_tool(name: str, args: dict[str, Any], user_id: UUID, tz: str) -> dict:
+    """Dispatch one tool call to its implementation, acting ONLY on ``user_id``'s data.
+
+    Unknown names fail honestly. The owner is threaded in from the authenticated
+    request (6.4b) — no tool can reach a different tenant's rows.
+    """
     if name == "query_metric":
-        return query_metric(str(args.get("metric", "")), args.get("days", 30), args.get("stat"))
+        return query_metric(
+            user_id, str(args.get("metric", "")), args.get("days", 30), args.get("stat")
+        )
     if name == "compare_event":
         return compare_event(
-            str(args.get("event", "")), str(args.get("metric", "")), args.get("days", 60)
+            user_id,
+            tz,
+            str(args.get("event", "")),
+            str(args.get("metric", "")),
+            args.get("days", 60),
         )
     if name == "sleep_consistency":
-        # 6.4: source the owner + tz from the authenticated user.
         with transaction() as cur:
-            return _sleep_consistency(
-                cur, SENTINEL_USER_ID, SENTINEL_TZ, int(args.get("days", 28) or 28)
-            )
+            return _sleep_consistency(cur, user_id, tz, int(args.get("days", 28) or 28))
     if name == "log_entry":
-        return log_entry(str(args.get("type", "")), args.get("amount"), args.get("minutes"))
+        return log_entry(
+            user_id, str(args.get("type", "")), args.get("amount"), args.get("minutes")
+        )
     if name == "get_knowledge":
         return get_knowledge(args.get("topic"), args.get("note_id"))
     log.warning("coach requested unknown tool %s", name)
@@ -165,13 +174,13 @@ def _clamp(value: Any, lo: int, hi: int, default: int) -> int:
         return default
 
 
-def query_metric(metric: str, days: Any = 30, stat: str | None = None) -> dict:
+def query_metric(user_id: UUID, metric: str, days: Any = 30, stat: str | None = None) -> dict:
     """Aggregate/series/latest/trend for one metric from ``derived_daily`` (v2-native)."""
     days = _clamp(days, 1, 365, 30)
     stat = stat or "avg"
     cutoff = date.today() - timedelta(days=days)
     with transaction() as cur:
-        series = daily_series(cur, SENTINEL_USER_ID, metric)
+        series = daily_series(cur, user_id, metric)
     windowed = {d: v for d, v in series.items() if d >= cutoff}
     if not windowed:
         return {"metric": metric, "days": days, "note": "no data for this metric/range"}
@@ -206,14 +215,14 @@ def _stat_value(stat: str, windowed: dict[date, float], ordered: list[float]) ->
     return {"avg": round(sum(ordered) / len(ordered), 2)}
 
 
-def compare_event(event: str, metric: str, days: Any = 60) -> dict:
+def compare_event(user_id: UUID, tz: str, event: str, metric: str, days: Any = 60) -> dict:
     """On-days vs off-days for a logged intervention — observational, single-subject."""
     days = _clamp(days, 7, 365, 60)
     cutoff = date.today() - timedelta(days=days)
     ev = event.lower().strip()
     with transaction() as cur:
-        on_days = _event_dates(cur, ev)
-        series = daily_series(cur, SENTINEL_USER_ID, metric)
+        on_days = _event_dates(cur, user_id, tz, ev)
+        series = daily_series(cur, user_id, metric)
     daily = {d: v for d, v in series.items() if d >= cutoff}
     if not daily:
         return {"event": event, "metric": metric, "note": f"no data for metric {metric}"}
@@ -230,15 +239,15 @@ def compare_event(event: str, metric: str, days: Any = 60) -> dict:
     return _event_deltas(event, metric, on, off)
 
 
-def _event_dates(cur: Any, ev: str) -> set[date]:
+def _event_dates(cur: Any, user_id: UUID, tz: str, ev: str) -> set[date]:
     """Local dates the event occurred: a known EVENT_KIND, else any manual_entry kind/habit."""
     spec = EVENT_KINDS.get(ev)
     if spec:
-        return event_days(cur, SENTINEL_USER_ID, SENTINEL_TZ, spec[1])
+        return event_days(cur, user_id, tz, spec[1])
     cur.execute(
         "SELECT DISTINCT (ts AT TIME ZONE %s)::date FROM manual_entry "
         "WHERE user_id = %s AND (kind=%s OR (kind='habit' AND name ILIKE %s))",
-        (SENTINEL_TZ, SENTINEL_USER_ID, ev, f"%{ev}%"),
+        (tz, user_id, ev, f"%{ev}%"),
     )
     return {r[0] for r in cur.fetchall()}
 
@@ -259,7 +268,7 @@ def _event_deltas(event: str, metric: str, on: list[float], off: list[float]) ->
     }
 
 
-def log_entry(entry_type: str, amount: Any = None, minutes: Any = None) -> dict:
+def log_entry(user_id: UUID, entry_type: str, amount: Any = None, minutes: Any = None) -> dict:
     """Write one manual log (v2-native) via the shared read service. An ACTION tool."""
     req = LogRequest(
         type=entry_type,
@@ -267,7 +276,7 @@ def log_entry(entry_type: str, amount: Any = None, minutes: Any = None) -> dict:
         minutes=int(minutes) if minutes is not None else None,
     )
     with transaction() as cur:
-        return record_log(cur, SENTINEL_USER_ID, req)
+        return record_log(cur, user_id, req)
 
 
 def get_knowledge(topic: str | None, note_id: str | None) -> dict:

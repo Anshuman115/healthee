@@ -19,6 +19,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from typing import Any
+from uuid import UUID
 
 from healthee.core.logging import get_logger
 from healthee.insights import coach_tools, prompts
@@ -59,14 +60,18 @@ class CoachResult:
 
 def run_coach(
     messages: list[dict],
+    user_id: UUID,
+    tz: str,
     *,
     client: LLMClient | None = None,
     context_days: int = DEFAULT_COACH_DAYS,
 ) -> CoachResult:
-    """Answer the conversation grounded in the person's data + the graded corpus.
+    """Answer the conversation grounded in ``user_id``'s data + the graded corpus.
 
     Refusals short-circuit before any tool call; the final answer is always
     validated (or the honest fallback ships). ``client`` is injectable for tests.
+    Every tool the loop runs acts on ``user_id`` only — the coach can neither read
+    nor write another owner's data.
     """
     history = _recent(messages)
     question = _last_user(history)
@@ -77,11 +82,11 @@ def run_coach(
         log.info("coach refused pre-LLM: domain=%s", refusal.name)
         return CoachResult(reply=refusal.template, refused=True)
     client = client or get_client()
-    convo = _initial_messages(history, question, context_days)
-    return _loop(client, convo)
+    convo = _initial_messages(history, question, user_id, tz, context_days)
+    return _loop(client, convo, user_id, tz)
 
 
-def _loop(client: LLMClient, convo: list[dict]) -> CoachResult:
+def _loop(client: LLMClient, convo: list[dict], user_id: UUID, tz: str) -> CoachResult:
     """The bounded tool loop; every text candidate passes through ``_accept``."""
     acted_ok: set[str] = set()
     invocations: list[dict] = []
@@ -89,7 +94,7 @@ def _loop(client: LLMClient, convo: list[dict]) -> CoachResult:
     for _round in range(_MAX_ROUNDS):
         response = client.complete(convo, tools=coach_tools.COACH_TOOLS, model=coach_model())
         if response.tool_calls:
-            _run_tools(response, convo, invocations, acted_ok)
+            _run_tools(response, convo, invocations, acted_ok, user_id, tz)
             continue
         ok, issues, validation = _accept(response.text, acted_ok)
         if ok:
@@ -105,14 +110,19 @@ def _loop(client: LLMClient, convo: list[dict]) -> CoachResult:
 
 
 def _run_tools(
-    response: Any, convo: list[dict], invocations: list[dict], acted_ok: set[str]
+    response: Any,
+    convo: list[dict],
+    invocations: list[dict],
+    acted_ok: set[str],
+    user_id: UUID,
+    tz: str,
 ) -> None:
     """Execute each requested tool, append its result, and record ok action tools."""
     convo.append(_assistant_tool_message(response))
     for call in response.tool_calls:
         name = call.function.name
         args = _parse_args(call.function.arguments)
-        result = coach_tools.execute_tool(name, args)
+        result = coach_tools.execute_tool(name, args, user_id, tz)
         if name in coach_tools.ACTION_TOOLS and result.get("ok"):
             acted_ok.add(name)
         invocations.append({"tool": name, "args": args, "result": result})
@@ -144,9 +154,11 @@ def _finalize(text: str, validation: ValidationResult, invocations: list[dict]) 
     )
 
 
-def _initial_messages(history: list[dict], question: str, context_days: int) -> list[dict]:
+def _initial_messages(
+    history: list[dict], question: str, user_id: UUID, tz: str, context_days: int
+) -> list[dict]:
     """System (coach prompt + context + evidence) followed by the conversation."""
-    context = build_coach_context(question, days=context_days)
+    context = build_coach_context(question, user_id, tz, days=context_days)
     evidence = coach_evidence(question)
     system = f"{COACH_SYSTEM_PROMPT}\n\n# THE USER'S DATA (CONTEXT)\n\n{context}\n\n{evidence}"
     return [{"role": "system", "content": system}, *history]

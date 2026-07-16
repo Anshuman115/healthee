@@ -7,26 +7,21 @@ call → typed response. No SQL and no business logic here; all of that is in
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from healthee.core.auth import require_token
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.request_auth import IngestUser
 from healthee.ingest import HelioPayload, IngestSummary, ingest_helio
 
 router = APIRouter(tags=["ingest"])
 
 
-@router.post(
-    "/ingest/helio",
-    response_model=IngestSummary,
-    dependencies=[Depends(require_token)],
-)
-def post_helio(payload: HelioPayload) -> IngestSummary:
+@router.post("/ingest/helio", response_model=IngestSummary)
+def post_helio(user: IngestUser, payload: HelioPayload) -> IngestSummary:
     """Ingest a full push from the mobile app (samples + sleep + workouts +
     daily totals + profile) and return the applied counts.
 
-    TODO(6.4): attribute the push to the device token's owner
-    (`resolve_device_token` → user UUID) instead of the sentinel; the shared-token
-    `require_token` dep carries no identity (MULTI_USER.md §7).
+    The push is attributed to the device token's owner (MULTI_USER.md §7) — every
+    row it writes, raw through derived, is written under ``user.id`` in ``user``'s
+    local day.
     """
-    return ingest_helio(payload, SENTINEL_USER_ID, SENTINEL_TZ)
+    return ingest_helio(payload, user.id, user.timezone)

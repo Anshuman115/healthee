@@ -7,26 +7,24 @@ brittle than the golden snapshot it duplicates)."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from healthee.core.auth import require_token
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.request_auth import CurrentUser
 from healthee.insights import coaching
 from healthee.read.today import today_snapshot
 
-router = APIRouter(tags=["today"], dependencies=[Depends(require_token)])
+router = APIRouter(tags=["today"])
 
 
 @router.get("/api/today")
-def get_today() -> dict:
+def get_today(user: CurrentUser) -> dict:
     """Aggregated snapshot for the Today page + the grounded daily action line.
 
     The ``action`` is the WP5 coaching one-liner: read-only from the per-day cache
     (``None`` until the scheduler warms it), so this read path never calls the LLM.
     """
-    # 6.4: source the owner + tz from the authenticated user.
     with transaction() as cur:
-        payload = today_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
-    payload["action"] = coaching.cached_line(coaching.DAILY_ACTION_KEY)
+        payload = today_snapshot(cur, user.id, user.timezone)
+    payload["action"] = coaching.cached_line(user.id, user.timezone, coaching.DAILY_ACTION_KEY)
     return payload

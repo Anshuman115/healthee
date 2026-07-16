@@ -8,9 +8,9 @@ pins the algorithm to HS256 so an `alg=none` (or asymmetric-confusion) token is
 rejected outright. `current_user` turns a verified token into a `RequestUser`,
 JIT-provisioning the local `app_user` mirror on first sight.
 
-This module is ADDITIVE — the existing shared-token `core.auth.require_token` still
-guards every current endpoint. Nothing here is wired to the old routers; it backs
-only the two new `/api/me` and `/api/device` endpoints until the 6.4 flip.
+Phase 6.4b wired this to every `/api/*` router through `core.request_auth`, which
+layers the transitional legacy-shared-token branch on top of `current_user`. The
+primitives here stay Supabase-only: this module never knows about the shared token.
 
 Security note: never log the raw JWT, the signing secret, or a raw device token —
 only the *type* of a verification failure is logged.
@@ -49,7 +49,7 @@ class RequestUser:
     timezone: str
 
 
-def _unauthorized(detail: str) -> HTTPException:
+def unauthorized(detail: str) -> HTTPException:
     """A 401 with a clear, secret-free body."""
     return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
@@ -72,7 +72,7 @@ def verify_supabase_jwt(token: str) -> dict[str, Any]:
     settings = get_settings()
     secret = settings.supabase_jwt_secret
     if not secret:  # misconfiguration fails closed, never open
-        raise _unauthorized("Supabase auth is not configured")
+        raise unauthorized("Supabase auth is not configured")
     try:
         return jwt.decode(
             token,
@@ -85,13 +85,13 @@ def verify_supabase_jwt(token: str) -> dict[str, Any]:
     except jwt.InvalidTokenError as exc:
         # Log the failure TYPE only — never the token or secret.
         log.warning("supabase jwt rejected: %s", type(exc).__name__)
-        raise _unauthorized("Invalid or expired token") from exc
+        raise unauthorized("Invalid or expired token") from exc
 
 
-def _bearer_token(authorization: str | None) -> str:
+def bearer_token(authorization: str | None) -> str:
     """Extract the raw Bearer token from the Authorization header, or 401."""
     if not authorization or not authorization.startswith(_BEARER_PREFIX):
-        raise _unauthorized("Missing or malformed Bearer token")
+        raise unauthorized("Missing or malformed Bearer token")
     return authorization[len(_BEARER_PREFIX) :].strip()
 
 
@@ -100,7 +100,7 @@ def _claim_uuid(claims: dict[str, Any]) -> UUID:
     try:
         return UUID(str(claims["sub"]))
     except (KeyError, ValueError, TypeError) as exc:
-        raise _unauthorized("Token subject is not a valid user id") from exc
+        raise unauthorized("Token subject is not a valid user id") from exc
 
 
 def _provision_user(user_id: UUID, email: str | None) -> RequestUser:
@@ -123,7 +123,7 @@ def _provision_user(user_id: UUID, email: str | None) -> RequestUser:
 
 def current_user(authorization: str | None = Header(default=None)) -> RequestUser:
     """FastAPI dependency: verify the Supabase JWT → JIT-provision → RequestUser."""
-    claims = verify_supabase_jwt(_bearer_token(authorization))
+    claims = verify_supabase_jwt(bearer_token(authorization))
     user_id = _claim_uuid(claims)
     email = claims.get("email")
     return _provision_user(user_id, email if isinstance(email, str) else None)

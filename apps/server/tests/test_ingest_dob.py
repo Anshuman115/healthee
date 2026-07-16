@@ -18,7 +18,9 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from healthee.api.app import create_app
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.request_auth import ingest_user
+from healthee.core.supabase_auth import RequestUser
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.derive._common import _age
 from healthee.ingest.models import DOB_MIN_DATE, ProfileIn, dob_ms_to_date
 from healthee.ingest.upsert import _MS_THRESHOLD, epoch_to_utc, upsert_profile
@@ -116,13 +118,19 @@ def test_profile_in_rejects_implausible_dob_at_the_boundary() -> None:
 
 
 def test_bad_dob_is_a_4xx_not_a_500(env: None) -> None:  # noqa: ARG001 — sets token
-    client = TestClient(create_app())
-    resp = client.post(
+    # The auth dependency is overridden with an already-resolved owner: since 6.4b it
+    # reads the owner's timezone from `app_user`, and this test is about the BODY
+    # contract (422, never a 500), not about identity — the override keeps it DB-free.
+    app = create_app()
+    app.dependency_overrides[ingest_user] = lambda: RequestUser(
+        id=SENTINEL_USER_ID, timezone=SENTINEL_TZ
+    )
+    resp = TestClient(app).post(
         "/ingest/helio",
         json={"profile": {"dob": _DOB_YEAR_22298_MS}},
         headers={"Authorization": "Bearer unit-test-token"},
     )
-    assert resp.status_code == 422  # client error, and no DB work was reached
+    assert resp.status_code == 422  # client error, and no ingest work was reached
 
 
 def test_implausible_dob_writes_nothing() -> None:

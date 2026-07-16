@@ -18,6 +18,7 @@ from tests.insights._stub import VALID_TEXT, StubLLM
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.insights import coaching, grounded
 
@@ -55,7 +56,9 @@ def test_today_action_is_none_when_cold_then_filled_after_warming(db: None, stub
     api = TestClient(create_app())
     assert api.get("/api/today", headers=_AUTH).json()["action"] is None  # cold: no LLM
     assert stub.calls == 0
-    warmed = coaching.warm_daily_action()  # off the read path, through the choke point
+    warmed = coaching.warm_daily_action(
+        SENTINEL_USER_ID, SENTINEL_TZ
+    )  # off the read path, through the choke point
     assert warmed["text"] == VALID_TEXT
     assert api.get("/api/today", headers=_AUTH).json()["action"] == VALID_TEXT
     assert stub.calls == 1  # generated once; the read served it from cache
@@ -66,6 +69,6 @@ def test_sleep_tonight_line_fills_after_warming(db: None, stub: StubLLM) -> None
     api = TestClient(create_app())
     consistency = api.get("/api/sleep/consistency", headers=_AUTH)
     assert consistency.json()["tonight"] is None
-    coaching.warm_sleep_tonight()
+    coaching.warm_sleep_tonight(SENTINEL_USER_ID, SENTINEL_TZ)
     again = api.get("/api/sleep/consistency", headers=_AUTH)
     assert again.json()["tonight"] == VALID_TEXT

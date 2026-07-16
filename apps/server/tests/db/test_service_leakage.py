@@ -15,11 +15,11 @@ Coverage: today · sleep · activity · fitness · logs · gps · workout · his
 findings · recovery · profile, plus the job/chain path (recs context + the per-owner
 dedup marker).
 
-NOT here — HTTP-level leakage (authenticate as A, request B's ids → 404/empty): the
-routers still share one `require_token` and hardwire the sentinel, so there is no
-second identity to authenticate as yet. That lands with the auth flip in 6.4
-(MULTI_USER.md §11); until then the service layer IS the tenant boundary and is where
-the guarantee can be proven.
+HTTP-level leakage (authenticate as A, request B's ids → 404/empty) landed with the
+6.4b auth flip and lives in `tests/db/test_http_isolation.py`. This file stays: the
+service layer is the tenant boundary the routers merely pass an owner to, and it is
+where a leak in a surface with no endpoint of its own (the job/chain path below) can
+be caught at all.
 
 Auto-skips without a reachable TimescaleDB (same policy as the other integration
 tests).

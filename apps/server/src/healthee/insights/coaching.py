@@ -15,8 +15,8 @@ cold ``/api/today`` never triggers an LLM call.
 from __future__ import annotations
 
 import time
+from uuid import UUID
 
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
 
@@ -36,17 +36,23 @@ _SLEEP_TONIGHT_PROMPT = (
 )
 
 
-def cached_line(key: str) -> str | None:
-    """The cached coaching text for ``key`` if warmed today, else None (never generates)."""
-    cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, key)
+def cached_line(user_id: UUID, tz: str, key: str) -> str | None:
+    """``user_id``'s cached coaching text for ``key`` if warmed today, else None.
+
+    Never generates — the read endpoints call this, and LLM generation must never
+    block a read path (standards §Performance).
+    """
+    cached = get_cached(user_id, tz, key)
     if cached is None:
         return None
     return cached.get("text")
 
 
-def warm_daily_action(*, refresh: bool = False) -> dict:
-    """Generate + cache today's daily-action line (off the read path)."""
+def warm_daily_action(user_id: UUID, tz: str, *, refresh: bool = False) -> dict:
+    """Generate + cache ``user_id``'s daily-action line for today (off the read path)."""
     return _warm(
+        user_id,
+        tz,
         DAILY_ACTION_KEY,
         _DAILY_ACTION_PROMPT,
         metrics=["recovery_score", "mvpa_min", "cardio_load", "sleep_debt_min"],
@@ -55,9 +61,11 @@ def warm_daily_action(*, refresh: bool = False) -> dict:
     )
 
 
-def warm_sleep_tonight(*, refresh: bool = False) -> dict:
-    """Generate + cache tonight's sleep coaching line (off the read path)."""
+def warm_sleep_tonight(user_id: UUID, tz: str, *, refresh: bool = False) -> dict:
+    """Generate + cache ``user_id``'s sleep coaching line for tonight (off the read path)."""
     return _warm(
+        user_id,
+        tz,
         SLEEP_TONIGHT_KEY,
         _SLEEP_TONIGHT_PROMPT,
         metrics=["sleep_regularity_index", "sleep_health_score_4dim", "sleep_debt_min"],
@@ -66,25 +74,31 @@ def warm_sleep_tonight(*, refresh: bool = False) -> dict:
     )
 
 
-def _warm(key: str, prompt: str, *, metrics: list[str], context_days: int, refresh: bool) -> dict:
+def _warm(
+    user_id: UUID,
+    tz: str,
+    key: str,
+    prompt: str,
+    *,
+    metrics: list[str],
+    context_days: int,
+    refresh: bool,
+) -> dict:
     """Cache-or-generate one grounded line through the choke point (validated only cached)."""
     if not refresh:
-        cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, key)
+        cached = get_cached(user_id, tz, key)
         if cached is not None:
             return cached
-    # 6.4: source the owner + tz from the authenticated user.
-    result = grounded_ask(
-        prompt, SENTINEL_USER_ID, SENTINEL_TZ, metrics=metrics, context_days=context_days
-    )
+    result = grounded_ask(prompt, user_id, tz, metrics=metrics, context_days=context_days)
     out = {
         "text": result.text,
         "citations": result.citations,
         "grade_floor": result.grade_floor,
         "refused": result.refused,
         "validated": result.validated,
-        "date": today_iso(SENTINEL_TZ),
+        "date": today_iso(tz),
         "generated_at": int(time.time()),
     }
     if result.validated and not result.refused:
-        set_cached(SENTINEL_USER_ID, key, out)
+        set_cached(user_id, key, out)
     return out

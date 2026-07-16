@@ -5,8 +5,12 @@ access JWT and resolves the tenant, the handler shapes one typed response. No SQ
 and no business logic here — provisioning + token minting live in
 `healthee.core.supabase_auth`.
 
-ADDITIVE: these two endpoints are the only surfaces wired to Supabase identity in
-Phase 6.1. Every existing router keeps its shared-token `require_token` guard.
+These two endpoints stay **Supabase-JWT only** — deliberately NOT the dual-auth
+`core.request_auth.CurrentUser` the rest of `/api/*` uses since 6.4b. Minting a device
+token is minting a long-lived credential, so accepting the transitional shared secret
+here would let anyone holding it forge a permanent per-user ingest token for the
+sentinel — a real escalation beyond what that secret already grants, and one that
+would outlive the shared token's removal.
 """
 
 from __future__ import annotations
@@ -22,8 +26,9 @@ from healthee.core.supabase_auth import RequestUser, current_user, mint_device_t
 router = APIRouter(prefix="/api", tags=["auth"])
 
 # The authenticated tenant, injected by the Supabase-JWT dependency. Annotated
-# form (not a `Depends(...)` default) keeps ruff B008 happy and reads cleanly.
-CurrentUser = Annotated[RequestUser, Depends(current_user)]
+# form (not a `Depends(...)` default) keeps ruff B008 happy and reads cleanly. Named
+# apart from `request_auth.CurrentUser` because it is strictly narrower: JWT only.
+SupabaseUser = Annotated[RequestUser, Depends(current_user)]
 
 
 class MeResponse(BaseModel):
@@ -41,13 +46,13 @@ class DeviceTokenResponse(BaseModel):
 
 
 @router.get("/me", response_model=MeResponse)
-def get_me(user: CurrentUser) -> MeResponse:
+def get_me(user: SupabaseUser) -> MeResponse:
     """Return the authenticated user's id + timezone (JIT-provisioned on first hit)."""
     return MeResponse(id=user.id, timezone=user.timezone)
 
 
 @router.post("/device", response_model=DeviceTokenResponse)
-def post_device(user: CurrentUser) -> DeviceTokenResponse:
+def post_device(user: SupabaseUser) -> DeviceTokenResponse:
     """Mint a long-lived device ingest token for the authenticated user (once)."""
     raw = mint_device_token(user.id, label=None)
     return DeviceTokenResponse(device_token=raw, id=user.id)

@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.insights import coach_tools, manifest
 from healthee.insights.coach_context import build_coach_context
@@ -45,11 +46,11 @@ def _seed_fasting_schedule() -> tuple[list, int]:
 
 def test_query_metric_reads_real_values(db: None) -> None:  # noqa: ARG001
     _seed_fasting_schedule()
-    avg = coach_tools.query_metric("rhr_daily", days=30, stat="avg")
+    avg = coach_tools.query_metric(SENTINEL_USER_ID, "rhr_daily", days=30, stat="avg")
     assert avg["metric"] == "rhr_daily"
     assert 54.0 <= avg["avg"] <= 56.0
     assert avg["n"] == 30
-    latest = coach_tools.query_metric("rhr_daily", days=30, stat="latest")
+    latest = coach_tools.query_metric(SENTINEL_USER_ID, "rhr_daily", days=30, stat="latest")
     assert "latest" in latest and "as_of" in latest
 
 
@@ -57,13 +58,15 @@ def test_query_metric_no_data_is_honest(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
     with transaction() as cur:
         sd.clean(cur)
-    out = coach_tools.query_metric("hrv_sleep_avg", days=7)
+    out = coach_tools.query_metric(SENTINEL_USER_ID, "hrv_sleep_avg", days=7)
     assert out["note"] == "no data for this metric/range"
 
 
 def test_compare_event_on_a_fasting_schedule_returns_deltas(db: None) -> None:  # noqa: ARG001
     _, n_fasting = _seed_fasting_schedule()
-    out = coach_tools.compare_event("fasting", "hrv_sleep_avg", days=60)
+    out = coach_tools.compare_event(
+        SENTINEL_USER_ID, SENTINEL_TZ, "fasting", "hrv_sleep_avg", days=60
+    )
     assert out["event"] == "fasting"
     assert out["on_days_avg"] == 55.0  # HRV on fasting days
     assert out["off_days_avg"] == 45.0  # HRV off fasting days
@@ -74,7 +77,9 @@ def test_compare_event_on_a_fasting_schedule_returns_deltas(db: None) -> None:  
 
 def test_compare_event_unlogged_is_honest(db: None) -> None:  # noqa: ARG001
     _seed_fasting_schedule()
-    out = coach_tools.compare_event("sauna", "hrv_sleep_avg", days=60)
+    out = coach_tools.compare_event(
+        SENTINEL_USER_ID, SENTINEL_TZ, "sauna", "hrv_sleep_avg", days=60
+    )
     assert "no 'sauna' logged yet" in out["note"]
 
 
@@ -85,7 +90,7 @@ def test_sleep_consistency_tool(db: None) -> None:  # noqa: ARG001
         sd.clean(cur)
         for d in nights:
             sd.seed_night(cur, d, rem=90, light=240, deep=90, wake=20)
-    out = coach_tools.execute_tool("sleep_consistency", {"days": 28})
+    out = coach_tools.execute_tool("sleep_consistency", {"days": 28}, SENTINEL_USER_ID, SENTINEL_TZ)
     assert out["nights"] == 10
     assert "median_bedtime" in out and "sri" in out
 
@@ -94,7 +99,7 @@ def test_log_entry_writes_a_manual_row(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
     with transaction() as cur:
         sd.clean(cur)
-    result = coach_tools.log_entry("caffeine", amount=80)
+    result = coach_tools.log_entry(SENTINEL_USER_ID, "caffeine", amount=80)
     assert result == {"ok": True}
     with transaction() as cur:
         cur.execute(
@@ -120,7 +125,9 @@ def test_get_knowledge_by_topic() -> None:
 
 def test_coach_context_carries_the_fasting_history_over_30_days(db: None) -> None:  # noqa: ARG001
     _, n_fasting = _seed_fasting_schedule()
-    context = build_coach_context("how does fasting affect my recovery?", days=30)
+    context = build_coach_context(
+        "how does fasting affect my recovery?", SENTINEL_USER_ID, SENTINEL_TZ, days=30
+    )
     assert "Manual entries" in context  # the intervention log section is present
     fasting_lines = [ln for ln in context.splitlines() if "fasting" in ln.lower()]
     assert len(fasting_lines) >= n_fasting  # the whole schedule, not just the last day

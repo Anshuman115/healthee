@@ -10,9 +10,9 @@ lines are mapped back to the shifts. Cached per day.
 from __future__ import annotations
 
 import time
+from uuid import UUID
 
 from healthee.analytics.anomalies import Anomaly, detect
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
 from healthee.read.meta import METRIC_META
@@ -72,23 +72,19 @@ def _attach_meanings(items: list[dict], text: str) -> None:
                 break
 
 
-def notable(*, refresh: bool = False) -> dict:
-    """Deduped notable shifts across daily metrics, each with a grounded meaning."""
+def notable(user_id: UUID, tz: str, *, refresh: bool = False) -> dict:
+    """``user_id``'s deduped notable shifts, each with a grounded meaning."""
     if not refresh:
-        cached = get_cached(SENTINEL_USER_ID, SENTINEL_TZ, "notable_insight")
+        cached = get_cached(user_id, tz, "notable_insight")
         if cached is not None:
             return cached
-    # 6.4: source the owner + tz from the authenticated user.
-    items = [
-        _shift_item(a)
-        for a in _dedupe(detect(SENTINEL_USER_ID, SENTINEL_TZ, days_back=14, window_days=30))
-    ]
+    items = [_shift_item(a) for a in _dedupe(detect(user_id, tz, days_back=14, window_days=30))]
     validated = True
     if items:
         result = grounded_ask(
             _meaning_task(items),
-            SENTINEL_USER_ID,
-            SENTINEL_TZ,
+            user_id,
+            tz,
             metrics=[it["metric"] for it in items],
             context_days=14,
         )
@@ -96,10 +92,10 @@ def notable(*, refresh: bool = False) -> dict:
         _attach_meanings(items, result.text)
     out = {
         "items": items,
-        "date": today_iso(SENTINEL_TZ),
+        "date": today_iso(tz),
         "generated_at": int(time.time()),
         "validated": validated,
     }
     if validated:
-        set_cached(SENTINEL_USER_ID, "notable_insight", out)
+        set_cached(user_id, "notable_insight", out)
     return out

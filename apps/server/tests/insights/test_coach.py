@@ -11,6 +11,7 @@ import pytest
 from tests.insights._coach_stub import CoachStub, NoCallStub, text_turn, tool_call, tool_turn
 from tests.insights._stub import VALID_TEXT
 
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights import coach, coach_tools, prompts
 
 
@@ -18,7 +19,9 @@ from healthee.insights import coach, coach_tools, prompts
 def _stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
     """Skip the DB-backed context/evidence build — these are control-flow tests."""
     monkeypatch.setattr(
-        coach, "_initial_messages", lambda history, q, days: [{"role": "user", "content": q}]
+        coach,
+        "_initial_messages",
+        lambda history, q, user_id, tz, days: [{"role": "user", "content": q}],
     )
 
 
@@ -26,9 +29,14 @@ def _ask(text: str) -> list[dict]:
     return [{"role": "user", "content": text}]
 
 
+def _run(messages: list[dict], **kwargs) -> coach.CoachResult:
+    """Run the coach as the sentinel owner — these are control-flow tests, not tenancy."""
+    return coach.run_coach(messages, SENTINEL_USER_ID, SENTINEL_TZ, **kwargs)
+
+
 def test_diagnosis_question_is_refused_before_any_tool_call() -> None:
     stub = NoCallStub()
-    result = coach.run_coach(_ask("do I have diabetes?"), client=stub)
+    result = _run(_ask("do I have diabetes?"), client=stub)
     assert result.refused is True
     assert "physician" in result.reply  # the DIAGNOSIS refusal template
     assert stub.calls == 0  # the model (and its tools) never ran
@@ -36,7 +44,7 @@ def test_diagnosis_question_is_refused_before_any_tool_call() -> None:
 
 def test_medication_question_is_refused_pre_llm() -> None:
     stub = NoCallStub()
-    result = coach.run_coach(_ask("should I increase my statin dose?"), client=stub)
+    result = _run(_ask("should I increase my statin dose?"), client=stub)
     assert result.refused is True
     assert stub.calls == 0
 
@@ -44,7 +52,7 @@ def test_medication_question_is_refused_pre_llm() -> None:
 def test_fabricated_citation_is_blocked_then_falls_back() -> None:
     bad = "Your recovery suggests overtraining [not_a_real_note]."
     stub = CoachStub([text_turn(bad), text_turn(bad)])
-    result = coach.run_coach(_ask("how's my recovery?"), client=stub)
+    result = _run(_ask("how's my recovery?"), client=stub)
     assert result.reply == prompts.FALLBACK  # never the unvalidated text
     assert result.validated is False
     assert "not_a_real_note" not in result.reply
@@ -53,7 +61,7 @@ def test_fabricated_citation_is_blocked_then_falls_back() -> None:
 
 def test_retry_after_a_nudge_can_succeed() -> None:
     stub = CoachStub([text_turn("This is great [not_a_real_note]."), text_turn(VALID_TEXT)])
-    result = coach.run_coach(_ask("how am I doing?"), client=stub)
+    result = _run(_ask("how am I doing?"), client=stub)
     assert result.reply == VALID_TEXT
     assert result.validated is True
 
@@ -62,7 +70,7 @@ def test_claiming_an_action_with_no_tool_call_is_caught() -> None:
     """'I logged your coffee' with NO log_entry tool call must not ship as confirmed."""
     lie = "I logged your coffee for you."
     stub = CoachStub([text_turn(lie), text_turn(lie)])
-    result = coach.run_coach(_ask("log a coffee"), client=stub)
+    result = _run(_ask("log a coffee"), client=stub)
     assert result.reply == prompts.FALLBACK  # the fake confirmation is not echoed
     assert "logged your coffee" not in result.reply
     assert result.validated is False
@@ -70,14 +78,14 @@ def test_claiming_an_action_with_no_tool_call_is_caught() -> None:
 
 def test_action_claim_allowed_after_a_successful_tool_call(monkeypatch: pytest.MonkeyPatch) -> None:
     """The same claim IS allowed once log_entry actually ran and returned ok."""
-    monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args: {"ok": True})
+    monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, user_id, tz: {"ok": True})
     stub = CoachStub(
         [
             tool_turn(tool_call("c1", "log_entry", '{"type": "caffeine", "amount": 80}')),
             text_turn("Done — I logged your coffee (80 mg)."),
         ]
     )
-    result = coach.run_coach(_ask("log an 80mg coffee"), client=stub)
+    result = _run(_ask("log an 80mg coffee"), client=stub)
     assert result.reply == "Done — I logged your coffee (80 mg)."
     assert result.validated is True
     assert result.tool_calls[0]["tool"] == "log_entry"
@@ -88,7 +96,7 @@ def test_tool_result_flows_back_and_a_valid_answer_ships(
 ) -> None:
     calls: list = []
 
-    def fake_exec(name: str, args: dict) -> dict:
+    def fake_exec(name: str, args: dict, user_id: object, tz: str) -> dict:
         calls.append((name, args))
         return {"metric": "hrv_sleep_avg", "avg": 42.0, "n": 30}
 
@@ -99,7 +107,7 @@ def test_tool_result_flows_back_and_a_valid_answer_ships(
             text_turn(VALID_TEXT),
         ]
     )
-    result = coach.run_coach(_ask("what's my HRV?"), client=stub)
+    result = _run(_ask("what's my HRV?"), client=stub)
     assert result.reply == VALID_TEXT
     assert calls == [("query_metric", {"metric": "hrv_sleep_avg"})]
     assert result.tool_calls[0]["result"]["avg"] == 42.0
@@ -107,7 +115,7 @@ def test_tool_result_flows_back_and_a_valid_answer_ships(
 
 def test_the_model_is_offered_the_five_live_tools() -> None:
     stub = CoachStub([text_turn(VALID_TEXT)])
-    coach.run_coach(_ask("how am I doing?"), client=stub)
+    _run(_ask("how am I doing?"), client=stub)
     offered = {t["function"]["name"] for t in stub.tools_seen[0]}
     assert offered == {
         "query_metric",
@@ -121,6 +129,6 @@ def test_the_model_is_offered_the_five_live_tools() -> None:
 
 def test_empty_conversation_greets_without_calling_the_model() -> None:
     stub = NoCallStub()
-    result = coach.run_coach([], client=stub)
+    result = _run([], client=stub)
     assert "Ask me anything" in result.reply
     assert stub.calls == 0

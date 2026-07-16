@@ -204,6 +204,39 @@ global `REALTIME_INGEST_TOKEN`.
 3. `SET LOCAL healthee.user_id = <uuid>` on the request transaction (RLS §3.3).
 4. return `RequestUser(id: UUID, timezone)` injected into handlers.
 
+### 4.4a Dual auth — the 6.4b transition (**TEMPORARY**, `core/request_auth.py`)
+
+The mobile app is Phase 2 and has **not** been rebuilt: it still authenticates with
+the single shared `REALTIME_INGEST_TOKEN`. Hard-requiring a Supabase JWT on `/api/*`
+would therefore break the live app on the next prod deploy. So 6.4b ships **dual
+auth** in `core/request_auth.py` (its own module precisely because it is scaffolding
+to be demolished, not part of the permanent `supabase_auth` resource-server code):
+
+| Presented | Resolves to |
+|---|---|
+| Supabase JWT | that real user, JIT-provisioned — `RequestUser(id, timezone)` from `app_user` |
+| the legacy shared token | the **sentinel** owner + the sentinel's `app_user.timezone` |
+| anything else | 401 |
+
+**Ordering rule — a rejected JWT can never become sentinel access.** The legacy
+`hmac.compare_digest` comparison runs FIRST and the Supabase branch is the `return`
+after it, so a malformed/expired/tampered/alg-swapped JWT raises 401 with nothing
+downstream of it to grant anything. Fall-through is structurally unrepresentable
+rather than merely guarded — deliberately not a JWT-first design with a "does this
+look like a JWT?" shape heuristic, which would be a guard to maintain and would
+misroute a shared token that happened to be JWT-shaped. A blank
+`REALTIME_INGEST_TOKEN` authorizes nobody through the legacy branch (fails closed).
+
+**Why this is not an escalation:** the shared token already grants exactly this one
+tenant's data today, so the legacy branch reproduces current behaviour byte-for-byte.
+`/api/me` + `/api/device` are pointedly **excluded** — minting a device token is
+minting a long-lived credential, and accepting the shared secret there would let its
+holder forge a permanent per-user token that outlives the transition.
+
+**Removal condition:** the legacy branch goes when the Phase-2 app ships Supabase
+login, or at **6.5**, whichever is first. A shared token that maps to a real tenant
+MUST NOT survive into public signups (§12.7 — the server is the trust boundary).
+
 ### 4.5 Deletion / GDPR
 A Supabase **auth delete webhook** → purge that UUID's health data (cascade via
 the `app_user` FK). Data export is already free (own-your-data).
@@ -349,7 +382,7 @@ there is no legacy app to convert — just design it in.
 | **6.1 Identity ✅** | `app_user` + `device_token` tables (`0002_identity`) + `core/supabase_auth.py` (VERIFY the Supabase JWT — HS256, pinned algs; JIT-provision `app_user`; mint/resolve hash-only device tokens) + thin `/api/me` + `/api/device`. No local credentials/argon2/login-endpoints (Supabase owns them). Additive — existing shared-token auth untouched, nothing reads `user_id` yet. | login works; existing endpoints unaffected |
 | **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
 | **6.3 Thread scoping ✅** | Shipped in three slices. **6.3a** (`0004`): folded `user_id` into every natural PK/UNIQUE, retargeted every `ON CONFLICT`, made every tenant WRITE set the owner; added `core/tenancy.SENTINEL_USER_ID`. **6.3b**: scoped every tenant READ with `AND user_id = %s`, killed the seven duplicate `Asia/Kolkata` constants for `SENTINEL_TZ` threaded as `tz: str`, and added the AST completeness guard (`tests/db/test_tenant_read_scoping.py` — any new unscoped tenant SQL now fails the build) + read-isolation tests. **6.3c** (`0005`): re-keyed `profile` by `user_id` (dropped `id`/`CHECK (id = 1)`, retargeted `upsert_profile`'s conflict to the owner — it was silently overwriting another owner's demographics), per-user job sweep (`active_users()` → `Tenant`, per-owner local day, isolated failures), and the two-tenant seed + cross-tenant leakage suite (§10). Cache-key namespacing was **dropped as redundant** (see §6). Everything still resolves to the sentinel by default. | every query scoped; single-user behavior identical (contract snapshots byte-identical) |
-| **6.4 Flip identity** | `current_user()` returns the real authenticated user; re-key the sentinel owner to the real Supabase UUID (`UPDATE app_user … `, cascades via `ON UPDATE CASCADE`); ingest device-token attribution; per-user scheduler; per-user timezone live. | second real user works end-to-end, isolated |
+| **6.4 Flip identity** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **`jobs/` still hardwires `SENTINEL_USER_ID`** — per-user fire times are 6.4c. **6.4c**: per-user scheduler fire times; re-key the sentinel owner to the real Supabase UUID (`UPDATE app_user …`, cascades via `ON UPDATE CASCADE`). | second real user works end-to-end, isolated |
 | **6.5 Harden** | Postgres RLS + policies; cross-tenant leakage tests; self-serve signup/onboarding (or invite gating); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the

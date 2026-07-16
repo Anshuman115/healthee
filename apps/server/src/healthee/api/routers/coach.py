@@ -8,13 +8,13 @@ LLM-shaped happens in this router.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from healthee.core.auth import require_token
+from healthee.core.request_auth import CurrentUser
 from healthee.insights.coach import run_coach
 
-router = APIRouter(tags=["coach"], dependencies=[Depends(require_token)])
+router = APIRouter(tags=["coach"])
 
 
 class CoachMessage(BaseModel):
@@ -31,9 +31,9 @@ class CoachRequest(BaseModel):
 
 
 @router.post("/api/coach")
-def post_coach(req: CoachRequest) -> dict:
+def post_coach(user: CurrentUser, req: CoachRequest) -> dict:
     """Answer the conversation as the grounded coach (validated or honest fallback)."""
-    result = run_coach([m.model_dump() for m in req.messages])
+    result = run_coach([m.model_dump() for m in req.messages], user.id, user.timezone)
     return {
         "reply": result.reply,
         "citations": result.citations,

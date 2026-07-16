@@ -7,41 +7,39 @@ WP5 (insights) and are added there, not here.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from healthee.core.auth import require_token
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.request_auth import CurrentUser
 from healthee.insights import coaching
 from healthee.read.sleep_extras import sleep_consistency
 from healthee.read.sleep_page import sleep_health_score, sleep_page
 
-router = APIRouter(tags=["sleep"], dependencies=[Depends(require_token)])
+router = APIRouter(tags=["sleep"])
 
 
 @router.get("/api/sleep")
-def get_sleep(days: int = 30) -> dict:
+def get_sleep(user: CurrentUser, days: int = 30) -> dict:
     """Everything the Sleep page needs (nights + naps + findings + cutoffs)."""
-    # 6.4: source the owner + tz from the authenticated user.
     with transaction() as cur:
-        return sleep_page(cur, SENTINEL_USER_ID, SENTINEL_TZ, days)
+        return sleep_page(cur, user.id, user.timezone, days)
 
 
 @router.get("/api/sleep/health_score")
-def get_sleep_health_score(days: int = 30) -> dict:
+def get_sleep_health_score(user: CurrentUser, days: int = 30) -> dict:
     """Per-night 4-dim sleep-health score + per-dimension raw measurements."""
     with transaction() as cur:
-        return sleep_health_score(cur, SENTINEL_USER_ID, SENTINEL_TZ, days)
+        return sleep_health_score(cur, user.id, user.timezone, days)
 
 
 @router.get("/api/sleep/consistency")
-def get_sleep_consistency(days: int = 28) -> dict:
+def get_sleep_consistency(user: CurrentUser, days: int = 28) -> dict:
     """Bedtime/wake regularity numbers + surfaced odd nights.
 
     The ``tonight`` field is the WP5 grounded coaching one-liner: read-only from the
     per-day cache (``None`` until warmed), so this read path never calls the LLM.
     """
     with transaction() as cur:
-        payload = sleep_consistency(cur, SENTINEL_USER_ID, SENTINEL_TZ, days)
-    payload["tonight"] = coaching.cached_line(coaching.SLEEP_TONIGHT_KEY)
+        payload = sleep_consistency(cur, user.id, user.timezone, days)
+    payload["tonight"] = coaching.cached_line(user.id, user.timezone, coaching.SLEEP_TONIGHT_KEY)
     return payload

@@ -15,7 +15,6 @@ from __future__ import annotations
 from uuid import UUID
 
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.context import build_context
 from healthee.insights.retrieval import evidence_section
 from healthee.read.recovery import recovery_score_payload
@@ -27,12 +26,17 @@ DEFAULT_COACH_DAYS = 30
 
 def build_coach_context(
     question: str,
-    user_id: UUID = SENTINEL_USER_ID,
-    tz: str = SENTINEL_TZ,
+    user_id: UUID,
+    tz: str,
     *,
     days: int = DEFAULT_COACH_DAYS,
 ) -> str:
-    """The full coach context markdown: v2 history/trends/logs + today's recovery."""
+    """The full coach context markdown: ``user_id``'s history/trends/logs + their recovery.
+
+    The owner is REQUIRED (6.4b): it defaulted to the sentinel until the routers had a
+    real authenticated user to thread down, and a default owner on a context builder is
+    exactly how one tenant's data reaches another tenant's prompt.
+    """
     context = build_context(user_id, tz, days=days, question=question)
     with transaction() as cur:
         recovery = recovery_score_payload(cur, user_id, tz)
