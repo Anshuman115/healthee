@@ -26,9 +26,17 @@ log = get_logger(__name__)
 # config, not a hardcoded contract. Low temperature: health data wants factual,
 # reproducible output, not creative tails.
 DEFAULT_MODEL = "google/gemini-3-flash-preview"
+# Per-surface model tiers: the high-volume batch surfaces (recs, insight cards,
+# notable, daily-action) use the cheap DEFAULT_MODEL; the interactive coach — low
+# volume, high engagement, where answer quality is most felt — uses a stronger tier.
+# In the 2026-07 eval gemini-3.5-flash answered completely + passed the validator
+# where the cheap tier occasionally fell back; its higher token cost is bounded by
+# the coach's low call volume. Swappable here — every surface reaches the LLM
+# through this module (see docs/PRICING.md §6 / task #23 model tiers).
+COACH_MODEL = "google/gemini-3.5-flash"
 DEFAULT_TEMPERATURE = 0.1
 DEFAULT_TOP_P = 0.9
-DEFAULT_MAX_TOKENS = 1200
+DEFAULT_MAX_TOKENS = 2000  # headroom so verbose/reasoning models aren't truncated mid-answer
 
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
