@@ -113,6 +113,9 @@ CREATE TABLE device_token (                       -- per-strap/app INGEST creden
 );
 CREATE UNIQUE INDEX device_token_hash_idx ON device_token (token_hash);
 ```
+> `device_token.user_id` also carries **`ON UPDATE CASCADE`** (added in `0006`) — it
+> was the one FK to `app_user` outside `0003`'s sweep, and without it the 6.4c
+> sentinel re-key errors as soon as the owner has a paired device (§8).
 
 There is **no local `credential` table and no session table** — Supabase handles
 login, refresh, reset, verification, OAuth. Intra-DB FKs from health tables to
@@ -369,9 +372,49 @@ rebuild PK/UNIQUE to include `user_id`, retarget every `ON CONFLICT`, re-key
 insights/jobs/ingest queries, so they cannot land in 6.2 without breaking every
 upsert (the conflict target would no longer match a unique constraint).
 
-**6.4** re-keys the sentinel owner to the real Supabase UUID with a single
-`UPDATE app_user SET id = …` that cascades to every data row via the
-`ON UPDATE CASCADE` FKs. RLS + policies land in 6.5.
+**6.4c — the sentinel claim (`db/claim_sentinel.py`, DONE):** a committed one-off ops
+module, run like the migration runner and **never** from the auth path — "the first
+user to sign in claims all the data" would be a catastrophic security hole. The
+operator naming the UUID *is* the authorisation.
+
+    uv run python -m healthee.db.claim_sentinel <target-uuid>            # DRY RUN
+    uv run python -m healthee.db.claim_sentinel <target-uuid> --apply    # for real
+
+**Operating procedure:** run the dry run first (it is the default; `--apply` is the
+only way to change anything), read the printed plan — source id, target id, the
+target's **email**, and per-table row counts — confirm that email is the right human,
+then re-run with `--apply`. The target UUID is a CLI argument on purpose: it is
+auditable in the command and the shell history, and cannot be silently inherited from
+a stale env var.
+
+**Mechanism:** one `UPDATE app_user SET id = <target> WHERE id = <sentinel>`. Every FK
+to `app_user(id)` carries `ON UPDATE CASCADE`, so every dependent row moves atomically
+and no table can be missed — a hand-written list of per-table UPDATEs can silently
+miss a table added later; the cascade cannot, because the database enumerates them.
+(`0006` closes the one gap: `device_token`'s FK came from `0002` with no update
+action, i.e. NO ACTION, so the re-key *errored* for any owner with a paired device.)
+
+**Identity:** the sentinel row holds `email = NULL` + the legacy tz; the target's
+JIT-provisioned row holds their real ones. A naive cascade would leave the survivor
+wearing the sentinel's values and lose the real email — and resolve every day boundary
+in a zone the owner doesn't live in. So the claim captures the target's email/timezone,
+parks their device tokens on the sentinel, deletes their row to free the PK, and stamps
+those fields onto the re-keyed row in the same statement.
+
+**Refuses rather than guesses:** target == sentinel · target has never signed in (no
+`app_user` row — an unverified UUID may be a typo, and this is not undoable by a
+re-run) · target already owns data (a merge is a judgement call about whose numbers
+are whose, not this tool's). Nothing to move ⇒ says so and exits 0, so a re-run after
+success is a clean no-op.
+
+**Post-check (the real net):** in the SAME transaction, assert zero rows anywhere
+still belong to the sentinel — driven off the database's own list of tables
+referencing `app_user`, so it catches a missed table regardless of mechanism — and
+that the sentinel row is gone. Any failure rolls the entire re-key back: a partial
+claim would scatter one person's history across two owners, which is silent wrongness
+rather than an honest gap.
+
+RLS + policies land in 6.5.
 
 Because prod is one user, backfill is trivial and reversible (the column is
 additive; the sentinel owns everything). Snapshot the DB before the 6.3 key
@@ -410,7 +453,7 @@ there is no legacy app to convert — just design it in.
 | **6.1 Identity ✅** | `app_user` + `device_token` tables (`0002_identity`) + `core/supabase_auth.py` (VERIFY the Supabase JWT — HS256, pinned algs; JIT-provision `app_user`; mint/resolve hash-only device tokens) + thin `/api/me` + `/api/device`. No local credentials/argon2/login-endpoints (Supabase owns them). Additive — existing shared-token auth untouched, nothing reads `user_id` yet. | login works; existing endpoints unaffected |
 | **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
 | **6.3 Thread scoping ✅** | Shipped in three slices. **6.3a** (`0004`): folded `user_id` into every natural PK/UNIQUE, retargeted every `ON CONFLICT`, made every tenant WRITE set the owner; added `core/tenancy.SENTINEL_USER_ID`. **6.3b**: scoped every tenant READ with `AND user_id = %s`, killed the seven duplicate `Asia/Kolkata` constants for `SENTINEL_TZ` threaded as `tz: str`, and added the AST completeness guard (`tests/db/test_tenant_read_scoping.py` — any new unscoped tenant SQL now fails the build) + read-isolation tests. **6.3c** (`0005`): re-keyed `profile` by `user_id` (dropped `id`/`CHECK (id = 1)`, retargeted `upsert_profile`'s conflict to the owner — it was silently overwriting another owner's demographics), per-user job sweep (`active_users()` → `Tenant`, per-owner local day, isolated failures), and the two-tenant seed + cross-tenant leakage suite (§10). Cache-key namespacing was **dropped as redundant** (see §6). Everything still resolves to the sentinel by default. | every query scoped; single-user behavior identical (contract snapshots byte-identical) |
-| **6.4 Flip identity** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Still to land: re-key the sentinel owner to the real Supabase UUID. | second real user works end-to-end, isolated |
+| **6.4 Flip identity** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Plus `db/claim_sentinel.py` — the committed, **dry-run-by-default** one-off that re-keys the sentinel owner to the real Supabase UUID via the single cascading `UPDATE app_user SET id = …`, preserving the target's real email/timezone and post-checking (in-transaction) that no row anywhere still belongs to the sentinel; `0006` gives `device_token` the `ON UPDATE CASCADE` its 0002 definition lacked, without which the cascade *errors* for any owner who ever paired a device (§8). | second real user works end-to-end, isolated |
 | **6.5 Harden** | Postgres RLS + policies; cross-tenant leakage tests; self-serve signup/onboarding (or invite gating); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the

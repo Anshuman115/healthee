@@ -336,11 +336,14 @@ CREATE TABLE IF NOT EXISTS app_user (
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- ── device_token (0002_identity) ───────────────────────────────────────────
+-- ── device_token (0002_identity, FK widened in 0006) ───────────────────────
 -- Per-strap/app long-lived ingest credential; only the SHA-256 hash is stored.
+-- ON UPDATE CASCADE (0006) so the sentinel → real-owner re-key moves tokens with
+-- everything else — it is the one FK to app_user 0003's sweep did not cover.
 CREATE TABLE IF NOT EXISTS device_token (
   id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID         NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  user_id     UUID         NOT NULL REFERENCES app_user(id)
+                             ON UPDATE CASCADE ON DELETE CASCADE,
   token_hash  TEXT         NOT NULL,                  -- SHA-256 hex of the raw token
   label       TEXT,
   last_seen   TIMESTAMPTZ,
