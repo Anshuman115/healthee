@@ -153,18 +153,93 @@ moves to **6.3** so it changes together with the `ON CONFLICT` code.
   `user_id`, so a second owner's push overwrote the first owner's demographics —
   the owner is now the conflict target.
 
-### 3.3 Row-Level Security (isolation guarantee)
+### 3.3 Row-Level Security (isolation guarantee) — **DONE, 6.5b-2** (`0008`)
+
+**Resolves [D3].** What shipped, per tenant table (all 16), and why each part:
 
 ```sql
 ALTER TABLE sample ENABLE ROW LEVEL SECURITY;
-CREATE POLICY sample_tenant ON sample
-  USING (user_id = current_setting('healthee.user_id')::uuid);
--- …one policy per table.
+DROP POLICY IF EXISTS sample_tenant ON sample;         -- replay-safe
+CREATE POLICY sample_tenant ON sample FOR ALL
+  USING      (user_id = NULLIF(current_setting('healthee.user_id', true), '')::uuid)
+  WITH CHECK (user_id = NULLIF(current_setting('healthee.user_id', true), '')::uuid);
 ```
 
-The app sets `SET LOCAL healthee.user_id = <uuid>` at the start of each request's
-transaction. Then even a query that forgets `WHERE user_id` cannot see another
-tenant's rows. This is the "real framework" isolation backstop. **[D3]**
+Every clause was **probed against a real hypertable and a real `NOSUPERUSER
+NOBYPASSRLS` role before being written** — none of it is inherited from the sketch
+this section used to carry, which was wrong in three separate ways:
+
+- **`FOR ALL` + `WITH CHECK`, not `USING`-only.** A `USING`-only policy (what the
+  old sketch had) governs SELECT/UPDATE/DELETE and leaves **INSERT completely
+  ungoverned** — it would have broken every upsert in the codebase and let a write
+  land under any owner. `WITH CHECK` is the write half.
+- **`NULLIF(…, '')` is mandatory.** Once a custom GUC has been touched in a session,
+  `current_setting(x, true)` returns the **empty string, not NULL** — and a bare
+  `''::uuid` **ERRORS** (`invalid input syntax for type uuid`) instead of failing
+  closed. Since `tenant_transaction` sets the GUC and the transaction end reverts it
+  to `''`, every pooled connection reaches that state constantly. `NULLIF` maps both
+  "never set" and "set to empty" to NULL, and `user_id = NULL` is NULL ⇒ **no rows,
+  no error**.
+- **No `FORCE`.** `FORCE ROW LEVEL SECURITY` only binds a table's **owner**. The app
+  role owns nothing (§3.3a), so plain `ENABLE` already binds it — and the admin
+  staying *unbound* is load-bearing, not an oversight (see below).
+- `set_config(...)`, **not** `SET LOCAL`: `SET` is a utility statement and takes **no
+  bind parameters**, so `SET LOCAL healthee.user_id = %s` is impossible and the only
+  alternative would be interpolating a UUID into SQL. `set_config(name, value, true)`
+  is an ordinary function — it parameterizes cleanly, and `is_local=true` gives
+  exactly SET-LOCAL semantics (the owner reverts at commit and cannot leak to the
+  next borrower of the pooled connection).
+- `sample`'s **chunks inherit** the parent hypertable's policy — verified, nothing
+  extra needed for TimescaleDB.
+
+**`core.db.tenant_transaction(user_id)` is the ONE way tenant data becomes visible**
+to the app role; `tenant_connection(user_id)` is its connection-scoped form (the
+ingest push + `derive_all_nights`, which hand a *connection* to a collaborator).
+The consequence is deliberate and worth stating plainly: **a tenant read on plain
+`transaction()` now returns zero rows and raises nothing.** Failing closed is the
+right default, but it means a missed call site shows a user "no data" rather than
+erroring — which is why the **whole test suite now runs as the least-privilege role**
+(`tests/conftest.py::app_role_pool`), turning that mistake into a failing test.
+
+**The identity tables get NO policy** (`app_user`, `device_token`) — a decision, not
+an omission: the app must resolve *who you are* before it can know an owner to scope
+to, and the scheduler's `active_users()` sweep must see **every** owner or their
+nightly chain silently stops. Their protection is the grant list in
+`provision_app_role`. `schema_migrations` is not granted to the app role at all.
+
+**`migrate` / `provision_app_role` / `claim_sentinel` / `seed.reset` stay on the
+admin**, which is unbound by the policies. For `claim_sentinel` this is the sharp
+case: its FK cascades would still move the rows under RLS (a cascade runs as the
+constraint, not under the caller's policies), but its **verification SELECTs would be
+filtered to nothing and report a partial re-key as a success** — a silent false pass,
+which is precisely the failure that tool exists to prevent.
+
+**A TimescaleDB bug had to be worked around** (reproduced on 2.26.4): `SELECT
+DISTINCT ON (…)` over a policied table fails with `InternalError: unsupported subplan
+type for SkipScan: Result` — `/api/today`'s `latest_derived_many` is exactly that
+shape, so it 500s the moment policies are live. A STABLE-function wrapper around the
+owner lookup was probed and fails identically. Fix: `provision_app_role` sets
+`timescaledb.enable_skipscan = off` **on the app role** (the admin bypasses RLS, never
+meets the bug, and keeps the optimization). Measured cost, not assumed: median
+0.111 ms → 0.127 ms on the affected query, same index scan either way; no hypertable
+query does `DISTINCT ON` at all.
+
+**Proved by defeating it** (`tests/db/test_rls.py`), which is the bar §13 [D3] sets:
+a query with the `user_id` filter **removed** returns only the owner's row; an unset
+owner and an empty-string owner each return 0 rows without erroring; a cross-owner
+INSERT/UPDATE/DELETE cannot land; the ordinary upsert still works; every one of the
+16 tables is asserted to have RLS + exactly one policy, driven off **the database's
+own list** of tables referencing `app_user` (so a tenant table added next month is
+covered the day it is created). `test_the_app_pool_is_never_privileged` asserts the
+premise all of it rests on. Mutation-verified: dropping one policy, disabling RLS on
+one table, removing the `NULLIF`, or reverting one `tenant_transaction` back to
+`transaction` each turn tests red.
+
+**⚠ Deploy implication: RLS only actually protects once `POSTGRES_APP_*` is set in
+prod.** Until then the pool falls back to the admin superuser, which `rolbypassrls` —
+the policies are live in the schema but inert on that connection, and
+`core.db._warn_if_privileged` says so in the startup log. Follow §3.3a's deploy order;
+confirm the log reads `connected as least-privilege role`.
 
 #### 3.3a The app role — the prerequisite (**DONE, 6.5b-1**)
 
@@ -194,9 +269,11 @@ produced green tests and **zero isolation**. So the role split lands first:
   on the 16 tenant tables + `app_user` + `device_token`, `USAGE, SELECT` on the
   three BIGSERIAL sequences, plus `ALTER DEFAULT PRIVILEGES` so a table added by a
   future migration is granted automatically. **No TRUNCATE, no DDL, no ownership.**
-- **Consequence for 6.5b-2:** because the app role is a non-superuser that does
-  **not own** the tables, plain `ENABLE ROW LEVEL SECURITY` suffices — `FORCE` is
-  only needed when the *connecting* role owns them.
+- **Consequence for 6.5b-2 (confirmed in `0008`):** because the app role is a
+  non-superuser that does **not own** the tables, plain `ENABLE ROW LEVEL SECURITY`
+  sufficed — `FORCE` is only needed when the *connecting* role owns them. The admin
+  staying unbound turned out to be load-bearing rather than merely acceptable: see
+  §3.3 on `claim_sentinel`'s post-check.
 
 Proved by connecting as the role, not by inspection: `tests/db/test_app_role.py`
 provisions it, writes + reads the `sample` hypertable (the row lands in a
@@ -256,7 +333,9 @@ global `REALTIME_INGEST_TOKEN`.
 2. **JIT-provision:** if there's no local `app_user` row for that UUID yet, create
    it + a default profile (first-request onboarding — no webhook needed for the
    happy path).
-3. `SET LOCAL healthee.user_id = <uuid>` on the request transaction (RLS §3.3).
+3. the owner is set on each request's transaction by `core.db.tenant_transaction`
+   (`set_config('healthee.user_id', <uuid>, true)` — `SET LOCAL` takes no bind
+   parameters; RLS §3.3).
 4. return `RequestUser(id: UUID, timezone)` injected into handlers.
 
 ### 4.4a Dual auth — the 6.4b transition (**TEMPORARY**, `core/request_auth.py`)
@@ -539,7 +618,7 @@ The two tests that encoded the scaffold (`…_backfills_to_sentinel`) now assert
 **inverse** invariant — a write omitting `user_id` raises — plus a per-table check,
 driven off `information_schema`, that no tenant `user_id` carries a default at all.
 
-RLS + policies land in 6.5.
+RLS + policies landed in 6.5b-2 (`0008`, §3.3).
 
 Because prod is one user, backfill is trivial and reversible (the column is
 additive; the sentinel owns everything). Snapshot the DB before the 6.3 key
@@ -579,7 +658,7 @@ there is no legacy app to convert — just design it in.
 | **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
 | **6.3 Thread scoping ✅** | Shipped in three slices. **6.3a** (`0004`): folded `user_id` into every natural PK/UNIQUE, retargeted every `ON CONFLICT`, made every tenant WRITE set the owner; added `core/tenancy.SENTINEL_USER_ID`. **6.3b**: scoped every tenant READ with `AND user_id = %s`, killed the seven duplicate `Asia/Kolkata` constants for `SENTINEL_TZ` threaded as `tz: str`, and added the AST completeness guard (`tests/db/test_tenant_read_scoping.py` — any new unscoped tenant SQL now fails the build) + read-isolation tests. **6.3c** (`0005`): re-keyed `profile` by `user_id` (dropped `id`/`CHECK (id = 1)`, retargeted `upsert_profile`'s conflict to the owner — it was silently overwriting another owner's demographics), per-user job sweep (`active_users()` → `Tenant`, per-owner local day, isolated failures), and the two-tenant seed + cross-tenant leakage suite (§10). Cache-key namespacing was **dropped as redundant** (see §6). Everything still resolves to the sentinel by default. | every query scoped; single-user behavior identical (contract snapshots byte-identical) |
 | **6.4 Flip identity** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Plus `db/claim_sentinel.py` — the committed, **dry-run-by-default** one-off that re-keys the sentinel owner to the real Supabase UUID via the single cascading `UPDATE app_user SET id = …`, preserving the target's real email/timezone and post-checking (in-transaction) that no row anywhere still belongs to the sentinel; `0006` gives `device_token` the `ON UPDATE CASCADE` its 0002 definition lacked, without which the cascade *errors* for any owner who ever paired a device (§8). | second real user works end-to-end, isolated |
-| **6.5 Harden** | Shipped in slices. **Signup gate ✅** ([D1], §4.4b): `signups_open` is enforced by the SERVER — it was a dead flag, and `_provision_user` wrongly claimed Supabase enforced it — gating creation of a NEW `app_user` row on `signups_open` OR the new `signup_allowlist`, refusing **403** before any write; the allowlist is also the owner's bootstrap into `claim_sentinel`. **`0007` ✅**: dropped the transitional `user_id` DEFAULT on all 16 tenant tables (§8) — a forgotten owner is now a loud `NotNullViolation`, not silent misattribution to the sentinel; `NOT NULL` kept. **Remaining:** Postgres RLS + policies (the big one — 48 `transaction()`/`connection()` sites); removing the legacy shared-token branch (blocked on the Phase-2 app shipping Supabase login, §4.4a); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
+| **6.5 Harden** | Shipped in slices. **Signup gate ✅** ([D1], §4.4b): `signups_open` is enforced by the SERVER — it was a dead flag, and `_provision_user` wrongly claimed Supabase enforced it — gating creation of a NEW `app_user` row on `signups_open` OR the new `signup_allowlist`, refusing **403** before any write; the allowlist is also the owner's bootstrap into `claim_sentinel`. **`0007` ✅**: dropped the transitional `user_id` DEFAULT on all 16 tenant tables (§8) — a forgotten owner is now a loud `NotNullViolation`, not silent misattribution to the sentinel; `NOT NULL` kept. **6.5b-1 ✅**: the app-role split (§3.3a) — the pool connects as a least-privilege `NOSUPERUSER NOBYPASSRLS` role that owns no tables, without which the policies below would have been theatre. **6.5b-2 ✅** (`0008`, resolves [D3], §3.3): `ENABLE ROW LEVEL SECURITY` + one `FOR ALL`/`WITH CHECK` policy on all 16 tenant tables, keyed on the `healthee.user_id` GUC that `core.db.tenant_transaction()` sets via `set_config(..., true)`; every `transaction()`/`connection()` site triaged into tenant / identity-only / admin, and plain `connection()` deleted as orphaned. Identity tables (`app_user`, `device_token`) stay unpolicied by decision; `migrate`/`claim_sentinel`/`provision_app_role`/`seed.reset` stay on the unbound admin. **The whole test suite now runs as the least-privilege role** — it did not before, which would have left every policy unexercised. `tests/db/test_rls.py` proves the backstop by defeating it (an unfiltered read is still owner-scoped; unset + empty-string owners return nothing without erroring; cross-owner writes denied), mutation-verified. **Remaining:** removing the legacy shared-token branch (blocked on the Phase-2 app shipping Supabase login, §4.4a); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the
 big one** (the ~119-site threading), 6.4 medium, 6.5 medium. Each is a Fable-
@@ -731,7 +810,7 @@ closed by signature verification.
   no session table) vs server-side sessions (revocable, needs a table)?
   *Recommend:* JWT access + refresh-rotation, a small `session` table only if you
   want instant revoke.
-- **[D3] RLS now or later — TAKEN: do it, in two steps (§3.3/§3.3a).** Enable RLS
+- **[D3] RLS now or later — RESOLVED (both steps SHIPPED; §3.3/§3.3a).** Enable RLS
   as the isolation backstop, but a probe before writing any policy found the
   premise was false: **the app connected to Postgres as a SUPERUSER**
   (`healthee: rolsuper=true, bypassrls=true`). With `ENABLE` + `FORCE ROW LEVEL
@@ -743,15 +822,28 @@ closed by signature verification.
   - **6.5b-1 (DONE)** — the prerequisite: make the app connect as a non-superuser,
     non-owner role (§3.3a). Correct on its own merits regardless of RLS: an app
     that can `DROP TABLE` is a problem by itself.
-  - **6.5b-2 (next)** — the policies + `SET LOCAL healthee.user_id` per
-    transaction, on top of a role that can actually be constrained by them. Plain
-    `ENABLE` is enough (the app role does not own the tables).
+  - **6.5b-2 (DONE, `0008`)** — the policies + the per-transaction owner, on top of
+    a role that can actually be constrained by them. Plain `ENABLE` was enough, as
+    predicted (the app role does not own the tables). Two things the plan got wrong
+    and the probe caught: the sketched `USING`-only policy would have left **INSERT
+    ungoverned**, and `SET LOCAL` **cannot take a bind parameter** — it is
+    `set_config(..., true)`. A third only appeared under RLS: a TimescaleDB SkipScan
+    planner bug that 500s `DISTINCT ON` on a policied table. All three in §3.3.
 
   **The durable lesson:** an isolation mechanism must be verified by *defeating*
   it — asserting that a wrong/unset tenant sees **nothing**. A test that only
   checks "the right tenant sees their rows" passes identically against no
   isolation at all. The app-role attributes are asserted from `pg_roles` in
-  `tests/db/test_app_role.py` for exactly this reason.
+  `tests/db/test_app_role.py` for exactly this reason, and `tests/db/test_rls.py`
+  is written entirely in that shape.
+
+  **The second-order version of the same lesson, learned here:** the tests must run
+  as a role the mechanism can actually constrain. `POSTGRES_APP_*` is unset in dev
+  and CI, so the suite would have run as the admin superuser and every RLS test
+  would have passed against inert policies — 6.5b-1's exact failure, one level up.
+  `tests/conftest.py::app_role_pool` puts the whole suite on the least-privilege
+  role, and `test_the_app_pool_is_never_privileged` fails if that ever stops being
+  true.
 - **[D4] Billing provider (premium gating, §12):** **Stripe** vs **Polar**
   (Merchant-of-Record — handles global tax for you) vs **donations**
   (Stripe one-time / Polar pay-what-you-want) — or a mix. *Recommend:* Polar if
