@@ -122,8 +122,11 @@ consistent by JIT-provision + the delete webhook).
 
 ### 3.2 Tenant column on every data table
 
-Add `user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE` to all 15
-data tables and fold it into the key:
+Add `user_id UUID NOT NULL REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE
+CASCADE` to all 16 data tables and fold it into the key. **This section is the
+target end-state**; it lands in two steps (§8): the column + FK + `(user_id, …)`
+index are additive in **6.2** (`0003`, done), and the key-fold below (PKs/UNIQUE)
+moves to **6.3** so it changes together with the `ON CONFLICT` code.
 
 - `sample`: PK `(user_id, metric, ts)`; hypertable stays partitioned on `ts`,
   add index `(user_id, metric, ts DESC)`.
@@ -140,20 +143,21 @@ data tables and fold it into the key:
   `challenge_id` FK (no direct column needed, but add one for RLS simplicity).
 - `gps_point`: inherits the track's user via `track_id` FK; add `user_id` too so
   RLS can gate it without a join.
-- `profile`: drop `CHECK (id=1)`; becomes `user_id BIGINT PRIMARY KEY REFERENCES
+- `profile`: drop `CHECK (id=1)`; becomes `user_id UUID PRIMARY KEY REFERENCES
   app_user(id)` (1:1 with app_user; name/height/sex/dob move here or merge into
-  `app_user`).
+  `app_user`). Deferred to **6.3** — 6.2 left `profile` additive (id=1 PK kept)
+  because existing code still reads/writes `WHERE id = 1`.
 
 ### 3.3 Row-Level Security (isolation guarantee)
 
 ```sql
 ALTER TABLE sample ENABLE ROW LEVEL SECURITY;
 CREATE POLICY sample_tenant ON sample
-  USING (user_id = current_setting('healthee.user_id')::bigint);
+  USING (user_id = current_setting('healthee.user_id')::uuid);
 -- …one policy per table.
 ```
 
-The app sets `SET LOCAL healthee.user_id = <id>` at the start of each request's
+The app sets `SET LOCAL healthee.user_id = <uuid>` at the start of each request's
 transaction. Then even a query that forgets `WHERE user_id` cannot see another
 tenant's rows. This is the "real framework" isolation backstop. **[D3]**
 
@@ -303,10 +307,11 @@ rebuild.
 ## 9. Mobile (Phase 2, greenfield — build multi-user-native)
 
 The app is being rebuilt from scratch, so it should be multi-user from day one:
-a **login screen** (email/password → JWT), secure token storage, a **device
-pairing** step that stores the per-user device token for background ingest, and
-per-user local store (the 60-day tier is namespaced by user). No migration cost
-here because there is no legacy app to convert — just design it in.
+a **login screen** (Google/Apple social sign-in via the Supabase client SDK →
+Supabase session/JWT, §4.1), secure session storage, a **device pairing** step
+that stores the per-user device token for background ingest, and per-user local
+store (the 60-day tier is namespaced by user). No migration cost here because
+there is no legacy app to convert — just design it in.
 
 ---
 
@@ -327,7 +332,7 @@ here because there is no legacy app to convert — just design it in.
 
 | Phase | Scope | Ships when |
 |---|---|---|
-| **6.1 Identity** | `app_user`/`credential`/`device_token` tables + `auth.py` (register/login/refresh/device) + argon2 + JWT. Seed you as user 1. No behavior change (nothing reads user_id yet). | login works; existing endpoints unaffected |
+| **6.1 Identity ✅** | `app_user` + `device_token` tables (`0002_identity`) + `core/supabase_auth.py` (VERIFY the Supabase JWT — HS256, pinned algs; JIT-provision `app_user`; mint/resolve hash-only device tokens) + thin `/api/me` + `/api/device`. No local credentials/argon2/login-endpoints (Supabase owns them). Additive — existing shared-token auth untouched, nothing reads `user_id` yet. | login works; existing endpoints unaffected |
 | **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
 | **6.3 Thread scoping** | Fold `user_id` into every PK/UNIQUE + retarget `ON CONFLICT`; re-key `profile` by `user_id`; `RequestUser`/`Ctx` object; thread `user_id`+`tz` through read/derive/analytics/insights/jobs/ingest; per-user `kv`/cache; kill the `USER_TZ` constant. Still resolves to the sentinel by default. | every query scoped; single-user behavior identical |
 | **6.4 Flip identity** | `current_user()` returns the real authenticated user; re-key the sentinel owner to the real Supabase UUID (`UPDATE app_user … `, cascades via `ON UPDATE CASCADE`); ingest device-token attribution; per-user scheduler; per-user timezone live. | second real user works end-to-end, isolated |
@@ -371,7 +376,7 @@ shown as plain stats.
 
 ```sql
 CREATE TABLE subscription (
-  user_id            BIGINT PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
+  user_id            UUID PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
   status             TEXT NOT NULL DEFAULT 'none',   -- none|trialing|active|past_due|canceled|expired
   plan               TEXT,                            -- monthly|annual|…
   provider           TEXT,                            -- stripe|revenuecat|apple|google
@@ -491,5 +496,6 @@ closed by signature verification.
   or **time-boxed** premium, and what is the **minimum amount**? Must be explicit so
   a token payment can't unlock forever. *Recommend:* a threshold that grants a fixed
   term (e.g. 12 months), renewable by donating again.
-- **Auth hashing/JWT libs:** argon2 (`argon2-cffi`) + `pyjwt` (look up current
-  versions at add-time per standards). Confirm before 6.1.
+- **Auth libs — RESOLVED in 6.1:** no password-hashing dep (argon2 is moot —
+  Supabase owns credential hashing); the backend only VERIFIES tokens, so it added
+  `pyjwt` alone (`core/supabase_auth.py`). ~~Confirm before 6.1~~ done.
