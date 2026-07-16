@@ -7,7 +7,12 @@ payloads read), manual entries (+ an open fast), an illness flag, a recommendati
 a finding, and a GPS track. Values are chosen so derived numbers are stable.
 
 **Owner A is the sentinel** and owns every row seeded here, so the committed
-contract snapshots stay byte-identical. The second tenant lives in the sibling
+contract snapshots stay byte-identical. Every insert names that owner explicitly:
+`0007` dropped the transitional `user_id` DEFAULT, so a seed that omitted it now
+raises `NotNullViolation` instead of quietly landing on the sentinel — which is the
+point (a seeder leaning on a default is a seeder that can't seed a second tenant).
+
+The second tenant lives in the sibling
 ``seed_owner_b`` module (Phase 6.3c, MULTI_USER.md §10): additive and opt-in, so a
 test that doesn't call it is unaffected by B's existence.
 """
@@ -72,7 +77,10 @@ def _seed_profile(cur) -> None:
         "ON CONFLICT (user_id) DO UPDATE SET name=EXCLUDED.name",
         (SENTINEL_USER_ID,),
     )
-    cur.execute("INSERT INTO weight_log (ts, kg) VALUES (now(), 72.5) ON CONFLICT DO NOTHING")
+    cur.execute(
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now(), 72.5) ON CONFLICT DO NOTHING",
+        (SENTINEL_USER_ID,),
+    )
 
 
 def _seed_samples(cur, today: date) -> None:
@@ -81,18 +89,20 @@ def _seed_samples(cur, today: date) -> None:
     rows: list[tuple] = []
     for i in range(48):  # every 15 min from 06:00, ~12h of data
         ts = base + timedelta(minutes=15 * i)
-        rows.append((ts, "hr", 62 + (i % 20)))
-        rows.append((ts, "steps_per_minute", 40 + (i % 30)))
-        rows.append((ts, "stress", 30 + (i % 25)))
+        rows.append((SENTINEL_USER_ID, ts, "hr", 62 + (i % 20)))
+        rows.append((SENTINEL_USER_ID, ts, "steps_per_minute", 40 + (i % 30)))
+        rows.append((SENTINEL_USER_ID, ts, "stress", 30 + (i % 25)))
     for metric, val in (
         ("hrv", 45.0),
         ("spo2", 97.0),
         ("respiratory_rate", 14.0),
         ("skin_temp_c", 33.2),
     ):
-        rows.append((base, metric, val))
+        rows.append((SENTINEL_USER_ID, base, metric, val))
     cur.executemany(
-        "INSERT INTO sample (ts, metric, value) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING", rows
+        "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s,%s,%s,%s) "
+        "ON CONFLICT DO NOTHING",
+        rows,
     )
 
 
@@ -110,41 +120,44 @@ def _seed_sleep(cur, today: date) -> None:
         ]
         cur.execute(
             "INSERT INTO sleep_session "
-            "(start_ts,end_ts,kind,score,avg_hr,rem_min,light_min,deep_min,wake_min,stages) "
-            "VALUES (%s,%s,'main',86,58,90,200,90,20,%s) "
+            "(user_id,start_ts,end_ts,kind,score,avg_hr,rem_min,light_min,deep_min,wake_min,stages)"
+            " VALUES (%s,%s,%s,'main',86,58,90,200,90,20,%s) "
             "ON CONFLICT (user_id, start_ts) DO NOTHING",
-            (start.astimezone(UTC), end.astimezone(UTC), json.dumps(stages)),
+            (SENTINEL_USER_ID, start.astimezone(UTC), end.astimezone(UTC), json.dumps(stages)),
         )
     nap_start = datetime.combine(today, time(14, 0), tzinfo=USER_TZ)
     nap_end = nap_start + timedelta(minutes=35)
     cur.execute(
         "INSERT INTO sleep_session "
-        "(start_ts,end_ts,kind,rem_min,light_min,deep_min,wake_min,stages) "
-        "VALUES (%s,%s,'nap',0,30,5,0,'[]'::jsonb) ON CONFLICT (user_id, start_ts) DO NOTHING",
-        (nap_start.astimezone(UTC), nap_end.astimezone(UTC)),
+        "(user_id,start_ts,end_ts,kind,rem_min,light_min,deep_min,wake_min,stages) "
+        "VALUES (%s,%s,%s,'nap',0,30,5,0,'[]'::jsonb) "
+        "ON CONFLICT (user_id, start_ts) DO NOTHING",
+        (SENTINEL_USER_ID, nap_start.astimezone(UTC), nap_end.astimezone(UTC)),
     )
 
 
 def _seed_workout(cur, today: date) -> None:
     start = datetime.combine(today, time(7, 0), tzinfo=USER_TZ).astimezone(UTC)
     cur.execute(
-        "INSERT INTO workout (start_ts,sport,duration_s,calories,distance_m,avg_hr,max_hr,min_hr) "
-        "VALUES (%s,1,1800,250,4200,135,168,95) ON CONFLICT (user_id, start_ts) DO NOTHING",
-        (start,),
+        "INSERT INTO workout "
+        "(user_id,start_ts,sport,duration_s,calories,distance_m,avg_hr,max_hr,min_hr) "
+        "VALUES (%s,%s,1,1800,250,4200,135,168,95) ON CONFLICT (user_id, start_ts) DO NOTHING",
+        (SENTINEL_USER_ID, start),
     )
     # Minute HR inside the workout window so the detail endpoint has a profile.
     cur.executemany(
-        "INSERT INTO sample (ts, metric, value) VALUES (%s,'hr',%s) ON CONFLICT DO NOTHING",
-        [(start + timedelta(minutes=i), 120 + (i % 40)) for i in range(30)],
+        "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s,%s,'hr',%s) "
+        "ON CONFLICT DO NOTHING",
+        [(SENTINEL_USER_ID, start + timedelta(minutes=i), 120 + (i % 40)) for i in range(30)],
     )
 
 
 def _dd(cur, day: date, metric: str, value: float, flags: dict | None = None) -> None:
     cur.execute(
-        "INSERT INTO derived_daily (day, metric, value, flags) VALUES (%s,%s,%s,%s) "
+        "INSERT INTO derived_daily (user_id, day, metric, value, flags) VALUES (%s,%s,%s,%s,%s) "
         "ON CONFLICT (user_id, day, metric) DO UPDATE SET "
         "value=EXCLUDED.value, flags=EXCLUDED.flags",
-        (day, metric, value, json.dumps(flags or {})),
+        (SENTINEL_USER_ID, day, metric, value, json.dumps(flags or {})),
     )
 
 
@@ -249,19 +262,24 @@ def _seed_manual(cur) -> None:
     med_ts = _recent_today(hours=2)
     fast_ts = _recent_today(hours=5)
     cur.execute(
-        "INSERT INTO manual_entry (kind, ts, amount, unit) VALUES ('caffeine', %s, 80, 'mg')",
-        (caffeine_ts,),
+        "INSERT INTO manual_entry (user_id, kind, ts, amount, unit) "
+        "VALUES (%s, 'caffeine', %s, 80, 'mg')",
+        (SENTINEL_USER_ID, caffeine_ts),
     )
     cur.execute(
-        "INSERT INTO manual_entry (kind, ts, end_ts, name, amount, unit) "
-        "VALUES ('meditation', %s, %s, 'mindfulness', 10, 'min')",
-        (med_ts, med_ts + timedelta(minutes=10)),
+        "INSERT INTO manual_entry (user_id, kind, ts, end_ts, name, amount, unit) "
+        "VALUES (%s, 'meditation', %s, %s, 'mindfulness', 10, 'min')",
+        (SENTINEL_USER_ID, med_ts, med_ts + timedelta(minutes=10)),
     )
     cur.execute(
-        "INSERT INTO manual_entry (kind, ts, name, amount, unit) "
-        "VALUES ('exercise', now() - interval '1 day', 'strength', 45, 'min')"
+        "INSERT INTO manual_entry (user_id, kind, ts, name, amount, unit) "
+        "VALUES (%s, 'exercise', now() - interval '1 day', 'strength', 45, 'min')",
+        (SENTINEL_USER_ID,),
     )
-    cur.execute("INSERT INTO manual_entry (kind, ts) VALUES ('fasting', %s)", (fast_ts,))
+    cur.execute(
+        "INSERT INTO manual_entry (user_id, kind, ts) VALUES (%s, 'fasting', %s)",
+        (SENTINEL_USER_ID, fast_ts),
+    )
 
 
 def _recent_today(hours: float) -> datetime:
@@ -275,30 +293,31 @@ def _recent_today(hours: float) -> datetime:
 
 def _seed_illness(cur, today: date) -> None:
     cur.execute(
-        "INSERT INTO illness_flag (date, severity, rr_delta_bpm, temp_delta_c, sustained, "
-        "research_note_ids) VALUES (%s,'moderate',2.4,0.35,false,%s) "
+        "INSERT INTO illness_flag (user_id, date, severity, rr_delta_bpm, temp_delta_c, "
+        "sustained, research_note_ids) VALUES (%s,%s,'moderate',2.4,0.35,false,%s) "
         "ON CONFLICT (user_id, date) DO NOTHING",
-        (today, ["respiratory_rate_normal", "skin_temp_signals"]),
+        (SENTINEL_USER_ID, today, ["respiratory_rate_normal", "skin_temp_signals"]),
     )
 
 
 def _seed_recommendation(cur, today: date) -> None:
     cur.execute(
-        "INSERT INTO recommendation (date, rank, action, rationale, expected_effect, category, "
-        "evidence_grade, research_note_ids, signal_source) VALUES "
-        "(%s,1,'Sleep earlier tonight','Debt is 120 min','Lower debt','sleep',3,%s,'sleep_debt') "
-        "ON CONFLICT (user_id, date, rank) DO NOTHING",
-        (today, ["sleep_need_debt"]),
+        "INSERT INTO recommendation (user_id, date, rank, action, rationale, expected_effect, "
+        "category, evidence_grade, research_note_ids, signal_source) VALUES "
+        "(%s,%s,1,'Sleep earlier tonight','Debt is 120 min','Lower debt','sleep',3,%s,"
+        "'sleep_debt') ON CONFLICT (user_id, date, rank) DO NOTHING",
+        (SENTINEL_USER_ID, today, ["sleep_need_debt"]),
     )
 
 
 def _seed_finding(cur) -> None:
     cur.execute(
-        "INSERT INTO finding (kind, description, metric_a, metric_b, lag_days, effect_size, "
-        "effect_metric, p_value, q_value, n_samples, significant, research_note_ids) "
-        "VALUES ('pairwise_lag','Caffeine ↔ sleep','caffeine','sleep_health_score_4dim',0,-0.42,"
-        "'rho',0.01,0.03,24,true,%s) ON CONFLICT DO NOTHING",
-        (["caffeine_sleep"],),
+        "INSERT INTO finding (user_id, kind, description, metric_a, metric_b, lag_days, "
+        "effect_size, effect_metric, p_value, q_value, n_samples, significant, "
+        "research_note_ids) "
+        "VALUES (%s,'pairwise_lag','Caffeine ↔ sleep','caffeine','sleep_health_score_4dim',0,"
+        "-0.42,'rho',0.01,0.03,24,true,%s) ON CONFLICT DO NOTHING",
+        (SENTINEL_USER_ID, ["caffeine_sleep"]),
     )
 
 
@@ -306,17 +325,25 @@ def _seed_gps(cur) -> None:
     start = datetime.now(tz=UTC) - timedelta(hours=3)
     end = start + timedelta(minutes=30)
     cur.execute(
-        "INSERT INTO gps_track (start_ts,end_ts,source,distance_m,duration_s,avg_hr,ele_gain_m,"
-        "vo2max_submax,r2) VALUES (%s,%s,'phone',4200,1800,135,60,43.0,0.82) RETURNING id",
-        (start, end),
+        "INSERT INTO gps_track (user_id,start_ts,end_ts,source,distance_m,duration_s,avg_hr,"
+        "ele_gain_m,vo2max_submax,r2) "
+        "VALUES (%s,%s,%s,'phone',4200,1800,135,60,43.0,0.82) RETURNING id",
+        (SENTINEL_USER_ID, start, end),
     )
     track_id = cur.fetchone()[0]
     pts = [
-        (track_id, start + timedelta(seconds=30 * i), 12.9 + i * 1e-4, 77.6 + i * 1e-4, 10.0 + i)
+        (
+            SENTINEL_USER_ID,
+            track_id,
+            start + timedelta(seconds=30 * i),
+            12.9 + i * 1e-4,
+            77.6 + i * 1e-4,
+            10.0 + i,
+        )
         for i in range(20)
     ]
     cur.executemany(
-        "INSERT INTO gps_point (track_id, ts, lat, lng, ele_m) VALUES (%s,%s,%s,%s,%s) "
-        "ON CONFLICT DO NOTHING",
+        "INSERT INTO gps_point (user_id, track_id, ts, lat, lng, ele_m) "
+        "VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
         pts,
     )

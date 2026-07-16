@@ -18,7 +18,16 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from healthee.core.tenancy import SENTINEL_USER_ID
+
 TZ = ZoneInfo("Asia/Kolkata")
+
+# The owner every seeded row belongs to. Named explicitly at each insert because
+# `0007` dropped the transitional `user_id` DEFAULT — omitting it now raises
+# NotNullViolation rather than silently landing on the sentinel. The row *shapes*
+# built by `samples()`/`_sessions()`/`workouts()` are deliberately unchanged: the
+# legacy fixture generator consumes them too, and parity depends on identical input.
+_OWNER = SENTINEL_USER_ID
 
 BASE_DAY = date(2026, 3, 1)
 N_DAYS = 8
@@ -121,24 +130,28 @@ def seed(cur) -> None:
     cur.execute("DELETE FROM weight_log")
     cur.execute("DELETE FROM profile")
     cur.execute(
-        "INSERT INTO profile (height_cm, sex, dob) VALUES (%s, %s, %s)",
-        (PROFILE["height_cm"], PROFILE["sex"], PROFILE["dob"]),
+        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, %s, %s, %s)",
+        (_OWNER, PROFILE["height_cm"], PROFILE["sex"], PROFILE["dob"]),
     )
-    cur.execute("INSERT INTO weight_log (ts, kg) VALUES (%s, %s)", (WEIGHT_TS, WEIGHT_KG))
+    cur.execute(
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, %s, %s)",
+        (_OWNER, WEIGHT_TS, WEIGHT_KG),
+    )
     cur.executemany(
-        "INSERT INTO sample (ts, metric, value) VALUES (%s, %s, %s) "
+        "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, %s, %s) "
         "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
-        samples(),
+        [(_OWNER, *row) for row in samples()],
     )
     cur.executemany(
         "INSERT INTO sleep_session "
-        "(start_ts, end_ts, kind, score, avg_hr, rem_min, light_min, deep_min, wake_min, stages) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)",
-        [(*row[:9], json.dumps(row[9])) for row in _sessions()],
+        "(user_id, start_ts, end_ts, kind, score, avg_hr, rem_min, light_min, deep_min, "
+        "wake_min, stages) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)",
+        [(_OWNER, *row[:9], json.dumps(row[9])) for row in _sessions()],
     )
     cur.executemany(
         "INSERT INTO workout "
-        "(start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        workouts(),
+        "(user_id, start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        [(_OWNER, *row) for row in workouts()],
     )

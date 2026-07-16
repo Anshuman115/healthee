@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS sample (
   ts      TIMESTAMPTZ       NOT NULL,
   metric  TEXT              NOT NULL,
   value   DOUBLE PRECISION  NOT NULL,
-  user_id UUID              NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id UUID              NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, metric, ts)  -- owner folded into the key (0004)
 );
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS sleep_session (
   deep_min    INTEGER      NOT NULL DEFAULT 0,
   wake_min    INTEGER      NOT NULL DEFAULT 0,
   stages      JSONB        NOT NULL DEFAULT '[]'::jsonb,
-  user_id     UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id     UUID         NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                 REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, start_ts)  -- owner folded into the key (0004)
 );
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS workout (
   avg_hr      INTEGER,
   max_hr      INTEGER,
   min_hr      INTEGER,
-  user_id     UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id     UUID         NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                 REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, start_ts)  -- owner folded into the key (0004)
 );
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS derived_daily (
   metric  TEXT              NOT NULL,
   value   DOUBLE PRECISION  NOT NULL,
   flags   JSONB             NOT NULL DEFAULT '{}'::jsonb,
-  user_id UUID              NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id UUID              NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, day, metric)  -- owner folded into the key (0004)
 );
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS profile (
   -- The owner IS the key (0005): the old `id INTEGER PK DEFAULT 1 CHECK (id = 1)`
   -- allowed exactly one row globally, so a second owner could not hold a profile
   -- and an upsert for one owner overwrote another's demographics.
-  user_id     UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'
+  user_id     UUID         NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                 REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id)  -- owner folded into the key (0005)
 );
@@ -104,7 +104,7 @@ CREATE INDEX IF NOT EXISTS profile_user_idx ON profile (user_id);
 CREATE TABLE IF NOT EXISTS weight_log (
   ts       TIMESTAMPTZ  NOT NULL,
   kg       REAL         NOT NULL,
-  user_id  UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id  UUID         NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
              REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, ts)  -- owner folded into the key (0004)
 );
@@ -115,7 +115,7 @@ CREATE INDEX IF NOT EXISTS weight_log_user_idx ON weight_log (user_id, ts DESC);
 CREATE TABLE IF NOT EXISTS kv (
   key      TEXT  NOT NULL,
   value    TEXT  NOT NULL,
-  user_id  UUID  NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id  UUID  NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
              REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, key)  -- owner folded into the key (0004)
 );
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS manual_entry (
   notes      TEXT,
   flags      JSONB        NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  user_id    UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id    UUID         NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS manual_entry_ts_idx ON manual_entry (ts DESC, kind);
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS illness_flag (
   sustained         BOOLEAN NOT NULL DEFAULT FALSE,
   research_note_ids TEXT[] NOT NULL,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  user_id           UUID    NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id           UUID    NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                       REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, date)  -- owner folded into the key (0004)
 );
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS recommendation (
   adopted           BOOLEAN,
   adopted_at        TIMESTAMPTZ,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  user_id           UUID    NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id           UUID    NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                       REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT recommendation_user_key UNIQUE (user_id, date, rank)  -- owner folded in (0004)
 );
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS finding (
   significant   BOOLEAN      NOT NULL DEFAULT FALSE,
   research_note_ids TEXT[]   NOT NULL DEFAULT ARRAY[]::TEXT[],
   details       JSONB        NOT NULL DEFAULT '{}'::jsonb,
-  user_id       UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id       UUID         NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                   REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT finding_user_key                                      -- owner folded in (0004)
     UNIQUE (user_id, kind, metric_a, metric_b, event_kind, lag_days)
@@ -239,7 +239,7 @@ CREATE TABLE IF NOT EXISTS challenge (
   baseline_value    DOUBLE PRECISION,
   program_id        BIGINT,
   rung_index        INTEGER,
-  user_id           UUID    NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id           UUID    NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                       REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS challenge_status_idx ON challenge (status, created_at DESC);
@@ -260,7 +260,7 @@ CREATE TABLE IF NOT EXISTS program (
   current_rung  INTEGER NOT NULL DEFAULT 0,
   adopted_at    TIMESTAMPTZ,
   completed_at  TIMESTAMPTZ,
-  user_id       UUID    NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id       UUID    NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                   REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS program_user_idx ON program (user_id, status);
@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS challenge_outcome (
   status        TEXT,
   downstream    TEXT,
   ended_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  user_id       UUID        NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id       UUID        NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                   REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS challenge_outcome_user_idx ON challenge_outcome (user_id);
@@ -302,7 +302,7 @@ CREATE TABLE IF NOT EXISTS gps_track (
   ele_gain_m     INTEGER,
   vo2max_submax  DOUBLE PRECISION,
   r2             DOUBLE PRECISION,
-  user_id        UUID        NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id        UUID        NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                    REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS gps_track_time_idx ON gps_track (start_ts, end_ts);
@@ -316,7 +316,7 @@ CREATE TABLE IF NOT EXISTS gps_point (
   lat       DOUBLE PRECISION NOT NULL,
   lng       DOUBLE PRECISION NOT NULL,
   ele_m     DOUBLE PRECISION,
-  user_id   UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
+  user_id   UUID NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
               REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, track_id, ts)  -- owner folded into the key (0004)
 );

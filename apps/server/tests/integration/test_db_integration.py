@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from healthee.api.routers import health
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 
 pytestmark = pytest.mark.integration
@@ -56,9 +57,10 @@ def test_sample_insert_and_read_roundtrip(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
     with transaction() as cur:
         cur.execute(
-            "INSERT INTO sample (ts, metric, value) VALUES "
-            "('2026-01-01T00:00:00+00', 'hr', 61.0) "
-            "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value"
+            "INSERT INTO sample (user_id, ts, metric, value) VALUES "
+            "(%s, '2026-01-01T00:00:00+00', 'hr', 61.0) "
+            "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
+            (SENTINEL_USER_ID,),
         )
     with transaction() as cur:
         cur.execute(

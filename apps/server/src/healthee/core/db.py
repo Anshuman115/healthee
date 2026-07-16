@@ -13,9 +13,13 @@ callers get a cursor directly):
     from healthee.core.db import transaction
 
     with transaction() as cur:
-        cur.execute("INSERT INTO sample (ts, metric, value) VALUES (%s, %s, %s)",
-                    (ts, metric, value))
+        cur.execute("INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, %s, %s)",
+                    (user_id, ts, metric, value))
     # committed here; on exception the whole block is rolled back
+
+Every tenant table needs the owner named explicitly: `0007` dropped the transitional
+`user_id` DEFAULT, so a write that omits it now raises NotNullViolation rather than
+silently attributing someone's health data to the sentinel.
 """
 
 from __future__ import annotations

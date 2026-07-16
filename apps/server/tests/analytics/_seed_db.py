@@ -17,7 +17,13 @@ import json
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from healthee.core.tenancy import SENTINEL_USER_ID
+
 IST = ZoneInfo("Asia/Kolkata")
+
+# Every row here belongs to the sentinel, named explicitly: `0007` dropped the
+# transitional `user_id` DEFAULT, so omitting the owner now raises NotNullViolation.
+_OWNER = SENTINEL_USER_ID
 
 _CLEAN_TABLES = (
     "derived_daily",
@@ -41,10 +47,10 @@ def seed_daily(cur, metric: str, values: dict[date, float], flags: dict | None =
     payload = json.dumps(flags or {})
     for day, value in values.items():
         cur.execute(
-            "INSERT INTO derived_daily (day, metric, value, flags) "
-            "VALUES (%s, %s, %s, %s::jsonb) ON CONFLICT (user_id, day, metric) DO UPDATE "
+            "INSERT INTO derived_daily (user_id, day, metric, value, flags) "
+            "VALUES (%s, %s, %s, %s, %s::jsonb) ON CONFLICT (user_id, day, metric) DO UPDATE "
             "SET value = EXCLUDED.value, flags = EXCLUDED.flags",
-            (day, metric, float(value), payload),
+            (_OWNER, day, metric, float(value), payload),
         )
 
 
@@ -52,8 +58,9 @@ def seed_daily_with_flags(cur, metric: str, rows: dict[date, tuple[float, dict]]
     """Insert ``derived_daily`` rows carrying a per-day flags dict."""
     for day, (value, flags) in rows.items():
         cur.execute(
-            "INSERT INTO derived_daily (day, metric, value, flags) VALUES (%s, %s, %s, %s::jsonb)",
-            (day, metric, float(value), json.dumps(flags)),
+            "INSERT INTO derived_daily (user_id, day, metric, value, flags) "
+            "VALUES (%s, %s, %s, %s, %s::jsonb)",
+            (_OWNER, day, metric, float(value), json.dumps(flags)),
         )
 
 
@@ -66,9 +73,10 @@ def seed_night(cur, wake_date: date, rem: int, light: int, deep: int, wake: int)
     end_ts = datetime.combine(wake_date, time(7, 0), tzinfo=IST)
     start_ts = end_ts - timedelta(hours=8)
     cur.execute(
-        "INSERT INTO sleep_session (start_ts, end_ts, kind, rem_min, light_min, deep_min, wake_min)"
-        " VALUES (%s, %s, 'main', %s, %s, %s, %s)",
-        (start_ts, end_ts, rem, light, deep, wake),
+        "INSERT INTO sleep_session "
+        "(user_id, start_ts, end_ts, kind, rem_min, light_min, deep_min, wake_min)"
+        " VALUES (%s, %s, %s, 'main', %s, %s, %s, %s)",
+        (_OWNER, start_ts, end_ts, rem, light, deep, wake),
     )
 
 
@@ -76,32 +84,36 @@ def seed_caffeine(cur, wake_date: date, hour_ist: int = 21) -> None:
     """Log a caffeine ``manual_entry`` the evening before ``wake_date`` (no end)."""
     ts = datetime.combine(wake_date - timedelta(days=1), time(hour_ist, 0), tzinfo=IST)
     cur.execute(
-        "INSERT INTO manual_entry (kind, ts, amount, unit) VALUES ('caffeine', %s, 100, 'mg')",
-        (ts,),
+        "INSERT INTO manual_entry (user_id, kind, ts, amount, unit) "
+        "VALUES (%s, 'caffeine', %s, 100, 'mg')",
+        (_OWNER, ts),
     )
 
 
 def seed_event(cur, kind: str, day: date, hour_ist: int = 8) -> None:
     """Log a generic instantaneous ``manual_entry`` event on ``day``."""
     ts = datetime.combine(day, time(hour_ist, 0), tzinfo=IST)
-    cur.execute("INSERT INTO manual_entry (kind, ts) VALUES (%s, %s)", (kind, ts))
+    cur.execute(
+        "INSERT INTO manual_entry (user_id, kind, ts) VALUES (%s, %s, %s)", (_OWNER, kind, ts)
+    )
 
 
 def seed_profile(cur, dob: date, sex: str = "male", height_cm: float = 175.0) -> None:
     """Set the owner's profile and one weight_log row (for BMI-based derives).
 
-    Owner comes from the `user_id` column DEFAULT (the sentinel), as everywhere else
-    in this seeder; 0005 re-keyed the table to that column.
+    The owner is the sentinel, named explicitly as everywhere else in this seeder;
+    0005 re-keyed `profile` to that column and 0007 removed its DEFAULT.
     """
     cur.execute(
-        "INSERT INTO profile (height_cm, sex, dob) VALUES (%s, %s, %s) "
+        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, %s, %s, %s) "
         "ON CONFLICT (user_id) DO UPDATE SET height_cm=EXCLUDED.height_cm, sex=EXCLUDED.sex, "
         "dob=EXCLUDED.dob",
-        (height_cm, sex, dob),
+        (_OWNER, height_cm, sex, dob),
     )
     cur.execute(
-        "INSERT INTO weight_log (ts, kg) VALUES (%s, %s) ON CONFLICT (user_id, ts) DO NOTHING",
-        (datetime.now(tz=IST) - timedelta(days=1), 72.0),
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, %s, %s) "
+        "ON CONFLICT (user_id, ts) DO NOTHING",
+        (_OWNER, datetime.now(tz=IST) - timedelta(days=1), 72.0),
     )
 
 

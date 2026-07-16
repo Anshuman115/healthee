@@ -1,10 +1,16 @@
-"""Integration tests for the Phase 6.2 tenant column (0003_tenant_column).
+"""Integration tests for the tenant column (0003_tenant_column, 0005, 0007).
 
-Proves the migration is correct AND strictly additive: every data table gains a
-NOT NULL `user_id`, existing/legacy-shaped writes (omitting user_id) still work and
-backfill to the sentinel owner via the column DEFAULT, the FK rejects unknown
-owners, and the (user_id, …) secondary indexes exist. Auto-skips without a
-reachable TimescaleDB (same policy as the other integration tests).
+Every data table carries a NOT NULL `user_id`, the FK rejects unknown owners, and
+the `(user_id, …)` secondary indexes exist.
+
+**The DEFAULT is gone (0007).** 6.2 shipped `user_id … NOT NULL DEFAULT '<sentinel>'`
+as a transitional scaffold so legacy-shaped writes kept working while 6.3 threaded
+the owner through; that job is done, and with multi-user live the default became a
+hazard — a writer that forgot `user_id` would silently attribute one person's health
+data to the sentinel. This file now pins the inverse: forgetting the owner RAISES.
+
+Auto-skips without a reachable TimescaleDB (same policy as the other integration
+tests).
 """
 
 from __future__ import annotations
@@ -65,34 +71,80 @@ def test_table_has_not_null_user_id(db: None, table: str) -> None:  # noqa: ARG0
     assert row[0] == "NO", f"{table}.user_id must be NOT NULL"
 
 
-def test_legacy_shaped_derived_daily_write_backfills_to_sentinel(
-    db: None,  # noqa: ARG001
-) -> None:
-    """A write using the OLD column list (no user_id) still works and defaults to
-    the sentinel — proving 6.2 keeps existing writers non-breaking."""
+@pytest.mark.parametrize("table", _TENANT_TABLES)
+def test_user_id_has_no_column_default(db: None, table: str) -> None:  # noqa: ARG001
+    """0007: the transitional DEFAULT is gone from EVERY tenant table.
+
+    Driven off the canonical 16-table list, so a table that keeps its default
+    cannot hide behind a hand-picked sample.
+    """
+    migrate.apply_migrations()
     with transaction() as cur:
         cur.execute(
-            "INSERT INTO derived_daily (day, metric, value) "
-            "VALUES ('2999-01-01', '_tenant_test', 1.0) "
-            "ON CONFLICT (user_id, day, metric) DO UPDATE SET value = EXCLUDED.value"
-        )
-    with transaction() as cur:
-        cur.execute(
-            "SELECT user_id FROM derived_daily WHERE day = '2999-01-01' AND metric = '_tenant_test'"
+            "SELECT column_default FROM information_schema.columns "
+            "WHERE table_name = %s AND column_name = 'user_id'",
+            (table,),
         )
         row = cur.fetchone()
-        cur.execute(
-            "DELETE FROM derived_daily WHERE day = '2999-01-01' AND metric = '_tenant_test'"
-        )
-    assert row is not None
-    assert str(row[0]) == _SENTINEL
+    assert row is not None, f"{table} is missing the user_id column"
+    assert row[0] is None, f"{table}.user_id still has a DEFAULT ({row[0]}) — 0007 missed it"
 
 
-def test_legacy_shaped_kv_write_backfills_to_sentinel(db: None) -> None:  # noqa: ARG001
+def test_no_tenant_table_kept_a_default_at_all(db: None) -> None:  # noqa: ARG001
+    """The same claim asked of the database rather than of our list.
+
+    `_TENANT_TABLES` is a hand-maintained constant; this asks `information_schema`
+    for any `user_id` column anywhere in `public` that still carries a default, so a
+    17th tenant table added later without a `DROP DEFAULT` fails here even if nobody
+    remembers to extend the list.
+    """
+    migrate.apply_migrations()
     with transaction() as cur:
         cur.execute(
-            "INSERT INTO kv (key, value) VALUES ('_tenant_test_key', 'v') "
-            "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value"
+            "SELECT table_name FROM information_schema.columns "
+            "WHERE column_name = 'user_id' AND table_schema = 'public' "
+            "AND column_default IS NOT NULL ORDER BY table_name"
+        )
+        offenders = [row[0] for row in cur.fetchall()]
+    assert offenders == [], f"user_id still defaults on: {offenders}"
+
+
+# The two tests that used to live here asserted the INVERSE — that a legacy-shaped
+# write (no user_id) "backfills to the sentinel" — because 6.2's DEFAULT was a
+# deliberate scaffold keeping legacy writers non-breaking. 0007 retired it, so the
+# invariant flips: forgetting the owner must now be LOUD. Silently attributing one
+# person's health data to the sentinel is exactly the silent wrongness this repo
+# exists to prevent, so the tests are replaced rather than deleted — the file still
+# pins the current truth about what a write without an owner does.
+
+
+def test_a_derived_daily_write_without_an_owner_raises(db: None) -> None:  # noqa: ARG001
+    migrate.apply_migrations()
+    with pytest.raises(psycopg.errors.NotNullViolation), transaction() as cur:
+        cur.execute(
+            "INSERT INTO derived_daily (day, metric, value) "
+            "VALUES ('2999-01-01', '_tenant_test', 1.0)"
+        )
+
+
+def test_a_kv_write_without_an_owner_raises(db: None) -> None:  # noqa: ARG001
+    migrate.apply_migrations()
+    with pytest.raises(psycopg.errors.NotNullViolation), transaction() as cur:
+        cur.execute("INSERT INTO kv (key, value) VALUES ('_tenant_test_key', 'v')")
+
+
+def test_the_same_write_succeeds_when_it_names_the_owner(db: None) -> None:  # noqa: ARG001
+    """The other half: NOT NULL is kept, but supplying the owner still works.
+
+    Without this, the two tests above would also pass if 0007 had broken the column
+    outright — "it raises" is only the right behaviour if the correct write doesn't.
+    """
+    migrate.apply_migrations()
+    with transaction() as cur:
+        cur.execute(
+            "INSERT INTO kv (user_id, key, value) VALUES (%s, '_tenant_test_key', 'v') "
+            "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
+            (_SENTINEL,),
         )
     with transaction() as cur:
         cur.execute("SELECT user_id FROM kv WHERE key = '_tenant_test_key'")

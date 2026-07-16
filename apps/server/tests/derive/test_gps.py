@@ -78,25 +78,36 @@ def _seed_track(cur) -> str:
     cur.execute("DELETE FROM sample")
     cur.execute("DELETE FROM weight_log")
     cur.execute("DELETE FROM profile")
-    cur.execute("INSERT INTO profile (height_cm, sex, dob) VALUES (175, 'male', '1990-01-01')")
-    cur.execute("INSERT INTO weight_log (ts, kg) VALUES ('2026-01-01T00:00:00+00', 72)")
+    cur.execute(
+        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, 175, 'male', '1990-01-01')",
+        (SENTINEL_USER_ID,),
+    )
+    cur.execute(
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, '2026-01-01T00:00:00+00', 72)",
+        (SENTINEL_USER_ID,),
+    )
     points, hr_rows = _synthetic_run()
     start = datetime.fromtimestamp(points[0][0], UTC)
     end = datetime.fromtimestamp(points[-1][0], UTC)
     cur.execute(
-        "INSERT INTO gps_track (start_ts, end_ts) VALUES (%s, %s) RETURNING id", (start, end)
+        "INSERT INTO gps_track (user_id, start_ts, end_ts) VALUES (%s, %s, %s) RETURNING id",
+        (SENTINEL_USER_ID, start, end),
     )
     row = cur.fetchone()
     assert row is not None
     track_id = str(row[0])
     cur.executemany(
-        "INSERT INTO gps_point (track_id, ts, lat, lng, ele_m) VALUES (%s, %s, %s, %s, %s)",
-        [(track_id, datetime.fromtimestamp(p[0], UTC), p[1], p[2], p[3]) for p in points],
+        "INSERT INTO gps_point (user_id, track_id, ts, lat, lng, ele_m) "
+        "VALUES (%s, %s, %s, %s, %s, %s)",
+        [
+            (SENTINEL_USER_ID, track_id, datetime.fromtimestamp(p[0], UTC), p[1], p[2], p[3])
+            for p in points
+        ],
     )
     cur.executemany(
-        "INSERT INTO sample (ts, metric, value) VALUES (%s, 'hr', %s) "
+        "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, 'hr', %s) "
         "ON CONFLICT (user_id, metric, ts) DO NOTHING",
-        [(datetime.fromtimestamp(ts, UTC), hr) for ts, hr in hr_rows],
+        [(SENTINEL_USER_ID, datetime.fromtimestamp(ts, UTC), hr) for ts, hr in hr_rows],
     )
     return track_id
 

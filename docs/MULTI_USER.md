@@ -410,8 +410,8 @@ key rebuild is coupled to the query-threading code and moves to 6.3.
    data table. The `NOT NULL DEFAULT` **backfills** all existing rows to the
    sentinel in one metadata-only step (PG11+, no table rewrite) — no separate
    nullable→UPDATE→NOT-NULL dance. New writes that omit `user_id` keep working via
-   the DEFAULT: this is the transitional scaffold that keeps 6.2 non-breaking (it
-   is dropped in 6.5 once every writer supplies `user_id` and RLS is on).
+   the DEFAULT: this is the transitional scaffold that keeps 6.2 non-breaking
+   (**dropped in `0007` — see below; that transition is over**).
 3. Add the FK to `app_user` (`ON UPDATE CASCADE ON DELETE CASCADE`) and a
    `(user_id, …)` secondary index per table. The FK **survives on the `sample`
    hypertable** (verified — a hypertable may reference a plain table).
@@ -468,6 +468,25 @@ that the sentinel row is gone. Any failure rolls the entire re-key back: a parti
 claim would scatter one person's history across two owners, which is silent wrongness
 rather than an honest gap.
 
+**`0007` — drop the transitional `user_id` DEFAULT (DONE):** `ALTER TABLE <t> ALTER
+COLUMN user_id DROP DEFAULT` on all 16 tenant tables. **`NOT NULL` is kept** — the
+column stays mandatory; what changes is that the caller must say *whose* row it is
+instead of being handed a guess.
+
+The scaffold's job is finished: 6.3a made every writer set the owner explicitly, and
+the AST guard (`tests/db/test_tenant_read_scoping.py`) now fails the build on any
+tenant SQL that doesn't reference `user_id`. With multi-user live the DEFAULT had
+turned from a convenience into a **hazard**: a writer that forgot `user_id` would
+silently attribute one person's health data to the sentinel. Dropping it converts
+that silent misattribution into a loud `NotNullViolation` at the first write.
+Verified before shipping: **no production writer relied on it** (the guard already
+implied this; grepped to confirm). Replay-safe — `DROP DEFAULT` on a column with no
+default is a no-op.
+
+The two tests that encoded the scaffold (`…_backfills_to_sentinel`) now assert the
+**inverse** invariant — a write omitting `user_id` raises — plus a per-table check,
+driven off `information_schema`, that no tenant `user_id` carries a default at all.
+
 RLS + policies land in 6.5.
 
 Because prod is one user, backfill is trivial and reversible (the column is
@@ -508,7 +527,7 @@ there is no legacy app to convert — just design it in.
 | **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
 | **6.3 Thread scoping ✅** | Shipped in three slices. **6.3a** (`0004`): folded `user_id` into every natural PK/UNIQUE, retargeted every `ON CONFLICT`, made every tenant WRITE set the owner; added `core/tenancy.SENTINEL_USER_ID`. **6.3b**: scoped every tenant READ with `AND user_id = %s`, killed the seven duplicate `Asia/Kolkata` constants for `SENTINEL_TZ` threaded as `tz: str`, and added the AST completeness guard (`tests/db/test_tenant_read_scoping.py` — any new unscoped tenant SQL now fails the build) + read-isolation tests. **6.3c** (`0005`): re-keyed `profile` by `user_id` (dropped `id`/`CHECK (id = 1)`, retargeted `upsert_profile`'s conflict to the owner — it was silently overwriting another owner's demographics), per-user job sweep (`active_users()` → `Tenant`, per-owner local day, isolated failures), and the two-tenant seed + cross-tenant leakage suite (§10). Cache-key namespacing was **dropped as redundant** (see §6). Everything still resolves to the sentinel by default. | every query scoped; single-user behavior identical (contract snapshots byte-identical) |
 | **6.4 Flip identity** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Plus `db/claim_sentinel.py` — the committed, **dry-run-by-default** one-off that re-keys the sentinel owner to the real Supabase UUID via the single cascading `UPDATE app_user SET id = …`, preserving the target's real email/timezone and post-checking (in-transaction) that no row anywhere still belongs to the sentinel; `0006` gives `device_token` the `ON UPDATE CASCADE` its 0002 definition lacked, without which the cascade *errors* for any owner who ever paired a device (§8). | second real user works end-to-end, isolated |
-| **6.5 Harden** | Postgres RLS + policies; cross-tenant leakage tests; self-serve signup/onboarding (or invite gating); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
+| **6.5 Harden** | Shipped in slices. **Signup gate ✅** ([D1], §4.4b): `signups_open` is enforced by the SERVER — it was a dead flag, and `_provision_user` wrongly claimed Supabase enforced it — gating creation of a NEW `app_user` row on `signups_open` OR the new `signup_allowlist`, refusing **403** before any write; the allowlist is also the owner's bootstrap into `claim_sentinel`. **`0007` ✅**: dropped the transitional `user_id` DEFAULT on all 16 tenant tables (§8) — a forgotten owner is now a loud `NotNullViolation`, not silent misattribution to the sentinel; `NOT NULL` kept. **Remaining:** Postgres RLS + policies (the big one — 48 `transaction()`/`connection()` sites); removing the legacy shared-token branch (blocked on the Phase-2 app shipping Supabase login, §4.4a); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the
 big one** (the ~119-site threading), 6.4 medium, 6.5 medium. Each is a Fable-
@@ -647,9 +666,15 @@ closed by signature verification.
 
 ## 13. Decisions needed
 
-- **[D1] Signup model:** invite-only (you provision accounts) vs public
-  self-serve registration? Changes how much onboarding/anti-abuse 6.5 needs.
-  *Recommend:* invite-gated by a config flag now, self-serve flippable later.
+- **[D1] Signup model — TAKEN (6.5, §4.4b):** invite-gated by a config flag now,
+  self-serve flippable later — as recommended, and now actually **built and enforced
+  in the server** rather than assumed of a Supabase dashboard toggle. A new owner is
+  provisioned only when `signups_open` is true OR their verified email is on
+  `signup_allowlist`; otherwise **403**, before any write. Default posture: closed +
+  empty allowlist = nobody new. Flipping to self-serve is one env var — but **not
+  before** the Phase-2 app ships Supabase login and the legacy shared-token branch
+  dies (§4.4a, §12.7), and not before the free-tier AI cost levers land
+  (`PRICING.md` §6.3: uncontrolled signup is uncontrolled LLM spend).
 - **[D2] Session model:** stateless JWT with rotating refresh tokens (simplest,
   no session table) vs server-side sessions (revocable, needs a table)?
   *Recommend:* JWT access + refresh-rotation, a small `session` table only if you
