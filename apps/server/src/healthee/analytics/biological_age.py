@@ -42,7 +42,7 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Gompertz hazard→years over one combined fitness term (VO₂max) + sleep
     duration + SRI. Returns chronological/biological age + signed per-term year
     contributions (+ = older, − = younger), or None without a profile/inputs."""
-    cur.execute("SELECT dob, sex FROM profile WHERE id=1 AND user_id = %s", (user_id,))
+    cur.execute("SELECT dob, sex FROM profile WHERE user_id = %s", (user_id,))
     p = cur.fetchone()
     if not p or not p[0]:
         return None

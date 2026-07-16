@@ -131,9 +131,23 @@ def test_fk_rejects_unknown_owner(db: None) -> None:  # noqa: ARG001
         )
 
 
-def test_profile_keeps_single_row_check(db: None) -> None:  # noqa: ARG001
-    """6.2 is additive on profile: the id=1 PK/CHECK survives untouched (the
-    re-key by user_id is deferred to 6.3)."""
+def test_profile_is_keyed_by_owner(db: None) -> None:  # noqa: ARG001
+    """0005 replaced profile's `id=1` single-row CHECK with a `user_id` PK.
+
+    The invariant it guarded ("at most one profile row") is now stated PER OWNER
+    instead of globally: a second insert for the SAME owner conflicts, while a
+    different owner is free to hold their own row (asserted in
+    `test_profile_rekey.py`). This is the same rule, correctly scoped — the old
+    version made a second owner's profile impossible.
+    """
     migrate.apply_migrations()
-    with pytest.raises(psycopg.errors.CheckViolation), transaction() as cur:
-        cur.execute("INSERT INTO profile (id) VALUES (2)")
+    with transaction() as cur:
+        cur.execute(
+            "INSERT INTO profile (user_id, name) VALUES (%s, '_dup_test') "
+            "ON CONFLICT (user_id) DO UPDATE SET name = EXCLUDED.name",
+            (_SENTINEL,),
+        )
+    with pytest.raises(psycopg.errors.UniqueViolation), transaction() as cur:
+        cur.execute("INSERT INTO profile (user_id, name) VALUES (%s, '_dup_2')", (_SENTINEL,))
+    with transaction() as cur:
+        cur.execute("DELETE FROM profile WHERE user_id = %s AND name = '_dup_test'", (_SENTINEL,))

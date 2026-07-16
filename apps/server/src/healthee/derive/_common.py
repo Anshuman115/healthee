@@ -110,11 +110,8 @@ def _load_profile(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> 
     updating today's weight never retroactively rewrites past days; days before
     the first entry fall back to the earliest logged weight. With `day=None` the
     latest weight is used. Returns None if the profile or any weight is missing.
-
-    `profile` keeps its `id = 1` predicate alongside the owner filter — the re-key
-    to a `user_id` PK is 6.3c.
     """
-    cur.execute("SELECT height_cm, sex, dob FROM profile WHERE id=1 AND user_id = %s", (user_id,))
+    cur.execute("SELECT height_cm, sex, dob FROM profile WHERE user_id = %s", (user_id,))
     prof = cur.fetchone()
     if not prof or prof[0] is None or prof[1] is None or prof[2] is None:
         return None

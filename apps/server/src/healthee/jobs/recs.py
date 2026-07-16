@@ -26,7 +26,6 @@ from uuid import UUID
 
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights import manifest
 from healthee.insights.client import LLMClient
 from healthee.insights.grounded import GroundedResult, grounded_ask
@@ -82,7 +81,7 @@ _BANNED_RE = re.compile(
 _INLINE_CITE_RE = re.compile(r"\[[a-z0-9_]+(?:\s*,\s*[a-z0-9_]+)*\]")
 
 
-def _no_grounded_output(day: date, question: str, result: GroundedResult) -> dict:
+def _no_grounded_output(user_id: UUID, day: date, question: str, result: GroundedResult) -> dict:
     """The choke point refused / fell back — ship NO recs rather than ungrounded ones.
 
     Stale rows are still cleared and the audit row still written, so a bad day is a
@@ -90,12 +89,13 @@ def _no_grounded_output(day: date, question: str, result: GroundedResult) -> dic
     (unchanged) from ``generate_recs`` to keep it inside the 40-line gate.
     """
     log.info(
-        "recs %s: no grounded output (refused=%s validated=%s)",
+        "recs[%s] %s: no grounded output (refused=%s validated=%s)",
+        user_id,
         day,
         result.refused,
         result.validated,
     )
-    _persist(SENTINEL_USER_ID, day, [], prompt=question, raw=result.text)
+    _persist(user_id, day, [], prompt=question, raw=result.text)
     return {
         "ok": True,
         "day": day.isoformat(),
@@ -107,25 +107,27 @@ def _no_grounded_output(day: date, question: str, result: GroundedResult) -> dic
 
 
 def generate_recs(
+    user_id: UUID,
+    tz: str,
     day: date | None = None,
     *,
     client: LLMClient | None = None,
     model: str | None = None,
 ) -> dict:
-    """Generate, validate, and persist today's recommendations. Returns a status dict.
+    """Generate, validate, and persist ``user_id``'s recommendations. Returns a status dict.
 
+    ``day`` defaults to the OWNER's local today (from their ``tz``), not a global one.
     ``client`` is injectable so tests run a deterministic stub with no network.
     Errors propagate to the supervised chain runner (never swallowed, standards §1).
     """
-    # 6.4: source the owner + tz from the authenticated user / per-user job loop.
-    day = day or user_today(SENTINEL_TZ)
-    signals = build_recs_signals(SENTINEL_USER_ID, SENTINEL_TZ)
+    day = day or user_today(tz)
+    signals = build_recs_signals(user_id, tz)
     question = f"{RECS_TASK}\n\n# TODAY'S SIGNALS (anchor every action to these)\n\n{signals}"
 
     result = grounded_ask(
         question,
-        SENTINEL_USER_ID,
-        SENTINEL_TZ,
+        user_id,
+        tz,
         metrics=RECS_METRICS,
         context_days=14,
         response_format="json",
@@ -133,11 +135,11 @@ def generate_recs(
         model=model,
     )
     if result.refused or not result.validated or result.data is None:
-        return _no_grounded_output(day, question, result)
+        return _no_grounded_output(user_id, day, question, result)
 
     clean, dropped = _parse_and_validate(result.data)
-    persisted = _persist(SENTINEL_USER_ID, day, clean, prompt=question, raw=result.text)
-    log.info("recs %s: %d persisted, %d dropped", day, persisted, dropped)
+    persisted = _persist(user_id, day, clean, prompt=question, raw=result.text)
+    log.info("recs[%s] %s: %d persisted, %d dropped", user_id, day, persisted, dropped)
     return {
         "ok": True,
         "day": day.isoformat(),

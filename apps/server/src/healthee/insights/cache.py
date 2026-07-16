@@ -50,9 +50,11 @@ def get_cached(user_id: UUID, tz: str, key: str) -> dict | None:
 def set_cached(user_id: UUID, key: str, value: dict) -> None:
     """Upsert ``user_id``'s generated payload under ``key`` (expects a ``date`` field).
 
-    The kv key itself stays un-namespaced — 0004 folded the owner into the kv PK, so
-    two users' same-named entries no longer collide. (Namespacing the key string is
-    6.3c.)
+    The kv key itself stays un-namespaced BY DESIGN: 0004 folded the owner into the kv
+    PRIMARY KEY and `get_cached` filters by it, so two users' same-named entries are
+    already distinct rows that cannot collide. Prefixing the string with the user id
+    would state the tenant twice — in the key column and again inside the key — so it
+    is not done (MULTI_USER.md §6).
     """
     with transaction() as cur:
         cur.execute(

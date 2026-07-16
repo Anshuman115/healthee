@@ -165,23 +165,21 @@ def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
 
 
 def upsert_profile(cur: Cur, user_id: UUID, profile: ProfileIn) -> None:
-    """Upsert the single-user profile row (id fixed at 1) under `user_id`.
+    """Upsert `user_id`'s profile row. `name` is preserved when the push omits it.
 
-    `name` is preserved when the push omits it (COALESCE); weight is handled by
-    `upsert_weight`.
+    The OWNER is the conflict target (0005 re-keyed the table to `user_id`), which is
+    what makes this write tenant-safe: the old target was `(id)` against the single
+    `id = 1` row, so any owner's push updated the demographics of whoever held that
+    row — B silently overwriting A's height/sex/dob while the row stayed owned by A.
+    Conflicting on the owner means a push can only ever reach that owner's own row.
 
-    The owner is written EXPLICITLY rather than left to 0003's column DEFAULT —
-    this was the one tenant write 6.3a missed, and 6.3b's profile reads now filter
-    on `user_id`, so the two must agree by construction and not by the accident of
-    the DEFAULT being the sentinel (6.5 drops that DEFAULT). The conflict target
-    stays `(id)`: re-keying profile by `user_id` is 6.3c, and until then `id = 1`
-    means only one owner can hold a profile row at all.
+    Weight is handled by `upsert_weight` (it is a time series, not a profile field).
     """
     dob = epoch_to_utc(profile.dob).date() if profile.dob else None
     cur.execute(
-        "INSERT INTO profile (id, user_id, name, height_cm, sex, dob, updated_at) "
-        "VALUES (1, %s, %s, %s, %s, %s, now()) "
-        "ON CONFLICT (id) DO UPDATE SET "
+        "INSERT INTO profile (user_id, name, height_cm, sex, dob, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, now()) "
+        "ON CONFLICT (user_id) DO UPDATE SET "
         "name = COALESCE(EXCLUDED.name, profile.name), height_cm = EXCLUDED.height_cm, "
         "sex = EXCLUDED.sex, dob = EXCLUDED.dob, updated_at = now()",
         (user_id, profile.name, profile.height_cm, profile.sex, dob),

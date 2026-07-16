@@ -121,7 +121,7 @@ def seed(cur) -> None:
     cur.execute("DELETE FROM weight_log")
     cur.execute("DELETE FROM profile")
     cur.execute(
-        "INSERT INTO profile (id, height_cm, sex, dob) VALUES (1, %s, %s, %s)",
+        "INSERT INTO profile (height_cm, sex, dob) VALUES (%s, %s, %s)",
         (PROFILE["height_cm"], PROFILE["sex"], PROFILE["dob"]),
     )
     cur.execute("INSERT INTO weight_log (ts, kg) VALUES (%s, %s)", (WEIGHT_TS, WEIGHT_KG))

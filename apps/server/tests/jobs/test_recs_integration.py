@@ -94,7 +94,7 @@ def _rows() -> list[tuple]:
 def test_recs_persist_with_citations_and_audit_columns(db: None) -> None:  # noqa: ARG001
     _seed()
     stub = StubLLM([_GOOD_PLUS_UNCITABLE])
-    result = recs.generate_recs(_DAY, client=stub)
+    result = recs.generate_recs(SENTINEL_USER_ID, SENTINEL_TZ, _DAY, client=stub)
 
     assert result["persisted"] == 1  # the good rec
     assert result["dropped"] == 1  # the uncitable rec
@@ -122,7 +122,7 @@ def test_today_endpoint_returns_the_persisted_recommendations(
     monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
     get_settings.cache_clear()
     # Persist for today's real date so /api/today (which reads the latest day) sees them.
-    recs.generate_recs(client=StubLLM([_GOOD_PLUS_UNCITABLE]))
+    recs.generate_recs(SENTINEL_USER_ID, SENTINEL_TZ, client=StubLLM([_GOOD_PLUS_UNCITABLE]))
 
     api = TestClient(create_app())
     resp = api.get("/api/today", headers=_AUTH)
@@ -136,7 +136,7 @@ def test_today_endpoint_returns_the_persisted_recommendations(
 def test_a_fabricated_inline_citation_is_blocked_nothing_ships(db: None) -> None:  # noqa: ARG001
     _seed()
     stub = StubLLM([_FABRICATED, _FABRICATED])  # both tries fail validation
-    result = recs.generate_recs(_DAY, client=stub)
+    result = recs.generate_recs(SENTINEL_USER_ID, SENTINEL_TZ, _DAY, client=stub)
 
     assert result["validated"] is False  # the choke point fell back
     assert result["persisted"] == 0

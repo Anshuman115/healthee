@@ -40,11 +40,8 @@ def build_recs_signals(user_id: UUID, tz: str) -> str:
 
 
 def _profile_line(cur, user_id: UUID, today: date) -> str:
-    """Profile from the DB ``profile`` table (id=1) — never the legacy JSON file.
-
-    The ``id = 1`` predicate stays alongside the owner filter; the re-key is 6.3c.
-    """
-    cur.execute("SELECT sex, height_cm, dob FROM profile WHERE id = 1 AND user_id = %s", (user_id,))
+    """Profile from the DB ``profile`` table — never the legacy JSON file."""
+    cur.execute("SELECT sex, height_cm, dob FROM profile WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
     if not row:
         return "- Profile: not configured."

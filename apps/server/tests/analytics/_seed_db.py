@@ -88,10 +88,14 @@ def seed_event(cur, kind: str, day: date, hour_ist: int = 8) -> None:
 
 
 def seed_profile(cur, dob: date, sex: str = "male", height_cm: float = 175.0) -> None:
-    """Set the single-user profile and one weight_log row (for BMI-based derives)."""
+    """Set the owner's profile and one weight_log row (for BMI-based derives).
+
+    Owner comes from the `user_id` column DEFAULT (the sentinel), as everywhere else
+    in this seeder; 0005 re-keyed the table to that column.
+    """
     cur.execute(
-        "INSERT INTO profile (id, height_cm, sex, dob) VALUES (1, %s, %s, %s) "
-        "ON CONFLICT (id) DO UPDATE SET height_cm=EXCLUDED.height_cm, sex=EXCLUDED.sex, "
+        "INSERT INTO profile (height_cm, sex, dob) VALUES (%s, %s, %s) "
+        "ON CONFLICT (user_id) DO UPDATE SET height_cm=EXCLUDED.height_cm, sex=EXCLUDED.sex, "
         "dob=EXCLUDED.dob",
         (height_cm, sex, dob),
     )

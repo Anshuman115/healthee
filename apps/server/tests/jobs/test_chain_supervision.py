@@ -13,12 +13,18 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import date
+from uuid import UUID
 
 import pytest
 
 from healthee.jobs import chain
 
 DAY = date(2026, 7, 15)
+
+# An arbitrary owner: these tests are pure control-flow, so the id only has to be
+# threaded consistently — the per-owner dedup marker is asserted in test_scheduler.
+_OWNER = UUID("44444444-4444-4444-4444-444444444444")
+_TZ = "Asia/Kolkata"
 
 
 @pytest.fixture
@@ -39,7 +45,7 @@ def _stub_steps(monkeypatch: pytest.MonkeyPatch, **raisers: bool) -> dict[str, i
     calls = {"correlate": 0, "recs": 0, "briefing": 0}
 
     def make(name: str):
-        def step(_day: date, *, client=None) -> dict:  # noqa: ARG001
+        def step(_day: date, _user_id: UUID, _tz: str, *, client=None) -> dict:  # noqa: ARG001
             calls[name] += 1
             if raisers.get(name):
                 raise RuntimeError(f"{name} boom")
@@ -56,7 +62,7 @@ def test_a_raising_step_is_caught_reported_and_not_swallowed(
     monkeypatch: pytest.MonkeyPatch, notices: list[str]
 ) -> None:
     calls = _stub_steps(monkeypatch, recs=True)
-    result = chain.run_chain(DAY)  # must not raise
+    result = chain.run_chain(_OWNER, _TZ, DAY)  # must not raise
 
     recs = next(s for s in result.steps if s.name == "recs")
     assert recs.status == "failed"
@@ -69,7 +75,7 @@ def test_a_raising_step_is_caught_reported_and_not_swallowed(
 
 def test_correlate_failure_aborts_recs(monkeypatch: pytest.MonkeyPatch, notices: list[str]) -> None:
     calls = _stub_steps(monkeypatch, correlate=True)
-    result = chain.run_chain(DAY)
+    result = chain.run_chain(_OWNER, _TZ, DAY)
 
     statuses = {s.name: s.status for s in result.steps}
     assert statuses["correlate"] == "failed"
@@ -82,7 +88,7 @@ def test_briefing_failure_does_not_undo_recs(
     monkeypatch: pytest.MonkeyPatch, notices: list[str]
 ) -> None:
     calls = _stub_steps(monkeypatch, briefing=True)
-    result = chain.run_chain(DAY)
+    result = chain.run_chain(_OWNER, _TZ, DAY)
 
     statuses = {s.name: s.status for s in result.steps}
     assert statuses["recs"] == "ok"  # recs completed and its result stands
@@ -96,15 +102,15 @@ def test_second_run_same_day_is_a_deduped_no_op(
     notices: list[str],  # noqa: ARG001
 ) -> None:
     calls = _stub_steps(monkeypatch)
-    first = chain.run_chain(DAY)
+    first = chain.run_chain(_OWNER, _TZ, DAY)
     assert first.deduped is False
     assert calls == {"correlate": 1, "recs": 1, "briefing": 1}
 
-    second = chain.run_chain(DAY)  # already ran today
+    second = chain.run_chain(_OWNER, _TZ, DAY)  # already ran today
     assert second.deduped is True
     assert second.steps == []
     assert calls == {"correlate": 1, "recs": 1, "briefing": 1}  # nothing re-fired
 
-    forced = chain.run_chain(DAY, force=True)  # force overrides dedup
+    forced = chain.run_chain(_OWNER, _TZ, DAY, force=True)  # force overrides dedup
     assert forced.deduped is False
     assert calls == {"correlate": 2, "recs": 2, "briefing": 2}

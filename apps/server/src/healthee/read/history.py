@@ -30,9 +30,7 @@ def history(cur: Cur, user_id: UUID, metric: str, days: int = 90) -> dict:
 
 def profile(cur: Cur, user_id: UUID) -> dict:
     """Stored profile (name / height / sex / dob-epoch-ms / latest weight)."""
-    cur.execute(
-        "SELECT name, height_cm, sex, dob FROM profile WHERE id=1 AND user_id = %s", (user_id,)
-    )
+    cur.execute("SELECT name, height_cm, sex, dob FROM profile WHERE user_id = %s", (user_id,))
     r = cur.fetchone()
     cur.execute("SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1", (user_id,))
     w = cur.fetchone()

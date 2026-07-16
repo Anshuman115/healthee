@@ -11,10 +11,10 @@ fallback — which we still send, plainly, rather than inventing an upbeat line.
 from __future__ import annotations
 
 from datetime import date
+from uuid import UUID
 
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.client import LLMClient
 from healthee.insights.grounded import grounded_ask
 from healthee.read.common import user_today
@@ -32,18 +32,20 @@ BRIEFING_TASK = (
 )
 
 
-def send_briefing(day: date | None = None, *, client: LLMClient | None = None) -> dict:
-    """Generate the grounded briefing and send it to Telegram. Returns a status dict.
+def send_briefing(
+    user_id: UUID, tz: str, day: date | None = None, *, client: LLMClient | None = None
+) -> dict:
+    """Generate ``user_id``'s grounded briefing and Telegram it. Returns a status dict.
 
+    ``day`` defaults to the OWNER's local today (from their ``tz``), not a global one.
     ``client`` is injectable for tests. Errors from generation propagate to the
     supervised chain runner; the Telegram send itself never raises (``core.notify``).
     """
-    # 6.4: source the owner + tz from the authenticated user / per-user job loop.
-    day = day or user_today(SENTINEL_TZ)
+    day = day or user_today(tz)
     result = grounded_ask(
         BRIEFING_TASK,
-        SENTINEL_USER_ID,
-        SENTINEL_TZ,
+        user_id,
+        tz,
         metrics=BRIEFING_METRICS,
         context_days=14,
         client=client,
@@ -51,7 +53,12 @@ def send_briefing(day: date | None = None, *, client: LLMClient | None = None) -
     message = _compose(day, result.text)
     sent = send_telegram(message)
     log.info(
-        "briefing %s: sent=%s validated=%s refused=%s", day, sent, result.validated, result.refused
+        "briefing[%s] %s: sent=%s validated=%s refused=%s",
+        user_id,
+        day,
+        sent,
+        result.validated,
+        result.refused,
     )
     return {
         "ok": True,

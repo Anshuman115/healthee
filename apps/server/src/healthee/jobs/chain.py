@@ -31,7 +31,6 @@ from uuid import UUID
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights.client import LLMClient
 from healthee.jobs import briefing as briefing_mod
 from healthee.jobs import correlate as correlate_mod
@@ -41,7 +40,12 @@ from healthee.read.common import user_today
 log = get_logger(__name__)
 
 STEP_NAMES = ("correlate", "recs", "briefing")
-_DONE_KEY = "job:chain_done"  # kv key prefix; per-day marker is f"{_DONE_KEY}:{day}"
+
+# kv key prefix; the per-day marker is f"{_DONE_KEY}:{day}". The OWNER is deliberately
+# NOT in this string: 0004 folded user_id into the kv PRIMARY KEY and every read of it
+# filters by owner, so two users' markers for the same day are already distinct rows.
+# Prefixing would state the tenant twice — once in the key column, once in the string.
+_DONE_KEY = "job:chain_done"
 
 
 @dataclass
@@ -66,19 +70,25 @@ class ChainResult:
 # ── the three steps (thin adapters onto the step modules) ──────────────────────
 
 
-def step_correlate(_day: date, *, client: LLMClient | None = None) -> dict:  # noqa: ARG001
-    """Recompute personal findings (no LLM — ``client`` is unused here)."""
-    return correlate_mod.run_correlate()
+def step_correlate(
+    _day: date,
+    user_id: UUID,
+    tz: str,
+    *,
+    client: LLMClient | None = None,  # noqa: ARG001
+) -> dict:
+    """Recompute one owner's personal findings (no LLM — ``client`` is unused here)."""
+    return correlate_mod.run_correlate(user_id, tz)
 
 
-def step_recs(day: date, *, client: LLMClient | None = None) -> dict:
-    """Generate today's grounded recommendations."""
-    return recs_mod.generate_recs(day, client=client)
+def step_recs(day: date, user_id: UUID, tz: str, *, client: LLMClient | None = None) -> dict:
+    """Generate one owner's grounded recommendations for their local day."""
+    return recs_mod.generate_recs(user_id, tz, day, client=client)
 
 
-def step_briefing(day: date, *, client: LLMClient | None = None) -> dict:
-    """Send the morning Telegram briefing."""
-    return briefing_mod.send_briefing(day, client=client)
+def step_briefing(day: date, user_id: UUID, tz: str, *, client: LLMClient | None = None) -> dict:
+    """Send one owner's morning Telegram briefing."""
+    return briefing_mod.send_briefing(user_id, tz, day, client=client)
 
 
 # ── supervision ────────────────────────────────────────────────────────────────
@@ -102,19 +112,29 @@ def _run_supervised(name: str, run: Callable[[], dict]) -> StepOutcome:
     return StepOutcome(name=name, status="ok", detail=detail)
 
 
-def run_step(name: str, day: date | None = None, *, client: LLMClient | None = None) -> StepOutcome:
-    """Supervised single-step run (used by the scheduler's per-timer jobs).
+def run_step(
+    name: str,
+    user_id: UUID,
+    tz: str,
+    day: date | None = None,
+    *,
+    client: LLMClient | None = None,
+) -> StepOutcome:
+    """Supervised single-step run for ONE owner (used by the scheduler's sweep).
+
+    ``day`` defaults to THAT owner's local today (from their ``tz``) — a global
+    "today" would put a user several zones away on the wrong day's data.
 
     Dispatches to the module-level ``step_*`` functions by name (resolved at call
     time, so they stay individually patchable/testable).
     """
-    day = day or user_today(SENTINEL_TZ)
+    day = day or user_today(tz)
     if name == "correlate":
-        return _run_supervised(name, lambda: step_correlate(day, client=client))
+        return _run_supervised(name, lambda: step_correlate(day, user_id, tz, client=client))
     if name == "recs":
-        return _run_supervised(name, lambda: step_recs(day, client=client))
+        return _run_supervised(name, lambda: step_recs(day, user_id, tz, client=client))
     if name == "briefing":
-        return _run_supervised(name, lambda: step_briefing(day, client=client))
+        return _run_supervised(name, lambda: step_briefing(day, user_id, tz, client=client))
     raise ValueError(f"unknown chain step: {name!r}")
 
 
@@ -122,29 +142,38 @@ def run_step(name: str, day: date | None = None, *, client: LLMClient | None = N
 
 
 def run_chain(
-    day: date | None = None, *, client: LLMClient | None = None, force: bool = False
+    user_id: UUID,
+    tz: str,
+    day: date | None = None,
+    *,
+    client: LLMClient | None = None,
+    force: bool = False,
 ) -> ChainResult:
-    """Run correlate → recs → briefing in order, supervised, deduped per day.
+    """Run ONE owner's correlate → recs → briefing in order, supervised, deduped per day.
 
     Dependency: a ``correlate`` failure skips ``recs`` (which depends on the
     findings it writes). A ``briefing`` failure never undoes persisted recs. A
-    second call for an already-run day is a no-op unless ``force``.
+    second call for an already-run day is a no-op unless ``force`` — and the dedup
+    marker is per-owner (the folded ``kv`` PK), so one owner's chain can never dedup
+    another's. ``day`` defaults to the owner's own local today.
     """
-    day = day or user_today(SENTINEL_TZ)
-    if not force and _chain_done(SENTINEL_USER_ID, day):
-        log.info("chain for %s already ran — dedup no-op", day)
+    day = day or user_today(tz)
+    if not force and _chain_done(user_id, day):
+        log.info("chain[%s] for %s already ran — dedup no-op", user_id, day)
         return ChainResult(day=day, deduped=True)
 
     steps: list[StepOutcome] = []
-    correlate = _run_supervised("correlate", lambda: step_correlate(day, client=client))
+    correlate = _run_supervised(
+        "correlate", lambda: step_correlate(day, user_id, tz, client=client)
+    )
     steps.append(correlate)
 
     if correlate.status == "ok":
-        steps.append(_run_supervised("recs", lambda: step_recs(day, client=client)))
+        steps.append(_run_supervised("recs", lambda: step_recs(day, user_id, tz, client=client)))
         # Correlate succeeded → recs had valid inputs and its chance to run; mark the
         # day done so it isn't re-run. A correlate failure leaves it un-marked so a
         # later fire/ingest retries the whole chain.
-        _mark_chain_done(SENTINEL_USER_ID, day)
+        _mark_chain_done(user_id, day)
     else:
         steps.append(
             StepOutcome(
@@ -154,7 +183,9 @@ def run_chain(
             )
         )
 
-    steps.append(_run_supervised("briefing", lambda: step_briefing(day, client=client)))
+    steps.append(
+        _run_supervised("briefing", lambda: step_briefing(day, user_id, tz, client=client))
+    )
     return ChainResult(day=day, deduped=False, steps=steps)
 
 
@@ -171,9 +202,8 @@ def _chain_done(user_id: UUID, day: date) -> bool:
 def _mark_chain_done(user_id: UUID, day: date) -> None:
     """Set ``user_id``'s per-day dedup marker (idempotent upsert).
 
-    The marker is now per-owner via the folded kv PK, so one user's chain can no
-    longer dedup another's. (The per-user job LOOP that makes this matter is 6.3c;
-    today the only owner is the sentinel.)
+    The marker is per-owner via the folded kv PK, so one user's chain cannot dedup
+    another's — which is what makes the 6.3c per-user sweep safe to run.
     """
     with transaction() as cur:
         cur.execute(

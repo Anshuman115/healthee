@@ -5,6 +5,11 @@ the user timezone so a snapshot is reproducible: profile, weight, raw samples,
 sleep sessions (+ a nap), a workout, the ``derived_daily`` rows (with the flags the
 payloads read), manual entries (+ an open fast), an illness flag, a recommendation,
 a finding, and a GPS track. Values are chosen so derived numbers are stable.
+
+**Owner A is the sentinel** and owns every row seeded here, so the committed
+contract snapshots stay byte-identical. The second tenant lives in the sibling
+``seed_owner_b`` module (Phase 6.3c, MULTI_USER.md §10): additive and opt-in, so a
+test that doesn't call it is unaffected by B's existence.
 """
 
 from __future__ import annotations
@@ -14,7 +19,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from healthee.core.db import transaction
-from healthee.core.tenancy import SENTINEL_TZ
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 
 # The sentinel owner's zone — the seed anchors its local days exactly as the read
@@ -38,14 +43,15 @@ def reset() -> None:
         cur.execute(f"TRUNCATE {_TABLES}")
 
 
-def _today_local() -> date:
+def today_local() -> date:
+    """Today in the sentinel owner's zone — the anchor both owners' fixtures share."""
     return datetime.now(tz=USER_TZ).date()
 
 
 def seed_all() -> None:
     """Populate the whole fixture in one transaction."""
     reset()
-    today = _today_local()
+    today = today_local()
     with transaction() as cur:
         _seed_profile(cur)
         _seed_samples(cur, today)
@@ -61,9 +67,10 @@ def seed_all() -> None:
 
 def _seed_profile(cur) -> None:
     cur.execute(
-        "INSERT INTO profile (id, name, height_cm, sex, dob) "
-        "VALUES (1,'Test',176,'male','1990-05-01') "
-        "ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name",
+        "INSERT INTO profile (user_id, name, height_cm, sex, dob) "
+        "VALUES (%s,'Test',176,'male','1990-05-01') "
+        "ON CONFLICT (user_id) DO UPDATE SET name=EXCLUDED.name",
+        (SENTINEL_USER_ID,),
     )
     cur.execute("INSERT INTO weight_log (ts, kg) VALUES (now(), 72.5) ON CONFLICT DO NOTHING")
 

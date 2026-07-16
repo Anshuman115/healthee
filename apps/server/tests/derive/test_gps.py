@@ -78,9 +78,7 @@ def _seed_track(cur) -> str:
     cur.execute("DELETE FROM sample")
     cur.execute("DELETE FROM weight_log")
     cur.execute("DELETE FROM profile")
-    cur.execute(
-        "INSERT INTO profile (id, height_cm, sex, dob) VALUES (1, 175, 'male', '1990-01-01')"
-    )
+    cur.execute("INSERT INTO profile (height_cm, sex, dob) VALUES (175, 'male', '1990-01-01')")
     cur.execute("INSERT INTO weight_log (ts, kg) VALUES ('2026-01-01T00:00:00+00', 72)")
     points, hr_rows = _synthetic_run()
     start = datetime.fromtimestamp(points[0][0], UTC)

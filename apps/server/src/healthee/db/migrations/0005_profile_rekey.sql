@@ -1,0 +1,42 @@
+-- 0005_profile_rekey — Phase 6.3c: re-key `profile` by its owner.
+--
+-- The last single-tenant coupling in the schema (MULTI_USER.md §2/§3.2). 0001 gave
+-- `profile` an `id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1)`, so the table can
+-- physically hold exactly ONE row — globally, not per owner. 0003/0004 added the
+-- `user_id` column but deliberately left this key alone, which leaves the table in a
+-- state that is worse than merely unfinished:
+--
+--   * a second owner's read (`WHERE id = 1 AND user_id = B`) matches nothing — B can
+--     never have a profile at all; and
+--   * `upsert_profile` for B conflicted on `(id)` and updated the demographics
+--     WITHOUT setting user_id, so B's push overwrote A's name/height/sex/dob while
+--     the row stayed owned by A. Silent cross-tenant corruption of health inputs
+--     (height/sex/dob feed energy, distance, VO₂max and bio-age), latent only
+--     because there is exactly one tenant today.
+--
+-- Making `user_id` the PK fixes both by construction: the owner becomes the conflict
+-- target, so one owner's write can no longer reach another owner's row, and each
+-- owner holds exactly one profile.
+--
+-- Dependent-FK safety (verified against the local DB before writing): no foreign key
+-- references `profile.id` — the only FK on this table is 0003's outbound
+-- `user_id -> app_user(id)`, which this migration does not touch. So dropping the
+-- column has no cascade fallout.
+--
+-- The `user_id` column DEFAULT (the transitional 0003 scaffold) is intentionally
+-- KEPT here; dropping it repo-wide is 6.5, once RLS lands and every writer supplies
+-- the owner explicitly.
+--
+-- Replay-safety: the PK is dropped by name with IF EXISTS before being re-added
+-- under that same name, and the column drop is IF EXISTS — so a partially-applied
+-- file is safe to re-run (probed: a second full pass is a clean no-op). Plain
+-- statements only (no DO blocks) — the runner splits on ';' and psycopg3 executes
+-- one at a time.
+
+-- ── profile (PK flip: id=1 → user_id) ───────────────────────────────────────
+-- Drop the PK first so the re-run case (where it already sits on user_id) is a
+-- no-op rather than a duplicate-name error. Dropping the `id` column then takes the
+-- `CHECK (id = 1)` single-row constraint with it automatically.
+ALTER TABLE profile DROP CONSTRAINT IF EXISTS profile_pkey;
+ALTER TABLE profile DROP COLUMN IF EXISTS id;
+ALTER TABLE profile ADD CONSTRAINT profile_pkey PRIMARY KEY (user_id);

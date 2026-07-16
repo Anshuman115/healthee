@@ -83,17 +83,19 @@ CREATE INDEX IF NOT EXISTS derived_daily_metric_day_idx ON derived_daily (metric
 CREATE INDEX IF NOT EXISTS derived_daily_user_idx ON derived_daily (user_id, metric, day DESC);
 
 -- ── profile ───────────────────────────────────────────────────────────────
--- The single user's profile (id fixed at 1); inputs for energy/distance derivation.
+-- One profile per owner; inputs for energy/distance/VO₂max/bio-age derivation.
 CREATE TABLE IF NOT EXISTS profile (
-  id          INTEGER      PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   name        TEXT,
   height_cm   REAL,
   sex         TEXT CHECK (sex IN ('male', 'female')),
   dob         DATE,
   updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  -- tenant (0003); ADDITIVE — the id=1 PK/CHECK stays until the 6.3 re-key.
+  -- The owner IS the key (0005): the old `id INTEGER PK DEFAULT 1 CHECK (id = 1)`
+  -- allowed exactly one row globally, so a second owner could not hold a profile
+  -- and an upsert for one owner overwrote another's demographics.
   user_id     UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'
-                REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
+                REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  PRIMARY KEY (user_id)  -- owner folded into the key (0005)
 );
 CREATE INDEX IF NOT EXISTS profile_user_idx ON profile (user_id);
 
