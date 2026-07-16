@@ -167,6 +167,16 @@ email verification, password reset — all Supabase. We build **none** of it. Th
 web app (Cloudflare Pages) and the Flutter app use the Supabase client SDK to sign
 in and hold the session.
 
+**Chosen sign-in method: social login — Google + Apple** (Apple is required by App
+Store guideline 4.8 once any other social login is offered). Each is a Supabase
+dashboard toggle (enable provider + OAuth client IDs) plus one client call
+(`supabase.auth.signInWithOAuth(Provider.google/apple)`); the mobile side lands in
+Phase 2. **This is a config + client concern only — the backend is provider-blind
+by design (§4.2): it verifies whatever Supabase issues, so the access JWT from a
+Google/Apple sign-in flows through `verify_supabase_jwt` unchanged (`sub` = the
+Supabase UUID, `email` from the social identity). Nothing in Phase 6.1 changes.**
+Email/password stays available as a fallback via the same code path.
+
 ### 4.2 The backend is a resource server (verifies, never issues)
 FastAPI **verifies** the Supabase access JWT on every `/api/*` request — check the
 signature (Supabase JWKS / project JWT secret), `exp`/`aud`/`iss`, then take
