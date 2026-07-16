@@ -350,3 +350,34 @@ CREATE TABLE IF NOT EXISTS device_token (
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS device_token_hash_idx ON device_token (token_hash);
+
+-- ── Row-Level Security (0008_row_level_security) ───────────────────────────
+-- The isolation backstop (MULTI_USER.md §3.3): every TENANT table below carries
+-- `ENABLE ROW LEVEL SECURITY` plus exactly ONE policy named `<table>_tenant`, of
+-- this exact shape — `core.db.tenant_transaction()` sets the GUC it reads:
+--
+--   ALTER TABLE <t> ENABLE ROW LEVEL SECURITY;
+--   CREATE POLICY <t>_tenant ON <t> FOR ALL
+--     USING      (user_id = NULLIF(current_setting('healthee.user_id', true), '')::uuid)
+--     WITH CHECK (user_id = NULLIF(current_setting('healthee.user_id', true), '')::uuid);
+--
+-- Why each part (all three were probed before being written — see 0008's header):
+--   * FOR ALL + WITH CHECK — a USING-only policy leaves INSERT ungoverned, which
+--     would break every upsert and let a write land under any owner.
+--   * NULLIF(…, '') — a touched-then-reset GUC reads back as the EMPTY STRING, not
+--     NULL, and a bare ''::uuid ERRORS instead of failing closed.
+--   * no FORCE — FORCE only binds the table's OWNER. The app role owns nothing, so
+--     plain ENABLE already binds it; the admin stays unbound on purpose (migrate,
+--     claim_sentinel and the test reset must all see across owners).
+--
+-- The 16 tenant tables, each with `<table>_tenant`:
+--   sample · sleep_session · workout · derived_daily · weight_log · kv ·
+--   manual_entry · illness_flag · recommendation · finding · challenge · program ·
+--   challenge_outcome · gps_track · gps_point · profile
+--
+-- `sample`'s chunks inherit the parent hypertable's policy — nothing extra needed.
+--
+-- NOT policied, deliberately: `app_user` and `device_token` (identity — the app has
+-- to resolve WHO you are before it knows an owner to scope to, and the scheduler's
+-- active_users() sweep must see every owner), and `schema_migrations` (admin-only,
+-- not even granted to the app role).

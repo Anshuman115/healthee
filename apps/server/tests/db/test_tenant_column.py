@@ -15,16 +15,19 @@ tests).
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import psycopg
 import pytest
 
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection, tenant_transaction, transaction
 from healthee.db import migrate
 
 pytestmark = pytest.mark.integration
 
 # The sentinel legacy owner all pre-auth single-tenant data belongs to (0003).
 _SENTINEL = "00000000-0000-0000-0000-000000000000"
+_SENTINEL_UUID = UUID(_SENTINEL)
 
 # The 16 data tables that gained a tenant column in 6.2.
 _TENANT_TABLES = (
@@ -118,9 +121,22 @@ def test_no_tenant_table_kept_a_default_at_all(db: None) -> None:  # noqa: ARG00
 # pins the current truth about what a write without an owner does.
 
 
+# These two run on the ADMIN, which is the table owner and (0008 does not FORCE) is
+# not subject to the tenant policies. That is the only identity from which `NOT NULL`
+# is still the FIRST thing an owner-less write meets — on the app pool `0008`'s
+# WITH CHECK rejects it earlier (`user_id = NULL` is NULL, never true), which
+# `test_rls.py::test_a_write_without_an_owner_is_denied_by_the_policy` pins. The
+# column constraint and the policy are two independent guarantees; each is asserted
+# where it actually bites, rather than letting the policy mask the column's.
+
+
 def test_a_derived_daily_write_without_an_owner_raises(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
-    with pytest.raises(psycopg.errors.NotNullViolation), transaction() as cur:
+    with (
+        pytest.raises(psycopg.errors.NotNullViolation),
+        admin_connection() as conn,
+        conn.cursor() as cur,
+    ):
         cur.execute(
             "INSERT INTO derived_daily (day, metric, value) "
             "VALUES ('2999-01-01', '_tenant_test', 1.0)"
@@ -129,7 +145,11 @@ def test_a_derived_daily_write_without_an_owner_raises(db: None) -> None:  # noq
 
 def test_a_kv_write_without_an_owner_raises(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
-    with pytest.raises(psycopg.errors.NotNullViolation), transaction() as cur:
+    with (
+        pytest.raises(psycopg.errors.NotNullViolation),
+        admin_connection() as conn,
+        conn.cursor() as cur,
+    ):
         cur.execute("INSERT INTO kv (key, value) VALUES ('_tenant_test_key', 'v')")
 
 
@@ -140,13 +160,13 @@ def test_the_same_write_succeeds_when_it_names_the_owner(db: None) -> None:  # n
     outright — "it raises" is only the right behaviour if the correct write doesn't.
     """
     migrate.apply_migrations()
-    with transaction() as cur:
+    with tenant_transaction(_SENTINEL_UUID) as cur:
         cur.execute(
             "INSERT INTO kv (user_id, key, value) VALUES (%s, '_tenant_test_key', 'v') "
             "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
             (_SENTINEL,),
         )
-    with transaction() as cur:
+    with tenant_transaction(_SENTINEL_UUID) as cur:
         cur.execute("SELECT user_id FROM kv WHERE key = '_tenant_test_key'")
         row = cur.fetchone()
         cur.execute("DELETE FROM kv WHERE key = '_tenant_test_key'")
@@ -174,12 +194,19 @@ def test_user_index_exists(db: None, table: str, index: str) -> None:  # noqa: A
 
 
 def test_fk_rejects_unknown_owner(db: None) -> None:  # noqa: ARG001
-    """A user_id that is not a real app_user id is rejected by the FK."""
+    """A user_id that is not a real app_user id is rejected by the FK.
+
+    Scoped TO that unknown owner on purpose: `0008`'s WITH CHECK is evaluated before
+    the FK, so on an unscoped transaction this would be denied by the policy and the
+    test would pass without the FK ever being consulted — green either way, proving
+    nothing. Satisfying the policy first is what lets the FK be the thing under test.
+    """
     migrate.apply_migrations()
-    with pytest.raises(psycopg.errors.ForeignKeyViolation), transaction() as cur:
+    unknown = UUID("11111111-1111-1111-1111-111111111111")
+    with pytest.raises(psycopg.errors.ForeignKeyViolation), tenant_transaction(unknown) as cur:
         cur.execute(
-            "INSERT INTO kv (key, value, user_id) "
-            "VALUES ('_tenant_fk_test', 'v', '11111111-1111-1111-1111-111111111111')"
+            "INSERT INTO kv (key, value, user_id) VALUES ('_tenant_fk_test', 'v', %s)",
+            (unknown,),
         )
 
 
@@ -193,13 +220,16 @@ def test_profile_is_keyed_by_owner(db: None) -> None:  # noqa: ARG001
     version made a second owner's profile impossible.
     """
     migrate.apply_migrations()
-    with transaction() as cur:
+    with tenant_transaction(_SENTINEL_UUID) as cur:
         cur.execute(
             "INSERT INTO profile (user_id, name) VALUES (%s, '_dup_test') "
             "ON CONFLICT (user_id) DO UPDATE SET name = EXCLUDED.name",
             (_SENTINEL,),
         )
-    with pytest.raises(psycopg.errors.UniqueViolation), transaction() as cur:
+    with (
+        pytest.raises(psycopg.errors.UniqueViolation),
+        tenant_transaction(_SENTINEL_UUID) as cur,
+    ):
         cur.execute("INSERT INTO profile (user_id, name) VALUES (%s, '_dup_2')", (_SENTINEL,))
-    with transaction() as cur:
+    with tenant_transaction(_SENTINEL_UUID) as cur:
         cur.execute("DELETE FROM profile WHERE user_id = %s AND name = '_dup_test'", (_SENTINEL,))

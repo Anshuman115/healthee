@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from healthee.analytics.baselines import compute_baseline, compute_baselines
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 
@@ -26,15 +26,14 @@ pytestmark = pytest.mark.integration
 
 def _reset() -> None:
     migrate.apply_migrations()
-    with transaction() as cur:
-        sd.clean(cur)
+    sd.clean()
 
 
 def test_batched_baselines_match_single_metric(db: None) -> None:  # noqa: ARG001
     """The grouped path returns, field for field, what per-metric calls return."""
     _reset()
     days = sd.recent_days(20)
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", {d: 50.0 + (i % 5) for i, d in enumerate(days)})
         sd.seed_daily(cur, "hrv_sleep_avg", {d: 40.0 + (i % 7) for i, d in enumerate(days)})
         sd.seed_daily(cur, "steps_total", {d: 3000.0 + i * 137 for i, d in enumerate(days)})
@@ -64,7 +63,7 @@ def test_baseline_known_values(db: None) -> None:  # noqa: ARG001
     _reset()
     days = sd.recent_days(5)
     vals = [50.0, 52.0, 54.0, 56.0, 58.0]
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", dict(zip(days, vals, strict=True)))
 
     b = compute_baselines(SENTINEL_USER_ID, ["rhr_daily"], window_days=30, end_date=max(days))[
@@ -87,7 +86,7 @@ def test_baseline_respects_per_metric_sentinel_filter(db: None) -> None:  # noqa
     days = sd.recent_days(5)
     # three valid + two sentinels (10 too low, 200 too high) → only three count
     vals = [50.0, 52.0, 54.0, 10.0, 200.0]
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", dict(zip(days, vals, strict=True)))
 
     b = compute_baselines(SENTINEL_USER_ID, ["rhr_daily"], window_days=30, end_date=max(days))[

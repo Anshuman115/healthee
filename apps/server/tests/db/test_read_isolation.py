@@ -30,7 +30,7 @@ import pytest
 
 from healthee.analytics.baselines import compute_baseline, latest_value
 from healthee.analytics.series import daily_series
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection, tenant_transaction, transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.read.common import derived_series, latest_derived, latest_derived_many
@@ -93,16 +93,22 @@ def _seed_owner(cur, user_id: UUID, rhr: float, steps: float) -> None:
 def two_owners(db: None) -> Iterator[None]:  # noqa: ARG001 — gates on DB reachability
     """Sentinel owner A + a second owner B, each with distinct seeded values."""
     migrate.apply_migrations()
+    # `app_user` is an identity table and carries no RLS policy (0008); each owner's
+    # tenant rows then need that owner set, or the policy's WITH CHECK denies them.
     with transaction() as cur:
         cur.execute(
             "INSERT INTO app_user (id, email, timezone) VALUES (%s, %s, %s) "
             "ON CONFLICT (id) DO NOTHING",
             (_OTHER_USER, "owner-b@example.test", SENTINEL_TZ),
         )
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         _seed_owner(cur, SENTINEL_USER_ID, _A_RHR, _A_STEPS)
+    with tenant_transaction(_OTHER_USER) as cur:
         _seed_owner(cur, _OTHER_USER, _B_RHR, _B_STEPS)
     yield
-    with transaction() as cur:
+    # The ADMIN: this cleanup spans BOTH owners, which no single RLS-scoped
+    # transaction can see (same category as `seed.reset`).
+    with admin_connection() as conn, conn.cursor() as cur:
         for table in ("sample", "sleep_session", "derived_daily"):
             cur.execute(
                 f"DELETE FROM {table} WHERE user_id IN (%s, %s)",  # noqa: S608 — constant
@@ -113,8 +119,9 @@ def two_owners(db: None) -> Iterator[None]:  # noqa: ARG001 — gates on DB reac
 
 def test_latest_derived_returns_only_the_asked_owner(two_owners: None) -> None:  # noqa: ARG001
     """The single-metric latest read must not see the other owner's newer row."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = latest_derived(cur, SENTINEL_USER_ID, "rhr_daily")
+    with tenant_transaction(_OTHER_USER) as cur:
         b = latest_derived(cur, _OTHER_USER, "rhr_daily")
     assert a is not None and b is not None
     assert _A_RHR <= a[1] < _B_RHR, f"owner A read {a[1]} — that is owner B's range"
@@ -123,8 +130,9 @@ def test_latest_derived_returns_only_the_asked_owner(two_owners: None) -> None: 
 
 def test_latest_derived_many_is_scoped(two_owners: None) -> None:  # noqa: ARG001
     """The batched DISTINCT ON loader must partition by owner, not collapse across."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = latest_derived_many(cur, SENTINEL_USER_ID, ["rhr_daily", "steps_total"])
+    with tenant_transaction(_OTHER_USER) as cur:
         b = latest_derived_many(cur, _OTHER_USER, ["rhr_daily", "steps_total"])
     assert a["steps_total"][1] == _A_STEPS
     assert b["steps_total"][1] == _B_STEPS
@@ -132,7 +140,7 @@ def test_latest_derived_many_is_scoped(two_owners: None) -> None:  # noqa: ARG00
 
 def test_derived_series_is_scoped(two_owners: None) -> None:  # noqa: ARG001
     """A series must contain the owner's OWN points only — not a merged 2×-length one."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = derived_series(cur, SENTINEL_USER_ID, SENTINEL_TZ, "steps_total", 400)
     assert a, "owner A must get their own series"
     values = {point["value"] for point in a}
@@ -145,7 +153,7 @@ def test_daily_series_and_baseline_are_scoped(two_owners: None) -> None:  # noqa
     A pooled read would land the median between A and B — the silent-wrongness
     failure this whole phase exists to prevent, since the number still looks real.
     """
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         series = daily_series(cur, SENTINEL_USER_ID, "rhr_daily")
     assert series and all(v < _B_RHR for v in series.values())
 
@@ -166,8 +174,9 @@ def test_latest_value_is_scoped(two_owners: None) -> None:  # noqa: ARG001
 
 def test_latest_main_session_is_scoped(two_owners: None) -> None:  # noqa: ARG001
     """Both owners have a session at the SAME start_ts — only user_id separates them."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = latest_main_session(cur, SENTINEL_USER_ID)
+    with tenant_transaction(_OTHER_USER) as cur:
         b = latest_main_session(cur, _OTHER_USER)
     assert a is not None and b is not None
     assert a[6] == int(_A_RHR), "owner A got the other owner's sleep session"
@@ -176,7 +185,7 @@ def test_latest_main_session_is_scoped(two_owners: None) -> None:  # noqa: ARG00
 
 def test_data_health_counts_only_the_owners_samples(two_owners: None) -> None:  # noqa: ARG001
     """Feed freshness is per-owner: B's sample must not make A's feed look alive."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute("DELETE FROM sample WHERE user_id = %s AND metric = 'hr'", (SENTINEL_USER_ID,))
         payload = data_health_payload(cur, SENTINEL_USER_ID)
     hr = next(item for item in payload["items"] if item["metric"] == "hr")

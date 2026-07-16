@@ -39,7 +39,7 @@ from pathlib import Path
 
 import pytest
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.derive import derive_day, derive_night
@@ -91,7 +91,7 @@ def _derive_all(cur) -> None:
 def test_derive_matches_legacy_golden(db: None) -> None:  # noqa: ARG001 — DB gate
     migrate.apply_migrations()
     expected = _load_expected()
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         _derive_all(cur)
         actual = _dump_actual(cur)
 

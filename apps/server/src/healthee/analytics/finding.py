@@ -13,7 +13,7 @@ import json
 from dataclasses import dataclass, field
 from uuid import UUID
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 
 # finding.effect_metric values (which effect-size the number is).
 EFFECT_SPEARMAN = "spearman_r"
@@ -90,7 +90,7 @@ def persist_findings(user_id: UUID, findings: list[Finding]) -> int:
     """UPSERT ``user_id``'s findings on their natural key. Returns the count written."""
     if not findings:
         return 0
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         for f in findings:
             cur.execute(_INSERT_SQL + _UPSERT_TAIL, _params(user_id, f))
     return len(findings)
@@ -102,7 +102,7 @@ def replace_findings_of_kind(user_id: UUID, kind: str, findings: list[Finding]) 
     Replacement (not UPSERT) so a pattern that no longer reaches significance is
     removed rather than lingering as stale advice — the cutoff-finder contract.
     """
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute("DELETE FROM finding WHERE user_id = %s AND kind = %s", (user_id, kind))
         for f in findings:
             cur.execute(_INSERT_SQL, _params(user_id, f))
@@ -127,7 +127,7 @@ _SELECT_KEYS = (
 
 def get_significant_findings(user_id: UUID, limit: int = 30) -> list[dict]:
     """Read one owner's significant findings, largest |effect| first (bounded by ``limit``)."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute(
             f"SELECT {', '.join(_SELECT_KEYS)} FROM finding "
             "WHERE user_id = %s AND significant = TRUE ORDER BY ABS(effect_size) DESC LIMIT %s",

@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
 from healthee.core.tenancy import user_today
@@ -165,7 +165,7 @@ def run_chain(
 
 def _chain_done(user_id: UUID, day: date) -> bool:
     """True if this user's chain has already run its generating steps for ``day``."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute(
             "SELECT 1 FROM kv WHERE user_id = %s AND key = %s",
             (user_id, f"{_DONE_KEY}:{day.isoformat()}"),
@@ -179,7 +179,7 @@ def _mark_chain_done(user_id: UUID, day: date) -> None:
     The marker is per-owner via the folded kv PK, so one user's chain cannot dedup
     another's — which is what makes the 6.3c per-user sweep safe to run.
     """
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute(
             "INSERT INTO kv (user_id, key, value) VALUES (%s, %s, %s) "
             "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",

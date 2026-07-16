@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.derive.gps import derive_vo2max_submax, gps_track_detail, make_hr_interpolator
@@ -115,7 +115,7 @@ def _seed_track(cur) -> str:
 @pytest.mark.integration
 def test_derive_vo2max_submax_end_to_end(db: None) -> None:  # noqa: ARG001 — DB gate
     migrate.apply_migrations()
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         track_id = _seed_track(cur)
         result = derive_vo2max_submax(cur, SENTINEL_USER_ID, SENTINEL_TZ, track_id)
     assert result["ok"] is True, result
@@ -127,7 +127,7 @@ def test_derive_vo2max_submax_end_to_end(db: None) -> None:  # noqa: ARG001 — 
 @pytest.mark.integration
 def test_gps_track_detail_summary(db: None) -> None:  # noqa: ARG001 — DB gate
     migrate.apply_migrations()
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         track_id = _seed_track(cur)
         detail = gps_track_detail(cur, SENTINEL_USER_ID, track_id)
     assert detail is not None

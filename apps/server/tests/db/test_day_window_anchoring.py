@@ -33,7 +33,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection, tenant_transaction, transaction
 from healthee.core.tenancy import user_today
 from healthee.db import migrate
 from healthee.read.common import derived_series, derived_series_many
@@ -112,16 +112,21 @@ def _seed_naps(cur, user_id: UUID, tz: str) -> None:
 def two_zones(db: None) -> Iterator[None]:  # noqa: ARG001 — gates on DB reachability
     """Two owners 25 h apart, each seeded around their OWN local window boundary."""
     migrate.apply_migrations()
+    # `app_user` has no RLS policy (0008 — identity); each owner's tenant rows are
+    # seeded under that owner, or the policy's WITH CHECK denies the write.
     with transaction() as cur:
-        for user_id, tz, steps in _OWNERS:
+        for user_id, tz, _ in _OWNERS:
             cur.execute(
                 "INSERT INTO app_user (id, email, timezone) VALUES (%s, %s, %s) "
                 "ON CONFLICT (id) DO UPDATE SET timezone = EXCLUDED.timezone",
                 (user_id, f"owner-{tz.split('/')[1].lower()}@example.test", tz),
             )
+    for user_id, tz, steps in _OWNERS:
+        with tenant_transaction(user_id) as cur:
             _seed_owner(cur, user_id, tz, steps)
     yield
-    with transaction() as cur:
+    # The ADMIN: this cleanup spans BOTH owners (same category as `seed.reset`).
+    with admin_connection() as conn, conn.cursor() as cur:
         for table in ("sleep_session", "derived_daily"):
             cur.execute(
                 f"DELETE FROM {table} WHERE user_id IN (%s, %s)",  # noqa: S608 — constant
@@ -151,7 +156,7 @@ def test_derived_series_anchors_to_the_owners_today(
     steps: float,
 ) -> None:
     """Each owner's window runs to THEIR today — not the database's, not the other's."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         series = derived_series(cur, user_id, tz, "steps_total", _WINDOW)
 
     got = [date.fromisoformat(point["date"]) for point in series]
@@ -169,7 +174,7 @@ def test_derived_series_many_anchors_to_the_owners_today(
     steps: float,  # noqa: ARG001 — the parametrised owner tuple is shared
 ) -> None:
     """The batched Today-sparkline loader shares the single-metric anchor."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         series = derived_series_many(cur, user_id, tz, ["steps_total"], _WINDOW)
 
     got = [date.fromisoformat(point["date"]) for point in series["steps_total"]]
@@ -184,7 +189,7 @@ def test_history_anchors_to_the_owners_today(
     steps: float,  # noqa: ARG001 — the parametrised owner tuple is shared
 ) -> None:
     """`/api/history`'s series gained `tz` in 6.4a — it must use it as the anchor."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         payload = history(cur, user_id, tz, "steps_total", days=_WINDOW)
 
     got = [date.fromisoformat(point["day"]) for point in payload["series"]]
@@ -204,7 +209,7 @@ def test_nap_window_boundary_is_an_instant_in_the_owners_zone(
     date at the SESSION timezone — the same bug wearing a different hat. Only the
     nap 30 min AFTER the owner's local boundary may come back.
     """
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         naps = sleep_page(cur, user_id, tz, days=_WINDOW)["naps"]
 
     boundary = _local_midnight(tz, user_today(tz) - timedelta(days=_WINDOW))

@@ -6,6 +6,11 @@ makes will keep succeeding under 6.5b-2's RLS because a superuser ignores polici
 This file is the only place the least-privilege role is actually exercised, so it is
 the acceptance bar for the whole phase.
 
+Since 6.5b-2 the WHOLE suite runs as this role (`tests/conftest.py::app_role_pool`),
+so it is no longer the only file that exercises it — but it stays the file that
+*asserts* it, and the RLS backstop in `test_rls.py` is what the assertions below
+underwrite.
+
 Two halves, both required:
 
 * the role can do **everything the app needs** — including writing the `sample`
@@ -23,59 +28,49 @@ tests).
 
 from __future__ import annotations
 
-import secrets
-from collections.abc import Iterator
-
 import pytest
-from psycopg import errors, sql
+from psycopg import errors
+from tests.conftest import TEST_APP_ROLE
 from tests.contracts import seed
 
 from healthee.core import db as db_module
 from healthee.core.config import get_settings
-from healthee.core.db import admin_connection, transaction
+from healthee.core.db import tenant_transaction, transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import provision_app_role
 from healthee.read.today import today_snapshot
 
 pytestmark = pytest.mark.integration
 
-_TEST_ROLE = "healthee_app_test"
-
-
-def _drop_test_role(role: str) -> None:
-    """Remove the role and every privilege granted to it, so the DB is left as found.
-
-    `DROP OWNED BY` is what revokes the grants and the ALTER DEFAULT PRIVILEGES
-    entries; a plain `DROP ROLE` would fail while they exist.
-    """
-    with admin_connection() as conn, conn.cursor() as cur:
-        cur.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(role)))
-        cur.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role)))
-
 
 @pytest.fixture
-def app_role(db: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:  # noqa: ARG001
-    """Provision the real role, then point the app pool at it for the whole test.
+def app_role(db: None, app_role_pool: str | None) -> str:  # noqa: ARG001 — `db` gates reachability
+    """The session's least-privilege role, which the app pool is already connected as.
 
-    A fresh random password each run: a fixed one in git is a credential in git even
-    on a throwaway database.
+    Provisioning and teardown moved to `conftest.app_role_pool` when 6.5b-2 put the
+    WHOLE suite on this role: two fixtures provisioning the same role name would have
+    had this file's teardown (`DROP OWNED BY` + `DROP ROLE`) revoke the grants out
+    from under every later test in the session.
     """
-    password = secrets.token_urlsafe(24)
-    monkeypatch.setenv("POSTGRES_APP_USER", _TEST_ROLE)
-    monkeypatch.setenv("POSTGRES_APP_PASSWORD", password)
-    get_settings.cache_clear()
-    db_module.close_pool()  # so the next get_pool() connects as the app role
-    provision_app_role.provision()
-    yield _TEST_ROLE
-    db_module.close_pool()
-    _drop_test_role(_TEST_ROLE)
-    monkeypatch.undo()
-    get_settings.cache_clear()
+    assert app_role_pool is not None  # `db` already skipped if the DB is unreachable
+    return app_role_pool
 
 
 def _as_app_role(statement: str, params: tuple[object, ...] = ()) -> list[tuple]:
-    """Run one statement on the APP pool (i.e. as the app role) and return its rows."""
+    """Run one statement on the APP pool (i.e. as the app role) and return its rows.
+
+    No owner is set — everything it asserts is about ROLE privileges (`pg_roles`,
+    `pg_tables`, TRUNCATE/DDL denial), which RLS does not touch. The statements that
+    do read tenant rows use `tenant_transaction` explicitly.
+    """
     with transaction() as cur:
+        cur.execute(statement, params)  # pyright: ignore[reportArgumentType] — test-local literals
+        return cur.fetchall() if cur.description else []
+
+
+def _as_owner(statement: str, params: tuple[object, ...] = ()) -> list[tuple]:
+    """Run one statement on the APP pool scoped to the sentinel — the RLS-visible path."""
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute(statement, params)  # pyright: ignore[reportArgumentType] — test-local literals
         return cur.fetchall() if cur.description else []
 
@@ -131,11 +126,11 @@ def test_app_role_writes_and_reads_the_sample_hypertable(app_role: str) -> None:
     """
     seed.reset()
     ts = "2031-02-03T04:05:06+00:00"
-    _as_app_role(
+    _as_owner(
         "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, 'hr', 61.5)",
         (SENTINEL_USER_ID, ts),
     )
-    rows = _as_app_role(
+    rows = _as_owner(
         "SELECT value FROM sample WHERE user_id = %s AND metric = 'hr' AND ts = %s",
         (SENTINEL_USER_ID, ts),
     )
@@ -155,7 +150,7 @@ def test_app_role_can_draw_from_the_bigserial_sequences(app_role: str) -> None: 
     would surface as the recs job dying every night, not as a failed request.
     """
     seed.reset()
-    rows = _as_app_role(
+    rows = _as_owner(
         "INSERT INTO recommendation (user_id, date, rank, action, rationale, category, "
         "evidence_grade, research_note_ids, signal_source) VALUES "
         "(%s, DATE '2031-02-03', 1, 'a', 'b', 'sleep', 3, ARRAY['x'], 'test') RETURNING id",
@@ -171,7 +166,7 @@ def test_app_role_serves_a_real_read_path(app_role: str) -> None:  # noqa: ARG00
     read+write surface — not a hand-picked statement that happens to be granted.
     """
     seed.seed_all()
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         payload = today_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     steps = next(m for m in payload["metrics"] if m["metric"] == "steps_total")
     assert steps["value"] == pytest.approx(8200.0)
@@ -222,7 +217,7 @@ def test_provision_is_idempotent(app_role: str) -> None:
 
 def test_provision_refuses_without_a_password(db: None, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ARG001
     """A blank password would create a login role anything on the network can use."""
-    monkeypatch.setenv("POSTGRES_APP_USER", _TEST_ROLE)
+    monkeypatch.setenv("POSTGRES_APP_USER", TEST_APP_ROLE)
     monkeypatch.setenv("POSTGRES_APP_PASSWORD", "")
     get_settings.cache_clear()
     with pytest.raises(Exception, match="together|must both be set"):
@@ -233,18 +228,30 @@ def test_provision_refuses_without_a_password(db: None, monkeypatch: pytest.Monk
 
 def test_admin_fallback_warns_that_rls_cannot_apply(
     db: None,  # noqa: ARG001 — gates on DB reachability
+    monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """With no app creds the pool still works — but says so, loudly.
 
     The warning is the only thing standing between "safe transitional deploy" and
-    "forgotten forever", and it is what tells 6.5b-2 whether RLS can be relied on. The
-    local/CI database connects as the superuser `healthee`, which is the finding that
-    started this phase, so this asserts the real condition rather than a simulated one.
+    "forgotten forever", and it is what tells the operator whether RLS is in force at
+    all. The app creds are unset here to reproduce a deploy that has not yet
+    provisioned the role: the pool then falls back to the superuser `healthee`, which
+    is the real live-DB finding that started this phase (§3.3a) — so this asserts the
+    actual condition rather than a simulated one.
+
+    The pool is rebuilt on the way out, because `db` only closes it: the next test
+    must get the session's least-privilege role back, not this admin fallback.
     """
+    monkeypatch.delenv("POSTGRES_APP_USER", raising=False)
+    monkeypatch.delenv("POSTGRES_APP_PASSWORD", raising=False)
+    get_settings.cache_clear()
     db_module.close_pool()
     with caplog.at_level("WARNING"):
         db_module.get_pool()
     warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert any("BYPASSES" in message for message in warnings), warnings
     assert any("provision_app_role" in message for message in warnings), warnings
+    db_module.close_pool()
+    monkeypatch.undo()
+    get_settings.cache_clear()

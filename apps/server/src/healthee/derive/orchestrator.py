@@ -19,7 +19,7 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.rows import TupleRow
 
-from healthee.core.db import connection
+from healthee.core.db import tenant_connection
 from healthee.derive._common import Cur, _upsert_daily, _wake_date
 from healthee.derive.activity import derive_daily_activity
 from healthee.derive.cardio_load import derive_cardio_load
@@ -97,7 +97,7 @@ def derive_days(conn: Connection[TupleRow], user_id: UUID, tz: str, days: list[d
 def derive_all_nights(user_id: UUID, tz: str) -> dict[str, dict]:
     """Derive per-night metrics for every stored main sleep session of `user_id`."""
     results: dict[str, dict] = {}
-    with connection() as conn, conn.cursor() as cur:
+    with tenant_connection(user_id) as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT start_ts, end_ts FROM sleep_session WHERE kind='main' AND user_id=%s "
             "ORDER BY start_ts",

@@ -21,6 +21,11 @@ service layer is the tenant boundary the routers merely pass an owner to, and it
 where a leak in a surface with no endpoint of its own (the job/chain path below) can
 be caught at all.
 
+Since 6.5b-2 each owner is read in their OWN `tenant_transaction`, because that is
+now the only shape that can work: one transaction carries one `healthee.user_id`, so
+"render A and B from one cursor" is not something the app can do any more. It also
+mirrors the router exactly — one request, one owner, one transaction.
+
 Auto-skips without a reachable TimescaleDB (same policy as the other integration
 tests).
 """
@@ -41,7 +46,7 @@ from tests.contracts.seed_owner_b import (
     seed_owner_b,
 )
 
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection, tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, active_users
 from healthee.jobs.chain import _chain_done, _mark_chain_done
 from healthee.jobs.recs_context import build_recs_signals
@@ -69,7 +74,10 @@ def two_owners(db: None) -> Iterator[None]:  # noqa: ARG001 — gates on DB reac
     seed.seed_all()
     seed_owner_b()
     yield
-    with transaction() as cur:
+    # The ADMIN: the cascade that removes B's tenant rows runs as the FK constraint and
+    # is not filtered by RLS, but `app_user` is only reachable at all with the DELETE
+    # privilege this cleanup needs across owners. Same category as `seed.reset`.
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM app_user WHERE id = %s", (OWNER_B,))  # cascades B's rows
 
 
@@ -89,8 +97,9 @@ def test_today_snapshot_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     the owner filter gone it still returns A's row whenever A's happens to sort
     first, and the test passes while nothing is scoped (verified by mutation).
     """
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = today_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+    with tenant_transaction(OWNER_B) as cur:
         b = today_snapshot(cur, OWNER_B, OWNER_B_TZ)
     assert B_NAME not in _dumped(a), "owner B's name leaked into A's today payload"
     assert str(B_STEPS) not in _dumped(a), "owner B's steps leaked into A's today payload"
@@ -99,7 +108,7 @@ def test_today_snapshot_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 def test_todays_recommendations_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """Recs are user-facing AI text — B's action must never render on A's screen."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         payload = today_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     assert "OWNER B ACTION" not in _dumped(payload)
 
@@ -112,8 +121,9 @@ def test_profile_read_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     the test would pass while the filter was gone (verified by mutation). Demanding
     that A and B each see themselves cannot be satisfied by any single row.
     """
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = read_profile(cur, SENTINEL_USER_ID)
+    with tenant_transaction(OWNER_B) as cur:
         b = read_profile(cur, OWNER_B)
     assert a["name"] == "Test"
     assert a["height_cm"] == pytest.approx(176.0)
@@ -129,8 +139,9 @@ def test_recovery_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     arbitrary row to everybody. Asserting only A's side passed against exactly that
     mutation; requiring each owner to see their own score cannot.
     """
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = recovery_score_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+    with tenant_transaction(OWNER_B) as cur:
         b = recovery_score_payload(cur, OWNER_B, OWNER_B_TZ)
     assert a is not None and b is not None
     assert a["recovery"] == pytest.approx(_A_RECOVERY), f"expected A's {_A_RECOVERY}"
@@ -139,7 +150,7 @@ def test_recovery_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 def test_history_series_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """A merged series would silently double A's points and pull their trend to B."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         payload = history(cur, SENTINEL_USER_ID, SENTINEL_TZ, "steps_total", days=90)
     values = {point["value"] for point in payload["series"]}
     assert values == {_A_STEPS}, f"owner B's steps leaked into A's history: {values}"
@@ -147,8 +158,9 @@ def test_history_series_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 def test_activity_snapshot_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """Each owner's activity must carry their own steps, not one shared latest row."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = activity_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+    with tenant_transaction(OWNER_B) as cur:
         b = activity_snapshot(cur, OWNER_B, OWNER_B_TZ)
     assert str(B_STEPS) not in _dumped(a), "owner B's steps leaked into A's activity"
     assert str(_A_STEPS) not in _dumped(b), "owner A's steps leaked into B's activity"
@@ -156,7 +168,7 @@ def test_activity_snapshot_is_owner_as(two_owners: None) -> None:  # noqa: ARG00
 
 def test_sleep_page_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """B's session shares A's start_ts exactly — only the owner filter separates them."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         payload = sleep_page(cur, SENTINEL_USER_ID, SENTINEL_TZ, days=30)
     dumped = _dumped(payload)
     assert "'score': 9," not in dumped, "owner B's sleep session leaked into A's sleep page"
@@ -170,10 +182,11 @@ def test_fitness_payloads_are_owner_as(two_owners: None) -> None:  # noqa: ARG00
     one arbitrary owner's number to everyone. Only asserting that each owner gets
     their own value can detect that.
     """
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a_vo2 = vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
         a_cardio = cardio_load_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
         a_mvpa = mvpa_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+    with tenant_transaction(OWNER_B) as cur:
         b_vo2 = vo2max_payload(cur, OWNER_B, SENTINEL_TZ)
         b_cardio = cardio_load_payload(cur, OWNER_B, SENTINEL_TZ)
         b_mvpa = mvpa_payload(cur, OWNER_B, OWNER_B_TZ)
@@ -187,14 +200,14 @@ def test_fitness_payloads_are_owner_as(two_owners: None) -> None:  # noqa: ARG00
 
 def test_workouts_list_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """B's workout sits at A's start_ts with absurd values — a leak doubles the list."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         workouts = workouts_list(cur, SENTINEL_USER_ID, limit=100)
     assert len(workouts) == 1, f"owner B's workout leaked into A's list: {workouts}"
     assert workouts[0]["calories"] == pytest.approx(250.0)
 
 
 def test_workout_detail_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         start = workouts_list(cur, SENTINEL_USER_ID, limit=1)[0]["start_iso"]
         detail = workout_detail(cur, SENTINEL_USER_ID, SENTINEL_TZ, start)
     # B's workout sits within the detail lookup's ±3s window of A's start_ts, so only
@@ -205,13 +218,13 @@ def test_workout_detail_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 def test_logs_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """B logged 999 mg of caffeine; A's log summary must not inherit it."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         payload = log_recent(cur, SENTINEL_USER_ID, days=7)
     assert "999" not in _dumped(payload), "owner B's manual entry leaked into A's logs"
 
 
 def test_gps_tracks_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         payload = list_gps_tracks(cur, SENTINEL_USER_ID, limit=30)
     assert len(payload["tracks"]) == 1, "owner B's GPS track leaked into A's list"
     assert payload["tracks"][0]["distance_km"] == pytest.approx(4.2)  # not B's 99999 m
@@ -225,7 +238,7 @@ def test_findings_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 def test_data_health_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """Feed freshness is per-owner: B's sample must not make A's dead feed look alive."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute("DELETE FROM sample WHERE user_id = %s AND metric = 'hr'", (SENTINEL_USER_ID,))
         payload = data_health_payload(cur, SENTINEL_USER_ID)
     hr = next(item for item in payload["items"] if item["metric"] == "hr")
@@ -252,7 +265,7 @@ def test_chain_dedup_marker_is_per_owner(two_owners: None) -> None:  # noqa: ARG
         assert _chain_done(SENTINEL_USER_ID, day) is True
         assert _chain_done(OWNER_B, day) is False, "A's chain marker deduped B's chain away"
     finally:
-        with transaction() as cur:
+        with tenant_transaction(SENTINEL_USER_ID) as cur:
             cur.execute("DELETE FROM kv WHERE key = %s", (f"job:chain_done:{day.isoformat()}",))
 
 

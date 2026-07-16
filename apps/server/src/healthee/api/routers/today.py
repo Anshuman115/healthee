@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.request_auth import CurrentUser
 from healthee.insights import coaching
 from healthee.read.today import today_snapshot
@@ -24,7 +24,7 @@ def get_today(user: CurrentUser) -> dict:
     The ``action`` is the WP5 coaching one-liner: read-only from the per-day cache
     (``None`` until the scheduler warms it), so this read path never calls the LLM.
     """
-    with transaction() as cur:
+    with tenant_transaction(user.id) as cur:
         payload = today_snapshot(cur, user.id, user.timezone)
     payload["action"] = coaching.cached_line(user.id, user.timezone, coaching.DAILY_ACTION_KEY)
     return payload

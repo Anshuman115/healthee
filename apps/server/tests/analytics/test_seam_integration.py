@@ -18,7 +18,7 @@ import pytest
 
 from healthee.analytics import baselines, biological_age, correlations, cutoffs
 from healthee.analytics.anomalies import detect
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 
@@ -30,8 +30,7 @@ pytestmark = pytest.mark.integration
 
 def _reset() -> None:
     migrate.apply_migrations()
-    with transaction() as cur:
-        sd.clean(cur)
+    sd.clean()
 
 
 # ── Bug 1 + 2: v1 metric names + source filter → baselines/anomalies empty ──
@@ -43,7 +42,7 @@ def test_baselines_and_anomalies_nonempty_on_v2_names(db: None) -> None:  # noqa
     values = {d: 54.0 + (i % 3) for i, d in enumerate(days)}
     spike_day = days[-3]
     values[spike_day] = 95.0  # a clear high anomaly
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", values)
 
     # Baseline is non-empty on the v2 name (legacy read `metric_sample` → 0 rows).
@@ -87,7 +86,7 @@ def test_cutoff_finder_reads_v2_tst(db: None) -> None:  # noqa: ARG001
     _reset()
     nights = sd.recent_days(30, end_offset=1)
     caffeine_nights, control_nights = nights[:15], nights[15:]
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         for d in caffeine_nights:
             sd.seed_night(cur, d, rem=60, light=200, deep=40, wake=60)  # caffeine → worse
             sd.seed_caffeine(cur, d, hour_ist=21)
@@ -97,7 +96,7 @@ def test_cutoff_finder_reads_v2_tst(db: None) -> None:  # noqa: ARG001
         _seed_night_vitals(cur, control_nights, hrv=55.0, rhr=52.0)
 
     # Direct proof of the exact bug: nights now load carrying real TST.
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         loaded = cutoffs._load_sleep_nights(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     assert loaded, "sleep nights must load (legacy discarded all — tst_minutes NULL)"
     assert all(n["tst_min"] and n["tst_min"] > 0 for n in loaded)
@@ -132,7 +131,7 @@ def test_correlations_write_findings_from_derived_daily(db: None) -> None:  # no
     days = sd.recent_days(25)
     steps = {d: 5000.0 + i * 100 for i, d in enumerate(days)}
     active = {d: v * 0.04 for d, v in steps.items()}  # perfectly rank-correlated
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "steps_total", steps)
         sd.seed_daily(cur, "active_calories", active)
 
@@ -160,7 +159,7 @@ def test_correlations_write_findings_from_derived_daily(db: None) -> None:  # no
 def test_biological_age_from_v2_derived_daily(db: None) -> None:  # noqa: ARG001
     _reset()
     today = date.today()
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_profile(cur, dob=date(1990, 6, 15), sex="male")
         sd.seed_daily(cur, "vo2max_estimate", {today: 45.0})
         sd.seed_daily(cur, "sleep_regularity_index", {today: 80.0})

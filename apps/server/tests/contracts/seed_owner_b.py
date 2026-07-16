@@ -20,7 +20,7 @@ from uuid import UUID
 
 from tests.contracts.seed import USER_TZ, today_local
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction, transaction
 
 # A real second owner, in a DIFFERENT timezone — per MULTI_USER.md §10 multi-tz is
 # first-class, so the fixture must not accidentally prove isolation only for owners
@@ -43,12 +43,17 @@ def seed_owner_b() -> None:
     the two apart. A read that forgets its owner filter therefore cannot accidentally
     return the right thing — it returns B's impossible numbers or double the rows.
     """
+    # `app_user` is an IDENTITY table and carries no RLS policy (0008) — the app has
+    # to resolve who you are before it can know the owner to scope to. So B's row is
+    # created on a plain transaction; everything after it is tenant data and needs
+    # the owner set, or 0008's WITH CHECK denies the write.
     with transaction() as cur:
         cur.execute(
             "INSERT INTO app_user (id, email, timezone) VALUES (%s, %s, %s) "
             "ON CONFLICT (id) DO NOTHING",
             (OWNER_B, "owner-b@example.test", OWNER_B_TZ),
         )
+    with tenant_transaction(OWNER_B) as cur:
         today = today_local()
         _seed_b_profile(cur)
         _seed_b_derived(cur, today)

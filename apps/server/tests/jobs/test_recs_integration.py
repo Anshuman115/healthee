@@ -25,7 +25,7 @@ from tests.insights._stub import StubLLM
 
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.jobs import recs
@@ -70,10 +70,8 @@ _FABRICATED = """{"recommendations": [
 def _seed(dob: date = date(1990, 5, 1)) -> None:
     migrate.apply_migrations()
     days = [date.today() - timedelta(days=i) for i in range(30)]
-    with transaction() as cur:
-        cur.execute("DELETE FROM kv")
-        cur.execute("DELETE FROM recommendation")
-        sd.clean(cur)
+    sd.clean("kv", "recommendation")
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_profile(cur, dob=dob, sex="male", height_cm=178.0)
         sd.seed_daily(cur, "rhr_daily", {d: 54.0 + (i % 3) for i, d in enumerate(days)})
         sd.seed_daily(cur, "hrv_sleep_avg", {d: 42.0 + (i % 4) for i, d in enumerate(days)})
@@ -82,7 +80,7 @@ def _seed(dob: date = date(1990, 5, 1)) -> None:
 
 
 def _rows() -> list[tuple]:
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute(
             "SELECT rank, action, research_note_ids, raw_llm_prompt, raw_llm_response "
             "FROM recommendation WHERE date = %s ORDER BY rank",

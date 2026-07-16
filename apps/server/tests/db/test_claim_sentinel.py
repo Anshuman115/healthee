@@ -12,6 +12,13 @@ month is covered by these assertions the day it is created.
 The seed helpers live in `_claim_seed.py` and the `claimable` fixture in `conftest.py`
 (the 400-line gate); this module is the assertions.
 
+Everything here runs on the ADMIN connection, matching the tool it tests (6.5b-2,
+`core.db.admin_connection`'s caller list). That is not convenience: every assertion
+below is of the form "count the rows owned by X, then by Y", which no RLS-scoped
+connection can make — it sees exactly one owner by construction. Verifying the re-key
+on the app role would filter the post-check down to zero rows and report a partial
+claim as a success, which is the specific failure `claim_sentinel` exists to prevent.
+
 Auto-skips without a reachable TimescaleDB (same policy as the other integration
 tests).
 """
@@ -23,7 +30,7 @@ from uuid import UUID
 import pytest
 from tests.db._claim_seed import DAY, MARK, OCCUPIED, TARGET, TARGET_EMAIL, TARGET_TZ, provision
 
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection
 from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import claim_sentinel
 from healthee.db.claim_sentinel import ClaimRefusedError
@@ -55,7 +62,7 @@ def test_the_tenant_table_list_is_discovered_not_hand_written(claimable: None) -
     If this query ever matched nothing, every "no rows left behind" assertion below
     would vacuously pass while the tool moved half a person's history.
     """
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         assert set(claim_sentinel.tenant_tables(cur)) == _EXPECTED_TENANT_TABLES
         # device_token references app_user but holds credentials, not owned data.
         assert "device_token" in claim_sentinel.referencing_tables(cur)
@@ -67,12 +74,12 @@ def test_the_tenant_table_list_is_discovered_not_hand_written(claimable: None) -
 
 def test_dry_run_changes_nothing(claimable: None) -> None:  # noqa: ARG001
     """The default must be inert — an operator's first run can never be the real one."""
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         before = _owned(cur, SENTINEL_USER_ID)
 
     claim_sentinel.claim(TARGET)  # no --apply
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         assert _owned(cur, SENTINEL_USER_ID) == before
         assert not any(_owned(cur, TARGET).values()), "a dry run moved rows"
         cur.execute("SELECT 1 FROM app_user WHERE id = %s", (SENTINEL_USER_ID,))
@@ -81,7 +88,7 @@ def test_dry_run_changes_nothing(claimable: None) -> None:  # noqa: ARG001
 
 def test_dry_run_reports_accurate_counts(claimable: None) -> None:  # noqa: ARG001
     """The report is the operator's only view of the blast radius — it must be exact."""
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         expected = {t: n for t, n in _owned(cur, SENTINEL_USER_ID).items() if n}
 
     plan = claim_sentinel.claim(TARGET)
@@ -98,12 +105,12 @@ def test_dry_run_reports_accurate_counts(claimable: None) -> None:  # noqa: ARG0
 
 def test_apply_moves_every_table(claimable: None) -> None:  # noqa: ARG001
     """Every table's rows land on the target — counts preserved exactly."""
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         before = _owned(cur, SENTINEL_USER_ID)
 
     claim_sentinel.claim(TARGET, apply=True)
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         assert _owned(cur, TARGET) == before
 
 
@@ -111,7 +118,7 @@ def test_no_row_anywhere_still_belongs_to_the_sentinel(claimable: None) -> None:
     """THE proof, over the database's own list of everything referencing app_user."""
     claim_sentinel.claim(TARGET, apply=True)
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         stragglers = {
             t: n
             for t in claim_sentinel.referencing_tables(cur)
@@ -131,7 +138,7 @@ def test_the_target_keeps_their_real_email_and_timezone(claimable: None) -> None
     """
     claim_sentinel.claim(TARGET, apply=True)
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT email, timezone FROM app_user WHERE id = %s", (TARGET,))
         row = cur.fetchone()
     assert row is not None, "the target's app_user row is gone"
@@ -148,7 +155,7 @@ def test_the_sentinels_device_tokens_move_too(claimable: None) -> None:  # noqa:
     """
     claim_sentinel.claim(TARGET, apply=True)
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT user_id FROM device_token WHERE label = %s", (MARK,))
         row = cur.fetchone()
     assert row is not None, "the device token was destroyed by the re-key"
@@ -162,7 +169,7 @@ def test_a_target_device_token_survives_the_claim(claimable: None) -> None:  # n
     naively that takes their device tokens with it and silently breaks the app they
     just paired.
     """
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO device_token (user_id, token_hash, label) VALUES (%s, %s, %s)",
             (TARGET, f"{MARK}-target", MARK),
@@ -170,7 +177,7 @@ def test_a_target_device_token_survives_the_claim(claimable: None) -> None:  # n
 
     claim_sentinel.claim(TARGET, apply=True)
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT user_id FROM device_token WHERE token_hash = %s", (f"{MARK}-target",))
         row = cur.fetchone()
     assert row is not None, "the target's own device token was destroyed"
@@ -182,7 +189,7 @@ def test_a_target_device_token_survives_the_claim(claimable: None) -> None:  # n
 
 def test_refuses_when_the_target_already_owns_data(claimable: None) -> None:  # noqa: ARG001
     """Two owners with data is a merge — a judgement call this tool must not make."""
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         provision(cur, OCCUPIED, "occupied@example.test", TARGET_TZ)
         cur.execute(
             "INSERT INTO derived_daily (user_id, day, metric, value) VALUES (%s, %s, %s, 9) "
@@ -193,7 +200,7 @@ def test_refuses_when_the_target_already_owns_data(claimable: None) -> None:  # 
     with pytest.raises(ClaimRefusedError, match="already owns data"):
         claim_sentinel.claim(OCCUPIED, apply=True)
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         assert any(_owned(cur, SENTINEL_USER_ID).values()), "a refused claim moved rows"
 
 
@@ -202,7 +209,7 @@ def test_refuses_an_unknown_target(claimable: None) -> None:  # noqa: ARG001
     with pytest.raises(ClaimRefusedError, match="never signed in"):
         claim_sentinel.claim(UUID("99999999-9999-9999-9999-999999999999"), apply=True)
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         assert any(_owned(cur, SENTINEL_USER_ID).values())
 
 
@@ -247,13 +254,13 @@ def test_a_failed_post_check_rolls_the_whole_rekey_back(
         raise ClaimRefusedError("post-check FAILED — simulated straggler")
 
     monkeypatch.setattr(claim_sentinel, "_verify", boom)
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         before = _owned(cur, SENTINEL_USER_ID)
 
     with pytest.raises(ClaimRefusedError, match="simulated straggler"):
         claim_sentinel.claim(TARGET, apply=True)
 
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         assert _owned(cur, SENTINEL_USER_ID) == before, "a failed post-check left data moved"
         assert not any(_owned(cur, TARGET).values())
         cur.execute("SELECT email FROM app_user WHERE id = %s", (TARGET,))

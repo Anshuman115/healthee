@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.request_auth import CurrentUser
 from healthee.insights import coaching
 from healthee.read.sleep_extras import sleep_consistency
@@ -21,14 +21,14 @@ router = APIRouter(tags=["sleep"])
 @router.get("/api/sleep")
 def get_sleep(user: CurrentUser, days: int = 30) -> dict:
     """Everything the Sleep page needs (nights + naps + findings + cutoffs)."""
-    with transaction() as cur:
+    with tenant_transaction(user.id) as cur:
         return sleep_page(cur, user.id, user.timezone, days)
 
 
 @router.get("/api/sleep/health_score")
 def get_sleep_health_score(user: CurrentUser, days: int = 30) -> dict:
     """Per-night 4-dim sleep-health score + per-dimension raw measurements."""
-    with transaction() as cur:
+    with tenant_transaction(user.id) as cur:
         return sleep_health_score(cur, user.id, user.timezone, days)
 
 
@@ -39,7 +39,7 @@ def get_sleep_consistency(user: CurrentUser, days: int = 28) -> dict:
     The ``tonight`` field is the WP5 grounded coaching one-liner: read-only from the
     per-day cache (``None`` until warmed), so this read path never calls the LLM.
     """
-    with transaction() as cur:
+    with tenant_transaction(user.id) as cur:
         payload = sleep_consistency(cur, user.id, user.timezone, days)
     payload["tonight"] = coaching.cached_line(user.id, user.timezone, coaching.SLEEP_TONIGHT_KEY)
     return payload

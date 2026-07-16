@@ -17,7 +17,7 @@ from tests.insights._stub import VALID_TEXT, StubLLM
 
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.insights import coaching, grounded
@@ -44,9 +44,8 @@ def stub(monkeypatch: pytest.MonkeyPatch) -> Iterator[StubLLM]:
 def _seed() -> None:
     migrate.apply_migrations()
     days = sd.recent_days(30)
-    with transaction() as cur:
-        cur.execute("DELETE FROM kv")
-        sd.clean(cur)
+    sd.clean("kv")
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "recovery_score", {d: 70.0 for d in days})
         sd.seed_daily(cur, "sleep_regularity_index", {d: 74.0 for d in days})
 

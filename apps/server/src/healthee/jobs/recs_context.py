@@ -19,7 +19,7 @@ from datetime import date
 from uuid import UUID
 
 from healthee.analytics.finding import get_significant_findings
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import user_today
 from healthee.read.fitness import mvpa_payload
 from healthee.read.recovery import recovery_score_payload
@@ -29,7 +29,7 @@ _TARGET_MVPA_MIN = 150  # WHO weekly moderate-to-vigorous target [mvpa_minutes_m
 
 def build_recs_signals(user_id: UUID, tz: str) -> str:
     """Assemble the compact v2-native signals block the recs prompt anchors to."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         parts = [
             _profile_line(cur, user_id, user_today(tz)),
             _recovery_line(cur, user_id, tz),

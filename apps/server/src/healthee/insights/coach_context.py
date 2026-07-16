@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.insights.context import build_context
 from healthee.insights.retrieval import evidence_section
 from healthee.read.recovery import recovery_score_payload
@@ -38,7 +38,7 @@ def build_coach_context(
     exactly how one tenant's data reaches another tenant's prompt.
     """
     context = build_context(user_id, tz, days=days, question=question)
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         recovery = recovery_score_payload(cur, user_id, tz)
     parts = [context, _recovery_block(recovery)]
     return "\n\n".join(p for p in parts if p)

@@ -28,7 +28,7 @@ from httpx import Response
 from healthee.api.app import create_app
 from healthee.core import db as db_module
 from healthee.core.config import get_settings
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection, transaction
 from healthee.core.supabase_auth import mint_device_token
 from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
@@ -73,15 +73,18 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     if not _db_reachable():
         pytest.skip("no reachable TimescaleDB — attribution test skipped")
     migrate.apply_migrations()
-    with transaction() as cur:
+    # The marker-row cleanup spans owners (that is the whole subject here), so it goes
+    # to the ADMIN; `app_user` is identity and has no RLS policy either way.
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM sample WHERE value = %s", (_HR_VALUE,))
+    with transaction() as cur:
         cur.execute(
             "INSERT INTO app_user (id, email, timezone) VALUES (%s, %s, %s) "
             "ON CONFLICT (id) DO UPDATE SET timezone = EXCLUDED.timezone",
             (OWNER_B, "ingest-b@example.test", OWNER_B_TZ),
         )
     yield TestClient(create_app())
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM sample WHERE value = %s", (_HR_VALUE,))
         cur.execute("DELETE FROM device_token WHERE user_id = %s", (OWNER_B,))
     db_module.close_pool()
@@ -89,7 +92,13 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
 
 
 def _owners_of_the_pushed_sample(ts: datetime) -> list[UUID]:
-    with transaction() as cur:
+    """WHICH owner the pushed row landed under — asked of the ADMIN, across owners.
+
+    The question this whole file exists to answer is "was it attributed correctly?",
+    and an RLS-scoped connection can only ever answer "yes" for the owner it is scoped
+    to. The independent observer is the point (6.5b-2).
+    """
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT user_id FROM sample WHERE metric = 'hr' AND value = %s AND ts = %s",
             (_HR_VALUE, ts),

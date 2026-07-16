@@ -17,7 +17,8 @@ from tests.insights._stub import VALID_TEXT, StubLLM
 
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.insights import grounded
 
@@ -44,9 +45,8 @@ def stub(monkeypatch: pytest.MonkeyPatch) -> Iterator[StubLLM]:
 def _seed() -> None:
     migrate.apply_migrations()
     days = sd.recent_days(30)
-    with transaction() as cur:
-        cur.execute("DELETE FROM kv")
-        sd.clean(cur)
+    sd.clean("kv")
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", {d: 54.0 + (i % 3) for i, d in enumerate(days)})
         sd.seed_daily(cur, "hrv_sleep_avg", {d: 42.0 + (i % 4) for i, d in enumerate(days)})
         sd.seed_daily(cur, "steps_total", {d: 6000.0 + 80 * i for i, d in enumerate(days)})
@@ -92,9 +92,8 @@ def test_notable_returns_items(db: None, stub: StubLLM) -> None:  # noqa: ARG001
     days = sd.recent_days(30)
     values = {d: 54.0 + (i % 3) for i, d in enumerate(days)}
     values[days[-2]] = 95.0  # a clear recent anomaly to surface
-    with transaction() as cur:
-        cur.execute("DELETE FROM kv")
-        sd.clean(cur)
+    sd.clean("kv")
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", values)
     api = TestClient(create_app())
     resp = api.get("/api/notable", headers=_AUTH)

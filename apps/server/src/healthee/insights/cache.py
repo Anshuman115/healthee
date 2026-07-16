@@ -14,7 +14,7 @@ from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 
 log = get_logger(__name__)
@@ -34,7 +34,7 @@ def get_cached(user_id: UUID, tz: str, key: str) -> dict | None:
     A malformed cache row is a degraded state, not a crash: it is logged and treated
     as a miss (the caller regenerates), never silently returned as good.
     """
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute("SELECT value FROM kv WHERE user_id = %s AND key = %s", (user_id, key))
         row = cur.fetchone()
     if not row:
@@ -56,7 +56,7 @@ def set_cached(user_id: UUID, key: str, value: dict) -> None:
     would state the tenant twice — in the key column and again inside the key — so it
     is not done (MULTI_USER.md §6).
     """
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute(
             "INSERT INTO kv (user_id, key, value) VALUES (%s, %s, %s) "
             "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",

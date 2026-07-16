@@ -17,7 +17,7 @@ from typing import Any, LiteralString, cast
 from uuid import UUID
 
 from healthee.analytics.metrics import MAD_TO_SD, V2_DAILY_METRICS, metric_filter
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 
 # Metrics baselined by default: the canonical v2 daily set (metrics.py).
 DEFAULT_DAILY_METRICS: tuple[str, ...] = V2_DAILY_METRICS
@@ -88,7 +88,7 @@ def compute_baselines(
         return result
     end_date = end_date or date.today()
     start_date = end_date - timedelta(days=window_days - 1)
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute(_baselines_sql(wanted), (user_id, start_date, end_date, *wanted))
         rows = cur.fetchall()
     for row in rows:
@@ -162,7 +162,7 @@ def compute_all(
 def latest_value(user_id: UUID, metric: str) -> tuple[date, float] | None:
     """(day, value) of the most recent valid ``derived_daily`` row for one owner's metric."""
     flt = metric_filter(metric)  # constant from METRIC_FILTERS — safe to interpolate
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         query = cast(
             LiteralString,
             f"SELECT day, value FROM derived_daily WHERE user_id = %s AND metric = %s AND {flt} "

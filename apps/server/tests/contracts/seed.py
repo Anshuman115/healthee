@@ -23,7 +23,7 @@ import json
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from healthee.core.db import admin_connection, transaction
+from healthee.core.db import admin_connection, tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 
@@ -44,11 +44,12 @@ def _ms(dt: datetime) -> float:
 def reset() -> None:
     """Apply migrations and truncate every table the read layer reads.
 
-    The ADMIN path (`admin_connection`), because both halves are owner-only: the
-    migrations are DDL and `TRUNCATE` is never granted to the app role — the app
-    must not be able to erase a life's health data (6.5b-1, MULTI_USER.md §3.3).
-    The seeding INSERTs that follow deliberately stay on the app pool, so the
-    fixture itself exercises the privileges the running app actually has.
+    The ADMIN path (`admin_connection`), because all three halves are owner-only:
+    the migrations are DDL, `TRUNCATE` is never granted to the app role — the app
+    must not be able to erase a life's health data (6.5b-1, MULTI_USER.md §3.3) —
+    and TRUNCATE must clear EVERY owner's rows, which an RLS-scoped connection could
+    not do. The seeding INSERTs that follow deliberately stay on the app pool
+    (`seed_all`), so the fixture exercises the privileges the running app has.
     """
     migrate.apply_migrations()
     with admin_connection() as conn, conn.cursor() as cur:
@@ -62,10 +63,17 @@ def today_local() -> date:
 
 
 def seed_all() -> None:
-    """Populate the whole fixture in one transaction."""
+    """Populate the whole fixture in one transaction, as the sentinel owner.
+
+    `tenant_transaction`, not `transaction`: every table below carries a `0008` RLS
+    policy, so an INSERT with no owner set on the session is denied by the policy's
+    WITH CHECK. The seed runs on the APP POOL (as the least-privilege role) on
+    purpose — a fixture that seeded as the admin would bypass RLS and prove nothing
+    about the privileges the running app actually has.
+    """
     reset()
     today = today_local()
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         _seed_profile(cur)
         _seed_samples(cur, today)
         _seed_sleep(cur, today)

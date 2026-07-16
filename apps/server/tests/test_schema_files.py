@@ -14,6 +14,7 @@ _MIGRATIONS = _DB_DIR / "migrations"
 
 _TABLE_RE = re.compile(r"CREATE TABLE IF NOT EXISTS (\w+)", re.IGNORECASE)
 _INDEX_RE = re.compile(r"CREATE INDEX IF NOT EXISTS (\w+)", re.IGNORECASE)
+_POLICY_RE = re.compile(r"CREATE POLICY (\w+) ON (\w+)", re.IGNORECASE)
 
 
 def _objects(sql: str) -> tuple[set[str], set[str]]:
@@ -43,3 +44,24 @@ def test_recommendation_has_audit_columns() -> None:
     schema = _SCHEMA.read_text()
     assert "raw_llm_prompt" in schema
     assert "raw_llm_response" in schema
+
+
+def test_schema_reference_lists_every_rls_policy() -> None:
+    """`0008`'s policies are represented in the reference, and neither side drifts.
+
+    `schema.sql` states the policy shape once and then NAMES its 16 tables rather than
+    repeating 48 near-identical statements — which is only honest as long as that list
+    stays true. This is what keeps it true: a tenant table policied by a future
+    migration but missing from the reference fails here, and so does a table the
+    reference claims is policied when no migration says so.
+    """
+    schema = _SCHEMA.read_text()
+    policied = {table for _, table in _POLICY_RE.findall(_migrations_sql())}
+    assert len(policied) == 16, f"expected the 16 §3.2 tenant tables, found {sorted(policied)}"
+    # The reference lists them in its RLS section; every one must appear there.
+    rls_section = schema.split("Row-Level Security (0008_row_level_security)")[-1]
+    missing = {table for table in policied if table not in rls_section}
+    assert not missing, f"db/schema.sql's RLS section does not mention {sorted(missing)}"
+    # …and it must not claim a policy on the identity tables, which have none by design.
+    for identity in ("app_user", "device_token"):
+        assert identity not in policied, f"{identity} must not be policied (MULTI_USER.md §3.3)"

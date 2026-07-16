@@ -27,9 +27,11 @@ real in 6.5b-2, and least privilege in its own right: an application that can
 `DROP TABLE` is a problem regardless of RLS.
 
 The role gets DML on the data tables and nothing else: no TRUNCATE, no DDL, no
-ownership, and explicitly `NOSUPERUSER NOBYPASSRLS`. Because it is a non-superuser
-that does NOT own the tables, 6.5b-2 needs only plain `ENABLE ROW LEVEL SECURITY`;
-`FORCE` is for when the *connecting* role is the owner.
+ownership, and explicitly `NOSUPERUSER NOBYPASSRLS`. It also carries one login-time
+setting (`_ROLE_SETTINGS`) that works around a TimescaleDB planner bug RLS triggers
+— see that constant for the reproduction and the measured cost. Because it is a
+non-superuser that does NOT own the tables, 6.5b-2 needs only plain `ENABLE ROW
+LEVEL SECURITY`; `FORCE` is for when the *connecting* role is the owner.
 
 ## Idempotency
 
@@ -100,6 +102,34 @@ _SEQUENCE_PRIVILEGES = "USAGE, SELECT"
 # not a guarantee anyone can read.
 _ROLE_ATTRIBUTES = "LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION"
 
+# Per-role settings applied at login (`ALTER ROLE … SET`), as name → value. Annotated
+# LiteralString so the composed SQL stays provably constant — the tuple unpack in
+# `_apply_role_settings` would otherwise widen these constants to plain `str`.
+#
+# `timescaledb.enable_skipscan=off` works around an upstream TimescaleDB planner bug
+# (reproduced on 2.26.4): a `SELECT DISTINCT ON (…)` over a table carrying an RLS
+# policy fails outright with
+#
+#     InternalError: unsupported subplan type for SkipScan: Result
+#
+# — the policy's `current_setting()` expression becomes a Result subplan the SkipScan
+# custom scan cannot handle. It is not RLS-expression-specific: a STABLE-function
+# wrapper around the same lookup was probed and fails identically. `/api/today`'s
+# `latest_derived_many` is exactly this shape, so without it the endpoint 500s for
+# every user the moment `0008`'s policies are live.
+#
+# The cost is nil and was measured rather than assumed (661-row `derived_daily`, 200
+# runs): median 0.111 ms → 0.127 ms, both plans an index scan on
+# `derived_daily_user_idx` — SkipScan only added a skip step on top. Nothing is lost
+# on the hypertable path either: `sample` is the only hypertable and no query does
+# `DISTINCT ON` against it (the three that do are on plain tables).
+#
+# Scoped to this ROLE, not the database: the admin bypasses RLS, so it never meets
+# the bug and keeps the optimization.
+_ROLE_SETTINGS: tuple[tuple[LiteralString, LiteralString], ...] = (
+    ("timescaledb.enable_skipscan", "off"),
+)
+
 
 class ProvisionError(Exception):
     """The role cannot be provisioned safely — refuse rather than half-do it."""
@@ -149,6 +179,23 @@ def _upsert_role(cur: Cursor[TupleRow], role: str, password: str) -> bool:
         )
     )
     return created
+
+
+def _apply_role_settings(cur: Cursor[TupleRow], role: str) -> None:
+    """Apply `_ROLE_SETTINGS` as login-time defaults for the role. Idempotent (re-SET).
+
+    `ALTER ROLE … SET` takes no bind parameters (a utility statement), so the value is
+    an `sql.Literal` — quoted and escaped exactly as a parameter would be. Both name
+    and value come from the module constant above, never from input.
+    """
+    for name, value in _ROLE_SETTINGS:
+        cur.execute(
+            sql.SQL("ALTER ROLE {role} SET {name} = {value}").format(
+                role=sql.Identifier(role),
+                name=sql.SQL(name),  # constant from _ROLE_SETTINGS — a GUC name, not input
+                value=sql.Literal(value),
+            )
+        )
 
 
 def _grant_database_and_schema(cur: Cursor[TupleRow], role: str, database: str) -> None:
@@ -247,6 +294,7 @@ def provision() -> str:
     role, password = _app_credentials(settings)
     with admin_connection() as conn, conn.cursor() as cur:
         created = _upsert_role(cur, role, password)
+        _apply_role_settings(cur, role)
         _grant_database_and_schema(cur, role, settings.postgres_db)
         _grant_data_privileges(cur, role)
         _grant_future_privileges(cur, role, settings.postgres_user)
@@ -264,6 +312,7 @@ def _report(role: str, *, created: bool, database: str) -> None:
     )
     log.info("  sequences:   %s on %s", _SEQUENCE_PRIVILEGES, ", ".join(_SEQUENCES))
     log.info("  future:      default privileges set — new tables are granted automatically")
+    log.info("  settings:    %s", ", ".join(f"{n}={v}" for n, v in _ROLE_SETTINGS))
     log.info("Set POSTGRES_APP_USER=%s (+ POSTGRES_APP_PASSWORD) on the app, then restart.", role)
 
 

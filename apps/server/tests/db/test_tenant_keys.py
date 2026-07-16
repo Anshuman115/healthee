@@ -10,6 +10,13 @@ suite proves 0004 actually delivers the tenancy:
   * two rows that collide on the OLD key but differ by `user_id` coexist — the
     property the whole fold exists for.
 
+Since 6.5b-2 the writes go through `tenant_transaction` (each owner sets their own
+`healthee.user_id`, or `0008`'s WITH CHECK denies the write) while the "both rows
+really exist" verification runs on the ADMIN. That split is deliberate: these
+assertions are about the SCHEMA's keys — "the database physically holds two rows
+that would have collided on the old key" — which is a claim no RLS-scoped connection
+can make, since it can only ever see one of them.
+
 Auto-skips without a reachable TimescaleDB (same policy as the other integration
 tests).
 """
@@ -22,7 +29,7 @@ from uuid import UUID
 
 import pytest
 
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection, tenant_transaction, transaction
 from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 
@@ -54,13 +61,13 @@ _TEST_TS = datetime(2999, 3, 1, 12, 0, tzinfo=UTC)
 def migrated(db: None) -> Iterator[None]:  # noqa: ARG001 — gates on DB reachability
     """Migrations applied + the second owner present; test rows cleaned up after."""
     migrate.apply_migrations()
-    with transaction() as cur:
+    with transaction() as cur:  # app_user is identity — no RLS policy (0008)
         cur.execute(
             "INSERT INTO app_user (id, email) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING",
             (_OTHER_USER, "other@example.test"),
         )
     yield
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:  # spans both owners
         cur.execute("DELETE FROM sample WHERE ts = %s", (_TEST_TS,))
         cur.execute("DELETE FROM kv WHERE key LIKE '_keyfold%'")
         cur.execute("DELETE FROM derived_daily WHERE day = '2999-03-01'")
@@ -108,13 +115,13 @@ def test_no_key_omits_the_owner(migrated: None, table: str, columns: list[str]) 
 def test_sample_upsert_is_idempotent_on_the_new_conflict_target(migrated: None) -> None:  # noqa: ARG001
     """The retargeted ON CONFLICT still dedups a re-ingest to ONE row."""
     for value in (61.0, 62.0):  # a re-push of the same point with a corrected value
-        with transaction() as cur:
+        with tenant_transaction(SENTINEL_USER_ID) as cur:
             cur.execute(
                 "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, %s, %s) "
                 "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
                 (SENTINEL_USER_ID, _TEST_TS, "_keyfold_hr", value),
             )
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute(
             "SELECT count(*), max(value) FROM sample WHERE metric = %s AND user_id = %s",
             ("_keyfold_hr", SENTINEL_USER_ID),
@@ -128,14 +135,14 @@ def test_sample_upsert_is_idempotent_on_the_new_conflict_target(migrated: None) 
 def test_two_users_can_hold_the_same_sample_key(migrated: None) -> None:  # noqa: ARG001
     """The fold's whole purpose: rows colliding on the OLD key (metric, ts) but
     differing by user_id now COEXIST instead of overwriting each other."""
-    with transaction() as cur:
-        for owner, value in ((SENTINEL_USER_ID, 61.0), (_OTHER_USER, 99.0)):
+    for owner, value in ((SENTINEL_USER_ID, 61.0), (_OTHER_USER, 99.0)):
+        with tenant_transaction(owner) as cur:
             cur.execute(
                 "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, %s, %s) "
                 "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
                 (owner, _TEST_TS, "_keyfold_hr", value),
             )
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:  # the cross-owner claim
         cur.execute(
             "SELECT user_id, value FROM sample WHERE metric = %s AND ts = %s ORDER BY value",
             ("_keyfold_hr", _TEST_TS),
@@ -150,14 +157,14 @@ def test_two_users_can_hold_the_same_sample_key(migrated: None) -> None:  # noqa
 
 def test_two_users_can_hold_the_same_derived_daily_key(migrated: None) -> None:  # noqa: ARG001
     """Same property on the derive write path's key (user_id, day, metric)."""
-    with transaction() as cur:
-        for owner, value in ((SENTINEL_USER_ID, 8000.0), (_OTHER_USER, 12000.0)):
+    for owner, value in ((SENTINEL_USER_ID, 8000.0), (_OTHER_USER, 12000.0)):
+        with tenant_transaction(owner) as cur:
             cur.execute(
                 "INSERT INTO derived_daily (user_id, day, metric, value) VALUES (%s, %s, %s, %s) "
                 "ON CONFLICT (user_id, day, metric) DO UPDATE SET value = EXCLUDED.value",
                 (owner, "2999-03-01", "_keyfold_steps", value),
             )
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:  # the cross-owner claim
         cur.execute(
             "SELECT count(*) FROM derived_daily WHERE day = '2999-03-01' AND metric = %s",
             ("_keyfold_steps",),
@@ -169,14 +176,14 @@ def test_two_users_can_hold_the_same_derived_daily_key(migrated: None) -> None: 
 
 def test_two_users_can_hold_the_same_kv_key(migrated: None) -> None:  # noqa: ARG001
     """Per-user job markers / cached text: the same kv key under two owners."""
-    with transaction() as cur:
-        for owner, value in ((SENTINEL_USER_ID, "a"), (_OTHER_USER, "b")):
+    for owner, value in ((SENTINEL_USER_ID, "a"), (_OTHER_USER, "b")):
+        with tenant_transaction(owner) as cur:
             cur.execute(
                 "INSERT INTO kv (user_id, key, value) VALUES (%s, %s, %s) "
                 "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
                 (owner, "_keyfold_marker", value),
             )
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:  # the cross-owner claim
         cur.execute("SELECT count(*) FROM kv WHERE key = %s", ("_keyfold_marker",))
         row = cur.fetchone()
     assert row is not None

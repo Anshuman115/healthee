@@ -1,7 +1,8 @@
 """Orchestrates a full /ingest/helio push: upsert raw + typed rows, derive the
 days the push touched, then apply the strap's authoritative daily-total override.
 
-The whole flow is one transaction (`core.db.connection()` commits on clean exit),
+The whole flow is one transaction (`core.db.tenant_connection()` commits on clean
+exit, and sets the owner the `0008` RLS policies gate on),
 so the daily-total override and the derivation it corrects are atomic — a partial
 push never leaves the dashboard half-updated.
 
@@ -23,7 +24,7 @@ from psycopg import Connection
 from psycopg.rows import TupleRow
 from pydantic import BaseModel
 
-from healthee.core.db import connection
+from healthee.core.db import tenant_connection
 from healthee.core.logging import get_logger
 from healthee.ingest.models import ALLOWED_METRICS, HelioPayload
 from healthee.ingest.upsert import (
@@ -95,7 +96,7 @@ def ingest_helio(
     override (after derive, which it corrects). `user_id` is the owner every raw,
     typed, and derived row is written under; the router supplies it (the sentinel
     today, the device token's real owner from 6.4 — MULTI_USER.md §7)."""
-    with connection() as conn, conn.cursor() as cur:
+    with tenant_connection(user_id) as conn, conn.cursor() as cur:
         accepted, rejected = upsert_samples(cur, user_id, payload.samples)
         # Predicate must be built BEFORE upsert_sleep — it reads which nights
         # already existed so re-pushed history isn't re-emitted.

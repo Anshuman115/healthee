@@ -23,7 +23,7 @@ from uuid import UUID
 from healthee.analytics.finding import EFFECT_MANN_WHITNEY, Finding, replace_findings_of_kind
 from healthee.analytics.series import Cur
 from healthee.analytics.stats import bh_fdr, mann_whitney_groups
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_USER_ID
 
 # Candidate cutoffs, as hours-of-day in the owner's local timezone.
@@ -153,7 +153,7 @@ def _values(group: list[dict], outcome: str) -> list[float]:
 
 def compute_cutoff_findings(user_id: UUID, tz: str) -> list[Finding]:
     """Detect personal cutoffs for caffeine + alcohol; FDR within the family."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         nights = _load_sleep_nights(cur, user_id, tz)
         if len(nights) < MIN_CONTROL_NIGHTS:
             return []

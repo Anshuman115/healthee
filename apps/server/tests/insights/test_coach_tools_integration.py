@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.insights import coach_tools, manifest
@@ -30,9 +30,8 @@ def _seed_fasting_schedule() -> tuple[list, int]:
     migrate.apply_migrations()
     days = sd.recent_days(30)
     fasting_days = [d for i, d in enumerate(days) if i % 2 == 0]
-    with transaction() as cur:
-        cur.execute("DELETE FROM kv")
-        sd.clean(cur)
+    sd.clean("kv")
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(
             cur,
             "hrv_sleep_avg",
@@ -56,8 +55,7 @@ def test_query_metric_reads_real_values(db: None) -> None:  # noqa: ARG001
 
 def test_query_metric_no_data_is_honest(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
-    with transaction() as cur:
-        sd.clean(cur)
+    sd.clean()
     out = coach_tools.query_metric(SENTINEL_USER_ID, "hrv_sleep_avg", days=7)
     assert out["note"] == "no data for this metric/range"
 
@@ -86,8 +84,8 @@ def test_compare_event_unlogged_is_honest(db: None) -> None:  # noqa: ARG001
 def test_sleep_consistency_tool(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
     nights = sd.recent_days(10)
-    with transaction() as cur:
-        sd.clean(cur)
+    sd.clean()
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         for d in nights:
             sd.seed_night(cur, d, rem=90, light=240, deep=90, wake=20)
     out = coach_tools.execute_tool("sleep_consistency", {"days": 28}, SENTINEL_USER_ID, SENTINEL_TZ)
@@ -97,11 +95,10 @@ def test_sleep_consistency_tool(db: None) -> None:  # noqa: ARG001
 
 def test_log_entry_writes_a_manual_row(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
-    with transaction() as cur:
-        sd.clean(cur)
+    sd.clean()
     result = coach_tools.log_entry(SENTINEL_USER_ID, "caffeine", amount=80)
     assert result == {"ok": True}
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute(
             "SELECT amount FROM manual_entry WHERE kind='caffeine' ORDER BY ts DESC LIMIT 1"
         )

@@ -22,7 +22,7 @@ from healthee.analytics.metrics import EVENT_KINDS, FLAG_DERIVED_METRICS, V2_DAI
 from healthee.analytics.notes import notes_for
 from healthee.analytics.series import daily_series, event_days
 from healthee.analytics.stats import MIN_N, bh_fdr, mann_whitney_effect, spearman_lag
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 
 # Metrics correlated: the canonical daily set plus the two flag-derived series.
 CORRELATED_METRICS: tuple[str, ...] = V2_DAILY_METRICS + tuple(FLAG_DERIVED_METRICS)
@@ -43,7 +43,7 @@ def compute_all_findings(
     event_lags: tuple[int, ...] = (0, 1),
 ) -> list[Finding]:
     """Compute every candidate finding, FDR-adjust, and mark significance."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         series = {m: daily_series(cur, user_id, m) for m in CORRELATED_METRICS}
         events = {
             label: event_days(cur, user_id, tz, kind) for label, (_, kind) in EVENT_KINDS.items()

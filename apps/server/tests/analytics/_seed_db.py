@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, time, timedelta
+from typing import LiteralString, cast
 from zoneinfo import ZoneInfo
 
+from healthee.core.db import admin_connection
 from healthee.core.tenancy import SENTINEL_USER_ID
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -35,11 +37,23 @@ _CLEAN_TABLES = (
 )
 
 
-def clean(cur) -> None:
-    """Truncate the tables the analytics read so tests don't cross-contaminate."""
-    for table in _CLEAN_TABLES:
-        cur.execute(f"TRUNCATE {table}")  # noqa: S608 — table names are a constant tuple
-    cur.execute("DELETE FROM profile")
+def clean(*extra_tables: str) -> None:
+    """Truncate the tables the analytics read so tests don't cross-contaminate.
+
+    Self-opening on the ADMIN connection, and no longer takes a cursor — same reason
+    as `tests/contracts/seed.reset`: `TRUNCATE` is deliberately not granted to the
+    app role, and a reset must clear EVERY owner's rows, which an RLS-scoped
+    connection cannot see (6.5b-2). A `DELETE` here on the app pool would silently
+    remove nothing and leave the next test reading stale rows.
+
+    `extra_tables` are truncated alongside the defaults — for the callers that also
+    need `kv` (the per-day LLM cache) or `recommendation` emptied.
+    """
+    with admin_connection() as conn, conn.cursor() as cur:
+        for table in (*_CLEAN_TABLES, *extra_tables):
+            # Trusted SQL — a module constant plus the caller's literal, never input.
+            cur.execute(cast("LiteralString", f"TRUNCATE {table}"))
+        cur.execute("DELETE FROM profile")
 
 
 def seed_daily(cur, metric: str, values: dict[date, float], flags: dict | None = None) -> None:

@@ -23,7 +23,7 @@ from healthee.analytics.baselines import (
     compute_baseline,
     latest_value,
 )
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.insights.context_sessions import (
     findings_section,
@@ -80,7 +80,7 @@ def _trends(user_id: UUID) -> str:
         "|---|---|---|---|---|",
     ]
     any_row = False
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         for metric in DEFAULT_DAILY_METRICS:
             row = _seven_day_avg(cur, user_id, metric)
             baseline = compute_baseline(user_id, metric, window_days=30)
@@ -187,7 +187,7 @@ def build_context(user_id: UUID, tz: str, *, days: int = 14, question: str | Non
     thread a cursor. Cheap enough for a per-day-cached generation, never on a hot
     read path (standards §Performance: LLM generation is cached, off the read path).
     """
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         session_sections = [
             _recent_daily(cur, user_id, tz, days),
             sleep_section(cur, user_id, tz, days),

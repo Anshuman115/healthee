@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.insights.context import _recent_daily, build_context
@@ -27,8 +27,8 @@ pytestmark = pytest.mark.integration
 def _seed_recent() -> None:
     migrate.apply_migrations()
     days = sd.recent_days(20)
-    with transaction() as cur:
-        sd.clean(cur)
+    sd.clean()
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", {d: 54.0 + (i % 3) for i, d in enumerate(days)})
         sd.seed_daily(cur, "steps_total", {d: 6000.0 + 100 * i for i, d in enumerate(days)})
         sd.seed_daily(cur, "hrv_sleep_avg", {d: 40.0 + (i % 4) for i, d in enumerate(days)})
@@ -39,7 +39,7 @@ def _seed_recent() -> None:
 
 def test_recent_daily_metrics_nonempty_on_v2_data(db: None) -> None:  # noqa: ARG001
     _seed_recent()
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         md = _recent_daily(cur, SENTINEL_USER_ID, SENTINEL_TZ, days=20)
     assert md  # legacy returned "" here on v2 data — non-empty is the regression proof
     assert "Recent daily metrics" in md

@@ -25,7 +25,7 @@ from uuid import UUID
 import psycopg
 import pytest
 
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection, tenant_transaction, transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.ingest.models import ProfileIn
@@ -65,19 +65,24 @@ def _profile_in(spec: dict) -> ProfileIn:
 def two_profiles(db: None) -> Iterator[None]:  # noqa: ARG001 — gates on DB reachability
     """Owner A (sentinel) + owner B both exist; only A starts with a profile."""
     migrate.apply_migrations()
+    # `app_user` is identity (no RLS policy); `profile` is tenant, so A's row is
+    # written under A. The two-owner DELETE goes to the ADMIN — no single RLS-scoped
+    # transaction can see across owners (same category as `seed.reset`).
     with transaction() as cur:
         cur.execute(
             "INSERT INTO app_user (id, email, timezone) VALUES (%s, %s, %s) "
             "ON CONFLICT (id) DO NOTHING",
             (_OWNER_B, "rekey-b@example.test", SENTINEL_TZ),
         )
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM profile WHERE user_id IN (%s, %s)", (SENTINEL_USER_ID, _OWNER_B))
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute(
             "INSERT INTO profile (user_id, name, height_cm, sex, dob) VALUES (%s,%s,%s,%s,%s)",
             (SENTINEL_USER_ID, _A["name"], _A["height_cm"], _A["sex"], _A["dob"]),
         )
     yield
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM profile WHERE user_id IN (%s, %s)", (SENTINEL_USER_ID, _OWNER_B))
         cur.execute("DELETE FROM app_user WHERE id = %s", (_OWNER_B,))
 
@@ -105,10 +110,11 @@ def test_profile_primary_key_is_the_owner(two_profiles: None) -> None:  # noqa: 
 
 def test_each_owner_holds_their_own_profile(two_profiles: None) -> None:  # noqa: ARG001
     """B can have a profile at all — impossible while one global `id = 1` row existed."""
-    with transaction() as cur:
+    with tenant_transaction(_OWNER_B) as cur:
         upsert_profile(cur, _OWNER_B, _profile_in(_B))
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         a = read_profile(cur, SENTINEL_USER_ID)
+    with tenant_transaction(_OWNER_B) as cur:
         b = read_profile(cur, _OWNER_B)
     assert a["name"] == _A["name"]
     assert b["name"] == _B["name"]
@@ -122,9 +128,9 @@ def test_owner_b_upsert_cannot_clobber_owner_a(two_profiles: None) -> None:  # n
     This is the assertion that fails against the pre-0005 `ON CONFLICT (id)` upsert,
     where B's body silently became A's.
     """
-    with transaction() as cur:
+    with tenant_transaction(_OWNER_B) as cur:
         upsert_profile(cur, _OWNER_B, _profile_in(_B))
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute(
             "SELECT name, height_cm, sex, dob FROM profile WHERE user_id = %s",
             (SENTINEL_USER_ID,),
@@ -139,19 +145,19 @@ def test_owner_b_upsert_cannot_clobber_owner_a(two_profiles: None) -> None:  # n
 
 def test_a_second_profile_for_the_same_owner_conflicts(two_profiles: None) -> None:  # noqa: ARG001
     """The old single-row invariant, correctly scoped: one profile PER OWNER."""
-    with pytest.raises(psycopg.errors.UniqueViolation), transaction() as cur:
+    with pytest.raises(psycopg.errors.UniqueViolation), tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute("INSERT INTO profile (user_id, name) VALUES (%s, 'dup')", (SENTINEL_USER_ID,))
 
 
 def test_repeated_upsert_for_one_owner_updates_in_place(two_profiles: None) -> None:  # noqa: ARG001
     """The upsert still UPDATEs its owner's row (and COALESCEs a missing name)."""
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         upsert_profile(
             cur,
             SENTINEL_USER_ID,
             ProfileIn(name=None, height_cm=180.0, sex="male", dob=_dob_ms(_A["dob"])),
         )
-    with transaction() as cur:
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute("SELECT name, height_cm FROM profile WHERE user_id = %s", (SENTINEL_USER_ID,))
         row = cur.fetchone()
         cur.execute("SELECT count(*) FROM profile WHERE user_id = %s", (SENTINEL_USER_ID,))

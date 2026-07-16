@@ -24,7 +24,7 @@ import re
 from datetime import date
 from uuid import UUID
 
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
 from healthee.insights import manifest
@@ -208,7 +208,7 @@ def _persist(user_id: UUID, day: date, recs: list[dict], *, prompt: str, raw: st
     The audit columns (``raw_llm_prompt`` / ``raw_llm_response``) are always
     written — the whole point of the schema fix.
     """
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute("DELETE FROM recommendation WHERE user_id = %s AND date = %s", (user_id, day))
         for rank, rec in enumerate(recs, start=1):
             cur.execute(

@@ -18,7 +18,7 @@ from uuid import UUID
 import pytest
 from psycopg import Connection
 
-from healthee.core.db import transaction
+from healthee.core.db import admin_connection
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.ingest import HelioPayload, ingest_helio
@@ -30,7 +30,7 @@ _TABLES = "sample, sleep_session, workout, derived_daily, weight_log, profile"
 
 def _reset() -> None:
     migrate.apply_migrations()
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(f"TRUNCATE {_TABLES}")
 
 
@@ -54,7 +54,15 @@ def _placeholder_steps_derive(  # noqa: ARG001 — stub mirrors the DeriveTrigge
 
 
 def _count(sql: LiteralString, params: tuple[Any, ...] = ()) -> int:
-    with transaction() as cur:
+    """Count rows as the ADMIN — i.e. what the database ACTUALLY holds, across owners.
+
+    Deliberately not RLS-scoped (6.5b-2). `test_push_attributes_every_row_to_the_passed
+    _owner` asserts `total == owned`; scoped to the sentinel those two counts would be
+    the same number by construction and the test would pass against a push that
+    attributed every row to a stranger. The app path under test (`ingest_helio`) is the
+    thing that must be RLS-scoped, and it is — this is the independent observer.
+    """
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(sql, params)
         row = cur.fetchone()
     return int(row[0]) if row else 0
@@ -170,7 +178,7 @@ def test_daily_total_override_beats_derive(db: None) -> None:  # noqa: ARG001
 
 
 def _flag(day: str, metric: str) -> str:
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT flags->>'source' FROM derived_daily WHERE day = %s AND metric = %s",
             (day, metric),
@@ -205,7 +213,7 @@ def test_fresh_gating_skips_old_night_reemit(db: None) -> None:  # noqa: ARG001
 
     # Delete the emitted rows, then re-push the (now existing, stale) old night
     # alongside a fresh tonight. The stale night must NOT be re-emitted.
-    with transaction() as cur:
+    with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(
             "DELETE FROM sample WHERE metric = 'sleep_stage' AND ts BETWEEN %s AND %s",
             (old_lo, old_hi),

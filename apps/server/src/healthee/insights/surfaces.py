@@ -19,7 +19,7 @@ from datetime import datetime
 from uuid import UUID
 
 from healthee.analytics.series import daily_series
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
 
@@ -130,7 +130,7 @@ def metric_insight(
 
 def _metric_numbers(user_id: UUID, metric: str) -> str | None:
     """A compact 'latest X, 30d median Y, recent [...]' line, or None if <3 points."""
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         series = daily_series(cur, user_id, metric)
     if len(series) < 3:
         return None
@@ -182,7 +182,7 @@ def _workout_numbers(user_id: UUID, start: str) -> str | None:
         ts = datetime.fromisoformat(start)
     except ValueError:
         return None
-    with transaction() as cur:
+    with tenant_transaction(user_id) as cur:
         cur.execute(
             "SELECT sport, duration_s, calories, distance_m, avg_hr, max_hr FROM workout "
             "WHERE user_id = %s "

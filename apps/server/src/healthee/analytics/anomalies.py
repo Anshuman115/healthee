@@ -18,7 +18,7 @@ from uuid import UUID
 from healthee.analytics.baselines import DEFAULT_DAILY_METRICS, Baseline, compute_baseline
 from healthee.analytics.metrics import metric_filter
 from healthee.analytics.notes import notes_for
-from healthee.core.db import transaction
+from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import USER_TODAY_SQL
 
 
@@ -66,7 +66,7 @@ def detect(
     out: list[Anomaly] = []
     for metric in metrics:
         note_ids = notes_for([metric])
-        with transaction() as cur:
+        with tenant_transaction(user_id) as cur:
             values = _daily_values(cur, user_id, tz, metric, days_back)
         for d, v in values:
             anomaly = _evaluate(user_id, metric, d, v, window_days, z_threshold, note_ids)
