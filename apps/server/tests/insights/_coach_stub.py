@@ -46,7 +46,9 @@ class CoachStub:
     calls: int = 0
     tools_seen: list = field(default_factory=list)
 
-    def complete(self, messages: list[dict], *, tools=None, model: str = "stub") -> ChatResponse:  # noqa: ARG002
+    def complete(  # noqa: ARG002
+        self, messages: list[dict], *, tools=None, model: str = "stub", response_format=None
+    ) -> ChatResponse:
         self.tools_seen.append(tools)
         response = self.script[min(self.calls, len(self.script) - 1)]
         self.calls += 1
@@ -58,5 +60,7 @@ class NoCallStub:
 
     calls = 0
 
-    def complete(self, messages: list[dict], *, tools=None, model: str = "stub") -> ChatResponse:  # noqa: ARG002
+    def complete(  # noqa: ARG002
+        self, messages: list[dict], *, tools=None, model: str = "stub", response_format=None
+    ) -> ChatResponse:
         raise AssertionError("the LLM must not be called for a refused question")

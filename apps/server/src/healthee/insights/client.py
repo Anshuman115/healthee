@@ -49,7 +49,12 @@ class LLMClient(Protocol):
     """The one method the choke point needs. A stub implements this in tests."""
 
     def complete(
-        self, messages: list[dict], *, tools: list[dict] | None = None, model: str = DEFAULT_MODEL
+        self,
+        messages: list[dict],
+        *,
+        tools: list[dict] | None = None,
+        model: str = DEFAULT_MODEL,
+        response_format: dict | None = None,
     ) -> ChatResponse: ...
 
 
@@ -71,9 +76,19 @@ class OpenRouterClient:
         return self._sdk
 
     def complete(
-        self, messages: list[dict], *, tools: list[dict] | None = None, model: str = DEFAULT_MODEL
+        self,
+        messages: list[dict],
+        *,
+        tools: list[dict] | None = None,
+        model: str = DEFAULT_MODEL,
+        response_format: dict | None = None,
     ) -> ChatResponse:
         """One completion. Returns the assistant text + any tool calls.
+
+        ``response_format`` (e.g. ``{"type": "json_object"}``) is forwarded to the
+        SDK when supplied — the grounded-ask choke point sets it for JSON surfaces
+        (recs) so the model returns a parseable object, not fenced prose. Default
+        ``None`` leaves the request unchanged (prose path is byte-identical).
 
         Errors propagate (the endpoint layer degrades to an honest error body) —
         never swallowed. The key is passed to the SDK, never logged.
@@ -88,6 +103,8 @@ class OpenRouterClient:
         }
         if tools:
             kwargs["tools"] = tools
+        if response_format is not None:
+            kwargs["response_format"] = response_format
         message = self._client().chat.completions.create(**kwargs).choices[0].message
         log.info("llm completion: model=%s tools=%d", model, len(tools or []))
         return ChatResponse(

@@ -21,11 +21,15 @@ Refusal templates bypass validation (they are safe by construction, §5.5).
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 
+from healthee.core.logging import get_logger
 from healthee.insights import manifest
 from healthee.insights.refusals import REFUSAL_TEMPLATES
+
+log = get_logger(__name__)
 
 # Interpretive / causal / recommending markers — a sentence matching one makes a
 # claim (vs merely reporting a number) and must be grounded. Ported from legacy.
@@ -173,19 +177,23 @@ def _grade_floor(valid_ids: set[str]) -> str | None:
     return min(graded)[1] if graded else None
 
 
-def validate(response: str) -> ValidationResult:
-    """Run every rule; ``ok`` is True only when zero issues are found (blocking)."""
-    if is_refusal(response):
-        return ValidationResult(ok=True)
-    ids, personal = extract_citations(response)
+def _run_rules(text: str) -> ValidationResult:
+    """The rule engine over a prose blob — shared by the prose and JSON paths.
+
+    Runs the fabricated-id, banned-certainty, and every per-sentence check
+    (grounding, tone, grade calibration). The two callers differ ONLY in what
+    text they hand in: ``validate`` passes the whole answer; ``validate_json``
+    passes the concatenated user-facing interpretive strings.
+    """
+    ids, personal = extract_citations(text)
     known = manifest.note_ids()
     issues: list[str] = []
     fabricated = ids - known
     if fabricated:
         issues.append(f"Cited ids do not exist in the manifest: {sorted(fabricated)}")
-    if _BANNED_CERTAINTY_RE.search(response):
+    if _BANNED_CERTAINTY_RE.search(text):
         issues.append("Uses banned certainty language (caused by / definitely / always / never).")
-    for sentence in _sentences(response):
+    for sentence in _sentences(text):
         issues.extend(_sentence_issues(sentence))
     return ValidationResult(
         ok=not issues,
@@ -194,3 +202,53 @@ def validate(response: str) -> ValidationResult:
         personal_findings=sorted(personal),
         grade_floor=_grade_floor(ids & known),
     )
+
+
+def validate(response: str) -> ValidationResult:
+    """Run every rule; ``ok`` is True only when zero issues are found (blocking)."""
+    if is_refusal(response):
+        return ValidationResult(ok=True)
+    return _run_rules(response)
+
+
+def _recs_interpretive_text(payload: object) -> str:
+    """Concatenate the USER-FACING interpretive strings from a recs payload.
+
+    Only ``rationale`` / ``action`` / ``expected_effect`` are user-facing prose;
+    keys and constrained-vocab fields (``category``, ``signal_source``,
+    ``evidence_grade``, ``research_note_ids``) are NOT validated as prose — they
+    are structurally checked per-rec in ``jobs/recs.py``. This is why an
+    interpretive-looking word in a KEY or a category value cannot false-trip or
+    false-satisfy the rules.
+    """
+    if not isinstance(payload, dict):
+        return ""
+    recs = payload.get("recommendations")
+    if not isinstance(recs, list):
+        return ""
+    parts: list[str] = []
+    for rec in recs:
+        if not isinstance(rec, dict):
+            continue
+        for field_name in ("rationale", "action", "expected_effect"):
+            value = rec.get(field_name)
+            if isinstance(value, str):
+                parts.append(value)
+    return "\n".join(parts)
+
+
+def validate_json(response: str) -> ValidationResult:
+    """Validate a JSON answer (recs shape) with the SAME honesty rules as prose.
+
+    Malformed JSON is a hard failure (logged, ``ok=False``) so the choke point
+    falls back honestly rather than shipping garbage. Well-formed JSON has its
+    user-facing interpretive strings extracted and run through ``_run_rules`` —
+    so a fabricated inline ``[note_id]`` in a rationale is blocked exactly as it
+    is in the prose path.
+    """
+    try:
+        payload = json.loads(response)
+    except (json.JSONDecodeError, ValueError) as exc:
+        log.warning("grounded json answer was not valid JSON (%s) — blocking", exc)
+        return ValidationResult(ok=False, issues=[f"Response was not valid JSON: {exc}"])
+    return _run_rules(_recs_interpretive_text(payload))

@@ -20,7 +20,6 @@ response blocking done by the choke point.
 
 from __future__ import annotations
 
-import json
 import re
 from datetime import date
 
@@ -59,7 +58,7 @@ each anchored to a specific number from my SIGNALS/CONTEXT and grounded in the
 EVIDENCE NOTES. Respect the recovery ceiling. Progress framing, never deficit
 framing. No medications, doses, supplements, diagnoses, or symptom interpretation.
 
-Output ONLY a JSON object (no prose, no code fences) of this exact shape:
+Output ONLY a JSON object (JSON mode is on — no prose, no code fences) of this exact shape:
 {"recommendations": [
   {"action": "<one-line directive>",
    "rationale": "<=2 sentences, each interpretive clause ending in an inline [note_id]>",
@@ -78,7 +77,6 @@ _BANNED_RE = re.compile(
     r"\bsupplement\b|\bmedicine\b|\bdrug\b|\bpill\b|\btablet\b",
     re.IGNORECASE,
 )
-_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$")
 _INLINE_CITE_RE = re.compile(r"\[[a-z0-9_]+(?:\s*,\s*[a-z0-9_]+)*\]")
 
 
@@ -98,9 +96,14 @@ def generate_recs(
     question = f"{RECS_TASK}\n\n# TODAY'S SIGNALS (anchor every action to these)\n\n{signals}"
 
     result = grounded_ask(
-        question, metrics=RECS_METRICS, context_days=14, client=client, model=model
+        question,
+        metrics=RECS_METRICS,
+        context_days=14,
+        response_format="json",
+        client=client,
+        model=model,
     )
-    if result.refused or not result.validated:
+    if result.refused or not result.validated or result.data is None:
         # The blocking choke point already refused / fell back — ship no recs today
         # rather than ungrounded ones. Still clear stale rows and record the audit.
         log.info(
@@ -119,7 +122,7 @@ def generate_recs(
             "refused": result.refused,
         }
 
-    clean, dropped = _parse_and_validate(result.text)
+    clean, dropped = _parse_and_validate(result.data)
     persisted = _persist(day, clean, prompt=question, raw=result.text)
     log.info("recs %s: %d persisted, %d dropped", day, persisted, dropped)
     return {
@@ -132,19 +135,15 @@ def generate_recs(
     }
 
 
-def _parse_and_validate(text: str) -> tuple[list[dict], int]:
-    """Parse the JSON payload and keep only structurally valid, citable recs.
+def _parse_and_validate(payload: dict) -> tuple[list[dict], int]:
+    """Keep only the structurally valid, citable recs from the parsed payload.
 
-    Returns (clean_recs, dropped_count). A rec is dropped (not retried) when it
-    misses a field, uses a bad grade, cites an unknown note, lacks an inline
-    ``[note_id]``, or trips the safety keyword block.
+    ``payload`` is the object the choke point already parsed and citation-validated
+    (``grounded_ask(response_format="json")`` → ``result.data``); the JSON is no
+    longer parsed here. Returns (clean_recs, dropped_count). A rec is dropped (not
+    retried) when it misses a field, uses a bad grade, cites an unknown note, lacks
+    an inline ``[note_id]``, or trips the safety keyword block.
     """
-    stripped = _FENCE_RE.sub("", text.strip())
-    try:
-        payload = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        log.warning("recs output was not valid JSON (%s) — no recs shipped", exc)
-        return [], 0
     recs = payload.get("recommendations")
     if not isinstance(recs, list):
         log.warning("recs payload missing a 'recommendations' array — no recs shipped")

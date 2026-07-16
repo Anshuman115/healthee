@@ -8,14 +8,86 @@ distinct from population note ids.
 
 from __future__ import annotations
 
+import json
+
 from tests.insights._ids import CONTESTED_ID, ESTABLISHED_ID, PROBABLE_ID
 
-from healthee.insights.validator import extract_citations, validate
+from healthee.insights.validator import extract_citations, validate, validate_json
 
 # Real manifest ids at known grades, resolved live (robust to reconciliation):
 _ESTABLISHED = ESTABLISHED_ID
 _PROBABLE = PROBABLE_ID
 _CONTESTED = CONTESTED_ID
+
+
+def _recs_json(**overrides: object) -> str:
+    """A well-formed one-rec recs payload; overrides patch a single field."""
+    rec = {
+        "action": "Aim for a 30-minute brisk walk today.",
+        "rationale": f"Consistent moderate activity may support recovery [{_ESTABLISHED}].",
+        "expected_effect": "chips away at your weekly MVPA gap",
+        "category": "activity",
+        "evidence_grade": 3,
+        "research_note_ids": [_ESTABLISHED],
+        "signal_source": "mvpa_gap",
+    }
+    rec.update(overrides)
+    return json.dumps({"recommendations": [rec]})
+
+
+def test_json_valid_recs_with_real_id_passes() -> None:
+    result = validate_json(_recs_json())
+    assert result.ok is True
+    assert _ESTABLISHED in result.citations
+    assert result.grade_floor == "Established"
+
+
+def test_json_fabricated_inline_citation_in_rationale_fails() -> None:
+    payload = _recs_json(
+        rationale="Intervals raise VO2max quickly [totally_made_up_note].",
+        research_note_ids=["totally_made_up_note"],
+    )
+    result = validate_json(payload)
+    assert result.ok is False
+    assert any("do not exist" in i for i in result.issues)
+
+
+def test_json_malformed_is_blocked() -> None:
+    result = validate_json("{not valid json,,,")
+    assert result.ok is False
+    assert any("not valid JSON" in i for i in result.issues)
+
+
+def test_json_interpretive_looking_keys_do_not_false_trip() -> None:
+    # KEYS and constrained-vocab values contain interpretive/causal words ("suggests",
+    # "is caused by", "always") but the rationale is properly cited → must PASS,
+    # proving structure/keys are not validated as prose.
+    payload = json.dumps(
+        {
+            "recommendations": [
+                {
+                    "action": "Aim for a 30-minute brisk walk today.",
+                    "rationale": f"Moderate activity may support recovery [{_ESTABLISHED}].",
+                    "expected_effect": "chips away at your weekly MVPA gap",
+                    "category": "activity",
+                    "evidence_grade": 3,
+                    "research_note_ids": [_ESTABLISHED],
+                    "signal_source": "this always suggests it is caused by low steps",
+                }
+            ]
+        }
+    )
+    assert validate_json(payload).ok is True
+
+
+def test_json_interpretive_rationale_without_citation_fails() -> None:
+    payload = _recs_json(
+        rationale="This suggests your recovery is impaired and getting worse.",
+        research_note_ids=[_ESTABLISHED],
+    )
+    result = validate_json(payload)
+    assert result.ok is False
+    assert any("lacks a citation" in i for i in result.issues)
 
 
 def test_fabricated_citation_is_blocked() -> None:

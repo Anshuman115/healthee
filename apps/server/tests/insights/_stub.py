@@ -25,7 +25,9 @@ class StubLLM:
         self._responses = list(responses or [VALID_TEXT])
         self.calls = 0
 
-    def complete(self, messages: list[dict], *, tools=None, model: str = "stub") -> ChatResponse:  # noqa: ARG002
+    def complete(  # noqa: ARG002
+        self, messages: list[dict], *, tools=None, model: str = "stub", response_format=None
+    ) -> ChatResponse:
         idx = min(self.calls, len(self._responses) - 1)
         self.calls += 1
         return ChatResponse(text=self._responses[idx])

@@ -15,6 +15,7 @@ talk to the LLM directly. That is how the coach inherits citation validation
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 
 from healthee.core.logging import get_logger
@@ -23,7 +24,7 @@ from healthee.insights.client import DEFAULT_MODEL, LLMClient, get_client
 from healthee.insights.context import build_context
 from healthee.insights.refusals import classify_refusal
 from healthee.insights.retrieval import evidence_section
-from healthee.insights.validator import validate
+from healthee.insights.validator import validate, validate_json
 
 log = get_logger(__name__)
 
@@ -32,7 +33,12 @@ _MAX_RETRIES = 1  # one nudged retry, then the honest fallback (blocking)
 
 @dataclass
 class GroundedResult:
-    """What every LLM surface receives: validated text + its grounding metadata."""
+    """What every LLM surface receives: validated text + its grounding metadata.
+
+    ``data`` is the parsed object when ``response_format="json"`` validated —
+    JSON surfaces (recs) consume it directly instead of re-parsing ``text``. It
+    stays ``None`` for the prose path and for any refusal / honest fallback.
+    """
 
     text: str
     citations: list[str] = field(default_factory=list)
@@ -40,6 +46,7 @@ class GroundedResult:
     grade_floor: str | None = None
     refused: bool = False
     validated: bool = True
+    data: dict | None = None
 
 
 def _build_messages(question: str, metrics: list[str], context_days: int) -> list[dict]:
@@ -60,14 +67,18 @@ def grounded_ask(
     metrics: list[str] | None = None,
     context_days: int = 14,
     allow_tools: bool = False,  # noqa: ARG001 — WP5b coach seam; tool loop lands there
+    response_format: str | None = None,
     model: str = DEFAULT_MODEL,
     client: LLMClient | None = None,
 ) -> GroundedResult:
     """Answer ``question`` grounded in the user's v2 data + the graded corpus.
 
-    ``allow_tools`` is the reserved seam the coach (WP5b) will use to run its
-    tool loop through this same pipeline; the insight surfaces call with it False.
-    ``client`` is injectable so tests run a deterministic stub with no network.
+    ``response_format="json"`` switches on the JSON output seam: the client is
+    asked for a JSON object and the answer is checked by the JSON-aware validator
+    (``validate_json``); the parsed object comes back on ``result.data``. The
+    default (``None``) is the unchanged prose path. ``allow_tools`` is the
+    reserved seam the coach (WP5b) will use to run its tool loop through this same
+    pipeline. ``client`` is injectable so tests run a deterministic stub.
     """
     refusal = classify_refusal(question)
     if refusal is not None:
@@ -76,23 +87,26 @@ def grounded_ask(
 
     client = client or get_client()
     messages = _build_messages(question, metrics or [], context_days)
-    return _complete_with_validation(client, messages, model)
+    return _complete_with_validation(client, messages, model, response_format)
 
 
 def _complete_with_validation(
-    client: LLMClient, messages: list[dict], model: str
+    client: LLMClient, messages: list[dict], model: str, response_format: str | None = None
 ) -> GroundedResult:
     """Run the completion, validate, retry once, else return the honest fallback."""
+    json_mode = response_format == "json"
+    client_format = {"type": "json_object"} if json_mode else None
     retries = 0
     while True:
-        response = client.complete(messages, model=model)
-        result = validate(response.text)
+        response = client.complete(messages, model=model, response_format=client_format)
+        result = validate_json(response.text) if json_mode else validate(response.text)
         if result.ok:
             return GroundedResult(
                 text=response.text,
                 citations=result.citations,
                 personal_findings=result.personal_findings,
                 grade_floor=result.grade_floor,
+                data=json.loads(response.text) if json_mode else None,
             )
         if retries >= _MAX_RETRIES:
             log.warning("validation failed twice (%s) — returning honest fallback", result.issues)
