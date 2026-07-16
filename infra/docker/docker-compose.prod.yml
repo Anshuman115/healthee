@@ -58,11 +58,28 @@ services:
       # cannot apply. Provision the role BEFORE setting these (infra/.env.example).
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
-      # API auth + LLM (optional keys degrade to no-op when blank).
+      # API auth — the legacy shared token the un-rebuilt app still sends.
       REALTIME_INGEST_TOKEN: ${REALTIME_INGEST_TOKEN}
+      # Supabase identity (MULTI_USER.md §4). The API only VERIFIES the JWT.
+      # A blank secret fails auth CLOSED — every JWT is refused — so omitting
+      # these here silently reduces the server to legacy-token-only.
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_PROJECT_REF: ${SUPABASE_PROJECT_REF:-}
+      SUPABASE_JWT_AUD: ${SUPABASE_JWT_AUD:-authenticated}
+      # Signup gating (§4, §13 [D1]) — enforced by the server, not Supabase.
+      # SIGNUP_ALLOWLIST is what makes owner onboarding possible (§4.4b), so it
+      # must reach the container or the claim procedure cannot be run.
+      SIGNUPS_OPEN: ${SIGNUPS_OPEN:-false}
+      SIGNUP_ALLOWLIST: ${SIGNUP_ALLOWLIST:-}
+      # LLM. The model ids are REQUIRED whenever the key is set: a blank id is
+      # forwarded to OpenRouter verbatim and comes back a 400.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-}
+      COACH_MODEL: ${COACH_MODEL:-}
       API_HOST: 0.0.0.0
       API_PORT: 8765
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # Telegram notifications (optional).
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
@@ -109,8 +126,13 @@ services:
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
       # Grounded recs + briefing go through the LLM choke point; Telegram carries
-      # the morning briefing and every supervised step failure. Blank ⇒ no-op.
+      # the morning briefing and every supervised step failure. Blank key ⇒ no-op.
+      # The model ids are REQUIRED whenever the key is set — this container IS the
+      # nightly chain, so a blank id 400s every recs/briefing run.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-}
+      COACH_MODEL: ${COACH_MODEL:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     networks:
