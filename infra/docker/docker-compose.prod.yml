@@ -48,8 +48,16 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB}
+      # The admin identity: needed in the container because `python -m
+      # healthee.db.migrate` / `provision_app_role` / `claim_sentinel` are run
+      # here via `compose exec`. It is NOT what the request pool connects as.
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # The least-privilege role the request pool uses (MULTI_USER.md §3.3).
+      # Blank ⇒ falls back to the admin creds + a loud startup WARNING that RLS
+      # cannot apply. Provision the role BEFORE setting these (infra/.env.example).
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
       # API auth + LLM (optional keys degrade to no-op when blank).
       REALTIME_INGEST_TOKEN: ${REALTIME_INGEST_TOKEN}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
@@ -96,6 +104,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # The scheduler is a job runner, not an admin: same least-privilege role as
+      # the api (its nightly chain only reads/writes data tables).
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
       # Grounded recs + briefing go through the LLM choke point; Telegram carries
       # the morning briefing and every supervised step failure. Blank ⇒ no-op.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
