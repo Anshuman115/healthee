@@ -12,6 +12,7 @@ import statistics
 from datetime import datetime
 from uuid import UUID
 
+from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.derive._common import Cur
 from healthee.read.sleep_common import (
     SLEEP_CUTOFFS,
@@ -82,9 +83,9 @@ def sleep_history_7d(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
         "    light_min, deep_min, rem_min, wake_min, score "
         "  FROM sleep_session WHERE user_id = %s AND kind='main'"
         ") s "
-        "WHERE local_date > (current_date - 8) "
+        f"WHERE local_date > ({USER_TODAY_SQL} - 8) "
         "ORDER BY local_date, (end_ts - start_ts) DESC",
-        (tz, user_id),
+        (tz, user_id, tz),
     )
     rows = cur.fetchall()
     rows.sort(key=lambda r: r[0])

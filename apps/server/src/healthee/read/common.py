@@ -1,34 +1,32 @@
-"""Shared read-layer primitives: the local-day helper, daily-series helpers, and
-the sport-code names. One definition, reused by every read service (standards
-§Duplication).
+"""Shared read-layer primitives: daily-series helpers and the sport-code names.
+One definition, reused by every read service (standards §Duplication).
 
 The timezone is threaded in as an IANA name (``tz: str``) — 6.3b removed the
 single-tenant ``USER_TZ_NAME``/``USER_TZ`` constants in favour of
 ``core.tenancy.SENTINEL_TZ``, hardwired at the read entry points until 6.4 sources
 it from the authenticated user. It is always bound as a ``%s`` parameter to
 ``AT TIME ZONE`` so every day-bucketing query stays parameterized.
+
+6.4a extends that to the window ANCHORS: a "last N days" window ends at the OWNER's
+today (``core.tenancy.USER_TODAY_SQL``), never at the database session's
+``current_date`` — see that constant for why.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from typing import LiteralString, cast
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from healthee.analytics.baselines import Baseline, compute_baselines
 from healthee.analytics.metrics import metric_filter
+from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.derive._common import Cur
 
 
-def user_today(tz: str) -> date:
-    """Today's date in the user's timezone."""
-    return datetime.now(tz=ZoneInfo(tz)).date()
-
-
-def derived_series(cur: Cur, user_id: UUID, metric: str, days: int) -> list[dict]:
+def derived_series(cur: Cur, user_id: UUID, tz: str, metric: str, days: int) -> list[dict]:
     """Last ``days`` days of one owner's ``derived_daily`` metric, oldest first,
     sentinel-filtered. Replaces the legacy ``_series_for_metric`` (which read the
     ``metric_sample`` view). The filter fragment is a hardcoded constant from the
@@ -39,9 +37,9 @@ def derived_series(cur: Cur, user_id: UUID, metric: str, days: int) -> list[dict
             LiteralString,
             "SELECT day, value FROM derived_daily "
             f"WHERE user_id = %s AND metric = %s AND {flt} "
-            "AND day > (current_date - %s::int) ORDER BY day",
+            f"AND day > ({USER_TODAY_SQL} - %s::int) ORDER BY day",
         ),
-        (user_id, metric, days),
+        (user_id, metric, tz, days),
     )
     return [{"date": r[0].isoformat(), "value": float(r[1])} for r in cur.fetchall()]
 
@@ -83,7 +81,7 @@ def latest_derived_many(
 
 
 def derived_series_many(
-    cur: Cur, user_id: UUID, metrics: Sequence[str], days: int
+    cur: Cur, user_id: UUID, tz: str, metrics: Sequence[str], days: int
 ) -> dict[str, list[dict]]:
     """Last ``days`` days of several ``derived_daily`` metrics in ONE query.
 
@@ -101,10 +99,10 @@ def derived_series_many(
         cast(
             LiteralString,
             "SELECT metric, day, value FROM derived_daily "
-            "WHERE user_id = %s AND day > (current_date - %s::int) AND (" + where + ") "
+            f"WHERE user_id = %s AND day > ({USER_TODAY_SQL} - %s::int) AND (" + where + ") "
             "ORDER BY metric, day",
         ),
-        (user_id, days, *wanted),
+        (user_id, tz, days, *wanted),
     )
     for metric, day, value in cur.fetchall():
         out[metric].append({"date": day.isoformat(), "value": float(value)})

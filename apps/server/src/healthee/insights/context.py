@@ -24,6 +24,7 @@ from healthee.analytics.baselines import (
     latest_value,
 )
 from healthee.core.db import transaction
+from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.insights.context_sessions import (
     findings_section,
     manual_entries_section,
@@ -118,9 +119,9 @@ def _recent_daily(cur, user_id: UUID, tz: str, days: int) -> str:
     metrics = [m for m, _ in _RECENT_COLUMNS]
     cur.execute(
         "SELECT (day)::date AS d, metric, value FROM derived_daily "
-        "WHERE user_id = %s AND metric = ANY(%s) AND day > (current_date - %s::int) "
+        f"WHERE user_id = %s AND metric = ANY(%s) AND day > ({USER_TODAY_SQL} - %s::int) "
         "ORDER BY d DESC",
-        (user_id, metrics, days),
+        (user_id, metrics, tz, days),
     )
     by_day: dict[date, dict[str, float]] = {}
     for d, metric, value in cur.fetchall():
@@ -161,9 +162,9 @@ def _baselines(user_id: UUID) -> str:
     return "\n".join(lines) if any_row else ""
 
 
-def _anomalies(user_id: UUID) -> str:
+def _anomalies(user_id: UUID, tz: str) -> str:
     """Recent |z|≥2 deviations vs personal baseline, each with its note ids."""
-    rows = anomalies_mod.detect(user_id, days_back=14, window_days=30)
+    rows = anomalies_mod.detect(user_id, tz, days_back=14, window_days=30)
     if not rows:
         return ""
     lines = [
@@ -197,7 +198,7 @@ def build_context(user_id: UUID, tz: str, *, days: int = 14, question: str | Non
         _trends(user_id),
         *session_sections,
         _baselines(user_id),
-        _anomalies(user_id),
+        _anomalies(user_id, tz),
         findings_section(user_id, question),
     ]
     return "\n\n".join(s for s in sections if s)

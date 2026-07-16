@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.derive._common import Cur
 from healthee.read.findings import sleep_findings
 from healthee.read.sleep_common import (
@@ -62,10 +63,10 @@ _HEALTH_SCORE_FIELDS = (
 )
 
 
-def sleep_health_score(cur: Cur, user_id: UUID, days: int = 30) -> dict:
+def sleep_health_score(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict:
     """Per-night 4-dim score + per-dimension raw measurements (``/api/sleep/health_score``)."""
     days = _clamp_days(days)
-    pivot = derived_night_pivot(cur, user_id, days, _HEALTH_SCORE_METRICS)
+    pivot = derived_night_pivot(cur, user_id, tz, days, _HEALTH_SCORE_METRICS)
     nights = [
         {"date": d, **{k: row.get(k) for k in _HEALTH_SCORE_FIELDS}} for d, row in pivot.items()
     ]
@@ -77,7 +78,7 @@ def sleep_page(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict:
     """Everything the Sleep page needs in one call (``/api/sleep``)."""
     days = _clamp_days(days)
     nights = _session_nights(cur, user_id, tz, days)
-    pivot = derived_night_pivot(cur, user_id, days, _SLEEP_PAGE_METRICS)
+    pivot = derived_night_pivot(cur, user_id, tz, days, _SLEEP_PAGE_METRICS)
     for date_iso, derived in pivot.items():
         nights.setdefault(date_iso, _stub_night(date_iso)).update(
             {k: v for k, v in derived.items() if k in _DERIVED_NIGHT_FIELDS}
@@ -194,10 +195,15 @@ def _naps(cur: Cur, user_id: UUID, tz: str, days: int) -> list[dict]:
         "  TO_CHAR((start_ts + (end_ts - start_ts)/2) AT TIME ZONE %s, 'HH24:MI'), "
         "  stages "
         "FROM sleep_session WHERE user_id = %s AND kind='nap' "
-        "  AND start_ts > (current_date - %s::int) "
+        # `start_ts` is timestamptz: comparing it to a DATE would make Postgres cast
+        # that date at the SESSION's timezone (UTC), reintroducing the very bug this
+        # anchor fixes. So the owner's window-start date is turned into an absolute
+        # instant IN THEIR ZONE — `::timestamp` makes it their local midnight, and
+        # `AT TIME ZONE %s` binds that wall-clock time back to a real instant.
+        f"  AND start_ts > (({USER_TODAY_SQL} - %s::int)::timestamp AT TIME ZONE %s) "
         "  AND EXTRACT(EPOCH FROM (end_ts - start_ts)) / 60 >= 5 "
         "ORDER BY start_ts DESC",
-        (tz, tz, user_id, days),
+        (tz, tz, user_id, tz, days, tz),
     )
     return [
         {

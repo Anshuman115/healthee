@@ -12,13 +12,9 @@ from __future__ import annotations
 from uuid import UUID
 
 from healthee.analytics.baselines import compute_baseline
+from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
-from healthee.read.common import (
-    TodayReads,
-    derived_series_many,
-    latest_derived,
-    user_today,
-)
+from healthee.read.common import TodayReads, derived_series_many, latest_derived
 from healthee.read.meta import METRIC_META, TODAY_SECONDARY_METRICS
 
 
@@ -106,13 +102,13 @@ _SPARKLINE_METRICS: dict[str, str | None] = {
 }
 
 
-def sparklines(cur: Cur, user_id: UUID) -> dict[str, list[dict]]:
+def sparklines(cur: Cur, user_id: UUID, tz: str) -> dict[str, list[dict]]:
     """14-day daily series per Today sparkline slot (empty for v2 gaps).
 
     All backed slots load in ONE batched query (``derived_series_many``) rather
     than a query per slot; the v2-gap slots (metric ``None``) stay empty."""
     backed = {key: m for key, m in _SPARKLINE_METRICS.items() if m}
-    series = derived_series_many(cur, user_id, list(backed.values()), 14)
+    series = derived_series_many(cur, user_id, tz, list(backed.values()), 14)
     return {
         key: (series.get(metric, []) if metric else [])
         for key, metric in _SPARKLINE_METRICS.items()

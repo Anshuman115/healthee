@@ -31,11 +31,11 @@ from uuid import UUID
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
+from healthee.core.tenancy import user_today
 from healthee.insights.client import LLMClient
 from healthee.jobs import briefing as briefing_mod
 from healthee.jobs import correlate as correlate_mod
 from healthee.jobs import recs as recs_mod
-from healthee.read.common import user_today
 
 log = get_logger(__name__)
 

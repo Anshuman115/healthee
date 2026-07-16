@@ -13,6 +13,12 @@ module constants collapsed into `SENTINEL_TZ`, threaded as an IANA name (`tz: st
 alongside `user_id`. Read entry points (read routers, job steps, self-opening
 insight surfaces) hardwire both constants exactly as the write path does.
 
+Phase 6.4a finishes the timezone job by owning the day BOUNDARY as well as the
+conversions: `USER_TODAY_SQL` + `user_today()` are the one definition of "the owner's
+today", in SQL and in Python. 6.3b parameterized every `AT TIME ZONE`, but every
+window still anchored to SQL `current_date` — the database session's date — so two
+owners in different zones got identical windows. Those anchors are gone.
+
 Phase 6.3c adds `active_users()` — the first place an owner is DISCOVERED rather
 than hardwired. The nightly sweep iterates it instead of firing one global chain, so
 each owner's chain runs against their own data and their own local day.
@@ -25,7 +31,10 @@ CASCADE FKs.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime
+from typing import LiteralString
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from healthee.core.db import transaction
 
@@ -36,6 +45,27 @@ SENTINEL_USER_ID: UUID = UUID("00000000-0000-0000-0000-000000000000")
 # The sentinel owner's IANA timezone — matches the app_user row seeded by 0003.
 # Transitional: 6.4 sources this from the authenticated user's app_user.timezone.
 SENTINEL_TZ: str = "Asia/Kolkata"
+
+# "The owner's today" in SQL — the ONE canonical definition (CLAUDE.md), paired with
+# the Python form `user_today()` below. Both take the owner's IANA zone, so they can
+# never disagree about which day it is for that owner.
+#
+# NOT `current_date`: that resolves in the DATABASE SESSION's timezone (UTC in every
+# environment we run), which is nobody's local day — it would anchor every owner's
+# window to the same date no matter where they are, which is exactly what per-user
+# timezones exist to prevent. `now()` is the transaction instant (absolute, so it is
+# session-timezone independent); shifting it into the owner's zone before truncating
+# to a date is what makes the day boundary theirs.
+#
+# The `%s` binds the owner's tz — a hardcoded constant fragment, safe to interpolate
+# into a query string (standards §2), and typed LiteralString so composing it into an
+# f-string keeps the result a LiteralString.
+USER_TODAY_SQL: LiteralString = "(now() AT TIME ZONE %s)::date"
+
+
+def user_today(tz: str) -> date:
+    """Today's date in the owner's timezone — the Python form of ``USER_TODAY_SQL``."""
+    return datetime.now(tz=ZoneInfo(tz)).date()
 
 
 @dataclass(frozen=True)
@@ -67,4 +97,11 @@ def active_users() -> list[Tenant]:
         return [Tenant(id=row[0], tz=row[1]) for row in cur.fetchall()]
 
 
-__all__ = ["SENTINEL_TZ", "SENTINEL_USER_ID", "Tenant", "active_users"]
+__all__ = [
+    "SENTINEL_TZ",
+    "SENTINEL_USER_ID",
+    "USER_TODAY_SQL",
+    "Tenant",
+    "active_users",
+    "user_today",
+]

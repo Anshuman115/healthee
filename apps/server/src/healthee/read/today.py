@@ -18,8 +18,9 @@ from __future__ import annotations
 from datetime import timedelta
 from uuid import UUID
 
+from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
-from healthee.read.common import TodayReads, build_today_reads, user_today
+from healthee.read.common import TodayReads, build_today_reads
 from healthee.read.findings import top_findings
 from healthee.read.fitness import (
     cardio_load_payload,
@@ -105,8 +106,8 @@ def _metric_blocks(cur: Cur, user_id: UUID, tz: str, reads: TodayReads) -> dict:
         "pai": pai_payload(cur, user_id),
         "mvpa": mvpa_payload(cur, user_id, tz),
         "strength": strength_payload(cur, user_id, tz),
-        "vo2max": vo2max_payload(cur, user_id),
-        "cardio_load": cardio_load_payload(cur, user_id),
+        "vo2max": vo2max_payload(cur, user_id, tz),
+        "cardio_load": cardio_load_payload(cur, user_id, tz),
         "sleep_debt": sleep_debt_payload(cur, user_id, reads),
         "biological_age": biological_age_payload(cur, user_id, tz),
         "illness_flag": illness_flag_payload(cur, user_id, tz),
@@ -127,7 +128,7 @@ def _signal_blocks(cur: Cur, user_id: UUID, tz: str, reads: TodayReads) -> dict:
 def _series_blocks(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Sparklines + today's intraday HR / step / stress shapes."""
     return {
-        "sparklines": sparklines(cur, user_id),
+        "sparklines": sparklines(cur, user_id, tz),
         "today_hr_series": hr_hourly(cur, user_id, tz),
         "today_step_buckets": step_buckets(cur, user_id, tz),
         "today_stress_series": stress_series(cur, user_id, tz),

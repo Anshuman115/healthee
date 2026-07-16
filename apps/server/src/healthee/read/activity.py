@@ -21,17 +21,17 @@ from healthee.read.fitness import (
 
 def activity_snapshot(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Assemble the Activity tab from one cursor (no per-block reconnect)."""
-    cardio = cardio_load_payload(cur, user_id)
+    cardio = cardio_load_payload(cur, user_id, tz)
     return {
-        "vo2max": vo2max_payload(cur, user_id),
+        "vo2max": vo2max_payload(cur, user_id, tz),
         "fitness_plan": fitness_plan_payload(cur, user_id, tz),
         "cardio_load": cardio,
         "acwr": acwr(cardio),
         "mvpa": mvpa_payload(cur, user_id, tz),
-        "steps": activity_metric(cur, user_id, ["steps_total"]),
-        "active_calories": activity_metric(cur, user_id, ["active_calories"]),
-        "total_calories": activity_metric(cur, user_id, ["total_calories"]),
-        "distance": activity_metric(cur, user_id, ["distance_m_daily"]),
+        "steps": activity_metric(cur, user_id, tz, ["steps_total"]),
+        "active_calories": activity_metric(cur, user_id, tz, ["active_calories"]),
+        "total_calories": activity_metric(cur, user_id, tz, ["total_calories"]),
+        "distance": activity_metric(cur, user_id, tz, ["distance_m_daily"]),
         "workouts": workouts_list(cur, user_id),
         "research_notes": [
             "vo2max_fitness_mortality",

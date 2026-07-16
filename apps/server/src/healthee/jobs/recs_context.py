@@ -20,7 +20,7 @@ from uuid import UUID
 
 from healthee.analytics.finding import get_significant_findings
 from healthee.core.db import transaction
-from healthee.read.common import user_today
+from healthee.core.tenancy import user_today
 from healthee.read.fitness import mvpa_payload
 from healthee.read.recovery import recovery_score_payload
 

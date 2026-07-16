@@ -15,8 +15,9 @@ from datetime import timedelta
 from uuid import UUID
 
 from healthee.analytics.biological_age import compute_biological_age
+from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
-from healthee.read.common import TodayReads, latest_derived, user_today
+from healthee.read.common import TodayReads, latest_derived
 
 
 def sleep_debt_payload(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:

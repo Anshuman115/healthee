@@ -15,9 +15,9 @@ from uuid import UUID
 
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
+from healthee.core.tenancy import user_today
 from healthee.insights.client import LLMClient
 from healthee.insights.grounded import grounded_ask
-from healthee.read.common import user_today
 
 log = get_logger(__name__)
 

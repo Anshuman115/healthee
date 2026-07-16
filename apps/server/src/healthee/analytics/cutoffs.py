@@ -2,9 +2,10 @@
 
 For each substance, Mann-Whitney U on sleep outcomes between nights with a
 substance event after hour H vs before-H/none, iterating H ∈ {12,14,16,18,20,22}
-IST. The earliest H producing a significant effect **in the literature-expected
-direction** is the personal cutoff. Evidence: [[caffeine_sleep]] (Drake 2013,
-Clark & Landolt 2017), [[alcohol_sleep]] (Ebrahim 2013, Pietilä 2018).
+in the OWNER's local time. The earliest H producing a significant effect **in the
+literature-expected direction** is the personal cutoff. Evidence:
+[[caffeine_sleep]] (Drake 2013, Clark & Landolt 2017), [[alcohol_sleep]]
+(Ebrahim 2013, Pietilä 2018).
 
 ★ THE SEAM FIX (this finder was silently dead on v2): legacy read total sleep
 time from ``session.summary->>'tst_minutes'``, which is always NULL on v2, so
@@ -25,7 +26,7 @@ from healthee.analytics.stats import bh_fdr, mann_whitney_groups
 from healthee.core.db import transaction
 from healthee.core.tenancy import SENTINEL_USER_ID
 
-# Local IST hours-of-day considered as candidate cutoffs.
+# Candidate cutoffs, as hours-of-day in the owner's local timezone.
 CUTOFF_HOURS: tuple[int, ...] = (12, 14, 16, 18, 20, 22)
 
 # Power thresholds (a touch permissive — a pre-registered hypothesis test, not a
@@ -166,7 +167,9 @@ def compute_cutoff_findings(user_id: UUID, tz: str) -> list[Finding]:
         if len({ev["ts"].date() for ev in events}) < MIN_INTAKE_NIGHTS:
             continue
         for outcome, expected_dir in cfg["expected"].items():
-            found = _first_significant_cutoff(nights, events, substance, outcome, expected_dir, cfg)
+            found = _first_significant_cutoff(
+                nights, events, tz, substance, outcome, expected_dir, cfg
+            )
             if found is not None:
                 candidates.append(found)
 
@@ -176,9 +179,10 @@ def compute_cutoff_findings(user_id: UUID, tz: str) -> list[Finding]:
     return candidates
 
 
-def _first_significant_cutoff(
+def _first_significant_cutoff(  # noqa: PLR0913 — the cutoff search needs each input
     nights: list[dict],
     events: list[dict],
+    tz: str,
     substance: str,
     outcome: str,
     expected_dir: int,
@@ -201,7 +205,7 @@ def _first_significant_cutoff(
         if abs(rb) < MIN_RANK_BISERIAL or p >= P_THRESHOLD:
             continue
         return _cutoff_finding(
-            substance, outcome, h, rb, p, n_a, n_c, med_a, med_c, expected_dir, cfg
+            substance, outcome, tz, h, rb, p, n_a, n_c, med_a, med_c, expected_dir, cfg
         )
     return None
 
@@ -209,6 +213,7 @@ def _first_significant_cutoff(
 def _cutoff_finding(  # noqa: PLR0913 — one finding needs all its measured fields
     substance: str,
     outcome: str,
+    tz: str,
     h: int,
     rb: float,
     p: float,
@@ -221,8 +226,15 @@ def _cutoff_finding(  # noqa: PLR0913 — one finding needs all its measured fie
 ) -> Finding:
     return Finding(
         kind="personal_cutoff",
+        # `h` is an hour-of-day in the OWNER's zone (`_load_substance_events` bucketed
+        # it with `AT TIME ZONE tz`), so the description must name THAT zone — the
+        # hardcoded "IST" was true only for the sentinel owner. The IANA name is used
+        # verbatim rather than an abbreviation: `%Z` would render an ambiguous label
+        # ("IST" is India, Ireland AND Israel) that also shifts with DST, so it could
+        # disagree with the hours actually analysed. A finding description must not
+        # lie about which clock it refers to.
         description=(
-            f"{substance.capitalize()} after {h:02d}:00 IST → {outcome} median "
+            f"{substance.capitalize()} after {h:02d}:00 {tz} → {outcome} median "
             f"{med_a:.1f} vs {med_c:.1f} (n_after={n_a}, n_other={n_c}, p={p:.3f})."
         ),
         metric_a=f"{substance}_after_{h:02d}",
@@ -239,6 +251,7 @@ def _cutoff_finding(  # noqa: PLR0913 — one finding needs all its measured fie
         details={
             "substance": substance,
             "cutoff_hour": h,
+            "cutoff_tz": tz,
             "outcome": outcome,
             "n_after": n_a,
             "n_other": n_c,

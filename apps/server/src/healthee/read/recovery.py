@@ -16,8 +16,9 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from healthee.analytics.baselines import compute_baseline
+from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
-from healthee.read.common import TodayReads, latest_derived, sport_name, user_today
+from healthee.read.common import TodayReads, latest_derived, sport_name
 
 _MAD_TO_SD = 1.4826  # MAD→σ for a normal distribution [[baselines]]
 

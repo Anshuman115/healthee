@@ -31,7 +31,7 @@ def get_sleep(days: int = 30) -> dict:
 def get_sleep_health_score(days: int = 30) -> dict:
     """Per-night 4-dim sleep-health score + per-dimension raw measurements."""
     with transaction() as cur:
-        return sleep_health_score(cur, SENTINEL_USER_ID, days)
+        return sleep_health_score(cur, SENTINEL_USER_ID, SENTINEL_TZ, days)
 
 
 @router.get("/api/sleep/consistency")

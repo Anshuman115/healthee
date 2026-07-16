@@ -15,12 +15,12 @@ flags), and the latest SRI all come from ``derived_daily`` instead of the
 from __future__ import annotations
 
 import math
-from datetime import datetime
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from psycopg import Cursor
 from psycopg.rows import TupleRow
+
+from healthee.core.tenancy import USER_TODAY_SQL, user_today
 
 # Age/sex population-median VO₂max (ml/kg/min), 10-year buckets.
 _VO2MAX_MEDIAN_MALE = {20: 44.0, 30: 41.0, 40: 38.0, 50: 33.0, 60: 28.0, 70: 24.0}
@@ -47,7 +47,7 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     if not p or not p[0]:
         return None
     dob, sex = p[0], (p[1] or "male")
-    today = datetime.now(tz=ZoneInfo(tz)).date()
+    today = user_today(tz)
     chrono = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
     b = math.log(2) / GOMPERTZ_MRDT_YEARS
@@ -68,7 +68,7 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
         return d
 
     dage = _fitness_term(cur, user_id, chrono, sex, add)
-    dage += _sleep_duration_term(cur, user_id, add)
+    dage += _sleep_duration_term(cur, user_id, tz, add)
     dage += _regularity_term(cur, user_id, add)
 
     if not contribs:
@@ -107,13 +107,13 @@ def _fitness_term(cur: Cur, user_id: UUID, chrono: int, sex: str, add) -> float:
     )
 
 
-def _sleep_duration_term(cur: Cur, user_id: UUID, add) -> float:
+def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> float:
     """Recent 14-night average TST, U-shaped about a 7 h reference."""
     cur.execute(
         "SELECT avg((flags->>'tst_min')::float) FROM derived_daily "
         "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND flags ? 'tst_min' "
-        "AND day >= (current_date - 14)",
-        (user_id,),
+        f"AND day >= ({USER_TODAY_SQL} - 14)",
+        (user_id, tz),
     )
     sr = cur.fetchone()
     if not sr or not sr[0]:

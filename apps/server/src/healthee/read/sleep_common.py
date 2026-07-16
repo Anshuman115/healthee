@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import LiteralString, cast
 from uuid import UUID
 
+from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.derive._common import Cur
 
 # Hypnogram stage-type codes → name (ZeppOS 0x48 blob; derive uses 7=awake).
@@ -81,15 +82,15 @@ def main_sessions(cur: Cur, user_id: UUID, tz: str, days: int) -> list[tuple]:
         "    light_min, deep_min, rem_min, wake_min, score, stages "
         "  FROM sleep_session WHERE user_id = %s AND kind='main'"
         ") s "
-        "WHERE local_date > (current_date - %s::int) "
+        f"WHERE local_date > ({USER_TODAY_SQL} - %s::int) "
         "ORDER BY local_date, (end_ts - start_ts) DESC",
-        (tz, user_id, days),
+        (tz, user_id, tz, days),
     )
     return cur.fetchall()
 
 
 def derived_night_pivot(
-    cur: Cur, user_id: UUID, days: int, metrics: tuple[str, ...]
+    cur: Cur, user_id: UUID, tz: str, days: int, metrics: tuple[str, ...]
 ) -> dict[str, dict]:
     """Pivot the derived per-night rows (score, dims, SRI, HRV, RHR) into
     {date_iso: {field: value}} for the requested metric set."""
@@ -101,9 +102,9 @@ def derived_night_pivot(
             LiteralString,
             "SELECT day, metric, value, flags FROM derived_daily "
             f"WHERE user_id = %s AND metric IN ({placeholders}) "
-            "AND day > (current_date - %s::int)",
+            f"AND day > ({USER_TODAY_SQL} - %s::int)",
         ),
-        (user_id, *metrics, days),
+        (user_id, *metrics, tz, days),
     )
     out: dict[str, dict] = {}
     for day, metric, value, flags in cur.fetchall():

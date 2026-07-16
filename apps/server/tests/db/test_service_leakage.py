@@ -140,7 +140,7 @@ def test_recovery_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
 def test_history_series_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """A merged series would silently double A's points and pull their trend to B."""
     with transaction() as cur:
-        payload = history(cur, SENTINEL_USER_ID, "steps_total", days=90)
+        payload = history(cur, SENTINEL_USER_ID, SENTINEL_TZ, "steps_total", days=90)
     values = {point["value"] for point in payload["series"]}
     assert values == {_A_STEPS}, f"owner B's steps leaked into A's history: {values}"
 
@@ -171,11 +171,11 @@ def test_fitness_payloads_are_owner_as(two_owners: None) -> None:  # noqa: ARG00
     their own value can detect that.
     """
     with transaction() as cur:
-        a_vo2 = vo2max_payload(cur, SENTINEL_USER_ID)
-        a_cardio = cardio_load_payload(cur, SENTINEL_USER_ID)
+        a_vo2 = vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+        a_cardio = cardio_load_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
         a_mvpa = mvpa_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
-        b_vo2 = vo2max_payload(cur, OWNER_B)
-        b_cardio = cardio_load_payload(cur, OWNER_B)
+        b_vo2 = vo2max_payload(cur, OWNER_B, SENTINEL_TZ)
+        b_cardio = cardio_load_payload(cur, OWNER_B, SENTINEL_TZ)
         b_mvpa = mvpa_payload(cur, OWNER_B, OWNER_B_TZ)
     assert a_vo2 is not None and a_vo2["estimate"] == pytest.approx(41.5)
     assert a_cardio is not None and a_cardio["load"] == pytest.approx(55.0)

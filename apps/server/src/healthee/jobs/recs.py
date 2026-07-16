@@ -26,11 +26,11 @@ from uuid import UUID
 
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
+from healthee.core.tenancy import user_today
 from healthee.insights import manifest
 from healthee.insights.client import LLMClient
 from healthee.insights.grounded import GroundedResult, grounded_ask
 from healthee.jobs.recs_context import build_recs_signals
-from healthee.read.common import user_today
 
 log = get_logger(__name__)
 

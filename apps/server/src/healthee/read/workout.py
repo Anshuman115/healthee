@@ -36,9 +36,9 @@ def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
     start_ts, sport, dur_s, cal, dist, avg_hr, max_hr, min_hr = row
     end_ts = start_ts + timedelta(seconds=int(dur_s or 0))
     hrs, series = _hr_profile(cur, user_id, tz, start_ts, end_ts)
-    hrmax = (cardio_load_payload(cur, user_id) or {}).get("hrmax")
-    rhr = (cardio_load_payload(cur, user_id) or {}).get("rhr")
-    sex = (vo2max_payload(cur, user_id) or {}).get("sex") or "male"
+    hrmax = (cardio_load_payload(cur, user_id, tz) or {}).get("hrmax")
+    rhr = (cardio_load_payload(cur, user_id, tz) or {}).get("rhr")
+    sex = (vo2max_payload(cur, user_id, tz) or {}).get("sex") or "male"
     zones = _zone_minutes(hrs, hrmax)
     dur_min = round((dur_s or 0) / 60) if dur_s else None
     metrics = _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones)

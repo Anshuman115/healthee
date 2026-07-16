@@ -51,7 +51,9 @@ def test_baselines_and_anomalies_nonempty_on_v2_names(db: None) -> None:  # noqa
     assert base.n > 0
     assert base.median is not None and 53 <= base.median <= 57
 
-    anomalies = detect(SENTINEL_USER_ID, metrics=("rhr_daily",), days_back=14, window_days=30)
+    anomalies = detect(
+        SENTINEL_USER_ID, SENTINEL_TZ, metrics=("rhr_daily",), days_back=14, window_days=30
+    )
     hits = [a for a in anomalies if a.metric == "rhr_daily" and a.direction == "high"]
     assert hits, "the seeded spike must surface as a high anomaly"
     assert hits[0].when == spike_day

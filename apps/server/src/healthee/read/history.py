@@ -13,16 +13,17 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
+from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.derive._common import Cur
 
 
-def history(cur: Cur, user_id: UUID, metric: str, days: int = 90) -> dict:
+def history(cur: Cur, user_id: UUID, tz: str, metric: str, days: int = 90) -> dict:
     """Daily series for a metric over a bounded range (metric-history screen)."""
     days = max(1, min(int(days), 1825))
     cur.execute(
         "SELECT day, value FROM derived_daily WHERE user_id = %s AND metric=%s "
-        "AND day > (current_date - %s::int) ORDER BY day",
-        (user_id, metric, days),
+        f"AND day > ({USER_TODAY_SQL} - %s::int) ORDER BY day",
+        (user_id, metric, tz, days),
     )
     series = [{"day": d.isoformat(), "value": round(float(v), 2)} for d, v in cur.fetchall()]
     return {"metric": metric, "series": series}

@@ -133,7 +133,7 @@ def test_latest_derived_many_is_scoped(two_owners: None) -> None:  # noqa: ARG00
 def test_derived_series_is_scoped(two_owners: None) -> None:  # noqa: ARG001
     """A series must contain the owner's OWN points only — not a merged 2×-length one."""
     with transaction() as cur:
-        a = derived_series(cur, SENTINEL_USER_ID, "steps_total", 400)
+        a = derived_series(cur, SENTINEL_USER_ID, SENTINEL_TZ, "steps_total", 400)
     assert a, "owner A must get their own series"
     values = {point["value"] for point in a}
     assert values == {_A_STEPS}, f"owner B's steps leaked into A's series: {values}"

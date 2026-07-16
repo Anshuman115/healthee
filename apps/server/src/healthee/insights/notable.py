@@ -80,7 +80,8 @@ def notable(*, refresh: bool = False) -> dict:
             return cached
     # 6.4: source the owner + tz from the authenticated user.
     items = [
-        _shift_item(a) for a in _dedupe(detect(SENTINEL_USER_ID, days_back=14, window_days=30))
+        _shift_item(a)
+        for a in _dedupe(detect(SENTINEL_USER_ID, SENTINEL_TZ, days_back=14, window_days=30))
     ]
     validated = True
     if items:

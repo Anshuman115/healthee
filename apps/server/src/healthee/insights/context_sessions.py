@@ -17,6 +17,7 @@ import re
 from uuid import UUID
 
 from healthee.analytics.finding import get_significant_findings
+from healthee.core.tenancy import USER_TODAY_SQL
 
 _WORD = re.compile(r"[a-z0-9_]+")
 
@@ -32,8 +33,12 @@ _OVERLAY_METRICS: tuple[tuple[str, str], ...] = (
 
 def sleep_section(cur, user_id: UUID, tz: str, days: int) -> str:
     """Recent sleep sessions with stage minutes + physiology overlays per night."""
+    # Both sides of the window comparison are the OWNER's local date: the left is the
+    # session's local wake-date, the right their local today. Before 6.4a the right
+    # side was `current_date` — the database session's date — so a local date was
+    # being compared against a UTC one inside a single predicate.
     cur.execute(
-        """
+        f"""
         SELECT (s.end_ts AT TIME ZONE %s)::date AS d, s.kind,
                to_char(s.start_ts AT TIME ZONE %s, 'HH24:MI'),
                to_char(s.end_ts   AT TIME ZONE %s, 'HH24:MI'),
@@ -46,12 +51,13 @@ def sleep_section(cur, user_id: UUID, tz: str, days: int) -> str:
         FROM sleep_session s
         LEFT JOIN sample m
           ON m.user_id = s.user_id AND m.ts >= s.start_ts AND m.ts < s.end_ts
-        WHERE s.user_id = %s AND (s.end_ts AT TIME ZONE %s)::date > (current_date - %s::int)
+        WHERE s.user_id = %s
+          AND (s.end_ts AT TIME ZONE %s)::date > ({USER_TODAY_SQL} - %s::int)
         GROUP BY s.start_ts, s.end_ts, s.kind, s.score,
                  s.light_min, s.deep_min, s.rem_min, s.wake_min
         ORDER BY d DESC, s.start_ts
         """,
-        (tz, tz, tz, user_id, tz, days),
+        (tz, tz, tz, user_id, tz, tz, days),
     )
     rows = cur.fetchall()
     if not rows:
@@ -71,13 +77,13 @@ def sleep_section(cur, user_id: UUID, tz: str, days: int) -> str:
 def manual_entries_section(cur, user_id: UUID, tz: str, days: int) -> str:
     """Recent user-logged events (caffeine/alcohol/meditation/exercise/fasting/…)."""
     cur.execute(
-        """
+        f"""
         SELECT ts AT TIME ZONE %s, kind, name, amount, unit, notes
         FROM manual_entry
-        WHERE user_id = %s AND (ts AT TIME ZONE %s)::date > (current_date - %s::int)
+        WHERE user_id = %s AND (ts AT TIME ZONE %s)::date > ({USER_TODAY_SQL} - %s::int)
         ORDER BY ts DESC LIMIT 200
         """,
-        (tz, user_id, tz, days),
+        (tz, user_id, tz, tz, days),
     )
     rows = cur.fetchall()
     if not rows:
