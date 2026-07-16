@@ -261,17 +261,42 @@ multi-user makes it a *per-user device* token instead of one global secret.
 
 ## 8. Data migration / backfill
 
-One numbered migration, done online-safe:
-1. Create `app_user`, `credential`, `device_token`; insert **you** as user 1
-   (email + argon2 hash + a device token that replaces today's shared token).
-2. `ALTER TABLE … ADD COLUMN user_id BIGINT` **nullable** on every data table.
-3. Backfill: `UPDATE … SET user_id = 1`.
-4. `ALTER COLUMN user_id SET NOT NULL`; add FKs; rebuild PK/UNIQUE constraints to
-   include `user_id`; add `(user_id, …)` indexes; enable RLS + policies.
-5. Migrate `profile` (drop `CHECK(id=1)`, key by user_id).
+Split across two migrations so **6.2 is strictly additive and non-breaking** — the
+key rebuild is coupled to the query-threading code and moves to 6.3.
+
+**6.2 — additive tenant column (`0003_tenant_column`, DONE):**
+1. Identity tables (`app_user`, `device_token`) already exist from 6.1
+   (`0002_identity`). 6.2 inserts the **sentinel legacy owner**
+   `00000000-0000-0000-0000-000000000000` (tz `Asia/Kolkata` = today's single-tenant
+   `USER_TZ`, so day boundaries don't shift when tz goes per-user in 6.3) via
+   `ON CONFLICT (id) DO NOTHING`. No local `credential` table — Supabase owns auth.
+2. `ALTER TABLE … ADD COLUMN user_id UUID NOT NULL DEFAULT '<sentinel>'` on every
+   data table. The `NOT NULL DEFAULT` **backfills** all existing rows to the
+   sentinel in one metadata-only step (PG11+, no table rewrite) — no separate
+   nullable→UPDATE→NOT-NULL dance. New writes that omit `user_id` keep working via
+   the DEFAULT: this is the transitional scaffold that keeps 6.2 non-breaking (it
+   is dropped in 6.5 once every writer supplies `user_id` and RLS is on).
+3. Add the FK to `app_user` (`ON UPDATE CASCADE ON DELETE CASCADE`) and a
+   `(user_id, …)` secondary index per table. The FK **survives on the `sample`
+   hypertable** (verified — a hypertable may reference a plain table).
+4. **Change NOTHING** about existing PKs, UNIQUE constraints, or `ON CONFLICT`
+   targets, and leave `profile`'s `id INTEGER PK DEFAULT 1 CHECK (id = 1)` intact
+   (column + FK + index only). No code reads `user_id` yet.
+
+**6.3 — fold into the keys (coupled with the ~119-site query threading):**
+rebuild PK/UNIQUE to include `user_id`, retarget every `ON CONFLICT`, re-key
+`profile` by `user_id` (drop `CHECK (id = 1)`, merge demographics), and remove the
+`USER_TZ` constant. These MUST change together with the read/derive/analytics/
+insights/jobs/ingest queries, so they cannot land in 6.2 without breaking every
+upsert (the conflict target would no longer match a unique constraint).
+
+**6.4** re-keys the sentinel owner to the real Supabase UUID with a single
+`UPDATE app_user SET id = …` that cascades to every data row via the
+`ON UPDATE CASCADE` FKs. RLS + policies land in 6.5.
 
 Because prod is one user, backfill is trivial and reversible (the column is
-additive until step 4). Snapshot the DB before step 4.
+additive; the sentinel owns everything). Snapshot the DB before the 6.3 key
+rebuild.
 
 ---
 
@@ -303,9 +328,9 @@ here because there is no legacy app to convert — just design it in.
 | Phase | Scope | Ships when |
 |---|---|---|
 | **6.1 Identity** | `app_user`/`credential`/`device_token` tables + `auth.py` (register/login/refresh/device) + argon2 + JWT. Seed you as user 1. No behavior change (nothing reads user_id yet). | login works; existing endpoints unaffected |
-| **6.2 Schema** | Migration §8: add `user_id` everywhere (nullable→backfill=1→NOT NULL + keys + FKs + indexes). No code reads it yet. | schema migrated, all tests green on user 1 |
-| **6.3 Thread scoping** | `RequestUser`/`Ctx` object; thread `user_id`+`tz` through read/derive/analytics/insights/jobs/ingest; per-user `kv`/cache; kill the `USER_TZ` constant. Still resolves to user 1 by default. | every query scoped; single-user behavior identical |
-| **6.4 Flip identity** | `current_user()` returns the real authenticated user; ingest device-token attribution; per-user scheduler; per-user timezone live. | second real user works end-to-end, isolated |
+| **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
+| **6.3 Thread scoping** | Fold `user_id` into every PK/UNIQUE + retarget `ON CONFLICT`; re-key `profile` by `user_id`; `RequestUser`/`Ctx` object; thread `user_id`+`tz` through read/derive/analytics/insights/jobs/ingest; per-user `kv`/cache; kill the `USER_TZ` constant. Still resolves to the sentinel by default. | every query scoped; single-user behavior identical |
+| **6.4 Flip identity** | `current_user()` returns the real authenticated user; re-key the sentinel owner to the real Supabase UUID (`UPDATE app_user … `, cascades via `ON UPDATE CASCADE`); ingest device-token attribution; per-user scheduler; per-user timezone live. | second real user works end-to-end, isolated |
 | **6.5 Harden** | Postgres RLS + policies; cross-tenant leakage tests; self-serve signup/onboarding (or invite gating); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the
