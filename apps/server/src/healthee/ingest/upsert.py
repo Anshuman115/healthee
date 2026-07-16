@@ -29,12 +29,16 @@ from healthee.ingest.models import (
     SampleIn,
     SleepIn,
     WorkoutIn,
+    dob_ms_to_date,
 )
 
 Cur = Cursor[TupleRow]
 
-# A ts above this is epoch-milliseconds; at/below it is epoch-seconds. The app
-# sends ms, but tolerate seconds so a future producer can't silently shift 1000×.
+# A ts above this is read as epoch-milliseconds; at/below it as epoch-seconds.
+# 10**12 ms after the epoch is 2001-09-09, so this guess is only sound for
+# instants AFTER 2001-09-09 — i.e. for EVENT timestamps (samples, sleep,
+# workouts), which the strap can only ever report as recent. It INVERTS for any
+# earlier date, whose ms value is small enough to look like seconds.
 _MS_THRESHOLD = 10**12
 
 # A main-sleep session is "fresh" (worth the per-minute emit) if it is new or
@@ -45,7 +49,15 @@ FRESH_WINDOW_DAYS = 3
 
 
 def epoch_to_utc(ts: int) -> datetime:
-    """Epoch milliseconds (or seconds) → aware UTC datetime."""
+    """Event epoch milliseconds (or seconds) → aware UTC datetime.
+
+    EVENT TIMESTAMPS ONLY. The ms/seconds magnitude guess can only disambiguate
+    instants after 2001-09-09 (`_MS_THRESHOLD` ms after the epoch); below that it
+    silently reads milliseconds as seconds. That is safe for device events, which
+    are always recent, and WRONG for any historical date. NEVER call this on a
+    birth date — use `ingest.models.dob_ms_to_date`, which parses the documented
+    ms contract and rejects implausible values instead of guessing.
+    """
     seconds = ts / 1000 if ts > _MS_THRESHOLD else ts
     return datetime.fromtimestamp(seconds, tz=UTC)
 
@@ -174,8 +186,13 @@ def upsert_profile(cur: Cur, user_id: UUID, profile: ProfileIn) -> None:
     Conflicting on the owner means a push can only ever reach that owner's own row.
 
     Weight is handled by `upsert_weight` (it is a time series, not a profile field).
+
+    `dob` is parsed by `dob_ms_to_date` (the ms contract), NOT by `epoch_to_utc`,
+    whose magnitude guess inverts for pre-2001 birth dates. ProfileIn already
+    validated it at the boundary; re-parsing here keeps any non-HTTP caller
+    honest, and a bad value raises rather than storing a wrong age.
     """
-    dob = epoch_to_utc(profile.dob).date() if profile.dob else None
+    dob = dob_ms_to_date(profile.dob) if profile.dob is not None else None
     cur.execute(
         "INSERT INTO profile (user_id, name, height_cm, sex, dob, updated_at) "
         "VALUES (%s, %s, %s, %s, %s, now()) "
