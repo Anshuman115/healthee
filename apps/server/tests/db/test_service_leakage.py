@@ -31,7 +31,15 @@ from collections.abc import Iterator
 
 import pytest
 from tests.contracts import seed
-from tests.contracts.seed_owner_b import B_NAME, B_RECOVERY, B_RHR, B_STEPS, OWNER_B, seed_owner_b
+from tests.contracts.seed_owner_b import (
+    B_NAME,
+    B_RECOVERY,
+    B_RHR,
+    B_STEPS,
+    OWNER_B,
+    OWNER_B_TZ,
+    seed_owner_b,
+)
 
 from healthee.core.db import transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, active_users
@@ -74,11 +82,19 @@ def _dumped(payload: object) -> str:
 
 
 def test_today_snapshot_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
-    """The busiest surface: /api/today fans out over most of the read layer."""
+    """The busiest surface: /api/today fans out over most of the read layer.
+
+    Both owners are rendered, and each must see their OWN steps. A "B's value is
+    absent from A's payload" check alone is not enough for a latest-row read: with
+    the owner filter gone it still returns A's row whenever A's happens to sort
+    first, and the test passes while nothing is scoped (verified by mutation).
+    """
     with transaction() as cur:
-        payload = today_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
-    assert B_NAME not in _dumped(payload), "owner B's name leaked into A's today payload"
-    assert str(B_STEPS) not in _dumped(payload), "owner B's steps leaked into A's today payload"
+        a = today_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+        b = today_snapshot(cur, OWNER_B, OWNER_B_TZ)
+    assert B_NAME not in _dumped(a), "owner B's name leaked into A's today payload"
+    assert str(B_STEPS) not in _dumped(a), "owner B's steps leaked into A's today payload"
+    assert str(_A_STEPS) not in _dumped(b), "owner A's steps leaked into B's today payload"
 
 
 def test_todays_recommendations_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
@@ -106,12 +122,19 @@ def test_profile_read_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 
 def test_recovery_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
-    """A pooled recovery read would show A a stranger's score as their own readiness."""
+    """A pooled recovery read would show A a stranger's score as their own readiness.
+
+    Both owners are read: `latest_derived` is an `ORDER BY day DESC LIMIT 1`, and A
+    and B hold recovery_score on the SAME days, so an unscoped version returns one
+    arbitrary row to everybody. Asserting only A's side passed against exactly that
+    mutation; requiring each owner to see their own score cannot.
+    """
     with transaction() as cur:
-        payload = recovery_score_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
-    assert payload is not None
-    assert payload["recovery"] == pytest.approx(_A_RECOVERY), f"expected A's {_A_RECOVERY}"
-    assert payload["recovery"] != pytest.approx(B_RECOVERY)
+        a = recovery_score_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+        b = recovery_score_payload(cur, OWNER_B, OWNER_B_TZ)
+    assert a is not None and b is not None
+    assert a["recovery"] == pytest.approx(_A_RECOVERY), f"expected A's {_A_RECOVERY}"
+    assert b["recovery"] == pytest.approx(B_RECOVERY), "owner B was served owner A's recovery"
 
 
 def test_history_series_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
@@ -123,9 +146,12 @@ def test_history_series_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 
 def test_activity_snapshot_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
+    """Each owner's activity must carry their own steps, not one shared latest row."""
     with transaction() as cur:
-        payload = activity_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
-    assert str(B_STEPS) not in _dumped(payload)
+        a = activity_snapshot(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+        b = activity_snapshot(cur, OWNER_B, OWNER_B_TZ)
+    assert str(B_STEPS) not in _dumped(a), "owner B's steps leaked into A's activity"
+    assert str(_A_STEPS) not in _dumped(b), "owner A's steps leaked into B's activity"
 
 
 def test_sleep_page_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
@@ -138,13 +164,25 @@ def test_sleep_page_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 
 def test_fitness_payloads_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
+    """VO₂max / cardio-load / MVPA are all latest-row reads — check BOTH owners.
+
+    A and B hold these metrics on the same days, so an unscoped latest-row read hands
+    one arbitrary owner's number to everyone. Only asserting that each owner gets
+    their own value can detect that.
+    """
     with transaction() as cur:
-        vo2 = vo2max_payload(cur, SENTINEL_USER_ID)
-        cardio = cardio_load_payload(cur, SENTINEL_USER_ID)
-        mvpa = mvpa_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
-    assert vo2 is not None and vo2["estimate"] == pytest.approx(41.5)  # A's, not B's 20.0
-    assert cardio is not None and cardio["load"] == pytest.approx(55.0)  # not B's 200.0
-    assert mvpa is not None and mvpa["today_min"] == 32  # not B's 99
+        a_vo2 = vo2max_payload(cur, SENTINEL_USER_ID)
+        a_cardio = cardio_load_payload(cur, SENTINEL_USER_ID)
+        a_mvpa = mvpa_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+        b_vo2 = vo2max_payload(cur, OWNER_B)
+        b_cardio = cardio_load_payload(cur, OWNER_B)
+        b_mvpa = mvpa_payload(cur, OWNER_B, OWNER_B_TZ)
+    assert a_vo2 is not None and a_vo2["estimate"] == pytest.approx(41.5)
+    assert a_cardio is not None and a_cardio["load"] == pytest.approx(55.0)
+    assert a_mvpa is not None and a_mvpa["today_min"] == 32
+    assert b_vo2 is not None and b_vo2["estimate"] == pytest.approx(20.0), "B got A's VO2max"
+    assert b_cardio is not None and b_cardio["load"] == pytest.approx(200.0), "B got A's load"
+    assert b_mvpa is not None and b_mvpa["today_min"] == 99, "B got A's MVPA"
 
 
 def test_workouts_list_is_owner_as(two_owners: None) -> None:  # noqa: ARG001

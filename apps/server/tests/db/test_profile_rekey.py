@@ -155,7 +155,8 @@ def test_repeated_upsert_for_one_owner_updates_in_place(two_profiles: None) -> N
         cur.execute("SELECT name, height_cm FROM profile WHERE user_id = %s", (SENTINEL_USER_ID,))
         row = cur.fetchone()
         cur.execute("SELECT count(*) FROM profile WHERE user_id = %s", (SENTINEL_USER_ID,))
-        count = cur.fetchone()[0]
-    assert count == 1, "the upsert inserted a second row instead of updating"
+        counted = cur.fetchone()
+    assert counted is not None and counted[0] == 1, "the upsert inserted a second row"
+    assert row is not None, "owner A's profile row disappeared"
     assert row[0] == _A["name"], "a name-less push must preserve the stored name (COALESCE)"
     assert row[1] == pytest.approx(180.0)

@@ -68,12 +68,12 @@ need a call before the phase they gate.
 | Coupling | Where | Fix |
 |---|---|---|
 | One shared bearer token, no identity | `core/auth.py` `require_token()` returns `None` | Auth resolves + returns a `user_id` (JWT session / device token) |
-| `profile` locked to one row | `0001_initial.sql`: `id INTEGER PK DEFAULT 1 CHECK (id = 1)` | `users` table; `profile.user_id` FK unique |
+| ~~`profile` locked to one row~~ **DONE 6.3c** | `0001_initial.sql`: `id INTEGER PK DEFAULT 1 CHECK (id = 1)` | `0005`: `id` dropped; `user_id` is the PK |
 | No tenant column on any data table | all 15 data tables (`sample`, `derived_daily`, `sleep_session`, `workout`, `weight_log`, `manual_entry`, `illness_flag`, `recommendation`, `finding`, `challenge`, `program`, `challenge_outcome`, `gps_track`, `gps_point`, `kv`) | add `user_id`; fold into every PK/UNIQUE |
-| `WHERE id=1` profile reads | `derive/_common.py`, `analytics/biological_age.py`, `read/history.py`, `jobs/recs_context.py` | key profile by `user_id` |
+| ~~`WHERE id=1` profile reads~~ **DONE 6.3c** | `derive/_common.py`, `analytics/biological_age.py`, `read/history.py`, `jobs/recs_context.py` | all four now filter on `user_id` alone |
 | Hardcoded timezone | `USER_TZ = "Asia/Kolkata"` — **63 references** | per-user `profile.timezone`, threaded |
-| Global nightly chain | `jobs/scheduler.py` fires ONE chain; `jobs/chain.py` dedups per-day via a global `kv` key | loop over active users; per-user cache keys |
-| Global cache keys | `insights/coaching.py DAILY_ACTION_KEY`, `chain _DONE_KEY:{day}` | `…:{user_id}:{day}` |
+| ~~Global nightly chain~~ **DONE 6.3c** (fire times: 6.4) | `jobs/scheduler.py` fires ONE chain; `jobs/chain.py` dedups per-day via a global `kv` key | `_fire` sweeps `active_users()`; dedup is per-owner via the `kv` PK |
+| ~~Global cache keys~~ **MOOT — see §6** | `insights/coaching.py DAILY_ACTION_KEY`, `chain _DONE_KEY:{day}` | superseded by `0004`'s `kv` PK `(user_id, key)`; keys are NOT namespaced |
 | Ingest has no owner | `/ingest/helio` writes samples unattributed | device token → `user_id`; write under it |
 | ~119 query sites assume "the user" | read ~59 · derive ~30 · analytics ~17 · insights ~8 · jobs ~5 | thread `user_id` (see §5) |
 
@@ -143,10 +143,12 @@ moves to **6.3** so it changes together with the `ON CONFLICT` code.
   `challenge_id` FK (no direct column needed, but add one for RLS simplicity).
 - `gps_point`: inherits the track's user via `track_id` FK; add `user_id` too so
   RLS can gate it without a join.
-- `profile`: drop `CHECK (id=1)`; becomes `user_id UUID PRIMARY KEY REFERENCES
-  app_user(id)` (1:1 with app_user; name/height/sex/dob move here or merge into
-  `app_user`). Deferred to **6.3** — 6.2 left `profile` additive (id=1 PK kept)
-  because existing code still reads/writes `WHERE id = 1`.
+- `profile`: **DONE in 6.3c** (`0005`) — dropped the `id` column (taking
+  `CHECK (id = 1)` and the old PK with it); `user_id` is now the PRIMARY KEY (1:1
+  with `app_user`; name/height/sex/dob stay here). This also fixed a live
+  cross-tenant corruption: `upsert_profile` conflicted on `(id)` without setting
+  `user_id`, so a second owner's push overwrote the first owner's demographics —
+  the owner is now the conflict target.
 
 ### 3.3 Row-Level Security (isolation guarantee)
 
@@ -238,19 +240,31 @@ Guardrail: a lint/test that greps for tenant-table `execute` calls lacking a
 
 ## 6. Per-user jobs
 
-- **Scheduler** (`jobs/scheduler.py`): the daily timer fires a step that now
-  **iterates active users**: `for u in active_users(): run_step(step, user=u)`.
-  Alternatively (better at scale) trigger a user's chain off *their* ingest
-  (each strap syncs on its own schedule/timezone) — event-driven, not a global
-  cron. Recommended: ingest-triggered per-user chain + a nightly sweep for
-  stragglers.
-- **Chain dedup** (`jobs/chain.py`): the `kv` marker key becomes
-  `job:chain_done:{user_id}:{day}` and reads/writes go through the per-user `kv`
-  PK.
-- **Cache** (`insights/coaching.py`): `DAILY_ACTION_KEY` → `…:{user_id}`; the
-  Today endpoint reads the current user's cached line.
-- **Per-user timezone** means "today" and the nightly fire time differ per user —
-  the scheduler computes each user's local day from `profile.timezone`.
+**Status: DONE in 6.3c**, except the per-user fire *times* (6.4).
+
+- **Scheduler** (`jobs/scheduler.py`): each daily timer now fires a **sweep** —
+  `for tenant in active_users(): run_step(step, user_id=tenant.id, tz=tenant.tz)`.
+  `core/tenancy.active_users()` returns a frozen `Tenant(id, tz)` per active owner
+  (deliberately NOT `RequestUser` — that would couple the science/jobs layers to
+  auth; 6.4 converts `RequestUser` → `Tenant` at the edge). One owner's failure is
+  isolated in `_fire_for` (logged + Telegram-notified, sweep continues); a failure
+  of the owner *lookup* propagates, since that is an outage rather than one
+  tenant's problem.
+- **Per-user timezone**: `run_step`/`run_chain` default `day` to **that owner's**
+  local today, computed from their `app_user.timezone`.
+- **Fire times are still global** (`scheduler.TZ` = the sweep cadence, not "the
+  user's timezone"). An owner far from that zone gets their chain at an awkward
+  local hour — accepted for now; the fix is **6.4**, and the better end-state is
+  ingest-triggered per-user chains (each strap syncs on its own schedule) plus a
+  nightly sweep for stragglers.
+- **Chain dedup** (`jobs/chain.py`) and the **kv cache** (`insights/cache.py`):
+  **keys are NOT namespaced by user, and must not be.** This supersedes the
+  original plan (`job:chain_done:{user_id}:{day}`, `DAILY_ACTION_KEY:{user_id}`),
+  which was written when `kv` was keyed on `key` alone. `0004` folded the owner
+  into the **`kv` PRIMARY KEY `(user_id, key)`** and every read filters by owner, so
+  two users' same-named entries are already distinct rows and cannot collide.
+  Prefixing the string would state the tenant twice — once in the key column and
+  again inside the key. Don't re-add it.
 
 ---
 
@@ -334,7 +348,7 @@ there is no legacy app to convert — just design it in.
 |---|---|---|
 | **6.1 Identity ✅** | `app_user` + `device_token` tables (`0002_identity`) + `core/supabase_auth.py` (VERIFY the Supabase JWT — HS256, pinned algs; JIT-provision `app_user`; mint/resolve hash-only device tokens) + thin `/api/me` + `/api/device`. No local credentials/argon2/login-endpoints (Supabase owns them). Additive — existing shared-token auth untouched, nothing reads `user_id` yet. | login works; existing endpoints unaffected |
 | **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
-| **6.3 Thread scoping** | Fold `user_id` into every PK/UNIQUE + retarget `ON CONFLICT`; re-key `profile` by `user_id`; `RequestUser`/`Ctx` object; thread `user_id`+`tz` through read/derive/analytics/insights/jobs/ingest; per-user `kv`/cache; kill the `USER_TZ` constant. Still resolves to the sentinel by default. | every query scoped; single-user behavior identical |
+| **6.3 Thread scoping ✅** | Shipped in three slices. **6.3a** (`0004`): folded `user_id` into every natural PK/UNIQUE, retargeted every `ON CONFLICT`, made every tenant WRITE set the owner; added `core/tenancy.SENTINEL_USER_ID`. **6.3b**: scoped every tenant READ with `AND user_id = %s`, killed the seven duplicate `Asia/Kolkata` constants for `SENTINEL_TZ` threaded as `tz: str`, and added the AST completeness guard (`tests/db/test_tenant_read_scoping.py` — any new unscoped tenant SQL now fails the build) + read-isolation tests. **6.3c** (`0005`): re-keyed `profile` by `user_id` (dropped `id`/`CHECK (id = 1)`, retargeted `upsert_profile`'s conflict to the owner — it was silently overwriting another owner's demographics), per-user job sweep (`active_users()` → `Tenant`, per-owner local day, isolated failures), and the two-tenant seed + cross-tenant leakage suite (§10). Cache-key namespacing was **dropped as redundant** (see §6). Everything still resolves to the sentinel by default. | every query scoped; single-user behavior identical (contract snapshots byte-identical) |
 | **6.4 Flip identity** | `current_user()` returns the real authenticated user; re-key the sentinel owner to the real Supabase UUID (`UPDATE app_user … `, cascades via `ON UPDATE CASCADE`); ingest device-token attribution; per-user scheduler; per-user timezone live. | second real user works end-to-end, isolated |
 | **6.5 Harden** | Postgres RLS + policies; cross-tenant leakage tests; self-serve signup/onboarding (or invite gating); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
