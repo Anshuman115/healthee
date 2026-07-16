@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 
 from healthee.core.logging import get_logger
 from healthee.insights import prompts
-from healthee.insights.client import DEFAULT_MODEL, LLMClient, get_client
+from healthee.insights.client import LLMClient, get_client
 from healthee.insights.context import build_context
 from healthee.insights.refusals import classify_refusal
 from healthee.insights.retrieval import evidence_section
@@ -68,7 +68,7 @@ def grounded_ask(
     context_days: int = 14,
     allow_tools: bool = False,  # noqa: ARG001 — WP5b coach seam; tool loop lands there
     response_format: str | None = None,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
     client: LLMClient | None = None,
 ) -> GroundedResult:
     """Answer ``question`` grounded in the user's v2 data + the graded corpus.
@@ -91,7 +91,7 @@ def grounded_ask(
 
 
 def _complete_with_validation(
-    client: LLMClient, messages: list[dict], model: str, response_format: str | None = None
+    client: LLMClient, messages: list[dict], model: str | None, response_format: str | None = None
 ) -> GroundedResult:
     """Run the completion, validate, retry once, else return the honest fallback."""
     json_mode = response_format == "json"

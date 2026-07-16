@@ -26,7 +26,7 @@ from datetime import date
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
 from healthee.insights import manifest
-from healthee.insights.client import DEFAULT_MODEL, LLMClient
+from healthee.insights.client import LLMClient
 from healthee.insights.grounded import grounded_ask
 from healthee.jobs.recs_context import build_recs_signals
 from healthee.read.common import user_today
@@ -84,7 +84,7 @@ def generate_recs(
     day: date | None = None,
     *,
     client: LLMClient | None = None,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
 ) -> dict:
     """Generate, validate, and persist today's recommendations. Returns a status dict.
 

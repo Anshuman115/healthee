@@ -50,6 +50,12 @@ class Settings(BaseSettings):
 
     # ── OpenRouter (optional — grounded LLM insights, wired in a later WP) ─
     openrouter_api_key: str = ""
+    # LLM model ids — kept in env (DEFAULT_MODEL / COACH_MODEL), NOT hardcoded, so the
+    # source never reveals which models we run. Blank here (nothing leaked to git);
+    # real values live in the deploy env / a local .env. default_model = the cheap
+    # high-volume tier; coach_model = the stronger tier for the interactive coach.
+    default_model: str = ""
+    coach_model: str = ""
 
     # ── Telegram notifications (optional — job status + failures) ─────────
     telegram_bot_token: str = ""

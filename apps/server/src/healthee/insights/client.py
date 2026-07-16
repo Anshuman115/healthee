@@ -21,22 +21,26 @@ from healthee.core.logging import get_logger
 
 log = get_logger(__name__)
 
-# Default model: a cheap, fast "Flash" tier (matches the legacy default), good at
-# following the strict citation prompt. Overridable per call — model ids are
-# config, not a hardcoded contract. Low temperature: health data wants factual,
-# reproducible output, not creative tails.
-DEFAULT_MODEL = "google/gemini-3-flash-preview"
-# Per-surface model tiers: the high-volume batch surfaces (recs, insight cards,
-# notable, daily-action) use the cheap DEFAULT_MODEL; the interactive coach — low
-# volume, high engagement, where answer quality is most felt — uses a stronger tier.
-# In the 2026-07 eval gemini-3.5-flash answered completely + passed the validator
-# where the cheap tier occasionally fell back; its higher token cost is bounded by
-# the coach's low call volume. Swappable here — every surface reaches the LLM
-# through this module (see docs/PRICING.md §6 / task #23 model tiers).
-COACH_MODEL = "google/gemini-3.5-flash"
+# Model ids live in settings (env: DEFAULT_MODEL / COACH_MODEL), NOT hardcoded here —
+# the source never reveals which models we run; they're resolved per call. Per-surface
+# tiers: default_model = the cheap, high-volume tier (recs/insights/notable/daily-
+# action); coach_model = a stronger tier for the interactive coach (low volume, high
+# engagement, where answer quality is most felt). Low temperature: health data wants
+# factual, reproducible output, not creative tails. See docs/PRICING.md §6 / task #23.
 DEFAULT_TEMPERATURE = 0.1
 DEFAULT_TOP_P = 0.9
 DEFAULT_MAX_TOKENS = 2000  # headroom so verbose/reasoning models aren't truncated mid-answer
+
+
+def default_model() -> str:
+    """The cheap, high-volume model tier (batch surfaces: recs/insights/notable/action)."""
+    return get_settings().default_model
+
+
+def coach_model() -> str:
+    """The stronger model tier for the interactive coach (low volume, quality-first)."""
+    return get_settings().coach_model
+
 
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -61,7 +65,7 @@ class LLMClient(Protocol):
         messages: list[dict],
         *,
         tools: list[dict] | None = None,
-        model: str = DEFAULT_MODEL,
+        model: str | None = None,
         response_format: dict | None = None,
     ) -> ChatResponse: ...
 
@@ -88,7 +92,7 @@ class OpenRouterClient:
         messages: list[dict],
         *,
         tools: list[dict] | None = None,
-        model: str = DEFAULT_MODEL,
+        model: str | None = None,
         response_format: dict | None = None,
     ) -> ChatResponse:
         """One completion. Returns the assistant text + any tool calls.
@@ -101,6 +105,7 @@ class OpenRouterClient:
         Errors propagate (the endpoint layer degrades to an honest error body) —
         never swallowed. The key is passed to the SDK, never logged.
         """
+        model = model or get_settings().default_model  # resolve the env-configured default
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": messages,

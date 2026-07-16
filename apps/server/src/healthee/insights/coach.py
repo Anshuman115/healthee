@@ -22,7 +22,7 @@ from typing import Any
 
 from healthee.core.logging import get_logger
 from healthee.insights import coach_tools, prompts
-from healthee.insights.client import COACH_MODEL, LLMClient, get_client
+from healthee.insights.client import LLMClient, coach_model, get_client
 from healthee.insights.coach_context import DEFAULT_COACH_DAYS, build_coach_context, coach_evidence
 from healthee.insights.coach_prompt import COACH_SYSTEM_PROMPT
 from healthee.insights.refusals import classify_refusal
@@ -87,7 +87,7 @@ def _loop(client: LLMClient, convo: list[dict]) -> CoachResult:
     invocations: list[dict] = []
     retries = 0
     for _round in range(_MAX_ROUNDS):
-        response = client.complete(convo, tools=coach_tools.COACH_TOOLS, model=COACH_MODEL)
+        response = client.complete(convo, tools=coach_tools.COACH_TOOLS, model=coach_model())
         if response.tool_calls:
             _run_tools(response, convo, invocations, acted_ok)
             continue
