@@ -80,6 +80,76 @@ jobs:
           REALTIME_INGEST_TOKEN: ci-test-token
         run: uv run pytest
 
+  # ── Image: build the server Docker image and smoke-test it ─────────────
+  # Closes the cutover gap where every test passed from source but the built
+  # image crash-looped — the manifest resolved via a dev-only path and
+  # packages/knowledge wasn't COPYied in. Two smoke tests prove the image
+  # itself is sound: the corpus resolves INSIDE it (DB-free), and it boots
+  # and serves /healthz against a real DB.
+  image:
+    name: Image (build · smoke)
+    runs-on: ubuntu-latest
+    # TimescaleDB for the boot smoke test — /healthz hard-requires the DB
+    # (returns 503 without it), same image + creds as the `server` job.
+    services:
+      db:
+        image: timescale/timescaledb:latest-pg17
+        env:
+          POSTGRES_USER: healthee
+          POSTGRES_PASSWORD: healthee
+          POSTGRES_DB: healthee
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U healthee -d healthee"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+      # BuildKit builder — the Dockerfile uses `--mount=type=cache` mounts.
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+      # Context is the REPO ROOT (the Dockerfile COPYies apps/server + packages).
+      - name: Build server image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: infra/docker/Dockerfile.server
+          load: true
+          push: false
+          tags: healthee-server:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # Smoke A — the exact cutover regression, DB-free: proves
+      # HEALTHEE_KNOWLEDGE_DIR resolves and the corpus is present INSIDE the
+      # built image (not merely in the source tree the other jobs run from).
+      - name: Smoke A — manifest resolves in the image
+        run: |
+          docker run --rm healthee-server:ci python -c \
+            "from healthee.insights import manifest; ids = manifest.note_ids(); assert len(ids) >= 60, ids; print('manifest OK:', len(ids))"
+      # Smoke B — boot the image against the DB and poll /healthz until 200.
+      - name: Smoke B — boot + /healthz
+        run: |
+          docker run -d --name healthee-smoke --network host \
+            -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 \
+            -e POSTGRES_DB=healthee -e POSTGRES_USER=healthee -e POSTGRES_PASSWORD=healthee \
+            -e REALTIME_INGEST_TOKEN=ci-test-token \
+            healthee-server:ci
+          echo "polling http://localhost:8765/healthz (up to 40s)…"
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8765/healthz; then
+              echo; echo "healthz OK after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::/healthz never returned 200 — dumping container logs"
+          docker logs healthee-smoke
+          exit 1
+      - name: Stop smoke container
+        if: always()
+        run: docker rm -f healthee-smoke || true
+
   # ── Knowledge: manifest is regenerable and not hand-edited ─────────────
   knowledge:
     name: Knowledge (manifest freshness)
