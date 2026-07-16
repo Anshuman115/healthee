@@ -11,6 +11,7 @@ from legacy v2. Knowledge: ``recovery_readiness``.
 from __future__ import annotations
 
 from datetime import date, timedelta
+from uuid import UUID
 
 from healthee.derive._common import Cur, _clamp100, _upsert_daily
 
@@ -88,7 +89,7 @@ def _sleep_factor(cur: Cur, day: date, factors: dict) -> None:
         }
 
 
-def derive_recovery(cur: Cur, day: date) -> dict | None:
+def derive_recovery(cur: Cur, user_id: UUID, day: date) -> dict | None:
     """0-100 morning recovery from overnight autonomic + sleep markers.
 
     Each factor is scored vs its baseline and combined by evidence-weighted
@@ -112,5 +113,5 @@ def derive_recovery(cur: Cur, day: date) -> dict | None:
         "method": "evidence_weighted_personal_baseline",
         "note_id": "recovery_readiness",
     }
-    _upsert_daily(cur, day, "recovery_score", round(score), flags)
+    _upsert_daily(cur, user_id, day, "recovery_score", round(score), flags)
     return {"recovery_score": round(score)}

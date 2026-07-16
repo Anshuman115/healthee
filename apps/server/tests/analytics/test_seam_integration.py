@@ -143,8 +143,9 @@ def test_correlations_write_findings_from_derived_daily(db: None) -> None:  # no
     assert pair, "the strong steps↔active-calories correlation should be significant"
 
     from healthee.analytics.finding import get_significant_findings, persist_findings
+    from healthee.core.tenancy import SENTINEL_USER_ID
 
-    assert persist_findings(findings) == len(findings)
+    assert persist_findings(SENTINEL_USER_ID, findings) == len(findings)
     assert any(
         {r["metric_a"], r["metric_b"]} == {"steps_total", "active_calories"}
         for r in get_significant_findings()

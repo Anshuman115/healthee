@@ -21,6 +21,7 @@ from healthee.analytics.metrics import EVENT_KINDS
 from healthee.analytics.series import daily_series, event_days
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.insights import manifest
 from healthee.insights.retrieval import rank_notes
 from healthee.read.logs import LogRequest, record_log
@@ -263,7 +264,7 @@ def log_entry(entry_type: str, amount: Any = None, minutes: Any = None) -> dict:
         minutes=int(minutes) if minutes is not None else None,
     )
     with transaction() as cur:
-        return record_log(cur, req)
+        return record_log(cur, SENTINEL_USER_ID, req)
 
 
 def get_knowledge(topic: str | None, note_id: str | None) -> dict:

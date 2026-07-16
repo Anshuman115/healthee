@@ -22,6 +22,7 @@ from healthee.analytics.finding import EFFECT_MANN_WHITNEY, Finding, replace_fin
 from healthee.analytics.series import Cur
 from healthee.analytics.stats import bh_fdr, mann_whitney_groups
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_USER_ID
 
 # Local IST hours-of-day considered as candidate cutoffs.
 CUTOFF_HOURS: tuple[int, ...] = (12, 14, 16, 18, 20, 22)
@@ -243,4 +244,4 @@ def _cutoff_finding(  # noqa: PLR0913 — one finding needs all its measured fie
 
 def persist_cutoff_findings(findings: list[Finding]) -> int:
     """Replace all ``personal_cutoff`` findings with the fresh set (stale removal)."""
-    return replace_findings_of_kind("personal_cutoff", findings)
+    return replace_findings_of_kind(SENTINEL_USER_ID, "personal_cutoff", findings)

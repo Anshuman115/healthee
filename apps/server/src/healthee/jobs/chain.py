@@ -26,10 +26,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
+from uuid import UUID
 
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.insights.client import LLMClient
 from healthee.jobs import briefing as briefing_mod
 from healthee.jobs import correlate as correlate_mod
@@ -129,7 +131,7 @@ def run_chain(
     second call for an already-run day is a no-op unless ``force``.
     """
     day = day or user_today()
-    if not force and _chain_done(day):
+    if not force and _chain_done(SENTINEL_USER_ID, day):
         log.info("chain for %s already ran — dedup no-op", day)
         return ChainResult(day=day, deduped=True)
 
@@ -142,7 +144,7 @@ def run_chain(
         # Correlate succeeded → recs had valid inputs and its chance to run; mark the
         # day done so it isn't re-run. A correlate failure leaves it un-marked so a
         # later fire/ingest retries the whole chain.
-        _mark_chain_done(day)
+        _mark_chain_done(SENTINEL_USER_ID, day)
     else:
         steps.append(
             StepOutcome(
@@ -156,18 +158,26 @@ def run_chain(
     return ChainResult(day=day, deduped=False, steps=steps)
 
 
-def _chain_done(day: date) -> bool:
-    """True if this day's chain has already run its generating steps (kv marker)."""
+def _chain_done(user_id: UUID, day: date) -> bool:
+    """True if this user's chain has already run its generating steps for ``day``."""
     with transaction() as cur:
-        cur.execute("SELECT 1 FROM kv WHERE key = %s", (f"{_DONE_KEY}:{day.isoformat()}",))
+        cur.execute(
+            "SELECT 1 FROM kv WHERE user_id = %s AND key = %s",
+            (user_id, f"{_DONE_KEY}:{day.isoformat()}"),
+        )
         return cur.fetchone() is not None
 
 
-def _mark_chain_done(day: date) -> None:
-    """Set the per-day dedup marker (idempotent upsert)."""
+def _mark_chain_done(user_id: UUID, day: date) -> None:
+    """Set ``user_id``'s per-day dedup marker (idempotent upsert).
+
+    The marker is now per-owner via the folded kv PK, so one user's chain can no
+    longer dedup another's. (The per-user job LOOP that makes this matter is 6.3c;
+    today the only owner is the sentinel.)
+    """
     with transaction() as cur:
         cur.execute(
-            "INSERT INTO kv (key, value) VALUES (%s, %s) "
-            "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-            (f"{_DONE_KEY}:{day.isoformat()}", day.isoformat()),
+            "INSERT INTO kv (user_id, key, value) VALUES (%s, %s, %s) "
+            "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
+            (user_id, f"{_DONE_KEY}:{day.isoformat()}", day.isoformat()),
         )

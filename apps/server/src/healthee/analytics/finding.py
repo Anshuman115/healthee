@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from uuid import UUID
 
 from healthee.core.db import transaction
 
@@ -41,14 +42,14 @@ class Finding:
 
 _INSERT_SQL = """
     INSERT INTO finding
-      (kind, description, metric_a, metric_b, event_kind, lag_days,
+      (user_id, kind, description, metric_a, metric_b, event_kind, lag_days,
        effect_size, effect_metric, p_value, q_value, n_samples,
        significant, research_note_ids, details)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
 """
 
 _UPSERT_TAIL = """
-    ON CONFLICT (kind, metric_a, metric_b, event_kind, lag_days)
+    ON CONFLICT (user_id, kind, metric_a, metric_b, event_kind, lag_days)
     DO UPDATE SET
       computed_at = now(),
       description = EXCLUDED.description,
@@ -63,10 +64,11 @@ _UPSERT_TAIL = """
 """
 
 
-def _params(f: Finding) -> tuple:
+def _params(user_id: UUID, f: Finding) -> tuple:
     """Positional params for the INSERT (empty strings for the null-key columns
     so the UNIQUE conflict target matches — those columns are NOT NULL)."""
     return (
+        user_id,
         f.kind,
         f.description,
         f.metric_a,
@@ -84,26 +86,26 @@ def _params(f: Finding) -> tuple:
     )
 
 
-def persist_findings(findings: list[Finding]) -> int:
-    """UPSERT findings on their natural key. Returns the count written."""
+def persist_findings(user_id: UUID, findings: list[Finding]) -> int:
+    """UPSERT ``user_id``'s findings on their natural key. Returns the count written."""
     if not findings:
         return 0
     with transaction() as cur:
         for f in findings:
-            cur.execute(_INSERT_SQL + _UPSERT_TAIL, _params(f))
+            cur.execute(_INSERT_SQL + _UPSERT_TAIL, _params(user_id, f))
     return len(findings)
 
 
-def replace_findings_of_kind(kind: str, findings: list[Finding]) -> int:
-    """Delete all findings of ``kind`` then insert ``findings`` (one transaction).
+def replace_findings_of_kind(user_id: UUID, kind: str, findings: list[Finding]) -> int:
+    """Replace ``user_id``'s findings of ``kind`` with ``findings`` (one transaction).
 
     Replacement (not UPSERT) so a pattern that no longer reaches significance is
     removed rather than lingering as stale advice — the cutoff-finder contract.
     """
     with transaction() as cur:
-        cur.execute("DELETE FROM finding WHERE kind = %s", (kind,))
+        cur.execute("DELETE FROM finding WHERE user_id = %s AND kind = %s", (user_id, kind))
         for f in findings:
-            cur.execute(_INSERT_SQL, _params(f))
+            cur.execute(_INSERT_SQL, _params(user_id, f))
     return len(findings)
 
 

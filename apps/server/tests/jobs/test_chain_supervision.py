@@ -27,8 +27,10 @@ def notices(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
     sent: list[str] = []
     monkeypatch.setattr(chain, "send_telegram", lambda text, **_: sent.append(text) or True)
     marker: set[str] = set()
-    monkeypatch.setattr(chain, "_chain_done", lambda day: day.isoformat() in marker)
-    monkeypatch.setattr(chain, "_mark_chain_done", lambda day: marker.add(day.isoformat()))
+    monkeypatch.setattr(chain, "_chain_done", lambda _user_id, day: day.isoformat() in marker)
+    monkeypatch.setattr(
+        chain, "_mark_chain_done", lambda _user_id, day: marker.add(day.isoformat())
+    )
     yield sent
 
 

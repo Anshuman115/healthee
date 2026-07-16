@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
+from uuid import UUID
 
 from healthee.derive._common import USER_TZ, Cur, _age, _load_profile, _upsert_daily
 
@@ -90,6 +91,7 @@ def _sri_minute_grid(rows: list, start_date: date) -> dict[int, set[int]]:
 
 def derive_sleep_score(
     cur: Cur,
+    user_id: UUID,
     start_ts: datetime,
     end_ts: datetime,
     rem: int,
@@ -128,17 +130,36 @@ def derive_sleep_score(
         "sri": sri,
         "session_source": "zepp_cloud",
     }
-    _upsert_daily(cur, night_date, "sleep_health_score_4dim", score, flags)
-    _upsert_daily(cur, night_date, "sleep_dim_duration", p_dur, flags)
-    _upsert_daily(cur, night_date, "sleep_dim_efficiency", p_eff, flags)
-    _upsert_daily(cur, night_date, "sleep_dim_timing", p_tim, flags)
-    _upsert_daily(cur, night_date, "sleep_dim_regularity", p_reg, flags)
+    _upsert_daily(cur, user_id, night_date, "sleep_health_score_4dim", score, flags)
+    _upsert_daily(cur, user_id, night_date, "sleep_dim_duration", p_dur, flags)
+    _upsert_daily(cur, user_id, night_date, "sleep_dim_efficiency", p_eff, flags)
+    _upsert_daily(cur, user_id, night_date, "sleep_dim_timing", p_tim, flags)
+    _upsert_daily(cur, user_id, night_date, "sleep_dim_regularity", p_reg, flags)
     if sri is not None:
-        _upsert_daily(cur, night_date, "sleep_regularity_index", sri, flags)
+        _upsert_daily(cur, user_id, night_date, "sleep_regularity_index", sri, flags)
     return {"sleep_health_score_4dim": score, "sri": sri}
 
 
-def derive_sleep_debt(cur: Cur, day: date) -> dict | None:
+def _sleep_debt_stats(tsts: list[float], need: int) -> dict:
+    """Cumulative debt + window stats from the recorded nights' TST. Pure.
+
+    Extracted (unchanged) from ``derive_sleep_debt`` so that function stays inside
+    the 40-line gate once the tenant owner is threaded through its writes. The math
+    is verbatim — debt = shortfall - half the surplus, floored at 0, over recorded
+    nights only [[sleep_need_debt]]; the parity fixtures pin it.
+    """
+    shortfall = sum(max(0.0, need - t) for t in tsts)
+    surplus = sum(max(0.0, t - need) for t in tsts)
+    avg_tst = sum(tsts) / len(tsts)
+    return {
+        "debt": max(0.0, shortfall - SLEEP_RECOVERY_CREDIT * surplus),
+        "avg_tst": avg_tst,
+        "avg_deficit": max(0.0, need - avg_tst),
+        "nights_below": sum(1 for t in tsts if t < need),
+    }
+
+
+def derive_sleep_debt(cur: Cur, user_id: UUID, day: date) -> dict | None:
     """Age-based sleep need (NSF 2015) + rolling 14-night cumulative debt.
 
     Debt = shortfall minus half the surplus (partial recovery), over recorded
@@ -160,24 +181,23 @@ def derive_sleep_debt(cur: Cur, day: date) -> dict | None:
     tsts = [float(t[0]) for t in cur.fetchall() if t[0] is not None]
     if not tsts:
         return None
-    shortfall = sum(max(0.0, need - t) for t in tsts)
-    surplus = sum(max(0.0, t - need) for t in tsts)
-    debt = max(0.0, shortfall - SLEEP_RECOVERY_CREDIT * surplus)
-    avg_tst = sum(tsts) / len(tsts)
-    avg_deficit = max(0.0, need - avg_tst)
-    nights_below = sum(1 for t in tsts if t < need)
-    _upsert_daily(cur, day, "sleep_need_min", float(need), {"basis": "NSF2015", "age": age})
+    stats = _sleep_debt_stats(tsts, need)
+    debt, avg_deficit = stats["debt"], stats["avg_deficit"]
+    _upsert_daily(
+        cur, user_id, day, "sleep_need_min", float(need), {"basis": "NSF2015", "age": age}
+    )
     _upsert_daily(
         cur,
+        user_id,
         day,
         "sleep_debt_min",
         round(debt, 0),
         {
             "window_nights": SLEEP_DEBT_WINDOW,
             "nights": len(tsts),
-            "avg_tst_min": round(avg_tst),
+            "avg_tst_min": round(stats["avg_tst"]),
             "avg_deficit_min": round(avg_deficit),
-            "nights_below": nights_below,
+            "nights_below": stats["nights_below"],
             "recovery_credit": SLEEP_RECOVERY_CREDIT,
         },
     )

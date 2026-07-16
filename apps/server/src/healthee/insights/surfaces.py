@@ -19,6 +19,7 @@ from datetime import datetime
 
 from healthee.analytics.series import daily_series
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
 
@@ -44,7 +45,7 @@ def _generate(
 ) -> dict:
     """Cache-or-generate one grounded surface. Only validated output is cached."""
     if not refresh:
-        cached = get_cached(key)
+        cached = get_cached(SENTINEL_USER_ID, key)
         if cached is not None:
             return cached
     result = grounded_ask(prompt, metrics=metrics, context_days=context_days)
@@ -58,7 +59,7 @@ def _generate(
         "generated_at": int(time.time()),
     }
     if result.validated and not result.refused:
-        set_cached(key, out)
+        set_cached(SENTINEL_USER_ID, key, out)
     return out
 
 
@@ -88,7 +89,7 @@ def metric_insight(metric: str, label: str = "", *, refresh: bool = False) -> di
     """Grounded 1–2 line interpretation of one metric; '' when data is too thin."""
     key = f"metric_insight:{metric}"
     if not refresh:
-        cached = get_cached(key)
+        cached = get_cached(SENTINEL_USER_ID, key)
         if cached is not None:
             return cached
     numbers = _metric_numbers(metric)
@@ -110,7 +111,7 @@ def metric_insight(metric: str, label: str = "", *, refresh: bool = False) -> di
         "validated": result.validated,
     }
     if result.validated and not result.refused:
-        set_cached(key, out)
+        set_cached(SENTINEL_USER_ID, key, out)
     return out
 
 
@@ -133,7 +134,7 @@ def workout_insight(start: str, *, refresh: bool = False) -> dict:
         return {"insight": "", "citations": [], "error": "workout not found"}
     key = f"workout_insight:{start}"
     if not refresh:
-        cached = get_cached(key)
+        cached = get_cached(SENTINEL_USER_ID, key)
         if cached is not None:
             return cached
     prompt = (
@@ -152,7 +153,7 @@ def workout_insight(start: str, *, refresh: bool = False) -> dict:
         "generated_at": int(time.time()),
     }
     if result.validated and not result.refused:
-        set_cached(key, out)
+        set_cached(SENTINEL_USER_ID, key, out)
     return out
 
 

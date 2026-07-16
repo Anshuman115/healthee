@@ -12,6 +12,7 @@ from __future__ import annotations
 import time
 
 from healthee.analytics.anomalies import Anomaly, detect
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
 from healthee.read.meta import METRIC_META
@@ -74,7 +75,7 @@ def _attach_meanings(items: list[dict], text: str) -> None:
 def notable(*, refresh: bool = False) -> dict:
     """Deduped notable shifts across daily metrics, each with a grounded meaning."""
     if not refresh:
-        cached = get_cached("notable_insight")
+        cached = get_cached(SENTINEL_USER_ID, "notable_insight")
         if cached is not None:
             return cached
     items = [_shift_item(a) for a in _dedupe(detect(days_back=14, window_days=30))]
@@ -92,5 +93,5 @@ def notable(*, refresh: bool = False) -> dict:
         "validated": validated,
     }
     if validated:
-        set_cached("notable_insight", out)
+        set_cached(SENTINEL_USER_ID, "notable_insight", out)
     return out

@@ -58,7 +58,7 @@ def test_sample_insert_and_read_roundtrip(db: None) -> None:  # noqa: ARG001
         cur.execute(
             "INSERT INTO sample (ts, metric, value) VALUES "
             "('2026-01-01T00:00:00+00', 'hr', 61.0) "
-            "ON CONFLICT (metric, ts) DO UPDATE SET value = EXCLUDED.value"
+            "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value"
         )
     with transaction() as cur:
         cur.execute(

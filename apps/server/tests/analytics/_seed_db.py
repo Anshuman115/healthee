@@ -42,7 +42,7 @@ def seed_daily(cur, metric: str, values: dict[date, float], flags: dict | None =
     for day, value in values.items():
         cur.execute(
             "INSERT INTO derived_daily (day, metric, value, flags) "
-            "VALUES (%s, %s, %s, %s::jsonb) ON CONFLICT (day, metric) DO UPDATE "
+            "VALUES (%s, %s, %s, %s::jsonb) ON CONFLICT (user_id, day, metric) DO UPDATE "
             "SET value = EXCLUDED.value, flags = EXCLUDED.flags",
             (day, metric, float(value), payload),
         )
@@ -96,7 +96,7 @@ def seed_profile(cur, dob: date, sex: str = "male", height_cm: float = 175.0) ->
         (height_cm, sex, dob),
     )
     cur.execute(
-        "INSERT INTO weight_log (ts, kg) VALUES (%s, %s) ON CONFLICT (ts) DO NOTHING",
+        "INSERT INTO weight_log (ts, kg) VALUES (%s, %s) ON CONFLICT (user_id, ts) DO NOTHING",
         (datetime.now(tz=IST) - timedelta(days=1), 72.0),
     )
 

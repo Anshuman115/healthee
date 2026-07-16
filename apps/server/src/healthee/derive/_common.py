@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime
 from typing import LiteralString, cast
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from psycopg import Cursor
@@ -39,17 +40,23 @@ def _json(payload: dict) -> str:
 
 
 def _upsert_daily(
-    cur: Cur, day: date, metric: str, value: float, flags: dict | None = None
+    cur: Cur, user_id: UUID, day: date, metric: str, value: float, flags: dict | None = None
 ) -> None:
-    """Insert-or-update one materialized daily metric row (value rounded to 4dp)."""
+    """Insert-or-update one materialized daily metric row (value rounded to 4dp).
+
+    `user_id` is the row's owner and part of the key (0004 folded it into the PK),
+    so the conflict target is (user_id, day, metric): two users' same-day rows no
+    longer collide. It has no default on purpose — a derivation that silently wrote
+    under the wrong owner is exactly the class of bug the explicit thread prevents.
+    """
     cur.execute(
         """
-        INSERT INTO derived_daily (day, metric, value, flags)
-        VALUES (%s, %s, %s, %s::jsonb)
-        ON CONFLICT (day, metric) DO UPDATE
+        INSERT INTO derived_daily (user_id, day, metric, value, flags)
+        VALUES (%s, %s, %s, %s, %s::jsonb)
+        ON CONFLICT (user_id, day, metric) DO UPDATE
           SET value = EXCLUDED.value, flags = EXCLUDED.flags
         """,
-        (day, metric, round(float(value), 4), _json(flags or {})),
+        (user_id, day, metric, round(float(value), 4), _json(flags or {})),
     )
 
 

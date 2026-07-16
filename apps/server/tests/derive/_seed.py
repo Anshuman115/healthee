@@ -127,7 +127,7 @@ def seed(cur) -> None:
     cur.execute("INSERT INTO weight_log (ts, kg) VALUES (%s, %s)", (WEIGHT_TS, WEIGHT_KG))
     cur.executemany(
         "INSERT INTO sample (ts, metric, value) VALUES (%s, %s, %s) "
-        "ON CONFLICT (metric, ts) DO UPDATE SET value = EXCLUDED.value",
+        "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
         samples(),
     )
     cur.executemany(

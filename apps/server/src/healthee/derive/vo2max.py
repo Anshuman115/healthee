@@ -11,6 +11,7 @@ feed the Jurca regression; the result also anchors the energy model. Knowledge:
 from __future__ import annotations
 
 from datetime import date, timedelta
+from uuid import UUID
 
 from healthee.derive._common import Cur, _age, _load_profile, _scalar, _upsert_daily
 from healthee.derive.mvpa import _weekly_mvpa_to_srpa
@@ -36,7 +37,7 @@ def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, srpa: int = 0) -> 
     return max(crf_mets * _METS_TO_ML_KG_MIN, _VO2MAX_FLOOR)
 
 
-def derive_vo2max(cur: Cur, day: date) -> dict | None:
+def derive_vo2max(cur: Cur, user_id: UUID, day: date) -> dict | None:
     """Non-exercise VO2max: profile + 7-day median rhr_daily + 7-day MVPA score.
 
     None until at least 3 resting-HR days are present and the median RHR is a
@@ -71,6 +72,7 @@ def derive_vo2max(cur: Cur, day: date) -> dict | None:
     vo2 = _vo2max_jurca(age, prof["sex"], bmi, rhr_med, srpa)
     _upsert_daily(
         cur,
+        user_id,
         day,
         "vo2max_estimate",
         vo2,

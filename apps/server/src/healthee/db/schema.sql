@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS sample (
   value   DOUBLE PRECISION  NOT NULL,
   user_id UUID              NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  PRIMARY KEY (metric, ts)
+  PRIMARY KEY (user_id, metric, ts)  -- owner folded into the key (0004)
 );
 SELECT create_hypertable('sample', 'ts',
   chunk_time_interval => INTERVAL '7 days', if_not_exists => TRUE);
@@ -33,7 +33,7 @@ CREATE INDEX IF NOT EXISTS sample_user_idx ON sample (user_id, metric, ts DESC);
 -- ── sleep_session ─────────────────────────────────────────────────────────
 -- One typed sleep session (night or nap); stages is the [[startMs,endMs,type],…] hypnogram.
 CREATE TABLE IF NOT EXISTS sleep_session (
-  start_ts    TIMESTAMPTZ  PRIMARY KEY,
+  start_ts    TIMESTAMPTZ  NOT NULL,
   end_ts      TIMESTAMPTZ  NOT NULL,
   kind        TEXT         NOT NULL DEFAULT 'main',  -- 'main' night sleep | 'nap'
   score       INTEGER,
@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS sleep_session (
   wake_min    INTEGER      NOT NULL DEFAULT 0,
   stages      JSONB        NOT NULL DEFAULT '[]'::jsonb,
   user_id     UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
-                REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
+                REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  PRIMARY KEY (user_id, start_ts)  -- owner folded into the key (0004)
 );
 CREATE INDEX IF NOT EXISTS sleep_session_start_idx ON sleep_session (start_ts DESC);
 CREATE INDEX IF NOT EXISTS sleep_session_user_idx ON sleep_session (user_id, start_ts DESC);
@@ -52,7 +53,7 @@ CREATE INDEX IF NOT EXISTS sleep_session_user_idx ON sleep_session (user_id, sta
 -- ── workout ───────────────────────────────────────────────────────────────
 -- One typed workout with device-measured calories/distance/HR.
 CREATE TABLE IF NOT EXISTS workout (
-  start_ts    TIMESTAMPTZ  PRIMARY KEY,
+  start_ts    TIMESTAMPTZ  NOT NULL,
   sport       INTEGER      NOT NULL DEFAULT 0,
   duration_s  INTEGER      NOT NULL DEFAULT 0,
   calories    INTEGER,
@@ -61,7 +62,8 @@ CREATE TABLE IF NOT EXISTS workout (
   max_hr      INTEGER,
   min_hr      INTEGER,
   user_id     UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
-                REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
+                REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  PRIMARY KEY (user_id, start_ts)  -- owner folded into the key (0004)
 );
 CREATE INDEX IF NOT EXISTS workout_start_idx ON workout (start_ts DESC);
 CREATE INDEX IF NOT EXISTS workout_user_idx ON workout (user_id, start_ts DESC);
@@ -75,7 +77,7 @@ CREATE TABLE IF NOT EXISTS derived_daily (
   flags   JSONB             NOT NULL DEFAULT '{}'::jsonb,
   user_id UUID              NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  PRIMARY KEY (day, metric)
+  PRIMARY KEY (user_id, day, metric)  -- owner folded into the key (0004)
 );
 CREATE INDEX IF NOT EXISTS derived_daily_metric_day_idx ON derived_daily (metric, day DESC);
 CREATE INDEX IF NOT EXISTS derived_daily_user_idx ON derived_daily (user_id, metric, day DESC);
@@ -98,20 +100,22 @@ CREATE INDEX IF NOT EXISTS profile_user_idx ON profile (user_id);
 -- ── weight_log ────────────────────────────────────────────────────────────
 -- Body-weight measurements, one row per timestamp (deduped to one per local day).
 CREATE TABLE IF NOT EXISTS weight_log (
-  ts       TIMESTAMPTZ  PRIMARY KEY,
+  ts       TIMESTAMPTZ  NOT NULL,
   kg       REAL         NOT NULL,
   user_id  UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
-             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
+             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  PRIMARY KEY (user_id, ts)  -- owner folded into the key (0004)
 );
 CREATE INDEX IF NOT EXISTS weight_log_user_idx ON weight_log (user_id, ts DESC);
 
 -- ── kv ────────────────────────────────────────────────────────────────────
 -- Small key/value store (per-day markers, cached generated text).
 CREATE TABLE IF NOT EXISTS kv (
-  key      TEXT  PRIMARY KEY,
+  key      TEXT  NOT NULL,
   value    TEXT  NOT NULL,
   user_id  UUID  NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
-             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
+             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  PRIMARY KEY (user_id, key)  -- owner folded into the key (0004)
 );
 CREATE INDEX IF NOT EXISTS kv_user_idx ON kv (user_id, key);
 
@@ -138,7 +142,7 @@ CREATE INDEX IF NOT EXISTS manual_entry_user_idx ON manual_entry (user_id, ts DE
 -- ── illness_flag ──────────────────────────────────────────────────────────
 -- Early-warning flag: one row per wake-date when skin-temp/RR/HRV deviate enough.
 CREATE TABLE IF NOT EXISTS illness_flag (
-  date              DATE PRIMARY KEY,
+  date              DATE NOT NULL,
   severity          TEXT NOT NULL CHECK (severity IN ('moderate', 'high')),
   rr_delta_bpm      REAL,
   temp_delta_c      REAL,
@@ -148,7 +152,8 @@ CREATE TABLE IF NOT EXISTS illness_flag (
   research_note_ids TEXT[] NOT NULL,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   user_id           UUID    NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
-                      REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
+                      REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  PRIMARY KEY (user_id, date)  -- owner folded into the key (0004)
 );
 CREATE INDEX IF NOT EXISTS illness_flag_date_idx ON illness_flag (date DESC);
 CREATE INDEX IF NOT EXISTS illness_flag_user_idx ON illness_flag (user_id, date DESC);
@@ -173,7 +178,7 @@ CREATE TABLE IF NOT EXISTS recommendation (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   user_id           UUID    NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
                       REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  UNIQUE (date, rank)
+  CONSTRAINT recommendation_user_key UNIQUE (user_id, date, rank)  -- owner folded in (0004)
 );
 CREATE INDEX IF NOT EXISTS recommendation_date_idx ON recommendation (date DESC);
 CREATE INDEX IF NOT EXISTS recommendation_user_idx ON recommendation (user_id, date DESC);
@@ -199,7 +204,8 @@ CREATE TABLE IF NOT EXISTS finding (
   details       JSONB        NOT NULL DEFAULT '{}'::jsonb,
   user_id       UUID         NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
                   REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  UNIQUE (kind, metric_a, metric_b, event_kind, lag_days)
+  CONSTRAINT finding_user_key                                      -- owner folded in (0004)
+    UNIQUE (user_id, kind, metric_a, metric_b, event_kind, lag_days)
 );
 CREATE INDEX IF NOT EXISTS finding_kind_idx ON finding (kind, significant DESC, ABS(effect_size) DESC);
 CREATE INDEX IF NOT EXISTS finding_metric_idx ON finding (metric_a, lag_days);
@@ -310,7 +316,7 @@ CREATE TABLE IF NOT EXISTS gps_point (
   ele_m     DOUBLE PRECISION,
   user_id   UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'  -- tenant (0003)
               REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  PRIMARY KEY (track_id, ts)
+  PRIMARY KEY (user_id, track_id, ts)  -- owner folded into the key (0004)
 );
 CREATE INDEX IF NOT EXISTS gps_point_user_idx ON gps_point (user_id, ts);
 

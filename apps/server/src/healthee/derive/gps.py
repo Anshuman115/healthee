@@ -17,6 +17,7 @@ from __future__ import annotations
 import bisect
 from collections.abc import Callable
 from datetime import datetime
+from uuid import UUID
 
 from healthee.derive._common import USER_TZ, Cur, _age, _load_profile, _upsert_daily
 from healthee.derive.dem import elevations
@@ -104,7 +105,7 @@ def _dem_corrected(points: list[Point]) -> tuple[list[Point], str, int]:
     return corrected, grade_source, dem_hits
 
 
-def derive_vo2max_submax(cur: Cur, track_id: str) -> dict:
+def derive_vo2max_submax(cur: Cur, user_id: UUID, track_id: str) -> dict:
     """Submaximal HR-vs-pace VO2max for one GPS track; stored as ``vo2max_submax``.
 
     Returns {"ok": True, ...} with the estimate + fit diagnostics, or {"ok": False,
@@ -132,6 +133,7 @@ def derive_vo2max_submax(cur: Cur, track_id: str) -> dict:
         return {"ok": False, "reason": status}
     _upsert_daily(
         cur,
+        user_id,
         day,
         "vo2max_submax",
         res.vo2max,

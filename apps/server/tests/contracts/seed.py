@@ -99,7 +99,8 @@ def _seed_sleep(cur, today: date) -> None:
         cur.execute(
             "INSERT INTO sleep_session "
             "(start_ts,end_ts,kind,score,avg_hr,rem_min,light_min,deep_min,wake_min,stages) "
-            "VALUES (%s,%s,'main',86,58,90,200,90,20,%s) ON CONFLICT (start_ts) DO NOTHING",
+            "VALUES (%s,%s,'main',86,58,90,200,90,20,%s) "
+            "ON CONFLICT (user_id, start_ts) DO NOTHING",
             (start.astimezone(UTC), end.astimezone(UTC), json.dumps(stages)),
         )
     nap_start = datetime.combine(today, time(14, 0), tzinfo=USER_TZ)
@@ -107,7 +108,7 @@ def _seed_sleep(cur, today: date) -> None:
     cur.execute(
         "INSERT INTO sleep_session "
         "(start_ts,end_ts,kind,rem_min,light_min,deep_min,wake_min,stages) "
-        "VALUES (%s,%s,'nap',0,30,5,0,'[]'::jsonb) ON CONFLICT (start_ts) DO NOTHING",
+        "VALUES (%s,%s,'nap',0,30,5,0,'[]'::jsonb) ON CONFLICT (user_id, start_ts) DO NOTHING",
         (nap_start.astimezone(UTC), nap_end.astimezone(UTC)),
     )
 
@@ -116,7 +117,7 @@ def _seed_workout(cur, today: date) -> None:
     start = datetime.combine(today, time(7, 0), tzinfo=USER_TZ).astimezone(UTC)
     cur.execute(
         "INSERT INTO workout (start_ts,sport,duration_s,calories,distance_m,avg_hr,max_hr,min_hr) "
-        "VALUES (%s,1,1800,250,4200,135,168,95) ON CONFLICT (start_ts) DO NOTHING",
+        "VALUES (%s,1,1800,250,4200,135,168,95) ON CONFLICT (user_id, start_ts) DO NOTHING",
         (start,),
     )
     # Minute HR inside the workout window so the detail endpoint has a profile.
@@ -129,7 +130,8 @@ def _seed_workout(cur, today: date) -> None:
 def _dd(cur, day: date, metric: str, value: float, flags: dict | None = None) -> None:
     cur.execute(
         "INSERT INTO derived_daily (day, metric, value, flags) VALUES (%s,%s,%s,%s) "
-        "ON CONFLICT (day, metric) DO UPDATE SET value=EXCLUDED.value, flags=EXCLUDED.flags",
+        "ON CONFLICT (user_id, day, metric) DO UPDATE SET "
+        "value=EXCLUDED.value, flags=EXCLUDED.flags",
         (day, metric, value, json.dumps(flags or {})),
     )
 
@@ -262,7 +264,8 @@ def _recent_today(hours: float) -> datetime:
 def _seed_illness(cur, today: date) -> None:
     cur.execute(
         "INSERT INTO illness_flag (date, severity, rr_delta_bpm, temp_delta_c, sustained, "
-        "research_note_ids) VALUES (%s,'moderate',2.4,0.35,false,%s) ON CONFLICT (date) DO NOTHING",
+        "research_note_ids) VALUES (%s,'moderate',2.4,0.35,false,%s) "
+        "ON CONFLICT (user_id, date) DO NOTHING",
         (today, ["respiratory_rate_normal", "skin_temp_signals"]),
     )
 
@@ -272,7 +275,7 @@ def _seed_recommendation(cur, today: date) -> None:
         "INSERT INTO recommendation (date, rank, action, rationale, expected_effect, category, "
         "evidence_grade, research_note_ids, signal_source) VALUES "
         "(%s,1,'Sleep earlier tonight','Debt is 120 min','Lower debt','sleep',3,%s,'sleep_debt') "
-        "ON CONFLICT (date, rank) DO NOTHING",
+        "ON CONFLICT (user_id, date, rank) DO NOTHING",
         (today, ["sleep_need_debt"]),
     )
 

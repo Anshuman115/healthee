@@ -10,6 +10,7 @@ verbatim from legacy v2. Knowledge: ``energy_expenditure_derivation``.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from uuid import UUID
 
 from healthee.derive._common import Cur, _age, _scalar, _upsert_daily
 
@@ -88,6 +89,7 @@ def _minute_met(m: datetime, steps_by_min: dict, stride_m: float, is_asleep) -> 
 
 def derive_calories(
     cur: Cur,
+    user_id: UUID,
     day: date,
     prof: dict,
     start_utc: datetime,
@@ -120,9 +122,9 @@ def derive_calories(
         "stride_m": round(stride_m, 3),
         "pal": round(total / bmr, 2),
     }
-    _upsert_daily(cur, day, "total_calories", total, flags)
-    _upsert_daily(cur, day, "active_calories", active_total)
-    _upsert_daily(cur, day, "basal_calories", bmr)
+    _upsert_daily(cur, user_id, day, "total_calories", total, flags)
+    _upsert_daily(cur, user_id, day, "active_calories", active_total)
+    _upsert_daily(cur, user_id, day, "basal_calories", bmr)
     return {
         "total_calories": round(total),
         "active_calories": round(active_total),

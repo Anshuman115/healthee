@@ -22,9 +22,11 @@ from __future__ import annotations
 
 import re
 from datetime import date
+from uuid import UUID
 
 from healthee.core.db import transaction
 from healthee.core.logging import get_logger
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.insights import manifest
 from healthee.insights.client import LLMClient
 from healthee.insights.grounded import grounded_ask
@@ -112,7 +114,7 @@ def generate_recs(
             result.refused,
             result.validated,
         )
-        _persist(day, [], prompt=question, raw=result.text)
+        _persist(SENTINEL_USER_ID, day, [], prompt=question, raw=result.text)
         return {
             "ok": True,
             "day": day.isoformat(),
@@ -123,7 +125,7 @@ def generate_recs(
         }
 
     clean, dropped = _parse_and_validate(result.data)
-    persisted = _persist(day, clean, prompt=question, raw=result.text)
+    persisted = _persist(SENTINEL_USER_ID, day, clean, prompt=question, raw=result.text)
     log.info("recs %s: %d persisted, %d dropped", day, persisted, dropped)
     return {
         "ok": True,
@@ -181,24 +183,25 @@ def _rec_ok(rec: object, known: set[str]) -> bool:
 
 _INSERT_SQL = """
     INSERT INTO recommendation
-      (date, rank, action, rationale, expected_effect, category, evidence_grade,
+      (user_id, date, rank, action, rationale, expected_effect, category, evidence_grade,
        research_note_ids, signal_source, raw_llm_prompt, raw_llm_response)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 
-def _persist(day: date, recs: list[dict], *, prompt: str, raw: str) -> int:
-    """Replace today's recommendation rows with ``recs`` (idempotent per day).
+def _persist(user_id: UUID, day: date, recs: list[dict], *, prompt: str, raw: str) -> int:
+    """Replace ``user_id``'s recommendation rows for ``day`` with ``recs``.
 
     The audit columns (``raw_llm_prompt`` / ``raw_llm_response``) are always
     written — the whole point of the schema fix.
     """
     with transaction() as cur:
-        cur.execute("DELETE FROM recommendation WHERE date = %s", (day,))
+        cur.execute("DELETE FROM recommendation WHERE user_id = %s AND date = %s", (user_id, day))
         for rank, rec in enumerate(recs, start=1):
             cur.execute(
                 _INSERT_SQL,
                 (
+                    user_id,
                     day,
                     rank,
                     rec["action"],

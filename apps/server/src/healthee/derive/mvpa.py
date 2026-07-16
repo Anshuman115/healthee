@@ -9,6 +9,7 @@ verbatim from legacy v2 ``derive_mvpa``. Knowledge: ``cadence_intensity``
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from uuid import UUID
 
 from healthee.derive._common import Cur, _day_bounds_utc, _upsert_daily
 
@@ -39,7 +40,7 @@ def _weekly_mvpa_to_srpa(weekly_mvpa_equiv_min: float) -> int:
     return 4
 
 
-def derive_mvpa(cur: Cur, day: date) -> dict | None:
+def derive_mvpa(cur: Cur, user_id: UUID, day: date) -> dict | None:
     """Cadence-based MVPA minutes for one local day. None when no steps recorded."""
     start_utc, end_utc = _day_bounds_utc(day)
     cur.execute(
@@ -64,5 +65,5 @@ def derive_mvpa(cur: Cur, day: date) -> dict | None:
         elif prev >= _MODERATE_PRIOR_SPM:
             moderate += 1
     mvpa = moderate + vigorous
-    _upsert_daily(cur, day, "mvpa_min", mvpa, {"moderate": moderate, "vigorous": vigorous})
+    _upsert_daily(cur, user_id, day, "mvpa_min", mvpa, {"moderate": moderate, "vigorous": vigorous})
     return {"mvpa_min": mvpa, "moderate": moderate, "vigorous": vigorous}

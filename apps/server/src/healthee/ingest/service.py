@@ -17,6 +17,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from datetime import date
+from uuid import UUID
 
 from psycopg import Connection
 from psycopg.rows import TupleRow
@@ -38,8 +39,8 @@ from healthee.ingest.upsert import (
 
 log = get_logger(__name__)
 
-# derive_days(conn, days) is WP2's contract. Injectable so tests need no derive/.
-DeriveTrigger = Callable[[Connection[TupleRow], list[date]], None]
+# derive_days(conn, user_id, days) is WP2's contract. Injectable so tests need no derive/.
+DeriveTrigger = Callable[[Connection[TupleRow], UUID, list[date]], None]
 
 
 class IngestSummary(BaseModel):
@@ -54,7 +55,7 @@ class IngestSummary(BaseModel):
     server_ts: int
 
 
-def _default_derive(conn: Connection[TupleRow], days: list[date]) -> None:
+def _default_derive(conn: Connection[TupleRow], user_id: UUID, days: list[date]) -> None:
     """Default derive trigger — resolves WP2 at integration time.
 
     The import is intentionally local: it lets ingest build and be tested before
@@ -63,7 +64,7 @@ def _default_derive(conn: Connection[TupleRow], days: list[date]) -> None:
     """
     from healthee.derive import derive_days
 
-    derive_days(conn, days)
+    derive_days(conn, user_id, days)
 
 
 def _affected_days(payload: HelioPayload, is_fresh: Callable[..., bool]) -> list[date]:
@@ -86,29 +87,32 @@ def _affected_days(payload: HelioPayload, is_fresh: Callable[..., bool]) -> list
 
 
 def ingest_helio(
-    payload: HelioPayload, *, derive: DeriveTrigger = _default_derive
+    payload: HelioPayload, user_id: UUID, *, derive: DeriveTrigger = _default_derive
 ) -> IngestSummary:
-    """Apply a push end-to-end and return the counts. One transaction: upsert →
-    derive touched days → apply the strap's daily-total override (after derive,
-    which it corrects)."""
+    """Apply a push end-to-end under `user_id` and return the counts.
+
+    One transaction: upsert → derive touched days → apply the strap's daily-total
+    override (after derive, which it corrects). `user_id` is the owner every raw,
+    typed, and derived row is written under; the router supplies it (the sentinel
+    today, the device token's real owner from 6.4 — MULTI_USER.md §7)."""
     with connection() as conn, conn.cursor() as cur:
-        accepted, rejected = upsert_samples(cur, payload.samples)
+        accepted, rejected = upsert_samples(cur, user_id, payload.samples)
         # Predicate must be built BEFORE upsert_sleep — it reads which nights
         # already existed so re-pushed history isn't re-emitted.
-        is_fresh = build_fresh_predicate(cur, payload.sleep)
-        n_sleep = upsert_sleep(cur, payload.sleep, is_fresh)
-        n_workouts = upsert_workouts(cur, payload.workouts)
+        is_fresh = build_fresh_predicate(cur, user_id, payload.sleep)
+        n_sleep = upsert_sleep(cur, user_id, payload.sleep, is_fresh)
+        n_workouts = upsert_workouts(cur, user_id, payload.workouts)
         if payload.profile is not None:
             upsert_profile(cur, payload.profile)
             if payload.profile.weight_kg is not None:
-                upsert_weight(cur, payload.profile.weight_kg)
+                upsert_weight(cur, user_id, payload.profile.weight_kg)
 
         days = _affected_days(payload, is_fresh)
         if days:
-            derive(conn, days)
+            derive(conn, user_id, days)
         # Daily-total override runs AFTER derive on purpose (it overrides the
         # steps_total derive just computed with the strap's real counter).
-        n_totals = apply_daily_totals(cur, payload.daily_totals)
+        n_totals = apply_daily_totals(cur, user_id, payload.daily_totals)
 
     log.info(
         "ingest_helio: samples=%d(-%d) sleep=%d workouts=%d totals=%d days=%d",

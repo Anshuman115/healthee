@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 from datetime import date, datetime
+from uuid import UUID
 
 from healthee.derive._common import Cur, _age, _day_bounds_utc, _load_profile, _upsert_daily
 
@@ -22,7 +23,7 @@ EDWARDS_ZONE_LO = (0.50, 0.60, 0.70, 0.80, 0.90)
 _RHR_FALLBACK = 60.0  # when no measured resting HR is available
 
 
-def derive_cardio_load(cur: Cur, day: date) -> dict | None:
+def derive_cardio_load(cur: Cur, user_id: UUID, day: date) -> dict | None:
     """Banister TRIMP + Edwards training load over waking minutes for one day.
 
     None without a profile, without a usable HR reserve, or with no waking HR.
@@ -61,8 +62,8 @@ def derive_cardio_load(cur: Cur, day: date) -> dict | None:
         "edwards_tl": edwards,
         "hr_minutes": n_hr,
     }
-    _upsert_daily(cur, day, "cardio_load", round(trimp, 1), flags)
-    _upsert_daily(cur, day, "hr_zone_minutes", float(sum(zones)), {"zone_min": zones})
+    _upsert_daily(cur, user_id, day, "cardio_load", round(trimp, 1), flags)
+    _upsert_daily(cur, user_id, day, "hr_zone_minutes", float(sum(zones)), {"zone_min": zones})
     return {"cardio_load": round(trimp, 1), "edwards_tl": edwards, "zone_min": zones}
 
 

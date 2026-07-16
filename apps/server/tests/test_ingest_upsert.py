@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.ingest.models import SampleIn, SleepIn
 from healthee.ingest.upsert import (
     build_fresh_predicate,
@@ -52,7 +53,7 @@ def test_upsert_samples_drops_unknown_metrics() -> None:
         SampleIn(metric="bogus", ts=1_718_000_060_000, value=1.0),
         SampleIn(metric="hrv", ts=1_718_000_120_000, value=44.0),
     ]
-    accepted, rejected = upsert_samples(cur, samples)  # type: ignore[arg-type]
+    accepted, rejected = upsert_samples(cur, SENTINEL_USER_ID, samples)  # type: ignore[arg-type]
     assert (accepted, rejected) == (2, 1)
     assert cur.executemany_rows is not None
     assert len(cur.executemany_rows) == 2  # only the whitelisted rows pipelined
@@ -62,6 +63,7 @@ def test_upsert_samples_no_valid_rows_runs_no_write() -> None:
     cur = FakeCursor()
     accepted, rejected = upsert_samples(
         cur,  # type: ignore[arg-type]
+        SENTINEL_USER_ID,
         [SampleIn(metric="bogus", ts=1_718_000_000_000, value=1.0)],
     )
     assert (accepted, rejected) == (0, 1)
@@ -80,7 +82,11 @@ def test_fresh_predicate_gates_old_existing_nights() -> None:
     # Both old and recent already exist in the DB; tonight is new.
     existing_rows = [(epoch_to_utc(old.start_ts),), (epoch_to_utc(recent.start_ts),)]
     cur = FakeCursor(fetchall=[existing_rows])
-    is_fresh = build_fresh_predicate(cur, [old, recent, tonight])  # type: ignore[arg-type]
+    is_fresh = build_fresh_predicate(
+        cur,  # type: ignore[arg-type]
+        SENTINEL_USER_ID,
+        [old, recent, tonight],
+    )
 
     assert is_fresh(tonight) is True  # new → always fresh
     assert is_fresh(recent) is True  # existing but within 3 days of latest
@@ -92,28 +98,28 @@ def test_fresh_predicate_all_new_when_table_empty() -> None:
     a = _session(now - timedelta(days=5, hours=8), now - timedelta(days=5))
     b = _session(now - timedelta(hours=8), now)
     cur = FakeCursor(fetchall=[[]])  # nothing existing
-    is_fresh = build_fresh_predicate(cur, [a, b])  # type: ignore[arg-type]
+    is_fresh = build_fresh_predicate(cur, SENTINEL_USER_ID, [a, b])  # type: ignore[arg-type]
     assert is_fresh(a) is True and is_fresh(b) is True
 
 
 def test_weight_inserts_when_no_row_today() -> None:
     cur = FakeCursor(fetchone=[None])
-    upsert_weight(cur, 72.5)  # type: ignore[arg-type]
+    upsert_weight(cur, SENTINEL_USER_ID, 72.5)  # type: ignore[arg-type]
     assert len(cur.executed) == 2  # SELECT + INSERT
     assert "INSERT INTO weight_log" in cur.executed[1][0]
-    assert cur.executed[1][1] == (72.5,)
+    assert cur.executed[1][1] == (SENTINEL_USER_ID, 72.5)
 
 
 def test_weight_skips_when_unchanged_today() -> None:
     cur = FakeCursor(fetchone=[(datetime(2026, 6, 20, 7, tzinfo=UTC), 72.5)])
-    upsert_weight(cur, 72.505)  # type: ignore[arg-type]  # within 0.01 kg → no write
+    upsert_weight(cur, SENTINEL_USER_ID, 72.505)  # type: ignore[arg-type]  # <0.01 kg → no write
     assert len(cur.executed) == 1  # only the SELECT ran
 
 
 def test_weight_updates_when_changed_today() -> None:
     ts = datetime(2026, 6, 20, 7, tzinfo=UTC)
     cur = FakeCursor(fetchone=[(ts, 72.5)])
-    upsert_weight(cur, 74.0)  # type: ignore[arg-type]
+    upsert_weight(cur, SENTINEL_USER_ID, 74.0)  # type: ignore[arg-type]
     assert len(cur.executed) == 2  # SELECT + UPDATE
     assert "UPDATE weight_log" in cur.executed[1][0]
-    assert cur.executed[1][1] == (74.0, ts)
+    assert cur.executed[1][1] == (74.0, SENTINEL_USER_ID, ts)

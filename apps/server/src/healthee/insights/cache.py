@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from healthee.core.db import transaction
@@ -27,14 +28,14 @@ def today_iso() -> str:
     return datetime.now(tz=_USER_TZ).date().isoformat()
 
 
-def get_cached(key: str) -> dict | None:
-    """Return the cached payload for ``key`` iff it was generated today, else None.
+def get_cached(user_id: UUID, key: str) -> dict | None:
+    """Return ``user_id``'s cached payload for ``key`` iff generated today, else None.
 
     A malformed cache row is a degraded state, not a crash: it is logged and treated
     as a miss (the caller regenerates), never silently returned as good.
     """
     with transaction() as cur:
-        cur.execute("SELECT value FROM kv WHERE key = %s", (key,))
+        cur.execute("SELECT value FROM kv WHERE user_id = %s AND key = %s", (user_id, key))
         row = cur.fetchone()
     if not row:
         return None
@@ -46,11 +47,16 @@ def get_cached(key: str) -> dict | None:
     return payload if payload.get("date") == today_iso() else None
 
 
-def set_cached(key: str, value: dict) -> None:
-    """Upsert a generated payload under ``key`` (expects a ``date`` field on it)."""
+def set_cached(user_id: UUID, key: str, value: dict) -> None:
+    """Upsert ``user_id``'s generated payload under ``key`` (expects a ``date`` field).
+
+    The kv key itself stays un-namespaced — 0004 folded the owner into the kv PK, so
+    two users' same-named entries no longer collide. (Namespacing the key string is
+    6.3c.)
+    """
     with transaction() as cur:
         cur.execute(
-            "INSERT INTO kv (key, value) VALUES (%s, %s) "
-            "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-            (key, json.dumps(value)),
+            "INSERT INTO kv (user_id, key, value) VALUES (%s, %s, %s) "
+            "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
+            (user_id, key, json.dumps(value)),
         )

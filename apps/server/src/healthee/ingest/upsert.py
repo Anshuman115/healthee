@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from psycopg import Cursor
@@ -60,29 +61,29 @@ def local_date(ts: int) -> date:
     return epoch_to_utc(ts).astimezone(USER_TZ).date()
 
 
-def upsert_samples(cur: Cur, samples: list[SampleIn]) -> tuple[int, int]:
+def upsert_samples(cur: Cur, user_id: UUID, samples: list[SampleIn]) -> tuple[int, int]:
     """Upsert raw time-series points. Returns (accepted, rejected).
 
     Unknown metrics are coerce-dropped and counted (not a hard error), matching
     the legacy contract so a newer app adding a metric never 422s its whole push.
     """
-    rows: list[tuple[datetime, str, float]] = []
+    rows: list[tuple[UUID, datetime, str, float]] = []
     rejected = 0
     for s in samples:
         if s.metric not in ALLOWED_METRICS:
             rejected += 1
             continue
-        rows.append((epoch_to_utc(s.ts), s.metric, float(s.value)))
+        rows.append((user_id, epoch_to_utc(s.ts), s.metric, float(s.value)))
     if rows:
         cur.executemany(
-            "INSERT INTO sample (ts, metric, value) VALUES (%s, %s, %s) "
-            "ON CONFLICT (metric, ts) DO UPDATE SET value = EXCLUDED.value",
+            "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
             rows,
         )
     return len(rows), rejected
 
 
-def emit_sleep_minutes(cur: Cur, stages: list[list[int]]) -> None:
+def emit_sleep_minutes(cur: Cur, user_id: UUID, stages: list[list[int]]) -> None:
     """Materialize per-minute `asleep` (1) + `sleep_stage` (type) samples from a
     session's hypnogram, so downstream SRI / stage reads have a per-minute
     stream. `stages`: [[startMs, endMs, type], …]; type 7 = awake."""
@@ -93,36 +94,39 @@ def emit_sleep_minutes(cur: Cur, stages: list[list[int]]) -> None:
             continue
         last = end - timedelta(seconds=60)
         cur.execute(
-            "INSERT INTO sample (ts, metric, value) "
-            "SELECT g, 'sleep_stage', %s FROM generate_series(%s, %s, interval '1 minute') g "
-            "ON CONFLICT (metric, ts) DO UPDATE SET value = EXCLUDED.value",
-            (float(st[2]), start, last),
+            "INSERT INTO sample (user_id, ts, metric, value) "
+            "SELECT %s, g, 'sleep_stage', %s FROM generate_series(%s, %s, interval '1 minute') g "
+            "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
+            (user_id, float(st[2]), start, last),
         )
         if st[2] != 7:  # 7 = awake; only actual sleep marks `asleep`
             cur.execute(
-                "INSERT INTO sample (ts, metric, value) "
-                "SELECT g, 'asleep', 1 FROM generate_series(%s, %s, interval '1 minute') g "
-                "ON CONFLICT (metric, ts) DO NOTHING",
-                (start, last),
+                "INSERT INTO sample (user_id, ts, metric, value) "
+                "SELECT %s, g, 'asleep', 1 FROM generate_series(%s, %s, interval '1 minute') g "
+                "ON CONFLICT (user_id, metric, ts) DO NOTHING",
+                (user_id, start, last),
             )
 
 
-def upsert_sleep(cur: Cur, sessions: list[SleepIn], should_emit: Callable[[SleepIn], bool]) -> int:
+def upsert_sleep(
+    cur: Cur, user_id: UUID, sessions: list[SleepIn], should_emit: Callable[[SleepIn], bool]
+) -> int:
     """Upsert typed sleep sessions; emit per-minute rows only for fresh MAIN
     sleep (`should_emit`). Naps never feed the per-minute stream — daytime
     minutes must not pollute the night-only SRI/regularity reads."""
     for s in sessions:
         cur.execute(
             "INSERT INTO sleep_session "
-            "(start_ts, end_ts, kind, score, avg_hr, rem_min, light_min, deep_min, "
+            "(user_id, start_ts, end_ts, kind, score, avg_hr, rem_min, light_min, deep_min, "
             "wake_min, stages) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb) "
-            "ON CONFLICT (start_ts) DO UPDATE SET "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb) "
+            "ON CONFLICT (user_id, start_ts) DO UPDATE SET "
             "end_ts = EXCLUDED.end_ts, kind = EXCLUDED.kind, score = EXCLUDED.score, "
             "avg_hr = EXCLUDED.avg_hr, rem_min = EXCLUDED.rem_min, "
             "light_min = EXCLUDED.light_min, deep_min = EXCLUDED.deep_min, "
             "wake_min = EXCLUDED.wake_min, stages = EXCLUDED.stages",
             (
+                user_id,
                 epoch_to_utc(s.start_ts),
                 epoch_to_utc(s.end_ts),
                 s.kind,
@@ -136,22 +140,23 @@ def upsert_sleep(cur: Cur, sessions: list[SleepIn], should_emit: Callable[[Sleep
             ),
         )
         if s.kind != "nap" and should_emit(s):
-            emit_sleep_minutes(cur, s.stages)
+            emit_sleep_minutes(cur, user_id, s.stages)
     return len(sessions)
 
 
-def upsert_workouts(cur: Cur, workouts: list[WorkoutIn]) -> int:
+def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
     """Upsert typed workouts with device-measured HR/calories/distance."""
     for w in workouts:
         cur.execute(
             "INSERT INTO workout "
-            "(start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT (start_ts) DO UPDATE SET "
+            "(user_id, start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (user_id, start_ts) DO UPDATE SET "
             "sport = EXCLUDED.sport, duration_s = EXCLUDED.duration_s, "
             "calories = EXCLUDED.calories, distance_m = EXCLUDED.distance_m, "
             "avg_hr = EXCLUDED.avg_hr, max_hr = EXCLUDED.max_hr, min_hr = EXCLUDED.min_hr",
             (
+                user_id,
                 epoch_to_utc(w.start_ts),
                 w.sport,
                 w.duration_s,
@@ -179,34 +184,41 @@ def upsert_profile(cur: Cur, profile: ProfileIn) -> None:
     )
 
 
-def upsert_weight(cur: Cur, weight_kg: float) -> None:
+def upsert_weight(cur: Cur, user_id: UUID, weight_kg: float) -> None:
     """Record body weight, deduped to one row per local day and only when it
     actually changed — otherwise every profile push would spam a new row."""
     kg = float(weight_kg)
     cur.execute(
         "SELECT ts, kg FROM weight_log "
-        "WHERE (ts AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date "
+        "WHERE user_id = %s AND (ts AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date "
         "ORDER BY ts DESC LIMIT 1",
-        (USER_TZ_NAME, USER_TZ_NAME),
+        (user_id, USER_TZ_NAME, USER_TZ_NAME),
     )
     row = cur.fetchone()
     if row is None:
-        cur.execute("INSERT INTO weight_log (ts, kg) VALUES (now(), %s)", (kg,))
+        cur.execute(
+            "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now(), %s)", (user_id, kg)
+        )
     elif abs(float(row[1]) - kg) > 0.01:  # unchanged today → skip; else update
-        cur.execute("UPDATE weight_log SET kg = %s WHERE ts = %s", (kg, row[0]))
+        cur.execute(
+            "UPDATE weight_log SET kg = %s WHERE user_id = %s AND ts = %s", (kg, user_id, row[0])
+        )
 
 
-def _upsert_derived(cur: Cur, day: date, metric: str, value: float, flags: dict) -> None:
+def _upsert_derived(
+    cur: Cur, user_id: UUID, day: date, metric: str, value: float, flags: dict
+) -> None:
     """Write one materialized derived-daily cell (ingest's own override write)."""
     cur.execute(
-        "INSERT INTO derived_daily (day, metric, value, flags) "
-        "VALUES (%s, %s, %s, %s::jsonb) "
-        "ON CONFLICT (day, metric) DO UPDATE SET value = EXCLUDED.value, flags = EXCLUDED.flags",
-        (day, metric, round(float(value), 4), json.dumps(flags)),
+        "INSERT INTO derived_daily (user_id, day, metric, value, flags) "
+        "VALUES (%s, %s, %s, %s, %s::jsonb) "
+        "ON CONFLICT (user_id, day, metric) DO UPDATE SET "
+        "value = EXCLUDED.value, flags = EXCLUDED.flags",
+        (user_id, day, metric, round(float(value), 4), json.dumps(flags)),
     )
 
 
-def apply_daily_totals(cur: Cur, totals: list[DailyTotalIn]) -> int:
+def apply_daily_totals(cur: Cur, user_id: UUID, totals: list[DailyTotalIn]) -> int:
     """Override `steps_total` (+ `distance_m_daily`) in derived_daily with the
     strap's live 0x0016 totals. MUST run AFTER derive, which recomputes
     steps_total from the (possibly frozen/incomplete) per-minute sum — the strap
@@ -215,29 +227,37 @@ def apply_daily_totals(cur: Cur, totals: list[DailyTotalIn]) -> int:
     for total in totals:
         if total.steps is None:
             continue
-        _upsert_derived(cur, total.day, "steps_total", float(total.steps), {"source": "strap_0x16"})
-        _apply_distance(cur, total)
+        _upsert_derived(
+            cur, user_id, total.day, "steps_total", float(total.steps), {"source": "strap_0x16"}
+        )
+        _apply_distance(cur, user_id, total)
         applied += 1
     return applied
 
 
-def _apply_distance(cur: Cur, total: DailyTotalIn) -> None:
+def _apply_distance(cur: Cur, user_id: UUID, total: DailyTotalIn) -> None:
     """Set distance_m_daily from the reported metres, else recompute from the
     real step total × the stride stored on the derived row (steps changed)."""
     if total.distance_m is not None:
         _upsert_derived(
-            cur, total.day, "distance_m_daily", float(total.distance_m), {"source": "strap_0x16"}
+            cur,
+            user_id,
+            total.day,
+            "distance_m_daily",
+            float(total.distance_m),
+            {"source": "strap_0x16"},
         )
         return
     cur.execute(
         "SELECT (flags->>'stride_m')::float FROM derived_daily "
-        "WHERE day = %s AND metric = 'distance_m_daily'",
-        (total.day,),
+        "WHERE user_id = %s AND day = %s AND metric = 'distance_m_daily'",
+        (user_id, total.day),
     )
     stride = cur.fetchone()
     if stride and stride[0] and total.steps is not None:
         _upsert_derived(
             cur,
+            user_id,
             total.day,
             "distance_m_daily",
             float(total.steps) * stride[0],
@@ -245,7 +265,9 @@ def _apply_distance(cur: Cur, total: DailyTotalIn) -> None:
         )
 
 
-def build_fresh_predicate(cur: Cur, sessions: list[SleepIn]) -> Callable[[SleepIn], bool]:
+def build_fresh_predicate(
+    cur: Cur, user_id: UUID, sessions: list[SleepIn]
+) -> Callable[[SleepIn], bool]:
     """A predicate that answers "is this session fresh?" — new, or within
     FRESH_WINDOW_DAYS of the batch's latest night. Captures the already-existing
     starts up front (one query) so re-pushed history is cheap to gate."""
@@ -253,7 +275,10 @@ def build_fresh_predicate(cur: Cur, sessions: list[SleepIn]) -> Callable[[SleepI
     existing: set[datetime] = set()
     if main_sleep:
         starts = [epoch_to_utc(s.start_ts) for s in main_sleep]
-        cur.execute("SELECT start_ts FROM sleep_session WHERE start_ts = ANY(%s)", (starts,))
+        cur.execute(
+            "SELECT start_ts FROM sleep_session WHERE user_id = %s AND start_ts = ANY(%s)",
+            (user_id, starts),
+        )
         existing = {r[0] for r in cur.fetchall()}
     latest = max((epoch_to_utc(s.end_ts) for s in main_sleep), default=None)
     cutoff = (latest - timedelta(days=FRESH_WINDOW_DAYS)) if latest else None

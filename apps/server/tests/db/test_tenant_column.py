@@ -74,7 +74,7 @@ def test_legacy_shaped_derived_daily_write_backfills_to_sentinel(
         cur.execute(
             "INSERT INTO derived_daily (day, metric, value) "
             "VALUES ('2999-01-01', '_tenant_test', 1.0) "
-            "ON CONFLICT (day, metric) DO UPDATE SET value = EXCLUDED.value"
+            "ON CONFLICT (user_id, day, metric) DO UPDATE SET value = EXCLUDED.value"
         )
     with transaction() as cur:
         cur.execute(
@@ -92,7 +92,7 @@ def test_legacy_shaped_kv_write_backfills_to_sentinel(db: None) -> None:  # noqa
     with transaction() as cur:
         cur.execute(
             "INSERT INTO kv (key, value) VALUES ('_tenant_test_key', 'v') "
-            "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+            "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value"
         )
     with transaction() as cur:
         cur.execute("SELECT user_id FROM kv WHERE key = '_tenant_test_key'")

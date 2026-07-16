@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 
 from healthee.core.auth import require_token
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.read.logs import LogRequest, log_recent, record_log
 
 router = APIRouter(tags=["logs"], dependencies=[Depends(require_token)])
@@ -17,9 +18,12 @@ router = APIRouter(tags=["logs"], dependencies=[Depends(require_token)])
 
 @router.post("/api/log")
 def post_log(req: LogRequest) -> dict:
-    """Record a manual log (caffeine/alcohol/meditation/exercise/weight/fasting…)."""
+    """Record a manual log (caffeine/alcohol/meditation/exercise/weight/fasting…).
+
+    TODO(6.4): write under the authenticated `RequestUser.id`, not the sentinel.
+    """
     with transaction() as cur:
-        return record_log(cur, req)
+        return record_log(cur, SENTINEL_USER_ID, req)
 
 
 @router.get("/api/log/recent")

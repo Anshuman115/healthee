@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 import pytest
 
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.derive.gps import derive_vo2max_submax, gps_track_detail, make_hr_interpolator
 from healthee.derive.vo2max_submax import VO2MAX_HI, VO2MAX_LO, _vo2_speed_grade
@@ -96,7 +97,7 @@ def _seed_track(cur) -> str:
     )
     cur.executemany(
         "INSERT INTO sample (ts, metric, value) VALUES (%s, 'hr', %s) "
-        "ON CONFLICT (metric, ts) DO NOTHING",
+        "ON CONFLICT (user_id, metric, ts) DO NOTHING",
         [(datetime.fromtimestamp(ts, UTC), hr) for ts, hr in hr_rows],
     )
     return track_id
@@ -107,7 +108,7 @@ def test_derive_vo2max_submax_end_to_end(db: None) -> None:  # noqa: ARG001 — 
     migrate.apply_migrations()
     with transaction() as cur:
         track_id = _seed_track(cur)
-        result = derive_vo2max_submax(cur, track_id)
+        result = derive_vo2max_submax(cur, SENTINEL_USER_ID, track_id)
     assert result["ok"] is True, result
     assert VO2MAX_LO <= result["vo2max_submax"] <= VO2MAX_HI
     assert result["r2"] >= 0.5

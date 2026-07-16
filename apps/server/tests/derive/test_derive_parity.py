@@ -40,6 +40,7 @@ from pathlib import Path
 import pytest
 
 from healthee.core.db import transaction
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.derive import derive_day, derive_night
 
@@ -82,9 +83,9 @@ def _deep_eq(a: object, b: object) -> bool:
 def _derive_all(cur) -> None:
     _seed.seed(cur)
     for start, end in _seed.nights():
-        derive_night(cur, start, end)
+        derive_night(cur, SENTINEL_USER_ID, start, end)
     for day in _seed.DAYS:
-        derive_day(cur, day)
+        derive_day(cur, SENTINEL_USER_ID, day)
 
 
 def test_derive_matches_legacy_golden(db: None) -> None:  # noqa: ARG001 — DB gate
