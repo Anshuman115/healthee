@@ -1,50 +1,62 @@
 ---
+import Section from './Section.astro';
 // Personal science — FDR-validated correlations + personal cutoffs. §1 calls this
 // "a rigor most consumer apps don't attempt." The caffeine-cutoff example is from §1.
+// Benjamini–Hochberg FDR control is footnoted to its primary source.
 ---
 
-<section id="personal" class="scroll-mt-20 border-t border-line bg-sunk/40 py-20 md:py-28">
-  <div class="shell grid items-center gap-14 lg:grid-cols-[1fr_1fr] lg:gap-16">
-    <div>
-      <p class="eyebrow rise">Personal science</p>
-      <h2 class="rise mt-4 text-[clamp(1.9rem,4vw,2.9rem)]">
-        Findings from <span class="italic text-accent-soft">your</span> data &mdash; corrected for
-        chance.
-      </h2>
-      <p class="rise mt-6 text-lg text-ink-soft">
-        Robust per-metric baselines (median &plusmn; MAD), anomaly flags, and correlations tested
-        with Spearman and Mann&ndash;Whitney under Benjamini&ndash;Hochberg FDR control &mdash; so a
-        &ldquo;finding&rdquo; has survived the multiple-comparisons problem, not just caught your
-        eye on a chart.
+<Section
+  n="08"
+  id="personal"
+  labelledby="personal-h"
+  note="Detection is free, shown as plain statistics. The coach that explains and acts on it is the premium layer — PRICING.md §1a."
+>
+  <p class="eyebrow rise">Personal science</p>
+  <h2 id="personal-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
+    Findings from <span class="italic text-accent-soft">your</span> data &mdash; corrected for
+    chance.
+  </h2>
+
+  <div class="mt-10 grid items-center gap-12 lg:grid-cols-[1fr_1fr] lg:gap-16">
+    <div class="rise">
+      <p class="lede">
+        Robust per-metric baselines, anomaly flags, and correlations tested with Spearman and
+        Mann&ndash;Whitney under Benjamini&ndash;Hochberg false-discovery-rate control<sup class="ref"
+          ><a href="#ref-5" aria-label="reference 5">5</a></sup
+        > &mdash; so a &ldquo;finding&rdquo; has survived the multiple-comparisons problem, not just
+        caught your eye on a chart.
       </p>
-      <p class="rise mt-5 text-[0.95rem] text-ink-faint">
-        It&rsquo;s a rigor most consumer apps don&rsquo;t attempt. Detection is free, shown as plain
-        statistics; the coach that explains and acts on it is the premium layer.
+      <p class="mt-5 text-[0.95rem] leading-relaxed text-ink-faint">
+        It&rsquo;s a rigor most consumer apps don&rsquo;t attempt. And a pattern in your own data is
+        the strongest motivator there is &mdash; because it&rsquo;s yours, not a study&rsquo;s.
       </p>
     </div>
 
-    <div class="rise">
-      <figure class="surface p-6 sm:p-7" aria-label="Example: a false-discovery-rate-controlled personal finding">
-        <figcaption class="flex items-center justify-between gap-3">
-          <span class="eyebrow">Personal finding &middot; validated</span>
-          <span class="chip chip-accent chip-dot">FDR-controlled</span>
-        </figcaption>
-        <hr class="hairline my-5" />
-        <p class="font-serif text-[1.65rem] leading-snug">
-          Caffeine after <span class="mono">~15:00</span>
-          <span class="text-ink-faint">&rarr;</span>
-          <span class="text-warn">&minus;40 min</span> sleep
-        </p>
-        <p class="mt-4 text-[0.92rem] leading-relaxed text-ink-soft">
-          On nights you logged a late coffee, you slept about 40 minutes less. Tested against your
-          own baseline &mdash; a pattern in your data, never a population average pinned onto you.
-        </p>
-        <dl class="mono mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs text-ink-faint">
-          <dt>test</dt><dd class="text-ink-soft">Mann&ndash;Whitney, BH-corrected</dd>
-          <dt>window</dt><dd class="text-ink-soft">60 days</dd>
-          <dt>holds</dt><dd class="text-ink-soft">after correcting for chance</dd>
-        </dl>
-      </figure>
-    </div>
+    <figure
+      class="surface rise p-6 sm:p-7"
+      aria-label="Rendered example: an FDR-controlled personal finding about late caffeine"
+    >
+      <figcaption class="flex items-center justify-between gap-3">
+        <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
+          Personal finding &middot; validated
+        </span>
+        <span class="chip chip-gold chip-dot">FDR-controlled</span>
+      </figcaption>
+      <hr class="hairline my-5" />
+      <p class="font-serif text-[1.6rem] leading-snug">
+        Caffeine after <span class="mono">~15:00</span>
+        <span class="text-ink-faint">&rarr;</span>
+        <span class="text-accent-soft">&minus;40 min</span> sleep
+      </p>
+      <p class="mt-4 text-[0.92rem] leading-relaxed text-ink-soft">
+        On nights you logged a late coffee, you slept about 40 minutes less. Tested against your own
+        baseline &mdash; a pattern in your data, never a population average pinned onto you.
+      </p>
+      <dl class="mono mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs text-ink-faint">
+        <dt>test</dt><dd class="text-ink-soft">Mann&ndash;Whitney, BH-corrected</dd>
+        <dt>window</dt><dd class="text-ink-soft">60 days</dd>
+        <dt>holds</dt><dd class="text-ink-soft">after correcting for chance</dd>
+      </dl>
+    </figure>
   </div>
-</section>
+</Section>
