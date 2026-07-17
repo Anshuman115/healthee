@@ -1,213 +1,220 @@
-# Landing page — design decisions (v3)
+# Landing page — design decisions (v4)
 
 The binding design record for `apps/landing`. Any agent extending this page works
 **inside** this system — read it in full before writing UI code. Content rules come
-first because they outrank everything visual: this page is bound by the same
-honesty contract as the product (`docs/LANDING_PAGE_PROMPT.md` is the original
-brief; `docs/PRICING.md` §0/§1a/§2 is the ground truth for every claim).
+first because they outrank everything visual: this page is bound by the same honesty
+contract as the product. `docs/PRICING.md` §0/§1a/§2 is the ground truth for every
+money claim; `README.md`'s status block is the ground truth for what's built.
 
-> **v3 supersedes v2.** v2 ("The Grounded Record") was a rubricated scientific
-> field-journal: serif display, a §-numbered margin rail, footnote citations, warm
-> paper-and-ink. That editorial identity is **retired**. v3 is a premium consumer
-> product page. Do not reintroduce the serif face, the margin rail, or the
-> superscript-footnote motif.
+> **v4 is a clean-slate rebuild. It supersedes v1, v2 and v3 completely.**
+> v1 (editorial), v2 ("The Grounded Record" — serif field-journal with a margin
+> rail and footnote citations) and v3 ("The Instrument" — cool graphite/porcelain,
+> mono-for-data, chips, tight tracking) all shared ONE skeleton: a split hero with a
+> product card, then a stack of proof sections (differentiators grid → coach
+> transcript → pipeline → grade scale → metric card), then pricing columns →
+> self-host → disclaimer → sources. **That skeleton is forbidden.** So are all of
+> its motifs: the mono-for-data face, the chips, the `[note_id]` tags, the tool-call
+> traces, the code/terminal blocks, the grade ladder, the §-numbered margin rail,
+> the serif identity. None of them return.
 
 ## 1. Content rules (these outrank the design)
 
-- **Claim only what is built.** README's status block is the source of truth. The
-  mobile app is unshipped (Phase 2) ⇒ no app-store buttons, no device screenshots,
-  no "download now", no waitlist that posts nowhere. The conversion surfaces are the
-  self-host CTA and the "hosted, opens with the app" card — both honestly labelled,
-  agreeing with the status ribbon (sign-ups **closed**).
-- **Premium/unbuilt features stay visibly marked** ("Planned, not yet built" — the
-  greyed `○` list in the premium card), never present tense.
-- **Competitors:** only Whoop and Oura, only their §2-cited prices, always with the
-  source links and the "current as of" date. Everything else is categorical
-  ("subscription trackers"), never named.
-- **Every rendered product surface is captioned as an example**, not a live reading.
-- **Citations are real.** Every `[note_id]` shown on the page resolves to a real note
-  in `packages/knowledge` (`recovery_readiness`, `biological_age_estimate`,
-  `exercise_mortality`, `no_validated_sleep_score`). The corpus today holds only
-  **Established** and **Probable** grades — so the grade ladder attaches a real id
-  only to those two rungs and says so; it never fabricates a note for Emerging /
-  Contested / Myth.
-- **Security/custody claims are limited to what the repo verifiably does**
-  (README self-hosting guide + `docs/MULTI_USER.md` §3.3): row-level isolation +
-  least-privilege role, Supabase-owned passwords, internet-closed DB + TLS, nightly
-  off-box backups. **No** encryption-at-rest, audit, or compliance (SOC2/HIPAA/GDPR)
-  claims; no "bank-grade" language. Per-user export is **not built** — "own your
-  data / no lock-in" is framed as the standing commitment (true today for self-host,
-  where you hold the whole database), never as a shipped hosted export button.
-- No composite marketing score, no invented statistics, no testimonials, no user
-  counts. When honesty and persuasiveness conflict, honesty wins.
+- **Radically plain language — the first law.** Every sentence must be understandable
+  by a five-year-old and an eighty-year-old. No jargon, anywhere, including inside the
+  rendered examples. **Banned everywhere on the page:** pipeline, validator, manifest,
+  RLS, TLS, FDR, RMSSD, VO₂max, HRV, SpO₂, tool-call JSON, `[note_id]` tags, code
+  blocks, terminal snippets, "encryption", "compliance", Supabase/Postgres/Docker/API.
+  Technical truth is expressed as a **plain promise**: "kept separate", "your password
+  never touches us", "backed by real research you can read". If a sentence needs a
+  second read, rewrite it. Grep the built HTML for the banned list after any change.
+- **The anchor is fixed:** *"the health companion that refuses to flatter you."* The
+  whole page is one story about flattery vs. truth — other apps cheer; this one tells
+  the truth, kindly.
+- **We do not sell hardware.** Healthee is a *companion app* for the Amazfit Helio
+  Strap — "a small, screenless band you can buy on your own, from anyone." Say plainly
+  that we don't sell it and aren't part of the company that makes it. **Never** imply
+  we bundle, sell, or are affiliated with the strap.
+- **Work in progress, honestly.** The backend runs today; the app is being built;
+  sign-ups are **not** open. So: no sign-up form, no waitlist, no app-store buttons,
+  no device mockups. The GitHub link is **not public yet** — the page says "the code
+  goes up on GitHub the moment it's ready to run yourself; the link will appear right
+  here." No clone commands, no fake links.
+- **Pricing, simply** (`PRICING.md` §0/§1a): everything the band records is free
+  forever; the AI coach is the paid part — **$3.99/mo, $34.99/yr, $99 once**
+  (early-supporter, "while it lasts"). One sourced context line is allowed: Whoop
+  $199+/yr, Oura $69.99/yr + $349 ring — both dated **July 2026** with links to their
+  own sites. Unbuilt things (challenges/programs, coach memory) are simply omitted.
+- **The data promise, in plain words only:** kept separate from everyone else's · your
+  password never touches us · backed up every night · never sold · no trackers on this
+  page. Claim **nothing** beyond that — no encryption/compliance/audit/"bank-grade"
+  badges.
+- **Every rendered surface is captioned as an example** ("An example of what it
+  says"), never a live reading. No invented statistics, testimonials, or user counts.
+  "Not enough to be sure" beats a guess. A plain-voice limits line is mandatory (not a
+  medical device, won't diagnose, will tell you to see a doctor).
+- When honesty and persuasiveness conflict, **honesty wins.**
 
-## 2. The concept — "The Instrument"
+### Claims → sources
+| Claim on the page | Source |
+|---|---|
+| $3.99/mo · $34.99/yr · $99 once; free tracking, paid coach | `docs/PRICING.md` §0, §1a |
+| Whoop from $199/yr | https://www.whoop.com/us/en/membership/ (PRICING §2, dated 2026-07) |
+| Oura $69.99/yr + $349 ring | https://ouraring.com/membership (PRICING §2, dated 2026-07) |
+| "kept separate from everyone else's" | README (row-level tenancy), in plain words |
+| "your password never touches us" | README (Supabase-owned auth), in plain words |
+| "backed up every night" | README self-hosting guide (nightly off-box backup) |
+| companion for the Helio Strap; backend runs, app being built, sign-ups closed | README status block |
 
-A premium consumer product page in the spirit of flagship consumer-hardware and
-premium-software sites: **vast negative space, precision typography, and the
-product UI as the hero.** The luxury is material and precision — 1px strokes,
-layered soft shadows, true depth hierarchy, monochrome sophistication with ONE
-refined accent — not decoration. The persuasive core is unchanged from v2: rendered
-surfaces that show the thing no competitor can show — the product **refusing to
-answer**, **holding back**, and **naming its method**. Here those surfaces read as
-screens of a beautiful health app (graphite or porcelain cards), not phone mockups.
+### Deliberately left out (would over-claim or repeat the forbidden skeleton)
+The differentiators grid, the coach tool-trace, the "why it can't lie" two-check
+pipeline, the guardrail-refusal demo, the evidence-grade ladder, the annotated metric
+card + sparkline, the named-methods science layer, the personal-correlations card, the
+self-host code block + `/healthz` snippet, the sourced comparison table, encryption /
+compliance badges, and any per-user export button (not built). Also: no OS-preference
+theme following, no eyebrow/kicker lines, no green.
 
-What this rules out: gradients-as-decoration, glassmorphism, decorative animation,
-stock imagery, emoji, serif identity, and the "green ring" language of reward-driven
-trackers.
+## 2. The concept — "The Honest Voice"
 
-## 3. Colour system
+A **single-column story told in the product's own voice** — closer to a beautifully
+typeset letter or a spoken conversation than a SaaS page. **Typography is the design:**
+enormous confident type, one warm accent, a lot of air. The only elevated elements are
+two *quiet cards* where the app speaks plainly. There are **no** feature grids, tables,
+diagrams, columns, numbered how-it-works stacks, or data chrome of any kind. The
+persuasion is the voice itself — the app saying the honest thing where every other app
+would flatter.
 
-All colour flows through CSS custom properties in `src/styles/global.css`
-(`:root` = light, `.dark` = dark), mapped into Tailwind v4 via `@theme`. **Use the
-semantic token utilities (`bg-canvas`, `text-ink-soft`, `border-line`,
-`text-accent-soft`, `text-warn`…), never raw hex in components.** Dark is the
-primary identity; light is a full re-pick, not an inversion.
+## 3. The structural spine — SIX moments, in the product's voice
+
+One flowing column (`.wrap`, `max-width 46rem`). Each moment is a `<section>` with its
+own headline; the story carries the reader, not a nav of sections. **Max six moments —
+adding a seventh, or any grid/table/column, means you've rebuilt the forbidden
+skeleton.**
+
+1. **The opening truth + the turn + the anchor** — *"Every app tells you 'great job.'
+   Even when it isn't true."* Then the turn: Healthee is the one that won't; it refuses
+   to flatter you.
+2. **One quiet moment of honesty** — *"Most days it has plenty to say. Some days it says
+   this."* → the first quiet card: *"I don't have enough to score you today. Wear it
+   tonight and I'll know more in the morning."* (captioned as an example).
+3. **What it is** — *"A companion for a band you can buy anywhere."* The Helio Strap (we
+   don't sell it), free numbers / paid coach, the coach shown as **one warm plain
+   exchange** (second quiet card), then pricing in plain prose with the Whoop/Oura
+   context line.
+4. **How you'll get it + the data promise** — *"When it's ready, there'll be two honest
+   ways to get it."* We run it for you (opens with the app) · run it yourself (code goes
+   up on GitHub, link appears here). Then "Your numbers stay yours." as plain promises.
+5. **The honest goodbye** — *"It won't pretend to be your doctor."* The limits line +
+   "still being built … watch this space."
+6. *(Footer)* — a quiet close: what it is, and the not-a-medical-device line. No
+   newsletter, social row, or badges.
+
+## 4. Colour system
+
+All colour flows through CSS custom properties in `src/styles/global.css` (`:root` =
+light, `.dark` = dark), mapped into Tailwind v4 via `@theme`. **Use the semantic token
+utilities (`bg-canvas`, `text-ink-soft`, `border-line`, `text-ink-faint`…) or
+`var(--c-*)` inline — never raw hex in components.** Light is the default identity; the
+warm accent is **identical hex in both themes** (only the neutrals re-pick).
 
 | Token | Role | Light | Dark |
 |---|---|---|---|
-| `canvas` | page background | `#fbfcfd` | `#0c0e12` |
-| `card` | rendered surfaces | `#ffffff` | `#16191f` |
-| `sunk` | recessed bands / code / tool-trace | `#f2f4f8` | `#090b0e` |
-| `ink` / `ink-soft` / `ink-faint` | text hierarchy | `#0e1116` / `#545c69` / `#838b98` | `#f1f3f7` / `#a6afbc` / `#6c7580` |
-| `line` / `line-strong` | hairlines / interactive borders | `#e6e9ef` / `#d3d9e2` | `#242932` / `#333a45` |
-| `accent` / `accent-soft` | THE one accent — an iris/indigo | `#4b45d6` | `#8b87ff` / `#a6a2ff` |
-| `warn` | honesty flags ("not enough data", "refused") | `#9a6a1a` | `#e2b25a` |
+| `canvas` | page background | `#f7f4ef` (warm paper) | `#191510` (warm near-black) |
+| `raised` | the quiet cards | `#fffdf9` | `#221d16` |
+| `ink` / `ink-soft` / `ink-faint` | text hierarchy | `#211d18` / `#5c554c` / `#938b7f` | `#f3ede2` / `#b3a996` / `#837868` |
+| `line` / `line-strong` | hairlines / borders | `#e6ded2` / `#d6ccbc` | `#302a20` / `#40382c` |
+| `accent` / `accent-ink` | THE one accent (warm clay) — **same hex both themes** | `#bf4d2b` / `#fff8f3` | `#bf4d2b` / `#fff8f3` |
 
 Decisions:
-- **One accent, an iris/indigo** — deliberately NOT green-ring green, not the warm
-  teal of v2. It marks actions, links, evidence, and the product's own data line;
-  never "success".
-- **Warn is amber, reserved for honesty moments** — the insufficient-data chip, the
-  refusal verdict, the strike-through on a blocked answer, the "from your data"
-  personal-finding tag. It is a feature colour, not an error colour.
-- **Depth is material, not colour.** Surfaces carry a layered soft shadow
-  (`--shadow-card` / `--shadow-lift`) and, on dark only, a 1px inset top highlight
-  (`--edge-top`) that reads as brushed graphite. Both modes are first-class — check
-  every change in both.
+- **One accent, a warm clay/rust `#bf4d2b`** — deliberately NOT green (never a reward
+  ring), and a clean break from v3's cool iris/indigo. It marks one emphasised word per
+  headline, the buttons, and link underlines — **never small body text** (clay-on-canvas
+  is ~4.1:1, below AA for small text, so links carry `ink` with an accent underline; the
+  accent only ever appears at display size, where 3:1 is met in both themes, or as a
+  button fill where white-on-clay is ~4.9:1).
+- **No amber "honesty" colour, no second hue.** The honesty *is* the words; it doesn't
+  need a feature colour. This is another intentional break from v3.
+- **Depth is a whisper.** The quiet cards carry one soft shadow (`--shadow-quiet`) and,
+  on dark only, a 1px inset top highlight (`--edge-top`). Nothing else is elevated.
 
-## 4. Typography — two roles, all system fonts
+## 5. Typography — one system-sans voice, no mono
 
-No webfonts (self-containment is a hard constraint). No serif. Meaning is carried by
-**role and precision**, not novelty:
+Self-containment forbids webfonts, so everything is the `system-ui` sans stack. The
+break from v3 is deliberate: **there is no mono face anywhere** (mono-for-data was v3's
+signature; dropping it kills the "instrument" look and serves the plain-language law).
+No serif either (that was v2). Meaning is carried by **scale and weight**, not novelty:
 
-- **Sans** (`system-ui` stack) — everything. Headings are weight 600 with **tight
-  display tracking** (`letter-spacing: -0.025em`, `line-height ~1.06`,
-  `text-wrap: balance`); prose is `line-height 1.6`. The premium feel comes from
-  precision (tracking, weight contrast, spacing), the way flagship product pages get
-  it from system/near-system faces.
-- **Mono** (`ui-monospace` stack) — **every data value, unit, price, chip, label,
-  citation, and caption**, with `tabular-nums` (`.mono`). This is load-bearing:
-  mono-for-data is what makes the surfaces read as instruments. Never set a metric,
-  price, or `[note_id]` in the prose face.
-- `.display-line` — the one place a *spoken* sentence is set large (the coach's
-  voice, the refusals): sans, weight 560, tight tracking. It replaces v2's serif
-  "spoken" lines.
+- `.say-huge` — the opening truth: weight 700, `clamp(2.85rem, 7.6vw, 6rem)`, tracking
+  `-0.028em`, line-height 1.02.
+- `.say-big` — every moment headline: weight 700, `clamp(1.95rem, 4.6vw, 3.4rem)`.
+- `.warm` — the single accent-coloured word inside a headline (display size only).
+- `.lede` — the relaxed reading voice: `clamp(1.15rem, 1.7vw, 1.4rem)`, `ink-soft`.
+- `.plain` — body prose, `ink-soft`.
+- `.voice` — **what Healthee says**, inside a quiet card: weight 500,
+  `clamp(1.3rem, 2.6vw, 1.85rem)`, `ink`. This is the closest thing to a signature.
+- `.aside` — the small "this is an example" note above/below a card: `0.82rem`,
+  `ink-faint`. Human, never a chip.
 
-Scale: fluid via `clamp()` — hero `clamp(2.5rem,6.2vw,4.6rem)`, section headings
-`clamp(1.9rem,4vw,3rem)`. `.eyebrow` is the mono section label
-(0.72rem / 0.2em tracking / uppercase / accent-soft). `.lede` is the large intro
-paragraph (sans, ink-soft).
+No eyebrow/kicker line exists — headings stand on their own.
 
-## 5. Component vocabulary
+## 6. Component vocabulary
 
-Global (`global.css @layer components`): `.shell` (page column, `max-width 74rem`),
-`.section` (rhythm, `padding-block: clamp(4.5rem,10vw,8rem)`), `.band-sunk`,
-`.eyebrow`, `.lede`, `.mono`, `.display-line`, `.surface` (+ `.surface-lift`),
-`.chip` (+ `.chip-dot`, `.chip-accent`, `.chip-warn`), `.btn-primary` / `.btn-ghost`
-(the only two buttons; one primary action per view), `.hairline`, `.link-underline`.
-
-Surface vocabulary (`surfaces.css`, each dresses a *rendered example*): `.turn*` +
-`.cite` / `.cite-personal` (coach transcript), `.toolcall` (the visible data
-lookup), `.check*` (the two hard checks) + `.flow*` (the plain sequence),
-`.grade-row` + `.grade-none` (the wording-vs-evidence ladder), `.anno-*` (metric-card
-annotation pins), `.blocked` / `.verdict` (the refused-but-cited demo), `.code-win`
-(terminal), `.srclist` / `.srcitem` (Sources), `.cov` (the honest coverage strip),
-`.spark` (inline SVG sparkline). Reuse these; don't invent parallel ones.
-
-`Section.astro` is the premium wrapper: `id`, optional `tone` (`canvas` | `sunk`),
-`labelledby`. It supplies rhythm + optional recessed band, nothing else — **no
-margin rail, no §-numbering.** Each section provides its own eyebrow → heading →
-lede.
-
-## 6. Copy voice — human, around "refuses to flatter you"
-
-The reader owns a fitness band; they are not an engineer. Read every headline,
-lede, label, and chip aloud — if a smart friend with a band would ask "what does
-that mean?", rewrite it. Technical precision LIVES in two places only: **the rendered
-surfaces** (the `[note_id]` citations, the `query_metric` lookup, `RMSSD` inside the
-card, the stats names inside the finding card) and **the Sources section**.
-
-**Banned in headlines / ledes / labels / chips** (allowed only inside a rendered
-surface or Sources): `pipeline`, `validator`, `manifest`, `choke point`,
-`grounded-ask`, `pre-classifier`, `enforced-equivalent`, bare `blocking`, and
-unexplained `RMSSD` / `FDR` / `Benjamini–Hochberg`. Translations in use:
-the pipeline → **"Why it can't lie to you"** (two hard checks: *is this an answer a
-health app should ever give?* · *can every claim be backed?*); the guardrail demo →
-**"Even a well-sourced answer can be refused"**; grade calibration → **"The wording
-matches the strength of the science"**; FDR → **"tested strictly enough to rule out
-coincidence"**; the security mechanism → **"isolated by the database itself"** (the
-name "row-level security" appears once, in small print).
-
-Grep the built HTML for the banned list after any copy change; every hit must sit
-inside a `figure`/surface or the Sources block.
+Global (`global.css @layer components`): `.wrap` (the 46rem reading column),
+`.moment` / `.moment-tight` (vertical rhythm), `.say-huge`, `.say-big`, `.warm`,
+`.lede`, `.plain`, `.quiet` (the card), `.voice`, `.aside`, `.btn` + `.btn-primary` /
+`.btn-ghost` (the only two buttons), `.u-link` (ink text + accent underline), `.rule` /
+`.rule-soft`. There is intentionally **no** surfaces vocabulary file — v3's
+`surfaces.css` (chips, tool-traces, grade rows, verdicts, code windows, sparklines) was
+deleted; those motifs are forbidden.
 
 ## 7. Motion policy
 
 Motion only clarifies; nothing loops or decorates.
-- One pattern: `.rise` — 18px translate + fade on first viewport entry
-  (IntersectionObserver, unobserved after firing — **reveal-once**).
-- **Triple-gated:** elements are hidden-then-revealed ONLY when JS ran AND
-  `prefers-reduced-motion` is off (the `<head>` script adds `.js-anim`; CSS scopes
-  all hiding under `.js-anim .rise`). No JS or reduced-motion ⇒ everything renders
-  fully visible. Never add an animation that breaks this.
-- Micro-motion: 0.18s colour/border transitions and a 1px `:active` press on buttons
-  (also reduced-motion-gated).
+- One pattern: `.rise` — 16px translate + fade on first viewport entry
+  (IntersectionObserver, unobserved after firing — reveal-once).
+- **Triple-gated:** elements hide-then-reveal ONLY when JS ran AND
+  `prefers-reduced-motion` is off (the `<head>` script adds `.js-anim`; CSS scopes all
+  hiding under `.js-anim .rise`). No JS or reduced-motion ⇒ everything renders fully
+  visible. A 1px `:active` press on buttons is the only micro-motion (also
+  reduced-motion-gated).
 
 ## 8. Theming mechanics
 
-- Manual dark mode via a `.dark` class on `<html>` (Tailwind v4 `@custom-variant
-  dark`), seeded **pre-paint** by the inline head script:
-  `localStorage('healthee-theme')` wins, else `prefers-color-scheme`. No flash.
-- The nav toggle writes `localStorage` and flips the class; `aria-pressed` reflects
-  state; `meta name="color-scheme" content="light dark"` is set.
-- New components style both modes through the tokens — if you used the semantic
-  utilities, dark mode is free; raw hex breaks it.
+- **Light is the default. Dark is opt-in only — we do NOT follow the OS preference.**
+  The pre-paint head script adds `.dark` *only* when `localStorage('healthee-theme')`
+  is exactly `'dark'`; there is no `prefers-color-scheme` fallback (a deliberate change
+  from v3). No flash either way.
+- The nav toggle writes `localStorage` and flips the `.dark` class; `aria-pressed` and
+  `aria-label` reflect state; the sun/moon icon shows the theme you'd switch *to*.
+- New components style both modes through the tokens — use the semantic utilities or
+  `var(--c-*)` and dark mode is free; raw hex breaks it.
 
 ## 9. Hard technical constraints
 
 - **Self-contained:** zero external fonts, scripts, CDNs, trackers, or remote images.
-  The favicon is an inline SVG data-URI. Justify every `http(s)://` in `dist/`
-  (currently: the two cited competitor sources, the healthz example in the self-host
-  snippet, and the SVG namespace).
-- **No horizontal scroll at any width:** `overflow-x: hidden` on body; wide content
-  (the code block, the tool-trace) isolated in its own `overflow-x: auto` container.
+  The favicon is an inline SVG data-URI. The build (`npm run build`) runs
+  `scripts/strip-css-banner.mjs` after Astro to remove Tailwind's `/*! … */` license
+  banner, so the **only** `http(s)://` strings left in `dist/` are the two cited
+  competitor links and the SVG namespace (`w3.org/2000/svg`). Verify with:
+  `grep -rhoE "https?://[^\"' )]+" dist/ | sort -u`.
+- **No horizontal scroll at any width:** `overflow-x: hidden` on body; the single
+  narrow column and word-wrapped prose never overflow.
 - **Accessibility:** semantic landmarks, skip link, `:focus-visible` rings,
-  `aria-label`/`figure` on rendered examples, `role="img"` + label on the sparkline,
-  contrast checked in both modes.
+  `figure`/`aria-label` on the two rendered examples, contrast checked in both modes
+  (see §4).
 - **`compressHTML: false` must stay** (`astro.config.mjs`): compression strips
-  whitespace-only text nodes at inline boundaries and glues words to `<span>`
-  citations.
-- Stack: Astro (static) + Tailwind v4 via `@tailwindcss/vite`. Every file ≤ 400
-  lines (the repo cap). Verify with `npm run build` + grep `dist/` for external refs
-  and the banned-jargon list after any change.
+  whitespace-only text nodes at inline boundaries and glues words to inline `<span>`s.
+- Stack: Astro (static) + Tailwind v4 via `@tailwindcss/vite`. Every file ≤ 400 lines
+  (repo cap). After any change: `npm run build`, grep `dist/` for external refs and the
+  banned-jargon list, and confirm both themes render.
 
 ## 10. File map
 
 ```
-src/layouts/Base.astro     head, theme/motion seeding, skip link, reveal observer
-src/styles/global.css      tokens + core component classes (the design system)
-src/styles/surfaces.css    the rendered-surface vocabulary (imported into global)
-src/components/Section.astro   the premium section wrapper (band + rhythm)
-src/pages/index.astro      section order
-src/components/            one section per file:
-  Nav · Hero (refusal card + coverage strip + status ribbon) · Differentiators
-  (the emotional arc) · CoachExchange (tool-trace + citations) ·
-  Pipeline ("Why it can't lie" — the two hard checks) ·
-  GuardrailDemo ("Even a well-sourced answer can be refused") ·
-  GradeScale ("The wording matches the strength of the science") ·
-  MetricAnatomy (annotated card + sparkline) · ScienceLayer (named methods) ·
-  PersonalScience (your patterns) · Pricing (tiers + sourced comparison) ·
-  SelfHost (two ways to run it + the data-custody promise) ·
-  Disclaimer (brand-voice limits) · Sources · Footer
+src/layouts/Base.astro     head, light-default theme seed, motion flag, skip link, reveal observer
+src/styles/global.css      tokens + the whole (small) component vocabulary — the design system
+src/components/Nav.astro    wordmark + theme toggle (no CTA — sign-ups are closed)
+src/components/Footer.astro the quiet close
+src/pages/index.astro       the six-moment story (the whole page lives here, in order)
+src/pages/404.astro         the same honest voice ("we won't pretend it does")
+scripts/strip-css-banner.mjs  post-build: strip the CSS license banner so dist/ stays clean
 ```
