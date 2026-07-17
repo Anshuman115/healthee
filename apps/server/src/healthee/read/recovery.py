@@ -308,19 +308,41 @@ _DATA_HEALTH_SPEC = [
 ]
 
 
+def _last_seen(cur: Cur, user_id: UUID, metric: str) -> datetime | None:
+    """Newest sample instant for one feed — a targeted index probe, not a scan.
+
+    Six of these beat the one grouped `SELECT metric, max(ts) … GROUP BY metric`
+    they replace by ~580x. Measured with EXPLAIN (ANALYZE, BUFFERS) on a year of
+    realistic multi-metric data (1.37 M rows / 53 chunks): grouped = 10,481 buffers;
+    these six probes = 3 buffers each, 18 total. The grouped form's cost also scales
+    with history, while a probe's does not.
+
+    The mechanism is NOT our `0008` `timescaledb.enable_skipscan=off` workaround —
+    measured identical with SkipScan on and off, because SkipScan applies to
+    `DISTINCT ON`, not to `GROUP BY … max()`. The real reason is that `GROUP BY`
+    defeats Postgres' min/max index rewrite: it reads every matching row to compute
+    each group's max, where `ORDER BY ts DESC LIMIT 1` walks the index backwards and
+    stops at the first row.
+
+    So this is not "N+1 queries are fine". A round-trip per ITEM is still the thing
+    standards §1 bans; six bounded probes on the caller's cursor against one scan of
+    all history is a different trade, and the numbers are why it goes this way.
+    """
+    cur.execute(
+        "SELECT ts FROM sample WHERE user_id = %s AND metric = %s ORDER BY ts DESC LIMIT 1",
+        (user_id, metric),
+    )
+    row = cur.fetchone()
+    return row[0] if row else None
+
+
 def data_health_payload(cur: Cur, user_id: UUID) -> dict:
     """Per-feed freshness + sync recency so the app flags stale/dead data instead of
     rendering it as real. Conservative: only 'unavailable' when a feed delivered
     NOTHING within its cadence. Reads the v2 ``sample`` table (already v2-native)."""
     now = datetime.now(tz=UTC)
     items, degraded = [], []
-    # One grouped scan for all feeds' last-seen instead of a probe per metric.
-    cur.execute(
-        "SELECT metric, max(ts) FROM sample "
-        "WHERE user_id = %s AND metric = ANY(%s) GROUP BY metric",
-        (user_id, [m for m, _, _ in _DATA_HEALTH_SPEC]),
-    )
-    last_by_metric = {m: ts for m, ts in cur.fetchall()}
+    last_by_metric = {m: _last_seen(cur, user_id, m) for m, _, _ in _DATA_HEALTH_SPEC}
     for metric, label, days in _DATA_HEALTH_SPEC:
         last = last_by_metric.get(metric)
         age_h = (now - last).total_seconds() / 3600 if last else None
@@ -340,7 +362,15 @@ def data_health_payload(cur: Cur, user_id: UUID) -> dict:
 
 
 def _sync_recency(cur: Cur, user_id: UUID, now, items: list[dict], degraded: list[str]) -> dict:
-    """Sync recency = newest sample of ANY metric; overall trust rollup."""
+    """Sync recency = newest sample of ANY metric; overall trust rollup.
+
+    The bare `max(ts)` with no metric filter is left exactly as it is, deliberately.
+    Unlike the grouped scan `_last_seen` replaced, a plain ungrouped `max()` DOES get
+    Postgres' min/max index rewrite: measured at 3 buffers on the 1.37 M-row year
+    (Result -> ChunkAppend -> index scan of the newest chunk, every older chunk
+    "never executed"). It is already optimal and derives no benefit from a metric
+    filter or a probe rewrite — the `GROUP BY` was the whole problem, not `max(ts)`.
+    """
     cur.execute("SELECT max(ts) FROM sample WHERE user_id = %s", (user_id,))
     r = cur.fetchone()
     newest = r[0] if r and r[0] else None

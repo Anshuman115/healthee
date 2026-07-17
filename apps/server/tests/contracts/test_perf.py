@@ -64,18 +64,25 @@ def test_sleep_is_served_on_one_connection(pool_of_one: tuple) -> None:
     assert resp.status_code == 200, "/api/sleep needs >1 pooled connection (nested borrow?)"
 
 
-# /api/today aggregates ~30 blocks. After the fan-out consolidation the seeded
-# snapshot issues ~37 statements — the per-metric latest-value fan-out is one
-# DISTINCT ON, the ~8 per-metric baselines are one grouped CTE, data-health is one
-# probe per feed, and the sparklines are one batched read. The count is a small
-# fixed constant, NOT proportional to days/rows. This bound catches both an
-# accidental N+1 AND a regression of the consolidation.
+# /api/today aggregates ~30 blocks. The seeded snapshot issues 46 statements today:
+# the per-metric latest-value fan-out is one DISTINCT ON, the ~8 per-metric baselines
+# are one grouped CTE, the sparklines are one batched read, and data-health is six
+# targeted last-seen probes. The count is a small FIXED constant, NOT proportional to
+# days/rows — that is the property this bound protects. It catches both an accidental
+# N+1 and a regression of the consolidation.
+#
+# Raised 45 -> 50 when data-health went from one grouped scan to six probes. Raising a
+# ratchet deserves suspicion, so: the five extra statements are a measured trade, not a
+# slip. The grouped `GROUP BY metric, max(ts)` cost 10,481 buffers against a year of
+# data because GROUP BY defeats the min/max index rewrite; the six probes cost 18 total
+# and, unlike the scan, do not grow with history. Statement count is the proxy; buffers
+# are the budget (read/recovery.py::_last_seen).
 #
 # The claim this comment used to make — that the baselines ran "on ONE connection,
 # not 8" — was true of the STATEMENT count and false of the CONNECTION count: the
 # grouped CTE ran on a second pooled connection borrowed under the request's own.
 # Counting statements never could have caught that; `pool_of_one` above does.
-_MAX_TODAY_QUERIES = 45
+_MAX_TODAY_QUERIES = 50
 
 
 def test_today_query_count_is_bounded(seeded_client: tuple, monkeypatch) -> None:
