@@ -1,9 +1,14 @@
 """Recovery + data-trust payloads for the Today page.
 
 ``recovery_score_payload`` (0-100 morning recovery + live readiness decay),
-``recovery_signals`` (individual favourable/unfavourable markers, no composite),
-``data_health_payload`` (per-feed freshness), and ``routine_today``. All v2-native:
-``derived_daily`` / ``sample`` / ``sleep_session`` / ``manual_entry`` / ``workout``.
+``recovery_signals`` (individual favourable/unfavourable markers, no composite), and
+``data_health_payload`` (per-feed freshness). All v2-native: ``derived_daily`` /
+``sample`` / ``sleep_session``.
+
+``routine_today`` lived here until the illness override pushed this file past the
+400-line gate; it moved to ``read/routine.py``, which was the right home anyway —
+logging what the owner DID today is not a recovery concern (standards §1: a file has
+one reason to change).
 
 The readiness-decay formula is ported VERBATIM (audit-verified). The recovery
 "guidance" string is DETERMINISTIC rule-based text (band + lowest factor), not an
@@ -16,9 +21,13 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from healthee.analytics.baselines import compute_baseline
+from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
-from healthee.read.common import TodayReads, latest_derived, sport_name
+from healthee.read.common import TodayReads, latest_derived
+from healthee.read.health_metrics import active_illness_severity
+
+log = get_logger(__name__)
 
 _MAD_TO_SD = 1.4826  # MAD→σ for a normal distribution [[baselines]]
 
@@ -27,6 +36,25 @@ _BASE_GUIDANCE = {
     "moderate": "Moderate readiness — keep it easy-to-moderate (Zone 2 / brisk). "
     "Skip a hard session today.",
     "low": "Low readiness — prioritise recovery: easy movement only, and protect tonight's sleep.",
+}
+# An active illness flag OVERRIDES the band. The flag exists precisely to catch what a
+# recovery score misses — respiratory rate and skin temperature move first, and the
+# score does not weight them the way an infection does — so a "high" band must never
+# clear a flagged owner to push. Without this, `/api/today` told an actively-flagged
+# owner "a good day to push" in the SAME payload that rendered their illness card.
+# Sourced: sports-science COACHING-RULES.md rule 6 ("Illness pause ... do not train
+# through it — default to rest ... Illness symptoms veto hard training regardless of
+# fresh form") and rule 13 ("readiness hard overrides are not votes ... never let
+# high/green readiness clear a runner reporting illness").
+# The recovery NUMBER is never dropped: the payload still reports `recovery` and `band`
+# (hiding a measured number would be its own dishonesty). Only the GUIDANCE changes.
+# [[respiratory_rate_normal]], [[skin_temp_signals]]
+_ILLNESS_GUIDANCE = {
+    "high": "An illness signal is active — it overrides today's recovery number. Rest "
+    "today: easy movement at most, nothing hard, and protect tonight's sleep. "
+    "Not a diagnosis.",
+    "moderate": "An illness signal is active — it overrides today's recovery number. "
+    "Keep today easy and skip anything hard until the signal clears. Not a diagnosis.",
 }
 _FACTOR_TAILS = {
     "sleep": " Short sleep is the main drag — an earlier night is your highest-leverage move.",
@@ -54,10 +82,11 @@ def recovery_score_payload(
     recovery = round(score)
     readiness, strain_today, typical = _live_readiness(cur, user_id, tz, day, recovery)
     band = "high" if recovery >= 67 else "moderate" if recovery >= 34 else "low"
+    illness = active_illness_severity(cur, user_id, tz)
     return {
         "recovery": recovery,
         "readiness": readiness,
-        "guidance": _guidance(band, readiness, recovery, flags.get("factors", {})),
+        "guidance": _guidance(band, readiness, recovery, flags.get("factors", {}), illness),
         "date": day.isoformat(),
         "band": band,
         "factors": flags.get("factors", {}),
@@ -101,16 +130,31 @@ def decayed_readiness(recovery: int, strain_today: float, typical: float) -> int
     return round(recovery * (1 - decay))
 
 
-def _guidance(band: str, readiness: int, recovery: int, factors: dict) -> str:
+def _base_guidance(band: str, illness: str | None) -> str:
+    """The guidance ceiling: an active illness flag replaces the band's text entirely."""
+    if illness is None:
+        return _BASE_GUIDANCE[band]
+    override = _ILLNESS_GUIDANCE.get(illness)
+    if override is None:
+        # Unreachable: the schema CHECK-constrains severity to moderate|high. But an
+        # unrecognised severity must fail SAFE (toward rest), never fall through to "a
+        # good day to push" — that silent fall-through is the bug this function fixes.
+        log.warning("unknown illness severity %r — using the strictest guidance", illness)
+        return _ILLNESS_GUIDANCE["high"]
+    return override
+
+
+def _guidance(band: str, readiness: int, recovery: int, factors: dict, illness: str | None) -> str:
     """Deterministic, evidence-grounded daily guidance (NOT LLM): the band sets the
-    ceiling and the lowest-scoring factor names the lever. Ported VERBATIM."""
+    ceiling — unless an active illness flag overrides it (see ``_ILLNESS_GUIDANCE``) —
+    and the lowest-scoring factor names the lever. Band/tail logic ported VERBATIM."""
     tail = ""
     limiter = min(factors.items(), key=lambda kv: kv[1].get("sub", 50)) if factors else None
     if limiter and limiter[1].get("sub", 50) < 45:
         tail = _FACTOR_TAILS.get(limiter[0], "")
     if readiness < recovery - 8:
         tail += " Today's training has already used some of your capacity."
-    return _BASE_GUIDANCE[band] + tail
+    return _base_guidance(band, illness) + tail
 
 
 def recovery_signals(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
@@ -303,71 +347,3 @@ def _sync_recency(cur: Cur, user_id: UUID, now, items: list[dict], degraded: lis
         "degraded": degraded,
         "items": items,
     }
-
-
-def routine_today(cur: Cur, user_id: UUID, tz: str) -> dict:
-    """Open fast + today's meditation, workouts, and manual-log counts."""
-    return {
-        "open_fast": _open_fast(cur, user_id),
-        "meditation_today": _meditation_today(cur, user_id, tz),
-        "workouts": _workouts_today(cur, user_id, tz),
-        "logs_summary": _logs_summary(cur, user_id, tz),
-    }
-
-
-def _open_fast(cur: Cur, user_id: UUID) -> dict | None:
-    cur.execute(
-        "SELECT id, ts FROM manual_entry WHERE user_id = %s AND kind='fasting' "
-        "AND end_ts IS NULL ORDER BY ts DESC LIMIT 1",
-        (user_id,),
-    )
-    row = cur.fetchone()
-    if not row:
-        return None
-    elapsed = int((datetime.now(tz=UTC) - row[1]).total_seconds() // 60)
-    return {"id": str(row[0]), "start_iso": row[1].isoformat(), "elapsed_min": elapsed}
-
-
-def _meditation_today(cur: Cur, user_id: UUID, tz: str) -> dict:
-    cur.execute(
-        "SELECT COUNT(*), COALESCE(SUM(amount),0) FROM manual_entry "
-        "WHERE user_id = %s AND kind='meditation' AND (ts AT TIME ZONE %s)::date = %s",
-        (user_id, tz, user_today(tz)),
-    )
-    c, m = cur.fetchone() or (0, 0)
-    return {"count": int(c or 0), "minutes": int(m or 0)}
-
-
-def _workouts_today(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
-    """Today's device workouts (>=10 min), newest first."""
-    cur.execute(
-        "SELECT start_ts, duration_s, sport FROM workout WHERE user_id = %s "
-        "AND (start_ts AT TIME ZONE %s)::date = %s AND COALESCE(duration_s,0) >= 600 "
-        "ORDER BY start_ts DESC",
-        (user_id, tz, user_today(tz)),
-    )
-    out = []
-    for start_ts, dur_s, sport in cur.fetchall():
-        dur_min = round((dur_s or 0) / 60) if dur_s else None
-        end_iso = (start_ts + timedelta(seconds=int(dur_s or 0))).isoformat() if start_ts else None
-        out.append(
-            {
-                "kind": "workout",
-                "type": sport_name(sport),
-                "start_iso": start_ts.isoformat() if start_ts else None,
-                "end_iso": end_iso,
-                "duration_min": dur_min,
-                "intensity": None,
-                "source": "strap",
-            }
-        )
-    return out
-
-
-def _logs_summary(cur: Cur, user_id: UUID, tz: str) -> dict:
-    cur.execute(
-        "SELECT kind, COUNT(*), COALESCE(SUM(amount),0) FROM manual_entry "
-        "WHERE user_id = %s AND (ts AT TIME ZONE %s)::date = %s GROUP BY kind",
-        (user_id, tz, user_today(tz)),
-    )
-    return {k: {"count": int(c), "total": float(t or 0)} for k, c, t in cur.fetchall()}

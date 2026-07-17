@@ -1,5 +1,5 @@
 """Pure shaping tests (no DB): the sleep stage timeline + totals, the sport-code
-names, the trivial-finding filter, and the PAI gap."""
+names, the trivial-finding filter, the PAI gap, and the recovery-guidance override."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from healthee.read.common import sport_name
 from healthee.read.findings import _shape, is_trivial_finding
+from healthee.read.recovery import _base_guidance
 from healthee.read.sleep_common import STAGE_NAME, stage_timeline, stage_totals
 
 
@@ -94,3 +95,25 @@ def _f(a: str, b: str, *, eff: float = 0.5, n: int = 30) -> dict:
         "n_samples": n,
         "research_note_ids": [],
     }
+
+
+def test_illness_override_replaces_the_band_text() -> None:
+    """Both real severities override; no severity leaves the ported band text alone."""
+    assert _base_guidance("high", None).startswith("Well recovered — a good day to push")
+    for severity in ("moderate", "high"):
+        assert "illness signal is active" in _base_guidance("high", severity)
+        assert "good day to push" not in _base_guidance("high", severity)
+
+
+def test_unknown_illness_severity_fails_safe_toward_rest() -> None:
+    """The fail-safe direction.
+
+    The schema CHECK-constrains severity to moderate|high, so this is unreachable
+    through the DB — which is exactly why it is asserted here. A severity the code does
+    not recognise must never fall through to "a good day to push"; that silent
+    fall-through is the bug class the override exists to kill, and a future migration
+    adding a third severity must not quietly resurrect it.
+    """
+    guidance = _base_guidance("high", "catastrophic")
+    assert "good day to push" not in guidance
+    assert guidance == _base_guidance("high", "high")  # strictest wins

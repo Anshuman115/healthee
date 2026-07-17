@@ -463,7 +463,7 @@
         "sub": 60
       }
     },
-    "guidance": "Well recovered \u2014 a good day to push: intervals or a harder session are on the table. Today's training has already used some of your capacity.",
+    "guidance": "An illness signal is active \u2014 it overrides today's recovery number. Keep today easy and skip anything hard until the signal clears. Not a diagnosis. Today's training has already used some of your capacity.",
     "note_id": "recovery_readiness",
     "readiness": 36,
     "recovery": 72,

@@ -78,16 +78,43 @@ def biological_age_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     return compute_biological_age(cur, user_id, tz)
 
 
+# How long a flag stays "active" after its date. ONE definition, shared by every
+# reader below — "is this owner flagged ill right now?" must not have two answers
+# (CLAUDE.md: one canonical definition per metric). [[illness_flag_plan]]
+_ILLNESS_ACTIVE_DAYS = 2
+
+
+def _latest_active_illness(cur: Cur, user_id: UUID, tz: str) -> tuple | None:
+    """The owner's most recent still-active illness-flag row, or None.
+
+    The single source of truth for what "active" means; ``illness_flag_payload`` shapes
+    it for the Today card and ``active_illness_severity`` reduces it to the one field
+    the recovery guidance needs. Both run on the CALLER's cursor — no second
+    transaction (these are RLS-scoped read paths).
+    """
+    cur.execute(
+        "SELECT date, severity, rr_delta_bpm, temp_delta_c, sustained, research_note_ids "
+        "FROM illness_flag WHERE user_id = %s AND date >= %s ORDER BY date DESC LIMIT 1",
+        (user_id, user_today(tz) - timedelta(days=_ILLNESS_ACTIVE_DAYS)),
+    )
+    return cur.fetchone()
+
+
+def active_illness_severity(cur: Cur, user_id: UUID, tz: str) -> str | None:
+    """'moderate' | 'high' if the owner is currently flagged ill, else None.
+
+    Exists so ``read/recovery.py`` can let an active flag override push-style guidance
+    without re-deciding what "active" means (or opening its own transaction).
+    """
+    row = _latest_active_illness(cur, user_id, tz)
+    return row[1] if row else None
+
+
 def illness_flag_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Latest active illness flag (within 2 days). Auto-clears when the deltas fall
     below threshold (no row → no flag). The "framing" is deterministic metric text,
     not LLM. [[respiratory_rate_normal]], [[skin_temp_signals]]."""
-    cur.execute(
-        "SELECT date, severity, rr_delta_bpm, temp_delta_c, sustained, research_note_ids "
-        "FROM illness_flag WHERE user_id = %s AND date >= %s ORDER BY date DESC LIMIT 1",
-        (user_id, user_today(tz) - timedelta(days=2)),
-    )
-    row = cur.fetchone()
+    row = _latest_active_illness(cur, user_id, tz)
     if not row:
         return None
     d, severity, rr_delta, temp_delta, sustained, note_ids = row

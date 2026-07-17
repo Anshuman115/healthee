@@ -38,8 +38,8 @@ from healthee.read.recovery import (
     data_health_payload,
     recovery_score_payload,
     recovery_signals,
-    routine_today,
 )
+from healthee.read.routine import routine_today
 from healthee.read.sleep_extras import (
     last_sleep,
     last_sleep_extras,
