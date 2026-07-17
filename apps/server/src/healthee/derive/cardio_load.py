@@ -1,22 +1,20 @@
 """Daily cardiovascular load (Banister TRIMP) + time-in-HR-zones (Edwards).
 
-Over WAKING minutes only (sleep is recovery, not load; workouts included). Load
-per minute = HR-reserve fraction (Karvonen) weighted by the sex-specific lactate
-term; zones by %HRmax. HRmax from Tanaka 2001, RHR measured. Ported verbatim from
-legacy v2. Knowledge: [[training_stress_score]], [[heart_rate_zones]],
-[[maximum_heart_rate]].
+Over WAKING minutes only (sleep is recovery, not load; workouts included). The
+per-minute Banister term comes from ``derive/trimp`` — the ONE definition of the
+load currency, shared with the per-session figure in ``read/workout``; zones by
+%HRmax. HRmax from Tanaka 2001, RHR measured. Ported verbatim from legacy v2.
+Knowledge: [[training_stress_score]], [[heart_rate_zones]], [[maximum_heart_rate]].
 """
 
 from __future__ import annotations
 
-import math
 from datetime import date, datetime
 from uuid import UUID
 
 from healthee.derive._common import Cur, _age, _day_bounds_utc, _load_profile, _upsert_daily
+from healthee.derive.trimp import trimp_minute
 
-# (a, b) in the Banister weighting a * e^(b * dHR); dHR = HR-reserve fraction.
-TRIMP_W = {"male": (0.64, 1.92), "female": (0.86, 1.67)}
 # Edwards zone lower bounds as %HRmax; zone weights are 1..5.
 EDWARDS_ZONE_LO = (0.50, 0.60, 0.70, 0.80, 0.90)
 
@@ -51,8 +49,7 @@ def derive_cardio_load(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | No
     )
     rows = cur.fetchall()
 
-    a, b = TRIMP_W.get(prof["sex"], TRIMP_W["male"])
-    trimp, zones, n_hr = _trimp_and_zones(rows, sleep_wins, rhr, hrmax, a, b)
+    trimp, zones, n_hr = _trimp_and_zones(rows, sleep_wins, rhr, hrmax, prof["sex"])
     if n_hr == 0:
         return None
     edwards = sum((i + 1) * z for i, z in enumerate(zones))
@@ -81,7 +78,7 @@ def _measured_rhr(cur: Cur, user_id: UUID, day: date) -> float:
 
 
 def _trimp_and_zones(
-    rows: list, sleep_wins: list, rhr: float, hrmax: float, a: float, b: float
+    rows: list, sleep_wins: list, rhr: float, hrmax: float, sex: str | None
 ) -> tuple[float, list[int], int]:
     """Accumulate TRIMP and per-zone minutes over waking HR minutes."""
 
@@ -96,8 +93,7 @@ def _trimp_and_zones(
             continue
         n_hr += 1
         hr = float(hr)
-        dhr = max(0.0, min(1.0, (hr - rhr) / (hrmax - rhr)))
-        trimp += dhr * a * math.exp(b * dhr)
+        trimp += trimp_minute(hr, rhr, hrmax, sex)
         pct = hr / hrmax
         for zi in range(4, -1, -1):  # highest zone first
             if pct >= EDWARDS_ZONE_LO[zi]:

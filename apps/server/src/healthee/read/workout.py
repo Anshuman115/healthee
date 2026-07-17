@@ -6,7 +6,6 @@ the raw ``sample`` table. The session-TRIMP formula ports VERBATIM (Banister).
 
 from __future__ import annotations
 
-import math
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -14,11 +13,9 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
 from healthee.derive._common import Cur
+from healthee.derive.trimp import trimp_total
 from healthee.read.common import sport_name
 from healthee.read.fitness import cardio_load_payload, vo2max_payload
-
-# Banister TRIMP sex weights (a, b): female / male. [[training_stress_score]].
-_TRIMP_W = {"female": (0.86, 1.67), "male": (0.64, 1.92)}
 
 
 def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
@@ -126,14 +123,13 @@ def _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones) ->
 
 
 def _session_trimp(hrs: list[int], hrmax: float, rhr: float, sex: str) -> float:
-    """Banister session TRIMP over the HR samples. Ported VERBATIM. [[training_stress_score]]."""
-    a, b = _TRIMP_W.get(sex, _TRIMP_W["male"])
-    trimp = 0.0
-    for hr in hrs:
-        frac = (hr - rhr) / (hrmax - rhr)
-        if frac > 0:
-            trimp += frac * a * math.exp(b * frac)
-    return round(trimp, 1)
+    """Banister session TRIMP over the HR samples — the ONE definition, from ``derive/trimp``.
+
+    This used to be a second, hand-rolled copy of the formula with its own coefficient
+    table and NO upper clamp on ΔHR, so the same athlete-minute scored differently here
+    than in the daily ``cardio_load``. [[training_stress_score]].
+    """
+    return round(trimp_total(hrs, rhr, hrmax, sex), 1)
 
 
 def _workout_block(start_ts, sport, dur_min, cal, dist, avg_hr, max_hr, min_hr) -> dict:
