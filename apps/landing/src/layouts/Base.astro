@@ -1,0 +1,70 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231c534e'/%3E%3Cpath d='M9 9v14M9 16h9m0-7v14' stroke='%23f6f4ee' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+    {/* Seed theme + animation flag before paint so there is no flash of the wrong theme. */}
+    <script is:inline>
+      (function () {
+        var root = document.documentElement;
+        try {
+          var stored = localStorage.getItem('healthee-theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (stored === 'dark' || (!stored && prefersDark)) root.classList.add('dark');
+        } catch (e) {
+          /* localStorage unavailable — fall back to prefers-color-scheme via media query default */
+        }
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          root.classList.add('js-anim');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-[color:var(--c-accent-ink)]"
+    >
+      Skip to content
+    </a>
+    <slot />
+
+    <script>
+      // Scroll-reveal: only elements marked .rise, only when the head script
+      // enabled .js-anim (JS present + motion allowed). Otherwise untouched/visible.
+      if (document.documentElement.classList.contains('js-anim')) {
+        const observer = new IntersectionObserver(
+          (entries, obs) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('in');
+                obs.unobserve(entry.target);
+              }
+            }
+          },
+          { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+        );
+        for (const el of document.querySelectorAll('.rise')) observer.observe(el);
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,244 @@
+@import "tailwindcss";
+
+/* Manual dark mode: the `.dark` class on <html> wins; the head script seeds it
+   from localStorage or prefers-color-scheme so there is no flash. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ *
+ *  Design language — "the honest instrument"
+ *  Warm paper + ink. Three type roles, all from the system stack:
+ *  serif for display, sans for prose, mono for every number/label/citation.
+ *  One restrained accent (a dark instrument teal) — deliberately NOT the
+ *  "green ring" reward colour this product exists to reject.
+ * ------------------------------------------------------------------ */
+
+:root {
+  --c-paper: #f6f4ee;
+  --c-raised: #fcfbf7;
+  --c-sunk: #efece3;
+  --c-ink: #1b1a16;
+  --c-ink-soft: #565148;
+  --c-ink-faint: #857f72;
+  --c-line: #e4dfd3;
+  --c-line-strong: #d3ccbc;
+  --c-accent: #1c534e;
+  --c-accent-soft: #2a736b;
+  --c-accent-ink: #f6f4ee;
+  --c-accent-tint: rgba(28, 83, 78, 0.07);
+  --c-warn: #8a5a1f;
+  --c-warn-tint: rgba(138, 90, 31, 0.09);
+  --shadow-card: 0 1px 2px rgba(27, 26, 22, 0.04), 0 8px 28px -18px rgba(27, 26, 22, 0.22);
+}
+
+.dark {
+  --c-paper: #17160f;
+  --c-raised: #1f1d16;
+  --c-sunk: #131209;
+  --c-ink: #ece7db;
+  --c-ink-soft: #ada694;
+  --c-ink-faint: #7c7565;
+  --c-line: #322f25;
+  --c-line-strong: #443f32;
+  --c-accent: #62b4a8;
+  --c-accent-soft: #82c6bb;
+  --c-accent-ink: #10201d;
+  --c-accent-tint: rgba(98, 180, 168, 0.11);
+  --c-warn: #d4a25a;
+  --c-warn-tint: rgba(212, 162, 90, 0.12);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.6);
+}
+
+@theme {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Iowan Old Style", "Times New Roman", Times, serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --color-paper: var(--c-paper);
+  --color-raised: var(--c-raised);
+  --color-sunk: var(--c-sunk);
+  --color-ink: var(--c-ink);
+  --color-ink-soft: var(--c-ink-soft);
+  --color-ink-faint: var(--c-ink-faint);
+  --color-line: var(--c-line);
+  --color-line-strong: var(--c-line-strong);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-warn: var(--c-warn);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--c-paper);
+    color: var(--c-ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--c-accent);
+    color: var(--c-accent-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+}
+
+@layer components {
+  .shell {
+    width: 100%;
+    max-width: 76rem;
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 5vw, 3.5rem);
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--c-ink-faint);
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Rendered product surfaces — the persuasive core of the page. */
+  .surface {
+    background: var(--c-raised);
+    border: 1px solid var(--c-line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    padding: 0.4em 0.6em;
+    border: 1px solid var(--c-line-strong);
+    border-radius: 999px;
+    color: var(--c-ink-soft);
+    white-space: nowrap;
+  }
+
+  .chip-dot::before {
+    content: "";
+    width: 0.45em;
+    height: 0.45em;
+    border-radius: 999px;
+    background: currentColor;
+    flex: none;
+  }
+
+  .chip-accent {
+    color: var(--c-accent-soft);
+    border-color: color-mix(in srgb, var(--c-accent) 40%, transparent);
+    background: var(--c-accent-tint);
+  }
+
+  .chip-warn {
+    color: var(--c-warn);
+    border-color: color-mix(in srgb, var(--c-warn) 45%, transparent);
+    background: var(--c-warn-tint);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55em;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.72rem 1.35rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+
+  .btn-primary {
+    background: var(--c-accent);
+    color: var(--c-accent-ink);
+  }
+  .btn-primary:hover { background: var(--c-accent-soft); }
+
+  .btn-ghost {
+    border-color: var(--c-line-strong);
+    color: var(--c-ink);
+  }
+  .btn-ghost:hover {
+    border-color: var(--c-accent);
+    color: var(--c-accent-soft);
+  }
+
+  .hairline {
+    height: 1px;
+    background: var(--c-line);
+    border: 0;
+  }
+
+  .link-underline {
+    color: var(--c-accent-soft);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--c-accent) 45%, transparent);
+  }
+  .link-underline:hover { text-decoration-color: currentColor; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn:active { transform: none; }
+  }
+}
+
+/* Load / scroll reveal — opt-in and only when JS + motion are both present.
+   Without JS, or with reduced-motion, every element renders fully visible. */
+@layer utilities {
+  .js-anim .rise {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+      transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: opacity, transform;
+  }
+  .js-anim .rise.in {
+    opacity: 1;
+    transform: none;
+  }
+}
