@@ -158,7 +158,7 @@ def test_daily_series_and_baseline_are_scoped(two_owners: None) -> None:  # noqa
     assert series and all(v < _B_RHR for v in series.values())
 
     baseline = compute_baseline(
-        SENTINEL_USER_ID, "rhr_daily", window_days=90, end_date=max(_days())
+        SENTINEL_USER_ID, SENTINEL_TZ, "rhr_daily", window_days=90, end_date=max(_days())
     )
     assert baseline.median is not None
     assert baseline.median < _B_RHR, f"baseline median {baseline.median} is pooled across owners"

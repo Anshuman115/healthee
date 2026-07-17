@@ -45,18 +45,20 @@ def _seed_fasting_schedule() -> tuple[list, int]:
 
 def test_query_metric_reads_real_values(db: None) -> None:  # noqa: ARG001
     _seed_fasting_schedule()
-    avg = coach_tools.query_metric(SENTINEL_USER_ID, "rhr_daily", days=30, stat="avg")
+    avg = coach_tools.query_metric(SENTINEL_USER_ID, SENTINEL_TZ, "rhr_daily", days=30, stat="avg")
     assert avg["metric"] == "rhr_daily"
     assert 54.0 <= avg["avg"] <= 56.0
     assert avg["n"] == 30
-    latest = coach_tools.query_metric(SENTINEL_USER_ID, "rhr_daily", days=30, stat="latest")
+    latest = coach_tools.query_metric(
+        SENTINEL_USER_ID, SENTINEL_TZ, "rhr_daily", days=30, stat="latest"
+    )
     assert "latest" in latest and "as_of" in latest
 
 
 def test_query_metric_no_data_is_honest(db: None) -> None:  # noqa: ARG001
     migrate.apply_migrations()
     sd.clean()
-    out = coach_tools.query_metric(SENTINEL_USER_ID, "hrv_sleep_avg", days=7)
+    out = coach_tools.query_metric(SENTINEL_USER_ID, SENTINEL_TZ, "hrv_sleep_avg", days=7)
     assert out["note"] == "no data for this metric/range"
 
 

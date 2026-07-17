@@ -121,7 +121,11 @@ class TodayReads:
 
 
 def build_today_reads(
-    cur: Cur, user_id: UUID, latest_metrics: Sequence[str], baseline_metrics: Sequence[str]
+    cur: Cur,
+    user_id: UUID,
+    tz: str,
+    latest_metrics: Sequence[str],
+    baseline_metrics: Sequence[str],
 ) -> TodayReads:
     """Preload the Today latest-values (1 query) + 30-day baselines (1 query).
 
@@ -131,7 +135,7 @@ def build_today_reads(
     """
     return TodayReads(
         latest=latest_derived_many(cur, user_id, latest_metrics),
-        baselines=compute_baselines_cur(cur, user_id, list(baseline_metrics), window_days=30),
+        baselines=compute_baselines_cur(cur, user_id, tz, list(baseline_metrics), window_days=30),
     )
 
 

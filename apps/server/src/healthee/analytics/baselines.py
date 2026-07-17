@@ -18,6 +18,7 @@ from uuid import UUID
 
 from healthee.analytics.metrics import V2_DAILY_METRICS, metric_filter
 from healthee.core.db import tenant_transaction
+from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
 from healthee.derive.robust import robust_sd as _robust_sd
 
@@ -60,14 +61,19 @@ class Baseline:
 
 
 def compute_baseline_cur(
-    cur: Cur, user_id: UUID, metric: str, window_days: int = 30, end_date: date | None = None
+    cur: Cur,
+    user_id: UUID,
+    tz: str,
+    metric: str,
+    window_days: int = 30,
+    end_date: date | None = None,
 ) -> Baseline:
     """:func:`compute_baseline` on the CALLER's cursor — the read path's form."""
-    return compute_baselines_cur(cur, user_id, (metric,), window_days, end_date)[metric]
+    return compute_baselines_cur(cur, user_id, tz, (metric,), window_days, end_date)[metric]
 
 
 def compute_baseline(
-    user_id: UUID, metric: str, window_days: int = 30, end_date: date | None = None
+    user_id: UUID, tz: str, metric: str, window_days: int = 30, end_date: date | None = None
 ) -> Baseline:
     """Median/MAD/quartile baseline for one owner's metric over the trailing window.
 
@@ -78,12 +84,13 @@ def compute_baseline(
     Opens its own connection: for callers with no cursor (jobs, anomalies, insight
     context). A read service already holding one must use :func:`compute_baseline_cur`.
     """
-    return compute_baselines(user_id, (metric,), window_days, end_date)[metric]
+    return compute_baselines(user_id, tz, (metric,), window_days, end_date)[metric]
 
 
 def compute_baselines_cur(
     cur: Cur,
     user_id: UUID,
+    tz: str,
     metrics: Sequence[str],
     window_days: int = 30,
     end_date: date | None = None,
@@ -104,7 +111,16 @@ def compute_baselines_cur(
     result = {m: _empty_baseline(m, window_days) for m in wanted}
     if not wanted:
         return result
-    end_date = end_date or date.today()
+    # The OWNER's today (`user_today`), never `date.today()` — that is the SERVER
+    # process's date (container TZ=UTC), which is nobody's local day. It is the
+    # Python twin of the `current_date` anchors 6.4a removed from SQL, and it was
+    # missed because it is not SQL: an owner at UTC+14 had their current day fall
+    # outside their own 30-day window (n=29, median computed over the wrong days),
+    # while an owner at UTC-05 got a window ending on their TOMORROW that dropped
+    # their oldest day — and flipped mid-evening, with no new data. That baseline
+    # feeds `z_score` → anomalies → recovery score → the LLM context, so a wrong
+    # anchor here ships a confidently wrong number (`core.tenancy.USER_TODAY_SQL`).
+    end_date = end_date or user_today(tz)
     start_date = end_date - timedelta(days=window_days - 1)
     cur.execute(_baselines_sql(wanted), (user_id, start_date, end_date, *wanted))
     for row in cur.fetchall():
@@ -114,6 +130,7 @@ def compute_baselines_cur(
 
 def compute_baselines(
     user_id: UUID,
+    tz: str,
     metrics: Sequence[str],
     window_days: int = 30,
     end_date: date | None = None,
@@ -127,7 +144,7 @@ def compute_baselines(
     :func:`compute_baselines_cur` instead.
     """
     with tenant_transaction(user_id) as cur:
-        return compute_baselines_cur(cur, user_id, metrics, window_days, end_date)
+        return compute_baselines_cur(cur, user_id, tz, metrics, window_days, end_date)
 
 
 def _baselines_sql(wanted: list[str]) -> LiteralString:
@@ -185,12 +202,13 @@ def _f(v: Any) -> float | None:
 
 def compute_all(
     user_id: UUID,
+    tz: str,
     metrics: tuple[str, ...] = DEFAULT_DAILY_METRICS,
     window_days: int = 30,
     end_date: date | None = None,
 ) -> list[Baseline]:
     """Baselines for every metric in ``metrics`` over the trailing window."""
-    return [compute_baseline(user_id, m, window_days, end_date) for m in metrics]
+    return [compute_baseline(user_id, tz, m, window_days, end_date) for m in metrics]
 
 
 def latest_value(user_id: UUID, metric: str) -> tuple[date, float] | None:

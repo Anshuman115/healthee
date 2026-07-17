@@ -71,10 +71,10 @@ _BASELINE_METRICS: tuple[str, ...] = (
 
 def today_snapshot(cur: Cur, user_id: UUID, tz: str) -> dict:
     """Assemble the whole Today payload from a single cursor."""
-    reads = build_today_reads(cur, user_id, _LATEST_METRICS, _BASELINE_METRICS)
+    reads = build_today_reads(cur, user_id, tz, _LATEST_METRICS, _BASELINE_METRICS)
     payload = {
         "date": user_today(tz).isoformat(),
-        "metrics": secondary_cards(cur, user_id, reads),
+        "metrics": secondary_cards(cur, user_id, tz, reads),
     }
     payload.update(_sleep_blocks(cur, user_id, tz))
     payload.update(_metric_blocks(cur, user_id, tz, reads))
@@ -118,7 +118,7 @@ def _signal_blocks(cur: Cur, user_id: UUID, tz: str, reads: TodayReads) -> dict:
     """Recovery + data-trust + routine + today's recommendations."""
     return {
         "recommendations": _recommendations_today(cur, user_id, tz),
-        "recovery": recovery_signals(cur, user_id, reads),
+        "recovery": recovery_signals(cur, user_id, tz, reads),
         "recovery_score": recovery_score_payload(cur, user_id, tz, reads),
         "data_health": data_health_payload(cur, user_id),
         "routine": routine_today(cur, user_id, tz),

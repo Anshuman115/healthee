@@ -22,6 +22,7 @@ from healthee.analytics.metrics import EVENT_KINDS
 from healthee.analytics.series import daily_series, event_days
 from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
+from healthee.core.tenancy import user_today
 from healthee.insights import manifest
 from healthee.insights.retrieval import rank_notes
 from healthee.read.logs import LogRequest, record_log
@@ -144,7 +145,7 @@ def execute_tool(name: str, args: dict[str, Any], user_id: UUID, tz: str) -> dic
     """
     if name == "query_metric":
         return query_metric(
-            user_id, str(args.get("metric", "")), args.get("days", 30), args.get("stat")
+            user_id, tz, str(args.get("metric", "")), args.get("days", 30), args.get("stat")
         )
     if name == "compare_event":
         return compare_event(
@@ -174,11 +175,13 @@ def _clamp(value: Any, lo: int, hi: int, default: int) -> int:
         return default
 
 
-def query_metric(user_id: UUID, metric: str, days: Any = 30, stat: str | None = None) -> dict:
+def query_metric(
+    user_id: UUID, tz: str, metric: str, days: Any = 30, stat: str | None = None
+) -> dict:
     """Aggregate/series/latest/trend for one metric from ``derived_daily`` (v2-native)."""
     days = _clamp(days, 1, 365, 30)
     stat = stat or "avg"
-    cutoff = date.today() - timedelta(days=days)
+    cutoff = user_today(tz) - timedelta(days=days)
     with tenant_transaction(user_id) as cur:
         series = daily_series(cur, user_id, metric)
     windowed = {d: v for d, v in series.items() if d >= cutoff}
@@ -218,7 +221,7 @@ def _stat_value(stat: str, windowed: dict[date, float], ordered: list[float]) ->
 def compare_event(user_id: UUID, tz: str, event: str, metric: str, days: Any = 60) -> dict:
     """On-days vs off-days for a logged intervention — observational, single-subject."""
     days = _clamp(days, 7, 365, 60)
-    cutoff = date.today() - timedelta(days=days)
+    cutoff = user_today(tz) - timedelta(days=days)
     ev = event.lower().strip()
     with tenant_transaction(user_id) as cur:
         on_days = _event_dates(cur, user_id, tz, ev)

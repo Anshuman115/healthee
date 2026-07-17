@@ -69,7 +69,7 @@ def detect(
         with tenant_transaction(user_id) as cur:
             values = _daily_values(cur, user_id, tz, metric, days_back)
         for d, v in values:
-            anomaly = _evaluate(user_id, metric, d, v, window_days, z_threshold, note_ids)
+            anomaly = _evaluate(user_id, tz, metric, d, v, window_days, z_threshold, note_ids)
             if anomaly is not None:
                 out.append(anomaly)
     out.sort(key=lambda a: (a.when, abs(a.z)), reverse=True)
@@ -78,6 +78,7 @@ def detect(
 
 def _evaluate(
     user_id: UUID,
+    tz: str,
     metric: str,
     d: date,
     v: float,
@@ -86,7 +87,7 @@ def _evaluate(
     note_ids: list[str],
 ) -> Anomaly | None:
     """Baseline (excluding day ``d``) and flag ``v`` if |z| ≥ threshold."""
-    baseline = compute_baseline(user_id, metric, window_days, end_date=d - timedelta(days=1))
+    baseline = compute_baseline(user_id, tz, metric, window_days, end_date=d - timedelta(days=1))
     z = baseline.z_score(v)
     if z is None or abs(z) < z_threshold:
         return None

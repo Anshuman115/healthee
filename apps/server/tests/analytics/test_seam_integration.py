@@ -46,7 +46,7 @@ def test_baselines_and_anomalies_nonempty_on_v2_names(db: None) -> None:  # noqa
         sd.seed_daily(cur, "rhr_daily", values)
 
     # Baseline is non-empty on the v2 name (legacy read `metric_sample` → 0 rows).
-    base = baselines.compute_baseline(SENTINEL_USER_ID, "rhr_daily", window_days=30)
+    base = baselines.compute_baseline(SENTINEL_USER_ID, SENTINEL_TZ, "rhr_daily", window_days=30)
     assert base.n > 0
     assert base.median is not None and 53 <= base.median <= 57
 

@@ -173,14 +173,16 @@ def _guidance(band: str, readiness: int, recovery: int, factors: dict, illness: 
     return _base_guidance(band, illness) + tail
 
 
-def recovery_signals(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
+def recovery_signals(
+    cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None
+) -> dict | None:
     """Individual recovery markers (RHR / sleep duration / overnight HRV), each with
     its evidence citation. No composite score — the literature backs the markers
     individually but has no replicated composite formula. Ported to v2-native reads."""
     candidates = (
-        _rhr_signal(cur, user_id, reads),
+        _rhr_signal(cur, user_id, tz, reads),
         _sleep_signal(cur, user_id),
-        _hrv_signal(cur, user_id, reads),
+        _hrv_signal(cur, user_id, tz, reads),
     )
     signals = [s for s in candidates if s]
     if not signals:
@@ -204,14 +206,14 @@ def recovery_signals(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -
     }
 
 
-def _rhr_signal(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
+def _rhr_signal(cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None) -> dict | None:
     """Resting HR vs personal baseline — LOWER is favourable (Aune 2017)."""
     latest = reads.latest.get("rhr_daily") if reads else latest_derived(cur, user_id, "rhr_daily")
     if not latest:
         return None
     value = latest[1]
     b = (reads.baselines.get("rhr_daily") if reads else None) or compute_baseline_cur(
-        cur, user_id, "rhr_daily", window_days=30
+        cur, user_id, tz, "rhr_daily", window_days=30
     )
     if b.median is None or not b.robust_sd:
         return None
@@ -269,7 +271,7 @@ def _sleep_signal(cur: Cur, user_id: UUID) -> dict | None:
     }
 
 
-def _hrv_signal(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
+def _hrv_signal(cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None) -> dict | None:
     """Overnight HRV vs personal usual — HIGHER is favourable (Plews 2013)."""
     latest = (
         reads.latest.get("hrv_sleep_avg")
@@ -280,7 +282,7 @@ def _hrv_signal(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dic
         return None
     value = latest[1]
     b = (reads.baselines.get("hrv_sleep_avg") if reads else None) or compute_baseline_cur(
-        cur, user_id, "hrv_sleep_avg", window_days=30
+        cur, user_id, tz, "hrv_sleep_avg", window_days=30
     )
     if b.median is None or not b.robust_sd:
         return None

@@ -45,34 +45,38 @@ def _local_day_utc_range(day: date, tz: str) -> tuple[datetime, datetime]:
     return _day_bounds_utc(day, tz)[0], _day_bounds_utc(day + timedelta(days=1), tz)[0]
 
 
-def secondary_cards(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> list[dict]:
+def secondary_cards(
+    cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None
+) -> list[dict]:
     """RHR / steps / calories / distance / weight cards — first candidate with data
     wins, each with its 30-day median + z-anomaly flag. ``reads`` (when supplied by
     the Today aggregator) serves latest-values + baselines from a single preloaded
     batch instead of a per-card query fan-out."""
     out: list[dict] = []
     for candidates in TODAY_SECONDARY_METRICS:
-        card = _card_for(cur, user_id, candidates, reads)
+        card = _card_for(cur, user_id, tz, candidates, reads)
         if card:
             out.append(card)
     return out
 
 
 def _card_for(
-    cur: Cur, user_id: UUID, candidates: list[str], reads: TodayReads | None
+    cur: Cur, user_id: UUID, tz: str, candidates: list[str], reads: TodayReads | None
 ) -> dict | None:
     for cand in candidates:
         picked = (
             _weight_card(cur, user_id)
             if cand == "weight_kg"
-            else _derived_card(cur, user_id, cand, reads)
+            else _derived_card(cur, user_id, tz, cand, reads)
         )
         if picked:
             return picked
     return None
 
 
-def _derived_card(cur: Cur, user_id: UUID, metric: str, reads: TodayReads | None) -> dict | None:
+def _derived_card(
+    cur: Cur, user_id: UUID, tz: str, metric: str, reads: TodayReads | None
+) -> dict | None:
     latest = reads.latest.get(metric) if reads else latest_derived(cur, user_id, metric)
     if not latest:
         return None
@@ -82,7 +86,7 @@ def _derived_card(cur: Cur, user_id: UUID, metric: str, reads: TodayReads | None
     # on THIS cursor, so a card whose metric the aggregator forgot to preload costs an
     # extra query, never an extra pooled connection.
     baseline = (reads.baselines.get(metric) if reads else None) or compute_baseline_cur(
-        cur, user_id, metric, window_days=30
+        cur, user_id, tz, metric, window_days=30
     )
     z = baseline.z_score(value)
     return {

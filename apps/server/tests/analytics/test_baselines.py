@@ -15,7 +15,7 @@ import pytest
 
 from healthee.analytics.baselines import compute_baseline, compute_baselines
 from healthee.core.db import tenant_transaction
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -43,9 +43,9 @@ def test_batched_baselines_match_single_metric(db: None) -> None:  # noqa: ARG00
     # machine's date.today(), which disagree across the UTC/IST midnight boundary.
     end = max(days)
     metrics = ["rhr_daily", "hrv_sleep_avg", "steps_total"]
-    batch = compute_baselines(SENTINEL_USER_ID, metrics, window_days=30, end_date=end)
+    batch = compute_baselines(SENTINEL_USER_ID, SENTINEL_TZ, metrics, window_days=30, end_date=end)
     for m in metrics:
-        single = compute_baseline(SENTINEL_USER_ID, m, window_days=30, end_date=end)
+        single = compute_baseline(SENTINEL_USER_ID, SENTINEL_TZ, m, window_days=30, end_date=end)
         b = batch[m]
         assert (b.n, b.median, b.mad, b.p25, b.p75, b.min, b.max) == (
             single.n,
@@ -66,9 +66,9 @@ def test_baseline_known_values(db: None) -> None:  # noqa: ARG001
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", dict(zip(days, vals, strict=True)))
 
-    b = compute_baselines(SENTINEL_USER_ID, ["rhr_daily"], window_days=30, end_date=max(days))[
-        "rhr_daily"
-    ]
+    b = compute_baselines(
+        SENTINEL_USER_ID, SENTINEL_TZ, ["rhr_daily"], window_days=30, end_date=max(days)
+    )["rhr_daily"]
     assert b.n == 5
     assert b.median == 54.0
     assert b.p25 == 52.0
@@ -89,9 +89,9 @@ def test_baseline_respects_per_metric_sentinel_filter(db: None) -> None:  # noqa
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_daily(cur, "rhr_daily", dict(zip(days, vals, strict=True)))
 
-    b = compute_baselines(SENTINEL_USER_ID, ["rhr_daily"], window_days=30, end_date=max(days))[
-        "rhr_daily"
-    ]
+    b = compute_baselines(
+        SENTINEL_USER_ID, SENTINEL_TZ, ["rhr_daily"], window_days=30, end_date=max(days)
+    )["rhr_daily"]
     assert b.n == 3  # the 10 and 200 were filtered out
     assert b.median == 52.0
     assert b.max == 54.0  # NOT 200 — the sentinel is gone
@@ -100,7 +100,9 @@ def test_baseline_respects_per_metric_sentinel_filter(db: None) -> None:  # noqa
 def test_missing_metric_is_empty(db: None) -> None:  # noqa: ARG001
     """A metric with no rows in the window comes back n=0 / None (never a KeyError)."""
     _reset()
-    out = compute_baselines(SENTINEL_USER_ID, ["rhr_daily", "hrv_sleep_avg"], window_days=30)
+    out = compute_baselines(
+        SENTINEL_USER_ID, SENTINEL_TZ, ["rhr_daily", "hrv_sleep_avg"], window_days=30
+    )
     assert set(out) == {"rhr_daily", "hrv_sleep_avg"}
     for b in out.values():
         assert b.n == 0
@@ -108,4 +110,4 @@ def test_missing_metric_is_empty(db: None) -> None:  # noqa: ARG001
 
 
 def test_empty_metric_list_returns_empty(db: None) -> None:  # noqa: ARG001
-    assert compute_baselines(SENTINEL_USER_ID, [], window_days=30) == {}
+    assert compute_baselines(SENTINEL_USER_ID, SENTINEL_TZ, [], window_days=30) == {}

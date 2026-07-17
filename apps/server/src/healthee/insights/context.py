@@ -25,7 +25,7 @@ from healthee.analytics.baselines import (
     latest_value,
 )
 from healthee.core.db import tenant_transaction
-from healthee.core.tenancy import USER_TODAY_SQL
+from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.insights.context_sessions import (
     findings_section,
     manual_entries_section,
@@ -49,7 +49,7 @@ _RECENT_COLUMNS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _today_snapshot(user_id: UUID) -> str:
+def _today_snapshot(user_id: UUID, tz: str) -> str:
     """Latest value per daily metric vs its personal 30-day baseline (z-score)."""
     lines = [
         "## Today snapshot (latest day vs personal 30d baseline)",
@@ -63,7 +63,7 @@ def _today_snapshot(user_id: UUID) -> str:
             continue
         any_row = True
         day, value = latest
-        baseline = compute_baseline(user_id, metric, window_days=30)
+        baseline = compute_baseline(user_id, tz, metric, window_days=30)
         z = baseline.z_score(value)
         z_str = (
             f"{z:+.2f}σ{' ⚠️' if z is not None and abs(z) >= 2 else ''}" if z is not None else "-"
@@ -73,7 +73,7 @@ def _today_snapshot(user_id: UUID) -> str:
     return "\n".join(lines) if any_row else ""
 
 
-def _trends(user_id: UUID) -> str:
+def _trends(user_id: UUID, tz: str) -> str:
     """7-day average vs 30-day median per metric — trend direction."""
     lines = [
         "## Trend summary (7-day avg vs 30-day median)",
@@ -83,10 +83,10 @@ def _trends(user_id: UUID) -> str:
     any_row = False
     with tenant_transaction(user_id) as cur:
         for metric in DEFAULT_DAILY_METRICS:
-            row = _seven_day_avg(cur, user_id, metric)
+            row = _seven_day_avg(cur, user_id, tz, metric)
             # On THIS cursor: the self-opening form would borrow a second pooled
             # connection per metric while this one is held (see compute_baselines).
-            baseline = compute_baseline_cur(cur, user_id, metric, window_days=30)
+            baseline = compute_baseline_cur(cur, user_id, tz, metric, window_days=30)
             if row is None or baseline.median is None:
                 continue
             any_row = True
@@ -102,12 +102,12 @@ def _trends(user_id: UUID) -> str:
     return "\n".join(lines) if any_row else ""
 
 
-def _seven_day_avg(cur, user_id: UUID, metric: str) -> float | None:
+def _seven_day_avg(cur, user_id: UUID, tz: str, metric: str) -> float | None:
     """Mean of a metric's last 7 days from ``derived_daily`` (sentinel unfiltered
     is fine here — these are already-derived canonical daily values)."""
     cur.execute(
         "SELECT AVG(value) FROM derived_daily WHERE user_id = %s AND metric=%s AND day > %s",
-        (user_id, metric, date.today() - timedelta(days=7)),
+        (user_id, metric, user_today(tz) - timedelta(days=7)),
     )
     row = cur.fetchone()
     return float(row[0]) if row and row[0] is not None else None
@@ -146,7 +146,7 @@ def _fmt(value: float | None) -> str:
     return str(int(value)) if float(value).is_integer() else f"{value:.1f}"
 
 
-def _baselines(user_id: UUID) -> str:
+def _baselines(user_id: UUID, tz: str) -> str:
     """Robust personal baselines (median ± σ, quartiles) for the daily metrics."""
     lines = [
         "## Personal baselines (trailing 30d, robust median ± σ)",
@@ -154,7 +154,7 @@ def _baselines(user_id: UUID) -> str:
         "|---|---|---|---|---|",
     ]
     any_row = False
-    for b in compute_all(user_id, DEFAULT_DAILY_METRICS, 30):
+    for b in compute_all(user_id, tz, DEFAULT_DAILY_METRICS, 30):
         if b.median is None:
             continue
         any_row = True
@@ -197,10 +197,10 @@ def build_context(user_id: UUID, tz: str, *, days: int = 14, question: str | Non
             manual_entries_section(cur, user_id, tz, days),
         ]
     sections = [
-        _today_snapshot(user_id),
-        _trends(user_id),
+        _today_snapshot(user_id, tz),
+        _trends(user_id, tz),
         *session_sections,
-        _baselines(user_id),
+        _baselines(user_id, tz),
         _anomalies(user_id, tz),
         findings_section(user_id, question),
     ]
