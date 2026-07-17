@@ -104,7 +104,7 @@ def ingest_helio(
         n_sleep = upsert_sleep(cur, user_id, payload.sleep, is_fresh)
         n_workouts = upsert_workouts(cur, user_id, payload.workouts)
         if payload.profile is not None:
-            upsert_profile(cur, user_id, payload.profile)
+            upsert_profile(cur, user_id, tz, payload.profile)
             if payload.profile.weight_kg is not None:
                 upsert_weight(cur, user_id, tz, payload.profile.weight_kg)
 

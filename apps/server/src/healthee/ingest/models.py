@@ -15,9 +15,11 @@ from failing its whole push against an older server.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from healthee.core.dob import assert_plausible_dob
 
 # Canonical metric whitelist — the exact set the app maps its device series onto
 # (`helio_api.dart` `_metricMap`). Anything else is dropped + counted by the
@@ -95,50 +97,22 @@ class DailyTotalIn(BaseModel):
     calories: float | None = None
 
 
-# The plausibility window for a birth date. Nobody alive was born before this,
-# and nobody is born in the future — anything outside is a mis-scaled or corrupt
-# value, not a person. `dob` feeds `_age()` → biological age, VO2max (Jurca) and
-# sleep need/debt, so an out-of-range value must be REJECTED, never stored.
-DOB_MIN_DATE = date(1900, 1, 1)
-
-
-def dob_ms_to_date(dob_ms: int) -> date:
-    """Epoch **milliseconds** → birth date, per the `ProfileIn.dob` contract.
-
-    Do NOT route a dob through `ingest.upsert.epoch_to_utc`: its magnitude guess
-    can only disambiguate instants after 2001-09-09, so it reads every earlier
-    birth date (a small ms number) as seconds — 1970-02-03 became 2060-05-08,
-    stored silently, poisoning every age-dependent science output.
-
-    There is deliberately **no seconds fallback**, because the ambiguity is
-    unresolvable by construction: 1_470_000_000 is a plausible birth date both as
-    ms (1970-01-18) and as seconds (2016-08-01). No magnitude test can separate
-    those, so any guess would silently pick a wrong age for a real person. The
-    contract says milliseconds; we parse milliseconds, validate the outcome, and
-    reject what is not a possible human birth date.
-
-    Raises ValueError if the value is out of range (→ 422 at the boundary).
-    """
-    try:
-        parsed = datetime.fromtimestamp(dob_ms / 1000, tz=UTC).date()
-    except (ValueError, OverflowError, OSError) as exc:
-        raise ValueError(f"dob must be epoch milliseconds; {dob_ms} is out of range") from exc
-    today = datetime.now(UTC).date()
-    if parsed < DOB_MIN_DATE or parsed > today:
-        raise ValueError(
-            f"dob must be epoch milliseconds between {DOB_MIN_DATE.isoformat()} and today; "
-            f"{dob_ms} parses to {parsed.isoformat()}"
-        )
-    return parsed
-
-
 class ProfileIn(BaseModel):
-    """The single user's profile. `dob` is epoch ms; `weight_kg` feeds the
-    one-per-day weight log. All optional — the app only sends a complete
-    profile, but the server upserts whatever is present.
+    """The single user's profile. `weight_kg` feeds the one-per-day weight log.
+    All optional — the app only sends a complete profile, but the server upserts
+    whatever is present.
 
-    `dob` is validated HERE, at the data boundary, so an implausible value is a
-    422 (a client error, which it is) rather than a 500 or a silently-wrong age.
+    `dob` is an ISO `YYYY-MM-DD` string (preferred) or epoch ms anchored at local
+    midnight in the owner's timezone (the installed app's contract). It is kept
+    RAW here and converted by `upsert_profile` via `core.dob.parse_dob`, because
+    the ms→date answer depends on the owner's timezone and this model is built at
+    the HTTP boundary, where the body is parsed before the owner is in scope.
+    Converting here would have to guess a zone — that guess (UTC) is the bug this
+    contract now exists to prevent.
+
+    What DOES happen here is the coarse plausibility gate
+    (`core.dob.assert_plausible_dob`), so an impossible value is a 422 — a client
+    error, which it is — rather than a 500 or a silently-wrong age.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -146,15 +120,15 @@ class ProfileIn(BaseModel):
     name: str | None = None
     height_cm: float | None = None
     sex: str | None = None
-    dob: int | None = None  # epoch milliseconds — see dob_ms_to_date()
+    dob: int | str | None = None  # ISO date, or epoch ms — see core.dob.parse_dob()
     weight_kg: float | None = None
 
     @field_validator("dob")
     @classmethod
-    def _dob_is_a_plausible_birth_date(cls, dob_ms: int | None) -> int | None:
-        if dob_ms is not None:
-            dob_ms_to_date(dob_ms)  # raises ValueError → pydantic 422
-        return dob_ms
+    def _dob_is_a_plausible_birth_date(cls, dob: int | str | None) -> int | str | None:
+        if dob is not None:
+            assert_plausible_dob(dob)  # raises ValueError → pydantic 422
+        return dob
 
 
 class HelioPayload(BaseModel):

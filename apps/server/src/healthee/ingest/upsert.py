@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 from psycopg import Cursor
 from psycopg.rows import TupleRow
 
+from healthee.core.dob import parse_dob
 from healthee.ingest.models import (
     ALLOWED_METRICS,
     DailyTotalIn,
@@ -29,7 +30,6 @@ from healthee.ingest.models import (
     SampleIn,
     SleepIn,
     WorkoutIn,
-    dob_ms_to_date,
 )
 
 Cur = Cursor[TupleRow]
@@ -55,8 +55,9 @@ def epoch_to_utc(ts: int) -> datetime:
     instants after 2001-09-09 (`_MS_THRESHOLD` ms after the epoch); below that it
     silently reads milliseconds as seconds. That is safe for device events, which
     are always recent, and WRONG for any historical date. NEVER call this on a
-    birth date — use `ingest.models.dob_ms_to_date`, which parses the documented
-    ms contract and rejects implausible values instead of guessing.
+    birth date — use `core.dob.parse_dob`, which parses the documented contract in
+    the OWNER's timezone (a birth date is a calendar date, and the app anchors it
+    at local midnight) and rejects implausible values instead of guessing.
     """
     seconds = ts / 1000 if ts > _MS_THRESHOLD else ts
     return datetime.fromtimestamp(seconds, tz=UTC)
@@ -176,7 +177,7 @@ def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
     return len(workouts)
 
 
-def upsert_profile(cur: Cur, user_id: UUID, profile: ProfileIn) -> None:
+def upsert_profile(cur: Cur, user_id: UUID, tz: str, profile: ProfileIn) -> None:
     """Upsert `user_id`'s profile row. `name` is preserved when the push omits it.
 
     The OWNER is the conflict target (0005 re-keyed the table to `user_id`), which is
@@ -187,12 +188,16 @@ def upsert_profile(cur: Cur, user_id: UUID, profile: ProfileIn) -> None:
 
     Weight is handled by `upsert_weight` (it is a time series, not a profile field).
 
-    `dob` is parsed by `dob_ms_to_date` (the ms contract), NOT by `epoch_to_utc`,
-    whose magnitude guess inverts for pre-2001 birth dates. ProfileIn already
-    validated it at the boundary; re-parsing here keeps any non-HTTP caller
-    honest, and a bad value raises rather than storing a wrong age.
+    `dob` is converted HERE, not at the boundary, because this is the first point
+    that knows `tz` — the owner's timezone, which is what the app's epoch-ms dob
+    is anchored to (local midnight). Resolving it in UTC instead is what stored
+    the owner's birthday one day early in prod. `parse_dob` is the one canonical
+    conversion (it also handles the ISO form and rejects implausible values, so a
+    non-HTTP caller that skipped `ProfileIn`'s gate still cannot store a wrong
+    age); it is NOT `epoch_to_utc`, whose magnitude guess inverts for pre-2001
+    birth dates.
     """
-    dob = dob_ms_to_date(profile.dob) if profile.dob is not None else None
+    dob = parse_dob(profile.dob, tz) if profile.dob is not None else None
     cur.execute(
         "INSERT INTO profile (user_id, name, height_cm, sex, dob, updated_at) "
         "VALUES (%s, %s, %s, %s, %s, now()) "
