@@ -2,60 +2,60 @@
 import Section from './Section.astro';
 // Tier split from PRICING.md §1a (authoritative) — lead with FREE, because
 // "we don't paywall your own data" is the wedge. Prices from §0. Planned features
-// stay marked planned. Competitor prices/sources from §2, footnoted + dated 2026-07.
+// stay marked planned. Competitor prices/sources from §2, dated 2026-07 (sourced
+// in the Sources section, not footnoted here).
 const free = [
   'Every metric, chart & trend — with full history',
-  'Personal baselines + anomaly flags (“vs your normal”)',
+  'Your own baselines + “outside your normal” flags',
   'Recovery score, live readiness & honest guidance',
   'Illness early-warning flag (safety-critical, always free)',
-  'Data-health & confidence chips on every number',
+  '“How sure it is” chips on every number',
   'Manual logging, workouts & GPS routes',
   'The research notes — read the evidence yourself',
-  'Data export — own-your-data, no lock-in',
-  'Personal findings, shown as plain statistics',
+  'Own your data — no lock-in',
+  'Personal patterns, shown as plain stats',
   'A weekly taste of premium: 1 coach question + 1 daily action / 7 days',
 ];
 const premium = [
   'The grounded AI coach — unlimited (fair-use)',
-  'Daily action line, every day',
-  'Daily recommendations (1–3, cite-or-drop)',
+  'A daily action line, every day',
+  'Daily recommendations (1–3, backed or dropped)',
   'AI insight cards — sleep · activity · metric · workout',
-  'The notable-shift feed',
-  'The coach that explains & acts on your personal findings',
+  'The what-changed feed',
+  'The coach that explains & acts on your patterns',
 ];
 const planned = [
-  'Challenges & programs — adopt, track, outcome ledger',
-  'Coach-companion — memory · proactive nudges · goals (Phase 5)',
+  'Challenges & programs — adopt, track, look back',
+  'Coach companion — memory · nudges · goals (Phase 5)',
 ];
 const plans = [
   { name: 'Monthly', price: '$3.99', unit: '/ month', note: 'Cancel anytime.', feature: false },
   { name: 'Annual', price: '$34.99', unit: '/ year', note: '≈ $2.92 / mo — the one to pick.', feature: true },
-  { name: 'Lifetime', price: '$99', unit: 'once', note: 'Own-it. Founder offer.', feature: false },
+  { name: 'Lifetime', price: '$99', unit: 'once', note: 'Own it. Founder offer.', feature: false },
 ];
 ---
 
-<Section
-  n="09"
-  id="pricing"
-  labelledby="pricing-h"
-  note="The line: free is the numbers and the evidence; premium is the interpretation and the coach. Never paywall data or safety."
->
+<Section id="pricing" labelledby="pricing-h">
   <p class="eyebrow rise">Pricing</p>
-  <h2 id="pricing-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
+  <h2 id="pricing-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
     The whole tracker is free. You pay only for the intelligence.
   </h2>
+  <p class="lede rise mt-6 max-w-2xl">
+    Free is the numbers and the evidence. Premium is the interpretation, the coach, and the guidance.
+    We never charge you to see your own data, and we never charge for safety.
+  </p>
 
   <div class="mt-10 grid gap-6 lg:grid-cols-2">
     <div class="surface rise p-7 sm:p-8">
       <div class="flex items-center justify-between">
-        <h3 class="font-serif text-2xl">Free, forever</h3>
+        <h3 class="text-2xl font-semibold tracking-tight">Free, forever</h3>
         <span class="chip chip-accent chip-dot">the honest tracker</span>
       </div>
       <ul class="mt-6 space-y-3">
         {
           free.map((f) => (
             <li class="flex gap-3 text-[0.95rem] leading-relaxed">
-              <span aria-hidden="true" class="mono mt-0.5 shrink-0 text-accent">✓</span>
+              <span aria-hidden="true" class="mono mt-0.5 shrink-0 text-accent-soft">✓</span>
               <span>{f}</span>
             </li>
           ))
@@ -65,14 +65,14 @@ const plans = [
 
     <div class="surface rise p-7 sm:p-8">
       <div class="flex items-center justify-between">
-        <h3 class="font-serif text-2xl">Premium &mdash; the AI layer</h3>
+        <h3 class="text-2xl font-semibold tracking-tight">Premium — the AI layer</h3>
         <span class="chip chip-dot">optional</span>
       </div>
       <ul class="mt-6 space-y-3">
         {
           premium.map((p) => (
             <li class="flex gap-3 text-[0.95rem] leading-relaxed">
-              <span aria-hidden="true" class="mono mt-0.5 shrink-0 text-accent">✦</span>
+              <span aria-hidden="true" class="mono mt-0.5 shrink-0 text-accent-soft">✦</span>
               <span>{p}</span>
             </li>
           ))
@@ -111,23 +111,21 @@ const plans = [
     }
   </div>
   <p class="mono rise mt-4 text-xs text-ink-faint">
-    14-day free trial. The lifetime unlock is a time-limited founder offer, not a permanent SKU.
+    14-day free trial. The lifetime unlock is a time-limited founder offer, not a permanent plan.
   </p>
 
   <div class="rise mt-12 border-t border-line pt-8">
     <p class="max-w-2xl text-[0.95rem] leading-relaxed text-ink-soft">
       For context, the closest subscription trackers: <strong class="font-medium text-ink">Whoop</strong
-      > is a subscription with a wearable attached &mdash; $199&ndash;359 / year, and you can&rsquo;t
-      see your data without it.<sup class="ref"><a href="#ref-7" aria-label="reference 7">7</a></sup>
-      <strong class="font-medium text-ink">Oura</strong> pairs a $349+ ring with a $69.99 / year
-      membership for its insights.<sup class="ref"><a href="#ref-8" aria-label="reference 8">8</a></sup>
-      Our whole pitch is the inverse:
-      <span class="text-ink">$35 a year versus Whoop&rsquo;s $199</span>, on hardware that
-      doesn&rsquo;t hold your data hostage.
+      > is a subscription with a wearable attached — $199–359 / year, and you can’t see your data
+      without it. <strong class="font-medium text-ink">Oura</strong> pairs a $349+ ring with a $69.99
+      / year membership for its insights. Our whole pitch is the inverse:
+      <span class="text-ink">$35 a year versus Whoop’s $199</span>, on hardware that doesn’t hold your
+      data hostage.
     </p>
     <p class="mono mt-4 text-xs text-ink-faint">
-      Competitor prices current as of 2026-07, from their own published pages (see references). We
-      characterise only these two, only from their published pricing.
+      Competitor prices current as of 2026-07, from their own published pages (linked in Sources). We
+      describe only these two, only from their published pricing.
     </p>
   </div>
 </Section>
