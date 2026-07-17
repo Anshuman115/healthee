@@ -17,7 +17,7 @@ from healthee.derive._common import Cur
 from healthee.read.common import sport_name
 from healthee.read.fitness import cardio_load_payload, vo2max_payload
 
-# Banister TRIMP sex weights (a, b): female / male. [[cardio_load_trimp]].
+# Banister TRIMP sex weights (a, b): female / male. [[training_stress_score]].
 _TRIMP_W = {"female": (0.86, 1.67), "male": (0.64, 1.92)}
 
 
@@ -126,7 +126,7 @@ def _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones) ->
 
 
 def _session_trimp(hrs: list[int], hrmax: float, rhr: float, sex: str) -> float:
-    """Banister session TRIMP over the HR samples. Ported VERBATIM. [[cardio_load_trimp]]."""
+    """Banister session TRIMP over the HR samples. Ported VERBATIM. [[training_stress_score]]."""
     a, b = _TRIMP_W.get(sex, _TRIMP_W["male"])
     trimp = 0.0
     for hr in hrs:

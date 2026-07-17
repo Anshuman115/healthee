@@ -3,9 +3,9 @@
 Profile (age, sex, BMI) + a 7-day median resting HR + a 7-day self-reported
 physical-activity category (SRPA 0-4, mapped from weekly MVPA-equivalent minutes)
 feed the Jurca regression; the result also anchors the energy model. Knowledge:
-``non_exercise_vo2max`` (Jurca 2005: CRF in METs, x3.5 -> ml/kg/min),
-``cadence_intensity`` (weekly MVPA-equivalent = moderate + 2*vigorous),
-``vo2max_fitness_mortality``.
+[[non_exercise_vo2max]] (Jurca 2005: CRF in METs, x3.5 -> ml/kg/min),
+[[cadence_intensity]] (weekly MVPA-equivalent = moderate + 2*vigorous),
+[[vo2max]].
 """
 
 from __future__ import annotations

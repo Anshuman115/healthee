@@ -21,7 +21,7 @@ def derive_rhr(
 
     Returns (rhr_bpm, n_samples). Only 5-min buckets with >=3 HR samples count,
     and HR is bounded to a physiological 30-220 bpm. (None, 0) when the window
-    holds no qualifying HR data. Knowledge: ``resting_hr_health_marker``.
+    holds no qualifying HR data. Knowledge: [[resting_heart_rate]].
     """
     cur.execute(
         """

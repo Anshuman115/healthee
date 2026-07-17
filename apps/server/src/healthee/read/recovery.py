@@ -29,7 +29,11 @@ from healthee.read.health_metrics import active_illness_severity
 
 log = get_logger(__name__)
 
-_MAD_TO_SD = 1.4826  # MAD→σ for a normal distribution [[baselines]]
+# MAD→σ for a normal distribution: the normal-consistency constant 1/Φ⁻¹(0.75). A
+# statistical identity, not a research claim — deliberately uncited (see
+# analytics/metrics.py:MAD_TO_SD, the same constant). The trailing-window median+MAD
+# baseline this feeds IS grounded: [[recovery_readiness]].
+_MAD_TO_SD = 1.4826
 
 _BASE_GUIDANCE = {
     "high": "Well recovered — a good day to push: intervals or a harder session are on the table.",

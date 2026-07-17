@@ -12,7 +12,7 @@ Pure + dependency-free so it unit-tests without the DB. Ported verbatim from leg
 v2 ``vo2max_submax`` — the algorithm, constants, and rounding are unchanged; it is
 split into per-stage helpers only to satisfy the function-length/complexity gates,
 and the ``__main__`` self-test now lives in the parity test. Knowledge:
-``submaximal_vo2max``.
+[[submaximal_vo2max]].
 """
 
 from __future__ import annotations

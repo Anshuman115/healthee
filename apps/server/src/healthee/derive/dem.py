@@ -13,7 +13,7 @@ Ported verbatim from legacy v2 ``dem`` (a proven, dependency-free module). The
 only change: the tile-download failure is now logged through the app logger and
 narrowed to network/IO/decode errors instead of a bare ``except`` (standards §1 —
 errors are never swallowed; a miss is still a meaningful "fall back to GPS
-elevation", now observable). Knowledge: ``grade_adjusted_pace``.
+elevation", now observable). Knowledge: [[grade_adjusted_pace]].
 """
 
 from __future__ import annotations

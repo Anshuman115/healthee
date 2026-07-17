@@ -34,7 +34,7 @@ _YOGA_MIN_DURATION = 30  # generic yoga counts only if >=30 min, at 50% credit
 
 def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Latest Jurca non-exercise VO2max + 90-day trend + submax GPS estimate.
-    [[vo2max_fitness_mortality]] (Mandsager 2018); derivation [[non_exercise_vo2max]]."""
+    [[vo2max]] (Mandsager 2018); derivation [[non_exercise_vo2max]]."""
     cur.execute(
         "SELECT day, value, flags FROM derived_daily "
         "WHERE user_id = %s AND metric='vo2max_estimate' "
@@ -101,7 +101,7 @@ def _submax_block(cur: Cur, user_id: UUID, tz: str, jurca_estimate: float) -> di
 
 def cardio_load_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Daily cardio load (Banister TRIMP) + strain 0-21 + 30-day trend/baseline.
-    [[cardio_load_trimp]]."""
+    [[training_stress_score]]."""
     cur.execute(
         "SELECT day, value, flags FROM derived_daily "
         "WHERE user_id = %s AND metric='cardio_load' "
@@ -135,7 +135,7 @@ def strain_from_load(load: float, p95: float | None) -> float | None:
     """Strain 0-21: the SAME TRIMP load on a personal log scale — 0 load → 0, the
     90-day P95 ("a hard day") → 21, with a mild concave (≈log) curve tracking
     perceived exertion. Ported VERBATIM from legacy (anchored to P95, not min/max,
-    so a quiet/partial day reads low, never a misleading 0). [[cardio_load_trimp]]."""
+    so a quiet/partial day reads low, never a misleading 0). [[training_stress_score]]."""
     if not (p95 and p95 > 0):
         return None
     return round(max(0.0, min(21.0, 21.0 * (load / p95) ** 0.75)), 1)
@@ -263,7 +263,7 @@ def _monday_utc(monday: date, tz: str) -> datetime:
 
 def acwr(cardio: dict | None) -> dict | None:
     """Acute:chronic workload ratio (Gabbett 2016): acute 7d mean ÷ chronic 28d mean;
-    0.8-1.3 = the progressive "sweet spot". Ported VERBATIM. [[cardio_load_trimp]]."""
+    0.8-1.3 = the progressive "sweet spot". Ported VERBATIM. [[training_stress_score]]."""
     vals = [
         float(t["value"]) for t in (cardio or {}).get("trend_30d", []) if t.get("value") is not None
     ]
@@ -293,7 +293,7 @@ def acwr(cardio: dict | None) -> dict | None:
 
 def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """VO2max-raising weekly Rx + a 12-week projected trajectory (an estimate of
-    typical response, bounded +2..+5 ml/kg/min, never a promise). [[vo2max_training_program]]."""
+    typical response, bounded +2..+5 ml/kg/min, never a promise). [[vo2max]]."""
     vo = vo2max_payload(cur, user_id, tz)
     if not vo or vo.get("estimate") is None:
         return None

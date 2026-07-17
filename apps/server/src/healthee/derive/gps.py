@@ -6,7 +6,7 @@ the same window, replace the phone's barometer-less GPS elevation with a terrain
 verbatim from legacy v2 ``derive_vo2max_submax`` and ``gps_track_detail`` — the SQL,
 math, and rounding are unchanged; the duplicated HR-interpolation closure is now the
 shared ``make_hr_interpolator`` and each function is split into small helpers for the
-size gate. Knowledge: ``submaximal_vo2max``, ``grade_adjusted_pace``.
+size gate. Knowledge: [[submaximal_vo2max]], [[grade_adjusted_pace]].
 
 ``vo2max_submax`` is stored DELIBERATELY SEPARATE from the live Jurca
 ``vo2max_estimate`` so estimates can accumulate for validation before any swap.

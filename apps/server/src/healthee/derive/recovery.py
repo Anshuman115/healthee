@@ -5,7 +5,7 @@ Primary = overnight HRV (lnRMSSD) + resting HR vs the PERSONAL trailing baseline
 formula combines these, so this is an honest evidence-weighted estimate ALWAYS
 shown with its per-factor breakdown (the documented no-black-box exception). HRV/
 RHR/RR are personal-relative; sleep is scored vs ABSOLUTE need. Ported verbatim
-from legacy v2. Knowledge: ``recovery_readiness``.
+from legacy v2. Knowledge: [[recovery_readiness]].
 """
 
 from __future__ import annotations

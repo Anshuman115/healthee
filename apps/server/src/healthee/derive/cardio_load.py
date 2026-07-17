@@ -3,8 +3,8 @@
 Over WAKING minutes only (sleep is recovery, not load; workouts included). Load
 per minute = HR-reserve fraction (Karvonen) weighted by the sex-specific lactate
 term; zones by %HRmax. HRmax from Tanaka 2001, RHR measured. Ported verbatim from
-legacy v2. Knowledge: ``cardio_load_trimp``, ``heart_rate_zones``,
-``maximum_heart_rate``.
+legacy v2. Knowledge: [[training_stress_score]], [[heart_rate_zones]],
+[[maximum_heart_rate]].
 """
 
 from __future__ import annotations

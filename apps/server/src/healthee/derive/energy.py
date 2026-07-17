@@ -4,7 +4,7 @@ Total EE is built minute-by-minute from a MET assigned to each minute's state
 (walking from steps via ACSM | asleep | awake-NEAT), anchored so 1 MET == BMR/min
 (Mifflin-St Jeor). Heart rate is deliberately NOT used for free-living EE — without
 raw accelerometry it can't separate awake-rest from activity and overcounts. Ported
-verbatim from legacy v2. Knowledge: ``energy_expenditure_derivation``.
+verbatim from legacy v2. Knowledge: [[energy_expenditure_derivation]].
 """
 
 from __future__ import annotations

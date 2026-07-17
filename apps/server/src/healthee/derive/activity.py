@@ -3,7 +3,7 @@
 Steps summed from per-minute samples; distance from steps x stride
 (0.414 x height); calories delegated to the MET-by-state energy model. Ported
 verbatim from legacy v2 ``derive_daily_activity``. Knowledge:
-``distance_from_steps``, ``steps_mortality``, ``energy_expenditure_derivation``.
+[[distance_from_steps]], [[steps_mortality]], [[energy_expenditure_derivation]].
 """
 
 from __future__ import annotations

@@ -2,8 +2,8 @@
 
 Per-minute step cadence classifies each minute: moderate at >=100 steps/min
 (with a >=80 prior minute), vigorous at >=130 (with a >=110 prior). Ported
-verbatim from legacy v2 ``derive_mvpa``. Knowledge: ``cadence_intensity``
-(Tudor-Locke 2018), ``mvpa_minutes_mortality`` (the 150 min/week target).
+verbatim from legacy v2 ``derive_mvpa``. Knowledge: [[cadence_intensity]]
+(Tudor-Locke 2018), [[mvpa_minutes_mortality]] (the 150 min/week target).
 """
 
 from __future__ import annotations
