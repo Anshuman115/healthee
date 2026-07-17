@@ -1,86 +1,67 @@
 ---
-const links = [
-  { href: '#coach', label: 'The coach' },
-  { href: '#trust', label: 'How it works' },
-  { href: '#science', label: 'Science' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#self-host', label: 'Self-host' },
-];
+// Minimal top bar: the wordmark and a theme toggle — nothing else. There is no
+// sign-up button because sign-ups aren't open yet, and the page says so plainly.
 ---
 
-<header
-  class="sticky top-0 z-40 border-b border-line/70 bg-canvas/80 backdrop-blur-xl supports-[backdrop-filter]:bg-canvas/60"
->
-  <nav class="shell flex h-16 items-center justify-between gap-4" aria-label="Primary">
-    <a href="#top" class="flex items-center gap-2.5" aria-label="Healthee — home">
-      <span aria-hidden="true" class="grid h-7 w-7 place-items-center rounded-[8px] bg-accent">
-        <svg viewBox="0 0 32 32" class="h-4 w-4" fill="none" aria-hidden="true">
-          <path d="M7 21l5-5 4 3 5-8" stroke="var(--c-accent-ink)" stroke-width="2.4"
+<header class="sticky top-0 z-40 border-b border-line/70 bg-canvas/85 backdrop-blur-sm">
+  <div class="wrap flex h-16 items-center justify-between" style="max-width:60rem;">
+    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="Healthee — home">
+      <span
+        class="grid h-7 w-7 place-items-center rounded-lg"
+        style="background:var(--c-accent);"
+        aria-hidden="true"
+      >
+        <svg width="17" height="17" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M7 21l5-5 4 3 5-8" stroke="var(--c-accent-ink)" stroke-width="2.6"
             stroke-linecap="round" stroke-linejoin="round"></path>
           <circle cx="25" cy="11" r="1.9" fill="var(--c-accent-ink)"></circle>
         </svg>
       </span>
-      <span class="text-lg font-semibold tracking-tight">Healthee</span>
+      <span class="text-[1.05rem]">Healthee</span>
     </a>
 
-    <ul class="hidden items-center gap-7 text-sm text-ink-soft lg:flex">
-      {
-        links.map((l) => (
-          <li>
-            <a href={l.href} class="transition-colors hover:text-ink">
-              {l.label}
-            </a>
-          </li>
-        ))
-      }
-    </ul>
-
-    <div class="flex items-center gap-2">
-      <button
-        id="theme-toggle"
-        type="button"
-        class="grid h-9 w-9 place-items-center rounded-lg border border-line-strong text-ink-soft transition-colors hover:border-accent hover:text-accent-soft"
-        aria-label="Toggle colour theme"
-        aria-pressed="false"
-      >
-        <svg class="h-4 w-4 dark:hidden" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"></circle>
-          <path
-            d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"></path>
-        </svg>
-        <svg class="hidden h-4 w-4 dark:block" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M20 14.2A8 8 0 0 1 9.8 4 7 7 0 1 0 20 14.2Z"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linejoin="round"></path>
-        </svg>
-      </button>
-      <a href="#self-host" class="btn btn-primary hidden px-4 py-2 text-sm sm:inline-flex">
-        Self-host it
-      </a>
-    </div>
-  </nav>
+    <button
+      id="theme-toggle"
+      type="button"
+      class="btn btn-ghost !px-3 !py-2 text-sm"
+      aria-pressed="false"
+      aria-label="Switch to dark theme"
+    >
+      <svg class="tog-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"></circle>
+        <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"
+          stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+      </svg>
+      <svg class="tog-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" stroke="currentColor"
+          stroke-width="1.8" stroke-linejoin="round"></path>
+      </svg>
+    </button>
+  </div>
 </header>
 
-<script>
-  const toggle = document.getElementById('theme-toggle');
-  const root = document.documentElement;
+<style>
+  /* Show the icon for the theme you'd switch TO. */
+  .tog-moon { display: none; }
+  :global(.dark) .tog-sun { display: none; }
+  :global(.dark) .tog-moon { display: inline; }
+</style>
 
+<script>
+  const btn = document.getElementById('theme-toggle');
+  const root = document.documentElement;
   function sync() {
-    toggle?.setAttribute('aria-pressed', String(root.classList.contains('dark')));
+    const dark = root.classList.contains('dark');
+    btn?.setAttribute('aria-pressed', String(dark));
+    btn?.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
   }
   sync();
-
-  toggle?.addEventListener('click', () => {
-    const isDark = root.classList.toggle('dark');
+  btn?.addEventListener('click', () => {
+    const dark = root.classList.toggle('dark');
     try {
-      localStorage.setItem('healthee-theme', isDark ? 'dark' : 'light');
+      localStorage.setItem('healthee-theme', dark ? 'dark' : 'light');
     } catch (e) {
-      /* persistence unavailable; the toggle still applies for this session */
+      /* localStorage unavailable — the class flip still holds for this visit */
     }
     sync();
   });

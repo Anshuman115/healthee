@@ -1,42 +1,174 @@
 ---
 import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
-import Hero from '../components/Hero.astro';
-import Differentiators from '../components/Differentiators.astro';
-import CoachExchange from '../components/CoachExchange.astro';
-import Pipeline from '../components/Pipeline.astro';
-import GuardrailDemo from '../components/GuardrailDemo.astro';
-import GradeScale from '../components/GradeScale.astro';
-import MetricAnatomy from '../components/MetricAnatomy.astro';
-import ScienceLayer from '../components/ScienceLayer.astro';
-import PersonalScience from '../components/PersonalScience.astro';
-import Pricing from '../components/Pricing.astro';
-import SelfHost from '../components/SelfHost.astro';
-import Disclaimer from '../components/Disclaimer.astro';
-import Sources from '../components/Sources.astro';
 import Footer from '../components/Footer.astro';
 
 const title = 'Healthee — the health companion that refuses to flatter you';
 const description =
-  'An honest, self-hosted AI health companion for anyone with a fitness band. It reads your wearable, tells you the truth backed by real research, and says “not enough data” instead of guessing. No green rings.';
+  'Most fitness apps cheer you on no matter what. Healthee tells you the truth about your body, kindly — and says "I don\'t know yet" when it should. A companion for the Amazfit Helio Strap. Still being built.';
 ---
 
 <Base title={title} description={description}>
   <Nav />
+
   <main id="main">
-    <Hero />
-    <Differentiators />
-    <CoachExchange />
-    <Pipeline />
-    <GuardrailDemo />
-    <GradeScale />
-    <MetricAnatomy />
-    <ScienceLayer />
-    <PersonalScience />
-    <Pricing />
-    <SelfHost />
-    <Disclaimer />
-    <Sources />
+    {/* 1 — The opening truth + the turn + the anchor */}
+    <section class="moment" aria-labelledby="hero-title">
+      <div class="wrap">
+        <h1 id="hero-title" class="say-huge rise">
+          Every app tells you <span class="warm">&ldquo;great job.&rdquo;</span> Even when
+          it isn&rsquo;t true.
+        </h1>
+        <p class="lede rise mt-8" style="max-width:38rem;">
+          Healthee is the one that won&rsquo;t. It&rsquo;s a health companion that
+          <strong style="color:var(--c-ink);font-weight:600;">refuses to flatter you</strong> —
+          it tells you the truth about your body, kindly, and says &ldquo;I don&rsquo;t know
+          yet&rdquo; when it really doesn&rsquo;t.
+        </p>
+        <p class="plain rise mt-6" style="max-width:38rem;">
+          It works with a little fitness band you wear on your wrist. No cheering. No fake
+          numbers. Just an honest read, and the next small thing worth trying.
+        </p>
+      </div>
+    </section>
+
+    {/* 2 — One quiet moment of honesty (the rendered example) */}
+    <section class="moment" aria-labelledby="honest-title">
+      <div class="wrap">
+        <h2 id="honest-title" class="say-big rise">
+          Most days it has plenty to say. Some days it says <span class="warm">this</span>.
+        </h2>
+        <p class="lede rise mt-7">
+          When the band hasn&rsquo;t seen enough of you, other apps guess anyway — a cheerful
+          number that isn&rsquo;t really there. Healthee just tells you the truth:
+        </p>
+
+        <figure class="mt-8 rise" aria-label="An example of what Healthee says when it doesn't have enough data">
+          <p class="aside mb-3">An example of what it says</p>
+          <div class="quiet">
+            <p class="voice">
+              &ldquo;I don&rsquo;t have enough to score you today. Wear it tonight and
+              I&rsquo;ll know more in the morning.&rdquo;
+            </p>
+          </div>
+          <figcaption class="aside mt-3">
+            &ldquo;Not enough to be sure&rdquo; always beats a guess that makes you feel good.
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    {/* 3 — What it is: the band, free numbers, the paid coach (with a warm exchange) */}
+    <section class="moment" aria-labelledby="what-title">
+      <div class="wrap">
+        <h2 id="what-title" class="say-big rise">
+          A companion for a band you can buy <span class="warm">anywhere</span>.
+        </h2>
+        <p class="lede rise mt-7">
+          Healthee works with the <strong style="color:var(--c-ink);font-weight:600;">Amazfit
+          Helio Strap</strong> — a small, screenless band you can buy on your own, from anyone.
+          We don&rsquo;t sell it and we&rsquo;re not part of the company that makes it. We just
+          make it honest.
+        </p>
+        <p class="plain rise mt-6">
+          Everything the band measures — your sleep, your heart, how rested you are — is
+          <strong style="color:var(--c-ink);font-weight:600;">free, forever</strong>. The part
+          you pay for is the coach: someone in your pocket who reads your numbers and talks to
+          you plainly about them.
+        </p>
+
+        <figure class="mt-9 rise" aria-label="An example conversation with the Healthee coach">
+          <p class="aside mb-3">An example conversation</p>
+          <div class="quiet">
+            <p class="voice"><span class="text-ink-faint">You:</span> Did I sleep okay?</p>
+            <hr class="rule my-5" />
+            <p class="voice">
+              <span class="text-ink-faint">Healthee:</span> Not really. You were short by about
+              an hour and a half, three nights running, and it&rsquo;s starting to show. Tonight,
+              try heading to bed 30 minutes earlier — of everything you could change, that&rsquo;s
+              the one most likely to help.
+            </p>
+          </div>
+          <figcaption class="aside mt-3">
+            Everything it tells you is backed by real research you can read yourself — or it
+            doesn&rsquo;t say it.
+          </figcaption>
+        </figure>
+
+        <p class="plain rise mt-9">
+          The coach costs less than one coffee a month:
+          <strong style="color:var(--c-ink);font-weight:600;">$3.99 a month, $34.99 a year, or
+          $99 once</strong> (the one-time price is an early-supporter offer, while it lasts). For
+          a sense of scale, other bands ask a lot more just to see your own numbers:
+          <a class="u-link" href="https://www.whoop.com/us/en/membership/" target="_blank" rel="noopener">Whoop</a>
+          starts at $199 a year, and
+          <a class="u-link" href="https://ouraring.com/membership" target="_blank" rel="noopener">Oura</a>
+          is $69.99 a year on top of a $349 ring <span class="text-ink-faint">(prices from their
+          own sites, July 2026)</span>.
+        </p>
+      </div>
+    </section>
+
+    {/* 4 — How you'll get it + the data promise */}
+    <section class="moment" aria-labelledby="get-title">
+      <div class="wrap">
+        <h2 id="get-title" class="say-big rise">
+          When it&rsquo;s ready, there&rsquo;ll be <span class="warm">two</span> honest ways to
+          get it.
+        </h2>
+
+        <div class="mt-8 rise">
+          <p class="voice" style="font-size:clamp(1.15rem,2.1vw,1.5rem);">We run it for you.</p>
+          <p class="plain mt-2" style="max-width:40rem;">
+            The simple way — you just use the app. This opens the moment the app is ready. It
+            isn&rsquo;t yet, so there&rsquo;s nothing to sign up for today.
+          </p>
+        </div>
+
+        <div class="mt-7 rise">
+          <p class="voice" style="font-size:clamp(1.15rem,2.1vw,1.5rem);">You run it yourself.</p>
+          <p class="plain mt-2" style="max-width:40rem;">
+            The whole thing is yours to run on your own computer if you&rsquo;d rather. The code
+            goes up on GitHub the moment it&rsquo;s ready to run yourself — and the link will
+            appear right here.
+          </p>
+        </div>
+
+        <hr class="rule-soft mt-10 rise" />
+
+        <h3 class="voice rise mt-9" style="font-weight:600;">Your numbers stay yours.</h3>
+        <ul class="mt-5 flex flex-col gap-3.5 rise" style="max-width:40rem;list-style:none;padding:0;">
+          <li class="plain flex gap-3"><span class="warm" aria-hidden="true">&mdash;</span> Kept
+            separate from everyone else&rsquo;s. Your data is never mixed in with other people&rsquo;s.</li>
+          <li class="plain flex gap-3"><span class="warm" aria-hidden="true">&mdash;</span> Your
+            password never touches us — signing in is handled somewhere safe, away from your health data.</li>
+          <li class="plain flex gap-3"><span class="warm" aria-hidden="true">&mdash;</span> Backed
+            up every night, so nothing gets lost.</li>
+          <li class="plain flex gap-3"><span class="warm" aria-hidden="true">&mdash;</span> Never
+            sold. And there are no trackers on this page — not even to count visitors.</li>
+        </ul>
+      </div>
+    </section>
+
+    {/* 5 — The honest goodbye */}
+    <section class="moment" aria-labelledby="bye-title">
+      <div class="wrap">
+        <h2 id="bye-title" class="say-big rise">
+          It won&rsquo;t pretend to be your <span class="warm">doctor</span>.
+        </h2>
+        <p class="lede rise mt-7" style="max-width:40rem;">
+          Healthee isn&rsquo;t a medical device and it won&rsquo;t diagnose you. If something in
+          your numbers looks worth worrying about, it&rsquo;ll say so plainly — and tell you to
+          see a real doctor. That&rsquo;s the honest thing to do.
+        </p>
+        <p class="plain rise mt-8" style="max-width:40rem;">
+          It&rsquo;s still being built, out in the open, one honest piece at a time. There&rsquo;s
+          nothing to sign up for yet. When it&rsquo;s ready, this is where you&rsquo;ll find it.
+          <strong style="color:var(--c-ink);font-weight:600;">Watch this space.</strong>
+        </p>
+      </div>
+    </section>
   </main>
+
   <Footer />
 </Base>
