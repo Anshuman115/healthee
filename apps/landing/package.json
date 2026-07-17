@@ -6,7 +6,7 @@
   "description": "Healthee public landing page — an honest, self-hosted health companion",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/strip-css-banner.mjs",
     "preview": "astro preview",
     "check": "astro check",
     "deploy": "astro build && wrangler deploy"
