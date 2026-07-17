@@ -111,11 +111,11 @@ def test_profile_primary_key_is_the_owner(two_profiles: None) -> None:  # noqa: 
 def test_each_owner_holds_their_own_profile(two_profiles: None) -> None:  # noqa: ARG001
     """B can have a profile at all — impossible while one global `id = 1` row existed."""
     with tenant_transaction(_OWNER_B) as cur:
-        upsert_profile(cur, _OWNER_B, _profile_in(_B))
+        upsert_profile(cur, _OWNER_B, SENTINEL_TZ, _profile_in(_B))
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        a = read_profile(cur, SENTINEL_USER_ID)
+        a = read_profile(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     with tenant_transaction(_OWNER_B) as cur:
-        b = read_profile(cur, _OWNER_B)
+        b = read_profile(cur, _OWNER_B, SENTINEL_TZ)
     assert a["name"] == _A["name"]
     assert b["name"] == _B["name"]
     assert a["height_cm"] == pytest.approx(_A["height_cm"])
@@ -129,7 +129,7 @@ def test_owner_b_upsert_cannot_clobber_owner_a(two_profiles: None) -> None:  # n
     where B's body silently became A's.
     """
     with tenant_transaction(_OWNER_B) as cur:
-        upsert_profile(cur, _OWNER_B, _profile_in(_B))
+        upsert_profile(cur, _OWNER_B, SENTINEL_TZ, _profile_in(_B))
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute(
             "SELECT name, height_cm, sex, dob FROM profile WHERE user_id = %s",
@@ -155,6 +155,7 @@ def test_repeated_upsert_for_one_owner_updates_in_place(two_profiles: None) -> N
         upsert_profile(
             cur,
             SENTINEL_USER_ID,
+            SENTINEL_TZ,
             ProfileIn(name=None, height_cm=180.0, sex="male", dob=_dob_ms(_A["dob"])),
         )
     with tenant_transaction(SENTINEL_USER_ID) as cur:

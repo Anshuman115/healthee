@@ -59,6 +59,12 @@ def test_deterministic_derived_values(responses: dict) -> None:
     assert today["mvpa"]["week_moderate_min"] >= 24  # from mvpa_min flags (seam fix)
     assert responses["activity"]["acwr"]["ratio"] == 1.0  # flat 30-day load
     assert responses["profile"]["weight_kg"] == 72.5
+    # dob goes out as epoch ms at OWNER-LOCAL midnight (seed: 1990-05-01,
+    # Asia/Kolkata). Asserted by VALUE, not just shape: `assert_conforms` compares
+    # keys and types only, so the snapshot number alone guards nothing. This is the
+    # end-to-end guard for the anchor bug — 641_520_000_000 here means the encoder
+    # went back to UTC midnight and negative-offset owners' birthdays will walk.
+    assert responses["profile"]["dob"] == 641_500_200_000
 
 
 def test_today_has_every_legacy_key(responses: dict) -> None:

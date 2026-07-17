@@ -122,9 +122,9 @@ def test_profile_read_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     that A and B each see themselves cannot be satisfied by any single row.
     """
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        a = read_profile(cur, SENTINEL_USER_ID)
+        a = read_profile(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     with tenant_transaction(OWNER_B) as cur:
-        b = read_profile(cur, OWNER_B)
+        b = read_profile(cur, OWNER_B, SENTINEL_TZ)
     assert a["name"] == "Test"
     assert a["height_cm"] == pytest.approx(176.0)
     assert b["name"] == B_NAME, "owner B was served owner A's profile"
