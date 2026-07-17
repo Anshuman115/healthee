@@ -1,70 +1,91 @@
 @import "tailwindcss";
+@import "./surfaces.css";
 
-/* Manual dark mode: the `.dark` class on <html> wins. LIGHT is the default —
-   the head script seeds `.dark` ONLY from a saved choice, never from the OS. */
+/* Manual dark mode: the `.dark` class on <html> wins; the head script seeds it
+   from localStorage or prefers-color-scheme so there is no flash. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ *
- *  v4 — "The Honest Voice"
- *  A single-column story told in the product's own voice — closer to a
- *  beautifully typeset letter than a SaaS page. No feature grids, no
- *  data chrome, no mono, no chips. Enormous confident type, warm paper,
- *  ONE warm clay accent, and a lot of air. The rendered moments are quiet
- *  cards where the app speaks plainly. Typography IS the design.
- *  Brand colours are IDENTICAL hex in light and dark (only the neutrals
- *  re-pick). The accent is a warm clay — never green, never a reward ring.
+ *  v3 — "The Instrument"
+ *  A premium consumer-product page: graphite & porcelain surfaces, vast
+ *  negative space, precision system-sans typography, mono for data only.
+ *  ONE refined accent — a deep iris/indigo, deliberately NOT the green-ring
+ *  reward colour this product exists to reject. Amber is reserved for the
+ *  honesty moments ("not enough data"): the refusal is the product working.
+ *  Dark is the primary identity; light is a full re-pick, not an inversion.
  * ------------------------------------------------------------------ */
 
 :root {
-  /* Light — warm paper */
-  --c-canvas: #f7f4ef;
-  --c-raised: #fffdf9;
-  --c-ink: #211d18;
-  --c-ink-soft: #5c554c;
-  --c-ink-faint: #938b7f;
-  --c-line: #e6ded2;
-  --c-line-strong: #d6ccbc;
-  /* brand — identical in both themes */
-  --c-accent: #bf4d2b;
-  --c-accent-ink: #fff8f3;
-  --c-accent-tint: rgba(191, 77, 43, 0.09);
-  --shadow-quiet:
-    0 1px 2px rgba(33, 29, 24, 0.04),
-    0 10px 30px -14px rgba(33, 29, 24, 0.16);
+  /* Light — a cool porcelain re-pick (v2's warm field-journal paper is retired) */
+  --c-canvas: #fbfcfd;
+  --c-card: #ffffff;
+  --c-sunk: #f2f4f8;
+  --c-ink: #0e1116;
+  --c-ink-soft: #545c69;
+  --c-ink-faint: #838b98;
+  --c-line: #e6e9ef;
+  --c-line-strong: #d3d9e2;
+  --c-accent: #4b45d6;
+  --c-accent-soft: #6f6af0;
+  --c-accent-ink: #ffffff;
+  --c-accent-tint: rgba(75, 69, 214, 0.08);
+  --c-warn: #b0801f;
+  --c-warn-tint: rgba(176, 128, 31, 0.09);
+  --shadow-card:
+    0 1px 2px rgba(14, 17, 22, 0.04),
+    0 6px 16px -8px rgba(14, 17, 22, 0.1),
+    0 24px 48px -28px rgba(14, 17, 22, 0.16);
+  --shadow-lift:
+    0 2px 4px rgba(14, 17, 22, 0.05),
+    0 14px 30px -10px rgba(14, 17, 22, 0.14),
+    0 44px 76px -36px rgba(14, 17, 22, 0.22);
   --edge-top: 0 0 0 0 transparent;
 }
 
 .dark {
-  /* Dark — warm near-black, not cool graphite */
-  --c-canvas: #191510;
-  --c-raised: #221d16;
-  --c-ink: #f3ede2;
-  --c-ink-soft: #b3a996;
-  --c-ink-faint: #837868;
-  --c-line: #302a20;
-  --c-line-strong: #40382c;
-  /* brand — identical hex */
-  --c-accent: #bf4d2b;
-  --c-accent-ink: #fff8f3;
-  --c-accent-tint: rgba(191, 77, 43, 0.16);
-  --shadow-quiet:
+  /* Dark — cool graphite, the flagship identity */
+  --c-canvas: #0c0e12;
+  --c-card: #16191f;
+  --c-sunk: #090b0e;
+  --c-ink: #f1f3f7;
+  --c-ink-soft: #a6afbc;
+  --c-ink-faint: #6c7580;
+  --c-line: #242932;
+  --c-line-strong: #333a45;
+  /* Brand colours are IDENTICAL to light mode (owner decision 2026-07-17):
+     one accent code everywhere; only the neutrals re-pick for dark. */
+  --c-accent: #4b45d6;
+  --c-accent-soft: #6f6af0;
+  --c-accent-ink: #ffffff;
+  --c-accent-tint: rgba(75, 69, 214, 0.14);
+  --c-warn: #b0801f;
+  --c-warn-tint: rgba(176, 128, 31, 0.13);
+  --shadow-card:
     0 1px 2px rgba(0, 0, 0, 0.4),
-    0 16px 44px -22px rgba(0, 0, 0, 0.72);
-  --edge-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+    0 14px 40px -22px rgba(0, 0, 0, 0.7);
+  --shadow-lift:
+    0 2px 6px rgba(0, 0, 0, 0.45),
+    0 26px 60px -28px rgba(0, 0, 0, 0.8);
+  /* a 1px top highlight that reads as brushed material on graphite */
+  --edge-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 @theme {
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
   --color-canvas: var(--c-canvas);
-  --color-raised: var(--c-raised);
+  --color-card: var(--c-card);
+  --color-sunk: var(--c-sunk);
   --color-ink: var(--c-ink);
   --color-ink-soft: var(--c-ink-soft);
   --color-ink-faint: var(--c-ink-faint);
   --color-line: var(--c-line);
   --color-line-strong: var(--c-line-strong);
   --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
   --color-accent-ink: var(--c-accent-ink);
+  --color-warn: var(--c-warn);
 }
 
 @layer base {
@@ -90,7 +111,16 @@
   :focus-visible {
     outline: 2px solid var(--c-accent);
     outline-offset: 3px;
-    border-radius: 5px;
+    border-radius: 4px;
+  }
+
+  /* Display type: precision system-sans. Tight tracking carries the premium
+     feel — no serif identity, no webfonts (self-containment is a hard rule). */
+  h1, h2, h3 {
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.06;
+    text-wrap: balance;
   }
 
   a { color: inherit; }
@@ -101,117 +131,131 @@
 }
 
 @layer components {
-  /* The reading column — one narrow measure carries the whole story. */
-  .wrap {
+  .shell {
     width: 100%;
-    max-width: 46rem;
+    max-width: 74rem;
     margin-inline: auto;
-    padding-inline: clamp(1.25rem, 6vw, 2.75rem);
+    padding-inline: clamp(1.25rem, 5vw, 3.5rem);
   }
 
-  /* Each story beat. Big, calm, breathing space is the whole design. */
-  .moment { padding-block: clamp(3.75rem, 9vw, 6.75rem); }
-  .moment-tight { padding-block: clamp(2.25rem, 5vw, 3.5rem); }
+  /* Section rhythm — vast, calm negative space is the premium signal. */
+  .section { padding-block: clamp(4.5rem, 10vw, 8rem); }
+  .band-sunk { background: var(--c-sunk); }
 
-  /* The opening truth — enormous, confident, spoken. */
-  .say-huge {
-    font-weight: 700;
-    font-size: clamp(2.85rem, 7.6vw, 6rem);
-    letter-spacing: -0.028em;
-    line-height: 1.02;
-    text-wrap: balance;
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--c-accent-soft);
   }
 
-  /* Every moment's headline. */
-  .say-big {
-    font-weight: 700;
-    font-size: clamp(1.95rem, 4.6vw, 3.4rem);
-    letter-spacing: -0.022em;
-    line-height: 1.06;
-    text-wrap: balance;
-  }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-  /* The one warm word that carries the accent — used sparingly, at large
-     size only (so contrast is never an issue). Never on small body text. */
-  .warm { color: var(--c-accent); }
-
-  /* The relaxed reading voice. */
   .lede {
-    font-size: clamp(1.15rem, 1.7vw, 1.4rem);
-    line-height: 1.62;
+    font-size: clamp(1.12rem, 1.9vw, 1.38rem);
+    line-height: 1.5;
+    letter-spacing: -0.01em;
     color: var(--c-ink-soft);
     text-wrap: pretty;
   }
-  .lede-tight { line-height: 1.5; }
 
-  .plain { color: var(--c-ink-soft); text-wrap: pretty; }
+  /* The one place a "spoken" sentence is set large — the coach's voice and the
+     refusals. System-sans, tight, never a serif. */
+  .display-line {
+    font-weight: 560;
+    letter-spacing: -0.02em;
+    line-height: 1.16;
+  }
 
-  /* A quiet card — where the app speaks. Soft warm surface, hairline,
-     a whisper of lift. No chrome, no chips, no labels-as-data. */
-  .quiet {
-    background: var(--c-raised);
+  /* Rendered product surfaces — premium app-UI cards, the hero of the page.
+     Graphite/porcelain material: 1px hairline, layered soft shadow, and on
+     dark a brushed top highlight. These are the ONLY elevated elements. */
+  .surface {
+    background: var(--c-card);
     border: 1px solid var(--c-line);
-    border-radius: 20px;
-    box-shadow: var(--edge-top), var(--shadow-quiet);
-    padding: clamp(1.5rem, 4vw, 2.4rem);
+    border-radius: 16px;
+    box-shadow: var(--edge-top), var(--shadow-card);
   }
+  .surface-lift { box-shadow: var(--edge-top), var(--shadow-lift); }
 
-  /* What Healthee actually says — set large and human, ink, relaxed. */
-  .voice {
-    font-weight: 500;
-    font-size: clamp(1.3rem, 2.6vw, 1.85rem);
-    letter-spacing: -0.014em;
-    line-height: 1.3;
-    color: var(--c-ink);
-    text-wrap: pretty;
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    padding: 0.42em 0.62em;
+    border: 1px solid var(--c-line-strong);
+    border-radius: 999px;
+    color: var(--c-ink-soft);
+    white-space: nowrap;
   }
-
-  /* The tiny "this is an example" note above a quiet card. Human, not a chip. */
-  .aside {
-    font-size: 0.82rem;
-    letter-spacing: 0.01em;
-    color: var(--c-ink-faint);
+  .chip-dot::before {
+    content: "";
+    width: 0.45em;
+    height: 0.45em;
+    border-radius: 999px;
+    background: currentColor;
+    flex: none;
+  }
+  .chip-accent {
+    color: var(--c-accent-soft);
+    border-color: color-mix(in srgb, var(--c-accent) 42%, transparent);
+    background: var(--c-accent-tint);
+  }
+  .chip-warn {
+    color: var(--c-warn);
+    border-color: color-mix(in srgb, var(--c-warn) 48%, transparent);
+    background: var(--c-warn-tint);
   }
 
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5em;
-    font-weight: 560;
-    font-size: 0.98rem;
-    padding: 0.78rem 1.4rem;
-    border-radius: 999px;
+    gap: 0.55em;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.72rem 1.35rem;
+    border-radius: 11px;
     border: 1px solid transparent;
     transition:
       background-color 0.18s ease, border-color 0.18s ease,
-      color 0.18s ease, transform 0.18s ease;
+      color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
   }
   .btn:active { transform: translateY(1px); }
-  .btn-primary { background: var(--c-accent); color: var(--c-accent-ink); }
-  .btn-primary:hover { background: color-mix(in srgb, var(--c-accent) 88%, #000); }
+  .btn-primary {
+    background: var(--c-accent);
+    color: var(--c-accent-ink);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.12),
+      0 10px 24px -12px color-mix(in srgb, var(--c-accent) 65%, transparent);
+  }
+  .btn-primary:hover { background: var(--c-accent-soft); }
   .btn-ghost {
     border-color: var(--c-line-strong);
     color: var(--c-ink);
+    background: color-mix(in srgb, var(--c-card) 55%, transparent);
   }
-  .btn-ghost:hover { border-color: var(--c-accent); color: var(--c-accent); }
+  .btn-ghost:hover { border-color: var(--c-accent); color: var(--c-accent-soft); }
 
-  /* Links carry ink, decorated with the accent — so small text never leans
-     on accent-vs-canvas contrast. */
-  .u-link {
-    color: var(--c-ink);
+  .hairline { height: 1px; background: var(--c-line); border: 0; }
+
+  .link-underline {
+    color: var(--c-accent-soft);
     text-decoration: underline;
-    text-decoration-thickness: 1.5px;
+    text-decoration-thickness: 1px;
     text-underline-offset: 3px;
-    text-decoration-color: var(--c-accent);
-    transition: color 0.18s ease;
+    text-decoration-color: color-mix(in srgb, var(--c-accent) 45%, transparent);
   }
-  .u-link:hover { color: var(--c-accent); }
+  .link-underline:hover { text-decoration-color: currentColor; }
 
-  .rule { height: 1px; background: var(--c-line); border: 0; }
-
-  /* A soft warm hairline that separates a quiet closing note. */
-  .rule-soft { height: 1px; background: var(--c-line); border: 0; opacity: 0.8; }
+  @media (prefers-reduced-motion: reduce) {
+    .btn:active { transform: none; }
+  }
 }
 
 /* Load / scroll reveal — opt-in, only when JS + motion are both present.
@@ -219,15 +263,11 @@
 @layer utilities {
   .js-anim .rise {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(18px);
     transition:
       opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
       transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
     will-change: opacity, transform;
   }
   .js-anim .rise.in { opacity: 1; transform: none; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .btn:active { transform: none; }
-  }
 }

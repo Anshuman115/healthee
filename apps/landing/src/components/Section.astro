@@ -1,0 +1,21 @@
+---
+// The premium section wrapper: consistent vertical rhythm and an optional
+// recessed band. No margin rail, no §-numbering — v2's field-journal apparatus
+// is retired. Each section supplies its own eyebrow → heading → lede.
+interface Props {
+  id?: string;
+  tone?: 'canvas' | 'sunk';
+  labelledby?: string;
+}
+const { id, tone = 'canvas', labelledby } = Astro.props;
+---
+
+<section
+  id={id}
+  class:list={['section scroll-mt-20', tone === 'sunk' && 'band-sunk']}
+  aria-labelledby={labelledby}
+>
+  <div class="shell">
+    <slot />
+  </div>
+</section>
