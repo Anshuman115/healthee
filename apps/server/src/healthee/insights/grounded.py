@@ -1,4 +1,17 @@
-"""The grounded-ask choke point — THE single path every LLM surface goes through.
+"""The grounded-ask choke point — the path the non-conversational LLM surfaces take.
+
+⚠ It is NOT literally "the single path every LLM surface goes through", though this
+docstring said so and `INTELLIGENCE.md` §4 still implies it. **The coach does not call
+`grounded_ask`** — `insights/coach.py` drives its own tool-calling loop and invokes the
+choke point's PRIMITIVES directly (`validate`, `check_output`, the refusal classifier).
+It is enforced-equivalent, not routed-through, and every rule added here must be mirrored
+there or the coach silently misses it. That is not hypothetical: the output guardrail
+(step 4) had to be added in both places, and a test pins the coach's copy so it cannot rot.
+
+Stating it plainly because a docstring claiming a guarantee the code does not have is how
+the next reader mis-reasons — the same shape as `is_refusal` documenting "exact" while it
+did a substring match, which was a total validation bypass. Collapsing the coach onto this
+function is real work and is tracked separately; until then, believe this paragraph, not §4.
 
 INTELLIGENCE §3, in order:
   1. deterministic refusal pre-classifier (5 domains) — hits bypass the LLM entirely;
