@@ -5,6 +5,22 @@ findings: `docs/blueprint.html` (published copy:
 https://claude.ai/code/artifact/c854d435-402b-471d-b308-d853f61b7a36).
 This file is the working summary.
 
+> ⚠ **`blueprint.html` predates Phase 6 and is not maintained.** It still
+> describes the single shared bearer token as a thing that "blocks multi-user".
+> Where it and this file disagree, **this file wins**; for tenancy specifically,
+> `docs/MULTI_USER.md` wins over both.
+
+## Where the detail lives (this file is the summary — don't duplicate it here)
+
+| Subject | Owner doc |
+|---|---|
+| Multi-tenancy: identity, RLS, the app role, per-user jobs, the signup gate | `docs/MULTI_USER.md` |
+| Grounding: the choke point, validator, output guardrails, retrieval, coverage | `docs/INTELLIGENCE.md` |
+| Binding quality gates (sizes, errors, tests, performance budgets) | `docs/ENGINEERING_STANDARDS.md` |
+| The deploy procedure, the one-time cutover, rollback | `infra/DEPLOY.md` |
+| Restoring from a dump | `infra/backup/RESTORE.md` |
+| Free/premium line + LLM cost model | `docs/PRICING.md` |
+
 ## One system, three tiers
 
 ```
@@ -27,16 +43,44 @@ Helio Strap ──BLE (RE'd Huami/ZeppOS)──▶ Mobile app ──POST /ingest
 - **Server** is the canonical brain: full history, the science layer, the
   grounded intelligence. Server values win on reconcile; drift beyond tolerance
   is logged, never hidden.
+- **The server is multi-tenant** (Phase 6, shipped — detail in
+  `docs/MULTI_USER.md`, which owns this subject). One database, **row-level**
+  tenancy: `user_id UUID` on all 16 data tables and folded into every natural
+  key. Identity is **Supabase auth-only** — the backend is a *resource server*
+  that verifies the JWT (`core/supabase_auth.py`) and never issues one; sign-in
+  is Google/Apple social login. Every tenant read and write is owner-scoped, and
+  **Postgres RLS is the backstop underneath** (`0008`): the app pool connects as
+  a non-superuser `NOBYPASSRLS` role, so a missed `WHERE` returns nothing rather
+  than another person's health data. Per-user timezone is live end-to-end; there
+  is no global fire zone.
+  - **Transitional, and load-bearing to know:** auth is **dual**
+    (`core/request_auth.py`) — a Supabase JWT resolves to the real user, the
+    **legacy shared token** resolves to the sentinel owner. That branch cannot
+    die until the Phase-2 app ships Supabase login, so **`SIGNUPS_OPEN` must
+    stay false until then**. And RLS only *protects prod* once `POSTGRES_APP_*`
+    is set there — otherwise the pool falls back to the admin superuser, which
+    bypasses the policies (the startup log says which). See `infra/DEPLOY.md`.
 
 ## The honesty contract (product law)
 
 1. Never lies, never flatters — every interpretive sentence cites the corpus or
-   doesn't ship (validated at the grounded-ask choke point).
+   doesn't ship (blocking validator). Enforced at the grounded-ask choke point
+   for the non-conversational surfaces; the coach enforces the same primitives
+   itself rather than routing through it — *enforced-equivalent, not
+   routed-through*, which means **a new rule must be added in both places**
+   (INTELLIGENCE.md §4).
 2. Confidence is part of the answer — every number carries coverage, freshness,
    origin (measured/derived/provisional), and evidence grade.
 3. Nudge, don't please — measured outcomes (frozen ledgers), not streak theater.
 4. Science is a pipeline — graded notes, calibrated language, safety directives
-   as hard guardrails.
+   as hard guardrails. The guardrail is real and live: `insights/output_guard.py`
+   blocks a documented forbidden output (personal death-risk projections,
+   advising through red-flag symptoms, sleep restriction, bone-stress/REDs)
+   **regardless of citations or validation** — a floor beneath the validator,
+   because a forbidden answer can be perfectly cited. Its rules are hand-compiled
+   from what the product documents, each citing the line that forbids it;
+   compiling them *from* note directives is a seam, not yet a fact
+   (INTELLIGENCE.md §2).
 5. The user owns the data — self-hosted, on-device history, backups, export.
 6. **Fast is a feature** — the app renders instantly from local data (never
    blocks on the network), the server answers reads in <100 ms p95, LLM work
@@ -53,7 +97,7 @@ Helio Strap ──BLE (RE'd Huami/ZeppOS)──▶ Mobile app ──POST /ingest
 | 3 | On-device 60-day tier: local daily_metric mirror, /api/sync/down, retention pruning, offline-first rendering | Airplane mode = fully functional app; reinstall repopulates in one sync |
 | 4 | Device analytics: baselines/trends/anomalies/provisional recovery/confidence in Dart, parity-tested vs server goldens | Parity suite green in CI; instant wake-up score |
 | 5 | Companion intelligence: per-card confidence, weekly review digest, coach memory, knowledge-corpus reconciliation (unify to richer template + directives manifest), export | First honest weekly review delivered and fact-checked |
-| 6 | Cutover + multi-user readiness: VPS re-pointed to this repo, legacy archived; auth/tenancy seams | Prod runs from this repo; legacy repo frozen |
+| 6 ✅ | **Cutover + real multi-tenancy** (not "seams"). Cutover: done — prod runs from this repo (`healtheeapi.afk.codes`), legacy stack stopped. Multi-user: **6.1→6.5 shipped** (migrations `0002`→`0008`) — Supabase auth-only identity (`app_user` UUID + hash-only `device_token`), `user_id` on all 16 data tables folded into every key, per-user timezone end-to-end, per-owner nightly chain, server-enforced signup gate, a least-privilege DB role, and **RLS** on all 16 tables. Guarded by an AST completeness guard + RLS/service/HTTP/job isolation suites (`tests/db/`). **Plan of record: `docs/MULTI_USER.md`** — it owns the detail. **Outstanding:** the legacy shared-token branch (dies with Phase 2) · 6.6 premium gating (unbuilt) · rate-limiting · per-user backup/export | Prod runs from this repo ✅; legacy repo frozen ✅; isolation proven by defeating it ✅ |
 
 ### Phase 1 work packages (the actual build order)
 
