@@ -3,17 +3,22 @@ import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Hero from '../components/Hero.astro';
 import Differentiators from '../components/Differentiators.astro';
-import HonestyShowcase from '../components/HonestyShowcase.astro';
+import CoachExchange from '../components/CoachExchange.astro';
+import Pipeline from '../components/Pipeline.astro';
+import GuardrailDemo from '../components/GuardrailDemo.astro';
+import GradeScale from '../components/GradeScale.astro';
+import MetricAnatomy from '../components/MetricAnatomy.astro';
 import ScienceLayer from '../components/ScienceLayer.astro';
 import PersonalScience from '../components/PersonalScience.astro';
 import Pricing from '../components/Pricing.astro';
 import SelfHost from '../components/SelfHost.astro';
 import Disclaimer from '../components/Disclaimer.astro';
+import References from '../components/References.astro';
 import Footer from '../components/Footer.astro';
 
-const title = 'Healthee — the health companion that refuses to flatter you';
+const title = 'Healthee — every claim it makes is cited, or it doesn’t ship';
 const description =
-  'An honest, self-hosted AI health companion. Every interpretation cited to graded research, every number carrying its confidence, and "not enough data" over a confident guess.';
+  'An honest, self-hosted AI health companion. A grounded coach that cites every claim, a blocking pipeline that refuses forbidden answers even when perfectly cited, and “not enough data” over a confident guess.';
 ---
 
 <Base title={title} description={description}>
@@ -21,12 +26,17 @@ const description =
   <main id="main">
     <Hero />
     <Differentiators />
-    <HonestyShowcase />
+    <CoachExchange />
+    <Pipeline />
+    <GuardrailDemo />
+    <GradeScale />
+    <MetricAnatomy />
     <ScienceLayer />
     <PersonalScience />
     <Pricing />
     <SelfHost />
     <Disclaimer />
+    <References />
   </main>
   <Footer />
 </Base>

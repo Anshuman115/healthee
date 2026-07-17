@@ -1,0 +1,57 @@
+---
+// The reference apparatus — the payoff of the footnote motif. Superscript markers
+// throughout the page resolve here. Primary-research methods are cited to their
+// source; product-mechanism claims cite the repo's engineering record; competitor
+// prices cite the vendors' own pages, dated. Kept at a verifiable granularity
+// (author · title · venue · year) rather than fabricating exact volume/page numbers.
+const refs = [
+  { n: '1', text: 'Jurca R, et al. Assessing cardiorespiratory fitness without performing exercise testing. American Journal of Preventive Medicine, 2005. — the non-exercise VO₂max model.' },
+  { n: '2', text: 'Banister EW. Modeling elite athletic performance — the training-impulse (TRIMP) model. In: Physiological Testing of Elite Athletes, 1991. — internal training load.' },
+  { n: '3', text: 'Phillips AJK, et al. Irregular sleep/wake patterns… Scientific Reports, 2017. — defines the Sleep Regularity Index (SRI).' },
+  { n: '4', text: 'Gompertz B. On the nature of the function expressive of the law of human mortality. Philosophical Transactions of the Royal Society, 1825. — the biological-age model.' },
+  { n: '5', text: 'Benjamini Y, Hochberg Y. Controlling the false discovery rate. Journal of the Royal Statistical Society, Series B, 1995. — the FDR correction behind personal findings.' },
+  { n: '6', text: 'Tanaka H, Monahan KD, Seals DR. Age-predicted maximal heart rate revisited. Journal of the American College of Cardiology, 2001.' },
+  { n: '7', text: 'Whoop membership tiers & pricing. Current as of 2026-07.', href: 'https://www.whoop.com/us/en/membership/', link: 'whoop.com/membership' },
+  { n: '8', text: 'Oura membership — $5.99 / month · $69.99 / year. Current as of 2026-07.', href: 'https://ouraring.com/membership', link: 'ouraring.com/membership' },
+  { n: '9', text: 'Healthee engineering record — the grounded-ask pipeline, hard output guardrails, and blocking validator (docs/INTELLIGENCE.md §3).' },
+  { n: '10', text: 'Healthee engineering record — the coach loop, tools, and anti-hallucination rules (docs/INTELLIGENCE.md §4; docs/COACH_PROMPT.md).' },
+];
+---
+
+<section class="section border-t border-line" aria-labelledby="refs-h">
+  <div class="shell">
+    <div class="flex flex-wrap items-baseline justify-between gap-3">
+      <div>
+        <p class="eyebrow rise">References &amp; sources</p>
+        <h2 id="refs-h" class="rise mt-3 text-[clamp(1.5rem,3vw,2.1rem)]">
+          The footnotes are the point.
+        </h2>
+      </div>
+      <p class="rise mono max-w-md text-xs leading-relaxed text-ink-faint">
+        Every superscript on this page resolves here &mdash; the same discipline the product holds
+        itself to. Methods cite their primary research; mechanism claims cite the engineering record.
+      </p>
+    </div>
+
+    <ol class="reflist rise mt-8">
+      {
+        refs.map((r) => (
+          <li id={`ref-${r.n}`} class="refitem">
+            <span class="refnum">[{r.n}]</span>
+            <p>
+              {r.text}
+              {r.href && (
+                <>
+                  {' '}
+                  <a class="link-underline" href={r.href} target="_blank" rel="noopener noreferrer nofollow">
+                    {r.link}
+                  </a>
+                </>
+              )}
+            </p>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
