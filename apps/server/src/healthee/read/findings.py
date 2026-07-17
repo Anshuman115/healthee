@@ -3,15 +3,18 @@
 Ports legacy ``_is_trivial_finding`` and the sleep-finding slice verbatim: it
 drops definitional/derived pairs (steps↔distance, the sleep-quality sub-scores,
 near-perfect correlations) so only genuine cross-domain patterns surface. Reads
-the ``finding`` table via ``analytics.get_significant_findings`` (already
-v2-native).
+the ``finding`` table via ``analytics.significant_findings`` (already v2-native)
+on the CALLER's cursor — both entry points are called from inside the Today/Sleep
+aggregators' transaction, so taking the cursor is what keeps each request on ONE
+pooled connection (standards §1: "no per-item connections").
 """
 
 from __future__ import annotations
 
 from uuid import UUID
 
-from healthee.analytics.finding import get_significant_findings
+from healthee.analytics.finding import significant_findings
+from healthee.derive._common import Cur
 
 # Definitionally/derived-related pairs whose correlation is uninformative.
 _TRIVIAL_PAIRS: set[frozenset[str]] = {
@@ -89,10 +92,10 @@ def _shape(f: dict) -> dict:
     }
 
 
-def top_findings(user_id: UUID, limit: int = 5) -> list[dict]:
+def top_findings(cur: Cur, user_id: UUID, limit: int = 5) -> list[dict]:
     """Up to ``limit`` non-trivial findings for the Today page (legacy top_findings)."""
     out: list[dict] = []
-    for f in get_significant_findings(user_id, limit=40):
+    for f in significant_findings(cur, user_id, limit=40):
         if is_trivial_finding(f):
             continue
         out.append(_shape(f))
@@ -101,10 +104,10 @@ def top_findings(user_id: UUID, limit: int = 5) -> list[dict]:
     return out
 
 
-def sleep_findings(user_id: UUID, limit: int = 10) -> list[dict]:
+def sleep_findings(cur: Cur, user_id: UUID, limit: int = 10) -> list[dict]:
     """Sleep-related non-trivial findings for the Sleep page (legacy sleep slice)."""
     out: list[dict] = []
-    for f in get_significant_findings(user_id, limit=80):
+    for f in significant_findings(cur, user_id, limit=80):
         a, b = f.get("metric_a"), f.get("metric_b")
         is_cutoff = f.get("kind") == "personal_cutoff"
         related = is_cutoff or a in _SLEEP_FINDING_METRICS or b in _SLEEP_FINDING_METRICS

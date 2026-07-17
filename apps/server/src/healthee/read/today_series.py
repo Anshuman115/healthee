@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from healthee.analytics.baselines import compute_baseline
+from healthee.analytics.baselines import compute_baseline_cur
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
 from healthee.read.common import TodayReads, derived_series_many, latest_derived
@@ -51,9 +51,11 @@ def _derived_card(cur: Cur, user_id: UUID, metric: str, reads: TodayReads | None
         return None
     day, value, _flags = latest
     meta = METRIC_META[metric]
-    # Preloaded baseline when the aggregator supplied one; else compute on demand.
-    baseline = (reads.baselines.get(metric) if reads else None) or compute_baseline(
-        user_id, metric, window_days=30
+    # Preloaded baseline when the aggregator supplied one; else compute on demand —
+    # on THIS cursor, so a card whose metric the aggregator forgot to preload costs an
+    # extra query, never an extra pooled connection.
+    baseline = (reads.baselines.get(metric) if reads else None) or compute_baseline_cur(
+        cur, user_id, metric, window_days=30
     )
     z = baseline.z_score(value)
     return {

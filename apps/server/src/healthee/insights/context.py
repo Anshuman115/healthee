@@ -21,6 +21,7 @@ from healthee.analytics.baselines import (
     DEFAULT_DAILY_METRICS,
     compute_all,
     compute_baseline,
+    compute_baseline_cur,
     latest_value,
 )
 from healthee.core.db import tenant_transaction
@@ -83,7 +84,9 @@ def _trends(user_id: UUID) -> str:
     with tenant_transaction(user_id) as cur:
         for metric in DEFAULT_DAILY_METRICS:
             row = _seven_day_avg(cur, user_id, metric)
-            baseline = compute_baseline(user_id, metric, window_days=30)
+            # On THIS cursor: the self-opening form would borrow a second pooled
+            # connection per metric while this one is held (see compute_baselines).
+            baseline = compute_baseline_cur(cur, user_id, metric, window_days=30)
             if row is None or baseline.median is None:
                 continue
             any_row = True

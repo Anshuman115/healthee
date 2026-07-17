@@ -81,7 +81,7 @@ def today_snapshot(cur: Cur, user_id: UUID, tz: str) -> dict:
     payload.update(_signal_blocks(cur, user_id, tz, reads))
     payload.update(_series_blocks(cur, user_id, tz))
     payload["anomalies"] = []  # legacy computed these live; app reads /api/notable (WP5)
-    payload["top_findings"] = top_findings(user_id)
+    payload["top_findings"] = top_findings(cur, user_id)
     return payload
 
 

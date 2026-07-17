@@ -232,7 +232,8 @@ def test_gps_tracks_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
 
 def test_findings_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """Findings are personal statistics — B's would be a claim about A's body."""
-    payload = top_findings(SENTINEL_USER_ID, limit=5)
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        payload = top_findings(cur, SENTINEL_USER_ID, limit=5)
     assert "OWNER B FINDING" not in _dumped(payload)
 
 

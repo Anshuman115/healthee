@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from uuid import UUID
 
 from healthee.core.db import tenant_transaction
+from healthee.derive._common import Cur
 
 # finding.effect_metric values (which effect-size the number is).
 EFFECT_SPEARMAN = "spearman_r"
@@ -125,13 +126,30 @@ _SELECT_KEYS = (
 )
 
 
+def significant_findings(cur: Cur, user_id: UUID, limit: int = 30) -> list[dict]:
+    """Read one owner's significant findings on the CALLER's cursor, largest |effect| first.
+
+    The cursor-taking form is the one the read path must use. A read service that is
+    already inside a `tenant_transaction` holds a pooled connection; if it called the
+    self-opening :func:`get_significant_findings` it would borrow a SECOND connection
+    while holding the first, and ~`_POOL_MAX_SIZE` concurrent requests would then all
+    hold #1 and all wait for #2 — a collective stall, not a slowdown (standards §1:
+    "no per-item connections — the pool is the only way in").
+    """
+    cur.execute(
+        f"SELECT {', '.join(_SELECT_KEYS)} FROM finding "
+        "WHERE user_id = %s AND significant = TRUE ORDER BY ABS(effect_size) DESC LIMIT %s",
+        (user_id, limit),
+    )
+    return [dict(zip(_SELECT_KEYS, r, strict=True)) for r in cur.fetchall()]
+
+
 def get_significant_findings(user_id: UUID, limit: int = 30) -> list[dict]:
-    """Read one owner's significant findings, largest |effect| first (bounded by ``limit``)."""
+    """:func:`significant_findings` on its own connection — for callers with no cursor.
+
+    Job/insight-context callers only (`jobs/recs_context`, `insights/context_sessions`),
+    which run outside any transaction. **Never call this from a read service that
+    already holds a cursor** — pass the cursor to :func:`significant_findings` instead.
+    """
     with tenant_transaction(user_id) as cur:
-        cur.execute(
-            f"SELECT {', '.join(_SELECT_KEYS)} FROM finding "
-            "WHERE user_id = %s AND significant = TRUE ORDER BY ABS(effect_size) DESC LIMIT %s",
-            (user_id, limit),
-        )
-        rows = cur.fetchall()
-    return [dict(zip(_SELECT_KEYS, r, strict=True)) for r in rows]
+        return significant_findings(cur, user_id, limit)

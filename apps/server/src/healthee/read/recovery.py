@@ -20,7 +20,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from healthee.analytics.baselines import compute_baseline
+from healthee.analytics.baselines import compute_baseline_cur
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
@@ -210,8 +210,8 @@ def _rhr_signal(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dic
     if not latest:
         return None
     value = latest[1]
-    b = (reads.baselines.get("rhr_daily") if reads else None) or compute_baseline(
-        user_id, "rhr_daily", window_days=30
+    b = (reads.baselines.get("rhr_daily") if reads else None) or compute_baseline_cur(
+        cur, user_id, "rhr_daily", window_days=30
     )
     if b.median is None or not b.robust_sd:
         return None
@@ -279,8 +279,8 @@ def _hrv_signal(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dic
     if not latest:
         return None
     value = latest[1]
-    b = (reads.baselines.get("hrv_sleep_avg") if reads else None) or compute_baseline(
-        user_id, "hrv_sleep_avg", window_days=30
+    b = (reads.baselines.get("hrv_sleep_avg") if reads else None) or compute_baseline_cur(
+        cur, user_id, "hrv_sleep_avg", window_days=30
     )
     if b.median is None or not b.robust_sd:
         return None

@@ -20,7 +20,7 @@ from datetime import date
 from typing import LiteralString, cast
 from uuid import UUID
 
-from healthee.analytics.baselines import Baseline, compute_baselines
+from healthee.analytics.baselines import Baseline, compute_baselines_cur
 from healthee.analytics.metrics import metric_filter
 from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.derive._common import Cur
@@ -123,10 +123,15 @@ class TodayReads:
 def build_today_reads(
     cur: Cur, user_id: UUID, latest_metrics: Sequence[str], baseline_metrics: Sequence[str]
 ) -> TodayReads:
-    """Preload the Today latest-values (1 query) + 30-day baselines (1 query)."""
+    """Preload the Today latest-values (1 query) + 30-day baselines (1 query).
+
+    Both go through ``cur`` — the aggregator's own connection. The baselines used to
+    come from the self-opening ``compute_baselines``, which borrowed a SECOND pooled
+    connection on every single request while this one was held.
+    """
     return TodayReads(
         latest=latest_derived_many(cur, user_id, latest_metrics),
-        baselines=compute_baselines(user_id, list(baseline_metrics), window_days=30),
+        baselines=compute_baselines_cur(cur, user_id, list(baseline_metrics), window_days=30),
     )
 
 

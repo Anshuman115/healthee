@@ -89,7 +89,7 @@ def sleep_page(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict:
         "nights": nights_list,
         "naps": _naps(cur, user_id, tz, days),
         "cutoffs": SLEEP_CUTOFFS,
-        "findings": sleep_findings(user_id),
+        "findings": sleep_findings(cur, user_id),
         "research_notes": SLEEP_RESEARCH_NOTES,
     }
 

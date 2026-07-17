@@ -1,22 +1,80 @@
-"""Performance guardrails for the aggregators: /api/today must NOT issue an N+1
-query fan-out, and it must answer well within the read budget on the seeded set.
+"""Performance guardrails for the aggregators: the read endpoints must NOT issue an
+N+1 query fan-out, must each answer on ONE pooled connection, and must answer well
+within the read budget on the seeded set.
 """
 
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 
 import psycopg
 import pytest
 
+from healthee.core import db as db_module
+
 pytestmark = pytest.mark.integration
+
+# How long a starved borrow waits before the pool gives up. Only reached when a
+# request needs a SECOND connection, so it is pure test latency on a passing run —
+# short enough that the regression fails fast, long enough not to flake on a busy box.
+_POOL_WAIT_S = 3.0
+
+
+@pytest.fixture
+def pool_of_one(seeded_client: tuple, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple]:
+    """The seeded client, but the whole app shares a pool of exactly ONE connection.
+
+    This is what makes the self-deadlock DETERMINISTIC instead of a concurrency race.
+    A request that borrows a second connection while holding the first cannot be
+    served by a one-connection pool at any concurrency — it simply blocks until
+    `_POOL_WAIT_S` and raises `PoolTimeout`. So a nested borrow fails this fixture's
+    tests on a single, serial request, with no threads and no timing luck involved.
+    """
+    client, headers = seeded_client
+    real_pool = db_module.ConnectionPool
+
+    def one_connection_pool(**kwargs):  # noqa: ANN003, ANN202
+        return real_pool(**{**kwargs, "min_size": 1, "max_size": 1, "timeout": _POOL_WAIT_S})
+
+    monkeypatch.setattr(db_module, "ConnectionPool", one_connection_pool)
+    db_module.close_pool()  # force the next get_pool() to rebuild at size 1
+    yield client, headers
+    db_module.close_pool()
+
+
+def test_today_is_served_on_one_connection(pool_of_one: tuple) -> None:
+    """/api/today must complete on a single pooled connection.
+
+    Fails on the pre-fix code: `today_snapshot` held the request's connection while
+    `build_today_reads` -> `compute_baselines` and `top_findings` ->
+    `get_significant_findings` each opened their own `tenant_transaction`. At
+    `_POOL_MAX_SIZE` = 10 that made ~10 concurrent requests deadlock the pool against
+    itself — an outage, not a slowdown (standards §1: "no per-item connections").
+    """
+    client, headers = pool_of_one
+    resp = client.get("/api/today", headers=headers)
+    assert resp.status_code == 200, "/api/today needs >1 pooled connection (nested borrow?)"
+
+
+def test_sleep_is_served_on_one_connection(pool_of_one: tuple) -> None:
+    """/api/sleep must complete on a single pooled connection (see the Today twin)."""
+    client, headers = pool_of_one
+    resp = client.get("/api/sleep", headers=headers)
+    assert resp.status_code == 200, "/api/sleep needs >1 pooled connection (nested borrow?)"
+
 
 # /api/today aggregates ~30 blocks. After the fan-out consolidation the seeded
 # snapshot issues ~37 statements — the per-metric latest-value fan-out is one
-# DISTINCT ON, the ~8 per-metric baselines are one grouped CTE (on ONE connection,
-# not 8), data-health is one grouped scan, and the sparklines are one batched read.
-# The count is a small fixed constant, NOT proportional to days/rows. This bound
-# catches both an accidental N+1 AND a regression of the consolidation.
+# DISTINCT ON, the ~8 per-metric baselines are one grouped CTE, data-health is one
+# probe per feed, and the sparklines are one batched read. The count is a small
+# fixed constant, NOT proportional to days/rows. This bound catches both an
+# accidental N+1 AND a regression of the consolidation.
+#
+# The claim this comment used to make — that the baselines ran "on ONE connection,
+# not 8" — was true of the STATEMENT count and false of the CONNECTION count: the
+# grouped CTE ran on a second pooled connection borrowed under the request's own.
+# Counting statements never could have caught that; `pool_of_one` above does.
 _MAX_TODAY_QUERIES = 45
 
 
