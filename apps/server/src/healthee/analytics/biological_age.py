@@ -38,6 +38,19 @@ def vo2max_median_for(age: int, sex: str) -> float:
     return table[max(20, min(70, (age // 10) * 10))]
 
 
+def hazard_delta_years(hr: float) -> float:
+    """Gompertz hazard→years: ΔAge = ln(HR) / b, where b = ln(2) / MRDT.
+
+    The published actuarial conversion behind the estimate — a fixed proportional
+    change in all-cause-mortality hazard maps to a fixed number of years, so a
+    meta-analytic hazard ratio becomes an age shift. Capped at ±TERM_CAP_YEARS so
+    one noisy input (VO₂max above all) cannot produce an alarming age.
+    See [[biological_age_estimate]] ("Finding", "Effect size / sanity checks").
+    """
+    b = math.log(2) / GOMPERTZ_MRDT_YEARS
+    return max(-TERM_CAP_YEARS, min(TERM_CAP_YEARS, math.log(hr) / b))
+
+
 def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Gompertz hazard→years over one combined fitness term (VO₂max) + sleep
     duration + SRI. Returns chronological/biological age + signed per-term year
@@ -50,11 +63,10 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     today = user_today(tz)
     chrono = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
-    b = math.log(2) / GOMPERTZ_MRDT_YEARS
     contribs: list[dict] = []
 
     def add(term: str, hr: float, value=None, unit=None, target=None) -> float:
-        d = max(-TERM_CAP_YEARS, min(TERM_CAP_YEARS, math.log(hr) / b))
+        d = hazard_delta_years(hr)
         contribs.append(
             {
                 "term": term,
