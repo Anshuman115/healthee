@@ -2,18 +2,39 @@
 # infra/deploy.sh — idempotent update-and-deploy for the Healthee VPS.
 #
 # Run ON the VPS, from the repo root:
-#   cd ~/healthee && infra/deploy.sh
+#   cd ~/healthee && infra/deploy.sh              # deploy
+#   cd ~/healthee && infra/deploy.sh --dry-run    # print the plan, change nothing
 #
 # What it does:
-#   1. Verify the working tree is on the deploy branch and pushed (local ==
-#      origin/<branch>). The legacy repo's hard-learned rule: NEVER deploy code
-#      that isn't on origin — the VPS deploys via `git reset --hard origin/...`,
-#      so anything not pushed is silently lost.
+#   1. Preflight; verify the working tree's branch is pushed (local == origin/…).
+#      The legacy repo's hard-learned rule: NEVER deploy code that isn't on
+#      origin — the VPS deploys via `git reset --hard origin/...`, so anything
+#      not pushed is silently lost.
 #   2. git fetch && git reset --hard origin/<branch>
-#   3. docker compose build + up -d --force-recreate api
-#   4. Poll /healthz until healthy; clear pass/fail exit.
+#   3. Build the api image.
+#   4. BACKUP the database (backup/pg_dump_backup.sh). Abort on failure — the
+#      migrations rebuild keys and drop a column on live data.
+#   5. STOP api + scheduler.
+#   6. MIGRATE: a one-off container on the NEW image, while db stays up.
+#   7. PROVISION the least-privilege app role (only when POSTGRES_APP_* are set).
+#   8. up -d --force-recreate api + scheduler.
+#   9. Poll /healthz until healthy; clear pass/fail exit.
+#  10. Report which DB role the app pool actually connected as.
+#
+# ⚠ THE STOP → MIGRATE → START WINDOW IS A DELIBERATE, PLANNED OUTAGE.
+# Our migrations are NOT backwards-compatible: 0004 folds `user_id` into the
+# natural keys (old code's `ON CONFLICT (day, metric)` then matches no
+# constraint) and 0007 drops the `user_id` DEFAULT (old owner-less INSERTs
+# become NotNullViolation). Old code CANNOT serve the new schema, so there is no
+# zero-downtime path; leaving the containers up during the migration would only
+# mean erroring mid-write instead of being honestly down for ~a minute.
+#
+# Migrations run BEFORE the new containers start so new code never serves the
+# old schema either — the api is down across the whole transition, on purpose.
 #
 # Branch comes from DEPLOY_BRANCH in infra/.env (default: main).
+# Full operator procedure — env, the one-time Phase 6 cutover, rollback:
+# infra/DEPLOY.md.
 
 set -euo pipefail
 
@@ -22,6 +43,7 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 compose_file="$script_dir/docker/docker-compose.prod.yml"
 env_file="$script_dir/.env"
+backup_script="$script_dir/backup/pg_dump_backup.sh"
 cd "$repo_root"
 
 COMPOSE="docker compose --env-file $env_file -f $compose_file"
@@ -29,12 +51,49 @@ COMPOSE="docker compose --env-file $env_file -f $compose_file"
 # ── UI helpers ──────────────────────────────────────────────────────────
 step() { printf '\n\033[1;34m▶ %s\033[0m\n' "$1"; }
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
+warn() { printf '  \033[33m⚠ %s\033[0m\n' "$1" >&2; }
 die()  { printf '  \033[31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
+
+usage() {
+	cat <<'EOF'
+Usage: infra/deploy.sh [--dry-run]
+
+  --dry-run   Print every command this deploy would run, in order, with the
+              resolved branch and services — and change nothing. This script
+              cannot be rehearsed and it takes prod down; use this first.
+  -h, --help  Show this help.
+EOF
+}
+
+# ── Arguments ───────────────────────────────────────────────────────────
+dry_run=0
+for arg in "$@"; do
+	case "$arg" in
+	--dry-run) dry_run=1 ;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*) die "unknown argument: $arg (try --help)" ;;
+	esac
+done
+
+# Run a command, or (in --dry-run) print exactly what would have run.
+# Read-only inspection (git fetch/rev-parse, docker compose logs) is NOT routed
+# through this — it is harmless and it is what resolves the plan we print.
+run() {
+	if [ "$dry_run" -eq 1 ]; then
+		printf '  \033[2m$ %s\033[0m\n' "$*"
+		return 0
+	fi
+	"$@"
+}
 
 # ── Preflight ───────────────────────────────────────────────────────────
 step "Preflight"
 [ -f "$compose_file" ] || die "compose file not found: $compose_file"
 [ -f "$env_file" ] || die "env file not found: $env_file (copy infra/.env.example)"
+[ -x "$backup_script" ] || die "backup script not found or not executable: $backup_script"
 command -v docker >/dev/null 2>&1 || die "docker not found"
 
 set -a
@@ -43,6 +102,11 @@ set -a
 set +a
 branch="${DEPLOY_BRANCH:-main}"
 ok "deploy branch: $branch"
+# Not `[ … ] && ok …` — that compound returns 1 when dry_run=0, which under
+# `set -e` would exit the script here.
+if [ "$dry_run" -eq 1 ]; then
+	ok "DRY RUN — nothing below will be executed"
+fi
 
 # ── 1. Verify local == origin (the push-before-deploy guard) ────────────
 step "Verifying $branch is pushed"
@@ -63,28 +127,134 @@ ok "origin/$branch = ${remote_sha:0:12}"
 
 # ── 2. Sync to origin ───────────────────────────────────────────────────
 step "Syncing working tree to origin/$branch"
-git reset --hard "origin/$branch"
+run git reset --hard "origin/$branch"
 ok "reset to origin/$branch"
 
-# ── 3. Build + recreate api ─────────────────────────────────────────────
-step "Building + recreating api"
-$COMPOSE build api
-$COMPOSE up -d --force-recreate api
+# ── 3. Build the new image ──────────────────────────────────────────────
+# Before the backup and the stop: a build failure should cost nothing. The
+# scheduler shares this image (healthee-api:latest), so one build covers both.
+step "Building the api image"
+run $COMPOSE build api
+ok "built healthee-api:latest"
+
+# ── 4. Backup — the point of no return is next ──────────────────────────
+# 0004 rebuilds keys and 0005 drops a column, both on live health data. Going in
+# without a fresh dump is not acceptable, so a failed backup aborts the deploy.
+# `up -d db` (no force-recreate) is a no-op when db is already running and makes
+# the dump possible on a cold box; pg_dump_backup.sh talks to the compose `db`
+# service and reads POSTGRES_USER/DB + BACKUP_DIR from infra/.env itself.
+step "Backing up the database"
+run $COMPOSE up -d db
+run "$backup_script" || die "backup FAILED — refusing to migrate without a fresh dump."
+ok "backup written (see BACKUP_DIR in $env_file)"
+
+# ── 5. Stop the app — the planned outage starts here ────────────────────
+# Old code cannot serve the new schema (0004 keys / 0007 DEFAULT — see header),
+# so these must be down BEFORE the schema moves. db stays up: it is what we are
+# migrating.
+step "Stopping api + scheduler (planned outage starts)"
+run $COMPOSE stop api scheduler
+ok "api + scheduler stopped"
+
+# ── 6. Migrate ──────────────────────────────────────────────────────────
+# `run --rm`, not `exec`: exec would need the api already up on the new image,
+# which is exactly the window this ordering closes. The one-off container is
+# built from the image we just built and connects as the admin/owner role
+# (migrations are DDL; the app role deliberately has no CREATE/ALTER).
+step "Applying pending migrations"
+run $COMPOSE run --rm api python -m healthee.db.migrate ||
+	die "migrations FAILED — api + scheduler are STOPPED. Do not start them: the schema is
+  half-moved and old code cannot serve the new one either way. Read the error, fix
+  forward, and re-run this script. Restore drill: infra/backup/RESTORE.md."
+ok "migrations applied"
+
+# ── 7. Provision the least-privilege app role ───────────────────────────
+# Every deploy, idempotently — this is not a one-time step. A role provisioned by
+# OLDER code lacks `timescaledb.enable_skipscan=off`, and without that setting
+# /api/today 500s for every user under RLS (a TimescaleDB 2.26.4 planner bug; see
+# db/provision_app_role.py). Re-provisioning is what keeps the role current, and
+# it also un-drifts a role someone hand-altered.
+#
+# After migrate, so the tables it grants on exist. Skipped when the app creds are
+# unset — the module exits non-zero without a password by design, and unset means
+# the app is deliberately on the admin-cred fallback (MULTI_USER.md §3.3a).
+step "Provisioning the app role"
+if [ -n "${POSTGRES_APP_USER:-}" ] && [ -n "${POSTGRES_APP_PASSWORD:-}" ]; then
+	run $COMPOSE run --rm api python -m healthee.db.provision_app_role ||
+		die "provisioning the app role FAILED — api + scheduler are STOPPED. The app would
+  start on stale or missing grants. Fix the cause and re-run; see MULTI_USER.md §3.3a."
+	ok "app role '${POSTGRES_APP_USER}' provisioned/updated"
+else
+	warn "POSTGRES_APP_USER / POSTGRES_APP_PASSWORD not both set — skipping. The app will
+    fall back to the ADMIN credentials, which BYPASS Row-Level Security. That is a
+    transitional state, not a configuration: see infra/DEPLOY.md and MULTI_USER.md §3.3a."
+fi
+
+# ── 8. Recreate api + scheduler ─────────────────────────────────────────
+# BOTH: since 6.4c the scheduler IS the per-user nightly chain sweep, it runs the
+# same image, and it needs the same new env. Recreating only api would leave the
+# old scheduler running old code against the new schema.
+step "Recreating api + scheduler"
+run $COMPOSE up -d --force-recreate api scheduler
 ok "compose up"
 
-# ── 4. Post-deploy healthcheck ──────────────────────────────────────────
+# ── 9. Post-deploy healthcheck ──────────────────────────────────────────
 step "Health check"
 health_url="http://127.0.0.1:8765/healthz"
-for attempt in $(seq 1 30); do
-	if curl -fsS --max-time 3 "$health_url" >/dev/null 2>&1; then
-		ok "healthy after ${attempt} attempt(s): $health_url"
-		step "Deploy OK"
-		exit 0
+if [ "$dry_run" -eq 1 ]; then
+	printf '  \033[2m$ curl -fsS %s   (polled until healthy, ~60s)\033[0m\n' "$health_url"
+else
+	healthy=0
+	for attempt in $(seq 1 30); do
+		if curl -fsS --max-time 3 "$health_url" >/dev/null 2>&1; then
+			ok "healthy after ${attempt} attempt(s): $health_url"
+			healthy=1
+			break
+		fi
+		sleep 2
+	done
+	if [ "$healthy" -ne 1 ]; then
+		printf '  \033[31m✗ health check FAILED\033[0m — %s did not respond in ~60s.\n' "$health_url" >&2
+		printf '  Recent api logs:\n' >&2
+		$COMPOSE logs --tail 40 api >&2 || true
+		printf '  Recent scheduler logs:\n' >&2
+		$COMPOSE logs --tail 20 scheduler >&2 || true
+		exit 1
 	fi
-	sleep 2
-done
+fi
 
-printf '  \033[31m✗ health check FAILED\033[0m — %s did not respond in ~60s.\n' "$health_url" >&2
-printf '  Recent api logs:\n' >&2
-$COMPOSE logs --tail 40 api >&2 || true
-exit 1
+# ── 10. Which DB role did the app actually connect as? ──────────────────
+# The pool is lazy: it opens on the first query, and /healthz's `SELECT 1` is
+# that query — so by the time the health check passed, core/db.py has logged
+# exactly one of these two lines. Asked of the running app rather than inferred
+# from the env, because only the server knows what the role really is.
+#
+# The BYPASSRLS warning does NOT fail the deploy: the admin-cred fallback is a
+# legitimate transitional state (§3.3a) and the app is serving. But it never
+# passes silently either — RLS protecting nothing must be visible to whoever ran
+# this.
+step "Verifying the DB identity the app pool connected as"
+if [ "$dry_run" -eq 1 ]; then
+	printf '  \033[2m$ %s logs --tail 200 api | grep -E "least-privilege role|BYPASSES Row-Level Security"\033[0m\n' "$COMPOSE"
+else
+	api_logs="$($COMPOSE logs --tail 200 api 2>/dev/null || true)"
+	if printf '%s\n' "$api_logs" | grep -q 'connected as least-privilege role'; then
+		ok "RLS is real — the pool is on the least-privilege role (NOSUPERUSER NOBYPASSRLS)."
+	elif printf '%s\n' "$api_logs" | grep -q 'BYPASSES Row-Level Security'; then
+		warn "The app pool is on a role that BYPASSES Row-Level Security (the admin-cred
+    fallback). The deploy is HEALTHY and this is not fatal — but RLS is isolating
+    nothing until POSTGRES_APP_USER / POSTGRES_APP_PASSWORD are set. Next steps:
+    infra/DEPLOY.md → 'The credential order'."
+	else
+		warn "Could not find either DB-role line in the last 200 api log lines. The pool may
+    not have opened yet, or logging changed. Check by hand:
+    $COMPOSE logs api | grep -i 'db pool'"
+	fi
+fi
+
+if [ "$dry_run" -eq 1 ]; then
+	step "DRY RUN complete — nothing was changed"
+else
+	step "Deploy OK"
+fi
+exit 0
