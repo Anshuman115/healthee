@@ -7,6 +7,12 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
+
+// Favicon: an annotated-record mark — three ruled lines with a red-lead margin
+// dot on the last, the manuscript motif the whole page is built on. Inline SVG
+// data-URI so the page loads zero external resources.
+const favicon =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ac3521'/%3E%3Cpath d='M10 11h12M10 16h12M10 21h7' stroke='%23faf7ef' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='23.5' cy='21' r='1.7' fill='%23faf7ef'/%3E%3C/svg%3E";
 ---
 
 <!doctype html>
@@ -21,7 +27,7 @@ const { title, description } = Astro.props;
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta name="robots" content="index, follow" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231c534e'/%3E%3Cpath d='M9 9v14M9 16h9m0-7v14' stroke='%23f6f4ee' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <link rel="icon" href={favicon} />
     {/* Seed theme + animation flag before paint so there is no flash of the wrong theme. */}
     <script is:inline>
       (function () {

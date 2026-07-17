@@ -1,56 +1,59 @@
 @import "tailwindcss";
+@import "./surfaces.css";
 
 /* Manual dark mode: the `.dark` class on <html> wins; the head script seeds it
    from localStorage or prefers-color-scheme so there is no flash. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ *
- *  Design language — "the honest instrument"
- *  Warm paper + ink. Three type roles, all from the system stack:
- *  serif for display, sans for prose, mono for every number/label/citation.
- *  One restrained accent (a dark instrument teal) — deliberately NOT the
- *  "green ring" reward colour this product exists to reject.
+ *  Design language — "The Grounded Record"
+ *  A rubricated scientific field-journal: bone paper, iron-gall ink,
+ *  a single red-lead accent for correction/evidence marks, an ochre-gold
+ *  reserved strictly for honesty flags ("not enough data"). The page is
+ *  laid out like an annotated manuscript — a §-numbered margin rail and
+ *  footnote citations that resolve to a real reference apparatus.
+ *  Three type roles, all system fonts: serif display, sans prose, mono data.
  * ------------------------------------------------------------------ */
 
 :root {
-  --c-paper: #f6f4ee;
-  --c-raised: #fcfbf7;
-  --c-sunk: #efece3;
-  --c-ink: #1b1a16;
-  --c-ink-soft: #565148;
-  --c-ink-faint: #857f72;
-  --c-line: #e4dfd3;
-  --c-line-strong: #d3ccbc;
-  --c-accent: #1c534e;
-  --c-accent-soft: #2a736b;
-  --c-accent-ink: #f6f4ee;
-  --c-accent-tint: rgba(28, 83, 78, 0.07);
-  --c-warn: #8a5a1f;
-  --c-warn-tint: rgba(138, 90, 31, 0.09);
-  --shadow-card: 0 1px 2px rgba(27, 26, 22, 0.04), 0 8px 28px -18px rgba(27, 26, 22, 0.22);
+  --c-paper: #f2eee3;
+  --c-raised: #faf7ef;
+  --c-sunk: #e9e3d3;
+  --c-ink: #211d16;
+  --c-ink-soft: #574f42;
+  --c-ink-faint: #8a8271;
+  --c-line: #ddd5c4;
+  --c-line-strong: #c9bea8;
+  --c-accent: #ac3521;      /* red-lead — correction & evidence marks */
+  --c-accent-soft: #c1402a; /* brighter, for hover/links */
+  --c-accent-ink: #faf7ef;
+  --c-accent-tint: rgba(172, 53, 33, 0.07);
+  --c-gold: #93641b;        /* rubric gold — honesty flags only */
+  --c-gold-tint: rgba(147, 100, 27, 0.10);
+  --shadow-card: 0 1px 2px rgba(33, 29, 22, 0.05), 0 10px 34px -22px rgba(33, 29, 22, 0.28);
 }
 
 .dark {
-  --c-paper: #17160f;
-  --c-raised: #1f1d16;
-  --c-sunk: #131209;
-  --c-ink: #ece7db;
-  --c-ink-soft: #ada694;
-  --c-ink-faint: #7c7565;
-  --c-line: #322f25;
-  --c-line-strong: #443f32;
-  --c-accent: #62b4a8;
-  --c-accent-soft: #82c6bb;
-  --c-accent-ink: #10201d;
-  --c-accent-tint: rgba(98, 180, 168, 0.11);
-  --c-warn: #d4a25a;
-  --c-warn-tint: rgba(212, 162, 90, 0.12);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.6);
+  --c-paper: #16130d;
+  --c-raised: #201b13;
+  --c-sunk: #100d08;
+  --c-ink: #ece4d4;
+  --c-ink-soft: #b1a891;
+  --c-ink-faint: #7c7461;
+  --c-line: #322c21;
+  --c-line-strong: #463d2d;
+  --c-accent: #df6a4d;
+  --c-accent-soft: #ea7f63;
+  --c-accent-ink: #180f0a;
+  --c-accent-tint: rgba(223, 106, 77, 0.12);
+  --c-gold: #d6a445;
+  --c-gold-tint: rgba(214, 164, 69, 0.13);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.34), 0 12px 36px -22px rgba(0, 0, 0, 0.66);
 }
 
 @theme {
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-serif: ui-serif, Georgia, Cambria, "Iowan Old Style", "Times New Roman", Times, serif;
+  --font-serif: ui-serif, Georgia, "Iowan Old Style", Cambria, "Times New Roman", Times, serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
   --color-paper: var(--c-paper);
@@ -64,13 +67,13 @@
   --color-accent: var(--c-accent);
   --color-accent-soft: var(--c-accent-soft);
   --color-accent-ink: var(--c-accent-ink);
-  --color-warn: var(--c-warn);
+  --color-gold: var(--c-gold);
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
-    scroll-padding-top: 5rem;
+    scroll-padding-top: 5.5rem;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -79,34 +82,29 @@
     color: var(--c-ink);
     font-family: var(--font-sans);
     font-size: 1rem;
-    line-height: 1.6;
+    line-height: 1.62;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow-x: hidden;
   }
 
-  ::selection {
-    background: var(--c-accent);
-    color: var(--c-accent-ink);
-  }
+  ::selection { background: var(--c-accent); color: var(--c-accent-ink); }
 
   :focus-visible {
     outline: 2px solid var(--c-accent);
     outline-offset: 3px;
-    border-radius: 3px;
+    border-radius: 2px;
   }
 
   h1, h2, h3 {
     font-family: var(--font-serif);
     font-weight: 500;
-    letter-spacing: -0.01em;
-    line-height: 1.08;
+    letter-spacing: -0.012em;
+    line-height: 1.05;
     text-wrap: balance;
   }
 
-  a {
-    color: inherit;
-  }
+  a { color: inherit; }
 
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -116,29 +114,77 @@
 @layer components {
   .shell {
     width: 100%;
-    max-width: 76rem;
+    max-width: 78rem;
     margin-inline: auto;
-    padding-inline: clamp(1.25rem, 5vw, 3.5rem);
+    padding-inline: clamp(1.25rem, 5vw, 4rem);
+  }
+
+  /* Section rhythm + the signature margin rail --------------------- */
+  .section { padding-block: clamp(4rem, 9vw, 7rem); }
+  .band-sunk { background: var(--c-sunk); }
+
+  .rail { display: grid; gap: 2.25rem; }
+  @media (min-width: 62rem) {
+    .rail {
+      grid-template-columns: 13rem minmax(0, 1fr);
+      column-gap: clamp(2rem, 5vw, 5rem);
+    }
+    .rail-aside { position: sticky; top: 6.5rem; align-self: start; }
+  }
+  .rail-num {
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    letter-spacing: 0.06em;
+    color: var(--c-accent);
+    display: block;
+  }
+  .rail-note {
+    margin-top: 0.9rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--c-line);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    color: var(--c-ink-faint);
+    max-width: 12rem;
   }
 
   .eyebrow {
     font-family: var(--font-mono);
     font-size: 0.72rem;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
     color: var(--c-ink-faint);
   }
 
-  .mono {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  .lede {
+    font-family: var(--font-serif);
+    font-size: clamp(1.15rem, 2vw, 1.4rem);
+    line-height: 1.5;
+    color: var(--c-ink-soft);
+    text-wrap: pretty;
   }
 
-  /* Rendered product surfaces — the persuasive core of the page. */
+  /* Footnote-citation motif --------------------------------------- */
+  .ref {
+    font-family: var(--font-mono);
+    font-size: 0.64em;
+    font-weight: 600;
+    line-height: 0;
+    vertical-align: super;
+    white-space: nowrap;
+  }
+  .ref a { color: var(--c-accent); text-decoration: none; padding-inline: 0.12em; }
+  .ref a:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Product surfaces — the only elevated elements on the page ------ */
   .surface {
     background: var(--c-raised);
     border: 1px solid var(--c-line);
-    border-radius: 14px;
+    border-radius: 12px;
     box-shadow: var(--shadow-card);
   }
 
@@ -156,7 +202,6 @@
     color: var(--c-ink-soft);
     white-space: nowrap;
   }
-
   .chip-dot::before {
     content: "";
     width: 0.45em;
@@ -165,17 +210,15 @@
     background: currentColor;
     flex: none;
   }
-
   .chip-accent {
     color: var(--c-accent-soft);
-    border-color: color-mix(in srgb, var(--c-accent) 40%, transparent);
+    border-color: color-mix(in srgb, var(--c-accent) 42%, transparent);
     background: var(--c-accent-tint);
   }
-
-  .chip-warn {
-    color: var(--c-warn);
-    border-color: color-mix(in srgb, var(--c-warn) 45%, transparent);
-    background: var(--c-warn-tint);
+  .chip-gold {
+    color: var(--c-gold);
+    border-color: color-mix(in srgb, var(--c-gold) 48%, transparent);
+    background: var(--c-gold-tint);
   }
 
   .btn {
@@ -186,35 +229,20 @@
     font-weight: 500;
     font-size: 0.95rem;
     padding: 0.72rem 1.35rem;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 1px solid transparent;
     transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
   }
   .btn:active { transform: translateY(1px); }
-
-  .btn-primary {
-    background: var(--c-accent);
-    color: var(--c-accent-ink);
-  }
+  .btn-primary { background: var(--c-accent); color: var(--c-accent-ink); }
   .btn-primary:hover { background: var(--c-accent-soft); }
+  .btn-ghost { border-color: var(--c-line-strong); color: var(--c-ink); }
+  .btn-ghost:hover { border-color: var(--c-accent); color: var(--c-accent-soft); }
 
-  .btn-ghost {
-    border-color: var(--c-line-strong);
-    color: var(--c-ink);
-  }
-  .btn-ghost:hover {
-    border-color: var(--c-accent);
-    color: var(--c-accent-soft);
-  }
-
-  .hairline {
-    height: 1px;
-    background: var(--c-line);
-    border: 0;
-  }
+  .hairline { height: 1px; background: var(--c-line); border: 0; }
 
   .link-underline {
-    color: var(--c-accent-soft);
+    color: var(--c-accent);
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
@@ -227,18 +255,15 @@
   }
 }
 
-/* Load / scroll reveal — opt-in and only when JS + motion are both present.
+/* Load / scroll reveal — opt-in, only when JS + motion are both present.
    Without JS, or with reduced-motion, every element renders fully visible. */
 @layer utilities {
   .js-anim .rise {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(14px);
     transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
       transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
     will-change: opacity, transform;
   }
-  .js-anim .rise.in {
-    opacity: 1;
-    transform: none;
-  }
+  .js-anim .rise.in { opacity: 1; transform: none; }
 }

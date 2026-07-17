@@ -1,0 +1,194 @@
+/* ------------------------------------------------------------------ *
+ *  Specialised product-surface styling for "The Grounded Record".
+ *  Imported by global.css into the same Tailwind entry, so tokens and
+ *  cascade layers resolve. Kept separate to hold both style files under
+ *  the repo's 400-line cap and to group the annotated-diagram vocabulary.
+ * ------------------------------------------------------------------ */
+
+@layer components {
+  /* Rendered coach transcript ------------------------------------- */
+  .turn { display: grid; gap: 0.4rem; }
+  .turn + .turn { margin-top: 1.5rem; }
+  .turn-who {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--c-ink-faint);
+  }
+  .turn-user .turn-body {
+    font-family: var(--font-serif);
+    font-size: 1.12rem;
+    line-height: 1.4;
+    color: var(--c-ink);
+  }
+  .turn-coach .turn-body {
+    font-size: 0.96rem;
+    line-height: 1.62;
+    color: var(--c-ink-soft);
+    border-left: 2px solid color-mix(in srgb, var(--c-accent) 45%, transparent);
+    padding-left: 1rem;
+  }
+  /* inline citation token inside coach prose */
+  .cite {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    color: var(--c-accent);
+    white-space: nowrap;
+  }
+  .cite-personal { color: var(--c-gold); }
+
+  /* Tool-call chip — the visible mechanism ------------------------ */
+  .toolcall {
+    border: 1px dashed var(--c-line-strong);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--c-accent) 4%, transparent);
+    padding: 0.75rem 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    overflow-x: auto;
+  }
+  .toolcall-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    color: var(--c-accent);
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .toolcall .k { color: var(--c-ink-faint); }
+  .toolcall .v { color: var(--c-ink); }
+  .toolcall .ret { color: var(--c-ink-soft); display: block; margin-top: 0.35rem; }
+
+  /* The annotated pipeline ---------------------------------------- */
+  .pipe { display: grid; gap: 0; }
+  .pipe-step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    column-gap: 1rem;
+    padding: 1.05rem 0;
+    border-top: 1px solid var(--c-line);
+  }
+  .pipe-step:last-child { border-bottom: 1px solid var(--c-line); }
+  .pipe-num {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--c-ink-faint);
+    padding-top: 0.15rem;
+  }
+  .pipe-title { font-weight: 600; font-size: 0.98rem; }
+  .pipe-desc { margin-top: 0.2rem; font-size: 0.9rem; color: var(--c-ink-soft); }
+  .pipe-block .pipe-num { color: var(--c-accent); }
+  .pipe-block { background: var(--c-accent-tint); }
+  .pipe-block .pipe-title::after {
+    content: "blocking";
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--c-accent);
+    border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent);
+    border-radius: 999px;
+    padding: 0.15em 0.5em;
+    margin-left: 0.6em;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  /* Grade-calibrated language scale ------------------------------- */
+  .grade-row {
+    display: grid;
+    gap: 0.5rem 1.25rem;
+    padding: 1.15rem 0;
+    border-top: 1px solid var(--c-line);
+  }
+  .grade-row:last-child { border-bottom: 1px solid var(--c-line); }
+  @media (min-width: 44rem) {
+    .grade-row { grid-template-columns: 9rem 1fr; align-items: baseline; }
+  }
+  .grade-name { font-family: var(--font-serif); font-size: 1.1rem; }
+  .grade-tone {
+    display: block;
+    margin-top: 0.2rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    color: var(--c-accent);
+  }
+  .grade-eg { color: var(--c-ink-soft); font-size: 0.96rem; line-height: 1.55; }
+
+  /* Metric-card anatomy annotations ------------------------------- */
+  .anno-mark {
+    display: inline-grid;
+    place-items: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 999px;
+    background: var(--c-accent);
+    color: var(--c-accent-ink);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 600;
+    vertical-align: middle;
+    flex: none;
+  }
+  .anno-legend { display: grid; gap: 0.85rem; }
+  .anno-item { display: grid; grid-template-columns: 1.15rem 1fr; gap: 0.75rem; align-items: start; }
+  .anno-item .anno-mark { margin-top: 0.1rem; }
+
+  /* The "cited is not enough" block ------------------------------- */
+  .blocked {
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--c-accent) 70%, transparent);
+    text-decoration-thickness: 1.5px;
+    color: var(--c-ink-faint);
+  }
+  .verdict {
+    display: grid;
+    gap: 0.35rem;
+    border-left: 2px solid var(--c-accent);
+    padding: 0.15rem 0 0.15rem 1rem;
+  }
+
+  /* Terminal-style code window ------------------------------------ */
+  .code-win { overflow: hidden; }
+  .code-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--c-line);
+    padding: 0.7rem 1rem;
+    color: var(--c-ink-faint);
+  }
+  .code-dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--c-line-strong); }
+  .code-win pre {
+    margin: 0;
+    padding: 1.25rem;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--c-ink-soft);
+  }
+
+  /* Reference apparatus ------------------------------------------- */
+  .reflist { display: grid; gap: 0; counter-reset: none; }
+  .refitem {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    gap: 0.75rem;
+    padding: 0.95rem 0;
+    border-top: 1px solid var(--c-line);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--c-ink-soft);
+    scroll-margin-top: 6rem;
+  }
+  .refitem:last-child { border-bottom: 1px solid var(--c-line); }
+  .refitem:target { background: var(--c-accent-tint); }
+  .refitem .refnum { font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-accent); }
+}
