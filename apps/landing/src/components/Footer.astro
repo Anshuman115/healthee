@@ -1,54 +1,18 @@
 ---
-const year = new Date().getFullYear();
-const nav = [
-  { href: '#coach', label: 'The coach' },
-  { href: '#trust', label: 'How it works' },
-  { href: '#guardrail', label: 'Cited is not enough' },
-  { href: '#science', label: 'Science' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#self-host', label: 'Self-host' },
-];
+// A quiet close. No newsletter, no social row, no app-store badges — none of it
+// exists yet, and the page won't pretend otherwise.
 ---
 
-<footer class="border-t border-line py-14">
-  <div class="shell">
-    <div class="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
-      <div class="max-w-sm">
-        <div class="flex items-center gap-2.5">
-          <span aria-hidden="true" class="grid h-7 w-7 place-items-center rounded-[8px] bg-accent">
-            <svg viewBox="0 0 32 32" class="h-4 w-4" fill="none" aria-hidden="true">
-              <path d="M7 21l5-5 4 3 5-8" stroke="var(--c-accent-ink)" stroke-width="2.4"
-                stroke-linecap="round" stroke-linejoin="round"></path>
-              <circle cx="25" cy="11" r="1.9" fill="var(--c-accent-ink)"></circle>
-            </svg>
-          </span>
-          <span class="text-lg font-semibold tracking-tight">Healthee</span>
-        </div>
-        <p class="mt-4 text-sm leading-relaxed text-ink-soft">
-          An honest, self-hosted companion app for the Amazfit Helio Strap. Independent — we
-          don&rsquo;t sell hardware and aren&rsquo;t affiliated with Amazfit. Grounded in real
-          research; it never flatters.
-        </p>
-      </div>
-
-      <nav aria-label="Footer" class="flex flex-wrap gap-x-8 gap-y-2 text-sm text-ink-soft">
-        {
-          nav.map((l) => (
-            <a href={l.href} class="transition-colors hover:text-ink">
-              {l.label}
-            </a>
-          ))
-        }
-      </nav>
-    </div>
-
-    <hr class="hairline my-10" />
-
-    <div class="flex flex-col gap-3 text-xs text-ink-faint md:flex-row md:items-center md:justify-between">
-      <p class="mono">
-        &copy; {year} Healthee &middot; a personal, self-hosted project &middot; not a medical device
+<footer class="moment-tight">
+  <div class="wrap" style="max-width:60rem;">
+    <hr class="rule-soft" />
+    <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
+      <p class="text-sm text-ink-faint">
+        Healthee — an honest health companion. A personal project, still being built.
       </p>
-      <p class="mono">No trackers. No analytics. No third-party scripts on this page.</p>
+      <p class="text-sm text-ink-faint">
+        Not a medical device. It won&rsquo;t diagnose you or replace your doctor.
+      </p>
     </div>
   </div>
 </footer>
