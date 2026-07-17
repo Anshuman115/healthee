@@ -10,9 +10,9 @@ mobile rebuild; a v1-only name returns an empty series rather than an error.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from uuid import UUID
 
+from healthee.core.dob import date_to_dob_ms
 from healthee.core.tenancy import USER_TODAY_SQL
 from healthee.derive._common import Cur
 
@@ -29,8 +29,15 @@ def history(cur: Cur, user_id: UUID, tz: str, metric: str, days: int = 90) -> di
     return {"metric": metric, "series": series}
 
 
-def profile(cur: Cur, user_id: UUID) -> dict:
-    """Stored profile (name / height / sex / dob-epoch-ms / latest weight)."""
+def profile(cur: Cur, user_id: UUID, tz: str) -> dict:
+    """Stored profile (name / height / sex / dob-epoch-ms / latest weight).
+
+    `dob` goes back out as epoch ms at **owner-local midnight** (`date_to_dob_ms`),
+    the exact inverse of the parse the ingest applies — this endpoint restores the
+    profile after a reinstall and the app re-pushes what it gets, so an encoder
+    anchored to a different zone than the decoder silently walks the date backwards
+    on every sync for negative-offset owners. See `core.dob.date_to_dob_ms`.
+    """
     cur.execute("SELECT name, height_cm, sex, dob FROM profile WHERE user_id = %s", (user_id,))
     r = cur.fetchone()
     cur.execute("SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1", (user_id,))
@@ -38,9 +45,7 @@ def profile(cur: Cur, user_id: UUID) -> dict:
     if not r:
         return {}
     name, height_cm, sex, dob = r
-    dob_ms = (
-        int(datetime(dob.year, dob.month, dob.day, tzinfo=UTC).timestamp() * 1000) if dob else None
-    )
+    dob_ms = date_to_dob_ms(dob, tz) if dob else None
     return {
         "name": name,
         "height_cm": float(height_cm) if height_cm is not None else None,

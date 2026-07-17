@@ -22,4 +22,4 @@ def get_history(user: CurrentUser, metric: str, days: int = 90) -> dict:
 def get_profile(user: CurrentUser) -> dict:
     """Stored profile (restores it after an app reinstall)."""
     with tenant_transaction(user.id) as cur:
-        return profile(cur, user.id)
+        return profile(cur, user.id, user.timezone)
