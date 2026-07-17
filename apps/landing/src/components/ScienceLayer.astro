@@ -1,70 +1,64 @@
 ---
 import Section from './Section.astro';
-// The science layer — metrics from PRICING.md §1, each derived number naming the
-// published method behind it. Named methods signal rigor better than adjectives.
-// Honesty caveats (the readiness heuristic; no validated single sleep score) are
-// stated as the docs require. no_validated_sleep_score is a real corpus note id.
-const methods = [
-  { metric: 'VO₂max (aerobic fitness)', method: 'Jurca non-exercise model + GPS submaximal' },
-  { metric: 'Training load', method: 'Banister TRIMP · strain 0–21' },
-  { metric: 'Sleep regularity', method: 'Phillips Sleep Regularity Index' },
-  { metric: 'Biological age', method: 'Gompertz mortality model' },
-  { metric: 'Max heart rate (for zones)', method: 'Tanaka age-predicted maximum' },
-  { metric: 'Calories / energy', method: 'MET-by-state — never heart-rate guesses' },
-  { metric: 'Sleep-health score', method: '4 parts, each scored on its own' },
-  { metric: 'Illness early-warning', method: 'breathing-rate / skin-temp / HRV shifts' },
+// Reframed (owner, 2026-07): the strap comes with its own app (Zepp) that shows
+// the basics — Healthee reads the same strap and surfaces what that app leaves
+// out. Zepp is described factually and neutrally; no invented specifics, no
+// pricing, no disparagement. Named research methods are gone.
+const more = [
+  { t: 'How rested you actually are', d: 'A recovery read and a live sense of what you’re good for today — not just last night’s sleep hours.' },
+  { t: 'Sleep debt piling up', d: 'The hours you keep falling short, added up over time, so a slow slide doesn’t sneak up on you.' },
+  { t: 'How regular your sleep is', d: 'Whether your body clock is steady or all over the place — which matters as much as how long you sleep.' },
+  { t: 'Early signs you’re getting sick', d: 'A quiet flag when your breathing, skin temperature, and heart drift together — often before you feel it.' },
+  { t: 'What your habits do to you', d: 'Patterns in your own days — like a late coffee costing you sleep — found in your data, not a study’s.' },
+  { t: 'An honest coach to talk it through', d: 'It reads all of the above and talks to you plainly about what to do next — and admits when it isn’t sure.' },
 ];
 
 const vitals = [
-  'Resting heart rate', 'Overnight HRV (heart-rate steadiness)', 'Blood oxygen (SpO₂)',
+  'Resting heart rate', 'Overnight HRV (heart-rate steadiness)', 'Blood oxygen',
   'Breathing rate', 'Skin temperature', 'Stress (framed honestly)', 'Sleep stages & sleep debt',
-  'Body clock (chronotype)', 'Active minutes vs target', 'Steps & distance', 'Weight / BMI',
+  'Body clock', 'Active minutes vs target', 'Steps & distance', 'Weight / BMI',
   'GPS workouts + route',
 ];
 ---
 
 <Section id="science" tone="sunk" labelledby="science-h">
   <h2 id="science-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
-    No secret sauce. Every number uses a method you can look up.
+    It tracks everything the band tracks — and shows you what the band’s own app doesn’t.
   </h2>
   <p class="lede rise mt-6 max-w-2xl">
-    Not a “proprietary algorithm.” Each number is computed with a published method, ported carefully
-    and checked against known values — and if we can’t point to the research, we don’t compute it.
+    The band comes with its own app that shows you the basics. Healthee reads the very same band and
+    surfaces the things that app leaves out — the parts that actually tell you how you’re doing.
   </p>
 
   <div class="mt-10 grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
     <div class="rise">
-      <dl class="border-y border-line">
+      <p class="eyebrow">What it shows that the basics don’t</p>
+      <dl class="mt-5 border-t border-line">
         {
-          methods.map((m) => (
-            <div class="grid grid-cols-1 gap-1 border-t border-line py-3.5 first:border-t-0 sm:grid-cols-[11rem_1fr] sm:gap-4">
-              <dt class="font-medium">{m.metric}</dt>
-              <dd class="mono text-sm text-ink-soft">{m.method}</dd>
+          more.map((m) => (
+            <div class="border-t border-line py-4 first:border-t-0">
+              <dt class="font-semibold">{m.t}</dt>
+              <dd class="mt-1 text-[0.95rem] leading-relaxed text-ink-soft">{m.d}</dd>
             </div>
           ))
         }
       </dl>
 
       <p class="mt-6 text-[0.9rem] leading-relaxed text-ink-faint">
-        Where a number is <em>ours</em>, we say so: the within-day readiness estimate is a plain rule
-        of thumb, and no single “sleep score” is medically validated
-        <span class="cite">[no_validated_sleep_score]</span>. The honesty points inward too.
+        And it’s honest about its own numbers, too: where a reading is its best estimate rather than a
+        hard fact, it says so — no single “sleep score” is a medical truth, and it won’t pretend otherwise.
       </p>
     </div>
 
     <div class="rise">
-      <p class="eyebrow">Also tracked</p>
+      <p class="eyebrow">Everything it tracks</p>
       <ul class="mt-5 flex flex-wrap gap-2">
         {vitals.map((v) => <li class="chip">{v}</li>)}
       </ul>
-
-      <div class="mt-8 flex flex-wrap gap-2">
-        <span class="chip chip-accent">Jurca</span>
-        <span class="chip chip-accent">Banister TRIMP</span>
-        <span class="chip chip-accent">Phillips SRI</span>
-        <span class="chip chip-accent">Gompertz</span>
-        <span class="chip chip-accent">Tanaka</span>
-      </div>
+      <p class="mt-6 text-[0.9rem] leading-relaxed text-ink-faint">
+        The same signals your band already records — read carefully, checked against real research,
+        and shown with how sure it is.
+      </p>
     </div>
   </div>
 </Section>

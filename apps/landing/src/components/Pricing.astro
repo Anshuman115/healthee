@@ -1,47 +1,47 @@
 ---
 import Section from './Section.astro';
-// Tier split from PRICING.md §1a (authoritative) — lead with FREE, because
-// "we don't paywall your own data" is the wedge. Prices from §0. Planned features
-// stay marked planned. Competitor prices/sources from §2, dated 2026-07 (sourced
-// in the Sources section, not footnoted here).
+// Tier split from PRICING.md §1a — lead with FREE, because "we don't paywall your
+// own data" is the wedge. Prices from §0. Planned features stay marked planned.
+// Competitor prices from §2, dated 2026-07, in v4's per-company plain form.
 const free = [
-  'Every metric, chart & trend — with full history',
-  'Your own baselines + “outside your normal” flags',
+  'Every number, chart & trend — with your full history',
+  'Your own baselines, and a flag when something’s off for you',
   'Recovery score, live readiness & honest guidance',
-  'Illness early-warning flag (safety-critical, always free)',
-  '“How sure it is” chips on every number',
-  'Manual logging, workouts & GPS routes',
-  'The research notes — read the evidence yourself',
+  'Early warning if you might be getting sick (always free)',
+  '“How sure it is” on every number',
+  'Logging, workouts & GPS routes',
+  'The research behind it — read it yourself',
   'Own your data — no lock-in',
-  'Personal patterns, shown as plain stats',
-  'A weekly taste of premium: 1 coach question + 1 daily action / 7 days',
+  'Your personal patterns, shown as plain stats',
+  'A weekly taste of the coach: 1 question + 1 daily action every 7 days',
 ];
 const premium = [
-  'The grounded AI coach — unlimited (fair-use)',
-  'A daily action line, every day',
-  'Daily recommendations (1–3, backed or dropped)',
-  'AI insight cards — sleep · activity · metric · workout',
-  'The what-changed feed',
-  'The coach that explains & acts on your patterns',
+  'The honest coach — ask it anything (fair use)',
+  'A daily action worth doing, every day',
+  'Daily suggestions (1–3, backed or dropped)',
+  'Insight cards — sleep · activity · workouts',
+  'A feed of what changed',
+  'The coach that explains your patterns and acts on them',
 ];
 const planned = [
-  'Challenges & programs — adopt, track, look back',
-  'Coach companion — memory · nudges · goals (Phase 5)',
+  'Challenges & programs — start, track, look back',
+  'A coach that remembers, nudges & sets goals (later)',
 ];
 const plans = [
   { name: 'Monthly', price: '$3.99', unit: '/ month', note: 'Cancel anytime.', feature: false },
-  { name: 'Annual', price: '$34.99', unit: '/ year', note: '≈ $2.92 / mo — the one to pick.', feature: true },
-  { name: 'Lifetime', price: '$99', unit: 'once', note: 'Own it. Founder offer.', feature: false },
+  { name: 'Yearly', price: '$34.99', unit: '/ year', note: '≈ $2.92 a month — the one to pick.', feature: true },
+  { name: 'One-time', price: '$99', unit: 'once', note: 'Pay once, keep it. Early-supporter offer.', feature: false },
 ];
 ---
 
 <Section id="pricing" labelledby="pricing-h">
   <h2 id="pricing-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
-    The whole tracker is free. You pay only for the intelligence.
+    The whole tracker is free. You pay only for the coach.
   </h2>
   <p class="lede rise mt-6 max-w-2xl">
-    Free is the numbers and the evidence. Premium is the interpretation, the coach, and the guidance.
-    We never charge you to see your own data, and we never charge for safety.
+    Free is all your numbers and the evidence behind them. The coach is the part that reads those
+    numbers and talks to you about what to do. We never charge you to see your own data — and never
+    for the safety warnings.
   </p>
 
   <div class="mt-10 grid gap-6 lg:grid-cols-2">
@@ -64,7 +64,7 @@ const plans = [
 
     <div class="surface rise p-7 sm:p-8">
       <div class="flex items-center justify-between">
-        <h3 class="text-2xl font-semibold tracking-tight">Premium — the AI layer</h3>
+        <h3 class="text-2xl font-semibold tracking-tight">The coach</h3>
         <span class="chip chip-dot">optional</span>
       </div>
       <ul class="mt-6 space-y-3">
@@ -78,7 +78,7 @@ const plans = [
         }
       </ul>
       <hr class="hairline my-6" />
-      <p class="eyebrow">Planned, not yet built</p>
+      <p class="eyebrow">Planned, not built yet</p>
       <ul class="mt-4 space-y-2.5">
         {
           planned.map((p) => (
@@ -92,7 +92,10 @@ const plans = [
     </div>
   </div>
 
-  <div class="mt-6 grid gap-6 sm:grid-cols-3">
+  <p class="rise mt-8 text-[0.95rem] leading-relaxed text-ink-soft">
+    The coach costs less than one coffee a month:
+  </p>
+  <div class="mt-4 grid gap-6 sm:grid-cols-3">
     {
       plans.map((plan) => (
         <div class:list={['surface rise flex flex-col p-6', plan.feature && 'ring-1 ring-accent/60']}>
@@ -110,21 +113,19 @@ const plans = [
     }
   </div>
   <p class="mono rise mt-4 text-xs text-ink-faint">
-    14-day free trial. The lifetime unlock is a time-limited founder offer, not a permanent plan.
+    14-day free trial. The one-time price is a founder offer, while it lasts — not a permanent plan.
   </p>
 
   <div class="rise mt-12 border-t border-line pt-8">
     <p class="max-w-2xl text-[0.95rem] leading-relaxed text-ink-soft">
-      For context, the closest subscription trackers: <strong class="font-medium text-ink">Whoop</strong
-      > is a subscription with a wearable attached — $199–359 / year, and you can’t see your data
-      without it. <strong class="font-medium text-ink">Oura</strong> pairs a $349+ ring with a $69.99
-      / year membership for its insights. Our whole pitch is the inverse:
-      <span class="text-ink">$35 a year versus Whoop’s $199</span>, on hardware that doesn’t hold your
-      data hostage.
+      For a sense of scale: <strong class="font-medium text-ink">Whoop</strong> charges $199 a year
+      before you can see your own numbers at all, and <strong class="font-medium text-ink">Oura</strong>’s
+      full insights cost $69.99 a year on top of a $349 ring. Our whole pitch is the opposite:
+      <span class="text-ink">$35 a year versus Whoop’s $199</span>, on a band that doesn’t hold your
+      numbers hostage.
     </p>
     <p class="mono mt-4 text-xs text-ink-faint">
-      Competitor prices current as of 2026-07, from their own published pages (linked in Sources). We
-      describe only these two, only from their published pricing.
+      Whoop and Oura prices are from their own pages, current as of 2026-07 (links in Sources).
     </p>
   </div>
 </Section>

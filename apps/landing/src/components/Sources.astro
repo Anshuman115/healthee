@@ -1,24 +1,11 @@
 ---
-// Sources — premium-clean, not a journal apparatus. Primary-research methods cite
-// their source; competitor prices cite the vendors' own pages, dated; product-
-// mechanism claims cite the repo's engineering record. Kept at a verifiable
-// granularity (author · title · venue · year) rather than fabricating page numbers.
-const research = [
-  { key: 'Jurca 2005', text: 'The non-exercise VO₂max estimate — “Assessing cardiorespiratory fitness without performing exercise testing,” Am. J. Preventive Medicine.' },
-  { key: 'Banister 1991', text: 'Training load — the training-impulse (TRIMP) model, in “Physiological Testing of Elite Athletes.”' },
-  { key: 'Phillips 2017', text: 'Sleep regularity — defines the Sleep Regularity Index (SRI), Scientific Reports.' },
-  { key: 'Gompertz 1825', text: 'The biological-age model — “On the nature of the function expressive of the law of human mortality,” Phil. Trans. Royal Society.' },
-  { key: 'Benjamini–Hochberg 1995', text: 'The coincidence correction behind personal findings — “Controlling the false discovery rate,” J. Royal Statistical Society, Series B.' },
-  { key: 'Tanaka 2001', text: 'Age-predicted maximum heart rate (used for training zones) — J. American College of Cardiology.' },
-];
+// Sources — now just the two competitor prices we quote, each linked to the
+// company's own page and dated. We describe only these two, only from their
+// published pricing (docs/PRICING.md §2). Nothing else on the page needs a
+// citation apparatus.
 const pricing = [
   { key: 'Whoop', text: 'Membership tiers & pricing. Current as of 2026-07.', href: 'https://www.whoop.com/us/en/membership/', link: 'whoop.com/membership' },
   { key: 'Oura', text: 'Membership — $5.99 / month · $69.99 / year. Current as of 2026-07.', href: 'https://ouraring.com/membership', link: 'ouraring.com/membership' },
-];
-const docs = [
-  { key: 'The two checks', text: 'The refusal check and the backing check, and the honest fallback — Healthee engineering record, docs/INTELLIGENCE.md §3.' },
-  { key: 'The coach', text: 'How the coach looks up your data, cites its claims, and never guesses numbers — docs/INTELLIGENCE.md §4, docs/COACH_PROMPT.md.' },
-  { key: 'Your data', text: 'Row-level isolation, the least-privilege connection, internet-closed database, and nightly off-box backups — README self-hosting guide, docs/MULTI_USER.md §3.3.' },
 ];
 ---
 
@@ -27,59 +14,30 @@ const docs = [
     <div class="max-w-2xl">
       <p class="eyebrow rise">Sources</p>
       <h2 id="sources-h" class="rise mt-4 text-[clamp(1.7rem,3.5vw,2.5rem)]">
-        Where these claims come from.
+        Where the price comparisons come from.
       </h2>
       <p class="lede rise mt-6">
-        The same discipline the product holds itself to. Methods cite their primary research; the
-        mechanisms cite the engineering record; competitor prices cite each company’s own page, dated.
+        We only name Whoop and Oura, and only their own published prices — checked on the dates below.
+        No other numbers on this page are borrowed from anyone else.
       </p>
     </div>
 
-    <div class="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-16">
-      <div class="rise">
-        <p class="eyebrow">Primary research</p>
-        <dl class="srclist mt-4">
-          {
-            research.map((r) => (
-              <div class="srcitem">
-                <dt class="srckey">{r.key}</dt>
-                <dd>{r.text}</dd>
-              </div>
-            ))
-          }
-        </dl>
-      </div>
-
-      <div class="rise">
-        <p class="eyebrow">Competitor pricing</p>
-        <dl class="srclist mt-4">
-          {
-            pricing.map((r) => (
-              <div class="srcitem">
-                <dt class="srckey">{r.key}</dt>
-                <dd>
-                  {r.text}{' '}
-                  <a class="link-underline" href={r.href} target="_blank" rel="noopener noreferrer nofollow">
-                    {r.link}
-                  </a>
-                </dd>
-              </div>
-            ))
-          }
-        </dl>
-
-        <p class="eyebrow mt-10">How it works</p>
-        <dl class="srclist mt-4">
-          {
-            docs.map((r) => (
-              <div class="srcitem">
-                <dt class="srckey">{r.key}</dt>
-                <dd>{r.text}</dd>
-              </div>
-            ))
-          }
-        </dl>
-      </div>
+    <div class="mt-10 max-w-2xl">
+      <dl class="srclist rise">
+        {
+          pricing.map((r) => (
+            <div class="srcitem">
+              <dt class="srckey">{r.key}</dt>
+              <dd>
+                {r.text}{' '}
+                <a class="link-underline" href={r.href} target="_blank" rel="noopener noreferrer nofollow">
+                  {r.link}
+                </a>
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
     </div>
   </div>
 </section>
