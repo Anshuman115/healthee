@@ -1,9 +1,9 @@
 /* ------------------------------------------------------------------ *
- *  Premium product-surface vocabulary for v3 — "The Instrument".
- *  Imported by global.css into the same Tailwind entry so tokens and
- *  cascade layers resolve. Kept separate to hold both style files under
- *  the repo's 400-line cap and to group the app-UI surface details.
- *  Every class here dresses a *rendered example* of the real product.
+ *  Rendered-surface vocabulary for v5 — "The Ledger".
+ *  Imported by global.css into the same Tailwind entry so tokens and cascade
+ *  layers resolve. Kept separate to hold both style files under the 400-line
+ *  cap. Every class here dresses a *rendered example* of the real product:
+ *  flat sheets, ruled rows, squared stamps — the ledger, never a floating card.
  * ------------------------------------------------------------------ */
 
 @layer components {
@@ -19,33 +19,25 @@
   }
   .turn-user .turn-body {
     font-size: 1.18rem;
-    font-weight: 560;
+    font-weight: 620;
     letter-spacing: -0.02em;
-    line-height: 1.28;
+    line-height: 1.3;
     color: var(--c-ink);
   }
   .turn-coach .turn-body {
-    font-size: 0.96rem;
+    font-size: 0.98rem;
     line-height: 1.62;
     color: var(--c-ink-soft);
-    border-left: 2px solid color-mix(in srgb, var(--c-accent) 55%, transparent);
+    border-left: 2px solid var(--c-accent);
     padding-left: 1rem;
   }
-  /* inline citation token inside coach prose */
-  .cite {
-    font-family: var(--font-mono);
-    font-size: 0.82em;
-    color: var(--c-accent-soft);
-    white-space: nowrap;
-  }
-  .cite-personal { color: var(--c-warn); }
 
-  /* Tool-trace panel — the visible mechanism, styled like an app's
-     inspector row: a recessed panel with a left accent tick. */
+  /* Tool-trace panel — the visible lookup, styled as a recessed ledger note
+     with a left clay tick. This is the mechanism no competitor prints. */
   .toolcall {
     position: relative;
     border: 1px solid var(--c-line);
-    border-radius: 12px;
+    border-radius: var(--r-card);
     background: var(--c-sunk);
     padding: 0.85rem 1rem 0.85rem 1.1rem;
     font-family: var(--font-mono);
@@ -56,8 +48,8 @@
   .toolcall::before {
     content: "";
     position: absolute;
-    left: 0; top: 0.85rem; bottom: 0.85rem;
-    width: 2px; border-radius: 2px;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
     background: var(--c-accent);
   }
   .toolcall-tag {
@@ -75,30 +67,31 @@
   .toolcall .ret { color: var(--c-ink-soft); display: block; margin-top: 0.4rem; }
 
   /* The two hard checks — the plain-language centrepiece of "why it can't
-     lie". Big numbered cards, one per check. */
+     lie". Flat ledger sheets, one per check. */
   .checks { display: grid; gap: 1rem; }
   @media (min-width: 46rem) { .checks { grid-template-columns: 1fr 1fr; } }
   .check {
     background: var(--c-card);
-    border: 1px solid var(--c-line);
-    border-radius: 16px;
-    box-shadow: var(--edge-top), var(--shadow-card);
-    padding: 1.6rem 1.5rem;
+    border: 1px solid var(--c-line-strong);
+    border-top: 2px solid var(--c-accent);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow-card);
+    padding: 1.5rem 1.4rem;
     display: grid;
     gap: 0.55rem;
     align-content: start;
   }
   .check-n {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: 0.66rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--c-accent-soft);
   }
-  .check-q { font-size: 1.22rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
-  .check-d { font-size: 0.94rem; line-height: 1.6; color: var(--c-ink-soft); }
+  .check-q { font-size: 1.2rem; font-weight: 680; letter-spacing: -0.02em; line-height: 1.22; }
+  .check-d { font-size: 0.95rem; line-height: 1.6; color: var(--c-ink-soft); }
 
-  /* The fuller sequence, in plain words — a quiet supporting list. */
+  /* The fuller sequence, in plain words — a quiet ruled ledger list. */
   .flow { display: grid; gap: 0; }
   .flow-step {
     display: grid;
@@ -109,34 +102,34 @@
   }
   .flow-step:last-child { border-bottom: 1px solid var(--c-line); }
   .flow-num { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c-ink-faint); padding-top: 0.1rem; }
-  .flow-title { font-weight: 600; font-size: 0.95rem; }
+  .flow-title { font-weight: 640; font-size: 0.96rem; }
   .flow-title .hard {
     font-family: var(--font-mono);
-    font-size: 0.58rem;
+    font-size: 0.56rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--c-accent-soft);
     border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent);
-    border-radius: 999px;
+    border-radius: 3px;
     padding: 0.12em 0.5em;
     margin-left: 0.55em;
     vertical-align: middle;
     white-space: nowrap;
   }
-  .flow-desc { margin-top: 0.15rem; font-size: 0.88rem; line-height: 1.55; color: var(--c-ink-soft); }
+  .flow-desc { margin-top: 0.15rem; font-size: 0.89rem; line-height: 1.55; color: var(--c-ink-soft); }
 
-  /* Wording-vs-evidence ladder ------------------------------------ */
+  /* Confidence-matches-evidence ladder — plain words, no grade jargon. */
   .grade-row {
     display: grid;
-    gap: 0.5rem 1.25rem;
+    gap: 0.4rem 1.25rem;
     padding: 1.15rem 0;
     border-top: 1px solid var(--c-line);
   }
   .grade-row:last-child { border-bottom: 1px solid var(--c-line); }
   @media (min-width: 46rem) {
-    .grade-row { grid-template-columns: 10rem 1fr; align-items: baseline; }
+    .grade-row { grid-template-columns: 13rem 1fr; align-items: baseline; }
   }
-  .grade-name { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+  .grade-name { font-size: 1.05rem; font-weight: 660; letter-spacing: -0.01em; }
   .grade-tone {
     display: block;
     margin-top: 0.2rem;
@@ -145,21 +138,15 @@
     letter-spacing: 0.03em;
     color: var(--c-accent-soft);
   }
-  .grade-eg { color: var(--c-ink-soft); font-size: 0.96rem; line-height: 1.55; }
-  .grade-none {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--c-ink-faint);
-    white-space: nowrap;
-  }
+  .grade-eg { color: var(--c-ink-soft); font-size: 0.97rem; line-height: 1.55; }
 
-  /* Metric-card anatomy pins --------------------------------------- */
+  /* Metric-card anatomy pins — squared clay stamps. */
   .anno-mark {
     display: inline-grid;
     place-items: center;
     width: 1.2rem;
     height: 1.2rem;
-    border-radius: 999px;
+    border-radius: 3px;
     background: var(--c-accent);
     color: var(--c-accent-ink);
     font-family: var(--font-mono);
@@ -172,7 +159,7 @@
   .anno-item { display: grid; grid-template-columns: 1.2rem 1fr; gap: 0.75rem; align-items: start; }
   .anno-item .anno-mark { margin-top: 0.1rem; }
 
-  /* The "even a cited answer can be refused" block ---------------- */
+  /* The "some answers it won't give" block — a struck draft + the reframe. */
   .blocked {
     text-decoration: line-through;
     text-decoration-color: color-mix(in srgb, var(--c-warn) 75%, transparent);
@@ -186,29 +173,7 @@
     padding: 0.15rem 0 0.15rem 1rem;
   }
 
-  /* Terminal-style code window ------------------------------------ */
-  .code-win { overflow: hidden; }
-  .code-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-bottom: 1px solid var(--c-line);
-    padding: 0.75rem 1rem;
-    color: var(--c-ink-faint);
-    background: var(--c-sunk);
-  }
-  .code-dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--c-line-strong); }
-  .code-win pre {
-    margin: 0;
-    padding: 1.25rem;
-    overflow-x: auto;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    line-height: 1.7;
-    color: var(--c-ink-soft);
-  }
-
-  /* Sources — premium clean, not a journal apparatus -------------- */
+  /* Sources — a plain ruled ledger, not a journal apparatus. */
   .srclist { display: grid; gap: 0; }
   .srcitem {
     display: grid;
@@ -216,23 +181,23 @@
     gap: 0.4rem 1.5rem;
     padding: 1.05rem 0;
     border-top: 1px solid var(--c-line);
-    font-size: 0.92rem;
+    font-size: 0.93rem;
     line-height: 1.55;
     color: var(--c-ink-soft);
   }
   .srcitem:last-child { border-bottom: 1px solid var(--c-line); }
   @media (max-width: 40rem) { .srcitem { grid-template-columns: 1fr; gap: 0.25rem; } }
-  .srckey { font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-accent-soft); }
+  .srckey { font-family: var(--font-mono); font-size: 0.82rem; color: var(--c-accent-soft); }
 
-  /* Honest coverage strip (hero refusal): N nights, some present, some not */
+  /* Honest coverage strip (hero refusal): filled/empty ledger cells. */
   .cov { display: inline-flex; gap: 0.32rem; align-items: center; }
   .cov i {
-    width: 0.62rem; height: 0.62rem; border-radius: 999px;
+    width: 0.72rem; height: 0.72rem; border-radius: 2px;
     border: 1.5px solid var(--c-line-strong);
     display: inline-block;
   }
   .cov i.on { background: var(--c-accent); border-color: var(--c-accent); }
 
-  /* Inline sparkline sits inside a metric surface */
+  /* Inline sparkline sits inside a metric surface. */
   .spark { display: block; width: 100%; height: auto; }
 }

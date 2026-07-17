@@ -1,36 +1,34 @@
 ---
 import Section from './Section.astro';
-// Personal science — FDR-validated correlations + personal cutoffs. §1 calls this
-// "a rigor most consumer apps don't attempt." The caffeine-cutoff example is from §1.
-// The statistical method names live inside the rendered card (technical surface);
-// the marketing copy stays plain — "strict enough to rule out coincidence".
+// Personal science — a pattern from your own data, tested hard enough to rule out
+// coincidence. The statistical method names are gone (owner); the card keeps its
+// product chrome and the plain "not a fluke" framing.
 ---
 
 <Section id="personal" labelledby="personal-h">
   <h2 id="personal-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
-    Patterns from <span class="text-accent-soft">your</span> data — not a study’s.
+    Patterns from <span class="text-accent-soft">your</span> days — not a study’s.
   </h2>
 
   <div class="mt-10 grid items-center gap-12 lg:grid-cols-[1fr_1fr] lg:gap-16">
     <div class="rise">
       <p class="lede">
-        It watches for connections in your own history, then tests each one strictly enough to rule
-        out coincidence — so a “finding” is a real signal, not just something that caught your eye on
-        a chart.
+        It watches for connections in your own history, then tests each one hard enough to rule out
+        coincidence — so a “finding” is a real signal, not just something that caught your eye on a chart.
       </p>
       <p class="mt-5 text-[0.95rem] leading-relaxed text-ink-faint">
-        That’s a level of rigor most consumer apps don’t attempt. And a pattern in your own data is
-        the strongest nudge there is — because it’s yours, not a population average pinned onto you.
+        Most apps don’t bother. And a pattern in your own days is the strongest nudge there is —
+        because it’s yours, not an average borrowed from strangers.
       </p>
     </div>
 
     <figure
-      class="surface surface-lift rise p-6 sm:p-7"
+      class="surface surface-lift surface-key rise p-6 sm:p-7"
       aria-label="Rendered example: a personal finding about late caffeine, tested to rule out coincidence"
     >
       <figcaption class="flex items-center justify-between gap-3">
         <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
-          Personal finding &middot; validated
+          A pattern in your data
         </span>
         <span class="chip chip-warn chip-dot">from your data</span>
       </figcaption>
@@ -42,12 +40,12 @@ import Section from './Section.astro';
       </p>
       <p class="mt-4 text-[0.92rem] leading-relaxed text-ink-soft">
         On the nights you logged a late coffee, you slept about 40 minutes less. Measured against your
-        own baseline — a pattern in your data, never a population average pinned onto you.
+        own normal — your pattern, not an average pinned onto you.
       </p>
       <dl class="mono mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs text-ink-faint">
-        <dt>test</dt><dd class="text-ink-soft">Mann&ndash;Whitney, coincidence-corrected</dd>
-        <dt>window</dt><dd class="text-ink-soft">60 days</dd>
-        <dt>holds</dt><dd class="text-ink-soft">after ruling out chance</dd>
+        <dt>compared</dt><dd class="text-ink-soft">late-coffee nights vs the rest</dd>
+        <dt>over</dt><dd class="text-ink-soft">your last 60 days</dd>
+        <dt>verdict</dt><dd class="text-ink-soft">real, not a fluke</dd>
       </dl>
     </figure>
   </div>

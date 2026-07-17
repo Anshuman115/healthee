@@ -2,76 +2,78 @@
 @import "./surfaces.css";
 
 /* Manual dark mode: the `.dark` class on <html> wins; the head script seeds it
-   from localStorage or prefers-color-scheme so there is no flash. */
+   from localStorage (light is the default — the OS preference is NOT followed). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ *
- *  v3 — "The Instrument"
- *  A premium consumer-product page: graphite & porcelain surfaces, vast
- *  negative space, precision system-sans typography, mono for data only.
- *  ONE refined accent — a deep iris/indigo, deliberately NOT the green-ring
- *  reward colour this product exists to reject. Amber is reserved for the
- *  honesty moments ("not enough data"): the refusal is the product working.
- *  Dark is the primary identity; light is a full re-pick, not an inversion.
+ *  v5 — "The Ledger"
+ *  An honest logbook, not a dashboard. Where v3 ("The Instrument") floated
+ *  soft-shadowed rounded graphite cards on cool porcelain with an iris accent,
+ *  v5 is FLAT and RULED: crisp hairline frames, near-squared corners, ledger
+ *  dividers between everything, and depth built from borders — not shadow.
+ *  Warm-neutral archival paper (light, the default) · warm charcoal (dark).
+ *  ONE warm accent, a clay/terracotta — deliberately NOT the green-ring reward
+ *  colour, and a full hue away from v3's purple. A cool SLATE carries the
+ *  honesty moments ("not enough data", "won't answer that"): a held breath,
+ *  never an alarm. Brand hex is identical in both themes.
  * ------------------------------------------------------------------ */
 
 :root {
-  /* Light — a cool porcelain re-pick (v2's warm field-journal paper is retired) */
-  --c-canvas: #fbfcfd;
-  --c-card: #ffffff;
-  --c-sunk: #f2f4f8;
-  --c-ink: #0e1116;
-  --c-ink-soft: #545c69;
-  --c-ink-faint: #838b98;
-  --c-line: #e6e9ef;
-  --c-line-strong: #d3d9e2;
-  --c-accent: #4b45d6;
-  --c-accent-soft: #6f6af0;
+  /* Light — warm archival paper (v3's cool porcelain is retired) */
+  --c-canvas: #f4f2ed;
+  --c-card: #fbfaf6;
+  --c-sunk: #ebe8e0;
+  --c-ink: #201c15;
+  --c-ink-soft: #5b544a;
+  --c-ink-faint: #8a8274;
+  --c-line: #e0dccf;
+  --c-line-strong: #cbc5b4;
+  --c-accent: #bd4a2a;
+  --c-accent-soft: #c2542f;
   --c-accent-ink: #ffffff;
-  --c-accent-tint: rgba(75, 69, 214, 0.08);
-  --c-warn: #b0801f;
-  --c-warn-tint: rgba(176, 128, 31, 0.09);
-  --shadow-card:
-    0 1px 2px rgba(14, 17, 22, 0.04),
-    0 6px 16px -8px rgba(14, 17, 22, 0.1),
-    0 24px 48px -28px rgba(14, 17, 22, 0.16);
+  --c-accent-tint: rgba(189, 74, 42, 0.09);
+  --c-warn: #4d6488;
+  --c-warn-tint: rgba(77, 100, 136, 0.11);
+  --shadow-card: 0 1px 2px rgba(32, 28, 21, 0.05);
   --shadow-lift:
-    0 2px 4px rgba(14, 17, 22, 0.05),
-    0 14px 30px -10px rgba(14, 17, 22, 0.14),
-    0 44px 76px -36px rgba(14, 17, 22, 0.22);
-  --edge-top: 0 0 0 0 transparent;
+    0 1px 2px rgba(32, 28, 21, 0.05),
+    0 10px 26px -20px rgba(32, 28, 21, 0.28);
+  --grid-line: rgba(203, 197, 180, 0.6);
 }
 
 .dark {
-  /* Dark — cool graphite, the flagship identity */
-  --c-canvas: #0c0e12;
-  --c-card: #16191f;
-  --c-sunk: #090b0e;
-  --c-ink: #f1f3f7;
-  --c-ink-soft: #a6afbc;
-  --c-ink-faint: #6c7580;
-  --c-line: #242932;
-  --c-line-strong: #333a45;
-  /* Brand colours are IDENTICAL to light mode (owner decision 2026-07-17):
-     one accent code everywhere; only the neutrals re-pick for dark. */
-  --c-accent: #4b45d6;
-  --c-accent-soft: #6f6af0;
+  /* Dark — warm charcoal (v3's cool blue-graphite is retired) */
+  --c-canvas: #16130e;
+  --c-card: #201c16;
+  --c-sunk: #100d09;
+  --c-ink: #f2efe7;
+  --c-ink-soft: #b1a99a;
+  --c-ink-faint: #7b7264;
+  --c-line: #2f2a22;
+  --c-line-strong: #423b30;
+  /* Brand colours are IDENTICAL to light mode (owner decision): one accent and
+     one honesty hue everywhere; only the neutrals re-pick for dark. */
+  --c-accent: #bd4a2a;
+  --c-accent-soft: #c2542f;
   --c-accent-ink: #ffffff;
-  --c-accent-tint: rgba(75, 69, 214, 0.14);
-  --c-warn: #b0801f;
-  --c-warn-tint: rgba(176, 128, 31, 0.13);
-  --shadow-card:
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 14px 40px -22px rgba(0, 0, 0, 0.7);
+  --c-accent-tint: rgba(189, 74, 42, 0.18);
+  --c-warn: #4d6488;
+  --c-warn-tint: rgba(77, 100, 136, 0.2);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-lift:
-    0 2px 6px rgba(0, 0, 0, 0.45),
-    0 26px 60px -28px rgba(0, 0, 0, 0.8);
-  /* a 1px top highlight that reads as brushed material on graphite */
-  --edge-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 14px 34px -22px rgba(0, 0, 0, 0.75);
+  --grid-line: rgba(66, 59, 48, 0.7);
+}
+
+:root {
+  --r-card: 6px;
+  --r-chip: 4px;
+  --r-btn: 5px;
 }
 
 @theme {
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
   --color-canvas: var(--c-canvas);
@@ -99,8 +101,8 @@
     background-color: var(--c-canvas);
     color: var(--c-ink);
     font-family: var(--font-sans);
-    font-size: 1rem;
-    line-height: 1.6;
+    font-size: 1.02rem;
+    line-height: 1.62;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow-x: hidden;
@@ -111,15 +113,15 @@
   :focus-visible {
     outline: 2px solid var(--c-accent);
     outline-offset: 3px;
-    border-radius: 4px;
+    border-radius: 3px;
   }
 
-  /* Display type: precision system-sans. Tight tracking carries the premium
-     feel — no serif identity, no webfonts (self-containment is a hard rule). */
+  /* Display type — the ledger sets its headings HEAVY and tight. All system
+     fonts (self-containment is a hard rule); weight + tracking carry it. */
   h1, h2, h3 {
-    font-weight: 600;
-    letter-spacing: -0.025em;
-    line-height: 1.06;
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.08;
     text-wrap: balance;
   }
 
@@ -133,82 +135,98 @@
 @layer components {
   .shell {
     width: 100%;
-    max-width: 74rem;
+    max-width: 72rem;
     margin-inline: auto;
-    padding-inline: clamp(1.25rem, 5vw, 3.5rem);
+    padding-inline: clamp(1.25rem, 5vw, 3.25rem);
   }
 
-  /* Section rhythm — vast, calm negative space is the premium signal. */
-  .section { padding-block: clamp(4.5rem, 10vw, 8rem); }
+  /* Ruled rhythm — every section opens with a full-width ledger hairline. */
+  .section {
+    padding-block: clamp(4rem, 8.5vw, 6.75rem);
+    border-top: 1px solid var(--c-line);
+  }
   .band-sunk { background: var(--c-sunk); }
 
+  /* Functional ledger label: a short clay tick, then mono small-caps. Used only
+     as an in-content label, never as a marketing kicker above a heading. */
   .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65em;
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--c-accent-soft);
+    color: var(--c-ink-faint);
+  }
+  .eyebrow::before {
+    content: "";
+    width: 1.35rem;
+    height: 2px;
+    background: var(--c-accent);
+    flex: none;
   }
 
   .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
   .lede {
-    font-size: clamp(1.12rem, 1.9vw, 1.38rem);
-    line-height: 1.5;
-    letter-spacing: -0.01em;
+    font-size: clamp(1.1rem, 1.85vw, 1.32rem);
+    line-height: 1.55;
+    letter-spacing: -0.005em;
     color: var(--c-ink-soft);
     text-wrap: pretty;
   }
 
-  /* The one place a "spoken" sentence is set large — the coach's voice and the
-     refusals. System-sans, tight, never a serif. */
+  /* The one place a spoken sentence is set large — the coach's voice and the
+     refusals. Heavy system-sans, tight; never a serif. */
   .display-line {
-    font-weight: 560;
+    font-weight: 640;
     letter-spacing: -0.02em;
-    line-height: 1.16;
+    line-height: 1.18;
   }
 
-  /* Rendered product surfaces — premium app-UI cards, the hero of the page.
-     Graphite/porcelain material: 1px hairline, layered soft shadow, and on
-     dark a brushed top highlight. These are the ONLY elevated elements. */
+  /* Rendered product surfaces — flat ledger sheets. A 1px frame and a barely
+     there shadow; the crispness is the border, not a float. */
   .surface {
     background: var(--c-card);
-    border: 1px solid var(--c-line);
-    border-radius: 16px;
-    box-shadow: var(--edge-top), var(--shadow-card);
+    border: 1px solid var(--c-line-strong);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow-card);
   }
-  .surface-lift { box-shadow: var(--edge-top), var(--shadow-lift); }
+  .surface-lift { box-shadow: var(--shadow-lift); }
+  /* A key sheet: a 2px clay rule across the top marks the primary examples. */
+  .surface-key { border-top: 2px solid var(--c-accent); }
 
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.4em;
     font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.02em;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
     line-height: 1;
-    padding: 0.42em 0.62em;
+    padding: 0.42em 0.6em;
     border: 1px solid var(--c-line-strong);
-    border-radius: 999px;
+    border-radius: var(--r-chip);
     color: var(--c-ink-soft);
     white-space: nowrap;
   }
   .chip-dot::before {
     content: "";
-    width: 0.45em;
-    height: 0.45em;
+    width: 0.42em;
+    height: 0.42em;
     border-radius: 999px;
     background: currentColor;
     flex: none;
   }
   .chip-accent {
     color: var(--c-accent-soft);
-    border-color: color-mix(in srgb, var(--c-accent) 42%, transparent);
+    border-color: color-mix(in srgb, var(--c-accent) 45%, transparent);
     background: var(--c-accent-tint);
   }
   .chip-warn {
     color: var(--c-warn);
-    border-color: color-mix(in srgb, var(--c-warn) 48%, transparent);
+    border-color: color-mix(in srgb, var(--c-warn) 50%, transparent);
     background: var(--c-warn-tint);
   }
 
@@ -216,29 +234,26 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.55em;
-    font-weight: 500;
+    gap: 0.5em;
+    font-weight: 550;
     font-size: 0.95rem;
-    padding: 0.72rem 1.35rem;
-    border-radius: 11px;
+    padding: 0.7rem 1.3rem;
+    border-radius: var(--r-btn);
     border: 1px solid transparent;
     transition:
       background-color 0.18s ease, border-color 0.18s ease,
-      color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+      color 0.18s ease, transform 0.18s ease;
   }
   .btn:active { transform: translateY(1px); }
   .btn-primary {
     background: var(--c-accent);
     color: var(--c-accent-ink);
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.12),
-      0 10px 24px -12px color-mix(in srgb, var(--c-accent) 65%, transparent);
   }
-  .btn-primary:hover { background: var(--c-accent-soft); }
+  .btn-primary:hover { background: color-mix(in srgb, var(--c-accent) 87%, #000); }
   .btn-ghost {
     border-color: var(--c-line-strong);
     color: var(--c-ink);
-    background: color-mix(in srgb, var(--c-card) 55%, transparent);
+    background: transparent;
   }
   .btn-ghost:hover { border-color: var(--c-accent); color: var(--c-accent-soft); }
 
@@ -249,9 +264,27 @@
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
-    text-decoration-color: color-mix(in srgb, var(--c-accent) 45%, transparent);
+    text-decoration-color: color-mix(in srgb, var(--c-accent) 50%, transparent);
   }
   .link-underline:hover { text-decoration-color: currentColor; }
+
+  /* Schematic atmosphere — a faint graph-paper grid, hero only, faded by a mask.
+     Structural texture (measured, ruled), not a decorative colour wash. */
+  .grid-atmos { position: relative; isolation: isolate; }
+  .grid-atmos::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+    -webkit-mask-image: radial-gradient(115% 80% at 50% 0%, #000 0%, transparent 68%);
+    mask-image: radial-gradient(115% 80% at 50% 0%, #000 0%, transparent 68%);
+    opacity: 0.55;
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .btn:active { transform: none; }
@@ -263,10 +296,10 @@
 @layer utilities {
   .js-anim .rise {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(16px);
     transition:
-      opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
-      transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+      opacity 0.65s cubic-bezier(0.22, 0.61, 0.36, 1),
+      transform 0.65s cubic-bezier(0.22, 0.61, 0.36, 1);
     will-change: opacity, transform;
   }
   .js-anim .rise.in { opacity: 1; transform: none; }

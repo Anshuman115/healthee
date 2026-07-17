@@ -1,25 +1,25 @@
 ---
 import Section from './Section.astro';
-// The three differentiators, in spirit from PRICING.md §1 (end of section):
-// free hardware-life tracking · cited-or-it-doesn't-ship · own-your-data / self-hostable.
+// The three differentiators, in spirit from PRICING.md §1: free tracking for the
+// life of the strap · honest-or-quiet · your data, your terms. Plain words only.
 const points = [
   {
     n: '01',
-    title: 'Tracking is free, for the life of the strap',
-    body: 'Every metric, chart, baseline, and personal finding is free forever. We don’t sell the strap, and we won’t rent your own data back to you with a subscription. The hardware is yours; so are the numbers.',
-    tag: 'no forced subscription',
+    title: 'Tracking is free, for as long as you own the band',
+    body: 'Every number, chart, and trend is free forever. We don’t sell the band, and we won’t charge you a subscription to see your own numbers. The band is yours — so are the readings it takes.',
+    tag: 'no subscription for tracking',
   },
   {
     n: '02',
-    title: 'If it can’t back a claim, it stays quiet',
-    body: 'Before any interpretation reaches you, it’s checked against a library of graded research. A claim that can’t be sourced isn’t softened for you — it’s dropped.',
-    tag: 'cited, or it doesn’t ship',
+    title: 'If it can’t back something up, it stays quiet',
+    body: 'Before it tells you what a number means, it checks the claim against real research you can read yourself. If it can’t back it up, it doesn’t soften it — it drops it.',
+    tag: 'honest, or it says nothing',
   },
   {
     n: '03',
     title: 'Your data, on your terms',
-    body: 'You can run the whole thing yourself on one small server, with your full history kept on your phone and backed up off-box. Own-your-data isn’t a slogan here; it’s the architecture.',
-    tag: 'self-hostable',
+    body: 'You can run the whole thing yourself on one small computer, with your history kept on your phone and backed up safely. Owning your data isn’t a slogan here — it’s how it’s built.',
+    tag: 'run it yourself',
   },
 ];
 ---
@@ -30,10 +30,10 @@ const points = [
   </h2>
   <p class="lede rise mt-6 max-w-2xl">
     Streaks, green rings, and praise you didn’t earn keep you tapping. Healthee is the friend who
-    tells you the truth kindly — and it’s built on three things no one else does all at once.
+    tells you the truth kindly — built on three things no one else does all at once.
   </p>
 
-  <ol class="mt-12 grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">
+  <ol class="mt-12 grid gap-px overflow-hidden rounded-[6px] border border-line-strong bg-line md:grid-cols-3">
     {
       points.map((p) => (
         <li class="rise flex flex-col bg-canvas p-7">
@@ -47,7 +47,7 @@ const points = [
   </ol>
 
   <p class="rise mt-8 max-w-2xl text-[0.95rem] leading-relaxed text-ink-faint">
-    The big trackers ship AI coaches too — none of them show you where their advice comes from. The
-    sections that follow show, rather than tell, why ours has to.
+    The big trackers have AI coaches too — but none of them show you where their advice comes from.
+    The sections below show, rather than tell, why ours does.
   </p>
 </Section>
