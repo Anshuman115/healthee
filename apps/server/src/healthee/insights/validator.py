@@ -249,13 +249,20 @@ def validate(response: str) -> ValidationResult:
     return _run_rules([_Segment(response)], extra_issues=[truncation] if truncation else None)
 
 
-# A rec's `action` is a one-line DIRECTIVE by contract (jobs/recs.py RECS_TASK), and it
-# is grounded at the rec level, not sentence-level: `_rec_ok` drops any rec whose
-# `research_note_ids` are absent or unknown to the manifest AND whose `rationale` carries
-# no inline [note_id]. Requiring a citation inside the imperative itself would demand
-# grounding the rec already carries, and grade-calibrating an imperative is a category
-# error ("You might aim for a walk"). So the directive is exempt from the grounding rules
-# only — banned tone, certainty and fabricated ids still apply to it.
+# A rec's `action` is a one-line DIRECTIVE by contract (jobs/recs.py RECS_TASK), and it is
+# grounded at the REC level rather than sentence-level. `jobs/recs.py::_rec_ok` gates every
+# rec through independent checks and drops it if ANY one fails — so a rec that ships has
+# provably ALL of: non-empty `research_note_ids`, EVERY id known to the manifest, AND an
+# inline [note_id] in its `rationale`. (Read it as "all required", not "both must fail":
+# an exemption justified by a guarantee weaker than the real one is how the next reader
+# talks themselves into widening it.)
+#
+# Requiring a citation inside the imperative would therefore demand grounding the rec
+# already carries, and grade-calibrating an imperative is a category error ("You might aim
+# for a walk"). So the directive is exempt from the GROUNDING rules only — banned tone,
+# certainty and fabricated-id checks still apply here, and `_rec_ok`'s safety-keyword block
+# scans the action too. If `_rec_ok` ever loosens, this exemption must be revisited: it is
+# the only thing standing under it.
 _RECS_GROUNDED_FIELDS = ("rationale", "expected_effect")
 _RECS_DIRECTIVE_FIELDS = ("action",)
 
