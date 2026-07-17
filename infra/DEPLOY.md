@@ -8,12 +8,13 @@ cd <the repo checkout>    # find it: `ls -d ~/healthee*` — confirm `infra/depl
 COMPOSE="docker compose --env-file infra/.env -f infra/docker/docker-compose.prod.yml"
 ```
 
-> The checkout path is **not verifiable from this repo**, and the two sources that
-> named one disagreed (an older `deploy.sh` header said `~/healthee`; the cutover
-> notes say `~/healthee-new`). Neither now claims a path, because a wrong path in a
-> runbook is worse than none — it sends a tired operator into an ancient checkout.
-> Look before you `cd`. `deploy.sh` itself doesn't care: it locates the repo from
-> its own path. Everything else here is verified against the repo.
+> The live checkout is **`~/healthee-new`** (confirmed 2026-07-17 from the running
+> container's own compose label:
+> `docker inspect healthee-api --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}'`
+> → `/home/afkcodes/healthee-new/infra/docker`). `~/healthee` **also exists** but is
+> the legacy checkout — both dirs are real, which is why `ls` alone can't tell them
+> apart; ask the running container. `deploy.sh` itself doesn't care: it locates the
+> repo from its own path.
 
 Related: `infra/backup/RESTORE.md` (restore drill) · `infra/.env.example` (every
 var, annotated) · `docs/MULTI_USER.md` §3.3a (the app role) / §4.4b (owner
@@ -272,3 +273,90 @@ nightly chain.)
       `TELEGRAM_CHAT_ID`; blank ⇒ silent no-op — so a blank token means job
       failures go **nowhere**). The nightly chain runs on IST timers, so the real
       proof of a scheduler deploy arrives the next morning.
+
+---
+
+## D. Rotating a secret
+
+All app secrets live in **`infra/.env` on the box** (git-ignored — they are never
+in the repo, and `git reset --hard` during a deploy does not touch `.env`). The
+pattern is the same for all of them: **edit `infra/.env`, then restart the process
+that reads it.** A code deploy is *not* required — the value is read at process
+start, so a restart is enough. What differs per secret is (1) how you mint the new
+value and (2) which process reads it.
+
+Editing `.env` alone changes nothing on a running container — it is read once at
+start. Always restart afterward (below), or the old value stays live.
+
+### D1. Telegram bot token (`TELEGRAM_BOT_TOKEN`)
+
+Read by the **scheduler** (it sends the nightly chain + failure alerts) — not the
+api. So only the scheduler needs the restart.
+
+1. **Mint it in BotFather** (Telegram): message `@BotFather` → `/token` (reissue for
+   the existing bot) or `/newbot` (a brand-new bot — also gives a new username).
+   `/revoke` kills the old token immediately; a reissue via `/token` also
+   invalidates the previous one. **Rotation is the only thing that kills an
+   already-leaked token** — changing the code that logs it does not.
+2. **Edit `infra/.env`** on the box: set `TELEGRAM_BOT_TOKEN=<new>`. (If you made a
+   *new* bot, send it a message first and update `TELEGRAM_CHAT_ID` too — a fresh
+   bot cannot message you until you start a chat with it.)
+3. **Restart the scheduler:**
+   ```sh
+   $COMPOSE up -d --force-recreate scheduler
+   ```
+4. **Confirm** — send a test line, and confirm the token is no longer printed in
+   the log (the api pins httpx to WARNING since `f3776ac`, so the request URL — and
+   the token in it — should not appear at all):
+   ```sh
+   $COMPOSE logs --tail 50 scheduler | grep -i telegram    # status lines, no token
+   $COMPOSE logs scheduler | grep -c 'bot[0-9]'             # want 0 — no token in the URL
+   ```
+
+> The token sits in the Telegram **URL path** (`api.telegram.org/bot<TOKEN>/…`),
+> which is why an HTTP client that logs request URLs leaks it. Treat any token that
+> has ever appeared in a log or a terminal as burned — rotate it.
+
+### D2. The other secrets — same shape, different mint + restart
+
+| Secret | Where you get the new value | Restart |
+|---|---|---|
+| `OPENROUTER_API_KEY` | openrouter.ai → Keys → create; delete the old key there to revoke it. | `api` **and** `scheduler` (both make LLM calls). |
+| `POSTGRES_APP_PASSWORD` | You choose it (`openssl rand -base64 48 \| tr -d '/+=' \| head -c 32`). **Not** a self-service rotation: the role's password lives in Postgres too, so `deploy.sh` must re-run to re-provision the role with the new value — see **B2**. Editing `.env` alone will lock the app out (`.env` says X, Postgres still expects Y). | Run `infra/deploy.sh` (it re-provisions, then restarts). |
+| `SUPABASE_JWT_SECRET` | Supabase dashboard → Project → **Settings → API → JWT Settings → JWT Secret**. Rotating it there invalidates every issued token, so every user re-logs in. | `api`. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Same page → **Project API keys → `service_role`** (Reveal / Roll). This key bypasses RLS — treat it like a root password. | `api`. |
+| `REALTIME_INGEST_TOKEN` | You choose it — but it is the **legacy shared token the strap app authenticates with**, so rotating it requires updating the app's build/config in lockstep or ingestion stops. Do not rotate casually before Phase 2. | `api`. |
+
+### D3. What is `POSTGRES_APP_PASSWORD`? (the "app-role password")
+
+Postgres has **two** roles for Healthee, on purpose:
+
+- the **admin** role (superuser) — runs migrations, `TRUNCATE`, the role
+  provisioning. It **bypasses Row-Level Security** (superusers always do).
+- the **app** role (`POSTGRES_APP_USER` / `POSTGRES_APP_PASSWORD`, a *non*-superuser)
+  — what the running API connects as to serve requests. Because it is **not** a
+  superuser, RLS policies actually apply to it, so a query that forgets the tenant
+  filter returns *nothing* instead of another user's rows.
+
+`POSTGRES_APP_PASSWORD` is **a value you invent**, not one issued by a service — it
+is the password for that second role. It has to match in two places (the Postgres
+role and `infra/.env`), which is why changing it is a `deploy.sh` re-provision, not
+a plain `.env` edit (**B2**). While it is unset, the app falls back to the admin
+role and **RLS protects nothing** — fine with one owner, a hard blocker before a
+second. See `docs/MULTI_USER.md` §3.3a.
+
+### D4. What is `SUPABASE_PROJECT_REF`, and where do I get it?
+
+Supabase is the managed **auth** provider (it issues the login JWT; our server only
+*verifies* it — see `docs/MULTI_USER.md` §4). The **project ref** is your Supabase
+project's short id — the `abcdefghijklmnop` in your project URL
+`https://abcdefghijklmnop.supabase.co`. Find it in the Supabase dashboard: **Project
+Settings → General → Reference ID** (or just read it out of the project URL / the
+API URL on **Settings → API**).
+
+It is **not a secret** (it is in every request URL to your project), so it is safe
+to commit to `.env` and to name here. We use it to build the expected token issuer
+`https://<ref>.supabase.co/auth/v1` and **reject** a JWT whose `iss` doesn't match —
+so a valid-looking token minted by a *different* Supabase project is refused. Leave
+it blank and that issuer check is **skipped** (intended only for dev / self-signed
+tokens); on prod, set it. Restart `api` after adding it.
