@@ -1,47 +1,69 @@
 ---
-// The hook + the single most persuasive object on the page: a rendered product
-// surface refusing to guess. No competitor's landing page can show this.
+// The masthead + the single most persuasive object on the page: a rendered
+// product surface refusing to guess. Evolved into a "record entry" to fit the
+// field-journal identity. No competitor's landing page can show a refusal.
 ---
 
-<section id="top" class="relative overflow-hidden pt-16 pb-20 md:pt-24 md:pb-28">
-  <div class="shell grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-    <div>
-      <p class="eyebrow rise">Honest &middot; self-hosted &middot; grounded in research</p>
+<section id="top" class="relative overflow-hidden">
+  <!-- journal masthead -->
+  <div class="shell">
+    <div
+      class="rise flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-line py-3 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-ink-faint"
+    >
+      <span class="text-accent">Healthee</span>
+      <span aria-hidden="true">/</span>
+      <span>An honest health companion</span>
+      <span aria-hidden="true" class="hidden sm:inline">/</span>
+      <span class="hidden sm:inline">Self-hosted &middot; grounded in graded research</span>
+      <span class="ml-auto hidden md:inline">Edition 2026&middot;07</span>
+    </div>
+  </div>
 
-      <h1 class="rise mt-6 text-[clamp(2.5rem,6vw,4.25rem)]">
-        The health companion that<br class="hidden sm:block" />
-        <span class="italic text-accent-soft">refuses to flatter you.</span>
+  <div class="shell grid items-end gap-14 pt-14 pb-16 md:pt-20 md:pb-20 lg:grid-cols-[1.06fr_0.94fr] lg:gap-16">
+    <div>
+      <p class="eyebrow rise">The health app that marks its own work</p>
+
+      <h1 class="rise mt-6 text-[clamp(2.6rem,6.4vw,4.9rem)]">
+        Every claim it makes<br class="hidden sm:block" />
+        is <span class="italic text-accent-soft">cited</span>, or it
+        <span class="italic text-accent-soft">doesn&rsquo;t ship.</span>
       </h1>
 
       <p class="rise mt-7 max-w-xl text-lg leading-relaxed text-ink-soft">
-        Healthee reads your wearable, then tells you the truth: every interpretation cited to
-        graded research, every number carrying its own confidence, and
+        Healthee reads your wearable and tells you the truth: every interpretation footnoted to
+        graded research<sup class="ref"><a href="#ref-9" aria-label="reference 9">9</a></sup>, every
+        number carrying its own confidence, and
         <span class="text-ink">&ldquo;not enough data&rdquo;</span> whenever that is the honest
         answer. No green rings. No grading on a curve.
       </p>
 
       <div class="rise mt-9 flex flex-wrap items-center gap-3">
         <a href="#self-host" class="btn btn-primary">Self-host it today</a>
-        <a href="#honesty" class="btn btn-ghost">Watch it refuse &rarr;</a>
+        <a href="#coach" class="btn btn-ghost">Read a real coach reply &rarr;</a>
       </div>
 
       <p class="rise mt-6 max-w-md text-sm text-ink-faint">
-        You own the hardware and the data. You pay only for the intelligence &mdash; and only if
-        you want it.
+        You own the hardware and the data. You pay only for the intelligence &mdash; and only if you
+        want it.
       </p>
     </div>
 
-    <!-- The refusal card -->
+    <!-- the refusal, as a record entry -->
     <div class="rise lg:justify-self-end">
-      <figure class="surface w-full max-w-md p-6 sm:p-7" aria-label="Example: the product declining to score with insufficient data">
+      <figure
+        class="surface w-full max-w-md p-6 sm:p-7"
+        aria-label="Rendered example: the product declining to score on insufficient data"
+      >
         <figcaption class="flex items-center justify-between gap-3">
-          <span class="eyebrow">Recovery &middot; today</span>
-          <span class="chip chip-warn chip-dot">not enough data</span>
+          <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
+            Record &middot; recovery &middot; today
+          </span>
+          <span class="chip chip-gold chip-dot">not enough data</span>
         </figcaption>
 
         <hr class="hairline my-5" />
 
-        <p class="font-serif text-2xl leading-snug">
+        <p class="font-serif text-[1.7rem] leading-snug">
           I&rsquo;m not going to give you a recovery score today.
         </p>
         <p class="mt-3 text-[0.95rem] leading-relaxed text-ink-soft">
@@ -51,19 +73,19 @@
         </p>
 
         <div class="mt-5 flex flex-wrap gap-2">
-          <span class="chip">coverage&nbsp;·&nbsp;29%</span>
-          <span class="chip">baseline&nbsp;·&nbsp;insufficient</span>
-          <span class="chip chip-accent chip-dot">fix&nbsp;·&nbsp;5+ nights worn</span>
+          <span class="chip">coverage&nbsp;&middot;&nbsp;29%</span>
+          <span class="chip">baseline&nbsp;&middot;&nbsp;insufficient</span>
+          <span class="chip chip-accent chip-dot">fix&nbsp;&middot;&nbsp;wear 5+ nights</span>
         </div>
       </figure>
-      <p class="mt-3 pl-1 text-xs text-ink-faint mono">
+      <p class="mono mt-3 pl-1 text-xs text-ink-faint">
         A rendered example of the honesty contract, not a live reading.
       </p>
     </div>
   </div>
 
   <!-- honest status ribbon -->
-  <div class="shell mt-16 md:mt-20">
+  <div class="shell">
     <div
       class="rise flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-line py-4 text-sm text-ink-soft"
     >
