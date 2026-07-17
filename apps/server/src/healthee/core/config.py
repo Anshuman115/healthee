@@ -112,6 +112,27 @@ class Settings(BaseSettings):
     # high-volume tier; coach_model = the stronger tier for the interactive coach.
     default_model: str = ""
     coach_model: str = ""
+    # How long ONE LLM HTTP call may take before it is abandoned, and how many times
+    # the SDK may retry it. Both are explicit because the SDK's defaults are
+    # catastrophic here: `openai` defaults to a 600 s read timeout with 2 retries, so
+    # a single stuck call can hang for 3 × 600 s = 30 MINUTES. Since 6.4c the
+    # scheduler is a single-threaded tick loop iterating `active_users()`, so that one
+    # call blocks EVERY later owner's chain for half an hour — silently, because the
+    # tick that would have run them is simply still waiting.
+    #
+    # 60 s: the default tier is a Flash-class model that answers an ~8k-in/700-out
+    # prompt in seconds (PRICING.md §3.1), so this is ~10× the expected worst case —
+    # generous enough that a slow-but-fine call still returns (too tight would convert
+    # them into failures and empty cards, which is the honesty cost of over-tuning),
+    # and short enough that a hang is a hang. Nothing here is latency-sensitive: the
+    # warm/recs/briefing surfaces are all off the read path, so the number only has to
+    # bound the damage.
+    # 1 retry: retries MULTIPLY the timeout, which is what turns a bad call into an
+    # outage — the SDK's 2 keep the worst case at 3 × 60 s = 3 min, one keeps it at
+    # 2 min while preserving recovery from a transient 429/5xx. The scheduler's own
+    # `_ATTEMPT_BUDGET` and tomorrow's tick are the outer retries.
+    llm_timeout_s: float = 60.0
+    llm_max_retries: int = 1
 
     # ── Telegram notifications (optional — job status + failures) ─────────
     telegram_bot_token: str = ""

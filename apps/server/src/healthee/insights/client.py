@@ -78,13 +78,25 @@ class OpenRouterClient:
         self._sdk: Any | None = None
 
     def _client(self) -> Any:
+        """The SDK client, built once — with OUR limits, never the SDK's defaults.
+
+        `timeout`/`max_retries` are passed explicitly because omitting them inherits
+        `Timeout(read=600)` and `max_retries=2` — 30 minutes of hang for one stuck
+        call, which the single-threaded scheduler tick pays for EVERY later owner
+        (see `core.config.llm_timeout_s` for the numbers and why).
+        """
         if self._sdk is None:
-            key = get_settings().openrouter_api_key
-            if not key:
+            settings = get_settings()
+            if not settings.openrouter_api_key:
                 raise RuntimeError("OPENROUTER_API_KEY is unset — LLM features are unavailable")
             from openai import OpenAI  # local import: heavy SDK, only when a call happens
 
-            self._sdk = OpenAI(api_key=key, base_url=_OPENROUTER_BASE_URL)
+            self._sdk = OpenAI(
+                api_key=settings.openrouter_api_key,
+                base_url=_OPENROUTER_BASE_URL,
+                timeout=settings.llm_timeout_s,
+                max_retries=settings.llm_max_retries,
+            )
         return self._sdk
 
     def complete(
@@ -103,7 +115,12 @@ class OpenRouterClient:
         ``None`` leaves the request unchanged (prose path is byte-identical).
 
         Errors propagate (the endpoint layer degrades to an honest error body) —
-        never swallowed. The key is passed to the SDK, never logged.
+        never swallowed. A timeout is one of them: the SDK raises
+        ``openai.APITimeoutError`` once ``llm_timeout_s`` is exceeded and it travels
+        out through the choke point untouched, so it lands on the chain's supervisor
+        (logged + Telegram-notified) instead of quietly becoming an empty answer.
+        A blank card and a broken transport are different states and must stay so
+        (standards §Errors). The key is passed to the SDK, never logged.
         """
         model = model or get_settings().default_model  # resolve the env-configured default
         kwargs: dict[str, Any] = {
