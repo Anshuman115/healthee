@@ -1,87 +1,76 @@
 ---
 import Section from './Section.astro';
-// The deepest honesty claim on the page: a perfectly-cited answer BLOCKED by the
-// hard output guardrail, before the validator runs. Mechanism per INTELLIGENCE.md
-// §3 (output_guard blocks a documented-forbidden answer regardless of citations).
-// biological_age_estimate is a real note id in the corpus coverage matrix.
+// The deepest honesty claim on the page: a perfectly-sourced answer refused by
+// the first hard check, before the backing check runs. Mechanism per
+// INTELLIGENCE.md §3. biological_age_estimate is a real corpus note id.
 ---
 
-<Section
-  n="04"
-  id="guardrail"
-  tone="sunk"
-  labelledby="guardrail-h"
-  note="A forbidden answer is a floor, not a grounding problem to nudge the model out of. No retry."
->
-  <p class="eyebrow rise">Cited is not enough</p>
-  <h2 id="guardrail-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
-    A perfect citation doesn&rsquo;t save a forbidden answer.
+<Section id="guardrail" tone="sunk" labelledby="guardrail-h">
+  <p class="eyebrow rise">Even a good answer can be refused</p>
+  <h2 id="guardrail-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
+    A perfect source doesn’t save an answer it shouldn’t give.
   </h2>
   <p class="lede rise mt-6 max-w-2xl">
-    Most &ldquo;grounded&rdquo; systems stop at: does every claim have a source? Ours asks a harder
-    question first &mdash; is this an answer we should give at all?<sup class="ref"
-      ><a href="#ref-9" aria-label="reference 9">9</a></sup
-    >
+    Most “grounded” apps stop at one question: does every claim have a source? Ours asks a harder one
+    first — is this something we should be telling you at all?
   </p>
 
   <figure
-    class="surface rise mt-10 max-w-3xl p-6 sm:p-8"
-    aria-label="Rendered example: a validly cited mortality projection being blocked"
+    class="surface surface-lift rise mt-10 max-w-3xl p-6 sm:p-8"
+    aria-label="Rendered example: a validly sourced life-expectancy projection being refused"
   >
     <figcaption class="mb-6 flex items-center justify-between gap-3">
       <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
-        Output guardrail &middot; example
+        Hard check 1 &middot; example
       </span>
-      <span class="chip chip-accent chip-dot">blocked</span>
+      <span class="chip chip-warn chip-dot">refused</span>
     </figcaption>
 
     <div class="turn turn-user">
       <span class="turn-who">You asked</span>
-      <p class="turn-body">&ldquo;My biological age is 34 &mdash; how many years do I have left?&rdquo;</p>
+      <p class="turn-body">&ldquo;My biological age is 34 — how many years do I have left?&rdquo;</p>
     </div>
 
     <div class="mt-6">
-      <span class="turn-who">The model produced &mdash; correctly cited</span>
+      <span class="turn-who">The model drafted this — and it was correctly sourced</span>
       <p class="mt-1.5 text-[0.96rem] leading-relaxed">
         <span class="blocked"
-          >&ldquo;Based on your Gompertz biological age of 34, your modelled remaining life
-          expectancy is about 48 years</span
+          >“Based on your biological age of 34, your modelled remaining life expectancy is about 48
+          years</span
         ><span class="cite blocked">&nbsp;[biological_age_estimate]</span><span class="blocked"
-          >.&rdquo;</span
+          >.”</span
         >
       </p>
       <p class="mono mt-2 text-xs text-ink-faint">
-        The citation is real and resolves in the manifest. The language is calibrated. The validator
-        would have passed it.
+        The note is real and the wording is fair. The backing check would have passed it.
       </p>
     </div>
 
     <div class="verdict mt-6">
-      <span class="turn-who" style="color:var(--c-accent-soft)">Guardrail verdict</span>
+      <span class="turn-who" style="color:var(--c-warn)">Why it was refused</span>
       <p class="text-[0.96rem] leading-relaxed text-ink">
-        Blocked: <span class="mono">personal mortality / death-risk projection</span>. Forbidden
-        regardless of citation, grade, or validation result &mdash; and checked <em>before</em> the
-        validator, so it never gets that far.
+        This is a personal life-expectancy projection — refused no matter how good the source is, and
+        caught <em>before</em> the backing check ever runs.
       </p>
     </div>
 
     <hr class="hairline my-6" />
 
     <div class="turn turn-coach">
-      <span class="turn-who">What ships instead</span>
+      <span class="turn-who">What you get instead</span>
       <div class="turn-body">
         <p>
-          Your biological-age estimate is a motivational fitness trend, driven mostly by your
-          cardio-fitness, sleep, and regularity <span class="cite">[biological_age_estimate]</span>
-          &mdash; not a lifespan clock. I won&rsquo;t project your remaining years; that&rsquo;s not
-          something this number can honestly tell you.
+          Your biological-age estimate is a motivating fitness trend — driven mostly by your fitness,
+          sleep, and how regular your nights are <span class="cite">[biological_age_estimate]</span>
+          — not a countdown clock. I won’t project your remaining years; that’s not something this
+          number can honestly tell you.
         </p>
       </div>
     </div>
   </figure>
 
   <p class="mono rise mt-6 max-w-2xl text-xs leading-relaxed text-ink-faint">
-    No competitor prints this, because no competitor can. It is the difference between a citation
-    filter and a product with a floor.
+    No competitor prints this, because no competitor can. It’s the difference between a source-checker
+    and a product with a line it won’t cross.
   </p>
 </Section>

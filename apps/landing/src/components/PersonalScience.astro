@@ -2,60 +2,53 @@
 import Section from './Section.astro';
 // Personal science — FDR-validated correlations + personal cutoffs. §1 calls this
 // "a rigor most consumer apps don't attempt." The caffeine-cutoff example is from §1.
-// Benjamini–Hochberg FDR control is footnoted to its primary source.
+// The statistical method names live inside the rendered card (technical surface);
+// the marketing copy stays plain — "strict enough to rule out coincidence".
 ---
 
-<Section
-  n="08"
-  id="personal"
-  labelledby="personal-h"
-  note="Detection is free, shown as plain statistics. The coach that explains and acts on it is the premium layer — PRICING.md §1a."
->
-  <p class="eyebrow rise">Personal science</p>
-  <h2 id="personal-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
-    Findings from <span class="italic text-accent-soft">your</span> data &mdash; corrected for
-    chance.
+<Section id="personal" labelledby="personal-h">
+  <p class="eyebrow rise">Your data, your patterns</p>
+  <h2 id="personal-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
+    Patterns from <span class="text-accent-soft">your</span> data — not a study’s.
   </h2>
 
   <div class="mt-10 grid items-center gap-12 lg:grid-cols-[1fr_1fr] lg:gap-16">
     <div class="rise">
       <p class="lede">
-        Robust per-metric baselines, anomaly flags, and correlations tested with Spearman and
-        Mann&ndash;Whitney under Benjamini&ndash;Hochberg false-discovery-rate control<sup class="ref"
-          ><a href="#ref-5" aria-label="reference 5">5</a></sup
-        > &mdash; so a &ldquo;finding&rdquo; has survived the multiple-comparisons problem, not just
-        caught your eye on a chart.
+        It watches for connections in your own history, then tests each one strictly enough to rule
+        out coincidence — so a “finding” is a real signal, not just something that caught your eye on
+        a chart.
       </p>
       <p class="mt-5 text-[0.95rem] leading-relaxed text-ink-faint">
-        It&rsquo;s a rigor most consumer apps don&rsquo;t attempt. And a pattern in your own data is
-        the strongest motivator there is &mdash; because it&rsquo;s yours, not a study&rsquo;s.
+        That’s a level of rigor most consumer apps don’t attempt. And a pattern in your own data is
+        the strongest nudge there is — because it’s yours, not a population average pinned onto you.
       </p>
     </div>
 
     <figure
-      class="surface rise p-6 sm:p-7"
-      aria-label="Rendered example: an FDR-controlled personal finding about late caffeine"
+      class="surface surface-lift rise p-6 sm:p-7"
+      aria-label="Rendered example: a personal finding about late caffeine, tested to rule out coincidence"
     >
       <figcaption class="flex items-center justify-between gap-3">
         <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
           Personal finding &middot; validated
         </span>
-        <span class="chip chip-gold chip-dot">FDR-controlled</span>
+        <span class="chip chip-warn chip-dot">from your data</span>
       </figcaption>
       <hr class="hairline my-5" />
-      <p class="font-serif text-[1.6rem] leading-snug">
-        Caffeine after <span class="mono">~15:00</span>
+      <p class="display-line text-[1.55rem]">
+        Coffee after <span class="mono">~3&thinsp;pm</span>
         <span class="text-ink-faint">&rarr;</span>
         <span class="text-accent-soft">&minus;40 min</span> sleep
       </p>
       <p class="mt-4 text-[0.92rem] leading-relaxed text-ink-soft">
-        On nights you logged a late coffee, you slept about 40 minutes less. Tested against your own
-        baseline &mdash; a pattern in your data, never a population average pinned onto you.
+        On the nights you logged a late coffee, you slept about 40 minutes less. Measured against your
+        own baseline — a pattern in your data, never a population average pinned onto you.
       </p>
       <dl class="mono mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs text-ink-faint">
-        <dt>test</dt><dd class="text-ink-soft">Mann&ndash;Whitney, BH-corrected</dd>
+        <dt>test</dt><dd class="text-ink-soft">Mann&ndash;Whitney, coincidence-corrected</dd>
         <dt>window</dt><dd class="text-ink-soft">60 days</dd>
-        <dt>holds</dt><dd class="text-ink-soft">after correcting for chance</dd>
+        <dt>holds</dt><dd class="text-ink-soft">after ruling out chance</dd>
       </dl>
     </figure>
   </div>

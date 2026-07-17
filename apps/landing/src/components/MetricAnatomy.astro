@@ -1,34 +1,30 @@
 ---
 import Section from './Section.astro';
-// One metric card, annotated part by part — the standardized card anatomy from
-// INTELLIGENCE.md §1: value, personal baseline band, trend, confidence
-// (coverage / freshness / origin), a grounded "why" citing a note id, and ⓘ that
-// opens the research note itself. hrv_recovery_marker is a real corpus note id.
+// One metric card, annotated part by part — the standardized card anatomy:
+// value, personal baseline band, trend, confidence (coverage / freshness /
+// origin), a grounded "why" citing a note id, and ⓘ that opens the note itself.
+// recovery_readiness is a real corpus note id. The sparkline is a single honest
+// series over a baseline band — illustrative, drawn inline (no external assets).
 const legend = [
-  { n: '1', label: 'The value', body: 'The number, in mono with tabular figures. Nothing else on the card competes with it.' },
-  { n: '2', label: 'Your baseline band', body: 'Read against your own rolling normal (median ± MAD), not a population chart. “Good” is relative to you.' },
+  { n: '1', label: 'The number', body: 'The reading itself, in figures nothing else on the card competes with.' },
+  { n: '2', label: 'Your own normal', body: 'Judged against your rolling normal, not a population chart. “Good” means good for you.' },
   { n: '3', label: 'The trend', body: 'Which way it’s moving, and how far — a direction, not a verdict from one night.' },
-  { n: '4', label: 'The confidence chip', body: 'Coverage, freshness, and origin — the three things that decide how much weight the number can bear.' },
-  { n: '5', label: 'The grounded “why” + ⓘ', body: 'One line, citing a research note. Tap ⓘ and the note itself opens — the same source, never card copy that can drift from it.' },
+  { n: '4', label: 'How sure it is', body: 'Coverage, freshness, and where it came from — the three things that set how much weight it can bear.' },
+  { n: '5', label: 'The plain “why” + ⓘ', body: 'One line, tied to a research note. Tap ⓘ and that note opens — the same source, never card copy that can drift from it.' },
 ];
 ---
 
-<Section
-  n="06"
-  id="anatomy"
-  labelledby="anatomy-h"
-  note="One source of truth: the ⓘ sheet renders the research note, so no hardcoded copy can drift from the evidence."
->
-  <p class="eyebrow rise">Anatomy of a metric card</p>
-  <h2 id="anatomy-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
-    Every number arrives with the context to judge it.
+<Section id="anatomy" labelledby="anatomy-h">
+  <p class="eyebrow rise">A number you can trust</p>
+  <h2 id="anatomy-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
+    Every number comes with the context to judge it.
   </h2>
 
   <div class="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14">
     <!-- the annotated card -->
     <figure
-      class="surface rise self-start p-6 sm:p-7"
-      aria-label="Rendered example: an annotated overnight-HRV metric card"
+      class="surface surface-lift rise self-start p-6 sm:p-7"
+      aria-label="Rendered example: an annotated overnight heart-rate-steadiness card"
     >
       <figcaption class="flex items-center justify-between gap-2">
         <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
@@ -53,17 +49,31 @@ const legend = [
         vs your normal 44&nbsp;&plusmn;&nbsp;7 <span class="anno-mark align-super">2</span>
       </p>
 
-      <div class="mt-5 flex flex-wrap items-center gap-2">
-        <span class="chip chip-dot">confidence: fair <span class="anno-mark align-super">4</span></span>
+      <!-- honest sparkline: 7 nights over your baseline band -->
+      <svg class="spark mt-4" viewBox="0 0 240 60" role="img"
+        aria-label="Last 7 nights, trending up through your baseline band">
+        <rect x="0" y="17" width="240" height="26" rx="4" fill="var(--c-accent-tint)"></rect>
+        <line x1="0" y1="30" x2="240" y2="30" stroke="var(--c-line-strong)"
+          stroke-width="1" stroke-dasharray="3 4"></line>
+        <polyline points="10,37 47,32 83,35 120,28 157,30 193,26 230,23" fill="none"
+          stroke="var(--c-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        <circle cx="230" cy="23" r="3.4" fill="var(--c-accent)"></circle>
+      </svg>
+      <p class="mono mt-1.5 text-[0.66rem] text-ink-faint">
+        band = your normal range &middot; line = last 7 nights
+      </p>
+
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <span class="chip chip-dot">how sure: fair <span class="anno-mark align-super">4</span></span>
         <span class="chip">coverage&nbsp;&middot;&nbsp;6.1h / 7.4h</span>
-        <span class="chip">origin&nbsp;&middot;&nbsp;sensor</span>
+        <span class="chip">from&nbsp;&middot;&nbsp;the sensor</span>
       </div>
 
       <hr class="hairline my-5" />
 
       <p class="text-[0.92rem] leading-relaxed text-ink-soft">
-        Slightly above your baseline and trending up &mdash; consistent with good recovery this week
-        <span class="cite">[hrv_recovery_marker]</span>. <span class="anno-mark align-super">5</span>
+        A little above your normal and trending up — in line with good recovery this week
+        <span class="cite">[recovery_readiness]</span>. <span class="anno-mark align-super">5</span>
       </p>
     </figure>
 

@@ -1,35 +1,28 @@
 ---
 import Section from './Section.astro';
 // A faithfully rendered coach exchange. Voice + rules per docs/COACH_PROMPT.md;
-// the tool call, inline [note_id] citations, the [personal_finding] distinction,
+// the tool call, inline [note_id] citations, the personal-finding distinction,
 // and "numbers only from tool results" are the coach loop from INTELLIGENCE.md §4.
+// recovery_readiness is a real corpus note id (grade: Probable).
 ---
 
-<Section
-  n="02"
-  id="coach"
-  tone="sunk"
-  labelledby="coach-h"
-  note="The coach reasons over 30–90 days of your data, not a snapshot — INTELLIGENCE.md §4."
->
-  <p class="eyebrow rise">The coach, rendered</p>
-  <h2 id="coach-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
-    It calls a tool for the number, then tells you what it actually means.
+<Section id="coach" tone="sunk" labelledby="coach-h">
+  <p class="eyebrow rise">Meet the coach</p>
+  <h2 id="coach-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
+    Ask it anything. It looks up your real numbers before it answers.
   </h2>
   <p class="lede rise mt-6 max-w-2xl">
-    An uncited coach can say anything. Ours reads your data through tools, cites every claim to a
-    research note or your own history, and hedges to match the evidence.<sup class="ref"
-      ><a href="#ref-10" aria-label="reference 10">10</a></sup
-    >
+    An unchecked coach can say whatever sounds good. Ours pulls your actual data, backs every claim
+    with a research note or your own history, and stays as sure as the evidence lets it be — no more.
   </p>
 
   <figure
-    class="surface rise mt-10 max-w-3xl p-6 sm:p-8"
+    class="surface surface-lift rise mt-10 max-w-3xl p-6 sm:p-8"
     aria-label="Rendered example: a coach exchange about a weekly HRV dip"
   >
     <figcaption class="mb-6 flex items-center justify-between gap-3">
       <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
-        Transcript &middot; example
+        Conversation &middot; example
       </span>
       <span class="chip chip-accent chip-dot">grounded coach</span>
     </figcaption>
@@ -40,9 +33,9 @@ import Section from './Section.astro';
     </div>
 
     <!-- the visible mechanism -->
-    <div class="toolcall mt-6" role="group" aria-label="Tool call the coach made">
+    <div class="toolcall mt-6" role="group" aria-label="The lookup the coach ran">
       <span class="toolcall-tag">
-        <span aria-hidden="true">&rarr;</span> tool call &middot; query_metric
+        <span aria-hidden="true">&rarr;</span> looked up your data &middot; query_metric
       </span>
       <div>
         <span class="k">{'{'} metric:</span> <span class="v">"hrv_sleep_avg"</span><span class="k"
@@ -50,8 +43,8 @@ import Section from './Section.astro';
         > <span class="v">"7d"</span><span class="k">, stat:</span> <span class="v">"series"</span>
         <span class="k">{'}'}</span>
         <span class="ret"
-          >&larr; returns: 7 nights &middot; avg <span class="v">39&nbsp;ms</span> &middot; your
-          baseline <span class="v">46&nbsp;&plusmn;&nbsp;6&nbsp;ms</span></span
+          >&larr; returns: 7 nights &middot; avg <span class="v">39&nbsp;ms</span> &middot; your usual
+          <span class="v">46&nbsp;&plusmn;&nbsp;6&nbsp;ms</span></span
         >
       </div>
     </div>
@@ -60,20 +53,20 @@ import Section from './Section.astro';
       <span class="turn-who">Coach</span>
       <div class="turn-body">
         <p>
-          Your overnight HRV has run about <span class="mono">39&nbsp;ms</span> this week against your
-          own <span class="mono">46&nbsp;&plusmn;&nbsp;6</span> baseline &mdash; a real dip, not
-          day-to-day noise <span class="cite">[hrv_recovery_marker]</span>. HRV is a recovery signal,
-          but a noisy one night to night, so I&rsquo;m reading the week, not any single morning.
+          Your overnight heart-rate steadiness has run about <span class="mono">39</span> this week
+          against your usual <span class="mono">46&nbsp;&plusmn;&nbsp;6</span> &mdash; a real dip, not
+          just night-to-night noise <span class="cite">[recovery_readiness]</span>. It’s a recovery
+          signal, but a jumpy one, so I’m reading the whole week, not any single morning.
         </p>
         <p class="mt-3">
-          Before you call it lost fitness, look at your log: on the three nights you recorded a late
-          drink, your HRV dropped the next morning
-          <span class="cite cite-personal">[personal_finding: late_alcohol&rarr;hrv]</span> &mdash;
-          that&rsquo;s <em>your</em> pattern, not a population average pinned onto you.
+          Before you blame lost fitness, check your log: on the three nights you noted a late drink,
+          it dropped the next morning
+          <span class="cite cite-personal">[personal finding: late alcohol &rarr; lower HRV]</span>
+          &mdash; that’s <em>your</em> pattern, not a population average pinned onto you.
         </p>
         <p class="mt-3">
-          Smallest lever this week: two alcohol-free nights, then we re-read the trend. I won&rsquo;t
-          score seven days of a confounded signal as recovery loss.
+          Smallest lever this week: two alcohol-free nights, then we re-read the trend. I won’t call
+          seven confounded days a recovery loss.
         </p>
       </div>
     </div>
@@ -82,13 +75,14 @@ import Section from './Section.astro';
 
     <div class="grid gap-4 sm:grid-cols-2">
       <p class="mono text-xs leading-relaxed text-ink-faint">
-        <span class="text-accent-soft">[note_id]</span> resolves to a real research note; the
-        red-lead marks a citation, the gold a finding from
-        <span class="text-gold">your own data</span> &mdash; never dressed as research.
+        <span class="text-accent-soft">[recovery_readiness]</span> is a real research note in the
+        library — you can open it and read the evidence yourself. The
+        <span class="text-warn">amber tag</span> marks a pattern from your own data, never dressed up
+        as research.
       </p>
       <p class="mono text-xs leading-relaxed text-ink-faint">
-        Every number here came from the <span class="text-ink">query_metric</span> result above. The
-        coach never guesses yours &mdash; if a tool didn&rsquo;t return it, it doesn&rsquo;t have it.
+        Every number here came from the <span class="text-ink">query_metric</span> lookup above. The
+        coach never guesses your numbers — if a lookup didn’t return it, it doesn’t have it.
       </p>
     </div>
   </figure>

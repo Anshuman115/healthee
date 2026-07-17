@@ -1,63 +1,55 @@
 ---
 import Section from './Section.astro';
 // The science layer — metrics from PRICING.md §1, each derived number naming the
-// published method and footnoting it. Named methods signal rigor better than
-// adjectives. Honesty caveats (unvalidated readiness decay; no validated single
-// sleep score) are stated as the docs require (COACH_PROMPT.md, INTELLIGENCE.md).
+// published method behind it. Named methods signal rigor better than adjectives.
+// Honesty caveats (the readiness heuristic; no validated single sleep score) are
+// stated as the docs require. no_validated_sleep_score is a real corpus note id.
 const methods = [
-  { metric: 'VO₂max', method: 'Jurca non-exercise model + GPS submaximal', ref: '1' },
-  { metric: 'Cardio load', method: 'Banister TRIMP · strain 0–21', ref: '2' },
-  { metric: 'Sleep regularity', method: 'Phillips Sleep Regularity Index', ref: '3' },
-  { metric: 'Biological age', method: 'Gompertz mortality model', ref: '4' },
-  { metric: 'HRmax (for zones)', method: 'Tanaka age-predicted maximum', ref: '6' },
-  { metric: 'Calories / TEE', method: 'MET-by-state — never HR-derived guesses', ref: null },
-  { metric: 'Sleep-health score', method: '4 dimensions scored separately', ref: null },
-  { metric: 'Illness early-warning', method: 'RR / skin-temp / HRV deviation flag', ref: null },
+  { metric: 'VO₂max (aerobic fitness)', method: 'Jurca non-exercise model + GPS submaximal' },
+  { metric: 'Training load', method: 'Banister TRIMP · strain 0–21' },
+  { metric: 'Sleep regularity', method: 'Phillips Sleep Regularity Index' },
+  { metric: 'Biological age', method: 'Gompertz mortality model' },
+  { metric: 'Max heart rate (for zones)', method: 'Tanaka age-predicted maximum' },
+  { metric: 'Calories / energy', method: 'MET-by-state — never heart-rate guesses' },
+  { metric: 'Sleep-health score', method: '4 parts, each scored on its own' },
+  { metric: 'Illness early-warning', method: 'breathing-rate / skin-temp / HRV shifts' },
 ];
 
 const vitals = [
-  'Resting HR', 'Overnight HRV (RMSSD)', 'SpO₂ (overnight + min)', 'Respiratory rate',
-  'Skin temperature', 'Device stress (framed honestly)', 'Sleep stages & need / debt',
-  'Chronotype', 'MVPA vs WHO target', 'Steps & distance', 'Weight / BMI', 'GPS workouts + route',
+  'Resting heart rate', 'Overnight HRV (heart-rate steadiness)', 'Blood oxygen (SpO₂)',
+  'Breathing rate', 'Skin temperature', 'Stress (framed honestly)', 'Sleep stages & sleep debt',
+  'Body clock (chronotype)', 'Active minutes vs target', 'Steps & distance', 'Weight / BMI',
+  'GPS workouts + route',
 ];
 ---
 
-<Section
-  n="07"
-  id="science"
-  tone="sunk"
-  labelledby="science-h"
-  note="Ported verbatim from the validated implementation, checked against known values. If we can’t cite it, we don’t compute it."
->
-  <p class="eyebrow rise">The science layer</p>
-  <h2 id="science-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
-    Not &ldquo;proprietary algorithm.&rdquo; A named method, footnoted.
+<Section id="science" tone="sunk" labelledby="science-h">
+  <p class="eyebrow rise">The science inside</p>
+  <h2 id="science-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
+    No secret sauce. Every number uses a method you can look up.
   </h2>
+  <p class="lede rise mt-6 max-w-2xl">
+    Not a “proprietary algorithm.” Each number is computed with a published method, ported carefully
+    and checked against known values — and if we can’t point to the research, we don’t compute it.
+  </p>
 
   <div class="mt-10 grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
     <div class="rise">
       <dl class="border-y border-line">
         {
           methods.map((m) => (
-            <div class="grid grid-cols-1 gap-1 border-t border-line py-3.5 first:border-t-0 sm:grid-cols-[10rem_1fr] sm:gap-4">
+            <div class="grid grid-cols-1 gap-1 border-t border-line py-3.5 first:border-t-0 sm:grid-cols-[11rem_1fr] sm:gap-4">
               <dt class="font-medium">{m.metric}</dt>
-              <dd class="mono text-sm text-ink-soft">
-                {m.method}
-                {m.ref && (
-                  <sup class="ref">
-                    <a href={`#ref-${m.ref}`} aria-label={`reference ${m.ref}`}>{m.ref}</a>
-                  </sup>
-                )}
-              </dd>
+              <dd class="mono text-sm text-ink-soft">{m.method}</dd>
             </div>
           ))
         }
       </dl>
 
       <p class="mt-6 text-[0.9rem] leading-relaxed text-ink-faint">
-        Where a number is <em>ours</em>, we say so: intraday readiness decay is a transparent
-        heuristic, and no single &ldquo;sleep score&rdquo; is clinically validated
-        <span class="cite">[no_validated_sleep_score]</span>. The honesty contract points inward too.
+        Where a number is <em>ours</em>, we say so: the within-day readiness estimate is a plain rule
+        of thumb, and no single “sleep score” is medically validated
+        <span class="cite">[no_validated_sleep_score]</span>. The honesty points inward too.
       </p>
     </div>
 
