@@ -27,7 +27,7 @@ the present* instead of scheduling a future instant, so it cannot express that b
 ## One chain per owner per local day (the 10:30/10:45/11:00 stagger is gone)
 
 The three staggered timers are collapsed into a single ``run_chain`` per owner per
-local day: ``run_chain`` already sequences correlate → recs → briefing *with* the
+local day: ``run_chain`` already sequences correlate → recs → warm → briefing *with* the
 dependency (a correlate failure skips recs), so the stagger only re-implemented that
 ordering with sleep(). It was not spreading LLM load — the steps were fired in the
 same fixed order at fixed offsets, and the sweep runs all owners back-to-back within

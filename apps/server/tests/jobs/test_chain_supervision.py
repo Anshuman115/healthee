@@ -1,11 +1,12 @@
 """The crux WP8 test: the supervised chain never swallows a step failure.
 
-Pure control-flow (no DB, no LLM): the three step functions and the kv dedup
+Pure control-flow (no DB, no LLM): the step functions and the kv dedup
 marker are stubbed, so these prove the supervision contract exactly —
   * a step that RAISES is caught, reported to Telegram, and returned as `failed`
     (NOT silently passed, NOT crashing the process — the legacy swallow is dead);
-  * a `correlate` failure ABORTS `recs` (dependency);
+  * a `correlate` failure ABORTS `recs` AND `warm` (both read its findings);
   * a `briefing` failure does not undo the recs that already ran;
+  * a `warm` failure is non-fatal — it costs the coaching lines, not the briefing;
   * a second run for the same day is a deduped no-op.
 """
 
@@ -41,8 +42,13 @@ def notices(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
 
 
 def _stub_steps(monkeypatch: pytest.MonkeyPatch, **raisers: bool) -> dict[str, int]:
-    """Stub the three steps; names in ``raisers`` raise. Returns a call counter."""
-    calls = {"correlate": 0, "recs": 0, "briefing": 0}
+    """Stub every step; names in ``raisers`` raise. Returns a call counter.
+
+    ALL of them are stubbed, including ``warm``: an unstubbed step would reach the real
+    coaching module (DB + the choke point), so these control-flow tests would silently
+    stop being control-flow tests.
+    """
+    calls = {"correlate": 0, "recs": 0, "warm": 0, "briefing": 0}
 
     def make(name: str):
         def step(_day: date, _user_id: UUID, _tz: str, *, client=None) -> dict:  # noqa: ARG001
@@ -70,7 +76,7 @@ def test_a_raising_step_is_caught_reported_and_not_swallowed(
     # Reported to the health surface — the failure is visible, not hidden.
     assert any("chain step 'recs' failed" in n and "recs boom" in n for n in notices)
     # The other steps still ran; the process was not crashed.
-    assert calls == {"correlate": 1, "recs": 1, "briefing": 1}
+    assert calls == {"correlate": 1, "recs": 1, "warm": 1, "briefing": 1}
 
 
 def test_correlate_failure_aborts_recs(monkeypatch: pytest.MonkeyPatch, notices: list[str]) -> None:
@@ -80,7 +86,9 @@ def test_correlate_failure_aborts_recs(monkeypatch: pytest.MonkeyPatch, notices:
     statuses = {s.name: s.status for s in result.steps}
     assert statuses["correlate"] == "failed"
     assert statuses["recs"] == "skipped"  # dependency abort
+    assert statuses["warm"] == "skipped"  # ditto: warming reads correlate's findings too
     assert calls["recs"] == 0  # recs was NOT executed on stale inputs
+    assert calls["warm"] == 0
     assert any("chain step 'correlate' failed" in n for n in notices)
 
 
@@ -97,6 +105,27 @@ def test_briefing_failure_does_not_undo_recs(
     assert any("chain step 'briefing' failed" in n for n in notices)
 
 
+def test_warm_failure_is_non_fatal_and_still_reported(
+    monkeypatch: pytest.MonkeyPatch, notices: list[str]
+) -> None:
+    """A dead coaching line must not cost the owner their briefing — but must be visible.
+
+    The two halves matter equally. Non-fatal: `warm` is the newest step and the least
+    important one (a null action is a degraded card), so it must not abort the chain.
+    Reported: "non-fatal" must not decay into "swallowed" — the whole reason the lines
+    were null for months is that nobody was told anything was wrong.
+    """
+    calls = _stub_steps(monkeypatch, warm=True)
+    result = chain.run_chain(_OWNER, _TZ, DAY)  # must not raise
+
+    statuses = {s.name: s.status for s in result.steps}
+    assert statuses["warm"] == "failed"
+    assert statuses["recs"] == "ok"  # the recs already persisted stand
+    assert statuses["briefing"] == "ok"  # the chain continued past the dead line
+    assert calls["briefing"] == 1
+    assert any("chain step 'warm' failed" in n and "warm boom" in n for n in notices)
+
+
 def test_second_run_same_day_is_a_deduped_no_op(
     monkeypatch: pytest.MonkeyPatch,
     notices: list[str],  # noqa: ARG001
@@ -104,13 +133,13 @@ def test_second_run_same_day_is_a_deduped_no_op(
     calls = _stub_steps(monkeypatch)
     first = chain.run_chain(_OWNER, _TZ, DAY)
     assert first.deduped is False
-    assert calls == {"correlate": 1, "recs": 1, "briefing": 1}
+    assert calls == {"correlate": 1, "recs": 1, "warm": 1, "briefing": 1}
 
     second = chain.run_chain(_OWNER, _TZ, DAY)  # already ran today
     assert second.deduped is True
     assert second.steps == []
-    assert calls == {"correlate": 1, "recs": 1, "briefing": 1}  # nothing re-fired
+    assert calls == {"correlate": 1, "recs": 1, "warm": 1, "briefing": 1}  # nothing re-fired
 
     forced = chain.run_chain(_OWNER, _TZ, DAY, force=True)  # force overrides dedup
     assert forced.deduped is False
-    assert calls == {"correlate": 2, "recs": 2, "briefing": 2}
+    assert calls == {"correlate": 2, "recs": 2, "warm": 2, "briefing": 2}

@@ -101,7 +101,7 @@ plan, and [`docs/INTELLIGENCE.md`](docs/INTELLIGENCE.md) for how the grounding w
    research note. Unvalidated text never reaches the user.
 6. **Serve.** The read API assembles it into `GET /api/today`, `/api/sleep`,
    `/api/activity`, etc. — reads answer in well under 100 ms.
-7. **Supervise & survive.** The daily chain (correlate → recs → briefing) runs
+7. **Supervise & survive.** The daily chain (correlate → recs → warm → briefing) runs
    in-process, supervised: any step failure is logged and reported to Telegram,
    never silently swallowed. Nightly `pg_dump` ships a backup off-box.
 

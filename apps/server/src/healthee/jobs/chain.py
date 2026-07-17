@@ -5,15 +5,23 @@ Legacy triggered ``subprocess.Popen("healthee correlate && healthee recs && "
 v2/api.py:74). A failure in any step vanished into the shell — the classic
 swallowed-error class the rebuild exists to kill.
 
-Here the same three steps run IN ORDER as in-process function calls, each wrapped
-by ``_run_supervised``: a failure is CAUGHT, logged with context through
+Here the steps run IN ORDER as in-process function calls, each wrapped by
+``_run_supervised``: a failure is CAUGHT, logged with context through
 ``core.logging``, and reported to Telegram via ``core.notify`` — never silently
 passed (standards §1: "Background/silent contexts … must report failures to their
 health surface"). The chain then applies dependency logic:
 
-  * a ``correlate`` failure ABORTS ``recs`` (recs reads the findings correlate
-    writes) — recs is marked skipped, not run on stale inputs;
-  * a ``briefing`` failure does NOT undo the recs already persisted.
+  * a ``correlate`` failure ABORTS ``recs`` AND ``warm`` (both read the findings
+    correlate writes, via the choke point's context) — they are marked skipped, not
+    run on stale inputs;
+  * a ``briefing`` failure does NOT undo the recs already persisted;
+  * a ``warm`` failure costs only the coaching lines — the chain continues.
+
+``warm`` is the step that makes the read surfaces' LLM lines exist at all: the
+``/api/today`` action and the sleep-tonight line are cache-only on the read path
+(``coaching.cached_line`` never generates, standards §Performance), so without an
+off-read-path warmer they are null forever. It runs here, once per owner per THEIR
+local day, because that is the one place that already knows both.
 
 The chain is deduped per day via the ``kv`` table: once a day's chain has run its
 generating steps, a second ``run_chain`` for that day is a no-op (legacy deduped
@@ -34,6 +42,7 @@ from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
 from healthee.core.tenancy import user_today
+from healthee.insights import coaching as coaching_mod
 from healthee.insights.client import LLMClient
 from healthee.jobs import briefing as briefing_mod
 from healthee.jobs import correlate as correlate_mod
@@ -67,7 +76,7 @@ class ChainResult:
     steps: list[StepOutcome] = field(default_factory=list)
 
 
-# ── the three steps (thin adapters onto the step modules) ──────────────────────
+# ── the steps (thin adapters onto the step modules) ───────────────────────────
 
 
 def step_correlate(
@@ -84,6 +93,23 @@ def step_correlate(
 def step_recs(day: date, user_id: UUID, tz: str, *, client: LLMClient | None = None) -> dict:
     """Generate one owner's grounded recommendations for their local day."""
     return recs_mod.generate_recs(user_id, tz, day, client=client)
+
+
+def step_warm(
+    _day: date,
+    user_id: UUID,
+    tz: str,
+    *,
+    client: LLMClient | None = None,
+) -> dict:
+    """Warm one owner's read-surface coaching lines for their local day (off the read path).
+
+    ``_day`` is unused deliberately: a coaching line is advice for the owner's day as
+    it is NOW, and its cache freshness is stamped from ``tz`` (``cache.today_iso``).
+    So a chain re-run for an explicit past ``day`` still warms today's lines rather
+    than caching yesterday's advice under today's key.
+    """
+    return coaching_mod.warm_lines(user_id, tz, client=client)
 
 
 def step_briefing(day: date, user_id: UUID, tz: str, *, client: LLMClient | None = None) -> dict:
@@ -123,13 +149,14 @@ def run_chain(
     client: LLMClient | None = None,
     force: bool = False,
 ) -> ChainResult:
-    """Run ONE owner's correlate → recs → briefing in order, supervised, deduped per day.
+    """Run ONE owner's correlate → recs → warm → briefing in order, supervised, deduped.
 
-    Dependency: a ``correlate`` failure skips ``recs`` (which depends on the
-    findings it writes). A ``briefing`` failure never undoes persisted recs. A
-    second call for an already-run day is a no-op unless ``force`` — and the dedup
-    marker is per-owner (the folded ``kv`` PK), so one owner's chain can never dedup
-    another's. ``day`` defaults to the owner's own local today.
+    Dependency: a ``correlate`` failure skips ``recs`` and ``warm`` (both consume the
+    findings it writes). A ``briefing`` failure never undoes persisted recs, and a
+    ``warm`` failure costs only the coaching lines. A second call for an already-run
+    day is a no-op unless ``force`` — and the dedup marker is per-owner (the folded
+    ``kv`` PK), so one owner's chain can never dedup another's. ``day`` defaults to
+    the owner's own local today.
     """
     day = day or user_today(tz)
     if not force and _chain_done(user_id, day):
@@ -144,23 +171,38 @@ def run_chain(
 
     if correlate.status == "ok":
         steps.append(_run_supervised("recs", lambda: step_recs(day, user_id, tz, client=client)))
-        # Correlate succeeded → recs had valid inputs and its chance to run; mark the
-        # day done so it isn't re-run. A correlate failure leaves it un-marked so a
-        # later fire/ingest retries the whole chain.
+        # Warming is NON-FATAL by construction (`_run_supervised` returns, never raises):
+        # a missing coaching line is a degraded card, whereas aborting here would cost
+        # the owner their briefing over a one-liner. The failure is still reported.
+        steps.append(_run_supervised("warm", lambda: step_warm(day, user_id, tz, client=client)))
+        # Correlate succeeded → the generating steps had valid inputs and their chance
+        # to run; mark the day done so they aren't re-run. A correlate failure leaves it
+        # un-marked so a later fire/ingest retries the whole chain.
         _mark_chain_done(user_id, day)
     else:
-        steps.append(
-            StepOutcome(
-                name="recs",
-                status="skipped",
-                error="correlate failed — recs depends on its findings",
-            )
-        )
+        steps.extend(_skipped_after_correlate())
 
     steps.append(
         _run_supervised("briefing", lambda: step_briefing(day, user_id, tz, client=client))
     )
     return ChainResult(day=day, deduped=False, steps=steps)
+
+
+def _skipped_after_correlate() -> list[StepOutcome]:
+    """The steps that must NOT run once ``correlate`` failed — both read its findings.
+
+    ``recs`` reads them via ``recs_context``; ``warm`` reads them via the choke point's
+    ``findings_section``. Running either on stale findings would ship yesterday's
+    correlations as today's advice, which is the honesty contract's exact failure mode.
+    """
+    return [
+        StepOutcome(
+            name=name,
+            status="skipped",
+            error="correlate failed — this step depends on its findings",
+        )
+        for name in ("recs", "warm")
+    ]
 
 
 def _chain_done(user_id: UUID, day: date) -> bool:

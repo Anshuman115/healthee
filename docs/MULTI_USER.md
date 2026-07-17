@@ -489,9 +489,20 @@ Guardrail: a lint/test that greps for tenant-table `execute` calls lacking a
 - **One chain per owner per local day** — the 10:30/10:45/11:00 stagger is **gone**.
   It was not spreading LLM load (fixed order, fixed offsets, and the sweep already
   ran every owner back-to-back inside one timer); `run_chain` already sequences
-  correlate → recs → briefing *with* the dependency, so the stagger only
+  correlate → recs → warm → briefing *with* the dependency, so the stagger only
   re-implemented that ordering with `sleep()`. `chain.run_step`/`STEP_NAMES` were
   orphaned by the collapse and deleted.
+- **The `warm` step** (`chain.step_warm` → `insights/coaching.warm_lines`): the
+  `/api/today` **action** and the sleep-**tonight** line are cache-only on the read
+  path (`cached_line` never generates — standards §Performance), so they only exist
+  if something warms them off that path. Nothing did: `warm_daily_action` /
+  `warm_sleep_tonight` shipped with **zero production callers**, and both lines were
+  null forever. They are now a supervised chain step, after `recs` (it shares
+  `correlate`'s findings, so a `correlate` failure **skips** it) and before
+  `briefing`. A `warm` failure is **non-fatal**: a missing line is a degraded card,
+  and aborting would cost the owner their briefing over a one-liner. Cost: 2 LLM
+  calls per owner per local day, already inside PRICING.md §3.1's ~9-calls/day
+  budget, and bounded by the per-day `kv` cache (a forced re-run spends nothing).
 - **Retry budget** (`_ATTEMPT_BUDGET = 3`, in-memory): the marker is only set once
   correlate succeeds, so a *failing* chain stays unmarked — under a 5-minute tick it
   would otherwise be retried ~150× per owner-day (150 Telegram alerts + 150 re-sent
