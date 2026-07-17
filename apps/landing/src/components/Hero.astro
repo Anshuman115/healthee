@@ -1,0 +1,82 @@
+---
+// The hook + the single most persuasive object on the page: a rendered product
+// surface refusing to guess. No competitor's landing page can show this.
+---
+
+<section id="top" class="relative overflow-hidden pt-16 pb-20 md:pt-24 md:pb-28">
+  <div class="shell grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+    <div>
+      <p class="eyebrow rise">Honest &middot; self-hosted &middot; grounded in research</p>
+
+      <h1 class="rise mt-6 text-[clamp(2.5rem,6vw,4.25rem)]">
+        The health companion that<br class="hidden sm:block" />
+        <span class="italic text-accent-soft">refuses to flatter you.</span>
+      </h1>
+
+      <p class="rise mt-7 max-w-xl text-lg leading-relaxed text-ink-soft">
+        Healthee reads your wearable, then tells you the truth: every interpretation cited to
+        graded research, every number carrying its own confidence, and
+        <span class="text-ink">&ldquo;not enough data&rdquo;</span> whenever that is the honest
+        answer. No green rings. No grading on a curve.
+      </p>
+
+      <div class="rise mt-9 flex flex-wrap items-center gap-3">
+        <a href="#self-host" class="btn btn-primary">Self-host it today</a>
+        <a href="#honesty" class="btn btn-ghost">Watch it refuse &rarr;</a>
+      </div>
+
+      <p class="rise mt-6 max-w-md text-sm text-ink-faint">
+        You own the hardware and the data. You pay only for the intelligence &mdash; and only if
+        you want it.
+      </p>
+    </div>
+
+    <!-- The refusal card -->
+    <div class="rise lg:justify-self-end">
+      <figure class="surface w-full max-w-md p-6 sm:p-7" aria-label="Example: the product declining to score with insufficient data">
+        <figcaption class="flex items-center justify-between gap-3">
+          <span class="eyebrow">Recovery &middot; today</span>
+          <span class="chip chip-warn chip-dot">not enough data</span>
+        </figcaption>
+
+        <hr class="hairline my-5" />
+
+        <p class="font-serif text-2xl leading-snug">
+          I&rsquo;m not going to give you a recovery score today.
+        </p>
+        <p class="mt-3 text-[0.95rem] leading-relaxed text-ink-soft">
+          Only <span class="mono text-ink">2</span> of the last
+          <span class="mono text-ink">7</span> nights have usable overnight HRV. A recovery number
+          needs a stable baseline; inventing one would be worse than staying quiet.
+        </p>
+
+        <div class="mt-5 flex flex-wrap gap-2">
+          <span class="chip">coverage&nbsp;·&nbsp;29%</span>
+          <span class="chip">baseline&nbsp;·&nbsp;insufficient</span>
+          <span class="chip chip-accent chip-dot">fix&nbsp;·&nbsp;5+ nights worn</span>
+        </div>
+      </figure>
+      <p class="mt-3 pl-1 text-xs text-ink-faint mono">
+        A rendered example of the honesty contract, not a live reading.
+      </p>
+    </div>
+  </div>
+
+  <!-- honest status ribbon -->
+  <div class="shell mt-16 md:mt-20">
+    <div
+      class="rise flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-line py-4 text-sm text-ink-soft"
+    >
+      <span class="eyebrow">Where it stands</span>
+      <span class="inline-flex items-center gap-2">
+        <span class="chip chip-accent chip-dot">live</span> Backend: deployed &amp; multi-tenant
+      </span>
+      <span class="inline-flex items-center gap-2">
+        <span class="chip chip-dot">building</span> Mobile app: in progress (Phase 2)
+      </span>
+      <span class="inline-flex items-center gap-2">
+        <span class="chip chip-dot">closed</span> Public sign-ups: not open yet
+      </span>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,89 @@
+---
+const links = [
+  { href: '#honesty', label: 'Honesty' },
+  { href: '#science', label: 'Science' },
+  { href: '#personal', label: 'Personal' },
+  { href: '#pricing', label: 'Pricing' },
+  { href: '#self-host', label: 'Self-host' },
+];
+---
+
+<header
+  class="sticky top-0 z-40 border-b border-line/80 bg-paper/85 backdrop-blur-md supports-[backdrop-filter]:bg-paper/70"
+>
+  <nav class="shell flex h-16 items-center justify-between gap-4" aria-label="Primary">
+    <a href="#top" class="flex items-center gap-2.5" aria-label="Healthee — home">
+      <span aria-hidden="true" class="grid h-7 w-7 place-items-center rounded-[7px] bg-accent">
+        <svg viewBox="0 0 32 32" class="h-4 w-4" fill="none" aria-hidden="true">
+          <path
+            d="M9 9v14M9 16h9m0-7v14"
+            stroke="var(--c-accent-ink)"
+            stroke-width="2.6"
+            stroke-linecap="round"></path>
+        </svg>
+      </span>
+      <span class="font-serif text-lg tracking-tight">Healthee</span>
+    </a>
+
+    <ul class="hidden items-center gap-7 text-sm text-ink-soft md:flex">
+      {
+        links.map((l) => (
+          <li>
+            <a href={l.href} class="transition-colors hover:text-ink">
+              {l.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="flex items-center gap-2">
+      <button
+        id="theme-toggle"
+        type="button"
+        class="grid h-9 w-9 place-items-center rounded-lg border border-line-strong text-ink-soft transition-colors hover:border-accent hover:text-accent-soft"
+        aria-label="Toggle colour theme"
+        aria-pressed="false"
+      >
+        <svg class="h-4 w-4 dark:hidden" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"></circle>
+          <path
+            d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"></path>
+        </svg>
+        <svg class="hidden h-4 w-4 dark:block" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M20 14.2A8 8 0 0 1 9.8 4 7 7 0 1 0 20 14.2Z"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linejoin="round"></path>
+        </svg>
+      </button>
+      <a href="#self-host" class="btn btn-primary hidden px-4 py-2 text-sm sm:inline-flex">
+        Self-host it
+      </a>
+    </div>
+  </nav>
+</header>
+
+<script>
+  const toggle = document.getElementById('theme-toggle');
+  const root = document.documentElement;
+
+  function sync() {
+    toggle?.setAttribute('aria-pressed', String(root.classList.contains('dark')));
+  }
+  sync();
+
+  toggle?.addEventListener('click', () => {
+    const isDark = root.classList.toggle('dark');
+    try {
+      localStorage.setItem('healthee-theme', isDark ? 'dark' : 'light');
+    } catch (e) {
+      /* persistence unavailable; the toggle still applies for this session */
+    }
+    sync();
+  });
+</script>
