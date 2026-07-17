@@ -8,10 +8,12 @@ cd <the repo checkout>    # find it: `ls -d ~/healthee*` — confirm `infra/depl
 COMPOSE="docker compose --env-file infra/.env -f infra/docker/docker-compose.prod.yml"
 ```
 
-> The checkout path is **not verifiable from this repo** and the sources
-> disagree (`deploy.sh`'s header says `~/healthee`; the cutover notes say
-> `~/healthee-new`). Look before you `cd`. Everything else here is verified
-> against the repo.
+> The checkout path is **not verifiable from this repo**, and the two sources that
+> named one disagreed (an older `deploy.sh` header said `~/healthee`; the cutover
+> notes say `~/healthee-new`). Neither now claims a path, because a wrong path in a
+> runbook is worse than none — it sends a tired operator into an ancient checkout.
+> Look before you `cd`. `deploy.sh` itself doesn't care: it locates the repo from
+> its own path. Everything else here is verified against the repo.
 
 Related: `infra/backup/RESTORE.md` (restore drill) · `infra/.env.example` (every
 var, annotated) · `docs/MULTI_USER.md` §3.3a (the app role) / §4.4b (owner

@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # infra/deploy.sh — idempotent update-and-deploy for the Healthee VPS.
 #
-# Run ON the VPS, from the repo root:
-#   cd ~/healthee && infra/deploy.sh              # deploy
-#   cd ~/healthee && infra/deploy.sh --dry-run    # print the plan, change nothing
+# Run ON the VPS, from anywhere inside the repo checkout — the script locates the
+# repo from its OWN path, so it never depends on your cwd:
+#   <repo>/infra/deploy.sh              # deploy
+#   <repo>/infra/deploy.sh --dry-run    # print the plan, change nothing
+#
+# The checkout directory is deliberately NOT named here: this header used to say
+# `cd ~/healthee`, while the cutover notes say `~/healthee-new`, and one of them is
+# stale. A wrong path in a runbook is worse than no path — it sends a tired operator
+# into the wrong (or an ancient) checkout. Confirm on the box before you deploy.
 #
 # What it does:
 #   1. Preflight; verify the working tree's branch is pushed (local == origin/…).
