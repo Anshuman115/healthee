@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
-from healthee.derive._common import Cur, _age, _scalar, _upsert_daily
+from healthee.derive._common import Cur, _age, _day_minutes, _scalar, _upsert_daily
 
 # Awake non-step NEAT — context-aware by step proximity instead of a flat value.
 # A flat 1.4 overcounts long sedentary stretches (Compendium: sitting-quiet 1.3)
@@ -65,7 +65,10 @@ def _tee_met(
 
     total = 0.0
     base = start_utc.replace(second=0, microsecond=0)
-    for i in range(1440):
+    # Length from the BOUNDS, never a hardcoded 1440: a local day is 23 h or 25 h on a
+    # DST transition, and the walk is in UTC (which has no transitions), so the minute
+    # count is the only thing that knows how long the day was. See `_day_minutes`.
+    for i in range(_day_minutes(start_utc, end_utc)):
         m = base + timedelta(minutes=i)
         if _in_wk(m):
             continue

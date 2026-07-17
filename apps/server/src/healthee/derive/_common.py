@@ -90,9 +90,38 @@ def _wake_date(end_ts: datetime, tz: str) -> date:
 
 
 def _day_bounds_utc(day: date, tz: str) -> tuple[datetime, datetime]:
-    """UTC [start, end] instants bracketing one local (``tz``) calendar day."""
+    """UTC [start, end] instants bracketing one local (``tz``) calendar day.
+
+    ZoneInfo re-resolves the UTC offset at each end independently, so on a DST
+    transition the bracket correctly spans 23 h or 25 h rather than a fixed 24 h.
+    Anything walking this window per-minute must take its length from
+    :func:`_day_minutes`, never from a hardcoded 1440.
+    """
     start = datetime(day.year, day.month, day.day, 0, 0, 0, tzinfo=ZoneInfo(tz))
     return start.astimezone(UTC), (start.replace(hour=23, minute=59, second=59)).astimezone(UTC)
+
+
+def _day_minutes(start_utc: datetime, end_utc: datetime) -> int:
+    """Whole minutes in the local day bracketed by :func:`_day_bounds_utc`.
+
+    The bracket is INCLUSIVE of both endpoint minutes — it runs from the day's first
+    instant (00:00:00) to its last second (23:59:59), so the span is 59 s short of the
+    day itself and the count is ``span // 60 + 1``. That reproduces 1440 exactly on a
+    normal day (86399 // 60 = 1439, +1 = 1440 -> local 00:00 through 23:59), which is
+    the invariant to protect: a non-DST day's calorie total must not move by a minute.
+
+    On a DST day it does NOT return 1440, which is the point. A local day legitimately
+    spans 23 h or 25 h, and a fixed ``range(1440)`` therefore walked 60 minutes into
+    the NEXT day each spring (over-counting) and missed the last hour each autumn
+    (under-counting). Harmless while every owner was in Asia/Kolkata (no DST); 6.4 made
+    per-user timezones live, so it mis-integrates a real user's day twice a year::
+
+        America/New_York 2026-03-08 (spring forward):  1380 min  (23 h)
+        America/New_York 2026-11-01 (fall back):       1500 min  (25 h)
+        America/New_York 2026-06-15 (normal):          1440 min
+        Asia/Kolkata     any day (no DST):             1440 min
+    """
+    return int((end_utc - start_utc).total_seconds() // 60) + 1
 
 
 def _age(dob: date, on: date) -> int:
@@ -168,6 +197,7 @@ __all__ = [
     "_age",
     "_clamp100",
     "_day_bounds_utc",
+    "_day_minutes",
     "_json",
     "_load_profile",
     "_scalar",
