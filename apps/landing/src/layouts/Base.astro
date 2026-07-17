@@ -8,11 +8,11 @@ interface Props {
 
 const { title, description } = Astro.props;
 
-// Favicon: an annotated-record mark — three ruled lines with a red-lead margin
-// dot on the last, the manuscript motif the whole page is built on. Inline SVG
-// data-URI so the page loads zero external resources.
+// Favicon: an honest-reading mark — a small rising sparkline that stops short
+// (it doesn't claim the last point it doesn't have), on the iris accent.
+// Inline SVG data-URI so the page loads zero external resources.
 const favicon =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ac3521'/%3E%3Cpath d='M10 11h12M10 16h12M10 21h7' stroke='%23faf7ef' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='23.5' cy='21' r='1.7' fill='%23faf7ef'/%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234b45d6'/%3E%3Cpath d='M7 21l5-5 4 3 5-8' fill='none' stroke='%23fbfcfd' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='11' r='1.9' fill='%23fbfcfd'/%3E%3C/svg%3E";
 ---
 
 <!doctype html>

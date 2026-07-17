@@ -1,17 +1,13 @@
 ---
-// The margin-rail section shell — the page's signature layout device.
-// A §-numbered gutter (sticky on desktop, stacked on mobile) carries a mono
-// margin annotation, like a lab notebook; the body slot holds the section
-// content. Every numbered section on the page composes through this so the
-// rhythm and the rail stay consistent (second occurrence = extract).
+// The premium section wrapper: consistent vertical rhythm and an optional
+// recessed band. No margin rail, no §-numbering — v2's field-journal apparatus
+// is retired. Each section supplies its own eyebrow → heading → lede.
 interface Props {
-  n: string;
   id?: string;
-  note?: string;
-  tone?: 'paper' | 'sunk';
+  tone?: 'canvas' | 'sunk';
   labelledby?: string;
 }
-const { n, id, note, tone = 'paper', labelledby } = Astro.props;
+const { id, tone = 'canvas', labelledby } = Astro.props;
 ---
 
 <section
@@ -19,13 +15,7 @@ const { n, id, note, tone = 'paper', labelledby } = Astro.props;
   class:list={['section scroll-mt-20', tone === 'sunk' && 'band-sunk']}
   aria-labelledby={labelledby}
 >
-  <div class="shell rail">
-    <aside class="rail-aside rise">
-      <span class="rail-num" aria-hidden="true">§&nbsp;{n}</span>
-      {note && <p class="rail-note">{note}</p>}
-    </aside>
-    <div class="rail-body">
-      <slot />
-    </div>
+  <div class="shell">
+    <slot />
   </div>
 </section>
