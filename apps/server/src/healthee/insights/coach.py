@@ -2,12 +2,18 @@
 
 The coach is the flagship honesty surface (INTELLIGENCE §4). It does NOT open a
 second, unvalidated LLM path: it reuses the choke-point primitives directly —
-``refusals.classify_refusal`` gates the question before any tool runs, and every
-final free-text answer is put through ``validator.validate``; a candidate that
-fails twice ships ``prompts.FALLBACK``, never raw text. There is exactly one place
-a model turn becomes the reply (``_finalize``), and it only returns text that
-``_accept`` cleared — so an unvalidated or action-hallucinating answer can never
-reach the user (holes #1/#2, and the anti-hallucination rule).
+``refusals.classify_refusal`` gates the question before any tool runs,
+``output_guard.check_output`` gates every text candidate, and every final free-text
+answer is put through ``validator.validate``; a candidate that fails twice ships
+``prompts.FALLBACK``, never raw text. There is exactly one place a model turn becomes
+the reply (``_finalize``), and it only returns text that ``_accept`` cleared — so an
+unvalidated or action-hallucinating answer can never reach the user (holes #1/#2, and
+the anti-hallucination rule).
+
+The hard output guardrails are checked HERE rather than inherited via ``grounded_ask``
+because this surface deliberately calls the primitives itself. That makes this the one
+place a new choke-point stage must be mirrored — ``tests/insights/test_output_guard.py``
+asserts the coach blocks a forbidden answer, so the mirror cannot silently rot.
 
 The system message is ``COACH_SYSTEM_PROMPT`` (docs/COACH_PROMPT.md verbatim); the
 context is the history-rich ``build_coach_context``; the tools are ``COACH_TOOLS``.
@@ -26,6 +32,7 @@ from healthee.insights import coach_tools, prompts
 from healthee.insights.client import LLMClient, coach_model, get_client
 from healthee.insights.coach_context import DEFAULT_COACH_DAYS, build_coach_context, coach_evidence
 from healthee.insights.coach_prompt import COACH_SYSTEM_PROMPT
+from healthee.insights.output_guard import check_output
 from healthee.insights.refusals import classify_refusal
 from healthee.insights.validator import ValidationResult, validate
 
@@ -96,6 +103,13 @@ def _loop(client: LLMClient, convo: list[dict], user_id: UUID, tz: str) -> Coach
         if response.tool_calls:
             _run_tools(response, convo, invocations, acted_ok, user_id, tz)
             continue
+        # The hard floor, before acceptance: a forbidden answer is blocked outright and
+        # never nudged — a rule the model could be talked past is not a guardrail.
+        broken = check_output(response.text)
+        if broken is not None:
+            return CoachResult(
+                reply=broken.response, tool_calls=invocations, refused=True, validated=False
+            )
         ok, issues, validation = _accept(response.text, acted_ok)
         if ok:
             return _finalize(response.text, validation, invocations)

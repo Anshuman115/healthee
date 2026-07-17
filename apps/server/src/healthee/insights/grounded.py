@@ -4,8 +4,14 @@ INTELLIGENCE §3, in order:
   1. deterministic refusal pre-classifier (5 domains) — hits bypass the LLM entirely;
   2. v2-native context + manifest-ranked retrieval → the system/user messages;
   3. one LLM completion;
-  4. BLOCKING validator — one retry with a nudge, then an honest FALLBACK. The
+  4. hard OUTPUT GUARDRAILS (``output_guard``) — a documented forbidden output is
+     blocked outright, with no retry, whatever its citations or validation outcome;
+  5. BLOCKING validator — one retry with a nudge, then an honest FALLBACK. The
      unvalidated text NEVER ships (the fix for legacy's advisory validation, hole #2).
+
+Steps 1 and 4 are the two halves of the code guardrail: step 1 guards the QUESTION,
+step 4 guards the ANSWER. Step 4 runs BEFORE the validator on purpose — a forbidden
+output is not a grounding problem to be nudged out of the model, it is a floor.
 
 Every surface (sleep/activity/metric/workout insights, notable, and — via the
 ``allow_tools`` seam — the coach in WP5b) calls ``grounded_ask``; none of them
@@ -23,6 +29,7 @@ from healthee.core.logging import get_logger
 from healthee.insights import prompts
 from healthee.insights.client import LLMClient, get_client
 from healthee.insights.context import build_context
+from healthee.insights.output_guard import check_output
 from healthee.insights.refusals import classify_refusal
 from healthee.insights.retrieval import evidence_section
 from healthee.insights.validator import validate, validate_json
@@ -107,6 +114,11 @@ def _complete_with_validation(
     retries = 0
     while True:
         response = client.complete(messages, model=model, response_format=client_format)
+        # The hard floor: a forbidden output never ships and is never retried into
+        # existence — it does not matter what it cited or whether it would validate.
+        broken = check_output(response.text)
+        if broken is not None:
+            return GroundedResult(text=broken.response, refused=True, validated=False)
         result = validate_json(response.text) if json_mode else validate(response.text)
         if result.ok:
             return GroundedResult(
