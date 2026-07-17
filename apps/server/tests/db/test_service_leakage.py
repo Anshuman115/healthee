@@ -32,6 +32,7 @@ tests).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 
 import pytest
@@ -82,8 +83,17 @@ def two_owners(db: None) -> Iterator[None]:  # noqa: ARG001 — gates on DB reac
 
 
 def _dumped(payload: object) -> str:
-    """A payload flattened to text, for 'B's marker must appear nowhere in it' checks."""
-    return repr(payload)
+    """A payload flattened to text, for 'B's marker must appear nowhere in it' checks.
+
+    Epoch-ms timestamps (13-digit runs) are stripped first: they are A's OWN legitimate
+    data, they vary with wall-clock time (the seed anchors to `now()`), and a short
+    numeric marker like B's caffeine `999` collides with them as a substring — so a run
+    whose timestamps happened to contain "999" failed this leak check with no leak
+    present (a real, time-dependent CI flake). B's markers are all <=5 digits, so
+    dropping >=10-digit runs removes the collision source while leaving every marker
+    intact; a genuine leak (a standalone `999`, `22000`, B's name) is still caught.
+    """
+    return re.sub(r"\d{10,}", "", repr(payload))
 
 
 # ── the read surface, called as owner A ───────────────────────────────────────
