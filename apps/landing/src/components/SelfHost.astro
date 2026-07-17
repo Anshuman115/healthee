@@ -80,29 +80,13 @@ const promise = [
     </div>
   </div>
 
-  <!-- what self-hosting actually looks like -->
-  <figure
-    class="surface code-win rise mt-6"
-    aria-label="Self-hosting: clone, configure, and bring up the stack"
-  >
-    <figcaption class="code-bar">
-      <span aria-hidden="true" class="flex gap-1.5">
-        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
-      </span>
-      <span class="mono ml-2 text-xs">self-host &middot; single VPS</span>
-    </figcaption>
-    <pre><code><span class="text-ink-faint"># clone your fork and configure secrets</span>
-git clone <span class="text-accent-soft">&lt;your-fork&gt;</span> ~/healthee &amp;&amp; cd ~/healthee
-cp infra/.env.example infra/.env
-
-<span class="text-ink-faint"># bring up the stack — the database stays internal-only</span>
-docker compose -f infra/docker/docker-compose.prod.yml up -d db
-docker compose run --rm api python -m healthee.db.migrate
-docker compose -f infra/docker/docker-compose.prod.yml up -d api scheduler
-
-<span class="text-ink-faint"># verify</span>
-curl -fsS http://127.0.0.1:8765/healthz   <span class="text-accent-soft">→ &#123;"status":"ok","db":"ok"&#125;</span></code></pre>
-  </figure>
+  <!-- where the code lives -->
+  <p class="rise mt-6 max-w-3xl text-[0.95rem] leading-relaxed text-ink-soft">
+    The whole thing runs on one small server you control. The code goes up on GitHub the
+    moment it&rsquo;s ready to run yourself &mdash; and the link will appear right here.
+    <span class="text-ink-faint">Still being built, out in the open. No link yet, no
+    pretending otherwise.</span>
+  </p>
 
   <!-- the custody promise -->
   <div class="rise mt-14 max-w-3xl">
