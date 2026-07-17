@@ -1,9 +1,10 @@
 ---
 const year = new Date().getFullYear();
 const nav = [
-  { href: '#honesty', label: 'Honesty' },
+  { href: '#coach', label: 'The coach' },
+  { href: '#pipeline', label: 'The pipeline' },
+  { href: '#guardrail', label: 'Cited is not enough' },
   { href: '#science', label: 'Science' },
-  { href: '#personal', label: 'Personal science' },
   { href: '#pricing', label: 'Pricing' },
   { href: '#self-host', label: 'Self-host' },
 ];
@@ -16,11 +17,9 @@ const nav = [
         <div class="flex items-center gap-2.5">
           <span aria-hidden="true" class="grid h-7 w-7 place-items-center rounded-[7px] bg-accent">
             <svg viewBox="0 0 32 32" class="h-4 w-4" fill="none" aria-hidden="true">
-              <path
-                d="M9 9v14M9 16h9m0-7v14"
-                stroke="var(--c-accent-ink)"
-                stroke-width="2.6"
+              <path d="M10 11h12M10 16h12M10 21h7" stroke="var(--c-accent-ink)" stroke-width="2"
                 stroke-linecap="round"></path>
+              <circle cx="23.5" cy="21" r="1.7" fill="var(--c-accent-ink)"></circle>
             </svg>
           </span>
           <span class="font-serif text-lg tracking-tight">Healthee</span>
