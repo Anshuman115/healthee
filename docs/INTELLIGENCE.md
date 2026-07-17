@@ -174,6 +174,14 @@ All references are to `~/projects/healthee-legacy`.
 - Own context builder; grade≥2 citation whitelist; JSON-shape validation;
   drops recs citing unknown ids; each rec self-declares evidence_grade 2|3
   and carries raw prompt/response audit fields.
+- ⚠ "self-declares" was the hole, in legacy AND in the rebuild's first cut: the
+  declared grade was checked for being 2|3 but never compared against the cited
+  notes, so a rec citing a Contested note could ship labelled *Established*.
+  → rebuild: `jobs/recs.py::_provable_grade` resolves the shipped grade from the
+  strictest cited note (`manifest.grade_of`) — overclaims corrected down, below
+  Probable dropped. The grade≥2 whitelist lives THERE, on the provable floor; it
+  is not a retrieval filter (weaker notes stay retrievable so the coach can still
+  discuss — or correct — them).
 
 ## 6 · AUDIT — the four structural holes the rebuild closes
 

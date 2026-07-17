@@ -16,12 +16,24 @@ progress-framed, no meds/dosing/diagnosis) but fixes its two structural flaws:
 Per-rec structural validation still drops any individual rec that cites an
 unknown note or misses a field (legacy's cite-or-drop), on top of the whole-
 response blocking done by the choke point.
+
+**A rec's evidence grade is PROVED, not believed.** ``evidence_grade`` is a number
+the model writes about itself, and it used to be checked only for being 2 or 3 —
+never against ``manifest.grade_of()`` of the notes the rec cites. A rec citing a
+Contested note could therefore self-declare 3 and ship to the user labelled
+*Established*: the prose validator grade-calibrates every sentence, but nothing
+policed the structured field beside it, so the honesty contract's rule 2
+("confidence is part of the answer") was enforced everywhere except on the field
+that literally states the confidence. ``_provable_grade`` now resolves the shipped
+grade from the strictest cited note — overclaims are corrected down, evidence below
+Probable never ships. See that function for the drop-vs-correct reasoning.
 """
 
 from __future__ import annotations
 
 import re
 from datetime import date
+from typing import TypeGuard
 from uuid import UUID
 
 from healthee.core.db import tenant_transaction
@@ -49,6 +61,14 @@ RECS_METRICS = [
 _MAX_RECS = 3
 _REQUIRED_FIELDS = ("action", "rationale", "category", "evidence_grade", "research_note_ids")
 _VALID_GRADES = frozenset({2, 3})
+
+# The weakest evidence a rec may ship on: Probable (GRADE_RANK 2). A rec is a
+# directive to act TODAY, so evidence below Probable — Emerging, Contested, Myth —
+# does not get to drive one, however the model graded itself. This is §5.6's
+# "grade>=2 whitelist", enforced on the PROVABLE floor instead of on the claim.
+# Weaker notes stay retrievable (the coach may still discuss, or correct, a Myth);
+# it is the recs surface that acts, and only this surface is gated.
+_MIN_SHIPPABLE_RANK = 2
 
 # The JSON task handed to the choke point as the user question. The choke point's
 # system prompt + EVIDENCE NOTES supply the citation whitelist and grade rules;
@@ -168,8 +188,9 @@ def _parse_and_validate(payload: dict) -> tuple[list[dict], int]:
     clean: list[dict] = []
     dropped = 0
     for rec in recs:
-        if _rec_ok(rec, known):
-            clean.append(rec)
+        shippable = _shippable_rec(rec, known)
+        if shippable is not None:
+            clean.append(shippable)
         else:
             dropped += 1
         if len(clean) >= _MAX_RECS:
@@ -177,8 +198,59 @@ def _parse_and_validate(payload: dict) -> tuple[list[dict], int]:
     return clean, dropped
 
 
-def _rec_ok(rec: object, known: set[str]) -> bool:
-    """True iff one rec is well-formed, citable, and safe (else it is dropped)."""
+def _shippable_rec(rec: object, known: set[str]) -> dict | None:
+    """One rec as it may ship — grade corrected to what its notes PROVE — or None.
+
+    Structural validity first (``_rec_ok``), then the grade resolution: the returned
+    rec carries the provable grade, not the declared one, so ``_persist`` can only
+    ever write a grade the manifest backs.
+    """
+    if not _rec_ok(rec, known):
+        return None
+    grade = _provable_grade(rec)
+    if grade is None:
+        return None
+    return {**rec, "evidence_grade": grade}
+
+
+def _provable_grade(rec: dict) -> int | None:
+    """The grade the rec's OWN citations support, or None if it may not ship at all.
+
+    The model self-declares ``evidence_grade``; that number is a claim, and until now
+    nothing checked it — a rec citing a Contested note could declare 3 and reach the
+    user labelled *Established*, bypassing every grade calibration the prose validator
+    applies (honesty contract rule 2: confidence is part of the answer).
+
+    The strictest (weakest) grade among the cited notes is the ceiling — the same rule
+    ``validator._grade_issue`` already applies to a sentence's inline citations, so the
+    structured field and the prose it accompanies cannot disagree. An unknown grade
+    ranks 0 (fail-closed); ``_rec_ok`` has already guaranteed the ids are non-empty
+    and citable.
+
+    Overclaiming is CORRECTED, not dropped: the rationale's wording was independently
+    grade-calibrated against these same notes by the blocking validator at the choke
+    point, so the action and its prose are sound and only the label overreached —
+    dropping the rec would throw away real, honest value to punish one wrong integer.
+    Evidence below Probable is dropped instead: there is no honest label for it on a
+    surface whose whole purpose is to tell the user to do something today.
+    """
+    declared = int(rec["evidence_grade"])
+    ranks = [
+        manifest.GRADE_RANK.get(manifest.grade_of(nid) or "", 0) for nid in rec["research_note_ids"]
+    ]
+    floor = min(ranks)
+    if floor < _MIN_SHIPPABLE_RANK:
+        return None
+    return min(declared, floor)
+
+
+def _rec_ok(rec: object, known: set[str]) -> TypeGuard[dict]:
+    """True iff one rec is well-formed, citable, and safe (else it is dropped).
+
+    Structure only — the DECLARED ``evidence_grade`` is merely checked to be in the
+    shippable band here; whether the citations actually support it is
+    ``_provable_grade``'s job.
+    """
     if not isinstance(rec, dict):
         return False
     if any(field not in rec for field in _REQUIRED_FIELDS):
