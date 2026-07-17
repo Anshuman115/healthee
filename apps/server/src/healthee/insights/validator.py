@@ -15,9 +15,14 @@ Rules enforced against the generated answer:
      flagged · Contested → "the science is mixed").
   4. Banned tone (alarming/reassuring) needs a supporting citation; banned certainty
      ("is caused by", "definitely", "always", "never") is never allowed.
+  5. A truncated or empty answer is blocked outright (prose path): it is not a
+     validated answer, only one that happened to contain nothing checkable.
 
-A refusal bypasses validation ONLY when the whole answer IS a refusal template (they
-are safe by construction, §5.5) — never when one is merely embedded in a longer answer.
+Rules 1–4 are enforced over every sentence the answer actually contains — INCLUDING
+inside markdown tables, headings and blockquotes, which an earlier splitter dropped
+(``answer_text.sentences``). A refusal bypasses validation ONLY when the whole answer IS
+a refusal template (they are safe by construction, §5.5) — never when one is merely
+embedded in a longer answer.
 """
 
 from __future__ import annotations
@@ -28,9 +33,13 @@ from dataclasses import dataclass, field
 
 from healthee.core.logging import get_logger
 from healthee.insights import manifest
+from healthee.insights.answer_text import extract_citations, sentences, truncation_issue
 from healthee.insights.refusals import REFUSAL_TEMPLATES
 
 log = get_logger(__name__)
+
+# Re-exported: `extract_citations` is part of the validator's public surface.
+__all__ = ["ValidationResult", "extract_citations", "is_refusal", "validate", "validate_json"]
 
 # Interpretive / causal / recommending markers — a sentence matching one makes a
 # claim (vs merely reporting a number) and must be grounded. Ported from legacy.
@@ -56,6 +65,14 @@ _INTERP_RE = re.compile(
             r"\bpredicts?\b",
             r"\baffects?\b",
             r"\bimpact(s|ed)?\b",
+            # Advice verbs: a directive to the user IS a recommendation, so it needs the
+            # same grounding as "recommend" (already above) — "you should aim for 8 hours"
+            # shipped uncited without these. NOT applied to a rec's `action` field, which
+            # is a directive by contract and grounded at the rec level (see _recs_segments).
+            r"\bshould\b",
+            r"\baim(ing)? for\b",
+            # "shows" asserts the data proves something — the same claim "indicates" makes.
+            r"\bshows?\b",
             r"\b(is|are|was|were) (high|low|elevated|reduced|abnormal|concerning|worrying)\b",
             r"\b(too high|too low|above (the )?normal|below (the )?normal)\b",
         )
@@ -66,8 +83,6 @@ _INTERP_RE = re.compile(
 # Stripped from BOTH ends of the answer and the template, so matching stays symmetric.
 _REFUSAL_WRAPPER_CHARS = " \t\r\n\"'*`."
 
-_CITE_RE = re.compile(r"\[([a-z0-9_]+(?:\s*,\s*[a-z0-9_]+)*)\]")
-_PERSONAL_RE = re.compile(r"\[personal_finding:([^\]]+)\]", re.IGNORECASE)
 _ESCAPE_RE = re.compile(
     r"no\s+strong\s+evidence|no\s+evidence\s+in\s+our\s+base|not\s+covered\s+(by|in)\s+"
     r"(our|the)\s+(evidence|research)\s+base",
@@ -99,6 +114,14 @@ _HEDGE_RE = re.compile(
 )
 
 
+@dataclass(frozen=True)
+class _Segment:
+    """One chunk of user-facing text, plus whether its sentences must carry citations."""
+
+    text: str
+    require_grounding: bool = True
+
+
 @dataclass
 class ValidationResult:
     """Outcome of one validation pass over a generated answer."""
@@ -108,19 +131,6 @@ class ValidationResult:
     citations: list[str] = field(default_factory=list)
     personal_findings: list[str] = field(default_factory=list)
     grade_floor: str | None = None
-
-
-def extract_citations(text: str) -> tuple[set[str], set[str]]:
-    """(note_ids, personal_finding_names) cited in ``text``.
-
-    Personal-finding tokens carry a colon and are matched separately so they are
-    never confused with population note ids.
-    """
-    personal = {m.group(1).strip() for m in _PERSONAL_RE.finditer(text)}
-    ids: set[str] = set()
-    for m in _CITE_RE.finditer(text):
-        ids.update(part.strip() for part in m.group(1).split(","))
-    return ids, personal
 
 
 def _normalize_refusal(text: str) -> str:
@@ -151,16 +161,6 @@ def is_refusal(text: str) -> bool:
     return _normalize_refusal(text) in _NORMALIZED_REFUSALS
 
 
-def _sentences(text: str) -> list[str]:
-    """Split into sentences, dropping pure-markdown structure lines."""
-    out: list[str] = []
-    for raw in re.split(r"(?<=[.!?])\s+", text.strip()):
-        clean = raw.strip()
-        if clean and not clean.startswith(("#", "|", ">")):
-            out.append(clean)
-    return out
-
-
 def _grade_issue(sentence: str, cited_ids: set[str]) -> str | None:
     """Enforce grade-calibrated wording for one cited interpretive sentence."""
     grades = [manifest.grade_of(i) for i in cited_ids]
@@ -177,14 +177,20 @@ def _grade_issue(sentence: str, cited_ids: set[str]) -> str | None:
     return None
 
 
-def _sentence_issues(sentence: str) -> list[str]:
-    """Per-sentence checks: grounding, banned tone, and grade calibration."""
+def _sentence_issues(sentence: str, *, require_grounding: bool = True) -> list[str]:
+    """Per-sentence checks: grounding, banned tone, and grade calibration.
+
+    ``require_grounding=False`` exempts a segment from the interpretive-citation and
+    grade-calibration rules ONLY — banned tone still applies, as do the whole-answer
+    fabricated-id and certainty checks. It exists for text that is grounded structurally
+    rather than sentence-by-sentence (a rec's ``action``; see ``_recs_segments``).
+    """
     issues: list[str] = []
-    if _BANNED_TONE_RE.search(sentence) and not _CITE_RE.search(sentence):
-        issues.append(f"Alarmist/reassuring tone without citation: '{sentence[:120]}'")
-    if not _INTERP_RE.search(sentence):
-        return issues
     cited_ids, _ = extract_citations(sentence)
+    if _BANNED_TONE_RE.search(sentence) and not cited_ids:
+        issues.append(f"Alarmist/reassuring tone without citation: '{sentence[:120]}'")
+    if not require_grounding or not _INTERP_RE.search(sentence):
+        return issues
     if not cited_ids:
         if not _ESCAPE_RE.search(sentence):
             issues.append(f"Interpretive sentence lacks a citation: '{sentence[:120]}'")
@@ -204,24 +210,28 @@ def _grade_floor(valid_ids: set[str]) -> str | None:
     return min(graded)[1] if graded else None
 
 
-def _run_rules(text: str) -> ValidationResult:
-    """The rule engine over a prose blob — shared by the prose and JSON paths.
+def _run_rules(
+    segments: list[_Segment], *, extra_issues: list[str] | None = None
+) -> ValidationResult:
+    """The rule engine over user-facing text — shared by the prose and JSON paths.
 
-    Runs the fabricated-id, banned-certainty, and every per-sentence check
-    (grounding, tone, grade calibration). The two callers differ ONLY in what
-    text they hand in: ``validate`` passes the whole answer; ``validate_json``
-    passes the concatenated user-facing interpretive strings.
+    Fabricated-id and banned-certainty checks always run over ALL segments' text; the
+    per-sentence checks honour each segment's ``require_grounding``. The two callers
+    differ only in the segments they hand in: ``validate`` passes the whole answer as one
+    grounded segment; ``validate_json`` passes a rec's user-facing strings.
     """
+    text = "\n".join(seg.text for seg in segments)
     ids, personal = extract_citations(text)
     known = manifest.note_ids()
-    issues: list[str] = []
+    issues: list[str] = list(extra_issues or [])
     fabricated = ids - known
     if fabricated:
         issues.append(f"Cited ids do not exist in the manifest: {sorted(fabricated)}")
     if _BANNED_CERTAINTY_RE.search(text):
         issues.append("Uses banned certainty language (caused by / definitely / always / never).")
-    for sentence in _sentences(text):
-        issues.extend(_sentence_issues(sentence))
+    for seg in segments:
+        for sentence in sentences(seg.text):
+            issues.extend(_sentence_issues(sentence, require_grounding=seg.require_grounding))
     return ValidationResult(
         ok=not issues,
         issues=issues,
@@ -235,33 +245,48 @@ def validate(response: str) -> ValidationResult:
     """Run every rule; ``ok`` is True only when zero issues are found (blocking)."""
     if is_refusal(response):
         return ValidationResult(ok=True)
-    return _run_rules(response)
+    truncation = truncation_issue(response)
+    return _run_rules([_Segment(response)], extra_issues=[truncation] if truncation else None)
 
 
-def _recs_interpretive_text(payload: object) -> str:
-    """Concatenate the USER-FACING interpretive strings from a recs payload.
+# A rec's `action` is a one-line DIRECTIVE by contract (jobs/recs.py RECS_TASK), and it
+# is grounded at the rec level, not sentence-level: `_rec_ok` drops any rec whose
+# `research_note_ids` are absent or unknown to the manifest AND whose `rationale` carries
+# no inline [note_id]. Requiring a citation inside the imperative itself would demand
+# grounding the rec already carries, and grade-calibrating an imperative is a category
+# error ("You might aim for a walk"). So the directive is exempt from the grounding rules
+# only — banned tone, certainty and fabricated ids still apply to it.
+_RECS_GROUNDED_FIELDS = ("rationale", "expected_effect")
+_RECS_DIRECTIVE_FIELDS = ("action",)
 
-    Only ``rationale`` / ``action`` / ``expected_effect`` are user-facing prose;
-    keys and constrained-vocab fields (``category``, ``signal_source``,
-    ``evidence_grade``, ``research_note_ids``) are NOT validated as prose — they
-    are structurally checked per-rec in ``jobs/recs.py``. This is why an
-    interpretive-looking word in a KEY or a category value cannot false-trip or
-    false-satisfy the rules.
+
+def _recs_segments(payload: object) -> list[_Segment]:
+    """The USER-FACING strings of a recs payload, each tagged with its grounding rule.
+
+    Only ``rationale`` / ``action`` / ``expected_effect`` are user-facing prose; keys and
+    constrained-vocab fields (``category``, ``signal_source``, ``evidence_grade``,
+    ``research_note_ids``) are NOT validated as prose — they are structurally checked
+    per-rec in ``jobs/recs.py``. This is why an interpretive-looking word in a KEY or a
+    category value cannot false-trip or false-satisfy the rules.
     """
     if not isinstance(payload, dict):
-        return ""
+        return []
     recs = payload.get("recommendations")
     if not isinstance(recs, list):
-        return ""
-    parts: list[str] = []
+        return []
+    segments: list[_Segment] = []
     for rec in recs:
         if not isinstance(rec, dict):
             continue
-        for field_name in ("rationale", "action", "expected_effect"):
+        for field_name in _RECS_GROUNDED_FIELDS:
             value = rec.get(field_name)
             if isinstance(value, str):
-                parts.append(value)
-    return "\n".join(parts)
+                segments.append(_Segment(value))
+        for field_name in _RECS_DIRECTIVE_FIELDS:
+            value = rec.get(field_name)
+            if isinstance(value, str):
+                segments.append(_Segment(value, require_grounding=False))
+    return segments
 
 
 def validate_json(response: str) -> ValidationResult:
@@ -278,4 +303,4 @@ def validate_json(response: str) -> ValidationResult:
     except (json.JSONDecodeError, ValueError) as exc:
         log.warning("grounded json answer was not valid JSON (%s) — blocking", exc)
         return ValidationResult(ok=False, issues=[f"Response was not valid JSON: {exc}"])
-    return _run_rules(_recs_interpretive_text(payload))
+    return _run_rules(_recs_segments(payload))
