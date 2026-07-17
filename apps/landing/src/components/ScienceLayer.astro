@@ -1,0 +1,71 @@
+---
+// The science layer — metrics from PRICING.md §1, each derived number naming the
+// published method behind it. Named methods signal rigor better than adjectives.
+const methods = [
+  { metric: 'VO₂max', method: 'Jurca 2005 non-exercise + GPS submaximal' },
+  { metric: 'Cardio load', method: 'Banister TRIMP, strain 0–21' },
+  { metric: 'Sleep regularity', method: 'Phillips Sleep Regularity Index (SRI)' },
+  { metric: 'Biological age', method: 'Gompertz mortality model' },
+  { metric: 'Calories / TEE', method: 'MET-by-state (not HR-derived guesses)' },
+  { metric: 'Sleep-health score', method: '4 dimensions, each scored separately' },
+  { metric: 'Recovery & readiness', method: 'resting HR, overnight HRV (RMSSD)' },
+  { metric: 'Illness early-warning', method: 'RR / skin-temp / HRV deviation flag' },
+];
+
+const vitals = [
+  'Resting HR',
+  'Overnight HRV (RMSSD)',
+  'SpO₂ (overnight + min)',
+  'Respiratory rate',
+  'Skin temperature',
+  'Device stress (framed honestly)',
+  'Sleep stages & need / debt',
+  'Chronotype',
+  'MVPA vs WHO target',
+  'Steps & distance',
+  'Weight / BMI',
+  'GPS workouts + route',
+];
+---
+
+<section id="science" class="scroll-mt-20 py-20 md:py-28">
+  <div class="shell">
+    <div class="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+      <div class="lg:sticky lg:top-24 lg:self-start">
+        <p class="eyebrow rise">The science layer</p>
+        <h2 class="rise mt-4 text-[clamp(1.9rem,4vw,2.9rem)]">
+          Every derived number names the method behind it.
+        </h2>
+        <p class="rise mt-6 text-lg text-ink-soft">
+          Not &ldquo;proprietary algorithm.&rdquo; A published method, cited to primary research,
+          ported verbatim and checked against known values. If we can&rsquo;t cite it, we
+          don&rsquo;t compute it.
+        </p>
+        <div class="rise mt-8 flex flex-wrap gap-2">
+          <span class="chip">Jurca</span>
+          <span class="chip">Banister TRIMP</span>
+          <span class="chip">Phillips SRI</span>
+          <span class="chip">Gompertz</span>
+        </div>
+      </div>
+
+      <div class="rise">
+        <dl class="divide-y divide-line border-y border-line">
+          {
+            methods.map((m) => (
+              <div class="grid grid-cols-1 gap-1 py-4 sm:grid-cols-[9.5rem_1fr] sm:gap-4 sm:py-3.5">
+                <dt class="font-medium">{m.metric}</dt>
+                <dd class="mono text-sm text-ink-soft">{m.method}</dd>
+              </div>
+            ))
+          }
+        </dl>
+
+        <p class="eyebrow mt-10">Also tracked</p>
+        <ul class="mt-4 flex flex-wrap gap-2">
+          {vitals.map((v) => <li class="chip">{v}</li>)}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>

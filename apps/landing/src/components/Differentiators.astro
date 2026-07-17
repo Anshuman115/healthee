@@ -1,0 +1,51 @@
+---
+// The three differentiators, verbatim in spirit from PRICING.md §1 (end of section):
+// free hardware-life tracking · cited-or-it-doesn't-ship · own-your-data / self-hostable.
+const points = [
+  {
+    n: '01',
+    title: 'Tracking is free, for the life of the strap',
+    body:
+      'Every metric, chart, baseline, and personal finding is free forever. We don’t hold your own data hostage behind a subscription. You buy the hardware once; the numbers are yours.',
+    tag: 'no forced subscription',
+  },
+  {
+    n: '02',
+    title: 'Cited, or it doesn’t ship',
+    body:
+      'Every interpretive sentence is checked against a graded research corpus by a blocking validator before you ever see it. A claim that can’t be sourced is not softened — it is dropped. Whoop’s and Oura’s AI coaches don’t cite; ours can’t not.',
+    tag: 'blocking citation validator',
+  },
+  {
+    n: '03',
+    title: 'Your data, on your terms',
+    body:
+      'Self-hostable on a single small VPS, with the full history on-device and off-box backups. The database is never exposed to the internet. Own-your-data isn’t a marketing line here; it’s the architecture.',
+    tag: 'self-hostable',
+  },
+];
+---
+
+<section class="py-20 md:py-24">
+  <div class="shell">
+    <div class="max-w-2xl">
+      <p class="eyebrow rise">What makes it different</p>
+      <h2 class="rise mt-4 text-[clamp(1.9rem,4vw,2.9rem)]">
+        Three things no one else does all at once.
+      </h2>
+    </div>
+
+    <ol class="mt-14 grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">
+      {
+        points.map((p) => (
+          <li class="rise flex flex-col bg-paper p-7 md:p-8">
+            <span class="mono text-sm text-accent-soft">{p.n}</span>
+            <h3 class="mt-5 font-serif text-xl leading-snug">{p.title}</h3>
+            <p class="mt-4 grow text-[0.95rem] leading-relaxed text-ink-soft">{p.body}</p>
+            <span class="chip chip-accent mt-6 self-start">{p.tag}</span>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
