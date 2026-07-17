@@ -9,10 +9,10 @@ interface Props {
 const { title, description } = Astro.props;
 
 // Favicon: an honest-reading mark — a small rising sparkline that stops short
-// (it doesn't claim the last point it doesn't have), on the iris accent.
-// Inline SVG data-URI so the page loads zero external resources.
+// (it doesn't claim the last point it doesn't have), on the clay accent with a
+// squared corner to match the ledger skin. Inline SVG data-URI, zero external.
 const favicon =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234b45d6'/%3E%3Cpath d='M7 21l5-5 4 3 5-8' fill='none' stroke='%23fbfcfd' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='11' r='1.9' fill='%23fbfcfd'/%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23bd4a2a'/%3E%3Cpath d='M7 21l5-5 4 3 5-8' fill='none' stroke='%23fbfaf6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='11' r='1.9' fill='%23fbfaf6'/%3E%3C/svg%3E";
 ---
 
 <!doctype html>
