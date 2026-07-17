@@ -30,10 +30,44 @@ downward only, never upward).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 # 1/Phi^-1(0.75) = 1/0.6744897501960817 = 1.4826022185056018, to 4dp. A statistical
 # identity (see the module docstring) — deliberately uncited. Verified against
 # `statistics.NormalDist` in tests/derive/test_robust.py.
 MAD_TO_SD = 1.4826
+
+
+def median(values: Sequence[float]) -> float:
+    """The median of a non-empty sample: the MEAN of the two central values if even.
+
+    The textbook definition, and the one ``derive/vo2max.py`` already used inline for
+    its 7-day resting-HR median.
+
+    NOTE — ``derive/recovery.py`` deliberately does NOT route its baseline through
+    this: its MAD step takes the UPPER-middle deviation rather than interpolating, and
+    its output is pinned byte-for-byte by the legacy golden-parity fixture. Aligning it
+    would be a science behaviour change and belongs in its own PR (see the report on
+    this branch), not a silent side effect of extracting a helper.
+    """
+    ordered = sorted(values)
+    n = len(ordered)
+    if not n:
+        raise ValueError("median of an empty sample is undefined")
+    mid = n // 2
+    return ordered[mid] if n % 2 else 0.5 * (ordered[mid - 1] + ordered[mid])
+
+
+def median_abs_deviation(values: Sequence[float]) -> float:
+    """MAD = median(|x - median(x)|) — spread that a single outlier cannot inflate.
+
+    Unscaled, in the sample's own units: a MAD in bpm stays bpm. Multiply by
+    :data:`MAD_TO_SD` (or call :func:`robust_sd`) only when a normal-equivalent sigma
+    is what's wanted; a threshold quoted in raw MAD — such as the 8 bpm noise gate in
+    [[non_exercise_vo2max]] — must NOT be scaled.
+    """
+    med = median(values)
+    return median(tuple(abs(v - med) for v in values))
 
 
 def robust_sd(mad: float, floor: float = 0.0) -> float:
