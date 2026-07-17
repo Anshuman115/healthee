@@ -221,7 +221,13 @@ def test_zone_offsets_are_what_this_suite_assumes() -> None:
     quietly defanging the suite above.
     """
     now = datetime.now(UTC)
-    offsets = {tz: now.astimezone(ZoneInfo(tz)).utcoffset() for _, tz in _OWNERS}
+    # `utcoffset()` is `timedelta | None` — None only for a naive datetime, which
+    # `astimezone` cannot return. Assert it away so the comparisons below are typed.
+    offsets: dict[str, timedelta] = {}
+    for _, tz in _OWNERS:
+        offset = now.astimezone(ZoneInfo(tz)).utcoffset()
+        assert offset is not None, f"{tz} resolved to a naive datetime"
+        offsets[tz] = offset
 
     assert offsets[FAR_EAST_TZ] - offsets[FAR_WEST_TZ] >= timedelta(hours=24), (
         f"the date-line pair is no longer >= 24 h apart: {offsets}"

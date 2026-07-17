@@ -13,7 +13,18 @@ def test_defaults_apply_when_only_required_var_set(
 ) -> None:
     # Clear any ambient POSTGRES_* (a developer shell or CI with POSTGRES_PORT set
     # would otherwise fail this defaults test) so it exercises the code defaults.
-    for var in ("POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_DB", "POSTGRES_USER"):
+    # The optional-integration keys need the same treatment for the same reason: a
+    # shell that sourced `.env` for the Postgres creds also carries OPENROUTER_API_KEY,
+    # which turned the assertions below into a failure that reproduces on a developer
+    # machine and never in CI — a phantom that cost an agent real time chasing it.
+    for var in (
+        "POSTGRES_HOST",
+        "POSTGRES_PORT",
+        "POSTGRES_DB",
+        "POSTGRES_USER",
+        "OPENROUTER_API_KEY",
+        "TELEGRAM_BOT_TOKEN",
+    ):
         monkeypatch.delenv(var, raising=False)
     get_settings.cache_clear()
     settings = get_settings()
