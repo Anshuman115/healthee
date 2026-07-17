@@ -35,7 +35,7 @@ def run_correlate(user_id: UUID, tz: str) -> dict:
     n_significant = sum(1 for f in findings if f.significant)
 
     cutoffs = compute_cutoff_findings(user_id, tz)
-    n_cutoffs = persist_cutoff_findings(cutoffs)
+    n_cutoffs = persist_cutoff_findings(user_id, cutoffs)
 
     log.info(
         "correlate[%s]: %d findings persisted (%d significant), %d cutoffs",

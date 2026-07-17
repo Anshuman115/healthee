@@ -24,7 +24,6 @@ from healthee.analytics.finding import EFFECT_MANN_WHITNEY, Finding, replace_fin
 from healthee.analytics.series import Cur
 from healthee.analytics.stats import bh_fdr, mann_whitney_groups
 from healthee.core.db import tenant_transaction
-from healthee.core.tenancy import SENTINEL_USER_ID
 
 # Candidate cutoffs, as hours-of-day in the owner's local timezone.
 CUTOFF_HOURS: tuple[int, ...] = (12, 14, 16, 18, 20, 22)
@@ -262,6 +261,11 @@ def _cutoff_finding(  # noqa: PLR0913 — one finding needs all its measured fie
     )
 
 
-def persist_cutoff_findings(findings: list[Finding]) -> int:
-    """Replace all ``personal_cutoff`` findings with the fresh set (stale removal)."""
-    return replace_findings_of_kind(SENTINEL_USER_ID, "personal_cutoff", findings)
+def persist_cutoff_findings(user_id: UUID, findings: list[Finding]) -> int:
+    """Replace ``user_id``'s ``personal_cutoff`` findings with the fresh set (stale removal).
+
+    The owner is a PARAMETER, matching every other persist path (``persist_findings``,
+    ``replace_findings_of_kind``). It was hardwired to the sentinel, which made every
+    owner's nightly correlate replace the SENTINEL's cutoffs with its own.
+    """
+    return replace_findings_of_kind(user_id, "personal_cutoff", findings)

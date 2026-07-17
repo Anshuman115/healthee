@@ -113,7 +113,7 @@ def test_cutoff_finder_reads_v2_tst(db: None) -> None:  # noqa: ARG001
     assert tst.details["median_after"] < tst.details["median_other"]
     assert tst.effect_size < 0
 
-    written = cutoffs.persist_cutoff_findings(findings)
+    written = cutoffs.persist_cutoff_findings(SENTINEL_USER_ID, findings)
     assert written == len(findings)
 
 
