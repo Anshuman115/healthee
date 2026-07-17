@@ -16,7 +16,8 @@ Rules enforced against the generated answer:
   4. Banned tone (alarming/reassuring) needs a supporting citation; banned certainty
      ("is caused by", "definitely", "always", "never") is never allowed.
 
-Refusal templates bypass validation (they are safe by construction, §5.5).
+A refusal bypasses validation ONLY when the whole answer IS a refusal template (they
+are safe by construction, §5.5) — never when one is merely embedded in a longer answer.
 """
 
 from __future__ import annotations
@@ -61,6 +62,10 @@ _INTERP_RE = re.compile(
     ),
     re.IGNORECASE,
 )
+# Wrapping characters a refusal may legitimately arrive with (quoted, bolded, padded).
+# Stripped from BOTH ends of the answer and the template, so matching stays symmetric.
+_REFUSAL_WRAPPER_CHARS = " \t\r\n\"'*`."
+
 _CITE_RE = re.compile(r"\[([a-z0-9_]+(?:\s*,\s*[a-z0-9_]+)*)\]")
 _PERSONAL_RE = re.compile(r"\[personal_finding:([^\]]+)\]", re.IGNORECASE)
 _ESCAPE_RE = re.compile(
@@ -118,10 +123,32 @@ def extract_citations(text: str) -> tuple[set[str], set[str]]:
     return ids, personal
 
 
+def _normalize_refusal(text: str) -> str:
+    """Collapse whitespace and shed wrapping punctuation so echoed templates still match.
+
+    A model re-wrapping a template across lines, or quoting/bolding it, is still
+    emitting that template. Nothing here can *shorten* a longer answer to a
+    template: only whitespace runs collapse, and only leading/trailing wrapper
+    characters are shed — interior words always survive.
+    """
+    return re.sub(r"\s+", " ", text).strip(_REFUSAL_WRAPPER_CHARS)
+
+
+_NORMALIZED_REFUSALS: frozenset[str] = frozenset(_normalize_refusal(t) for t in REFUSAL_TEMPLATES)
+
+
 def is_refusal(text: str) -> bool:
-    """True when the answer is one of the exact hard-refusal templates."""
-    stripped = text.strip()
-    return any(t in stripped for t in REFUSAL_TEMPLATES)
+    """True only when the WHOLE answer IS one of the hard-refusal templates.
+
+    Whole-answer EQUALITY, never containment. This was a substring match, which was a
+    total validation bypass: any answer *containing* a template — and templates sit in
+    coach conversation history for a model to echo — skipped every citation, tone,
+    calibration and certainty check (INTELLIGENCE §6, hole #2). Refusals bypass those
+    checks because they are safe by construction (§5.5); text merely wrapped around one
+    is not, so an embedded template cannot suppress validation: any prose outside the
+    template leaves the normalized answer unequal to it.
+    """
+    return _normalize_refusal(text) in _NORMALIZED_REFUSALS
 
 
 def _sentences(text: str) -> list[str]:
