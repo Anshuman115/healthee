@@ -26,10 +26,12 @@ Steps 1 and 4 are the two halves of the code guardrail: step 1 guards the QUESTI
 step 4 guards the ANSWER. Step 4 runs BEFORE the validator on purpose — a forbidden
 output is not a grounding problem to be nudged out of the model, it is a floor.
 
-Every surface (sleep/activity/metric/workout insights, notable, and — via the
-``allow_tools`` seam — the coach in WP5b) calls ``grounded_ask``; none of them
-talk to the LLM directly. That is how the coach inherits citation validation
-(hole #1: legacy's coach was the one surface with none).
+The surfaces that DO call ``grounded_ask``: sleep/activity/metric/workout insights
+(``surfaces``), ``notable``, the daily coaching lines (``coaching``), and the two job
+surfaces (``jobs.recs``, ``jobs.briefing``). None of them talk to the LLM directly.
+The coach is the exception described above — legacy's hole #1 is still closed for it
+(unvalidated coach text cannot ship), but by enforced equivalence rather than by
+inheritance, which is the whole point of the warning at the top of this docstring.
 """
 
 from __future__ import annotations
