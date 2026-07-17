@@ -1,10 +1,10 @@
 ---
 // The hero + the single most persuasive object on the page: a rendered product
 // surface refusing to guess. No competitor's landing page can show a refusal.
-// Copy is rebuilt around the human tagline; premium app-UI card, not a mockup.
+// Copy is v4's plain first-person voice; the headline is fixed.
 ---
 
-<section id="top" class="relative overflow-hidden">
+<section id="top" class="grid-atmos relative overflow-hidden">
   <div class="shell grid items-center gap-14 pt-16 pb-16 md:pt-24 md:pb-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
     <div>
 
@@ -14,27 +14,32 @@
       </h1>
 
       <p class="rise mt-7 max-w-xl text-lg leading-relaxed text-ink-soft">
-        A companion app for the <span class="text-ink">Amazfit Helio Strap</span>. It reads what
-        the strap records and tells you the truth &mdash; backed by real research, honest about how
-        sure it is, and willing to say <span class="text-ink">&ldquo;not enough data&rdquo;</span>
-        instead of making something up. No green rings. No praise you didn&rsquo;t earn.
+        Every other app tells you <span class="text-ink">&ldquo;great job&rdquo;</span> &mdash; even
+        when it isn&rsquo;t true. This is the one that won&rsquo;t. It works with a little band you
+        wear on your wrist, reads what the band records, and tells you the truth about your body,
+        kindly. When it hasn&rsquo;t seen enough of you, it just says
+        <span class="text-ink">&ldquo;I don&rsquo;t know yet.&rdquo;</span> No cheering. No fake numbers.
       </p>
 
       <div class="rise mt-9 flex flex-wrap items-center gap-3">
-        <a href="#self-host" class="btn btn-primary">Self-host it today</a>
+        <a href="#self-host" class="btn btn-primary">Run it yourself today</a>
         <a href="#coach" class="btn btn-ghost">See how it answers &rarr;</a>
       </div>
 
       <p class="rise mt-6 max-w-md text-sm text-ink-faint">
-        We don&rsquo;t sell the strap &mdash; that&rsquo;s Amazfit&rsquo;s, bought anywhere. Your
-        data is yours, and you pay only for the intelligence &mdash; only if you want it.
+        It works with the <span class="text-ink-soft">Amazfit Helio Strap</span> &mdash; a small band
+        you buy on your own, from anyone. We don&rsquo;t sell it and we&rsquo;re not part of the
+        company that makes it. We just make it honest.
       </p>
     </div>
 
-    <!-- the refusal, rendered as a premium app-UI card -->
+    <!-- the refusal, rendered as a flat ledger sheet -->
     <div class="rise lg:justify-self-end">
+      <p class="mono mb-3 pl-1 text-xs text-ink-faint">
+        Most days it has plenty to say. Some days it says this:
+      </p>
       <figure
-        class="surface surface-lift w-full max-w-md p-6 sm:p-7"
+        class="surface surface-lift surface-key w-full max-w-md p-6 sm:p-7"
         aria-label="Rendered example: the product declining to score on insufficient data"
       >
         <figcaption class="flex items-center justify-between gap-3">
@@ -46,14 +51,15 @@
 
         <hr class="hairline my-5" />
 
-        <p class="display-line text-[1.7rem]">
-          I&rsquo;m not going to give you a recovery score today.
+        <p class="display-line text-[1.6rem]">
+          I don&rsquo;t have enough to score you today. Wear it tonight and I&rsquo;ll know more in
+          the morning.
         </p>
         <p class="mt-3 text-[0.95rem] leading-relaxed text-ink-soft">
           Only <span class="mono text-ink">2</span> of the last
-          <span class="mono text-ink">7</span> nights measured your overnight heart-rate steadiness
-          cleanly. A score needs a stable picture of your normal &mdash; guessing one would be worse
-          than staying quiet.
+          <span class="mono text-ink">7</span> nights got a clean read on your heart while you slept.
+          A score needs a steady picture of your normal &mdash; and a guess would be worse than
+          waiting.
         </p>
 
         <div class="mt-5 flex items-center justify-between gap-3">
@@ -64,12 +70,12 @@
         </div>
 
         <div class="mt-5 flex flex-wrap gap-2">
-          <span class="chip">coverage&nbsp;&middot;&nbsp;29%</span>
+          <span class="chip">read on 2 of 7 nights</span>
           <span class="chip chip-accent chip-dot">fix&nbsp;&middot;&nbsp;wear it 5+ nights</span>
         </div>
       </figure>
       <p class="mono mt-3 pl-1 text-xs text-ink-faint">
-        A rendered example of the honesty contract, not a live reading.
+        An example of what it says, not a live reading.
       </p>
     </div>
   </div>
@@ -81,13 +87,13 @@
     >
       <span class="eyebrow">Where it stands</span>
       <span class="inline-flex items-center gap-2">
-        <span class="chip chip-accent chip-dot">live</span> Backend: deployed &amp; multi-tenant
+        <span class="chip chip-accent chip-dot">live</span> The engine that runs it: built and running
       </span>
       <span class="inline-flex items-center gap-2">
-        <span class="chip chip-dot">building</span> Mobile app: in progress (Phase 2)
+        <span class="chip chip-dot">building</span> The phone app: being built now
       </span>
       <span class="inline-flex items-center gap-2">
-        <span class="chip chip-dot">closed</span> Public sign-ups: not open yet
+        <span class="chip chip-dot">closed</span> Sign-ups: not open yet
       </span>
     </div>
   </div>
