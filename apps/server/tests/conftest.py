@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import secrets
 from collections.abc import Iterator
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -68,13 +69,24 @@ _DEFAULTED_ENV_VARS = (
 
 
 @pytest.fixture
-def env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     """Minimal, hermetic environment for constructing Settings in a unit test.
 
     Only the two effectively-required vars are set; every var that has a default
     is cleared so a test of the defaults sees the code's defaults, not whatever
     the ambient shell exported.
+
+    Clearing the env vars is NOT sufficient on its own: `Settings.model_config`
+    sets `env_file=".env"`, resolved against the CWD, so a developer running the
+    suite from `apps/server/` (where a real `.env` lives) had its values injected
+    into a "defaults" test no matter what `delenv` did — and the file wins for any
+    var the fixture cleared. That failed only on a machine with a `.env`, never in
+    CI and never in a worktree (`.env` is gitignored, so it isn't copied), which is
+    exactly the shape of a phantom: it cost an agent a chase and could not be
+    reproduced. Chdir'ing to an empty tmp dir makes the fixture hermetic against
+    the file too, which is what its name already promised.
     """
+    monkeypatch.chdir(tmp_path)
     for var in _DEFAULTED_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("POSTGRES_PASSWORD", "unit-test-pw")
