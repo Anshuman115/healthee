@@ -3,10 +3,29 @@
 Turn the single-tenant app (one strap, one user, one timezone) into a real
 multi-tenant framework: every user has their own strap, timezone, data,
 derived metrics, analytics, findings, recs, coach, and challenges — fully
-isolated. This is **Phase 6** of the blueprint (the `multi-user` branch stub).
+isolated. This is **Phase 6** of the blueprint, built in **this clean-rebuild
+monorepo** (not the legacy repo's abandoned `multi-user` branch).
 
-Status: DESIGN (2026-07-16). Nothing here is built yet. Decisions marked **[D#]**
-need a call before the phase they gate.
+Status: **BUILT — 6.1 → 6.5 have shipped to `main`** (migrations `0002`→`0008`).
+The server is genuinely multi-tenant: every tenant read and write is owner-scoped,
+per-user timezone is live end-to-end, and Postgres RLS is the backstop underneath.
+This document is therefore **both** the design record and the description of what
+runs — each section states its own status; **[D#]** decisions carry theirs inline
+([D1]/[D2]/[D3] taken, [D4]/[D5] still open).
+
+**What is NOT done, stated plainly** (details at the linked sections):
+
+- **The legacy shared-token branch is live** (§4.4a). Auth is dual and
+  transitional; it cannot be removed until the Phase-2 mobile app ships Supabase
+  login. **`SIGNUPS_OPEN=true` must not be set before then** (§4.4b, §12.7).
+- **RLS only protects prod once `POSTGRES_APP_*` is set there** (§3.3). The
+  policies are in the schema, but a pool that falls back to the admin superuser
+  bypasses them.
+- **6.6 premium gating is not built** (§12) — no `subscription` table, no
+  `is_premium`, no `require_ai_access`. So §12.3's rule that the nightly chain
+  skips free users is a **plan, not code**: the chain currently generates for
+  every active owner.
+- **Rate-limiting and per-user backup/export** are not built (§11, 6.5).
 
 ---
 
@@ -59,23 +78,28 @@ need a call before the phase they gate.
    multiply ops cost for no benefit at this scale). TimescaleDB hypertables keep
    working; queries gain `AND user_id = %s`.
 4. **Ship in additive phases.** Each phase leaves `main` green and prod working;
-   the default user (id 1 = you) keeps functioning until the flip.
+   the legacy single tenant keeps functioning until the flip. *(Held: the tenant
+   is now the **sentinel owner UUID** rather than `id = 1` — `0003` seeds it and
+   `0005` re-keyed `profile` by owner, so `id = 1` no longer exists anywhere.)*
 
 ---
 
 ## 2. The single-tenant couplings we are removing (grounded audit)
 
+**Every row in this table is now closed.** The audit is preserved as the record of
+what was wrong and where; the "Fix" column describes shipped code.
+
 | Coupling | Where | Fix |
 |---|---|---|
-| One shared bearer token, no identity | `core/auth.py` `require_token()` returns `None` | Auth resolves + returns a `user_id` (JWT session / device token) |
+| ~~One shared bearer token, no identity~~ **DONE 6.4b** | `core/auth.py` `require_token()` returns `None` | `core/request_auth.py` resolves + returns a `RequestUser` (Supabase JWT / device token); `core/auth.py` is **deleted**. The shared token survives as one transitional branch → the sentinel (§4.4a) |
 | ~~`profile` locked to one row~~ **DONE 6.3c** | `0001_initial.sql`: `id INTEGER PK DEFAULT 1 CHECK (id = 1)` | `0005`: `id` dropped; `user_id` is the PK |
-| No tenant column on any data table | all 15 data tables (`sample`, `derived_daily`, `sleep_session`, `workout`, `weight_log`, `manual_entry`, `illness_flag`, `recommendation`, `finding`, `challenge`, `program`, `challenge_outcome`, `gps_track`, `gps_point`, `kv`) | add `user_id`; fold into every PK/UNIQUE |
+| ~~No tenant column on any data table~~ **DONE 6.2/6.3a** | all 15 data tables (`sample`, `derived_daily`, `sleep_session`, `workout`, `weight_log`, `manual_entry`, `illness_flag`, `recommendation`, `finding`, `challenge`, `program`, `challenge_outcome`, `gps_track`, `gps_point`, `kv`) — 16 with `profile` | `0003` added `user_id` + FK + index; `0004` folded it into every PK/UNIQUE and retargeted every `ON CONFLICT` |
 | ~~`WHERE id=1` profile reads~~ **DONE 6.3c** | `derive/_common.py`, `analytics/biological_age.py`, `read/history.py`, `jobs/recs_context.py` | all four now filter on `user_id` alone |
-| Hardcoded timezone | `USER_TZ = "Asia/Kolkata"` — **63 references** | per-user `profile.timezone`, threaded |
+| ~~Hardcoded timezone~~ **DONE 6.3b/6.4a/6.4c** | `USER_TZ = "Asia/Kolkata"` — **63 references** | per-user `app_user.timezone` (not `profile`), threaded as `tz: str`; `USER_TZ` and `scheduler.TZ` are both gone |
 | ~~Global nightly chain~~ **DONE 6.3c** (fire times: 6.4) | `jobs/scheduler.py` fires ONE chain; `jobs/chain.py` dedups per-day via a global `kv` key | `_fire` sweeps `active_users()`; dedup is per-owner via the `kv` PK |
 | ~~Global cache keys~~ **MOOT — see §6** | `insights/coaching.py DAILY_ACTION_KEY`, `chain _DONE_KEY:{day}` | superseded by `0004`'s `kv` PK `(user_id, key)`; keys are NOT namespaced |
-| Ingest has no owner | `/ingest/helio` writes samples unattributed | device token → `user_id`; write under it |
-| ~119 query sites assume "the user" | read ~59 · derive ~30 · analytics ~17 · insights ~8 · jobs ~5 | thread `user_id` (see §5) |
+| ~~Ingest has no owner~~ **DONE 6.4b** | `/ingest/helio` writes samples unattributed | device token → `user_id`, written under it; an unknown token is 401 (§7) |
+| ~~~119 query sites assume "the user"~~ **DONE 6.3a/6.3b** | read ~59 · derive ~30 · analytics ~17 · insights ~8 · jobs ~5 | `user_id` threaded (§5); the AST guard `tests/db/test_tenant_read_scoping.py` fails the build on any new unscoped tenant SQL |
 
 ---
 
@@ -123,13 +147,15 @@ login, refresh, reset, verification, OAuth. Intra-DB FKs from health tables to
 DB-level FK is Contabo `app_user` ↔ Supabase `auth.users` (cross-DB — kept
 consistent by JIT-provision + the delete webhook).
 
-### 3.2 Tenant column on every data table
+### 3.2 Tenant column on every data table — **DONE** (`0003` + `0004`)
 
-Add `user_id UUID NOT NULL REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE
-CASCADE` to all 16 data tables and fold it into the key. **This section is the
-target end-state**; it lands in two steps (§8): the column + FK + `(user_id, …)`
-index are additive in **6.2** (`0003`, done), and the key-fold below (PKs/UNIQUE)
-moves to **6.3** so it changes together with the `ON CONFLICT` code.
+`user_id UUID NOT NULL REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE`
+is on all 16 data tables and folded into the key. It landed in two steps (§8): the
+column + FK + `(user_id, …)` index additively in **6.2** (`0003`), then the key-fold
+below (PKs/UNIQUE) in **6.3a** (`0004`) so it changed together with the `ON CONFLICT`
+code. **`0007` then dropped the transitional column DEFAULT** — a writer that omits
+the owner now raises `NotNullViolation` instead of silently attributing the row to
+the sentinel. The list below describes the shipped keys.
 
 - `sample`: PK `(user_id, metric, ts)`; hypertable stays partitioned on `ts`,
   add index `(user_id, metric, ts DESC)`.
@@ -439,7 +465,9 @@ version at add-time.
 
 ## 5. Threading `user_id` through the code (~119 sites)
 
-The mechanical-but-wide pass. Do it cleanly, NOT via a global/thread-local:
+**Status: DONE** (6.3a writes · 6.3b reads · 6.4b the request edge). The
+mechanical-but-wide pass, done cleanly, NOT via a global/thread-local — this is
+how it is threaded today:
 
 - **Request path:** handlers get `RequestUser` from the dependency and pass
   `user.id` down into the read/analytics service functions. The read services
@@ -454,8 +482,10 @@ The mechanical-but-wide pass. Do it cleanly, NOT via a global/thread-local:
   user / passed into derive+analytics; `AT TIME ZONE %s` already parameterizes it
   (the code was written for this — the constant is the only blocker).
 
-Guardrail: a lint/test that greps for tenant-table `execute` calls lacking a
-`user_id` bind (belt-and-braces with RLS).
+Guardrail (**shipped, 6.3b**): `tests/db/test_tenant_read_scoping.py` is an **AST
+completeness guard** — not a grep — over every tenant-table `execute` call lacking a
+`user_id` reference. Belt-and-braces with RLS: RLS makes a missed filter return
+nothing, the guard makes it fail the build.
 
 ---
 
@@ -530,10 +560,17 @@ Guardrail: a lint/test that greps for tenant-table `execute` calls lacking a
 
 ## 7. Ingest attribution
 
-`/ingest/helio` authenticates with a **device token** → `user_id`. `ingest_helio`
+**Status: DONE** (6.4b). `/ingest/helio` authenticates with a **device token** →
+`user_id`; an unknown token is 401. `ingest_helio`
 threads that id into every upsert (`upsert_samples`, `upsert_sleep`, …) so raw +
-typed + derived rows are written under the owner. The app already sends a token;
-multi-user makes it a *per-user device* token instead of one global secret.
+typed + derived rows are written under the owner.
+
+**Transitional (same shape as §4.4a):** `ingest_user` also accepts the **legacy
+shared token**, resolving it to the sentinel — the un-rebuilt app holds no device
+token to send. Only an *unrecognised* token is 401; attribution is never guessed,
+because ingesting under the wrong owner is silent cross-tenant corruption of health
+data. The per-user device token becomes the sole ingest credential when the Phase-2
+app ships pairing.
 
 ---
 
@@ -650,26 +687,50 @@ there is no legacy app to convert — just design it in.
 
 ## 10. Testing & isolation proof
 
-- **Two-tenant seed:** extend `tests/contracts/seed.py` to seed users A and B
-  with distinct data; every read/insight/coach/recs test asserts A sees ONLY A.
-- **Cross-tenant leakage test:** authenticate as A, request B's ids → 404/empty,
-  never B's data. Run with RLS on AND (temporarily) off to prove both layers.
-- **Per-user parity:** the science parity fixtures run per-user unchanged.
-- **Auth tests:** login/refresh/expiry, device-token scoping, invite gating.
-- Keep the full-suite-under-TZ=UTC-and-IST discipline; multi-tz is now first-class
-  (seed users in different timezones).
+**Status: BUILT.** What guards tenancy today, in `apps/server/tests/db/` unless
+noted (the full suite is **728 tests**, green under `TZ=UTC` and `TZ=Asia/Kolkata`):
+
+| Guard | File | Proves |
+|---|---|---|
+| AST completeness guard | `test_tenant_read_scoping.py` | no tenant SQL anywhere lacks `user_id` — a *new* unscoped query fails the build |
+| RLS, proved by defeating it | `test_rls.py` | an unfiltered read is still owner-scoped; unset + empty-string owners return nothing without erroring; cross-owner writes denied; all 16 tables policied |
+| The app role is constrainable | `test_app_role.py` | `rolsuper`/`rolbypassrls` are false — the premise RLS rests on |
+| Service-layer leakage | `test_service_leakage.py` | read services never cross owners |
+| Read isolation | `test_read_isolation.py` | A sees only A's rows |
+| HTTP isolation | `test_http_isolation.py` | both owners see their own over the wire; carries a permanent mutation test |
+| Job write isolation | `test_job_write_isolation.py` | the chain writes under the right owner |
+| Auth matrix | `tests/test_request_auth.py` | every rejected JWT is asserted to never reach the sentinel branch |
+| Ingest attribution | `tests/integration/test_ingest_attribution.py` | device token → owner; unknown → 401 |
+| Citations resolve | `tests/test_source_citations.py` | every `[[id]]` resolves in the manifest |
+
+The **whole suite runs as the least-privilege role** (`tests/conftest.py::app_role_pool`)
+— it did not before 6.5b-2, which would have left every policy unexercised (§13 [D3]).
+The two-tenant seed is **`tests/contracts/seed_owner_b.py`**, deliberately layered
+*over* `seed.py` rather than extending it as this section originally planned: `seed.py`
+is the single-owner fixture the committed contract snapshots are taken from, so
+touching it would move every snapshot. Owner B writes at the **same natural keys** as
+A with values impossible for A — so an unscoped read returns an absurd number rather
+than accidentally the right one. Multi-tz is first-class: A is `Asia/Kolkata`, B is
+`America/Chicago`, and the full-suite-under-TZ=UTC-and-IST discipline holds.
+
+**Not built:** login/refresh/expiry tests are Supabase's concern, not ours (§4.1 — we
+only verify). Per-user science-parity fixtures were not needed: the science is
+tenant-agnostic (§1.2) and its fixtures are pure functions over one owner's window.
 
 ---
 
 ## 11. Phased rollout (each phase = its own reviewed PR, main stays green)
 
+**All five phases have shipped to `main`.** The "Ships when" column is kept as the
+acceptance bar each was held to, not as pending work.
+
 | Phase | Scope | Ships when |
 |---|---|---|
 | **6.1 Identity ✅** | `app_user` + `device_token` tables (`0002_identity`) + `core/supabase_auth.py` (VERIFY the Supabase JWT — HS256, pinned algs; JIT-provision `app_user`; mint/resolve hash-only device tokens) + thin `/api/me` + `/api/device`. No local credentials/argon2/login-endpoints (Supabase owns them). Additive — existing shared-token auth untouched, nothing reads `user_id` yet. | login works; existing endpoints unaffected |
-| **6.2 Schema** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
+| **6.2 Schema ✅** | Migration §8 (`0003`): **additive only** — add `user_id` (`NOT NULL DEFAULT <sentinel>` = backfill) + FK + `(user_id, …)` index to every data table, and the sentinel owner (tz `Asia/Kolkata`). No PK/UNIQUE/`ON CONFLICT` change, `profile` id=1 PK kept, no code reads it yet. | schema migrated, all tests green on the sentinel owner with ZERO code changes |
 | **6.3 Thread scoping ✅** | Shipped in three slices. **6.3a** (`0004`): folded `user_id` into every natural PK/UNIQUE, retargeted every `ON CONFLICT`, made every tenant WRITE set the owner; added `core/tenancy.SENTINEL_USER_ID`. **6.3b**: scoped every tenant READ with `AND user_id = %s`, killed the seven duplicate `Asia/Kolkata` constants for `SENTINEL_TZ` threaded as `tz: str`, and added the AST completeness guard (`tests/db/test_tenant_read_scoping.py` — any new unscoped tenant SQL now fails the build) + read-isolation tests. **6.3c** (`0005`): re-keyed `profile` by `user_id` (dropped `id`/`CHECK (id = 1)`, retargeted `upsert_profile`'s conflict to the owner — it was silently overwriting another owner's demographics), per-user job sweep (`active_users()` → `Tenant`, per-owner local day, isolated failures), and the two-tenant seed + cross-tenant leakage suite (§10). Cache-key namespacing was **dropped as redundant** (see §6). Everything still resolves to the sentinel by default. | every query scoped; single-user behavior identical (contract snapshots byte-identical) |
-| **6.4 Flip identity** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Plus `db/claim_sentinel.py` — the committed, **dry-run-by-default** one-off that re-keys the sentinel owner to the real Supabase UUID via the single cascading `UPDATE app_user SET id = …`, preserving the target's real email/timezone and post-checking (in-transaction) that no row anywhere still belongs to the sentinel; `0006` gives `device_token` the `ON UPDATE CASCADE` its 0002 definition lacked, without which the cascade *errors* for any owner who ever paired a device (§8). | second real user works end-to-end, isolated |
-| **6.5 Harden** | Shipped in slices. **Signup gate ✅** ([D1], §4.4b): `signups_open` is enforced by the SERVER — it was a dead flag, and `_provision_user` wrongly claimed Supabase enforced it — gating creation of a NEW `app_user` row on `signups_open` OR the new `signup_allowlist`, refusing **403** before any write; the allowlist is also the owner's bootstrap into `claim_sentinel`. **`0007` ✅**: dropped the transitional `user_id` DEFAULT on all 16 tenant tables (§8) — a forgotten owner is now a loud `NotNullViolation`, not silent misattribution to the sentinel; `NOT NULL` kept. **6.5b-1 ✅**: the app-role split (§3.3a) — the pool connects as a least-privilege `NOSUPERUSER NOBYPASSRLS` role that owns no tables, without which the policies below would have been theatre. **6.5b-2 ✅** (`0008`, resolves [D3], §3.3): `ENABLE ROW LEVEL SECURITY` + one `FOR ALL`/`WITH CHECK` policy on all 16 tenant tables, keyed on the `healthee.user_id` GUC that `core.db.tenant_transaction()` sets via `set_config(..., true)`; every `transaction()`/`connection()` site triaged into tenant / identity-only / admin, and plain `connection()` deleted as orphaned. Identity tables (`app_user`, `device_token`) stay unpolicied by decision; `migrate`/`claim_sentinel`/`provision_app_role`/`seed.reset` stay on the unbound admin. **The whole test suite now runs as the least-privilege role** — it did not before, which would have left every policy unexercised. `tests/db/test_rls.py` proves the backstop by defeating it (an unfiltered read is still owner-scoped; unset + empty-string owners return nothing without erroring; cross-owner writes denied), mutation-verified. **Remaining:** removing the legacy shared-token branch (blocked on the Phase-2 app shipping Supabase login, §4.4a); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
+| **6.4 Flip identity ✅** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Plus `db/claim_sentinel.py` — the committed, **dry-run-by-default** one-off that re-keys the sentinel owner to the real Supabase UUID via the single cascading `UPDATE app_user SET id = …`, preserving the target's real email/timezone and post-checking (in-transaction) that no row anywhere still belongs to the sentinel; `0006` gives `device_token` the `ON UPDATE CASCADE` its 0002 definition lacked, without which the cascade *errors* for any owner who ever paired a device (§8). | second real user works end-to-end, isolated |
+| **6.5 Harden ✅** | Shipped in slices. **Signup gate ✅** ([D1], §4.4b): `signups_open` is enforced by the SERVER — it was a dead flag, and `_provision_user` wrongly claimed Supabase enforced it — gating creation of a NEW `app_user` row on `signups_open` OR the new `signup_allowlist`, refusing **403** before any write; the allowlist is also the owner's bootstrap into `claim_sentinel`. **`0007` ✅**: dropped the transitional `user_id` DEFAULT on all 16 tenant tables (§8) — a forgotten owner is now a loud `NotNullViolation`, not silent misattribution to the sentinel; `NOT NULL` kept. **6.5b-1 ✅**: the app-role split (§3.3a) — the pool connects as a least-privilege `NOSUPERUSER NOBYPASSRLS` role that owns no tables, without which the policies below would have been theatre. **6.5b-2 ✅** (`0008`, resolves [D3], §3.3): `ENABLE ROW LEVEL SECURITY` + one `FOR ALL`/`WITH CHECK` policy on all 16 tenant tables, keyed on the `healthee.user_id` GUC that `core.db.tenant_transaction()` sets via `set_config(..., true)`; every `transaction()`/`connection()` site triaged into tenant / identity-only / admin, and plain `connection()` deleted as orphaned. Identity tables (`app_user`, `device_token`) stay unpolicied by decision; `migrate`/`claim_sentinel`/`provision_app_role`/`seed.reset` stay on the unbound admin. **The whole test suite now runs as the least-privilege role** — it did not before, which would have left every policy unexercised. `tests/db/test_rls.py` proves the backstop by defeating it (an unfiltered read is still owner-scoped; unset + empty-string owners return nothing without erroring; cross-owner writes denied), mutation-verified. **Remaining:** removing the legacy shared-token branch (blocked on the Phase-2 app shipping Supabase login, §4.4a); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the
 big one** (the ~119-site threading), 6.4 medium, 6.5 medium. Each is a Fable-
@@ -678,6 +739,16 @@ directs / Opus-implements track with review + the two-tenant isolation tests.
 ---
 
 ## 12. Premium gating & subscriptions (AI features are paid)
+
+> **Status: NOT BUILT — this whole section is design (Phase 6.6, §12.6).** There is
+> no `subscription` table, no `is_premium`, and no `require_ai_access` in the
+> codebase today. Two consequences worth stating rather than papering over:
+> **(a)** every AI surface below is currently reachable by any authenticated owner;
+> **(b)** §12.3's rule that the nightly chain **skips free users** is a plan — since
+> 6.4c the chain runs `correlate → recs → warm → briefing` for **every** active
+> owner, so uncontrolled signup is uncontrolled LLM spend. That is exactly why the
+> signup gate (§4.4b) is enforced *now*, ahead of billing, and why `signups_open`
+> must stay false (§12.7, §13 [D1]).
 
 All **AI features** are gated behind an active subscription; the honest
 data/tracking layer stays free. Entitlement is a per-user attribute, so it rides
