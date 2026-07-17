@@ -11,10 +11,12 @@ enough data"* always beats an optimistic guess. It exists to tell you the truth
 about your body and nudge you toward the next real improvement — not to hand out
 green rings.
 
-> **Status:** the backend is **complete and deployable** (Phase 1 — rebuilt clean,
-> 227 tests green against a real TimescaleDB, validated end-to-end on 4 months of
-> real data). The Flutter app rebuild (Phase 2) is next. This is a clean rebuild;
-> the previous implementation is archived separately as reference.
+> **Status:** the backend is **complete, deployed, and multi-tenant** (Phase 1
+> rebuilt clean and Phase 6 multi-user shipped — 728 tests green against a real
+> TimescaleDB, validated end-to-end on 4 months of real data). Production runs
+> from this repo. The Flutter app rebuild (Phase 2) is next, and it is the gate on
+> two things: retiring the transitional shared-token auth, and opening signups.
+> This is a clean rebuild; the previous implementation is archived as reference.
 
 ---
 
@@ -71,6 +73,10 @@ grounded in research.
   syncs safe and resumable.
 - **Server** — the canonical brain: full history, the science layer, and the
   grounded intelligence. FastAPI + psycopg3 + TimescaleDB. This repo's `apps/server`.
+  **Multi-tenant**: one database, row-level tenancy (`user_id` on all 16 data
+  tables, folded into every key), identity via Supabase (auth-only — the backend
+  verifies JWTs, never issues them), and Postgres RLS underneath so a missed
+  `WHERE` returns nothing rather than someone else's health data.
 - **Mobile** (Phase 2) — collector *and* analytical node: renders from local data
   instantly, reconciles with the server after each push. Offline degrades (no LLM,
   no full history) but never dies. This repo's `apps/mobile`.
@@ -95,10 +101,14 @@ plan, and [`docs/INTELLIGENCE.md`](docs/INTELLIGENCE.md) for how the grounding w
    personal cutoffs into the `finding` table — reading the canonical tables
    directly (no legacy compatibility views).
 5. **Ground & speak.** Every LLM surface — the coach, daily insights, notable
-   shifts, and daily recommendations — passes through one grounded-ask choke point:
-   a deterministic safety pre-classifier, manifest-ranked research retrieval, then
-   a **blocking** validator that refuses to ship any claim not resolvable to a real
-   research note. Unvalidated text never reaches the user.
+   shifts, and daily recommendations — is held to one grounded-ask pipeline: a
+   deterministic safety pre-classifier, manifest-ranked research retrieval, a
+   **hard output guardrail** that blocks documented-forbidden answers regardless of
+   their citations, then a **blocking** validator that refuses to ship any claim
+   not resolvable to a real research note. Unvalidated text never reaches the user.
+   (The insight surfaces call the choke point; the coach enforces the same
+   primitives itself — *enforced-equivalent, not routed-through*. See
+   [`docs/INTELLIGENCE.md`](docs/INTELLIGENCE.md) §4.)
 6. **Serve.** The read API assembles it into `GET /api/today`, `/api/sleep`,
    `/api/activity`, etc. — reads answer in well under 100 ms.
 7. **Supervise & survive.** The daily chain (correlate → recs → warm → briefing) runs
@@ -111,12 +121,13 @@ These five principles are product law, enforced in code (see
 [`docs/INTELLIGENCE.md`](docs/INTELLIGENCE.md)):
 
 1. **Never lies, never flatters** — every interpretive sentence cites the research
-   corpus or doesn't ship (blocking validator at the grounded-ask choke point).
+   corpus or doesn't ship (blocking validator, enforced on every LLM surface).
 2. **Confidence is part of the answer** — every number carries coverage, freshness,
    origin, and evidence grade.
 3. **Nudge, don't please** — measured outcomes, not streak theater.
-4. **Science is a pipeline** — graded notes, calibrated language, safety directives
-   as hard guardrails the LLM can't override.
+4. **Science is a pipeline** — graded notes, calibrated language, and hard output
+   guardrails the LLM can't override: a forbidden answer is blocked even when
+   perfectly cited and validator-clean.
 5. **The user owns the data** — self-hosted, on-device history, off-box backups.
 
 ## Tech stack
@@ -135,14 +146,14 @@ These five principles are product law, enforced in code (see
 ```
 apps/server/          Python backend
   src/healthee/
-    core/             config · one pooled DB · auth · notify · logging
+    core/             config · one pooled DB · request/Supabase auth · tenancy · notify · logging
     db/               schema + numbered migrations + runner
     ingest/           /ingest/helio payload validation + upserts
     derive/           the science layer (RHR·HRV·VO2max·MVPA·TRIMP·sleep·recovery…)
     analytics/        baselines · correlations · anomalies · cutoffs · bio-age
     read/             per-endpoint read services (canonical-table reads)
     insights/         grounded-ask choke point · blocking validator · coach · insight endpoints
-    jobs/             scheduler + the supervised event chain (correlate→recs→briefing)
+    jobs/             scheduler + the supervised event chain (correlate→recs→warm→briefing)
     api/              app wiring + thin routers
   tests/              unit · integration (seeded DB) · contract snapshots
 apps/mobile/          Flutter app (Phase 2)
@@ -154,11 +165,31 @@ docs/                 architecture · engineering standards · intelligence · c
 
 ## API surface
 
-All endpoints require a `Bearer <REALTIME_INGEST_TOKEN>` header except `/healthz`.
+All endpoints except `/healthz` require a `Bearer` token. Auth is **dual and
+transitional** (`core/request_auth.py`):
+
+- **A Supabase JWT** → that real user, JIT-provisioned on first sight (subject to
+  the signup gate below). This is the permanent path — the backend is a *resource
+  server*: it verifies Supabase's JWT, it never issues one.
+- **The legacy shared `REALTIME_INGEST_TOKEN`** → the single sentinel owner. This
+  keeps the un-rebuilt app working and **goes away when Phase 2 ships Supabase
+  login**. `/api/me` and `/api/device` pointedly reject it: minting a device token
+  is minting a long-lived credential.
+- Anything else → 401. `/ingest/*` additionally accepts a per-user **device token**
+  (stored hash-only), which attributes the push to its owner.
+
+**Do not set `SIGNUPS_OPEN=true` while the shared-token branch is alive** — a
+shared secret that resolves to a real tenant must never coexist with public
+signups. New accounts are otherwise gated by `SIGNUP_ALLOWLIST` (see
+[`docs/MULTI_USER.md`](docs/MULTI_USER.md) §4.4b).
 
 **Health & ingest**
 - `GET  /healthz` — liveness + DB readiness (503 if the DB is unreachable)
 - `POST /ingest/helio` — the app's sync push (samples, sleep, workouts, daily totals, profile)
+
+**Identity** (Supabase JWT only — the shared token is rejected here)
+- `GET  /api/me` — the authenticated owner
+- `POST /api/device` — mint a device token for background ingest (returned once; stored hash-only)
 
 **Today & metrics**
 - `GET /api/today` — the home screen: recovery, VO₂max, cardio load, sleep, MVPA,
@@ -194,21 +225,28 @@ cp infra/.env.example infra/.env
 # edit infra/.env — generate real secrets:
 #   openssl rand -base64 48 | tr -d '/+=' | head -c 32   # for each token
 ```
-Set at minimum `POSTGRES_PASSWORD` and `REALTIME_INGEST_TOKEN`. Optional:
-`OPENROUTER_API_KEY` (enables the AI coach + insights — the app works without it,
-just without generated text) and `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` (daily
-briefing + job-failure alerts).
+Set at minimum `POSTGRES_PASSWORD` and `REALTIME_INGEST_TOKEN`. If you want the AI
+surfaces you need `OPENROUTER_API_KEY` **and** `DEFAULT_MODEL` + `COACH_MODEL` —
+they have no defaults, and a prod env missing the model ids is a real failure this
+project has already had.
 
-**Environment variables** (`infra/.env`):
+**Environment variables** (`infra/.env` — `infra/.env.example` is the authoritative
+list; every var below is a field on `core/config.py`'s settings):
 
 | Var | Purpose |
 |---|---|
-| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | database credentials |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | the **admin/owner** credentials — migrations, `claim_sentinel`, `provision_app_role` |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | `db` / `5432` for the compose stack |
-| `REALTIME_INGEST_TOKEN` | Bearer token gating every `/ingest/*` and `/api/*` call |
+| `POSTGRES_APP_USER` / `POSTGRES_APP_PASSWORD` | the **least-privilege** role the request/job pool connects as. **Unset ⇒ the pool falls back to the admin, which bypasses RLS** — the policies stay inert and the startup log warns. Set these in prod (see `infra/DEPLOY.md`) |
+| `REALTIME_INGEST_TOKEN` | the legacy shared token → the sentinel owner (transitional, see [API surface](#api-surface)) |
+| `SUPABASE_JWT_SECRET` / `SUPABASE_JWT_AUD` / `SUPABASE_PROJECT_REF` / `SUPABASE_SERVICE_ROLE_KEY` | verifying the Supabase access JWT (the backend only verifies; it never issues) |
+| `SIGNUPS_OPEN` / `SIGNUP_ALLOWLIST` | the server-enforced signup gate. Default: closed + empty = nobody new. **Keep `SIGNUPS_OPEN=false` until Phase 2 ships Supabase login** |
 | `API_HOST` / `API_PORT` | in-container bind (`0.0.0.0` / `8765`) |
 | `OPENROUTER_API_KEY` | optional — enables the grounded LLM (coach, insights, recs) |
+| `DEFAULT_MODEL` / `COACH_MODEL` | **required with `OPENROUTER_API_KEY`** — the model ids; no defaults |
+| `LLM_TIMEOUT_S` / `LLM_MAX_RETRIES` | LLM call bounds (`60` / `1`) — the SDK default is a 30-minute hang, so this is not optional tuning |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | optional — daily briefing + failure alerts |
+| `LOG_LEVEL` | `INFO` |
 | `DEPLOY_BRANCH` | branch `deploy.sh` deploys (default `main`) |
 | `BACKUP_DIR` / `BACKUP_RETENTION_DAYS` / `OFFBOX_CMD` | backup location, retention, off-box copy hook |
 
@@ -221,8 +259,22 @@ $COMPOSE run --rm api python -m healthee.db.migrate   # apply the schema
 $COMPOSE up -d api scheduler
 curl -fsS http://127.0.0.1:8765/healthz               # → {"status":"ok","db":"ok"}
 ```
-The `api` service binds to `127.0.0.1:8765` only. The `scheduler` service runs the
-daily chain (correlate 10:30, recs 10:45, briefing 11:00, IST).
+Then **provision the least-privilege role** so RLS actually applies — it is a
+two-step bootstrap (provision it as the admin *first*, then set
+`POSTGRES_APP_USER`/`POSTGRES_APP_PASSWORD` and restart; setting them first means
+the app cannot authenticate at all):
+```sh
+POSTGRES_APP_USER=healthee_app POSTGRES_APP_PASSWORD='<secret>' \
+  $COMPOSE exec api python -m healthee.db.provision_app_role
+# now put both vars in infra/.env and restart api + scheduler
+```
+Confirm the startup log says `connected as least-privilege role`. If it says
+`BYPASSES Row-Level Security`, the pool is on the admin and the policies are inert.
+Full procedure and the one-time cutover: [`infra/DEPLOY.md`](infra/DEPLOY.md).
+The `api` service binds to `127.0.0.1:8765` only. The `scheduler` service ticks
+every 5 minutes and runs each owner's daily chain (correlate → recs → warm →
+briefing) once per **their own local day**, at 10:30 in **their** `app_user`
+timezone — there is no global fire zone and no staggered start times.
 
 ### 3. Put nginx + TLS in front
 Install the provided vhost and get a certificate:
@@ -241,8 +293,16 @@ Push to your deploy branch, then on the VPS:
 cd ~/healthee && infra/deploy.sh
 ```
 `deploy.sh` refuses to deploy code that isn't pushed to `origin` (the VPS deploys
-via `git reset --hard origin/<branch>`), rebuilds the `api` image, recreates it,
-and polls `/healthz`.
+via `git reset --hard origin/<branch>`), **takes a backup and aborts if it fails**,
+stops api + scheduler for a planned outage, runs migrations, provisions the app
+role, recreates api **and** scheduler, polls `/healthz`, and checks which DB
+identity the pool ended up on. `--dry-run` prints the plan and changes nothing.
+
+> ⚠ **There is no zero-downtime path and no down-migrations.** Old code cannot
+> serve the new schema, and rollback is a **restore from a dump**, not a checkout.
+> Read [`infra/DEPLOY.md`](infra/DEPLOY.md) — it owns the procedure, the one-time
+> cutover, and rollback; [`infra/backup/RESTORE.md`](infra/backup/RESTORE.md) owns
+> the restore.
 
 ### 5. Backups (do this)
 A nightly, off-box `pg_dump` is the single most important thing you can set up.
@@ -280,20 +340,33 @@ file cap, no swallowed errors, tests in the same PR, science ported verbatim: se
 
 ## Roadmap
 
-- **Phase 1 — server core** ✅ done, deployable.
-- **Phase 2 — mobile core**: BLE layer, the 60-day local tier, features rebuilt clean.
+- **Phase 1 — server core** ✅ done, deployed.
+- **Phase 6 — cutover + multi-user** ✅ done (out of numeric order). Production runs
+  from this repo; the legacy stack is stopped. The server is genuinely
+  multi-tenant: Supabase auth-only identity, `user_id` on all 16 data tables folded
+  into every key, per-user timezone end-to-end, a server-enforced signup gate, a
+  least-privilege DB role, and Postgres RLS as the backstop. See
+  [`docs/MULTI_USER.md`](docs/MULTI_USER.md). **Outstanding:** the transitional
+  shared-token branch (dies with Phase 2), 6.6 premium gating (not built),
+  rate-limiting, per-user backup/export.
+- **Phase 2 — mobile core**: BLE layer, the 60-day local tier, features rebuilt
+  clean, **Supabase login** — the critical path: it is what lets the shared token
+  die and signups open.
 - **Phase 3 — on-device tier**: local mirror + `/api/sync/down` + offline-first.
 - **Phase 4 — device analytics**: provisional metrics on-device, parity-tested.
 - **Phase 5 — companion intelligence**: per-card confidence, weekly review, coach
   memory → outcome ledger → proactive → goal-oriented planning
-  (see [`docs/COACH_ROADMAP.md`](docs/COACH_ROADMAP.md)), knowledge reconciliation.
-- **Phase 6 — cutover**: point production at this repo; archive the legacy one.
+  (see [`docs/COACH_ROADMAP.md`](docs/COACH_ROADMAP.md)), knowledge reconciliation
+  (the corpus unification already landed early, with Phase 1).
 
 ## Documentation
 
 | Doc | What |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Target architecture + the phase/work-package plan |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Target architecture + the phase/work-package plan (the summary — it points at the owner doc per subject) |
+| [docs/MULTI_USER.md](docs/MULTI_USER.md) | Multi-tenancy: identity, RLS, the app role, per-user jobs, the signup gate |
+| [infra/DEPLOY.md](infra/DEPLOY.md) | The deploy procedure, the one-time cutover, rollback |
+| [docs/PRICING.md](docs/PRICING.md) | The free/premium line + the LLM cost model |
 | [docs/INTELLIGENCE.md](docs/INTELLIGENCE.md) | How grounding works: the choke point, validator, retrieval, coverage |
 | [docs/ENGINEERING_STANDARDS.md](docs/ENGINEERING_STANDARDS.md) | Binding quality gates (sizes, errors, tests, performance budgets) |
 | [docs/COACH_PROMPT.md](docs/COACH_PROMPT.md) | The canonical coach system prompt + rationale |
