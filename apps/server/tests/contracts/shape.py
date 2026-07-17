@@ -5,10 +5,23 @@ the contract test.
 
 Rules:
 - dicts: identical key set (recursively); a missing or extra key fails.
-- lists of objects: heterogeneous/union lists are supported — a live element's keys
-  must be a subset of the UNION of keys across all snapshot elements, and each field
-  may take ANY type observed for that field across the snapshot elements (so a
-  ``target`` that is a number in one element and a string in another is accepted).
+- lists of objects: heterogeneous/union lists are supported, so the check is a pair
+  of rules rather than key equality:
+    * per element — a live element's keys must be a SUBSET of the union of keys
+      across all snapshot elements, and each field may take ANY type observed for
+      that field across the snapshot elements (so a ``target`` that is a number in
+      one element and a string in another is accepted);
+    * across the list — the union of keys over ALL live elements must COVER the
+      union over all snapshot elements.
+  The subset rule alone cannot see a dropped field: remove a key from every element
+  and the elements are still a subset, so the contract passes while the app breaks.
+  The union rule closes that hole without breaking union lists — an element type
+  that legitimately lacks a field contributes it from some OTHER element, so the
+  union still covers; a removal shrinks the union and fails. This is sound because
+  the snapshots are generated from the same deterministic seed the test re-seeds
+  (``tests/contracts/generate.py``), so the live element mix is reproducible.
+  An EMPTY live list is exempt: no elements means no union, and an empty list is
+  legitimate on a real dataset.
 - lists of scalars: each element matches the first snapshot element's type.
 - scalars: ``int``/``float`` interchangeable (JSON numbers); ``None`` on either side
   is accepted (a real dataset legitimately has null fields).
@@ -53,8 +66,9 @@ def _assert_list(live: Any, snap: list, path: str) -> None:
 
 
 def _assert_object_list(live: list, snap: list[dict], path: str) -> None:
-    """Union-shape check: every live object's keys ⊆ the union of snapshot keys, and
-    each field takes any type observed for it across the snapshot elements."""
+    """Union-shape check: every live object's keys ⊆ the union of snapshot keys, each
+    field takes any type observed for it across the snapshot elements, and the live
+    union COVERS the snapshot union (see the module docstring for why both rules)."""
     union_keys = set().union(*(set(e) for e in snap))
     samples: dict[str, list] = {}
     for element in snap:
@@ -66,6 +80,24 @@ def _assert_object_list(live: list, snap: list[dict], path: str) -> None:
         assert not extra, f"{path}[{i}]: unexpected keys {sorted(extra)}"
         for key, value in item.items():
             _assert_against_samples(value, samples[key], f"{path}[{i}].{key}")
+    _assert_live_union_covers(live, union_keys, path)
+
+
+def _assert_live_union_covers(live: list, union_keys: set[str], path: str) -> None:
+    """Every field the snapshot carries must appear on at least one live element.
+
+    This is the rule that catches a field the server silently DROPPED from a list
+    element — the per-element subset rule never can. Empty live lists are exempt:
+    an empty list is legitimate on a real dataset, not a dropped field.
+    """
+    if not live:
+        return
+    live_union: set[str] = set().union(*(set(e) for e in live))
+    dropped = union_keys - live_union
+    assert not dropped, (
+        f"{path}: field(s) {sorted(dropped)} are in the snapshot but on NO live element "
+        f"— the server dropped them from this list"
+    )
 
 
 def _tag(value: Any) -> str:
