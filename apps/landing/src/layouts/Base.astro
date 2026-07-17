@@ -34,8 +34,8 @@ const favicon =
         var root = document.documentElement;
         try {
           var stored = localStorage.getItem('healthee-theme');
-          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          if (stored === 'dark' || (!stored && prefersDark)) root.classList.add('dark');
+          // Light is the default; dark only when the visitor chose it.
+          if (stored === 'dark') root.classList.add('dark');
         } catch (e) {
           /* localStorage unavailable — fall back to prefers-color-scheme via media query default */
         }

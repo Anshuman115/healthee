@@ -61,8 +61,11 @@ trackers.
 All colour flows through CSS custom properties in `src/styles/global.css`
 (`:root` = light, `.dark` = dark), mapped into Tailwind v4 via `@theme`. **Use the
 semantic token utilities (`bg-canvas`, `text-ink-soft`, `border-line`,
-`text-accent-soft`, `text-warn`…), never raw hex in components.** Dark is the
-primary identity; light is a full re-pick, not an inversion.
+`text-accent-soft`, `text-warn`…), never raw hex in components.** **Light is the
+DEFAULT** (owner decision 2026-07-17): the pre-paint seed applies dark only when
+the visitor chose it via the toggle — the OS preference is not followed. Both
+themes stay fully designed. **Brand colours (`accent*`, `warn*`) are the SAME hex
+in both themes**; only the neutrals (canvas/card/ink/line/shadows) re-pick for dark.
 
 | Token | Role | Light | Dark |
 |---|---|---|---|
@@ -71,8 +74,8 @@ primary identity; light is a full re-pick, not an inversion.
 | `sunk` | recessed bands / code / tool-trace | `#f2f4f8` | `#090b0e` |
 | `ink` / `ink-soft` / `ink-faint` | text hierarchy | `#0e1116` / `#545c69` / `#838b98` | `#f1f3f7` / `#a6afbc` / `#6c7580` |
 | `line` / `line-strong` | hairlines / interactive borders | `#e6e9ef` / `#d3d9e2` | `#242932` / `#333a45` |
-| `accent` / `accent-soft` | THE one accent — an iris/indigo | `#4b45d6` | `#8b87ff` / `#a6a2ff` |
-| `warn` | honesty flags ("not enough data", "refused") | `#9a6a1a` | `#e2b25a` |
+| `accent` / `accent-soft` | THE one accent — an iris/indigo | `#4b45d6` / `#6f6af0` | same as light |
+| `warn` | honesty flags ("not enough data", "refused") | `#b0801f` | same as light |
 
 Decisions:
 - **One accent, an iris/indigo** — deliberately NOT green-ring green, not the warm
