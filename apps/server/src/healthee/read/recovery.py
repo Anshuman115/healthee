@@ -24,16 +24,28 @@ from healthee.analytics.baselines import compute_baseline
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
+from healthee.derive.robust import robust_sd
 from healthee.read.common import TodayReads, latest_derived
 from healthee.read.health_metrics import active_illness_severity
 
 log = get_logger(__name__)
 
-# MAD→σ for a normal distribution: the normal-consistency constant 1/Φ⁻¹(0.75). A
-# statistical identity, not a research claim — deliberately uncited (see
-# analytics/metrics.py:MAD_TO_SD, the same constant). The trailing-window median+MAD
-# baseline this feeds IS grounded: [[recovery_readiness]].
-_MAD_TO_SD = 1.4826
+# Degenerate-history guard on the sleep signal's robust SD, in MINUTES — the units of
+# the only baseline in this module that computes its own dispersion (`_sleep_signal`
+# medians sleep-session durations; the RHR/HRV signals delegate to
+# `analytics.baselines`, which is unfloored). It binds only when the trailing MAD is
+# under ~0.67 min, i.e. a sleep history flat to within 40 seconds.
+#
+# NOT the 0.5 that [[recovery_readiness]] pins on the recovery derivation
+# (derive/recovery.py:_AUTONOMIC_MIN_SD): that floor guards ms/bpm, this one guards
+# minutes, and a floor is scale-dependent — the same number would mean something
+# different here. Both descend from legacy, where the value tracked the FILE rather
+# than the metric (legacy api/app.py:1908 floored sleep-MINUTES at 1.0 and :1967
+# floored HRV-ms at 1.0, while v2/derive.py:745 floored the same HRV at 0.5). The
+# rebuild left them on disjoint metrics, so they no longer contradict each other; they
+# are kept distinct and named rather than unified, because unifying them would change
+# an ungoverned metric's z-score with no note behind it.
+_SLEEP_MIN_SD_MIN = 1.0
 
 _BASE_GUIDANCE = {
     "high": "Well recovered — a good day to push: intervals or a harder session are on the table.",
@@ -238,7 +250,7 @@ def _sleep_signal(cur: Cur, user_id: UUID) -> dict | None:
         return None
     median = durs[len(durs) // 2]
     mad = sorted(abs(d - median) for d in durs)[len(durs) // 2]
-    z = (today_dur - median) / max(mad * _MAD_TO_SD, 1.0)
+    z = (today_dur - median) / robust_sd(mad, _SLEEP_MIN_SD_MIN)
     direction = (
         "favorable"
         if today_dur >= 360 and z > -0.5

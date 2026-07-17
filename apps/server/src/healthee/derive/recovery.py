@@ -14,13 +14,25 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from healthee.derive._common import Cur, _clamp100, _upsert_daily
+from healthee.derive.robust import robust_sd
 
 # Weights by evidence strength (not fitted) — recovery_readiness.
 RECOVERY_WEIGHTS = {"hrv": 0.42, "rhr": 0.28, "sleep": 0.20, "rr": 0.10}
 _BASELINE_DAYS = 42  # trailing window for the personal baseline
 _BASELINE_MIN_POINTS = 5  # need at least this many days to trust a baseline
-_MAD_TO_SD = 1.4826  # MAD -> robust SD (normal consistency constant)
-_MIN_SD = 0.5  # floor on the robust SD so a flat history can't explode the z-score
+
+# Degenerate-history guard on the robust SD, in the units of the AUTONOMIC markers
+# this baseline serves: HRV (ms), RHR (bpm), respiratory rate (breaths/min). It binds
+# only when the trailing MAD is under ~0.34 of those units — i.e. a history flat
+# enough that an unfloored z would explode. Specified at 0.5 by
+# [[recovery_readiness]] ("a 0.5 floor on the robust SD so a flat history can't
+# explode the z-score"), which governs THIS baseline only.
+#
+# The Today-page sleep signal (read/recovery.py) floors at 1.0 instead — a different
+# number for a different reason: it guards MINUTES of sleep duration, not ms/bpm. The
+# two are not a shared science constant and must not be unified into one; see that
+# module's `_SLEEP_MIN_SD_MIN`.
+_AUTONOMIC_MIN_SD = 0.5
 _DEFAULT_NEED_MIN = 480.0  # sleep-need fallback
 
 
@@ -43,7 +55,7 @@ def _recovery_baseline(
     med = vals[n // 2] if n % 2 else 0.5 * (vals[n // 2 - 1] + vals[n // 2])
     devs = sorted(abs(v - med) for v in vals)
     mad = devs[len(devs) // 2]
-    return med, max(mad * _MAD_TO_SD, _MIN_SD)
+    return med, robust_sd(mad, _AUTONOMIC_MIN_SD)
 
 
 def _personal_factor(  # noqa: PLR0913 — one factor needs all its scoring inputs

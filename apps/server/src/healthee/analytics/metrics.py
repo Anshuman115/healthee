@@ -25,15 +25,6 @@ v1 → v2 mapping applied (retired names dropped):
 
 from __future__ import annotations
 
-# 1.4826 × MAD ≈ σ for a normal distribution — converts MAD to a robust SD so a
-# 2σ-equivalent threshold keeps its usual meaning. This is the normal-consistency
-# constant 1/Φ⁻¹(0.75), a statistical identity, NOT a research claim: it carries no
-# knowledge citation because the corpus has no note that grounds it. (A citation to
-# a "baselines" id sat here until 2026-07-17; no such note has ever existed — it
-# named a MODULE, analytics/baselines.py, and resolved to nothing for a reader
-# tapping the ⓘ. Removed rather than pointed at the nearest plausible note.)
-MAD_TO_SD = 1.4826
-
 # Canonical per-day metrics, all confirmed present in derived_daily (see the
 # module docstring for the derive/ call site behind each). One definition, shared
 # by baselines, anomalies, and correlations (standards §Duplication).

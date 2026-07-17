@@ -16,8 +16,9 @@ from datetime import date, timedelta
 from typing import Any, LiteralString, cast
 from uuid import UUID
 
-from healthee.analytics.metrics import MAD_TO_SD, V2_DAILY_METRICS, metric_filter
+from healthee.analytics.metrics import V2_DAILY_METRICS, metric_filter
 from healthee.core.db import tenant_transaction
+from healthee.derive.robust import robust_sd as _robust_sd
 
 # Metrics baselined by default: the canonical v2 daily set (metrics.py).
 DEFAULT_DAILY_METRICS: tuple[str, ...] = V2_DAILY_METRICS
@@ -39,10 +40,16 @@ class Baseline:
 
     @property
     def robust_sd(self) -> float | None:
-        """MAD scaled to a normal-equivalent standard deviation."""
+        """MAD scaled to a normal-equivalent standard deviation.
+
+        UNFLOORED on purpose: this baseline serves every metric in
+        ``V2_DAILY_METRICS``, whose units range from bpm to minutes to kcal, so no
+        single floor could be meaningful across them. The degenerate MAD=0 case is
+        guarded downstream in :meth:`z_score` instead.
+        """
         if self.mad is None:
             return None
-        return self.mad * MAD_TO_SD
+        return _robust_sd(self.mad)
 
     def z_score(self, value: float) -> float | None:
         """Robust z-score of ``value`` vs this baseline, or None if undefined."""
