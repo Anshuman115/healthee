@@ -1,45 +1,29 @@
 ---
-// The masthead + the single most persuasive object on the page: a rendered
-// product surface refusing to guess. Evolved into a "record entry" to fit the
-// field-journal identity. No competitor's landing page can show a refusal.
+// The hero + the single most persuasive object on the page: a rendered product
+// surface refusing to guess. No competitor's landing page can show a refusal.
+// Copy is rebuilt around the human tagline; premium app-UI card, not a mockup.
 ---
 
 <section id="top" class="relative overflow-hidden">
-  <!-- journal masthead -->
-  <div class="shell">
-    <div
-      class="rise flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-line py-3 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-ink-faint"
-    >
-      <span class="text-accent">Healthee</span>
-      <span aria-hidden="true">/</span>
-      <span>An honest health companion</span>
-      <span aria-hidden="true" class="hidden sm:inline">/</span>
-      <span class="hidden sm:inline">Self-hosted &middot; grounded in graded research</span>
-      <span class="ml-auto hidden md:inline">Edition 2026&middot;07</span>
-    </div>
-  </div>
-
-  <div class="shell grid items-end gap-14 pt-14 pb-16 md:pt-20 md:pb-20 lg:grid-cols-[1.06fr_0.94fr] lg:gap-16">
+  <div class="shell grid items-center gap-14 pt-16 pb-16 md:pt-24 md:pb-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
     <div>
-      <p class="eyebrow rise">The health app that marks its own work</p>
+      <p class="eyebrow rise">For anyone who wears a fitness band</p>
 
-      <h1 class="rise mt-6 text-[clamp(2.6rem,6.4vw,4.9rem)]">
-        Every claim it makes<br class="hidden sm:block" />
-        is <span class="italic text-accent-soft">cited</span>, or it
-        <span class="italic text-accent-soft">doesn&rsquo;t ship.</span>
+      <h1 class="rise mt-6 text-[clamp(2.5rem,6.2vw,4.6rem)]">
+        The health companion that
+        <span class="text-accent-soft">refuses to flatter you.</span>
       </h1>
 
       <p class="rise mt-7 max-w-xl text-lg leading-relaxed text-ink-soft">
-        Healthee reads your wearable and tells you the truth: every interpretation footnoted to
-        graded research<sup class="ref"><a href="#ref-9" aria-label="reference 9">9</a></sup>, every
-        number carrying its own confidence, and
-        <span class="text-ink">&ldquo;not enough data&rdquo;</span> whenever that is the honest
-        answer. No green rings. No grading on a curve.
+        It reads the band already on your wrist and tells you the truth &mdash; backed by real
+        research, honest about how sure it is, and willing to say
+        <span class="text-ink">&ldquo;not enough data&rdquo;</span> instead of making something up.
+        No green rings. No praise you didn&rsquo;t earn.
       </p>
 
       <div class="rise mt-9 flex flex-wrap items-center gap-3">
         <a href="#self-host" class="btn btn-primary">Self-host it today</a>
-        <a href="#coach" class="btn btn-ghost">Read a real coach reply &rarr;</a>
+        <a href="#coach" class="btn btn-ghost">See how it answers &rarr;</a>
       </div>
 
       <p class="rise mt-6 max-w-md text-sm text-ink-faint">
@@ -48,34 +32,41 @@
       </p>
     </div>
 
-    <!-- the refusal, as a record entry -->
+    <!-- the refusal, rendered as a premium app-UI card -->
     <div class="rise lg:justify-self-end">
       <figure
-        class="surface w-full max-w-md p-6 sm:p-7"
+        class="surface surface-lift w-full max-w-md p-6 sm:p-7"
         aria-label="Rendered example: the product declining to score on insufficient data"
       >
         <figcaption class="flex items-center justify-between gap-3">
           <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
-            Record &middot; recovery &middot; today
+            Recovery &middot; today
           </span>
-          <span class="chip chip-gold chip-dot">not enough data</span>
+          <span class="chip chip-warn chip-dot">not enough data</span>
         </figcaption>
 
         <hr class="hairline my-5" />
 
-        <p class="font-serif text-[1.7rem] leading-snug">
+        <p class="display-line text-[1.7rem]">
           I&rsquo;m not going to give you a recovery score today.
         </p>
         <p class="mt-3 text-[0.95rem] leading-relaxed text-ink-soft">
           Only <span class="mono text-ink">2</span> of the last
-          <span class="mono text-ink">7</span> nights have usable overnight HRV. A recovery number
-          needs a stable baseline; inventing one would be worse than staying quiet.
+          <span class="mono text-ink">7</span> nights measured your overnight heart-rate steadiness
+          cleanly. A score needs a stable picture of your normal &mdash; guessing one would be worse
+          than staying quiet.
         </p>
+
+        <div class="mt-5 flex items-center justify-between gap-3">
+          <span class="mono text-xs text-ink-faint">last 7 nights</span>
+          <span class="cov" aria-hidden="true">
+            <i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i>
+          </span>
+        </div>
 
         <div class="mt-5 flex flex-wrap gap-2">
           <span class="chip">coverage&nbsp;&middot;&nbsp;29%</span>
-          <span class="chip">baseline&nbsp;&middot;&nbsp;insufficient</span>
-          <span class="chip chip-accent chip-dot">fix&nbsp;&middot;&nbsp;wear 5+ nights</span>
+          <span class="chip chip-accent chip-dot">fix&nbsp;&middot;&nbsp;wear it 5+ nights</span>
         </div>
       </figure>
       <p class="mono mt-3 pl-1 text-xs text-ink-faint">
