@@ -28,6 +28,7 @@ write the code. Nothing lands without review against the standards doc.
 ```
 apps/server/      Python 3.13 backend — FastAPI · psycopg3 · TimescaleDB
 apps/mobile/      Flutter app — Riverpod · 60-day local store · on-device analytics
+apps/landing/     public landing page — Astro · Tailwind v4 · static, self-contained
 packages/knowledge/   graded research corpus (notes/ = the evidence base)
 packages/contracts/   API contract snapshots + golden fixtures shared server↔mobile
 infra/            docker · nginx · deploy · backup
@@ -39,6 +40,10 @@ docs/             architecture · standards
 - **Mobile**: layout + rules in standards doc §3. All dart-defines live in
   `core/env.dart`; single API client via provider; typed models at the data
   boundary (no raw maps in feature code).
+- **Landing**: design system + binding content rules in `apps/landing/DESIGN.md`
+  — the page is bound by the product's honesty contract (claim only what is
+  built; competitor claims only from `docs/PRICING.md` §2; unbuilt features
+  marked planned). Semantic color tokens only, no external fonts/CDNs/trackers.
 - **Knowledge**: per-claim evidence grades with calibrated language
   (Established → state plainly · Probable → light hedge · Emerging → flag ·
   Contested → present as debated · Myth → correct gently); citations
