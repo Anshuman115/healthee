@@ -77,13 +77,16 @@ def sleep_health_score(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict
 def sleep_page(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict:
     """Everything the Sleep page needs in one call (``/api/sleep``)."""
     days = _clamp_days(days)
-    nights = _session_nights(cur, user_id, tz, days)
+    # Read the session list ONCE: `_session_nights` and `_apply_physiology` each used
+    # to issue this same query with the same arguments.
+    sessions = main_sessions(cur, user_id, tz, days)
+    nights = _session_nights(sessions)
     pivot = derived_night_pivot(cur, user_id, tz, days, _SLEEP_PAGE_METRICS)
     for date_iso, derived in pivot.items():
         nights.setdefault(date_iso, _stub_night(date_iso)).update(
             {k: v for k, v in derived.items() if k in _DERIVED_NIGHT_FIELDS}
         )
-    _apply_physiology(cur, user_id, tz, days, nights)
+    _apply_physiology(cur, user_id, nights, sessions)
     nights_list = sorted(nights.values(), key=lambda r: r["date"], reverse=True)
     return {
         "nights": nights_list,
@@ -110,12 +113,10 @@ _DERIVED_NIGHT_FIELDS = (
 )
 
 
-def _session_nights(cur: Cur, user_id: UUID, tz: str, days: int) -> dict[str, dict]:
+def _session_nights(sessions: list[tuple]) -> dict[str, dict]:
     """One main session per wake-date → the session half of each night's payload."""
     out: dict[str, dict] = {}
-    for local_date, start_ts, end_ts, light, deep, rem, wake, score, stages in main_sessions(
-        cur, user_id, tz, days
-    ):
+    for local_date, start_ts, end_ts, light, deep, rem, wake, score, stages in sessions:
         date_iso = local_date.isoformat()
         night = _stub_night(date_iso)
         night.update(
@@ -165,22 +166,49 @@ def _stub_night(date_iso: str) -> dict:
     }
 
 
-def _apply_physiology(cur: Cur, user_id: UUID, tz: str, days: int, nights: dict[str, dict]) -> None:
+def _apply_physiology(
+    cur: Cur, user_id: UUID, nights: dict[str, dict], sessions: list[tuple]
+) -> None:
     """Average SpO2 / breathing / skin-temp inside each main-session window (v2 raw
-    ``sample`` metrics: spo2, respiratory_rate, skin_temp_c)."""
-    for local_date, start_ts, end_ts, *_rest in main_sessions(cur, user_id, tz, days):
-        row = nights.get(local_date.isoformat())
-        if row is None:
-            continue
-        cur.execute(
-            "SELECT ROUND(AVG(CASE WHEN metric='spo2' THEN value END)::numeric,1), "
-            "  MIN(CASE WHEN metric='spo2' THEN value END), "
-            "  ROUND(AVG(CASE WHEN metric='respiratory_rate' THEN value END)::numeric,1), "
-            "  ROUND(AVG(CASE WHEN metric='skin_temp_c' AND value>25 THEN value END)::numeric,1) "
-            "FROM sample WHERE user_id = %s AND ts >= %s AND ts < %s",
-            (user_id, start_ts, end_ts),
-        )
-        spo2_avg, spo2_min, resp, temp = cur.fetchone() or (None, None, None, None)
+    ``sample`` metrics: spo2, respiratory_rate, skin_temp_c).
+
+    ONE query for every night. This ran a query PER NIGHT, so `/api/sleep` issued
+    `nights + 7` statements — 372 on a year of data, growing with the owner's history
+    forever (standards §1: "bound the round-trips … no N+1"). Same batching idea as
+    `latest_derived_many` / `derived_series_many` on the Today page.
+
+    The windows ride in as three parallel arrays and `unnest` back into rows, so each
+    night still aggregates over its OWN [start, end) — a LATERAL-free join that keeps
+    the per-window index seeks. A night with no samples still yields a row of NULLs
+    (LEFT JOIN), exactly as the per-night `fetchone()` did.
+    """
+    windows = [
+        (local_date.isoformat(), start_ts, end_ts)
+        for local_date, start_ts, end_ts, *_rest in sessions
+        if local_date.isoformat() in nights
+    ]
+    if not windows:
+        return
+    dates, starts, ends = (list(col) for col in zip(*windows, strict=True))
+    cur.execute(
+        "SELECT w.date_iso, "
+        "  ROUND(AVG(CASE WHEN s.metric='spo2' THEN s.value END)::numeric,1), "
+        "  MIN(CASE WHEN s.metric='spo2' THEN s.value END), "
+        "  ROUND(AVG(CASE WHEN s.metric='respiratory_rate' THEN s.value END)::numeric,1), "
+        "  ROUND(AVG(CASE WHEN s.metric='skin_temp_c' AND s.value>25 THEN s.value END)::numeric,1) "
+        "FROM unnest(%s::text[], %s::timestamptz[], %s::timestamptz[]) "
+        "     AS w(date_iso, start_ts, end_ts) "
+        "LEFT JOIN sample s ON s.user_id = %s "
+        # The outer bound is implied by the per-window ones, so it removes no row —
+        # it is there to give the hypertable a constant `ts` range to prune chunks on
+        # (read/today_series.py::_local_day_utc_range documents the same trap).
+        "  AND s.ts >= %s AND s.ts < %s "
+        "  AND s.ts >= w.start_ts AND s.ts < w.end_ts "
+        "GROUP BY w.date_iso",
+        (dates, starts, ends, user_id, min(starts), max(ends)),
+    )
+    for date_iso, spo2_avg, spo2_min, resp, temp in cur.fetchall():
+        row = nights[date_iso]
         row["spo2_avg"] = float(spo2_avg) if spo2_avg is not None else None
         row["spo2_min"] = int(spo2_min) if spo2_min is not None else None
         row["respiratory_rate"] = float(resp) if resp is not None else None

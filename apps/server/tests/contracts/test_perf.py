@@ -7,11 +7,14 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 
 import psycopg
 import pytest
 
 from healthee.core import db as db_module
+from healthee.core.db import tenant_transaction
+from healthee.core.tenancy import SENTINEL_USER_ID
 
 pytestmark = pytest.mark.integration
 
@@ -84,6 +87,11 @@ def test_sleep_is_served_on_one_connection(pool_of_one: tuple) -> None:
 # Counting statements never could have caught that; `pool_of_one` above does.
 _MAX_TODAY_QUERIES = 50
 
+# /api/sleep: sessions + derived pivot + batched physiology + naps + findings. Like
+# the Today bound this is a FIXED constant — the point of the sibling test is that it
+# does not move with the number of nights stored.
+_MAX_SLEEP_QUERIES = 15
+
 
 def test_today_query_count_is_bounded(seeded_client: tuple, monkeypatch) -> None:
     client, headers = seeded_client
@@ -98,6 +106,65 @@ def test_today_query_count_is_bounded(seeded_client: tuple, monkeypatch) -> None
     resp = client.get("/api/today", headers=headers)
     assert resp.status_code == 200
     assert counter["n"] < _MAX_TODAY_QUERIES, f"/api/today ran {counter['n']} queries (N+1?)"
+
+
+def _count_statements(monkeypatch: pytest.MonkeyPatch) -> dict:
+    """Count every statement the app executes, from the moment this is called."""
+    counter = {"n": 0}
+    original = psycopg.Cursor.execute
+
+    def counting_execute(self, query, *args, **kwargs):  # noqa: ANN001, ANN202
+        counter["n"] += 1
+        return original(self, query, *args, **kwargs)
+
+    monkeypatch.setattr(psycopg.Cursor, "execute", counting_execute)
+    return counter
+
+
+def _seed_extra_nights(nights: int) -> None:
+    """Give the owner ``nights`` nights of main sleep sessions."""
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        for i in range(1, nights + 1):
+            end = datetime.now(UTC) - timedelta(days=i)
+            cur.execute(
+                "INSERT INTO sleep_session (user_id, start_ts, end_ts, kind, "
+                "  light_min, deep_min, rem_min, wake_min, score, stages) "
+                "VALUES (%s, %s, %s, 'main', 200, 80, 60, 20, 80, '[]'::jsonb) "
+                "ON CONFLICT DO NOTHING",
+                (SENTINEL_USER_ID, end - timedelta(hours=7), end),
+            )
+
+
+def test_sleep_query_count_does_not_grow_with_history(
+    seeded_client: tuple, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """/api/sleep must cost the same whether the owner has 10 nights or 200.
+
+    The N+1 this pins was NOT proportional to the `days` PARAMETER — it was
+    proportional to the nights actually stored, one physiology query per night. So a
+    fixed-size assertion on the seeded set (7 nights) would have passed against the
+    N+1 forever. This asserts the SHAPE instead: same statement count at 10 nights and
+    at 200. Before the batching: 17 vs 207.
+    """
+    client, headers = seeded_client
+
+    _seed_extra_nights(10)
+    counter = _count_statements(monkeypatch)
+    assert client.get("/api/sleep?days=365", headers=headers).status_code == 200
+    at_10 = counter["n"]
+
+    _seed_extra_nights(200)
+    counter["n"] = 0
+    resp = client.get("/api/sleep?days=365", headers=headers)
+    assert resp.status_code == 200
+    at_200 = counter["n"]
+
+    assert len(resp.json()["nights"]) > 100, "fixture did not actually add nights"
+    assert at_200 == at_10, (
+        f"/api/sleep issued {at_10} statements over 10 nights but {at_200} over 200 — "
+        "the cost is scaling with the owner's history (N+1)"
+    )
+    assert at_200 < _MAX_SLEEP_QUERIES, f"/api/sleep ran {at_200} statements"
 
 
 def test_today_latency_under_budget(seeded_client: tuple) -> None:
