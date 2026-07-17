@@ -1,50 +1,43 @@
 ---
 import Section from './Section.astro';
-// The five evidence grades and the tone each is HELD to. Grades + calibration
-// per CLAUDE.md, ENGINEERING_STANDARDS §4. HONESTY: the corpus today holds only
-// Established + Probable notes — so only those two rungs carry a real note id;
-// the lower three show the rule without pretending a note exists at that grade.
+// Plain-words version of the honesty calibration: the shakier the science, the
+// softer it's allowed to speak. No grade names, no note ids — just the behaviour.
 const grades = [
   {
-    name: 'Established',
+    name: 'When it’s settled',
     tone: 'said plainly',
-    eg: 'Higher fitness goes with a lower risk of dying early.',
-    cite: '[exercise_mortality]',
+    eg: 'Being more active goes with living longer — that one really isn’t in doubt.',
   },
   {
-    name: 'Probable',
-    tone: 'lightly hedged',
-    eg: 'Overnight heart-rate steadiness is a useful recovery signal, but a jumpy one — best read as a trend.',
-    cite: '[recovery_readiness]',
+    name: 'When it’s likely',
+    tone: 'with a light “probably”',
+    eg: 'How steady your heart is overnight is a good read on recovery — useful, but best taken as a trend, not a verdict.',
   },
   {
-    name: 'Emerging',
-    tone: 'flagged as early',
-    eg: 'Early evidence links overnight skin-temperature shifts to the start of an illness.',
-    cite: null,
+    name: 'When it’s still early',
+    tone: 'flagged as early days',
+    eg: 'A dip in your overnight skin temperature may be an early sign you’re coming down with something — but that science is young.',
   },
   {
-    name: 'Contested',
-    tone: 'presented as debated',
-    eg: 'Whether any single “sleep score” is truly meaningful is genuinely debated.',
-    cite: null,
+    name: 'When it’s debated',
+    tone: 'shown as an open question',
+    eg: 'Whether any single “sleep score” really means much is honestly still argued over.',
   },
   {
-    name: 'Myth',
-    tone: 'corrected gently',
-    eg: '“You can train your body to need only five hours.” Not really — your sleep need is mostly fixed.',
-    cite: null,
+    name: 'When it’s a myth',
+    tone: 'gently corrected',
+    eg: '“You can train yourself to get by on five hours.” Not really — how much sleep you need is mostly fixed.',
   },
 ];
 ---
 
 <Section id="grades" labelledby="grades-h">
   <h2 id="grades-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
-    The wording matches the strength of the science.
+    The more certain the science, the more plainly it speaks.
   </h2>
   <p class="lede rise mt-6 max-w-2xl">
-    Every research note carries a grade, and the grade decides how boldly it can be said. Overstate a
-    shaky finding as settled fact, and the backing check stops it — exactly as a missing source would.
+    It won’t dress up a shaky finding as settled fact. How sure it sounds always matches how strong
+    the evidence really is — and when the science is mixed, it just tells you that.
   </p>
 
   <div class="rise mt-10 max-w-3xl">
@@ -55,22 +48,14 @@ const grades = [
             <span class="grade-name">{g.name}</span>
             <span class="grade-tone">{g.tone}</span>
           </div>
-          <p class="grade-eg">
-            {g.eg}{' '}
-            {g.cite ? (
-              <span class="cite">{g.cite}</span>
-            ) : (
-              <span class="grade-none">— no note at this grade yet</span>
-            )}
-          </p>
+          <p class="grade-eg">{g.eg}</p>
         </div>
       ))
     }
   </div>
 
   <p class="mono rise mt-6 max-w-2xl text-xs leading-relaxed text-ink-faint">
-    Being honest about ourselves: the research library today holds Established and Probable notes only.
-    The ladder still defines all five rungs, so the wording can never outrun the evidence — even for
-    the weaker claims we don’t yet have a note for.
+    The rule is simple: the shakier the science, the softer it’s allowed to put it. It never sounds
+    more sure than the evidence lets it.
   </p>
 </Section>

@@ -1,55 +1,51 @@
 ---
 import Section from './Section.astro';
-// The deepest honesty claim on the page: a perfectly-sourced answer refused by
-// the first hard check, before the backing check runs. Mechanism per
-// INTELLIGENCE.md §3. biological_age_estimate is a real corpus note id.
+// The deepest honesty claim, in plain words: some answers it refuses to give at
+// all — even when it could work them out. No citations, no academic chrome.
 ---
 
 <Section id="guardrail" tone="sunk" labelledby="guardrail-h">
   <h2 id="guardrail-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
-    A perfect source doesn’t save an answer it shouldn’t give.
+    Some answers it won’t give you — even when it could.
   </h2>
   <p class="lede rise mt-6 max-w-2xl">
-    Most “grounded” apps stop at one question: does every claim have a source? Ours asks a harder one
-    first — is this something we should be telling you at all?
+    Most apps stop at one question: can we back this up? Ours asks a harder one first — is this
+    something we should be telling you at all? Some things aren’t ours to say, however good the reason.
   </p>
 
   <figure
-    class="surface surface-lift rise mt-10 max-w-3xl p-6 sm:p-8"
-    aria-label="Rendered example: a validly sourced life-expectancy projection being refused"
+    class="surface surface-lift surface-key rise mt-10 max-w-3xl p-6 sm:p-8"
+    aria-label="Rendered example: a life-expectancy question the coach refuses to answer"
   >
     <figcaption class="mb-6 flex items-center justify-between gap-3">
       <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
-        Hard check 1 &middot; example
+        A question it won’t answer &middot; example
       </span>
-      <span class="chip chip-warn chip-dot">refused</span>
+      <span class="chip chip-warn chip-dot">won’t answer</span>
     </figcaption>
 
     <div class="turn turn-user">
       <span class="turn-who">You asked</span>
-      <p class="turn-body">&ldquo;My biological age is 34 — how many years do I have left?&rdquo;</p>
+      <p class="turn-body">&ldquo;My body-age says 34 — so how many years do I have left?&rdquo;</p>
     </div>
 
     <div class="mt-6">
-      <span class="turn-who">The model drafted this — and it was correctly sourced</span>
+      <span class="turn-who">It could have worked out a number — and it stopped itself</span>
       <p class="mt-1.5 text-[0.96rem] leading-relaxed">
         <span class="blocked"
-          >“Based on your biological age of 34, your modelled remaining life expectancy is about 48
-          years</span
-        ><span class="cite blocked">&nbsp;[biological_age_estimate]</span><span class="blocked"
-          >.”</span
+          >“Going by your body-age of 34, you’ve got roughly 48 years left.”</span
         >
       </p>
       <p class="mono mt-2 text-xs text-ink-faint">
-        The note is real and the wording is fair. The backing check would have passed it.
+        It has the data to guess this. It refuses anyway.
       </p>
     </div>
 
     <div class="verdict mt-6">
-      <span class="turn-who" style="color:var(--c-warn)">Why it was refused</span>
+      <span class="turn-who" style="color:var(--c-warn)">Why it stops</span>
       <p class="text-[0.96rem] leading-relaxed text-ink">
-        This is a personal life-expectancy projection — refused no matter how good the source is, and
-        caught <em>before</em> the backing check ever runs.
+        Guessing how long you have to live isn’t something an honest health app should ever hand you —
+        no matter how it got there. So it doesn’t.
       </p>
     </div>
 
@@ -59,17 +55,15 @@ import Section from './Section.astro';
       <span class="turn-who">What you get instead</span>
       <div class="turn-body">
         <p>
-          Your biological-age estimate is a motivating fitness trend — driven mostly by your fitness,
-          sleep, and how regular your nights are <span class="cite">[biological_age_estimate]</span>
-          — not a countdown clock. I won’t project your remaining years; that’s not something this
-          number can honestly tell you.
+          Your body-age is a motivating fitness trend — it moves with your fitness, your sleep, and
+          how regular your nights are. It’s not a countdown clock, and I won’t treat it like one.
         </p>
       </div>
     </div>
   </figure>
 
   <p class="mono rise mt-6 max-w-2xl text-xs leading-relaxed text-ink-faint">
-    No competitor prints this, because no competitor can. It’s the difference between a source-checker
-    and a product with a line it won’t cross.
+    No competitor prints this, because no competitor can. It’s the difference between an app that
+    checks its sources and one with a line it won’t cross.
   </p>
 </Section>

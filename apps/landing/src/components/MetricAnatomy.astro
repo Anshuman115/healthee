@@ -1,16 +1,15 @@
 ---
 import Section from './Section.astro';
-// One metric card, annotated part by part — the standardized card anatomy:
-// value, personal baseline band, trend, confidence (coverage / freshness /
-// origin), a grounded "why" citing a note id, and ⓘ that opens the note itself.
-// recovery_readiness is a real corpus note id. The sparkline is a single honest
-// series over a baseline band — illustrative, drawn inline (no external assets).
+// One metric card, annotated part by part: the number, your own normal, the
+// trend, how sure it is, and a plain "why" with an ⓘ that opens the research.
+// No note ids. The sparkline is one honest series over a baseline band, drawn
+// inline (no external assets) — clay line on a clay-tint band.
 const legend = [
-  { n: '1', label: 'The number', body: 'The reading itself, in figures nothing else on the card competes with.' },
-  { n: '2', label: 'Your own normal', body: 'Judged against your rolling normal, not a population chart. “Good” means good for you.' },
-  { n: '3', label: 'The trend', body: 'Which way it’s moving, and how far — a direction, not a verdict from one night.' },
-  { n: '4', label: 'How sure it is', body: 'Coverage, freshness, and where it came from — the three things that set how much weight it can bear.' },
-  { n: '5', label: 'The plain “why” + ⓘ', body: 'One line, tied to a research note. Tap ⓘ and that note opens — the same source, never card copy that can drift from it.' },
+  { n: '1', label: 'The number', body: 'The reading itself, big and clear, with nothing else on the card fighting it.' },
+  { n: '2', label: 'Your own normal', body: 'Judged against what’s normal for you, not a chart of strangers. “Good” means good for you.' },
+  { n: '3', label: 'The trend', body: 'Which way it’s heading, and by how much — a direction, not a verdict from one night.' },
+  { n: '4', label: 'How sure it is', body: 'How much it actually saw, how recent it is, and where it came from — the three things that set how much to trust it.' },
+  { n: '5', label: 'The plain “why” + ⓘ', body: 'One line on what it means. Tap ⓘ and the research behind it opens — you can read it yourself.' },
 ];
 ---
 
@@ -22,14 +21,14 @@ const legend = [
   <div class="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14">
     <!-- the annotated card -->
     <figure
-      class="surface surface-lift rise self-start p-6 sm:p-7"
+      class="surface surface-lift self-start p-6 sm:p-7"
       aria-label="Rendered example: an annotated overnight heart-rate-steadiness card"
     >
       <figcaption class="flex items-center justify-between gap-2">
         <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
-          Overnight HRV &middot; RMSSD
+          Overnight heart-rate steadiness
         </span>
-        <span aria-hidden="true" class="grid h-5 w-5 place-items-center rounded-full border border-line-strong text-[0.7rem] text-ink-faint">
+        <span aria-hidden="true" class="grid h-5 w-5 place-items-center rounded-[3px] border border-line-strong text-[0.7rem] text-ink-faint">
           i
         </span>
       </figcaption>
@@ -45,12 +44,12 @@ const legend = [
       </div>
 
       <p class="mono mt-3 text-sm text-ink-soft">
-        vs your normal 44&nbsp;&plusmn;&nbsp;7 <span class="anno-mark align-super">2</span>
+        your normal is 44&nbsp;&plusmn;&nbsp;7 <span class="anno-mark align-super">2</span>
       </p>
 
       <!-- honest sparkline: 7 nights over your baseline band -->
       <svg class="spark mt-4" viewBox="0 0 240 60" role="img"
-        aria-label="Last 7 nights, trending up through your baseline band">
+        aria-label="Last 7 nights, trending up through your normal range">
         <rect x="0" y="17" width="240" height="26" rx="4" fill="var(--c-accent-tint)"></rect>
         <line x1="0" y1="30" x2="240" y2="30" stroke="var(--c-line-strong)"
           stroke-width="1" stroke-dasharray="3 4"></line>
@@ -64,15 +63,15 @@ const legend = [
 
       <div class="mt-4 flex flex-wrap items-center gap-2">
         <span class="chip chip-dot">how sure: fair <span class="anno-mark align-super">4</span></span>
-        <span class="chip">coverage&nbsp;&middot;&nbsp;6.1h / 7.4h</span>
-        <span class="chip">from&nbsp;&middot;&nbsp;the sensor</span>
+        <span class="chip">measured 6.1h of 7.4h</span>
+        <span class="chip">from the band</span>
       </div>
 
       <hr class="hairline my-5" />
 
       <p class="text-[0.92rem] leading-relaxed text-ink-soft">
-        A little above your normal and trending up — in line with good recovery this week
-        <span class="cite">[recovery_readiness]</span>. <span class="anno-mark align-super">5</span>
+        A little above your normal and rising — in line with good recovery this week.
+        <span class="anno-mark align-super">5</span>
       </p>
     </figure>
 
