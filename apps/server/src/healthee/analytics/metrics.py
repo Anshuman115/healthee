@@ -105,3 +105,20 @@ def metric_filter(metric: str) -> str:
     caller-controlled), so interpolating it into SQL is safe (standards §2).
     """
     return METRIC_FILTERS.get(metric, "TRUE")
+
+
+# Every metric name this server recognizes on the ``metric`` query param — the
+# canonical v2 registry, derived from the three source dicts above so it can't
+# drift. Used to 422 an unknown name instead of returning a confident-looking
+# empty series ("that isn't a metric" ≠ "you have no data"). Retired v1 names
+# (e.g. ``hrv_sleep_avg_ms``, ``sleep_score``) are intentionally NOT here: the v2
+# app sends canonical names (``hrv_sleep_avg`` → real data), so a v1 name is just
+# an unknown metric and is rejected.
+KNOWN_METRICS: frozenset[str] = (
+    frozenset(V2_DAILY_METRICS) | FLAG_DERIVED_METRICS.keys() | METRIC_FILTERS.keys()
+)
+
+
+def is_known_metric(metric: str) -> bool:
+    """True if ``metric`` is a name the server recognizes (data-bearing or not)."""
+    return metric in KNOWN_METRICS
