@@ -63,6 +63,70 @@ def test_day_minutes_follows_the_real_local_day(tz: str, day: date, expected: in
     assert _day_minutes(*_day_bounds_utc(day, tz)) == expected
 
 
+# ── the gap this suite does NOT yet close: a MIDNIGHT fall-back ──────────────
+#
+# Every zone above transitions at 02:00/03:00, so a day's own 23:59:59 is never an
+# ambiguous wall-clock time. In a zone that falls back AT MIDNIGHT it is: the 23:00
+# hour of the PRECEDING day runs twice, and `_day_bounds_utc` builds its end as
+# `start.replace(hour=23, minute=59, second=59)`, which PEP 495 resolves with fold=0
+# — the FIRST pass. The second pass is then outside the bracket, so the 25 h day
+# measures 1440 minutes and the walk drops its final hour.
+#
+# Verified against `zoneinfo` for these exact dates (never assumed — offsets are data):
+#   America/Santiago 2026-04-04  03:00Z -> 2026-04-05 04:00Z  = 25 h, reported 1440
+#   Asia/Beirut      2026-10-24  21:00Z -> 2026-10-24 22:00Z  = 25 h, reported 1440
+# `read/today_series._local_day_utc_range` already derives the edge the correct way
+# (the NEXT local midnight, half-open) and gets 25 h for both.
+_MIDNIGHT_FALLBACK_DAYS = [
+    ("America/Santiago", date(2026, 4, 4), 1500),
+    ("Asia/Beirut", date(2026, 10, 24), 1500),
+]
+
+
+@pytest.mark.parametrize(("tz", "day", "expected"), _MIDNIGHT_FALLBACK_DAYS)
+@pytest.mark.xfail(
+    strict=True,
+    reason="KNOWN: _day_bounds_utc resolves an ambiguous 23:59:59 with fold=0, so a "
+    "midnight fall-back day measures 1440 instead of 1500 and activity/mvpa/"
+    "cardio_load/energy each drop its last hour. Fixing it moves real science "
+    "output, so it is its own PR with known-value tests (CLAUDE.md).",
+)
+def test_midnight_fall_back_day_is_25h(tz: str, day: date, expected: int) -> None:
+    """A zone that falls back at midnight still owns 25 h — we currently see 24."""
+    assert _day_minutes(*_day_bounds_utc(day, tz)) == expected
+
+
+@pytest.mark.parametrize(("tz", "day"), [(t, d) for t, d, _ in _MIDNIGHT_FALLBACK_DAYS])
+def test_the_midnight_fall_back_days_really_are_25h(tz: str, day: date) -> None:
+    """The premise of the xfail above, proven from `zoneinfo` rather than asserted.
+
+    If a tz-database update moves these transitions, THIS fails — loudly — instead
+    of the xfail silently becoming a test of nothing.
+    """
+    zone = ZoneInfo(tz)
+    start = datetime(day.year, day.month, day.day, tzinfo=zone).astimezone(UTC)
+    nxt = day + timedelta(days=1)
+    end = datetime(nxt.year, nxt.month, nxt.day, tzinfo=zone).astimezone(UTC)
+    assert (end - start) == timedelta(hours=25), f"{tz} {day} is no longer a 25 h day"
+
+
+def test_spring_forward_at_midnight_starts_at_the_days_first_real_instant() -> None:
+    """The mirror case, which IS already correct — a local midnight that never happens.
+
+    America/Santiago 2026-09-06 jumps 00:00 -> 01:00, so that date has no midnight.
+    `ZoneInfo` resolves the non-existent time with the pre-transition offset, which
+    lands exactly on 01:00 — the first instant the day actually has — and the day
+    measures 23 h. Pinned because "ZoneInfo silently picks one" is only benign here
+    by luck of which one, and a regression would shift a day's whole window.
+    """
+    tz, day = "America/Santiago", date(2026, 9, 6)
+    start_utc, end_utc = _day_bounds_utc(day, tz)
+    first = start_utc.astimezone(ZoneInfo(tz))
+    assert (first.hour, first.date()) == (1, day), f"day starts at {first}, not 01:00"
+    assert _day_minutes(start_utc, end_utc) == 1380
+    assert end_utc.astimezone(ZoneInfo(tz)).date() == day
+
+
 def test_normal_day_minute_count_is_exactly_the_old_constant() -> None:
     """Every non-DST day still yields 1440 — the semantic the old `range(1440)` had.
 
