@@ -13,6 +13,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from healthee.derive._common import Cur, _age, _day_bounds_utc, _load_profile, _upsert_daily
+from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.trimp import trimp_minute
 
 # Edwards zone lower bounds as %HRmax; zone weights are 1..5.
@@ -43,9 +44,9 @@ def derive_cardio_load(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | No
     sleep_wins = cur.fetchall()
     cur.execute(
         "SELECT date_trunc('minute', ts) m, AVG(value) FROM sample "
-        "WHERE user_id = %s AND metric='hr' AND value BETWEEN 30 AND 220 "
+        f"WHERE user_id = %s AND metric='hr' AND {HR_VALID_SQL} "
         "AND ts>=%s AND ts<=%s GROUP BY m",
-        (user_id, start_utc, end_utc),
+        (user_id, *HR_VALID_BOUNDS, start_utc, end_utc),
     )
     rows = cur.fetchall()
 

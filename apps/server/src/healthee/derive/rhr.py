@@ -12,6 +12,7 @@ from datetime import datetime
 from uuid import UUID
 
 from healthee.derive._common import Cur
+from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 
 
 def derive_rhr(
@@ -19,23 +20,25 @@ def derive_rhr(
 ) -> tuple[float | None, int]:
     """Min of 5-min rolling-average HR in the sleep window.
 
-    Returns (rhr_bpm, n_samples). Only 5-min buckets with >=3 HR samples count,
-    and HR is bounded to a physiological 30-220 bpm. (None, 0) when the window
-    holds no qualifying HR data. Knowledge: [[resting_heart_rate]].
+    Returns (rhr_bpm, n_samples). Only 5-min buckets with >=3 HR samples count, and
+    HR is bounded by ``derive.hr_validity`` — the ONE plausibility definition, shared
+    with every other HR reader (an engineering artefact filter, not a research
+    constant). (None, 0) when the window holds no qualifying HR data.
+    Knowledge: [[resting_heart_rate]].
     """
     cur.execute(
-        """
+        f"""
         SELECT MIN(bucket_avg)::float, SUM(n)::int
         FROM (
           SELECT AVG(value) AS bucket_avg, COUNT(*) AS n
           FROM sample
-          WHERE user_id = %s AND metric='hr' AND value BETWEEN 30 AND 220
+          WHERE user_id = %s AND metric='hr' AND {HR_VALID_SQL}
             AND ts >= %s AND ts < %s
           GROUP BY time_bucket('5 minutes', ts)
           HAVING COUNT(*) >= 3
         ) buckets
         """,
-        (user_id, start_ts, end_ts),
+        (user_id, *HR_VALID_BOUNDS, start_ts, end_ts),
     )
     row = cur.fetchone()
     if not row or row[0] is None:

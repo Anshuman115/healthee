@@ -15,6 +15,7 @@ from uuid import UUID
 from healthee.analytics.baselines import compute_baseline_cur
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur, _day_bounds_utc
+from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.read.common import TodayReads, derived_series_many, latest_derived
 from healthee.read.meta import METRIC_META, TODAY_SECONDARY_METRICS
 
@@ -144,16 +145,20 @@ def sparklines(cur: Cur, user_id: UUID, tz: str) -> dict[str, list[dict]]:
 
 
 def hr_hourly(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
-    """Hourly avg/min/max HR for today (local) — today's heart-rate shape."""
+    """Hourly avg/min/max HR for today (local) — today's heart-rate shape.
+
+    Bounded by ``derive.hr_validity``, the one plausibility predicate every HR
+    reader shares.
+    """
     day = user_today(tz)
     ts_from, ts_to = _local_day_utc_range(day, tz)  # chunk pruning; see the helper
     cur.execute(
         "SELECT date_trunc('hour', ts AT TIME ZONE %s) AS h, ROUND(AVG(value))::int, "
         "  MIN(value)::int, MAX(value)::int "
-        "FROM sample WHERE user_id = %s AND metric='hr' AND value > 30 AND value < 220 "
+        f"FROM sample WHERE user_id = %s AND metric='hr' AND {HR_VALID_SQL} "
         "  AND ts >= %s AND ts < %s "
         "  AND (ts AT TIME ZONE %s)::date = %s GROUP BY 1 ORDER BY 1",
-        (tz, user_id, ts_from, ts_to, tz, day),
+        (tz, user_id, *HR_VALID_BOUNDS, ts_from, ts_to, tz, day),
     )
     return [
         {"hour_iso": h.isoformat(), "hour": h.hour, "avg": avg, "min": mn, "max": mx}

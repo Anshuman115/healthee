@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
 from healthee.derive._common import Cur
+from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.trimp import trimp_total
 from healthee.read.common import sport_name
 from healthee.read.fitness import cardio_load_payload, vo2max_payload
@@ -59,11 +60,16 @@ def _parse_start(start: str) -> datetime:
 def _hr_profile(
     cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: datetime
 ) -> tuple[list[int], list[dict]]:
-    """Minute-resolution HR series over the workout window (raw ``sample`` table)."""
+    """Minute-resolution HR series over the workout window (raw ``sample`` table).
+
+    Bounded by ``derive.hr_validity`` — the same predicate the daily derivations use,
+    so this session's TRIMP and the day's ``cardio_load`` can never disagree about
+    whether a given minute happened.
+    """
     cur.execute(
         "SELECT ts, value FROM sample WHERE user_id = %s AND metric='hr' "
-        "AND value > 30 AND value < 220 AND ts >= %s AND ts <= %s ORDER BY ts",
-        (user_id, start_ts, end_ts),
+        f"AND {HR_VALID_SQL} AND ts >= %s AND ts <= %s ORDER BY ts",
+        (user_id, *HR_VALID_BOUNDS, start_ts, end_ts),
     )
     hrs, series = [], []
     for t, v in cur.fetchall():

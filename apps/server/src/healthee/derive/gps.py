@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 
 from healthee.derive._common import Cur, _age, _load_profile, _upsert_daily
 from healthee.derive.dem import elevations
+from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.vo2max_submax import _haversine_m, vo2max_from_track
 
 Point = tuple[float, float, float, float | None]  # (ts_epoch_s, lat, lng, ele_m|None)
@@ -89,9 +90,9 @@ def _load_hr(
     """(timestamps, values) for bounded HR samples across the track window."""
     cur.execute(
         "SELECT extract(epoch FROM ts), value FROM sample "
-        "WHERE user_id = %s AND metric='hr' AND value BETWEEN 30 AND 220 "
+        f"WHERE user_id = %s AND metric='hr' AND {HR_VALID_SQL} "
         "AND ts BETWEEN %s AND %s ORDER BY ts",
-        (user_id, start_ts, end_ts),
+        (user_id, *HR_VALID_BOUNDS, start_ts, end_ts),
     )
     rows = cur.fetchall()
     return [float(r[0]) for r in rows], [float(r[1]) for r in rows]
