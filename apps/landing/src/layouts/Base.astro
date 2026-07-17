@@ -8,11 +8,11 @@ interface Props {
 
 const { title, description } = Astro.props;
 
-// Favicon: an honest-reading mark — a small rising line that stops short of the
-// point it doesn't have yet (it won't claim what it can't see), on the warm clay
-// accent. Inline SVG data-URI so the page loads zero external resources.
+// Favicon: an honest-reading mark — a small rising sparkline that stops short
+// (it doesn't claim the last point it doesn't have), on the iris accent.
+// Inline SVG data-URI so the page loads zero external resources.
 const favicon =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23bf4d2b'/%3E%3Cpath d='M7 21l5-5 4 3 5-8' fill='none' stroke='%23fff8f3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='11' r='1.9' fill='%23fff8f3'/%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234b45d6'/%3E%3Cpath d='M7 21l5-5 4 3 5-8' fill='none' stroke='%23fbfcfd' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='11' r='1.9' fill='%23fbfcfd'/%3E%3C/svg%3E";
 ---
 
 <!doctype html>
@@ -28,16 +28,16 @@ const favicon =
     <meta property="og:type" content="website" />
     <meta name="robots" content="index, follow" />
     <link rel="icon" href={favicon} />
-    {/* Seed theme + animation flag before paint so there is no flash of the wrong
-        theme. LIGHT is the default; dark is opt-in only — we deliberately do NOT
-        follow the OS preference, only a saved choice. */}
+    {/* Seed theme + animation flag before paint so there is no flash of the wrong theme. */}
     <script is:inline>
       (function () {
         var root = document.documentElement;
         try {
-          if (localStorage.getItem('healthee-theme') === 'dark') root.classList.add('dark');
+          var stored = localStorage.getItem('healthee-theme');
+          // Light is the default; dark only when the visitor chose it.
+          if (stored === 'dark') root.classList.add('dark');
         } catch (e) {
-          /* localStorage unavailable — stay on the light default */
+          /* localStorage unavailable — fall back to prefers-color-scheme via media query default */
         }
         if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
           root.classList.add('js-anim');

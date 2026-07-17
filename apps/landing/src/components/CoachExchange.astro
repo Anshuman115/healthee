@@ -1,0 +1,88 @@
+---
+import Section from './Section.astro';
+// A faithfully rendered coach exchange. Voice + rules per docs/COACH_PROMPT.md;
+// the tool call, inline [note_id] citations, the personal-finding distinction,
+// and "numbers only from tool results" are the coach loop from INTELLIGENCE.md §4.
+// recovery_readiness is a real corpus note id (grade: Probable).
+---
+
+<Section id="coach" tone="sunk" labelledby="coach-h">
+  <h2 id="coach-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3rem)]">
+    Ask it anything. It looks up your real numbers before it answers.
+  </h2>
+  <p class="lede rise mt-6 max-w-2xl">
+    An unchecked coach can say whatever sounds good. Ours pulls your actual data, backs every claim
+    with a research note or your own history, and stays as sure as the evidence lets it be — no more.
+  </p>
+
+  <figure
+    class="surface surface-lift rise mt-10 max-w-3xl p-6 sm:p-8"
+    aria-label="Rendered example: a coach exchange about a weekly HRV dip"
+  >
+    <figcaption class="mb-6 flex items-center justify-between gap-3">
+      <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
+        Conversation &middot; example
+      </span>
+      <span class="chip chip-accent chip-dot">grounded coach</span>
+    </figcaption>
+
+    <div class="turn turn-user">
+      <span class="turn-who">You asked</span>
+      <p class="turn-body">&ldquo;Why is my HRV down this week?&rdquo;</p>
+    </div>
+
+    <!-- the visible mechanism -->
+    <div class="toolcall mt-6" role="group" aria-label="The lookup the coach ran">
+      <span class="toolcall-tag">
+        <span aria-hidden="true">&rarr;</span> looked up your data &middot; query_metric
+      </span>
+      <div>
+        <span class="k">{'{'} metric:</span> <span class="v">"hrv_sleep_avg"</span><span class="k"
+          >, window:</span
+        > <span class="v">"7d"</span><span class="k">, stat:</span> <span class="v">"series"</span>
+        <span class="k">{'}'}</span>
+        <span class="ret"
+          >&larr; returns: 7 nights &middot; avg <span class="v">39&nbsp;ms</span> &middot; your usual
+          <span class="v">46&nbsp;&plusmn;&nbsp;6&nbsp;ms</span></span
+        >
+      </div>
+    </div>
+
+    <div class="turn turn-coach mt-6">
+      <span class="turn-who">Coach</span>
+      <div class="turn-body">
+        <p>
+          Your overnight heart-rate steadiness has run about <span class="mono">39</span> this week
+          against your usual <span class="mono">46&nbsp;&plusmn;&nbsp;6</span> &mdash; a real dip, not
+          just night-to-night noise <span class="cite">[recovery_readiness]</span>. It’s a recovery
+          signal, but a jumpy one, so I’m reading the whole week, not any single morning.
+        </p>
+        <p class="mt-3">
+          Before you blame lost fitness, check your log: on the three nights you noted a late drink,
+          it dropped the next morning
+          <span class="cite cite-personal">[personal finding: late alcohol &rarr; lower HRV]</span>
+          &mdash; that’s <em>your</em> pattern, not a population average pinned onto you.
+        </p>
+        <p class="mt-3">
+          Smallest lever this week: two alcohol-free nights, then we re-read the trend. I won’t call
+          seven confounded days a recovery loss.
+        </p>
+      </div>
+    </div>
+
+    <hr class="hairline my-6" />
+
+    <div class="grid gap-4 sm:grid-cols-2">
+      <p class="mono text-xs leading-relaxed text-ink-faint">
+        <span class="text-accent-soft">[recovery_readiness]</span> is a real research note in the
+        library — you can open it and read the evidence yourself. The
+        <span class="text-warn">amber tag</span> marks a pattern from your own data, never dressed up
+        as research.
+      </p>
+      <p class="mono text-xs leading-relaxed text-ink-faint">
+        Every number here came from the <span class="text-ink">query_metric</span> lookup above. The
+        coach never guesses your numbers — if a lookup didn’t return it, it doesn’t have it.
+      </p>
+    </div>
+  </figure>
+</Section>
