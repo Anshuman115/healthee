@@ -49,14 +49,30 @@ Rules:
   server code — deterministic checks the LLM can never override (bone-stress /
   REDs hard stop, never advise through chest pain, never advise sleep
   restriction…).
+  > **Status — half true, and the half that is missing matters.** The
+  > *enforcement* exists and is live: `insights/output_guard.py` holds that
+  > hard-guardrail table, blocking regardless of citations or validation (§3),
+  > covering exactly the examples above. The **compilation does not**: no note
+  > carries a `safety_critical` flag, and the generated manifest emits no
+  > `directives` at all — so today the table is `_DOCUMENTED_RULES`,
+  > hand-compiled from what the product already documents, each rule citing the
+  > line that forbids it. `output_guard.output_rules()` is the seam the corpus
+  > plugs into; marking up the corpus is research judgement and is not done.
+  > Nothing is lost meanwhile — a table compiled from an unmarked corpus would
+  > be empty.
 - Template (adopted from sports-science METHODOLOGY): mandatory Honesty
   section (confounders, individual variation, metric limits), Coach Directives
   block, citations real-or-absent with primary sources verified before writing.
 
 ## 3 · The grounded-ask choke point (server)
 
-Every LLM surface — coach, sleep/activity/metric/workout insights, recs,
-weekly review, challenges — goes through ONE pipeline:
+Every LLM surface is held to ONE pipeline: the coach, the
+sleep/activity/metric/workout insights, notable shifts, the daily coaching lines,
+and recs (built today), plus the weekly review and challenges (Phase 5+, not
+built). **Read §4's "routed-through
+vs enforced-equivalent" note before relying on the word "choke point": the
+non-conversational surfaces call `grounded_ask`, the coach re-implements this
+sequence from the same primitives.** Every stage below is enforced on both.
 
 ```
 question/task
@@ -69,6 +85,15 @@ question/task
     metric/alias/keyword + one-line summaries of the remainder
     (bounded tokens at any corpus size; replaces legacy dump-all)
   → LLM (tools allowed, §4)
+  → hard OUTPUT GUARDRAILS (`insights/output_guard.py`) — BLOCKING, and checked
+    BEFORE the validator on purpose: a documented forbidden output (personal
+    death-risk projection, advising through a red-flag symptom, sleep
+    restriction, bone-stress/REDs) does not ship REGARDLESS of its citations,
+    grade or validation result. The pre-classifier guards the QUESTION; this
+    guards the ANSWER — a benign question can still produce a forbidden answer,
+    perfectly cited. No retry: a forbidden output is not a grounding problem to
+    nudge the model out of, it is a floor. Every rule cites the doc/note line
+    that forbids it; a rule with no documented origin does not ship.
   → validator v2 — BLOCKING:
       · every interpretive sentence carries [note_id] or an honest escape
         ("no strong evidence in our base…")
@@ -85,22 +110,46 @@ question/task
 
 ## 4 · Coach loop v2
 
-- **Tools** (all return real JSON the model must echo, never guess):
-  the proven five — `query_metric` (v2-native reads), `compare_event`
-  (keep its honest "observational, single-subject — a hint, not proof"
-  framing), `log_entry`, `adopt_challenge`, `sleep_consistency` — plus
+- **Tools** (all return real JSON the model must echo, never guess) — the five in
+  `COACH_TOOLS` today: `query_metric` (v2-native reads), `compare_event` (keeps
+  its honest "observational, single-subject — a hint, not proof" framing),
+  `sleep_consistency`, `log_entry` (the only write), and
   **`get_knowledge(topic|note_id)`** so the model pulls specific notes
   mid-conversation instead of upfront context stuffing.
+  **`adopt_challenge` is DEFERRED and intentionally absent** — the challenges
+  subsystem is a later WP, and a tool that can't really adopt anything would be
+  the exact hallucination the next bullet forbids. (The legacy five were
+  `query_metric`, `compare_event`, `log_entry`, `adopt_challenge`,
+  `sleep_consistency`, §5.3 — the rebuild swapped `adopt_challenge` out and
+  `get_knowledge` in; the count coinciding at five is a coincidence.)
 - **Anti-hallucination stays absolute**: never claim logged/adopted/started
   unless the tool returned ok:true this turn; numbers only from tool results;
   max tool rounds bounded with an honest failure message.
-- **The coach goes through the §3 choke point** — this closes the biggest
-  legacy hole (§6.1): the conversational coach was the only surface with NO
-  citation validation.
-- **Standing context per turn**: today's recovery/readiness block, active +
-  suggested challenges, and (Phase 5) the outcome ledger — measured personal
-  evidence ("last time MVPA rose 20%, HRV followed in 10 days"), cited as
-  personal, never dressed as research.
+- **The coach is enforced-EQUIVALENT to §3, not routed THROUGH it** — and the
+  difference is load-bearing. `insights/coach.py` does **not** call
+  `grounded_ask`: it drives its own tool-calling loop and invokes the choke
+  point's *primitives* directly (`refusals.classify_refusal`,
+  `output_guard.check_output` on every text candidate, `validator.validate` on
+  every final free-text answer, honest fallback on repeat failure). The legacy
+  hole (§6.1 — the coach was the one surface with NO citation validation) **is**
+  closed: unvalidated coach text cannot ship.
+
+  **Why you must care:** *every rule added to the choke point must be mirrored in
+  the coach, or the coach silently misses it.* That is not hypothetical — the
+  hard output guardrail had to be written in **two** places for exactly this
+  reason (`tests/insights/test_output_guard.py` pins the coach's copy so it
+  cannot rot). `grounded.py`'s module docstring states this too; the two agree
+  deliberately. Collapsing the coach onto `grounded_ask` is real work, **not
+  done**, and tracked separately — until then believe this bullet, not the
+  phrase "the ONE choke point" wherever it appears.
+- **Standing context per turn** (`insights/coach_context.py`): today's
+  recovery/readiness block plus a wide (≥30-day) `build_context` — trends,
+  baselines, anomalies, sleep sessions, the manual-entry log, and personal
+  findings — so the coach reasons over history and routines, not a snapshot
+  (COACH_PROMPT.md). **Not present:** active/suggested challenges (the subsystem
+  doesn't exist — only its tables do) and the outcome ledger (Phase 5). When the
+  ledger lands it is measured personal evidence ("last time MVPA rose 20%, HRV
+  followed in 10 days"), cited as personal, never dressed as research.
 
 ---
 
@@ -185,8 +234,11 @@ All references are to `~/projects/healthee-legacy`.
 
 ## 6 · AUDIT — the four structural holes the rebuild closes
 
-1. **Coach skips validation** (§5.3) → §3/§4: coach goes through the blocking
-   choke point.
+1. **Coach skips validation** (§5.3) → **closed**, but by *enforced equivalence*,
+   not by routing: `insights/coach.py` calls the blocking primitives itself
+   (§4). Unvalidated coach text cannot ship; the structural collapse onto
+   `grounded_ask` is still outstanding, and until it lands every new choke-point
+   rule must be mirrored into the coach by hand (§4).
 2. **Validation is advisory** (§5.2) → §3: blocking, with an honest fallback.
 3. **Retrieval is dump-all** (§5.1) → §3: manifest-ranked top-N + summaries.
 4. **Sports-science docs uncitable** (hyphen ids, no frontmatter) → §7
