@@ -1,0 +1,92 @@
+---
+import Section from './Section.astro';
+// The grounded-ask pipeline, annotated. Sequence + the "guardrail is BLOCKING and
+// runs BEFORE the validator" ordering are from INTELLIGENCE.md §3. The coach is
+// enforced-equivalent, not routed through — stated as written in §4.
+const steps = [
+  {
+    n: '1',
+    title: 'Safety pre-classifier',
+    desc: 'A deterministic check on the question. Emergency, diagnosis, medication, pregnancy, and mental-health domains are refused with a fixed template — before a model ever sees it.',
+    block: false,
+  },
+  {
+    n: '2',
+    title: 'Your data context',
+    desc: 'Today’s snapshot, trends, sleep overlays, baselines, anomalies, and your logged routines — built straight from your derived tables.',
+    block: false,
+  },
+  {
+    n: '3',
+    title: 'Manifest-ranked retrieval',
+    desc: 'The graded corpus is ranked by metric, alias, and keyword; the top notes go in full, the rest as one-line summaries. Bounded tokens at any corpus size.',
+    block: false,
+  },
+  {
+    n: '4',
+    title: 'The model answers',
+    desc: 'With tools, so it works from real numbers — not a guess dressed as one.',
+    block: false,
+  },
+  {
+    n: '5',
+    title: 'Hard output guardrails',
+    desc: 'Documented-forbidden answers — a personal death-risk projection, advising through a red-flag symptom, sleep restriction — are blocked here regardless of citations or grade. No retry: a floor is not a nudge.',
+    block: true,
+  },
+  {
+    n: '6',
+    title: 'The citation validator',
+    desc: 'Every interpretive sentence must carry a [note_id] that resolves in the manifest, hedged to that note’s grade, with personal findings kept distinct from research.',
+    block: true,
+  },
+  {
+    n: '7',
+    title: 'Honest fallback',
+    desc: 'On a second validation failure the answer is replaced with “I can’t ground that in our evidence base.” Unvalidated text never reaches you.',
+    block: false,
+  },
+];
+---
+
+<Section
+  n="03"
+  id="pipeline"
+  labelledby="pipeline-h"
+  note="The pre-classifier guards the question; the guardrail guards the answer. A benign question can still produce a forbidden answer."
+>
+  <p class="eyebrow rise">How it can&rsquo;t lie</p>
+  <h2 id="pipeline-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
+    Seven stages stand between the model and your screen.
+  </h2>
+  <p class="lede rise mt-6 max-w-2xl">
+    Every LLM surface passes the same sequence.<sup class="ref"
+      ><a href="#ref-9" aria-label="reference 9">9</a></sup
+    > The two that can stop an answer cold are blocking — and one of them runs
+    <em>before</em> the citation check, on purpose.
+  </p>
+
+  <div class="rise mt-10 max-w-3xl">
+    <div class="surface overflow-hidden px-5 sm:px-7">
+      <ol class="pipe">
+        {
+          steps.map((s) => (
+            <li class:list={['pipe-step', s.block && 'pipe-block']}>
+              <span class="pipe-num">{s.n}</span>
+              <div>
+                <p class="pipe-title">{s.title}</p>
+                <p class="pipe-desc">{s.desc}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+
+    <p class="mono mt-5 text-xs leading-relaxed text-ink-faint">
+      The coach isn&rsquo;t routed through this box &mdash; it re-runs the same blocking checks
+      itself, <span class="text-ink">enforced-equivalent</span>, so nothing conversational escapes
+      them. A new stage has to be added in both places, and a test pins that it is.
+    </p>
+  </div>
+</Section>

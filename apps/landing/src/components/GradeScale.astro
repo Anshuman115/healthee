@@ -1,0 +1,72 @@
+---
+import Section from './Section.astro';
+// The five evidence grades and the tone each one is HELD to by the validator.
+// Grades + calibration per CLAUDE.md, INTELLIGENCE.md §3, ENGINEERING_STANDARDS §4.
+// Example note ids (vo2max_fitness_mortality, sleep_regularity_index,
+// illness_flag_plan, no_validated_sleep_score, sleep_need_debt) are real corpus ids.
+const grades = [
+  {
+    name: 'Established',
+    tone: 'stated plainly',
+    eg: 'Higher cardiorespiratory fitness tracks with lower all-cause mortality.',
+    cite: '[vo2max_fitness_mortality]',
+  },
+  {
+    name: 'Probable',
+    tone: 'lightly hedged',
+    eg: 'More regular sleep timing usually supports better next-day recovery.',
+    cite: '[sleep_regularity_index]',
+  },
+  {
+    name: 'Emerging',
+    tone: 'uncertainty flagged',
+    eg: 'Early evidence links overnight skin-temperature shifts to the onset of illness.',
+    cite: '[illness_flag_plan]',
+  },
+  {
+    name: 'Contested',
+    tone: '“the science is mixed”',
+    eg: 'Whether any single “sleep score” is meaningful is genuinely debated — the science is mixed.',
+    cite: '[no_validated_sleep_score]',
+  },
+  {
+    name: 'Myth',
+    tone: 'corrected gently',
+    eg: '“You can train your body to need only five hours” — not supported; sleep need is largely fixed.',
+    cite: '[sleep_need_debt]',
+  },
+];
+---
+
+<Section
+  n="05"
+  id="grades"
+  labelledby="grades-h"
+  note="The hedge is not a style choice. The validator checks it against the cited note’s grade."
+>
+  <p class="eyebrow rise">Calibrated language</p>
+  <h2 id="grades-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
+    Certainty is rationed to the evidence behind it.
+  </h2>
+  <p class="lede rise mt-6 max-w-2xl">
+    Each note carries a grade, and each grade enforces a tone. Overclaiming an
+    <span class="italic">Emerging</span> finding as settled fact fails the check, same as a missing
+    citation would.<sup class="ref"><a href="#ref-9" aria-label="reference 9">9</a></sup>
+  </p>
+
+  <div class="rise mt-10 max-w-3xl">
+    {
+      grades.map((g) => (
+        <div class="grade-row">
+          <div>
+            <span class="grade-name">{g.name}</span>
+            <span class="grade-tone">{g.tone}</span>
+          </div>
+          <p class="grade-eg">
+            {g.eg} <span class="cite">{g.cite}</span>
+          </p>
+        </div>
+      ))
+    }
+  </div>
+</Section>

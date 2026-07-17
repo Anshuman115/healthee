@@ -1,0 +1,87 @@
+---
+import Section from './Section.astro';
+// One metric card, annotated part by part — the standardized card anatomy from
+// INTELLIGENCE.md §1: value, personal baseline band, trend, confidence
+// (coverage / freshness / origin), a grounded "why" citing a note id, and ⓘ that
+// opens the research note itself. hrv_recovery_marker is a real corpus note id.
+const legend = [
+  { n: '1', label: 'The value', body: 'The number, in mono with tabular figures. Nothing else on the card competes with it.' },
+  { n: '2', label: 'Your baseline band', body: 'Read against your own rolling normal (median ± MAD), not a population chart. “Good” is relative to you.' },
+  { n: '3', label: 'The trend', body: 'Which way it’s moving, and how far — a direction, not a verdict from one night.' },
+  { n: '4', label: 'The confidence chip', body: 'Coverage, freshness, and origin — the three things that decide how much weight the number can bear.' },
+  { n: '5', label: 'The grounded “why” + ⓘ', body: 'One line, citing a research note. Tap ⓘ and the note itself opens — the same source, never card copy that can drift from it.' },
+];
+---
+
+<Section
+  n="06"
+  id="anatomy"
+  labelledby="anatomy-h"
+  note="One source of truth: the ⓘ sheet renders the research note, so no hardcoded copy can drift from the evidence."
+>
+  <p class="eyebrow rise">Anatomy of a metric card</p>
+  <h2 id="anatomy-h" class="rise mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.9rem)]">
+    Every number arrives with the context to judge it.
+  </h2>
+
+  <div class="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14">
+    <!-- the annotated card -->
+    <figure
+      class="surface rise self-start p-6 sm:p-7"
+      aria-label="Rendered example: an annotated overnight-HRV metric card"
+    >
+      <figcaption class="flex items-center justify-between gap-2">
+        <span class="mono text-[0.66rem] uppercase tracking-[0.16em] text-ink-faint">
+          Overnight HRV &middot; RMSSD
+        </span>
+        <span aria-hidden="true" class="grid h-5 w-5 place-items-center rounded-full border border-line-strong text-[0.7rem] text-ink-faint">
+          i
+        </span>
+      </figcaption>
+
+      <hr class="hairline my-5" />
+
+      <div class="flex items-baseline gap-2">
+        <span class="mono text-5xl tracking-tight">48<span class="anno-mark ml-1 align-super">1</span></span>
+        <span class="mono text-sm text-ink-faint">ms</span>
+        <span class="mono ml-auto self-end text-xs text-accent-soft">
+          &uarr; +4 vs last week <span class="anno-mark align-super">3</span>
+        </span>
+      </div>
+
+      <p class="mono mt-3 text-sm text-ink-soft">
+        vs your normal 44&nbsp;&plusmn;&nbsp;7 <span class="anno-mark align-super">2</span>
+      </p>
+
+      <div class="mt-5 flex flex-wrap items-center gap-2">
+        <span class="chip chip-dot">confidence: fair <span class="anno-mark align-super">4</span></span>
+        <span class="chip">coverage&nbsp;&middot;&nbsp;6.1h / 7.4h</span>
+        <span class="chip">origin&nbsp;&middot;&nbsp;sensor</span>
+      </div>
+
+      <hr class="hairline my-5" />
+
+      <p class="text-[0.92rem] leading-relaxed text-ink-soft">
+        Slightly above your baseline and trending up &mdash; consistent with good recovery this week
+        <span class="cite">[hrv_recovery_marker]</span>. <span class="anno-mark align-super">5</span>
+      </p>
+    </figure>
+
+    <!-- the legend -->
+    <div class="rise self-center">
+      <p class="eyebrow">Read the card</p>
+      <div class="anno-legend mt-5">
+        {
+          legend.map((item) => (
+            <div class="anno-item">
+              <span class="anno-mark">{item.n}</span>
+              <p class="text-[0.95rem] leading-relaxed text-ink-soft">
+                <span class="font-medium text-ink">{item.label}.</span> {item.body}
+              </p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</Section>
