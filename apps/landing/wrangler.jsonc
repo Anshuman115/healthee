@@ -1,0 +1,15 @@
+// Cloudflare deploy config — the landing page ships as a Workers static-assets
+// site (the successor to Pages): `npm run deploy` builds and uploads dist/.
+// Requires a logged-in wrangler (`npx wrangler login`) or CLOUDFLARE_API_TOKEN.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "healthee-landing",
+  "compatibility_date": "2026-07-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+  // Custom domain — uncomment once you pick the hostname (the zone must be on
+  // this Cloudflare account; wrangler creates the DNS record on deploy):
+  // "routes": [{ "pattern": "healthee.afk.codes", "custom_domain": true }]
+}

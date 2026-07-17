@@ -1,0 +1,28 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+const title = 'Page not found — Healthee';
+const description = 'This page does not exist. Healthee tells you that plainly.';
+---
+
+<Base title={title} description={description}>
+  <Nav />
+  <main id="main">
+    <section class="section">
+      <div class="shell flex min-h-[55vh] flex-col items-start justify-center">
+        <p class="eyebrow">404 · not found</p>
+        <h1 class="mt-5 max-w-2xl text-[clamp(2.2rem,5vw,3.6rem)]">
+          This page doesn&rsquo;t exist. We won&rsquo;t pretend it does.
+        </h1>
+        <p class="lede mt-6 max-w-xl">
+          The honest answer here is the same one the product gives: nothing to show. The
+          real page is one click away.
+        </p>
+        <a href="/" class="btn btn-primary mt-9">Back to the page that exists</a>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
