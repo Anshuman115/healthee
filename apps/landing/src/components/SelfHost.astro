@@ -1,0 +1,58 @@
+---
+// The honest conversion surface. The Flutter app is NOT shipped, so there is no
+// download button and no waitlist form posting into a void. What is real today is
+// the self-hostable backend — so that is the call to action, plainly labelled.
+---
+
+<section id="self-host" class="scroll-mt-20 border-t border-line py-20 md:py-28">
+  <div class="shell grid gap-12 lg:grid-cols-[1fr_1fr] lg:gap-16">
+    <div>
+      <p class="eyebrow rise">Get started</p>
+      <h2 class="rise mt-4 text-[clamp(1.9rem,4vw,2.9rem)]">
+        There&rsquo;s no app to download yet &mdash; and we won&rsquo;t pretend otherwise.
+      </h2>
+      <p class="rise mt-6 text-lg text-ink-soft">
+        The backend is complete, deployed, and multi-tenant. The mobile app is the next phase, and
+        until it ships, public sign-ups stay closed. What you <em>can</em> do today is run the whole
+        thing yourself.
+      </p>
+      <p class="rise mt-5 text-[0.95rem] leading-relaxed text-ink-faint">
+        Healthee is designed to run on a single small VPS. The database is never exposed to the
+        internet; the API is reachable only through nginx over TLS; a nightly off-box backup is one
+        command. You keep every byte.
+      </p>
+    </div>
+
+    <div class="rise">
+      <figure class="surface overflow-hidden" aria-label="Self-hosting: clone, configure, bring up the stack">
+        <figcaption
+          class="flex items-center gap-2 border-b border-line px-4 py-3 text-ink-faint"
+        >
+          <span aria-hidden="true" class="flex gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-full bg-line-strong"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-line-strong"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-line-strong"></span>
+          </span>
+          <span class="mono ml-2 text-xs">self-host &middot; single VPS</span>
+        </figcaption>
+        <div class="overflow-x-auto">
+          <pre class="mono px-5 py-5 text-[0.82rem] leading-relaxed text-ink-soft"><code><span class="text-ink-faint"># clone your fork and configure secrets</span>
+git clone <span class="text-accent-soft">&lt;your-fork&gt;</span> ~/healthee &amp;&amp; cd ~/healthee
+cp infra/.env.example infra/.env
+
+<span class="text-ink-faint"># bring up the stack — Postgres/TimescaleDB stays internal-only</span>
+docker compose -f infra/docker/docker-compose.prod.yml up -d db
+docker compose run --rm api python -m healthee.db.migrate
+docker compose -f infra/docker/docker-compose.prod.yml up -d api scheduler
+
+<span class="text-ink-faint"># verify</span>
+curl -fsS http://127.0.0.1:8765/healthz   <span class="text-accent-soft">→ &#123;"status":"ok","db":"ok"&#125;</span></code></pre>
+        </div>
+      </figure>
+      <p class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-soft">
+        <span class="mono text-ink-faint">Next:</span>
+        <span>Follow the build. When sign-ups open, this is where they&rsquo;ll open.</span>
+      </p>
+    </div>
+  </div>
+</section>

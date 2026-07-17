@@ -1,0 +1,163 @@
+---
+// Tier split from PRICING.md §1a (authoritative) — lead with FREE, because
+// "we don't paywall your own data" is the wedge. Prices from §0. Planned features
+// stay marked as planned. Competitor prices/sources from §2 (current 2026-07).
+const free = [
+  'Every metric, chart & trend — with full history',
+  'Personal baselines + anomaly flags (“vs your normal”)',
+  'Recovery score, live readiness & honest guidance',
+  'Illness early-warning flag (safety-critical, always free)',
+  'Data-health & confidence chips on every number',
+  'Manual logging, workouts & GPS routes',
+  'The research notes — read the evidence yourself',
+  'Data export — own-your-data, no lock-in',
+  'Personal findings, shown as plain statistics',
+  'A weekly taste of premium: 1 coach question + 1 daily action / 7 days',
+];
+
+const premium = [
+  'The grounded AI coach — unlimited (fair-use)',
+  'Daily action line, every day',
+  'Daily recommendations (1–3, cite-or-drop)',
+  'AI insight cards — sleep · activity · metric · workout',
+  'The notable-shift feed',
+  'The coach that explains & acts on your personal findings',
+];
+
+const planned = [
+  'Challenges & programs — adopt, track, outcome ledger',
+  'Coach-companion — memory · proactive nudges · goals (Phase 5)',
+];
+
+const plans = [
+  { name: 'Monthly', price: '$3.99', unit: '/ month', note: 'Cancel anytime.', feature: false },
+  {
+    name: 'Annual',
+    price: '$34.99',
+    unit: '/ year',
+    note: '≈ $2.92 / mo — the one to pick.',
+    feature: true,
+  },
+  { name: 'Lifetime', price: '$99', unit: 'once', note: 'Own-it. Founder offer.', feature: false },
+];
+---
+
+<section id="pricing" class="scroll-mt-20 py-20 md:py-28">
+  <div class="shell">
+    <div class="max-w-2xl">
+      <p class="eyebrow rise">Pricing</p>
+      <h2 class="rise mt-4 text-[clamp(1.9rem,4vw,2.9rem)]">
+        The whole tracker is free. You pay only for the intelligence.
+      </h2>
+      <p class="rise mt-6 text-lg text-ink-soft">
+        Free is the numbers and the evidence. Premium is the interpretation, the coach, and the
+        guidance. We never paywall your data, and we never paywall safety.
+      </p>
+    </div>
+
+    <!-- Free vs Premium -->
+    <div class="mt-14 grid gap-6 lg:grid-cols-2">
+      <div class="surface rise p-7 sm:p-8">
+        <div class="flex items-center justify-between">
+          <h3 class="font-serif text-2xl">Free, forever</h3>
+          <span class="chip chip-accent chip-dot">the honest tracker</span>
+        </div>
+        <ul class="mt-6 space-y-3">
+          {
+            free.map((f) => (
+              <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+                <span aria-hidden="true" class="mono mt-0.5 shrink-0 text-accent-soft">✓</span>
+                <span>{f}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <div class="surface rise p-7 sm:p-8">
+        <div class="flex items-center justify-between">
+          <h3 class="font-serif text-2xl">Premium &mdash; the AI layer</h3>
+          <span class="chip chip-dot">optional</span>
+        </div>
+        <ul class="mt-6 space-y-3">
+          {
+            premium.map((p) => (
+              <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+                <span aria-hidden="true" class="mono mt-0.5 shrink-0 text-accent-soft">✦</span>
+                <span>{p}</span>
+              </li>
+            ))
+          }
+        </ul>
+
+        <hr class="hairline my-6" />
+        <p class="eyebrow">Planned, not yet built</p>
+        <ul class="mt-4 space-y-2.5">
+          {
+            planned.map((p) => (
+              <li class="flex gap-3 text-sm leading-relaxed text-ink-faint">
+                <span aria-hidden="true" class="mono mt-0.5 shrink-0">○</span>
+                <span>{p}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+
+    <!-- price cards -->
+    <div class="mt-6 grid gap-6 sm:grid-cols-3">
+      {
+        plans.map((plan) => (
+          <div
+            class:list={[
+              'surface rise flex flex-col p-6',
+              plan.feature && 'ring-1 ring-accent/60',
+            ]}
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-medium">{plan.name}</span>
+              {plan.feature && <span class="chip chip-accent">best value</span>}
+            </div>
+            <div class="mt-4 flex items-baseline gap-1.5">
+              <span class="mono text-3xl tracking-tight">{plan.price}</span>
+              <span class="mono text-sm text-ink-faint">{plan.unit}</span>
+            </div>
+            <p class="mt-3 text-sm text-ink-soft">{plan.note}</p>
+          </div>
+        ))
+      }
+    </div>
+    <p class="rise mono mt-4 text-xs text-ink-faint">
+      14-day free trial. The lifetime unlock is a time-limited founder offer, not a permanent SKU.
+    </p>
+
+    <!-- honest comparison, sourced -->
+    <div class="rise mt-12 border-t border-line pt-8">
+      <p class="max-w-2xl text-[0.95rem] leading-relaxed text-ink-soft">
+        For context, the closest subscription trackers: <strong class="font-medium text-ink"
+          >Whoop</strong
+        > is a subscription with a wearable attached &mdash; $199&ndash;359 / year, and you can&rsquo;t
+        see your data without it. <strong class="font-medium text-ink">Oura</strong> pairs a $349+
+        ring with a $69.99 / year membership for its insights. Our whole pitch is the inverse:
+        <span class="text-ink">$35 a year versus Whoop&rsquo;s $199</span>, on hardware that
+        doesn&rsquo;t hold your data hostage.
+      </p>
+      <p class="mono mt-4 text-xs text-ink-faint">
+        Competitor prices current as of 2026-07. Sources:
+        <a
+          class="link-underline"
+          href="https://www.whoop.com/us/en/membership/"
+          rel="noopener noreferrer nofollow"
+          target="_blank">whoop.com/membership</a
+        >,
+        <a
+          class="link-underline"
+          href="https://ouraring.com/membership"
+          rel="noopener noreferrer nofollow"
+          target="_blank">ouraring.com/membership</a
+        >. We characterise only these two, only from their own published pricing.
+      </p>
+    </div>
+  </div>
+</section>
