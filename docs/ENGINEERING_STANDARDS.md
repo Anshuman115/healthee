@@ -133,17 +133,20 @@ review exactly like a failing test.
 ### Layout
 ```
 apps/server/src/healthee/
-  core/        config (pydantic-settings ONLY), db (the one pool), auth, notify, logging
+  core/        config (pydantic-settings ONLY), db (the one pool + tenant_transaction),
+               request_auth (transitional dual auth), supabase_auth (JWT verify +
+               device tokens), tenancy (active_users, the sentinel), knowledge
+               (corpus loader, cached, + manifest), notify, logging
   ingest/      payload validation + upserts
   derive/      science layer — pure functions over the sample window
   analytics/   baselines, correlations, anomalies, cutoffs, bio-age
-  insights/    llm client, grounded ask (the ONE choke point), validator,
-               context, recs, challenges, coach tools
-  knowledge/   corpus loader (cached), grading, manifest
+  read/        per-endpoint read services (canonical-table reads)
+  insights/    llm client, grounded ask (the choke point), validator, output_guard
+               (hard guardrails), refusals, retrieval, context, coach + coach tools
   api/         app.py (wiring only) + routers/ (thin HTTP layer)
-  jobs/        scheduler + supervised chains
-  db/          schema + numbered migrations
-tests/         unit + seeded-DB integration + contract tests
+  jobs/        scheduler (per-owner tick) + supervised chain + correlate/recs/briefing
+  db/          schema + numbered migrations + runner + one-off ops modules
+tests/         unit + seeded-DB integration + contract tests + db/ (tenancy guards)
 ```
 
 ### Rules
@@ -151,11 +154,29 @@ tests/         unit + seeded-DB integration + contract tests
   shape response. Zero business logic, zero SQL in routers.
 - **DB access only via `core/db`** (one psycopg_pool, one transaction
   convention: context-managed, commit-on-exit). No module-local `_connect()`.
+- **Tenant data only via `tenant_transaction(user_id)`** (or its connection-scoped
+  form) — it is the ONE way tenant rows become visible to the app role, because it
+  sets the `healthee.user_id` GUC that RLS keys on. A tenant read on plain
+  `transaction()` returns **zero rows and raises nothing**: failing closed is right,
+  but it means a missed call site shows a user "no data" rather than erroring. The
+  suite runs as the least-privilege role so that mistake fails a test.
+  `migrate`/`provision_app_role`/`claim_sentinel`/`seed.reset` use
+  `admin_connection()` deliberately.
+- **Every tenant query carries `AND user_id = %s` anyway.** RLS is the backstop,
+  not the filter — the explicit predicate is clarity + index use, and
+  `tests/db/test_tenant_read_scoping.py` (an AST guard) fails the build without it.
 - **SQL is always parameterized** (`%s`). F-string interpolation into SQL only
   from hardcoded constant dicts, and each such site carries a comment saying so.
 - **LLM access only via the grounded-ask choke point** in `insights/` —
-  citation validation, refusal domains, and confidence tagging happen there,
-  not per-endpoint.
+  citation validation, refusal domains, hard output guardrails, and confidence
+  tagging happen there, not per-endpoint. **The one standing exception is
+  `insights/coach.py`**, which needs its own tool-calling loop and therefore
+  calls the choke point's *primitives* directly (`classify_refusal`,
+  `check_output`, `validate`) rather than `grounded_ask`. It is
+  enforced-equivalent, not routed-through, and the rule that follows from that is
+  binding: **a new choke-point stage MUST be mirrored into the coach in the same
+  PR, with a test pinning it** (see `tests/insights/test_output_guard.py`).
+  No *other* module may talk to the LLM directly.
 - **Type hints on all public functions.** API request/response bodies are
   pydantic models, not raw dicts.
 - **No import-time side effects**, no `__import__` reflection, no
@@ -228,7 +249,12 @@ test/          parser goldens + analytics parity + widget smoke tests
   variation, limits of the metric.
 - **Directives blocks**: each note ends with machine-applicable rules; the
   safety-critical ones are mirrored as hard guardrails in server code and can
-  never be overridden by the LLM.
+  never be overridden by the LLM. *Status: the enforcement half is live
+  (`insights/output_guard.py` — blocking regardless of citations or validation);
+  the compilation half is not. No note carries a `safety_critical` flag and the
+  manifest emits no `directives`, so today's rules are hand-compiled and each
+  cites the doc line that forbids it. `output_rules()` is the seam. A new
+  guardrail still MUST have a documented origin — that part is binding now.*
 - A generated typed manifest makes the corpus retrievable (id, name, aliases,
   category, grade) — the index is generated, never hand-edited.
 
