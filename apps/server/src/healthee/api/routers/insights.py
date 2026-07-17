@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from healthee.api.validation import require_known_metric
 from healthee.core.request_auth import CurrentUser
 from healthee.insights import surfaces
 from healthee.insights.notable import notable
@@ -34,6 +35,7 @@ def get_metric_insight(
     user: CurrentUser, metric: str, label: str = "", refresh: bool = False
 ) -> dict:
     """Grounded per-metric interpretation; empty text when data is too thin."""
+    require_known_metric(metric)
     return surfaces.metric_insight(user.id, user.timezone, metric, label, refresh=refresh)
 
 

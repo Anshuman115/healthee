@@ -4,8 +4,11 @@ Both v2-native. ``history`` serves a daily series from ``derived_daily``; ``prof
 reads ``profile`` + the latest ``weight_log`` row.
 
 Naming seam: ``history`` reads ``derived_daily`` by the metric name as given. The
-installed app maps its history requests onto v2 metric names as part of the Phase-2
-mobile rebuild; a v1-only name returns an empty series rather than an error.
+v2 app sends canonical v2 metric names (``analytics.metrics.KNOWN_METRICS``); the
+router rejects any other name with 422 upstream
+(``api.validation.require_known_metric``) — an unknown metric must not read as an
+empty result. Retired v1 names (e.g. ``hrv_sleep_avg_ms``) are not accepted: the
+canonical name is ``hrv_sleep_avg``.
 """
 
 from __future__ import annotations

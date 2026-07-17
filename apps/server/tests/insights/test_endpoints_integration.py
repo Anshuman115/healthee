@@ -87,6 +87,24 @@ def test_metric_insight_returns_text(db: None, stub: StubLLM) -> None:  # noqa: 
     assert stub.calls == 1
 
 
+def test_metric_insight_rejects_unknown_metric(db: None, stub: StubLLM) -> None:  # noqa: ARG001
+    _seed()
+    api = TestClient(create_app())
+    resp = api.get("/api/metric/insight", params={"metric": "bogus"}, headers=_AUTH)
+    assert resp.status_code == 422
+    assert stub.calls == 0  # rejected before any LLM work
+
+
+def test_metric_insight_rejects_retired_v1_name(db: None, stub: StubLLM) -> None:  # noqa: ARG001
+    # Not backward-compatible with the v1 app: the canonical name is hrv_sleep_avg.
+    # The retired v1 alias is unknown → 422, before any LLM work.
+    _seed()
+    api = TestClient(create_app())
+    resp = api.get("/api/metric/insight", params={"metric": "hrv_sleep_avg_ms"}, headers=_AUTH)
+    assert resp.status_code == 422
+    assert stub.calls == 0
+
+
 def test_notable_returns_items(db: None, stub: StubLLM) -> None:  # noqa: ARG001
     migrate.apply_migrations()
     days = sd.recent_days(30)
