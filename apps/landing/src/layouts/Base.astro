@@ -34,10 +34,11 @@ const favicon =
         var root = document.documentElement;
         try {
           var stored = localStorage.getItem('healthee-theme');
-          // Light is the default; dark only when the visitor chose it.
-          if (stored === 'dark') root.classList.add('dark');
+          // DARK is the default; light only when the visitor chose it.
+          if (stored !== 'light') root.classList.add('dark');
         } catch (e) {
-          /* localStorage unavailable — fall back to prefers-color-scheme via media query default */
+          /* localStorage unavailable — stay on the dark default */
+          root.classList.add('dark');
         }
         if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
           root.classList.add('js-anim');

@@ -167,9 +167,10 @@ Motion only clarifies; nothing loops or decorates.
 
 ## 8. Theming mechanics
 
-- Manual dark mode via a `.dark` class on `<html>` (Tailwind v4 `@custom-variant
+- Manual theming via a `.dark` class on `<html>` (Tailwind v4 `@custom-variant
   dark`), seeded **pre-paint** by the inline head script: `localStorage` only —
-  **light is the default; the OS preference is not followed**. No flash.
+  **DARK is the default (owner decision 2026-07-17); light only when the visitor
+  chose it via the toggle; the OS preference is not followed**. No flash.
 - The nav toggle writes `localStorage` and flips the class; `aria-pressed` reflects
   state; `meta name="color-scheme" content="light dark"` is set.
 - New components style both modes through the tokens — raw hex breaks dark mode.
