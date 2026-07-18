@@ -1,13 +1,26 @@
-// Cloudflare deploy config — the landing page ships as a Workers static-assets
-// site (the successor to Pages): `npm run deploy` builds and uploads dist/.
+// Cloudflare deploy config — the landing ships as a Worker: static assets are
+// served by the platform first; non-asset routes (POST /api/waitlist) fall
+// through to the Hono app in src/worker.ts. `npm run deploy` builds + uploads.
 // Requires a logged-in wrangler (`npx wrangler login`) or CLOUDFLARE_API_TOKEN.
+//
+// One-time setup for the waitlist:
+//   1. Run waitlist.sql once in the Supabase SQL editor.
+//   2. npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY   (paste the key)
+// Local dev: put SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in .dev.vars
+// (gitignored) and `npx wrangler dev`.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "healthee-landing",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-07-01",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "404-page"
+  },
+  "vars": {
+    // Not a secret — it's the project ref that's already in every Supabase URL.
+    "SUPABASE_URL": "https://jfqcekxcasebmwkwicqj.supabase.co"
   }
   // Custom domain — uncomment once you pick the hostname (the zone must be on
   // this Cloudflare account; wrangler creates the DNS record on deploy):

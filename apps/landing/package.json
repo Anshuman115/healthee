@@ -12,7 +12,8 @@
     "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
-    "astro": "^7.1.0"
+    "astro": "^7.1.0",
+    "hono": "^4.12.30"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

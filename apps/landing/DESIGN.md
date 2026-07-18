@@ -17,9 +17,12 @@ block are the ground truth for every claim).
 
 - **Claim only what is built.** README's status block is the source of truth. The
   mobile app is unshipped ⇒ no app-store buttons, no device shots, no "download
-  now", no waitlist that posts nowhere. The conversion surfaces are the run-it-
-  yourself CTA and the "we run it, opens with the app" card — both honestly
-  labelled, agreeing with the status ribbon (sign-ups **closed**).
+  now". The conversion surfaces are the run-it-yourself CTA and the **real
+  waitlist** in the "we run it" card — a form that posts to this site's own
+  `/api/waitlist` (Hono in `src/worker.ts` → the Supabase project's Postgres;
+  see `waitlist.sql`). **Never a form that posts nowhere.** The waitlist promise
+  is exactly one line: we write when sign-ups open, nothing else, no newsletter.
+  Sign-ups themselves stay **closed** until the app ships (status ribbon agrees).
 - **Premium/unbuilt features stay visibly marked** ("Planned, not built yet" — the
   greyed `○` list in the coach card), never present tense.
 - **Competitors:** only Whoop and Oura, only their §2-cited prices, always with the
@@ -181,7 +184,9 @@ Motion only clarifies; nothing loops or decorates.
   images. The favicon is an inline SVG data-URI (the clay mark). A small Vite
   plugin in `astro.config.mjs` strips Tailwind's `/*! …tailwindcss.com */` legal
   banner from the emitted CSS, so the only `http(s)://` in `dist/` are the two
-  cited competitor sources and the `w3.org/2000/svg` namespace.
+  cited competitor sources and the `w3.org/2000/svg` namespace. The page makes
+  exactly ONE network call of its own: the same-origin waitlist POST (progressive
+  enhancement — the plain form works without JS via the Worker's HTML fallback).
 - **No horizontal scroll at any width:** `overflow-x: hidden` on body; wide content
   (the tool-trace) isolated in its own `overflow-x: auto` container.
 - **Accessibility:** semantic landmarks, skip link, `:focus-visible` rings,
