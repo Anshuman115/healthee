@@ -233,8 +233,11 @@ CREATE TABLE IF NOT EXISTS challenge (
   research_note_ids TEXT[],
   -- 0009: `expired` = the window ran out UNMET. Legacy called that "completed",
   -- which is the one thing a ledger must not do (CHALLENGES.md §2.3).
+  -- 0010: `locked` = a designed program rung nobody has reached yet. It is a status
+  -- rather than a flag so `lifecycle.adopt`'s "must be suggested" rule already
+  -- refuses to snap rung 3 out of a ladder and run it on its own.
   status            TEXT NOT NULL DEFAULT 'suggested'
-                      CHECK (status IN ('suggested', 'active', 'completed',
+                      CHECK (status IN ('locked', 'suggested', 'active', 'completed',
                                         'expired', 'abandoned')),
   adopted_at        TIMESTAMPTZ,
   ends_at           TIMESTAMPTZ,
@@ -243,14 +246,24 @@ CREATE TABLE IF NOT EXISTS challenge (
   baseline_value    DOUBLE PRECISION,   -- frozen at adopt — the before/after anchor
   program_id        BIGINT,
   rung_index        INTEGER,
+  -- 0010: a `deload` rung is INSERTED after one timed out unmet, at an eased target.
+  -- Never a repeat of the failed row — `challenge_outcome` is keyed on challenge_id
+  -- and written DO NOTHING, so a second attempt on one row cannot be recorded.
+  kind              TEXT NOT NULL DEFAULT 'standard'
+                      CHECK (kind IN ('standard', 'deload')),
   user_id           UUID    NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                       REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS challenge_status_idx ON challenge (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS challenge_user_idx ON challenge (user_id, status);
+CREATE INDEX IF NOT EXISTS challenge_program_rung_idx
+  ON challenge (user_id, program_id, rung_index);
 
 -- ── program ───────────────────────────────────────────────────────────────
--- Multi-week ladder of challenge "rungs" toward a goal; auto-advances on completion.
+-- Multi-week ladder of challenge "rungs" toward a goal (CHALLENGES.md §2.3).
+-- Advancement is deterministic and recovery-aware: a rung that times out unmet is
+-- recorded `expired`, never completed, and the ladder deloads or gives up rather
+-- than pushing the owner up a staircase they are falling off.
 CREATE TABLE IF NOT EXISTS program (
   id            BIGSERIAL PRIMARY KEY,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -260,10 +273,18 @@ CREATE TABLE IF NOT EXISTS program (
   goal_metric   TEXT,
   category      TEXT,
   weeks         INTEGER,
-  status        TEXT NOT NULL DEFAULT 'suggested',
-  current_rung  INTEGER NOT NULL DEFAULT 0,
+  -- 0010: `stalled` is the give-up condition — the ladder ran out of room to ease.
+  -- Deliberately not `abandoned`: the owner did not quit, the system stopped.
+  status        TEXT NOT NULL DEFAULT 'suggested'
+                  CHECK (status IN ('suggested', 'active', 'completed',
+                                    'stalled', 'abandoned')),
   adopted_at    TIMESTAMPTZ,
-  completed_at  TIMESTAMPTZ,
+  completed_at  TIMESTAMPTZ,       -- `completed` only, mirroring challenge
+  ended_at      TIMESTAMPTZ,       -- 0010: any terminal state
+  ended_reason  TEXT,              -- 0010: why a stalled/abandoned ladder ended
+  hold_reason   TEXT,              -- 0010: transient — why the next rung is paused
+  -- `current_rung` was DROPPED in 0010: the rung rows already say where the owner
+  -- is, and a pointer maintained beside them is a second definition that can drift.
   user_id       UUID    NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                   REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
