@@ -6,12 +6,15 @@
 > lines) — we port its proven core and fix its known flaws against the rebuild's
 > honesty contract, multi-tenancy, and engineering standards.
 >
-> **Status (2026-07-31):** WP-C1 and WP-C2 have shipped. The deterministic engine,
-> the `suggested → active → completed | expired | abandoned` lifecycle, the
-> confound-aware outcome ledger (migration `0009`) and the five endpoints are live and
-> owner-scoped; generation (WP-C3), programs (WP-C4) and the coach tools (WP-C5) are
-> not. **Premium gating (6.6) is still NOT built** — the endpoints are reachable by any
-> authenticated owner, exactly like every other AI surface today (MULTI_USER.md §12).
+> **Status (2026-07-31):** WP-C1, WP-C2, WP-C3(+C3c) and **WP-C5** have shipped. The
+> deterministic engine, the `suggested → active → completed | expired | abandoned`
+> lifecycle, the confound-aware outcome ledger (migration `0009`), the five endpoints,
+> grounded generation with both gates, and the coach's two challenge tools + the ledger
+> as personal evidence are live and owner-scoped; the refresh endpoint (WP-C3b),
+> programs (WP-C4) and the app surfaces (WP-C6) are not. **Premium gating (6.6) is
+> still NOT built** — every one of these, the coach tools included, is reachable by any
+> authenticated owner exactly like every other AI surface today (MULTI_USER.md §12),
+> while PRICING §1a makes the whole system premium. Noted, not faked.
 > Sequenced independent of Phase 2 mobile — buildable and testable headless.
 
 ---
@@ -540,7 +543,38 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
   complete and tested headless; the HTTP surface is a separate concern that also carries
   the 6.6 gate when it lands.
 - ⬜ **WP-C4** programs + deload/failure/recalibration
-- ⬜ **WP-C5** coach: adopt tool + outcome ledger → `[personal_finding:...]` (COACH_ROADMAP C2)
+- ✅ **WP-C5** coach: `adopt_challenge` + `create_challenge` + the outcome ledger as
+  `[personal_finding:challenge_outcome]` (COACH_ROADMAP C2).
+  `create_challenge` **calls `generate.generate_challenges(intent=…)`** rather than
+  authoring anything itself — the seam is the discharge of INTELLIGENCE §4's mirror
+  rule, and a test asserts the CALL so a fork fails CI instead of quietly shipping a
+  second set of gates. The seam needed one addition to be sufficient: **`replace_feed`**,
+  because a refresh replaces the suggestion feed and a chat turn must not silently
+  delete the menu somebody is looking at; with the feed kept, the duplicate check
+  widens to suggested metrics too.
+  **Three things worth knowing:**
+  - **Ambiguity refuses.** Legacy adopted "by title match" and took the first hit.
+    Resolution is now tiered (exact title → metric key → containment) and a tie
+    *within* the winning tier is refused with the candidates named — a challenge
+    somebody did not choose, reported as one they did, is the exact failure this
+    product exists to avoid.
+  - **The anti-hallucination guard became per-tool** (`coach._CLAIM_TOOLS`). With
+    `log_entry` as the only action tool, "did any action tool return ok" was the same
+    question; with three, a logged coffee would otherwise have licensed "I started
+    your challenge".
+  - **A time-of-day intent is refused, specifically.** "No caffeine after 15:00" — the
+    natural challenge from a personal cutoff — has no predicate to bind to
+    (`metrics.py`), and the *degradation* is the danger: as a daily cap it scores three
+    morning coffees as a failure and one 23:00 coffee as a pass. The tool refuses
+    before a model is asked, and says why. **Building the predicate is the next WP.**
+- ⚠ **`adopt` does not check for a duplicate ACTIVE metric.** Generation dedupes
+  (`screen`, `_persist`), and `lifecycle.adopt` checks status, cadence and the cap —
+  but not whether the owner is already running a challenge on that metric. Two
+  suggestions on one metric therefore *can* both be adopted, and §2.1's own argument
+  against that ("the same commitment scored twice; two before/afters over one
+  behaviour change") applies. Pre-existing, not introduced by WP-C5, and reachable
+  today only by seeding or adopting two same-metric suggestions in sequence. Its fix
+  belongs in `lifecycle.adopt`, with the ledger consequences tested.
 - ⬜ **WP-C6** Actions + Insights tabs (Phase 2) + premium states
 - ⬜ **6.6** premium gating threaded through
 

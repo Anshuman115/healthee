@@ -110,21 +110,28 @@ question/task
 
 ## 4 · Coach loop v2
 
-- **Tools** (all return real JSON the model must echo, never guess) — the five in
+- **Tools** (all return real JSON the model must echo, never guess) — the seven in
   `COACH_TOOLS` today: `query_metric` (v2-native reads), `compare_event` (keeps
   its honest "observational, single-subject — a hint, not proof" framing),
-  `sleep_consistency`, `log_entry` (the only write), and
+  `sleep_consistency`, `log_entry` (a write),
   **`get_knowledge(topic|note_id)`** so the model pulls specific notes
-  mid-conversation instead of upfront context stuffing.
-  **`adopt_challenge` is DEFERRED and intentionally absent** — the challenges
-  subsystem is a later WP, and a tool that can't really adopt anything would be
-  the exact hallucination the next bullet forbids. (The legacy five were
-  `query_metric`, `compare_event`, `log_entry`, `adopt_challenge`,
-  `sleep_consistency`, §5.3 — the rebuild swapped `adopt_challenge` out and
-  `get_knowledge` in; the count coinciding at five is a coincidence.)
-- **Anti-hallucination stays absolute**: never claim logged/adopted/started
+  mid-conversation instead of upfront context stuffing, and — from **WP-C5** —
+  **`adopt_challenge`** and **`create_challenge`** (`insights/challenge_tools.py`,
+  CHALLENGES.md §6/§6a). `adopt_challenge` was DEFERRED for exactly the reason
+  the next bullet gives: a tool that can't really adopt anything is the
+  hallucination the rule forbids, so it landed only once the subsystem existed.
+  `create_challenge` takes an **intent** and calls
+  `challenges.generate.generate_challenges(intent=…)` — it does NOT author a
+  target or fork a second pipeline, because Gate A and Gate B would then be two
+  things to keep in step, which is precisely what the mirror rule below warns
+  about. (The legacy five were `query_metric`, `compare_event`, `log_entry`,
+  `adopt_challenge`, `sleep_consistency`, §5.3.)
+- **Anti-hallucination stays absolute**: never claim logged/adopted/created/started
   unless the tool returned ok:true this turn; numbers only from tool results;
-  max tool rounds bounded with an honest failure message.
+  max tool rounds bounded with an honest failure message. WP-C5 made the guard
+  **per-tool** (`coach._CLAIM_TOOLS`): with one action tool, "did any action tool
+  succeed" was the same question, but with three a successful `log_entry` would
+  otherwise have licensed "I started your challenge".
 - **The coach is enforced-EQUIVALENT to §3, not routed THROUGH it** — and the
   difference is load-bearing. `insights/coach.py` does **not** call
   `grounded_ask`: it drives its own tool-calling loop and invokes the choke
@@ -146,10 +153,17 @@ question/task
   recovery/readiness block plus a wide (≥30-day) `build_context` — trends,
   baselines, anomalies, sleep sessions, the manual-entry log, and personal
   findings — so the coach reasons over history and routines, not a snapshot
-  (COACH_PROMPT.md). **Not present:** active/suggested challenges (the subsystem
-  doesn't exist — only its tables do) and the outcome ledger (Phase 5). When the
-  ledger lands it is measured personal evidence ("last time MVPA rose 20%, HRV
-  followed in 10 days"), cited as personal, never dressed as research.
+  (COACH_PROMPT.md). **WP-C5 added the third block**
+  (`insights/challenge_context.py`): their active + suggested challenges (with the
+  ids `adopt_challenge` takes) and the **frozen outcome ledger** — measured personal
+  evidence ("last time MVPA rose 20%, HRV followed in 10 days"), cited as
+  `[personal_finding:challenge_outcome]`, never dressed as research. The ledger's
+  caveats are enforced by **what is in the prompt**, not by asking: an
+  `insufficient_data` outcome is listed with **no numbers at all** (there is nothing
+  to quote), and a `co_occurring` cross-metric delta is **never rendered**
+  (CHALLENGES.md §2.1 — a number you hand over is a number that can be attributed).
+  *Still not present:* live progress, which `query_metric` can fetch and which the
+  coach may never adapt anyway (CHALLENGES.md §5.2).
 
 ---
 
