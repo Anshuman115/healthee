@@ -6,7 +6,8 @@
 > lines) — we port its proven core and fix its known flaws against the rebuild's
 > honesty contract, multi-tenancy, and engineering standards.
 >
-> **Status (2026-07-31):** WP-C1, WP-C2, WP-C3(+C3c) and **WP-C5** have shipped. The
+> **Status (2026-07-31):** WP-C1, WP-C2, WP-C3(+C3c), **WP-C5** and **WP-C7** (the time
+> predicate + #72) have shipped. The
 > deterministic engine, the `suggested → active → completed | expired | abandoned`
 > lifecycle, the confound-aware outcome ledger (migration `0009`), the five endpoints,
 > grounded generation with both gates, and the coach's two challenge tools + the ledger
@@ -562,20 +563,66 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
     `log_entry` as the only action tool, "did any action tool return ok" was the same
     question; with three, a logged coffee would otherwise have licensed "I started
     your challenge".
-  - **A time-of-day intent is refused, specifically.** "No caffeine after 15:00" — the
-    natural challenge from a personal cutoff — has no predicate to bind to
-    (`metrics.py`), and the *degradation* is the danger: as a daily cap it scores three
-    morning coffees as a failure and one 23:00 coffee as a pass. The tool refuses
-    before a model is asked, and says why. **Building the predicate is the next WP.**
-- ⚠ **`adopt` does not check for a duplicate ACTIVE metric.** Generation dedupes
-  (`screen`, `_persist`), and `lifecycle.adopt` checks status, cadence and the cap —
-  but not whether the owner is already running a challenge on that metric. Two
-  suggestions on one metric therefore *can* both be adopted, and §2.1's own argument
-  against that ("the same commitment scored twice; two before/afters over one
-  behaviour change") applies. Pre-existing, not introduced by WP-C5, and reachable
-  today only by seeding or adopting two same-metric suggestions in sequence. Its fix
-  belongs in `lifecycle.adopt`, with the ledger consequences tested.
-- ⬜ **WP-C6** Actions + Insights tabs (Phase 2) + premium states
+  - ~~**A time-of-day intent is refused, specifically.**~~ **Now narrowed to what we
+    genuinely cannot clock — see WP-C7 below.**
+- ✅ **WP-C7 · the time predicate + #72** (`challenges/{windowed,commitment,scales}.py`).
+  The differentiator — *"your caffeine after 16:00 costs you ~40 minutes of sleep"* —
+  is expressible as a challenge.
+  - **A window is an ORDINARY registry entry, not a second kind of challenge.** One
+    entry per (logged substance the cutoff finder analyses) × (hour it tests), keyed
+    `caffeine_after_16` — byte-identical to the `metric_a` that finder writes, so a
+    finding links to a challenge by string equality rather than by a parser. Its source
+    restricts the day's sum to entries at/after one hour of the owner's clock, and
+    `evaluate`, `bounds`, `adapt`, `levers`, `ledger` and the lifecycle score it with
+    the code they already had. No parallel path exists.
+  - **ZERO vs UNLOGGED — the honesty crux.** `ManualEntrySource` zero-fills; **a window
+    must not**, because a window is satisfied *by absence* and an owner who stops
+    logging would score a perfect week. A window has a discriminator the total does not:
+    a day with at least one entry of that kind is MEASURED (0.0 is a real zero — they
+    logged, none of it was late); a day with no entry at all is **absent from the
+    series**, the same state an unwritten `derived_daily` row is in. Everything else
+    falls out of existing code: an absent day can never be a hit or extend a streak, and
+    fewer than `MIN_COMPARISON_DAYS` logged days is `thin_baseline`, so an owner who
+    barely logs is offered the metric as UNAVAILABLE rather than a confident low band.
+  - **Daily-only**, by the same mechanism #67 used for a weekly `sri`: a period SUM
+    cannot tell an unmeasured day from a zero one, so seven days of silence would total
+    0 and report a cap kept.
+  - **The corpus supports the TIMING claim where it did not support a total.**
+    `[caffeine_sleep]` and `[alcohol_sleep]` are **Established** on late intake (Drake
+    2013: 400 mg 6 h before bed ≈ 1 h of sleep; Ebrahim 2013 / Pietilä 2018: HRV −15–30 %),
+    which is exactly the dose-**and-timing** framing WP-C3c recorded as the reason
+    neither substance has a daily-total target. What the corpus refuses to supply is a
+    NUMBER — no safe late dose, and explicitly no universal cutoff hour
+    (`[caffeine_sleep]`'s own honesty policy; `[caffeine_alcohol_cutoff_plan]` calls the
+    hour the owner's *observed* threshold). So a window carries **no `EVIDENCE_TARGET`
+    and no `MEANINGFUL_STEP`**, and `levers` puts it on the menu **only** where the
+    owner's own FDR-controlled finding names that exact hour — blocked, not merely
+    ranked last, because the doubtful number is the hour, not the target.
+  - **The coach's time-of-day refusal narrowed rather than disappeared.** It still fires
+    for "in bed before 23:00" or "no screens after 22:00" — nothing there has a
+    timestamped log to clock — and steps aside for caffeine/alcohol so the pipeline, not
+    a regex, decides whether *this* owner has a cutoff to act on.
+  - **#72 — `adopt` now refuses a duplicate commitment**, as a named rule outcome
+    (`duplicate_commitment`, distinct from `too_many_active` and reported before it).
+    The rule is **one active commitment per BEHAVIOUR**, keyed on the metric's source
+    binding: not per `(metric, cadence)` (the ledger has no cadence-aware way to
+    attribute two overlapping before/afters, and adopt must not be more permissive than
+    generation), and wider than the metric string (`caffeine_after_16` reads a *subset*
+    of `caffeine_mg`'s own rows). `screen` and `levers` read the same rule.
+  - **Two fixtures were wrong and are fixed:** `_seed.seed_finding` defaulted to
+    `caffeine_after_15`, an hour the finder cannot produce (`CUTOFF_HOURS` is
+    12/14/16/18/20/22); and the contract bed seeded a `suggested` and an `active`
+    challenge both on `steps_total` — a state generation cannot produce and #72 will not
+    adopt.
+  - **Known limits.** The hour grid is the finder's six, so a challenge binds to the
+    nearest tested hour rather than an arbitrary one; and a window cannot express
+    *abstinence* — `target_value` must be positive and `bounds` refuses a band that
+    reaches zero, so the honest output is a progressive cut ("≤ 90 mg after 16:00"),
+    not "none".
+- ⬜ **WP-C6** Actions + Insights tabs (Phase 2) + premium states — a windowed challenge
+  needs one surface rule of its own: the card must say that a day with no log is *no
+  data*, not a clean day, or the app will re-introduce at the pixel level exactly the
+  silent-compliance reading `challenges/windowed.py` refuses at the query level.
 - ⬜ **6.6** premium gating threaded through
 
 ## 9. Source map
