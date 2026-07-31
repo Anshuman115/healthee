@@ -28,6 +28,7 @@ Modules
 ``series``       daily series, the owner's baseline, and protected (rough-night) days
 ``evaluate``     live progress for an adopted challenge
 ``adapt``        the deterministic difficulty adapter
+``recovery_guard`` the ONE "do not push this owner harder" rule (``levers`` + ``adapt``)
 ``store``        the only place challenge SQL lives (owner-scoped rows)
 ``lifecycle``    suggested → active → completed | expired | abandoned
 ``confounds``    the structured reasons to distrust an outcome
@@ -43,7 +44,14 @@ and ``analytics``, plus — from WP-C3 and only in the generation modules — ``
 which is where the choke point lives. That edge is the same one ``jobs.recs`` already
 has, and it runs one way: ``insights`` does not import ``challenges``. WP-C5 will make
 the coach *call* ``generate`` rather than reimplement it, so the arrow stays pointed
-this way and the gates cannot be forked. Nothing here imports ``read`` or ``api``.
+this way and the gates cannot be forked.
+
+``recovery_guard`` adds one more downward edge, to ``read`` — ``recovery_band`` and
+``active_illness_severity``, the SAME two functions the recovery page answers with.
+Reading them is the whole point: "under-recovered" must not mean one thing on the
+recovery card and another in the challenges engine (CLAUDE.md — one definition per
+metric). That edge also runs one way; ``read`` does not import ``challenges``, and
+nothing here imports ``api``.
 """
 
 from __future__ import annotations

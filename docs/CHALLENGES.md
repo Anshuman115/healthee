@@ -321,6 +321,10 @@ target:
   overrides, not votes) and D8 (recovery *eases or holds*, it never escalates). Legacy did
   this by hardcoding "this user is a chronic short sleeper with low recovery" into the
   prompt for its one tenant; here it is computed per owner and blocking.
+  **The same rule is what stops the adapter raising one of those levers on an
+  already-adopted challenge (§5.2)** — it lives once, in `challenges/recovery_guard.py`,
+  and both surfaces read it. Two copies is exactly how the two surfaces came to
+  disagree: for a while the menu withheld a lever the adapter would happily ratchet.
 
 ### 5.2 Adaptation — the engine auto-calibrates on measured progress (deterministic, never LLM)
 
@@ -338,6 +342,27 @@ target** and recalibrates:
 - Sane **rounding steps** per metric (`:536`) so targets stay human ("8,000 steps", not
   "7,943"), with **ceiling/floor guards** so it can neither run away upward nor collapse to
   nothing.
+
+**And one rule that is NOT legacy's: a raise is recovery-aware.** A raise asserts *"you
+can absorb more"*, and somebody can beat an MVPA or cardio-load target **because** they
+are overtraining — so measured performance is the wrong evidence for that particular
+conclusion. A raise on a hard training lever (`mvpa_min`, `cardio_load`,
+`workouts_week`) is therefore **withheld** while the owner's trailing-week recovery is
+`low` or an illness flag is active, using the *same* definition §5.1b withholds the
+lever from the menu by (`challenges/recovery_guard.py` — one rule, both surfaces).
+
+Three properties of that guard, each deliberate:
+
+- **It blocks raises, never eases.** Easing an under-recovered owner's target is the
+  correct and kind behaviour and keeps working — D8 says recovery eases or holds.
+- **It is scoped to the training-load metrics.** A raise on sleep or regularity is
+  recovery-*supporting*; steps and active calories are the movement levers
+  `[recovery_readiness]` eases intensity *toward*. Blocking those would withhold the
+  thing that helps, so the guard does not.
+- **A blocked raise is explained, not silent.** The engine returns a `withheld`
+  adaptation carrying the reason ("not raising this while your recovery is low") and
+  `POST …/adapt` refuses it as `adaptation_withheld` rather than as the generic
+  "nothing is due" — the owner earned a raise and deserves to know why it is on hold.
 
 Three properties that make this trustworthy and must survive the port:
 1. **Deterministic** — a rule over measured adherence, not a judgement call. No LLM. Adapting

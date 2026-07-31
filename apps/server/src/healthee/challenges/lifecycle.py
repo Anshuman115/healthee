@@ -138,6 +138,12 @@ def apply_adaptation(
 
     A refusal when nothing is due is a real answer, not a failure — the honest state
     most of the time is that the target should be left alone.
+
+    Two of those refusals are different states and are named differently. "Nothing is
+    due" is the ordinary one. ``adaptation_withheld`` is the recovery guard: the
+    owner's performance DID earn a raise and their recovery data refuses it
+    (``adapt``'s module docstring), so the endpoint carries that reason out rather
+    than reporting the same shrug it gives a challenge running normally.
     """
     today = today or user_today(tz)
     challenge = store.fetch(cur, user_id, challenge_id)
@@ -149,6 +155,8 @@ def apply_adaptation(
     adaptation = suggest_adaptation(cur, user_id, tz, challenge, progress, today=today)
     if adaptation is None:
         return _refused("no_adaptation", "performance is inside the productive band")
+    if adaptation["suggested"] is None:
+        return _refused("adaptation_withheld", adaptation["reason"])
     if not store.set_target(cur, user_id, challenge_id, float(adaptation["suggested"])):
         return _refused("not_active", "challenge stopped being active")
     log.info(

@@ -27,6 +27,31 @@ is bounded for **every** metric. Legacy capped only the metrics in ``IDEAL``, so
 ``active_calories`` and ``cardio_load`` could be raised +20 % indefinitely — see
 :data:`OWNER_CEILING_FACTOR` for the owner-relative bound that replaces "unbounded"
 and for why "no basis for a ceiling" now means "do not raise".
+
+## The recovery guard — a raise is a claim the owner's data may contradict
+
+The second rule that is not legacy's, and the one this module was missing. A raise
+says *"you can absorb more"*. For a training-stimulus metric that is precisely the
+claim an under-recovered owner's own rows deny — and somebody can beat an MVPA or
+cardio-load target **because** they are overtraining, so performance alone is the
+wrong evidence for the conclusion. WP-C3c already refused to OFFER those levers
+under exactly these conditions; the adapter would happily ratchet one that had been
+adopted the week before. Same rule, one definition, now read by both
+(:mod:`healthee.challenges.recovery_guard`).
+
+Three properties of the guard, each deliberate:
+
+* **It blocks raises, never eases.** Easing a target for somebody whose recovery is
+  poor is the correct and kind behaviour and must keep working —
+  [[recovery_readiness]] D8 says recovery *eases or holds*, it never escalates.
+* **It is scoped to the training-load metrics**, not applied blanket. A raise on
+  sleep or regularity is recovery-*supporting*, and blocking it would withhold the
+  one thing that helps. ``recovery_guard.HARD_TRAINING_LEVERS`` argues the set.
+* **A blocked raise is EXPLAINED, not silent.** It returns a ``direction:
+  "withheld"`` adaptation with ``suggested: None`` and the reason, because "not
+  raising this while your recovery is low" is both more useful and more honest than
+  no suggestion at all. ``None`` keeps its one meaning — "performance is inside the
+  productive band" — instead of quietly acquiring a second.
 """
 
 from __future__ import annotations
@@ -36,6 +61,7 @@ from uuid import UUID
 
 from healthee.challenges.evaluate import start_date
 from healthee.challenges.metrics import IDEAL, round_target, spec
+from healthee.challenges.recovery_guard import HARD_TRAINING_LEVERS, hold_reason, recovery_state
 from healthee.challenges.series import metric_series
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
@@ -80,6 +106,14 @@ MIN_EASE_DROP = 0.97  # an ease must land >3 % below it
 # rather than guessing — "not enough data" beats an optimistic guess (CLAUDE.md).
 OWNER_CEILING_FACTOR = 1.5
 
+# The three directions an adaptation can carry. `withheld` is not a fourth kind of
+# recalibration — it is a raise that the recovery guard refused, reported so a surface
+# can say why instead of showing nothing. Its `suggested` is `None`, which is what
+# `lifecycle.apply_adaptation` keys the refusal off: there is no number to apply.
+UP = "up"
+DOWN = "down"
+WITHHELD = "withheld"
+
 
 def suggest_adaptation(
     cur: Cur,
@@ -96,6 +130,11 @@ def suggest_adaptation(
     fewer than
     :data:`MIN_ELAPSED_DAYS` days elapsed, a non-positive target, too few logged
     days to be real, or performance inside the productive band.
+
+    A ``direction`` of :data:`WITHHELD` (with ``suggested: None``) is the fourth
+    answer: performance earned a raise and the owner's recovery data refuses it. It
+    is reported rather than swallowed into ``None`` so the reason survives to a
+    surface — see the module docstring.
 
     The ``<=`` exclusion is a decision, not an omission (#61 made caps expressible
     on every cadence). Tightening a cap on a good week would punish the owner for
@@ -117,7 +156,38 @@ def suggest_adaptation(
     achieved = _achieved(cur, user_id, tz, challenge, start, today, elapsed)
     if achieved is None:
         return None
-    return _adaptation(challenge["metric"], target, challenge.get("baseline_value"), achieved)
+    metric = challenge["metric"]
+    adaptation = _adaptation(metric, target, challenge.get("baseline_value"), achieved)
+    if adaptation is None or adaptation["direction"] != UP:
+        return adaptation  # an ease is never guarded — see the module docstring
+    return _recovery_checked(cur, user_id, tz, metric, today, adaptation)
+
+
+def _recovery_checked(
+    cur: Cur, user_id: UUID, tz: str, metric: str, today: date, raised: dict
+) -> dict:
+    """``raised``, unless this owner's own recovery data contradicts what it claims.
+
+    The read is LAZY and deliberately so: it costs two queries, it runs on every
+    active challenge of every feed request, and it can only change the answer for a
+    training-load metric that has *already* earned a raise. Everything else returns
+    before touching the database (standards §Performance — the feed is a read path).
+    """
+    if metric not in HARD_TRAINING_LEVERS:
+        return raised
+    recovery, illness = recovery_state(cur, user_id, tz, today)
+    hold = hold_reason(metric, recovery, illness)
+    if hold is None:
+        return raised
+    return {
+        "direction": WITHHELD,
+        "suggested": None,
+        "current": raised["current"],
+        "reason": (
+            f"not raising this while {hold} — you are {raised['reason']}, "
+            f"but more load is not what your recovery is asking for [recovery_readiness]"
+        ),
+    }
 
 
 def _achieved(
@@ -190,7 +260,7 @@ def _raise_to(metric: str, target: float, baseline_value: float | None, reason: 
     new = round_target(metric, min(target * RAISE_FACTOR, ceiling))
     if new <= target * MIN_RAISE_GAIN:  # already at the ceiling — no room to grow
         return None
-    return {"direction": "up", "suggested": new, "current": target, "reason": reason}
+    return {"direction": UP, "suggested": new, "current": target, "reason": reason}
 
 
 def _ease_to(
@@ -201,4 +271,4 @@ def _ease_to(
     new = round_target(metric, max(target * EASE_FACTOR, floor))
     if new >= target * MIN_EASE_DROP:  # already near their baseline — nothing to give
         return None
-    return {"direction": "down", "suggested": new, "current": target, "reason": reason}
+    return {"direction": DOWN, "suggested": new, "current": target, "reason": reason}

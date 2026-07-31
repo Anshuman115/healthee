@@ -105,10 +105,17 @@ class Adaptation(_Wire):
 
     The number never travels without its ``reason``: §5.2's rule is that a commitment
     the owner agreed to may only move for something we can state out loud.
+
+    ``suggested`` is nullable for exactly one direction — ``withheld``, the raise the
+    recovery guard refused (``challenges/adapt.py``). There is no number to apply
+    then, and the whole point of the shape is that the ``reason`` still reaches the
+    owner: "not raising this while your recovery is low" is a better answer than an
+    absent banner. Rule 2 of the module docstring applies — required and nullable,
+    never defaulted.
     """
 
     direction: str
-    suggested: float
+    suggested: float | None
     current: float
     reason: str
 
@@ -194,7 +201,12 @@ class ChallengeResult(_Wire):
 
 
 class AdaptResult(_Wire):
-    """``adapt`` — the applied recalibration plus the row it was applied to."""
+    """``adapt`` — the applied recalibration plus the row it was applied to.
+
+    A ``withheld`` adaptation never reaches this model: ``lifecycle.apply_adaptation``
+    turns it into a 409 with its reason, because there is no number to apply. It can
+    only ever arrive on the FEED, inside ``progress.adaptation``.
+    """
 
     ok: Literal[True]
     adaptation: Adaptation

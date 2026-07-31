@@ -44,27 +44,25 @@ alongside the bounds check — instructed AND enforced, the whole theme of this 
 * **a hard training lever while under-recovered** — [[recovery_readiness]] D7 (safety
   inputs are hard overrides, not votes) and D8 (recovery eases or holds, it never
   escalates). Legacy encoded this by hardcoding *"this user is a chronic short sleeper
-  with low recovery"* into the prompt for its single tenant; it is computed per owner here.
+  with low recovery"* into the prompt for its single tenant; it is computed per owner
+  in ``recovery_guard``, which is also what stops ``adapt`` from RAISING a lever this
+  module refuses to offer — the rule is one definition read by both.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, timedelta
+from datetime import date
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from healthee.analytics.series import daily_series
 from healthee.challenges import ledger
 from healthee.challenges.bounds import Calibration
 from healthee.challenges.lever_findings import finding_token, findings_by_metric
 from healthee.challenges.metrics import CHALLENGE_METRICS, spec
-from healthee.challenges.series import MIN_COMPARISON_DAYS
+from healthee.challenges.recovery_guard import hold_reason, recovery_state
 from healthee.challenges.targets import STEEPEST_AT_LOW, U_SHAPED, curve_of, natural_cadence
 from healthee.derive._common import Cur
-from healthee.derive.robust import median
-from healthee.read.health_metrics import active_illness_severity
-from healthee.read.recovery import recovery_band
 
 # The tiers, in order. Named rather than numbered at the call sites so a reordering is a
 # visible edit to this tuple and not a magic integer that drifted.
@@ -75,19 +73,6 @@ AT_TARGET = "at_target"
 UNRANKED = "unranked"
 BLOCKED = "blocked"
 _TIER_ORDER = (PERSONAL_FINDING, STEEP_GAP, GAP, AT_TARGET)
-
-# The metrics whose target IS a training stimulus, withheld from an under-recovered owner.
-# `steps_total` and `active_calories` are deliberately NOT here: legacy's own
-# recovery-aware prescription favoured Zone-2 work and daily steps precisely as the
-# alternative to intensity, and [[recovery_readiness]] eases intensity rather than
-# movement. Sleep and regularity levers are recovery-SUPPORTING and are never withheld.
-HARD_TRAINING_LEVERS: frozenset[str] = frozenset({"mvpa_min", "cardio_load", "workouts_week"})
-
-# How far back the recovery read looks. [[recovery_readiness]] D3: act on the multi-day
-# trend, never one morning — a single low day is noise, and withholding somebody's
-# training lever on noise is its own kind of dishonesty. The "enough days" line is
-# `series.MIN_COMPARISON_DAYS`, the one this package already judges a window by.
-_RECOVERY_TREND_DAYS = 7
 
 # How long an abandoned metric stays off the menu. PROVISIONAL, like every constant in
 # `targets`: the ledger records `status='abandoned'` with `ended_at`, so "how long before
@@ -151,7 +136,7 @@ def analyse(
     from is provably the same number Gate A will bound the proposal against — two reads
     could disagree if a day rolled over between them.
     """
-    recovery, illness = _recovery_state(cur, user_id, tz, today)
+    recovery, illness = recovery_state(cur, user_id, tz, today)
     findings = findings_by_metric(cur, user_id)
     abandoned = _recently_abandoned(cur, user_id, tz, today)
     attempted = _attempted_metrics(cur, user_id)
@@ -292,32 +277,21 @@ def _blocked_reason(
     recovery: str | None,
     illness: str | None,
 ) -> str | None:
-    """Why ``metric`` may not be proposed at all, or ``None``."""
+    """Why ``metric`` may not be proposed at all, or ``None``.
+
+    The recovery exclusion is ``recovery_guard.hold_reason``, not a rule of this
+    module's own: the adapter refuses to RAISE exactly the levers this refuses to
+    OFFER, and two copies of "which levers, on what owner state" is how the two
+    surfaces came to disagree in the first place.
+    """
     if metric in active_metrics:
         return "already running as a live challenge"
     if metric in abandoned:
         return f"abandoned on {abandoned[metric]} — not re-offered within the cooldown"
-    if metric in HARD_TRAINING_LEVERS and (illness or recovery == "low"):
-        why = "an illness signal is active" if illness else "recovery has been low all week"
-        return f"a hard training lever withheld because {why} [recovery_readiness]"
+    hold = hold_reason(metric, recovery, illness)
+    if hold is not None:
+        return f"a hard training lever withheld because {hold} [recovery_readiness]"
     return None
-
-
-def _recovery_state(cur: Cur, user_id: UUID, tz: str, today: date) -> tuple[str | None, str | None]:
-    """The owner's trailing-week recovery band and any active illness flag.
-
-    The band is taken over the MEDIAN of the trailing week rather than the latest morning
-    ([[recovery_readiness]] D3), and it is ``None`` — unknown, not "fine" — below
-    ``MIN_COMPARISON_DAYS`` of scores. Unknown does not withhold anything: "we cannot tell"
-    is not "you are under-recovered", and refusing a lever on absent data would be the
-    optimistic guess run backwards.
-    """
-    scores = daily_series(
-        cur, user_id, "recovery_score", today - timedelta(days=_RECOVERY_TREND_DAYS)
-    )
-    values = [v for day, v in scores.items() if day <= today]
-    band = recovery_band(median(values)) if len(values) >= MIN_COMPARISON_DAYS else None
-    return band, active_illness_severity(cur, user_id, tz, today)
 
 
 def _recently_abandoned(cur: Cur, user_id: UUID, tz: str, today: date) -> dict[str, date]:
