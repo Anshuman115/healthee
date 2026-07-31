@@ -22,10 +22,17 @@ from legacy, and it deliberately contains one entry that is **not evidence** at 
 (``workouts_week: 4`` — practitioner consensus, no note, and its own comment says so).
 A table that grounds a claim to the owner cannot contain a number with nothing behind it,
 so this one is built from the notes up and is SMALLER: ``workouts_week`` has no evidence
-target here, ``sri``'s target is the note's own ``SRI_GOOD`` (70) rather than ``IDEAL``'s
-85, and ``tst_min``'s is resolved per owner (below). The two tables are not merged
-because they answer different questions, and the difference is checked by a test rather
-than left to a reader's memory.
+target here, and ``tst_min``'s is resolved per owner (below). The two tables are not
+merged because they answer different questions — *where are the returns* versus *how far
+may the engine move a live commitment unattended*.
+
+But different questions may not yield different NUMBERS for the same metric. This
+paragraph used to record ``sri`` as an accepted divergence (70 here, 85 in ``IDEAL``) —
+and 85 traced to no line of any note, so what it recorded was a bug, not a decision
+(#67). Wherever a metric appears in BOTH tables the values now agree, and
+``tests/challenges/test_registry.py`` fails the build if they stop agreeing; the
+divergence that remains is only about MEMBERSHIP (``workouts_week`` and ``tst_min`` are
+here or there, not in both with two values).
 
 ## PROVISIONAL BY CONSTRUCTION
 

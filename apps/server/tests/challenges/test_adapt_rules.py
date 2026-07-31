@@ -124,6 +124,62 @@ def test_the_evidence_ideal_still_wins_where_one_exists() -> None:
     assert result["suggested"] == 8000.0
 
 
+# ── the SRI ceiling: the number its note actually states (#67) ───────────────
+#
+# `IDEAL["sri"]` was 85 with "[sleep_regularity_index]" cited beside it, and 85 appears
+# nowhere in that note. The value is now `SRI_GOOD = 70.0` (Windred 2024), the same
+# threshold the 4-dim regularity dimension gates on and the same one generation caps a
+# proposed SRI target at. These are known values because a ceiling change moves a live
+# commitment somebody already agreed to: every number below is hand-computed from
+# ×1.2, the 70 ceiling, SRI's rounding step of 1, and the +4 % room guard.
+
+
+def test_an_sri_raise_well_under_the_ceiling_is_untouched_by_it() -> None:
+    """50 × 1.2 = 60, nowhere near 70 — the ceiling must not flatten ordinary progress."""
+    result = _adaptation("sri", target=50.0, baseline_value=None, achieved=65.0)
+    assert result is not None
+    assert result["suggested"] == 60.0
+
+
+def test_the_sri_ceiling_stops_a_raise_at_the_notes_threshold() -> None:
+    """62 × 1.2 = 74.4 — the 70 ceiling stops it, and 70 is >4 % above 62 so it ships.
+
+    THE regression: under the old 85 this suggested 74, fifteen points past the number
+    generation treats as the goal and four past the threshold the note states at all.
+    """
+    result = _adaptation("sri", target=62.0, baseline_value=None, achieved=80.0)
+    assert result is not None
+    assert result["suggested"] == 70.0
+
+
+def test_the_last_sri_target_the_ceiling_still_leaves_room_above() -> None:
+    """67: the raise lands on 70 and 67 × 1.04 = 69.68, so 70 clears the room guard."""
+    result = _adaptation("sri", target=67.0, baseline_value=None, achieved=90.0)
+    assert result is not None
+    assert result["suggested"] == 70.0
+
+
+def test_one_point_higher_there_is_no_room_left_to_raise_sri() -> None:
+    """68 is the boundary the other way: 68 × 1.04 = 70.72, and the ceiling is 70."""
+    assert _adaptation("sri", target=68.0, baseline_value=None, achieved=90.0) is None
+
+
+def test_an_sri_target_already_at_the_ceiling_is_left_alone() -> None:
+    """At 70 there is nothing above to raise to — under the old 85 this became 84."""
+    assert _adaptation("sri", target=70.0, baseline_value=None, achieved=95.0) is None
+
+
+def test_an_sri_target_is_still_easeable_below_the_ceiling() -> None:
+    """A ceiling bounds raises only: 60 × 0.85 = 51, floored at 40 × 1.05 = 42.
+
+    Worth pinning because lowering a ceiling is exactly the change that could
+    accidentally freeze a metric — an owner failing an SRI target must still get relief.
+    """
+    result = _adaptation("sri", target=60.0, baseline_value=40.0, achieved=40.0)
+    assert result is not None
+    assert (result["direction"], result["suggested"]) == ("down", 51.0)
+
+
 # ── easing ───────────────────────────────────────────────────────────────────
 
 

@@ -139,6 +139,45 @@ def test_ideals_are_a_subset_of_the_registry() -> None:
     assert set(IDEAL) <= set(CHALLENGE_METRICS)
 
 
+def test_one_metric_never_carries_two_different_good_values() -> None:
+    """A ceiling and a target answer different questions; they may not disagree (#67).
+
+    ``IDEAL`` bounds what the ADAPTER may raise a live commitment to;
+    ``targets.EVIDENCE_TARGET`` is where the corpus says the returns are and caps what
+    GENERATION may propose. Both are "good enough" expressed as a number, so two values
+    for one metric is two definitions of good — the thing CLAUDE.md forbids outright.
+
+    It was live: ``sri`` sat at 85 here against the note's 70, so the engine refused to
+    propose an SRI target above 70 and would then ratchet an adopted one to 84. 85 was
+    also uncited — no line of ``[sleep_regularity_index]`` contains it.
+
+    Scoped to the OVERLAP on purpose. ``workouts_week`` (no note) and ``tst_min``
+    (resolved per owner) are deliberately in one table only, and this test must not
+    pressure anyone into inventing an entry to make it pass.
+    """
+    from healthee.challenges.targets import EVIDENCE_TARGET
+
+    shared = set(IDEAL) & set(EVIDENCE_TARGET)
+    assert shared == {"mvpa_min", "steps_total", "sri"}
+    for metric in sorted(shared):
+        assert IDEAL[metric] == EVIDENCE_TARGET[metric].value, (
+            f"{metric} has two different 'good' values: "
+            f"ceiling {IDEAL[metric]} vs target {EVIDENCE_TARGET[metric].value}"
+        )
+
+
+def test_the_sri_ceiling_is_the_number_its_note_actually_states() -> None:
+    """``SRI_GOOD = 70.0`` (Windred 2024) — hardcoded here, not read from the table.
+
+    Pinned as a literal precisely because the table is what could drift: asserting
+    ``IDEAL["sri"] == IDEAL["sri"]`` through any indirection would survive the bug this
+    replaces. 70 is the note's own constant and the threshold the 4-dim regularity
+    dimension already gates on. The note's other SRI figures are DESCRIPTIVE — a cohort
+    median of 81.0 [IQR 73.8-86.3] — and describe what is typical, not what is good.
+    """
+    assert IDEAL["sri"] == 70.0
+
+
 def test_no_cap_metric_carries_an_evidence_ideal() -> None:
     """`IDEAL` bounds a RAISE, and there is nothing to raise a `good="down"` metric toward.
 

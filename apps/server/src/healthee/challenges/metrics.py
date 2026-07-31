@@ -259,11 +259,36 @@ CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
 # research cites its note"). A metric absent here has no ceiling, exactly as in
 # legacy — `active_calories` and `cardio_load` are individual-load quantities with
 # no population target to anchor one, so none was invented.
+#
+# ⚠ A CITATION IS A CLAIM ABOUT A LINE IN A NOTE (#67). `sri` carried 85.0 with
+# "[sleep_regularity_index]" beside it and **85 appears nowhere in that note**. What the
+# note pins is `SRI_GOOD = 70.0` (Windred 2024 — the same threshold the 4-dim regularity
+# dimension already gates on) and, descriptively, the UK Biobank cohort's median of 81.0
+# [IQR 73.8-86.3]. A cohort's median or upper quartile says what is TYPICAL, not what is
+# good, so neither is a target either; 70 is the only "good" figure the corpus states.
+# The value is now that number, and the citation is true.
+#
+# A target and a ceiling are different questions, and they stay different tables
+# (`challenges/targets.py` argues why). But they may not be different NUMBERS for one
+# metric unless the corpus supplies two — "how regular is regular enough" has one answer
+# or the product has two definitions of good SRI (CLAUDE.md §ONE canonical definition).
+# `test_registry` pins the agreement for every metric that appears in both tables.
+#
+# The 85 was live, not cosmetic: generation caps a proposed target at the evidence target
+# (`bounds.band_for`), so the engine refused to PROPOSE an SRI target above 70 and would
+# then ratchet an adopted one to 84 unattended. Stopping at the evidence target is what
+# `mvpa_min` already does at 150 — a number its own note calls "a floor, not a ceiling" —
+# so this is the existing rule applied, not a new one.
+#
+# Removing `sri` from this table would NOT have meant "do not raise": `adapt._ceiling`
+# falls back to `OWNER_CEILING_FACTOR x baseline` whenever a baseline exists, which on a
+# bounded 0-100 index yields ceilings above 100 (74 x 1.5 = 111). An owner-relative
+# multiple is meaningless for a score, which is the other reason `sri` keeps an entry.
 IDEAL: dict[str, float] = {
     "mvpa_min": 150.0,  # WHO weekly MVPA target [mvpa_minutes_mortality]
     "steps_total": 8000.0,  # daily-steps mortality plateau [steps_mortality]
     "tst_min": 450.0,  # 7.5 h, mid-band of the U-curve [sleep_duration_mortality]
-    "sri": 85.0,  # strong regularity [sleep_regularity_index]
+    "sri": 70.0,  # `SRI_GOOD`, Windred 2024 [sleep_regularity_index]
     # NOT EVIDENCE, and it must never be presented as such. No note in the corpus
     # supports a specific weekly SESSION count — the evidence is denominated in
     # minutes, not sessions — so this is practitioner consensus with no citation

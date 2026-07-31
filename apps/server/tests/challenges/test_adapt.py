@@ -140,6 +140,36 @@ def test_a_metric_with_no_ideal_and_no_baseline_is_never_raised(clean_db: None) 
     assert result is None
 
 
+def test_a_live_sri_challenge_stops_at_the_notes_threshold(clean_db: None) -> None:  # noqa: ARG001
+    """End to end (#67): a week of SRI 80 against a 62 target raises to 70, not 74.
+
+    ``test_adapt_rules`` pins the arithmetic; this proves the ceiling is reached through
+    the real read path — the registry's `sri` key resolving to the
+    ``sleep_regularity_index`` row, and the recovery guard correctly NOT intercepting
+    (regularity is recovery-supporting, so it is not a hard training lever).
+    """
+    challenge = _challenge(metric="sri", target_value=62.0)
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed_week(cur, "sleep_regularity_index", 80.0)
+        result = suggest_adaptation(cur, _seed.OWNER, SENTINEL_TZ, challenge, _RUNNING, _TODAY)
+    assert result is not None
+    assert (result["direction"], result["suggested"]) == ("up", 70.0)
+    assert result["reason"] == "averaging 80 vs 62 target"
+
+
+def test_a_live_sri_challenge_already_at_the_threshold_is_left_alone(clean_db: None) -> None:  # noqa: ARG001
+    """The same week against a 70 target: no room above the ceiling, so no suggestion.
+
+    Under the old 85 this raised an adopted commitment to 84 — past the number the
+    generator would ever have proposed and past anything the note states.
+    """
+    challenge = _challenge(metric="sri", target_value=70.0)
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed_week(cur, "sleep_regularity_index", 95.0)
+        result = suggest_adaptation(cur, _seed.OWNER, SENTINEL_TZ, challenge, _RUNNING, _TODAY)
+    assert result is None
+
+
 # ── the signal gates ─────────────────────────────────────────────────────────
 
 
