@@ -46,12 +46,24 @@ _REQUIRED_FIELDS = (
 _COPY_FIELDS = ("title", "why", "expected_outcome")
 
 
-def screen(payload: dict, calibrations: CalibrationMap, taken: set[str], max_new: int) -> tuple:
+def screen(
+    payload: dict,
+    calibrations: CalibrationMap,
+    taken: set[str],
+    max_new: int,
+    blocked: dict[str, str] | None = None,
+) -> tuple:
     """Apply every gate to a parsed payload. Returns (what may ship, why the rest may not).
 
     ``taken`` is the set of metrics already spoken for — the owner's live challenges plus
     whatever this batch has already accepted, so a batch cannot duplicate itself either.
     It is copied, never mutated in the caller's hands.
+
+    ``blocked`` is WP-C3c's lever exclusions (``levers.LeverAnalysis.blocked_metrics``):
+    a metric they abandoned last month, or a hard training lever while they are
+    under-recovered. It is enforced HERE rather than only asked for in the prompt for the
+    same reason the band is — legacy's prompt told itself to route around abandons and
+    never checked, and an instruction nobody enforces is decoration.
     """
     proposals = payload.get("challenges")
     if not isinstance(proposals, list):
@@ -60,7 +72,7 @@ def screen(payload: dict, calibrations: CalibrationMap, taken: set[str], max_new
     accepted: list[dict] = []
     issues: list[str] = []
     for index, proposal in enumerate(proposals):
-        issue = proposal_issue(proposal, calibrations, claimed)
+        issue = proposal_issue(proposal, calibrations, claimed, blocked or {})
         if issue is not None:
             issues.append(f"challenge[{index}]: {issue}")
             continue
@@ -71,7 +83,12 @@ def screen(payload: dict, calibrations: CalibrationMap, taken: set[str], max_new
     return accepted, issues
 
 
-def proposal_issue(proposal: object, calibrations: CalibrationMap, taken: set[str]) -> str | None:
+def proposal_issue(
+    proposal: object,
+    calibrations: CalibrationMap,
+    taken: set[str],
+    blocked: dict[str, str] | None = None,
+) -> str | None:
     """The first reason one proposal may not ship, or ``None`` if it may."""
     structural = _structural_issue(proposal)
     if structural is not None:
@@ -80,6 +97,9 @@ def proposal_issue(proposal: object, calibrations: CalibrationMap, taken: set[st
         return "not an object"
     if proposal["metric"] in taken:
         return f"{proposal['metric']} already has a live or proposed challenge"
+    off_menu = (blocked or {}).get(proposal["metric"])
+    if off_menu is not None:
+        return f"{proposal['metric']} is not on this owner's menu: {off_menu}"
     grade = _grade_issue(proposal["research_note_ids"])
     if grade is not None:
         return grade

@@ -37,12 +37,19 @@ this owner could commit to, each bound to ONE metric from the calibration table 
 app can score it automatically from their own data.
 
 HOW TO CHOOSE
-- Read the calibration table, the sleep-timing block, the challenge history, and the
-  personal findings together. The best challenge is the one this owner's OWN data
-  argues for — a chronically short sleeper with a wide onset spread needs a sleep
-  REGULARITY challenge, not a sleep-duration one.
-- Build on what the frozen outcomes say worked FOR THEM; route around what they
-  abandoned; never propose a metric that is already active.
+- **Start from YOUR BIGGEST LEVERS.** That ranking is computed, not suggested: it is the
+  gap between where this owner is and where the evidence says the returns are largest,
+  and it already accounts for what they abandoned and how recovered they are. Take the
+  metrics from the top of it. Do not substitute your own judgement of what matters — a
+  metric further down is a metric where they have less to gain.
+- Then read the calibration table, the sleep-timing block, the challenge history and the
+  personal findings for the SHAPE of the challenge. That judgement is still yours: a
+  chronically short sleeper with a wide onset spread needs a sleep REGULARITY challenge,
+  not a sleep-duration one.
+- A metric listed OFF THE MENU is rejected on arrival — never propose one. A metric
+  listed NOT RANKED has no dose-response evidence behind it: you may propose one, but do
+  not promise a health payoff for it, because we cannot cite one.
+- Build on what the frozen outcomes say worked FOR THEM.
 - No two proposals may share a metric.
 
 THE TARGET (this is enforced after you answer, not negotiated)

@@ -136,14 +136,17 @@ def _prepare(user_id: UUID, tz: str, today: date, max_new: int | None) -> dict:
         slots = lifecycle.MAX_ACTIVE - store.count_active(cur, user_id)
         if slots <= 0:
             return _refused("too_many_active", f"already running {lifecycle.MAX_ACTIVE} challenges")
-        context, calibrations = gen_context.build_generation_context(cur, user_id, tz, today)
         active_metrics = store.active_metrics(cur, user_id)
+        context, calibrations, analysis = gen_context.build_generation_context(
+            cur, user_id, tz, today, active_metrics
+        )
     if not any(c.band for c in calibrations.values()):
         return _refused("no_calibratable_metric", "no metric has enough of this owner's data")
     return {
         "context": context,
         "calibrations": calibrations,
         "active_metrics": active_metrics,
+        "blocked": analysis.blocked_metrics(),
         "max_new": max(1, min(max_new or slots, slots)),
     }
 
@@ -179,7 +182,11 @@ def _author(
             log.info("challenge generation for %s: no grounded output", user_id)
             return None, issues
         accepted, issues = screen(
-            result.data, prepared["calibrations"], prepared["active_metrics"], prepared["max_new"]
+            result.data,
+            prepared["calibrations"],
+            prepared["active_metrics"],
+            prepared["max_new"],
+            prepared["blocked"],
         )
         _log_rejections(user_id, issues)
         if accepted or attempt >= _MAX_BOUNDS_RETRIES:

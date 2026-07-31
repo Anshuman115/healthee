@@ -11,6 +11,11 @@ the owner's own numbers.
 
 This module adds only what generation needs and no other surface does:
 
+0. **The lever ranking** (WP-C3c, ``levers``) — which metric this owner actually has room
+   in, ranked deterministically with each gap, target and citation shown. It goes FIRST
+   because it is the instruction the rest of the context constrains: the calibration
+   table says how far a target may move, the lever table says which metric is worth
+   moving at all.
 1. **The calibration table** — for every (metric, cadence) pair, the owner's own
    baseline and the exact target range Gate A will accept, in that metric's units. This
    is the honest half of the "instruct AND enforce" fix (§5.1): legacy instructed
@@ -40,7 +45,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
-from healthee.challenges import ledger, store
+from healthee.challenges import ledger, levers, store
 from healthee.challenges.bounds import GENERATABLE_CADENCES, Calibration, calibrate
 from healthee.challenges.metrics import CHALLENGE_METRICS, ROUND_STEP
 from healthee.derive._common import Cur
@@ -113,6 +118,92 @@ def calibration_section(calibrations: CalibrationMap) -> str:
             *unavailable,
         ]
     return "\n".join(lines)
+
+
+def lever_section(analysis: levers.LeverAnalysis) -> str:
+    """Where this owner has the most to gain, ranked deterministically (WP-C3c).
+
+    The model is shown the ORDER and the numbers behind it, never asked to compute
+    either: ``levers`` decides which metric matters and this renders its reasoning so
+    the copy can be written around a gap the owner can be told about honestly.
+    """
+    header = ["## YOUR BIGGEST LEVERS — where the evidence says this owner has the most to gain"]
+    ranked = analysis.ranked()
+    if not ranked:
+        # Rendered even when it is empty, because the task text tells the model to start
+        # from this section: a heading that silently vanishes leaves an instruction
+        # pointing at nothing, and a model that cannot find the ranking will invent a
+        # reason to prefer one metric. Saying "we could not rank anything" is both true
+        # and the more useful instruction.
+        return "\n".join(
+            header
+            + [
+                "NOTHING COULD BE RANKED for this owner: no metric has both a usable "
+                "baseline and a population target we can cite. Choose from the "
+                "calibration table on its own merits and do not claim that one metric "
+                "matters more than another — we have no basis for saying so."
+            ]
+            + _lever_notes(analysis)
+        )
+    lines = header + [
+        "Computed deterministically from their baselines, the corpus targets and their own",
+        "FDR-controlled findings. **Author for the top of this list.** Each row's `target`",
+        "cites the note it came from — cite that note when you write about the gap.",
+        "",
+        "| # | metric | where they are | evidence target | gap | why it ranks here |",
+        "|---|---|---|---|---|---|",
+        *(_lever_row(lever) for lever in ranked),
+    ]
+    return "\n".join(lines + _lever_notes(analysis))
+
+
+def _lever_row(lever: levers.Lever) -> str:
+    """One ranked lever, with the quantity that placed it shown beside it."""
+    where = "—" if lever.baseline is None else f"{lever.baseline:g}/{lever.cadence[:-2]}"
+    target = "—" if lever.target is None else f"{lever.target:g} [{lever.target_note}]"
+    gap = "—" if lever.gap is None else f"{lever.gap:+g}"
+    return f"| {lever.rank} | {lever.metric} | {where} | {target} | {gap} | {_reason(lever)} |"
+
+
+def _reason(lever: levers.Lever) -> str:
+    """The named rule that placed this lever — never a score, always a sentence."""
+    if lever.tier == levers.PERSONAL_FINDING:
+        effect = f"{lever.finding_effect:.2f}" if lever.finding_effect else "?"
+        return (
+            f"YOUR OWN measured pattern `[personal_finding:{lever.finding}]` "
+            f"(|effect| {effect}, single-subject and observational — not research)"
+        )
+    if lever.tier == levers.STEEP_GAP:
+        return f"below target on a curve that is steepest at the bottom [{lever.curve_note}]"
+    if lever.tier == levers.GAP:
+        return f"below the evidence target [{lever.curve_note or lever.target_note}]"
+    return "at or past the evidence target — little left to gain here"
+
+
+def _lever_notes(analysis: levers.LeverAnalysis) -> list[str]:
+    """The two honest negatives: what is off the menu, and what we cannot place."""
+    lines: list[str] = []
+    if analysis.illness or analysis.recovery:
+        state = f"recovery band `{analysis.recovery}`" if analysis.recovery else "recovery unknown"
+        illness = ", ILLNESS FLAG ACTIVE" if analysis.illness else ""
+        lines += ["", f"Owner state used above: {state}{illness}."]
+    blocked = analysis.blocked_metrics()
+    if blocked:
+        lines += [
+            "",
+            "OFF THE MENU — a proposal on any of these is REJECTED before it reaches them:",
+            *(f"- `{metric}`: {reason}" for metric, reason in sorted(blocked.items())),
+        ]
+    unplaceable = sorted(lever.metric for lever in analysis.levers if lever.tier == levers.UNRANKED)
+    if unplaceable:
+        lines += [
+            "",
+            "NOT RANKED — no population dose-response evidence exists for these, so we "
+            "cannot say what moving them is worth. Proposing one is allowed and it is not "
+            "where the return is; if you do, do not imply a health payoff we cannot cite: "
+            + ", ".join(f"`{m}`" for m in unplaceable),
+        ]
+    return lines
 
 
 def sleep_timing_section(cur: Cur, user_id: UUID, tz: str, today: date) -> str:
@@ -190,17 +281,25 @@ def _outcome_line(outcome: dict) -> str:
 
 
 def build_generation_context(
-    cur: Cur, user_id: UUID, tz: str, today: date
-) -> tuple[str, CalibrationMap]:
-    """The challenge-specific half of the prompt, plus the bands it promises.
+    cur: Cur, user_id: UUID, tz: str, today: date, active_metrics: set[str]
+) -> tuple[str, CalibrationMap, levers.LeverAnalysis]:
+    """The challenge-specific half of the prompt, plus the rules it promises.
 
-    Returned together on purpose: the caller must judge proposals with the SAME
-    calibrations it showed the model (see :func:`owner_calibrations`).
+    All three are returned together on purpose: the caller must judge proposals with the
+    SAME calibrations AND the same lever analysis it showed the model. Two reads could
+    disagree — a day could roll over, a challenge could be adopted — and then the prompt
+    would advertise a lever the gate rejects, which reads to the model as a broken
+    instruction and to the owner as an empty feed with no reason.
+
+    The lever section comes FIRST because it is the instruction; the calibration table
+    below it is the constraint on carrying that instruction out.
     """
     calibrations = owner_calibrations(cur, user_id, tz, today)
+    analysis = levers.analyse(cur, user_id, tz, today, calibrations, active_metrics)
     sections = [
+        lever_section(analysis),
         calibration_section(calibrations),
         sleep_timing_section(cur, user_id, tz, today),
         history_section(cur, user_id),
     ]
-    return "\n\n".join(s for s in sections if s), calibrations
+    return "\n\n".join(s for s in sections if s), calibrations, analysis

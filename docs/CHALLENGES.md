@@ -441,6 +441,24 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
   those are different units (a WP-C1 inconsistency inherited from legacy `_recent_value`,
   which also skews `adapt`'s ease floor and the ledger's `improvement_pct` for any
   `total` challenge adopted through the API today).
+- ✅ **WP-C3c** biggest-lever targeting + meaningful-step calibration
+  (`challenges/{targets,levers,lever_findings}.py`). **§5.1a** is now the one
+  calibration rule and §1 defers to it, so the doc no longer contradicts itself; the
+  step gets a per-metric floor where the corpus attaches an outcome to an increment,
+  and the band is capped at the evidence target. **§5.1b** ranks the levers
+  deterministically as an explainable ordering (never a score), and its three
+  exclusions — active, recently abandoned, and a hard training lever while
+  under-recovered — are enforced in `screen`, not just asked for in the prompt.
+  Every constant is marked **provisional**, cited, and in one file with the ledger
+  query that would tune it.
+  **Two things it deliberately did NOT do, both worth knowing:**
+  `metrics.IDEAL["sri"]` is **85** while the note's own constant (and the evidence
+  target here) is **70** — the 85 could not be sourced to `[sleep_regularity_index]`,
+  but it is `adapt`'s ceiling and moving it is a behaviour change in the adapter that
+  needs its own PR with known-value tests. And `(sri, weekly)` is still a generatable
+  pair even though a weekly SRI is seven 0–100 scores added together (~490) — a
+  pre-existing WP-C3 hole that no lever reads (the ranking uses the level), so it is
+  reported rather than fixed here.
 - ⬜ **WP-C3b** the refresh wiring: `POST /api/challenges/generate` (+ its latency budget
   and rate limit) and the empty-feed trigger. Split out deliberately — the pipeline is
   complete and tested headless; the HTTP surface is a separate concern that also carries
