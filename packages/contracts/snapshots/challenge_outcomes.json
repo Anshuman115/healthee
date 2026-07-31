@@ -5,7 +5,7 @@
       "baseline": 8200.0,
       "cadence": "daily",
       "category": "activity",
-      "challenge_id": 1434,
+      "challenge_id": 7708,
       "co_occurring": {
         "attribution": "none",
         "concurrent_challenges": 1,
@@ -36,7 +36,8 @@
       },
       "data_confidence": "ok",
       "days_active": 7,
-      "ended_at": "2026-07-31T04:16:00.378356Z",
+      "difficulty": "standard",
+      "ended_at": "2026-07-31T05:44:36.190995Z",
       "final": 8900.0,
       "improved": true,
       "improvement_pct": 8.5,

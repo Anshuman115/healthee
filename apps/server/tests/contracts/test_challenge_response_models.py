@@ -51,10 +51,13 @@ _ENDPOINTS = [
 # One frozen outcome for a WEEKLY challenge, as `ledger.recent` returns it: a
 # cumulative cadence, so `adherence` is null and `improvement_pct` could not be
 # computed from a zero baseline. Both nulls are the honest answer, not missing data.
+# `difficulty` is null here on purpose — `_seed_weekly` below writes the row without
+# it, which is the pre-#62 shape the nullable column still legitimately holds.
 _WEEKLY_OUTCOME: dict[str, Any] = {
     "challenge_id": 99,
     "metric": "alcohol_units",
     "category": "recovery",
+    "difficulty": None,
     "cadence": "weekly",
     "target": 5.0,
     "baseline": 0.0,
@@ -147,9 +150,31 @@ def test_an_absent_nullable_key_is_an_error_not_a_null() -> None:
 
 
 def test_an_unmodelled_key_is_rejected_rather_than_dropped() -> None:
-    """`extra="forbid"`: a response model must never silently shrink the wire."""
+    """`extra="forbid"`: a response model must never silently shrink the wire.
+
+    The probe used to be `difficulty`, which is exactly how #62 was found: the model
+    correctly refused a key the ledger was writing but never selecting. It is a real
+    field now, so the probe moved to `downstream` — the TEXT column 0009 replaced with
+    `co_occurring`, i.e. a name that must never come back.
+    """
+    with pytest.raises(ValueError, match="downstream"):
+        Outcome.model_validate(_WEEKLY_OUTCOME | {"downstream": "sleep improved"})
+
+
+def test_difficulty_is_modelled_as_the_nullable_column_it_is() -> None:
+    """Required-and-nullable: present on every row, null where the writer left it so.
+
+    `challenge.difficulty` is NOT NULL, so `_compute` always fills it — but
+    `challenge_outcome.difficulty` is nullable and rows predate the writer. Defaulting
+    it to `'standard'` here would invent a commitment level nobody was ever set.
+    """
+    outcome = create_app().openapi()["components"]["schemas"]["Outcome"]
+    assert outcome["properties"]["difficulty"]["anyOf"] == [{"type": "string"}, {"type": "null"}]
+    assert "difficulty" in outcome["required"]
+    dumped = Outcome.model_validate(_WEEKLY_OUTCOME).model_dump(mode="json")
+    assert dumped["difficulty"] is None
     with pytest.raises(ValueError, match="difficulty"):
-        Outcome.model_validate(_WEEKLY_OUTCOME | {"difficulty": "standard"})
+        Outcome.model_validate({k: v for k, v in _WEEKLY_OUTCOME.items() if k != "difficulty"})
 
 
 def test_the_two_progress_shapes_stay_distinct() -> None:
@@ -239,6 +264,25 @@ def test_a_null_adherence_reaches_the_wire_as_null(seeded_client: tuple) -> None
     assert len(weekly) == 1 and weekly[0]["adherence"] is None
     assert weekly[0]["data_confidence"] == "insufficient_data"
     assert '"adherence":null' in resp.text  # FastAPI's JSON is compact-separated
+
+
+@pytest.mark.integration
+def test_difficulty_reaches_the_wire(seeded_client: tuple) -> None:
+    """#62 end-to-end: the column the writer always filled is now actually served.
+
+    Both rows are asserted because the claim is that the field TRAVELS, not that it is
+    always populated: the seeded daily outcome carries `'standard'`, and `_seed_weekly`
+    writes a row without it, which the nullable column still legitimately holds. The
+    raw body is checked for the null so a *missing* key cannot pass as one.
+    """
+    client, headers = seeded_client
+    _seed_weekly(active=False)
+    resp = client.get("/api/challenges/outcomes", headers=headers)
+    assert resp.status_code == 200, resp.text[:200]
+    by_cadence = {o["cadence"]: o for o in resp.json()["outcomes"]}
+    assert by_cadence["daily"]["difficulty"] == "standard"
+    assert by_cadence["weekly"]["difficulty"] is None
+    assert '"difficulty":null' in resp.text  # FastAPI's JSON is compact-separated
 
 
 def _seed_weekly(active: bool) -> None:

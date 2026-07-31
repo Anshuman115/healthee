@@ -213,6 +213,13 @@ class Outcome(_Wire):
     for ``weekly``/``total``: a cumulative rule makes no per-day commitment, so there
     is no rate of keeping it (``ledger._adherence``). Nothing here may default it.
 
+    ``difficulty`` is a WIRE ADDITION (#62). ``ledger._compute`` wrote it on every row
+    and ``_READ_COLUMNS`` selected it on none, so it was populated and unreachable. It
+    is here rather than deleted because a met ``stretch`` and a met ``gentle`` are not
+    the same result, and the rollup that groups outcomes by it is planned (WP-C6's
+    Insights tab, which legacy shipped). Nullable because the column is — see
+    ``ledger._READ_COLUMNS``.
+
     ``confounds`` and ``co_occurring`` stay ``dict`` — genuinely dynamic JSONB, where
     a rigid model would both add keys to the wire and reject rows that are already
     legal. ``confounds.regression_to_mean`` has four shapes (assessed, plus three
@@ -225,6 +232,7 @@ class Outcome(_Wire):
     challenge_id: int
     metric: str | None
     category: str | None
+    difficulty: str | None
     cadence: str | None
     target: float | None
     baseline: float | None

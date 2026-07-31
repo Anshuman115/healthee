@@ -277,8 +277,8 @@ def _store(cur: Cur, user_id: UUID, challenge_id: int, outcome: dict) -> None:
 def recent(cur: Cur, user_id: UUID, limit: int = 20) -> list[dict]:
     """One owner's frozen outcomes, newest first — the ledger read (windowed)."""
     cur.execute(
-        "SELECT challenge_id, metric, category, cadence, target, baseline, final, "
-        "  improvement_pct, improved, adherence, days_active, status, confounds, "
+        "SELECT challenge_id, metric, category, difficulty, cadence, target, baseline, "
+        "  final, improvement_pct, improved, adherence, days_active, status, confounds, "
         "  co_occurring, data_confidence, ended_at "
         "FROM challenge_outcome WHERE user_id = %s ORDER BY ended_at DESC LIMIT %s",
         (user_id, limit),
@@ -286,10 +286,20 @@ def recent(cur: Cur, user_id: UUID, limit: int = 20) -> list[dict]:
     return [dict(zip(_READ_COLUMNS, row, strict=True)) for row in cur.fetchall()]
 
 
+# Mirrors the SELECT above, which mirrors `_store`'s INSERT. ``difficulty`` was
+# written on every row and selected on none (#62) — populated, and invisible on the
+# wire. Resolved as a MISSING FIELD rather than dead data: the difficulty of what
+# someone was asked to do is half of what an outcome means (a met `stretch` and a met
+# `gentle` are different results), and the rollup that groups outcomes by it is a
+# planned surface — CHALLENGES.md's WP-C6 Insights tab, which legacy already shipped.
+# The column is NULLABLE, so it is read and modelled as nullable even though today's
+# writer always fills it from a NOT NULL `challenge.difficulty`: rows written before
+# `_store` carried the column, and rows from any future writer, outlive that habit.
 _READ_COLUMNS = (
     "challenge_id",
     "metric",
     "category",
+    "difficulty",
     "cadence",
     "target",
     "baseline",
