@@ -93,7 +93,6 @@ def grounded_ask(
     *,
     metrics: list[str] | None = None,
     context_days: int = 14,
-    allow_tools: bool = False,  # noqa: ARG001 — WP5b coach seam; tool loop lands there
     response_format: str | None = None,
     model: str | None = None,
     client: LLMClient | None = None,
@@ -106,9 +105,14 @@ def grounded_ask(
     ``response_format="json"`` switches on the JSON output seam: the client is
     asked for a JSON object and the answer is checked by the JSON-aware validator
     (``validate_json``); the parsed object comes back on ``result.data``. The
-    default (``None``) is the unchanged prose path. ``allow_tools`` is the
-    reserved seam the coach (WP5b) will use to run its tool loop through this same
-    pipeline. ``client`` is injectable so tests run a deterministic stub.
+    default (``None``) is the unchanged prose path. ``client`` is injectable so
+    tests run a deterministic stub.
+
+    There is deliberately no tool-calling seam here. One was reserved
+    (``allow_tools``) for a coach that would run its loop through this pipeline;
+    the coach went the other way — its own loop calling the choke point's
+    primitives (see the module docstring) — so the parameter was removed rather
+    than left as a promise the code does not keep.
     """
     refusal = classify_refusal(question)
     if refusal is not None:
