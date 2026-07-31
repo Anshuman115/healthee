@@ -39,16 +39,16 @@ from psycopg.types.json import Jsonb
 from healthee.analytics.series import daily_series
 from healthee.challenges import confounds as confounds_mod
 from healthee.challenges.metrics import spec
-from healthee.challenges.series import BASELINE_DAYS, recent_window
+from healthee.challenges.series import BASELINE_DAYS, MIN_COMPARISON_DAYS, recent_window
 from healthee.core.logging import get_logger
 from healthee.derive._common import Cur
 
 log = get_logger(__name__)
 
-# Fewer measured days than this on EITHER side and the before/after is not a
-# comparison, it is two anecdotes. More than half the 7-day estimator window is the
-# line: below it, the mean says more about which days recorded than about the person.
-MIN_COMPARISON_DAYS = 4
+# Fewer measured days than `MIN_COMPARISON_DAYS` on EITHER side and the before/after
+# is not a comparison, it is two anecdotes. The threshold itself now lives with the
+# estimator it qualifies (`series.MIN_COMPARISON_DAYS`) because WP-C3's Gate A judges
+# the same number by the same line; it is re-exported here, not redefined.
 
 # The other metrics whose movement is worth recording — as CO-OCCURRING, never as
 # caused. Deliberately a short fixed panel of the outcomes an owner actually asks

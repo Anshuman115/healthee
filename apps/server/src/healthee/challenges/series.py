@@ -55,6 +55,16 @@ _SLEEP_METRIC = "tst_min"
 # Trailing days a baseline is computed over. Verbatim from legacy `_recent_value` (:157).
 BASELINE_DAYS = 7
 
+# The fewest MEASURED days inside that window for a :func:`recent_window` value to say
+# more about the person than about which days happened to record. More than half the
+# estimator's seven is the line. It lives here, beside the estimator it qualifies,
+# because two callers now judge the same number by it and a second copy would be a
+# second definition of "enough data" (CLAUDE.md): the ledger refuses to publish a
+# before/after below it (``ledger._confidence``), and generation refuses to CALIBRATE a
+# target below it (``bounds.calibrate``) — the same reason, applied backwards and
+# forwards in time.
+MIN_COMPARISON_DAYS = 4
+
 
 def metric_series(
     cur: Cur, user_id: UUID, tz: str, metric: str, since: date, until: date | None = None

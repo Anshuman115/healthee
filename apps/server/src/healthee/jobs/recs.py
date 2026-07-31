@@ -62,13 +62,11 @@ _MAX_RECS = 3
 _REQUIRED_FIELDS = ("action", "rationale", "category", "evidence_grade", "research_note_ids")
 _VALID_GRADES = frozenset({2, 3})
 
-# The weakest evidence a rec may ship on: Probable (GRADE_RANK 2). A rec is a
-# directive to act TODAY, so evidence below Probable — Emerging, Contested, Myth —
-# does not get to drive one, however the model graded itself. This is §5.6's
-# "grade>=2 whitelist", enforced on the PROVABLE floor instead of on the claim.
-# Weaker notes stay retrievable (the coach may still discuss, or correct, a Myth);
-# it is the recs surface that acts, and only this surface is gated.
-_MIN_SHIPPABLE_RANK = 2
+# The weakest evidence a rec may ship on: Probable. A rec is a directive to act TODAY,
+# so evidence below Probable — Emerging, Contested, Myth — does not get to drive one,
+# however the model graded itself. The threshold itself moved to
+# ``manifest.MIN_ACTIONABLE_RANK`` once a SECOND acting surface (challenge generation)
+# came to need the same floor; it is one rule in one place, not two that agree today.
 
 # The JSON task handed to the choke point as the user question. The choke point's
 # system prompt + EVIDENCE NOTES supply the citation whitelist and grade rules;
@@ -239,7 +237,7 @@ def _provable_grade(rec: dict) -> int | None:
         manifest.GRADE_RANK.get(manifest.grade_of(nid) or "", 0) for nid in rec["research_note_ids"]
     ]
     floor = min(ranks)
-    if floor < _MIN_SHIPPABLE_RANK:
+    if floor < manifest.MIN_ACTIONABLE_RANK:
         return None
     return min(declared, floor)
 

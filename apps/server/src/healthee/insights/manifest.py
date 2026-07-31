@@ -41,6 +41,18 @@ GRADE_RANK: dict[str, int] = {
     "Refuted": 0,
 }
 
+# The weakest PROVABLE evidence a surface that tells the user to DO something may ship
+# on: Probable. Emerging, Contested and Myth stay fully retrievable — the coach may
+# still discuss or correct them — but they do not get to drive an action. This is
+# INTELLIGENCE §5.6's "grade>=2 whitelist", enforced on the floor the citations prove
+# rather than on a grade the model claims about itself.
+#
+# It lives here, beside the ranks it is expressed in, because two acting surfaces now
+# apply it (``jobs.recs._provable_grade`` for a daily recommendation,
+# ``challenges.screen._grade_issue`` for a multi-week commitment) and a second copy
+# would be a second answer to "how good does the evidence have to be".
+MIN_ACTIONABLE_RANK = 2
+
 
 @dataclass(frozen=True)
 class ManifestNote:
