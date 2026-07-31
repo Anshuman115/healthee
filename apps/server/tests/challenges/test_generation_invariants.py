@@ -16,7 +16,7 @@ from tests.challenges import _seed
 from tests.challenges._gen import (
     ESTABLISHED_ID,
     IN_BAND,
-    AdoptsMidFlight,
+    ClaimsMetricMidFlight,
     proposal,
     response,
     run_generation,
@@ -129,10 +129,10 @@ def test_twoproposals_on_one_metric_keep_only_the_first(owner_with_history: None
 def test_a_challenge_adopted_mid_flight_still_blocks_its_duplicate(
     owner_with_history: None,  # noqa: ARG001
 ) -> None:
-    result = run_generation(AdoptsMidFlight([response()]))
+    result = run_generation(ClaimsMetricMidFlight([response()]))
 
     assert result["generated"] == 0
-    assert any("while the model was thinking" in r for r in result["rejected"])
+    assert any("by the time the model finished thinking" in r for r in result["rejected"])
     assert suggested() == []
 
 
@@ -159,7 +159,7 @@ def test_a_slot_taken_mid_flight_still_bounds_the_batch(owner_with_history: None
         category="sleep",
         why=f"Lower evening caffeine may protect sleep [{ESTABLISHED_ID}].",
     )
-    stub = AdoptsMidFlight([response(proposal(), cap)], metric="sri")
+    stub = ClaimsMetricMidFlight([response(proposal(), cap)], metric="sri")
 
     result = run_generation(stub)
 
@@ -212,6 +212,62 @@ def test_an_intent_reaches_the_model_and_still_passes_both_gates(
 
     assert result["generated"] == 1
     assert "make me a walking challenge" in stub.messages[0][-1]["content"]
+
+
+def test_adding_to_the_feed_leaves_the_existing_suggestions_alone(
+    owner_with_history: None,  # noqa: ARG001
+) -> None:
+    """``replace_feed=False`` is the coach's mode — a chat turn must not wipe the menu."""
+    with tenant_transaction(_seed.OWNER) as cur:
+        kept = _seed.seed_challenge(
+            cur, _seed.OWNER, title="Steadier bedtimes", metric="sri", target_value=60.0
+        )
+    result = run_generation(StubLLM([response()]), replace_feed=False, max_new=1)
+
+    assert result["generated"] == 1
+    assert kept in [row["id"] for row in suggested()]
+
+
+def test_adding_to_the_feed_still_refuses_to_duplicate_a_suggested_metric(
+    owner_with_history: None,  # noqa: ARG001
+) -> None:
+    """Keeping the feed widens the dedup, or the menu ends up with two of one metric."""
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed.seed_challenge(cur, _seed.OWNER, title="An existing steps suggestion")
+    result = run_generation(StubLLM([response()]), replace_feed=False, max_new=1)
+
+    assert (result["generated"], len(result["rejected"])) == (0, 1)
+    assert "already has a live or proposed challenge" in result["rejected"][0]
+    assert len(suggested()) == 1
+
+
+def test_a_suggestion_written_mid_flight_still_blocks_its_duplicate(
+    owner_with_history: None,  # noqa: ARG001
+) -> None:
+    """The kept feed can move while the model thinks, so ``_persist`` re-reads it too.
+
+    The pre-LLM read cannot see a suggestion that did not exist yet — a second coach turn
+    landing in the same window is exactly the case — so the widened dedup has to be in
+    BOTH places or the menu gets two challenges on one metric.
+    """
+    result = run_generation(
+        ClaimsMetricMidFlight([response()], status="suggested"), replace_feed=False, max_new=1
+    )
+
+    assert result["generated"] == 0
+    assert any("by the time the model finished thinking" in r for r in result["rejected"])
+    assert len(suggested()) == 1
+
+
+def test_replacing_the_feed_is_still_the_default(owner_with_history: None) -> None:  # noqa: ARG001
+    """The app's refresh keeps its old behaviour: stale suggestions go (`_persist`)."""
+    with tenant_transaction(_seed.OWNER) as cur:
+        stale = _seed.seed_challenge(
+            cur, _seed.OWNER, title="Steadier bedtimes", metric="sri", target_value=60.0
+        )
+    run_generation(StubLLM([response()]), max_new=1)
+
+    assert stale not in [row["id"] for row in suggested()]
 
 
 def test_an_intent_does_not_buy_a_way_past_gate_a(owner_with_history: None) -> None:  # noqa: ARG001

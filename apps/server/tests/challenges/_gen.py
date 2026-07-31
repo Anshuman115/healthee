@@ -94,27 +94,37 @@ def seed_caffeine_habit() -> None:
         )
 
 
-class AdoptsMidFlight(StubLLM):
-    """A stub that takes a slot WHILE the model is "thinking".
+class ClaimsMetricMidFlight(StubLLM):
+    """A stub that takes a metric WHILE the model is "thinking".
 
     The pipeline reads the world, calls the model, then writes — three steps that cannot
     share a transaction, because holding a pooled connection across a network round-trip
     is how a pool deadlocks. This is the window that opens, simulated at the only moment
     it can be: inside the completion itself.
+
+    ``status`` is the two ways the window can be used. An ``active`` row is somebody
+    ADOPTING mid-flight; a ``suggested`` one is a second generation (the coach's, which
+    keeps the feed) landing mid-flight. Both must block the duplicate, and they are
+    blocked by two different re-reads, so both are worth a test.
     """
 
-    def __init__(self, responses: list[str], metric: str = "steps_total") -> None:
+    def __init__(
+        self, responses: list[str], metric: str = "steps_total", status: str = "active"
+    ) -> None:
         super().__init__(responses)
         self._metric = metric
+        self._status = status
 
     def complete(self, messages, **kwargs):
         with tenant_transaction(_seed.OWNER) as cur:
             _seed.seed_challenge(
                 cur,
                 _seed.OWNER,
-                status="active",
+                status=self._status,
                 metric=self._metric,
-                title=f"Adopted mid-flight ({self._metric})",
-                adopted_at=datetime(2026, 7, 14, 6, 0, tzinfo=UTC),
+                title=f"Claimed mid-flight ({self._metric}, {self._status})",
+                adopted_at=(
+                    datetime(2026, 7, 14, 6, 0, tzinfo=UTC) if self._status == "active" else None
+                ),
             )
         return super().complete(messages, **kwargs)

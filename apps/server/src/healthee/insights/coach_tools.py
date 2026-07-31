@@ -1,11 +1,17 @@
-"""The coach's tools — real reads/writes the model MUST call, never guess (WP5b).
+"""The coach's tools — real reads/writes the model MUST call, never guess (WP5b/WP-C5).
 
-Five tools are live now (INTELLIGENCE §4): ``query_metric``, ``compare_event``,
-``sleep_consistency`` (reads), ``log_entry`` (write), ``get_knowledge`` (corpus).
+Seven tools are live (INTELLIGENCE §4). Five are declared here: ``query_metric``,
+``compare_event``, ``sleep_consistency`` (reads), ``log_entry`` (write),
+``get_knowledge`` (corpus). The two challenge tools — ``adopt_challenge`` and
+``create_challenge`` — are declared and implemented in ``challenge_tools`` and spliced
+into ``COACH_TOOLS`` below, because they carry a package dependency (``challenges``)
+that the rest of this module does not, and their honesty rails need arguing at length.
+``adopt_challenge`` was DEFERRED until the challenges subsystem existed — a tool that
+cannot really adopt anything is the exact hallucination the anti-hallucination rule
+forbids — and WP-C5 is where it stopped being a promise.
+
 Each returns real JSON the model echoes; a tool that has no data says so honestly
-rather than returning a fake number. ``adopt_challenge`` is DEFERRED — the
-challenges subsystem is a later WP; it is intentionally absent from ``COACH_TOOLS``
-(the coach prompt references it, so we note the gap rather than fake it).
+rather than returning a fake number.
 
 Every tool reads/writes v2-native through ``core.db`` (no v1 views, no source
 filter) and reuses the existing read services — no second definition of a metric.
@@ -23,16 +29,18 @@ from healthee.analytics.series import daily_series, event_days
 from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
-from healthee.insights import manifest
+from healthee.insights import challenge_tools, manifest
 from healthee.insights.retrieval import rank_notes
+from healthee.insights.tool_spec import function_tool
 from healthee.read.logs import LogRequest, record_log
 from healthee.read.sleep_extras import sleep_consistency as _sleep_consistency
 
 log = get_logger(__name__)
 
-# The action tools — a claim of "logged/started/…" is only truthful if one of
-# these ran AND returned ok this turn (the anti-hallucination guard keys off this).
-ACTION_TOOLS: frozenset[str] = frozenset({"log_entry"})
+# The action tools — a claim of "logged/started/adopted/created" is only truthful if
+# one of these ran AND returned ok this turn (the anti-hallucination guard keys off
+# this set, and ``coach._CLAIM_TOOLS`` narrows it per claim).
+ACTION_TOOLS: frozenset[str] = frozenset({"log_entry"}) | challenge_tools.ACTION_TOOLS
 
 _METRIC_HINT = (
     "rhr_daily, hrv_sleep_avg, sleep_health_score_4dim, sleep_regularity_index, "
@@ -41,20 +49,8 @@ _METRIC_HINT = (
 )
 
 
-def _tool(name: str, description: str, properties: dict, required: list[str]) -> dict:
-    """One OpenAI function-tool spec (the shape the LLM client passes through)."""
-    return {
-        "type": "function",
-        "function": {
-            "name": name,
-            "description": description,
-            "parameters": {"type": "object", "properties": properties, "required": required},
-        },
-    }
-
-
 COACH_TOOLS: list[dict] = [
-    _tool(
+    function_tool(
         "query_metric",
         "Look up the user's OWN measured data for a metric over a time range. Call "
         "whenever you need a number not already in CONTEXT — never invent one. "
@@ -71,7 +67,7 @@ COACH_TOOLS: list[dict] = [
         },
         ["metric"],
     ),
-    _tool(
+    function_tool(
         "compare_event",
         "Compare a metric on days the user DID a logged thing vs days they didn't — "
         "'how did fasting affect my HRV', 'is my sleep better on meditation nights'. "
@@ -91,7 +87,7 @@ COACH_TOOLS: list[dict] = [
         },
         ["event", "metric"],
     ),
-    _tool(
+    function_tool(
         "sleep_consistency",
         "The user's bedtime/wake REGULARITY over recent weeks: median bedtime, "
         "onset/wake SD, their SRI, and the irregular nights surfaced. Call for any "
@@ -99,7 +95,7 @@ COACH_TOOLS: list[dict] = [
         {"days": {"type": "integer", "description": "lookback nights, default 28."}},
         [],
     ),
-    _tool(
+    function_tool(
         "log_entry",
         "Record something the user did/consumed, ONLY when they ask ('log a coffee', "
         "'start a fast', 'I weigh 79'). Acts on their data. Never claim you logged "
@@ -123,7 +119,7 @@ COACH_TOOLS: list[dict] = [
         },
         ["type"],
     ),
-    _tool(
+    function_tool(
         "get_knowledge",
         "Pull a research note from our graded corpus so you can ground a claim "
         "mid-conversation. Give a topic (e.g. 'sleep regularity mortality') or an "
@@ -134,6 +130,10 @@ COACH_TOOLS: list[dict] = [
         },
         [],
     ),
+    # WP-C5's two, declared where their rails are argued (``challenge_tools``). Spliced
+    # rather than re-declared so ``COACH_TOOLS`` stays the ONE list of what the model is
+    # offered — ``tests/insights/test_coach_prompt.py`` pins the persona against it.
+    *challenge_tools.CHALLENGE_TOOLS,
 ]
 
 
@@ -164,6 +164,8 @@ def execute_tool(name: str, args: dict[str, Any], user_id: UUID, tz: str) -> dic
         )
     if name == "get_knowledge":
         return get_knowledge(args.get("topic"), args.get("note_id"))
+    if name in challenge_tools.TOOL_NAMES:
+        return challenge_tools.execute(name, args, user_id, tz)
     log.warning("coach requested unknown tool %s", name)
     return {"error": f"unknown tool {name}"}
 

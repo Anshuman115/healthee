@@ -31,12 +31,19 @@ refresh — and, from WP-C5, by the coach.
 
 ## The WP-C5 seam
 
-``intent`` is that seam. ``create_challenge`` (§6a) must reuse THIS pipeline with the
-owner's stated intent, not fork a second path, because a second path is a second set of
-gates to keep in step. Passing an intent narrows what the model may choose; it grants
-nothing — an intent that resolves to no trackable metric still produces nothing, which
-is what the coach then reports honestly. **The coach tool itself is WP-C5 and is not
-built here.**
+``intent`` is that seam. ``create_challenge`` (§6a) reuses THIS pipeline with the
+owner's stated intent rather than forking a second path, because a second path is a
+second set of gates to keep in step. Passing an intent narrows what the model may
+choose; it grants nothing — an intent that resolves to no trackable metric still
+produces nothing, which is what the coach then reports honestly. The tool itself lives
+in ``insights.challenge_tools`` (WP-C5).
+
+``replace_feed`` is the seam's second half, added by WP-C5 because the first half was
+not sufficient. A refresh REPLACES the suggestion feed (:func:`_persist`) — right for a
+refresh, wrong for a chat message, because a coach turn must not silently delete the
+suggestions somebody is looking at in another tab. With ``replace_feed=False`` nothing
+is deleted and the duplicate check widens to cover suggested metrics too, so the added
+row cannot shadow one already on the menu.
 
 ## Not premium-gated, because 6.6 does not exist
 
@@ -98,6 +105,7 @@ def generate_challenges(
     *,
     intent: str | None = None,
     max_new: int | None = None,
+    replace_feed: bool = True,
     client: LLMClient | None = None,
     model: str | None = None,
     today: date | None = None,
@@ -113,23 +121,33 @@ def generate_challenges(
     the ANSWER rather than only a log line: an empty feed with no reason is exactly the
     silent degraded state §2.5 forbids, and WP-C5's coach can only say "I could not build
     that, because…" if the pipeline told it because-what.
+
+    ``replace_feed=False`` ADDS to the suggestion feed instead of replacing it — the
+    coach's mode (module docstring).
     """
     today = today or user_today(tz)
-    prepared = _prepare(user_id, tz, today, max_new)
+    prepared = _prepare(user_id, tz, today, max_new, replace_feed)
     if "error" in prepared:
         return prepared
     accepted, rejected = _author(user_id, tz, prepared, intent=intent, client=client, model=model)
     if accepted is None:
         return _refused("no_grounded_output", "the evidence base could not ground a challenge")
-    return _persist(user_id, today, accepted, rejected)
+    return _persist(user_id, today, accepted, rejected, replace_feed)
 
 
-def _prepare(user_id: UUID, tz: str, today: date, max_new: int | None) -> dict:
+def _prepare(user_id: UUID, tz: str, today: date, max_new: int | None, replace_feed: bool) -> dict:
     """The pre-LLM read: close what has ended, count the slots, build the context.
 
     ``finalize_due`` runs first for the same reason ``lifecycle.adopt`` runs it — the cap
     is computed from the active count, and a challenge that finished but has not been
     closed would silently cost the owner a slot they should have back.
+
+    Two metric sets come out of here, not one, and they are different questions. The
+    LEVER analysis is told only what is *active*, because its exclusion reason says
+    "already running as a live challenge" and a suggestion is not that. ``screen`` is
+    told what is *claimed*, which when the feed is being kept also covers the metrics
+    already sitting on it — ``screen``'s own refusal already reads "already has a live
+    or proposed challenge", so the widened set is the sentence it was written for.
     """
     with tenant_transaction(user_id) as cur:
         lifecycle.finalize_due(cur, user_id, tz, today)
@@ -137,6 +155,11 @@ def _prepare(user_id: UUID, tz: str, today: date, max_new: int | None) -> dict:
         if slots <= 0:
             return _refused("too_many_active", f"already running {lifecycle.MAX_ACTIVE} challenges")
         active_metrics = store.active_metrics(cur, user_id)
+        claimed = (
+            active_metrics
+            if replace_feed
+            else store.metrics_in_status(cur, user_id, ("active", "suggested"))
+        )
         context, calibrations, analysis = gen_context.build_generation_context(
             cur, user_id, tz, today, active_metrics
         )
@@ -145,7 +168,7 @@ def _prepare(user_id: UUID, tz: str, today: date, max_new: int | None) -> dict:
     return {
         "context": context,
         "calibrations": calibrations,
-        "active_metrics": active_metrics,
+        "claimed_metrics": claimed,
         "blocked": analysis.blocked_metrics(),
         "max_new": max(1, min(max_new or slots, slots)),
     }
@@ -184,7 +207,7 @@ def _author(
         accepted, issues = screen(
             result.data,
             prepared["calibrations"],
-            prepared["active_metrics"],
+            prepared["claimed_metrics"],
             prepared["max_new"],
             prepared["blocked"],
         )
@@ -197,12 +220,15 @@ def _author(
     return [], issues
 
 
-def _persist(user_id: UUID, today: date, accepted: list[dict], rejected: list[str]) -> dict:
-    """Replace the owner's suggestion feed with what survived the gates.
+def _persist(
+    user_id: UUID, today: date, accepted: list[dict], rejected: list[str], replace_feed: bool
+) -> dict:
+    """Write what survived the gates — replacing the owner's feed, or adding to it.
 
-    The cap and the active metrics are re-read HERE (module docstring): the model was
+    The cap and the taken metrics are re-read HERE (module docstring): the model was
     thinking outside this transaction, and a challenge adopted meanwhile must still be
-    able to block a duplicate.
+    able to block a duplicate. When the feed is being KEPT, "taken" also covers the
+    suggestions on it, so an added row cannot shadow one already there.
 
     A run that survived the gates with NOTHING leaves the existing feed alone. The
     delete is the first half of a replacement, and there is nothing to replace with — a
@@ -214,15 +240,20 @@ def _persist(user_id: UUID, today: date, accepted: list[dict], rejected: list[st
     if not accepted:
         log.info("generation for %s produced nothing — the existing feed is left alone", user_id)
         return {"ok": True, "generated": 0, "rejected": rejected, "challenges": []}
+    statuses = ("active",) if replace_feed else ("active", "suggested")
     with tenant_transaction(user_id) as cur:
-        store.delete_suggestions(cur, user_id)
+        if replace_feed:
+            store.delete_suggestions(cur, user_id)
         slots = lifecycle.MAX_ACTIVE - store.count_active(cur, user_id)
-        taken = store.active_metrics(cur, user_id)
+        taken = store.metrics_in_status(cur, user_id, statuses)
         for proposal in accepted:
             if len(written) >= slots:
                 break
             if proposal["metric"] in taken:
-                rejected.append(f"{proposal['metric']} was adopted while the model was thinking")
+                rejected.append(
+                    f"{proposal['metric']} was already spoken for by the time the model "
+                    "finished thinking"
+                )
                 continue
             taken.add(proposal["metric"])
             new_id = store.insert_suggested(cur, user_id, today, proposal)

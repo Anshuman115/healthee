@@ -113,7 +113,7 @@ def test_tool_result_flows_back_and_a_valid_answer_ships(
     assert result.tool_calls[0]["result"]["avg"] == 42.0
 
 
-def test_the_model_is_offered_the_five_live_tools() -> None:
+def test_the_model_is_offered_the_seven_live_tools() -> None:
     stub = CoachStub([text_turn(VALID_TEXT)])
     _run(_ask("how am I doing?"), client=stub)
     offered = {t["function"]["name"] for t in stub.tools_seen[0]}
@@ -123,8 +123,69 @@ def test_the_model_is_offered_the_five_live_tools() -> None:
         "sleep_consistency",
         "log_entry",
         "get_knowledge",
+        # WP-C5 — deferred until the challenges subsystem existed, live now.
+        "adopt_challenge",
+        "create_challenge",
     }
-    assert "adopt_challenge" not in offered  # deferred to the challenges WP
+
+
+def test_claiming_an_adoption_the_tool_refused_is_caught(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The tool RAN and said no. The coach may not report it as a yes (INTELLIGENCE §4)."""
+    monkeypatch.setattr(
+        coach_tools,
+        "execute_tool",
+        lambda name, args, user_id, tz: {"ok": False, "reason": "not_found"},
+    )
+    lie = "I've started your steps challenge — you're on 6,250 a day now."
+    stub = CoachStub(
+        [tool_turn(tool_call("c1", "adopt_challenge", '{"challenge_id": 9}')), text_turn(lie)]
+    )
+    result = _run(_ask("start the steps one"), client=stub)
+    assert result.reply == prompts.FALLBACK
+    assert "started your steps challenge" not in result.reply
+    assert result.validated is False
+
+
+def test_a_successful_log_does_not_license_an_adoption_claim(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The claim guard is per-TOOL: a logged coffee cannot vouch for a started challenge."""
+    monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, user_id, tz: {"ok": True})
+    lie = "Logged. I've also adopted the sleep challenge for you."
+    stub = CoachStub(
+        [tool_turn(tool_call("c1", "log_entry", '{"type": "caffeine"}')), text_turn(lie)]
+    )
+    result = _run(_ask("log a coffee"), client=stub)
+    assert result.reply == prompts.FALLBACK
+    assert result.validated is False
+
+
+def test_an_adoption_claim_is_allowed_once_the_adopt_tool_returned_ok(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, user_id, tz: {"ok": True})
+    said = "Done — I've started your steps challenge at the target we stored."
+    stub = CoachStub(
+        [tool_turn(tool_call("c1", "adopt_challenge", '{"challenge_id": 9}')), text_turn(said)]
+    )
+    result = _run(_ask("start the steps one"), client=stub)
+    assert result.reply == said
+    assert result.validated is True
+
+
+def test_claiming_a_creation_the_tool_refused_is_caught(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        coach_tools,
+        "execute_tool",
+        lambda name, args, user_id, tz: {"ok": False, "reason": "not_trackable"},
+    )
+    lie = "I've created a sleep challenge for you."
+    stub = CoachStub(
+        [tool_turn(tool_call("c1", "create_challenge", '{"intent": "sleep"}')), text_turn(lie)]
+    )
+    result = _run(_ask("make me a sleep challenge"), client=stub)
+    assert result.reply == prompts.FALLBACK
+    assert result.validated is False
 
 
 def test_empty_conversation_greets_without_calling_the_model() -> None:

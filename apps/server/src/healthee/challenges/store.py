@@ -98,18 +98,28 @@ def count_active(cur: Cur, user_id: UUID) -> int:
     return int(row[0]) if row else 0
 
 
+def metrics_in_status(cur: Cur, user_id: UUID, statuses: tuple[str, ...]) -> set[str]:
+    """The distinct metrics ``user_id`` has a challenge on in any of ``statuses``."""
+    cur.execute(
+        "SELECT DISTINCT metric FROM challenge WHERE user_id = %s AND status = ANY(%s)",
+        (user_id, list(statuses)),
+    )
+    return {row[0] for row in cur.fetchall()}
+
+
 def active_metrics(cur: Cur, user_id: UUID) -> set[str]:
     """The metrics ``user_id`` is ALREADY running a challenge on — the dedup input.
 
     A second live challenge on the same metric is not a second commitment, it is the
     same commitment scored twice: both would read the same ``derived_daily`` rows, and
     the outcome ledger would record two before/afters over one behaviour change.
+
+    A thin wrapper on :func:`metrics_in_status` rather than its own statement, because
+    generation asks the same question of a different status set when it is ADDING to
+    the feed instead of replacing it (``generate``'s ``replace_feed``) — and two
+    near-identical SELECTs is how the two answers come to disagree.
     """
-    cur.execute(
-        "SELECT DISTINCT metric FROM challenge WHERE user_id = %s AND status = 'active'",
-        (user_id,),
-    )
-    return {row[0] for row in cur.fetchall()}
+    return metrics_in_status(cur, user_id, ("active",))
 
 
 def delete_suggestions(cur: Cur, user_id: UUID) -> int:

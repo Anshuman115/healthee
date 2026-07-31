@@ -42,9 +42,22 @@ Modules
 Dependencies run downward only (standards §"one responsibility"): ``core``, ``derive``
 and ``analytics``, plus — from WP-C3 and only in the generation modules — ``insights``,
 which is where the choke point lives. That edge is the same one ``jobs.recs`` already
-has, and it runs one way: ``insights`` does not import ``challenges``. WP-C5 will make
-the coach *call* ``generate`` rather than reimplement it, so the arrow stays pointed
-this way and the gates cannot be forked.
+has.
+
+**WP-C5 made that edge mutual at the PACKAGE level, and it was the right trade.** This
+docstring used to promise "``insights`` does not import ``challenges``" and that WP-C5
+would keep it that way by having the coach *call* ``generate``. Both halves cannot be
+true at once: the coach lives in ``insights``, so a coach that calls ``generate`` is
+``insights`` importing ``challenges``. The alternative was the coach re-implementing
+generation, which is the fork INTELLIGENCE §4 exists to prevent — a second set of gates
+beats a clean import graph every time.
+
+At MODULE level nothing is circular and nothing may become so:
+``challenges.{generate,gen_context}`` → ``insights.{grounded,manifest,answer_text}``,
+and ``insights.{challenge_tools,challenge_context}`` → ``challenges.{generate,lifecycle,
+store,ledger}``. Neither side's imports reach back to the other's importers, so no
+module imports itself transitively. The rule that keeps it that way: nothing in
+``challenges`` may ever import ``insights.coach*`` or ``insights.challenge_*``.
 
 ``recovery_guard`` adds one more downward edge, to ``read`` — ``recovery_band`` and
 ``active_illness_severity``, the SAME two functions the recovery page answers with.
