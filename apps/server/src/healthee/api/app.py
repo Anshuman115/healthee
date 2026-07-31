@@ -21,6 +21,7 @@ from healthee.api.routers import (
     auth,
     challenges,
     coach,
+    generation,
     gps,
     health,
     history,
@@ -73,6 +74,11 @@ def create_app() -> FastAPI:
     # them rather than inside them because a rung's own lifecycle is the challenges
     # router's (adapt, abandon), while the ladder's is this one's.
     app.include_router(programs.router)
+    # WP-C3b/C4b generation: the ONE place a challenge or a ladder can be authored, and
+    # the only endpoints in this app that call a model on the request path. Mounted after
+    # the two feeds because it is a different concern (spend, not lifecycle) — its own
+    # router says why at length.
+    app.include_router(generation.router)
     # Phase 6.1 identity — Supabase-JWT-authed /api/me + /api/device. Additive:
     # existing routers keep their shared-token guard until the 6.4 flip.
     app.include_router(auth.router)

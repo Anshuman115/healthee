@@ -585,10 +585,44 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
     now declares which `cadences` it can take (no default, so a new metric must
     decide), and `(sri, weekly)` — seven 0–100 scores summed into ~490 — is refused by
     Gate A, by `adopt`, and by `evaluate`, i.e. unrepresentable rather than unreached.
-- ⬜ **WP-C3b** the refresh wiring: `POST /api/challenges/generate` (+ its latency budget
-  and rate limit) and the empty-feed trigger. Split out deliberately — the pipeline is
-  complete and tested headless; the HTTP surface is a separate concern that also carries
-  the 6.6 gate when it lands.
+- ✅ **WP-C3b** the refresh wiring — `POST /api/challenges/generate`
+  (`api/routers/generation.py`, `core/rate_limit.py`). The track is reachable: before
+  this there was no way for an owner to acquire a challenge at all.
+  - **The LLM sits on this request path, and that is not a breach of the budgets.**
+    Standards §Performance forbids generation blocking a *sync or a read*; this is a POST
+    the owner explicitly triggered, where seconds are honest. The server-side half is
+    MEASURED rather than asserted: ~70 ms warm / ~180 ms cold for the pipeline, ~200 ms
+    end-to-end through an in-process client, with the model's seconds on top. That is
+    above the p95 < 100 ms READ budget and is not governed by it — and the read surfaces
+    it *does* govern were left alone.
+  - **`GET /api/challenges` stays PURE — no auto-generate-on-empty-feed.** A GET that
+    writes is not idempotent, races itself, and only ever helps the owner who happens to
+    be looking. The empty-feed trigger is the CLIENT's (WP-C6): call generate once, do
+    not retry inside the same local day. A test asserts the GET writes no row and asks no
+    model, and a mutation that adds the auto-generate fails it.
+  - **The first rate limiter in the codebase** (MULTI_USER.md §11 lists it unbuilt), on
+    the per-owner `kv` table: **3 generations per owner per THEIR local day**, shared with
+    C4b's program generation. The number is cost arithmetic against PRICING §3.1 — one
+    completion is ~10 k in / ~800 out ≈ **0.74 ¢**, one request is 1 completion typically
+    and at most 4 (one bounds retry × one validator retry), so the cap is **~2.2 ¢/owner/
+    day ≈ $0.67/month** typical and ~9.3 ¢/day ≈ $2.79/month in the pathological case.
+    It is also generous against what the product earns: a band is built from whole local
+    days, so a second refresh the same day is the same question in different words.
+  - **The refusal is honest and specific**: 429 with `Retry-After`, the resetting instant
+    and the count, never a generic error. And a refusal decided BEFORE the model is asked
+    (`generate.PRE_LLM_REFUSALS` — the cap, no calibratable metric) is **refunded**, so
+    nobody loses a day's refreshes to a state they can fix in a tap.
+  - **It is NOT §12.3's metering** (`require_ai_access`, the 1-question-per-7-days taste).
+    That answers *may this person use AI at all* — entitlement, unbuilt, 6.6. This answers
+    *how often may anyone, premium included, spend on this*. They compose: entitlement
+    first, then the budget. **What it does not cover:** the coach's `create_challenge`
+    reaches the same pipeline without passing through the endpoint, deliberately — the
+    coach's natural unit is a TURN and metering turns is §12.3's job, so chat-initiated
+    generation stays unbounded until 6.6. Stated, not hidden.
+  - **One row per owner per feature, self-resetting** (the day lives in the kv VALUE, not
+    the key). `jobs/chain.py`'s `job:chain_done:<day>` marker puts the day in the KEY and
+    therefore leaves one row per owner per day in `kv` forever — a small unbounded growth
+    nothing sweeps, noted here rather than copied.
 - ✅ **WP-C4** programs + deload/failure/recalibration — the ladder ENGINE
   (`challenges/{program_store,rung,ladder,programs}.py`, migration `0010`, three
   endpoints). §2.3's four fixes, all of them by **orchestrating what already exists**

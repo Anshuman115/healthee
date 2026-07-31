@@ -27,6 +27,20 @@ _REFUSAL_STATUS: dict[str, int] = {
     # `reason` in the body is what says which.
     "duplicate_commitment": 409,
     "no_adaptation": 409,
+    # WP-C3b/C4b — the generation refusals. All 409, and each is listed rather than left
+    # to the fallback so the choice is a decision somebody made:
+    #
+    # A generation refusal is a statement about the STATE the owner's data is in, never a
+    # server error and never a silent 200-with-nothing. 5xx would be wrong (nothing
+    # failed — the pipeline worked and its answer was "no"), and 200 would be worse: an
+    # empty feed with no reason is the exact degraded state CHALLENGES.md §2.5 forbids.
+    # The `reason` in the body is what lets a client say WHICH — "you are already running
+    # three", "there is not enough of your data yet", "the evidence base could not ground
+    # one" and "you are already climbing a ladder" call for four different sentences.
+    "no_calibratable_metric": 409,
+    "no_grounded_output": 409,
+    "program_active": 409,
+    "not_ladderable": 409,
 }
 
 

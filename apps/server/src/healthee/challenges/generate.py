@@ -84,6 +84,14 @@ log = get_logger(__name__)
 # not going to honour it on a third ask, and an empty feed is an honest answer.
 _MAX_BOUNDS_RETRIES = 1
 
+# The named refusals this pipeline decides BEFORE the model is asked — they cost two
+# cheap queries and no tokens. WP-C3b's endpoint charges a daily generation budget
+# (`core.rate_limit`) and refunds these, so an owner cannot lose a day's refreshes to a
+# state they can fix in a tap while the spend this bounds went unspent. The set lives
+# here because it is a fact about THIS pipeline's control flow (both come out of
+# `_prepare`, before `_author` runs), not a policy of whoever is metering it.
+PRE_LLM_REFUSALS: frozenset[str] = frozenset({"too_many_active", "no_calibratable_metric"})
+
 # Days of the owner's history the choke point builds its context over. Wider than recs'
 # 14: a challenge is a commitment for the weeks ahead, and the trend that justifies it
 # is not visible in a fortnight.
