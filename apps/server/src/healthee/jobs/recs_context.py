@@ -22,7 +22,11 @@ from healthee.analytics.finding import get_significant_findings
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import user_today
 from healthee.read.fitness import mvpa_payload
-from healthee.read.recovery import recovery_score_payload
+from healthee.read.recovery import (
+    STALE_RECOVERY_DIRECTIVE,
+    recovery_freshness,
+    recovery_score_payload,
+)
 
 _TARGET_MVPA_MIN = 150  # WHO weekly moderate-to-vigorous target [mvpa_minutes_mortality]
 
@@ -58,10 +62,22 @@ def _age(dob: date, today: date) -> int:
 
 
 def _recovery_line(cur, user_id: UUID, tz: str) -> str:
-    """Recovery band SETS today's intensity ceiling (recs must respect it)."""
+    """Recovery band SETS today's intensity ceiling — when it IS today's.
+
+    The payload carries ``date`` and this line discarded it while asserting "today's
+    intensity ceiling", so an unsynced strap had a days-old score prescribing today's
+    training. A stale score keeps its conservative pull (dropping it would leave the model
+    with no ceiling at all) but loses the claim to be current — see ``read/recovery.py``.
+    """
     payload = recovery_score_payload(cur, user_id, tz)
     if not payload:
         return ""
+    if stale := recovery_freshness(payload, tz):
+        return (
+            f"- Recovery {payload['recovery']}/100 ({payload['band']}) as of "
+            f"{stale['last_as_of_date']}, {stale['age_days']} day(s) ago "
+            f"[recovery_readiness]. {STALE_RECOVERY_DIRECTIVE}"
+        )
     return (
         f"- Recovery {payload['recovery']}/100 ({payload['band']}) "
         f"[recovery_readiness] — SETS today's intensity ceiling: high ⇒ can push, "

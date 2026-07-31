@@ -24,7 +24,11 @@ from healthee.core.db import tenant_transaction
 from healthee.insights.challenge_context import challenge_section
 from healthee.insights.context import build_context
 from healthee.insights.retrieval import evidence_section
-from healthee.read.recovery import recovery_score_payload
+from healthee.read.recovery import (
+    STALE_RECOVERY_DIRECTIVE,
+    recovery_freshness,
+    recovery_score_payload,
+)
 
 # Default metric/history window for the coach — wide enough for trends + baselines
 # and to expose a recurring intervention schedule (COACH_PROMPT.md history rule).
@@ -48,25 +52,51 @@ def build_coach_context(
     with tenant_transaction(user_id) as cur:
         recovery = recovery_score_payload(cur, user_id, tz)
         challenges = challenge_section(cur, user_id)
-    parts = [context, _recovery_block(recovery), challenges]
+    parts = [context, _recovery_block(recovery, tz), challenges]
     return "\n\n".join(p for p in parts if p)
 
 
-def _recovery_block(recovery: dict | None) -> str:
-    """Today's recovery so intensity advice respects it (deterministic, not LLM)."""
+def _recovery_block(recovery: dict | None, tz: str) -> str:
+    """The owner's recovery so intensity advice respects it (deterministic, not LLM).
+
+    Headed "Today's recovery" ONLY when it is today's. ``recovery_score_payload`` has
+    always carried ``date``; this dropped it and asserted "today", so a stale score set
+    the model's intensity ceiling as if it were current (``read/recovery.py``).
+    """
     if not recovery:
         return ""
     factors = ", ".join(
         f"{name} {vals.get('sub')}" for name, vals in (recovery.get("factors") or {}).items()
     )
+    stale = recovery_freshness(recovery, tz)
     return (
-        "## Today's recovery [recovery_readiness] — let it set intensity advice\n"
-        f"- Recovery {recovery['recovery']}/100, live readiness {recovery['readiness']} "
-        f"({recovery['band']}).\n"
-        f"- Factor sub-scores: {factors}.\n"
-        f"- Built-in guidance: {recovery.get('guidance', '')}\n"
-        "- Rule of thumb: low recovery ⇒ advise rest/easy and protect sleep; moderate ⇒ "
+        _recovery_heading(recovery, stale)
+        + f"- Factor sub-scores: {factors}.\n"
+        + f"- Built-in guidance: {recovery.get('guidance', '')}\n"
+        + "- Rule of thumb: low recovery ⇒ advise rest/easy and protect sleep; moderate ⇒ "
         "Zone 2 only; high ⇒ pushing is fine."
+    )
+
+
+def _recovery_heading(recovery: dict, stale: dict | None) -> str:
+    """The heading + score line — the two lines that made the "today" claim.
+
+    Live readiness is dropped when the score is stale, not just relabelled: the intraday
+    decay only applies on the score's OWN day (``read/recovery._live_readiness`` returns
+    the morning value unchanged otherwise), so quoting "live readiness" for an older day
+    would name a number that has not decayed against anything.
+    """
+    if stale is None:
+        return (
+            "## Today's recovery [recovery_readiness] — let it set intensity advice\n"
+            f"- Recovery {recovery['recovery']}/100, live readiness {recovery['readiness']} "
+            f"({recovery['band']}).\n"
+        )
+    return (
+        f"## Most recent recovery — from {stale['last_as_of_date']}, "
+        f"{stale['age_days']} day(s) ago [recovery_readiness]\n"
+        f"- Recovery {recovery['recovery']}/100 ({recovery['band']}) AS OF "
+        f"{stale['last_as_of_date']}. {STALE_RECOVERY_DIRECTIVE}\n"
     )
 
 

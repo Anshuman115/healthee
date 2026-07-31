@@ -18,13 +18,14 @@ file was at the 400-line gate again.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from healthee.analytics.baselines import compute_baseline_cur
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
+from healthee.derive.freshness import NOT_DERIVED_YET, unavailable_reason, withheld_block
 from healthee.derive.robust import median, median_abs_deviation, robust_sd
 from healthee.read.common import TodayReads, latest_derived
 from healthee.read.health_metrics import active_illness_severity
@@ -80,6 +81,49 @@ def recovery_score_payload(
         "typical_strain": round(typical, 1) if typical is not None else None,
         "note_id": "recovery_readiness",
     }
+
+
+# ── Is that score TODAY's? — one answer for both LLM surfaces ────────────────
+#
+# ``recovery_score_payload`` has always carried ``date``. Both prompt builders DROPPED it
+# and relabelled the value: ``insights/coach_context._recovery_block`` wrote "## Today's
+# recovery … let it set intensity advice" and ``jobs/recs_context._recovery_line`` wrote
+# "SETS today's intensity ceiling". So an unsynced strap fed a days-old score to the model
+# as today's readiness, and it drove the intensity prescription — the worst version of this
+# defect, because the number never reaches a UI where a date could rescue it.
+#
+# The fix is not to hide the score. A stale recovery is still the most recent evidence we
+# have, and DELETING it would remove the conservative ceiling ("never prescribe a hard
+# session on low recovery") that [[recovery_readiness]] exists to impose — trading a
+# mislabelled number for an unconstrained model is a worse trade. So the value is kept,
+# dated, and the dependent claim ("today's", "sets the ceiling") is dropped.
+RECOVERY_MESSAGES = {
+    NOT_DERIVED_YET: "There is no recovery score for today yet — sync the strap.",
+}
+
+# The instruction that must accompany a stale score, in ONE place so the coach prompt and
+# the recs prompt cannot drift apart on it (they are separate LLM surfaces enforcing the
+# same rule — ARCHITECTURE.md's "a new rule must be added in both places").
+STALE_RECOVERY_DIRECTIVE = (
+    "This is NOT today's recovery and must not be presented as today's readiness. Today's "
+    "has not been computed. Without a current score there is no intensity ceiling to "
+    "quote: say so plainly and advise on the conservative side."
+)
+
+
+def recovery_freshness(payload: dict, tz: str) -> dict | None:
+    """``None`` when the score IS the owner's today, else why it isn't and how old it is.
+
+    The FACT is shared; the wording is not. Each prompt builder renders this in its own
+    voice but neither gets to decide whether the score is current — that question has one
+    answer (``derive/freshness.py``).
+    """
+    today = user_today(tz)
+    last_day = date.fromisoformat(payload["date"])
+    reason = unavailable_reason(today, last_day)
+    if reason is None:
+        return None
+    return withheld_block(reason, RECOVERY_MESSAGES[reason], today, last_day)
 
 
 def _live_readiness(
