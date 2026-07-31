@@ -16,6 +16,12 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from healthee.derive._common import Cur, _age, _load_profile, _upsert_daily
+from healthee.derive.freshness import (
+    NO_NIGHTS_IN_WINDOW,
+    NOT_DERIVED_YET,
+    PROFILE_INCOMPLETE,
+    unavailable_reason,
+)
 
 # ── 4-dimension sleep score cutoffs — sleep_score_implementation_plan ─────────
 SLEEP_DURATION_MIN_H, SLEEP_DURATION_MAX_H = 7.0, 9.0  # Cappuccio 2010
@@ -45,13 +51,14 @@ def _sleep_efficiency(tst_min: int, wake_min: int) -> float:
     return min(1.0, tst_min / total) if total > 0 else 0.0
 
 
-def _compute_sri(cur: Cur, user_id: UUID, tz: str, night_date: date) -> float | None:
-    """Sleep Regularity Index over the 7-day window ending on `night_date`.
+def _sri_grid(cur: Cur, user_id: UUID, tz: str, night_date: date) -> dict[int, set[int]]:
+    """The asleep-minute grid for the 7-day window ending on ``night_date``.
 
-    Built from main-sleep hypnogram stages (asleep = any non-awake stage): the
-    percentage agreement, at one-minute resolution, that the person is in the same
-    sleep/wake state 24 h apart, mapped to -100..100. None until 7 days are
-    present. Phillips 2017 [[sleep_regularity_index]].
+    Extracted from :func:`_compute_sri` so the WITHHOLD GATE and the computation read
+    the identical window: :func:`sri_withhold_reason_for_day` asks only how many days
+    the grid covers, and asking it any other way (say, counting sessions in SQL) would
+    be a second definition of "a complete week" — sessions can span a local midnight,
+    the grid is what decides which day a minute belongs to.
     """
     start_local = datetime(
         night_date.year, night_date.month, night_date.day, tzinfo=ZoneInfo(tz)
@@ -62,7 +69,18 @@ def _compute_sri(cur: Cur, user_id: UUID, tz: str, night_date: date) -> float | 
         "WHERE user_id = %s AND kind='main' AND end_ts>=%s AND start_ts<%s",
         (user_id, start_local.astimezone(UTC), end_local.astimezone(UTC)),
     )
-    grid = _sri_minute_grid(cur.fetchall(), start_local.date(), tz)
+    return _sri_minute_grid(cur.fetchall(), start_local.date(), tz)
+
+
+def _compute_sri(cur: Cur, user_id: UUID, tz: str, night_date: date) -> float | None:
+    """Sleep Regularity Index over the 7-day window ending on `night_date`.
+
+    Built from main-sleep hypnogram stages (asleep = any non-awake stage): the
+    percentage agreement, at one-minute resolution, that the person is in the same
+    sleep/wake state 24 h apart, mapped to -100..100. None until 7 days are
+    present. Phillips 2017 [[sleep_regularity_index]].
+    """
+    grid = _sri_grid(cur, user_id, tz, night_date)
     if len(grid) < SRI_DAYS:
         return None
     minutes_per_day, days = 1440, SRI_DAYS
@@ -90,6 +108,58 @@ def _sri_minute_grid(rows: list, start_date: date, tz: str) -> dict[int, set[int
                     grid[day_index].add(local.hour * 60 + local.minute)
                 minute += timedelta(minutes=1)
     return grid
+
+
+# ── SRI freshness: an SRI is a claim about ONE 7-day window ──────────────────
+#
+# Directive 4 of [[sleep_regularity_index]] (confidence: high) — "Do not compute or
+# report SRI from <7 days of data" — is enforced on the WRITE side by `_compute_sri`
+# returning None, so a short week writes no row. Consumers then read "the newest
+# `sleep_regularity_index` row" and spent it as the owner's CURRENT regularity: the
+# biological-age regularity term and `/api/sleep/consistency` both did. A 90-day-old row
+# is a perfectly valid SRI *of a week 90 days ago*; presenting it as now is the report
+# half of the same directive being broken, and it is the more consequential half,
+# because an SRI has no visible age.
+#
+# The reason is RECOMPUTED, not persisted (`derive/vo2max.py`'s posture, and for the
+# same reason): the gate is a pure function of sleep sessions still in the database, so
+# it needs no migration and works for rows written before this existed.
+SRI_WINDOW_TOO_SHORT = "sri_window_under_7_nights"
+
+SRI_MESSAGES = {
+    SRI_WINDOW_TOO_SHORT: (
+        "Sleep regularity needs seven consecutive nights of recorded sleep — wear the "
+        "strap overnight until the week is complete and this comes back."
+    ),
+    NOT_DERIVED_YET: "Last night's regularity has not been computed yet — sync the strap.",
+}
+
+
+def sri_withhold_reason_for_day(cur: Cur, user_id: UUID, tz: str, day: date) -> str | None:
+    """Why ``day`` cannot carry an SRI, or None when its 7-day window is complete.
+
+    The same check :func:`_compute_sri` makes, over the same grid, without writing
+    anything — the equivalence is pinned by ``tests/derive/test_sri_freshness.py`` so a
+    gate added to one and not the other fails the build. [[sleep_regularity_index]].
+    """
+    if len(_sri_grid(cur, user_id, tz, day)) < SRI_DAYS:
+        return SRI_WINDOW_TOO_SHORT
+    return None
+
+
+def sri_unavailable_reason(
+    cur: Cur, user_id: UUID, tz: str, today: date, last_day: date | None
+) -> str | None:
+    """Why this owner has no SRI FOR TODAY, or ``None`` when ``last_day`` IS today.
+
+    The consumer-facing question, bound to the gate above through the one shared rule
+    (``derive/freshness.py``). Two consumers must not fork it: the biological-age
+    regularity term (``analytics/biological_age.py``) and ``/api/sleep/consistency``
+    (``read/sleep_extras.py``, which also backs the coach's ``sleep_consistency`` tool).
+    """
+    return unavailable_reason(
+        today, last_day, lambda: sri_withhold_reason_for_day(cur, user_id, tz, today)
+    )
 
 
 def derive_sleep_score(
@@ -163,6 +233,64 @@ def _sleep_debt_stats(tsts: list[float], need: int) -> dict:
     }
 
 
+def _tst_window(cur: Cur, user_id: UUID, day: date) -> list[float]:
+    """The recorded nights' TST in the rolling window ending on ``day``, oldest first.
+
+    The ONE definition of "the nights this day's debt is computed over" — shared by the
+    derivation and by :func:`sleep_debt_withhold_reason_for_day`, so the gate cannot
+    disagree with the writer about whether a day had anything to compute.
+    """
+    cur.execute(
+        "SELECT (flags->>'tst_min')::float FROM derived_daily "
+        "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND day<=%s AND day>%s "
+        "AND flags ? 'tst_min' ORDER BY day",
+        (user_id, day, day - timedelta(days=SLEEP_DEBT_WINDOW)),
+    )
+    return [float(t[0]) for t in cur.fetchall() if t[0] is not None]
+
+
+# ── Sleep-debt freshness: a rolling 14-night window has a LAST night ─────────
+#
+# `sleep_debt_min` is a cumulative claim over the 14 nights ending on its `day`. Two
+# weeks later that window and today's share no nights at all, so the stored number is
+# not "the debt, slightly out of date" — it describes a different fortnight. The Today
+# card presented `latest_derived('sleep_debt_min')` with no date key of any kind.
+SLEEP_DEBT_MESSAGES = {
+    PROFILE_INCOMPLETE: (
+        "We need your date of birth (and a logged weight) to set your age-based sleep "
+        "need before a debt can be tracked."
+    ),
+    NO_NIGHTS_IN_WINDOW: (
+        "No sleep has been recorded in the last two weeks, so there is no window to "
+        "compute a debt over — wear the strap overnight and this comes back."
+    ),
+    NOT_DERIVED_YET: "Today's sleep debt has not been computed yet — sync the strap.",
+}
+
+
+def sleep_debt_withhold_reason_for_day(cur: Cur, user_id: UUID, tz: str, day: date) -> str | None:
+    """Why ``day`` has no sleep debt, or None when its inputs CAN carry one.
+
+    The same two checks :func:`derive_sleep_debt` makes, in the same order, over the same
+    window, without writing — the ``derive/vo2max.py`` posture, and pinned by the same
+    kind of writer/reader equivalence test. [[sleep_need_debt]].
+    """
+    if not _load_profile(cur, user_id, tz, day):
+        return PROFILE_INCOMPLETE
+    if not _tst_window(cur, user_id, day):
+        return NO_NIGHTS_IN_WINDOW
+    return None
+
+
+def sleep_debt_unavailable_reason(
+    cur: Cur, user_id: UUID, tz: str, today: date, last_day: date | None
+) -> str | None:
+    """Why this owner has no sleep debt FOR TODAY, or ``None`` when ``last_day`` IS today."""
+    return unavailable_reason(
+        today, last_day, lambda: sleep_debt_withhold_reason_for_day(cur, user_id, tz, today)
+    )
+
+
 def derive_sleep_debt(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     """Age-based sleep need (NSF 2015) + rolling 14-night cumulative debt.
 
@@ -176,13 +304,7 @@ def derive_sleep_debt(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | Non
         return None
     age = _age(prof["dob"], day)
     need = SLEEP_NEED_MIN_65P if age >= 65 else SLEEP_NEED_MIN_18_64
-    cur.execute(
-        "SELECT (flags->>'tst_min')::float FROM derived_daily "
-        "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND day<=%s AND day>%s "
-        "AND flags ? 'tst_min' ORDER BY day",
-        (user_id, day, day - timedelta(days=SLEEP_DEBT_WINDOW)),
-    )
-    tsts = [float(t[0]) for t in cur.fetchall() if t[0] is not None]
+    tsts = _tst_window(cur, user_id, day)
     if not tsts:
         return None
     stats = _sleep_debt_stats(tsts, need)
