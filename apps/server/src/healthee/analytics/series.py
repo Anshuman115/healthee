@@ -7,7 +7,8 @@ These loaders read the v2 tables directly:
   * daily metrics  → ``derived_daily`` (one row per (day, metric); no source
     column, no dedup needed — the derive layer already writes one canonical row).
   * flag-derived   → the JSON ``flags`` of another ``derived_daily`` metric
-    (``moderate``/``vigorous`` inside ``mvpa_min``).
+    (``moderate``/``vigorous`` inside ``mvpa_min``; ``tst_min`` inside
+    ``sleep_health_score_4dim``).
   * event days     → ``manual_entry`` directly (unchanged from legacy, which
     already read this v2-native table).
 
@@ -34,32 +35,59 @@ _MIN_TIMED_EVENT_S = 60
 Cur = Cursor[TupleRow]
 
 
-def daily_series(cur: Cur, user_id: UUID, metric: str) -> dict[date, float]:
+def daily_series(
+    cur: Cur, user_id: UUID, metric: str, since: date | None = None
+) -> dict[date, float]:
     """All daily values for one owner's metric from ``derived_daily``, sentinel-filtered.
 
     Flag-derived synthetic metrics (moderate_min/vigorous_min) transparently read
     from their owning metric's flags. One value per local day — no source
     preference/dedup because ``derived_daily`` is already canonical (seam fix).
+
+    ``since`` bounds the read to ``day >= since`` (the owner's local calendar date,
+    which is what ``derived_daily.day`` already is — no timezone conversion is
+    involved, so this cannot shift a day). Omit it for the whole history: the
+    correlation engine needs every day it has, while a windowed consumer (the
+    challenges engine) must not drag the full history across the wire
+    (standards §"unbounded data is windowed").
     """
     if metric in FLAG_DERIVED_METRICS:
-        return _flag_series(cur, user_id, metric)
+        owner, key = FLAG_DERIVED_METRICS[metric]
+        return flag_series(cur, user_id, owner, key, since)
     flt = metric_filter(metric)  # constant from METRIC_FILTERS — safe to interpolate
     query = cast(
         LiteralString,
-        f"SELECT day, value FROM derived_daily WHERE user_id = %s AND metric=%s AND {flt}",
+        f"SELECT day, value FROM derived_daily WHERE user_id = %s AND metric=%s AND {flt}"
+        + (" AND day >= %s" if since is not None else ""),
     )
-    cur.execute(query, (user_id, metric))
+    params: tuple = (user_id, metric) if since is None else (user_id, metric, since)
+    cur.execute(query, params)
     return {row[0]: float(row[1]) for row in cur.fetchall()}
 
 
-def _flag_series(cur: Cur, user_id: UUID, metric: str) -> dict[date, float]:
-    """Read a numeric value out of another metric's ``flags`` JSON, one per day."""
-    owner, key = FLAG_DERIVED_METRICS[metric]
-    cur.execute(
+def flag_series(
+    cur: Cur, user_id: UUID, owner_metric: str, flag_key: str, since: date | None = None
+) -> dict[date, float]:
+    """Read a numeric value out of another metric's ``flags`` JSON, one per day.
+
+    The ONE reader for flag-carried series (standards §Duplication): reached both
+    via :func:`daily_series` for the ``FLAG_DERIVED_METRICS`` synthetics and
+    directly by callers naming the owning metric and key — ``tst_min``, which the
+    derive layer stores on ``sleep_health_score_4dim.flags`` rather than as a row
+    of its own, is not in the canonical daily registry and has no synthetic name.
+    """
+    query = cast(
+        LiteralString,
         "SELECT day, (flags->>%s)::float FROM derived_daily "
-        "WHERE user_id = %s AND metric=%s AND flags ? %s",
-        (key, user_id, owner, key),
+        "WHERE user_id = %s AND metric=%s AND flags ? %s"
+        + (" AND day >= %s" if since is not None else ""),
     )
+    params: tuple = (
+        (flag_key, user_id, owner_metric, flag_key)
+        if since is None
+        else (flag_key, user_id, owner_metric, flag_key, since)
+    )
+    cur.execute(query, params)
     return {row[0]: float(row[1]) for row in cur.fetchall() if row[1] is not None}
 
 
