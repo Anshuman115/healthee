@@ -19,7 +19,7 @@ import pytest
 from healthee.analytics import baselines, biological_age, correlations, cutoffs
 from healthee.analytics.anomalies import detect
 from healthee.core.db import tenant_transaction
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.db import migrate
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -158,7 +158,11 @@ def test_correlations_write_findings_from_derived_daily(db: None) -> None:  # no
 
 def test_biological_age_from_v2_derived_daily(db: None) -> None:  # noqa: ARG001
     _reset()
-    today = date.today()
+    # The OWNER's today, not the process's: the fitness term is only spent when the
+    # newest `vo2max_estimate` row is the owner's own today, and `date.today()` under
+    # TZ=UTC is yesterday for an IST owner after 18:30 UTC (the seeder's own helpers
+    # already anchor to IST — this line did not).
+    today = user_today(SENTINEL_TZ)
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_profile(cur, dob=date(1990, 6, 15), sex="male")
         sd.seed_daily(cur, "vo2max_estimate", {today: 45.0})

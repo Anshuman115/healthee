@@ -47,10 +47,9 @@ from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
 from healthee.derive.robust import median
 from healthee.derive.vo2max import (
-    NOT_DERIVED_YET,
     WITHHOLD_MESSAGES,
+    estimate_unavailable_reason,
     out_of_range_inputs,
-    withhold_reason_for_day,
 )
 
 _WINDOW_DAYS = 95  # the trend window; ~90 days of trend plus slack
@@ -112,15 +111,17 @@ def _withheld_block(
     """Why there is no estimate for TODAY, or None when today has one.
 
     A row for any day other than the owner's today does not make today's estimate
-    exist, and this is the check that makes that structural: a withheld today cannot
-    "resurrect" tomorrow just because some row survives inside the 95-day window.
+    exist, and ``derive.vo2max.estimate_unavailable_reason`` is the check that makes that
+    structural: a withheld today cannot "resurrect" tomorrow just because some row
+    survives inside the 95-day window. That rule lives beside the gate it belongs to
+    because biological age needs the identical answer (standards §Duplication).
 
     Two queries, and only on the days that need them — a fresh estimate short-circuits
     before the gate is re-run, so the common path costs nothing extra.
     """
-    if last_day == today:
+    reason = estimate_unavailable_reason(cur, user_id, tz, today, last_day)
+    if reason is None:
         return None
-    reason = withhold_reason_for_day(cur, user_id, tz, today) or NOT_DERIVED_YET
     return {
         "reason": reason,
         "message": WITHHOLD_MESSAGES[reason],

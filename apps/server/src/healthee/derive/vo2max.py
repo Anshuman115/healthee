@@ -203,6 +203,29 @@ def withhold_reason_for_day(cur: Cur, user_id: UUID, tz: str, day: date) -> str 
     return vo2max_withhold_reason(rhr_week(cur, user_id, day))
 
 
+def estimate_unavailable_reason(
+    cur: Cur, user_id: UUID, tz: str, today: date, last_day: date | None
+) -> str | None:
+    """Why this owner has no estimate FOR TODAY, or ``None`` when ``last_day`` IS today.
+
+    The FRESHNESS half of the gate, in one place. :func:`withhold_reason_for_day` answers
+    "could today carry an estimate"; this answers the question a *consumer* actually has,
+    which is "is the newest stored row today's". They are different questions and the
+    second is the one that was getting skipped: a row is not evidence about today merely
+    because it is the newest row, so an estimate is reported only when the newest row is
+    the owner's today. ``last_day is None`` (no row at all) is the same answer as a stale
+    one — there is no estimate for today either way.
+
+    Extracted because there are now TWO consumers and the rule must not fork: the VO2max
+    payload (``read/vo2max.py``) and the biological-age fitness term
+    (``analytics/biological_age.py``), where a stale estimate is laundered into a headline
+    composite. [[non_exercise_vo2max]], [[biological_age_estimate]].
+    """
+    if last_day == today:
+        return None
+    return withhold_reason_for_day(cur, user_id, tz, today) or NOT_DERIVED_YET
+
+
 def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, srpa: int = 0) -> float:
     """Jurca 2005 non-exercise cardiorespiratory fitness -> VO2max (ml/kg/min).
 

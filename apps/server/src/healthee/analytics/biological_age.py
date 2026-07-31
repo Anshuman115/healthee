@@ -10,17 +10,49 @@ verbatim from legacy ``biological_age.py``. The seam fix is every read: the
 latest VO₂max, the 14-night average TST (from the ``sleep_health_score_4dim``
 flags), and the latest SRI all come from ``derived_daily`` instead of the
 ``metric_sample`` view filtered on ``source='derived'``.
+
+## No CURRENT fitness input ⇒ no biological age (2026-07-31)
+
+``_fitness_term`` read ``vo2max_estimate`` as "the newest row", which is not the same
+claim as "today's estimate". ``derive/vo2max.py`` WITHHOLDS the Jurca estimate — writes
+no row — on a day its inputs cannot carry it, and ``read/vo2max.py`` reports that as
+``insufficient_data``. So one ``/api/today`` payload could say "we cannot tell you your
+VO₂max today" in the fitness card and, three keys away, spend a 40-day-old VO₂max as a
+current term of a headline number.
+
+The fix is NOT a label. The composite is ``chrono + Σ ΔAge_i``, so a term that is simply
+left out is not an omission — it is the assertion ``HR_fitness = 1.0``, i.e. *this person
+sits exactly on the age/sex-median VO₂max*. That is a claim about them, it is the one the
+note calls **dominant** ("VO₂max is the dominant term ... AND the least certain input —
+so bio_age is sensitive to it"), and silently making it would move the number by years on
+a day when nothing about the person changed. A composite that shifts because a term
+vanished is a different composite, not a partial one.
+
+So the fitness term is REQUIRED, and the rule is the note's own Stage-1 coach directive:
+"hold the number back ... until the VO₂max estimate ... exist[s]". Without a VO₂max for
+the owner's today — withheld, or never derived — ``biological_age`` and ``delta_years``
+are ``null``, ``data_confidence`` is ``insufficient_data`` (the outcome ledger's
+vocabulary, as in ``read/vo2max.py``), and a ``withheld`` block names the reason and what
+it would take. The terms that ARE current still ship in ``contributions``: each one is a
+standalone hazard→years fact from the note's table, and deleting them would withhold
+things we genuinely know.
+
+ONE rule covers both ways the input can be absent — withheld today and never derived at
+all — because "the composite silently assumes median fitness" is the same defect either
+way, and two treatments of one state is how a second definition gets in (CLAUDE.md).
 """
 
 from __future__ import annotations
 
 import math
+from datetime import date
 from uuid import UUID
 
 from psycopg import Cursor
 from psycopg.rows import TupleRow
 
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
+from healthee.derive.vo2max import WITHHOLD_MESSAGES, estimate_unavailable_reason
 
 # Age/sex population-median VO₂max (ml/kg/min), 10-year buckets.
 _VO2MAX_MEDIAN_MALE = {20: 44.0, 30: 41.0, 40: 38.0, 50: 33.0, 60: 28.0, 70: 24.0}
@@ -28,6 +60,18 @@ _VO2MAX_MEDIAN_FEMALE = {20: 36.0, 30: 33.0, 40: 30.0, 50: 26.0, 60: 22.0, 70: 1
 
 GOMPERTZ_MRDT_YEARS = 7.7  # UK Biobank mortality-rate doubling time
 TERM_CAP_YEARS = 10.0  # no single noisy input can move age more than ±10 y
+
+# The term the composite cannot be computed without — see the module docstring.
+FITNESS_TERM = "fitness"
+
+# Why the whole estimate goes with the fitness term, in the second person. The reason
+# itself (and its "here is what we'd need" message) is VO₂max's, reused verbatim from
+# ``derive/vo2max.WITHHOLD_MESSAGES`` so the two surfaces cannot explain the same
+# absence differently.
+FITNESS_REQUIRED_MESSAGE = (
+    "Fitness is the largest term in this estimate, so without today's VO₂max there is no "
+    "biological age to report. The terms below are still current."
+)
 
 Cur = Cursor[TupleRow]
 
@@ -54,7 +98,11 @@ def hazard_delta_years(hr: float) -> float:
 def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     """Gompertz hazard→years over one combined fitness term (VO₂max) + sleep
     duration + SRI. Returns chronological/biological age + signed per-term year
-    contributions (+ = older, − = younger), or None without a profile/inputs."""
+    contributions (+ = older, − = younger), or None without a profile/inputs.
+
+    The composite is withheld — ``biological_age``/``delta_years`` null, with a
+    ``withheld`` block — when the owner has no VO₂max estimate for TODAY, because the
+    fitness term is required (module docstring)."""
     cur.execute("SELECT dob, sex FROM profile WHERE user_id = %s", (user_id,))
     p = cur.fetchone()
     if not p or not p[0]:
@@ -79,16 +127,35 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
         )
         return d
 
-    dage = _fitness_term(cur, user_id, chrono, sex, add)
+    dage, no_fitness = _fitness_term(cur, user_id, tz, today, chrono, sex, add)
     dage += _sleep_duration_term(cur, user_id, tz, add)
     dage += _regularity_term(cur, user_id, add)
 
     if not contribs:
         return None
+    return _estimate(chrono, dage, contribs, no_fitness)
+
+
+def _estimate(chrono: int, dage: float, contribs: list[dict], no_fitness: str | None) -> dict:
+    """The payload — the composite only when every required term is current.
+
+    ``no_fitness`` is a VO₂max withhold reason (``derive/vo2max.py``'s vocabulary); when
+    it is set the number is not computed at all rather than computed and flagged, because
+    a flagged wrong number is still a wrong number the UI can render as the hero."""
+    withheld = no_fitness is not None
     return {
         "chronological_age": chrono,
-        "biological_age": round(chrono + dage, 1),
-        "delta_years": round(dage, 1),
+        "biological_age": None if withheld else round(chrono + dage, 1),
+        "delta_years": None if withheld else round(dage, 1),
+        "data_confidence": "insufficient_data" if withheld else "ok",
+        "withheld": None
+        if no_fitness is None
+        else {
+            "term": FITNESS_TERM,
+            "reason": no_fitness,
+            "message": WITHHOLD_MESSAGES[no_fitness],
+            "consequence": FITNESS_REQUIRED_MESSAGE,
+        },
         "contributions": contribs,
         "disclaimer": (
             "Motivational estimate from population data — not a clinical or diagnostic age."
@@ -97,26 +164,33 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     }
 
 
-def _fitness_term(cur: Cur, user_id: UUID, chrono: int, sex: str, add) -> float:
-    """VO₂max vs age/sex median — the one combined cardio term (0.85 per 3.5 ml)."""
+def _fitness_term(
+    cur: Cur, user_id: UUID, tz: str, today: date, chrono: int, sex: str, add
+) -> tuple[float, str | None]:
+    """VO₂max vs age/sex median — the one combined cardio term (0.85 per 3.5 ml).
+
+    Returns ``(delta_years, None)`` when TODAY has an estimate, else ``(0.0, reason)``.
+    The freshness rule is ``derive.vo2max.estimate_unavailable_reason`` — the same one
+    the VO₂max card applies — so the two surfaces of ``/api/today`` cannot disagree about
+    whether this owner has a fitness number right now."""
     cur.execute(
-        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='vo2max_estimate' "
+        "SELECT day, value FROM derived_daily WHERE user_id = %s AND metric='vo2max_estimate' "
         "ORDER BY day DESC LIMIT 1",
         (user_id,),
     )
     vr = cur.fetchone()
-    if not vr:
-        return 0.0
+    reason = estimate_unavailable_reason(cur, user_id, tz, today, vr[0] if vr else None)
+    if vr is None or reason is not None:
+        return 0.0, reason
     ref = vo2max_median_for(chrono, sex)
-    if not ref:
-        return 0.0
-    return add(
-        "fitness",
-        0.85 ** ((float(vr[0]) - ref) / 3.5),
-        value=round(float(vr[0]), 1),
+    delta = add(
+        FITNESS_TERM,
+        0.85 ** ((float(vr[1]) - ref) / 3.5),
+        value=round(float(vr[1]), 1),
         unit="ml/kg/min VO₂max",
         target=round(ref),
     )
+    return delta, None
 
 
 def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> float:

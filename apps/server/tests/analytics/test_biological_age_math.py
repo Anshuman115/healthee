@@ -93,17 +93,25 @@ class _StubCursor:
     matching on the SQL it issues. A query the stub does not recognise yields no
     row, which collapses the estimate to ``None`` — a loud failure, never a
     silently-passing one.
+
+    The VO₂max row carries the owner's TODAY as its day, because the fitness term is
+    only spent when the newest row IS today's (the freshness gate). Every other stub
+    day would send the module down the withheld path and there would be no composite
+    to check the arithmetic of — which is exactly what
+    ``test_biological_age_freshness`` exercises, against a real database and the real
+    gate rather than this stub.
     """
 
-    def __init__(self, dob: date) -> None:
+    def __init__(self, dob: date, vo2max_day: date) -> None:
         self._dob = dob
+        self._vo2max_day = vo2max_day
         self._row: tuple | None = None
 
     def execute(self, sql: str, params: Any = None) -> None:  # noqa: ARG002
         if "FROM profile" in sql:
             self._row = (self._dob, "male")
         elif "vo2max_estimate" in sql:
-            self._row = (_VO2MAX,)
+            self._row = (self._vo2max_day, _VO2MAX)
         elif "sleep_health_score_4dim" in sql:
             self._row = (_TST_MIN,)
         elif "sleep_regularity_index" in sql:
@@ -124,7 +132,7 @@ def _stub_result() -> dict:
     ``(1, 1) < (1, 1)`` is false. The tz is pinned to UTC and the dob is anchored
     to the UTC year, so the process timezone cannot move the answer."""
     today = datetime.now(UTC).date()
-    cur = _StubCursor(date(today.year - _CHRONO_AGE, 1, 1))
+    cur = _StubCursor(date(today.year - _CHRONO_AGE, 1, 1), vo2max_day=today)
     result = compute_biological_age(cur, _USER_ID, "UTC")  # type: ignore[arg-type]
     assert result is not None
     return result
@@ -169,6 +177,9 @@ def test_composed_biological_age_is_chronological_plus_delta() -> None:
     assert result["biological_age"] == pytest.approx(40.6)
     # Net hazard is above the reference here, so the estimate must read OLDER.
     assert result["biological_age"] > result["chronological_age"]
+    # A composite that IS computed says so, in the ledger's vocabulary.
+    assert result["data_confidence"] == "ok"
+    assert result["withheld"] is None
 
 
 def test_composed_returns_none_without_a_profile() -> None:
@@ -176,5 +187,5 @@ def test_composed_returns_none_without_a_profile() -> None:
         def fetchone(self) -> tuple | None:
             return None
 
-    cur = _NoProfile(date(1990, 1, 1))
+    cur = _NoProfile(date(1990, 1, 1), vo2max_day=date(1990, 1, 1))
     assert compute_biological_age(cur, _USER_ID, "UTC") is None  # type: ignore[arg-type]
