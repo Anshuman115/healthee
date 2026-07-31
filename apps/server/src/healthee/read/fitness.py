@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 from healthee.analytics.biological_age import vo2max_median_for
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
+from healthee.derive.robust import median
 from healthee.read.common import derived_series, latest_derived, sport_name
 
 # Auto-detected sub-10-min bouts are movement noise, not structured exercise
@@ -83,9 +84,9 @@ def _submax_block(cur: Cur, user_id: UUID, tz: str, jurca_estimate: float) -> di
     rows = cur.fetchall()
     if not rows:
         return None
-    vals = sorted(float(v) for _, v, _ in rows)
+    vals = [float(v) for _, v, _ in rows]
     n = len(vals)
-    med = vals[n // 2] if n % 2 else 0.5 * (vals[n // 2 - 1] + vals[n // 2])
+    med = median(vals)
     s_day, s_val, s_flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})
     return {
         "latest": round(s_val, 1),
@@ -298,8 +299,8 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     if not vo or vo.get("estimate") is None:
         return None
     cur_vo = float(vo["estimate"])
-    median = float(vo.get("median_for_age") or 41)
-    gain = round(min(5.0, max(2.0, 0.4 * max(0.0, median - cur_vo))), 1)
+    median_ref = float(vo.get("median_for_age") or 41)
+    gain = round(min(5.0, max(2.0, 0.4 * max(0.0, median_ref - cur_vo))), 1)
     today = user_today(tz)
     monday = today - timedelta(days=today.weekday())
     wk = {m: 0.0 for m in ("moderate_min", "vigorous_min")}
@@ -310,7 +311,7 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
         "current": round(cur_vo, 1),
         "projected_12wk": round(cur_vo + gain, 1),
         "gain": gain,
-        "median_for_age": round(median, 1),
+        "median_for_age": round(median_ref, 1),
         "weeks": 12,
         "plan": {
             "zone2_target_min": 90,

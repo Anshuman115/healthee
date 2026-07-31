@@ -24,7 +24,7 @@ from healthee.analytics.baselines import compute_baseline_cur
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
-from healthee.derive.robust import robust_sd
+from healthee.derive.robust import median, median_abs_deviation, robust_sd
 from healthee.read.common import TodayReads, latest_derived
 from healthee.read.health_metrics import active_illness_severity
 
@@ -131,11 +131,11 @@ def _live_readiness(
         "AND day < %s AND day >= %s",
         (user_id, day, day - timedelta(days=30)),
     )
-    hist = sorted(float(r[0]) for r in cur.fetchall() if r[0] is not None)
+    hist = [float(r[0]) for r in cur.fetchall() if r[0] is not None]
     if not (cr and cr[0] is not None and len(hist) >= 5):
         return recovery, None, None
     strain_today = float(cr[0])
-    typical = hist[len(hist) // 2] or 1.0
+    typical = median(hist) or 1.0
     return decayed_readiness(recovery, strain_today, typical), strain_today, typical
 
 
@@ -247,12 +247,14 @@ def _sleep_signal(cur: Cur, user_id: UUID) -> dict | None:
         "WHERE user_id = %s AND kind='main' AND start_ts > now() - interval '30 days'",
         (user_id,),
     )
-    durs = sorted(float(r[0]) for r in cur.fetchall() if r[0])
+    durs = [float(r[0]) for r in cur.fetchall() if r[0]]
     if len(durs) < 5:
         return None
-    median = durs[len(durs) // 2]
-    mad = sorted(abs(d - median) for d in durs)[len(durs) // 2]
-    z = (today_dur - median) / robust_sd(mad, _SLEEP_MIN_SD_MIN)
+    # The ONE median/MAD (``derive/robust``). This used to take the UPPER-middle value
+    # of an even-length window rather than interpolating — not a median, and a second
+    # definition of one alongside ``derive/recovery``'s. See that module's baseline.
+    med = median(durs)
+    z = (today_dur - med) / robust_sd(median_abs_deviation(durs), _SLEEP_MIN_SD_MIN)
     direction = (
         "favorable"
         if today_dur >= 360 and z > -0.5
@@ -264,7 +266,7 @@ def _sleep_signal(cur: Cur, user_id: UUID) -> dict | None:
         "name": "Sleep duration",
         "value": today_dur,
         "unit": "min",
-        "baseline": median,
+        "baseline": med,
         "z": z,
         "direction": direction,
         "research_note_id": "sleep_duration_mortality",

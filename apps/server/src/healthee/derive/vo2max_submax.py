@@ -21,6 +21,12 @@ import math
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from healthee.derive.robust import median
+
+# ``derive/robust`` is pure (no DB, no I/O), so importing it keeps this module
+# unit-testable without a database — it held a byte-identical private ``_median``
+# until 2026-07-31, which was a second definition of the statistic for no gain.
+
 # ── Tunables ──────────────────────────────────────────────────────────────────
 WINDOW_S = 30  # bin GPS+HR into 30 s windows before regressing
 SMOOTH_S = 25  # rolling-median half-window for elevation (kills GPS noise)
@@ -82,13 +88,6 @@ def _vo2_speed_grade(speed_ms: float, grade: float) -> float:
     return level * max(cw, 0.7) / cw0  # scale level VO2 by the gradient cost ratio
 
 
-def _median(xs: list[float]) -> float:
-    """Median of a non-empty list."""
-    s = sorted(xs)
-    n = len(s)
-    return s[n // 2] if n % 2 else 0.5 * (s[n // 2 - 1] + s[n // 2])
-
-
 @dataclass
 class SubmaxResult:
     vo2max: float
@@ -116,7 +115,7 @@ def _smooth_elevation(
         lo, hi = ts[i] - SMOOTH_S, ts[i] + SMOOTH_S
         vals = [ej for j in range(len(points)) if (ej := ele[j]) is not None and lo <= ts[j] <= hi]
         if vals:
-            sm_ele[i] = _median(vals)
+            sm_ele[i] = median(vals)
     return sm_ele
 
 

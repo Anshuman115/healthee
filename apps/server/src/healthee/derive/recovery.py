@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from healthee.derive._common import Cur, _clamp100, _upsert_daily
-from healthee.derive.robust import robust_sd
+from healthee.derive.robust import median, median_abs_deviation, robust_sd
 
 # Weights by evidence strength (not fitted) — recovery_readiness.
 RECOVERY_WEIGHTS = {"hrv": 0.42, "rhr": 0.28, "sleep": 0.20, "rr": 0.10}
@@ -42,20 +42,22 @@ def _recovery_baseline(
     """Robust personal baseline (median + MAD*1.4826) over the trailing window.
 
     Excludes the day itself. (None, None) when fewer than 5 points are available.
+
+    Median and MAD come from ``derive/robust`` — the ONE definition of each. This
+    function used to hand-roll both, and its MAD step took the UPPER-middle deviation
+    (``devs[len(devs) // 2]``) instead of interpolating, so on an even-length window it
+    reported a spread the textbook MAD does not. That is a second definition of a named
+    statistic, which CLAUDE.md forbids outright ("ONE canonical definition per metric").
     """
     cur.execute(
         "SELECT value FROM derived_daily "
         "WHERE user_id = %s AND metric=%s AND day < %s AND day >= %s",
         (user_id, metric, day, day - timedelta(days=days)),
     )
-    vals = sorted(float(r[0]) for r in cur.fetchall())
+    vals = [float(r[0]) for r in cur.fetchall()]
     if len(vals) < _BASELINE_MIN_POINTS:
         return None, None
-    n = len(vals)
-    med = vals[n // 2] if n % 2 else 0.5 * (vals[n // 2 - 1] + vals[n // 2])
-    devs = sorted(abs(v - med) for v in vals)
-    mad = devs[len(devs) // 2]
-    return med, robust_sd(mad, _AUTONOMIC_MIN_SD)
+    return median(vals), robust_sd(median_abs_deviation(vals), _AUTONOMIC_MIN_SD)
 
 
 def _personal_factor(  # noqa: PLR0913 — one factor needs all its scoring inputs

@@ -36,6 +36,7 @@ from healthee.challenges.metrics import (
 )
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
+from healthee.derive.robust import median
 
 # A night below this fraction of the owner's OWN 30-day sleep median is "genuinely
 # rough". RELATIVE TO SELF on purpose: an absolute threshold would protect a chronic
@@ -206,7 +207,9 @@ def protected_days(cur: Cur, user_id: UUID, tz: str, since: date, today: date) -
 
     Fewer than five nights in the window ⇒ no protection at all: a median over one
     or two nights is not a norm, and inventing protection from it would silently
-    inflate streaks. Verbatim from legacy ``_protected_days`` (:73).
+    inflate streaks. Ported from legacy ``_protected_days`` (:73) — verbatim except
+    for the median itself, which legacy took as the upper-middle night of an even
+    window; see the comment on the threshold below.
 
     ``derived_daily.day`` for a sleep row is the owner's local WAKE date, so the day
     a night is keyed to already IS "the day after that night".
@@ -214,9 +217,12 @@ def protected_days(cur: Cur, user_id: UUID, tz: str, since: date, today: date) -
     nights = metric_series(
         cur, user_id, tz, _SLEEP_METRIC, today - timedelta(days=_SLEEP_MEDIAN_DAYS), until=today
     )
-    values = sorted(nights.values())
+    values = list(nights.values())
     if len(values) < _MIN_NIGHTS_FOR_MEDIAN:
         return set()
-    median = values[len(values) // 2]
-    threshold = median * _ROUGH_NIGHT_FRACTION
+    # ``derive/robust.median`` — the ONE median. Legacy took the upper-middle night of
+    # an even window, which is not a median and made this the third definition of one
+    # in the tree; the interpolating form can only lower the threshold slightly, so it
+    # never invents protection that was not there (CLAUDE.md: one definition per metric).
+    threshold = median(values) * _ROUGH_NIGHT_FRACTION
     return {day for day, value in nights.items() if day >= since and value < threshold}

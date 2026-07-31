@@ -41,14 +41,17 @@ MAD_TO_SD = 1.4826
 def median(values: Sequence[float]) -> float:
     """The median of a non-empty sample: the MEAN of the two central values if even.
 
-    The textbook definition, and the one ``derive/vo2max.py`` already used inline for
-    its 7-day resting-HR median.
+    The textbook definition, and now the ONLY one in the tree — enforced by
+    ``tests/derive/test_robust.py::test_no_module_hand_rolls_a_median``.
 
-    NOTE — ``derive/recovery.py`` deliberately does NOT route its baseline through
-    this: its MAD step takes the UPPER-middle deviation rather than interpolating, and
-    its output is pinned byte-for-byte by the legacy golden-parity fixture. Aligning it
-    would be a science behaviour change and belongs in its own PR (see the report on
-    this branch), not a silent side effect of extracting a helper.
+    Five modules used to hand-roll it, and three of those took the UPPER-middle value
+    of an even-length sample (``xs[len(xs) // 2]``), which is a different statistic
+    wearing the same name: on ``[1, 2, 3, 4]`` it reports 3, not 2.5. That divergence
+    reached user-facing numbers — the Today page's sleep-duration z-score, the recovery
+    baseline's MAD, the readiness-decay reference load and the streak-protection
+    threshold each measured against a slightly different "usual". Unifying them was a
+    deliberate science-behaviour change (2026-07-31, its own PR with known-value tests),
+    not a silent side effect of extracting a helper.
     """
     ordered = sorted(values)
     n = len(ordered)
