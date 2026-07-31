@@ -177,8 +177,22 @@ tests/         unit + seeded-DB integration + contract tests + db/ (tenancy guar
   binding: **a new choke-point stage MUST be mirrored into the coach in the same
   PR, with a test pinning it** (see `tests/insights/test_output_guard.py`).
   No *other* module may talk to the LLM directly.
-- **Type hints on all public functions.** API request/response bodies are
-  pydantic models, not raw dicts.
+- **Type hints on all public functions.**
+- **Request bodies are ALWAYS pydantic models** — never a raw dict. Validation at
+  the boundary is what keeps a bad value out of the science layer.
+- **Responses are pydantic models for small, stable payloads** (`/api/challenges`,
+  `/api/profile`, `/api/me`, …) — the model is cheap there and gives FastAPI a real
+  OpenAPI schema plus a pyright-checked boundary.
+  **Large aggregates are the documented exception** (`/api/today` is ~20 KB of deeply
+  nested, largely-optional structure; `/api/sleep` similar): a model would duplicate
+  that shape in a second place and rot, so **the contract snapshot in
+  `packages/contracts` is the pin** and the handler returns `dict`. A new aggregate
+  taking this exception says so in its router docstring.
+  > This rule was rewritten 2026-07-31 to state what we actually do and intend. It
+  > previously read "API request/response bodies are pydantic models, not raw dicts"
+  > — an absolute that 24 of 28 routers ignored, i.e. a MUST that taught readers the
+  > doc was decorative. Snapshots and models are not alternatives: the snapshot is
+  > the *test* mechanism, the model is the *type* mechanism.
 - **No import-time side effects**, no `__import__` reflection, no
   `subprocess`/`Popen` for in-process work — jobs run as supervised functions.
 - Local (inside-function) imports are banned except to break a documented cycle
