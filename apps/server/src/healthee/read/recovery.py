@@ -11,8 +11,9 @@ logging what the owner DID today is not a recovery concern (standards §1: a fil
 one reason to change).
 
 The readiness-decay formula is ported VERBATIM (audit-verified). The recovery
-"guidance" string is DETERMINISTIC rule-based text (band + lowest factor), not an
-LLM field — legacy generated it in-process without a model, so it ports here.
+"guidance" string — DETERMINISTIC rule-based text, never an LLM field — moved to
+``read/recovery_guidance.py`` when a second caller needed the band vocabulary and this
+file was at the 400-line gate again.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from healthee.derive._common import Cur
 from healthee.derive.robust import median, median_abs_deviation, robust_sd
 from healthee.read.common import TodayReads, latest_derived
 from healthee.read.health_metrics import active_illness_severity
+from healthee.read.recovery_guidance import daily_guidance, recovery_band
 
 log = get_logger(__name__)
 
@@ -47,39 +49,6 @@ log = get_logger(__name__)
 # an ungoverned metric's z-score with no note behind it.
 _SLEEP_MIN_SD_MIN = 1.0
 
-_BASE_GUIDANCE = {
-    "high": "Well recovered — a good day to push: intervals or a harder session are on the table.",
-    "moderate": "Moderate readiness — keep it easy-to-moderate (Zone 2 / brisk). "
-    "Skip a hard session today.",
-    "low": "Low readiness — prioritise recovery: easy movement only, and protect tonight's sleep.",
-}
-# An active illness flag OVERRIDES the band. The flag exists precisely to catch what a
-# recovery score misses — respiratory rate and skin temperature move first, and the
-# score does not weight them the way an infection does — so a "high" band must never
-# clear a flagged owner to push. Without this, `/api/today` told an actively-flagged
-# owner "a good day to push" in the SAME payload that rendered their illness card.
-# Sourced: sports-science COACHING-RULES.md rule 6 ("Illness pause ... do not train
-# through it — default to rest ... Illness symptoms veto hard training regardless of
-# fresh form") and rule 13 ("readiness hard overrides are not votes ... never let
-# high/green readiness clear a runner reporting illness").
-# The recovery NUMBER is never dropped: the payload still reports `recovery` and `band`
-# (hiding a measured number would be its own dishonesty). Only the GUIDANCE changes.
-# [[respiratory_rate_normal]], [[skin_temp_signals]]
-_ILLNESS_GUIDANCE = {
-    "high": "An illness signal is active — it overrides today's recovery number. Rest "
-    "today: easy movement at most, nothing hard, and protect tonight's sleep. "
-    "Not a diagnosis.",
-    "moderate": "An illness signal is active — it overrides today's recovery number. "
-    "Keep today easy and skip anything hard until the signal clears. Not a diagnosis.",
-}
-_FACTOR_TAILS = {
-    "sleep": " Short sleep is the main drag — an earlier night is your highest-leverage move.",
-    "hrv": " HRV is below your baseline — your nervous system is still catching up.",
-    "rhr": " Resting HR is up vs baseline — could be early strain or illness, so go easy.",
-    "rr": " Breathing rate is elevated vs baseline — a possible early strain/illness signal; "
-    "ease off.",
-}
-
 
 def recovery_score_payload(
     cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None
@@ -97,12 +66,12 @@ def recovery_score_payload(
     day, score, flags = latest
     recovery = round(score)
     readiness, strain_today, typical = _live_readiness(cur, user_id, tz, day, recovery)
-    band = "high" if recovery >= 67 else "moderate" if recovery >= 34 else "low"
+    band = recovery_band(recovery)
     illness = active_illness_severity(cur, user_id, tz)
     return {
         "recovery": recovery,
         "readiness": readiness,
-        "guidance": _guidance(band, readiness, recovery, flags.get("factors", {}), illness),
+        "guidance": daily_guidance(band, readiness, recovery, flags.get("factors", {}), illness),
         "date": day.isoformat(),
         "band": band,
         "factors": flags.get("factors", {}),
@@ -144,33 +113,6 @@ def decayed_readiness(recovery: int, strain_today: float, typical: float) -> int
     capped at −50%. Ported VERBATIM (conservative, no validated intraday formula)."""
     decay = 0.5 * min(1.0, strain_today / typical) if typical > 0 else 0.0
     return round(recovery * (1 - decay))
-
-
-def _base_guidance(band: str, illness: str | None) -> str:
-    """The guidance ceiling: an active illness flag replaces the band's text entirely."""
-    if illness is None:
-        return _BASE_GUIDANCE[band]
-    override = _ILLNESS_GUIDANCE.get(illness)
-    if override is None:
-        # Unreachable: the schema CHECK-constrains severity to moderate|high. But an
-        # unrecognised severity must fail SAFE (toward rest), never fall through to "a
-        # good day to push" — that silent fall-through is the bug this function fixes.
-        log.warning("unknown illness severity %r — using the strictest guidance", illness)
-        return _ILLNESS_GUIDANCE["high"]
-    return override
-
-
-def _guidance(band: str, readiness: int, recovery: int, factors: dict, illness: str | None) -> str:
-    """Deterministic, evidence-grounded daily guidance (NOT LLM): the band sets the
-    ceiling — unless an active illness flag overrides it (see ``_ILLNESS_GUIDANCE``) —
-    and the lowest-scoring factor names the lever. Band/tail logic ported VERBATIM."""
-    tail = ""
-    limiter = min(factors.items(), key=lambda kv: kv[1].get("sub", 50)) if factors else None
-    if limiter and limiter[1].get("sub", 50) < 45:
-        tail = _FACTOR_TAILS.get(limiter[0], "")
-    if readiness < recovery - 8:
-        tail += " Today's training has already used some of your capacity."
-    return _base_guidance(band, illness) + tail
 
 
 def recovery_signals(

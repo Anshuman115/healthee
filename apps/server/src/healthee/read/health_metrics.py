@@ -11,7 +11,7 @@ DROPPED), so ``pai_payload`` always returns ``None`` — the Today key stays pre
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 from uuid import UUID
 
 from healthee.analytics.biological_age import compute_biological_age
@@ -84,29 +84,40 @@ def biological_age_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
 _ILLNESS_ACTIVE_DAYS = 2
 
 
-def _latest_active_illness(cur: Cur, user_id: UUID, tz: str) -> tuple | None:
+def _latest_active_illness(
+    cur: Cur, user_id: UUID, tz: str, today: date | None = None
+) -> tuple | None:
     """The owner's most recent still-active illness-flag row, or None.
 
     The single source of truth for what "active" means; ``illness_flag_payload`` shapes
     it for the Today card and ``active_illness_severity`` reduces it to the one field
     the recovery guidance needs. Both run on the CALLER's cursor — no second
     transaction (these are RLS-scoped read paths).
+
+    ``today`` is the owner's local anchor. It defaults to the wall clock because the
+    Today page genuinely asks "right now", but a caller that already holds a pinned
+    anchor passes it — otherwise the same request would read two different days if it
+    straddled midnight, which is the calendar-date-vs-instant bug class this repo has
+    already shipped twice.
     """
     cur.execute(
         "SELECT date, severity, rr_delta_bpm, temp_delta_c, sustained, research_note_ids "
         "FROM illness_flag WHERE user_id = %s AND date >= %s ORDER BY date DESC LIMIT 1",
-        (user_id, user_today(tz) - timedelta(days=_ILLNESS_ACTIVE_DAYS)),
+        (user_id, (today or user_today(tz)) - timedelta(days=_ILLNESS_ACTIVE_DAYS)),
     )
     return cur.fetchone()
 
 
-def active_illness_severity(cur: Cur, user_id: UUID, tz: str) -> str | None:
+def active_illness_severity(
+    cur: Cur, user_id: UUID, tz: str, today: date | None = None
+) -> str | None:
     """'moderate' | 'high' if the owner is currently flagged ill, else None.
 
     Exists so ``read/recovery.py`` can let an active flag override push-style guidance
-    without re-deciding what "active" means (or opening its own transaction).
+    without re-deciding what "active" means (or opening its own transaction), and so
+    ``challenges/levers.py`` can apply [[recovery_readiness]] D7 to the same definition.
     """
-    row = _latest_active_illness(cur, user_id, tz)
+    row = _latest_active_illness(cur, user_id, tz, today)
     return row[1] if row else None
 
 

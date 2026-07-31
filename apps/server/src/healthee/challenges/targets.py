@@ -243,6 +243,19 @@ def meaningful_step(metric: str, cadence: str) -> float | None:
     return None if step is None else in_cadence(step, cadence)
 
 
+def natural_cadence(metric: str) -> str:
+    """The cadence ``metric``'s population target is denominated in.
+
+    The WHO MVPA target is a WEEKLY total; the steps plateau and the sleep need are
+    per-DAY; an SRI score is a level. So a gap on MVPA is only meaningful weekly and a
+    gap on steps only daily — reading either in the other cadence multiplies or divides
+    the owner's distance to the goal by seven. Metrics with no target answer ``daily``,
+    which is the cadence their baseline is a level in.
+    """
+    target = EVIDENCE_TARGET.get(metric)
+    return "weekly" if target is not None and target.period == "week" else "daily"
+
+
 def unranked_metrics() -> frozenset[str]:
     """Registry metrics with no population target — no gap is computable for these.
 

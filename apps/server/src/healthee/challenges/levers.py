@@ -1,0 +1,345 @@
+"""WP-C3c — where THIS owner has the most to gain, decided before the model is asked.
+
+CHALLENGES.md §5.1b. WP-C3 hands the model a calibration table and lets it pick a metric;
+nothing pointed it at the metric where this person actually has room. COACH_PROMPT.md
+already names the job — *"identify the single biggest lever for this person right now (the
+gap between where they are and where the evidence says the returns are largest)"* — and
+this module is that sentence made computable. The model still writes every word; it no
+longer chooses the lever or the number.
+
+## An ordering, not a score — and the argument for it
+
+The obvious design is a 0–100 "opportunity score" blending gap, curve steepness, personal
+effect size and recovery. CLAUDE.md forbids that outright (no composite scores without a
+documented methodology and a research note), and here the ban is not a formality: the
+inputs share no scale. A mortality-hazard gap in steps, a Spearman rho on sleep minutes
+and a recovery band are three different kinds of quantity, and any weight placed between
+them would be **invented and then rendered as a number** — the exact move
+``recovery_readiness`` gets to make only because it publishes its weights, its per-factor
+breakdown and a note that says the composite is unvalidated.
+
+So this is a **lexicographic ordering over named rules**, each of which is either a
+boolean or a directly-reported quantity. Nothing is summed, nothing is normalised, and
+every lever carries its own gap, target and citation so the ordering can be read back:
+
+0. a **personal finding** implicates the metric (their own measured evidence),
+1. a **population gap** on a curve the corpus says is **steepest at the bottom**,
+2. a population gap with no curve-shape evidence,
+3. at or past the evidence target — no gap left,
+4. **unranked**: no population target exists, so no gap is computable.
+
+Ties inside a tier break on the shown gap fraction (|effect| for tier 0), then on
+"haven't tried it yet". Tier 4 is an honest output rather than a hole — ``cardio_load``
+and ``active_calories`` are individual-load quantities with no population dose-response,
+so we say we cannot place them instead of inventing somewhere to place them.
+
+## Exclusions are a separate axis, and they are enforced
+
+A lever can be excluded without being un-ranked, and exclusion is checked in ``screen``
+alongside the bounds check — instructed AND enforced, the whole theme of this track:
+
+* **active** — never duplicate a live commitment.
+* **recently abandoned** — they dropped it. Legacy's prompt told itself to route around
+  abandons and never checked; a prompt rule nobody enforces is decoration.
+* **a hard training lever while under-recovered** — [[recovery_readiness]] D7 (safety
+  inputs are hard overrides, not votes) and D8 (recovery eases or holds, it never
+  escalates). Legacy encoded this by hardcoding *"this user is a chronic short sleeper
+  with low recovery"* into the prompt for its single tenant; it is computed per owner here.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from datetime import date, timedelta
+from uuid import UUID
+from zoneinfo import ZoneInfo
+
+from healthee.analytics.series import daily_series
+from healthee.challenges import ledger
+from healthee.challenges.bounds import Calibration
+from healthee.challenges.lever_findings import finding_token, findings_by_metric
+from healthee.challenges.metrics import CHALLENGE_METRICS, spec
+from healthee.challenges.series import MIN_COMPARISON_DAYS
+from healthee.challenges.targets import STEEPEST_AT_LOW, U_SHAPED, curve_of, natural_cadence
+from healthee.derive._common import Cur
+from healthee.derive.robust import median
+from healthee.read.health_metrics import active_illness_severity
+from healthee.read.recovery import recovery_band
+
+# The tiers, in order. Named rather than numbered at the call sites so a reordering is a
+# visible edit to this tuple and not a magic integer that drifted.
+PERSONAL_FINDING = "personal_finding"
+STEEP_GAP = "steep_gap"
+GAP = "gap"
+AT_TARGET = "at_target"
+UNRANKED = "unranked"
+BLOCKED = "blocked"
+_TIER_ORDER = (PERSONAL_FINDING, STEEP_GAP, GAP, AT_TARGET)
+
+# The metrics whose target IS a training stimulus, withheld from an under-recovered owner.
+# `steps_total` and `active_calories` are deliberately NOT here: legacy's own
+# recovery-aware prescription favoured Zone-2 work and daily steps precisely as the
+# alternative to intensity, and [[recovery_readiness]] eases intensity rather than
+# movement. Sleep and regularity levers are recovery-SUPPORTING and are never withheld.
+HARD_TRAINING_LEVERS: frozenset[str] = frozenset({"mvpa_min", "cardio_load", "workouts_week"})
+
+# How far back the recovery read looks. [[recovery_readiness]] D3: act on the multi-day
+# trend, never one morning — a single low day is noise, and withholding somebody's
+# training lever on noise is its own kind of dishonesty. The "enough days" line is
+# `series.MIN_COMPARISON_DAYS`, the one this package already judges a window by.
+_RECOVERY_TREND_DAYS = 7
+
+# How long an abandoned metric stays off the menu. PROVISIONAL, like every constant in
+# `targets`: the ledger records `status='abandoned'` with `ended_at`, so "how long before
+# a re-offer is welcome rather than nagging" is answerable from outcomes later and is a
+# guess now. Two months is long enough that the re-offer is not the same conversation.
+ABANDON_COOLDOWN_DAYS = 60
+
+# How many frozen outcomes the history rules read back. The same tail `gen_context` shows
+# the model, one order of magnitude up: these two rules only care about the LATEST row per
+# metric, and there are nine metrics.
+_HISTORY_ROWS = 50
+
+
+@dataclass(frozen=True)
+class Lever:
+    """One metric's standing for one owner — its rank, and everything that produced it."""
+
+    metric: str
+    rank: int | None
+    tier: str
+    cadence: str  # the cadence the gap is denominated in ("daily" | "weekly")
+    baseline: float | None
+    target: float | None
+    target_note: str | None
+    gap: float | None
+    gap_fraction: float | None
+    curve: str
+    curve_note: str | None
+    finding: str | None
+    finding_effect: float | None
+    blocked: str | None
+
+
+@dataclass(frozen=True)
+class LeverAnalysis:
+    """The ranked levers plus the owner state that excluded any of them."""
+
+    levers: tuple[Lever, ...]
+    recovery: str | None
+    illness: str | None
+
+    def blocked_metrics(self) -> dict[str, str]:
+        """metric → why it may not be proposed. The map ``screen`` enforces."""
+        return {lever.metric: lever.blocked for lever in self.levers if lever.blocked}
+
+    def ranked(self) -> tuple[Lever, ...]:
+        return tuple(lever for lever in self.levers if lever.rank is not None)
+
+
+def analyse(
+    cur: Cur,
+    user_id: UUID,
+    tz: str,
+    today: date,
+    calibrations: dict[tuple[str, str], Calibration],
+    active_metrics: set[str],
+) -> LeverAnalysis:
+    """Rank every registry metric for one owner, and say which are off the menu.
+
+    ``calibrations`` is passed in rather than recomputed so the baseline a gap is measured
+    from is provably the same number Gate A will bound the proposal against — two reads
+    could disagree if a day rolled over between them.
+    """
+    recovery, illness = _recovery_state(cur, user_id, tz, today)
+    findings = findings_by_metric(cur, user_id)
+    abandoned = _recently_abandoned(cur, user_id, tz, today)
+    attempted = _attempted_metrics(cur, user_id)
+    levers = [
+        _lever(
+            metric,
+            calibrations,
+            finding=findings.get(metric),
+            blocked=_blocked_reason(metric, active_metrics, abandoned, recovery, illness),
+        )
+        for metric in sorted(CHALLENGE_METRICS)
+    ]
+    return LeverAnalysis(tuple(_ranked(levers, attempted)), recovery, illness)
+
+
+def _lever(
+    metric: str,
+    calibrations: dict[tuple[str, str], Calibration],
+    *,
+    finding: dict | None,
+    blocked: str | None,
+) -> Lever:
+    """One metric's gap, in the cadence its target is denominated in."""
+    curve = curve_of(metric)
+    cadence = natural_cadence(metric)
+    calibration = calibrations.get((metric, cadence))
+    baseline = None if calibration is None else calibration.baseline
+    target = None if calibration is None else calibration.target
+    gap, fraction = _gap(metric, baseline, target, spec(metric).good)
+    return Lever(
+        metric=metric,
+        rank=None,
+        tier=_tier(finding, gap, curve.shape, blocked, _calibratable(metric, calibrations)),
+        cadence=cadence,
+        baseline=baseline,
+        target=target,
+        target_note=None if calibration is None else calibration.target_note,
+        gap=gap,
+        gap_fraction=fraction,
+        curve=curve.shape,
+        curve_note=curve.note_id,
+        finding=None if finding is None else finding_token(finding),
+        finding_effect=None if finding is None else abs(float(finding["effect_size"])),
+        blocked=blocked,
+    )
+
+
+def _calibratable(metric: str, calibrations: dict[tuple[str, str], Calibration]) -> bool:
+    """True when SOME cadence of ``metric`` has a band Gate A would accept a target in.
+
+    A metric Gate A cannot calibrate is not a lever at any rank — there is no number we
+    could honestly ask for. It is reported as UNRANKED rather than blocked, because the
+    calibration table already tells the model it is unavailable AND says why (with the
+    refusal that distinguishes "we have none of your data" from "your data says zero");
+    saying it twice in two vocabularies is how a prompt starts contradicting itself.
+    """
+    return any(
+        calibrations.get((metric, cadence)) is not None
+        and calibrations[(metric, cadence)].band is not None
+        for cadence in ("daily", "weekly")
+    )
+
+
+def _gap(
+    metric: str, baseline: float | None, target: float | None, direction: str
+) -> tuple[float | None, float | None]:
+    """Distance to the population target, signed so positive always means "room to gain".
+
+    A ``U_SHAPED`` metric only has a gap BELOW its target: overshooting the sleep band is
+    a real risk, but the long tail is read as a marker of illness rather than something to
+    chase, and the registry has no way to express "sleep less" anyway. So an owner above
+    the band gets a gap of zero — no lever — rather than a negative one.
+    """
+    if baseline is None or target is None:
+        return None, None
+    room = target - baseline if direction == "up" else baseline - target
+    if room < 0 and curve_of(metric).shape == U_SHAPED:
+        room = 0.0
+    return room, room / target if target else None
+
+
+def _tier(
+    finding: dict | None, gap: float | None, shape: str, blocked: str | None, calibratable: bool
+) -> str:
+    """Which named rule places this metric — the ordering's only decision.
+
+    ``blocked`` wins over everything: a lever the owner may not be offered has no useful
+    rank, and ranking it anyway would put a metric at the top of a list the model is
+    forbidden to propose from.
+    """
+    if blocked is not None:
+        return BLOCKED
+    if not calibratable:
+        return UNRANKED
+    if finding is not None:
+        return PERSONAL_FINDING
+    if gap is None:
+        return UNRANKED
+    if gap <= 0:
+        return AT_TARGET
+    return STEEP_GAP if shape == STEEPEST_AT_LOW else GAP
+
+
+def _ranked(levers: list[Lever], attempted: set[str]) -> list[Lever]:
+    """Sort the rankable levers and number them; leave the rest with ``rank=None``."""
+    rankable = [lever for lever in levers if lever.tier in _TIER_ORDER]
+
+    def key(lever: Lever) -> tuple[int, float, int]:
+        # The tier decides which quantity orders WITHIN it: tier 0 is placed by the size
+        # of the owner's own measured effect, every other tier by the gap it is shown
+        # with. The two are never compared to each other — that would be the composite.
+        by_tier = lever.finding_effect if lever.tier == PERSONAL_FINDING else lever.gap_fraction
+        return (
+            _TIER_ORDER.index(lever.tier),
+            -(by_tier or 0.0),
+            1 if lever.metric in attempted else 0,  # prefer one they have not tried
+        )
+
+    ordered = {lever.metric: i + 1 for i, lever in enumerate(sorted(rankable, key=key))}
+    placed = [
+        lever if lever.metric not in ordered else _with_rank(lever, ordered[lever.metric])
+        for lever in levers
+    ]
+    return sorted(placed, key=lambda lever: (lever.rank is None, lever.rank or 0, lever.metric))
+
+
+def _with_rank(lever: Lever, rank: int) -> Lever:
+    return replace(lever, rank=rank)
+
+
+# ── the owner state the exclusions read ───────────────────────────────────────
+
+
+def _blocked_reason(
+    metric: str,
+    active_metrics: set[str],
+    abandoned: dict[str, date],
+    recovery: str | None,
+    illness: str | None,
+) -> str | None:
+    """Why ``metric`` may not be proposed at all, or ``None``."""
+    if metric in active_metrics:
+        return "already running as a live challenge"
+    if metric in abandoned:
+        return f"abandoned on {abandoned[metric]} — not re-offered within the cooldown"
+    if metric in HARD_TRAINING_LEVERS and (illness or recovery == "low"):
+        why = "an illness signal is active" if illness else "recovery has been low all week"
+        return f"a hard training lever withheld because {why} [recovery_readiness]"
+    return None
+
+
+def _recovery_state(cur: Cur, user_id: UUID, tz: str, today: date) -> tuple[str | None, str | None]:
+    """The owner's trailing-week recovery band and any active illness flag.
+
+    The band is taken over the MEDIAN of the trailing week rather than the latest morning
+    ([[recovery_readiness]] D3), and it is ``None`` — unknown, not "fine" — below
+    ``MIN_COMPARISON_DAYS`` of scores. Unknown does not withhold anything: "we cannot tell"
+    is not "you are under-recovered", and refusing a lever on absent data would be the
+    optimistic guess run backwards.
+    """
+    scores = daily_series(
+        cur, user_id, "recovery_score", today - timedelta(days=_RECOVERY_TREND_DAYS)
+    )
+    values = [v for day, v in scores.items() if day <= today]
+    band = recovery_band(median(values)) if len(values) >= MIN_COMPARISON_DAYS else None
+    return band, active_illness_severity(cur, user_id, tz, today)
+
+
+def _recently_abandoned(cur: Cur, user_id: UUID, tz: str, today: date) -> dict[str, date]:
+    """Metrics whose most recent frozen outcome is an abandonment inside the cooldown.
+
+    ``challenge_outcome.ended_at`` is a TIMESTAMPTZ — an INSTANT — while ``today`` is the
+    owner's local calendar date, so the instant is resolved in the owner's zone before the
+    two are subtracted. A day either side would not change a 60-day cooldown, but this
+    repo has shipped two live wrong numbers from exactly this shortcut and the rule here
+    is that a calendar date and an instant never meet without a zone between them.
+    """
+    seen: dict[str, date] = {}
+    for outcome in ledger.recent(cur, user_id, limit=_HISTORY_ROWS):
+        metric, ended = outcome["metric"], outcome["ended_at"]
+        if metric in seen or ended is None:
+            continue  # `recent` is newest-first, so the first row per metric is the latest
+        ended_on = ended.astimezone(ZoneInfo(tz)).date()
+        if outcome["status"] == "abandoned" and (today - ended_on).days <= ABANDON_COOLDOWN_DAYS:
+            seen[metric] = ended_on
+    return seen
+
+
+def _attempted_metrics(cur: Cur, user_id: UUID) -> set[str]:
+    """Metrics this owner has already committed to at least once (the tie-break)."""
+    return {outcome["metric"] for outcome in ledger.recent(cur, user_id, limit=_HISTORY_ROWS)}

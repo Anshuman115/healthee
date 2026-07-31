@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from healthee.read.common import sport_name
 from healthee.read.findings import _shape, is_trivial_finding
-from healthee.read.recovery import _base_guidance
+from healthee.read.recovery_guidance import _base_guidance
 from healthee.read.sleep_common import STAGE_NAME, stage_timeline, stage_totals
 
 

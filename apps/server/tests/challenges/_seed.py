@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from healthee.challenges import store
@@ -32,7 +32,9 @@ OTHER_OWNER = UUID("77777777-7777-7777-7777-777777777777")
 # (`analytics.metrics.V2_DAILY_METRICS` has no `tst_min`).
 SLEEP_ROW_METRIC = "sleep_health_score_4dim"
 
-_TABLES = ("derived_daily", "workout", "manual_entry")
+# `finding` joins the list because WP-C3c's lever ranking reads it: a personal
+# pattern left behind by one test would silently promote a metric in the next.
+_TABLES = ("derived_daily", "workout", "manual_entry", "finding", "illness_flag")
 
 # `challenge` is truncated separately with CASCADE: `challenge_outcome` references
 # it, and TRUNCATE refuses a referenced table without CASCADE. Taking the ledger
@@ -172,6 +174,91 @@ def seed_manual(
             "INSERT INTO manual_entry (user_id, kind, ts, amount, unit) VALUES (%s,%s,%s,%s,%s)",
             (user_id, kind, ts, amount, unit),
         )
+
+
+def seed_outcome(cur, user_id: UUID, challenge_id: int, **overrides) -> None:
+    """One frozen ``challenge_outcome`` row — the history the lever rules read back."""
+    row = {
+        "metric": "steps_total",
+        "category": "activity",
+        "difficulty": "standard",
+        "cadence": "daily",
+        "target": 8000.0,
+        "baseline": 6000.0,
+        "status": "met",
+        "ended_at": datetime(2026, 7, 1, 6, 0, tzinfo=UTC),
+    } | overrides
+    cur.execute(
+        "INSERT INTO challenge_outcome (user_id, challenge_id, metric, category, difficulty, "
+        "  cadence, target, baseline, status, ended_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        (
+            user_id,
+            challenge_id,
+            row["metric"],
+            row["category"],
+            row["difficulty"],
+            row["cadence"],
+            row["target"],
+            row["baseline"],
+            row["status"],
+            row["ended_at"],
+        ),
+    )
+
+
+def seed_illness(cur, user_id: UUID, day: date, severity: str = "moderate") -> None:
+    """One active ``illness_flag`` — the hard override [[recovery_readiness]] D7 names."""
+    cur.execute(
+        "INSERT INTO illness_flag (user_id, date, severity, rr_delta_bpm, sustained, "
+        "  research_note_ids) VALUES (%s, %s, %s, 2.5, TRUE, %s) "
+        "ON CONFLICT (user_id, date) DO UPDATE SET severity = EXCLUDED.severity",
+        (user_id, day, severity, ["respiratory_rate_normal"]),
+    )
+
+
+def seed_finding(cur, user_id: UUID, **overrides) -> None:
+    """One FDR-significant ``finding`` row — an owner's OWN measured evidence.
+
+    Defaults to a personal-cutoff on caffeine, the shape CHALLENGES.md §5.1 names as the
+    thing no competitor can copy ("cut caffeine after 15:00 — on your data that is worth
+    ~40 min of sleep").
+    """
+    row = {
+        "kind": "personal_cutoff",
+        "description": "Caffeine after 15:00 Asia/Kolkata -> tst_min median 198.0 vs 238.0",
+        "metric_a": "caffeine_after_15",
+        "metric_b": "tst_min",
+        "event_kind": "caffeine",
+        "lag_days": 0,
+        "effect_size": -0.62,
+        "effect_metric": "mann_whitney_rb",
+        "p_value": 0.004,
+        "q_value": 0.03,
+        "n_samples": 28,
+        "research_note_ids": ["caffeine_sleep"],
+    } | overrides
+    cur.execute(
+        "INSERT INTO finding (user_id, kind, description, metric_a, metric_b, event_kind, "
+        "  lag_days, effect_size, effect_metric, p_value, q_value, n_samples, significant, "
+        "  research_note_ids, details) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,TRUE,%s,'{}'::jsonb)",
+        (
+            user_id,
+            row["kind"],
+            row["description"],
+            row["metric_a"],
+            row["metric_b"],
+            row["event_kind"],
+            row["lag_days"],
+            row["effect_size"],
+            row["effect_metric"],
+            row["p_value"],
+            row["q_value"],
+            row["n_samples"],
+            row["research_note_ids"],
+        ),
+    )
 
 
 def days(start: date, count: int) -> list[date]:
