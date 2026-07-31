@@ -28,11 +28,10 @@ import pytest
 
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
+from healthee.derive.freshness import NOT_DERIVED_YET, PROFILE_INCOMPLETE
 from healthee.derive.vo2max import (
-    NOT_DERIVED_YET,
     WITHHOLD_FEW_RHR_DAYS,
     WITHHOLD_MESSAGES,
-    WITHHOLD_NO_PROFILE,
     WITHHOLD_RHR_TOO_NOISY,
     derive_vo2max,
     withhold_reason_for_day,
@@ -208,7 +207,7 @@ def test_no_history_at_all_is_still_no_payload() -> None:
         # passed while the two gates genuinely disagreed. Mutation-tested.
         (True, [56.0] * 3, None),
         (True, [56.0] * 4, None),
-        (False, _CALM, WITHHOLD_NO_PROFILE),
+        (False, _CALM, PROFILE_INCOMPLETE),
     ],
 )
 def test_the_read_gate_and_the_write_gate_agree(
@@ -236,7 +235,7 @@ def test_the_read_gate_and_the_write_gate_agree(
 def test_every_reason_has_a_message() -> None:
     """A reason with no message would surface as a bare machine string to a person."""
     for reason in (
-        WITHHOLD_NO_PROFILE,
+        PROFILE_INCOMPLETE,
         WITHHOLD_FEW_RHR_DAYS,
         WITHHOLD_RHR_TOO_NOISY,
         NOT_DERIVED_YET,

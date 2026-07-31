@@ -45,6 +45,7 @@ from uuid import UUID
 from healthee.analytics.biological_age import vo2max_median_for
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
+from healthee.derive.freshness import withheld_block
 from healthee.derive.robust import median
 from healthee.derive.vo2max import (
     WITHHOLD_MESSAGES,
@@ -122,13 +123,9 @@ def _withheld_block(
     reason = estimate_unavailable_reason(cur, user_id, tz, today, last_day)
     if reason is None:
         return None
-    return {
-        "reason": reason,
-        "message": WITHHOLD_MESSAGES[reason],
-        "last_estimate": round(last_value, 1),
-        "last_as_of_date": last_day.isoformat(),
-        "age_days": (today - last_day).days,
-    }
+    return withheld_block(
+        reason, WITHHOLD_MESSAGES[reason], today, last_day, last_estimate=round(last_value, 1)
+    )
 
 
 def _delta(estimate: float | None, median_ref: float | None) -> float | None:

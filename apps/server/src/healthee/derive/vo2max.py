@@ -16,6 +16,11 @@ from uuid import UUID
 
 from healthee.core.logging import get_logger
 from healthee.derive._common import Cur, _age, _load_profile, _scalar, _upsert_daily
+from healthee.derive.freshness import (
+    NOT_DERIVED_YET,
+    PROFILE_INCOMPLETE,
+    unavailable_reason,
+)
 from healthee.derive.mvpa import _weekly_mvpa_to_srpa
 from healthee.derive.robust import median, median_abs_deviation
 
@@ -46,27 +51,24 @@ _RHR_MAD_MAX_BPM = 8.0  # withhold ABOVE this; MAD == 8.0 still derives
 _RHR_VALID_LO_BPM, _RHR_VALID_HI_BPM = 40.0, 100.0  # Jurca's validated RHR range
 _RHR_MIN_DAYS = 3  # fewer than 3 of 7 days is not a week
 
-# Machine-readable withhold reasons. "Insufficient data" is what the UI shows for all
-# of them (the note asks for exactly one user-facing state), but they are distinct in
-# the log so an operator can tell a noisy week from an empty one.
-WITHHOLD_NO_PROFILE = "profile_or_weight_missing"
+# Machine-readable withhold reasons THIS metric owns — the gates only Jurca has.
+# "Insufficient data" is what the UI shows for all of them (the note asks for exactly one
+# user-facing state), but they are distinct in the log so an operator can tell a noisy
+# week from an empty one. The ids for conditions OTHER metrics share
+# (``PROFILE_INCOMPLETE``, ``NOT_DERIVED_YET``) come from ``derive/freshness.py``: one
+# state, one id, wherever it is observed.
 WITHHOLD_FEW_RHR_DAYS = "insufficient_rhr_days"
 WITHHOLD_RHR_OUT_OF_RANGE = "rhr_median_outside_validated_range"
 WITHHOLD_RHR_TOO_NOISY = "rhr_7d_mad_above_8_bpm"
-
-# Not a withhold the note names — the day simply has not been derived yet (nothing has
-# been synced for it). It shares the vocabulary because the USER-VISIBLE state is the
-# same one the note asks for ("Insufficient data": there is no number for today), and
-# because a payload that names every other absence and shrugs at this one would be the
-# same silence in a different place.
-NOT_DERIVED_YET = "not_derived_yet"
 
 # What each absence would take to fix, in the second person. The note asks for exactly
 # one user-facing STATE ("Insufficient data"); these are the actionable half of it, and
 # they are why the reason is surfaced at all — "no number" tells an owner nothing,
 # "your resting HR swung too much this week" tells them what the system is waiting on.
+# Messages are per-metric on purpose (``derive/freshness.py``): the id says WHICH state,
+# the message says what would restore THIS number.
 WITHHOLD_MESSAGES = {
-    WITHHOLD_NO_PROFILE: (
+    PROFILE_INCOMPLETE: (
         "We need your height, sex and date of birth, plus at least one logged weight, "
         "before this estimate can be computed."
     ),
@@ -199,7 +201,7 @@ def withhold_reason_for_day(cur: Cur, user_id: UUID, tz: str, day: date) -> str 
     [[non_exercise_vo2max]].
     """
     if not _load_profile(cur, user_id, tz, day):
-        return WITHHOLD_NO_PROFILE
+        return PROFILE_INCOMPLETE
     return vo2max_withhold_reason(rhr_week(cur, user_id, day))
 
 
@@ -208,22 +210,24 @@ def estimate_unavailable_reason(
 ) -> str | None:
     """Why this owner has no estimate FOR TODAY, or ``None`` when ``last_day`` IS today.
 
-    The FRESHNESS half of the gate, in one place. :func:`withhold_reason_for_day` answers
-    "could today carry an estimate"; this answers the question a *consumer* actually has,
-    which is "is the newest stored row today's". They are different questions and the
-    second is the one that was getting skipped: a row is not evidence about today merely
-    because it is the newest row, so an estimate is reported only when the newest row is
-    the owner's today. ``last_day is None`` (no row at all) is the same answer as a stale
-    one — there is no estimate for today either way.
+    The FRESHNESS half of the gate, bound to VO2max's own withhold gate.
+    :func:`withhold_reason_for_day` answers "could today carry an estimate";
+    ``derive.freshness.unavailable_reason`` answers the question a *consumer* actually
+    has, which is "is the newest stored row today's". They are different questions and
+    the second is the one that was getting skipped: a row is not evidence about today
+    merely because it is the newest row.
 
     Extracted because there are now TWO consumers and the rule must not fork: the VO2max
     payload (``read/vo2max.py``) and the biological-age fitness term
     (``analytics/biological_age.py``), where a stale estimate is laundered into a headline
-    composite. [[non_exercise_vo2max]], [[biological_age_estimate]].
+    composite. The generic half then moved to ``derive/freshness.py`` when the same shape
+    turned up on the SRI, sleep debt and recovery — this function is now the VO2max
+    BINDING of one shared rule, not a private copy of it. [[non_exercise_vo2max]],
+    [[biological_age_estimate]].
     """
-    if last_day == today:
-        return None
-    return withhold_reason_for_day(cur, user_id, tz, today) or NOT_DERIVED_YET
+    return unavailable_reason(
+        today, last_day, lambda: withhold_reason_for_day(cur, user_id, tz, today)
+    )
 
 
 def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, srpa: int = 0) -> float:
@@ -272,7 +276,7 @@ def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
         # `_load_profile` already returns None when height/sex/dob or ANY logged
         # weight is absent, so the note's "weight_kg is missing" case is withheld
         # here — the BMI division below can never see a missing mass.
-        return _withheld(user_id, day, WITHHOLD_NO_PROFILE)
+        return _withheld(user_id, day, PROFILE_INCOMPLETE)
     age = _age(prof["dob"], day)
     bmi = prof["weight_kg"] / ((prof["height_cm"] / 100) ** 2)
     rhrs = rhr_week(cur, user_id, day)
