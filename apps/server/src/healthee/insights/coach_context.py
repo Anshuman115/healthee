@@ -8,6 +8,12 @@ in the v2-native ``build_context`` (today snapshot, trends, recent-daily pivot,
 sleep sessions, the manual-entry log over the window, baselines, anomalies,
 personal findings) — we reuse it wholesale (standards §Duplication) at a wider
 default window and add today's recovery so "what should I do today?" respects it.
+
+WP-C5 adds the third block: the person's challenges and their FROZEN OUTCOMES
+(``challenge_context``). INTELLIGENCE §4 recorded both as "not present" while the
+subsystem did not exist; the ledger half is COACH_ROADMAP C2 — measured personal
+evidence, cited as ``[personal_finding:…]`` and never dressed as research. The
+caveats that make it honest are structural and argued in that module.
 """
 
 from __future__ import annotations
@@ -15,6 +21,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from healthee.core.db import tenant_transaction
+from healthee.insights.challenge_context import challenge_section
 from healthee.insights.context import build_context
 from healthee.insights.retrieval import evidence_section
 from healthee.read.recovery import recovery_score_payload
@@ -40,7 +47,8 @@ def build_coach_context(
     context = build_context(user_id, tz, days=days, question=question)
     with tenant_transaction(user_id) as cur:
         recovery = recovery_score_payload(cur, user_id, tz)
-    parts = [context, _recovery_block(recovery)]
+        challenges = challenge_section(cur, user_id)
+    parts = [context, _recovery_block(recovery), challenges]
     return "\n\n".join(p for p in parts if p)
 
 

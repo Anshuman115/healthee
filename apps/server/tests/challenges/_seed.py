@@ -19,6 +19,8 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from uuid import UUID
 
+from psycopg.types.json import Jsonb
+
 from healthee.challenges import store
 from healthee.core.db import admin_connection, transaction
 from healthee.core.tenancy import SENTINEL_USER_ID
@@ -176,35 +178,62 @@ def seed_manual(
         )
 
 
+# Every column `ledger._store` writes, so a seeded outcome can be the shape the coach
+# actually reads (WP-C5) rather than a subset that happens to satisfy the lever rules.
+# The two NOT NULL columns default to what the schema defaults them to, so a caller who
+# does not care about the honesty fields gets exactly the row this helper used to write.
+_OUTCOME_COLUMNS = (
+    "metric",
+    "category",
+    "difficulty",
+    "cadence",
+    "target",
+    "baseline",
+    "final",
+    "improvement_pct",
+    "improved",
+    "adherence",
+    "days_active",
+    "status",
+    "confounds",
+    "co_occurring",
+    "data_confidence",
+    "ended_at",
+)
+
+
 def seed_outcome(cur, user_id: UUID, challenge_id: int, **overrides) -> None:
-    """One frozen ``challenge_outcome`` row — the history the lever rules read back."""
-    row = {
+    """One frozen ``challenge_outcome`` row — the history the ledger readers read back."""
+    row: dict = {
         "metric": "steps_total",
         "category": "activity",
         "difficulty": "standard",
         "cadence": "daily",
         "target": 8000.0,
         "baseline": 6000.0,
+        "final": None,
+        "improvement_pct": None,
+        "improved": None,
+        "adherence": None,
+        "days_active": None,
         "status": "met",
+        "confounds": {},
+        "co_occurring": None,
+        "data_confidence": "ok",
         "ended_at": datetime(2026, 7, 1, 6, 0, tzinfo=UTC),
     } | overrides
+    columns = ", ".join(_OUTCOME_COLUMNS)  # a module constant of names, never input
+    placeholders = ", ".join(["%s"] * len(_OUTCOME_COLUMNS))
     cur.execute(
-        "INSERT INTO challenge_outcome (user_id, challenge_id, metric, category, difficulty, "
-        "  cadence, target, baseline, status, ended_at) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-        (
-            user_id,
-            challenge_id,
-            row["metric"],
-            row["category"],
-            row["difficulty"],
-            row["cadence"],
-            row["target"],
-            row["baseline"],
-            row["status"],
-            row["ended_at"],
-        ),
+        f"INSERT INTO challenge_outcome (user_id, challenge_id, {columns}) "  # noqa: S608
+        f"VALUES (%s, %s, {placeholders})",
+        (user_id, challenge_id, *(_jsonb(row[column]) for column in _OUTCOME_COLUMNS)),
     )
+
+
+def _jsonb(value):
+    """JSONB columns need the adapter; everything else passes through untouched."""
+    return Jsonb(value) if isinstance(value, dict) else value
 
 
 def seed_illness(cur, user_id: UUID, day: date, severity: str = "moderate") -> None:
