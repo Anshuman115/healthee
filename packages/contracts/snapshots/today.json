@@ -515,10 +515,14 @@
     ]
   },
   "sleep_debt": {
+    "as_of_date": "2026-07-31",
     "avg_deficit_min": 100,
     "avg_tst_min": 380,
+    "data_confidence": "ok",
     "debt_min": 120,
+    "last_tst_as_of_date": "2026-07-31",
     "last_tst_min": 380,
+    "last_tst_withheld": null,
     "need_min": 480,
     "nights": 14,
     "nights_below": 12,
@@ -527,7 +531,8 @@
       "sleep_need_debt",
       "sleep_duration_mortality"
     ],
-    "window_nights": 14
+    "window_nights": 14,
+    "withheld": null
   },
   "sleep_health": {
     "cutoffs": {

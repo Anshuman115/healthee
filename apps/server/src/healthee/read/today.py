@@ -108,7 +108,7 @@ def _metric_blocks(cur: Cur, user_id: UUID, tz: str, reads: TodayReads) -> dict:
         "strength": strength_payload(cur, user_id, tz),
         "vo2max": vo2max_payload(cur, user_id, tz),
         "cardio_load": cardio_load_payload(cur, user_id, tz),
-        "sleep_debt": sleep_debt_payload(cur, user_id, reads),
+        "sleep_debt": sleep_debt_payload(cur, user_id, tz, reads),
         "biological_age": biological_age_payload(cur, user_id, tz),
         "illness_flag": illness_flag_payload(cur, user_id, tz),
     }

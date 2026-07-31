@@ -214,3 +214,22 @@ deviation vs the canonical all-sleep definition; SRI computed on <7 days.
 - **Honesty policy:** always paired with the ~1-hour-band behavioural target;
   surfaced as a chronic signal; never combined into a composite sleep score
   (`no_validated_sleep_score`); never computed on <7 days.
+- **Directive 4's REPORT half is enforced too, not just its compute half.** "Do not
+  compute **or report** SRI from <7 days" was half-enforced: `_compute_sri` writes no
+  row on a short grid, but every consumer then read "the newest
+  `sleep_regularity_index` row" and presented it as the owner's *current* regularity.
+  A 90-day-old row is a perfectly valid SRI **of a week 90 days ago**, so the compute
+  gate cannot catch that — and an SRI has no visible age. Since 2026-07-31 the SRI is
+  reported only when its row is the owner's own **today**:
+  `derive/sleep_score.py::sri_unavailable_reason` (bound to the one shared freshness
+  rule in `derive/freshness.py`) is what every consumer asks, and
+  `sri_withhold_reason_for_day` recomputes the <7-night gate from the sleep sessions
+  still in the database — no new schema, and it covers rows written before this
+  existed. On `/api/sleep/consistency` (and the coach's `sleep_consistency` tool) the
+  `sri` field is then `null`, paired with `sri_as_of_date`, and the value survives only
+  inside `sri_withheld` with its own date and age; in
+  [[biological_age_estimate]] the regularity term is required, so a stale SRI withholds
+  the whole composite rather than silently asserting a median-regularity sleeper. The
+  two reasons stay distinct because they ask different things of the owner:
+  `sri_window_under_7_nights` ("wear the strap for the rest of the week") vs
+  `not_derived_yet` ("sync").

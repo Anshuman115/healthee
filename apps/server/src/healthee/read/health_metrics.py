@@ -17,11 +17,33 @@ from uuid import UUID
 from healthee.analytics.biological_age import compute_biological_age
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
+from healthee.derive.freshness import NOT_DERIVED_YET, unavailable_reason, withheld_block
+from healthee.derive.sleep_score import SLEEP_DEBT_MESSAGES, sleep_debt_unavailable_reason
 from healthee.read.common import TodayReads, latest_derived
 
+# "Last night" is a claim about ONE night, and the only reason it can be absent is that
+# the night has not been recorded/derived yet — there is no research gate to mirror here,
+# so the shared ``NOT_DERIVED_YET`` covers it with a message in sleep's own voice.
+_LAST_TST_MESSAGES = {
+    NOT_DERIVED_YET: "Last night's sleep has not come through yet — sync the strap."
+}
 
-def sleep_debt_payload(cur: Cur, user_id: UUID, reads: TodayReads | None = None) -> dict | None:
+
+def sleep_debt_payload(
+    cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None
+) -> dict | None:
     """Sleep need (NSF age-band) + rolling cumulative debt + Sleep Performance %.
+
+    Two independent freshness questions, because they genuinely come apart: an owner who
+    takes the strap off for one night still has a current 14-night DEBT and no "last
+    night", and an owner with no profile has last night's sleep and no debt at all.
+
+    ``None`` only when the owner has no debt row ever. When there IS one but it is not
+    today's, the payload ships with ``debt_min: None`` and a ``withheld`` block — the debt
+    is a cumulative claim over the 14 nights ending on its own day, and two weeks later
+    that window shares no night with today's. ``need_min`` survives either way: the NSF
+    age-band midpoint is a recommendation for someone of this owner's age, not a
+    measurement of them (the same reason ``read/vo2max.py`` keeps ``median_for_age``).
     [[sleep_need_debt]]."""
     debt = (
         reads.latest.get("sleep_debt_min")
@@ -30,25 +52,77 @@ def sleep_debt_payload(cur: Cur, user_id: UUID, reads: TodayReads | None = None)
     )
     if not debt:
         return None
-    _day, debt_min, flags = debt
+    day, debt_min, flags = debt
+    today = user_today(tz)
+    withheld = _debt_withheld(cur, user_id, tz, today, day, debt_min)
     need_row = (
         reads.latest.get("sleep_need_min")
         if reads
         else latest_derived(cur, user_id, "sleep_need_min")
     )
     need = need_row[1] if need_row else 480.0
-    last_tst = _last_tst(cur, user_id)
     return {
         "need_min": round(need),
-        "debt_min": round(debt_min),
-        "last_tst_min": round(last_tst) if last_tst is not None else None,
-        "performance_pct": sleep_performance_pct(last_tst, need),
-        "avg_tst_min": flags.get("avg_tst_min"),
-        "avg_deficit_min": flags.get("avg_deficit_min"),
-        "nights_below": flags.get("nights_below"),
+        "debt_min": None if withheld else round(debt_min),
+        # The window stats describe the SAME fortnight the debt does, so they are dated
+        # with it — a UI showing "avg 6.3 h/night" beside a withheld debt would restore
+        # exactly the current-looking stale number the withhold exists to remove.
+        "avg_tst_min": None if withheld else flags.get("avg_tst_min"),
+        "avg_deficit_min": None if withheld else flags.get("avg_deficit_min"),
+        "nights_below": None if withheld else flags.get("nights_below"),
         "window_nights": flags.get("window_nights"),
-        "nights": flags.get("nights"),
+        "nights": None if withheld else flags.get("nights"),
+        "as_of_date": None if withheld else day.isoformat(),
+        "data_confidence": "insufficient_data" if withheld else "ok",
+        "withheld": withheld,
+        **_last_night(cur, user_id, today, need),
         "research_notes": ["sleep_need_debt", "sleep_duration_mortality"],
+    }
+
+
+def _debt_withheld(
+    cur: Cur, user_id: UUID, tz: str, today: date, day: date, debt_min: float
+) -> dict | None:
+    """Why there is no sleep debt for TODAY, or None when today's row is the newest."""
+    reason = sleep_debt_unavailable_reason(cur, user_id, tz, today, day)
+    if reason is None:
+        return None
+    return withheld_block(
+        reason, SLEEP_DEBT_MESSAGES[reason], today, day, last_debt_min=round(debt_min)
+    )
+
+
+def _last_night(cur: Cur, user_id: UUID, today: date, need: float) -> dict:
+    """Last night's TST and Sleep Performance %, or a dated withhold when we have neither.
+
+    ``last_tst_min`` was the newest ``sleep_health_score_4dim`` row's TST with the day
+    thrown away, and it drove ``performance_pct`` — so after a week without syncing, a
+    field named "last night" and a percentage named "performance" both described a night
+    a week ago. The percentage is the dependent claim and goes with it: a ratio of a
+    stale night to today's need is not a number about either.
+    """
+    row = _last_tst(cur, user_id)
+    last_day = row[0] if row else None
+    reason = unavailable_reason(today, last_day)
+    if row is not None and reason is None:
+        return {
+            "last_tst_min": round(row[1]),
+            "last_tst_as_of_date": row[0].isoformat(),
+            "performance_pct": sleep_performance_pct(row[1], need),
+            "last_tst_withheld": None,
+        }
+    named = reason or NOT_DERIVED_YET
+    return {
+        "last_tst_min": None,
+        "last_tst_as_of_date": None,
+        "performance_pct": None,
+        "last_tst_withheld": withheld_block(
+            named,
+            _LAST_TST_MESSAGES[named],
+            today,
+            last_day,
+            last_tst_min=round(row[1]) if row else None,
+        ),
     }
 
 
@@ -60,16 +134,19 @@ def sleep_performance_pct(last_tst: float | None, need: float) -> int | None:
     return round(min(100.0, 100.0 * last_tst / need))
 
 
-def _last_tst(cur: Cur, user_id: UUID) -> float | None:
-    """Last night's total sleep time from the sleep-score flags."""
+def _last_tst(cur: Cur, user_id: UUID) -> tuple[date, float] | None:
+    """The newest night's ``(day, total sleep time)`` from the sleep-score flags.
+
+    Returns the DAY as well as the value — dropping it here is where "last night's sleep"
+    stopped meaning last night."""
     cur.execute(
-        "SELECT (flags->>'tst_min')::float FROM derived_daily "
+        "SELECT day, (flags->>'tst_min')::float FROM derived_daily "
         "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND flags ? 'tst_min' "
         "ORDER BY day DESC LIMIT 1",
         (user_id,),
     )
     r = cur.fetchone()
-    return float(r[0]) if r and r[0] is not None else None
+    return (r[0], float(r[1])) if r and r[1] is not None else None
 
 
 def biological_age_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:

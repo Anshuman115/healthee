@@ -12,8 +12,10 @@ import statistics
 from datetime import datetime
 from uuid import UUID
 
-from healthee.core.tenancy import USER_TODAY_SQL
+from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
+from healthee.derive.freshness import NOT_DERIVED_YET, withheld_block
+from healthee.derive.sleep_score import SRI_MESSAGES, sri_unavailable_reason
 from healthee.read.sleep_common import (
     SLEEP_CUTOFFS,
     SLEEP_RESEARCH_NOTES,
@@ -197,26 +199,54 @@ def sleep_consistency(cur: Cur, user_id: UUID, tz: str, days: int = 28) -> dict:
     # onset anchored at 18:00 (minutes past 6 PM) so evening→morning doesn't wrap.
     onset = [((s.hour * 60 + s.minute) - 1080) % 1440 for _, s, _ in rows]
     wake = [(e.hour * 60 + e.minute) for _, _, e in rows]
-    return _consistency_payload(cur, user_id, days, rows, onset, wake)
+    return _consistency_payload(_sri_block(cur, user_id, tz), days, rows, onset, wake)
 
 
-def _latest_sri(cur: Cur, user_id: UUID) -> float | None:
-    """The owner's most recent Sleep Regularity Index, or None if never derived.
+def _sri_block(cur: Cur, user_id: UUID, tz: str) -> dict:
+    """The owner's SRI **as of today**, or a dated withhold block when there isn't one.
 
-    Extracted (unchanged) from ``_consistency_payload`` so that function stays
-    inside the 40-line gate once the owner is threaded through its read.
+    This read used to be ``SELECT value … ORDER BY day DESC LIMIT 1`` with no date bound
+    and no date in the result — the newest SRI, whatever week it described, dropped into
+    a payload where every other field is explicitly framed by a window (``days``,
+    ``nights``, the odd nights with their dates). An SRI is *itself* a 7-day window, so
+    the undated one was the only field here that could silently be about last quarter.
+
+    The withhold is structural rather than a label, for the reason ``read/vo2max.py``
+    argues: ``sri`` is null when it isn't current, so a UI that renders the number has
+    nothing to render, and the value survives only inside ``sri_withheld`` where it
+    carries its own date and age. [[sleep_regularity_index]] Directive 4.
     """
     cur.execute(
-        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='sleep_regularity_index' "
-        "ORDER BY day DESC LIMIT 1",
+        "SELECT day, value FROM derived_daily WHERE user_id = %s "
+        "AND metric='sleep_regularity_index' ORDER BY day DESC LIMIT 1",
         (user_id,),
     )
-    r = cur.fetchone()
-    return round(float(r[0]), 1) if r else None
+    row = cur.fetchone()
+    today = user_today(tz)
+    last_day = row[0] if row else None
+    reason = sri_unavailable_reason(cur, user_id, tz, today, last_day)
+    if row is not None and reason is None:
+        return {
+            "sri": round(float(row[1]), 1),
+            "sri_as_of_date": row[0].isoformat(),
+            "sri_withheld": None,
+        }
+    named = reason or NOT_DERIVED_YET
+    return {
+        "sri": None,
+        "sri_as_of_date": None,
+        "sri_withheld": withheld_block(
+            named,
+            SRI_MESSAGES[named],
+            today,
+            last_day,
+            last_sri=round(float(row[1]), 1) if row else None,
+        ),
+    }
 
 
 def _consistency_payload(  # noqa: PLR0913 — the regularity payload needs all its series
-    cur: Cur, user_id: UUID, days: int, rows: list, onset: list[int], wake: list[int]
+    sri: dict, days: int, rows: list, onset: list[int], wake: list[int]
 ) -> dict:
     """Assemble the regularity numbers + surfaced odd nights + SRI (verbatim math)."""
     med_on = statistics.median(onset)
@@ -229,7 +259,6 @@ def _consistency_payload(  # noqa: PLR0913 — the regularity payload needs all 
                 {"date": d.isoformat(), "bedtime": _clk(1080 + o), "delta_h": round(delta, 1)}
             )
     irregular.sort(key=lambda x: -abs(x["delta_h"]))
-    sri = _latest_sri(cur, user_id)
     median_bed_min = (1080 + round(med_on)) % 1440
     band = (
         "tight — top-quintile territory (~1 h band)"
@@ -247,7 +276,7 @@ def _consistency_payload(  # noqa: PLR0913 — the regularity payload needs all 
         "onset_band_h": round(on_band_h, 1),
         "onset_range_h_raw": round((max(onset) - min(onset)) / 60.0, 1),
         "wake_sd_min": round(statistics.pstdev(wake), 1),
-        "sri": sri,
+        **sri,
         "late": median_bed_min < 360,
         "onset_band": band,
         "irregular_nights": irregular[:6],

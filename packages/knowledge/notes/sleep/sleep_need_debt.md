@@ -194,3 +194,23 @@ medical risk from small short-term debt.
   (user-overridable); `sleep_debt_min` is labelled an estimate with its flags
   shown; never framed as medical risk. Not a composite score — arithmetic over one
   measured quantity against a cited target.
+- **The debt is dated, and withheld when it is not today's** (2026-07-31). The Today
+  card read the newest `sleep_debt_min` row and shipped it with **no date key at all**.
+  A debt is a cumulative claim over the 14 nights ending on its own day, so three weeks
+  later the stored window and today's share no night whatsoever — it is not "the debt,
+  slightly out of date". `read/health_metrics.py::sleep_debt_payload` now carries
+  `as_of_date` + `data_confidence`, nulls `debt_min` (and the window breakdown that
+  describes the same fortnight) when the row is not the owner's today, and moves the
+  value into a `withheld` block naming the reason
+  (`derive/sleep_score.py::sleep_debt_unavailable_reason`, which recomputes this
+  derivation's own two gates: profile/weight present, ≥1 recorded night in the window).
+  `need_min` survives a withhold — the NSF age-band midpoint is a recommendation for
+  someone of this owner's age, not a measurement of them.
+- **"Last night's sleep" and Sleep Performance % are a SECOND freshness question.**
+  `last_tst_min` was the newest `sleep_health_score_4dim` row's TST with the day thrown
+  away, and it drove `performance_pct` — so after a week without syncing, a field named
+  "last night" and a ratio named "performance" both described a night a week ago. They
+  come apart from the debt in both directions (a strap taken off for one night leaves
+  the 14-night window intact; a missing profile kills the debt while last night is
+  fine), so they are gated separately: `last_tst_as_of_date` + `last_tst_withheld`, and
+  `performance_pct` is dropped with the night it was a ratio of.

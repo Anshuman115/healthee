@@ -11,6 +11,8 @@
   "onset_range_h_raw": 0.0,
   "onset_sd_min": 0.0,
   "sri": 74.0,
+  "sri_as_of_date": "2026-07-31",
+  "sri_withheld": null,
   "target": "keep sleep & wake within a ~1-hour band, weekends included",
   "tonight": null,
   "wake_sd_min": 0.0
