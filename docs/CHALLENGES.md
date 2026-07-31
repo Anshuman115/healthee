@@ -6,13 +6,16 @@
 > lines) — we port its proven core and fix its known flaws against the rebuild's
 > honesty contract, multi-tenancy, and engineering standards.
 >
-> **Status (2026-07-31):** WP-C1, WP-C2, WP-C3(+C3c), **WP-C5** and **WP-C7** (the time
-> predicate + #72) have shipped. The
+> **Status (2026-07-31):** WP-C1, WP-C2, WP-C3(+C3c), **WP-C4** (the ladder engine),
+> **WP-C5** and **WP-C7** (the time predicate + #72) have shipped. The
 > deterministic engine, the `suggested → active → completed | expired | abandoned`
 > lifecycle, the confound-aware outcome ledger (migration `0009`), the five endpoints,
-> grounded generation with both gates, and the coach's two challenge tools + the ledger
-> as personal evidence are live and owner-scoped; the refresh endpoint (WP-C3b),
-> programs (WP-C4) and the app surfaces (WP-C6) are not. **Premium gating (6.6) is
+> grounded generation with both gates, the coach's two challenge tools + the ledger
+> as personal evidence, and the multi-week ladder with honest terminal states, deload
+> rungs, activation-time recalibration and a give-up condition (migration `0010`, three
+> more endpoints) are live and owner-scoped; the refresh endpoint (WP-C3b), **program
+> generation (WP-C4b)** and the app surfaces (WP-C6) are not — so a ladder can be run and
+> reasoned about, but nothing can yet author one. **Premium gating (6.6) is
 > still NOT built** — every one of these, the coach tools included, is reachable by any
 > authenticated owner exactly like every other AI surface today (MULTI_USER.md §12),
 > while PRICING §1a makes the whole system premium. Noted, not faked.
@@ -96,6 +99,18 @@ recalibrated when the rung activates weeks later. **Fix:**
 - **Recalibrate rung targets against the user's *current* baseline** when the rung
   activates (not the weeks-old design-time baseline).
 
+> **✅ Shipped by WP-C4 — and the open choices above were decided.** Failure inserts a
+> deload rung rather than repeating the failed one, because a repeat **cannot be
+> recorded** (`challenge_outcome` is keyed on `challenge_id` and written `ON CONFLICT DO
+> NOTHING`, so a second run of one row either records nothing or overwrites the first).
+> Recalibration is `bounds.calibrate` at activation — **except on a deload**, whose
+> target came from the owner's current data seconds earlier and which the band would
+> otherwise snap back above the number they just failed. A give-up condition was added
+> that §2.3 did not ask for and needed: `stalled`, because a ladder that eases forever is
+> its own failure mode. Advancement is recovery-aware through `recovery_guard`, and holds
+> rather than fails, so it resumes on its own. Full detail and the two known limits are in
+> the §8 tracker entry.
+
 ### 2.4 Everything is single-tenant
 Legacy has **zero `user_id`**, `USER_TZ` as a module constant (23×), unscoped SQL,
 `profile WHERE id=1`, and global caps. **Fix:** every row/query owner-scoped
@@ -124,9 +139,17 @@ migration), all backward-safe:
   (split from adherence, §2.6); **`confounds JSONB`** (illness days, concurrency count,
   regression-risk — §2.1); **`data_confidence TEXT`** (`ok`/`insufficient_data` — §2.1);
   reframe `downstream` as **co-occurring, unattributable** (rename or annotate).
-- `program`: add a rung **terminal-state** enum path and a **deload** flag on `challenge`
-  rungs (§2.3), or model deload as an inserted rung with a `kind` column.
-- `challenge`: a `kind` (`standard` / `deload`) if we model deload as a rung.
+- `program` **(shipped, `0010`)**: a CHECK on `status` gaining **`stalled`** (the give-up
+  landing place, deliberately distinct from `abandoned` — the owner did not quit, the
+  system stopped), `ended_at`/`ended_reason` for the terminal fact and `hold_reason` for
+  the transient one. **`current_rung` was DROPPED**: the rung rows already say where the
+  owner is, and a pointer maintained beside them is a second definition that can drift —
+  legacy's own `_advance_program` could leave it stale on any early return.
+- `challenge` **(shipped, `0010`)**: `kind` (`standard` / `deload`) — deload IS modelled
+  as an inserted rung — plus **`locked`** in the status CHECK for a designed rung nobody
+  has reached. `locked` is a *status* rather than a flag on purpose: `lifecycle.adopt`
+  already refuses anything that is not `suggested`, so snapping rung 3 out of the middle
+  of a ladder and running it standalone is impossible without a new rule.
 
 Everything else (metric/comparator/target/cadence/window/baseline/status/program_id/
 rung_index) is already the right shape.
@@ -143,7 +166,7 @@ any LLM.
 | **WP-C1 · The deterministic engine** | Port the sacred core (§1): `CHALLENGE_METRICS` registry, `evaluate_challenge`, `_series`, `_recent_value` baseline, `_protected_days` streak protection, `_adapt` adapter. **Pure functions over one owner's window**, owner-scoped, per-user tz, known-value tests. No persistence, no LLM. | derive/ + analytics/ | — |
 | **WP-C2 · Lifecycle + ledger** | Persistence + endpoints: adopt/track/complete/abandon, baseline capture at adopt, the **confound-aware outcome ledger** (§2.1, §2.6) with the data-sufficiency gate. Owner-scoped, RLS, AST-guard-clean. Contract tests. | WP-C1 | — |
 | **WP-C3 · Grounded generation** | Challenge generation through the **choke point** (§2.2): targets computed **deterministically** from baseline (WP-C1), the LLM writes only the grounded, cited `why`/`how_to`/`expected_outcome`. History-aware (raise the bar on completed, route around abandons, never dup an active). Cite-or-refuse. | WP-C2 + insights/ choke point | ✓ (copy only) |
-| **WP-C4 · Programs + deload** | Ladder logic with the **fixed** failure/deload/recalibration handling (§2.3): honest terminal states, deload rungs, current-baseline recalibration on rung activation. Program generation through the choke point. | WP-C3 | ✓ (copy only) |
+| **WP-C4 · Programs + deload** | Ladder logic with the **fixed** failure/deload/recalibration handling (§2.3): honest terminal states, deload rungs, current-baseline recalibration on rung activation, a recovery-aware hold and a give-up condition. **Shipped.** Program *generation* split out as **WP-C4b** (§8) — the engine is complete and testable headless, authoring a ladder is a separate concern with its own gate design. | WP-C3 | — (C4b is ✓) |
 | **WP-C5 · Coach integration** | Two tools: `adopt_challenge` (adopt a *pre-generated* suggestion) and **`create_challenge(intent)`** (§6a — the coach passes intent, the WP-C3 pipeline computes the target and grounds the copy; refuses on untrackable metric or ungroundable claim). Both anti-hallucination-bound (act only on tool `ok:true`, report the *stored* target). Wire the **outcome ledger into coach context** as `[personal_finding:...]` — the COACH_ROADMAP **C2** the audit found legacy built the store for but never connected. The coach never authors a number and never adapts a target. Mirror any new grounding rule into the coach (INTELLIGENCE §4). | WP-C3 + coach | ✓ (coach) |
 | **WP-C6 · App surfaces** | Actions tab (active/suggested/completed, adapt banner, projection framing) + Insights tab (outcome ledger + rollups) + Today focus card. Premium locked/teaser states. | Phase 2 mobile | — |
 | **6.6 gating** | `require_ai_access` on generation + coach; the whole system is premium. Threads through, not a WP of its own. | 6.6 | — |
@@ -566,7 +589,70 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
   and rate limit) and the empty-feed trigger. Split out deliberately — the pipeline is
   complete and tested headless; the HTTP surface is a separate concern that also carries
   the 6.6 gate when it lands.
-- ⬜ **WP-C4** programs + deload/failure/recalibration
+- ✅ **WP-C4** programs + deload/failure/recalibration — the ladder ENGINE
+  (`challenges/{program_store,rung,ladder,programs}.py`, migration `0010`, three
+  endpoints). §2.3's four fixes, all of them by **orchestrating what already exists**
+  rather than writing a second copy: a rung is closed by `lifecycle.finalize_due`, scored
+  by `evaluate`, frozen by `ledger`, eased by `adapt`, recalibrated by `bounds` and held
+  back by `recovery_guard`. `ladder` decides only *which* of those applies next — the one
+  question none of them answers.
+  - **Honest terminal states needed no new code.** Advancement reads a rung's STORED
+    status instead of re-scoring it, so `terminal_status`'s `expired` and the ledger's
+    `unmet_timed_out` are already the answer — and advancement becomes idempotent and
+    free of any ordering dependency on the close that precedes it.
+  - **Failure is an INSERTED deload rung, not a repeat, and the LEDGER decided it.**
+    `challenge_outcome` is keyed on `challenge_id` and written `ON CONFLICT DO NOTHING`
+    (an outcome is a historical record, not a mutable one), so re-arming the failed row
+    would either record no second outcome or overwrite the first — losing the very fact a
+    deload happened. An inserted rung has its own frozen baseline and its own outcome, and
+    the ladder reads back in `rung_index` order as what actually happened. Renumbering is
+    the price: `rung_index` is an ORDERING, ids are identity, the ledger stores no index.
+    **The deload authors no prose** — it reuses the failed rung's grounded copy verbatim,
+    because text written there would bypass Gate B and there is no LLM on that path.
+  - **A deload is NOT recalibrated**, and this was found by composing two rules on real
+    numbers rather than by reasoning about them: the band's low end is
+    `baseline + MEANINGFUL_STEP` (1,000 steps) while an ease floors at `baseline × 1.05`
+    (250), so recalibrating a deload snaps it back ABOVE the number just failed —
+    cancelling every deload for `steps_total` and making the failure branch dead code.
+  - **What happens when the owner has already passed a rung's target:** the target RISES
+    to the gentle end of today's band (`already_within_reach`), so the rung is still a
+    step up rather than a lap of honour. The reverse case comes DOWN (`beyond_todays_band`).
+    Moving the number is not a breach of reject-never-clamp — that rule protects the
+    model's COPY at generation time, and the copy carries no number by construction.
+  - **Giving up:** `stalled` (never `completed`, never `abandoned` — the owner did not
+    quit) when there is no room left to ease, or after `MAX_CONSECUTIVE_DELOADS` eased
+    retries have themselves timed out unmet. Consecutive rather than per-program, so a
+    ladder that needed a deload at rung 1 and another at rung 3 is not punished for the
+    deload working.
+  - **Three holds share one mechanism** and all three RESUME by themselves: the recovery
+    guard (a `standard` rung only — D8 says recovery eases or holds, so withholding a
+    deload would withhold the ease), the per-owner `MAX_ACTIVE` cap (a rung is a live
+    commitment and is counted like one), and #72's one-commitment-per-behaviour rule.
+  - **⚠ Known limit, stated rather than papered over: a ladder may not contain a `<=` cap
+    rung.** The failure branch is the adapter's ease and the adapter leaves caps alone
+    because the corpus supplies no rule for loosening one (§5.2). A rung whose failure
+    could not be answered is legacy's forward-only ladder wearing a new column — so a
+    progressive caffeine-cut ladder is **not expressible today**.
+  - **Two latent defects fell out of the work:** `store.list_by_status` ordered by
+    `created_at DESC` alone, and `created_at` defaults to `now()` = the TRANSACTION's
+    start, so rows written together shared a timestamp and the feed's order was the
+    planner's choice — two identical requests could return two orders (`id DESC` now
+    breaks the tie); and `tests/challenges/_seed.reset()` never truncated `program`.
+- ⬜ **WP-C4b** grounded PROGRAM generation — split out deliberately, not dropped. The
+  engine is complete and tested headless; authoring a ladder is a separate concern with
+  its own prompt, its own `validator._JSON_SHAPES` registration (a shape the validator
+  does not know **fails closed**, which WP-C3 pinned) and its own screen. It also needs a
+  gate design the challenge pipeline does not have, because **Gate A cannot bind every
+  rung at design time**: rung 3 is *meant* to sit above today's band, so a strict
+  per-rung bounds check would reject every real ladder. The shape that resolves it, for
+  whoever picks this up: bind Gate A to **rung 1 only** and let each later rung be bounded
+  at ACTIVATION by `rung.recalibrated_target` (which already does exactly that), and gate
+  the ladder's SHAPE at design time instead — monotone in the metric's improving
+  direction, capped at the evidence target (`targets.EVIDENCE_TARGET`), every rung on a
+  metric that is calibratable today, `>=` only, and `bounds.copy_issue` on every rung
+  (it only needs the band as a numeral threshold, so it works above the band too).
+  Until it lands there is no way for an owner to *acquire* a program — the same state
+  WP-C3b leaves standalone generation in.
 - ✅ **WP-C5** coach: `adopt_challenge` + `create_challenge` + the outcome ledger as
   `[personal_finding:challenge_outcome]` (COACH_ROADMAP C2).
   `create_challenge` **calls `generate.generate_challenges(intent=…)`** rather than
@@ -654,4 +740,6 @@ Legacy design mined from `~/projects/healthee-legacy/src/healthee/llm/challenges
 `app/lib/{actions_screen,programs,insights_screen}.dart` (UI). Rebuild contracts:
 `docs/ARCHITECTURE.md` (honesty), `docs/INTELLIGENCE.md` §4 (coach enforced-equivalent),
 `docs/MULTI_USER.md` (owner-scoping), `docs/PRICING.md` §1a (premium), `docs/COACH_ROADMAP.md`
-C2/C4, `docs/ENGINEERING_STANDARDS.md` (gates). Schema: `0001_initial.sql`.
+C2/C4, `docs/ENGINEERING_STANDARDS.md` (gates). Schema: `0001_initial.sql`,
+`0009_outcome_ledger.sql` (the ledger's honesty), `0010_program_ladder.sql`
+(the ladder's vocabulary).
