@@ -15,14 +15,13 @@ from healthee.challenges.metrics import (
     CADENCES,
     CHALLENGE_METRICS,
     COMPARATORS,
-    IDEAL,
-    ROUND_STEP,
     DerivedSource,
     ManualEntrySource,
     WorkoutCountSource,
-    round_target,
     spec,
 )
+from healthee.challenges.scales import IDEAL, ROUND_STEP, round_target
+from healthee.challenges.windowed import WINDOW_HOURS, WindowedManualEntrySource, metric_key
 
 # The legacy vocabulary, retyped by hand from `llm/challenges.py:27` so this table
 # is an INDEPENDENT copy of the source of truth, not an echo of the port.
@@ -44,6 +43,13 @@ _CAP_VOCABULARY = {
     "caffeine_mg": ("Caffeine", "mg", "level", "down"),
 }
 
+# The generated time windows — one per cap metric per hour the cutoff finder tests. Kept
+# as a third claim for the same reason the caps are a second one: the port's fidelity,
+# the rebuild's caps, and the time predicate must each be able to fail on their own.
+_WINDOW_VOCABULARY = {
+    metric_key(kind, hour) for kind in ("alcohol", "caffeine") for hour in WINDOW_HOURS
+}
+
 
 def test_the_vocabulary_is_the_legacy_one() -> None:
     """Every label/unit/kind/direction ported verbatim — no metric silently dropped."""
@@ -53,9 +59,56 @@ def test_the_vocabulary_is_the_legacy_one() -> None:
         assert (entry.label, entry.unit, entry.kind, entry.good) == (label, unit, kind, good)
 
 
-def test_the_registry_is_the_legacy_vocabulary_plus_exactly_the_cap_metrics() -> None:
+def test_the_registry_is_the_legacy_vocabulary_plus_the_caps_plus_the_windows() -> None:
     """Nothing else has crept in — a metric nobody reviewed is a challenge nobody can keep."""
-    assert set(CHALLENGE_METRICS) == set(_LEGACY_VOCABULARY) | set(_CAP_VOCABULARY)
+    assert set(CHALLENGE_METRICS) == (
+        set(_LEGACY_VOCABULARY) | set(_CAP_VOCABULARY) | _WINDOW_VOCABULARY
+    )
+
+
+def test_a_window_inherits_everything_from_the_quantity_it_slices() -> None:
+    """Unit, direction and kind come from the base metric, never restated.
+
+    A window that disagreed with its own total about milligrams-versus-cups, or about
+    which direction is improvement, would be a second definition of the same quantity
+    (CLAUDE.md) — and one of the two would score the owner backwards.
+    """
+    base = CHALLENGE_METRICS["caffeine_mg"]
+    for hour in WINDOW_HOURS:
+        entry = CHALLENGE_METRICS[metric_key("caffeine", hour)]
+        assert (entry.unit, entry.good, entry.kind) == (base.unit, base.good, base.kind)
+        assert entry.source == WindowedManualEntrySource("caffeine", "mg", hour)
+        assert entry.label == f"Caffeine after {hour:02d}:00"
+
+
+def test_a_window_may_only_be_daily() -> None:
+    """A period SUM cannot tell an unmeasured day from a zero one (``challenges.windowed``).
+
+    Declared on the entry, so the pair is UNREPRESENTABLE — refused by Gate A, by
+    ``adopt`` and by ``evaluate`` — rather than merely never reached, which is the same
+    treatment #67 gave a weekly ``sri``.
+    """
+    for metric in _WINDOW_VOCABULARY:
+        assert CHALLENGE_METRICS[metric].cadences == frozenset({"daily"})
+
+
+def test_a_window_reads_self_logged_data_and_never_zero_fills_it() -> None:
+    """The two logged sources are distinct TYPES, which is what keeps them distinct.
+
+    ``WindowedManualEntrySource`` is deliberately not a subclass: an
+    ``isinstance(source, ManualEntrySource)`` dispatch anywhere in the tree would
+    otherwise sweep a window into the zero-filling reader it exists to refuse.
+    """
+    windows = {
+        m for m, e in CHALLENGE_METRICS.items() if isinstance(e.source, WindowedManualEntrySource)
+    }
+    zero_filled = {
+        m for m, e in CHALLENGE_METRICS.items() if isinstance(e.source, ManualEntrySource)
+    }
+
+    assert windows == _WINDOW_VOCABULARY
+    assert zero_filled == set(_CAP_VOCABULARY)
+    assert windows.isdisjoint(zero_filled)
 
 
 def test_the_cap_metrics_point_downward_and_bind_to_a_logged_kind() -> None:
@@ -185,7 +238,7 @@ def test_no_cap_metric_carries_an_evidence_ideal() -> None:
     the engine nudging an owner's alcohol target UP toward an "ideal".
     """
     downward = {m for m, e in CHALLENGE_METRICS.items() if e.good == "down"}
-    assert downward == {"alcohol_units", "caffeine_mg"}
+    assert downward == {"alcohol_units", "caffeine_mg"} | _WINDOW_VOCABULARY
     assert downward.isdisjoint(IDEAL)
 
 

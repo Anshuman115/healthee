@@ -40,18 +40,34 @@ earns statements like "alcohol after 20:00 costs you HRV", and CHALLENGES.md §5
 makes those findings a first-class generation input — which needs a metric a cap
 challenge can bind to.
 
-**What is deliberately NOT here.** A *time-of-day* rule ("no caffeine after
-15:00") is exactly what a cutoff finding suggests, and the registry cannot
-express it: a ``ChallengeMetric`` yields one number per day, and there is no
-predicate dimension for "…logged after hour H". Faking it as a daily quantity
-would score an owner who drank three coffees before noon as a failure, so it is
-left out until the registry can carry a predicate rather than shipped wrong.
+## The time predicate — the WINDOWED metrics
+
+A *time-of-day* rule ("no caffeine after 16:00") is what a cutoff finding
+naturally suggests, and it used to be unexpressible here — so WP-C5's
+``create_challenge`` refused the shape rather than degrade it into a daily total
+(which scores three morning coffees as a failure and one 23:00 coffee as a pass).
+
+It is expressible now, as an ORDINARY registry entry: a ``good="down"`` cap whose
+source restricts the day's sum to entries at or after one hour of the owner's own
+clock. Nothing downstream forks. The catalogue below is generated from the logged
+substances the cutoff finder analyses, at the hours it tests. The argument — why
+an unlogged day is NOT a zero here, why a window may only be ``daily``, and what
+the corpus does and does not supply — is in
+:mod:`healthee.challenges.windowed`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
+
+from healthee.challenges.windowed import (
+    WINDOW_HOURS,
+    WINDOW_SUBSTANCES,
+    WindowedManualEntrySource,
+    metric_key,
+    metric_label,
+)
 
 # Sub-10-minute bouts are auto-detected movement noise, not real workouts.
 # Verbatim from legacy `_MIN_WORKOUT_S` (:38).
@@ -120,7 +136,7 @@ class ManualEntrySource:
     unit: str
 
 
-MetricSource = DerivedSource | WorkoutCountSource | ManualEntrySource
+MetricSource = DerivedSource | WorkoutCountSource | ManualEntrySource | WindowedManualEntrySource
 
 
 # Which cadences a metric may be expressed in (#67). A `weekly` or `total` rule SUMS
@@ -138,6 +154,10 @@ MetricSource = DerivedSource | WorkoutCountSource | ManualEntrySource
 # at adopt, refused by Gate A, and a raise at evaluation) rather than merely unreached.
 _ACCUMULABLE = CADENCES
 _A_SCORE = frozenset({"daily"})
+# A TIME WINDOW is daily-only for a different reason, kept separate so neither name has
+# to answer for the other: a period SUM cannot tell an unmeasured day from a zero one, so
+# seven days of silence would total 0 and report a cap kept (`windowed`'s docstring).
+_A_WINDOW = frozenset({"daily"})
 
 
 @dataclass(frozen=True)
@@ -253,67 +273,27 @@ CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
     ),
 }
 
-# Evidence "ideal" per metric — the CEILING the adapter may never raise a target
-# past (`adapt.suggest_adaptation`). Values verbatim from legacy `_IDEAL` (:148);
-# the citations are this port's addition (standards §"every constant derived from
-# research cites its note"). A metric absent here has no ceiling, exactly as in
-# legacy — `active_calories` and `cardio_load` are individual-load quantities with
-# no population target to anchor one, so none was invented.
-#
-# ⚠ A CITATION IS A CLAIM ABOUT A LINE IN A NOTE (#67). `sri` carried 85.0 with
-# "[sleep_regularity_index]" beside it and **85 appears nowhere in that note**. What the
-# note pins is `SRI_GOOD = 70.0` (Windred 2024 — the same threshold the 4-dim regularity
-# dimension already gates on) and, descriptively, the UK Biobank cohort's median of 81.0
-# [IQR 73.8-86.3]. A cohort's median or upper quartile says what is TYPICAL, not what is
-# good, so neither is a target either; 70 is the only "good" figure the corpus states.
-# The value is now that number, and the citation is true.
-#
-# A target and a ceiling are different questions, and they stay different tables
-# (`challenges/targets.py` argues why). But they may not be different NUMBERS for one
-# metric unless the corpus supplies two — "how regular is regular enough" has one answer
-# or the product has two definitions of good SRI (CLAUDE.md §ONE canonical definition).
-# `test_registry` pins the agreement for every metric that appears in both tables.
-#
-# The 85 was live, not cosmetic: generation caps a proposed target at the evidence target
-# (`bounds.band_for`), so the engine refused to PROPOSE an SRI target above 70 and would
-# then ratchet an adopted one to 84 unattended. Stopping at the evidence target is what
-# `mvpa_min` already does at 150 — a number its own note calls "a floor, not a ceiling" —
-# so this is the existing rule applied, not a new one.
-#
-# Removing `sri` from this table would NOT have meant "do not raise": `adapt._ceiling`
-# falls back to `OWNER_CEILING_FACTOR x baseline` whenever a baseline exists, which on a
-# bounded 0-100 index yields ceilings above 100 (74 x 1.5 = 111). An owner-relative
-# multiple is meaningless for a score, which is the other reason `sri` keeps an entry.
-IDEAL: dict[str, float] = {
-    "mvpa_min": 150.0,  # WHO weekly MVPA target [mvpa_minutes_mortality]
-    "steps_total": 8000.0,  # daily-steps mortality plateau [steps_mortality]
-    "tst_min": 450.0,  # 7.5 h, mid-band of the U-curve [sleep_duration_mortality]
-    "sri": 70.0,  # `SRI_GOOD`, Windred 2024 [sleep_regularity_index]
-    # NOT EVIDENCE, and it must never be presented as such. No note in the corpus
-    # supports a specific weekly SESSION count — the evidence is denominated in
-    # minutes, not sessions — so this is practitioner consensus with no citation
-    # behind it. It exists solely as `adapt._raise_to`'s ceiling (a guard on how far
-    # the engine may move a target by itself) and is never read by a surface that
-    # shows the owner a target, a rationale, or a research note.
-    "workouts_week": 4.0,
-    # The cap metrics are deliberately absent: IDEAL is the ceiling on RAISING a
-    # target, and a `good="down"` metric has no ceiling to raise toward. Their
-    # adapter guard is `adapt.OWNER_CEILING_FACTOR` (owner-relative), if it ever
-    # applies at all — `suggest_adaptation` leaves `<=` challenges alone.
+# The windowed catalogue, GENERATED rather than typed out: one entry per (logged
+# substance the cutoff finder analyses) × (hour it tests). Everything except the source
+# and the cadence set is the base metric's own, so a window cannot come to disagree with
+# the quantity it is a slice of — same unit, same direction, same rounding step.
+WINDOW_BASES: dict[str, ManualEntrySource] = {
+    metric: entry.source
+    for metric, entry in CHALLENGE_METRICS.items()
+    if isinstance(entry.source, ManualEntrySource) and entry.source.kind in WINDOW_SUBSTANCES
 }
 
-# Rounding granularity per metric, so an adapted target stays a human number
-# ("8,000 steps", not "7,943"). Verbatim from legacy `_ROUND_STEP` (:536).
-ROUND_STEP: dict[str, float] = {
-    "steps_total": 250,
-    "mvpa_min": 5,
-    "tst_min": 5,
-    "sri": 1,
-    "workouts_week": 1,
-    "active_calories": 10,
-    "cardio_load": 5,
-    "alcohol_units": 1,  # a UK unit is the smallest meaningful step
-    "caffeine_mg": 25,  # ~a quarter of a filter coffee; "200 mg", not "187 mg"
+CHALLENGE_METRICS |= {
+    metric_key(source.kind, hour): ChallengeMetric(
+        label=metric_label(CHALLENGE_METRICS[base].label, hour),
+        unit=source.unit,
+        kind=CHALLENGE_METRICS[base].kind,
+        good=CHALLENGE_METRICS[base].good,
+        source=WindowedManualEntrySource(source.kind, source.unit, hour),
+        cadences=_A_WINDOW,
+    )
+    for base, source in WINDOW_BASES.items()
+    for hour in WINDOW_HOURS
 }
 
 
@@ -353,9 +333,3 @@ def validate_cadence(metric: str, cadence: str) -> str:
             f"(its days do not add up to a quantity; it takes {sorted(allowed)})"
         )
     return cadence
-
-
-def round_target(metric: str, value: float) -> float:
-    """Round ``value`` to the metric's human step. Verbatim from legacy ``_round_target``."""
-    step = ROUND_STEP.get(metric, 1)
-    return float(round(value / step) * step)

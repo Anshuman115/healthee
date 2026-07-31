@@ -35,6 +35,7 @@ from healthee.challenges.metrics import (
     WorkoutCountSource,
     spec,
 )
+from healthee.challenges.windowed import WindowedManualEntrySource
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
 from healthee.derive.robust import median
@@ -82,11 +83,15 @@ def metric_series(
     :func:`_manual_sums`). It defaults to the OWNER's today, and every caller that
     already holds a pinned anchor passes it so a zero-fill can never run past the
     day the caller is scoring. The device-backed sources ignore it: their absent
-    days stay absent, because for those "no row" genuinely means "no data".
+    days stay absent, because for those "no row" genuinely means "no data". A
+    :class:`WindowedManualEntrySource` takes it too, but only as a query bound — it
+    does NOT zero-fill, and :func:`_windowed_sums` argues why.
     """
     source = spec(metric).source
     if isinstance(source, WorkoutCountSource):
         return _workout_counts(cur, user_id, tz, since, source.min_duration_s)
+    if isinstance(source, WindowedManualEntrySource):
+        return _windowed_sums(cur, user_id, tz, since, until or user_today(tz), source)
     if isinstance(source, ManualEntrySource):
         return _manual_sums(cur, user_id, tz, since, until or user_today(tz), source)
     return _derived_series(cur, user_id, source, since)
@@ -155,6 +160,50 @@ def _manual_sums(
     return {
         day: logged.get(day, 0.0) for day in (since + timedelta(days=i) for i in range(span + 1))
     }
+
+
+def _windowed_sums(
+    cur: Cur,
+    user_id: UUID,
+    tz: str,
+    since: date,
+    until: date,
+    source: WindowedManualEntrySource,
+) -> dict[date, float]:
+    """One owner's self-logged total INSIDE a clock window, per local day. NOT zero-filled.
+
+    The one place where a windowed metric reads differently from the daily total it is a
+    slice of, and the difference is the honesty crux of the feature
+    (:mod:`healthee.challenges.windowed`): a window is satisfied *by absence*, so an
+    owner who stops logging would otherwise score a perfect week. The presence of a day
+    in the result therefore means "they logged this kind that day" — their own logging is
+    the evidence that the evening was clean — and a day with no entry at all is simply
+    ABSENT, the same state an unwritten ``derived_daily`` row is in.
+
+    ``GROUP BY`` is what makes that structural rather than a rule applied afterwards: a
+    day only appears because a qualifying row exists on it, and the ``FILTER`` then sums
+    the part of that day that fell inside the window. A day the owner logged only in the
+    morning is therefore a real ``0.0``, not a gap.
+
+    The hour comparison is ``>=`` in the OWNER's zone, which is the SAME boundary
+    ``analytics.cutoffs`` classifies its nights by — an entry at exactly ``after_hour``:00
+    is inside the window in both places, so a challenge cannot disagree with the finding
+    that motivated it. The unit rule and the sargable ``ts >=`` superset are
+    :func:`_manual_sums`', unchanged.
+    """
+    cur.execute(
+        "SELECT (ts AT TIME ZONE %s)::date AS local_day, "
+        "  COALESCE(sum(amount) FILTER "
+        "    (WHERE EXTRACT(HOUR FROM (ts AT TIME ZONE %s)) >= %s), 0) "
+        "FROM manual_entry WHERE user_id = %s AND kind = %s "
+        "  AND ts >= %s::date - interval '2 days' "
+        "  AND (ts AT TIME ZONE %s)::date BETWEEN %s AND %s "
+        "  AND amount IS NOT NULL "
+        "  AND (unit IS NULL OR lower(unit) = %s) "
+        "GROUP BY local_day",
+        (tz, tz, source.after_hour, user_id, source.kind, since, tz, since, until, source.unit),
+    )
+    return {row[0]: float(row[1]) for row in cur.fetchall()}
 
 
 def baseline_span(cadence: str, window_days: int | None = None) -> int:

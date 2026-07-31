@@ -34,6 +34,7 @@ from healthee.challenges.metrics import (
     allows_cadence,
     validate_cadence,
 )
+from healthee.challenges.windowed import WindowedManualEntrySource
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ
 from healthee.db import migrate
@@ -66,7 +67,16 @@ def test_sri_is_the_only_score_and_takes_no_cumulative_cadence() -> None:
     """
     assert CHALLENGE_METRICS["sri"].cadences == frozenset({"daily"})
     summable = {m for m, e in CHALLENGE_METRICS.items() if e.cadences == CADENCES}
-    assert summable == set(CHALLENGE_METRICS) - {"sri"}
+    # The time WINDOWS are also daily-only, for a different reason that is stated where it
+    # belongs (`challenges.windowed`): a period sum cannot tell an unmeasured day from a
+    # zero one. Excluded by predicate rather than by name so a new window joins the
+    # exception without anybody editing this line — but `sri` still has to be named, since
+    # a second SCORE slipping in unnoticed is what this test exists for.
+    windows = {
+        m for m, e in CHALLENGE_METRICS.items() if isinstance(e.source, WindowedManualEntrySource)
+    }
+    assert summable == set(CHALLENGE_METRICS) - {"sri"} - windows
+    assert all(CHALLENGE_METRICS[m].cadences == frozenset({"daily"}) for m in windows)
 
 
 @pytest.mark.parametrize("cadence", ["weekly", "total"])
