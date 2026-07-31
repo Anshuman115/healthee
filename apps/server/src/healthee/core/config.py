@@ -110,6 +110,9 @@ class Settings(BaseSettings):
     # source never reveals which models we run. Blank here (nothing leaked to git);
     # real values live in the deploy env / a local .env. default_model = the cheap
     # high-volume tier; coach_model = the stronger tier for the interactive coach.
+    # Blank is legal ONLY while the key above is blank too — `_require_model_ids_when_
+    # ai_key_is_set` below refuses the half-configured state, which is a dead AI layer
+    # behind a green /healthz.
     default_model: str = ""
     coach_model: str = ""
     # How long ONE LLM HTTP call may take before it is abandoned, and how many times
@@ -163,6 +166,55 @@ class Settings(BaseSettings):
                 "POSTGRES_APP_USER and POSTGRES_APP_PASSWORD must be set together "
                 "(set both to use the least-privilege app role, or neither to fall "
                 "back to the admin creds)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_model_ids_when_ai_key_is_set(self) -> Self:
+        """Refuse "configured for AI, but cannot do AI" — it is never a valid state.
+
+        A blank model id is not a default, it is a dead subsystem: the id is forwarded
+        to OpenRouter verbatim and comes back **400 on every call** — insight cards,
+        the coach, and the nightly recs/briefing chain. Nothing in the deploy can see
+        it. `/healthz` is a liveness+DB probe, so it goes green; the LLM failures land
+        in Telegram and the scheduler log. Prod ran in exactly this state.
+
+        **Fail fast, not warn.** `core/db._warn_if_privileged` is the right precedent
+        for the *other* shape of problem — the admin-creds fallback is a documented,
+        deliberately-transitional step of a two-deploy bootstrap (`infra/DEPLOY.md`
+        §B2), so it must stay bootable. There is no deploy order, no bootstrap and no
+        migration in which "key set, model id blank" is correct, which makes it the
+        same shape as `_require_app_creds_together` above: an ambiguity to refuse, not
+        an interpretation to pick. Refusing turns it into a *deploy-time* failure, in
+        front of the operator, instead of a silence discovered weeks later.
+
+        Not running the AI layer stays a first-class, bootable configuration: leave
+        `OPENROUTER_API_KEY` blank and this never fires. The check only triggers on a
+        state the operator explicitly asked for and then half-configured.
+
+        Deliberately NOT mirrored into `/healthz`: with this validator the state cannot
+        exist in a live process, and a probe that 503s on a config problem would let
+        Docker's healthcheck restart the container into the same config forever —
+        trading a dead AI layer for a flapping read API, which is worse than the
+        disease. Config correctness belongs at boot; `/healthz` stays a signal an
+        orchestrator can act on.
+        """
+        if not self.openrouter_api_key:
+            return self
+        blank = [
+            name
+            for name, value in (
+                ("DEFAULT_MODEL", self.default_model),
+                ("COACH_MODEL", self.coach_model),
+            )
+            if not value.strip()
+        ]
+        if blank:
+            raise ValueError(
+                f"OPENROUTER_API_KEY is set but {' and '.join(blank)} is blank — a blank "
+                "model id reaches OpenRouter verbatim and every LLM call returns 400, "
+                "with nothing failing in /healthz. Set the model id(s), or unset "
+                "OPENROUTER_API_KEY to run without the AI layer."
             )
         return self
 

@@ -50,12 +50,18 @@ def fake_sdk(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
     The limit vars are cleared so the defaults test sees the CODE's defaults rather
     than whatever the ambient shell exported (the `env` fixture's rule, same reason).
+
+    The model ids are set alongside the key because `Settings` refuses the
+    key-set-with-a-blank-id state outright (#56) — a client configured that way could
+    never exist in a real process, so a fixture must not manufacture one.
     """
     _FakeSDK.last_kwargs = {}
     monkeypatch.setattr(openai, "OpenAI", _FakeSDK)
     for var in ("LLM_TIMEOUT_S", "LLM_MAX_RETRIES"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-a-secret")
+    monkeypatch.setenv("DEFAULT_MODEL", "vendor/cheap-test-model")
+    monkeypatch.setenv("COACH_MODEL", "vendor/strong-test-model")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

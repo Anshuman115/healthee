@@ -108,6 +108,88 @@ def test_half_set_app_creds_are_a_loud_failure(monkeypatch: pytest.MonkeyPatch) 
         Settings()
 
 
+# ── the "configured for AI, cannot do AI" state (#56) ─────────────────────────
+#
+# Every one of these uses the `env` fixture, which chdirs to a tmp dir. That is load-
+# bearing, not decorative: `Settings.model_config` sets `env_file=".env"` resolved
+# against the CWD, so run from `apps/server/` with a real `.env` these tests would read
+# the developer's actual OPENROUTER_API_KEY and DEFAULT_MODEL and assert nothing. That
+# exact trap produced a phantom failure here days ago.
+
+
+@pytest.mark.parametrize(
+    ("blank_var", "other_var"),
+    [("DEFAULT_MODEL", "COACH_MODEL"), ("COACH_MODEL", "DEFAULT_MODEL")],
+)
+def test_an_ai_key_with_a_blank_model_id_is_refused(
+    env: None,  # noqa: ARG001 — hermetic env + tmp CWD, see the note above
+    monkeypatch: pytest.MonkeyPatch,
+    blank_var: str,
+    other_var: str,
+) -> None:
+    """Key set + either id blank ⇒ construction fails, so the process never starts.
+
+    This is the state prod ran in: the blank id goes to OpenRouter verbatim, every
+    call 400s, and `/healthz` stays green because it is a liveness+DB probe. Refusing
+    at construction moves the discovery to the deploy, in front of the operator.
+    """
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    monkeypatch.setenv(other_var, "vendor/some-model")
+    monkeypatch.delenv(blank_var, raising=False)
+    with pytest.raises(ValueError, match=blank_var):
+        Settings()
+
+
+def test_a_whitespace_only_model_id_is_refused_too(
+    env: None,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`DEFAULT_MODEL=" "` is exactly as dead as blank — and looks set in a diff."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    monkeypatch.setenv("DEFAULT_MODEL", "   ")
+    monkeypatch.setenv("COACH_MODEL", "vendor/strong")
+    with pytest.raises(ValueError, match="DEFAULT_MODEL"):
+        Settings()
+
+
+def test_no_ai_key_and_no_model_ids_is_a_valid_configuration(
+    env: None,  # noqa: ARG001
+) -> None:
+    """Running WITHOUT the AI layer must stay bootable — the check is opt-in.
+
+    Without this the fail-fast would be a landmine for every self-hoster who wants the
+    tracking without the LLM, which the product explicitly supports.
+    """
+    settings = Settings()
+    assert settings.openrouter_api_key == ""
+    assert settings.default_model == ""
+    assert settings.coach_model == ""
+
+
+def test_an_ai_key_with_both_model_ids_is_accepted(
+    env: None,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The mutation guard: the validator must not reject the correct configuration."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    monkeypatch.setenv("DEFAULT_MODEL", "vendor/cheap")
+    monkeypatch.setenv("COACH_MODEL", "vendor/strong")
+    settings = Settings()
+    assert settings.default_model == "vendor/cheap"
+    assert settings.coach_model == "vendor/strong"
+
+
+def test_model_ids_without_a_key_are_not_a_config_error(
+    env: None,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only the key drives the requirement — ids left set while the key is pulled is
+    how someone temporarily disables the AI layer, and it is a working state."""
+    monkeypatch.setenv("DEFAULT_MODEL", "vendor/cheap")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    assert Settings().default_model == "vendor/cheap"
+
+
 def test_missing_password_is_a_loud_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
     with pytest.raises(ValueError):  # pydantic ValidationError is a ValueError

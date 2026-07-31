@@ -73,10 +73,14 @@ services:
       SIGNUPS_OPEN: ${SIGNUPS_OPEN:-false}
       SIGNUP_ALLOWLIST: ${SIGNUP_ALLOWLIST:-}
       # LLM. The model ids are REQUIRED whenever the key is set: a blank id is
-      # forwarded to OpenRouter verbatim and comes back a 400.
+      # forwarded to OpenRouter verbatim and comes back a 400. The API now REFUSES
+      # TO START in that state (core/config) rather than serving a dead AI layer
+      # behind a green /healthz.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-}
       COACH_MODEL: ${COACH_MODEL:-}
+      LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-60}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
       API_HOST: 0.0.0.0
       API_PORT: 8765
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -128,10 +132,17 @@ services:
       # Grounded recs + briefing go through the LLM choke point; Telegram carries
       # the morning briefing and every supervised step failure. Blank key ⇒ no-op.
       # The model ids are REQUIRED whenever the key is set — this container IS the
-      # nightly chain, so a blank id 400s every recs/briefing run.
+      # nightly chain, so a blank id 400s every recs/briefing run. The scheduler
+      # refuses to start in that state, same as the api (core/config).
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-}
       COACH_MODEL: ${COACH_MODEL:-}
+      # The tick loop is single-threaded, so ONE unbounded call blocks every later
+      # owner's chain. These were in infra/.env.example but never passed through
+      # here, which meant setting them in infra/.env did nothing and the SDK's
+      # 600 s × 3 default applied to the container that can least afford it.
+      LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-60}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}

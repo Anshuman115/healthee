@@ -125,6 +125,10 @@ change and a **credential change**. Read all of B before running anything.
 Compose now passes these through; it previously did not, so they may be absent on
 prod even if they look familiar. Annotated in full in `infra/.env.example`.
 
+The table below is checked against `core/config.py::Settings` by
+`tests/test_env_templates.py` only as far as the *templates* go — the wording here
+is maintained by hand, so it is re-read against `Settings` whenever a var is added.
+
 | Var | If missing / blank |
 |---|---|
 | `SUPABASE_JWT_SECRET` | Auth **fails closed** — every Supabase JWT is refused. The server silently degrades to **legacy-token-only**: it stays up and the old app keeps working, so this failure is invisible unless you test a real login. |
@@ -133,7 +137,8 @@ prod even if they look familiar. Annotated in full in `infra/.env.example`.
 | `SUPABASE_JWT_AUD` | Defaults to `authenticated` (the Supabase default). |
 | `SIGNUPS_OPEN` | Defaults to `false` — the correct posture. **See B5 before changing it.** |
 | `SIGNUP_ALLOWLIST` | Empty ⇒ nobody new can sign up. This is also what makes owner onboarding possible (B4) — the claim cannot be run without it. |
-| `DEFAULT_MODEL` / `COACH_MODEL` | **Required whenever `OPENROUTER_API_KEY` is set.** A blank id is forwarded to OpenRouter verbatim and comes back **400** — on every LLM surface, *including the nightly chain* in the scheduler. Failures surface in Telegram, not in `/healthz`. |
+| `DEFAULT_MODEL` / `COACH_MODEL` | **Required whenever `OPENROUTER_API_KEY` is set.** A blank id is forwarded to OpenRouter verbatim and comes back **400** — on every LLM surface, *including the nightly chain* in the scheduler. **The api and scheduler now REFUSE TO START** in that state (`core/config._require_model_ids_when_ai_key_is_set`), so `deploy.sh`'s `/healthz` wait fails and you see it here rather than in Telegram a week later. Blank key + blank ids is still fine: that is "no AI layer", a valid configuration. |
+| `LLM_TIMEOUT_S` / `LLM_MAX_RETRIES` | Default to `60` / `1` (compose supplies those defaults). Unset in *code* the SDK would use 600 s × 3 attempts = a 30-minute hang, and the scheduler's tick loop is single-threaded, so one stuck call costs every later owner their chain. Raise the timeout only for a slow reasoning-tier `DEFAULT_MODEL`. |
 | `LOG_LEVEL` | Defaults to `INFO`. |
 | `POSTGRES_APP_USER` / `POSTGRES_APP_PASSWORD` | The app falls back to the **admin** credentials, which bypass RLS. Loud startup WARNING. **Read B2 before setting these.** |
 
