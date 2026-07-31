@@ -36,16 +36,18 @@ def derive_cardio_load(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | No
     if hrmax - rhr < 1:
         return None
     start_utc, end_utc = _day_bounds_utc(day, tz)
+    # `end_utc` is the START of the next local day, so both windows close with `<`:
+    # a session or sample landing exactly on it belongs to tomorrow (`_day_bounds_utc`).
     cur.execute(
         "SELECT start_ts, end_ts FROM sleep_session "
-        "WHERE user_id = %s AND end_ts>=%s AND start_ts<=%s",
+        "WHERE user_id = %s AND end_ts>=%s AND start_ts<%s",
         (user_id, start_utc, end_utc),
     )
     sleep_wins = cur.fetchall()
     cur.execute(
         "SELECT date_trunc('minute', ts) m, AVG(value) FROM sample "
         f"WHERE user_id = %s AND metric='hr' AND {HR_VALID_SQL} "
-        "AND ts>=%s AND ts<=%s GROUP BY m",
+        "AND ts>=%s AND ts<%s GROUP BY m",
         (user_id, *HR_VALID_BOUNDS, start_utc, end_utc),
     )
     rows = cur.fetchall()

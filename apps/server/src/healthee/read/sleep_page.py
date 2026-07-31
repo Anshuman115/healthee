@@ -201,7 +201,7 @@ def _apply_physiology(
         "LEFT JOIN sample s ON s.user_id = %s "
         # The outer bound is implied by the per-window ones, so it removes no row —
         # it is there to give the hypertable a constant `ts` range to prune chunks on
-        # (read/today_series.py::_local_day_utc_range documents the same trap).
+        # (the note at the top of read/today_series.py documents the same trap).
         "  AND s.ts >= %s AND s.ts < %s "
         "  AND s.ts >= w.start_ts AND s.ts < w.end_ts "
         "GROUP BY w.date_iso",

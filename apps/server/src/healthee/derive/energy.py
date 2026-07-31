@@ -37,22 +37,24 @@ def _tee_met(
     calories by the caller.
     """
     bmr_min = bmr / 1440.0
+    # `end_utc` is the START of the next local day, so every window closes with `<`:
+    # anything landing exactly on it belongs to tomorrow (`_day_bounds_utc`).
     cur.execute(
         "SELECT start_ts, end_ts FROM sleep_session "
-        "WHERE user_id = %s AND end_ts>=%s AND start_ts<=%s",
+        "WHERE user_id = %s AND end_ts>=%s AND start_ts<%s",
         (user_id, start_utc, end_utc),
     )
     sleep_wins = cur.fetchall()
     cur.execute(
         "SELECT start_ts, duration_s FROM workout "
-        "WHERE user_id = %s AND start_ts>=%s AND start_ts<=%s",
+        "WHERE user_id = %s AND start_ts>=%s AND start_ts<%s",
         (user_id, start_utc, end_utc),
     )
     wk_wins = [(w[0], w[0] + timedelta(seconds=int(w[1] or 0))) for w in cur.fetchall()]
     cur.execute(
         "SELECT date_trunc('minute', ts) m, SUM(value) FROM sample "
         "WHERE user_id = %s AND metric='steps_per_minute' AND value < 250 "
-        "AND ts>=%s AND ts<=%s GROUP BY m",
+        "AND ts>=%s AND ts<%s GROUP BY m",
         (user_id, start_utc, end_utc),
     )
     steps_by_min = {r[0]: float(r[1]) for r in cur.fetchall()}
@@ -117,7 +119,7 @@ def derive_calories(
     total = _tee_met(cur, user_id, start_utc, end_utc, bmr, stride_m)
     cur.execute(
         "SELECT COALESCE(SUM(calories),0) FROM workout "
-        "WHERE user_id = %s AND start_ts >= %s AND start_ts <= %s",
+        "WHERE user_id = %s AND start_ts >= %s AND start_ts < %s",  # half-open bounds
         (user_id, start_utc, end_utc),
     )
     workout_cal = _scalar(cur)

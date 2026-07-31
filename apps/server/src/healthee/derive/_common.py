@@ -16,7 +16,7 @@ Python datetime math builds a local ``ZoneInfo(tz)``.
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import LiteralString, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -90,25 +90,46 @@ def _wake_date(end_ts: datetime, tz: str) -> date:
 
 
 def _day_bounds_utc(day: date, tz: str) -> tuple[datetime, datetime]:
-    """UTC [start, end] instants bracketing one local (``tz``) calendar day.
+    """The ONE definition of a local (``tz``) day: half-open UTC ``[start, next_start)``.
 
-    ZoneInfo re-resolves the UTC offset at each end independently, so on a DST
-    transition the bracket correctly spans 23 h or 25 h rather than a fixed 24 h.
-    Anything walking this window per-minute must take its length from
-    :func:`_day_minutes`, never from a hardcoded 1440.
+    The end is the START OF THE NEXT LOCAL DAY, never this day's ``23:59:59``. That
+    wall-clock time is not a reliable edge: in a zone that transitions AT MIDNIGHT it
+    is ambiguous (falling back, it happens twice — PEP 495 resolves ``fold=0``, the
+    FIRST pass, leaving the repeated hour outside the bracket) or non-existent
+    (springing forward, it is resolved with the pre-transition offset and lands an hour
+    PAST the day's real end). Both mis-measure the day by a full hour::
+
+        America/Santiago 2026-04-04  25 h  (falls back at the following midnight)
+        Asia/Beirut      2026-10-24  25 h
+        America/Nuuk     2026-03-28  23 h  (springs forward at 23:00 -> next midnight)
+
+    A local midnight has neither failure mode as a day edge, because whichever instant
+    ``ZoneInfo`` picks for it is used for BOTH the day that ends there and the day that
+    starts there. Consecutive days therefore tile the timeline exactly — no gap, no
+    overlap — which is the property a per-day metric actually needs (verified across
+    every zone in the tz database by ``tests/derive/test_energy_dst.py``, and against
+    Postgres' own ``AT TIME ZONE`` by ``tests/read/test_day_window.py``).
+
+    ZoneInfo re-resolves the UTC offset at each edge independently, so a DST day
+    correctly spans 23 h, 23.5 h, 24.5 h or 25 h rather than a fixed 24 h. Two rules
+    follow for callers: anything walking this window per-minute takes its length from
+    :func:`_day_minutes`, never from a hardcoded 1440; and every SQL range built from
+    it is ``ts >= start AND ts < end`` — a closed ``<=`` would hand the next day's
+    first instant to this day as well.
     """
-    start = datetime(day.year, day.month, day.day, 0, 0, 0, tzinfo=ZoneInfo(tz))
-    return start.astimezone(UTC), (start.replace(hour=23, minute=59, second=59)).astimezone(UTC)
+    zone = ZoneInfo(tz)
+    nxt = day + timedelta(days=1)
+    start = datetime(day.year, day.month, day.day, tzinfo=zone)
+    end = datetime(nxt.year, nxt.month, nxt.day, tzinfo=zone)
+    return start.astimezone(UTC), end.astimezone(UTC)
 
 
 def _day_minutes(start_utc: datetime, end_utc: datetime) -> int:
     """Whole minutes in the local day bracketed by :func:`_day_bounds_utc`.
 
-    The bracket is INCLUSIVE of both endpoint minutes — it runs from the day's first
-    instant (00:00:00) to its last second (23:59:59), so the span is 59 s short of the
-    day itself and the count is ``span // 60 + 1``. That reproduces 1440 exactly on a
-    normal day (86399 // 60 = 1439, +1 = 1440 -> local 00:00 through 23:59), which is
-    the invariant to protect: a non-DST day's calorie total must not move by a minute.
+    The bracket is half-open, so this is just its span: local 00:00 through 23:59 on an
+    ordinary day, which is 1440 exactly — the invariant to protect, since a non-DST
+    day's calorie total must not move by a single minute.
 
     On a DST day it does NOT return 1440, which is the point. A local day legitimately
     spans 23 h or 25 h, and a fixed ``range(1440)`` therefore walked 60 minutes into
@@ -120,8 +141,9 @@ def _day_minutes(start_utc: datetime, end_utc: datetime) -> int:
         America/New_York 2026-11-01 (fall back):       1500 min  (25 h)
         America/New_York 2026-06-15 (normal):          1440 min
         Asia/Kolkata     any day (no DST):             1440 min
+        Australia/Lord_Howe 2026-04-05 (30 min shift): 1470 min  (24.5 h)
     """
-    return int((end_utc - start_utc).total_seconds() // 60) + 1
+    return int((end_utc - start_utc).total_seconds() // 60)
 
 
 def _age(dob: date, on: date) -> int:

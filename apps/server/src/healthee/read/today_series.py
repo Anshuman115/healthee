@@ -9,7 +9,6 @@ analytics/metrics.py). Documented in the WP7 report.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from healthee.analytics.baselines import compute_baseline_cur
@@ -19,30 +18,18 @@ from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.read.common import TodayReads, derived_series_many, latest_derived
 from healthee.read.meta import METRIC_META, TODAY_SECONDARY_METRICS
 
-
-def _local_day_utc_range(day: date, tz: str) -> tuple[datetime, datetime]:
-    """Half-open UTC ``[start, next_start)`` bracketing one local (``tz``) day.
-
-    Why every intraday query below carries this ALONGSIDE its `(ts AT TIME ZONE %s)
-    ::date = %s` filter: `sample` is a hypertable partitioned on `ts`, and a query
-    with no `ts` predicate gets NO chunk exclusion — the tz-date expression is a
-    Filter, never an Index Cond, so answering "today" opened every chunk of all
-    history. Measured on a 1-year, 1.37 M-row table: 7,914 buffers / 53 chunks
-    before, 17 buffers / 1 chunk after, and the old form was O(all history) —
-    degrading forever against a p95 < 100 ms budget.
-
-    The date filter STAYS. This predicate is implied by it, so it prunes chunks
-    without changing a single row — that redundancy is the correctness argument,
-    not an oversight.
-
-    Both edges come from :func:`_day_bounds_utc`, which re-resolves the UTC offset at
-    each local midnight independently and so is DST-correct (a local day is 23 h or
-    25 h on a transition). Only its `start` is used, for `day` and for `day + 1`: its
-    `end` is 23:59:59 — the inclusive last-MINUTE convention the per-minute derive
-    walk needs — and as a range bound that would silently drop a sample in the final
-    second of the day.
-    """
-    return _day_bounds_utc(day, tz)[0], _day_bounds_utc(day + timedelta(days=1), tz)[0]
+# Why every intraday query below carries `_day_bounds_utc`'s half-open `ts` range
+# ALONGSIDE its `(ts AT TIME ZONE %s)::date = %s` filter: `sample` is a hypertable
+# partitioned on `ts`, and a query with no `ts` predicate gets NO chunk exclusion —
+# the tz-date expression is a Filter, never an Index Cond, so answering "today" opened
+# every chunk of all history. Measured on a 1-year, 1.37 M-row table: 7,914 buffers /
+# 53 chunks before, 17 buffers / 1 chunk after, and the old form was O(all history) —
+# degrading forever against a p95 < 100 ms budget.
+#
+# The date filter STAYS. The range is implied by it, so it prunes chunks without
+# changing a single row — that redundancy is the correctness argument, not an
+# oversight, and `tests/read/test_day_window.py` proves the two agree instant for
+# instant against Postgres' own `AT TIME ZONE`, DST transitions included.
 
 
 def secondary_cards(
@@ -155,7 +142,7 @@ def hr_hourly(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     reader shares.
     """
     day = user_today(tz)
-    ts_from, ts_to = _local_day_utc_range(day, tz)  # chunk pruning; see the helper
+    ts_from, ts_to = _day_bounds_utc(day, tz)  # chunk pruning + the date filter; see above
     cur.execute(
         "SELECT date_trunc('hour', ts AT TIME ZONE %s) AS h, ROUND(AVG(value))::int, "
         "  MIN(value)::int, MAX(value)::int "
@@ -173,7 +160,7 @@ def hr_hourly(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
 def step_buckets(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """Today's 15-minute step buckets (distance ≈ steps × 0.78 m stride)."""
     day = user_today(tz)
-    ts_from, ts_to = _local_day_utc_range(day, tz)  # chunk pruning; see the helper
+    ts_from, ts_to = _day_bounds_utc(day, tz)  # chunk pruning + the date filter; see above
     cur.execute(
         "SELECT (time_bucket('15 minutes', ts) AT TIME ZONE %s)::time AS local_t, "
         "  SUM(value)::int AS steps, (SUM(value) * 0.78)::int AS dis_m, "
@@ -200,7 +187,7 @@ def step_buckets(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
 def stress_series(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     """Hourly stress averages for today (local). Empty if no stress rows."""
     day = user_today(tz)
-    ts_from, ts_to = _local_day_utc_range(day, tz)  # chunk pruning; see the helper
+    ts_from, ts_to = _day_bounds_utc(day, tz)  # chunk pruning + the date filter; see above
     cur.execute(
         "SELECT date_trunc('hour', ts AT TIME ZONE %s) AS h, ROUND(AVG(value))::int, "
         "  MAX(value)::int, COUNT(*)::int "

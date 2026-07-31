@@ -30,7 +30,7 @@ def derive_daily_activity(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
     cur.execute(
         "SELECT COALESCE(SUM(value),0) FROM sample "
         "WHERE user_id = %s AND metric='steps_per_minute' "
-        "AND value < 250 AND ts >= %s AND ts <= %s",
+        "AND value < 250 AND ts >= %s AND ts < %s",  # half-open: see `_day_bounds_utc`
         (user_id, start_utc, end_utc),
     )
     steps = _scalar(cur)
