@@ -269,8 +269,20 @@ structural:
 **So the tuning loop is per-owner, and it already exists: the adapter (§5.2).** If the
 opening target is too easy for *you*, `suggest_adaptation` raises it ~20% after five days
 of beating it; too hard, it eases ~15%. That self-corrects within about a week, for that
-person, using only their rows. **Which is why the opening constant matters much less than
-it appears to** — it is a starting point the engine walks away from, not a verdict.
+person, using only their rows — **for a `daily` challenge**.
+
+> ⚠ **That is narrower than it sounds, and the narrower truth is the honest one.**
+> **Recalibration only reaches `daily` cadences.** For a cumulative `>=` (weekly/total),
+> averaging ≥ `RAISE_RATIO` × target implies the total is already ≥ target, which means the
+> challenge is **complete** — and `suggest_adaptation` returns nothing on a complete
+> challenge. So no weekly/total raise is reachable through real progress.
+>
+> The consequence, stated plainly rather than buried: **for weekly and total challenges the
+> opening target is effectively permanent** — it is met or it is not, with no mid-flight
+> correction. So the generation constants in §5.1a carry **more** weight for those shapes,
+> not less, and the "starting point the engine walks away from" argument applies to `daily`
+> alone. Tracked as an open decision (adapt on partial-window pace, or accept it as
+> correct — a weekly commitment arguably *should* be stable for its window).
 
 The **outcome ledger's role is also per-owner**: over time one person accumulates enough
 frozen `target` / `baseline` / `status` / `adherence` / `improvement_pct` rows to show what
