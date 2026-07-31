@@ -24,6 +24,8 @@ Modules
 ``adapt``      the deterministic difficulty adapter
 ``store``      the only place challenge SQL lives (owner-scoped rows)
 ``lifecycle``  suggested → active → completed | expired | abandoned
+``confounds``  the structured reasons to distrust an outcome
+``ledger``     the frozen before/after — what we are willing to claim a challenge did
 
 Dependencies run downward only (standards §"one responsibility"): ``core``,
 ``derive`` and ``analytics``. Nothing here imports ``read``, ``api`` or

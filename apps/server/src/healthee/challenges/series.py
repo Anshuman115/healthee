@@ -144,6 +144,35 @@ def _manual_sums(
     }
 
 
+def recent_window(
+    cur: Cur,
+    user_id: UUID,
+    tz: str,
+    metric: str,
+    cadence: str,
+    ref: date,
+    days: int = BASELINE_DAYS,
+) -> tuple[float | None, int]:
+    """:func:`recent_value` plus HOW MANY days it was built from.
+
+    The count is not decoration: the outcome ledger has to be able to say
+    ``insufficient_data`` instead of publishing a before/after computed from two
+    days (CHALLENGES.md §2.1), and it cannot tell that from the value alone — a
+    mean over two days and a mean over seven look identical.
+
+    ONE implementation of the baseline, with :func:`recent_value` as its thin
+    value-only form, so the number the ledger judges and the number the adapter
+    floors against can never be computed two different ways.
+    """
+    series = metric_series(cur, user_id, tz, metric, ref - timedelta(days=days), until=ref)
+    values = [v for day, v in sorted(series.items()) if day < ref][-days:]
+    if not values:
+        return None, 0
+    if cadence in ("weekly", "total"):
+        return round(sum(values), 1), len(values)
+    return round(sum(values) / len(values), 1), len(values)
+
+
 def recent_value(
     cur: Cur,
     user_id: UUID,
@@ -163,13 +192,7 @@ def recent_value(
     Returns ``None`` when the owner has no data in the window: "not enough data"
     is a distinct state from "zero", and callers must be able to tell them apart.
     """
-    series = metric_series(cur, user_id, tz, metric, ref - timedelta(days=days), until=ref)
-    values = [v for day, v in sorted(series.items()) if day < ref][-days:]
-    if not values:
-        return None
-    if cadence in ("weekly", "total"):
-        return round(sum(values), 1)
-    return round(sum(values) / len(values), 1)
+    return recent_window(cur, user_id, tz, metric, cadence, ref, days)[0]
 
 
 def protected_days(cur: Cur, user_id: UUID, tz: str, since: date, today: date) -> set[date]:

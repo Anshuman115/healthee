@@ -189,7 +189,7 @@ def test_abandon_ends_an_active_challenge(clean_db: None) -> None:  # noqa: ARG0
     with tenant_transaction(_seed.OWNER) as cur:
         cid = _seed.seed_challenge(cur, _seed.OWNER)
         lifecycle.adopt(cur, _seed.OWNER, IST, cid, today=_START)
-        result = lifecycle.abandon(cur, _seed.OWNER, cid)
+        result = lifecycle.abandon(cur, _seed.OWNER, IST, cid, today=_TODAY)
     assert result["ok"] is True
     assert result["challenge"]["status"] == "abandoned"
     assert result["challenge"]["abandoned_at"] is not None
@@ -199,7 +199,7 @@ def test_a_suggestion_cannot_be_abandoned(clean_db: None) -> None:  # noqa: ARG0
     """Nothing was taken on, so nothing can be given up — and the answer says which."""
     with tenant_transaction(_seed.OWNER) as cur:
         cid = _seed.seed_challenge(cur, _seed.OWNER)
-        result = lifecycle.abandon(cur, _seed.OWNER, cid)
+        result = lifecycle.abandon(cur, _seed.OWNER, IST, cid, today=_TODAY)
     assert (result["ok"], result["reason"]) == (False, "not_active")
 
 

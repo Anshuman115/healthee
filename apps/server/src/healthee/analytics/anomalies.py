@@ -21,6 +21,14 @@ from healthee.analytics.notes import notes_for
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import USER_TODAY_SQL
 
+# How far from a personal baseline counts as "not this person's normal": a
+# 2-sigma-equivalent robust z. Verbatim from legacy; named here rather than left as a
+# default argument because the challenges outcome ledger asks the SAME question of an
+# adopt-time baseline ("was this itself an anomaly?" — regression-to-the-mean risk,
+# CHALLENGES.md §2.1) and must ask it with the same threshold. Two thresholds for
+# "abnormal for you" would be two definitions of the same judgement (CLAUDE.md).
+Z_THRESHOLD = 2.0
+
 
 @dataclass
 class Anomaly:
@@ -60,7 +68,7 @@ def detect(
     metrics: tuple[str, ...] = DEFAULT_DAILY_METRICS,
     days_back: int = 14,
     window_days: int = 30,
-    z_threshold: float = 2.0,
+    z_threshold: float = Z_THRESHOLD,
 ) -> list[Anomaly]:
     """Scan the last ``days_back`` days for anomalies vs a ``window_days`` baseline."""
     out: list[Anomaly] = []

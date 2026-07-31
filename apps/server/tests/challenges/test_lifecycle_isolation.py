@@ -83,7 +83,7 @@ def test_one_owner_cannot_adopt_or_abandon_anothers_challenge(two_owners: None) 
         lifecycle.adopt(cur, _seed.OTHER_OWNER, IST, b_id, today=_START)
     with tenant_transaction(_seed.OWNER) as cur:
         adopted = lifecycle.adopt(cur, _seed.OWNER, IST, b_id, today=_START)
-        abandoned = lifecycle.abandon(cur, _seed.OWNER, b_id)
+        abandoned = lifecycle.abandon(cur, _seed.OWNER, IST, b_id, today=_TODAY)
     assert (adopted["reason"], abandoned["reason"]) == ("not_found", "not_found")
     with tenant_transaction(_seed.OTHER_OWNER) as cur:
         assert _seed.stored(cur, _seed.OTHER_OWNER, b_id)["status"] == "active"

@@ -53,7 +53,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from healthee.challenges import store
+from healthee.challenges import ledger, store
 from healthee.challenges.adapt import suggest_adaptation
 from healthee.challenges.evaluate import evaluate_challenge, start_date
 from healthee.challenges.series import recent_value
@@ -107,13 +107,21 @@ def adopt(cur: Cur, user_id: UUID, tz: str, challenge_id: int, today: date | Non
     return {"ok": True, "challenge": store.fetch(cur, user_id, challenge_id)}
 
 
-def abandon(cur: Cur, user_id: UUID, challenge_id: int) -> dict:
-    """Stop an active challenge at the owner's request. Its outcome is still frozen."""
+def abandon(cur: Cur, user_id: UUID, tz: str, challenge_id: int, today: date | None = None) -> dict:
+    """Stop an active challenge at the owner's request. Its outcome is still frozen.
+
+    Giving up is a result, not an absence of one — an abandoned challenge is exactly
+    the kind of thing WP-C3 must learn to route around, and it can only do that if
+    the ledger records it (``status: 'abandoned'``, honestly, with however far the
+    owner got).
+    """
+    today = today or user_today(tz)
     challenge = store.fetch(cur, user_id, challenge_id)
     if challenge is None:
         return _refused("not_found", "no such challenge")
     if not store.mark_abandoned(cur, user_id, challenge_id, datetime.now(tz=UTC)):
         return _refused("not_active", f"challenge is {challenge['status']}, not active")
+    _freeze(cur, user_id, tz, challenge, "abandoned", today)
     log.info("challenge %s abandoned by %s", challenge_id, user_id)
     return {"ok": True, "challenge": store.fetch(cur, user_id, challenge_id)}
 
@@ -134,9 +142,31 @@ def finalize_due(cur: Cur, user_id: UUID, tz: str, today: date | None = None) ->
         if status is None:
             continue
         if store.mark_finished(cur, user_id, int(challenge["id"]), status, at):
+            _freeze(cur, user_id, tz, challenge, status, today, progress)
             closed.append({"challenge_id": int(challenge["id"]), "status": status})
             log.info("challenge %s closed as %s for %s", challenge["id"], status, user_id)
     return closed
+
+
+def _freeze(
+    cur: Cur,
+    user_id: UUID,
+    tz: str,
+    challenge: dict,
+    status: str,
+    today: date,
+    progress: dict | None = None,
+) -> None:
+    """Write the challenge's outcome, in the SAME transaction that closed it.
+
+    Not a separate step and not best-effort: a challenge closed without an outcome is
+    a week of someone's life that the ledger — and therefore every later suggestion —
+    has no record of. If the freeze fails, the close rolls back with it and the next
+    run tries again, which is the only honest failure mode available.
+    """
+    progress = progress or evaluate_challenge(cur, user_id, tz, challenge, today=today)
+    start = start_date(challenge.get("adopted_at"), tz, today)
+    ledger.freeze(cur, user_id, tz, challenge, progress, status, start, today)
 
 
 def terminal_status(challenge: dict[str, Any], progress: dict) -> str | None:
