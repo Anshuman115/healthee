@@ -94,17 +94,19 @@ class _StubCursor:
     row, which collapses the estimate to ``None`` — a loud failure, never a
     silently-passing one.
 
-    The VO₂max row carries the owner's TODAY as its day, because the fitness term is
-    only spent when the newest row IS today's (the freshness gate). Every other stub
+    The VO₂max and SRI rows carry the owner's TODAY as their day, because a term is
+    only spent when its newest row IS today's (the freshness gate). Every other stub
     day would send the module down the withheld path and there would be no composite
     to check the arithmetic of — which is exactly what
     ``test_biological_age_freshness`` exercises, against a real database and the real
-    gate rather than this stub.
+    gate rather than this stub. Today's rows also short-circuit the gate before it can
+    issue its own query, which is why the stub never has to answer one.
     """
 
-    def __init__(self, dob: date, vo2max_day: date) -> None:
+    def __init__(self, dob: date, vo2max_day: date, sri_day: date | None = None) -> None:
         self._dob = dob
         self._vo2max_day = vo2max_day
+        self._sri_day = sri_day or vo2max_day
         self._row: tuple | None = None
 
     def execute(self, sql: str, params: Any = None) -> None:  # noqa: ARG002
@@ -115,7 +117,7 @@ class _StubCursor:
         elif "sleep_health_score_4dim" in sql:
             self._row = (_TST_MIN,)
         elif "sleep_regularity_index" in sql:
-            self._row = (_SRI,)
+            self._row = (self._sri_day, _SRI)
         else:  # pragma: no cover — an unrecognised read must not pass silently
             raise AssertionError(f"stub cursor got an unexpected query: {sql}")
 

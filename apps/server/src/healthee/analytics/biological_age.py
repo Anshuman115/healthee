@@ -11,61 +11,52 @@ latest VO₂max, the 14-night average TST (from the ``sleep_health_score_4dim``
 flags), and the latest SRI all come from ``derived_daily`` instead of the
 ``metric_sample`` view filtered on ``source='derived'``.
 
-## No CURRENT fitness input ⇒ no biological age (2026-07-31)
+## EVERY term is required, because a missing term is a claim (2026-07-31)
 
-``_fitness_term`` read ``vo2max_estimate`` as "the newest row", which is not the same
-claim as "today's estimate". ``derive/vo2max.py`` WITHHOLDS the Jurca estimate — writes
-no row — on a day its inputs cannot carry it, and ``read/vo2max.py`` reports that as
-``insufficient_data``. So one ``/api/today`` payload could say "we cannot tell you your
+Each ``_*_term`` read "the newest row" of its input, which is not the same claim as
+"today's value". ``derive/vo2max.py`` WITHHOLDS the Jurca estimate — writes no row — on a
+day its inputs cannot carry it; ``derive/sleep_score.py`` withholds an SRI whose 7-day
+window is short (Directive 4 of [[sleep_regularity_index]]: "Do not compute or report SRI
+from <7 days of data"). So one ``/api/today`` payload could say "we cannot tell you your
 VO₂max today" in the fitness card and, three keys away, spend a 40-day-old VO₂max as a
-current term of a headline number.
+current term of a headline number — and could spend a 90-day-old SRI, which is a valid
+statement about a week three months ago, as this week's regularity.
 
 The fix is NOT a label. The composite is ``chrono + Σ ΔAge_i``, so a term that is simply
-left out is not an omission — it is the assertion ``HR_fitness = 1.0``, i.e. *this person
-sits exactly on the age/sex-median VO₂max*. That is a claim about them, it is the one the
-note calls **dominant** ("VO₂max is the dominant term ... AND the least certain input —
-so bio_age is sensitive to it"), and silently making it would move the number by years on
-a day when nothing about the person changed. A composite that shifts because a term
-vanished is a different composite, not a partial one.
+left out is not an omission — it is the assertion ``HR_term = 1.0``, i.e. *this person
+sits exactly on the reference for that lever*. That is a claim about them, and silently
+making it moves the number by years on a day when nothing about the person changed. A
+composite that shifts because a term vanished is a different composite, not a partial one.
 
-So the fitness term is REQUIRED, and the rule is the note's own Stage-1 coach directive:
-"hold the number back ... until the VO₂max estimate ... exist[s]". Without a VO₂max for
-the owner's today — withheld, or never derived — ``biological_age`` and ``delta_years``
-are ``null``, ``data_confidence`` is ``insufficient_data`` (the outcome ledger's
-vocabulary, as in ``read/vo2max.py``), and a ``withheld`` block names the reason and what
-it would take. The terms that ARE current still ship in ``contributions``: each one is a
-standalone hazard→years fact from the note's table, and deleting them would withhold
+**So all three terms are required**, and the rule is the note's own Stage-1 coach
+directive: "hold the number back ... until the VO₂max estimate and ≥14 nights of sleep
+exist". Without a current input for any term — withheld, never derived, or no recorded
+nights in the window — ``biological_age`` and ``delta_years`` are ``null``,
+``data_confidence`` is ``insufficient_data`` (the outcome ledger's vocabulary, as in
+``read/vo2max.py``), and ``withheld.terms`` names EVERY absent term with its reason and
+what it would take. The terms that ARE current still ship in ``contributions``: each one is
+a standalone hazard→years fact from the note's table, and deleting them would withhold
 things we genuinely know.
 
-ONE rule covers both ways the input can be absent — withheld today and never derived at
-all — because "the composite silently assumes median fitness" is the same defect either
-way, and two treatments of one state is how a second definition gets in (CLAUDE.md).
+**Why regularity too, and not just fitness** (the question the first pass left open).
+Fitness earned "required" partly because the note calls it *dominant*, but dominance is
+why the composite is SENSITIVE to it — it is not why the omission is a lie. The omission
+is a lie at any size, and regularity's is not small: the Cribb anchors put its term
+between −1.2 y (SRI 75) and +4.7 y (SRI 41), and dropping it asserts SRI ≈ 68, the
+neutral point of that log-linear. For an irregular sleeper that silently subtracts nearly
+five years. Sleep duration is required by the identical argument (its absence asserts
+7 h/night), so the rule is stated once over all terms rather than per-term — a per-term
+policy is exactly the fork that produces a second definition (CLAUDE.md), and "which
+terms are important enough" is the question that produced the uncited ``IDEAL["sri"]``.
 
-## KNOWN GAP: the regularity term has the same problem and is NOT fixed here
-
-``_regularity_term`` reads the newest ``sleep_regularity_index`` with no date bound at
-all — the query does not even select ``day``. SRI is withheld by the same kind of gate
-(``derive/sleep_score.py::_compute_sri`` returns ``None``, and the write is guarded, when
-the 7-day grid is short — Directive 4 of [[sleep_regularity_index]]: "Do not compute or
-report SRI from <7 days of data"), and an SRI is *intrinsically* a statement about one
-7-day window, so a 90-day-old row describes a week 90 days ago. It is then spent as years
-in exactly the way the fitness term was.
-
-Left standing deliberately, not overlooked. Closing it needs two things this change does
-not have: a freshness/withhold vocabulary for SRI (there is no ``withhold_reason_for_day``
-equivalent — a consumer that wanted to check has nothing to call), and a decision on
-whether regularity is *required* the way fitness is, or whether a stale SRI drops its term
-while the composite survives. Fitness earned "required" because the note names it dominant
-and its reference is a population median; regularity's Cribb anchors do not obviously carry
-the same argument, and guessing is how the 85 in ``challenges/metrics.IDEAL`` happened.
-``read/sleep_extras.py::_latest_sri`` and ``read/health_metrics.py`` (``sleep_debt_min`` /
-``sleep_need_min``, gated by ``derive_sleep_debt``) are the same class and should be closed
-in the same change.
+ONE rule also covers both ways an input can be absent — stale and never derived — because
+"the composite silently assumes the reference" is the same defect either way.
 """
 
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
@@ -73,6 +64,8 @@ from psycopg import Cursor
 from psycopg.rows import TupleRow
 
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
+from healthee.derive.freshness import NO_NIGHTS_IN_WINDOW, NOT_DERIVED_YET
+from healthee.derive.sleep_score import SRI_MESSAGES, sri_unavailable_reason
 from healthee.derive.vo2max import WITHHOLD_MESSAGES, estimate_unavailable_reason
 
 # Age/sex population-median VO₂max (ml/kg/min), 10-year buckets.
@@ -82,19 +75,57 @@ _VO2MAX_MEDIAN_FEMALE = {20: 36.0, 30: 33.0, 40: 30.0, 50: 26.0, 60: 22.0, 70: 1
 GOMPERTZ_MRDT_YEARS = 7.7  # UK Biobank mortality-rate doubling time
 TERM_CAP_YEARS = 10.0  # no single noisy input can move age more than ±10 y
 
-# The term the composite cannot be computed without — see the module docstring.
+# The three terms of [[biological_age_estimate]]'s table. The composite is defined over
+# all of them, so it cannot be computed without all of them — see the module docstring.
 FITNESS_TERM = "fitness"
+SLEEP_DURATION_TERM = "sleep duration"
+REGULARITY_TERM = "regularity"
 
-# Why the whole estimate goes with the fitness term, in the second person. The reason
-# itself (and its "here is what we'd need" message) is VO₂max's, reused verbatim from
-# ``derive/vo2max.WITHHOLD_MESSAGES`` so the two surfaces cannot explain the same
-# absence differently.
-FITNESS_REQUIRED_MESSAGE = (
-    "Fitness is the largest term in this estimate, so without today's VO₂max there is no "
-    "biological age to report. The terms below are still current."
+# Why the whole estimate goes with any absent term, in the second person. The per-term
+# reason and its "here is what we'd need" message are the INPUT metric's own, reused
+# verbatim from ``derive/vo2max.WITHHOLD_MESSAGES`` / ``derive/sleep_score.SRI_MESSAGES``
+# so two surfaces cannot explain the same absence differently.
+REQUIRED_TERMS_MESSAGE = (
+    "Biological age is your chronological age plus each term's year contribution, so a "
+    "term with no current value is not left out — it would silently assert you sit exactly "
+    "at the reference for that lever. There is no biological age to report without all of "
+    "them. The terms below are the ones that are current."
 )
 
+# The 14-night average TST has one way to be absent: nothing recorded in the window. It
+# is a WINDOWED aggregate, so it cannot go stale the way a single latest row can — the
+# query is already anchored to the owner's today. It can still be MISSING, and missing is
+# the same assertion (``HR = 1.0``, i.e. 7 h/night) that staleness was.
+SLEEP_DURATION_MESSAGES = {
+    NO_NIGHTS_IN_WINDOW: (
+        "No sleep has been recorded in the last 14 nights, so there is no nightly average "
+        "to work from — wear the strap overnight and this comes back."
+    )
+}
+
 Cur = Cursor[TupleRow]
+
+
+@dataclass(frozen=True)
+class _Absent:
+    """A required term the owner has no CURRENT input for, and why.
+
+    ``reason`` is the input metric's own machine-readable id (``derive/freshness.py``'s
+    shared ids plus that metric's own gates) and ``message`` is that metric's second-person
+    "here is what we'd need" — never re-worded here, so the biological age and the input's
+    own card explain one absence with one sentence.
+    """
+
+    term: str
+    reason: str
+    message: str
+
+
+def _absent(term: str, reason: str | None, messages: dict[str, str]) -> _Absent:
+    """One absent term. ``reason is None`` cannot happen for an absent term (the freshness
+    rule always names one), so the fallback is defensive rather than a second meaning."""
+    named = reason or NOT_DERIVED_YET
+    return _Absent(term, named, messages[named])
 
 
 def vo2max_median_for(age: int, sex: str) -> float:
@@ -122,8 +153,8 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     contributions (+ = older, − = younger), or None without a profile/inputs.
 
     The composite is withheld — ``biological_age``/``delta_years`` null, with a
-    ``withheld`` block — when the owner has no VO₂max estimate for TODAY, because the
-    fitness term is required (module docstring)."""
+    ``withheld`` block naming every absent term — when any term has no CURRENT input,
+    because every term is required (module docstring)."""
     cur.execute("SELECT dob, sex FROM profile WHERE user_id = %s", (user_id,))
     p = cur.fetchone()
     if not p or not p[0]:
@@ -148,34 +179,39 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
         )
         return d
 
-    dage, no_fitness = _fitness_term(cur, user_id, tz, today, chrono, sex, add)
-    dage += _sleep_duration_term(cur, user_id, tz, add)
-    dage += _regularity_term(cur, user_id, add)
+    dage, absent = 0.0, []
+    for delta, missing in (
+        _fitness_term(cur, user_id, tz, today, chrono, sex, add),
+        _sleep_duration_term(cur, user_id, tz, add),
+        _regularity_term(cur, user_id, tz, today, add),
+    ):
+        dage += delta
+        if missing is not None:
+            absent.append(missing)
 
     if not contribs:
         return None
-    return _estimate(chrono, dage, contribs, no_fitness)
+    return _estimate(chrono, dage, contribs, absent)
 
 
-def _estimate(chrono: int, dage: float, contribs: list[dict], no_fitness: str | None) -> dict:
-    """The payload — the composite only when every required term is current.
+def _estimate(chrono: int, dage: float, contribs: list[dict], absent: list[_Absent]) -> dict:
+    """The payload — the composite only when EVERY term is current.
 
-    ``no_fitness`` is a VO₂max withhold reason (``derive/vo2max.py``'s vocabulary); when
-    it is set the number is not computed at all rather than computed and flagged, because
-    a flagged wrong number is still a wrong number the UI can render as the hero."""
-    withheld = no_fitness is not None
+    When any term is absent the number is not computed at all rather than computed and
+    flagged, because a flagged wrong number is still a wrong number the UI can render as
+    the hero. ``withheld.terms`` is a list because more than one term can be absent at
+    once, and naming only the first would hide half the reason."""
+    withheld = bool(absent)
     return {
         "chronological_age": chrono,
         "biological_age": None if withheld else round(chrono + dage, 1),
         "delta_years": None if withheld else round(dage, 1),
         "data_confidence": "insufficient_data" if withheld else "ok",
         "withheld": None
-        if no_fitness is None
+        if not absent
         else {
-            "term": FITNESS_TERM,
-            "reason": no_fitness,
-            "message": WITHHOLD_MESSAGES[no_fitness],
-            "consequence": FITNESS_REQUIRED_MESSAGE,
+            "consequence": REQUIRED_TERMS_MESSAGE,
+            "terms": [{"term": a.term, "reason": a.reason, "message": a.message} for a in absent],
         },
         "contributions": contribs,
         "disclaimer": (
@@ -187,10 +223,10 @@ def _estimate(chrono: int, dage: float, contribs: list[dict], no_fitness: str | 
 
 def _fitness_term(
     cur: Cur, user_id: UUID, tz: str, today: date, chrono: int, sex: str, add
-) -> tuple[float, str | None]:
+) -> tuple[float, _Absent | None]:
     """VO₂max vs age/sex median — the one combined cardio term (0.85 per 3.5 ml).
 
-    Returns ``(delta_years, None)`` when TODAY has an estimate, else ``(0.0, reason)``.
+    Returns ``(delta_years, None)`` when TODAY has an estimate, else ``(0.0, absent)``.
     The freshness rule is ``derive.vo2max.estimate_unavailable_reason`` — the same one
     the VO₂max card applies — so the two surfaces of ``/api/today`` cannot disagree about
     whether this owner has a fitness number right now."""
@@ -202,7 +238,7 @@ def _fitness_term(
     vr = cur.fetchone()
     reason = estimate_unavailable_reason(cur, user_id, tz, today, vr[0] if vr else None)
     if vr is None or reason is not None:
-        return 0.0, reason
+        return 0.0, _absent(FITNESS_TERM, reason, WITHHOLD_MESSAGES)
     ref = vo2max_median_for(chrono, sex)
     delta = add(
         FITNESS_TERM,
@@ -214,8 +250,12 @@ def _fitness_term(
     return delta, None
 
 
-def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> float:
-    """Recent 14-night average TST, U-shaped about a 7 h reference."""
+def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> tuple[float, _Absent | None]:
+    """Recent 14-night average TST, U-shaped about a 7 h reference.
+
+    The window is already anchored to the owner's today, so this term cannot go STALE —
+    only empty. Empty is still the ``HR = 1.0`` assertion ("you average 7 h/night"), so it
+    withholds the composite exactly as a stale term does: one rule, three terms."""
     cur.execute(
         "SELECT avg((flags->>'tst_min')::float) FROM derived_daily "
         "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND flags ? 'tst_min' "
@@ -224,26 +264,36 @@ def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> float:
     )
     sr = cur.fetchone()
     if not sr or not sr[0]:
-        return 0.0
+        return 0.0, _absent(SLEEP_DURATION_TERM, NO_NIGHTS_IN_WINDOW, SLEEP_DURATION_MESSAGES)
     h = float(sr[0]) / 60.0
     return add(
-        "sleep duration",
+        SLEEP_DURATION_TERM,
         (1.06 ** (7 - h)) if h < 7 else (1.13 ** (h - 7)),
         value=round(h, 1),
         unit="h/night",
         target="7–9",
-    )
+    ), None
 
 
-def _regularity_term(cur: Cur, user_id: UUID, add) -> float:
-    """SRI — log-linear through Cribb 2023 anchors (41 → 1.53, 75 → 0.90)."""
+def _regularity_term(
+    cur: Cur, user_id: UUID, tz: str, today: date, add
+) -> tuple[float, _Absent | None]:
+    """SRI — log-linear through Cribb 2023 anchors (41 → 1.53, 75 → 0.90).
+
+    This query did not even SELECT the day before the class fix: the newest SRI row was
+    spent as the owner's current regularity however old it was, though an SRI *is* a
+    7-day window and a 90-day-old one describes a week 90 days ago. The freshness rule is
+    ``derive.sleep_score.sri_unavailable_reason`` — the same one ``/api/sleep/consistency``
+    applies — so the regularity card and this term cannot disagree."""
     cur.execute(
-        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='sleep_regularity_index' "
-        "ORDER BY day DESC LIMIT 1",
+        "SELECT day, value FROM derived_daily WHERE user_id = %s "
+        "AND metric='sleep_regularity_index' ORDER BY day DESC LIMIT 1",
         (user_id,),
     )
     qr = cur.fetchone()
-    if not qr:
-        return 0.0
-    ln_hr = max(math.log(0.90), min(math.log(1.53), 0.425 - 0.0156 * (float(qr[0]) - 41)))
-    return add("regularity", math.exp(ln_hr), value=round(float(qr[0])), unit="SRI", target="≥75")
+    reason = sri_unavailable_reason(cur, user_id, tz, today, qr[0] if qr else None)
+    if qr is None or reason is not None:
+        return 0.0, _absent(REGULARITY_TERM, reason, SRI_MESSAGES)
+    sri = float(qr[1])
+    ln_hr = max(math.log(0.90), min(math.log(1.53), 0.425 - 0.0156 * (sri - 41)))
+    return add(REGULARITY_TERM, math.exp(ln_hr), value=round(sri), unit="SRI", target="≥75"), None
