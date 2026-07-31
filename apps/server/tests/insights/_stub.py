@@ -19,15 +19,22 @@ VALID_TEXT = (
 
 
 class StubLLM:
-    """Scripted LLM: returns each queued response in turn (repeats the last)."""
+    """Scripted LLM: returns each queued response in turn (repeats the last).
+
+    ``messages`` records what each call was actually asked, so a test can prove a
+    surface put something in the prompt (a caller-supplied intent, a calibration band)
+    rather than only that the answer came back.
+    """
 
     def __init__(self, responses: list[str] | None = None) -> None:
         self._responses = list(responses or [VALID_TEXT])
         self.calls = 0
+        self.messages: list[list[dict]] = []
 
     def complete(  # noqa: ARG002
         self, messages: list[dict], *, tools=None, model: str | None = None, response_format=None
     ) -> ChatResponse:
         idx = min(self.calls, len(self._responses) - 1)
         self.calls += 1
+        self.messages.append(list(messages))
         return ChatResponse(text=self._responses[idx])

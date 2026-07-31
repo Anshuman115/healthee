@@ -16,26 +16,41 @@ WP-C2 adds the persistence half on top of that substrate — the state machine a
 the frozen outcome ledger. It still holds the design law: the lifecycle decides
 *when* using the engine's numbers and never asks a model for one.
 
+WP-C3 adds generation, and it is the ONE place in this package where a model writes
+anything. The design law survives it intact by inversion: the model authors the whole
+challenge and two deterministic gates decide what ships — the target must sit in the
+owner's own progressive-overload band (``bounds``), and the copy must be citable
+through the blocking choke point. Nothing in the generation path rewrites a number.
+
 Modules
 -------
-``metrics``    the registry — which metrics are trackable and where each lives
-``series``     daily series, the owner's baseline, and protected (rough-night) days
-``evaluate``   live progress for an adopted challenge
-``adapt``      the deterministic difficulty adapter
-``store``      the only place challenge SQL lives (owner-scoped rows)
-``lifecycle``  suggested → active → completed | expired | abandoned
-``confounds``  the structured reasons to distrust an outcome
-``ledger``     the frozen before/after — what we are willing to claim a challenge did
+``metrics``      the registry — which metrics are trackable and where each lives
+``series``       daily series, the owner's baseline, and protected (rough-night) days
+``evaluate``     live progress for an adopted challenge
+``adapt``        the deterministic difficulty adapter
+``store``        the only place challenge SQL lives (owner-scoped rows)
+``lifecycle``    suggested → active → completed | expired | abandoned
+``confounds``    the structured reasons to distrust an outcome
+``ledger``       the frozen before/after — what we are willing to claim a challenge did
+``bounds``       Gate A — the baseline-bounds check on a proposed target
+``gen_context``  the generation inputs the choke point does not already supply
+``gen_prompt``   the task text and the vocabularies a generated row must use
+``screen``       every gate applied to one proposal
+``generate``     the generation pipeline (the WP-C5 entry point)
 
-Dependencies run downward only (standards §"one responsibility"): ``core``,
-``derive`` and ``analytics``. Nothing here imports ``read``, ``api`` or
-``insights``.
+Dependencies run downward only (standards §"one responsibility"): ``core``, ``derive``
+and ``analytics``, plus — from WP-C3 and only in the generation modules — ``insights``,
+which is where the choke point lives. That edge is the same one ``jobs.recs`` already
+has, and it runs one way: ``insights`` does not import ``challenges``. WP-C5 will make
+the coach *call* ``generate`` rather than reimplement it, so the arrow stays pointed
+this way and the gates cannot be forked. Nothing here imports ``read`` or ``api``.
 """
 
 from __future__ import annotations
 
 from healthee.challenges.adapt import suggest_adaptation
 from healthee.challenges.evaluate import evaluate_challenge
+from healthee.challenges.generate import generate_challenges
 from healthee.challenges.lifecycle import (
     MAX_ACTIVE,
     abandon,
@@ -54,6 +69,7 @@ __all__ = [
     "adopt",
     "evaluate_challenge",
     "finalize_due",
+    "generate_challenges",
     "list_challenges",
     "metric_series",
     "protected_days",

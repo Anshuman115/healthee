@@ -330,7 +330,29 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
   cumulative-comparator fix #61 and its two cap metrics; auto-completion on write
   paths only — argued in `challenges/lifecycle.py`; `expired` is a real terminal
   state; premium gating still NOT built, see below)
-- ⬜ **WP-C3** grounded generation (choke point, deterministic targets)
+- ✅ **WP-C3** grounded generation — the pipeline and both gates
+  (`challenges/{generate,screen,bounds,gen_context,gen_prompt}.py`). Gate A **rejects,
+  never clamps**, so no code path rewrites a target and the stored number is always the
+  one the copy was written around; the band is expressed as a fractional move *in the
+  metric's own good direction*, so a `good:"down"` cap tightens instead of loosening.
+  Gate B routes the whole batch through `grounded_ask(response_format="json")` — which
+  needed `validator.validate_json` to learn the challenges shape AND to **fail closed on
+  an unregistered one** (it previously returned `ok=True` for any payload it could not
+  read: a real bypass, now pinned). `generate_challenges(..., intent=…)` is the WP-C5
+  seam. Lazy only — no scheduler hook.
+  **Three refusals worth knowing:** a metric with fewer than
+  `series.MIN_COMPARISON_DAYS` measured days, or a baseline of zero (an owner who never
+  logs a substance reads as zero over seven zero-filled days), has no band and is offered
+  to the model as unavailable; and `cadence:"total"` is **not generatable at all**,
+  because `series.recent_value` builds a `total` baseline from the trailing SEVEN days
+  while `evaluate` scores a `total` over the whole window — for any `window_days != 7`
+  those are different units (a WP-C1 inconsistency inherited from legacy `_recent_value`,
+  which also skews `adapt`'s ease floor and the ledger's `improvement_pct` for any
+  `total` challenge adopted through the API today).
+- ⬜ **WP-C3b** the refresh wiring: `POST /api/challenges/generate` (+ its latency budget
+  and rate limit) and the empty-feed trigger. Split out deliberately — the pipeline is
+  complete and tested headless; the HTTP surface is a separate concern that also carries
+  the 6.6 gate when it lands.
 - ⬜ **WP-C4** programs + deload/failure/recalibration
 - ⬜ **WP-C5** coach: adopt tool + outcome ledger → `[personal_finding:...]` (COACH_ROADMAP C2)
 - ⬜ **WP-C6** Actions + Insights tabs (Phase 2) + premium states

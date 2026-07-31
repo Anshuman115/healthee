@@ -13,7 +13,7 @@ in ``lifecycle``; a function that answers "what is stored" belongs here.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, LiteralString, cast
 from uuid import UUID
 
@@ -96,6 +96,72 @@ def count_active(cur: Cur, user_id: UUID) -> int:
     )
     row = cur.fetchone()
     return int(row[0]) if row else 0
+
+
+def active_metrics(cur: Cur, user_id: UUID) -> set[str]:
+    """The metrics ``user_id`` is ALREADY running a challenge on — the dedup input.
+
+    A second live challenge on the same metric is not a second commitment, it is the
+    same commitment scored twice: both would read the same ``derived_daily`` rows, and
+    the outcome ledger would record two before/afters over one behaviour change.
+    """
+    cur.execute(
+        "SELECT DISTINCT metric FROM challenge WHERE user_id = %s AND status = 'active'",
+        (user_id,),
+    )
+    return {row[0] for row in cur.fetchall()}
+
+
+def delete_suggestions(cur: Cur, user_id: UUID) -> int:
+    """Clear ``user_id``'s un-adopted standalone suggestions; returns how many went.
+
+    A regeneration REPLACES the suggestion feed rather than appending to it (legacy did
+    the same): suggestions are a menu computed from a baseline that has since moved, and
+    keeping the stale ones would offer targets calibrated against a person who no longer
+    exists. Rows belonging to a program are left alone — a rung is part of a ladder
+    somebody adopted, not a loose suggestion (WP-C4 owns those).
+    """
+    cur.execute(
+        "DELETE FROM challenge WHERE user_id = %s AND status = 'suggested' AND program_id IS NULL",
+        (user_id,),
+    )
+    return cur.rowcount
+
+
+def insert_suggested(cur: Cur, user_id: UUID, gen_date: date, challenge: dict) -> int:
+    """Persist one generated challenge as ``suggested``; returns its id.
+
+    Every value written here has already passed both gates — this function decides
+    nothing. In particular ``target_value`` is stored exactly as proposed: no code path
+    in this package rewrites it (``bounds`` argues why), which is what keeps the stored
+    number and the shipped copy from disagreeing.
+    """
+    cur.execute(
+        "INSERT INTO challenge (user_id, gen_date, title, why, category, difficulty, "
+        "  metric, comparator, target_value, cadence, window_days, expected_outcome, "
+        "  how_to, research_note_ids, status) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'suggested') RETURNING id",
+        (
+            user_id,
+            gen_date,
+            challenge["title"],
+            challenge["why"],
+            challenge["category"],
+            challenge["difficulty"],
+            challenge["metric"],
+            challenge["comparator"],
+            float(challenge["target_value"]),
+            challenge["cadence"],
+            int(challenge["window_days"]),
+            challenge.get("expected_outcome"),
+            challenge.get("how_to"),
+            list(challenge["research_note_ids"]),
+        ),
+    )
+    row = cur.fetchone()
+    if row is None:
+        raise RuntimeError("INSERT ... RETURNING id produced no row")
+    return int(row[0])
 
 
 def mark_adopted(
