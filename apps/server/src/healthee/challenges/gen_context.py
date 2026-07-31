@@ -47,7 +47,8 @@ from uuid import UUID
 
 from healthee.challenges import ledger, levers, store
 from healthee.challenges.bounds import GENERATABLE_CADENCES, Calibration, calibrate
-from healthee.challenges.metrics import CHALLENGE_METRICS, ROUND_STEP
+from healthee.challenges.metrics import CHALLENGE_METRICS
+from healthee.challenges.scales import ROUND_STEP
 from healthee.derive._common import Cur
 from healthee.derive.robust import median
 

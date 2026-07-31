@@ -79,7 +79,8 @@ from healthee.challenges.lifecycle import (
     finalize_due,
     list_challenges,
 )
-from healthee.challenges.metrics import CHALLENGE_METRICS, ChallengeMetric, round_target, spec
+from healthee.challenges.metrics import CHALLENGE_METRICS, ChallengeMetric, spec
+from healthee.challenges.scales import round_target
 from healthee.challenges.series import metric_series, protected_days, recent_value
 
 __all__ = [

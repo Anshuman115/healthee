@@ -18,7 +18,8 @@ integration test green while changing what everybody is asked to do.
 from __future__ import annotations
 
 from healthee.challenges.bounds import at_evidence_target, band_for
-from healthee.challenges.metrics import CHALLENGE_METRICS, ROUND_STEP
+from healthee.challenges.metrics import CHALLENGE_METRICS
+from healthee.challenges.scales import ROUND_STEP
 from healthee.challenges.targets import (
     CURVE,
     EVIDENCE_TARGET,

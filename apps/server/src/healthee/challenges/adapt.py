@@ -60,8 +60,9 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from healthee.challenges.evaluate import start_date
-from healthee.challenges.metrics import IDEAL, round_target, spec
+from healthee.challenges.metrics import spec
 from healthee.challenges.recovery_guard import HARD_TRAINING_LEVERS, hold_reason, recovery_state
+from healthee.challenges.scales import IDEAL, round_target
 from healthee.challenges.series import baseline_span, metric_series
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur

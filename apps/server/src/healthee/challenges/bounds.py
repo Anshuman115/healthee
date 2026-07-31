@@ -72,7 +72,8 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
-from healthee.challenges.metrics import ROUND_STEP, allows_cadence, spec
+from healthee.challenges.metrics import allows_cadence, spec
+from healthee.challenges.scales import ROUND_STEP
 from healthee.challenges.series import MIN_COMPARISON_DAYS, recent_window
 from healthee.challenges.targets import in_cadence, meaningful_step, resolve_target
 from healthee.derive._common import Cur
