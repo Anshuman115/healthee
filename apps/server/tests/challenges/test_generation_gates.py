@@ -59,16 +59,16 @@ def test_nothing_between_the_gates_and_the_row_rewrites_the_target(
 ) -> None:
     """The copy/number invariant: no accept path clamps, so prose cannot go stale.
 
-    A target one step under the ceiling is proposed alongside copy that names it; both
-    the column and the sentence must still say 3900 after the round trip.
+    A target at the ceiling is proposed alongside copy that names it; both the column
+    and the sentence must still say 6500 after the round trip.
     """
-    stretch = proposal(target_value=BAND_HIGH, why=f"Reaching 3900 may help [{ESTABLISHED_ID}].")
+    stretch = proposal(target_value=BAND_HIGH, why=f"Reaching 6500 may help [{ESTABLISHED_ID}].")
     result = run_generation(StubLLM([response(stretch)]))
 
     assert result["generated"] == 1
     row = suggested()[0]
     assert row["target_value"] == BAND_HIGH
-    assert "3900" in row["why"]
+    assert "6500" in row["why"]
 
 
 # ── Gate B — cite-or-refuse (the legacy hole, pinned hard) ────────────────────

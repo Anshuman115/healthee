@@ -5,13 +5,31 @@ dispose. This is the first of them, and it is the fix legacy never had — legac
 *instructed* calibration in its prompt (``CALIBRATION``, :218) and never verified it,
 so "12,000 steps" on a 3,000-step baseline reached the database.
 
-## Three decisions, each argued because each has a wrong-looking obvious answer
+## Four decisions, each argued because each has a wrong-looking obvious answer
 
 **1. Direction comes from the registry, never from a "+10–30 %" formula.** Half the
 registry is ``good="down"`` (#61's cap metrics — alcohol, caffeine), and for those
 progressive overload means a **lower** target. So the band is expressed as a fractional
 move *in the direction that counts as improvement* and applied as ``baseline × (1 ± d)``.
 A band written as "+10–30 %" would ask an owner to drink 30 % MORE.
+
+**1b. A percentage is the wrong SHAPE at a low baseline, so the step has a floor and the
+band has a cap** (WP-C3c). ``+30 %`` of 35 MVPA min/week is a minute and a half a day:
+nobody feels it and nothing measures it, while the same ``+30 %`` at 140 min/week is a
+real push. And the metrics where a low baseline is common are exactly the ones whose
+corpus says the dose-response is *steepest at the bottom* — the owner with the most to
+gain is the one a percentage band under-serves. So one rule replaces the band's two ends::
+
+    move   = max(fraction × baseline, meaningful_step, rounding_step)
+    target = baseline ± move, then capped at the evidence target
+
+with the floor and the target both cited per metric in ``targets`` and both **absent**
+for any metric whose corpus states neither. The cap wins over the floor when they
+disagree, because arriving at the population target is meaningful by definition even
+when the remaining distance is small — and when the remaining distance is under one
+rounding step there is nothing left to ask for at all (:func:`at_evidence_target`).
+This is what reconciles CHALLENGES.md §1's legacy example (35 min/week ⇒ ~60, floor
+governs) with §5.1's band (90 ⇒ ~117, percentage governs; 140 ⇒ 150, cap governs).
 
 **2. Out of band ⇒ REJECT. Nothing here ever clamps.** Clamping is the dangerous
 option: if the model wrote *"walk 12,000 steps — a 20 % stretch on your 10,000
@@ -49,12 +67,14 @@ number is legitimately larger than the target.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
 from healthee.challenges.metrics import ROUND_STEP, spec
 from healthee.challenges.series import MIN_COMPARISON_DAYS, recent_window
+from healthee.challenges.targets import in_cadence, meaningful_step, resolve_target
 from healthee.derive._common import Cur
 
 # The progressive-overload band, as a fraction of the owner's own baseline, in the
@@ -112,6 +132,11 @@ class Calibration:
     ``band is None`` is a complete answer, not a missing one: ``refusal`` says which
     rule produced it, so the prompt can tell the model the metric is unavailable and a
     rejection can be logged with a reason (standards §Errors).
+
+    ``target``/``target_note`` are the population target the band was capped at, in this
+    cadence's units, and the note it came from. ``None`` means the corpus has no target
+    for this metric — the band is then bounded only by the owner's own baseline, which is
+    an honest bound and not a missing one (``targets.EVIDENCE_TARGET``).
     """
 
     metric: str
@@ -120,16 +145,57 @@ class Calibration:
     baseline_days: int
     band: Band | None
     refusal: str | None
+    target: float | None = None
+    target_note: str | None = None
 
 
-def band_for(metric: str, baseline: float, direction: str) -> Band | None:
+def at_evidence_target(metric: str, baseline: float, direction: str, target: float | None) -> bool:
+    """True when less than one rounding step of ``metric`` separates ``baseline`` from goal.
+
+    The predicate the cap needs and the reason a capped band can be empty: if the whole
+    remaining distance to the population target is smaller than the granularity the metric
+    is even expressed in, there is no target to ask for that is not the owner's own
+    baseline wearing a rounder number.
+
+    A baseline at or PAST the target is deliberately not "at" it: the cap only ever binds
+    while the goal is ahead, so an owner beyond it gets an ordinary baseline-relative band
+    (the notes are explicit that 150 min/week is "a floor, not a ceiling"). That they have
+    no population gap left is a statement about which lever is worth pulling, and
+    ``levers`` is where it belongs — not a refusal to express any challenge at all.
+    """
+    if target is None:
+        return False
+    gap = target - baseline if direction == "up" else baseline - target
+    return 0 < gap < float(ROUND_STEP.get(metric, 1))
+
+
+def band_for(
+    metric: str,
+    baseline: float,
+    direction: str,
+    *,
+    floor: float | None = None,
+    target: float | None = None,
+) -> Band | None:
     """The progressive-overload interval around ``baseline``, or ``None`` if none exists.
 
-    Widened, never narrowed, by the metric's rounding step: a band of [2.2, 2.6] on a
-    ``workouts_week`` baseline of 2 contains no representable target at all (the step is
-    1), so the only meaningful stretch — one more workout — would be rejected as "too
-    ambitious". The step-widening moves the near end out to the first representable
-    stretch and takes the far end with it.
+    The move in the improving direction is ``max`` of three lower bounds, each answering a
+    different objection to the same number:
+
+    * ``fraction × baseline`` — progressive overload relative to the person (§5.1).
+    * ``floor`` — the smallest change the corpus treats as a real dose
+      (``targets.MEANINGFUL_STEP``). Absent for most metrics, and absence means
+      percentage-only, not zero.
+    * the metric's **rounding step** — a band of [2.2, 2.6] on a ``workouts_week``
+      baseline of 2 contains no representable target at all, so the only meaningful
+      stretch (one more workout) would be rejected as "too ambitious".
+
+    ``target`` then caps the band at the population goal, in the metric's improving
+    direction — a ceiling for ``good="up"``, a floor for ``good="down"``. It binds only
+    while the goal is ahead of the owner, and it overrides the ``floor`` when the two
+    disagree: reaching the evidence target is meaningful whatever the remaining distance,
+    right up to the point where that distance is under one rounding step and there is
+    nothing left to ask for (:func:`at_evidence_target`).
 
     A baseline of zero has no band in EITHER direction, and the guard is here rather than
     only in :func:`calibrate` so the property belongs to the rule instead of to one call
@@ -137,16 +203,30 @@ def band_for(metric: str, baseline: float, direction: str) -> Band | None:
     from a rounding constant, dressed as progressive overload against a person the
     arithmetic knows nothing about.
     """
-    if baseline <= 0:
+    if baseline <= 0 or at_evidence_target(metric, baseline, direction, target):
         return None
     step = float(ROUND_STEP.get(metric, 1))
+    near = max(baseline * MIN_STRETCH_FRACTION, floor or 0.0, step)
+    far = max(baseline * MAX_STRETCH_FRACTION, near)
     if direction == "up":
-        low = max(baseline * (1 + MIN_STRETCH_FRACTION), baseline + step)
-        return Band(low=low, high=max(baseline * (1 + MAX_STRETCH_FRACTION), low))
-    high = min(baseline * (1 - MIN_STRETCH_FRACTION), baseline - step)
-    if high <= 0:
+        ahead = target is not None and target > baseline
+        return _clip(Band(low=baseline + near, high=baseline + far), target if ahead else None, min)
+    if baseline - near <= 0:
         return None  # one step below their intake is already zero — nothing to cap
-    return Band(low=min(baseline * (1 - MAX_STRETCH_FRACTION), high), high=high)
+    ahead = target is not None and target < baseline
+    return _clip(Band(low=baseline - far, high=baseline - near), target if ahead else None, max)
+
+
+def _clip(band: Band, cap: float | None, toward: Callable[[float, float], float]) -> Band:
+    """Pull both ends of ``band`` back to ``cap`` — ``min`` going up, ``max`` going down.
+
+    Both ends move, so a band whose gentle end already overshot the goal collapses onto
+    the goal rather than straddling it. Ordering survives because ``min``/``max`` against
+    one constant is monotone.
+    """
+    if cap is None:
+        return band
+    return Band(low=toward(band.low, cap), high=toward(band.high, cap))
 
 
 def calibrate(
@@ -167,9 +247,22 @@ def calibrate(
         # Zero is a real reading, not a gap — and there is no proportional band around
         # it. Inventing a starter number here would be neither evidence nor personal.
         return Calibration(metric, cadence, baseline, days, None, "no_baseline_signal")
-    band = band_for(metric, baseline, spec(metric).good)
-    refusal = None if band else "nothing_to_cap"
-    return Calibration(metric, cadence, baseline, days, band, refusal)
+    goal = resolve_target(cur, user_id, metric, today)
+    target = None if goal is None else in_cadence(goal, cadence)
+    note = None if goal is None or target is None else goal.note_id
+    direction = spec(metric).good
+    band = band_for(
+        metric, baseline, direction, floor=meaningful_step(metric, cadence), target=target
+    )
+    refusal = _no_band_reason(metric, baseline, direction, target) if band is None else None
+    return Calibration(metric, cadence, baseline, days, band, refusal, target, note)
+
+
+def _no_band_reason(metric: str, baseline: float, direction: str, target: float | None) -> str:
+    """Which rule emptied the band — the same predicate :func:`band_for` decided by."""
+    if at_evidence_target(metric, baseline, direction, target):
+        return "already_at_the_evidence_target"
+    return "nothing_to_cap"
 
 
 def target_issue(calibration: Calibration, target: float) -> str | None:

@@ -19,22 +19,42 @@ from healthee.challenges.bounds import (
     copy_issue,
     target_issue,
 )
+from healthee.challenges.targets import EVIDENCE_TARGET, in_cadence, meaningful_step
 
 
 def _cal(metric: str, baseline: float, cadence: str = "daily") -> Calibration:
-    """A calibration built from the real band rule — never a hand-written interval."""
+    """A calibration built from the real band rule — never a hand-written interval.
+
+    Built through the same helpers ``bounds.calibrate`` uses, so a floor or a target
+    added to ``targets`` moves these bands too rather than leaving the suite asserting a
+    rule the pipeline no longer applies.
+    """
     direction = "down" if metric in ("alcohol_units", "caffeine_mg") else "up"
-    return Calibration(metric, cadence, baseline, 7, band_for(metric, baseline, direction), None)
+    goal = EVIDENCE_TARGET.get(metric)
+    band = band_for(
+        metric,
+        baseline,
+        direction,
+        floor=meaningful_step(metric, cadence),
+        target=None if goal is None else in_cadence(goal, cadence),
+    )
+    return Calibration(metric, cadence, baseline, 7, band, None)
 
 
 # ── direction: `good="up"` stretches UP ────────────────────────────────────────
 
 
 def test_an_up_metric_band_sits_above_the_owners_baseline() -> None:
+    """No floor, no target passed: the raw fractions are the whole rule.
+
+    The move is added to the baseline rather than multiplied into it (``bounds.band_for``
+    takes ``max`` over three candidate MOVES), so the expectation is written the same way
+    — the two differ in the last bit of a double.
+    """
     band = band_for("steps_total", 3000.0, "up")
     assert band is not None
-    assert band.low == 3000.0 * (1 + MIN_STRETCH_FRACTION)
-    assert band.high == 3000.0 * (1 + MAX_STRETCH_FRACTION)
+    assert band.low == 3000.0 + 3000.0 * MIN_STRETCH_FRACTION
+    assert band.high == 3000.0 + 3000.0 * MAX_STRETCH_FRACTION
 
 
 def test_the_brief_example_is_rejected_twelve_thousand_on_a_three_thousand_baseline() -> None:
@@ -48,7 +68,9 @@ def test_a_target_at_the_owners_own_baseline_is_not_a_challenge() -> None:
 
 
 def test_an_in_band_up_target_is_accepted_unchanged() -> None:
-    assert target_issue(_cal("steps_total", 3000.0), 3500.0) is None
+    """3,000 steps with the 1,000-step floor governing both ends: the band is [4000, 4000]."""
+    assert target_issue(_cal("steps_total", 3000.0), 4000.0) is None
+    assert target_issue(_cal("steps_total", 3000.0), 3500.0) is not None
 
 
 # ── direction: `good="down"` stretches DOWN ────────────────────────────────────
@@ -128,25 +150,25 @@ def test_a_zero_baseline_has_no_proportional_band_in_either_direction() -> None:
 
 def test_copy_restating_a_different_target_is_rejected() -> None:
     cal = _cal("steps_total", 3000.0)
-    issue = copy_issue(cal, 3500.0, "Walk 12,000 steps — a 20% stretch on your baseline.")
+    issue = copy_issue(cal, 4000.0, "Walk 12,000 steps — a 20% stretch on your baseline.")
     assert issue is not None
-    assert "12,000" in issue and "3500" in issue
+    assert "12,000" in issue and "4000" in issue
 
 
 def test_copy_naming_a_false_baseline_is_rejected() -> None:
     cal = _cal("steps_total", 3000.0)
-    assert copy_issue(cal, 3500.0, "A stretch on your 10,000-step baseline.") is not None
+    assert copy_issue(cal, 4000.0, "A stretch on your 10,000-step baseline.") is not None
 
 
 def test_copy_repeating_the_stored_target_is_allowed() -> None:
     cal = _cal("steps_total", 3000.0)
-    assert copy_issue(cal, 3500.0, "3500 steps is the ask.") is None
+    assert copy_issue(cal, 4000.0, "4000 steps is the ask.") is None
 
 
 def test_percentages_clock_times_and_metric_names_are_not_rival_targets() -> None:
     cal = _cal("steps_total", 3000.0)
     text = "A 20% stretch, after 15:00, tracked via vo2max and spo2 [sleep_score_4dim]."
-    assert copy_issue(cal, 3500.0, text) is None
+    assert copy_issue(cal, 4000.0, text) is None
 
 
 def test_small_numbers_below_the_band_pass_untouched() -> None:

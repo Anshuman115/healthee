@@ -40,7 +40,7 @@ The audit's verdict: the core is a crown jewel. Port these with known-value test
 |---|---|---|
 | **The metric registry** | `CHALLENGE_METRICS` (:27) | Every challenge binds to a machine-trackable derived metric — this is what makes auto-tracking possible at all. No metric ⇒ no challenge. |
 | **Auto-evaluation** | `evaluate_challenge` (:87), `_series` (:50) | Progress scored from the user's own `derived_daily`/`sample` rows on every read. **Zero manual check-ins** — the single strongest design decision. |
-| **Baseline-calibrated targets** | `CALIBRATION` block (:218), `_build_context` (:298), `_recent_value` (:157) | Targets set ~10–30% above the user's *own* recent baseline ("sedentary user at 35 MVPA/wk → 60–80, NOT 150"). Meets the person where they are. |
+| **Baseline-calibrated targets** | `CALIBRATION` block (:218), `_build_context` (:298), `_recent_value` (:157) | The target is computed from the user's *own* recent baseline, not a textbook ideal — "a sedentary user at 35 MVPA min/wk should get ~60, NOT 150". Meets the person where they are. The exact rule is **§5.1a**, which reconciles this example with the percentage band legacy also instructed: a percentage of a low baseline is noise, so the step has a floor. |
 | **Recovery-aware streak protection** | `_protected_days` (:73) | A day after a night <60% of the user's **own 30-day sleep median** doesn't break a streak — *relative to self*, so a chronic short sleeper isn't protected every day. Port exactly. |
 | **Deterministic adaptation** | `_adapt` (:547) | +20% when averaging ≥1.2× target for ≥5 days; −15% when ≤0.7×; sane rounding + ceiling/floor. **Rule-based, server-authoritative, never LLM.** This IS the "auto-adapting" feature, done correctly. |
 | **The lifecycle** | `suggested→active→completed\|abandoned`, `_MAX_ACTIVE=3` | Clean status machine; baseline frozen at adopt so before→after is anchored; the cap prevents overload. |
@@ -184,9 +184,10 @@ from population research and always labelled single-subject/observational.
 **Then two deterministic gates it cannot talk its way past:**
 
 - **Gate A — the baseline-bounds check (new; legacy's biggest miss).** The proposed
-  `target_value` is checked against the owner's *own* recent baseline. A target outside a
-  sane progressive-overload band (roughly +10–30%, per-metric) is **clamped or rejected** —
-  a proposal of "12,000 steps" for a 3,000-step baseline never reaches the DB. Legacy only
+  `target_value` is checked against the band **§5.1a** computes from the owner's *own*
+  recent baseline. A target outside it is **rejected — never clamped** (a clamp
+  desynchronises the stored number from the copy the model wrote around it), so a proposal
+  of "12,000 steps" for a 3,000-step baseline never reaches the DB. Legacy only
   *instructed* calibration in the prompt (`CALIBRATION`, :218) and never verified it; we
   instruct **and** enforce. Rejections are logged, not swallowed.
 - **Gate B — cite-or-refuse through the choke point.** Every interpretive claim in
@@ -205,6 +206,96 @@ grade *down* against the notes it actually cited.
 Generation stays **lazy/on-demand** (empty feed, user Refresh, or a coach request) — legacy
 never had the scheduler generate, and there's no reason to spend tokens on a feed nobody
 opened. Premium-gated regardless.
+
+### 5.1a Calibration — ONE rule (this section is the definition; §1 defers to it)
+
+> **This resolves a contradiction the doc used to carry.** §1 quotes legacy's canonical
+> example (35 MVPA min/week → ~60, not 150 — i.e. **+71%**) while §5.1 specified a
+> **+10–30%** band. Both were right about different owners, and the reason is that a
+> percentage is the wrong *shape* at a low baseline: **+30% of 35 min/week is a minute and
+> a half a day.** Nobody feels it and nothing measures it. At 140 min/week the same +30% is
+> a real push. So the step gets a floor, and the whole thing gets a ceiling:
+
+```
+move   = max(fraction × baseline, minimum_meaningful_step, rounding_step)
+target = baseline ± move, capped at the evidence target
+```
+
+applied **in the metric's own improving direction** (`good:"down"` cap metrics move
+*downward*, and their evidence target is a **floor**, not a ceiling). Worked, on
+`mvpa_min` weekly — floor 25 min/week, target 150 min/week:
+
+| baseline | what governs | band |
+|---|---|---|
+| 35 min/wk | the **floor** (30% = 10.5, under it) | 60 — legacy's example, reconciled |
+| 90 min/wk | the **percentage** (30% = 27, over it) | 115–117 |
+| 140 min/wk | the **cap** (the step would reach 182) | 150 |
+| 148 min/wk | nothing left — under one rounding step from the goal | *no band; refused* |
+
+**The floor is per-metric and only exists where a note attaches an outcome to an increment
+of that size.** Where none does, **there is no floor** and the percentage is the whole
+rule — documented, not filled in with a guess. Today exactly two metrics have one, and
+they are exactly the two whose notes state the dose-response is *steepest at the bottom*
+(`mvpa_min` 25 min/week `[mvpa_minutes_mortality]`, `steps_total` 1,000/day
+`[steps_mortality]`). The evidence targets are `mvpa_min` 150 min/week, `steps_total`
+8,000/day, `sri` 70 `[sleep_regularity_index]`, and `tst_min` the owner's **own**
+age-banded `sleep_need_min` `[sleep_need_debt]`. `cardio_load`, `active_calories`,
+`workouts_week`, `alcohol_units` and `caffeine_mg` have **neither** — stated as an
+absence, in `challenges/targets.py`, with the reason for each.
+
+**Reject, never clamp** (unchanged): out of band costs the whole proposal, because a
+clamp desynchronises the stored number from the model's copy *and* from what the ledger
+will later publish.
+
+**Provisional by construction.** With one owner's real data, every constant above is a
+defensible guess — the targets and curve shapes are cited, the *step sizes are anchored,
+not derived*. The **outcome ledger is the tuning mechanism**: it already freezes `target`,
+`baseline`, `status`, `adherence` and `improvement_pct` per challenge, so "which step
+sizes get completed *and* moved the metric" becomes a query once there are rows. The query
+is written down in `challenges/targets.py`, and retuning means editing that file only.
+
+### 5.1b Targeting — which lever, decided deterministically
+
+The model chooses the words. It does **not** choose where this person has the most to
+gain. `challenges/levers.py` ranks the trackable metrics before the prompt is built, and
+the ranking is an **explainable ordering, not a score** — no 0–100 "opportunity" number
+exists, because the inputs (a mortality-hazard gap, a Spearman rho, a recovery band) share
+no scale and any weighting between them would be invented (CLAUDE.md: no composite scores
+without documented methodology and a note). Each lever carries its own gap, its target,
+its citation and the rule that placed it.
+
+The order is lexicographic over named rules:
+
+1. **A personal finding implicates the metric** — FDR-controlled (`finding`, q ≤ 0.10),
+   trivial/definitional pairs filtered by the same rule the Today page uses. The owner's
+   own measured evidence, cited as `[personal_finding:…]` and always labelled
+   single-subject/observational. It may legitimately outrank a population gap, and it is
+   the only tier a metric with no population target can reach.
+2. **A population gap on a curve the corpus says is steepest at the bottom** — the least
+   active owner has the *most* to gain per added minute, which is exactly the case a
+   percentage step under-serves (§5.1a).
+3. **A population gap with no curve-shape evidence.**
+4. **At or past the evidence target** — no gap left; ranked last, never hidden.
+5. **Unranked** — no population target exists for this metric, so no gap is computable.
+   An unranked metric is an honest output, not a hole: it is still proposable, and the
+   prompt says plainly that we cannot say what it is worth.
+
+Within a tier: by the shown gap fraction (or |effect| for tier 1), then never-attempted
+before previously-attempted.
+
+Three **exclusions** are separate from the ranking and are *enforced*, not instructed — a
+proposal on an excluded metric is rejected by the same gate that rejects an out-of-band
+target:
+
+- **Already active** — never duplicate a live commitment (unchanged).
+- **Recently abandoned** — they dropped it; re-pushing it is the thing legacy's own prompt
+  told itself not to do and never checked.
+- **A hard training lever while under-recovered** — `mvpa_min`, `cardio_load` and
+  `workouts_week` are withheld when the owner's trailing-week recovery sits in the `low`
+  band or an illness flag is active. `[recovery_readiness]` D7 (safety inputs are hard
+  overrides, not votes) and D8 (recovery *eases or holds*, it never escalates). Legacy did
+  this by hardcoding "this user is a chronic short sleeper with low recovery" into the
+  prompt for its one tenant; here it is computed per owner and blocking.
 
 ### 5.2 Adaptation — the engine auto-calibrates on measured progress (deterministic, never LLM)
 
@@ -275,10 +366,11 @@ WP-C3 gates** as any system-generated challenge:
 1. **Bind to a trackable metric.** The proposal must resolve to a metric in
    `CHALLENGE_METRICS` (§1). If it can't ("a challenge to feel happier"), the tool refuses
    and the coach says so honestly. *A challenge we cannot measure is a promise we cannot keep.*
-2. **Gate A — baseline bounds.** The proposed target is checked against the owner's own
-   baseline and clamped or rejected if outside the progressive-overload band. The coach
-   cannot talk its way past this; if it proposes 12,000 steps on a 3,000 baseline, the gate
-   corrects it and the coach reports the **stored** number.
+2. **Gate A — baseline bounds.** The proposed target is checked against the band §5.1a
+   computes from the owner's own baseline, and **rejected** — never clamped — if outside
+   it. The coach cannot talk its way past this; if it proposes 12,000 steps on a 3,000
+   baseline, the proposal dies and the coach reports that it could not build it, rather
+   than reporting a number it did not write.
 3. **Gate B — cite-or-refuse.** The `why`/`expected_outcome` must carry real, grade-calibrated
    citations (corpus) and may cite the user's own patterns as `[personal_finding:...]`. No
    valid grounding ⇒ **nothing is created**, and the coach says the evidence base doesn't

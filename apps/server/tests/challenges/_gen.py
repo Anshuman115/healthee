@@ -5,9 +5,13 @@ says the model proposed, which is how a proposal nobody would ever get a real mo
 emit on demand (a fabricated note id, a 12,000-step target on a 3,000-step baseline) can
 be pinned as *impossible to persist* rather than merely unlikely.
 
-Every owner here holds a 3,000-step-a-day history over the seven days before ``TODAY``,
-so the daily band is a known [3300, 3900] and every Gate A assertion is arithmetic
+Every owner here holds a 5,000-step-a-day history over the seven days before ``TODAY``,
+so the daily band is a known [6000, 6500] and every Gate A assertion is arithmetic
 against a number the test can state, not against whatever the DB happened to contain.
+The baseline is deliberately one where the PERCENTAGE governs the ambitious end
+(``targets.MEANINGFUL_STEP`` for steps is 1,000/day, and 30 % of 5,000 is 1,500), so the
+bed exercises a band with width rather than the degenerate single point a low baseline
+collapses to — the low-baseline cases are known-value tested in ``test_calibration``.
 
 Not a pytest module (underscore-prefixed); imported by the two suites that use it —
 ``test_generation_gates`` (Gate A + Gate B) and ``test_generation_invariants``
@@ -29,10 +33,11 @@ from healthee.core.tenancy import SENTINEL_TZ
 
 IST = SENTINEL_TZ
 TODAY = date(2026, 7, 15)
-BASELINE_STEPS = 3000.0
-# `bounds.band_for`: max(3000 * 1.10, 3000 + 250) = 3300 … max(3000 * 1.30, 3300) = 3900.
-BAND_LOW, BAND_HIGH = 3300.0, 3900.0
-IN_BAND = 3500.0
+BASELINE_STEPS = 5000.0
+# `bounds.band_for`: 5000 + max(500, 1000 floor, 250 step) = 6000 … 5000 + max(1500,
+# 1000) = 6500, with the 8,000-step evidence target still ahead so nothing is capped.
+BAND_LOW, BAND_HIGH = 6000.0, 6500.0
+IN_BAND = 6250.0
 
 
 def steps_history() -> dict[date, float]:
