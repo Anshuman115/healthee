@@ -20,10 +20,9 @@
 --     honest to land: `stalled`, with the reason stored beside it.
 --
 -- Data safety: nothing in the application has ever written `program` or set
--- `challenge.program_id` — WP-C4 is the first code that does, and `store.py`'s
--- `_COLUMNS` (the only place challenge SQL lives) has never named them on a write.
--- So every ADD below lands on an empty table and every CHECK is added to rows that
--- cannot violate it.
+-- `challenge.program_id` — WP-C4 is the first code that does, and no INSERT or UPDATE
+-- in `challenges/store.py` has ever named either. So every ADD below lands on an empty
+-- table and every CHECK is added to rows that cannot violate it.
 --
 -- Privileges: the app role's grants are table-level (`provision_app_role`), and a
 -- table-level GRANT covers columns added later — 0009 established this and
@@ -92,7 +91,7 @@ ALTER TABLE program DROP COLUMN IF EXISTS current_rung;
 -- statement in half. (It cost one run to rediscover.)
 COMMENT ON COLUMN challenge.kind IS
   'standard | deload. A deload rung is INSERTED after a rung timed out unmet, at an '
-  'eased target (challenges/programs.py), never a repeat of the failed row.';
+  'eased target (challenges/ladder.py), never a repeat of the failed row.';
 COMMENT ON COLUMN program.ended_reason IS
   'Why a terminal program ended, in the owner''s words. Set for stalled and for '
   'abandoned. A completed ladder needs no explanation.';

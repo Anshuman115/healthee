@@ -12,10 +12,10 @@ passed (standards §1: "Background/silent contexts … must report failures to t
 health surface"). The chain then applies dependency logic:
 
   * ``challenges`` runs FIRST and depends on nothing — closing out a commitment that
-    ended last night is not downstream of any computation, and an owner whose
-    findings failed still deserves an honest outcome for it (WP-C2; the choice to
-    finalize here rather than inside a list read is argued in
-    ``challenges/lifecycle.py``);
+    ended last night, and moving a program ladder on from it, is not downstream of
+    any computation, and an owner whose findings failed still deserves an honest
+    outcome for it (WP-C2/WP-C4; the choice to finalize here rather than inside a
+    list read is argued in ``challenges/lifecycle.py``);
   * a ``correlate`` failure ABORTS ``recs`` AND ``warm`` (both read the findings
     correlate writes, via the choke point's context) — they are marked skipped, not
     run on stale inputs;
@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
-from healthee.challenges import lifecycle
+from healthee.challenges import ladder, lifecycle
 from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
@@ -92,17 +92,29 @@ def step_challenges(
     *,
     client: LLMClient | None = None,  # noqa: ARG001
 ) -> dict:
-    """Close out one owner's challenges that have ended (no LLM).
+    """Close out one owner's challenges that have ended, then move their ladder on (no LLM).
 
     This is where auto-completion lives, rather than inside the challenges list read
     the way legacy did it (``challenges/lifecycle.py`` argues the choice). It runs
     FIRST and independently of everything else: closing a finished commitment is not
     downstream of correlate, and an owner whose chain failed on findings should still
     get an honest outcome for the challenge that ended last night.
+
+    Advancement (WP-C4) is the same step and the same transaction, deliberately. A
+    program rung IS one of the challenges ``finalize_due`` just closed, so its terminal
+    status and whatever the ladder does about it — promote, deload, hold, stop — are one
+    fact about one night. Splitting them would let a rung be recorded ``expired`` while
+    the ladder's answer to that failure rolled back, which is the half-state the freeze
+    is written in-transaction to avoid.
+
+    The ORDER here is the useful one, not a required one: ``advance_due`` reads the
+    rungs' stored statuses rather than re-scoring them, so running it before the close
+    would simply find an active rung and do nothing (``challenges/ladder.py``).
     """
     with tenant_transaction(user_id) as cur:
         closed = lifecycle.finalize_due(cur, user_id, tz, day)
-    return {"closed": closed}
+        advanced = ladder.advance_due(cur, user_id, tz, day)
+    return {"closed": closed, "advanced": advanced}
 
 
 def step_correlate(

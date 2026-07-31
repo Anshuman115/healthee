@@ -36,7 +36,12 @@ SLEEP_ROW_METRIC = "sleep_health_score_4dim"
 
 # `finding` joins the list because WP-C3c's lever ranking reads it: a personal
 # pattern left behind by one test would silently promote a metric in the next.
-_TABLES = ("derived_daily", "workout", "manual_entry", "finding", "illness_flag")
+#
+# `program` joins it for a sharper version of the same reason (WP-C4): the one-active-
+# ladder cap is a COUNT, so a program left behind by one test refuses the next test's
+# adopt with `program_active` — which is exactly how it was found, and is the kind of
+# leak that looks like a code bug for as long as it takes to check the reset list.
+_TABLES = ("derived_daily", "workout", "manual_entry", "finding", "illness_flag", "program")
 
 # `challenge` is truncated separately with CASCADE: `challenge_outcome` references
 # it, and TRUNCATE refuses a referenced table without CASCADE. Taking the ledger

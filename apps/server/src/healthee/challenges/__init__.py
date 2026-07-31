@@ -22,6 +22,12 @@ challenge and two deterministic gates decide what ships — the target must sit 
 owner's own progressive-overload band (``bounds``), and the copy must be citable
 through the blocking choke point. Nothing in the generation path rewrites a number.
 
+WP-C4 adds the multi-week ladder, and it holds the design law by ORCHESTRATING rather
+than reimplementing: a rung is closed by ``lifecycle``, scored by ``evaluate``, frozen by
+``ledger``, eased by ``adapt``, recalibrated by ``bounds`` and held back by
+``recovery_guard``. ``ladder`` contains no second copy of any of those — it decides only
+*which* of them applies next, which is the one question none of them answers.
+
 Modules
 -------
 ``metrics``      the registry — which metrics are trackable and where each lives
@@ -38,6 +44,10 @@ Modules
 ``gen_prompt``   the task text and the vocabularies a generated row must use
 ``screen``       every gate applied to one proposal
 ``generate``     the generation pipeline (the WP-C5 entry point)
+``program_store`` the ladder's SQL — `program` rows and the `challenge` rows that are rungs
+``rung``         may the next rung start, and at what number (the recalibration)
+``ladder``       advancement — promote, deload, hold, or stop, deterministically
+``programs``     suggested → active → completed | stalled | abandoned, for a whole ladder
 
 Dependencies run downward only (standards §"one responsibility"): ``core``, ``derive``
 and ``analytics``, plus — from WP-C3 and only in the generation modules — ``insights``,

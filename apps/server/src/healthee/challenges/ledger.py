@@ -31,7 +31,9 @@ which is the worst of both: no record, and no reason.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, timedelta
+from typing import LiteralString, cast
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
@@ -292,17 +294,43 @@ def _store(cur: Cur, user_id: UUID, challenge_id: int, outcome: dict) -> None:
 
 def recent(cur: Cur, user_id: UUID, limit: int = 20) -> list[dict]:
     """One owner's frozen outcomes, newest first — the ledger read (windowed)."""
-    cur.execute(
-        "SELECT challenge_id, metric, category, difficulty, cadence, target, baseline, "
-        "  final, improvement_pct, improved, adherence, days_active, status, confounds, "
-        "  co_occurring, data_confidence, ended_at "
-        "FROM challenge_outcome WHERE user_id = %s ORDER BY ended_at DESC LIMIT %s",
-        (user_id, limit),
+    query = cast(  # `_READ_SELECT` is a module constant of column names, never input
+        LiteralString,
+        f"SELECT {_READ_SELECT} FROM challenge_outcome WHERE user_id = %s "
+        "ORDER BY ended_at DESC LIMIT %s",
     )
+    cur.execute(query, (user_id, limit))
     return [dict(zip(_READ_COLUMNS, row, strict=True)) for row in cur.fetchall()]
 
 
-# Mirrors the SELECT above, which mirrors `_store`'s INSERT. ``difficulty`` was
+def by_challenge(cur: Cur, user_id: UUID, challenge_ids: Sequence[int]) -> dict[int, dict]:
+    """The frozen outcomes for a NAMED set of this owner's challenges, keyed by id.
+
+    ``recent`` answers "what has this owner done lately"; this answers "what happened to
+    these particular commitments", which is the question a program read asks of its own
+    rungs. One statement over the whole set rather than a lookup per rung — a ladder is a
+    handful of rows and an N+1 on a read path is a budget violation, not a style point
+    (standards §Performance).
+
+    A rung with no outcome is simply absent from the result: a locked rung never ran and
+    an active one has not finished, and both are states the caller must be able to tell
+    from "ended with nothing recorded".
+    """
+    if not challenge_ids:
+        return {}
+    query = cast(  # `_READ_SELECT` is a module constant — see `recent`
+        LiteralString,
+        f"SELECT {_READ_SELECT} FROM challenge_outcome "
+        "WHERE user_id = %s AND challenge_id = ANY(%s)",
+    )
+    cur.execute(query, (user_id, list(challenge_ids)))
+    rows = (dict(zip(_READ_COLUMNS, row, strict=True)) for row in cur.fetchall())
+    return {int(row["challenge_id"]): row for row in rows}
+
+
+# Mirrors `_store`'s INSERT, and IS the SELECT both reads run — the two used to be a
+# tuple and a hand-typed string beside each other, which is one edit away from a
+# ledger read that silently drops a column. ``difficulty`` was
 # written on every row and selected on none (#62) — populated, and invisible on the
 # wire. Resolved as a MISSING FIELD rather than dead data: the difficulty of what
 # someone was asked to do is half of what an outcome means (a met `stretch` and a met
@@ -330,3 +358,5 @@ _READ_COLUMNS = (
     "data_confidence",
     "ended_at",
 )
+
+_READ_SELECT = ", ".join(_READ_COLUMNS)

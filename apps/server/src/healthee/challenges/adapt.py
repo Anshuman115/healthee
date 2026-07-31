@@ -197,6 +197,42 @@ def suggest_adaptation(
     return _recovery_checked(cur, user_id, tz, metric, today, adaptation)
 
 
+def deload_target(cur: Cur, user_id: UUID, tz: str, challenge: dict, today: date) -> float | None:
+    """The eased target a rung that timed out UNMET should be retried at, or ``None``.
+
+    WP-C4's failure branch (CHALLENGES.md §2.3), and it is a *seam onto this module*
+    rather than a rule of the ladder's own — deliberately. "How far may a target be
+    eased, and how far is too far" already has one answer here, including the floor that
+    must never hand back a target the owner had already beaten before they started
+    (:data:`EASE_FLOOR_FACTOR`). A ladder with its own easing constants would be the
+    second definition this track keeps having to un-write.
+
+    ``None`` means **there is no honest ease left**, and it is the give-up condition's
+    first trigger. It arises two ways, both of them real answers:
+
+    * ``_ease_to``'s "no room to give" guard — the eased number is not meaningfully
+      below the failed one, because the floor (just above the owner's own baseline) is
+      already there. Easing past it would ask for something they were doing anyway.
+    * no baseline AND no measured performance — nothing owner-relative to ease toward,
+      and inventing a number would be the optimistic guess this product refuses.
+
+    A ``<=`` rung never reaches here: :func:`suggest_adaptation` leaves caps alone
+    because the corpus supplies no rule for loosening one, and ``programs.adopt`` refuses
+    a ladder containing one for exactly that reason — a rung whose failure could not be
+    answered would silently become legacy's forward-only behaviour.
+    """
+    target = float(challenge["target_value"])
+    if challenge["comparator"] != ">=" or target <= 0:
+        return None
+    start = start_date(challenge.get("adopted_at"), tz, today)
+    achieved = _achieved(cur, user_id, tz, challenge, start, today, (today - start).days + 1)
+    baseline = challenge.get("baseline_value")
+    if baseline is None and achieved is None:
+        return None
+    eased = _ease_to(challenge["metric"], target, baseline, achieved or 0.0, reason="")
+    return None if eased is None else float(eased["suggested"])
+
+
 def _recovery_checked(
     cur: Cur, user_id: UUID, tz: str, metric: str, today: date, raised: dict
 ) -> dict:

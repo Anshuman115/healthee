@@ -1,4 +1,4 @@
-"""Row access for `challenge` — the only place challenge SQL lives.
+"""Row access for `challenge` — the standalone lifecycle's half of the challenge SQL.
 
 Split from :mod:`healthee.challenges.lifecycle` so the *rules* (when may a
 challenge be adopted, what ends it, what does the owner see) read as rules rather
@@ -9,6 +9,18 @@ the explicit predicate is the clarity and the index use, and RLS is the backstop
 
 Nothing here decides anything. A function that answers "should this happen" belongs
 in ``lifecycle``; a function that answers "what is stored" belongs here.
+
+## The one other place challenge SQL lives, and why it is not here (WP-C4)
+
+``program_store`` writes ``challenge`` rows too — the rungs of a ladder. That is a
+deliberate exception to "one place", taken because the alternative is worse: every
+ladder operation spans BOTH tables in one breath (activate a rung *and* clear the
+program's hold; insert a deload *and* renumber the rungs after it), so splitting by
+table would put one logical write in two modules and leave neither readable.
+
+What must NOT be duplicated is the row SHAPE, and it is not: :data:`COLUMNS`,
+:data:`SELECT` and :func:`row` are public for that module alone, so a column added by
+a future migration reaches both readers or neither.
 """
 
 from __future__ import annotations
@@ -21,8 +33,9 @@ from healthee.derive._common import Cur
 
 # The row shape the engine and the API both work in. Named explicitly rather than
 # `SELECT *` so a column added by a future migration cannot silently change the
-# shape of an API response.
-_COLUMNS = (
+# shape of an API response. Public because ``program_store`` reads rungs with the
+# SAME shape (module docstring) — one definition, two readers.
+COLUMNS = (
     "id",
     "created_at",
     "gen_date",
@@ -46,14 +59,17 @@ _COLUMNS = (
     "baseline_value",
     "program_id",
     "rung_index",
+    # `0010`. `standard` on every standalone challenge; `deload` only on a rung the
+    # ladder inserted after one timed out unmet (``challenges.ladder``).
+    "kind",
 )
 
-_SELECT = ", ".join(_COLUMNS)  # a module constant of column names, never input
+SELECT = ", ".join(COLUMNS)  # a module constant of column names, never input
 
 
-def _row(values: tuple) -> dict[str, Any]:
+def row(values: tuple) -> dict[str, Any]:
     """One ``challenge`` row as the mapping ``evaluate``/``adapt`` already take."""
-    return dict(zip(_COLUMNS, values, strict=True))
+    return dict(zip(COLUMNS, values, strict=True))
 
 
 def fetch(cur: Cur, user_id: UUID, challenge_id: int) -> dict[str, Any] | None:
@@ -63,12 +79,12 @@ def fetch(cur: Cur, user_id: UUID, challenge_id: int) -> dict[str, Any] | None:
     the caller must not distinguish them: a 404 that becomes a 403 for the rows
     that exist confirms another tenant's ids (MULTI_USER.md §10).
     """
-    # `_SELECT` is the module's own column-name constant, never caller input — the
+    # `SELECT` is the module's own column-name constant, never caller input — the
     # only interpolation this codebase allows (standards §2). Bounds stay `%s`.
-    query = cast(LiteralString, f"SELECT {_SELECT} FROM challenge WHERE user_id = %s AND id = %s")
+    query = cast(LiteralString, f"SELECT {SELECT} FROM challenge WHERE user_id = %s AND id = %s")
     cur.execute(query, (user_id, challenge_id))
-    row = cur.fetchone()
-    return _row(row) if row else None
+    found = cur.fetchone()
+    return row(found) if found else None
 
 
 def list_by_status(
@@ -79,14 +95,22 @@ def list_by_status(
     ``limit`` is not optional in spirit: every list read is windowed
     (standards §Performance, "unbounded data is windowed"), and a finished-challenge
     list grows without bound over a life of use.
+
+    ``id DESC`` breaks the tie, and it is not decoration. ``created_at`` defaults to
+    ``now()``, which in Postgres is the TRANSACTION's start time — so every challenge
+    written in one transaction carries the identical timestamp and their relative order
+    was previously whatever the planner felt like. Two identical requests could return
+    the same list in two orders, and a client's feed would reshuffle under the owner's
+    thumb. Found when a program's rungs and a standalone challenge first shared a
+    transaction (WP-C4's contract bed).
     """
-    query = cast(  # `_SELECT` is a module constant — see `fetch`
+    query = cast(  # `SELECT` is a module constant — see `fetch`
         LiteralString,
-        f"SELECT {_SELECT} FROM challenge WHERE user_id = %s AND status = ANY(%s) "
-        "ORDER BY created_at DESC LIMIT %s",
+        f"SELECT {SELECT} FROM challenge WHERE user_id = %s AND status = ANY(%s) "
+        "ORDER BY created_at DESC, id DESC LIMIT %s",
     )
     cur.execute(query, (user_id, list(statuses), limit))
-    return [_row(row) for row in cur.fetchall()]
+    return [row(found) for found in cur.fetchall()]
 
 
 def count_active(cur: Cur, user_id: UUID) -> int:

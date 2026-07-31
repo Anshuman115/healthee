@@ -290,7 +290,7 @@ def list_challenges(cur: Cur, user_id: UUID, tz: str, today: date | None = None)
     """
     today = today or user_today(tz)
     active = [
-        challenge | {"progress": _progress_of(cur, user_id, tz, challenge, today)}
+        challenge | {"progress": progress_of(cur, user_id, tz, challenge, today)}
         for challenge in store.list_by_status(cur, user_id, ("active",), limit=MAX_ACTIVE)
     ]
     return {
@@ -301,11 +301,16 @@ def list_challenges(cur: Cur, user_id: UUID, tz: str, today: date | None = None)
     }
 
 
-def _progress_of(cur: Cur, user_id: UUID, tz: str, challenge: dict, today: date) -> dict:
+def progress_of(cur: Cur, user_id: UUID, tz: str, challenge: dict, today: date) -> dict:
     """Live progress plus any pending recalibration, for one active challenge.
 
     The adaptation is SUGGESTED, never applied: §5.2 keeps a raise behind the
     owner's one tap, because a commitment they agreed to should not move under them.
+
+    Public because WP-C4's program read shows the same thing for a live RUNG, and a
+    rung is an ordinary active challenge. Rendering it from a second function would be
+    two surfaces free to disagree about what an owner's commitment is doing — the fork
+    this track keeps having to un-write.
     """
     progress = evaluate_challenge(cur, user_id, tz, challenge, today=today)
     adaptation = suggest_adaptation(cur, user_id, tz, challenge, progress, today=today)
