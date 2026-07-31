@@ -5,12 +5,12 @@ topic: Alcohol disrupts second-half sleep architecture and acutely lowers HRV
 category: intake
 grade: Established
 evidence_grade: 3
-summary: "Even 1–2 drinks before bed front-loads slow-wave sleep then fragments the second half (more wake, less REM), acutely drops overnight HRV (RMSSD/HF) 15–30%, and raises resting HR ~5–10 bpm — dose-dependent from ~0.5 g/kg; a morning-after HRV dip after a logged drink is expected, not an anomaly."
+summary: "Even 1–2 drinks before bed front-loads slow-wave sleep then fragments the second half (more wake, less REM), acutely drops overnight HRV (RMSSD/HF) 15–30%, and raises resting HR ~5–10 bpm — dose-dependent with no established floor (effects are significant at the lowest doses studied, ≤0.25 g/kg); a morning-after HRV dip after a logged drink is expected, not an anomaly."
 aliases: ["alcohol", "drinking", "alcohol before bed", "nightcap", "alcohol and sleep", "alcohol and hrv"]
 applies_to_metrics: ["tst_min", "sleep_health_score_4dim", "hrv_sleep_avg", "rhr_daily"]
 applies_to_interventions: ["alcohol"]
 population: general
-last_reviewed: 2026-07-15
+last_reviewed: 2026-07-31
 related: ["caffeine_alcohol_cutoff_plan", "caffeine_sleep", "heart_rate_variability"]
 tags: [alcohol, sleep, hrv, autonomic]
 ---
@@ -24,9 +24,11 @@ sleep architecture and autonomic markers overnight: it increases slow-wave sleep
 in the **first half** then **fragments the second half** (more wake, less REM),
 acutely **reduces HRV** (RMSSD and HF power) for the night and into the next
 morning, and elevates **resting heart rate** for several hours. The effect is
-dose-dependent and detectable down to ~0.5 g alcohol/kg body weight (~1 drink in a
-70 kg adult). The Healthee-critical consequence: a **drop in HRV the morning after
-a logged drink is expected physiology, not a health-concerning anomaly**.
+dose-dependent with **no established lower cutoff** — disruption is already
+significant at the lowest doses studied (≤0.25 g alcohol/kg body weight, ~17 g of
+ethanol, about one US standard drink for a 70 kg adult) and worsens as the dose
+rises. The Healthee-critical consequence: a **drop in HRV the morning after a
+logged drink is expected physiology, not a health-concerning anomaly**.
 
 ## What it is
 
@@ -63,9 +65,33 @@ nights vs non-drinking nights, replicated in consumer-wearable data (Pietilä et
 Alcohol elevates **resting heart rate ~5–10 bpm above personal baseline**
 overnight, persisting until late morning.
 
-### Dose-response and threshold [Established]
-The effect is **dose-dependent and detectable down to ~0.5 g alcohol/kg body
-weight** (roughly 1 standard drink in a 70 kg adult).
+### Dose-response — bands, not a single threshold [Established]
+The effect is **dose-dependent, and no primary source supports a detection
+floor**: disruption is already significant in the lowest dose band each study
+defines. The two literatures band the dose differently, so always quote the band
+*with its source* rather than one cutoff number.
+*[primary-source verified 2026-07-31]*
+
+- **Sleep architecture** — REM disruption occurs "following consumption of a low
+  dose of alcohol (≤0.50 g∙kg⁻¹ or approximately two standard drinks) and
+  progressively worsen[s] with increasing doses of alcohol"; reductions in
+  sleep-onset latency and in latency to N3 were seen "only ... following the
+  consumption of a high dose" (≥0.85 g∙kg⁻¹) (Gardiner et al. 2025,
+  meta-analysis of 27 studies). Ebrahim et al. 2013 — the older, *qualitative*
+  review — instead reports shorter sleep onset "at all dosages" and "no clear
+  trend" for total-night REM at low doses. **The two disagree**; prefer the
+  meta-analysis for dose thresholds and treat the low-dose sleep-onset effect as
+  unsettled.
+- **Overnight autonomics** — effects on autonomic regulation "were observed also
+  with low alcohol intake" — low being **≤0.25 g/kg** there (moderate
+  >0.25–0.75, high >0.75), all p<0.001 (Pietilä et al. 2018, n = 4,098).
+
+**Unit trap — do not gloss g/kg as "a drink".** 0.5 g/kg in a 70 kg adult is
+**35 g of ethanol ≈ 2.5 US standard drinks** (14 g each) — *not* one drink. One
+US standard drink for a 70 kg adult is ≈ 0.2 g/kg. Note also that the reviews'
+own "≈ N standard drinks" glosses assume their national standard-drink size
+(Australia/UK ≈ 8–10 g), so grams per kilogram is the figure to carry; convert
+only at the point of display, with the drink size stated.
 
 ## How we compute it
 
@@ -99,6 +125,11 @@ The personal cutoff-time finder that mines these logs lives in
   (paradoxical, but replicated).
 - **Time-of-consumption matters**: alcohol >4 hours before bed has smaller
   second-half effects.
+- **There is no "safe below X" dose here.** Every band boundary in the
+  literature (0.25, 0.50, 0.75, 0.85 g/kg) is a *study grouping*, not a
+  threshold below which nothing happens — the lowest band in each study still
+  showed a significant effect. Do not derive an "alcohol is fine under N drinks"
+  rule from these numbers.
 - Single-night effects say nothing about long-term health; do not extrapolate.
 
 ## Bottom line
@@ -123,11 +154,20 @@ cutoff hour — individual and best learned from the user's own logs.
 ## References
 - Ebrahim IO, Shapiro CM, Williams AJ, Fenwick PB. **"Alcohol and sleep I: effects
   on normal sleep."** *Alcoholism: Clinical and Experimental Research*
-  2013;37(4):539–549. Systematic review across multiple controlled-dose studies.
+  2013;37(4):539–549. doi:10.1111/acer.12006. PMID 23347102. **Qualitative**
+  review of controlled-dose studies (it reports directions, not pooled effect
+  sizes).
+- Gardiner C, Weakley J, Burke LM, et al. **"The effect of alcohol on subsequent
+  sleep in healthy adults: a systematic review and meta-analysis."** *Sleep
+  Medicine Reviews* 2025;80:102030. doi:10.1016/j.smrv.2024.102030.
+  PMID 39631226. 27 studies; source of the ≤0.50 g/kg low / ≥0.85 g/kg high dose
+  bands and the REM dose-response.
 - Pietilä J, Helander E, Korhonen I, et al. **"Acute effect of alcohol intake on
   cardiovascular autonomic regulation during the first hours of sleep in a large
   real-world sample of Finnish employees: observational study."** *JMIR Mental
-  Health* 2018;5(1):e23. n ≈ 4,098, consumer-wearable HRV data.
+  Health* 2018;5(1):e23. doi:10.2196/mental.9519. PMID 29549064. n = 4,098,
+  beat-to-beat R-R data; source of the ≤0.25 / >0.25–0.75 / >0.75 g/kg autonomic
+  dose bands.
 - Park SY et al. **"The effects of alcohol on quality of sleep."** *Korean Journal
   of Family Medicine* 2015;36(6):294–299. Review with focus on architecture changes.
 
