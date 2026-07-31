@@ -46,7 +46,8 @@ and no network call.
 ``MULTI_USER.md`` §11 lists rate limiting as unbuilt, and this endpoint is what makes it
 necessary: generation is the first LLM surface a client can ask for on demand (everything
 else is nightly-deduped or cached per day), so without a bound an owner holding the button
-down spends our margin. ``PRICING.md`` §6.3 calls free-tier cost control existential.
+down spends our margin. ``PRICING.md`` §6.1 calls free-tier cost control existential and
+§6.3 makes it a hard rule.
 
 :data:`GENERATIONS_PER_DAY` is 3, per owner, per THEIR local day, shared by both endpoints.
 The number is a cost decision, against ``PRICING.md`` §3.1's model (Gemini 3 Flash,
@@ -60,11 +61,20 @@ $0.50/M in · $3.00/M out):
 * at the cap, that is **~2.2 ¢/owner/day ≈ $0.67/owner/month** typically and **~9.3 ¢/day
   ≈ $2.79/month** in the pathological case where every run loses both gates twice.
 
-Against §3.1's ~$1.14–1.77/user/month all-in and §4's $3.99 price, the typical figure fits
-inside the stated "$1–2 planning number" and the worst case is bounded and visible rather
-than unbounded. Three is also generous against what the product actually earns: a
-suggestion is calibrated from ``series.recent_window``, which reads whole local days, so a
-second refresh inside one day asks a differently-worded question about identical inputs.
+Weigh that against the number that actually decides it — **§6.1's profit per premium user,
+$1.42/month planning and $2.12 optimized.** An owner who genuinely maxed the cap every
+single day would take ~47 % of the planning-case profit, and the pathological case would
+take all of it. Two things make three the right number anyway, and both are stated rather
+than assumed:
+
+* **Nobody maxes it.** A suggestion is calibrated from ``series.recent_window``, which
+  reads whole LOCAL DAYS, so a second refresh inside one day asks a differently-worded
+  question about identical inputs. Real use is a refresh every few days, which rounds to
+  cents a month; the cap exists for the owner who does not behave like that.
+* **No daily cap makes the pathological case free** — even a limit of ONE costs
+  ~$0.93/month if every run loses both gates twice. What a cap buys is a bound, and the
+  bound is one line to change. ``PRICING.md`` §6.4's cost levers (prompt caching,
+  Flash-Lite) roughly halve every figure above and are the real answer.
 
 **It is not §12.3's metering.** That gate (``require_ai_access`` — premium OR one coach
 question per rolling seven days) answers *may this person use an AI feature at all*; this

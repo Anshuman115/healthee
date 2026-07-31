@@ -608,8 +608,14 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
     completion is ~10 k in / ~800 out ≈ **0.74 ¢**, one request is 1 completion typically
     and at most 4 (one bounds retry × one validator retry), so the cap is **~2.2 ¢/owner/
     day ≈ $0.67/month** typical and ~9.3 ¢/day ≈ $2.79/month in the pathological case.
-    It is also generous against what the product earns: a band is built from whole local
-    days, so a second refresh the same day is the same question in different words.
+    Weighed against **PRICING §6.1's profit per premium user — $1.42/mo planning,
+    $2.12 optimized** — an owner who genuinely maxed it daily would take ~47 % of the
+    planning-case profit. Three is still right, and the reasoning is stated rather than
+    assumed: a band is built from whole LOCAL days, so a second refresh the same day is
+    the same question in different words (real use rounds to cents a month), and **no
+    daily cap makes the pathological case free** — even a limit of ONE costs ~$0.93/mo
+    if every run loses both gates twice. What a cap buys is a bound; PRICING §6.4's cost
+    levers (caching, Flash-Lite) roughly halve every figure and are the real answer.
   - **The refusal is honest and specific**: 429 with `Retry-After`, the resetting instant
     and the count, never a generic error. And a refusal decided BEFORE the model is asked
     (`generate.PRE_LLM_REFUSALS` — the cap, no calibratable metric) is **refunded**, so
