@@ -26,9 +26,10 @@ import pytest
 from tests.challenges import _ladder, _seed
 from tests.challenges._ladder import IST
 
-from healthee.challenges import ladder, lifecycle, rung
+from healthee.challenges import ladder, lifecycle, program_store, rung
 from healthee.core.db import tenant_transaction
 from healthee.db import migrate
+from healthee.jobs import chain
 
 pytestmark = pytest.mark.integration
 
@@ -190,3 +191,48 @@ def test_advancement_waits_when_the_owner_runs_the_same_behaviour_separately(
         program = _ladder.program_row(cur, program_id)
     assert events[0]["reason"] == rung.DUPLICATE_COMMITMENT
     assert "steps_total" in program["hold_reason"]
+
+
+# ── the wiring: advancement actually runs, once per owner per their local day ──
+
+
+def test_the_nightly_chain_step_closes_a_rung_and_advances_the_ladder(clean_db: None) -> None:  # noqa: ARG001
+    """``jobs.chain.step_challenges`` is the ONE thing that moves a ladder in production.
+
+    Everything else in these suites calls ``lifecycle.finalize_due`` and
+    ``ladder.advance_due`` directly, which proves the rules and proves nothing about the
+    wiring — remove the ``advance_due`` line from the chain step and every other test
+    here still passes while no owner's program ever advances again. So this one goes
+    through the step itself.
+
+    It also pins the pairing: closing a rung and answering what its status means are ONE
+    fact about one night, and they share the step's transaction so a rung cannot be
+    recorded ``expired`` while the ladder's answer to that failure rolls back.
+    """
+    with tenant_transaction(_seed.OWNER) as cur:
+        _ladder.seed_steps(cur, 5000.0, 7, ending=_STARTED + timedelta(days=6))
+        program_id = _ladder.seed_program(cur)
+        rung_id = _ladder.seed_rung(cur, program_id, 0, 6000.0)
+        _ladder.seed_rung(cur, program_id, 1, 7000.0)
+        cur.execute(
+            "UPDATE program SET status = 'active' WHERE user_id = %s AND id = %s",
+            (_seed.OWNER, program_id),
+        )
+        cur.execute(
+            "UPDATE challenge SET status = 'active', adopted_at = %s, baseline_value = 5000 "
+            "WHERE user_id = %s AND id = %s",
+            (_ladder.adopted_at(_STARTED), _seed.OWNER, rung_id),
+        )
+    result = chain.step_challenges(_AFTER, _seed.OWNER, IST)
+    with tenant_transaction(_seed.OWNER) as cur:
+        rungs = program_store.rungs(cur, _seed.OWNER, program_id)
+    assert result["closed"] == [{"challenge_id": rung_id, "status": "expired"}]
+    assert [event["event"] for event in result["advanced"]] == [
+        ladder.RUNG_DELOADED,
+        ladder.RUNG_ACTIVATED,
+    ]
+    assert [(r["kind"], r["status"]) for r in rungs] == [
+        ("standard", "expired"),
+        ("deload", "active"),
+        ("standard", "locked"),
+    ]
