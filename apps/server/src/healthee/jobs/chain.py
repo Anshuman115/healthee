@@ -11,6 +11,11 @@ Here the steps run IN ORDER as in-process function calls, each wrapped by
 passed (standards §1: "Background/silent contexts … must report failures to their
 health surface"). The chain then applies dependency logic:
 
+  * ``challenges`` runs FIRST and depends on nothing — closing out a commitment that
+    ended last night is not downstream of any computation, and an owner whose
+    findings failed still deserves an honest outcome for it (WP-C2; the choice to
+    finalize here rather than inside a list read is argued in
+    ``challenges/lifecycle.py``);
   * a ``correlate`` failure ABORTS ``recs`` AND ``warm`` (both read the findings
     correlate writes, via the choke point's context) — they are marked skipped, not
     run on stale inputs;
@@ -38,6 +43,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
+from healthee.challenges import lifecycle
 from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
@@ -77,6 +83,26 @@ class ChainResult:
 
 
 # ── the steps (thin adapters onto the step modules) ───────────────────────────
+
+
+def step_challenges(
+    day: date,
+    user_id: UUID,
+    tz: str,
+    *,
+    client: LLMClient | None = None,  # noqa: ARG001
+) -> dict:
+    """Close out one owner's challenges that have ended (no LLM).
+
+    This is where auto-completion lives, rather than inside the challenges list read
+    the way legacy did it (``challenges/lifecycle.py`` argues the choice). It runs
+    FIRST and independently of everything else: closing a finished commitment is not
+    downstream of correlate, and an owner whose chain failed on findings should still
+    get an honest outcome for the challenge that ended last night.
+    """
+    with tenant_transaction(user_id) as cur:
+        closed = lifecycle.finalize_due(cur, user_id, tz, day)
+    return {"closed": closed}
 
 
 def step_correlate(
@@ -149,7 +175,7 @@ def run_chain(
     client: LLMClient | None = None,
     force: bool = False,
 ) -> ChainResult:
-    """Run ONE owner's correlate → recs → warm → briefing in order, supervised, deduped.
+    """Run ONE owner's challenges → correlate → recs → warm → briefing, supervised, deduped.
 
     Dependency: a ``correlate`` failure skips ``recs`` and ``warm`` (both consume the
     findings it writes). A ``briefing`` failure never undoes persisted recs, and a
@@ -164,6 +190,11 @@ def run_chain(
         return ChainResult(day=day, deduped=True)
 
     steps: list[StepOutcome] = []
+    # Before anything is computed: close out what has already ended. Nothing below
+    # depends on it, and it must not be skipped when something below fails.
+    steps.append(
+        _run_supervised("challenges", lambda: step_challenges(day, user_id, tz, client=client))
+    )
     correlate = _run_supervised(
         "correlate", lambda: step_correlate(day, user_id, tz, client=client)
     )

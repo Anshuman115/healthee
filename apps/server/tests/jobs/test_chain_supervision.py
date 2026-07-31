@@ -4,6 +4,8 @@ Pure control-flow (no DB, no LLM): the step functions and the kv dedup
 marker are stubbed, so these prove the supervision contract exactly —
   * a step that RAISES is caught, reported to Telegram, and returned as `failed`
     (NOT silently passed, NOT crashing the process — the legacy swallow is dead);
+  * `challenges` runs FIRST and depends on nothing — a correlate failure must not
+    reach back and skip closing out a commitment that already ended;
   * a `correlate` failure ABORTS `recs` AND `warm` (both read its findings);
   * a `briefing` failure does not undo the recs that already ran;
   * a `warm` failure is non-fatal — it costs the coaching lines, not the briefing;
@@ -44,11 +46,12 @@ def notices(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
 def _stub_steps(monkeypatch: pytest.MonkeyPatch, **raisers: bool) -> dict[str, int]:
     """Stub every step; names in ``raisers`` raise. Returns a call counter.
 
-    ALL of them are stubbed, including ``warm``: an unstubbed step would reach the real
-    coaching module (DB + the choke point), so these control-flow tests would silently
-    stop being control-flow tests.
+    ALL of them are stubbed, including ``warm`` and ``challenges``: an unstubbed step
+    would reach the real coaching module (DB + the choke point) or the real lifecycle
+    (DB writes), so these control-flow tests would silently stop being control-flow
+    tests. A step added to the chain and NOT added here is the exact way that decays.
     """
-    calls = {"correlate": 0, "recs": 0, "warm": 0, "briefing": 0}
+    calls = {"challenges": 0, "correlate": 0, "recs": 0, "warm": 0, "briefing": 0}
 
     def make(name: str):
         def step(_day: date, _user_id: UUID, _tz: str, *, client=None) -> dict:  # noqa: ARG001
@@ -76,7 +79,45 @@ def test_a_raising_step_is_caught_reported_and_not_swallowed(
     # Reported to the health surface — the failure is visible, not hidden.
     assert any("chain step 'recs' failed" in n and "recs boom" in n for n in notices)
     # The other steps still ran; the process was not crashed.
-    assert calls == {"correlate": 1, "recs": 1, "warm": 1, "briefing": 1}
+    assert calls == {"challenges": 1, "correlate": 1, "recs": 1, "warm": 1, "briefing": 1}
+
+
+def test_challenges_runs_first_and_depends_on_nothing(
+    monkeypatch: pytest.MonkeyPatch, notices: list[str]
+) -> None:
+    """Closing out a finished commitment is not downstream of any computation.
+
+    Both halves are the point. It runs FIRST, so an owner's ended challenge is frozen
+    before anything that might read it. And a correlate failure — which legitimately
+    aborts recs and warm — must not reach back and skip it: an owner whose findings
+    broke still deserves an honest outcome for the challenge that ended last night.
+    """
+    calls = _stub_steps(monkeypatch, correlate=True)
+    result = chain.run_chain(_OWNER, _TZ, DAY)
+
+    assert [s.name for s in result.steps][0] == "challenges"
+    assert {s.name: s.status for s in result.steps}["challenges"] == "ok"
+    assert calls["challenges"] == 1
+    assert not any("challenges" in n for n in notices), "it ran clean; nothing to report"
+
+
+def test_a_challenges_failure_is_reported_and_the_chain_continues(
+    monkeypatch: pytest.MonkeyPatch, notices: list[str]
+) -> None:
+    """Nothing below it reads its result, so it must not abort — but must be visible.
+
+    "Non-fatal" decaying into "swallowed" is the legacy failure this whole module
+    exists to prevent: a challenge that silently stops closing out would show the
+    owner a commitment that ended weeks ago, with nobody told.
+    """
+    calls = _stub_steps(monkeypatch, challenges=True)
+    result = chain.run_chain(_OWNER, _TZ, DAY)  # must not raise
+
+    statuses = {s.name: s.status for s in result.steps}
+    assert statuses["challenges"] == "failed"
+    assert (statuses["correlate"], statuses["recs"], statuses["briefing"]) == ("ok", "ok", "ok")
+    assert calls["correlate"] == 1
+    assert any("chain step 'challenges' failed" in n and "challenges boom" in n for n in notices)
 
 
 def test_correlate_failure_aborts_recs(monkeypatch: pytest.MonkeyPatch, notices: list[str]) -> None:
@@ -133,13 +174,19 @@ def test_second_run_same_day_is_a_deduped_no_op(
     calls = _stub_steps(monkeypatch)
     first = chain.run_chain(_OWNER, _TZ, DAY)
     assert first.deduped is False
-    assert calls == {"correlate": 1, "recs": 1, "warm": 1, "briefing": 1}
+    assert calls == {"challenges": 1, "correlate": 1, "recs": 1, "warm": 1, "briefing": 1}
 
     second = chain.run_chain(_OWNER, _TZ, DAY)  # already ran today
     assert second.deduped is True
     assert second.steps == []
-    assert calls == {"correlate": 1, "recs": 1, "warm": 1, "briefing": 1}  # nothing re-fired
+    assert calls == {
+        "challenges": 1,
+        "correlate": 1,
+        "recs": 1,
+        "warm": 1,
+        "briefing": 1,
+    }  # nothing re-fired
 
     forced = chain.run_chain(_OWNER, _TZ, DAY, force=True)  # force overrides dedup
     assert forced.deduped is False
-    assert calls == {"correlate": 2, "recs": 2, "warm": 2, "briefing": 2}
+    assert calls == {"challenges": 2, "correlate": 2, "recs": 2, "warm": 2, "briefing": 2}

@@ -1,0 +1,211 @@
+"""The challenge state machine: ``suggested → active → completed | expired | abandoned``.
+
+WP-C2 (CHALLENGES.md §4). WP-C1 made a challenge *scoreable*; this makes it a thing
+an owner can take on, be measured against, and have honestly closed out.
+
+## Three decisions worth reading before changing anything here
+
+**1. The cap is per OWNER.** Legacy's `_MAX_ACTIVE = 3` was global because legacy
+had one user; here it counts the caller's own active rows and nobody else's
+(MULTI_USER.md §2). A cap that leaked across tenants would let one owner's
+enthusiasm lock every other owner out of adopting anything.
+
+**2. A challenge ends early only on an IRREVOCABLE outcome; otherwise it ends when
+its window does.** A `>=` total, once reached, cannot be un-reached, so it closes
+the moment it is met. A cap, once blown, cannot be un-blown, so it closes then too.
+But a cap that is merely *un-blown so far* proves nothing until the period is over
+— the owner still has the rest of the day — so it waits for the window. This is the
+one place that distinction matters: ``evaluate``'s ``complete`` answers "is the rule
+satisfied right now", which is the right thing for a progress card and the wrong
+thing to freeze a ledger on.
+
+**3. A window that ran out UNMET is `expired`, never `completed`.** Legacy marked a
+timed-out program rung "completed" (CHALLENGES.md §2.3). A system that records
+failures as successes cannot learn from either.
+
+## Auto-completion runs on WRITE paths, never on a read — deliberately
+
+Legacy auto-completed lazily inside its list read (`challenges.py:635`). That works,
+and it is the reason we do not do it:
+
+* a GET that writes is not idempotent and not cacheable, it takes the read path's
+  budget (standards: p95 < 100 ms) into an UPDATE, and two concurrent list requests
+  race to close the same challenge;
+* a challenge only closes if somebody *looks*. The owner who stops opening the app —
+  precisely the one whose challenge is quietly expiring — never gets an outcome,
+  so the ledger silently under-records exactly the cases it most needs.
+
+So finalization runs in two places, both of which are already writes:
+
+* :func:`finalize_due` as a step in the nightly chain (``jobs/chain.py``), once per
+  owner per THEIR local day, so it happens whether or not anyone looked; and
+* at the start of :func:`adopt`, because the ``MAX_ACTIVE`` cap is computed from the
+  active count — a challenge that finished but has not been closed yet would block
+  the owner from starting a new one, with no way for them to fix it.
+
+Reads (:func:`list_challenges`) stay pure.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime, time, timedelta
+from typing import Any
+from uuid import UUID
+from zoneinfo import ZoneInfo
+
+from healthee.challenges import store
+from healthee.challenges.adapt import suggest_adaptation
+from healthee.challenges.evaluate import evaluate_challenge, start_date
+from healthee.challenges.series import recent_value
+from healthee.core.logging import get_logger
+from healthee.core.tenancy import user_today
+from healthee.derive._common import Cur
+
+log = get_logger(__name__)
+
+# How many challenges one OWNER may have running at once. Verbatim from legacy
+# (`_MAX_ACTIVE`), per-owner rather than global (see the module docstring). Three is
+# the number legacy chose to stop the feed becoming a to-do list nobody can hold.
+MAX_ACTIVE = 3
+
+# How many finished challenges a list read carries back. Every list is windowed
+# (standards §Performance); the ledger endpoint is where history is paged.
+_RECENT_FINISHED = 10
+
+_FINISHED = ("completed", "expired", "abandoned")
+
+
+def adopt(cur: Cur, user_id: UUID, tz: str, challenge_id: int, today: date | None = None) -> dict:
+    """Take on a suggested challenge: freeze its baseline and start its window.
+
+    The baseline is captured HERE, from the owner's own trailing data strictly
+    before today (``recent_value``), and never again. It is the anchor the entire
+    before/after rests on, so a re-adopt or a concurrent request must not be able
+    to move it — :func:`store.mark_adopted` makes that structural.
+
+    Returns ``{"ok": True, "challenge": …}``, or ``{"ok": False, "error": …,
+    "reason": …}`` for a rule outcome. A rule outcome is a legitimate answer and
+    says which rule; a genuine failure propagates (standards §Errors).
+    """
+    today = today or user_today(tz)
+    finalize_due(cur, user_id, tz, today)  # so a stale active row cannot block the cap
+    challenge = store.fetch(cur, user_id, challenge_id)
+    if challenge is None:
+        return _refused("not_found", "no such challenge")
+    if challenge["status"] != "suggested":
+        return _refused("not_suggested", f"challenge is {challenge['status']}, not suggested")
+    active = store.count_active(cur, user_id)
+    if active >= MAX_ACTIVE:
+        return _refused("too_many_active", f"already running {active} of {MAX_ACTIVE} challenges")
+    adopted_at = datetime.now(tz=UTC)
+    baseline = recent_value(cur, user_id, tz, challenge["metric"], challenge["cadence"], today)
+    start = start_date(adopted_at, tz, today)
+    ends_at = window_end(start, tz, int(challenge["window_days"]))
+    if not store.mark_adopted(cur, user_id, challenge_id, adopted_at, ends_at, baseline):
+        return _refused("not_suggested", "challenge was adopted by another request")
+    log.info("challenge %s adopted by %s (baseline=%s)", challenge_id, user_id, baseline)
+    return {"ok": True, "challenge": store.fetch(cur, user_id, challenge_id)}
+
+
+def abandon(cur: Cur, user_id: UUID, challenge_id: int) -> dict:
+    """Stop an active challenge at the owner's request. Its outcome is still frozen."""
+    challenge = store.fetch(cur, user_id, challenge_id)
+    if challenge is None:
+        return _refused("not_found", "no such challenge")
+    if not store.mark_abandoned(cur, user_id, challenge_id, datetime.now(tz=UTC)):
+        return _refused("not_active", f"challenge is {challenge['status']}, not active")
+    log.info("challenge %s abandoned by %s", challenge_id, user_id)
+    return {"ok": True, "challenge": store.fetch(cur, user_id, challenge_id)}
+
+
+def finalize_due(cur: Cur, user_id: UUID, tz: str, today: date | None = None) -> list[dict]:
+    """Close every one of ``user_id``'s active challenges that has ended.
+
+    Returns one ``{"challenge_id", "status"}`` per challenge closed (empty is the
+    normal answer). Bounded work by construction: at most :data:`MAX_ACTIVE` rows,
+    each costing the same reads a progress card already does.
+    """
+    today = today or user_today(tz)
+    closed: list[dict] = []
+    at = datetime.now(tz=UTC)
+    for challenge in store.list_by_status(cur, user_id, ("active",), limit=MAX_ACTIVE):
+        progress = evaluate_challenge(cur, user_id, tz, challenge, today=today)
+        status = terminal_status(challenge, progress)
+        if status is None:
+            continue
+        if store.mark_finished(cur, user_id, int(challenge["id"]), status, at):
+            closed.append({"challenge_id": int(challenge["id"]), "status": status})
+            log.info("challenge %s closed as %s for %s", challenge["id"], status, user_id)
+    return closed
+
+
+def terminal_status(challenge: dict[str, Any], progress: dict) -> str | None:
+    """``completed`` / ``expired`` / ``None`` (still running) for a live challenge.
+
+    ``None`` is the answer whenever the rule could still go either way. Freezing a
+    ledger entry on a verdict that today could still overturn is how a system
+    starts recording things that did not happen.
+    """
+    if progress["elapsed"] > int(challenge["window_days"]):
+        return "completed" if progress["complete"] else "expired"
+    # Still inside the window: only an outcome that cannot be reversed ends it now.
+    if challenge["comparator"] == ">=" and progress["complete"]:
+        return "completed"  # a total, once reached, cannot be un-reached
+    if progress.get("breached"):
+        return "expired"  # a cap, once blown, cannot be un-blown
+    return None
+
+
+def window_end(start: date, tz: str, window_days: int) -> datetime:
+    """The instant a challenge's window closes — the END of its last local day.
+
+    Derived from the same two inputs ``evaluate`` counts from (the start day in the
+    OWNER's zone, via ``start_date``, and ``window_days``), so the stored timestamp
+    and the ``elapsed > window`` rule can never disagree about when it is over. ONE
+    definition (CLAUDE.md), expressed twice for two audiences — a timestamp for the
+    client, day arithmetic for the engine.
+
+    Midnight OPENING the day after the last one, in the owner's zone: a window of 7
+    days adopted on the 1st runs through the end of the 7th, so it closes at 00:00
+    on the 8th, local. Building it from a UTC instant instead would end an owner's
+    window in the middle of their afternoon.
+    """
+    day_after_last = start + timedelta(days=max(1, window_days))
+    return datetime.combine(day_after_last, time.min, tzinfo=ZoneInfo(tz))
+
+
+def list_challenges(cur: Cur, user_id: UUID, tz: str, today: date | None = None) -> dict:
+    """The owner's feed: suggestions, live progress, and what recently ended.
+
+    A PURE READ — it never closes a challenge (module docstring). A challenge whose
+    window has run out therefore still appears as active here until the nightly step
+    or the next adopt closes it, carrying ``days_left: 0``; that is a true statement
+    about a row that has not been frozen yet, whereas writing from a GET is not.
+    """
+    today = today or user_today(tz)
+    active = [
+        challenge | {"progress": _progress_of(cur, user_id, tz, challenge, today)}
+        for challenge in store.list_by_status(cur, user_id, ("active",), limit=MAX_ACTIVE)
+    ]
+    return {
+        "active": active,
+        "suggested": store.list_by_status(cur, user_id, ("suggested",)),
+        "recent": store.list_by_status(cur, user_id, _FINISHED, limit=_RECENT_FINISHED),
+        "max_active": MAX_ACTIVE,
+    }
+
+
+def _progress_of(cur: Cur, user_id: UUID, tz: str, challenge: dict, today: date) -> dict:
+    """Live progress plus any pending recalibration, for one active challenge.
+
+    The adaptation is SUGGESTED, never applied: §5.2 keeps a raise behind the
+    owner's one tap, because a commitment they agreed to should not move under them.
+    """
+    progress = evaluate_challenge(cur, user_id, tz, challenge, today=today)
+    adaptation = suggest_adaptation(cur, user_id, tz, challenge, progress, today=today)
+    return progress | {"adaptation": adaptation}
+
+
+def _refused(reason: str, message: str) -> dict:
+    """A rule outcome — explicit and named, never an empty success (standards §Errors)."""
+    return {"ok": False, "reason": reason, "error": message}

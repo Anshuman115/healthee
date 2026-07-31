@@ -108,7 +108,9 @@ def test_an_unknown_data_confidence_is_rejected(db: None) -> None:  # noqa: ARG0
             "VALUES (%s, 't', 'w', 'sleep', 'steps_total', '>=', 1, 'daily', 7) RETURNING id",
             (SENTINEL_USER_ID,),
         )
-        challenge_id = cur.fetchone()[0]
+        row = cur.fetchone()
+        assert row is not None
+        challenge_id = row[0]
         cur.execute(
             "INSERT INTO challenge_outcome (user_id, challenge_id, data_confidence) "
             "VALUES (%s, %s, 'insufficient_data')",
@@ -161,7 +163,9 @@ def test_the_app_role_can_write_the_new_columns(db: None) -> None:  # noqa: ARG0
             "VALUES (%s, 't', 'w', 'sleep', 'steps_total', '>=', 1, 'daily', 7) RETURNING id",
             (SENTINEL_USER_ID,),
         )
-        challenge_id = cur.fetchone()[0]
+        row = cur.fetchone()
+        assert row is not None
+        challenge_id = row[0]
         cur.execute(
             "INSERT INTO challenge_outcome "
             "  (user_id, challenge_id, improvement_pct, confounds, co_occurring, data_confidence) "

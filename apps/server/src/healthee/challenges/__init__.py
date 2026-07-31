@@ -12,12 +12,18 @@ track is that the numbers are deterministic and only the prose is generated
 (CHALLENGES.md §0), so nothing in this package may ever ask a model for a value.
 Lifecycle and endpoints are WP-C2; generation is WP-C3.
 
+WP-C2 adds the persistence half on top of that substrate — the state machine and
+the frozen outcome ledger. It still holds the design law: the lifecycle decides
+*when* using the engine's numbers and never asks a model for one.
+
 Modules
 -------
-``metrics``   the registry — which metrics are trackable and where each lives
-``series``    daily series, the owner's baseline, and protected (rough-night) days
-``evaluate``  live progress for an adopted challenge
-``adapt``     the deterministic difficulty adapter
+``metrics``    the registry — which metrics are trackable and where each lives
+``series``     daily series, the owner's baseline, and protected (rough-night) days
+``evaluate``   live progress for an adopted challenge
+``adapt``      the deterministic difficulty adapter
+``store``      the only place challenge SQL lives (owner-scoped rows)
+``lifecycle``  suggested → active → completed | expired | abandoned
 
 Dependencies run downward only (standards §"one responsibility"): ``core``,
 ``derive`` and ``analytics``. Nothing here imports ``read``, ``api`` or
@@ -28,13 +34,25 @@ from __future__ import annotations
 
 from healthee.challenges.adapt import suggest_adaptation
 from healthee.challenges.evaluate import evaluate_challenge
+from healthee.challenges.lifecycle import (
+    MAX_ACTIVE,
+    abandon,
+    adopt,
+    finalize_due,
+    list_challenges,
+)
 from healthee.challenges.metrics import CHALLENGE_METRICS, ChallengeMetric, round_target, spec
 from healthee.challenges.series import metric_series, protected_days, recent_value
 
 __all__ = [
     "CHALLENGE_METRICS",
+    "MAX_ACTIVE",
     "ChallengeMetric",
+    "abandon",
+    "adopt",
     "evaluate_challenge",
+    "finalize_due",
+    "list_challenges",
     "metric_series",
     "protected_days",
     "recent_value",

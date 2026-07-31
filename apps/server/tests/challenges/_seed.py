@@ -19,7 +19,8 @@ from collections.abc import Sequence
 from datetime import date, datetime
 from uuid import UUID
 
-from healthee.core.db import admin_connection
+from healthee.challenges import store
+from healthee.core.db import admin_connection, transaction
 from healthee.core.tenancy import SENTINEL_USER_ID
 
 # Owner A is the sentinel (seeded by migration 0003); owner B is a second real
@@ -33,9 +34,15 @@ SLEEP_ROW_METRIC = "sleep_health_score_4dim"
 
 _TABLES = ("derived_daily", "workout", "manual_entry")
 
+# `challenge` is truncated separately with CASCADE: `challenge_outcome` references
+# it, and TRUNCATE refuses a referenced table without CASCADE. Taking the ledger
+# with it is exactly right for a reset — an outcome without its challenge is orphan
+# history nothing can explain.
+_CASCADING_TABLES = ("challenge",)
+
 
 def reset() -> None:
-    """Empty the tables the engine reads, across every owner.
+    """Empty the tables the engine reads and writes, across every owner.
 
     ``TRUNCATE`` on the ADMIN connection: it is deliberately not granted to the app
     role, and a reset must clear EVERY owner's rows — which an RLS-scoped
@@ -44,6 +51,81 @@ def reset() -> None:
     with admin_connection() as conn, conn.cursor() as cur:
         for table in _TABLES:
             cur.execute(f"TRUNCATE {table}")  # noqa: S608 — module constant, never input
+        for table in _CASCADING_TABLES:
+            cur.execute(f"TRUNCATE {table} CASCADE")  # noqa: S608 — module constant
+
+
+def ensure_owner_b() -> None:
+    """Create the second tenant, so isolation can be PROVED rather than assumed.
+
+    `app_user` carries no RLS policy by design (MULTI_USER.md §3.3) — the app must
+    resolve who you are before it has an owner to scope to — so this runs on the
+    ordinary pool rather than the admin.
+    """
+    with transaction() as cur:
+        cur.execute(
+            "INSERT INTO app_user (id, email, timezone) VALUES (%s, %s, %s) "
+            "ON CONFLICT (id) DO NOTHING",
+            (OTHER_OWNER, "challenges-owner-b@example.test", "Asia/Kolkata"),
+        )
+
+
+def remove_owner_b() -> None:
+    """Delete owner B; the FK cascade takes every row they own with them."""
+    with admin_connection() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM app_user WHERE id = %s", (OTHER_OWNER,))
+
+
+def seed_challenge(cur, user_id: UUID, **overrides) -> int:
+    """One ``suggested`` challenge owned by ``user_id``; returns its id.
+
+    Defaults to the shape the rest of the suite uses (7-day daily step target) so a
+    test only states the field it is actually about.
+    """
+    row = {
+        "title": "Walk more",
+        "why": "because",
+        "category": "activity",
+        "metric": "steps_total",
+        "comparator": ">=",
+        "target_value": 8000.0,
+        "cadence": "daily",
+        "window_days": 7,
+        "status": "suggested",
+    } | overrides
+    cur.execute(
+        "INSERT INTO challenge (user_id, title, why, category, metric, comparator, "
+        "  target_value, cadence, window_days, status, adopted_at, baseline_value) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        (
+            user_id,
+            row["title"],
+            row["why"],
+            row["category"],
+            row["metric"],
+            row["comparator"],
+            row["target_value"],
+            row["cadence"],
+            row["window_days"],
+            row["status"],
+            row.get("adopted_at"),
+            row.get("baseline_value"),
+        ),
+    )
+    row = cur.fetchone()
+    assert row is not None, "INSERT ... RETURNING id gave no row"
+    return int(row[0])
+
+
+def stored(cur, user_id: UUID, challenge_id: int) -> dict:
+    """``store.fetch`` for an id the test KNOWS exists — asserts rather than returns None.
+
+    A missing row here is a broken test setup, and it must say so instead of failing
+    later on an attribute of ``None``.
+    """
+    challenge = store.fetch(cur, user_id, challenge_id)
+    assert challenge is not None, f"challenge {challenge_id} is not visible to {user_id}"
+    return challenge
 
 
 def seed_metric(cur, user_id: UUID, metric: str, values: dict[date, float]) -> None:
