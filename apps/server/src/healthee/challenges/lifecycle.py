@@ -56,6 +56,7 @@ from zoneinfo import ZoneInfo
 from healthee.challenges import ledger, store
 from healthee.challenges.adapt import suggest_adaptation
 from healthee.challenges.evaluate import evaluate_challenge, start_date
+from healthee.challenges.metrics import allows_cadence
 from healthee.challenges.series import recent_value
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
@@ -81,7 +82,10 @@ def adopt(cur: Cur, user_id: UUID, tz: str, challenge_id: int, today: date | Non
     The baseline is captured HERE, from the owner's own trailing data strictly
     before today (``recent_value``), and never again. It is the anchor the entire
     before/after rests on, so a re-adopt or a concurrent request must not be able
-    to move it — :func:`store.mark_adopted` makes that structural.
+    to move it — :func:`store.mark_adopted` makes that structural. The challenge's
+    ``window_days`` goes into that read because a ``total`` baseline spans the whole
+    window (``series.baseline_span``, #65): the frozen number has to be in the same
+    unit as the target it will be judged against.
 
     Returns ``{"ok": True, "challenge": …}``, or ``{"ok": False, "error": …,
     "reason": …}`` for a rule outcome. A rule outcome is a legitimate answer and
@@ -94,13 +98,24 @@ def adopt(cur: Cur, user_id: UUID, tz: str, challenge_id: int, today: date | Non
         return _refused("not_found", "no such challenge")
     if challenge["status"] != "suggested":
         return _refused("not_suggested", f"challenge is {challenge['status']}, not suggested")
+    if not allows_cadence(challenge["metric"], challenge["cadence"]):
+        # #67 — the door this reaches through. A stored row is not proof the pair is
+        # expressible, so it is refused as a rule outcome here rather than left to
+        # raise out of `evaluate` on the next feed read.
+        return _refused(
+            "not_expressible",
+            f"{challenge['metric']} cannot be a {challenge['cadence']} challenge",
+        )
     active = store.count_active(cur, user_id)
     if active >= MAX_ACTIVE:
         return _refused("too_many_active", f"already running {active} of {MAX_ACTIVE} challenges")
     adopted_at = datetime.now(tz=UTC)
-    baseline = recent_value(cur, user_id, tz, challenge["metric"], challenge["cadence"], today)
+    window_days = int(challenge["window_days"])
+    baseline = recent_value(
+        cur, user_id, tz, challenge["metric"], challenge["cadence"], today, window_days
+    )
     start = start_date(adopted_at, tz, today)
-    ends_at = window_end(start, tz, int(challenge["window_days"]))
+    ends_at = window_end(start, tz, window_days)
     if not store.mark_adopted(cur, user_id, challenge_id, adopted_at, ends_at, baseline):
         return _refused("not_suggested", "challenge was adopted by another request")
     log.info("challenge %s adopted by %s (baseline=%s)", challenge_id, user_id, baseline)

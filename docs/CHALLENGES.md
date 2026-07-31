@@ -485,12 +485,14 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
   **Three refusals worth knowing:** a metric with fewer than
   `series.MIN_COMPARISON_DAYS` measured days, or a baseline of zero (an owner who never
   logs a substance reads as zero over seven zero-filled days), has no band and is offered
-  to the model as unavailable; and `cadence:"total"` is **not generatable at all**,
-  because `series.recent_value` builds a `total` baseline from the trailing SEVEN days
-  while `evaluate` scores a `total` over the whole window — for any `window_days != 7`
-  those are different units (a WP-C1 inconsistency inherited from legacy `_recent_value`,
-  which also skews `adapt`'s ease floor and the ledger's `improvement_pct` for any
-  `total` challenge adopted through the API today).
+  to the model as unavailable; and `cadence:"total"` is **not generatable**.
+  ~~Because the baseline was a trailing seven days while `evaluate` scored the whole
+  window~~ — **that was #65 and it is fixed** (`series.baseline_span`; see the tracker
+  entry below). What blocks `total` now is a generation-layer shape, not a wrong number:
+  a `total` band depends on `window_days`, which is the *model's* choice, made after
+  `gen_context.owner_calibrations` has already built one band per `(metric, cadence)`.
+  Relaxing it means teaching the calibration key about the window end to end — prompt,
+  screen and retry — which is a WP-C3b/C4 change with its own tests.
 - ✅ **WP-C3c** biggest-lever targeting + meaningful-step calibration
   (`challenges/{targets,levers,lever_findings}.py`). **§5.1a** is now the one
   calibration rule and §1 defers to it, so the doc no longer contradicts itself; the
@@ -501,14 +503,26 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
   under-recovered — are enforced in `screen`, not just asked for in the prompt.
   Every constant is marked **provisional**, cited, and in one file with the ledger
   query that would tune it.
-  **Two things it deliberately did NOT do, both worth knowing:**
+  **One thing it deliberately did NOT do:**
   `metrics.IDEAL["sri"]` is **85** while the note's own constant (and the evidence
   target here) is **70** — the 85 could not be sourced to `[sleep_regularity_index]`,
   but it is `adapt`'s ceiling and moving it is a behaviour change in the adapter that
-  needs its own PR with known-value tests. And `(sri, weekly)` is still a generatable
-  pair even though a weekly SRI is seven 0–100 scores added together (~490) — a
-  pre-existing WP-C3 hole that no lever reads (the ranking uses the level), so it is
-  reported rather than fixed here.
+  needs its own PR with known-value tests. *(It also reported `(sri, weekly)` as a
+  generatable pair; that is #67, closed below.)*
+- ✅ **the two adapter guards** — the auto-calibration engine's two live defects, fixed
+  together because both are guards the adapter did not have:
+  - **recovery-awareness (§5.2).** A raise on a hard training lever is withheld while
+    the owner is under-recovered, reusing §5.1b's rule rather than forking it
+    (`challenges/recovery_guard.py` — one definition, read by `levers` and `adapt`).
+  - **#65, the `total` unit mismatch.** `series.baseline_span` makes a `total` baseline
+    span the challenge's `window_days` instead of a hardcoded seven, so the frozen
+    `baseline_value`, the ledger's `improvement_pct`, `confounds`' per-day scaling and
+    `adapt`'s ease floor are all in the target's unit. It is REQUIRED for `total` and
+    raises when absent — a default is what made a missing input a wrong number.
+    **#67 went with it, as a class fix rather than an instance:** `ChallengeMetric`
+    now declares which `cadences` it can take (no default, so a new metric must
+    decide), and `(sri, weekly)` — seven 0–100 scores summed into ~490 — is refused by
+    Gate A, by `adopt`, and by `evaluate`, i.e. unrepresentable rather than unreached.
 - ⬜ **WP-C3b** the refresh wiring: `POST /api/challenges/generate` (+ its latency budget
   and rate limit) and the empty-feed trigger. Split out deliberately — the pipeline is
   complete and tested headless; the HTTP surface is a separate concern that also carries

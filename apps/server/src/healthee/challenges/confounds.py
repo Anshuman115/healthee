@@ -31,7 +31,7 @@ from uuid import UUID
 
 from healthee.analytics.anomalies import Z_THRESHOLD
 from healthee.analytics.baselines import Baseline
-from healthee.challenges.series import BASELINE_DAYS, metric_series
+from healthee.challenges.series import baseline_span, metric_series
 from healthee.derive._common import Cur
 from healthee.derive.robust import median, median_abs_deviation
 
@@ -128,12 +128,12 @@ def regression_to_mean(cur: Cur, user_id: UUID, tz: str, challenge: dict, start:
             "reason": f"only {len(values)} days of history (need {MIN_LONG_WINDOW_DAYS})",
             "days": len(values),
         }
-    return _judge(challenge["metric"], float(baseline_value), values, challenge["cadence"])
+    return _judge(challenge["metric"], float(baseline_value), values, challenge)
 
 
-def _judge(metric: str, baseline_value: float, values: list[float], cadence: str) -> dict:
+def _judge(metric: str, baseline_value: float, values: list[float], challenge: dict) -> dict:
     """The z of the frozen baseline against the owner's long-run norm, and the verdict."""
-    daily = _per_day(baseline_value, cadence)
+    daily = _per_day(baseline_value, challenge["cadence"], int(challenge["window_days"]))
     long_run = Baseline(
         metric=metric,
         window_days=LONG_WINDOW_DAYS,
@@ -157,12 +157,22 @@ def _judge(metric: str, baseline_value: float, values: list[float], cadence: str
     }
 
 
-def _per_day(baseline_value: float, cadence: str) -> float:
+def _per_day(baseline_value: float, cadence: str, window_days: int) -> float:
     """The baseline expressed per DAY, so it is comparable to a per-day history.
 
-    A ``weekly``/``total`` baseline is a 7-day SUM (``series.recent_window``) while
-    the long-run series is one value per day. Comparing the two unscaled would report
-    every cumulative challenge's baseline as a 7-sigma anomaly — the same
-    units-mismatch the adapter's `_achieved` scaling exists to prevent.
+    A ``weekly``/``total`` baseline is a period SUM (``series.recent_window``) while the
+    long-run series is one value per day. Comparing the two unscaled would report every
+    cumulative challenge's baseline as a multi-sigma anomaly — the same units-mismatch
+    the adapter's ``_achieved`` scaling exists to prevent.
+
+    The divisor is ``series.baseline_span``, not a hardcoded seven, for exactly the
+    reason the baseline itself is no longer a hardcoded seven (#65): a ``total``
+    baseline spans the challenge's whole window, so dividing a 21-day sum by 7 would
+    hand ``z_score`` a figure three times the owner's real daily norm and flag every
+    long cumulative challenge as regression-to-the-mean.
     """
-    return baseline_value / BASELINE_DAYS if cadence in ("weekly", "total") else baseline_value
+    return (
+        baseline_value / baseline_span(cadence, window_days)
+        if cadence in ("weekly", "total")
+        else baseline_value
+    )

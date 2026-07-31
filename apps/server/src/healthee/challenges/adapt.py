@@ -62,7 +62,7 @@ from uuid import UUID
 from healthee.challenges.evaluate import start_date
 from healthee.challenges.metrics import IDEAL, round_target, spec
 from healthee.challenges.recovery_guard import HARD_TRAINING_LEVERS, hold_reason, recovery_state
-from healthee.challenges.series import metric_series
+from healthee.challenges.series import baseline_span, metric_series
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
 
@@ -198,7 +198,10 @@ def _achieved(
     A ``weekly`` target is a 7-day total and a ``total`` target is a whole-window
     total, so the daily mean is scaled to match before it is compared — comparing a
     daily average against a weekly target would read as a 7× failure. Verbatim from
-    legacy (:563–573).
+    legacy (:563–573), except that the span comes from ``series.baseline_span``
+    rather than from two literals here: the ease floor is the owner's baseline, so
+    "how long is this period" has to mean the same thing in the numerator and the
+    denominator of that comparison (#65).
 
     ``None`` when fewer than half the elapsed days (minimum three) carry data:
     adapting a commitment on two logged days would be a confident call on noise.
@@ -211,11 +214,9 @@ def _achieved(
         return None
     mean = sum(values) / len(values)
     cadence = challenge["cadence"]
-    if cadence == "weekly":
-        return mean * 7
-    if cadence == "total":
-        return mean * int(challenge.get("window_days") or 7)
-    return mean
+    if cadence == "daily":
+        return mean
+    return mean * baseline_span(cadence, challenge.get("window_days"))
 
 
 def _adaptation(

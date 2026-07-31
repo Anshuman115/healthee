@@ -29,6 +29,7 @@ from uuid import UUID
 
 from healthee.analytics.series import daily_series, flag_series
 from healthee.challenges.metrics import (
+    WEEKLY_DAYS,
     DerivedSource,
     ManualEntrySource,
     WorkoutCountSource,
@@ -52,7 +53,8 @@ _MIN_NIGHTS_FOR_MEDIAN = 5
 # The metric whose nights define "a rough night" for streak protection.
 _SLEEP_METRIC = "tst_min"
 
-# Trailing days a baseline is computed over. Verbatim from legacy `_recent_value` (:157).
+# Trailing days a DAILY baseline is averaged over. Verbatim from legacy `_recent_value`
+# (:157). It is not the span of every baseline — see :func:`baseline_span`.
 BASELINE_DAYS = 7
 
 # The fewest MEASURED days inside that window for a :func:`recent_window` value to say
@@ -155,6 +157,41 @@ def _manual_sums(
     }
 
 
+def baseline_span(cadence: str, window_days: int | None = None) -> int:
+    """How many trailing days a baseline must cover to be in the CHALLENGE's own units.
+
+    ONE definition of the baseline window, derived from the same two facts ``evaluate``
+    scores by — because the baseline and the target it is compared against are only a
+    comparison at all if they are the same unit:
+
+    * ``daily`` — the target is a per-day LEVEL, so the baseline is the average of
+      :data:`BASELINE_DAYS`. The challenge's window does not enter it.
+    * ``weekly`` — ``evaluate._period_total`` sums a ROLLING seven days, so the baseline
+      is the sum of ``metrics.WEEKLY_DAYS``. It is that seven, not this module's.
+    * ``total`` — ``evaluate`` sums the WHOLE window, so the baseline sums the same
+      number of days.
+
+    **#65, the bug this function is:** ``total`` used to take the trailing seven
+    whatever the window, so for every ``window_days != 7`` the frozen
+    ``challenge.baseline_value``, the ledger's ``improvement_pct`` and the adapter's
+    ease floor were all in a different unit from the target they were compared with —
+    at 21 days the ease floor sat a third of where it belonged, voiding the guarantee
+    that an ease can never hand back a target the owner had already beaten.
+
+    ``window_days`` is therefore REQUIRED for ``total``, and raising is the point: a
+    default is what turned a missing input into a wrong number the first time, and a
+    wrong number on this path is a wrong number on the ledger.
+    """
+    if cadence == "total":
+        if window_days is None:
+            raise ValueError(
+                "a 'total' baseline needs the challenge's window_days: it is scored over "
+                "the whole window, so any fixed span would be a different unit (#65)"
+            )
+        return max(1, int(window_days))
+    return WEEKLY_DAYS if cadence == "weekly" else BASELINE_DAYS
+
+
 def recent_window(
     cur: Cur,
     user_id: UUID,
@@ -162,7 +199,7 @@ def recent_window(
     metric: str,
     cadence: str,
     ref: date,
-    days: int = BASELINE_DAYS,
+    window_days: int | None = None,
 ) -> tuple[float | None, int]:
     """:func:`recent_value` plus HOW MANY days it was built from.
 
@@ -174,7 +211,12 @@ def recent_window(
     ONE implementation of the baseline, with :func:`recent_value` as its thin
     value-only form, so the number the ledger judges and the number the adapter
     floors against can never be computed two different ways.
+
+    ``window_days`` is the CHALLENGE's window and only a ``total`` cadence reads it
+    (:func:`baseline_span`); the other two ignore it, so a caller that has it may
+    always pass it.
     """
+    days = baseline_span(cadence, window_days)
     series = metric_series(cur, user_id, tz, metric, ref - timedelta(days=days), until=ref)
     values = [v for day, v in sorted(series.items()) if day < ref][-days:]
     if not values:
@@ -191,19 +233,20 @@ def recent_value(
     metric: str,
     cadence: str,
     ref: date,
-    days: int = BASELINE_DAYS,
+    window_days: int | None = None,
 ) -> float | None:
     """The owner's own baseline, in the same units the target is expressed in.
 
-    ``weekly``/``total`` targets are period sums, so the baseline is the SUM of the
-    trailing ``days``; ``daily`` targets are per-day levels, so it is their AVERAGE.
-    Computed strictly BEFORE ``ref`` — a baseline frozen at adopt time must not
-    include the challenge's own first day. Verbatim from legacy ``_recent_value``.
+    ``weekly``/``total`` targets are period sums, so the baseline is the SUM of
+    :func:`baseline_span` days; ``daily`` targets are per-day levels, so it is their
+    AVERAGE. Computed strictly BEFORE ``ref`` — a baseline frozen at adopt time must
+    not include the challenge's own first day. Ported from legacy ``_recent_value``,
+    with the ``total`` span corrected (#65 — see :func:`baseline_span`).
 
     Returns ``None`` when the owner has no data in the window: "not enough data"
     is a distinct state from "zero", and callers must be able to tell them apart.
     """
-    return recent_window(cur, user_id, tz, metric, cadence, ref, days)[0]
+    return recent_window(cur, user_id, tz, metric, cadence, ref, window_days)[0]
 
 
 def protected_days(cur: Cur, user_id: UUID, tz: str, since: date, today: date) -> set[date]:

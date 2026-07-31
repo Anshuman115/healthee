@@ -72,7 +72,7 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
-from healthee.challenges.metrics import ROUND_STEP, spec
+from healthee.challenges.metrics import ROUND_STEP, allows_cadence, spec
 from healthee.challenges.series import MIN_COMPARISON_DAYS, recent_window
 from healthee.challenges.targets import in_cadence, meaningful_step, resolve_target
 from healthee.derive._common import Cur
@@ -91,12 +91,24 @@ MAX_STRETCH_FRACTION = 0.30
 # last bit of a double.
 _EPSILON = 1e-6
 
-# The cadences generation may propose. `total` is ABSENT and that is a refusal, not an
-# oversight: `series.recent_value` computes a `total` baseline as the trailing SEVEN-day
-# sum while `evaluate._cumulative` scores a `total` as the whole-WINDOW total, so for
-# any `window_days != 7` the frozen baseline and the target are in different units and
-# there is no honest band to check the target against. Generation declines to emit the
-# shape rather than calibrate against a mismatched number.
+# The cadences generation may propose. `total` is ABSENT and that is still a refusal
+# rather than an oversight — but the REASON changed when #65 landed, and it is worth
+# stating precisely so nobody re-derives the old one.
+#
+# It used to be a units bug: `series.recent_value` built a `total` baseline from the
+# trailing SEVEN days while `evaluate` scored a `total` over the whole WINDOW, so for
+# any `window_days != 7` there was no honest band to check a target against. That is
+# fixed — `series.baseline_span` now spans the window, and adopt/ledger/ease-floor all
+# agree.
+#
+# What blocks `total` NOW is a generation-layer shape, not a wrong number: a `total`
+# band depends on `window_days`, and `window_days` is the MODEL's choice, made after
+# this map is built. `gen_context.owner_calibrations` keys calibrations by
+# (metric, cadence), the prompt shows the model one band per pair, and `screen` looks
+# the proposal's band up by the same key — so there is no band to show and none to
+# check against until the key carries the window too. Relaxing this means teaching the
+# calibration map about `window_days` end to end (prompt, screen, retry), which is a
+# WP-C3b/C4 change with its own tests, not a one-line edit here.
 GENERATABLE_CADENCES: frozenset[str] = frozenset({"daily", "weekly"})
 
 # A whole numeral in prose. The lookbehind refuses a digit welded to a letter or to a
@@ -240,6 +252,12 @@ def calibrate(
     """
     if cadence not in GENERATABLE_CADENCES:
         return Calibration(metric, cadence, None, 0, None, "cadence_not_generatable")
+    if not allows_cadence(metric, cadence):
+        # #67 — the pair does not exist for this metric (a weekly `sri` is seven 0–100
+        # scores added together). Reported as a refusal like any other so the prompt
+        # says the pair is unavailable AND why, and `screen` blocks it if the model
+        # proposes it anyway.
+        return Calibration(metric, cadence, None, 0, None, "cadence_not_expressible")
     baseline, days = recent_window(cur, user_id, tz, metric, cadence, today)
     if baseline is None or days < MIN_COMPARISON_DAYS:
         return Calibration(metric, cadence, baseline, days, None, "thin_baseline")

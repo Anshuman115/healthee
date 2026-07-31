@@ -112,8 +112,18 @@ def _compute(
     """The whole outcome as a mapping — pure enough to assert on without the DB row."""
     metric = challenge["metric"]
     baseline = challenge.get("baseline_value")
+    # `window_days` reaches the estimator because a `total` baseline spans the whole
+    # window (`series.baseline_span`, #65). Without it the "after" side would be a
+    # trailing seven while the "before" side frozen at adopt was a whole window, and
+    # `_improvement_pct` would divide two different units into a percentage.
     final, final_days = recent_window(
-        cur, user_id, tz, metric, challenge["cadence"], end + timedelta(days=1)
+        cur,
+        user_id,
+        tz,
+        metric,
+        challenge["cadence"],
+        end + timedelta(days=1),
+        int(challenge["window_days"]),
     )
     improvement = _improvement_pct(metric, baseline, final)
     days_active = (end - start).days + 1
@@ -182,7 +192,13 @@ def _confidence(
     the same estimator that produced it.
     """
     _, baseline_days = recent_window(
-        cur, user_id, tz, challenge["metric"], challenge["cadence"], start
+        cur,
+        user_id,
+        tz,
+        challenge["metric"],
+        challenge["cadence"],
+        start,
+        int(challenge["window_days"]),
     )
     if baseline_days < MIN_COMPARISON_DAYS or final_days < MIN_COMPARISON_DAYS:
         return "insufficient_data"

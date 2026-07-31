@@ -47,16 +47,13 @@ from datetime import date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from healthee.challenges.metrics import CADENCES, COMPARATORS, spec
+from healthee.challenges.metrics import CADENCES, COMPARATORS, WEEKLY_DAYS, spec, validate_cadence
 from healthee.challenges.series import metric_series, protected_days
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
 
 # Fallback window when a challenge row carries none. Verbatim from legacy (:93).
 _DEFAULT_WINDOW_DAYS = 7
-
-# The rolling window a `weekly` cadence sums over. Verbatim from legacy (:108).
-_WEEKLY_DAYS = 7
 
 
 def evaluate_challenge(
@@ -72,6 +69,10 @@ def evaluate_challenge(
     metric_spec = spec(challenge["metric"])
     comparator = _validated(challenge["comparator"], COMPARATORS, "comparator")
     cadence = _validated(challenge["cadence"], CADENCES, "cadence")
+    # Vocabulary is not enough: the PAIR has to be one whose days add up to something
+    # (#67 — a weekly `sri` is seven scores summed into ~490). Raises for the same
+    # reason an unknown cadence does; a row like that is unscoreable, not zero.
+    validate_cadence(challenge["metric"], cadence)
     today = today or user_today(tz)
     start = start_date(challenge.get("adopted_at"), tz, today)
     window = max(1, int(challenge.get("window_days") or _DEFAULT_WINDOW_DAYS))
@@ -103,7 +104,7 @@ def _period_total(series: dict[date, float], cadence: str, day: date, start: dat
     figure — the current total, or the breach scan below — can ever be built from
     days that predate the commitment.
     """
-    first = day - timedelta(days=_WEEKLY_DAYS - 1) if cadence == "weekly" else start
+    first = day - timedelta(days=WEEKLY_DAYS - 1) if cadence == "weekly" else start
     first = max(first, start)
     return sum(value for d, value in series.items() if first <= d <= day)
 

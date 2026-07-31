@@ -57,6 +57,20 @@ from typing import Literal
 # Verbatim from legacy `_MIN_WORKOUT_S` (:38).
 MIN_WORKOUT_S = 600
 
+# The rule shapes a challenge may take. Verbatim from legacy `_CADENCES` (:40) /
+# `_COMPARATORS` (:41). `daily` = hit the target on each of `window_days` days;
+# `weekly` = a rolling 7-day total; `total` = a cumulative total over the window.
+CADENCES: frozenset[str] = frozenset({"daily", "weekly", "total"})
+COMPARATORS: frozenset[str] = frozenset({">=", "<="})
+
+# The period a `weekly` cadence is denominated over — BOTH the rolling window
+# `evaluate._period_total` sums and the span `series.recent_window` builds a weekly
+# baseline from. It lives here, in the module with no dependencies, because those two
+# numbers must be the same number: a target summed over seven days and a baseline
+# summed over some other count are not comparable, which is exactly the bug `total`
+# shipped with (#65).
+WEEKLY_DAYS = 7
+
 
 @dataclass(frozen=True)
 class DerivedSource:
@@ -109,13 +123,38 @@ class ManualEntrySource:
 MetricSource = DerivedSource | WorkoutCountSource | ManualEntrySource
 
 
+# Which cadences a metric may be expressed in (#67). A `weekly` or `total` rule SUMS
+# the days in its period — in `evaluate._period_total` when it scores, and in
+# `series.recent_window` when it builds the baseline that target is calibrated against
+# — so a metric may only carry those cadences if adding its days together yields a
+# quantity that means something.
+#
+# `sri` is the one that does not. A Sleep Regularity Index is a 0-100 SCORE of how
+# alike consecutive days are; seven of them added together is ~490 of nothing.
+# `targets._LEVEL` already refuses to convert the SRI target into weekly units for
+# exactly this reason — which is what left `(sri, weekly)` calibratable against a ~490
+# baseline with NO population cap to bound it, i.e. a target the model could invent and
+# Gate A would wave through. Declaring it here makes the pair UNREPRESENTABLE (refused
+# at adopt, refused by Gate A, and a raise at evaluation) rather than merely unreached.
+_ACCUMULABLE = CADENCES
+_A_SCORE = frozenset({"daily"})
+
+
 @dataclass(frozen=True)
 class ChallengeMetric:
     """One trackable metric a challenge may target.
 
-    ``kind`` is how a period's value is formed from its days: ``additive`` sums
-    them (weekly MVPA minutes), ``level`` averages them (a per-day step count).
-    ``good`` is the direction that counts as improvement.
+    ``good`` is the direction that counts as improvement. ``cadences`` is the set of
+    rule shapes this metric can honestly take (see ``_A_SCORE`` above); it has no
+    default, so a metric added to the registry has to decide rather than inherit
+    "all three" from whoever wrote the dataclass.
+
+    ``kind`` is a PORT RECORD, not a rule: it is legacy's own additive/level tag,
+    retained because ``tests/challenges/test_registry.py`` pins the ported vocabulary
+    against a hand-retyped copy of `llm/challenges.py:27`. Nothing reads it, and its
+    stated semantics would be wrong if anything did — ``steps_total`` is tagged
+    ``level`` and every ``weekly`` rule sums it. Period aggregation is ``cadences``
+    plus ``evaluate._period_total``, in one place, enforced.
     """
 
     label: str
@@ -123,6 +162,7 @@ class ChallengeMetric:
     kind: Literal["additive", "level"]
     good: Literal["up", "down"]
     source: MetricSource
+    cadences: frozenset[str]
 
 
 # The metric vocabulary. Labels/units/kinds/directions verbatim from legacy
@@ -130,10 +170,20 @@ class ChallengeMetric:
 # — see the module docstring for the three that could not bind row-for-row.
 CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
     "mvpa_min": ChallengeMetric(
-        label="MVPA", unit="min", kind="additive", good="up", source=DerivedSource("mvpa_min")
+        label="MVPA",
+        unit="min",
+        kind="additive",
+        good="up",
+        source=DerivedSource("mvpa_min"),
+        cadences=_ACCUMULABLE,
     ),
     "steps_total": ChallengeMetric(
-        label="Steps", unit="", kind="level", good="up", source=DerivedSource("steps_total")
+        label="Steps",
+        unit="",
+        kind="level",
+        good="up",
+        source=DerivedSource("steps_total"),
+        cadences=_ACCUMULABLE,
     ),
     "active_calories": ChallengeMetric(
         label="Active calories",
@@ -141,9 +191,15 @@ CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
         kind="level",
         good="up",
         source=DerivedSource("active_calories"),
+        cadences=_ACCUMULABLE,
     ),
     "cardio_load": ChallengeMetric(
-        label="Cardio load", unit="", kind="level", good="up", source=DerivedSource("cardio_load")
+        label="Cardio load",
+        unit="",
+        kind="level",
+        good="up",
+        source=DerivedSource("cardio_load"),
+        cadences=_ACCUMULABLE,
     ),
     "tst_min": ChallengeMetric(
         label="Sleep",
@@ -151,6 +207,7 @@ CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
         kind="level",
         good="up",
         source=DerivedSource("sleep_health_score_4dim", flag_key="tst_min"),
+        cadences=_ACCUMULABLE,
     ),
     "sri": ChallengeMetric(
         label="Sleep regularity",
@@ -158,9 +215,17 @@ CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
         kind="level",
         good="up",
         source=DerivedSource("sleep_regularity_index"),
+        # The one score in the registry — see `_A_SCORE`. A weekly SRI is not seven
+        # daily SRIs added up, so the pair simply does not exist.
+        cadences=_A_SCORE,
     ),
     "workouts_week": ChallengeMetric(
-        label="Workouts", unit="", kind="additive", good="up", source=WorkoutCountSource()
+        label="Workouts",
+        unit="",
+        kind="additive",
+        good="up",
+        source=WorkoutCountSource(),
+        cadences=_ACCUMULABLE,
     ),
     # The two cap metrics (see the module docstring). `good="down"` is the whole
     # point: these are the first entries a `<=` challenge can bind to.
@@ -172,6 +237,7 @@ CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
         kind="additive",
         good="down",
         source=ManualEntrySource(kind="alcohol", unit="units"),
+        cadences=_ACCUMULABLE,
     ),
     "caffeine_mg": ChallengeMetric(
         label="Caffeine",
@@ -181,14 +247,11 @@ CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
         kind="level",
         good="down",
         source=ManualEntrySource(kind="caffeine", unit="mg"),
+        # Milligrams DO add up over a week even though the guidance is per-day, so a
+        # cumulative cap ("stay under 1,400 mg this week") is a real, scoreable rule.
+        cadences=_ACCUMULABLE,
     ),
 }
-
-# The rule shapes a challenge may take. Verbatim from legacy `_CADENCES` (:40) /
-# `_COMPARATORS` (:41). `daily` = hit the target on each of `window_days` days;
-# `weekly` = a rolling 7-day total; `total` = a cumulative total over the window.
-CADENCES: frozenset[str] = frozenset({"daily", "weekly", "total"})
-COMPARATORS: frozenset[str] = frozenset({">=", "<="})
 
 # Evidence "ideal" per metric — the CEILING the adapter may never raise a target
 # past (`adapt.suggest_adaptation`). Values verbatim from legacy `_IDEAL` (:148);
@@ -241,6 +304,30 @@ def spec(metric: str) -> ChallengeMetric:
         return CHALLENGE_METRICS[metric]
     except KeyError:
         raise KeyError(f"{metric!r} is not a trackable challenge metric") from None
+
+
+def allows_cadence(metric: str, cadence: str) -> bool:
+    """Whether ``metric`` can honestly be expressed at ``cadence`` (``ChallengeMetric``)."""
+    return cadence in spec(metric).cadences
+
+
+def validate_cadence(metric: str, cadence: str) -> str:
+    """``cadence`` if ``metric`` may take it, else raise — never a silently-scored pair.
+
+    Raising is the same choice :func:`spec` already makes for an unknown metric and
+    ``evaluate._validated`` makes for an unknown cadence, and for the same reason: a
+    period value is the SUM of its days, so a cadence a metric cannot be summed over
+    does not produce a slightly-wrong number, it produces a number in no unit at all
+    (#67 — a weekly ``sri`` baseline of ~490). "No data" and "cannot be tracked" are
+    different states from "0 %" (standards §Errors).
+    """
+    allowed = spec(metric).cadences
+    if cadence not in allowed:
+        raise ValueError(
+            f"{metric!r} cannot be expressed as a {cadence!r} challenge "
+            f"(its days do not add up to a quantity; it takes {sorted(allowed)})"
+        )
+    return cadence
 
 
 def round_target(metric: str, value: float) -> float:
