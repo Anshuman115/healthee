@@ -16,7 +16,8 @@ from healthee.derive._common import Cur
 from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.trimp import trimp_total
 from healthee.read.common import sport_name
-from healthee.read.fitness import cardio_load_payload, vo2max_payload
+from healthee.read.fitness import cardio_load_payload
+from healthee.read.vo2max import vo2max_payload
 
 
 def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:

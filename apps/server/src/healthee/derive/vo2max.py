@@ -54,6 +54,37 @@ WITHHOLD_FEW_RHR_DAYS = "insufficient_rhr_days"
 WITHHOLD_RHR_OUT_OF_RANGE = "rhr_median_outside_validated_range"
 WITHHOLD_RHR_TOO_NOISY = "rhr_7d_mad_above_8_bpm"
 
+# Not a withhold the note names — the day simply has not been derived yet (nothing has
+# been synced for it). It shares the vocabulary because the USER-VISIBLE state is the
+# same one the note asks for ("Insufficient data": there is no number for today), and
+# because a payload that names every other absence and shrugs at this one would be the
+# same silence in a different place.
+NOT_DERIVED_YET = "not_derived_yet"
+
+# What each absence would take to fix, in the second person. The note asks for exactly
+# one user-facing STATE ("Insufficient data"); these are the actionable half of it, and
+# they are why the reason is surfaced at all — "no number" tells an owner nothing,
+# "your resting HR swung too much this week" tells them what the system is waiting on.
+WITHHOLD_MESSAGES = {
+    WITHHOLD_NO_PROFILE: (
+        "We need your height, sex and date of birth, plus at least one logged weight, "
+        "before this estimate can be computed."
+    ),
+    WITHHOLD_FEW_RHR_DAYS: (
+        "Fewer than 3 nights of resting heart rate in the last week — wear the strap "
+        "overnight for a few more nights and this comes back."
+    ),
+    WITHHOLD_RHR_OUT_OF_RANGE: (
+        "Your 7-day resting-HR median is outside the 40-100 bpm range this model was "
+        "validated on, so any number here would be a guess."
+    ),
+    WITHHOLD_RHR_TOO_NOISY: (
+        "Your resting heart rate moved too much this week for the estimate to mean "
+        "anything (7-day spread above 8 bpm). A few steadier nights will restore it."
+    ),
+    NOT_DERIVED_YET: "Today's estimate has not been computed yet — sync the strap.",
+}
+
 # ── Directive 5: flag out-of-range inputs (ADDITIVE — never a withhold) ──────
 #
 # [[non_exercise_vo2max]], Coach Directive 5 (confidence: moderate):
@@ -142,6 +173,36 @@ def vo2max_withhold_reason(rhrs: Sequence[float]) -> str | None:
     return None
 
 
+def rhr_week(cur: Cur, user_id: UUID, day: date) -> list[float]:
+    """The 7-day resting-HR window ``day``'s estimate is built from (``day`` included)."""
+    cur.execute(
+        "SELECT value FROM derived_daily "
+        "WHERE user_id = %s AND metric='rhr_daily' AND day<=%s AND day>%s",
+        (user_id, day, day - timedelta(days=7)),
+    )
+    return [float(r[0]) for r in cur.fetchall()]
+
+
+def withhold_reason_for_day(cur: Cur, user_id: UUID, tz: str, day: date) -> str | None:
+    """Why ``day`` has no estimate, or None when its inputs CAN carry one.
+
+    The same two checks :func:`derive_vo2max` makes, in the same order, over the same
+    window — but without writing anything. The read layer calls this so it can say
+    *why* a day has no number instead of quietly showing an older day's, which is the
+    "here's what we'd need" posture the product promises. Keeping the reason
+    recomputable is what lets us do that with NO new schema and no backfill: the
+    withhold decision is a pure function of inputs that are still in the database.
+
+    The equivalence with the writer is not an assumption — ``test_vo2max_freshness``
+    pins ``derive_vo2max(...) is None`` iff this returns a reason, across every gated
+    state, so a gate added to one and not the other fails the build.
+    [[non_exercise_vo2max]].
+    """
+    if not _load_profile(cur, user_id, tz, day):
+        return WITHHOLD_NO_PROFILE
+    return vo2max_withhold_reason(rhr_week(cur, user_id, day))
+
+
 def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, srpa: int = 0) -> float:
     """Jurca 2005 non-exercise cardiorespiratory fitness -> VO2max (ml/kg/min).
 
@@ -191,12 +252,7 @@ def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
         return _withheld(user_id, day, WITHHOLD_NO_PROFILE)
     age = _age(prof["dob"], day)
     bmi = prof["weight_kg"] / ((prof["height_cm"] / 100) ** 2)
-    cur.execute(
-        "SELECT value FROM derived_daily "
-        "WHERE user_id = %s AND metric='rhr_daily' AND day<=%s AND day>%s",
-        (user_id, day, day - timedelta(days=7)),
-    )
-    rhrs = sorted(float(r[0]) for r in cur.fetchall())
+    rhrs = rhr_week(cur, user_id, day)
     if reason := vo2max_withhold_reason(rhrs):
         return _withheld(user_id, day, reason)
     rhr_med = median(rhrs)

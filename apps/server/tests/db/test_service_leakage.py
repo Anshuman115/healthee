@@ -53,7 +53,7 @@ from healthee.jobs.chain import _chain_done, _mark_chain_done
 from healthee.jobs.recs_context import build_recs_signals
 from healthee.read.activity import activity_snapshot
 from healthee.read.findings import top_findings
-from healthee.read.fitness import cardio_load_payload, mvpa_payload, vo2max_payload, workouts_list
+from healthee.read.fitness import cardio_load_payload, mvpa_payload, workouts_list
 from healthee.read.gps import list_gps_tracks
 from healthee.read.history import history
 from healthee.read.history import profile as read_profile
@@ -61,6 +61,7 @@ from healthee.read.logs import log_recent
 from healthee.read.recovery import data_health_payload, recovery_score_payload
 from healthee.read.sleep_page import sleep_page
 from healthee.read.today import today_snapshot
+from healthee.read.vo2max import vo2max_payload
 from healthee.read.workout import workout_detail
 
 pytestmark = pytest.mark.integration

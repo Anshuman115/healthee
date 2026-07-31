@@ -14,9 +14,9 @@ from healthee.read.fitness import (
     cardio_load_payload,
     fitness_plan_payload,
     mvpa_payload,
-    vo2max_payload,
     workouts_list,
 )
+from healthee.read.vo2max import vo2max_payload
 
 
 def activity_snapshot(cur: Cur, user_id: UUID, tz: str) -> dict:

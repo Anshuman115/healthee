@@ -1,10 +1,15 @@
-"""Fitness metric payloads — VO2max, cardio load (+ strain 0-21), MVPA, strength,
+"""Fitness metric payloads — cardio load (+ strain 0-21), MVPA, strength,
 acute:chronic ratio, and the VO2max-raising plan.
 
 Shared by ``/api/today`` and ``/api/activity``. v2-native: reads ``derived_daily``
 (never the ``metric_sample`` view, never a ``source=`` filter). ``moderate_min`` /
 ``vigorous_min`` live inside the ``mvpa_min`` row's flags in v2 (not as their own
 rows), so they are read from flags — the WP6 seam fix.
+
+``vo2max_payload`` lived here until its freshness gate pushed this file past the
+400-line limit; it moved to ``read/vo2max.py`` with the submax block it owns. That
+was the right home anyway — "what do we know about aerobic fitness today" is not a
+training-load concern (standards §1: a file has one reason to change).
 
 Computed-on-read formulas (strain, ACWR) are ported VERBATIM — they are the
 audit-verified science, cited inline.
@@ -16,12 +21,10 @@ from datetime import date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from healthee.analytics.biological_age import vo2max_median_for
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
-from healthee.derive.robust import median
-from healthee.derive.vo2max import out_of_range_inputs
 from healthee.read.common import derived_series, latest_derived, sport_name
+from healthee.read.vo2max import vo2max_payload
 
 # Auto-detected sub-10-min bouts are movement noise, not structured exercise
 # (WHO / US Activity Guidelines floor). Legacy ``_MIN_WORKOUT_S``.
@@ -32,78 +35,6 @@ _STRENGTH_TYPES = {
     "calisthenics", "climbing", "bouldering", "powerlifting", "crossfit",
 }  # fmt: skip
 _YOGA_MIN_DURATION = 30  # generic yoga counts only if >=30 min, at 50% credit
-
-
-def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
-    """Latest Jurca non-exercise VO2max + 90-day trend + submax GPS estimate.
-    [[vo2max]] (Mandsager 2018); derivation [[non_exercise_vo2max]]."""
-    cur.execute(
-        "SELECT day, value, flags FROM derived_daily "
-        "WHERE user_id = %s AND metric='vo2max_estimate' "
-        f"AND day >= ({USER_TODAY_SQL} - 95) ORDER BY day",
-        (user_id, tz),
-    )
-    rows = cur.fetchall()
-    if not rows:
-        return None
-    trend = [{"date": d.isoformat(), "value": round(float(v), 1)} for d, v, _ in rows]
-    latest_date, latest_value, flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})
-    age = int(flags.get("age_years") or 0)
-    sex = str(flags.get("sex") or "male")
-    median_ref = vo2max_median_for(age, sex) if age else None
-    delta = round(latest_value - median_ref, 1) if median_ref else None
-    return {
-        "submax": _submax_block(cur, user_id, tz, latest_value),
-        "estimate": round(latest_value, 1),
-        "see_ml_kg_min": float(flags.get("see_ml_kg_min", 5.6)),
-        "as_of_date": latest_date.isoformat(),
-        "age_years": age,
-        "sex": sex,
-        "median_for_age": median_ref,
-        "delta_from_median": delta,
-        "trend_90d": trend,
-        # Directive 5 of [[non_exercise_vo2max]]: an estimate computed outside the
-        # range the model was validated on says so. Recomputed from the inputs the
-        # row already stores (no schema, no backfill), so it also covers rows
-        # written before the flag existed. Empty list = every input in range.
-        "out_of_range_inputs": out_of_range_inputs(age or None, flags.get("bmi")),
-        # v2 flag names: rhr_med_7d←rhr_med, pa_score←srpa; weekly_mvpa_min not
-        # stored in v2 vo2max flags → null (documented WP7 note).
-        "inputs": {
-            "bmi": flags.get("bmi"),
-            "rhr_med_7d": flags.get("rhr_med"),
-            "weekly_mvpa_min": None,
-            "pa_score": flags.get("srpa"),
-        },
-        "research_notes": ["vo2max_fitness_mortality", "non_exercise_vo2max"],
-    }
-
-
-def _submax_block(cur: Cur, user_id: UUID, tz: str, jurca_estimate: float) -> dict | None:
-    """Submaximal HR-vs-pace VO2max from GPS workouts (``vo2max_submax``)."""
-    cur.execute(
-        "SELECT day, value, flags FROM derived_daily "
-        "WHERE user_id = %s AND metric='vo2max_submax' "
-        f"AND day >= ({USER_TODAY_SQL} - 95) ORDER BY day",
-        (user_id, tz),
-    )
-    rows = cur.fetchall()
-    if not rows:
-        return None
-    vals = [float(v) for _, v, _ in rows]
-    n = len(vals)
-    med = median(vals)
-    s_day, s_val, s_flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})
-    return {
-        "latest": round(s_val, 1),
-        "median": round(med, 1),
-        "n_sessions": n,
-        "as_of_date": s_day.isoformat(),
-        "last_r2": s_flags.get("r2"),
-        "last_speed_kmh": s_flags.get("speed_kmh"),
-        "vs_jurca": round(med - round(jurca_estimate, 1), 1),
-        "trend": [{"date": d.isoformat(), "value": round(float(v), 1)} for d, v, _ in rows],
-    }
 
 
 def cardio_load_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:

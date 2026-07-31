@@ -864,6 +864,7 @@
   "vo2max": {
     "age_years": 35,
     "as_of_date": "2026-07-15",
+    "data_confidence": "ok",
     "delta_from_median": 0.5,
     "estimate": 41.5,
     "inputs": {
@@ -1016,7 +1017,8 @@
         "date": "2026-07-15",
         "value": 41.5
       }
-    ]
+    ],
+    "withheld": null
   },
   "workouts": [
     {

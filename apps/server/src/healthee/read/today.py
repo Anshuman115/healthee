@@ -26,7 +26,6 @@ from healthee.read.fitness import (
     cardio_load_payload,
     mvpa_payload,
     strength_payload,
-    vo2max_payload,
 )
 from healthee.read.health_metrics import (
     biological_age_payload,
@@ -54,6 +53,7 @@ from healthee.read.today_series import (
     step_buckets,
     stress_series,
 )
+from healthee.read.vo2max import vo2max_payload
 
 # Metrics the aggregator preloads once (latest row per metric + 30-day baselines)
 # so the per-card and recovery-signal payloads look them up instead of each

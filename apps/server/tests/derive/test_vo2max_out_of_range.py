@@ -37,7 +37,7 @@ from healthee.derive.vo2max import (
     derive_vo2max,
     out_of_range_inputs,
 )
-from healthee.read.fitness import vo2max_payload
+from healthee.read.vo2max import vo2max_payload
 
 _CALM_WEEK = [50.0, 52.0, 54.0, 56.0, 58.0, 60.0, 62.0]  # median 56, MAD 4 -> derives
 
