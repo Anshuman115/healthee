@@ -231,12 +231,16 @@ CREATE TABLE IF NOT EXISTS challenge (
   expected_outcome  TEXT,
   how_to            TEXT,
   research_note_ids TEXT[],
-  status            TEXT NOT NULL DEFAULT 'suggested',
+  -- 0009: `expired` = the window ran out UNMET. Legacy called that "completed",
+  -- which is the one thing a ledger must not do (CHALLENGES.md §2.3).
+  status            TEXT NOT NULL DEFAULT 'suggested'
+                      CHECK (status IN ('suggested', 'active', 'completed',
+                                        'expired', 'abandoned')),
   adopted_at        TIMESTAMPTZ,
   ends_at           TIMESTAMPTZ,
   completed_at      TIMESTAMPTZ,
   abandoned_at      TIMESTAMPTZ,
-  baseline_value    DOUBLE PRECISION,
+  baseline_value    DOUBLE PRECISION,   -- frozen at adopt — the before/after anchor
   program_id        BIGINT,
   rung_index        INTEGER,
   user_id           UUID    NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
@@ -267,26 +271,42 @@ CREATE INDEX IF NOT EXISTS program_user_idx ON program (user_id, status);
 
 -- ── challenge_outcome ─────────────────────────────────────────────────────
 -- Frozen learning-loop ledger: a snapshot written when a challenge ends.
+-- 0009 reshaped it so the honesty is structural rather than prose
+-- (CHALLENGES.md §2.1/§2.6/§7.1) — the four columns below carry the argument.
 CREATE TABLE IF NOT EXISTS challenge_outcome (
-  challenge_id  BIGINT PRIMARY KEY REFERENCES challenge(id) ON DELETE CASCADE,
-  metric        TEXT,
-  category      TEXT,
-  difficulty    TEXT,
-  cadence       TEXT,
-  target        DOUBLE PRECISION,
-  baseline      DOUBLE PRECISION,
-  final         DOUBLE PRECISION,
-  delta_pct     DOUBLE PRECISION,
-  improved      BOOLEAN,
-  adherence     DOUBLE PRECISION,
-  days_active   INTEGER,
-  status        TEXT,
-  downstream    TEXT,
-  ended_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  user_id       UUID        NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
-                  REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
+  challenge_id     BIGINT PRIMARY KEY REFERENCES challenge(id) ON DELETE CASCADE,
+  metric           TEXT,
+  category         TEXT,
+  difficulty       TEXT,
+  cadence          TEXT,
+  target           DOUBLE PRECISION,
+  baseline         DOUBLE PRECISION,   -- the frozen adopt-time value
+  final            DOUBLE PRECISION,   -- the same metric at the end
+  -- 0009 (was delta_pct): the metric move, baseline -> final, SIGNED so positive
+  -- always means "the direction this challenge wanted". A raw delta cannot say
+  -- that for a good="down" metric.
+  improvement_pct  DOUBLE PRECISION,
+  improved         BOOLEAN,            -- exactly improvement_pct > 0, nothing more
+  -- 0009 REDEFINED: the BEHAVIOUR rate (days met / days elapsed). Legacy used one
+  -- number for this AND for the metric move; improvement_pct now carries the latter.
+  adherence        DOUBLE PRECISION,
+  days_active      INTEGER,
+  status           TEXT,               -- met | unmet_timed_out | abandoned
+  -- 0009 (was downstream, TEXT): deltas on OTHER metrics — co-occurring and
+  -- UNATTRIBUTED. Read with confounds.concurrent_challenges, never alone.
+  co_occurring     JSONB,
+  -- 0009: illness days in-window · concurrent challenges · regression-to-mean risk.
+  confounds        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  -- 0009: a thin baseline is LABELLED, never a silent NULL outcome that vanishes.
+  data_confidence  TEXT        NOT NULL DEFAULT 'ok'
+                     CHECK (data_confidence IN ('ok', 'insufficient_data')),
+  ended_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  user_id          UUID        NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
+                     REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS challenge_outcome_user_idx ON challenge_outcome (user_id);
+CREATE INDEX IF NOT EXISTS challenge_outcome_user_ended_idx
+  ON challenge_outcome (user_id, ended_at DESC);
 
 -- ── gps_track ─────────────────────────────────────────────────────────────
 -- One phone-recorded outdoor workout track; denormalised summary cols for cheap lists.
