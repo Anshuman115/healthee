@@ -54,6 +54,75 @@ WITHHOLD_FEW_RHR_DAYS = "insufficient_rhr_days"
 WITHHOLD_RHR_OUT_OF_RANGE = "rhr_median_outside_validated_range"
 WITHHOLD_RHR_TOO_NOISY = "rhr_7d_mad_above_8_bpm"
 
+# ── Directive 5: flag out-of-range inputs (ADDITIVE — never a withhold) ──────
+#
+# [[non_exercise_vo2max]], Coach Directive 5 (confidence: moderate):
+#   "Flag decoupling confounders (beta-blockers, atropine, out-of-range inputs)
+#    when known."
+# and Safety bounds, which names the ranges:
+#   "Out-of-range inputs make it unreliable: the model was validated for ages
+#    20-70, BMI 16-45, RHR 40-100; outside those bounds error grows and the
+#    estimate should be flagged or withheld."
+#
+# The note offers BOTH branches ("flagged or withheld") and we take a different one
+# per input, deliberately:
+#
+#   RHR    -> WITHHELD (`WITHHOLD_RHR_OUT_OF_RANGE` above). RHR is the input the
+#             note singles out three separate times as untrustworthy-when-noisy,
+#             it is the only one that moves day to day, and an out-of-range median
+#             usually means the measurement is wrong rather than the person unusual.
+#             So no stored row can ever carry an out-of-range RHR, and it needs no
+#             flag here.
+#   AGE/BMI -> FLAGGED. Both are stable facts about a person, not measurement
+#             noise. Withholding on them would silently delete this metric for
+#             every owner under 20, over 70, or outside BMI 16-45 — people whose
+#             own TREND (which the note calls the trustworthy signal, over the
+#             level) is exactly as worth tracking. "Not enough data" beats a guess;
+#             "we deleted your metric because you are 72" is neither.
+#
+# The estimate is NOT modified by these flags — the honesty contract's answer to a
+# model used outside its validated range is to say so, not to bend the number.
+_AGE_VALID_LO_YEARS, _AGE_VALID_HI_YEARS = 20, 70
+_BMI_VALID_LO, _BMI_VALID_HI = 16.0, 45.0
+
+_OUT_OF_RANGE_MESSAGE = (
+    "Jurca 2005 was validated on {label} {low}-{high}; at {value} the model is outside "
+    "the range it was tested on, so the real error is wider than the {see} ml/kg/min "
+    "this estimate advertises."
+)
+
+
+def out_of_range_inputs(age_years: float | None, bmi: float | None) -> list[dict]:
+    """Jurca inputs outside the model's VALIDATED range, as additive flags.
+
+    Pure and total. Never changes or withholds the estimate — Directive 5 asks for a
+    flag, and the ranges come from the note's Safety bounds section. An ABSENT input
+    produces no flag: "we cannot tell" is a different state from "out of range", and
+    a missing profile input already withholds upstream in :func:`derive_vo2max`.
+    Boundaries are INCLUSIVE, matching how the note writes them ("ages 20-70").
+    [[non_exercise_vo2max]].
+    """
+    lo_age, hi_age = _AGE_VALID_LO_YEARS, _AGE_VALID_HI_YEARS
+    flags: list[dict] = []
+    if age_years is not None and not (lo_age <= age_years <= hi_age):
+        flags.append(_flag("age_years", "ages", age_years, lo_age, hi_age))
+    if bmi is not None and not (_BMI_VALID_LO <= bmi <= _BMI_VALID_HI):
+        flags.append(_flag("bmi", "BMI", round(bmi, 1), _BMI_VALID_LO, _BMI_VALID_HI))
+    return flags
+
+
+def _flag(name: str, label: str, value: float, low: float, high: float) -> dict:
+    """One out-of-range input, machine-readable and self-explaining."""
+    return {
+        "input": name,
+        "value": value,
+        "validated_low": low,
+        "validated_high": high,
+        "message": _OUT_OF_RANGE_MESSAGE.format(
+            label=label, low=low, high=high, value=value, see=_JURCA_SEE_ML_KG_MIN
+        ),
+    }
+
 
 def vo2max_withhold_reason(rhrs: Sequence[float]) -> str | None:
     """Why the Jurca estimate must be withheld for this 7-day RHR window, else None.

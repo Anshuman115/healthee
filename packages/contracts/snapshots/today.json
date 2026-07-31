@@ -1644,6 +1644,7 @@
       "weekly_mvpa_min": null
     },
     "median_for_age": 41.0,
+    "out_of_range_inputs": [],
     "research_notes": [
       "vo2max_fitness_mortality",
       "non_exercise_vo2max"

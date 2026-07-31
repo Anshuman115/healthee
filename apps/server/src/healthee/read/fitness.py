@@ -20,6 +20,7 @@ from healthee.analytics.biological_age import vo2max_median_for
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
 from healthee.derive.robust import median
+from healthee.derive.vo2max import out_of_range_inputs
 from healthee.read.common import derived_series, latest_derived, sport_name
 
 # Auto-detected sub-10-min bouts are movement noise, not structured exercise
@@ -61,6 +62,11 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
         "median_for_age": median_ref,
         "delta_from_median": delta,
         "trend_90d": trend,
+        # Directive 5 of [[non_exercise_vo2max]]: an estimate computed outside the
+        # range the model was validated on says so. Recomputed from the inputs the
+        # row already stores (no schema, no backfill), so it also covers rows
+        # written before the flag existed. Empty list = every input in range.
+        "out_of_range_inputs": out_of_range_inputs(age or None, flags.get("bmi")),
         # v2 flag names: rhr_med_7d←rhr_med, pa_score←srpa; weekly_mvpa_min not
         # stored in v2 vo2max flags → null (documented WP7 note).
         "inputs": {
