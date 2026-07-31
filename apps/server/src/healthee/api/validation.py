@@ -21,6 +21,11 @@ _REFUSAL_STATUS: dict[str, int] = {
     "not_suggested": 409,
     "not_active": 409,
     "too_many_active": 409,
+    # #72. A conflict like the cap's, and listed separately rather than left to the
+    # fallback because a client has to be able to tell the two apart: "you are already
+    # doing that" and "you are full" call for different things from the owner, and the
+    # `reason` in the body is what says which.
+    "duplicate_commitment": 409,
     "no_adaptation": 409,
 }
 

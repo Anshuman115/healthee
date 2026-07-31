@@ -27,6 +27,15 @@ _HOW_TO = "Walk after dinner."
 _EXPECTED = "About a tenth above your recent week."
 _NOTE_IDS = ["steps_mortality"]
 
+# The SUGGESTION is on a different metric from the live challenge, because a state where
+# both sit on `steps_total` is one the engine cannot produce and (since #72) will not
+# adopt: generation dedupes against the owner's active metrics, and `lifecycle.adopt`
+# refuses a second commitment on the same behaviour. The bed used to encode that
+# impossible state, so adopting from it exercised a path no real owner has.
+_SUGGESTED_METRIC = "active_calories"
+_SUGGESTED_TARGET = 700.0
+_SUGGESTED_WHY = "Your own recent week averages 620 active calories, so this is a small step up."
+
 
 def seed_challenges(cur, today: date, tz: tzinfo) -> None:
     """One suggestion, one live challenge, one completed one, and its frozen outcome.
@@ -38,27 +47,50 @@ def seed_challenges(cur, today: date, tz: tzinfo) -> None:
     """
     adopted_at = datetime.combine(today - timedelta(days=6), time(7, 0), tzinfo=tz)
     ends_at = datetime.combine(today + timedelta(days=1), time(0, 0), tzinfo=tz)
-    _challenge(cur, "Walk a little further", "suggested", None, None)
+    _challenge(
+        cur,
+        "Move a little more",
+        "suggested",
+        None,
+        None,
+        metric=_SUGGESTED_METRIC,
+        target=_SUGGESTED_TARGET,
+        why=_SUGGESTED_WHY,
+    )
     _challenge(cur, "Seven days above 9,000", "active", adopted_at, ends_at)
     _seed_outcome(cur, _finished(cur, today, tz))
 
 
-def _challenge(cur, title: str, status: str, adopted_at, ends_at) -> int:
+def _challenge(  # noqa: PLR0913 — a fixture row states every column it pins
+    cur,
+    title: str,
+    status: str,
+    adopted_at,
+    ends_at,
+    *,
+    metric: str = "steps_total",
+    target: float = 9000.0,
+    why: str = _WHY,
+) -> int:
     """One ``challenge`` row in ``status``; returns its id.
 
     ``baseline_value`` is set even on the suggestion so the snapshot pins the field
-    as a number rather than a null the shape checker would accept anything for.
+    as a number rather than a null the shape checker would accept anything for. It is
+    the STORED value on a seeded row; a real adopt recomputes it from the owner's own
+    series, which is what ``test_challenge_endpoints`` asserts against.
     """
     cur.execute(
         "INSERT INTO challenge (user_id, title, why, category, metric, comparator, "
         "  target_value, cadence, window_days, expected_outcome, how_to, research_note_ids, "
         "  status, adopted_at, ends_at, baseline_value) "
-        "VALUES (%s,%s,%s,'activity','steps_total','>=',9000,'daily',7,%s,%s,%s,%s,%s,%s,8200) "
+        "VALUES (%s,%s,%s,'activity',%s,'>=',%s,'daily',7,%s,%s,%s,%s,%s,%s,8200) "
         "RETURNING id",
         (
             SENTINEL_USER_ID,
             title,
-            _WHY,
+            why,
+            metric,
+            target,
             _EXPECTED,
             _HOW_TO,
             _NOTE_IDS,

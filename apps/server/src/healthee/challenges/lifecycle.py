@@ -3,7 +3,13 @@
 WP-C2 (CHALLENGES.md §4). WP-C1 made a challenge *scoreable*; this makes it a thing
 an owner can take on, be measured against, and have honestly closed out.
 
-## Three decisions worth reading before changing anything here
+## Four decisions worth reading before changing anything here
+
+**0. Two rules bound what may be adopted, and they are different rules.** The cap
+(:data:`MAX_ACTIVE`) is about how many commitments one owner can hold; the duplicate
+check (#72, ``challenges.commitment``) is about whether the thing being adopted is a
+*separate* commitment at all. They refuse under different reasons because a surface has
+to be able to tell an owner "you are full" from "you are already doing that".
 
 **1. The cap is per OWNER.** Legacy's `_MAX_ACTIVE = 3` was global because legacy
 had one user; here it counts the caller's own active rows and nobody else's
@@ -53,7 +59,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from healthee.challenges import ledger, store
+from healthee.challenges import commitment, ledger, store
 from healthee.challenges.adapt import suggest_adaptation
 from healthee.challenges.evaluate import evaluate_challenge, start_date
 from healthee.challenges.metrics import allows_cadence
@@ -105,6 +111,17 @@ def adopt(cur: Cur, user_id: UUID, tz: str, challenge_id: int, today: date | Non
         return _refused(
             "not_expressible",
             f"{challenge['metric']} cannot be a {challenge['cadence']} challenge",
+        )
+    # #72 — the check generation always had and adopt never did. Reported BEFORE the cap
+    # because it is the more specific and more fundamental refusal: the cap says the
+    # owner has no room for another commitment, this says THIS one is not another
+    # commitment at all (``challenges.commitment`` argues the rule and its width).
+    duplicate = commitment.clashing(challenge["metric"], store.active_metrics(cur, user_id))
+    if duplicate is not None:
+        return _refused(
+            "duplicate_commitment",
+            f"already running a challenge on {duplicate} — the same behaviour scored "
+            "twice would put two before/afters in the ledger over one change",
         )
     active = store.count_active(cur, user_id)
     if active >= MAX_ACTIVE:

@@ -251,7 +251,7 @@ def test_the_menu_and_the_adapter_hold_exactly_the_same_metrics(metric: str) -> 
     assert hold_reason(metric, "low", None) == "recovery has been low all week"
     assert hold_reason(metric, "high", "moderate") == "an illness signal is active"
     assert hold_reason(metric, "high", None) is None
-    menu = levers._blocked_reason(metric, set(), {}, "low", None)
+    menu = levers._blocked_reason(metric, set(), {}, "low", None, None)
     assert menu is not None and "recovery has been low all week" in menu
 
 

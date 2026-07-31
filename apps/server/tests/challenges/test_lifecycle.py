@@ -171,12 +171,18 @@ def test_an_unknown_challenge_is_refused_by_name(clean_db: None) -> None:  # noq
 
 
 def test_a_fourth_challenge_is_refused(clean_db: None) -> None:  # noqa: ARG001
-    """Three is the cap; the fourth is told why, and by how much."""
+    """Three is the cap; the fourth is told why, and by how much.
+
+    Each of the three is on a DIFFERENT metric, which this test used to get away with not
+    doing: three adopts of one metric are three rows over one behaviour, and #72's
+    duplicate check now refuses the second. Filling the slate honestly is what keeps this
+    test about the cap.
+    """
     with tenant_transaction(_seed.OWNER) as cur:
-        for _ in range(lifecycle.MAX_ACTIVE):
-            cid = _seed.seed_challenge(cur, _seed.OWNER)
+        for metric in ("steps_total", "mvpa_min", "tst_min"):
+            cid = _seed.seed_challenge(cur, _seed.OWNER, metric=metric)
             assert lifecycle.adopt(cur, _seed.OWNER, IST, cid, today=_START)["ok"] is True
-        fourth = _seed.seed_challenge(cur, _seed.OWNER)
+        fourth = _seed.seed_challenge(cur, _seed.OWNER, metric="sri")
         result = lifecycle.adopt(cur, _seed.OWNER, IST, fourth, today=_START)
     assert (result["ok"], result["reason"]) == (False, "too_many_active")
     assert "3 of 3" in result["error"]

@@ -66,7 +66,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from healthee.challenges import gen_context, gen_prompt, lifecycle, store
+from healthee.challenges import commitment, gen_context, gen_prompt, lifecycle, store
 from healthee.challenges.metrics import CHALLENGE_METRICS, DerivedSource
 from healthee.challenges.screen import screen
 from healthee.core.db import tenant_transaction
@@ -249,7 +249,7 @@ def _persist(
         for proposal in accepted:
             if len(written) >= slots:
                 break
-            if proposal["metric"] in taken:
+            if commitment.clashing(proposal["metric"], taken) is not None:
                 rejected.append(
                     f"{proposal['metric']} was already spoken for by the time the model "
                     "finished thinking"

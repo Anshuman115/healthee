@@ -17,7 +17,7 @@ before arithmetic — so the reason reported is the most fundamental one that is
 
 from __future__ import annotations
 
-from healthee.challenges import gen_prompt
+from healthee.challenges import commitment, gen_prompt
 from healthee.challenges.bounds import Calibration, copy_issue, target_issue
 from healthee.challenges.gen_prompt import MAX_WINDOW_DAYS, MIN_WINDOW_DAYS
 from healthee.challenges.metrics import CHALLENGE_METRICS, COMPARATORS
@@ -95,8 +95,14 @@ def proposal_issue(
         return structural
     if not isinstance(proposal, dict):  # unreachable — `_structural_issue` proved it
         return "not an object"
-    if proposal["metric"] in taken:
+    duplicate = commitment.clashing(proposal["metric"], taken)
+    if duplicate == proposal["metric"]:
         return f"{proposal['metric']} already has a live or proposed challenge"
+    if duplicate is not None:
+        # Not the same metric, but the same rows: `caffeine_after_20` is a slice of
+        # `caffeine_mg`, so proposing both offers one behaviour change twice
+        # (`challenges.commitment`).
+        return f"{proposal['metric']} is the same behaviour as {duplicate}, which already has one"
     off_menu = (blocked or {}).get(proposal["metric"])
     if off_menu is not None:
         return f"{proposal['metric']} is not on this owner's menu: {off_menu}"

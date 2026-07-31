@@ -55,7 +55,9 @@ def test_adopting_freezes_a_baseline_and_starts_the_window(seeded_client: tuple)
     assert resp.status_code == 200
     adopted = resp.json()["challenge"]
     assert adopted["status"] == "active"
-    assert adopted["baseline_value"] == 8200.0  # the seed's flat 30-day step series
+    # RECOMPUTED at adopt from the seed's flat 30-day `active_calories` series, not the
+    # 8,200 the seeded row carried — which is the property this test exists for.
+    assert adopted["baseline_value"] == 620.0
     assert adopted["adopted_at"] is not None and adopted["ends_at"] is not None
 
 
