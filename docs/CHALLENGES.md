@@ -247,12 +247,37 @@ absence, in `challenges/targets.py`, with the reason for each.
 clamp desynchronises the stored number from the model's copy *and* from what the ledger
 will later publish.
 
-**Provisional by construction.** With one owner's real data, every constant above is a
-defensible guess — the targets and curve shapes are cited, the *step sizes are anchored,
-not derived*. The **outcome ledger is the tuning mechanism**: it already freezes `target`,
-`baseline`, `status`, `adherence` and `improvement_pct` per challenge, so "which step
-sizes get completed *and* moved the metric" becomes a query once there are rows. The query
-is written down in `challenges/targets.py`, and retuning means editing that file only.
+**Provisional by construction — and tuned PER OWNER, never by pooling.** The targets and
+curve shapes above are cited; the *step sizes are anchored, not derived*, so they are
+defensible guesses.
+
+**They are not tuned by comparing owners, and must not be.** Two reasons, and the first is
+structural:
+
+- **There is no pool to query.** Healthee is self-hostable and row-level isolated: a
+  self-hosted install contains exactly one person's data, and even on the hosted instance
+  every read is owner-scoped under RLS. "Which step size works across users" is not a query
+  this architecture can answer, and building a path that *could* answer it would mean
+  aggregating health data across people — against the product's own promise
+  (`ARCHITECTURE.md`: *the user owns the data*) and against the brand the landing page
+  sells (no trackers, own your data). We are not going to do it.
+- **It would be the wrong science anyway.** Everything else here is deliberately n-of-1 —
+  baselines are the owner's own median, streak protection is relative to *their* sleep,
+  findings are FDR-controlled within one person. A population-tuned step size would be a
+  worse fit for any individual than their own measured response.
+
+**So the tuning loop is per-owner, and it already exists: the adapter (§5.2).** If the
+opening target is too easy for *you*, `suggest_adaptation` raises it ~20% after five days
+of beating it; too hard, it eases ~15%. That self-corrects within about a week, for that
+person, using only their rows. **Which is why the opening constant matters much less than
+it appears to** — it is a starting point the engine walks away from, not a verdict.
+
+The **outcome ledger's role is also per-owner**: over time one person accumulates enough
+frozen `target` / `baseline` / `status` / `adherence` / `improvement_pct` rows to show what
+*they* actually complete and what actually moved *their* numbers — the same n-of-1 evidence
+the coach cites as `[personal_finding:...]`. The query is written down in
+`challenges/targets.py`. Editing the shipped constants is a judgement call informed by the
+corpus, never a fit to pooled user data.
 
 ### 5.1b Targeting — which lever, decided deterministically
 
