@@ -138,7 +138,7 @@ any LLM.
 | **WP-C2 · Lifecycle + ledger** | Persistence + endpoints: adopt/track/complete/abandon, baseline capture at adopt, the **confound-aware outcome ledger** (§2.1, §2.6) with the data-sufficiency gate. Owner-scoped, RLS, AST-guard-clean. Contract tests. | WP-C1 | — |
 | **WP-C3 · Grounded generation** | Challenge generation through the **choke point** (§2.2): targets computed **deterministically** from baseline (WP-C1), the LLM writes only the grounded, cited `why`/`how_to`/`expected_outcome`. History-aware (raise the bar on completed, route around abandons, never dup an active). Cite-or-refuse. | WP-C2 + insights/ choke point | ✓ (copy only) |
 | **WP-C4 · Programs + deload** | Ladder logic with the **fixed** failure/deload/recalibration handling (§2.3): honest terminal states, deload rungs, current-baseline recalibration on rung activation. Program generation through the choke point. | WP-C3 | ✓ (copy only) |
-| **WP-C5 · Coach integration** | Re-add the `adopt_challenge` tool (adopt a *pre-generated* suggestion — anti-hallucination: acts only on tool `ok:true`). Wire the **outcome ledger into coach context** as `[personal_finding:...]` — the COACH_ROADMAP **C2** the audit found legacy never built. The coach **suggests and cites**, it does **not** author or adapt targets. Mirror any new grounding rule into the coach (INTELLIGENCE §4). | WP-C2 + coach | ✓ (coach) |
+| **WP-C5 · Coach integration** | Two tools: `adopt_challenge` (adopt a *pre-generated* suggestion) and **`create_challenge(intent)`** (§6a — the coach passes intent, the WP-C3 pipeline computes the target and grounds the copy; refuses on untrackable metric or ungroundable claim). Both anti-hallucination-bound (act only on tool `ok:true`, report the *stored* target). Wire the **outcome ledger into coach context** as `[personal_finding:...]` — the COACH_ROADMAP **C2** the audit found legacy built the store for but never connected. The coach never authors a number and never adapts a target. Mirror any new grounding rule into the coach (INTELLIGENCE §4). | WP-C3 + coach | ✓ (coach) |
 | **WP-C6 · App surfaces** | Actions tab (active/suggested/completed, adapt banner, projection framing) + Insights tab (outcome ledger + rollups) + Today focus card. Premium locked/teaser states. | Phase 2 mobile | — |
 | **6.6 gating** | `require_ai_access` on generation + coach; the whole system is premium. Threads through, not a WP of its own. | 6.6 | — |
 
@@ -146,54 +146,178 @@ any LLM.
 
 ## 5. Generation & adaptation — the honesty-critical split
 
-**Generation:** deterministic target + grounded prose.
-1. WP-C1 computes the candidate **target** from the user's own baseline (progressive
-   overload) — a number, not an LLM guess.
-2. The LLM, through the choke point, writes the **why** and **how** for that target, citing
-   the corpus. Cite-or-refuse: no valid citation ⇒ the challenge does not ship (the opposite
-   of legacy's "drop the citation, ship anyway").
-3. Generation stays **lazy/on-demand** (empty feed or user Refresh) — legacy never had the
-   scheduler generate, and there's no reason to spend LLM tokens generating a feed nobody
-   opened. (Premium-gated regardless.)
+> **Design decision (owner, 2026-07-17):** *"the AI invents it — that's right — but grounded
+> against the knowledge and the user's previous data."* The AI **does** author the challenge.
+> What makes that safe is not taking the pen away from it, but **grounding both inputs and
+> bounding the output**.
 
-**Adaptation:** deterministic, server-authoritative, never LLM (§1). This is the direct
-answer to "auto-adapting challenges." `_adapt` recomputes the target from the user's
-trailing performance and applies it server-side (never trusted from the client). The coach
-may *surface* that an adaptation is available; it never computes it.
+### 5.1 Generation — the AI proposes, two deterministic gates dispose
+
+The LLM authors the whole challenge (metric choice, target, cadence, window, copy) —
+because that judgement is genuinely valuable and a rules table can't encode it. *Example
+this product actually needs:* a chronic ~3.7h sleeper should be offered a sleep-**regularity**
+challenge, not a sleep-**duration** one. That's a reasoning call, not a lookup.
+
+**Grounded on three inputs — corpus · data · patterns:**
+1. **The corpus** — the ranked research notes (the same manifest retrieval every insight
+   uses), so the challenge reflects what the evidence actually supports. *Population truth.*
+2. **The user's own data** — real baselines, trends, sleep-timing statistics, recovery
+   pattern, and challenge history (completed / abandoned / already active). Legacy's
+   `_build_context` + `_history_context` are the proven shape; port that philosophy.
+   *Where they actually are.*
+3. **Their discovered patterns** — the personal findings the analytics layer has *earned*:
+   FDR-controlled correlations and personal cutoffs from the `finding` table ("caffeine
+   after 15:00 → −40 min sleep"), behavioural routines from their logs (fasting window,
+   caffeine timing, training cadence), and — once WP-C2 lands — the **outcome ledger**
+   (what previously worked *for them*). *What actually moves this person.*
+
+Input 3 is the one no competitor can copy and the one that makes a challenge feel authored
+rather than assigned: a challenge built on *your own discovered cause-and-effect* ("cut
+caffeine after 15:00 — on your data that's worth ~40 min of sleep") is both the most
+motivating and the most honest thing we can offer. It also **closes the loop** — outcomes
+and correlations feed back into what we suggest next, so the system gets better at *this
+person* over time. Patterns are cited as `[personal_finding:...]`, always distinguished
+from population research and always labelled single-subject/observational.
+
+**Then two deterministic gates it cannot talk its way past:**
+
+- **Gate A — the baseline-bounds check (new; legacy's biggest miss).** The proposed
+  `target_value` is checked against the owner's *own* recent baseline. A target outside a
+  sane progressive-overload band (roughly +10–30%, per-metric) is **clamped or rejected** —
+  a proposal of "12,000 steps" for a 3,000-step baseline never reaches the DB. Legacy only
+  *instructed* calibration in the prompt (`CALIBRATION`, :218) and never verified it; we
+  instruct **and** enforce. Rejections are logged, not swallowed.
+- **Gate B — cite-or-refuse through the choke point.** Every interpretive claim in
+  `why`/`expected_outcome` must carry a real, grade-calibrated citation. No valid citation
+  ⇒ **the challenge does not ship** (legacy dropped bad citations and shipped anyway, §2.2).
+
+Plus the structural invariants: the metric must exist in `CHALLENGE_METRICS` (machine-
+trackable or it isn't a challenge), owner-scoped write, per-owner `_MAX_ACTIVE` cap, no
+duplicate of an active challenge.
+
+This is the same architecture as the rest of the product: **the model generates, a blocking
+deterministic layer decides what ships** — exactly how the validator and `output_guard`
+already work, and how `jobs/recs.py::_provable_grade` corrects an LLM's overclaimed evidence
+grade *down* against the notes it actually cited.
+
+Generation stays **lazy/on-demand** (empty feed, user Refresh, or a coach request) — legacy
+never had the scheduler generate, and there's no reason to spend tokens on a feed nobody
+opened. Premium-gated regardless.
+
+### 5.2 Adaptation — the engine auto-calibrates on measured progress (deterministic, never LLM)
+
+**Confirmed as a keeper (owner, 2026-07-17): "the engine automatically calibrates the
+challenge based on the progress, as it was doing before."** This is legacy's `_adapt`
+(`challenges.py:547`) — port it verbatim (§1).
+
+Once a challenge is live, the engine **continuously watches actual performance against the
+target** and recalibrates:
+
+- **Too easy** — averaging **≥1.2× target for ≥5 days** (with enough logged days to be
+  real) ⇒ **raise ~+20%**. The challenge keeps stretching instead of going stale.
+- **Too hard** — averaging **≤0.7× target** ⇒ **ease ~−15%**. It meets the person where they
+  actually are rather than letting them fail out.
+- Sane **rounding steps** per metric (`:536`) so targets stay human ("8,000 steps", not
+  "7,943"), with **ceiling/floor guards** so it can neither run away upward nor collapse to
+  nothing.
+
+Three properties that make this trustworthy and must survive the port:
+1. **Deterministic** — a rule over measured adherence, not a judgement call. No LLM. Adapting
+   a live commitment must be predictable and explainable ("you beat this for 5 days, so I
+   raised it").
+2. **Server-authoritative** — recomputed on the server and **never trusted from the client**
+   (legacy `:697–717`). A client can request an adapt; it cannot dictate the new number.
+3. **Relative to the person** — like streak protection, calibration is measured against their
+   own trajectory, never a population ideal.
+
+**Apply mode:** legacy auto-*detected* the adaptation and applied it on a one-tap banner in
+the app (`POST /api/challenges/{cid}/adapt`) rather than silently changing the target under
+the user. Keep that default — a commitment the user agreed to shouldn't move without them
+noticing — with the option of auto-apply for eases (making something *easier* silently is
+kinder than harder). Small UX call for WP-C6; the engine is identical either way.
+
+The coach may *surface* that a calibration is available and explain it; it never computes
+one. Program rungs get the same treatment at activation (§2.3 — recalibrate against the
+owner's *current* baseline, not the weeks-old design-time one).
 
 ---
 
 ## 6. What the coach can and cannot do (the explicit answer)
 
+**Decided (2026-07-17):** the coach **can create a challenge on request**, authoring it
+itself — grounded on corpus + the user's data + their patterns (§5.1), and subject to the
+same two gates (baseline bounds, cite-or-refuse) as any generated challenge. See §6a.
+
 | Coach can | Coach cannot |
 |---|---|
-| **Adopt** a pre-generated suggested challenge (tool, on `ok:true`) | **Author** a bespoke challenge with an LLM-chosen target |
-| **Suggest** which suggested challenge fits the user's goal | **Adapt** a target — that's the deterministic engine's job |
+| **Create** a challenge on request (`create_challenge`, §6a) — authored by the model, grounded on corpus · data · patterns | Ship a target that fails the **baseline-bounds gate** (§5.1 Gate A) |
+| **Adopt** a pre-generated suggested challenge (tool, on `ok:true`) | **Adapt** a live target — that's the deterministic engine's job (§5.2) |
+| **Suggest** which challenge fits the user's goal | Create a challenge for a metric we cannot machine-track |
 | **Cite outcomes** as `[personal_finding:...]` — "when your MVPA rose 20%, HRV followed ~10 days later" (WP-C5) | Claim an outcome that isn't in the ledger, or present a co-occurring delta as caused |
-| Explain the *why* behind a challenge, grounded in the corpus | Ship any challenge/program text that fails the validator |
+| Explain the *why*, grounded in corpus + their patterns | Ship any challenge/program text that fails the validator |
 
 "Auto-adapting" = the deterministic `_adapt` engine + program deload (WP-C1/C4). The coach
 is the *voice* over a deterministic substrate, exactly as everywhere else in the product.
 
+### 6a. `create_challenge` — the coach-initiated flow (the honesty rails)
+
+> *"We need the coach to create a challenge as well, but it should be based on our research
+> and knowledge."* — owner, 2026-07-17. That second clause is the whole design.
+
+The user asks ("make me a sleep challenge"). The coach calls `create_challenge(proposal)` —
+and, unlike adopt, it **authors the proposal**: the metric, target, cadence, window and copy,
+reasoned from the same three grounded inputs as §5.1 (corpus · their data · their patterns),
+all of which are already in the coach's standing context. It then passes through the **same
+WP-C3 gates** as any system-generated challenge:
+
+1. **Bind to a trackable metric.** The proposal must resolve to a metric in
+   `CHALLENGE_METRICS` (§1). If it can't ("a challenge to feel happier"), the tool refuses
+   and the coach says so honestly. *A challenge we cannot measure is a promise we cannot keep.*
+2. **Gate A — baseline bounds.** The proposed target is checked against the owner's own
+   baseline and clamped or rejected if outside the progressive-overload band. The coach
+   cannot talk its way past this; if it proposes 12,000 steps on a 3,000 baseline, the gate
+   corrects it and the coach reports the **stored** number.
+3. **Gate B — cite-or-refuse.** The `why`/`expected_outcome` must carry real, grade-calibrated
+   citations (corpus) and may cite the user's own patterns as `[personal_finding:...]`. No
+   valid grounding ⇒ **nothing is created**, and the coach says the evidence base doesn't
+   cover it. This is *"based on our research and knowledge"* made structural.
+4. **Invariants:** per-owner `_MAX_ACTIVE` cap, no duplicate of an active challenge,
+   owner-scoped write, premium-gated.
+5. **Return the created row.** Anti-hallucination is absolute (INTELLIGENCE §4): the coach
+   may only claim it created something if the tool returned `ok:true` **this turn**, and it
+   must report the *stored* target — not the one it proposed.
+
+**Why this is safe.** The coach gains authorship, not authority. It writes the proposal; the
+gates decide what persists — the same generate-then-block architecture as the validator and
+`output_guard`. The failure mode we refuse to ship is an LLM number that nobody checked
+against the person's real baseline; the failure mode we refuse to *cause* is a rules table so
+rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
+
 ---
 
-## 7. Open decisions (yours)
+## 7. Decisions — TAKEN (owner, 2026-07-17)
 
-1. **The downstream/confound approach (§2.1)** — the honest options: **(a)** demote all
-   downstream (other-metric) effects to "co-occurring, unattributable" and only ever report
-   the challenge's *own* target metric as before→after (simpler, unimpeachably honest); or
-   **(b)** invest in a quasi-experimental design (control windows, concurrency adjustment) to
-   make *some* downstream attribution defensible (harder, and single-subject data may not
-   support it). **My recommendation: (a) now**, and let the FDR-controlled correlation engine
-   be the place real personal cause-and-effect is discovered. Cheaper, and it can't lie.
-2. **Sequencing** — backend WPs (C1–C5) **now**, independent of Phase 2, since they're
-   headless-testable and are the substrate the coach-companion (C2/C4) needs; app surfaces
-   (C6) during Phase 2. Or hold the whole thing until Phase 2 so it ships with UI. **My lean:
-   backend now.**
-3. **Coach's reach** — adopt-only (recommended, matches anti-hallucination), or also let the
-   coach *trigger generation* ("make me a sleep challenge") which then runs the deterministic
-   + grounded pipeline? The latter is safe *if* it routes through the same pipeline (no
-   LLM-chosen numbers). Worth deciding for WP-C5.
+1. **Downstream/confound → (a) claim only what we can prove.** Only the challenge's **own
+   target metric** is reported as a before→after. Effects on *other* metrics are stored and
+   shown as **co-occurring, unattributable**, with the concurrency count — never as caused by
+   this challenge (§2.1). Real personal cause-and-effect is the job of the FDR-controlled
+   correlation engine, not a naive window diff. *Rationale: with 2–4 challenges running at
+   once, attribution is genuinely unknowable, and a small confident lie is exactly what this
+   product exists not to do.*
+2. **Sequencing → backend first.** WP-C1→C5 build now, independent of Phase 2 mobile:
+   headless-testable, and the substrate the coach-companion (COACH_ROADMAP C2/C4) needs. App
+   surfaces (WP-C6) land during Phase 2. *Accepted tradeoff: the engine is "done but
+   invisible" until the app catches up.*
+3. **Coach reach → create AND adopt; the AI authors, the gates bound.** *"The AI invents it —
+   that's right — but grounded against the knowledge and the user's previous data — and
+   patterns."* So the model authors the challenge (metric, target, cadence, copy), reasoning
+   from **corpus · their data · their patterns** (§5.1), and every proposal passes **Gate A**
+   (baseline bounds — clamp/reject) and **Gate B** (cite-or-refuse). Untrackable intents are
+   refused honestly. **Adaptation of a live challenge stays deterministic** and
+   server-authoritative (§5.2) — the coach never changes a running target.
+   *Rationale: authorship is where the value is (a 3.7h sleeper needs a regularity challenge,
+   not a duration one — judgement a rules table can't encode); enforcement is where the safety
+   is. Legacy instructed calibration and never checked it; we instruct **and** check.*
 
 ---
 
