@@ -21,6 +21,12 @@ row tuple read through an index map (``_iC``), the owner and zone are threaded i
 and the threshold arithmetic is split into a pure helper so the rules can be
 known-value tested without a database. The thresholds, factors, guards and
 rounding steps are verbatim.
+
+One rule is NOT legacy's, and it is a deliberate behaviour change (#61): a raise
+is bounded for **every** metric. Legacy capped only the metrics in ``IDEAL``, so
+``active_calories`` and ``cardio_load`` could be raised +20 % indefinitely — see
+:data:`OWNER_CEILING_FACTOR` for the owner-relative bound that replaces "unbounded"
+and for why "no basis for a ceiling" now means "do not raise".
 """
 
 from __future__ import annotations
@@ -55,6 +61,25 @@ EASE_FLOOR_FACTOR = 1.05
 MIN_RAISE_GAIN = 1.04  # a raise must land >4 % above the current target
 MIN_EASE_DROP = 0.97  # an ease must land >3 % below it
 
+# The raise ceiling for a metric with NO entry in `IDEAL`, expressed against the
+# owner's own frozen baseline. `active_calories` and `cardio_load` are the two: both
+# are individual-load quantities with no population target, so legacy left them
+# UNBOUNDED — and an unbounded ceiling on a +20 %-per-recalibration rule compounds
+# (five raises is 2.5×), which is how an engine walks a real person into a hole while
+# every individual step looks reasonable.
+#
+# NOT EVIDENCE — the same status as `IDEAL["workouts_week"]`, and stated here so
+# nobody mistakes it for one: no note in the corpus prescribes a personal training-load
+# or active-energy ceiling, so none is cited and this number is never surfaced as a
+# target or a rationale. It is a bound on what the ENGINE may do unattended, chosen to
+# sit just above CHALLENGES.md §5.1's +10–30 % progressive-overload band so the adapter
+# can traverse that band and then stop.
+#
+# The companion rule matters as much as the number: with no ideal AND no baseline there
+# is nothing owner-relative to bound against, and the engine declines to raise at all
+# rather than guessing — "not enough data" beats an optimistic guess (CLAUDE.md).
+OWNER_CEILING_FACTOR = 1.5
+
 
 def suggest_adaptation(
     cur: Cur,
@@ -67,10 +92,16 @@ def suggest_adaptation(
     """A ``{direction, suggested, current, reason}`` recalibration, or ``None``.
 
     ``None`` means "leave the target alone" and is the answer in every thin-signal
-    case: a ``<=`` challenge (easing a cap is a different, unported rule), a
-    challenge not yet adopted or already complete, fewer than
+    case: a ``<=`` challenge, a challenge not yet adopted or already complete,
+    fewer than
     :data:`MIN_ELAPSED_DAYS` days elapsed, a non-positive target, too few logged
     days to be real, or performance inside the productive band.
+
+    The ``<=`` exclusion is a decision, not an omission (#61 made caps expressible
+    on every cadence). Tightening a cap on a good week would punish the owner for
+    complying, and loosening one would hand back the exact allowance they committed
+    to cut; neither has a rule behind it the way progressive overload does. A cap's
+    target moves when the owner changes it.
     """
     if challenge["comparator"] != ">=" or progress.get("complete"):
         return None
@@ -102,7 +133,9 @@ def _achieved(
     ``None`` when fewer than half the elapsed days (minimum three) carry data:
     adapting a commitment on two logged days would be a confident call on noise.
     """
-    series = metric_series(cur, user_id, tz, challenge["metric"], start - timedelta(days=1))
+    series = metric_series(
+        cur, user_id, tz, challenge["metric"], start - timedelta(days=1), until=today
+    )
     values = [v for day, v in series.items() if start <= day <= today]
     if len(values) < max(3, elapsed // 2):
         return None
@@ -127,19 +160,34 @@ def _adaptation(
     unit = spec(metric).unit
     reason = f"averaging {round(achieved)}{unit} vs {round(target)}{unit} target"
     if ratio >= RAISE_RATIO:
-        return _raise_to(metric, target, reason)
+        return _raise_to(metric, target, baseline_value, reason)
     if ratio <= EASE_RATIO:
         return _ease_to(metric, target, baseline_value, achieved, reason)
     return None
 
 
-def _raise_to(metric: str, target: float, reason: str) -> dict | None:
-    """Raise ~+20 %, capped at the metric's evidence ideal (the ceiling guard)."""
-    new = target * RAISE_FACTOR
+def _ceiling(metric: str, baseline_value: float | None) -> float | None:
+    """The highest target a raise may reach, or ``None`` when there is no basis for one.
+
+    The metric's evidence ideal if it has one; otherwise a bound relative to the
+    owner's OWN frozen baseline (:data:`OWNER_CEILING_FACTOR`), which is the only
+    honest anchor available for a quantity with no population target. ``None`` means
+    "we cannot say", and its caller declines to raise rather than raising unbounded.
+    """
     ideal = IDEAL.get(metric)
     if ideal:
-        new = min(new, ideal)
-    new = round_target(metric, new)
+        return ideal
+    if baseline_value:
+        return float(baseline_value) * OWNER_CEILING_FACTOR
+    return None
+
+
+def _raise_to(metric: str, target: float, baseline_value: float | None, reason: str) -> dict | None:
+    """Raise ~+20 %, capped by :func:`_ceiling` — evidence ideal or owner-relative."""
+    ceiling = _ceiling(metric, baseline_value)
+    if ceiling is None:  # no ideal and no baseline — nothing to bound a raise against
+        return None
+    new = round_target(metric, min(target * RAISE_FACTOR, ceiling))
     if new <= target * MIN_RAISE_GAIN:  # already at the ceiling — no room to grow
         return None
     return {"direction": "up", "suggested": new, "current": target, "reason": reason}

@@ -15,6 +15,7 @@ Not a pytest module (underscore-prefixed); imported by the test modules.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import date, datetime
 from uuid import UUID
 
@@ -30,7 +31,7 @@ OTHER_OWNER = UUID("77777777-7777-7777-7777-777777777777")
 # (`analytics.metrics.V2_DAILY_METRICS` has no `tst_min`).
 SLEEP_ROW_METRIC = "sleep_health_score_4dim"
 
-_TABLES = ("derived_daily", "workout")
+_TABLES = ("derived_daily", "workout", "manual_entry")
 
 
 def reset() -> None:
@@ -74,6 +75,21 @@ def seed_workout(cur, user_id: UUID, start_ts: datetime, duration_s: int) -> Non
         "ON CONFLICT (user_id, start_ts) DO UPDATE SET duration_s = EXCLUDED.duration_s",
         (user_id, start_ts, duration_s),
     )
+
+
+def seed_manual(
+    cur, user_id: UUID, kind: str, entries: Sequence[tuple[datetime, float, str | None]]
+) -> None:
+    """``manual_entry`` rows at absolute instants — (ts, amount, unit) each.
+
+    ``unit`` is passed through verbatim, including ``None``, because which units the
+    cap reader accepts is exactly what the tests need to pin.
+    """
+    for ts, amount, unit in entries:
+        cur.execute(
+            "INSERT INTO manual_entry (user_id, kind, ts, amount, unit) VALUES (%s,%s,%s,%s,%s)",
+            (user_id, kind, ts, amount, unit),
+        )
 
 
 def days(start: date, count: int) -> list[date]:

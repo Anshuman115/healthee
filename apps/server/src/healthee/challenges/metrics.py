@@ -24,6 +24,28 @@ binding, because legacy's storage no longer exists:
   ``read/health_metrics.py`` and ``derive/recovery.py`` read.
 * ``workouts_week`` keeps legacy's special case: it counts rows in ``workout``,
   which has no daily-metric equivalent.
+
+## The rebuild's own additions — the CAP metrics (#61)
+
+Legacy's vocabulary is entirely ``good="up"``, so a ``<=`` challenge had nothing
+to bind to: "keep weekly alcohol under 5 units" was unexpressible, and the
+comparator was therefore never exercised on a cumulative cadence (which is how
+``evaluate._cumulative`` came to ignore it — #61). ``alcohol_units`` and
+``caffeine_mg`` are the two quantities the rebuild can genuinely track downward,
+because ``manual_entry`` already stores them with an amount and a unit
+(``read/logs.py``; the legacy client's own defaults were mg and UK units).
+
+They also make the personal-cutoff findings actionable: ``analytics/cutoffs.py``
+earns statements like "alcohol after 20:00 costs you HRV", and CHALLENGES.md §5.1
+makes those findings a first-class generation input — which needs a metric a cap
+challenge can bind to.
+
+**What is deliberately NOT here.** A *time-of-day* rule ("no caffeine after
+15:00") is exactly what a cutoff finding suggests, and the registry cannot
+express it: a ``ChallengeMetric`` yields one number per day, and there is no
+predicate dimension for "…logged after hour H". Faking it as a daily quantity
+would score an owner who drank three coffees before noon as a failure, so it is
+left out until the registry can carry a predicate rather than shipped wrong.
 """
 
 from __future__ import annotations
@@ -55,7 +77,36 @@ class WorkoutCountSource:
     min_duration_s: int = MIN_WORKOUT_S
 
 
-MetricSource = DerivedSource | WorkoutCountSource
+@dataclass(frozen=True)
+class ManualEntrySource:
+    """Daily SUM of ``manual_entry.amount`` for one self-logged ``kind``.
+
+    The owner is the sensor for these, not the strap, and two consequences follow
+    that the device-backed sources do not have:
+
+    * **A day with no entry is a ZERO, not a gap.** The reader zero-fills the
+      window (``series._manual_sums``) — otherwise a cap challenge would be
+      unscoreable in the one case that matters: an owner who abstained logs
+      nothing, and "no row" would read as "no data" and score no hit at all. This
+      is the SAME reading ``analytics/cutoffs.py`` already takes of these tables
+      (a night with no substance event is a *control* night, not a discarded one),
+      so the rebuild keeps one interpretation of an absent manual entry.
+    * **The unit is part of the binding.** ``manual_entry.unit`` is whatever the
+      client sent, so the reader sums only rows in this source's unit (or with no
+      unit — the client's default IS this unit, and the legacy CLI omitted it).
+      A row in some other unit is skipped rather than converted: turning "2 cups"
+      into milligrams would be inventing a number.
+
+    The honest limit, stated once here so the generation layer (WP-C3) can weigh
+    it: a self-logged cap is only as good as the owner's logging, and unlogged
+    intake is indistinguishable from none.
+    """
+
+    kind: str
+    unit: str
+
+
+MetricSource = DerivedSource | WorkoutCountSource | ManualEntrySource
 
 
 @dataclass(frozen=True)
@@ -111,6 +162,26 @@ CHALLENGE_METRICS: dict[str, ChallengeMetric] = {
     "workouts_week": ChallengeMetric(
         label="Workouts", unit="", kind="additive", good="up", source=WorkoutCountSource()
     ),
+    # The two cap metrics (see the module docstring). `good="down"` is the whole
+    # point: these are the first entries a `<=` challenge can bind to.
+    "alcohol_units": ChallengeMetric(
+        label="Alcohol",
+        unit="units",
+        # Additive because the health guidance for alcohol is denominated per WEEK,
+        # so a period's value is the sum of its days.
+        kind="additive",
+        good="down",
+        source=ManualEntrySource(kind="alcohol", unit="units"),
+    ),
+    "caffeine_mg": ChallengeMetric(
+        label="Caffeine",
+        unit="mg",
+        # Level, not additive: caffeine guidance is a DAILY dose, so a period's
+        # value is the average of its days rather than their total.
+        kind="level",
+        good="down",
+        source=ManualEntrySource(kind="caffeine", unit="mg"),
+    ),
 }
 
 # The rule shapes a challenge may take. Verbatim from legacy `_CADENCES` (:40) /
@@ -130,10 +201,17 @@ IDEAL: dict[str, float] = {
     "steps_total": 8000.0,  # daily-steps mortality plateau [steps_mortality]
     "tst_min": 450.0,  # 7.5 h, mid-band of the U-curve [sleep_duration_mortality]
     "sri": 85.0,  # strong regularity [sleep_regularity_index]
-    # No note supports a specific weekly SESSION count (the evidence is in minutes,
-    # not sessions), so this one is practitioner consensus, not a cited ideal. It is
-    # used ONLY as the adapter's ceiling and is never surfaced as an evidence target.
+    # NOT EVIDENCE, and it must never be presented as such. No note in the corpus
+    # supports a specific weekly SESSION count — the evidence is denominated in
+    # minutes, not sessions — so this is practitioner consensus with no citation
+    # behind it. It exists solely as `adapt._raise_to`'s ceiling (a guard on how far
+    # the engine may move a target by itself) and is never read by a surface that
+    # shows the owner a target, a rationale, or a research note.
     "workouts_week": 4.0,
+    # The cap metrics are deliberately absent: IDEAL is the ceiling on RAISING a
+    # target, and a `good="down"` metric has no ceiling to raise toward. Their
+    # adapter guard is `adapt.OWNER_CEILING_FACTOR` (owner-relative), if it ever
+    # applies at all — `suggest_adaptation` leaves `<=` challenges alone.
 }
 
 # Rounding granularity per metric, so an adapted target stays a human number
@@ -146,6 +224,8 @@ ROUND_STEP: dict[str, float] = {
     "workouts_week": 1,
     "active_calories": 10,
     "cardio_load": 5,
+    "alcohol_units": 1,  # a UK unit is the smallest meaningful step
+    "caffeine_mg": 25,  # ~a quarter of a filter coffee; "200 mg", not "187 mg"
 }
 
 

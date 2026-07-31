@@ -18,6 +18,7 @@ from healthee.challenges.metrics import (
     IDEAL,
     ROUND_STEP,
     DerivedSource,
+    ManualEntrySource,
     WorkoutCountSource,
     round_target,
     spec,
@@ -35,13 +36,51 @@ _LEGACY_VOCABULARY = {
     "workouts_week": ("Workouts", "", "additive", "up"),
 }
 
+# The rebuild's own additions (#61) — the metrics a `<=` cap challenge can bind to.
+# Listed separately from the legacy table on purpose: the port's fidelity and the
+# rebuild's extensions are different claims and must fail independently.
+_CAP_VOCABULARY = {
+    "alcohol_units": ("Alcohol", "units", "additive", "down"),
+    "caffeine_mg": ("Caffeine", "mg", "level", "down"),
+}
+
 
 def test_the_vocabulary_is_the_legacy_one() -> None:
     """Every label/unit/kind/direction ported verbatim — no metric silently dropped."""
-    assert set(CHALLENGE_METRICS) == set(_LEGACY_VOCABULARY)
+    assert set(_LEGACY_VOCABULARY) <= set(CHALLENGE_METRICS)
     for metric, (label, unit, kind, good) in _LEGACY_VOCABULARY.items():
         entry = CHALLENGE_METRICS[metric]
         assert (entry.label, entry.unit, entry.kind, entry.good) == (label, unit, kind, good)
+
+
+def test_the_registry_is_the_legacy_vocabulary_plus_exactly_the_cap_metrics() -> None:
+    """Nothing else has crept in — a metric nobody reviewed is a challenge nobody can keep."""
+    assert set(CHALLENGE_METRICS) == set(_LEGACY_VOCABULARY) | set(_CAP_VOCABULARY)
+
+
+def test_the_cap_metrics_point_downward_and_bind_to_a_logged_kind() -> None:
+    """`good="down"` is the whole reason they exist: legacy's vocabulary was all "up".
+
+    Without a downward metric a `<=` challenge had nothing to bind to, which is how
+    the comparator went untested on a cumulative cadence for so long (#61).
+    """
+    for metric, (label, unit, kind, good) in _CAP_VOCABULARY.items():
+        entry = CHALLENGE_METRICS[metric]
+        assert (entry.label, entry.unit, entry.kind, entry.good) == (label, unit, kind, good)
+        assert isinstance(entry.source, ManualEntrySource)
+        assert entry.source.unit == unit, "the source unit must be the target's unit"
+
+    assert CHALLENGE_METRICS["alcohol_units"].source == ManualEntrySource("alcohol", "units")
+    assert CHALLENGE_METRICS["caffeine_mg"].source == ManualEntrySource("caffeine", "mg")
+
+
+def test_the_cap_kinds_are_the_kinds_the_guidance_is_denominated_in() -> None:
+    """Alcohol guidance is weekly (a sum); caffeine guidance is a daily dose (a level).
+
+    Getting this backwards would express a target in units nobody's advice uses.
+    """
+    assert CHALLENGE_METRICS["alcohol_units"].kind == "additive"
+    assert CHALLENGE_METRICS["caffeine_mg"].kind == "level"
 
 
 def test_every_derived_source_resolves_to_a_real_v2_metric() -> None:
@@ -71,13 +110,23 @@ def test_sleep_duration_binds_to_the_flag_not_a_metric_row() -> None:
     assert (source.metric, source.flag_key) == ("sleep_health_score_4dim", "tst_min")
 
 
-def test_workouts_are_the_only_non_derived_source() -> None:
+def test_workouts_are_the_only_workout_counted_source() -> None:
     """Workout counts have no daily-metric equivalent, so they keep legacy's special case."""
     special = {m for m, e in CHALLENGE_METRICS.items() if isinstance(e.source, WorkoutCountSource)}
     assert special == {"workouts_week"}
     source = CHALLENGE_METRICS["workouts_week"].source
     assert isinstance(source, WorkoutCountSource)
     assert source.min_duration_s == 600
+
+
+def test_only_the_cap_metrics_read_self_logged_data() -> None:
+    """A `ManualEntrySource` zero-fills absent days; a device metric must NEVER do that.
+
+    "No `derived_daily` row" means the strap had nothing to say — turning that into a
+    0 would score a day with no data as a day of doing nothing.
+    """
+    logged = {m for m, e in CHALLENGE_METRICS.items() if isinstance(e.source, ManualEntrySource)}
+    assert logged == set(_CAP_VOCABULARY)
 
 
 def test_every_metric_has_a_rounding_step() -> None:
@@ -88,6 +137,17 @@ def test_every_metric_has_a_rounding_step() -> None:
 def test_ideals_are_a_subset_of_the_registry() -> None:
     """The adapter's ceiling may only be keyed by a metric that exists."""
     assert set(IDEAL) <= set(CHALLENGE_METRICS)
+
+
+def test_no_cap_metric_carries_an_evidence_ideal() -> None:
+    """`IDEAL` bounds a RAISE, and there is nothing to raise a `good="down"` metric toward.
+
+    An entry here would be read by `adapt._ceiling` as a ceiling to climb to — i.e.
+    the engine nudging an owner's alcohol target UP toward an "ideal".
+    """
+    downward = {m for m, e in CHALLENGE_METRICS.items() if e.good == "down"}
+    assert downward == {"alcohol_units", "caffeine_mg"}
+    assert downward.isdisjoint(IDEAL)
 
 
 def test_unknown_metric_raises_rather_than_scoring_zero() -> None:
@@ -113,6 +173,8 @@ def test_vocabulary_constants() -> None:
         ("workouts_week", 3.4, 3.0),  # step 1
         ("active_calories", 434.0, 430.0),  # step 10 → 43.4 → 43 × 10
         ("cardio_load", 63.0, 65.0),  # step 5 → 12.6 → 13 × 5
+        ("alcohol_units", 5.4, 5.0),  # step 1
+        ("caffeine_mg", 187.0, 175.0),  # step 25 → 7.48 → 7 × 25
     ],
 )
 def test_round_target_known_values(metric: str, value: float, expected: float) -> None:

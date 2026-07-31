@@ -107,8 +107,29 @@ def test_a_weekly_target_is_compared_against_a_weekly_total(clean_db: None) -> N
 def test_a_total_target_is_scaled_by_the_whole_window(clean_db: None) -> None:  # noqa: ARG001
     """30/day over a ten-day window is 300 against a 200 total — ratio 1.5 ⇒ 240.
 
-    ``cardio_load`` has no evidence ideal, so nothing caps this raise (legacy left
-    individual-load metrics uncapped and the port did not invent a ceiling).
+    ``cardio_load`` has no evidence ideal, so its ceiling is owner-relative: a frozen
+    baseline of 180 allows up to 270, and 240 is under it.
+    """
+    challenge = _challenge(
+        metric="cardio_load",
+        cadence="total",
+        target_value=200.0,
+        window_days=10,
+        baseline_value=180.0,
+    )
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed_week(cur, "cardio_load", 30.0)
+        result = suggest_adaptation(cur, _seed.OWNER, SENTINEL_TZ, challenge, _RUNNING, _TODAY)
+    assert result is not None
+    assert (result["direction"], result["suggested"]) == ("up", 240.0)
+
+
+def test_a_metric_with_no_ideal_and_no_baseline_is_never_raised(clean_db: None) -> None:  # noqa: ARG001
+    """The same over-performance, with nothing to bound the raise against ⇒ no change.
+
+    Legacy raised this +20 % with no ceiling at all, every five days, forever. With
+    no evidence ideal AND no frozen baseline there is no honest number to stop at, so
+    the engine declines rather than guessing (CLAUDE.md — "not enough data" wins).
     """
     challenge = _challenge(
         metric="cardio_load", cadence="total", target_value=200.0, window_days=10
@@ -116,8 +137,7 @@ def test_a_total_target_is_scaled_by_the_whole_window(clean_db: None) -> None:  
     with tenant_transaction(_seed.OWNER) as cur:
         _seed_week(cur, "cardio_load", 30.0)
         result = suggest_adaptation(cur, _seed.OWNER, SENTINEL_TZ, challenge, _RUNNING, _TODAY)
-    assert result is not None
-    assert (result["direction"], result["suggested"]) == ("up", 240.0)
+    assert result is None
 
 
 # ── the signal gates ─────────────────────────────────────────────────────────

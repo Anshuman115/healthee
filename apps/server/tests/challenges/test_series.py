@@ -75,6 +75,108 @@ def test_workouts_shorter_than_ten_minutes_do_not_count(clean_db: None) -> None:
     assert series == {date(2026, 3, 3): 2.0}
 
 
+# ── the self-logged cap sources (#61) ────────────────────────────────────────
+
+
+def test_a_logged_quantity_is_summed_per_local_day(clean_db: None) -> None:  # noqa: ARG001
+    """Three coffees on one day is one number: 95 + 63 + 95 = 253 mg."""
+    entries = [
+        (datetime(2026, 3, 2, 8, 0, tzinfo=UTC), 95.0, "mg"),
+        (datetime(2026, 3, 2, 11, 0, tzinfo=UTC), 63.0, "mg"),
+        (datetime(2026, 3, 2, 15, 0, tzinfo=UTC), 95.0, "mg"),
+    ]
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed.seed_manual(cur, _seed.OWNER, "caffeine", entries)
+        series = metric_series(
+            cur, _seed.OWNER, UTC_TZ, "caffeine_mg", _START, until=date(2026, 3, 3)
+        )
+    assert series == {_START: 0.0, date(2026, 3, 2): 253.0, date(2026, 3, 3): 0.0}
+
+
+def test_a_day_with_no_entry_is_a_zero_not_a_gap(clean_db: None) -> None:  # noqa: ARG001
+    """The owner is the sensor: "nothing logged" IS the reading, not missing data.
+
+    Absent days must be present as 0 or a cap challenge is unscoreable for the one
+    owner who kept it perfectly — they log nothing, so there is nothing to score.
+    This is the same reading `analytics/cutoffs.py` takes (a night with no substance
+    event is a control night, not a discarded one).
+    """
+    with tenant_transaction(_seed.OWNER) as cur:
+        series = metric_series(
+            cur, _seed.OWNER, UTC_TZ, "alcohol_units", _START, until=date(2026, 3, 3)
+        )
+    assert series == {_START: 0.0, date(2026, 3, 2): 0.0, date(2026, 3, 3): 0.0}
+
+
+def test_a_device_metric_keeps_its_gaps(clean_db: None) -> None:  # noqa: ARG001
+    """The mirror image: `derived_daily` absence means the strap had nothing to say.
+
+    Zero-filling a device metric would score a day with no data as a day of doing
+    nothing — the opposite error, and the reason the zero-fill is per-source.
+    """
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed.seed_metric(cur, _seed.OWNER, "steps_total", {date(2026, 3, 2): 8000.0})
+        series = metric_series(
+            cur, _seed.OWNER, UTC_TZ, "steps_total", _START, until=date(2026, 3, 3)
+        )
+    assert series == {date(2026, 3, 2): 8000.0}
+
+
+def test_entries_in_another_unit_are_not_converted(clean_db: None) -> None:  # noqa: ARG001
+    """ "2 cups" is not 2 mg, and this reader will not pretend it knows the factor.
+
+    A NULL unit IS counted: the client's own default is the canonical one and the
+    legacy CLI omitted it, so treating NULL as foreign would drop real intake.
+    """
+    entries = [
+        (datetime(2026, 3, 2, 8, 0, tzinfo=UTC), 95.0, "mg"),
+        (datetime(2026, 3, 2, 9, 0, tzinfo=UTC), 60.0, None),
+        (datetime(2026, 3, 2, 10, 0, tzinfo=UTC), 2.0, "cups"),
+    ]
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed.seed_manual(cur, _seed.OWNER, "caffeine", entries)
+        series = metric_series(
+            cur, _seed.OWNER, UTC_TZ, "caffeine_mg", _START, until=_START + timedelta(days=1)
+        )
+    assert series[date(2026, 3, 2)] == 155.0
+
+
+def test_logged_entries_bucket_in_the_owners_zone(clean_db: None) -> None:  # noqa: ARG001
+    """22:30 New York on 03-10 is 08:00 IST on 03-11 — the drink belongs to one day.
+
+    Same calendar-date-vs-instant class that shipped two live wrong numbers here.
+    """
+    entries = [(_AFTER_UTC_MIDNIGHT, 2.0, "units")]
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed.seed_manual(cur, _seed.OWNER, "alcohol", entries)
+        ist = metric_series(
+            cur, _seed.OWNER, IST, "alcohol_units", date(2026, 3, 10), until=date(2026, 3, 11)
+        )
+        new_york = metric_series(
+            cur, _seed.OWNER, NEW_YORK, "alcohol_units", date(2026, 3, 10), until=date(2026, 3, 11)
+        )
+    assert ist == {date(2026, 3, 10): 0.0, date(2026, 3, 11): 2.0}
+    assert new_york == {date(2026, 3, 10): 2.0, date(2026, 3, 11): 0.0}
+
+
+def test_a_cap_baseline_counts_the_dry_days(clean_db: None) -> None:  # noqa: ARG001
+    """Two drinking days in seven ⇒ a weekly baseline of 6 units, not a 3-unit average.
+
+    Without the zero-fill the baseline would be the mean over drinking days only,
+    which overstates the owner's habit and would set the cap far too high.
+    """
+    entries = [
+        (datetime(2026, 3, 1, 20, 0, tzinfo=UTC), 2.0, "units"),
+        (datetime(2026, 3, 5, 20, 0, tzinfo=UTC), 4.0, "units"),
+    ]
+    with tenant_transaction(_seed.OWNER) as cur:
+        _seed.seed_manual(cur, _seed.OWNER, "alcohol", entries)
+        weekly = recent_value(cur, _seed.OWNER, UTC_TZ, "alcohol_units", "weekly", date(2026, 3, 8))
+        daily = recent_value(cur, _seed.OWNER, UTC_TZ, "alcohol_units", "daily", date(2026, 3, 8))
+    assert weekly == 6.0
+    assert daily == round(6 / 7, 1)
+
+
 # ── timezone bucketing ───────────────────────────────────────────────────────
 
 # Two instants either side of a local midnight. Their local dates:

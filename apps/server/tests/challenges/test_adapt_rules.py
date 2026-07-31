@@ -16,6 +16,7 @@ from healthee.challenges.adapt import (
     EASE_FACTOR,
     EASE_RATIO,
     MIN_ELAPSED_DAYS,
+    OWNER_CEILING_FACTOR,
     RAISE_FACTOR,
     RAISE_RATIO,
     _adaptation,
@@ -70,6 +71,57 @@ def test_no_raise_when_the_ceiling_leaves_no_room() -> None:
     than leaving it alone.
     """
     assert _adaptation("steps_total", target=7900.0, baseline_value=None, achieved=10000.0) is None
+
+
+# ── the owner-relative ceiling (metrics with no evidence ideal) ──────────────
+#
+# `active_calories` and `cardio_load` have no population target, so legacy bounded
+# them with nothing at all: +20 % per recalibration, indefinitely. The replacement
+# is a bound against the owner's OWN frozen baseline.
+
+
+def test_the_owner_ceiling_is_the_documented_multiple() -> None:
+    """A guard on what the engine may do unattended — never surfaced as evidence."""
+    assert OWNER_CEILING_FACTOR == 1.5
+
+
+def test_a_metric_with_no_ideal_is_capped_at_a_multiple_of_the_owners_baseline() -> None:
+    """Baseline 400 ⇒ ceiling 600. 550 × 1.2 = 660, so the raise stops at 600.
+
+    Unbounded, this suggests 660 — and would suggest 792 five days later.
+    """
+    result = _adaptation("active_calories", target=550.0, baseline_value=400.0, achieved=700.0)
+    assert result is not None
+    assert result["suggested"] == 600.0
+
+
+def test_a_raise_below_the_owner_ceiling_is_untouched_by_it() -> None:
+    """Baseline 400 ⇒ ceiling 600; 450 × 1.2 = 540 is comfortably under it.
+
+    The ceiling must bound the runaway case without flattening ordinary progression.
+    """
+    result = _adaptation("active_calories", target=450.0, baseline_value=400.0, achieved=600.0)
+    assert result is not None
+    assert result["suggested"] == 540.0
+
+
+def test_no_raise_at_all_without_an_ideal_or_a_baseline() -> None:
+    """Nothing to bound against ⇒ leave the commitment alone, do not guess.
+
+    "Not enough data" beats an optimistic guess — and the optimistic guess here is a
+    target that climbs 20 % every five days with nothing to stop it.
+    """
+    assert _adaptation("cardio_load", target=50.0, baseline_value=None, achieved=100.0) is None
+
+
+def test_the_evidence_ideal_still_wins_where_one_exists() -> None:
+    """A cited ceiling outranks the owner-relative one — steps stop at 8000, not 1.5×.
+
+    Baseline 7000 would give an owner ceiling of 10500; the note-backed 8000 holds.
+    """
+    result = _adaptation("steps_total", target=7500.0, baseline_value=7000.0, achieved=9500.0)
+    assert result is not None
+    assert result["suggested"] == 8000.0
 
 
 # ── easing ───────────────────────────────────────────────────────────────────

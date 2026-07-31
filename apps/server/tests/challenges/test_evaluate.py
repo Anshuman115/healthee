@@ -95,9 +95,9 @@ def test_daily_at_most_scores_the_opposite_direction(clean_db: None) -> None:  #
     """A cap challenge: keep cardio load at or below 50 on each of seven days.
 
     Same shape as the ">=" case with the values mirrored — 30, 40, 60, 30 ×4 — so
-    six days hit and the streak is four. (The brief's example, a late-caffeine cap,
-    has no trackable metric in the registry yet; what is proven here is the
-    direction logic, which is what that challenge would rely on.)
+    six days hit and the streak is four. A cap on a device metric, deliberately:
+    the self-logged cap metrics live in ``test_cap_scoring``, and this pins that
+    the `daily` branch's direction logic is independent of the source.
     """
     challenge = _challenge(metric="cardio_load", comparator="<=", target_value=50.0)
     with tenant_transaction(_seed.OWNER) as cur:

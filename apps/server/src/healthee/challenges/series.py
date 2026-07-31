@@ -28,7 +28,13 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from healthee.analytics.series import daily_series, flag_series
-from healthee.challenges.metrics import DerivedSource, WorkoutCountSource, spec
+from healthee.challenges.metrics import (
+    DerivedSource,
+    ManualEntrySource,
+    WorkoutCountSource,
+    spec,
+)
+from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur
 
 # A night below this fraction of the owner's OWN 30-day sleep median is "genuinely
@@ -49,16 +55,27 @@ _SLEEP_METRIC = "tst_min"
 BASELINE_DAYS = 7
 
 
-def metric_series(cur: Cur, user_id: UUID, tz: str, metric: str, since: date) -> dict[date, float]:
+def metric_series(
+    cur: Cur, user_id: UUID, tz: str, metric: str, since: date, until: date | None = None
+) -> dict[date, float]:
     """Daily ``{local date: value}`` for one owner's challenge metric since ``since``.
 
     Dispatches on the registry's source binding: a ``derived_daily`` value, a
-    numeric field of that row's ``flags`` (total sleep time), or a count of
-    qualifying workouts.
+    numeric field of that row's ``flags`` (total sleep time), a count of qualifying
+    workouts, or a self-logged daily total.
+
+    ``until`` bounds only the ONE source that has to enumerate days rather than read
+    them — a :class:`ManualEntrySource`, which zero-fills (see
+    :func:`_manual_sums`). It defaults to the OWNER's today, and every caller that
+    already holds a pinned anchor passes it so a zero-fill can never run past the
+    day the caller is scoring. The device-backed sources ignore it: their absent
+    days stay absent, because for those "no row" genuinely means "no data".
     """
     source = spec(metric).source
     if isinstance(source, WorkoutCountSource):
         return _workout_counts(cur, user_id, tz, since, source.min_duration_s)
+    if isinstance(source, ManualEntrySource):
+        return _manual_sums(cur, user_id, tz, since, until or user_today(tz), source)
     return _derived_series(cur, user_id, source, since)
 
 
@@ -95,6 +112,38 @@ def _workout_counts(
     return {row[0]: float(row[1]) for row in cur.fetchall()}
 
 
+def _manual_sums(
+    cur: Cur, user_id: UUID, tz: str, since: date, until: date, source: ManualEntrySource
+) -> dict[date, float]:
+    """One owner's self-logged daily totals for a kind, ZERO-FILLED over the window.
+
+    Two decisions are load-bearing and both are argued in
+    :class:`~healthee.challenges.metrics.ManualEntrySource`: an unlogged day is a
+    zero (so a cap challenge is scoreable for the owner who abstained), and only
+    rows carrying this source's unit — or no unit at all — are summed (so nothing
+    is converted between units on the owner's behalf).
+
+    ``ts`` is an instant, so the local day is ``AT TIME ZONE %s`` in the OWNER's
+    zone; the extra ``ts >= since - 2 days`` bound is the same sargable superset
+    trick :func:`_workout_counts` uses to keep the ``ts`` index in play.
+    """
+    cur.execute(
+        "SELECT (ts AT TIME ZONE %s)::date AS local_day, sum(amount) "
+        "FROM manual_entry WHERE user_id = %s AND kind = %s "
+        "  AND ts >= %s::date - interval '2 days' "
+        "  AND (ts AT TIME ZONE %s)::date BETWEEN %s AND %s "
+        "  AND amount IS NOT NULL "
+        "  AND (unit IS NULL OR lower(unit) = %s) "
+        "GROUP BY local_day",
+        (tz, user_id, source.kind, since, tz, since, until, source.unit),
+    )
+    logged = {row[0]: float(row[1]) for row in cur.fetchall()}
+    span = (until - since).days  # < 0 ⇒ the window is empty, and so is the series
+    return {
+        day: logged.get(day, 0.0) for day in (since + timedelta(days=i) for i in range(span + 1))
+    }
+
+
 def recent_value(
     cur: Cur,
     user_id: UUID,
@@ -114,7 +163,7 @@ def recent_value(
     Returns ``None`` when the owner has no data in the window: "not enough data"
     is a distinct state from "zero", and callers must be able to tell them apart.
     """
-    series = metric_series(cur, user_id, tz, metric, ref - timedelta(days=days))
+    series = metric_series(cur, user_id, tz, metric, ref - timedelta(days=days), until=ref)
     values = [v for day, v in sorted(series.items()) if day < ref][-days:]
     if not values:
         return None
@@ -140,7 +189,7 @@ def protected_days(cur: Cur, user_id: UUID, tz: str, since: date, today: date) -
     a night is keyed to already IS "the day after that night".
     """
     nights = metric_series(
-        cur, user_id, tz, _SLEEP_METRIC, today - timedelta(days=_SLEEP_MEDIAN_DAYS)
+        cur, user_id, tz, _SLEEP_METRIC, today - timedelta(days=_SLEEP_MEDIAN_DAYS), until=today
     )
     values = sorted(nights.values())
     if len(values) < _MIN_NIGHTS_FOR_MEDIAN:
