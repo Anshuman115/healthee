@@ -40,6 +40,27 @@ things we genuinely know.
 ONE rule covers both ways the input can be absent — withheld today and never derived at
 all — because "the composite silently assumes median fitness" is the same defect either
 way, and two treatments of one state is how a second definition gets in (CLAUDE.md).
+
+## KNOWN GAP: the regularity term has the same problem and is NOT fixed here
+
+``_regularity_term`` reads the newest ``sleep_regularity_index`` with no date bound at
+all — the query does not even select ``day``. SRI is withheld by the same kind of gate
+(``derive/sleep_score.py::_compute_sri`` returns ``None``, and the write is guarded, when
+the 7-day grid is short — Directive 4 of [[sleep_regularity_index]]: "Do not compute or
+report SRI from <7 days of data"), and an SRI is *intrinsically* a statement about one
+7-day window, so a 90-day-old row describes a week 90 days ago. It is then spent as years
+in exactly the way the fitness term was.
+
+Left standing deliberately, not overlooked. Closing it needs two things this change does
+not have: a freshness/withhold vocabulary for SRI (there is no ``withhold_reason_for_day``
+equivalent — a consumer that wanted to check has nothing to call), and a decision on
+whether regularity is *required* the way fitness is, or whether a stale SRI drops its term
+while the composite survives. Fitness earned "required" because the note names it dominant
+and its reference is a population median; regularity's Cribb anchors do not obviously carry
+the same argument, and guessing is how the 85 in ``challenges/metrics.IDEAL`` happened.
+``read/sleep_extras.py::_latest_sri`` and ``read/health_metrics.py`` (``sleep_debt_min`` /
+``sleep_need_min``, gated by ``derive_sleep_debt``) are the same class and should be closed
+in the same change.
 """
 
 from __future__ import annotations
