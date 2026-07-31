@@ -30,9 +30,15 @@ from healthee.challenges.targets import (
     unranked_metrics,
 )
 
-# The MVPA row of the calibration table, weekly: floor 25 min/week, target 150 min/week.
-MVPA_FLOOR = 25.0
-MVPA_TARGET = 150.0
+# The MVPA row of the calibration table, weekly. Read from the SHIPPED tables rather
+# than restated, so the worked cases below pin the constants a person is actually asked
+# to live by — a floor pinned only as a local literal would let the real one drift.
+MVPA_FLOOR = meaningful_step("mvpa_min", "weekly")
+MVPA_TARGET = in_cadence(EVIDENCE_TARGET["mvpa_min"], "weekly")
+
+
+def test_the_mvpa_row_is_the_one_the_worked_cases_below_assume() -> None:
+    assert (MVPA_FLOOR, MVPA_TARGET) == (25.0, 150.0)
 
 
 def _mvpa_band(baseline: float):
