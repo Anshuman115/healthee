@@ -273,20 +273,43 @@ structural:
 **So the tuning loop is per-owner, and it already exists: the adapter (§5.2).** If the
 opening target is too easy for *you*, `suggest_adaptation` raises it ~20% after five days
 of beating it; too hard, it eases ~15%. That self-corrects within about a week, for that
-person, using only their rows — **for a `daily` challenge**.
+person, using only their rows — on **every** cadence, though not for equally long on
+each (the note below).
 
-> ⚠ **That is narrower than it sounds, and the narrower truth is the honest one.**
-> **Recalibration only reaches `daily` cadences.** For a cumulative `>=` (weekly/total),
-> averaging ≥ `RAISE_RATIO` × target implies the total is already ≥ target, which means the
-> challenge is **complete** — and `suggest_adaptation` returns nothing on a complete
-> challenge. So no weekly/total raise is reachable through real progress.
+> ⚠ **This paragraph used to say recalibration only reaches `daily`, and that was
+> WRONG — #69, closed by WP-C4.** The claim was that for a cumulative `>=`, averaging
+> ≥ `RAISE_RATIO` × target implies the total is already ≥ target ⇒ complete ⇒ no
+> suggestion, so *"for weekly and total challenges the opening target is effectively
+> permanent"*. It skipped a step, and the skipped step is the whole answer.
 >
-> The consequence, stated plainly rather than buried: **for weekly and total challenges the
-> opening target is effectively permanent** — it is met or it is not, with no mid-flight
-> correction. So the generation constants in §5.1a carry **more** weight for those shapes,
-> not less, and the "starting point the engine walks away from" argument applies to `daily`
-> alone. Tracked as an open decision (adapt on partial-window pace, or accept it as
-> correct — a weekly commitment arguably *should* be stable for its window).
+> `adapt._achieved` and `evaluate` measure **different things**. `_achieved` scales the
+> daily mean up to the target's own period — it is a **pace** — while `evaluate` sums only
+> the days that have happened:
+>
+> ```
+> achieved = mean × span      (pace, over the target's period)
+> current  = mean × elapsed   (what they have banked so far)
+> raise ⟺ mean × span ≥ RAISE_RATIO × target ;  complete ⟺ mean × elapsed ≥ target
+> ⇒ a raise is reachable while  elapsed < span / RAISE_RATIO
+> ```
+>
+> So a `weekly` raise is reachable on **days 5–6** (`7 / 1.2 ≈ 5.83`, and
+> `MIN_ELAPSED_DAYS` is 5) and a `total` raise across the **first 83 %** of the window —
+> on a 30-day total, days 5 through 24. The **ease** side is reachable throughout, for
+> both. Each boundary is a known-value test in
+> `tests/challenges/test_cumulative_adaptation.py`.
+>
+> **#69's decision is therefore (b) — accept it — but for the opposite reason to the one
+> offered.** Option (a) was "adapt on partial-window pace"; that is what the engine has
+> been doing all along, so there was nothing to build. And the narrow weekly window is
+> *correct*, not a residue: once the period has elapsed, a weekly target being beaten is
+> not a stale target, it is a commitment that has been **met** — `terminal_status` closes
+> it and the ledger records `met`. Raising it then would move the goalposts on something
+> already achieved. The honest next step is a new challenge calibrated against the new
+> baseline, which is exactly what happens.
+>
+> The consequence for §5.1a's constants is the reverse of what was written: they are a
+> starting point the engine walks away from on **every** cadence, not on `daily` alone.
 
 The **outcome ledger's role is also per-owner**: over time one person accumulates enough
 frozen `target` / `baseline` / `status` / `adherence` / `improvement_pct` rows to show what

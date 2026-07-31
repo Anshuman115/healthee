@@ -52,6 +52,39 @@ Three properties of the guard, each deliberate:
   raising this while your recovery is low" is both more useful and more honest than
   no suggestion at all. ``None`` keeps its one meaning — "performance is inside the
   productive band" — instead of quietly acquiring a second.
+
+## #69 — what a cumulative target can be recalibrated on, stated correctly
+
+CHALLENGES.md §5.1a used to warn that a ``weekly``/``total`` ``>=`` challenge can never
+be raised, on the reasoning that averaging ``RAISE_RATIO``× the target implies the total
+is already met, which makes the challenge complete, which returns ``None`` above. **That
+reasoning is wrong**, and it mattered: it was the stated basis for treating the
+generation constants as permanent for those two cadences.
+
+The step it skips is that :func:`_achieved` and ``evaluate`` measure different things.
+``_achieved`` scales the daily mean up to the target's own period — it is a PACE, "if
+they keep this up they will do X per week" — while ``evaluate._period_total`` sums only
+the days that have actually happened::
+
+    achieved = mean × span          (the pace, over the target's period)
+    current  = mean × elapsed       (what they have banked so far)
+
+    a raise fires ⟺ mean × span    ≥ RAISE_RATIO × target
+    complete      ⟺ mean × elapsed ≥ target
+    ⇒ both at once is impossible while  elapsed < span / RAISE_RATIO
+
+So a raise is reachable for ``weekly`` on days 5–6 (``7 / 1.2 ≈ 5.83``, and
+:data:`MIN_ELAPSED_DAYS` is 5) and for ``total`` across the first 83 % of the window. The
+ease side is reachable throughout, for both. ``tests/challenges/test_cumulative_
+adaptation.py`` pins each boundary as a known value.
+
+**The decision (#69 option (b), for a corrected reason): partial-window pace adaptation
+is not a change to make, because it is what this module already does.** And the narrow
+weekly window is right rather than a defect — once the period has elapsed, a weekly
+target being beaten is not a stale target, it is a commitment that has been MET.
+``lifecycle.terminal_status`` closes it and the ledger records ``met``; raising it then
+would move the goalposts on something already achieved, and the honest next step is a new
+challenge calibrated against the new baseline.
 """
 
 from __future__ import annotations
