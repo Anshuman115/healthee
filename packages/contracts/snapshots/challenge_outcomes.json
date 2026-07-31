@@ -1,0 +1,48 @@
+{
+  "outcomes": [
+    {
+      "adherence": 0.857,
+      "baseline": 8200.0,
+      "cadence": "daily",
+      "category": "activity",
+      "challenge_id": 1434,
+      "co_occurring": {
+        "attribution": "none",
+        "concurrent_challenges": 1,
+        "metrics": {
+          "hrv_sleep_avg": {
+            "after": 46.5,
+            "before": 45.0,
+            "delta_pct": 3.3
+          },
+          "rhr_daily": {
+            "after": 54.0,
+            "before": 55.0,
+            "delta_pct": -1.8
+          }
+        },
+        "note": "moved during the same window; not attributed to this challenge"
+      },
+      "confounds": {
+        "concurrent_challenges": 1,
+        "illness_days": 1,
+        "regression_to_mean": {
+          "assessed": true,
+          "at_risk": false,
+          "baseline_z": -0.4,
+          "days": 90,
+          "long_run_median": 8300.0
+        }
+      },
+      "data_confidence": "ok",
+      "days_active": 7,
+      "ended_at": "2026-07-31T04:16:00.378356Z",
+      "final": 8900.0,
+      "improved": true,
+      "improvement_pct": 8.5,
+      "metric": "steps_total",
+      "status": "met",
+      "target": 9000.0
+    }
+  ]
+}

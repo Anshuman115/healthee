@@ -26,6 +26,9 @@ so their JSON response **shapes** (keys, nesting, value types) must stay stable.
 | `log_post.json` | `POST /api/log` |
 | `gps_list.json` | `GET /api/workout/gps` |
 | `gps_detail.json` | `GET /api/workout/gps/{track_id}` |
+| `challenges.json` | `GET /api/challenges` |
+| `challenge_outcomes.json` | `GET /api/challenges/outcomes` |
+| `challenge_adopt.json` | `POST /api/challenges/{id}/adopt` |
 
 ## The harness
 
@@ -35,6 +38,12 @@ Lives in `apps/server/tests/contracts/` (runs under `uv run pytest`):
   reads (profile, samples, sleep sessions + a nap, a workout, `derived_daily`
   rows with the flags the payloads read, manual entries + an open fast, an
   illness flag, a recommendation, a finding, a GPS track).
+- `seed_challenges.py` — the WP-C2 slice: a suggested, an active and a
+  completed challenge plus a fully-populated frozen outcome. Its own module
+  because `seed.py` is at the 400-line gate, and because the ledger's
+  `confounds` / `co_occurring` / `data_confidence` fields ARE the contract
+  (CHALLENGES.md §7 decision 1) — a snapshot generated from nulls would let a
+  client render a co-occurring delta with no concurrency count beside it.
 - `endpoints.py` — the endpoint list + a helper that calls every one (resolving
   the two dynamic ids: a workout start and a GPS track id).
 - `shape.py` — the structural conformance check (same keys + types; union/

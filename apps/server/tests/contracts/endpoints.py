@@ -17,6 +17,8 @@ STATIC_ENDPOINTS: list[tuple[str, str, str, dict | None, dict | None]] = [
     ("profile", "GET", "/api/profile", None, None),
     ("log_recent", "GET", "/api/log/recent", {"days": 7}, None),
     ("gps_list", "GET", "/api/workout/gps", None, None),
+    ("challenges", "GET", "/api/challenges", None, None),
+    ("challenge_outcomes", "GET", "/api/challenges/outcomes", {"limit": 20}, None),
     ("log_post", "POST", "/api/log", None, {"type": "caffeine", "amount": 50, "unit": "mg"}),
 ]
 
@@ -30,6 +32,9 @@ def call_all(client: Any, headers: dict) -> dict[str, Any]:
         out[name] = resp.json()
     out["workout"] = _workout(client, headers, out["activity"])
     out["gps_detail"] = _gps_detail(client, headers, out["gps_list"])
+    # LAST, because it mutates: adopting turns the seeded suggestion into an active
+    # challenge, which would change the `challenges` feed above if it ran first.
+    out["challenge_adopt"] = _adopt(client, headers, out["challenges"])
     return out
 
 
@@ -41,6 +46,21 @@ def _workout(client: Any, headers: dict, activity: dict) -> Any:
         "/api/activity/workout", params={"start": workouts[0]["start_iso"]}, headers=headers
     )
     assert resp.status_code == 200, f"workout: {resp.status_code} {resp.text[:200]}"
+    return resp.json()
+
+
+def _adopt(client: Any, headers: dict, challenges: dict) -> Any:
+    """Adopt the seeded suggestion — the one lifecycle WRITE the contract bed pins.
+
+    The app's whole interaction with a suggestion is this call, so its response shape
+    (the stored challenge, with the baseline the server froze) is exactly what the
+    client will parse to render "you're on".
+    """
+    suggested = challenges.get("suggested") or []
+    if not suggested:
+        return None
+    resp = client.post(f"/api/challenges/{suggested[0]['id']}/adopt", headers=headers)
+    assert resp.status_code == 200, f"challenge_adopt: {resp.status_code} {resp.text[:200]}"
     return resp.json()
 
 

@@ -126,6 +126,42 @@ def abandon(cur: Cur, user_id: UUID, tz: str, challenge_id: int, today: date | N
     return {"ok": True, "challenge": store.fetch(cur, user_id, challenge_id)}
 
 
+def apply_adaptation(
+    cur: Cur, user_id: UUID, tz: str, challenge_id: int, today: date | None = None
+) -> dict:
+    """Recompute the recalibration SERVER-SIDE and apply it. Takes no target from anyone.
+
+    §5.2's second property, made structural: there is no parameter here through which
+    a new target could arrive. The client's whole role is to say "yes, adapt it"; the
+    number is recomputed from the owner's own rows at the moment of the request, so a
+    stale or tampered figure from a client cannot become their commitment.
+
+    A refusal when nothing is due is a real answer, not a failure — the honest state
+    most of the time is that the target should be left alone.
+    """
+    today = today or user_today(tz)
+    challenge = store.fetch(cur, user_id, challenge_id)
+    if challenge is None:
+        return _refused("not_found", "no such challenge")
+    if challenge["status"] != "active":
+        return _refused("not_active", f"challenge is {challenge['status']}, not active")
+    progress = evaluate_challenge(cur, user_id, tz, challenge, today=today)
+    adaptation = suggest_adaptation(cur, user_id, tz, challenge, progress, today=today)
+    if adaptation is None:
+        return _refused("no_adaptation", "performance is inside the productive band")
+    if not store.set_target(cur, user_id, challenge_id, float(adaptation["suggested"])):
+        return _refused("not_active", "challenge stopped being active")
+    log.info(
+        "challenge %s target %s -> %s for %s",
+        challenge_id,
+        adaptation["current"],
+        adaptation["suggested"],
+        user_id,
+    )
+    adapted = store.fetch(cur, user_id, challenge_id)
+    return {"ok": True, "adaptation": adaptation, "challenge": adapted}
+
+
 def finalize_due(cur: Cur, user_id: UUID, tz: str, today: date | None = None) -> list[dict]:
     """Close every one of ``user_id``'s active challenges that has ended.
 

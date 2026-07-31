@@ -40,6 +40,9 @@ _ENDPOINTS = [
     "log_post",
     "workout",
     "gps_detail",
+    "challenges",
+    "challenge_outcomes",
+    "challenge_adopt",
 ]
 
 

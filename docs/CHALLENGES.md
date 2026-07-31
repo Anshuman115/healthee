@@ -6,11 +6,13 @@
 > lines) — we port its proven core and fix its known flaws against the rebuild's
 > honesty contract, multi-tenancy, and engineering standards.
 >
-> **Status (2026-07-17):** the three DB tables (`challenge`, `program`,
-> `challenge_outcome`) exist in `0001_initial` and are owner-scoped + RLS'd by Phase 6.
-> **Zero application code exists.** This is a greenfield backend feature WP + two app
-> surfaces (Actions, Insights). Premium (PRICING §1a). Sequenced independent of Phase 2
-> mobile — buildable and testable headless now.
+> **Status (2026-07-31):** WP-C1 and WP-C2 have shipped. The deterministic engine,
+> the `suggested → active → completed | expired | abandoned` lifecycle, the
+> confound-aware outcome ledger (migration `0009`) and the five endpoints are live and
+> owner-scoped; generation (WP-C3), programs (WP-C4) and the coach tools (WP-C5) are
+> not. **Premium gating (6.6) is still NOT built** — the endpoints are reachable by any
+> authenticated owner, exactly like every other AI surface today (MULTI_USER.md §12).
+> Sequenced independent of Phase 2 mobile — buildable and testable headless.
 
 ---
 
@@ -323,8 +325,11 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
 
 ## 8. Build tracker
 
-- ⬜ **WP-C1** deterministic engine (port sacred core, owner-scoped, known-value tests)
-- ⬜ **WP-C2** lifecycle + confound-aware ledger + endpoints
+- ✅ **WP-C1** deterministic engine (port sacred core, owner-scoped, known-value tests)
+- ✅ **WP-C2** lifecycle + confound-aware ledger + endpoints (migration `0009`; the
+  cumulative-comparator fix #61 and its two cap metrics; auto-completion on write
+  paths only — argued in `challenges/lifecycle.py`; `expired` is a real terminal
+  state; premium gating still NOT built, see below)
 - ⬜ **WP-C3** grounded generation (choke point, deterministic targets)
 - ⬜ **WP-C4** programs + deload/failure/recalibration
 - ⬜ **WP-C5** coach: adopt tool + outcome ledger → `[personal_finding:...]` (COACH_ROADMAP C2)

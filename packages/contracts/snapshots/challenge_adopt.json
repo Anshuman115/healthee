@@ -1,0 +1,30 @@
+{
+  "challenge": {
+    "abandoned_at": null,
+    "adopted_at": "2026-07-31T04:16:00.577168Z",
+    "baseline_value": 8200.0,
+    "cadence": "daily",
+    "category": "activity",
+    "comparator": ">=",
+    "completed_at": null,
+    "created_at": "2026-07-31T04:16:00.378356Z",
+    "difficulty": "standard",
+    "ends_at": "2026-08-06T18:30:00Z",
+    "expected_outcome": "About a tenth above your recent week.",
+    "gen_date": null,
+    "how_to": "Walk after dinner.",
+    "id": 1432,
+    "metric": "steps_total",
+    "program_id": null,
+    "research_note_ids": [
+      "steps_mortality"
+    ],
+    "rung_index": null,
+    "status": "active",
+    "target_value": 9000.0,
+    "title": "Walk a little further",
+    "why": "Your own recent week averages 8,200 steps, so this is a small step up.",
+    "window_days": 7
+  },
+  "ok": true
+}

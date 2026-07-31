@@ -122,6 +122,22 @@ def mark_adopted(
     return cur.rowcount == 1
 
 
+def set_target(cur: Cur, user_id: UUID, challenge_id: int, target_value: float) -> bool:
+    """Move a live challenge's target. False ⇒ it was not active.
+
+    The VALUE is never a caller's: ``lifecycle.apply_adaptation`` recomputes it from
+    the owner's own rows before calling here (CHALLENGES.md §5.2 — a client may
+    *request* an adaptation, it can never dictate the number). This function is one
+    step away from that rule, which is why it says so.
+    """
+    cur.execute(
+        "UPDATE challenge SET target_value = %s "
+        "WHERE user_id = %s AND id = %s AND status = 'active'",
+        (target_value, user_id, challenge_id),
+    )
+    return cur.rowcount == 1
+
+
 def mark_abandoned(cur: Cur, user_id: UUID, challenge_id: int, at: datetime) -> bool:
     """End an active challenge at the owner's request. False ⇒ it was not active."""
     cur.execute(
