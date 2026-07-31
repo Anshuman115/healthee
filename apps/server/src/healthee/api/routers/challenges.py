@@ -25,7 +25,7 @@ models below **describe** the wire, they do not reshape it. Three rules keep tha
 true, and breaking any one of them moves the wire under a client already parsing it:
 
 1. **Field order and optionality mirror the source.** :class:`Challenge` follows
-   ``store._COLUMNS`` and ``db/schema.sql``'s NOT NULLs exactly; :class:`Outcome`
+   ``store.COLUMNS`` and ``db/schema.sql``'s NOT NULLs exactly; :class:`Outcome`
    follows ``ledger._READ_COLUMNS``.
 2. **A nullable field is required-and-nullable, never defaulted.** ``x: T | None``
    with no ``= None``: the key must be present and its value may be null. A default
@@ -69,7 +69,7 @@ class _Wire(BaseModel):
 class Challenge(_Wire):
     """One ``challenge`` row, exactly as ``challenges.store`` reads it.
 
-    Field order is ``store._COLUMNS``; optionality is ``db/schema.sql``'s. Everything
+    Field order is ``store.COLUMNS``; optionality is ``db/schema.sql``'s. Everything
     the schema declares NOT NULL is required here and everything it leaves nullable is
     ``| None`` — including ``research_note_ids``, a nullable ``TEXT[]`` even though
     every row this codebase writes carries one.
@@ -98,6 +98,13 @@ class Challenge(_Wire):
     baseline_value: float | None
     program_id: int | None
     rung_index: int | None
+    # `0010`. `standard` on every standalone challenge and on a designed rung; `deload`
+    # only on a rung the ladder inserted after one timed out unmet. On the wire because
+    # a client rendering a live rung has to be able to say it is a step BACK — the copy
+    # deliberately does not (``program_store.insert_rung`` authors no new prose), so
+    # this field is the only thing that can. NOT NULL with a default in the schema, so
+    # it is required and non-optional here.
+    kind: str
 
 
 class Adaptation(_Wire):

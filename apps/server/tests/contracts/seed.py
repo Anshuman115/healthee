@@ -23,7 +23,7 @@ import json
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from tests.contracts.seed_challenges import seed_challenges
+from tests.contracts.seed_challenges import seed_challenges, seed_program
 
 from healthee.core.db import admin_connection, tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
@@ -35,7 +35,7 @@ USER_TZ = ZoneInfo(SENTINEL_TZ)
 
 _TABLES = (
     "sample, sleep_session, workout, derived_daily, weight_log, profile, manual_entry, "
-    "illness_flag, recommendation, finding, gps_track, gps_point, kv, challenge"
+    "illness_flag, recommendation, finding, gps_track, gps_point, kv, program, challenge"
 )
 
 # `challenge` is truncated with CASCADE because `challenge_outcome` references it —
@@ -92,6 +92,7 @@ def seed_all() -> None:
         _seed_finding(cur)
         _seed_gps(cur)
         seed_challenges(cur, today, USER_TZ)
+        seed_program(cur, today, USER_TZ)
 
 
 def _seed_profile(cur) -> None:

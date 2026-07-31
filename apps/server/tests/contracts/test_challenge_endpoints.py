@@ -32,15 +32,52 @@ def _feed(client: Any, headers: dict) -> dict:
     return resp.json()
 
 
+def _live_challenge(client: Any, headers: dict) -> dict:
+    """The bed's one STANDALONE active challenge, named by intent rather than by index.
+
+    The active list also carries the seeded program's running rung (WP-C4), and these
+    tests are about the standalone lifecycle. Picking by `program_id` says which one
+    they mean; `[0]` said "whichever the feed put first", which stopped being one
+    challenge the moment a ladder existed.
+    """
+    standalone = [c for c in _feed(client, headers)["active"] if c["program_id"] is None]
+    assert len(standalone) == 1, f"expected one standalone active challenge, got {standalone}"
+    return standalone[0]
+
+
 def test_the_feed_separates_the_three_states(seeded_client: tuple) -> None:
     """Suggestions, live progress, and what recently ended are three different lists."""
     client, headers = seeded_client
     feed = _feed(client, headers)
     assert len(feed["suggested"]) == 1
-    assert len(feed["active"]) == 1
     assert feed["max_active"] == lifecycle.MAX_ACTIVE
-    assert feed["active"][0]["progress"]["target"] == 9000.0
-    assert [c["status"] for c in feed["recent"]] == ["completed"]
+    standalone = [c for c in feed["active"] if c["program_id"] is None]
+    assert len(standalone) == 1
+    assert standalone[0]["progress"]["target"] == 9000.0
+    assert [c["status"] for c in feed["recent"] if c["program_id"] is None] == ["completed"]
+    # The ladder's settled rungs are finished challenges and belong on this list too —
+    # including the one that ran out UNMET, which is `expired` and NOT `completed`
+    # (CHALLENGES.md §2.3, the whole point of the WP-C4 vocabulary).
+    assert sorted(c["status"] for c in feed["recent"] if c["program_id"]) == [
+        "completed",
+        "expired",
+    ]
+
+
+def test_a_live_program_rung_is_a_live_challenge_on_this_feed(seeded_client: tuple) -> None:
+    """WP-C4: the ACTIVE list carries the ladder's running rung too, and says it is one.
+
+    A rung is a commitment the owner is keeping right now, so hiding it from the
+    challenges feed would understate what they are carrying — and it is counted against
+    ``MAX_ACTIVE`` for exactly that reason (``challenges/programs.py``). ``program_id``
+    and ``kind`` are what let a client badge it as a rung, and as a DELOAD rung: the
+    copy deliberately does not say so, because no new prose is authored on that path.
+    """
+    client, headers = seeded_client
+    rungs = [c for c in _feed(client, headers)["active"] if c["program_id"] is not None]
+    assert len(rungs) == 1
+    assert (rungs[0]["kind"], rungs[0]["rung_index"]) == ("deload", 2)
+    assert rungs[0]["progress"]["cadence"] == "daily"
 
 
 def test_adopting_freezes_a_baseline_and_starts_the_window(seeded_client: tuple) -> None:
@@ -82,7 +119,7 @@ def test_an_unknown_challenge_is_404(seeded_client: tuple) -> None:
 
 def test_abandoning_returns_the_stored_row(seeded_client: tuple) -> None:
     client, headers = seeded_client
-    active = _feed(client, headers)["active"][0]
+    active = _live_challenge(client, headers)
     resp = client.post(f"/api/challenges/{active['id']}/abandon", headers=headers)
     assert resp.status_code == 200
     assert resp.json()["challenge"]["status"] == "abandoned"
@@ -99,7 +136,7 @@ def test_adapt_takes_no_target_from_the_client(seeded_client: tuple) -> None:
     verdict nor the stored target. The endpoint has nowhere to put a client's number.
     """
     client, headers = seeded_client
-    active = _feed(client, headers)["active"][0]
+    active = _live_challenge(client, headers)
     resp = client.post(
         f"/api/challenges/{active['id']}/adapt",
         headers=headers,
@@ -107,7 +144,7 @@ def test_adapt_takes_no_target_from_the_client(seeded_client: tuple) -> None:
     )
     assert resp.status_code == 409
     assert resp.json()["detail"]["reason"] == "no_adaptation"
-    assert _feed(client, headers)["active"][0]["target_value"] == 9000.0
+    assert _live_challenge(client, headers)["target_value"] == 9000.0
 
 
 def test_the_ledger_returns_the_frozen_outcome_with_its_caveats(seeded_client: tuple) -> None:
@@ -131,8 +168,8 @@ def test_the_ledger_returns_the_frozen_outcome_with_its_caveats(seeded_client: t
 def test_the_feed_is_a_pure_read(seeded_client: tuple) -> None:
     """The seeded active challenge has run its window out; GET must not close it."""
     client, headers = seeded_client
-    before = _feed(client, headers)["active"][0]
-    after = _feed(client, headers)["active"][0]
+    before = _live_challenge(client, headers)
+    after = _live_challenge(client, headers)
     assert (before["status"], after["status"]) == ("active", "active")
 
 

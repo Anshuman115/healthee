@@ -19,6 +19,7 @@ STATIC_ENDPOINTS: list[tuple[str, str, str, dict | None, dict | None]] = [
     ("gps_list", "GET", "/api/workout/gps", None, None),
     ("challenges", "GET", "/api/challenges", None, None),
     ("challenge_outcomes", "GET", "/api/challenges/outcomes", {"limit": 20}, None),
+    ("programs", "GET", "/api/programs", None, None),
     ("log_post", "POST", "/api/log", None, {"type": "caffeine", "amount": 50, "unit": "mg"}),
 ]
 

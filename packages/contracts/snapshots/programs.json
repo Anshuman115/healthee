@@ -1,0 +1,249 @@
+{
+  "active": {
+    "adopted_at": "2026-07-10T01:30:00Z",
+    "category": "activity",
+    "completed_at": null,
+    "created_at": "2026-07-31T15:03:45.087662Z",
+    "ended_at": null,
+    "ended_reason": null,
+    "goal": "8,000 steps a day",
+    "goal_metric": "steps_total",
+    "hold_reason": null,
+    "id": 1304,
+    "rung_count": 4,
+    "rungs": [
+      {
+        "abandoned_at": null,
+        "adopted_at": "2026-07-10T01:30:00Z",
+        "baseline_value": 8200.0,
+        "cadence": "daily",
+        "category": "activity",
+        "comparator": ">=",
+        "completed_at": null,
+        "created_at": "2026-07-31T15:03:45.087662Z",
+        "difficulty": "standard",
+        "ends_at": "2026-07-17T01:30:00Z",
+        "expected_outcome": "About a tenth above your recent week.",
+        "gen_date": null,
+        "how_to": "Walk after dinner.",
+        "id": 33322,
+        "kind": "standard",
+        "metric": "steps_total",
+        "outcome": {
+          "adherence": 0.714,
+          "baseline": 8200.0,
+          "cadence": "daily",
+          "category": "activity",
+          "challenge_id": 33322,
+          "co_occurring": {
+            "attribution": "none",
+            "concurrent_challenges": 1,
+            "metrics": {
+              "hrv_sleep_avg": {
+                "after": 46.5,
+                "before": 45.0,
+                "delta_pct": 3.3
+              },
+              "rhr_daily": {
+                "after": 54.0,
+                "before": 55.0,
+                "delta_pct": -1.8
+              }
+            },
+            "note": "moved during the same window; not attributed to this challenge"
+          },
+          "confounds": {
+            "concurrent_challenges": 1,
+            "illness_days": 1,
+            "regression_to_mean": {
+              "assessed": true,
+              "at_risk": false,
+              "baseline_z": -0.4,
+              "days": 90,
+              "long_run_median": 8300.0
+            }
+          },
+          "data_confidence": "ok",
+          "days_active": 7,
+          "difficulty": "standard",
+          "ended_at": "2026-07-31T15:03:45.087662Z",
+          "final": 8600.0,
+          "improved": true,
+          "improvement_pct": 9.5,
+          "metric": "steps_total",
+          "status": "met",
+          "target": 8600.0
+        },
+        "program_id": 1304,
+        "progress": null,
+        "research_note_ids": [
+          "steps_mortality"
+        ],
+        "rung_index": 0,
+        "status": "completed",
+        "target_value": 8600.0,
+        "title": "Rung 1",
+        "why": "More daily movement lowers all-cause mortality risk [steps_mortality].",
+        "window_days": 7
+      },
+      {
+        "abandoned_at": null,
+        "adopted_at": "2026-07-17T01:30:00Z",
+        "baseline_value": 8200.0,
+        "cadence": "daily",
+        "category": "activity",
+        "comparator": ">=",
+        "completed_at": null,
+        "created_at": "2026-07-31T15:03:45.087662Z",
+        "difficulty": "standard",
+        "ends_at": "2026-07-24T01:30:00Z",
+        "expected_outcome": "About a tenth above your recent week.",
+        "gen_date": null,
+        "how_to": "Walk after dinner.",
+        "id": 33323,
+        "kind": "standard",
+        "metric": "steps_total",
+        "outcome": {
+          "adherence": 0.714,
+          "baseline": 8200.0,
+          "cadence": "daily",
+          "category": "activity",
+          "challenge_id": 33323,
+          "co_occurring": {
+            "attribution": "none",
+            "concurrent_challenges": 1,
+            "metrics": {
+              "hrv_sleep_avg": {
+                "after": 46.5,
+                "before": 45.0,
+                "delta_pct": 3.3
+              },
+              "rhr_daily": {
+                "after": 54.0,
+                "before": 55.0,
+                "delta_pct": -1.8
+              }
+            },
+            "note": "moved during the same window; not attributed to this challenge"
+          },
+          "confounds": {
+            "concurrent_challenges": 1,
+            "illness_days": 1,
+            "regression_to_mean": {
+              "assessed": true,
+              "at_risk": false,
+              "baseline_z": -0.4,
+              "days": 90,
+              "long_run_median": 8300.0
+            }
+          },
+          "data_confidence": "ok",
+          "days_active": 7,
+          "difficulty": "standard",
+          "ended_at": "2026-07-31T15:03:45.087662Z",
+          "final": 8600.0,
+          "improved": false,
+          "improvement_pct": -1.2,
+          "metric": "steps_total",
+          "status": "unmet_timed_out",
+          "target": 9200.0
+        },
+        "program_id": 1304,
+        "progress": null,
+        "research_note_ids": [
+          "steps_mortality"
+        ],
+        "rung_index": 1,
+        "status": "expired",
+        "target_value": 9200.0,
+        "title": "Rung 2",
+        "why": "More daily movement lowers all-cause mortality risk [steps_mortality].",
+        "window_days": 7
+      },
+      {
+        "abandoned_at": null,
+        "adopted_at": "2026-07-25T01:30:00Z",
+        "baseline_value": 8200.0,
+        "cadence": "daily",
+        "category": "activity",
+        "comparator": ">=",
+        "completed_at": null,
+        "created_at": "2026-07-31T15:03:45.087662Z",
+        "difficulty": "standard",
+        "ends_at": "2026-08-01T01:30:00Z",
+        "expected_outcome": "About a tenth above your recent week.",
+        "gen_date": null,
+        "how_to": "Walk after dinner.",
+        "id": 33324,
+        "kind": "deload",
+        "metric": "steps_total",
+        "outcome": null,
+        "program_id": 1304,
+        "progress": {
+          "adaptation": null,
+          "cadence": "daily",
+          "complete": false,
+          "days_left": 0,
+          "elapsed": 7,
+          "hit_days": 0,
+          "label": "Steps",
+          "progress": 0.0,
+          "protected_today": false,
+          "streak": 0,
+          "target": 8900.0,
+          "today_hit": false,
+          "today_value": 8200.0,
+          "unit": "",
+          "window": 7
+        },
+        "research_note_ids": [
+          "steps_mortality"
+        ],
+        "rung_index": 2,
+        "status": "active",
+        "target_value": 8900.0,
+        "title": "Rung 3",
+        "why": "More daily movement lowers all-cause mortality risk [steps_mortality].",
+        "window_days": 7
+      },
+      {
+        "abandoned_at": null,
+        "adopted_at": null,
+        "baseline_value": 8200.0,
+        "cadence": "daily",
+        "category": "activity",
+        "comparator": ">=",
+        "completed_at": null,
+        "created_at": "2026-07-31T15:03:45.087662Z",
+        "difficulty": "standard",
+        "ends_at": null,
+        "expected_outcome": "About a tenth above your recent week.",
+        "gen_date": null,
+        "how_to": "Walk after dinner.",
+        "id": 33325,
+        "kind": "standard",
+        "metric": "steps_total",
+        "outcome": null,
+        "program_id": 1304,
+        "progress": null,
+        "research_note_ids": [
+          "steps_mortality"
+        ],
+        "rung_index": 3,
+        "status": "locked",
+        "target_value": 9600.0,
+        "title": "Rung 4",
+        "why": "More daily movement lowers all-cause mortality risk [steps_mortality].",
+        "window_days": 7
+      }
+    ],
+    "settled_rungs": 2,
+    "status": "active",
+    "title": "Walk your way up",
+    "weeks": 4,
+    "why": "Stepping up a little at a time is what the evidence supports [steps_mortality]."
+  },
+  "max_active_programs": 1,
+  "recent": [],
+  "suggested": []
+}

@@ -27,6 +27,7 @@ from healthee.api.routers import (
     ingest,
     insights,
     logs,
+    programs,
     sleep,
     today,
     workouts,
@@ -68,6 +69,10 @@ def create_app() -> FastAPI:
     # Deterministic only — generation (WP-C3) and the coach tools (WP-C5) are later,
     # and 6.6's premium gate threads through when it exists (see the router).
     app.include_router(challenges.router)
+    # WP-C4 programs: the multi-week ladder over those challenges. Mounted beside
+    # them rather than inside them because a rung's own lifecycle is the challenges
+    # router's (adapt, abandon), while the ladder's is this one's.
+    app.include_router(programs.router)
     # Phase 6.1 identity — Supabase-JWT-authed /api/me + /api/device. Additive:
     # existing routers keep their shared-token guard until the 6.4 flip.
     app.include_router(auth.router)

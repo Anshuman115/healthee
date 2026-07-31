@@ -189,7 +189,7 @@ def test_the_two_progress_shapes_stay_distinct() -> None:
 
 
 def _challenge_fixture(cadence: str) -> dict[str, Any]:
-    """A `store._row` mapping — every column, exactly as the reader returns it."""
+    """A `store.row` mapping — every column, exactly as the reader returns it."""
     return {
         "id": 1,
         "created_at": "2026-07-01T00:00:00Z",
@@ -214,6 +214,7 @@ def _challenge_fixture(cadence: str) -> dict[str, Any]:
         "baseline_value": 8200.0,
         "program_id": None,
         "rung_index": None,
+        "kind": "standard",
     }
 
 

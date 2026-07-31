@@ -149,3 +149,101 @@ def _seed_outcome(cur, challenge_id: int) -> None:
         "  0.857,7,'met',%s,%s,'ok') ON CONFLICT (challenge_id) DO NOTHING",
         (SENTINEL_USER_ID, challenge_id, json.dumps(_CONFOUNDS), json.dumps(_CO_OCCURRING)),
     )
+
+
+# ── the WP-C4 ladder ─────────────────────────────────────────────────────────
+#
+# One ACTIVE program, mid-climb, in the state the app has to be able to render: a first
+# rung that was met, a second that timed out UNMET, the deload the ladder inserted in
+# answer, and a locked rung still above them. That sequence IS the contract — a snapshot
+# generated from a ladder with only a live rung would pin none of the honesty this WP
+# exists for (a `kind: "deload"` row, an `unmet_timed_out` outcome, and a rung the owner
+# has not reached carrying `progress: null` AND `outcome: null`).
+
+_PROGRAM_WHY = "Stepping up a little at a time is what the evidence supports [steps_mortality]."
+_RUNG_WHY = "More daily movement lowers all-cause mortality risk [steps_mortality]."
+
+
+def seed_program(cur, today: date, tz: tzinfo) -> None:
+    """One live ladder: met → unmet_timed_out → deload (running) → locked."""
+    cur.execute(
+        "INSERT INTO program (user_id, title, why, goal, goal_metric, category, weeks, "
+        "  status, adopted_at) "
+        "VALUES (%s,'Walk your way up',%s,'8,000 steps a day','steps_total','activity',4,"
+        "  'active',%s) RETURNING id",
+        (
+            SENTINEL_USER_ID,
+            _PROGRAM_WHY,
+            datetime.combine(today - timedelta(days=21), time(7, 0), tzinfo=tz),
+        ),
+    )
+    row = cur.fetchone()
+    assert row is not None, "INSERT ... RETURNING id gave no row"
+    program_id = int(row[0])
+    met = _rung(cur, program_id, 0, 8600.0, "completed", today - timedelta(days=21), tz)
+    unmet = _rung(cur, program_id, 1, 9200.0, "expired", today - timedelta(days=14), tz)
+    _rung(cur, program_id, 2, 8900.0, "active", today - timedelta(days=6), tz, kind="deload")
+    _rung(cur, program_id, 3, 9600.0, "locked", None, tz)
+    _rung_outcome(cur, met, 8600.0, "met", 9.5)
+    _rung_outcome(cur, unmet, 9200.0, "unmet_timed_out", -1.2)
+
+
+def _rung(  # noqa: PLR0913 — a fixture row states every column it pins
+    cur,
+    program_id: int,
+    rung_index: int,
+    target: float,
+    status: str,
+    started: date | None,
+    tz: tzinfo,
+    kind: str = "standard",
+) -> int:
+    """One rung row; returns its id. ``started`` is None for a rung nobody has reached."""
+    adopted_at = None if started is None else datetime.combine(started, time(7, 0), tzinfo=tz)
+    ends_at = None if adopted_at is None else adopted_at + timedelta(days=7)
+    cur.execute(
+        "INSERT INTO challenge (user_id, title, why, category, difficulty, metric, comparator, "
+        "  target_value, cadence, window_days, expected_outcome, how_to, research_note_ids, "
+        "  status, adopted_at, ends_at, baseline_value, program_id, rung_index, kind) "
+        "VALUES (%s,%s,%s,'activity','standard','steps_total','>=',%s,'daily',7,%s,%s,%s,%s,"
+        "  %s,%s,8200,%s,%s,%s) RETURNING id",
+        (
+            SENTINEL_USER_ID,
+            f"Rung {rung_index + 1}",
+            _RUNG_WHY,
+            target,
+            _EXPECTED,
+            _HOW_TO,
+            _NOTE_IDS,
+            status,
+            adopted_at,
+            ends_at,
+            program_id,
+            rung_index,
+            kind,
+        ),
+    )
+    row = cur.fetchone()
+    assert row is not None, "INSERT ... RETURNING id gave no row"
+    return int(row[0])
+
+
+def _rung_outcome(cur, challenge_id: int, target: float, status: str, improvement: float) -> None:
+    """A settled rung's frozen outcome — the row that makes the ladder tell its story."""
+    cur.execute(
+        "INSERT INTO challenge_outcome (user_id, challenge_id, metric, category, difficulty, "
+        "  cadence, target, baseline, final, improvement_pct, improved, adherence, days_active, "
+        "  status, confounds, co_occurring, data_confidence) "
+        "VALUES (%s,%s,'steps_total','activity','standard','daily',%s,8200,8600,%s,%s,0.714,7,"
+        "  %s,%s,%s,'ok') ON CONFLICT (challenge_id) DO NOTHING",
+        (
+            SENTINEL_USER_ID,
+            challenge_id,
+            target,
+            improvement,
+            improvement > 0,
+            status,
+            json.dumps(_CONFOUNDS),
+            json.dumps(_CO_OCCURRING),
+        ),
+    )
