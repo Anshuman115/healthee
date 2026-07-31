@@ -118,6 +118,22 @@ EVIDENCE_TARGET: dict[str, Target] = {
     # DOSE-AND-TIMING relative to bedtime, not a daily or weekly total. There is no
     # population cap in this corpus to cut toward, so a cap challenge is bounded only by
     # the owner's own baseline — which is the honest bound anyway.
+    #
+    # The WINDOWED metrics (`caffeine_after_16` and friends) are absent for a NARROWER
+    # reason worth stating separately, because the timing half of those notes does bind
+    # where the total half did not. [caffeine_sleep] (Established) evidences that caffeine
+    # at bedtime, 3 h AND 6 h before bed measurably cuts total sleep time — ~1 h for
+    # 400 mg at 6 h out (Drake 2013) — and [alcohol_sleep] (Established) that a drink
+    # before bed fragments the second half of the night and drops overnight HRV 15-30 %
+    # (Ebrahim 2013, Pietilä 2018). So a windowed challenge has a real, gradeable claim
+    # behind it, which is what Gate B needs and what a daily-total cap never had.
+    #
+    # What neither note supplies is a NUMBER: no safe late dose, and no universal cutoff
+    # hour — [caffeine_sleep] explicitly makes "do not assert a universal cutoff hour" its
+    # honesty policy, and [caffeine_alcohol_cutoff_plan] frames the hour as the owner's
+    # OWN observed threshold. A target here would be that invented number, so there is
+    # none; the hour is justified per owner by their own finding (`levers`) and the
+    # amount by their own baseline (`bounds`).
 }
 
 
@@ -224,6 +240,10 @@ MEANINGFUL_STEP: dict[str, Target] = {
     #   which is already the smallest change either metric can express.
     # * `caffeine_mg`, `active_calories`, `cardio_load` — no dose-response evidence for
     #   the daily total at all.
+    # * the windowed metrics — [caffeine_sleep] attaches its effect to a DOSE AT A LEAD
+    #   TIME (400 mg, 6 h out), not to an increment, and says smaller doses are "not
+    #   negligible" without saying how much smaller stops mattering. A floor here would
+    #   be a number no study measured; the rounding step is the only bound that is real.
 }
 
 

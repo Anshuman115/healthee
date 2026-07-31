@@ -56,12 +56,13 @@ from datetime import date
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from healthee.challenges import ledger
+from healthee.challenges import commitment, ledger
 from healthee.challenges.bounds import Calibration
 from healthee.challenges.lever_findings import finding_token, findings_by_metric
 from healthee.challenges.metrics import CHALLENGE_METRICS, spec
 from healthee.challenges.recovery_guard import hold_reason, recovery_state
 from healthee.challenges.targets import STEEPEST_AT_LOW, U_SHAPED, curve_of, natural_cadence
+from healthee.challenges.windowed import WindowedManualEntrySource, evidence_notes
 from healthee.derive._common import Cur
 
 # The tiers, in order. Named rather than numbered at the call sites so a reordering is a
@@ -145,7 +146,9 @@ def analyse(
             metric,
             calibrations,
             finding=findings.get(metric),
-            blocked=_blocked_reason(metric, active_metrics, abandoned, recovery, illness),
+            blocked=_blocked_reason(
+                metric, active_metrics, abandoned, recovery, illness, findings.get(metric)
+            ),
         )
         for metric in sorted(CHALLENGE_METRICS)
     ]
@@ -270,12 +273,13 @@ def _with_rank(lever: Lever, rank: int) -> Lever:
 # ── the owner state the exclusions read ───────────────────────────────────────
 
 
-def _blocked_reason(
+def _blocked_reason(  # noqa: PLR0913 — one exclusion per owner-state input, each named
     metric: str,
     active_metrics: set[str],
     abandoned: dict[str, date],
     recovery: str | None,
     illness: str | None,
+    finding: dict | None,
 ) -> str | None:
     """Why ``metric`` may not be proposed at all, or ``None``.
 
@@ -283,15 +287,51 @@ def _blocked_reason(
     module's own: the adapter refuses to RAISE exactly the levers this refuses to
     OFFER, and two copies of "which levers, on what owner state" is how the two
     surfaces came to disagree in the first place.
+
+    The duplicate exclusion asks ``commitment.clashing`` rather than ``in``, so a time
+    WINDOW of a substance the owner is already running is off the menu too — one
+    behaviour, one commitment (``challenges.commitment``).
     """
     if metric in active_metrics:
         return "already running as a live challenge"
+    live = commitment.clashing(metric, active_metrics)
+    if live is not None:
+        return f"the same behaviour is already a live challenge as `{live}`"
     if metric in abandoned:
         return f"abandoned on {abandoned[metric]} — not re-offered within the cooldown"
+    unfounded = _unfounded_window(metric, finding)
+    if unfounded is not None:
+        return unfounded
     hold = hold_reason(metric, recovery, illness)
     if hold is not None:
         return f"a hard training lever withheld because {hold} [recovery_readiness]"
     return None
+
+
+def _unfounded_window(metric: str, finding: dict | None) -> str | None:
+    """A time window with no personal cutoff behind it may not be offered at all.
+
+    The hour IS the claim. The corpus evidences that late intake degrades sleep — that
+    part is Established — but it explicitly refuses to name an hour: [[caffeine_sleep]]'s
+    own honesty policy is to "surface the metabolic-variability confound (CYP1A2
+    half-life 3-7 h) rather than asserting a universal cutoff hour", and
+    [[caffeine_alcohol_cutoff_plan]] frames a cutoff as the owner's *observed* threshold,
+    never a metabolic floor. So the only thing that can justify 16:00 over 20:00 for a
+    given person is that person's own FDR-controlled finding.
+
+    Without one, offering a window would be inventing precisely the number the evidence
+    base declines to state — so it is BLOCKED rather than merely ranked last. Every other
+    unranked metric is honestly proposable ("we cannot say what it is worth"); this one is
+    not, because the target is not the doubtful part, the hour is.
+    """
+    source = spec(metric).source
+    if not isinstance(source, WindowedManualEntrySource) or finding is not None:
+        return None
+    notes = " ".join(f"[{note}]" for note in evidence_notes(source.kind))
+    return (
+        "a cutoff hour is a claim about THIS person and their own data has not found one "
+        f"here — the corpus evidences late intake, never a universal hour {notes}"
+    )
 
 
 def _recently_abandoned(cur: Cur, user_id: UUID, tz: str, today: date) -> dict[str, date]:

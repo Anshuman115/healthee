@@ -173,20 +173,21 @@ def test_creating_will_not_shadow_a_metric_already_on_the_menu(
 # ── the shape we cannot express, refused rather than degraded ─────────────────
 
 
-def test_a_time_of_day_intent_refuses_with_its_actual_reason(
+def test_a_time_of_day_intent_on_something_we_cannot_clock_still_refuses(
     challenge_owner_with_history: None,  # noqa: ARG001
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The registry has no clock, and the DEGRADATION is the dangerous part.
+    """The registry's clock reaches the logged substances and nothing else.
 
-    "No caffeine after 15:00" as a daily caffeine cap scores three morning coffees as a
-    failure and one 23:00 coffee as a pass. The refusal has to say that, and it has to
-    happen before a model is ever asked to have a go.
+    "In bed before 23:00" has no predicate at all — the sleep metrics are one number per
+    day — and expressing it as a daily cap would be the same silent degradation the
+    caffeine case used to be. So this refusal narrowed; it did not go away, and it still
+    happens before a model is ever asked to have a go.
     """
     stub = bed.scripted_llm(monkeypatch, [_gen.response()])
 
     result = challenge_tools.create_challenge(
-        bed.OWNER, bed.TZ, "challenge me to drink no caffeine after 15:00"
+        bed.OWNER, bed.TZ, "challenge me to be in bed before 23:00"
     )
 
     assert (result["ok"], result["reason"]) == (False, "no_time_of_day_predicate")
@@ -196,17 +197,68 @@ def test_a_time_of_day_intent_refuses_with_its_actual_reason(
     assert bed.suggested_ids() == []
 
 
+def test_a_caffeine_cutoff_intent_now_reaches_the_pipeline(
+    challenge_owner_with_history: None,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The refusal WP-C5 shipped no longer fires for the shape we can now express.
+
+    It is the pipeline that decides whether this particular owner has a cutoff to act on
+    (``challenges.levers`` opens a window only where their own finding placed one). What
+    is asserted here is that the regex stops answering that question on the pipeline's
+    behalf: the tool no longer returns ``no_time_of_day_predicate``, and the model IS
+    asked. This owner has no cutoff finding, so nothing is created — with the pipeline's
+    reason, not a blanket "we cannot measure cutoffs".
+    """
+    stub = bed.scripted_llm(monkeypatch, ['{"challenges": []}'])
+
+    result = challenge_tools.create_challenge(
+        bed.OWNER, bed.TZ, "challenge me to drink no caffeine after 16:00"
+    )
+
+    assert result.get("reason") != "no_time_of_day_predicate"
+    assert stub.calls > 0, "the model was never asked — the regex answered for the pipeline"
+    assert (result["ok"], result["reason"]) == (False, "not_trackable")
+
+
+@pytest.mark.parametrize(
+    "intent",
+    [
+        "challenge me to be in bed before 23:00",
+        "nothing to eat after dinner",
+        "no screens after 22:00",
+        "finish my last meal before 8pm",
+    ],
+)
+def test_a_cutoff_we_cannot_clock_is_refused_whatever_the_wording(intent: str) -> None:
+    """Every one of these names an hour for something with no timestamped log behind it."""
+    assert challenge_tools._TIME_OF_DAY_RE.search(intent) is not None
+    assert not challenge_tools._names_a_windowed_substance(intent)
+
+
 @pytest.mark.parametrize(
     "intent",
     [
         "no caffeine after 3pm",
         "stop drinking after 21:00",
         "no alcohol before bed",
-        "nothing to eat after dinner",
+        "last coffee before lunchtime",
     ],
 )
-def test_the_cutoff_shapes_people_actually_ask_for_are_all_caught(intent: str) -> None:
+def test_a_cutoff_we_can_clock_is_handed_to_the_pipeline(intent: str) -> None:
+    """Named a clock AND a substance we log with one, so the gate steps aside."""
     assert challenge_tools._TIME_OF_DAY_RE.search(intent) is not None
+    assert challenge_tools._names_a_windowed_substance(intent)
+
+
+def test_the_substance_vocabulary_covers_every_windowed_metric_in_the_registry() -> None:
+    """A window added without the words people use for it would refuse every ask for it.
+
+    The keys are the registry's, so this fails at CI rather than in a conversation.
+    """
+    from healthee.challenges.windowed import WINDOW_SUBSTANCES
+
+    assert set(challenge_tools._WINDOWED_SUBSTANCE_WORDS) == set(WINDOW_SUBSTANCES)
 
 
 @pytest.mark.parametrize(

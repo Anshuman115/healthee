@@ -250,13 +250,20 @@ def seed_finding(cur, user_id: UUID, **overrides) -> None:
     """One FDR-significant ``finding`` row — an owner's OWN measured evidence.
 
     Defaults to a personal-cutoff on caffeine, the shape CHALLENGES.md §5.1 names as the
-    thing no competitor can copy ("cut caffeine after 15:00 — on your data that is worth
+    thing no competitor can copy ("cut caffeine after 16:00 — on your data that is worth
     ~40 min of sleep").
+
+    The hour is 16 and not 15 because 15 is an hour the finder cannot produce: the search
+    runs over ``analytics.cutoffs.CUTOFF_HOURS`` (12, 14, 16, 18, 20, 22), so a fixture at
+    15 was a shape no owner could ever actually have. That was invisible while nothing
+    read the hour; it stopped being invisible when the registry grew a metric per hour
+    (``challenges.windowed``) and a fixture at 15 would have exercised a window that does
+    not exist.
     """
     row = {
         "kind": "personal_cutoff",
-        "description": "Caffeine after 15:00 Asia/Kolkata -> tst_min median 198.0 vs 238.0",
-        "metric_a": "caffeine_after_15",
+        "description": "Caffeine after 16:00 Asia/Kolkata -> tst_min median 198.0 vs 238.0",
+        "metric_a": "caffeine_after_16",
         "metric_b": "tst_min",
         "event_kind": "caffeine",
         "lag_days": 0,

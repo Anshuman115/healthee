@@ -82,22 +82,23 @@ _ECHO_LIMIT = 5
 # all (``generate._log_rejections``); this is what the coach needs to say *why*.
 _REASON_LIMIT = 4
 
-# A cutoff intent names a clock, and the registry has no clock. A ``ChallengeMetric``
-# yields ONE number per owner-day and carries no "…logged after HH:MM" predicate —
-# ``challenges.metrics``'s closing paragraph states that limit; this acts on it.
+# A cutoff intent names a clock. The registry now HAS a clock — but only on the two
+# things this product can see one on: the substances the owner logs with a timestamp
+# (``challenges.windowed``). For everything else a ``ChallengeMetric`` is still one
+# number per owner-day with no "…after HH:MM" dimension, and the refusal below still
+# stands for those.
 #
 # The refusal exists because the DEGRADATION is the dangerous part. "No caffeine after
-# 15:00" expressed as a daily caffeine cap scores three morning coffees as a failure
-# and one 23:00 coffee as a pass: wrong in both directions, and wrong quietly. Building
-# the predicate is the next work package (CHALLENGES.md §5.1 makes the cutoff findings
-# a first-class generation input, and this is the shape they naturally produce).
+# 16:00" expressed as a daily caffeine cap scores three morning coffees as a failure and
+# one 23:00 coffee as a pass: wrong in both directions, and wrong quietly. That risk is
+# unchanged for "in bed before 23:00" or "10,000 steps before noon", which is why this
+# gate narrowed rather than disappeared.
 #
-# The pattern deliberately requires an explicit clock — "after 15:00", "after 3pm",
+# The pattern deliberately requires an explicit clock — "after 16:00", "after 3pm",
 # "before bed" — and NOT a bare "after 3", which is far more often a count ("after 3
 # coffees") than an hour. That under-matches on purpose: a missed cutoff intent falls
-# through to the pipeline, which can still only bind it to a daily total and will say
-# so through the ordinary rejection path, whereas an over-eager pattern would refuse
-# challenges we can genuinely express.
+# through to the pipeline, which will say honestly what it could and could not build,
+# whereas an over-eager pattern would refuse challenges we can genuinely express.
 _TIME_OF_DAY_RE = re.compile(
     r"\b(?:after|before|past|until|till|by|later than|earlier than)\s+"
     r"(?:\d{1,2}[:.]\d{2}\s*(?:am|pm)?"
@@ -106,13 +107,34 @@ _TIME_OF_DAY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# The words people use for the substances a window can be measured on. The KEYS are
+# checked against the registry by a test, so a windowed substance added without its
+# vocabulary fails CI rather than silently refusing every intent about it; the words
+# themselves are language and no table can derive them.
+_WINDOWED_SUBSTANCE_WORDS: dict[str, tuple[str, ...]] = {
+    "caffeine": ("caffeine", "coffee", "espresso", "latte", "tea", "energy drink", "cola"),
+    "alcohol": (
+        "alcohol",
+        "alcoholic",
+        "drink",
+        "drinking",
+        "beer",
+        "wine",
+        "whisky",
+        "whiskey",
+        "spirits",
+        "nightcap",
+        "booze",
+    ),
+}
+
 _TIME_OF_DAY_REFUSAL = (
-    "we cannot track a time-of-day rule yet, so this specific shape does not exist. "
-    "Every challenge binds to ONE number per day and the metric registry has no "
-    "'after HH:MM' predicate, so a cutoff could only be stored as a daily total — "
-    "which would score three morning coffees as a failure and one late-night coffee "
-    "as a pass. Tell them plainly that we cannot measure a cutoff yet, and do NOT "
-    "offer the daily-total version as though it were what they asked for."
+    "we can only measure a time-of-day cutoff on something they LOG with a clock — "
+    "caffeine and alcohol — and this asked for one on something else. Every other "
+    "challenge binds to ONE number per day, so a cutoff on it could only be stored as a "
+    "daily total, which would score three morning coffees as a failure and one "
+    "late-night coffee as a pass. Tell them plainly that we cannot measure a cutoff on "
+    "that, and do NOT offer the daily-total version as though it were what they asked for."
 )
 
 
@@ -292,8 +314,8 @@ def create_challenge(user_id: UUID, tz: str, intent: str) -> dict:
     intent = (intent or "").strip()
     if not intent:
         return _refused("no_intent", "say what the person actually asked for")
-    if _TIME_OF_DAY_RE.search(intent):
-        log.info("coach create refused for %s: time-of-day predicate does not exist", user_id)
+    if _TIME_OF_DAY_RE.search(intent) and not _names_a_windowed_substance(intent):
+        log.info("coach create refused for %s: no time-of-day predicate for that", user_id)
         return _refused("no_time_of_day_predicate", _TIME_OF_DAY_REFUSAL)
     result = generate.generate_challenges(user_id, tz, intent=intent, max_new=1, replace_feed=False)
     if not result.get("ok"):
@@ -309,6 +331,20 @@ def create_challenge(user_id: UUID, tz: str, intent: str) -> dict:
         "stored here: it was computed from their own baseline, not from anything you "
         "proposed. Call adopt_challenge only if they say yes.",
     }
+
+
+def _names_a_windowed_substance(intent: str) -> bool:
+    """Whether this cutoff intent is about something we can actually put a clock on.
+
+    A pass here is NOT permission — it hands the intent to the pipeline, which offers a
+    window only where the owner's own finding placed one and otherwise creates nothing
+    and says why (``challenges.levers._unfounded_window``). What it prevents is this
+    regex answering a question it is not qualified to answer: "no caffeine after 16:00"
+    is now an expressible challenge for an owner whose data found that cutoff, and a
+    blanket refusal would be a false statement about what the product can do.
+    """
+    lowered = intent.lower()
+    return any(word in lowered for words in _WINDOWED_SUBSTANCE_WORDS.values() for word in words)
 
 
 def _nothing_created(rejected: list[str]) -> dict:

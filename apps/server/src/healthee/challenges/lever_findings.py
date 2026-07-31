@@ -24,6 +24,7 @@ from healthee.challenges.metrics import (
     ManualEntrySource,
     spec,
 )
+from healthee.challenges.windowed import WindowedManualEntrySource
 from healthee.derive._common import Cur
 from healthee.read.findings import is_trivial_finding
 
@@ -53,10 +54,20 @@ def implicates(finding: dict, metric: str) -> bool:
 
     Direction matters. An ``event_effect`` or a ``personal_cutoff`` has an outcome side
     (``metric_a`` / ``metric_b`` — the thing that moved) and an intervention side (the
-    substance). Only the intervention is a lever: "caffeine after 15:00 costs you sleep"
+    substance). Only the intervention is a lever: "caffeine after 16:00 costs you sleep"
     argues for a caffeine challenge, not a sleep-duration one. A ``pairwise_lag`` has no
     such asymmetry, so either side may be the lever.
+
+    A WINDOWED metric is matched by EQUALITY on that intervention side, and nothing
+    looser. Its registry key is byte-identical to the ``metric_a`` the cutoff finder
+    writes (``challenges.windowed.metric_key``), so "does their own data name this
+    window" is a string comparison rather than a prefix rule — and a prefix rule is
+    exactly what would go wrong here, because ``caffeine_after_12`` and
+    ``caffeine_after_22`` are different claims about the same person and a finding at
+    one of them says nothing about the other.
     """
+    if isinstance(spec(metric).source, WindowedManualEntrySource):
+        return finding.get("metric_a") == metric
     tokens = finding_tokens(metric)
     if not tokens:
         return False

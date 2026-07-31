@@ -114,7 +114,7 @@ def test_a_personal_finding_outranks_a_population_gap(owner: None) -> None:  # n
 
     first = analysis.ranked()[0]
     assert (first.metric, first.tier) == ("caffeine_mg", levers.PERSONAL_FINDING)
-    assert first.finding == "caffeine_after_15"
+    assert first.finding == "caffeine_after_16"
     assert first.finding_effect == 0.62
     assert first.target is None  # ranked with NO population target — the tier-0 property
     assert _by_metric(analysis)["mvpa_min"].tier == levers.STEEP_GAP
@@ -123,7 +123,7 @@ def test_a_personal_finding_outranks_a_population_gap(owner: None) -> None:  # n
 def test_the_outcome_side_of_a_cutoff_is_not_promoted_only_the_intervention(
     owner: None,  # noqa: ARG001
 ) -> None:
-    """ "Caffeine after 15:00 costs you sleep" argues for a caffeine lever, not a sleep one.
+    """ "Caffeine after 16:00 costs you sleep" argues for a caffeine lever, not a sleep one.
 
     The finding names `tst_min` as its OUTCOME (`metric_b`). Reading that as an
     implication would rank sleep duration on the strength of evidence about caffeine.
@@ -328,6 +328,15 @@ def test_a_short_sleeper_gets_their_own_age_banded_need_as_the_target(owner: Non
 
 
 def test_an_owner_with_no_data_at_all_has_no_levers_and_no_crash(owner: None) -> None:  # noqa: ARG001
+    """Nothing rankable, and every metric placed in an honest non-rank.
+
+    The two non-ranks are different statements and both are true here: an ordinary metric
+    is UNRANKED (we cannot compute a gap for it), while a time window is BLOCKED (their
+    own data has not found a cutoff hour, and the corpus refuses to name one).
+    """
     analysis = _analyse()
     assert analysis.ranked() == ()
-    assert all(lever.tier == levers.UNRANKED for lever in analysis.levers)
+    assert {lever.tier for lever in analysis.levers} <= {levers.UNRANKED, levers.BLOCKED}
+    assert all(
+        lever.tier == levers.BLOCKED for lever in analysis.levers if "_after_" in lever.metric
+    )

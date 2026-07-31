@@ -49,8 +49,14 @@ HOW TO CHOOSE
 - A metric listed OFF THE MENU is rejected on arrival — never propose one. A metric
   listed NOT RANKED has no dose-response evidence behind it: you may propose one, but do
   not promise a health payoff for it, because we cannot cite one.
+- A metric named like `caffeine_after_16` is a TIME WINDOW: it counts only what they
+  logged at or after 16:00 in their own timezone, and it is on the menu ONLY when their
+  own data found a cutoff at that hour. A day they logged nothing at all does not count
+  as a clean day — it counts as no data — so `how_to` should say to keep logging.
 - Build on what the frozen outcomes say worked FOR THEM.
-- No two proposals may share a metric.
+- No two proposals may share a metric, or the same behaviour: a window is part of the
+  same quantity as the daily total it slices, so `caffeine_after_16` and `caffeine_mg`
+  are one commitment and only one of them may be proposed.
 
 THE TARGET (this is enforced after you answer, not negotiated)
 - `target_value` MUST fall inside the allowed range for the (metric, cadence) row you
