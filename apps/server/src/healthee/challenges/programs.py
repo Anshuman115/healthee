@@ -99,7 +99,7 @@ def adopt(cur: Cur, user_id: UUID, tz: str, program_id: int, today: date | None 
         return _refused("not_suggested", "program was adopted by another request")
     started = rung_rules.start_rung(cur, user_id, tz, rungs[0], today)
     log.info("program %s adopted by %s (first rung %s)", program_id, user_id, started["rung_id"])
-    return {"ok": True, "program": _detail(cur, user_id, tz, program_id, today), "started": started}
+    return {"ok": True, "program": detail(cur, user_id, tz, program_id, today), "started": started}
 
 
 def _shape_refusal(rungs: list[dict]) -> dict | None:
@@ -111,7 +111,7 @@ def _shape_refusal(rungs: list[dict]) -> dict | None:
     if not rungs:
         return _refused("no_rungs", "this program has no rungs")
     for rung in rungs:
-        shape = _rung_shape_issue(rung)
+        shape = rung_shape_issue(rung)
         if shape is not None:
             return _refused("not_ladderable", shape)
     return None
@@ -133,12 +133,18 @@ def _capacity_refusal(
     return None if held is None else _refused(held[0], held[1])
 
 
-def _rung_shape_issue(rung: dict) -> str | None:
+def rung_shape_issue(rung: dict) -> str | None:
     """Why this rung could never be run as part of a ladder, or ``None``.
 
     ``comparator`` is the one that is specific to programs (module docstring — a cap has
     no ease rule, so its failure could not be answered). The metric and cadence checks are
     ``lifecycle.adopt``'s, applied to every rung rather than to one challenge.
+
+    PUBLIC because WP-C4b's ``program_screen`` refuses a generated ladder by this same
+    rule rather than a copy of it. That gives the track a property worth having: anything
+    generation ships, :func:`adopt` accepts — the two would otherwise be free to disagree,
+    which is exactly how ``levers`` and ``adapt`` once came to disagree about a withheld
+    lever (``challenges/recovery_guard.py``).
     """
     if rung["metric"] not in CHALLENGE_METRICS:
         return f"rung {rung['rung_index']}: {rung['metric']} is not a trackable metric"
@@ -184,7 +190,7 @@ def abandon(cur: Cur, user_id: UUID, tz: str, program_id: int, today: date | Non
     ):
         return _refused("not_active", "program stopped being active")
     log.info("program %s abandoned by %s", program_id, user_id)
-    return {"ok": True, "program": _detail(cur, user_id, tz, program_id, today)}
+    return {"ok": True, "program": detail(cur, user_id, tz, program_id, today)}
 
 
 def list_programs(cur: Cur, user_id: UUID, tz: str, today: date | None = None) -> dict:
@@ -210,8 +216,13 @@ def list_programs(cur: Cur, user_id: UUID, tz: str, today: date | None = None) -
     }
 
 
-def _detail(cur: Cur, user_id: UUID, tz: str, program_id: int, today: date) -> dict:
-    """One program as the write endpoints return it — re-read, so the client sees stored."""
+def detail(cur: Cur, user_id: UUID, tz: str, program_id: int, today: date) -> dict:
+    """One program as the write endpoints return it — re-read, so the client sees stored.
+
+    Public for ``program_generate``, which returns a freshly authored ladder the same way
+    ``adopt`` returns a freshly started one: read back from the database, never echoed
+    from what was proposed.
+    """
     program = program_store.fetch(cur, user_id, program_id)
     if program is None:  # the row we just wrote must be visible on this cursor
         raise RuntimeError(f"program {program_id} vanished inside its own transaction")

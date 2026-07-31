@@ -129,6 +129,62 @@ def rungs(cur: Cur, user_id: UUID, program_id: int) -> list[dict[str, Any]]:
     return [store.row(found) for found in cur.fetchall()]
 
 
+def insert_program(cur: Cur, user_id: UUID, program: dict) -> int:
+    """Persist one generated ladder as ``suggested``; returns its id (WP-C4b).
+
+    ``status`` is hardcoded for the same reason ``store.insert_suggested`` hardcodes it:
+    generating is not starting. Every rung goes in ``locked`` beside it
+    (:func:`insert_rung`), and ``programs.adopt`` is the only thing that sets either
+    running — which is what recalibrates rung 1 against the owner's baseline at the moment
+    they actually commit.
+
+    ``goal``/``goal_metric``/``weeks`` are DERIVED, never authored: ``program_screen``
+    computes them from the corpus target and the rung windows, so no model number reaches
+    this statement except the rung targets that passed the gates.
+    """
+    cur.execute(
+        "INSERT INTO program (user_id, title, why, goal, goal_metric, category, weeks, status) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,'suggested') RETURNING id",
+        (
+            user_id,
+            program["title"],
+            program["why"],
+            program["goal"],
+            program["goal_metric"],
+            program["category"],
+            int(program["weeks"]),
+        ),
+    )
+    found = cur.fetchone()
+    if found is None:
+        raise RuntimeError("INSERT ... RETURNING id produced no row")
+    return int(found[0])
+
+
+def delete_suggested_programs(cur: Cur, user_id: UUID) -> int:
+    """Clear ``user_id``'s un-adopted ladders and their rungs; returns how many went.
+
+    A regeneration REPLACES what is on offer, exactly as ``store.delete_suggestions``
+    does for standalone challenges and for the same reason: a designed-but-unadopted
+    ladder was calibrated against a baseline that has since moved, and rung 1 of it is a
+    number about a person who is no longer here.
+
+    **The rungs are deleted explicitly**, and that is not belt-and-braces:
+    ``challenge.program_id`` is a bare ``BIGINT`` with no foreign key (`0001`), so nothing
+    in the database would take them with the program. Only the ``app_user`` cascade ever
+    cleans them up otherwise, and a locked rung whose program has gone is invisible
+    history nothing can explain. Active programs are untouched — the ``status`` predicate
+    is inside the subquery so a live ladder's rungs cannot be caught by it.
+    """
+    cur.execute(
+        "DELETE FROM challenge WHERE user_id = %s AND program_id IN "
+        "  (SELECT id FROM program WHERE user_id = %s AND status = 'suggested')",
+        (user_id, user_id),
+    )
+    cur.execute("DELETE FROM program WHERE user_id = %s AND status = 'suggested'", (user_id,))
+    return cur.rowcount
+
+
 def mark_adopted(cur: Cur, user_id: UUID, program_id: int, at: datetime) -> bool:
     """Move a suggested program to ``active``. False ⇒ it was not still ``suggested``.
 

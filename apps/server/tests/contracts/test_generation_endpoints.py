@@ -1,4 +1,4 @@
-"""HTTP behaviour of ``POST /api/challenges/generate`` (WP-C3b).
+"""HTTP behaviour of the two generation endpoints (WP-C3b, WP-C4b).
 
 The pipeline's own gates are ``tests/challenges/test_generation_*``; this pins what the
 ENDPOINT does, which is four things the pipeline cannot be asked about:
@@ -10,7 +10,9 @@ ENDPOINT does, which is four things the pipeline cannot be asked about:
   their day's refreshes to a state they can fix in a tap;
 * **``GET /api/challenges`` is still pure.** It writes no row and asks no model, even
   with an empty feed. WP-C2 established that deliberately and WP-C3b is exactly the
-  change that would have been tempted to break it.
+  change that would have been tempted to break it;
+* the two endpoints share ONE budget — a challenge and a ladder are the same pipeline
+  shape and the same money, so two budgets would be two ways to spend it.
 
 The LLM is stubbed at ``insights.grounded.get_client``, so no network call happens — the
 same policy every other insights test follows.
@@ -29,6 +31,7 @@ from typing import Any
 import pytest
 from tests.challenges import _seed
 from tests.challenges._gen import BAND_LOW, IN_BAND, proposal, response
+from tests.challenges._program_gen import response as program_response
 from tests.insights._stub import StubLLM
 
 from healthee.api.routers import generation as generation_router
@@ -74,6 +77,10 @@ def generating_client(
 
 def _generate(client: Any, headers: dict) -> Any:
     return client.post("/api/challenges/generate", headers=headers)
+
+
+def _generate_program(client: Any, headers: dict) -> Any:
+    return client.post("/api/programs/generate", headers=headers)
 
 
 def test_generation_reaches_the_feed_end_to_end(generating_client: tuple) -> None:
@@ -208,3 +215,89 @@ def test_the_server_side_half_of_a_generation_is_cheap(generating_client: tuple)
 
     print(f"\nnon-LLM half: cold {timings[0]:.0f} ms, warm {timings[1]:.0f} ms")  # noqa: T201
     assert timings[-1] < 1500, f"generation's non-LLM half took {timings[-1]:.0f} ms"
+
+
+# ── WP-C4b: the program endpoint, on the same budget ──────────────────────────
+
+
+def test_a_ladder_reaches_the_program_feed_end_to_end(
+    generating_client: tuple, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One POST, and the owner has a ladder they can adopt — WP-C4b's whole point.
+
+    Every rung comes back ``locked``: designing is not starting, and ``adopt`` is what
+    recalibrates rung 1 against their baseline at the moment they commit.
+    """
+    client, headers, _ = generating_client
+    monkeypatch.setattr(
+        "healthee.insights.grounded.get_client", lambda: StubLLM([program_response()])
+    )
+    resp = _generate_program(client, headers)
+
+    assert resp.status_code == 200, resp.text[:300]
+    body = resp.json()
+    assert (body["ok"], body["generated"], body["rejected"]) == (True, 1, [])
+    assert [r["status"] for r in body["program"]["rungs"]] == ["locked"] * 4
+    feed = client.get("/api/programs", headers=headers).json()
+    assert [p["id"] for p in feed["suggested"]] == [body["program"]["id"]]
+    assert feed["active"] is None
+
+
+def test_a_refused_ladder_design_is_a_200_that_says_why(
+    generating_client: tuple, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cap ladder is not expressible, and the endpoint says so rather than erroring.
+
+    The pipeline worked; the model's ladder did not. That is ``generated: 0`` with the
+    reason attached, not a 5xx and not an empty 200 — the two are different answers.
+    """
+    client, headers, _ = generating_client
+    cap = program_response(175.0, 160.0, 150.0, metric="caffeine_mg", comparator="<=")
+    monkeypatch.setattr("healthee.insights.grounded.get_client", lambda: StubLLM([cap, cap]))
+    resp = _generate_program(client, headers)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["generated"], body["program"]) == (0, None)
+    assert body["rejected"][0].startswith("not_ladderable: ")
+
+
+def test_both_endpoints_draw_on_one_budget(
+    generating_client: tuple, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two challenge refreshes and one ladder spend the day — the fourth request is 429.
+
+    Whichever door it came through: the money is the same money.
+    """
+    client, headers, _ = generating_client
+    monkeypatch.setattr(
+        "healthee.insights.grounded.get_client",
+        lambda: StubLLM([response(), program_response()]),
+    )
+    assert _generate(client, headers).status_code == 200
+    assert _generate(client, headers).status_code == 200
+    assert _generate_program(client, headers).status_code == 200
+
+    assert _generate_program(client, headers).status_code == 429
+    assert _generate(client, headers).status_code == 429
+
+
+def test_the_program_read_path_stays_pure(generating_client: tuple) -> None:
+    """GET /api/programs designs nothing, exactly as GET /api/challenges generates nothing."""
+    client, headers, stub = generating_client
+    feed = client.get("/api/programs", headers=headers)
+
+    assert feed.status_code == 200
+    assert (feed.json()["active"], feed.json()["suggested"]) == (None, [])
+    assert stub.calls == 0
+    with tenant_transaction(_seed.OWNER) as cur:
+        cur.execute("SELECT count(*) FROM program WHERE user_id = %s", (_seed.OWNER,))
+        found = cur.fetchone()
+    assert found is not None and found[0] == 0
+
+
+def test_program_generation_requires_authentication(generating_client: tuple) -> None:
+    """Premium gating (6.6) is NOT built, so authentication is the line that does exist."""
+    client, _, _ = generating_client
+    resp = client.post("/api/programs/generate", headers={"Authorization": "Bearer nope"})
+    assert resp.status_code == 401

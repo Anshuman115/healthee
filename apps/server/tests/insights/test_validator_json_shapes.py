@@ -110,3 +110,59 @@ def test_the_directive_fields_are_not_required_to_carry_citations() -> None:
         )
     )
     assert result.ok is True
+
+
+# ── the ladder shape (WP-C4b) ─────────────────────────────────────────────────
+#
+# Registering it was not optional: a shape the validator cannot read fails closed, so an
+# unregistered `{"program": …}` would have been blocked outright rather than shipping
+# unvalidated — the fail-closed default doing its job, and the reason this section exists
+# is to prove the shape now validates like every other one.
+
+
+def _program(rung_overrides: dict | None = None, **overrides) -> str:
+    rung = {
+        "title": "Add a walk",
+        "why": f"A steady step increase may support fitness [{ESTABLISHED_ID}].",
+        "expected_outcome": f"More movement may compound over the weeks [{ESTABLISHED_ID}].",
+        "how_to": "Two 15-minute walks — one after lunch, one after dinner.",
+        "difficulty": "standard",
+        "target_value": 6250,
+        "window_days": 14,
+        "research_note_ids": [ESTABLISHED_ID],
+    } | (rung_overrides or {})
+    program = {
+        "title": "Walk your way up",
+        "why": f"Climbing gradually is what the evidence supports [{ESTABLISHED_ID}].",
+        "category": "activity",
+        "metric": "steps_total",
+        "comparator": ">=",
+        "cadence": "daily",
+        "rungs": [rung],
+    } | overrides
+    return json.dumps({"program": program})
+
+
+def test_a_well_formed_ladder_validates() -> None:
+    result = validate_json(_program())
+    assert result.ok is True
+    assert ESTABLISHED_ID in result.citations
+
+
+def test_a_null_program_is_a_valid_honest_answer() -> None:
+    """ "We could not design you a ladder" is an answer the surface is built to give."""
+    assert validate_json(json.dumps({"program": None})).ok is True
+
+
+def test_a_fabricated_id_in_any_rung_blocks_the_whole_ladder() -> None:
+    """A ladder is one object — there is no partial answer to keep."""
+    result = validate_json(_program({"why": "Steps fix everything [totally_made_up_note]."}))
+    assert result.ok is False
+    assert any("do not exist" in i for i in result.issues)
+
+
+def test_the_programs_own_why_must_be_grounded_too() -> None:
+    """The sentence that sells the whole climb is the most interpretive one in the payload."""
+    result = validate_json(_program(why="This suggests a ladder is what you need."))
+    assert result.ok is False
+    assert any("lacks a citation" in i for i in result.issues)

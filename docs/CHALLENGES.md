@@ -7,15 +7,17 @@
 > honesty contract, multi-tenancy, and engineering standards.
 >
 > **Status (2026-07-31):** WP-C1, WP-C2, WP-C3(+C3c), **WP-C4** (the ladder engine),
-> **WP-C5** and **WP-C7** (the time predicate + #72) have shipped. The
+> **WP-C5**, **WP-C7** (the time predicate + #72) and **WP-C3b/WP-C4b** (the two
+> generation endpoints) have shipped. The
 > deterministic engine, the `suggested → active → completed | expired | abandoned`
 > lifecycle, the confound-aware outcome ledger (migration `0009`), the five endpoints,
 > grounded generation with both gates, the coach's two challenge tools + the ledger
 > as personal evidence, and the multi-week ladder with honest terminal states, deload
 > rungs, activation-time recalibration and a give-up condition (migration `0010`, three
-> more endpoints) are live and owner-scoped; the refresh endpoint (WP-C3b), **program
-> generation (WP-C4b)** and the app surfaces (WP-C6) are not — so a ladder can be run and
-> reasoned about, but nothing can yet author one. **Premium gating (6.6) is
+> more endpoints) are live and owner-scoped — and since WP-C3b/C4b the system is
+> **reachable**: `POST /api/challenges/generate` and `POST /api/programs/generate` author
+> a feed and a ladder, behind the first rate limit in the codebase (3/owner/local day,
+> shared). Only the app surfaces (WP-C6) are outstanding. **Premium gating (6.6) is
 > still NOT built** — every one of these, the coach tools included, is reachable by any
 > authenticated owner exactly like every other AI surface today (MULTI_USER.md §12),
 > while PRICING §1a makes the whole system premium. Noted, not faked.
@@ -672,21 +674,52 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
     start, so rows written together shared a timestamp and the feed's order was the
     planner's choice — two identical requests could return two orders (`id DESC` now
     breaks the tie); and `tests/challenges/_seed.reset()` never truncated `program`.
-- ⬜ **WP-C4b** grounded PROGRAM generation — split out deliberately, not dropped. The
-  engine is complete and tested headless; authoring a ladder is a separate concern with
-  its own prompt, its own `validator._JSON_SHAPES` registration (a shape the validator
-  does not know **fails closed**, which WP-C3 pinned) and its own screen. It also needs a
-  gate design the challenge pipeline does not have, because **Gate A cannot bind every
-  rung at design time**: rung 3 is *meant* to sit above today's band, so a strict
-  per-rung bounds check would reject every real ladder. The shape that resolves it, for
-  whoever picks this up: bind Gate A to **rung 1 only** and let each later rung be bounded
-  at ACTIVATION by `rung.recalibrated_target` (which already does exactly that), and gate
-  the ladder's SHAPE at design time instead — monotone in the metric's improving
-  direction, capped at the evidence target (`targets.EVIDENCE_TARGET`), every rung on a
-  metric that is calibratable today, `>=` only, and `bounds.copy_issue` on every rung
-  (it only needs the band as a numeral threshold, so it works above the band too).
-  Until it lands there is no way for an owner to *acquire* a program — the same state
-  WP-C3b leaves standalone generation in.
+- ✅ **WP-C4b** grounded PROGRAM generation — `POST /api/programs/generate`
+  (`challenges/{program_generate,program_prompt,program_screen}.py`). An owner can now
+  acquire a ladder; before this the whole WP-C4 engine had nothing to run.
+  **The deferral's shape was implemented as recorded, with two additions argued below.**
+  - **The gating split.** Gate A binds **rung 1 only** (`screen.proposal_issue(...,
+    bind_target=False)` for the rest — a flag on the existing gate, not a second copy of
+    it). Later rungs are bounded **at activation** by `rung.recalibrated_target`, which
+    already reads the same `bounds.calibrate` band on every advancement, so **no rung is
+    ever *run* outside the owner's then-current band** — design-time bounding could only
+    ever have protected them against a four-week-old version of themselves.
+    `tests/challenges/test_program_generation.py` pins BOTH halves: the ascending ladder
+    is accepted, and the rejected per-rung rule is run against that same ladder to show
+    it would have killed it. A mutation restoring the per-rung gate fails nine tests.
+  - **The shape gates that replace it at design time**: one metric/cadence/comparator
+    for the whole ladder (stated once at the program level, so a mixed-metric ladder is
+    *unrepresentable* rather than merely refused — #67's choice), `>=` only, strictly
+    climbing, capped at `targets.EVIDENCE_TARGET`, 3–6 rungs, a rung of at least a week,
+    ≤ 84 days end to end, and `bounds.copy_issue` on every rung (it only needs the band
+    as a numeral threshold, so it works above the band too). Gate B is unchanged and the
+    validator learned the shape (`insights/json_shapes.py`) — a shape it does not know
+    fails closed, so registering it was not optional.
+  - **The `<=` cap ladder stays refused**, as `not_ladderable`, and by reading
+    `programs.rung_shape_issue` rather than restating it — which buys the property that
+    **anything generation ships, `adopt` accepts**. A progressive caffeine-cut ladder is
+    still not expressible: the failure branch is the adapter's ease and the corpus
+    supplies no rule for loosening a cap. That is a knowledge question first.
+  - **⚠ Two additions beyond the recorded shape, both deliberate.**
+    **(1) A ladder needs an evidence target, not merely a cap.** The note said "capped at
+    `EVIDENCE_TARGET`" and left open what happens on a metric that has none
+    (`active_calories`, `cardio_load`, `workouts_week` — the ones `levers` reports NOT
+    RANKED, saying plainly we cannot say what moving them is worth). Uncapped, such a
+    ladder climbs toward a number with nothing behind it and `program.goal` becomes the
+    invented population figure §5.1a refuses. A four-week commitment is a bigger ask than
+    a one-week one, so the bar goes UP: a standalone challenge on those metrics is still
+    generatable and is the right shape for them.
+    **(2) `goal`, `goal_metric` and `weeks` are DERIVED, never authored** — the goal is
+    the corpus target in the ladder's own units carrying its note id, the weeks are the
+    rung windows summed. A model writing either would be writing a number nobody checked.
+  - Rungs are stored `locked` under a `suggested` program: designing is not starting, and
+    `adopt` is still what recalibrates rung 1 and freezes its baseline.
+  - **A latent hazard found and closed:** `challenge.program_id` is a bare `BIGINT` with
+    **no foreign key** (`0001`), so nothing in the database takes a program's rungs with
+    it. `program_store.delete_suggested_programs` deletes them explicitly; without that,
+    every regeneration would leave a locked orphan rung behind.
+  - Shares WP-C3b's daily budget — a ladder and a challenge are the same pipeline shape
+    and the same money.
 - ✅ **WP-C5** coach: `adopt_challenge` + `create_challenge` + the outcome ledger as
   `[personal_finding:challenge_outcome]` (COACH_ROADMAP C2).
   `create_challenge` **calls `generate.generate_challenges(intent=…)`** rather than

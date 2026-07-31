@@ -29,12 +29,12 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from healthee.core.logging import get_logger
 from healthee.insights import manifest
 from healthee.insights.answer_text import extract_citations, sentences, truncation_issue
+from healthee.insights.json_shapes import JSON_SHAPES, Segment, segments_for
 from healthee.insights.refusals import REFUSAL_TEMPLATES
 
 log = get_logger(__name__)
@@ -113,14 +113,6 @@ _HEDGE_RE = re.compile(
     r"\blikely\b|\btends?\b|\bsuggests?\b|\bpossible\b|\bcan\b",
     re.IGNORECASE,
 )
-
-
-@dataclass(frozen=True)
-class _Segment:
-    """One chunk of user-facing text, plus whether its sentences must carry citations."""
-
-    text: str
-    require_grounding: bool = True
 
 
 @dataclass
@@ -212,7 +204,7 @@ def _grade_floor(valid_ids: set[str]) -> str | None:
 
 
 def _run_rules(
-    segments: list[_Segment], *, extra_issues: list[str] | None = None
+    segments: list[Segment], *, extra_issues: list[str] | None = None
 ) -> ValidationResult:
     """The rule engine over user-facing text — shared by the prose and JSON paths.
 
@@ -247,101 +239,7 @@ def validate(response: str) -> ValidationResult:
     if is_refusal(response):
         return ValidationResult(ok=True)
     truncation = truncation_issue(response)
-    return _run_rules([_Segment(response)], extra_issues=[truncation] if truncation else None)
-
-
-# A rec's `action` is a one-line DIRECTIVE by contract (jobs/recs.py RECS_TASK), and it is
-# grounded at the REC level rather than sentence-level. `jobs/recs.py::_rec_ok` gates every
-# rec through independent checks and drops it if ANY one fails — so a rec that ships has
-# provably ALL of: non-empty `research_note_ids`, EVERY id known to the manifest, AND an
-# inline [note_id] in its `rationale`. (Read it as "all required", not "both must fail":
-# an exemption justified by a guarantee weaker than the real one is how the next reader
-# talks themselves into widening it.)
-#
-# Requiring a citation inside the imperative would therefore demand grounding the rec
-# already carries, and grade-calibrating an imperative is a category error ("You might aim
-# for a walk"). So the directive is exempt from the GROUNDING rules only — banned tone,
-# certainty and fabricated-id checks still apply here, and `_rec_ok`'s safety-keyword block
-# scans the action too. If `_rec_ok` ever loosens, this exemption must be revisited: it is
-# the only thing standing under it.
-_RECS_GROUNDED_FIELDS = ("rationale", "expected_effect")
-_RECS_DIRECTIVE_FIELDS = ("action",)
-
-
-# A generated challenge's user-facing strings, split the same way a rec's are.
-# `why` and `expected_outcome` are the INTERPRETIVE fields — they explain what the
-# evidence says and must carry it. `title` and `how_to` are DIRECTIVES ("Walk more";
-# "3× 25-min walks Mon/Wed/Fri"), grounded at the challenge level exactly as a rec's
-# `action` is: `challenges.screen._citation_issue` drops any challenge whose
-# `research_note_ids` is empty, names an unknown id, or whose `why` carries no inline
-# `[note_id]`, so a challenge that ships has provably ALL of those. Grade-calibrating an
-# imperative is the same category error it is for a rec ("You might do 3 sessions"), and
-# requiring a citation inside one would demand grounding the challenge already carries.
-# If that screen ever loosens, this exemption must be revisited — it is the only thing
-# standing under it.
-_CHALLENGE_GROUNDED_FIELDS = ("why", "expected_outcome")
-_CHALLENGE_DIRECTIVE_FIELDS = ("title", "how_to")
-
-
-def _challenge_segments(payload: dict) -> list[_Segment]:
-    """The user-facing strings of a generated-challenges payload, each with its rule."""
-    return _item_segments(
-        payload.get("challenges"), _CHALLENGE_GROUNDED_FIELDS, _CHALLENGE_DIRECTIVE_FIELDS
-    )
-
-
-def _item_segments(
-    items: object, grounded_fields: tuple[str, ...], directive_fields: tuple[str, ...]
-) -> list[_Segment]:
-    """Pull the named string fields out of a list of objects, tagged with their rule.
-
-    Shared by the two JSON shapes so "which fields are prose and which are directives"
-    is a per-shape declaration rather than a per-shape loop that could drift.
-    """
-    if not isinstance(items, list):
-        return []
-    segments: list[_Segment] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        for name in grounded_fields:
-            value = item.get(name)
-            if isinstance(value, str):
-                segments.append(_Segment(value))
-        for name in directive_fields:
-            value = item.get(name)
-            if isinstance(value, str):
-                segments.append(_Segment(value, require_grounding=False))
-    return segments
-
-
-def _recs_segments(payload: object) -> list[_Segment]:
-    """The USER-FACING strings of a recs payload, each tagged with its grounding rule.
-
-    Only ``rationale`` / ``action`` / ``expected_effect`` are user-facing prose; keys and
-    constrained-vocab fields (``category``, ``signal_source``, ``evidence_grade``,
-    ``research_note_ids``) are NOT validated as prose — they are structurally checked
-    per-rec in ``jobs/recs.py``. This is why an interpretive-looking word in a KEY or a
-    category value cannot false-trip or false-satisfy the rules.
-    """
-    return _item_segments(
-        payload.get("recommendations") if isinstance(payload, dict) else None,
-        _RECS_GROUNDED_FIELDS,
-        _RECS_DIRECTIVE_FIELDS,
-    )
-
-
-# The JSON shapes this validator knows how to read, keyed by their top-level array.
-# A shape that is NOT here is a HARD FAILURE, and that is the point: before challenge
-# generation existed, an unrecognised payload produced zero segments, `_run_rules` then
-# had no text to check, and it returned ok=True with no citations — a total validation
-# bypass reachable by any future JSON surface that forgot to register itself here. The
-# validator now fails closed on a payload it cannot read, which is the only safe reading
-# of "I do not know what this is".
-_JSON_SHAPES: dict[str, Callable[[dict], list[_Segment]]] = {
-    "recommendations": _recs_segments,
-    "challenges": _challenge_segments,
-}
+    return _run_rules([Segment(response)], extra_issues=[truncation] if truncation else None)
 
 
 def validate_json(response: str) -> ValidationResult:
@@ -349,7 +247,7 @@ def validate_json(response: str) -> ValidationResult:
 
     Malformed JSON is a hard failure (logged, ``ok=False``) so the choke point falls back
     honestly rather than shipping garbage, and so is a well-formed payload in a shape no
-    registered extractor understands (see ``_JSON_SHAPES``). A recognised payload has its
+    registered extractor understands (see ``json_shapes.JSON_SHAPES``). A recognised payload has its
     user-facing interpretive strings extracted and run through ``_run_rules`` — so a
     fabricated inline ``[note_id]`` in a rationale, or in a challenge's ``why``, is
     blocked exactly as it is in the prose path.
@@ -365,11 +263,11 @@ def validate_json(response: str) -> ValidationResult:
         return ValidationResult(ok=False, issues=[f"Response was not valid JSON: {exc}"])
     if not isinstance(payload, dict):
         return ValidationResult(ok=False, issues=["JSON answer was not an object"])
-    shape = next((key for key in _JSON_SHAPES if key in payload), None)
-    if shape is None:
+    segments = segments_for(payload)
+    if segments is None:
         log.warning("grounded json answer is in no known shape — blocking")
         return ValidationResult(
             ok=False,
-            issues=[f"JSON answer has none of the known payload keys: {sorted(_JSON_SHAPES)}"],
+            issues=[f"JSON answer has none of the known payload keys: {sorted(JSON_SHAPES)}"],
         )
-    return _run_rules(_JSON_SHAPES[shape](payload))
+    return _run_rules(segments)

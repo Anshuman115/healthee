@@ -94,8 +94,10 @@ PRE_LLM_REFUSALS: frozenset[str] = frozenset({"too_many_active", "no_calibratabl
 
 # Days of the owner's history the choke point builds its context over. Wider than recs'
 # 14: a challenge is a commitment for the weeks ahead, and the trend that justifies it
-# is not visible in a fortnight.
-_CONTEXT_DAYS = 30
+# is not visible in a fortnight. Public because WP-C4b's program generation grounds on
+# the SAME window — a ladder is a longer commitment than a challenge, not a differently
+# informed one, and two constants would be two answers to one question.
+CONTEXT_DAYS = 30
 
 # The corpus metrics retrieval should rank notes against — the registry's own keys plus
 # the `derived_daily` metric each one actually reads, because notes declare
@@ -204,7 +206,7 @@ def _author(
             user_id,
             tz,
             metrics=GENERATION_METRICS,
-            context_days=_CONTEXT_DAYS,
+            context_days=CONTEXT_DAYS,
             response_format="json",
             client=client,
             model=model,

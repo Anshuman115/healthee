@@ -1,14 +1,14 @@
-"""The generation endpoints — where the challenges track becomes reachable.
+"""The two generation endpoints — where the challenges track becomes reachable.
 
-WP-C3b. Everything under ``healthee.challenges`` was built, tested and merged with no way
-to *acquire* a challenge: the pipeline existed, the HTTP surface did not. This POST is
-that surface, and nothing else. Thin (standards §2): auth dep → spend the budget → one
-domain call → shape the response.
+WP-C3b and WP-C4b. Everything under ``healthee.challenges`` was built, tested and merged
+with no way to *acquire* a challenge or a program: the pipelines existed, the HTTP surface
+did not. These two POSTs are that surface, and nothing else. Thin (standards §2): auth dep
+→ spend the budget → one domain call → shape the response.
 
-It lives in its own router rather than on the challenges router because what makes it
-different from every other endpoint in this codebase is one thing — it calls a model and
-it costs money — and that argument belongs in one place. WP-C4b's program generation
-joins it here for the same reason and shares the same budget.
+They live in one router rather than on the challenges and programs routers because what
+makes them different from every other endpoint in this codebase is the same thing for both
+— they call a model, they cost money, and they share one budget. Splitting them would put
+that one argument in two docstrings.
 
 ## 1. Why an LLM may sit on THIS request path
 
@@ -48,8 +48,7 @@ necessary: generation is the first LLM surface a client can ask for on demand (e
 else is nightly-deduped or cached per day), so without a bound an owner holding the button
 down spends our margin. ``PRICING.md`` §6.3 calls free-tier cost control existential.
 
-:data:`GENERATIONS_PER_DAY` is 3, per owner, per THEIR local day, and WP-C4b's program
-generation shares it.
+:data:`GENERATIONS_PER_DAY` is 3, per owner, per THEIR local day, shared by both endpoints.
 The number is a cost decision, against ``PRICING.md`` §3.1's model (Gemini 3 Flash,
 $0.50/M in · $3.00/M out):
 
@@ -101,8 +100,9 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 
 from healthee.api.routers.challenges import Challenge, _Wire
+from healthee.api.routers.programs import Program
 from healthee.api.validation import require_ok
-from healthee.challenges import generate
+from healthee.challenges import generate, program_generate
 from healthee.core import rate_limit
 from healthee.core.request_auth import CurrentUser
 
@@ -112,9 +112,9 @@ router = APIRouter(tags=["generation"])
 # that produced the number; it is a cost decision, not a magic constant.
 GENERATIONS_PER_DAY = 3
 
-# The `core.rate_limit` feature name this endpoint charges. ONE budget for every
-# generation surface on purpose: a challenge and a ladder are the same pipeline shape and
-# the same money, and two budgets would just be two ways to spend it.
+# The `core.rate_limit` feature name both endpoints charge. ONE budget on purpose: a
+# challenge and a ladder are the same pipeline shape and the same money, and two budgets
+# would just be two ways to spend it.
 BUDGET_FEATURE = "generation"
 
 
@@ -134,6 +134,22 @@ class GeneratedChallenges(_Wire):
     generated: int
     rejected: list[str]
     challenges: list[Challenge]
+
+
+class GeneratedProgram(_Wire):
+    """``POST /api/programs/generate`` — the stored ladder, or nothing and why.
+
+    ``program`` is a single object or ``null`` rather than a list, mirroring
+    ``ProgramFeed.active``: one ladder is designed at a time because one is all an owner
+    may run (``ladder.MAX_ACTIVE_PROGRAMS``), and a menu of ladders would be a lot of
+    tokens spent on a choice the engine caps at one. Required-and-nullable, never
+    defaulted — the challenges router's rule 2.
+    """
+
+    ok: Literal[True]
+    generated: int
+    rejected: list[str]
+    program: Program | None
 
 
 @router.post("/api/challenges/generate", response_model=GeneratedChallenges)
@@ -156,6 +172,27 @@ def post_generate_challenges(user: CurrentUser) -> GeneratedChallenges:
         generate.PRE_LLM_REFUSALS,
     )
     return GeneratedChallenges.model_validate(result)
+
+
+@router.post("/api/programs/generate", response_model=GeneratedProgram)
+def post_generate_program(user: CurrentUser) -> GeneratedProgram:
+    """Design, gate and persist ONE multi-week ladder for this owner (WP-C4b).
+
+    The ladder is stored ``suggested`` with every rung ``locked``: designing is not
+    starting, and starting is ``POST /api/programs/{program_id}/adopt``, which recalibrates
+    the first rung against the owner's baseline at that moment.
+
+    409 with a named reason when a rule refused — already climbing a ladder, or too little
+    of their data to calibrate against. A design the shape gates threw out is a **200**
+    with ``generated: 0`` and the reasons in ``rejected``: the pipeline worked, the model's
+    ladder did not, and those are different answers (``challenges/program_screen.py``).
+    """
+    result = _spend_then_run(
+        user,
+        lambda: program_generate.generate_program(user.id, user.timezone),
+        program_generate.PRE_LLM_REFUSALS,
+    )
+    return GeneratedProgram.model_validate(result)
 
 
 def _spend_then_run(user: CurrentUser, run: Callable[[], dict], uncharged: frozenset[str]) -> dict:

@@ -88,8 +88,26 @@ def proposal_issue(
     calibrations: CalibrationMap,
     taken: set[str],
     blocked: dict[str, str] | None = None,
+    *,
+    bind_target: bool = True,
 ) -> str | None:
-    """The first reason one proposal may not ship, or ``None`` if it may."""
+    """The first reason one proposal may not ship, or ``None`` if it may.
+
+    ``bind_target=False`` skips Gate A's band check and ONLY that — every other rule
+    below still applies, the copy check included. It exists for WP-C4b: a ladder's rung 3
+    is *meant* to sit above today's band, that is what a ladder IS, so binding Gate A to
+    every rung at design time would reject every legitimate program. Those rungs are
+    bounded at ACTIVATION instead, by ``rung.recalibrated_target`` reading this same band
+    at the moment the rung starts — so no rung is ever *run* outside the owner's
+    then-current band, which is the property that actually protects them. See
+    ``challenges/program_screen.py`` for the shape gates that take Gate A's place at
+    design time.
+
+    ``copy_issue`` is deliberately NOT skipped with it: it only needs the band's low end
+    as a *numeral threshold* ("a number this big must be the target"), so it works above
+    the band exactly as it does inside it — and a rung whose prose names a number the row
+    does not hold is the same lie whatever rung it is.
+    """
     structural = _structural_issue(proposal)
     if structural is not None:
         return structural
@@ -113,7 +131,8 @@ def proposal_issue(
     if calibration is None:
         return f"{proposal['metric']}/{proposal['cadence']} is not a calibratable pair"
     target = float(proposal["target_value"])
-    return target_issue(calibration, target) or _copy_issue(proposal, calibration, target)
+    out_of_band = target_issue(calibration, target) if bind_target else None
+    return out_of_band or _copy_issue(proposal, calibration, target)
 
 
 def _copy_issue(proposal: dict, calibration: Calibration, target: float) -> str | None:
