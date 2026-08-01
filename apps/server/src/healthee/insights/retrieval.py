@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from healthee.insights.manifest import GRADE_RANK, ManifestNote, all_notes, note_body
+from healthee.insights.manifest import GRADE_RANK, ManifestNote, all_notes, prompt_body
 
 DEFAULT_TOP_N = 6
 
@@ -97,9 +97,13 @@ def evidence_section(
 ) -> tuple[str, list[str]]:
     """The EVIDENCE NOTES markdown + the ids embedded in full.
 
-    Top-N notes appear with their full body and grade tag; the rest are one-line
+    Top-N notes appear with their body and grade tag; the rest are one-line
     ``[id] (Grade): summary`` entries so the model knows they exist and are citable
     without paying their full token cost.
+
+    The embedded body is ``prompt_body`` — the note minus its bibliography, which the
+    model cannot cite (see that function). ``note_body`` remains the whole note for the
+    human-facing reader.
     """
     ranked = rank_notes(question, metrics)
     if not ranked:
@@ -112,7 +116,7 @@ def evidence_section(
         "`No strong evidence in our base for this.`",
     ]
     for n in top:
-        parts.append(f"\n## `[{n.id}]` ({n.grade}) — {n.name}\n{note_body(n.id)}")
+        parts.append(f"\n## `[{n.id}]` ({n.grade}) — {n.name}\n{prompt_body(n.id)}")
     if rest:
         parts.append("\n## Other citable notes (summaries only)")
         parts.extend(f"- `[{n.id}]` ({n.grade}): {n.summary}" for n in rest)

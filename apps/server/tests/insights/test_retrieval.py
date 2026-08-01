@@ -12,6 +12,8 @@ pin both halves of it: the letter no longer matches, the acronym still does.
 
 from __future__ import annotations
 
+import re
+
 from healthee.insights.coaching import _DAILY_ACTION_PROMPT, DAILY_ACTION_METRICS
 from healthee.insights.manifest import all_notes
 from healthee.insights.retrieval import _score, _tokens, evidence_section, rank_notes
@@ -83,3 +85,9 @@ def test_an_acronym_alias_still_matches_its_own_word() -> None:
 def test_a_phrase_alias_still_matches_its_phrase() -> None:
     ranked = rank_notes("how does alcohol before bed affect sleep?")
     assert ranked[0].id == "alcohol_sleep"
+
+
+def test_the_embedded_notes_carry_no_bibliography() -> None:
+    """The evidence section embeds ``prompt_body``: no note is citable by paper."""
+    md, _ids = evidence_section("how are my steps", metrics=["steps_total"])
+    assert not re.search(r"^##\s+(?:key\s+)?references\b", md, re.I | re.M)
