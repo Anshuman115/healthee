@@ -246,7 +246,66 @@ reads and writes that tenant's health data. That is exactly the hole
 legacy token branch**, not on the flag existing.
 
 (Uncontrolled signup is also uncontrolled LLM spend — every active owner gets a
-nightly chain.)
+nightly chain. Since 6.6a the chain **skips the LLM steps for a non-premium owner**,
+which is the structural half of that bound; the signup gate is still the other half.)
+
+---
+
+### B6. ⛔ ENTITLE THE OWNER BEFORE THE 6.6a GATE REACHES PROD
+
+**This is the one step that breaks the live owner if you skip it.** Migration `0011`
+adds the `subscription` table, and from that deploy on **every AI surface refuses an
+owner who has no active row**: the coach, the four insight cards, `/api/notable`, the
+challenges and programs system, `/api/today`'s `action` and `recommendations`, and the
+nightly recs/warm/briefing. "Not premium" is the default and it is silent — the API
+stays green, the tracker keeps working, and the AI layer simply stops.
+
+Today's owner authenticates with the legacy shared token and resolves to the
+**sentinel** (`00000000-0000-0000-0000-000000000000`) unless B4's claim has already
+re-keyed them. They have no `subscription` row. So, in the same maintenance window:
+
+```sh
+cd ~/healthee-new/infra/docker
+
+# 1. migrate (0011 creates the table; 0009/0010 may also still be pending)
+docker compose -f docker-compose.prod.yml exec api python -m healthee.db.migrate
+
+# 2. re-run the app-role provisioner. NOT optional: 0011 is a new table, so the
+#    default privileges hand the app role full DML on it, and this is what REVOKEs
+#    the writes back down to SELECT (entitlement must not be app-settable).
+docker compose -f docker-compose.prod.yml exec api python -m healthee.db.provision_app_role
+
+# 3. find the owner's UUID (the sentinel, or their real id if B4 already ran)
+docker compose -f docker-compose.prod.yml exec db \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, email FROM app_user;"
+
+# 4. DRY RUN — read the plan (before/after, the email, the end date)
+docker compose -f docker-compose.prod.yml exec api \
+  python -m healthee.db.grant_premium <owner-uuid> --months 120
+
+# 5. apply
+docker compose -f docker-compose.prod.yml exec api \
+  python -m healthee.db.grant_premium <owner-uuid> --months 120 --apply --by owner \
+  --note "product owner, pre-billing"
+```
+
+Verify in the running image, not the repo:
+
+```sh
+curl -fsS -H "Authorization: Bearer $REALTIME_INGEST_TOKEN" \
+  http://127.0.0.1:8765/api/entitlement          # → {"premium": true, "locked": [], ...}
+curl -fsS -H "Authorization: Bearer $REALTIME_INGEST_TOKEN" \
+  http://127.0.0.1:8765/api/today | grep -c '"action"'   # → 1 (0 means locked)
+```
+
+**The alternative, for a self-hosted box only:** set `SELF_HOST_UNLOCKED=true` in
+`infra/.env` (it is passed to BOTH the `api` and `scheduler` services). That entitles
+every owner on the deployment, which is right when the operator pays their own
+OpenRouter bill and wrong on the hosted service — both containers log a WARNING on
+every boot when it is set, so an accidental one is visible in `docker compose logs`.
+
+Rollback of just this step: `grant_premium <uuid> --revoke --apply` (writes `canceled`;
+the row and its history are kept).
 
 ---
 

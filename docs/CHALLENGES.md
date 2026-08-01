@@ -620,13 +620,21 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
     and the count, never a generic error. And a refusal decided BEFORE the model is asked
     (`generate.PRE_LLM_REFUSALS` — the cap, no calibratable metric) is **refunded**, so
     nobody loses a day's refreshes to a state they can fix in a tap.
-  - **It is NOT §12.3's metering** (`require_ai_access`, the 1-question-per-7-days taste).
-    That answers *may this person use AI at all* — entitlement, unbuilt, 6.6. This answers
-    *how often may anyone, premium included, spend on this*. They compose: entitlement
-    first, then the budget. **What it does not cover:** the coach's `create_challenge`
-    reaches the same pipeline without passing through the endpoint, deliberately — the
-    coach's natural unit is a TURN and metering turns is §12.3's job, so chat-initiated
-    generation stays unbounded until 6.6. Stated, not hidden.
+  - **It is NOT §12.3's metering** (the 1-question-per-7-days taste). That answers *may
+    this person use AI at all* — entitlement, shipped in **6.6a** (`api/gate.py`); this
+    answers *how often may anyone, premium included, spend on this*. They compose, and
+    now really do: `ChallengeUser` refuses an unentitled owner **before** the budget is
+    charged, so a locked-out request never leaves a spent unit behind.
+  - **Both doors charge it (#78, 6.6a).** This bullet used to say the opposite: that the
+    coach's `create_challenge` deliberately bypassed the budget because the coach's
+    natural unit is a TURN. That argument lost. A generation costs the same ~0.74 ¢
+    whichever door it came through, and the endpoint's own comment already said there is
+    ONE budget on purpose ("a second name would just be two ways to spend it"). The
+    charge moved down to `challenges/budget.py`, which both callers use. The consequence
+    is deliberate: spending all three refreshes in the app means chat cannot create one
+    either. A per-TURN coach limiter is still worth having and still unbuilt — it bounds
+    the conversation, which is a different thing, and it will compose with this rather
+    than replace it.
   - **One row per owner per feature, self-resetting** (the day lives in the kv VALUE, not
     the key). `jobs/chain.py`'s `job:chain_done:<day>` marker puts the day in the KEY and
     therefore leaves one row per owner per day in `kv` forever — a small unbounded growth

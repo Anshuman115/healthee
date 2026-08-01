@@ -702,6 +702,12 @@ noted (the full suite is **728 tests**, green under `TZ=UTC` and `TZ=Asia/Kolkat
 | Auth matrix | `tests/test_request_auth.py` | every rejected JWT is asserted to never reach the sentinel branch |
 | Ingest attribution | `tests/integration/test_ingest_attribution.py` | device token → owner; unknown → 401 |
 | Citations resolve | `tests/test_source_citations.py` | every `[[id]]` resolves in the manifest |
+| AI gate completeness | `tests/premium/test_ai_gate.py` | every mounted route is gated or in a reasoned free allowlist — driven off the app's own route table, so a new AI endpoint cannot ship open |
+| The paywall refuses a direct call | `tests/premium/test_ai_gate.py` | every AI route 402s a free owner and spends zero model calls; a client claiming premium is still refused |
+| The AI fields are OMITTED | `tests/premium/test_locked_payloads.py` | `/api/today` + `/api/sleep/consistency` carry no AI key at all for a free owner — asserted on the raw response **text** |
+| The jobs spend nothing on a free owner | `tests/premium/test_chain_spend.py` | a real chain against a real DB makes ZERO stub-model calls, leaves no warmed line and no `recommendation` row; two owners with opposite entitlement do not leak |
+| Entitlement is not app-settable | `tests/db/test_app_role.py` | the app role cannot INSERT/UPDATE/DELETE `subscription` — it can only SELECT it |
+| One generation budget, both doors | `tests/premium/test_generation_budget.py` | exhausting it through the endpoint blocks the coach's `create_challenge` (#78) |
 
 The **whole suite runs as the least-privilege role** (`tests/conftest.py::app_role_pool`)
 — it did not before 6.5b-2, which would have left every policy unexercised (§13 [D3]).
@@ -732,23 +738,30 @@ acceptance bar each was held to, not as pending work.
 | **6.4 Flip identity ✅** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Plus `db/claim_sentinel.py` — the committed, **dry-run-by-default** one-off that re-keys the sentinel owner to the real Supabase UUID via the single cascading `UPDATE app_user SET id = …`, preserving the target's real email/timezone and post-checking (in-transaction) that no row anywhere still belongs to the sentinel; `0006` gives `device_token` the `ON UPDATE CASCADE` its 0002 definition lacked, without which the cascade *errors* for any owner who ever paired a device (§8). | second real user works end-to-end, isolated |
 | **6.5 Harden ✅** | Shipped in slices. **Signup gate ✅** ([D1], §4.4b): `signups_open` is enforced by the SERVER — it was a dead flag, and `_provision_user` wrongly claimed Supabase enforced it — gating creation of a NEW `app_user` row on `signups_open` OR the new `signup_allowlist`, refusing **403** before any write; the allowlist is also the owner's bootstrap into `claim_sentinel`. **`0007` ✅**: dropped the transitional `user_id` DEFAULT on all 16 tenant tables (§8) — a forgotten owner is now a loud `NotNullViolation`, not silent misattribution to the sentinel; `NOT NULL` kept. **6.5b-1 ✅**: the app-role split (§3.3a) — the pool connects as a least-privilege `NOSUPERUSER NOBYPASSRLS` role that owns no tables, without which the policies below would have been theatre. **6.5b-2 ✅** (`0008`, resolves [D3], §3.3): `ENABLE ROW LEVEL SECURITY` + one `FOR ALL`/`WITH CHECK` policy on all 16 tenant tables, keyed on the `healthee.user_id` GUC that `core.db.tenant_transaction()` sets via `set_config(..., true)`; every `transaction()`/`connection()` site triaged into tenant / identity-only / admin, and plain `connection()` deleted as orphaned. Identity tables (`app_user`, `device_token`) stay unpolicied by decision; `migrate`/`claim_sentinel`/`provision_app_role`/`seed.reset` stay on the unbound admin. **The whole test suite now runs as the least-privilege role** — it did not before, which would have left every policy unexercised. `tests/db/test_rls.py` proves the backstop by defeating it (an unfiltered read is still owner-scoped; unset + empty-string owners return nothing without erroring; cross-owner writes denied), mutation-verified. **Remaining:** removing the legacy shared-token branch (blocked on the Phase-2 app shipping Supabase login, §4.4a); rate-limiting; per-user backup/export. | isolation proven; GA-ready |
 
+| **6.6a Entitlement ✅** | The AI paywall, step (a) of §12.6. `0011_subscription` (+ RLS policy, + the app role's SELECT-only grant) · `core/entitlement.py` — the ONE rule, pure and injectable-`now` · `api/gate.py` — `AIGate` taken in place of `CurrentUser` on the coach, the four insight routes, `/api/notable`, the whole challenges/programs surface and both generation endpoints, 402 with a locked-card body · field OMISSION on `/api/today` and `/api/sleep/consistency` · `GET /api/entitlement` · the nightly chain skipping `recs`/`warm`/`briefing` for a free owner while keeping the two deterministic steps (closes the cost hole, #48) · `db/grant_premium.py` + `SELF_HOST_UNLOCKED` as the pre-billing entitlement paths (§12.6a) · and #78, one generation budget shared by the endpoint and the coach (`challenges/budget.py`). **Not in it:** billing/webhooks ([D4]/[D5]) and the metered free allowance (6.6a-2). | a free owner's chain spends zero LLM calls; every AI route 402s a direct call; `/api/today` has no `action` key at all |
+
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the
-big one** (the ~119-site threading), 6.4 medium, 6.5 medium. Each is a Fable-
+big one** (the ~119-site threading), 6.4 medium, 6.5 medium, 6.6a medium. Each is a Fable-
 directs / Opus-implements track with review + the two-tenant isolation tests.
 
 ---
 
 ## 12. Premium gating & subscriptions (AI features are paid)
 
-> **Status: NOT BUILT — this whole section is design (Phase 6.6, §12.6).** There is
-> no `subscription` table, no `is_premium`, and no `require_ai_access` in the
-> codebase today. Two consequences worth stating rather than papering over:
-> **(a)** every AI surface below is currently reachable by any authenticated owner;
-> **(b)** §12.3's rule that the nightly chain **skips free users** is a plan — since
-> 6.4c the chain runs `correlate → recs → warm → briefing` for **every** active
-> owner, so uncontrolled signup is uncontrolled LLM spend. That is exactly why the
-> signup gate (§4.4b) is enforced *now*, ahead of billing, and why `signups_open`
-> must stay false (§12.7, §13 [D1]).
+> **Status: STEP (a) IS BUILT — 6.6a, `0011_subscription`.** The `subscription`
+> table, `core/entitlement.py` (`is_premium`), the `api/gate.py` dependency, the
+> field omission on `/api/today` + `/api/sleep/consistency`, `GET /api/entitlement`,
+> and the nightly chain's skip all exist and are enforced. What is NOT built is
+> **step (b)** — billing, webhooks, a provider ([D4]/[D5] are still open) — and
+> **the metered free allowance** of §12.3/`PRICING.md` §1a (1 coach question + 1
+> daily-action reveal per rolling 7 days, tracked in 6.6a-2). Until that lands a
+> non-premium owner is **hard-locked** out of every AI surface, which is the safe
+> default and the cheap one, but it is *not* the tier split PRICING promises.
+>
+> Entitlement is written today by the committed ops module `db/grant_premium.py`
+> (dry-run by default, like `claim_sentinel`) or, deployment-wide, by
+> `SELF_HOST_UNLOCKED` — see §12.6a. **`infra/DEPLOY.md` §B6 is a hard prerequisite
+> for shipping this to prod**: an owner with no row loses the AI layer silently.
 
 All **AI features** are gated behind an active subscription; the honest
 data/tracking layer stays free. Entitlement is a per-user attribute, so it rides
@@ -795,26 +808,79 @@ CREATE TABLE subscription (
 grace window) AND `current_period_end > now()`. **The server is the sole source
 of truth** — never trust a client claim of premium.
 
+**As built (`core/entitlement.py`), because the sentence above is ambiguous and one
+reading of it is unsatisfiable.** Taken with Python's precedence, "`past_due` within a
+grace window AND `current_period_end > now()`" can never be true: a row only becomes
+`past_due` once the period it was paid for has run out. So the deadline moves with the
+status instead —
+
+| status | premium while |
+|---|---|
+| `active` | `now < current_period_end` |
+| `trialing` | `now < trial_end` (falling back to `current_period_end` if unset) |
+| `past_due` | `now < current_period_end + GRACE_DAYS` (7) |
+| `canceled` · `expired` · `none` · no row | never |
+
+A row with **no end instant at all is not premium**, whatever its status — "granted
+once, forgotten" is §12.7's loophole and failing closed is the only safe reading.
+`canceled` ends access immediately by decision: a provider that means "cancels at
+period end" is mapped by the webhook layer (6.6b) to a row that is still `active` with
+the final `current_period_end`, so this module stays literal.
+
+Two columns the sketch above has no room for are in the built table: `granted_by` and
+`note`, the audit trail for a hand-made entitlement — 6.6a has no provider, so the only
+writer is an operator. And the FK carries **`ON UPDATE CASCADE`** as well as
+`ON DELETE CASCADE`: without it `db/claim_sentinel.py`'s single re-keying `UPDATE`
+*errors* for any owner who has a row, which is exactly the defect `0006` had to go back
+and fix for `device_token`.
+
+**Privilege, not promise:** the app role holds **SELECT and nothing else** on
+`subscription` (`db/provision_app_role.py::_grant_read_only`). A request path cannot
+mint entitlement even if someone later writes SQL that tries — which closes §12.7's
+"client-supplied proof of payment" row at the database rather than in code review. The
+REVOKE is load-bearing: `ALTER DEFAULT PRIVILEGES` grants the app role full DML on any
+table a future migration creates, so "we did not grant it" is not the same statement as
+"the role does not have it".
+
 ### 12.3 The gate (three enforcement points)
 
-1. **AI endpoints** → a `require_ai_access(user, feature)` FastAPI dependency
-   (composes with `current_user`): allows the request if the user is premium **OR**
-   is within the free-tier metered allowance for that feature (the "taste of
-   premium" — 1 coach question + 1 daily-action reveal per rolling 7 days, tracked
-   server-side per user; see `PRICING.md` §1a). Otherwise **HTTP 402** with
-   `{"locked": true, "feature": "ai", "upgrade": "<url>"}` — the app renders a
-   locked card, not an error. Recs/insight cards have a zero free allowance (hard
-   lock); coach + daily-action carry the weekly taste.
-2. **`/api/today`** → serve the free data always; set `action = null` and
-   `recommendations = []` with a `"locked": true` marker for non-premium, so the
-   page still renders every metric.
-3. **Jobs** → the per-user nightly chain checks `is_premium` and **skips** recs/
-   briefing/notable/daily-action for free users — no LLM tokens spent on output
-   nobody can see. On subscribe, trigger a one-off generation so premium unlocks
-   immediately.
+1. **AI endpoints** → `api/gate.py`'s `AIGate` dependency, taken **in place of**
+   `CurrentUser` rather than beside it, so an endpoint cannot take the owner's
+   identity without also taking the gate. Not premium ⇒ **HTTP 402** with
+   `{"locked": true, "feature": …, "upgrade": …}` — the app renders a locked card,
+   not an error. Gated: `/api/coach`, the four insight routes, `/api/notable`, the
+   whole challenges + programs surface (feeds included — a stored challenge is
+   AI-authored content), and both generation endpoints.
+   *Not built yet:* the free-tier metered allowance (1 coach question + 1
+   daily-action reveal per rolling 7 days, `PRICING.md` §1a). 6.6a-2 adds it inside
+   this dependency and nothing else moves; until then every non-premium owner is
+   hard-locked. It is deliberately absent rather than sketched as an unenforced
+   constant — a comment claiming a gate is worse than a missing gate.
+   `tests/premium/test_ai_gate.py` walks every mounted route's real dependency tree
+   and fails the build on any route that is neither gated nor in a reasoned free
+   allowlist, so a new AI endpoint cannot ship open.
+2. **`/api/today`** (and `/api/sleep/consistency`) → serve the free data always;
+   **OMIT** the AI fields entirely for non-premium and add a `locked` marker.
+   *Omitted, not nulled* — §12.7 is explicit that the data must not be in the
+   response at all, and the two statements here disagreed. §12.7 wins.
+   `/api/sleep/consistency`'s `tonight` line is the second such field and appears in
+   neither this section nor `PRICING.md` §1a; it rides the same `daily_action`
+   entitlement because it is the same generator (`insights.coaching.warm_lines`).
+3. **Jobs** → `jobs/chain.py` looks up `is_premium` once per owner per chain and
+   **skips `recs`, `warm` and `briefing`** for a free owner — no LLM tokens spent on
+   output nobody can see. `correlate` and `challenges` still run for everyone: both
+   are deterministic and free to run, `correlate`'s findings are a FREE-tier feature
+   (`PRICING.md` §1a), and `challenges` only closes out commitments that already
+   exist — a lapse must not freeze somebody's live challenge forever. The skips are
+   named `skipped` with a reason, never silently absent.
+   *Not built:* the one-off generation on subscribe. It belongs with the webhook
+   (6.6b); today an owner granted premium picks the AI layer up at their next
+   nightly chain, or immediately via `run_chain(..., force=True)`.
 
 `GET /api/entitlement` returns the user's premium state + the locked-feature list
-so the app knows what to show as upgradeable.
+so the app knows what to show as upgradeable. It is deliberately **ungated** — a
+locked-out owner is exactly who needs to read it — and uncached, so a refund shows
+up on the next poll rather than at the end of a TTL.
 
 ### 12.4 Billing integration **[D4]**
 
@@ -841,10 +907,56 @@ Optional free trial (`trial_end`); a dunning grace window on `past_due` before
 hard-lock, so a failed renewal doesn't instantly wall a paying user out.
 
 ### 12.6 Phasing
-Fits as **Phase 6.6** (needs the §4 user model). Can be built in two steps: (a)
-the gate + `subscription` table + `is_premium` with entitlement flipped by an
-admin/config flag (so gating works before billing exists), then (b) wire the real
-provider + webhooks. The app's locked-card UX can ship against (a).
+Fits as **Phase 6.6** (needs the §4 user model). Built in two steps: (a) **DONE
+(6.6a)** — the gate + `subscription` table + `is_premium` with entitlement flipped by
+an admin/config path (so gating works before billing exists), then (b) wire the real
+provider + webhooks. The app's locked-card UX can ship against (a). The metered free
+allowance is 6.6a-2 and is the one piece of (a) still outstanding.
+
+### 12.6a The admin/config entitlement path — and why the sentinel is NOT premium by default
+
+Step (a) needs *some* way to say "this person is entitled" before a provider exists.
+There are two in 6.6a, and they answer different questions:
+
+* **`db/grant_premium.py`** — "this particular person paid / was comped." A committed
+  ops module, dry-run by default, run like `claim_sentinel` with the owner's UUID as an
+  argument: **the operator naming the UUID is the authorisation**. It writes the same
+  `subscription` row a webhook will later write, so there is still exactly one source of
+  truth. `--months` has no default (a term is mandatory), it refuses a UUID with no
+  `app_user` row, and `--revoke` writes `canceled` rather than deleting the history.
+* **`SELF_HOST_UNLOCKED`** (default false) — "this whole deployment is somebody's own
+  box." Every owner on it is entitled. It exists because the paywall's justification is
+  *our* LLM bill on *our* hosted service (`PRICING.md` §6.1), and that argument does not
+  survive contact with a self-hoster running their own OpenRouter key — which is the
+  product's stated brand. The server cannot distinguish the two deployments, so the
+  operator declares it; that is server-owned config, not a client claim. Both entry
+  points log a WARNING on every boot when it is set, so a hosted box that trips it says
+  so in `docker compose logs`. **It must reach the scheduler container as well as the
+  api** — otherwise a self-hosted install serves the AI layer over HTTP while its
+  nightly chain silently generates nothing.
+
+**Rejected: "the sentinel owner is premium by default."** It is tempting, because it
+would make the deploy a no-op for today's single live owner, and there is a real
+argument for it (a self-hosted install is by definition the owner's own). It was
+rejected on three grounds:
+
+1. **It would be a second source of truth for entitlement.** §12.7's model is that
+   entitlement is looked up per request *from the table*. `if user_id == SENTINEL:
+   return True` means `is_premium` has two answers, only one of which is auditable and
+   revocable — and no webhook, refund or reconcile could ever touch the other.
+2. **It would tie a permanent grant to a shared secret.** The sentinel is whoever holds
+   `REALTIME_INGEST_TOKEN` (§4.4a). Wiring "premium forever" to a secret that is
+   explicitly transitional, and whose whole removal plan exists because it is too
+   powerful, is the shape of grant this section exists to prevent.
+3. **It would vanish at the worst moment, silently.** `claim_sentinel` re-keys the
+   sentinel to the owner's real Supabase UUID (§8). The day that runs, a sentinel-keyed
+   default stops matching and the owner loses the AI layer — during an unrelated ops
+   action, with nothing failing. A `subscription` row moves with them instead
+   (`ON UPDATE CASCADE`), which is the behaviour anyone would expect.
+
+The cost of rejecting it is exactly one documented command at deploy time
+(`infra/DEPLOY.md` §B6), and that command is auditable in the shell history in a way a
+compiled-in constant never is.
 
 ### 12.7 Anti-bypass — closing every loophole
 
@@ -874,6 +986,16 @@ whose `user_id` is not premium — enforced at the endpoint AND in the jobs, fro
 server-owned entitlement, with RLS underneath.* If that holds there is no gate to
 crack from the client side; the only remaining surface is the billing webhook,
 closed by signature verification.
+
+**How 6.6a tests it** (`tests/premium/`, plus `tests/jobs/test_chain_supervision.py`):
+the endpoint half by calling every gated route directly as a free owner and asserting
+402 *and* a stub model call count of zero; the jobs half by running the real chain
+against a real database and asserting the stub was never called at all; the omission by
+asserting on the raw response **text**, not the parsed dict; the "read pre-generated
+content" row by checking that a free owner's chain leaves no warmed coaching line and
+no `recommendation` row behind; and the two-owner case by running one free and one
+premium chain and asserting neither leaked into the other. The completeness guard walks
+the application's own route table, so an AI endpoint added later cannot ship ungated.
 
 ---
 

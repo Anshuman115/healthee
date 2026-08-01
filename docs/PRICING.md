@@ -79,8 +79,8 @@ safety.
 | **Challenges / programs** (adopt · track · outcome ledger · AI suggestions) | — (premium) | ✓ |
 | **Notable-shift feed** (`/api/notable`) | — (premium) | ✓ |
 | Per-metric anomaly flags on individual cards ("outside your normal") | ✓ | ✓ |
-| **AI coach** | **teaser: 1 question / 7 days** | ✓ unlimited (fair-use) |
-| **Daily action line** | **teaser: revealed 1× / 7 days** | ✓ daily |
+| **AI coach** | **teaser: 1 question / 7 days** — *not built, 6.6a-2* | ✓ unlimited (fair-use) |
+| **Daily action line** (and the sleep-`tonight` line, which this table never named) | **teaser: revealed 1× / 7 days** — *not built, 6.6a-2* | ✓ daily |
 | **Daily recommendations** (1–3 cite-or-drop) | — (locked card) | ✓ |
 | **AI insight cards** (sleep · activity · metric · workout) | — (locked card) | ✓ |
 | **Coach-companion** (memory · outcome-ledger narration · proactive nudges · goals, Phase 5) | — | ✓ |
@@ -100,6 +100,12 @@ safety.
   cost is trivial (~1–2 extra LLM calls / free user / week). Enforced server-side
   as a per-user usage counter (see `MULTI_USER.md` §12.3: the gate is
   `require_ai_access(user, feature)` = premium **OR** within the free allowance).
+  ⚠ **NOT BUILT YET (6.6a-2).** 6.6a shipped the gate itself, and until the allowance
+  lands a free user is hard-locked out of the coach and the daily action too. The
+  table above therefore describes the *intended* tier split, not today's behaviour —
+  the two teaser rows are the difference. Nothing is over-served; the gap is that we
+  under-serve the free tier relative to this promise, which costs conversion rather
+  than margin.
 - *Full history stays free.* The anti-Whoop brand ("we don't hold your data
   hostage") is worth more than the freemium history-lock lever.
 
@@ -164,7 +170,10 @@ $3.00/M output). Assumptions per active user:
 caching + Flash-Lite + the Batch API (nightly jobs aren't latency-sensitive).
 Levers already in the architecture: manifest-ranked retrieval bounds context,
 per-day caching means insight cards generate once, and the jobs skip non-premium
-users entirely (§12.3) so we never spend on locked output.
+users entirely (§12.3) so we never spend on locked output — **built in 6.6a**: a free
+owner's nightly chain makes zero LLM calls (it keeps the two deterministic steps), so
+today's cost per FREE user is infra only, below §6.1's −$0.05 line, until the teaser
+of §1a lands in 6.6a-2.
 
 ### 3.2 Backend / infra — near-flat, tiny per user
 
