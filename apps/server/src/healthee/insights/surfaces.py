@@ -30,11 +30,19 @@ _SLEEP_PROMPT = (
     "and the ONE highest-impact change with a concrete step. Cite [note_id] for every "
     "health claim; honest and supportive, never alarmist. No diagnosis."
 )
+# The "what the gap means for healthspan" this used to ask for was a request for exactly
+# what `output_guard`'s personal_death_risk_number rule forbids, and the model obliged: the
+# guardrail fired on 2 of 3 generations of this surface in a paid eval arm (#99), i.e. the
+# surface was reliably buying an answer it could never ship. The guardrail is a safety
+# floor and does not bend, so the ASK is what changed — to the half of the same evidence
+# that is allowed to reach one person: what the gap does to what they can DO.
 _ACTIVITY_PROMPT = (
     "Coach me on my ACTIVITY & FITNESS in 4–6 short lines using my real numbers. Be "
     "direct — treat low fitness/inactivity as problems to FIX with a concrete weekly "
-    "plan, never excuse them: my VO2max vs the age median and what the gap means for "
-    "healthspan; whether I hit MVPA≥150min and my step target; my training load; and "
+    "plan, never excuse them: my VO2max vs the age median and what closing that gap "
+    "would change about what I can DO — capacity, everyday fatigue, how hard normal "
+    "effort feels (never a personal risk, mortality or life-expectancy number for me); "
+    "whether I hit MVPA≥150min and my step target; my training load; and "
     "the ONE highest-impact move THIS week as specific sessions. Cite [note_id] for "
     "every health claim, scale intensity to my recovery. No diagnosis."
 )
