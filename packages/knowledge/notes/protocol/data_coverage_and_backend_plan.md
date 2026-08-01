@@ -1,8 +1,24 @@
 ---
 title: Data coverage audit + historical-data + backend-alignment plan
 date: 2026-06-04
-status: plan (researched against GB source + healthee backend)
+status: PARTLY SUPERSEDED — Part 1 (strap coverage) still holds; Parts 2–4 are history
+superseded_by: docs/ARCHITECTURE.md (target architecture) + apps/server/src/healthee (what shipped)
+superseded_on: 2026-08-01
 ---
+
+> ⛔ **PARTLY SUPERSEDED.**
+> **Part 1 (what the strap actually exposes over BLE, by fetch code) is still the
+> useful part** and is why this file is kept. **Parts 2–4 and the "Decisions
+> (LOCKED 2026-06-04)" block are a historical record**: they were written against
+> the v1 multi-source backend (`metric_sample`, `/ingest/gadgetbridge`,
+> `/ingest/health_connect/*`, a `source`-preference dedup) which no longer
+> exists, and they cite research paths (`research/…`) that moved to
+> `packages/knowledge/notes/…`. The plan of record is **`docs/ARCHITECTURE.md`**;
+> the truth about any derivation is the code plus the note that backs it. This is
+> **not** a citable evidence note — the manifest generator skips
+> `notes/protocol/`.
+> **One claim below was wrong when it was written and must not be carried
+> forward: the calorie method in Decision 1 / step P4.** See the correction there.
 
 # Part 1 — What the strap actually gives (and what it doesn't)
 
@@ -140,8 +156,21 @@ steps/resting-HR), and add workouts + the Tier-2 types GB can't.
 # Decisions (LOCKED 2026-06-04)
 
 1. **Calories/distance: derive scientifically in the backend.** Evidence notes:
-   `research/activity/energy_expenditure_derivation.md` (Mifflin BMR + Keytel
-   HR-active) and `research/activity/distance_from_steps.md` (stride × steps).
+   `packages/knowledge/notes/activity/energy_expenditure_derivation.md`
+   (~~Mifflin BMR + Keytel HR-active~~) and
+   `packages/knowledge/notes/activity/distance_from_steps.md` (stride × steps).
+   > ⛔ **CORRECTION (2026-08-01) — this decision miscited its own evidence note.**
+   > `energy_expenditure_derivation` grades raw Keytel HR→EE
+   > **[Contested → rejected]** (overcounts free-living 2–3×) and its
+   > **Directive 1 is "never raw Keytel/HR→EE for free-living minutes"**;
+   > `CLAUDE.md`'s hard rules say the same. The *decision* — derive calories
+   > server-side rather than take them from Health Connect — stands; only the
+   > named method was wrong.
+   > **What actually shipped** (`derive/energy.py`): **Mifflin–St Jeor BMR + a
+   > MET-by-state model**, a MET per minute by state (walking from steps via
+   > ACSM · asleep 0.95 · awake-NEAT 1.3/1.55), anchored so 1 MET == BMR/min,
+   > with heart rate deliberately **not** an input to free-living EE. Workout
+   > minutes come from the device's measured calories.
 2. **Historical store: backend canonical + app cache.**
 3. **Retire Gadgetbridge.** The app is the sole strap collector.
 4. **Tier-2 (AFib/OSA/PPG-RR): DEFERRED** — core data + calories/distance +
@@ -167,7 +196,8 @@ steps/resting-HR), and add workouts + the Tier-2 types GB can't.
   cache + incremental sync + 90-day backfill + historical UI.
 - P3 · Ingest path: app → `POST /ingest/helio` (`source='helio_app'`) + push
   profile; metric-name mapping (one definition).
-- P4 · Backend: implement derived calories (Keytel+Mifflin) + distance (stride);
+- P4 · Backend: implement derived calories (~~Keytel+Mifflin~~ → **MET-by-state +
+  Mifflin BMR**; see the correction under Decision 1) + distance (stride);
   retire HC ingest + GB upload; reconcile source preference.
 - P5 · App reads /api/* for analysis + history (backend canonical); native
   recs/sleep-score/etc.

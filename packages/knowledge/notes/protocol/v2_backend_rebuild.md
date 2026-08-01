@@ -1,8 +1,21 @@
 ---
 title: v2 backend — clean single-source rebuild (fast, accurate, from scratch)
 date: 2026-06-04
-status: design (supersedes the P3/P4 "bolt onto existing" plan)
+status: SUPERSEDED — historical design record, not a plan to implement
+superseded_by: docs/ARCHITECTURE.md (target architecture) + apps/server/src/healthee (what shipped)
+superseded_on: 2026-08-01
 ---
+
+> ⛔ **SUPERSEDED — read this as history, not as instructions.**
+> This is the 2026-06-04 design record for the v2 backend. The clean-rebuild
+> monorepo has since been built and shipped; the plan of record is
+> **`docs/ARCHITECTURE.md`**, and the truth about any derivation is the code in
+> `apps/server/src/healthee/derive/` plus the note that backs it.
+> It is kept for provenance (why v2 dropped multi-source, what "discard the old
+> DB" meant), and it is **not** a citable evidence note — the manifest generator
+> deliberately skips `notes/protocol/`.
+> **One claim below was wrong when it was written and must not be carried
+> forward: the calorie line.** See the correction at that line.
 
 # Decision
 
@@ -49,9 +62,21 @@ Port the GOOD v1 science, drop the source filters:
 - `spo2_overnight` (avg + min).
 - Sleep: score, stage minutes, `sleep_regularity_index`,
   `sleep_health_score_4dim`.
-- `total_calories` / `active_calories` — Mifflin BMR + Keytel HR-active
+- `total_calories` / `active_calories` — ~~Mifflin BMR + Keytel HR-active~~
   (energy_expenditure_derivation.md); workout minutes use the device's measured
   calories.
+  > ⛔ **CORRECTION (2026-08-01) — this line miscited its own evidence note.**
+  > `energy_expenditure_derivation` grades raw Keytel HR→EE
+  > **[Contested → rejected]** (it overcounts free-living 2–3×) and its
+  > **Directive 1 is "never raw Keytel/HR→EE for free-living minutes."**
+  > `CLAUDE.md`'s hard rules say the same. Citing that note as support for
+  > Keytel inverted it.
+  > **What actually shipped** (`derive/energy.py`, ported verbatim from legacy
+  > v2): **Mifflin–St Jeor BMR + a MET-by-state model** — a MET per minute by
+  > state (walking from steps via ACSM · asleep 0.95 · awake-NEAT 1.3/1.55),
+  > anchored so 1 MET == BMR/min. Heart rate is deliberately **not** an input to
+  > free-living EE. Workout minutes are excluded and counted from the device's
+  > measured calories, which is the one part of this line that held.
 - `distance_m_daily` — stride×steps (distance_from_steps.md); GPS workout
   distance preferred when present.
 - `vo2max_estimate` — Jurca (non_exercise_vo2max.md).
