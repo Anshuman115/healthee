@@ -8,6 +8,15 @@ COUNT is bounded at any corpus size; the token count is not — a note runs 1.2k
 tokens, so the same "top 6" measured between 18k and 41k tokens across our surfaces
 (task #23). That is why *which* six notes rank matters for cost as well as grounding:
 this section is 65–83% of every prompt the product sends.
+
+The ranking signals, strongest first: the note's id named literally · a metric in play ·
+an intervention named · an alias matched as a word (separator-insensitive) · content
+words shared with the note's name/aliases/summary, capped well below an alias hit. The
+last one exists because the four above are all EXPLICIT: when none of them fires the
+score is zero for every note in the corpus, and the deterministic id fallback then chose
+the top-6 alphabetically. A question can be perfectly clear to a person and score zero
+here — "Should I train hard today or take it easy?" did — so the weak signal is what
+stands between a plain question and the alphabet.
 """
 
 from __future__ import annotations
@@ -23,11 +32,39 @@ _DIRECT_ID = 100  # the note's id literally named in the question
 _METRIC_HIT = 10  # a metric in play is in the note's applies_to_metrics
 _INTERVENTION_HIT = 10
 _ALIAS_HIT = 5  # an alias phrase appears in the question
+_LEXICAL_HIT = 1  # a content word shared with the note's name/aliases/summary
+# The lexical signal is CAPPED below one alias hit on purpose: it exists to order notes
+# that the explicit signals cannot tell apart, and must never outvote a real one.
+_LEXICAL_CAP = 4
 _WORD = re.compile(r"[a-z0-9_]+")
+
+# English function words only — deliberately NOT a health-domain stoplist. The whole
+# point of the lexical signal is that a domain word shared between a question and a
+# note's summary IS the topical evidence; the words below are the ones that appear in
+# every question ever asked and would therefore rank the corpus by summary length.
+# Used twice: to pick a question's content words, and to drop an ALIAS that is one of
+# these (``fasting_metrics``/``training_stress_score`` both alias "IF" — see _alias_re).
+_STOPWORDS = frozenset(
+    """about all and any are as at be but by can could did do does doing during each few
+    for from get give had has have he how if in into is it its just like long me more
+    most much my no not now of off on one only or over should so some tell than that the
+    their them then there these they this those to too under up upon us very was we were
+    what when where whether which while who why will with without you your
+    """.split()  # noqa: SIM905 — one word per line reads; a 90-item list literal does not
+)
+_MIN_LEXICAL_LEN = 3  # "my", "is", "it" carry no topic; three letters is the floor
+_NEVER = re.compile(r"(?!x)x")  # matches nothing, ever — never "everything" by accident
 
 
 def _tokens(text: str) -> set[str]:
     return set(_WORD.findall(text.lower()))
+
+
+def _content_tokens(text: str) -> frozenset[str]:
+    """The words in ``text`` that could plausibly name a topic."""
+    return frozenset(
+        t for t in _WORD.findall(text.lower()) if len(t) >= _MIN_LEXICAL_LEN and t not in _STOPWORDS
+    )
 
 
 def _alias_hits(note: ManifestNote, q_text: str) -> int:
@@ -46,23 +83,90 @@ def _alias_hits(note: ManifestNote, q_text: str) -> int:
     round on ``get_knowledge`` fetching the note retrieval should have supplied (each
     round is another ~37k input tokens).
 
-    Word boundaries are the fix and nothing more: an acronym alias still matches its own
+    Word boundaries were the fix and nothing more: an acronym alias still matches its own
     word (``HRV`` in "why is my hrv low"), a phrase alias still matches its phrase, and a
     letter no longer matches the inside of an unrelated word. It does give up matching
     inflections (alias ``sleep`` no longer hits "sleeping"), which is a real but small
     loss — measured across those 11 prompts, every note this rule stopped matching had
     been matched by a substring that was not a topical signal.
+
+    A SECOND defect lived in the same line and survived that fix, because it was never
+    about substrings: separators. See :func:`_alias_re`.
     """
     return sum(1 for alias in note.aliases if _alias_re(alias).search(q_text))
 
 
 @lru_cache(maxsize=1024)
 def _alias_re(alias: str) -> re.Pattern[str]:
-    """``alias`` as a word-bounded pattern, compiled once (ranking runs over 71 notes)."""
-    return re.compile(rf"(?<!\w){re.escape(alias.lower())}(?!\w)")
+    """``alias`` as a word-bounded, SEPARATOR-INSENSITIVE pattern, compiled once.
+
+    The separator class is the second half of the alias fix, and it is a defect that
+    PREDATES the word-boundary one rather than a consequence of it (measured both ways:
+    under the old bare-substring test ``"resting-heart-rate" in "my resting heart rate"``
+    was already False). Aliases are written the way the source document spells them —
+    ``resting-heart-rate``, ``critical-speed``, ``time-restricted eating``, ``16:8`` —
+    and people ask in spaces. Literal matching therefore made ``resting_heart_rate``
+    unreachable for the exact phrase "resting heart rate", which is how the coach's RHR
+    question in VERIFICATION_2026_08_01 §3 burned a whole ``get_knowledge`` round (~33k
+    tokens, a third of that question's cost) fetching the note retrieval should have
+    handed it.
+
+    Any run of non-alphanumerics matches any other, so one alias spelling covers all of
+    them. Word boundaries stay exactly as they were — a letter still cannot match inside
+    a word, which is the property the previous fix bought.
+
+    An alias that IS an English function word is dropped, and that is the same defect as
+    the one-letter alias in a third disguise: ``fasting_metrics`` and
+    ``training_stress_score`` both carry the alias ``IF`` (intermittent fasting /
+    intensity factor), so any prompt containing the word "if" bought two full notes —
+    including the shipped ``metric_insight`` prompt, which says "If it's off my
+    baseline". Word boundaries cannot help, because "if" is a whole word. A note is not
+    made unreachable by this: its other aliases, its metrics and its id all still rank it.
+    """
+    if alias.lower().strip() in _STOPWORDS:
+        return _NEVER
+    parts = [re.escape(p) for p in re.split(r"[^a-z0-9]+", alias.lower()) if p]
+    if not parts:  # an alias of pure punctuation matches nothing, never everything
+        return _NEVER
+    return re.compile(r"(?<!\w)" + r"[^a-z0-9]+".join(parts) + r"(?!\w)")
 
 
-def _score(note: ManifestNote, q_tokens: set[str], q_text: str, metrics: set[str]) -> int:
+@lru_cache(maxsize=256)
+def _lexical_terms(note: ManifestNote) -> frozenset[str]:
+    """The note's own topic words: its name, its aliases and its one-line summary.
+
+    Not the body: the body would make almost every note share almost every word, and the
+    signal is meant to be weak and cheap. Cached per note (the manifest is immutable).
+    """
+    return _content_tokens(" ".join((note.name, note.summary, *note.aliases)))
+
+
+def _lexical_hits(note: ManifestNote, q_content: frozenset[str]) -> int:
+    """Shared content words, capped — the tie-break that replaced the alphabet.
+
+    Before this, a question whose subject no metric or alias covered scored ZERO against
+    every note, and ``rank_notes``'s deterministic fallback then handed the model the
+    alphabetically-first Established notes. Measured on the shipped corpus, "Should I
+    train hard today or take it easy?" retrieved alcohol_sleep, behavior_change,
+    cadence_intensity, caffeine_sleep, critical_speed and environmental_stress — six full
+    notes, ~30k tokens, chosen by spelling. The model was then asked to ground an
+    intensity decision in them, which is a grounding failure wearing an ordering bug's
+    clothes: the honest fallback it produced was the correct output for the evidence it
+    was given.
+
+    Weak by construction (:data:`_LEXICAL_CAP` sits below one alias hit): it may order
+    notes the explicit signals cannot distinguish, and may never outrank one of them.
+    """
+    return min(len(q_content & _lexical_terms(note)), _LEXICAL_CAP)
+
+
+def _score(
+    note: ManifestNote,
+    q_tokens: set[str],
+    q_text: str,
+    metrics: set[str],
+    q_content: frozenset[str],
+) -> int:
     """Relevance of one note to the question + active metrics (higher = better)."""
     score = 0
     if note.id and note.id in q_tokens:
@@ -70,6 +174,7 @@ def _score(note: ManifestNote, q_tokens: set[str], q_text: str, metrics: set[str
     score += _METRIC_HIT * len(metrics.intersection(note.applies_to_metrics))
     score += _INTERVENTION_HIT * sum(1 for iv in note.applies_to_interventions if iv in q_tokens)
     score += _ALIAS_HIT * _alias_hits(note, q_text)
+    score += _LEXICAL_HIT * _lexical_hits(note, q_content)
     return score
 
 
@@ -78,14 +183,20 @@ def rank_notes(question: str, metrics: list[str] | None = None) -> list[Manifest
 
     A pure reorder (legacy semantics) — bounding to top-N happens in
     ``evidence_section``. Deterministic: equal scores fall back to grade then id.
+
+    The id fallback is a REPRODUCIBILITY device, not a ranking: it makes the same
+    question retrieve the same notes twice. It used to decide the whole top-6 whenever
+    nothing scored (see :func:`_lexical_hits`), which is the alphabet answering a health
+    question. It is still the last resort, and now it is reached far less often.
     """
     q_text = question.lower()
     q_tokens = _tokens(question)
+    q_content = _content_tokens(question)
     metric_set = set(metrics or [])
     return sorted(
         all_notes(),
         key=lambda n: (
-            -_score(n, q_tokens, q_text, metric_set),
+            -_score(n, q_tokens, q_text, metric_set, q_content),
             -GRADE_RANK.get(n.grade, 0),
             n.id,
         ),
