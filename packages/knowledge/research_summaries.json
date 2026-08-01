@@ -189,7 +189,7 @@
       "grade": "Probable",
       "id": "illness_flag_plan",
       "name": "Illness / recovery early-warning flag",
-      "summary": "A nightly flag that compares the night's skin temperature and respiratory rate against the 14-day personal baseline and raises a moderate/high illness-recovery signal when both exceed validated thresholds — framed as 'possible early signal, consider light recovery,' never a diagnosis (combined evidence ★★, skin temp the weaker limb)."
+      "summary": "A nightly flag that compares the night's skin temperature and respiratory rate against the 14-night personal baseline and raises a moderate/high illness-recovery signal — the RR limb (≥ +2 br/min sustained over 2 nights) is validated (Smarr 2020, Quer 2021); the skin-temp limb's + 0.5 °C trigger is OUR heuristic, not a sourced threshold — framed as 'possible early signal, consider light recovery,' never a diagnosis (combined evidence ★★, skin temp the weaker limb)."
     },
     {
       "applies_to_metrics": [],
@@ -494,7 +494,7 @@
       "grade": "Probable",
       "id": "sleep_score_implementation_plan",
       "name": "4-dimension sleep-health score (implementation plan)",
-      "summary": "Build a 0–4 binary sleep-health score (duration, efficiency, timing, regularity), each dimension 1 if it meets a peer-reviewed cutoff, always shown alongside its four dimensions and citations — never a 0–100 continuous score; a moderate-confidence extrapolation assembled from individually-validated cutoffs, not a directly-validated composite."
+      "summary": "Build a 0–4 binary sleep-health score (duration, efficiency, timing, regularity), each dimension 1 if it meets its documented cutoff, always shown alongside its four dimensions and citations — never a 0–100 continuous score; a moderate-confidence extrapolation whose cutoffs are separately sourced and unequally strong (duration mortality-validated; efficiency clinical consensus; regularity derived from a quintile boundary), not a directly-validated composite."
     },
     {
       "applies_to_metrics": [
