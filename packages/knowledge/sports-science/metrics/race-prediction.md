@@ -193,7 +193,7 @@ actual maximal race at the target distance under similar conditions.
     fitness trend.
 
 - **Cross-checks:** weight predictions against the freshness of the input race
-  (a 6-month-old PB is stale), course profile, expected heat/altitude, and whether
+  (stale at the window **D6** defines), course profile, expected heat/altitude, and whether
   marathon-specific endurance (long runs, fuelling) has actually been trained.
 
 ## Honesty & uncertainty
@@ -298,7 +298,10 @@ This section is mandatory and load-bearing.
   ≥±5% for marathon extrapolations. — confidence: Probable
 - **D6:** Require the input to be a recent (≤~3 months), genuinely maximal effort on
   a fair course; flag predictions built on stale or non-maximal inputs. —
-  confidence: Established
+  confidence: Established for *that staleness matters*; the **3-month figure itself is
+  unsourced** practitioner convention. **This is the note's one staleness window** —
+  *Cross-checks* said "a 6-month-old PB is stale", twice this, and neither figure had a
+  source (#100).
 - **D7:** When training volume / mileage is known, prefer a mileage-aware regression
   over any universal formula for marathon prediction. — confidence: Probable
 - **D8:** Never present an un-banded, aggressive marathon goal — especially for a

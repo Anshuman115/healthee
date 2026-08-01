@@ -369,7 +369,8 @@ coach must speak confidently about the base and hedge about the shape.
   Healthee `derived_daily` field today.
 - **Where it plugs in:** the coach cites this note when it evaluates a runner's easy/hard
   split, flags grey-zone creep, or shapes a training block; the programs/challenges layer
-  uses the 80/20 rule and the ≤~2–3 hard-sessions/week guardrail as design constraints. Zone
+  uses the 80/20 rule and the hard-sessions/week ceiling D3 defines as design constraints. *(This
+  read "≤~2–3", contradicting D3 in the same note after #98 narrowed it to ~2. #100)* Zone
   boundaries must be anchored to the runner's own thresholds where known, not population
   %HRmax (see `individualization`).
 - **Honesty rules (carry into UI + LLM):**

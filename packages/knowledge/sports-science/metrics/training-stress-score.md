@@ -303,8 +303,8 @@ guardrails** that are:
   safety bounds, not TSS per se.
 - **A wrong/stale threshold is a safety issue**, not just an accuracy one: it
   under-reports true load and can let progression limits be silently exceeded. The
-  engine should flag thresholds older than a set window (e.g. >6–8 weeks without
-  re-test) as low-confidence.
+  engine should flag thresholds older than the `lactate-threshold` D11 re-test window
+  as low-confidence. *(This said ">6–8 weeks", a fourth number for one quantity. #100)*
 - **Never let a low computed TSS justify adding load** when sRPE/readiness signals
   are red — internal load overrides external bookkeeping for safety decisions.
 - Weight **high-eccentric (steep downhill) and high-intensity interval** sessions

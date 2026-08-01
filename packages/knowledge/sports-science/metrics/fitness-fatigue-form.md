@@ -221,6 +221,15 @@ sleep, and HRV before acting — TSB is blind to all of those.
 | **below −30** | Dangerously buried | Heightened injury/illness/overtraining risk — back off [Friel] |
 | **−30 to −10** | Productive overload | Normal, healthy hard-training range; expected mid-block |
 | **−10 to +5** | Neutral / "grey zone" | Transitional; should be brief, not a parking spot |
+
+> **The +5 edge is ours, not Coggan's (#100).** The only *cited* band set in this note
+> — under *The evidence* — reads **neutral −10 to +10, fresh above +10** [Allen & Coggan;
+> TrainingPeaks; Friel]. This table and every downstream use (D3, `periodization`,
+> `COACHING-RULES`) put the fresh/race-ready floor at **+5**, so TSB +5 to +10 is
+> simultaneously "grey zone" here and "race-ready" there. The **+5 to +25 race-target
+> band is the corpus's canonical one** and it is practitioner consensus, not a measured
+> threshold; the +5–+10 overlap with "neutral" is real ambiguity in the source material,
+> not a number to resolve by picking. Do not restate either edge as sourced.
 | **+5 to +15** | Fresh, race-ready (lower) | Good A-race form for many runners; sharpening |
 | **+15 to +25** | Peaked | Classic A-race target; well-tapered |
 | **above +25** | Detraining | Too rested — fitness (CTL) is bleeding away |

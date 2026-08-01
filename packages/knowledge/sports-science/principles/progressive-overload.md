@@ -319,8 +319,10 @@ Implementation notes:
 - **No simultaneous spikes:** never increase volume *and* intensity *and*
   frequency in the same microcycle.
 - **Mandatory deloads:** do not run progressive overload indefinitely without a
-  down-week; insert one at least every ~5 weeks of loading (more often for
-  beginners) — for fatigue/injury risk management.
+  down-week; insert one **at the cadence D5 defines** — for fatigue/injury risk
+  management. *(This said "at least every ~5 weeks", a second cadence stated beside the
+  one D5 declares canonical. #81 reconciled five other restatements and missed this note's
+  own Safety bounds. #100)*
 - **NFOR/OTS stop condition:** on a multi-week pattern of unexplained
   underperformance plus fatigue/mood/sleep/resting-HR disturbance, **reduce load
   and recover — do not progress** [Meeusen 2013].

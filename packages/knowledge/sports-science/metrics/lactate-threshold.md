@@ -240,7 +240,7 @@ tracking**. Core logic:
   not the fix. Keep nearly all running easy and let effort govern.
 - **Stage 2 (developing):** Run a **30-min TT** (or use a recent 5K–10K race) to set
   LTHR and threshold pace; introduce structured tempo/threshold sessions at that
-  pace. Re-test every 6–10 weeks; expect threshold *pace* to improve even when HRmax
+  pace. Re-test at the cadence D11 defines; expect threshold *pace* to improve even when HRmax
   and VO₂max look static.
 - **Stage 3 (racing):** Use CS + race data + (ideally) periodic lab lactate to set
   precise zones and pace races as fractions of LTHR (≈ 99–102% LTHR for 10K,
@@ -385,6 +385,21 @@ tracking**. Core logic:
 - **D10:** Keep **above-LT2 (severe-domain) work a small, recovery-gated fraction**
   of the week; do not prescribe it as steady-state training. — confidence:
   Established
+- **D11:** **Re-test a threshold anchor every ~6–12 weeks** and after any notable
+  fitness change or goal race; treat an anchor older than that as low-confidence and
+  say so when it drives a zone, a pace target or a load number. — confidence: **the
+  need to re-anchor is Established; the interval itself is unsourced practitioner
+  convention.**
+  *(**This is the corpus's ONE threshold re-test cadence** (#100). It was previously
+  stated four incompatible ways for what is one quantity — the age at which a threshold
+  anchor stops being trustworthy: "every few weeks" [`pace-zones` D2], "every 6–10
+  weeks" [this note's prose], ">6–8 weeks = low confidence" [`training-stress-score`
+  Safety bounds] and "every ~6–12 weeks" [`critical-speed` D9]. None was sourced, and
+  the spread was wide enough to be self-cancelling: `pace-zones` would have flagged
+  almost every anchor `critical-speed` still called fresh. The ~6–12 week range is
+  adopted because it is what two of the four already said, not because it is measured.
+  `lactate-threshold` owns it because the anchor is the threshold; the other three notes
+  defer here.)*
 
 ## Key references
 

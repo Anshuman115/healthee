@@ -205,7 +205,7 @@ of CS); the shorter the race, the higher the sustainable fraction of/above CS.
   conditioned. Confidence in any beginner CS estimate is low.
 - **Stage 2 (developing):** Introduce a proper field test (multi-distance TTs preferred;
   3MT as a time-efficient alternative). Use CS to set tempo and to design supra-CS
-  intervals at 110–130% CS. Re-test every ~6–12 weeks; CS should rise with training.
+  intervals at 110–130% CS. Re-test at the `lactate-threshold` D11 cadence; CS should rise with training.
 - **Stage 3 (racing):** Use CS + D′ together for race-pace selection, pacing strategy and
   interval prescription; model session "cost" as D′ spent and recovered. Track CS as the
   primary fitness trend and D′ as a (noisier) measure of speed reserve.
@@ -327,7 +327,7 @@ predictions, re-fit CS from those races.
   **at or just below** CS, never above. — confidence: Probable.
 - **D8:** Prescribe aerobic-power intervals at **~110–130% of CS**, capped by available D′
   and recovery. — confidence: Probable.
-- **D9:** Re-estimate CS every **~6–12 weeks** and after notable fitness change; track CS
+- **D9:** Re-estimate CS **at the cadence `lactate-threshold` D11 defines (~6–12 weeks)** and after notable fitness change; track CS
   as the primary fitness trend and re-fit from race results when predictions miss. —
   confidence: Probable.
 - **D10:** Discount the flat-road CS pace in heat, on hills/soft ground, or at altitude —

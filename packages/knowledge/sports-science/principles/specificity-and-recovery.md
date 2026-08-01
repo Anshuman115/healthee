@@ -92,7 +92,7 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 
 - **Stage 2 (developing):** ~1–2 quality sessions/week separated by easy/rest; insert a **recovery week** (reduced volume) roughly every ~3–5 weeks [progressive-overload D5] (periodisation pattern — see `periodization`). Watch for grey-zone drift and creeping load.
 
-- **Stage 3 (racing):** exploit recovery deliberately — **taper ~2 weeks pre-race, cutting volume ~40–60% while holding intensity and frequency** [Bosquet et al. 2007]; sharpen specificity toward race pace. Tolerate *planned* functional overreaching in a peak block **only if** followed by adequate recovery; monitor for the NFOR signature (performance not rebounding after a planned down-week).
+- **Stage 3 (racing):** exploit recovery deliberately — **taper ~2 weeks pre-race, cutting volume at the dose `periodization` D1 defines, holding intensity and frequency** [Bosquet et al. 2007]; sharpen specificity toward race pace. Tolerate *planned* functional overreaching in a peak block **only if** followed by adequate recovery; monitor for the NFOR signature (performance not rebounding after a planned down-week).
 
 - **Reading recovery signals (cross-check, never single-source):** persistent multi-day fatigue, unexplained performance decline, elevated resting HR, suppressed HRV trend, mood/sleep disturbance, and rising perceived effort at fixed pace together indicate **back off / insert recovery**. Any one alone is noise; a *cluster trending the wrong way* is signal [Meeusen et al. 2013]. In heat or illness, weight subjective and effort signals over HR (HR drifts).
 
@@ -109,7 +109,7 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 ## Safety bounds
 
 - **Never program ≥2 consecutive genuine hard/high-intensity days** for typical recreational runners; require easy or rest between hard sessions. (Mirror with `polarized-training` D3 and `training-load-acwr` guardrails.)
-- **Cap genuine high-intensity sessions at ~2–3/week**; meet weekly volume by adding *easy* running, never by stacking hard days (see `polarized-training`).
+- **Cap genuine high-intensity sessions at the ceiling `polarized-training` D3 defines (~2/week, a 3rd only on strong recovery markers)**; meet weekly volume by adding *easy* running, never by stacking hard days. *(This said "~2–3/week", a second ceiling for one quantity; #98 narrowed D3 to one number and this restatement was missed. #100)*
 - **Mandate recovery on a red-flag cluster:** if multiple recovery signals trend adverse together (multi-day unexplained fatigue + performance decline + elevated resting HR/suppressed HRV + mood/sleep disturbance), the engine must **down-regulate load and insert recovery**, and surface a check for illness/under-fuelling — do not push through suspected NFOR/OTS [Meeusen et al. 2013].
 - **Brief rest is safe:** the engine must not treat 1–3 rest days as detraining or "lost fitness" — that is well inside the no-meaningful-decay window [Mujika & Padilla 2000a; Barbieri et al. 2024].
 - **Respect minimum recovery after heavy eccentric load** (downhill races, hard long runs): allow up to ~3–7 days for structural repair before the next equivalent stress.

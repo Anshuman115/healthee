@@ -148,7 +148,7 @@ any AI suggestion, plan, or "green" readiness/form score.**
   forbid threshold work. — *Established (≈80% easy) / Contested (polarized-specific)* —
   `[polarized-training D1/D2/D4]`, `[heart-rate-zones D5]`, `[pace-zones D7]`,
   `[specificity-and-recovery D4]`.
-- **Cap hard sessions at ~2–3/week.** Allow a 3rd Z3 session only with strong recovery
+- **Cap hard sessions at ~2/week.** Allow a 3rd Z3 session only with strong recovery
   markers and never by cutting the easy base. — *Probable (safety-mirrored)* —
   `[polarized-training D3]`.
 - **Anchor zones to the runner's own thresholds, not a guessed max.** Default HR zones
@@ -170,7 +170,7 @@ any AI suggestion, plan, or "green" readiness/form score.**
   HR/effort. — *Established / Probable* — `[pace-zones D3/D8]`, `[heart-rate-zones D9]`.
 - **Critical Speed is a sustainable-pace ceiling.** Prescribe sustained efforts at/just
   below CS, aerobic-power intervals at ~110–130% CS; model time-to-exhaustion above CS
-  as `t = D′/(v − CS)` to flag unsustainable goal paces. Re-estimate CS every ~6–12 weeks.
+  as `t = D′/(v − CS)` to flag unsustainable goal paces. Re-estimate CS at the `lactate-threshold` D11 cadence (~6–12 weeks).
   — *Established / Probable* — `[critical-speed D2/D3/D7/D8/D9]`.
 - **Keep above-LT2 / severe-domain work a small, recovery-gated fraction** of the week;
   never prescribe it as steady-state training. — *Established* — `[lactate-threshold D10]`,
@@ -217,7 +217,7 @@ any AI suggestion, plan, or "green" readiness/form score.**
   or recovery cost (weight interval/eccentric-downhill work as costlier); a low computed
   TSS never justifies more load when readiness is red. — *Probable / Established (safety
   mirror)* — `[training-stress-score D7/D8]`.
-- **Taper with confidence.** Before a goal race cut weekly volume to ~40–60% of peak,
+- **Taper with confidence.** Before a goal race cut weekly volume **by 41–60%**,
   progressively, **holding intensity** and keeping frequency ~80–100% of normal; taper
   ~10–14 days (half/marathon) or ~7–10 days (5K–10K). Never seek new fitness in the final
   ~10–14 days. **Hard cap:** do not cut volume by >60% or zero-out intensity (both reverse
@@ -291,8 +291,12 @@ any AI suggestion, plan, or "green" readiness/form score.**
   conflict. — *Established* — `[recovery_readiness D2]`, `[sleep-and-recovery D7]`.
 - **Act on multi-day trends, never single readings.** HRV: use lnRMSSD vs a 7-day rolling
   baseline, flag only outside mean ±1 SD; an isolated low reading is noise. RHR: flag only a
-  sustained ≥~5 bpm (≥~1.5–2 SD) rise for ≥2–3 days. Both need ~2–3 weeks of consistent,
-  same-method data before they're trusted. — *Established / Probable* —
+  sustained ≥~5 bpm (≥~1.5–2 SD) rise for ≥2–3 days. Each needs the baseline window its own
+  note defines before it is trusted — HRV ≥2–3 weeks [`heart-rate-variability` D7], RHR ≥1–2
+  weeks [`resting-heart-rate` D12]. *(This said "~2–3 weeks" for both while citing D12, which
+  says ≥1–2: a digest contradicting the directive on its own line. The two windows are
+  genuinely different — HRV is the noisier signal — so they are named separately rather than
+  merged. Both are unsourced methodological conventions; neither note carries a citation. #100)* — *Established / Probable* —
   `[heart-rate-variability D1/D4/D7]`, `[resting-heart-rate D1/D2/D3/D12]`,
   `[specificity-and-recovery D8]`.
 - **Screen confounders before attributing fatigue.** Alcohol, short/poor sleep, late hard
@@ -312,7 +316,8 @@ any AI suggestion, plan, or "green" readiness/form score.**
   and non-moralised (imposed daily verdicts can cause the stress they measure). — *Probable*
   — `[recovery_readiness D5/D8/D11]`.
 - **Sleep is the strongest recovery lever.** Set a personal nightly target (default
-  7.5–9 h); after one severely short night keep easy work but downgrade/postpone hard
+  7–9 h — the NSF figure `sleep-and-recovery` D1 cites; this read "7.5–9 h", the unsourced
+  lower bound #98 removed at the source and did not propagate here); after one severely short night keep easy work but downgrade/postpone hard
   sessions (expect inflated RPE); track 7-day sleep debt and treat a run of short nights as
   cumulative — cut intensity first, then volume. Bank sleep before key sessions/races. Flag
   habitual <8 h in youth athletes as injury risk. — *Established / Probable* —

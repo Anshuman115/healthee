@@ -286,7 +286,7 @@ down-weight pace as conditions degrade it.**
    (or decoupling is unusually high), treat the day as higher internal load than the
    pace implies — ease off. This is the input/output gap doing its job
    [Impellizzeri 2019].
-4. **Anchor freshness.** Re-estimate T-pace from new races/tests every few weeks;
+4. **Anchor freshness.** Re-estimate T-pace at the `lactate-threshold` D11 cadence;
    a stale anchor mis-scales every zone.
 
 ## Honesty & uncertainty
@@ -385,8 +385,10 @@ down-weight pace as conditions degrade it.**
   "recomputed via `computePaceZones`" — a function that exists nowhere; #88.)* —
   confidence: Established (that the anchor is threshold, not max); the specific band
   edges it is recomputed into are **unsourced convention** — see the ⚠ box above
-- **D2:** Re-estimate threshold pace from a recent race or field test **every few
-  weeks**; never carry a season-old anchor. — confidence: Probable
+- **D2:** Re-estimate threshold pace from a recent race or field test **at the cadence
+  `lactate-threshold` D11 defines**; never carry a season-old anchor. *(This said "every
+  few weeks" — one of four incompatible re-test cadences for one quantity, and the
+  tightest by far. #100)* — confidence: Probable
 - **D3:** Treat **pace as external load** (instantaneous, what was produced) and
   **HR as internal load** (lagging, drifting, what it cost). Prescribe in pace,
   police in effort/HR. — confidence: Established
