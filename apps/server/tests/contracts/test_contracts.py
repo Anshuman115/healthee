@@ -58,16 +58,25 @@ def test_deterministic_derived_values(responses: dict) -> None:
     today = responses["today"]
     assert today["vo2max"]["estimate"] == 41.5
     # Biological age end to end, and by VALUE: since #86 it is chronological + fitness +
-    # sleep duration ONLY (36 − 0.2585 + 0.4357 = 36.18). A snapshot comparison is
-    # keys-and-types, so re-adding a term — or re-anchoring one — would sail through it
-    # while changing the headline number the app renders. [[biological_age_estimate]].
-    assert today["biological_age"]["biological_age"] == 36.2
+    # sleep duration ONLY, and since #97 the sleep term is read at the QUESTIONNAIRE
+    # equivalent of the seeded 380 min (6.333 h → 7.0 h, exactly Yin's nadir, so
+    # HR = 1.0 and the term contributes nothing): 36 − 0.2579 + 0 = 35.74. A snapshot
+    # comparison is keys-and-types, so re-adding a term — or re-anchoring one — would sail
+    # through it while changing the headline number the app renders.
+    # [[biological_age_estimate]].
+    assert today["biological_age"]["biological_age"] == 35.7
     assert [c["term"] for c in today["biological_age"]["contributions"]] == [
         "fitness",
         "sleep duration",
     ]
     assert [e["reason"] for e in today["biological_age"]["excluded"]] == [
         "sri_hazard_not_transportable"
+    ]
+    # …and the footing of the two terms that ARE priced reaches the app, not just the
+    # note. `excluded` and `caveats` answer different owner questions and both ship.
+    assert [c["reason"] for c in today["biological_age"]["caveats"]] == [
+        "vo2max_reference_median_uncited",
+        "sleep_duration_self_report_scale",
     ]
     assert today["sleep_debt"]["performance_pct"] == 79  # 100·380/480, capped
     assert today["cardio_load"]["strain"] == 21.0  # every day is P95 → full strain

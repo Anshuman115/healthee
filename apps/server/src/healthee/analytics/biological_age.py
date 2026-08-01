@@ -73,6 +73,32 @@ That absence is published, not silent: ``excluded`` is a permanent key of the pa
 naming the term and why. It is deliberately NOT ``withheld`` — withheld means "you could
 have this, here is what to do", and no owner action brings this one back.
 [[biological_age_estimate]], [[sleep_regularity_index]].
+
+## Both surviving terms had the same defect, one degree milder (2026-08-01, #97)
+
+#86 removed a term whose ANCHOR did not transport. An audit of the two that remained
+found both anchored on something other than what they are compared against:
+
+- **Sleep duration** applied Yin 2017's curve, measured on *questionnaire* hours, to a
+  *device-measured* nightly average. Fixed: the average is converted to its
+  questionnaire equivalent first, through a gap Lauderdale 2008 measured
+  (``analytics/reference_scales.py``). For a short sleeper this was worth roughly half
+  a year of penalty that was never earned.
+- **Fitness** compares the VO₂max estimate to a population median that cites nothing.
+  NOT fixed, because fixing it means pasting numbers we cannot read in a primary
+  source. Instead its footing is published in the payload, with its direction: the
+  table reads low against FRIEND wherever we can check it, so the term FLATTERS.
+
+The difference from #86 is the reason both survived: their anchors are wrong-but-bounded
+(≈0.5 y and ≈2 y respectively, inside the note's own "±a few years is noise"), and the
+SIGN of each term is robust to the whole plausible range of anchors. The SRI term's sign
+was not — it credited 36 days and penalised 35 of the same owner's 71. A bounded bias
+that is disclosed is a different object from a coin flip presented as a measurement.
+
+``caveats`` is where that disclosure lives: a permanent payload key, one entry per term
+that is *computed but known to lean*, naming which way. It is a third state, and the
+three are not interchangeable — ``withheld`` = you can fix this, ``excluded`` = nobody
+can, ``caveats`` = we are telling you this anyway, and here is its tilt.
 """
 
 from __future__ import annotations
@@ -85,19 +111,29 @@ from uuid import UUID
 from psycopg import Cursor
 from psycopg.rows import TupleRow
 
+from healthee.analytics.reference_scales import (
+    ANCHOR_CAVEATS,
+    SLEEP_DURATION_SELF_REPORT_SCALE,
+    VO2MAX_REFERENCE_UNCITED,
+    self_reported_equivalent_h,
+    vo2max_median_for,
+)
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive.freshness import NO_NIGHTS_IN_WINDOW, NOT_DERIVED_YET
 from healthee.derive.vo2max import WITHHOLD_MESSAGES, estimate_unavailable_reason
-
-# Age/sex population-median VO₂max (ml/kg/min), 10-year buckets.
-_VO2MAX_MEDIAN_MALE = {20: 44.0, 30: 41.0, 40: 38.0, 50: 33.0, 60: 28.0, 70: 24.0}
-_VO2MAX_MEDIAN_FEMALE = {20: 36.0, 30: 33.0, 40: 30.0, 50: 26.0, 60: 22.0, 70: 19.0}
 
 # UK Biobank mortality-rate doubling time, both sexes — Libert 2025, eLife 13:RP92092
 # (PMID 40497443) [biological_age_estimate]. Classical Gompertz is ~8 y; the difference
 # is ~4% of ΔAge (11.1 vs 11.55 years per ln unit of hazard).
 GOMPERTZ_MRDT_YEARS = 7.7
 TERM_CAP_YEARS = 10.0  # no single noisy input can move age more than ±10 y
+
+# Yin 2017's all-cause-mortality dose-response (JAHA 6(9):e005947) [biological_age_estimate].
+# The nadir is a single point, not a band — see ``_sleep_duration_term``. Both slopes are
+# per hour of SELF-REPORTED sleep, which is why the term converts before it applies them.
+SLEEP_HAZARD_NADIR_H = 7.0
+SHORT_SLEEP_HR_PER_H = 1.06  # per hour below the nadir
+LONG_SLEEP_HR_PER_H = 1.13  # per hour above it
 
 # The terms of [[biological_age_estimate]]'s table. The composite is defined over all of
 # them, so it cannot be computed without all of them — see the module docstring.
@@ -124,6 +160,18 @@ EXCLUDED_TERMS = [
             "convert it into years."
         ),
     }
+]
+
+# The third state (#97): a term that IS priced, and leans. Permanent and owner-independent
+# like ``excluded`` — these are properties of the definition, not of anyone's data — but
+# unlike ``excluded`` the term is still in the number, so the honest thing is to say which
+# way it tilts. ``direction`` is machine-readable because "does this flatter me?" is the
+# one question this product exists to answer without being asked.
+# The footing statements themselves live with the anchors they describe, in
+# ``reference_scales``; this module owns only which term each one attaches to.
+CAVEAT_TERMS = [
+    {"term": FITNESS_TERM, **ANCHOR_CAVEATS[VO2MAX_REFERENCE_UNCITED]},
+    {"term": SLEEP_DURATION_TERM, **ANCHOR_CAVEATS[SLEEP_DURATION_SELF_REPORT_SCALE]},
 ]
 
 # Why the whole estimate goes with any absent term, in the second person. The per-term
@@ -173,12 +221,6 @@ def _absent(term: str, reason: str | None, messages: dict[str, str]) -> _Absent:
     return _Absent(term, named, messages[named])
 
 
-def vo2max_median_for(age: int, sex: str) -> float:
-    """Population-median VO₂max for the age bucket (clamped to 20–70)."""
-    table = _VO2MAX_MEDIAN_FEMALE if sex == "female" else _VO2MAX_MEDIAN_MALE
-    return table[max(20, min(70, (age // 10) * 10))]
-
-
 def hazard_delta_years(hr: float) -> float:
     """Gompertz hazard→years: ΔAge = ln(HR) / b, where b = ln(2) / MRDT.
 
@@ -214,7 +256,10 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
 
     contribs: list[dict] = []
 
-    def add(term: str, hr: float, value=None, unit=None, target=None) -> float:
+    def add(term: str, hr: float, value=None, unit=None, target=None, compared_as=None) -> float:
+        """``compared_as`` is the value the hazard curve was actually read at, when that
+        is not ``value`` — the sleep term's questionnaire equivalent (#97). Present and
+        null on terms where the two are the same, so the shape never varies by term."""
         d = hazard_delta_years(hr)
         contribs.append(
             {
@@ -224,6 +269,7 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
                 "value": value,
                 "unit": unit,
                 "target": target,
+                "compared_as": compared_as,
             }
         )
         return d
@@ -267,6 +313,9 @@ def _estimate(chrono: int, dage: float, contribs: list[dict], absent: list[_Abse
         # something syncing more would fix. A list because a second exclusion later must
         # not change the shape of the payload.
         "excluded": EXCLUDED_TERMS,
+        # Permanent too, and the third state: priced, but leaning. See the module
+        # docstring — the three absence/uncertainty keys are not interchangeable.
+        "caveats": CAVEAT_TERMS,
         "disclaimer": (
             "Motivational estimate from population data — not a clinical or diagnostic age."
         ),
@@ -304,11 +353,14 @@ def _fitness_term(
 
 
 def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> tuple[float, _Absent | None]:
-    """Recent 14-night average TST, U-shaped about a 7 h reference.
+    """Recent 14-night average TST, U-shaped about Yin 2017's 7 h nadir.
 
     The window is already anchored to the owner's today, so this term cannot go STALE —
     only empty. Empty is still the ``HR = 1.0`` assertion ("you average 7 h/night"), so it
-    withholds the composite exactly as a stale term does: one rule, three terms."""
+    withholds the composite exactly as a stale term does: one rule, three terms.
+
+    The strap's average is read at its QUESTIONNAIRE equivalent, because Yin's exposure is
+    self-reported and self-report runs long (#97, ``analytics/reference_scales.py``)."""
     cur.execute(
         "SELECT avg((flags->>'tst_min')::float) FROM derived_daily "
         "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND flags ? 'tst_min' "
@@ -318,22 +370,22 @@ def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> tuple[float, 
     sr = cur.fetchone()
     if not sr or not sr[0]:
         return 0.0, _absent(SLEEP_DURATION_TERM, NO_NIGHTS_IN_WINDOW, SLEEP_DURATION_MESSAGES)
-    h = float(sr[0]) / 60.0
-    # 🔴 THE LABEL AND THE MATH DISAGREE, found 2026-08-01 (#88) — not fixed here.
-    # The hazard is a SINGLE-POINT nadir at 7 h (Yin 2017's dose-response), so 8 h is
-    # penalised 1.13x and 9 h is penalised 1.28x. The card meanwhile tells the user the
-    # target is "7–9", i.e. that 9 h is on target while the model is charging them a
-    # third of a hazard unit for it. One of the two is wrong and choosing which is a
-    # science decision, not a typo: either this term adopts the NSF 7–9 band (changing
-    # every owner's biological age) or the label becomes "7" (changing what the card
-    # says). Both are behaviour changes owed their own PR with known-value tests
-    # (CLAUDE.md). Recorded rather than quietly patched — see the same discipline at
-    # ``_regularity_term`` below. This is a third numeric definition of "optimal sleep
-    # duration" in one product, which is exactly what the canonical-metric rule forbids.
+    measured_h = float(sr[0]) / 60.0
+    # The curve is read at the questionnaire equivalent, never at the raw device hours.
+    h = self_reported_equivalent_h(measured_h)
+    # The label now says what the maths does (#88 found it saying "7–9" while charging
+    # 1.13× at 8 h and 1.28× at 9 h — telling the owner 9 h was on target while pricing
+    # it as risk). ``SLEEP_HAZARD_NADIR_H`` is Yin's dose-response turning point, NOT a
+    # recommended band: the recommendation stays NSF 2015's 7–9 h, cited by the sleep
+    # surfaces. Two different quantities, one definition each — which is the canonical-
+    # metric rule satisfied, not a third number added.
     return add(
         SLEEP_DURATION_TERM,
-        (1.06 ** (7 - h)) if h < 7 else (1.13 ** (h - 7)),
-        value=round(h, 1),
+        (SHORT_SLEEP_HR_PER_H ** (SLEEP_HAZARD_NADIR_H - h))
+        if h < SLEEP_HAZARD_NADIR_H
+        else (LONG_SLEEP_HR_PER_H ** (h - SLEEP_HAZARD_NADIR_H)),
+        value=round(measured_h, 1),
         unit="h/night",
-        target="7–9",
+        target=SLEEP_HAZARD_NADIR_H,
+        compared_as=round(h, 1),
     ), None

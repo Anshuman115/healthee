@@ -4,7 +4,7 @@ name: "Biological Age (estimate)"
 topic: A motivational "biological age" from wearable metrics via the Gompertz hazard→years conversion (the WHOOP-Age method) — a DOCUMENTED EXCEPTION to the no-composite rule
 category: metrics
 grade: Probable
-summary: "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines) and its exclusion is stated on every surface. An estimate, never a clinical readout."
+summary: "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines). Both priced terms carry a published ANCHOR caveat: the sleep hours are converted to their questionnaire equivalent before Yin's curve is applied (Lauderdale 2008), and the VO₂max population median is uncited and reads low against FRIEND, so the fitness term flatters. An estimate, never a clinical readout."
 aliases: ["biological_age", "bio age", "biological age", "whoop age", "gompertz age", "mortality age", "longevity", "composite", "motivational"]
 applies_to_metrics: ["biological_age", "vo2max_estimate", "sleep_health_score_4dim"]
 applies_to_interventions: []
@@ -57,7 +57,7 @@ and keep the independent sleep axes separate:
 | term | HR | reference | source |
 |---|---|---|---|
 | **Fitness** (VO₂max-anchored, subsumes steps/MVPA/RHR) | **0.85 per +1 MET** (1 MET = 3.5 ml/kg/min) | age/sex-median VO₂max | CRF meta-analyses, 20.9M obs (HR 0.83–0.86/MET) |
-| **Sleep duration** (U-shaped) | 1.06 per h **below** 7h; 1.13 per h **above** 7h | 7h | Yin 2017 JAHA |
+| **Sleep duration** (U-shaped) | 1.06 per h **below** 7h; 1.13 per h **above** 7h | 7 h **of self-reported sleep** — ≈ 6 h 20 on our strap, after the Lauderdale conversion | Yin 2017 JAHA + Lauderdale 2008 |
 
 We deliberately **omit grip/strength** (no sensor) rather than fake a proxy.
 HR_total = HR_fitness × HR_sleepdur.
@@ -119,6 +119,11 @@ software that scored the SRI, not of the index.
   block rather than its `withheld` one.
 - **VO₂max-dominated + uncertain** — see the cap above. If the VO₂max estimate
   looks off, the bio_age inherits that error.
+- **Both priced terms are anchored imperfectly, and the payload says so.** The
+  fitness reference median is uncited and reads LOW against FRIEND, so that term is
+  generous — worth up to ~2 y. The sleep term is read at a converted, not a raw,
+  value. See *The anchors, and their footing* below; the `caveats` block carries
+  both to the owner.
 - Reference = "meeting recommendations," so the number is *relative to healthy
   targets*, not a measured age.
 
@@ -207,12 +212,110 @@ not a conversion. Until then, regularity is coached on its own page with its beh
 target (`sleep_regularity_index`), where the portable claim — *keep sleep and wake inside
 a ~1 h band* — lives, and it contributes no years here.
 
+## The anchors, and their footing (2026-08-01, #97)
+
+#86 removed a term because its ANCHOR did not transport. An audit of the two that
+survived found both anchored on something other than what they are compared against. A
+hazard ratio is a **slope** *and* an **anchor**: 0.85 per MET and 1.06 per hour are
+meta-analytic, but they are meaningless until you say *per MET above what*, measured
+*with what instrument*. That second half was never sourced. It is now, or its absence is
+published — `analytics/reference_scales.py` holds both, and the payload's `caveats` block
+carries them to the owner.
+
+### Sleep duration — fixed, because hours are a physical unit
+
+Yin 2017's exposure is a **questionnaire**: "*Sleep duration was measured by self-report
+questionnaires in 48 studies and by interview in 19 studies*", and its own limitations
+open "*nearly all studies relied on sleep duration that was self-reported by questionnaire
+or interview*". Ours is a strap hypnogram. Applying the curve to device hours reads it at
+the wrong point on its own x-axis, in the **penalising** direction, and the error is
+largest exactly where a short sleeper lives.
+
+The gap is **measured, and dose-dependent rather than a constant**. Lauderdale et al. 2008
+(*Epidemiology* 19(6):838–45, PMID 18854708 — CARDIA Chicago, n = 669, 3 days of wrist
+actigraphy) publishes three points: mean measured 6.0 h ↔ mean reported 6.8 h; 5 h measured
+↔ over-reported by 1.2 h; 7 h measured ↔ over-reported by 0.4 h. All three lie on one line,
+`over-report_h = 3.2 − 0.4 × measured_h`, which is also the paper's own "*subjective reports
+increased on average by 34 minutes for each additional hour of measured sleep*" to within a
+minute. So the device average is converted to its questionnaire equivalent and *then* read
+against the 7 h nadir.
+
+Three consequences, all deliberate and all owner-visible:
+
+1. **The lowest-risk point on our scale is ≈ 6 h 20, not 7 h.** That is not a fourth
+   recommendation — it is Yin's one nadir expressed on our instrument's axis. The
+   *recommended band* remains NSF 2015's 7–9 h, cited by the sleep surfaces that make
+   that claim.
+2. **The line is not extrapolated.** Below Lauderdale's shortest anchor (5 h) the offset
+   is held at 1.2 h rather than grown; from 8 h up, where the line would turn negative
+   and start *discounting* the long-sleep tail, it is floored at zero. Both clamps
+   choose the conservative side of an unmeasured region.
+3. **The residual is stated, not hidden.** Lauderdale's comparator is research
+   actigraphy; ours is a consumer strap, a third instrument, never validated here. That
+   gap is bounded: a meta-analysis of 22 studies / 798 participants puts consumer
+   wrist devices at **−16.9 min of TST vs polysomnography (95% CI −26.3 to −7.4)**, i.e.
+   under-reading by under half an hour. *Reasoned, not measured:* an under-reading device
+   pushes an owner toward the short branch, so applying Lauderdale unmodified
+   **under**-corrects for a short sleeper — the conservative direction — and slightly
+   over-credits a long one. Our strap's own bias has never been measured.
+
+> **Why this is not the SRI mistake repeated.** An SRI point is *defined by* the software
+> that scored it, so no conversion exists to be found. An hour is an hour: the instruments
+> differ by a bias that has been measured, in a physical unit, with the direction of the
+> residual known. Refusing to convert is not the neutral option — it asserts that a strap
+> and a questionnaire produce the same number, which Lauderdale measured and they do not.
+
+### VO₂max population median — NOT fixed, and published as unfixed
+
+`_VO2MAX_MEDIAN_MALE/FEMALE` (M 44/41/38/33/28/24, F 36/33/30/26/22/19 across the 20–70
+buckets) drives the **dominant** term and **cites nothing**. Its entire provenance is a
+comment in the legacy repo's `api/app.py`, dropped in the port to this one: *"Approximate
+population-median VO2max by age band, sex-stratified (ACSM Guidelines 11th ed., ~50th
+percentile)."* That claim does not survive checking. ACSM's 11th-edition percentiles
+reproduce the FRIEND registry, and FRIEND's published 50th percentiles (Kaminsky et al.
+2015, *Mayo Clin Proc* 90(11):1515–23, PMID 26455884 — 7,783 maximal treadmill CPETs,
+abstract verified 2026-08-01) are 48.0 / 37.6 at 20–29 and 24.4 / 18.3 at 70–79.
+
+| cell | ours | FRIEND | direction |
+|---|---|---|---|
+| men 20–29 | 44.0 | **48.0** | 4.0 low → flatters |
+| women 20–29 | 36.0 | **37.6** | 1.6 low → flatters |
+| men 70–79 | 24.0 | **24.4** | 0.4 low → flatters |
+| women 70–79 | 19.0 | **18.3** | 0.7 high → penalises |
+
+**Three of the four cells checkable against a primary source read low, and low flatters.**
+At the worst cell that is 4.0/3.5 = 1.14 MET ≈ **2.1 years** of biological age handed to
+the owner. FRIEND's middle decades are not in the abstract and a number nobody here has
+read does not go into science code, so the table stands and its footing ships in the
+payload instead of being quietly patched to a guess. Note too that FRIEND is a
+self-selected clinical-referral cohort, not a population sample — matching it perfectly
+still would not make "population median" true. Replacing this table needs a real source
+and is its own piece of work.
+
+### Why the estimate still ships
+
+Both defects are **bounded and one-directional, and the sign of each term is robust to
+the whole plausible range of anchors** — which is precisely what was NOT true of the
+regularity term, whose zero point sat 13 points below the owner's own typical week and
+which credited 36 days and penalised 35 of the same 71. ≈2 y and ≈0.5 y sit inside this
+note's own "treat ±a few years as noise". A bounded bias that is disclosed is a different
+object from a coin flip presented as a measurement. Measured on the real owner's data
+(prod, 71 days of sleep, VO₂max 22.4): the estimate moved **42.5 → 41.9** with the sleep
+fix, against a chronological 32 — the conclusion "markedly less fit than the median for
+your age, and it is worth years" survives every anchor in the literature's range.
+
+The line the estimate must not cross is the third state going silent. `withheld` means
+*you can fix this*, `excluded` means *nobody can price this*, `caveats` means *this IS in
+your number and here is which way it leans*. If a future change drops `caveats` while
+keeping the number, the exception this note claims to the no-composite rule lapses.
+
 ## Operational use
 
 - Surface `biological_age` = chronological + ΔAge, with the **per-term year
   contributions** (e.g. "fitness +X · short sleep +Y") — the breakdown is
   mandatory, not optional, and so is the `excluded` line naming sleep regularity as
-  a lever this number does not price.
+  a lever this number does not price **and the `caveats` lines naming how the two
+  priced terms lean**.
 - UI label: **"Biological age · estimate"** + a one-line "motivational, not
   clinical" note; full method in the ⓘ sheet.
 - Evidence label: **★★ moderate** (sound conversion + meta-analytic inputs; novel
@@ -223,6 +326,13 @@ a ~1 h band* — lives, and it contributes no years here.
 - **Stage 2 (estimate available):** present it motivationally with the **per-term breakdown** always visible; point the user at whichever term contributes the most years (usually fitness) as the highest-leverage lever.
 - **Stage 3 (tracking over time):** frame movement as a motivational trend, treating ±a few years as noise; never imply a measured or clinical age change.
 - **Always:** never present it as a diagnosis, a real age, or a mortality/risk number; the breakdown is mandatory.
+- **Never present a term as better-footed than it is.** If asked why the sleep target
+  on this card looks lower than the 7–9 h the sleep page recommends: the studies measured
+  *reported* sleep, reports run long, so the strap's equivalent of their 7 h is about
+  6 h 20 — and 7–9 h remains the recommendation, which is a different kind of claim. If
+  asked how solid the fitness comparison is: say plainly that the population median it
+  compares against has no published source, that it reads low where it can be checked, and
+  that this makes the number generous rather than harsh, by up to about two years.
 - **Never imply sleep regularity is in this number.** If the owner asks why their regularity is not reflected, say plainly that the published SRI risk figures belong to the software that scored the SRI — two standard calculators disagreed on the quintile for three in five of the same people — so we report regularity on its own with its ~1 h-band target rather than converting it into years. Do not offer a substitute conversion.
 
 ## Safety bounds
@@ -236,7 +346,7 @@ See **Caveats (must surface)** above — all mandatory. In brief: not causal or 
 ## Bottom line
 **Act on confidently:** the Gompertz hazard→years conversion math (★★★); the single-fitness-term correlation fix; showing the mandatory per-term breakdown; the ±10y-per-term cap; framing as a motivational estimate.
 
-**Hold loosely:** the exact biological-age number for an individual (VO₂max-dominated and uncertain); small movements over time (noise); anything resembling a clinical or mortality readout.
+**Hold loosely:** the exact biological-age number for an individual (VO₂max-dominated and uncertain, and compared against an uncited median); small movements over time (noise); anything resembling a clinical or mortality readout; the ~6 h 20 device-scale nadir as anything other than where the curve bottoms out on our instrument.
 
 ## Coach Directives
 1. Always surface the **per-term year contributions** with the number — never the composite alone — and the `excluded` line naming sleep regularity as a lever this number does not price. *(confidence: high)*
@@ -244,6 +354,8 @@ See **Caveats (must surface)** above — all mandatory. In brief: not causal or 
 3. **SAFETY:** never present it as a clinical/diagnostic age or a mortality/risk figure. *(high)*
 4. Treat ±a few years as noise; point the user at the largest-contributing term (usually fitness) as the highest-leverage lever. *(moderate)*
 5. Keep the **±10-years-per-term cap**; if the VO₂max estimate looks off, say the bio-age inherits that error. *(high)*
+6. Surface the `caveats` block alongside the breakdown: the fitness reference median is **uncited and reads low, so that term flatters** (up to ~2 y), and the sleep hours are read at their **questionnaire equivalent**, so the low-risk point is ≈ 6 h 20 on the strap. *(high)*
+7. Never quote the ≈ 6 h 20 device-scale nadir as a sleep *recommendation*. The recommended band is **NSF 2015's 7–9 h**, cited from the sleep surfaces; the nadir is where a mortality curve bottoms out on our instrument. *(high)*
 
 ## References
 - Levine ME, et al. (2018). *An epigenetic biomarker of aging for lifespan and healthspan (PhenoAge).* Aging 10(4):573–591.
@@ -256,21 +368,26 @@ See **Caveats (must surface)** above — all mandatory. In brief: not causal or 
 - Cedernaes J, Sielaff B, Benedict C (2026). *Time to regularize sleep regularity* (editorial on the above). Sleep 49(4):zsaf289. DOI 10.1093/sleep/zsaf289. (Source of "only two-fifths of participants were classified into the same … quintile" and the 1.19-vs-null mortality contrast.)
 - Libert S, Chekholko A, Kenyon C (2025). *A mathematical model that predicts human biological age from physiological traits identifies environmental and genetic factors that influence aging.* eLife 13:RP92092. DOI 10.7554/eLife.92092. PMID 40497443. (Source of MRDT = 7.7 y, UK Biobank, both sexes.)
 - Gavrilov LA, Gavrilova NS (2024). *Exploring patterns of human mortality and aging: a reliability theory viewpoint.* Biochemistry (Moscow) 89(2):341–355. DOI 10.1134/S0006297924020123. PMID 38622100. (Review; "human mortality rates double approximately every 8 years of adult age" — the classical ~8 y comparator.)
+- Lauderdale DS, Knutson KL, Yan LL, Liu K, Rathouz PJ (2008). *Self-reported and measured sleep duration: how similar are they?* Epidemiology 19(6):838–845. PMID 18854708. (n=669, CARDIA Chicago, 3 days wrist actigraphy vs usual-sleep questions. Mean measured 6.0 h vs reported 6.8 h; over-report 1.2 h at 5 h measured, 0.4 h at 7 h measured; reports rose 34 min per measured hour. **The source of the device→questionnaire conversion.** *Abstract verified at PubMed 2026-08-01.*)
+- Kaminsky LA, Arena R, Myers J (2015). *Reference standards for cardiorespiratory fitness measured with cardiopulmonary exercise testing: data from the Fitness Registry and the Importance of Exercise National Database (FRIEND).* Mayo Clin Proc 90(11):1515–1523. PMID 26455884. (7,783 maximal treadmill CPETs, ages 20–79. 50th percentile 48.0 [men] / 37.6 [women] at 20–29 and 24.4 / 18.3 at 70–79; ~10% decline per decade. **The standard our uncited median table fails against.** Middle decades are not in the abstract and were not read. *Abstract verified at PubMed 2026-08-01.*)
+- Lee YJ, Lee JY, Cho JH, Kang YJ, Choi JH (2025). *Performance of consumer wrist-worn sleep tracking devices compared to polysomnography: a meta-analysis.* J Clin Sleep Med 21(3):573–582. DOI 10.5664/jcsm.11460. PMID 39484805. (22 studies, 798 participants; total sleep time mean difference **−16.854 min, 95% CI −26.332 to −7.375** vs PSG — consumer wrist devices UNDER-read TST. Bounds the residual our Lauderdale conversion does not correct.)
 - Aune D, et al. (2017). *Resting heart rate and the risk of CVD, cancer, and all-cause mortality.* Nutr Metab Cardiovasc Dis 27(6):504–517.
 - del Pozo Cruz B, et al. (2022). *Daily step count and mortality.* (Steps dose-response.)
 - Woodcock J, et al. (2011). *Non-vigorous physical activity and all-cause mortality: meta-analysis.* Int J Epidemiol 40(1):121–138.
 - Wu Y, et al. (2017). *Grip strength and all-cause mortality: meta-analysis.* (Folded into/informing the fitness term, not multiplied separately.)
 
 ## Healthee implementation & honesty policy
-- **Computed on read, not stored as a daily metric.** `analytics/biological_age.py::compute_biological_age` produces the estimate from `derived_daily` reads; `read/health_metrics.py::biological_age_payload` is a thin wrapper. It returns `chronological_age`, `biological_age`, `delta_years`, `data_confidence`, a `withheld` block, an `excluded` block, the signed per-term `contributions`, a `disclaimer` ("Motivational estimate from population data — not a clinical or diagnostic age."), and `research_notes: ["biological_age_estimate"]`; returns **None** without a profile (`dob`/`sex`) or inputs.
+- **Computed on read, not stored as a daily metric.** `analytics/biological_age.py::compute_biological_age` produces the estimate from `derived_daily` reads; `read/health_metrics.py::biological_age_payload` is a thin wrapper. It returns `chronological_age`, `biological_age`, `delta_years`, `data_confidence`, a `withheld` block, an `excluded` block, a `caveats` block, the signed per-term `contributions`, a `disclaimer` ("Motivational estimate from population data — not a clinical or diagnostic age."), and `research_notes: ["biological_age_estimate"]`; returns **None** without a profile (`dob`/`sex`) or inputs.
 - **EVERY term is REQUIRED — no current input for either of the two, no number.** The Stage-1 directive above ("hold the number back … until the VO₂max estimate and ≥14 nights of sleep exist") is enforced structurally, not by caveat. A term simply left out of `chrono + ΣΔAge` is not an omission: it is the assertion `HR_term = 1.0`, i.e. *this person is exactly at the reference for that lever* — silently invented. So when the owner has no `vo2max_estimate` for their **own today** (withheld by [[non_exercise_vo2max]]'s gate, or not derived yet), or no recorded night in the trailing 14, `biological_age` and `delta_years` are `null`, `data_confidence` is `insufficient_data`, and `withheld.terms` lists EVERY absent term with the input metric's own reason and message verbatim (`derive/vo2max.py::WITHHOLD_MESSAGES`) alongside one `consequence` explaining what the absence costs. The contribution that IS current still ships: it is a standalone hazard→years fact, and hiding it would withhold something we do know. With two terms, *both* absent means no contribution at all, which is the pre-existing "nothing to say" floor — `None`, no card.
   - One rule over all terms, rather than a per-term policy, is deliberate: "which terms matter enough" is the question that produced an uncited constant elsewhere in this codebase.
   - The freshness rule is `derive/vo2max.py::estimate_unavailable_reason`, bound to the one shared rule in `derive/freshness.py` and shared with `read/vo2max.py` — so the VO₂max card and this estimate can never disagree about whether today has a number.
 - **`excluded` is NOT `withheld`, and the difference is load-bearing.** `withheld` means "you could have this; here is the action". `excluded` names a term the estimate does not price *for anyone*, permanently, because the evidence has no transportable number — `EXCLUDED_TERMS` in `analytics/biological_age.py`, reason id `sri_hazard_not_transportable`. Merging them would promise the owner a fix that does not exist, and would make the composite null forever. Removing a term without saying so would be worse still: "biological age" would mean two different things across two releases under an unchanged key.
-- **Constants (ported verbatim from legacy `biological_age.py`):** `GOMPERTZ_MRDT_YEARS = 7.7` (Libert et al. 2025, eLife 13:RP92092 — UK Biobank, both sexes; verified against the paper 2026-08-01, replacing an unattributed "UK Biobank actuarial analysis"), `TERM_CAP_YEARS = 10.0`, and the age/sex population-median VO₂max tables (`_VO2MAX_MEDIAN_MALE/FEMALE`, 20–70 buckets — ⚠ these are **uncited**, carried over from legacy; unverified whether the Jurca non-exercise estimate and this reference table are on the same footing). `b = ln(2)/7.7`; each term `d = clamp(±10, ln(hr)/b)`.
+- **`caveats` is the THIRD state, and the three are not interchangeable (#97).** `withheld` = "you could have this; here is the action". `excluded` = "nobody can price this, ever". `caveats` = "this IS in your number, and here is which way it leans" — one permanent entry per priced term, `CAVEAT_TERMS` in `analytics/biological_age.py` over the footing statements in `analytics/reference_scales.py`, reason ids `vo2max_reference_median_uncited` and `sleep_duration_self_report_scale`. It carries no machine-readable direction field on purpose: the fitness tilt is one-directional and its message says so, but the sleep residual pushes short and long sleepers opposite ways, and a key that is right for most owners and wrong for some is worse than a sentence right for all of them.
+- **Constants.** `GOMPERTZ_MRDT_YEARS = 7.7` (Libert et al. 2025, eLife 13:RP92092 — UK Biobank, both sexes; verified against the paper 2026-08-01, replacing an unattributed "UK Biobank actuarial analysis") and `TERM_CAP_YEARS = 10.0` live in `analytics/biological_age.py`; `b = ln(2)/7.7`, each term `d = clamp(±10, ln(hr)/b)`. The **anchors** moved out to `analytics/reference_scales.py` in #97, because "which anchor came from where" is the question that has now produced three bugs: the ⚠ uncited `_VO2MAX_MEDIAN_MALE/FEMALE` tables with the full FRIEND comparison beside them, and the Lauderdale device→questionnaire conversion with its two non-extrapolation clamps. `read/vo2max.py` imports `vo2max_median_for` from there too, so the card and the term cannot disagree about the median or about its footing.
 - **The two terms (v2 field names):**
   - **Fitness** — latest `vo2max_estimate` vs age/sex median, `0.85 ** ((vo2 − ref)/3.5)`.
-  - **Sleep duration** — 14-night average TST read from `sleep_health_score_4dim` flags (`tst_min`), U-shaped about 7h (`1.06**(7−h)` if h<7 else `1.13**(h−7)`). ⚠ Yin 2017's exposure is **self-reported** sleep duration, which [[sleep_duration_mortality]] records as over-estimating device-measured TST by 30–60 min; ours is device-measured. That is the same anchor-vs-scale class as the removed regularity term, in the *penalising* direction, and it is open rather than fixed here — unlike SRI, hours are a physical unit and the offset is measurable, so this one is repairable.
+  - **Sleep duration** — 14-night average TST read from `sleep_health_score_4dim` flags (`tst_min`), converted to its questionnaire equivalent by `reference_scales.self_reported_equivalent_h` and only then read against the U-shape about 7 h (`1.06**(7−h)` if h<7 else `1.13**(h−7)`). Fixed in #97: Yin 2017's exposure is **self-reported** and ours is device-measured, so the raw comparison read the curve at the wrong point on its own x-axis. The payload keeps `value` as the hours we actually measured and adds `compared_as`, the converted hours the curve was read at, so the hazard is reproducible from the payload and the translation is visible rather than implied.
+  - **The `target` label now says what the maths does.** It read `"7–9"` while charging 1.13× at 8 h and 1.28× at 9 h (#88) — telling the owner 9 h was on target while pricing it as risk. It is now `7.0`, Yin's single-point nadir, on the self-report axis the conversion lands on. This does not create a fourth definition of optimal sleep; it removes the third. The recommended **band** stays NSF 2015's 7–9 h, a consensus recommendation rather than a hazard turning point, cited from the sleep surfaces that make that claim.
   - **Regularity — removed 2026-08-01 (#86).** `compute_biological_age` reads no `sleep_regularity_index` row at all; `tests/analytics/test_biological_age_math.py` fails the build if it does.
   `applies_to_metrics` names `biological_age` (the estimate; the v1 note wrote `biological_age_delta`) plus its real inputs `vo2max_estimate` and `sleep_health_score_4dim` (the TST source; the v1 `asleep` name is retired). `sleep_regularity_index` was dropped from that list with the term.
 - **Composite exception:** this is the one documented composite; the per-term breakdown is required by both the note and the code (contributions are always returned). See [[feedback-no-composite-score]].

@@ -2,10 +2,23 @@
   "action": null,
   "anomalies": [],
   "biological_age": {
-    "biological_age": 36.2,
+    "biological_age": 35.7,
+    "caveats": [
+      {
+        "message": "The fitness term measures your VO\u2082max estimate against a population median for your age and sex, and that median is the one number behind this estimate with no published source \u2014 it was carried over from an older version of this app. Where it can be checked against the US reference standard (FRIEND, 7,783 maximal treadmill tests), it reads low: 44 where FRIEND says 48 for men in their twenties, 36 where FRIEND says 37.6 for women. A reference set too low makes you look fitter than the population, so on that count this number is generous to you rather than harsh \u2014 by up to about 2 years.",
+        "reason": "vo2max_reference_median_uncited",
+        "term": "fitness"
+      },
+      {
+        "message": "Your sleep hours are translated before the risk curve is applied to them. That curve was measured on sleep people reported on questionnaires, and questionnaires run long: in the study that measured both, people who actually slept 5 hours said 6.2, and people who slept 7 said 7.4. Your strap's nightly average is converted to its questionnaire equivalent first, so you are not charged for hours you never claimed \u2014 which also means the lowest-risk point sits near 6h20 on your strap rather than at the 7 hours the studies quote. Two things are left uncorrected: wrist devices read about 17 minutes short of a sleep lab, which charges a short sleeper slightly too much and credits a long sleeper slightly too much; and above 8 hours we stop translating altogether rather than extrapolate past what was measured, which keeps the long-sleep penalty at its full size.",
+        "reason": "sleep_duration_self_report_scale",
+        "term": "sleep duration"
+      }
+    ],
     "chronological_age": 36,
     "contributions": [
       {
+        "compared_as": null,
         "delta_years": -0.3,
         "hr": 0.977,
         "target": 41,
@@ -14,16 +27,17 @@
         "value": 41.5
       },
       {
-        "delta_years": 0.4,
-        "hr": 1.04,
-        "target": "7\u20139",
+        "compared_as": 7.0,
+        "delta_years": 0.0,
+        "hr": 1.0,
+        "target": 7.0,
         "term": "sleep duration",
         "unit": "h/night",
         "value": 6.3
       }
     ],
     "data_confidence": "ok",
-    "delta_years": 0.2,
+    "delta_years": -0.3,
     "disclaimer": "Motivational estimate from population data \u2014 not a clinical or diagnostic age.",
     "excluded": [
       {

@@ -42,7 +42,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from healthee.analytics.biological_age import vo2max_median_for
+from healthee.analytics.reference_scales import vo2max_median_for
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
 from healthee.derive.freshness import withheld_block

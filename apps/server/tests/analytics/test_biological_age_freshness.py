@@ -78,7 +78,7 @@ def test_a_current_vo2max_produces_the_full_composite() -> None:
     assert result["withheld"] is None
     assert result["chronological_age"] == CHRONO_AGE
     assert result["biological_age"] == pytest.approx(BIO_AGE)
-    assert result["delta_years"] == pytest.approx(-1.2)
+    assert result["delta_years"] == pytest.approx(-1.7)
     by_term = terms(result)
     assert set(by_term) == {"fitness", "sleep duration"}
     assert by_term["fitness"]["delta_years"] == pytest.approx(FITNESS_YEARS)

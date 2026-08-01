@@ -20,6 +20,11 @@ changed results and interpretations" for all-cause mortality). The stub cursor b
 therefore RAISES on an SRI read, and the payload's ``excluded`` block is pinned here
 too: a composite that quietly loses a term is a different composite wearing the same
 key name. See ``tests/derive/test_sri_scale.py`` for our scale, measured.
+
+Since #97 the sleep term's ANCHOR is pinned as well. Yin 2017's curve is a function of
+QUESTIONNAIRE hours, so the strap's average is converted first, through the gap
+Lauderdale et al. 2008 measured. Those expected numbers are the paper's own published
+points, not this repo's arithmetic — see ``analytics/reference_scales.py``.
 """
 
 from __future__ import annotations
@@ -34,6 +39,12 @@ from healthee.analytics.biological_age import (
     SRI_HAZARD_NOT_TRANSPORTABLE,
     compute_biological_age,
     hazard_delta_years,
+)
+from healthee.analytics.reference_scales import (
+    SLEEP_DURATION_SELF_REPORT_SCALE,
+    VO2MAX_REFERENCE_UNCITED,
+    self_report_over_report_h,
+    self_reported_equivalent_h,
     vo2max_median_for,
 )
 
@@ -51,6 +62,51 @@ def test_vo2max_median_table_female() -> None:
 def test_vo2max_median_clamps_to_table_bounds() -> None:
     assert vo2max_median_for(18, "male") == 44.0  # clamped up to 20s
     assert vo2max_median_for(90, "male") == 24.0  # clamped down to 70s
+
+
+def test_vo2max_median_reads_below_friend_where_friend_is_published() -> None:
+    """#97's measured finding, kept executable: the table is UNCITED and it reads LOW.
+
+    FRIEND (Kaminsky et al. 2015, Mayo Clin Proc 90(11):1515–23, PMID 26455884; 7,783
+    maximal treadmill CPETs) publishes 50th percentiles of 48.0 (men 20–29), 37.6 (women
+    20–29) and 24.4 (men 70–79). A reference set below the real median makes an owner
+    look fitter than the population, so the fitness term flatters — which is what the
+    payload's ``caveats`` block tells them. This test is the tie: raise the table towards
+    FRIEND (good) or lower it further (worse) and the caveat's wording must be revisited
+    rather than silently outlived.
+    """
+    assert vo2max_median_for(25, "male") < 48.0
+    assert vo2max_median_for(25, "female") < 37.6
+    assert vo2max_median_for(75, "male") < 24.4
+
+
+# ── The sleep anchor: questionnaire hours vs device hours (#97) ──────────────
+# Every expected value below is a number Lauderdale et al. 2008 (Epidemiology 19(6):
+# 838–45, PMID 18854708) published, not one this codebase computed.
+
+
+def test_self_report_gap_matches_lauderdales_published_anchors() -> None:
+    # "persons sleeping 5 hours over-reported their sleep duration by 1.2 hours, and
+    # those sleeping 7 hours over-reported by 0.4 hours"; and the cohort means,
+    # "average measured sleep was 6 hours, whereas the average from subjective reports
+    # was 6.8 hours" — three independent points on one line.
+    assert self_report_over_report_h(5.0) == pytest.approx(1.2)
+    assert self_report_over_report_h(6.0) == pytest.approx(0.8)
+    assert self_report_over_report_h(7.0) == pytest.approx(0.4)
+    assert self_reported_equivalent_h(6.0) == pytest.approx(6.8)
+
+
+def test_self_report_gap_does_not_extrapolate_past_the_published_anchors() -> None:
+    """Held flat below 5 h (Lauderdale's shortest anchor) and floored at 0 from 8 h up.
+
+    Both clamps are conservative on purpose: growing the gap below 5 h would invent an
+    ever-larger credit for the shortest sleepers, and letting the line go negative past
+    8 h would invent a discount on the long-sleep tail. Neither was measured."""
+    assert self_report_over_report_h(4.0) == pytest.approx(1.2)  # not 1.6
+    assert self_report_over_report_h(3.0) == pytest.approx(1.2)  # not 2.0
+    assert self_report_over_report_h(8.0) == pytest.approx(0.0)  # the line's own zero
+    assert self_report_over_report_h(9.5) == pytest.approx(0.0)  # not −0.6
+    assert self_reported_equivalent_h(9.5) == pytest.approx(9.5)
 
 
 # ── Gompertz hazard→years conversion ────────────────────────────────────────
@@ -172,11 +228,22 @@ def test_composed_per_term_contributions() -> None:
     assert contribs["fitness"]["hr"] == pytest.approx(0.85)
     assert contribs["fitness"]["delta_years"] == pytest.approx(-1.8)
 
-    # Sleep duration — note: 1.06 per hour BELOW the 7 h reference (Yin 2017).
-    #   6.0 h → HR = 1.06^(7 − 6) = 1.06
-    #   ΔAge = ln(1.06)·7.7/ln(2) = 0.0582689·7.7/0.6931472 = +0.6473  → +0.6
-    assert contribs["sleep duration"]["hr"] == pytest.approx(1.06)
-    assert contribs["sleep duration"]["delta_years"] == pytest.approx(0.6)
+    # Sleep duration — 1.06 per hour BELOW the 7 h nadir (Yin 2017), read at the
+    # QUESTIONNAIRE equivalent of the strap's average (#97). The fixture's 6.0 h is
+    # Lauderdale's own cohort mean, so its equivalent is that paper's published mean
+    # report, 6.8 h — no arithmetic of ours in the anchor at all.
+    #   6.0 h measured → 6.8 h reported → HR = 1.06^(7 − 6.8) = 1.06^0.2 = 1.01172
+    #   ΔAge = 0.2·ln(1.06)·7.7/ln(2) = 0.2·0.0582689·11.1088 = +0.1295  → +0.1
+    # Before #97 this read 1.06^(7 − 6.0) = 1.06 → +0.6: half a year charged for the
+    # difference between a strap and a questionnaire.
+    assert contribs["sleep duration"]["compared_as"] == pytest.approx(6.8)
+    assert contribs["sleep duration"]["hr"] == pytest.approx(1.012)
+    assert contribs["sleep duration"]["delta_years"] == pytest.approx(0.1)
+    # The label says what the maths does. It was "7–9" while 9 h was charged 1.28×
+    # (#88); it is now Yin's single-point nadir. The 7–9 BAND is a different claim
+    # (NSF 2015's recommendation) and stays on the sleep surfaces that make it.
+    assert contribs["sleep duration"]["target"] == 7.0
+    assert contribs["sleep duration"]["value"] == pytest.approx(6.0)  # what we measured
 
     # And there is no third term. Until #86 the note's table had a regularity row
     # log-interpolating Cribb 2023's SRI anchors; it was removed, not re-anchored.
@@ -185,11 +252,11 @@ def test_composed_per_term_contributions() -> None:
 
 def test_composed_biological_age_is_chronological_plus_delta() -> None:
     """The sum and its sign — the assertion that catches `chrono − ΔAge`."""
-    # ΔAge_total = −1.8054 + 0.6473 = −1.1581  → delta_years −1.2
-    # bio_age    = 40 − 1.1581 = 38.8419       → 38.8
+    # ΔAge_total = −1.8054 + 0.1295 = −1.6759  → delta_years −1.7
+    # bio_age    = 40 − 1.6759 = 38.3241       → 38.3
     result = _stub_result()
-    assert result["delta_years"] == pytest.approx(-1.2)
-    assert result["biological_age"] == pytest.approx(38.8)
+    assert result["delta_years"] == pytest.approx(-1.7)
+    assert result["biological_age"] == pytest.approx(38.3)
     # Net hazard is below the reference here, so the estimate must read YOUNGER.
     assert result["biological_age"] < result["chronological_age"]
     # A composite that IS computed says so, in the ledger's vocabulary.
@@ -226,6 +293,43 @@ def test_an_excluded_term_is_not_a_withheld_one() -> None:
     # The message must tell the owner where regularity DOES still live, so the exclusion
     # does not read as "we stopped measuring it".
     assert "sleep page" in result["excluded"][0]["message"]
+
+
+# ── The terms that ARE there, and lean (#97) ────────────────────────────────
+
+
+def test_every_priced_term_publishes_its_footing() -> None:
+    """Both surviving terms are anchored on something imperfect, and both say so.
+
+    This is the assertion that a future "tidy up the payload" cannot quietly pass: the
+    composite exception in [[biological_age_estimate]] rests on its inputs being
+    meta-analytic, and a meta-analytic SLOPE read at an unsourced ANCHOR is not the same
+    claim. If a term's anchor is ever properly sourced, its caveat is deleted here on
+    purpose — not by a payload key going missing."""
+    result = _stub_result()
+    caveats = {c["term"]: c for c in result["caveats"]}
+    assert set(caveats) == {"fitness", "sleep duration"}
+    assert caveats["fitness"]["reason"] == VO2MAX_REFERENCE_UNCITED
+    assert caveats["sleep duration"]["reason"] == SLEEP_DURATION_SELF_REPORT_SCALE
+    # The fitness anchor's tilt is one-directional and must be named, not hinted at.
+    assert "no published source" in caveats["fitness"]["message"]
+
+
+def test_a_caveat_is_neither_withheld_nor_excluded() -> None:
+    """Three states, three keys, and the difference is what the owner should do.
+
+    ``withheld`` = sync and it comes back · ``excluded`` = nobody can price this ·
+    ``caveats`` = it IS in your number, and here is which way it leans. Collapsing any
+    two of them would either promise a fix that does not exist or hide a live bias
+    behind a word that reads like "missing"."""
+    result = _stub_result()
+    assert result["withheld"] is None  # nothing absent on this good day
+    assert result["biological_age"] is not None  # and the caveated terms are priced
+    caveat_terms = {c["term"] for c in result["caveats"]}
+    excluded_terms = {e["term"] for e in result["excluded"]}
+    assert caveat_terms.isdisjoint(excluded_terms)
+    priced = {c["term"] for c in result["contributions"]}
+    assert caveat_terms <= priced  # a caveat only ever describes a term that is IN
 
 
 def test_composed_returns_none_without_a_profile() -> None:

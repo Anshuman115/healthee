@@ -25,10 +25,12 @@ VO2MAX = 41.5  # ml/kg/min — vs the note's 38.0 median for a 40 y male
 TST_MIN = 360.0  # 6.0 h/night across the 14-night window
 
 # Hand-derived from [[biological_age_estimate]] (see test_biological_age_math for the
-# full working): fitness −1.8054, sleep +0.6473 → ΔAge −1.1581.
+# full working): fitness −1.8054, sleep +0.1295 → ΔAge −1.6759.
+# The sleep figure is post-#97: 6.0 h measured is read at its questionnaire equivalent
+# of 6.8 h (Lauderdale 2008's own cohort means), so HR = 1.06^0.2, not 1.06^1.
 FITNESS_YEARS = -1.8
-SLEEP_YEARS = 0.6
-BIO_AGE = 38.8
+SLEEP_YEARS = 0.1
+BIO_AGE = 38.3
 
 # median 56, MAD 4 → inside every gate: these seven days DERIVE.
 CALM = [50.0, 52.0, 54.0, 56.0, 58.0, 60.0, 62.0]

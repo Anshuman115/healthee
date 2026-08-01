@@ -99,8 +99,19 @@ reason to suggest a clinician, not a statistic.
 ## Honesty & uncertainty
 - All included studies are **observational**. Reverse causation is plausible:
   long sleep may reflect underlying illness rather than cause harm.
-- Sleep duration in the source studies was **self-reported**, noisier than
-  wearable measurement (self-report typically over-estimates by 30–60 min).
+- Sleep duration in the source studies was **self-reported**, and self-report does
+  not merely add noise — it is **biased, by an amount that grows as sleep shortens**.
+  This note used to say "self-report typically over-estimates by 30–60 min", uncited.
+  The primary source was checked on 2026-08-01 and does not support a flat range:
+  **Lauderdale et al. 2008** (*Epidemiology* 19(6):838–45, PMID 18854708; CARDIA
+  Chicago, n = 669, 3 days of wrist actigraphy against questions about usual sleep)
+  reports mean measured sleep of **6.0 h against a mean report of 6.8 h**, and that
+  "*persons sleeping 5 hours over-reported their sleep duration by 1.2 hours, and
+  those sleeping 7 hours over-reported by 0.4 hours*". So 30–60 min is roughly right
+  in the middle of the curve and **materially too small below ~5.5 h measured** —
+  exactly where a chronic short sleeper lives. Anything that applies a hazard curve
+  from these studies to *device-measured* hours must convert first; see
+  [[biological_age_estimate]] and `analytics/reference_scales.py`, which does.
 - The population association does **not** imply a single individual's optimum is
   any particular number of hours — personal baseline matters more than the population
   mean, and the meta-analysis supplies no band to be exact about (#88).
@@ -126,6 +137,12 @@ marker, not a cause), and anything inferred from single nights.
   all-cause mortality: a systematic review and meta-analysis of prospective
   studies. *Sleep* 33(5):585–592. PMID 20469800. **States no reference band** — see
   the ⚠ box above. *[abstract re-verified at PubMed 2026-08-01]*
+- Lauderdale DS, Knutson KL, Yan LL, Liu K, Rathouz PJ. 2008. Self-reported and
+  measured sleep duration: how similar are they? *Epidemiology* 19(6):838–845. PMID
+  18854708. Mean measured 6.0 h vs mean reported 6.8 h; over-report 1.2 h at 5 h
+  measured and 0.4 h at 7 h measured; reports rose 34 min per additional measured
+  hour; correlation 0.47. **The source of the self-report↔device conversion**, and the
+  reason the old uncited "30–60 min" is gone. *[abstract verified at PubMed 2026-08-01]*
 - Hirshkowitz M, Whiton K, Albert SM, et al. 2015. National Sleep Foundation's
   sleep time duration recommendations: methodology and results summary. *Sleep
   Health* 1(1):40–43. doi:10.1016/j.sleh.2014.12.010. An 18-member expert panel
