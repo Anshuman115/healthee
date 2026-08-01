@@ -144,7 +144,7 @@ Vanhatalo 2017].
 
 ## How we compute it
 
-`@daud/core` ownership: **not yet computed** (proposed `criticalSpeed` / `dPrime`).
+**Not computed anywhere today** (upstream proposed `criticalSpeed` / `dPrime`; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)).
 
 **Core hyperbolic model** (severe domain). For a set of maximal efforts where effort *i*
 covers distance `dᵢ` in time `tᵢ`:
@@ -386,7 +386,7 @@ predictions, re-fit CS from those races.
   time-trials, or a 3-min all-out test) that Healthee does not prompt for or
   detect. This note is **reference science + a future-metric candidate**
   (`applies_to_metrics: []`; `daud_metrics` provenance dropped — the `criticalSpeed`
-  /`dPrime` helpers are legacy `@daud/core`).
+  /`dPrime` helpers are the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Future-metric candidate (data-hungry).** Healthee already records outdoor GPS
   workouts with per-segment pace (`derive/gps.py`); a CS/D′ fit could be estimated
   from a set of recent near-maximal GPS efforts spanning ~2–15 min — but only when

@@ -474,7 +474,7 @@ Implementation notes:
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** This is a
   *planning + monitoring* principle, not a computed metric. It informs the
   challenges/programs builder (ramp cadence, deload scheduling, one-variable-at-a-time
-  progression) and the coach's load-safety reasoning. The body's `@daud/core` quantities
+  progression) and the coach's load-safety reasoning. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute)
   (`ctl` / `atl` / `tsb` / `acwr` / weekly-volume, and the single-run distance-spike check)
   name the load-model inputs a future progression engine would consume; none is a Healthee
   `derived_daily` field today.

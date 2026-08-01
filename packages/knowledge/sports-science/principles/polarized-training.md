@@ -173,7 +173,7 @@ LT1/LT2 (or VT1/VT2) where known; otherwise estimated from HR or pace anchors:
   (easy/threshold/interval). Yields a more "polarized-looking" number than
   time-in-zone, because a hard interval session still contains easy warm-up time.
   **Always state which method is used** — the two are not interchangeable.
-- `@daud/core`: maps to `intensiteDistribution` / `timeInZone` / `weeklyEasyShare`
+- Upstream names (the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)): `intensiteDistribution` / `timeInZone` / `weeklyEasyShare`
   (not all yet computed). HR- and pace-derived zones are *estimates* with real
   error (HR drift in heat, GPS pace noise, individual threshold variation), not
   lab-measured ground truth. Treat the computed easy/hard split as ±5–10%.
@@ -364,7 +364,7 @@ coach must speak confidently about the base and hedge about the shape.
   *plan design*, not a computed metric: it sets the intensity-distribution policy the
   challenges/programs builder and the coach's session planning reason over (keep ~80% of
   weekly time easy; cap hard days at ~2/week; police easy-day drift into Z2). The body's
-  `@daud/core` mapping (`intensiteDistribution` / `timeInZone` / `weeklyEasyShare` /
+  upstream naming (`intensiteDistribution` / `timeInZone` / `weeklyEasyShare` /
   `trimp`) names the load/zone quantities a future TID computation would consume; none is a
   Healthee `derived_daily` field today.
 - **Where it plugs in:** the coach cites this note when it evaluates a runner's easy/hard

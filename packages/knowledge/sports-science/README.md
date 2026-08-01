@@ -1,11 +1,16 @@
-# @daud/knowledge — Daud's physiology knowledge layer
+# Sports-science corpus (imported from `@daud/knowledge`)
 
-This package is the **validated sports-science library** the Daud AI coach is
-required to reason *with* and cite. It is one of the three grounded sources the
-coach must use — alongside the runner's own data and the deterministic
-computed-metrics layer in `@daud/core`. Every doc grades its own certainty so the
-coach can be calibrated: confident where the science is strong, hedged where it is
-genuinely uncertain.
+This directory is the **validated sports-science library** the Healthee coach reasons
+*with* and cites. It is one of the grounded sources the coach must use — alongside the
+runner's own data and Healthee's deterministic derive layer
+(`apps/server/src/healthee/derive`). Every doc grades its own certainty so the coach can
+be calibrated: confident where the science is strong, hedged where it is genuinely
+uncertain.
+
+*(This heading read "# @daud/knowledge — Daud's physiology knowledge layer" and this
+paragraph named "the deterministic computed-metrics layer in `@daud/core`" as one of the
+three grounded sources — the first thing any reader hit, asserting a module that exists
+nowhere as a live dependency of the corpus. #100.)*
 
 How the coach uses it (see **[METHODOLOGY.md](./METHODOLOGY.md)** for the full
 contract):
@@ -87,7 +92,7 @@ doc's *overall* grade — individual claims inside a doc carry their own grade.
 
 The measurable signals the coach reads from a runner's data.
 
-| Doc | What it is (one line) | Evidence | Maps to (`@daud/core`) |
+| Doc | What it is (one line) | Evidence | Upstream compute-fn name (`@daud/core`, does not exist here) |
 |---|---|---|---|
 | [Maximum Heart Rate (HRmax)](./metrics/maximum-heart-rate.md) | The stable, age-declining, non-trainable HR ceiling that anchors every %HRmax zone — use Tanaka, not 220−age, and override with any observed peak. | Established | `estimateHrMax` |
 | [Resting Heart Rate (RHR)](./metrics/resting-heart-rate.md) | A cheap waking-pulse trend; a sustained multi-day rise above the runner's own baseline flags fatigue, under-recovery, or oncoming illness. | Established | *(not yet computed)* |
@@ -114,7 +119,7 @@ The measurable signals the coach reads from a runner's data.
 
 The training-design rules the coach builds plans on.
 
-| Doc | What it is (one line) | Evidence | Maps to (`@daud/core`) |
+| Doc | What it is (one line) | Evidence | Upstream compute-fn name (`@daud/core`, does not exist here) |
 |---|---|---|---|
 | [Polarized & Intensity-Distribution Training](./principles/polarized-training.md) | Successful endurance training is ~80% easy / ~20% hard, avoiding the moderate "black hole"; whether the hard 20% is polarized vs pyramidal is genuinely contested. | Probable | `timeInZones` |
 | [Progressive Overload & Adaptation](./principles/progressive-overload.md) | Stress → recovery → adaptation; cap single-run distance spikes tightly, deload periodically — but the "10% per week" rule is a soft heuristic, not a law. | Probable | `computeAcwr`, `WEEKLY_PROGRESSION_LIMIT` *(guardrail)* |
@@ -126,7 +131,7 @@ The training-design rules the coach builds plans on.
 
 The whole-runner factors — environment, fuel, strength, female physiology, and injury.
 
-| Doc | What it is (one line) | Evidence | Maps to (`@daud/core`) |
+| Doc | What it is (one line) | Evidence | Upstream compute-fn name (`@daud/core`, does not exist here) |
 |---|---|---|---|
 | [Heat & Altitude](./wellness/environmental-stress.md) | Heat acclimatization is one of sport's best-evidenced gains (~10–14 days); read effort/pace alongside HR in heat. Altitude (LHTL) is smaller and contested. | Established | *(pace/HR cross-checks; not yet computed)* |
 | [Fueling & Hydration](./wellness/fueling-and-hydration.md) | Carbs are the limiter past ~90 min (30–90 g/h, gut-trained); drink to thirst — over-drinking risks dangerous hyponatremia. | Established | *(not yet computed)* |

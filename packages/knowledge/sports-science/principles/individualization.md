@@ -136,7 +136,7 @@ become responders when the dose is raised [Montero 2017].
 
 ## How we compute it
 Individualization is less a single metric than a **policy** the coach applies to
-every other metric. Operational pieces (owned by `@daud/core`, several "not yet
+every other metric. Operational pieces (upstream names, the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency); several "not yet
 computed"):
 
 - **Individual baselines** — rolling personal anchors for resting HR, HRV
@@ -347,7 +347,7 @@ By stage:
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** Individualization is a
   *policy applied to every other metric*, not a standalone number. It governs how the coach
   and the programs/challenges builder treat population defaults — as priors to re-anchor to
-  the runner's measured baselines. The body's `@daud/core` quantities (`trainabilityEstimate`
+  the runner's measured baselines. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute) (`trainabilityEstimate`
   / `individualBaseline` / `hrvBaseline` / `responseTracking`) name the personal-anchor
   computations this policy would drive; several are "not yet computed" and none is a Healthee
   `derived_daily` field today.

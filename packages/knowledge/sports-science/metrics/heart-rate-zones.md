@@ -10,7 +10,6 @@ applies_to_metrics: ["cardio_load", "hr_zone_minutes"]
 applies_to_interventions: ["exercise"]
 last_reviewed: 2026-07-15
 related: ["aerobic-base", "lactate-threshold", "training-intensity-distribution", "cardiac-drift", "hrv", "effort-rpe"]
-daud_metrics: ["estimateHrMax", "computeHrZones", "zoneForHr", "timeInZones", "hrFractionToEffort"]
 units: "bpm, %HRmax, %HRR, AU"
 ---
 # Heart-Rate Training Zones
@@ -409,7 +408,7 @@ Decision logic, by stage:
 
 ## Healthee implementation & honesty policy
 
-**What Healthee computes.** The `@daud/core/zones.ts` functions above (`computeHrZones`,
+**What Healthee computes.** The upstream `@daud/core/zones.ts` names above (`computeHrZones`,
 `zoneForHr`, `timeInZones`, LTHR field test) are the running-coach corpus's reference
 implementation. Healthee's own use is narrower and HR-only: it bins each **per-minute
 HR** sample into **five %HR_max zones** and stores the minutes-per-zone strip in

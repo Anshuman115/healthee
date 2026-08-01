@@ -10,7 +10,6 @@ applies_to_interventions: []
 population: runners
 last_reviewed: 2026-07-15
 related: ["heart_rate_variability", "resting_heart_rate", "training-load-acwr", "fitness-fatigue-form", "training-stress-score", "recovery_readiness", "sleep_need_debt", "no_validated_sleep_score", "wearable_sleep_stage_validity"]
-daud_metrics: ["sleepDurationNightly", "sleepDebt7d"]
 units: "hours (sleep duration); minutes (stage time); AU (subjective recovery)"
 ---
 # Sleep & Recovery

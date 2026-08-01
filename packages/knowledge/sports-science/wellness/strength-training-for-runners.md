@@ -176,7 +176,7 @@ economy. The coach reasons over:
   `training-load-acwr.md`). The coach treats heavy lower-body or plyometric
   sessions as meaningful load when scheduling hard runs.
 
-There is no `@daud/core` function that computes strength prescriptions today;
+Nothing computes strength prescriptions today, here or upstream;
 this is decision logic plus the directives below.
 
 ## How the coach uses it
@@ -409,8 +409,8 @@ properly dosed strength training does **not** harm body composition or VO₂max
   dose (modality, %1RM band, sets×reps, sessions/week) is a literature-anchored recommendation
   generated from the runner's stage, phase, and injury history, refined from logged response
   and soreness. Running economy (`running-economy`) is the *target* metric, watched as a trend
-  over an 8–14-week block, not a single reading. There is no `@daud/core` function that
-  computes strength prescriptions today.
+  over an 8–14-week block, not a single reading. Nothing computes strength
+  prescriptions today, here or upstream.
 - **Load accounting:** heavy lower-body / plyometric sessions add neuromuscular/recovery load
   that **running-only TSS/ACWR misses** (`training_load_acwr`) — count them as real training
   load when scheduling hard runs (D10).

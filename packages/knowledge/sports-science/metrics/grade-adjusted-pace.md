@@ -379,7 +379,7 @@ This section is mandatory — GAP is a useful estimate wrapped in real uncertain
   low-effort future-metric candidate**: the validated cost model is ported and
   tested; surfacing a flat-equivalent pace per GPS segment is a small addition.
   (`applies_to_metrics: []` today; `daud_metrics` provenance dropped — the
-  `gradeAdjustedPace`/`gradeAdjustmentFactor` helpers are the legacy `@daud/core`
+  `gradeAdjustedPace`/`gradeAdjustmentFactor` helpers are the upstream `@daud/core` naming (a module that exists in no repo)
   naming.)
 - **Future-metric candidate (feasible from existing data).** `derive/gps.py`
   already yields per-segment speed and DEM-corrected grade over a recorded

@@ -70,7 +70,7 @@ Lead claims are graded by the strength of the underlying evidence.
 
 ## How we compute it
 
-Specificity and recovery are *principles*, not single metrics, but they are operationalised through several `@daud/core` quantities:
+Specificity and recovery are *principles*, not single metrics, but the upstream project operationalised them through several quantities (the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)), none of which Healthee computes today:
 
 - **Stress (stimulus):** session and rolling training load (`trainingLoad` / TSS-style), see `training-stress-score`.
 - **Balance over time:** the **Fitness–Fatigue / Form model** (Banister-style impulse-response) estimates *fitness* (slow-decaying) minus *fatigue* (fast-decaying) → **Form**; negative form after a hard block is expected, sustained deeply-negative form flags inadequate recovery (see `fitness-fatigue-form`).
@@ -166,7 +166,7 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** These are *principles*
   operationalised through other metrics, not a standalone number. They shape the
   programs/challenges builder (hard–easy sequencing, rest-day and recovery-week cadence,
-  taper) and the coach's recovery reasoning. The body's `@daud/core` quantities
+  taper) and the coach's recovery reasoning. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute)
   (`trainingLoad` / `acwr` / `form` / `fitnessFatigue` / `hrv`) name the stress/recovery
   inputs; there is **no direct "adaptation meter"** — adaptation is inferred retrospectively
   from performance trend, decoupling, HR-at-pace, and subjective readiness, and none of these

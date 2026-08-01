@@ -452,7 +452,7 @@ phrase arrived with the upstream sports-science corpus import. The true position
 ## Healthee implementation & honesty policy
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** Daud does **not** infer
   cycle phase from physiology and does **not** auto-generate a phase-based plan; all inputs
-  are opt-in and runner-supplied. The body's `@daud/core` quantities (`energyAvailability` /
+  are opt-in and runner-supplied. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute) (`energyAvailability` /
   `cyclePhase` / `perceivedSymptomLoad`) are self-reported/estimated, not Healthee
   `derived_daily` fields; calendar-only phasing is explicitly flagged as approximate and
   unverified.

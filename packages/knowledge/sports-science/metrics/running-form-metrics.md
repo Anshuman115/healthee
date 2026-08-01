@@ -53,7 +53,7 @@ Critically, runners self-optimise this. Moore et al. found that trained enduranc
 ## How we compute it
 
 - **Source of truth is the device.** Daud ingests GCT (ms), VO (cm), vertical ratio (%), GCT balance (%), leg stiffness, and running power (W) directly from the wearable/foot pod when present. We do **not** re-derive them from raw accelerometry.
-- **Vertical ratio** = vertical oscillation ÷ stride length × 100 (%). Where a device reports VO and cadence/pace but not vertical ratio, `@daud/core` may compute it (stride length = pace ÷ cadence). Flag as estimated.
+- **Vertical ratio** = vertical oscillation ÷ stride length × 100 (%). Where a device reports VO and cadence/pace but not vertical ratio, it can be derived (stride length = pace ÷ cadence) — nothing computes it today. Flag as estimated.
 - **Running power** is taken as the device reports it and **tagged with the source device** (`stryd` | `garmin` | `coros` | `polar` | `apple` | `other`). Power from different sources is stored on **separate scales** and never pooled or compared across devices.
 - **Symmetry**: GCT balance is used as |L−R| deviation from 50/50.
 - **Estimation error vs ground truth**: every one of these is a model estimate, not lab force-plate/metabolic-cart truth. Expected agreement: cadence (excellent) > power-as-intensity-proxy at steady state (strong correlation, absolute bias) > GCT/leg stiffness (device-dependent) > vertical oscillation (weakest). None is "not yet computed" — all are pass-through with provenance, with vertical ratio optionally derived.
@@ -142,7 +142,7 @@ Critically, runners self-optimise this. Moore et al. found that trained enduranc
   such stream reaches `derive/`. This note is **reference science + a future
   candidate that depends on hardware/data Healthee does not have** (`applies_to_metrics: []`;
   `daud_metrics` provenance dropped — `groundContactTime`/`verticalOscillation`/
-  `verticalRatio`/`legStiffness`/`runningPower` are legacy `@daud/core`).
+  `verticalRatio`/`legStiffness`/`runningPower` are the upstream `@daud/core` naming (a module that exists in no repo)).
 - **The grade is `Contested`, and that is now the only grade this note carries**
   *(corrected 2026-08-01, #83)*. This note used to carry a second, numeric
   `evidence_grade: 1` alongside it, with a paragraph here explaining that "the

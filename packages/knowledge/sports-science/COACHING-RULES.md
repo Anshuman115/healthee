@@ -247,7 +247,9 @@ any AI suggestion, plan, or "green" readiness/form score.**
   cadence) — it's a myth; express cadence only relative to the runner's own baseline at a
   comparable pace. When intervening, prescribe **+5–10% above habitual cadence, capped at
   ≤10%,** phased in gradually on easy runs, **never combined with a same-week load increase.**
-  — *Established (myth) / Probable (safety bound, mirrored in `@daud/core`)* —
+  — *Established (myth) / Probable (safety bound, **not enforced in code** — see
+  `stride-length` D6; this line said "mirrored in `@daud/core`", a module that exists
+  nowhere, 218 lines below this same file's own retraction of that claim. #100)* —
   `[cadence D1/D2/D3]`, `[stride-length D5/D6/D9]`, `[injury-prevention D6]`.
 - **Target overstriding, not stride length.** Self-selected stride is near-optimal for
   economy; flag overstriding (foot landing well ahead of CoM), which you can only *infer*

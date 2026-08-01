@@ -10,7 +10,6 @@ applies_to_metrics: ["cardio_load", "hr_zone_minutes"]
 applies_to_interventions: ["exercise"]
 last_reviewed: 2026-07-15
 related: ["training-load-acwr", "fitness-fatigue-form", "grade-adjusted-pace", "lactate-threshold", "running-economy", "vo2max", "sleep-and-recovery"]
-daud_metrics: ["computeSessionLoad", "rTSS", "hrTSS", "gradeAdjustedPace"]
 units: "AU (arbitrary units; ~100 AU = 1 h at threshold)"
 ---
 # Training Stress Score (TSS) and Session Load Quantification

@@ -10,7 +10,6 @@ applies_to_interventions: ["exercise"]
 population: general
 last_reviewed: 2026-07-15
 related: ["lactate-threshold", "running-economy", "critical-speed", "race-prediction", "maximum-heart-rate", "heart-rate-zones", "polarized-training", "non_exercise_vo2max", "submaximal_vo2max", "mvpa_minutes_mortality", "steps_mortality", "strength_training_mortality", "recovery_readiness"]
-daud_metrics: ["vo2max", "vVO2max", "maximalAerobicSpeed"]
 units: "mL/kg/min (or L/min absolute)"
 ---
 # VO₂max (Maximal Oxygen Uptake)
@@ -241,12 +240,12 @@ HR near age-predicted max, blood lactate > ~8 mmol/L). A verification bout at a
 supramaximal workload is the modern confirmation. Reproducible to roughly ±2–3% in a
 good lab.
 
-**Field / sub-maximal estimates (what `@daud/core` actually uses or ingests).**
+**Field / sub-maximal estimates (what the upstream project used or ingested; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)).**
 
 1. **vVO₂max / Maximal Aerobic Speed (MAS)** — the running speed at which VO₂max is
    reached (or estimated from a 5–6 min maximal effort, e.g. a maximal 1500–2000 m or
    a 6-min time trial). More useful to a runner than VO₂max itself because it already
-   integrates economy. `@daud/core: vVO2max / maximalAerobicSpeed`.
+   integrates economy. Upstream names `vVO2max` / `maximalAerobicSpeed`.
 2. **Race-derived estimate** — VO₂max can be back-estimated from recent race
    performances (e.g. Daniels' VDOT, Léger/Mercier velocity relationships). This is
    really a *performance* index reported in VO₂max units, conflated with economy and

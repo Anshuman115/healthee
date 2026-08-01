@@ -195,8 +195,8 @@ particular raises the capacity ceiling against which running load is compared
 Daud does not measure tissue capacity, bone density, or energy availability
 directly. The coach reasons from training-derived proxies and runner self-report:
 
-- **Load progression (%)** — week-over-week change in volume (or load). `@daud/core`
-  derives this from logged sessions. Used as the primary spike detector; ~>30%
+- **Load progression (%)** — week-over-week change in volume (or load). The upstream
+  project derived this from logged sessions (the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)); Healthee does not compute it. Used as the primary spike detector; ~>30%
   jumps flagged [Nielsen 2014].
 - **ACWR** — acute (7-day) ÷ chronic (28-day, EWMA preferred) load. Owned by the
   load module (`training-load-acwr`). Treated as a *monitoring band* (~0.8–1.3
@@ -475,7 +475,7 @@ arrived with the upstream sports-science corpus import. The true position, per b
 
 ## Healthee implementation & honesty policy
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** Daud does not measure
-  tissue capacity, bone density, or energy availability. The body's `@daud/core` quantities
+  tissue capacity, bone density, or energy availability. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute)
   (`acwr` / `weeklyDistance` / `weeklyLoad` / `sessionLoad` / `cadence`, and load-progression
   %) are training-derived proxies and self-report screens, not Healthee `derived_daily`
   fields created by this note; ACWR itself is owned by `training_load_acwr`.

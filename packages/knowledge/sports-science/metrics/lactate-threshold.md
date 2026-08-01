@@ -195,19 +195,19 @@ days at 3–5 W or ~0.5 km/h increments, sampling lactate every 5 min over 30 mi
 MLSS = highest load where ΔLactate(10→30 min) ≤ 1 mmol/L. This is the reference,
 but it is invasive, equipment-heavy, and multi-session.
 
-**Field estimates (what `@daud/core` actually uses).**
+**Field estimates (what the upstream project used; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)).**
 
 1. **30-minute time-trial LTHR (primary field method, practitioner standard /
    Friel protocol).** Run an all-out, evenly-paced solo 30 min on flat terrain;
    **LTHR = average HR of the final 20 minutes**; threshold pace ≈ average pace of
    the final 20 min. Tends to *slightly over*estimate true MLSS for many runners,
    so apply a small downward correction (~3–5%) for zone-setting.
-   `@daud/core: lactateThresholdHr` (not yet computed — pending test ingestion).
+   Upstream name `lactateThresholdHr` (not computed anywhere — pending test ingestion).
 2. **Critical Speed.** Fit 2–3 maximal efforts of different durations
    (e.g. 3, 6/9, 12 min, or recent race results from ~3–20 min) to
    `distance = CS·time + D′`; CS is the asymptote. CS is a good LT2/threshold
    surrogate but runs a few % *above* MLSS — treat it as an upper-bound estimate.
-   `@daud/core: criticalSpeed`.
+   Upstream name `criticalSpeed`.
 3. **Race-derived.** Recent 10K–half-marathon race pace/HR is a practical LT2
    anchor for trained runners.
 
@@ -453,7 +453,7 @@ tracking**. Core logic:
   test protocol, and derives no LTHR / LT-pace field (no `lactateThresholdHr`/
   `lactateThresholdPace` in `derive/`). This note is **reference science + a
   future-metric candidate** (`applies_to_metrics: []`; `daud_metrics` provenance
-  dropped — those helpers are legacy `@daud/core`).
+  dropped — those helpers are the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Future-metric candidate (feasible from existing data).** LT-pace / LTHR can be
   *estimated* (not lab-measured) from a sustained GPS threshold effort or from an
   HR-vs-pace deflection — and Healthee already regresses VO₂ against HR over

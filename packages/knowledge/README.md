@@ -53,9 +53,14 @@ per collection (see below); the generator maps both onto these fields:
 | `population` | — | `runners` on runner-specific docs |
 | `last_reviewed` | `last_reviewed` (optional) | `last_reviewed` (optional) |
 
-Sports-science docs also keep `related`, `daud_metrics` (the origin project's
-compute-fn names — *not* Healthee metrics), and `units` as provenance; the
-manifest ignores them. Ids must match `[a-z0-9_]+` (the citation regex) or they
+Sports-science docs also keep `related` and `units` as provenance; the manifest
+ignores them. **`daud_metrics` is gone (#100.)** It carried the origin project's
+compute-fn names — never Healthee metrics — and 13 of 18 notes had already dropped
+it, recording the drop in prose; the 5 stragglers are now aligned. A frontmatter key
+naming functions in a module that exists in no repo reads as a live mapping to
+anyone skimming the block, which is the same false-provenance failure #83b and #87
+were about. The names survive where they belong: in the notes' implementation
+sections, labelled as upstream import provenance. Ids must match `[a-z0-9_]+` (the citation regex) or they
 are uncitable. Notes in `notes/protocol/` carry no `id` and are skipped as
 non-citable engineering references (surfaced, not silently dropped).
 

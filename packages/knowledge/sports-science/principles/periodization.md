@@ -379,7 +379,7 @@ Implementation notes:
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** Periodization is a
   *planning* layer, not a metric. It informs the challenges/programs builder
   (base→build→peak→taper scheduling from a goal-race date) and the coach's taper logic. The
-  body's `@daud/core` quantities (`ctl` / `atl` / `tsb` / `acwr` / weekly-volume) name the
+  The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute) (`ctl` / `atl` / `tsb` / `acwr` / weekly-volume) name the
   fitness–fatigue inputs a scheduler would reason over — `tsb = ctl − atl ≈ form` is the
   direct analogue of preparedness — but none is a Healthee `derived_daily` field today, and
   the phase schedule is **not yet auto-computed**.

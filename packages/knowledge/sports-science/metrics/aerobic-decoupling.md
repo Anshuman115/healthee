@@ -166,7 +166,7 @@ Daanen et al. 2012].
 
 ## How we compute it
 
-**Decoupling** (owned by `computeDecoupling` in `@daud/core`):
+**Decoupling** (upstream name `computeDecoupling`; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)):
 
 ```
 EF (efficiency factor) = output / heart_rate
@@ -189,7 +189,7 @@ Implementation note: garbage-in if the effort wasn't steady —
 the function should be fed (or restricted to) a sustained, single-intensity block
 with warm-up, surges, hills, and stops excluded, or the split is meaningless.
 
-**Heart-rate recovery** — *not yet computed* in `@daud/core`. Definition for when it
+**Heart-rate recovery** — *not computed anywhere today*. Definition for when it
 is added: `HRR₆₀ = HR_at_effort_end − HR_60s_after_easing`, measured from a
 repeatable trigger (end of a hard rep or a standardised submaximal step). Report in
 bpm; track the personal trend, not an absolute population cut-off.
@@ -417,7 +417,7 @@ the clinical ≤12 bpm figure, for training decisions.
   interpolates the sparse strap HR (~1/min) across the track — which is exactly the
   pace-per-heartbeat time series a split-half Pa:HR decoupling needs. This note is
   therefore **reference science + a strong future-metric candidate** (`applies_to_metrics: []`;
-  `daud_metrics` provenance dropped — `computeDecoupling` is legacy `@daud/core`).
+  `daud_metrics` provenance dropped — `computeDecoupling` is the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Future-metric candidate (feasible, low effort).** Split a steady GPS run in
   half, take pace/HR (or GAP/HR) in each half, and report the % change — a direct
   addition on top of `derive/gps.py`'s existing pace + HR-interpolation, gated on a

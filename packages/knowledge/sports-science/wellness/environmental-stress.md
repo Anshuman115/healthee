@@ -186,7 +186,7 @@ works from environment inputs and the runner's response:
 
 - **Heat load** is taken from weather data: air temperature (°C), relative humidity
   (%), and ideally **dew point** (the best single, widely available humidity/heat
-  proxy) or WBGT. `@daud/core` `heatStressIndex()` (or equivalent) maps
+  proxy) or WBGT. A heat-stress-index function (upstream name `heatStressIndex()`; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)) would map
   (tempC, humidity, [solar/wind]) → a heat-stress band the coach reasons with.
   Not yet a calibrated physiological model — it is an environmental classifier.
 - **Heat pace/HR adjustment** is an estimate, not a measurement. As a starting
@@ -469,7 +469,7 @@ phrase arrived with the upstream sports-science corpus import. The true position
 
 ## Healthee implementation & honesty policy
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** Daud does not measure
-  core temperature, plasma volume, or red-cell mass. The body's `@daud/core` quantities
+  core temperature, plasma volume, or red-cell mass. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute)
   (`environmentTempC` / `relativeHumidity` / `dewPointC` / `wbgt` / `altitudeM` /
   `heartRate` / `paceAdjustment`, and a `heatStressIndex()`-style classifier) are
   environmental inputs and estimates, not Healthee `derived_daily` fields. Acclimatization
