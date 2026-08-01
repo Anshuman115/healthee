@@ -12,6 +12,10 @@ the plausibility bound, and the two classes of bug this path has actually shippe
     read pre-2001 birth dates as seconds: it raised on 1990-05-01 and silently
     turned 1970-02-03 into 2060-05-08. Pinned by the `test_dob_*` cases below;
     there is deliberately no seconds fallback and these keep it that way.
+
+Everything about WHICH DATE a wire value means lives here. What a client is *told*
+when a value is refused — the boundary gate's slack, and the 422-not-500 contract
+(#57) — lives in `test_dob_http_contract.py`.
 """
 
 from __future__ import annotations
@@ -21,13 +25,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
-from fastapi.testclient import TestClient
-from pydantic import ValidationError
 
-from healthee.api.app import create_app
 from healthee.core.dob import DOB_MIN_DATE, date_to_dob_ms, parse_dob
-from healthee.core.request_auth import ingest_user
-from healthee.core.supabase_auth import RequestUser
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.derive._common import _age
 from healthee.ingest.models import ProfileIn
@@ -184,11 +183,6 @@ def test_iso_path_accepts_a_date_and_nothing_else() -> None:
             parse_dob(bad, _IST)
 
 
-def test_profile_in_accepts_both_wire_forms() -> None:
-    assert ProfileIn(dob="1994-07-01").dob == "1994-07-01"
-    assert ProfileIn(dob=773_001_000_000).dob == 773_001_000_000
-
-
 # --- known values: the magnitude bug (e4d1d00) must stay fixed ---------------
 
 
@@ -255,50 +249,6 @@ def test_dob_in_the_future_is_rejected() -> None:
         parse_dob(_local_ms(tomorrow, _IST), _IST)
     with pytest.raises(ValueError, match="epoch milliseconds"):
         parse_dob(tomorrow.isoformat(), _IST)
-
-
-def test_profile_in_rejects_implausible_dob_at_the_boundary() -> None:
-    with pytest.raises(ValidationError):
-        ProfileIn(dob=_DOB_YEAR_22298_MS)
-    with pytest.raises(ValidationError):
-        ProfileIn(dob="1899-12-31")
-    with pytest.raises(ValidationError):
-        ProfileIn(dob="1994-07-01T00:00:00Z")
-
-
-def test_boundary_gate_slack_is_one_day_not_a_blank_cheque() -> None:
-    # The gate is loosened by `_TZ_SLACK` because it cannot know the owner's zone.
-    # That slack must stay at the width of the ambiguity it exists for: a dob a
-    # month in the future is not a timezone question, it is a bad value, and it
-    # must 422 here rather than reaching the upsert and 500ing.
-    a_month_out = datetime.now(UTC).date() + timedelta(days=30)
-    with pytest.raises(ValidationError):
-        ProfileIn(dob=_utc_ms(a_month_out))
-
-
-def test_boundary_gate_does_not_reject_across_a_timezone_shift() -> None:
-    # The gate runs before the owner's tz is known, so it must not reject a value
-    # that is plausible once the real zone is applied. A dob of "today" from an
-    # extreme-offset device is the tightest real case in each direction.
-    today = datetime.now(UTC).date()
-    ProfileIn(dob=_local_ms(today, "Pacific/Kiritimati"))  # +14:00
-    ProfileIn(dob=_local_ms(today, "Pacific/Midway"))  # -11:00
-
-
-def test_bad_dob_is_a_4xx_not_a_500(env: None) -> None:  # noqa: ARG001 — sets token
-    # The auth dependency is overridden with an already-resolved owner: since 6.4b it
-    # reads the owner's timezone from `app_user`, and this test is about the BODY
-    # contract (422, never a 500), not about identity — the override keeps it DB-free.
-    app = create_app()
-    app.dependency_overrides[ingest_user] = lambda: RequestUser(
-        id=SENTINEL_USER_ID, timezone=SENTINEL_TZ
-    )
-    resp = TestClient(app).post(
-        "/ingest/helio",
-        json={"profile": {"dob": _DOB_YEAR_22298_MS}},
-        headers={"Authorization": "Bearer unit-test-token"},
-    )
-    assert resp.status_code == 422  # client error, and no ingest work was reached
 
 
 def test_implausible_dob_writes_nothing() -> None:

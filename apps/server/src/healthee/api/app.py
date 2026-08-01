@@ -14,7 +14,8 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from healthee.api.routers import (
     activity,
@@ -36,10 +37,28 @@ from healthee.api.routers import (
     workouts,
 )
 from healthee.core.db import close_pool
+from healthee.core.dob import DobError
 from healthee.core.entitlement import warn_if_self_host_unlocked
 from healthee.core.logging import configure_logging, get_logger
 
 log = get_logger(__name__)
+
+
+def _dob_error_is_a_client_error(_request: Request, exc: Exception) -> JSONResponse:
+    """A rejected `dob` is a 422, wherever the rejection happened (#57).
+
+    `ingest.models.ProfileIn` already 422s the values it can judge, but it runs before
+    the owner's timezone is known and so carries a day of slack (`core.dob._TZ_SLACK`).
+    A dob inside that slack is rejected later, by the canonical parse inside the upsert,
+    and until now that surfaced as a **500** — measured, not inferred: a UTC-midnight
+    "tomorrow" from an IST owner returned 500.
+
+    500 is a lie about whose fault it is, and it is the kind of lie that gets a real
+    incident mis-triaged. Handling `DobError` specifically — rather than `ValueError`
+    around the ingest — is what keeps a genuine internal failure a 500.
+    """
+    log.info("rejected dob", extra={"error": str(exc)})
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
 @asynccontextmanager
@@ -58,6 +77,7 @@ def create_app() -> FastAPI:
     """Build the FastAPI app and mount routers. A factory so tests can construct
     isolated instances."""
     app = FastAPI(title="Healthee", version="0.1.0", lifespan=lifespan)
+    app.add_exception_handler(DobError, _dob_error_is_a_client_error)
     app.include_router(health.router)
     # WP8 note: the daily chain runs on the scheduler timer (jobs.scheduler).
     # An optional future one-line wire — call jobs.chain.run_chain(day) after a
