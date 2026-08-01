@@ -291,6 +291,18 @@
     },
     {
       "applies_to_metrics": [
+        "tst_min",
+        "sleep_regularity_index",
+        "sleep_health_score_4dim",
+        "sleep_debt_min"
+      ],
+      "grade": "Probable",
+      "id": "napping",
+      "name": "Daytime napping",
+      "summary": "A 10–20 minute afternoon nap appears to restore alertness for roughly two hours, and naps of 30 minutes or more buy that back with sleep inertia — a period of *worse* performance on waking. Whether habitual napping is good or bad for long-term health is genuinely disputed: the same literature contains a 1.82 CVD rate ratio for naps ≥60 min/day and a 0.52 hazard ratio for napping once or twice a week. Our strap tags naps itself and they are excluded from every night-sleep metric by design, so a nap is visible to the coach as a session but changes no number."
+    },
+    {
+      "applies_to_metrics": [
         "sleep_health_score_4dim"
       ],
       "grade": "Established",
