@@ -2048,6 +2048,45 @@
       "path": "notes/metrics/wearable_stress_validity.md",
       "population": "general",
       "summary": "Consumer 'stress' 0–100 scores index physiological AROUSAL vs a personal HRV baseline (and are heart-rate-dominated in practice), NOT psychological or emotional stress — the label is misleading; autonomic signals cannot separate mental stress from exertion, and no such score is validated on our Huami/Zepp hardware."
+    },
+    {
+      "aliases": [
+        "weight",
+        "body weight",
+        "weight trend",
+        "weight fluctuation",
+        "water weight",
+        "scale",
+        "weighing",
+        "self-weighing",
+        "bmi",
+        "body mass index",
+        "body composition",
+        "body fat",
+        "fat mass",
+        "lean mass",
+        "fat-free mass",
+        "waist circumference",
+        "waist-to-height ratio",
+        "adiposity"
+      ],
+      "applies_to_interventions": [],
+      "applies_to_metrics": [
+        "weight_kg",
+        "vo2max_estimate",
+        "basal_calories",
+        "total_calories",
+        "active_calories"
+      ],
+      "category": "metrics",
+      "collection": "legacy",
+      "grade": "Established",
+      "id": "weight_bmi_body_composition",
+      "last_reviewed": "2026-08-01",
+      "name": "Body weight, BMI, and body composition",
+      "path": "notes/metrics/weight_bmi_body_composition.md",
+      "population": "general",
+      "summary": "A single weigh-in is a mass measurement, not a fat measurement: day-to-day body mass varies by ~0.5 kg (CV <1%) from water, glycogen and gut contents, and 84% of a two-week weight change is fat-free mass — so only a trend well above that noise floor means anything. BMI is a population screening tool that misses about half the people with excess body fat, cannot separate muscle from fat, and shifts meaning with age, sex and ancestry; we use it in the VO₂max model anyway and must say what that costs."
     }
   ]
 }

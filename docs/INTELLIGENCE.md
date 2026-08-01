@@ -313,7 +313,7 @@ N = packages/knowledge/notes, SS = packages/knowledge/sports-science.
 | PAI | app.py:1281 | ~~pai_activity_score~~ — note removed 2026-07-16 (PAI not derived in v2; owner decision) |
 | ACWR | app.py:2593 | SS training-load-acwr |
 | HRmax (Tanaka) | derive.py:230; vo2max_submax.py | SS maximum-heart-rate; N wearable_hr_validity (partial) |
-| **Weight (`weight_kg`)** | weight_log; feeds BMI/VO2max/calories derive.py:204 | **NONE** |
+| **Weight (`weight_kg`)** | weight_log; feeds BMI/VO2max/calories derive.py:204 | N weight_bmi_body_composition |
 | Strength minutes | app.py:1382 | N strength_adherence_plan, strength_training_mortality; SS strength-training-for-runners |
 
 ### 7.2 Missing knowledge docs — the writing backlog
@@ -322,8 +322,12 @@ N = packages/knowledge/notes, SS = packages/knowledge/sports-science.
 violations):**
 1. `wearable_stress_scores` — validity/interpretation of Zepp-style 0–100
    stress; we show a stress card with zero evidence behind it.
-2. `weight_bmi_body_composition` — weight trends, BMI limits, adiposity;
-   weight feeds three models unbacked.
+2. ~~`weight_bmi_body_composition`~~ — **WRITTEN 2026-08-01** (#11,
+   `notes/metrics/`). It backs the weight card and names what weight costs the
+   Jurca VO₂max and Mifflin-St Jeor models. Two implementation gaps it
+   documents remain OPEN: `_weight_as_of` has no staleness bound (a year-old
+   weight anchors today's BMR/BMI silently), and `_weight_card` surfaces a bare
+   latest weigh-in with no baseline, trend or date.
 3. `strain_scale` (or extend `cardio_load_trimp`) — document our 0–21 scaling
    honestly.
 4. `napping` — the app gives strategic nap guidance with no napping note.
