@@ -28,8 +28,9 @@ The Gompertz law describes how all-cause mortality hazard rises roughly exponent
 
 A single "biological age" can be estimated by converting all-cause-mortality
 hazard ratios into years, using the **Gompertz law of mortality** (death hazard
-rises exponentially, doubling every **MRDT ≈ 7.7–8 years** — UK Biobank put it at
-7.7 for both sexes). The conversion:
+rises exponentially, doubling every **MRDT ≈ 7.7–8 years** — Libert et al. 2025
+measured **7.7 y, "for both males and females"**, in UK Biobank; the classical
+Gompertz figure is ~8 y). The conversion:
 
 ```
 b        = ln(2) / MRDT                 ≈ 0.693 / 7.7 ≈ 0.090 per year
@@ -73,14 +74,28 @@ HR_total = HR_fitness × HR_sleepdur × HR_SRI.
 
 ## Evidence strength
 
-- **Gompertz / MRDT 7.7y**: UK Biobank actuarial analysis; classical Gompertz
-  doubling ~8y. **★★★** for the conversion math.
+- **Gompertz / MRDT 7.7y**: Libert, Chekholko & Kenyon 2025 (*eLife* 13:RP92092,
+  PMID 40497443), whose UK Biobank mortality analysis states verbatim: *"The
+  distribution of these deaths among UKBB participants has a typical 'Gompertzian'
+  shape, with mortality rates exponentially doubling every 7.7 years for both males
+  and females."* Their own framing of the classical value: *"mortality rates increase
+  exponentially with time, doubling roughly every 8 years."* **★★★** for the
+  conversion math (Gompertz is not in dispute); **★★** for 7.7 as *our* MRDT
+  parameter — it is one cohort's empirical estimate, from 8,883 male and 5,668 female
+  deaths within 5 years of enrolment in a healthy-volunteer cohort recruited at ages
+  40–70, not a universal constant. The estimate is insensitive to the choice within
+  the plausible range: ΔAge = 11.1 × ln(HR) at MRDT 7.7 vs 11.55 at MRDT 8 — a ~4 %
+  difference, well inside the "±a few years is noise" caveat below.
 - **PhenoAge** (Levine et al. 2018, *Aging*) + **GOLD BioAge** (Hao et al. 2025,
   *Nature Aging*) — methodological templates: hazard-score → years. **★★**.
 - **CRF/VO₂max**: dose-response meta-analyses, HR 0.83–0.86 per MET, 20.9M obs
   (Kokkinos JACC 2022; Atherosclerosis 2021; ScienceDirect 2024). **★★★**.
 - **Sleep duration**: Yin et al. 2017 *JAHA* dose-response (also Cappuccio 2010).
-  **★★**. **SRI**: Cribb et al. 2023 *eLife* (n=88,975; HR 1.53/0.90). **★★**.
+  **★★**. **SRI**: Cribb et al. 2023 *eLife* — verified verbatim against the
+  published abstract: *"Hazard ratios, relative to the median SRI, were 1.53 (95% CI:
+  1.41, 1.66) for participants with SRI at the 5th percentile (SRI = 41) and 0.90
+  (95% CI: 0.81, 1.00) for those with SRI at the 95th percentile (SRI = 75)"*,
+  n = 88,975. **★★**.
 - RHR (Aune 2017 ★★★), steps (del Pozo Cruz 2022 ★★), MVPA (Woodcock 2011 ★★),
   grip (Wu 2017 ★★) — all in the per-metric notes; folded into / informing the
   fitness term, not multiplied separately.
@@ -91,6 +106,16 @@ HR_total = HR_fitness × HR_sleepdur × HR_SRI.
   never a diagnosis. Label every surface as "estimate."
 - **Independence is approximated.** Even with one fitness term, residual
   correlation remains; treat ±a few years as noise.
+- **The regularity term's anchors are on Cribb's SRI scale, not necessarily ours.**
+  Cribb's UK Biobank cohort had a **median SRI of 60**; Windred 2024's UK Biobank
+  cohort — the same accelerometry — had a **median of 81.0 [IQR 73.8–86.3]**. The SRI
+  a study reports depends on its sleep-detection pipeline (Windred used `sleepreg`,
+  which explicitly counts naps and multiple sleep episodes per 24 h; ours is
+  night-only). The log-linear through Cribb's anchors crosses HR = 1.0 at SRI ≈ 68, so
+  if our night-only SRI sits nearer the Windred-like scale, a merely typical sleeper is
+  scored against Cribb's 95th percentile and silently credited years off. **Nobody has
+  measured where our SRI distribution actually sits**, so trust this term's *direction*
+  more than its size.
 - **VO₂max-dominated + uncertain** — see the cap above. If the VO₂max estimate
   looks off, the bio_age inherits that error.
 - Reference = "meeting recommendations," so the number is *relative to healthy
@@ -137,7 +162,9 @@ See **Caveats (must surface)** above — all mandatory. In brief: not causal or 
 - Hao et al. (2025). *GOLD BioAge.* Nature Aging (hazard-score → years methodological template).
 - Kokkinos P, et al. (2022). *Cardiorespiratory fitness and mortality risk.* JACC (CRF dose-response, HR 0.83–0.86 per MET, 20.9M obs); with corroborating Atherosclerosis 2021 and ScienceDirect 2024 meta-analyses.
 - Yin J, et al. (2017). *Relationship of sleep duration with all-cause mortality: a dose-response meta-analysis.* JAHA 6(9):e005947. (Also Cappuccio FP, et al. 2010.)
-- Cribb L, et al. (2023). *Sleep regularity and mortality (Sleep Regularity Index).* eLife (n=88,975; HR 1.53 @SRI 41 → 0.90 @SRI 75, UK Biobank).
+- Cribb L, Sha R, Yiallourou S, Grima NA, Cavuoto M, Baril A-A, Pase MP (2023). *Sleep regularity and mortality: a prospective analysis in the UK Biobank.* eLife 12:RP88359. DOI 10.7554/eLife.88359. PMID 37995126. (n=88,975; median SRI 60; HR 1.53 @SRI 41 [5th pct] → 0.90 @SRI 75 [95th pct].)
+- Libert S, Chekholko A, Kenyon C (2025). *A mathematical model that predicts human biological age from physiological traits identifies environmental and genetic factors that influence aging.* eLife 13:RP92092. DOI 10.7554/eLife.92092. PMID 40497443. (Source of MRDT = 7.7 y, UK Biobank, both sexes.)
+- Gavrilov LA, Gavrilova NS (2024). *Exploring patterns of human mortality and aging: a reliability theory viewpoint.* Biochemistry (Moscow) 89(2):341–355. DOI 10.1134/S0006297924020123. PMID 38622100. (Review; "human mortality rates double approximately every 8 years of adult age" — the classical ~8 y comparator.)
 - Aune D, et al. (2017). *Resting heart rate and the risk of CVD, cancer, and all-cause mortality.* Nutr Metab Cardiovasc Dis 27(6):504–517.
 - del Pozo Cruz B, et al. (2022). *Daily step count and mortality.* (Steps dose-response.)
 - Woodcock J, et al. (2011). *Non-vigorous physical activity and all-cause mortality: meta-analysis.* Int J Epidemiol 40(1):121–138.
@@ -148,7 +175,7 @@ See **Caveats (must surface)** above — all mandatory. In brief: not causal or 
 - **EVERY term is REQUIRED — no current input for any of the three, no number.** The Stage-1 directive above ("hold the number back … until the VO₂max estimate and ≥14 nights of sleep exist") is enforced structurally, not by caveat. A term simply left out of `chrono + ΣΔAge` is not an omission: it is the assertion `HR_term = 1.0`, i.e. *this person is exactly at the reference for that lever* — silently invented. So when the owner has no `vo2max_estimate` for their **own today** (withheld by [[non_exercise_vo2max]]'s gate, or not derived yet), no `sleep_regularity_index` for their own today (withheld by this note's Directive-4 gate on a <7-night window, or not derived yet), or no recorded night in the trailing 14, `biological_age` and `delta_years` are `null`, `data_confidence` is `insufficient_data`, and `withheld.terms` lists EVERY absent term with the input metric's own reason and message verbatim (`derive/vo2max.py::WITHHOLD_MESSAGES`, `derive/sleep_score.py::SRI_MESSAGES`) alongside one `consequence` explaining what the absence costs. The contributions that ARE current still ship: each is a standalone hazard→years fact, and hiding them would withhold something we do know.
   - **Why regularity and duration, not only the dominant term.** Dominance is why the composite is *sensitive* to fitness; it is not why omitting a term is a lie — the omission is a claim at any size. Regularity's is not small: the Cribb anchors span −1.2 y (SRI 75) to +4.7 y (SRI 41), and dropping the term asserts SRI ≈ 68 (the neutral point of the log-linear), which for an irregular sleeper silently subtracts nearly five years. One rule over all terms, rather than a per-term policy, is deliberate: "which terms matter enough" is the question that produced an uncited constant elsewhere in this codebase.
   - The freshness rules are `derive/vo2max.py::estimate_unavailable_reason` and `derive/sleep_score.py::sri_unavailable_reason`, both bound to the one shared rule in `derive/freshness.py` and shared with `read/vo2max.py` and `read/sleep_extras.py` — so the VO₂max card, the regularity card and this estimate can never disagree about whether today has a number.
-- **Constants (ported verbatim from legacy `biological_age.py`):** `GOMPERTZ_MRDT_YEARS = 7.7`, `TERM_CAP_YEARS = 10.0`, and the age/sex population-median VO₂max tables (`_VO2MAX_MEDIAN_MALE/FEMALE`, 20–70 buckets). `b = ln(2)/7.7`; each term `d = clamp(±10, ln(hr)/b)`.
+- **Constants (ported verbatim from legacy `biological_age.py`):** `GOMPERTZ_MRDT_YEARS = 7.7` (Libert et al. 2025, eLife 13:RP92092 — UK Biobank, both sexes; verified against the paper 2026-08-01, replacing an unattributed "UK Biobank actuarial analysis"), `TERM_CAP_YEARS = 10.0`, and the age/sex population-median VO₂max tables (`_VO2MAX_MEDIAN_MALE/FEMALE`, 20–70 buckets). `b = ln(2)/7.7`; each term `d = clamp(±10, ln(hr)/b)`.
 - **The three terms (v2 field names):**
   - **Fitness** — latest `vo2max_estimate` vs age/sex median, `0.85 ** ((vo2 − ref)/3.5)`.
   - **Sleep duration** — 14-night average TST read from `sleep_health_score_4dim` flags (`tst_min`), U-shaped about 7h (`1.06**(7−h)` if h<7 else `1.13**(h−7)`).

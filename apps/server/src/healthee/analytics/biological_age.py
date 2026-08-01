@@ -72,7 +72,10 @@ from healthee.derive.vo2max import WITHHOLD_MESSAGES, estimate_unavailable_reaso
 _VO2MAX_MEDIAN_MALE = {20: 44.0, 30: 41.0, 40: 38.0, 50: 33.0, 60: 28.0, 70: 24.0}
 _VO2MAX_MEDIAN_FEMALE = {20: 36.0, 30: 33.0, 40: 30.0, 50: 26.0, 60: 22.0, 70: 19.0}
 
-GOMPERTZ_MRDT_YEARS = 7.7  # UK Biobank mortality-rate doubling time
+# UK Biobank mortality-rate doubling time, both sexes — Libert 2025, eLife 13:RP92092
+# (PMID 40497443) [biological_age_estimate]. Classical Gompertz is ~8 y; the difference
+# is ~4% of ΔAge (11.1 vs 11.55 years per ln unit of hazard).
+GOMPERTZ_MRDT_YEARS = 7.7
 TERM_CAP_YEARS = 10.0  # no single noisy input can move age more than ±10 y
 
 # The three terms of [[biological_age_estimate]]'s table. The composite is defined over
