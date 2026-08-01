@@ -180,6 +180,13 @@
       "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
     },
     {
+      "applies_to_metrics": [],
+      "grade": "Probable",
+      "id": "hydration_everyday",
+      "name": "Everyday hydration (non-exercise)",
+      "summary": "The '8 glasses a day' rule has no scientific basis — a systematic search found 'no scientific studies in support of 8 x 8' (Valtin 2002) — and caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate."
+    },
+    {
       "applies_to_metrics": [
         "skin_temp_c",
         "respiratory_rate_sleep",
