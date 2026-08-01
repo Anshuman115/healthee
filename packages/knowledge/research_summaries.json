@@ -220,6 +220,16 @@
       "summary": "The intensity where lactate accumulates; LT2/MLSS is the single best — and most trainable — endurance predictor, the central dial the coach turns."
     },
     {
+      "applies_to_metrics": [
+        "tst_min",
+        "sleep_health_score_4dim"
+      ],
+      "grade": "Contested",
+      "id": "late_eating_sleep",
+      "name": "Late eating and sleep",
+      "summary": "The popular rule 'stop eating three hours before bed' is not settled science. Observational work mostly finds worse sleep with late eating — but the association is modest and fragile (eating within 3 h of bedtime: nocturnal awakening OR 1.61 unadjusted, 1.43 [1.00-2.04] adjusted; sleep-onset latency and duration null), while the controlled experiment that moved dinner from 5 h to 1 h before bed found 'conventional sleep stages were similar' and no adverse change in sleep architecture. A 2024 Sleep Medicine Reviews scoping review states plainly that interventional studies conflict with the observational picture. Healthee logs no meals at all, so we can never say this happened to the owner."
+    },
+    {
       "applies_to_metrics": [],
       "grade": "Probable",
       "id": "llm_health_advice_safety",

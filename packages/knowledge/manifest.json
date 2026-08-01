@@ -717,6 +717,38 @@
     },
     {
       "aliases": [
+        "late eating",
+        "eating late",
+        "eating before bed",
+        "eating before sleep",
+        "late dinner",
+        "dinner timing",
+        "meal timing",
+        "last meal",
+        "food before bed",
+        "late night snack",
+        "midnight snack",
+        "should i eat before bed",
+        "eating close to bedtime",
+        "3 hours before bed"
+      ],
+      "applies_to_interventions": [],
+      "applies_to_metrics": [
+        "tst_min",
+        "sleep_health_score_4dim"
+      ],
+      "category": "intake",
+      "collection": "legacy",
+      "grade": "Contested",
+      "id": "late_eating_sleep",
+      "last_reviewed": "2026-08-01",
+      "name": "Late eating and sleep",
+      "path": "notes/intake/late_eating_sleep.md",
+      "population": "general",
+      "summary": "The popular rule 'stop eating three hours before bed' is not settled science. Observational work mostly finds worse sleep with late eating — but the association is modest and fragile (eating within 3 h of bedtime: nocturnal awakening OR 1.61 unadjusted, 1.43 [1.00-2.04] adjusted; sleep-onset latency and duration null), while the controlled experiment that moved dinner from 5 h to 1 h before bed found 'conventional sleep stages were similar' and no adverse change in sleep architecture. A 2024 Sleep Medicine Reviews scoping review states plainly that interventional studies conflict with the observational picture. Healthee logs no meals at all, so we can never say this happened to the owner."
+    },
+    {
+      "aliases": [
         "llm safety",
         "ai health advice",
         "recs safety",
