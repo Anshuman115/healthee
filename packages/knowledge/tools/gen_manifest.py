@@ -75,6 +75,32 @@ def _as_list(value: Any) -> list[str]:
     return [str(v) for v in value] if isinstance(value, list) else []
 
 
+def _authored(fm: dict[str, Any], field: str, *fallbacks: Any) -> str:
+    """The author's own value for ``field``, else the first non-empty fallback.
+
+    Both record builders read the SAME authored fields (``name``, ``summary``,
+    ``aliases``); the fallbacks exist only for legacy notes written before those
+    fields were part of the schema. An authored value always wins — the manifest
+    is what retrieval ranks against and what the model is shown for the notes it
+    did not pull in full, so a derived stand-in silently degrades grounding.
+    """
+    for candidate in (fm.get(field), *fallbacks):
+        text = str(candidate).strip() if candidate is not None else ""
+        if text:
+            return text
+    return ""
+
+
+def _authored_aliases(fm: dict[str, Any]) -> list[str]:
+    """Authored ``aliases``; legacy notes predating the field fall back to ``tags``.
+
+    Aliases are written to make a note *findable* ("nightcap", "alcohol before
+    bed"); tags classify it. They are not interchangeable, so tags are a last
+    resort, never a replacement.
+    """
+    return _as_list(fm.get("aliases")) or _as_list(fm.get("tags"))
+
+
 def _first_body_line(body: str) -> str:
     """First non-empty prose line, heading/list markers stripped."""
     for raw in body.splitlines():
@@ -101,13 +127,15 @@ def _legacy_record(path: Path, errors: list[str]) -> dict[str, Any] | None:
     if grade_num not in LEGACY_GRADE:
         errors.append(f"{where}: legacy `evidence_grade` must be 1/2/3, got {grade_num!r}")
         return None
-    name = str(fm.get("topic") or fm.get("title") or note_id)
-    summary = str(fm.get("topic") or fm.get("title") or _first_body_line(body) or name)
+    name = _authored(fm, "name", fm.get("topic"), fm.get("title"), note_id)
+    summary = _authored(
+        fm, "summary", fm.get("topic"), fm.get("title"), _first_body_line(body), name
+    )
     return {
         "id": note_id,
         "name": name,
-        "aliases": _as_list(fm.get("tags")),
-        "category": path.parent.name,
+        "aliases": _authored_aliases(fm),
+        "category": _authored(fm, "category", path.parent.name),
         "grade": LEGACY_GRADE[grade_num],
         "applies_to_metrics": _as_list(fm.get("applies_to_metrics")),
         "applies_to_interventions": _as_list(fm.get("applies_to_interventions")),
@@ -143,13 +171,13 @@ def _ss_record(path: Path, errors: list[str]) -> dict[str, Any]:
         errors.append(f"{where}: unknown grade {grade!r} (allowed: {sorted(UNIFIED_GRADES)})")
     return {
         "id": str(fm.get("id") or ""),
-        "name": str(fm.get("name") or ""),
-        "aliases": _as_list(fm.get("aliases")),
-        "category": str(fm.get("category") or path.parent.name),
+        "name": _authored(fm, "name"),
+        "aliases": _authored_aliases(fm),
+        "category": _authored(fm, "category", path.parent.name),
         "grade": str(grade) if grade is not None else "",
         "applies_to_metrics": _as_list(fm.get("applies_to_metrics")),
         "applies_to_interventions": _as_list(fm.get("applies_to_interventions")),
-        "summary": str(fm.get("summary") or ""),
+        "summary": _authored(fm, "summary"),
         "population": fm.get("population"),
         "path": where,
         "collection": "sports_science",

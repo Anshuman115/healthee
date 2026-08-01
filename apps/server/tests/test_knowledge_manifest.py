@@ -55,6 +55,25 @@ last_reviewed: 2026-01-01
 Body prose here.
 """
 
+# A legacy note as the unified TEMPLATE specifies it: its own `name`, `summary`
+# and `aliases` alongside the older `topic`/`tags`. The authored fields must win.
+AUTHORED_LEGACY_NOTE = """---
+id: alcohol_sleep
+name: "Alcohol, sleep architecture, and overnight autonomics"
+topic: Alcohol disrupts second-half sleep architecture and acutely lowers HRV
+category: intake
+grade: Established
+evidence_grade: 3
+summary: "Alcohol before bed front-loads slow-wave sleep then fragments the second half."
+aliases: ["nightcap", "alcohol before bed", "alcohol and hrv"]
+applies_to_metrics: [hrv_sleep_avg]
+tags: [alcohol, sleep, hrv, autonomic]
+---
+
+## Finding
+Body prose here.
+"""
+
 SS_NOTE = """---
 id: {id}
 name: "{name}"
@@ -98,6 +117,87 @@ def test_real_corpus_grades_and_ids() -> None:
     by_id = {r["id"]: r for r in records}
     assert by_id["heart_rate_zones"]["grade"] == "Probable"
     assert "cardio_load" in by_id["heart_rate_zones"]["applies_to_metrics"]
+
+
+# ── authored fields survive into the manifest ───────────────────────────────
+#
+# The manifest is the retrieval index AND the one-line description the model is
+# shown for every note it did NOT pull in full (INTELLIGENCE §3). A generator
+# that publishes the terse `topic:` in place of the authored `summary:`, or the
+# classifying `tags:` in place of the findable `aliases:`, silently degrades
+# grounding without failing anything. These tests are that missing failure.
+
+
+def test_legacy_note_authored_summary_and_aliases_survive(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _point_at(monkeypatch, tmp_path)
+    _write(tmp_path / "notes" / "intake" / "alcohol_sleep.md", AUTHORED_LEGACY_NOTE)
+    (record,), _ = gen.build_records()
+    assert record["name"] == "Alcohol, sleep architecture, and overnight autonomics"
+    assert record["summary"].startswith("Alcohol before bed front-loads slow-wave sleep")
+    # findability phrases, not the classifying tags
+    assert record["aliases"] == ["nightcap", "alcohol before bed", "alcohol and hrv"]
+    assert "alcohol" not in record["aliases"] and "autonomic" not in record["aliases"]
+    # and none of the three is the one-line `topic:`
+    topic = "Alcohol disrupts second-half sleep architecture and acutely lowers HRV"
+    assert topic not in (record["name"], record["summary"])
+
+
+def test_legacy_note_without_authored_fields_falls_back(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A pre-TEMPLATE note (topic/tags only) still gets a usable record."""
+    _point_at(monkeypatch, tmp_path)
+    _write(
+        tmp_path / "notes" / "m" / "old.md",
+        LEGACY_NOTE.format(id="old", topic="A topic", grade=3),
+    )
+    (record,), _ = gen.build_records()
+    assert record["name"] == "A topic"
+    assert record["summary"] == "A topic"
+    assert record["aliases"] == ["a", "b"]  # tags, only because aliases is absent
+
+
+def test_both_builders_read_the_same_authored_fields(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Identical authored frontmatter must produce identical records in either collection."""
+    _point_at(monkeypatch, tmp_path)
+    authored = 'name: "Shared Name"\nsummary: "Shared summary line."\naliases: ["shared-alias"]\n'
+    _write(
+        tmp_path / "notes" / "m" / "l.md",
+        f"---\nid: leg\n{authored}topic: terse topic\nevidence_grade: 3\ntags: [t]\n---\n\nBody.\n",
+    )
+    _write(
+        tmp_path / "sports-science" / "metrics" / "s.md",
+        f"---\nid: ss\n{authored}category: m\ngrade: Established\n"
+        "applies_to_metrics: []\napplies_to_interventions: []\n---\n\nBody.\n",
+    )
+    records, _ = gen.build_records()
+    fields = [{k: r[k] for k in ("name", "summary", "aliases")} for r in records]
+    assert fields[0] == fields[1]
+    assert fields[0] == {
+        "name": "Shared Name",
+        "summary": "Shared summary line.",
+        "aliases": ["shared-alias"],
+    }
+
+
+def test_real_corpus_publishes_the_authored_summary_and_aliases() -> None:
+    """Over the committed corpus: no record substitutes a derived value for an authored one."""
+    records, _ = gen.build_records()
+    for record in records:
+        fm, _body = gen._parse_frontmatter((gen.KNOWLEDGE_ROOT / record["path"]).read_text())
+        if fm.get("summary"):
+            assert record["summary"] == str(fm["summary"]).strip(), record["id"]
+        if fm.get("name"):
+            assert record["name"] == str(fm["name"]).strip(), record["id"]
+        if fm.get("aliases"):
+            assert record["aliases"] == [str(a) for a in fm["aliases"]], record["id"]
+        # the terse `topic:` never stands in for the authored summary
+        if fm.get("topic") and fm.get("summary"):
+            assert record["summary"] != str(fm["topic"]).strip(), record["id"]
 
 
 # ── grade mapping ──────────────────────────────────────────────────────────

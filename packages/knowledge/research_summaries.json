@@ -17,15 +17,15 @@
       ],
       "grade": "Established",
       "id": "alcohol_sleep",
-      "name": "Alcohol disrupts second-half sleep architecture and acutely lowers HRV",
-      "summary": "Alcohol disrupts second-half sleep architecture and acutely lowers HRV"
+      "name": "Alcohol, sleep architecture, and overnight autonomics",
+      "summary": "Alcohol before bed front-loads slow-wave sleep then fragments the second half (more wake, delayed and reduced REM), lowers overnight HRV and raises heart rate during sleep — dose-dependent with no established floor (Pietilä 2018: RMSSD −2.0 / −5.7 / −12.9 ms and HR +1.4 / +4.0 / +8.7 bpm at low / moderate / high dose, all significant); a morning-after HRV dip after a logged drink is expected, not an anomaly."
     },
     {
       "applies_to_metrics": [],
       "grade": "Established",
       "id": "behavior_change_and_personalization",
-      "name": "What actually changes health behavior — BCT taxonomy, self-monitoring, and personalization effect sizes",
-      "summary": "What actually changes health behavior — BCT taxonomy, self-monitoring, and personalization effect sizes"
+      "name": "Behavior change & personalization (recs design basis)",
+      "summary": "Generic information barely moves health behavior; what works is personalized, data-anchored feedback plus self-monitoring + goal-setting + discrepancy, with multi-technique interventions ~2× single-technique — the evidence basis for the recs engine's design rules (personalize not inform, progress-frame, cite, ≤3 actions/day, track adoption)."
     },
     {
       "applies_to_metrics": [
@@ -36,8 +36,8 @@
       ],
       "grade": "Probable",
       "id": "biological_age_estimate",
-      "name": "A motivational \"biological age\" from wearable metrics via the Gompertz hazard→years conversion (the WHOOP-Age method) — a DOCUMENTED EXCEPTION to the no-composite rule",
-      "summary": "A motivational \"biological age\" from wearable metrics via the Gompertz hazard→years conversion (the WHOOP-Age method) — a DOCUMENTED EXCEPTION to the no-composite rule"
+      "name": "Biological Age (estimate)",
+      "summary": "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y); a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown — an estimate, never a clinical readout."
     },
     {
       "applies_to_metrics": [],
@@ -54,8 +54,8 @@
       ],
       "grade": "Established",
       "id": "cadence_intensity",
-      "name": "Step cadence (steps/min) as a practical proxy for ambulatory exercise intensity",
-      "summary": "Step cadence (steps/min) as a practical proxy for ambulatory exercise intensity"
+      "name": "Step cadence as exercise-intensity proxy",
+      "summary": "Step cadence is a validated, device-independent proxy for ambulatory intensity: the Tudor-Locke CADENCE-Adults program ties ~100 spm to ~3 METs (moderate) and ~130 spm to ~6 METs (vigorous) in healthy adults — the basis of Healthee's cadence-based MVPA classification. (Health-intensity angle; the running-form meaning of cadence is a separate note.)"
     },
     {
       "applies_to_metrics": [
@@ -66,8 +66,8 @@
       ],
       "grade": "Probable",
       "id": "caffeine_alcohol_cutoff_plan",
-      "name": "Implementation plan — personal caffeine/alcohol cutoff-time finder using existing logs + correlation engine",
-      "summary": "Implementation plan — personal caffeine/alcohol cutoff-time finder using existing logs + correlation engine"
+      "name": "Personal caffeine/alcohol cutoff-time finder (plan)",
+      "summary": "Implementation plan for a server-side per-user cutoff-time finder that mines existing intake logs + sleep outcomes to surface the personal time-of-day past which caffeine/alcohol measurably degrades that night's sleep — moderate confidence, since the intake→sleep effect is strong but per-user threshold detection adds n=1 uncertainty."
     },
     {
       "applies_to_metrics": [
@@ -76,8 +76,8 @@
       ],
       "grade": "Established",
       "id": "caffeine_sleep",
-      "name": "Caffeine taken up to 6 hours before bed measurably disrupts sleep",
-      "summary": "Caffeine taken up to 6 hours before bed measurably disrupts sleep"
+      "name": "Caffeine timing and sleep",
+      "summary": "Caffeine taken at bedtime, 3 h, or even 6 h before bed measurably cuts total sleep time and raises wake-after-sleep-onset versus placebo — significant at 6 h out and detected by both self-report and polysomnography; a 400 mg dose 6 h before bed costs ~1 h of sleep."
     },
     {
       "applies_to_metrics": [],
@@ -92,8 +92,8 @@
       ],
       "grade": "Probable",
       "id": "distance_from_steps",
-      "name": "Deriving walking/running distance from step count + profile",
-      "summary": "Deriving walking/running distance from step count + profile"
+      "name": "Deriving distance from step count",
+      "summary": "The strap reports no distance over BLE, so distance is derived from steps × a height-based step length (walking k ≈ 0.414), refined by cadence when moving fast; a rough ±10–20% daily-total proxy (not route distance), always labelled an estimate, and superseded by the device's own GPS distance during workouts."
     },
     {
       "applies_to_metrics": [
@@ -103,8 +103,8 @@
       ],
       "grade": "Probable",
       "id": "energy_expenditure_derivation",
-      "name": "Deriving daily energy expenditure (calories) — free-living, anchored",
-      "summary": "Deriving daily energy expenditure (calories) — free-living, anchored"
+      "name": "Deriving daily energy expenditure (calories)",
+      "summary": "Total energy expenditure is derived as RMR (Mifflin–St Jeor) + a MET-by-state activity model anchored to the person's BMR + device-measured workout calories — deliberately NOT raw Keytel or HR→EE, which overcount free-living days 2–3× because heart rate cannot separate passive HR elevation from movement without accelerometry the strap doesn't expose."
     },
     {
       "applies_to_metrics": [],
@@ -120,8 +120,8 @@
       ],
       "grade": "Established",
       "id": "exercise_mortality",
-      "name": "Even 15 minutes of moderate daily exercise reduces all-cause mortality",
-      "summary": "Even 15 minutes of moderate daily exercise reduces all-cause mortality"
+      "name": "Minimum exercise dose and mortality",
+      "summary": "As little as ~15 min/day (~90 min/week) of moderate activity meaningfully lowers all-cause mortality vs inactivity; benefit keeps accruing with diminishing returns above ~300 min/week moderate (or ~150 vigorous), and resistance training adds benefit beyond aerobic work."
     },
     {
       "applies_to_metrics": [
@@ -136,8 +136,8 @@
       ],
       "grade": "Probable",
       "id": "fasting_metrics",
-      "name": "Fasting and its effect on wearable-tracked physiology",
-      "summary": "Fasting and its effect on wearable-tracked physiology"
+      "name": "Fasting (IF / TRE) and tracked metrics",
+      "summary": "Time-restricted eating gives no body-composition or metabolic advantage over plain calorie restriction and can cost lean mass; fasting shifts HRV/RHR in a direction that depends on fast length, so a wearable's 'better' overnight HRV during a fast can be meal-timing physiology, not recovery."
     },
     {
       "applies_to_metrics": [],
@@ -188,8 +188,8 @@
       ],
       "grade": "Probable",
       "id": "illness_flag_plan",
-      "name": "Implementation plan — nightly illness/recovery early-warning flag from skin temp + RR baselines",
-      "summary": "Implementation plan — nightly illness/recovery early-warning flag from skin temp + RR baselines"
+      "name": "Illness / recovery early-warning flag",
+      "summary": "A nightly flag that compares the night's skin temperature and respiratory rate against the 14-day personal baseline and raises a moderate/high illness-recovery signal when both exceed validated thresholds — framed as 'possible early signal, consider light recovery,' never a diagnosis (combined evidence ★★, skin temp the weaker limb)."
     },
     {
       "applies_to_metrics": [],
@@ -216,8 +216,8 @@
       "applies_to_metrics": [],
       "grade": "Probable",
       "id": "llm_health_advice_safety",
-      "name": "Safety guardrails for LLM-generated health recommendations — what we will and will not do",
-      "summary": "Safety guardrails for LLM-generated health recommendations — what we will and will not do"
+      "name": "LLM health-advice safety guardrails",
+      "summary": "LLMs pass medical exams yet hallucinate confident-but-wrong medical content and miscalibrate uncertainty, so the recs layer only SYNTHESIZES the user's own findings into cited action items — never diagnoses, doses, interprets symptoms, or projects personal mortality — with every claim post-hoc validated against repo notes and mental-health emergencies routed to a static hotline. Safety-critical guardrails, mirrored in code."
     },
     {
       "applies_to_metrics": [
@@ -225,8 +225,8 @@
       ],
       "grade": "Probable",
       "id": "load_currency",
-      "name": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable",
-      "summary": "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable"
+      "name": "Load Currency — TRIMP vs TSS (why Healthee reasons over one unit)",
+      "summary": "Healthee's load currency is Banister TRIMP (HR-based, `cardio_load`); TSS is power/pace-based. They measure different things (internal vs external load), do not convert one-to-one, and must not be mixed — ACWR and readiness reason over TRIMP only."
     },
     {
       "applies_to_metrics": [
@@ -251,8 +251,8 @@
       ],
       "grade": "Established",
       "id": "mindfulness_anxiety_depression",
-      "name": "Mindfulness meditation has moderate effect on anxiety, depression, and pain",
-      "summary": "Mindfulness meditation has moderate effect on anxiety, depression, and pain"
+      "name": "Mindfulness meditation for anxiety, depression, and pain",
+      "summary": "Structured 8-week mindfulness programs (MBSR/MBCT) produce moderate, clinically meaningful improvements in anxiety, depression, and pain (SMD ~0.3–0.38), but no reliable edge on sleep, mood, attention, or well-being; evidence is far stronger for structured courses than for casual app use, and it is not a substitute for treatment."
     },
     {
       "applies_to_metrics": [
@@ -262,8 +262,8 @@
       ],
       "grade": "Established",
       "id": "morning_light_circadian",
-      "name": "Morning bright-light exposure entrains circadian rhythm and improves sleep timing",
-      "summary": "Morning bright-light exposure entrains circadian rhythm and improves sleep timing"
+      "name": "Morning bright light & circadian entrainment",
+      "summary": "Bright morning light (outdoor, ≥1,000–10,000 lux) within 1–2 h of waking advances the circadian clock via melanopsin→SCN signalling, giving earlier, more consistent sleep onset, better mood, and easier waking; evening blue light does the reverse — a days-to-weeks effect, not an acute one-night fix."
     },
     {
       "applies_to_metrics": [
@@ -274,8 +274,8 @@
       ],
       "grade": "Established",
       "id": "mvpa_minutes_mortality",
-      "name": "Moderate-to-vigorous physical activity minutes (MVPA) and the 150 min/week target",
-      "summary": "Moderate-to-vigorous physical activity minutes (MVPA) and the 150 min/week target"
+      "name": "MVPA minutes and mortality (150-min target)",
+      "summary": "Weekly MVPA minutes is one of the most robust modifiable mortality predictors, with a clear dose-response; the WHO target is ≥150–300 min/week moderate OR ≥75–150 vigorous, most of the benefit banked in the first 150; vigorous bouts as short as 1–2 min count, and MVPA captures intensity that raw steps miss."
     },
     {
       "applies_to_metrics": [
@@ -286,8 +286,8 @@
       ],
       "grade": "Probable",
       "id": "mvpa_weekly_plan",
-      "name": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + workouts; weekly progress card vs 150-min target",
-      "summary": "Implementation plan — derive moderate/vigorous minutes from per-minute steps + workouts; weekly progress card vs 150-min target"
+      "name": "MVPA derivation & weekly-target plan",
+      "summary": "The implementation of MVPA: classify each per-minute step count into moderate/vigorous by cadence (debounced), add non-walking logged workouts, aggregate to daily moderate_min/vigorous_min and weekly mvpa_min (moderate + 2×vigorous), and show it against the WHO 150-min target."
     },
     {
       "applies_to_metrics": [
@@ -295,8 +295,8 @@
       ],
       "grade": "Established",
       "id": "no_validated_sleep_score",
-      "name": "No peer-reviewed composite \"sleep score\" exists for wearable data",
-      "summary": "No peer-reviewed composite \"sleep score\" exists for wearable data"
+      "name": "No validated composite sleep score",
+      "summary": "No peer-reviewed composite formula turns wearable data into a single 'sleep score'; the components (duration, efficiency, WASO, SRI) are individually validated but combining them needs arbitrary weightings no study has settled — so Healthee shows the four wearable-computable RU-SATED dimensions separately, never a 0–100 black box."
     },
     {
       "applies_to_metrics": [
@@ -305,8 +305,8 @@
       ],
       "grade": "Probable",
       "id": "non_exercise_vo2max",
-      "name": "Estimating VO2max without a maximal exercise test — Jurca 2005 model + HUNT3 update, and the nightly non-exercise estimate",
-      "summary": "Estimating VO2max without a maximal exercise test — Jurca 2005 model + HUNT3 update, and the nightly non-exercise estimate"
+      "name": "Non-exercise VO₂max estimate (Jurca 2005)",
+      "summary": "The fallback VO₂max estimator: a validated non-exercise model (Jurca 2005 METs equation from age, sex, BMI, resting HR and an activity category) that needs no treadmill test — r≈0.78, SEE≈5.6 mL/kg/min, good for within-person trend, never a measurement; computed nightly when there is no usable workout segment for the submaximal method."
     },
     {
       "applies_to_metrics": [],
@@ -347,8 +347,8 @@
       "applies_to_metrics": [],
       "grade": "Probable",
       "id": "recommendations_engine_plan",
-      "name": "Implementation plan — daily AI recommendations engine that synthesizes findings into 1–3 action items",
-      "summary": "Implementation plan — daily AI recommendations engine that synthesizes findings into 1–3 action items"
+      "name": "Daily AI recommendations engine (implementation plan)",
+      "summary": "Implementation plan for a daily batch recs engine: reads the user's own signals, calls the LLM through the cite-or-don't-say choke point + post-hoc validator, persists 1–3 cited action items with adoption tracking, and renders them on Today + a recommendations page — governed by the safety and behavior-change notes, not by any metric."
     },
     {
       "applies_to_metrics": [
@@ -356,8 +356,8 @@
       ],
       "grade": "Probable",
       "id": "recovery_readiness",
-      "name": "Daily recovery / readiness from wearable autonomic + sleep markers",
-      "summary": "Daily recovery / readiness from wearable autonomic + sleep markers"
+      "name": "Daily Recovery / Readiness",
+      "summary": "No peer-reviewed formula combines HRV+RHR+sleep into one recovery number, so recovery_score ships as a transparent 0-100 evidence-weighted estimate ALWAYS shown with its per-factor breakdown; triangulate ≥3 inputs, let no single input decide, and never let a green score clear a fatigued or ill user."
     },
     {
       "applies_to_metrics": [
@@ -365,8 +365,8 @@
       ],
       "grade": "Established",
       "id": "respiratory_rate_normal",
-      "name": "Respiratory rate during sleep — normal ranges and what shifts mean",
-      "summary": "Respiratory rate during sleep — normal ranges and what shifts mean"
+      "name": "Respiratory Rate (overnight)",
+      "summary": "Overnight respiratory rate is 12–20 br/min (most 12–16 in deep sleep) and personally very stable (<1 br/min night-to-night); a sustained ≥2 br/min rise over the personal baseline is a validated early illness signal, not a diagnosis."
     },
     {
       "applies_to_metrics": [
@@ -398,8 +398,8 @@
       ],
       "grade": "Established",
       "id": "sauna_cv_benefits",
-      "name": "Frequent sauna bathing and cardiovascular / all-cause mortality",
-      "summary": "Frequent sauna bathing and cardiovascular / all-cause mortality"
+      "name": "Sauna bathing and cardiovascular mortality",
+      "summary": "Regular Finnish-style sauna bathing is dose-responsively associated with substantially lower fatal cardiovascular and all-cause mortality (KIHD cohort); a session acutely mimics moderate aerobic exercise (HR ~100–150 bpm), so an expected post-sauna HR bump is not anomalous."
     },
     {
       "applies_to_metrics": [
@@ -409,8 +409,8 @@
       ],
       "grade": "Established",
       "id": "sedentary_mortality",
-      "name": "Prolonged sedentary time elevates mortality risk, especially in low-activity individuals",
-      "summary": "Prolonged sedentary time elevates mortality risk, especially in low-activity individuals"
+      "name": "Sedentary time and mortality",
+      "summary": "Prolonged sedentary time independently raises all-cause mortality, but the harm is largely offset by physical activity and light-activity breaks — high activity nearly eliminates the excess risk of normal sitting; the message is 'break up sitting and stay generally active', not 'never sit'."
     },
     {
       "applies_to_metrics": [
@@ -418,8 +418,8 @@
       ],
       "grade": "Probable",
       "id": "skin_temp_signals",
-      "name": "Wrist skin temperature — what it does and doesn't track",
-      "summary": "Wrist skin temperature — what it does and doesn't track"
+      "name": "Skin Temperature (overnight)",
+      "summary": "Wrist sensors measure skin (not core) temperature; the trustworthy signal is a personal-baseline overnight deviation (a sustained ~0.3–0.5°C / 2σ rise over 2–3 nights can flag illness or cycle phase), never an absolute thermometer reading — moderate evidence (★★)."
     },
     {
       "applies_to_metrics": [
@@ -441,8 +441,8 @@
       ],
       "grade": "Established",
       "id": "sleep_consistency",
-      "name": "Day-to-day sleep timing variability is independently linked to cardiometabolic risk",
-      "summary": "Day-to-day sleep timing variability is independently linked to cardiometabolic risk"
+      "name": "Sleep timing consistency (day-to-day variability)",
+      "summary": "Higher day-to-day variability in bedtime and sleep duration raises cardiometabolic and mortality risk independently of mean sleep duration; it is a chronic-pattern signal (track SD of bedtime over ~2 weeks, surface weekly), the behavioural sibling of the Sleep Regularity Index."
     },
     {
       "applies_to_metrics": [
@@ -450,8 +450,8 @@
       ],
       "grade": "Established",
       "id": "sleep_duration_mortality",
-      "name": "Sleep duration and all-cause mortality (U-shaped curve)",
-      "summary": "Sleep duration and all-cause mortality (U-shaped curve)"
+      "name": "Sleep duration and all-cause mortality",
+      "summary": "Habitual sleep shows a U-shaped tie to mortality — both short (<6h) and long (>9h) carry higher risk than 7–8h — but it's observational, self-reported, and a population signal, never a single-night verdict."
     },
     {
       "applies_to_metrics": [
@@ -461,8 +461,8 @@
       ],
       "grade": "Probable",
       "id": "sleep_health_score_multidim",
-      "name": "Multi-dimensional sleep health composites (RU-SATED binary sums) — what is and is not validated for wearable-only data",
-      "summary": "Multi-dimensional sleep health composites (RU-SATED binary sums) — what is and is not validated for wearable-only data"
+      "name": "Multi-dimensional sleep-health composites (evidence review)",
+      "summary": "Pre-specified binary RU-SATED sleep-health composites predict mortality, CVD, depression and cognitive decline in cohort studies — but no purely wearable/actigraphy 4-dimension sum is directly validated against a hard outcome; every replicated formula includes a self-report dimension, so our wearable 4-dim sum is a moderate-confidence extrapolation, not a replication."
     },
     {
       "applies_to_metrics": [
@@ -473,8 +473,8 @@
       ],
       "grade": "Probable",
       "id": "sleep_need_debt",
-      "name": "Personal sleep need (age-based) and rolling cumulative sleep debt — the evidence-based version of Whoop/Oura \"sleep need / debt\"",
-      "summary": "Personal sleep need (age-based) and rolling cumulative sleep debt — the evidence-based version of Whoop/Oura \"sleep need / debt\""
+      "name": "Sleep need & cumulative sleep debt",
+      "summary": "Set nightly sleep need from the NSF 2015 age bands (18–64 → 8 h midpoint, 65+ → 7.5 h) and track a rolling 14-night cumulative debt (surplus repays at 0.5×), because sleep restriction's neurobehavioural cost accumulates (Van Dongen 2003) — an evidence-grounded alternative to proprietary 'sleep need/debt', not a composite score."
     },
     {
       "applies_to_metrics": [
@@ -482,8 +482,8 @@
       ],
       "grade": "Established",
       "id": "sleep_regularity_index",
-      "name": "Sleep Regularity Index (SRI) — single-number sleep metric with mortality validation",
-      "summary": "Sleep Regularity Index (SRI) — single-number sleep metric with mortality validation"
+      "name": "Sleep Regularity Index (SRI)",
+      "summary": "SRI (0–100; 0=random, 100=identical day-to-day sleep/wake) is the most rigorously validated single-number wearable sleep metric — lower regularity predicts higher all-cause mortality and cardiometabolic risk, often more strongly than duration; the actionable target is keeping sleep/wake within a ~1-hour band day to day."
     },
     {
       "applies_to_metrics": [
@@ -493,8 +493,8 @@
       ],
       "grade": "Probable",
       "id": "sleep_score_implementation_plan",
-      "name": "How healthee should display a multi-dimensional sleep score given the evidence in sleep_health_score_multidim",
-      "summary": "How healthee should display a multi-dimensional sleep score given the evidence in sleep_health_score_multidim"
+      "name": "4-dimension sleep-health score (implementation plan)",
+      "summary": "Build a 0–4 binary sleep-health score (duration, efficiency, timing, regularity), each dimension 1 if it meets a peer-reviewed cutoff, always shown alongside its four dimensions and citations — never a 0–100 continuous score; a moderate-confidence extrapolation assembled from individually-validated cutoffs, not a directly-validated composite."
     },
     {
       "applies_to_metrics": [
@@ -503,8 +503,8 @@
       ],
       "grade": "Probable",
       "id": "sleep_timing_chronotype",
-      "name": "Sleep timing (when to sleep/wake), chronotype, and the bedtime that lowers CVD risk",
-      "summary": "Sleep timing (when to sleep/wake), chronotype, and the bedtime that lowers CVD risk"
+      "name": "Sleep timing, chronotype & the CVD-lowering bedtime",
+      "summary": "Sleep onset ~10–11 PM with 7–8 h and a ~6:30–7 AM wake sits at the lowest-CVD-risk window (U-shaped; Nikbakhtian 2021), but consistency of timing matters more than the exact clock time, and for night owls a consistent wake time plus gradual morning-light shift beats a forced early bedtime."
     },
     {
       "applies_to_metrics": [
@@ -513,8 +513,8 @@
       ],
       "grade": "Established",
       "id": "slow_breathing_hrv_acute",
-      "name": "Slow-paced breathing (~6 breaths/min) acutely increases HRV",
-      "summary": "Slow-paced breathing (~6 breaths/min) acutely increases HRV"
+      "name": "Slow-paced breathing and acute HRV",
+      "summary": "Breathing at ~6 breaths/min acutely raises HRV — RMSSD commonly +30–80% and HF power 2–5× during a 10–20 min session — via baroreflex resonance and maximised respiratory sinus arrhythmia; the effect is largely within-session, so an elevated overnight HRV after breathwork is expected, not a surprise, and chronic-baseline gains are smaller and less certain."
     },
     {
       "applies_to_metrics": [],
@@ -530,8 +530,8 @@
       ],
       "grade": "Established",
       "id": "steps_mortality",
-      "name": "Daily step count and all-cause mortality (benefit plateaus at 8,000–10,000 steps under age 60, 6,000–8,000 at 60+)",
-      "summary": "Daily step count and all-cause mortality (benefit plateaus at 8,000–10,000 steps under age 60, 6,000–8,000 at 60+)"
+      "name": "Daily steps and mortality",
+      "summary": "Higher daily steps track progressively lower all-cause mortality, roughly log-linear with a plateau — ~8,000–10,000/day under age 60, ~6,000–8,000 for 60+; the 10,000-step target is a marketing artifact, and step intensity adds no mortality benefit beyond total volume."
     },
     {
       "applies_to_metrics": [
@@ -539,8 +539,8 @@
       ],
       "grade": "Probable",
       "id": "strength_adherence_plan",
-      "name": "Implementation plan — weekly strength-training minutes tally vs 30–60 min/week sweet spot",
-      "summary": "Implementation plan — weekly strength-training minutes tally vs 30–60 min/week sweet spot"
+      "name": "Weekly strength-minutes tally plan",
+      "summary": "Tally weekly muscle-strengthening minutes from logged exercise (a strength-type classifier, with generic yoga counting half-credit only at ≥30 min) and show them against the 30–60 min/week sweet spot — a tiny card, no new derivation pipeline, framed as progress not deficit."
     },
     {
       "applies_to_metrics": [
@@ -557,8 +557,8 @@
       ],
       "grade": "Established",
       "id": "strength_training_mortality",
-      "name": "Muscle-strengthening (resistance) training and all-cause mortality",
-      "summary": "Muscle-strengthening (resistance) training and all-cause mortality"
+      "name": "Strength training and mortality",
+      "summary": "Muscle-strengthening activity independently lowers all-cause mortality, separate from and additive to aerobic activity, with a J-shaped dose-response whose maximum risk reduction sits at ~30–60 min/week; above that the evidence is explicitly unclear, not a known harm. WHO recommends ≥2 days/week, and meeting both aerobic + strength targets carries the largest benefit."
     },
     {
       "applies_to_metrics": [],
@@ -578,8 +578,8 @@
       ],
       "grade": "Probable",
       "id": "submaximal_vo2max",
-      "name": "Submaximal HR-during-activity VO2max estimation — the wearable method, vs the Jurca non-exercise baseline",
-      "summary": "Submaximal HR-during-activity VO2max estimation — the wearable method, vs the Jurca non-exercise baseline"
+      "name": "Submaximal HR-vs-pace VO₂max estimate",
+      "summary": "The primary VO₂max estimator for active users: fit the HR↔workload line over steady-state sub-maximal workout segments and extrapolate to HRmax — the same method Garmin/Firstbeat and Polar use. More accurate than the Jurca non-exercise baseline for active users (independent MAPE 6.85%, CCC 0.70 for running), but real-but-modest and not directly validated for free-living unknown-grade walking."
     },
     {
       "applies_to_metrics": [
@@ -616,8 +616,8 @@
       ],
       "grade": "Established",
       "id": "wearable_hr_validity",
-      "name": "Optical wrist HR (PPG) accuracy vs ECG",
-      "summary": "Optical wrist HR (PPG) accuracy vs ECG"
+      "name": "Wearable HR (PPG) — validity & limits",
+      "summary": "Optical wrist/strap HR (PPG) matches ECG within ±2–3 bpm at rest and is reliable for daily resting/sleep HR and personal trends, but degrades badly (10–30 bpm+) in high-intensity/rapid-change exercise, with cold skin/poor perfusion, and across tattoos/dark/hairy skin — and it is never an arrhythmia screen."
     },
     {
       "applies_to_metrics": [
@@ -625,8 +625,8 @@
       ],
       "grade": "Established",
       "id": "wearable_sleep_stage_validity",
-      "name": "Wrist/strap sleep stage scoring vs polysomnography",
-      "summary": "Wrist/strap sleep stage scoring vs polysomnography"
+      "name": "Wearable sleep-stage scoring — validity & limits",
+      "summary": "Wearables score sleep from accelerometry + PPG + HRV, not EEG; trust total sleep time, bedtime/wake, and asleep-vs-awake (agree well with PSG) and directional stage trends, but not single-night exact stage values (κ ≈ 0.3–0.6), over-estimated deep sleep, error-prone REM, or the proprietary sleep score's absolute number."
     },
     {
       "applies_to_metrics": [
@@ -635,8 +635,8 @@
       ],
       "grade": "Established",
       "id": "wearable_spo2_validity",
-      "name": "Wrist optical SpO2 accuracy and limits",
-      "summary": "Wrist optical SpO2 accuracy and limits"
+      "name": "Wearable SpO2 — validity & limits",
+      "summary": "Wrist optical SpO2 is trustworthy as a multi-night personal trend and for spotting clearly abnormal (<90%) values, but not for absolute precision (±2–3% RMSE), single low readings, sleep-apnea diagnosis, or across dark skin pigmentation (documented bias)."
     },
     {
       "applies_to_metrics": [
@@ -644,8 +644,8 @@
       ],
       "grade": "Probable",
       "id": "wearable_stress_validity",
-      "name": "Consumer wearable \"stress\" 0–100 scores — what they index and what they don't",
-      "summary": "Consumer wearable \"stress\" 0–100 scores — what they index and what they don't"
+      "name": "Wearable stress scores — validity & limits",
+      "summary": "Consumer 'stress' 0–100 scores index physiological AROUSAL vs a personal HRV baseline (and are heart-rate-dominated in practice), NOT psychological or emotional stress — the label is misleading; autonomic signals cannot separate mental stress from exertion, and no such score is validated on our Huami/Zepp hardware."
     }
   ]
 }
