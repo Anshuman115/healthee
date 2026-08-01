@@ -218,7 +218,14 @@ def illness_flag_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
 
 
 def _illness_framing(rr_delta, temp_delta, sustained: bool) -> str:
-    """Deterministic early-signal framing from the deltas (ported VERBATIM)."""
+    """Deterministic early-signal framing from the deltas (ported VERBATIM).
+
+    The 14-day window is named in the sentence because a deviation is meaningless
+    without it: [[respiratory_rate_normal]] ships THREE baseline windows (14 nights
+    here, 42 days in ``recovery_score``, 30 in the anomaly layer) and its Coach
+    Directive 1 is explicit — "never quote a '+X br/min above baseline' without saying
+    which baseline".
+    """
     parts: list[str] = []
     if rr_delta is not None:
         parts.append(f"breathing rate +{rr_delta:.1f} bpm vs your 14-day baseline")
@@ -229,8 +236,19 @@ def _illness_framing(rr_delta, temp_delta, sustained: bool) -> str:
     )
     return (
         "Possible early signal — consider lighter activity today. "
-        f"{'; '.join(parts).capitalize()}{suffix}. Not a diagnosis."
+        f"{_sentence_case('; '.join(parts))}{suffix}. Not a diagnosis."
     )
+
+
+def _sentence_case(text: str) -> str:
+    """Upper-case the first character and leave every other one alone.
+
+    NOT ``str.capitalize()``, which also lower-cases the rest — and so rendered the
+    Celsius symbol as "+0.35°c" in every flag this string has ever produced, including
+    the committed contract snapshot. The unit is the one part of the sentence whose
+    case is not style, and the flag's whole job is to be quotable.
+    """
+    return text[:1].upper() + text[1:]
 
 
 def pai_payload(cur: Cur, user_id: UUID) -> None:  # noqa: ARG001 — v2 gap: no pai metric
