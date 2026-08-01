@@ -220,9 +220,11 @@ Decision logic, by **stage**:
   over weeks on easy runs. Expect benefit primarily at the knee/PFJ.
 
 - **Stage 3 (racing):** Cadence naturally rises at race pace; do not impose a number.
-  Use the **`cadence-fade`** flag — a >5% drop in the back half flags fatigue or
-  pacing that ran long/hard, useful for pacing feedback, *not* a form fault to
-  "fix" mid-race.
+  A **drop in cadence across the back half** can indicate fatigue or pacing that ran
+  long/hard — useful as pacing feedback, *not* a form fault to "fix" mid-race. There
+  is **no `cadence-fade` flag and no threshold**: Healthee computes neither, and the
+  ">5%" figure this bullet used to give was withdrawn as unsourced (#83b, re-removed
+  here #98).
 
 - **Cross-checks:** Cadence is meaningless without pace context. A "low" cadence at
   easy pace can be perfectly fine. Weight cadence alongside step length, injury
@@ -332,8 +334,13 @@ healthy runners (Contested / insufficient evidence).
   mainly at the knee/PFJ (≈ −14% peak PFJ force at +10%). — confidence: Probable
 - D5: In Stage 1 beginners, do not introduce cadence work unless there is a clear
   overstriding/injury problem; base, consistency and easy effort come first. — confidence: Probable (practitioner consensus)
-- D6: Use the `cadence-fade` flag (>5% first-half→second-half drop) as a fatigue/
-  pacing signal, not as a form fault or an absolute-target violation. — confidence: Probable
+- D6: A **within-run cadence drop** (first half → second half) may be read as a
+  fatigue/pacing signal, never as a form fault or an absolute-target violation.
+  **State no threshold**: there is no evidenced cut-off for cadence fade, Healthee
+  computes no such flag, and the previous ">5%" was withdrawn as unsourced (#83b) —
+  it then survived here and in "Stage 3" for another cycle, which is why it is being
+  removed a second time (#98). — confidence: Probable (the direction); **no claim**
+  (any threshold)
 - D7: Do **not** claim higher cadence reduces tibial/impact shock or prevents
   injury in healthy runners; the evidence there is non-significant/insufficient.
   Frame bone benefit (BSI association, modelled stress-fracture risk) as

@@ -200,9 +200,11 @@ individual, stage-specific dial.
   the easy base, per the periodization evidence [Filipas 2022]. For 5k–10k and
   shorter, the polarized tilt is better supported; for the marathon, retain more
   threshold/race-pace (more pyramidal), since the event itself lives near LT2.
-- **Hard-day cap:** ~2 high-intensity sessions/week is the well-supported ceiling
-  for most; a third only with strong recovery markers and never at the expense of
-  the easy base.
+- **Hard-day cap:** ~2 high-intensity sessions/week for most; a third only with
+  strong recovery markers and never at the expense of the easy base. This was
+  written as "the **well-supported** ceiling" — it is not: no citation exists for it
+  anywhere in this note or that we could find. It is **practitioner convention**
+  (#98).
 - **Cross-checks:** weight effort/RPE and pace alongside HR (HR drifts in heat and
   with fatigue); if "easy" runs consistently land in Z2 by HR *and* feel hard,
   slow them down regardless of the planned pace.
@@ -287,10 +289,17 @@ coach must speak confidently about the base and hedge about the shape.
 - **D2:** Keep the moderate "black hole" (Z2) deliberately limited; do not convert
   easy volume into threshold work. Label moderate-instead-of-easy-or-hard running
   as the real "junk miles." — confidence: **Established**
-- **D3:** Cap high-intensity (Z3) sessions at ~2/week for most runners; allow a 3rd
-  only with strong recovery markers and never by cutting the easy base. Treat
-  ≤ ~3/week as a guardrail. — confidence: **Probable** (not enforced in code — see
-  *Safety bounds*, #87)
+- **D3:** Cap high-intensity (Z3) sessions at **~2/week** for most runners; allow a
+  3rd only with strong recovery markers, and never by cutting the easy base.
+  **~2/week is the one number this directive states** — it previously also said
+  "treat ≤ ~3/week as a guardrail", giving two different ceilings for one quantity
+  inside a single directive, which is the one-canonical-definition rule broken in the
+  smallest possible space (#98). The 3rd session is the documented exception to the
+  cap, not a second cap. **Neither figure is sourced** — we found no primary source
+  for a weekly hard-session ceiling, and the "well-supported ceiling" phrasing under
+  *How the coach uses it* overstated that; read it as practitioner convention. —
+  confidence: **Probable** (practitioner convention, uncited; not enforced in code —
+  see *Safety bounds*, #87)
 - **D4:** Do NOT assert polarized is universally superior. Present POL vs pyramidal
   as genuinely contested; choose by event and stage and refine from the runner's
   own response. — confidence: **Contested**
@@ -349,7 +358,6 @@ coach must speak confidently about the base and hedge about the shape.
   running performance: a systematic review.* International Journal of Sports
   Physiology and Performance, 13(9), 1114–1121.
   https://doi.org/10.1123/ijspp.2017-0327 (PMID 29182410)
-</content>
 
 ## Healthee implementation & honesty policy
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** This note backs

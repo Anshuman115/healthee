@@ -556,6 +556,31 @@
     },
     {
       "aliases": [
+        "8x8",
+        "8 x 8",
+        "8 glasses",
+        "eight glasses",
+        "eight glasses of water",
+        "eight 8-oz glasses",
+        "8 glasses a day",
+        "do i need 8 glasses of water",
+        "two litres of water a day",
+        "drink 8 glasses"
+      ],
+      "applies_to_interventions": [],
+      "applies_to_metrics": [],
+      "category": "intake",
+      "collection": "legacy",
+      "grade": "Myth",
+      "id": "hydration_8x8_rule",
+      "last_reviewed": "2026-08-01",
+      "name": "The \"8 glasses a day\" rule",
+      "path": "notes/intake/hydration_8x8_rule.md",
+      "population": "general",
+      "summary": "\"Eight 8-oz glasses of water a day\" has no scientific basis: a search of the peer-reviewed literature, older non-indexed literature and specialists in thirst and drinking found 'no scientific studies were found in support of 8 x 8' (Valtin 2002). Two limits travel with the correction and are not optional — it applies to healthy adults in a temperate climate leading a largely sedentary life, and larger intakes ARE called for in illness and in vigorous work or exercise, especially in the heat."
+    },
+    {
+      "aliases": [
         "hydration",
         "hydrated",
         "water",
@@ -565,9 +590,6 @@
         "how much water should i drink",
         "fluid intake",
         "fluids",
-        "8 glasses",
-        "eight glasses of water",
-        "8x8",
         "drink more water",
         "dehydration",
         "dehydrated",

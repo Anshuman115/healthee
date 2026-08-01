@@ -267,6 +267,36 @@ test/          parser goldens + analytics parity + widget smoke tests
 - **Per-claim evidence grades** with calibrated language: Established (state
   plainly) · Probable (light hedge) · Emerging (flag uncertainty) · Contested
   (present as debated) · Myth/Refuted (correct gently).
+  **All five are now enforced, not just documented (#91).** `validator._grade_issue`
+  implemented only three: `Myth` and `Refuted` both rank 0 in `GRADE_RANK`, so they
+  fell through the branch they share with `Emerging` and were satisfied by "limited
+  evidence" or a plain hedge. Hedging a debunked claim is the wrong framing twice
+  over — it softens a correction the evidence supports flatly, and it lends a refuted
+  claim the shape of thin-but-real evidence. Refuted grades now own the sentence and
+  demand correction framing. The gap survived because **no note was graded `Myth`, so
+  the branch was unreachable and no test could fail on it** — the same
+  authored-intent-vs-enforced-value split as #83, one layer down and in the code
+  rather than the corpus. What is enforced is that the sentence *marks the claim as
+  unsupported*; "gently" is tone and stays with the banned-tone rule and the prompt.
+- **A claim whose required framing differs from its note's headline grade gets its
+  own note.** A note carries one `grade`, and that grade decides the framing the
+  validator demands for every sentence citing it — so a `Myth` claim inside a
+  `Probable` note ships under a hedge. The fix is to split the claim out when it is a
+  separately *citable topic* (`hydration_8x8_rule` — "is the 8-glasses rule real?" —
+  split from `hydration_everyday`, #91), keeping the parent note's id, aliases and
+  `safety_critical` markers intact so no compiled guardrail moves.
+  > Two other designs were considered and **rejected on measurement, not taste**:
+  > *(a) redefine the note grade as "the weakest claim herein"* — 48 of ~50 graded
+  > notes carry an inline claim weaker than their frontmatter grade, so this would
+  > regrade nearly the whole corpus to Contested/Myth and force the coach to hedge
+  > everything, including claims that are genuinely Established.
+  > *(b) per-claim grades the validator resolves from a scoped citation* — this
+  > assumes the inline `[Established]`/`[Myth]` markers and the note `grade` are the
+  > same scale. They are not: an inline `[Myth]` marker almost always marks a claim
+  > the note **refutes** (8×8; 220−age; the 10% rule), not a weak claim it asserts.
+  > Making one mirror the other would rebuild #83's `evidence_grade` in a new shape —
+  > a second grade that can disagree with the first. An unscoped citation would also
+  > fall back to the note grade, i.e. to the bug.
 - **A note has exactly ONE grade field, `grade`** — in both collections. The numeric
   `evidence_grade` mirror was removed (#83): the two could disagree, the winner
   depended on the note's *directory*, and the numeric could not express Contested or

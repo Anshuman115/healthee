@@ -180,6 +180,13 @@
     },
     {
       "applies_to_metrics": [],
+      "grade": "Myth",
+      "id": "hydration_8x8_rule",
+      "name": "The \"8 glasses a day\" rule",
+      "summary": "\"Eight 8-oz glasses of water a day\" has no scientific basis: a search of the peer-reviewed literature, older non-indexed literature and specialists in thirst and drinking found 'no scientific studies were found in support of 8 x 8' (Valtin 2002). Two limits travel with the correction and are not optional — it applies to healthy adults in a temperate climate leading a largely sedentary life, and larger intakes ARE called for in illness and in vigorous work or exercise, especially in the heat."
+    },
+    {
+      "applies_to_metrics": [],
       "grade": "Probable",
       "id": "hydration_everyday",
       "name": "Everyday hydration (non-exercise)",

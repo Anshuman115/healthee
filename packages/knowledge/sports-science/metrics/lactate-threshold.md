@@ -51,8 +51,10 @@ rest (~1 mmol/L). As intensity rises you cross two landmarks:
   reference standard the others approximate.
 
 **Lactate Threshold Heart Rate (LTHR)** is simply the heart rate observed at LT2.
-In trained runners it typically sits at **~85–92% of HRmax** (the looser "80–90%"
-band covers less-trained runners at the low end and elites at the high end).
+In trained runners it typically sits at **~85–92% of HRmax** (mean ~88%, individual
+detection range ~84–91% [Fleckenstein et al. 2023]). **That is the only band this
+note states** — a previous "looser 80–90% covers less-trained runners" clause was one
+of four mutually inconsistent figures for the same quantity and is withdrawn (#98).
 Threshold *pace* in a fit recreational runner is close to the pace they could race
 for ~60 minutes (roughly 15K–half-marathon effort).
 
@@ -60,9 +62,34 @@ Typical ranges for velocity at LT2 (treadmill/road, well-rested):
 
 | Population | LT2 as %VO₂max | LT2 as %HRmax |
 |---|---|---|
-| Untrained | ~50–60% | ~75–80% |
-| Recreational trained | ~70–80% | ~82–88% |
+| Untrained | ~50–60% | *no sourced value — see below* |
+| Recreational trained | ~70–80% | *no sourced value — see below* |
 | Elite endurance | ~85–90% | ~88–92% |
+
+> ⚠️ **The %HRmax column was three different numbers, checked 2026-08-01 (#98).**
+> This note used to give the untrained/beginner LT2 band as **~75–80% HRmax** here,
+> **~80–85%** under "Stage 1", and **~80–88%** in Coach Directive 3 — three
+> non-interchangeable answers to one question, inside one note, which is the
+> one-canonical-definition rule broken in the smallest possible space. None of the
+> three carried a citation.
+>
+> **We went looking for the real number and did not find one.** What we did find
+> points the *other way*: in 84 untrained adults, heart rate at the lactate
+> deflection was **175.8 ± 9.3 bpm** at mean age 27 — roughly **90% of an
+> age-predicted HRmax**, i.e. *higher* than the ~88% [Fleckenstein et al. 2023]
+> measured in trained runners, not lower [Shen & Wen 2019]. That study did not
+> measure HRmax directly and used one deflection method, so it does not settle the
+> question either; it is enough to show the discarded "beginners are lower" bands
+> were not merely unsourced but possibly backwards.
+>
+> The two columns also disagree with each other. Read against the standard
+> %VO₂-reserve↔%HRmax relationship, an untrained LT2 at 50–60% VO₂max lands nearer
+> **65–70% HRmax** than the 75–80% this table used to print — so the row was not
+> internally consistent even on its own terms.
+>
+> So this note now **states no beginner or recreational %HRmax band at all**. The
+> operational rule was never the number anyway: anchor a beginner on RPE and the
+> talk test (D3), which is what the note already told the coach to do.
 
 ## Physiology / mechanism
 
@@ -205,9 +232,12 @@ tracking**. Core logic:
 **By stage:**
 
 - **Stage 1 (beginner):** Do **not** demand a lab or even a 30-min TT early. Anchor
-  intensity on RPE + the conversational (talk-test) proxy for LT1, and a coarse
-  %HRmax band. Beginners' LT2 may be only ~80–85% HRmax; assuming 88–90% would
-  push them too hard. Keep nearly all running easy.
+  intensity on RPE + the conversational (talk-test) proxy for LT1. **Do not assume a
+  beginner LTHR %HRmax at all** — we could source no band for untrained runners, and
+  the one primary measurement we found puts them *higher*, not lower, than trained
+  runners [Shen & Wen 2019] (see the ⚠ box under "What it is"). Assuming a trained
+  runner's 88–90% would push a beginner too hard; assuming a made-up lower band is
+  not the fix. Keep nearly all running easy and let effort govern.
 - **Stage 2 (developing):** Run a **30-min TT** (or use a recent 5K–10K race) to set
   LTHR and threshold pace; introduce structured tempo/threshold sessions at that
   pace. Re-test every 6–10 weeks; expect threshold *pace* to improve even when HRmax
@@ -246,6 +276,14 @@ tracking**. Core logic:
   metabolic steady state is unsettled [Nixon et al. 2021; Caen et al. 2024].
 - **Wearable auto-estimates are convenient but can be off by ~9–11 bpm and bias
   pace fast** — useful as a trend, weak as an absolute [Lu et al. 2025].
+- **There is no sourced beginner LTHR band, and this note used to print three of
+  them** (~75–80%, ~80–85%, ~80–88% HRmax, in the table, the Stage-1 text and D3
+  respectively). All three are withdrawn (#98). The only untrained measurement we
+  could verify puts the lactate-deflection HR at ~90% of an age-predicted HRmax in
+  84 untrained adults [Shen & Wen 2019] — above, not below, the trained figure — but
+  it used one deflection method and did not measure HRmax, so we treat it as
+  *evidence the old bands were wrong*, not as a replacement number. For an untrained
+  runner the honest position is that we do not know their %HRmax at LT2.
 - **Individualisation beats any default.** Every value here is a starting prior to
   be refined from the runner's own pace–HR–RPE history. When the model's estimate
   conflicts with how a runner consistently performs, trust the data.
@@ -280,8 +318,9 @@ tracking**. Core logic:
     endurance determinants [Coyle 1995; Farrell et al. 1979; Faude et al. 2009].
   - Anchor zones to LT2/LTHR, keep most volume **below LT1**, and track **threshold
     velocity** as the headline adaptation signal.
-  - In trained runners LTHR sits at roughly **85–92% of HRmax** (the wider 80–90%
-    band spans less-trained to elite).
+  - In **trained** runners LTHR sits at roughly **85–92% of HRmax**
+    [Fleckenstein et al. 2023]. For **untrained/beginner** runners we state no band —
+    none is sourced (#98).
   - A **fixed 4 mmol/L lactate is a population average, not a personal threshold** —
     never prescribe off it; individual MLSS lactate ranges ~3–7 mmol/L
     [Heck & Wackerhage 2024; Faude et al. 2009].
@@ -312,9 +351,13 @@ tracking**. Core logic:
 - **D2:** Keep the **majority of weekly volume below LT1** (easy/conversational,
   ≈ ≤80% HRmax); this builds the aerobic base that raises threshold. — confidence:
   Established
-- **D3:** Default trained-runner **LTHR to ~85–92% HRmax**; for beginners assume a
-  **lower band (~80–88%)** and confirm via RPE/talk-test before trusting a number.
-  — confidence: Probable
+- **D3:** Default trained-runner **LTHR to ~85–92% HRmax** (mean ~88%, individual
+  detection range ~84–91% [Fleckenstein et al. 2023]) — **the only %HRmax band this
+  note states.** For an **untrained or beginner** runner, state **no %HRmax band**:
+  none is sourced, and the one untrained measurement we found sits *above* the
+  trained figure, not below [Shen & Wen 2019]. Govern beginners by RPE and the talk
+  test instead. — confidence: Probable (trained band); **no claim** (beginner band)
+  — see the ⚠ box under "What it is" (#98)
 - **D4:** Estimate LTHR from a **30-min solo TT (avg HR of final 20 min)**; apply a
   ~3–5% downward correction when setting steady zones, since the TT over-estimates
   MLSS. — confidence: Probable (protocol = practitioner standard)
@@ -374,6 +417,12 @@ tracking**. Core logic:
   incremental test to continuous running at fixed lactate thresholds: individual
   responses on %VO₂max, %HRmax, lactate accumulation, and RPE.* Sports, 11(10), 198.
   https://doi.org/10.3390/sports11100198
+- Shen, T., & Wen, X. (2019). *Heart-rate-based prediction of velocity at lactate
+  threshold in ordinary adults.* Journal of Exercise Science & Fitness, 17(3),
+  108–112. https://doi.org/10.1016/j.jesf.2019.06.002 PMID: 31333727. n = 84
+  untrained adults (mean age 27.1); HR at lactate deflection 175.8 ± 9.3 bpm. Cited
+  only as evidence *against* the withdrawn "beginners are lower" %HRmax bands — HRmax
+  was not directly measured, so no replacement band is taken from it (#98).
 - Lu, C., Cui, W., Zhu, Z., Wu, Y., Xing, Q., Pan, B., & Shen, Y. (2025). *Validity
   of smartwatch-derived estimates of lactate threshold heart rate and pace compared
   to graded exercise testing.* Frontiers in Physiology, 16, 1621996.

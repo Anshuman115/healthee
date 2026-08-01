@@ -74,11 +74,40 @@ its inverse, so a slower zone has a *larger* sec/km):
 > **We looked for a primary source for these specific edges and did not find one.**
 > [Daniels 2014] is cited in this note for VDOT — the *concept* that E/M/T/I/R paces
 > are derived from one index — and is **not** a citation for 0.65/0.80/0.90/1.06/1.20
-> as fractions of threshold speed. We did not verify what Daniels's own band edges are
-> or what denominator he expresses them against, so this note does not claim them
-> either way. Treat the table as **practitioner convention with no verified source** —
-> which is exactly what the note's own "Hold loosely" section and D1's honesty note
-> already say about it, and now the table says it too.
+> as fractions of threshold speed. Treat the table as **practitioner convention with
+> no verified source** — which is what the note's own "Hold loosely" section and D1's
+> honesty note already say, and now the table says it too.
+>
+> **What Daniels's own bands actually are, checked 2026-08-01 (#98) — the denominator
+> is different, so he cannot be the source for this table.** The previous version of
+> this box said we had not checked. We have now:
+>
+> * Daniels expresses every intensity as a **fraction of VO₂max / HRmax**, read off a
+>   VDOT table — *not* as a fraction of threshold speed. The commonly reproduced bands
+>   are E ≈ 59–74% VO₂max (65–79% HRmax), M ≈ 75–84%, T ≈ 83–88% (≈88–92% HRmax),
+>   I ≈ 95–100%, R ≈ 105–120% vVO₂max. **Threshold is one of the five zones, not the
+>   denominator the other four are measured against.** Converting his bands into
+>   fractions-of-T requires each runner's fractional utilisation at threshold, which
+>   this very note records as varying ~75–90% of VO₂max — so the conversion is
+>   indeterminate per runner and no fixed edge can be derived from him at all.
+> * Those percentages are themselves **not safely quotable from us**: the secondary
+>   reproductions we checked disagree with one another (E as 59–74% vs 65–79% vs
+>   65–78%; T as 83–88% vs 85–88% vs 86–88% vs 88–92%), the book is a paywalled
+>   trade text we did not read, and the numbers moved between editions (Fellrnr
+>   records E changing from ~74% VO₂max in the 2nd edition to 70–79% in the 3rd).
+>   **We therefore assert none of them**; they are recorded here only to establish
+>   the structural point that the denominator differs.
+> * Daniels also has **no zone between T and I**. His I pace works out at roughly
+>   1.19–1.20× threshold *speed* across the VDOT range, and his R pace at ~1.26–1.29×
+>   — so the table's "Z5 = 1.06–1.20" describes as one zone a span in which Daniels
+>   prescribes nothing until its top edge, and has no zone at all for his R pace.
+>   *(That arithmetic is ours, computed from a third-party reproduction of the VDOT
+>   pace table, not from the book. It is a sanity check on the table's shape — it is
+>   NOT a source, and none of those figures may be quoted as Daniels's.)*
+>
+> Net: the table's edges remain **unsourced**, and we can now say specifically that
+> [Daniels 2014] is not a candidate source for them rather than merely that we had
+> not looked.
 >
 > Nothing in Healthee computes a pace zone: there is no `derived_daily` field for
 > threshold pace or zone bounds and no `computePaceZones` anywhere in `apps/`
@@ -239,8 +268,10 @@ down-weight pace as conditions degrade it.**
 - **Stage 3 (racing).** Pace is king for race-specific rhythm and pacing discipline
   (the runner must internalise goal pace), but the coach must **explicitly relax
   pace targets in heat/wind/hills** and watch HR/decoupling for over-reaching. On
-  race day above ~12–15 °C, shift the pace target outward and let effort lead
-  [El Helou 2012].
+  race day, shift the pace target outward once the temperature is above the
+  **~10–12 °C optimum** — the same single figure D6 gives, and the one El Helou
+  actually reports. *(This said "~12–15 °C" and Safety bounds said "~25–28 °C": two
+  more numbers for one quantity; #98.)* [El Helou 2012].
 
 **Cross-check rules the coach must apply:**
 
@@ -297,10 +328,14 @@ down-weight pace as conditions degrade it.**
 - **No hard physiological ceiling on pace itself**, but the coach must never push a
   Stage-1 runner onto pace targets before a stable threshold exists — effort/HR
   governs.
-- **Heat guardrail.** Above ~25–28 °C (or high humidity/WBGT), the coach must
-  relax pace targets and let effort/HR lead; do not hold pace into exertional heat
-  risk. This is the operational expression of the temperature–performance penalty
-  [El Helou 2012].
+- **Heat guardrail.** As temperature climbs above the ~10–12 °C optimum — and
+  emphatically in high humidity/WBGT — the coach must relax pace targets and let
+  effort/HR lead; do not hold pace into exertional heat risk. The
+  temperature–performance penalty is [El Helou 2012]. **The heat-*illness* risk
+  threshold is a separate question and this note supplies no number for it**: the
+  "~25–28 °C" that used to sit here was uncited and was wrongly attached to
+  El Helou, whose finding is about the performance optimum, not a safety trigger
+  (#98). WBGT thresholds belong to `environmental-stress`; defer to it.
 - **Do not enforce a fixed HR cap that forces dangerous over-slowing or, inversely,
   ignore a large HR spike at easy pace** — both are mis-reads of the internal signal.
 
@@ -361,8 +396,15 @@ down-weight pace as conditions degrade it.**
 - **D5:** Compare **grade-adjusted pace** (not raw pace) to zone bounds on any
   graded terrain; on steep/technical ground defer to HR/effort. — confidence:
   Established (Minetti cost model)
-- **D6:** Above ~25–28 °C / high humidity, **widen pace targets** and let effort/HR
-  lead; expect roughly slower paces at the same effort. — confidence: Established
+- **D6:** **Widen pace targets and let effort/HR lead as temperature rises above the
+  ~10–12 °C performance optimum** — the penalty grows with temperature and hits
+  slower runners hardest [El Helou 2012]. **This note gives one temperature and it is
+  that one.** *(Corrected #98. D6 previously read "Above ~25–28 °C" and cited
+  El Helou for it — but that study's finding is an optimum near 10–12 °C, not a
+  25–28 °C trigger, so the citation did not support the number: a miscitation, not
+  just an uncited figure. The note also stated the same quantity twice, ~13 °C apart
+  — "~12–15 °C" under Stage 3 and "~25–28 °C" here and in Safety bounds.)* — confidence:
+  Established (that pace degrades above the optimum, and its direction)
 - **D7:** Keep the week **easy-skewed** — ~75–80% of volume in Z1–Z2 by effort/HR,
   hard sessions genuinely at Z4–Z5; avoid drifting easy runs up into tempo. The
   easy-heavy distribution is well documented (Established); whether *strict

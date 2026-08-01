@@ -106,7 +106,21 @@ for — THIS is what prevents degradation. Include, as applicable:
   source; flag any claim lacking one.
 - **Grade calibration:** language matches the per-claim grade — Established stated
   plainly, Probable hedged, Emerging flagged, Contested presented as debated, Myth
-  corrected gently.
+  corrected gently. All five are enforced by `insights/validator.py` (#91).
+- **One framing per note; split a claim that needs a different one.** The note's
+  `grade` decides the framing the validator demands of *every* sentence citing it.
+  So a `[Myth]` claim inside a `Probable` note ships under a hedge — "8×8 *may* not
+  be necessary" — which is not the gentle correction `Myth` exists to force. When a
+  claim needs a different framing **and** is a separately citable topic, give it its
+  own note (`hydration_8x8_rule` split from `hydration_everyday`), cross-link both
+  ways, move only the claim-specific aliases, and **leave the parent's id and any
+  `safety_critical` markers alone** so no compiled guardrail moves.
+  Inline per-claim markers stay what they have always been: **documentation of each
+  claim's status, not a second grade field.** Do not try to make them agree with
+  `grade` — an inline `[Myth]` usually marks a claim the note *refutes*, while
+  `grade` describes the confidence the coach may place in the note's guidance. They
+  are different scales; wiring them together would rebuild the `evidence_grade`
+  mirror #83 removed.
 - **ONE grade field.** `grade` is the note's only grade. There used to be a second,
   numeric `evidence_grade` "mirror"; it was removed in #83 because a mirror that can
   disagree is not a mirror. The two could contradict each other, and which one the
