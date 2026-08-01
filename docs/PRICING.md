@@ -197,8 +197,35 @@ $3.00/M output).
 > −$0.05 optimized budget — ~7× over.
 >
 > Caveats, stated: measured on the test seed (a small owner), so the *context* block is
-> at the low end — the evidence block, which is the bulk, is owner-independent. The
-> coach tier's list price is not public here, so its $ figures use the Flash rate.
+> at the low end — the evidence block, which is the bulk, is owner-independent.
+>
+> ### ⛔ The coach-tier stand-in was wrong, and it understated (provider billing, same day)
+>
+> The line above used to end "the coach tier's list price is not public here, so its $
+> figures use the Flash rate." The provider's own daily billing settles it, and the
+> stand-in was not conservative:
+>
+> | tier | one day's spend | share |
+> |---|---|---|
+> | coach tier | **$19.20** | **85.2 %** |
+> | batch/default tier | $3.33 | 14.8 % |
+> | (lite, unused by us) | $0.0002 | ~0 % |
+>
+> That day's traffic was **84 % coach-surface prompt tokens** — so the split is a tier
+> price difference, not a volume one: **the coach tier cost ~5.8× the batch tier for
+> proportionally the same work.** Every coach figure above and in §6.1a is therefore a
+> FLOOR, including the free tier's "one coach question per 7 days" — the lever the
+> recommendation already singles out, now worse than it was scored.
+>
+> Do not re-derive a blended rate from this box: it is one day of mixed traffic (a
+> grounding-eval harness plus normal use), not a rate card. It is recorded to kill the
+> assumption, not to replace it with a second guess. The honest next step is to read the
+> two tiers' published rates and price each surface at its own — the per-surface token
+> counts above are already split by tier and need no re-measurement.
+>
+> Operational note from the same day: eval and production share ONE OpenRouter account,
+> which hit its $200 ceiling and 402'd the live AI layer while `/healthz` stayed green.
+> A spend limit, a low-balance alert, and a separate key for eval work are all cheap.
 > Two things were measured and are NOT levers: **implicit prompt caching fires on an
 > exact repeat of a whole payload, not on a shared prefix** (three A/B rounds: an owner
 > repeating themselves cached 40,925 of 42,132 tokens; two owners sharing 30k of
