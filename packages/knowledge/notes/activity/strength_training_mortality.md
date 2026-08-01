@@ -5,7 +5,7 @@ topic: Muscle-strengthening (resistance) training and all-cause mortality
 category: activity
 grade: Established
 evidence_grade: 3
-summary: "Muscle-strengthening activity independently lowers all-cause mortality, separate from and additive to aerobic activity, with a J-shaped dose-response peaking around 30–60 min/week and attenuating above ~150; WHO recommends ≥2 days/week, and meeting both aerobic + strength targets carries the largest benefit."
+summary: "Muscle-strengthening activity independently lowers all-cause mortality, separate from and additive to aerobic activity, with a J-shaped dose-response whose maximum risk reduction sits at ~30–60 min/week; above that the evidence is explicitly unclear, not a known harm. WHO recommends ≥2 days/week, and meeting both aerobic + strength targets carries the largest benefit."
 aliases: ["strength training", "resistance training", "muscle strengthening", "weight training mortality", "strength_training_mortality"]
 tags: ["strength training", "resistance training", "muscle strengthening", "weight training mortality", "strength_training_mortality"]
 applies_to_metrics: ["strength_min_weekly"]
@@ -27,8 +27,9 @@ related: ["strength_training_for_runners", "strength_adherence_plan", "mvpa_minu
 Muscle-strengthening activity (resistance training, calisthenics, weight-bearing yoga,
 climbing) is independently associated with lower all-cause mortality, **separate from and
 additive to** aerobic activity. The effect is non-monotone with a clear J-shape: benefit
-appears at ~30–60 min/week, peaks around 30–60 min/week, and plateaus or slightly
-attenuates above ~150 min/week.
+appears early and the **maximum risk reduction sits at ~30–60 min/week**. Above that,
+the meta-analysis says the influence of a higher volume "is unclear" — it does not name
+a threshold at which benefit reverses, and neither should we.
 
 WHO 2020 guidelines recommend muscle-strengthening activities on **≥2 days/week**, in
 addition to aerobic MVPA. Most population-level cohort studies replicate the additive
@@ -55,9 +56,16 @@ than redundant with it.
   **HR 0.85 (95% CI 0.80–0.90) — 15% lower**; CVD HR 0.83 (0.73–0.93); cancer HR 0.86
   (0.78–0.95); diabetes incidence HR 0.83 (0.73–0.95) [Momma et al. 2022, 16 cohorts,
   n = 1.5M+ pooled person-years].
-- **[Established]** **Dose-response peaks at 30–60 min/week** (~10–17% lower all-cause
-  mortality vs none); **above ~140 min/week the benefit attenuates**, may flatten or
-  slightly reverse [Momma et al. 2022].
+- **[Established]** **Dose-response peaks at 30–60 min/week** — "J-shaped associations
+  with the maximum risk reduction (approximately 10-20%) at approximately 30-60 min/week
+  of muscle-strengthening activities were found for all-cause mortality, CVD and total
+  cancer" [Momma et al. 2022]. Above that the paper's own conclusion is that "the
+  influence of a higher volume of muscle-strengthening activities on all-cause mortality,
+  CVD and total cancer is **unclear** when considering the observed J-shaped
+  associations". *[primary-source verified 2026-08-01 — this note previously put the
+  attenuation at "~140 min/week" here and "~150 min/week" in the Summary, Bottom line and
+  Coach Directive 3. Neither number is in Momma 2022; the paper names no attenuation
+  threshold. Both removed rather than reconciled.]*
 - **[Established]** **~15% reduction (HR ≈ 0.85)** for any vs no resistance training
   [Saeidifard et al. 2019, 11 studies].
 - **[Established]** **Meeting both aerobic AND strength guidelines → ~40% lower all-cause
@@ -79,8 +87,8 @@ mortality number is derived; the evidence sets the 30–60 min/week reference ba
   MVPA targets but miss strength.
 - Emphasise that **meeting both aerobic + strength** targets is where the Liu 2019 ~40%
   reduction lives (cite with [[mvpa_minutes_mortality]]).
-- Do **not** push toward more than ~150 min/week; the dose-response plateaus and the
-  marginal benefit is small.
+- Do **not** push volume upward past the ~30–60 min/week sweet spot as though more were
+  better — the marginal benefit above it is not established either way.
 
 ## Safety bounds
 
@@ -96,25 +104,27 @@ mortality number is derived; the evidence sets the 30–60 min/week reference ba
   under-estimated in cohorts asking only "resistance training, yes/no".
 - **Mechanism is plural** — muscle/sarcopenia, glycemic control, bone density, falls — so
   attribution is not a single pathway.
-- **The plateau/reversal at very high doses (>140 min/week) rests on few cohorts** and may
-  reflect over-training or reverse causation (injured athletes); **do not over-interpret as
-  "strength training above 2 h/week is harmful."**
+- **The high-dose end of the J-curve rests on few cohorts** and may reflect over-training
+  or reverse causation (injured athletes). Momma 2022 calls it "unclear" and names no
+  threshold; **do not over-interpret as "strength training above N min/week is harmful."**
 
 ## Bottom line
 
 **Act on confidently:** any strength training lowers mortality (~15%), additive to aerobic;
 the sweet spot is ~30–60 min/week and ≥2 days/week; meeting both aerobic + strength is best.
 
-**Hold loosely:** the exact shape above ~140 min/week (few cohorts), and causality (all
-observational, self-report noisy).
+**Hold loosely:** the shape of the curve above the ~30–60 min/week peak — the
+meta-analysis calls it unclear and names no cut-point — and causality (all observational,
+self-report noisy).
 
 ## Coach Directives
 
 1. Surface strength minutes vs the **30–60 min/week sweet spot** (≥2 days/week); frame as
    the under-tracked half of the guidelines. *(confidence: high)*
 2. Emphasise **both aerobic + strength** for the largest benefit (~40% vs neither). *(high)*
-3. Don't push beyond ~150 min/week; **don't imply high-dose strength is harmful** — the
-   plateau/reversal is thin evidence. *(moderate)*
+3. Frame ~30–60 min/week as where the measured benefit peaks; do **not** name a
+   min/week ceiling — Momma 2022 calls the higher-volume evidence "unclear" and gives no
+   threshold — and **don't imply high-dose strength is harmful**. *(moderate)*
 4. Never show a death-risk number. *(high)*
 
 ## References

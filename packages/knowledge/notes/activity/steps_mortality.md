@@ -1,7 +1,7 @@
 ---
 id: steps_mortality
 name: "Daily steps and mortality"
-topic: Daily step count and all-cause mortality (plateau around 6,000–8,000 steps)
+topic: Daily step count and all-cause mortality (benefit plateaus at 8,000–10,000 steps under age 60, 6,000–8,000 at 60+)
 category: activity
 grade: Established
 evidence_grade: 3
@@ -72,8 +72,8 @@ personal risk figure.
 
 - For a sedentary day (<4,000 steps), reaching **≥6,000 the next day gives the biggest
   marginal benefit** — surface this when prompting toward activity.
-- Do **not** present "10,000 steps" as a target. Use **~7,000–8,000** as a reference (and
-  ~6,000–8,000 for users 60+).
+- Do **not** present "10,000 steps" as a target. Use the age-banded plateau Paluch 2022
+  actually reports: **~8,000–10,000/day under 60**, **~6,000–8,000 at 60+**.
 - Frame steps as a **volume** signal and pair with MVPA for the intensity picture
   ([[mvpa_minutes_mortality]]); cite this note when discussing step trends.
 - Surface weekly patterns, not single days.
@@ -97,17 +97,20 @@ personal risk figure.
 
 ## Bottom line
 
-**Act on confidently:** more daily steps track lower mortality with a plateau (~7–8k under
-60, ~6–8k for 60+); the biggest win is moving a sedentary person up off the floor; 10,000
-is a marketing number.
+**Act on confidently:** more daily steps track lower mortality with a plateau (~8–10k under
+60, ~6–8k at 60+ — Paluch 2022); the biggest win is moving a sedentary person up off the
+floor; 10,000 is a marketing number.
 
 **Hold loosely:** the exact plateau for any individual, and any causal reading (all
 evidence is observational).
 
 ## Coach Directives
 
-1. Use **~7,000–8,000 steps/day (~6,000–8,000 for 60+)** as the reference, never "10,000".
-   *(confidence: high)*
+1. Use the age-banded plateau as the reference, never "10,000": **~8,000–10,000 steps/day
+   under 60, ~6,000–8,000 at 60+** [Paluch et al. 2022 — "progressively decreasing risk of
+   mortality among adults aged 60 years and older with increasing number of steps per day
+   until 6000-8000 steps per day and among adults younger than 60 years until 8000-10 000
+   steps per day"]. *(confidence: high)* *[primary-source verified 2026-08-01]*
 2. On a low-step day (<4,000), nudge toward **≥6,000 next** — the largest marginal gain.
    *(high)*
 3. Do **not** attribute extra longevity to step *cadence*; intensity belongs to MVPA.
@@ -130,6 +133,7 @@ evidence is observational).
   since-midnight daily counter is the authoritative headline total; per-minute step
   samples feed the intraday pattern used by [[cadence_intensity]] and MVPA.
 - **Honesty rules**: never present a mortality/death-risk number; use the reference bands
-  (~7–8k, ~6–8k for 60+), never "10,000"; frame steps as *volume* and defer *intensity* to
+  (~8–10k under 60, ~6–8k at 60+), never "10,000"; frame steps as *volume* and defer
+  *intensity* to
   MVPA; surface weekly trends, not single-day verdicts. Cite this note when displaying step
   trends.

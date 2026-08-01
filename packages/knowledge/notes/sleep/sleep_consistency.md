@@ -50,9 +50,16 @@ dominant zeitgeber that re-anchors the clock (see `morning_light_circadian`).
 ## The evidence
 
 - **[Established]** **Sleep Regularity Index (SRI) and mortality** — Windred DP et
-  al., *Sleep* 2024;47(1):zsad253, UK Biobank, n ≈ 60,977: the lowest-quintile-
-  regularity group has a hazard ratio for all-cause mortality **≈ 1.46 (95% CI
-  ~1.39–1.54)** vs the highest-quintile, **independent of mean duration**.
+  al., *Sleep* 2024;47(1):zsad253, UK Biobank, n = 60,977: "higher sleep regularity
+  was associated with a 20%–48% lower risk of all-cause mortality". Most-regular vs
+  least-regular (SRI 80–100th vs 0–20th percentile), all-cause mortality
+  **HR 0.70 [0.59–0.83]** fully adjusted (0.52 [0.45–0.60] minimally adjusted), and
+  regularity outpredicted mean duration. *[primary-source verified 2026-08-01 — an
+  earlier version of this bullet stated "HR ≈ 1.46 (95% CI ~1.39–1.54)" for the
+  lowest vs highest quintile. That figure is not in the paper; it appears to be a
+  mangling of the abstract's "20%–48% lower risk", and its CI is far too narrow to
+  be the reciprocal of the published one. Corrected to the paper's own direction and
+  numbers.]*
 - **[Probable]** **Bedtime variability and cardiometabolic outcomes** — SDs of
   bedtime ≥1 hour vs <30 min carry small-to-moderate elevations in risk (typically
   **RR 1.1–1.3**) for blood pressure, fasting glucose, and BMI outcomes.

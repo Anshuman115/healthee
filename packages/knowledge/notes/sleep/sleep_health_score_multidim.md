@@ -281,8 +281,9 @@ healthee is therefore a **reasonable extrapolation, not a replication**.
    (Chinoy 2021). The "Efficiency = TST/TIB > 85 %" cutoff inherits that noise.
 5. **Effect sizes for the composite are not impressive.** Brindle 2019: OR 0.90 per
    point (small). Lee 2024: HR 1.12 per problem (small). Compare to SRI alone in
-   Windred 2024: HR up to 1.48 for lowest vs highest quintile (see
-   `sleep_regularity_index`). The single best dimension often beats the composite.
+   Windred 2024: all-cause mortality **HR 0.70 [0.59–0.83]** for the most-regular vs
+   least-regular quintile, fully adjusted (see `sleep_regularity_index`). The single
+   best dimension often beats the composite.
 6. **No external validation of the actigraphy-only sum.** All composites that have
    been replicated include self-report.
 
@@ -319,8 +320,10 @@ score.
   is a reasonable extrapolation, not a replication (all replicated composites include
   self-report).
 - **The single best dimension often beats the composite** — SRI alone (Windred 2024,
-  HR up to 1.48) outperforms the small composite effect sizes (Brindle OR 0.90; Lee
-  2024 HR 1.12). Regularity primacy is echoed by Wang 2025.
+  HR 0.70 [0.59–0.83] most- vs least-regular quintile) outperforms the small composite
+  effect sizes (Brindle OR 0.90; Lee 2024 HR 1.12). Regularity primacy is echoed by
+  Wang 2025. *["HR up to 1.48", stated here twice, was not in Windred 2024 —
+  primary-source verified 2026-08-01.]*
 - **Equal weighting, binary information loss, cutoff disagreement, and noisy wearable
   staging** (Pitfalls 1–6 above) all apply.
 - The Brindle 5.3–7.1 h duration window disagrees with the mortality-validated 7–9 h

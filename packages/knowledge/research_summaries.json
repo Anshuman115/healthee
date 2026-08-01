@@ -530,8 +530,8 @@
       ],
       "grade": "Established",
       "id": "steps_mortality",
-      "name": "Daily step count and all-cause mortality (plateau around 6,000–8,000 steps)",
-      "summary": "Daily step count and all-cause mortality (plateau around 6,000–8,000 steps)"
+      "name": "Daily step count and all-cause mortality (benefit plateaus at 8,000–10,000 steps under age 60, 6,000–8,000 at 60+)",
+      "summary": "Daily step count and all-cause mortality (benefit plateaus at 8,000–10,000 steps under age 60, 6,000–8,000 at 60+)"
     },
     {
       "applies_to_metrics": [
