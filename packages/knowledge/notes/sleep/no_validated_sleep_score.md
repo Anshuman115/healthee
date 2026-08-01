@@ -56,8 +56,8 @@ cannot be "validated" the way TST or efficiency can.
 | Metric | Validated as | Reference |
 | --- | --- | --- |
 | Total sleep time (TST) vs mortality | Strong U-shaped curve, 7–9 h optimal | `sleep_duration_mortality` (Cappuccio 2010) |
-| Sleep efficiency (TST/TIB) | Standard AASM clinical metric; > 85 % is good | AASM clinical practice |
-| Wake After Sleep Onset (WASO) | Standard fragmentation marker | AASM clinical practice |
+| Sleep efficiency (TST/TIB) | Long-standing AASM *clinical-consensus* reference point, not an outcome-validated cutoff: < 85 % is listed as a common insomnia complaint and > 80–85 % as a treatment goal | Schutte-Rodin 2008, J Clin Sleep Med 4(5):487–504, PMID 18853708 (AASM clinical guideline) |
+| Wake After Sleep Onset (WASO) | Standard fragmentation marker; the guideline's complaint level is > 30 min | Schutte-Rodin 2008 (as above) |
 | Sleep Regularity Index (SRI) | All-cause mortality, cardiometabolic risk | `sleep_regularity_index` (Phillips 2017; Windred 2024) |
 | Wearable stage classification | Macro-F1 0.26–0.69 for 4-class stage assignment vs PSG; directional, not exact | Chinoy 2021; JMIR 2023 multicenter |
 
@@ -99,7 +99,7 @@ area shows the four wearable-computable RU-SATED dimensions individually (per
 `feedback_no_composite_score`):
 
 1. **Duration**   — TST vs 7–9 h band, cite `sleep_duration_mortality`
-2. **Efficiency** — TST / TIB, target > 85 %, cite AASM
+2. **Efficiency** — TST / TIB, target > 85 %, cite Schutte-Rodin 2008 (AASM guideline)
 3. **Regularity** — SRI on 7-day rolling window, cite `sleep_regularity_index`
 4. **Timing**     — sleep midpoint vs personal baseline, cite `sleep_consistency`
 
@@ -177,6 +177,12 @@ is any future composite — it may only ship if it clears the transparency bar
 - Buysse DJ. *Sleep health: can we define it? Does it matter?* Sleep
   37(1):9-17 (2014). RU-SATED framework.
   https://pmc.ncbi.nlm.nih.gov/articles/PMC7289662/
+- Schutte-Rodin S, Broch L, Buysse D, Dorsey C, Sateia M. *Clinical guideline for
+  the evaluation and management of chronic insomnia in adults.* J Clin Sleep Med
+  4(5):487-504 (2008). PMID 18853708. The AASM document behind the 85 % sleep-
+  efficiency and 30 min WASO reference points, which this note previously cited
+  only as "AASM clinical practice" *(sourced 2026-08-01)*.
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC2576317/
 
 ## Healthee implementation & honesty policy
 

@@ -25,9 +25,11 @@ from healthee.derive.freshness import (
 
 # ── 4-dimension sleep score cutoffs — sleep_score_implementation_plan ─────────
 SLEEP_DURATION_MIN_H, SLEEP_DURATION_MAX_H = 7.0, 9.0  # Cappuccio 2010
-SLEEP_EFFICIENCY_MIN = 0.85  # AASM
+SLEEP_EFFICIENCY_MIN = 0.85  # Schutte-Rodin 2008 (AASM guideline) — clinical consensus
 SLEEP_TIMING_RANGE = (2, 4)  # Buysse 2014 (midpoint hour)
-SRI_GOOD = 70.0  # Windred 2024
+# DERIVED, not cited: Windred 2024's least-regular quintile is SRI < 71.6 and no paper
+# states 70. See sleep_score_implementation_plan §Dimension 4 for what the rounding costs.
+SRI_GOOD = 70.0
 SRI_DAYS = 7  # Phillips 2017 minimum window
 
 # ── Sleep need / debt — sleep_need_debt ──────────────────────────────────────

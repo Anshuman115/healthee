@@ -5,7 +5,7 @@ topic: How healthee should display a multi-dimensional sleep score given the evi
 category: sleep
 grade: Probable
 evidence_grade: 2
-summary: "Build a 0–4 binary sleep-health score (duration, efficiency, timing, regularity), each dimension 1 if it meets a peer-reviewed cutoff, always shown alongside its four dimensions and citations — never a 0–100 continuous score; a moderate-confidence extrapolation assembled from individually-validated cutoffs, not a directly-validated composite."
+summary: "Build a 0–4 binary sleep-health score (duration, efficiency, timing, regularity), each dimension 1 if it meets its documented cutoff, always shown alongside its four dimensions and citations — never a 0–100 continuous score; a moderate-confidence extrapolation whose cutoffs are separately sourced and unequally strong (duration mortality-validated; efficiency clinical consensus; regularity derived from a quintile boundary), not a directly-validated composite."
 aliases: ["sleep health score", "4-dim sleep score", "sleep score implementation", "RU-SATED score", "sleep dimensions", "duration efficiency timing regularity", "sleep dashboard score"]
 applies_to_metrics: ["sleep_health_score_4dim", "sleep_regularity_index", "tst_min"]
 applies_to_interventions: []
@@ -25,8 +25,10 @@ night meets a peer-reviewed cutoff, else 0. The composite is labelled "Sleep hea
 (4-dim)" and the UI always shows which dimensions contributed. This is
 **moderate-confidence (★★)**: the four-dimension wearable-only sum is *not* directly
 validated against mortality in any single paper — it is the closest research-backed
-thing we can build by combining individually validated cutoffs (Cappuccio 2010
-duration, AASM efficiency, Windred 2024 SRI, Wallace 2017 / Lee 2022 timing). See
+thing we can build by combining separately-sourced cutoffs (Cappuccio 2010 duration,
+Schutte-Rodin 2008/AASM efficiency, Wallace 2017 / Lee 2022 timing, and a regularity
+cutoff **derived** from Windred 2024's quintile boundary — see Dimension 4; only
+Duration is validated against mortality *as a cutoff*). See
 `sleep_health_score_multidim` for the evidence walk-through. We do **not** create a
 0–100 continuous score — that decision in `no_validated_sleep_score` still holds.
 
@@ -86,12 +88,31 @@ points; regularity is a 7-day rolling property attached to each night.
   END AS point_duration
   ```
 
-### Dimension 2 — Efficiency [Established cutoff]
+### Dimension 2 — Efficiency [Probable cutoff — clinical consensus, not outcome-validated]
 
 - **Cutoff**: TST / TIB ≥ 0.85 (i.e. 85 %).
-- **Citation**: AASM clinical practice. Reproduced as the actigraphy efficiency
-  cutoff in Lee 2022 (`sleep_health_score_multidim`) and consistently in Brindle
-  2019 (their empirical cutoff was 83 %, very close).
+- **Citation**: Schutte-Rodin S, Broch L, Buysse D, Dorsey C, Sateia M. *Clinical
+  guideline for the evaluation and management of chronic insomnia in adults.* J Clin
+  Sleep Med 2008;4(5):487–504. PMID 18853708 — an **AASM clinical guideline** (this is
+  the document behind what the corpus previously called, without author or year, "AASM
+  clinical practice"; the AASM *Scoring Manual* defines how to compute sleep efficiency
+  but sets no normal cutoff). Verified verbatim 2026-08-01: *"Common complaints for
+  insomnia patients are an average sleep latency >30 minutes, wake after sleep onset
+  >30 minutes, sleep efficiency <85%, and/or total sleep time <6.5 hours"*, and, as a
+  treatment goal, *"Set bedtime and wake-up times to approximate the mean TST to
+  achieve a >85% sleep efficiency (TST/TIB × 100%) over 7 days"* / *"TST >6 hours
+  and/or sleep efficiency >80% to 85%."*
+- **What that citation does and does not support.** It supports 85 % as the
+  long-standing AASM clinical reference point for adult sleep efficiency. It does
+  **not** make 85 % an outcome-validated threshold: the guideline is
+  consensus/practice-parameter based, the figure is stated as an insomnia-complaint and
+  treatment-target level rather than derived against a health outcome, and the same
+  guideline elsewhere gives the goal as a **range, ">80 % to 85 %"** — so the specific
+  choice of 0.85 over 0.80 is ours. Grade it **Probable**, not Established.
+- **Independent reproduction**: Lee 2022 (`sleep_health_score_multidim`) scores the
+  actigraphy Efficiency dimension at *"1: < 85%"* (Table 3) — checked in the paper's
+  full text 2026-08-01; Lee attaches no citation of their own to the number. Brindle
+  2019's *empirically derived* cutoff in its own cohort was 83 %, close but independent.
 - **TIB** = `session.ended_at - session.started_at` for the in-bed window. **TST** =
   sum of light + deep + REM minutes (from stage classification), or equivalently
   `TIB - WASO - latency`.
@@ -132,13 +153,39 @@ points; regularity is a 7-day rolling property attached to each night.
   END AS point_timing
   ```
 
-### Dimension 4 — Regularity (SRI) [Established cutoff]
+### Dimension 4 — Regularity (SRI) [DERIVED cutoff — no published threshold of 70 exists]
 
 - **Cutoff**: SRI (7-day rolling) ≥ 70.
-- **Citation**: Windred DP et al. 2024 (`sleep_regularity_index`) — UK Biobank
-  n = 60,977. Mortality HR by SRI quintile: the 4th and 5th quintiles (highest
-  regularity) had ~ 20–48 % lower all-cause mortality than Q1. The cutoff between Q4
-  and Q3 in that cohort is approximately SRI = 70.
+- **What Windred 2024 actually says** (`sleep_regularity_index`) — UK Biobank
+  n = 60,977, median [IQR] SRI 81.0 [73.8–86.3], verified verbatim 2026-08-01:
+  *"Higher sleep regularity was associated with a 20%–48% lower risk of all-cause
+  mortality … across the top four SRI quintiles compared to the least regular
+  quintile"*, where the least-regular quintile is *"SRI < 71.6"* and *"the top four
+  quintiles (SRI 71.6–98.5)"*. **The paper never states a threshold of 70.**
+- **Correction (2026-08-01).** This note previously justified 70 as *"the cutoff
+  between Q4 and Q3 in that cohort"*. That is false and arithmetically impossible: with
+  a median of 81.0 the Q3/Q4 boundary is ≈ 83, and 70 sits **below the 25th percentile
+  (73.8)**. The real boundary near 70 is the opposite one — Q1/Q2 at **SRI 71.6**, the
+  line separating the highest-mortality quintile from the rest.
+- **So 70 is DERIVED, not cited**: it is Windred's least-regular-quintile boundary
+  (71.6) rounded down to a round number, i.e. an operational stand-in for "not in the
+  worst quintile". Honest consequences of the rounding, both of which must be stated
+  rather than hidden:
+  1. Because 70 < 71.6, a night at SRI 70–71.5 earns the Regularity point while
+     Windred's cohort would place that person in the **highest-mortality** quintile.
+     Whether to move the constant to 71.6 is a science-code change and therefore its own
+     PR with known-value tests; it is **not** made here.
+  2. SRI values are **not comparable across pipelines**. Windred computed SRI with
+     `sleepreg`, which *"uses sustained inactivity data to account for naps, fragmented
+     sleep, and large periods of wake during sleep"*; Cribb 2023's UK Biobank cohort —
+     the same biobank — reports a **median SRI of 60** against Windred's 81. Ours is
+     night-only global Phillips SRI. A boundary borrowed from one distribution is
+     therefore approximate on ours by an unmeasured amount.
+- Independent corroboration that a threshold in this region is defensible, though
+  neither derives 70: Chaput et al. 2025 (J Epidemiol Community Health 79(4):257–264,
+  PMID 39603689) classify **irregular as SRI < 71.6** in 72,269 UK Biobank adults
+  (MACE HR 1.26); Li et al. 2025 (Psychol Med 55:e239) classify **regular as SRI ≥ 71**
+  — but by their own cohort's 75th percentile, not by an outcome.
 - This is a 7-day property, not a single-night one. We attach it to each night by
   computing the SRI over the trailing 7 days including that night.
 - See `sleep_regularity_index` for the full formula, computation window rules, and
@@ -166,9 +213,9 @@ How it should display on the dashboard:
 │    3 / 4                                                │
 │                                                         │
 │    Duration    7h 42m    Cappuccio 2010                │
-│    Efficiency  91 %      AASM standard                 │
+│    Efficiency  91 %      AASM (Schutte-Rodin 2008)     │
 │    Timing      02:48     Buysse 2014; UK Biobank 2024  │
-│    Regularity  62 (-)    Windred 2024 — below 70      │
+│    Regularity  62 (-)    below 70 (from Windred 2024)  │
 │                                                         │
 │    Why this number? sleep_health_score_multidim         │
 └─────────────────────────────────────────────────────────┘
@@ -269,8 +316,24 @@ point; single-night reads (prefer the chronic/weekly pattern).
 - `sleep_consistency` — companion note on day-to-day variability.
 - Buysse DJ, *Sleep health: can we define it? Does it matter?* Sleep 37(1):9-17
   (2014). Source of the timing 02:00–04:00 cutoff.
-- AASM clinical practice — source of the ≥ 85 % efficiency cutoff, reproduced in
-  Lee 2022.
+- Schutte-Rodin S, Broch L, Buysse D, Dorsey C, Sateia M. *Clinical guideline for the
+  evaluation and management of chronic insomnia in adults.* J Clin Sleep Med
+  4(5):487–504 (2008). PMID 18853708. The AASM document behind the ≥ 85 % efficiency
+  cutoff (previously cited in this corpus only as "AASM clinical practice"); reproduced
+  as `< 85 %` in Lee 2022's actigraphy composite.
+- Windred DP, Burns AC, Lane JM, Saxena R, Rutter MK, Cain SW, Phillips AJK. *Sleep
+  regularity is a stronger predictor of mortality risk than sleep duration: a
+  prospective cohort study.* Sleep 47(1):zsad253 (2024). DOI 10.1093/sleep/zsad253.
+  PMID 37738616. (n = 60,977; median [IQR] SRI 81.0 [73.8–86.3]; least-regular quintile
+  SRI < 71.6 — the boundary our 70 is rounded down from. It states no cutoff of 70.)
+- Chaput J-P, Biswas RK, Ahmadi M, Cistulli PA, Rajaratnam SMW, Bian W, St-Onge M-P,
+  Stamatakis E. *Sleep regularity and major adverse cardiovascular events: a
+  device-based prospective study in 72 269 UK adults.* J Epidemiol Community Health
+  79(4):257–264 (2025). DOI 10.1136/jech-2024-222795. PMID 39603689. (Irregular =
+  SRI < 71.6.)
+- Li DR, Li ZX, Li MH, et al. *Regular sleep patterns, not just duration, critical for
+  mental health.* Psychological Medicine 55:e239 (2025). DOI 10.1017/S0033291725101281.
+  (Regular = SRI ≥ 71, by that cohort's 75th percentile.)
 - Saint-Maurice PF, Freeman JR, Russ D, et al. *Associations between
   actigraphy-measured sleep duration, continuity, and timing with mortality in the
   UK Biobank.* Sleep 47(3):zsad312 (2024). PMID 38066693. (Timing HR 1.29.)
@@ -282,8 +345,11 @@ point; single-night reads (prefer the chronic/weekly pattern).
   `sleep_dim_regularity` (each 0/1) in `derived_daily`. Provenance:
   `derive/sleep_score.py::derive_sleep_score`, ported verbatim from legacy v2.
   Cutoff constants: `SLEEP_DURATION_MIN_H=7.0`, `SLEEP_DURATION_MAX_H=9.0`
-  (Cappuccio 2010); `SLEEP_EFFICIENCY_MIN=0.85` (AASM); `SLEEP_TIMING_RANGE=(2,4)`
-  midpoint hour (Buysse 2014); `SRI_GOOD=70.0` (Windred 2024).
+  (Cappuccio 2010); `SLEEP_EFFICIENCY_MIN=0.85` (Schutte-Rodin 2008, an AASM clinical
+  guideline — clinical consensus, and the guideline's own goal is the range
+  ">80 % to 85 %"); `SLEEP_TIMING_RANGE=(2,4)` midpoint hour (Buysse 2014);
+  `SRI_GOOD=70.0` (**derived**: Windred 2024's least-regular-quintile boundary
+  SRI < 71.6, rounded down — no paper states 70; see Dimension 4).
 - **Shipped deviation from the SQL sketches (documented):** efficiency is computed
   as `tst/(tst+wake)`, **clamped ≤1** (`_sleep_efficiency`), not the legacy raw
   TST/wall-clock-TIB which could exceed 100 %. Raw `tst_min`, `tib_min`,

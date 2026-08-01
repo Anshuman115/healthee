@@ -87,8 +87,21 @@ not amount.
   predictor. (Caveats: observational; single week of data; older, mostly-white
   cohort; two senior authors co-founded a circadian-health company.)
   *[figures primary-source verified 2026-06-09 vs the published article]*
-- **[Established]** **Zheng et al. 2023** (eLife). Replicates the mortality finding
-  in UK Biobank with somewhat different exclusions/adjustments.
+- **[Established]** **Cribb et al. 2023** (eLife 12:RP88359, PMID 37995126).
+  Replicates the mortality finding in UK Biobank (n = 88,975) with different
+  exclusions/adjustments. Verbatim: *"Hazard ratios, relative to the median SRI, were
+  1.53 (95% CI: 1.41, 1.66) for participants with SRI at the 5th percentile (SRI = 41)
+  and 0.90 (95% CI: 0.81, 1.00) for those with SRI at the 95th percentile (SRI = 75)"*;
+  *"the median SRI was 60 (SD, 10)"*. These are the two anchors
+  [[biological_age_estimate]]'s regularity term interpolates between.
+  *[citation corrected 2026-08-01 — this note previously attributed this paper to
+  "Zheng et al." with n ≈ 72,000; there is no Zheng SRI paper in eLife. The n and title
+  belonged to Chaput 2025 below, the journal/year/URL to Cribb.]*
+- **[Probable]** **Chaput et al. 2025** (J Epidemiol Community Health 79(4):257–264,
+  PMID 39603689). Device-based, 72,269 UK Biobank adults, 8 y follow-up: *"Irregular
+  (HR 1.26, 95% CI 1.16 to 1.37) and moderately irregular sleepers (HR 1.08, 95% CI
+  1.01 to 1.70) were at higher risk of MACE compared with regular sleepers"*, with
+  irregular defined as SRI < 71.6 and regular as SRI > 87.3.
 
 ## How we compute it
 
@@ -150,6 +163,16 @@ acute clinical signal; do not medicalise a single low week.
   circadian-health company (declared COI).
 - Our SRI is **night-only** and therefore not the literal textbook SRI — read as
   night-sleep regularity; nap coverage is incomplete on the strap.
+- **SRI values are not comparable across studies, so borrowed thresholds are
+  approximate.** Windred 2024 and Cribb 2023 both analyse UK Biobank accelerometry and
+  report medians of **81.0** and **60** respectively — the score depends on the
+  sleep-detection pipeline (Windred used `sleepreg`, which *"uses sustained inactivity
+  data to account for naps, fragmented sleep, and large periods of wake during sleep"*;
+  ours is night-only). Every cutoff we import from this literature — `SRI_GOOD = 70`,
+  and [[biological_age_estimate]]'s SRI 41/75 hazard anchors — therefore lands on our
+  distribution at an **unmeasured** offset. We have never measured where our own SRI
+  distribution sits; until we do, treat SRI comparisons across *people* and against
+  published cutoffs more loosely than SRI changes *within* one person.
 - SRI requires ≥7 days; with fewer consecutive-day pairs its variance is too high.
 - **What NOT to do:**
   - Do NOT combine SRI with a "sleep score" formula. The literature explicitly
@@ -192,9 +215,14 @@ deviation vs the canonical all-sleep definition; SRI computed on <7 days.
   regularity is a stronger predictor of mortality risk than sleep duration: A
   prospective cohort study.* Sleep 47(1), zsad253 (2024).
   https://academic.oup.com/sleep/article/47/1/zsad253/7280269
-- Zheng Y et al. *Sleep regularity and major adverse cardiovascular events: A
-  device-based prospective study in 72 000 UK adults.* eLife (2023).
+- Cribb L, Sha R, Yiallourou S, Grima NA, Cavuoto M, Baril A-A, Pase MP. *Sleep
+  regularity and mortality: a prospective analysis in the UK Biobank.* eLife 12,
+  RP88359 (2023). DOI 10.7554/eLife.88359. PMID 37995126.
   https://elifesciences.org/articles/88359
+- Chaput J-P, Biswas RK, Ahmadi M, Cistulli PA, Rajaratnam SMW, Bian W, St-Onge M-P,
+  Stamatakis E. *Sleep regularity and major adverse cardiovascular events: a
+  device-based prospective study in 72 269 UK adults.* J Epidemiol Community Health
+  79(4), 257–264 (2025). DOI 10.1136/jech-2024-222795. PMID 39603689.
 
 ## Healthee implementation & honesty policy
 
@@ -202,8 +230,15 @@ deviation vs the canonical all-sleep definition; SRI computed on <7 days.
   Provenance: `derive/sleep_score.py::_compute_sri`, ported verbatim from legacy v2
   (science code — known-value tested against the canonical 66.67 example and 100.0
   for a perfect sleeper). Constants: `SRI_DAYS = 7` (minimum/rolling window),
-  1-min epochs (M = 1440), `SRI_GOOD = 70.0` (gates the 4-dim Regularity point,
-  Windred 2024).
+  1-min epochs (M = 1440), `SRI_GOOD = 70.0` (gates the 4-dim Regularity point, and is
+  the challenge system's evidence target for `sri`). **`SRI_GOOD` is DERIVED, not
+  cited** *(corrected 2026-08-01)*: Windred 2024 states no threshold of 70 — its
+  least-regular quintile is **SRI < 71.6** and 70 is that boundary rounded down, so a
+  night at SRI 70–71.5 scores the point although Windred's cohort would put it in the
+  highest-mortality quintile. Rationale and the two independent cohorts that also cut
+  near 71 are in [[sleep_score_implementation_plan]] §Dimension 4; the earlier
+  justification ("the cutoff between Q4 and Q3 ≈ 70") was false — 70 is below that
+  cohort's 25th percentile of 73.8.
 - **Method choice:** we use the **global** Phillips SRI (one score over the 7-day
   window), not the per-day-pair GGIR average — documented; the two agree on clean
   data.

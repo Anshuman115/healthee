@@ -220,7 +220,7 @@ def test_one_metric_never_carries_two_different_good_values() -> None:
 
 
 def test_the_sri_ceiling_is_the_number_its_note_actually_states() -> None:
-    """``SRI_GOOD = 70.0`` (Windred 2024) — hardcoded here, not read from the table.
+    """``SRI_GOOD = 70.0`` — hardcoded here, not read from the table.
 
     Pinned as a literal precisely because the table is what could drift: asserting
     ``IDEAL["sri"] == IDEAL["sri"]`` through any indirection would survive the bug this

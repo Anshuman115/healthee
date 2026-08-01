@@ -102,8 +102,10 @@ EVIDENCE_TARGET: dict[str, Target] = {
     # marketing artifact and gives ~7,000–8,000 as the reference; 8,000 is the upper end
     # of that band and the figure the 51 %-reduction comparison (Paluch 2022) is drawn at.
     "steps_total": Target(8000.0, "day", "steps_mortality"),
-    # `SRI_GOOD` — the threshold the note pins (Windred 2024) and the same number the
-    # 4-dim regularity dimension already gates on, so this is not a second definition.
+    # `SRI_GOOD` — the threshold the note pins and the same number the 4-dim regularity
+    # dimension already gates on, so this is not a second definition. It is DERIVED from
+    # Windred 2024 (least-regular quintile SRI < 71.6, rounded down), not a published
+    # cutoff — see `scales.IDEAL` and sleep_score_implementation_plan §Dimension 4.
     "sri": Target(70.0, _LEVEL, "sleep_regularity_index"),
     # `tst_min` is ABSENT on purpose: its target is the owner's OWN age-banded sleep need
     # (`resolve_target`), because a per-owner number already exists and a constant here

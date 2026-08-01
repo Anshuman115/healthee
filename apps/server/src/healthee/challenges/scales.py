@@ -29,11 +29,18 @@ __all__ = ["IDEAL", "ROUND_STEP", "round_target"]
 #
 # ⚠ A CITATION IS A CLAIM ABOUT A LINE IN A NOTE (#67). `sri` carried 85.0 with
 # "[sleep_regularity_index]" beside it and **85 appears nowhere in that note**. What the
-# note pins is `SRI_GOOD = 70.0` (Windred 2024 — the same threshold the 4-dim regularity
-# dimension already gates on) and, descriptively, the UK Biobank cohort's median of 81.0
+# note pins is `SRI_GOOD = 70.0` (the same threshold the 4-dim regularity dimension
+# already gates on) and, descriptively, the UK Biobank cohort's median of 81.0
 # [IQR 73.8-86.3]. A cohort's median or upper quartile says what is TYPICAL, not what is
 # good, so neither is a target either; 70 is the only "good" figure the corpus states.
 # The value is now that number, and the citation is true.
+#
+# ⚠ WHAT 70 RESTS ON, checked against the paper (#81, 2026-08-01). It is DERIVED, not
+# published: Windred 2024 states no cutoff of 70 — its least-regular quintile is
+# SRI < 71.6, and 70 is that boundary rounded down. The note's old justification ("the
+# Q4/Q3 boundary") was false (that boundary is ~83). So this entry is still the corpus's
+# one "good" SRI figure, but it is a rounded operationalisation, not a research finding;
+# whether it should be 71.6 is a science-constant change and its own PR.
 #
 # A target and a ceiling are different questions, and they stay different tables
 # (`challenges/targets.py` argues why). But they may not be different NUMBERS for one
@@ -55,7 +62,7 @@ IDEAL: dict[str, float] = {
     "mvpa_min": 150.0,  # WHO weekly MVPA target [mvpa_minutes_mortality]
     "steps_total": 8000.0,  # daily-steps mortality plateau [steps_mortality]
     "tst_min": 450.0,  # 7.5 h, mid-band of the U-curve [sleep_duration_mortality]
-    "sri": 70.0,  # `SRI_GOOD`, Windred 2024 [sleep_regularity_index]
+    "sri": 70.0,  # `SRI_GOOD`, derived from Windred 2024 [sleep_regularity_index]
     # NOT EVIDENCE, and it must never be presented as such. No note in the corpus
     # supports a specific weekly SESSION count — the evidence is denominated in
     # minutes, not sessions — so this is practitioner consensus with no citation

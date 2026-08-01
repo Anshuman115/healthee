@@ -127,7 +127,8 @@ def test_the_evidence_ideal_still_wins_where_one_exists() -> None:
 # ── the SRI ceiling: the number its note actually states (#67) ───────────────
 #
 # `IDEAL["sri"]` was 85 with "[sleep_regularity_index]" cited beside it, and 85 appears
-# nowhere in that note. The value is now `SRI_GOOD = 70.0` (Windred 2024), the same
+# nowhere in that note. The value is now `SRI_GOOD = 70.0` (derived from Windred 2024's
+# least-regular-quintile boundary of 71.6, rounded down — #81), the same
 # threshold the 4-dim regularity dimension gates on and the same one generation caps a
 # proposed SRI target at. These are known values because a ceiling change moves a live
 # commitment somebody already agreed to: every number below is hand-computed from
