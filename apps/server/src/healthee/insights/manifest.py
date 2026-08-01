@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 
-from healthee.core.knowledge import knowledge_dir
+from healthee.core.knowledge import GRADE_RANK, knowledge_dir
 from healthee.core.logging import get_logger
 
 log = get_logger(__name__)
@@ -33,16 +33,23 @@ log = get_logger(__name__)
 _KNOWLEDGE_DIR = knowledge_dir()
 _MANIFEST_PATH = _KNOWLEDGE_DIR / "manifest.json"
 
-# Unified evidence grade → numeric rank (legacy 3/2/1 scale). Used for the
-# "grade floor" of a response and to order calibration strictness.
-GRADE_RANK: dict[str, int] = {
-    "Established": 3,
-    "Probable": 2,
-    "Emerging": 1,
-    "Contested": 1,
-    "Myth": 0,
-    "Refuted": 0,
-}
+# Unified evidence grade → numeric rank (legacy 3/2/1 scale). Used for the "grade
+# floor" of a response and to order calibration strictness. RE-EXPORTED from
+# `core.knowledge`, which is where the one definition now lives: `analytics.notes`
+# needs the same map and `analytics/` may not import `insights/` (#88). The name and
+# the import path documented in seven places (`ENGINEERING_STANDARDS §4`,
+# `TEMPLATE.md`, `conventions.md`, …) still resolve here on purpose.
+__all__ = [
+    "GRADE_RANK",
+    "MIN_ACTIONABLE_RANK",
+    "ManifestNote",
+    "all_notes",
+    "by_id",
+    "grade_of",
+    "note_body",
+    "note_ids",
+    "prompt_body",
+]
 
 # The weakest PROVABLE evidence a surface that tells the user to DO something may ship
 # on: Probable. Emerging, Contested and Myth stay fully retrievable — the coach may
@@ -71,6 +78,11 @@ class ManifestNote:
     applies_to_metrics: tuple[str, ...] = ()
     applies_to_interventions: tuple[str, ...] = ()
     population: str = ""
+    # Coach Directive numbers this note DECLARES to be hard guardrails (#87). The
+    # generator has already checked each one exists and says SAFETY-CRITICAL in its
+    # own text; `insights/guard_directives.py` compiles a rule for each, and a test
+    # fails the build if the two sets ever diverge. A claim, machine-checked.
+    safety_critical: tuple[int, ...] = ()
 
 
 @lru_cache(maxsize=1)
@@ -101,6 +113,7 @@ def _to_note(rec: dict) -> ManifestNote:
         applies_to_metrics=tuple(rec.get("applies_to_metrics", [])),
         applies_to_interventions=tuple(rec.get("applies_to_interventions", [])),
         population=rec.get("population", ""),
+        safety_critical=tuple(int(d) for d in rec.get("safety_critical", ())),
     )
 
 
