@@ -163,7 +163,7 @@ Adopt-a-commitment layer, up to **3 active**, targets calibrated to *the user's 
 
 ### 3.6 COACH — `POST /api/coach` (**premium**, teaser 1 q / 7 days free)
 
-Full-width bottom sheet, message bubbles, citation chips, typing dots, persisted multi-chat. Tool-calling backend (query_metric, compare_event, sleep_consistency, log_entry, get_knowledge). Returns `reply`, `citations[]`, `personal_findings[]`, `validated`, `refused`. Persona fixed in `docs/COACH_PROMPT.md` (truth over flattery, mechanism + next step, cite-or-say-so, grade-calibrated certainty, meets the 4h-sleeper where they are). Ships the honest fallback rather than an ungrounded answer — *this is the product's promise; render the fallback with dignity, not as an error.*
+Full-width bottom sheet, message bubbles, citation chips, typing dots, persisted multi-chat. Tool-calling backend (query_metric, compare_event, sleep_consistency, log_entry, get_knowledge). Returns `reply`, `citations[]`, `personal_findings[]`, `grade_floor`, `validated`, `refused`. `grade_floor` is the **weakest** grade among the cited notes (`null` when nothing gradeable was cited) — render it as the answer's evidence-confidence chip, same semantics as the insight cards. Persona fixed in `docs/COACH_PROMPT.md` (truth over flattery, mechanism + next step, cite-or-say-so, grade-calibrated certainty, meets the 4h-sleeper where they are). Ships the honest fallback rather than an ungrounded answer — *this is the product's promise; render the fallback with dignity, not as an error.*
 
 ### 3.7 PROFILE + logging
 

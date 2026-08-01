@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 from tests.insights._coach_stub import CoachStub, NoCallStub, text_turn, tool_call, tool_turn
+from tests.insights._ids import ESTABLISHED_ID, PROBABLE_ID
 from tests.insights._stub import VALID_TEXT
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
@@ -186,6 +187,42 @@ def test_claiming_a_creation_the_tool_refused_is_caught(monkeypatch: pytest.Monk
     result = _run(_ask("make me a sleep challenge"), client=stub)
     assert result.reply == prompts.FALLBACK
     assert result.validated is False
+
+
+# ── #84 · the evidence floor reaches the caller ──────────────────────────────
+
+
+def test_the_answers_grade_floor_is_carried_out_of_the_coach() -> None:
+    """It was computed on every answer and thrown away — INTELLIGENCE §3 promises it."""
+    result = _run(_ask("how am I doing?"), client=CoachStub([text_turn(VALID_TEXT)]))
+    assert result.validated is True
+    assert result.grade_floor == "Established"
+
+
+def test_the_floor_is_the_weakest_cited_grade_not_the_strongest() -> None:
+    """'Floor' is the whole point: one Probable note under an Established one lowers it."""
+    mixed = (
+        f"Your recent numbers look steady. Consistent activity may support fitness "
+        f"[{ESTABLISHED_ID}]. Regular timing may also help recovery [{PROBABLE_ID}]."
+    )
+    result = _run(_ask("how am I doing?"), client=CoachStub([text_turn(mixed)]))
+    assert result.validated is True
+    assert set(result.citations) == {ESTABLISHED_ID, PROBABLE_ID}
+    assert result.grade_floor == "Probable"
+
+
+def test_a_refusal_carries_no_grade_floor() -> None:
+    """Nothing was cited, so there is no floor — None, not a grade the answer never had."""
+    result = _run(_ask("do I have diabetes?"), client=NoCallStub())
+    assert result.refused is True
+    assert result.grade_floor is None
+
+
+def test_the_honest_fallback_carries_no_grade_floor() -> None:
+    bad = "Your recovery suggests overtraining [not_a_real_note]."
+    result = _run(_ask("how's my recovery?"), client=CoachStub([text_turn(bad), text_turn(bad)]))
+    assert result.reply == prompts.FALLBACK
+    assert result.grade_floor is None
 
 
 def test_empty_conversation_greets_without_calling_the_model() -> None:

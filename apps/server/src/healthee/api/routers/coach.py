@@ -69,6 +69,11 @@ def post_coach(request: Request, user: CoachUser, req: CoachRequest) -> dict:
         "reply": result.reply,
         "citations": result.citations,
         "personal_findings": result.personal_findings,
+        # The weakest grade among the cited notes — INTELLIGENCE §3's promised response
+        # metadata. It was computed on every answer and dropped here (#84), so the
+        # flagship surface shipped citations with no statement of how firm they are.
+        # `null` = nothing gradeable was cited, which is not the same as a weak grade.
+        "grade_floor": result.grade_floor,
         "tool_calls": result.tool_calls,
         "refused": result.refused,
         "validated": result.validated,
