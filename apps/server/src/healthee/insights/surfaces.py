@@ -68,6 +68,7 @@ def _generate(
         "insight": result.text,
         "citations": result.citations,
         "grade_floor": result.grade_floor,
+        "data_coverage": result.data_coverage,
         "refused": result.refused,
         "validated": result.validated,
         "date": today_iso(tz),
@@ -129,6 +130,7 @@ def metric_insight(
         "insight": result.text,
         "citations": result.citations,
         "grade_floor": result.grade_floor,
+        "data_coverage": result.data_coverage,
         "validated": result.validated,
     }
     if result.validated and not result.refused:
@@ -175,6 +177,7 @@ def workout_insight(user_id: UUID, tz: str, start: str, *, refresh: bool = False
         "insight": result.text,
         "citations": result.citations,
         "grade_floor": result.grade_floor,
+        "data_coverage": result.data_coverage,
         "validated": result.validated,
         "date": today_iso(tz),
         "generated_at": int(time.time()),

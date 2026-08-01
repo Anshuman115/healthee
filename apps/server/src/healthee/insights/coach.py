@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
+from healthee.analytics import coverage
 from healthee.core.logging import get_logger
 from healthee.insights import coach_tools, pipeline
 from healthee.insights.client import LLMClient, coach_model, get_client
@@ -79,6 +80,10 @@ class CoachResult:
     firm the ground is — dropped it on the floor (#84). ``None`` means the answer cited
     nothing gradeable, which is a different statement from a weak grade and stays
     distinguishable.
+
+    ``data_coverage`` is §3's third piece of metadata (#89): how many days of each metric
+    this turn READ the window actually held (:func:`_metrics_read`). ``None`` only for a
+    greeting or a pre-LLM refusal — the two replies that rest on no data at all.
     """
 
     reply: str
@@ -88,6 +93,7 @@ class CoachResult:
     tool_calls: list[dict] = field(default_factory=list)
     refused: bool = False
     validated: bool = True
+    data_coverage: dict | None = None
 
 
 def run_coach(
@@ -115,7 +121,30 @@ def run_coach(
         return CoachResult(reply=refusal.template, refused=True)
     client = client or get_client()
     convo = _initial_messages(history, question, user_id, tz, context_days)
-    return _loop(client, convo, user_id, tz)
+    result = _loop(client, convo, user_id, tz)
+    result.data_coverage = coverage.measured_payload(
+        user_id, tz, _metrics_read(result.tool_calls), context_days
+    )
+    return result
+
+
+def _metrics_read(invocations: list[dict]) -> list[str]:
+    """The metrics this turn's tools actually read — the answer's own data scope.
+
+    The coach declares no metric list the way ``grounded_ask`` does, and picking one for
+    it would be inventing a scope. It does not need one: COACH_PROMPT's absolute rule is
+    that NUMBERS COME ONLY FROM TOOL RESULTS, so the metrics the tools read are exactly
+    the metrics the answer's numbers came from (INTELLIGENCE §4).
+
+    Empty when the turn read none — a real state (the answer came from the standing
+    context and the corpus), and ``coverage.payload`` keeps it distinguishable from
+    "we have no data" by still naming the window.
+    """
+    return [
+        metric
+        for call in invocations
+        if (metric := str(call.get("args", {}).get("metric", "")).strip())
+    ]
 
 
 def _loop(client: LLMClient, convo: list[dict], user_id: UUID, tz: str) -> CoachResult:

@@ -169,6 +169,7 @@ def _warm(
         "text": result.text,
         "citations": result.citations,
         "grade_floor": result.grade_floor,
+        "data_coverage": result.data_coverage,
         "refused": result.refused,
         "validated": result.validated,
         "date": today_iso(tz),
