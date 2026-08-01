@@ -113,6 +113,22 @@ _HEDGE_RE = re.compile(
     r"\blikely\b|\btends?\b|\bsuggests?\b|\bpossible\b|\bcan\b",
     re.IGNORECASE,
 )
+# Myth/Refuted demand CORRECTION framing — the sentence must mark the claim as one the
+# evidence does not support, not merely hedge it. See `_REFUTED_GRADES` for why this is
+# its own branch rather than a hedge strength (#91).
+_CORRECTION_RE = re.compile(
+    r"\bmyth\b|\bmisconception\b|\bdebunk\w*|\bunfounded\b|\bdisproven\b|\brefuted\b|"
+    r"\bno\s+(?:good\s+|strong\s+|solid\s+|scientific\s+)?(?:evidence|basis|support|"
+    r"studies|data)\b|\bnot\s+(?:supported|backed|borne\s+out|true|the\s+case)\b|"
+    r"\bisn'?t\s+(?:true|supported|backed)\b|\bdoes\s+not\s+hold\b|"
+    r"\b(?:commonly|widely|often|frequently)\s+(?:believed|repeated|claimed|said|"
+    r"assumed|cited)\b|\bpopular\s+(?:belief|claim|idea)\b|\bturns\s+out\b|"
+    r"\bcontrary\s+to\b|\bin\s+fact\b",
+    re.IGNORECASE,
+)
+# The grades whose required framing is a correction, not a hedge. Kept as a named set
+# because `GRADE_RANK` maps BOTH to 0 and the branch keys on meaning, not on rank.
+_REFUTED_GRADES = frozenset({"Myth", "Refuted"})
 
 
 @dataclass
@@ -155,12 +171,41 @@ def is_refusal(text: str) -> bool:
 
 
 def _grade_issue(sentence: str, cited_ids: set[str]) -> str | None:
-    """Enforce grade-calibrated wording for one cited interpretive sentence."""
+    """Enforce grade-calibrated wording for one cited interpretive sentence.
+
+    ## Myth/Refuted is its own branch (#91)
+
+    Standards §4 and CLAUDE.md both promise FIVE calibrated framings — Established
+    plainly, Probable hedged, Emerging flagged, Contested debated, **Myth/Refuted
+    corrected gently**. This function used to implement THREE. ``Myth`` and
+    ``Refuted`` rank 0 in ``GRADE_RANK``, so they fell through the ``strictest <= 1``
+    branch they share with ``Emerging`` and were satisfied by the word "preliminary"
+    or "limited evidence" — which is not a correction, it is a hedge, and hedging a
+    debunked claim is how a myth ships wearing the costume of thin-but-real evidence.
+    Nothing in the corpus is graded Myth yet, which is exactly why the gap survived:
+    the branch was unreachable, so no test could fail on it.
+
+    That is the #83 defect class one layer down — the authored intent (the standards
+    doc) and the enforced value (this function) had diverged, and the divergence was
+    invisible because the two live in different files and only one of them runs.
+
+    A refuted grade OWNS the sentence: it is the strictest grade there is, so it
+    returns rather than falling through to the hedge branches, and correction framing
+    alone satisfies it.
+
+    **What this does and does not enforce.** It enforces that the sentence *marks the
+    claim as unsupported*. It cannot enforce "gently" — tone is not a regex — so the
+    banned-tone rule, the note's own prose and the system prompt still carry that half.
+    """
     grades = [manifest.grade_of(i) for i in cited_ids]
     ranks = [manifest.GRADE_RANK.get(g or "", 3) for g in grades if g]
     if not ranks:
         return None
     strictest = min(ranks)  # lowest rank = weakest evidence = strictest wording
+    if any(g in _REFUTED_GRADES for g in grades):
+        if not _CORRECTION_RE.search(sentence):
+            return f"Myth/Refuted claim not framed as a correction: '{sentence[:120]}'"
+        return None
     if "Contested" in grades and not _MIXED_RE.search(sentence):
         return f"Contested claim not framed as debated: '{sentence[:120]}'"
     if strictest <= 1 and not (_FLAG_RE.search(sentence) or _MIXED_RE.search(sentence)):

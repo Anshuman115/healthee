@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from tests.insights._ids import CONTESTED_ID, ESTABLISHED_ID, PROBABLE_ID
+from tests.insights._ids import CONTESTED_ID, ESTABLISHED_ID, PROBABLE_ID, REFUTED_ID
 
 from healthee.insights.validator import extract_citations, validate, validate_json
 
@@ -18,6 +18,7 @@ from healthee.insights.validator import extract_citations, validate, validate_js
 _ESTABLISHED = ESTABLISHED_ID
 _PROBABLE = PROBABLE_ID
 _CONTESTED = CONTESTED_ID
+_REFUTED = REFUTED_ID
 
 
 def _recs_json(**overrides: object) -> str:
@@ -124,6 +125,46 @@ def test_contested_claim_must_be_framed_as_debated() -> None:
     assert any("Contested" in i for i in plain.issues)
     hedged = validate(f"The science is mixed on whether ACWR predicts injury [{_CONTESTED}].")
     assert hedged.ok is True
+
+
+def test_refuted_claim_must_be_framed_as_a_correction_not_hedged() -> None:
+    """A Myth/Refuted note demands a CORRECTION, and a hedge is not one (#91).
+
+    This is the whole point of the branch. Before #91, `Myth` and `Refuted` ranked 0
+    and fell through the `strictest <= 1` branch shared with `Emerging`, so the word
+    "may" — or "limited evidence" — satisfied the validator for a debunked claim.
+    Hedging a myth is the wrong framing twice over: it softens a correction the
+    evidence supports flatly, and it lends the claim the shape of thin-but-real
+    evidence.
+    """
+    flat = validate(f"You should drink eight glasses of water a day [{_REFUTED}].")
+    assert flat.ok is False
+    assert any("Myth/Refuted" in i for i in flat.issues)
+
+    # A HEDGE must not satisfy it — this is the exact bug, not merely a missing rule.
+    hedged = validate(f"Eight glasses a day may not be necessary [{_REFUTED}].")
+    assert hedged.ok is False
+    assert any("Myth/Refuted" in i for i in hedged.issues)
+
+    # Nor may an Emerging-style uncertainty flag, which used to be what it accepted.
+    flagged = validate(f"There is limited evidence you should drink eight glasses [{_REFUTED}].")
+    assert flagged.ok is False
+
+    corrected = validate(
+        f"Despite the popular belief, there is no scientific evidence for the "
+        f"eight-glasses rule in healthy adults [{_REFUTED}]."
+    )
+    assert corrected.ok is True
+
+
+def test_refuted_grade_is_the_answers_evidence_floor() -> None:
+    """A refuted citation drives `grade_floor`, so callers can see what it rests on."""
+    result = validate(
+        f"That is a common misconception with no scientific basis [{_REFUTED}], and "
+        f"consistent activity may support recovery [{_PROBABLE}]."
+    )
+    assert result.ok is True
+    assert result.grade_floor == "Myth"
 
 
 def test_probable_claim_must_be_hedged() -> None:

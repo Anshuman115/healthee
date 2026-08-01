@@ -6,12 +6,12 @@ category: intake
 grade: Probable
 safety_critical: [5, 6]     # → hard guardrails `hydration_everyday_D5`/`_D6`
 summary: "The '8 glasses a day' rule has no scientific basis — a systematic search found 'no scientific studies in support of 8 x 8' (Valtin 2002) — and caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate."
-aliases: ["hydration", "hydrated", "water", "drinking water", "water intake", "how much water", "how much water should i drink", "fluid intake", "fluids", "8 glasses", "eight glasses of water", "8x8", "drink more water", "dehydration", "dehydrated", "thirst", "urine colour", "urine color"]
+aliases: ["hydration", "hydrated", "water", "drinking water", "water intake", "how much water", "how much water should i drink", "fluid intake", "fluids", "drink more water", "dehydration", "dehydrated", "thirst", "urine colour", "urine color"]
 applies_to_metrics: []
 applies_to_interventions: []
 population: general
 last_reviewed: 2026-08-01
-related: ["fueling_and_hydration", "caffeine_sleep", "alcohol_sleep", "weight_bmi_body_composition"]
+related: ["hydration_8x8_rule", "fueling_and_hydration", "caffeine_sleep", "alcohol_sleep", "weight_bmi_body_composition"]
 tags: [hydration, water, intake, honesty]
 ---
 
@@ -78,35 +78,31 @@ deficit at habitual moderate doses, which is what Killer et al. measured directl
 
 ## The evidence
 
-### "8 × 8" is not supported by evidence [Myth]
+### "8 × 8" is not supported by evidence → **[[hydration_8x8_rule]]** owns this
 
-The claim is popular and it is wrong, so it should be corrected gently rather than
-mocked. From Valtin 2002 (*Am J Physiol Regul Integr Comp Physiol*):
+**Moved out of this note 2026-08-01 (#91), not softened or dropped.** The Valtin 2002
+finding, both of its author-insisted limitations, and the "absence of evidence, not
+proof of absence" framing all live in [[hydration_8x8_rule]] in full. Nothing was
+lost; this note simply stopped being the one that states it.
 
-> "Despite the seemingly ubiquitous admonition to 'drink at least eight 8-oz
-> glasses of water a day' (with an accompanying reminder that beverages containing
-> caffeine and alcohol do not count), rigorous proof for this counsel appears to be
-> lacking. … No scientific studies were found in support of 8 x 8. Rather, surveys
-> of food and fluid intake on thousands of adults of both genders … strongly
-> suggest that such large amounts are not needed because the surveyed persons were
-> presumably healthy and certainly not overtly ill."
+*Why:* a note carries exactly one `grade` and this one is `Probable`. A `[Myth]`
+claim sitting inside it shipped under the Probable badge, so `insights/validator.py`
+asked only for a **hedge** — and "8×8 *may* not be necessary" is the wrong framing
+twice over: it softens a correction the evidence supports flatly, and it lends a
+refuted claim the shape of thin-but-real evidence. `Myth` is the grade whose required
+framing is a *correction*, and the only way the validator can require that is for the
+claim to be cited from a note graded `Myth`. So the claim moved to a note that is.
 
-Two qualifications the author himself insists on, and which must travel with the
-claim:
+**This note's id, aliases, and both SAFETY-CRITICAL directives (D5, D6) are
+unchanged** — the compiled hydration guardrails in `insights/guard_directives.py` are
+untouched by the split. Only the myth-specific aliases ("8x8", "8 glasses", …) moved,
+so that the myth question routes to the note graded to answer it.
 
-> "It is to be emphasized that the conclusion is limited to healthy adults in a
-> temperate climate leading a largely sedentary existence"
-
-> "large intakes of fluid, equal to and greater than 8 x 8, are advisable for the
-> treatment or prevention of some diseases and certainly are called for under
-> special circumstances, such as vigorous work and exercise, especially in hot
-> climates."
-
-This is a **review**, and its central result is the *absence* of supporting
-evidence — the author closes by noting it is "difficult or impossible to prove a
-negative" and inviting readers to send contrary publications. That is the honest
-strength of the claim: nobody has produced the evidence, not that its absence has
-been proven. *[full abstract verified at PubMed 2026-08-01, PMID 12376390]*
+The one-line version, for context here: a search of the peer-reviewed literature,
+older non-indexed literature and specialists in thirst and drinking found no
+scientific studies supporting 8 × 8 — for **healthy adults in a temperate climate
+leading a largely sedentary life**, with larger intakes explicitly advisable in
+illness and in vigorous work or heat [[hydration_8x8_rule]].
 
 ### Caffeinated drinks count toward fluid intake [Probable]
 
@@ -282,9 +278,11 @@ hydration and the metrics Healthee computes — for which we have no source at a
    *as total water including food* if a number is wanted, and say the body
    regulates this well. Never prescribe a personal litre target.
    *(confidence: high)*
-3. Correct "8 glasses a day" gently, with Valtin 2002 and with its stated limits
-   (healthy adults, temperate climate, sedentary). Never use the correction to
-   discourage drinking in heat, illness or exercise. *(confidence: high)*
+3. Answer "8 glasses a day" from **[[hydration_8x8_rule]]**, which owns that
+   correction and is graded `Myth` so the framing is enforced (#91). Do not restate
+   it from here. Whichever note it comes from, the correction never travels without
+   Valtin's two limits and never discourages drinking in heat, illness or exercise.
+   *(confidence: high)*
 4. Do not claim coffee or tea dehydrates at habitual moderate intake
    (Killer et al. 2014). Keep this strictly to fluid balance and do not let it leak
    into caffeine-and-sleep advice, which is [[caffeine_sleep]]'s. *(confidence:

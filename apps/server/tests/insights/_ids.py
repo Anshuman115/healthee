@@ -35,4 +35,10 @@ def _first_mortality_note() -> str:
 ESTABLISHED_ID = _first_of_grade("Established")
 PROBABLE_ID = _first_of_grade("Probable")
 CONTESTED_ID = _first_of_grade("Contested")
+# `Myth`/`Refuted` demand CORRECTION framing rather than a hedge, and until #91 the
+# corpus contained no note at either grade — so the validator branch was unreachable
+# and its absence could not fail a test. Resolving it live (rather than hardcoding
+# `hydration_8x8_rule`) keeps the same property the grades above have: if the corpus
+# ever loses its last refuted note, this raises loudly instead of silently skipping.
+REFUTED_ID = _first_of_grade("Myth")
 MORTALITY_ID = _first_mortality_note()
