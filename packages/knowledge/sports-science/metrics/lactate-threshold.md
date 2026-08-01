@@ -262,7 +262,14 @@ tracking**. Core logic:
 - LTHR is **invalid as a hard ceiling in heat/altitude/dehydration** — defer to RPE
   and pace; do not push a runner to hit an LTHR number when HR is environmentally
   inflated.
-- These are mirrored as guardrails in `@daud/core` intensity/recovery checks.
+- **Not enforced in code.** The bounds above are rules for the coach to follow, not
+  guarantees. (This line previously read "These are mirrored as guardrails in
+  `@daud/core` intensity/recovery checks" — a module that exists nowhere in this repo,
+  in `~/projects/healthee-legacy`, or in git history; the phrase arrived with the
+  upstream sports-science corpus import. Only directives a note declares
+  `safety_critical` in its frontmatter compile into `insights/guard_directives.py`, and
+  this note declares none — these bounds are a candidate for that mechanism, not a user
+  of it. Corrected 2026-08-01, #87.)
 
 ## Bottom line
 

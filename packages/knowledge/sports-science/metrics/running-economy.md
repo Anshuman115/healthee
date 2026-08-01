@@ -238,12 +238,25 @@ as progress, not stagnation.
 ## Safety bounds
 None intrinsic to RE as a metric. The indirect caveat: the main RE interventions
 carry load. **Heavy strength training and plyometrics add neuromuscular fatigue and
-injury exposure** and must be progressed within the engine's existing load/recovery
-guardrails (ACWR ceiling, readiness/HRV flags, progression limits) — introduce
-gradually, separate from hard runs, and defer when readiness is red. Advanced
-footwear changes lower-limb loading patterns; rotate it in gradually rather than
-debuting it on a long race day. A desire to "improve economy" must never justify
-exceeding load or progression limits.
+injury exposure** and must be progressed within the load/recovery bounds those notes
+set (ACWR ceiling, readiness/HRV flags, progression limits) — introduce gradually,
+separate from hard runs, and defer when readiness is red. Advanced footwear changes
+lower-limb loading patterns; rotate it in gradually rather than debuting it on a long
+race day. A desire to "improve economy" must never justify exceeding load or
+progression limits.
+
+**Mostly not enforced in code.** This paragraph used to say the interventions "must be
+progressed within **the engine's existing** load/recovery guardrails", which asserted a
+set of gates that largely does not exist: there is no ACWR ceiling and no progression
+limit anywhere in the server — `read/fitness.py::acwr` computes and displays the ratio
+and gates nothing. The one real gate is narrower than the sentence implied:
+`challenges/recovery_guard.py` refuses to offer or raise a hard training lever
+(`mvpa_min`, `cardio_load`, `workouts_week`) while the owner's trailing-week recovery
+band is `low` or an illness flag is active. That binds the challenges engine only, not
+the coach's prose. Everything else here is a rule for the coach to follow. Only
+directives a note declares `safety_critical` in its frontmatter compile into
+`insights/guard_directives.py`, and this note declares none. (Corrected 2026-08-01,
+#87.)
 
 ## Bottom line
 
@@ -301,7 +314,7 @@ exceeding load or progression limits.
   terrain, and fatigue before interpreting. — confidence: Established
 - **D9:** Introduce strength, plyometrics, and new footwear gradually and within
   load/readiness guardrails; defer added load when readiness is poor. — confidence:
-  Established (safety mirror)
+  Established (mostly not enforced in code — see *Safety bounds*, #87)
 
 ## Key references
 - Conley, D. L., & Krahenbuhl, G. S. (1980). *Running economy and distance running

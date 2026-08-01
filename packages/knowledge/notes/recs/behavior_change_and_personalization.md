@@ -120,8 +120,17 @@ visuals, citation chips, adoption tracking, progress framing).
 
 - **SAFETY-CRITICAL (rule 9):** never present a mortality number or population HR as
   a personal prognosis — "associated with," never "will cause." This mirrors the
-  hard guardrail in `llm_health_advice_safety`.
+  hard guardrail in `llm_health_advice_safety`, and unlike most such sentences in this
+  corpus **it is true**: `insights/output_guard.py`'s hand-compiled rules
+  `personal_death_risk_number` and `personal_life_expectancy_projection` block the
+  answer — regardless of citations, grade or validator outcome — when a sentence carries
+  both a second person ("you"/"your") and a death-risk figure or a life-expectancy
+  projection. Population science without a "you" in the sentence still ships, by design.
+  (Verified against the code 2026-08-01, #87.)
 - Never use deficit/"you failed" framing for low-self-efficacy users (backfire risk).
+  **Not enforced in code** — a rule for the coach, not a guardrail. (Corrected
+  2026-08-01, #87; see *Healthee implementation* for which of the 9 rules do have code
+  behind them.)
 
 ## Honesty & uncertainty
 
@@ -190,8 +199,13 @@ LLM-generated (vs designed) recommendations.
 - The 9 design rules are the enforceable contract: personalize-not-inform,
   self-monitor+goal+discrepancy, progress-not-deficit framing, cite-every-claim,
   ≤3 actions/day, track-adoption, no-backfire, dose-response-not-absolutes, and
-  **no mortality-as-personal-prognosis** (rule 9, mirrored as a hard guardrail with
-  `llm_health_advice_safety`).
+  **no mortality-as-personal-prognosis** (rule 9). **Three of the nine are actually
+  enforced (#87):** rule 9 by `insights/output_guard.py`, cite-every-claim by the
+  citation validator plus `jobs/recs.py`'s inline-`[note_id]` and known-note checks
+  (an uncited rec is dropped), and ≤3 actions/day by `jobs/recs.py::_MAX_RECS = 3`. The
+  other six — personalize-not-inform, self-monitor+goal+discrepancy,
+  progress-not-deficit, track-adoption, no-backfire, dose-response-not-absolutes — are
+  rules for the coach to follow, not guardrails.
 - Honesty rule: effect-size claims here are graded and mostly extrapolated from
   diet+PA meta-analyses; the coach states the moderate/small-but-consistent
   magnitudes plainly and never oversells tailoring.

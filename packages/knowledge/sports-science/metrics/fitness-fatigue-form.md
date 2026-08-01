@@ -182,12 +182,31 @@ today's planned session does not retroactively change today's freshness:
 TSB_today = CTL_yesterday − ATL_yesterday
 ```
 
-**In @daud/core:** these map to the load-model functions
-(`computeCTL`/`computeATL`/`computeTSB`, or equivalent in the `trainingLoad`
-module). Treat outputs as **trend signals with wide uncertainty**, not precise
-physiology. The time constants (42/7) are **defaults to be individualised** — a
-runner who detrains fast or recovers slowly may warrant different constants, but
-changing them is an advanced, data-hungry operation (see Honesty).
+Treat outputs as **trend signals with wide uncertainty**, not precise physiology. The
+time constants (42/7) are **defaults to be individualised** — a runner who detrains
+fast or recovers slowly may warrant different constants, but changing them is an
+advanced, data-hungry operation (see Honesty).
+
+> **Provenance, checked 2026-08-01 (#88) — and this one holds up.** This paragraph
+> used to begin "**In @daud/core:** these map to the load-model functions
+> (`computeCTL`/`computeATL`/`computeTSB`…)". `@daud/core` exists **nowhere** — not
+> this repo, not `~/projects/healthee-legacy`, not git history — so the sentence
+> described an implementation that has never existed, and it is removed rather than
+> reworded.
+>
+> **The 42/7 constants themselves are NOT a phantom-source case**, unlike the
+> `pace-zones` bands and the `training-stress-score` preference order audited
+> alongside them. Their trail is stated in full in "The evidence" above and it is
+> real: Banister's own fits (~45–50 d fitness, ~11–15 d fatigue, k2 ≈ 2·k1) [Banister
+> et al. 1975; Morton et al. 1990], **rounded** by TrainingPeaks to 42/7 [Allen &
+> Coggan 2019 — a trade book, cited as the origin of the Performance Management Chart
+> and named as such in the References]. The note already says the rounding is a
+> rounding, already warns that τ "cannot be interpreted as a literal number of days"
+> [Vermeire 2022], and already grades the constants **Contested** in D7. Nothing here
+> needs correcting except the module that never existed.
+>
+> Nor is anything shipped: no CTL, ATL or TSB is computed anywhere in `apps/`
+> (verified by grep, 2026-08-01) — see the implementation section.
 
 ## How the coach uses it
 **General stance:** use CTL for the slow story (is the base growing?), TSB for the
@@ -348,7 +367,11 @@ result history.
   short taper, add load back. — confidence: Probable
 - **D6:** Never let a positive (fresh) TSB override a red readiness signal —
   suppressed HRV, illness, or severe sleep loss veto hard training regardless of
-  form. — confidence: Established (safety mirror)
+  form. — confidence: Established. **Not enforced in code** *(#87: this said "safety
+  mirror", which claimed a guardrail that does not exist. Only a directive a note
+  declares `safety_critical` in frontmatter compiles a blocking rule into
+  `insights/guard_directives.py`, and this note declares none — nor could it, since
+  Healthee computes no TSB for a rule to key on.)*
 - **D7:** Treat the 42/7-day constants and all TSB bands as population defaults to
   be individualised from the runner's data, never as literal personal physiology;
   speak about them with light hedging. — confidence: Contested
@@ -416,8 +439,10 @@ result history.
   It does derive a per-day **cardio-load** (`derive/cardio_load.py`), but does not
   run the exponentially-weighted moving averages that turn a load stream into
   fitness/fatigue/form. This note is **reference science + a future-metric
-  candidate** (`applies_to_metrics: []`; `daud_metrics` provenance dropped — those
-  helpers are legacy `@daud/core`).
+  candidate** (`applies_to_metrics: []`; `daud_metrics` provenance dropped — and this
+  bullet used to add "those helpers are legacy `@daud/core`", which was false: the
+  module exists in no repo. There is no implementation to port, only a documented
+  method to build. #88.)
 - **Future-metric candidate (feasible once one load currency is settled).**
   CTL/ATL/TSB are just EWMAs (≈42-day and ≈7-day time constants) over a daily
   training-load series — computable directly from Healthee's existing daily

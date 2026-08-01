@@ -250,6 +250,11 @@ coach must speak confidently about the base and hedge about the shape.
   distributions raises injury/burnout risk for little or negative return — flag
   this if a runner's data shows Z2/Z3 creeping above ~25–30% of volume for weeks.
 - Otherwise: none beyond general load-management bounds.
+- **Not enforced in code** — the bounds above are rules for the coach and design
+  constraints for the programs builder, not hard guardrails. Only directives a note
+  declares `safety_critical` in its frontmatter compile into
+  `insights/guard_directives.py`, and this note declares none; D3 is a candidate for that
+  mechanism, not a user of it. (D3 carried "(safety-mirrored)" until 2026-08-01, #87.)
 
 ## Bottom line
 
@@ -284,7 +289,8 @@ coach must speak confidently about the base and hedge about the shape.
   as the real "junk miles." — confidence: **Established**
 - **D3:** Cap high-intensity (Z3) sessions at ~2/week for most runners; allow a 3rd
   only with strong recovery markers and never by cutting the easy base. Treat
-  ≤ ~3/week as a guardrail. — confidence: **Probable** (safety-mirrored)
+  ≤ ~3/week as a guardrail. — confidence: **Probable** (not enforced in code — see
+  *Safety bounds*, #87)
 - **D4:** Do NOT assert polarized is universally superior. Present POL vs pyramidal
   as genuinely contested; choose by event and stage and refine from the runner's
   own response. — confidence: **Contested**

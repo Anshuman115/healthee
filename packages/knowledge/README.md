@@ -14,8 +14,11 @@ package converges on** (see `sports-science/METHODOLOGY.md` and
   (Established · Probable · Emerging · Contested · Myth/Refuted)
 - citations real or absent — verified primary sources only
 - mandatory Honesty section (confounders, individual variation, limits)
-- a Coach Directives block per doc; safety-critical directives are mirrored as
-  hard guardrails in server code and can never be overridden by the LLM
+- a Coach Directives block per doc. A directive becomes a hard guardrail the LLM
+  cannot override **only** when its note declares it (`safety_critical: [5, 6]` in
+  frontmatter) and a rule for it exists in `insights/guard_directives.py`; a test
+  asserts the two match, both ways (#87). Writing "mirrored as a guardrail" in prose
+  never made it one, and ~24 notes used to do exactly that
 - docs follow `sports-science/TEMPLATE.md`; `COACHING-RULES.md` is the
   cross-cutting directives digest
 

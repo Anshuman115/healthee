@@ -19,22 +19,12 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 
-from healthee.core.knowledge import knowledge_dir
+from healthee.core.knowledge import GRADE_RANK, knowledge_dir
 from healthee.core.logging import get_logger
 
 log = get_logger(__name__)
 
 _MANIFEST_PATH = knowledge_dir() / "manifest.json"
-
-# Unified evidence grade → legacy numeric rank, for the min-grade gate.
-_GRADE_RANK: dict[str, int] = {
-    "Established": 3,
-    "Probable": 2,
-    "Emerging": 1,
-    "Contested": 1,
-    "Myth": 0,
-    "Refuted": 0,
-}
 
 
 @lru_cache(maxsize=1)
@@ -67,7 +57,7 @@ def notes_for(
     interventions = interventions or []
     out: set[str] = set()
     for rec in _records():
-        if _GRADE_RANK.get(rec.get("grade", ""), 0) < min_grade:
+        if GRADE_RANK.get(rec.get("grade", ""), 0) < min_grade:
             continue
         note_id = rec.get("id", "")
         applies_metrics = rec.get("applies_to_metrics", [])

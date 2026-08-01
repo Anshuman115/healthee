@@ -87,8 +87,19 @@ sibling acute-HRV note `slow_breathing_hrv_acute`).
 
 - **SAFETY-CRITICAL:** meditation is **not a substitute** for treatment of clinical
   depression or anxiety disorders. The coach must never present it as a replacement
-  for professional care, and mental-health-emergency inputs route to the static
-  hotline guardrail (`llm_health_advice_safety`), not to meditation advice.
+  for professional care, and mental-health-emergency inputs route to a static refusal
+  (`llm_health_advice_safety`), not to meditation advice.
+- **Half of that is enforced in code, half is not (#87, corrected 2026-08-01).** The
+  **routing** is real: `insights/refusals.py` classifies the question before the model
+  runs and returns a fixed response for depression, anxiety, panic attacks,
+  hopelessness or "can't cope" (mental-health domain) and for suicide/self-harm
+  (emergency domain) — the model never sees the question, so it cannot be talked past
+  it. Note the template names a mental-health professional or physician; it carries **no
+  hotline number**, so do not describe it as a hotline. The **substitution** rule is
+  *not* enforced: no output rule blocks an answer that offers meditation in place of
+  clinical care. This note declares no `safety_critical` directive in its frontmatter,
+  and only a declared marker compiles into `insights/guard_directives.py`; Directive 4's
+  substitution half is a candidate for that mechanism.
 
 ## Honesty & uncertainty
 
@@ -140,5 +151,6 @@ maintenance; any objective wearable-metric change.
   `hrv_sleep_avg`, and the coach must not promise an HRV change from meditation on
   this note alone.
 - Honesty rule: state the moderate effect size plainly and never let meditation
-  advice stand in for clinical treatment (Directive 4 is a hard guardrail mirrored
-  in `llm_health_advice_safety`).
+  advice stand in for clinical treatment. Directive 4's **routing** half is enforced by
+  `insights/refusals.py`; its **substitution** half is not enforced anywhere — see
+  *Safety bounds*, #87.

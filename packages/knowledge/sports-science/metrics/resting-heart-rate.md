@@ -104,8 +104,32 @@ By stage:
 - **Medication confound.** β-blockers and other rate-limiting drugs **suppress RHR independently of fitness**, so a low pulse in a medicated person is not evidence of aerobic conditioning and invalidates the fitness read.
 
 ## Safety bounds
-- **Symptomatic bradycardia is a medical red flag, not a training metric.** A low resting pulse *with* dizziness, light-headedness, fainting/near-fainting, unexplained exertional intolerance, chest discomfort, or irregular/erratic beats → advise medical evaluation; never reassure these away as "athlete heart." (Mirror as guardrail.)
-- **A large, unexplained sustained RHR elevation deserves caution, not a hard workout.** A multi-day baseline rise combined with malaise, fever, sore throat, or other illness signs → do not train through it; reduce/withhold load and consider that training while acutely ill (especially with fever or systemic symptoms) carries cardiac risk (e.g. myocarditis). When illness is suspected, default to rest. (Mirror as guardrail.)
+- **Symptomatic bradycardia is a medical red flag, not a training metric.** A low resting pulse *with* dizziness, light-headedness, fainting/near-fainting, unexplained exertional intolerance, chest discomfort, or irregular/erratic beats → advise medical evaluation; never reassure these away as "athlete heart." (Enforcement: see the box below.)
+- **A large, unexplained sustained RHR elevation deserves caution, not a hard workout.** A multi-day baseline rise combined with malaise, fever, sore throat, or other illness signs → do not train through it; reduce/withhold load and consider that training while acutely ill (especially with fever or systemic symptoms) carries cardiac risk (e.g. myocarditis). When illness is suspected, default to rest. (Enforcement: see the box below.)
+> **What is actually enforced (#87, 2026-08-01).** The two rules above ended "(Mirror
+> as guardrail.)" and D9/D10 below are titled "(safety, mirrored guardrail)" — both
+> readable as a claim that the mirror exists. It partly does, and the split matters:
+>
+> - **The symptomatic-bradycardia rule IS enforced, from two directions.**
+>   `insights/refusals.py` classifies a *question* mentioning syncope, chest pain or
+>   the rest of the red-flag set to a static emergency response before the model runs,
+>   and `insights/output_guard.py`'s `advise_through_red_flag_symptom` blocks an
+>   *answer* that tells the person to train through one. Neither compiles from this
+>   note — both are hand-compiled from doc lines — but the behaviour is real.
+> - **The train-through-illness rule is NOT enforced as an output rule.** No rule keys
+>   on illness. What exists is score-side: `derive/illness.py` raises a flag from
+>   respiratory rate and skin temperature (not from symptoms, which we never collect),
+>   `read/recovery_guidance.py` replaces the guidance sentence, and
+>   `challenges/recovery_guard.py` withholds intensity levers. A model can still write
+>   the wrong sentence; nothing stops it.
+> - **This note's own mortality bullets ARE the origin of two live rules** —
+>   `output_guard.py`'s `personal_death_risk_number` and
+>   `personal_life_expectancy_projection` both name this note's "must never be shown"
+>   line and D13 in their `source`.
+>
+> A directive here becomes a compiled guardrail only by declaring `safety_critical` in
+> this note's frontmatter and writing its pattern; this note declares none.
+
 - **Never push a runner toward a target RHR.** RHR is observed, not prescribed; the coach must not set "lower your resting pulse" as a goal or interpret a naturally higher resting pulse as a deficiency to be drilled away.
 - Otherwise RHR monitoring is low-risk: the main failure mode is *over-reacting* to noise (cutting good training on a single high reading) — bias toward requiring a multi-day, confound-checked deviation before changing the plan.
 
@@ -135,8 +159,8 @@ By stage:
 - **D6:** Do not treat RHR as a standalone overtraining test; a flat RHR does not clear overreaching and an elevated one does not confirm it. Use RHR as one input in a panel (HRV + sleep + subjective + load). — confidence: Probable
 - **D7:** Treat a slowly falling RHR over weeks/months as supportive (not proof) of improving aerobic fitness; rely on pace-at-HR, decoupling, and VO₂max trends as the primary fitness read. — confidence: Established
 - **D8:** Reassure that a low resting pulse (e.g. 30s–50s) is a normal, healthy endurance adaptation; never set "lower your RHR" as a goal or frame a higher resting pulse as a defect. — confidence: Established
-- **D9 (safety, mirrored guardrail):** On low RHR *with* symptoms (dizziness, syncope/near-syncope, chest discomfort, exertional intolerance, irregular beats), advise medical evaluation; never dismiss symptomatic bradycardia as "athlete heart." — confidence: Established
-- **D10 (safety, mirrored guardrail):** When a sustained RHR elevation co-occurs with illness signs (fever, malaise, systemic symptoms), do not train through it — default to rest given cardiac risk of exercising while acutely ill. — confidence: Established
+- **D9 (safety; enforced — see *Safety bounds*):** On low RHR *with* symptoms (dizziness, syncope/near-syncope, chest discomfort, exertional intolerance, irregular beats), advise medical evaluation; never dismiss symptomatic bradycardia as "athlete heart." — confidence: Established
+- **D10 (safety; NOT enforced as an output rule — see *Safety bounds*):** When a sustained RHR elevation co-occurs with illness signs (fever, malaise, systemic symptoms), do not train through it — default to rest given cardiac risk of exercising while acutely ill. — confidence: Established
 - **D11:** Expect alcohol the prior evening to raise next-morning RHR by ~several bpm; attribute and discount such elevations rather than reading them as fatigue. — confidence: Established
 - **D12:** Require an established baseline (≥1–2 weeks of consistent readings) before driving any decision from RHR; with no baseline, defer to RPE, sleep, and load. — confidence: Probable
 - **D13:** **Never present RHR as a death-risk or mortality number**, and never project population effect sizes (~9–17%/10 bpm, >80-vs-<60) onto an individual; surface RHR as an autonomic/fitness marker with context. — confidence: Established

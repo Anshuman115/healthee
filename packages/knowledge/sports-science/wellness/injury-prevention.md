@@ -295,8 +295,9 @@ Decision logic, by **stage**:
   energy-availability thresholds.
 
 ## Safety bounds
-Hard limits the coach must respect; safety-critical ones are mirrored as guardrails
-in `@daud/core` and may not be overridden by the AI:
+Hard limits the coach must respect. **Two of them are genuinely enforced in code; the
+rest are not** — read the per-bullet note at the end of this section before treating any
+of these as a guarantee.
 
 - **Suspected bone-stress injury / stress fracture** (localised bony pain,
   point tenderness, pain on hopping, pain that worsens through a run or persists at
@@ -316,6 +317,27 @@ in `@daud/core` and may not be overridden by the AI:
   pain that persists >48 h or recurs across sessions warrants assessment.
 - **Never present the 10% rule or an ACWR band as a guarantee of safety** — they are
   guidelines, and a runner can be injured within them.
+
+**What is actually enforced (#87, corrected 2026-08-01).** This section opened "Hard
+limits the coach must respect; safety-critical ones are mirrored as guardrails in
+`@daud/core` and may not be overridden by the AI" — `@daud/core` is a module that exists
+nowhere in this repo, in `~/projects/healthee-legacy`, or in git history; the phrase
+arrived with the upstream sports-science corpus import. The true position, per bullet:
+
+- **Bone-stress injury and RED-S / low energy availability ARE enforced**, and this note
+  is named as the origin. `insights/output_guard.py`'s hand-compiled rule
+  `advise_through_bone_stress_or_reds` names this note's D8 as one of its origins (as a
+  line reference, so re-check it after editing here) and blocks the answer —
+  regardless of citations, grade or validator outcome — when a sentence
+  mentioning bone stress, a stress fracture, RED-S or low energy availability also
+  advises training through it, increasing load, cutting intake, or losing weight. A
+  regex catches phrasings, not every possible phrasing; it is a deterministic floor
+  under the model, not a proof.
+- **Return-to-run gating after a bone-stress injury, the sharp/one-sided-pain stop, and
+  the 10%-rule/ACWR caveat are NOT enforced in code** — they are rules for the coach to
+  follow. Only directives a note declares `safety_critical` in its frontmatter compile
+  into `insights/guard_directives.py`, and this note declares none; they are candidates
+  for that mechanism, not users of it.
 
 ## Bottom line
 
@@ -368,7 +390,8 @@ in `@daud/core` and may not be overridden by the AI:
   weight loss, menstrual dysfunction, repeated bone-stress injuries, low-energy
   cluster); on any flag, **do not increase load and refer** to a sports
   physician/dietitian — never advise further restriction. — confidence: Established
-  (SAFETY-CRITICAL, mirrored as a `@daud/core` guardrail)
+  (SAFETY-CRITICAL; enforced in code by `insights/output_guard.py`'s
+  `advise_through_bone_stress_or_reds`, which names this note — see *Safety bounds*, #87)
 - **D9:** On suspected **bone-stress injury** (localised bony tenderness, pain on
   hopping, pain worsening through/after a run or at rest), **stop running and refer**;
   do not advise running through it. — confidence: Established (SAFETY-CRITICAL)
@@ -450,8 +473,8 @@ in `@daud/core` and may not be overridden by the AI:
 - **Cross-link (kept separate, complementary):** the load-progression / ACWR framing lives in
   the reconciled `training_load_acwr`; this note is the *injury* application (bone-stress,
   RED-S, strength/cadence). Cite both, don't duplicate.
-- **Best-evidenced levers + safety-critical guardrails to mirror in code (not
-  LLM-overridable):**
+- **Best-evidenced levers + safety-critical guardrails that WOULD be worth mirroring in code
+  (see *Safety bounds* for what is and is not enforced today — #87):**
   - **Suspected bone-stress injury** (localised bony tenderness, pain on hopping, pain
     worsening through/after a run or at rest) → **stop running and refer** (D9,
     SAFETY-CRITICAL); **return-to-run after a BSI** is gated on resolved tenderness +

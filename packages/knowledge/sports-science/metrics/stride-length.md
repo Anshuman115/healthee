@@ -270,7 +270,7 @@ By **stage**:
 ## Safety bounds
 - **No hard physiological limit on stride length itself.** The coach must not
   prescribe a specific stride-length number as a target.
-- **Cadence-change guardrail (mirrored in `@daud/core`):** when intervening on
+- **Cadence-change guardrail:** when intervening on
   overstriding, cap cadence increases at **≤10% above self-selected**, introduce
   gradually, and **never stack a cadence change with a volume/intensity increase
   in the same week** — larger or abrupt jumps raise perceived effort, metabolic
@@ -278,6 +278,14 @@ By **stage**:
   2022].
 - **Symptom stop:** if a cadence/stride change provokes new pain, revert to
   self-selected and defer to the **injury-load** rules.
+- **Not enforced in code.** The bounds above are rules for the coach to follow, not
+  guarantees. (The cadence-change bullet was headed "**Cadence-change guardrail
+  (mirrored in `@daud/core`)**" — a module that exists nowhere in this repo, in
+  `~/projects/healthee-legacy`, or in git history; the phrase arrived with the upstream
+  sports-science corpus import. Only directives a note declares `safety_critical` in its
+  frontmatter compile into `insights/guard_directives.py`, and this note declares none —
+  these bounds are a candidate for that mechanism, not a user of it. Corrected
+  2026-08-01, #87.)
 
 ## Bottom line
 
@@ -335,7 +343,7 @@ By **stage**:
   as "quicker, lighter steps" — confidence: **Probable**.
 - **D6:** **Cap** cadence increases at **≤10% above self-selected**, phase them in
   gradually, and never combine with a same-week load increase — confidence:
-  **Probable** (safety bound, mirrored in `@daud/core`).
+  **Probable** (safety bound; not enforced in code — see *Safety bounds*, #87).
 - **D7:** Do **not** force higher-than-self-selected cadence on healthy,
   asymptomatic runners or during racing/intervals — it costs O₂ for no benefit —
   confidence: **Probable**.

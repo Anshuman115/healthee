@@ -33,6 +33,12 @@ grade: Established                      # the ONLY grade — Established | Proba
                                         # removed in #83 (it could disagree with
                                         # `grade`, and could not express Contested or
                                         # Myth). `make knowledge` rejects it.
+safety_critical: [5, 6]                 # OPTIONAL — Coach Directive numbers this note
+                                        # claims as HARD GUARDRAILS. Validated by
+                                        # `make knowledge` and bijected against
+                                        # `insights/guard_directives.py` by a test
+                                        # (#87). Never write "mirrored as a guardrail"
+                                        # in prose instead of declaring it here.
 applies_to_metrics: [hr, hrv_rmssd_ms]  # canonical metric names from metric_sample
 applies_to_interventions: [meditation]   # session.kind values where relevant
 tags: [sleep, autonomic, recovery]

@@ -217,7 +217,8 @@ morning check-in** (a Hooper-style 1–5 self-report of fatigue/soreness/stress/
 - **No single component can force "go".** A clean HRV cannot upgrade a day that sleep, load
   or wellness drag down.
 - **Safety-critical inputs can unilaterally force "rest/modify"** (illness signs, acute
-  sleep deprivation, reported pain) — guardrails, not votes (see *Safety bounds*).
+  sleep deprivation, reported pain) — guardrails, not votes. Only the illness limb has
+  code behind it; the other two are coach rules (see *Safety bounds*, #87).
 - **Concordance scales confidence:** ≥3 inputs agreeing → high-confidence band and firmer
   language; mixed/conflicting → low-confidence, defer to the user.
 - Weights start from the fixed evidence-strength defaults above; individualising them from
@@ -225,7 +226,7 @@ morning check-in** (a Hooper-style 1–5 self-report of fatigue/soreness/stress/
   Emerging direction, not yet shipped (see `individualization`).
 
 **Estimation-error flags:** the score inherits *every* input's noise and confounds (alcohol,
-caffeine, heat, late meals, menstrual-cycle phase, travel, psychological stress,
+caffeine, heat, menstrual-cycle phase, travel, psychological stress,
 device/protocol drift, and ACWR's instability at low chronic load). It is undefined or
 low-confidence until each component has enough history (≈2–3 weeks for HRV/RHR baselines;
 ≥28 days before ACWR contributes). A single day is never decisive; the unit of action is the
@@ -248,8 +249,10 @@ components**.
 - **Conflict → defer to the person.** When signals disagree (great HRV, terrible sleep; or
   clean sensors, heavy legs), confidence is low — present both, weight the **subjective
   report and any pain highest** [Saw 2016], and let them choose.
-- **On a low-recovery morning, name the likely confounder** (a late-meal-plus-wine night is
-  frequently the cause, not a training signal) rather than alarming on the number.
+- **On a low-recovery morning, name the likely confounder** — but only a confounder this
+  product can actually observe or the person has actually reported (a logged drink the
+  night before, a logged illness flag, reported travel or heat), rather than alarming on
+  the number. Do **not** offer a late meal as the explanation: see *Honesty & uncertainty*.
 
 By **stage**:
 - **Stage 1 (beginner):** educational, not directive. Baselines aren't formed, ACWR is
@@ -266,16 +269,21 @@ By **stage**:
 
 ## Safety bounds
 Recovery is **not** a clinical tool and its *score* is not a guardrail, but it **routes**
-several safety-critical inputs that are hard bounds in their own notes and mirrored in code.
-These **override** any "go" the composite would otherwise give:
+several safety-critical inputs that are hard bounds in their own notes. These **override**
+any "go" the composite would otherwise give. **Two of the four have real code behind
+them and two do not** — the per-bullet ledger at the end of this section says which,
+because "mirrored in code" was written here as a blanket claim and it was not true
+(#87, 2026-08-01).
 
-- **Illness rule (hard, mirrored):** RHR sustained above baseline *with* illness symptoms
+- **Illness rule (hard; partly enforced — see the ledger below):** RHR sustained above
+  baseline *with* illness symptoms
   (fever, sore throat, body aches, malaise) → do **not** prescribe hard/intense training;
   advise rest. Training intensely through febrile illness carries cardiac risk (myocarditis).
-  Cannot be overridden by a green score or by the user [see `resting-heart-rate`]. Elevated
+  Cannot be overridden by a green score [see `resting-heart-rate`]. Elevated
   overnight RR **plus** temperature is surfaced as a **"possible early signal," never a
   diagnosis** [Smarr 2020; Quer 2021].
-- **Acute sleep deprivation (hard, mirrored):** acute deprivation (e.g. <~4–5 h, or a string
+- **Acute sleep deprivation (hard; NOT enforced — see the ledger below):** acute
+  deprivation (e.g. <~4–5 h, or a string
   of sub-6-h nights) caps prescribed intensity/load regardless of other inputs — no PRs, max
   efforts, or load jumps; default easy/short or rest [see `sleep_and_recovery`].
 - **Pain / injury (hard override):** any reported pain, injury, or red-flag wellness signal
@@ -284,6 +292,45 @@ These **override** any "go" the composite would otherwise give:
   symptomatic bradycardia — route to medical advice; never reassure cardiac symptoms.
 - Otherwise recovery-driven *easing* is conservative and low-risk. Recovery must **never** be
   used to *escalate* training on its own.
+
+**What is actually enforced (#87, verified against the tree 2026-08-01).** This section
+opened by calling all four bounds "mirrored in code", and D7 said they "cannot be
+overridden by the AI or the score". Half of that is true and half is not:
+
+- **Illness — GENUINELY ENFORCED, on two deterministic paths, but not on the coach's
+  prose and not on the trigger this note describes.** `derive/illness.py` writes an
+  `illness_flag` per owner per day from overnight respiratory rate + skin temperature
+  (never from symptoms — Healthee collects none, so the note's "RHR + fever/sore
+  throat/malaise" trigger is not the one implemented). While a flag is active,
+  `read/recovery_guidance.py` **replaces the band's guidance sentence entirely**, so a
+  green score cannot render "good day to push"; and `challenges/recovery_guard.py`
+  refuses to offer or raise a hard training lever (`mvpa_min`, `cardio_load`,
+  `workouts_week`). Those two are real overrides that neither the score nor the user can
+  argue with. **No output rule keys on illness**, so the sentence "cannot be overridden
+  by the AI" is not true of the conversational coach.
+- **Acute sleep deprivation — NOT ENFORCED as a cap.** Nothing caps prescribed
+  intensity after a short night. `insights/output_guard.py`'s `advise_sleep_restriction`
+  is a different rule pointing the other way: it blocks the coach *advising you to cut
+  sleep*, not training after you did. The only indirect path is that sleep carries 0.20
+  weight in `recovery_score`, and a `low` trailing-week band triggers
+  `challenges/recovery_guard.py` — a composite effect, not this bound.
+- **Pain / injury — NOT ENFORCED as stated.** Nothing in the tree records reported pain,
+  so "any reported pain overrides every go reading" has no input. Two narrower rules are
+  real: `output_guard.py` blocks an answer that advises training through a red-flag
+  symptom (chest pain, syncope, palpitations, dizziness, breathlessness) or through
+  suspected bone stress / RED-S.
+- **Clinical red flags (refer out) — ENFORCED, and strongly.** `insights/refusals.py`
+  classifies the question *before the model runs* and returns a fixed emergency response
+  for chest pain, chest tightness, fainting, loss of consciousness, "can't breathe" and
+  the stroke set; the model never sees it, so it cannot be prompted past.
+  `output_guard.py`'s `advise_through_red_flag_symptom` catches the answer-side case.
+
+**Mechanically, why none of this is compiled from this note:** only directives a note
+declares `safety_critical` in its frontmatter compile into
+`insights/guard_directives.py`, with a test asserting a rule exists per marker. **This
+note declares none.** Everything enforced above is hand-compiled elsewhere or lives in
+the derive/read/challenges layers; nothing fails the build if it disappears. D7 is a
+strong candidate for the `safety_critical` mechanism.
 
 ## Honesty & uncertainty
 - **The composite number is the weakest part.** The triangulation *principle* is strong; the
@@ -295,9 +342,23 @@ These **override** any "go" the composite would otherwise give:
   input (HRV-guidance) was non-significant [Manresa-Rocamora 2021]; recovery reflects
   autonomic *state*, not fitness or a race result.
 - **Garbage in, garbage out — multiplied.** Recovery inherits every confounder of every
-  input (alcohol, caffeine, heat, dehydration, late meals, illness, psychological/life stress,
+  input (alcohol, caffeine, heat, dehydration, illness, psychological/life stress,
   menstrual-cycle phase, travel/jet-lag, device/protocol drift). A "low recovery" morning is
-  frequently a late-meal-plus-wine morning, not a training signal.
+  frequently a night with a drink in it, not a training signal [see `alcohol_sleep`].
+- **"Late meals" used to be on that list, and it is now off it (#92, 2026-08-01).** This
+  note listed late eating among the confounders of a low-recovery morning here and in
+  Directive D10, **with no citation**. [[late_eating_sleep]] searched specifically for a
+  primary source linking late eating to overnight HRV or resting heart rate and found none
+  it could verify; a second search for this fix found none either. What exists is adjacent
+  and does not support the claim: Uçar 2021 measured HRV after two *different late* meals
+  (easily- vs slowly-digestible, both at 22:00, n = 16) and so never tested late-vs-early;
+  the meal-timing/HRV-circadian work is about the *acrophase* of the 24-h HRV rhythm in
+  shift and rotating-shift workers, not about one morning's recovery score; and the only
+  overnight-HR figure we found (heavier evening meals ≈ +0.73 bpm) is an unreviewed 2026
+  preprint about meal *size*, not lateness. So the claim is **removed, not softened** —
+  and Healthee logs no meals at all, so even a sourced version could never be said about
+  this owner. This paragraph is the record of the removal; do not reintroduce the
+  confounder without a primary source.
 - **Components disagree, and that's expected.** HRV and RHR are only partly coupled; subjective
   wellness routinely **doesn't correlate** with objective markers [Saw 2016]. Disagreement is
   information (lower confidence), not a malfunction; a single tidy number hides this.
@@ -372,8 +433,12 @@ These **override** any "go" the composite would otherwise give:
   overreached. — confidence: Established (safety-relevant)
 - **D7:** **Safety inputs are hard overrides, not votes:** illness-symptom + elevated RHR
   (and/or elevated RR + temperature as a "possible early signal"), acute sleep deprivation,
-  and any reported pain/injury force modify/rest regardless of the composite. Mirrored in
-  code; cannot be overridden by the AI or the score. — confidence: Established (safety-critical)
+  and any reported pain/injury force modify/rest regardless of the composite. **Only the
+  illness limb is enforced in code** (`derive/illness.py` → `read/recovery_guidance.py` +
+  `challenges/recovery_guard.py`), and there it cannot be overridden by the score; the
+  sleep-deprivation and pain limbs are coach rules with no code behind them, and no output
+  rule stops the AI on any of the three. See *Safety bounds*, #87. — confidence:
+  Established (safety-critical)
 - **D8:** **Never use recovery to escalate** training and **never claim it predicts
   performance**; it eases or holds — the meta-analytic VO₂max effect was NS. — confidence: Probable
 - **D9:** Treat the **composite number as low-precision** and label it an **estimate**;
@@ -381,7 +446,9 @@ These **override** any "go" the composite would otherwise give:
   ("recovery 72 → 58 (−14 today's load)"), never a validated battery. — confidence: Probable
 - **D10:** Suppress or down-weight recovery when components lack history (≈2–3 weeks for
   HRV/RHR baselines; ≥28 days before ACWR contributes) or when an obvious confounder
-  (alcohol, late meal, heat, travel, illness, menstrual phase) explains a dip. — confidence: Probable
+  (alcohol, heat, travel, illness, menstrual phase) explains a dip. **Never a late meal** —
+  that confounder was removed as unsourced (#92); see *Honesty & uncertainty* and
+  [[late_eating_sleep]]. — confidence: Probable
 - **D11:** Keep recovery **opt-in and non-moralised**; imposed daily verdicts reduce
   responsiveness and can cause the stress they measure (reactivity/orthosomnia). —
   confidence: Probable

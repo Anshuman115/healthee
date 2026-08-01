@@ -274,6 +274,15 @@ the clinical ≤12 bpm figure, for training decisions.
 - The clinical HRR ≤12 bpm mortality threshold [Cole et al. 1999] is **not** a
   training rule; if a runner reports a persistently and abnormally blunted HRR with
   symptoms, advise medical review rather than acting on it as a training metric.
+- **Not enforced in code** — the bounds above, and the heat/hydration stop-and-cool
+  guardrail they defer to, are rules for the coach, not hard guardrails. Only directives
+  a note declares `safety_critical` in its frontmatter compile into
+  `insights/guard_directives.py`, and neither this note nor `environmental-stress`
+  declares any; both are candidates for that mechanism. What *is* deterministic and
+  adjacent: `insights/refusals.py` routes a question mentioning fainting, confusion-type
+  emergency phrasing or chest pain to a static emergency response before the model runs,
+  and `insights/output_guard.py` blocks an answer that advises training through a
+  red-flag symptom. Neither is a heat rule. (Corrected 2026-08-01, #87.)
 
 ## Bottom line
 
@@ -342,8 +351,8 @@ the clinical ≤12 bpm figure, for training decisions.
   confidence: Probable
 - **D9 (safety):** Never override pacing or stop a session on decoupling/HRR alone.
   Rising drift *plus* heat-illness signs on a hot day defers to the
-  heat/hydration safety guardrails (stop-and-cool), which the AI cannot override. —
-  confidence: Established
+  heat/hydration safety guardrails (stop-and-cool). (Those are coach rules, not code —
+  not enforced in code, see *Safety bounds*, #87.) — confidence: Established
 
 ## Key references
 

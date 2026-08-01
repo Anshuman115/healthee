@@ -16,8 +16,14 @@ contract):
 2. **Grounding** — the AI reasons from the retrieved docs and may cite them.
 3. **Directives** — each doc's **Coach Directives** block is the machine-applicable
    output. The cross-cutting digest lives in
-   **[COACHING-RULES.md](./COACHING-RULES.md)**; safety-critical directives are
-   mirrored as hard guardrails in `@daud/core` and can never be overridden by the AI.
+   **[COACHING-RULES.md](./COACHING-RULES.md)**. A directive becomes a hard guardrail
+   the AI cannot override **only** when its note declares it in frontmatter
+   (`safety_critical: [5, 6]`) and a rule for it exists in
+   `insights/guard_directives.py`; a test asserts the two sets are equal, both ways
+   (#87). *(This line used to say safety-critical directives were "mirrored as hard
+   guardrails in `@daud/core`" — a module that exists nowhere. No sports-science doc
+   currently declares a marker, so **none** of the directives in this collection is
+   enforced in code today.)*
 4. **Calibration** — the AI's confidence and phrasing track each claim's evidence
    grade (Established → Probable → Emerging → Contested → Myth/Refuted).
 
@@ -54,16 +60,26 @@ doc's *overall* grade — individual claims inside a doc carry their own grade.
 >    band table, half-open convention and sub-50% rule — relabelled convention; the
 >    Tanaka/Karvonen *formulas* were always properly cited), `maximum-heart-rate` (the
 >    ~220 bpm and 15–20 bpm/s artefact bounds — relabelled our engineering judgement).
->    **Still unfixed:** `pace-zones` (the five speed-fraction band boundaries, sourced
->    to `computePaceZones`), `training-stress-score` (the power→rTSS→hrTSS→sRPE
->    preference order), `fitness-fatigue-form` (the 42/7-day time constants).
-> 2. **~24 notes assert enforcement that does not exist.** Every "mirrored as a hard
->    guardrail in `@daud/core`, the AI may not override" line is false twice over:
->    the module is fictional, AND `insights/output_guard.py` is hand-compiled — no
->    note carries a `safety_critical` flag and the manifest emits no `directives`
->    (Engineering Standards §4). `METHODOLOGY.md`, `TEMPLATE.md` and
->    `COACHING-RULES.md` now say so at the top; **the ~24 individual note lines have
->    not been rewritten.** They are the largest remaining item of this audit.
+>    **Closed 2026-08-01 (#88):** `pace-zones`'s five speed-fraction band boundaries
+>    and `training-stress-score`'s power→rTSS→hrTSS→sRPE preference order were each
+>    searched for a primary source, **none was found**, and both now say so in place of
+>    the fictional module. `fitness-fatigue-form`'s 42/7 turned out **not** to be a
+>    phantom-source case — its trail (Banister's fits, rounded by TrainingPeaks, [Allen
+>    & Coggan 2019]) is real and was already stated; only its `@daud/core`
+>    implementation claim was false. None of the three is implemented in `apps/`; they
+>    are prompt constants, which is how an unsourced table still reaches a user.
+> 2. **~24 notes asserted enforcement that did not exist — CLOSED 2026-08-01 (#87),
+>    from both ends.** Every "mirrored as a hard guardrail in `@daud/core`, the AI may
+>    not override" line was false twice over: the module is fictional, AND
+>    `insights/output_guard.py` read nothing from the corpus. Both halves are now
+>    addressed. A note can now MAKE the claim truthfully — `safety_critical` in
+>    frontmatter, validated by `gen_manifest.py`, compiled by
+>    `insights/guard_directives.py`, bijected by `tests/insights/test_guard_directives.py`
+>    — and every note that does **not** declare one has had its enforcement sentence
+>    rewritten to say plainly that the rule is for the coach to follow, not a guarantee.
+>    Four directives are marked so far, all in `notes/`: `napping` D5,
+>    `hydration_everyday` D5/D6, `late_eating_sleep` D5. **No sports-science doc is
+>    marked**, so nothing in this collection is enforced — which the docs now say.
 
 ---
 

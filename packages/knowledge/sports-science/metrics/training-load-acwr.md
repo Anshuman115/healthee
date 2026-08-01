@@ -255,8 +255,8 @@ This is the section that matters most for this metric.
 ## Safety bounds
 ACWR is **not** a safety-critical guardrail and must not be used as a hard gate that
 blocks training, because its false-positive and false-negative rates are unacceptable
-for that role. The defensible hard bounds Daud mirrors in `@daud/core` come from the
-*running progression* literature, not from the ratio:
+for that role. The defensible hard bounds below come from the *running progression*
+literature, not from the ratio:
 
 - **Hard:** Flag and require explicit user confirmation before prescribing a **long run
   >10% longer than the longest run in the prior 30 days** (down-weight, suggest a smaller
@@ -268,6 +268,18 @@ for that role. The defensible hard bounds Daud mirrors in `@daud/core` come from
   multiple days, always cross-checked with wellness/HRV/pain.
 - **Override:** Any reported pain, injury, or red-flag wellness signal overrides every
   "safe" ACWR reading.
+- **Not enforced in code.** Every bound above is a rule for the coach to follow, not a
+  guarantee — the word "Hard" labels how firmly the coach must hold it, not a code gate.
+  (The section intro previously read "The defensible hard bounds Daud mirrors in
+  `@daud/core` come from the *running progression* literature" — a module that exists
+  nowhere in this repo, in `~/projects/healthee-legacy`, or in git history; the phrase
+  arrived with the upstream sports-science corpus import. Only directives a note declares
+  `safety_critical` in its frontmatter compile into `insights/guard_directives.py`, and
+  this note declares none — these bounds are a candidate for that mechanism, not a user
+  of it. The one adjacent thing that *is* deterministic is unrelated to ACWR: the
+  red-flag-symptom and bone-stress rules in `insights/output_guard.py` block an answer
+  that advises training through chest pain, syncope or a suspected bone-stress injury.
+  Corrected 2026-08-01, #87.)
 
 ## Bottom line
 
@@ -305,9 +317,9 @@ arithmetic, and neither method is clearly superior for actually predicting injur
   consistent progression. *Principle is well-supported; exact rate is not.*
 - **D2 — [Emerging, running-specific]** Flag any planned long run **>10% longer** than the
   runner's longest run in the prior 30 days and propose a smaller step; require explicit
-  confirmation before exceeding it. Mirror in `@daud/core`. *(Evidence is a single large
-  cohort [Frandsen 2025], not yet replicated — this is a low-cost, conservative default
-  rather than a settled threshold.)*
+  confirmation before exceeding it. (Not enforced in code — see *Safety bounds*, #87.)
+  *(Evidence is a single large cohort [Frandsen 2025], not yet replicated — this is a
+  low-cost, conservative default rather than a settled threshold.)*
 - **D3 — [Probable]** Never auto-prescribe a **>30% single-run or 2-week distance jump** to a
   runner without ≥6 months consistent base. [Nielsen 2014]
 - **D4 — [Established, methodological]** Do **not** treat ACWR as an injury predictor or a hard

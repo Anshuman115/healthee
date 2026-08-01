@@ -586,6 +586,10 @@
       "name": "Everyday hydration (non-exercise)",
       "path": "notes/intake/hydration_everyday.md",
       "population": "general",
+      "safety_critical": [
+        5,
+        6
+      ],
       "summary": "The '8 glasses a day' rule has no scientific basis — a systematic search found 'no scientific studies in support of 8 x 8' (Valtin 2002) — and caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate."
     },
     {
@@ -745,6 +749,9 @@
       "name": "Late eating and sleep",
       "path": "notes/intake/late_eating_sleep.md",
       "population": "general",
+      "safety_critical": [
+        5
+      ],
       "summary": "The popular rule 'stop eating three hours before bed' is not settled science. Observational work mostly finds worse sleep with late eating — but the association is modest and fragile (eating within 3 h of bedtime: nocturnal awakening OR 1.61 unadjusted, 1.43 [1.00-2.04] adjusted; sleep-onset latency and duration null), while the controlled experiment that moved dinner from 5 h to 1 h before bed found 'conventional sleep stages were similar' and no adverse change in sleep architecture. A 2024 Sleep Medicine Reviews scoping review states plainly that interventional studies conflict with the observational picture. Healthee logs no meals at all, so we can never say this happened to the owner."
     },
     {
@@ -765,7 +772,7 @@
       "name": "LLM health-advice safety guardrails",
       "path": "notes/recs/llm_health_advice_safety.md",
       "population": "general",
-      "summary": "LLMs pass medical exams yet hallucinate confident-but-wrong medical content and miscalibrate uncertainty, so the recs layer only SYNTHESIZES the user's own findings into cited action items — never diagnoses, doses, interprets symptoms, or projects personal mortality — with every claim post-hoc validated against repo notes and mental-health emergencies routed to a static hotline. Safety-critical guardrails, mirrored in code."
+      "summary": "LLMs pass medical exams yet hallucinate confident-but-wrong medical content and miscalibrate uncertainty, so the recs layer only SYNTHESIZES the user's own findings into cited action items — never diagnoses, doses, interprets symptoms, or projects personal mortality — with every claim post-hoc validated against repo notes and mental-health emergencies classified BEFORE any model call and answered with a fixed refusal (which names a professional or physician — it carries no hotline number). The directives are safety-critical; SOME are genuinely enforced in code and some are not, and the note says which, item by item — do not read it as a blanket guarantee (#87)."
     },
     {
       "aliases": [
@@ -1017,6 +1024,9 @@
       "name": "Daytime napping",
       "path": "notes/sleep/napping.md",
       "population": "general",
+      "safety_critical": [
+        5
+      ],
       "summary": "A 10–20 minute afternoon nap appears to restore alertness for roughly two hours, and naps of 30 minutes or more buy that back with sleep inertia — a period of *worse* performance on waking. Whether habitual napping is good or bad for long-term health is genuinely disputed: the same literature contains a 1.82 CVD rate ratio for naps ≥60 min/day and a 0.52 hazard ratio for napping once or twice a week. Our strap tags naps itself and they are excluded from every night-sleep metric by design, so a nap is visible to the coach as a session but changes no number."
     },
     {
@@ -1551,11 +1561,11 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "sleep_duration_mortality",
-      "last_reviewed": "2026-07-15",
+      "last_reviewed": "2026-08-01",
       "name": "Sleep duration and all-cause mortality",
       "path": "notes/sleep/sleep_duration_mortality.md",
       "population": "general",
-      "summary": "Habitual sleep shows a U-shaped tie to mortality — both short (<6h) and long (>9h) carry higher risk than 7–8h — but it's observational, self-reported, and a population signal, never a single-night verdict."
+      "summary": "Habitual sleep shows a U-shaped tie to mortality — both short and long sleep carry higher risk than each cohort's own normal-sleep reference (pooled RR 1.12 short, 1.30 long) — but Cappuccio 2010 states NO reference band, and it is observational, self-reported, and a population signal, never a single-night verdict. Where a recommended band is needed the citation is NSF 2015 (7–9 h for 18–64), not this paper."
     },
     {
       "aliases": [

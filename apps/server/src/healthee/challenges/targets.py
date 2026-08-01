@@ -192,9 +192,12 @@ CURVE: dict[str, Curve] = {
     # shape claim and it earns SRI a ranked gap — but it says nothing about WHERE the
     # marginal return is largest, so it does not earn the bottom-of-curve promotion.
     "sri": Curve(MONOTONE, "sleep_regularity_index"),
-    # U-shaped: both short (<6 h) and long (>9 h) sleep carry higher risk than 7–8 h. The
-    # consequence for a lever is direction-critical — a gap only exists BELOW the band,
-    # and the long tail is read as a marker of illness, not a thing to chase.
+    # U-shaped: both short and long sleep carry higher risk than the middle of the curve
+    # (Cappuccio 2010, pooled RR 1.12 short / 1.30 long). The consequence for a lever is
+    # direction-critical — a gap only exists BELOW the band, and the long tail is read as
+    # a marker of illness, not a thing to chase. (This said "higher risk than 7-8 h";
+    # Cappuccio states NO reference band — #88. The shape, which is all this Curve uses,
+    # is unaffected.)
     "tst_min": Curve(U_SHAPED, "sleep_duration_mortality"),
     # Everything else is `UNKNOWN` by absence: `cardio_load` and `active_calories` are
     # individual-load quantities with no population dose-response at all, `workouts_week`
@@ -233,7 +236,8 @@ MEANINGFUL_STEP: dict[str, Target] = {
     # (<4,000), nudge toward ≥6,000 next — the largest marginal gain").
     "steps_total": Target(1000.0, "day", "steps_mortality"),
     # NOTHING ELSE HAS ONE, and each absence is a decision:
-    # * `tst_min` — the corpus gives a BAND (7–8 h) and a threshold (<6 h), never a
+    # * `tst_min` — the corpus gives a BAND (NSF 2015: 7-9 h for 18-64) and a common
+    #   short-sleep threshold (<6 h), never a
     #   per-minute gradient. It also does not need one: sleep baselines are hundreds of
     #   minutes, so 10 % is already 20+ minutes of sleep. The percentage rule is only
     #   wrong-shaped where the baseline is small.

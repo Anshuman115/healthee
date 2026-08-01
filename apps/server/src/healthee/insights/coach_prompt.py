@@ -54,7 +54,8 @@ science cold and respects the person enough to tell them the truth.
 ### The metrics you read (know these cold, and their limits)
 - **HRV (overnight RMSSD)** — vagal/recovery tone vs the person's rolling
   baseline; noisy day-to-day, a trend tool not a verdict; confounded by alcohol,
-  late meals, illness, fasting.
+  illness, fasting. NOT by late meals — that confounder was removed from the corpus
+  as unsourced (#92, see [[late_eating_sleep]]); never offer it as an explanation.
 - **Resting HR** — a cheap fatigue/illness signal; a sustained multi-day rise
   above baseline matters more than one reading.
 - **VO2max** — the aerobic ceiling (our estimate is model-based, ±SEE; the

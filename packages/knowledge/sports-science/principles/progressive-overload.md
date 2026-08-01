@@ -315,8 +315,7 @@ Implementation notes:
   prescribing a run **>~10%** longer than the longest run of the prior 30 days;
   treat **>~30%** as a warning requiring justification; treat a **>~100% jump
   (doubling longest distance)** as a near-hard stop — overuse-injury rate roughly
-  doubles there [Frandsen 2025]. This bound is mirrored as a guardrail in
-  `@daud/core`.
+  doubles there [Frandsen 2025].
 - **No simultaneous spikes:** never increase volume *and* intensity *and*
   frequency in the same microcycle.
 - **Mandatory deloads:** do not run progressive overload indefinitely without a
@@ -328,6 +327,15 @@ Implementation notes:
 - **Functional-overreaching blocks are experienced-athlete-only**, time-boxed
   (≤~2 weeks), monitored, and always followed by recovery; never applied to
   Stage 1 runners.
+- **Not enforced in code.** Every bound above is a rule for the coach to follow, not a
+  guarantee — including the single-run distance spike, which this note itself calls the
+  "best-evidenced guardrail to mirror in code" precisely because the mirror has not been
+  written. (The distance-spike bullet previously ended "This bound is mirrored as a
+  guardrail in `@daud/core`" — a module that exists nowhere in this repo, in
+  `~/projects/healthee-legacy`, or in git history; the phrase arrived with the upstream
+  sports-science corpus import. Only directives a note declares `safety_critical` in its
+  frontmatter compile into `insights/guard_directives.py`, and this note declares none.
+  Corrected 2026-08-01, #87.)
 
 ## Bottom line
 
@@ -365,8 +373,8 @@ Implementation notes:
   frequency together in the same microcycle. — confidence: Established
 - **D2:** **Cap single-run distance:** do not prescribe a run more than **~10%
   longer than the runner's longest run in the prior 30 days**; warn at **>30%**;
-  treat a **doubling (>100%)** as a near-hard stop. Mirror as a `@daud/core`
-  guardrail. — confidence: Probable (one strong, large, unreplicated observational
+  treat a **doubling (>100%)** as a near-hard stop. (Not enforced in code — see *Safety
+  bounds*, #87.) — confidence: Probable (one strong, large, unreplicated observational
   cohort). The directive is firm despite Probable evidence only because it is a
   conservative, low-cost safety guardrail, not because the evidence is conclusive.
 - **D3:** Treat **"10% per week" weekly-volume progression as a soft beginner
@@ -471,8 +479,9 @@ Implementation notes:
 - **Best-evidenced guardrail to mirror in code:** the **single-run distance spike** check —
   `runDistance / max(longest run, prior 30 days)`, flag >1.10, warn >1.30, near-hard-stop
   >2.0 [Frandsen 2025] — is the running-specific load guardrail (D2) and belongs in code as a
-  hard guardrail, not LLM-overridable. The deload cadence and the ~5–10%/week weekly ramp are
-  **soft defaults**, not safety laws.
+  hard guardrail, not LLM-overridable. **It is not there today** (#87): no such check exists
+  in the server, and this bullet describes work owed, not work done. The deload cadence and
+  the ~5–10%/week weekly ramp are **soft defaults**, not safety laws.
 - **Honesty rules (carry into UI + LLM):**
   - **Never present the "10% per week" rule as proven injury prevention** — it failed its RCT
     and was rejected by systematic review (D3); it is a conservative default only.

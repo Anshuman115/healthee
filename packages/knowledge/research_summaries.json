@@ -234,7 +234,7 @@
       "grade": "Probable",
       "id": "llm_health_advice_safety",
       "name": "LLM health-advice safety guardrails",
-      "summary": "LLMs pass medical exams yet hallucinate confident-but-wrong medical content and miscalibrate uncertainty, so the recs layer only SYNTHESIZES the user's own findings into cited action items — never diagnoses, doses, interprets symptoms, or projects personal mortality — with every claim post-hoc validated against repo notes and mental-health emergencies routed to a static hotline. Safety-critical guardrails, mirrored in code."
+      "summary": "LLMs pass medical exams yet hallucinate confident-but-wrong medical content and miscalibrate uncertainty, so the recs layer only SYNTHESIZES the user's own findings into cited action items — never diagnoses, doses, interprets symptoms, or projects personal mortality — with every claim post-hoc validated against repo notes and mental-health emergencies classified BEFORE any model call and answered with a fixed refusal (which names a professional or physician — it carries no hotline number). The directives are safety-critical; SOME are genuinely enforced in code and some are not, and the note says which, item by item — do not read it as a blanket guarantee (#87)."
     },
     {
       "applies_to_metrics": [
@@ -480,7 +480,7 @@
       "grade": "Established",
       "id": "sleep_duration_mortality",
       "name": "Sleep duration and all-cause mortality",
-      "summary": "Habitual sleep shows a U-shaped tie to mortality — both short (<6h) and long (>9h) carry higher risk than 7–8h — but it's observational, self-reported, and a population signal, never a single-night verdict."
+      "summary": "Habitual sleep shows a U-shaped tie to mortality — both short and long sleep carry higher risk than each cohort's own normal-sleep reference (pooled RR 1.12 short, 1.30 long) — but Cappuccio 2010 states NO reference band, and it is observational, self-reported, and a population signal, never a single-night verdict. Where a recommended band is needed the citation is NSF 2015 (7–9 h for 18–64), not this paper."
     },
     {
       "applies_to_metrics": [

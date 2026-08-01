@@ -17,6 +17,14 @@ id: snake_case_id                     # citable id — must match [a-z0-9_]+
 name: "Human Readable Name"
 category: metrics | principles | wellness | activity | sleep | hrv | metrics | intake | recovery | meditation
 grade: Established | Probable | Emerging | Contested | Myth | Refuted   # the ONLY grade
+safety_critical: [5, 6]               # OPTIONAL. Coach Directive numbers this note
+                                      # claims are HARD GUARDRAILS. Each must exist and
+                                      # say SAFETY-CRITICAL in its own text, and each
+                                      # must have a compiled rule in
+                                      # insights/guard_directives.py — a test asserts
+                                      # the bijection both ways, so the claim cannot
+                                      # rot into a lie (#87). Omit unless you are also
+                                      # writing the rule.
 summary: "One line: what it is and the single most useful takeaway."
 aliases: ["other-name", "hyphenated-slug", "synonym"]
 applies_to_metrics: ["derived_daily metric name(s) this backs"]   # [] if not-yet-computed
@@ -49,8 +57,12 @@ lives in the implementation section below; this is the science-facing summary.)
 (Staged, decision-oriented: what the coach does at each level of the signal.)
 
 ## Safety bounds
-(Hard limits. Safety-critical directives here are mirrored as code guardrails and
-are never overridable by the LLM.)
+(Hard limits. **Do not write that a limit is "mirrored as a code guardrail" unless
+this note declares the directive in `safety_critical` and a rule for it exists in
+`insights/guard_directives.py`.** ~24 notes made that claim about `@daud/core`, a
+module that exists nowhere, and a false safety claim inside the safety system is the
+worst kind — an auditor reads it and stops looking. If it is not enforced, say so:
+"a rule for the coach, not a guarantee". #87.)
 
 ## Honesty & uncertainty
 (Confounders, individual variation, the metric's limits, what it CANNOT tell you.
@@ -61,8 +73,10 @@ Mandatory — a note without this is incomplete.)
 **Hold loosely:** (uncertain, individual, or thin.)
 
 ## Coach Directives
-(Numbered, machine-applicable imperatives, each with a confidence. Mark
-SAFETY-CRITICAL ones — they become hard guardrails.)
+(Numbered, machine-applicable imperatives, each with a confidence. A directive marked
+**SAFETY-CRITICAL** in its text AND named in the frontmatter's `safety_critical` list
+compiles into a hard guardrail; marking one obliges you to write its rule and its
+fire/no-fire tests in the same PR.)
 1. ...  *(confidence: high)*
 
 ## References

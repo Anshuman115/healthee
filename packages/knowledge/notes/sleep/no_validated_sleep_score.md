@@ -54,7 +54,7 @@ cannot be "validated" the way TST or efficiency can.
 
 | Metric | Validated as | Reference |
 | --- | --- | --- |
-| Total sleep time (TST) vs mortality | Strong U-shaped curve, 7–9 h optimal | `sleep_duration_mortality` (Cappuccio 2010) |
+| Total sleep time (TST) vs mortality | Strong U-shaped curve; the recommended band is NSF 2015's 7–9 h (18–64), **not** Cappuccio's — that paper states no reference band (#88) | `sleep_duration_mortality` (Cappuccio 2010 for the shape; Hirshkowitz 2015 for the band) |
 | Sleep efficiency (TST/TIB) | Long-standing AASM *clinical-consensus* reference point, not an outcome-validated cutoff: < 85 % is listed as a common insomnia complaint and > 80–85 % as a treatment goal | Schutte-Rodin 2008, J Clin Sleep Med 4(5):487–504, PMID 18853708 (AASM clinical guideline) |
 | Wake After Sleep Onset (WASO) | Standard fragmentation marker; the guideline's complaint level is > 30 min | Schutte-Rodin 2008 (as above) |
 | Sleep Regularity Index (SRI) | All-cause mortality, cardiometabolic risk | `sleep_regularity_index` (Phillips 2017; Windred 2024) |
@@ -97,7 +97,7 @@ We do not compute a single continuous sleep score. Instead the dashboard's sleep
 area shows the four wearable-computable RU-SATED dimensions individually (per
 `feedback_no_composite_score`):
 
-1. **Duration**   — TST vs 7–9 h band, cite `sleep_duration_mortality`
+1. **Duration**   — TST vs the 7–9 h band (NSF 2015), cite `sleep_duration_mortality`
 2. **Efficiency** — TST / TIB, target > 85 %, cite Schutte-Rodin 2008 (AASM guideline)
 3. **Regularity** — SRI on 7-day rolling window, cite `sleep_regularity_index`
 4. **Timing**     — sleep midpoint vs personal baseline, cite `sleep_consistency`
@@ -189,10 +189,20 @@ is any future composite — it may only ship if it clears the transparency bar
   is deprecated; the dashboard reads the four dimension rows and the transparent
   binary `sleep_health_score_4dim` (0–4) instead (`derive/sleep_score.py`, see
   `sleep_score_implementation_plan`).
-- **Honesty rule (mirrored in UI + LLM):** never render or repeat a 0–100 composite
-  sleep score as a measurement; the only shipped composite is the 0–4 binary sum,
-  and it is **always** shown with its four contributing dimensions and per-dimension
-  citations — the same "no bare composite number" contract used for
-  `recovery_score` (see `recovery_readiness`) and biological age.
+- **Honesty rule:** never render or repeat a 0–100 composite sleep score as a
+  measurement; the only shipped composite is the 0–4 binary sum, and it is **always**
+  shown with its four contributing dimensions and per-dimension citations — the same "no
+  bare composite number" contract used for `recovery_score` (see `recovery_readiness`)
+  and biological age.
+  - **Structurally true for the UI, NOT enforced for the LLM (#87, corrected
+    2026-08-01).** This bullet was headed "(mirrored in UI + LLM)". For the UI it holds
+    for a stronger reason than a guardrail: `derive/sleep_score.py` computes no 0–100
+    composite, so **there is no such field to render** — the omission is the protection.
+    For the LLM there is no protection: nothing in `insights/output_guard.py` or
+    `insights/guard_directives.py` blocks a model that invents a "sleep score of 82".
+    This note declares no `safety_critical` directive in its frontmatter, and only a
+    declared marker compiles into `insights/guard_directives.py`. The rule is carried by
+    the note text, the system prompt and the validator — a floor made of prose, not of
+    code.
 - This is a **documented, deliberate product omission**, not an unimplemented
   feature: parity with the no-composite-readiness stance.

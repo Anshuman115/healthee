@@ -71,7 +71,7 @@ long sleep carry elevated risk; see `sleep_duration_mortality`).
   accumulating without plateau** — the empirical basis for treating debt as
   cumulative, not just "last night." Landmark controlled lab study; replicated by
   Belenky 2003. **★★** (lab cognition endpoints, n small).
-- **[Established]** **The 7–9 h target's health backing** — Cappuccio et al.
+- **[Established]** **The health backing for a mid-curve target** — Cappuccio et al.
   (2010), *Sleep* 33(5):585-592, U-shaped duration↔all-cause mortality
   meta-analysis (n ≈ 1.4 M; both < 6 h and > 9 h carry elevated risk). Backs the
   *target* the need is set to. **★★★** (see `sleep_duration_mortality`).
@@ -92,8 +92,10 @@ so a long gap doesn't read as an implausible deficit. This is arithmetic over on
 measured quantity (TST) against a cited target — not a proprietary composite (cf.
 `no_validated_sleep_score`, `sleep_duration_mortality`).
 
-*What it quantifies:* NSF need is a *recommendation band*, not an effect size; the
-7–9 h target's backing is the Cappuccio U-curve. Van Dongen quantifies the
+*What it quantifies:* NSF need is a *recommendation band*, not an effect size. The
+7–9 h band is **NSF 2015's**; Cappuccio backs only the U-*shape* around it and states
+no reference band of his own (#88, see `sleep_duration_mortality`) — so "the U-curve
+supports 7–9 h" is a claim about direction, never about those two numbers. Van Dongen quantifies the
 cumulative cost of restriction (6 h × 14 nights ≈ 2 nights of total deprivation,
 still accumulating), which is why debt is modelled as cumulative rather than
 last-night.

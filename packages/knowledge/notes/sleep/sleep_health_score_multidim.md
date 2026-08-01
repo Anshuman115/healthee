@@ -147,8 +147,9 @@ dimensions and suggested cutoffs but no scoring formula.)
 - **Effect**: per 1-point better composite, OR 0.901 (0.814–0.997, p = .04) for
   cardiometabolic morbidity. Effect size **small**.
 - Cutoffs derived empirically in this cohort — they are not gold-standard thresholds
-  and Brindle's own Duration window (5.3–7.1 h) is markedly shorter than the Cappuccio
-  mortality U-curve (7–9 h, see `sleep_duration_mortality`). This disagreement is a
+  and Brindle's own Duration window (5.3–7.1 h) is markedly shorter than the 7–9 h band
+  (**NSF 2015's recommendation**, not Cappuccio's — that paper states no reference band;
+  #88, see `sleep_duration_mortality`). This disagreement is a
   meaningful caveat.
 
 #### Lee S 2022 — MIDUS, heart disease, with actigraphy sub-cohort [Probable]
@@ -269,12 +270,14 @@ healthee is therefore a **reasonable extrapolation, not a replication**.
    unequally (Rhythmicity HR 0.89 per SD; Sleepiness n.s.). Summing binaries treats
    them as equal — a known limitation called out in the Brindle 2019 discussion.
 2. **Binary cutoffs lose information.** A duration of 6.5 h and 7.5 h both score
-   "good" under most schemas, but only the latter is on the optimum of the Cappuccio
-   mortality curve.
+   "good" under most schemas, but only the latter is inside the recommended band.
+   *(This said "on the optimum of the Cappuccio mortality curve"; the band's citation
+   is NSF 2015 and Cappuccio locates no optimum at all — #88.)*
 3. **Cutoffs disagree across papers.** Brindle 2019's empirical good-duration range
-   (5.3–7.1 h) conflicts with the mortality-validated 7–9 h band
-   (`sleep_duration_mortality`). Choosing one cutoff implicitly endorses one
-   validation paradigm.
+   (5.3–7.1 h) conflicts with the recommended 7–9 h band (NSF 2015 — *not*
+   "mortality-validated", which is what this line used to call it; the mortality
+   meta-analysis states no band, #88, see `sleep_duration_mortality`). Choosing one
+   cutoff implicitly endorses one validation paradigm.
 4. **Wearable stage classification is noisy.** AASM-style efficiency requires
    TST/TIB, and TST from a consumer wrist device has macro-F1 ≈ 0.26–0.69 vs PSG
    (Chinoy 2021). The "Efficiency = TST/TIB > 85 %" cutoff inherits that noise.
@@ -325,7 +328,7 @@ score.
   primary-source verified 2026-08-01.]*
 - **Equal weighting, binary information loss, cutoff disagreement, and noisy wearable
   staging** (Pitfalls 1–6 above) all apply.
-- The Brindle 5.3–7.1 h duration window disagrees with the mortality-validated 7–9 h
+- The Brindle 5.3–7.1 h duration window disagrees with the NSF-recommended 7–9 h
   band — a genuine unresolved tension.
 
 ## Bottom line

@@ -237,10 +237,18 @@ This section is mandatory and load-bearing.
   which has a safety dimension: an over-optimistic marathon goal drives early
   over-pacing → glycogen crash, heat strain and DNF/collapse risk. Therefore the
   coach must **never present an un-banded, aggressive marathon prediction as a
-  target**, especially for a first marathon (mirror as guardrail in `@daud/core`:
-  marathon predictions carry a mandatory conservative bias + range).
+  target**, especially for a first marathon — marathon predictions carry a mandatory
+  conservative bias + range.
 - Do not let a stale or non-maximal input drive a race-day pace plan without an
   explicit confidence flag.
+- **Not enforced in code.** The bounds above are rules for the coach to follow, not
+  guarantees. (The marathon bullet previously ended "(mirror as guardrail in
+  `@daud/core`: marathon predictions carry a mandatory conservative bias + range)" — a
+  module that exists nowhere in this repo, in `~/projects/healthee-legacy`, or in git
+  history; the phrase arrived with the upstream sports-science corpus import. Only
+  directives a note declares `safety_critical` in its frontmatter compile into
+  `insights/guard_directives.py`, and this note declares none — these bounds are a
+  candidate for that mechanism, not a user of it. Corrected 2026-08-01, #87.)
 
 ## Bottom line
 

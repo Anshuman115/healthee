@@ -274,19 +274,39 @@ test/          parser goldens + analytics parity + widget smoke tests
   instructing the product to state a debunked claim as fact. `make knowledge` rejects
   a note that reintroduces the field. Where code needs a numeric rank it derives one
   from the string in `insights/manifest.py::GRADE_RANK` — one definition, and the only
-  one that can rank Contested (1) and Myth (0).
+  one that can rank Contested (1) and Myth (0). *(As of #88 that name is a re-export:
+  the map itself lives in `core/knowledge.py`, because `analytics/notes.py` needs it
+  too and `analytics/` may not import `insights/`. It had quietly grown a second,
+  identical copy there — identical being exactly the state the two grade FIELDS were
+  in before they started publishing `Myth` as `Established`. Import it from either
+  name; there is one dict.)*
 - **Citations are real or absent** — a claim that can't be sourced is labelled
   practitioner consensus or omitted. Verify primary sources BEFORE writing.
 - **Honesty section is mandatory** in every note: confounders, individual
   variation, limits of the metric.
-- **Directives blocks**: each note ends with machine-applicable rules; the
-  safety-critical ones are mirrored as hard guardrails in server code and can
-  never be overridden by the LLM. *Status: the enforcement half is live
-  (`insights/output_guard.py` — blocking regardless of citations or validation);
-  the compilation half is not. No note carries a `safety_critical` flag and the
-  manifest emits no `directives`, so today's rules are hand-compiled and each
-  cites the doc line that forbids it. `output_rules()` is the seam. A new
-  guardrail still MUST have a documented origin — that part is binding now.*
+- **Directives blocks**: each note ends with machine-applicable rules. A note may
+  declare that one of them is a hard guardrail by naming it in frontmatter
+  (`safety_critical: [5, 6]`), and **that declaration is now checked, not trusted**
+  (#87). `gen_manifest.py` rejects a marker pointing at a directive that does not
+  exist or does not say `SAFETY-CRITICAL` in its own text;
+  `insights/guard_directives.py` compiles one blocking `OutputRule` per marker; and
+  `tests/insights/test_guard_directives.py` asserts a **bijection** between the two,
+  so a note claiming a guardrail nobody wrote fails the build and a rule whose origin
+  directive was edited away fails it too. The corpus owns the claim, the code owns the
+  pattern, the test owns the correspondence.
+  > This rule was rewritten 2026-08-01. It previously described the compilation half
+  > as not built — accurate then, but ~24 notes were meanwhile *asserting in prose*
+  > that their directives were "mirrored as a hard guardrail in `@daud/core`, the AI
+  > may not override". `@daud/core` exists in no repo. A false safety claim inside the
+  > safety system is the worst kind: an auditor reads it and stops looking. **A note
+  > may no longer make that claim in prose at all** — it declares the marker or it says
+  > plainly that the rule is not enforced in code.
+- Two rule tables are in force and they have different admission criteria, which is
+  why they stay separate: `output_guard._DOCUMENTED_RULES` (hand-compiled, each citing
+  the **doc line** that forbids it) and `guard_directives` (compiled from **marked note
+  directives**). `output_guard.output_rules()` is the one seam both reach the pipeline
+  through. **A new guardrail MUST have a documented origin** — that has always been
+  binding and still is.
 - A generated typed manifest makes the corpus retrievable (id, name, aliases,
   category, grade) — the index is generated, never hand-edited.
 

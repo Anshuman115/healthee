@@ -17,35 +17,40 @@ silent swallow.
 ## Where the rules come from (the whole discipline)
 
 Every rule carries the doc/note line that forbids it in its ``source`` field. Nothing
-here is invented: an over-broad safety filter that eats honest cited science is its
-own harm, and this corpus is full of mortality-related notes whose *population*
-claims must keep flowing. A rule with no documented origin does not ship.
+here is invented (and note the weakness of a line number as provenance: two of these
+drifted the first time the notes they cite were edited, 2026-08-01 — prefer naming a
+directive or a section, which does not move): an over-broad safety filter that eats
+honest cited science is its own harm, and this corpus is full of mortality-related
+notes whose *population* claims must keep flowing. A rule with no documented origin
+does not ship.
 
-Today the table is ``_DOCUMENTED_RULES`` below, hand-compiled from what the product
-already documents. INTELLIGENCE §2 specifies that safety-critical *note* directives
-compile into this same table — but no note carries a ``safety_critical`` flag yet and
-the manifest emits no directives at all, so that source would compile to nothing.
-``output_rules()`` is the seam it plugs into when the corpus is marked up; the
-enforcement layer here does not change when it is.
+The table has two halves and they enter differently:
+
+  * ``_DOCUMENTED_RULES`` below — hand-compiled from what the *product* documents
+    (INTELLIGENCE, COACHING-RULES, ENGINEERING_STANDARDS), each rule naming the doc
+    line that forbids it;
+  * ``guard_directives.compiled_rules()`` — compiled from *notes* that declare a Coach
+    Directive ``safety_critical`` in frontmatter, with a test asserting a bijection
+    between the markers and the rules (#87).
+
+Until 2026-08-01 only the first half existed while ~24 notes claimed the second did.
+``output_rules()`` is the seam; every call site inherits both halves with no change.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 
 from healthee.core.logging import get_logger
-from healthee.insights import prompts
+from healthee.insights import guard_directives, prompts
 from healthee.insights.answer_text import sentences
+from healthee.insights.guard_rules import OutputRule
+from healthee.insights.guard_rules import rx as _rx
 from healthee.insights.refusals import EMERGENCY
 
 log = get_logger(__name__)
 
 __all__ = ["OutputRule", "check_output", "output_rules"]
-
-
-def _rx(*fragments: str) -> re.Pattern[str]:
-    return re.compile("|".join(fragments), re.IGNORECASE)
 
 
 # What ships when an answer trips a non-emergency guardrail. Deliberately says that a
@@ -59,19 +64,11 @@ GUARDRAIL_BLOCK = (
 )
 
 # ── Shared fragments ─────────────────────────────────────────────────────────
-# A negator "cancels" a forbidden action only inside its OWN clause and within a tight
-# window: the negator must be within 30 characters AND have no `.,;:—–` between it and
-# the action. A looser window is a guardrail bypass, not a nicety — "You should not
-# rest — you can push through the chest pain" would otherwise suppress its own rule.
-_NEGATOR_RE = re.compile(
-    r"\b(?:don'?t|do not|does not|doesn'?t|did not|didn'?t|never|not|no|avoids?|avoiding|"
-    r"shouldn'?t|should not|must not|won'?t|cannot|can'?t|stop|refrain from|"
-    r"rather than|instead of|without)\b[^.;:,—–]{0,30}$",
-    re.IGNORECASE,
-)
-
-_ANY = re.compile(r"")  # a rule whose action phrase is specific enough on its own
-
+# The rule type, the negation window and `_ANY` live in `guard_rules` because the
+# compiled-directive table needs exactly the same semantics and neither module may
+# import the other. Imported above under their original private names so the rules
+# below read unchanged.
+#
 # Second person — the marker that turns population research into a personal projection.
 _PERSONAL_RE = _rx(r"\byou\b", r"\byou'?re\b", r"\byou'?ll\b", r"\byou'?ve\b", r"\byour\b")
 
@@ -195,37 +192,13 @@ _LOAD_OR_RESTRICT_RE = _rx(
 )
 
 
-@dataclass(frozen=True)
-class OutputRule:
-    """One hard output rule: what it's about, the forbidden move, and its origin.
-
-    A sentence fires the rule when it matches ``subject`` AND contains an *un-negated*
-    ``action``. ``source`` is not documentation — it is the admission criterion: a rule
-    whose forbidden-ness cannot be pointed at in a doc or a note does not belong here.
-    """
-
-    name: str
-    source: str
-    action: re.Pattern[str]
-    response: str
-    subject: re.Pattern[str] = _ANY
-
-    def fires(self, sentence: str) -> bool:
-        """True when ``sentence`` is about ``subject`` and makes the forbidden move."""
-        if not self.subject.search(sentence):
-            return False
-        return any(
-            not _NEGATOR_RE.search(sentence[: m.start()]) for m in self.action.finditer(sentence)
-        )
-
-
 _DOCUMENTED_RULES: tuple[OutputRule, ...] = (
     OutputRule(
         name="personal_death_risk_number",
         source=(
             "KNOWLEDGE_RECONCILIATION.md:46 + TEMPLATE.md:79 'never show a death-risk "
             "number'; steps_mortality.md:115; sleep_duration_mortality.md:91; "
-            "resting-heart-rate.md:143 (D13); vo2max.md:507"
+            "resting-heart-rate.md:143 (D13); vo2max.md:513 (Safety bounds)"
         ),
         subject=_PERSONAL_RE,
         action=_DEATH_RISK_NUMBER_RE,
@@ -266,7 +239,7 @@ _DOCUMENTED_RULES: tuple[OutputRule, ...] = (
         name="advise_through_bone_stress_or_reds",
         source=(
             "INTELLIGENCE.md:49 'bone-stress / REDs hard stop'; COACHING-RULES.md rules "
-            "4, 5 and 11; injury-prevention.md:371"
+            "4, 5 and 11; injury-prevention.md D8/D9 (line ~397)"
         ),
         subject=_BONE_STRESS_REDS_RE,
         action=_LOAD_OR_RESTRICT_RE,
@@ -276,16 +249,16 @@ _DOCUMENTED_RULES: tuple[OutputRule, ...] = (
 
 
 def output_rules() -> tuple[OutputRule, ...]:
-    """The hard output rules in force — THE seam a corpus-driven table plugs into.
+    """The hard output rules in force — the doc-compiled table plus the corpus one.
 
-    Today this is exactly ``_DOCUMENTED_RULES``. INTELLIGENCE §2 specifies that notes'
-    ``safety_critical`` directives compile into this same table; when the corpus is
-    marked up and the manifest emits directives, the compiled rules are concatenated
-    here and every call site below inherits them with no other change. That work is
-    deliberately not done here: marking 41 notes is research judgement, and a table
-    compiled from an unmarked corpus would be empty — which is what it would be today.
+    The corpus half (``guard_directives``) is the seam INTELLIGENCE §2 always specified
+    and #87 finally connected: notes declare which Coach Directives are safety-critical,
+    one rule compiles per marker, and a test fails the build if a claim and a rule ever
+    stop matching. It stays a SEPARATE table rather than being folded in, because the
+    two have different admission criteria — a doc line versus a marked note directive —
+    and a rule must never lose track of which one let it in.
     """
-    return _DOCUMENTED_RULES
+    return _DOCUMENTED_RULES + guard_directives.compiled_rules()
 
 
 def check_output(text: str) -> OutputRule | None:

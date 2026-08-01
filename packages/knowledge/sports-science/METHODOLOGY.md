@@ -47,14 +47,17 @@ its language and confidence accordingly.
 3. **Directives:** each doc's **Coach Directives** block is a list of explicit,
    machine-applicable rules — these are the operational output the engine and AI
    honour. *Upstream, safety-critical directives were said to be mirrored as hard
-   guardrails in `@daud/core`. **That is not true in Healthee** (#83b): `@daud/core`
-   does not exist here, and the enforcement that does exist —
-   `insights/output_guard.py` — is HAND-compiled. No note carries a `safety_critical`
-   flag and the manifest emits no `directives`, so a directive is not automatically
-   enforced anywhere. Treat every "mirrored as a guardrail" phrase in these docs as a
-   description of the upstream package, not of this system. Engineering Standards §4
-   tracks closing that gap; until it closes, a new hard guardrail is added to
-   `output_guard.py` deliberately, with a documented origin.*
+   guardrails in `@daud/core`. **That was never true in Healthee** (#83b): `@daud/core`
+   exists nowhere. Since #87 (2026-08-01) a directive CAN be genuinely enforced, but
+   only by opting in: its note declares `safety_critical: [5, 6]` in frontmatter,
+   `gen_manifest.py` validates the marker against the directive's own text,
+   `insights/guard_directives.py` compiles a blocking rule for it, and
+   `tests/insights/test_guard_directives.py` asserts the two sets are equal in both
+   directions. **A directive is still not enforced by virtue of being written**, and
+   **no doc in this collection declares a marker**, so nothing here is enforced today.
+   The hand-compiled `output_guard._DOCUMENTED_RULES` table still exists alongside it,
+   fed by doc lines rather than note markers; a new rule in either table needs a
+   documented origin.*
 4. **Calibration:** the AI's confidence and phrasing track the evidence grade of
    the claim it is leaning on.
 

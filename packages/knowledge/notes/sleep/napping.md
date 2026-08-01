@@ -4,6 +4,7 @@ name: "Daytime napping"
 topic: What a short nap does and costs, why the nap/health literature disagrees with itself, and why a nap never enters a Healthee night-sleep metric
 category: sleep
 grade: Probable
+safety_critical: [5]        # D5 → hard guardrail `napping_D5` (insights/guard_directives.py)
 summary: "A 10–20 minute afternoon nap appears to restore alertness for roughly two hours, and naps of 30 minutes or more buy that back with sleep inertia — a period of *worse* performance on waking. Whether habitual napping is good or bad for long-term health is genuinely disputed: the same literature contains a 1.82 CVD rate ratio for naps ≥60 min/day and a 0.52 hazard ratio for napping once or twice a week. Our strap tags naps itself and they are excluded from every night-sleep metric by design, so a nap is visible to the coach as a session but changes no number."
 aliases: ["nap", "naps", "napping", "power nap", "power naps", "siesta", "afternoon nap", "cat nap", "daytime sleep", "daytime sleeping", "should i nap", "how long should i nap", "nap length", "nap duration", "sleep inertia", "groggy after a nap", "nap instead of sleep"]
 applies_to_metrics: ["tst_min", "sleep_regularity_index", "sleep_health_score_4dim", "sleep_debt_min"]
