@@ -5,7 +5,7 @@ topic: Implementation plan — nightly illness/recovery early-warning flag from 
 category: metrics
 grade: Probable
 evidence_grade: 2
-summary: "A nightly flag that compares the night's skin temperature and respiratory rate against the 14-day personal baseline and raises a moderate/high illness-recovery signal when both exceed validated thresholds — framed as 'possible early signal, consider light recovery,' never a diagnosis (combined evidence ★★, skin temp the weaker limb)."
+summary: "A nightly flag that compares the night's skin temperature and respiratory rate against the 14-night personal baseline and raises a moderate/high illness-recovery signal — the RR limb (≥ +2 br/min sustained over 2 nights) is validated (Smarr 2020, Quer 2021); the skin-temp limb's + 0.5 °C trigger is OUR heuristic, not a sourced threshold — framed as 'possible early signal, consider light recovery,' never a diagnosis (combined evidence ★★, skin temp the weaker limb)."
 aliases: ["illness_flag", "illness flag", "early-warning", "recovery flag", "sick day", "implementation", "illness", "recovery", "dashboard"]
 applies_to_metrics: ["skin_temp_c", "respiratory_rate_sleep", "hrv_sleep_avg", "rhr_daily"]
 applies_to_interventions: []
@@ -16,7 +16,7 @@ last_reviewed: 2026-07-15
 # Illness / recovery early-warning flag
 
 ## Summary
-A nightly check compares the just-completed night's `skin_temp_c` and `respiratory_rate_sleep` against the user's 14-day personal baseline and raises an **illness/recovery flag** when both exceed the Smarr 2020 / Lim 2024 thresholds. It is surfaced as a small pill on the Today header the morning after, with explicit "possible early signal — consider light recovery" framing, **not a diagnosis**. Respiratory rate is the stronger, better-evidenced limb (★★★); skin temperature is the weaker limb (★★); combined evidence is **★★ moderate**. HRV drop, RHR rise, and logged symptoms boost confidence but are not part of the threshold.
+A nightly check compares the just-completed night's `skin_temp_c` and `respiratory_rate_sleep` against the user's 14-night personal baseline and raises an **illness/recovery flag** when both exceed the trigger values below: the respiratory-rate trigger follows the **Smarr 2020 / Quer 2021** sustained-elevation convention; the **+0.5 °C skin-temperature trigger is our own operating heuristic, not a sourced threshold** (see *Provenance of the +0.5 °C trigger*). It is surfaced as a small pill on the Today header the morning after, with explicit "possible early signal — consider light recovery" framing, **not a diagnosis**. Respiratory rate is the stronger, better-evidenced limb (★★★); skin temperature is the weaker limb (★★); combined evidence is **★★ moderate**. HRV drop, RHR rise, and logged symptoms boost confidence but are not part of the threshold.
 
 ## What it is
 The flag is a **deterministic, non-LLM early-warning signal** derived from two overnight vitals whose personal stability makes a sustained over-baseline rise meaningful: respiratory rate (see `respiratory_rate_normal`) and skin temperature (see `skin_temp_signals`). It is information, not prescription — it says "consider lighter activity," never "you're sick" or "rest today."
@@ -26,23 +26,36 @@ Infection and inflammatory activation raise overnight respiratory rate (chemorec
 
 ## The evidence
 - **[Established] Respiratory rate ≥ +2 br/min sustained over 2 nights is a validated pre-symptom illness signal** [Smarr 2020 (n≈271k); Quer 2021]. This is the strong limb (★★★).
-- **[Probable] Skin temperature ≥ +0.5°C above the 14-day median is a cycle-tracking / illness signal** [Mason 2022; Lim 2024]. This is the weaker limb (★★).
-- **Combined evidence grade: ★★ moderate** (skin temp is the weaker limb).
+- **[Probable] Overnight wrist temperature adds illness-detection signal**, best in combination with other markers — wrist temperature plus HRV detects illness better than either alone [Mason 2022 (TemPredict)]. This is the weaker limb (★★).
+- **[Our heuristic — unsourced] The specific ≥ +0.5 °C-above-14-night-median trigger.** No citation in this corpus establishes that number; see *Provenance of the +0.5 °C trigger* below. It is consistent with the ~0.3–0.5 °C personal-baseline deviation band `skin_temp_signals` describes, and it is set at the top of that band deliberately (the weaker, more confounded limb should fire less often), but that is a design argument, not evidence.
+- **Combined evidence grade: ★★ moderate** (skin temp is the weaker limb, and its trigger value is unsourced).
+
+### Provenance of the +0.5 °C trigger
+
+This threshold was attributed to **"Lim 2024"** — a citation that **cannot be resolved and is being retired**, not repaired:
+
+- The legacy note (`~/projects/healthee-legacy/research/metrics/illness_flag_plan.md`) that this note was reconciled from names "Lim 2024" twice and **has no References section at all** — so the citation never had a source in this project's history. The References entry that appeared here during reconciliation ("Lim et al. (2024). Skin-temperature illness-signal threshold") carried no journal, volume or DOI because there was nothing to carry; it was written to satisfy the shape of a References list.
+- It was said to defer to `skin_temp_signals`, which **does not cite Lim anywhere** — the pointer led nowhere.
+- A literature search for a 2024 first-author-Lim paper on wearable skin temperature and illness detection found nothing matching. (The one 2024 wearable-skin-temperature paper that recurs in results — Gombert-Labedens et al., *J Biol Rhythms* 39(4):331–350 — is menstrual-cycle cosinor modelling, has no Lim author, and reports no deviation threshold.) Secondary sources quoting a "0.5 °C above baseline" rule of thumb exist but trace back to vendor blogs, not to a primary study.
+
+Per the citations-real-or-absent rule the citation is **removed rather than replaced with a plausible-looking one**. **The 0.5 value itself is unchanged** — it is a shipped threshold, and changing it is a science-code behaviour change that belongs in its own PR with known-value tests. What changes is that it is now labelled as ours.
 
 ## Recommendation
 
 Build a nightly check that compares the just-completed night's
-`skin_temp_c` and `respiratory_rate_sleep` against the user's 14-day
-personal baseline; raise an **illness/recovery flag** when both
-exceed the Smarr 2020 / Lim 2024 thresholds. Surface as a small
-alert pill on the Today header morning-after, with explicit framing
-("possible early signal — consider light recovery"), not a diagnosis.
+`skin_temp_c` and `respiratory_rate_sleep` against the user's 14-night
+personal baseline; raise an **illness/recovery flag** when both exceed
+the triggers below. Surface as a small alert pill on the Today header
+morning-after, with explicit framing ("possible early signal — consider
+light recovery"), not a diagnosis.
 
 Evidence base:
 - [[respiratory_rate_normal]] — ★★★ — RR ≥ +2 bpm sustained 2 nights
   is the validated illness pre-symptom signal (Smarr 2020, Quer 2021).
-- [[skin_temp_signals]] — ★★ — skin temp ≥ +0.5°C above 14-day median
-  is the cycle-tracking / illness signal (Mason 2022, Lim 2024).
+- [[skin_temp_signals]] — ★★ — overnight wrist temperature is a
+  supporting illness/cycle signal as a personal-baseline delta
+  (Mason 2022). **The + 0.5 °C trigger value is ours, unsourced** —
+  see *Provenance of the +0.5 °C trigger*.
 
 Combined evidence grade: **★★ moderate** (skin temp is the weaker
 limb).
@@ -183,6 +196,7 @@ UI copy must say what this is and isn't:
 
 ## Honesty & uncertainty
 - **Combined evidence is ★★ moderate**, gated by the skin-temperature limb.
+- **The skin-temp trigger value is our heuristic, not a finding.** The ≥ +0.5 °C cut has no primary source (see *Provenance of the +0.5 °C trigger*); never present it, in UI or LLM output, as "studies show 0.5 °C." The sustained-two-night RR pattern is the part that carries a citation.
 - **Cycle confound:** luteal-phase skin-temp rise (0.3–0.5°C) makes skin temp a weak mid-cycle illness signal; RR is the stronger lever, and this isn't solvable without cycle tracking.
 - **Ambient temperature** can cause skin-temp false positives; the MAD threshold mitigates but does not eliminate them.
 - **No data → no flag** (silent skip), so absence of a flag never means "healthy."
@@ -204,7 +218,7 @@ UI copy must say what this is and isn't:
 - Smarr BL, Aschbacher K, Fisher SM, et al. (2020). *Feasibility of continuous fever monitoring using wearable devices.* Scientific Reports 10:21640 (n ≈ 271k; sustained-elevation illness convention). https://doi.org/10.1038/s41598-020-78355-6
 - Quer G, Radin JM, Gadaleta M, et al. (2021). *Wearable sensor data and self-reported symptoms for COVID-19 detection.* Nature Medicine 27:73–77. https://doi.org/10.1038/s41591-020-1123-x
 - Mason AE, Hecht FM, Davis SK, et al. (2022). *Detection of COVID-19 using multimodal data from a wearable device: results from the first TemPredict study.* Scientific Reports 12:3463. https://doi.org/10.1038/s41598-022-07314-0
-- Lim et al. (2024). Skin-temperature illness-signal threshold (as cited in the source note for the ≥ +0.5°C convention).
+- *(No reference backs the ≥ +0.5 °C skin-temperature trigger.* The former "Lim et al. (2024)" entry was unresolvable and has been removed rather than replaced — see *Provenance of the +0.5 °C trigger*. Citations here are real or absent.*)*
 
 ## Healthee implementation & honesty policy
 - **Status: SHIPPED (this plan is implemented).** The `illness_flag` table exists and the latest active flag is read by `read/health_metrics.py::illness_flag_payload` (returns the flag within 2 days; auto-clears when deltas fall below threshold — no row means no flag). The user-facing string is produced by `_illness_framing` — **deterministic metric text, not an LLM** — e.g. "Possible early signal — consider lighter activity today. Breathing rate +X bpm vs your 14-day baseline; skin temperature +Y°C … Not a diagnosis," with the sustained-two-night ("Smarr 2020 / Quer 2021 pattern") suffix when applicable.

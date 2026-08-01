@@ -27,7 +27,7 @@ Skin temperature reflects the balance between core heat delivery (via skin blood
 ## The evidence
 - **[Probable] Overnight wrist temperature improves illness detection when combined with HRV.** The first TemPredict study demonstrated that wrist temperature combined with HRV **improves illness detection over either alone** [Mason 2022].
 - **[Probable] Overnight skin-temperature shifts track ovulation in healthy menstrual cycles.** Multiple replication studies confirm that overnight skin temperature tracks ovulation [Goodale 2019; Maijala 2019]. Evidence is **moderate (★★)** for this specific use.
-- **[Probable] A sustained ~0.3–0.5°C elevation over several nights** may correlate with infection or hormonal changes — as a personal-baseline delta, not an absolute value.
+- **[Probable] A sustained ~0.3–0.5°C elevation over several nights** may correlate with infection or hormonal changes — as a personal-baseline delta, not an absolute value. **The band itself is unsourced** — no reference below establishes a specific deviation magnitude; treat it as a practitioner-consensus operating range, and never state it as "studies show 0.5 °C." (`illness_flag_plan` used to attribute its +0.5 °C trigger to a "Lim 2024" that deferred to *this* note, which cites no such source; that citation has been retired.)
 
 ## How we compute it
 Skin temperature is read as **`skin_temp_c`** — averaged over the sleep window at read time from the raw overnight samples (`read/sleep_extras.py` / `read/sleep_page.py`; provenance below). The illness/recovery logic uses a **personal-baseline overnight deviation** (median ± MAD over a 14-day window), never an absolute threshold.
