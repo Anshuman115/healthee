@@ -24,7 +24,15 @@ from healthee.derive.freshness import (
 )
 
 # ── 4-dimension sleep score cutoffs — sleep_score_implementation_plan ─────────
-SLEEP_DURATION_MIN_H, SLEEP_DURATION_MAX_H = 7.0, 9.0  # Cappuccio 2010
+# NSF 2015 (Hirshkowitz et al., Sleep Health 1(1):40-43) — the recommended range for
+# adults 18-64. RE-ATTRIBUTED 2026-08-01 (#88), value UNCHANGED: this said "Cappuccio
+# 2010", which states no reference band at all (its reference category varied across
+# the 27 pooled cohort samples). Two notes cited that one paper for two different
+# bands, 7-8 and 7-9, and this constant shipped the second. The number stays 7.0/9.0
+# because it is defensible on NSF's own terms and moving a scoring cutoff is a science
+# behaviour change owed its own PR with known-value tests (CLAUDE.md); only the
+# citation was wrong. Cappuccio still backs the U-SHAPE — see [[sleep_duration_mortality]].
+SLEEP_DURATION_MIN_H, SLEEP_DURATION_MAX_H = 7.0, 9.0
 SLEEP_EFFICIENCY_MIN = 0.85  # Schutte-Rodin 2008 (AASM guideline) — clinical consensus
 SLEEP_TIMING_RANGE = (2, 4)  # Buysse 2014 (midpoint hour)
 # DERIVED, not cited: Windred 2024's least-regular quintile is SRI < 71.6 and no paper

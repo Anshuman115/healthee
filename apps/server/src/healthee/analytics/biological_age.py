@@ -269,6 +269,17 @@ def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> tuple[float, 
     if not sr or not sr[0]:
         return 0.0, _absent(SLEEP_DURATION_TERM, NO_NIGHTS_IN_WINDOW, SLEEP_DURATION_MESSAGES)
     h = float(sr[0]) / 60.0
+    # 🔴 THE LABEL AND THE MATH DISAGREE, found 2026-08-01 (#88) — not fixed here.
+    # The hazard is a SINGLE-POINT nadir at 7 h (Yin 2017's dose-response), so 8 h is
+    # penalised 1.13x and 9 h is penalised 1.28x. The card meanwhile tells the user the
+    # target is "7–9", i.e. that 9 h is on target while the model is charging them a
+    # third of a hazard unit for it. One of the two is wrong and choosing which is a
+    # science decision, not a typo: either this term adopts the NSF 7–9 band (changing
+    # every owner's biological age) or the label becomes "7" (changing what the card
+    # says). Both are behaviour changes owed their own PR with known-value tests
+    # (CLAUDE.md). Recorded rather than quietly patched — see the same discipline at
+    # ``_regularity_term`` below. This is a third numeric definition of "optimal sleep
+    # duration" in one product, which is exactly what the canonical-metric rule forbids.
     return add(
         SLEEP_DURATION_TERM,
         (1.06 ** (7 - h)) if h < 7 else (1.13 ** (h - 7)),
