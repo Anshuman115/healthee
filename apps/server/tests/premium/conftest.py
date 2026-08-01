@@ -64,11 +64,11 @@ def make_free() -> Callable[[], None]:
 
 @pytest.fixture
 def stub(monkeypatch: pytest.MonkeyPatch) -> StubLLM:
-    """One offline LLM stub behind BOTH the choke point and the coach's own loop.
+    """One offline LLM stub behind BOTH entry points into the shared choke point.
 
-    Both seams are patched because the coach is enforced-equivalent to the choke point
-    rather than routed through it (standards §2), so patching one would leave the other
-    reaching the network — and a test that measures LLM spend has to see every call.
+    The two surfaces run one pipeline (#46) but they still construct their own client —
+    ``get_client`` is resolved per entry point, so both are patched. A test that measures
+    LLM spend has to see every call, and patching one would leave the other on the network.
     """
     client = StubLLM()
     monkeypatch.setattr(grounded, "get_client", lambda: client)

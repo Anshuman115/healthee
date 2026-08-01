@@ -222,7 +222,14 @@ def test_the_json_path_blocks_it_and_ships_no_data(monkeypatch: pytest.MonkeyPat
 
 
 def test_the_coach_blocks_it_too(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The coach calls the primitives itself — it must mirror the guard, not skip it."""
+    """The coach inherits the guard from the shared pipeline — end to end, on its own loop.
+
+    Written when the coach held its own COPY of this check (it was enforced-equivalent to
+    the choke point, so the guardrail lived in two places). #46 collapsed that: the coach
+    now runs ``pipeline.answer_gates()``. This test stays because it is the end-to-end
+    proof for THIS rule on the tool-calling surface, and it still bites — reverting the
+    coach to its own loop fails it. The general bar lives in ``test_pipeline_shared.py``.
+    """
     monkeypatch.setattr(
         coach, "_initial_messages", lambda *a, **k: [{"role": "user", "content": "x"}]
     )
