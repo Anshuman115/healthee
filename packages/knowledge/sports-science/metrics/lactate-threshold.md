@@ -373,10 +373,15 @@ tracking**. Core logic:
   confidence: Established
 - **D8:** When HR is environmentally inflated (**heat, altitude, dehydration,
   fatigue**) or has drifted within a long run, **down-weight LTHR and prescribe by
-  RPE + pace**. — confidence: Established (safety-critical)
+  RPE + pace**. — confidence: Established (safety-critical; **not enforced in code** —
+  this is an instruction about which input to weight, and no rule can see which one the
+  model used. A rule for the coach, not a guarantee. #100)
 - **D9:** Gate all **near-maximal threshold tests** behind base fitness and full
   recovery; do not test injured/ill/fatigued or Stage-1 runners. — confidence:
-  Established (safety-critical)
+  Established (safety-critical; **not enforced in code** — the gate is the runner's
+  training stage and health, which no output rule can read from the answer text.
+  `insights/refusals.py` catches a question that *names* a red-flag symptom, which is a
+  narrower thing. A rule for the coach, not a guarantee. #100)
 - **D10:** Keep **above-LT2 (severe-domain) work a small, recovery-gated fraction**
   of the week; do not prescribe it as steady-state training. — confidence:
   Established

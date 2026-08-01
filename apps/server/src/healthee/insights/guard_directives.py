@@ -69,6 +69,14 @@ _EATING_BLOCK = (
     "dietary data about you at all, and restriction advice from a health app is a known "
     f"harm pathway. {prompts.FALLBACK}"
 )
+_EXERTIONAL_EMERGENCY = (
+    "I'm stopping myself here, and I'm not going to soften it. Confusion, collapse, "
+    "vomiting, a seizure, staggering or altered behaviour around a hard or hot effort "
+    "are how exertional heat stroke, exercise-associated hyponatraemia and altitude "
+    "illness present, and all three can kill within hours. This needs urgent medical "
+    "care now — and active cooling on the way if it is heat. It does not need anything "
+    "from me about training, fluids or food."
+)
 
 # ── napping D5 · a new/worsening/uncontrollable need to nap belongs to a clinician ──
 # Catches DETERMINISTICALLY: reassurance ("that's completely normal"), benign-cause
@@ -188,6 +196,79 @@ _EATING_RESTRICTION_RE = rx(
 )
 
 
+# ── environmental_stress D12 · exertional red flags go to urgent care, not to me ──
+# Catches DETERMINISTICALLY: reassurance ("that's normal in the heat"), benign-cause
+# attribution ("just dehydration"), continue-training advice, and the it-will-pass
+# brush-off — the four ways an answer can absorb a medical emergency instead of routing
+# it. It does NOT catch every phrasing of offering a fix instead of care; the note's
+# prose, the prompt and the validator still carry the rest of the directive.
+#
+# Why this one and not the other ~25 safety-tagged sports-science directives: the two
+# guards already in force demonstrably miss this symptom set. `output_guard`'s
+# `advise_through_red_flag_symptom` knows chest pain, breathlessness, syncope,
+# palpitations and dizziness; `refusals.py`'s emergency classifier knows "faint",
+# "passed out", "loss of consciousness" and "sudden headache". Neither knows confusion,
+# disorientation, collapse, vomiting, seizure, ataxia or heat stroke — which is the
+# presentation of the three exertional emergencies that actually kill runners. The note
+# itself reached this conclusion under *Safety bounds* and named D11–D13 as the
+# candidates; this compiles the one of them whose forbidden move is a text pattern
+# rather than a plan shape.
+#
+# The symptom vocabulary is deliberately person-attributed or unambiguously clinical.
+# A bare `\bconfusion\b` would fire on "there is some confusion about what HRV measures,
+# but keep training easy" — an honest sentence, blocked by a heat-stroke rule, which is
+# the over-broad-filter harm this module opens by warning about.
+_EXERTIONAL_RED_FLAG_RE = rx(
+    r"\bheat\s*(?:stroke|exhaustion|illness)\b",
+    r"\bhyponatr\w+\b",
+    r"\b(?:HAPE|HACE)\b",
+    r"\baltitude\s+(?:illness|sickness)\b|\bacute\s+mountain\s+sickness\b",
+    r"\bseizur\w+\b|\bconvuls\w+\b|\bfit(?:ting)?\s+during\b",
+    r"\bataxi\w+\b|\bstaggering\b|\bcouldn'?t\s+walk\s+straight\b",
+    r"\baltered\s+(?:consciousness|mental\s+stat\w+|behaviou?r)\b",
+    r"\bunresponsive\b|\bpassed\s+out\s+(?:during|after)\b",
+    r"\bcollapsed?\b(?=[^.]{0,60}\b(?:run|race|training|session|heat|hot|ride|effort)\w*\b)",
+    r"\b(?:was|were|is|are|got|getting|gets|became|becoming|feeling|felt|seem(?:ed|s)?|"
+    r"going|went)\s+"
+    r"(?:very\s+|really\s+|quite\s+|a\s+bit\s+|increasingly\s+)?"
+    r"(?:confused|disorient\w+|delirious|incoherent)\b",
+    r"\b(?:vomit\w+|threw\s+up|throwing\s+up|being\s+sick)\b",
+    r"\bstopped\s+sweating\b|\bhot,?\s+dry\s+skin\b",
+    # Qualified only. A bare `\bheadache\b` would block "a headache after a hot long run
+    # is common" — an honest sentence. `severe`/`worsening` is what turns it into the
+    # HACE / hyponatraemia presentation the directive is about.
+    r"\b(?:severe|worsening|blinding|thunderclap)\s+headache\b",
+)
+_EMERGENCY_DEFLECTION_RE = rx(
+    # Reassurance.
+    r"\b(?:that'?s|this\s+is|it'?s|is|are)\s+(?:completely\s+|totally\s+|perfectly\s+|"
+    r"quite\s+|pretty\s+|entirely\s+|fairly\s+|all\s+)?(?:normal|fine|common|typical|"
+    r"expected|harmless|nothing\s+unusual|to\s+be\s+expected)\b",
+    r"\bnothing\s+to\s+worry\s+about\b",
+    r"\bwouldn'?t\s+(?:worry|be\s+concerned)\b",
+    r"\bno\s+cause\s+for\s+(?:concern|alarm)\b",
+    # Benign-cause attribution — the directive's "stop training advice" clause fails
+    # just as badly when the answer explains the emergency away as when it coaches it.
+    r"\b(?:just|simply|merely|only|probably|likely|almost\s+certainly)\s+"
+    r"(?:the\s+|a\s+bit\s+of\s+|some\s+|your\s+)?(?:dehydration|dehydrated|the\s+heat|"
+    r"heat|low\s+blood\s+sugar|a\s+bonk|bonking|fatigue|tiredness|nerves|"
+    r"under[\s-]?fuel\w*|electrolytes?)\b",
+    # Continue-training advice.
+    r"\b(?:push|pushing|train|training|run|running|race|racing|work|working|power|"
+    r"powering)\s+through\b",
+    r"\bkeep\s+(?:on\s+)?(?:training|running|racing|going|pushing|moving)\b",
+    r"\b(?:fine|ok|okay|safe|reasonable)\s+to\s+(?:train|run|race|push|continue|"
+    r"carry\s+on)\b",
+    r"\byou\s+can\s+still\s+(?:train|run|race|push|finish)\b",
+    # The it-will-pass brush-off, and the fix-instead-of-care shapes narrow enough to
+    # match only when they are offered AS the answer.
+    r"\b(?:you'?ll|it'?ll|that'?ll|they'?ll)\s+(?:be\s+(?:fine|ok|okay|alright)|pass|"
+    r"settle|sort\s+itself|come\s+right)\b",
+    r"\b(?:just|simply)\s+(?:drink|sip|rest|sit|lie|cool|walk\s+it)\b",
+    r"\bsleep\s+it\s+off\b|\bshake\s+it\s+off\b|\bwalk\s+it\s+off\b",
+)
+
+
 _COMPILED: dict[tuple[str, int], OutputRule] = {
     ("napping", 5): OutputRule(
         name="napping_D5_hypersomnolence_to_clinician",
@@ -223,6 +304,22 @@ _COMPILED: dict[tuple[str, int], OutputRule] = {
         subject=_FLUID_SENSITIVE_CONDITION_RE,
         action=_FLUID_ADVICE_RE,
         response=_FLUID_BLOCK,
+    ),
+    ("environmental_stress", 12): OutputRule(
+        name="environmental_stress_D12_exertional_red_flags_to_urgent_care",
+        source=(
+            "environmental_stress — sports-science/wellness/environmental-stress.md "
+            "Coach Directive 12 "
+            "(SAFETY-CRITICAL): 'on heat-illness red flags (confusion, collapse, "
+            "disorientation, vomiting, altered behavior) during/after hot exercise, stop "
+            "training advice and direct the runner to immediate cooling and urgent "
+            "medical care.' The same forbidden move is stated by this note's D13 "
+            "(altitude illness) and by fueling-and-hydration D12 (EAH); both defer here "
+            "rather than restating a second guardrail for one rule."
+        ),
+        subject=_EXERTIONAL_RED_FLAG_RE,
+        action=_EMERGENCY_DEFLECTION_RE,
+        response=_EXERTIONAL_EMERGENCY,
     ),
     ("late_eating_sleep", 5): OutputRule(
         name="late_eating_sleep_D5_no_eating_restriction",

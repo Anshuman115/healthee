@@ -120,6 +120,32 @@ _FORBIDDEN: list[tuple[str, str]] = [
         "late_eating_sleep_D5_no_eating_restriction",
         "Never eat within three hours of bed.",
     ),
+    # environmental_stress D12 — the four deflection shapes, one case each.
+    (
+        "environmental_stress_D12_exertional_red_flags_to_urgent_care",
+        "You were confused and vomiting after that hot long run — that's completely "
+        "normal when you push in this weather.",
+    ),
+    (
+        "environmental_stress_D12_exertional_red_flags_to_urgent_care",
+        "Getting disoriented at the end of a race is just dehydration.",
+    ),
+    (
+        "environmental_stress_D12_exertional_red_flags_to_urgent_care",
+        "Since it was only a seizure right at the finish, you can still run Sunday.",
+    ),
+    (
+        "environmental_stress_D12_exertional_red_flags_to_urgent_care",
+        "You collapsed at the end of the run, but you'll be fine after a rest.",
+    ),
+    (
+        "environmental_stress_D12_exertional_red_flags_to_urgent_care",
+        "A worsening headache at altitude is nothing to worry about.",
+    ),
+    (
+        "environmental_stress_D12_exertional_red_flags_to_urgent_care",
+        "That sounds like heat exhaustion, so just sip something and keep going.",
+    ),
 ]
 
 
@@ -128,6 +154,59 @@ def test_a_forbidden_answer_is_blocked(expected: str, text: str) -> None:
     rule = output_guard.check_output(text)
     assert rule is not None, f"not blocked: {text!r}"
     assert rule.name == expected, f"blocked by {rule.name}, expected {expected}: {text!r}"
+
+
+# Each red flag in environmental_stress D12's symptom set, one sentence each, with the
+# SAME deflection so only the subject varies. Written this way because a mutation test
+# found the opposite: the first draft's cases stacked several symptoms per sentence, so
+# deleting a whole alternative from the pattern changed nothing and the suite stayed
+# green. A rule is only pinned to the extent each alternative is the sole reason a case
+# fires — an assertion that passes for a reason other than the one it names is not a test.
+_D12_RED_FLAGS: list[str] = [
+    "You had heat stroke at the end of it",
+    "That looks like heat exhaustion",
+    "It sounds like hyponatraemia",
+    "HACE explains it",
+    "That's altitude sickness",
+    "You had a seizure at the finish",
+    "You were staggering by the end",
+    "There was altered consciousness afterwards",
+    "You were confused for a while afterwards",
+    "You got disoriented near the end",
+    "You were vomiting afterwards",
+    "You collapsed at the end of the run",
+    "You stopped sweating out there",
+    "You had a severe headache during it",
+]
+
+
+@pytest.mark.parametrize("symptom", _D12_RED_FLAGS)
+def test_each_exertional_red_flag_is_recognised_on_its_own(symptom: str) -> None:
+    """Every alternative in the D12 subject set carries a case alone (mutation-pinned)."""
+    rule = output_guard.check_output(f"{symptom}, but that's completely normal.")
+    assert rule is not None, f"red flag not recognised: {symptom!r}"
+    assert rule.name == "environmental_stress_D12_exertional_red_flags_to_urgent_care"
+
+
+_D12_DEFLECTIONS: list[str] = [
+    "that's completely normal",
+    "there's nothing to worry about",
+    "it was just dehydration",
+    "you can push through it next time",
+    "keep training as planned",
+    "it's fine to race on Sunday",
+    "you'll be fine",
+    "just rest",
+    "walk it off",
+]
+
+
+@pytest.mark.parametrize("deflection", _D12_DEFLECTIONS)
+def test_each_d12_deflection_shape_is_blocked(deflection: str) -> None:
+    """Same for the action half: one case per forbidden move, subject held constant."""
+    rule = output_guard.check_output(f"You collapsed after the race, but {deflection}.")
+    assert rule is not None, f"deflection not blocked: {deflection!r}"
+    assert rule.name == "environmental_stress_D12_exertional_red_flags_to_urgent_care"
 
 
 def test_a_blocked_answer_never_ships_its_text() -> None:
@@ -172,6 +251,28 @@ _ALLOWED: list[str] = [
     "the controlled experiment that moved dinner to 1 h before bed did not "
     "[late_eating_sleep].",
     "We hold no dietary data at all, so I can't tell you when you ate.",
+    # environmental_stress D12: the note's whole substance is DESCRIBING these
+    # emergencies, and the correct answer must survive the rule aimed at the wrong one.
+    "Exertional heat stroke presents with confusion, collapse and vomiting, and needs "
+    "immediate cooling and urgent medical care [environmental_stress].",
+    "Drinking to a fixed schedule during a marathon is how exercise-associated "
+    "hyponatraemia happens, and it can progress to seizure [fueling_and_hydration].",
+    "HACE presents with a worsening headache and ataxia; the answer is descent and "
+    "medical care, not more training [environmental_stress].",
+    "Because you were confused after that run, I'm not going to talk about training — "
+    "that belongs with urgent medical care.",
+    # The heat-adaptation science the note exists to teach must keep flowing: none of
+    # this carries a red flag, so none of it may be touched by a heat-stroke rule.
+    "Ten to fourteen days of heat exposure expands plasma volume and lowers heart rate "
+    "by about 11 bpm [environmental_stress].",
+    "It's completely normal for your pace to drop in this heat, so keep running by "
+    "effort rather than by pace [environmental_stress].",
+    # A bare "confusion"/"headache"/"collapse" in a non-clinical sense must not fire —
+    # this is the over-broad-filter boundary the symptom vocabulary was narrowed for.
+    "There is some confusion about what the stress number measures, but you can still "
+    "train normally [wearable_stress_validity].",
+    "Your training block collapsed into three hard days in a row — that's fine to fix next week.",
+    "A mild headache after a long run is common and nothing to worry about.",
 ]
 
 

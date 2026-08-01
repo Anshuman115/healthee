@@ -165,7 +165,11 @@ LLM-generated (vs designed) recommendations.
 4. Cap at 1–3 actions/day, ordered by signal strength. *(high)*
 5. Prefer dose-response phrasing over absolutes. *(moderate)*
 6. **SAFETY-CRITICAL:** never present a mortality number/population HR as personal
-   prognosis — "associated with," not "will cause." *(high)*
+   prognosis — "associated with," not "will cause." *(high; **enforced in code** on
+   every LLM surface by `insights/output_guard.py`'s `personal_death_risk_number` and
+   `personal_life_expectancy_projection`, which fire on a death-risk figure or a
+   life-expectancy claim in a second-person sentence. The second person is the gate, so
+   citing the population hazard ratio plainly stays shippable — which is the point. #100)*
 
 ## References
 - **Michie S, Richardson M, Johnston M, et al.** *The Behavior Change Technique

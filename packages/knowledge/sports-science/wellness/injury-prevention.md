@@ -394,12 +394,21 @@ arrived with the upstream sports-science corpus import. The true position, per b
   `advise_through_bone_stress_or_reds`, which names this note — see *Safety bounds*, #87)
 - **D9:** On suspected **bone-stress injury** (localised bony tenderness, pain on
   hopping, pain worsening through/after a run or at rest), **stop running and refer**;
-  do not advise running through it. — confidence: Established (SAFETY-CRITICAL)
+  do not advise running through it. — confidence: Established (SAFETY-CRITICAL;
+  **enforced in code** by `insights/output_guard.py`'s `advise_through_bone_stress_or_reds`,
+  which names this note — the same rule D8 cites. It fires on a sentence naming bone
+  stress, a stress fracture or bony tenderness that also says push/train/run through,
+  keep going, or fine to continue. It cannot see "pain on hopping" described in other
+  words. #100)
 - **D10:** Gate **return-to-run after a bone-stress injury** on resolved bony
   tenderness and pain-free walking (plus confirmed healing for high-risk sites), then
   use a **walk-run, distance-before-speed, repeat-each-level, symptom-guided**
   progression — slower for females and high-risk sites; do not apply a generic
-  10%/week ramp. — confidence: Probable (SAFETY-CRITICAL)
+  10%/week ramp. — confidence: Probable (SAFETY-CRITICAL; **partly enforced in code** —
+  `advise_through_bone_stress_or_reds` blocks "increase/build up your load or mileage"
+  in a bone-stress sentence, which catches the crudest violation. The gate itself
+  (resolved tenderness, pain-free walking, confirmed healing) is a clinical sequence no
+  output rule can verify, and the walk-run progression's *shape* is not a phrase. #100)
 - **D11:** Pair any high-volume build with adequate **fuelling, sleep, and
   calcium/vitamin D**; cross-link `fueling-and-hydration` and `sleep-and-recovery`. —
   confidence: Probable

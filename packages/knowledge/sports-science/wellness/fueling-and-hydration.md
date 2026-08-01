@@ -394,7 +394,12 @@ sports-science corpus import. The true position:
   goals; cite the exercise-economy cost. — confidence: Established
 - **D12:** On confusion, severe headache, vomiting, seizure, or altered
   consciousness during/after long or hot efforts, stop fueling advice and direct
-  the runner to urgent medical care. — confidence: Established (SAFETY-CRITICAL)
+  the runner to urgent medical care. — confidence: Established (SAFETY-CRITICAL;
+  **enforced in code** by `[[environmental_stress]]` D12's compiled rule
+  `environmental_stress_D12_exertional_red_flags_to_urgent_care`, whose symptom set
+  carries confusion, vomiting, seizure, altered consciousness and severe headache and
+  whose forbidden move — reassure, explain away, brush off, coach on — is the same one.
+  One rule, not two: this is the same guardrail stated from the fuelling side. #100)
 - **D13:** Treat intakes above ~90 g/h (e.g. ~120 g/h) as experimental — reserve
   for ultra-endurance, only as glucose+fructose in extensively gut-trained
   runners, and frame the benefit as possible recovery/muscle-damage reduction

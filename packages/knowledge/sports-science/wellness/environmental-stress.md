@@ -3,6 +3,9 @@ id: environmental_stress
 name: "Heat & Altitude"
 category: wellness
 grade: Established
+safety_critical: [12]       # D12 → hard guardrail `environmental_stress_D12`
+                            # (insights/guard_directives.py). D13 and
+                            # fueling-and-hydration D12 defer to that one rule.
 summary: "Heat acclimatization is one of sport's best-evidenced gains (~10–14 days); read effort/pace alongside HR in heat. Altitude (LHTL) is smaller and contested."
 population: runners
 aliases: ["environmental-stress", "heat acclimatization", "heat acclimation", "heat adaptation", "training in heat", "humidity", "WBGT", "dew point", "core temperature", "plasma volume", "heat illness", "heat stroke", "altitude training", "live high train low", "LHTL", "hypoxia", "EPO", "hemoglobin mass", "acclimatization", "pace adjustment heat", "HR drift heat"]
@@ -321,15 +324,31 @@ phrase arrived with the upstream sports-science corpus import. The true position
   `safety_critical`, and `insights/guard_directives.py` compiles it into a rule that
   blocks any scheduled or volume-target fluid instruction inside an exercise-or-heat
   sentence — heat is one of that rule's subject triggers.
-- **The heat-illness stop-and-cool rule, the modify-or-cancel-in-dangerous-heat rule,
-  the altitude-illness rule and the iron-screening rule are NOT enforced in code.** They
-  are rules for the coach to follow. Nothing in the tree reads WBGT, temperature or
-  altitude, and `insights/refusals.py`'s emergency classifier does not know the words
-  "heat stroke", "confusion", "vomiting", "ataxia", "HAPE" or "HACE" — it catches
-  "faint", "passed out", "loss of consciousness", "can't breathe" and "sudden headache",
-  which overlaps these red flags only partly. Only directives a note declares
-  `safety_critical` in its frontmatter compile into `insights/guard_directives.py`, and
-  this note declares none; D11, D12 and D13 are strong candidates for that mechanism.
+- **The heat-illness stop-and-cool rule IS enforced, as of #100.** This note now
+  declares **D12** `safety_critical`, and `insights/guard_directives.py` compiles
+  `environmental_stress_D12_exertional_red_flags_to_urgent_care` from it: an answer does
+  not ship if it reassures, explains away, brushes off, or offers continue-training
+  advice in a sentence carrying an exertional red flag (heat stroke/exhaustion,
+  hyponatraemia, HAPE/HACE, seizure, ataxia/staggering, altered consciousness,
+  person-attributed confusion or disorientation, vomiting, collapse near an effort,
+  stopped sweating). The gap it closes is specific and was measured, not assumed:
+  `output_guard`'s `advise_through_red_flag_symptom` knows chest pain, breathlessness,
+  syncope, palpitations and dizziness, and `insights/refusals.py`'s emergency classifier
+  knows "faint", "passed out", "loss of consciousness" and "sudden headache" — **neither
+  knows any of the words above**, which are the presentation of the three exertional
+  emergencies that actually kill runners.
+  What the rule does **not** promise: it catches four deflection shapes, not every
+  phrasing of one. And it is an *output* guard — it cannot make the coach ask about
+  symptoms it was never told.
+- **D13 (altitude illness) and `fueling-and-hydration` D14/D12 do not carry their own
+  guardrail — they share D12's.** Its symptom set spans ataxia and HAPE/HACE as well as
+  heat, and its forbidden move is identical, so a second compiled rule would be a second
+  definition of one thing.
+- **The modify-or-cancel-in-dangerous-heat rule (D11) and the iron-screening rule (D9)
+  are NOT enforced in code, and cannot be from text alone.** They are rules for the
+  coach to follow. Nothing in the tree reads WBGT, temperature, altitude or iron status,
+  and "scale back intensity in extreme heat" is a plan shape, not a phrase a regex can
+  recognise being broken.
 
 ## Bottom line
 
@@ -385,15 +404,25 @@ phrase arrived with the upstream sports-science corpus import. The true position
   effort by feel, not sea-level pace. — confidence: Probable
 - **D11:** In extreme heat/WBGT, scale back intensity and duration, move the session
   cooler, or recommend postponement — especially for unacclimatized runners. —
-  confidence: Established (SAFETY-CRITICAL)
+  confidence: Established (SAFETY-CRITICAL; **not enforced in code** — a plan shape, not
+  a phrase a rule can recognise being broken, and nothing in the tree reads WBGT)
 - **D12:** On heat-illness red flags (confusion, collapse, disorientation, vomiting,
   altered behavior) during/after hot exercise, stop training advice and direct the
-  runner to immediate cooling and urgent medical care. — confidence: Established (SAFETY-CRITICAL; not enforced in code — see *Safety bounds*, #87)
+  runner to immediate cooling and urgent medical care. — confidence: Established
+  (SAFETY-CRITICAL; **enforced in code** — this note declares D12 `safety_critical` and
+  `insights/guard_directives.py` compiles
+  `environmental_stress_D12_exertional_red_flags_to_urgent_care`, which blocks any
+  answer that reassures, explains away, brushes off or coaches on through one of these
+  red flags. See *Safety bounds* for what it does and does not catch. #100)
 - **D13:** On altitude-illness symptoms (worsening headache, severe breathlessness,
   confusion, ataxia), advise descent and medical care, not continued training. —
-  confidence: Established (SAFETY-CRITICAL)
+  confidence: Established (SAFETY-CRITICAL; **enforced in code** by D12's rule, whose
+  symptom set includes ataxia, HAPE/HACE and altered consciousness — one rule, not two,
+  because the forbidden move is the same one)
 - **D14:** Never advise drinking ahead of thirst even in heat (hyponatremia risk);
-  defer hydration specifics to `fueling-and-hydration`. — confidence: Established (SAFETY-CRITICAL)
+  defer hydration specifics to `fueling-and-hydration`. — confidence: Established
+  (SAFETY-CRITICAL; **enforced in code** via `[[hydration_everyday]]` D5, whose compiled
+  rule takes heat as one of its subject triggers)
 
 ## Key references
 

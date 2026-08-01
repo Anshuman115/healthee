@@ -150,7 +150,9 @@ HR — so IF is unobtainable.
    **TRIMP (`cardio_load`)**; never mix in a TSS figure. — confidence: high
 2. **Never convert** TRIMP↔TSS with a fixed factor, or present the two as equivalent — no
    universal conversion exists. — confidence: high *(SAFETY-CRITICAL: a fabricated
-   conversion corrupts the load history)*
+   conversion corrupts the load history. **Not enforced in code** — no output rule
+   recognises a TRIMP↔TSS conversion, and the validator checks grounding, not
+   arithmetic. A rule for the coach, not a guarantee. #100)*
 3. Treat a user-supplied TSS as a **separate external metric** — acknowledge it, explain
    the internal-vs-external difference, but keep it out of Healthee's trend. — confidence: high
 4. If TRIMP is unavailable for a session, report **"no load computed"**, never a

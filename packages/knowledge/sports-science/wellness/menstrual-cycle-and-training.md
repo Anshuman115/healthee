@@ -379,7 +379,11 @@ phrase arrived with the upstream sports-science corpus import. The true position
   recommend clinician evaluation. Do not advise training through it. — confidence: Established (SAFETY-CRITICAL; not enforced in code — see *Safety bounds*, #87) [Mountjoy 2023; Loucks 2003]
 - **D6:** Never prescribe, endorse, or normalise low energy availability or weight
   loss as a performance strategy; frame adequate fuelling as health- and
-  performance-protective. — confidence: Established (SAFETY-CRITICAL) [Mountjoy 2023]
+  performance-protective. — confidence: Established (SAFETY-CRITICAL; **partly enforced
+  in code** by `insights/output_guard.py`'s `advise_through_bone_stress_or_reds` — it
+  blocks "lose weight", "eat less", "cut your calories" and the like, but **only in a
+  sentence that also names RED-S, low energy availability or bone stress**. A weight-loss
+  prescription phrased without those words is not caught. #100) [Mountjoy 2023]
 - **D7:** Do not treat a withdrawal bleed on hormonal contraception as evidence of
   energy adequacy or bone health. — confidence: Established [Mountjoy 2023]
 - **D8:** Use ~30 kcal/kg FFM/day as a *caution* heuristic for low energy
@@ -388,7 +392,7 @@ phrase arrived with the upstream sports-science corpus import. The true position
 - **D9:** Treat cycle phase as a known confounder of RHR and HRV; do not over-react
   to a single luteal-phase readiness reading. — confidence: Probable
 - **D10:** Stay in scope — refer contraceptive choice, suspected REDs, persistent
-  menstrual problems, or severe symptoms to a qualified healthcare professional. — confidence: Established (SAFETY-CRITICAL)
+  menstrual problems, or severe symptoms to a qualified healthcare professional. — confidence: Established (SAFETY-CRITICAL; **not enforced in code** — `insights/refusals.py` has five refusal domains (emergency, diagnosis, medication, pregnancy/pediatric, mental health) and **none of them matches "menstrual", "amenorrhoea" or "contraceptive"**, so a cycle question reaches the model like any other. A rule for the coach, not a guarantee. #100)
 - **D11:** When discussing cycle effects, calibrate language to the evidence:
   acknowledge the trivial average effect and low study quality, and never present
   cycle-syncing as proven. — confidence: Established (methodological) [McNulty 2020; Elliott-Sale 2021]

@@ -300,7 +300,9 @@ This section is mandatory — GAP is a useful estimate wrapped in real uncertain
   allow power-hiking — confidence: **Established** (safety/validity bound).
 - **D7:** Never prescribe pace targets on descents; cap descent effort for impact
   and muscle-damage control, and warn that long downhills raise the cost of later
-  kilometres — confidence: **Probable** (safety-critical).
+  kilometres — confidence: **Probable** (safety-critical; **not enforced in code** —
+  "a pace target on a descent" is a plan shape, and nothing in the tree knows a
+  prescribed segment's gradient. A rule for the coach, not a guarantee. #100).
 - **D8:** Refine the gradient response from the runner's own HR-vs-GAP data over
   time rather than assuming the population curve fits them, especially on steep
   terrain — confidence: **Probable**.

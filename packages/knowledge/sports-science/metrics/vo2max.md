@@ -423,7 +423,10 @@ evidence-backed shape is:
 - **D10:** Gate **maximal VO₂max tests and supramaximal vVO₂max intervals** behind
   aerobic base, full recovery, and (where relevant) medical clearance; never for
   injured/ill/fatigued or Stage-1 runners, and keep VO₂max-intensity work a small,
-  recovery-gated fraction of the week. — confidence: Established (safety-critical)
+  recovery-gated fraction of the week. — confidence: Established (safety-critical;
+  **not enforced in code** — the gate is the runner's aerobic base, recovery state and
+  medical clearance, none of which an output rule can read from the answer text. A rule
+  for the coach, not a guarantee. #100)
 
 ## Key references
 

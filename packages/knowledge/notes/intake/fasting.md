@@ -200,7 +200,12 @@ anaerobic-power decrements; temperature and respiratory effects (thin evidence).
    lean-mass risk; recommend protein plus resistance training. *(high)*
 3. Never recommend fasting to improve a tracked metric. *(high)*
 4. **SAFETY-CRITICAL:** never encourage fasting for anyone with eating-disorder
-   history/risk; route such questions to the medical-refusal guardrails. *(high)*
+   history/risk; route such questions to the medical-refusal guardrails. *(high;
+   **partly enforced**. A question naming an eating disorder, anorexia or bulimia is
+   refused before the model runs by `insights/refusals.py`'s mental-health domain, and
+   `[[late_eating_sleep]]` D5's compiled rule blocks a prescribed fasting window in any
+   answer. Neither knows a *history* the owner has not just typed — nothing in the tree
+   stores one. #100)*
 5. Tell athletes endurance/strength are preserved fasted; flag only morning
    anaerobic/sprint sessions. *(moderate)*
 

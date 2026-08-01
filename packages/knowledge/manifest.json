@@ -329,6 +329,9 @@
       "name": "Heat & Altitude",
       "path": "sports-science/wellness/environmental-stress.md",
       "population": "runners",
+      "safety_critical": [
+        12
+      ],
       "summary": "Heat acclimatization is one of sport's best-evidenced gains (~10–14 days); read effort/pace alongside HR in heat. Altitude (LHTL) is smaller and contested."
     },
     {
