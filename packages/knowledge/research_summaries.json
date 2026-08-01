@@ -36,7 +36,7 @@
       "grade": "Probable",
       "id": "biological_age_estimate",
       "name": "Biological Age (estimate)",
-      "summary": "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines) and its exclusion is stated on every surface. An estimate, never a clinical readout."
+      "summary": "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines). Both priced terms carry a published ANCHOR caveat: the sleep hours are converted to their questionnaire equivalent before Yin's curve is applied (Lauderdale 2008), and the VO₂max population median is uncited and reads low against FRIEND, so the fitness term flatters. An estimate, never a clinical readout."
     },
     {
       "applies_to_metrics": [],
