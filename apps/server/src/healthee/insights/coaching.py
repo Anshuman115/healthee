@@ -42,13 +42,24 @@ _SLEEP_TONIGHT_PROMPT = (
 )
 
 
+def cached_payload(user_id: UUID, tz: str, key: str) -> dict | None:
+    """``user_id``'s whole cached line payload for ``key`` if warmed today, else None.
+
+    The full payload rather than the text, for the one caller that needs the citations
+    too (the metered reveal, ``api.routers.daily_action``). It exists here rather than
+    letting a router reach into ``insights.cache`` because which cache key holds which
+    line is this module's business — the same reason ``warm_lines`` exists.
+    """
+    return get_cached(user_id, tz, key)
+
+
 def cached_line(user_id: UUID, tz: str, key: str) -> str | None:
     """``user_id``'s cached coaching text for ``key`` if warmed today, else None.
 
     Never generates — the read endpoints call this, and LLM generation must never
     block a read path (standards §Performance).
     """
-    cached = get_cached(user_id, tz, key)
+    cached = cached_payload(user_id, tz, key)
     if cached is None:
         return None
     return cached.get("text")
