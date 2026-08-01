@@ -43,8 +43,9 @@ from healthee.insights.coach_prompt import COACH_SYSTEM_PROMPT
 log = get_logger(__name__)
 
 # The GATHERING allowance — rounds the model may spend running tools instead of
-# answering. It is a ceiling, not a spend: a measured ordinary question converges in two
-# rounds and never touches the rest, and an unused round costs nothing. It used to be 5
+# answering. It is a ceiling, not a spend: narrow questions were measured converging in
+# TWO rounds against a live instance (docs/VERIFICATION_2026_08_01.md §7) and never touch
+# the rest, and an unused round costs nothing. It used to be 5
 # AND it doubled as the answer budget, so a question that legitimately needed five rounds
 # of data exited having never been asked for an answer, and a four-round one reached its
 # single answer attempt with zero validation retries left. `MAX_VALIDATION_RETRIES` is
@@ -69,11 +70,21 @@ _ANSWER_NOW = (
 
 @dataclass
 class CoachResult:
-    """The coach's reply plus its grounding + which tools actually ran this turn."""
+    """The coach's reply plus its grounding + which tools actually ran this turn.
+
+    ``grade_floor`` is the WEAKEST evidence grade among the answer's valid citations —
+    the floor the whole reply rests on, not an average and not the best note in it. The
+    validator has always computed it (``validator._grade_floor``) and every other surface
+    already carries it; the coach — the surface where an owner most needs to know how
+    firm the ground is — dropped it on the floor (#84). ``None`` means the answer cited
+    nothing gradeable, which is a different statement from a weak grade and stays
+    distinguishable.
+    """
 
     reply: str
     citations: list[str] = field(default_factory=list)
     personal_findings: list[str] = field(default_factory=list)
+    grade_floor: str | None = None
     tool_calls: list[dict] = field(default_factory=list)
     refused: bool = False
     validated: bool = True
@@ -211,6 +222,7 @@ def _result(outcome: pipeline.Outcome, invocations: list[dict]) -> CoachResult:
         reply=outcome.text,
         citations=outcome.validation.citations,
         personal_findings=outcome.validation.personal_findings,
+        grade_floor=outcome.validation.grade_floor,
         tool_calls=invocations,
         validated=True,
     )
