@@ -186,3 +186,39 @@ def test_mean_ci_brackets_the_mean_and_widens_with_spread() -> None:
 
 def test_mean_ci_of_nothing_is_zero_rather_than_a_crash() -> None:
     assert stats.mean_ci([]) == (0.0, 0.0, 0.0)
+
+
+# ── paired continuous deltas (the cost claim rests on these) ─────────────────
+
+
+def test_a_consistent_saving_is_visible_paired_even_when_the_arms_overlap_unpaired() -> None:
+    """The reason the cost comparison is paired at all.
+
+    Both arms span 10k–100k tokens per question, so their unpaired intervals overlap
+    completely; every question is nonetheless 10% cheaper in the second arm. Pairing
+    removes the between-question spread and the saving becomes unambiguous.
+    """
+    sizes = [10_000, 30_000, 60_000, 100_000, 150_000]
+    before = [_record(f"q{i}", 0, prompt_tokens=s) for i, s in enumerate(sizes)]
+    after = [_record(f"q{i}", 0, prompt_tokens=int(s * 0.9)) for i, s in enumerate(sizes)]
+    unpaired_before = stats.mean_ci([r.prompt_tokens for r in before])
+    unpaired_after = stats.mean_ci([r.prompt_tokens for r in after])
+    assert unpaired_after[2] > unpaired_before[1]  # the unpaired intervals overlap
+    delta = stats.paired_delta(before, after, lambda r: float(r.prompt_tokens))
+    assert delta.pairs == 5
+    assert delta.significant  # ...and the paired one does not span zero
+    assert round(delta.pct, 3) == -0.1
+
+
+def test_a_delta_whose_sign_is_not_established_says_so() -> None:
+    before = [_record(f"q{i}", 0, prompt_tokens=t) for i, t in enumerate((100, 200, 300, 400))]
+    after = [_record(f"q{i}", 0, prompt_tokens=t) for i, t in enumerate((150, 150, 350, 350))]
+    delta = stats.paired_delta(before, after, lambda r: float(r.prompt_tokens))
+    assert not delta.significant
+    assert "NOT established" in delta.line("input tokens")
+
+
+def test_paired_deltas_drop_records_the_other_arm_does_not_have() -> None:
+    before = [_record("a", 0, prompt_tokens=100), _record("b", 0, prompt_tokens=100)]
+    after = [_record("a", 0, prompt_tokens=50)]
+    assert stats.paired_delta(before, after, lambda r: float(r.prompt_tokens)).pairs == 1

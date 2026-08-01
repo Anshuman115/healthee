@@ -126,4 +126,14 @@ def comparison(first: EvalRun, second: EvalRun) -> str:
             f"  {run.label:<10} input {sum(r.prompt_tokens for r in run.records):>9,} tok · "
             f"mean/question {mean:7.0f} [{lo:.0f}–{hi:.0f}] · ${_cost_usd(run.records):.2f}"
         )
+    lines += ["", "PAIRED per-question deltas (after − before; the unpaired means above overlap"]
+    lines += ["by construction — between-question spread dwarfs the effect)"]
+    for label, value in (
+        ("input tokens", lambda r: float(r.prompt_tokens)),
+        ("output tokens", lambda r: float(r.completion_tokens)),
+        ("llm calls", lambda r: float(r.llm_calls)),
+        ("tool rounds", lambda r: float(r.tool_rounds)),
+        ("citations", lambda r: float(len(r.citations))),
+    ):
+        lines.append("  " + stats.paired_delta(first.records, second.records, value).line(label))
     return "\n".join(lines)

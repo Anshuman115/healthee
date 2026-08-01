@@ -17,7 +17,7 @@ unit tests DO run in the normal suite while the harness itself never does.
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from scipy.stats import binomtest, t
@@ -152,6 +152,54 @@ def paired(first: Sequence[RunRecord], second: Sequence[RunRecord]) -> Paired:
         c_only=c_only,
         p_value=mcnemar(b_only, c_only),
     )
+
+
+@dataclass(frozen=True)
+class PairedMean:
+    """A paired difference in a continuous measure (tokens, calls, latency)."""
+
+    pairs: int
+    baseline: float
+    delta: float
+    lo: float
+    hi: float
+
+    @property
+    def pct(self) -> float:
+        return self.delta / self.baseline if self.baseline else 0.0
+
+    @property
+    def significant(self) -> bool:
+        """True when the 95% interval excludes zero — i.e. the sign is established."""
+        return (self.lo > 0) or (self.hi < 0)
+
+    def line(self, label: str) -> str:
+        verdict = "sign established" if self.significant else "sign NOT established (CI spans 0)"
+        return (
+            f"{label:<22} {self.delta:+10.0f} ({self.pct:+.1%})  "
+            f"[95% CI {self.lo:+.0f} – {self.hi:+.0f}]  n={self.pairs} pairs · {verdict}"
+        )
+
+
+def paired_delta(
+    first: Sequence[RunRecord],
+    second: Sequence[RunRecord],
+    value: Callable[[RunRecord], float],
+) -> PairedMean:
+    """second − first for ``value``, PAIRED per (question, repeat).
+
+    Two unpaired means with overlapping intervals say almost nothing here, because the
+    between-question spread is enormous (35k tokens for a one-call knowledge question,
+    340k for a seven-call compound one). Differencing within a pair removes it, which is
+    the only way a ~15% cost change is visible at n in the tens.
+    """
+    left = {(r.question_id, r.repeat): r for r in scored(first)}
+    right = {(r.question_id, r.repeat): r for r in scored(second)}
+    shared = sorted(set(left) & set(right))
+    deltas = [value(right[k]) - value(left[k]) for k in shared]
+    baseline = sum(value(left[k]) for k in shared) / len(shared) if shared else 0.0
+    delta, lo, hi = mean_ci(deltas)
+    return PairedMean(pairs=len(shared), baseline=baseline, delta=delta, lo=lo, hi=hi)
 
 
 def scored(records: Sequence[RunRecord]) -> list[RunRecord]:
