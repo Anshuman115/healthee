@@ -34,7 +34,8 @@ def _run(args: argparse.Namespace) -> int:
             f"[{index:>3}/{total}] {record.question_id:<20} {record.outcome:<9} "
             f"calls={record.llm_calls} tools={record.tool_rounds} "
             f"in={record.prompt_tokens:>6} cites={len(record.citations)} "
-            f"{record.latency_ms:>6} ms {record.error}"
+            f"{record.latency_ms:>6} ms {record.error}",
+            flush=True,  # a redirected run must still be watchable line by line
         )
     records.save(run, Path(args.out))
     print("\n" + report.summary(run))

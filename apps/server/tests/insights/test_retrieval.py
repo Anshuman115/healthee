@@ -8,6 +8,13 @@ bare SUBSTRING, so ``critical_speed``'s aliases ``W`` and ``D`` put a 6,707-toke
 about running critical power into the top-6 of 6 of 11 representative prompts — 16% of
 the daily-action prompt, bought by two letters. Word boundaries are the fix, and these
 pin both halves of it: the letter no longer matches, the acronym still does.
+
+Task #94 then found two more, both of which changed WHICH notes ground an answer:
+separators (an alias spelled ``resting-heart-rate`` could not match the phrase "resting
+heart rate", so the note was unreachable for its own name) and the all-zero tie-break
+(a question no explicit signal covered was answered with the alphabetically-first
+Established notes). The tests for those pin the behaviour AND its bounds — particularly
+that the new weak lexical signal can never outvote an explicit one.
 """
 
 from __future__ import annotations
@@ -15,8 +22,17 @@ from __future__ import annotations
 import re
 
 from healthee.insights.coaching import _DAILY_ACTION_PROMPT, DAILY_ACTION_METRICS
-from healthee.insights.manifest import all_notes
-from healthee.insights.retrieval import _score, _tokens, evidence_section, rank_notes
+from healthee.insights.manifest import ManifestNote, all_notes
+from healthee.insights.retrieval import (
+    _ALIAS_HIT,
+    _LEXICAL_CAP,
+    _alias_hits,
+    _content_tokens,
+    _score,
+    _tokens,
+    evidence_section,
+    rank_notes,
+)
 
 
 def test_metric_notes_rank_to_the_top() -> None:
@@ -46,16 +62,18 @@ def test_evidence_section_is_empty_without_a_corpus_match_still_lists_notes() ->
 
 def _relevance(note_id: str, question: str, metrics: tuple[str, ...] = ()) -> int:
     note = next(n for n in all_notes() if n.id == note_id)
-    return _score(note, _tokens(question), question.lower(), set(metrics))
+    return _score(
+        note, _tokens(question), question.lower(), set(metrics), _content_tokens(question)
+    )
 
 
 def test_a_single_letter_alias_does_not_match_inside_a_word() -> None:
     """``critical_speed`` aliases ``W``/``D``; "this week … today" is not critical power.
 
-    Asserted on the SCORE rather than the ranking, because a note can still surface in a
-    top-6 on the alphabetical tie-break that breaks all-zero scores — a separate ranking
-    weakness this change does not claim to fix. What is claimed is that the note stops
-    being scored as *relevant*, and that is what this reads.
+    Asserted on the SCORE rather than the ranking: what the word-boundary rule claims is
+    that the note stops being scored as *relevant*, and that is what this reads. (When it
+    was written, a zero-scoring note could still surface in a top-6 on the alphabetical
+    tie-break — that was the separate weakness #94b then fixed below.)
 
     The premise is asserted first: if the corpus ever drops those one-letter aliases the
     test stops proving anything, and it should say so rather than pass vacuously.
@@ -85,6 +103,119 @@ def test_an_acronym_alias_still_matches_its_own_word() -> None:
 def test_a_phrase_alias_still_matches_its_phrase() -> None:
     ranked = rank_notes("how does alcohol before bed affect sleep?")
     assert ranked[0].id == "alcohol_sleep"
+
+
+# ── #94a · an alias is matched however its separators are spelled ────────────
+
+
+def test_a_hyphenated_alias_matches_the_phrase_as_a_person_writes_it() -> None:
+    """``resting_heart_rate`` was unreachable for the words "resting heart rate".
+
+    Its aliases are spelled the way the source document spells them
+    (``resting-heart-rate``), and people ask in spaces — so the note that IS the answer
+    scored zero, and the coach spent a whole ``get_knowledge`` round (~33k input tokens)
+    fetching what retrieval should have handed it (VERIFICATION_2026_08_01 §3).
+
+    The premise is asserted first: if the corpus ever adds a spaced alias this test would
+    pass for the wrong reason, and it should say so rather than go quietly green.
+    """
+    note = next(n for n in all_notes() if n.id == "resting_heart_rate")
+    assert "resting heart rate" not in {a.lower() for a in note.aliases}, note.aliases
+    assert "resting-heart-rate" in {a.lower() for a in note.aliases}
+    question = "What is my resting heart rate over the last week?"
+    assert _relevance("resting_heart_rate", question) >= _ALIAS_HIT
+    assert rank_notes(question)[0].id == "resting_heart_rate"
+
+
+def test_the_separator_class_is_symmetric_across_spellings() -> None:
+    """One alias spelling has to cover all of them, or the corpus decides reachability.
+
+    The underscore spelling is deliberately NOT in this comparison: it is the note's id,
+    so it scores an id hit (100) on top and is a different signal, not an asymmetry.
+    """
+    spaced = _relevance("resting_heart_rate", "my resting heart rate")
+    hyphenated = _relevance("resting_heart_rate", "my resting-heart-rate")
+    assert spaced == hyphenated > 0
+
+
+def test_a_separator_is_still_required_between_the_words() -> None:
+    """Insensitive to WHICH separator, not to its absence — "restingheartrate" is not it."""
+    assert _relevance("resting_heart_rate", "my restingheartrate today") == 0
+
+
+# ── #94b · an all-zero score no longer hands over the alphabet ───────────────
+
+
+def test_a_plain_question_no_longer_retrieves_the_alphabetically_first_notes() -> None:
+    """Measured before: "should I train hard today" scored ZERO against all 74 notes.
+
+    The deterministic id tie-break then chose the top-6, so the model was asked to ground
+    an intensity decision in alcohol_sleep, behavior_change_and_personalization,
+    cadence_intensity, caffeine_sleep, critical_speed and environmental_stress — ~30k
+    tokens of full notes, selected by spelling. The honest fallback it produced was the
+    right output for that evidence, which is why this reads as a grounding fix.
+    """
+    question = "Should I train hard today or take it easy? Base it on my recovery."
+    top = [n.id for n in rank_notes(question)[:6]]
+    assert "recovery_readiness" in top
+    assert "alcohol_sleep" not in top
+    assert "cadence_intensity" not in top
+
+
+def test_the_lexical_signal_can_never_outvote_an_alias_hit() -> None:
+    """The cap is the whole safety argument for adding a fuzzy signal to retrieval.
+
+    Synthetic notes, because the point is a BOUND on the scoring rule rather than a fact
+    about today's corpus: a note that merely shares vocabulary must lose to a note the
+    question actually named, however much vocabulary it shares.
+    """
+    question = "how does alcohol affect deep sleep architecture and recovery overnight"
+    named = ManifestNote(
+        id="named",
+        name="Alcohol",
+        grade="Established",
+        summary="",
+        path="",
+        category="x",
+        aliases=("alcohol",),
+    )
+    wordy = ManifestNote(
+        id="wordy",
+        name="Deep sleep architecture recovery overnight",
+        grade="Established",
+        summary="deep sleep architecture recovery overnight affect does",
+        path="",
+        category="x",
+    )
+    args = (_tokens(question), question.lower(), set(), _content_tokens(question))
+    assert _score(wordy, *args) == _LEXICAL_CAP
+    assert _score(named, *args) > _score(wordy, *args)
+
+
+def test_function_words_alone_score_nothing() -> None:
+    """Otherwise every question would rank the corpus by how long its summaries are.
+
+    Written first as "no note scores anything", which FAILED — and the failure was the
+    third instance of the two-letter-alias defect: ``fasting_metrics`` and
+    ``training_stress_score`` both alias ``IF``, so the English word "if" bought two full
+    notes on any prompt containing it (the shipped ``metric_insight`` prompt says "If
+    it's off my baseline"). Word boundaries could never have caught that one — "if" is a
+    whole word. An alias that is a function word is now dropped, so this reads as
+    written.
+    """
+    question = "what should I do about this and that, if you could tell me?"
+    assert _content_tokens(question) == frozenset()
+    assert max(_relevance(n.id, question) for n in all_notes()) == 0
+
+
+def test_an_alias_that_is_an_english_function_word_never_matches() -> None:
+    """The premise, asserted so this cannot pass vacuously if the corpus drops ``IF``."""
+    fasting = next(n for n in all_notes() if n.id == "fasting_metrics")
+    assert "IF" in fasting.aliases
+    # Read on the ALIAS hits, not the total: the note may still pick up a weak lexical
+    # point for a word its summary happens to share, which is the intended behaviour.
+    assert _alias_hits(fasting, "tell me if my recovery is fine") == 0
+    assert _alias_hits(fasting, "how does intermittent fasting affect me") > 0
 
 
 def test_the_embedded_notes_carry_no_bibliography() -> None:
