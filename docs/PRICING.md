@@ -359,6 +359,53 @@ The free-user cost looks tiny, but at 5% conversion each premium user "carries"
 ~19 free users — so **free-tier cost control is existential**. The teaser MUST run
 on the cheap path (Flash-Lite + cache), or free users eat the margin.
 
+### 6.1a What the measurement does to that math (2026-08-01) — ⛔ OWNER DECISION
+
+Run §3.1's measured costs through §6.1's own structure and the base case does not
+survive. Per cohort of 20 users at 5% conversion, per month:
+
+| | Planning row | Measured |
+|---|---|---|
+| Premium revenue net of fees (×1) | +$3.12 | +$3.12 |
+| Premium AI cost (×1) | −$1.70 | **−$2.09 nightly alone**, before any card or coach question |
+| Free-tier cost (×19) | −$2.28 | **−$6.46** |
+| **Net per cohort** | **≈ −$0.86** | **≈ −$5.43** |
+
+The planning case was already slightly negative at 5%; the measured one is
+**~6× worse, and the free tier is ~70% of the hole** — not the premium user's
+nightly chain. That inverts the intuition the section was written on: the
+expensive thing is not what we do for people who pay, it is what we give away
+19 times over.
+
+**The single biggest lever is the shape of the free teaser, not its efficiency.**
+One coach question *per 7 days* is a recurring LLM subscription given away for
+free — no amount of prompt-shaving fixes a recurring giveaway, it only makes each
+instance cheaper. The options, with measured effects:
+
+| # | Lever | Effect | Costs us |
+|---|---|---|---|
+| A | Free coach taste becomes **one-time** (N total on signup) rather than weekly | free ≈ $0.34 → **≈$0.09/mo** and it *decays to ~$0* | the weekly re-hook; conversion may drop |
+| B | Free taste to 1 per **30 days** | free ≈ $0.34 → **≈$0.11/mo** | weaker hook, keeps the habit |
+| C | Evidence block top-6 → **top-4** | **−18.8% input on every surface** (sign established, 95% CI −35,173 to −3,083; ship rate unchanged at n=42, p=1.0) | needs ~200 pairs (~$15/arm) to exclude a small quality loss — see #94/§9.1 |
+| D | Merge `briefing` + `daily_action` (#95) | ~−26% of the nightly chain | a product change, and possibly a second definition of "today's action" |
+| E | Raise price | $3.99 → $5.99 adds ~$1.88 net/premium | competitive position (§5: Fitbit ~$9.99, Whoop bundles hardware) |
+| F | Accept as CAC | nothing changes | needs a conversion target and a runway number |
+
+**Recommendation (the owner decides; this is a recommendation, not a change):**
+**A + C.** A attacks 70% of the hole at its root and is the only lever whose cost
+*decays* rather than recurring — a one-time taste still demonstrates the product,
+which is what a teaser is for. C is free money if the powered eval clears it,
+since it cuts every surface at once. Together they take the cohort from ≈ −$5.43
+to roughly break-even **without touching the price**, which preserves §5's
+positioning and keeps the honest-and-cheap story intact.
+
+Deliberately *not* recommended first: E, because the measurement is a reason to
+fix the cost structure before asking users to fund it; and D, because it trades a
+canonical-definition risk for a saving that A and C already cover.
+
+**Not decided here, and not to be silently implemented** — the tables above stay
+as they are until the owner picks. What is settled is the measurement.
+
 ### 6.2 Monthly profit by scale (base case: 5% conversion, OPTIMIZED costs)
 
 | Total users | Premium (5%) | Net revenue/mo | Cost/mo (AI+infra+fees+fixed) | **Profit/mo** | **Profit/yr** |
