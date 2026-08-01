@@ -1,0 +1,291 @@
+"""The choke point's STAGES — the one body both LLM surfaces run (INTELLIGENCE §3).
+
+Until this module existed the coach was *enforced-equivalent* to the choke point rather
+than *routed through* it: ``grounded.py`` and ``coach.py` each called the primitives
+(``classify_refusal``, ``check_output``, ``validate``, the honest fallback) in their own
+order, from their own loop. The rule that followed — "every rule added to the choke point
+must be mirrored in the coach" — was enforced by a human remembering, and it had already
+been missed once: the hard output guardrail had to be written in two places.
+
+The split existed for a real reason: the coach needs a bounded TOOL LOOP and
+``grounded_ask`` does not. So the fork was moved rather than removed. Everything the two
+surfaces share lives here as one code path; the only difference either surface expresses
+is *how one model turn is produced* (:class:`Turn`) and *how its messages are laid out*.
+
+Stage order, and where each one now lives:
+
+  1. question gate ......... :func:`check_question`  (``refusals.classify_refusal``)
+  2. context ............... :func:`user_context`    (``context.build_context``)
+  3. retrieval ............. :func:`evidence`        (``retrieval.evidence_section``)
+  4. LLM turn .............. :func:`complete`        (the ONE transport call)
+  5. hard output guardrail . ``_output_guard_gate``  — BLOCKING, never retried
+  6. blocking validator .... ``_validator_gate``     — prose or JSON
+  7. anti-hallucination .... ``_action_claim_gate``  — an action claim needs a tool
+  8. nudge → fallback ...... :func:`drive`           — unvalidated text NEVER ships
+
+Stages 5–7 are a REGISTRY (:func:`answer_gates`), not a hardcoded sequence, and stage 1
+is one too (:func:`question_gates`). That is what makes the acceptance bar mechanical: a
+stage added to a registry reaches every surface by construction, and
+``tests/insights/test_pipeline_shared.py`` proves it by injecting one and asserting BOTH
+surfaces obey it. Its companion — an AST guard in the same file — asserts that no module
+except this one reaches a primitive directly, so a stage cannot be re-added to one side
+only without failing a test.
+
+Stage 5 runs BEFORE stage 6 on purpose: a forbidden output is not a grounding problem to
+nudge the model out of, it is a floor (INTELLIGENCE §3, ``output_guard``'s docstring).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from uuid import UUID
+
+from healthee.core.logging import get_logger
+from healthee.insights import prompts
+from healthee.insights.action_claims import claim_issues
+from healthee.insights.client import ChatResponse, LLMClient
+from healthee.insights.context import build_context
+from healthee.insights.output_guard import check_output
+from healthee.insights.refusals import Domain, classify_refusal
+from healthee.insights.retrieval import evidence_section
+from healthee.insights.validator import ValidationResult, validate, validate_json
+
+log = get_logger(__name__)
+
+MAX_VALIDATION_RETRIES = 1  # one nudged rewrite, then the honest fallback (blocking)
+
+
+# ── Stage 1 · the question gate ──────────────────────────────────────────────
+
+QuestionGate = Callable[[str], Domain | None]
+
+_QUESTION_GATES: tuple[QuestionGate, ...] = (classify_refusal,)
+
+
+def question_gates() -> tuple[QuestionGate, ...]:
+    """The gates run over the QUESTION before any context build or model call."""
+    return _QUESTION_GATES
+
+
+def check_question(question: str) -> Domain | None:
+    """The first refusal domain ``question`` hits, or None when it may be answered.
+
+    A hit short-circuits the whole pipeline — the model is never called, so it cannot be
+    prompted, jailbroken or cajoled past a hard guardrail (INTELLIGENCE §3 step 1).
+    """
+    for gate in question_gates():
+        hit = gate(question)
+        if hit is not None:
+            return hit
+    return None
+
+
+# ── Stages 2–4 · context, retrieval, transport ───────────────────────────────
+
+
+def user_context(question: str, user_id: UUID, tz: str, *, days: int) -> str:
+    """The owner's v2-native context markdown — THE context stage for every surface.
+
+    A one-line seam on purpose: it is what makes "context" a stage both surfaces provably
+    share rather than two call sites that happen to agree today.
+    """
+    return build_context(user_id, tz, days=days, question=question)
+
+
+def evidence(question: str, metrics: Sequence[str] | None = None) -> tuple[str, list[str]]:
+    """The manifest-ranked EVIDENCE NOTES section + the ids embedded in full."""
+    return evidence_section(question, list(metrics or []))
+
+
+def complete(
+    client: LLMClient,
+    messages: list[dict],
+    *,
+    tools: list[dict] | None = None,
+    model: str | None = None,
+    response_format: dict | None = None,
+) -> ChatResponse:
+    """The ONE call into the LLM transport — the seam a cost/budget stage plugs into."""
+    return client.complete(messages, tools=tools, model=model, response_format=response_format)
+
+
+# ── Stages 5–7 · the answer gates ────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class AnswerContext:
+    """The per-surface facts the shared gates need — defaults are the STRICTEST reading.
+
+    ``json_mode`` selects the validator flavour. ``acted_ok`` names the action tools that
+    returned ok this turn; a surface with no tools leaves it empty, which is not an
+    exemption but the strictest possible setting — every action claim is then an issue.
+    """
+
+    json_mode: bool = False
+    acted_ok: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class Block:
+    """A hard stop: this exact response ships, and the model is NEVER nudged toward another."""
+
+    name: str
+    response: str
+
+
+@dataclass(frozen=True)
+class GateOutcome:
+    """What one gate concluded: a hard block, retryable issues, or nothing at all.
+
+    ``validation`` is how the validator gate publishes the citations / personal findings /
+    grade floor the surfaces put on their result — no other gate needs to set it.
+    """
+
+    block: Block | None = None
+    issues: tuple[str, ...] = ()
+    validation: ValidationResult | None = None
+
+
+AnswerGate = Callable[[str, AnswerContext], GateOutcome]
+
+
+def _output_guard_gate(text: str, ctx: AnswerContext) -> GateOutcome:  # noqa: ARG001
+    """Hard output guardrails — blocking, whatever the text cited or would validate."""
+    rule = check_output(text)
+    if rule is None:
+        return GateOutcome()
+    return GateOutcome(block=Block(rule.name, rule.response))
+
+
+def _validator_gate(text: str, ctx: AnswerContext) -> GateOutcome:
+    """The blocking citation validator — prose or JSON, same honesty rules."""
+    result = validate_json(text) if ctx.json_mode else validate(text)
+    return GateOutcome(issues=tuple(result.issues), validation=result)
+
+
+def _action_claim_gate(text: str, ctx: AnswerContext) -> GateOutcome:
+    """Never claim an action no tool performed this turn (``action_claims``)."""
+    return GateOutcome(issues=tuple(claim_issues(text, ctx.acted_ok)))
+
+
+_ANSWER_GATES: tuple[AnswerGate, ...] = (
+    _output_guard_gate,  # the floor FIRST — a forbidden answer is never nudged
+    _validator_gate,
+    _action_claim_gate,
+)
+
+
+def answer_gates() -> tuple[AnswerGate, ...]:
+    """The gates run over every text candidate, in order. THE seam a new stage enters by."""
+    return _ANSWER_GATES
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """The folded outcome of every answer gate over one candidate."""
+
+    block: Block | None = None
+    issues: tuple[str, ...] = ()
+    validation: ValidationResult | None = None
+
+    @property
+    def ok(self) -> bool:
+        """True only when nothing blocked and no gate raised an issue (blocking)."""
+        return self.block is None and not self.issues
+
+
+def judge(text: str, ctx: AnswerContext) -> Verdict:
+    """Run every answer gate over ``text``; a block short-circuits the rest."""
+    issues: list[str] = []
+    validation: ValidationResult | None = None
+    for gate in answer_gates():
+        outcome = gate(text, ctx)
+        if outcome.block is not None:
+            return Verdict(block=outcome.block, validation=outcome.validation or validation)
+        issues.extend(outcome.issues)
+        if outcome.validation is not None:
+            validation = outcome.validation
+    return Verdict(issues=tuple(issues), validation=validation)
+
+
+# ── Stage 8 · the loop policy: nudge once, then the honest fallback ──────────
+
+
+@dataclass(frozen=True)
+class Turn:
+    """One model turn: an answer candidate, or ``None`` when the turn produced none.
+
+    ``text=None`` is how a surface says "I handled that turn myself — ask again". The
+    coach returns it after running tool calls; that is the ONLY shape the tool loop
+    takes in this module, which is why the loop is a parameter and not a fork.
+    """
+
+    text: str | None
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """What the shared driver concluded — each surface shapes its own result from this."""
+
+    text: str
+    validation: ValidationResult | None = None
+    refused: bool = False
+    validated: bool = True
+
+
+@dataclass(frozen=True)
+class Loop:
+    """A surface's three differences: produce a turn, carry a nudge back, describe itself.
+
+    ``context`` is a callable rather than a value because the coach's ``acted_ok`` grows
+    as tools run — it must be read at judgement time, not at loop entry.
+    """
+
+    next_turn: Callable[[], Turn]
+    nudge: Callable[[str, Sequence[str]], None]
+    label: str
+    max_turns: int = MAX_VALIDATION_RETRIES + 1
+    context: Callable[[], AnswerContext] = field(default=AnswerContext)
+
+
+def drive(loop: Loop) -> Outcome:
+    """Run turns until one clears every gate, is blocked, or the honest fallback ships.
+
+    The retry budget and the fallback are here and nowhere else: unvalidated text never
+    ships (INTELLIGENCE §3, hole #2), and a blocked answer is returned without a retry.
+    """
+    retries = 0
+    for _turn_no in range(loop.max_turns):
+        turn = loop.next_turn()
+        if turn.text is None:
+            continue
+        verdict = judge(turn.text, loop.context())
+        if verdict.block is not None:
+            return Outcome(text=verdict.block.response, refused=True, validated=False)
+        if verdict.ok:
+            return Outcome(text=turn.text, validation=verdict.validation)
+        if retries >= MAX_VALIDATION_RETRIES:
+            log.warning(
+                "%s: candidate failed the gates twice (%s) — honest fallback",
+                loop.label,
+                verdict.issues,
+            )
+            return Outcome(text=prompts.FALLBACK, validated=False)
+        loop.nudge(turn.text, verdict.issues)
+        retries += 1
+    log.warning(
+        "%s: exhausted %d turns without a clean answer — honest fallback",
+        loop.label,
+        loop.max_turns,
+    )
+    return Outcome(text=prompts.FALLBACK, validated=False)
+
+
+def nudge_turns(text: str, issues: Sequence[str]) -> list[dict]:
+    """The two conversation turns that carry a failed candidate back to the model."""
+    listed = "\n".join(f"- {issue}" for issue in issues)
+    return [
+        {"role": "assistant", "content": text},
+        {"role": "user", "content": prompts.RETRY_NUDGE.format(issues=listed)},
+    ]

@@ -1,16 +1,18 @@
 """The intelligence layer: the grounded-ask choke point + LLM insight surfaces.
 
-``grounded_ask`` (``grounded.py``) is the pipeline: deterministic refusal gating →
-v2-native context → manifest-ranked retrieval → one completion → hard OUTPUT
-GUARDRAILS (``output_guard``) → a BLOCKING citation validator (honest fallback,
-never unvalidated text). The insight surfaces (``surfaces.py``, ``notable.py``,
-``coaching.py``) are thin tasks over it, as are ``jobs.recs`` / ``jobs.briefing``.
+``pipeline.py`` IS the choke point: the deterministic refusal gate → v2-native context →
+manifest-ranked retrieval → the one LLM transport call → hard OUTPUT GUARDRAILS
+(``output_guard``) → the BLOCKING citation validator → the anti-hallucination gate →
+one nudged retry and then the honest fallback (never unvalidated text).
 
-⚠ **NOT every LLM call goes through it, though this docstring used to say so.**
-``coach.py`` needs its own tool-calling loop, so it re-implements the same sequence
-from the same primitives — enforced-equivalent, not routed-through. Every rule added
-to ``grounded_ask`` must be mirrored there or the coach silently misses it; see
-``grounded.py``'s docstring and INTELLIGENCE.md §4 for the full statement.
+**Two surfaces run it, and they run the same code.** ``grounded_ask`` (``grounded.py``)
+is the non-conversational one — ``surfaces``, ``notable``, ``coaching``, ``jobs.recs``,
+``jobs.briefing``, ``challenges.generate``/``program_generate`` are thin tasks over it.
+``run_coach`` (``coach.py``) is the conversational one; it needs a bounded tool loop, so
+it supplies a different message layout and a different turn shape — and nothing else.
+The coach used to re-implement the sequence from the same primitives
+(*enforced-equivalent, not routed-through*), which meant every new rule had to be
+mirrored by hand; that is no longer true, and no longer documented as true.
 """
 
 from __future__ import annotations

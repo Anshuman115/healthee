@@ -28,7 +28,7 @@ import openai
 import pytest
 
 from healthee.core.config import get_settings
-from healthee.insights import grounded
+from healthee.insights import grounded, pipeline
 from healthee.insights.client import ChatResponse, OpenRouterClient
 from healthee.jobs import chain
 
@@ -118,8 +118,10 @@ def test_a_timeout_propagates_out_of_the_choke_point_and_is_never_an_empty_answe
     never got an answer". Collapsing the second into the first is exactly the swallow
     that leaves a dead surface looking merely quiet.
     """
-    monkeypatch.setattr(grounded, "build_context", lambda *a, **kw: "# CONTEXT")  # noqa: ARG005
-    monkeypatch.setattr(grounded, "evidence_section", lambda *a, **kw: ("# EVIDENCE", []))  # noqa: ARG005
+    # The context/retrieval stages now live on the shared pipeline (both surfaces run
+    # them), so the DB-backed builders are stubbed there rather than on `grounded`.
+    monkeypatch.setattr(pipeline, "user_context", lambda *a, **kw: "# CONTEXT")  # noqa: ARG005
+    monkeypatch.setattr(pipeline, "evidence", lambda *a, **kw: ("# EVIDENCE", []))  # noqa: ARG005
 
     with pytest.raises(openai.APITimeoutError):
         grounded.grounded_ask("How is my recovery trending?", _OWNER, "UTC", client=_TimingOutLLM())

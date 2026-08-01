@@ -21,9 +21,8 @@ from __future__ import annotations
 from uuid import UUID
 
 from healthee.core.db import tenant_transaction
+from healthee.insights import pipeline
 from healthee.insights.challenge_context import challenge_section
-from healthee.insights.context import build_context
-from healthee.insights.retrieval import evidence_section
 from healthee.read.recovery import (
     STALE_RECOVERY_DIRECTIVE,
     recovery_freshness,
@@ -48,7 +47,7 @@ def build_coach_context(
     real authenticated user to thread down, and a default owner on a context builder is
     exactly how one tenant's data reaches another tenant's prompt.
     """
-    context = build_context(user_id, tz, days=days, question=question)
+    context = pipeline.user_context(question, user_id, tz, days=days)
     with tenant_transaction(user_id) as cur:
         recovery = recovery_score_payload(cur, user_id, tz)
         challenges = challenge_section(cur, user_id)
@@ -101,6 +100,11 @@ def _recovery_heading(recovery: dict, stale: dict | None) -> str:
 
 
 def coach_evidence(question: str) -> str:
-    """Top-ranked evidence notes for the current question (same retrieval as insights)."""
-    evidence_md, _ids = evidence_section(question, [])
+    """Top-ranked evidence notes for the current question (the SAME retrieval stage).
+
+    Through ``pipeline.evidence`` rather than ``retrieval.evidence_section`` directly, so
+    "same retrieval as insights" is a fact the AST guard in
+    ``tests/insights/test_pipeline_shared.py`` enforces rather than a comment.
+    """
+    evidence_md, _ids = pipeline.evidence(question)
     return evidence_md

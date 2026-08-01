@@ -1,57 +1,40 @@
-"""The grounded-ask choke point — the path the non-conversational LLM surfaces take.
+"""The grounded-ask entry point for the NON-CONVERSATIONAL LLM surfaces.
 
-⚠ It is NOT literally "the single path every LLM surface goes through", though this
-docstring said so and `INTELLIGENCE.md` §4 still implies it. **The coach does not call
-`grounded_ask`** — `insights/coach.py` drives its own tool-calling loop and invokes the
-choke point's PRIMITIVES directly (`validate`, `check_output`, the refusal classifier).
-It is enforced-equivalent, not routed-through, and every rule added here must be mirrored
-there or the coach silently misses it. That is not hypothetical: the output guardrail
-(step 4) had to be added in both places, and a test pins the coach's copy so it cannot rot.
+The stages this function is named after no longer live here: they live in
+``pipeline.py``, which the coach runs too. This module is now one of two thin
+compositions over that shared body — it contributes a message layout (system prompt +
+one user payload) and a single-completion turn, and nothing else. ``coach.py``
+contributes a different layout and a bounded tool loop. Every honesty stage — the
+refusal gate, the context and retrieval builders, the LLM transport, the hard output
+guardrails, the blocking validator, the anti-hallucination gate, the nudge-then-fallback
+policy — is one code path shared by both.
 
-Stating it plainly because a docstring claiming a guarantee the code does not have is how
-the next reader mis-reasons — the same shape as `is_refusal` documenting "exact" while it
-did a substring match, which was a total validation bypass. Collapsing the coach onto this
-function is real work and is tracked separately; until then, believe this paragraph, not §4.
+That is the fix for a real hazard, not a tidy-up. The coach used to re-implement this
+sequence from the same primitives: enforced-equivalent, not routed-through, so every new
+rule had to be mirrored by hand and one already had been (the output guardrail, written
+twice). A stage added to ``pipeline.answer_gates()`` now reaches both surfaces by
+construction, and ``tests/insights/test_pipeline_shared.py`` fails if either surface
+stops inheriting one or reaches for a primitive directly.
 
-INTELLIGENCE §3, in order:
-  1. deterministic refusal pre-classifier (5 domains) — hits bypass the LLM entirely;
-  2. v2-native context + manifest-ranked retrieval → the system/user messages;
-  3. one LLM completion;
-  4. hard OUTPUT GUARDRAILS (``output_guard``) — a documented forbidden output is
-     blocked outright, with no retry, whatever its citations or validation outcome;
-  5. BLOCKING validator — one retry with a nudge, then an honest FALLBACK. The
-     unvalidated text NEVER ships (the fix for legacy's advisory validation, hole #2).
-
-Steps 1 and 4 are the two halves of the code guardrail: step 1 guards the QUESTION,
-step 4 guards the ANSWER. Step 4 runs BEFORE the validator on purpose — a forbidden
-output is not a grounding problem to be nudged out of the model, it is a floor.
-
-The surfaces that DO call ``grounded_ask``: sleep/activity/metric/workout insights
-(``surfaces``), ``notable``, the daily coaching lines (``coaching``), and the two job
-surfaces (``jobs.recs``, ``jobs.briefing``). None of them talk to the LLM directly.
-The coach is the exception described above — legacy's hole #1 is still closed for it
-(unvalidated coach text cannot ship), but by enforced equivalence rather than by
-inheritance, which is the whole point of the warning at the top of this docstring.
+The surfaces that call ``grounded_ask``: sleep/activity/metric/workout insights
+(``surfaces``), ``notable``, the daily coaching lines (``coaching``), the two job
+surfaces (``jobs.recs``, ``jobs.briefing``) and challenge/program generation
+(``challenges.generate``, ``challenges.program_generate``). The coach reaches the same
+stages through ``run_coach``. Nothing else may talk to the LLM at all.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from uuid import UUID
 
 from healthee.core.logging import get_logger
-from healthee.insights import prompts
+from healthee.insights import pipeline, prompts
 from healthee.insights.client import LLMClient, get_client
-from healthee.insights.context import build_context
-from healthee.insights.output_guard import check_output
-from healthee.insights.refusals import classify_refusal
-from healthee.insights.retrieval import evidence_section
-from healthee.insights.validator import validate, validate_json
 
 log = get_logger(__name__)
-
-_MAX_RETRIES = 1  # one nudged retry, then the honest fallback (blocking)
 
 
 @dataclass
@@ -76,8 +59,8 @@ def _build_messages(
     question: str, user_id: UUID, tz: str, metrics: list[str], context_days: int
 ) -> list[dict]:
     """System prompt + one user payload (v2 context + ranked evidence + the task)."""
-    context_md = build_context(user_id, tz, days=context_days, question=question)
-    evidence_md, top_ids = evidence_section(question, metrics)
+    context_md = pipeline.user_context(question, user_id, tz, days=context_days)
+    evidence_md, top_ids = pipeline.evidence(question, metrics)
     log.info("grounded context: %d evidence notes in full", len(top_ids))
     user = f"# CONTEXT\n\n{context_md}\n\n{evidence_md}\n\n# USER QUESTION / TASK\n\n{question}"
     return [
@@ -100,7 +83,7 @@ def grounded_ask(
     """Answer ``question`` grounded in ``user_id``'s v2 data + the graded corpus.
 
     ``user_id``/``tz`` scope every context read to the owner and anchor its day
-    boundaries; the callers hardwire the sentinel until 6.4 supplies the real user.
+    boundaries.
 
     ``response_format="json"`` switches on the JSON output seam: the client is
     asked for a JSON object and the answer is checked by the JSON-aware validator
@@ -108,13 +91,13 @@ def grounded_ask(
     default (``None``) is the unchanged prose path. ``client`` is injectable so
     tests run a deterministic stub.
 
-    There is deliberately no tool-calling seam here. One was reserved
-    (``allow_tools``) for a coach that would run its loop through this pipeline;
-    the coach went the other way — its own loop calling the choke point's
-    primitives (see the module docstring) — so the parameter was removed rather
-    than left as a promise the code does not keep.
+    There is deliberately no tool-calling seam here. The coach's loop is expressed as a
+    ``pipeline.Loop`` instead, because the two surfaces differ in their message LAYOUT as
+    well as their turn shape — folding both into one signature would produce a function
+    whose arguments contradict each other, which is worse than two short compositions
+    over one shared body.
     """
-    refusal = classify_refusal(question)
+    refusal = pipeline.check_question(question)
     if refusal is not None:
         log.info("refused pre-LLM: domain=%s", refusal.name)
         return GroundedResult(text=refusal.template, refused=True)
@@ -127,33 +110,38 @@ def grounded_ask(
 def _complete_with_validation(
     client: LLMClient, messages: list[dict], model: str | None, response_format: str | None = None
 ) -> GroundedResult:
-    """Run the completion, validate, retry once, else return the honest fallback."""
+    """Drive the shared pipeline with a one-completion turn, then shape the result."""
     json_mode = response_format == "json"
     client_format = {"type": "json_object"} if json_mode else None
-    retries = 0
-    while True:
-        response = client.complete(messages, model=model, response_format=client_format)
-        # The hard floor: a forbidden output never ships and is never retried into
-        # existence — it does not matter what it cited or whether it would validate.
-        broken = check_output(response.text)
-        if broken is not None:
-            return GroundedResult(text=broken.response, refused=True, validated=False)
-        result = validate_json(response.text) if json_mode else validate(response.text)
-        if result.ok:
-            return GroundedResult(
-                text=response.text,
-                citations=result.citations,
-                personal_findings=result.personal_findings,
-                grade_floor=result.grade_floor,
-                data=json.loads(response.text) if json_mode else None,
-            )
-        if retries >= _MAX_RETRIES:
-            log.warning("validation failed twice (%s) — returning honest fallback", result.issues)
-            return GroundedResult(text=prompts.FALLBACK, validated=False)
-        nudge = prompts.RETRY_NUDGE.format(issues="\n".join(f"- {i}" for i in result.issues))
-        messages = [
-            *messages,
-            {"role": "assistant", "content": response.text},
-            {"role": "user", "content": nudge},
-        ]
-        retries += 1
+
+    def next_turn() -> pipeline.Turn:
+        response = pipeline.complete(client, messages, model=model, response_format=client_format)
+        return pipeline.Turn(text=response.text)
+
+    def nudge(text: str, issues: Sequence[str]) -> None:
+        messages.extend(pipeline.nudge_turns(text, issues))
+
+    outcome = pipeline.drive(
+        pipeline.Loop(
+            next_turn=next_turn,
+            nudge=nudge,
+            label="grounded_ask",
+            context=lambda: pipeline.AnswerContext(json_mode=json_mode),
+        )
+    )
+    return _result(outcome, json_mode)
+
+
+def _result(outcome: pipeline.Outcome, json_mode: bool) -> GroundedResult:
+    """Shape one pipeline outcome into this surface's result object."""
+    if outcome.refused:
+        return GroundedResult(text=outcome.text, refused=True, validated=False)
+    if not outcome.validated or outcome.validation is None:
+        return GroundedResult(text=prompts.FALLBACK, validated=False)
+    return GroundedResult(
+        text=outcome.text,
+        citations=outcome.validation.citations,
+        personal_findings=outcome.validation.personal_findings,
+        grade_floor=outcome.validation.grade_floor,
+        data=json.loads(outcome.text) if json_mode else None,
+    )

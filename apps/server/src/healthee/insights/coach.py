@@ -1,19 +1,23 @@
-"""The AI coach — a bounded tool-calling loop that CANNOT bypass the validator.
+"""The AI coach — the tool-calling surface, ROUTED THROUGH the shared choke point.
 
-The coach is the flagship honesty surface (INTELLIGENCE §4). It does NOT open a
-second, unvalidated LLM path: it reuses the choke-point primitives directly —
-``refusals.classify_refusal`` gates the question before any tool runs,
-``output_guard.check_output`` gates every text candidate, and every final free-text
-answer is put through ``validator.validate``; a candidate that fails twice ships
-``prompts.FALLBACK``, never raw text. There is exactly one place a model turn becomes
-the reply (``_finalize``), and it only returns text that ``_accept`` cleared — so an
-unvalidated or action-hallucinating answer can never reach the user (holes #1/#2, and
-the anti-hallucination rule).
+The coach is the flagship honesty surface (INTELLIGENCE §4). It used to be
+*enforced-equivalent* to the choke point rather than *routed through* it: it called the
+same primitives (``classify_refusal``, ``check_output``, ``validate``, the honest
+fallback) from its own loop, in its own order, so every rule added to the choke point
+had to be mirrored here by hand — and one already had been (the output guardrail, in two
+places). That mirror rule is gone. Every honesty stage now lives once, in
+``pipeline.py``, and this module contributes exactly two things ``grounded_ask`` cannot:
 
-The hard output guardrails are checked HERE rather than inherited via ``grounded_ask``
-because this surface deliberately calls the primitives itself. That makes this the one
-place a new choke-point stage must be mirrored — ``tests/insights/test_output_guard.py``
-asserts the coach blocks a forbidden answer, so the mirror cannot silently rot.
+  * a message LAYOUT — coach persona + context in the system turn, conversation after it;
+  * a bounded TOOL LOOP, expressed as ``pipeline.Loop.next_turn`` returning
+    ``Turn(text=None)`` for a round that ran tools instead of answering.
+
+Everything else — the refusal gate before any tool runs, the hard output guardrails, the
+blocking validator on every final free-text answer, the anti-hallucination gate, the one
+nudged retry and then ``prompts.FALLBACK`` — is the same code the insight surfaces run.
+``tests/insights/test_pipeline_shared.py`` proves it by injecting a stage into the shared
+registry and asserting BOTH surfaces obey it, and fails if any surface reaches a
+primitive directly.
 
 The system message is ``COACH_SYSTEM_PROMPT`` (docs/COACH_PROMPT.md verbatim); the
 context is the history-rich ``build_coach_context``; the tools are ``COACH_TOOLS``.
@@ -22,62 +26,23 @@ context is the history-rich ``build_coach_context``; the tools are ``COACH_TOOLS
 from __future__ import annotations
 
 import json
-import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
 from healthee.core.logging import get_logger
-from healthee.insights import coach_tools, prompts
+from healthee.insights import coach_tools, pipeline
 from healthee.insights.client import LLMClient, coach_model, get_client
 from healthee.insights.coach_context import DEFAULT_COACH_DAYS, build_coach_context, coach_evidence
 from healthee.insights.coach_prompt import COACH_SYSTEM_PROMPT
-from healthee.insights.output_guard import check_output
-from healthee.insights.refusals import classify_refusal
-from healthee.insights.validator import ValidationResult, validate
 
 log = get_logger(__name__)
 
 _MAX_ROUNDS = 5  # bound the tool loop (COACH_PROMPT: max ~5 rounds)
-_MAX_VALIDATION_RETRIES = 1  # one nudged rewrite, then the honest fallback (blocking)
 _HISTORY_LIMIT = 12  # last N conversation turns kept (context-window discipline)
 
 _GREETING = "Ask me anything about your sleep, activity, recovery, or logged routines."
-
-# First-person action claims the coach may only make when SOME action tool returned ok
-# THIS turn — the floor of the anti-hallucination guard.
-_ACTION_CLAIM_RE = re.compile(
-    r"\bI(?:'ve| have)?\s+(?:just\s+)?"
-    r"(?:logged|recorded|started|ended|stopped|adopted|created|saved)\b|"
-    r"\blogged your\b|\bstarted (?:a|your) fast\b|\bended your fast\b|\badopted (?:the|your)\b",
-    re.IGNORECASE,
-)
-
-
-# …and the claims that name ONE specific action, each tied to the only tool that can
-# make it true. The floor above asks whether ANY action tool succeeded, which was
-# exactly right while `log_entry` was the only one; with three action tools (WP-C5) it
-# would let a successful coffee log license "I started your challenge". A claim about a
-# commitment somebody now believes they have made is not a claim to be loose about.
-def _claim_pattern(verbs: str) -> re.Pattern[str]:
-    """ "I …<verb>… challenge" — tolerating adverbs, refusing a NEGATED claim.
-
-    The adverb gap matters ("I've also adopted…") and so does the negation guard: an
-    honest "I have not started a challenge" is the sentence this coach is supposed to
-    be able to say, and a guard that pushed it into the fallback would punish exactly
-    the behaviour it exists to enforce.
-    """
-    return re.compile(
-        r"\bI(?:'ve| have)?\s+(?:(?!not\b|never\b)[a-z]+\s+){0,2}"
-        rf"(?:{verbs})\b[^.!?]{{0,60}}\bchallenge\b",
-        re.IGNORECASE,
-    )
-
-
-_CLAIM_TOOLS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (_claim_pattern("adopted|started|kicked off"), "adopt_challenge"),
-    (_claim_pattern("created|built|made|set up|written"), "create_challenge"),
-)
 
 
 @dataclass
@@ -111,7 +76,7 @@ def run_coach(
     question = _last_user(history)
     if not question:
         return CoachResult(reply=_GREETING)
-    refusal = classify_refusal(question)
+    refusal = pipeline.check_question(question)
     if refusal is not None:
         log.info("coach refused pre-LLM: domain=%s", refusal.name)
         return CoachResult(reply=refusal.template, refused=True)
@@ -121,33 +86,49 @@ def run_coach(
 
 
 def _loop(client: LLMClient, convo: list[dict], user_id: UUID, tz: str) -> CoachResult:
-    """The bounded tool loop; every text candidate passes through ``_accept``."""
+    """The bounded tool loop, driven by the shared pipeline (one gate set, one policy)."""
     acted_ok: set[str] = set()
     invocations: list[dict] = []
-    retries = 0
-    for _round in range(_MAX_ROUNDS):
-        response = client.complete(convo, tools=coach_tools.COACH_TOOLS, model=coach_model())
+
+    def next_turn() -> pipeline.Turn:
+        response = pipeline.complete(
+            client, convo, tools=coach_tools.COACH_TOOLS, model=coach_model()
+        )
         if response.tool_calls:
             _run_tools(response, convo, invocations, acted_ok, user_id, tz)
-            continue
-        # The hard floor, before acceptance: a forbidden answer is blocked outright and
-        # never nudged — a rule the model could be talked past is not a guardrail.
-        broken = check_output(response.text)
-        if broken is not None:
-            return CoachResult(
-                reply=broken.response, tool_calls=invocations, refused=True, validated=False
-            )
-        ok, issues, validation = _accept(response.text, acted_ok)
-        if ok:
-            return _finalize(response.text, validation, invocations)
-        if retries >= _MAX_VALIDATION_RETRIES:
-            log.warning("coach answer failed acceptance twice (%s) — honest fallback", issues)
-            return CoachResult(reply=prompts.FALLBACK, tool_calls=invocations, validated=False)
-        convo.append({"role": "assistant", "content": response.text})
-        convo.append({"role": "user", "content": _nudge(issues)})
-        retries += 1
-    log.warning("coach exhausted %d rounds without a clean answer — fallback", _MAX_ROUNDS)
-    return CoachResult(reply=prompts.FALLBACK, tool_calls=invocations, validated=False)
+            return pipeline.Turn(text=None)  # the round produced no answer — ask again
+        return pipeline.Turn(text=response.text)
+
+    def nudge(text: str, issues: Sequence[str]) -> None:
+        convo.extend(pipeline.nudge_turns(text, issues))
+
+    outcome = pipeline.drive(
+        pipeline.Loop(
+            next_turn=next_turn,
+            nudge=nudge,
+            label="coach",
+            max_turns=_MAX_ROUNDS,
+            context=lambda: pipeline.AnswerContext(acted_ok=frozenset(acted_ok)),
+        )
+    )
+    return _result(outcome, invocations)
+
+
+def _result(outcome: pipeline.Outcome, invocations: list[dict]) -> CoachResult:
+    """The ONLY path that turns a pipeline outcome into the reply (accepted text only)."""
+    if outcome.refused:
+        return CoachResult(
+            reply=outcome.text, tool_calls=invocations, refused=True, validated=False
+        )
+    if not outcome.validated or outcome.validation is None:
+        return CoachResult(reply=outcome.text, tool_calls=invocations, validated=False)
+    return CoachResult(
+        reply=outcome.text,
+        citations=outcome.validation.citations,
+        personal_findings=outcome.validation.personal_findings,
+        tool_calls=invocations,
+        validated=True,
+    )
 
 
 def _run_tools(
@@ -170,41 +151,6 @@ def _run_tools(
         convo.append(
             {"role": "tool", "tool_call_id": call.id, "content": coach_tools.dumps(result)}
         )
-
-
-def _accept(text: str, acted_ok: set[str]) -> tuple[bool, list[str], ValidationResult]:
-    """Gate a text candidate: citation validation AND the anti-hallucination guard."""
-    validation = validate(text)
-    issues = list(validation.issues) + _claim_issues(text, acted_ok)
-    return (not issues, issues, validation)
-
-
-def _claim_issues(text: str, acted_ok: set[str]) -> list[str]:
-    """Every action the text claims that no tool actually performed this turn."""
-    issues: list[str] = []
-    if _ACTION_CLAIM_RE.search(text) and not acted_ok:
-        issues.append(
-            "Claims an action (logged/started/adopted/created/…) but no action tool "
-            "returned ok this turn — never state an action you did not take."
-        )
-    for pattern, tool in _CLAIM_TOOLS:
-        if pattern.search(text) and tool not in acted_ok:
-            issues.append(
-                f"Claims something only `{tool}` can do, but `{tool}` did not return ok "
-                "this turn — say what actually happened."
-            )
-    return issues
-
-
-def _finalize(text: str, validation: ValidationResult, invocations: list[dict]) -> CoachResult:
-    """The ONLY path that turns a model turn into the reply (accepted text only)."""
-    return CoachResult(
-        reply=text,
-        citations=validation.citations,
-        personal_findings=validation.personal_findings,
-        tool_calls=invocations,
-        validated=True,
-    )
 
 
 def _initial_messages(
@@ -241,11 +187,6 @@ def _parse_args(raw: str | None) -> dict:
         log.warning("coach tool arguments unparseable (%s) — using empty args", exc)
         return {}
     return parsed if isinstance(parsed, dict) else {}
-
-
-def _nudge(issues: list[str]) -> str:
-    """The retry nudge — reuse the choke point's, listing this turn's issues."""
-    return prompts.RETRY_NUDGE.format(issues="\n".join(f"- {i}" for i in issues))
 
 
 def _recent(messages: list[dict]) -> list[dict]:
