@@ -106,9 +106,10 @@ plan, and [`docs/INTELLIGENCE.md`](docs/INTELLIGENCE.md) for how the grounding w
    **hard output guardrail** that blocks documented-forbidden answers regardless of
    their citations, then a **blocking** validator that refuses to ship any claim
    not resolvable to a real research note. Unvalidated text never reaches the user.
-   (The insight surfaces call the choke point; the coach enforces the same
-   primitives itself — *enforced-equivalent, not routed-through*. See
-   [`docs/INTELLIGENCE.md`](docs/INTELLIGENCE.md) §4.)
+   (One body of code, two entry points: `grounded_ask` for the insight surfaces
+   and `run_coach` for the coach, which adds a tool loop and nothing else. A stage
+   is registered once and reaches both, with a test that fails otherwise. See
+   [`docs/INTELLIGENCE.md`](docs/INTELLIGENCE.md) §3–§4.)
 6. **Serve.** The read API assembles it into `GET /api/today`, `/api/sleep`,
    `/api/activity`, etc. — reads answer in well under 100 ms.
 7. **Supervise & survive.** The daily chain (correlate → recs → warm → briefing) runs

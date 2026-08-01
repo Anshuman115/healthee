@@ -64,11 +64,13 @@ Helio Strap ──BLE (RE'd Huami/ZeppOS)──▶ Mobile app ──POST /ingest
 ## The honesty contract (product law)
 
 1. Never lies, never flatters — every interpretive sentence cites the corpus or
-   doesn't ship (blocking validator). Enforced at the grounded-ask choke point
-   for the non-conversational surfaces; the coach enforces the same primitives
-   itself rather than routing through it — *enforced-equivalent, not
-   routed-through*, which means **a new rule must be added in both places**
-   (INTELLIGENCE.md §4).
+   doesn't ship (blocking validator). Enforced at the grounded-ask choke point,
+   which is now ONE body of code (`insights/pipeline.py`) that **both** entry
+   points run: `grounded_ask` for the non-conversational surfaces, `run_coach`
+   for the coach. The coach used to be *enforced-equivalent* rather than
+   routed-through, so a new rule had to be added in two places; #46 removed that.
+   A stage is added to a registry and reaches both surfaces by construction, with
+   a test that fails otherwise (INTELLIGENCE.md §3–§4).
 2. Confidence is part of the answer — every number carries coverage, freshness,
    origin (measured/derived/provisional), and evidence grade.
 3. Nudge, don't please — measured outcomes (frozen ledgers), not streak theater.

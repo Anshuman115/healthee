@@ -833,7 +833,7 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
 Legacy design mined from `~/projects/healthee-legacy/src/healthee/llm/challenges.py`
 (generation/tracking/adaptation/ledger/programs), `api/app.py` (endpoints, coach tool),
 `app/lib/{actions_screen,programs,insights_screen}.dart` (UI). Rebuild contracts:
-`docs/ARCHITECTURE.md` (honesty), `docs/INTELLIGENCE.md` §4 (coach enforced-equivalent),
+`docs/ARCHITECTURE.md` (honesty), `docs/INTELLIGENCE.md` §3-§4 (the shared choke point; the coach routes through it),
 `docs/MULTI_USER.md` (owner-scoping), `docs/PRICING.md` §1a (premium), `docs/COACH_ROADMAP.md`
 C2/C4, `docs/ENGINEERING_STANDARDS.md` (gates). Schema: `0001_initial.sql`,
 `0009_outcome_ledger.sql` (the ledger's honesty), `0010_program_ladder.sql`

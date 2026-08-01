@@ -66,13 +66,14 @@ Rules:
 
 ## 3 · The grounded-ask choke point (server)
 
-Every LLM surface is held to ONE pipeline: the coach, the
+Every LLM surface is held to ONE pipeline — and since the coach was collapsed onto
+it (#46) that is now literally one body of code, not two that agree: the stages
+below live in **`insights/pipeline.py`**, and both entry points run them. The
+non-conversational surfaces enter through `grounded_ask` (`grounded.py`); the coach
+enters through `run_coach` (`coach.py`). Each contributes only its message layout
+and its turn shape; neither owns a stage. The surfaces held to it: the coach, the
 sleep/activity/metric/workout insights, notable shifts, the daily coaching lines,
-and recs (built today), plus the weekly review and challenges (Phase 5+, not
-built). **Read §4's "routed-through
-vs enforced-equivalent" note before relying on the word "choke point": the
-non-conversational surfaces call `grounded_ask`, the coach re-implements this
-sequence from the same primitives.** Every stage below is enforced on both.
+recs, and challenge/program generation.
 
 ```
 question/task
@@ -103,10 +104,27 @@ question/task
       · banned-tone check (alarming/reassuring words need a citation)
       · personal findings cited as [personal_finding:…], clearly distinguished
         from population research
-  → on second validation failure: honest fallback ("I can't ground that in our
-    evidence base") — unvalidated text NEVER ships (legacy shipped it anyway)
+  → anti-hallucination: a first-person action claim ("I logged/adopted/created…")
+    is an issue unless the tool that can make it true returned ok THIS turn. On a
+    tool-less surface the set of successful tools is empty, so every such claim is
+    rejected — the strictest reading, not an exemption (`insights/action_claims.py`)
+  → on second failure: honest fallback ("I can't ground that in our evidence
+    base") — unvalidated text NEVER ships (legacy shipped it anyway)
   → response metadata: citations[], evidence grade floor, data coverage
 ```
+
+**Where each stage lives, and why that is now checkable.** The stages above are
+`insights/pipeline.py`: `check_question` · `user_context` · `evidence` ·
+`complete` · the answer-gate registry (`answer_gates()`: output guard → validator →
+anti-hallucination) · `drive` (one nudged retry, then the fallback). The two answer
+gates that block do so through the **registry**, and the question gate through
+`question_gates()` — so **a stage added to a registry reaches every surface by
+construction**. `tests/insights/test_pipeline_shared.py` proves it two ways: it
+injects a new stage and asserts BOTH surfaces obey it, and an AST guard asserts that
+no module outside `pipeline.py` reaches `classify_refusal` / `check_output` /
+`validate` / `validate_json` / `evidence_section` / `build_context` at all. The
+first proves a registered stage propagates; the second proves a stage cannot be
+added *outside* the registry to one surface only. Both are mutation-verified.
 
 ## 4 · Coach loop v2
 
@@ -132,23 +150,29 @@ question/task
   **per-tool** (`coach._CLAIM_TOOLS`): with one action tool, "did any action tool
   succeed" was the same question, but with three a successful `log_entry` would
   otherwise have licensed "I started your challenge".
-- **The coach is enforced-EQUIVALENT to §3, not routed THROUGH it** — and the
-  difference is load-bearing. `insights/coach.py` does **not** call
-  `grounded_ask`: it drives its own tool-calling loop and invokes the choke
-  point's *primitives* directly (`refusals.classify_refusal`,
-  `output_guard.check_output` on every text candidate, `validator.validate` on
-  every final free-text answer, honest fallback on repeat failure). The legacy
-  hole (§6.1 — the coach was the one surface with NO citation validation) **is**
-  closed: unvalidated coach text cannot ship.
+- **The coach is ROUTED THROUGH §3** (#46, done). It used to be *enforced-equivalent*
+  instead: `coach.py` drove its own loop and called the choke point's primitives
+  itself, so **every rule added to the choke point had to be mirrored in the coach or
+  the coach silently missed it** — and that was not hypothetical, the hard output
+  guardrail had to be written in **two** places for exactly this reason. That rule is
+  gone, and this bullet is the record of why it was worth removing rather than a
+  standing instruction.
 
-  **Why you must care:** *every rule added to the choke point must be mirrored in
-  the coach, or the coach silently misses it.* That is not hypothetical — the
-  hard output guardrail had to be written in **two** places for exactly this
-  reason (`tests/insights/test_output_guard.py` pins the coach's copy so it
-  cannot rot). `grounded.py`'s module docstring states this too; the two agree
-  deliberately. Collapsing the coach onto `grounded_ask` is real work, **not
-  done**, and tracked separately — until then believe this bullet, not the
-  phrase "the ONE choke point" wherever it appears.
+  What changed: the stages moved to `insights/pipeline.py` and both surfaces run
+  them. `coach.py` now contributes exactly two things `grounded_ask` cannot — a
+  message layout (persona + context in the system turn, conversation after it) and a
+  bounded **tool loop**, expressed as a `pipeline.Loop` whose `next_turn` returns
+  `Turn(text=None)` for a round that ran tools instead of answering. The tool loop is
+  a *parameter*, not a fork. Every guarantee is unchanged or stronger: refusal before
+  any tool runs, the output guard on every text candidate, the blocking validator on
+  every final free-text answer, the honest fallback on repeat failure, and the
+  anti-hallucination guard — which is now a shared gate, so the *other* surfaces got
+  it too (they have no tools, so any action claim from them is rejected outright).
+
+  **The rule that replaced the mirror rule:** a stage enters through
+  `pipeline.answer_gates()` / `pipeline.question_gates()`, and
+  `tests/insights/test_pipeline_shared.py` fails if a surface stops inheriting one or
+  reaches a primitive directly. Nobody has to remember anything.
 - **Standing context per turn** (`insights/coach_context.py`): today's
   recovery/readiness block plus a wide (≥30-day) `build_context` — trends,
   baselines, anomalies, sleep sessions, the manual-entry log, and personal
@@ -248,11 +272,10 @@ All references are to `~/projects/healthee-legacy`.
 
 ## 6 · AUDIT — the four structural holes the rebuild closes
 
-1. **Coach skips validation** (§5.3) → **closed**, but by *enforced equivalence*,
-   not by routing: `insights/coach.py` calls the blocking primitives itself
-   (§4). Unvalidated coach text cannot ship; the structural collapse onto
-   `grounded_ask` is still outstanding, and until it lands every new choke-point
-   rule must be mirrored into the coach by hand (§4).
+1. **Coach skips validation** (§5.3) → **closed, and now closed structurally**: the
+   coach was first made *enforced-equivalent* (it called the blocking primitives
+   itself), and #46 collapsed it onto the shared pipeline (§4). Unvalidated coach
+   text cannot ship, and no new choke-point rule has to be mirrored by hand.
 2. **Validation is advisory** (§5.2) → §3: blocking, with an honest fallback.
 3. **Retrieval is dump-all** (§5.1) → §3: manifest-ranked top-N + summaries.
 4. **Sports-science docs uncitable** (hyphen ids, no frontmatter) → §7

@@ -141,8 +141,10 @@ apps/server/src/healthee/
   derive/      science layer — pure functions over the sample window
   analytics/   baselines, correlations, anomalies, cutoffs, bio-age
   read/        per-endpoint read services (canonical-table reads)
-  insights/    llm client, grounded ask (the choke point), validator, output_guard
-               (hard guardrails), refusals, retrieval, context, coach + coach tools
+  insights/    llm client, pipeline (THE choke point: its stages + the gate
+               registries), grounded_ask + coach (its two entry points), validator,
+               output_guard (hard guardrails), action_claims (anti-hallucination),
+               refusals, retrieval, context, coach tools
   api/         app.py (wiring only) + routers/ (thin HTTP layer)
   jobs/        scheduler (per-owner tick) + supervised chain + correlate/recs/briefing
   db/          schema + numbered migrations + runner + one-off ops modules
@@ -168,15 +170,24 @@ tests/         unit + seeded-DB integration + contract tests + db/ (tenancy guar
 - **SQL is always parameterized** (`%s`). F-string interpolation into SQL only
   from hardcoded constant dicts, and each such site carries a comment saying so.
 - **LLM access only via the grounded-ask choke point** in `insights/` —
-  citation validation, refusal domains, hard output guardrails, and confidence
-  tagging happen there, not per-endpoint. **The one standing exception is
-  `insights/coach.py`**, which needs its own tool-calling loop and therefore
-  calls the choke point's *primitives* directly (`classify_refusal`,
-  `check_output`, `validate`) rather than `grounded_ask`. It is
-  enforced-equivalent, not routed-through, and the rule that follows from that is
-  binding: **a new choke-point stage MUST be mirrored into the coach in the same
-  PR, with a test pinning it** (see `tests/insights/test_output_guard.py`).
-  No *other* module may talk to the LLM directly.
+  citation validation, refusal domains, hard output guardrails, anti-hallucination
+  and confidence tagging happen there, not per-endpoint. The choke point is
+  **`insights/pipeline.py`**; the only two entry points are `grounded_ask`
+  (non-conversational surfaces) and `run_coach` (the coach, which needs a bounded
+  tool loop and expresses it as a `pipeline.Loop`). No other module may talk to the
+  LLM, and **no module except `pipeline.py` may reach a choke-point primitive**
+  (`classify_refusal`, `check_output`, `validate`, `validate_json`,
+  `evidence_section`, `build_context`) — an AST guard in
+  `tests/insights/test_pipeline_shared.py` fails the build otherwise.
+  **A new choke-point stage is added to `pipeline.answer_gates()` or
+  `pipeline.question_gates()`**, never to a surface; the same test proves an injected
+  stage reaches both surfaces.
+  > `coach.py` used to be a standing exception here: it re-implemented the sequence
+  > from the primitives (*enforced-equivalent, not routed-through*), and this rule
+  > read "a new stage MUST be mirrored into the coach in the same PR". It had already
+  > been missed once — the output guardrail was written in two places. #46 collapsed
+  > the coach onto the shared pipeline, so the exception is gone and the mirroring
+  > rule with it. A MUST that depends on someone remembering is the weakest kind.
 - **Type hints on all public functions.**
 - **Request bodies are ALWAYS pydantic models** — never a raw dict. Validation at
   the boundary is what keeps a bad value out of the science layer.

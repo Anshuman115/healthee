@@ -7,8 +7,8 @@ expensive surface in the product (PRICING.md §3.1), and this is the only place 
 entitlement is checked (the coach's own tools deliberately do not re-check it).
 
 All grounding, tool-calling, refusal-gating and blocking validation live in
-``healthee.insights.coach`` (which reuses the §3 choke-point primitives); nothing
-LLM-shaped happens in this router.
+``healthee.insights.coach``, which is one of the two entry points into the shared §3
+choke point (``insights.pipeline``); nothing LLM-shaped happens in this router.
 """
 
 from __future__ import annotations

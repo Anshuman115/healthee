@@ -10,12 +10,13 @@ model near a number.
 The tempting shape is a second, smaller pipeline. The coach already holds the corpus,
 the owner's data and their discovered patterns in its standing context, so it could
 propose a metric and a target here and we could check them here. That is exactly the
-failure INTELLIGENCE §4 warns about: the coach is enforced-EQUIVALENT to the choke
-point rather than routed through it, so any rule living in only one of the two paths
-is a rule the other silently misses. Forking generation would make Gate A (the
-baseline band) and Gate B (cite-or-refuse) two things to keep in step — and the last
-time this codebase held two copies of one rule, the two surfaces disagreed
-(``challenges.recovery_guard``'s module docstring).
+failure INTELLIGENCE §4 records: while the coach was enforced-EQUIVALENT to the choke
+point rather than routed through it, any rule living in only one of the two paths was a
+rule the other silently missed. (#46 has since collapsed the two onto one pipeline — but
+the argument here is about GENERATION, which was never the thing that got shared.)
+Forking generation would make Gate A (the baseline band) and Gate B (cite-or-refuse)
+two things to keep in step — and the last time this codebase held two copies of one
+rule, the two surfaces disagreed (``challenges.recovery_guard``'s module docstring).
 
 So the coach supplies INTENT and nothing else. ``generate.generate_challenges(...,
 intent=…)`` is the seam WP-C3 built for this, and everything downstream of it — the

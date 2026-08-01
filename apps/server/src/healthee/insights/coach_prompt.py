@@ -7,9 +7,10 @@ The ``COACH_SYSTEM_PROMPT`` below is the SYSTEM PROMPT section of
 section from the markdown and asserts byte-for-byte equality, so any drift between
 this constant and the doc fails CI.
 
-The prompt states the rules in natural language; the choke-point primitives
-(``refusals.classify_refusal`` + ``validator.validate`` + ``prompts.FALLBACK``)
-ENFORCE them structurally in ``coach.py`` — belt-and-suspenders (INTELLIGENCE §4).
+The prompt states the rules in natural language; the shared choke point
+(``insights/pipeline.py`` — the refusal gate, the output guard, the blocking validator,
+the anti-hallucination gate, the honest fallback) ENFORCES them structurally on every
+surface including this one — belt-and-suspenders (INTELLIGENCE §3-§4).
 """
 
 from __future__ import annotations
