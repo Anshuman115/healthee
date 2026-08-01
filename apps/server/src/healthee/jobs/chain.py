@@ -5,13 +5,22 @@ Legacy triggered ``subprocess.Popen("healthee correlate && healthee recs && "
 v2/api.py:74). A failure in any step vanished into the shell — the classic
 swallowed-error class the rebuild exists to kill.
 
-Here the steps run IN ORDER as in-process function calls, each wrapped by
+The steps themselves live in ``jobs/steps.py`` (this file owns order, supervision and
+idempotence; that one owns what each step is). Here they run IN ORDER as in-process
+function calls, each wrapped by
 ``_run_supervised``: a failure is CAUGHT, logged with context through
 ``core.logging``, and reported to Telegram via ``core.notify`` — never silently
 passed (standards §1: "Background/silent contexts … must report failures to their
 health surface"). The chain then applies dependency logic:
 
-  * ``challenges`` runs FIRST and depends on nothing — closing out a commitment that
+  * ``illness`` runs FIRST, because it is the only step anything below it READS.
+    ``challenges`` consults the flag twice in the very next step — ``advance_due`` via
+    ``challenges/recovery_guard.py`` ([[recovery_readiness]] D7: may an adopted target
+    be RAISED?) and ``finalize_due`` via ``challenges/confounds.py`` (was the owner ill
+    inside this outcome's window?). Written after them, today's flag misses both: the
+    adapter ratchets a training target on the morning the owner got sick, and the
+    ledger records that day's outcome as unconfounded;
+  * ``challenges`` depends on nothing computed here — closing out a commitment that
     ended last night, and moving a program ladder on from it, is not downstream of
     any computation, and an owner whose findings failed still deserves an honest
     outcome for it (WP-C2/WP-C4; the choice to finalize here rather than inside a
@@ -24,16 +33,21 @@ health surface"). The chain then applies dependency logic:
 
 ## Which steps a free owner gets (Phase 6.6a, MULTI_USER.md §12.3)
 
-Three of the five steps call a model, and generating output nobody is entitled to see
+Three of the six steps call a model, and generating output nobody is entitled to see
 is the cost hole 6.6a exists to close (``PRICING.md`` §6.1: at 5 % conversion each
 premium user carries ~19 free ones, so free-tier cost control is existential). So
 ``recs``, ``warm`` and ``briefing`` are SKIPPED for a non-premium owner — named as
 ``skipped``, never silently absent, because a step that did not run and a step that
 ran and produced nothing are different facts (standards §Errors).
 
-The other two run for everyone, and the line between them is *what the step costs and
+The other three run for everyone, and the line between them is *what the step costs and
 who the output belongs to*, not "is it in the AI half of the product":
 
+* ``illness`` is the deterministic early-warning flag, and the one step that could never
+  be gated on any grounds. ``PRICING.md`` §1a is explicit — "never paywall data or
+  safety" — and this is the safety half of that sentence: an unentitled owner still gets
+  the pill saying their overnight vitals moved, and their live challenges are still held
+  back while it is up. It also spends no tokens.
 * ``correlate`` is the **deterministic** FDR correlation + cutoff engine. It spends no
   tokens, and its findings are a FREE-tier feature (``PRICING.md`` §1a: "personal
   findings … ✓ shown as plain stats"). Skipping it would take a free feature away in
@@ -95,17 +109,20 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
-from healthee.challenges import ladder, lifecycle
 from healthee.core.db import tenant_transaction
 from healthee.core.entitlement import is_premium
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
 from healthee.core.tenancy import user_today
-from healthee.insights import coaching as coaching_mod
 from healthee.insights.client import LLMClient
-from healthee.jobs import briefing as briefing_mod
-from healthee.jobs import correlate as correlate_mod
-from healthee.jobs import recs as recs_mod
+from healthee.jobs.steps import (
+    step_briefing,
+    step_challenges,
+    step_correlate,
+    step_illness,
+    step_recs,
+    step_warm,
+)
 
 log = get_logger(__name__)
 
@@ -146,79 +163,6 @@ class ChainResult:
     steps: list[StepOutcome] = field(default_factory=list)
 
 
-# ── the steps (thin adapters onto the step modules) ───────────────────────────
-
-
-def step_challenges(
-    day: date,
-    user_id: UUID,
-    tz: str,
-    *,
-    client: LLMClient | None = None,  # noqa: ARG001
-) -> dict:
-    """Close out one owner's challenges that have ended, then move their ladder on (no LLM).
-
-    This is where auto-completion lives, rather than inside the challenges list read
-    the way legacy did it (``challenges/lifecycle.py`` argues the choice). It runs
-    FIRST and independently of everything else: closing a finished commitment is not
-    downstream of correlate, and an owner whose chain failed on findings should still
-    get an honest outcome for the challenge that ended last night.
-
-    Advancement (WP-C4) is the same step and the same transaction, deliberately. A
-    program rung IS one of the challenges ``finalize_due`` just closed, so its terminal
-    status and whatever the ladder does about it — promote, deload, hold, stop — are one
-    fact about one night. Splitting them would let a rung be recorded ``expired`` while
-    the ladder's answer to that failure rolled back, which is the half-state the freeze
-    is written in-transaction to avoid.
-
-    The ORDER here is the useful one, not a required one: ``advance_due`` reads the
-    rungs' stored statuses rather than re-scoring them, so running it before the close
-    would simply find an active rung and do nothing (``challenges/ladder.py``).
-    """
-    with tenant_transaction(user_id) as cur:
-        closed = lifecycle.finalize_due(cur, user_id, tz, day)
-        advanced = ladder.advance_due(cur, user_id, tz, day)
-    return {"closed": closed, "advanced": advanced}
-
-
-def step_correlate(
-    _day: date,
-    user_id: UUID,
-    tz: str,
-    *,
-    client: LLMClient | None = None,  # noqa: ARG001
-) -> dict:
-    """Recompute one owner's personal findings (no LLM — ``client`` is unused here)."""
-    return correlate_mod.run_correlate(user_id, tz)
-
-
-def step_recs(day: date, user_id: UUID, tz: str, *, client: LLMClient | None = None) -> dict:
-    """Generate one owner's grounded recommendations for their local day."""
-    return recs_mod.generate_recs(user_id, tz, day, client=client)
-
-
-def step_warm(
-    _day: date,
-    user_id: UUID,
-    tz: str,
-    *,
-    client: LLMClient | None = None,
-) -> dict:
-    """Warm one owner's read-surface coaching lines for their local day (off the read path).
-
-    ``_day`` is unused deliberately: a coaching line is advice for the owner's day as
-    it is NOW, and its cache freshness is stamped from ``tz`` (``cache.today_iso``).
-    So a chain re-run for an explicit past ``day`` still warms today's lines rather
-    than caching yesterday's advice under today's key.
-    """
-    return coaching_mod.warm_lines(user_id, tz, client=client)
-
-
-def step_briefing(day: date, user_id: UUID, tz: str, *, client: LLMClient | None = None) -> dict:
-    """Send one owner's morning Telegram briefing."""
-    return briefing_mod.send_briefing(user_id, tz, day, client=client)
-
-
 # ── supervision ────────────────────────────────────────────────────────────────
 
 
@@ -251,7 +195,7 @@ def run_chain(
     client: LLMClient | None = None,
     force: bool = False,
 ) -> ChainResult:
-    """Run ONE owner's challenges → correlate → recs → warm → briefing, supervised, deduped.
+    """Run ONE owner's illness → challenges → correlate → recs → warm → briefing, deduped.
 
     Dependency: a ``correlate`` failure skips ``recs`` and ``warm`` (both consume the
     findings it writes). A ``briefing`` failure never undoes persisted recs, and a
@@ -260,9 +204,12 @@ def run_chain(
     marker is per-owner (the folded ``kv`` PK), so one owner's chain can never dedup
     another's. ``day`` defaults to the owner's own local today.
 
-    Entitlement (§12.3): a non-premium owner gets the two DETERMINISTIC steps and none
+    Entitlement (§12.3): a non-premium owner gets the three DETERMINISTIC steps and none
     of the three that call a model. The lookup happens once, before any step, so a free
-    owner's chain spends ZERO LLM calls rather than generating and discarding.
+    owner's chain spends ZERO LLM calls rather than generating and discarding. ``illness``
+    is inside that free set by policy, not by accident (``PRICING.md`` §1a: never paywall
+    safety) — the flag holds a free owner's training levers back exactly as it does a
+    paying one's.
     """
     day = day or user_today(tz)
     if not force and _chain_done(user_id, day):
@@ -274,8 +221,11 @@ def run_chain(
         log.info("chain[%s] for %s: not premium — skipping %s", user_id, day, ", ".join(LLM_STEPS))
 
     steps: list[StepOutcome] = []
-    # Before anything is computed: close out what has already ended. Nothing below
-    # depends on it, and it must not be skipped when something below fails.
+    # First, because `challenges` reads what it writes: the illness flag is the hard
+    # override the adapter and the outcome ledger both consult on the very next line.
+    steps.append(_run_supervised("illness", lambda: step_illness(day, user_id, tz, client=client)))
+    # Then close out what has already ended. Nothing below depends on it, and it must
+    # not be skipped when something below fails.
     steps.append(
         _run_supervised("challenges", lambda: step_challenges(day, user_id, tz, client=client))
     )

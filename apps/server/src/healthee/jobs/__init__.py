@@ -13,6 +13,8 @@ Modules:
   * ``recs``       — daily recommendations, v2-native, THROUGH the grounded
                      choke point (``insights.grounded``), cite-or-drop;
   * ``briefing``   — the morning Telegram "daily-insight", grounded + validated;
+  * ``steps``      — the thin per-step adapters (illness, challenges, correlate,
+                     recs, warm, briefing) the chain supervises;
   * ``chain``      — ``run_chain``: ordered, dependency-aware, supervised, and
                      deduped per owner per local day;
   * ``scheduler``  — the tick loop that runs each owner's chain at THEIR local
