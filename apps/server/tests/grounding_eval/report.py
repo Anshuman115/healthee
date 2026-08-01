@@ -70,6 +70,10 @@ def summary(run: EvalRun) -> str:
         f"(of which {sum(r.reasoning_tokens for r in records):,} reasoning) "
         f"⇒ ${_cost_usd(records):.2f} for this run",
     ]
+    causes = stats.failure_causes(records)
+    if causes:
+        lines += ["", "WHY ANSWERS DID NOT SHIP (issue causes, commonest first)"]
+        lines += [f"  {count:>3}  {cause}" for cause, count in causes]
     unmetered = sum(r.unmetered_calls for r in records)
     if unmetered:
         lines.append(f"  ⚠ {unmetered} call(s) reported NO usage — spend is a lower bound")

@@ -18,8 +18,10 @@ Two deliberate choices:
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Iterator
+from types import TracebackType
 from uuid import UUID
 
 from tests.contracts import seed
@@ -58,17 +60,49 @@ def run_questions(
             yield record
 
 
+class _CaptureWarnings(logging.Handler):
+    """Collect the insights layer's WARNING+ lines for the duration of one question.
+
+    A context manager on the ``healthee.insights`` logger rather than a new return value
+    threaded through ``GroundedResult`` and ``CoachResult``: the harness OBSERVES, and a
+    field added to a shipped result type for a test's benefit is a second reason for that
+    type to change. It attaches and detaches around each question, so nothing leaks into
+    the next one and the production logging path is untouched.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.lines: list[str] = []
+        self._logger = logging.getLogger("healthee.insights")
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.lines.append(record.getMessage())
+
+    def __enter__(self) -> _CaptureWarnings:
+        self._logger.addHandler(self)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self._logger.removeHandler(self)
+
+
 def _run_one(
     question: EvalQuestion, repeat: int, user_id: UUID, tz: str, client: MeteredClient
 ) -> RunRecord:
     """One question, once — timed, metered, and classified into a single outcome."""
     client.reset()
     started = time.perf_counter()
-    try:
-        outcome, citations, tools = _ask(question, user_id, tz, client)
-        error = ""
-    except Exception as exc:  # noqa: BLE001 — one failed question must not end a paid run
-        outcome, citations, tools, error = ERROR, [], [], f"{type(exc).__name__}: {exc}"
+    with _CaptureWarnings() as captured:
+        try:
+            outcome, citations, tools = _ask(question, user_id, tz, client)
+            error = ""
+        except Exception as exc:  # noqa: BLE001 — one failure must not end a paid run
+            outcome, citations, tools, error = ERROR, [], [], f"{type(exc).__name__}: {exc}"
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     meter = client.meter
     return RunRecord(
@@ -90,6 +124,7 @@ def _run_one(
         unmetered_calls=meter.unmetered_calls,
         latency_ms=elapsed_ms,
         error=error,
+        warnings=captured.lines,
     )
 
 

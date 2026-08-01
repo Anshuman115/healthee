@@ -492,6 +492,12 @@ Rules it enforces on itself:
   difference is *not* significant — "not measurably worse" is not "the same";
 - transport/DB errors are excluded from the denominator and counted separately, never
   folded in as failures;
+- every record carries the WARNING/ERROR lines the pipeline logged while answering it, and
+  the summary prints a **census of issue CAUSES** grouped by cause rather than by
+  sentence. Without it an arm could say a third of its answers never shipped but not why,
+  and #99's whole diagnosis had to be grepped out of a console log the next run would
+  overwrite — a number with no cause attached, which is this harness's own complaint one
+  level up;
 - the two arms are two runs of the same code at two commits, not a flag inside it.
 
 It costs real money and hits the network, so it never runs in the normal suite; only its
@@ -541,3 +547,28 @@ than roughly ±20 points, so the honest reading is "no loss detectable at the re
 we bought". Before shipping the trim, either accept that bounded risk deliberately or
 run ~200 pairs per arm (~$15/arm). `DEFAULT_TOP_N` is unchanged at 6 — the measurement
 was run as a throwaway arm, not as a landed change.
+
+### 9.2 · #99 — four of those causes were the validator, and the arm that could not be run
+
+The two false positives §9.1 flagged as "worth their own measured PR" turned out to be
+four, and together they account for **19 of the 39 recorded issues** and **6 of the 13
+fallbacks in EACH of the two arms above**: the hedge vocabulary had no entry for
+*probably* (17 issues), a section heading counted as an uncited interpretive sentence, a
+sentence reporting the owner's own measured numbers counted as an unhedged claim, and a
+sentence that *declined* to claim ("the data does not support a confident call") was
+rejected for insufficient hedging. All four are fixed in `insights/calibration.py` +
+`validator.py`, each pinned on both sides, and `_ACTIVITY_PROMPT` no longer asks for the
+healthspan framing that was tripping the death-risk guardrail.
+
+**None of it is defended by a ship rate, because the arm could not be run.** The
+OpenRouter account exhausted its credits ($200.27 of $200) 16 questions into the before
+arm on 2026-08-01: every call from there on returned HTTP 402, so the arm scored
+**8/12 = 66.7% [95% CI 39.1–86.2]** on its surviving repeat — consistent with the 69.0%
+baseline and useless as a comparison — and no after arm exists. What replaced it is a
+deterministic replay: every failure sentence recorded in the two arms above, run through
+the new rules, holding the model's outputs fixed. That is a lower bound on the fallbacks
+converted (the log records only the SECOND candidate's issues, so a first candidate that
+would now pass is not counted) and it is **not a ship rate** — the model is stochastic and
+a real after-arm would generate different text. **The measurement is still owed.** Run it
+when the account has credits; it is one `run --repeats 3` per side.
+
