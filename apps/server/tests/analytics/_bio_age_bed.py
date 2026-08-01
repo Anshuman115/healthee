@@ -21,7 +21,7 @@ from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 # the same arithmetic from opposite sides: that one through a stub, this one through a
 # real database and the real withhold gate.
 CHRONO_AGE = 40
-VO2MAX = 41.5  # ml/kg/min — vs the note's 38.0 median for a 40 y male
+VO2MAX = 38.8  # ml/kg/min — exactly +1 MET on FRIEND's 35.3 reference for a 40 y male
 TST_MIN = 360.0  # 6.0 h/night across the 14-night window
 
 # Hand-derived from [[biological_age_estimate]] (see test_biological_age_math for the

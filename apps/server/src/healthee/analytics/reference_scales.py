@@ -6,8 +6,10 @@ and the instrument that axis was measured with). [[biological_age_estimate]]'s t
 sources every slope to a meta-analysis. Until #97 nothing sourced the anchors, and
 that is where both surviving terms were wrong:
 
-- **Fitness** compares our VO₂max estimate to a population median held in a constant
-  table that appears in no note and cites no paper (``_VO2MAX_MEDIAN_*`` below).
+- **Fitness** compared our VO₂max estimate to a "population median" held in a constant
+  table that appeared in no note and cited no paper. Sourced in #101 to one published
+  row — FRIEND's treadmill 50th percentile (``_FRIEND_TREADMILL_MEDIAN_*`` below) —
+  which also reversed #97's reading of which way the old table leaned.
 - **Sleep duration** applied Yin 2017's curve — whose exposure is a *questionnaire* —
   directly to a *device-measured* nightly average, i.e. at the wrong point on its own
   x-axis (``self_reported_equivalent_h`` below).
@@ -15,10 +17,9 @@ that is where both surviving terms were wrong:
 This is the lesson of #86 generalised. The regularity term was removed because an SRI
 point is defined by the software that scored it and so has no transportable anchor at
 all. These two are not that: ml/kg/min and hours are physical units, so an anchor
-*exists* and can be stated, checked, corrected, or — for the VO₂max median — admitted
-to be unsourced. Keeping them in one file is deliberate: "which anchor came from
-where" is the question that has now produced three bugs, and it should be answerable
-by reading one screen.
+*exists* and can be stated, checked and corrected. Keeping them in one file is
+deliberate: "which anchor came from where" is the question that has now produced three
+bugs, and it should be answerable by reading one screen.
 
 Nothing here is a slope. Slopes live with the term that uses them, in
 ``analytics/biological_age.py``.
@@ -26,44 +27,109 @@ Nothing here is a slope. Slopes live with the term that uses them, in
 
 from __future__ import annotations
 
-# ── Fitness anchor: population-median VO₂max ────────────────────────────────
+# ── Fitness anchor: the FRIEND treadmill 50th percentile ────────────────────
 #
-# ⚠ UNCITED. These numbers appear in no research note and no paper we can find. Their
-# whole provenance is a comment in the legacy repo's ``api/app.py``, dropped in the
-# port to this one: "Approximate population-median VO2max by age band, sex-stratified
-# (ACSM Guidelines 11th ed., ~50th percentile)." That claim does not survive checking.
-# ACSM's 11th-edition percentiles reproduce the FRIEND registry, and FRIEND's published
-# 50th percentiles (Kaminsky et al. 2015, Mayo Clin Proc 90(11):1515–23, PMID 26455884
-# — 7,783 maximal treadmill CPETs, abstract verified 2026-08-01) are:
+# ONE SOURCE, EVERY CELL. Kaminsky LA, Arena R, Myers J, Peterman JE, Bonikowske AR,
+# Harber MP, Medina Inojosa JR, Lavie CJ, Squires RW (2022), "Updated Reference Standards
+# for Cardiorespiratory Fitness Measured with Cardiopulmonary Exercise Testing: Data from
+# the Fitness Registry and the Importance of Exercise National Database (FRIEND)", Mayo
+# Clin Proc 97(2):285–293, PMID 34809986 — **Table 3, treadmill block, the 50th-percentile
+# row**, directly measured VO₂peak in mLO₂·kg⁻¹·min⁻¹, inclusion criterion RER ≥ 1.0.
+# 16,278 treadmill CPETs from 34 US laboratories (men n = 9,564, women n = 6,714), tested
+# 1968-01-01 → 2021-03-31. Table read in full 2026-08-01; the 80–89 bucket is in the same
+# row, which is why the clamp now reaches 80 instead of stopping at 70.
 #
-#     men 20–29   48.0   vs 44.0 here   (4.0 LOW)
-#     women 20–29 37.6   vs 36.0 here   (1.6 LOW)
-#     men 70–79   24.4   vs 24.0 here   (0.4 low)
-#     women 70–79 18.3   vs 19.0 here   (0.7 high)
+# Why the whole row and not a patch: the table this replaced was invented cell by cell,
+# and a table half from FRIEND and half from anywhere else would be a new version of the
+# same defect — two scales inside one comparison. Nothing here comes from a secondary
+# reproduction, from the 2015 edition, or from ACSM.
 #
-# Three of the four cells we can check against a primary source read LOW, and a low
-# reference makes the owner look fitter than the population — the term FLATTERS. At the
-# worst cell that is 4.0/3.5 = 1.14 MET, i.e. 2.1 years of biological age. FRIEND's
-# middle decades are not in the abstract and we would not paste a number we have not
-# read, so the table is left as it is and its footing is published to the owner instead
-# (``biological_age.CAVEAT_TERMS``) rather than quietly corrected to a guess.
+# WHAT WAS HERE BEFORE, and why it had to go. The old constants (M 44/41/38/33/28/24,
+# F 36/33/30/26/22/19) cited nothing; their whole provenance was a comment in the legacy
+# repo's ``api/app.py``, dropped in the port to this one — "Approximate population-median
+# VO2max by age band, sex-stratified (ACSM Guidelines 11th ed., ~50th percentile)", whose
+# very next sentence said "Used only for a 'above/below average for your age and sex'
+# badge — not for precision claims". It was promoted to driving the dominant term of a
+# number expressed in years and its own caveat was left behind.
 #
-# Note also that FRIEND is a self-selected clinical-referral cohort, not a population
-# sample, so even a perfect match to it would not make "population median" true.
-# Replacing this table needs a real source, and that is issue-sized work, not a patch.
-VO2MAX_REFERENCE_UNCITED = "vo2max_reference_median_uncited"
+# #97 could only check four cells (the two the 2015 abstract prints) and concluded the
+# table read LOW, i.e. that the term FLATTERED, by up to ~2.1 y. **Reading all twelve
+# cells against the current standard reverses that for most of the table**:
+#
+#     old − FRIEND 2022    20s     30s     40s     50s     60s     70s
+#     men                 −2.5    +1.3    +2.7    +3.8    +3.4    +3.4
+#     women               −0.6    +4.7    +4.3    +3.1    +2.4    +1.8
+#
+# Ten of twelve cells were HIGH — a reference set too fit makes the owner look worse, so
+# the old table PENALISED almost everywhere, worst at women 30–39 (4.7 ml/kg/min =
+# 1.34 MET ≈ 2.4 years charged and never earned). Only the two 20-something cells
+# flattered. The four-cell check was not wrong about its four cells; it was a sample, and
+# the sample's sign did not hold. That is the reason this constant needed a whole row from
+# one paper rather than a correction.
+#
+# WHY THE 2022 EDITION AND NOT THE 2015 ONE. Same authors, same registry, same modality,
+# same effort criterion (the 2015 paper's own abstract reads "maximal (respiratory
+# exchange ratio, ≥1.0) treadmill tests"), so Table 3 here is the like-for-like successor
+# to the table #97 compared against. Its abstract states the update is "1.5–4.6
+# mLO₂·kg⁻¹·min⁻¹ lower compared with the previous 2015 standards" and that this
+# "improve[s] the representativeness of the US population". Both editions were read in
+# full and the deltas between their 50th-percentile rows reproduce the 2022 paper's own
+# published ranges exactly — men 1.5–3.8, women 0.4–1.9 — which is the cross-check that
+# neither table was mis-transcribed here. Using the superseded edition when its authors
+# have published the replacement would be choosing the number, not the source.
+#
+# WHAT IS STILL NOT TRUE OF THIS TABLE, and why the caveat survives the fix:
+#
+#  1. **It is not a population median, and no amount of matching it makes it one.** FRIEND
+#     is people who came to a laboratory for a CPET. The paper's own limitations: "the
+#     individual referral for the tests varied (clinical assessment as part of a
+#     comprehensive physical exam, fitness assessment, and participants in research
+#     studies)", and "the term 'apparently healthy' may not be appropriate for the entire
+#     study population as some had diseases (eg, diabetes and obesity)".
+#  2. **The direction of that selection is not measured for the US.** Where FRIEND was
+#     compared with a whole-population CPET sample measured the same way, it ran LOWER at
+#     every decade: the 2015 paper's Table 4 puts FRIEND men at 47.6 vs 54.4 (Loe et al.
+#     2013, n = 3,816 Norwegians) at 20–29 and 25.8 vs 35.3 at 70–79, women 37.6 vs 43.0
+#     and 18.3 vs 28.3. That paper's own conclusion is that reference values are "region
+#     and country specific", so this bounds nothing for a US owner — it only shows the
+#     choice of reference COHORT moves this term by more than the correction above did.
+#  3. **Our side of the comparison is an estimate, not a measurement.** Jurca 2005 was
+#     validated against measured maximal-treadmill VO₂max, so the unit transports (unlike
+#     an SRI point — see [[biological_age_estimate]] on #86), but it carries SEE ≈ 5.6
+#     ml/kg/min ≈ 2.9 years of ΔAge, which is larger than every anchor effect on this
+#     screen. [[non_exercise_vo2max]].
+VO2MAX_REFERENCE_CLINICAL_COHORT = "vo2max_reference_clinical_cohort"
 
-_VO2MAX_MEDIAN_MALE = {20: 44.0, 30: 41.0, 40: 38.0, 50: 33.0, 60: 28.0, 70: 24.0}
-_VO2MAX_MEDIAN_FEMALE = {20: 36.0, 30: 33.0, 40: 30.0, 50: 26.0, 60: 22.0, 70: 19.0}
+# FRIEND 2022, Table 3, treadmill, RER ≥ 1.0, 50th percentile. Keys are the decade's
+# lower bound; every value is one cell of that published row.
+_FRIEND_TREADMILL_MEDIAN_MALE = {
+    20: 46.5,
+    30: 39.7,
+    40: 35.3,
+    50: 29.2,
+    60: 24.6,
+    70: 20.6,
+    80: 17.6,
+}
+_FRIEND_TREADMILL_MEDIAN_FEMALE = {
+    20: 36.6,
+    30: 28.3,
+    40: 25.7,
+    50: 22.9,
+    60: 19.6,
+    70: 17.2,
+    80: 15.4,
+}
 
 
 def vo2max_median_for(age: int, sex: str) -> float:
-    """Population-median VO₂max for the age bucket (clamped to 20–70).
+    """FRIEND's 50th-percentile treadmill VO₂peak for the age decade (clamped to 20–80).
 
-    ⚠ The table is UNCITED and reads low against FRIEND — see the block above. Callers
-    that show this number to an owner must carry the caveat with it."""
-    table = _VO2MAX_MEDIAN_FEMALE if sex == "female" else _VO2MAX_MEDIAN_MALE
-    return table[max(20, min(70, (age // 10) * 10))]
+    The reference the fitness term is measured against. It is a *reference-standard*
+    median, not a population one — see the block above; callers that show this number to
+    an owner must carry the caveat with it."""
+    table = _FRIEND_TREADMILL_MEDIAN_FEMALE if sex == "female" else _FRIEND_TREADMILL_MEDIAN_MALE
+    return table[max(20, min(80, (age // 10) * 10))]
 
 
 # ── Sleep-duration anchor: questionnaire hours vs device hours ──────────────
@@ -141,17 +207,20 @@ def self_reported_equivalent_h(measured_h: float) -> float:
 # is right for most owners and wrong for some is worse than a sentence that is right for
 # all of them.
 ANCHOR_CAVEATS = {
-    VO2MAX_REFERENCE_UNCITED: {
-        "reason": VO2MAX_REFERENCE_UNCITED,
+    VO2MAX_REFERENCE_CLINICAL_COHORT: {
+        "reason": VO2MAX_REFERENCE_CLINICAL_COHORT,
         "message": (
-            "The fitness term measures your VO₂max estimate against a population median "
-            "for your age and sex, and that median is the one number behind this estimate "
-            "with no published source — it was carried over from an older version of this "
-            "app. Where it can be checked against the US reference standard (FRIEND, 7,783 "
-            "maximal treadmill tests), it reads low: 44 where FRIEND says 48 for men in "
-            "their twenties, 36 where FRIEND says 37.6 for women. A reference set too low "
-            "makes you look fitter than the population, so on that count this number is "
-            "generous to you rather than harsh — by up to about 2 years."
+            "The fitness term measures your VO₂max estimate against a reference for your "
+            "age and sex. That reference is now the US standard — the median of 16,278 "
+            "treadmill exercise tests in the FRIEND registry — replacing a table that had "
+            "no published source and was charging most people up to about two years they "
+            "had not earned. It is still not a median of the population: FRIEND is people "
+            "who came to a laboratory for a test, and how that differs from everyone else "
+            "has not been measured in the US. Where it has been compared with a "
+            "whole-population sample abroad, FRIEND sat lower, which would make this "
+            "comparison generous rather than harsh — but that was a different country. "
+            "Either way it is the smaller uncertainty here: your own VO₂max is estimated "
+            "rather than measured, and that estimate's error is worth about three years."
         ),
     },
     SLEEP_DURATION_SELF_REPORT_SCALE: {
