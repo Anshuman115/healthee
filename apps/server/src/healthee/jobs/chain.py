@@ -22,6 +22,32 @@ health surface"). The chain then applies dependency logic:
   * a ``briefing`` failure does NOT undo the recs already persisted;
   * a ``warm`` failure costs only the coaching lines — the chain continues.
 
+## Which steps a free owner gets (Phase 6.6a, MULTI_USER.md §12.3)
+
+Three of the five steps call a model, and generating output nobody is entitled to see
+is the cost hole 6.6a exists to close (``PRICING.md`` §6.1: at 5 % conversion each
+premium user carries ~19 free ones, so free-tier cost control is existential). So
+``recs``, ``warm`` and ``briefing`` are SKIPPED for a non-premium owner — named as
+``skipped``, never silently absent, because a step that did not run and a step that
+ran and produced nothing are different facts (standards §Errors).
+
+The other two run for everyone, and the line between them is *what the step costs and
+who the output belongs to*, not "is it in the AI half of the product":
+
+* ``correlate`` is the **deterministic** FDR correlation + cutoff engine. It spends no
+  tokens, and its findings are a FREE-tier feature (``PRICING.md`` §1a: "personal
+  findings … ✓ shown as plain stats"). Skipping it would take a free feature away in
+  the name of saving money it does not cost.
+* ``challenges`` closes out commitments that ended last night and moves a ladder on —
+  also deterministic, also free to run. The challenges *system* is premium, but an
+  owner whose subscription lapsed with a live commitment still deserves an honest
+  outcome for it rather than a challenge frozen mid-window forever. Bookkeeping that
+  already-generated content is entitled to is not the same as generating more.
+
+The check is one lookup per owner per chain, from ``core.entitlement`` — the same
+function the HTTP gate uses, so the endpoint and the job can never disagree about who
+is premium (§12.7's invariant is enforced at both, from one source of truth).
+
 ``warm`` is the step that makes the read surfaces' LLM lines exist at all: the
 ``/api/today`` action and the sleep-tonight line are cache-only on the read path
 (``coaching.cached_line`` never generates, standards §Performance), so without an
@@ -45,6 +71,7 @@ from uuid import UUID
 
 from healthee.challenges import ladder, lifecycle
 from healthee.core.db import tenant_transaction
+from healthee.core.entitlement import is_premium
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
 from healthee.core.tenancy import user_today
@@ -61,6 +88,16 @@ log = get_logger(__name__)
 # filters by owner, so two users' markers for the same day are already distinct rows.
 # Prefixing would state the tenant twice — once in the key column, once in the string.
 _DONE_KEY = "job:chain_done"
+
+# The steps that call a model, in the order the chain runs them. Named once so the
+# skip and the reason can never drift from what is actually gated — and so a sixth
+# step added later has to make a deliberate choice about which list it joins.
+LLM_STEPS: tuple[str, ...] = ("recs", "warm", "briefing")
+
+# What a skipped step says. It is the owner's entitlement, not a failure, and the
+# distinction matters on the job health surface: "skipped — not premium" must never
+# read like "recs broke again".
+_NOT_PREMIUM = "owner is not premium — the AI steps are skipped (MULTI_USER.md §12.3)"
 
 
 @dataclass
@@ -195,11 +232,19 @@ def run_chain(
     day is a no-op unless ``force`` — and the dedup marker is per-owner (the folded
     ``kv`` PK), so one owner's chain can never dedup another's. ``day`` defaults to
     the owner's own local today.
+
+    Entitlement (§12.3): a non-premium owner gets the two DETERMINISTIC steps and none
+    of the three that call a model. The lookup happens once, before any step, so a free
+    owner's chain spends ZERO LLM calls rather than generating and discarding.
     """
     day = day or user_today(tz)
     if not force and _chain_done(user_id, day):
         log.info("chain[%s] for %s already ran — dedup no-op", user_id, day)
         return ChainResult(day=day, deduped=True)
+
+    premium = is_premium(user_id)
+    if not premium:
+        log.info("chain[%s] for %s: not premium — skipping %s", user_id, day, ", ".join(LLM_STEPS))
 
     steps: list[StepOutcome] = []
     # Before anything is computed: close out what has already ended. Nothing below
@@ -213,11 +258,7 @@ def run_chain(
     steps.append(correlate)
 
     if correlate.status == "ok":
-        steps.append(_run_supervised("recs", lambda: step_recs(day, user_id, tz, client=client)))
-        # Warming is NON-FATAL by construction (`_run_supervised` returns, never raises):
-        # a missing coaching line is a degraded card, whereas aborting here would cost
-        # the owner their briefing over a one-liner. The failure is still reported.
-        steps.append(_run_supervised("warm", lambda: step_warm(day, user_id, tz, client=client)))
+        steps.extend(_after_correlate(day, user_id, tz, client=client, premium=premium))
         # Correlate succeeded → the generating steps had valid inputs and their chance
         # to run; mark the day done so they aren't re-run. A correlate failure leaves it
         # un-marked so a later fire/ingest retries the whole chain.
@@ -225,10 +266,39 @@ def run_chain(
     else:
         steps.extend(_skipped_after_correlate())
 
-    steps.append(
-        _run_supervised("briefing", lambda: step_briefing(day, user_id, tz, client=client))
-    )
+    steps.append(_briefing_step(day, user_id, tz, client=client, premium=premium))
     return ChainResult(day=day, deduped=False, steps=steps)
+
+
+def _after_correlate(
+    day: date, user_id: UUID, tz: str, *, client: LLMClient | None, premium: bool
+) -> list[StepOutcome]:
+    """``recs`` + ``warm``, or both skipped when the owner is not entitled to them.
+
+    Warming is NON-FATAL by construction (``_run_supervised`` returns, never raises): a
+    missing coaching line is a degraded card, whereas aborting here would cost the owner
+    their briefing over a one-liner. The failure is still reported.
+    """
+    if not premium:
+        return [_not_premium(name) for name in ("recs", "warm")]
+    return [
+        _run_supervised("recs", lambda: step_recs(day, user_id, tz, client=client)),
+        _run_supervised("warm", lambda: step_warm(day, user_id, tz, client=client)),
+    ]
+
+
+def _briefing_step(
+    day: date, user_id: UUID, tz: str, *, client: LLMClient | None, premium: bool
+) -> StepOutcome:
+    """The morning Telegram briefing — a grounded generation, so premium-only."""
+    if not premium:
+        return _not_premium("briefing")
+    return _run_supervised("briefing", lambda: step_briefing(day, user_id, tz, client=client))
+
+
+def _not_premium(name: str) -> StepOutcome:
+    """A step that did not run because the owner is not entitled to its output."""
+    return StepOutcome(name=name, status="skipped", error=_NOT_PREMIUM)
 
 
 def _skipped_after_correlate() -> list[StepOutcome]:

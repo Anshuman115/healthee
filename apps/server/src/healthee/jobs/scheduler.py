@@ -52,6 +52,7 @@ from datetime import date, datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from healthee.core.entitlement import warn_if_self_host_unlocked
 from healthee.core.logging import configure_logging, get_logger
 from healthee.core.notify import send_telegram
 from healthee.core.tenancy import Tenant, active_users
@@ -198,6 +199,7 @@ class Sweeper:
 def main() -> None:
     """The tick loop. Blocks forever."""
     configure_logging()
+    warn_if_self_host_unlocked()
     log.info(
         "healthee scheduler starting (pid=%d, fire=%02d:%02d in each owner's own timezone, "
         "tick=%ds)",

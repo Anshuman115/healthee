@@ -9,7 +9,13 @@ marker are stubbed, so these prove the supervision contract exactly —
   * a `correlate` failure ABORTS `recs` AND `warm` (both read its findings);
   * a `briefing` failure does not undo the recs that already ran;
   * a `warm` failure is non-fatal — it costs the coaching lines, not the briefing;
-  * a second run for the same day is a deduped no-op.
+  * a second run for the same day is a deduped no-op;
+  * a NON-PREMIUM owner's chain runs the two deterministic steps and calls none of the
+    three that cost tokens (6.6a — the cost hole, MULTI_USER.md §12.3).
+
+Entitlement is stubbed alongside the dedup marker so these stay pure control-flow: the
+real `is_premium` reads the `subscription` table, and a DB lookup in here would make a
+file whose whole subject is branching depend on a seeded database.
 """
 
 from __future__ import annotations
@@ -32,9 +38,10 @@ _TZ = "Asia/Kolkata"
 
 @pytest.fixture
 def notices(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
-    """Capture Telegram notifications and back the dedup marker with an in-memory set."""
+    """Capture Telegram notifications, back the dedup marker + entitlement in memory."""
     sent: list[str] = []
     monkeypatch.setattr(chain, "send_telegram", lambda text, **_: sent.append(text) or True)
+    monkeypatch.setattr(chain, "is_premium", lambda _user_id: True)
     marker: set[str] = set()
     monkeypatch.setattr(chain, "_chain_done", lambda _user_id, day: day.isoformat() in marker)
     monkeypatch.setattr(
@@ -190,3 +197,69 @@ def test_second_run_same_day_is_a_deduped_no_op(
     forced = chain.run_chain(_OWNER, _TZ, DAY, force=True)  # force overrides dedup
     assert forced.deduped is False
     assert calls == {"challenges": 2, "correlate": 2, "recs": 2, "warm": 2, "briefing": 2}
+
+
+# ── entitlement: the free owner's chain must not reach a model (6.6a, #48) ─────
+
+
+def test_a_free_owners_chain_calls_none_of_the_three_llm_steps(
+    monkeypatch: pytest.MonkeyPatch, notices: list[str]
+) -> None:
+    """The cost hole, closed: recs / warm / briefing are never even CALLED.
+
+    Asserted on the call counter, not on the outcome list — an implementation that ran
+    the steps and threw their output away would produce identical `skipped` statuses
+    while spending exactly the tokens this exists to save.
+    """
+    monkeypatch.setattr(chain, "is_premium", lambda _user_id: False)
+    calls = _stub_steps(monkeypatch)
+
+    result = chain.run_chain(_OWNER, _TZ, DAY)
+
+    assert calls == {"challenges": 1, "correlate": 1, "recs": 0, "warm": 0, "briefing": 0}
+    statuses = {s.name: s.status for s in result.steps}
+    assert statuses == {
+        "challenges": "ok",
+        "correlate": "ok",
+        "recs": "skipped",
+        "warm": "skipped",
+        "briefing": "skipped",
+    }
+    # Named, not silently absent: the health surface must be able to tell "this owner is
+    # not entitled" from "recs broke again" (standards §Errors).
+    skipped = [s for s in result.steps if s.status == "skipped"]
+    assert all("not premium" in (s.error or "") for s in skipped)
+    assert notices == []  # a skip is not a failure — nothing is alerted
+
+
+def test_the_deterministic_steps_still_run_for_a_free_owner(
+    monkeypatch: pytest.MonkeyPatch,
+    notices: list[str],  # noqa: ARG001
+) -> None:
+    """`correlate` is FREE-tier (PRICING.md §1a) and spends nothing — gating it would
+    have taken a free feature away to save money it does not cost. `challenges` closes
+    out commitments that already exist, which a lapse must not freeze forever."""
+    monkeypatch.setattr(chain, "is_premium", lambda _user_id: False)
+    calls = _stub_steps(monkeypatch)
+
+    chain.run_chain(_OWNER, _TZ, DAY)
+
+    assert calls["correlate"] == 1
+    assert calls["challenges"] == 1
+
+
+def test_a_free_owners_day_is_still_marked_done(
+    monkeypatch: pytest.MonkeyPatch,
+    notices: list[str],  # noqa: ARG001
+) -> None:
+    """Dedup is about the day having run, not about what it generated.
+
+    Without this the tick loop would re-enter a free owner's chain every five minutes
+    for the rest of their day — cheap, but it would re-run correlate ~150 times and
+    burn the scheduler's attempt budget on a chain that succeeded.
+    """
+    monkeypatch.setattr(chain, "is_premium", lambda _user_id: False)
+    _stub_steps(monkeypatch)
+
+    chain.run_chain(_OWNER, _TZ, DAY)
+    assert chain.run_chain(_OWNER, _TZ, DAY).deduped is True
