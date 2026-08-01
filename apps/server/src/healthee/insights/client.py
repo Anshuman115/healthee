@@ -21,6 +21,7 @@ from typing import Any, Protocol
 
 from healthee.core.config import get_settings
 from healthee.core.logging import get_logger
+from healthee.insights import transport_health
 
 log = get_logger(__name__)
 
@@ -182,6 +183,13 @@ class OpenRouterClient:
         (logged + Telegram-notified) instead of quietly becoming an empty answer.
         A blank card and a broken transport are different states and must stay so
         (standards §Errors). The key is passed to the SDK, never logged.
+
+        Every attempt — success or failure — is recorded in ``insights.transport_health``,
+        which is what makes a dead AI layer VISIBLE without any probe ever paying for a
+        completion. The recording brackets the SDK call only: `_client()` raising for an
+        unset key is a *configuration* fact, not a transport one, and counting it as a
+        failed call would report the AI layer as broken on a box deliberately running
+        without it.
         """
         model = model or get_settings().default_model  # resolve the env-configured default
         kwargs: dict[str, Any] = {
@@ -196,28 +204,16 @@ class OpenRouterClient:
             kwargs["tools"] = tools
         if response_format is not None:
             kwargs["response_format"] = response_format
-        raw = self._client().chat.completions.create(**kwargs)
+        sdk = self._client()
+        try:
+            raw = sdk.chat.completions.create(**kwargs)
+        except Exception as exc:  # recorded on the health surface, then re-raised untouched
+            transport_health.record_failure(exc)
+            raise
+        transport_health.record_success()
         choice = raw.choices[0]
         message = choice.message
-        # The API says outright when it stopped because it ran out of room. We used to
-        # drop the whole response object and keep only `.message`, so the ONLY signal
-        # left was the validator noticing an unclosed '[' downstream — a string
-        # heuristic standing in for a fact the transport already knew. A truncated
-        # answer is a transport problem wearing a grounding problem's clothes, and it
-        # cost a live debugging session to tell them apart. Log it loudly; the validator
-        # still refuses the text, but now the cause is in the logs at the point it
-        # happened rather than inferred three layers up.
-        # `getattr` with a default, not `choice.finish_reason`: not every provider (or
-        # test stub) sets it, and a missing stop-reason must not turn a good answer into
-        # an AttributeError. Absent ⇒ we simply don't know, which is not "truncated".
-        if getattr(choice, "finish_reason", None) == "length":
-            log.warning(
-                "llm answer TRUNCATED by max_tokens=%d (tier=%s) — the answer stopped "
-                "mid-sentence; raise DEFAULT_MAX_TOKENS rather than reading this as a "
-                "grounding failure",
-                DEFAULT_MAX_TOKENS,
-                tier_of(model),
-            )
+        _warn_if_truncated(choice, model)
         # tier, never the id: the model we run must not be discoverable, and a log line
         # is a place it reaches operators, log shippers and anyone with read access.
         log.info("llm completion: tier=%s tools=%d", tier_of(model), len(tools or []))
@@ -226,6 +222,32 @@ class OpenRouterClient:
             tool_calls=getattr(message, "tool_calls", None),
             usage=_usage(raw),
         )
+
+
+def _warn_if_truncated(choice: Any, model: str) -> None:
+    """Say so when the API stopped because it ran out of room.
+
+    We used to drop the whole response object and keep only ``.message``, so the ONLY
+    signal left was the validator noticing an unclosed '[' downstream — a string
+    heuristic standing in for a fact the transport already knew. A truncated answer is a
+    transport problem wearing a grounding problem's clothes, and it cost a live debugging
+    session to tell them apart. Log it loudly; the validator still refuses the text, but
+    now the cause is in the logs at the point it happened rather than inferred three
+    layers up.
+
+    ``getattr`` with a default, not ``choice.finish_reason``: not every provider (or test
+    stub) sets it, and a missing stop-reason must not turn a good answer into an
+    AttributeError. Absent ⇒ we simply don't know, which is not "truncated".
+    """
+    if getattr(choice, "finish_reason", None) != "length":
+        return
+    log.warning(
+        "llm answer TRUNCATED by max_tokens=%d (tier=%s) — the answer stopped "
+        "mid-sentence; raise DEFAULT_MAX_TOKENS rather than reading this as a "
+        "grounding failure",
+        DEFAULT_MAX_TOKENS,
+        tier_of(model),
+    )
 
 
 def _usage(raw: Any) -> Usage | None:
