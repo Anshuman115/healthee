@@ -25,7 +25,9 @@ from __future__ import annotations
 
 import secrets
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import UUID
 
 import psycopg
 import pytest
@@ -38,6 +40,39 @@ from healthee.db import migrate, provision_app_role
 # The suite's own app role. Named `_test` so it can never be confused with (or drop)
 # a real deployment's `healthee_app`.
 TEST_APP_ROLE = "healthee_app_test"
+
+# How long a seeded entitlement runs for. Absurdly long on purpose: `is_premium`
+# requires `now < current_period_end`, so a short term would turn the suite into a time
+# bomb that starts 402-ing on some future afternoon.
+_ENTITLEMENT_YEARS = 50
+
+
+def entitle(user_id: UUID, *, premium: bool = True) -> None:
+    """Give (or take) an owner's premium entitlement — the ONE way a test does it (6.6a).
+
+    Written on the ADMIN connection, and that is the fixture proving the design rather
+    than working around it: `provision_app_role` REVOKEs every write privilege on
+    `subscription` from the role the app connects as, precisely so a request path cannot
+    mint entitlement (MULTI_USER.md §12.7). A seeder that could INSERT here on the app
+    pool would mean the revoke had not happened.
+
+    Every bed that exercises a gated surface calls this EXPLICITLY. It is deliberately
+    not autouse: `subscription` survives the truncate lists of the other seeds, so an
+    implicit grant would leave one test file passing only because an earlier one had
+    run — which is exactly what happened while 6.6a was being built, and is invisible
+    until someone runs a single file.
+    """
+    ends = datetime.now(tz=UTC) + timedelta(days=365 * _ENTITLEMENT_YEARS)
+    status, period_end = ("active", ends) if premium else ("canceled", datetime.now(tz=UTC))
+    with db_module.admin_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO subscription (user_id, status, plan, current_period_end, granted_by) "
+            "VALUES (%s, %s, 'test', %s, 'tests.conftest') "
+            "ON CONFLICT (user_id) DO UPDATE SET status = EXCLUDED.status, "
+            "  plan = EXCLUDED.plan, current_period_end = EXCLUDED.current_period_end",
+            (user_id, status, period_end),
+        )
+
 
 # Vars with defaults that the defaults tests assert on — cleared so the unit
 # environment is hermetic (a dev shell that exports e.g. POSTGRES_PORT must not
@@ -65,6 +100,8 @@ _DEFAULTED_ENV_VARS = (
     "SUPABASE_JWT_AUD",
     "SIGNUPS_OPEN",
     "SIGNUP_ALLOWLIST",
+    "SELF_HOST_UNLOCKED",
+    "UPGRADE_URL",
 )
 
 

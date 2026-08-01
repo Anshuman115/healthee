@@ -241,6 +241,8 @@ list; every var below is a field on `core/config.py`'s settings):
 | `REALTIME_INGEST_TOKEN` | the legacy shared token → the sentinel owner (transitional, see [API surface](#api-surface)) |
 | `SUPABASE_JWT_SECRET` / `SUPABASE_JWT_AUD` / `SUPABASE_PROJECT_REF` / `SUPABASE_SERVICE_ROLE_KEY` | verifying the Supabase access JWT (the backend only verifies; it never issues) |
 | `SIGNUPS_OPEN` / `SIGNUP_ALLOWLIST` | the server-enforced signup gate. Default: closed + empty = nobody new. **Keep `SIGNUPS_OPEN=false` until Phase 2 ships Supabase login** |
+| `SELF_HOST_UNLOCKED` | entitles **every** owner on this deployment to the premium AI layer, with no `subscription` row. Default `false`. For a SELF-HOSTED box, where the LLM bill is the operator's own — the hosted service must leave it false. Logged as a WARNING on every boot when set, and must reach the **scheduler** container too |
+| `UPGRADE_URL` | where a locked card sends someone. Carried verbatim in the 402 body and by `GET /api/entitlement`; blank until a billing provider is chosen |
 | `API_HOST` / `API_PORT` | in-container bind (`0.0.0.0` / `8765`) |
 | `OPENROUTER_API_KEY` | optional — enables the grounded LLM (coach, insights, recs) |
 | `DEFAULT_MODEL` / `COACH_MODEL` | **required with `OPENROUTER_API_KEY`** — the model ids; no defaults |

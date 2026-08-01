@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 
+from tests.conftest import entitle
 from tests.contracts.seed import USER_TZ, today_local
 
 from healthee.core.db import tenant_transaction, transaction
@@ -53,6 +54,11 @@ def seed_owner_b() -> None:
             "ON CONFLICT (id) DO NOTHING",
             (OWNER_B, "owner-b@example.test", OWNER_B_TZ),
         )
+    # B is premium too. The leakage suite asks "can B see A's numbers?", and that
+    # question is only answerable on the surfaces B can reach at all — an unentitled B
+    # would get 402 from every AI endpoint and the isolation assertions would pass for
+    # the wrong reason.
+    entitle(OWNER_B)
     with tenant_transaction(OWNER_B) as cur:
         today = today_local()
         _seed_b_profile(cur)

@@ -35,7 +35,7 @@ from tests.contracts import seed
 
 from healthee.core import db as db_module
 from healthee.core.config import get_settings
-from healthee.core.db import tenant_transaction, transaction
+from healthee.core.db import admin_connection, tenant_transaction, transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import provision_app_role
 from healthee.read.today import today_snapshot
@@ -191,6 +191,75 @@ def test_app_role_cannot_alter_a_table(app_role: str) -> None:  # noqa: ARG001
     """No DDL — including the ALTER that would disable a 6.5b-2 policy on itself."""
     with pytest.raises(errors.InsufficientPrivilege):
         _as_app_role("ALTER TABLE sample ADD COLUMN sneaky INTEGER")
+
+
+def test_app_role_cannot_write_the_subscription_table(app_role: str) -> None:  # noqa: ARG001
+    """Entitlement is not app-settable — a PRIVILEGE, not a code-review promise (6.6a).
+
+    §12.7's model is that the request path is adversarial-adjacent: every AI gate rests
+    on `subscription`, so the role that serves requests must be unable to write it no
+    matter what SQL anyone adds later. `provision_app_role._grant_read_only` grants
+    SELECT and REVOKEs the rest — and the REVOKE is load-bearing, because
+    `ALTER DEFAULT PRIVILEGES` hands the role full DML on any table a new migration
+    creates. Without it this test would fail.
+    """
+    with pytest.raises(errors.InsufficientPrivilege):
+        _as_owner(
+            "INSERT INTO subscription (user_id, status, current_period_end) "
+            "VALUES (%s, 'active', now() + interval '1 year')",
+            (SENTINEL_USER_ID,),
+        )
+    with pytest.raises(errors.InsufficientPrivilege):
+        _as_owner(
+            "UPDATE subscription SET status = 'active' WHERE user_id = %s", (SENTINEL_USER_ID,)
+        )
+    with pytest.raises(errors.InsufficientPrivilege):
+        _as_owner("DELETE FROM subscription WHERE user_id = %s", (SENTINEL_USER_ID,))
+
+
+def test_provisioning_revokes_a_write_privilege_that_was_already_granted(app_role: str) -> None:
+    """Prove the REVOKE by DEFEATING it first — the lesson §13 [D3] paid for.
+
+    The assertion above passes on this test database for the wrong reason, and a
+    mutation found it: `ALTER DEFAULT PRIVILEGES` only reaches tables created AFTER it
+    is set, and the suite runs migrations BEFORE provisioning, so the app role never
+    receives DML on `subscription` here and gutting the REVOKE changes nothing.
+
+    Production is the other order. The role and its default privileges already exist,
+    a deploy runs `migrate` and then `provision_app_role`, and the new table therefore
+    arrives with full DML granted. So this test reproduces THAT: hand the role INSERT,
+    confirm it really can write (the premise — a grant that silently failed would make
+    the rest of this vacuous), re-provision, and confirm it cannot.
+    """
+    with admin_connection() as conn, conn.cursor() as cur:
+        cur.execute(f'GRANT INSERT ON TABLE subscription TO "{app_role}"')  # noqa: S608
+    seed.reset()
+    _as_owner(
+        "INSERT INTO subscription (user_id, status, current_period_end) "
+        "VALUES (%s, 'active', now() + interval '1 year')",
+        (SENTINEL_USER_ID,),
+    )  # the premise: with the grant, the write goes through
+
+    provision_app_role.provision()
+
+    with pytest.raises(errors.InsufficientPrivilege):
+        _as_owner(
+            "INSERT INTO subscription (user_id, status, current_period_end) "
+            "VALUES (%s, 'active', now() + interval '1 year')",
+            (SENTINEL_USER_ID,),
+        )
+
+
+def test_app_role_can_read_the_subscription_table(app_role: str) -> None:  # noqa: ARG001
+    """…and the gate still works, which the revoke above must not have broken.
+
+    The complement: a REVOKE that took SELECT with it would make `is_premium` raise for
+    every request, i.e. lock every paying owner out — a failure mode as bad as the one
+    the revoke prevents, and invisible without this half.
+    """
+    seed.reset()
+    rows = _as_owner("SELECT count(*) FROM subscription WHERE user_id = %s", (SENTINEL_USER_ID,))
+    assert rows == [(0,)]
 
 
 def test_app_role_cannot_read_the_migration_ledger(app_role: str) -> None:  # noqa: ARG001

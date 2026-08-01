@@ -392,7 +392,31 @@ CREATE TABLE IF NOT EXISTS device_token (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS device_token_hash_idx ON device_token (token_hash);
 
--- ── Row-Level Security (0008_row_level_security) ───────────────────────────
+-- ── subscription (0011_subscription) ───────────────────────────────────────
+-- The entitlement row (MULTI_USER.md §12.2): one per owner, the SOLE source of
+-- truth for premium access. `core/entitlement.py` is the only reader and the ops
+-- module `db/grant_premium.py` (plus 6.6b's webhook) the only writers — the app
+-- role holds SELECT and nothing else here, which is what makes "a request path
+-- cannot mint entitlement" a privilege rather than a promise.
+--
+-- ON UPDATE CASCADE like every other FK to app_user: without it the sentinel
+-- re-key ERRORS for any owner who has a row (the 0006 lesson, not repeated).
+CREATE TABLE IF NOT EXISTS subscription (
+  user_id            UUID PRIMARY KEY REFERENCES app_user(id)
+                       ON UPDATE CASCADE ON DELETE CASCADE,
+  status             TEXT NOT NULL DEFAULT 'none',    -- CHECK: none|trialing|active|
+                                                      --   past_due|canceled|expired
+  plan               TEXT,                            -- monthly|annual|comp_<n>mo|…
+  provider           TEXT,                            -- stripe|polar|… (6.6b)
+  provider_ref       TEXT,                            -- customer/subscription id (6.6b)
+  trial_end          TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,                     -- premium requires now() < this
+  granted_by         TEXT,                            -- hand-made grants: who
+  note               TEXT,                            -- …and why
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Row-Level Security (0008_row_level_security, extended by 0011) ─────────
 -- The isolation backstop (MULTI_USER.md §3.3): every TENANT table below carries
 -- `ENABLE ROW LEVEL SECURITY` plus exactly ONE policy named `<table>_tenant`, of
 -- this exact shape — `core.db.tenant_transaction()` sets the GUC it reads:
@@ -411,10 +435,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS device_token_hash_idx ON device_token (token_h
 --     plain ENABLE already binds it; the admin stays unbound on purpose (migrate,
 --     claim_sentinel and the test reset must all see across owners).
 --
--- The 16 tenant tables, each with `<table>_tenant`:
+-- The 17 tenant tables, each with `<table>_tenant`:
 --   sample · sleep_session · workout · derived_daily · weight_log · kv ·
 --   manual_entry · illness_flag · recommendation · finding · challenge · program ·
---   challenge_outcome · gps_track · gps_point · profile
+--   challenge_outcome · gps_track · gps_point · profile · subscription
+--
+-- `subscription` (0011) is policied like the rest, and additionally carries a
+-- privilege the others do not need: the app role may only SELECT it, so a request
+-- path cannot write entitlement even where RLS would have allowed its own row.
 --
 -- `sample`'s chunks inherit the parent hypertable's policy — nothing extra needed.
 --

@@ -87,6 +87,14 @@ def seed_every_tenant_table(cur, user_id: UUID) -> None:
         "ON CONFLICT DO NOTHING",
         (user_id, MARK),
     )
+    # 0011. An owner's entitlement moves with their data: a re-key that left the
+    # subscription behind would take away the thing they paid for.
+    cur.execute(
+        "INSERT INTO subscription (user_id, status, plan, current_period_end, granted_by) "
+        "VALUES (%s, 'active', %s, %s, %s) ON CONFLICT (user_id) DO UPDATE "
+        "SET plan = EXCLUDED.plan, granted_by = EXCLUDED.granted_by",
+        (user_id, MARK, TS, MARK),
+    )
     _seed_challenge_and_gps(cur, user_id)
 
 
@@ -146,6 +154,7 @@ def restore_sentinel(cur) -> None:
 
 def delete_marked(cur) -> None:
     """Remove only the rows these tests seeded, wherever they now live."""
+    cur.execute("DELETE FROM subscription WHERE granted_by = %s", (MARK,))
     cur.execute("DELETE FROM gps_point WHERE ts = %s", (TS,))
     cur.execute("DELETE FROM gps_track WHERE source = %s", (MARK,))
     cur.execute("DELETE FROM challenge_outcome WHERE status = %s", (MARK,))

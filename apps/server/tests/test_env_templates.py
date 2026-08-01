@@ -140,3 +140,18 @@ def test_the_llm_bounds_reach_the_scheduler() -> None:
         "the scheduler runs the nightly chain on one thread — without these it "
         "inherits the SDK's 600 s × 3, and one stuck call blocks every later owner"
     )
+
+
+def test_the_scheduler_receives_the_self_host_unlock() -> None:
+    """The nightly chain decides entitlement too (§12.3), so the flag must reach it.
+
+    Without it a SELF-HOSTED install would serve its owner the AI layer over HTTP while
+    the scheduler — a separate container, reading its own environment — treated them as
+    free and silently generated nothing: recs, briefing and the daily action all absent,
+    with a green API and no error anywhere. That is a whole-feature outage that looks
+    like "the AI just isn't very good".
+    """
+    assert "SELF_HOST_UNLOCKED" in _compose_env("scheduler"), (
+        "the scheduler container never receives SELF_HOST_UNLOCKED — a self-hosted "
+        "install's nightly chain would skip every AI step for every owner"
+    )

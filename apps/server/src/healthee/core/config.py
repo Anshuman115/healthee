@@ -104,6 +104,26 @@ class Settings(BaseSettings):
     # via `signup_allowlist_emails`, never raw.
     signup_allowlist: str = ""
 
+    # ── Entitlement (Phase 6.6a, MULTI_USER.md §12) ───────────────────────
+    # Declares that this deployment is somebody's OWN box, so every owner on it gets
+    # the AI layer without a `subscription` row. Default false: the hosted service
+    # must never be unlocked by forgetting to set something.
+    #
+    # It exists because the paywall's whole justification is OUR LLM bill on OUR
+    # hosted service (PRICING.md §6.1) — an argument that does not survive contact
+    # with a self-hoster running their own OpenRouter key, which is the product's
+    # stated brand. The server cannot tell the two deployments apart, so the operator
+    # says which one it is; that is server-owned config, not a client claim, and it is
+    # exactly §12.6 step (a)'s "admin/config flag". It is logged at startup by both
+    # the API and the scheduler, so a hosted box that sets it by accident says so on
+    # every boot rather than quietly giving the AI layer away.
+    self_host_unlocked: bool = False
+    # Where a locked card sends someone. Carried in the 402 body and by
+    # `/api/entitlement` so the upgrade destination is deployment config rather than a
+    # URL compiled into the app — a self-hoster has no checkout page to point at, and
+    # the hosted one's moves when [D4] is decided.
+    upgrade_url: str = ""
+
     # ── OpenRouter (optional — grounded LLM insights, wired in a later WP) ─
     openrouter_api_key: str = ""
     # LLM model ids — kept in env (DEFAULT_MODEL / COACH_MODEL), NOT hardcoded, so the

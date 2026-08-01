@@ -92,9 +92,25 @@ _SEQUENCES: tuple[str, ...] = (
     "recommendation_id_seq",
 )
 
+# Tables the app may READ and must never WRITE (Phase 6.6a, MULTI_USER.md §12.7).
+#
+# `subscription` is the entitlement row, and entitlement is the one thing a request
+# path must be unable to grant itself. Code review is the wrong place for that
+# guarantee — it has to be re-made on every future diff — so it is a privilege
+# instead: the role the API and the scheduler connect as holds SELECT and nothing
+# else, and an INSERT into it fails at the database no matter what SQL anyone writes.
+# The webhook that DOES write it (6.6b) runs as the admin, like `claim_sentinel`.
+_READ_ONLY_TABLES: tuple[str, ...] = ("subscription",)
+
 # DML only. TRUNCATE is NOT here on purpose: it is the one DML-shaped privilege that
 # can erase a life's health history in one statement, and no request path needs it.
 _TABLE_PRIVILEGES = "SELECT, INSERT, UPDATE, DELETE"
+_READ_ONLY_PRIVILEGES = "SELECT"
+# Everything `ALTER DEFAULT PRIVILEGES` would have handed a new table, minus SELECT.
+# It is REVOKEd rather than merely not granted, because the default privileges below
+# grant it automatically the moment a migration creates the table — so "we did not
+# grant it" is not the same statement as "the role does not have it".
+_READ_ONLY_REVOKED = "INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER"
 _SEQUENCE_PRIVILEGES = "USAGE, SELECT"
 
 # Explicitly denied attributes. Spelled out rather than left to defaults because the
@@ -230,6 +246,33 @@ def _grant_data_privileges(cur: Cursor[TupleRow], role: str) -> None:
                 role=sql.Identifier(role),
             )
         )
+    _grant_read_only(cur, role)
+
+
+def _grant_read_only(cur: Cursor[TupleRow], role: str) -> None:
+    """SELECT, and an explicit REVOKE of everything else, on `_READ_ONLY_TABLES`.
+
+    The REVOKE is the load-bearing half. `_grant_future_privileges` sets default
+    privileges that hand the app role full DML on any table a later migration creates,
+    which is right for a data table and exactly wrong for `subscription` — so the
+    write privileges are taken back here, every run, rather than assumed absent.
+    Idempotent: revoking a privilege the role does not hold is a no-op.
+    """
+    for table in _READ_ONLY_TABLES:
+        cur.execute(
+            sql.SQL("GRANT {privs} ON TABLE {table} TO {role}").format(
+                privs=sql.SQL(_READ_ONLY_PRIVILEGES),
+                table=sql.Identifier(table),
+                role=sql.Identifier(role),
+            )
+        )
+        cur.execute(
+            sql.SQL("REVOKE {privs} ON TABLE {table} FROM {role}").format(
+                privs=sql.SQL(_READ_ONLY_REVOKED),
+                table=sql.Identifier(table),
+                role=sql.Identifier(role),
+            )
+        )
 
 
 def _grant_future_privileges(cur: Cursor[TupleRow], role: str, admin: str) -> None:
@@ -309,6 +352,11 @@ def _report(role: str, *, created: bool, database: str) -> None:
     log.info("  attributes:  %s", _ROLE_ATTRIBUTES)
     log.info(
         "  tables:      %s on %d tables (no TRUNCATE, no DDL)", _TABLE_PRIVILEGES, len(_DML_TABLES)
+    )
+    log.info(
+        "  read-only:   %s on %s (writes REVOKED — entitlement is not app-settable)",
+        _READ_ONLY_PRIVILEGES,
+        ", ".join(_READ_ONLY_TABLES),
     )
     log.info("  sequences:   %s on %s", _SEQUENCE_PRIVILEGES, ", ".join(_SEQUENCES))
     log.info("  future:      default privileges set — new tables are granted automatically")

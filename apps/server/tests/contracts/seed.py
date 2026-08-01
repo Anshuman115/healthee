@@ -23,6 +23,7 @@ import json
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from tests.conftest import entitle
 from tests.contracts.seed_challenges import seed_challenges, seed_program
 
 from healthee.core.db import admin_connection, tenant_transaction
@@ -35,7 +36,8 @@ USER_TZ = ZoneInfo(SENTINEL_TZ)
 
 _TABLES = (
     "sample, sleep_session, workout, derived_daily, weight_log, profile, manual_entry, "
-    "illness_flag, recommendation, finding, gps_track, gps_point, kv, program, challenge"
+    "illness_flag, recommendation, finding, gps_track, gps_point, kv, program, challenge, "
+    "subscription"
 )
 
 # `challenge` is truncated with CASCADE because `challenge_outcome` references it —
@@ -79,6 +81,10 @@ def seed_all() -> None:
     about the privileges the running app actually has.
     """
     reset()
+    # Owner A is entitled because every committed contract snapshot is the PREMIUM
+    # payload: `/api/today` OMITS its AI fields for a free owner, so a snapshot taken
+    # without an entitlement would silently pin the locked shape as canonical.
+    entitle(SENTINEL_USER_ID)
     today = today_local()
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         _seed_profile(cur)

@@ -57,7 +57,7 @@ def test_schema_reference_lists_every_rls_policy() -> None:
     """
     schema = _SCHEMA.read_text()
     policied = {table for _, table in _POLICY_RE.findall(_migrations_sql())}
-    assert len(policied) == 16, f"expected the 16 §3.2 tenant tables, found {sorted(policied)}"
+    assert len(policied) == 17, f"expected the 17 tenant tables, found {sorted(policied)}"
     # The reference lists them in its RLS section; every one must appear there.
     rls_section = schema.split("Row-Level Security (0008_row_level_security)")[-1]
     missing = {table for table in policied if table not in rls_section}
