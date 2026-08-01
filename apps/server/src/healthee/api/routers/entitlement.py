@@ -31,25 +31,21 @@ from healthee.core.request_auth import CurrentUser
 
 router = APIRouter(tags=["entitlement"])
 
-# Every feature the gate can refuse, in the order the app lists them. Derived from
-# `api.gate`'s constants rather than re-typed, so a feature added there cannot go
-# missing from the upsell screen.
-ALL_FEATURES: tuple[str, ...] = (
-    gate.COACH,
-    gate.INSIGHT,
-    gate.NOTABLE,
-    gate.CHALLENGES,
-    gate.DAILY_ACTION,
-)
+# Every feature the gate can refuse, in the order the app lists them. Re-exported from
+# `api.gate` rather than re-typed, so a feature added there cannot go missing from the
+# upsell screen. (It moved into `gate` with 6.6a-2, which needed the same tuple to walk
+# the allowance table.)
+ALL_FEATURES: tuple[str, ...] = gate.FEATURES
 
 
 class EntitlementResponse(BaseModel):
     """One owner's premium state, plus what is still locked for them.
 
-    ``locked`` is empty for a premium owner and the full feature list otherwise —
-    there is no per-feature entitlement today (6.6a is all-or-nothing) and the field is
-    a LIST rather than a boolean so that 6.6a-2's metered allowance, which unlocks
-    ``coach`` and ``daily_action`` one at a time, needs no wire change.
+    ``locked`` is empty for a premium owner. For a free one it is everything they cannot
+    use **right now** — which since 6.6a-2 is not the whole list: a free owner with their
+    weekly coach question still in hand sees ``coach`` absent from it, and sees it appear
+    once they have asked. That is what the field being a LIST rather than a boolean was
+    built for, and it is why it needed no wire change to carry the metered allowance.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -73,6 +69,6 @@ def get_entitlement(user: CurrentUser) -> EntitlementResponse:
         source=current.source,
         plan=current.plan,
         expires_at=current.expires_at,
-        locked=[] if current.premium else list(ALL_FEATURES),
+        locked=gate.locked_features(user),
         upgrade=get_settings().upgrade_url,
     )

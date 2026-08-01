@@ -6,6 +6,19 @@ gets 402 before a single token is spent, which is the point — the coach is the
 expensive surface in the product (PRICING.md §3.1), and this is the only place its
 entitlement is checked (the coach's own tools deliberately do not re-check it).
 
+## What one free coach QUESTION is (6.6a-2)
+
+``PRICING.md`` §1a meters a free owner at one coach question per rolling seven days, and
+the unit is this **request** — one turn — not one LLM call. A tool-calling turn can make
+five (``insights.coach._MAX_ROUNDS``); metering calls would charge a curious question
+five times and an incurious one once, which is not a promise anybody could read off the
+pricing page. The gate charges the turn; this handler refunds it when the turn produced
+no answer, and the two cases are exactly the ones the coach itself already names:
+``refused`` (classified out of scope before any model ran — no tokens, no answer) and
+``validated=False`` (the honest fallback shipped, which is the product working correctly
+and still not what the owner asked for). A transport failure refunds too, on its way out.
+
+
 All grounding, tool-calling, refusal-gating and blocking validation live in
 ``healthee.insights.coach``, which is one of the two entry points into the shared §3
 choke point (``insights.pipeline``); nothing LLM-shaped happens in this router.
@@ -13,9 +26,10 @@ choke point (``insights.pipeline``); nothing LLM-shaped happens in this router.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+from healthee.api import gate
 from healthee.api.gate import CoachUser
 from healthee.insights.coach import run_coach
 
@@ -36,9 +50,18 @@ class CoachRequest(BaseModel):
 
 
 @router.post("/api/coach")
-def post_coach(user: CoachUser, req: CoachRequest) -> dict:
+def post_coach(request: Request, user: CoachUser, req: CoachRequest) -> dict:
     """Answer the conversation as the grounded coach (validated or honest fallback)."""
-    result = run_coach([m.model_dump() for m in req.messages], user.id, user.timezone)
+    try:
+        result = run_coach([m.model_dump() for m in req.messages], user.id, user.timezone)
+    except Exception:
+        # Not a swallow — it is re-raised unchanged for the error handler to log and
+        # report. The refund is the only thing that must happen before it leaves, because
+        # a free owner's week has already been charged by the gate.
+        gate.refund_ai_use(request, user)
+        raise
+    if result.refused or not result.validated:
+        gate.refund_ai_use(request, user)
     return {
         "reply": result.reply,
         "citations": result.citations,

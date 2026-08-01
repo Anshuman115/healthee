@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 from tests.premium.conftest import AUTH
 
+from healthee.api import gate
 from healthee.api.routers.entitlement import ALL_FEATURES
 
 pytestmark = pytest.mark.integration
@@ -33,13 +34,54 @@ def test_a_premium_owner_sees_an_empty_locked_list(bed: TestClient) -> None:
 def test_a_free_owner_can_still_read_it_and_learns_what_is_locked(
     bed: TestClient, make_free: Callable[[], None]
 ) -> None:
-    """The one endpoint whose subject is the paywall must not be behind the paywall."""
+    """The one endpoint whose subject is the paywall must not be behind the paywall.
+
+    Since 6.6a-2 the list is what is locked *right now*: the two metered teasers are
+    absent while the owner still has them (PRICING.md §1a), and everything else is there.
+    """
     make_free()
     response = bed.get("/api/entitlement", headers=AUTH)
     assert response.status_code == 200
     body = response.json()
     assert body["premium"] is False
-    assert set(body["locked"]) == set(ALL_FEATURES)
+    assert set(body["locked"]) == set(ALL_FEATURES) - {gate.COACH, gate.DAILY_ACTION}
+
+
+def test_a_free_owners_spent_teaser_appears_in_the_locked_list(
+    bed: TestClient,
+    make_free: Callable[[], None],
+    stub,  # noqa: ANN001, ARG001 — the question must not reach a network
+) -> None:
+    """The upsell screen has to be able to say "you have used this week's" — and change.
+
+    A `locked` list computed once and cached would pass every other test in this file and
+    fail this one, which is why the endpoint peeks the ledger on each call.
+    """
+    make_free()
+    assert gate.COACH not in bed.get("/api/entitlement", headers=AUTH).json()["locked"]
+    bed.post("/api/coach", json={"messages": [{"role": "user", "content": "hi"}]}, headers=AUTH)
+    locked = bed.get("/api/entitlement", headers=AUTH).json()["locked"]
+    assert gate.COACH in locked
+    # …and asking about it must not itself have been charged: the daily action is untouched.
+    assert gate.DAILY_ACTION not in locked
+
+
+def test_reading_the_entitlement_endpoint_never_spends_the_allowance(
+    bed: TestClient,
+    make_free: Callable[[], None],
+    stub,  # noqa: ANN001, ARG001
+) -> None:
+    """It PEEKs. An app that polled this every minute would otherwise cost a free owner
+    their week without them ever opening the coach."""
+    make_free()
+    for _ in range(5):
+        assert gate.COACH not in bed.get("/api/entitlement", headers=AUTH).json()["locked"]
+    assert (
+        bed.post(
+            "/api/coach", json={"messages": [{"role": "user", "content": "hi"}]}, headers=AUTH
+        ).status_code
+        == 200
+    )
 
 
 def test_it_reflects_a_revocation_on_the_very_next_call(
@@ -57,8 +99,6 @@ def test_the_locked_list_covers_every_gated_feature(bed: TestClient) -> None:
     `ALL_FEATURES` is derived from `api.gate`'s constants rather than re-typed, and this
     asserts the derivation actually reaches the wire.
     """
-    from healthee.api import gate
-
     assert set(ALL_FEATURES) == {
         gate.COACH,
         gate.INSIGHT,

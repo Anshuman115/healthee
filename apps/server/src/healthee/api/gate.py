@@ -32,23 +32,37 @@ that the field is *omitted*, not nulled and not hidden: "the data is not in the 
 at all, so there's nothing to sniff." The ``locked`` marker that replaces it says which
 fields were withheld, so the client can render the upsell without guessing.
 
-## What is NOT here, and is not pretended to be
+## The metered free allowance (6.6a-2)
 
-``PRICING.md`` §1a promises free users a metered taste — 1 coach question and 1
-daily-action reveal per rolling 7 days. **That metering is not built** (6.6a-2), so
-today every non-premium owner is hard-locked out of all five features. Stated plainly
-rather than sketched as an unenforced allowance table: this repo's rule is that a
-comment claiming a gate is worse than a missing gate, and the same goes for a constant
-claiming an allowance nothing reads. The seam is :func:`require_ai_access` itself —
-6.6a-2 adds the allowance check there, and nothing else moves.
+``PRICING.md`` §1a promises a free owner a metered taste — **1 coach question and 1
+daily-action reveal per rolling 7 days**, with recs, insight cards, the notable feed and
+the whole challenges system at a **zero** allowance. :data:`FREE_ALLOWANCE` is that
+table, and it is the only place it exists; :mod:`healthee.core.allowance` is the rolling
+ledger it is checked against. Entitlement is asked FIRST — a premium owner never touches
+the ledger — and the allowance only ever *widens* the gate, never narrows it.
+
+The charge happens in the dependency, not after the work, because that is the order that
+cannot be raced: the ledger is edited under a row lock before the handler starts. What a
+handler owes in return is a **refund** when it delivered nothing —
+:func:`refund_ai_use`, whose contract is "if this request charged the ledger, un-charge
+it". A premium request never marked anything, so calling it is a no-op rather than a
+condition every handler has to re-derive.
+
+**The metering never runs on a read.** :func:`gate_free_payload` asks entitlement only, so
+``/api/today`` still omits ``action`` for a free owner even though they have a reveal in
+hand. That is the point of the allowance rather than a gap in it: a *reveal* is one a week
+and must be something the owner CHOSE, and a page that spent it by loading would take the
+taste without ever offering it. The choice is ``POST /api/today/action``
+(``api.routers.daily_action``) — a door the owner knocks on.
 """
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 
+from healthee.core import allowance
 from healthee.core.config import get_settings
 from healthee.core.entitlement import is_premium
 from healthee.core.logging import get_logger
@@ -70,6 +84,38 @@ CHALLENGES = "challenges"
 # daily action, which is a gap in the doc rather than a second product.
 DAILY_ACTION = "daily_action"
 
+# Every feature this gate can refuse, in the order the app lists them on the upsell
+# screen. `api.routers.entitlement` re-exports it rather than re-typing it, so a feature
+# added here cannot go missing from the screen that sells it.
+FEATURES: tuple[str, ...] = (COACH, INSIGHT, NOTABLE, CHALLENGES, DAILY_ACTION)
+
+# PRICING.md §1a's tier table, as the only executable copy of it: how many times a
+# NON-premium owner may use each feature per rolling `allowance.WINDOW_DAYS`.
+#
+# The two teasers are the ones §1a names — "1 coach question + 1 daily-action reveal per
+# rolling 7 days … enough to feel the value and convert, bounded so cost is trivial
+# (~1–2 extra LLM calls / free user / week)". Everything else is zero, and zero is a HARD
+# lock, not a small number: recs and the insight cards are "(locked card)" in the table,
+# and challenges/programs and the notable feed are "— (premium)" in full (owner decision,
+# 2026-07-16).
+#
+# A feature absent from this dict is hard-locked too (`.get(feature, 0)`), so a sixth
+# feature added to `FEATURES` is refused for free owners until somebody deliberately
+# prices it. Failing closed is the only safe default for a paywall.
+FREE_ALLOWANCE: dict[str, int] = {
+    COACH: 1,
+    DAILY_ACTION: 1,
+    INSIGHT: 0,
+    NOTABLE: 0,
+    CHALLENGES: 0,
+}
+
+# Where a charged request records that it charged. On `request.state`, which is per
+# request and dies with it — the alternative (re-reading entitlement and the ledger in
+# the refund path) would be two more queries to rediscover something this process already
+# knew, and would guess wrong for a subscription that changed mid-request.
+_CHARGED_ATTR = "healthee_allowance_charged"
+
 # `/api/today` and `/api/sleep/consistency` are free endpoints carrying one AI field
 # each. Named here, next to the gate, because the omission and the 402 are one policy.
 TODAY_AI_FIELDS: tuple[str, ...] = ("action", "recommendations")
@@ -81,9 +127,16 @@ SLEEP_CONSISTENCY_AI_FIELDS: tuple[str, ...] = ("tonight",)
 LOCKED_KEY = "locked"
 
 
-def _locked_body(feature: str) -> dict:
-    """The body a locked card renders from — same shape in the 402 and in a payload."""
-    return {
+def _locked_body(feature: str, verdict: allowance.Verdict | None = None) -> dict:
+    """The body a locked card renders from — same shape in the 402 and in a payload.
+
+    ``verdict`` is present only when the refusal was a SPENT ALLOWANCE rather than a hard
+    lock, and it changes the sentence as well as adding the numbers: "you have already had
+    this week's" and "this is the paid tier" are different facts, and a card that said the
+    second when the first is true would sell a subscription to someone who just needs to
+    wait until Tuesday.
+    """
+    body = {
         LOCKED_KEY: True,
         "feature": feature,
         "upgrade": get_settings().upgrade_url,
@@ -91,6 +144,18 @@ def _locked_body(feature: str) -> dict:
             "the AI layer is the premium tier — your metrics, charts, baselines and "
             "findings stay free and complete"
         ),
+    }
+    if verdict is None:
+        return body
+    return body | {
+        "error": (
+            f"you have used the free tier's {verdict.limit} per {allowance.WINDOW_DAYS} days "
+            f"for this — it comes back on its own, and premium removes the limit"
+        ),
+        "limit": verdict.limit,
+        "used": verdict.used,
+        "resets_at": verdict.resets_at.isoformat(),
+        "retry_after_s": verdict.retry_after_s,
     }
 
 
@@ -106,12 +171,72 @@ class AIGate:
     def __init__(self, feature: str) -> None:
         self.feature = feature
 
-    def __call__(self, user: CurrentUser) -> RequestUser:
-        """Return the authenticated owner, or raise 402 when they are not premium."""
-        if not is_premium(user.id):
-            log.info("402 %s for %s — not premium", self.feature, user.id)
+    def __call__(self, request: Request, user: CurrentUser) -> RequestUser:
+        """Return the authenticated owner, or raise 402 — ``require_ai_access`` (§12.3).
+
+        Premium **or** within the free allowance, in that order. The order is not a
+        preference: a premium owner must never have a ledger row written for them, or a
+        lapse would find their week already spent.
+        """
+        if is_premium(user.id):
+            return user
+        limit = FREE_ALLOWANCE.get(self.feature, 0)
+        if limit <= 0:
+            log.info("402 %s for %s — not premium, no free allowance", self.feature, user.id)
             raise HTTPException(status_code=402, detail=_locked_body(self.feature))
+        verdict = allowance.spend(user.id, user.timezone, self.feature, limit)
+        if not verdict.allowed:
+            log.info("402 %s for %s — free allowance spent", self.feature, user.id)
+            raise HTTPException(
+                status_code=402,
+                detail=_locked_body(self.feature, verdict),
+                headers={"Retry-After": str(max(1, verdict.retry_after_s))},
+            )
+        setattr(request.state, _CHARGED_ATTR, self.feature)
         return user
+
+
+def refund_ai_use(request: Request, user: RequestUser) -> None:
+    """Un-charge this request's free-allowance use, if it made one and delivered nothing.
+
+    Called by a handler that produced no value — a refusal decided before the model, a
+    transport failure, the honest fallback, or an answer served from a cache this request
+    did not fill. A use is a *taste of premium*, and a taste of an apology is not one.
+
+    Idempotent, and a no-op for a premium owner: the marker is only ever set by a request
+    that actually wrote to the ledger, and it is cleared here so a second call (a handler
+    that refunds in both a branch and its ``except``) cannot mint a second use back.
+    """
+    feature = getattr(request.state, _CHARGED_ATTR, None)
+    if feature is None:
+        return
+    setattr(request.state, _CHARGED_ATTR, None)
+    log.info("refunding the free %s use for %s — the request delivered nothing", feature, user.id)
+    allowance.refund(user.id, user.timezone, feature)
+
+
+def locked_features(user: RequestUser) -> list[str]:
+    """Which features this owner may NOT use *right now* — the upsell screen's list.
+
+    Reporting only: it :func:`~healthee.core.allowance.peek`\\ s rather than spending, so
+    polling the entitlement endpoint can never cost somebody their weekly question. A
+    metered feature with a slot free is deliberately absent from the list — that is what
+    ``EntitlementResponse.locked`` being a LIST was built for.
+    """
+    if is_premium(user.id):
+        return []
+    return [
+        feature
+        for feature in FEATURES
+        if not _has_free_use(user, feature, FREE_ALLOWANCE.get(feature, 0))
+    ]
+
+
+def _has_free_use(user: RequestUser, feature: str, limit: int) -> bool:
+    """Whether a non-premium ``user`` has an unspent allowance for ``feature``."""
+    if limit <= 0:
+        return False
+    return allowance.peek(user.id, user.timezone, feature, limit).allowed
 
 
 def strip_ai_fields(payload: dict, fields: tuple[str, ...], feature: str) -> dict:
@@ -147,11 +272,14 @@ CoachUser = Annotated[RequestUser, Depends(AIGate(COACH))]
 InsightUser = Annotated[RequestUser, Depends(AIGate(INSIGHT))]
 NotableUser = Annotated[RequestUser, Depends(AIGate(NOTABLE))]
 ChallengeUser = Annotated[RequestUser, Depends(AIGate(CHALLENGES))]
+DailyActionUser = Annotated[RequestUser, Depends(AIGate(DAILY_ACTION))]
 
 __all__ = [
     "CHALLENGES",
     "COACH",
     "DAILY_ACTION",
+    "FEATURES",
+    "FREE_ALLOWANCE",
     "INSIGHT",
     "LOCKED_KEY",
     "NOTABLE",
@@ -160,8 +288,11 @@ __all__ = [
     "AIGate",
     "ChallengeUser",
     "CoachUser",
+    "DailyActionUser",
     "InsightUser",
     "NotableUser",
     "gate_free_payload",
+    "locked_features",
+    "refund_ai_use",
     "strip_ai_fields",
 ]
