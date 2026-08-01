@@ -1,8 +1,14 @@
-"""Liveness/readiness probe — GET /healthz (no auth).
+"""Liveness probe — GET /healthz (no auth).
 
 Reports whether the app is up AND its database is reachable. The deploy
 healthcheck needs the DB signal, so an unreachable DB returns 503 (not a 200
 with a sad body) — that is what makes the container roll back on a bad DB.
+
+**Its contract is deliberately narrow.** This is what the container healthcheck and
+nginx act on, so a 503 here means "restart me / take me out of rotation" and must never
+mean anything else. Dependency health that an orchestrator should NOT restart the
+container over — a dead AI layer, an empty OpenRouter balance — lives on ``/readyz``
+(``api.routers.readiness``), which says at length why the two are separate.
 """
 
 from __future__ import annotations
@@ -25,11 +31,15 @@ class HealthStatus(BaseModel):
     db: str
 
 
-def _db_ok() -> bool:
+def db_ok() -> bool:
     """Return True if a trivial query succeeds on a pooled connection.
 
     Any failure is logged (this is a health surface — never a silent swallow)
     and reported as a down DB.
+
+    Public rather than ``_db_ok`` because ``/readyz`` reports the same DB fact and must
+    not reach across modules for a private name — one probe, one definition, both
+    surfaces.
     """
     try:
         with transaction() as cur:
@@ -44,7 +54,7 @@ def _db_ok() -> bool:
 @router.get("/healthz", response_model=HealthStatus)
 def healthz(response: Response) -> HealthStatus:
     """Return 200 when the app and DB are healthy, 503 when the DB is down."""
-    if _db_ok():
+    if db_ok():
         return HealthStatus(status="ok", db="ok")
     response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return HealthStatus(status="degraded", db="fail")

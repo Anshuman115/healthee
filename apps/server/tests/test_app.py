@@ -12,3 +12,9 @@ def test_create_app_mounts_healthz() -> None:
     app = create_app()
     assert "/healthz" in app.openapi()["paths"]
     assert app.title == "Healthee"
+
+
+def test_create_app_mounts_readyz_beside_it() -> None:
+    """The dependency probe is a separate path on purpose — /healthz's contract is
+    "restart me", and a provider outage must never mean that."""
+    assert "/readyz" in create_app().openapi()["paths"]

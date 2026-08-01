@@ -12,7 +12,7 @@ from healthee.api.routers import health
 
 
 def test_healthz_200_when_db_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(health, "_db_ok", lambda: True)
+    monkeypatch.setattr(health, "db_ok", lambda: True)
     app = FastAPI()
     app.include_router(health.router)
     resp = TestClient(app).get("/healthz")
@@ -21,7 +21,7 @@ def test_healthz_200_when_db_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_healthz_503_when_db_down(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(health, "_db_ok", lambda: False)
+    monkeypatch.setattr(health, "db_ok", lambda: False)
     app = FastAPI()
     app.include_router(health.router)
     resp = TestClient(app).get("/healthz")
@@ -36,5 +36,5 @@ def test_db_ok_logs_and_returns_false_on_error(
         raise RuntimeError("pool down")
 
     monkeypatch.setattr(health, "transaction", _boom)
-    assert health._db_ok() is False
+    assert health.db_ok() is False
     assert any("db check failed" in r.message for r in caplog.records)

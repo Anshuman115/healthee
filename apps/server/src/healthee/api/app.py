@@ -32,6 +32,7 @@ from healthee.api.routers import (
     insights,
     logs,
     programs,
+    readiness,
     sleep,
     today,
     workouts,
@@ -79,6 +80,10 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Healthee", version="0.1.0", lifespan=lifespan)
     app.add_exception_handler(DobError, _dob_error_is_a_client_error)
     app.include_router(health.router)
+    # …and the dependency-readiness probe beside it. Deliberately NOT the container
+    # healthcheck: /healthz is what an orchestrator restarts on, /readyz reports the
+    # things (a dead AI layer, an empty balance) that a restart cannot fix.
+    app.include_router(readiness.router)
     # WP8 note: the daily chain runs on the scheduler timer (jobs.scheduler).
     # An optional future one-line wire — call jobs.chain.run_chain(day) after a
     # successful ingest push — would make recs refresh event-driven too; the
