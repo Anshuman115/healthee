@@ -27,12 +27,16 @@ carry one integer per owner.
 
 ## One row per owner per feature, self-resetting — deliberately not one per DAY
 
-The obvious encoding puts the date in the KEY (``jobs.chain``'s ``job:chain_done:<day>``
-does), which leaves one row per owner per day in ``kv`` forever — a small unbounded
-growth that nothing sweeps. Here the date is in the VALUE instead (``"<iso-day>:<count>"``)
-and a spend on a new day overwrites the old count, so the table carries exactly one row
-per owner per feature for the life of the account. Standards §Performance: unbounded data
-is windowed.
+The obvious encoding puts the date in the KEY, which leaves one row per owner per day in
+``kv`` forever — a small unbounded growth that nothing sweeps. Here the date is in the
+VALUE instead (``"<iso-day>:<count>"``) and a spend on a new day overwrites the old count,
+so the table carries exactly one row per owner per feature for the life of the account.
+Standards §Performance: unbounded data is windowed.
+
+``jobs.chain``'s dedup marker used to be the counter-example this paragraph named
+(``job:chain_done:<day>``); #77 folded it into the same one-row-per-owner shape and `0012`
+cleaned up the rows it had already left behind. There is now no key in this table that
+carries a date.
 
 The whole spend is ONE statement, so two concurrent requests cannot both read "2 used"
 and both proceed — the second one's ``ON CONFLICT DO UPDATE`` sees the first's write.

@@ -555,6 +555,16 @@ nothing, the guard makes it fail the build.
   two users' same-named entries are already distinct rows and cannot collide.
   Prefixing the string would state the tenant twice — once in the key column and
   again inside the key. Don't re-add it.
+- **The chain marker is a HIGH-WATER MARK — one row per owner, not one per day**
+  (#77, `0012`). It was `job:chain_done:<local-day>`, which put the day in the key
+  and so left one row per owner per day in `kv` forever with nothing to sweep it
+  (365/owner/year; prod had accumulated 16 by 2026-08-01). The day now lives in the
+  **value** under a constant key — the shape `core/rate_limit.py` had already chosen —
+  and the read is `stored >= day` ("the chain has run *through* this day") with a
+  `greatest()` on the write, so the mark cannot move backwards and a deliberate
+  `force=True` re-run of an earlier day cannot un-dedup today. `0012` folded the
+  existing rows to each owner's newest day and deleted them; `deploy.sh` migrates with
+  api+scheduler **stopped**, so no code ever reads a shape it does not understand.
 
 ---
 

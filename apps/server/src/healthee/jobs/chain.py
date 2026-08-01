@@ -60,6 +60,32 @@ on last-night's sleep landing). That marker is what lets the scheduler tick
 repeatedly and still run each owner's chain exactly once per their local day
 (6.4c) — it is the whole idempotence story, so the scheduler owns no dedup of its
 own.
+
+## The marker is a HIGH-WATER MARK — one row per owner, not one per owner per day
+
+It stores the LATEST local day this owner's chain has run for, in the kv **value**;
+the key is a constant. It used to put the day in the key (``job:chain_done:<day>``),
+which left one row per owner per day in ``kv`` forever with nothing to sweep it —
+365 rows/owner/year of pure bookkeeping on a table read on every tick. `0012` folded
+the accumulated rows into one per owner and this module stopped making more, the way
+``core.rate_limit`` (which documented the divergence rather than copying it) already
+does. Standards §Performance: unbounded data is windowed.
+
+The shape carries a semantic, not just a smaller row count. "Has the chain run for
+day D" is answered as ``stored >= D`` — *the chain has run THROUGH D* — and the write
+is a ``greatest()``, so the mark can never move backwards. Three consequences, all
+deliberate:
+
+  * a later day is un-marked and fires; the same day twice is a no-op (idempotence,
+    unchanged);
+  * a run for an EARLIER day is deduped away rather than re-generating and re-sending
+    a briefing for a day already past. ``force=True`` is the escape hatch, and it is
+    the only caller that ever wanted one;
+  * a forced back-fill cannot regress the mark and so cannot un-dedup today — with a
+    plain overwrite it would, and today's chain would run (and spend) twice.
+
+ISO-8601 dates are fixed-width and zero-padded, so lexical order **is** chronological
+order — the property that lets both comparisons happen in SQL on a TEXT column.
 """
 
 from __future__ import annotations
@@ -83,10 +109,11 @@ from healthee.jobs import recs as recs_mod
 
 log = get_logger(__name__)
 
-# kv key prefix; the per-day marker is f"{_DONE_KEY}:{day}". The OWNER is deliberately
-# NOT in this string: 0004 folded user_id into the kv PRIMARY KEY and every read of it
-# filters by owner, so two users' markers for the same day are already distinct rows.
-# Prefixing would state the tenant twice — once in the key column, once in the string.
+# The kv key of the dedup marker — a CONSTANT: the day lives in the value (see the
+# module docstring). The OWNER is deliberately not in it either: 0004 folded user_id
+# into the kv PRIMARY KEY and every read of it filters by owner, so two users' markers
+# are already distinct rows. Prefixing would state the tenant twice — once in the key
+# column, once in the string.
 _DONE_KEY = "job:chain_done"
 
 # The steps that call a model, in the order the chain runs them. Named once so the
@@ -229,9 +256,9 @@ def run_chain(
     Dependency: a ``correlate`` failure skips ``recs`` and ``warm`` (both consume the
     findings it writes). A ``briefing`` failure never undoes persisted recs, and a
     ``warm`` failure costs only the coaching lines. A second call for an already-run
-    day is a no-op unless ``force`` — and the dedup marker is per-owner (the folded
-    ``kv`` PK), so one owner's chain can never dedup another's. ``day`` defaults to
-    the owner's own local today.
+    day — or for any day at or before it — is a no-op unless ``force``, and the dedup
+    marker is per-owner (the folded ``kv`` PK), so one owner's chain can never dedup
+    another's. ``day`` defaults to the owner's own local today.
 
     Entitlement (§12.3): a non-premium owner gets the two DETERMINISTIC steps and none
     of the three that call a model. The lookup happens once, before any step, so a free
@@ -319,24 +346,36 @@ def _skipped_after_correlate() -> list[StepOutcome]:
 
 
 def _chain_done(user_id: UUID, day: date) -> bool:
-    """True if this user's chain has already run its generating steps for ``day``."""
+    """True if this user's chain has already run its generating steps through ``day``.
+
+    ``>=`` rather than ``=`` because the marker is a high-water mark, not a set of days
+    (module docstring): the row says which local day this owner's chain last ran for, so
+    an OLDER day is already covered by it. Comparing TEXT is sound here and only here —
+    both sides are fixed-width zero-padded ISO-8601, where lexical order is chronological.
+    """
     with tenant_transaction(user_id) as cur:
         cur.execute(
-            "SELECT 1 FROM kv WHERE user_id = %s AND key = %s",
-            (user_id, f"{_DONE_KEY}:{day.isoformat()}"),
+            "SELECT 1 FROM kv WHERE user_id = %s AND key = %s AND value >= %s",
+            (user_id, _DONE_KEY, day.isoformat()),
         )
         return cur.fetchone() is not None
 
 
 def _mark_chain_done(user_id: UUID, day: date) -> None:
-    """Set ``user_id``'s per-day dedup marker (idempotent upsert).
+    """Advance ``user_id``'s dedup marker to ``day`` — one row, upserted, never lowered.
 
     The marker is per-owner via the folded kv PK, so one user's chain cannot dedup
     another's — which is what makes the 6.3c per-user sweep safe to run.
+
+    ``greatest()`` is the guard, not decoration: a deliberate ``force=True`` re-run for
+    an earlier day would otherwise overwrite the mark with that older date and leave
+    TODAY reading as un-run, so the next tick would re-generate and re-send a day that
+    had already completed. Marking is monotone; nothing in the chain ever needs it to
+    move back, and ``force`` already covers the case that wants to re-run a day.
     """
     with tenant_transaction(user_id) as cur:
         cur.execute(
             "INSERT INTO kv (user_id, key, value) VALUES (%s, %s, %s) "
-            "ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
-            (user_id, f"{_DONE_KEY}:{day.isoformat()}", day.isoformat()),
+            "ON CONFLICT (user_id, key) DO UPDATE SET value = greatest(kv.value, EXCLUDED.value)",
+            (user_id, _DONE_KEY, day.isoformat()),
         )

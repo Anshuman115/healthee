@@ -278,7 +278,11 @@ def test_chain_dedup_marker_is_per_owner(two_owners: None) -> None:  # noqa: ARG
         assert _chain_done(OWNER_B, day) is False, "A's chain marker deduped B's chain away"
     finally:
         with tenant_transaction(SENTINEL_USER_ID) as cur:
-            cur.execute("DELETE FROM kv WHERE key = %s", (f"job:chain_done:{day.isoformat()}",))
+            # One row per owner, day in the VALUE (0012) — so the key is the constant.
+            cur.execute(
+                "DELETE FROM kv WHERE user_id = %s AND key = %s",
+                (SENTINEL_USER_ID, "job:chain_done"),
+            )
 
 
 def test_active_users_sees_both_owners(two_owners: None) -> None:  # noqa: ARG001

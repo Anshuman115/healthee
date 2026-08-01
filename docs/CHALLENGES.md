@@ -636,9 +636,11 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
     the conversation, which is a different thing, and it will compose with this rather
     than replace it.
   - **One row per owner per feature, self-resetting** (the day lives in the kv VALUE, not
-    the key). `jobs/chain.py`'s `job:chain_done:<day>` marker puts the day in the KEY and
-    therefore leaves one row per owner per day in `kv` forever — a small unbounded growth
-    nothing sweeps, noted here rather than copied.
+    the key). `jobs/chain.py`'s `job:chain_done:<day>` marker put the day in the KEY and
+    therefore left one row per owner per day in `kv` forever — a small unbounded growth
+    nothing swept, noted here rather than copied. **#77 has since folded it into this
+    same shape** (`0012` collapsed the 16 rows prod had already accumulated), so `kv`
+    now holds no dated keys at all.
 - ✅ **WP-C4** programs + deload/failure/recalibration — the ladder ENGINE
   (`challenges/{program_store,rung,ladder,programs}.py`, migration `0010`, three
   endpoints). §2.3's four fixes, all of them by **orchestrating what already exists**
