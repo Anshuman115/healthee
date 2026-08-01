@@ -194,16 +194,29 @@ the LLM is essentially the whole cost line.
 
 ### 3.3 Payment fees
 
-- **Stripe:** 2.9% + $0.30/txn. On $4.99/mo → **~$0.44 (~9%)**; on $39.99/yr →
-  **~$1.46 (~3.6%)**. Annual billing is dramatically more fee-efficient.
+On the prices §4 decided (2026-07-16) — **$3.99/mo · $34.99/yr**, not the $4.99/$39.99
+this section was originally written against:
+
+- **Stripe:** 2.9% + $0.30/txn. On $3.99/mo → 0.029 × 3.99 = $0.116, + $0.30 =
+  **~$0.42 (~10.4%)**; on $34.99/yr → 0.029 × 34.99 = $1.015, + $0.30 =
+  **~$1.31 (~3.8%)**. Annual billing is dramatically more fee-efficient, and *more*
+  so at the lower price: the fixed $0.30 is now **7.5%** of a monthly charge (it was
+  6.0% at $4.99), which is the whole argument for pushing annual.
 - **Polar (MoR):** ~4% + fee, but handles global sales-tax/VAT compliance for you.
 
 ### 3.4 Total marginal cost per user
 
 | Plan | AI | Infra | Fees | **Total** |
 |---|---|---|---|---|
-| Monthly $4.99 | ~$1–2 | ~$0.20 | ~$0.44 | **~$1.6–2.6 / mo** |
-| Annual $39.99 | ~$12–24/yr | ~$2.4/yr | ~$1.5/yr | **~$16–28 / yr** |
+| Monthly $3.99 | ~$1–2 | ~$0.20 | ~$0.42 | **~$1.6–2.6 / mo** |
+| Annual $34.99 | ~$12–24/yr | ~$2.4/yr | ~$1.3/yr | **~$16–28 / yr** |
+
+The totals round to the same band as the $4.99/$39.99 version, because a price change
+moves the FEE (by 2¢/mo and 15¢/yr) and not the cost — which is the point worth taking
+from this table: **cost is ~$1–2 of AI and a rounding error of everything else, at any
+price we would plausibly charge.** What the price does change is the margin, and that
+is §6.1's line, computed on the decided prices (blended fees −$0.23/mo: 60% × $0.110
+annual-per-month + 40% × $0.416 monthly).
 
 ---
 
@@ -224,7 +237,9 @@ the LLM is essentially the whole cost line.
   Oura's $69.99 anchor and makes Whoop's $199+ look absurd — *"$35 a year vs Whoop's
   $199"* is the pitch.
 - **Push annual hard.** It's ~27% off monthly AND far more fee-efficient — the fixed
-  $0.30 Stripe fee is ~7.5% of a $3.99 monthly charge but only ~3.7% of $34.99/yr.
+  $0.30 Stripe fee is ~7.5% of a $3.99 monthly charge but under 1% of $34.99/yr, and
+  all-in fees are ~10.4% vs ~3.8% (§3.3). (The ~3.7% this line used to attach to the
+  *fixed* fee was the all-in rate.)
 - **Lifetime $99** mirrors the free-for-life hardware ethos and maps to the
   donation/one-time path (`MULTI_USER.md` §12.4); it pays back in ~25 months vs
   monthly — great for the most enthusiastic early adopters.
@@ -243,15 +258,18 @@ excellent so premium is an upgrade, not a ransom.
 - **AI cost scales with engagement, not seats.** Heavy coach users cost more —
   the Batch API + caching + Flash-Lite keep even power users under ~$3/mo. If a
   whale emerges, soft rate-limits on coach turns/day protect margin.
-- **Fixed-fee drag on monthly.** The $0.30 Stripe fee is ~6% of $4.99 — another
-  reason to push annual and the lifetime option.
+- **Fixed-fee drag on monthly.** The $0.30 Stripe fee is **7.5% of $3.99** (all-in,
+  ~10.4%) — another reason to push annual and the lifetime option.
 - **FX / global tax.** Polar (MoR) removes VAT/tax-compliance risk for a slightly
   higher fee; worth it if selling internationally.
 - **Model price moves.** Flash-tier prices trend down over time; our choke point
   makes swapping the model a one-line config change, so cost only improves.
-- **Break-even.** At ~$2/user/mo cost and $39.99/yr revenue, one annual subscriber
-  covers themselves ~15× over; the business is profitable at very low user counts
-  because infra is a rounding error and AI is sub-$2.
+- **Break-even.** At ~$2/user/mo cost ($24/yr) and **$34.99/yr** revenue, an annual
+  subscriber covers their own cost ~**1.5×** — and ~**2.9×** once the optimized ~$1/mo
+  lands. (This bullet used to claim "~15× over", which was never true at any price we
+  considered: $39.99 ÷ $24 is 1.7. The business is still profitable at very low user
+  counts, but on the margin per *premium* user carrying ~19 free ones — §6.1 — not on
+  a 15× that does not exist.)
 
 ---
 
