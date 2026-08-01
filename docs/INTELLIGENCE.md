@@ -88,7 +88,16 @@ question/task
     count: measured 2026-08-01, the same "top 6" ran 16k–34k tokens and
     is 65–83% of every prompt the product sends — PRICING §3.1's box.
     A note reaches the prompt through `manifest.prompt_body`, i.e.
-    minus its bibliography, which the model cannot cite)
+    minus its bibliography, which the model cannot cite.
+    Signals, strongest first: id named · metric in play · intervention ·
+    alias as a WORD and separator-insensitively · content words shared
+    with the note's name/aliases/summary, capped below one alias hit.
+    The last one is not fuzziness for its own sake: the four above are
+    explicit, and when none fires every note scores zero and the
+    deterministic id tie-break used to hand the model the
+    alphabetically-first six — "should I train hard today?" was grounded
+    in alcohol_sleep and cadence_intensity, ~30k tokens chosen by
+    spelling. §9 is how that is now measured rather than argued)
   → LLM (tools allowed, §4)
   → hard OUTPUT GUARDRAILS (`insights/output_guard.py`) — BLOCKING, and checked
     BEFORE the validator on purpose: a documented forbidden output (personal
@@ -402,3 +411,83 @@ scale), `applies_to_metrics`. Without this they cannot be cited at all
 | Priority A/B notes | parallel, start now | Each merged note passes template check (Honesty + Directives + verified primary sources) |
 | Priority C metrics + SS activation | 5+ | New derived metric ↔ its SS doc citable |
 | Outcome-ledger coach memory + weekly review | 5 | First weekly review cites only real notes + personal findings |
+
+---
+
+## 9 · Measuring grounding — the eval harness
+
+Every stage above is enforced by a test. Whether the answers are actually any *good*
+was, until 2026-08-01, unmeasured — and that gap stopped real work twice: the cost work
+could not test whether four evidence notes ground an answer as well as six (the biggest
+remaining lever), and a retrieval change could only be reported as "58% → 53% at n=59,
+≈0.5σ apart", which is neither a win nor a regression.
+
+`apps/server/tests/grounding_eval` closes it. A fixed question set — knowledge, data,
+compound, out-of-domain, safety, plus the four shipped insight prompts imported from the
+modules that send them — runs against the REAL model through `run_coach` /
+`grounded_ask` with a metered client injected.
+
+**The headline metric is the SHIP RATE**: of the answers we paid for, how many reached
+the owner. A candidate that fails its gates twice costs a full-context call *and* its
+nudged retry and then ships the honest fallback — measured, ~40% of nightly generations
+ended that way, so answer quality is a cost lever roughly the size of the prompt itself.
+Also reported: refusal correctness (a floor, never pooled into the ship rate), citations
+per shipped answer, LLM calls, tool rounds, and provider-counted input/output/reasoning
+tokens (`ChatResponse.usage`).
+
+Rules it enforces on itself:
+
+- every rate prints with its **n and a 95% Wilson interval**; two arms are compared with
+  a **paired McNemar test** (exact binomial) and a sentence that says in words when a
+  difference is *not* significant — "not measurably worse" is not "the same";
+- transport/DB errors are excluded from the denominator and counted separately, never
+  folded in as failures;
+- the two arms are two runs of the same code at two commits, not a flag inside it.
+
+It costs real money and hits the network, so it never runs in the normal suite; only its
+offline arithmetic tests do (Wilson checked against its own defining equation, McNemar
+against exact binomial values, and the premise that every safety question refuses
+pre-LLM). Measured: 16 questions × 3 repeats = 48 runs, ~5M input tokens, **~$3.00 per
+arm** and ~30 minutes.
+
+    uv run python -m tests.grounding_eval run --repeats 3 --out before.json
+    uv run python -m tests.grounding_eval compare before.json after.json
+
+### 9.1 · First results (2026-08-01, three arms, n = 42 answer-expecting runs each)
+
+**Baseline ship rate: 29/42 = 69.0% [95% CI 54.0–80.9].** Nearly a third of what the
+product pays for never reaches the owner, and the cost of a failure is two calls.
+
+**The retrieval fix (§3's signal list) is a NULL RESULT on the ship rate.** 29/42 both
+arms; the paired test found 6 flips each way (p = 1.0). It is not nothing —
+deterministically, **14 of 14** answer-expecting questions now retrieve a different
+top-6, `resting_heart_rate` ranks first for "what is my resting heart rate" instead of
+scoring zero, and `recovery_readiness` ranks first for "should I train hard today"
+instead of `alcohol_sleep` — but *changing every note on every question did not move the
+rate*, which is the useful finding. The evidence block got 2.6% **larger** in characters;
+end-to-end input tokens fell 15.6% per question on fewer tool rounds, sign not
+established (95% CI −43,049 to +5,255).
+
+**Where the failures actually are** (13 per arm, both arms):
+
+| cause | before | after |
+|---|---|---|
+| "Probable claim stated without a hedge" (grade calibration) | 7 | 11 |
+| "Interpretive sentence lacks a citation" | 4 | 2 |
+| hard output guardrail (personal death-risk number, `activity_insight`) | 2 | 0 |
+
+So **~80% of the waste is language calibration, not retrieval** — and at least two of
+those are arguably validator false positives worth their own measured PR: a markdown
+**heading** ("**What the data shows**") counts as an uncited interpretive sentence
+because it contains "shows", and a sentence stating the owner's own measured number
+beside a cited range counts as an unhedged Probable claim.
+
+**Can the evidence block be trimmed? Provisionally yes.** top-6 → top-4, same questions,
+same code: ship rate 29/42 → 29/42 (4 flips each way, p = 1.0) with input tokens
+**−19,128 per question, −18.8%, 95% CI −35,173 to −3,083 — sign established**, $3.04 →
+$2.56 per arm. That is the first evidence the biggest remaining cost lever is safe to
+pull. It is NOT proof of equivalence: n = 42 pairs can only exclude differences larger
+than roughly ±20 points, so the honest reading is "no loss detectable at the resolution
+we bought". Before shipping the trim, either accept that bounded risk deliberately or
+run ~200 pairs per arm (~$15/arm). `DEFAULT_TOP_N` is unchanged at 6 — the measurement
+was run as a throwaway arm, not as a landed change.
