@@ -21,11 +21,16 @@ runs — each section states its own status; **[D#]** decisions carry theirs inl
 - **RLS only protects prod once `POSTGRES_APP_*` is set there** (§3.3). The
   policies are in the schema, but a pool that falls back to the admin superuser
   bypasses them.
-- **6.6 premium gating is not built** (§12) — no `subscription` table, no
-  `is_premium`, no `require_ai_access`. So §12.3's rule that the nightly chain
-  skips free users is a **plan, not code**: the chain currently generates for
-  every active owner.
-- **Rate-limiting and per-user backup/export** are not built (§11, 6.5).
+- **6.6 premium gating is built as far as *entitlement*, not *billing*** (§12).
+  `subscription`, `is_premium`, `require_ai_access` (`api/gate.py`), the nightly
+  chain's skip and the metered free allowance all run (6.6a + 6.6a-2); what is
+  missing is the provider, checkout and webhooks ([D4]/[D5]), so entitlement is
+  written by `db/grant_premium.py` or `SELF_HOST_UNLOCKED` and by nothing else.
+  *(This bullet claimed none of it existed until 6.6a-2 corrected it — §12's own
+  status block had been updated and this summary had not.)*
+- **General request rate-limiting and per-user backup/export** are not built
+  (§11, 6.5). Two *specific* per-owner budgets do exist on the surfaces that spend
+  money (`core/rate_limit.py`: generation, and the daily-action reveal).
 
 ---
 
@@ -748,7 +753,8 @@ acceptance bar each was held to, not as pending work.
 | **6.4 Flip identity ✅** | Shipped in slices. **6.4a**: `USER_TODAY_SQL`/`user_today()` — the owner's day boundary, killing the `current_date` anchor. **6.4b ✅**: the auth flip — dual auth (§4.4a) in `core/request_auth.py`; all 11 routers inject `user: CurrentUser` per-endpoint and pass `user.id`/`user.timezone` (router-level `require_token` gone, `core/auth.py` deleted as orphaned); the sentinel hardwires cleared from `surfaces`/`coach_tools`/`notable`/`coaching`/`coach_context` (threaded from the router, so the coach and every insight act for the REQUESTING user); `/ingest/helio` attributed by device token → owner (§7), unknown token → 401. Tests: HTTP-level cross-tenant leakage both-owners-see-their-own (`tests/db/test_http_isolation.py`, incl. a permanent mutation test), the auth matrix (`tests/test_request_auth.py` — every rejected JWT asserted to never reach the sentinel branch), ingest attribution (`tests/integration/test_ingest_attribution.py`). **6.4c ✅**: per-user scheduler fire times — `jobs/scheduler.py` is now a **tick loop** running each owner's `run_chain` at 10:30 in **their own** `app_user.timezone`, deduped by `run_chain`'s per-owner per-day marker (§6); the global `scheduler.TZ`, the 10:30/10:45/11:00 stagger, and the orphaned `chain.run_step`/`STEP_NAMES` are gone. Plus `db/claim_sentinel.py` — the committed, **dry-run-by-default** one-off that re-keys the sentinel owner to the real Supabase UUID via the single cascading `UPDATE app_user SET id = …`, preserving the target's real email/timezone and post-checking (in-transaction) that no row anywhere still belongs to the sentinel; `0006` gives `device_token` the `ON UPDATE CASCADE` its 0002 definition lacked, without which the cascade *errors* for any owner who ever paired a device (§8). | second real user works end-to-end, isolated |
 | **6.5 Harden ✅** | Shipped in slices. **Signup gate ✅** ([D1], §4.4b): `signups_open` is enforced by the SERVER — it was a dead flag, and `_provision_user` wrongly claimed Supabase enforced it — gating creation of a NEW `app_user` row on `signups_open` OR the new `signup_allowlist`, refusing **403** before any write; the allowlist is also the owner's bootstrap into `claim_sentinel`. **`0007` ✅**: dropped the transitional `user_id` DEFAULT on all 16 tenant tables (§8) — a forgotten owner is now a loud `NotNullViolation`, not silent misattribution to the sentinel; `NOT NULL` kept. **6.5b-1 ✅**: the app-role split (§3.3a) — the pool connects as a least-privilege `NOSUPERUSER NOBYPASSRLS` role that owns no tables, without which the policies below would have been theatre. **6.5b-2 ✅** (`0008`, resolves [D3], §3.3): `ENABLE ROW LEVEL SECURITY` + one `FOR ALL`/`WITH CHECK` policy on all 16 tenant tables, keyed on the `healthee.user_id` GUC that `core.db.tenant_transaction()` sets via `set_config(..., true)`; every `transaction()`/`connection()` site triaged into tenant / identity-only / admin, and plain `connection()` deleted as orphaned. Identity tables (`app_user`, `device_token`) stay unpolicied by decision; `migrate`/`claim_sentinel`/`provision_app_role`/`seed.reset` stay on the unbound admin. **The whole test suite now runs as the least-privilege role** — it did not before, which would have left every policy unexercised. `tests/db/test_rls.py` proves the backstop by defeating it (an unfiltered read is still owner-scoped; unset + empty-string owners return nothing without erroring; cross-owner writes denied), mutation-verified. **Remaining:** removing the legacy shared-token branch (blocked on the Phase-2 app shipping Supabase login, §4.4a); **rate-limiting everywhere except generation** — WP-C3b/C4b shipped the first limiter in the codebase (`core/rate_limit.py` + `challenges/budget.py`: 3 generations per owner per their local day, charged by both the endpoint and the coach's `create_challenge`), so what is still unbuilt is a per-TURN coach limit and any bound at all on the other routes; per-user backup/export. | isolation proven; GA-ready |
 
-| **6.6a Entitlement ✅** | The AI paywall, step (a) of §12.6. `0011_subscription` (+ RLS policy, + the app role's SELECT-only grant) · `core/entitlement.py` — the ONE rule, pure and injectable-`now` · `api/gate.py` — `AIGate` taken in place of `CurrentUser` on the coach, the four insight routes, `/api/notable`, the whole challenges/programs surface and both generation endpoints, 402 with a locked-card body · field OMISSION on `/api/today` and `/api/sleep/consistency` · `GET /api/entitlement` · the nightly chain skipping `recs`/`warm`/`briefing` for a free owner while keeping the two deterministic steps (closes the cost hole, #48) · `db/grant_premium.py` + `SELF_HOST_UNLOCKED` as the pre-billing entitlement paths (§12.6a) · and #78, one generation budget shared by the endpoint and the coach (`challenges/budget.py`). **Not in it:** billing/webhooks ([D4]/[D5]) and the metered free allowance (6.6a-2). | a free owner's chain spends zero LLM calls; every AI route 402s a direct call; `/api/today` has no `action` key at all |
+| **6.6a Entitlement ✅** | The AI paywall, step (a) of §12.6. `0011_subscription` (+ RLS policy, + the app role's SELECT-only grant) · `core/entitlement.py` — the ONE rule, pure and injectable-`now` · `api/gate.py` — `AIGate` taken in place of `CurrentUser` on the coach, the four insight routes, `/api/notable`, the whole challenges/programs surface and both generation endpoints, 402 with a locked-card body · field OMISSION on `/api/today` and `/api/sleep/consistency` · `GET /api/entitlement` · the nightly chain skipping `recs`/`warm`/`briefing` for a free owner while keeping the two deterministic steps (closes the cost hole, #48) · `db/grant_premium.py` + `SELF_HOST_UNLOCKED` as the pre-billing entitlement paths (§12.6a) · and #78, one generation budget shared by the endpoint and the coach (`challenges/budget.py`). **Not in it:** billing/webhooks ([D4]/[D5]). | a free owner's chain spends zero LLM calls; every AI route 402s a direct call; `/api/today` has no `action` key at all |
+| **6.6a-2 Metered free allowance ✅** | `PRICING.md` §1a's "taste of premium", enforced. `core/allowance.py` — a ROLLING seven-day per-owner-per-feature ledger on `kv` (the use *instants* in the VALUE, no date in the key, bounded to `limit` entries) · `api/gate.py`'s `FREE_ALLOWANCE` as the only executable copy of the §1a table, checked inside `AIGate` after entitlement, 402 carrying `resets_at` + `Retry-After` when spent · charge-in-the-dependency / `refund_ai_use` in the handler, so a refusal, a transport failure or the honest fallback never costs the week · `POST /api/today/action`, the reveal door the jobs skip made necessary, bounded by a second per-day `core/rate_limit` budget · `GET /api/entitlement`'s `locked` list now peeks the ledger instead of always naming every feature. | a free owner gets exactly ONE coach question and ONE reveal per rolling 7 days, the second is 402 with a correct reset instant, a midnight does not reset it, and a refused turn does not consume it |
 
 Rough order-of-magnitude: 6.1 small, 6.2 small-medium (mostly SQL), **6.3 is the
 big one** (the ~119-site threading), 6.4 medium, 6.5 medium, 6.6a medium. Each is a Fable-
@@ -758,15 +764,13 @@ directs / Opus-implements track with review + the two-tenant isolation tests.
 
 ## 12. Premium gating & subscriptions (AI features are paid)
 
-> **Status: STEP (a) IS BUILT — 6.6a, `0011_subscription`.** The `subscription`
-> table, `core/entitlement.py` (`is_premium`), the `api/gate.py` dependency, the
-> field omission on `/api/today` + `/api/sleep/consistency`, `GET /api/entitlement`,
-> and the nightly chain's skip all exist and are enforced. What is NOT built is
-> **step (b)** — billing, webhooks, a provider ([D4]/[D5] are still open) — and
-> **the metered free allowance** of §12.3/`PRICING.md` §1a (1 coach question + 1
-> daily-action reveal per rolling 7 days, tracked in 6.6a-2). Until that lands a
-> non-premium owner is **hard-locked** out of every AI surface, which is the safe
-> default and the cheap one, but it is *not* the tier split PRICING promises.
+> **Status: STEP (a) IS BUILT — 6.6a + 6.6a-2, `0011_subscription`.** The
+> `subscription` table, `core/entitlement.py` (`is_premium`), the `api/gate.py`
+> dependency, the field omission on `/api/today` + `/api/sleep/consistency`,
+> `GET /api/entitlement`, the nightly chain's skip, **and the metered free allowance**
+> (`core/allowance.py` + `api/gate.py`'s `FREE_ALLOWANCE`, 6.6a-2) all exist and are
+> enforced. What is NOT built is **step (b)** — billing, webhooks, a provider
+> ([D4]/[D5] are still open).
 >
 > Entitlement is written today by the committed ops module `db/grant_premium.py`
 > (dry-run by default, like `claim_sentinel`) or, deployment-wide, by
@@ -861,11 +865,19 @@ table a future migration creates, so "we did not grant it" is not the same state
    not an error. Gated: `/api/coach`, the four insight routes, `/api/notable`, the
    whole challenges + programs surface (feeds included — a stored challenge is
    AI-authored content), and both generation endpoints.
-   *Not built yet:* the free-tier metered allowance (1 coach question + 1
-   daily-action reveal per rolling 7 days, `PRICING.md` §1a). 6.6a-2 adds it inside
-   this dependency and nothing else moves; until then every non-premium owner is
-   hard-locked. It is deliberately absent rather than sketched as an unenforced
-   constant — a comment claiming a gate is worse than a missing gate.
+   **The metered free allowance (6.6a-2) lives inside that same dependency**, checked
+   after entitlement: premium ⇒ through, free-and-within-allowance ⇒ through *and the
+   use is recorded*, free-and-exhausted ⇒ 402 carrying `limit`/`used`/`resets_at` and
+   a `Retry-After` header. `api/gate.py`'s `FREE_ALLOWANCE` is the only executable copy
+   of `PRICING.md` §1a's table (coach 1, daily action 1, everything else **0** — and 0
+   is a hard lock, not a small number); `core/allowance.py` is the rolling ledger, one
+   `kv` row per owner per metered feature holding the *instants* of recent uses (no date
+   in the key — that is the shape `0012` removed). A refused attempt is never recorded,
+   or the window could never roll. Charge-then-refund, so a refusal, a transport failure
+   or the honest fallback gives the use back (`gate.refund_ai_use`).
+   One surface was added rather than widened: `POST /api/today/action`, because the
+   jobs skip below means a free owner's action line is never generated, so *revealing*
+   it means generating it on demand.
    `tests/premium/test_ai_gate.py` walks every mounted route's real dependency tree
    and fails the build on any route that is neither gated nor in a reasoned free
    allowlist, so a new AI endpoint cannot ship open.
@@ -992,10 +1004,20 @@ state*. The client is never trusted for anything that gates access; it only
 | **Donation-unlock abuse** (a 1¢ donation → forever premium) | The donation→entitlement rule is **explicit and server-enforced** (threshold + term, [D5]); processed through the same signature-verified webhook, not a client claim. |
 
 **One-line invariant:** *no AI response bytes ever leave the server for a request
-whose `user_id` is not premium — enforced at the endpoint AND in the jobs, from
-server-owned entitlement, with RLS underneath.* If that holds there is no gate to
-crack from the client side; the only remaining surface is the billing webhook,
-closed by signature verification.
+whose `user_id` is not **entitled** — enforced at the endpoint AND in the jobs, from
+server-owned entitlement **and a server-owned usage ledger**, with RLS underneath.*
+If that holds there is no gate to crack from the client side; the only remaining
+surface is the billing webhook, closed by signature verification.
+
+> The word `premium` became `entitled` with 6.6a-2. *Entitled* = premium **or** inside
+> `PRICING.md` §1a's metered free allowance, and both halves are server-owned state
+> read per request: entitlement from the `subscription` table, usage from the `kv`
+> ledger the app role can write only for its own tenant (RLS). Neither is ever a
+> client claim, so the loophole table above is unchanged — a lying client that has
+> already used its one weekly question still gets 402, which
+> `test_a_client_claiming_premium_is_still_refused` asserts against a *spent* ledger
+> and not only against a missing subscription. The allowance is a widening of who may
+> pass, never of what the client is trusted to say.
 
 **How 6.6a tests it** (`tests/premium/`, plus `tests/jobs/test_chain_supervision.py`):
 the endpoint half by calling every gated route directly as a free owner and asserting

@@ -79,8 +79,9 @@ safety.
 | **Challenges / programs** (adopt · track · outcome ledger · AI suggestions) | — (premium) | ✓ |
 | **Notable-shift feed** (`/api/notable`) | — (premium) | ✓ |
 | Per-metric anomaly flags on individual cards ("outside your normal") | ✓ | ✓ |
-| **AI coach** | **teaser: 1 question / 7 days** — *not built, 6.6a-2* | ✓ unlimited (fair-use) |
-| **Daily action line** (and the sleep-`tonight` line, which this table never named) | **teaser: revealed 1× / 7 days** — *not built, 6.6a-2* | ✓ daily |
+| **AI coach** | **teaser: 1 question / 7 days** (built, 6.6a-2) | ✓ unlimited (fair-use) |
+| **Daily action line** | **teaser: revealed 1× / 7 days** (built, 6.6a-2 — `POST /api/today/action`) | ✓ daily |
+| Sleep `tonight` line (this table never named it; same generator, same entitlement) | — (locked field) | ✓ daily |
 | **Daily recommendations** (1–3 cite-or-drop) | — (locked card) | ✓ |
 | **AI insight cards** (sleep · activity · metric · workout) | — (locked card) | ✓ |
 | **Coach-companion** (memory · outcome-ledger narration · proactive nudges · goals, Phase 5) | — | ✓ |
@@ -98,14 +99,25 @@ safety.
 - *A metered "taste of premium."* Free users get **1 coach question + 1 daily-action
   reveal per rolling 7 days** — enough to feel the value and convert, bounded so
   cost is trivial (~1–2 extra LLM calls / free user / week). Enforced server-side
-  as a per-user usage counter (see `MULTI_USER.md` §12.3: the gate is
-  `require_ai_access(user, feature)` = premium **OR** within the free allowance).
-  ⚠ **NOT BUILT YET (6.6a-2).** 6.6a shipped the gate itself, and until the allowance
-  lands a free user is hard-locked out of the coach and the daily action too. The
-  table above therefore describes the *intended* tier split, not today's behaviour —
-  the two teaser rows are the difference. Nothing is over-served; the gap is that we
-  under-serve the free tier relative to this promise, which costs conversion rather
-  than margin.
+  (see `MULTI_USER.md` §12.3: the gate is `require_ai_access(user, feature)` =
+  premium **OR** within the free allowance).
+  ✅ **BUILT (6.6a-2).** `core/allowance.py` is the ledger and `api/gate.py`'s
+  `FREE_ALLOWANCE` is the only executable copy of the table above. Three things
+  about it are decisions, not details:
+  - **Rolling, not calendar.** The window is anchored to the *use* — a question
+    asked at 21:00 Monday comes back at 21:00 the following Monday, in the owner's
+    zone. It is a different mechanism from `core/rate_limit.py`'s per-local-day
+    counter, which would have reset at midnight and handed out two questions to
+    anyone who asked theirs in the evening.
+  - **A use is a coach *turn* and a *reveal*, not an LLM call.** A tool-calling
+    turn can make five calls; metering calls would charge a curious question five
+    times. And a use is never spent on a refusal, a transport failure, or the
+    honest fallback — those refund.
+  - **The daily action needs a door.** The nightly chain does not generate a free
+    owner's action line at all (the 6.6a cost skip), so revealing it means
+    generating it on demand: `POST /api/today/action`, which is a POST the owner
+    triggers and not a read. `/api/today` is unchanged and still omits the field —
+    a page load must not be able to spend somebody's weekly taste.
 - *Full history stays free.* The anti-Whoop brand ("we don't hold your data
   hostage") is worth more than the freemium history-lock lever.
 
