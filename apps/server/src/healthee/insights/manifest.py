@@ -8,8 +8,10 @@ metadata retrieval ranks against. This module loads it once (cached) and exposes
   * ``note_ids()``    — the set the validator checks citations against,
   * ``by_id(id)``     — one record, or None,
   * ``grade_of(id)``  — the unified grade string for a cited id,
-  * ``note_body(n)``  — the note's markdown body (frontmatter stripped), for
-                        embedding top-ranked full notes in the LLM context.
+  * ``note_body(n)``  — the note's markdown body (frontmatter stripped) — the WHOLE
+                        note, which is what a human reading the evidence gets,
+  * ``prompt_body(n)``— the same body minus its bibliography, for embedding in a
+                        prompt (see below).
 
 ``analytics.notes`` reads the same file for the *findings* citation-matching path;
 this is the parallel accessor for the *insights* retrieval + validation path (both
@@ -19,6 +21,7 @@ are thin readers of one generated index — no second definition of the corpus).
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -137,6 +140,39 @@ def note_body(note_id: str) -> str:
         log.warning("note body unreadable for %s (%s) — using summary", note_id, exc)
         return note.summary
     return _strip_frontmatter(raw).strip()
+
+
+# A note's bibliography — "## References" or "## Key references", up to the next
+# top-level section. Both spellings occur in the corpus (42 notes use one, 28 the other)
+# and either may carry a parenthetical ("## References (primary, verified 2026-06-10)"),
+# so the heading is matched loosely and the block ends at the next `## `.
+_BIBLIOGRAPHY = re.compile(r"^##\s+(?:key\s+)?references\b.*?(?=^##\s|\Z)", re.I | re.M | re.S)
+
+
+@lru_cache(maxsize=256)
+def prompt_body(note_id: str) -> str:
+    """The note as it is EMBEDDED IN A PROMPT: the full body minus its bibliography.
+
+    Measured (task #23): the corpus is 320k tokens, of which **14.4% is bibliography**
+    — author/year/journal/DOI lines. Retrieval embeds six full notes on every call, so
+    that block was ~4k tokens of every ~35k prompt, on every LLM call the product makes,
+    for every owner, every day.
+
+    Dropping it costs NOTHING in grounding, and that is checkable rather than hoped for:
+    the validator's citation grammar is ``[note_id]`` and every cited id must exist in
+    this manifest (``note_ids``), so a journal reference is not a citable thing — the
+    model cannot use one, and an answer that named a paper instead of a note id would be
+    refused. The claims themselves, with their inline (author, year) attributions, live
+    in the note's *evidence* prose and are untouched.
+
+    It is a SECOND accessor rather than a change to :func:`note_body` because the two
+    have different readers. ``note_body`` is the whole note — what a human gets when
+    they open the ⓘ sheet to read the evidence themselves, which PRICING §1a keeps on
+    the free tier precisely so the sourcing is inspectable. Stripping the sources there
+    would take the honesty contract's own receipts away to save tokens nobody was
+    spending.
+    """
+    return _BIBLIOGRAPHY.sub("", note_body(note_id)).strip()
 
 
 def _strip_frontmatter(text: str) -> str:

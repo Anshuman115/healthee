@@ -299,8 +299,16 @@ def get_knowledge(topic: str | None, note_id: str | None) -> dict:
 
 
 def _note_payload(note_id: str) -> dict:
+    """One note as a tool result. ``prompt_body``, because this lands in a prompt.
+
+    The bibliography is dropped for the same reason retrieval drops it — the model can
+    only cite ``[note_id]``, so author/year/DOI lines are tokens it cannot spend. Here
+    they cost twice over: the payload is truncated at 4,000 characters, so a note whose
+    references sat inside that window was handing the coach a reading list in place of
+    the evidence it asked for.
+    """
     note = manifest.by_id(note_id)
-    body = manifest.note_body(note_id)
+    body = manifest.prompt_body(note_id)
     return {
         "note_id": note_id,
         "name": note.name if note else "",

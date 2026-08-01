@@ -41,6 +41,12 @@ _SLEEP_TONIGHT_PROMPT = (
     "to my numbers. Cite [note_id] for any health claim. No diagnosis, no alarmism."
 )
 
+# The metrics retrieval ranks each line's evidence notes against. Module constants
+# rather than call-site literals so a test can rank the SHIPPED prompt against the
+# SHIPPED metrics instead of a copy that drifts (task #23's retrieval guards do).
+DAILY_ACTION_METRICS = ["recovery_score", "mvpa_min", "cardio_load", "sleep_debt_min"]
+SLEEP_TONIGHT_METRICS = ["sleep_regularity_index", "sleep_health_score_4dim", "sleep_debt_min"]
+
 
 def cached_payload(user_id: UUID, tz: str, key: str) -> dict | None:
     """``user_id``'s whole cached line payload for ``key`` if warmed today, else None.
@@ -113,7 +119,7 @@ def warm_daily_action(
         tz,
         DAILY_ACTION_KEY,
         _DAILY_ACTION_PROMPT,
-        metrics=["recovery_score", "mvpa_min", "cardio_load", "sleep_debt_min"],
+        metrics=DAILY_ACTION_METRICS,
         context_days=30,
         client=client,
         refresh=refresh,
@@ -129,7 +135,7 @@ def warm_sleep_tonight(
         tz,
         SLEEP_TONIGHT_KEY,
         _SLEEP_TONIGHT_PROMPT,
-        metrics=["sleep_regularity_index", "sleep_health_score_4dim", "sleep_debt_min"],
+        metrics=SLEEP_TONIGHT_METRICS,
         context_days=28,
         client=client,
         refresh=refresh,
