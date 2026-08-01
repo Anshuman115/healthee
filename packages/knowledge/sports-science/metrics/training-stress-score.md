@@ -203,12 +203,29 @@ approximating the curvilinear stress response [Coggan & Allen 2010].
   — HR cannot rise and fall fast enough to register short surges, so hrTSS
   *under-counts* interval and sprint work [TrainingPeaks; Coggan & Allen 2010].
 
-**In `@daud/core`:** session load is computed deterministically from the activity
-stream. Preference order mirrors data quality: **power (if present) → rTSS (GPS
-pace + grade) → hrTSS (HR only) → sRPE-only (duration × RPE)**. The chosen method
-should be stored alongside the value so the coach knows how much to trust it.
+**The reference method:** session load is computed deterministically from the
+activity stream. Preference order mirrors data quality: **power (if present) → rTSS
+(GPS pace + grade) → hrTSS (HR only) → sRPE-only (duration × RPE)**. The chosen
+method should be stored alongside the value so the coach knows how much to trust it.
 Grade adjustment uses the Minetti (2002) polynomial cost curve. **Estimation
 error vs a true physiological dose is irreducible** — see Honesty.
+
+> ⚠️ **Provenance of the preference order, checked 2026-08-01 (#88).** This paragraph
+> opened "**In `@daud/core`:**" — a module that exists **nowhere** (not this repo, not
+> `~/projects/healthee-legacy`, not git history; the string came in with the upstream
+> corpus import). **The ordering carries no citation and we found no primary source
+> for it.** [Coggan & Allen 2010] is cited in this note for how NP/IF/hrTSS behave —
+> it is *not* a citation for this ranking, and Coggan & Allen is a trade book, not a
+> peer-reviewed comparison of the four methods against a criterion dose. Read the
+> order as **practitioner consensus about data quality**, which is defensible on its
+> face (a direct power measurement beats an inferred one) and is unvalidated as
+> written.
+>
+> It is also **not implemented**: Healthee computes no TSS, rTSS, hrTSS or sRPE, has
+> no method-selection branch and stores no "which method was used" field (verified by
+> grep across `apps/`, 2026-08-01). See the implementation section — the shipped load
+> currency is Banister HR-reserve TRIMP (`derive/cardio_load.py`), a single path with
+> no ladder. The one place this ordering reaches anyone is the coach's prompt.
 
 ## How the coach uses it
 **General stance:** treat per-session TSS as the **bookkeeping entry** that feeds
@@ -333,7 +350,9 @@ guardrails** that are:
 ## Coach Directives
 - **D1:** Compute every session's load as `duration_h × IF² × 100`, choosing the
   best available method in order **power → rTSS → hrTSS → sRPE**, and store which
-  method was used. — confidence: Established (formula); Probable (method validity)
+  method was used. — confidence: Established (formula); **the ordering itself is
+  uncited practitioner consensus, not Probable-by-evidence** — see the ⚠ box under
+  "How we compute it" (#88). Neither half is implemented in Healthee.
 - **D2:** Anchor IF to the runner's **current** threshold (FTP/FTPace/threshold
   HR); re-estimate after any race/time-trial and flag anchors older than ~6–8
   weeks as low-confidence. A 5% threshold error ≈ 10% TSS error. — confidence:
@@ -415,9 +434,10 @@ guardrails** that are:
 
 ## Healthee implementation & honesty policy
 
-**Healthee does NOT compute TSS / rTSS / NGP.** The `@daud/core` preference order
-above (power → rTSS → hrTSS → sRPE) is the general reference method from the
-running-coach corpus. Healthee has **no power meter, no FTP, and no reliable
+**Healthee does NOT compute TSS / rTSS / NGP.** The preference order above (power →
+rTSS → hrTSS → sRPE) is the general reference convention from the running-coach
+corpus — uncited, and previously mis-attributed to `@daud/core`, a module that exists
+in no repo (#88). Healthee has **no power meter, no FTP, and no reliable
 per-second running pace** — only per-minute heart rate from an Amazfit Helio Strap.
 So Healthee's single session/day load currency is **Banister HR-reserve TRIMP**,
 surfaced in `derived_daily` as **`cardio_load`**. TSS is documented here for

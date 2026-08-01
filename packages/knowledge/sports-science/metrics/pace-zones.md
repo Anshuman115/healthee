@@ -52,8 +52,8 @@ Typical threshold-pace ranges (level ground, temperate conditions):
 | Trained amateur | 240–300 | 4:00–5:00 | 6:25–8:00 |
 | Sub-elite / elite | 175–210 | 2:55–3:30 | 4:40–5:40 |
 
-Daud's `computePaceZones` defines the bands as fractions of threshold **speed**
-(pace is its inverse, so a slower zone has a *larger* sec/km):
+One common way to express the bands is as fractions of threshold **speed** (pace is
+its inverse, so a slower zone has a *larger* sec/km):
 
 | Zone | Label | Speed fraction of T | Meaning |
 |---|---|---|---|
@@ -62,6 +62,29 @@ Daud's `computePaceZones` defines the bands as fractions of threshold **speed**
 | 3 | Tempo | 0.90–1.00 | "Comfortably hard", marathon-to-threshold |
 | 4 | Threshold | 1.00–1.06 | At/just above LT2, ~1-hour effort |
 | 5 | Interval / VO₂max | 1.06–1.20 | 3–5 min reps, above critical speed |
+
+> ⚠️ **Provenance of this table, checked 2026-08-01 (#88). These numbers have no
+> source.** The table used to open "Daud's `computePaceZones` defines the bands…" —
+> `@daud/core` is a module that exists **nowhere**: not in this repo, not in
+> `~/projects/healthee-legacy`, not in any `package.json` or `pyproject.toml`, not in
+> git history. The string arrived as prose when this corpus was imported from an
+> upstream project. So the only provenance the band edges ever had was a pointer to
+> code nobody can open.
+>
+> **We looked for a primary source for these specific edges and did not find one.**
+> [Daniels 2014] is cited in this note for VDOT — the *concept* that E/M/T/I/R paces
+> are derived from one index — and is **not** a citation for 0.65/0.80/0.90/1.06/1.20
+> as fractions of threshold speed. We did not verify what Daniels's own band edges are
+> or what denominator he expresses them against, so this note does not claim them
+> either way. Treat the table as **practitioner convention with no verified source** —
+> which is exactly what the note's own "Hold loosely" section and D1's honesty note
+> already say about it, and now the table says it too.
+>
+> Nothing in Healthee computes a pace zone: there is no `derived_daily` field for
+> threshold pace or zone bounds and no `computePaceZones` anywhere in `apps/`
+> (verified by grep, 2026-08-01). The one place these numbers reach a user is the
+> coach's prompt, because `insights/manifest.py::prompt_body` ships this note's body
+> to the model — which is precisely why an unsourced table in a note is not harmless.
 
 ## Physiology / mechanism
 
@@ -171,8 +194,11 @@ or convert a 5K/10K via VDOT/Riegel), or from a field test (e.g. average pace of
 ~30-min time trial, taking the last 20 min). Daud stores it as
 `thresholdPaceSecPerKm` and refines it from the runner's own data over time.
 
-**Zones.** `computePaceZones(thresholdPaceSecPerKm)` in `@daud/core` maps the
-threshold-speed fractions above into fast/slow sec/km bounds per zone:
+**Zones.** The reference method maps the threshold-speed fractions above into
+fast/slow sec/km bounds per zone. *(This paragraph described a function
+`computePaceZones(thresholdPaceSecPerKm)` "in `@daud/core`". No such module exists —
+see the ⚠ box above. The arithmetic below is still the arithmetic; only the claim
+that some code somewhere performs it was false.)*
 
 ```
 fastSecPerKm = thresholdPace / hiSpeedFraction   (faster pace = smaller sec/km)
@@ -262,13 +288,19 @@ down-weight pace as conditions degrade it.**
 
 ## Safety bounds
 
+> **Not enforced in code (#87, 2026-08-01).** Both bounds below are rules for the
+> coach to follow, not guarantees. They used to say they were "mirrored in the
+> `@daud/core` guardrails" — a module that exists nowhere. Only a directive a note
+> declares `safety_critical` in its frontmatter compiles a blocking rule
+> (`insights/guard_directives.py`), and this note declares none.
+
 - **No hard physiological ceiling on pace itself**, but the coach must never push a
   Stage-1 runner onto pace targets before a stable threshold exists — effort/HR
-  governs (mirrors the readiness/load guardrails in `@daud/core`).
+  governs.
 - **Heat guardrail.** Above ~25–28 °C (or high humidity/WBGT), the coach must
   relax pace targets and let effort/HR lead; do not hold pace into exertional heat
   risk. This is the operational expression of the temperature–performance penalty
-  [El Helou 2012] and is mirrored in the load/readiness guardrails.
+  [El Helou 2012].
 - **Do not enforce a fixed HR cap that forces dangerous over-slowing or, inversely,
   ignore a large HR spike at easy pace** — both are mis-reads of the internal signal.
 
@@ -314,8 +346,10 @@ down-weight pace as conditions degrade it.**
 ## Coach Directives
 
 - **D1:** Anchor all pace zones to a current **threshold pace** (≈ LT2 / ~60-min
-  race pace), recomputed via `computePaceZones`, not to an estimated max. —
-  confidence: Established
+  race pace), recomputed from that anchor, not from an estimated max. *(This said
+  "recomputed via `computePaceZones`" — a function that exists nowhere; #88.)* —
+  confidence: Established (that the anchor is threshold, not max); the specific band
+  edges it is recomputed into are **unsourced convention** — see the ⚠ box above
 - **D2:** Re-estimate threshold pace from a recent race or field test **every few
   weeks**; never carry a season-old anchor. — confidence: Probable
 - **D3:** Treat **pace as external load** (instantaneous, what was produced) and
@@ -393,14 +427,17 @@ down-weight pace as conditions degrade it.**
   **threshold pace anchor**, so it cannot scale zones. This note is **reference
   science + a future-metric candidate**, retrievable by alias/keyword for the
   coach, not a live signal. (`applies_to_metrics: []`; `daud_metrics` provenance
-  intentionally dropped — the `computePaceZones`/`gradeAdjustedPace`/
-  `aerobicDecoupling` functions live in the legacy `@daud/core`, not this repo.)
+  intentionally dropped — and note that `computePaceZones`/`gradeAdjustedPace`/
+  `aerobicDecoupling` do not live in the legacy repo either. This bullet used to say
+  they did. **`@daud/core` exists nowhere**, so there is no implementation of these
+  bands to port, only a table to source — and it has no source. #88.)
 - **Future-metric candidate (feasible from existing data).** Healthee already
   records outdoor GPS workouts (`gps_track`/`gps_point`) and interpolates strap HR
   across them (`derive/gps.py`), and already computes per-segment pace and grade.
   A threshold-pace anchor could be estimated from a recent GPS race/time-trial
-  (or via the `race-prediction`/VDOT path), after which zone bands follow directly
-  from `computePaceZones`'s speed-fraction table. Grade adjustment for hilly
+  (or via the `race-prediction`/VDOT path), after which zone bands would follow from
+  a speed-fraction table — **which would first have to be sourced**, since the one in
+  this note is not (#88). Grade adjustment for hilly
   targets is already available in-repo (Minetti — see `grade-adjusted-pace`). This
   is a plausible near-term addition; it is not built.
 - **Population: runners.** Pace-zone anchoring is running-specific and assumes a
