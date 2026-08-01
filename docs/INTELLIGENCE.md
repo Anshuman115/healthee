@@ -25,7 +25,8 @@ findings are preserved in §5–§7 so nothing gets lost.
 
 Rules:
 - **Metric card anatomy is standardized**: every card shows value, personal
-  baseline band, trend, confidence (coverage/freshness/origin), and a grounded
+  baseline band, trend, confidence (coverage — §3.1's definition, the same one the
+  server publishes as response metadata; freshness; origin), and a grounded
   "why" line citing a note id. Tapping ⓘ renders the knowledge note itself
   (plain-language + Honesty section) — one source of truth; no hardcoded card
   copy that can drift from the research.
@@ -137,7 +138,7 @@ question/task
     arrives at its gates with the same tolerance however much data preceded it
     (they were one counter until 2026-08-01, and a 5-tool-round question exited
     having never been asked for an answer at all)
-  → response metadata: citations[], evidence grade floor, data coverage
+  → response metadata: citations[], evidence grade floor, data coverage (§3.1)
 ```
 
 **Where each stage lives, and why that is now checkable.** The stages above are
@@ -152,6 +153,46 @@ no module outside `pipeline.py` reaches `classify_refusal` / `check_output` /
 `validate` / `validate_json` / `evidence_section` / `build_context` at all. The
 first proves a registered stage propagates; the second proves a stage cannot be
 added *outside* the registry to one surface only. Both are mutation-verified.
+
+### 3.1 · Data coverage — the definition, and why it is this one (#89)
+
+The metadata line above promised three things from the day the choke point was designed.
+`citations[]` and the grade floor shipped. **Data coverage had no definition anywhere and
+no surface carried it** — the worst state for a promise: a reader of §3 believes an answer
+tells them how much of their data it rests on, and it never did.
+
+> **Data coverage of a metric over a window is the number of days in that window on which
+> the metric has a stored daily value, out of the number of days in the window.**
+
+Per metric, published as two integers. `analytics/coverage.py` owns it; `grounded_ask` and
+`run_coach` return it; the insight cards, the two warmed coaching lines and `/api/coach`
+publish it. The decisions inside that sentence:
+
+- **Per metric, never blended.** One number over a mixed context is a composite score, and
+  a composite with no methodology is what CLAUDE.md forbids — sleep and step metrics go
+  missing for different reasons and their average describes neither.
+- **Counts, not a percentage.** 12/14 carries its own n and cannot be rounded into a lie.
+  The same discipline §9 prints every rate under.
+- **Counted by `analytics.baselines`, not by a new query.** `Baseline.n` is already "valid
+  days for this metric in this window" and already applies the canonical sentinel filter
+  (an `rhr_daily` of 0 means *not measured*). A second `COUNT(*)` would be a second
+  definition of "has data" and would disagree the first time a sentinel moved.
+- **Whose metrics.** The scope is the one each surface already names: `grounded_ask` uses
+  its `metrics=` argument over its own `context_days`; the coach names none, and needs
+  none — §4's absolute rule is that its numbers come only from tool results, so the
+  metrics its tools read this turn ARE the metrics its numbers came from. A turn that read
+  none publishes an empty map beside a named window, which says "read no metric directly"
+  and is not the same statement as "you have no data".
+
+**It is a quantity and adds no absence vocabulary.** Coverage never says *why* something is
+missing; the four existing answers to that keep their jobs and none of them changes:
+`derive.freshness` (is the newest row a claim about TODAY — one day, yes/no), `withheld`
+(no current value, here is what would restore it), `excluded` (permanently not part of the
+definition; no owner action brings it back, §2 of `analytics/biological_age.py`), and
+`data_confidence` (`ok` / `insufficient_data` on one derived number). A 13/14 window whose
+missing day is *today* is a freshness problem that coverage calls excellent — which is
+exactly why both exist. A metric at 0/14 is reported as 0/14 and nothing more; which of the
+four states it is in is stated where that metric is served, by the code that knows.
 
 ## 4 · Coach loop v2
 
@@ -451,6 +492,12 @@ Rules it enforces on itself:
   difference is *not* significant — "not measurably worse" is not "the same";
 - transport/DB errors are excluded from the denominator and counted separately, never
   folded in as failures;
+- every record carries the WARNING/ERROR lines the pipeline logged while answering it, and
+  the summary prints a **census of issue CAUSES** grouped by cause rather than by
+  sentence. Without it an arm could say a third of its answers never shipped but not why,
+  and #99's whole diagnosis had to be grepped out of a console log the next run would
+  overwrite — a number with no cause attached, which is this harness's own complaint one
+  level up;
 - the two arms are two runs of the same code at two commits, not a flag inside it.
 
 It costs real money and hits the network, so it never runs in the normal suite; only its
@@ -500,3 +547,28 @@ than roughly ±20 points, so the honest reading is "no loss detectable at the re
 we bought". Before shipping the trim, either accept that bounded risk deliberately or
 run ~200 pairs per arm (~$15/arm). `DEFAULT_TOP_N` is unchanged at 6 — the measurement
 was run as a throwaway arm, not as a landed change.
+
+### 9.2 · #99 — four of those causes were the validator, and the arm that could not be run
+
+The two false positives §9.1 flagged as "worth their own measured PR" turned out to be
+four, and together they account for **19 of the 39 recorded issues** and **6 of the 13
+fallbacks in EACH of the two arms above**: the hedge vocabulary had no entry for
+*probably* (17 issues), a section heading counted as an uncited interpretive sentence, a
+sentence reporting the owner's own measured numbers counted as an unhedged claim, and a
+sentence that *declined* to claim ("the data does not support a confident call") was
+rejected for insufficient hedging. All four are fixed in `insights/calibration.py` +
+`validator.py`, each pinned on both sides, and `_ACTIVITY_PROMPT` no longer asks for the
+healthspan framing that was tripping the death-risk guardrail.
+
+**None of it is defended by a ship rate, because the arm could not be run.** The
+OpenRouter account exhausted its credits ($200.27 of $200) 16 questions into the before
+arm on 2026-08-01: every call from there on returned HTTP 402, so the arm scored
+**8/12 = 66.7% [95% CI 39.1–86.2]** on its surviving repeat — consistent with the 69.0%
+baseline and useless as a comparison — and no after arm exists. What replaced it is a
+deterministic replay: every failure sentence recorded in the two arms above, run through
+the new rules, holding the model's outputs fixed. That is a lower bound on the fallbacks
+converted (the log records only the SECOND candidate's issues, so a first candidate that
+would now pass is not counted) and it is **not a ship rate** — the model is stochastic and
+a real after-arm would generate different text. **The measurement is still owed.** Run it
+when the account has credits; it is one `run --repeats 3` per side.
+

@@ -30,6 +30,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from uuid import UUID
 
+from healthee.analytics import coverage
 from healthee.core.logging import get_logger
 from healthee.insights import pipeline, prompts
 from healthee.insights.client import LLMClient, get_client
@@ -44,6 +45,14 @@ class GroundedResult:
     ``data`` is the parsed object when ``response_format="json"`` validated —
     JSON surfaces (recs) consume it directly instead of re-parsing ``text``. It
     stays ``None`` for the prose path and for any refusal / honest fallback.
+
+    ``data_coverage`` is INTELLIGENCE §3's third piece of response metadata, and the last
+    one to exist (#89): how many days of each metric the answer's window actually held
+    (``analytics.coverage``). It is a property of the DATA, not of the answer, so it is
+    present on an honest fallback too — "we could not ground this, and you have 3 of 14
+    days of it" is two facts, and the second is the one that says whether asking again
+    tomorrow would help. It stays ``None`` only for a pre-LLM refusal, where no context
+    was ever built.
     """
 
     text: str
@@ -53,6 +62,7 @@ class GroundedResult:
     refused: bool = False
     validated: bool = True
     data: dict | None = None
+    data_coverage: dict | None = None
 
 
 def _build_messages(
@@ -104,7 +114,11 @@ def grounded_ask(
 
     client = client or get_client()
     messages = _build_messages(question, user_id, tz, metrics or [], context_days)
-    return _complete_with_validation(client, messages, model, response_format)
+    result = _complete_with_validation(client, messages, model, response_format)
+    # Over the metrics THIS surface declared, across the window it asked for — so the
+    # coverage figure and the context the model saw describe the same days.
+    result.data_coverage = coverage.measured_payload(user_id, tz, metrics or [], context_days)
+    return result
 
 
 def _complete_with_validation(

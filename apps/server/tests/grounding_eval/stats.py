@@ -17,6 +17,7 @@ unit tests DO run in the normal suite while the harness itself never does.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
@@ -24,6 +25,11 @@ from scipy.stats import binomtest, t
 from tests.grounding_eval.records import ERROR, RunRecord
 
 Z95 = 1.959963984540054
+
+# A validator/guard issue's CAUSE: a capitalised phrase before the colon that introduces
+# the offending sentence, and only when it opens a quoted tuple element — so the log
+# line's own "coach: candidate failed..." prefix (lowercase, unquoted) is not a cause.
+_CAUSE_RE = re.compile(r"""(?:^|['"(])\s*([A-Z][A-Za-z/() -]{4,70}?):\s""")
 
 
 def wilson(successes: int, n: int, z: float = Z95) -> tuple[float, float]:
@@ -236,6 +242,38 @@ def rates_by_kind(records: Sequence[RunRecord]) -> list[Rate]:
         subset = [r for r in scored(records) if r.kind == kind]
         out.append(Rate(kind, sum(1 for r in subset if r.success), len(subset)))
     return out
+
+
+def failure_causes(records: Sequence[RunRecord]) -> list[tuple[str, int]]:
+    """How often each distinct validator/guardrail cause appears, commonest first.
+
+    A cause is the part of an issue BEFORE its quoted sentence ("Probable claim stated
+    without a hedge"), so the same defect over twenty different sentences counts as one
+    row of twenty rather than twenty rows of one. That grouping is the whole finding of
+    #99: the causes are few and lexical, while the sentences are all different, and a
+    report that printed the sentences would have hidden it.
+    """
+    counts: dict[str, int] = {}
+    for record in records:
+        for line in record.warnings:
+            for cause in _causes_in(line):
+                counts[cause] = counts.get(cause, 0) + 1
+    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+
+
+def _causes_in(line: str) -> list[str]:
+    """The issue causes named in one captured log line, de-quoted and de-duplicated.
+
+    The issues arrive inside a repr'd tuple, each shaped ``<Cause>: '<the sentence>'``.
+    Matching the CAUSE (a capitalised phrase before a colon, opening a quoted element)
+    rather than splitting the repr keeps this working whichever quote character the
+    sentence's own apostrophes force Python to choose.
+    """
+    if "OUTPUT GUARDRAIL fired" in line:
+        return ["hard output guardrail"]
+    if "failed the gates twice" not in line:
+        return []
+    return sorted(set(_CAUSE_RE.findall(line)))
 
 
 def rates_by_question(records: Sequence[RunRecord]) -> list[Rate]:

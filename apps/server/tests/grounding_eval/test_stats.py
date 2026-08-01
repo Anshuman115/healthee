@@ -21,6 +21,7 @@ def _record(
     kind: str = "knowledge",
     expect: str = "answer",
     prompt_tokens: int = 0,
+    warnings: list[str] | None = None,
 ) -> RunRecord:
     return RunRecord(
         question_id=qid,
@@ -31,7 +32,47 @@ def _record(
         success=success,
         expect=expect,
         prompt_tokens=prompt_tokens,
+        warnings=list(warnings or []),
     )
+
+
+# ── failure causes ───────────────────────────────────────────────────────────
+# The census that turns "a third never shipped" into "a third never shipped BECAUSE".
+# #99's diagnosis had to be grepped out of a console log; these pin the parse so the
+# next arm carries its own causes.
+
+_FALLBACK_LOG = (
+    'coach: candidate failed the gates twice (("Probable claim stated without a hedge: '
+    "'You should probably rest today.'\", \"Interpretive sentence lacks a citation: "
+    "'Your data shows a problem.'\")) — honest fallback"
+)
+_GUARD_LOG = (
+    "OUTPUT GUARDRAIL fired: rule=personal_death_risk_number — answer blocked, not shipped."
+)
+
+
+def test_failure_causes_group_by_cause_not_by_sentence() -> None:
+    """One defect over many sentences must read as one row, which is the whole finding."""
+    records = [_record(warnings=[_FALLBACK_LOG]) for _ in range(3)]
+    assert stats.failure_causes(records) == [
+        ("Interpretive sentence lacks a citation", 3),
+        ("Probable claim stated without a hedge", 3),
+    ]
+
+
+def test_a_guardrail_fire_is_its_own_cause() -> None:
+    assert stats.failure_causes([_record(warnings=[_GUARD_LOG])]) == [("hard output guardrail", 1)]
+
+
+def test_the_log_lines_own_surface_label_is_not_a_cause() -> None:
+    """'coach:' and 'grounded_ask:' prefix every line; counting them would be noise."""
+    causes = dict(stats.failure_causes([_record(warnings=[_FALLBACK_LOG])]))
+    assert "coach" not in causes and "grounded_ask" not in causes
+
+
+def test_unrelated_warnings_contribute_no_causes() -> None:
+    noise = _record(warnings=["coach repeated tool call: query_metric"])
+    assert stats.failure_causes([noise]) == []
 
 
 # ── Wilson ───────────────────────────────────────────────────────────────────

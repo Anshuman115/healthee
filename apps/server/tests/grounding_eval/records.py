@@ -41,6 +41,14 @@ class RunRecord:
     expect: str = "answer"
     citations: list[str] = field(default_factory=list)
     top_notes: list[str] = field(default_factory=list)
+    # Every WARNING/ERROR the pipeline logged while answering this question — which is
+    # where the validator's issues, the guardrail fires and the fallback reasons live.
+    # Without it an arm could say a third of its answers never shipped but not WHY, and
+    # #99's whole diagnosis had to be recovered by grepping a console log that the next
+    # run would overwrite. A number with no cause attached is the same problem this
+    # harness was built to fix, one level up. Defaulted so arms written before it exist
+    # still load.
+    warnings: list[str] = field(default_factory=list)
     llm_calls: int = 0
     tool_rounds: int = 0
     tools: list[str] = field(default_factory=list)

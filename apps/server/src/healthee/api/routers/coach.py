@@ -74,6 +74,9 @@ def post_coach(request: Request, user: CoachUser, req: CoachRequest) -> dict:
         # flagship surface shipped citations with no statement of how firm they are.
         # `null` = nothing gradeable was cited, which is not the same as a weak grade.
         "grade_floor": result.grade_floor,
+        # INTELLIGENCE §3's third piece of response metadata (#89): how many days of each
+        # metric this turn read the window actually held (`analytics.coverage`).
+        "data_coverage": result.data_coverage,
         "tool_calls": result.tool_calls,
         "refused": result.refused,
         "validated": result.validated,

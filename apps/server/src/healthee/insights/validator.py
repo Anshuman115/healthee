@@ -18,11 +18,40 @@ Rules enforced against the generated answer:
   5. A truncated or empty answer is blocked outright (prose path): it is not a
      validated answer, only one that happened to contain nothing checkable.
 
+The vocabularies these rules are stated in — what counts as interpretive, as a hedge,
+as banned tone — live in ``calibration.py``; this module is the rule engine over them.
+
 Rules 1–4 are enforced over every sentence the answer actually contains — INCLUDING
 inside markdown tables, headings and blockquotes, which an earlier splitter dropped
-(``answer_text.sentences``). A refusal bypasses validation ONLY when the whole answer IS
-a refusal template (they are safe by construction, §5.5) — never when one is merely
-embedded in a longer answer.
+(``answer_text.sentence_units``). A refusal bypasses validation ONLY when the whole
+answer IS a refusal template (they are safe by construction, §5.5) — never when one is
+merely embedded in a longer answer.
+
+## What rules 2 and 3 do NOT apply to, and why (#99)
+
+Measured 2026-08-01 by ``tests/grounding_eval``: ~80% of the answers this product paid
+for and never shipped failed on grade-calibration wording rather than on missing
+evidence. Four of those causes were the validator being wrong, not the model:
+
+  * a **section heading** ("**What the data shows**") counted as an uncited interpretive
+    sentence, because it contains the word "shows". A heading labels the claims beneath
+    it; it makes none (``answer_text.Unit``). Only when its sole interpretive marker is a
+    reporting verb, though — "## Your recovery is low because of sleep debt" is a claim
+    with a hash in front of it, and ``test_validator_hardening`` holds that line;
+  * a sentence **reporting the owner's own measured numbers** counted as an unhedged
+    Probable claim. Stating a measurement is not a claim about the world, and hedging a
+    number we measured would be less honest, not more (``calibration.quotes_own_measurement``);
+  * the hedge vocabulary did not contain the word **"probably"** — so a sentence hedged
+    with the plainest hedge in English, sharing its root with the grade's own name, was
+    rejected for having no hedge (``calibration``'s hedge vocabulary);
+  * a sentence that **declined to make a claim** ("the data does not support a confident
+    call") was rejected for insufficient hedging — the product refusing to ship its own
+    admission of uncertainty (``calibration.is_hedged``'s second half).
+
+None of the four loosens what "grounded" means: every one is a case where the rule fired
+on text that was already honest. The hard output guardrails are a separate stage and take
+none of these exemptions — a forbidden output is blocked in a heading exactly as in prose
+(``output_guard.check_output`` reads ``answer_text.sentences``, which is flat).
 """
 
 from __future__ import annotations
@@ -33,7 +62,20 @@ from dataclasses import dataclass, field
 
 from healthee.core.logging import get_logger
 from healthee.insights import manifest
-from healthee.insights.answer_text import extract_citations, sentences, truncation_issue
+from healthee.insights.answer_text import extract_citations, sentence_units, truncation_issue
+from healthee.insights.calibration import (
+    BANNED_CERTAINTY_RE,
+    BANNED_TONE_RE,
+    CORRECTION_RE,
+    FLAG_RE,
+    HONEST_ESCAPE_RE,
+    INTERPRETIVE_RE,
+    MIXED_RE,
+    REFUTED_GRADES,
+    is_hedged,
+    quotes_own_measurement,
+    reports_only,
+)
 from healthee.insights.json_shapes import JSON_SHAPES, Segment, segments_for
 from healthee.insights.refusals import REFUSAL_TEMPLATES
 
@@ -42,93 +84,9 @@ log = get_logger(__name__)
 # Re-exported: `extract_citations` is part of the validator's public surface.
 __all__ = ["ValidationResult", "extract_citations", "is_refusal", "validate", "validate_json"]
 
-# Interpretive / causal / recommending markers — a sentence matching one makes a
-# claim (vs merely reporting a number) and must be grounded. Ported from legacy.
-_INTERP_RE = re.compile(
-    "|".join(
-        (
-            r"\blikely\b",
-            r"\bmay\b",
-            r"\bsuggests?\b",
-            r"\bindicates?\b",
-            r"\bconsistent with\b",
-            r"\bassociated with\b",
-            r"\bbecause\b",
-            r"\bdue to\b",
-            r"\bcaused? by\b",
-            r"\bimplies\b",
-            r"\brecommend(s|ed)?\b",
-            r"\bshown to\b",
-            r"\blinked to\b",
-            r"\btends? to\b",
-            r"\bcontribute(d|s)?\b",
-            r"\bcorrelated?\b",
-            r"\bpredicts?\b",
-            r"\baffects?\b",
-            r"\bimpact(s|ed)?\b",
-            # Advice verbs: a directive to the user IS a recommendation, so it needs the
-            # same grounding as "recommend" (already above) — "you should aim for 8 hours"
-            # shipped uncited without these. NOT applied to a rec's `action` field, which
-            # is a directive by contract and grounded at the rec level (see _recs_segments).
-            r"\bshould\b",
-            r"\baim(ing)? for\b",
-            # "shows" asserts the data proves something — the same claim "indicates" makes.
-            r"\bshows?\b",
-            r"\b(is|are|was|were) (high|low|elevated|reduced|abnormal|concerning|worrying)\b",
-            r"\b(too high|too low|above (the )?normal|below (the )?normal)\b",
-        )
-    ),
-    re.IGNORECASE,
-)
 # Wrapping characters a refusal may legitimately arrive with (quoted, bolded, padded).
 # Stripped from BOTH ends of the answer and the template, so matching stays symmetric.
 _REFUSAL_WRAPPER_CHARS = " \t\r\n\"'*`."
-
-_ESCAPE_RE = re.compile(
-    r"no\s+strong\s+evidence|no\s+evidence\s+in\s+our\s+base|not\s+covered\s+(by|in)\s+"
-    r"(our|the)\s+(evidence|research)\s+base",
-    re.IGNORECASE,
-)
-_BANNED_TONE_RE = re.compile(
-    r"\b(very\s+)?(concerning|alarming|worrying|dangerous)\b|"
-    r"\b(great|excellent|amazing|wonderful)\b|"
-    r"\b(unhealthy|healthy)\s+(value|level|reading|number)\b",
-    re.IGNORECASE,
-)
-_BANNED_CERTAINTY_RE = re.compile(
-    r"\bis caused by\b|\bare caused by\b|\bdefinitely\b|\balways\b|\bnever\b|\bguarantees?\b",
-    re.IGNORECASE,
-)
-
-# Grade-calibration vocabularies. Contested demands an explicit "mixed" framing;
-# Emerging a flag; Probable any hedge. Established needs nothing extra.
-_MIXED_RE = re.compile(
-    r"mixed|debated|conflicting|contested|inconsistent|not settled", re.IGNORECASE
-)
-_FLAG_RE = re.compile(
-    r"emerging|preliminary|early (evidence|data)|limited evidence|nascent", re.IGNORECASE
-)
-_HEDGE_RE = re.compile(
-    r"\bmay\b|\bmight\b|\bcould\b|\bappears?\b|consistent with|associated|"
-    r"\blikely\b|\btends?\b|\bsuggests?\b|\bpossible\b|\bcan\b",
-    re.IGNORECASE,
-)
-# Myth/Refuted demand CORRECTION framing — the sentence must mark the claim as one the
-# evidence does not support, not merely hedge it. See `_REFUTED_GRADES` for why this is
-# its own branch rather than a hedge strength (#91).
-_CORRECTION_RE = re.compile(
-    r"\bmyth\b|\bmisconception\b|\bdebunk\w*|\bunfounded\b|\bdisproven\b|\brefuted\b|"
-    r"\bno\s+(?:good\s+|strong\s+|solid\s+|scientific\s+)?(?:evidence|basis|support|"
-    r"studies|data)\b|\bnot\s+(?:supported|backed|borne\s+out|true|the\s+case)\b|"
-    r"\bisn'?t\s+(?:true|supported|backed)\b|\bdoes\s+not\s+hold\b|"
-    r"\b(?:commonly|widely|often|frequently)\s+(?:believed|repeated|claimed|said|"
-    r"assumed|cited)\b|\bpopular\s+(?:belief|claim|idea)\b|\bturns\s+out\b|"
-    r"\bcontrary\s+to\b|\bin\s+fact\b",
-    re.IGNORECASE,
-)
-# The grades whose required framing is a correction, not a hedge. Kept as a named set
-# because `GRADE_RANK` maps BOTH to 0 and the branch keys on meaning, not on rank.
-_REFUTED_GRADES = frozenset({"Myth", "Refuted"})
 
 
 @dataclass
@@ -171,66 +129,57 @@ def is_refusal(text: str) -> bool:
 
 
 def _grade_issue(sentence: str, cited_ids: set[str]) -> str | None:
-    """Enforce grade-calibrated wording for one cited interpretive sentence.
-
-    ## Myth/Refuted is its own branch (#91)
-
-    Standards §4 and CLAUDE.md both promise FIVE calibrated framings — Established
-    plainly, Probable hedged, Emerging flagged, Contested debated, **Myth/Refuted
-    corrected gently**. This function used to implement THREE. ``Myth`` and
-    ``Refuted`` rank 0 in ``GRADE_RANK``, so they fell through the ``strictest <= 1``
-    branch they share with ``Emerging`` and were satisfied by the word "preliminary"
-    or "limited evidence" — which is not a correction, it is a hedge, and hedging a
-    debunked claim is how a myth ships wearing the costume of thin-but-real evidence.
-    Nothing in the corpus is graded Myth yet, which is exactly why the gap survived:
-    the branch was unreachable, so no test could fail on it.
-
-    That is the #83 defect class one layer down — the authored intent (the standards
-    doc) and the enforced value (this function) had diverged, and the divergence was
-    invisible because the two live in different files and only one of them runs.
-
-    A refuted grade OWNS the sentence: it is the strictest grade there is, so it
-    returns rather than falling through to the hedge branches, and correction framing
-    alone satisfies it.
-
-    **What this does and does not enforce.** It enforces that the sentence *marks the
-    claim as unsupported*. It cannot enforce "gently" — tone is not a regex — so the
-    banned-tone rule, the note's own prose and the system prompt still carry that half.
-    """
+    """Enforce grade-calibrated wording for one cited interpretive sentence."""
     grades = [manifest.grade_of(i) for i in cited_ids]
     ranks = [manifest.GRADE_RANK.get(g or "", 3) for g in grades if g]
     if not ranks:
         return None
     strictest = min(ranks)  # lowest rank = weakest evidence = strictest wording
-    if any(g in _REFUTED_GRADES for g in grades):
-        if not _CORRECTION_RE.search(sentence):
+    # Myth/Refuted FIRST and with its own branch: they rank 0, so without this they fall
+    # through the `strictest <= 1` Emerging test and a plain hedge satisfies them. A
+    # hedge says "this may not always hold"; a debunked claim needs "people believe this
+    # and the evidence does not support it". Hedging a myth is how a myth survives being
+    # mentioned (#91).
+    if any(g in REFUTED_GRADES for g in grades):
+        if not CORRECTION_RE.search(sentence):
             return f"Myth/Refuted claim not framed as a correction: '{sentence[:120]}'"
         return None
-    if "Contested" in grades and not _MIXED_RE.search(sentence):
+    if "Contested" in grades and not MIXED_RE.search(sentence):
         return f"Contested claim not framed as debated: '{sentence[:120]}'"
-    if strictest <= 1 and not (_FLAG_RE.search(sentence) or _MIXED_RE.search(sentence)):
+    if strictest <= 1 and not (FLAG_RE.search(sentence) or MIXED_RE.search(sentence)):
         return f"Emerging/weak claim not flagged as uncertain: '{sentence[:120]}'"
-    if strictest == 2 and not _HEDGE_RE.search(sentence):
+    if strictest == 2 and not is_hedged(sentence):
         return f"Probable claim stated without a hedge: '{sentence[:120]}'"
     return None
 
 
-def _sentence_issues(sentence: str, *, require_grounding: bool = True) -> list[str]:
+def _sentence_issues(
+    sentence: str, *, require_grounding: bool = True, heading: bool = False
+) -> list[str]:
     """Per-sentence checks: grounding, banned tone, and grade calibration.
 
-    ``require_grounding=False`` exempts a segment from the interpretive-citation and
+    ``require_grounding=False`` exempts a sentence from the interpretive-citation and
     grade-calibration rules ONLY — banned tone still applies, as do the whole-answer
-    fabricated-id and certainty checks. It exists for text that is grounded structurally
-    rather than sentence-by-sentence (a rec's ``action``; see ``_recs_segments``).
+    fabricated-id and certainty checks, and so do the hard output guardrails, which are a
+    different stage entirely. It exists for text grounded structurally rather than
+    sentence-by-sentence (a rec's ``action``; see ``json_shapes``).
+
+    ``heading=True`` marks a markdown section heading (``answer_text.Unit``). It is NOT a
+    blanket exemption: a heading is excused only when the sole thing that made it look
+    interpretive was a reporting verb — "**What the data shows**" is a table of contents,
+    while "## Your recovery is low because of sleep debt" is a claim that happens to be
+    typed after a hash.
     """
     issues: list[str] = []
     cited_ids, _ = extract_citations(sentence)
-    if _BANNED_TONE_RE.search(sentence) and not cited_ids:
+    if BANNED_TONE_RE.search(sentence) and not cited_ids:
         issues.append(f"Alarmist/reassuring tone without citation: '{sentence[:120]}'")
-    if not require_grounding or not _INTERP_RE.search(sentence):
+    if not require_grounding or not INTERPRETIVE_RE.search(sentence):
+        return issues
+    if reports_only(sentence) and (heading or quotes_own_measurement(sentence)):
         return issues
     if not cited_ids:
-        if not _ESCAPE_RE.search(sentence):
+        if not HONEST_ESCAPE_RE.search(sentence):
             issues.append(f"Interpretive sentence lacks a citation: '{sentence[:120]}'")
         return issues
     grade_issue = _grade_issue(sentence, cited_ids)
@@ -265,11 +214,17 @@ def _run_rules(
     fabricated = ids - known
     if fabricated:
         issues.append(f"Cited ids do not exist in the manifest: {sorted(fabricated)}")
-    if _BANNED_CERTAINTY_RE.search(text):
+    if BANNED_CERTAINTY_RE.search(text):
         issues.append("Uses banned certainty language (caused by / definitely / always / never).")
     for seg in segments:
-        for sentence in sentences(seg.text):
-            issues.extend(_sentence_issues(sentence, require_grounding=seg.require_grounding))
+        for unit in sentence_units(seg.text):
+            issues.extend(
+                _sentence_issues(
+                    unit.text,
+                    require_grounding=seg.require_grounding,
+                    heading=unit.heading,
+                )
+            )
     return ValidationResult(
         ok=not issues,
         issues=issues,

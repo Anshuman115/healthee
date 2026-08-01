@@ -12,6 +12,7 @@ function's docstring names the bypass it closes.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 # ── Citations ────────────────────────────────────────────────────────────────
 # Parsed bracket-first, then part-by-part, so a bracket MIXING kinds
@@ -28,6 +29,17 @@ _BLOCKQUOTE_RE = re.compile(r"^\s*>+\s?")
 _LIST_MARKER_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
 _TABLE_SEPARATOR_RE = re.compile(r"^\|?[\s:|-]+\|?$")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+# ── Headings ─────────────────────────────────────────────────────────────────
+# Two shapes, because models write both: a real ATX heading (`## What the data shows`)
+# and — far more often, since these answers are 4–6 lines — a whole line in bold with
+# nothing after it (`**What the data shows**`). A trailing colon is part of the label.
+#
+# A line with bold at the FRONT and prose after it (`**Physiology:** your HRV is 45 ms`)
+# is deliberately NOT a heading: it is a sentence that happens to start with a label, and
+# it makes its claim in the same breath.
+_ATX_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s*")
+_BOLD_ONLY_RE = re.compile(r"^\s*(\*\*|__)(?P<text>[^\s*_].*?)\1\s*:?\s*$")
 
 # ── Truncation ───────────────────────────────────────────────────────────────
 # A complete prose answer ends in a sentence terminator, optionally behind closing
@@ -61,38 +73,64 @@ def extract_citations(text: str) -> tuple[set[str], set[str]]:
     return ids, personal
 
 
-def _split_prose(blob: str) -> list[str]:
+@dataclass(frozen=True)
+class Unit:
+    """One validatable piece of an answer, and whether it is a section HEADING.
+
+    ``heading`` is the only distinction the splitter draws, and it exists because a
+    heading is a LABEL for the text beneath it, not a claim of its own: an answer that
+    writes ``**What the data shows**`` above a fully cited paragraph was failing the
+    interpretive-citation rule on the word "shows", i.e. on its own table of contents
+    (#99, measured — grade/citation language was ~80% of every fallback).
+
+    Marking a unit is NOT excusing it. This module only says where the text came from;
+    ``validator._sentence_issues`` decides what that buys, and it buys very little — a
+    heading still has to be a report rather than an assertion. The guardrails take the
+    distinction not at all: ``sentences()`` returns every unit flat and ``output_guard``
+    reads that, so a forbidden output written as a heading is blocked exactly as in prose.
+    """
+
+    text: str
+    heading: bool = False
+
+
+def _split_prose(blob: str, *, heading: bool = False) -> list[Unit]:
     """Sentence-split one prose blob (already joined across its wrapped lines)."""
-    return [s.strip() for s in _SENTENCE_SPLIT_RE.split(blob.strip()) if s.strip()]
+    parts = _SENTENCE_SPLIT_RE.split(blob.strip())
+    return [Unit(s.strip(), heading) for s in parts if s.strip()]
 
 
-def _structural_units(line: str) -> list[str] | None:
-    """A markdown-structural line → the text units to validate. None for ordinary prose.
+def _structural_units(line: str) -> list[Unit] | None:
+    """A markdown-structural line → the units to validate. None for ordinary prose.
 
     Table rows yield one unit per cell (each cell is its own claim); separator rows yield
-    nothing; headings yield their text. These lines were DROPPED entirely, so an answer
-    written as a table or under a heading bypassed the whole honesty contract.
+    nothing; headings yield their text, marked. These lines were DROPPED entirely, so an
+    answer written as a table or under a heading bypassed the whole honesty contract.
     """
     stripped = line.strip()
     if stripped.startswith("|"):
         if _TABLE_SEPARATOR_RE.match(stripped):
             return []
-        return [cell.strip() for cell in stripped.strip("|").split("|") if cell.strip()]
+        cells = [cell.strip() for cell in stripped.strip("|").split("|") if cell.strip()]
+        return [unit for cell in cells for unit in _split_prose(cell)]
     if stripped.startswith("#"):
-        return [stripped.lstrip("#").strip()]
+        return _split_prose(_ATX_HEADING_RE.sub("", stripped), heading=True)
+    bold = _BOLD_ONLY_RE.match(stripped)
+    if bold:
+        return _split_prose(bold.group("text"), heading=True)
     return None
 
 
-def sentences(text: str) -> list[str]:
-    """Split an answer into validatable sentences, seeing INTO markdown structure.
+def sentence_units(text: str) -> list[Unit]:
+    """Split an answer into validatable units, seeing INTO markdown structure.
 
     Prose is buffered across lines before splitting, because LLMs hard-wrap: a sentence
     and the ``[note_id]`` grounding it routinely land on different lines, and splitting
     per line would tear the citation off its own claim — a false positive that fires the
-    honest fallback on good answers. Blank lines and list markers end a blob, so one
-    bullet's citation can never ground a neighbouring bullet's claim.
+    honest fallback on good answers. Blank lines, list markers and headings end a blob,
+    so one bullet's citation can never ground a neighbouring bullet's claim.
     """
-    out: list[str] = []
+    out: list[Unit] = []
     prose: list[str] = []
 
     def flush() -> None:
@@ -111,10 +149,19 @@ def sentences(text: str) -> list[str]:
             prose.append(content)
             continue
         flush()
-        for unit in units:
-            out.extend(_split_prose(unit))
+        out.extend(units)
     flush()
     return out
+
+
+def sentences(text: str) -> list[str]:
+    """Every validatable unit of ``text``, flat — headings included, unmarked.
+
+    This is what the hard output guardrails read: a forbidden output does not become
+    allowed by being written as a heading, so the guard deliberately sees the same units
+    the validator does with no distinction drawn between them.
+    """
+    return [unit.text for unit in sentence_units(text)]
 
 
 def _looks_structural(line: str) -> bool:
