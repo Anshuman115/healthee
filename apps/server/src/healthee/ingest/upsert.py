@@ -208,24 +208,53 @@ def upsert_profile(cur: Cur, user_id: UUID, tz: str, profile: ProfileIn) -> None
     )
 
 
+# Below this, two weights are the same reading: `weight_log.kg` is numeric(5,2) and the
+# app sends one decimal, so this is a float-comparison epsilon, not a tolerance.
+_WEIGHT_SAME_KG = 0.01
+
+
 def upsert_weight(cur: Cur, user_id: UUID, tz: str, weight_kg: float) -> None:
-    """Record body weight, deduped to one row per local day and only when it
-    actually changed — otherwise every profile push would spam a new row."""
+    """Record body weight — a new row only when the value actually CHANGED.
+
+    ## Why this compares against the newest row ever, not the newest row today
+
+    The app's profile push carries whatever weight it currently holds, on every sync,
+    and `read/history.py::profile` hands that weight straight back so a reinstall can
+    restore it. So an unchanged weight is re-pushed indefinitely. This function used to
+    dedupe within the local day only, which meant each new day's first sync INSERTED the
+    same number again at `now()`.
+
+    That is not a cosmetic duplicate — it is a laundry. It resets the weight's age to
+    zero every day, so a mass the owner last actually measured months ago reads as
+    measured today, and any freshness gate downstream (`derive.freshness.weight_is_stale`
+    → BMI → VO₂max → biological age) can never fire. **Measured in the 2026-07-15 prod
+    dump**: 41 `weight_log` rows across six weeks, every one of them 79.9 kg except a
+    single 79.8, one per sync day. The owner weighed themselves about twice; the table
+    claims they weighed themselves daily.
+
+    The cost of the fix, stated plainly: an owner who genuinely re-weighs and lands on
+    the identical number does not refresh their weight's age, so the gate can fire on a
+    weight that IS current. That failure is rare, visible, and cleared by logging any
+    different value. The one it replaces was silent, universal and permanent — and it
+    errs toward refusing rather than toward a confident stale number, which is the
+    direction this product errs on purpose.
+    """
     kg = float(weight_kg)
     cur.execute(
-        "SELECT ts, kg FROM weight_log "
-        "WHERE user_id = %s AND (ts AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date "
-        "ORDER BY ts DESC LIMIT 1",
-        (user_id, tz, tz),
+        "SELECT ts, kg, (ts AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date "
+        "FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1",
+        (tz, tz, user_id),
     )
     row = cur.fetchone()
-    if row is None:
-        cur.execute(
-            "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now(), %s)", (user_id, kg)
-        )
-    elif abs(float(row[1]) - kg) > 0.01:  # unchanged today → skip; else update
+    if row is not None and abs(float(row[1]) - kg) <= _WEIGHT_SAME_KG:
+        return  # not a new measurement; re-stamping it would launder the weight's age
+    if row is not None and row[2]:  # a real correction to today's entry
         cur.execute(
             "UPDATE weight_log SET kg = %s WHERE user_id = %s AND ts = %s", (kg, user_id, row[0])
+        )
+    else:
+        cur.execute(
+            "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now(), %s)", (user_id, kg)
         )
 
 
