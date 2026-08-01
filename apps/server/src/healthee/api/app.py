@@ -21,6 +21,7 @@ from healthee.api.routers import (
     auth,
     challenges,
     coach,
+    entitlement,
     generation,
     gps,
     health,
@@ -34,6 +35,7 @@ from healthee.api.routers import (
     workouts,
 )
 from healthee.core.db import close_pool
+from healthee.core.entitlement import warn_if_self_host_unlocked
 from healthee.core.logging import configure_logging, get_logger
 
 log = get_logger(__name__)
@@ -45,6 +47,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     way down. The pool itself opens lazily on first query."""
     configure_logging()
     log.info("healthee server starting")
+    warn_if_self_host_unlocked()
     yield
     close_pool()
     log.info("healthee server stopped")
@@ -67,8 +70,8 @@ def create_app() -> FastAPI:
     app.include_router(insights.router)
     app.include_router(coach.router)
     # WP-C2 challenges: the feed, the lifecycle writes, and the outcome ledger.
-    # Deterministic only — generation (WP-C3) and the coach tools (WP-C5) are later,
-    # and 6.6's premium gate threads through when it exists (see the router).
+    # Deterministic only — generation (WP-C3) and the coach tools (WP-C5) are later.
+    # Premium in full since 6.6a: every handler takes a gated identity (api.gate).
     app.include_router(challenges.router)
     # WP-C4 programs: the multi-week ladder over those challenges. Mounted beside
     # them rather than inside them because a rung's own lifecycle is the challenges
@@ -82,6 +85,9 @@ def create_app() -> FastAPI:
     # Phase 6.1 identity — Supabase-JWT-authed /api/me + /api/device. Additive:
     # existing routers keep their shared-token guard until the 6.4 flip.
     app.include_router(auth.router)
+    # 6.6a entitlement — the one endpoint whose subject is the paywall, deliberately
+    # ungated (a locked-out owner is exactly who needs to read it).
+    app.include_router(entitlement.router)
     return app
 
 

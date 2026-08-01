@@ -41,11 +41,11 @@ from datetime import datetime
 
 from fastapi import APIRouter
 
+from healthee.api.gate import ChallengeUser
 from healthee.api.routers.challenges import Challenge, Outcome, Progress, _Wire
 from healthee.api.validation import require_ok
 from healthee.challenges import programs
 from healthee.core.db import tenant_transaction
-from healthee.core.request_auth import CurrentUser
 
 router = APIRouter(tags=["programs"])
 
@@ -160,7 +160,7 @@ class ProgramResult(_Wire):
 
 
 @router.get("/api/programs", response_model=ProgramFeed)
-def get_programs(user: CurrentUser) -> ProgramFeed:
+def get_programs(user: ChallengeUser) -> ProgramFeed:
     """The owner's ladders. A pure read — it never advances one (``challenges/ladder.py``).
 
     A ladder whose rung has run out therefore still shows that rung as active, with
@@ -173,7 +173,7 @@ def get_programs(user: CurrentUser) -> ProgramFeed:
 
 
 @router.post("/api/programs/{program_id}/adopt", response_model=AdoptResult)
-def post_adopt(user: CurrentUser, program_id: int) -> AdoptResult:
+def post_adopt(user: ChallengeUser, program_id: int) -> AdoptResult:
     """Take on a suggested ladder and start its first rung.
 
     409 when the owner has no room (the challenge cap, a live program, a commitment on
@@ -188,7 +188,7 @@ def post_adopt(user: CurrentUser, program_id: int) -> AdoptResult:
 
 
 @router.post("/api/programs/{program_id}/abandon", response_model=ProgramResult)
-def post_abandon(user: CurrentUser, program_id: int) -> ProgramResult:
+def post_abandon(user: ChallengeUser, program_id: int) -> ProgramResult:
     """Stop a live ladder. Its running rung is still frozen — giving up is a result."""
     with tenant_transaction(user.id) as cur:
         result = require_ok(programs.abandon(cur, user.id, user.timezone, program_id))

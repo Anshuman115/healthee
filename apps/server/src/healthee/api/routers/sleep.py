@@ -3,12 +3,19 @@
 Thin routers over the sleep read services. The consistency endpoint returns the
 metric/data content only; its LLM ``action`` / ``tonight`` / ``coach`` fields are
 WP5 (insights) and are added there, not here.
+
+``tonight`` is the one LLM-authored field on an otherwise free surface, so it is
+OMITTED for a non-premium owner exactly as ``/api/today``'s ``action`` is (``api.gate``,
+MULTI_USER.md §12.7). ``PRICING.md`` §1a never names this line — it lists only the daily
+action — which is a gap in the doc rather than a second product: both come from
+``insights.coaching.warm_lines`` and carry one entitlement.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 
+from healthee.api.gate import DAILY_ACTION, SLEEP_CONSISTENCY_AI_FIELDS, gate_free_payload
 from healthee.core.db import tenant_transaction
 from healthee.core.request_auth import CurrentUser
 from healthee.insights import coaching
@@ -42,4 +49,4 @@ def get_sleep_consistency(user: CurrentUser, days: int = 28) -> dict:
     with tenant_transaction(user.id) as cur:
         payload = sleep_consistency(cur, user.id, user.timezone, days)
     payload["tonight"] = coaching.cached_line(user.id, user.timezone, coaching.SLEEP_TONIGHT_KEY)
-    return payload
+    return gate_free_payload(user, payload, SLEEP_CONSISTENCY_AI_FIELDS, DAILY_ACTION)

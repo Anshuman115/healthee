@@ -10,12 +10,13 @@ Two things this router deliberately does NOT have:
   recomputed server-side from the owner's own rows at the moment of the request
   (CHALLENGES.md §5.2) — a client may ask for one, it can never dictate the number,
   and the way to guarantee that is to give it nowhere to put one.
-* **A premium gate.** 6.6 is not built (`MULTI_USER.md` §12): there is no
-  `subscription` table and no `require_ai_access`, so these endpoints are reachable
-  by any authenticated owner — exactly like every other AI surface today. The whole
-  challenges system is premium per PRICING §1a and the gate threads through here when
-  6.6 lands; it is noted rather than faked, because a comment that claims a gate
-  exists is worse than a missing gate.
+* **An ungated identity.** Every handler takes ``ChallengeUser`` (``api.gate``), not
+  ``CurrentUser``: the whole challenges system is premium per PRICING §1a, so a
+  non-premium owner gets **402** here — including on the pure feed reads, because a
+  stored challenge is AI-authored content and §12.7's "read pre-generated AI content
+  from another path" loophole closes at whichever endpoint serves it. The gate is on
+  the identity rather than beside it so an endpoint cannot take the owner without
+  taking the gate (6.6a).
 
 ## The response models (standards §2 — small, stable payloads are typed)
 
@@ -47,10 +48,10 @@ from typing import Annotated, Literal
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 
+from healthee.api.gate import ChallengeUser
 from healthee.api.validation import require_ok
 from healthee.challenges import ledger, lifecycle
 from healthee.core.db import tenant_transaction
-from healthee.core.request_auth import CurrentUser
 
 router = APIRouter(tags=["challenges"])
 
@@ -274,7 +275,7 @@ class OutcomeLedger(_Wire):
 
 
 @router.get("/api/challenges", response_model=ChallengeFeed)
-def get_challenges(user: CurrentUser) -> ChallengeFeed:
+def get_challenges(user: ChallengeUser) -> ChallengeFeed:
     """The owner's feed: suggestions, active challenges with live progress, recent ends.
 
     A pure read — it never closes a finished challenge (``challenges/lifecycle.py``
@@ -287,7 +288,7 @@ def get_challenges(user: CurrentUser) -> ChallengeFeed:
 
 
 @router.post("/api/challenges/{challenge_id}/adopt", response_model=ChallengeResult)
-def post_adopt(user: CurrentUser, challenge_id: int) -> ChallengeResult:
+def post_adopt(user: ChallengeUser, challenge_id: int) -> ChallengeResult:
     """Take on a suggested challenge, freezing its baseline at this moment."""
     # `require_ok` stays INSIDE the transaction: a refusal is an exception, and the
     # rollback it triggers is what un-does `adopt`'s `finalize_due` writes.
@@ -297,7 +298,7 @@ def post_adopt(user: CurrentUser, challenge_id: int) -> ChallengeResult:
 
 
 @router.post("/api/challenges/{challenge_id}/abandon", response_model=ChallengeResult)
-def post_abandon(user: CurrentUser, challenge_id: int) -> ChallengeResult:
+def post_abandon(user: ChallengeUser, challenge_id: int) -> ChallengeResult:
     """Stop an active challenge. Its outcome is still frozen — giving up is a result."""
     with tenant_transaction(user.id) as cur:
         result = require_ok(lifecycle.abandon(cur, user.id, user.timezone, challenge_id))
@@ -305,7 +306,7 @@ def post_abandon(user: CurrentUser, challenge_id: int) -> ChallengeResult:
 
 
 @router.post("/api/challenges/{challenge_id}/adapt", response_model=AdaptResult)
-def post_adapt(user: CurrentUser, challenge_id: int) -> AdaptResult:
+def post_adapt(user: ChallengeUser, challenge_id: int) -> AdaptResult:
     """Apply the pending recalibration — recomputed here, never taken from the client.
 
     409 when there is nothing to apply, which is the honest answer most of the time:
@@ -317,7 +318,7 @@ def post_adapt(user: CurrentUser, challenge_id: int) -> AdaptResult:
 
 
 @router.get("/api/challenges/outcomes", response_model=OutcomeLedger)
-def get_outcomes(user: CurrentUser, limit: int = 20) -> OutcomeLedger:
+def get_outcomes(user: ChallengeUser, limit: int = 20) -> OutcomeLedger:
     """The frozen ledger, newest first.
 
     Every row carries its own caveats — ``confounds``, ``data_confidence``, and

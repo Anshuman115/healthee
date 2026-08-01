@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.conftest import entitle
 from tests.insights._stub import VALID_TEXT, StubLLM
 
 from healthee.api.app import create_app
@@ -44,6 +45,9 @@ def stub(monkeypatch: pytest.MonkeyPatch) -> Iterator[StubLLM]:
 
 def _seed() -> None:
     migrate.apply_migrations()
+    # Every endpoint below is premium (6.6a) — without this the whole file 402s, and
+    # would pass ONLY when some earlier test file happened to entitle the sentinel.
+    entitle(SENTINEL_USER_ID)
     days = sd.recent_days(30)
     sd.clean("kv")
     with tenant_transaction(SENTINEL_USER_ID) as cur:
