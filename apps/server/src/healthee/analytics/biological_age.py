@@ -283,6 +283,25 @@ def _regularity_term(
 ) -> tuple[float, _Absent | None]:
     """SRI — log-linear through Cribb 2023 anchors (41 → 1.53, 75 → 0.90).
 
+    🔴 KNOWN WRONG NUMBER, measured 2026-08-01 (#83c) — do not "tune" it here.
+    Cribb's anchors are on Cribb's SRI scale (its cohort median is 60); OUR SRI is on
+    Windred's scale (median 81.0), which ``tests/derive/test_sri_scale.py`` establishes
+    by driving ``_compute_sri`` over seeded sessions and recovering Windred's own
+    published quintile boundaries from Windred's own behavioural description of them.
+    Interpolating one scale's anchors against the other's values leaves this term's
+    ZERO at SRI 68.24 — which on our estimator is a sleeper moving bed and wake time
+    ~1.9 h at EACH end every night, worse than Windred's least-regular quintile. So the
+    penalty half is unreachable: every realistic owner gets an age-REDUCING
+    contribution, and anyone at SRI ≥ 75 is clamped to the maximum credit. The product
+    that promises never to flatter is, in this one term, flattering everybody by
+    roughly 2.5–3.5 years.
+
+    It is left as-is deliberately. Re-anchoring is a behaviour change in science code,
+    which CLAUDE.md makes its own PR with known-value tests, and the honest fix needs
+    our real SRI distribution measured on owner data — not a constant nudged until the
+    output looks right. Full write-up, with magnitudes and what was and was not
+    measured: [[biological_age_estimate]] §Caveats.
+
     This query did not even SELECT the day before the class fix: the newest SRI row was
     spent as the owner's current regularity however old it was, though an SRI *is* a
     7-day window and a 90-day-old one describes a week 90 days ago. The freshness rule is

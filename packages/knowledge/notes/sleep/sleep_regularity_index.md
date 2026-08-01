@@ -4,7 +4,6 @@ name: "Sleep Regularity Index (SRI)"
 topic: Sleep Regularity Index (SRI) — single-number sleep metric with mortality validation
 category: sleep
 grade: Established
-evidence_grade: 3
 summary: "SRI (0–100; 0=random, 100=identical day-to-day sleep/wake) is the most rigorously validated single-number wearable sleep metric — lower regularity predicts higher all-cause mortality and cardiometabolic risk, often more strongly than duration; the actionable target is keeping sleep/wake within a ~1-hour band day to day."
 aliases: ["SRI", "sleep regularity index", "sleep regularity", "regularity score", "Phillips SRI", "sleep-wake consistency", "how regular is my sleep", "sleep regularity metric"]
 applies_to_metrics: ["sleep_regularity_index"]
@@ -166,13 +165,40 @@ acute clinical signal; do not medicalise a single low week.
 - **SRI values are not comparable across studies, so borrowed thresholds are
   approximate.** Windred 2024 and Cribb 2023 both analyse UK Biobank accelerometry and
   report medians of **81.0** and **60** respectively — the score depends on the
-  sleep-detection pipeline (Windred used `sleepreg`, which *"uses sustained inactivity
-  data to account for naps, fragmented sleep, and large periods of wake during sleep"*;
-  ours is night-only). Every cutoff we import from this literature — `SRI_GOOD = 70`,
-  and [[biological_age_estimate]]'s SRI 41/75 hazard anchors — therefore lands on our
-  distribution at an **unmeasured** offset. We have never measured where our own SRI
-  distribution sits; until we do, treat SRI comparisons across *people* and against
-  published cutoffs more loosely than SRI changes *within* one person.
+  sleep-detection pipeline (Windred ran GGIR then `sleepreg`, which *"uses sustained
+  inactivity data to account for naps, fragmented sleep, and large periods of wake
+  during sleep"*; Cribb ran GGIR 2.7-1 alone, which by its own methods *"does not, by
+  default, detect bouts of sleep outside of this window and hence is not able to
+  identify naps"*; ours is night-only). A 21-point spread on one cohort is the proof
+  that an SRI cutoff is not portable between pipelines.
+
+- **Our scale HAS now been measured — against Windred, not Cribb** *(2026-08-01,
+  #83c)*. This bullet used to say "we have never measured where our own SRI
+  distribution sits". That is no longer true, and the two borrowed cutoffs are **not**
+  equally uncertain, which is what the old wording implied.
+  `_compute_sri` reduces, for a sleeper shifting bed and wake time by *d* minutes
+  between consecutive days, to **SRI = 100 − (200/1440) × 2d** — the identity that
+  reproduces this note's own canonical 66.67 example (*d* = 120). Pushing Windred's
+  published *behavioural* description of its quintiles through it lands **3–5 points
+  high** of Windred's published quintile boundaries at BOTH ends (its "~1-hour band"
+  most-regular group → 91.67 vs 87.32, +4.35; its "~3-hour band" least-regular group →
+  75.00 vs 71.65, +3.35). Cribb's numbers do not survive the same test: Cribb's
+  *median* of 60 would be a person moving their sleep 2.4 h at each end every night,
+  which Windred's cohort places deep in its worst quintile.
+  Pinned by `tests/derive/test_sri_scale.py`, which drives the real estimator over
+  seeded sleep sessions rather than restating this arithmetic.
+  So:
+  - **`SRI_GOOD = 70` is on roughly the right scale** — it derives from Windred's
+    least-regular boundary of 71.65, and our scale is Windred's + ~4. It is still a
+    rounded-down import (see the implementation section), but the *scale* is sound.
+  - 🔴 **[[biological_age_estimate]]'s SRI 41/75 hazard anchors are NOT** — they are
+    Cribb's, ~21 points below our scale, and applying them to our values makes the
+    regularity term's penalty half unreachable, so it can only ever subtract years.
+    **That is a live wrong number in the flattering direction**; it is written up with
+    its magnitude in that note's Caveats, and fixing it is a science change owed its
+    own PR with known-value tests.
+  Within one person, SRI *changes* remain trustworthy regardless — the scale offset is
+  a constant, so a drop of 10 points is a drop of 10 points.
 - SRI requires ≥7 days; with fewer consecutive-day pairs its variance is too high.
 - **What NOT to do:**
   - Do NOT combine SRI with a "sleep score" formula. The literature explicitly

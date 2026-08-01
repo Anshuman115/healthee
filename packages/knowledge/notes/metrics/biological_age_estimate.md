@@ -4,7 +4,6 @@ name: "Biological Age (estimate)"
 topic: A motivational "biological age" from wearable metrics via the Gompertz hazard→years conversion (the WHOOP-Age method) — a DOCUMENTED EXCEPTION to the no-composite rule
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y); a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown — an estimate, never a clinical readout."
 aliases: ["biological_age", "bio age", "biological age", "whoop age", "gompertz age", "mortality age", "longevity", "composite", "motivational"]
 applies_to_metrics: ["biological_age", "vo2max_estimate", "sleep_regularity_index", "sleep_health_score_4dim"]
@@ -106,16 +105,53 @@ HR_total = HR_fitness × HR_sleepdur × HR_SRI.
   never a diagnosis. Label every surface as "estimate."
 - **Independence is approximated.** Even with one fitness term, residual
   correlation remains; treat ±a few years as noise.
-- **The regularity term's anchors are on Cribb's SRI scale, not necessarily ours.**
-  Cribb's UK Biobank cohort had a **median SRI of 60**; Windred 2024's UK Biobank
-  cohort — the same accelerometry — had a **median of 81.0 [IQR 73.8–86.3]**. The SRI
-  a study reports depends on its sleep-detection pipeline (Windred used `sleepreg`,
-  which explicitly counts naps and multiple sleep episodes per 24 h; ours is
-  night-only). The log-linear through Cribb's anchors crosses HR = 1.0 at SRI ≈ 68, so
-  if our night-only SRI sits nearer the Windred-like scale, a merely typical sleeper is
-  scored against Cribb's 95th percentile and silently credited years off. **Nobody has
-  measured where our SRI distribution actually sits**, so trust this term's *direction*
-  more than its size.
+- 🔴 **The regularity term's anchors are on Cribb's SRI scale and ours is not — this
+  is a KNOWN WRONG NUMBER, measured 2026-08-01 (#83c), not yet fixed.**
+  Cribb's UK Biobank cohort had a **median SRI of 60 (SD 10)**; Windred 2024's UK
+  Biobank cohort — the same biobank, the same accelerometry — had a **median of 81.0
+  [IQR 73.8–86.3]**. Neither is wrong; the SRI a study reports depends on its
+  sleep-detection pipeline (Windred ran GGIR then `sleepreg`, which counts naps and
+  subtracts WASO episodes ≥30 min; Cribb ran GGIR 2.7-1 alone, which detects no naps;
+  ours is night-only from the strap's hypnogram). A 21-point spread on one cohort is
+  the measurement that SRI is **not** a portable absolute.
+
+  The previous version of this caveat said "nobody has measured where our SRI
+  distribution actually sits". That has now been done — not from owner data, but
+  from the estimator itself, which is exact:
+
+  - `derive/sleep_score.py::_compute_sri` reduces, for a sleeper whose bed and wake
+    times shift by *d* minutes between consecutive days, to
+    **SRI = 100 − (200/1440) × 2d**. Cross-check: the note's own known-value example
+    (7 h sleep drifting 2 h, so *d* = 120) gives 100 − 0.1389 × 240 = **66.67**, the
+    documented canonical value. ✓
+  - Push Windred's *own behavioural description* of its quintiles through that
+    formula: its most-regular quintile ("within roughly a 1-hour band", *d* ≈ 30) maps
+    to **91.67** against Windred's published Q4/Q5 boundary of 87.32; its least-regular
+    quintile ("roughly a 3-hour band", *d* ≈ 90) maps to **75.00** against Windred's
+    published Q1/Q2 boundary of 71.65. High by **4.35 and 3.35 points** — same sign,
+    similar size, across a 16-point span, and inside the slack in Windred's own hedged
+    wording. **Our SRI is on Windred's scale, a few points high — it is not on
+    Cribb's.**
+  - Read Cribb's anchors back through our formula and they describe behaviour no
+    ordinary person has: SRI 60 (Cribb's *median*) is a 2.4-hour shift at each end
+    every night, and SRI 41 (Cribb's 5th percentile, the HR 1.53 anchor) is a
+    7.1-hour shift — near-total non-overlap.
+
+  **The consequence, which needs no scale assumption at all:** the log-linear crosses
+  HR = 1.0 at **SRI 68.24**, and on our formula 68.24 *is* a 1.9-hour shift at each end
+  — worse than Windred's least-regular quintile. So on our scale the term's penalty
+  half is unreachable: **every realistic sleeper, including a genuinely irregular one,
+  receives an age-reducing contribution**, and everyone at SRI ≥ 75 (a 3-hour band)
+  is clamped to the maximum credit of −1.17 y. Illustrative magnitude, using a crude
+  median re-scale (ours − 21) purely to show size: a median sleeper is credited
+  −1.17 y where Cribb's own model would put them near **+1.4 y** (≈ 2.6 years of
+  flattery); an irregular sleeper ≈ **3.6 years**. Those corrected figures are an
+  *illustration of magnitude, not a constant to adopt* — the two distributions differ
+  in spread as well as centre, and no re-scale should be shipped without measuring our
+  own SRI distribution on real owner data.
+  **This is the exact failure the product exists to avoid: it errs in the flattering
+  direction.** Fixing it is a science change and therefore its own PR with known-value
+  tests (CLAUDE.md); this note records the defect precisely so nobody re-derives it.
 - **VO₂max-dominated + uncertain** — see the cap above. If the VO₂max estimate
   looks off, the bio_age inherits that error.
 - Reference = "meeting recommendations," so the number is *relative to healthy
