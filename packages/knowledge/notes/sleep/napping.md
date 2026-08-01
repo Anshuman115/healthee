@@ -146,9 +146,13 @@ impact" on the distance outcomes. *[full text verified via PMC 2026-08-01]*
   151,588 participants, mean 11-year follow-up. Naps ≥60 min/day vs no napping —
   CVD **RR 1.82 [1.22–2.71]**, all-cause mortality **RR 1.27 [1.11–1.45]**.
   "Napping for < 60 min/day was not associated with cardiovascular disease
-  (P = 0.98) or all-cause mortality (P = 0.08)." The dose-response was a J-curve:
-  "The RR initially decreased from 0 to 30 min/day. Then it increased slightly
-  until about 45 min/day, followed by a sharp increase at longer nap times."
+  (P = 0.98) or all-cause mortality (P = 0.08)." The dose-response differs by
+  outcome, and the difference matters: **CVD** was a J-curve — "the RR initially
+  decreased from 0 to 30 min/day. Then it increased slightly until about
+  45 min/day, followed by a sharp increase at longer nap times" — whereas
+  **all-cause mortality was a positive linear relation**, rising about 4% per
+  10-minute increment with no protective early segment. So the "short naps may
+  help" reading is a CVD finding only; it does not transfer to mortality.
   The authors themselves name **reverse causality** — "persons with an increased
   risk (those who are sicker) are more likely to experience an outcome" — and
   confounding by depression and underlying illness.
