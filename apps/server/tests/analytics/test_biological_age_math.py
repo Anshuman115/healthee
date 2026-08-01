@@ -10,6 +10,16 @@ Deliberately, this module does NOT import ``GOMPERTZ_MRDT_YEARS`` or
 ``TERM_CAP_YEARS`` and does NOT re-implement the conversion: asserting against
 the constants (or against a replica of the formula) is a tautology that survives
 any change to the maths. The literals 7.7 and 10.0 are the note's values.
+
+Since #86 the note's table has TWO rows, not three — sleep regularity was removed
+rather than re-anchored, because the published SRI→mortality hazards belong to the
+scoring pipeline that produced them (Czeisler et al. 2026, *Sleep* 49(4):zsaf299:
+scored on the same >70 000 adults, two standard SRI calculators agreed on the
+quintile for only two in five, and "the method of calculation alone meaningfully
+changed results and interpretations" for all-cause mortality). The stub cursor below
+therefore RAISES on an SRI read, and the payload's ``excluded`` block is pinned here
+too: a composite that quietly loses a term is a different composite wearing the same
+key name. See ``tests/derive/test_sri_scale.py`` for our scale, measured.
 """
 
 from __future__ import annotations
@@ -21,6 +31,7 @@ from uuid import UUID
 import pytest
 
 from healthee.analytics.biological_age import (
+    SRI_HAZARD_NOT_TRANSPORTABLE,
     compute_biological_age,
     hazard_delta_years,
     vo2max_median_for,
@@ -85,39 +96,45 @@ def test_gompertz_term_cap_is_plus_minus_ten_years() -> None:
 _CHRONO_AGE = 40
 _VO2MAX = 41.5  # ml/kg/min
 _TST_MIN = 360.0  # 6.0 h/night, 14-night average
-_SRI = 58.0
 
 
 class _StubCursor:
-    """Minimal ``Cursor``-shaped stub: answers each of the module's four reads by
-    matching on the SQL it issues. A query the stub does not recognise yields no
-    row, which collapses the estimate to ``None`` — a loud failure, never a
-    silently-passing one.
+    """Minimal ``Cursor``-shaped stub: answers each of the module's three reads by
+    matching on the SQL it issues. A query the stub does not recognise raises — see
+    the SRI branch; a silent "no row" there would collapse the estimate to ``None``
+    and could be mistaken for an ordinary empty-owner case.
 
-    The VO₂max and SRI rows carry the owner's TODAY as their day, because a term is
-    only spent when its newest row IS today's (the freshness gate). Every other stub
-    day would send the module down the withheld path and there would be no composite
-    to check the arithmetic of — which is exactly what
-    ``test_biological_age_freshness`` exercises, against a real database and the real
-    gate rather than this stub. Today's rows also short-circuit the gate before it can
-    issue its own query, which is why the stub never has to answer one.
+    The VO₂max row carries the owner's TODAY as its day, because a term is only spent
+    when its newest row IS today's (the freshness gate). Every other stub day would
+    send the module down the withheld path and there would be no composite to check
+    the arithmetic of — which is exactly what ``test_biological_age_freshness``
+    exercises, against a real database and the real gate rather than this stub.
+    Today's row also short-circuits the gate before it can issue its own query, which
+    is why the stub never has to answer one.
     """
 
-    def __init__(self, dob: date, vo2max_day: date, sri_day: date | None = None) -> None:
+    def __init__(self, dob: date, vo2max_day: date) -> None:
         self._dob = dob
         self._vo2max_day = vo2max_day
-        self._sri_day = sri_day or vo2max_day
         self._row: tuple | None = None
 
     def execute(self, sql: str, params: Any = None) -> None:  # noqa: ARG002
+        if "sleep_regularity_index" in sql:
+            # #86: regularity is not a term of this estimate and the module must not read
+            # SRI at all. Asserting on the ABSENCE of a query is the only assertion that
+            # a re-added `_regularity_term` cannot satisfy — an expected-value check would
+            # simply be updated by whoever re-added it.
+            raise AssertionError(
+                "compute_biological_age read sleep_regularity_index — the regularity term "
+                "was removed in #86 because no SRI→hazard conversion transports across "
+                "scoring pipelines (Czeisler 2026). See the module docstring."
+            )
         if "FROM profile" in sql:
             self._row = (self._dob, "male")
         elif "vo2max_estimate" in sql:
             self._row = (self._vo2max_day, _VO2MAX)
         elif "sleep_health_score_4dim" in sql:
             self._row = (_TST_MIN,)
-        elif "sleep_regularity_index" in sql:
-            self._row = (self._sri_day, _SRI)
         else:  # pragma: no cover — an unrecognised read must not pass silently
             raise AssertionError(f"stub cursor got an unexpected query: {sql}")
 
@@ -161,27 +178,54 @@ def test_composed_per_term_contributions() -> None:
     assert contribs["sleep duration"]["hr"] == pytest.approx(1.06)
     assert contribs["sleep duration"]["delta_years"] == pytest.approx(0.6)
 
-    # Regularity — note: log-interpolate the Cribb 2023 anchors, SRI 41 → 1.53 and
-    # SRI 75 → 0.90, i.e. ln(HR) = 0.425 − 0.0156·(SRI − 41)
-    #   (check: SRI 41 → e^0.425 = 1.530 ✓;  SRI 75 → e^(0.425−0.5304) = 0.900 ✓)
-    #   SRI 58 → ln(HR) = 0.425 − 0.0156·17 = 0.1598  →  HR = e^0.1598 = 1.173
-    #   ΔAge = 0.1598·7.7/ln(2) = 1.23046/0.6931472 = +1.7752  → +1.8
-    assert contribs["regularity"]["hr"] == pytest.approx(1.173, abs=5e-4)
-    assert contribs["regularity"]["delta_years"] == pytest.approx(1.8)
+    # And there is no third term. Until #86 the note's table had a regularity row
+    # log-interpolating Cribb 2023's SRI anchors; it was removed, not re-anchored.
+    assert set(contribs) == {"fitness", "sleep duration"}
 
 
 def test_composed_biological_age_is_chronological_plus_delta() -> None:
     """The sum and its sign — the assertion that catches `chrono − ΔAge`."""
-    # ΔAge_total = −1.8054 + 0.6473 + 1.7752 = +0.6171  → delta_years +0.6
-    # bio_age    = 40 + 0.6171 = 40.617                 → 40.6
+    # ΔAge_total = −1.8054 + 0.6473 = −1.1581  → delta_years −1.2
+    # bio_age    = 40 − 1.1581 = 38.8419       → 38.8
     result = _stub_result()
-    assert result["delta_years"] == pytest.approx(0.6)
-    assert result["biological_age"] == pytest.approx(40.6)
-    # Net hazard is above the reference here, so the estimate must read OLDER.
-    assert result["biological_age"] > result["chronological_age"]
+    assert result["delta_years"] == pytest.approx(-1.2)
+    assert result["biological_age"] == pytest.approx(38.8)
+    # Net hazard is below the reference here, so the estimate must read YOUNGER.
+    assert result["biological_age"] < result["chronological_age"]
     # A composite that IS computed says so, in the ledger's vocabulary.
     assert result["data_confidence"] == "ok"
     assert result["withheld"] is None
+
+
+# ── The term that is not there ──────────────────────────────────────────────
+# Removing a term from a composite silently would make "biological age" mean two
+# different things in two releases while the key name stayed identical. #86 requires
+# the estimate to state what it no longer prices, so these pin the statement itself.
+
+
+def test_the_excluded_regularity_term_is_named_in_every_estimate() -> None:
+    """Not a caveat in a doc — a key of the payload, present on a fully-computed number."""
+    result = _stub_result()
+    assert result["data_confidence"] == "ok"  # nothing is withheld; this is a good day
+    excluded = {e["term"]: e for e in result["excluded"]}
+    assert set(excluded) == {"regularity"}
+    assert excluded["regularity"]["reason"] == SRI_HAZARD_NOT_TRANSPORTABLE
+
+
+def test_an_excluded_term_is_not_a_withheld_one() -> None:
+    """The two absences send an owner to different places, so they may not share a key.
+
+    ``withheld`` means "sync/wear the strap and this comes back". No owner action brings
+    regularity back — it is the literature that has no transportable number
+    (Czeisler et al. 2026, *Sleep* 49(4):zsaf299). Folding it into ``withheld`` would
+    promise a fix that does not exist, and would also make the composite null forever.
+    """
+    result = _stub_result()
+    assert result["withheld"] is None
+    assert result["biological_age"] is not None
+    # The message must tell the owner where regularity DOES still live, so the exclusion
+    # does not read as "we stopped measuring it".
+    assert "sleep page" in result["excluded"][0]["message"]
 
 
 def test_composed_returns_none_without_a_profile() -> None:

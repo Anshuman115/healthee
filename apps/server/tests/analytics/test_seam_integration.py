@@ -166,6 +166,8 @@ def test_biological_age_from_v2_derived_daily(db: None) -> None:  # noqa: ARG001
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         sd.seed_profile(cur, dob=date(1990, 6, 15), sex="male")
         sd.seed_daily(cur, "vo2max_estimate", {today: 45.0})
+        # A current SRI row is seeded on purpose and must change NOTHING: since #86 the
+        # estimate has no regularity term (`analytics/biological_age` module docstring).
         sd.seed_daily(cur, "sleep_regularity_index", {today: 80.0})
         tst_rows = {d: (2.0, {"tst_min": 450}) for d in sd.recent_days(14)}
         sd.seed_daily_with_flags(cur, "sleep_health_score_4dim", tst_rows)
@@ -173,7 +175,7 @@ def test_biological_age_from_v2_derived_daily(db: None) -> None:  # noqa: ARG001
 
     assert result is not None
     terms = {c["term"] for c in result["contributions"]}
-    assert {"fitness", "sleep duration", "regularity"} <= terms
+    assert terms == {"fitness", "sleep duration"}
     assert "biological_age" in result and "chronological_age" in result
     # VO₂max 45 > the ~41 median for the 30s bucket → the fitness term is younger.
     fitness = next(c for c in result["contributions"] if c["term"] == "fitness")

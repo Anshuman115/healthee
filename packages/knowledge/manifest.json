@@ -93,18 +93,17 @@
       "applies_to_metrics": [
         "biological_age",
         "vo2max_estimate",
-        "sleep_regularity_index",
         "sleep_health_score_4dim"
       ],
       "category": "metrics",
       "collection": "legacy",
       "grade": "Probable",
       "id": "biological_age_estimate",
-      "last_reviewed": "2026-07-15",
+      "last_reviewed": "2026-08-01",
       "name": "Biological Age (estimate)",
       "path": "notes/metrics/biological_age_estimate.md",
       "population": "general",
-      "summary": "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y); a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown — an estimate, never a clinical readout."
+      "summary": "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines) and its exclusion is stated on every surface. An estimate, never a clinical readout."
     },
     {
       "aliases": [
@@ -1636,7 +1635,7 @@
       "collection": "legacy",
       "grade": "Established",
       "id": "sleep_regularity_index",
-      "last_reviewed": "2026-07-15",
+      "last_reviewed": "2026-08-01",
       "name": "Sleep Regularity Index (SRI)",
       "path": "notes/sleep/sleep_regularity_index.md",
       "population": "general",

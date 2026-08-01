@@ -23,14 +23,12 @@ from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 CHRONO_AGE = 40
 VO2MAX = 41.5  # ml/kg/min — vs the note's 38.0 median for a 40 y male
 TST_MIN = 360.0  # 6.0 h/night across the 14-night window
-SRI_VALUE = 58.0
 
 # Hand-derived from [[biological_age_estimate]] (see test_biological_age_math for the
-# full working): fitness −1.8054, sleep +0.6473, regularity +1.7752 → ΔAge +0.6171.
+# full working): fitness −1.8054, sleep +0.6473 → ΔAge −1.1581.
 FITNESS_YEARS = -1.8
 SLEEP_YEARS = 0.6
-REGULARITY_YEARS = 1.8
-BIO_AGE = 40.6
+BIO_AGE = 38.8
 
 # median 56, MAD 4 → inside every gate: these seven days DERIVE.
 CALM = [50.0, 52.0, 54.0, 56.0, 58.0, 60.0, 62.0]
@@ -56,7 +54,11 @@ def dd(cur, day: date, metric: str, value: float, flags: dict | None = None) -> 
 
 
 def seed_owner(cur, today: date) -> None:
-    """A profile at exactly ``CHRONO_AGE``, plus the two non-fitness terms' inputs.
+    """A profile at exactly ``CHRONO_AGE``, plus the sleep-duration term's input.
+
+    It deliberately seeds NO ``sleep_regularity_index`` row: since #86 the estimate has
+    no regularity term, and a bed that kept feeding one would let a re-added term look
+    fed rather than fail.
 
     The dob is anchored to the owner's OWN today (not the process date) and set to
     Jan 1, so the chronological age is 40 on every run date — ``(m, d) < (1, 1)`` is
@@ -75,7 +77,6 @@ def seed_owner(cur, today: date) -> None:
     )
     for n in range(14):
         dd(cur, today - timedelta(days=n), "sleep_health_score_4dim", 2.0, {"tst_min": TST_MIN})
-    dd(cur, today, "sleep_regularity_index", SRI_VALUE)
 
 
 def rhr(cur, day: date, values: list[float]) -> None:

@@ -2,7 +2,7 @@
   "action": null,
   "anomalies": [],
   "biological_age": {
-    "biological_age": 35.2,
+    "biological_age": 36.2,
     "chronological_age": 36,
     "contributions": [
       {
@@ -20,19 +20,18 @@
         "term": "sleep duration",
         "unit": "h/night",
         "value": 6.3
-      },
-      {
-        "delta_years": -1.0,
-        "hr": 0.914,
-        "target": "\u226575",
-        "term": "regularity",
-        "unit": "SRI",
-        "value": 74
       }
     ],
     "data_confidence": "ok",
-    "delta_years": -0.8,
+    "delta_years": 0.2,
     "disclaimer": "Motivational estimate from population data \u2014 not a clinical or diagnostic age.",
+    "excluded": [
+      {
+        "message": "Sleep regularity is not one of the levers behind this number. Scored on the same 70,000 people, the two standard Sleep Regularity Index calculators put only two in five into the same fifth of the population, and one found a mortality association where the other found none \u2014 so the published risk-per-SRI-point belongs to the software, not to the index. Yours is measured a third way again. You still get your regularity score and its one-hour-band target on the sleep page; what we cannot honestly do is convert it into years.",
+        "reason": "sri_hazard_not_transportable",
+        "term": "regularity"
+      }
+    ],
     "research_notes": [
       "biological_age_estimate"
     ],

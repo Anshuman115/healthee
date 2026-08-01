@@ -31,14 +31,29 @@ What it pins:
 3. **Cribb's anchors describe behaviour our estimator says is extreme.** Cribb's
    median (60) and 5th-percentile anchor (41) correspond, on our scale, to shifting
    sleep by hours at each end every night. This is why
-   ``analytics/biological_age.py::_regularity_term`` — which interpolates Cribb's
-   41→1.53 / 75→0.90 anchors against OUR values — is a known wrong number.
+   ``analytics/biological_age.py::_regularity_term`` — which interpolated Cribb's
+   41→1.53 / 75→0.90 anchors against OUR values — was a wrong number.
 
-Deliberately NOT pinned: the biological-age term's output. It is currently wrong (its
-penalty half is unreachable on our scale, so it can only subtract years); pinning it
-would pin the bug. The defect is written up with its magnitude in
-[[biological_age_estimate]] §Caveats, and correcting it is a science change owed its
-own PR with known-value tests (CLAUDE.md).
+**What was done about it (#86, 2026-08-01): the term was REMOVED, not re-scaled.** The
+measurement above tells us which published scale we are *near*; it does not license
+borrowing a hazard curve, and the literature now says explicitly that it cannot be
+borrowed. Czeisler et al. 2026 (*Sleep* 49(4):zsaf299, PMID 41001850) scored >70 000 UK
+Biobank adults with BOTH standard SRI calculators: the scores *"differed markedly, both
+in absolute and relative values"*, *"only two-fifths of participants were classified into
+the same sleep regularity index quintile"* (editorial, *Sleep* 49(4):zsaf289), and for
+all-cause mortality *"the method of calculation alone meaningfully changed results and
+interpretations"* — a 1.19-fold adjusted hazard under one calculator, no significant
+association under the other, on the same people. Ours is a third calculator again. So
+sleep regularity is no longer a term of the biological age, and
+``tests/analytics/test_biological_age_math.py`` fails if anything reads an SRI back into
+it.
+
+This file survives that change because everything in it is still true and still load-
+bearing: it is the measurement of where our SRI sits, which is what keeps
+``SRI_GOOD = 70`` honest and what a future re-anchoring (if our pipeline is ever
+validated against an outcome cohort) would have to start from.
+
+Deliberately NOT pinned, still: any SRI→years conversion. There is none to pin.
 """
 
 from __future__ import annotations
@@ -68,7 +83,7 @@ _WINDRED_MOST_REGULAR_BOUNDARY = 87.32  # Q4/Q5 — "within roughly a 1-hour ban
 _WINDRED_LEAST_REGULAR_BOUNDARY = 71.65  # Q1/Q2 — "across roughly a 3-hour band"
 _WINDRED_MEDIAN = 81.0
 
-# Cribb L et al. 2023, eLife 12:RP88359 — the anchors biological_age interpolates.
+# Cribb L et al. 2023, eLife 12:RP88359 — the anchors biological_age interpolated until #86.
 _CRIBB_MEDIAN = 60.0
 _CRIBB_P5_HAZARD_ANCHOR = 41.0
 
@@ -178,16 +193,16 @@ def test_windred_behaviour_run_through_our_estimator_lands_on_windred_numbers() 
 def test_cribbs_anchors_are_not_on_our_scale() -> None:
     """Cribb's median and 5th-percentile anchor describe hours of nightly drift here.
 
-    ``analytics/biological_age.py::_regularity_term`` interpolates Cribb's
-    41 → HR 1.53 and 75 → HR 0.90 anchors against OUR SRI. This test is the evidence
-    that those two scales are different objects: on our estimator, Cribb's *median*
-    sleeper moves their sleep by over two hours at each end every night — which
-    Windred's cohort, quoted above, places in its least-regular quintile. A median is
-    not a worst quintile, so the scales cannot be the same.
+    ``analytics/biological_age.py::_regularity_term`` interpolated Cribb's 41 → HR 1.53
+    and 75 → HR 0.90 anchors against OUR SRI until #86. This test is the evidence that
+    those two scales are different objects: on our estimator, Cribb's *median* sleeper
+    moves their sleep by over two hours at each end every night — which Windred's cohort,
+    quoted above, places in its least-regular quintile. A median is not a worst quintile,
+    so the scales cannot be the same.
 
-    See [[biological_age_estimate]] §Caveats for the magnitude and why the fix is a
-    separate PR. If someone re-scales the anchors, this test should be deleted with
-    that change, not "made to pass".
+    It stays after the removal because it is the reason the removal is right, and because
+    the next person to reach for a published SRI cutoff needs to find this before they
+    reach for it. See [[sleep_regularity_index]] §Honesty.
     """
 
     # What nightly shift does our estimator need to produce Cribb's numbers?
