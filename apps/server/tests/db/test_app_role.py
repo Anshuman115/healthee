@@ -29,7 +29,7 @@ tests).
 from __future__ import annotations
 
 import pytest
-from psycopg import errors
+from psycopg import errors, sql
 from tests.conftest import TEST_APP_ROLE
 from tests.contracts import seed
 
@@ -232,7 +232,11 @@ def test_provisioning_revokes_a_write_privilege_that_was_already_granted(app_rol
     the rest of this vacuous), re-provision, and confirm it cannot.
     """
     with admin_connection() as conn, conn.cursor() as cur:
-        cur.execute(f'GRANT INSERT ON TABLE subscription TO "{app_role}"')  # noqa: S608
+        cur.execute(
+            sql.SQL("GRANT INSERT ON TABLE subscription TO {role}").format(
+                role=sql.Identifier(app_role)
+            )
+        )
     seed.reset()
     _as_owner(
         "INSERT INTO subscription (user_id, status, current_period_end) "

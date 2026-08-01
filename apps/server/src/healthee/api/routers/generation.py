@@ -83,23 +83,26 @@ one answers *how often may anyone, premium included, spend on this*. They compos
 Building one as the other would either hand a free user a paid allowance or wall a paying
 one out.
 
-**What it does not cover:** the coach's ``create_challenge`` (WP-C5) calls the same
-pipeline without passing through here. That is deliberate — the natural unit for the coach
-is a TURN, not a generation, and metering coach turns is §12.3's job on a surface that has
-no limiter of its own today. Bolting this budget onto one of the coach's three tools would
-meter a third of a conversation. Stated rather than hidden: an owner can still reach the
-generation pipeline through chat at whatever rate the coach itself allows, which is
-unbounded until 6.6.
+**What it covers, since 6.6a:** the coach's ``create_challenge`` too. This section used
+to say the opposite — that the coach's natural unit is a TURN, so bolting the budget onto
+one of its three tools would meter a third of a conversation. That argument lost to a
+simpler one: a generation costs ~0.74 ¢ whichever door it came through, and this module's
+own comment on :data:`BUDGET_FEATURE` already said why there is ONE budget ("a second name
+would just be two ways to spend it"). Both doors now charge the same per-owner counter
+through :mod:`healthee.challenges.budget`, and the consequence is deliberate — spending
+all three through the endpoint means chat cannot create one either, because it is one
+cost pool and not two allowances.
 
-## 3. The premium gate is still not built
+## 3. The premium gate (6.6a)
 
-Challenges and programs are premium in full (``PRICING.md`` §1a), and 6.6 does not exist:
-there is no ``subscription`` table and no ``require_ai_access`` (``MULTI_USER.md`` §12), so
-these are reachable by any authenticated owner exactly like every other AI surface today.
-It threads through **here**, as a second FastAPI dependency beside ``CurrentUser``, checked
-BEFORE :func:`_spend_then_run` (an owner with no entitlement must get 402 rather than spend
-a unit of a budget they cannot use). Noted rather than faked — a comment claiming a gate
-that is not there is worse than a missing gate.
+Challenges and programs are premium in full (``PRICING.md`` §1a). Both endpoints take
+``ChallengeUser`` (``api.gate``) rather than ``CurrentUser``, so entitlement is checked
+by a FastAPI dependency — i.e. BEFORE :func:`_spend_then_run` — and an owner with no
+entitlement gets **402** without spending a unit of a budget they could not have used.
+The ordering matters for one concrete reason: this budget is charge-then-refund, so
+checking entitlement after it would leave a locked-out owner's counter at 1/3 for a
+request that never reached a model — a number that would then be wrong the day they
+subscribe.
 """
 
 from __future__ import annotations
@@ -109,23 +112,21 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 
+from healthee.api.gate import ChallengeUser
 from healthee.api.routers.challenges import Challenge, _Wire
 from healthee.api.routers.programs import Program
 from healthee.api.validation import require_ok
-from healthee.challenges import generate, program_generate
-from healthee.core import rate_limit
-from healthee.core.request_auth import CurrentUser
+from healthee.challenges import budget, generate, program_generate
 
 router = APIRouter(tags=["generation"])
 
-# The shared per-owner daily budget. See §2 of the module docstring for the arithmetic
-# that produced the number; it is a cost decision, not a magic constant.
-GENERATIONS_PER_DAY = 3
-
-# The `core.rate_limit` feature name both endpoints charge. ONE budget on purpose: a
-# challenge and a ladder are the same pipeline shape and the same money, and two budgets
-# would just be two ways to spend it.
-BUDGET_FEATURE = "generation"
+# The budget itself moved DOWN to `challenges.budget` in 6.6a so the coach's
+# `create_challenge` charges the same counter (#78) — `insights` may not import a
+# router. The number and the arithmetic behind it are unchanged; §2 above still argues
+# them, and these two names are re-exported because the endpoints' tests and docs refer
+# to them by these names.
+GENERATIONS_PER_DAY = budget.GENERATIONS_PER_DAY
+BUDGET_FEATURE = budget.FEATURE
 
 
 class GeneratedChallenges(_Wire):
@@ -163,7 +164,7 @@ class GeneratedProgram(_Wire):
 
 
 @router.post("/api/challenges/generate", response_model=GeneratedChallenges)
-def post_generate_challenges(user: CurrentUser) -> GeneratedChallenges:
+def post_generate_challenges(user: ChallengeUser) -> GeneratedChallenges:
     """Author, gate and persist a fresh suggestion feed for this owner (WP-C3, WP-C3b).
 
     Seconds, not milliseconds — an LLM runs inside this request (§1). 429 when the daily
@@ -185,7 +186,7 @@ def post_generate_challenges(user: CurrentUser) -> GeneratedChallenges:
 
 
 @router.post("/api/programs/generate", response_model=GeneratedProgram)
-def post_generate_program(user: CurrentUser) -> GeneratedProgram:
+def post_generate_program(user: ChallengeUser) -> GeneratedProgram:
     """Design, gate and persist ONE multi-week ladder for this owner (WP-C4b).
 
     The ladder is stored ``suggested`` with every rung ``locked``: designing is not
@@ -205,34 +206,22 @@ def post_generate_program(user: CurrentUser) -> GeneratedProgram:
     return GeneratedProgram.model_validate(result)
 
 
-def _spend_then_run(user: CurrentUser, run: Callable[[], dict], uncharged: frozenset[str]) -> dict:
-    """Charge the budget, run the pipeline, refund a refusal that never asked a model.
+def _spend_then_run(
+    user: ChallengeUser, run: Callable[[], dict], uncharged: frozenset[str]
+) -> dict:
+    """Charge the shared budget, run the pipeline, and shape a refusal onto the wire.
 
-    The order is charge-then-run, not check-then-charge: the charge is one statement, so
-    two concurrent requests cannot both read "two used" and both proceed. The refund is
-    what keeps that safe from being unfair — ``uncharged`` is the pipeline's own list of
-    the refusals it decides before the LLM is reached (``generate.PRE_LLM_REFUSALS``), and
-    those cost nothing to serve.
+    The charging itself is :func:`healthee.challenges.budget.spend_then_run` — the ONE
+    place a generation is paid for, whichever door it came through (#78). What is left
+    here is HTTP: an exhausted budget is a **429** carrying ``Retry-After`` and the
+    instant it resets, which is a status the coach has no use for and this router is the
+    only one that can set.
     """
-    verdict = rate_limit.spend(user.id, user.timezone, BUDGET_FEATURE, GENERATIONS_PER_DAY)
-    if not verdict.allowed:
+    result = budget.spend_then_run(user.id, user.timezone, run, uncharged)
+    if result.get("reason") == budget.BUDGET_SPENT:
         raise HTTPException(
             status_code=429,
-            detail={
-                "reason": "generation_budget_spent",
-                "error": (
-                    f"you have asked for {verdict.limit} generations today, which is all "
-                    "this owner gets — a new suggestion is calibrated from whole days of "
-                    "your own data, so another one today would be the same question in "
-                    "different words. It resets at midnight your time."
-                ),
-                "limit": verdict.limit,
-                "used": verdict.used,
-                "resets_at": verdict.resets_at.isoformat(),
-            },
-            headers={"Retry-After": str(verdict.retry_after_s)},
+            detail={key: result[key] for key in ("reason", "error", "limit", "used", "resets_at")},
+            headers={"Retry-After": str(result["retry_after_s"])},
         )
-    result = run()
-    if not result.get("ok", True) and str(result.get("reason", "")) in uncharged:
-        rate_limit.refund(user.id, user.timezone, BUDGET_FEATURE)
     return require_ok(result)

@@ -41,7 +41,14 @@ SLEEP_ROW_METRIC = "sleep_health_score_4dim"
 # ladder cap is a COUNT, so a program left behind by one test refuses the next test's
 # adopt with `program_active` — which is exactly how it was found, and is the kind of
 # leak that looks like a code bug for as long as it takes to check the reset list.
-_TABLES = ("derived_daily", "workout", "manual_entry", "finding", "illness_flag", "program")
+#
+# `kv` joins it for the third instance of that pattern (6.6a): the generation budget
+# (`core.rate_limit`) is one `kv` row per owner per feature, so a counter left behind by
+# one test refuses the FOURTH test in the module with `generation_budget_spent` — a
+# failure that looks like a code bug and is a reset-list bug, exactly as `program` was.
+_TABLES = (
+    "derived_daily", "workout", "manual_entry", "finding", "illness_flag", "program", "kv",
+)  # fmt: skip
 
 # `challenge` is truncated separately with CASCADE: `challenge_outcome` references
 # it, and TRUNCATE refuses a referenced table without CASCADE. Taking the ledger

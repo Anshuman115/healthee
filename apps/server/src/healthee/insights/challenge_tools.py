@@ -42,13 +42,23 @@ entirely. ``coach._accept`` ties the claim to the tool — "I adopted…" needs
 ``adopt_challenge`` to have returned ok this turn, and "I created…" needs
 ``create_challenge`` to have.
 
-## Not premium-gated, because 6.6 does not exist
+## The generation budget, which this used to bypass (#78, 6.6a)
 
-The same statement ``generate`` makes: the whole challenges system is premium
-(PRICING §1a), there is no ``subscription`` table and no ``require_ai_access`` to hang
-a gate on (MULTI_USER.md §12), so these tools are reachable by any authenticated owner
-exactly like every other AI surface today. Noted rather than faked — a comment
-claiming a gate that is not there is worse than a missing gate.
+``create_challenge`` charges the SAME per-owner daily counter as
+``POST /api/challenges/generate`` — one pool, through ``challenges.budget``. WP-C5
+deferred that on the argument that the coach's natural unit is a TURN, not a
+generation; the argument lost, because a generation costs the same ~0.74 ¢ whichever
+door it came through, and the endpoint that already had the budget said in its own
+comment that there is ONE on purpose ("a second name would just be two ways to spend
+it"). The deliberate consequence: an owner who spends all three refreshes in the app
+cannot create one in chat that day either, and the refusal says so in words the coach
+can repeat.
+
+There is no entitlement check HERE, and that is not an omission: the coach is only
+reachable through ``POST /api/coach``, which takes the gated ``CoachUser`` identity
+(``api.gate``), so an unentitled owner never gets a turn in which to call a tool. A
+second check inside the tool would be a second place for the rule to live — the exact
+failure this module's opening argument is about.
 """
 
 from __future__ import annotations
@@ -57,9 +67,10 @@ import re
 from typing import Any
 from uuid import UUID
 
-from healthee.challenges import generate, lifecycle, store
+from healthee.challenges import budget, generate, lifecycle, store
 from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
+from healthee.insights.challenge_match import refused, resolve
 from healthee.insights.tool_spec import function_tool
 
 log = get_logger(__name__)
@@ -73,10 +84,6 @@ TOOL_NAMES: frozenset[str] = frozenset({ADOPT, CREATE})
 # Both WRITE, so both are action tools: a claim that one of them happened is only
 # truthful if it ran AND returned ok this turn (``coach._accept``).
 ACTION_TOOLS: frozenset[str] = TOOL_NAMES
-
-# How many suggestions a refusal echoes back. Enough for the coach to ask "which of
-# these?" and few enough that a refusal does not become a second context dump.
-_ECHO_LIMIT = 5
 
 # How many rejection sentences a failed creation carries back. The pipeline logs them
 # all (``generate._log_rejections``); this is what the coach needs to say *why*.
@@ -205,7 +212,7 @@ def adopt_challenge(
     """
     with tenant_transaction(user_id) as cur:
         suggestions = store.list_by_status(cur, user_id, ("suggested",))
-        resolved = _resolve(suggestions, challenge_id, reference)
+        resolved = resolve(suggestions, challenge_id, reference)
         if not resolved.get("ok"):
             log.info("coach adopt refused for %s: %s", user_id, resolved.get("reason"))
             return resolved
@@ -221,84 +228,6 @@ def adopt_challenge(
     }
 
 
-def _resolve(suggestions: list[dict], challenge_id: Any, reference: str | None) -> dict:
-    """Which suggestion was meant — or a refusal. It never picks for the person.
-
-    An explicit id is taken as given rather than re-matched: ``lifecycle.adopt``
-    re-reads it under the owner's own scope and refuses it honestly when it is not
-    theirs or is no longer suggested, so nothing trusted here escapes being checked
-    there.
-    """
-    if challenge_id is not None:
-        try:
-            return {"ok": True, "id": int(challenge_id)}
-        except (TypeError, ValueError):
-            return _refused("bad_reference", f"challenge_id {challenge_id!r} is not an id")
-    if not suggestions:
-        return _refused(
-            "nothing_suggested",
-            "there are no suggested challenges to adopt — use create_challenge if they "
-            "want one authored for them",
-        )
-    if not (reference or "").strip():
-        return _refused(
-            "no_reference",
-            "say which suggestion: pass its challenge_id, or its title as `reference`",
-            suggestions,
-        )
-    matches = _matches(suggestions, str(reference))
-    if not matches:
-        return _refused("no_match", f"nothing suggested matches {reference!r}", suggestions)
-    if len(matches) > 1:
-        return _refused(
-            "ambiguous",
-            f"{reference!r} matches {len(matches)} of their suggestions — ask which one "
-            "they mean, or call again with its challenge_id. Nothing was started.",
-            matches,
-        )
-    return {"ok": True, "id": int(matches[0]["id"])}
-
-
-def _matches(suggestions: list[dict], reference: str) -> list[dict]:
-    """The most specific tier of match that has any candidates; ``[]`` when none does.
-
-    Three tiers, tried in order — an exact title, then the metric key, then
-    containment either way ("the walk one" ⊃ "Walk a little more"). Preferring an
-    exact title over a containment is not a guess: it is strictly more evidence, and
-    the tiers exist so that one suggestion matching exactly is not drowned out by two
-    others that merely share a word.
-
-    Ambiguity WITHIN the winning tier is not resolved — the caller refuses. Legacy
-    adopted "by title match" and took whatever came first, which is the shape of
-    error this product exists not to make: a challenge somebody did not choose,
-    reported to them as one they did.
-    """
-    ref = _normalize(reference)
-    for predicate in (_same_title, _same_metric, _contains):
-        found = [s for s in suggestions if predicate(s, ref)]
-        if found:
-            return found
-    return []
-
-
-def _normalize(text: str) -> str:
-    """Lowercase, punctuation-flattened, whitespace-collapsed — for comparison only."""
-    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
-
-
-def _same_title(suggestion: dict, ref: str) -> bool:
-    return _normalize(str(suggestion["title"])) == ref
-
-
-def _same_metric(suggestion: dict, ref: str) -> bool:
-    return _normalize(str(suggestion["metric"])) == ref
-
-
-def _contains(suggestion: dict, ref: str) -> bool:
-    title = _normalize(str(suggestion["title"]))
-    return bool(ref) and (ref in title or title in ref)
-
-
 def create_challenge(user_id: UUID, tz: str, intent: str) -> dict:
     """Author a new challenge for ``user_id`` from their stated ``intent``.
 
@@ -307,17 +236,29 @@ def create_challenge(user_id: UUID, tz: str, intent: str) -> dict:
     express at all (:data:`_TIME_OF_DAY_RE`), and the translation of the pipeline's
     outcome into something the coach can say honestly.
 
+    It charges the shared generation budget (#78), so a chat-created challenge costs the
+    owner the same unit an in-app refresh does. The clock-shape refusal above is checked
+    FIRST and deliberately: it never asks a model, so charging for it would take a
+    refresh away for a sentence we already know we cannot express.
+
     The created row is ``suggested``, NOT active. Creating and starting are two
     consents, and the person gave one: the coach shows them what was built and calls
     :func:`adopt_challenge` only if they say yes.
     """
     intent = (intent or "").strip()
     if not intent:
-        return _refused("no_intent", "say what the person actually asked for")
+        return refused("no_intent", "say what the person actually asked for")
     if _TIME_OF_DAY_RE.search(intent) and not _names_a_windowed_substance(intent):
         log.info("coach create refused for %s: no time-of-day predicate for that", user_id)
-        return _refused("no_time_of_day_predicate", _TIME_OF_DAY_REFUSAL)
-    result = generate.generate_challenges(user_id, tz, intent=intent, max_new=1, replace_feed=False)
+        return refused("no_time_of_day_predicate", _TIME_OF_DAY_REFUSAL)
+    result = budget.spend_then_run(
+        user_id,
+        tz,
+        lambda: generate.generate_challenges(
+            user_id, tz, intent=intent, max_new=1, replace_feed=False
+        ),
+        generate.PRE_LLM_REFUSALS,
+    )
     if not result.get("ok"):
         return result
     created = result.get("challenges") or []
@@ -356,37 +297,14 @@ def _nothing_created(rejected: list[str]) -> dict:
     that fits your own numbers" — and the second comes with its reasons.
     """
     if not rejected:
-        return _refused(
+        return refused(
             "not_trackable",
             "nothing in the trackable metric set can express that, or their own data "
             "could not calibrate a target for it. Say so plainly — do not describe a "
             "challenge that was not created.",
         )
-    return _refused(
+    return refused(
         "rejected_by_gates",
         "every proposal for that intent was rejected before it could be stored: "
         + "; ".join(rejected[:_REASON_LIMIT]),
     )
-
-
-def _refused(reason: str, message: str, candidates: list[dict] | None = None) -> dict:
-    """A rule outcome — named, explicit, and never an empty success (standards §Errors).
-
-    Same shape ``lifecycle`` and ``generate`` already refuse in, so the coach reads one
-    vocabulary whichever layer said no.
-    """
-    refusal: dict[str, Any] = {"ok": False, "reason": reason, "error": message}
-    if candidates is not None:
-        refusal["suggested"] = [_candidate(c) for c in candidates[:_ECHO_LIMIT]]
-    return refusal
-
-
-def _candidate(suggestion: dict) -> dict:
-    """One suggestion, reduced to what the coach needs to name it back to the person."""
-    return {
-        "challenge_id": int(suggestion["id"]),
-        "title": suggestion["title"],
-        "metric": suggestion["metric"],
-        "target_value": float(suggestion["target_value"]),
-        "cadence": suggestion["cadence"],
-    }
