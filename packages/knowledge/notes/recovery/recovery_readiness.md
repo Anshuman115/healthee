@@ -225,7 +225,7 @@ morning check-in** (a Hooper-style 1–5 self-report of fatigue/soreness/stress/
   Emerging direction, not yet shipped (see `individualization`).
 
 **Estimation-error flags:** the score inherits *every* input's noise and confounds (alcohol,
-caffeine, heat, late meals, menstrual-cycle phase, travel, psychological stress,
+caffeine, heat, menstrual-cycle phase, travel, psychological stress,
 device/protocol drift, and ACWR's instability at low chronic load). It is undefined or
 low-confidence until each component has enough history (≈2–3 weeks for HRV/RHR baselines;
 ≥28 days before ACWR contributes). A single day is never decisive; the unit of action is the
@@ -248,8 +248,10 @@ components**.
 - **Conflict → defer to the person.** When signals disagree (great HRV, terrible sleep; or
   clean sensors, heavy legs), confidence is low — present both, weight the **subjective
   report and any pain highest** [Saw 2016], and let them choose.
-- **On a low-recovery morning, name the likely confounder** (a late-meal-plus-wine night is
-  frequently the cause, not a training signal) rather than alarming on the number.
+- **On a low-recovery morning, name the likely confounder** — but only a confounder this
+  product can actually observe or the person has actually reported (a logged drink the
+  night before, a logged illness flag, reported travel or heat), rather than alarming on
+  the number. Do **not** offer a late meal as the explanation: see *Honesty & uncertainty*.
 
 By **stage**:
 - **Stage 1 (beginner):** educational, not directive. Baselines aren't formed, ACWR is
@@ -295,9 +297,23 @@ These **override** any "go" the composite would otherwise give:
   input (HRV-guidance) was non-significant [Manresa-Rocamora 2021]; recovery reflects
   autonomic *state*, not fitness or a race result.
 - **Garbage in, garbage out — multiplied.** Recovery inherits every confounder of every
-  input (alcohol, caffeine, heat, dehydration, late meals, illness, psychological/life stress,
+  input (alcohol, caffeine, heat, dehydration, illness, psychological/life stress,
   menstrual-cycle phase, travel/jet-lag, device/protocol drift). A "low recovery" morning is
-  frequently a late-meal-plus-wine morning, not a training signal.
+  frequently a night with a drink in it, not a training signal [see `alcohol_sleep`].
+- **"Late meals" used to be on that list, and it is now off it (#92, 2026-08-01).** This
+  note listed late eating among the confounders of a low-recovery morning here and in
+  Directive D10, **with no citation**. [[late_eating_sleep]] searched specifically for a
+  primary source linking late eating to overnight HRV or resting heart rate and found none
+  it could verify; a second search for this fix found none either. What exists is adjacent
+  and does not support the claim: Uçar 2021 measured HRV after two *different late* meals
+  (easily- vs slowly-digestible, both at 22:00, n = 16) and so never tested late-vs-early;
+  the meal-timing/HRV-circadian work is about the *acrophase* of the 24-h HRV rhythm in
+  shift and rotating-shift workers, not about one morning's recovery score; and the only
+  overnight-HR figure we found (heavier evening meals ≈ +0.73 bpm) is an unreviewed 2026
+  preprint about meal *size*, not lateness. So the claim is **removed, not softened** —
+  and Healthee logs no meals at all, so even a sourced version could never be said about
+  this owner. This paragraph is the record of the removal; do not reintroduce the
+  confounder without a primary source.
 - **Components disagree, and that's expected.** HRV and RHR are only partly coupled; subjective
   wellness routinely **doesn't correlate** with objective markers [Saw 2016]. Disagreement is
   information (lower confidence), not a malfunction; a single tidy number hides this.
@@ -381,7 +397,9 @@ These **override** any "go" the composite would otherwise give:
   ("recovery 72 → 58 (−14 today's load)"), never a validated battery. — confidence: Probable
 - **D10:** Suppress or down-weight recovery when components lack history (≈2–3 weeks for
   HRV/RHR baselines; ≥28 days before ACWR contributes) or when an obvious confounder
-  (alcohol, late meal, heat, travel, illness, menstrual phase) explains a dip. — confidence: Probable
+  (alcohol, heat, travel, illness, menstrual phase) explains a dip. **Never a late meal** —
+  that confounder was removed as unsourced (#92); see *Honesty & uncertainty* and
+  [[late_eating_sleep]]. — confidence: Probable
 - **D11:** Keep recovery **opt-in and non-moralised**; imposed daily verdicts reduce
   responsiveness and can cause the stress they measure (reactivity/orthosomnia). —
   confidence: Probable

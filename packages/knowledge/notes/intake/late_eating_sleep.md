@@ -4,6 +4,7 @@ name: "Late eating and sleep"
 topic: Whether eating close to bedtime harms sleep is genuinely unsettled — observational studies say yes, controlled meal-shifting experiments do not
 category: intake
 grade: Contested
+safety_critical: [5]        # D5 → hard guardrail `late_eating_sleep_D5`
 summary: "The popular rule 'stop eating three hours before bed' is not settled science. Observational work mostly finds worse sleep with late eating — but the association is modest and fragile (eating within 3 h of bedtime: nocturnal awakening OR 1.61 unadjusted, 1.43 [1.00-2.04] adjusted; sleep-onset latency and duration null), while the controlled experiment that moved dinner from 5 h to 1 h before bed found 'conventional sleep stages were similar' and no adverse change in sleep architecture. A 2024 Sleep Medicine Reviews scoping review states plainly that interventional studies conflict with the observational picture. Healthee logs no meals at all, so we can never say this happened to the owner."
 aliases: ["late eating", "eating late", "eating before bed", "eating before sleep", "late dinner", "dinner timing", "meal timing", "last meal", "food before bed", "late night snack", "midnight snack", "should i eat before bed", "eating close to bedtime", "3 hours before bed"]
 applies_to_metrics: ["tst_min", "sleep_health_score_4dim"]
@@ -235,13 +236,20 @@ is a data gap, not an oversight of the science.
   and Uçar et al. 2021 are reported as the scoping review describes them; we did not
   read either primary and quote no independent figure from them.
 - **We could not source any effect of late eating on overnight HRV or resting heart
-  rate.** This matters because [[recovery_readiness]] lists "late meals" among the
+  rate.** This mattered because [[recovery_readiness]] listed "late meals" among the
   confounders of a low-recovery morning, in its Honesty section and in its
-  Directive D10. **We looked and found no primary source for it.** That tension is
-  flagged here deliberately and is *not* resolved by this note — neither note should
-  be edited to match the other until someone sources it or removes it. Until then,
-  the coach should not present a late meal as an explanation for an HRV or recovery
-  dip.
+  Directive D10. **We looked and found no primary source for it.**
+  > **RESOLVED 2026-08-01 (#92): the claim was removed from [[recovery_readiness]]**,
+  > from its Honesty section, its Directive D10, its estimation-error flag list and its
+  > "name the likely confounder" coaching line. A second search before removing found
+  > nothing usable either: Uçar 2021 compares two *late* meals (easily- vs
+  > slowly-digestible, both 22:00, n = 16) and never tests late-vs-early; the meal-timing
+  > HRV work concerns the *acrophase* of the 24-h HRV rhythm in shift workers, not one
+  > morning's recovery; and the single overnight-HR figure found (heavier evening meals
+  > ≈ +0.73 bpm) is an unreviewed 2026 preprint about meal *size*. The finding stands
+  > unchanged — **there is no verified primary source linking late eating to overnight
+  > HRV or RHR** — and the coach must not present a late meal as an explanation for an
+  > HRV or recovery dip.
 - **Populations are narrow.** University students, and healthy young laboratory
   volunteers. Nothing here is verified in older adults, shift workers, people with
   reflux, or people with metabolic disease.
@@ -319,12 +327,13 @@ applies to this owner, about whom we know nothing dietary.
 - **No personal cutoff exists for meals.** `analytics/cutoffs.py` finds personal
   cutoff times for caffeine and alcohol only, because those are the logged kinds.
   The coach must not offer a "your personal eating cutoff" by analogy.
-- **Open corpus tension, recorded not resolved:** [[recovery_readiness]] names late
+- **Corpus tension, now closed (#92, 2026-08-01):** [[recovery_readiness]] named late
   meals as a confounder of a low-recovery morning (Honesty section and Directive
   D10) without a citation. This note searched for a primary source linking late
-  eating to overnight HRV or resting heart rate and found none it could verify.
-  Neither note is edited to match the other; the conflict is surfaced for the
-  corpus audit.
+  eating to overnight HRV or resting heart rate and found none it could verify; the
+  audit searched again and found none either. **The claim was removed from
+  `recovery_readiness` rather than sourced**, and the removal is recorded in both
+  notes. Nothing in the corpus now asserts a late-meal effect on recovery.
 - **Honesty rules (binding):**
   - Never assert that the owner ate late, or at any time. We have no such data.
   - Never explain a sleep or recovery number by a meal.
