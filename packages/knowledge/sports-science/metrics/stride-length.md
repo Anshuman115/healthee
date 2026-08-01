@@ -184,7 +184,7 @@ speed (m/s)      = stepRate (steps/s) × stepLength (m)
 - Some devices report stride/step length directly; treat it as
   `speed / cadence`, inheriting GPS pace error.
 
-**Ownership:** `@daud/core` — *not yet a first-class computed metric.* When
+**Ownership:** *not a first-class computed metric anywhere today* (upstream name only; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)). When
 added, derive stride length from the cadence + pace streams rather than trusting
 a vendor "stride length" field, and store stride **as a function of speed**
 (a stride-length-vs-pace relationship), never a single scalar.
@@ -404,7 +404,7 @@ By **stage**:
   measured or per-stride running-form value**, and must not be read as this note's
   metric. So this note is **reference science + a future-metric candidate**
   (`applies_to_metrics: []`; `daud_metrics` provenance dropped — `strideLength`/
-  `cadence`/`speed` are legacy `@daud/core`).
+  `cadence`/`speed` are the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Future-metric candidate (feasible from existing data).** Per-minute
   `steps_per_minute` samples combined with GPS speed on a recorded run give
   **measured** stride length via `speed = cadence × stride length` — a real

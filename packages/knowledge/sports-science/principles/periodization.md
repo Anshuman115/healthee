@@ -43,7 +43,7 @@ The classic endurance progression of mesocycles:
 | **Base** | Aerobic foundation, durability, mitochondrial/capillary density | High volume of easy running, strides, some hills; little race-specific work | 6–16 wk |
 | **Build** | Raise threshold and VO₂max; introduce specificity | Tempo/threshold, VO₂max intervals, progressively race-specific long runs | 4–10 wk |
 | **Peak / Sharpening** | Convert fitness to race readiness | Race-pace work, sharpening intervals, slight volume trim | 2–4 wk |
-| **Taper** | Shed fatigue, preserve fitness | Volume cut ~40–60%, intensity kept, frequency mostly kept | 1–3 wk |
+| **Taper** | Shed fatigue, preserve fitness | Volume cut at the D1 dose, intensity kept, frequency mostly kept | 1–3 wk |
 
 After the race comes a **transition / off-season** (active recovery, reduced
 structure) to dissipate accumulated fatigue and protect long-term motivation.
@@ -203,9 +203,11 @@ Implementation notes:
 - **Taper trigger:** count back from race day. Begin volume reduction ~10–14 days
   out for a half/marathon (shorter, ~7–10 days, for 5K–10K where accumulated
   fatigue is lower).
-- **Taper shape:** reduce weekly volume progressively to ~50–60% of peak by race
-  week (i.e. a ~40–50% cut, within the 41–60% evidence window), holding session
-  *intensity* and keeping run *frequency* within ~80–100% of normal.
+- **Taper shape:** reduce weekly volume progressively **at the dose D1 defines**,
+  holding session *intensity* and keeping run *frequency* within ~80–100% of normal.
+  *(This read "to ~50–60% of peak (i.e. a ~40–50% cut, within the 41–60% evidence
+  window)" — a 40–50% cut is not inside a 41–60% window, and this note stated the taper
+  dose three ways. One number, in D1. #100)*
 - All of the above are starting estimates to be refined against the individual's
   measured form response (TSB trajectory and subjective freshness), not fixed
   prescriptions.
@@ -279,7 +281,7 @@ Implementation notes:
 - **Do not reduce taper volume by >~60%** of peak for endurance runners — beyond
   this, the added benefit falls away (Bosquet's >60% subgroup and Wang's ≥60%
   subgroup both showed weaker, non-robust effects than the 41–60% band) [Bosquet
-  2007; Wang 2023]. The safe, effective window is **~40–60%** volume reduction.
+  2007; Wang 2023]. The safe, effective window is the **D1 dose** (41–60%).
   (Note: Mujika & Padilla 2003 actually report tolerance for volume cuts up to
   60–90% in some athletes, so the 60% figure is a conservative central guide, not
   a hard physiological cliff.)
@@ -295,12 +297,20 @@ Implementation notes:
 
 ## Coach Directives
 
-- **D1:** Before a goal race, prescribe a taper that **reduces weekly volume to
-  ~40–60% of peak, progressively, while holding session intensity and keeping run
-  frequency at ~80–100% of normal.** — confidence: Established
+- **D1:** Before a goal race, prescribe a taper that **reduces weekly volume by
+  41–60%, progressively, while holding session intensity and keeping run frequency at
+  ~80–100% of normal.** — confidence: Established [Bosquet 2007; Wang 2023]
+  *(**This is the corpus's ONE canonical taper dose**, and it is stated as a REDUCTION,
+  not as a fraction of peak retained. Corrected #100: the corpus said "cut volume by
+  41–60%" in five places — all of them the cited ones — and "to ~40–60% of peak" or "to
+  ~50–60% of peak" in four others. "To 50–60% of peak" is a 40–50% cut, which falls
+  partly outside the evidence window, so the two forms were not interchangeable
+  paraphrases of one number. Everywhere else in the corpus now defers here rather than
+  restating the figure.)*
 - **D2:** Set taper length to **~10–14 days** for half/marathon and **~7–10 days**
   for 5K–10K; allow individual tuning within ~4–21 days based on the runner's
-  history. — confidence: Established
+  history. — confidence: Established for the **4–21 day range and the 8–14 day optimum**
+  [Wang 2023]; **the distance-specific split (10–14 d vs 7–10 d) is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
 - **D3:** **Never seek new fitness inside the final ~10–14 days.** Late hard
   volume adds fatigue, not performance; protect freshness instead. — confidence:
   Established
@@ -370,13 +380,13 @@ Implementation notes:
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** Periodization is a
   *planning* layer, not a metric. It informs the challenges/programs builder
   (base→build→peak→taper scheduling from a goal-race date) and the coach's taper logic. The
-  body's `@daud/core` quantities (`ctl` / `atl` / `tsb` / `acwr` / weekly-volume) name the
+  The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute) (`ctl` / `atl` / `tsb` / `acwr` / weekly-volume) name the
   fitness–fatigue inputs a scheduler would reason over — `tsb = ctl − atl ≈ form` is the
   direct analogue of preparedness — but none is a Healthee `derived_daily` field today, and
   the phase schedule is **not yet auto-computed**.
 - **Where it plugs in:** the coach cites this note when it builds or explains a phase plan or
-  a taper; the strongest, code-worthy piece is the **taper prescription** (cut volume to
-  ~40–60% of peak, hold intensity, keep frequency ~80–100%, over ~10–14 days) and the **hard
+  a taper; the strongest, code-worthy piece is the **taper prescription** (the D1 dose, hold
+  intensity, keep frequency ~80–100%, over ~10–14 days) and the **hard
   cap** — do not cut volume by >~60% and do not zero-out intensity (D8).
 - **Honesty rules (carry into UI + LLM):**
   - **Taper science is Established and stated plainly** (~3% gain); **which macro model

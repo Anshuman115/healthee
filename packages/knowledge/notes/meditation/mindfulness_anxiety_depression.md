@@ -131,7 +131,14 @@ maintenance; any objective wearable-metric change.
 3. Prefer structured-program framing; do not overstate casual/app-only practice.
    *(moderate)*
 4. **SAFETY-CRITICAL:** never present meditation as a substitute for clinical
-   treatment; route mental-health emergencies to the hotline guardrail. *(high)*
+   treatment; route mental-health questions to a qualified clinician. *(high;
+   **half enforced**. The routing half is real: `insights/refusals.py`'s mental-health
+   domain short-circuits the pipeline before any LLM call. The substitute-for-treatment
+   half is **not enforced** — no output rule recognises that framing.
+   *Corrected #100: this read "route ... to the hotline guardrail". There is no hotline
+   guardrail and no hotline number — the mental-health refusal directs the owner to a
+   mental-health professional or their physician. `[[llm_health_advice_safety]]` D5 had
+   already corrected the same wording in its own note; this one was missed.)*
 
 ## References
 - Goyal M, Singh S, Sibinga EMS, et al. **"Meditation programs for psychological

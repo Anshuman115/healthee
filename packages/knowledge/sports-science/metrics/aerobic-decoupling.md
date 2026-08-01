@@ -43,7 +43,8 @@ Two distinct but linked concepts:
    It is built on the **Efficiency Factor (EF)** = output ÷ heart rate
    (normalised-graded-pace ÷ avg HR for running; normalised power ÷ avg HR for
    cycling). Decoupling compares EF in the first half of a steady effort to the
-   second half. The popularised convention (TrainingPeaks) is:
+   second half. The popularised convention (TrainingPeaks — a practitioner source, and
+   one this note carries no `## Key references` entry for; #100) is:
 
    - **< 5%** → strong aerobic endurance / durability at that intensity
    - **5–10%** → base developing, or moderate fatigue / intensity slightly high
@@ -166,7 +167,7 @@ Daanen et al. 2012].
 
 ## How we compute it
 
-**Decoupling** (owned by `computeDecoupling` in `@daud/core`):
+**Decoupling** (upstream name `computeDecoupling`; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)):
 
 ```
 EF (efficiency factor) = output / heart_rate
@@ -189,7 +190,7 @@ Implementation note: garbage-in if the effort wasn't steady —
 the function should be fed (or restricted to) a sustained, single-intensity block
 with warm-up, surges, hills, and stops excluded, or the split is meaningless.
 
-**Heart-rate recovery** — *not yet computed* in `@daud/core`. Definition for when it
+**Heart-rate recovery** — *not computed anywhere today*. Definition for when it
 is added: `HRR₆₀ = HR_at_effort_end − HR_60s_after_easing`, measured from a
 repeatable trigger (end of a hard rep or a standardised submaximal step). Report in
 bpm; track the personal trend, not an absolute population cut-off.
@@ -324,7 +325,8 @@ the clinical ≤12 bpm figure, for training decisions.
 
 - **D1:** Compute decoupling only on a sustained, single-intensity block (running:
   ideally ≥45–60 min); exclude warm-up, surges, hills, and stops. If the effort
-  wasn't steady, do not report a drift number. — confidence: Established
+  wasn't steady, do not report a drift number. — confidence: Established that drift needs
+  a sustained single-intensity block to mean anything; **the ≥45–60 min minimum is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
 - **D2:** Interpret running decoupling bands as **<5% strong-base**, **5–10%
   moderate**, **>10% high**, matching `computeDecoupling`. Treat these as starting
   heuristics to individualise, not physiological constants. — confidence: Probable
@@ -417,7 +419,7 @@ the clinical ≤12 bpm figure, for training decisions.
   interpolates the sparse strap HR (~1/min) across the track — which is exactly the
   pace-per-heartbeat time series a split-half Pa:HR decoupling needs. This note is
   therefore **reference science + a strong future-metric candidate** (`applies_to_metrics: []`;
-  `daud_metrics` provenance dropped — `computeDecoupling` is legacy `@daud/core`).
+  `daud_metrics` provenance dropped — `computeDecoupling` is the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Future-metric candidate (feasible, low effort).** Split a steady GPS run in
   half, take pace/HR (or GAP/HR) in each half, and report the % change — a direct
   addition on top of `derive/gps.py`'s existing pace + HR-interpolation, gated on a

@@ -368,7 +368,7 @@ healthy runners (Contested / insufficient evidence).
   running cadence field, no `CadenceSplit`, and no `cadence-fade` flag. This note
   is **reference science + a future-metric candidate** (`applies_to_metrics: []`;
   `daud_metrics` provenance intentionally dropped — `CadenceSplit`/`cadence-fade`
-  live in the legacy `@daud/core`).
+  live in the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Complementary to `cadence_intensity` — keep separate (see `related`).**
   Healthee *does* record per-minute `steps_per_minute` samples and already uses
   them for **cadence-as-intensity**: `derive/mvpa.py` classifies each minute's

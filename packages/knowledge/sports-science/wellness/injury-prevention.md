@@ -195,8 +195,8 @@ particular raises the capacity ceiling against which running load is compared
 Daud does not measure tissue capacity, bone density, or energy availability
 directly. The coach reasons from training-derived proxies and runner self-report:
 
-- **Load progression (%)** — week-over-week change in volume (or load). `@daud/core`
-  derives this from logged sessions. Used as the primary spike detector; ~>30%
+- **Load progression (%)** — week-over-week change in volume (or load). The upstream
+  project derived this from logged sessions (the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)); Healthee does not compute it. Used as the primary spike detector; ~>30%
   jumps flagged [Nielsen 2014].
 - **ACWR** — acute (7-day) ÷ chronic (28-day, EWMA preferred) load. Owned by the
   load module (`training-load-acwr`). Treated as a *monitoring band* (~0.8–1.3
@@ -378,8 +378,17 @@ arrived with the upstream sports-science corpus import. The true position, per b
   a time, and schedule periodic recovery/down weeks. — confidence: Probable
 - **D4:** After a layoff (illness/travel/break), **re-enter below** pre-break load —
   chronic load has decayed. — confidence: Probable
-- **D5:** Recommend **lower-limb strength training ~2×/week** as first-line
-  prevention; more is generally better (dose-response). — confidence: Established
+- **D5:** Recommend **lower-limb strength training at the dose
+  `strength-training-for-runners` D1 defines (2–3 sessions/week)** as first-line
+  prevention; more volume is generally better (dose-response). — confidence: Established
+  *(Corrected #100. This said "~2×/week" and leaned on [Lauersen 2018] for it — but
+  Lauersen, as this note itself summarises above, reports a **volume** dose-response
+  (RR 0.34; ">4 percentage points lower risk per 10% more strength-training volume")
+  and **no session frequency at all**. A citation attached to a number it does not
+  contain is a miscitation, not merely an uncited figure — the same defect #98 found in
+  `pace-zones` D6's use of El Helou. The frequency figure that IS sourced lives in the
+  sibling note [Blagrove 2018], so this defers there rather than restating a third
+  number.)*
 - **D6:** For runners with patellofemoral/shin pain or notably low cadence, suggest a
   **gradual ~5–10% cadence increase** (auditory cueing), framed as joint-load
   reduction — **not** a fixed 180 spm target. — confidence: Probable
@@ -394,12 +403,21 @@ arrived with the upstream sports-science corpus import. The true position, per b
   `advise_through_bone_stress_or_reds`, which names this note — see *Safety bounds*, #87)
 - **D9:** On suspected **bone-stress injury** (localised bony tenderness, pain on
   hopping, pain worsening through/after a run or at rest), **stop running and refer**;
-  do not advise running through it. — confidence: Established (SAFETY-CRITICAL)
+  do not advise running through it. — confidence: Established (SAFETY-CRITICAL;
+  **enforced in code** by `insights/output_guard.py`'s `advise_through_bone_stress_or_reds`,
+  which names this note — the same rule D8 cites. It fires on a sentence naming bone
+  stress, a stress fracture or bony tenderness that also says push/train/run through,
+  keep going, or fine to continue. It cannot see "pain on hopping" described in other
+  words. #100)
 - **D10:** Gate **return-to-run after a bone-stress injury** on resolved bony
   tenderness and pain-free walking (plus confirmed healing for high-risk sites), then
   use a **walk-run, distance-before-speed, repeat-each-level, symptom-guided**
   progression — slower for females and high-risk sites; do not apply a generic
-  10%/week ramp. — confidence: Probable (SAFETY-CRITICAL)
+  10%/week ramp. — confidence: Probable (SAFETY-CRITICAL; **partly enforced in code** —
+  `advise_through_bone_stress_or_reds` blocks "increase/build up your load or mileage"
+  in a bone-stress sentence, which catches the crudest violation. The gate itself
+  (resolved tenderness, pain-free walking, confirmed healing) is a clinical sequence no
+  output rule can verify, and the walk-run progression's *shape* is not a phrase. #100)
 - **D11:** Pair any high-volume build with adequate **fuelling, sleep, and
   calcium/vitamin D**; cross-link `fueling-and-hydration` and `sleep-and-recovery`. —
   confidence: Probable
@@ -466,7 +484,7 @@ arrived with the upstream sports-science corpus import. The true position, per b
 
 ## Healthee implementation & honesty policy
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** Daud does not measure
-  tissue capacity, bone density, or energy availability. The body's `@daud/core` quantities
+  tissue capacity, bone density, or energy availability. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute)
   (`acwr` / `weeklyDistance` / `weeklyLoad` / `sessionLoad` / `cadence`, and load-progression
   %) are training-derived proxies and self-report screens, not Healthee `derived_daily`
   fields created by this note; ACWR itself is owned by `training_load_acwr`.

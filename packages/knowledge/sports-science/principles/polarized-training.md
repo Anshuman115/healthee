@@ -173,7 +173,7 @@ LT1/LT2 (or VT1/VT2) where known; otherwise estimated from HR or pace anchors:
   (easy/threshold/interval). Yields a more "polarized-looking" number than
   time-in-zone, because a hard interval session still contains easy warm-up time.
   **Always state which method is used** — the two are not interchangeable.
-- `@daud/core`: maps to `intensiteDistribution` / `timeInZone` / `weeklyEasyShare`
+- Upstream names (the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)): `intensiteDistribution` / `timeInZone` / `weeklyEasyShare`
   (not all yet computed). HR- and pace-derived zones are *estimates* with real
   error (HR drift in heat, GPS pace noise, individual threshold variation), not
   lab-measured ground truth. Treat the computed easy/hard split as ±5–10%.
@@ -310,7 +310,8 @@ coach must speak confidently about the base and hedge about the shape.
   than for short events, since the event is run near LT2. — confidence: **Probable**
 - **D7:** When stating a TID number, declare the method (time-in-zone vs
   session-goal) and anchor zones to the runner's own thresholds where known; treat
-  computed easy/hard splits as ±5–10%. — confidence: **Established** (methodological)
+  computed easy/hard splits as ±5–10%. — confidence: **Established** that the method must
+  be declared and zones anchored (methodological); **the ±5–10% uncertainty figure is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
 - **D8:** Prioritize accumulating sustainable easy *volume* over fine-tuning the
   exact ratio; the ratio matters less than the base it sits on. — confidence: **Probable**
 
@@ -364,12 +365,13 @@ coach must speak confidently about the base and hedge about the shape.
   *plan design*, not a computed metric: it sets the intensity-distribution policy the
   challenges/programs builder and the coach's session planning reason over (keep ~80% of
   weekly time easy; cap hard days at ~2/week; police easy-day drift into Z2). The body's
-  `@daud/core` mapping (`intensiteDistribution` / `timeInZone` / `weeklyEasyShare` /
+  upstream naming (`intensiteDistribution` / `timeInZone` / `weeklyEasyShare` /
   `trimp`) names the load/zone quantities a future TID computation would consume; none is a
   Healthee `derived_daily` field today.
 - **Where it plugs in:** the coach cites this note when it evaluates a runner's easy/hard
   split, flags grey-zone creep, or shapes a training block; the programs/challenges layer
-  uses the 80/20 rule and the ≤~2–3 hard-sessions/week guardrail as design constraints. Zone
+  uses the 80/20 rule and the hard-sessions/week ceiling D3 defines as design constraints. *(This
+  read "≤~2–3", contradicting D3 in the same note after #98 narrowed it to ~2. #100)* Zone
   boundaries must be anchored to the runner's own thresholds where known, not population
   %HRmax (see `individualization`).
 - **Honesty rules (carry into UI + LLM):**

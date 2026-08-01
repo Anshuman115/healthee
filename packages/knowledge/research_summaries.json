@@ -322,7 +322,14 @@
       "grade": "Probable",
       "id": "napping",
       "name": "Daytime napping",
-      "summary": "A 10–20 minute afternoon nap appears to restore alertness for roughly two hours, and naps of 30 minutes or more buy that back with sleep inertia — a period of *worse* performance on waking. Whether habitual napping is good or bad for long-term health is genuinely disputed: the same literature contains a 1.82 CVD rate ratio for naps ≥60 min/day and a 0.52 hazard ratio for napping once or twice a week. Our strap tags naps itself and they are excluded from every night-sleep metric by design, so a nap is visible to the coach as a session but changes no number."
+      "summary": "A 10–20 minute afternoon nap appears to restore alertness for roughly two hours, and naps of 30 minutes or more buy that back with sleep inertia — a period of *worse* performance on waking. Our strap tags naps itself and they are excluded from every night-sleep metric by design, so a nap is visible to the coach as a session but changes no number. Whether habitual napping is good or bad for LONG-TERM health is a separate and genuinely disputed question, graded Contested and answered in [[napping_chronic_health]]."
+    },
+    {
+      "applies_to_metrics": [],
+      "grade": "Contested",
+      "id": "napping_chronic_health",
+      "name": "Is habitual napping healthy?",
+      "summary": "Whether habitual napping is good or bad for long-term health is genuinely disputed, and the two best-cited cohorts disagree about which axis matters: a dose-response meta-analysis of 151,588 people found naps ≥60 min/day carried a CVD rate ratio of 1.82 and an all-cause mortality RR of 1.27, while a Swiss cohort found frequency (1–2 naps/week, HR 0.52 for CVD) was the signal and nap duration was null. Reverse causation — illness causing napping rather than the other way round — is the central unresolved confound, and the one causal-inference study that partly escapes it speaks only to blood pressure and waist circumference, not to events or death."
     },
     {
       "applies_to_metrics": [

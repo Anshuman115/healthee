@@ -319,8 +319,10 @@ Implementation notes:
 - **No simultaneous spikes:** never increase volume *and* intensity *and*
   frequency in the same microcycle.
 - **Mandatory deloads:** do not run progressive overload indefinitely without a
-  down-week; insert one at least every ~5 weeks of loading (more often for
-  beginners) — for fatigue/injury risk management.
+  down-week; insert one **at the cadence D5 defines** — for fatigue/injury risk
+  management. *(This said "at least every ~5 weeks", a second cadence stated beside the
+  one D5 declares canonical. #81 reconciled five other restatements and missed this note's
+  own Safety bounds. #100)*
 - **NFOR/OTS stop condition:** on a multi-week pattern of unexplained
   underperformance plus fatigue/mood/sleep/resting-HR disturbance, **reduce load
   and recover — do not progress** [Meeusen 2013].
@@ -472,7 +474,7 @@ Implementation notes:
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** This is a
   *planning + monitoring* principle, not a computed metric. It informs the
   challenges/programs builder (ramp cadence, deload scheduling, one-variable-at-a-time
-  progression) and the coach's load-safety reasoning. The body's `@daud/core` quantities
+  progression) and the coach's load-safety reasoning. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute)
   (`ctl` / `atl` / `tsb` / `acwr` / weekly-volume, and the single-run distance-spike check)
   name the load-model inputs a future progression engine would consume; none is a Healthee
   `derived_daily` field today.

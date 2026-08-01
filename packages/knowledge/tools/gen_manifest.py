@@ -87,8 +87,41 @@ FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n(.*)$", re.S)
 # research note is prose maintained by people editing science, and a safety pattern
 # silently broken by a prose edit is exactly the failure this is meant to end. The
 # corpus owns the CLAIM; the code owns the PATTERN; the test owns the correspondence.
+#
+# ── the second half of the same hole (#100) ──────────────────────────────────
+# #87 made a frontmatter marker prove a rule exists. It did NOT make a directive that
+# CALLS ITSELF safety-critical prove anything, and the `sports-science/` tree was full of
+# them: ~27 directives tagged `(safety-critical)` or `Established (safety)` across notes
+# where no frontmatter marker existed, so not one compiled a guardrail. Same false-safety
+# class as #87, one field over — an auditor reading the directives block (which is what
+# reaches the coach's prompt) saw a hard rule that nothing enforced.
+#
+# So the phrase is now RESERVED MARKUP with a resolution requirement: a directive whose
+# text says safety-critical must resolve the claim it makes, one of two ways —
+#
+#   * the note declares that directive number in `safety_critical` (a rule compiles, and
+#     the server's bijection test proves it), or
+#   * the directive ADDRESSES enforcement in its own text (any word on the `enforc-`
+#     stem), naming the module that does it or saying plainly that nothing does.
+#
+# The second arm is deliberately loose about wording. `notes/recs/llm_health_advice_
+# safety.md` already resolves all seven of its claims, and does it better than a fixed
+# phrase could — "enforced on the incoming question by `insights/refusals.py` and on
+# generated recs by `jobs/recs.py::_BANNED_RE` — NOT on the coach's prose". Forcing that
+# into a template would degrade the note to satisfy the tool. What is checked is that the
+# author ADDRESSED enforcement, not that the answer is true; for the declared arm, truth
+# is what the server's bijection test proves.
+#
+# The word is deliberately NOT banned. It carries real meaning for the model reading the
+# prompt — "this rule is not one to be creative about" — regardless of whether a regex
+# also backs it. What is banned is making the claim and leaving it unresolved.
 SAFETY_CRITICAL_FIELD = "safety_critical"
 SAFETY_CRITICAL_MARKER = "SAFETY-CRITICAL"
+# Case-insensitive, and tolerant of the hyphen: the tree spelled this "SAFETY-CRITICAL",
+# "(safety-critical)" and "(safety critical)" in different notes, and all three make the
+# same claim.
+SAFETY_CLAIM_RE = re.compile(r"safety[-\s]critical", re.I)
+ENFORCEMENT_STATUS_RE = re.compile(r"enforc", re.I)
 DIRECTIVES_HEADING_RE = re.compile(r"^##+\s*Coach Directives\s*$", re.M)
 # Both directive spellings in the corpus: "5. ..." (notes/) and "- **D5:** ..."
 # (sports-science/ and the newer notes/ ones).
@@ -267,6 +300,29 @@ def _safety_critical(fm: dict[str, Any], body: str, where: str, errors: list[str
     return sorted(set(numbers))
 
 
+def _check_safety_claims(body: str, declared: list[int], where: str, errors: list[str]) -> None:
+    """Every directive calling itself safety-critical must resolve that claim (#100).
+
+    Either the note declares it (so a rule compiles and the server's bijection test
+    holds it there), or the directive addresses enforcement in its own text — naming the
+    module that does it, or saying plainly that nothing does. An unresolved claim is the
+    #87 bug in a different field: a hard rule asserted where nothing enforces it, in the
+    block that reaches the prompt.
+    """
+    for number, text in sorted(_directives(body).items()):
+        if not SAFETY_CLAIM_RE.search(text):
+            continue
+        if number in declared or ENFORCEMENT_STATUS_RE.search(text):
+            continue
+        errors.append(
+            f"{where}: directive {number} calls itself safety-critical but resolves the "
+            f"claim neither way — add it to `{SAFETY_CRITICAL_FIELD}` (and write its rule "
+            "in insights/guard_directives.py), or state the status in the directive text "
+            '("not enforced in code", or "enforced in code" naming where). An unresolved '
+            "claim is the #87 false-safety bug one field over (#100)"
+        )
+
+
 def _legacy_record(path: Path, errors: list[str]) -> dict[str, Any] | None:
     """Build a record for a legacy note, or None to skip a non-evidence doc."""
     fm, body = _parse_frontmatter(path.read_text())
@@ -280,13 +336,15 @@ def _legacy_record(path: Path, errors: list[str]) -> dict[str, Any] | None:
     summary = _authored(
         fm, "summary", fm.get("topic"), fm.get("title"), _first_body_line(body), name
     )
+    declared = _safety_critical(fm, body, where, errors)
+    _check_safety_claims(body, declared, where, errors)
     return {
         "id": note_id,
         "name": name,
         "aliases": _authored_aliases(fm),
         "category": _authored(fm, "category", path.parent.name),
         "grade": _grade(fm, where, errors),
-        "safety_critical": _safety_critical(fm, body, where, errors) or None,
+        "safety_critical": declared or None,
         "applies_to_metrics": _as_list(fm.get("applies_to_metrics")),
         "applies_to_interventions": _as_list(fm.get("applies_to_interventions")),
         "summary": summary,
@@ -315,13 +373,15 @@ def _ss_record(path: Path, errors: list[str]) -> dict[str, Any]:
     missing = [k for k in SS_REQUIRED if k not in fm]
     if missing:
         errors.append(f"{where}: missing required field(s): {', '.join(missing)}")
+    declared = _safety_critical(fm, body, where, errors)
+    _check_safety_claims(body, declared, where, errors)
     return {
         "id": str(fm.get("id") or ""),
         "name": _authored(fm, "name"),
         "aliases": _authored_aliases(fm),
         "category": _authored(fm, "category", path.parent.name),
         "grade": _grade(fm, where, errors) if "grade" in fm else "",
-        "safety_critical": _safety_critical(fm, body, where, errors) or None,
+        "safety_critical": declared or None,
         "applies_to_metrics": _as_list(fm.get("applies_to_metrics")),
         "applies_to_interventions": _as_list(fm.get("applies_to_interventions")),
         "summary": _authored(fm, "summary"),

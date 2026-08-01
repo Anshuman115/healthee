@@ -87,6 +87,22 @@ Typical ranges for velocity at LT2 (treadmill/road, well-rested):
 > **65–70% HRmax** than the 75–80% this table used to print — so the row was not
 > internally consistent even on its own terms.
 >
+> **The %VO₂max column is uncited too, and #98 did not say so (#100).** That audit used
+> this column to impeach the %HRmax one without ever sourcing it — an unsourced number
+> is not a instrument for measuring another unsourced number, and using it as one made
+> the surviving column look checked when it was not. None of ~50–60 / ~70–80 / ~85–90
+> %VO₂max has a source in this note. The nearest cited value points somewhere else
+> again: Fleckenstein 2023 reports LT2 at **79% of VO₂max in trained runners**, which
+> sits below this table's "recreational trained ~70–80%" top and well below its "elite
+> ~85–90%". The surviving **elite ~88–92% HRmax** cell is likewise uncited — Fleckenstein
+> measured ~88% mean (84–91% range) in *trained*, not *elite*, runners.
+>
+> The whole table is therefore **practitioner orientation, not measurement**. It stays
+> because the *ordering* (threshold sits at a higher fraction of capacity in trained
+> runners than untrained ones) is real and useful, and the note's operational rule never
+> depended on the numbers: anchor from a field test (D4), and anchor a beginner on RPE
+> and the talk test (D3). Do not quote a cell of this table as a figure.
+>
 > So this note now **states no beginner or recreational %HRmax band at all**. The
 > operational rule was never the number anyway: anchor a beginner on RPE and the
 > talk test (D3), which is what the note already told the coach to do.
@@ -195,19 +211,19 @@ days at 3–5 W or ~0.5 km/h increments, sampling lactate every 5 min over 30 mi
 MLSS = highest load where ΔLactate(10→30 min) ≤ 1 mmol/L. This is the reference,
 but it is invasive, equipment-heavy, and multi-session.
 
-**Field estimates (what `@daud/core` actually uses).**
+**Field estimates (what the upstream project used; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)).**
 
 1. **30-minute time-trial LTHR (primary field method, practitioner standard /
    Friel protocol).** Run an all-out, evenly-paced solo 30 min on flat terrain;
    **LTHR = average HR of the final 20 minutes**; threshold pace ≈ average pace of
    the final 20 min. Tends to *slightly over*estimate true MLSS for many runners,
    so apply a small downward correction (~3–5%) for zone-setting.
-   `@daud/core: lactateThresholdHr` (not yet computed — pending test ingestion).
+   Upstream name `lactateThresholdHr` (not computed anywhere — pending test ingestion).
 2. **Critical Speed.** Fit 2–3 maximal efforts of different durations
    (e.g. 3, 6/9, 12 min, or recent race results from ~3–20 min) to
    `distance = CS·time + D′`; CS is the asymptote. CS is a good LT2/threshold
    surrogate but runs a few % *above* MLSS — treat it as an upper-bound estimate.
-   `@daud/core: criticalSpeed`.
+   Upstream name `criticalSpeed`.
 3. **Race-derived.** Recent 10K–half-marathon race pace/HR is a practical LT2
    anchor for trained runners.
 
@@ -240,7 +256,7 @@ tracking**. Core logic:
   not the fix. Keep nearly all running easy and let effort govern.
 - **Stage 2 (developing):** Run a **30-min TT** (or use a recent 5K–10K race) to set
   LTHR and threshold pace; introduce structured tempo/threshold sessions at that
-  pace. Re-test every 6–10 weeks; expect threshold *pace* to improve even when HRmax
+  pace. Re-test at the cadence D11 defines; expect threshold *pace* to improve even when HRmax
   and VO₂max look static.
 - **Stage 3 (racing):** Use CS + race data + (ideally) periodic lab lactate to set
   precise zones and pace races as fractions of LTHR (≈ 99–102% LTHR for 10K,
@@ -373,13 +389,33 @@ tracking**. Core logic:
   confidence: Established
 - **D8:** When HR is environmentally inflated (**heat, altitude, dehydration,
   fatigue**) or has drifted within a long run, **down-weight LTHR and prescribe by
-  RPE + pace**. — confidence: Established (safety-critical)
+  RPE + pace**. — confidence: Established (safety-critical; **not enforced in code** —
+  this is an instruction about which input to weight, and no rule can see which one the
+  model used. A rule for the coach, not a guarantee. #100)
 - **D9:** Gate all **near-maximal threshold tests** behind base fitness and full
   recovery; do not test injured/ill/fatigued or Stage-1 runners. — confidence:
-  Established (safety-critical)
+  Established (safety-critical; **not enforced in code** — the gate is the runner's
+  training stage and health, which no output rule can read from the answer text.
+  `insights/refusals.py` catches a question that *names* a red-flag symptom, which is a
+  narrower thing. A rule for the coach, not a guarantee. #100)
 - **D10:** Keep **above-LT2 (severe-domain) work a small, recovery-gated fraction**
   of the week; do not prescribe it as steady-state training. — confidence:
   Established
+- **D11:** **Re-test a threshold anchor every ~6–12 weeks** and after any notable
+  fitness change or goal race; treat an anchor older than that as low-confidence and
+  say so when it drives a zone, a pace target or a load number. — confidence: **the
+  need to re-anchor is Established; the interval itself is unsourced practitioner
+  convention.**
+  *(**This is the corpus's ONE threshold re-test cadence** (#100). It was previously
+  stated four incompatible ways for what is one quantity — the age at which a threshold
+  anchor stops being trustworthy: "every few weeks" [`pace-zones` D2], "every 6–10
+  weeks" [this note's prose], ">6–8 weeks = low confidence" [`training-stress-score`
+  Safety bounds] and "every ~6–12 weeks" [`critical-speed` D9]. None was sourced, and
+  the spread was wide enough to be self-cancelling: `pace-zones` would have flagged
+  almost every anchor `critical-speed` still called fresh. The ~6–12 week range is
+  adopted because it is what two of the four already said, not because it is measured.
+  `lactate-threshold` owns it because the anchor is the threshold; the other three notes
+  defer here.)*
 
 ## Key references
 
@@ -433,7 +469,7 @@ tracking**. Core logic:
   test protocol, and derives no LTHR / LT-pace field (no `lactateThresholdHr`/
   `lactateThresholdPace` in `derive/`). This note is **reference science + a
   future-metric candidate** (`applies_to_metrics: []`; `daud_metrics` provenance
-  dropped — those helpers are legacy `@daud/core`).
+  dropped — those helpers are the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Future-metric candidate (feasible from existing data).** LT-pace / LTHR can be
   *estimated* (not lab-measured) from a sustained GPS threshold effort or from an
   HR-vs-pace deflection — and Healthee already regresses VO₂ against HR over

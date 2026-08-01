@@ -317,7 +317,10 @@ safety-adjacent rules apply:
 ## Coach Directives
 
 - **D1**: Compute HRV state as **lnRMSSD vs a 7-day rolling baseline**, flagging change only when
-  today sits **outside mean ± 1 SD** of lnRMSSD. Never act on a single day's raw value. — confidence: Established
+  today sits **outside mean ± 1 SD** of lnRMSSD. Never act on a single day's raw value. — confidence:
+  Established for the **7-day rolling baseline** [Plews 2013] and for not acting on a
+  single day; **the ±1 SD decision band is unsourced** practitioner/methodological convention — no source in this note supports it (#100). The note's own honesty section already
+  concedes the smallest-worthwhile-change band "is not settled".
 - **D2**: When HRV is at/above baseline (flat or rising), **green-light** the planned quality session. — confidence: Probable
 - **D3**: When HRV is **persistently** suppressed (multiple days falling or the 7-day mean trending
   down) **and** corroborated by poor sleep/wellness or high recent load, **reduce intensity/volume or
@@ -330,7 +333,8 @@ safety-adjacent rules apply:
   signal is intra-individual change vs personal baseline. — confidence: Probable
 - **D7**: Require **standardised measurement** (same posture, relaxed breathing, same device, same
   time/protocol — morning-supine *or* overnight-sleep, never mixed) and **≥2–3 weeks** of data before
-  trusting any baseline. — confidence: Established
+  trusting any baseline. — confidence: Established that standardised measurement is
+  required; **the ≥2–3 week window is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
 - **D8**: Frame HRV to the runner as an **autoregulation/timing** tool with modest expected fitness
   benefit (clearest in non-elites), **not** a guaranteed performance booster. — confidence: Probable
 - **D9**: Treat a **rising 7-day CV** (`hrvCv`) as an early instability flag warranting caution even

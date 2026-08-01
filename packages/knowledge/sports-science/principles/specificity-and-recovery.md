@@ -70,7 +70,7 @@ Lead claims are graded by the strength of the underlying evidence.
 
 ## How we compute it
 
-Specificity and recovery are *principles*, not single metrics, but they are operationalised through several `@daud/core` quantities:
+Specificity and recovery are *principles*, not single metrics, but the upstream project operationalised them through several quantities (the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)), none of which Healthee computes today:
 
 - **Stress (stimulus):** session and rolling training load (`trainingLoad` / TSS-style), see `training-stress-score`.
 - **Balance over time:** the **Fitness–Fatigue / Form model** (Banister-style impulse-response) estimates *fitness* (slow-decaying) minus *fatigue* (fast-decaying) → **Form**; negative form after a hard block is expected, sustained deeply-negative form flags inadequate recovery (see `fitness-fatigue-form`).
@@ -92,7 +92,7 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 
 - **Stage 2 (developing):** ~1–2 quality sessions/week separated by easy/rest; insert a **recovery week** (reduced volume) roughly every ~3–5 weeks [progressive-overload D5] (periodisation pattern — see `periodization`). Watch for grey-zone drift and creeping load.
 
-- **Stage 3 (racing):** exploit recovery deliberately — **taper ~2 weeks pre-race, cutting volume ~40–60% while holding intensity and frequency** [Bosquet et al. 2007]; sharpen specificity toward race pace. Tolerate *planned* functional overreaching in a peak block **only if** followed by adequate recovery; monitor for the NFOR signature (performance not rebounding after a planned down-week).
+- **Stage 3 (racing):** exploit recovery deliberately — **taper ~2 weeks pre-race, cutting volume at the dose `periodization` D1 defines, holding intensity and frequency** [Bosquet et al. 2007]; sharpen specificity toward race pace. Tolerate *planned* functional overreaching in a peak block **only if** followed by adequate recovery; monitor for the NFOR signature (performance not rebounding after a planned down-week).
 
 - **Reading recovery signals (cross-check, never single-source):** persistent multi-day fatigue, unexplained performance decline, elevated resting HR, suppressed HRV trend, mood/sleep disturbance, and rising perceived effort at fixed pace together indicate **back off / insert recovery**. Any one alone is noise; a *cluster trending the wrong way* is signal [Meeusen et al. 2013]. In heat or illness, weight subjective and effort signals over HR (HR drifts).
 
@@ -109,7 +109,7 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 ## Safety bounds
 
 - **Never program ≥2 consecutive genuine hard/high-intensity days** for typical recreational runners; require easy or rest between hard sessions. (Mirror with `polarized-training` D3 and `training-load-acwr` guardrails.)
-- **Cap genuine high-intensity sessions at ~2–3/week**; meet weekly volume by adding *easy* running, never by stacking hard days (see `polarized-training`).
+- **Cap genuine high-intensity sessions at the ceiling `polarized-training` D3 defines (~2/week, a 3rd only on strong recovery markers)**; meet weekly volume by adding *easy* running, never by stacking hard days. *(This said "~2–3/week", a second ceiling for one quantity; #98 narrowed D3 to one number and this restatement was missed. #100)*
 - **Mandate recovery on a red-flag cluster:** if multiple recovery signals trend adverse together (multi-day unexplained fatigue + performance decline + elevated resting HR/suppressed HRV + mood/sleep disturbance), the engine must **down-regulate load and insert recovery**, and surface a check for illness/under-fuelling — do not push through suspected NFOR/OTS [Meeusen et al. 2013].
 - **Brief rest is safe:** the engine must not treat 1–3 rest days as detraining or "lost fitness" — that is well inside the no-meaningful-decay window [Mujika & Padilla 2000a; Barbieri et al. 2024].
 - **Respect minimum recovery after heavy eccentric load** (downhill races, hard long runs): allow up to ~3–7 days for structural repair before the next equivalent stress.
@@ -134,7 +134,7 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 
 - **D1:** Bias all training toward the **specific demands of the runner's goal event** (mode, intensity, duration, pattern). Treat cross-training as a *substitute under constraint* (injury/load management), never an upgrade over running for a runner; restore the specific mode before racing. — confidence: **Established**
 - **D2:** Treat **recovery as the period in which adaptation occurs.** Program rest/easy days as deliberately as hard days; never assume more stimulus alone produces more fitness. — confidence: **Established**
-- **D3:** **Never schedule ≥2 consecutive genuine hard/high-intensity days** for typical recreational runners; require easy or rest between hard sessions so each lands on a recovered baseline. — confidence: **Established** (safety-critical; mirror in `polarized-training`)
+- **D3:** **Never schedule ≥2 consecutive genuine hard/high-intensity days** for typical recreational runners; require easy or rest between hard sessions so each lands on a recovered baseline. — confidence: **Established** (safety-critical; **not enforced in code** — a week's shape is not a phrase, and nothing in the tree reads a prescribed plan back to check its spacing. The word "mirror" here means the sibling directive in `polarized-training`, not a code guardrail; that reading was the #87 confusion. A rule for the coach, not a guarantee. #100)
 - **D4:** Keep **easy days genuinely easy** (≈75–85% of weekly time at low intensity) — this *is* the recovery that lets hard days be hard. Flag grey-zone drift on easy-intended runs. — confidence: **Established** (see `polarized-training`)
 - **D5:** Default developing runners to **≥1–2 rest/recovery days per week** and insert a reduced-volume **recovery week at the cadence `progressive-overload` D5 defines (~3–5 weeks)**. Frame rest as part of the plan, not failure. — confidence: **Probable** for the rest-days half (mechanism Established); the cadence half is **Emerging / practitioner consensus** and its number and provenance live in `progressive-overload` D5, not here.
 - **D6:** For a goal race, apply a **~2-week taper reducing volume 41–60% while holding intensity and frequency.** — confidence: **Established** [Bosquet et al. 2007]
@@ -166,7 +166,7 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 - **No `derived_daily` field of its own (`applies_to_metrics: []`).** These are *principles*
   operationalised through other metrics, not a standalone number. They shape the
   programs/challenges builder (hard–easy sequencing, rest-day and recovery-week cadence,
-  taper) and the coach's recovery reasoning. The body's `@daud/core` quantities
+  taper) and the coach's recovery reasoning. The upstream `@daud/core` names below (that module exists in no repo; they are kept as import provenance, not as things we compute)
   (`trainingLoad` / `acwr` / `form` / `fitnessFatigue` / `hrv`) name the stress/recovery
   inputs; there is **no direct "adaptation meter"** — adaptation is inferred retrospectively
   from performance trend, decoupling, HR-at-pace, and subjective readiness, and none of these

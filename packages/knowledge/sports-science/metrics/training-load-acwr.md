@@ -10,7 +10,6 @@ applies_to_metrics: ["cardio_load"]
 applies_to_interventions: ["exercise"]
 last_reviewed: 2026-07-15
 related: ["fitness-fatigue-form", "training-stress-score", "sleep-and-recovery", "heart-rate-variability", "periodization", "individualization"]
-daud_metrics: ["computeACWR", "acuteLoad", "chronicLoad", "trainingLoad", "weeklyLoadRamp"]
 units: "ratio (AU/AU, dimensionless); load in AU (TSS, sRPE·min, km, or min)"
 ---
 # Training Load & Acute:Chronic Workload Ratio (ACWR)
@@ -166,7 +165,7 @@ an injury predictor or management tool* is **inconsistent and largely refuted** 
 significant in some cohorts, null or reversed in others, and failing its one RCT.
 
 ## How we compute it
-Owned by `@daud/core` (`computeACWR`, `acuteLoad`, `chronicLoad`). Daud computes
+Upstream names `computeACWR` / `acuteLoad` / `chronicLoad` (the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)). The upstream project computed
 ACWR from its internal load currency (TSS-equivalent; see `training-stress-score`)
 and also surfaces a **simpler, more defensible running-specific ramp signal**.
 
@@ -394,7 +393,7 @@ arithmetic, and neither method is clearly superior for actually predicting injur
 ## Healthee implementation & honesty policy
 
 **The load currency Healthee feeds this ratio is `cardio_load` (Banister HR-reserve
-TRIMP)** — not TSS. The `@daud/core` compute above is the running-coach reference; in
+TRIMP)** — not TSS. The upstream compute described above is the running-coach reference (not code that exists); in
 Healthee, `acute` and `chronic` are windowed sums/averages of the daily `cardio_load`
 (see `training-stress-score` for how that load is derived, and `load_currency` for why
 TRIMP, not TSS, is the single currency). ACWR is **load-currency agnostic** by

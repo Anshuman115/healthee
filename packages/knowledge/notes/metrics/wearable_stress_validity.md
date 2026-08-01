@@ -61,10 +61,24 @@ Each metric feeding the score reflects **autonomic arousal**: heart rate rises w
 **Hold loosely:** any single value's meaning; day-to-day daytime movements; and any interpretation approaching mood, emotion, or a clinical stress level — those it cannot support.
 
 ## Coach Directives
-1. **SAFETY-CRITICAL:** NEVER present the `stress` number as the user's psychological, emotional, or mental state — it is **physiological arousal vs their own baseline**. *(confidence: high)*
-2. **SAFETY-CRITICAL:** NEVER infer mood or emotional valence from it — arousal ≠ valence; "stressed" and "excited" look identical to the sensor. *(high)*
-3. **SAFETY-CRITICAL:** A high or low value is **non-specific** (exertion, posture, caffeine, illness, poor signal all move it) — never alarm on it. *(high)*
-4. **SAFETY-CRITICAL:** It is **unvalidated on our hardware** — present only heavily-caveated trends vs the person's own baseline, never an absolute or clinical stress level. *(high)*
+1. **SAFETY-CRITICAL:** NEVER present the `stress` number as the user's psychological, emotional, or mental state — it is **physiological arousal vs their own baseline**. *(confidence: high; **not enforced in code** — see the note below these four.)*
+2. **SAFETY-CRITICAL:** NEVER infer mood or emotional valence from it — arousal ≠ valence; "stressed" and "excited" look identical to the sensor. *(high; **not enforced in code**.)*
+3. **SAFETY-CRITICAL:** A high or low value is **non-specific** (exertion, posture, caffeine, illness, poor signal all move it) — never alarm on it. *(high; **not enforced in code**.)*
+4. **SAFETY-CRITICAL:** It is **unvalidated on our hardware** — present only heavily-caveated trends vs the person's own baseline, never an absolute or clinical stress level. *(high; **not enforced in code**.)*
+
+> **What enforces D1–D4: nothing, as of #100.** No output rule in
+> `insights/output_guard.py` or `insights/guard_directives.py` recognises a mood or
+> emotional claim attached to the `stress` number, and `insights/refusals.py` classifies
+> the *question* — it fires on an owner asking "am I anxious?", not on the coach
+> volunteering "your stress score says you were anxious". These four are rules for the
+> coach, carried by the note's prose and the system prompt.
+> They keep the SAFETY-CRITICAL marking because the harm they guard is real — a wearable
+> telling someone what they feel is the failure mode this whole note exists to document —
+> but the marking is a statement of *severity*, not of enforcement, and until #100 a
+> reader of the directives block could not tell the difference. This note is the
+> strongest remaining candidate for a compiled rule: unlike most safety directives in the
+> corpus, its forbidden move (arousal → emotion) is a text pattern rather than a plan
+> shape.
 5. For recovery/readiness reads, defer to `recovery_readiness` (validated nocturnal HRV-vs-baseline), not the daytime `stress` card. *(high)*
 
 ## References

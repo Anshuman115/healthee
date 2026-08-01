@@ -10,7 +10,6 @@ applies_to_metrics: ["cardio_load", "hr_zone_minutes"]
 applies_to_interventions: ["exercise"]
 last_reviewed: 2026-07-15
 related: ["training-load-acwr", "fitness-fatigue-form", "grade-adjusted-pace", "lactate-threshold", "running-economy", "vo2max", "sleep-and-recovery"]
-daud_metrics: ["computeSessionLoad", "rTSS", "hrTSS", "gradeAdjustedPace"]
 units: "AU (arbitrary units; ~100 AU = 1 h at threshold)"
 ---
 # Training Stress Score (TSS) and Session Load Quantification
@@ -303,8 +302,8 @@ guardrails** that are:
   safety bounds, not TSS per se.
 - **A wrong/stale threshold is a safety issue**, not just an accuracy one: it
   under-reports true load and can let progression limits be silently exceeded. The
-  engine should flag thresholds older than a set window (e.g. >6–8 weeks without
-  re-test) as low-confidence.
+  engine should flag thresholds older than the `lactate-threshold` D11 re-test window
+  as low-confidence. *(This said ">6–8 weeks", a fourth number for one quantity. #100)*
 - **Never let a low computed TSS justify adding load** when sRPE/readiness signals
   are red — internal load overrides external bookkeeping for safety decisions.
 - Weight **high-eccentric (steep downhill) and high-intensity interval** sessions

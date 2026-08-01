@@ -144,7 +144,7 @@ Vanhatalo 2017].
 
 ## How we compute it
 
-`@daud/core` ownership: **not yet computed** (proposed `criticalSpeed` / `dPrime`).
+**Not computed anywhere today** (upstream proposed `criticalSpeed` / `dPrime`; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)).
 
 **Core hyperbolic model** (severe domain). For a set of maximal efforts where effort *i*
 covers distance `dᵢ` in time `tᵢ`:
@@ -205,7 +205,7 @@ of CS); the shorter the race, the higher the sustainable fraction of/above CS.
   conditioned. Confidence in any beginner CS estimate is low.
 - **Stage 2 (developing):** Introduce a proper field test (multi-distance TTs preferred;
   3MT as a time-efficient alternative). Use CS to set tempo and to design supra-CS
-  intervals at 110–130% CS. Re-test every ~6–12 weeks; CS should rise with training.
+  intervals at 110–130% CS. Re-test at the `lactate-threshold` D11 cadence; CS should rise with training.
 - **Stage 3 (racing):** Use CS + D′ together for race-pace selection, pacing strategy and
   interval prescription; model session "cost" as D′ spent and recovered. Track CS as the
   primary fitness trend and D′ as a (noisier) measure of speed reserve.
@@ -327,7 +327,7 @@ predictions, re-fit CS from those races.
   **at or just below** CS, never above. — confidence: Probable.
 - **D8:** Prescribe aerobic-power intervals at **~110–130% of CS**, capped by available D′
   and recovery. — confidence: Probable.
-- **D9:** Re-estimate CS every **~6–12 weeks** and after notable fitness change; track CS
+- **D9:** Re-estimate CS **at the cadence `lactate-threshold` D11 defines (~6–12 weeks)** and after notable fitness change; track CS
   as the primary fitness trend and re-fit from race results when predictions miss. —
   confidence: Probable.
 - **D10:** Discount the flat-road CS pace in heat, on hills/soft ground, or at altitude —
@@ -386,7 +386,7 @@ predictions, re-fit CS from those races.
   time-trials, or a 3-min all-out test) that Healthee does not prompt for or
   detect. This note is **reference science + a future-metric candidate**
   (`applies_to_metrics: []`; `daud_metrics` provenance dropped — the `criticalSpeed`
-  /`dPrime` helpers are legacy `@daud/core`).
+  /`dPrime` helpers are the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Future-metric candidate (data-hungry).** Healthee already records outdoor GPS
   workouts with per-segment pace (`derive/gps.py`); a CS/D′ fit could be estimated
   from a set of recent near-maximal GPS efforts spanning ~2–15 min — but only when

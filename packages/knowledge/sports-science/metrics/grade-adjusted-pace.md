@@ -154,12 +154,27 @@ HR-equivalent uphill factors are noticeably smaller (~+2.5–3% effort per +1%
 grade vs Minetti's ~+6%/1% near the level).*
 
 ## How we compute it
-Owner: `@daud/core` `gradeAdjustedPace` (status: **to be implemented** — currently
-a documented spec, not yet a shipped function).
+Status: **not yet a shipped user-facing metric** — a documented spec. The Minetti
+cost model underneath it *is* shipped, inside the submaximal-VO₂max estimator; see
+the implementation section. *(This line named `@daud/core` as the owner. That module
+exists nowhere — see the provenance note below, #83b.)*
+
+> **Three grade numbers live in this note and they are three different quantities.**
+> Reading them as one contradicted set was the mistake this box exists to prevent (#100):
+>
+> | Number | What it is | Where it lives | Source |
+> |---|---|---|---|
+> | **±45%** | Minetti's measured validity range — the treadmill grades the polynomial was fitted over | `derive/vo2max_submax.py::_MINETTI_CLAMP` | [Minetti 2002] |
+> | **±35%** | our input-sanity clamp on a *measured* per-window grade, tighter than Minetti's range so it is the binding one | `derive/vo2max_submax.py::GRADE_CLAMP` | **our engineering judgement, uncited** |
+> | **±20–25%** | where pace *prescription* stops — runners power-hike, and the pace↔cost correlation breaks near ±20% | D6, Safety bounds | [Lemire 2021] for the ±20% breakdown; the 25% edge is uncited |
+>
+> Validity, sanity-clamp and prescription-cutoff are not the same bound and none of
+> them should be restated as one of the others.
 
 1. **Grade** per sample: `g = Δelevation / Δhorizontal_distance`. Smooth elevation
    first (GPS/barometric noise dominates raw grade). Clamp `g` to a sane window
-   (e.g. ±35%) before applying the curve.
+   (**±35% — the sanity clamp in the table above, not Minetti's validity range**)
+   before applying the curve.
 2. **Adjustment factor:** `f(g) = Cr(g) / Cr(0)` using the Minetti polynomial,
    `Cr(0) = 3.6`. (A Strava-style HR-equivalent curve can be swapped in as an
    alternative model; keep the model choice explicit.)
@@ -236,8 +251,11 @@ This section is mandatory — GAP is a useful estimate wrapped in real uncertain
   primary driver of impact load, EIMD and injury; the coach must cap *descent*
   prescriptions by effort/control, never by hitting a grade-adjusted pace target.
 - **Beyond ±20–25% grade, suspend pace prescription** and default to
-  effort/HR/RPE and walk-allowance; the running cost model is out of its validated
-  range and most runners hike here.
+  effort/HR/RPE and walk-allowance: most runners hike here, and the pace↔cost
+  correlation breaks down near ±20% [Lemire 2021]. *(This read "the running cost model
+  is out of its validated range" — it is not; Minetti's range is ±45%. The reason to
+  stop prescribing is behavioural and correlational, not a validity limit. #100 — see
+  the three-numbers box under* How we compute it*.)*
 - **GAP never overrides heart-rate or RPE ceilings.** On a long climb, an
   in-range GAP can still sit above a safe physiological intensity; the HR/RPE
   guardrail wins.
@@ -263,8 +281,9 @@ This section is mandatory — GAP is a useful estimate wrapped in real uncertain
     as hard.
   - **Method matters:** smooth/clamp grade before applying the curve and aggregate
     by flat-equivalent speed/energy, never by averaging pace.
-  - Beyond ~±20–25% grade and on technical descents, the running-cost model is out
-    of range and runners hike — suspend pace prescription there.
+  - Beyond ~±20–25% grade and on technical descents, runners hike and the pace↔cost
+    correlation breaks down — suspend pace prescription there. (Not a validity limit:
+    Minetti's range is ±45%. See the three-numbers box under *How we compute it*.)
 
 - **Hold loosely (unsettled):**
   - The **exact point accuracy** of any GAP number on a slope (Minetti RMSD ≈
@@ -300,7 +319,9 @@ This section is mandatory — GAP is a useful estimate wrapped in real uncertain
   allow power-hiking — confidence: **Established** (safety/validity bound).
 - **D7:** Never prescribe pace targets on descents; cap descent effort for impact
   and muscle-damage control, and warn that long downhills raise the cost of later
-  kilometres — confidence: **Probable** (safety-critical).
+  kilometres — confidence: **Probable** (safety-critical; **not enforced in code** —
+  "a pace target on a descent" is a plan shape, and nothing in the tree knows a
+  prescribed segment's gradient. A rule for the coach, not a guarantee. #100).
 - **D8:** Refine the gradient response from the runner's own HR-vs-GAP data over
   time rather than assuming the population curve fits them, especially on steep
   terrain — confidence: **Probable**.
@@ -346,13 +367,19 @@ This section is mandatory — GAP is a useful estimate wrapped in real uncertain
   implemented** and used internally: `derive/vo2max_submax.py::_vo2_speed_grade`
   scales the ACSM level VO₂ by the Minetti gradient-cost ratio (correct uphill
   *and* downhill), with per-point grade taken from a terrain DEM
-  (`derive/dem.py`, not noisy GPS altitude) and the gradient clamped to Minetti's
-  **±0.45** validity range — inside the submaximal-VO₂max estimator, not as a
-  user-facing GAP number. So the note is **reference science + a strong,
+  (`derive/dem.py`, not noisy GPS altitude) — inside the submaximal-VO₂max
+  estimator, not as a user-facing GAP number.
+  **Two clamps apply, and the tighter one binds.** The measured per-window grade is
+  clamped to **±0.35** (`GRADE_CLAMP`) before it reaches the model, and the model
+  itself clamps to Minetti's **±0.45** validity range (`_MINETTI_CLAMP`) — so in this
+  path ±0.45 is never reached and ±0.35 is the effective bound. *(Corrected #100: this
+  bullet said the gradient was "clamped to Minetti's ±0.45", naming the clamp that does
+  not bind and omitting the one that does. Measured in `derive/vo2max_submax.py`, not
+  inferred.)* So the note is **reference science + a strong,
   low-effort future-metric candidate**: the validated cost model is ported and
   tested; surfacing a flat-equivalent pace per GPS segment is a small addition.
   (`applies_to_metrics: []` today; `daud_metrics` provenance dropped — the
-  `gradeAdjustedPace`/`gradeAdjustmentFactor` helpers are the legacy `@daud/core`
+  `gradeAdjustedPace`/`gradeAdjustmentFactor` helpers are the upstream `@daud/core` naming (a module that exists in no repo)
   naming.)
 - **Future-metric candidate (feasible from existing data).** `derive/gps.py`
   already yields per-segment speed and DEM-corrected grade over a recorded

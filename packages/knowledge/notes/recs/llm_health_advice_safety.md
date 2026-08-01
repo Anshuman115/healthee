@@ -214,7 +214,9 @@ detail is in *Safety bounds*.
    *(confidence: high; enforced on the incoming question by `insights/refusals.py` and
    on generated recs by `jobs/recs.py::_BANNED_RE` — NOT on the coach's prose)*
 2. **SAFETY-CRITICAL:** never recommend or modify medication, dosing, or supplements
-   (including "consider magnesium"). *(high; same two paths as D1 — NOT on coach prose)*
+   (including "consider magnesium"). *(high; **enforced** on the same two paths as D1 —
+   `insights/refusals.py` on the incoming question and `jobs/recs.py::_BANNED_RE` on
+   generated recs — and NOT enforced on the coach's prose)*
 3. **SAFETY-CRITICAL:** never recommend specific clinical procedures/tests, and
    never interpret logged symptoms causally. *(high; symptom interpretation is dropped
    from recs by the keyword filter, but **procedures/tests are not enforced anywhere** —
@@ -234,7 +236,8 @@ detail is in *Safety bounds*.
    fallback model; ship an empty day rather than stale advice. *(high; the empty-day
    behaviour **is** what `jobs/recs.py::_no_grounded_output` does — the old "show
    yesterday's recs" wording described a legacy plan the rebuild deliberately dropped.
-   The no-fallback-model half is a design commitment, not a check.)*
+   The no-fallback-model half is **not enforced** — it is a design commitment, not a
+   check.)*
 
 ## Implementation guardrails (engineering)
 

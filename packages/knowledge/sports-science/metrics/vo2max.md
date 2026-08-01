@@ -10,7 +10,6 @@ applies_to_interventions: ["exercise"]
 population: general
 last_reviewed: 2026-07-15
 related: ["lactate-threshold", "running-economy", "critical-speed", "race-prediction", "maximum-heart-rate", "heart-rate-zones", "polarized-training", "non_exercise_vo2max", "submaximal_vo2max", "mvpa_minutes_mortality", "steps_mortality", "strength_training_mortality", "recovery_readiness"]
-daud_metrics: ["vo2max", "vVO2max", "maximalAerobicSpeed"]
 units: "mL/kg/min (or L/min absolute)"
 ---
 # VO₂max (Maximal Oxygen Uptake)
@@ -64,6 +63,15 @@ Typical relative VO₂max ranges (mL/kg/min):
 | Recreational trained | ~45–55 | ~38–48 |
 | Well-trained / sub-elite | ~55–70 | ~48–60 |
 | Elite endurance | ~70–85 | ~60–75 |
+
+
+> [!WARNING] **This table is uncited (#100).** No source in this note supports the sedentary, recreational or well-trained rows, or any female column below elite. It
+> is practitioner orientation of the kind found in textbooks and ACSM tables, carried in from the upstream corpus without a source. It is flagged rather than deleted because the **elite row is** retro-covered by the sentence immediately below it [Joyner & Coyle 2008], and because a reader needs some sense of scale to know that a wearable reporting 48 is not reporting a lab-elite value — but the coach must present
+> these as rough orientation, never as norms a runner can be measured against, and must
+> not attach a runner's own number to a row as if that placed them.
+> Why this matters more than an ordinary uncited line: **the note body is what reaches
+> the model** (`manifest.prompt_body`), so an unlabelled norm table is a constant the
+> coach will quote with the note's authority and no hedge.
 
 Elite male endurance champions cluster at **~70–85 mL/kg/min**; elite women average
 roughly **~10% lower**, driven mostly by higher body-fat fraction and lower
@@ -241,12 +249,12 @@ HR near age-predicted max, blood lactate > ~8 mmol/L). A verification bout at a
 supramaximal workload is the modern confirmation. Reproducible to roughly ±2–3% in a
 good lab.
 
-**Field / sub-maximal estimates (what `@daud/core` actually uses or ingests).**
+**Field / sub-maximal estimates (what the upstream project used or ingested; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)).**
 
 1. **vVO₂max / Maximal Aerobic Speed (MAS)** — the running speed at which VO₂max is
    reached (or estimated from a 5–6 min maximal effort, e.g. a maximal 1500–2000 m or
    a 6-min time trial). More useful to a runner than VO₂max itself because it already
-   integrates economy. `@daud/core: vVO2max / maximalAerobicSpeed`.
+   integrates economy. Upstream names `vVO2max` / `maximalAerobicSpeed`.
 2. **Race-derived estimate** — VO₂max can be back-estimated from recent race
    performances (e.g. Daniels' VDOT, Léger/Mercier velocity relationships). This is
    really a *performance* index reported in VO₂max units, conflated with economy and
@@ -423,7 +431,10 @@ evidence-backed shape is:
 - **D10:** Gate **maximal VO₂max tests and supramaximal vVO₂max intervals** behind
   aerobic base, full recovery, and (where relevant) medical clearance; never for
   injured/ill/fatigued or Stage-1 runners, and keep VO₂max-intensity work a small,
-  recovery-gated fraction of the week. — confidence: Established (safety-critical)
+  recovery-gated fraction of the week. — confidence: Established (safety-critical;
+  **not enforced in code** — the gate is the runner's aerobic base, recovery state and
+  medical clearance, none of which an output rule can read from the answer text. A rule
+  for the coach, not a guarantee. #100)
 
 ## Key references
 

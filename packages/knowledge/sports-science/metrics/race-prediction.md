@@ -132,7 +132,7 @@ too optimistically into the marathon.
 
 ## How we compute it
 
-**Riegel power law** (default; owns `@daud/core → predictRaceTime`):
+**Riegel power law** (default; upstream name `predictRaceTime`; the upstream `@daud/core` (a module that exists in no repo — kept as import provenance, not a live dependency)):
 
 ```
 T₂ = T₁ · (D₂ / D₁) ^ k
@@ -193,7 +193,7 @@ actual maximal race at the target distance under similar conditions.
     fitness trend.
 
 - **Cross-checks:** weight predictions against the freshness of the input race
-  (a 6-month-old PB is stale), course profile, expected heat/altitude, and whether
+  (stale at the window **D6** defines), course profile, expected heat/altitude, and whether
   marathon-specific endurance (long runs, fuelling) has actually been trained.
 
 ## Honesty & uncertainty
@@ -298,7 +298,10 @@ This section is mandatory and load-bearing.
   ≥±5% for marathon extrapolations. — confidence: Probable
 - **D6:** Require the input to be a recent (≤~3 months), genuinely maximal effort on
   a fair course; flag predictions built on stale or non-maximal inputs. —
-  confidence: Established
+  confidence: Established for *that staleness matters*; the **3-month figure itself is
+  unsourced** practitioner convention. **This is the note's one staleness window** —
+  *Cross-checks* said "a 6-month-old PB is stale", twice this, and neither figure had a
+  source (#100).
 - **D7:** When training volume / mileage is known, prefer a mileage-aware regression
   over any universal formula for marathon prediction. — confidence: Probable
 - **D8:** Never present an un-banded, aggressive marathon goal — especially for a
@@ -347,7 +350,7 @@ This section is mandatory and load-bearing.
   Riegel / VDOT / equivalent-performance calculation; there is no `predictRaceTime`
   in `derive/`. This note is **reference science + a future-metric candidate**
   (`applies_to_metrics: []`; `daud_metrics` provenance dropped — the
-  `predictRaceTime`/`vdot`/`equivalentPerformance` helpers are legacy `@daud/core`).
+  `predictRaceTime`/`vdot`/`equivalentPerformance` helpers are the upstream `@daud/core` naming (a module that exists in no repo)).
 - **Future-metric candidate (feasible from existing data).** A recorded GPS race
   or hard time-trial (`gps_track`, with distance and elapsed time) is exactly the
   single anchor Riegel's power law needs; predicting equivalent times across

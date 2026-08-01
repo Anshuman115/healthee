@@ -304,8 +304,16 @@ strength tuning weights, and any UI/nav placement details — all revisable.
    drop any uncited item. *(confidence: high)*
 2. Use progress framing, never deficit framing; empty output is a valid, positive
    "baseline steady" state. *(high)*
-3. **SAFETY-CRITICAL:** route mental-health-emergency inputs to the static hotline
-   card, bypassing the LLM (`safety_override`). *(high)*
+3. **SAFETY-CRITICAL:** route mental-health-emergency inputs to the static refusal,
+   bypassing the LLM. *(high; **enforced in code** by `insights/refusals.py` —
+   `classify_refusal` runs before any context build or LLM call and a hit
+   short-circuits the whole pipeline.
+   *Corrected #100: this read "route ... to the static hotline card ... (`safety_override`)".
+   There is no hotline card, no hotline number and no `safety_override` symbol; the
+   mental-health refusal is a text template directing the owner to a mental-health
+   professional or their physician. `[[llm_health_advice_safety]]` D5 corrected the
+   hotline wording in its own note and this one was missed — the same claim ships from
+   two places and only one was fixed.)*
 4. Never diagnose, dose, or recommend medication/supplements/clinical tests; the
    keyword filter is a hard block. *(high)*
 5. On LLM outage, show yesterday's recs with a clear indicator; never auto-swap an

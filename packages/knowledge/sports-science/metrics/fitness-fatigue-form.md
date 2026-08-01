@@ -55,6 +55,15 @@ invented by Coggan & Allen [Allen & Coggan; TrainingPeaks].
 
 Typical CTL ranges (units are TSS/day, where ~100 TSS ≈ one hard threshold hour):
 
+> [!WARNING] **This table is uncited (#100).** No source in this note supports any of these four bands, or the “−30 to +25” TSB range stated below the table. It
+> is practitioner convention from the TrainingPeaks/Coggan tradition, restated without a source; CTL is a modelled bookkeeping quantity, not a measured one, so there is no population it *could* be sampled from. It is flagged rather than deleted because the numbers do carry the one genuinely useful fact — that CTL is comparable only to the same athlete's own history, and an “elite” number means nothing without the same load model behind it — but the coach must present
+> these as rough orientation, never as norms a runner can be measured against, and must
+> not attach a runner's own number to a row as if that placed them.
+> Why this matters more than an ordinary uncited line: **the note body is what reaches
+> the model** (`manifest.prompt_body`), so an unlabelled norm table is a constant the
+> coach will quote with the note's authority and no hedge.
+
+
 | Athlete | CTL (TSS/day) |
 |---|---|
 | Casual / Stage 1 beginner | ~20–40 |
@@ -221,6 +230,15 @@ sleep, and HRV before acting — TSB is blind to all of those.
 | **below −30** | Dangerously buried | Heightened injury/illness/overtraining risk — back off [Friel] |
 | **−30 to −10** | Productive overload | Normal, healthy hard-training range; expected mid-block |
 | **−10 to +5** | Neutral / "grey zone" | Transitional; should be brief, not a parking spot |
+
+> **The +5 edge is ours, not Coggan's (#100).** The only *cited* band set in this note
+> — under *The evidence* — reads **neutral −10 to +10, fresh above +10** [Allen & Coggan;
+> TrainingPeaks; Friel]. This table and every downstream use (D3, `periodization`,
+> `COACHING-RULES`) put the fresh/race-ready floor at **+5**, so TSB +5 to +10 is
+> simultaneously "grey zone" here and "race-ready" there. The **+5 to +25 race-target
+> band is the corpus's canonical one** and it is practitioner consensus, not a measured
+> threshold; the +5–+10 overlap with "neutral" is real ambiguity in the source material,
+> not a number to resolve by picking. Do not restate either edge as sourced.
 | **+5 to +15** | Fresh, race-ready (lower) | Good A-race form for many runners; sharpening |
 | **+15 to +25** | Peaked | Classic A-race target; well-tapered |
 | **above +25** | Detraining | Too rested — fitness (CTL) is bleeding away |

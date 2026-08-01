@@ -162,7 +162,7 @@ the lactate threshold so metabolism is genuinely aerobic and steady [Fletcher et
 al. 2009].
 
 **Field proxies (estimates, not measurements).** Daud has no gas analyser, so true
-RE is **not yet computed** in `@daud/core`. Usable proxies from wearable data:
+RE is **not computed anywhere today**. Usable proxies from wearable data:
 
 - **Pace-at-a-fixed-HR / HR-at-a-fixed-pace** trend — if a runner holds a faster
   easy pace at the same heart rate over weeks (with stable conditions), that is
