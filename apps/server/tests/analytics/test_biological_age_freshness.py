@@ -51,10 +51,11 @@ from tests.analytics._bio_age_bed import (
 from healthee.analytics.biological_age import REQUIRED_TERMS_MESSAGE, compute_biological_age
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
-from healthee.derive.freshness import NOT_DERIVED_YET
+from healthee.derive.freshness import NOT_DERIVED_YET, WEIGHT_STALE
 from healthee.derive.vo2max import (
     WITHHOLD_MESSAGES,
     WITHHOLD_RHR_TOO_NOISY,
+    derive_vo2max,
 )
 from healthee.read.vo2max import vo2max_payload
 
@@ -239,3 +240,63 @@ def test_the_vo2max_card_and_the_bio_age_agree_about_today(
     assert card["data_confidence"] == bio["data_confidence"]
     if card["withheld"] is not None:
         assert absent(bio) == {"fitness": card["withheld"]["reason"]}
+
+
+# ── 6 · #85 · a stale WEIGHT reaches all the way to the composite ────────────
+
+
+@pytest.mark.usefixtures("db")
+def test_a_weight_from_months_ago_withholds_the_whole_biological_age() -> None:
+    """The full chain, end to end: weight → BMI → VO₂max → biological age.
+
+    This is what #85 was about. A mass the owner last measured in the spring anchored a
+    number the app presents as their biological age TODAY, and nothing in the payload
+    said so — the weight had no date on it by the time BMI saw it. Two models deep, one
+    silent stale input.
+
+    Note what is asserted: not that the number moved, but that there is no number. The
+    arithmetic error from a few kilograms is small (≈0.2 ml/kg/min per kg against
+    Jurca's 5.6 SEE); the dishonesty is presenting a confident age computed from a body
+    we stopped knowing about months ago.
+    """
+    today = user_today(SENTINEL_TZ)
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        reset(cur)
+        seed_owner(cur, today)
+        # Replace the bed's fresh weight with one from six months ago — nothing else
+        # changes, so any withhold below is the weight's doing alone.
+        cur.execute("DELETE FROM weight_log")
+        cur.execute(
+            "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '180 days', 72)",
+            (SENTINEL_USER_ID,),
+        )
+        rhr(cur, today, CALM)  # a calm week: the RHR gates have no objection
+        assert derive_vo2max(cur, SENTINEL_USER_ID, SENTINEL_TZ, today) is None
+        card = vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+        result = compute_biological_age(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+
+    assert card is None, "no estimate was ever derived, so there is no card to show"
+    assert result is not None
+    assert result["biological_age"] is None
+    assert result["delta_years"] is None
+    assert result["data_confidence"] == "insufficient_data"
+    assert absent(result) == {"fitness": WEIGHT_STALE}
+    # The two terms that never touched the weight are still reported as facts.
+    assert set(terms(result)) == {"sleep duration", "regularity"}
+
+
+@pytest.mark.usefixtures("db")
+def test_the_same_owner_one_fresh_weigh_in_later_gets_their_age_back() -> None:
+    # The refusal has to be recoverable by an action the owner can actually take, or it
+    # is just a broken feature with a polite message.
+    today = user_today(SENTINEL_TZ)
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        reset(cur)
+        seed_owner(cur, today)  # seeds a weight logged yesterday
+        rhr(cur, today, CALM)
+        assert derive_vo2max(cur, SENTINEL_USER_ID, SENTINEL_TZ, today) is not None
+        result = compute_biological_age(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+
+    assert result is not None
+    assert result["biological_age"] is not None
+    assert result["data_confidence"] == "ok"

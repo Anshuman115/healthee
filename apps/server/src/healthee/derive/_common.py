@@ -154,13 +154,22 @@ def _age(dob: date, on: date) -> int:
     return years
 
 
-def _load_profile(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
+def _load_profile(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     """Profile + weight as-of `day` (weight is a time-series, read at that date).
 
     Weight uses the most recent `weight_log` entry logged on or before `day`, so
     updating today's weight never retroactively rewrites past days; days before
-    the first entry fall back to the earliest logged weight. With `day=None` the
-    latest weight is used. Returns None if the profile or any weight is missing.
+    the first entry fall back to the earliest logged weight. Returns None if the
+    profile or any weight is missing.
+
+    `weight_as_of` is the local date that weight was LOGGED, and it is part of the
+    contract, not diagnostics: a weight has no expiry stamped on it, so a consumer
+    that receives `weight_kg` alone is structurally unable to tell a weigh-in from
+    this morning apart from one from March. Dropping it here is what let a
+    six-month-old mass anchor BMI → VO₂max → biological age with nothing to notice.
+    Consumers decide what to do with the age via `derive.freshness.weight_is_stale`
+    — the decision is deliberately theirs (a stale weight must not block sleep need,
+    which only wants `dob`), the RULE is deliberately not.
     """
     cur.execute("SELECT height_cm, sex, dob FROM profile WHERE user_id = %s", (user_id,))
     prof = cur.fetchone()
@@ -173,28 +182,30 @@ def _load_profile(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> 
         "height_cm": float(prof[0]),
         "sex": prof[1],
         "dob": prof[2],
-        "weight_kg": float(weight[0]),
+        "weight_kg": weight[0],
+        "weight_as_of": weight[1],
     }
 
 
-def _weight_as_of(cur: Cur, user_id: UUID, tz: str, day: date | None) -> tuple | None:
-    """Most-recent weight_log row on/before `day` (earliest if none), or latest."""
-    if day is not None:
+def _weight_as_of(cur: Cur, user_id: UUID, tz: str, day: date) -> tuple[float, date] | None:
+    """Most-recent (kg, local log date) on/before `day`, else the earliest logged.
+
+    The date comes back with the value because they are one fact — see `_load_profile`.
+    """
+    cur.execute(
+        "SELECT kg, (ts AT TIME ZONE %s)::date FROM weight_log WHERE user_id = %s "
+        "AND (ts AT TIME ZONE %s)::date <= %s ORDER BY ts DESC LIMIT 1",
+        (tz, user_id, tz, day),
+    )
+    weight = cur.fetchone()
+    if not weight:
         cur.execute(
-            "SELECT kg FROM weight_log WHERE user_id = %s "
-            "AND (ts AT TIME ZONE %s)::date <= %s ORDER BY ts DESC LIMIT 1",
-            (user_id, tz, day),
+            "SELECT kg, (ts AT TIME ZONE %s)::date FROM weight_log WHERE user_id = %s "
+            "ORDER BY ts ASC LIMIT 1",
+            (tz, user_id),
         )
         weight = cur.fetchone()
-        if not weight:
-            cur.execute(
-                "SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts ASC LIMIT 1",
-                (user_id,),
-            )
-            weight = cur.fetchone()
-        return weight
-    cur.execute("SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1", (user_id,))
-    return cur.fetchone()
+    return (float(weight[0]), weight[1]) if weight else None
 
 
 def _clamp100(x: float) -> float:

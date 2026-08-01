@@ -83,7 +83,7 @@ def _seed_track(cur) -> str:
         (SENTINEL_USER_ID,),
     )
     cur.execute(
-        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, '2026-01-01T00:00:00+00', 72)",
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '1 day', 72)",
         (SENTINEL_USER_ID,),
     )
     points, hr_rows = _synthetic_run()

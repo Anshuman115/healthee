@@ -19,7 +19,10 @@ from healthee.derive._common import Cur, _age, _load_profile, _scalar, _upsert_d
 from healthee.derive.freshness import (
     NOT_DERIVED_YET,
     PROFILE_INCOMPLETE,
+    WEIGHT_MAX_AGE_DAYS,
+    WEIGHT_STALE,
     unavailable_reason,
+    weight_is_stale,
 )
 from healthee.derive.mvpa import _weekly_mvpa_to_srpa
 from healthee.derive.robust import median, median_abs_deviation
@@ -83,6 +86,14 @@ WITHHOLD_MESSAGES = {
     WITHHOLD_RHR_TOO_NOISY: (
         "Your resting heart rate moved too much this week for the estimate to mean "
         "anything (7-day spread above 8 bpm). A few steadier nights will restore it."
+    ),
+    # Weight's own sentence (``freshness.WEIGHT_STALE_MESSAGE``) says "log a weight"; this
+    # one has to say why a fitness number cares, because "we can't estimate your fitness"
+    # and "we don't know what you weigh" look unrelated to an owner until you join them.
+    WEIGHT_STALE: (
+        f"This estimate runs on your BMI, and the weight behind it is more than "
+        f"{WEIGHT_MAX_AGE_DAYS} days old — old enough that we'd be guessing at your "
+        f"mass, so we won't guess at your fitness either. Log a weight and it returns."
     ),
     NOT_DERIVED_YET: "Today's estimate has not been computed yet — sync the strap.",
 }
@@ -200,9 +211,34 @@ def withhold_reason_for_day(cur: Cur, user_id: UUID, tz: str, day: date) -> str 
     state, so a gate added to one and not the other fails the build.
     [[non_exercise_vo2max]].
     """
-    if not _load_profile(cur, user_id, tz, day):
+    prof = _load_profile(cur, user_id, tz, day)
+    if not prof:
         return PROFILE_INCOMPLETE
+    if reason := _profile_withhold_reason(prof, day):
+        return reason
     return vo2max_withhold_reason(rhr_week(cur, user_id, day))
+
+
+def _profile_withhold_reason(prof: dict, day: date) -> str | None:
+    """Withholds that come from the PROFILE side of Jurca, or None. Pure and total.
+
+    Today that is one gate — the weight behind BMI must be a statement about ``day``.
+    [[weight_bmi_body_composition]] describes the defect exactly: "_weight_as_of takes
+    the most recent entry on or before the derived day with no maximum age … a weight
+    from a year ago is used as today's weight, silently", and it propagates two models
+    deep, because ``vo2max_estimate`` is the dominant term of
+    [[biological_age_estimate]]. Withholding rather than flagging follows the same note
+    as every other gate here — "never write a wrong value" — and it is what the two
+    surfaces of ``/api/today`` need in order to agree.
+
+    Note what is NOT the argument: the numeric error is small (≈0.2 ml/kg/min per kg of
+    weight error, against Jurca's own 5.6 SEE). The reason to refuse is that the number
+    is offered as a fact about this person's body TODAY and one of its inputs is not
+    about today at all. A small wrong number presented confidently is still the lie.
+    """
+    if weight_is_stale(prof["weight_as_of"], day):
+        return WEIGHT_STALE
+    return None
 
 
 def estimate_unavailable_reason(
@@ -266,8 +302,9 @@ def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
 
     None when the estimate is WITHHELD — either because an input is missing (no
     profile, no logged weight, fewer than 3 resting-HR days) or because the inputs
-    are present but untrustworthy (RHR median outside Jurca's validated 40-100 bpm,
-    or a 7-day RHR MAD above 8 bpm). Nothing is written in either case: the note's
+    are present but untrustworthy (a logged weight too old to be this day's mass,
+    an RHR median outside Jurca's validated 40-100 bpm, or a 7-day RHR MAD above
+    8 bpm). Nothing is written in either case: the note's
     rule is "never write a wrong value", and the reason is logged so a withheld week
     is not silent. [[non_exercise_vo2max]].
     """
@@ -277,6 +314,8 @@ def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
         # weight is absent, so the note's "weight_kg is missing" case is withheld
         # here — the BMI division below can never see a missing mass.
         return _withheld(user_id, day, PROFILE_INCOMPLETE)
+    if reason := _profile_withhold_reason(prof, day):
+        return _withheld(user_id, day, reason)
     age = _age(prof["dob"], day)
     bmi = prof["weight_kg"] / ((prof["height_cm"] / 100) ** 2)
     rhrs = rhr_week(cur, user_id, day)
