@@ -63,8 +63,9 @@ that day" survives to the score, so it is the only one a window may take.
 
 [[caffeine_sleep]] (Established) and [[alcohol_sleep]] (Established) evidence the TIMING
 claim directly — caffeine at bedtime, 3 h *or 6 h* before bed measurably cuts total
-sleep time (Drake 2013); alcohol before bed fragments the second half of the night and
-drops overnight HRV 15–30 % (Ebrahim 2013, Pietilä 2018). That is what ``targets.py``
+sleep time (Drake 2013); alcohol before bed fragments the second half of the night
+(Ebrahim 2013) and lowers HRV during sleep dose-dependently (Pietilä 2018: RMSSD
+−2.0 / −5.7 / −12.9 ms at low / moderate / high dose). That is what ``targets.py``
 already records as the reason neither substance has a daily-TOTAL target: the notes are
 about dose **and timing**, not a daily total.
 

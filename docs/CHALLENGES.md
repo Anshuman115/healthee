@@ -779,7 +779,8 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
     0 and report a cap kept.
   - **The corpus supports the TIMING claim where it did not support a total.**
     `[caffeine_sleep]` and `[alcohol_sleep]` are **Established** on late intake (Drake
-    2013: 400 mg 6 h before bed ≈ 1 h of sleep; Ebrahim 2013 / Pietilä 2018: HRV −15–30 %),
+    2013: 400 mg 6 h before bed ≈ 1 h of sleep; Pietilä 2018: sleep RMSSD −2.0 / −5.7 /
+    −12.9 ms at low / moderate / high dose),
     which is exactly the dose-**and-timing** framing WP-C3c recorded as the reason
     neither substance has a daily-total target. What the corpus refuses to supply is a
     NUMBER — no safe late dose, and explicitly no universal cutoff hour

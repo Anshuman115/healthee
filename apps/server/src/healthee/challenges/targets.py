@@ -124,8 +124,9 @@ EVIDENCE_TARGET: dict[str, Target] = {
     # where the total half did not. [caffeine_sleep] (Established) evidences that caffeine
     # at bedtime, 3 h AND 6 h before bed measurably cuts total sleep time — ~1 h for
     # 400 mg at 6 h out (Drake 2013) — and [alcohol_sleep] (Established) that a drink
-    # before bed fragments the second half of the night and drops overnight HRV 15-30 %
-    # (Ebrahim 2013, Pietilä 2018). So a windowed challenge has a real, gradeable claim
+    # before bed fragments the second half of the night (Ebrahim 2013) and lowers HRV
+    # during sleep dose-dependently (Pietilä 2018: RMSSD -2.0 / -5.7 / -12.9 ms at low /
+    # moderate / high dose). So a windowed challenge has a real, gradeable claim
     # behind it, which is what Gate B needs and what a daily-total cap never had.
     #
     # What neither note supplies is a NUMBER: no safe late dose, and no universal cutoff
