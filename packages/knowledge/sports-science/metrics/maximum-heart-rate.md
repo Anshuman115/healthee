@@ -120,7 +120,7 @@ Cross-checks the coach must apply:
 - **D5:** Prefer a measured maximal test or threshold-anchored zones over %HRmax zones for Stage-3 / racing athletes. — confidence: **Probable**
 - **D6:** Do not interpret a flat or slightly declining HRmax over a training block as lost fitness — HRmax is not trainable. — confidence: **Established**
 - **D7:** For beginners and deconditioned / symptomatic runners, never prescribe targeting a specific HRmax; guide intensity by RPE / talk test and discover HRmax opportunistically. — confidence: **Established (safety)**
-- **D8:** Reject HR readings implying adult HRmax > ~220 bpm or showing > ~15–20 bpm/s jumps as sensor artefact before updating HRmax. — confidence: **Established (safety)**
+- **D8:** Reject HR readings implying adult HRmax > ~220 bpm or showing > ~15–20 bpm/s jumps as sensor artefact before updating HRmax. — confidence: **our engineering judgement, uncited — not Established, and not enforced in code.** *(This read "Established (safety)" until #98. The note's own Safety bounds say of these exact two numbers: "Neither figure has a citation. They are artefact-rejection engineering limits (our judgement), not physiology" and "not currently enforced anywhere". A reader of the directives block alone saw an Established safety guarantee that the same note calls a guess — and the directives block is what reaches the coach's prompt.)*
 - **D9:** If a rate-limiting medication (e.g. β-blocker) is flagged, disable formula HRmax / zone prescription and fall back to RPE / talk test. — confidence: **Established (safety)**
 - **D10:** Down-weight or discard HRmax candidates recorded under heat, dehydration, illness, altitude, or heavy stimulant use unless corroborated. — confidence: **Probable**
 

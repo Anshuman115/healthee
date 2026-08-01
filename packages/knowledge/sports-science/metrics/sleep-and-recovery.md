@@ -182,7 +182,8 @@ device "deep sleep minutes."
 ## How the coach uses it
 Decision logic, scaled by stage (Stage 1 beginner → Stage 3 racing):
 
-- **Target.** Default personal target 7.5–9 h; nudge toward the upper end during
+- **Target.** Default personal target 7–9 h (the NSF figure this note cites; #98);
+  nudge toward the upper end during
   heavy blocks and taper. The operative target is *individualised* from the
   runner's own alert-without-alarm duration, not a fixed number.
 - **One bad night.** A single short/poor night → keep the easy day, but **reduce
@@ -275,9 +276,12 @@ Decision logic, scaled by stage (Stage 1 beginner → Stage 3 racing):
 - Exact individual sleep-need thresholds — individualise from the runner's data.
 
 ## Coach Directives
-- **D1:** Set each runner a personal nightly sleep target (default 7.5–9 h);
-  individualise from their own alert-without-alarm duration over time. —
-  confidence: Established
+- **D1:** Set each runner a personal nightly sleep target (**default 7–9 h**);
+  individualise from their own alert-without-alarm duration over time. *(The default
+  read "7.5–9 h" here and under "How the coach uses it", while the note's evidence
+  section, its summary and its Bottom line all say **7–9 h** — the sourced US
+  National Sleep Foundation figure. The 7.5 lower bound had no source and no
+  explanation; it is aligned to the cited one, #98.)* — confidence: Established
 - **D2:** Never prescribe, endorse, or design plans that require habitual sleep
   restriction to accommodate training. — confidence: Established (safety)
 - **D3:** After a single severely short night (<~60% of target), keep easy work
