@@ -180,6 +180,13 @@
       "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
     },
     {
+      "applies_to_metrics": [],
+      "grade": "Probable",
+      "id": "hydration_everyday",
+      "name": "Everyday hydration (non-exercise)",
+      "summary": "The '8 glasses a day' rule has no scientific basis — a systematic search found 'no scientific studies in support of 8 x 8' (Valtin 2002) — and caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate."
+    },
+    {
       "applies_to_metrics": [
         "skin_temp_c",
         "respiratory_rate_sleep",
@@ -211,6 +218,16 @@
       "id": "lactate_threshold",
       "name": "Lactate Threshold (LT1, LT2, LTHR)",
       "summary": "The intensity where lactate accumulates; LT2/MLSS is the single best — and most trainable — endurance predictor, the central dial the coach turns."
+    },
+    {
+      "applies_to_metrics": [
+        "tst_min",
+        "sleep_health_score_4dim"
+      ],
+      "grade": "Contested",
+      "id": "late_eating_sleep",
+      "name": "Late eating and sleep",
+      "summary": "The popular rule 'stop eating three hours before bed' is not settled science. Observational work mostly finds worse sleep with late eating — but the association is modest and fragile (eating within 3 h of bedtime: nocturnal awakening OR 1.61 unadjusted, 1.43 [1.00-2.04] adjusted; sleep-onset latency and duration null), while the controlled experiment that moved dinner from 5 h to 1 h before bed found 'conventional sleep stages were similar' and no adverse change in sleep architecture. A 2024 Sleep Medicine Reviews scoping review states plainly that interventional studies conflict with the observational picture. Healthee logs no meals at all, so we can never say this happened to the owner."
     },
     {
       "applies_to_metrics": [],
@@ -288,6 +305,18 @@
       "id": "mvpa_weekly_plan",
       "name": "MVPA derivation & weekly-target plan",
       "summary": "The implementation of MVPA: classify each per-minute step count into moderate/vigorous by cadence (debounced), add non-walking logged workouts, aggregate to daily moderate_min/vigorous_min and weekly mvpa_min (moderate + 2×vigorous), and show it against the WHO 150-min target."
+    },
+    {
+      "applies_to_metrics": [
+        "tst_min",
+        "sleep_regularity_index",
+        "sleep_health_score_4dim",
+        "sleep_debt_min"
+      ],
+      "grade": "Probable",
+      "id": "napping",
+      "name": "Daytime napping",
+      "summary": "A 10–20 minute afternoon nap appears to restore alertness for roughly two hours, and naps of 30 minutes or more buy that back with sleep inertia — a period of *worse* performance on waking. Whether habitual napping is good or bad for long-term health is genuinely disputed: the same literature contains a 1.82 CVD rate ratio for naps ≥60 min/day and a 0.52 hazard ratio for napping once or twice a week. Our strap tags naps itself and they are excluded from every night-sleep metric by design, so a nap is visible to the coach as a session but changes no number."
     },
     {
       "applies_to_metrics": [
