@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -30,8 +31,18 @@ class _StatusError(Exception):
 
 
 @pytest.fixture
-def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    """A `/readyz` with the DB faked healthy, a key configured, and a fresh record."""
+def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[TestClient]:
+    """A `/readyz` with the DB faked healthy, a key configured, and a fresh record.
+
+    `chdir` first, for the reason `conftest._hermetic_settings_env` already documents:
+    `Settings.model_config` sets `env_file=".env"` resolved against the CWD, so a
+    `delenv` does NOT unset a field — the real `.env` in `apps/server/` supplies it
+    instead. `test_a_deployment_without_a_key_is_ready_not_broken` therefore passed in
+    CI and in every worktree (`.env` is gitignored, so neither has one) and failed only
+    on a developer machine. Making the fixture hermetic is what stops that being a
+    property of who ran the suite.
+    """
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(readiness, "db_ok", lambda: True)
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-a-secret")
     monkeypatch.setenv("DEFAULT_MODEL", "vendor/cheap")

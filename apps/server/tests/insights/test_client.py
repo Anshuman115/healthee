@@ -15,6 +15,7 @@ diagnostic and nobody reading logs learns the id.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -214,12 +215,18 @@ def test_repeated_402s_drive_the_record_to_down() -> None:
 
 def test_an_unset_key_is_a_config_fact_and_never_a_transport_failure(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """Running without the AI layer is a supported configuration, not an outage.
 
     `_client()` raises before any request exists, so counting it would report the
     transport as broken on a box that was deliberately never given a key.
     """
+    # `chdir` first: `Settings` reads `env_file=".env"` resolved against the CWD, so
+    # `delenv` alone does NOT unset the field — the real `apps/server/.env` supplies it,
+    # and this passed in CI and in worktrees (neither has one) while failing on a
+    # developer box. Same trap `conftest._hermetic_settings_env` documents.
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.setenv("POSTGRES_PASSWORD", "unit-test-pw")
     get_settings.cache_clear()

@@ -12,6 +12,7 @@ incident wrote into the logs for six hours.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -74,8 +75,15 @@ def test_the_key_is_sent_as_a_bearer_header_and_appears_nowhere_else(
     assert "test-key-not-a-secret" not in calls[0]["url"]
 
 
-def test_an_unconfigured_deployment_is_not_a_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unconfigured_deployment_is_not_a_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """No key ⇒ no AI layer by choice, which must not read as a broken one."""
+    # `chdir` first: `Settings` reads `env_file=".env"` resolved against the CWD, so
+    # `delenv` alone does NOT unset the field — the real `apps/server/.env` supplies it,
+    # and this passed in CI and in worktrees (neither has one) while failing on a
+    # developer box. Same trap `conftest._hermetic_settings_env` documents.
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.setenv("POSTGRES_PASSWORD", "unit-test-pw")
     get_settings.cache_clear()
