@@ -84,7 +84,11 @@ question/task
     impossible by design
   → retrieval: manifest-ranked — top-N FULL notes matched by
     metric/alias/keyword + one-line summaries of the remainder
-    (bounded tokens at any corpus size; replaces legacy dump-all)
+    (replaces legacy dump-all. It bounds the note COUNT, not the token
+    count: measured 2026-08-01, the same "top 6" ran 16k–34k tokens and
+    is 65–83% of every prompt the product sends — PRICING §3.1's box.
+    A note reaches the prompt through `manifest.prompt_body`, i.e.
+    minus its bibliography, which the model cannot cite)
   → LLM (tools allowed, §4)
   → hard OUTPUT GUARDRAILS (`insights/output_guard.py`) — BLOCKING, and checked
     BEFORE the validator on purpose: a documented forbidden output (personal

@@ -164,7 +164,53 @@ Our whole pitch is the inverse.
 ### 3.1 AI / LLM — the only real marginal cost
 
 All LLM goes through OpenRouter; default model **Gemini 3 Flash** ($0.50/M input,
-$3.00/M output). Assumptions per active user:
+$3.00/M output).
+
+> ### ⚠ MEASURED 2026-08-01 (task #23) — the per-call assumption below was ~4× low
+>
+> This section used to assume "~**8k input tokens** … and ~**700 output tokens** per
+> call". Both halves are wrong, in opposite directions, and the input half is the one
+> that matters. Every surface's real request was captured and replayed through
+> OpenRouter, so these are the **provider's own** `usage` counts, not an estimate:
+>
+> | Surface | input tok | output tok | tier |
+> |---|---|---|---|
+> | recs (nightly, JSON) | 33,426 | 543 | default |
+> | briefing (nightly) | 35,304 | 158 | default |
+> | daily action (nightly warm) | 33,780 | 93 | default |
+> | sleep-tonight (nightly warm) | 31,582 | 110 | default |
+> | sleep insight (on demand, cached/day) | 26,477 | 306 | default |
+> | metric insight (on demand, cached/day **per metric**) | 27,100 | 109 | default |
+> | coach — **per LLM call**, and a question is 3 typical / 22 worst | 33,446 | ~1,000–1,540 (≈99 % reasoning) | coach |
+>
+> **Input is 97–99 % of the tokens and ~85–95 % of the cost on every batch surface.**
+> Output is a rounding error: the daily-action line bills 33,780 in to produce 93 out.
+> Inside that input, **65–83 % is the EVIDENCE NOTES section** — the six full research
+> notes retrieval embeds. The owner's own data is 9–12 %; the system prompt and the
+> task together are under 2 %.
+>
+> What that does to the model above: **the nightly chain alone (4 calls) is
+> ~$2.09/premium owner/month**, against this section's ~$1.77 for *everything*. Add the
+> insight cards an engaged owner opens and the coach, and a premium owner is well past
+> the §6.1 planning line. A **free** owner's teaser measures ~**$0.34/month** (one coach
+> question ≈ $0.061 + one action reveal ≈ $0.021, both per 7 days) against §6.1's
+> −$0.05 optimized budget — ~7× over.
+>
+> Caveats, stated: measured on the test seed (a small owner), so the *context* block is
+> at the low end — the evidence block, which is the bulk, is owner-independent. The
+> coach tier's list price is not public here, so its $ figures use the Flash rate.
+> Two things were measured and are NOT levers: **implicit prompt caching fires on an
+> exact repeat of a whole payload, not on a shared prefix** (three A/B rounds: an owner
+> repeating themselves cached 40,925 of 42,132 tokens; two owners sharing 30k of
+> evidence cached nothing, in either message order) — so reordering the prompt to put
+> the stable corpus first buys nothing, and cross-owner corpus dedup would need an
+> explicit provider cache. And **~40 % of nightly generations end in the honest
+> fallback** on this seed (34/59 validated across a paired A/B), each having paid for a
+> full-context call *and* its nudged retry — so answer quality is a cost lever roughly
+> the size of the prompt itself.
+
+Assumptions per active user (the original planning model, kept for continuity — the
+box above is what to plan on now):
 
 - ~**9 grounded calls/day** batch (recs + one retry, briefing, notable, daily
   action, ~4 cached insight cards) + ~**20 coach turns/month** (typical).
@@ -292,6 +338,14 @@ Freemium math: **premium users pay, free users cost a little** (their weekly AI
 and **free-tier AI cost** — not the headline price.
 
 ### 6.1 Per-user unit economics (per month)
+
+> ⚠ **The two cost rows below are the un-measured planning figures.** §3.1's measured
+> box puts the nightly chain alone at ~$2.09/premium owner/month and a free owner's
+> teaser at ~$0.34 — i.e. the premium row is optimistic and the free row is ~7× under.
+> The tables here are deliberately NOT recomputed on the measurement: what to charge and
+> which levers to take are the owner's call, not a measurement's, and quietly rewriting
+> a P&L to match one night's numbers is how a doc ends up contradicting itself. Read
+> §3.1 for what a user costs; read this for the shape of the business.
 
 | | Planning (today) | Optimized (caching + Flash-Lite + Batch) |
 |---|---|---|
