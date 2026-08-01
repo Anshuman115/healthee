@@ -29,7 +29,18 @@ log = get_logger(__name__)
 # factual, reproducible output, not creative tails. See docs/PRICING.md §6 / task #23.
 DEFAULT_TEMPERATURE = 0.1
 DEFAULT_TOP_P = 0.9
-DEFAULT_MAX_TOKENS = 2000  # headroom so verbose/reasoning models aren't truncated mid-answer
+# A CEILING, not a spend: output is billed on tokens actually produced, so raising this
+# costs nothing until an answer genuinely needs the room.
+#
+# 2000 was measured to be too small, and the old comment ("headroom so verbose/reasoning
+# models aren't truncated") was wrong for the tier we actually run. A REASONING model
+# spends its thinking out of this SAME budget: measured on the coach tier, one ordinary
+# answer used 1068 completion tokens of which **892 were reasoning** — leaving ~180 for
+# the visible reply. Longer answers then stopped mid-citation, the validator's truncation
+# guard correctly refused them, and the coach shipped the honest fallback to ordinary
+# questions. The failure read as "can't ground that" when the real cause was "ran out of
+# room to finish the sentence".
+DEFAULT_MAX_TOKENS = 10_000
 
 
 def default_model() -> str:
@@ -135,7 +146,27 @@ class OpenRouterClient:
             kwargs["tools"] = tools
         if response_format is not None:
             kwargs["response_format"] = response_format
-        message = self._client().chat.completions.create(**kwargs).choices[0].message
+        choice = self._client().chat.completions.create(**kwargs).choices[0]
+        message = choice.message
+        # The API says outright when it stopped because it ran out of room. We used to
+        # drop the whole response object and keep only `.message`, so the ONLY signal
+        # left was the validator noticing an unclosed '[' downstream — a string
+        # heuristic standing in for a fact the transport already knew. A truncated
+        # answer is a transport problem wearing a grounding problem's clothes, and it
+        # cost a live debugging session to tell them apart. Log it loudly; the validator
+        # still refuses the text, but now the cause is in the logs at the point it
+        # happened rather than inferred three layers up.
+        # `getattr` with a default, not `choice.finish_reason`: not every provider (or
+        # test stub) sets it, and a missing stop-reason must not turn a good answer into
+        # an AttributeError. Absent ⇒ we simply don't know, which is not "truncated".
+        if getattr(choice, "finish_reason", None) == "length":
+            log.warning(
+                "llm answer TRUNCATED by max_tokens=%d (model=%s) — the answer stopped "
+                "mid-sentence; raise DEFAULT_MAX_TOKENS rather than reading this as a "
+                "grounding failure",
+                DEFAULT_MAX_TOKENS,
+                model,
+            )
         log.info("llm completion: model=%s tools=%d", model, len(tools or []))
         return ChatResponse(
             text=message.content or "", tool_calls=getattr(message, "tool_calls", None)
