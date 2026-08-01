@@ -207,9 +207,13 @@ a phase-based plan. Inputs are opt-in and runner-supplied:
   is a caution heuristic if EA is estimable, never a precise gate [Loucks 2003;
   Williams 2015; Mountjoy 2023].
 - **Daily metrics confound:** resting HR and HRV shift across the cycle (often
-  higher RHR / altered HRV in the luteal phase). `@daud/core` readiness logic must
-  treat cycle phase as a **known confounder** of these metrics, not over-react to a
-  single luteal-phase reading.
+  higher RHR / altered HRV in the luteal phase). Readiness logic must treat cycle phase
+  as a **known confounder** of these metrics, not over-react to a single luteal-phase
+  reading. (This said "`@daud/core` readiness logic must …" — a module that exists
+  nowhere in this repo, the legacy repo or git history. Healthee's readiness logic is
+  `derive/recovery.py` + `read/recovery_guidance.py`, and **neither knows about cycle
+  phase**: nothing is collected, so nothing adjusts for it. This is a rule for the coach,
+  not a code behaviour. Corrected 2026-08-01, #87.)
 
 No cycle metric here is ground truth; all are self-reported and individually
 calibrated.
@@ -290,7 +294,8 @@ Decision logic is **individualised and symptom-led**, by stage:
   individual. These are open questions, not settled science.
 
 ## Safety bounds
-Mirrored as guardrails in `@daud/core`; the AI may not override them:
+Hard limits the coach must respect. **One is partly enforced in code; the rest are not**
+— see the per-bullet note at the end of this section.
 
 - **Amenorrhea / new menstrual irregularity is a medical red flag.** For a
   non-HC runner, a missing or newly irregular cycle must trigger a REDs/health
@@ -308,6 +313,26 @@ Mirrored as guardrails in `@daud/core`; the AI may not override them:
   giving medical direction.
 - **No firm phase-based performance prescriptions.** The evidence does not support
   them [McNulty 2020]; the coach must not present cycle-syncing as proven.
+
+**What is actually enforced (#87, corrected 2026-08-01).** This section opened "Mirrored
+as guardrails in `@daud/core`; the AI may not override them" — `@daud/core` is a module
+that exists nowhere in this repo, in `~/projects/healthee-legacy`, or in git history; the
+phrase arrived with the upstream sports-science corpus import. The true position:
+
+- **The low-energy-availability bound is PARTLY enforced.**
+  `insights/output_guard.py`'s hand-compiled `advise_through_bone_stress_or_reds` blocks
+  an answer whose sentence mentions RED-S, low energy availability, relative energy
+  deficiency or bone stress *and* advises losing weight, eating less, cutting intake or
+  adding load. That covers the "never normalise under-fuelling as a performance tactic"
+  clause when those words are present; a sentence that normalises weight loss without
+  naming any of them does not fire. Separately, `insights/refusals.py` refuses a
+  *question* mentioning an eating disorder, anorexia or bulimia before the model runs.
+- **The amenorrhea red flag, the withdrawal-bleed rule, the stay-in-scope rule and the
+  no-phase-prescription rule are NOT enforced in code** — they are rules for the coach to
+  follow. Nothing in the tree keys on "amenorrhea" or on cycle phase. Only directives a
+  note declares `safety_critical` in its frontmatter compile into
+  `insights/guard_directives.py`, and this note declares none; D5 and D6 are candidates
+  for that mechanism, not users of it.
 
 ## Bottom line
 
@@ -351,7 +376,7 @@ Mirrored as guardrails in `@daud/core`; the AI may not override them:
   average; do not build a "natural cycle" plan for runners on combined OCPs. — confidence: Contested→Probable (trivial group effect) [Elliott-Sale 2020]
 - **D5:** Flag any missing or newly irregular menstruation in a non-HC runner as a
   REDs/health red flag; explain the energy-availability and bone-health link and
-  recommend clinician evaluation. Do not advise training through it. — confidence: Established (SAFETY-CRITICAL, mirrored as a `@daud/core` guardrail) [Mountjoy 2023; Loucks 2003]
+  recommend clinician evaluation. Do not advise training through it. — confidence: Established (SAFETY-CRITICAL; not enforced in code — see *Safety bounds*, #87) [Mountjoy 2023; Loucks 2003]
 - **D6:** Never prescribe, endorse, or normalise low energy availability or weight
   loss as a performance strategy; frame adequate fuelling as health- and
   performance-protective. — confidence: Established (SAFETY-CRITICAL) [Mountjoy 2023]
@@ -431,7 +456,8 @@ Mirrored as guardrails in `@daud/core`; the AI may not override them:
   altered HRV in the luteal phase). Readiness logic must treat cycle phase as a **known
   confounder** and not over-react to a single luteal-phase reading (D9) — this is the
   product's honesty stance for `recovery_readiness` / `heart_rate_variability` inputs.
-- **Safety-critical guardrails to mirror in code (not LLM-overridable):**
+- **Safety-critical guardrails that WOULD be worth mirroring in
+  code (see *Safety bounds* for what is and is not enforced today — #87):**
   - **Amenorrhea / new menstrual irregularity in a non-HC runner is a red flag** — surface
     it, explain the low-energy-availability & bone-health link, and recommend clinician
     evaluation; never frame it as a normal/desirable training sign (D5, SAFETY-CRITICAL).

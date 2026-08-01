@@ -234,7 +234,7 @@
       "grade": "Probable",
       "id": "llm_health_advice_safety",
       "name": "LLM health-advice safety guardrails",
-      "summary": "LLMs pass medical exams yet hallucinate confident-but-wrong medical content and miscalibrate uncertainty, so the recs layer only SYNTHESIZES the user's own findings into cited action items — never diagnoses, doses, interprets symptoms, or projects personal mortality — with every claim post-hoc validated against repo notes and mental-health emergencies routed to a static hotline. Safety-critical guardrails, mirrored in code."
+      "summary": "LLMs pass medical exams yet hallucinate confident-but-wrong medical content and miscalibrate uncertainty, so the recs layer only SYNTHESIZES the user's own findings into cited action items — never diagnoses, doses, interprets symptoms, or projects personal mortality — with every claim post-hoc validated against repo notes and mental-health emergencies classified BEFORE any model call and answered with a fixed refusal (which names a professional or physician — it carries no hotline number). The directives are safety-critical; SOME are genuinely enforced in code and some are not, and the note says which, item by item — do not read it as a blanket guarantee (#87)."
     },
     {
       "applies_to_metrics": [

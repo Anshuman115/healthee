@@ -174,11 +174,19 @@ Operating principle: **plan the recovery as deliberately as the work; make the g
 - **Where it plugs in:** the coach cites this note to justify inserting rest, spacing hard
   days, and reading recovery *clusters* rather than single readings; "recovery is when you
   adapt" and the easy–hard-polarity rule are design constraints for any generated plan.
-- **Safety directives to respect (mirror in code):** **never program ≥2 consecutive genuine
-  hard days** (D3, safety-critical); on an adverse **cluster** of recovery signals (multi-day
-  fatigue + performance decline + elevated RHR/suppressed HRV + mood/sleep disturbance)
-  **down-regulate load, insert recovery, and screen for illness/under-fuelling/RED-S** (D8) —
-  do not push through suspected NFOR/OTS.
+- **Safety directives to respect — NOT enforced in code:** **never program ≥2 consecutive
+  genuine hard days** (D3, safety-critical); on an adverse **cluster** of recovery signals
+  (multi-day fatigue + performance decline + elevated RHR/suppressed HRV + mood/sleep
+  disturbance) **down-regulate load, insert recovery, and screen for
+  illness/under-fuelling/RED-S** (D8) — do not push through suspected NFOR/OTS. This line
+  read "(mirror in code)", which an auditor could take as a claim that the mirror exists.
+  It does not: these are rules for the coach, not hard guardrails. Only directives a note
+  declares `safety_critical` in its frontmatter compile into
+  `insights/guard_directives.py`, and this note declares none — D3 and D8 are candidates
+  for that mechanism, not users of it. The one adjacent deterministic rule is narrower
+  than D8: `insights/output_guard.py` blocks an answer that advises loading up or
+  restricting intake in a sentence mentioning bone stress or RED-S. (Corrected
+  2026-08-01, #87.)
 - **Honesty rules (carry into UI + LLM):**
   - State **SAID and "recovery is when you adapt" plainly**; present **HRV-guided scheduling,
     ACWR thresholds, and the 10%/week cap as genuinely unsettled** (soft inputs, never

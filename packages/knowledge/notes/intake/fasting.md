@@ -148,8 +148,25 @@ day.
   hard-stops handled by the medical-refusal guardrails.
 - High-training-load or chronically short-sleeping users should treat a fast as an
   added stressor, not a recovery aid.
-Safety-critical directives below are mirrored as code guardrails and are never
-overridable by the LLM.
+**What is actually enforced (#87, corrected 2026-08-01).** These two lines read
+"Safety-critical directives below are mirrored as code guardrails and are never
+overridable by the LLM." That was a claim this note could not back: **this note declares
+no `safety_critical` directive in its frontmatter**, and only a declared marker compiles
+into `insights/guard_directives.py`. Two adjacent code paths do real work and neither is
+this note's:
+
+- `insights/refusals.py` refuses a **question** containing "eating disorder", "anorexi"
+  or "bulimi" to a static mental-health response before the model is ever called. That
+  covers the incoming half of Directive 4, not the outgoing half.
+- `insights/guard_directives.py` compiles [[late_eating_sleep]] D5 and blocks any
+  **answer** that prescribes an eating window, a fasting schedule, an eating cutoff or an
+  intake restriction — for every owner, not only at-risk ones. That covers much of
+  Directive 3 and the prescription half of Directive 4 in effect.
+
+Everything else in this section — the adolescent caution, the type-1 diabetes and
+low-energy-availability stops, the training-load caveat — is a rule for the coach to
+follow, not a guarantee. Directive 4 is a strong candidate for a `safety_critical`
+marker of its own.
 
 ## Honesty & uncertainty
 
@@ -220,4 +237,7 @@ anaerobic-power decrements; temperature and respiratory effects (thin evidence).
   win" contract applied to fasting.
 - No composite "fasting score" is derived; fasting only contextualizes existing
   metrics.
-- Directive 4 (eating-disorder safety) is a hard guardrail mirrored in code.
+- Directive 4 (eating-disorder safety) is **not compiled from this note** — this note
+  declares no `safety_critical` marker. Its incoming half is covered by
+  `insights/refusals.py` and its prescription half by [[late_eating_sleep]] D5 in
+  `insights/guard_directives.py`; see *Safety bounds*, #87.

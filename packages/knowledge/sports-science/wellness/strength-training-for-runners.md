@@ -270,9 +270,19 @@ properly dosed strength training does **not** harm body composition or VO₂max
 - **Pain that is sharp, joint-localised, or worsening is a stop-and-assess
   signal**, distinct from normal muscular soreness. Persistent or worsening pain
   warrants medical assessment, not progression.
-- No hard `@daud/core` numeric guardrail is mandated here (unlike, e.g.,
-  hyponatremia); the safety logic is progressive overload, technique, and not
-  overriding recovery/RED-S limits.
+- No numeric guardrail is mandated here (unlike, e.g., hyponatremia); the safety logic
+  is progressive overload, technique, and not overriding recovery/RED-S limits.
+- **Not enforced in code**, with one partial exception. The bounds above are rules for
+  the coach to follow. The exception is the RED-S clause: `insights/output_guard.py`'s
+  `advise_through_bone_stress_or_reds` blocks an answer whose sentence mentions RED-S,
+  low energy availability or bone stress *and* advises adding load, cutting intake or
+  losing weight. (This bullet read "No hard `@daud/core` numeric guardrail is mandated
+  here" — `@daud/core` is a module that exists nowhere in this repo, in
+  `~/projects/healthee-legacy`, or in git history; the phrase arrived with the upstream
+  sports-science corpus import, and its comparison to hyponatremia implied that note's
+  bound lived there too. It did not; hyponatremia is enforced through
+  [[hydration_everyday]] D5/D6 in `insights/guard_directives.py`. Corrected 2026-08-01,
+  #87.)
 
 ## Bottom line
 
@@ -418,5 +428,5 @@ properly dosed strength training does **not** harm body composition or VO₂max
   - **Progress load gradually, prioritise technique**, introduce plyometric volume
     conservatively (avoid stacking heavy impact on a **bone-stress history**), and treat
     **sharp/joint/worsening pain as stop-and-assess** — do not use strength to paper over
-    under-fuelling/RED-S (D11–D12, safety). No hard numeric `@daud/core` guardrail is mandated
-    here (unlike hyponatremia).
+    under-fuelling/RED-S (D11–D12, safety). No hard numeric guardrail is mandated here
+    (unlike hyponatremia, which *is* enforced — see *Safety bounds*, #87).

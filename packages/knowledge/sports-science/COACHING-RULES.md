@@ -19,7 +19,8 @@ How to read it:
 - **Confidence** tags mirror the source (Established / Probable / Emerging /
   Contested / Myth-corrected). The coach's phrasing must track this.
 - 🛑 **SAFETY-CRITICAL** marks rules that **ought to be** hard guardrails — the AI
-  must never override them. They are collected up front, then repeated in-theme for
+  must never override them. None of them is compiled into one yet (see the box below);
+  the marker is an intent, and the honesty of saying so is the point of #87. They are collected up front, then repeated in-theme for
   context. Everything else is advisory and individualised.
 
 ---
@@ -32,13 +33,18 @@ How to read it:
 > — not in this repo, not in `~/projects/healthee-legacy`, not in any dependency or
 > anywhere in git history. It is the upstream project this corpus was imported from.
 > Healthee's real enforcement is `apps/server/src/healthee/insights/output_guard.py`,
-> which blocks regardless of citations or validation — but its rule table is
-> **hand-compiled**: no note carries a `safety_critical` flag and the manifest emits
-> no `directives`, so **nothing below is automatically enforced by virtue of being
-> written here.** Engineering Standards §4 tracks closing that gap. Until it does,
-> read this section as *what the guardrails must be*, and check `output_guard.py` for
-> what they *are*. A rule that is genuinely load-bearing must be added there
-> deliberately, with a documented origin.
+> which blocks regardless of citations or validation, plus (since #87, 2026-08-01)
+> `insights/guard_directives.py`, which compiles a blocking rule from every note that
+> declares a directive `safety_critical` in its frontmatter — with a test asserting
+> the markers and the rules match in both directions.
+>
+> **That does not change what is enforced below.** No sports-science doc declares a
+> marker, so **nothing in this section is automatically enforced by virtue of being
+> written here.** Read it as *what the guardrails must be*, and check
+> `output_guard.py` + `guard_directives.py` for what they *are*. A rule that is
+> genuinely load-bearing gets added there deliberately, with a documented origin —
+> and if its home is a note directive, by marking that directive and writing its
+> pattern and its fire/no-fire tests in the same PR.
 
 These are the rules that protect the runner from harm. They **take precedence over
 any AI suggestion, plan, or "green" readiness/form score.**

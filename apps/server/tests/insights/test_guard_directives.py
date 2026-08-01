@@ -154,6 +154,11 @@ _ALLOWED: list[str] = [
     "EFSA's reference values are 2.5 L/day for men and 2.0 L/day for women, and those "
     "are total water including the water in food [hydration_everyday].",
     "A systematic search found no scientific studies in support of 8x8 [hydration_everyday].",
+    # hydration D5: the CORRECT answer to "how much should I drink on a hot run" must
+    # survive the rule aimed at the wrong one. If this ever fails, the guard has started
+    # eating the advice it exists to protect.
+    "During your long run in the heat, drink to thirst rather than to a schedule "
+    "[fueling_and_hydration].",
     # hydration: describing the hyponatraemia risk is the point, not a violation.
     "Drinking to a fixed schedule during a marathon is how exercise-associated "
     "hyponatraemia happens [fueling_and_hydration].",

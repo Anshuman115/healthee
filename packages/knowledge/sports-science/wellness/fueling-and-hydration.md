@@ -291,8 +291,8 @@ Decision logic, by **session duration** (the primary driver) and **stage**:
   personalised train-low dose.
 
 ## Safety bounds
-These are hard limits mirrored as guardrails in `@daud/core` and may not be
-overridden by the AI:
+These are hard limits the coach must respect. **The over-drinking bound is enforced in
+code; the rest are not** — see the per-bullet note at the end of this section.
 
 - **Never advise drinking beyond thirst / to a schedule that exceeds sweat
   losses.** Over-drinking is the proximate cause of exercise-associated
@@ -310,6 +310,29 @@ overridden by the AI:
   (RED-S).
 - **Do not introduce novel high-g/h fueling on race day.** Untrained high intake
   risks race-ending GI distress.
+
+**What is actually enforced (#87, corrected 2026-08-01).** This section opened "These
+are hard limits mirrored as guardrails in `@daud/core` and may not be overridden by the
+AI" — `@daud/core` is a module that exists nowhere in this repo, in
+`~/projects/healthee-legacy`, or in git history; the phrase arrived with the upstream
+sports-science corpus import. The true position:
+
+- **The over-drinking / EAH bound IS enforced**, though the compiled rule's declared
+  origin is a sibling note rather than this one. `[[hydration_everyday]]` marks its
+  Coach Directives 5 and 6 `safety_critical` in frontmatter, and
+  `insights/guard_directives.py` compiles them: any scheduled or volume-target fluid
+  instruction inside an exercise-or-heat sentence is blocked, and so is any fluid advice
+  at all in a sentence mentioning kidney/heart/liver disease, a diuretic or a prescribed
+  fluid restriction. That is exactly this note's "never advise drinking beyond thirst /
+  to a schedule", made deterministic. A regex catches phrasings, not every possible
+  phrasing.
+- **Everything else here is NOT enforced in code** — the sodium caveat, the
+  stop-and-seek-care rule for EAH/heat red flags, the ketogenic-restriction rule and the
+  race-day novelty rule are rules for the coach to follow. (`insights/refusals.py` does
+  refuse a *question* containing "faint", "passed out" or "loss of consciousness" before
+  the model runs, but it does not know the words "seizure", "confusion" or "vomiting",
+  so it is not a substitute for that bullet.) This note declares no `safety_critical`
+  directive of its own; D8 is a candidate for that mechanism, not a user of it.
 
 ## Bottom line
 
@@ -360,7 +383,7 @@ overridden by the AI:
 - **D7:** Default hydration instruction is "drink to thirst"; do not prescribe
   forced fluid schedules for general training. — confidence: Established
 - **D8:** Never advise drinking beyond thirst or in excess of sweat losses; flag
-  in-run weight gain as an exercise-associated-hyponatremia risk. — confidence: Established (SAFETY-CRITICAL, mirrored as a `@daud/core` guardrail)
+  in-run weight gain as an exercise-associated-hyponatremia risk. — confidence: Established (SAFETY-CRITICAL; enforced in code via [[hydration_everyday]] D5/D6 in `insights/guard_directives.py` — see *Safety bounds*, #87)
 - **D9:** Recommend sodium-containing fuel for long/hot efforts and self-reported
   salty/heavy sweaters, framed for comfort and palatability — not as a guaranteed
   EAH prophylactic. — confidence: Established
@@ -450,7 +473,8 @@ overridden by the AI:
   recommendation the coach generates from session duration/intensity — none is a Healthee
   `derived_daily` field today. Sweat rate = (pre-mass − post-mass + fluid ingested −
   urine)/hours is the only individualising fluid measurement, and it is noisy and opt-in.
-- **Safety-critical guardrails to mirror in code (not LLM-overridable):**
+- **Safety-critical guardrails that WOULD be worth mirroring in
+  code (see *Safety bounds* for what is and is not enforced today — #87):**
   - **Never advise drinking beyond thirst / in excess of sweat losses** — over-drinking is
     the proximate cause of exercise-associated **hyponatremia**, which can be fatal; in-run
     **weight gain is an EAH red flag** (D8, SAFETY-CRITICAL). **Sodium supplementation is not

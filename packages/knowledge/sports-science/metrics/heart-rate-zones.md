@@ -315,9 +315,17 @@ Decision logic, by stage:
   it, advise stopping/easing, and do not push the runner to "hit the zone."
 - **β-blockers and some other medications blunt HR**; HR zones are invalid under them —
   fall back to RPE/pace and advise medical guidance.
-- Hard safety bounds that gate prescriptions (e.g. blocking max tests for at-risk
-  profiles) are mirrored as guardrails in `@daud/core` and cannot be overridden by the
-  AI.
+- **Not enforced in code.** The bounds above — including the one that gates max-effort
+  field tests for at-risk profiles — are rules for the coach to follow, not guarantees.
+  (These three lines previously read "Hard safety bounds that gate prescriptions (e.g.
+  blocking max tests for at-risk profiles) are mirrored as guardrails in `@daud/core`
+  and cannot be overridden by the AI" — a module that exists nowhere in this repo, in
+  `~/projects/healthee-legacy`, or in git history; the phrase arrived with the upstream
+  sports-science corpus import, as this note's own provenance box above already records
+  for `@daud/core/zones.ts`. Only directives a note declares `safety_critical` in its
+  frontmatter compile into `insights/guard_directives.py`, and this note declares none —
+  these bounds are a candidate for that mechanism, not a user of it. Corrected
+  2026-08-01, #87.)
 
 ## Bottom line
 
@@ -379,7 +387,7 @@ Decision logic, by stage:
   illness, β-blockers, extreme stress/sleep loss) and fall back to RPE/pace. — confidence: Probable
 - **D11 (safety):** Do **not** prescribe maximal HR/threshold field tests to beginners
   or at-risk profiles; flag sustained near-max HR during easy running as a health red
-  flag. Mirrored as a `@daud/core` guardrail. — confidence: Established
+  flag. (Not enforced in code — see *Safety bounds*, #87.) — confidence: Established
 
 ## Key references
 - Tanaka, H., Monahan, K. D., & Seals, D. R. (2001). *Age-predicted maximal heart rate revisited.* Journal of the American College of Cardiology, 37(1), 153–156. https://doi.org/10.1016/S0735-1097(00)01054-8

@@ -227,6 +227,13 @@ By stage:
 - "Increase the dose to beat non-response" is bounded by the runner's recovery
   capacity and the acute:chronic load limits in the training-load doc; raise the
   stimulus *progressively*, not abruptly.
+- **Not enforced in code**, and neither are the bounds the bullet above defers to. The
+  load-ramp ceilings and pain/illness stop rules named there are rules the coach must
+  follow, written in `training-load-acwr`, `progressive-overload` and
+  `recovery_readiness` — not hard guardrails. Only directives a note declares
+  `safety_critical` in its frontmatter compile into `insights/guard_directives.py`, and
+  none of those notes declares any. (Corrected 2026-08-01, #87 — the phrase "hard safety
+  guardrails" here should not be read as a claim that code stops the AI.)
 
 ## Bottom line
 

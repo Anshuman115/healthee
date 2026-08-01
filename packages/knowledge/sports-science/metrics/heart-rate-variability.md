@@ -282,7 +282,14 @@ safety-adjacent rules apply:
   decline, or stalling performance [Bellenger 2016].
 - **A sudden, sustained, unexplained HRV collapse — especially with elevated resting HR, illness
   symptoms, or chest symptoms — is a stop-and-assess flag, not a training cue.** Defer to medical
-  guidance; do not prescribe intensity into it. (Mirrored as a wellness guardrail in `@daud/core`.)
+  guidance; do not prescribe intensity into it.
+- **Not enforced in code.** The rule above is a rule for the coach, not a guarantee.
+  (It previously ended "(Mirrored as a wellness guardrail in `@daud/core`.)" — a module
+  that exists nowhere in this repo, in `~/projects/healthee-legacy`, or in git history;
+  the phrase arrived with the upstream sports-science corpus import. Only directives a
+  note declares `safety_critical` in its frontmatter compile into
+  `insights/guard_directives.py`, and this note declares none — it is a candidate for
+  that mechanism, not a user of it. Corrected 2026-08-01, #87.)
 
 ## Bottom line
 

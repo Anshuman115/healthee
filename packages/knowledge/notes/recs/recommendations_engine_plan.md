@@ -256,14 +256,25 @@ Reuse `src/healthee/llm/validator.py` shape:
 
 ## Safety bounds
 
-- **SAFETY-CRITICAL:** the mental-health-emergency path bypasses the LLM entirely
-  and shows a static hotline card (`signal_source = 'safety_override'`). This is a
-  hard guardrail, not an LLM decision — see `llm_health_advice_safety`.
+- **SAFETY-CRITICAL:** the mental-health-emergency path bypasses the LLM entirely and
+  returns a static refusal. This is a hard guardrail, not an LLM decision — see
+  `llm_health_advice_safety`. **True as written**: `insights/refusals.py` classifies the
+  question first and `insights/grounded.py` returns the template without ever calling
+  the model. Two details in the old wording were wrong and are corrected here (#87,
+  2026-08-01): the response carries **no hotline number** (it names a mental-health
+  professional or physician), and **there is no `signal_source = 'safety_override'`
+  value** anywhere in the server — that string was legacy plan language.
 - Every recommendation must pass the citation validator; uncited claims are
-  dropped, never shipped.
+  dropped, never shipped. **True as written** — the choke point validates citations
+  before `jobs/recs.py` sees the payload, and `_shippable_rec` additionally drops any rec
+  missing an inline `[note_id]` or citing a note the manifest does not know.
 - No diagnosis / dosing / medication / supplement / clinical-test recommendations,
-  enforced by the keyword filter.
-- Kill switch `RECS_ENABLED=0` fully disables the engine and hides the card.
+  enforced by the keyword filter. **True as written** — `jobs/recs.py::_BANNED_RE`
+  (mg/dose/dosing/prescri/diagnos/symptom/medication/supplement/medicine/drug/pill/
+  tablet) drops the rec rather than retrying.
+- Kill switch `RECS_ENABLED=0` fully disables the engine and hides the card. **NOT
+  built** — no `RECS_ENABLED` setting exists in the server (#87, 2026-08-01). This is a
+  planned control, not a shipped one; do not rely on it.
 
 ## Honesty & uncertainty
 
@@ -278,8 +289,11 @@ Reuse `src/healthee/llm/validator.py` shape:
 ## Bottom line
 
 **Act on confidently:** ship a daily batch engine that grounds every claim in a
-repo note, caps at 1–3 progress-framed actions, tracks adoption, and routes all
-safety cases to hard guardrails.
+repo note, caps at 1–3 progress-framed actions, tracks adoption, and routes the
+safety cases it recognises — the emergency, mental-health, diagnosis, medication and
+pregnancy/pediatric domains of `insights/refusals.py` — to hard guardrails. That set is
+finite, not "all"; see `llm_health_advice_safety` *Safety bounds* for what is and is not
+enforced (#87).
 
 **Hold loosely:** the long-term efficacy of adopted-vs-dismissed recs, signal-
 strength tuning weights, and any UI/nav placement details — all revisable.

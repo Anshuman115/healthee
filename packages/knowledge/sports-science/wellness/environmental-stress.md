@@ -283,8 +283,9 @@ the defaults.
   benefit, and whether HA's cool-weather carry-over exists at all.
 
 ## Safety bounds
-These are hard limits the coach must respect; safety-critical ones are mirrored as
-guardrails in `@daud/core` and may not be overridden by the AI:
+These are hard limits the coach must respect. **One is enforced in code (the hydration
+one, and only via a sibling note); the rest are not** — see the per-bullet note at the
+end of this section.
 
 - **Exertional heat illness is a medical emergency.** Red-flag symptoms during/after
   hot exercise — confusion, disorientation, irritability, stumbling, collapse,
@@ -308,6 +309,27 @@ guardrails in `@daud/core` and may not be overridden by the AI:
 - **Screen iron before recommending altitude training.** Erythropoiesis requires
   adequate iron; iron-deficient athletes may not respond and can be harmed by the
   added demand.
+
+**What is actually enforced (#87, corrected 2026-08-01).** This section opened "These
+are hard limits the coach must respect; safety-critical ones are mirrored as guardrails
+in `@daud/core` and may not be overridden by the AI" — `@daud/core` is a module that
+exists nowhere in this repo, in `~/projects/healthee-legacy`, or in git history; the
+phrase arrived with the upstream sports-science corpus import. The true position:
+
+- **"Never coach drinking ahead of thirst, even in heat" IS enforced**, via a sibling
+  note rather than this one: `[[hydration_everyday]]` marks its Coach Directive 5
+  `safety_critical`, and `insights/guard_directives.py` compiles it into a rule that
+  blocks any scheduled or volume-target fluid instruction inside an exercise-or-heat
+  sentence — heat is one of that rule's subject triggers.
+- **The heat-illness stop-and-cool rule, the modify-or-cancel-in-dangerous-heat rule,
+  the altitude-illness rule and the iron-screening rule are NOT enforced in code.** They
+  are rules for the coach to follow. Nothing in the tree reads WBGT, temperature or
+  altitude, and `insights/refusals.py`'s emergency classifier does not know the words
+  "heat stroke", "confusion", "vomiting", "ataxia", "HAPE" or "HACE" — it catches
+  "faint", "passed out", "loss of consciousness", "can't breathe" and "sudden headache",
+  which overlaps these red flags only partly. Only directives a note declares
+  `safety_critical` in its frontmatter compile into `insights/guard_directives.py`, and
+  this note declares none; D11, D12 and D13 are strong candidates for that mechanism.
 
 ## Bottom line
 
@@ -366,7 +388,7 @@ guardrails in `@daud/core` and may not be overridden by the AI:
   confidence: Established (SAFETY-CRITICAL)
 - **D12:** On heat-illness red flags (confusion, collapse, disorientation, vomiting,
   altered behavior) during/after hot exercise, stop training advice and direct the
-  runner to immediate cooling and urgent medical care. — confidence: Established (SAFETY-CRITICAL, mirrored as a `@daud/core` guardrail)
+  runner to immediate cooling and urgent medical care. — confidence: Established (SAFETY-CRITICAL; not enforced in code — see *Safety bounds*, #87)
 - **D13:** On altitude-illness symptoms (worsening headache, severe breathlessness,
   confusion, ataxia), advise descent and medical care, not continued training. —
   confidence: Established (SAFETY-CRITICAL)
@@ -428,7 +450,8 @@ guardrails in `@daud/core` and may not be overridden by the AI:
   **mortality / cardiovascular** benefit in `sauna_cv_benefits` — same exposure (heat),
   different endpoint (performance-in-heat vs long-term CV/health). Do not conflate the two
   evidence bases.
-- **Safety-critical guardrails to mirror in code (not LLM-overridable):**
+- **Safety-critical guardrails that WOULD be worth mirroring in
+  code (see *Safety bounds* for what is and is not enforced today — #87):**
   - **Exertional heat illness is a medical emergency** — on red-flag symptoms (confusion,
     collapse, disorientation, vomiting, altered behavior) during/after hot exercise, **stop
     training advice and direct to immediate cooling + urgent medical care** (D12,

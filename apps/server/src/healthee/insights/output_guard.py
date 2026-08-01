@@ -17,9 +17,12 @@ silent swallow.
 ## Where the rules come from (the whole discipline)
 
 Every rule carries the doc/note line that forbids it in its ``source`` field. Nothing
-here is invented: an over-broad safety filter that eats honest cited science is its
-own harm, and this corpus is full of mortality-related notes whose *population*
-claims must keep flowing. A rule with no documented origin does not ship.
+here is invented (and note the weakness of a line number as provenance: two of these
+drifted the first time the notes they cite were edited, 2026-08-01 — prefer naming a
+directive or a section, which does not move): an over-broad safety filter that eats
+honest cited science is its own harm, and this corpus is full of mortality-related
+notes whose *population* claims must keep flowing. A rule with no documented origin
+does not ship.
 
 The table has two halves and they enter differently:
 
@@ -195,7 +198,7 @@ _DOCUMENTED_RULES: tuple[OutputRule, ...] = (
         source=(
             "KNOWLEDGE_RECONCILIATION.md:46 + TEMPLATE.md:79 'never show a death-risk "
             "number'; steps_mortality.md:115; sleep_duration_mortality.md:91; "
-            "resting-heart-rate.md:143 (D13); vo2max.md:507"
+            "resting-heart-rate.md:143 (D13); vo2max.md:513 (Safety bounds)"
         ),
         subject=_PERSONAL_RE,
         action=_DEATH_RISK_NUMBER_RE,
@@ -236,7 +239,7 @@ _DOCUMENTED_RULES: tuple[OutputRule, ...] = (
         name="advise_through_bone_stress_or_reds",
         source=(
             "INTELLIGENCE.md:49 'bone-stress / REDs hard stop'; COACHING-RULES.md rules "
-            "4, 5 and 11; injury-prevention.md:371"
+            "4, 5 and 11; injury-prevention.md D8/D9 (line ~397)"
         ),
         subject=_BONE_STRESS_REDS_RE,
         action=_LOAD_OR_RESTRICT_RE,

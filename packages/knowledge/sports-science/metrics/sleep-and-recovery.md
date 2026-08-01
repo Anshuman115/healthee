@@ -237,7 +237,20 @@ Decision logic, scaled by stage (Stage 1 beginner → Stage 3 racing):
 - Sudden, unexplained collapse in sleep quality alongside rising RHR, low mood
   and poor performance can indicate **overreaching/overtraining or illness** —
   escalate to a deload and, if persistent, recommend medical/professional review.
-  This is mirrored as a guardrail in `@daud/core`.
+- **Partly enforced in code — one bound of the three, and only one direction of it.**
+  "Never prescribe or encourage sleep restriction" IS a deterministic block: the
+  hand-compiled rule `advise_sleep_restriction` in
+  `apps/server/src/healthee/insights/output_guard.py` names this note's *Safety bounds*
+  bullet (`sleep-and-recovery.md:233`) as one of its origins and refuses to ship an
+  answer that advises cutting sleep to fit training. The deload/medical-review
+  escalation and the youth-sleep flag are **not** enforced anywhere — they are rules for
+  the coach to follow, not guarantees. (The
+  escalation bullet previously ended "This is mirrored as a guardrail in `@daud/core`" —
+  a module that exists nowhere in this repo, in `~/projects/healthee-legacy`, or in git
+  history; the phrase arrived with the upstream sports-science corpus import. Only
+  directives a note declares `safety_critical` in its frontmatter compile into
+  `insights/guard_directives.py`, and this note declares none. Corrected 2026-08-01,
+  #87.)
 
 ## Bottom line
 
@@ -348,7 +361,9 @@ sibling notes it cross-links.
 - **Ground-truth caveat (mirrored):** stage estimates (REM/deep/light) from consumer
   wrist devices are weak vs PSG (`wearable_sleep_stage_validity`); the coach weights
   **duration trends** far above device "deep sleep minutes."
-- **Safety guardrail (mirrored in code, `@daud/core` → Healthee guardrails):** never
-  prescribe or endorse habitual sleep restriction to fit training; treat persistent
-  severe short sleep as a flag to *reduce* load; escalate a sleep-collapse + rising
-  RHR + low mood + falling performance pattern to a deload / medical review.
+- **Safety guardrail (one clause enforced, the rest not — see *Safety bounds*, #87):**
+  never prescribe or endorse habitual sleep restriction to fit training — this clause,
+  and only this clause, is a deterministic block (`insights/output_guard.py`,
+  `advise_sleep_restriction`); treat persistent severe short sleep as a flag to *reduce*
+  load; escalate a sleep-collapse + rising RHR + low mood + falling performance pattern
+  to a deload / medical review — those two are coach rules, not enforced in code.

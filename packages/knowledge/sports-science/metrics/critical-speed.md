@@ -249,7 +249,7 @@ predictions, re-fit CS from those races.
 
 - **No supra-CS continuous prescription for beginners.** Stage 1 runners should not be
   sent on all-out CS field tests or sustained severe-domain efforts; estimate CS
-  conservatively from easy data. (Mirrored as a stage guardrail in `@daud/core`.)
+  conservatively from easy data.
 - **Treat CS as a ceiling, not a target, for long sustained efforts.** Because CS can sit
   slightly above MLSS, prescribe long tempo/threshold work *at or just below* estimated
   CS, never above, unless deliberately doing intervals.
@@ -258,6 +258,14 @@ predictions, re-fit CS from those races.
   recovery that allows D′ reconstitution.
 - Otherwise no hard physiological danger limits specific to this metric beyond general
   high-intensity-exercise and overtraining safeguards.
+- **Not enforced in code.** The bounds above are rules for the coach to follow, not
+  guarantees. (The beginner bullet previously ended "(Mirrored as a stage guardrail in
+  `@daud/core`.)" — a module that exists nowhere in this repo, in
+  `~/projects/healthee-legacy`, or in git history; the phrase arrived with the upstream
+  sports-science corpus import. Only directives a note declares `safety_critical` in its
+  frontmatter compile into `insights/guard_directives.py`, and this note declares none —
+  these bounds are a candidate for that mechanism, not a user of it. Corrected
+  2026-08-01, #87.)
 
 ## Bottom line
 
