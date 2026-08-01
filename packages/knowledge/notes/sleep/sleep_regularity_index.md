@@ -9,7 +9,7 @@ aliases: ["SRI", "sleep regularity index", "sleep regularity", "regularity score
 applies_to_metrics: ["sleep_regularity_index"]
 applies_to_interventions: ["sleep_consistency"]
 population: general
-last_reviewed: 2026-07-15
+last_reviewed: 2026-08-01
 related: ["sleep_consistency", "sleep_timing_chronotype", "sleep_health_score_multidim", "no_validated_sleep_score", "sleep_duration_mortality", "recovery_readiness"]
 tags: [sleep, regularity, mortality, cardiometabolic, sri]
 ---
@@ -91,8 +91,8 @@ not amount.
   exclusions/adjustments. Verbatim: *"Hazard ratios, relative to the median SRI, were
   1.53 (95% CI: 1.41, 1.66) for participants with SRI at the 5th percentile (SRI = 41)
   and 0.90 (95% CI: 0.81, 1.00) for those with SRI at the 95th percentile (SRI = 75)"*;
-  *"the median SRI was 60 (SD, 10)"*. These are the two anchors
-  [[biological_age_estimate]]'s regularity term interpolates between.
+  *"the median SRI was 60 (SD, 10)"*. These were the two anchors
+  [[biological_age_estimate]]'s regularity term interpolated between until #86 deleted it.
   *[citation corrected 2026-08-01 — this note previously attributed this paper to
   "Zheng et al." with n ≈ 72,000; there is no Zheng SRI paper in eLife. The n and title
   belonged to Chaput 2025 below, the journal/year/URL to Cribb.]*
@@ -100,7 +100,20 @@ not amount.
   PMID 39603689). Device-based, 72,269 UK Biobank adults, 8 y follow-up: *"Irregular
   (HR 1.26, 95% CI 1.16 to 1.37) and moderately irregular sleepers (HR 1.08, 95% CI
   1.01 to 1.70) were at higher risk of MACE compared with regular sleepers"*, with
-  irregular defined as SRI < 71.6 and regular as SRI > 87.3.
+  irregular defined as SRI < 71.6 and regular as SRI > 87.3. (`sleepreg` pipeline,
+  median SRI 80.8 — Windred's scale. The outcome is MACE, not all-cause mortality.)
+- **[Established]** **Czeisler et al. 2026** (Sleep 49(4):zsaf299, PMID 41001850) —
+  the methods paper that makes every SRI cutoff above provisional. >70 000 UK Biobank
+  adults scored by BOTH open-source calculators: *"SRI scores calculated by two widely
+  used open-source packages differed markedly, both in absolute and relative values.
+  Applied to prospective clinical outcome models for all-cause mortality, incident type 2
+  diabetes, and incident atrial fibrillation or atrial flutter, the method of calculation
+  alone meaningfully changed results and interpretations."* Its editorial (Cedernaes et
+  al. 2026, Sleep 49(4):zsaf289): *"only two-fifths of participants were classified into
+  the same sleep regularity index quintile"*; *"Using sleepreg, middle-aged participants
+  with the most irregular sleep patterns had a 1.19-fold higher adjusted hazard of death
+  … In contrast, no significant association was observed when the same data were analyzed
+  using GGIR."* *[abstract fetched and quoted verbatim 2026-08-01]*
 
 ## How we compute it
 
@@ -191,14 +204,37 @@ acute clinical signal; do not medicalise a single low week.
   - **`SRI_GOOD = 70` is on roughly the right scale** — it derives from Windred's
     least-regular boundary of 71.65, and our scale is Windred's + ~4. It is still a
     rounded-down import (see the implementation section), but the *scale* is sound.
-  - 🔴 **[[biological_age_estimate]]'s SRI 41/75 hazard anchors are NOT** — they are
-    Cribb's, ~21 points below our scale, and applying them to our values makes the
-    regularity term's penalty half unreachable, so it can only ever subtract years.
-    **That is a live wrong number in the flattering direction**; it is written up with
-    its magnitude in that note's Caveats, and fixing it is a science change owed its
-    own PR with known-value tests.
+    It survives the borrowing test below because it is a **coaching target**, and the
+    behaviour behind it ("keep sleep and wake inside a ~1 h band") is portable in a way
+    a hazard ratio is not.
+  - ✅ **[[biological_age_estimate]]'s SRI 41/75 hazard anchors were NOT, and the term
+    is gone** *(#86, 2026-08-01)*. They were Cribb's, ~21 points below our scale. The
+    fix was **removal, not re-scaling** — see the next bullet.
   Within one person, SRI *changes* remain trustworthy regardless — the scale offset is
   a constant, so a drop of 10 points is a drop of 10 points.
+
+- **An SRI hazard ratio is a property of the CALCULATOR, not of the index — and this is
+  now measured, not suspected** *(2026-08-01, #86)*. **Czeisler et al. 2026** scored the
+  same >70 000 UK Biobank adults with both standard SRI packages and found the scores
+  *"differed markedly, both in absolute and relative values"*, with *"only two-fifths of
+  participants … classified into the same sleep regularity index quintile"*; applied to
+  all-cause mortality, *"the method of calculation alone meaningfully changed results and
+  interpretations"* — *"a 1.19-fold higher adjusted hazard of death"* under `sleepreg`,
+  and *"no significant association … using GGIR"*, on the same people. Their response was
+  a 14-item reporting checklist (RIRI), **not a conversion between the pipelines; no such
+  conversion exists.**
+  Consequences we hold to:
+  - **No published SRI→risk figure may be applied to our values as a magnitude.** Ours is
+    a third pipeline (strap hypnogram, global Phillips, night-only), never run against an
+    outcome cohort. This is why the biological-age term was deleted rather than re-anchored
+    to Windred, whose hazards *are* near our scale but are quintile-MEMBERSHIP contrasts —
+    the least transportable quantity Czeisler measured. (Windred publishes no continuous
+    per-point hazard; its design is quintiles only.)
+  - **Any SRI citation must record which pipeline produced it and that paper's reported
+    median.** "Cites Windred 2021" is demonstrably not enough: a 2025 UK Biobank dementia
+    paper citing exactly that package reports a median of 72.9 against Chaput 2025's 80.8.
+  - **What IS portable** is the behaviour: the ~1-hour band, and within-person change.
+    Coach those; never convert an SRI into years.
 - SRI requires ≥7 days; with fewer consecutive-day pairs its variance is too high.
 - **What NOT to do:**
   - Do NOT combine SRI with a "sleep score" formula. The literature explicitly
@@ -217,6 +253,12 @@ band behavioural target.
 **Hold loosely:** exact HRs (observational, single-week, COI); the night-only
 deviation vs the canonical all-sleep definition; SRI computed on <7 days.
 
+**Do not act on at all:** any published SRI→risk magnitude applied to *our* numbers.
+Two standard calculators put only two in five of the same people in the same quintile
+and flipped the mortality finding (Czeisler 2026). Absolute SRI cutoffs borrowed from a
+paper are approximate coaching aids; SRI hazard ratios borrowed from a paper are not
+usable at all.
+
 ## Coach Directives
 
 1. Report SRI with its behavioural target (sleep/wake within ~1 h band, weekends
@@ -227,6 +269,10 @@ deviation vs the canonical all-sleep definition; SRI computed on <7 days.
    *(confidence: high)*
 4. Do not compute or report SRI from <7 days of data. *(confidence: high)*
 5. State it is night-sleep regularity (naps excluded by design). *(confidence: high)*
+6. **Never convert an SRI into risk, years, or a biological-age contribution.** The
+   published hazard figures belong to the software that scored the SRI (Czeisler 2026);
+   ours is a third pipeline. Coach the behaviour and the within-person change instead.
+   *(confidence: high)*
 
 ## References
 
@@ -249,6 +295,15 @@ deviation vs the canonical all-sleep definition; SRI computed on <7 days.
   Stamatakis E. *Sleep regularity and major adverse cardiovascular events: a
   device-based prospective study in 72 269 UK adults.* J Epidemiol Community Health
   79(4), 257–264 (2025). DOI 10.1136/jech-2024-222795. PMID 39603689.
+- Czeisler MÉ, Leota J, Le F, Campbell-Brown B, Rajaratnam SMW, Pase MP, Kramer DB.
+  *Comparison of Sleep Regularity Index scores calculated by open-source packages and
+  implications for outcomes research: rationale and design of the RIRI statement
+  (Reporting Items for Regularity Indices).* Sleep 49(4), zsaf299 (2026).
+  DOI 10.1093/sleep/zsaf299. PMID 41001850.
+  https://academic.oup.com/sleep/advance-article-abstract/doi/10.1093/sleep/zsaf299/8265987
+- Cedernaes J, Sielaff B, Benedict C. *Time to regularize sleep regularity* (editorial).
+  Sleep 49(4), zsaf289 (2026). DOI 10.1093/sleep/zsaf289.
+  https://academic.oup.com/sleep/article/49/4/zsaf289/8273793
 
 ## Healthee implementation & honesty policy
 
@@ -288,9 +343,10 @@ deviation vs the canonical all-sleep definition; SRI computed on <7 days.
   still in the database — no new schema, and it covers rows written before this
   existed. On `/api/sleep/consistency` (and the coach's `sleep_consistency` tool) the
   `sri` field is then `null`, paired with `sri_as_of_date`, and the value survives only
-  inside `sri_withheld` with its own date and age; in
-  [[biological_age_estimate]] the regularity term is required, so a stale SRI withholds
-  the whole composite rather than silently asserting a median-regularity sleeper. The
-  two reasons stay distinct because they ask different things of the owner:
+  inside `sri_withheld` with its own date and age. (Until #86 this gate also reached
+  [[biological_age_estimate]], where a stale SRI withheld the whole composite. That
+  consumer is gone — the biological age reads no SRI at all now — so
+  `/api/sleep/consistency` and the coach's `sleep_consistency` tool are the gate's only
+  callers.) The two reasons stay distinct because they ask different things of the owner:
   `sri_window_under_7_nights` ("wear the strap for the rest of the week") vs
   `not_derived_yet` ("sync").

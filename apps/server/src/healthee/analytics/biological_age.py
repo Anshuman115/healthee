@@ -7,20 +7,17 @@ breakdown. See [[biological_age_estimate]].
 
 The Gompertz coefficients, VO₂max medians, and hazard-ratio math are ported
 verbatim from legacy ``biological_age.py``. The seam fix is every read: the
-latest VO₂max, the 14-night average TST (from the ``sleep_health_score_4dim``
-flags), and the latest SRI all come from ``derived_daily`` instead of the
-``metric_sample`` view filtered on ``source='derived'``.
+latest VO₂max and the 14-night average TST (from the ``sleep_health_score_4dim``
+flags) both come from ``derived_daily`` instead of the ``metric_sample`` view
+filtered on ``source='derived'``.
 
 ## EVERY term is required, because a missing term is a claim (2026-07-31)
 
 Each ``_*_term`` read "the newest row" of its input, which is not the same claim as
 "today's value". ``derive/vo2max.py`` WITHHOLDS the Jurca estimate — writes no row — on a
-day its inputs cannot carry it; ``derive/sleep_score.py`` withholds an SRI whose 7-day
-window is short (Directive 4 of [[sleep_regularity_index]]: "Do not compute or report SRI
-from <7 days of data"). So one ``/api/today`` payload could say "we cannot tell you your
-VO₂max today" in the fitness card and, three keys away, spend a 40-day-old VO₂max as a
-current term of a headline number — and could spend a 90-day-old SRI, which is a valid
-statement about a week three months ago, as this week's regularity.
+day its inputs cannot carry it. So one ``/api/today`` payload could say "we cannot tell
+you your VO₂max today" in the fitness card and, three keys away, spend a 40-day-old
+VO₂max as a current term of a headline number.
 
 The fix is NOT a label. The composite is ``chrono + Σ ΔAge_i``, so a term that is simply
 left out is not an omission — it is the assertion ``HR_term = 1.0``, i.e. *this person
@@ -28,29 +25,54 @@ sits exactly on the reference for that lever*. That is a claim about them, and s
 making it moves the number by years on a day when nothing about the person changed. A
 composite that shifts because a term vanished is a different composite, not a partial one.
 
-**So all three terms are required**, and the rule is the note's own Stage-1 coach
-directive: "hold the number back ... until the VO₂max estimate and ≥14 nights of sleep
-exist". Without a current input for any term — withheld, never derived, or no recorded
-nights in the window — ``biological_age`` and ``delta_years`` are ``null``,
+**So every term of the definition is required**, and the rule is the note's own Stage-1
+coach directive: "hold the number back ... until the VO₂max estimate and ≥14 nights of
+sleep exist". Without a current input for any term — withheld, never derived, or no
+recorded nights in the window — ``biological_age`` and ``delta_years`` are ``null``,
 ``data_confidence`` is ``insufficient_data`` (the outcome ledger's vocabulary, as in
 ``read/vo2max.py``), and ``withheld.terms`` names EVERY absent term with its reason and
 what it would take. The terms that ARE current still ship in ``contributions``: each one is
 a standalone hazard→years fact from the note's table, and deleting them would withhold
 things we genuinely know.
 
-**Why regularity too, and not just fitness** (the question the first pass left open).
-Fitness earned "required" partly because the note calls it *dominant*, but dominance is
-why the composite is SENSITIVE to it — it is not why the omission is a lie. The omission
-is a lie at any size, and regularity's is not small: the Cribb anchors put its term
-between −1.2 y (SRI 75) and +4.7 y (SRI 41), and dropping it asserts SRI ≈ 68, the
-neutral point of that log-linear. For an irregular sleeper that silently subtracts nearly
-five years. Sleep duration is required by the identical argument (its absence asserts
-7 h/night), so the rule is stated once over all terms rather than per-term — a per-term
-policy is exactly the fork that produces a second definition (CLAUDE.md), and "which
-terms are important enough" is the question that produced the uncited ``IDEAL["sri"]``.
+The rule is stated once over all terms rather than per-term — a per-term policy is exactly
+the fork that produces a second definition (CLAUDE.md), and "which terms are important
+enough" is the question that produced the uncited ``IDEAL["sri"]``. It also covers both
+ways an input can be absent — stale and never derived — because "the composite silently
+assumes the reference" is the same defect either way.
 
-ONE rule also covers both ways an input can be absent — stale and never derived — because
-"the composite silently assumes the reference" is the same defect either way.
+## Sleep regularity is NOT a term, and never silently (2026-08-01, #86)
+
+Between 2026-07-31 and this change the definition had a THIRD term: SRI, log-interpolated
+through Cribb 2023's hazard anchors (41 → 1.53, 75 → 0.90). Those anchors are on Cribb's
+SRI scale — a pipeline whose UK Biobank median is 60 — and ours is not
+(``tests/derive/test_sri_scale.py``). Re-anchoring was the obvious repair and it is the
+one we refused, on primary-source evidence:
+
+- **Czeisler et al. 2026** (*Sleep* 49(4):zsaf299, PMID 41001850) scored >70 000 UK
+  Biobank adults with BOTH standard SRI calculators and reports that the scores
+  *"differed markedly, both in absolute and relative values"*, and that applied to
+  prospective models including all-cause mortality *"the method of calculation alone
+  meaningfully changed results and interpretations."* Its editorial (Cedernaes et al.,
+  *Sleep* 49(4):zsaf289) gives the size: *"only two-fifths of participants were classified
+  into the same sleep regularity index quintile"*, and under one calculator the most
+  irregular sleepers had *"a 1.19-fold higher adjusted hazard of death"* while *"no
+  significant association was observed when the same data were analyzed using GGIR."*
+- So an SRI→mortality hazard is a property of the SCORING PIPELINE, not of the index. Ours
+  is a third pipeline again (strap hypnogram, global Phillips, night-only by documented
+  design) and has never been run against any outcome cohort.
+- Windred 2024 does publish quintile hazards on a scale close to ours, but they are
+  quintile MEMBERSHIP contrasts, and quintile membership is precisely the quantity
+  Czeisler measured as non-transportable. It publishes no continuous per-point hazard.
+
+Unlike ml/kg/min and hours, an SRI point has no physical unit to carry a dose-response
+across pipelines. So the honest number of years regularity contributes here is *none we
+can compute*, and the estimate is now defined over fitness and sleep duration only.
+
+That absence is published, not silent: ``excluded`` is a permanent key of the payload
+naming the term and why. It is deliberately NOT ``withheld`` — withheld means "you could
+have this, here is what to do", and no owner action brings this one back.
+[[biological_age_estimate]], [[sleep_regularity_index]].
 """
 
 from __future__ import annotations
@@ -65,7 +87,6 @@ from psycopg.rows import TupleRow
 
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive.freshness import NO_NIGHTS_IN_WINDOW, NOT_DERIVED_YET
-from healthee.derive.sleep_score import SRI_MESSAGES, sri_unavailable_reason
 from healthee.derive.vo2max import WITHHOLD_MESSAGES, estimate_unavailable_reason
 
 # Age/sex population-median VO₂max (ml/kg/min), 10-year buckets.
@@ -78,16 +99,37 @@ _VO2MAX_MEDIAN_FEMALE = {20: 36.0, 30: 33.0, 40: 30.0, 50: 26.0, 60: 22.0, 70: 1
 GOMPERTZ_MRDT_YEARS = 7.7
 TERM_CAP_YEARS = 10.0  # no single noisy input can move age more than ±10 y
 
-# The three terms of [[biological_age_estimate]]'s table. The composite is defined over
-# all of them, so it cannot be computed without all of them — see the module docstring.
+# The terms of [[biological_age_estimate]]'s table. The composite is defined over all of
+# them, so it cannot be computed without all of them — see the module docstring.
 FITNESS_TERM = "fitness"
 SLEEP_DURATION_TERM = "sleep duration"
+
+# Not a term — the lever this estimate deliberately does not price, stated in the payload
+# so "biological age" cannot quietly change meaning between releases (#86). The reason id
+# says WHOSE fault the absence is: not the owner's data, the literature's units.
 REGULARITY_TERM = "regularity"
+SRI_HAZARD_NOT_TRANSPORTABLE = "sri_hazard_not_transportable"
+EXCLUDED_TERMS = [
+    {
+        "term": REGULARITY_TERM,
+        "reason": SRI_HAZARD_NOT_TRANSPORTABLE,
+        "message": (
+            "Sleep regularity is not one of the levers behind this number. Scored on the "
+            "same 70,000 people, the two standard Sleep Regularity Index calculators put "
+            "only two in five into the same fifth of the population, and one found a "
+            "mortality association where the other found none — so the published "
+            "risk-per-SRI-point belongs to the software, not to the index. Yours is "
+            "measured a third way again. You still get your regularity score and its "
+            "one-hour-band target on the sleep page; what we cannot honestly do is "
+            "convert it into years."
+        ),
+    }
+]
 
 # Why the whole estimate goes with any absent term, in the second person. The per-term
 # reason and its "here is what we'd need" message are the INPUT metric's own, reused
-# verbatim from ``derive/vo2max.WITHHOLD_MESSAGES`` / ``derive/sleep_score.SRI_MESSAGES``
-# so two surfaces cannot explain the same absence differently.
+# verbatim from ``derive/vo2max.WITHHOLD_MESSAGES``, so two surfaces cannot explain the
+# same absence differently.
 REQUIRED_TERMS_MESSAGE = (
     "Biological age is your chronological age plus each term's year contribution, so a "
     "term with no current value is not left out — it would silently assert you sit exactly "
@@ -151,13 +193,17 @@ def hazard_delta_years(hr: float) -> float:
 
 
 def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
-    """Gompertz hazard→years over one combined fitness term (VO₂max) + sleep
-    duration + SRI. Returns chronological/biological age + signed per-term year
-    contributions (+ = older, − = younger), or None without a profile/inputs.
+    """Gompertz hazard→years over one combined fitness term (VO₂max) + sleep duration.
+    Returns chronological/biological age + signed per-term year contributions
+    (+ = older, − = younger), or None without a profile/inputs.
 
     The composite is withheld — ``biological_age``/``delta_years`` null, with a
     ``withheld`` block naming every absent term — when any term has no CURRENT input,
-    because every term is required (module docstring)."""
+    because every term is required (module docstring).
+
+    Sleep regularity is NOT among the terms and never reaches this function: there is no
+    transportable SRI→hazard conversion for our scoring pipeline (module docstring, #86).
+    The payload says so in ``excluded`` rather than leaving the reader to notice."""
     cur.execute("SELECT dob, sex FROM profile WHERE user_id = %s", (user_id,))
     p = cur.fetchone()
     if not p or not p[0]:
@@ -186,7 +232,6 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     for delta, missing in (
         _fitness_term(cur, user_id, tz, today, chrono, sex, add),
         _sleep_duration_term(cur, user_id, tz, add),
-        _regularity_term(cur, user_id, tz, today, add),
     ):
         dage += delta
         if missing is not None:
@@ -217,6 +262,11 @@ def _estimate(chrono: int, dage: float, contribs: list[dict], absent: list[_Abse
             "terms": [{"term": a.term, "reason": a.reason, "message": a.message} for a in absent],
         },
         "contributions": contribs,
+        # Permanent, owner-independent, and NOT part of `withheld`: an excluded term is a
+        # limit of the evidence, not a gap in this owner's data, so it must not read as
+        # something syncing more would fix. A list because a second exclusion later must
+        # not change the shape of the payload.
+        "excluded": EXCLUDED_TERMS,
         "disclaimer": (
             "Motivational estimate from population data — not a clinical or diagnostic age."
         ),
@@ -287,46 +337,3 @@ def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> tuple[float, 
         unit="h/night",
         target="7–9",
     ), None
-
-
-def _regularity_term(
-    cur: Cur, user_id: UUID, tz: str, today: date, add
-) -> tuple[float, _Absent | None]:
-    """SRI — log-linear through Cribb 2023 anchors (41 → 1.53, 75 → 0.90).
-
-    🔴 KNOWN WRONG NUMBER, measured 2026-08-01 (#83c) — do not "tune" it here.
-    Cribb's anchors are on Cribb's SRI scale (its cohort median is 60); OUR SRI is on
-    Windred's scale (median 81.0), which ``tests/derive/test_sri_scale.py`` establishes
-    by driving ``_compute_sri`` over seeded sessions and recovering Windred's own
-    published quintile boundaries from Windred's own behavioural description of them.
-    Interpolating one scale's anchors against the other's values leaves this term's
-    ZERO at SRI 68.24 — which on our estimator is a sleeper moving bed and wake time
-    ~1.9 h at EACH end every night, worse than Windred's least-regular quintile. So the
-    penalty half is unreachable: every realistic owner gets an age-REDUCING
-    contribution, and anyone at SRI ≥ 75 is clamped to the maximum credit. The product
-    that promises never to flatter is, in this one term, flattering everybody by
-    roughly 2.5–3.5 years.
-
-    It is left as-is deliberately. Re-anchoring is a behaviour change in science code,
-    which CLAUDE.md makes its own PR with known-value tests, and the honest fix needs
-    our real SRI distribution measured on owner data — not a constant nudged until the
-    output looks right. Full write-up, with magnitudes and what was and was not
-    measured: [[biological_age_estimate]] §Caveats.
-
-    This query did not even SELECT the day before the class fix: the newest SRI row was
-    spent as the owner's current regularity however old it was, though an SRI *is* a
-    7-day window and a 90-day-old one describes a week 90 days ago. The freshness rule is
-    ``derive.sleep_score.sri_unavailable_reason`` — the same one ``/api/sleep/consistency``
-    applies — so the regularity card and this term cannot disagree."""
-    cur.execute(
-        "SELECT day, value FROM derived_daily WHERE user_id = %s "
-        "AND metric='sleep_regularity_index' ORDER BY day DESC LIMIT 1",
-        (user_id,),
-    )
-    qr = cur.fetchone()
-    reason = sri_unavailable_reason(cur, user_id, tz, today, qr[0] if qr else None)
-    if qr is None or reason is not None:
-        return 0.0, _absent(REGULARITY_TERM, reason, SRI_MESSAGES)
-    sri = float(qr[1])
-    ln_hr = max(math.log(0.90), min(math.log(1.53), 0.425 - 0.0156 * (sri - 41)))
-    return add(REGULARITY_TERM, math.exp(ln_hr), value=round(sri), unit="SRI", target="≥75"), None

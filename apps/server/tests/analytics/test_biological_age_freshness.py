@@ -3,8 +3,8 @@
 Each ``_*_term`` read "the newest row" of its input, which is a different claim from
 "today's value". So one ``/api/today`` payload could refuse to name a VO₂max in the
 fitness card and, three keys away, spend a 40-day-old one inside a headline composite;
-and it could spend a 90-day-old SRI — a valid statement about a week last quarter — as
-this week's regularity.
+(The SRI half of this class was live too, until #86 removed sleep regularity from the
+estimate's definition altogether — see ``test_biological_age_math``.)
 
 What these tests pin, and why each is a separate property:
 
@@ -18,9 +18,9 @@ What these tests pin, and why each is a separate property:
    hazard→years fact, and they carry the same values here as in the healthy case.
 4. **One rule for both absences** — never derived and derived-but-stale are the same
    state to a reader, so they get the same treatment with different *reasons*.
-5. **The rule is the same for EVERY term.** Fitness, regularity and sleep duration each
-   withhold the composite on their own, and two absent at once are BOTH named — naming
-   only the first would hide half the reason.
+5. **The rule is the same for EVERY term.** Fitness and sleep duration each withhold the
+   composite on their own, and two absent at once are BOTH named — naming only the first
+   would hide half the reason.
 6. **The two surfaces agree.** The strongest assertion in the file: on ONE cursor,
    ``vo2max_payload`` withholding and ``compute_biological_age`` withholding are the
    same event. This is what stops the two gates forking again.
@@ -37,7 +37,6 @@ from tests.analytics._bio_age_bed import (
     CHRONO_AGE,
     FITNESS_YEARS,
     NOISY,
-    REGULARITY_YEARS,
     SLEEP_YEARS,
     VO2MAX,
     absent,
@@ -66,7 +65,7 @@ pytestmark = pytest.mark.integration
 
 @pytest.mark.usefixtures("db")
 def test_a_current_vo2max_produces_the_full_composite() -> None:
-    """Today's estimate exists ⇒ all three terms, and the note's arithmetic."""
+    """Today's estimate exists ⇒ both terms, and the note's arithmetic."""
     today = user_today(SENTINEL_TZ)
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         reset(cur)
@@ -79,13 +78,12 @@ def test_a_current_vo2max_produces_the_full_composite() -> None:
     assert result["withheld"] is None
     assert result["chronological_age"] == CHRONO_AGE
     assert result["biological_age"] == pytest.approx(BIO_AGE)
-    assert result["delta_years"] == pytest.approx(0.6)
+    assert result["delta_years"] == pytest.approx(-1.2)
     by_term = terms(result)
-    assert set(by_term) == {"fitness", "sleep duration", "regularity"}
+    assert set(by_term) == {"fitness", "sleep duration"}
     assert by_term["fitness"]["delta_years"] == pytest.approx(FITNESS_YEARS)
     assert by_term["fitness"]["value"] == pytest.approx(VO2MAX)
     assert by_term["sleep duration"]["delta_years"] == pytest.approx(SLEEP_YEARS)
-    assert by_term["regularity"]["delta_years"] == pytest.approx(REGULARITY_YEARS)
 
 
 # ── 2 + 3 · a withheld today withholds the composite, not the honest terms ───
@@ -124,9 +122,9 @@ def test_a_withheld_vo2max_withholds_the_composite_and_says_why() -> None:
 
 @pytest.mark.usefixtures("db")
 def test_the_terms_that_are_current_survive_the_withhold_unchanged() -> None:
-    """Sleep and regularity are separately-sourced facts; withholding them too would
-    hide something we do know. Their year contributions are the SAME numbers the
-    healthy case asserts — the withhold removes a term, it does not perturb the rest.
+    """Sleep duration is a separately-sourced fact; withholding it too would hide
+    something we do know. Its year contribution is the SAME number the healthy case
+    asserts — the withhold removes a term, it does not perturb the rest.
     """
     today = user_today(SENTINEL_TZ)
     with tenant_transaction(SENTINEL_USER_ID) as cur:
@@ -138,12 +136,11 @@ def test_the_terms_that_are_current_survive_the_withhold_unchanged() -> None:
 
     assert result is not None
     by_term = terms(result)
-    assert set(by_term) == {"sleep duration", "regularity"}
+    assert set(by_term) == {"sleep duration"}
     assert by_term["sleep duration"]["delta_years"] == pytest.approx(SLEEP_YEARS)
-    assert by_term["regularity"]["delta_years"] == pytest.approx(REGULARITY_YEARS)
     # And the number that WOULD have shipped is not sitting in the payload under any
-    # name: 40 + 0.6 + 1.8 = 42.4 is the two-lever composite this test refuses.
-    assert 42.4 not in [v for v in result.values() if isinstance(v, float)]
+    # name: 40 + 0.6 = 40.6 is the one-lever composite this test refuses.
+    assert 40.6 not in [v for v in result.values() if isinstance(v, float)]
 
 
 # ── 4 · one rule, both absences, different reasons ───────────────────────────
@@ -174,9 +171,9 @@ def test_a_stale_row_deep_in_history_cannot_carry_todays_fitness_term() -> None:
 def test_no_vo2max_at_all_is_the_same_state_as_a_stale_one() -> None:
     """An owner who has never had an estimate gets the same treatment.
 
-    Before this change a first-time owner's composite shipped from two levers, which
-    is the identical unstated "assume median fitness" — the defect, arrived at from a
-    different direction. ONE rule (CLAUDE.md §ONE canonical definition).
+    Before this change a first-time owner's composite shipped from the remaining
+    lever(s), which is the identical unstated "assume median fitness" — the defect,
+    arrived at from a different direction. ONE rule (CLAUDE.md §ONE canonical definition).
     """
     today = user_today(SENTINEL_TZ)
     with tenant_transaction(SENTINEL_USER_ID) as cur:
@@ -187,7 +184,7 @@ def test_no_vo2max_at_all_is_the_same_state_as_a_stale_one() -> None:
     assert result is not None
     assert result["biological_age"] is None
     assert result["data_confidence"] == "insufficient_data"
-    assert set(terms(result)) == {"sleep duration", "regularity"}
+    assert set(terms(result)) == {"sleep duration"}
 
 
 @pytest.mark.usefixtures("db")
@@ -281,8 +278,8 @@ def test_a_weight_from_months_ago_withholds_the_whole_biological_age() -> None:
     assert result["delta_years"] is None
     assert result["data_confidence"] == "insufficient_data"
     assert absent(result) == {"fitness": WEIGHT_STALE}
-    # The two terms that never touched the weight are still reported as facts.
-    assert set(terms(result)) == {"sleep duration", "regularity"}
+    # The term that never touched the weight is still reported as a fact.
+    assert set(terms(result)) == {"sleep duration"}
 
 
 @pytest.mark.usefixtures("db")
