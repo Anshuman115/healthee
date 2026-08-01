@@ -70,9 +70,32 @@ points; regularity is a 7-day rolling property attached to each night.
 
 - **Cutoff**: TST in `[7.0, 9.0]` hours.
 - **Citation**: Cappuccio FP et al., *Sleep duration and all-cause mortality:
-  meta-analysis*, Sleep 2010;33(5):585-92. See `sleep_duration_mortality`. The
-  7–9 h band is the reference range with lowest mortality in 1.38 M participants
-  across 16 prospective cohorts.
+  meta-analysis*, Sleep 2010;33(5):585-92. See `sleep_duration_mortality`.
+- ⚠️ **OPEN — the citation is over-precise, and the corpus contradicts itself here**
+  *(flagged 2026-08-01, #81; NOT silently repaired, because the shipped SQL depends on
+  it).* This bullet used to end "The 7–9 h band is the reference range with lowest
+  mortality in 1.38 M participants across 16 prospective cohorts." Two problems:
+  1. **`sleep_duration_mortality` — the note that OWNS this concept — says 7–8 h**, in
+     six places, citing the same Cappuccio paper. Two notes, one source, two bands.
+     `no_validated_sleep_score` and `sleep_health_score_multidim` follow the 7–9 h
+     side; `sleep_timing_chronotype` follows 7–8 h. `biological_age_estimate` uses a
+     single-point **7 h** nadir (Yin 2017, a different paper — defensible, but it
+     makes three numeric definitions of "optimal sleep duration" in one corpus).
+  2. **Cappuccio 2010 does not state a single reference band.** Checked against the
+     published paper: the reference category **varied across the pooled cohorts**
+     (most commonly ~7 h, with others using 7–8 h, 7–9 h or 6–8 h), and short/long
+     were likewise defined per study (≤4/≤5/≤6/<7 h and >8/≥9/≥10/≥12 h). Pooled
+     RRs: short 1.12 (1.06–1.18), long 1.30 (1.22–1.38). So **neither "7–8 h" nor
+     "7–9 h" is Cappuccio's reference band** — both notes attribute a precision the
+     meta-analysis does not have.
+  The shipped cutoff (`BETWEEN 420 AND 540` = 7–9 h) is left **unchanged**: moving it
+  is a science change owed its own PR with known-value tests (CLAUDE.md), and 7–9 h is
+  in any case defensible on its own terms as **NSF 2015's recommended range for
+  18–64** — which is what `sleep_need_debt` already cites for exactly this band. The
+  honest repair is probably to re-attribute the 7–9 h cutoff to NSF 2015 and let
+  Cappuccio support only the U-shape, but that is a decision for the owner, not a
+  silent edit. **Do not "fix" this by changing one note to match the other** — that
+  would pick a winner without checking the source, which is how it happened.
 - **Why not Brindle 2019's 5h20–7h06**: that range is empirically derived in a
   432-person derivation cohort against cardiometabolic morbidity, not validated
   against mortality. Cappuccio's 7–9 h has orders of magnitude more evidence weight.

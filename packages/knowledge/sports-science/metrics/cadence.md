@@ -181,13 +181,24 @@ Cadence = steps per minute, from the watch/phone accelerometer or footpod
 - **Cadence vs. speed:** because cadence rises with pace, it is only interpretable
   *relative to the same runner at the same pace*. Never compare a runner's easy-run
   cadence to someone else's race cadence.
-- **Cadence fade (within-run split):** `@daud/core` owns `CadenceSplit`
-  (`firstHalfSpm`, `secondHalfSpm`) and the **`cadence-fade`** flag in `flags.ts`,
-  which fires when cadence drops more than **5%** from the first to second half of a
-  run (`CADENCE_FADE_FRACTION = 0.05`) — a fatigue/form signal, not an absolute
-  target.
+- **Cadence fade (within-run split):** a drop in cadence from the first to the second
+  half of a run is a fatigue/form signal, not an absolute target. **Healthee does not
+  compute this and there is no evidenced threshold for it.**
+  *[Provenance corrected 2026-08-01, #83b. This bullet used to read: "`@daud/core`
+  owns `CadenceSplit` (`firstHalfSpm`, `secondHalfSpm`) and the `cadence-fade` flag in
+  `flags.ts`, which fires when cadence drops more than **5%** … (`CADENCE_FADE_FRACTION
+  = 0.05`)". Every part of that is unopenable: `@daud/core` is the upstream project
+  this corpus was imported from and exists nowhere in this repo, in
+  `~/projects/healthee-legacy`, in any dependency, or in git history. The **5%
+  threshold carried no citation of any kind** — its sole stated authority was a named
+  constant in a named file in a package that cannot be inspected, which under this
+  repo's citations-real-or-absent rule makes it an unsourced number wearing the
+  costume of a sourced one. It is removed rather than reattributed: I could not find
+  a primary source for a 5% within-run cadence-fade threshold, and inventing a
+  replacement would repeat the defect. If cadence fade is ever implemented, the
+  threshold needs a source or an explicit "our judgement" label.]*
 
-There is **no absolute optimal-cadence formula** in core, by design — the
+There is **no absolute optimal-cadence formula**, by design — the
 individualised target is "the runner's own habitual cadence, optionally nudged
 +5–10%," refined from their data, not a fixed constant.
 

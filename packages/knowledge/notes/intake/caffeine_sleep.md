@@ -30,7 +30,15 @@ is worth learning per user.
 ## What it is
 
 Caffeine is an adenosine-receptor antagonist with a population elimination
-half-life of roughly **3–7 hours** (CYP1A2-genotype dependent). Because a dose
+half-life of roughly **3–7 hours** (CYP1A2-genotype dependent). *[Provenance
+checked 2026-08-01 (#81): this range carries no inline citation and neither listed
+reference (Drake 2013, Clark & Landolt 2017) states it — both are sleep-outcome
+studies, not pharmacokinetic ones. The figure is consistent with the PK literature
+(reported means cluster ~4–5 h with individual half-lives spanning roughly 2–14 h),
+so it is **retained as textbook pharmacokinetics, not as a sourced figure**, and
+should be replaced by a cited PK review or dropped. It is used only qualitatively —
+no threshold in this note or in code is computed from it; the 6-hour cutoff comes
+from Drake 2013's 0/3/6-hour design.]* Because a dose
 taken in the afternoon or evening is still substantially present at bedtime, its
 sleep-disrupting action is a function of **dose and time-before-bed**, not just
 whether it was consumed that day.

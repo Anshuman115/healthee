@@ -177,8 +177,15 @@ Decoupling % = (EF₁ − EF₂) / EF₁ × 100
 ```
 
 A positive value = EF fell from first to second half = HR drifted up relative to
-output. `@daud/core` classifies: `< 5%` → **strong-base**, `5–10%` → **moderate**,
-`> 10%` → **high**. Implementation note: garbage-in if the effort wasn't steady —
+output. The conventional classification is `< 5%` → **strong-base**, `5–10%` →
+**moderate**, `> 10%` → **high** — **TrainingPeaks/Friel practitioner convention, not
+a published finding**, which is how this note's own evidence and honesty sections
+already label it. *[Provenance corrected 2026-08-01, #83b: this sentence used to
+attribute the three bands to "`@daud/core` classifies", a module that exists nowhere
+in this repo, in `~/projects/healthee-legacy`, or in git history — so the bands read
+as code-sourced when they are practitioner folklore. The numbers are unchanged; only
+the false authority is removed. Healthee does not compute decoupling.]*
+Implementation note: garbage-in if the effort wasn't steady —
 the function should be fed (or restricted to) a sustained, single-intensity block
 with warm-up, surges, hills, and stops excluded, or the split is meaningless.
 

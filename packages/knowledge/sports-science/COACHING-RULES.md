@@ -18,18 +18,30 @@ How to read it:
   claims, not renumbered mechanically.
 - **Confidence** tags mirror the source (Established / Probable / Emerging /
   Contested / Myth-corrected). The coach's phrasing must track this.
-- 🛑 **SAFETY-CRITICAL** marks rules that must be **hard guardrails in `@daud/core`**
-  — the AI can *never* override them. They are collected up front, then repeated
-  in-theme for context. Everything else is advisory and individualised.
+- 🛑 **SAFETY-CRITICAL** marks rules that **ought to be** hard guardrails — the AI
+  must never override them. They are collected up front, then repeated in-theme for
+  context. Everything else is advisory and individualised.
 
 ---
 
-## 🛑 Safety-critical guardrails (hard, non-overridable in `@daud/core`)
+## 🛑 Safety-critical guardrails
 
-These are the rules that protect the runner from harm. They are mirrored as
-deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
-`validateMutation`) and **take precedence over any AI suggestion, plan, or
-"green" readiness/form score.**
+> ⚠️ **Enforcement status, stated honestly (#83b, 2026-08-01).** This section used to
+> say these rules "are mirrored as deterministic guardrails in `@daud/core`
+> (`guardrails.ts`, `flags.ts`, `validateMutation`)". **`@daud/core` does not exist**
+> — not in this repo, not in `~/projects/healthee-legacy`, not in any dependency or
+> anywhere in git history. It is the upstream project this corpus was imported from.
+> Healthee's real enforcement is `apps/server/src/healthee/insights/output_guard.py`,
+> which blocks regardless of citations or validation — but its rule table is
+> **hand-compiled**: no note carries a `safety_critical` flag and the manifest emits
+> no `directives`, so **nothing below is automatically enforced by virtue of being
+> written here.** Engineering Standards §4 tracks closing that gap. Until it does,
+> read this section as *what the guardrails must be*, and check `output_guard.py` for
+> what they *are*. A rule that is genuinely load-bearing must be added there
+> deliberately, with a documented origin.
+
+These are the rules that protect the runner from harm. They **take precedence over
+any AI suggestion, plan, or "green" readiness/form score.**
 
 1. 🛑 **Single-run distance spike cap.** Do not prescribe a run more than **~10%
    longer than the runner's longest run in the prior 30 days**; warn at **>30%**;
@@ -175,9 +187,14 @@ deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
 - 🛑 **Single-run spike cap & chronic-ceiling** — see Safety #1–#2. — `[progressive-overload D2]`,
   `[training-load-acwr D2/D3]`, `[fitness-fatigue-form D2]`.
 - **Deload regularly.** Insert a reduced-volume recovery/down week (~40–50% cut)
-  roughly **every 3–4 weeks** of progressive loading (more often for beginners), framed
-  as part of the plan — without claiming it boosts adaptation. — *Probable / Emerging* —
-  `[progressive-overload D5]`, `[periodization D7]`, `[specificity-and-recovery D5]`.
+  roughly **every ~3–5 weeks** of progressive loading (nearer 3 weeks for beginners),
+  framed as part of the plan — without claiming it boosts adaptation.
+  — *Emerging / practitioner consensus* — `[progressive-overload D5]` (which owns the
+  cadence and its provenance), `[periodization D7]`, `[specificity-and-recovery D5]`.
+  *(Corrected 2026-08-01, #81: this line said "every 3–4 weeks" at confidence
+  "Probable / Emerging" while citing D5, which says ~3–5 weeks at Emerging — a
+  synthesis that contradicted the directive it cited, and the sharpest instance of the
+  three-cadences defect.)*
 - **Sequence stress → recovery → next stimulus.** Recovery is *when adaptation happens* —
   program rest/easy days as deliberately as hard days, and never assume more stimulus
   alone produces more fitness. No ≥2 consecutive hard days (Safety #18). — *Established*

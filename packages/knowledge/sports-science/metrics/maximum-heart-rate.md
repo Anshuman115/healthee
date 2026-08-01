@@ -51,7 +51,13 @@ Because HRmax reflects pacemaker hardware rather than aerobic conditioning, it i
 - **[Established]** HRmax does not increase with training and is not a fitness metric. Across the cohorts above, HRmax was independent of activity status and VO₂max [Tanaka 2001; Nes 2013]. Endurance training improves stroke volume, cardiac output, and lactate dynamics — not the HR ceiling. A flat or slightly falling HRmax over a training block is normal and **must not** be read as lost fitness.
 
 ## How we compute it
-Owned by `estimateHrMax` in `@daud/core`. Priority order (highest-confidence source wins):
+*(Provenance, #83b: this line said "Owned by `estimateHrMax` in `@daud/core`" — a
+module that does not exist here. Healthee applies Tanaka in
+`apps/server/src/healthee/derive/cardio_load.py`, `derive/gps.py` and
+`derive/vo2max_submax.py`. The **storage fields named below — `hrMaxObserved`, a
+`measured` flag — do not exist in Healthee either**; the priority order is the
+corpus's coaching reference, not a description of a system.)*
+Priority order (highest-confidence source wins):
 
 1. **Lab/field-measured maximal test** — direct GXT or a validated maximal field test (e.g. a hilly 2 km all-out finish, or repeated near-maximal intervals). Highest confidence; zero formula error. Stored as `hrMaxObserved` with a `measured` flag.
 2. **Observed peak from real efforts** — the highest reliable HR seen in races, hard interval sessions, or hill repeats over a rolling window (e.g. last 6–12 months), after filtering sensor artefacts (see Safety / Honesty). The coach continuously ratchets the working HRmax *up* toward any new credible peak. Optical wrist-PPG peaks are treated with caution; chest-strap ECG peaks are trusted.
@@ -87,7 +93,7 @@ Cross-checks the coach must apply:
 
 ## Safety bounds
 - **Never prescribe efforts targeting a specific HRmax to beginners, deconditioned, symptomatic, or cardiac-risk runners.** Maximal exertion is the highest-risk moment in endurance training; HRmax discovery must be opportunistic and athlete-led, not coach-mandated, for these groups.
-- **Reject implausible HR readings before updating HRmax.** Hard bounds: ignore any single reading implying HRmax above ~220 bpm in adults, or any abrupt jump > ~15–20 bpm/second (sensor artefact). These bounds are mirrored as guardrails in `@daud/core`.
+- **Reject implausible HR readings before updating HRmax.** Hard bounds: ignore any single reading implying HRmax above ~220 bpm in adults, or any abrupt jump > ~15–20 bpm/second (sensor artefact). *[Provenance corrected 2026-08-01, #83b: this bullet ended "These bounds are mirrored as guardrails in `@daud/core`" — a module that exists nowhere in this repo, in `~/projects/healthee-legacy`, or in git history, and that was the **only** authority offered for the 220 bpm and 15–20 bpm/s numbers. Neither figure has a citation. They are **artefact-rejection engineering limits (our judgement), not physiology**, and they are labelled as such now rather than borrowing authority from unopenable code. They are also **not currently enforced anywhere**: Healthee's HR plausibility filtering lives in `apps/server/src/healthee/derive/` and `insights/output_guard.py` is hand-compiled from documented rules, so writing a bound here does not install it. If these are to be real guardrails they must be added deliberately, with a source or an explicit judgement label.]*
 - **β-blocker / rate-limiting medication flag:** if present, disable formula-based HRmax and zone prescription and fall back to RPE / talk test; surface this to the user.
 - **Symptom override:** chest pain, syncope, or disproportionate breathlessness at submaximal HR overrides any HR target — stop and advise medical review. Not a metric decision.
 

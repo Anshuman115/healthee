@@ -37,8 +37,9 @@ table surface, so no new UI component is required.
 ## Physiology / mechanism
 
 The mechanism is inherited from the intake notes: **caffeine** antagonises
-adenosine receptors and has a long half-life (~5–6 h, genotype-dependent via
-CYP1A2), so afternoon/evening doses still occupy receptors at bedtime, delaying
+adenosine receptors and has a long half-life (**~3–7 h** population range,
+genotype-dependent via CYP1A2 — `caffeine_sleep`'s figure, quoted rather than
+restated), so afternoon/evening doses still occupy receptors at bedtime, delaying
 onset and reducing deep sleep (`caffeine_sleep`); **alcohol** sedates onset but
 fragments the second half of the night and suppresses REM as it clears, and blunts
 overnight HRV (`alcohol_sleep`). Because both effects are dose- and timing-

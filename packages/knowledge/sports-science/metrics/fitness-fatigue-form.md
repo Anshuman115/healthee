@@ -229,7 +229,7 @@ result history.
   sparse and noisy, so the EWMAs are unreliable early; lean on subjective feel
   and simple weekly-volume caps instead.
 - **Stage 2 (developing):** Introduce CTL as a "fitness trend" and use TSB to time
-  recovery weeks (let TSB recover toward neutral every 3–4 weeks). Enforce the
+  recovery weeks (let TSB recover toward neutral every ~3–5 weeks [progressive-overload D5]). Enforce the
   CTL ramp-rate cap. Begin learning the runner's personal "fresh" TSB.
 - **Stage 3 (racing/trained):** Full PMC use — periodise CTL build → overload →
   taper, and plan the taper to land TSB in the runner's validated race band. This

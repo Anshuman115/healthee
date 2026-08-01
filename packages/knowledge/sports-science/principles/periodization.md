@@ -179,7 +179,7 @@ that fatigue was masking.
   overreaching/injury risk; experienced, monitored athletes only.
 - **Exact specificity-timing prescription.** Principle-derived (SAID) + consensus,
   not directly trial-tested as a timing rule.
-- **Recovery-week cadence and individual taper duration.** "Every 3–4 weeks" is
+- **Recovery-week cadence and individual taper duration.** "Every ~3–5 weeks" [progressive-overload D5] is
   reasonable consensus; individual taper optimum ranges 4 to >28 days — the
   population value is a prior, not a promise.
 
@@ -222,7 +222,7 @@ Implementation notes:
 
 - **Stage 2 (developing).** Introduce explicit phases: a base mesocycle, a build
   mesocycle adding threshold then VO₂max, and a genuine 7–14 day taper before a
-  goal event. Insert a recovery/down week roughly every 3–4 weeks. Use TSB to
+  goal event. Insert a recovery/down week roughly every ~3–5 weeks [progressive-overload D5]. Use TSB to
   confirm the taper is doing its job.
 
 - **Stage 3 (racing/competitive).** Full macrocycle with timed specificity:
@@ -315,8 +315,13 @@ Implementation notes:
   superior.** Default to a simple linear base→build→peak→taper with a hard/easy
   weekly rhythm; treat block/undulating as optional refinements, not upgrades.
   — confidence: Contested
-- **D7:** **Insert a recovery/down week roughly every 3–4 weeks** of progressive
-  loading to let fatigue dissipate (supercompensation). — confidence: Probable
+- **D7:** **Insert a recovery/down week at the cadence `progressive-overload` D5
+  defines (~3–5 weeks)** of progressive loading, to let fatigue dissipate
+  (supercompensation). D5 owns the number and its provenance; this directive does not
+  restate one. — confidence: **Emerging / practitioner consensus** *(was "Probable"
+  until 2026-08-01 (#81) — the same claim carried three different confidences and
+  three different cadences across the corpus. No study evidences a running deload
+  cadence; see D5.)*
 - **D8:** **Hard safety cap:** do not cut taper volume by more than ~60% and do
   not zero-out intensity; both reverse the taper benefit. — confidence:
   Established

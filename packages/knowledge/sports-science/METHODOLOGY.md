@@ -46,8 +46,15 @@ its language and confidence accordingly.
 2. **Grounding:** the AI must reason from the retrieved docs and may cite them.
 3. **Directives:** each doc's **Coach Directives** block is a list of explicit,
    machine-applicable rules — these are the operational output the engine and AI
-   honour. Safety-critical directives are mirrored as hard guardrails in
-   `@daud/core` and can never be overridden by the AI.
+   honour. *Upstream, safety-critical directives were said to be mirrored as hard
+   guardrails in `@daud/core`. **That is not true in Healthee** (#83b): `@daud/core`
+   does not exist here, and the enforcement that does exist —
+   `insights/output_guard.py` — is HAND-compiled. No note carries a `safety_critical`
+   flag and the manifest emits no `directives`, so a directive is not automatically
+   enforced anywhere. Treat every "mirrored as a guardrail" phrase in these docs as a
+   description of the upstream package, not of this system. Engineering Standards §4
+   tracks closing that gap; until it closes, a new hard guardrail is added to
+   `output_guard.py` deliberately, with a documented origin.*
 4. **Calibration:** the AI's confidence and phrasing track the evidence grade of
    the claim it is leaning on.
 
@@ -55,5 +62,9 @@ its language and confidence accordingly.
 
 - `last_reviewed` in frontmatter tracks freshness; science moves, so docs are
   living. Re-review when a major meta-analysis lands.
-- The master index (`README.md`) and `src/manifest.ts` are generated from the
-  docs — don't hand-edit them.
+- ~~The master index (`README.md`) and `src/manifest.ts` are generated from the
+  docs — don't hand-edit them.~~ **False here (#83b).** `src/manifest.ts` does not
+  exist in this repo; the generated index is `../manifest.json`, built by
+  `packages/knowledge/tools/gen_manifest.py` (`make knowledge`). `README.md` in this
+  directory is **hand-maintained** — believing this inherited line is what left the
+  readiness row pointing at a module nobody could open (see this package's README).

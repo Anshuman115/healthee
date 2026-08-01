@@ -39,6 +39,31 @@ doc's *overall* grade — individual claims inside a doc carry their own grade.
 > via `insights/manifest.py`, and the hard guardrails live in
 > `insights/output_guard.py`. Treat every `@daud/*` / `src/index.ts` reference below
 > as a description of the upstream package, not a path you can open.
+>
+> **Audit 2026-08-01 (#83b) — how far that disclaimer actually reaches.** `@daud/core`
+> was confirmed to exist nowhere: not in this repo, not in `~/projects/healthee-legacy`,
+> not in any `package.json`/`pyproject.toml`, and never in git history (the string
+> entered as prose). 96 references across 29 notes. Two consequences the
+> package-level disclaimer does NOT cover, because a retriever pulls one note's
+> section, not this README:
+>
+> 1. **Numbers whose only stated authority was the module.** Fixed in this pass:
+>    `cadence` (the 5% cadence-fade threshold and `CADENCE_FADE_FRACTION` — removed,
+>    no primary source found), `aerobic-decoupling` (the <5/5–10/>10% bands —
+>    relabelled TrainingPeaks practitioner convention), `heart-rate-zones` (the %HRR
+>    band table, half-open convention and sub-50% rule — relabelled convention; the
+>    Tanaka/Karvonen *formulas* were always properly cited), `maximum-heart-rate` (the
+>    ~220 bpm and 15–20 bpm/s artefact bounds — relabelled our engineering judgement).
+>    **Still unfixed:** `pace-zones` (the five speed-fraction band boundaries, sourced
+>    to `computePaceZones`), `training-stress-score` (the power→rTSS→hrTSS→sRPE
+>    preference order), `fitness-fatigue-form` (the 42/7-day time constants).
+> 2. **~24 notes assert enforcement that does not exist.** Every "mirrored as a hard
+>    guardrail in `@daud/core`, the AI may not override" line is false twice over:
+>    the module is fictional, AND `insights/output_guard.py` is hand-compiled — no
+>    note carries a `safety_critical` flag and the manifest emits no `directives`
+>    (Engineering Standards §4). `METHODOLOGY.md`, `TEMPLATE.md` and
+>    `COACHING-RULES.md` now say so at the top; **the ~24 individual note lines have
+>    not been rewritten.** They are the largest remaining item of this audit.
 
 ---
 

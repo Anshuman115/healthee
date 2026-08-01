@@ -225,7 +225,12 @@ Implementation notes:
   starting heuristic)** for most runners, but treat this as a soft default, not a
   safety law — the harder bound is on single-run spikes.
 - **Deload cadence:** insert a ~40–50% volume down-week roughly **every 3–5 weeks**
-  of progressive loading (individualised); not yet auto-scheduled.
+  of progressive loading (individualised); not yet auto-scheduled. **This is the ONE
+  canonical deload cadence for the whole corpus — D5 below owns it, and every other
+  note cross-references it rather than restating a number** *(reconciled 2026-08-01,
+  #81: it was previously stated as "3–5" here, "3–4" in five other places, and "4–6"
+  in this note's own evidence section — three numbers for one concept, which
+  CLAUDE.md forbids)*.
 - **One knob at a time:** the engine should avoid simultaneously increasing volume
   and intensity in the same microcycle.
 - All thresholds are **starting estimates to be overwritten by the individual's
@@ -239,7 +244,8 @@ Implementation notes:
   **frequency and consistency over volume jumps**; keep single-run increases
   small; use run/walk and easy effort. A conservative ~10%/week volume default is
   fine *as caution*, but the coach should be clear it is prudence, not a guarantee.
-  Deload more often (every ~3–4 weeks). Never stack volume + intensity.
+  Deload at the **tight end of the D5 cadence** (nearer 3 weeks than 5) — the same
+  range, not a competing one. Never stack volume + intensity.
 
 - **Stage 2 (developing).** Deliberate, structured overload: build volume in
   3–5 week blocks separated by down-weeks, then begin layering intensity once a
@@ -370,9 +376,20 @@ Implementation notes:
   protective; avoid acute load spiking far above the chronic base. — confidence:
   Established
 - **D5:** Insert a **deload/down-week (~40–50% volume cut, ~1 week) every ~3–5
-  weeks** of progressive loading (more often for beginners), for fatigue/injury
+  weeks** of progressive loading (nearer 3 weeks for beginners), for fatigue/injury
   management — without claiming it boosts adaptation. — confidence: Emerging /
-  practitioner consensus
+  practitioner consensus.
+  **D5 is the corpus's single definition of deload cadence.** `periodization` D7,
+  `specificity-and-recovery` D5, `fitness-fatigue-form` and `COACHING-RULES` all
+  point here; none of them states its own number.
+  *Provenance, stated plainly (#81): **the 3–5 week figure is not from a study.** The
+  only citation anywhere in the corpus for a deload cadence is [Bell 2023], which
+  reports **~4–6 weeks for ~5–7 days** from **coach interviews in strength/physique
+  sport** — a different population and a wider interval than we ship. The honest
+  reading is that no running-specific cadence is evidenced at all, which is why the
+  confidence is Emerging / practitioner consensus and why the coach must present it
+  as a default to be overwritten by the individual's response, never as a finding.
+  Do not upgrade this confidence without a running-population source.*
 - **D6:** Sequence **overload → recovery → next stimulus**; after a hard session
   allow adequate easy/recovery before the next quality effort (fitness–fatigue).
   — confidence: Established

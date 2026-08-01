@@ -180,7 +180,26 @@ content on the order of ~20–25% [Granata 2018; Mølmen 2025].
   [practitioner consensus; mechanism per San-Millán & Brooks 2018].
 
 ## How we compute it
-Owned by `@daud/core/zones.ts`.
+
+> **Provenance of the numbers in this section (corrected 2026-08-01, #83b).** This
+> section opened "Owned by `@daud/core/zones.ts`", and that module is the *only*
+> authority it gave for the %HRR band table, the half-open boundary convention, the
+> "below 50% HRR folds into Z1" rule, and the `"hrr-karvonen"` method tag.
+> **`@daud/core` does not exist** — not in this repo, not in
+> `~/projects/healthee-legacy`, not in any dependency or in git history; it is the
+> upstream project this corpus was imported from. Separate the two things it was
+> conflating:
+> - **The formulas ARE cited**: Tanaka 2001 for `208 − 0.7·age`, Karvonen for the
+>   %HRR reserve method. Those are unaffected.
+> - **The band cut-points, the half-open convention and the sub-50% rule are NOT
+>   cited by anyone.** They are a conventional 5-zone %HRR split (the same 50/60/70/
+>   80/90 boundaries appear in the Edwards zone table in `training-stress-score`), i.e.
+>   **practitioner convention chosen for consistency**, not a published finding. No
+>   paper is claimed for them, and none should be invented. The zone *model* being
+>   arbitrary-but-consistent is exactly what the Honesty section below already says.
+>
+> Healthee's real implementation is `apps/server/src/healthee/derive/cardio_load.py`
+> (which writes `hr_zone_minutes`), not a TypeScript module.
 
 - **HRmax** — `estimateHrMax(age) = 208 − 0.7·age` (Tanaka). A float internally,
   rounded only for display. Flagged as a **population estimate (±10–20 bpm)**; a

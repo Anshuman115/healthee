@@ -4,7 +4,7 @@ title: <Human Readable Title>
 category: cardiovascular | fitness | pace | form | load-recovery | principle | wellness | safety
 aliases: [<search synonyms the coach might retrieve on>]
 related: [<other-doc-name>, ...]   # cross-links to related docs
-metrics: [<@daud/core function or metric this maps to, if any>]
+metrics: [<Healthee derived_daily metric name(s) this backs — [] if not computed>]
 units: <e.g. bpm, ms, sec/km, %, AU — or n/a>
 evidence_overall: Established | Probable | Emerging | Contested
 last_reviewed: 2026-06-29
@@ -40,8 +40,13 @@ evidence is thin or mixed — do not inflate it.
   evidence is unsettled (small samples, conflicting trials, weak designs).
 
 ## How we compute it
-The formula(s), inputs, and units. Note which `@daud/core` function owns it (or
-"not yet computed"). Flag estimation error vs lab-measured ground truth.
+The formula(s), inputs, and units. Name the real owner in THIS repo — a module
+under `apps/server/src/healthee/derive/` — or write "not computed". **Never cite
+`@daud/core`**: it is the upstream project this corpus was imported from and it
+does not exist here or in `~/projects/healthee-legacy` (#83b). A number whose only
+stated authority is a module nobody can open is an uncited number, and this repo's
+rule is citations real-or-absent. If a figure came from the literature, cite the
+paper; if it is our judgement, say so.
 
 ## How the coach uses it
 The decision logic: thresholds, what action each reading drives, and how it
@@ -53,8 +58,13 @@ Confounders, individual variation, day-to-day noise, where the metric misleads,
 and what the science still doesn't know. This section is mandatory.
 
 ## Safety bounds
-Any hard limits the coach must respect (or "none"). Safety-critical bounds are
-mirrored as guardrails in `@daud/core`.
+Any hard limits the coach must respect (or "none"). **State the bound and its
+SOURCE; do not claim it is enforced.** Enforcement in this repo lives in
+`apps/server/src/healthee/insights/output_guard.py`, and its rules are currently
+HAND-compiled — no note carries a `safety_critical` flag and the manifest emits no
+directives, so writing "mirrored as a guardrail" in a note does not make it one
+(Engineering Standards §4). A note that asserts enforcement it does not have is
+worse than one that asserts none.
 
 ## Bottom line
 The honest conclusiveness verdict, split two ways so the coach knows what it can
