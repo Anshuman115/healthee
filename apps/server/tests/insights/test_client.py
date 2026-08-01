@@ -25,25 +25,28 @@ from healthee.insights.client import OpenRouterClient, tier_of
 
 
 class _FakeCompletions:
-    def __init__(self, finish_reason: str | None = None) -> None:
+    def __init__(self, finish_reason: str | None = None, usage: Any = None) -> None:
         self.kwargs: dict[str, Any] | None = None
         self._finish_reason = finish_reason
+        self._usage = usage
 
     def create(self, **kwargs: Any) -> Any:
         self.kwargs = kwargs
         message = SimpleNamespace(content="ok", tool_calls=None)
         choice = SimpleNamespace(message=message, finish_reason=self._finish_reason)
-        return SimpleNamespace(choices=[choice])
+        return SimpleNamespace(choices=[choice], usage=self._usage)
 
 
 class _FakeSDK:
-    def __init__(self, finish_reason: str | None = None) -> None:
-        self.chat = SimpleNamespace(completions=_FakeCompletions(finish_reason))
+    def __init__(self, finish_reason: str | None = None, usage: Any = None) -> None:
+        self.chat = SimpleNamespace(completions=_FakeCompletions(finish_reason, usage))
 
 
-def _client_with_fake(finish_reason: str | None = None) -> tuple[OpenRouterClient, _FakeSDK]:
+def _client_with_fake(
+    finish_reason: str | None = None, usage: Any = None
+) -> tuple[OpenRouterClient, _FakeSDK]:
     client = OpenRouterClient()
-    fake = _FakeSDK(finish_reason)
+    fake = _FakeSDK(finish_reason, usage)
     client._client = lambda: fake  # type: ignore[method-assign]  # inject the fake SDK
     return client, fake
 
@@ -109,6 +112,39 @@ def test_tier_of_distinguishes_the_two_configured_tiers(configured_models: None)
     """Operators need "which surface's model", and both tiers must be tellable apart."""
     assert tier_of(_SECRET_MODEL) == "coach"
     assert tier_of("vendor-x/cheap-tier-1") == "default"
+
+
+# ── provider-counted usage reaches the caller (the eval harness reads it) ────
+
+
+def test_the_providers_token_counts_are_carried_on_the_response() -> None:
+    """Including reasoning tokens — the field that made the max_tokens trap unreadable."""
+    usage = SimpleNamespace(
+        prompt_tokens=33_446,
+        completion_tokens=1068,
+        completion_tokens_details=SimpleNamespace(reasoning_tokens=892),
+    )
+    client, _ = _client_with_fake(usage=usage)
+    response = client.complete([{"role": "user", "content": "x"}])
+    assert response.usage is not None
+    assert response.usage.prompt_tokens == 33_446
+    assert response.usage.completion_tokens == 1068
+    assert response.usage.reasoning_tokens == 892
+
+
+def test_a_provider_that_reports_no_usage_is_unknown_not_zero() -> None:
+    """ "We don't know" and "it cost nothing" are different states (standards §Errors)."""
+    client, _ = _client_with_fake(usage=None)
+    assert client.complete([{"role": "user", "content": "x"}]).usage is None
+
+
+def test_a_usage_block_without_a_reasoning_breakdown_still_reports_what_it_has() -> None:
+    """Not every provider breaks reasoning out; a missing detail is 0, never a crash."""
+    usage = SimpleNamespace(prompt_tokens=100, completion_tokens=20)
+    client, _ = _client_with_fake(usage=usage)
+    response = client.complete([{"role": "user", "content": "x"}])
+    assert response.usage is not None
+    assert (response.usage.prompt_tokens, response.usage.reasoning_tokens) == (100, 0)
 
 
 def test_an_id_matching_neither_setting_is_reported_as_unconfigured(

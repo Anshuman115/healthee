@@ -85,15 +85,37 @@ _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 @dataclass(frozen=True)
+class Usage:
+    """Provider-COUNTED tokens for one completion — the measured number, not an estimate.
+
+    ``reasoning_tokens`` is carried separately because it is the field that made a live
+    bug unreadable: a reasoning model spends its thinking out of the same ``max_tokens``
+    budget as its visible answer, so 892 of 1068 completion tokens were invisible and the
+    coach's answers stopped mid-citation (VERIFICATION_2026_08_01 §6). That was diagnosed
+    by instrumenting this call by hand; keeping the number costs nothing and makes the
+    diagnosis repeatable — including by the grounding eval harness, which reads it
+    through an injected client to report what an answer actually cost.
+    """
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+
+
+@dataclass(frozen=True)
 class ChatResponse:
     """A single assistant turn: its text plus any tool calls it requested.
 
     ``tool_calls`` is the raw OpenAI-shaped list (or None); the coach tool-loop
     (WP5b) consumes it. Insight surfaces use only ``text``.
+
+    ``usage`` is None when the provider (or a test stub) reported none — "we don't know"
+    and "zero tokens" are different states and stay distinguishable.
     """
 
     text: str
     tool_calls: list[Any] | None = None
+    usage: Usage | None = None
 
 
 class LLMClient(Protocol):
@@ -174,7 +196,8 @@ class OpenRouterClient:
             kwargs["tools"] = tools
         if response_format is not None:
             kwargs["response_format"] = response_format
-        choice = self._client().chat.completions.create(**kwargs).choices[0]
+        raw = self._client().chat.completions.create(**kwargs)
+        choice = raw.choices[0]
         message = choice.message
         # The API says outright when it stopped because it ran out of room. We used to
         # drop the whole response object and keep only `.message`, so the ONLY signal
@@ -199,8 +222,29 @@ class OpenRouterClient:
         # is a place it reaches operators, log shippers and anyone with read access.
         log.info("llm completion: tier=%s tools=%d", tier_of(model), len(tools or []))
         return ChatResponse(
-            text=message.content or "", tool_calls=getattr(message, "tool_calls", None)
+            text=message.content or "",
+            tool_calls=getattr(message, "tool_calls", None),
+            usage=_usage(raw),
         )
+
+
+def _usage(raw: Any) -> Usage | None:
+    """The provider's own token counts, or None when it reported none.
+
+    Read defensively with ``getattr``: not every provider behind OpenRouter returns a
+    ``usage`` block, and none of them is required to break down reasoning tokens. A
+    missing count must never turn a good answer into an AttributeError — a cost figure
+    is diagnostic, an answer is the product.
+    """
+    usage = getattr(raw, "usage", None)
+    if usage is None:
+        return None
+    details = getattr(usage, "completion_tokens_details", None)
+    return Usage(
+        prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+        completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+        reasoning_tokens=getattr(details, "reasoning_tokens", 0) or 0,
+    )
 
 
 @lru_cache(maxsize=1)
