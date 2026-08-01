@@ -83,10 +83,15 @@ feeds those per-challenge "downstream" hints back into generation. A downstream 
 
 ### 2.2 Generated text bypasses grounding
 Legacy's `_validate` (:390) merely *drops* bad citations and ships anyway — a challenge can
-persist with **zero valid citations** in its `why`. **Fix:** all four LLM surfaces
-(challenge gen, program gen) route through the **grounded-ask choke point** (cite-or-refuse,
-blocking validator, grade-calibrated). Same bar as every other insight. Grade gate aligns
-to the corpus policy (not the looser `min_grade=2` legacy used only here).
+persist with **zero valid citations** in its `why`. **Fix:** **both** LLM surfaces in
+this track — challenge generation (`challenges/generate.py`) and program generation
+(`challenges/program_generate.py`) — route through the **grounded-ask choke point**
+(cite-or-refuse, blocking validator, grade-calibrated). Two, counted rather than
+estimated: the coach's `create_challenge` is the same door, not a third one, because it
+calls `generate.generate_challenges(intent=…)` rather than authoring anything itself
+(WP-C5), and the deload rung authors no prose at all — it copies the failed rung's
+grounded copy verbatim (WP-C4). Same bar as every other insight. Grade gate aligns to
+the corpus policy (not the looser `min_grade=2` legacy used only here).
 
 ### 2.3 Programs have no deload / failure / back-off (biggest program gap)
 Legacy's `_advance_program` (:1091) advances **forward only**, and a rung that **times out
