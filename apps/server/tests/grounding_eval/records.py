@@ -1,0 +1,117 @@
+"""One run's record, and the JSON file two arms are compared from.
+
+The file is the unit of comparison because the two arms are two checkouts of the code,
+not two settings inside it (see the package docstring). Everything needed to re-read a
+result months later is stored with it: the git commit, the question set's own fingerprint,
+and the timestamp — a comparison of two runs whose question sets differ is not a
+comparison, and ``compare`` refuses it rather than printing a number that looks fine.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import subprocess
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+
+from tests.grounding_eval.questions import EvalQuestion
+
+# What happened to one question, at the grain that decides whether the owner saw anything.
+GROUNDED = "grounded"  # validated text shipped
+FALLBACK = "fallback"  # failed its gates twice — paid twice, shipped the honest fallback
+REFUSED = "refused"  # a refusal template or a hard output guardrail
+ERROR = "error"  # the transport or the DB failed; NOT a grounding outcome
+
+
+@dataclass(frozen=True)
+class RunRecord:
+    """One question, one repeat, one outcome — the row every statistic is computed from."""
+
+    question_id: str
+    kind: str
+    surface: str
+    repeat: int
+    outcome: str
+    success: bool
+    # What the question asked the pipeline to do (``questions.ANSWER`` / ``REFUSAL``).
+    # Stored rather than re-derived, so a ship rate can never quietly pool a refusal
+    # floor into a quality rate if the question set is reorganised later.
+    expect: str = "answer"
+    citations: list[str] = field(default_factory=list)
+    top_notes: list[str] = field(default_factory=list)
+    llm_calls: int = 0
+    tool_rounds: int = 0
+    tools: list[str] = field(default_factory=list)
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+    unmetered_calls: int = 0
+    latency_ms: int = 0
+    error: str = ""
+
+
+@dataclass(frozen=True)
+class EvalRun:
+    """A whole arm: its provenance plus every record in it."""
+
+    label: str
+    commit: str
+    question_set: str
+    repeats: int
+    started_at: str
+    records: list[RunRecord]
+
+
+def question_set_fingerprint(questions: tuple[EvalQuestion, ...]) -> str:
+    """A short hash of the exact question TEXTS — the premise a comparison rests on.
+
+    Texts, not ids: renaming an id is cosmetic, editing a prompt is a different
+    experiment wearing the same name.
+    """
+    blob = "\n".join(f"{q.id} {q.text} {q.expect}" for q in questions)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
+
+
+def git_commit() -> str:
+    """The commit the arm ran at, or ``unknown`` — never a guess, never a crash."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    return out.stdout.strip() or "unknown"
+
+
+def new_run(label: str, questions: tuple[EvalQuestion, ...], repeats: int) -> EvalRun:
+    """An empty arm stamped with everything needed to interpret it later."""
+    return EvalRun(
+        label=label,
+        commit=git_commit(),
+        question_set=question_set_fingerprint(questions),
+        repeats=repeats,
+        started_at=datetime.now(tz=UTC).isoformat(timespec="seconds"),
+        records=[],
+    )
+
+
+def save(run: EvalRun, path: Path) -> None:
+    path.write_text(json.dumps(asdict(run), indent=2), encoding="utf-8")
+
+
+def load(path: Path) -> EvalRun:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return EvalRun(
+        label=raw["label"],
+        commit=raw["commit"],
+        question_set=raw["question_set"],
+        repeats=raw["repeats"],
+        started_at=raw["started_at"],
+        records=[RunRecord(**r) for r in raw["records"]],
+    )
