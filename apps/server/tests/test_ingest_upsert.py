@@ -102,7 +102,12 @@ def test_fresh_predicate_all_new_when_table_empty() -> None:
     assert is_fresh(a) is True and is_fresh(b) is True
 
 
-def test_weight_inserts_when_no_row_today() -> None:
+# The newest weight_log row as `upsert_weight` reads it: (ts, kg, is_today).
+def _weight_row(kg: float, *, today: bool) -> tuple:
+    return (datetime(2026, 6, 20, 7, tzinfo=UTC), kg, today)
+
+
+def test_weight_inserts_when_there_is_no_row_at_all() -> None:
     cur = FakeCursor(fetchone=[None])
     upsert_weight(cur, SENTINEL_USER_ID, SENTINEL_TZ, 72.5)  # type: ignore[arg-type]
     assert len(cur.executed) == 2  # SELECT + INSERT
@@ -111,15 +116,43 @@ def test_weight_inserts_when_no_row_today() -> None:
 
 
 def test_weight_skips_when_unchanged_today() -> None:
-    cur = FakeCursor(fetchone=[(datetime(2026, 6, 20, 7, tzinfo=UTC), 72.5)])
+    cur = FakeCursor(fetchone=[_weight_row(72.5, today=True)])
     upsert_weight(cur, SENTINEL_USER_ID, SENTINEL_TZ, 72.505)  # type: ignore[arg-type]  # <0.01 kg → no write
     assert len(cur.executed) == 1  # only the SELECT ran
 
 
 def test_weight_updates_when_changed_today() -> None:
-    ts = datetime(2026, 6, 20, 7, tzinfo=UTC)
-    cur = FakeCursor(fetchone=[(ts, 72.5)])
+    cur = FakeCursor(fetchone=[_weight_row(72.5, today=True)])
     upsert_weight(cur, SENTINEL_USER_ID, SENTINEL_TZ, 74.0)  # type: ignore[arg-type]
     assert len(cur.executed) == 2  # SELECT + UPDATE
     assert "UPDATE weight_log" in cur.executed[1][0]
-    assert cur.executed[1][1] == (74.0, SENTINEL_USER_ID, ts)
+    assert cur.executed[1][1] == (74.0, SENTINEL_USER_ID, datetime(2026, 6, 20, 7, tzinfo=UTC))
+
+
+# --- #85: an unchanged re-push must not reset the weight's age ---------------
+
+
+def test_an_unchanged_weight_from_an_earlier_day_writes_nothing() -> None:
+    """THE laundering case, and the reason any weight-freshness gate can work at all.
+
+    The app re-pushes its cached weight on every sync and `/api/profile` hands that
+    same weight back for a reinstall to restore, so an unchanged value arrives forever.
+    Dedupe only within the local day and each new day's first sync INSERTs it again at
+    `now()` — which is what the 2026-07-15 prod dump actually contains: 41 rows over six
+    weeks, all 79.9 kg but one, from an owner who weighed themselves about twice. The
+    weight can then never look older than a day, so `freshness.weight_is_stale` could
+    never fire and BMI → VO₂max → biological age would run on a mass from months ago.
+    """
+    cur = FakeCursor(fetchone=[_weight_row(79.9, today=False)])
+    upsert_weight(cur, SENTINEL_USER_ID, SENTINEL_TZ, 79.9)  # type: ignore[arg-type]
+    assert len(cur.executed) == 1  # SELECT only — no INSERT, so the age is preserved
+
+
+def test_a_changed_weight_from_an_earlier_day_still_inserts_a_new_row() -> None:
+    # The other half: a real new measurement is still a new row, dated now. Without
+    # this the "skip" above would be indistinguishable from dropping weight logging.
+    cur = FakeCursor(fetchone=[_weight_row(79.9, today=False)])
+    upsert_weight(cur, SENTINEL_USER_ID, SENTINEL_TZ, 78.4)  # type: ignore[arg-type]
+    assert len(cur.executed) == 2
+    assert "INSERT INTO weight_log" in cur.executed[1][0]
+    assert cur.executed[1][1] == (SENTINEL_USER_ID, 78.4)

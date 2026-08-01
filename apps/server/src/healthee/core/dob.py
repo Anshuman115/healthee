@@ -39,6 +39,21 @@ from zoneinfo import ZoneInfo
 # sleep need/debt, so an out-of-range value must be REJECTED, never stored.
 DOB_MIN_DATE = date(1900, 1, 1)
 
+
+class DobError(ValueError):
+    """A `dob` this contract cannot accept — always the CLIENT's error, never ours.
+
+    A subclass rather than a bare `ValueError` for exactly one reason: it is the only
+    thing that lets the HTTP layer answer 422 without a blanket `except ValueError`
+    around the ingest, which would relabel every genuine internal failure as a client
+    mistake. `api/app.py` registers the one handler; see `assert_plausible_dob` for the
+    gap it closes (#57).
+
+    It stays a `ValueError` so every existing caller and test that expects one — and
+    pydantic's field validator, which converts `ValueError` into a 422 — is unaffected.
+    """
+
+
 # No IANA zone shifts a calendar date by more than one day either way (the real
 # range is UTC-12..UTC+14). The HTTP-boundary check does not know the owner's
 # timezone, so it widens the bounds by this much and lets the canonical parse
@@ -101,10 +116,15 @@ def assert_plausible_dob(value: int | str) -> None:
     date is not knowable without the owner's zone, so the bounds widen by
     `_TZ_SLACK` here and `parse_dob` applies the exact test in the upsert once the
     owner IS known — one canonical test, not two. The cost is a one-day gap: a ms
-    dob implausible by less than a day (e.g. "tomorrow") passes here and raises
-    there, which is a 500 rather than a 422. Accepted deliberately — it is
-    unreachable from a date picker, and a loud error is the right failure for a
-    value we must never store.
+    dob implausible by less than a day (e.g. "tomorrow") passes here and raises in
+    the upsert instead.
+
+    That gap used to be a **500** (#57 — measured, not assumed: `_utc_ms(tomorrow)`
+    from an IST owner returns 500 today). The slack is not the bug — it is load-
+    bearing, because this gate cannot know the owner's zone and must not reject a
+    value that is fine once the real zone is applied. The bug was the STATUS: a
+    rejected client value reported as a server fault. `DobError` + the handler in
+    `api/app.py` make it the 422 it always was, wherever the exact test runs.
 
     The **ISO** path carries no instant and so has nothing to be ambiguous about:
     it gets the exact bounds right here, and always 422s. One more reason it is
@@ -121,7 +141,7 @@ def _ms_to_date(dob_ms: int, tz: str) -> date:
     try:
         return datetime.fromtimestamp(dob_ms / 1000, tz=ZoneInfo(tz)).date()
     except (ValueError, OverflowError, OSError) as exc:
-        raise ValueError(f"dob must be epoch milliseconds; {dob_ms} is out of range") from exc
+        raise DobError(f"dob must be epoch milliseconds; {dob_ms} is out of range") from exc
 
 
 def _iso_to_date(value: str) -> date:
@@ -134,7 +154,7 @@ def _iso_to_date(value: str) -> date:
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
-        raise ValueError(f"dob must be an ISO date (YYYY-MM-DD); {value!r} is not") from exc
+        raise DobError(f"dob must be an ISO date (YYYY-MM-DD); {value!r} is not") from exc
 
 
 def _reject_implausible(parsed: date, raw: int | str, *, slack: timedelta = timedelta(0)) -> date:
@@ -142,7 +162,7 @@ def _reject_implausible(parsed: date, raw: int | str, *, slack: timedelta = time
     boundary check; the canonical parse passes none."""
     today = datetime.now(UTC).date()
     if parsed < DOB_MIN_DATE - slack or parsed > today + slack:
-        raise ValueError(
+        raise DobError(
             f"dob must be epoch milliseconds or an ISO date between "
             f"{DOB_MIN_DATE.isoformat()} and today; {raw!r} parses to {parsed.isoformat()}"
         )

@@ -14,6 +14,12 @@ from uuid import UUID
 from healthee.analytics.baselines import compute_baseline_cur
 from healthee.core.tenancy import user_today
 from healthee.derive._common import Cur, _day_bounds_utc
+from healthee.derive.freshness import (
+    WEIGHT_STALE,
+    WEIGHT_STALE_MESSAGE,
+    weight_is_stale,
+    withheld_block,
+)
 from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.read.common import TodayReads, derived_series_many, latest_derived
 from healthee.read.meta import METRIC_META, TODAY_SECONDARY_METRICS
@@ -52,7 +58,7 @@ def _card_for(
 ) -> dict | None:
     for cand in candidates:
         picked = (
-            _weight_card(cur, user_id)
+            _weight_card(cur, user_id, tz)
             if cand == "weight_kg"
             else _derived_card(cur, user_id, tz, cand, reads)
         )
@@ -87,21 +93,44 @@ def _derived_card(
     }
 
 
-def _weight_card(cur: Cur, user_id: UUID) -> dict | None:
-    """Weight is stored in ``weight_log`` (not derived_daily); no derived baseline."""
-    cur.execute("SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1", (user_id,))
+def _weight_card(cur: Cur, user_id: UUID, tz: str) -> dict | None:
+    """Weight is stored in ``weight_log`` (not derived_daily); no derived baseline.
+
+    This card sat in the Today row beside steps and calories and rendered the newest
+    ``weight_log`` value with no date on it at all — so a weigh-in from March read as
+    "Weight 79.9 kg" in August, indistinguishable from a number measured this morning.
+    That is the stale-as-current class, on the page whose entire contract is *today*.
+
+    Two things change and both are needed. ``as_of_date`` always ships, so a weight that
+    is merely a few days old is still shown and is now dated. Past
+    ``freshness.WEIGHT_MAX_AGE_DAYS`` the ``value`` itself goes ``None`` and a
+    ``withheld`` block carries the last reading — because a date in a field the UI may
+    not render does not undo a confident current-looking number, which is the lesson
+    ``read/vo2max.py`` is written on.
+    """
+    cur.execute(
+        "SELECT kg, (ts AT TIME ZONE %s)::date FROM weight_log "
+        "WHERE user_id = %s ORDER BY ts DESC LIMIT 1",
+        (tz, user_id),
+    )
     r = cur.fetchone()
     if not r:
         return None
+    kg, as_of, today = float(r[0]), r[1], user_today(tz)
+    stale = weight_is_stale(as_of, today)
     meta = METRIC_META["weight_kg"]
     return {
         "metric": "weight_kg",
         "label": meta["label"],
-        "value": float(r[0]),
+        "value": None if stale else kg,
         "unit": meta["unit"],
         "median_30d": None,
         "z": None,
         "anomalous": False,
+        "as_of_date": as_of.isoformat(),
+        "withheld": withheld_block(WEIGHT_STALE, WEIGHT_STALE_MESSAGE, today, as_of, last_kg=kg)
+        if stale
+        else None,
     }
 
 

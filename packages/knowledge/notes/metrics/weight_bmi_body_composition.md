@@ -206,7 +206,8 @@ Opinion/review article, hence Probable, not Established).
 - **BMI** — `weight_kg / (height_cm/100)²`, computed inside
   `derive/vo2max.py` only, from the weight logged **on or before** the day being
   derived (`derive/_common.py::_weight_as_of`), so a new entry never rewrites
-  past days.
+  past days. That weight must be **within 14 days** of the day being derived, or
+  the VO₂max estimate is withheld outright — see "Freshness" below.
 - **Downstream** — BMI enters Jurca at `−0.17 METs per BMI unit`
   ([[non_exercise_vo2max]]), and weight enters Mifflin-St Jeor at `10 kcal/kg/day`
   ([[energy_expenditure_derivation]]). See the implementation section for what a
@@ -257,9 +258,20 @@ Opinion/review article, hence Probable, not Established).
   construction and its cadence is whatever the owner chose.
 - **Self-report is biased downward** (Connor Gorber 2007) and the magnitude is
   unpooled — so we cannot correct for it, only name it.
-- **Stale weight is used as current weight.** `_weight_as_of` falls back to the
-  most recent entry on or before the day, with **no age limit**: a weight logged
-  a year ago silently anchors today's BMR and BMI. Nothing flags this today.
+- **Stale weight is no longer used as current weight for BMI — but it still is
+  for BMR.** Since 2026-08-01 a weight more than 14 days from the day being
+  computed withholds the VO₂max estimate (and therefore the biological age)
+  rather than anchoring it. `derive/energy.py` is deliberately unchanged: a
+  kilogram of weight error is ~10 kcal/day of BMR, far inside the MET model's own
+  error, and refusing a whole day's calorie total over it would be a refusal no
+  evidence asked for. So a calorie number can still rest on an old weight, and
+  the coach must not describe it as if the weight behind it were fresh.
+- **The 14-day horizon is a judgement, not a finding.** No study we could verify
+  says when a weight stops describing a person. It is anchored to the longest
+  elapsed interval for which this note holds a *measured* drift figure (Bhutani
+  2017's two weeks, where the drift is smaller than the weigh-in noise floor);
+  past that we have no number, and the product's rule at the edge of the evidence
+  is to refuse. Widening it needs evidence, not a product argument.
 - **Every fluctuation cohort we verified was male.** Cheuvront: 65 men. Kutáč:
   86 men. Schneditz: one man. Bhutani's combined cohort included women but
   reports composition, not a daily-variability figure. We therefore state the
@@ -330,11 +342,13 @@ not the window.
    index". Reinforced by `docs/COACH_PROMPT.md` ("Meet the person where they
    are"). *(confidence: moderate — the stigma evidence is an opinion review;
    the self-weighing harm is a single small RCT)*
-6. **Say plainly that our weight is self-reported, manually logged and possibly
-   stale, whenever weight is used to justify anything.** Origin: Connor Gorber
-   et al. 2007 (self-report under-reports weight, magnitude unpooled) and this
-   note's implementation section (`_weight_as_of` has no age limit).
-   *(confidence: high)*
+6. **Say plainly that our weight is self-reported and manually logged whenever
+   weight is used to justify anything — and name its date when it has one.**
+   Origin: Connor Gorber et al. 2007 (self-report under-reports weight, magnitude
+   unpooled). Since #85 the payloads carry `as_of_date`, so "your weight" is
+   always sayable as "the 79.9 kg you logged on the 4th". A weight-derived number
+   that survives the freshness gate is still not a fresh *measurement*: calories
+   in particular can rest on a weight up to a year old. *(confidence: high)*
 7. **When comparing weight over time, compare rolling means at least two weeks
    apart, never endpoints.** *(confidence: Emerging / practitioner consensus —
    derived from the sourced noise floor (Cheuvront 2004; Kutáč 2015; Bhutani's
@@ -432,7 +446,9 @@ not the window.
   surfaces the single latest logged value with `median_30d: None`, `z: None`,
   `anomalous: False` — there is no baseline, no trend and no rolling mean for
   weight anywhere in the server today. Until one exists, **the coach must not
-  speak about a weight trend as if the product computed one.**
+  speak about a weight trend as if the product computed one.** The card now also
+  carries `as_of_date`, and past 14 days its `value` is `null` with a `withheld`
+  block holding the last reading.
 - **Three models consume weight, and each inherits its error:**
   - `derive/vo2max.py` — BMI at **−0.17 METs per BMI unit** (×3.5 →
     ≈ −0.6 mL/kg/min per BMI unit). *Our arithmetic, not a cited figure*: at
@@ -445,12 +461,28 @@ not the window.
     *Our arithmetic from the code constant.*
   - [[biological_age_estimate]] — indirectly, because `vo2max_estimate` is its
     dominant term. A weight error propagates two models deep.
-- **Freshness is unguarded.** `derive/_common.py::_weight_as_of` takes the most
-  recent entry on or before the derived day with **no maximum age**, falling
-  back to the *earliest* logged weight for days before the first entry. A weight
-  from a year ago is used as today's weight, silently. This is the
-  stale-as-current class; it is **not** currently mitigated, and the coach must
-  not present a weight-derived number as if the weight behind it were current.
+- **Freshness (fixed 2026-08-01, #85).** `derive/_common.py::_weight_as_of` takes
+  the most recent entry on or before the derived day, falling back to the
+  *earliest* logged weight for days before the first entry. It now returns the
+  weight's **log date** alongside the value, and `derive/freshness.py` holds the
+  one rule — `weight_is_stale`, horizon `WEIGHT_MAX_AGE_DAYS = 14`, measured as an
+  absolute distance so a weight logged long *after* a day is equally rejected for
+  it. Consumers, deliberately not the loader, decide what to do:
+  - `derive/vo2max.py` **withholds** (no row written), so
+    `analytics/biological_age.py` withholds the whole composite through the gate
+    it already shares.
+  - `read/today_series.py::_weight_card` nulls its `value` and returns a
+    `withheld` block; `read/history.py::profile` keeps the value (it restores a
+    reinstall) and dates it.
+  - `derive/energy.py` is unchanged — see the Honesty section.
+- **The weight's age was previously unmeasurable, and that was the real defect.**
+  The app re-pushes its cached weight on every sync and `/api/profile` hands it
+  straight back, so `ingest/upsert.py::upsert_weight` — which deduped only within
+  a local day — inserted the same value at `now()` each new day. Measured in the
+  2026-07-15 production dump: 41 `weight_log` rows over six weeks, all 79.9 kg but
+  one, from an owner who weighed themselves about twice. A weight could therefore
+  never *look* older than a day and no freshness gate could have fired. It now
+  writes a row only when the value actually changed.
 - **Honesty rules (binding):**
   - Never present `weight_kg` as a body-fat or body-composition measurement.
   - Never present BMI as a health verdict or a diagnosis; it is an input to a

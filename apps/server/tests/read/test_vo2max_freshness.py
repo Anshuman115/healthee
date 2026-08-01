@@ -22,7 +22,7 @@ lands in one and not the other, this is what fails.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 
@@ -58,7 +58,9 @@ def _profile(cur) -> None:
         (SENTINEL_USER_ID,),
     )
     cur.execute(
-        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '30 days', 72)",
+        # Yesterday: a weight older than `freshness.WEIGHT_MAX_AGE_DAYS` is its own
+        # withhold reason (#85), which is not the gate these tests are about.
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '1 day', 72)",
         (SENTINEL_USER_ID,),
     )
 
@@ -74,7 +76,18 @@ def _rhr(cur, day: date, values: list[float]) -> None:
 
 
 def _estimate_on(cur, day: date, values: list[float]) -> None:
-    """Run the real derivation for ``day`` over ``values`` — no hand-written rows."""
+    """Run the real derivation for ``day`` over ``values`` — no hand-written rows.
+
+    A weight logged the day before ``day`` goes in too, because since #85 the estimate
+    is withheld when the weight behind its BMI is far from the day being derived — and
+    an owner who has an estimate for a day 40 days back is, by construction, an owner
+    who had weighed themselves around then.
+    """
+    cur.execute(
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, %s, 72) "
+        "ON CONFLICT (user_id, ts) DO NOTHING",
+        (SENTINEL_USER_ID, datetime.combine(day - timedelta(days=1), time(6), tzinfo=UTC)),
+    )
     _rhr(cur, day, values)
     derive_vo2max(cur, SENTINEL_USER_ID, SENTINEL_TZ, day)
 

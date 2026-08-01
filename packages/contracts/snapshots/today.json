@@ -342,11 +342,13 @@
     },
     {
       "anomalous": false,
+      "as_of_date": "2026-07-31",
       "label": "Weight",
       "median_30d": null,
       "metric": "weight_kg",
       "unit": "kg",
       "value": 72.5,
+      "withheld": null,
       "z": null
     }
   ],

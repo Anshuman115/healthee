@@ -37,6 +37,23 @@ A **message** is the second-person "here is what we'd need", and it is deliberat
 per-metric: what would restore a VO₂max is not what would restore an SRI. Each metric
 owns a ``…_MESSAGES`` dict keyed by these ids. :data:`NOT_DERIVED_YET_MESSAGE` is the
 default wording for metrics with nothing more specific to say.
+
+## Weight: the one documented exception, and why it is here rather than elsewhere
+
+:func:`unavailable_reason` above asks "is the newest row keyed to today", which is the
+right question for a metric we DERIVE every night — a value for today either exists or
+is waiting on a sync. Body weight is not that kind of row. Nobody derives it; the owner
+types it in when they feel like it, so "today's weight" exists only on days they stepped
+on a scale. Applying the today-or-nothing rule to it would take BMI, BMR, VO₂max and the
+biological age dark on every day the owner did not weigh themselves, and it would be
+wrong to do so: a two-day-old weight measurably IS this person's mass
+([[weight_bmi_body_composition]]).
+
+So weight gets a horizon, and the horizon lives HERE — in the module that already
+answers "is this current" — rather than in the four modules that consume weight. That is
+the whole point of one module: :data:`WEIGHT_MAX_AGE_DAYS` is a tunable, tunables in
+honesty gates are places to hide, and the mitigation for a place to hide is that there is
+exactly one of it, with its evidence written next to it. See :func:`weight_is_stale`.
 """
 
 from __future__ import annotations
@@ -65,6 +82,81 @@ PROFILE_INCOMPLETE = "profile_or_weight_missing"
 NO_NIGHTS_IN_WINDOW = "no_recorded_nights_in_window"
 
 NOT_DERIVED_YET_MESSAGE = "Today's number has not been computed yet — sync the strap."
+
+# The most recent logged weight is too far from the day being computed for it to be a
+# statement about the owner's body on that day. One id, because it is one condition
+# however many models spend the weight (BMI in ``derive/vo2max.py``, BMR in
+# ``derive/energy.py``, the weight card, the profile payload).
+WEIGHT_STALE = "logged_weight_stale"
+
+# Weight's message IS shared, unlike every other message in this vocabulary, because
+# weight has exactly one restoring action wherever it is missed: log a weight. The
+# per-metric rule exists so "what would bring back a VO₂max" and "what would bring back
+# an SRI" can differ; here they cannot. A metric that wants to say more (VO₂max does —
+# it has to explain that BMI is the thing the weight feeds) still keys its own dict on
+# :data:`WEIGHT_STALE` and writes its own sentence.
+WEIGHT_STALE_MESSAGE = (
+    "The last weight you logged is more than two weeks old, so we can't call it your "
+    "weight today — log a new one and this comes straight back."
+)
+
+# How far a logged weight may sit from the day being computed before we stop treating it
+# as that day's weight.
+#
+# ## Why 14, and what is actually evidence for it
+#
+# [[weight_bmi_body_composition]] (grade Established) states plainly that it could NOT
+# source a detection window: "We could not source 'how many days until a trend is real.'
+# The literature gives a noise floor, not a validated detection window." So this number
+# is NOT lifted from a paper, and pretending otherwise would be the exact failure this
+# repo keeps re-learning. What the corpus does give:
+#
+#   * The single verified measurement of how far body mass actually DRIFTS over a stated
+#     elapsed interval: 0.26 ± 1.2 kg over two weeks of unrestricted free living, of
+#     which 84% is fat-free mass (Bhutani et al. 2017, n = 46, isotope dilution + serial
+#     DXA).
+#   * The noise floor of a single weigh-in: 0.51 ± 0.20 kg (Cheuvront et al. 2004) and a
+#     0.6 kg weekly typical error (Kutáč 2015).
+#
+# Read together: across two weeks the expected drift (0.26 kg) is SMALLER than the error
+# of weighing yourself twice (~0.5–0.6 kg). Inside that window the weight we hold and the
+# weight the owner would read today are not distinguishable by our own measurement.
+#
+# Fourteen days is therefore the far edge of what the corpus can support, not a point at
+# which weight "goes wrong": past it we have no measured drift figure at all, and
+# extrapolating one is the optimistic guess that "not enough data" is supposed to beat.
+# Two weeks is also the interval the note's own coach directives are written in
+# ("compare rolling means at least two weeks apart").
+#
+# Widening this constant is allowed — but it needs evidence in this comment, not a
+# product argument, because everything below it is a claim about somebody's body.
+WEIGHT_MAX_AGE_DAYS = 14
+
+
+def weight_age_days(as_of: date, on: date) -> int:
+    """How far the logged weight sits from the day being computed, in days.
+
+    ABSOLUTE distance, and that is not a detail. ``derive._common._weight_as_of`` falls
+    back to the EARLIEST logged weight for days before the owner's first entry, so a day
+    in 2026-03 can be handed a weight logged in 2026-06. A weight logged three months
+    after a day is exactly as uninformative about that day as one logged three months
+    before it, and signing the comparison would quietly exempt the whole pre-first-entry
+    era from the gate.
+    """
+    return abs((on - as_of).days)
+
+
+def weight_is_stale(as_of: date, on: date) -> bool:
+    """Is this logged weight too far from ``on`` to be that day's weight?
+
+    The ONE weight-freshness question, so that the VO₂max withhold, the Today card and
+    the profile payload cannot answer it differently — CLAUDE.md's "one canonical
+    definition per metric" applied to a metric's currency rather than its formula.
+
+    The boundary is inclusive: a weight exactly :data:`WEIGHT_MAX_AGE_DAYS` old is still
+    usable, matching how the evidence is quoted ("over two weeks").
+    """
+    return weight_age_days(as_of, on) > WEIGHT_MAX_AGE_DAYS
 
 
 def unavailable_reason(

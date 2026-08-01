@@ -36,7 +36,14 @@ DAYS: list[date] = [BASE_DAY + timedelta(days=k) for k in range(N_DAYS)]
 # Profile + a single weight (as-of every day).
 PROFILE = {"height_cm": 175.0, "sex": "male", "dob": date(1990, 1, 1)}
 WEIGHT_KG = 72.0
-WEIGHT_TS = datetime(2026, 2, 1, 6, 0, tzinfo=TZ).astimezone(UTC)
+# The DAY BEFORE the window, and that is load-bearing since #85: `derive/vo2max.py`
+# withholds the estimate when the weight behind its BMI is older than
+# `freshness.WEIGHT_MAX_AGE_DAYS` relative to the day being derived. This was
+# 2026-02-01 — 28 to 35 days before the derived days — which now (correctly) withholds
+# every vo2max row and makes this fixture a test of the freshness gate instead of a
+# test of the Jurca science it exists for. The VALUE is untouched, so every legacy
+# golden number still stands: only the log date moved.
+WEIGHT_TS = datetime(2026, 2, 28, 6, 0, tzinfo=TZ).astimezone(UTC)
 
 
 def _local(day: date, hour: int, minute: int) -> datetime:

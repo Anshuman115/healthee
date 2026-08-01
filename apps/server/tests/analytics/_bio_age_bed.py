@@ -67,7 +67,10 @@ def seed_owner(cur, today: date) -> None:
         (SENTINEL_USER_ID, date(today.year - CHRONO_AGE, 1, 1)),
     )
     cur.execute(
-        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '30 days', 72)",
+        # Yesterday, not a month ago: since #85 a weight older than
+        # `freshness.WEIGHT_MAX_AGE_DAYS` withholds the VO2max and therefore the whole
+        # composite, and this bed exists to exercise the TERM logic, not that gate.
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '1 day', 72)",
         (SENTINEL_USER_ID,),
     )
     for n in range(14):

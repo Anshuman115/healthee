@@ -16,8 +16,9 @@ from __future__ import annotations
 from uuid import UUID
 
 from healthee.core.dob import date_to_dob_ms
-from healthee.core.tenancy import USER_TODAY_SQL
+from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
+from healthee.derive.freshness import weight_age_days
 
 
 def history(cur: Cur, user_id: UUID, tz: str, metric: str, days: int = 90) -> dict:
@@ -33,17 +34,28 @@ def history(cur: Cur, user_id: UUID, tz: str, metric: str, days: int = 90) -> di
 
 
 def profile(cur: Cur, user_id: UUID, tz: str) -> dict:
-    """Stored profile (name / height / sex / dob-epoch-ms / latest weight).
+    """Stored profile (name / height / sex / dob-epoch-ms / latest weight + its date).
 
     `dob` goes back out as epoch ms at **owner-local midnight** (`date_to_dob_ms`),
     the exact inverse of the parse the ingest applies — this endpoint restores the
     profile after a reinstall and the app re-pushes what it gets, so an encoder
     anchored to a different zone than the decoder silently walks the date backwards
     on every sync for negative-offset owners. See `core.dob.date_to_dob_ms`.
+
+    `weight_kg` keeps shipping undated-looking company (it is what a reinstall
+    restores), and `weight_as_of` / `weight_age_days` are what make it honest: the
+    identical read-modify-push loop applies to weight too, and this endpoint used to
+    hand back a mass with no indication it was measured in March. `weight_kg` is a
+    restore value, NOT a claim about today — the surface that has to answer "what do
+    you weigh now" is the Today card, and that one withholds.
     """
     cur.execute("SELECT name, height_cm, sex, dob FROM profile WHERE user_id = %s", (user_id,))
     r = cur.fetchone()
-    cur.execute("SELECT kg FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1", (user_id,))
+    cur.execute(
+        "SELECT kg, (ts AT TIME ZONE %s)::date FROM weight_log "
+        "WHERE user_id = %s ORDER BY ts DESC LIMIT 1",
+        (tz, user_id),
+    )
     w = cur.fetchone()
     if not r:
         return {}
@@ -55,4 +67,6 @@ def profile(cur: Cur, user_id: UUID, tz: str) -> dict:
         "sex": sex,
         "dob": dob_ms,
         "weight_kg": float(w[0]) if w else None,
+        "weight_as_of": w[1].isoformat() if w else None,
+        "weight_age_days": weight_age_days(w[1], user_today(tz)) if w else None,
     }

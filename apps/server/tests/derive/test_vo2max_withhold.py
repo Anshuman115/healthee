@@ -138,7 +138,9 @@ def _seed(cur, rhrs: list[float]) -> None:
         (SENTINEL_USER_ID,),
     )
     cur.execute(
-        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, '2026-01-01T00:00:00+00', 72)",
+        # The day before `_DAY`: a weight older than `freshness.WEIGHT_MAX_AGE_DAYS`
+        # withholds on its own (#85), which would mask the RHR gates under test.
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, '2026-03-07T00:00:00+00', 72)",
         (SENTINEL_USER_ID,),
     )
     for k, rhr in enumerate(rhrs):

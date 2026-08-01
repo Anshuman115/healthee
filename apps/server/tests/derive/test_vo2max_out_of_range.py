@@ -130,7 +130,9 @@ def _seed(cur, day: date, dob: str, height_cm: int, weight_kg: float) -> None:
     )
     cur.execute(
         "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, %s, %s)",
-        (SENTINEL_USER_ID, day - timedelta(days=30), weight_kg),
+        # One day back, not 30: past `freshness.WEIGHT_MAX_AGE_DAYS` the estimate is
+        # withheld outright (#85) and there would be no payload left to flag.
+        (SENTINEL_USER_ID, day - timedelta(days=1), weight_kg),
     )
     for k, rhr in enumerate(_CALM_WEEK):
         cur.execute(

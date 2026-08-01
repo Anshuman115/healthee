@@ -61,7 +61,7 @@ def _profile(cur, today: date) -> None:
         (SENTINEL_USER_ID, date(today.year - 35, 1, 1)),
     )
     cur.execute(
-        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '30 days', 72)",
+        "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '1 day', 72)",
         (SENTINEL_USER_ID,),
     )
 
