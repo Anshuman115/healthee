@@ -10,7 +10,10 @@ places). That mirror rule is gone. Every honesty stage now lives once, in
 
   * a message LAYOUT — coach persona + context in the system turn, conversation after it;
   * a bounded TOOL LOOP, expressed as ``pipeline.Loop.next_turn`` returning
-    ``Turn(text=None)`` for a round that ran tools instead of answering.
+    ``Turn(text=None)`` for a round that ran tools instead of answering — and
+    ``Turn(progressed=False)`` when that round only repeated calls it had already made.
+    The gathering allowance (:data:`GATHERING_ROUNDS`) is the coach's alone; the answer
+    and its validation retries are the pipeline's, reserved on top.
 
 Everything else — the refusal gate before any tool runs, the hard output guardrails, the
 blocking validator on every final free-text answer, the anti-hallucination gate, the one
@@ -39,10 +42,29 @@ from healthee.insights.coach_prompt import COACH_SYSTEM_PROMPT
 
 log = get_logger(__name__)
 
-_MAX_ROUNDS = 5  # bound the tool loop (COACH_PROMPT: max ~5 rounds)
+# The GATHERING allowance — rounds the model may spend running tools instead of
+# answering. It is a ceiling, not a spend: a measured ordinary question converges in two
+# rounds and never touches the rest, and an unused round costs nothing. It used to be 5
+# AND it doubled as the answer budget, so a question that legitimately needed five rounds
+# of data exited having never been asked for an answer, and a four-round one reached its
+# single answer attempt with zero validation retries left. `MAX_VALIDATION_RETRIES` is
+# now reserved on top of this by `pipeline.drive`, so gathering can be generous without
+# taking grounding tolerance away from exactly the questions that need it most.
+GATHERING_ROUNDS = 20
 _HISTORY_LIMIT = 12  # last N conversation turns kept (context-window discipline)
 
 _GREETING = "Ask me anything about your sleep, activity, recovery, or logged routines."
+
+# Said once, when the gathering allowance runs out (or the loop stalls) and the tools are
+# withdrawn. Without it the model would face a silent, unexplained loss of its tools; with
+# it the last round is a real answer attempt instead of a wasted one. It asks for honesty
+# about the gap rather than a guess — the validator would refuse the guess anyway, but a
+# refused answer the owner never sees is a worse outcome than a plainly stated limit.
+_ANSWER_NOW = (
+    "You have no more tool calls available. Answer the question now using only the data "
+    "already in this conversation. If something you wanted is missing, say plainly what "
+    "you could not check — do not estimate or invent a number."
+)
 
 
 @dataclass
@@ -87,31 +109,94 @@ def run_coach(
 
 def _loop(client: LLMClient, convo: list[dict], user_id: UUID, tz: str) -> CoachResult:
     """The bounded tool loop, driven by the shared pipeline (one gate set, one policy)."""
-    acted_ok: set[str] = set()
-    invocations: list[dict] = []
-
-    def next_turn() -> pipeline.Turn:
-        response = pipeline.complete(
-            client, convo, tools=coach_tools.COACH_TOOLS, model=coach_model()
-        )
-        if response.tool_calls:
-            _run_tools(response, convo, invocations, acted_ok, user_id, tz)
-            return pipeline.Turn(text=None)  # the round produced no answer — ask again
-        return pipeline.Turn(text=response.text)
-
-    def nudge(text: str, issues: Sequence[str]) -> None:
-        convo.extend(pipeline.nudge_turns(text, issues))
-
+    tool_loop = _ToolLoop(client=client, convo=convo, user_id=user_id, tz=tz)
     outcome = pipeline.drive(
         pipeline.Loop(
-            next_turn=next_turn,
-            nudge=nudge,
+            next_turn=tool_loop.next_turn,
+            nudge=tool_loop.nudge,
             label="coach",
-            max_turns=_MAX_ROUNDS,
-            context=lambda: pipeline.AnswerContext(acted_ok=frozenset(acted_ok)),
+            max_gathering_turns=GATHERING_ROUNDS,
+            context=tool_loop.answer_context,
         )
     )
-    return _result(outcome, invocations)
+    return _result(outcome, tool_loop.invocations)
+
+
+@dataclass
+class _ToolLoop:
+    """The coach's turn shape — the ONE thing ``grounded_ask`` cannot express.
+
+    It holds the state a bounded tool loop needs across turns: the conversation, which
+    action tools returned ok (the anti-hallucination gate reads it at judgement time),
+    every invocation made (so a repeat is recognisable), and whether the tools have
+    already been withdrawn (so the "answer now" instruction is said exactly once).
+    """
+
+    client: LLMClient
+    convo: list[dict]
+    user_id: UUID
+    tz: str
+    invocations: list[dict] = field(default_factory=list)
+    acted_ok: set[str] = field(default_factory=set)
+    seen_calls: set[tuple[str, str]] = field(default_factory=set)
+    tools_withdrawn: bool = False
+
+    def next_turn(self, tools_allowed: bool) -> pipeline.Turn:
+        """One model turn: run any tools it asked for, or hand back its answer."""
+        if not tools_allowed:
+            self._withdraw_tools()
+        tools = coach_tools.COACH_TOOLS if tools_allowed else None
+        response = pipeline.complete(self.client, self.convo, tools=tools, model=coach_model())
+        if response.tool_calls:
+            progressed = self._run_tools(response)
+            return pipeline.Turn(text=None, progressed=progressed)
+        return pipeline.Turn(text=response.text)
+
+    def nudge(self, text: str, issues: Sequence[str]) -> None:
+        """Carry a failed candidate back to the model (shared wording, shared policy)."""
+        self.convo.extend(pipeline.nudge_turns(text, issues))
+
+    def answer_context(self) -> pipeline.AnswerContext:
+        """Read at judgement time, not loop entry — ``acted_ok`` grows as tools run."""
+        return pipeline.AnswerContext(acted_ok=frozenset(self.acted_ok))
+
+    def _withdraw_tools(self) -> None:
+        """Tell the model, once, that it must answer with what it already has."""
+        if self.tools_withdrawn:
+            return
+        self.tools_withdrawn = True
+        self.convo.append({"role": "user", "content": _ANSWER_NOW})
+
+    def _run_tools(self, response: Any) -> bool:
+        """Execute each requested tool; return whether the round learned anything new.
+
+        A round is "no progress" only when EVERY call in it repeats an invocation already
+        made — same tool, same arguments, hence the same answer. One repeat alongside a
+        genuinely new call is still a round that gathered something.
+        """
+        self.convo.append(_assistant_tool_message(response))
+        fresh = False
+        for call in response.tool_calls:
+            name = call.function.name
+            args = _parse_args(call.function.arguments)
+            fresh |= self._record_call(name, args)
+            result = coach_tools.execute_tool(name, args, self.user_id, self.tz)
+            if name in coach_tools.ACTION_TOOLS and result.get("ok"):
+                self.acted_ok.add(name)
+            self.invocations.append({"tool": name, "args": args, "result": result})
+            self.convo.append(
+                {"role": "tool", "tool_call_id": call.id, "content": coach_tools.dumps(result)}
+            )
+        return fresh
+
+    def _record_call(self, name: str, args: dict) -> bool:
+        """Remember this exact invocation; False when it has been made before."""
+        signature = (name, json.dumps(args, sort_keys=True, default=str))
+        if signature in self.seen_calls:
+            log.info("coach repeated tool call: %s — no new information this round", name)
+            return False
+        self.seen_calls.add(signature)
+        return True
 
 
 def _result(outcome: pipeline.Outcome, invocations: list[dict]) -> CoachResult:
@@ -129,28 +214,6 @@ def _result(outcome: pipeline.Outcome, invocations: list[dict]) -> CoachResult:
         tool_calls=invocations,
         validated=True,
     )
-
-
-def _run_tools(
-    response: Any,
-    convo: list[dict],
-    invocations: list[dict],
-    acted_ok: set[str],
-    user_id: UUID,
-    tz: str,
-) -> None:
-    """Execute each requested tool, append its result, and record ok action tools."""
-    convo.append(_assistant_tool_message(response))
-    for call in response.tool_calls:
-        name = call.function.name
-        args = _parse_args(call.function.arguments)
-        result = coach_tools.execute_tool(name, args, user_id, tz)
-        if name in coach_tools.ACTION_TOOLS and result.get("ok"):
-            acted_ok.add(name)
-        invocations.append({"tool": name, "args": args, "result": result})
-        convo.append(
-            {"role": "tool", "tool_call_id": call.id, "content": coach_tools.dumps(result)}
-        )
 
 
 def _initial_messages(

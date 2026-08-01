@@ -109,7 +109,12 @@ question/task
     tool-less surface the set of successful tools is empty, so every such claim is
     rejected — the strictest reading, not an exemption (`insights/action_claims.py`)
   → on second failure: honest fallback ("I can't ground that in our evidence
-    base") — unvalidated text NEVER ships (legacy shipped it anyway)
+    base") — unvalidated text NEVER ships (legacy shipped it anyway).
+    The retry budget is RESERVED, never shared with tool-gathering: the coach's
+    gathering allowance and MAX_VALIDATION_RETRIES are two counters, so an answer
+    arrives at its gates with the same tolerance however much data preceded it
+    (they were one counter until 2026-08-01, and a 5-tool-round question exited
+    having never been asked for an answer at all)
   → response metadata: citations[], evidence grade floor, data coverage
 ```
 
@@ -146,7 +151,17 @@ added *outside* the registry to one surface only. Both are mutation-verified.
   `adopt_challenge`, `sleep_consistency`, §5.3.)
 - **Anti-hallucination stays absolute**: never claim logged/adopted/created/started
   unless the tool returned ok:true this turn; numbers only from tool results;
-  max tool rounds bounded with an honest failure message. WP-C5 made the guard
+  max tool rounds bounded with an honest failure message — **20 gathering rounds**
+  (`coach.GATHERING_ROUNDS`), a ceiling and not a spend: narrow questions were
+  measured converging in **2** rounds against a live instance
+  (VERIFICATION_2026_08_01 §7), an unused round costs nothing, and the last round
+  withdraws
+  `tools=` so the model is always *asked* for an answer with what it has rather than
+  cut off mid-gather. A round that only repeats a call it already made (same tool,
+  same arguments) ends the gathering early — a loop that is not making progress
+  should stop on its own, not run out of budget. Worst case per question: 22 LLM
+  calls; the **metering charges the question, not the call** (`api/routers/coach.py`).
+  WP-C5 made the guard
   **per-tool** (`coach._CLAIM_TOOLS`): with one action tool, "did any action tool
   succeed" was the same question, but with three a successful `log_entry` would
   otherwise have licensed "I started your challenge".

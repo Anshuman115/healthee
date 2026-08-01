@@ -10,9 +10,12 @@ entitlement is checked (the coach's own tools deliberately do not re-check it).
 
 ``PRICING.md`` §1a meters a free owner at one coach question per rolling seven days, and
 the unit is this **request** — one turn — not one LLM call. A tool-calling turn can make
-five (``insights.coach._MAX_ROUNDS``); metering calls would charge a curious question
-five times and an incurious one once, which is not a promise anybody could read off the
-pricing page. The gate charges the turn; this handler refunds it when the turn produced
+up to 22 (``insights.coach.GATHERING_ROUNDS`` + the reserved validation attempts);
+metering calls would charge a curious question twenty times and an incurious one once,
+which is not a promise anybody could read off the pricing page. That separation is what
+lets the gathering allowance be generous: the ledger is keyed to the question, so a
+question that genuinely needs the data costs the owner exactly what a trivial one does.
+The gate charges the turn; this handler refunds it when the turn produced
 no answer, and the two cases are exactly the ones the coach itself already names:
 ``refused`` (classified out of scope before any model ran — no tokens, no answer) and
 ``validated=False`` (the honest fallback shipped, which is the product working correctly
