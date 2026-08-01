@@ -43,7 +43,8 @@ Two distinct but linked concepts:
    It is built on the **Efficiency Factor (EF)** = output ÷ heart rate
    (normalised-graded-pace ÷ avg HR for running; normalised power ÷ avg HR for
    cycling). Decoupling compares EF in the first half of a steady effort to the
-   second half. The popularised convention (TrainingPeaks) is:
+   second half. The popularised convention (TrainingPeaks — a practitioner source, and
+   one this note carries no `## Key references` entry for; #100) is:
 
    - **< 5%** → strong aerobic endurance / durability at that intensity
    - **5–10%** → base developing, or moderate fatigue / intensity slightly high
@@ -324,7 +325,8 @@ the clinical ≤12 bpm figure, for training decisions.
 
 - **D1:** Compute decoupling only on a sustained, single-intensity block (running:
   ideally ≥45–60 min); exclude warm-up, surges, hills, and stops. If the effort
-  wasn't steady, do not report a drift number. — confidence: Established
+  wasn't steady, do not report a drift number. — confidence: Established that drift needs
+  a sustained single-intensity block to mean anything; **the ≥45–60 min minimum is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
 - **D2:** Interpret running decoupling bands as **<5% strong-base**, **5–10%
   moderate**, **>10% high**, matching `computeDecoupling`. Treat these as starting
   heuristics to individualise, not physiological constants. — confidence: Probable

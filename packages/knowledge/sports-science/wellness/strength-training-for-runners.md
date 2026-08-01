@@ -210,7 +210,11 @@ Decision logic by **stage** and training phase:
 **Scheduling (interference management):**
 - Prefer **separate sessions** (different times of day, ideally ≥3–6 h apart, or
   separate days) when feasible, to limit acute interference and protect run
-  quality [Doma/concurrent-training literature].
+  quality. *(**Phantom citation, removed #100:** this read "[Doma/concurrent-training
+  literature]" — a bracket citation naming an author with no `## Key references` entry,
+  no year and no DOI, which reads as sourced and is not. The note's own honesty section
+  already concedes the ≥3–6 h figure is "reasonable practice, not proven optima"; that
+  is the accurate label. #100)*
 - If combined in one session, generally run the **priority quality first**; if
   the run is the priority that day, run before lifting; if strength is a key
   development target, lift first — sequence the priority first.

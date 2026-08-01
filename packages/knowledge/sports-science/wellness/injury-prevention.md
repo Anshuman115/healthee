@@ -378,8 +378,17 @@ arrived with the upstream sports-science corpus import. The true position, per b
   a time, and schedule periodic recovery/down weeks. — confidence: Probable
 - **D4:** After a layoff (illness/travel/break), **re-enter below** pre-break load —
   chronic load has decayed. — confidence: Probable
-- **D5:** Recommend **lower-limb strength training ~2×/week** as first-line
-  prevention; more is generally better (dose-response). — confidence: Established
+- **D5:** Recommend **lower-limb strength training at the dose
+  `strength-training-for-runners` D1 defines (2–3 sessions/week)** as first-line
+  prevention; more volume is generally better (dose-response). — confidence: Established
+  *(Corrected #100. This said "~2×/week" and leaned on [Lauersen 2018] for it — but
+  Lauersen, as this note itself summarises above, reports a **volume** dose-response
+  (RR 0.34; ">4 percentage points lower risk per 10% more strength-training volume")
+  and **no session frequency at all**. A citation attached to a number it does not
+  contain is a miscitation, not merely an uncited figure — the same defect #98 found in
+  `pace-zones` D6's use of El Helou. The frequency figure that IS sourced lives in the
+  sibling note [Blagrove 2018], so this defers there rather than restating a third
+  number.)*
 - **D6:** For runners with patellofemoral/shin pain or notably low cadence, suggest a
   **gradual ~5–10% cadence increase** (auditory cueing), framed as joint-load
   reduction — **not** a fixed 180 spm target. — confidence: Probable

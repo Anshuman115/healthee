@@ -236,7 +236,10 @@ estimated in the field from a **30-minute solo time trial**: run all-out, take t
 **average HR of the final 20 minutes** as LTHR (Friel protocol — practitioner
 consensus, widely used, not lab-validated as ground truth). Zones are then set as
 %LTHR (Friel convention): Z1 <81%, Z2 81–89%, Z3 90–93%, Z4 94–99%, Z5a 100–102%,
-Z5+ >102%. LTHR-anchoring sidesteps HRmax estimation error for the threshold-region
+Z5+ >102%. *(**Phantom citation, flagged #100:** "Friel" — used here and for the 30-min
+TT protocol above — names a source this note has no `## Key references` entry for. A name
+is not a citation, and six numeric band edges rest on this one. Treat as practitioner
+convention until a primary source is verified.)* LTHR-anchoring sidesteps HRmax estimation error for the threshold-region
 zones that matter most for quality work.
 
 ## How the coach uses it
@@ -262,9 +265,14 @@ Decision logic, by stage:
   not maximal intensity. Race-pace zones for the event distance take priority for
   specificity.
 - **Cross-checks (mandatory):**
-  - In **heat/humidity, dehydration, or after minute ~30 of a long run**, HR drifts
-    up at constant effort — *trust pace and RPE over HR* and do not chase a lower HR by
+  - In **heat/humidity, dehydration, or once cardiovascular drift has set in on a long
+    run** (onset per `aerobic-decoupling`, which owns this number), HR drifts up at
+    constant effort — *trust pace and RPE over HR* and do not chase a lower HR by
     slowing below the target effort [Coyle & González-Alonso 2001; Achten 2003].
+    *(This said "after minute ~30" while citing Coyle. Three notes gave three onsets for
+    one quantity, all citing the same study — "~10–15 min" [`aerobic-decoupling`, stated
+    three times], "~10–20 min" [`pace-zones`], "~30 min" here — and ~30 is the one that
+    matches no sibling. #100)*
   - For **short, fast intervals (<~2 min)**, HR lags and never reaches the zone the
     effort warrants — prescribe and judge these by **pace/RPE**, not HR.
   - If HR reads implausibly high/erratic (cold, chest-strap artifact, optical wrist
@@ -377,11 +385,14 @@ Decision logic, by stage:
 - **D7:** Frame Zone 2 as **best adaptation per unit fatigue / sustainable volume**, not
   as uniquely superior for mitochondria; do not claim it beats higher intensities for
   mitochondrial content. — confidence: Contested
-- **D8:** In **heat, dehydration, or after ~30 min of a long run**, expect HR to drift
+- **D8:** In **heat, dehydration, or once drift has set in on a long run** (onset per
+  `aerobic-decoupling`), expect HR to drift
   up at constant effort — **weight pace and RPE over HR** and do not slow below target
   effort just to lower HR. — confidence: Established
 - **D9:** Judge **short fast intervals (<~2 min) by pace/RPE**, not HR — HR lags and
-  under-reads the true intensity. — confidence: Established
+  under-reads the true intensity. — confidence: Established **that HR lags** (the
+  evidence section establishes the lag and nothing more); the **~2-minute cutoff is
+  unsourced** practitioner convention. #100
 - **D10:** Down-weight or ignore HR when readings are implausible (device artifact,
   illness, β-blockers, extreme stress/sleep loss) and fall back to RPE/pace. — confidence: Probable
 - **D11 (safety):** Do **not** prescribe maximal HR/threshold field tests to beginners

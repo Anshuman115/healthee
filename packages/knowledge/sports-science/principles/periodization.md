@@ -309,7 +309,8 @@ Implementation notes:
   restating the figure.)*
 - **D2:** Set taper length to **~10–14 days** for half/marathon and **~7–10 days**
   for 5K–10K; allow individual tuning within ~4–21 days based on the runner's
-  history. — confidence: Established
+  history. — confidence: Established for the **4–21 day range and the 8–14 day optimum**
+  [Wang 2023]; **the distance-specific split (10–14 d vs 7–10 d) is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
 - **D3:** **Never seek new fitness inside the final ~10–14 days.** Late hard
   volume adds fatigue, not performance; protect freshness instead. — confidence:
   Established

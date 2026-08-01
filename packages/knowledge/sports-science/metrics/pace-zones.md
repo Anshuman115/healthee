@@ -46,6 +46,17 @@ Repetition (R) paces are all derived [Daniels 2014].
 
 Typical threshold-pace ranges (level ground, temperate conditions):
 
+> [!WARNING] **This table is uncited (#100).** No source in this note supports any of these three bands. It
+> is practitioner orientation, uncited, carried in from the upstream corpus. It is flagged rather than deleted because it is a plausibility check rather than a claim — a “threshold pace” of 8:00/km is telling you the anchor is wrong — but the coach must present
+> these as rough orientation, never as norms a runner can be measured against, and must
+> not attach a runner's own number to a row as if that placed them.
+> Why this matters more than an ordinary uncited line: **the note body is what reaches
+> the model** (`manifest.prompt_body`), so an unlabelled norm table is a constant the
+> coach will quote with the note's authority and no hedge.
+
+*(This closes an audit gap: the ⚠️ box further down covers the* speed-fraction *table,
+and #98 left this one — in the same section, three lines above it — untouched.)*
+
 | Runner level | Threshold pace (≈ sec/km) | ≈ min/km | ≈ min/mile |
 |---|---|---|---|
 | Recreational beginner | 360–420 | 6:00–7:00 | 9:40–11:15 |
@@ -166,7 +177,7 @@ input/output split is the formal basis of all training-load monitoring
   validates anchoring zones to the threshold rather than to max.
 
 - **[Established]** Cardiovascular drift is real and well characterised: after
-  ~10–20 min of constant-load exercise, stroke volume falls and HR rises
+  the onset `aerobic-decoupling` documents (~10–15 min) of constant-load exercise, stroke volume falls and HR rises
   progressively, accelerating once sweat loss exceeds ~2% of body mass
   [Coyle & González-Alonso 2001]. Practically this means **HR overstates the true
   effort late in long/hot runs** — a fixed-HR cap would force the runner to slow

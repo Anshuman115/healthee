@@ -310,7 +310,8 @@ coach must speak confidently about the base and hedge about the shape.
   than for short events, since the event is run near LT2. — confidence: **Probable**
 - **D7:** When stating a TID number, declare the method (time-in-zone vs
   session-goal) and anchor zones to the runner's own thresholds where known; treat
-  computed easy/hard splits as ±5–10%. — confidence: **Established** (methodological)
+  computed easy/hard splits as ±5–10%. — confidence: **Established** that the method must
+  be declared and zones anchored (methodological); **the ±5–10% uncertainty figure is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
 - **D8:** Prioritize accumulating sustainable easy *volume* over fine-tuning the
   exact ratio; the ratio matters less than the base it sits on. — confidence: **Probable**
 

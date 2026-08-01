@@ -285,7 +285,8 @@ Decision logic, scaled by stage (Stage 1 beginner → Stage 3 racing):
   restriction to accommodate training. — confidence: Established (safety)
 - **D3:** After a single severely short night (<~60% of target), keep easy work
   but downgrade or postpone planned hard/quality sessions; expect inflated RPE.
-  Do not over-react to isolated noise. — confidence: Established
+  Do not over-react to isolated noise. — confidence: Established that a severely short
+  night degrades next-day quality work; **the <~60%-of-target trigger is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
 - **D4:** Track rolling 7-day sleep debt; if it rises or several nights run short,
   treat fatigue as cumulative — cut intensity first, then volume — and raise
   injury/illness vigilance. — confidence: Established

@@ -64,6 +64,15 @@ Typical relative VO₂max ranges (mL/kg/min):
 | Well-trained / sub-elite | ~55–70 | ~48–60 |
 | Elite endurance | ~70–85 | ~60–75 |
 
+
+> [!WARNING] **This table is uncited (#100).** No source in this note supports the sedentary, recreational or well-trained rows, or any female column below elite. It
+> is practitioner orientation of the kind found in textbooks and ACSM tables, carried in from the upstream corpus without a source. It is flagged rather than deleted because the **elite row is** retro-covered by the sentence immediately below it [Joyner & Coyle 2008], and because a reader needs some sense of scale to know that a wearable reporting 48 is not reporting a lab-elite value — but the coach must present
+> these as rough orientation, never as norms a runner can be measured against, and must
+> not attach a runner's own number to a row as if that placed them.
+> Why this matters more than an ordinary uncited line: **the note body is what reaches
+> the model** (`manifest.prompt_body`), so an unlabelled norm table is a constant the
+> coach will quote with the note's authority and no hedge.
+
 Elite male endurance champions cluster at **~70–85 mL/kg/min**; elite women average
 roughly **~10% lower**, driven mostly by higher body-fat fraction and lower
 haemoglobin concentration [Joyner & Coyle 2008]. The highest credible human values

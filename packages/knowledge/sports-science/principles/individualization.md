@@ -269,7 +269,10 @@ By stage:
 ## Coach Directives
 - **D1:** Treat every population default (zones, volume rules, paces) as a
   *starting estimate*, and re-anchor it to the runner's own measured baselines as
-  soon as ≥2–4 weeks of clean data exist. — confidence: Established
+  soon as ≥2–4 weeks of clean data exist. — confidence: Established that population
+  defaults must give way to measured baselines; **the ≥2–4 week window is unsourced** practitioner/methodological convention — no source in this note supports it (#100).
+  (`resting-heart-rate` D12 and `heart-rate-variability` D7 state different windows for
+  their own signals; each metric's note owns its own, and none of the three is sourced.)
 - **D2:** Prescribe intensity from the runner's individual anchors
   (threshold/HRmax/easy-pace), not generic %-of-max bands, once those anchors are
   known. — confidence: Established

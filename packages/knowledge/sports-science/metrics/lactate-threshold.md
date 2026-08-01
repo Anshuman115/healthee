@@ -87,6 +87,22 @@ Typical ranges for velocity at LT2 (treadmill/road, well-rested):
 > **65–70% HRmax** than the 75–80% this table used to print — so the row was not
 > internally consistent even on its own terms.
 >
+> **The %VO₂max column is uncited too, and #98 did not say so (#100).** That audit used
+> this column to impeach the %HRmax one without ever sourcing it — an unsourced number
+> is not a instrument for measuring another unsourced number, and using it as one made
+> the surviving column look checked when it was not. None of ~50–60 / ~70–80 / ~85–90
+> %VO₂max has a source in this note. The nearest cited value points somewhere else
+> again: Fleckenstein 2023 reports LT2 at **79% of VO₂max in trained runners**, which
+> sits below this table's "recreational trained ~70–80%" top and well below its "elite
+> ~85–90%". The surviving **elite ~88–92% HRmax** cell is likewise uncited — Fleckenstein
+> measured ~88% mean (84–91% range) in *trained*, not *elite*, runners.
+>
+> The whole table is therefore **practitioner orientation, not measurement**. It stays
+> because the *ordering* (threshold sits at a higher fraction of capacity in trained
+> runners than untrained ones) is real and useful, and the note's operational rule never
+> depended on the numbers: anchor from a field test (D4), and anchor a beginner on RPE
+> and the talk test (D3). Do not quote a cell of this table as a figure.
+>
 > So this note now **states no beginner or recreational %HRmax band at all**. The
 > operational rule was never the number anyway: anchor a beginner on RPE and the
 > talk test (D3), which is what the note already told the coach to do.
