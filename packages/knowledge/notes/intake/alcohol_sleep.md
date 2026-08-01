@@ -4,7 +4,6 @@ name: "Alcohol, sleep architecture, and overnight autonomics"
 topic: Alcohol disrupts second-half sleep architecture and acutely lowers HRV
 category: intake
 grade: Established
-evidence_grade: 3
 summary: "Alcohol before bed front-loads slow-wave sleep then fragments the second half (more wake, delayed and reduced REM), lowers overnight HRV and raises heart rate during sleep — dose-dependent with no established floor (Pietilä 2018: RMSSD −2.0 / −5.7 / −12.9 ms and HR +1.4 / +4.0 / +8.7 bpm at low / moderate / high dose, all significant); a morning-after HRV dip after a logged drink is expected, not an anomaly."
 aliases: ["alcohol", "drinking", "alcohol before bed", "nightcap", "alcohol and sleep", "alcohol and hrv"]
 applies_to_metrics: ["tst_min", "sleep_health_score_4dim", "hrv_sleep_avg", "rhr_daily"]

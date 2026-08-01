@@ -4,7 +4,6 @@ name: "Weekly strength-minutes tally plan"
 topic: Implementation plan — weekly strength-training minutes tally vs 30–60 min/week sweet spot
 category: activity
 grade: Probable
-evidence_grade: 2
 summary: "Tally weekly muscle-strengthening minutes from logged exercise (a strength-type classifier, with generic yoga counting half-credit only at ≥30 min) and show them against the 30–60 min/week sweet spot — a tiny card, no new derivation pipeline, framed as progress not deficit."
 aliases: ["strength minutes", "strength tally", "strength card", "weekly strength plan", "strength_adherence_plan"]
 tags: ["strength minutes", "strength tally", "strength card", "weekly strength plan", "strength_adherence_plan"]

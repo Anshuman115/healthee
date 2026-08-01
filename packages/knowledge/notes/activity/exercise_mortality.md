@@ -4,7 +4,6 @@ name: "Minimum exercise dose and mortality"
 topic: Even 15 minutes of moderate daily exercise reduces all-cause mortality
 category: activity
 grade: Established
-evidence_grade: 3
 summary: "As little as ~15 min/day (~90 min/week) of moderate activity meaningfully lowers all-cause mortality vs inactivity; benefit keeps accruing with diminishing returns above ~300 min/week moderate (or ~150 vigorous), and resistance training adds benefit beyond aerobic work."
 aliases: ["exercise mortality", "minimum exercise", "15 minutes exercise", "physical activity mortality", "exercise_mortality"]
 tags: ["exercise mortality", "minimum exercise", "15 minutes exercise", "physical activity mortality", "exercise_mortality"]

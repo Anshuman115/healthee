@@ -4,7 +4,6 @@ name: "Multi-dimensional sleep-health composites (evidence review)"
 topic: Multi-dimensional sleep health composites (RU-SATED binary sums) — what is and is not validated for wearable-only data
 category: sleep
 grade: Probable
-evidence_grade: 2
 summary: "Pre-specified binary RU-SATED sleep-health composites predict mortality, CVD, depression and cognitive decline in cohort studies — but no purely wearable/actigraphy 4-dimension sum is directly validated against a hard outcome; every replicated formula includes a self-report dimension, so our wearable 4-dim sum is a moderate-confidence extrapolation, not a replication."
 aliases: ["multidimensional sleep health", "RU-SATED", "sleep health composite", "sleep health score evidence", "Wallace 2017", "Lee 2022 sleep composite", "Brindle 2019", "Buysse 2014", "binary sleep composite"]
 applies_to_metrics: ["sleep_health_score_4dim", "sleep_regularity_index", "tst_min"]

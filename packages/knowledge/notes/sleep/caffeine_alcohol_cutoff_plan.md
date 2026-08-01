@@ -4,7 +4,6 @@ name: "Personal caffeine/alcohol cutoff-time finder (plan)"
 topic: Implementation plan — personal caffeine/alcohol cutoff-time finder using existing logs + correlation engine
 category: sleep
 grade: Probable
-evidence_grade: 2
 summary: "Implementation plan for a server-side per-user cutoff-time finder that mines existing intake logs + sleep outcomes to surface the personal time-of-day past which caffeine/alcohol measurably degrades that night's sleep — moderate confidence, since the intake→sleep effect is strong but per-user threshold detection adds n=1 uncertainty."
 aliases: ["caffeine cutoff", "alcohol cutoff", "coffee cutoff time", "when to stop caffeine", "last coffee", "caffeine before bed", "alcohol before bed", "personal cutoff finder", "intake cutoff"]
 applies_to_metrics: ["tst_min", "hrv_sleep_avg", "rhr_daily", "sleep_health_score_4dim"]

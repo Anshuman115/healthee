@@ -4,7 +4,6 @@ name: "Daily AI recommendations engine (implementation plan)"
 topic: Implementation plan — daily AI recommendations engine that synthesizes findings into 1–3 action items
 category: recs
 grade: Probable
-evidence_grade: 2
 summary: "Implementation plan for a daily batch recs engine: reads the user's own signals, calls the LLM through the cite-or-don't-say choke point + post-hoc validator, persists 1–3 cited action items with adoption tracking, and renders them on Today + a recommendations page — governed by the safety and behavior-change notes, not by any metric."
 aliases: ["recommendations engine", "recs engine", "daily recommendations", "implementation", "dashboard"]
 applies_to_metrics: []

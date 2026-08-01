@@ -3,7 +3,6 @@ id: specificity_and_recovery
 name: "Specificity & Recovery"
 category: principles
 grade: Established
-evidence_grade: 3
 summary: "SAID: the body adapts to the exact stress imposed, and adaptation happens during recovery — stress and recovery are one system; protect the easy–hard polarity."
 aliases: ["specificity-and-recovery", "specificity", "SAID principle", "specific adaptation to imposed demands", "principle of specificity", "training specificity", "recovery", "rest days", "rest day", "adaptation", "supercompensation", "stress-recovery-adaptation", "overload-recovery", "hard-easy", "hard easy principle", "easy-hard polarity", "overreaching", "functional overreaching", "non-functional overreaching", "overtraining", "overtraining syndrome", "detraining", "cross-training transfer", "recovery is when you adapt"]
 applies_to_metrics: []

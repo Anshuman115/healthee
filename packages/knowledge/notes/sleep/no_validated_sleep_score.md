@@ -4,7 +4,6 @@ name: "No validated composite sleep score"
 topic: No peer-reviewed composite "sleep score" exists for wearable data
 category: sleep
 grade: Established
-evidence_grade: 3
 summary: "No peer-reviewed composite formula turns wearable data into a single 'sleep score'; the components (duration, efficiency, WASO, SRI) are individually validated but combining them needs arbitrary weightings no study has settled — so Healthee shows the four wearable-computable RU-SATED dimensions separately, never a 0–100 black box."
 aliases: ["sleep score", "no sleep score", "0-100 sleep score", "composite sleep score", "whoop sleep score", "oura sleep score", "sleep score validity", "why no sleep score", "RU-SATED"]
 applies_to_metrics: ["sleep_health_score_4dim"]

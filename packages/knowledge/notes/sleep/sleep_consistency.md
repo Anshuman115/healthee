@@ -4,7 +4,6 @@ name: "Sleep timing consistency (day-to-day variability)"
 topic: Day-to-day sleep timing variability is independently linked to cardiometabolic risk
 category: sleep
 grade: Established
-evidence_grade: 3
 summary: "Higher day-to-day variability in bedtime and sleep duration raises cardiometabolic and mortality risk independently of mean sleep duration; it is a chronic-pattern signal (track SD of bedtime over ~2 weeks, surface weekly), the behavioural sibling of the Sleep Regularity Index."
 aliases: ["sleep consistency", "bedtime consistency", "sleep timing variability", "irregular sleep", "sleep variability", "consistent bedtime", "social jetlag", "bedtime SD", "weekend catch-up sleep"]
 applies_to_metrics: ["sleep_regularity_index", "sleep_health_score_4dim"]

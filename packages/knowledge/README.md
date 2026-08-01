@@ -42,7 +42,7 @@ per collection (see below); the generator maps both onto these fields:
 | `id` | `id` (already snake_case) | `id` (snake_case, e.g. `heart_rate_zones`) |
 | `name` | `topic` (→ `title` → `id`) | `name` |
 | `category` | parent directory | parent directory (`metrics`/`principles`/`wellness`) |
-| `grade` | `evidence_grade` 3→Established · 2→Probable · 1→Emerging | `grade` (Established/Probable/Emerging/Contested/Myth) |
+| `grade` | `grade` — one vocabulary, both collections (see below) | `grade` (Established/Probable/Emerging/Contested/Myth/Refuted) |
 | `summary` | `topic`/`title`, else first body line | `summary` (one line) |
 | `aliases` | `tags` | original hyphenated slug + existing synonyms |
 | `applies_to_metrics` | `applies_to_metrics` | mapped per `docs/INTELLIGENCE.md` §7.1 (`[]` if not-yet-computed) |
@@ -53,8 +53,27 @@ per collection (see below); the generator maps both onto these fields:
 Sports-science docs also keep `related`, `daud_metrics` (the origin project's
 compute-fn names — *not* Healthee metrics), and `units` as provenance; the
 manifest ignores them. Ids must match `[a-z0-9_]+` (the citation regex) or they
-are uncitable. Notes in `notes/protocol/` carry no `id`/`evidence_grade` and are
-skipped as non-citable engineering references (surfaced, not silently dropped).
+are uncitable. Notes in `notes/protocol/` carry no `id` and are skipped as
+non-citable engineering references (surfaced, not silently dropped).
+
+### One grade per note (#83, 2026-08-01)
+
+`grade` is the single source of truth in **both** collections. Notes used to carry
+a second numeric `evidence_grade` field described as a "mirror" of it. It was not a
+mirror: the two could disagree, and which one the manifest published depended on the
+note's directory — `notes/` was built from `evidence_grade` (its authored `grade` was
+ignored), and `sports-science/` did the exact reverse (its `evidence_grade` was dead
+metadata in 27 notes). A `notes/` note authored `grade: Myth` with
+`evidence_grade: 3` would therefore have shipped as **Established**, and that string
+is what `insights/validator.py` reads to decide whether a claim may be stated plainly
+and what `MIN_ACTIONABLE_RANK` consults before letting a note drive a recommendation.
+The numeric field also could not express `Contested` or `Myth` at all.
+
+`make knowledge` now **fails** on any note that carries `evidence_grade`. Code that
+needs a numeric rank derives it from the string in `insights/manifest.py::GRADE_RANK`
+(the one definition, and the only one that can express Contested → 1, Myth → 0).
+Removing the field left `manifest.json` and `research_summaries.json` **byte-identical**
+— no note's published grade changed, only the ability to write down a disagreement.
 
 ## Manifest (generated)
 

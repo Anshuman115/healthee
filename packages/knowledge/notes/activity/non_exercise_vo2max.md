@@ -4,7 +4,6 @@ name: "Non-exercise VO₂max estimate (Jurca 2005)"
 topic: Estimating VO2max without a maximal exercise test — Jurca 2005 model + HUNT3 update, and the nightly non-exercise estimate
 category: activity
 grade: Probable
-evidence_grade: 2
 summary: "The fallback VO₂max estimator: a validated non-exercise model (Jurca 2005 METs equation from age, sex, BMI, resting HR and an activity category) that needs no treadmill test — r≈0.78, SEE≈5.6 mL/kg/min, good for within-person trend, never a measurement; computed nightly when there is no usable workout segment for the submaximal method."
 aliases: ["non-exercise vo2max", "jurca", "jurca 2005", "hunt3", "non-exercise-test", "cardiorespiratory fitness estimate", "vo2max_estimate_plan", "non_exercise_vo2max", "methodology"]
 tags: ["non-exercise vo2max", "jurca", "jurca 2005", "hunt3", "non-exercise-test", "cardiorespiratory fitness estimate", "vo2max_estimate_plan", "non_exercise_vo2max", "methodology"]

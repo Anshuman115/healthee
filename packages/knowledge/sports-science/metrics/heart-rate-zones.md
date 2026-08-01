@@ -3,7 +3,6 @@ id: heart_rate_zones
 name: "Heart-Rate Training Zones"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
 population: runners
 aliases: ["heart-rate-zones", "hr zones", "heart rate zones", "training zones", "zone 2", "karvonen", "heart rate reserve", "hrr", "lthr", "polarized training", "seiler 3-zone", "intensity distribution", "%hrmax", "max heart rate", "hr_zone_minutes", "time in zones", "edwards zones"]

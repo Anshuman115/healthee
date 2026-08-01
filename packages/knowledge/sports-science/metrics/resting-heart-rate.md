@@ -3,7 +3,6 @@ id: resting_heart_rate
 name: "Resting Heart Rate (RHR)"
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "A cheap waking-pulse trend; a sustained multi-day rise above the person's own baseline flags fatigue, under-recovery, or oncoming illness — and at population scale a lower RHR tracks better fitness and lower mortality (never a personal death-risk number)."
 aliases: ["resting-heart-rate", "RHR", "resting HR", "resting pulse", "waking heart rate", "morning heart rate", "basal heart rate", "athlete bradycardia", "sinus bradycardia", "resting_hr_health_marker", "rhr mortality marker", "cardiovascular risk marker", "autonomic marker"]
 applies_to_metrics: ["rhr_daily"]

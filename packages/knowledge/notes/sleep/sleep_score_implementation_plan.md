@@ -4,7 +4,6 @@ name: "4-dimension sleep-health score (implementation plan)"
 topic: How healthee should display a multi-dimensional sleep score given the evidence in sleep_health_score_multidim
 category: sleep
 grade: Probable
-evidence_grade: 2
 summary: "Build a 0–4 binary sleep-health score (duration, efficiency, timing, regularity), each dimension 1 if it meets its documented cutoff, always shown alongside its four dimensions and citations — never a 0–100 continuous score; a moderate-confidence extrapolation whose cutoffs are separately sourced and unequally strong (duration mortality-validated; efficiency clinical consensus; regularity derived from a quintile boundary), not a directly-validated composite."
 aliases: ["sleep health score", "4-dim sleep score", "sleep score implementation", "RU-SATED score", "sleep dimensions", "duration efficiency timing regularity", "sleep dashboard score"]
 applies_to_metrics: ["sleep_health_score_4dim", "sleep_regularity_index", "tst_min"]

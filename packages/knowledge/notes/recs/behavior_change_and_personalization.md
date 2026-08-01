@@ -4,7 +4,6 @@ name: "Behavior change & personalization (recs design basis)"
 topic: What actually changes health behavior — BCT taxonomy, self-monitoring, and personalization effect sizes
 category: recs
 grade: Established
-evidence_grade: 3
 summary: "Generic information barely moves health behavior; what works is personalized, data-anchored feedback plus self-monitoring + goal-setting + discrepancy, with multi-technique interventions ~2× single-technique — the evidence basis for the recs engine's design rules (personalize not inform, progress-frame, cite, ≤3 actions/day, track adoption)."
 aliases: ["behavior change", "BCT", "behavior change techniques", "personalization", "methodology", "self-monitoring"]
 applies_to_metrics: []

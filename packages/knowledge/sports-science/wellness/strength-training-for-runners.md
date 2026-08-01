@@ -3,7 +3,6 @@ id: strength_training_for_runners
 name: "Strength Training for Runners"
 category: wellness
 grade: Established
-evidence_grade: 3
 summary: "Heavy lifting + plyometrics improve running economy ~2–8% with no bulk, and roughly halve overuse-injury risk — recommend to essentially every runner."
 population: runners
 aliases: ["strength-training-for-runners", "resistance training", "lifting for runners", "heavy strength", "plyometrics", "plyos", "weights", "gym work", "neuromuscular training", "strength and conditioning", "running economy strength", "injury prevention strength", "concurrent training", "S&C"]

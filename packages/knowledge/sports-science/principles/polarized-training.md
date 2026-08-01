@@ -3,7 +3,6 @@ id: polarized_training
 name: "Polarized & Intensity-Distribution Training"
 category: principles
 grade: Probable
-evidence_grade: 2
 summary: "Successful endurance training is ~80% easy / ~20% hard, avoiding the moderate \"black hole\"; whether the hard 20% is polarized vs pyramidal is genuinely contested."
 aliases: ["polarized-training", "polarized training", "polarised training", "80/20 training", "80-20 rule", "training intensity distribution", "TID", "intensity distribution", "pyramidal training", "threshold training", "junk miles", "black hole training", "no man's land", "moderate intensity trap", "three-zone model", "Seiler", "easy hard distribution"]
 applies_to_metrics: []

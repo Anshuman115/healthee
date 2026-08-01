@@ -4,7 +4,6 @@ name: "Skin Temperature (overnight)"
 topic: Wrist skin temperature — what it does and doesn't track
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Wrist sensors measure skin (not core) temperature; the trustworthy signal is a personal-baseline overnight deviation (a sustained ~0.3–0.5°C / 2σ rise over 2–3 nights can flag illness or cycle phase), never an absolute thermometer reading — moderate evidence (★★)."
 aliases: ["skin_temp_c", "skin temperature", "wrist temperature", "temperature", "temp", "overnight temperature", "methodology", "accuracy"]
 applies_to_metrics: ["skin_temp_c"]

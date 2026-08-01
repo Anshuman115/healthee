@@ -16,8 +16,7 @@ Copy the skeleton below. Delete the parenthetical guidance, not the sections.
 id: snake_case_id                     # citable id — must match [a-z0-9_]+
 name: "Human Readable Name"
 category: metrics | principles | wellness | activity | sleep | hrv | metrics | intake | recovery | meditation
-grade: Established | Probable | Emerging | Contested | Myth   # the note's overall grade
-evidence_grade: 3 | 2 | 1             # numeric mirror (3=Established, 2=Probable, 1=Emerging) — ship tier
+grade: Established | Probable | Emerging | Contested | Myth | Refuted   # the ONLY grade
 summary: "One line: what it is and the single most useful takeaway."
 aliases: ["other-name", "hyphenated-slug", "synonym"]
 applies_to_metrics: ["derived_daily metric name(s) this backs"]   # [] if not-yet-computed
@@ -94,6 +93,18 @@ for — THIS is what prevents degradation. Include, as applicable:
 - **Grade calibration:** language matches the per-claim grade — Established stated
   plainly, Probable hedged, Emerging flagged, Contested presented as debated, Myth
   corrected gently.
+- **ONE grade field.** `grade` is the note's only grade. There used to be a second,
+  numeric `evidence_grade` "mirror"; it was removed in #83 because a mirror that can
+  disagree is not a mirror. The two could contradict each other, and which one the
+  manifest published depended on the note's *directory* — `notes/` was built from
+  `evidence_grade` and `sports-science/` from `grade` — so a note authored `Myth`
+  with `evidence_grade: 3` would have shipped as **Established**, i.e. the corpus
+  telling the coach to state a debunked claim plainly. The numeric field also could
+  not express `Contested` or `Myth` at all (it spanned 3/2/1 only), which forced
+  `running_form_metrics` to write a number contradicting its own grade. `make
+  knowledge` now REJECTS any note carrying `evidence_grade`. Where code needs a
+  numeric rank, it derives one from the string in `insights/manifest.py::GRADE_RANK`
+  — the one place that mapping lives.
 - **Complementary topics stay two cross-linked notes** (e.g. cadence-as-MVPA vs
   cadence-as-running-form); only genuine near-duplicates merge into one.
 - Ids stay `snake_case`; `make knowledge` regenerates the manifest from frontmatter.

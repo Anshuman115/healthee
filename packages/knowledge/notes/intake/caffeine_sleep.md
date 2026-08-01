@@ -4,7 +4,6 @@ name: "Caffeine timing and sleep"
 topic: Caffeine taken up to 6 hours before bed measurably disrupts sleep
 category: intake
 grade: Established
-evidence_grade: 3
 summary: "Caffeine taken at bedtime, 3 h, or even 6 h before bed measurably cuts total sleep time and raises wake-after-sleep-onset versus placebo — significant at 6 h out and detected by both self-report and polysomnography; a 400 mg dose 6 h before bed costs ~1 h of sleep."
 aliases: ["caffeine", "coffee", "coffee before bed", "caffeine cutoff", "caffeine and sleep", "late caffeine"]
 applies_to_metrics: ["tst_min", "sleep_health_score_4dim"]

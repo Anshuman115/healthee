@@ -4,7 +4,6 @@ name: "Sedentary time and mortality"
 topic: Prolonged sedentary time elevates mortality risk, especially in low-activity individuals
 category: activity
 grade: Established
-evidence_grade: 3
 summary: "Prolonged sedentary time independently raises all-cause mortality, but the harm is largely offset by physical activity and light-activity breaks — high activity nearly eliminates the excess risk of normal sitting; the message is 'break up sitting and stay generally active', not 'never sit'."
 aliases: ["sedentary time", "sitting time", "sedentary behaviour", "prolonged sitting", "sedentary_mortality"]
 tags: ["sedentary time", "sitting time", "sedentary behaviour", "prolonged sitting", "sedentary_mortality"]

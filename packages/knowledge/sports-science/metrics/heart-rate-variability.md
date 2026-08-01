@@ -3,7 +3,6 @@ id: heart_rate_variability
 name: "Heart-Rate Variability (HRV)"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Beat-to-beat vagal-tone signal (overnight RMSSD vs personal baseline); a noisy daily autoregulation tool, never an overreaching detector on its own — raised chronically by aerobic exercise, sleep and slow breathing, suppressed acutely by alcohol and short sleep."
 aliases: ["heart-rate-variability", "HRV", "RMSSD", "lnRMSSD", "vagal tone", "parasympathetic activity", "autonomic balance", "morning HRV", "cardiac vagal tone", "hrv_improvement", "hrv_recovery_marker", "hrv_rmssd_ms", "hrv_sleep_avg_ms"]
 applies_to_metrics: ["hrv_sleep_avg"]

@@ -4,7 +4,6 @@ name: "Sauna bathing and cardiovascular mortality"
 topic: Frequent sauna bathing and cardiovascular / all-cause mortality
 category: activity
 grade: Established
-evidence_grade: 3
 summary: "Regular Finnish-style sauna bathing is dose-responsively associated with substantially lower fatal cardiovascular and all-cause mortality (KIHD cohort); a session acutely mimics moderate aerobic exercise (HR ~100–150 bpm), so an expected post-sauna HR bump is not anomalous."
 aliases: ["sauna", "sauna bathing", "heat exposure mortality", "finnish sauna", "sauna cardiovascular", "sauna_cv_benefits"]
 tags: ["sauna", "sauna bathing", "heat exposure mortality", "finnish sauna", "sauna cardiovascular", "sauna_cv_benefits"]

@@ -4,7 +4,6 @@ name: "Body weight, BMI, and body composition"
 topic: What a scale reading is (mostly not fat), what BMI can and cannot tell you, and what we do not measure
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "A single weigh-in is a mass measurement, not a fat measurement: day-to-day body mass varies by ~0.5 kg (CV <1%) from water, glycogen and gut contents, and 84% of a two-week weight change is fat-free mass — so only a trend well above that noise floor means anything. BMI is a population screening tool that misses about half the people with excess body fat, cannot separate muscle from fat, and shifts meaning with age, sex and ancestry; we use it in the VO₂max model anyway and must say what that costs."
 aliases: ["weight", "body weight", "weight trend", "weight fluctuation", "water weight", "scale", "weighing", "self-weighing", "bmi", "body mass index", "body composition", "body fat", "fat mass", "lean mass", "fat-free mass", "waist circumference", "waist-to-height ratio", "adiposity"]
 applies_to_metrics: ["weight_kg", "vo2max_estimate", "basal_calories", "total_calories", "active_calories"]

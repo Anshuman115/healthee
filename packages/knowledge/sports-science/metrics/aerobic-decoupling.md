@@ -3,7 +3,6 @@ id: aerobic_decoupling
 name: "Aerobic Decoupling & Cardiac Drift"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "How much HR drifts up over a steady run; a durability gauge that must be cross-checked against heat, fuelling, and effort."
 population: runners
 aliases: ["aerobic-decoupling", "decoupling", "cardiac drift", "heart rate drift", "Pa:HR", "Pw:HR", "aerobic durability", "efficiency factor", "HR drift", "heart rate recovery", "HRR", "cardiovascular drift"]

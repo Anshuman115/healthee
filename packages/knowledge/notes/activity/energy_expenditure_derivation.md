@@ -4,7 +4,6 @@ name: "Deriving daily energy expenditure (calories)"
 topic: Deriving daily energy expenditure (calories) — free-living, anchored
 category: activity
 grade: Probable
-evidence_grade: 2
 summary: "Total energy expenditure is derived as RMR (Mifflin–St Jeor) + a MET-by-state activity model anchored to the person's BMR + device-measured workout calories — deliberately NOT raw Keytel or HR→EE, which overcount free-living days 2–3× because heart rate cannot separate passive HR elevation from movement without accelerometry the strap doesn't expose."
 aliases: ["energy expenditure", "calories derivation", "TEE", "total energy expenditure", "active calories", "MET-by-state", "energy_expenditure_derivation"]
 tags: ["energy expenditure", "calories derivation", "TEE", "total energy expenditure", "active calories", "MET-by-state", "energy_expenditure_derivation"]

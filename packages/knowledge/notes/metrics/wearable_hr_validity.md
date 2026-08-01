@@ -4,7 +4,6 @@ name: "Wearable HR (PPG) — validity & limits"
 topic: Optical wrist HR (PPG) accuracy vs ECG
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "Optical wrist/strap HR (PPG) matches ECG within ±2–3 bpm at rest and is reliable for daily resting/sleep HR and personal trends, but degrades badly (10–30 bpm+) in high-intensity/rapid-change exercise, with cold skin/poor perfusion, and across tattoos/dark/hairy skin — and it is never an arrhythmia screen."
 aliases: ["hr", "heart rate", "ppg", "optical hr", "wrist hr", "photoplethysmography", "methodology", "accuracy"]
 applies_to_metrics: ["rhr_daily", "hr"]

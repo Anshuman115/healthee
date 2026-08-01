@@ -4,7 +4,6 @@ name: "Wearable sleep-stage scoring — validity & limits"
 topic: Wrist/strap sleep stage scoring vs polysomnography
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "Wearables score sleep from accelerometry + PPG + HRV, not EEG; trust total sleep time, bedtime/wake, and asleep-vs-awake (agree well with PSG) and directional stage trends, but not single-night exact stage values (κ ≈ 0.3–0.6), over-estimated deep sleep, error-prone REM, or the proprietary sleep score's absolute number."
 aliases: ["sleep_stage", "sleep staging", "sleep stages", "deep sleep", "rem sleep", "light sleep", "sleep score", "polysomnography", "psg", "methodology", "accuracy"]
 applies_to_metrics: ["sleep_health_score_4dim"]

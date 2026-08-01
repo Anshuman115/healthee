@@ -4,7 +4,6 @@ name: "Slow-paced breathing and acute HRV"
 topic: Slow-paced breathing (~6 breaths/min) acutely increases HRV
 category: meditation
 grade: Established
-evidence_grade: 3
 summary: "Breathing at ~6 breaths/min acutely raises HRV — RMSSD commonly +30–80% and HF power 2–5× during a 10–20 min session — via baroreflex resonance and maximised respiratory sinus arrhythmia; the effect is largely within-session, so an elevated overnight HRV after breathwork is expected, not a surprise, and chronic-baseline gains are smaller and less certain."
 aliases: ["breathwork", "slow breathing", "paced breathing", "resonance breathing", "coherent breathing", "vagal_tone", "6 breaths per minute"]
 applies_to_metrics: ["hrv_sleep_avg", "respiratory_rate_sleep"]

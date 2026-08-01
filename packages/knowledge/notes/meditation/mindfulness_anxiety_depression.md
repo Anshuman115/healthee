@@ -4,7 +4,6 @@ name: "Mindfulness meditation for anxiety, depression, and pain"
 topic: Mindfulness meditation has moderate effect on anxiety, depression, and pain
 category: meditation
 grade: Established
-evidence_grade: 3
 summary: "Structured 8-week mindfulness programs (MBSR/MBCT) produce moderate, clinically meaningful improvements in anxiety, depression, and pain (SMD ~0.3–0.38), but no reliable edge on sleep, mood, attention, or well-being; evidence is far stronger for structured courses than for casual app use, and it is not a substitute for treatment."
 aliases: ["meditation", "mindfulness", "MBSR", "MBCT", "mindfulness meditation", "mental_health"]
 applies_to_metrics: ["hrv_sleep_avg"]

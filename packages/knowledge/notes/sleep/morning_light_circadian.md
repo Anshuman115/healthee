@@ -4,7 +4,6 @@ name: "Morning bright light & circadian entrainment"
 topic: Morning bright-light exposure entrains circadian rhythm and improves sleep timing
 category: sleep
 grade: Established
-evidence_grade: 3
 summary: "Bright morning light (outdoor, ≥1,000–10,000 lux) within 1–2 h of waking advances the circadian clock via melanopsin→SCN signalling, giving earlier, more consistent sleep onset, better mood, and easier waking; evening blue light does the reverse — a days-to-weeks effect, not an acute one-night fix."
 aliases: ["morning light", "sunlight", "bright light", "circadian entrainment", "light exposure", "blue light", "melatonin", "get sunlight in the morning", "light therapy", "circadian rhythm"]
 applies_to_metrics: ["sleep_regularity_index", "sleep_health_score_4dim", "rhr_daily"]

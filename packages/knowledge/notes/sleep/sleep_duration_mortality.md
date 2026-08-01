@@ -4,7 +4,6 @@ name: "Sleep duration and all-cause mortality"
 topic: Sleep duration and all-cause mortality (U-shaped curve)
 category: sleep
 grade: Established
-evidence_grade: 3
 summary: "Habitual sleep shows a U-shaped tie to mortality — both short (<6h) and long (>9h) carry higher risk than 7–8h — but it's observational, self-reported, and a population signal, never a single-night verdict."
 aliases: ["sleep duration", "sleep and mortality", "sleep longevity", "u-shaped sleep mortality", "sleep_duration"]
 applies_to_metrics: ["sleep_health_score_4dim"]

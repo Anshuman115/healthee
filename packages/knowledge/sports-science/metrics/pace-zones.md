@@ -3,7 +3,6 @@ id: pace_zones
 name: "Pace Zones & Threshold Pace"
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "Speed bands anchored to threshold pace; pace is instantaneous external load (what you did), HR is lagging internal load (what it cost)."
 population: runners
 aliases: ["pace-zones", "pace zones", "threshold pace", "T-pace", "tempo pace", "Daniels zones", "VDOT", "lactate threshold pace", "critical speed", "pace vs heart rate", "external load", "grade-adjusted pace"]

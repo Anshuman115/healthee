@@ -3,7 +3,6 @@ id: maximum_heart_rate
 name: "Maximum Heart Rate (HRmax)"
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "The stable, age-declining, non-trainable HR ceiling that anchors every %HRmax zone — use Tanaka, not 220−age, and override with any observed peak."
 aliases: ["maximum-heart-rate", "HRmax", "max heart rate", "maximal heart rate", "max hr", "220 minus age", "220-age", "tanaka formula", "fox formula", "gellish formula", "nes formula", "hunt formula", "peak heart rate", "age-predicted max heart rate", "apmhr", "mhr"]
 applies_to_metrics: ["cardio_load", "vo2max_submax"]

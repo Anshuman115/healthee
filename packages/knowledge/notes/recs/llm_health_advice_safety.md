@@ -4,7 +4,6 @@ name: "LLM health-advice safety guardrails"
 topic: Safety guardrails for LLM-generated health recommendations — what we will and will not do
 category: recs
 grade: Probable
-evidence_grade: 2
 summary: "LLMs pass medical exams yet hallucinate confident-but-wrong medical content and miscalibrate uncertainty, so the recs layer only SYNTHESIZES the user's own findings into cited action items — never diagnoses, doses, interprets symptoms, or projects personal mortality — with every claim post-hoc validated against repo notes and mental-health emergencies routed to a static hotline. Safety-critical guardrails, mirrored in code."
 aliases: ["llm safety", "ai health advice", "recs safety", "guardrails", "cite-or-dont-say"]
 applies_to_metrics: []

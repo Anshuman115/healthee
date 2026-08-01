@@ -4,7 +4,6 @@ name: "Wearable SpO2 — validity & limits"
 topic: Wrist optical SpO2 accuracy and limits
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "Wrist optical SpO2 is trustworthy as a multi-night personal trend and for spotting clearly abnormal (<90%) values, but not for absolute precision (±2–3% RMSE), single low readings, sleep-apnea diagnosis, or across dark skin pigmentation (documented bias)."
 aliases: ["spo2", "SpO2", "blood oxygen", "oxygen saturation", "pulse oximetry", "wrist oximetry", "ppg spo2", "methodology", "accuracy"]
 applies_to_metrics: ["spo2_overnight", "spo2_overnight_min"]

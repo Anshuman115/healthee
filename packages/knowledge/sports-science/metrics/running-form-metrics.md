@@ -3,7 +3,6 @@ id: running_form_metrics
 name: "Advanced Form Metrics & Running Power"
 category: metrics
 grade: Contested
-evidence_grade: 1
 summary: "GCT, vertical oscillation/ratio, leg stiffness, running power — device-dependent, trend-only signals; power is a proprietary model, not interchangeable across brands."
 population: runners
 aliases: ["running-form-metrics", "ground contact time", "GCT", "vertical oscillation", "vertical ratio", "leg stiffness", "vertical stiffness", "spring-mass model", "running power", "Stryd", "Garmin running power", "COROS power", "running dynamics", "running economy", "form drift", "biomechanics"]
@@ -144,11 +143,21 @@ Critically, runners self-optimise this. Moore et al. found that trained enduranc
   candidate that depends on hardware/data Healthee does not have** (`applies_to_metrics: []`;
   `daud_metrics` provenance dropped — `groundContactTime`/`verticalOscillation`/
   `verticalRatio`/`legStiffness`/`runningPower` are legacy `@daud/core`).
-- **Why the numeric ship-tier is 1 (`evidence_grade: 1`).** The note's overall
-  grade is **Contested**; the unified numeric mirror only spans 3/2/1, so a
-  Contested note takes the **lowest ship tier** — the coach must present these as
-  debated, device-locked, trend-only signals, never state them plainly. (Flagged
-  for the reviewing lead as the one non-obvious mapping: Contested → 1.)
+- **The grade is `Contested`, and that is now the only grade this note carries**
+  *(corrected 2026-08-01, #83)*. This note used to carry a second, numeric
+  `evidence_grade: 1` alongside it, with a paragraph here explaining that "the
+  unified numeric mirror only spans 3/2/1, so a Contested note takes the lowest
+  ship tier". That explanation was the defect describing itself: the numeric field
+  **cannot represent Contested or Myth at all**, so authoring one forced a number
+  whose own published mapping (1 → Emerging) contradicted the note's real grade.
+  The two fields also had opposite authority depending on the directory — the
+  generator read `grade` here and `evidence_grade` in `notes/` — so a note could
+  ship under a grade its author never wrote. `evidence_grade` has been removed from
+  the whole corpus and the generator now rejects it; `grade` is the single source of
+  truth, and the numeric rank it maps to lives once, in
+  `insights/manifest.py::GRADE_RANK` (which *can* express Contested → 1 and
+  Myth → 0). The coach must present these as debated, device-locked, trend-only
+  signals, never state them plainly.
 - **Future-metric candidate (only if a dynamics-capable device is added).** These
   would require a footpod / dynamics-capable watch or a running-power meter, plus a
   policy for the fact that the numbers are **not comparable across brands**.

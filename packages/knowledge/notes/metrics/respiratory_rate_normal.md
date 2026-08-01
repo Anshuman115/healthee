@@ -4,7 +4,6 @@ name: "Respiratory Rate (overnight)"
 topic: Respiratory rate during sleep — normal ranges and what shifts mean
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "Overnight respiratory rate is 12–20 br/min (most 12–16 in deep sleep) and personally very stable (<1 br/min night-to-night); a sustained ≥2 br/min rise over the personal baseline is a validated early illness signal, not a diagnosis."
 aliases: ["respiratory_rate", "respiration rate", "breathing rate", "RR", "overnight respiratory rate", "sleep respiratory rate", "respiration", "autonomic"]
 applies_to_metrics: ["respiratory_rate_sleep"]

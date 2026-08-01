@@ -4,7 +4,6 @@ name: "Step cadence as exercise-intensity proxy"
 topic: Step cadence (steps/min) as a practical proxy for ambulatory exercise intensity
 category: activity
 grade: Established
-evidence_grade: 3
 summary: "Step cadence is a validated, device-independent proxy for ambulatory intensity: the Tudor-Locke CADENCE-Adults program ties ~100 spm to ~3 METs (moderate) and ~130 spm to ~6 METs (vigorous) in healthy adults — the basis of Healthee's cadence-based MVPA classification. (Health-intensity angle; the running-form meaning of cadence is a separate note.)"
 aliases: ["cadence", "step cadence", "steps per minute", "spm", "walking cadence", "cadence intensity", "cadence_intensity"]
 tags: ["cadence", "step cadence", "steps per minute", "spm", "walking cadence", "cadence intensity", "cadence_intensity"]

@@ -3,7 +3,6 @@ id: race_prediction
 name: "Race-Time Prediction"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Estimates a finish time from a known race via Riegel's power law; well-calibrated short-to-mid, optimistic for under-trained marathoners."
 population: runners
 aliases: ["race-prediction", "race time predictor", "finish time estimate", "race equivalency", "riegel", "vdot", "race calculator", "predicted race pace", "equivalent performances", "what could i run"]

@@ -4,7 +4,6 @@ name: "MVPA derivation & weekly-target plan"
 topic: Implementation plan — derive moderate/vigorous minutes from per-minute steps + workouts; weekly progress card vs 150-min target
 category: activity
 grade: Probable
-evidence_grade: 2
 summary: "The implementation of MVPA: classify each per-minute step count into moderate/vigorous by cadence (debounced), add non-walking logged workouts, aggregate to daily moderate_min/vigorous_min and weekly mvpa_min (moderate + 2×vigorous), and show it against the WHO 150-min target."
 aliases: ["mvpa derivation", "mvpa card", "weekly mvpa plan", "cadence mvpa derivation", "mvpa_weekly_plan"]
 tags: ["mvpa derivation", "mvpa card", "weekly mvpa plan", "cadence mvpa derivation", "mvpa_weekly_plan"]

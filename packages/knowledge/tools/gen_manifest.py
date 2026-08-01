@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """Generate the knowledge manifest from both corpus collections.
 
-Parses the YAML frontmatter of every doc in `notes/` (legacy numeric-grade
-format) and `sports-science/` (unified format), normalizes them to one record
-shape, validates the whole corpus, and writes two committed, diff-stable
-artifacts:
+Parses the YAML frontmatter of every doc in `notes/` and `sports-science/` (the
+two collections differ in their optional fields, not in their grade), normalizes
+them to one record shape, validates the whole corpus, and writes two committed,
+diff-stable artifacts:
 
   * manifest.json           — full records, for server-side retrieval.
   * research_summaries.json  — compact records, for the mobile asset.
 
 Both are GENERATED — never hand-edit them; run `make knowledge` to regenerate.
-Validation is loud: a duplicate id, a bad id format, an unknown grade, or a
-missing required field aborts with a non-zero exit and a clear message.
+Validation is loud: a duplicate id, a bad id format, an unknown grade, a
+reintroduced `evidence_grade`, or a missing required field aborts with a
+non-zero exit and a clear message.
+
+**One grade per note.** `grade` is the single source of truth for both
+collections. The numeric `evidence_grade` mirror was removed in #83 — it could
+disagree with `grade`, the winner depended on the note's directory, and it could
+not express Contested or Myth at all. See :func:`_grade`.
 
 Run:
     cd apps/server && uv run python ../../packages/knowledge/tools/gen_manifest.py
@@ -40,9 +46,14 @@ SUMMARIES_PATH = KNOWLEDGE_ROOT / "research_summaries.json"
 NOTES_SKIP = {"README.md", "conventions.md"}
 SS_SKIP = {"README.md", "METHODOLOGY.md", "TEMPLATE.md", "COACHING-RULES.md"}
 
-# Legacy numeric grade -> unified scale (Engineering Standards §4).
-LEGACY_GRADE = {3: "Established", 2: "Probable", 1: "Emerging"}
-UNIFIED_GRADES = frozenset(LEGACY_GRADE.values()) | {"Contested", "Myth"}
+# The ONE grade vocabulary (Engineering Standards §4). `grade` is the single source
+# of truth for every note in both collections — see `_grade` below for why the old
+# numeric `evidence_grade` mirror was removed rather than merely reconciled.
+UNIFIED_GRADES = frozenset({"Established", "Probable", "Emerging", "Contested", "Myth", "Refuted"})
+
+# The retired numeric mirror. Kept ONLY as a rejection list: a note that reintroduces
+# it fails generation loudly instead of quietly re-opening the split.
+RETIRED_GRADE_FIELD = "evidence_grade"
 
 ID_RE = re.compile(r"[a-z0-9_]+")
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n(.*)$", re.S)
@@ -114,19 +125,56 @@ def _rel(path: Path) -> str:
     return path.relative_to(KNOWLEDGE_ROOT).as_posix()
 
 
+def _grade(fm: dict[str, Any], where: str, errors: list[str]) -> str:
+    """The note's ONE grade, validated. Shared by both collections.
+
+    ## Why there is only one grade field (#83, 2026-08-01)
+
+    Notes used to carry TWO grades: an authored ``grade`` string and a numeric
+    ``evidence_grade`` mirror. They could disagree, and which one won depended on
+    the note's DIRECTORY — ``notes/`` was built from ``evidence_grade`` and its
+    authored ``grade`` was ignored; ``sports-science/`` did the exact reverse. So a
+    note could ship under a grade nobody wrote, and the worst case was not
+    hypothetical arithmetic: ``grade: Myth`` with ``evidence_grade: 3`` published as
+    **Established**, which is the manifest telling every downstream consumer to state
+    a debunked claim plainly. ``insights/validator.py`` reads this string to decide
+    whether a sentence needs hedging, ``_grade_floor`` reports it as the answer's
+    evidence floor, and ``MIN_ACTIONABLE_RANK`` lets it drive a recommendation.
+
+    The numeric field was also structurally incapable of the job: it spans 3/2/1
+    only, so ``Contested`` and ``Myth`` had no numeric at all —
+    ``running_form_metrics`` was authored ``Contested`` and forced to write
+    ``evidence_grade: 1``, whose own published mapping says *Emerging*.
+
+    So it is not reconciled, it is REMOVED: one field, one vocabulary, both
+    collections, and the numeric rank derived from the string once in
+    ``insights/manifest.py::GRADE_RANK`` (which can express Contested → 1, Myth → 0).
+    Reintroducing the field is a generation error, not a warning.
+    """
+    if RETIRED_GRADE_FIELD in fm:
+        errors.append(
+            f"{where}: `{RETIRED_GRADE_FIELD}` was removed (#83) — it could disagree with "
+            "`grade` and cannot express Contested/Myth. Delete it; `grade` is the only grade."
+        )
+    grade = fm.get("grade")
+    if grade is None:
+        errors.append(f"{where}: missing required field `grade`")
+        return ""
+    if grade not in UNIFIED_GRADES:
+        errors.append(f"{where}: unknown grade {grade!r} (allowed: {sorted(UNIFIED_GRADES)})")
+        return ""
+    return str(grade)
+
+
 def _legacy_record(path: Path, errors: list[str]) -> dict[str, Any] | None:
     """Build a record for a legacy note, or None to skip a non-evidence doc."""
     fm, body = _parse_frontmatter(path.read_text())
-    if "id" not in fm and "evidence_grade" not in fm:
+    if "id" not in fm:
         return None  # engineering/protocol reference — not citable evidence
     where = _rel(path)
     note_id = str(fm.get("id") or "")
-    grade_num = fm.get("evidence_grade")
     if not note_id:
         errors.append(f"{where}: legacy note missing required field `id`")
-    if grade_num not in LEGACY_GRADE:
-        errors.append(f"{where}: legacy `evidence_grade` must be 1/2/3, got {grade_num!r}")
-        return None
     name = _authored(fm, "name", fm.get("topic"), fm.get("title"), note_id)
     summary = _authored(
         fm, "summary", fm.get("topic"), fm.get("title"), _first_body_line(body), name
@@ -136,7 +184,7 @@ def _legacy_record(path: Path, errors: list[str]) -> dict[str, Any] | None:
         "name": name,
         "aliases": _authored_aliases(fm),
         "category": _authored(fm, "category", path.parent.name),
-        "grade": LEGACY_GRADE[grade_num],
+        "grade": _grade(fm, where, errors),
         "applies_to_metrics": _as_list(fm.get("applies_to_metrics")),
         "applies_to_interventions": _as_list(fm.get("applies_to_interventions")),
         "summary": summary,
@@ -151,7 +199,6 @@ SS_REQUIRED = (
     "id",
     "name",
     "category",
-    "grade",
     "summary",
     "aliases",
     "applies_to_metrics",
@@ -166,15 +213,12 @@ def _ss_record(path: Path, errors: list[str]) -> dict[str, Any]:
     missing = [k for k in SS_REQUIRED if k not in fm]
     if missing:
         errors.append(f"{where}: missing required field(s): {', '.join(missing)}")
-    grade = fm.get("grade")
-    if grade is not None and grade not in UNIFIED_GRADES:
-        errors.append(f"{where}: unknown grade {grade!r} (allowed: {sorted(UNIFIED_GRADES)})")
     return {
         "id": str(fm.get("id") or ""),
         "name": _authored(fm, "name"),
         "aliases": _authored_aliases(fm),
         "category": _authored(fm, "category", path.parent.name),
-        "grade": str(grade) if grade is not None else "",
+        "grade": _grade(fm, where, errors) if "grade" in fm else "",
         "applies_to_metrics": _as_list(fm.get("applies_to_metrics")),
         "applies_to_interventions": _as_list(fm.get("applies_to_interventions")),
         "summary": _authored(fm, "summary"),
@@ -230,8 +274,8 @@ def build_records() -> tuple[list[dict[str, Any]], list[str]]:
     """Parse + validate the whole corpus.
 
     Returns (records, skipped_paths). Raises CorpusError on any validation
-    failure. Skipped paths are non-citable engineering/protocol notes (no
-    id/evidence_grade) — surfaced, never silently dropped.
+    failure. Skipped paths are non-citable engineering/protocol notes (no `id`)
+    — surfaced, never silently dropped.
     """
     errors: list[str] = []
     skipped: list[str] = []

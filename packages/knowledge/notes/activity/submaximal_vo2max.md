@@ -4,7 +4,6 @@ name: "Submaximal HR-vs-pace VO₂max estimate"
 topic: Submaximal HR-during-activity VO2max estimation — the wearable method, vs the Jurca non-exercise baseline
 category: activity
 grade: Probable
-evidence_grade: 2
 summary: "The primary VO₂max estimator for active users: fit the HR↔workload line over steady-state sub-maximal workout segments and extrapolate to HRmax — the same method Garmin/Firstbeat and Polar use. More accurate than the Jurca non-exercise baseline for active users (independent MAPE 6.85%, CCC 0.70 for running), but real-but-modest and not directly validated for free-living unknown-grade walking."
 aliases: ["submaximal vo2max", "hr-vs-pace vo2max", "firstbeat vo2max", "wearable vo2max estimate", "submaximal-extrapolation", "vo2max_submax", "submaximal_vo2max", "methodology"]
 tags: ["submaximal vo2max", "hr-vs-pace vo2max", "firstbeat vo2max", "wearable vo2max estimate", "submaximal-extrapolation", "vo2max_submax", "submaximal_vo2max", "methodology"]

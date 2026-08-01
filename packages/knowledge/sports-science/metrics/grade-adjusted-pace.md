@@ -3,7 +3,6 @@ id: grade_adjusted_pace
 name: "Grade-Adjusted Pace (GAP)"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Converts hill pace to the equivalent flat pace by metabolic cost (Minetti); judge effort by GAP on hills, cross-checked with HR/RPE."
 population: runners
 aliases: ["grade-adjusted-pace", "GAP", "grade adjusted pace", "gradient adjusted pace", "hill-adjusted pace", "equivalent flat pace", "cost of transport", "metabolic cost of gradient running", "Minetti curve", "NGP", "normalized graded pace"]

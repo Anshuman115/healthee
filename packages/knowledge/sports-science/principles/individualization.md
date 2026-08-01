@@ -3,7 +3,6 @@ id: individualization
 name: "Individualization — Training the Runner, Not the Population"
 category: principles
 grade: Established
-evidence_grade: 3
 summary: "Two runners on the same plan adapt very differently; treat every population default as a starting estimate and re-anchor to the runner's own measured response."
 aliases: ["individualization", "individual variability", "trainability", "responders", "non-responders", "HERITAGE", "individualized training", "personalization", "n-of-1", "individual response", "HRV-guided training"]
 applies_to_metrics: []

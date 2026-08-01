@@ -4,7 +4,6 @@ name: "Illness / recovery early-warning flag"
 topic: Implementation plan — nightly illness/recovery early-warning flag from skin temp + RR baselines
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "A nightly flag that compares the night's skin temperature and respiratory rate against the 14-night personal baseline and raises a moderate/high illness-recovery signal — the RR limb (≥ +2 br/min sustained over 2 nights) is validated (Smarr 2020, Quer 2021); the skin-temp limb's + 0.5 °C trigger is OUR heuristic, not a sourced threshold — framed as 'possible early signal, consider light recovery,' never a diagnosis (combined evidence ★★, skin temp the weaker limb)."
 aliases: ["illness_flag", "illness flag", "early-warning", "recovery flag", "sick day", "implementation", "illness", "recovery", "dashboard"]
 applies_to_metrics: ["skin_temp_c", "respiratory_rate_sleep", "hrv_sleep_avg", "rhr_daily"]

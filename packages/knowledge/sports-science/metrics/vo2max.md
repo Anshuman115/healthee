@@ -3,7 +3,6 @@ id: vo2max
 name: "VO₂max (Maximal Oxygen Uptake)"
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "The aerobic ceiling — one of three performance determinants and the single strongest modifiable longevity marker (CRF↔mortality); slow-moving, large wearable error; a trend tool, not a race predictor or a death-risk number."
 aliases: ["vo2max", "vo2 max", "vo2peak", "maximal oxygen uptake", "maximal oxygen consumption", "maximal aerobic capacity", "aerobic power", "maximal aerobic power", "aerobic ceiling", "cardiorespiratory fitness", "CRF", "cardiorespiratory-fitness", "mL/kg/min", "vo2max_fitness_mortality", "vo2max_training_program"]
 applies_to_metrics: ["vo2max_estimate"]

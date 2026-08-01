@@ -3,7 +3,6 @@ id: running_economy
 name: "Running Economy"
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "The energy cost of holding a pace — among similar-VO₂max runners it explains who races faster; trainable for a whole career."
 population: runners
 aliases: ["running-economy", "running economy", "RE", "oxygen cost of running", "energy cost of running", "metabolic cost of running", "running efficiency", "cost of transport", "submaximal vo2"]

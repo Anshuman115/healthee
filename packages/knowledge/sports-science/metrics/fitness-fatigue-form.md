@@ -3,7 +3,6 @@ id: fitness_fatigue_form
 name: "Fitness / Fatigue / Form (CTL, ATL, TSB)"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Impulse-response bookkeeping: CTL≈fitness, ATL≈fatigue, TSB≈form; useful for trends and tapering, but coarse and never overrides subjective/HRV signals."
 population: runners
 aliases: ["fitness-fatigue-form", "ctl", "atl", "tsb", "training stress balance", "chronic training load", "acute training load", "fitness fatigue form", "banister model", "impulse response model", "performance management chart", "pmc", "form", "freshness", "training load model"]

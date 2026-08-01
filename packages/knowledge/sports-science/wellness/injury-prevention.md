@@ -3,7 +3,6 @@ id: injury_prevention
 name: "Running Injury Prevention"
 category: wellness
 grade: Probable
-evidence_grade: 2
 summary: "Most running injuries are overuse from load outrunning tissue capacity; strength training and load management are first-line, and bone-stress/REDs is a hard stop."
 population: runners
 aliases: ["injury-prevention", "injury risk", "running-related injury", "RRI", "overuse injury", "training load management", "load spike", "10% rule", "ten percent rule", "ACWR", "acute chronic workload ratio", "bone stress injury", "stress fracture", "RED-S", "relative energy deficiency in sport", "low energy availability", "female athlete triad", "return to running", "return to run", "walk-run", "shin splints", "medial tibial stress syndrome", "patellofemoral pain", "runner's knee", "IT band syndrome", "plantar fasciitis", "Achilles tendinopathy", "cadence retraining", "strength training for runners"]

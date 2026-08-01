@@ -3,7 +3,6 @@ id: lactate_threshold
 name: "Lactate Threshold (LT1, LT2, LTHR)"
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "The intensity where lactate accumulates; LT2/MLSS is the single best — and most trainable — endurance predictor, the central dial the coach turns."
 population: runners
 aliases: ["lactate-threshold", "lactate threshold", "LT1", "LT2", "LTHR", "aerobic threshold", "anaerobic threshold", "MLSS", "maximal lactate steady state", "critical speed", "OBLA", "threshold pace", "threshold heart rate"]

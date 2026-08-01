@@ -3,7 +3,6 @@ id: environmental_stress
 name: "Heat & Altitude"
 category: wellness
 grade: Established
-evidence_grade: 3
 summary: "Heat acclimatization is one of sport's best-evidenced gains (~10–14 days); read effort/pace alongside HR in heat. Altitude (LHTL) is smaller and contested."
 population: runners
 aliases: ["environmental-stress", "heat acclimatization", "heat acclimation", "heat adaptation", "training in heat", "humidity", "WBGT", "dew point", "core temperature", "plasma volume", "heat illness", "heat stroke", "altitude training", "live high train low", "LHTL", "hypoxia", "EPO", "hemoglobin mass", "acclimatization", "pace adjustment heat", "HR drift heat"]

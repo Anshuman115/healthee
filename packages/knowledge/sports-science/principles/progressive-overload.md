@@ -3,7 +3,6 @@ id: progressive_overload
 name: "Progressive Overload & Adaptation"
 category: principles
 grade: Probable
-evidence_grade: 2
 summary: "Stress → recovery → adaptation; cap single-run distance spikes tightly, deload periodically — but the \"10% per week\" rule is a soft heuristic, not a law."
 aliases: ["progressive-overload", "progressive overload", "overload", "load progression", "training progression", "ramp rate", "10% rule", "ten percent rule", "supercompensation", "super-compensation", "adaptation", "deload", "deload week", "down week", "recovery week", "cutback week", "overreaching", "functional overreaching", "non-functional overreaching", "overtraining", "overtraining syndrome", "OTS", "too much too soon"]
 applies_to_metrics: []

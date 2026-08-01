@@ -3,7 +3,6 @@ id: periodization
 name: "Periodization & Tapering"
 category: principles
 grade: Probable
-evidence_grade: 2
 summary: "Phase training (base→build→peak→taper); the ~2-week taper (cut volume 41–60%, hold intensity) is the best-evidenced piece — the macro model choice is not."
 aliases: ["periodization", "periodisation", "taper", "tapering", "base building", "build phase", "peak phase", "macrocycle", "mesocycle", "microcycle", "block periodization", "linear periodization", "undulating periodization", "peaking", "race week", "specificity"]
 applies_to_metrics: []

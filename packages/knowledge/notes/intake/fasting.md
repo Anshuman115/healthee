@@ -4,7 +4,6 @@ name: "Fasting (IF / TRE) and tracked metrics"
 topic: Fasting and its effect on wearable-tracked physiology
 category: intake
 grade: Probable
-evidence_grade: 2
 summary: "Time-restricted eating gives no body-composition or metabolic advantage over plain calorie restriction and can cost lean mass; fasting shifts HRV/RHR in a direction that depends on fast length, so a wearable's 'better' overnight HRV during a fast can be meal-timing physiology, not recovery."
 aliases: ["fasting", "intermittent fasting", "IF", "time-restricted eating", "TRE", "16:8", "time-restricted feeding", "TRF", "alternate-day fasting", "fasted training", "Ramadan fasting"]
 applies_to_metrics: ["hrv_sleep_avg", "rhr_daily", "weight_kg", "recovery_score", "sleep_health_score_4dim", "vo2max_estimate", "skin_temp_c", "respiratory_rate_sleep"]

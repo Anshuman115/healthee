@@ -37,9 +37,12 @@ How the coach uses it [staged] · Safety bounds · Honesty & uncertainty ·
 Bottom line [Act-confidently vs Hold-loosely] · Coach Directives · References).
 
 Plus, carried from legacy so nothing product-specific is lost:
-- **Frontmatter**: `applies_to_metrics`, `applies_to_interventions`, numeric
-  `evidence_grade` + ship-tier policy, alongside SS's `id`/`aliases`/`category`/
-  `related`/`last_reviewed`. (Same schema WP4 establishes.)
+- **Frontmatter**: `applies_to_metrics`, `applies_to_interventions`, and the
+  ship-tier policy, alongside SS's `id`/`aliases`/`category`/`grade`/`related`/
+  `last_reviewed`. (Same schema WP4 establishes.) *The numeric `evidence_grade`
+  this line originally carried was removed in #83 — it duplicated `grade`, could
+  disagree with it, and could not express Contested or Myth; the ship tier is now
+  derived from `grade` in `insights/manifest.py::GRADE_RANK`.*
 - **New mandatory section — "Healthee implementation & honesty policy"**: the
   metric's real field name, `derive.py`/`app.py` provenance, any composite-score
   exception + its required per-factor breakdown, device-ingestion specifics, and

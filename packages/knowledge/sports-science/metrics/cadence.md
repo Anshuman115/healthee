@@ -3,7 +3,6 @@ id: cadence
 name: "Cadence (Step Rate)"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Steps per minute; the \"180 for everyone\" rule is a myth — nudge an individual +5–10% above their own baseline only when overstriding/injury justifies it."
 population: runners
 aliases: ["cadence", "step rate", "stride frequency", "step frequency", "spm", "steps per minute", "turnover", "180 cadence", "leg turnover"]

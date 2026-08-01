@@ -3,7 +3,6 @@ id: critical_speed
 name: "Critical Speed / Critical Power"
 category: metrics
 grade: Established
-evidence_grade: 3
 summary: "The highest metabolically steady-state speed — a hard ceiling; pace above it draws on a finite tank (D′) with predictable time-to-exhaustion."
 population: runners
 aliases: ["critical-speed", "critical speed", "critical power", "CS", "CP", "critical velocity", "CV", "D-prime", "D", "W-prime", "W", "anaerobic distance capacity", "power-duration relationship", "speed-duration relationship", "3-min all-out test", "severe intensity domain"]

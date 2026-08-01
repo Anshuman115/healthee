@@ -4,7 +4,6 @@ name: "Load Currency — TRIMP vs TSS (why Healthee reasons over one unit)"
 topic: "Load-currency reconciliation — Healthee's internal HR-based Banister TRIMP (cardio_load) vs external power/pace-based TSS; they are different constructs and are not interchangeable"
 category: activity
 grade: Probable
-evidence_grade: 2
 summary: "Healthee's load currency is Banister TRIMP (HR-based, `cardio_load`); TSS is power/pace-based. They measure different things (internal vs external load), do not convert one-to-one, and must not be mixed — ACWR and readiness reason over TRIMP only."
 aliases: ["load-currency", "trimp vs tss", "internal load", "external load", "load unit", "cardio_load currency", "trimp tss conversion", "session load unit"]
 tags: [methodology, training-load, trimp, tss, cardio-load, heart-rate]

@@ -3,7 +3,6 @@ id: stride_length
 name: "Stride Length"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Distance per stride; speed = cadence × stride length, self-selected stride is near-optimal — flag overstriding, never chase a target number."
 population: runners
 aliases: ["stride-length", "stride length", "step length", "stride", "overstriding", "overstride", "stride rate", "cadence vs stride", "pace decomposition", "foot strike position"]

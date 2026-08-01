@@ -45,7 +45,7 @@ def _point_at(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
 LEGACY_NOTE = """---
 id: {id}
 topic: {topic}
-evidence_grade: {grade}
+grade: {grade}
 applies_to_metrics: [rhr_daily]
 tags: [a, b]
 last_reviewed: 2026-01-01
@@ -63,7 +63,6 @@ name: "Alcohol, sleep architecture, and overnight autonomics"
 topic: Alcohol disrupts second-half sleep architecture and acutely lowers HRV
 category: intake
 grade: Established
-evidence_grade: 3
 summary: "Alcohol before bed front-loads slow-wave sleep then fragments the second half."
 aliases: ["nightcap", "alcohol before bed", "alcohol and hrv"]
 applies_to_metrics: [hrv_sleep_avg]
@@ -109,10 +108,10 @@ def test_real_corpus_grades_and_ids() -> None:
     # consolidates/renames notes; assert invariants, not specific consolidatable ids.
     assert all(gen.ID_RE.fullmatch(i) for i in ids)
     assert len(set(ids)) == len(ids)
-    # grade mapping produces the unified vocabulary across the real corpus
+    # one grade vocabulary across the real corpus, both collections (#83)
     grades = {r["grade"] for r in records}
-    assert grades <= {"Established", "Probable", "Emerging", "Contested", "Myth", "Refuted"}
-    assert "Established" in grades and "Probable" in grades  # legacy 3->Established, 2->Probable
+    assert grades <= gen.UNIFIED_GRADES
+    assert {"Established", "Probable", "Contested"} <= grades
     # a stable sports-science note keeps its snake_case id + a v2 metric mapping
     by_id = {r["id"]: r for r in records}
     assert by_id["heart_rate_zones"]["grade"] == "Probable"
@@ -151,7 +150,7 @@ def test_legacy_note_without_authored_fields_falls_back(
     _point_at(monkeypatch, tmp_path)
     _write(
         tmp_path / "notes" / "m" / "old.md",
-        LEGACY_NOTE.format(id="old", topic="A topic", grade=3),
+        LEGACY_NOTE.format(id="old", topic="A topic", grade="Established"),
     )
     (record,), _ = gen.build_records()
     assert record["name"] == "A topic"
@@ -167,7 +166,7 @@ def test_both_builders_read_the_same_authored_fields(
     authored = 'name: "Shared Name"\nsummary: "Shared summary line."\naliases: ["shared-alias"]\n'
     _write(
         tmp_path / "notes" / "m" / "l.md",
-        f"---\nid: leg\n{authored}topic: terse topic\nevidence_grade: 3\ntags: [t]\n---\n\nBody.\n",
+        f"---\nid: leg\n{authored}topic: terse\ngrade: Established\ntags: [t]\n---\n\nBody.\n",
     )
     _write(
         tmp_path / "sports-science" / "metrics" / "s.md",
@@ -200,26 +199,6 @@ def test_real_corpus_publishes_the_authored_summary_and_aliases() -> None:
             assert record["summary"] != str(fm["topic"]).strip(), record["id"]
 
 
-# ── grade mapping ──────────────────────────────────────────────────────────
-
-
-@pytest.mark.parametrize(
-    ("grade_num", "expected"),
-    [(3, "Established"), (2, "Probable"), (1, "Emerging")],
-)
-def test_legacy_grade_mapping(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, grade_num: int, expected: str
-) -> None:
-    _point_at(monkeypatch, tmp_path)
-    _write(
-        tmp_path / "notes" / "m" / "n.md",
-        LEGACY_NOTE.format(id="n", topic="A topic", grade=grade_num),
-    )
-    records, _ = gen.build_records()
-    assert records[0]["grade"] == expected
-    assert records[0]["name"] == "A topic"  # topic -> name
-
-
 # ── validation failures ─────────────────────────────────────────────────────
 
 
@@ -227,7 +206,9 @@ def test_duplicate_id_across_collections_fails(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _point_at(monkeypatch, tmp_path)
-    _write(tmp_path / "notes" / "a.md", LEGACY_NOTE.format(id="dup", topic="T", grade=3))
+    _write(
+        tmp_path / "notes" / "a.md", LEGACY_NOTE.format(id="dup", topic="T", grade="Established")
+    )
     _write(
         tmp_path / "sports-science" / "metrics" / "b.md",
         SS_NOTE.format(id="dup", name="Dup", grade="Established"),
@@ -286,7 +267,7 @@ def test_protocol_note_skipped_not_failed(monkeypatch: pytest.MonkeyPatch, tmp_p
     _point_at(monkeypatch, tmp_path)
     # No id and no evidence_grade -> engineering doc, skipped (not an error).
     _write(tmp_path / "notes" / "protocol" / "p.md", "---\ntitle: X\nstatus: draft\n---\n\nBody.\n")
-    _write(tmp_path / "notes" / "a.md", LEGACY_NOTE.format(id="real", topic="T", grade=2))
+    _write(tmp_path / "notes" / "a.md", LEGACY_NOTE.format(id="real", topic="T", grade="Probable"))
     records, skipped = gen.build_records()
     assert [r["id"] for r in records] == ["real"]
     assert skipped == ["notes/protocol/p.md"]

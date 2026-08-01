@@ -266,8 +266,15 @@ test/          parser goldens + analytics parity + widget smoke tests
 
 - **Per-claim evidence grades** with calibrated language: Established (state
   plainly) · Probable (light hedge) · Emerging (flag uncertainty) · Contested
-  (present as debated) · Myth/Refuted (correct gently). Legacy numeric grades
-  map: 3 (★★★) → Established, 2 (★★) → Probable, 1 → Emerging.
+  (present as debated) · Myth/Refuted (correct gently).
+- **A note has exactly ONE grade field, `grade`** — in both collections. The numeric
+  `evidence_grade` mirror was removed (#83): the two could disagree, the winner
+  depended on the note's *directory*, and the numeric could not express Contested or
+  Myth at all, so a note authored `Myth` could ship as `Established` — the corpus
+  instructing the product to state a debunked claim as fact. `make knowledge` rejects
+  a note that reintroduces the field. Where code needs a numeric rank it derives one
+  from the string in `insights/manifest.py::GRADE_RANK` — one definition, and the only
+  one that can rank Contested (1) and Myth (0).
 - **Citations are real or absent** — a claim that can't be sourced is labelled
   practitioner consensus or omitted. Verify primary sources BEFORE writing.
 - **Honesty section is mandatory** in every note: confounders, individual

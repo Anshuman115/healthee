@@ -3,7 +3,6 @@ id: training_stress_score
 name: "Training Stress Score (TSS) and Session Load Quantification"
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose. Healthee computes this load as Banister TRIMP (HR-based), surfaced as `cardio_load`."
 population: runners
 aliases: ["training-stress-score", "tss", "rtss", "hrtss", "training stress score", "training load", "session load", "intensity factor", "IF", "normalized power", "normalized graded pace", "NGP", "grade adjusted pace", "GAP", "trimp", "session rpe", "srpe", "training impulse", "cardio_load_trimp", "cardio load", "cardio-load", "banister trimp", "edwards trimp", "summated heart-rate zone", "strain", "strain 0-21", "strain score"]

@@ -2,15 +2,24 @@
 
 ## Evidence grade
 
-| grade | what qualifies |
-|---|---|
-| `★★★` | Multiple high-quality RCTs **and/or** systematic reviews / meta-analyses **and** independent replication. Consistent effect direction across studies. Plausible mechanism. |
-| `★★` | One high-quality RCT or meta-analysis, but limited replication; *or* multiple replicated cohort studies with strong effects. |
-| `★` | Single primary study, mechanism-only reasoning, or contested findings. **Default project policy:** do not ship `★` notes; if added, explicitly mark every downstream use as low-confidence. |
+One field, `grade`, one vocabulary, both collections. *(The `★★★/★★/★` and numeric
+`evidence_grade` spellings this file used to carry were retired in #83 — three
+spellings of one concept is three chances to disagree. The numeric rank code needs
+is derived from the string in `insights/manifest.py::GRADE_RANK`.)*
 
-`★★★` is the default tier we ship and the LLM may cite without qualifiers.
-For `★★` the LLM must include a "moderate-confidence" qualifier.
-`★` notes are excluded from the LLM grounding context unless explicitly toggled on.
+| `grade` | what qualifies | how the coach must say it |
+|---|---|---|
+| `Established` | Multiple high-quality RCTs **and/or** systematic reviews / meta-analyses **and** independent replication. Consistent effect direction across studies. Plausible mechanism. | state plainly |
+| `Probable` | One high-quality RCT or meta-analysis, but limited replication; *or* multiple replicated cohort studies with strong effects. | light hedge |
+| `Emerging` | Single primary study or mechanism-only reasoning. | flag the uncertainty |
+| `Contested` | The literature genuinely disagrees. | present as debated |
+| `Myth` / `Refuted` | The claim is popular and wrong. | correct gently |
+
+`Established` and `Probable` are the tiers that may drive an action
+(`insights/manifest.py::MIN_ACTIONABLE_RANK`). `Emerging`, `Contested` and `Myth`
+stay fully retrievable — the coach may still discuss or correct them — but they do
+not get to prescribe. Calibration is enforced per sentence by
+`insights/validator.py::_grade_issue`, against this grade.
 
 ## Frontmatter schema
 
@@ -18,7 +27,12 @@ For `★★` the LLM must include a "moderate-confidence" qualifier.
 ---
 id: <unique-snake-case-id>
 topic: <one-line description>
-evidence_grade: 3                       # 3 = ★★★, 2 = ★★, 1 = ★
+grade: Established                      # the ONLY grade — Established | Probable |
+                                        # Emerging | Contested | Myth | Refuted.
+                                        # The old numeric `evidence_grade` mirror was
+                                        # removed in #83 (it could disagree with
+                                        # `grade`, and could not express Contested or
+                                        # Myth). `make knowledge` rejects it.
 applies_to_metrics: [hr, hrv_rmssd_ms]  # canonical metric names from metric_sample
 applies_to_interventions: [meditation]   # session.kind values where relevant
 tags: [sleep, autonomic, recovery]

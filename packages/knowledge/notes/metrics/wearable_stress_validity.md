@@ -4,7 +4,6 @@ name: "Wearable stress scores — validity & limits"
 topic: Consumer wearable "stress" 0–100 scores — what they index and what they don't
 category: metrics
 grade: Probable
-evidence_grade: 2
 summary: "Consumer 'stress' 0–100 scores index physiological AROUSAL vs a personal HRV baseline (and are heart-rate-dominated in practice), NOT psychological or emotional stress — the label is misleading; autonomic signals cannot separate mental stress from exertion, and no such score is validated on our Huami/Zepp hardware."
 aliases: ["wearable_stress_scores", "stress score", "stress", "zepp stress", "body battery", "firstbeat stress", "hrv stress"]
 tags: ["wearable_stress_scores", "stress score", "stress", "zepp stress", "body battery", "firstbeat stress", "hrv stress"]

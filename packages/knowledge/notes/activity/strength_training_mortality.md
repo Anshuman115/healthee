@@ -4,7 +4,6 @@ name: "Strength training and mortality"
 topic: Muscle-strengthening (resistance) training and all-cause mortality
 category: activity
 grade: Established
-evidence_grade: 3
 summary: "Muscle-strengthening activity independently lowers all-cause mortality, separate from and additive to aerobic activity, with a J-shaped dose-response whose maximum risk reduction sits at ~30–60 min/week; above that the evidence is explicitly unclear, not a known harm. WHO recommends ≥2 days/week, and meeting both aerobic + strength targets carries the largest benefit."
 aliases: ["strength training", "resistance training", "muscle strengthening", "weight training mortality", "strength_training_mortality"]
 tags: ["strength training", "resistance training", "muscle strengthening", "weight training mortality", "strength_training_mortality"]

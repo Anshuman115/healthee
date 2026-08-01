@@ -3,7 +3,6 @@ id: fueling_and_hydration
 name: "Fueling & Hydration"
 category: wellness
 grade: Established
-evidence_grade: 3
 summary: "Carbs are the limiter past ~90 min (30–90 g/h, gut-trained); drink to thirst — over-drinking risks dangerous hyponatremia."
 population: general
 aliases: ["fueling-and-hydration", "carbohydrate intake", "carbs per hour", "gels", "glycogen", "hitting the wall", "bonking", "gut training", "drinking to thirst", "euhydration", "sodium", "electrolytes", "hyponatremia", "fasted running", "train low", "low-carb", "ketogenic diet", "race fueling"]
