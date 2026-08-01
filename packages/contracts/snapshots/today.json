@@ -2,11 +2,11 @@
   "action": null,
   "anomalies": [],
   "biological_age": {
-    "biological_age": 35.7,
+    "biological_age": 35.1,
     "caveats": [
       {
-        "message": "The fitness term measures your VO\u2082max estimate against a population median for your age and sex, and that median is the one number behind this estimate with no published source \u2014 it was carried over from an older version of this app. Where it can be checked against the US reference standard (FRIEND, 7,783 maximal treadmill tests), it reads low: 44 where FRIEND says 48 for men in their twenties, 36 where FRIEND says 37.6 for women. A reference set too low makes you look fitter than the population, so on that count this number is generous to you rather than harsh \u2014 by up to about 2 years.",
-        "reason": "vo2max_reference_median_uncited",
+        "message": "The fitness term measures your VO\u2082max estimate against a reference for your age and sex. That reference is now the US standard \u2014 the median of 16,278 treadmill exercise tests in the FRIEND registry \u2014 replacing a table that had no published source and was charging most people up to about two years they had not earned. It is still not a median of the population: FRIEND is people who came to a laboratory for a test, and how that differs from everyone else has not been measured in the US. Where it has been compared with a whole-population sample abroad, FRIEND sat lower, which would make this comparison generous rather than harsh \u2014 but that was a different country. Either way it is the smaller uncertainty here: your own VO\u2082max is estimated rather than measured, and that estimate's error is worth about three years.",
+        "reason": "vo2max_reference_clinical_cohort",
         "term": "fitness"
       },
       {
@@ -19,9 +19,9 @@
     "contributions": [
       {
         "compared_as": null,
-        "delta_years": -0.3,
-        "hr": 0.977,
-        "target": 41,
+        "delta_years": -0.9,
+        "hr": 0.92,
+        "target": 40,
         "term": "fitness",
         "unit": "ml/kg/min VO\u2082max",
         "value": 41.5
@@ -37,7 +37,7 @@
       }
     ],
     "data_confidence": "ok",
-    "delta_years": -0.3,
+    "delta_years": -0.9,
     "disclaimer": "Motivational estimate from population data \u2014 not a clinical or diagnostic age.",
     "excluded": [
       {
@@ -1658,7 +1658,7 @@
     "age_years": 35,
     "as_of_date": "2026-07-31",
     "data_confidence": "ok",
-    "delta_from_median": 0.5,
+    "delta_from_median": 1.8,
     "estimate": 41.5,
     "inputs": {
       "bmi": 23.4,
@@ -1666,7 +1666,7 @@
       "rhr_med_7d": 55.0,
       "weekly_mvpa_min": null
     },
-    "median_for_age": 41.0,
+    "median_for_age": 39.7,
     "out_of_range_inputs": [],
     "research_notes": [
       "vo2max_fitness_mortality",

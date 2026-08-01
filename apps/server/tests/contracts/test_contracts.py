@@ -59,12 +59,13 @@ def test_deterministic_derived_values(responses: dict) -> None:
     assert today["vo2max"]["estimate"] == 41.5
     # Biological age end to end, and by VALUE: since #86 it is chronological + fitness +
     # sleep duration ONLY, and since #97 the sleep term is read at the QUESTIONNAIRE
-    # equivalent of the seeded 380 min (6.333 h → 7.0 h, exactly Yin's nadir, so
-    # HR = 1.0 and the term contributes nothing): 36 − 0.2579 + 0 = 35.74. A snapshot
-    # comparison is keys-and-types, so re-adding a term — or re-anchoring one — would sail
-    # through it while changing the headline number the app renders.
-    # [[biological_age_estimate]].
-    assert today["biological_age"]["biological_age"] == 35.7
+    # equivalent of the seeded 380 min (6.333 h → 7.0 h, exactly Yin's nadir, so HR = 1.0
+    # and the term contributes nothing). Since #101 the fitness reference is FRIEND's
+    # published 39.7 for a 30–39 male, not the uncited 41.0, so the seeded 41.5 estimate
+    # is +0.514 MET rather than +0.143: 36 − 0.9285 + 0 = 35.07. A snapshot comparison is
+    # keys-and-types, so re-adding a term — or re-anchoring one — would sail through it
+    # while changing the headline number the app renders. [[biological_age_estimate]].
+    assert today["biological_age"]["biological_age"] == 35.1
     assert [c["term"] for c in today["biological_age"]["contributions"]] == [
         "fitness",
         "sleep duration",
@@ -75,7 +76,7 @@ def test_deterministic_derived_values(responses: dict) -> None:
     # …and the footing of the two terms that ARE priced reaches the app, not just the
     # note. `excluded` and `caveats` answer different owner questions and both ship.
     assert [c["reason"] for c in today["biological_age"]["caveats"]] == [
-        "vo2max_reference_median_uncited",
+        "vo2max_reference_clinical_cohort",
         "sleep_duration_self_report_scale",
     ]
     assert today["sleep_debt"]["performance_pct"] == 79  # 100·380/480, capped

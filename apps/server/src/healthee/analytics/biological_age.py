@@ -84,16 +84,24 @@ found both anchored on something other than what they are compared against:
   questionnaire equivalent first, through a gap Lauderdale 2008 measured
   (``analytics/reference_scales.py``). For a short sleeper this was worth roughly half
   a year of penalty that was never earned.
-- **Fitness** compares the VO₂max estimate to a population median that cites nothing.
-  NOT fixed, because fixing it means pasting numbers we cannot read in a primary
-  source. Instead its footing is published in the payload, with its direction: the
-  table reads low against FRIEND wherever we can check it, so the term FLATTERS.
+- **Fitness** compared the VO₂max estimate to a "population median" that cited nothing.
+  #97 left it standing rather than guess at a replacement and published its footing
+  instead. **#101 sourced it** — every cell replaced at once from one published row,
+  FRIEND's treadmill 50th percentile (``analytics/reference_scales.py``).
 
-The difference from #86 is the reason both survived: their anchors are wrong-but-bounded
-(≈0.5 y and ≈2 y respectively, inside the note's own "±a few years is noise"), and the
-SIGN of each term is robust to the whole plausible range of anchors. The SRI term's sign
-was not — it credited 36 days and penalised 35 of the same owner's 71. A bounded bias
-that is disclosed is a different object from a coin flip presented as a measurement.
+The difference from #86 is the reason both survived: their anchors were
+wrong-but-bounded (≈0.5 y and ≈2 y respectively, inside the note's own "±a few years is
+noise"), and the SIGN of each term is robust to the whole plausible range of anchors. The
+SRI term's sign was not — it credited 36 days and penalised 35 of the same owner's 71. A
+bounded bias that is disclosed is a different object from a coin flip presented as a
+measurement.
+
+**But #97's stated DIRECTION for the fitness term was wrong, and only reading the whole
+table showed it.** Four cells were checkable in an abstract, three read low, and the
+caveat told owners the term flattered them. Against the full published row, ten of the
+twelve old cells were HIGH — the term penalised nearly everyone, worst by ~2.4 y. A
+partial check is a sample, and a sample's sign does not have to hold. This is why the
+repair was "the whole row from one paper" and not "correct the cells we could see".
 
 ``caveats`` is where that disclosure lives: a permanent payload key, one entry per term
 that is *computed but known to lean*, naming which way. It is a third state, and the
@@ -114,7 +122,7 @@ from psycopg.rows import TupleRow
 from healthee.analytics.reference_scales import (
     ANCHOR_CAVEATS,
     SLEEP_DURATION_SELF_REPORT_SCALE,
-    VO2MAX_REFERENCE_UNCITED,
+    VO2MAX_REFERENCE_CLINICAL_COHORT,
     self_reported_equivalent_h,
     vo2max_median_for,
 )
@@ -170,7 +178,7 @@ EXCLUDED_TERMS = [
 # The footing statements themselves live with the anchors they describe, in
 # ``reference_scales``; this module owns only which term each one attaches to.
 CAVEAT_TERMS = [
-    {"term": FITNESS_TERM, **ANCHOR_CAVEATS[VO2MAX_REFERENCE_UNCITED]},
+    {"term": FITNESS_TERM, **ANCHOR_CAVEATS[VO2MAX_REFERENCE_CLINICAL_COHORT]},
     {"term": SLEEP_DURATION_TERM, **ANCHOR_CAVEATS[SLEEP_DURATION_SELF_REPORT_SCALE]},
 ]
 

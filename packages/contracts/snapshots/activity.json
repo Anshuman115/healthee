@@ -405,7 +405,7 @@
   "fitness_plan": {
     "current": 41.5,
     "gain": 2.0,
-    "median_for_age": 41.0,
+    "median_for_age": 39.7,
     "note_id": "vo2max_training_program",
     "plan": {
       "vilpa_desc": "1 hard session \u2014 4-5 \u00d7 1-min brisk-to-hard bursts (stairs / hill / fast walk)",
@@ -865,7 +865,7 @@
     "age_years": 35,
     "as_of_date": "2026-07-31",
     "data_confidence": "ok",
-    "delta_from_median": 0.5,
+    "delta_from_median": 1.8,
     "estimate": 41.5,
     "inputs": {
       "bmi": 23.4,
@@ -873,7 +873,7 @@
       "rhr_med_7d": 55.0,
       "weekly_mvpa_min": null
     },
-    "median_for_age": 41.0,
+    "median_for_age": 39.7,
     "out_of_range_inputs": [],
     "research_notes": [
       "vo2max_fitness_mortality",

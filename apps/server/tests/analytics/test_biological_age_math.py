@@ -42,42 +42,63 @@ from healthee.analytics.biological_age import (
 )
 from healthee.analytics.reference_scales import (
     SLEEP_DURATION_SELF_REPORT_SCALE,
-    VO2MAX_REFERENCE_UNCITED,
+    VO2MAX_REFERENCE_CLINICAL_COHORT,
     self_report_over_report_h,
     self_reported_equivalent_h,
     vo2max_median_for,
 )
 
-
-def test_vo2max_median_table_male() -> None:
-    assert vo2max_median_for(35, "male") == 41.0  # 30s bucket
-    assert vo2max_median_for(52, "male") == 33.0  # 50s bucket
-
-
-def test_vo2max_median_table_female() -> None:
-    assert vo2max_median_for(35, "female") == 33.0
-    assert vo2max_median_for(62, "female") == 22.0
-
-
-def test_vo2max_median_clamps_to_table_bounds() -> None:
-    assert vo2max_median_for(18, "male") == 44.0  # clamped up to 20s
-    assert vo2max_median_for(90, "male") == 24.0  # clamped down to 70s
+# ── The fitness anchor: FRIEND's published 50th-percentile row (#101) ────────
+# Kaminsky LA, Arena R, Myers J, et al. (2022), "Updated Reference Standards for
+# Cardiorespiratory Fitness Measured with Cardiopulmonary Exercise Testing: Data from
+# the FRIEND registry", Mayo Clin Proc 97(2):285–293, PMID 34809986 — TABLE 3, treadmill,
+# directly measured VO₂peak, inclusion criterion RER ≥ 1.0, the 50th-percentile row
+# (16,278 treadmill CPETs, 34 US labs). Every literal below is one cell of that row as
+# printed in the paper, transcribed here independently of the implementation's dict so
+# that a typo in either one fails the build.
+_FRIEND_2022_TREADMILL_P50_MEN = {20: 46.5, 30: 39.7, 40: 35.3, 50: 29.2, 60: 24.6, 70: 20.6}
+_FRIEND_2022_TREADMILL_P50_WOMEN = {20: 36.6, 30: 28.3, 40: 25.7, 50: 22.9, 60: 19.6, 70: 17.2}
 
 
-def test_vo2max_median_reads_below_friend_where_friend_is_published() -> None:
-    """#97's measured finding, kept executable: the table is UNCITED and it reads LOW.
+@pytest.mark.parametrize("decade,published", sorted(_FRIEND_2022_TREADMILL_P50_MEN.items()))
+def test_vo2max_median_table_men_is_friends_published_row(decade: int, published: float) -> None:
+    # Read at the decade's midpoint so the bucketing is exercised too, not just the dict.
+    assert vo2max_median_for(decade + 5, "male") == published
 
-    FRIEND (Kaminsky et al. 2015, Mayo Clin Proc 90(11):1515–23, PMID 26455884; 7,783
-    maximal treadmill CPETs) publishes 50th percentiles of 48.0 (men 20–29), 37.6 (women
-    20–29) and 24.4 (men 70–79). A reference set below the real median makes an owner
-    look fitter than the population, so the fitness term flatters — which is what the
-    payload's ``caveats`` block tells them. This test is the tie: raise the table towards
-    FRIEND (good) or lower it further (worse) and the caveat's wording must be revisited
-    rather than silently outlived.
+
+@pytest.mark.parametrize("decade,published", sorted(_FRIEND_2022_TREADMILL_P50_WOMEN.items()))
+def test_vo2max_median_table_women_is_friends_published_row(decade: int, published: float) -> None:
+    assert vo2max_median_for(decade + 5, "female") == published
+
+
+def test_vo2max_median_clamps_to_the_rows_published_ends() -> None:
+    """Outside 20–89 there is no published cell, so the nearest one is reused.
+
+    The upper clamp moved from 70 to 80 with the source: FRIEND 2022 prints an 80–89
+    bucket (17.6 men / 15.4 women) that the 2015 edition did not, and clamping an
+    85-year-old to the 70s reference would compare them against a decade they are not in.
     """
-    assert vo2max_median_for(25, "male") < 48.0
-    assert vo2max_median_for(25, "female") < 37.6
-    assert vo2max_median_for(75, "male") < 24.4
+    assert vo2max_median_for(18, "male") == 46.5  # below the row → the 20s cell
+    assert vo2max_median_for(85, "male") == 17.6  # the published 80s cell, not the 70s one
+    assert vo2max_median_for(85, "female") == 15.4
+    assert vo2max_median_for(99, "male") == 17.6  # above the row → the 80s cell
+
+
+def test_the_replaced_table_penalised_where_it_was_never_checked() -> None:
+    """#101's finding, kept executable: #97 had the sign right for a sample, not the row.
+
+    The uncited table this replaced was M 44/41/38/33/28/24 · F 36/33/30/26/22/19. #97
+    could only check the four cells the 2015 abstract prints, found three of them LOW, and
+    told owners the fitness term FLATTERED them. Against the full published row, ten of
+    the twelve cells were HIGH — a reference set too fit makes an owner look worse, so the
+    old table penalised nearly everyone. This asserts the two cells that mattered most:
+    the worst penalty (women 30–39, 33.0 against a published 28.3) and the one genuine
+    flattery #97 did see (men 20–29, 44.0 against a published 46.5). If a future edition
+    of the source moves either cell across the old value, the note's account of which way
+    this term used to lean has to be rewritten rather than quietly outlived.
+    """
+    assert vo2max_median_for(35, "female") < 33.0  # was 4.7 ml/kg/min ≈ 2.4 y too harsh
+    assert vo2max_median_for(25, "male") > 44.0  # was 2.5 ml/kg/min ≈ 1.3 y too kind
 
 
 # ── The sleep anchor: questionnaire hours vs device hours (#97) ──────────────
@@ -150,7 +171,11 @@ def test_gompertz_term_cap_is_plus_minus_ten_years() -> None:
 # on fixed inputs, with every expected value derived from the note.
 
 _CHRONO_AGE = 40
-_VO2MAX = 41.5  # ml/kg/min
+# Deliberately exactly one MET above FRIEND's published 40–49 male median (35.3 + 3.5),
+# so the fitness hazard is 0.85 ** 1.0 and the expected years below stay hand-derivable
+# from the note's table rather than from a calculator. Before #101 the same intent was
+# expressed as 41.5, one MET above the uncited table's 38.0.
+_VO2MAX = 38.8  # ml/kg/min
 _TST_MIN = 360.0  # 6.0 h/night, 14-night average
 
 
@@ -222,8 +247,9 @@ def test_composed_per_term_contributions() -> None:
     contribs = {c["term"]: c for c in _stub_result()["contributions"]}
 
     # Fitness — note "Inputs we use": HR = 0.85 per +1 MET (1 MET = 3.5 ml/kg/min)
-    # vs the age/sex-median VO₂max. Median at 40 y male = 38.0 (note's ported table).
-    #   METs above median = (41.5 − 38.0)/3.5 = 1.0  →  HR = 0.85^1.0 = 0.85
+    # vs the age/sex reference VO₂max. Reference at 40 y male = 35.3, FRIEND 2022's
+    # published treadmill 50th percentile for 40–49 (#101; it was an uncited 38.0).
+    #   METs above reference = (38.8 − 35.3)/3.5 = 1.0  →  HR = 0.85^1.0 = 0.85
     #   ΔAge = ln(0.85)·7.7/ln(2) = −0.1625189·7.7/0.6931472 = −1.8054  → −1.8
     assert contribs["fitness"]["hr"] == pytest.approx(0.85)
     assert contribs["fitness"]["delta_years"] == pytest.approx(-1.8)
@@ -309,10 +335,13 @@ def test_every_priced_term_publishes_its_footing() -> None:
     result = _stub_result()
     caveats = {c["term"]: c for c in result["caveats"]}
     assert set(caveats) == {"fitness", "sleep duration"}
-    assert caveats["fitness"]["reason"] == VO2MAX_REFERENCE_UNCITED
+    assert caveats["fitness"]["reason"] == VO2MAX_REFERENCE_CLINICAL_COHORT
     assert caveats["sleep duration"]["reason"] == SLEEP_DURATION_SELF_REPORT_SCALE
-    # The fitness anchor's tilt is one-directional and must be named, not hinted at.
-    assert "no published source" in caveats["fitness"]["message"]
+    # The fitness anchor is sourced since #101, so its caveat is no longer "this cites
+    # nothing" — it is the part that sourcing cannot fix. FRIEND is a laboratory-referral
+    # cohort, so "median" here is a reference standard and not a population's middle, and
+    # the payload has to say which one it means.
+    assert "not a median of the population" in caveats["fitness"]["message"]
 
 
 def test_a_caveat_is_neither_withheld_nor_excluded() -> None:
