@@ -114,7 +114,9 @@ def _complete_with_validation(
     json_mode = response_format == "json"
     client_format = {"type": "json_object"} if json_mode else None
 
-    def next_turn() -> pipeline.Turn:
+    def next_turn(_tools_allowed: bool) -> pipeline.Turn:
+        # This surface has no tools, so it never spends a gathering round and the
+        # driver's ``tools_allowed`` flag has nothing to vary: every turn is an answer.
         response = pipeline.complete(client, messages, model=model, response_format=client_format)
         return pipeline.Turn(text=response.text)
 

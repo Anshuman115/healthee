@@ -3,9 +3,13 @@
 ``test_ai_gate.py`` proves the gate lets exactly one metered call through over HTTP.
 This file proves the thing underneath it is a *rolling seven days* and not a calendar
 period wearing its name, which is the whole difference between the promise §1a makes and
-the one ``core.rate_limit`` would have made. Every window assertion drives the injectable
-``now``, because a rule that can only be exercised by waiting a week is one nobody
-exercises (``core.entitlement.evaluate`` records the same reason).
+the one ``core.rate_limit`` would have made. It also pins §1a's UNIT — a question, not an
+LLM call — which stopped being self-evident when the coach's gathering allowance went to
+20 and one question could make 22 calls.
+
+Every window assertion drives the injectable ``now``, because a rule that can only be
+exercised by waiting a week is one nobody exercises (``core.entitlement.evaluate``
+records the same reason).
 
 The ledger is per owner, so the two-owner case runs against a real database with RLS
 underneath rather than being argued from the SQL.
@@ -13,11 +17,14 @@ underneath rather than being argued from the SQL.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from fastapi.testclient import TestClient
 from tests.conftest import entitle
+from tests.premium.conftest import AUTH
 
 from healthee.api import gate
 from healthee.core import allowance
@@ -201,6 +208,54 @@ def test_one_owners_spent_week_does_not_touch_another(owner: UUID) -> None:
     assert spend(owner, MONDAY_EVENING).allowed is True
     assert spend(owner, MONDAY_EVENING).allowed is False
     assert allowance.spend(OWNER_B, OWNER_B_TZ, FEATURE, 1, now=MONDAY_EVENING).allowed is True
+
+
+# ── the METERED UNIT: a question, not an LLM call ─────────────────────────────
+
+
+def test_a_tool_calling_coach_question_charges_the_allowance_once_not_per_call(
+    bed: TestClient,
+    make_free: Callable[[], None],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """§1a's unit is the QUESTION, and the coach's gathering allowance is now 20 deep.
+
+    ``routers/coach.py`` says so in prose; this measures it, because the two numbers now
+    differ by more than an order of magnitude. A question that spends ten tool rounds
+    makes eleven model calls and must still cost a free owner exactly one of §1a's weekly
+    questions — otherwise a generous gathering budget quietly became a pricing change,
+    and the cost gate that took a whole work package to close would be a regression.
+
+    Over real HTTP, because the charge happens in the FastAPI dependency: calling
+    ``run_coach`` directly would exercise the loop and none of the metering.
+    """
+    from tests.insights._coach_stub import CoachStub, text_turn, tool_call, tool_turn
+    from tests.insights._stub import VALID_TEXT
+
+    from healthee.insights import coach as coach_module
+    from healthee.insights import coach_tools
+
+    rounds = 10
+    script = [
+        tool_turn(tool_call(f"c{i}", "query_metric", f'{{"metric": "m{i}"}}'))
+        for i in range(rounds)
+    ]
+    stub = CoachStub([*script, text_turn(VALID_TEXT)])
+    monkeypatch.setattr(coach_module, "get_client", lambda: stub)
+    monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, uid, tz: {"ok": True})
+    make_free()
+
+    reply = bed.post(
+        "/api/coach",
+        json={"messages": [{"role": "user", "content": "how am I doing?"}]},
+        headers=AUTH,
+    )
+    assert reply.status_code == 200
+    assert reply.json()["validated"] is True
+    assert stub.calls == rounds + 1, "the loop did not actually make many model calls"
+
+    verdict = allowance.peek(SENTINEL_USER_ID, SENTINEL_TZ, FEATURE, limit=1)
+    assert verdict.used == 1, f"eleven model calls billed {verdict.used} weekly questions"
 
 
 # ── the features, against PRICING.md §1a ──────────────────────────────────────

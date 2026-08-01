@@ -67,6 +67,10 @@ def test_coach_returns_a_reply_on_a_seeded_conversation(db: None, stub: StubLLM)
     assert body["reply"] == VALID_TEXT
     assert body["validated"] is True
     assert body["refused"] is False
+    # #84 — the wire contract carries the evidence floor. INTELLIGENCE §3 promised it as
+    # response metadata and the endpoint dropped it, so a client could render citations
+    # with no way to say how firm they are. VALID_TEXT cites one Established note.
+    assert body["grade_floor"] == "Established"
     assert stub.calls == 1
 
 

@@ -186,6 +186,13 @@ it happens instead of being inferred three layers downstream from an unclosed br
    and what should I focus on?"* spent all 5 tool-calling rounds and fell back. Narrow
    questions converge in 2. Not a correctness bug — the fallback is honest — but a real
    quality ceiling on the flagship surface. Worth its own investigation.
+   > **FIXED (same day).** The investigation found the budget conflated two different
+   > activities: a tool round and a validation retry drew on ONE counter, so the loop could
+   > exit having never asked for an answer, and a data-heavy question reached its single
+   > answer attempt with zero retries left. Gathering now has its own allowance (20, a
+   > ceiling not a spend), `MAX_VALIDATION_RETRIES` is reserved on top, and the last round
+   > withdraws `tools=` so an answer is always requested. Worst case 22 LLM calls per
+   > question; the metering still charges the question, not the call.
 2. **The model id appears in application logs** (`llm completion: model=…`). It is kept out
    of git by design; logs are a lesser exposure but the same category as the Telegram token
    that leaked through httpx.

@@ -21,7 +21,7 @@ Stage order, and where each one now lives:
   5. hard output guardrail . ``_output_guard_gate``  — BLOCKING, never retried
   6. blocking validator .... ``_validator_gate``     — prose or JSON
   7. anti-hallucination .... ``_action_claim_gate``  — an action claim needs a tool
-  8. nudge → fallback ...... :func:`drive`           — unvalidated text NEVER ships
+  8. gather → answer → nudge → fallback ... :func:`drive` — unvalidated text NEVER ships
 
 Stages 5–7 are a REGISTRY (:func:`answer_gates`), not a hardcoded sequence, and stage 1
 is one too (:func:`question_gates`). That is what makes the acceptance bar mechanical: a
@@ -209,7 +209,7 @@ def judge(text: str, ctx: AnswerContext) -> Verdict:
     return Verdict(issues=tuple(issues), validation=validation)
 
 
-# ── Stage 8 · the loop policy: nudge once, then the honest fallback ──────────
+# ── Stage 8 · the loop policy: gather, then answer, nudge once, then fall back ─
 
 
 @dataclass(frozen=True)
@@ -219,9 +219,15 @@ class Turn:
     ``text=None`` is how a surface says "I handled that turn myself — ask again". The
     coach returns it after running tool calls; that is the ONLY shape the tool loop
     takes in this module, which is why the loop is a parameter and not a fork.
+
+    ``progressed=False`` on such a turn says "that round added nothing new" — the surface
+    knows what a repeat looks like (the coach: same tool, same arguments), the driver
+    knows what to do about it (stop gathering and force the answer). A loop that is not
+    making progress should end on its own rather than run out of budget.
     """
 
     text: str | None
+    progressed: bool = True
 
 
 @dataclass(frozen=True)
@@ -240,46 +246,106 @@ class Loop:
 
     ``context`` is a callable rather than a value because the coach's ``acted_ok`` grows
     as tools run — it must be read at judgement time, not at loop entry.
+
+    ``next_turn`` is asked with ``tools_allowed``: True while the gathering allowance
+    lasts, False once it is spent (or the loop stalled). A tool-less surface ignores it;
+    the coach stops offering ``tools=`` and tells the model to answer with what it has.
+
+    ``max_gathering_turns`` is the allowance for rounds that run tools instead of
+    answering. It defaults to 0 — a surface with no tools can never spend one — and it
+    is NOT the answer budget: :data:`MAX_VALIDATION_RETRIES` is reserved on top of it by
+    :func:`drive`, so a question that needed twenty rounds of data arrives at its answer
+    with exactly the same grounding tolerance as a trivial one.
     """
 
-    next_turn: Callable[[], Turn]
+    next_turn: Callable[[bool], Turn]
     nudge: Callable[[str, Sequence[str]], None]
     label: str
-    max_turns: int = MAX_VALIDATION_RETRIES + 1
+    max_gathering_turns: int = 0
     context: Callable[[], AnswerContext] = field(default=AnswerContext)
+
+
+def turn_budget(loop: Loop) -> int:
+    """The hard ceiling on LLM calls for one run: gathering + the reserved answers.
+
+    A ceiling, not a spend. Nothing consumes a gathering round unless the model actually
+    asked for a tool, and the two answer attempts are the same two every surface gets.
+    """
+    return loop.max_gathering_turns + MAX_VALIDATION_RETRIES + 1
+
+
+@dataclass
+class _Progress:
+    """The driver's running state — how much gathering happened, how many retries, stalled."""
+
+    gathered: int = 0
+    retries: int = 0
+    stalled: bool = False
+
+    def may_gather(self, loop: Loop) -> bool:
+        """True while this run may still spend a round on tools instead of an answer."""
+        return not self.stalled and self.gathered < loop.max_gathering_turns
+
+    def note_round(self, loop: Loop, turn: Turn) -> None:
+        """Count one gathering round, and latch the stall when it added nothing new."""
+        self.gathered += 1
+        if turn.progressed:
+            return
+        self.stalled = True
+        log.info(
+            "%s: gathering round %d repeated an earlier call — forcing the answer",
+            loop.label,
+            self.gathered,
+        )
 
 
 def drive(loop: Loop) -> Outcome:
     """Run turns until one clears every gate, is blocked, or the honest fallback ships.
 
-    The retry budget and the fallback are here and nowhere else: unvalidated text never
-    ships (INTELLIGENCE §3, hole #2), and a blocked answer is returned without a retry.
+    Gathering and validation are two budgets, not one counter. They used to share
+    ``max_turns``, which produced two defects at once: a question needing the full
+    allowance of tool rounds exited having NEVER been asked for an answer, and a
+    data-heavy question reached its one answer attempt with zero retries left while a
+    trivial one kept them all. The questions needing the most data got the least
+    grounding tolerance — exactly backwards.
+
+    The fallback is still here and nowhere else: unvalidated text never ships
+    (INTELLIGENCE §3, hole #2), and a blocked answer is returned without a retry.
     """
-    retries = 0
-    for _turn_no in range(loop.max_turns):
-        turn = loop.next_turn()
+    state = _Progress()
+    for _turn_no in range(turn_budget(loop)):
+        tools_allowed = state.may_gather(loop)
+        turn = loop.next_turn(tools_allowed)
         if turn.text is None:
+            if not tools_allowed:
+                log.warning("%s: a tool-less turn produced no answer — honest fallback", loop.label)
+                return Outcome(text=prompts.FALLBACK, validated=False)
+            state.note_round(loop, turn)
             continue
-        verdict = judge(turn.text, loop.context())
-        if verdict.block is not None:
-            return Outcome(text=verdict.block.response, refused=True, validated=False)
-        if verdict.ok:
-            return Outcome(text=turn.text, validation=verdict.validation)
-        if retries >= MAX_VALIDATION_RETRIES:
-            log.warning(
-                "%s: candidate failed the gates twice (%s) — honest fallback",
-                loop.label,
-                verdict.issues,
-            )
-            return Outcome(text=prompts.FALLBACK, validated=False)
-        loop.nudge(turn.text, verdict.issues)
-        retries += 1
-    log.warning(
-        "%s: exhausted %d turns without a clean answer — honest fallback",
-        loop.label,
-        loop.max_turns,
-    )
+        outcome = _settle(loop, turn.text, state)
+        if outcome is not None:
+            return outcome
+    log.warning("%s: exhausted its turn budget without a clean answer — fallback", loop.label)
     return Outcome(text=prompts.FALLBACK, validated=False)
+
+
+def _settle(loop: Loop, text: str, state: _Progress) -> Outcome | None:
+    """Judge one answer candidate; None means "nudged — ask the model again"."""
+    verdict = judge(text, loop.context())
+    if verdict.block is not None:
+        return Outcome(text=verdict.block.response, refused=True, validated=False)
+    if verdict.ok:
+        return Outcome(text=text, validation=verdict.validation)
+    if state.retries >= MAX_VALIDATION_RETRIES:
+        log.warning(
+            "%s: candidate failed the gates twice (%s) — honest fallback",
+            loop.label,
+            verdict.issues,
+        )
+        return Outcome(text=prompts.FALLBACK, validated=False)
+    loop.nudge(text, verdict.issues)
+    state.retries += 1
+    return None
 
 
 def nudge_turns(text: str, issues: Sequence[str]) -> list[dict]:

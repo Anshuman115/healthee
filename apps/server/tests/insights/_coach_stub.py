@@ -2,7 +2,8 @@
 
 Unlike ``_stub.StubLLM`` (text-only), this one can emit OpenAI-shaped tool calls,
 so a test can script "call query_metric, then answer" without any network. It also
-records the ``tools`` passed on each call (to assert tools were/weren't offered) and
+records the ``tools`` passed on each call (to assert tools were/weren't offered), the
+``messages`` each call was asked with (to assert what the loop put in the prompt), and
 counts calls (to prove a refusal never reaches the model).
 """
 
@@ -45,11 +46,13 @@ class CoachStub:
     script: list[ChatResponse]
     calls: int = 0
     tools_seen: list = field(default_factory=list)
+    messages_seen: list[list[dict]] = field(default_factory=list)
 
     def complete(  # noqa: ARG002
         self, messages: list[dict], *, tools=None, model: str | None = None, response_format=None
     ) -> ChatResponse:
         self.tools_seen.append(tools)
+        self.messages_seen.append(list(messages))
         response = self.script[min(self.calls, len(self.script) - 1)]
         self.calls += 1
         return response

@@ -6,8 +6,11 @@ LLM surface reaches this through the grounded-ask choke point (``grounded.py``),
 never directly (standards §2: "LLM access only via the grounded-ask choke point").
 
 The API key is read once from ``core.config`` and never logged (standards
-§Errors: no secret ever reaches a log line). Tests inject a stub implementing the
-``LLMClient`` protocol, so no network call happens under pytest.
+§Errors: no secret ever reaches a log line). Neither is the MODEL ID: it is kept out of
+git on purpose (ids resolve from ``DEFAULT_MODEL`` / ``COACH_MODEL``) and a log line that
+prints it undoes that at runtime, so every diagnostic here names the TIER instead
+(:func:`tier_of`). Tests inject a stub implementing the ``LLMClient`` protocol, so no
+network call happens under pytest.
 """
 
 from __future__ import annotations
@@ -51,6 +54,31 @@ def default_model() -> str:
 def coach_model() -> str:
     """The stronger model tier for the interactive coach (low volume, quality-first)."""
     return get_settings().coach_model
+
+
+def tier_of(model: str) -> str:
+    """Which configured TIER an id is — the diagnostic value a log line may carry.
+
+    Standing owner constraint: the model we run must not be discoverable. It is kept out
+    of git by design (ids resolve from ``DEFAULT_MODEL`` / ``COACH_MODEL``), and then the
+    runtime logged it on every completion — the same category of leak as a bot token in a
+    request URL, differing only in blast radius. Operators need to know *which surface's
+    model* answered, not which model: "the coach tier is slow" and "the default tier is
+    slow" are the two different diagnoses, and both are legible without the id.
+
+    ``unconfigured`` is deliberately distinguishable from the two known tiers — an id
+    that matches neither setting is a real operational fact (a caller passing an explicit
+    ``model=``, or an env that changed under a running process) and hiding it would trade
+    one silence for another.
+    """
+    settings = get_settings()
+    if not model:
+        return "unset"
+    if model == settings.coach_model:
+        return "coach"
+    if model == settings.default_model:
+        return "default"
+    return "unconfigured"
 
 
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -161,13 +189,15 @@ class OpenRouterClient:
         # an AttributeError. Absent ⇒ we simply don't know, which is not "truncated".
         if getattr(choice, "finish_reason", None) == "length":
             log.warning(
-                "llm answer TRUNCATED by max_tokens=%d (model=%s) — the answer stopped "
+                "llm answer TRUNCATED by max_tokens=%d (tier=%s) — the answer stopped "
                 "mid-sentence; raise DEFAULT_MAX_TOKENS rather than reading this as a "
                 "grounding failure",
                 DEFAULT_MAX_TOKENS,
-                model,
+                tier_of(model),
             )
-        log.info("llm completion: model=%s tools=%d", model, len(tools or []))
+        # tier, never the id: the model we run must not be discoverable, and a log line
+        # is a place it reaches operators, log shippers and anyone with read access.
+        log.info("llm completion: tier=%s tools=%d", tier_of(model), len(tools or []))
         return ChatResponse(
             text=message.content or "", tool_calls=getattr(message, "tool_calls", None)
         )
