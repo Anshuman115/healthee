@@ -8,7 +8,14 @@ together and spot where they overlap.
 How to read it:
 
 - Rules are grouped by **theme**. Source directives are cited like `[cadence D3]`
-  (doc `name` + directive id); a rule fused from several docs lists all sources.
+  (doc id + directive id); a rule fused from several docs lists all sources.
+  Most ids are the hyphenated slug of a file in `sports-science/` (`[cadence D3]`
+  → `metrics/cadence.md`). **One is not:** readiness was reconciled out of
+  `sports-science/metrics/readiness.md` into the Healthee corpus, so it is cited
+  by its manifest id — `[recovery_readiness D7]` → `notes/recovery/recovery_readiness.md`.
+  The reconciliation inserted a new D4, which shifted that note's later directive
+  numbers; every citation below was re-checked against the directive text it
+  claims, not renumbered mechanically.
 - **Confidence** tags mirror the source (Established / Probable / Emerging /
   Contested / Myth-corrected). The coach's phrasing must track this.
 - 🛑 **SAFETY-CRITICAL** marks rules that must be **hard guardrails in `@daud/core`**
@@ -43,7 +50,7 @@ deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
    **overrides** a "safe" ACWR/readiness reading. On suspected **bone-stress injury**
    (localised bony tenderness, pain on hopping, pain worsening through/after a run or
    at rest) **stop running and refer** — never advise running through it. — *Established*
-   — `[injury-prevention D8/D9]`, `[training-load-acwr D8]`, `[readiness D6]`,
+   — `[injury-prevention D8/D9]`, `[training-load-acwr D8]`, `[recovery_readiness D7]`,
    `[strength-training-for-runners D12]`.
 5. 🛑 **Graduated return-to-run after bone-stress injury.** Gate return on resolved
    bony tenderness and pain-free walking (plus confirmed healing for high-risk sites),
@@ -54,7 +61,7 @@ deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
    (fever, malaise, systemic symptoms), **do not train through it — default to rest**
    (cardiac risk of exercising while acutely ill). Illness symptoms veto hard training
    regardless of fresh form. — *Established* — `[resting-heart-rate D10]`,
-   `[readiness D5/D6]`, `[fitness-fatigue-form D6]`.
+   `[recovery_readiness D6/D7]`, `[fitness-fatigue-form D6]`.
 7. 🛑 **Symptomatic bradycardia.** On a low RHR *with* symptoms (dizziness, syncope,
    chest discomfort, exertional intolerance, irregular beats) advise medical
    evaluation; never dismiss as "athlete heart." — *Established* — `[resting-heart-rate D9]`.
@@ -88,7 +95,7 @@ deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
     sleep deprivation, and any reported pain/injury **force modify/rest regardless of
     the composite or a positive TSB.** Never let high/green readiness or fresh form
     clear a runner reporting rising fatigue, poor sleep, mood decline, illness, or pain
-    — vagal markers can *rise* when overreached. — *Established* — `[readiness D5/D6]`,
+    — vagal markers can *rise* when overreached. — *Established* — `[recovery_readiness D6/D7]`,
     `[fitness-fatigue-form D6]`, `[heart-rate-variability D5]`.
 14. 🛑 **Don't test or push at-risk/beginner runners.** Do not prescribe maximal
     HR/threshold/VO₂max/critical-speed field tests or sustained severe-domain efforts to
@@ -255,10 +262,10 @@ deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
 - **Triangulate ≥3 signals; no single input is decisive.** Compute readiness from HRV
   trend + sleep + RHR trend + prior load + subjective wellness; never present a readiness
   number without its component breakdown, and scale coaching confidence to how many inputs
-  agree. — *Established* — `[readiness D1/D3]`.
+  agree. — *Established* — `[recovery_readiness D1/D3]`.
 - **Always include a subjective morning check-in** (fatigue/soreness/stress/mood) and treat
   it as at least as sensitive as the sensors — weight it (and any pain) highest when signals
-  conflict. — *Established* — `[readiness D2]`, `[sleep-and-recovery D7]`.
+  conflict. — *Established* — `[recovery_readiness D2]`, `[sleep-and-recovery D7]`.
 - **Act on multi-day trends, never single readings.** HRV: use lnRMSSD vs a 7-day rolling
   baseline, flag only outside mean ±1 SD; an isolated low reading is noise. RHR: flag only a
   sustained ≥~5 bpm (≥~1.5–2 SD) rise for ≥2–3 days. Both need ~2–3 weeks of consistent,
@@ -269,9 +276,9 @@ deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
   session, stress, heat, dehydration, illness, travel, menstrual phase, new device — a
   confound-explained dip is not a training trigger; suppress/down-weight readiness when an
   obvious confounder explains it. — *Established* — `[resting-heart-rate D4/D11]`,
-  `[readiness D9]`, `[menstrual-cycle-and-training D9]`.
+  `[recovery_readiness D10]`, `[menstrual-cycle-and-training D9]`.
 - 🛑 **Safety inputs are hard overrides** (illness+RHR, acute sleep loss, pain) — see
-  Safety #6, #13. — `[readiness D5/D6]`.
+  Safety #6, #13. — `[recovery_readiness D6/D7]`.
 - **HRV/RHR alone cannot detect overreaching.** Never use either as a standalone
   overtraining test or to clear a fatigued athlete (vagal markers can rise paradoxically);
   always read in a panel. Never compare HRV/RHR between runners or use absolute population
@@ -280,7 +287,7 @@ deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
 - **Readiness eases or holds — it never escalates.** Map to go / modify / rest as a
   *suggestion the runner can override*, explaining which components drove it; keep it opt-in
   and non-moralised (imposed daily verdicts can cause the stress they measure). — *Probable*
-  — `[readiness D4/D7/D10]`.
+  — `[recovery_readiness D5/D8/D11]`.
 - **Sleep is the strongest recovery lever.** Set a personal nightly target (default
   7.5–9 h); after one severely short night keep easy work but downgrade/postpone hard
   sessions (expect inflated RPE); track 7-day sleep debt and treat a run of short nights as
@@ -290,7 +297,7 @@ deterministic guardrails in `@daud/core` (`guardrails.ts`, `flags.ts`,
 - **Don't coach off wearable sleep-stage or "economy"/recovery percentages;** use total
   sleep-duration trends + subjective rest, and treat commercial composite scores as
   unvalidated black boxes (the underlying HRV/RHR/sleep signals are valid; the algorithms
-  are not). — *Probable* — `[sleep-and-recovery D8]`, `[readiness D8]`,
+  are not). — *Probable* — `[sleep-and-recovery D8]`, `[recovery_readiness D9]`,
   `[running-economy D8]`.
 - **Recovery is multifactorial;** pair sleep guidance with fuelling and stress management,
   and never imply sleep alone offsets under-fuelling or overload. — *Probable* —
@@ -396,6 +403,6 @@ and keeps almost all running easy; Stage 2 introduces light autoregulation
 (HRV/readiness) and economy work; Stage 3 (racing) unlocks threshold/CS/VO₂max
 testing, running-power pacing, tapering, and altitude — always read through the
 plan's intent and the safety guardrails above.
-*(e.g. `[heart-rate-variability D10]`, `[readiness D11]`, `[training-load-acwr D10]`,
+*(e.g. `[heart-rate-variability D10]`, `[recovery_readiness D12]`, `[training-load-acwr D10]`,
 `[fitness-fatigue-form D10]`, `[running-form-metrics D10]`, `[periodization D10]`,
 `[strength-training-for-runners D4/D5]`.)*

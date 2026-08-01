@@ -11,8 +11,8 @@ How the coach uses it (see **[METHODOLOGY.md](./METHODOLOGY.md)** for the full
 contract):
 
 1. **Retrieval** — per query, the Coach module pulls relevant docs into context by
-   `name` / `aliases` / `category` (see the typed manifest in
-   [`src/index.ts`](./src/index.ts) → `KNOWLEDGE_DOCS`, `findDocs()`).
+   `name` / `aliases` / `category` (in this repo: the generated
+   [`../manifest.json`](../manifest.json), read by `insights/manifest.py`).
 2. **Grounding** — the AI reasons from the retrieved docs and may cite them.
 3. **Directives** — each doc's **Coach Directives** block is the machine-applicable
    output. The cross-cutting digest lives in
@@ -26,8 +26,19 @@ Evidence grades: **Established** (RCTs / meta-analyses / decades of replication)
 · **Contested** (experts genuinely disagree). The "Evidence" column below is each
 doc's *overall* grade — individual claims inside a doc carry their own grade.
 
-> This index and the manifest are generated from the docs' frontmatter. Don't
-> hand-edit; regenerate when docs change.
+> **The manifest** (`../manifest.json`) is generated from the docs' frontmatter by
+> `../tools/gen_manifest.py` — never hand-edit it. **This index is not**: in the
+> Healthee monorepo it is a hand-maintained table, so a doc that moves must be
+> fixed here by hand. (The "regenerate this index" instruction inherited from the
+> upstream Daud package was false here, and is why the readiness row pointed at a
+> file that no longer exists.)
+
+> **Upstream artefacts that do not exist in this repo.** This package was imported
+> from Daud. Its `@daud/core` guardrail modules and the typed retrieval manifest at
+> `src/index.ts` were **not** imported — retrieval here runs off `../manifest.json`
+> via `insights/manifest.py`, and the hard guardrails live in
+> `insights/output_guard.py`. Treat every `@daud/*` / `src/index.ts` reference below
+> as a description of the upstream package, not a path you can open.
 
 ---
 
@@ -56,7 +67,7 @@ The measurable signals the coach reads from a runner's data.
 | [Fitness / Fatigue / Form (CTL, ATL, TSB)](./metrics/fitness-fatigue-form.md) | Impulse-response bookkeeping: CTL≈fitness, ATL≈fatigue, TSB≈form; useful for trends and tapering, but coarse and never overrides subjective/HRV signals. | Probable | `trainingLoad` *(CTL/ATL/TSB not yet computed)* |
 | [Training Stress Score (TSS)](./metrics/training-stress-score.md) | One number per session combining intensity × duration (100 AU ≈ 1 h at threshold); a relative bookkeeping input, not a measured dose. | Probable | `trainingLoad` |
 | [Sleep & Recovery](./metrics/sleep-and-recovery.md) | The most potent recovery process; protect 7–9 h, treat short nights as cumulative debt, and never design plans that require sleep restriction. | Probable | *(not yet computed)* |
-| [Readiness (Composite)](./metrics/readiness.md) | A triangulated read of HRV + sleep + RHR + load + subjective wellness; no single input is decisive — a prompt to ask a question, never a verdict. | Probable | `computeReadiness`, `detectFlags` |
+| [Readiness (Composite)](../notes/recovery/recovery_readiness.md) → **reconciled out of this package** as `recovery_readiness` | A triangulated read of HRV + sleep + RHR + load + subjective wellness; no single input is decisive — a prompt to ask a question, never a verdict. | Probable | `derive/recovery.py` (`recovery_score`) |
 
 ## Principles
 
@@ -93,5 +104,5 @@ The whole-runner factors — environment, fuel, strength, female physiology, and
 - [`COACHING-RULES.md`](./COACHING-RULES.md) — the cross-cutting digest of every
   doc's Coach Directives, grouped by theme, with the SAFETY-CRITICAL guardrails
   flagged.
-- [`src/index.ts`](./src/index.ts) — the typed, dependency-free retrieval manifest
-  (`KNOWLEDGE_DOCS`, `KnowledgeDoc`, `findDocs()`, `getDoc()`).
+- `src/index.ts` — the upstream Daud retrieval manifest. **Not present in this
+  repo**; its role is played by the generated [`../manifest.json`](../manifest.json).
