@@ -139,6 +139,7 @@ is maintained by hand, so it is re-read against `Settings` whenever a var is add
 | `SIGNUP_ALLOWLIST` | Empty ⇒ nobody new can sign up. This is also what makes owner onboarding possible (B4) — the claim cannot be run without it. |
 | `DEFAULT_MODEL` / `COACH_MODEL` | **Required whenever `OPENROUTER_API_KEY` is set.** A blank id is forwarded to OpenRouter verbatim and comes back **400** — on every LLM surface, *including the nightly chain* in the scheduler. **The api and scheduler now REFUSE TO START** in that state (`core/config._require_model_ids_when_ai_key_is_set`), so `deploy.sh`'s `/healthz` wait fails and you see it here rather than in Telegram a week later. Blank key + blank ids is still fine: that is "no AI layer", a valid configuration. |
 | `LLM_TIMEOUT_S` / `LLM_MAX_RETRIES` | Default to `60` / `1` (compose supplies those defaults). Unset in *code* the SDK would use 600 s × 3 attempts = a 30-minute hang, and the scheduler's tick loop is single-threaded, so one stuck call costs every later owner their chain. Raise the timeout only for a slow reasoning-tier `DEFAULT_MODEL`. |
+| `LLM_LOW_BALANCE_USD` | Defaults to `20`. The balance below which the **scheduler** warns to Telegram (`jobs/llm_watch.py`). Warning only — nothing stops spending. Blank/0 leaves only the `exhausted` alert, which fires when every call is already 402ing. See **E** for why this exists. |
 | `LOG_LEVEL` | Defaults to `INFO`. |
 | `POSTGRES_APP_USER` / `POSTGRES_APP_PASSWORD` | The app falls back to the **admin** credentials, which bypass RLS. Loud startup WARNING. **Read B2 before setting these.** |
 
@@ -337,6 +338,19 @@ the row and its history are kept).
       `TELEGRAM_CHAT_ID`; blank ⇒ silent no-op — so a blank token means job
       failures go **nowhere**). The nightly chain runs on IST timers, so the real
       proof of a scheduler deploy arrives the next morning.
+- [ ] **`/readyz`** → `curl -sS http://127.0.0.1:8765/readyz | python3 -m json.tool`.
+      This is the probe that knows about the **AI layer**; `/healthz` deliberately
+      does not (see **E**). Read the `llm` block:
+      `transport` is `unknown` until this process has made an LLM call — that is
+      honest, not a fault, and it turns `ok` after the first one;
+      `balance` must be `ok`, and `balance_checked: false` means we could **not
+      measure** it (`balance_error` says why — a 401 there means the key is dead).
+      A `503` here with `db: ok` is an AI-layer outage, not a server outage: do
+      **not** restart anything, go top up or rotate the key.
+- [ ] **The scheduler's LLM watch is armed** →
+      `$COMPOSE logs --tail 50 scheduler`. Within one tick of start it probes the
+      balance; if it is low or the key is dead you get a Telegram message, and if
+      everything is fine you get **nothing** (edge-triggered by design).
 
 ---
 
@@ -424,3 +438,69 @@ to commit to `.env` and to name here. We use it to build the expected token issu
 so a valid-looking token minted by a *different* Supabase project is refused. Leave
 it blank and that issuer check is **skipped** (intended only for dev / self-signed
 tokens); on prod, set it. Restart `api` after adding it.
+
+---
+
+## E. The OpenRouter account — spend limits, keys, and how a dead AI layer surfaces
+
+### E1. What happened (2026-08-01), because the fix only makes sense with it
+
+The account hit its **$200 ceiling**. Every LLM call 402'd — the coach, every insight
+card, the entire nightly chain — and `/healthz` returned `{"status":"ok","db":"ok"}` for
+the duration. Nobody found out from monitoring; an unrelated eval run happened to die and
+that is how it surfaced. It is the same shape as every earlier incident in this repo:
+**`/healthz` was green in every broken state.**
+
+Two causes, and both have a cheap fix below: there was **no spend limit**, and **eval/dev
+work shared the production key** — the grounding-eval harness (`tests/grounding_eval/`,
+~$3/arm) was draining the balance production runs on.
+
+### E2. ⛔ Set a spend limit on the key (openrouter.ai → Keys)
+
+Each OpenRouter key can carry a **credit limit**. Set one on the production key. It does
+not prevent the outage — it *bounds* it, and more importantly it makes an eval key
+incapable of emptying the account:
+
+- **production key** — limit ≈ a month of expected spend (`docs/PRICING.md` §3.1 has the
+  measured numbers). Set in `infra/.env` as `OPENROUTER_API_KEY`; rotation is **D2**.
+- **eval/dev key** — a **separate key with a small limit** (a few dollars covers several
+  harness arms). It lives in `apps/server/.env` on the dev machine and **never** on the
+  VPS. A drained eval key then costs you an eval run, not the live AI layer.
+
+Same rule for any other key that runs experiments. The production key belongs to exactly
+one thing: the production containers.
+
+### E3. What the server now does about it
+
+Three pieces, none of which ever spends a token to check:
+
+| Piece | Where | What it does |
+|---|---|---|
+| Transport record | `insights/transport_health.py` | Every real completion records ok/failed. **3 consecutive failures** = an outage; one 402 is a blip and is ignored. Stores the failure *kind* + HTTP status only — never the provider's message, which can contain the model id. |
+| Balance probe | `insights/credits.py` | `GET /api/v1/credits` — **free, no tokens**. Also proves the key still works (a revoked key 401s here). TTL-cached. |
+| The watcher | `jobs/llm_watch.py` (runs in the **scheduler**) | Pushes to the same Telegram channel as chain failures. **Edge-triggered**: once on the way in, once on recovery — never every tick. |
+
+What you will actually receive, and how fast:
+
+- **`⛔ LLM transport DOWN`** — within one scheduler tick (**≤ 5 min**) of the third
+  consecutive failed call in that container. Names the kind (`credit` / `auth` /
+  `rate_limit` / `timeout`) and whether waiting will help.
+- **`⚠️ OpenRouter credits LOW`** — within the hour, at `LLM_LOW_BALANCE_USD`. This is
+  the one that means you never see the others.
+- **`⛔ OpenRouter credits EXHAUSTED`** / **`⚠️ balance check FAILED`** — same cadence.
+  The second one matters: an *unmeasurable* balance is reported as **unknown**, never as
+  fine. A monitoring feature that fails quiet is worse than none.
+- **`✅ … recovered` / `healthy again`** — so a silent channel means "still broken", not
+  "nobody is watching".
+
+The pull-side view is **`GET /readyz`** (unauthenticated, no dollar figures — the amounts
+go to Telegram). See the checklist in **C** for how to read it.
+
+### E4. Why `/healthz` was deliberately left alone
+
+Because a 503 on `/healthz` means *restart this container*, and that is all it may ever
+mean: it is wired to the Docker healthcheck and to nginx. If it went 503 on a provider
+outage, Docker would restart the API in a loop over something no restart can fix —
+trading a dead AI layer for a flapping read API. `core/config.py` records the same
+argument for the blank-model-id check. So the AI-layer signal lives on `/readyz`, which
+nothing restarts on, and the **push** (Telegram) is what actually reaches a human.

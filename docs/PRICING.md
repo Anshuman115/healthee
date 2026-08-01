@@ -223,9 +223,15 @@ $3.00/M output).
 > two tiers' published rates and price each surface at its own — the per-surface token
 > counts above are already split by tier and need no re-measurement.
 >
-> Operational note from the same day: eval and production share ONE OpenRouter account,
+> Operational note from the same day: eval and production shared ONE OpenRouter account,
 > which hit its $200 ceiling and 402'd the live AI layer while `/healthz` stayed green.
-> A spend limit, a low-balance alert, and a separate key for eval work are all cheap.
+> **The alert half is now built (#104)** — the scheduler polls the *free* credits endpoint
+> hourly and Telegrams a low-balance warning, plus an outage alert on 3 consecutive
+> transport failures, and `GET /readyz` reports both without ever making a paid call. The
+> two account-side halves stay a HUMAN task and are written up in `infra/DEPLOY.md` §E:
+> **set a spend limit on the production key**, and **use a separate, small-limit key for
+> eval/dev work** — the harness at ~$3/arm is what drained it, and no amount of alerting
+> stops that from a key that is allowed to.
 > Two things were measured and are NOT levers: **implicit prompt caching fires on an
 > exact repeat of a whole payload, not on a shared prefix** (three A/B rounds: an owner
 > repeating themselves cached 40,925 of 42,132 tokens; two owners sharing 30k of

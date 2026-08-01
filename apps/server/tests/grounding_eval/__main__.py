@@ -6,6 +6,12 @@
 ``run`` TRUNCATES and re-seeds the database it is pointed at — never point it at data
 anyone needs. It is deliberately noisy per question: a paid run must be interruptible the
 moment its answers start coming back as errors.
+
+⛔ **Use a SEPARATE OpenRouter key, with its own small credit limit.** An arm costs ~$3
+and this harness is what emptied the shared account on 2026-08-01 — after which every
+production LLM call 402'd for hours behind a green ``/healthz``. A drained eval key must
+cost you an eval run, never the live AI layer. The key comes from ``OPENROUTER_API_KEY``
+in ``apps/server/.env``; the setup and the reasoning are in ``infra/DEPLOY.md`` §E2.
 """
 
 from __future__ import annotations
