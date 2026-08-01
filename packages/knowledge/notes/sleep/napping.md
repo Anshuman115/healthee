@@ -5,13 +5,13 @@ topic: What a short nap does and costs, why the nap/health literature disagrees 
 category: sleep
 grade: Probable
 safety_critical: [5]        # D5 → hard guardrail `napping_D5` (insights/guard_directives.py)
-summary: "A 10–20 minute afternoon nap appears to restore alertness for roughly two hours, and naps of 30 minutes or more buy that back with sleep inertia — a period of *worse* performance on waking. Whether habitual napping is good or bad for long-term health is genuinely disputed: the same literature contains a 1.82 CVD rate ratio for naps ≥60 min/day and a 0.52 hazard ratio for napping once or twice a week. Our strap tags naps itself and they are excluded from every night-sleep metric by design, so a nap is visible to the coach as a session but changes no number."
+summary: "A 10–20 minute afternoon nap appears to restore alertness for roughly two hours, and naps of 30 minutes or more buy that back with sleep inertia — a period of *worse* performance on waking. Our strap tags naps itself and they are excluded from every night-sleep metric by design, so a nap is visible to the coach as a session but changes no number. Whether habitual napping is good or bad for LONG-TERM health is a separate and genuinely disputed question, graded Contested and answered in [[napping_chronic_health]]."
 aliases: ["nap", "naps", "napping", "power nap", "power naps", "siesta", "afternoon nap", "cat nap", "daytime sleep", "daytime sleeping", "should i nap", "how long should i nap", "nap length", "nap duration", "sleep inertia", "groggy after a nap", "nap instead of sleep"]
 applies_to_metrics: ["tst_min", "sleep_regularity_index", "sleep_health_score_4dim", "sleep_debt_min"]
 applies_to_interventions: []
 population: general
 last_reviewed: 2026-08-01
-related: ["sleep_need_debt", "sleep_regularity_index", "sleep_duration_mortality", "sleep_health_score_multidim", "recovery_readiness", "caffeine_sleep"]
+related: ["napping_chronic_health", "sleep_need_debt", "sleep_regularity_index", "sleep_duration_mortality", "sleep_health_score_multidim", "recovery_readiness", "caffeine_sleep"]
 tags: [sleep, nap, alertness, sleep inertia, cardiovascular]
 ---
 
@@ -28,15 +28,13 @@ before helping; and a 5-minute nap did almost nothing (Brooks & Lack 2006, n = 2
 Sleep inertia typically resolves "within 30 mins of awakening" but "full recovery
 does not appear to be complete until at least an hour" (Hilditch & McHill 2019).
 
-The **chronic-health** picture is genuinely disputed, and the two best-cited
-observational answers disagree on which axis even matters. A dose-response
-meta-analysis of 11 cohorts (n = 151,588) found naps **≥60 min/day** carried a
-cardiovascular rate ratio of **1.82 (1.22–2.71)** and an all-cause mortality RR of
-**1.27 (1.11–1.45)**, with shorter naps not associated with either (Yamada et al.
-2015). A Swiss cohort (n = 3,462) found nap **frequency**, not duration, was the
-signal — napping 1–2×/week carried **HR 0.52 (0.28–0.95)** for incident CVD, and
-"no association was found between nap duration and CVD events" (Häusler et al.
-2019). Both cannot be the whole story.
+The **chronic-health** picture — is a *habit* of napping good or bad for you? — is
+genuinely disputed and lives in its own note, **[[napping_chronic_health]]** (grade
+`Contested`). It was split out on 2026-08-01 (#100) because a note carries one grade
+and that grade decides the framing the validator demands of every sentence citing it:
+under this note's `Probable`, a genuinely two-sided literature shipped under a hedge
+instead of as a live disagreement. Nothing was dropped — the Yamada, Häusler and Dashti
+evidence, its honesty section and its directives all moved there intact.
 
 For Healthee the operational facts are narrow and worth stating first: **the strap
 tags naps itself**, naps are **excluded from every night-sleep metric we compute**,
@@ -141,49 +139,14 @@ Read that carefully before quoting the effect size. It is **one running test**,
 polysomnography (the gold standard)". Meta-regression found nap duration had "no
 impact" on the distance outcomes. *[full text verified via PMC 2026-08-01]*
 
-### Napping and long-term health — the literature genuinely disagrees [Contested]
+### Napping and long-term health — moved [Contested]
 
-- **Duration is the axis** (Yamada et al. 2015, *Sleep*): 11 prospective cohorts,
-  151,588 participants, mean 11-year follow-up. Naps ≥60 min/day vs no napping —
-  CVD **RR 1.82 [1.22–2.71]**, all-cause mortality **RR 1.27 [1.11–1.45]**.
-  "Napping for < 60 min/day was not associated with cardiovascular disease
-  (P = 0.98) or all-cause mortality (P = 0.08)." The dose-response differs by
-  outcome, and the difference matters: **CVD** was a J-curve — "the RR initially
-  decreased from 0 to 30 min/day. Then it increased slightly until about
-  45 min/day, followed by a sharp increase at longer nap times" — whereas
-  **all-cause mortality was a positive linear relation**, rising about 4% per
-  10-minute increment with no protective early segment. So the "short naps may
-  help" reading is a CVD finding only; it does not transfer to mortality.
-  The authors themselves name **reverse causality** — "persons with an increased
-  risk (those who are sicker) are more likely to experience an outcome" — and
-  confounding by depression and underlying illness.
-  *[full text verified via PMC 2026-08-01]*
-- **Frequency is the axis** (Häusler et al. 2019, *Heart*): CoLaus, n = 3,462, 5.3
-  years, 155 CVD events. Napping 1–2×/week carried **HR 0.52 (0.28–0.95)** versus
-  no napping. Napping 6–7×/week was HR 1.67 (1.10–2.55) unadjusted but **0.89
-  (0.58–1.38) adjusted**. And explicitly: "no association was found between nap
-  duration and CVD events." *[abstract verified at publisher 2026-08-01]*
-- **A causal-inference attempt** (Dashti et al. 2021, *Nat Commun*): GWAS of
-  self-reported napping in UK Biobank (n = 452,633), replicated in 23andMe
-  (n = 541,333). Mendelian randomisation found more frequent napping associated
-  with higher diastolic BP (**0.25 SD [0.15, 0.34], P = 2.99 × 10⁻⁷**), systolic BP
-  (**0.18 SD [0.09, 0.27], P = 5.15 × 10⁻⁵**) and waist circumference (**0.28 SD
-  [0.11, 0.45], P = 1.3 × 10⁻³**). MR is designed to survive reverse causation, so
-  this is the strongest reason to take the harm signal seriously — and the authors
-  are blunt about its limit: "Our analyses are limited by the crude assessment of
-  daytime napping frequency via questionnaire with no information on duration or
-  timing." *[full text verified via PMC 2026-08-01]*
-- **The framing** (Mantua & Spencer 2017, *Sleep Med*, narrative review): naps give
-  "memory consolidation, preparation for subsequent learning, executive functioning
-  enhancement, and a boost in emotional stability" even when night sleep is
-  adequate, yet frequent napping tracks "cognitive decline, hypertension, diabetes"
-  in older adults. They call it a paradox and say it is premature to recommend
-  napping as a general health intervention. *[abstract verified at publisher
-  2026-08-01; not a systematic review — carried for framing, not for effect sizes]*
-
-**This is why the note as a whole cannot be graded Established.** The three
-observational answers point in three directions, and none of them measured naps
-objectively — all are self-report.
+This subsection is now **[[napping_chronic_health]]**, with its three studies (Yamada
+et al. 2015; Häusler et al. 2019; Dashti et al. 2021), their numbers and their caveats
+carried over verbatim. It was split out because it is `Contested` while this note is
+`Probable`, and a note has one grade (#100, following the `hydration_8x8_rule` pattern
+of #91). Cite that note, not this one, for anything about habitual napping and
+cardiovascular or mortality risk.
 
 ### Naps and the following night [Probable]
 
@@ -259,25 +222,17 @@ column distinguishes them.
   it is fine, and must not name a cause. **SAFETY-CRITICAL** — see Coach Directive 5.
 - Never tell someone to nap instead of seeking sleep for a chronic short-sleep
   pattern; a nap is not a treatment for insufficient sleep.
-- Never present any CVD or mortality figure in this note as a statement about the
-  owner. Every one of them is a population association from self-reported napping.
+- Never present a CVD or mortality figure as a statement about the owner. Those
+  figures now live in [[napping_chronic_health]], which carries the rule and the
+  compiled guardrail that backs part of it; the rule is repeated here because a reader
+  arriving at *this* note must not think it lapsed with the split.
 
 ## Honesty & uncertainty
 
-- **Nothing here was measured with a wearable.** Every long-term-health figure —
-  Yamada, Häusler, Dashti — rests on **self-reported** napping. Dashti says it
-  outright: "no information on duration or timing", and that self-report correlated
-  only moderately with accelerometer-derived daytime inactivity. Our own nap data is
-  device-detected and therefore is *not* the exposure any of these studies measured.
-- **Reverse causation is the whole problem with the harm signal.** Yamada names it.
-  Illness causes napping at least as plausibly as napping causes illness. The
-  Mendelian-randomisation result is the one piece of evidence that partly escapes
-  this, and it speaks only to blood pressure and waist circumference, not to events
-  or death.
-- **The two headline cohorts disagree about which axis matters** — duration
-  (Yamada) versus frequency (Häusler) — and each reports the other's axis as null.
-  We surface both rather than picking. Anyone quoting one of these numbers without
-  the other is quoting half a literature.
+- **The long-term-health caveats moved with the claim.** Self-report vs our
+  device-detected naps, reverse causation, and the duration-vs-frequency disagreement
+  are all in [[napping_chronic_health]]'s honesty section, verbatim. They are not
+  repeated here because this note no longer makes the claims they qualify.
 - **The acute dose curve is one study of 24 young non-nappers who had been sleep
   restricted.** It is the best comparison of nap lengths we could verify, and it is
   thin. Habitual nappers may differ: Milner & Cote 2009 reviewed experience with
@@ -311,10 +266,11 @@ column distinguishes them.
 them; a nap of ~30 minutes or more will usually cost you a few groggy minutes on
 waking; and we compute no number from naps at all.
 
-**Hold loosely:** the exact nap length that suits a given person; whether habitual
-napping is good or bad for long-term health (genuinely unresolved, and confounded by
-illness); how much a nap gives back against a short night (unknown); and every
-minute-count in the dose curve, which comes from one small study.
+**Hold loosely:** the exact nap length that suits a given person; how much a nap gives
+back against a short night (unknown); and every minute-count in the dose curve, which
+comes from one small study. (Whether habitual napping is good or bad for long-term
+health is held loosely too — but it is held in [[napping_chronic_health]], at the
+`Contested` grade that question earns.)
 
 ## Coach Directives
 
@@ -324,10 +280,11 @@ minute-count in the dose curve, which comes from one small study.
    ~10–20 min of sleep for alertness without inertia, ≥30 min brings grogginess
    first (Brooks & Lack 2006, n = 24, young sleep-restricted adults) — and never
    state it as a rule that fits this person. *(confidence: moderate)*
-3. When asked whether napping is healthy, present it as debated and give both
-   directions with numbers (Yamada et al. 2015: ≥60 min/day RR 1.82 for CVD;
-   Häusler et al. 2019: 1–2 naps/week HR 0.52, duration null). Do not resolve the
-   disagreement and do not apply either to this person. *(confidence: high)*
+3. When asked whether napping is **healthy** — as opposed to how long to nap today —
+   answer from **[[napping_chronic_health]]** and cite that note, not this one. It is
+   graded `Contested`, which is the framing that question needs; citing this note would
+   ship the same disagreement under a `Probable` hedge, which is the bug the split fixed
+   (#100). *(confidence: high)*
 4. Never present a nap as repaying sleep debt — no source we could verify quantifies
    that conversion. *(confidence: high)*
 5. **SAFETY-CRITICAL:** if the owner reports a new, worsening or uncontrollable need
@@ -338,6 +295,10 @@ minute-count in the dose curve, which comes from one small study.
    nap is discussed as evidence for anything. *(confidence: high)*
 
 ## References
+
+*(The Yamada 2015, Häusler 2019 and Dashti 2021 entries moved to
+[[napping_chronic_health]] with the claims they support — a reference this note no
+longer cites is dead provenance, which is the #81 failure mode.)*
 
 - Brooks A, Lack L. *A brief afternoon nap following nocturnal sleep restriction:
   which nap duration is most recuperative?* Sleep 2006;29(6):831–840.
@@ -355,22 +316,6 @@ minute-count in the dose curve, which comes from one small study.
   doi:10.1007/s40279-023-01920-2. PMID 37700141. 18 studies, 269 participants;
   source of the 5-m shuttle-run effect sizes and the null muscle-force result.
   *[full text verified via PMC 2026-08-01]*
-- Yamada T, Hara K, Shojima N, Yamauchi T, Kadowaki T. *Daytime napping and the
-  risk of cardiovascular disease and all-cause mortality: a prospective study and
-  dose-response meta-analysis.* Sleep 2015;38(12):1945–1953.
-  doi:10.5665/sleep.5246. PMID 26158892. PMC4667384. 11 cohorts, n = 151,588;
-  source of RR 1.82 / RR 1.27 and the J-curve. *[full text verified via PMC
-  2026-08-01]*
-- Häusler N, Haba-Rubio J, Heinzer R, Marques-Vidal P. *Association of napping with
-  incident cardiovascular events in a prospective cohort study.* Heart
-  2019;105(23):1793–1798. doi:10.1136/heartjnl-2019-314999. PMID 31501230.
-  CoLaus, n = 3,462, 5.3 y, 155 events; source of HR 0.52 for 1–2 naps/week and of
-  the null for nap duration. *[abstract verified at publisher 2026-08-01]*
-- Dashti HS, Daghlas I, Lane JM, et al. *Genetic determinants of daytime napping
-  and effects on cardiometabolic health.* Nat Commun 2021;12:900.
-  doi:10.1038/s41467-020-20585-3. PMID 33568662. PMC7876146. GWAS n = 452,633 +
-  541,333; source of the Mendelian-randomisation BP and waist-circumference
-  estimates. *[full text verified via PMC 2026-08-01]*
 - Mograss M, Abi-Jaoude J, Frimpong E, et al. *The effects of napping on night-time
   sleep in healthy young adults.* J Sleep Res 2022;31(5):e13578.
   doi:10.1111/jsr.13578. PMID 35253300. n = 62, 8 days actigraphy; source of the
