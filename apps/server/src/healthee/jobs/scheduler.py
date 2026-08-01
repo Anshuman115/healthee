@@ -57,6 +57,7 @@ from healthee.core.logging import configure_logging, get_logger
 from healthee.core.notify import send_telegram
 from healthee.core.tenancy import Tenant, active_users
 from healthee.jobs import chain
+from healthee.jobs.llm_watch import LlmWatch
 
 log = get_logger(__name__)
 
@@ -209,8 +210,15 @@ def main() -> None:
         _TICK_INTERVAL_S,
     )
     sweeper = Sweeper()
+    # The LLM health watch rides this loop rather than owning a timer of its own: it is
+    # cheap, it needs no tenant, and the loop is already the process that owns the
+    # Telegram health surface. It runs AFTER the sweep so that the tick's own chain
+    # failures are already in the transport record when it reads it — checking first
+    # would report every outage one full tick late.
+    watch = LlmWatch()
     while True:
         sweeper.tick()
+        watch.check()
         time.sleep(_TICK_INTERVAL_S)
 
 

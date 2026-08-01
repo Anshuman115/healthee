@@ -85,6 +85,9 @@ services:
       COACH_MODEL: ${COACH_MODEL:-}
       LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-60}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
+      # Read by /readyz's balance state. The ALERT on it is the scheduler's job;
+      # this container only has to agree with it about where "low" starts.
+      LLM_LOW_BALANCE_USD: ${LLM_LOW_BALANCE_USD:-20}
       API_HOST: 0.0.0.0
       API_PORT: 8765
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -147,6 +150,11 @@ services:
       # 600 s × 3 default applied to the container that can least afford it.
       LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-60}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
+      # This container is the one that ALERTS on the LLM layer (jobs/llm_watch.py):
+      # it polls the free credits endpoint hourly and pushes a Telegram warning below
+      # this balance, plus an outage alert on repeated transport failures. Without it
+      # here, a dead AI layer stays exactly as invisible as it was on 2026-08-01.
+      LLM_LOW_BALANCE_USD: ${LLM_LOW_BALANCE_USD:-20}
       # The chain skips the LLM steps for a non-premium owner (§12.3), so this
       # container decides entitlement too — and without the flag a SELF-HOSTED
       # install would serve its owner the AI layer over HTTP while the nightly

@@ -36,6 +36,7 @@ from psycopg import sql
 from healthee.core import db as db_module
 from healthee.core.config import get_settings
 from healthee.db import migrate, provision_app_role
+from healthee.insights import credits, transport_health
 
 # The suite's own app role. Named `_test` so it can never be confused with (or drop)
 # a real deployment's `healthee_app`.
@@ -102,7 +103,27 @@ _DEFAULTED_ENV_VARS = (
     "SIGNUP_ALLOWLIST",
     "SELF_HOST_UNLOCKED",
     "UPGRADE_URL",
+    "LLM_LOW_BALANCE_USD",
 )
+
+
+@pytest.fixture(autouse=True)
+def _clean_llm_health() -> Iterator[None]:
+    """Give every test a transport record and a balance cache with no history.
+
+    Both are process-wide singletons by design — the whole point of
+    `insights.transport_health` is that one record accumulates across every call the
+    process makes. Under pytest that means one test's stubbed 402 would still be in the
+    streak when the next test reads it, and a test asserting "unknown, nothing has
+    happened yet" would pass or fail depending on alphabetical file order. Autouse,
+    because the tests most likely to be polluted are the ones that never mention either
+    module.
+    """
+    transport_health.reset()
+    credits.reset_cache()
+    yield
+    transport_health.reset()
+    credits.reset_cache()
 
 
 @pytest.fixture

@@ -185,7 +185,12 @@ signups. New accounts are otherwise gated by `SIGNUP_ALLOWLIST` (see
 [`docs/MULTI_USER.md`](docs/MULTI_USER.md) §4.4b).
 
 **Health & ingest**
-- `GET  /healthz` — liveness + DB readiness (503 if the DB is unreachable)
+- `GET  /healthz` — liveness + DB (503 if the DB is unreachable). Deliberately narrow:
+  it is wired to the container healthcheck, so a 503 here means *restart me*.
+- `GET  /readyz` — dependency readiness, including the **AI layer** — last-known LLM
+  transport status (from real traffic, never a probe call) and the OpenRouter balance
+  state. 503 when the transport is down or the balance is exhausted. Nothing restarts
+  on it, and it costs no tokens.
 - `POST /ingest/helio` — the app's sync push (samples, sleep, workouts, daily totals, profile)
 
 **Identity** (Supabase JWT only — the shared token is rejected here)
@@ -248,7 +253,8 @@ list; every var below is a field on `core/config.py`'s settings):
 | `OPENROUTER_API_KEY` | optional — enables the grounded LLM (coach, insights, recs) |
 | `DEFAULT_MODEL` / `COACH_MODEL` | **required with `OPENROUTER_API_KEY`** — the model ids; no defaults |
 | `LLM_TIMEOUT_S` / `LLM_MAX_RETRIES` | LLM call bounds (`60` / `1`) — the SDK default is a 30-minute hang, so this is not optional tuning |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | optional — daily briefing + failure alerts |
+| `LLM_LOW_BALANCE_USD` | `20` — the OpenRouter balance the scheduler warns below (`infra/DEPLOY.md` §E) |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | optional — daily briefing, failure alerts, and the LLM-outage/low-balance alerts |
 | `LOG_LEVEL` | `INFO` |
 | `DEPLOY_BRANCH` | branch `deploy.sh` deploys (default `main`) |
 | `BACKUP_DIR` / `BACKUP_RETENTION_DAYS` / `OFFBOX_CMD` | backup location, retention, off-box copy hook |
@@ -261,6 +267,7 @@ $COMPOSE up -d db        # TimescaleDB, internal-only (never published to the ho
 $COMPOSE run --rm api python -m healthee.db.migrate   # apply the schema
 $COMPOSE up -d api scheduler
 curl -fsS http://127.0.0.1:8765/healthz               # → {"status":"ok","db":"ok"}
+curl -sS  http://127.0.0.1:8765/readyz                # → the AI layer too (llm.transport / llm.balance)
 ```
 Then **provision the least-privilege role** so RLS actually applies — it is a
 two-step bootstrap (provision it as the admin *first*, then set

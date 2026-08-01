@@ -156,6 +156,18 @@ class Settings(BaseSettings):
     # `_ATTEMPT_BUDGET` and tomorrow's tick are the outer retries.
     llm_timeout_s: float = 60.0
     llm_max_retries: int = 1
+    # Dollars remaining on the OpenRouter account below which the scheduler's watcher
+    # warns (`jobs.llm_watch`, read through `insights.credits.balance_state`). It is a
+    # WARNING line, never a refusal — nothing in the app declines to spend because of
+    # it, because a health companion going quiet on its own is the failure mode this
+    # product exists to avoid.
+    #
+    # 20 is roughly a fortnight of the measured spend at one owner (PRICING.md §3.1's
+    # box: ~$22 on the day the eval harness and production shared a key). Set it to a
+    # multiple of YOUR daily spend, not of the balance: the number that matters is how
+    # many days of warning it buys. 0 disables the warning and leaves only the
+    # `exhausted` alert, which is the one that fires when it is already too late.
+    llm_low_balance_usd: float = 20.0
 
     # ── Telegram notifications (optional — job status + failures) ─────────
     telegram_bot_token: str = ""

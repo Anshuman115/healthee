@@ -85,6 +85,7 @@ AI_ROUTES = HARD_LOCKED_ROUTES + METERED_ROUTES
 # without a reason is an entry somebody should have argued for.
 FREE_PATHS: dict[str, str] = {
     "/healthz": "liveness probe — unauthenticated by design",
+    "/readyz": "dependency readiness — unauthenticated by design, and it carries no owner data",
     "/ingest/helio": "device push; the tracker is free (PRICING.md §1a)",
     "/api/today": "free metrics; its two AI FIELDS are omitted instead (api.gate)",
     "/api/sleep": "free tier — sleep numbers",

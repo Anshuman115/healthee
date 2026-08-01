@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 from healthee.core.config import get_settings
+from healthee.insights import transport_health
 from healthee.insights.client import OpenRouterClient, tier_of
 
 
@@ -153,3 +154,76 @@ def test_an_id_matching_neither_setting_is_reported_as_unconfigured(
     """A caller passing an explicit model, or an env changed under a running process."""
     assert tier_of("vendor-x/some-other-model") == "unconfigured"
     assert tier_of("") == "unset"
+
+
+# ── every attempt reaches the transport health record (the 2026-08-01 incident) ──
+
+
+class _RefusingCompletions:
+    """A transport that always fails the way a spent account does."""
+
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+
+    def create(self, **_kwargs: Any) -> Any:
+        raise _ProviderError(self.status_code)
+
+
+class _ProviderError(Exception):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"Error code: {status_code}")
+        self.status_code = status_code
+
+
+def _refusing_client(status_code: int) -> OpenRouterClient:
+    client = OpenRouterClient()
+    fake = SimpleNamespace(chat=SimpleNamespace(completions=_RefusingCompletions(status_code)))
+    client._client = lambda: fake  # type: ignore[method-assign]
+    return client
+
+
+def test_a_successful_completion_records_the_transport_as_healthy() -> None:
+    client, _ = _client_with_fake()
+    client.complete([{"role": "user", "content": "x"}])
+    assert transport_health.snapshot().status == transport_health.OK
+
+
+def test_a_402_is_recorded_and_still_raises_out_of_the_transport() -> None:
+    """Both halves: the record learns, and the caller is NOT told a lie about it.
+
+    Recording must not become swallowing — the chain supervisor still has to see the
+    exception and report the step as failed (standards §Errors).
+    """
+    client = _refusing_client(402)
+    with pytest.raises(_ProviderError):
+        client.complete([{"role": "user", "content": "x"}])
+    snapshot = transport_health.snapshot()
+    assert snapshot.consecutive_failures == 1
+    assert snapshot.last_error_kind == transport_health.CREDIT
+    assert snapshot.last_status_code == 402
+
+
+def test_repeated_402s_drive_the_record_to_down() -> None:
+    """The live incident, reproduced through the real transport rather than the record."""
+    client = _refusing_client(402)
+    for _ in range(transport_health.OUTAGE_THRESHOLD):
+        with pytest.raises(_ProviderError):
+            client.complete([{"role": "user", "content": "x"}])
+    assert transport_health.snapshot().status == transport_health.DOWN
+
+
+def test_an_unset_key_is_a_config_fact_and_never_a_transport_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Running without the AI layer is a supported configuration, not an outage.
+
+    `_client()` raises before any request exists, so counting it would report the
+    transport as broken on a box that was deliberately never given a key.
+    """
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("POSTGRES_PASSWORD", "unit-test-pw")
+    get_settings.cache_clear()
+    with pytest.raises(RuntimeError):
+        OpenRouterClient().complete([{"role": "user", "content": "x"}])
+    assert transport_health.snapshot().status == transport_health.UNKNOWN
+    get_settings.cache_clear()
