@@ -36,7 +36,17 @@ Breathing rate at rest is set by the brainstem respiratory centres under autonom
 - **[Probable] Overnight RR also rises with cardiac decompensation** in patients with heart failure, and with **stress, anxiety, and fever** generally — so the signal is sensitive but non-specific about cause.
 
 ## How we compute it
-Healthee derives the daily metric **`respiratory_rate_sleep`** — a **bounded window mean** of the overnight respiratory-rate samples across the sleep window (`derive/hrv_spo2_resp.py`; provenance in the implementation section). The interpretive layer computes a **personal nightly baseline** (rolling ~30-day median) and today's deviation from it. Wearable RR is **derived, not directly measured** (typically from HRV/PPG modulation during sleep), so only sleep values are used.
+Healthee derives the daily metric **`respiratory_rate_sleep`** — a **bounded window mean** of the overnight respiratory-rate samples across the sleep window (`derive/hrv_spo2_resp.py`; provenance in the implementation section). Wearable RR is **derived, not directly measured** (typically from HRV/PPG modulation during sleep), so only sleep values are used.
+
+**The personal baseline — the one canonical statement.** Every interpretation is a *deviation from the person's own trailing baseline*, never an absolute value. Three shipped consumers each compute that baseline over a **different trailing window**, and this is the note's single record of which is which:
+
+| Consumer | Window | Statistic | Code |
+|---|---|---|---|
+| Illness early-warning flag (the primary RR consumer) | **14 nights** | median + MAD | `illness_flag_plan`; surfaced by `read/health_metrics.py` |
+| `recovery_score`'s RR factor | **42 days** | robust median + MAD·1.4826 | `derive/recovery.py` (`_BASELINE_DAYS = 42`) |
+| Generic anomaly / trend layer (all daily metrics, RR included) | **30 days** | median + MAD | `analytics/baselines.py` (`window_days=30` default) |
+
+**None of these three window lengths is sourced.** No study in the References fixes a baseline length; the papers below establish that a *sustained personal-baseline rise* is the signal, not how many nights the baseline should span. They are engineering choices — 14 nights to react fast enough to be an *early* warning, 42 days to give the recovery z-score a stable reference, 30 days as the corpus-wide default for trend/anomaly work — and they are stated here as such rather than dressed as evidence. If they are ever unified, it is a behaviour change to the illness flag and to `recovery_score`, i.e. its own PR with known-value tests.
 
 ## How the coach uses it
 - **Stage 1 (new user / no baseline):** treat RR as informational; explain the healthy 12–16 range and that we need ~2–4 weeks of nights before a personal baseline is trustworthy. Do not act on single nights.
@@ -53,6 +63,7 @@ Healthee derives the daily metric **`respiratory_rate_sleep`** — a **bounded w
 - **Awake / active respiratory rate from wrist sensors is unreliable** — only sleep values are used.
 - **Baselines shift by population:** athletes / very fit individuals may have lower baselines (10–12 br/min); **pregnancy and obesity shift baselines upward**.
 - The signal is **sensitive but non-specific** — a rise says "something autonomic/metabolic changed," not what.
+- **The baseline window is an engineering choice, not a finding.** No cited study fixes how many nights a personal baseline should span; our three consumers use 14 / 42 / 30 (see *How we compute it*). A deviation therefore means slightly different things in the illness flag, in `recovery_score`, and in the anomaly stream — never quote a "+X br/min above baseline" without saying which baseline.
 
 ## Bottom line
 **Act on confidently:** the 12–16 (up to 20) br/min normal band; the high personal stability; and a **sustained ≥2 br/min over-baseline rise across two nights (especially with HRV↓/RHR↑) as an early illness signal**.
@@ -60,7 +71,7 @@ Healthee derives the daily metric **`respiratory_rate_sleep`** — a **bounded w
 **Hold loosely:** the exact magnitude/lead-time for a given person; attributing any single elevated night to a specific cause; absolute values (derived, ±1–2 br/min).
 
 ## Coach Directives
-1. Compute a personal nightly baseline (rolling 30-day median of `respiratory_rate_sleep`); interpret only deviations from it, never absolute values against another person. *(confidence: high)*
+1. Interpret `respiratory_rate_sleep` **only as a deviation from the person's own trailing median**, never as an absolute value and never against another person. The trailing window is **not evidence-derived** — it differs by consumer (14 nights for the illness flag, 42 days for `recovery_score`, 30 days for the generic anomaly layer); use the window belonging to the consumer you are speaking for, and quote it (see *How we compute it*). *(confidence: high for the personal-baseline rule; the window length is an engineering choice, not a finding)*
 2. Surface a **≥2 br/min elevation sustained over 2 nights** — ideally corroborated by an HRV drop or RHR rise — as a *possible early illness/recovery signal*, framed as "consider lighter activity," not a diagnosis. *(high)*
 3. Never interpret a single high-rate night in isolation; name benign confounders first. *(high)*
 4. **SAFETY:** never name a specific illness or suggest medication/diagnosis; route fever/breathlessness/chest symptoms to "consider a clinician." *(high)*
@@ -74,5 +85,5 @@ Healthee derives the daily metric **`respiratory_rate_sleep`** — a **bounded w
 ## Healthee implementation & honesty policy
 - **Derived field: `respiratory_rate_sleep`** (br/min) in `derived_daily`. Provenance: `derive/hrv_spo2_resp.py::derive_night_vitals` computes a **bounded window mean** of the `respiratory_rate` samples over the sleep window via `_window_stat` with a physiological validity range of **4–40 br/min** (out-of-range/sentinel samples dropped; no row written when the window has no valid RR, so "no data" stays distinct from a real value). Ported **verbatim** from the legacy v2 `derive_night` window-stat blocks — science code, not to be "simplified" on refactor.
 - **Raw source:** the per-sample metric is `respiratory_rate`, in `ALLOWED_METRICS`, sampled across the night (awake/active values are never surfaced).
-- **Downstream:** `respiratory_rate_sleep` is the lowest-weighted input (**0.10**) to `recovery_score` (`derive/recovery.py`, `RECOVERY_WEIGHTS`), and is one of the two limbs of the **illness early-warning flag** (`illness_flag` table + `read/health_metrics.py::illness_flag_payload`; see `illness_flag_plan`), where a ≥2 br/min sustained rise over the 14-day baseline is the primary trigger.
+- **Downstream:** `respiratory_rate_sleep` is the lowest-weighted input (**0.10**) to `recovery_score` (`derive/recovery.py`, `RECOVERY_WEIGHTS`), scored as a robust z against a **42-day** trailing baseline; and it is one of the two limbs of the **illness early-warning flag** (`illness_flag` table + `read/health_metrics.py::illness_flag_payload`; see `illness_flag_plan`), where a ≥2 br/min sustained rise over the **14-night** baseline is the primary trigger. The generic anomaly/trend layer (`analytics/baselines.py`) reads it against a **30-day** baseline like every other daily metric. See *How we compute it* for the one canonical table of these windows and why none of them is sourced.
 - **Honesty rules (carry into UI + LLM):** surface RR as a personal-baseline trend, not an absolute value; a rise is a *possible early signal*, never a diagnosis or a named illness; sleep values only.
