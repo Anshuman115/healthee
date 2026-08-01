@@ -244,6 +244,8 @@ CREATE TABLE IF NOT EXISTS challenge (
   completed_at      TIMESTAMPTZ,
   abandoned_at      TIMESTAMPTZ,
   baseline_value    DOUBLE PRECISION,   -- frozen at adopt — the before/after anchor
+  -- 0013 gives this its FK to program(id) — stated after `program` below, since a
+  -- rung's table is declared before its ladder's.
   program_id        BIGINT,
   rung_index        INTEGER,
   -- 0010: a `deload` rung is INSERTED after one timed out unmet, at an eased target.
@@ -289,6 +291,14 @@ CREATE TABLE IF NOT EXISTS program (
                   REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS program_user_idx ON program (user_id, status);
+
+-- 0013: a rung belongs to its ladder in the DATABASE, not only in the code that
+-- deletes them together. CASCADE on delete because an orphaned rung is invisible
+-- (`locked`, unadoptable, indexed inside a ladder that no longer exists), and the only
+-- program ever deleted is an un-adopted suggestion whose rungs never ran. CASCADE on
+-- update because a FK without one ERRORS on a re-key rather than skipping it (0006).
+ALTER TABLE challenge ADD CONSTRAINT challenge_program_id_fkey FOREIGN KEY (program_id)
+  REFERENCES program(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 -- ── challenge_outcome ─────────────────────────────────────────────────────
 -- Frozen learning-loop ledger: a snapshot written when a challenge ends.

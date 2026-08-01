@@ -730,10 +730,16 @@ rigid it offers a 3.7-hour sleeper a "sleep 8 hours" challenge.
     rung windows summed. A model writing either would be writing a number nobody checked.
   - Rungs are stored `locked` under a `suggested` program: designing is not starting, and
     `adopt` is still what recalibrates rung 1 and freezes its baseline.
-  - **A latent hazard found and closed:** `challenge.program_id` is a bare `BIGINT` with
-    **no foreign key** (`0001`), so nothing in the database takes a program's rungs with
+  - **A latent hazard found and closed:** `challenge.program_id` was a bare `BIGINT` with
+    **no foreign key** (`0001`), so nothing in the database took a program's rungs with
     it. `program_store.delete_suggested_programs` deletes them explicitly; without that,
-    every regeneration would leave a locked orphan rung behind.
+    every regeneration would leave a locked orphan rung behind. **#77 made it structural**
+    — `0013` adds the FK `ON DELETE CASCADE ON UPDATE CASCADE`, so the explicit delete is
+    now the clear statement of intent with the database as the backstop under it (the
+    same relationship the tenant predicates have with RLS). `SET NULL` was rejected: an
+    orphaned rung is `locked`, unadoptable and indexed inside a ladder that no longer
+    exists — invisible litter — and an orphaned *active* rung would enter the outcome
+    ledger as a standalone result.
   - Shares WP-C3b's daily budget — a ladder and a challenge are the same pipeline shape
     and the same money.
 - ✅ **WP-C5** coach: `adopt_challenge` + `create_challenge` + the outcome ledger as

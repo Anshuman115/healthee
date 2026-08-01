@@ -169,12 +169,14 @@ def delete_suggested_programs(cur: Cur, user_id: UUID) -> int:
     ladder was calibrated against a baseline that has since moved, and rung 1 of it is a
     number about a person who is no longer here.
 
-    **The rungs are deleted explicitly**, and that is not belt-and-braces:
-    ``challenge.program_id`` is a bare ``BIGINT`` with no foreign key (`0001`), so nothing
-    in the database would take them with the program. Only the ``app_user`` cascade ever
-    cleans them up otherwise, and a locked rung whose program has gone is invisible
-    history nothing can explain. Active programs are untouched — the ``status`` predicate
-    is inside the subquery so a live ladder's rungs cannot be caught by it.
+    **The rungs are deleted explicitly**, with `0013`'s ``ON DELETE CASCADE`` as the
+    backstop underneath — the same relationship the tenant predicates have with RLS
+    (standards §2: "RLS is the backstop, not the filter"). This statement used to be the
+    ONLY thing standing between a deleted suggestion and a set of orphaned rungs, because
+    ``challenge.program_id`` was a bare ``BIGINT``; that guarantee is now structural and
+    this remains the explicit, owner-scoped, index-using statement of the intent. Active
+    programs are untouched either way — the ``status`` predicate is inside the subquery so
+    a live ladder's rungs cannot be caught by it.
     """
     cur.execute(
         "DELETE FROM challenge WHERE user_id = %s AND program_id IN "

@@ -47,14 +47,15 @@ SLEEP_ROW_METRIC = "sleep_health_score_4dim"
 # one test refuses the FOURTH test in the module with `generation_budget_spent` — a
 # failure that looks like a code bug and is a reset-list bug, exactly as `program` was.
 _TABLES = (
-    "derived_daily", "workout", "manual_entry", "finding", "illness_flag", "program", "kv",
+    "derived_daily", "workout", "manual_entry", "finding", "illness_flag", "kv",
 )  # fmt: skip
 
-# `challenge` is truncated separately with CASCADE: `challenge_outcome` references
-# it, and TRUNCATE refuses a referenced table without CASCADE. Taking the ledger
-# with it is exactly right for a reset — an outcome without its challenge is orphan
-# history nothing can explain.
-_CASCADING_TABLES = ("challenge",)
+# `challenge` and `program` are truncated separately with CASCADE: `challenge_outcome`
+# references the first and `0013`'s FK makes `challenge` reference the second, and
+# TRUNCATE refuses a referenced table without CASCADE. Taking the dependents with them
+# is exactly right for a reset — an outcome without its challenge, or a rung without
+# its ladder, is orphan history nothing can explain.
+_CASCADING_TABLES = ("challenge", "program")
 
 
 def reset() -> None:
