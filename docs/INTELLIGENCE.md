@@ -49,17 +49,26 @@ Rules:
   server code — deterministic checks the LLM can never override (bone-stress /
   REDs hard stop, never advise through chest pain, never advise sleep
   restriction…).
-  > **Status — half true, and the half that is missing matters.** The
-  > *enforcement* exists and is live: `insights/output_guard.py` holds that
-  > hard-guardrail table, blocking regardless of citations or validation (§3),
-  > covering exactly the examples above. The **compilation does not**: no note
-  > carries a `safety_critical` flag, and the generated manifest emits no
-  > `directives` at all — so today the table is `_DOCUMENTED_RULES`,
-  > hand-compiled from what the product already documents, each rule citing the
-  > line that forbids it. `output_guard.output_rules()` is the seam the corpus
-  > plugs into; marking up the corpus is research judgement and is not done.
-  > Nothing is lost meanwhile — a table compiled from an unmarked corpus would
-  > be empty.
+  > **Status — both halves are now live (#87, 2026-08-01).** *Enforcement:*
+  > `insights/output_guard.py` blocks regardless of citations or validation (§3),
+  > covering exactly the examples above, from a hand-compiled `_DOCUMENTED_RULES`
+  > table where each rule cites the **doc line** that forbids it. *Compilation:* a
+  > note declares a directive hard with `safety_critical: [5, 6]` in frontmatter;
+  > `gen_manifest.py` refuses a marker that points at a directive which does not
+  > exist or does not say `SAFETY-CRITICAL` in its own text;
+  > `insights/guard_directives.py` compiles one blocking rule per marker; and
+  > `tests/insights/test_guard_directives.py` asserts a **bijection** between the
+  > markers and the rules, in both directions. `output_guard.output_rules()` is the
+  > seam and returns both tables.
+  >
+  > The corpus is marked up **deliberately sparsely** — four directives today
+  > (`napping` D5, `hydration_everyday` D5/D6, `late_eating_sleep` D5), each a case
+  > where the wrong answer has a plausible path to real harm. Marking a directive is
+  > research judgement and every marker costs a reviewed regex; an over-broad safety
+  > filter that eats honest cited science is its own harm. What has changed is that
+  > an *unmarked* note may no longer pretend otherwise: ~24 notes used to assert
+  > "mirrored as a hard guardrail in `@daud/core`, the AI may not override" about a
+  > module that exists in no repo, and those sentences now say what is true.
 - Template (adopted from sports-science METHODOLOGY): mandatory Honesty
   section (confounders, individual variation, metric limits), Coach Directives
   block, citations real-or-absent with primary sources verified before writing.

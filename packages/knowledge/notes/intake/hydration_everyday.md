@@ -4,6 +4,7 @@ name: "Everyday hydration (non-exercise)"
 topic: There is no evidence-based universal daily water target for a healthy adult; what the reference values actually are, what counts, and that we measure none of it
 category: intake
 grade: Probable
+safety_critical: [5, 6]     # → hard guardrails `hydration_everyday_D5`/`_D6`
 summary: "The '8 glasses a day' rule has no scientific basis — a systematic search found 'no scientific studies in support of 8 x 8' (Valtin 2002) — and caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate."
 aliases: ["hydration", "hydrated", "water", "drinking water", "water intake", "how much water", "how much water should i drink", "fluid intake", "fluids", "8 glasses", "eight glasses of water", "8x8", "drink more water", "dehydration", "dehydrated", "thirst", "urine colour", "urine color"]
 applies_to_metrics: []

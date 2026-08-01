@@ -20,7 +20,7 @@ from tests.insights._ids import ESTABLISHED_ID, MORTALITY_ID
 from tests.insights._stub import StubLLM
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights import coach, grounded, output_guard, validator
+from healthee.insights import coach, grounded, guard_directives, output_guard, validator
 from healthee.insights.refusals import EMERGENCY
 
 # ── The rules are sourced, not invented ──────────────────────────────────────
@@ -36,8 +36,17 @@ def test_every_rule_names_the_doc_line_that_forbids_it() -> None:
 
 
 def test_the_corpus_seam_is_the_only_way_rules_enter() -> None:
-    """``output_rules()`` is the seam a compiled corpus table plugs into."""
-    assert output_guard.output_rules() == output_guard._DOCUMENTED_RULES
+    """``output_rules()`` is exactly the two admitted tables — nothing else may enter.
+
+    Since #87 the corpus half is real, so this pins the *composition* rather than
+    equality with one table: doc-compiled rules, then rules compiled from notes that
+    declare a directive safety-critical. A rule that appeared from anywhere else — a
+    module-level append, a monkeypatch that stuck — fails here.
+    """
+    assert output_guard.output_rules() == (
+        output_guard._DOCUMENTED_RULES + guard_directives.compiled_rules()
+    )
+    assert guard_directives.compiled_rules(), "the corpus half compiled to nothing"
 
 
 # ── True positives: each documented rule blocks ──────────────────────────────
