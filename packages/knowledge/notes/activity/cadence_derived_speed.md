@@ -78,12 +78,19 @@ large absolute error on an extrapolated VO₂max.
   adults (heuristic range 135–140), and cadence predicted the transition better than speed
   or Froude number [Chase et al. 2023, Hum Mov Sci 90:103117]. This gives an objective line
   between "walking" and "running" in step data, with no GPS required.
-- **[Established]** **Age-predicted HRmax carries a large individual error** — standard
-  deviations of about 10–12 bpm around the age prediction [Robergs & Landwehr 2002]; the
-  Tanaka meta-analysis itself reports the group regression (r = −0.90, 351 studies, 18,712
-  subjects) rather than an individual standard error [Tanaka et al. 2001]. In an
-  extrapolation this error is multiplied by the fitted slope, so it is *larger* for the
-  fits that look best.
+- **[Established]** **Age-predicted HRmax carries a large individual error, and Tanaka
+  2001 reports it itself.** The paper has two halves and only the first is a meta-analysis:
+  that half regresses *group mean* values (351 studies, 492 groups, 18,712 subjects,
+  r = −0.90) and gives no individual scatter. The second half is a laboratory
+  cross-validation of 514 measured maximal tests, and it states that "there was substantial
+  variation in HRmax across the entire age range, **with standard deviations ranging from 7
+  to 11 beats/min**", with the discussion pricing the consequence at "the wide range of
+  individual subject values around the regression line for HRmax (**SD ∼10 beats/min**)"
+  and an underestimation that "could be >20 beats/min for some older adults" [Tanaka et al.
+  2001]. Robergs & Landwehr 2002 independently put age-based univariate HRmax equations at
+  **Sxy 7–11 b/min**, but their Table 3 lists Tanaka's own Sxy as *not reported* — so they
+  corroborate the magnitude and are **not** the source of it. In an extrapolation this error
+  is multiplied by the fitted slope, so it is *larger* for the fits that look best.
 - **[Probable]** **The one peer-reviewed model that estimates fitness from wrist heart
   rate and steps does not go through a speed conversion.** Neshitov et al. 2023 (n = 3,115
   training) build a 24-feature vector — cadence-to-HR ratio quartiles and fifteen
@@ -152,7 +159,8 @@ rather than estimated from cadence.
 **Act on confidently:** cadence is a sound intensity classifier and an acceptable
 distance input; step length rises with cadence rather than staying fixed; ~140 steps/min
 separates walking from running in step data; age-predicted HRmax carries roughly ±10 bpm of
-individual error that any extrapolation multiplies.
+individual error (Tanaka's own 514-subject validation: SD 7–11 beats/min) that any
+extrapolation multiplies.
 
 **Hold loosely:** any speed inferred from cadence alone, and any quantity derived from it
 that is sensitive to the slope of a fit rather than to a level. The specific error
@@ -189,10 +197,18 @@ magnitudes here come from a single person's data.
   2023;13(1):15808. PMID 37737296. doi:10.1038/s41598-023-43024-x. Lab-validation error
   4.982 mL/kg/min (n=10); data and model not public.
 - Robergs RA, Landwehr R. *The surprising history of the "HRmax=220−age" equation.*
-  J Exerc Physiol Online 2002;5(2):1–10. Standard deviations of 10–12 bpm around
-  age-predicted HRmax.
+  J Exerc Physiol Online 2002;5(2):1–10. Reports Sxy (standard error of estimate) of
+  **7–11 b/min** across age-based univariate HRmax equations, ">10 b/min" for the
+  majority, and their own re-regression over 30 equations at Sxy 7.2. Table 3 lists every
+  Tanaka equation with **Sxy = N/A**. The paper never states a ±10–12 bpm SD and never
+  attributes one to Tanaka. *(Full text read 2026-08-02, #112.)*
 - Tanaka H, Monahan KD, Seals DR. *Age-predicted maximal heart rate revisited.* J Am Coll
-  Cardiol 2001;37(1):153–156. PMID 11153730. 351 studies, 18,712 subjects, r = −0.90.
+  Cardiol 2001;37(1):153–156. PMID 11153730. doi:10.1016/S0735-1097(00)01054-8.
+  Meta-analysis of **group mean** values (351 studies, 492 groups, 18,712 subjects,
+  r = −0.90) **plus** a laboratory cross-validation in 514 measured subjects reporting
+  "standard deviations ranging from 7 to 11 beats/min" and, in the discussion, "SD ∼10
+  beats/min". **This is the primary source of the ±10 bpm individual spread.**
+  *(Full text read 2026-08-02, #112.)*
 
 ## Open questions (deferred)
 

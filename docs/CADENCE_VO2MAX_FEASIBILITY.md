@@ -155,7 +155,7 @@ Three independent terms, in quadrature, on the only two bouts that survive every
 | term | 2026-06-10 | 2026-06-15 |
 |---|---|---|
 | regression extrapolation SE | ±1.53 | ±3.36 |
-| HRmax uncertainty (SD 10 bpm, Robergs & Landwehr 2002) | ±2.54 | ±4.24 |
+| HRmax uncertainty (SD 10 bpm, Tanaka 2001) | ±2.54 | ±4.24 |
 | **stride length across his own p5–p95** | **±9.96** | **±14.47** |
 | **combined 1 SD** | **±10.4** | **±15.5** |
 | Jurca SEE (the model it would replace) | 5.6 | 5.6 |
@@ -344,10 +344,16 @@ The owner decides; the measurement above is offered as the input to that decisio
   speed.** Absence stated as absence.
 - **The Neshitov 2023 model or weights** — not public (confirmed in the paper's data
   availability statement). Not reconstructed, per the brief's instruction.
-- **An individual SEE from Tanaka 2001 itself** — the paper publishes the group regression
-  (r = −0.90) but not an individual standard error. The ±10–12 bpm figure everyone quotes
-  traces to Robergs & Landwehr 2002, and the corpus should cite it there rather than
-  attributing it to Tanaka.
+- ~~**An individual SEE from Tanaka 2001 itself**~~ — **RETRACTED by #112 (2026-08-02).**
+  This section originally claimed the paper publishes only the group regression (r = −0.90)
+  and that the ±10–12 bpm figure traces to Robergs & Landwehr 2002. That was wrong, and it
+  was reached from the abstract rather than the full text. Tanaka 2001 has **two halves**:
+  the meta-analysis regresses group means, but the 514-subject laboratory cross-validation
+  reports "standard deviations ranging from 7 to 11 beats/min", and the discussion states
+  "the wide range of individual subject values around the regression line for HRmax
+  (SD ∼10 beats/min)". Robergs & Landwehr 2002 report Sxy 7–11 b/min across age-based
+  equations generally and list **no** Sxy for Tanaka (Table 3: N/A) — they corroborate the
+  magnitude, they are not its source. The corpus cites Tanaka.
 
 ---
 
