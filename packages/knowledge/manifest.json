@@ -99,11 +99,11 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "biological_age_estimate",
-      "last_reviewed": "2026-08-01",
+      "last_reviewed": "2026-08-02",
       "name": "Biological Age (estimate)",
       "path": "notes/metrics/biological_age_estimate.md",
       "population": "general",
-      "summary": "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines). Both priced terms carry a published ANCHOR caveat: the sleep hours are converted to their questionnaire equivalent before Yin's curve is applied (Lauderdale 2008), and the fitness reference is FRIEND's published treadmill 50th percentile (Kaminsky 2022) — a US reference standard, not a population median, since FRIEND is a laboratory-referral cohort. An estimate, never a clinical readout."
+      "summary": "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines). Three caveats ship with the number: the sleep hours are converted to their questionnaire equivalent before Yin's curve is applied (Lauderdale 2008); the fitness reference is FRIEND's published treadmill 50th percentile (Kaminsky 2022), a US reference standard rather than a population median; and the fitness term's own VO₂max carries a SELF-REPORTED activity category worth 0.6–2.3 years per level, which is asked of the owner and never inferred from steps. An estimate, never a clinical readout."
     },
     {
       "aliases": [
@@ -1130,11 +1130,11 @@
       "collection": "legacy",
       "grade": "Probable",
       "id": "non_exercise_vo2max",
-      "last_reviewed": "2026-07-15",
+      "last_reviewed": "2026-08-02",
       "name": "Non-exercise VO₂max estimate (Jurca 2005)",
       "path": "notes/activity/non_exercise_vo2max.md",
       "population": "general",
-      "summary": "The fallback VO₂max estimator: a validated non-exercise model (Jurca 2005 METs equation from age, sex, BMI, resting HR and an activity category) that needs no treadmill test — r≈0.78, SEE≈5.6 mL/kg/min, good for within-person trend, never a measurement; computed nightly when there is no usable workout segment for the submaximal method."
+      "summary": "The fallback VO₂max estimator: a validated non-exercise model (Jurca 2005 METs equation from age, sex, BMI, resting HR and a SELF-REPORTED activity category) that needs no treadmill test — R=0.81, SEE=1.45 METs ≈ 5.1 mL/kg/min in its development cohort, never a measurement; computed nightly when there is no usable workout segment for the submaximal method. The activity category is DUMMY-CODED (0 / 0.32 / 1.06 / 1.76 / 3.03 METs), not linear, and it is the OWNER'S OWN ANSWER — a device cannot supply it, and the estimate is withheld until they answer."
     },
     {
       "aliases": [
