@@ -586,6 +586,36 @@
     },
     {
       "aliases": [
+        "hrr vo2r",
+        "%hrr = %vo2r",
+        "heart rate reserve vo2max",
+        "karvonen vo2max",
+        "vo2 reserve",
+        "swain equivalence",
+        "reserve vo2max",
+        "vo2max_reserve",
+        "hr_reserve_vo2max"
+      ],
+      "applies_to_interventions": [],
+      "applies_to_metrics": [
+        "vo2max_submax",
+        "vo2max_estimate",
+        "hr",
+        "rhr_daily",
+        "max_hr"
+      ],
+      "category": "activity",
+      "collection": "legacy",
+      "grade": "Contested",
+      "id": "hr_reserve_vo2max",
+      "last_reviewed": "2026-08-02",
+      "name": "VO₂max from heart-rate reserve (%HRR = %VO₂R)",
+      "path": "notes/activity/hr_reserve_vo2max.md",
+      "population": "general",
+      "summary": "%HRR ≈ %VO₂R lets every steady window of a session give an independent VO₂max with no regression and no load range — but the equivalence is contested (the largest test, n=737, rejects identity and finds %HRR runs 6–8 points high), it is validated only over roughly 35–95% of reserve on incremental maximal tests, it fails during prolonged constant-load exercise, and measured on real free-living walks it under-reads VO₂max by 17–30 mL/kg/min. Usable for running, refused for walking."
+    },
+    {
+      "aliases": [
         "8x8",
         "8 x 8",
         "8 glasses",
