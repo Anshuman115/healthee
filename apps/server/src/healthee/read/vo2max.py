@@ -46,6 +46,7 @@ from healthee.analytics.reference_scales import vo2max_median_for
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
 from healthee.derive.freshness import withheld_block
+from healthee.derive.gps import METHOD_GRADED, METHOD_RESERVE
 from healthee.derive.robust import median
 from healthee.derive.vo2max import (
     WITHHOLD_MESSAGES,
@@ -54,6 +55,25 @@ from healthee.derive.vo2max import (
 )
 
 _WINDOW_DAYS = 95  # the trend window; ~90 days of trend plus slack
+
+# What each instrument's number is worth, in the second person. Both sentences state a
+# LIMIT rather than a confidence score, because the two methods do not differ in
+# precision so much as in what they assume: the graded fit measures this owner's own
+# VO2-HR line, the reserve inversion assumes a population equivalence that the largest
+# study of it rejects ([[hr_reserve_vo2max]]).
+_METHOD_CAVEATS = {
+    METHOD_GRADED: (
+        "Read from how your heart rate tracked your workload across this session — the "
+        "more direct of the two methods we have, because it measures the relationship on "
+        "you rather than assuming it."
+    ),
+    METHOD_RESERVE: (
+        "Read from how far into your heart-rate range you were while running, using a "
+        "population relationship rather than one measured on you. It only runs on "
+        "running, and it most likely reads a little LOW — the published bias in that "
+        "relationship under-states fitness by roughly 2-3 mL/kg/min."
+    ),
+}
 
 
 def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
@@ -148,11 +168,19 @@ def _window(cur: Cur, user_id: UUID, tz: str, metric: str) -> list[tuple]:
 
 
 def _submax_block(cur: Cur, user_id: UUID, tz: str, jurca_estimate: float | None) -> dict | None:
-    """Submaximal HR-vs-pace VO2max from GPS workouts (``vo2max_submax``).
+    """VO2max measured from GPS workouts (``vo2max_submax``), and which instrument read it.
 
     ``vs_jurca`` compares the two methods as they stand TODAY, so it is null whenever
     the Jurca side is withheld — a difference against a number we have just declined
     to report would be an interpretation of data we said we do not have.
+
+    ``last_method`` and ``method_caveat`` are not decoration (#114). One metric is now
+    written by two instruments — the graded HR-vs-workload fit and the %HRR reserve
+    inversion — and a session-to-session move that is really an instrument change must
+    not read as a fitness change. That is the same class of defect as showing a stale
+    row as current, one layer along: the number is fresh, but what produced it moved.
+    Rows written before #114 carry no ``method`` flag; they are all graded fits, which is
+    what ``METHOD_GRADED`` defaults them to.
     """
     rows = _window(cur, user_id, tz, "vo2max_submax")
     if not rows:
@@ -160,6 +188,7 @@ def _submax_block(cur: Cur, user_id: UUID, tz: str, jurca_estimate: float | None
     vals = [float(v) for _, v, _ in rows]
     med = median(vals)
     s_day, s_val, s_flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})
+    method = str(s_flags.get("method") or METHOD_GRADED)
     return {
         "latest": round(s_val, 1),
         "median": round(med, 1),
@@ -167,6 +196,8 @@ def _submax_block(cur: Cur, user_id: UUID, tz: str, jurca_estimate: float | None
         "as_of_date": s_day.isoformat(),
         "last_r2": s_flags.get("r2"),
         "last_speed_kmh": s_flags.get("speed_kmh"),
+        "last_method": method,
+        "method_caveat": _METHOD_CAVEATS.get(method),
         "vs_jurca": None if jurca_estimate is None else round(med - jurca_estimate, 1),
         "trend": [{"date": d.isoformat(), "value": round(float(v), 1)} for d, v, _ in rows],
     }
