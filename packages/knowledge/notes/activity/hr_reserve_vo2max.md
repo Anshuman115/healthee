@@ -187,8 +187,10 @@ mL/kg/min.
   not correct for it, because the same paper shows a population correction explains almost
   none of the individual variance.
 - **Precision, honestly.** Monte-Carlo over the published scatter, an HRmax SD of 10 bpm
-  [Robergs & Landwehr 2002 — the ±10–12 bpm figure everyone attributes to Tanaka comes
-  from here] and the owner's own HRrest spread gives, for a 6-window session median:
+  [Tanaka 2001 — its 514-subject laboratory half reports "standard deviations ranging from
+  7 to 11 beats/min", and its discussion "SD ∼10 beats/min"; the figure is Tanaka's own,
+  not a later attribution] and the owner's own HRrest spread gives, for a 6-window session
+  median:
   ±3.2 mL/kg/min at 80–90% of reserve, ±4.3 at 50%, ±5.6 at 40%, ±8.3 at 30%. It beats the
   Jurca non-exercise SEE of 5.075 only above roughly 42% of reserve. **Between the 35%
   published floor and ~43% it is inside the validated range but no more precise than the
@@ -298,9 +300,17 @@ of the low bias, which no per-person correction can be fitted for.
 - Leal-Martín J, Muñoz-Muñoz M, Keadle SK, et al. *Resting Oxygen Uptake Value of 1
   Metabolic Equivalent of Task in Older Adults: A Systematic Review and Descriptive
   Analysis.* Sports Med. 2022;52(2):331–348. PMID 34417980. DOI 10.1007/s40279-021-01539-1.
+- Tanaka H, Monahan KD, Seals DR. *Age-predicted maximal heart rate revisited.* J Am Coll
+  Cardiol. 2001;37(1):153–156. PMID 11153730. DOI 10.1016/S0735-1097(00)01054-8. The
+  source of `208 − 0.7 × age` **and** of the individual spread this note's error budget
+  uses: its 514-subject laboratory cross-validation reports "standard deviations ranging
+  from 7 to 11 beats/min", the discussion "SD ∼10 beats/min". *(Full text read
+  2026-08-02, #112.)*
 - Robergs RA, Landwehr R. *The surprising history of the "HRmax = 220−age" equation.*
-  J Exerc Physiol Online. 2002;5(2):1–10. (Source of the ±10–12 bpm individual spread
-  commonly misattributed to Tanaka.)
+  J Exerc Physiol Online. 2002;5(2):1–10. Corroborates the magnitude — Sxy 7–11 b/min
+  across age-based univariate equations — but reports **no** Sxy for Tanaka (Table 3:
+  N/A) and is **not** the origin of the ±10 bpm figure. *(Full text read 2026-08-02,
+  #112.)*
 - Garber CE, Blissmer B, Deschenes MR, et al. *ACSM Position Stand: Quantity and Quality
   of Exercise for Developing and Maintaining Cardiorespiratory, Musculoskeletal, and
   Neuromotor Fitness in Apparently Healthy Adults.* Med Sci Sports Exerc.

@@ -97,10 +97,11 @@ content on the order of ~20–25% [Granata 2018; Mølmen 2025].
 - **[Established] `220 − age` is a poor HRmax estimator; `208 − 0.7 × age` (Tanaka) is
   better but still a population regression.** Tanaka's meta-analysis (351 studies,
   18,712 subjects; cross-validated in 514) found HRmax = 208 − 0.7·age, r(age) = −0.90,
-  independent of sex and habitual activity, with a **standard error of estimate ≈ 10
-  bpm** [Tanaka 2001]. That SEE means an individual's true HRmax routinely sits ±10–20
-  bpm from the formula — large enough to misplace every zone boundary. A measured or
-  field-tested HRmax always overrides the estimate.
+  independent of sex and habitual activity. The individual scatter comes from the
+  514-subject half, in Tanaka's own words: **standard deviations of 7 to 11 beats/min**
+  around the line, "SD ∼10 beats/min" [Tanaka 2001]. That scatter means an individual's
+  true HRmax routinely sits ±10–20 bpm from the formula — large enough to misplace every
+  zone boundary. A measured or field-tested HRmax always overrides the estimate.
 
 - **[Established] %HRR is equivalent to %VO₂ reserve, NOT %VO₂max.** Swain & Leutholtz
   showed %HRR maps onto %VO₂R (VO₂ above resting), with the %HRR↔%VO₂max relationship
@@ -279,8 +280,8 @@ Decision logic, by stage:
     dropout, caffeine, illness, stress, poor sleep), down-weight HR for that session.
 
 ## Honesty & uncertainty
-- **HRmax is an estimate, not a measurement.** Tanaka's SEE ≈ 10 bpm means individuals
-  routinely sit ±10–20 bpm off the formula, which shifts *every* zone edge by a
+- **HRmax is an estimate, not a measurement.** Tanaka's own scatter (SD ≈ 10 bpm, range
+  7–11) means individuals routinely sit ±10–20 bpm off the formula, shifting *every* zone edge by a
   comparable amount. Sex, genetics and β-blockers/medication move it further. Where it
   matters, get a measured max [Tanaka 2001].
 - **HR is a lagging, drifting proxy.** It rises 5–15+ bpm over a long steady run at
@@ -435,7 +436,7 @@ metric: the zone cut-points are defined here, the load math there.
   note recommends as the *better default* is used wherever Healthee sets **effort**
   targets and in the TRIMP HR-reserve term; the zone-minutes display strip is %HR_max for
   a legible five-band breakdown.) Both corpora agree on Tanaka + Karvonen — no conflict.
-- **Honesty rules.** Tanaka's SEE ≈ 10 bpm means every zone edge is soft (±10–20 bpm at
+- **Honesty rules.** Tanaka's own scatter (SD ≈ 10 bpm) means every zone edge is soft (±10–20 bpm at
   the individual level); treat boundaries as ±1 zone, never a knife-edge. HR lags fast
   intervals and drifts up in heat / late in long runs, so `hr_zone_minutes` slightly
   over-reads zone during cardiac drift and under-reads short surges — the coach weights

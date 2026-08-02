@@ -137,7 +137,9 @@ VO2_REST_ML_KG_MIN = 3.5
 #
 # An independent check from our own error budget agrees on the order of magnitude and is
 # slightly STRICTER. Monte-Carlo over the equivalence's published scatter (below), an
-# HRmax SD of 10 bpm [Robergs & Landwehr 2002, NOT Tanaka — #112] and this owner's HRrest
+# HRmax SD of 10 bpm [Tanaka 2001's own 514-subject laboratory half: "standard deviations
+# ranging from 7 to 11 beats/min"; discussion, "SD ~10 beats/min" — #112 checked the full
+# text and the figure IS Tanaka's, not a later attribution] and this owner's HRrest
 # spread, as the 1 SD of a six-window session median:
 #
 #     %VO2R   0.30   0.40   0.50   0.60   0.70   0.80   0.90

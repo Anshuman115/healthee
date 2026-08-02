@@ -506,7 +506,7 @@ over this same `cardio_load` currency.
 - **Never present load as a proprietary black-box "Strain/Recovery" number.** Label it
   plainly as *cardio load* (a published TRIMP), always alongside the user's own
   baseline ("today is above your usual") — never a cross-person absolute. HR_max is
-  estimated (Tanaka SEE ≈ 10 bpm, so an individual can sit ±10–20 bpm off), which makes
+  estimated (Tanaka's own scatter, SD ≈ 10 bpm, so an individual can sit ±10–20 bpm off), which makes
   absolute TRIMP a **personal-trend** signal; **direction and day-to-day change are the
   trustworthy parts**, not the absolute value — especially for untrained users, since
   Banister's lactate weighting was derived in trained adults.
