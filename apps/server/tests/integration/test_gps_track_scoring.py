@@ -261,6 +261,37 @@ def test_the_repair_tool_backfills_a_track_no_push_ever_scored(db: None) -> None
     assert _submax(run_day) is not None
 
 
+def test_rescore_tracks_recomputes_estimates_that_already_exist(db: None) -> None:
+    """The science-change escape hatch: forget the estimates, then let the gate re-fire.
+
+    Without it the gate is permanent — a change to the estimator would silently leave
+    every already-scored session on the old number. It re-OPENS the gate rather than
+    bypassing it, so there is still exactly one rule about when a track gets scored.
+    """
+    _reset()
+    _seed_profile()
+    points, hr_rows, run_day = _recent_run()
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        insert_hr(cur, SENTINEL_USER_ID, hr_rows)
+    uploaded = _upload(points)
+    assert uploaded["vo2max"]["ok"] is True
+    with admin_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE derived_daily SET value = 1.0 WHERE user_id = %s AND metric = 'vo2max_submax'",
+            (SENTINEL_USER_ID,),
+        )
+
+    assert rederive.main(["--user", str(SENTINEL_USER_ID), "--days", "2"]) == 0
+    held = _submax(run_day)
+    assert held is not None and held[0] == pytest.approx(1.0)  # the gate held
+
+    assert rederive.main(["--user", str(SENTINEL_USER_ID), "--days", "2", "--rescore-tracks"]) == 0
+
+    cell = _submax(run_day)
+    assert cell is not None and cell[0] > 1.0  # recomputed
+    assert _denormalised(uploaded["track_id"]) == pytest.approx(cell[0])
+
+
 def test_a_day_without_a_track_derives_exactly_as_before(db: None) -> None:
     """The seam adds nothing to a day that has no GPS track — no row, no work."""
     _reset()

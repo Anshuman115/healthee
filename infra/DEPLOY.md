@@ -524,6 +524,7 @@ still reads **ok**, because that check measures raw sample *arrival*, not deriva
 $COMPOSE run --rm api python -m healthee.db.rederive                    # all owners, 42 d
 $COMPOSE run --rm api python -m healthee.db.rederive --days 40
 $COMPOSE run --rm api python -m healthee.db.rederive --user <uuid> --all
+$COMPOSE run --rm api python -m healthee.db.rederive --all --rescore-tracks
 ```
 
 It re-derives every stored **night** in the window and then every **day**, in that
@@ -531,6 +532,13 @@ order, through the same `derive.derive_batch` the ingest push uses — so the re
 and the live path cannot disagree about the order. It is idempotent (it recomputes
 from raw samples it never touches), so there is no dry run and re-running is free.
 One transaction per owner: a failure leaves that owner's derived layer as it was.
+
+Recorded **GPS sessions** are part of the day pass since #111, so an ordinary run also
+backfills any track that has never been scored. It will not recompute a track that
+already carries an estimate — that freshness gate is what keeps a re-push from
+re-reading every fix and re-running the DEM. `--rescore-tracks` forgets the estimates in
+the window so the gate fires again; reach for it after a change to the VO₂max estimator
+itself, and not otherwise.
 
 **Run it after** a migration or a science change that alters what a derivation
 computes, and after any incident where pushes were accepted but derivation was not
@@ -551,3 +559,14 @@ $COMPOSE exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
 ```
 
 A metric whose `max(day)` is older than the others' is the one to chase.
+
+The GPS variant of the same symptom is `gps_track` rows with a **null**
+`vo2max_submax` while their windows clearly hold heart rate:
+
+```sh
+$COMPOSE exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+  "SELECT start_ts::date, vo2max_submax FROM gps_track ORDER BY start_ts DESC LIMIT 20;"
+```
+
+A null there is not automatically wrong — a flat walk genuinely cannot measure VO₂max
+([[hr_reserve_vo2max]]) — but *every* row null is the shape #111 fixed.
