@@ -5,7 +5,12 @@
 > The tables below were the ANALYSIS that led there and still show the old $3.99/$34.99
 > in places — read them as the working, not the decision. One thing changed materially:
 > the free tier now costs **$0**, so every "19 free users" figure below is superseded.
-> **#105 is a release blocker**: at 30 questions the decided prices need it to land.
+> **#105 was run on 2026-08-02 and it did not work.** The plan was to stop re-sending the
+> research corpus on every round of a coach question, taking it from $0.179 to ~$0.110.
+> Measured against the real model, it saved **nothing** (−2.9%, could as easily be +24k
+> tokens as −29k) and shipped **two fewer answers out of fourteen**, so it was reverted.
+> **A coach question still costs $0.179**, and at 30 questions a month that is $6.98 of
+> cost against $6.99 of price. The choice is now the cap or the price — `PRICING.md` §0.
 
 Written 2026-08-01. Every number here comes from **real billing** — actual requests
 replayed through OpenRouter, counted by the provider, not estimated. Assumptions are

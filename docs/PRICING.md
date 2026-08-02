@@ -29,25 +29,45 @@ requests replayed and counted. Plain-language version: `docs/MONEY_PLAIN.md`.
   — one a day. Insight cards, charts and everything deterministic stay unlimited; at
   $0.0084 a card they are free in practice.
 
-### ⚠ These prices depend on one unrun experiment (#105)
+### ⛔ #105 WAS RUN AND IT FAILED — the fallback is now the decision (2026-08-02)
 
-A coach question costs **$0.179** today because each of its ~3 calls re-sends the whole
-research corpus. **#105** sends the corpus only on the round that actually writes the
-answer — the tool rounds cite nothing — which measures to **~$0.110**.
+A coach question costs **$0.179** because each of its ~3 calls re-sends the whole research
+corpus. **#105 was the plan to stop that**: send the corpus only on the round that
+actually writes the answer, since the tool rounds cite nothing. Projected ~$0.110.
 
-| at the 30-question cap | today | after #105 |
+**It was implemented and measured, and it saved nothing.** One repeat per arm through
+`tests/grounding_eval` (INTELLIGENCE §9.3 has the full numbers): input tokens per question
+**−2.9%, 95% CI −28.9k to +24.1k — sign not established**; **$0.77 on both arms**; and the
+ship rate went **14/14 → 12/14** (2 pairs worse, 0 better, p=0.500 — not significant and
+entirely one-directional). It was reverted.
+
+Why, in one line: the round that *ends* gathering is a whole extra model call, break-even
+is at one tool round and the measured mean is 1.2 — and the model responded to losing the
+corpus by fetching it back with `get_knowledge` (7 → 18 invocations), one full-price round
+at a time.
+
+**So the cost of a coach question is $0.179 and there is no measured way down from it
+today.** At the 30-question cap that is the column on the left, and it is the live one:
+
+| at the 30-question cap | **today (measured, live)** | if a future cost win lands |
 |---|---|---|
-| premium cost / month | $6.98 | **$4.92** |
-| **$6.99/mo** margin | **−8%** ⛔ | **+24%** ✅ |
-| **$69/yr** margin | **−26%** ⛔ | **+12%** ✅ |
+| premium cost / month | **$6.98** | $4.92 at $0.110/question |
+| **$6.99/mo** margin | **−8%** ⛔ | +24% |
+| **$69/yr** margin | **−26%** ⛔ | +12% |
 
-**⇒ #105 is now a release blocker, not an optimisation.** It costs ~$3 and 30 minutes.
-**If it fails**, the fallback is $6.99/$69 with a **20-question** cap (+25% monthly today)
-— still one question every day and a half — or hold 30 and move to $8.99/$99.
+**⇒ The decision the owner now owns is the cap or the price, not the experiment.** The
+options are exactly the ones §0 already listed as the fallback: **$6.99/$69 with a
+20-question cap** (+25% monthly today — still a question every day and a half), or hold 30
+and move to **$8.99/$99**.
 
 **Read the −8% correctly**: it is the *worst case*, an owner using every question AND
 opening 40 cards. At a realistic 10 questions the same $69/year runs ~51% margin. The cap
-is the floor, not the expectation.
+is the floor, not the expectation. What changed on 2026-08-02 is only that the floor can
+no longer be argued away by a pending experiment.
+
+**The cost lever that is still measured and unspent** is `DEFAULT_TOP_N` 6 → 4 —
+**−18.8% input tokens, sign established, ship rate flat** (INTELLIGENCE §9.1). Shrinking
+the notes block beats moving it, and it was never landed.
 
 ### Why the rest
 
