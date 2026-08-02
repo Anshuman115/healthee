@@ -2,26 +2,71 @@
 
 What to charge for the premium (AI) tier, why, how we compare to Whoop/Oura, and
 what it actually costs us to run. Companion to `docs/MULTI_USER.md` §12 (the gate
-+ billing). Prices/rates cited are current as of **2026-07** (sources at bottom);
-the AI-cost math is an estimate with stated assumptions.
++ billing). **Prices decided 2026-08-02 — see §0.** The AI-cost math is no longer an
+estimate: every per-surface figure in §3.1 is the provider's own `usage`, from real
+requests replayed and counted. Plain-language version: `docs/MONEY_PLAIN.md`.
 
 ---
 
-## 0. TL;DR recommendation
+## 0. TL;DR — DECIDED 2026-08-02
 
-- **Free forever:** the whole honest **tracker** — every metric, chart, baseline,
-  anomaly, personal finding, sleep/recovery/VO₂max number, logging. No forced sub
-  to use the hardware you bought.
-- **Premium (the AI layer):** **$3.99 / month** or **$34.99 / year** (~$2.92/mo),
-  plus a **Lifetime "own-it" unlock $99** (fits the donation path and the
-  anti-subscription brand).
-- **Why it works:** our marginal cost is **~$1 / premium user / month** (almost all
-  LLM; infra is near-free — Contabo + free Supabase/Cloudflare), so the premium tier
-  runs **~60–70% gross margin** while sitting *far* under Whoop ($199+/yr, mandatory)
-  and under Oura's $69.99/yr-plus-$349-ring. *"$35 a year vs Whoop's $199"* is the pitch.
-- **The wedge:** everyone else forces a subscription to see your own data. We
-  don't. Tracking is free on hardware you own for life; you pay only for the
-  research-grounded AI that never lies. That's the story.
+> **This supersedes the 2026-07-16 prices.** They were set before anyone measured what a
+> user costs. Every figure below is provider billing — real requests replayed and counted
+> — not an estimate (§3.1). Plain-language working: `docs/MONEY_PLAIN.md`.
+
+| | old (never measured) | **DECIDED** |
+|---|---|---|
+| Monthly | $3.99 | **$6.99** |
+| Annual | $34.99 | **$69** (two months free, 18% off) |
+| Lifetime | $99 | **dropped** |
+| Free tier | 1 coach question / 7 days | **no AI at all** |
+| Coach allowance | "unlimited (fair-use)" | **30 questions / month, stated** |
+
+- **Free forever:** the whole honest **tracker** — every metric, chart, baseline, anomaly,
+  personal finding, sleep/recovery/VO₂max number, logging. No forced sub to use hardware
+  you bought. **And it now costs us exactly $0: the free tier has no AI surface at all.**
+- **Premium:** **$6.99/month** or **$69/year**, including **30 coach questions per month**
+  — one a day. Insight cards, charts and everything deterministic stay unlimited; at
+  $0.0084 a card they are free in practice.
+
+### ⚠ These prices depend on one unrun experiment (#105)
+
+A coach question costs **$0.179** today because each of its ~3 calls re-sends the whole
+research corpus. **#105** sends the corpus only on the round that actually writes the
+answer — the tool rounds cite nothing — which measures to **~$0.110**.
+
+| at the 30-question cap | today | after #105 |
+|---|---|---|
+| premium cost / month | $6.98 | **$4.92** |
+| **$6.99/mo** margin | **−8%** ⛔ | **+24%** ✅ |
+| **$69/yr** margin | **−26%** ⛔ | **+12%** ✅ |
+
+**⇒ #105 is now a release blocker, not an optimisation.** It costs ~$3 and 30 minutes.
+**If it fails**, the fallback is $6.99/$69 with a **20-question** cap (+25% monthly today)
+— still one question every day and a half — or hold 30 and move to $8.99/$99.
+
+**Read the −8% correctly**: it is the *worst case*, an owner using every question AND
+opening 40 cards. At a realistic 10 questions the same $69/year runs ~51% margin. The cap
+is the floor, not the expectation.
+
+### Why the rest
+
+- **Lifetime is gone.** $99 covers ~23 months of normal use and then loses money forever.
+  For a product pitched as "hardware you own for life", it makes your longest-tenured
+  users your biggest losses. No version of it survives a per-question marginal cost.
+- **A stated number beats "unlimited (fair-use)".** Unbounded cost against a fixed price
+  is exactly why "we will never lose money" could not be promised as written. A limit that
+  resets is honest; *"unlimited" with a silent throttle is the dishonest version of the
+  same thing*, and this product does not do that.
+- **The old prices never cleared their own cost.** At a realistic 15 questions/month,
+  $3.99 ran **−20%** and $34.99/yr ran **−53%**. Removing the free tier's AI deleted the
+  19× giveaway multiplier but never touched that: premium had simply never been priced
+  above what premium costs.
+- **The wedge survives.** $69/year still reads as *"under $70 versus Whoop's $199"*, and
+  everyone else still forces a subscription to see your own data.
+- **⚠ The trade accepted deliberately.** With no AI in free, nobody converts having felt
+  the coach. **Conversion will be lower than a trial model.** That is the price of a free
+  tier that costs $0 — and it moves the selling job onto the landing page.
 
 ---
 
@@ -79,8 +124,8 @@ safety.
 | **Challenges / programs** (adopt · track · outcome ledger · AI suggestions) | — (premium) | ✓ |
 | **Notable-shift feed** (`/api/notable`) | — (premium) | ✓ |
 | Per-metric anomaly flags on individual cards ("outside your normal") | ✓ | ✓ |
-| **AI coach** | **teaser: 1 question / 7 days** (built, 6.6a-2) | ✓ unlimited (fair-use) |
-| **Daily action line** | **teaser: revealed 1× / 7 days** (built, 6.6a-2 — `POST /api/today/action`) | ✓ daily |
+| **AI coach** | **— (no AI in free)** | ✓ **30 questions / month** |
+| **Daily action line** | **— (no AI in free)** | ✓ daily |
 | Sleep `tonight` line (this table never named it; same generator, same entitlement) | — (locked field) | ✓ daily |
 | **Daily recommendations** (1–3 cite-or-drop) | — (locked card) | ✓ |
 | **AI insight cards** (sleep · activity · metric · workout) | — (locked card) | ✓ |
@@ -96,28 +141,17 @@ safety.
   the curated Notable feed or the challenge system.
 - *Deterministic honest text stays free.* Recovery guidance and the illness
   framing are rule-based (not LLM) and illness is safety-critical → free.
-- *A metered "taste of premium."* Free users get **1 coach question + 1 daily-action
-  reveal per rolling 7 days** — enough to feel the value and convert, bounded so
-  cost is trivial (~1–2 extra LLM calls / free user / week). Enforced server-side
-  (see `MULTI_USER.md` §12.3: the gate is `require_ai_access(user, feature)` =
-  premium **OR** within the free allowance).
-  ✅ **BUILT (6.6a-2).** `core/allowance.py` is the ledger and `api/gate.py`'s
-  `FREE_ALLOWANCE` is the only executable copy of the table above. Three things
-  about it are decisions, not details:
-  - **Rolling, not calendar.** The window is anchored to the *use* — a question
-    asked at 21:00 Monday comes back at 21:00 the following Monday, in the owner's
-    zone. It is a different mechanism from `core/rate_limit.py`'s per-local-day
-    counter, which would have reset at midnight and handed out two questions to
-    anyone who asked theirs in the evening.
-  - **A use is a coach *turn* and a *reveal*, not an LLM call.** A tool-calling
-    turn can make five calls; metering calls would charge a curious question five
-    times. And a use is never spent on a refusal, a transport failure, or the
-    honest fallback — those refund.
-  - **The daily action needs a door.** The nightly chain does not generate a free
-    owner's action line at all (the 6.6a cost skip), so revealing it means
-    generating it on demand: `POST /api/today/action`, which is a POST the owner
-    triggers and not a read. `/api/today` is unchanged and still omits the field —
-    a page load must not be able to spend somebody's weekly taste.
+- *No AI in the free tier — at all.* **Superseded 2026-08-02 (owner decision).** This
+  rule used to grant free users 1 coach question + 1 daily-action reveal per rolling 7
+  days as a "taste of premium". Measured, that taste cost **$0.81/owner/month FOREVER**,
+  and at 5% conversion each paying user carried ~19 of them: **$15.39/month of giveaway
+  against $3.12 of net revenue**. A weekly free LLM call is not a sample, it is a
+  subscription given away — no amount of prompt-shaving fixes a recurring giveaway.
+  The free tier now costs **exactly $0**. `core/allowance.py` and `api/gate.py`'s
+  `FREE_ALLOWANCE` remain the executable table; the allowance is simply empty.
+  ⚠ **The cost of this:** nobody converts having felt the coach. That job moves to the
+  landing page. Revisit if conversion proves worse than the giveaway was.
+
 - *Full history stays free.* The anti-Whoop brand ("we don't hold your data
   hostage") is worth more than the freemium history-lock lever.
 
@@ -285,7 +319,7 @@ the LLM is essentially the whole cost line.
 
 ### 3.3 Payment fees
 
-On the prices §4 decided (2026-07-16) — **$3.99/mo · $34.99/yr**, not the $4.99/$39.99
+On the prices §4 decided (2026-07-16) — **$6.99/mo · $69/yr** (2026-08-02; was $3.99/$34.99), not the $4.99/$39.99
 this section was originally written against:
 
 - **Stripe:** 2.9% + $0.30/txn. On $3.99/mo → 0.029 × 3.99 = $0.116, + $0.30 =

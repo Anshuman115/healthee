@@ -1,5 +1,12 @@
 # The money, in plain language
 
+> **⚠ PRICES DECIDED 2026-08-02 — see `PRICING.md` §0.**
+> **$6.99/month · $69/year · 30 coach questions/month · no AI in the free tier · lifetime dropped.**
+> The tables below were the ANALYSIS that led there and still show the old $3.99/$34.99
+> in places — read them as the working, not the decision. One thing changed materially:
+> the free tier now costs **$0**, so every "19 free users" figure below is superseded.
+> **#105 is a release blocker**: at 30 questions the decided prices need it to land.
+
 Written 2026-08-01. Every number here comes from **real billing** — actual requests
 replayed through OpenRouter, counted by the provider, not estimated. Assumptions are
 stated where they exist.
