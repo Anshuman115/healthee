@@ -100,8 +100,9 @@ def warm_lines(
     chain's supervisor, which logs + Telegrams them (standards §1 — a failure here is
     reported, never swallowed into a permanently null card).
     """
+    morning_lines = warm_morning(user_id, tz, client=client, refresh=refresh)
     lines = {
-        **warm_morning(user_id, tz, client=client, refresh=refresh),
+        **morning_lines,
         SLEEP_TONIGHT_KEY: warm_sleep_tonight(user_id, tz, client=client, refresh=refresh),
     }
     warmed = sorted(key for key, line in lines.items() if _is_shippable(line))
@@ -112,11 +113,13 @@ def warm_lines(
         "warmed": warmed,
         # A line the choke point refused or could not ground is a DEGRADED card, not a
         # crash: it stays uncached (the read serves None) and is named here so the
-        # supervisor's log says which line is missing and why. A key that was never
-        # ATTEMPTED (the briefing, when the merged call fell back) is degraded too — from
-        # the reader's side "no line" is one fact, and `morning` logs which of the two it
-        # was.
+        # supervisor's log says which line is missing and why.
         "degraded": sorted(expected - set(warmed)),
+        # Which path the morning took, because "the briefing body is not in the cache" and
+        # "the owner got no briefing" are different facts and the key lists alone cannot
+        # tell them apart: on ``fallback`` the briefing step generates and sends its own
+        # (``jobs/briefing.py``), so the day is a call more expensive, not a card short.
+        "morning": "merged" if MORNING_BRIEFING_KEY in morning_lines else "fallback",
     }
 
 

@@ -188,10 +188,14 @@ def test_a_merged_call_that_cannot_ship_darks_neither_surface(
     sent: list[str] = []
     monkeypatch.setattr(briefing_mod, "send_telegram", lambda msg: bool(sent.append(msg)) or True)
 
-    warmed = coaching.warm_morning(SENTINEL_USER_ID, SENTINEL_TZ)
+    warm = coaching.warm_lines(SENTINEL_USER_ID, SENTINEL_TZ)
     status = briefing_mod.send_briefing(SENTINEL_USER_ID, SENTINEL_TZ)
 
-    assert set(warmed) == {coaching.DAILY_ACTION_KEY}
+    # The job health surface says which path ran, so "the briefing body is not cached" is
+    # not read as "the owner got no briefing" — it is a call more expensive, not a card
+    # short.
+    assert warm["morning"] == "fallback"
+    assert coaching.MORNING_BRIEFING_KEY not in warm["warmed"]
     # The action survived the merged failure on its own independent call.
     assert coaching.cached_line(SENTINEL_USER_ID, SENTINEL_TZ, coaching.DAILY_ACTION_KEY) == (
         VALID_TEXT
@@ -200,12 +204,13 @@ def test_a_merged_call_that_cannot_ship_darks_neither_surface(
     assert status["source"] == "standalone"
     assert len(sent) == 1
     assert VALID_TEXT in sent[0]
-    # Four calls: the merged candidate and its nudged retry, then the action's own
-    # generation and the briefing's own. That is the price of a night the model could not
-    # ground, and it is the SAME four the two separate surfaces would have spent failing
-    # independently before #95 (each 1 candidate + 1 nudge). The saving is what a
-    # SUCCESSFUL night costs; the failure tail is not paid for out of availability.
-    assert stub.calls == 4
+    # Five calls on a night the model could not ground the merged answer: the merged
+    # candidate and its nudged retry (2), the action's own generation (1), the sleep line
+    # (1), the briefing's own (1). Before #95 the same failing night cost five too — a
+    # briefing that failed and retried (2), an action that failed and retried (2), the
+    # sleep line (1). The saving is what a SUCCESSFUL night costs; the failure tail is not
+    # paid for out of availability.
+    assert stub.calls == 5
 
 
 def test_the_briefing_still_generates_when_warm_never_ran(
@@ -286,3 +291,4 @@ def test_a_second_warm_for_the_same_day_regenerates_nothing(
     assert spent == 2, "the shipping path should be the merged call plus the sleep line"
     assert stub.calls == spent, "a re-run of an already-warmed day paid for it again"
     assert again["degraded"] == []
+    assert again["morning"] == "merged"
