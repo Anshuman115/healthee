@@ -44,6 +44,7 @@ from __future__ import annotations
 
 from healthee.insights import prompts
 from healthee.insights.guard_rules import PRESCRIPTION_RE, OutputRule, rx
+from healthee.insights.red_flags import EXERTION_OR_HEAT_RE, EXERTIONAL_RED_FLAG_RE
 
 __all__ = ["compiled_rules", "origins"]
 
@@ -115,13 +116,8 @@ _NAP_REASSURE_RE = rx(
 # volume instruction, inside an exercise/heat sentence. Excess fluid intake can be fatal;
 # `fueling_and_hydration` owns the exercise-associated-hyponatraemia guardrail and even
 # it prescribes by thirst, not by schedule.
-_EXERTION_OR_HEAT_RE = rx(
-    r"\b(?:run|runs|running|ride|riding|cycl\w+|swim\w*|workout|work\s?out|training|"
-    r"train|session|race|racing|marathon|half\b|10k|5k|exercis\w+|long\s+run|hike|"
-    r"hiking|effort|interval)\w*\b",
-    r"\b(?:heat|hot\s+(?:weather|day|conditions)|humid\w*|WBGT|heatwave|sweat\w*|"
-    r"warm\s+conditions)\b",
-)
+# The subject is `red_flags.EXERTION_OR_HEAT_RE` — the same exercise-or-heat vocabulary
+# D12 is scoped to and that `refusals.py`'s pre-LLM screen now reads (#106). One copy.
 _FLUID_TARGET_RE = rx(
     r"\b\d+(?:[.,]\d+)?\s*(?:ml|millilit(?:re|er)s?|l\b|lit(?:re|er)s?|oz|ounces?|cups?|"
     r"glasses|bottles?)\b[^.]{0,45}\b(?:per|every|each|an?)\s*\d*\s*"
@@ -214,31 +210,12 @@ _EATING_RESTRICTION_RE = rx(
 # candidates; this compiles the one of them whose forbidden move is a text pattern
 # rather than a plan shape.
 #
-# The symptom vocabulary is deliberately person-attributed or unambiguously clinical.
-# A bare `\bconfusion\b` would fire on "there is some confusion about what HRV measures,
-# but keep training easy" — an honest sentence, blocked by a heat-stroke rule, which is
-# the over-broad-filter harm this module opens by warning about.
-_EXERTIONAL_RED_FLAG_RE = rx(
-    r"\bheat\s*(?:stroke|exhaustion|illness)\b",
-    r"\bhyponatr\w+\b",
-    r"\b(?:HAPE|HACE)\b",
-    r"\baltitude\s+(?:illness|sickness)\b|\bacute\s+mountain\s+sickness\b",
-    r"\bseizur\w+\b|\bconvuls\w+\b|\bfit(?:ting)?\s+during\b",
-    r"\bataxi\w+\b|\bstaggering\b|\bcouldn'?t\s+walk\s+straight\b",
-    r"\baltered\s+(?:consciousness|mental\s+stat\w+|behaviou?r)\b",
-    r"\bunresponsive\b|\bpassed\s+out\s+(?:during|after)\b",
-    r"\bcollapsed?\b(?=[^.]{0,60}\b(?:run|race|training|session|heat|hot|ride|effort)\w*\b)",
-    r"\b(?:was|were|is|are|got|getting|gets|became|becoming|feeling|felt|seem(?:ed|s)?|"
-    r"going|went)\s+"
-    r"(?:very\s+|really\s+|quite\s+|a\s+bit\s+|increasingly\s+)?"
-    r"(?:confused|disorient\w+|delirious|incoherent)\b",
-    r"\b(?:vomit\w+|threw\s+up|throwing\s+up|being\s+sick)\b",
-    r"\bstopped\s+sweating\b|\bhot,?\s+dry\s+skin\b",
-    # Qualified only. A bare `\bheadache\b` would block "a headache after a hot long run
-    # is common" — an honest sentence. `severe`/`worsening` is what turns it into the
-    # HACE / hyponatraemia presentation the directive is about.
-    r"\b(?:severe|worsening|blinding|thunderclap)\s+headache\b",
-)
+# The symptom vocabulary is `red_flags.EXERTIONAL_RED_FLAG_RE`, and it lives there rather
+# than here because #106 gave it a second consumer: `refusals.py`'s pre-LLM screen asks
+# the same words a different question — "is the OWNER reporting one?" — after prod showed
+# that this rule cannot fire when the owner reports the emergency and the model's reply
+# happens to be innocuous. Two copies of a safety vocabulary is the `evidence_grade`
+# (#83) / `GRADE_RANK` (#88) defect class with a worse blast radius.
 _EMERGENCY_DEFLECTION_RE = rx(
     # Reassurance.
     r"\b(?:that'?s|this\s+is|it'?s|is|are)\s+(?:completely\s+|totally\s+|perfectly\s+|"
@@ -289,7 +266,7 @@ _COMPILED: dict[tuple[str, int], OutputRule] = {
             "'never generate a scheduled or volume-target hydration instruction for "
             "exercise or heat from this note ... Excess fluid intake can be fatal.'"
         ),
-        subject=_EXERTION_OR_HEAT_RE,
+        subject=EXERTION_OR_HEAT_RE,
         action=_FLUID_TARGET_RE,
         response=_FLUID_BLOCK,
     ),
@@ -317,7 +294,7 @@ _COMPILED: dict[tuple[str, int], OutputRule] = {
             "(altitude illness) and by fueling-and-hydration D12 (EAH); both defer here "
             "rather than restating a second guardrail for one rule."
         ),
-        subject=_EXERTIONAL_RED_FLAG_RE,
+        subject=EXERTIONAL_RED_FLAG_RE,
         action=_EMERGENCY_DEFLECTION_RE,
         response=_EXERTIONAL_EMERGENCY,
     ),
