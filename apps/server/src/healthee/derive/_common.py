@@ -171,7 +171,7 @@ def _load_profile(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     — the decision is deliberately theirs (a stale weight must not block sleep need,
     which only wants `dob`), the RULE is deliberately not.
     """
-    cur.execute("SELECT height_cm, sex, dob FROM profile WHERE user_id = %s", (user_id,))
+    cur.execute("SELECT height_cm, sex, dob, srpa FROM profile WHERE user_id = %s", (user_id,))
     prof = cur.fetchone()
     if not prof or prof[0] is None or prof[1] is None or prof[2] is None:
         return None
@@ -182,6 +182,11 @@ def _load_profile(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
         "height_cm": float(prof[0]),
         "sex": prof[1],
         "dob": prof[2],
+        # Jurca's self-reported activity category (0-4), or None when the owner has never
+        # been asked. NOT part of the "profile is complete" gate above: it is needed only
+        # by `derive/vo2max.py`, which withholds on it with its own reason and its own
+        # sentence, while sleep need only wants `dob` and must not be blocked by it (#108).
+        "srpa": None if prof[3] is None else int(prof[3]),
         "weight_kg": weight[0],
         "weight_as_of": weight[1],
     }

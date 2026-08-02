@@ -5,11 +5,10 @@ conversion is published actuarial math, every input hazard ratio is
 meta-analytic, and it is framed as a motivational estimate with a per-term
 breakdown. See [[biological_age_estimate]].
 
-The Gompertz coefficients, VO₂max medians, and hazard-ratio math are ported
-verbatim from legacy ``biological_age.py``. The seam fix is every read: the
-latest VO₂max and the 14-night average TST (from the ``sleep_health_score_4dim``
-flags) both come from ``derived_daily`` instead of the ``metric_sample`` view
-filtered on ``source='derived'``.
+The Gompertz coefficients and hazard-ratio math are ported verbatim from legacy
+``biological_age.py``. The seam fix is every read: the latest VO₂max and the 14-night
+average TST (from the ``sleep_health_score_4dim`` flags) both come from ``derived_daily``
+instead of the ``metric_sample`` view filtered on ``source='derived'``.
 
 ## EVERY term is required, because a missing term is a claim (2026-07-31)
 
@@ -35,11 +34,11 @@ what it would take. The terms that ARE current still ship in ``contributions``: 
 a standalone hazard→years fact from the note's table, and deleting them would withhold
 things we genuinely know.
 
-The rule is stated once over all terms rather than per-term — a per-term policy is exactly
-the fork that produces a second definition (CLAUDE.md), and "which terms are important
-enough" is the question that produced the uncited ``IDEAL["sri"]``. It also covers both
-ways an input can be absent — stale and never derived — because "the composite silently
-assumes the reference" is the same defect either way.
+The rule is stated once over all terms rather than per-term — a per-term policy is the
+fork that produces a second definition (CLAUDE.md), and "which terms are important enough"
+is the question that produced the uncited ``IDEAL["sri"]``. It covers both ways an input
+can be absent, stale and never derived, because "the composite silently assumes the
+reference" is the same defect either way.
 
 ## Sleep regularity is NOT a term, and never silently (2026-08-01, #86)
 
@@ -50,20 +49,16 @@ SRI scale — a pipeline whose UK Biobank median is 60 — and ours is not
 one we refused, on primary-source evidence:
 
 - **Czeisler et al. 2026** (*Sleep* 49(4):zsaf299, PMID 41001850) scored >70 000 UK
-  Biobank adults with BOTH standard SRI calculators and reports that the scores
-  *"differed markedly, both in absolute and relative values"*, and that applied to
-  prospective models including all-cause mortality *"the method of calculation alone
-  meaningfully changed results and interpretations."* Its editorial (Cedernaes et al.,
-  *Sleep* 49(4):zsaf289) gives the size: *"only two-fifths of participants were classified
-  into the same sleep regularity index quintile"*, and under one calculator the most
-  irregular sleepers had *"a 1.19-fold higher adjusted hazard of death"* while *"no
-  significant association was observed when the same data were analyzed using GGIR."*
-- So an SRI→mortality hazard is a property of the SCORING PIPELINE, not of the index. Ours
-  is a third pipeline again (strap hypnogram, global Phillips, night-only by documented
-  design) and has never been run against any outcome cohort.
-- Windred 2024 does publish quintile hazards on a scale close to ours, but they are
-  quintile MEMBERSHIP contrasts, and quintile membership is precisely the quantity
-  Czeisler measured as non-transportable. It publishes no continuous per-point hazard.
+  Biobank adults with BOTH standard SRI calculators: the scores *"differed markedly"*, and
+  on all-cause mortality *"the method of calculation alone meaningfully changed results
+  and interpretations."* Its editorial (*Sleep* 49(4):zsaf289) gives the size — *"only
+  two-fifths of participants were classified into the same … quintile"*, a 1.19-fold
+  hazard under one calculator against no significant association under the other.
+- So an SRI→mortality hazard belongs to the SCORING PIPELINE, not the index. Ours is a
+  third pipeline (strap hypnogram, night-only by design), never run against any cohort.
+- Windred 2024's quintile hazards sit on a scale close to ours, but quintile MEMBERSHIP is
+  precisely what Czeisler measured as non-transportable, and it publishes no per-point
+  hazard.
 
 Unlike ml/kg/min and hours, an SRI point has no physical unit to carry a dose-response
 across pipelines. So the honest number of years regularity contributes here is *none we
@@ -77,17 +72,13 @@ have this, here is what to do", and no owner action brings this one back.
 ## Both surviving terms had the same defect, one degree milder (2026-08-01, #97)
 
 #86 removed a term whose ANCHOR did not transport. An audit of the two that remained
-found both anchored on something other than what they are compared against:
-
-- **Sleep duration** applied Yin 2017's curve, measured on *questionnaire* hours, to a
-  *device-measured* nightly average. Fixed: the average is converted to its
-  questionnaire equivalent first, through a gap Lauderdale 2008 measured
-  (``analytics/reference_scales.py``). For a short sleeper this was worth roughly half
-  a year of penalty that was never earned.
-- **Fitness** compared the VO₂max estimate to a "population median" that cited nothing.
-  #97 left it standing rather than guess at a replacement and published its footing
-  instead. **#101 sourced it** — every cell replaced at once from one published row,
-  FRIEND's treadmill 50th percentile (``analytics/reference_scales.py``).
+found both anchored on something other than what they are compared against. **Sleep
+duration** applied Yin 2017's curve, measured on *questionnaire* hours, to a
+*device-measured* average; it is now converted first, through a gap Lauderdale 2008
+measured (``analytics/reference_scales.py``) — worth roughly half a year of penalty a
+short sleeper never earned. **Fitness** compared the VO₂max estimate to a "population
+median" that cited nothing; **#101 sourced it**, every cell at once from one published
+row, FRIEND's treadmill 50th percentile.
 
 The difference from #86 is the reason both survived: their anchors were
 wrong-but-bounded (≈0.5 y and ≈2 y respectively, inside the note's own "±a few years is
@@ -96,17 +87,25 @@ SRI term's sign was not — it credited 36 days and penalised 35 of the same own
 bounded bias that is disclosed is a different object from a coin flip presented as a
 measurement.
 
-**But #97's stated DIRECTION for the fitness term was wrong, and only reading the whole
-table showed it.** Four cells were checkable in an abstract, three read low, and the
-caveat told owners the term flattered them. Against the full published row, ten of the
-twelve old cells were HIGH — the term penalised nearly everyone, worst by ~2.4 y. A
-partial check is a sample, and a sample's sign does not have to hold. This is why the
-repair was "the whole row from one paper" and not "correct the cells we could see".
+**But #97's stated DIRECTION for the fitness term was wrong, and only the whole table
+showed it.** Four cells were checkable in an abstract, three read low, and the caveat told
+owners the term flattered them; against the full row ten of twelve were HIGH — it
+penalised nearly everyone, worst by ~2.4 y. A partial check is a sample, and a sample's
+sign need not hold. Hence "the whole row from one paper", not "the cells we could see".
 
 ``caveats`` is where that disclosure lives: a permanent payload key, one entry per term
 that is *computed but known to lean*, naming which way. It is a third state, and the
 three are not interchangeable — ``withheld`` = you can fix this, ``excluded`` = nobody
 can, ``caveats`` = we are telling you this anyway, and here is its tilt.
+
+## The fitness term's INPUT, not its anchor (2026-08-02, #108)
+
+#97/#101 fixed where the fitness hazard is measured FROM. The number on our side of that
+comparison was itself part-invented: Jurca's fifth input is a self-reported activity
+category, and we synthesised it from step cadence, which cannot tell deliberate exercise
+from getting around. A self-described non-exerciser read 26.4 against a chronological 32.
+The input is now asked (``derive/srpa.py``), the estimate withheld until answered, and
+what the answer costs — 0.6-2.3 y a category — ships as a third ``caveats`` entry.
 """
 
 from __future__ import annotations
@@ -128,6 +127,7 @@ from healthee.analytics.reference_scales import (
 )
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive.freshness import NO_NIGHTS_IN_WINDOW, NOT_DERIVED_YET
+from healthee.derive.srpa import SRPA_SELF_REPORT_CAVEAT
 from healthee.derive.vo2max import WITHHOLD_MESSAGES, estimate_unavailable_reason
 
 # UK Biobank mortality-rate doubling time, both sexes — Libert 2025, eLife 13:RP92092
@@ -149,8 +149,7 @@ FITNESS_TERM = "fitness"
 SLEEP_DURATION_TERM = "sleep duration"
 
 # Not a term — the lever this estimate deliberately does not price, stated in the payload
-# so "biological age" cannot quietly change meaning between releases (#86). The reason id
-# says WHOSE fault the absence is: not the owner's data, the literature's units.
+# so "biological age" cannot quietly change meaning between releases (#86).
 REGULARITY_TERM = "regularity"
 SRI_HAZARD_NOT_TRANSPORTABLE = "sri_hazard_not_transportable"
 EXCLUDED_TERMS = [
@@ -177,8 +176,11 @@ EXCLUDED_TERMS = [
 # one question this product exists to answer without being asked.
 # The footing statements themselves live with the anchors they describe, in
 # ``reference_scales``; this module owns only which term each one attaches to.
+# The fitness term carries TWO (#108): its anchor, and the owner-DECLARED input inside
+# our own VO₂max. Two entries, so each stays attached to what would change it.
 CAVEAT_TERMS = [
     {"term": FITNESS_TERM, **ANCHOR_CAVEATS[VO2MAX_REFERENCE_CLINICAL_COHORT]},
+    {"term": FITNESS_TERM, **SRPA_SELF_REPORT_CAVEAT},
     {"term": SLEEP_DURATION_TERM, **ANCHOR_CAVEATS[SLEEP_DURATION_SELF_REPORT_SCALE]},
 ]
 
@@ -211,10 +213,9 @@ Cur = Cursor[TupleRow]
 class _Absent:
     """A required term the owner has no CURRENT input for, and why.
 
-    ``reason`` is the input metric's own machine-readable id (``derive/freshness.py``'s
-    shared ids plus that metric's own gates) and ``message`` is that metric's second-person
-    "here is what we'd need" — never re-worded here, so the biological age and the input's
-    own card explain one absence with one sentence.
+    ``reason`` is the input metric's own machine-readable id and ``message`` its own
+    second-person "here is what we'd need" — never re-worded here, so this number and the
+    input's own card explain one absence with one sentence.
     """
 
     term: str
@@ -265,9 +266,9 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     contribs: list[dict] = []
 
     def add(term: str, hr: float, value=None, unit=None, target=None, compared_as=None) -> float:
-        """``compared_as`` is the value the hazard curve was actually read at, when that
-        is not ``value`` — the sleep term's questionnaire equivalent (#97). Present and
-        null on terms where the two are the same, so the shape never varies by term."""
+        """``compared_as`` is the value the hazard curve was actually read at when that
+        is not ``value`` (the sleep term's questionnaire equivalent, #97); null elsewhere,
+        so the shape never varies by term."""
         d = hazard_delta_years(hr)
         contribs.append(
             {

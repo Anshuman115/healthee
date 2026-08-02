@@ -49,7 +49,9 @@ def profile(cur: Cur, user_id: UUID, tz: str) -> dict:
     restore value, NOT a claim about today — the surface that has to answer "what do
     you weigh now" is the Today card, and that one withholds.
     """
-    cur.execute("SELECT name, height_cm, sex, dob FROM profile WHERE user_id = %s", (user_id,))
+    cur.execute(
+        "SELECT name, height_cm, sex, dob, srpa FROM profile WHERE user_id = %s", (user_id,)
+    )
     r = cur.fetchone()
     cur.execute(
         "SELECT kg, (ts AT TIME ZONE %s)::date FROM weight_log "
@@ -59,13 +61,17 @@ def profile(cur: Cur, user_id: UUID, tz: str) -> dict:
     w = cur.fetchone()
     if not r:
         return {}
-    name, height_cm, sex, dob = r
+    name, height_cm, sex, dob, srpa = r
     dob_ms = date_to_dob_ms(dob, tz) if dob else None
     return {
         "name": name,
         "height_cm": float(height_cm) if height_cm is not None else None,
         "sex": sex,
         "dob": dob_ms,
+        # Jurca's activity category (0-4), or null when unanswered (#108). It ships here
+        # for the same reason `dob` does: this endpoint is what a reinstall restores from,
+        # and an answer the owner gave once must survive wiping the app.
+        "srpa": int(srpa) if srpa is not None else None,
         "weight_kg": float(w[0]) if w else None,
         "weight_as_of": w[1].isoformat() if w else None,
         "weight_age_days": weight_age_days(w[1], user_today(tz)) if w else None,

@@ -122,6 +122,10 @@ class ProfileIn(BaseModel):
     sex: str | None = None
     dob: int | str | None = None  # ISO date, or epoch ms — see core.dob.parse_dob()
     weight_kg: float | None = None
+    # Jurca 2005's five-level SELF-REPORTED physical-activity category, answered by the
+    # owner (#108). Bounded here rather than only at the CHECK constraint so an
+    # out-of-range value is a 422 naming the field, not a 500 from the database.
+    srpa: int | None = Field(default=None, ge=0, le=4)
 
     @field_validator("dob")
     @classmethod

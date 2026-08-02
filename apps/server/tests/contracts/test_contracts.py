@@ -75,8 +75,13 @@ def test_deterministic_derived_values(responses: dict) -> None:
     ]
     # …and the footing of the two terms that ARE priced reaches the app, not just the
     # note. `excluded` and `caveats` answer different owner questions and both ship.
+    # Three since #108: the fitness term's footing is its anchor AND the fact that one of
+    # the inputs behind our side of the comparison is the owner's own answer about their
+    # exercise habits — worth 0.6-2.3 years per category. A payload that priced a
+    # self-reported input without saying so would be the #97 defect with a new input.
     assert [c["reason"] for c in today["biological_age"]["caveats"]] == [
         "vo2max_reference_clinical_cohort",
+        "vo2max_srpa_self_reported",
         "sleep_duration_self_report_scale",
     ]
     assert today["sleep_debt"]["performance_pct"] == 79  # 100·380/480, capped

@@ -20,24 +20,25 @@ _VIGOROUS_SPM = 130
 _VIGOROUS_PRIOR_SPM = 110
 
 
-def _weekly_mvpa_to_srpa(weekly_mvpa_equiv_min: float) -> int:
-    """Weekly MVPA-EQUIVALENT minutes -> Jurca SRPA category (0-4).
-
-    Input is the WHO-weighted weekly total (moderate + 2*vigorous — 1 vigorous
-    minute counts as 2 moderate; computed by the caller from the daily flags
-    [[cadence_intensity]]). Bands map to Jurca's five self-reported physical-
-    activity levels [[non_exercise_vo2max]]:
-        0: <10   1: 10-19   2: 20-59   3: 60-179   4: >=180  (min/week)
-    """
-    if weekly_mvpa_equiv_min < 10:
-        return 0
-    if weekly_mvpa_equiv_min < 20:
-        return 1
-    if weekly_mvpa_equiv_min < 60:
-        return 2
-    if weekly_mvpa_equiv_min < 180:
-        return 3
-    return 4
+# ── What used to live here, and why it does not (2026-08-02, #108) ───────────
+#
+# `_weekly_mvpa_to_srpa` mapped the trailing 7 days of MVPA-equivalent minutes onto
+# Jurca 2005's five-level SELF-REPORTED physical-activity category, banded at
+# 10/20/60/180 min/wk, and fed it to `derive/vo2max.py`.
+#
+# It was deleted rather than re-banded. The bands were not the defect; the CONSTRUCT was.
+# Jurca's levels, as his Table 1 defines them, are about deliberate exercise — level 4 is
+# "Aerobic exercise such as run/walk for 1 to 3 hours per week" and level 1 is "Little
+# activity other than walking for pleasure". This module counts every minute above 100
+# steps/min, which is brisk walking, and has no way to know whether it was training or a
+# commute. Where questionnaire and accelerometer categories have been compared directly
+# the agreement is close to nil (IPAQ lands in the accelerometer's category ~2% of the
+# time; MVPA correlations run r ~= 0.2-0.44). So there was no band edge that would have
+# made the mapping true.
+#
+# `mvpa_min` itself is untouched and still derived — it is a real metric with a real
+# target (150 min/wk, [[mvpa_minutes_mortality]]). What it is not is a stand-in for a
+# question about someone's exercise habits. That question now lives in the profile.
 
 
 def derive_mvpa(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:

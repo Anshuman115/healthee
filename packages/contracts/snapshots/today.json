@@ -5,12 +5,17 @@
     "biological_age": 35.1,
     "caveats": [
       {
-        "message": "The fitness term measures your VO\u2082max estimate against a reference for your age and sex. That reference is now the US standard \u2014 the median of 16,278 treadmill exercise tests in the FRIEND registry \u2014 replacing a table that had no published source and was charging most people up to about two years they had not earned. It is still not a median of the population: FRIEND is people who came to a laboratory for a test, and how that differs from everyone else has not been measured in the US. Where it has been compared with a whole-population sample abroad, FRIEND sat lower, which would make this comparison generous rather than harsh \u2014 but that was a different country. Either way it is the smaller uncertainty here: your own VO\u2082max is estimated rather than measured, and that estimate's error is worth about three years.",
+        "message": "The fitness term measures your VO₂max estimate against a reference for your age and sex. That reference is now the US standard — the median of 16,278 treadmill exercise tests in the FRIEND registry — replacing a table that had no published source and was charging most people up to about two years they had not earned. It is still not a median of the population: FRIEND is people who came to a laboratory for a test, and how that differs from everyone else has not been measured in the US. Where it has been compared with a whole-population sample abroad, FRIEND sat lower, which would make this comparison generous rather than harsh — but that was a different country. Either way it is the smaller uncertainty here: your own VO₂max is estimated rather than measured, and that estimate's error is worth about two and a half years.",
         "reason": "vo2max_reference_clinical_cohort",
         "term": "fitness"
       },
       {
-        "message": "Your sleep hours are translated before the risk curve is applied to them. That curve was measured on sleep people reported on questionnaires, and questionnaires run long: in the study that measured both, people who actually slept 5 hours said 6.2, and people who slept 7 said 7.4. Your strap's nightly average is converted to its questionnaire equivalent first, so you are not charged for hours you never claimed \u2014 which also means the lowest-risk point sits near 6h20 on your strap rather than at the 7 hours the studies quote. Two things are left uncorrected: wrist devices read about 17 minutes short of a sleep lab, which charges a short sleeper slightly too much and credits a long sleeper slightly too much; and above 8 hours we stop translating altogether rather than extrapolate past what was measured, which keeps the long-sleep penalty at its full size.",
+        "message": "The fitness half of this number rests partly on your own answer about how much deliberate aerobic exercise you do in a typical week. We ask instead of measuring because a step counter cannot tell a training session from walking to the shops, and the model's own scale is about the former — its bottom category is 'little activity other than walking for pleasure'. That answer is worth real years: one category up or down moves this estimate by between half a year and two and a half, and the full range from 'inactive' to 'over three hours a week' is about five and a half years. Answer it as your ordinary week, not your best one. Everything else in the fitness term — your age, sex, BMI and resting heart rate — we measure.",
+        "reason": "vo2max_srpa_self_reported",
+        "term": "fitness"
+      },
+      {
+        "message": "Your sleep hours are translated before the risk curve is applied to them. That curve was measured on sleep people reported on questionnaires, and questionnaires run long: in the study that measured both, people who actually slept 5 hours said 6.2, and people who slept 7 said 7.4. Your strap's nightly average is converted to its questionnaire equivalent first, so you are not charged for hours you never claimed — which also means the lowest-risk point sits near 6h20 on your strap rather than at the 7 hours the studies quote. Two things are left uncorrected: wrist devices read about 17 minutes short of a sleep lab, which charges a short sleeper slightly too much and credits a long sleeper slightly too much; and above 8 hours we stop translating altogether rather than extrapolate past what was measured, which keeps the long-sleep penalty at its full size.",
         "reason": "sleep_duration_self_report_scale",
         "term": "sleep duration"
       }
@@ -23,7 +28,7 @@
         "hr": 0.92,
         "target": 40,
         "term": "fitness",
-        "unit": "ml/kg/min VO\u2082max",
+        "unit": "ml/kg/min VO₂max",
         "value": 41.5
       },
       {
@@ -38,10 +43,10 @@
     ],
     "data_confidence": "ok",
     "delta_years": -0.9,
-    "disclaimer": "Motivational estimate from population data \u2014 not a clinical or diagnostic age.",
+    "disclaimer": "Motivational estimate from population data — not a clinical or diagnostic age.",
     "excluded": [
       {
-        "message": "Sleep regularity is not one of the levers behind this number. Scored on the same 70,000 people, the two standard Sleep Regularity Index calculators put only two in five into the same fifth of the population, and one found a mortality association where the other found none \u2014 so the published risk-per-SRI-point belongs to the software, not to the index. Yours is measured a third way again. You still get your regularity score and its one-hour-band target on the sleep page; what we cannot honestly do is convert it into years.",
+        "message": "Sleep regularity is not one of the levers behind this number. Scored on the same 70,000 people, the two standard Sleep Regularity Index calculators put only two in five into the same fifth of the population, and one found a mortality association where the other found none — so the published risk-per-SRI-point belongs to the software, not to the index. Yours is measured a third way again. You still get your regularity score and its one-hour-band target on the sleep page; what we cannot honestly do is convert it into years.",
         "reason": "sri_hazard_not_transportable",
         "term": "regularity"
       }
@@ -248,7 +253,7 @@
   "date": "2026-07-31",
   "illness_flag": {
     "date": "2026-07-31",
-    "framing": "Possible early signal \u2014 consider lighter activity today. Breathing rate +2.4 bpm vs your 14-day baseline; skin temperature +0.35\u00b0C. Not a diagnosis.",
+    "framing": "Possible early signal — consider lighter activity today. Breathing rate +2.4 bpm vs your 14-day baseline; skin temperature +0.35°C. Not a diagnosis.",
     "research_note_ids": [
       "respiratory_rate_normal",
       "skin_temp_signals"
@@ -480,7 +485,7 @@
         "sub": 60
       }
     },
-    "guidance": "An illness signal is active \u2014 it overrides today's recovery number. Keep today easy and skip anything hard until the signal clears. Not a diagnosis. Today's training has already used some of your capacity.",
+    "guidance": "An illness signal is active — it overrides today's recovery number. Keep today easy and skip anything hard until the signal clears. Not a diagnosis. Today's training has already used some of your capacity.",
     "note_id": "recovery_readiness",
     "readiness": 36,
     "recovery": 72,
@@ -1639,7 +1644,7 @@
   ],
   "top_findings": [
     {
-      "description_raw": "Caffeine \u2194 sleep",
+      "description_raw": "Caffeine ↔ sleep",
       "effect_metric": "rho",
       "effect_size": -0.42,
       "event_kind": null,

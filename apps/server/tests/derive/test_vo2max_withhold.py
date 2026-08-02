@@ -26,13 +26,16 @@ import pytest
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.derive.robust import median, median_abs_deviation
+from healthee.derive.srpa import WITHHOLD_SRPA_NOT_REPORTED
 from healthee.derive.vo2max import (
     _RHR_MAD_MAX_BPM,
     WITHHOLD_FEW_RHR_DAYS,
+    WITHHOLD_MESSAGES,
     WITHHOLD_RHR_OUT_OF_RANGE,
     WITHHOLD_RHR_TOO_NOISY,
     derive_vo2max,
     vo2max_withhold_reason,
+    withhold_reason_for_day,
 )
 
 # ── the series, with their arithmetic ────────────────────────────────────────
@@ -134,7 +137,11 @@ def _seed(cur, rhrs: list[float]) -> None:
     for table in ("derived_daily", "weight_log", "profile"):
         cur.execute(f"DELETE FROM {table}")  # noqa: S608 — hardcoded table names
     cur.execute(
-        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, 175, 'male', '1990-01-01')",
+        # `srpa` is Jurca's self-reported activity category (#108) and it is REQUIRED —
+        # an unanswered profile withholds on its own, which would mask the RHR gates
+        # under test the same way a stale weight would.
+        "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) "
+        "VALUES (%s, 175, 'male', '1990-01-01', 0)",
         (SENTINEL_USER_ID,),
     )
     cur.execute(
@@ -178,6 +185,51 @@ def test_a_noisy_week_writes_no_row_at_all() -> None:
         stored = _stored_vo2max(cur)
     assert out is None
     assert stored is None
+
+
+@pytest.mark.usefixtures("db")
+def test_an_unanswered_activity_question_withholds_rather_than_assuming_a_level() -> None:
+    """#108: SR-PA is the owner's answer, and no answer means no estimate.
+
+    Assuming the reference level (0) instead would be the cheap fix and it is the wrong
+    one for the same reason `analytics/biological_age.py` refuses to drop a term: the
+    reference category is not "unknown", it is the claim "you do no deliberate exercise".
+    The previous code did assume — from step cadence — and the assumption was worth 5.5
+    years at the extremes.
+    """
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        _seed(cur, _CALM_WEEK)
+        cur.execute("UPDATE profile SET srpa = NULL WHERE user_id = %s", (SENTINEL_USER_ID,))
+        out = derive_vo2max(cur, SENTINEL_USER_ID, SENTINEL_TZ, _DAY)
+        stored = _stored_vo2max(cur)
+        reason = withhold_reason_for_day(cur, SENTINEL_USER_ID, SENTINEL_TZ, _DAY)
+    assert out is None
+    assert stored is None
+    assert reason == WITHHOLD_SRPA_NOT_REPORTED
+    # The owner is told what to do about it — this gate is the one the strap cannot clear.
+    assert "profile" in WITHHOLD_MESSAGES[WITHHOLD_SRPA_NOT_REPORTED]
+
+
+@pytest.mark.usefixtures("db")
+def test_the_stored_estimate_moves_with_the_answer_by_the_published_steps() -> None:
+    """Each category is worth Jurca's published MET step, end to end through the DB.
+
+    Guards the seam the unit test cannot: that the profile's value reaches the equation
+    unmangled, and that nothing between them re-derives a category from activity.
+    """
+    stored: dict[int, float] = {}
+    for level in range(5):
+        with tenant_transaction(SENTINEL_USER_ID) as cur:
+            _seed(cur, _CALM_WEEK)
+            cur.execute(
+                "UPDATE profile SET srpa = %s WHERE user_id = %s", (level, SENTINEL_USER_ID)
+            )
+            derive_vo2max(cur, SENTINEL_USER_ID, SENTINEL_TZ, _DAY)
+            value = _stored_vo2max(cur)
+        assert value is not None
+        stored[level] = value
+    steps_mets = [round((stored[i + 1] - stored[i]) / 3.5, 2) for i in range(4)]
+    assert steps_mets == [0.32, 0.74, 0.70, 1.27]  # Jurca 2005 Table 5, NASA column
 
 
 @pytest.mark.usefixtures("db")

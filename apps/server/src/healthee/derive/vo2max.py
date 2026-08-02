@@ -1,11 +1,16 @@
 """Non-exercise VO2max estimate (Jurca 2005) for one local day.
 
-Profile (age, sex, BMI) + a 7-day median resting HR + a 7-day self-reported
-physical-activity category (SRPA 0-4, mapped from weekly MVPA-equivalent minutes)
-feed the Jurca regression; the result also anchors the energy model. Knowledge:
-[[non_exercise_vo2max]] (Jurca 2005: CRF in METs, x3.5 -> ml/kg/min),
-[[cadence_intensity]] (weekly MVPA-equivalent = moderate + 2*vigorous),
-[[vo2max]].
+Profile (age, sex, BMI, and the owner's OWN self-reported physical-activity
+category) + a 7-day median resting HR feed the Jurca regression. Knowledge:
+[[non_exercise_vo2max]] (Jurca 2005: CRF in METs, x3.5 -> ml/kg/min), [[vo2max]].
+
+## SR-PA is the OWNER'S answer, not a derived one (2026-08-02, #108)
+
+The fifth Jurca input is a SELF-REPORTED activity category. It used to be synthesised
+from step cadence, which cannot tell deliberate exercise from getting around; the
+crosswalk was unpublished and the constructs differ. It now comes from ``profile.srpa``
+and the estimate is WITHHELD until the owner answers. The scale, its published
+coefficients, and what an answer is worth in years live in ``derive/srpa.py``.
 """
 
 from __future__ import annotations
@@ -15,7 +20,7 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from healthee.core.logging import get_logger
-from healthee.derive._common import Cur, _age, _load_profile, _scalar, _upsert_daily
+from healthee.derive._common import Cur, _age, _load_profile, _upsert_daily
 from healthee.derive.freshness import (
     NOT_DERIVED_YET,
     PROFILE_INCOMPLETE,
@@ -24,14 +29,30 @@ from healthee.derive.freshness import (
     unavailable_reason,
     weight_is_stale,
 )
-from healthee.derive.mvpa import _weekly_mvpa_to_srpa
 from healthee.derive.robust import median, median_abs_deviation
+from healthee.derive.srpa import (
+    SRPA_NOT_REPORTED_MESSAGE,
+    WITHHOLD_SRPA_NOT_REPORTED,
+    srpa_mets,
+)
 
 log = get_logger(__name__)
 
 _VO2MAX_FLOOR = 20.0  # floor keeps EE sane on sparse data
-_JURCA_SEE_ML_KG_MIN = 5.6  # standard error of estimate (reported in flags)
 _METS_TO_ML_KG_MIN = 3.5  # 1 MET = 3.5 ml O2 / kg / min
+
+# Jurca 2005, Table 5, NASA column: SEE = 1.45 METs for the model whose coefficients we
+# use. Corrected in #108 from an unsourced 5.6 ml/kg/min, which appears nowhere in the
+# paper and sat suspiciously just under the HUNT3 model's published 5.7.
+#
+# NARROWER IS NOT MORE CONFIDENT HERE. 1.45 METs is the residual error WITHIN the
+# development cohort. The same paper's Table 6 cross-validates this equation on two other
+# cohorts and finds SYSTEMATIC residuals of +0.67 METs (ACLS) and +1.37 METs (ADNFS) on
+# top of it — a bias, not noise, and larger than any anchor correction in
+# [[biological_age_estimate]]. The flag reports the published SEE; the note and the
+# biological-age caveat carry the cross-cohort term, because a single scalar cannot.
+_JURCA_SEE_METS = 1.45
+_JURCA_SEE_ML_KG_MIN = _JURCA_SEE_METS * _METS_TO_ML_KG_MIN  # 5.075
 
 # ── The withhold gate, verbatim from [[non_exercise_vo2max]] ─────────────────
 #
@@ -87,6 +108,8 @@ WITHHOLD_MESSAGES = {
         "Your resting heart rate moved too much this week for the estimate to mean "
         "anything (7-day spread above 8 bpm). A few steadier nights will restore it."
     ),
+    # The one gate the strap cannot clear; its sentence lives with the scale it guards.
+    WITHHOLD_SRPA_NOT_REPORTED: SRPA_NOT_REPORTED_MESSAGE,
     # Weight's own sentence (``freshness.WEIGHT_STALE_MESSAGE``) says "log a weight"; this
     # one has to say why a fitness number cares, because "we can't estimate your fitness"
     # and "we don't know what you weigh" look unrelated to an owner until you join them.
@@ -222,7 +245,12 @@ def withhold_reason_for_day(cur: Cur, user_id: UUID, tz: str, day: date) -> str 
 def _profile_withhold_reason(prof: dict, day: date) -> str | None:
     """Withholds that come from the PROFILE side of Jurca, or None. Pure and total.
 
-    Today that is one gate — the weight behind BMI must be a statement about ``day``.
+    Two gates. The first is SR-PA: Jurca's fifth input is the owner's own answer about
+    their exercise habits (module docstring), and we do not invent it. It is checked
+    here rather than in :func:`vo2max_withhold_reason` because it is a fact about the
+    person, not about the resting-HR window.
+
+    The second is that the weight behind BMI must be a statement about ``day``.
     [[weight_bmi_body_composition]] describes the defect exactly: "_weight_as_of takes
     the most recent entry on or before the derived day with no maximum age … a weight
     from a year ago is used as today's weight, silently", and it propagates two models
@@ -236,6 +264,8 @@ def _profile_withhold_reason(prof: dict, day: date) -> str | None:
     is offered as a fact about this person's body TODAY and one of its inputs is not
     about today at all. A small wrong number presented confidently is still the lie.
     """
+    if prof["srpa"] is None:
+        return WITHHOLD_SRPA_NOT_REPORTED
     if weight_is_stale(prof["weight_as_of"], day):
         return WEIGHT_STALE
     return None
@@ -270,15 +300,17 @@ def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, srpa: int = 0) -> 
     """Jurca 2005 non-exercise cardiorespiratory fitness -> VO2max (ml/kg/min).
 
     ONE equation for both sexes — sex is a term, not a sex-stratified model:
-        CRF_METs = 18.07 + 2.77*sex - 0.10*age - 0.17*bmi - 0.03*rhr + srpa
-    with sex = 1 (male) / 0 (female) and `srpa` the 0-4 self-reported physical-
-    activity category. VO2max = CRF_METs * 3.5, floored at 20.
+        CRF_METs = 18.07 + 2.77*sex - 0.10*age - 0.17*bmi - 0.03*rhr + srpa_mets(srpa)
+    with sex = 1 (male) / 0 (female) and `srpa` the owner's 0-4 self-reported
+    physical-activity category, which enters DUMMY-CODED through ``derive/srpa.py`` —
+    not as its own category number (#108, see ``JURCA_SRPA_METS``).
+    VO2max = CRF_METs * 3.5, floored at 20.
 
-    Jurca et al. 2005, Am J Prev Med 29(3):185-193; CRF in METs, x3.5 ->
-    ml/kg/min. [[non_exercise_vo2max]].
+    Jurca et al. 2005, Am J Prev Med 29(3):185-193, Table 5, NASA column; CRF in METs,
+    x3.5 -> ml/kg/min. [[non_exercise_vo2max]].
     """
     sex_term = 1.0 if sex == "male" else 0.0
-    crf_mets = 18.07 + 2.77 * sex_term - 0.10 * age - 0.17 * bmi - 0.03 * rhr + srpa
+    crf_mets = 18.07 + 2.77 * sex_term - 0.10 * age - 0.17 * bmi - 0.03 * rhr + srpa_mets(srpa)
     return max(crf_mets * _METS_TO_ML_KG_MIN, _VO2MAX_FLOOR)
 
 
@@ -298,15 +330,15 @@ def _withheld(user_id: UUID, day: date, reason: str) -> None:
 
 
 def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
-    """Non-exercise VO2max: profile + 7-day median rhr_daily + 7-day MVPA score.
+    """Non-exercise VO2max: profile (incl. the owner's SR-PA) + 7-day median rhr_daily.
 
     None when the estimate is WITHHELD — either because an input is missing (no
-    profile, no logged weight, fewer than 3 resting-HR days) or because the inputs
-    are present but untrustworthy (a logged weight too old to be this day's mass,
-    an RHR median outside Jurca's validated 40-100 bpm, or a 7-day RHR MAD above
-    8 bpm). Nothing is written in either case: the note's
-    rule is "never write a wrong value", and the reason is logged so a withheld week
-    is not silent. [[non_exercise_vo2max]].
+    profile, no logged weight, no self-reported activity category, fewer than 3
+    resting-HR days) or because the inputs are present but untrustworthy (a logged
+    weight too old to be this day's mass, an RHR median outside Jurca's validated
+    40-100 bpm, or a 7-day RHR MAD above 8 bpm). Nothing is written in either case:
+    the note's rule is "never write a wrong value", and the reason is logged so a
+    withheld week is not silent. [[non_exercise_vo2max]].
     """
     prof = _load_profile(cur, user_id, tz, day)
     if not prof:
@@ -322,16 +354,11 @@ def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     if reason := vo2max_withhold_reason(rhrs):
         return _withheld(user_id, day, reason)
     rhr_med = median(rhrs)
-    # Weekly MVPA-EQUIVALENT applies the WHO rule (1 vigorous min = 2 moderate),
-    # so we sum moderate + 2*vigorous from the daily mvpa_min flags — the stored
-    # mvpa_min value itself stays raw (moderate + vigorous). [[cadence_intensity]]
-    cur.execute(
-        "SELECT COALESCE("
-        "SUM((flags->>'moderate')::float + 2 * (flags->>'vigorous')::float), 0) "
-        "FROM derived_daily WHERE user_id = %s AND metric='mvpa_min' AND day<=%s AND day>%s",
-        (user_id, day, day - timedelta(days=7)),
-    )
-    srpa = _weekly_mvpa_to_srpa(_scalar(cur))
+    # The owner's own answer to Jurca's question. `_profile_withhold_reason` has already
+    # returned above when it is absent, so there is no default to fall back to here —
+    # which is the whole point of #108: the previous code had one, derived from step
+    # cadence, and it was worth years.
+    srpa = prof["srpa"]
     vo2 = _vo2max_jurca(age, prof["sex"], bmi, rhr_med, srpa)
     _upsert_daily(
         cur,

@@ -95,9 +95,18 @@ from __future__ import annotations
 #     choice of reference COHORT moves this term by more than the correction above did.
 #  3. **Our side of the comparison is an estimate, not a measurement.** Jurca 2005 was
 #     validated against measured maximal-treadmill VO₂max, so the unit transports (unlike
-#     an SRI point — see [[biological_age_estimate]] on #86), but it carries SEE ≈ 5.6
-#     ml/kg/min ≈ 2.9 years of ΔAge, which is larger than every anchor effect on this
-#     screen. [[non_exercise_vo2max]].
+#     an SRI point — see [[biological_age_estimate]] on #86), but it carries the NASA
+#     model's published SEE of 1.45 METs ≈ 5.1 ml/kg/min ≈ 2.6 years of ΔAge, which is
+#     larger than every anchor effect on this screen — and that is the WITHIN-cohort
+#     error. Jurca's own Table 6 adds systematic cross-cohort residuals of +0.67 and
+#     +1.37 METs on top. (#108 corrected an unsourced 5.6 here; it is the paper's own
+#     figure that is narrower, which does not make the estimate more certain.)
+#     [[non_exercise_vo2max]].
+#  4. **One of the inputs on our side is the owner's own answer, not a measurement**
+#     (#108). Jurca's fifth term is a self-reported activity category, and it is worth
+#     0.6-2.3 years per step. Its footing ships as its own caveat, from
+#     ``derive/vo2max.py::SRPA_SELF_REPORT_CAVEAT`` — it belongs with the coefficients
+#     it prices, not with the anchors here.
 VO2MAX_REFERENCE_CLINICAL_COHORT = "vo2max_reference_clinical_cohort"
 
 # FRIEND 2022, Table 3, treadmill, RER ≥ 1.0, 50th percentile. Keys are the decade's
@@ -220,7 +229,8 @@ ANCHOR_CAVEATS = {
             "whole-population sample abroad, FRIEND sat lower, which would make this "
             "comparison generous rather than harsh — but that was a different country. "
             "Either way it is the smaller uncertainty here: your own VO₂max is estimated "
-            "rather than measured, and that estimate's error is worth about three years."
+            "rather than measured, and that estimate's error is worth about two and a "
+            "half years."
         ),
     },
     SLEEP_DURATION_SELF_REPORT_SCALE: {

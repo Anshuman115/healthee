@@ -4,12 +4,12 @@ name: "Biological Age (estimate)"
 topic: A motivational "biological age" from wearable metrics via the Gompertz hazard→years conversion (the WHOOP-Age method) — a DOCUMENTED EXCEPTION to the no-composite rule
 category: metrics
 grade: Probable
-summary: "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines). Both priced terms carry a published ANCHOR caveat: the sleep hours are converted to their questionnaire equivalent before Yin's curve is applied (Lauderdale 2008), and the fitness reference is FRIEND's published treadmill 50th percentile (Kaminsky 2022) — a US reference standard, not a population median, since FRIEND is a laboratory-referral cohort. An estimate, never a clinical readout."
+summary: "A motivational biological-age estimate converts meta-analytic all-cause-mortality hazard ratios into years via the Gompertz law (MRDT ≈ 7.7y) over TWO levers — fitness and sleep duration; a DOCUMENTED exception to the no-composite rule, admissible only because the conversion is published actuarial math, every input HR is meta-analytic, and the per-term year contributions are always shown. Sleep regularity is deliberately NOT priced (no SRI→hazard conversion transports between scoring pipelines). Three caveats ship with the number: the sleep hours are converted to their questionnaire equivalent before Yin's curve is applied (Lauderdale 2008); the fitness reference is FRIEND's published treadmill 50th percentile (Kaminsky 2022), a US reference standard rather than a population median; and the fitness term's own VO₂max carries a SELF-REPORTED activity category worth 0.6–2.3 years per level, which is asked of the owner and never inferred from steps. An estimate, never a clinical readout."
 aliases: ["biological_age", "bio age", "biological age", "whoop age", "gompertz age", "mortality age", "longevity", "composite", "motivational"]
 applies_to_metrics: ["biological_age", "vo2max_estimate", "sleep_health_score_4dim"]
 applies_to_interventions: []
 population: general
-last_reviewed: 2026-08-01
+last_reviewed: 2026-08-02
 ---
 
 # Biological Age (estimate)
@@ -72,7 +72,8 @@ software that scored the SRI, not of the index.
 
 - HR_total = 1.10 → ΔAge = +1.05 y (the "10% ≈ 1 year" rule). ✓
 - VO₂max is the dominant term (strongest HR per MET) AND the least certain input
-  (Jurca non-exercise estimate, ±5.6 ml/kg/min SEE) — so bio_age is sensitive to
+  (Jurca non-exercise estimate, SEE 1.45 METs ≈ 5.1 ml/kg/min, plus a self-reported
+  activity category worth up to 2.3 y a step) — so bio_age is sensitive to
   it. We **cap each term's contribution to ±10 years** to stop a single noisy
   input producing an absurd/alarming age.
 
@@ -119,6 +120,11 @@ software that scored the SRI, not of the index.
   block rather than its `withheld` one.
 - **VO₂max-dominated + uncertain** — see the cap above. If the VO₂max estimate
   looks off, the bio_age inherits that error.
+- **One input on the fitness side is the owner's own answer, not a measurement** (#108).
+  Jurca's activity category is a self-report about deliberate exercise, worth **0.6–2.3
+  years per category and 5.5 across the scale**. It is asked, never inferred from steps —
+  and the estimate is withheld until it is answered. See *The fitness term's INPUT, not
+  its anchor*.
 - **Both priced terms carry an anchor caveat, and the payload says so.** The fitness
   reference is now a published one (FRIEND's treadmill 50th percentile) but FRIEND is a
   laboratory-referral cohort, so "population median" is still not a true description of
@@ -330,7 +336,7 @@ replacement would be choosing the number rather than the source.
    choice of reference **cohort** moves this term by more than the correction above did.
 3. **Our side of the comparison is an estimate, not a measurement.** Jurca 2005 was
    validated against measured maximal-treadmill VO₂max, so the unit transports (unlike an
-   SRI point, *The regularity term, removed*), but it carries SEE ≈ 5.6 ml/kg/min ≈ **2.9
+   SRI point, *The regularity term, removed*), but it carries SEE = 1.45 METs ≈ 5.1 ml/kg/min ≈ **2.6
    years of ΔAge** — larger than every anchor effect discussed in this section.
    [[non_exercise_vo2max]].
 
@@ -351,6 +357,79 @@ The line the estimate must not cross is the third state going silent. `withheld`
 *you can fix this*, `excluded` means *nobody can price this*, `caveats` means *this IS in
 your number and here is which way it leans*. If a future change drops `caveats` while
 keeping the number, the exception this note claims to the no-composite rule lapses.
+
+## The fitness term's INPUT, not its anchor (2026-08-02, #108)
+
+#97 and #101 fixed where the fitness hazard is measured *from*. #108 found the number on
+**our** side of that comparison was itself part-invented, and it was the largest error yet
+found in this metric: the real owner read **26.4 against a chronological 32**, while
+stating plainly that he does not exercise.
+
+### What was wrong, in two independent parts
+
+**(a) The activity term was mis-transcribed.** Jurca 2005 dummy-codes its five-level
+self-reported physical-activity scale — Table 5, NASA column: **0 / 0.32 / 1.06 / 1.76 /
+3.03 METs**, with level 0 as the reference folded into the intercept. `derive/vo2max.py`
+added the **category number** instead (0/1/2/3/4). At the owner's level that is 3.00 METs
+where the paper says 1.76 — **4.3 ml/kg/min of fitness nobody earned, ≈ 2.2 years**.
+
+**(b) The category itself was synthesised from step cadence.** Jurca's fifth input is a
+*self-report about deliberate exercise*; we banded the trailing 7 days of MVPA-equivalent
+minutes at 10/20/60/180 min per week. No such crosswalk has ever been published, and the
+constructs differ: Jurca's own level-1 text is "little activity other than **walking for
+pleasure**", while a cadence detector counts every minute above 100 steps/min. Measured on
+the owner: **159 min/week, every minute of it moderate — zero vigorous all week** — 107 of
+it on one day. Scored SR-PA-3, "1 to 3 hours per week of aerobic exercise".
+
+### Why this is a withheld input and not a wider caveat
+
+The obvious repair was to keep the term and widen its caveat with the ±1-band sensitivity.
+That was rejected: a ±1.8-year caveat on a number that is ~5 years wrong for a real owner
+is still a wrong number with a footnote, and #86's test — *is the error bounded, or is the
+input simply not the thing the model requires?* — comes out on the second answer here. The
+literature closes the question rather than sizing it: Prince 2008's 187 comparisons put
+self-report-vs-device agreement at **mean r = 0.37, spanning −0.71 to 0.96, in both
+directions**, and at the five-way *category* level agreement is a few per cent. There is
+no crosswalk to find, no bout definition that rescues one, and no device-input variant of
+Jurca from him or anyone since.
+
+**But it is `withheld`, not `excluded`, and that distinction is the whole point.** An SRI
+point is defined by the software that scored it, so nobody can ever price it. A
+self-reported activity category is not unavailable — *it was simply never asked for*. So
+the estimate now takes it from `profile.srpa` and withholds until the owner answers.
+Removing the fitness term instead would have taken biological age with it (fitness is the
+dominant term, and every term is required), and it would have done so over an input that
+one question restores.
+
+**Defaulting to the reference level was also rejected**, for the reason this note already
+gives for a silently-omitted term: SR-PA-0 is not "unknown", it is the assertion *you do no
+deliberate exercise*. Conservative inventions are still inventions.
+
+### What it is worth, measured
+
+The category steps are **0.32 / 0.74 / 0.70 / 1.27 METs** and ΔAge is **1.81 y per MET**,
+so one category is worth **0.6 to 2.3 years** and the whole scale **5.5**. Those figures
+are owner-independent (a proportional hazard step is the same wherever on the scale it
+happens), which is why the payload's third `caveats` entry
+(`vo2max_srpa_self_reported`) states them flatly. Note that the steps are **uneven** — the
+largest is four times the smallest — which is why [[non_exercise_vo2max]]'s old "the model
+is robust to ±1 category noise" could not have been right about more than one of them.
+
+### The owner's number
+
+| | VO₂max | fitness term | biological age |
+|---|---|---|---|
+| before (cadence → SR-PA-3, linear coding) | 51.1 | −5.9 y | **26.4** |
+| SR-PA-3 with the published coefficient | 46.8 | −3.6 y | 28.7 |
+| **SR-PA-0, his own answer** | **40.6** | **−0.5 y** | **31.9** |
+
+Chronological 32. At the reference level the model returns essentially the population
+median (40.6 against FRIEND's published 39.7 for a 30–39 male), which is what a sedentary
+person should read and is the sanity check the fabricated category failed.
+
+*Reasoned, not measured:* what remains is ordinary self-report bias — people answer with
+their best week rather than their typical one — which tilts this **towards flattery**. Its
+size has not been measured here.
 
 ## Operational use
 
@@ -377,7 +456,12 @@ keeping the number, the exception this note claims to the no-composite rule laps
   published median of 16,278 US treadmill tests, that FRIEND is people who went to a lab
   for a test rather than a sample of the population, and that the bigger uncertainty is on
   our side anyway — their own VO₂max is estimated, not measured, and that estimate's error
-  is worth about three years either way.
+  is worth about two and a half years either way. And if asked what "estimated" means
+  here: four of its five inputs are measured (age, sex, BMI, resting heart rate) and the
+  fifth is **their own answer** about how much deliberate exercise they do in a typical
+  week, which is worth between half a year and two and a half per category. Say why we ask
+  rather than count it: a step counter cannot tell a training session from walking to the
+  shops, and the model's own bottom category already includes walking for pleasure.
 - **Never imply sleep regularity is in this number.** If the owner asks why their regularity is not reflected, say plainly that the published SRI risk figures belong to the software that scored the SRI — two standard calculators disagreed on the quintile for three in five of the same people — so we report regularity on its own with its ~1 h-band target rather than converting it into years. Do not offer a substitute conversion.
 
 ## Safety bounds
@@ -391,7 +475,7 @@ See **Caveats (must surface)** above — all mandatory. In brief: not causal or 
 ## Bottom line
 **Act on confidently:** the Gompertz hazard→years conversion math (★★★); the single-fitness-term correlation fix; showing the mandatory per-term breakdown; the ±10y-per-term cap; framing as a motivational estimate.
 
-**Hold loosely:** the exact biological-age number for an individual (VO₂max-dominated and uncertain — the estimate's own ±5.6 ml/kg/min SEE is worth ~2.9 y, more than the reference cohort's choice); small movements over time (noise); anything resembling a clinical or mortality readout; the ~6 h 20 device-scale nadir as anything other than where the curve bottoms out on our instrument.
+**Hold loosely:** the exact biological-age number for an individual (VO₂max-dominated and uncertain — the estimate’s own SEE of 1.45 METs ≈ 5.1 ml/kg/min is worth ~2.6 y, and its self-reported activity input up to 2.3 y a category — both more than the reference cohort’s choice); small movements over time (noise); anything resembling a clinical or mortality readout; the ~6 h 20 device-scale nadir as anything other than where the curve bottoms out on our instrument.
 
 ## Coach Directives
 1. Always surface the **per-term year contributions** with the number — never the composite alone — and the `excluded` line naming sleep regularity as a lever this number does not price. *(confidence: high)*

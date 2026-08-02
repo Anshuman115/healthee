@@ -70,9 +70,9 @@ def seed_owner_b() -> None:
 def _seed_b_profile(cur) -> None:
     """B's own profile — impossible before 0005, when `id = 1` allowed one row total."""
     cur.execute(
-        "INSERT INTO profile (user_id, name, height_cm, sex, dob) "
-        "VALUES (%s,%s,150,'female','1970-02-03') "
-        "ON CONFLICT (user_id) DO UPDATE SET name=EXCLUDED.name",
+        "INSERT INTO profile (user_id, name, height_cm, sex, dob, srpa) "
+        "VALUES (%s,%s,150,'female','1970-02-03',0) "
+        "ON CONFLICT (user_id) DO UPDATE SET name=EXCLUDED.name, srpa=EXCLUDED.srpa",
         (OWNER_B, B_NAME),
     )
     cur.execute(

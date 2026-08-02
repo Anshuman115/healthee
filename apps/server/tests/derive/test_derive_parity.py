@@ -22,9 +22,22 @@ other row is byte-identical to legacy):
       primary-source Jurca 2005 CRF-in-METs form (×3.5 → ml/kg/min), so the six
       vo2max_estimate rows now read ~51-55 instead of ~24-26.
   M1  vo2max_estimate.flags — the `pa_score` (0-7) flag is replaced by `srpa`
-      (0-4), the self-reported-PA category fed to Jurca. The weekly rollup that
-      derives it now applies the WHO rule (moderate + 2×vigorous), so the seed's
-      20 moderate + 5 vigorous min/day → 30 equiv/day lifts the category vs legacy.
+      (0-4), the self-reported-PA category fed to Jurca. Since #108 it is READ FROM
+      THE PROFILE (the owner's own answer), not rolled up from cadence: `_seed.py`
+      seeds SR-PA-2 and the fixture carries it on every row.
+  C3  vo2max_estimate.value — #108, two corrections in one re-baseline. (a) SR-PA
+      enters DUMMY-CODED (Jurca 2005 Table 5, NASA column: 0 / 0.32 / 1.06 / 1.76 /
+      3.03 METs); we were adding the category NUMBER, over-crediting by up to 1.27
+      METs. (b) The category itself is now the profile's, not one synthesised from
+      step cadence — a crosswalk nobody published, between a device signal and a
+      question about deliberate exercise. Hand-derived for the seeded owner:
+        BMI = 72.0 / 1.75² = 23.5102041
+        CRF = 18.07 + 2.77 − 0.10×36 − 0.17×23.5102041 − 0.03×rhr + 1.06
+            = 14.3032653 − 0.03×rhr METs,  VO₂ = CRF × 3.5
+        rhr 55.0 → 44.2864 · 55.5 → 44.2339 · 56.0 → 44.1814
+      (was ~51-55 under the linear coding with a cadence-derived category 3/4).
+  M2  vo2max_estimate.flags.see_ml_kg_min — 5.6 → 5.075. The old figure appears
+      nowhere in Jurca 2005; the NASA model's published SEE is 1.45 METs (Table 5).
   C2  sleep efficiency — the formula changed to tst/(tst+wake) (≤100% by
       construction) but the seed's tst+wake (480) equals its wall-clock span (480),
       so efficiency_pct stays 95.8 and NO sleep row moves. Verified: zero sleep
