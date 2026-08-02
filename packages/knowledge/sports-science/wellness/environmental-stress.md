@@ -338,8 +338,20 @@ phrase arrived with the upstream sports-science corpus import. The true position
   knows any of the words above**, which are the presentation of the three exertional
   emergencies that actually kill runners.
   What the rule does **not** promise: it catches four deflection shapes, not every
-  phrasing of one. And it is an *output* guard — it cannot make the coach ask about
-  symptoms it was never told.
+  phrasing of one.
+- **The same red flags are now screened on the QUESTION too, as of #106.** D12's rule is
+  an *output* guard, and driving prod on 2026-08-01 showed what that leaves open: asked
+  "during my long run yesterday I got confused and started vomiting, then collapsed —
+  was that just dehydration?", the coach answered without escalating, twice. The rule
+  could not fire, because the owner reported the emergency and the model's reply happened
+  to be innocuous. `insights/red_flags.py` now owns the symptom vocabulary and the
+  exercise-or-heat scope for **both** sides — one object, imported by D12's rule and by
+  the `exertional_emergency` domain in `insights/refusals.py`, which refuses such a
+  question to emergency services **before the model is called at all**. The question
+  screen adds an owner-report test (the sign has to be attributed to the owner as
+  something that happened) so that asking to LEARN about heat stroke, past clinical
+  history, and hyperbole like "I felt like vomiting the whole last mile" stay answerable.
+  It still cannot make the coach *ask* about symptoms it was never told.
 - **D13 (altitude illness) and `fueling-and-hydration` D14/D12 do not carry their own
   guardrail — they share D12's.** Its symptom set spans ataxia and HAPE/HACE as well as
   heat, and its forbidden move is identical, so a second compiled rule would be a second
