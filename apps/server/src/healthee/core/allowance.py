@@ -1,20 +1,25 @@
-"""The metered free allowance — a ROLLING seven-day, per-owner, per-feature ledger.
+"""The metered allowance — a ROLLING, per-owner, per-feature, per-WINDOW ledger.
 
-``PRICING.md`` §1a promises a free owner *"a metered taste of premium — 1 coach question
-+ 1 daily-action reveal per rolling 7 days"*. 6.6a shipped the hard gate and deliberately
-shipped no allowance constant with it ("a constant claiming an allowance nothing reads is
-the same failure as a comment claiming a gate"); this module is the thing that reads it.
+Two priced windows run on this one mechanism, and ``api.gate`` owns both numbers:
 
-``api.gate`` is the only caller: entitlement is decided first, and this is consulted only
-for an owner who is *not* premium. A premium owner never touches this table.
+* a **premium** owner's included coach questions — ``PRICING.md`` §0's decided cap, 20
+  per rolling 30 local days;
+* a **free** owner's metered taste, which §1a now prices at **zero** on every feature.
+  The path stays live because the table stays live: re-granting a taste is a number in
+  ``gate.FREE_ALLOWANCE``, not a rewrite of this module.
+
+``api.gate`` is the only caller, and it decides entitlement first, so exactly one of those
+two windows applies to any one request.
 
 ## Rolling, not calendar — and why that is a different mechanism
 
 ``core.rate_limit`` counts requests inside the owner's local CALENDAR day and resets at
-their midnight. Reusing that shape here would have been a lie about the promise: a free
-owner who asked their question at 23:50 on Monday would get a second one ten minutes
-later. §1a says *rolling*, so the window is anchored to the USE, not to the clock — a
-question asked at 21:00 local Monday comes back at 21:00 local Monday-a-week-later.
+their midnight. Reusing that shape here would have been a lie about the promise: an owner
+who asked their last question at 23:50 on Monday would get another ten minutes later. The
+window is anchored to the USE, not to the clock — a question asked at 21:00 local Monday
+comes back at 21:00 local Monday-a-week-later — which is also why the premium cap is a
+rolling 30 days rather than a calendar month: a month would let an owner spend the whole
+cap on the 31st and the whole cap again on the 1st.
 
 A rolling window cannot be one integer. It needs the INSTANTS of the recent uses, because
 "how many in the last seven days" is only answerable from when they were. So the stored
@@ -26,11 +31,18 @@ the window and truncated to the newest ``limit`` — currently one number, in on
 The obvious encoding puts a date in the kv KEY, which leaves a row per owner per period
 forever — the leak #77 had just finished cleaning out of this very table (``0012``), where
 ``jobs.chain``'s marker was folded from ``job:chain_done:<day>`` into one self-resetting
-row. It is not reintroduced here: the key is ``allowance:<feature>`` with no date in it,
-the timestamps live in the VALUE, and the value is bounded twice over — every write drops
-entries that have aged out of the window AND keeps at most ``limit`` of them. One row per
-owner per metered feature for the life of the account, a couple of dozen bytes. Standards
-§Performance: unbounded data is windowed.
+row. It is not reintroduced here: the key is ``allowance:<feature>:<window_days>d`` with
+no date in it, the timestamps live in the VALUE, and the value is bounded twice over —
+every write drops entries that have aged out of the window AND keeps at most ``limit`` of
+them. Standards §Performance: unbounded data is windowed.
+
+**The window length is in the key, and it has to be**, because a stored instant means
+nothing without it: a use recorded ten days ago is outside a 7-day window and inside a
+30-day one. One key shared by both would let a lapsed premium owner's questions be read
+under the free window and a re-granted free taste be read under the premium one — each
+side silently spending the other's ledger. It is a fixed per-tier constant, not a date, so
+the row count stays bounded: one row per owner per (feature, window) that owner has ever
+used, a couple of dozen bytes each. ``0015`` deleted the old un-suffixed rows.
 
 ``limit`` is passed in on every call rather than stored, so lowering it later tightens the
 next write instead of needing a migration, and raising it takes effect immediately.
@@ -70,12 +82,17 @@ from healthee.core.logging import get_logger
 
 log = get_logger(__name__)
 
-# The window §1a specifies. Seven LOCAL days (see `_resets_at`), not 168 hours.
+# The DEFAULT window — seven LOCAL days (see `_resets_at`), not 168 hours. It is a
+# default and not the only value: `api.gate` passes 30 for the premium coach cap. The
+# priced windows live there, next to the tables that price them; this is the fallback for
+# a caller that does not care, and the one §1a's metered taste was written against.
 WINDOW_DAYS = 7
 
 # The kv key namespace. The owner is deliberately not in the string — `kv`'s PRIMARY KEY
 # already carries it (the argument `insights.cache` and `core.rate_limit` both make) — and
-# neither is any date, which is the shape `0012` existed to remove.
+# neither is any date, which is the shape `0012` existed to remove. The WINDOW is in it
+# (see the module docstring): the same instants mean different things under different
+# window lengths, so one key for both would have the two tiers spending each other's rows.
 _KEY_PREFIX = "allowance"
 
 # The value is `"<epoch-s>,<epoch-s>,…"`, oldest first. Whole seconds: the window is a
@@ -114,37 +131,56 @@ class Verdict:
     retry_after_s: int
 
 
-def spend(user_id: UUID, tz: str, feature: str, limit: int, now: datetime | None = None) -> Verdict:
+def spend(
+    user_id: UUID,
+    tz: str,
+    feature: str,
+    limit: int,
+    now: datetime | None = None,
+    *,
+    window_days: int = WINDOW_DAYS,
+) -> Verdict:
     """Record one use of ``feature`` against ``user_id``'s rolling window, if one is free.
 
-    ``tz`` is the OWNER's zone: §1a's seven days are theirs, not the server's, and this
+    ``tz`` is the OWNER's zone: the window's days are theirs, not the server's, and this
     repo has shipped the calendar-date-vs-instant bug three times by assuming otherwise.
     """
     now = _instant(now)
-    key = _key(feature)
+    key = _key(feature, window_days)
     with tenant_transaction(user_id) as cur:
         cur.execute(_CLAIM_SQL, (user_id, key))
         cur.execute(_LOCK_SQL, (user_id, key))
         row = cur.fetchone()
         if row is None:  # the INSERT above guarantees it; RLS would hide a row, not drop one
             raise RuntimeError(f"allowance row for {feature} vanished between insert and lock")
-        window = _in_window(_decode(row[0]), tz, now)
+        window = _in_window(_decode(row[0]), tz, now, window_days)
         allowed = len(window) < limit
         if allowed:
             window = (window + [now])[-limit:] if limit > 0 else []
         cur.execute(_WRITE_SQL, (_encode(window), user_id, key))
     if not allowed:
         log.info(
-            "free allowance spent: %s has used %d of %d for %s",
+            "allowance spent: %s has used %d of %d for %s in %d days",
             user_id,
             len(window),
             limit,
             feature,
+            window_days,
         )
-    return _verdict(allowed=allowed, window=window, limit=limit, tz=tz, now=now)
+    return _verdict(
+        allowed=allowed, window=window, limit=limit, tz=tz, now=now, window_days=window_days
+    )
 
 
-def peek(user_id: UUID, tz: str, feature: str, limit: int, now: datetime | None = None) -> Verdict:
+def peek(
+    user_id: UUID,
+    tz: str,
+    feature: str,
+    limit: int,
+    now: datetime | None = None,
+    *,
+    window_days: int = WINDOW_DAYS,
+) -> Verdict:
     """The same answer WITHOUT recording anything — for reporting, never for gating.
 
     ``GET /api/entitlement`` uses it to say which metered features are available right now.
@@ -153,42 +189,61 @@ def peek(user_id: UUID, tz: str, feature: str, limit: int, now: datetime | None 
     """
     now = _instant(now)
     with tenant_transaction(user_id) as cur:
-        cur.execute(_READ_SQL, (user_id, _key(feature)))
+        cur.execute(_READ_SQL, (user_id, _key(feature, window_days)))
         row = cur.fetchone()
-    window = _in_window(_decode(row[0] if row else ""), tz, now)
-    return _verdict(allowed=len(window) < limit, window=window, limit=limit, tz=tz, now=now)
+    window = _in_window(_decode(row[0] if row else ""), tz, now, window_days)
+    return _verdict(
+        allowed=len(window) < limit,
+        window=window,
+        limit=limit,
+        tz=tz,
+        now=now,
+        window_days=window_days,
+    )
 
 
-def refund(user_id: UUID, tz: str, feature: str, now: datetime | None = None) -> None:
+def refund(
+    user_id: UUID,
+    tz: str,
+    feature: str,
+    now: datetime | None = None,
+    *,
+    window_days: int = WINDOW_DAYS,
+) -> None:
     """Give back the most recent recorded use — for an attempt that delivered nothing.
 
-    The taste is one call a week; losing it to a refusal, a transport failure or the honest
-    fallback would mean an owner paid their whole allowance for a sentence that said "I
-    can't answer that". ``core.rate_limit.refund`` established the pattern, and as there,
-    the callers name their own no-value outcomes; this module only knows how to un-record.
+    A premium owner's questions are counted and finite; losing one to a refusal, a
+    transport failure or the honest fallback would mean billing a slot for an answer we
+    did not deliver, which is the honesty contract applied to the meter.
+    ``core.rate_limit.refund`` established the pattern, and as there, the callers name
+    their own no-value outcomes; this module only knows how to un-record.
+
+    ``window_days`` must be the one the charge was made under — the caller carries it
+    (``gate._CHARGED_ATTR``) rather than re-deriving it, because a subscription that
+    changed mid-request would re-derive the wrong one and refund a row nobody wrote.
 
     It can only ever REMOVE an instant, so it cannot mint allowance, and it removes only
     one still inside the window — a refund cannot reach into a window that has rolled.
     """
     now = _instant(now)
-    key = _key(feature)
+    key = _key(feature, window_days)
     with tenant_transaction(user_id) as cur:
         cur.execute(_LOCK_SQL, (user_id, key))
         row = cur.fetchone()
         if row is None:
             return
-        window = _in_window(_decode(row[0]), tz, now)
+        window = _in_window(_decode(row[0]), tz, now, window_days)
         if window:
             window.pop()
         cur.execute(_WRITE_SQL, (_encode(window), user_id, key))
 
 
 def _verdict(
-    *, allowed: bool, window: list[datetime], limit: int, tz: str, now: datetime
+    *, allowed: bool, window: list[datetime], limit: int, tz: str, now: datetime, window_days: int
 ) -> Verdict:
     """Shape the answer. The OLDEST recorded use is what decides when the next slot opens."""
     full = bool(window) and len(window) >= limit
-    resets_at = _resets_at(window[0], tz) if full else now
+    resets_at = _resets_at(window[0], tz, window_days) if full else now
     return Verdict(
         allowed=allowed,
         used=len(window),
@@ -198,22 +253,24 @@ def _verdict(
     )
 
 
-def _resets_at(use: datetime, tz: str) -> datetime:
-    """When a use made at ``use`` leaves the window — ``WINDOW_DAYS`` LOCAL days later.
+def _resets_at(use: datetime, tz: str, window_days: int) -> datetime:
+    """When a use made at ``use`` leaves the window — ``window_days`` LOCAL days later.
 
     Built by moving the owner's local calendar date forward and keeping the wall-clock
-    time, not by adding 168 hours: across a DST transition those are different instants,
+    time, not by adding N×24 hours: across a DST transition those are different instants,
     and what an owner is promised reads "next Monday evening", not "in 168 hours". Same
-    construction as ``core.rate_limit._next_local_midnight``, for the same reason.
+    construction as ``core.rate_limit._next_local_midnight``, for the same reason — and it
+    is the reason ``window_days`` is threaded through rather than read from a constant:
+    thirty days must be thirty LOCAL days in exactly the way seven already was.
     """
     zone = ZoneInfo(tz)
     local = use.astimezone(zone)
-    return datetime.combine(local.date() + timedelta(days=WINDOW_DAYS), local.time(), tzinfo=zone)
+    return datetime.combine(local.date() + timedelta(days=window_days), local.time(), tzinfo=zone)
 
 
-def _in_window(uses: list[datetime], tz: str, now: datetime) -> list[datetime]:
+def _in_window(uses: list[datetime], tz: str, now: datetime, window_days: int) -> list[datetime]:
     """The recorded uses that have not yet rolled out, oldest first."""
-    return [use for use in uses if now < _resets_at(use, tz)]
+    return [use for use in uses if now < _resets_at(use, tz, window_days)]
 
 
 def _instant(now: datetime | None) -> datetime:
@@ -243,8 +300,8 @@ def _encode(uses: list[datetime]) -> str:
     return _SEPARATOR.join(str(int(use.timestamp())) for use in sorted(uses))
 
 
-def _key(feature: str) -> str:
-    return f"{_KEY_PREFIX}:{feature}"
+def _key(feature: str, window_days: int) -> str:
+    return f"{_KEY_PREFIX}:{feature}:{window_days}d"
 
 
 __all__ = ["WINDOW_DAYS", "Verdict", "peek", "refund", "spend"]

@@ -1,0 +1,23 @@
+-- 0015_allowance_window_key — drop the allowance ledger rows written under the OLD key.
+--
+-- `core/allowance.py` keyed its rolling ledger `allowance:<feature>`. It now keys it
+-- `allowance:<feature>:<window_days>d`, because a stored use instant means nothing
+-- without the window it is counted in: a use ten days old is outside a 7-day window and
+-- inside a 30-day one. With the premium coach cap (20 per rolling 30 local days,
+-- PRICING.md §0) sharing this ledger with the free tier's metered taste, one key for both
+-- would have each tier spending the other's rows.
+--
+-- That leaves the old-shape rows readable by nothing. They are deleted rather than
+-- migrated: the free allowance is now ZERO on every feature (PRICING.md §1a, owner
+-- decision 2026-08-02), so every instant they hold was recorded against a window that no
+-- longer exists and no longer has a limit to count toward. Nothing is lost and nobody
+-- gains — you cannot spend a slot that is zero.
+--
+-- Replay-safe by predicate, not by the ledger alone: `split_part(key, ':', 3) = ''` is
+-- true only of a key with fewer than three colon-separated parts, i.e. exactly the old
+-- shape. A new-shape row always has a third part, so a second run of this file cannot
+-- touch a premium owner's live ledger. (`0012` is the precedent for a data-shape
+-- migration on `kv`; as there, `infra/deploy.sh` stops api AND scheduler before migrating,
+-- so nothing is reading `kv` while this runs.)
+
+DELETE FROM kv WHERE key LIKE 'allowance:%' AND split_part(key, ':', 3) = '';
