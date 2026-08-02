@@ -674,6 +674,7 @@
   {
     "day": "2026-03-03",
     "flags": {
+      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.0,
@@ -911,6 +912,7 @@
   {
     "day": "2026-03-04",
     "flags": {
+      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.5,
@@ -1148,6 +1150,7 @@
   {
     "day": "2026-03-05",
     "flags": {
+      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.0,
@@ -1443,6 +1446,7 @@
   {
     "day": "2026-03-06",
     "flags": {
+      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.0,
@@ -1738,6 +1742,7 @@
   {
     "day": "2026-03-07",
     "flags": {
+      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.0,
@@ -2033,6 +2038,7 @@
   {
     "day": "2026-03-08",
     "flags": {
+      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 56.0,

@@ -47,7 +47,8 @@ from tests.analytics._bio_age_bed import (
     terms,
 )
 
-from healthee.analytics.biological_age import REQUIRED_TERMS_MESSAGE, compute_biological_age
+from healthee.analytics.biological_age import compute_biological_age
+from healthee.analytics.biological_age_terms import REQUIRED_TERMS_MESSAGE
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.derive.freshness import NOT_DERIVED_YET, WEIGHT_STALE

@@ -106,6 +106,11 @@ from healthee.derive.vo2max_submax import (
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
+# This module's instrument id — the SECOND measured tier, used only when the graded fit
+# cannot fit a line ([[hr_reserve_vo2max]] Directive 2). It names itself here for the
+# reason ``vo2max_submax.METHOD_GRADED`` gives.
+METHOD_RESERVE = "hr_reserve"
+
 # Resting oxygen uptake, the VO2rest term of %VO2R. 3.5 ml/kg/min is the metabolic
 # equivalent convention this codebase already spends in `derive/vo2max.py`
 # (`_METS_TO_ML_KG_MIN`) and it is what Swain & Leutholtz's own %VO2R arithmetic assumes.
@@ -247,6 +252,40 @@ class ReserveResult:
     hrr_min: float
     spread: float  # inter-quartile spread of the per-window estimates, ml/kg/min
     speed_kmh_median: float
+
+
+# The modelled 1 SD of a SIX-WINDOW SESSION MEDIAN, by fraction of reserve — the table in
+# [[hr_reserve_vo2max]]'s "Precision, honestly", Monte-Carlo over the equivalence's
+# published scatter plus an HRmax SD of 10 bpm [Tanaka 2001] and this owner's HRrest
+# spread. It is what the payload's ± band means for a reserve-derived number, and it is
+# reported rather than smoothed: nothing here interpolates between the published points.
+_RESERVE_SD_BY_HRR: tuple[tuple[float, float], ...] = (
+    (0.30, 8.26),
+    (0.40, 5.57),
+    (0.50, 4.25),
+    (0.60, 3.65),
+    (0.70, 3.43),
+    (0.80, 3.23),
+    (0.90, 3.18),
+)
+
+
+def reserve_sd_ml_kg_min(hrr_median: float) -> float:
+    """The published 1 SD at or BELOW ``hrr_median`` — the wider neighbour, never a blend.
+
+    Reading down rather than interpolating is the same posture the Lauderdale clamps take
+    in ``analytics/reference_scales.py``: between two measured points we take the
+    conservative one instead of inventing the line between them. So a session at 35% of
+    reserve is reported with the 30% row's ±8.26 — wider than the truth, and wider than
+    the Jurca SEE this tier outranks, which is exactly what the note says of that band
+    ("inside the validated range and no more precise than the model it would displace").
+    [[hr_reserve_vo2max]].
+    """
+    sd = _RESERVE_SD_BY_HRR[0][1]
+    for fraction, value in _RESERVE_SD_BY_HRR:
+        if hrr_median >= fraction:
+            sd = value
+    return sd
 
 
 def hrr_fraction(hr: float, hr_rest: float, hr_max: float) -> float:

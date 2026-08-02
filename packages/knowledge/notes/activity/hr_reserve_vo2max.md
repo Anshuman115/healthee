@@ -238,7 +238,8 @@ of the low bias, which no per-person correction can be fitted for.
    rate. *(confidence: high)*
 2. Use the reserve inversion only for **running windows inside 35–95% of heart-rate
    reserve**, and only as the fallback when the graded fit ([[submaximal_vo2max]]) cannot
-   fit a line. *(high)*
+   fit a line — including when the graded fit has one from a session **anywhere inside the
+   same 14-day window**, which outranks a more recent inversion. *(high)*
 3. When reporting a reserve-derived value, say it is **measured from a run and likely
    conservative** — the published bias under-states VO₂max. *(moderate)*
 4. **Never average the two methods.** They are different instruments; a blended number has
@@ -248,6 +249,14 @@ of the low bias, which no per-person correction can be fitted for.
    than imprecise. *(high)*
 6. Report the **median across sessions and the trend**, never one session as a fact.
    *(high)*
+   > **[Tightened 2026-08-02, #117.]** "Across sessions" is now bounded on both sides.
+   > Across sessions **of this instrument only** — a median that mixes the graded fit and
+   > the inversion is exactly the average D4 forbids, whenever the count is even — and
+   > across sessions **inside the 14-day freshness horizon** ([[submaximal_vo2max]] D1).
+   > At n = 1 the value ships with its session count and a sentence saying it is one
+   > session rather than a settled level: refusing outright would make the measured tier
+   > inert for anyone who does not run weekly, which is nobody this directive was written
+   > to protect.
 
 ## References
 
@@ -329,13 +338,25 @@ of the low bias, which no per-person correction can be fitted for.
 ## Healthee implementation & honesty policy
 
 - **Derived field: `vo2max_submax`**, written by `derive/vo2max_reserve.py` via
-  `derive/gps.py`. It is the SAME metric [[submaximal_vo2max]] writes — one metric, one
-  definition ("VO₂max measured from a recorded session"), two instruments — and every row
-  names its instrument in `flags.method` (`gps_graded` or `hr_reserve`).
+  `derive/gps.py`. It is the SAME record [[submaximal_vo2max]] writes — one definition
+  ("VO₂max measured from a recorded session"), two instruments — and every row names its
+  instrument in `flags.method` (`gps_graded` or `hr_reserve`).
+  *(Clarified 2026-08-02, #117: `vo2max_submax` is the SESSION record, an observation. The
+  owner's VO₂max is `vo2max_estimate`, one canonical metric assembled from these rows when
+  one is fresh and from [[non_exercise_vo2max]] when none is. Two metrics both meaning "this
+  person's VO₂max" is what CLAUDE.md's canonical-definition rule forbids; a metric and its
+  observations is not that.)*
 - **Precedence, stated and not negotiable in code**: the graded fit wins whenever it
   fires, because it measures this person's own VO₂–HR relationship instead of assuming a
-  contested population equivalence. The reserve inversion runs only when the graded fit
-  declines, and `flags.graded_why_not` records why. **The two are never blended.**
+  contested population equivalence. That holds at BOTH layers since #117 — within a
+  session, and across the sessions inside the freshness horizon, where a graded fit
+  outranks a more recent inversion because the ranking is by what each instrument assumes
+  and that does not decay across a fortnight. The reserve inversion runs only when the
+  graded fit declines, and `flags.graded_why_not` records why. **The two are never
+  blended**, and that is structural rather than reviewed: the tier picks one instrument
+  before any aggregation happens, so no median, mean or sum in the selection path ever
+  sees two methods' values (`derive/vo2max_tier.py`, mutation-tested in
+  `tests/derive/test_vo2max_tier.py`).
 - **Withhold, never caveat, outside scope.** `walking_intensity_only` is the reason an
   ordinary walk produces nothing, and its message must say that a longer or brisker walk
   will not help. The other reasons are `no_steady_windows`, `too_few_reserve_windows`,

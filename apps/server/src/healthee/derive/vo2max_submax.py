@@ -27,6 +27,12 @@ from healthee.derive.robust import median
 # unit-testable without a database — it held a byte-identical private ``_median``
 # until 2026-07-31, which was a second definition of the statistic for no gain.
 
+# This module's instrument id — the primary tier of ``vo2max_estimate``
+# ([[submaximal_vo2max]] Directive 1). An instrument names itself here rather than in the
+# module that ranks the instruments, so ``derive/vo2max_tier.py`` owns the ORDER and
+# nothing else; it moved out of ``derive/gps.py`` in #117 when a third consumer appeared.
+METHOD_GRADED = "gps_graded"
+
 # ── Tunables ──────────────────────────────────────────────────────────────────
 WINDOW_S = 30  # bin GPS+HR into 30 s windows before regressing
 SMOOTH_S = 25  # rolling-median half-window for elevation (kills GPS noise)

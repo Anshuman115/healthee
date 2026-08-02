@@ -106,29 +106,52 @@ category, and we synthesised it from step cadence, which cannot tell deliberate 
 from getting around. A self-described non-exerciser read 26.4 against a chronological 32.
 The input is now asked (``derive/srpa.py``), the estimate withheld until answered, and
 what the answer costs — 0.6-2.3 y a category — ships as a third ``caveats`` entry.
+
+## The fitness term's INSTRUMENT (2026-08-02, #117)
+
+#108 left this term reading ``vo2max_estimate``, which was Jurca and only Jurca. So on a
+real owner it returned ``null`` — SR-PA unanswered, model withheld — on a fortnight when
+two MEASURED VO₂max values sat in ``vo2max_submax``, unread by anything. The metric is now
+tiered at the source (``derive/vo2max_tier.py``): graded GPS fit, then the %HRR reserve
+inversion, then Jurca. Nothing about the hazard maths changes — 0.85 per MET against
+FRIEND's median is the same claim whoever measured the MET — but two things do:
+
+* the term's ``method`` says which instrument produced its input, because a fitness
+  number that came from a run last week and a questionnaire this week is not the same
+  measurement twice ([[hr_reserve_vo2max]] Directive 4); and
+* the fitness ``caveats`` entry SWAPS with it. The self-reported-activity footing (#108)
+  is a true statement about the Jurca model and a false one about a measured run, so
+  shipping it regardless would have told an owner their measured fitness rested on a
+  question they never answered. ``analytics/biological_age_terms.py`` owns that mapping.
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
 from psycopg import Cursor
 from psycopg.rows import TupleRow
 
+from healthee.analytics.biological_age_terms import (
+    EXCLUDED_TERMS,
+    FITNESS_TERM,
+    REQUIRED_TERMS_MESSAGE,
+    SLEEP_DURATION_MESSAGES,
+    SLEEP_DURATION_TERM,
+    Absent,
+    absent,
+    caveat_terms,
+)
 from healthee.analytics.reference_scales import (
-    ANCHOR_CAVEATS,
-    SLEEP_DURATION_SELF_REPORT_SCALE,
-    VO2MAX_REFERENCE_CLINICAL_COHORT,
     self_reported_equivalent_h,
     vo2max_median_for,
 )
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
-from healthee.derive.freshness import NO_NIGHTS_IN_WINDOW, NOT_DERIVED_YET
-from healthee.derive.srpa import SRPA_SELF_REPORT_CAVEAT
-from healthee.derive.vo2max import WITHHOLD_MESSAGES, estimate_unavailable_reason
+from healthee.derive.freshness import NO_NIGHTS_IN_WINDOW
+from healthee.derive.vo2max import METHOD_JURCA, WITHHOLD_MESSAGES
+from healthee.derive.vo2max_tier import estimate_unavailable_reason
 
 # UK Biobank mortality-rate doubling time, both sexes — Libert 2025, eLife 13:RP92092
 # (PMID 40497443) [biological_age_estimate]. Classical Gompertz is ~8 y; the difference
@@ -143,91 +166,7 @@ SLEEP_HAZARD_NADIR_H = 7.0
 SHORT_SLEEP_HR_PER_H = 1.06  # per hour below the nadir
 LONG_SLEEP_HR_PER_H = 1.13  # per hour above it
 
-# The terms of [[biological_age_estimate]]'s table. The composite is defined over all of
-# them, so it cannot be computed without all of them — see the module docstring.
-FITNESS_TERM = "fitness"
-SLEEP_DURATION_TERM = "sleep duration"
-
-# Not a term — the lever this estimate deliberately does not price, stated in the payload
-# so "biological age" cannot quietly change meaning between releases (#86).
-REGULARITY_TERM = "regularity"
-SRI_HAZARD_NOT_TRANSPORTABLE = "sri_hazard_not_transportable"
-EXCLUDED_TERMS = [
-    {
-        "term": REGULARITY_TERM,
-        "reason": SRI_HAZARD_NOT_TRANSPORTABLE,
-        "message": (
-            "Sleep regularity is not one of the levers behind this number. Scored on the "
-            "same 70,000 people, the two standard Sleep Regularity Index calculators put "
-            "only two in five into the same fifth of the population, and one found a "
-            "mortality association where the other found none — so the published "
-            "risk-per-SRI-point belongs to the software, not to the index. Yours is "
-            "measured a third way again. You still get your regularity score and its "
-            "one-hour-band target on the sleep page; what we cannot honestly do is "
-            "convert it into years."
-        ),
-    }
-]
-
-# The third state (#97): a term that IS priced, and leans. Permanent and owner-independent
-# like ``excluded`` — these are properties of the definition, not of anyone's data — but
-# unlike ``excluded`` the term is still in the number, so the honest thing is to say which
-# way it tilts. ``direction`` is machine-readable because "does this flatter me?" is the
-# one question this product exists to answer without being asked.
-# The footing statements themselves live with the anchors they describe, in
-# ``reference_scales``; this module owns only which term each one attaches to.
-# The fitness term carries TWO (#108): its anchor, and the owner-DECLARED input inside
-# our own VO₂max. Two entries, so each stays attached to what would change it.
-CAVEAT_TERMS = [
-    {"term": FITNESS_TERM, **ANCHOR_CAVEATS[VO2MAX_REFERENCE_CLINICAL_COHORT]},
-    {"term": FITNESS_TERM, **SRPA_SELF_REPORT_CAVEAT},
-    {"term": SLEEP_DURATION_TERM, **ANCHOR_CAVEATS[SLEEP_DURATION_SELF_REPORT_SCALE]},
-]
-
-# Why the whole estimate goes with any absent term, in the second person. The per-term
-# reason and its "here is what we'd need" message are the INPUT metric's own, reused
-# verbatim from ``derive/vo2max.WITHHOLD_MESSAGES``, so two surfaces cannot explain the
-# same absence differently.
-REQUIRED_TERMS_MESSAGE = (
-    "Biological age is your chronological age plus each term's year contribution, so a "
-    "term with no current value is not left out — it would silently assert you sit exactly "
-    "at the reference for that lever. There is no biological age to report without all of "
-    "them. The terms below are the ones that are current."
-)
-
-# The 14-night average TST has one way to be absent: nothing recorded in the window. It
-# is a WINDOWED aggregate, so it cannot go stale the way a single latest row can — the
-# query is already anchored to the owner's today. It can still be MISSING, and missing is
-# the same assertion (``HR = 1.0``, i.e. 7 h/night) that staleness was.
-SLEEP_DURATION_MESSAGES = {
-    NO_NIGHTS_IN_WINDOW: (
-        "No sleep has been recorded in the last 14 nights, so there is no nightly average "
-        "to work from — wear the strap overnight and this comes back."
-    )
-}
-
 Cur = Cursor[TupleRow]
-
-
-@dataclass(frozen=True)
-class _Absent:
-    """A required term the owner has no CURRENT input for, and why.
-
-    ``reason`` is the input metric's own machine-readable id and ``message`` its own
-    second-person "here is what we'd need" — never re-worded here, so this number and the
-    input's own card explain one absence with one sentence.
-    """
-
-    term: str
-    reason: str
-    message: str
-
-
-def _absent(term: str, reason: str | None, messages: dict[str, str]) -> _Absent:
-    """One absent term. ``reason is None`` cannot happen for an absent term (the freshness
-    rule always names one), so the fallback is defensive rather than a second meaning."""
-    named = reason or NOT_DERIVED_YET
-    return _Absent(term, named, messages[named])
 
 
 def hazard_delta_years(hr: float) -> float:
@@ -265,10 +204,15 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
 
     contribs: list[dict] = []
 
-    def add(term: str, hr: float, value=None, unit=None, target=None, compared_as=None) -> float:
+    def add(
+        term: str, hr: float, value=None, unit=None, target=None, compared_as=None, method=None
+    ) -> float:
         """``compared_as`` is the value the hazard curve was actually read at when that
         is not ``value`` (the sleep term's questionnaire equivalent, #97); null elsewhere,
-        so the shape never varies by term."""
+        so the shape never varies by term. ``method`` is the INSTRUMENT behind the term's
+        own input (#117) — non-null only for fitness, where the same VO₂max can arrive
+        from a recorded run or from a questionnaire and the owner is owed the difference.
+        """
         d = hazard_delta_years(hr)
         contribs.append(
             {
@@ -279,25 +223,33 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
                 "unit": unit,
                 "target": target,
                 "compared_as": compared_as,
+                "method": method,
             }
         )
         return d
 
-    dage, absent = 0.0, []
-    for delta, missing in (
+    dage, missing_terms, fitness_method = 0.0, [], None
+    for delta, missing, method in (
         _fitness_term(cur, user_id, tz, today, chrono, sex, add),
         _sleep_duration_term(cur, user_id, tz, add),
     ):
         dage += delta
+        fitness_method = method or fitness_method
         if missing is not None:
-            absent.append(missing)
+            missing_terms.append(missing)
 
     if not contribs:
         return None
-    return _estimate(chrono, dage, contribs, absent)
+    return _estimate(chrono, dage, contribs, missing_terms, fitness_method)
 
 
-def _estimate(chrono: int, dage: float, contribs: list[dict], absent: list[_Absent]) -> dict:
+def _estimate(
+    chrono: int,
+    dage: float,
+    contribs: list[dict],
+    absent: list[Absent],
+    fitness_method: str | None,
+) -> dict:
     """The payload — the composite only when EVERY term is current.
 
     When any term is absent the number is not computed at all rather than computed and
@@ -323,8 +275,11 @@ def _estimate(chrono: int, dage: float, contribs: list[dict], absent: list[_Abse
         # not change the shape of the payload.
         "excluded": EXCLUDED_TERMS,
         # Permanent too, and the third state: priced, but leaning. See the module
-        # docstring — the three absence/uncertainty keys are not interchangeable.
-        "caveats": CAVEAT_TERMS,
+        # docstring — the three absence/uncertainty keys are not interchangeable. The
+        # fitness entry moves with the INSTRUMENT behind its VO₂max (#117): the
+        # self-reported-activity footing is a fact about the Jurca model and a falsehood
+        # about a number measured from a run.
+        "caveats": caveat_terms(fitness_method),
         "disclaimer": (
             "Motivational estimate from population data — not a clinical or diagnostic age."
         ),
@@ -334,22 +289,32 @@ def _estimate(chrono: int, dage: float, contribs: list[dict], absent: list[_Abse
 
 def _fitness_term(
     cur: Cur, user_id: UUID, tz: str, today: date, chrono: int, sex: str, add
-) -> tuple[float, _Absent | None]:
+) -> tuple[float, Absent | None, str | None]:
     """VO₂max vs age/sex median — the one combined cardio term (0.85 per 3.5 ml).
 
-    Returns ``(delta_years, None)`` when TODAY has an estimate, else ``(0.0, absent)``.
-    The freshness rule is ``derive.vo2max.estimate_unavailable_reason`` — the same one
-    the VO₂max card applies — so the two surfaces of ``/api/today`` cannot disagree about
-    whether this owner has a fitness number right now."""
+    Returns ``(delta_years, None, method)`` when TODAY has an estimate, else
+    ``(0.0, absent, None)``. The freshness rule is
+    ``derive.vo2max_tier.estimate_unavailable_reason`` — the same one the VO₂max card
+    applies — so the two surfaces of ``/api/today`` cannot disagree about whether this
+    owner has a fitness number right now.
+
+    Since #117 that estimate is TIERED, and this function does not re-decide the tier: it
+    reads the day's canonical row and carries the instrument's name outward. Before the
+    tiering this term returned ``null`` for a real owner while two measured VO₂max values
+    from the same fortnight sat unread in ``vo2max_submax`` — refusing a number over an
+    input we were holding a better version of.
+    """
     cur.execute(
-        "SELECT day, value FROM derived_daily WHERE user_id = %s AND metric='vo2max_estimate' "
-        "ORDER BY day DESC LIMIT 1",
+        "SELECT day, value, flags FROM derived_daily "
+        "WHERE user_id = %s AND metric='vo2max_estimate' ORDER BY day DESC LIMIT 1",
         (user_id,),
     )
     vr = cur.fetchone()
     reason = estimate_unavailable_reason(cur, user_id, tz, today, vr[0] if vr else None)
     if vr is None or reason is not None:
-        return 0.0, _absent(FITNESS_TERM, reason, WITHHOLD_MESSAGES)
+        return 0.0, absent(FITNESS_TERM, reason, WITHHOLD_MESSAGES), None
+    # Rows written before #117 carry no ``method`` and are all Jurca.
+    method = str((vr[2] or {}).get("method") or METHOD_JURCA)
     ref = vo2max_median_for(chrono, sex)
     delta = add(
         FITNESS_TERM,
@@ -357,11 +322,14 @@ def _fitness_term(
         value=round(float(vr[1]), 1),
         unit="ml/kg/min VO₂max",
         target=round(ref),
+        method=method,
     )
-    return delta, None
+    return delta, None, method
 
 
-def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> tuple[float, _Absent | None]:
+def _sleep_duration_term(
+    cur: Cur, user_id: UUID, tz: str, add
+) -> tuple[float, Absent | None, str | None]:
     """Recent 14-night average TST, U-shaped about Yin 2017's 7 h nadir.
 
     The window is already anchored to the owner's today, so this term cannot go STALE —
@@ -378,7 +346,11 @@ def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> tuple[float, 
     )
     sr = cur.fetchone()
     if not sr or not sr[0]:
-        return 0.0, _absent(SLEEP_DURATION_TERM, NO_NIGHTS_IN_WINDOW, SLEEP_DURATION_MESSAGES)
+        return (
+            0.0,
+            absent(SLEEP_DURATION_TERM, NO_NIGHTS_IN_WINDOW, SLEEP_DURATION_MESSAGES),
+            None,
+        )
     measured_h = float(sr[0]) / 60.0
     # The curve is read at the questionnaire equivalent, never at the raw device hours.
     h = self_reported_equivalent_h(measured_h)
@@ -388,13 +360,17 @@ def _sleep_duration_term(cur: Cur, user_id: UUID, tz: str, add) -> tuple[float, 
     # recommended band: the recommendation stays NSF 2015's 7–9 h, cited by the sleep
     # surfaces. Two different quantities, one definition each — which is the canonical-
     # metric rule satisfied, not a third number added.
-    return add(
-        SLEEP_DURATION_TERM,
-        (SHORT_SLEEP_HR_PER_H ** (SLEEP_HAZARD_NADIR_H - h))
-        if h < SLEEP_HAZARD_NADIR_H
-        else (LONG_SLEEP_HR_PER_H ** (h - SLEEP_HAZARD_NADIR_H)),
-        value=round(measured_h, 1),
-        unit="h/night",
-        target=SLEEP_HAZARD_NADIR_H,
-        compared_as=round(h, 1),
-    ), None
+    return (
+        add(
+            SLEEP_DURATION_TERM,
+            (SHORT_SLEEP_HR_PER_H ** (SLEEP_HAZARD_NADIR_H - h))
+            if h < SLEEP_HAZARD_NADIR_H
+            else (LONG_SLEEP_HR_PER_H ** (h - SLEEP_HAZARD_NADIR_H)),
+            value=round(measured_h, 1),
+            unit="h/night",
+            target=SLEEP_HAZARD_NADIR_H,
+            compared_as=round(h, 1),
+        ),
+        None,
+        None,
+    )

@@ -38,6 +38,12 @@ other row is byte-identical to legacy):
       (was ~51-55 under the linear coding with a cadence-derived category 3/4).
   M2  vo2max_estimate.flags.see_ml_kg_min — 5.6 → 5.075. The old figure appears
       nowhere in Jurca 2005; the NASA model's published SEE is 1.45 METs (Table 5).
+  M3  vo2max_estimate.flags.method — a new flag, `jurca_non_exercise` on every row
+      (#117). `vo2max_estimate` is now the tiered metric its three notes always
+      specified, so each row names the instrument that produced it. The VALUES are
+      untouched here: the seeded dataset contains no GPS track, so the measured
+      tiers cannot fire and the fallback model writes every row exactly as before —
+      which is the property this divergence is worth stating rather than hiding.
   C2  sleep efficiency — the formula changed to tst/(tst+wake) (≤100% by
       construction) but the seed's tst+wake (480) equals its wall-clock span (480),
       so efficiency_pct stays 95.8 and NO sleep row moves. Verified: zero sleep

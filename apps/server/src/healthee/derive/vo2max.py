@@ -1,8 +1,18 @@
-"""Non-exercise VO2max estimate (Jurca 2005) for one local day.
+"""Non-exercise VO2max estimate (Jurca 2005) — the FALLBACK tier, for one local day.
 
 Profile (age, sex, BMI, and the owner's OWN self-reported physical-activity
 category) + a 7-day median resting HR feed the Jurca regression. Knowledge:
 [[non_exercise_vo2max]] (Jurca 2005: CRF in METs, x3.5 -> ml/kg/min), [[vo2max]].
+
+## This module is ONE tier, not the metric (#117)
+
+[[non_exercise_vo2max]] Directive 1: "Compute the non-exercise estimate only as the
+FALLBACK to the submaximal method." Everything here — the equation, the gates, the
+messages — is the Jurca instrument. Which instrument gets to speak for a day is
+``derive/vo2max_tier.py``'s decision, and it is the only routine caller of
+:func:`derive_vo2max`. The gate below (:func:`withhold_reason_for_day`) is therefore
+THIS tier's gate: a reason it names withholds the Jurca number, and the tier module
+decides whether that leaves the owner with no number at all.
 
 ## SR-PA is the OWNER'S answer, not a derived one (2026-08-02, #108)
 
@@ -26,7 +36,6 @@ from healthee.derive.freshness import (
     PROFILE_INCOMPLETE,
     WEIGHT_MAX_AGE_DAYS,
     WEIGHT_STALE,
-    unavailable_reason,
     weight_is_stale,
 )
 from healthee.derive.robust import median, median_abs_deviation
@@ -37,6 +46,12 @@ from healthee.derive.srpa import (
 )
 
 log = get_logger(__name__)
+
+# This module's instrument id — the FALLBACK tier of ``vo2max_estimate``
+# ([[non_exercise_vo2max]] Directive 1: "compute the non-exercise estimate only as the
+# fallback to the submaximal method"). An instrument names itself; ``derive/vo2max_tier.py``
+# owns the order between the three and nothing else.
+METHOD_JURCA = "jurca_non_exercise"
 
 _VO2MAX_FLOOR = 20.0  # floor keeps EE sane on sparse data
 _METS_TO_ML_KG_MIN = 3.5  # 1 MET = 3.5 ml O2 / kg / min
@@ -271,31 +286,6 @@ def _profile_withhold_reason(prof: dict, day: date) -> str | None:
     return None
 
 
-def estimate_unavailable_reason(
-    cur: Cur, user_id: UUID, tz: str, today: date, last_day: date | None
-) -> str | None:
-    """Why this owner has no estimate FOR TODAY, or ``None`` when ``last_day`` IS today.
-
-    The FRESHNESS half of the gate, bound to VO2max's own withhold gate.
-    :func:`withhold_reason_for_day` answers "could today carry an estimate";
-    ``derive.freshness.unavailable_reason`` answers the question a *consumer* actually
-    has, which is "is the newest stored row today's". They are different questions and
-    the second is the one that was getting skipped: a row is not evidence about today
-    merely because it is the newest row.
-
-    Extracted because there are now TWO consumers and the rule must not fork: the VO2max
-    payload (``read/vo2max.py``) and the biological-age fitness term
-    (``analytics/biological_age.py``), where a stale estimate is laundered into a headline
-    composite. The generic half then moved to ``derive/freshness.py`` when the same shape
-    turned up on the SRI, sleep debt and recovery — this function is now the VO2max
-    BINDING of one shared rule, not a private copy of it. [[non_exercise_vo2max]],
-    [[biological_age_estimate]].
-    """
-    return unavailable_reason(
-        today, last_day, lambda: withhold_reason_for_day(cur, user_id, tz, today)
-    )
-
-
 def _vo2max_jurca(age: int, sex: str, bmi: float, rhr: float, srpa: int = 0) -> float:
     """Jurca 2005 non-exercise cardiorespiratory fitness -> VO2max (ml/kg/min).
 
@@ -367,6 +357,9 @@ def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
         "vo2max_estimate",
         vo2,
         {
+            # Which instrument produced this number. Rows written before #117 carry no
+            # ``method`` and are all Jurca, which is what every reader defaults them to.
+            "method": METHOD_JURCA,
             "rhr_med": round(rhr_med, 1),
             "srpa": srpa,
             "bmi": round(bmi, 1),

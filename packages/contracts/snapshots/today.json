@@ -2,7 +2,7 @@
   "action": null,
   "anomalies": [],
   "biological_age": {
-    "biological_age": 35.1,
+    "biological_age": 34.3,
     "caveats": [
       {
         "message": "The fitness term measures your VO₂max estimate against a reference for your age and sex. That reference is now the US standard — the median of 16,278 treadmill exercise tests in the FRIEND registry — replacing a table that had no published source and was charging most people up to about two years they had not earned. It is still not a median of the population: FRIEND is people who came to a laboratory for a test, and how that differs from everyone else has not been measured in the US. Where it has been compared with a whole-population sample abroad, FRIEND sat lower, which would make this comparison generous rather than harsh — but that was a different country. Either way it is the smaller uncertainty here: your own VO₂max is estimated rather than measured, and that estimate's error is worth about two and a half years.",
@@ -10,8 +10,8 @@
         "term": "fitness"
       },
       {
-        "message": "The fitness half of this number rests partly on your own answer about how much deliberate aerobic exercise you do in a typical week. We ask instead of measuring because a step counter cannot tell a training session from walking to the shops, and the model's own scale is about the former — its bottom category is 'little activity other than walking for pleasure'. That answer is worth real years: one category up or down moves this estimate by between half a year and two and a half, and the full range from 'inactive' to 'over three hours a week' is about five and a half years. Answer it as your ordinary week, not your best one. Everything else in the fitness term — your age, sex, BMI and resting heart rate — we measure.",
-        "reason": "vo2max_srpa_self_reported",
+        "message": "The fitness half of this number was measured rather than modelled: it comes from how your heart rate tracked your workload across a recorded session in the last two weeks. That is the most direct reading we can take without a laboratory, and it is still an estimate — checked against lab tests it is off by about 7% on average. We stop using a session after two weeks, because fitness lost to a break in training starts to show at about that point — after which this falls back to the no-exercise model and the number may step as the instrument changes, not as you do.",
+        "reason": "vo2max_measured_from_session",
         "term": "fitness"
       },
       {
@@ -24,17 +24,19 @@
     "contributions": [
       {
         "compared_as": null,
-        "delta_years": -0.9,
-        "hr": 0.92,
+        "delta_years": -1.7,
+        "hr": 0.858,
+        "method": "gps_graded",
         "target": 40,
         "term": "fitness",
         "unit": "ml/kg/min VO₂max",
-        "value": 41.5
+        "value": 43.0
       },
       {
         "compared_as": 7.0,
         "delta_years": 0.0,
         "hr": 1.0,
+        "method": null,
         "target": 7.0,
         "term": "sleep duration",
         "unit": "h/night",
@@ -42,7 +44,7 @@
       }
     ],
     "data_confidence": "ok",
-    "delta_years": -0.9,
+    "delta_years": -1.7,
     "disclaimer": "Motivational estimate from population data — not a clinical or diagnostic age.",
     "excluded": [
       {
@@ -1663,21 +1665,26 @@
     "age_years": 35,
     "as_of_date": "2026-07-31",
     "data_confidence": "ok",
-    "delta_from_median": 1.8,
-    "estimate": 41.5,
+    "delta_from_median": 3.3,
+    "estimate": 43.0,
     "inputs": {
-      "bmi": 23.4,
-      "pa_score": 3,
-      "rhr_med_7d": 55.0,
+      "bmi": null,
+      "pa_score": null,
+      "rhr_med_7d": null,
       "weekly_mvpa_min": null
     },
+    "measured_as_of": "2026-07-31",
     "median_for_age": 39.7,
+    "method": "gps_graded",
+    "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it — the most direct of the three methods we have, because it measures the relationship on you rather than assuming it. It comes from one session, not a run of them, so read it as that session rather than as a settled level.",
+    "n_sessions": 1,
     "out_of_range_inputs": [],
     "research_notes": [
       "vo2max_fitness_mortality",
-      "non_exercise_vo2max"
+      "submaximal_vo2max"
     ],
-    "see_ml_kg_min": 5.6,
+    "see_ml_kg_min": 2.95,
+    "see_source": "Carrier 2023: MAPE 6.85% vs lab CPET, structured outdoor running",
     "sex": "male",
     "submax": {
       "as_of_date": "2026-07-31",
@@ -1685,16 +1692,14 @@
       "last_r2": 0.82,
       "last_speed_kmh": 8.1,
       "latest": 43.0,
-      "median": 43.0,
-      "method_caveat": "Read from how your heart rate tracked your workload across this session \u2014 the more direct of the two methods we have, because it measures the relationship on you rather than assuming it.",
+      "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it — the most direct of the three methods we have, because it measures the relationship on you rather than assuming it.",
       "n_sessions": 1,
       "trend": [
         {
           "date": "2026-07-31",
           "value": 43.0
         }
-      ],
-      "vs_jurca": 1.5
+      ]
     },
     "trend_90d": [
       {
@@ -1815,7 +1820,7 @@
       },
       {
         "date": "2026-07-31",
-        "value": 41.5
+        "value": 43.0
       }
     ],
     "withheld": null
