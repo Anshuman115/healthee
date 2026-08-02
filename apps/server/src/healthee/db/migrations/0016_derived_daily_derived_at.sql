@@ -1,0 +1,43 @@
+-- 0016_derived_daily_derived_at — stamp every derived row with WHEN it was computed.
+--
+-- ## The defect this column exists to make fixable
+--
+-- `derived_daily` is written INSERT … ON CONFLICT DO UPDATE and nothing in the product
+-- ever deletes from it. That is fine for a science fix that CHANGES a number: the next
+-- re-derive overwrites the row. It is silently wrong for a science fix that NARROWS what
+-- gets written — a new gate, a tightened validity range, a withdrawn metric — because the
+-- new code declines to write and the old wrong row survives, dated and confident.
+--
+-- Verified on production 2026-08-02: #108 made `profile.srpa` a hard requirement for
+-- VO₂max, so with it unanswered the derivation correctly writes nothing. 109
+-- `vo2max_estimate` rows computed under the mis-transcribed coding stayed exactly where
+-- they were, the newest dated THAT DAY — so the read layer's freshness rule (is the newest
+-- row keyed to today?) could never call them stale either. `python -m healthee.db.rederive`,
+-- the documented post-deploy repair, ran clean, reported success, and removed none of them.
+--
+-- A repair tool cannot remove those rows without being able to tell them apart from the
+-- rows it just wrote, and value/flags cannot tell you that (a re-derive may legitimately
+-- write the identical number). A write timestamp can: after a re-derive, a row in the
+-- window whose `derived_at` predates that run is precisely a row today's code declined to
+-- produce. `db/stale_derived.py` is the query, `db/rederive.py --purge-stale` the removal.
+--
+-- ## The shape, and why it is safe on a live table
+--
+-- NOT NULL DEFAULT now(): PG11+ evaluates a non-volatile default ONCE and stores it as the
+-- column's missing-value, so this is a catalogue-only change — no table rewrite, no long
+-- lock, however many rows are already there. (`now()` is STABLE, not VOLATILE, which is
+-- what qualifies it.) Every pre-existing row therefore carries the migration's instant,
+-- which is the correct reading of them: they were computed at some unknown earlier time,
+-- and any instant at-or-before this one makes the FIRST re-derive after this deploy see
+-- them for what they are.
+--
+-- No index. The scan is `user_id = … AND day BETWEEN … AND …`, which the existing primary
+-- key `(user_id, day, metric)` already serves; `derived_at` is only ever a filter applied
+-- to rows that key already selected, never a leading predicate. An index here would cost
+-- every derive write to speed up a query an operator runs by hand.
+--
+-- Replay-safe (IF NOT EXISTS). `migrate._apply_one` runs the file plus its ledger row in
+-- ONE transaction.
+
+ALTER TABLE derived_daily
+  ADD COLUMN IF NOT EXISTS derived_at TIMESTAMPTZ NOT NULL DEFAULT now();

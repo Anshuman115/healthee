@@ -47,13 +47,21 @@ def _upsert_daily(
     so the conflict target is (user_id, day, metric): two users' same-day rows no
     longer collide. It has no default on purpose — a derivation that silently wrote
     under the wrong owner is exactly the class of bug the explicit thread prevents.
+
+    `derived_at` is re-stamped on EVERY write, including one that lands the identical
+    value (0016). It is not a change log — it records that a derive pass *reached* this
+    cell, which is the only thing that distinguishes a row today's code re-produced from
+    a row today's code has stopped producing. `now()` is the transaction instant, so an
+    entire batch shares one stamp and ``db/stale_derived.py`` can ask for "everything
+    this transaction did not touch" in one predicate.
     """
     cur.execute(
         """
-        INSERT INTO derived_daily (user_id, day, metric, value, flags)
-        VALUES (%s, %s, %s, %s, %s::jsonb)
+        INSERT INTO derived_daily (user_id, day, metric, value, flags, derived_at)
+        VALUES (%s, %s, %s, %s, %s::jsonb, now())
         ON CONFLICT (user_id, day, metric) DO UPDATE
-          SET value = EXCLUDED.value, flags = EXCLUDED.flags
+          SET value = EXCLUDED.value, flags = EXCLUDED.flags,
+              derived_at = EXCLUDED.derived_at
         """,
         (user_id, day, metric, round(float(value), 4), _json(flags or {})),
     )

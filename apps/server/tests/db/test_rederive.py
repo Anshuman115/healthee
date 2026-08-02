@@ -150,3 +150,36 @@ def test_a_non_positive_window_is_refused() -> None:
     """Zero days is a typo, not a request to derive nothing."""
     with pytest.raises(rederive.RederiveRefusedError):
         rederive.day_range(date(2026, 6, 20), 0)
+
+
+def test_a_gated_metric_is_purgeable_once_its_gate_is_reopened() -> None:
+    """The refusal is about the GATE, not about the metric being untouchable forever.
+
+    ``--rescore-tracks`` re-attempts every scored session in the window, so after it the
+    rows that remain unwritten really are rows today's code would not produce.
+    """
+    gates = rederive.open_gates(rescore_tracks=True)
+
+    assert rederive.purge_metrics(["vo2max_submax"], applying=True, gates=gates) == (
+        "vo2max_submax",
+    )
+    assert rederive.gated_off(gates) == ()
+
+
+def test_an_ungated_metric_needs_no_flag() -> None:
+    """The common case stays one step: name it, apply it."""
+    shut = rederive.open_gates(rescore_tracks=False)
+
+    assert rederive.purge_metrics(["vo2max_estimate"], applying=True, gates=shut) == (
+        "vo2max_estimate",
+    )
+    assert rederive.gated_off(shut) == ("vo2max_submax",)
+
+
+def test_purging_nothing_is_allowed_only_while_nothing_is_applied() -> None:
+    """No metrics + no --apply is the default invocation and must stay silent."""
+    shut = rederive.open_gates(rescore_tracks=False)
+
+    assert rederive.purge_metrics([], applying=False, gates=shut) == ()
+    with pytest.raises(rederive.RederiveRefusedError):
+        rederive.purge_metrics([], applying=True, gates=shut)

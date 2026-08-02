@@ -354,6 +354,11 @@ the row and its history are kept).
       `spo2_overnight`) must reach the same day as the day metrics. `data_health`
       cannot catch this: it measures raw sample **arrival**, not derivation, so it
       reads `ok` over an empty derived layer. Repair with **F**.
+- [ ] **After a science change: the derived layer holds nothing the new code disowns** →
+      the `rederive` run's `STALE` line (**F1**). A narrowing change (new required input,
+      tightened range, withdrawn metric) leaves the OLD rows serving, dated today, and a
+      plain re-derive does not remove them. This is the one the VO₂max fix needed and did
+      not have.
 - [ ] **The scheduler's LLM watch is armed** →
       `$COMPOSE logs --tail 50 scheduler`. Within one tick of start it probes the
       balance; if it is low or the key is dead you get a Telegram message, and if
@@ -544,6 +549,76 @@ itself, and not otherwise.
 computes, and after any incident where pushes were accepted but derivation was not
 running. `--days 42` is the default because 42 is the longest trailing window any
 derivation reads (the recovery baseline); sleep debt reads 14, SRI and VO₂max 7.
+
+### ⛔ F1. The above was NOT enough after a science change that NARROWS (#118)
+
+**Read this before believing a clean `rederive` run.** Until 2026-08-02 the instruction
+in this section was *"run `rederive` after a science change"* — full stop — and for a
+change that **stops a metric being written at all**, that instruction repaired nothing
+while printing success.
+
+`derived_daily` is written `INSERT … ON CONFLICT DO UPDATE`, and nothing in the product
+deleted from it. So:
+
+- a science fix that **changes a number** → the re-derive overwrites the row. Repaired.
+- a science fix that **narrows what is written** — a new required input, a tightened
+  validity range, a withdrawn metric → the new code correctly writes **nothing**, and
+  every old row **survives, dated, and keeps being served**.
+
+That is what happened with #108 (VO₂max now requires `profile.srpa`): **109
+`vo2max_estimate` rows** stayed live, the newest dated *that same day* — so the read
+layer's freshness rule ("is the newest row keyed to today?") could never call them stale
+either. Production served 51.1 ml/kg/min from code that no longer existed, after the fix,
+after the deploy, and after this runbook's repair step had been run.
+
+**The tool now detects this on every run, unasked.** After it rebuilds a window it
+reports, per metric, how many rows in that window it did **not** rewrite:
+
+```
+  00000000-…-0000 (Asia/Kolkata): 12 night(s), 42 day(s) 2026-06-22 → 2026-08-02, 0 GPS track(s) re-scored
+  109 row(s) in this window are STALE — today's code would not write them
+  (vo2max_estimate: 109). Remove with: --purge-stale vo2max_estimate --apply
+```
+
+A run that prints no `STALE` line found nothing to clean. **A run that prints one is
+telling you the derived layer still holds numbers the current code disowns**, and no
+amount of re-deriving will shift them.
+
+### F2. Removing them — preview, then `--apply`
+
+Unlike the recompute, this **deletes rows** and is therefore dry-run-first, exactly like
+`claim_sentinel` and `grant_premium`. Reach for `--all`, not the default 42 days: the
+rows a narrowing change orphaned are usually older than that.
+
+```sh
+# 1. PREVIEW — nothing is deleted. Read the per-metric counts.
+$COMPOSE run --rm api python -m healthee.db.rederive \
+  --user <uuid> --all --purge-stale vo2max_estimate
+
+# 2. APPLY — only after the preview's numbers are what you expect.
+$COMPOSE run --rm api python -m healthee.db.rederive \
+  --user <uuid> --all --purge-stale vo2max_estimate --apply
+```
+
+It is bounded three ways and will not exceed any of them: the **owner**, the **day
+window**, and the **metrics you name**. There is deliberately no "purge everything"
+spelling — `--apply` without `--purge-stale` is refused rather than interpreted. The
+counts it reports come from the DELETE itself, so `purged 109 stale row(s)` is 109 rows.
+
+Two things to know before running it:
+
+- **A metric it would have rewritten is never touched.** "Stale" means *this run did not
+  write it*, and the run happens first — so a row the current code still produces has just
+  been recomputed and is not a candidate. Removal only ever reaches rows today's code
+  declines to produce.
+- **`vo2max_submax` is refused** unless you also pass `--rescore-tracks`. A recorded GPS
+  session is scored at most once, so an ordinary run never re-attempts it and its rows
+  only *look* stale; purging them would delete every GPS-measured estimate you have. The
+  tool refuses and names the flag.
+
+**Rollback** is the pre-deploy dump (`infra/backup/RESTORE.md`) — a purged row cannot be
+recomputed, because not being recomputable is the definition of what was purged. Take the
+preview seriously; it is the whole safety story.
 
 ### The symptom to recognise
 
