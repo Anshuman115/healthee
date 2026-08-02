@@ -920,6 +920,22 @@ so the app knows what to show as upgradeable. It is deliberately **ungated** —
 locked-out owner is exactly who needs to read it — and uncached, so a refund shows
 up on the next poll rather than at the end of a TTL.
 
+Since **#116** it also returns **`included`**: one entry per feature in
+`PREMIUM_ALLOWANCE` carrying `limit` / `used` / `remaining` / `window_days`, plus
+`resets_at` + `retry_after_s` **once the window is full** (null while slots remain —
+nothing is being waited for). It exists because a cap that is *stated* in `PRICING.md`
+§0 and *enforced* in the gate was, until then, observable only by being refused — and
+§0's own argument for stating a number is that "'unlimited' with a silent throttle is
+the dishonest version of the same thing". Three properties, all of them load-bearing:
+`api/allowance_report.py` **peeks** (`core/allowance.peek`), so polling a balance can
+never spend one; the list is built by iterating `PREMIUM_ALLOWANCE` itself, so the cap
+stays single-sourced and a feature capped later needs no edit here; and it is **empty
+for a non-premium owner** and carries **no entry for an uncapped feature** — a meter
+reading zero is the exact inversion of both "they were never sold this" and "they paid,
+so it is unlimited". It is a *subscriber's* meter and never an upsell: `locked` answers
+"what would paying get me", `included` answers "what did paying get me, and how much of
+it is left", which is why the capped subscriber stays absent from `locked`.
+
 ### 12.4 Billing integration **[D4]**
 
 Web billing (no store IAP). Server owns entitlement; the provider drives it via

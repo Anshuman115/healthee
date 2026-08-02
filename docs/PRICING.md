@@ -90,7 +90,12 @@ way it moved down.
   resets is honest; *"unlimited" with a silent throttle is the dishonest version of the
   same thing*, and this product does not do that. The stated number is **20 per rolling 30
   days**, it is enforced server-side, and the 402 that refuses a capped owner names the day
-  it reopens rather than telling them to try later.
+  it reopens rather than telling them to try later. **And since #116 the owner can see the
+  balance before the refusal**: `GET /api/entitlement` carries `included` — `remaining` of
+  `limit` per `window_days`, read from `PREMIUM_ALLOWANCE` itself so the number shown is
+  the number enforced, and *peeked*, so checking never costs a question. A stated limit
+  nobody could observe until it stopped them would have been most of the way back to the
+  silent throttle this bullet rejects.
 - **The old prices never cleared their own cost.** At a realistic 15 questions/month,
   $3.99 ran **−20%** and $34.99/yr ran **−53%**. Removing the free tier's AI deleted the
   19× giveaway multiplier but never touched that: premium had simply never been priced
