@@ -15,9 +15,9 @@ real assembled prompts, no provider call): the two prompts were **35,728 + 36,37
 72,103** input tokens; the merged one is **37,787**, so a shipping night costs **34,316
 fewer input tokens, −47.6 %**. The same script counts what the merge ADDS to the briefing
 call — +2,059, of which 1,360 is the wider context window and ~700 the JSON task and the
-union of metrics changing which notes rank in. For scale, the whole nightly chain measured
-**134,092** provider-counted input tokens across four calls (``PRICING.md`` §3.1), so this
-is ~24 % off the night.
+union of metrics changing which notes rank in. For scale: the nightly chain's four calls
+are **134,092** provider-counted input tokens (``PRICING.md`` §3.1) and this removes one
+of them net of that +2,059, i.e. **~24 % off the night**.
 
 ## Two fields, not a regex over prose
 

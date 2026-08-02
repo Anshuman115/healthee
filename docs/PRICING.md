@@ -337,8 +337,11 @@ $3.00/M output).
 > | **the merged call** | **37,787** |
 > | **saved, per owner per shipping night** | **34,316 — −47.6 %** |
 >
-> Against the nightly chain's four calls (134,092 provider-counted input tokens, the rows
-> above), that is **~24 % off the night**. At this section's Gemini 3 Flash rate
+> Against the nightly chain, the merge removes one of its four calls — the daily action,
+> whose **provider-counted** input was 33,780 — less the +2,059 the merged prompt adds,
+> so ~31.7k of the chain's 134,092 provider-counted input tokens: **~24 % off the night**
+> (that one figure mixes a counted delta with billed totals, which is why it is quoted to
+> two significant figures and not more). At this section's Gemini 3 Flash rate
 > ($0.50/M input) it is **~$0.017/owner/night ≈ $0.52/premium owner/month**; at the
 > Flash-Lite rate the batch tier actually runs on today ($0.30/M) it is **~$0.31/month**.
 > The token count is measured, **the rate is the assumption** — the billed figure is owed
