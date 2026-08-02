@@ -1,10 +1,15 @@
 """Phone-recorded GPS tracks — ingest + list + route-map detail.
 
-Wraps the v2 science (``derive.gps.derive_vo2max_submax`` /
-``derive.gps_detail.gps_track_detail``,
-ported verbatim in WP2). The ingest path stores the track/points, runs the
-submaximal HR-vs-pace VO2max, and denormalises a summary onto the track row for
-the cheap list endpoint. All within the caller's transaction.
+Wraps the v2 science (``derive.gps_scoring.score_track`` /
+``derive.gps_detail.gps_track_detail``, ported verbatim in WP2). The ingest path stores
+the track and its points, then hands the scoring to ``derive``. All within the caller's
+transaction.
+
+Scoring used to LIVE here — this module ran the estimator and denormalised the summary,
+and it was the only caller either had. That made an upload the one moment a session could
+ever be scored, which is the moment the strap's HR for it is least likely to have synced
+(#111: 8 production tracks, zero estimates). Both now live in
+``derive/gps_scoring.py``, called from ``derive_day`` as well as from here.
 """
 
 from __future__ import annotations
@@ -15,8 +20,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from healthee.derive._common import Cur
-from healthee.derive.gps import derive_vo2max_submax
 from healthee.derive.gps_detail import gps_track_detail
+from healthee.derive.gps_scoring import score_track
 
 
 class GpsTrackIn(BaseModel):
@@ -28,8 +33,12 @@ class GpsTrackIn(BaseModel):
 
 
 def ingest_gps_track(cur: Cur, user_id: UUID, tz: str, req: GpsTrackIn) -> dict:
-    """Store a track + its points under ``user_id``, derive submax VO2max,
-    denormalise the summary."""
+    """Store a track + its points under ``user_id`` and score it straight away.
+
+    The immediate score is for the response — a run recorded after the strap synced
+    should return its number now, not on the next push. It is no longer the ONLY
+    scoring: ``derive_day`` picks up whatever this attempt had to refuse (#111).
+    """
     pts = [
         p
         for p in req.points
@@ -51,31 +60,8 @@ def ingest_gps_track(cur: Cur, user_id: UUID, tz: str, req: GpsTrackIn) -> dict:
         "VALUES (%s, %s, to_timestamp(%s), %s, %s, %s) ON CONFLICT DO NOTHING",
         [(user_id, track_id, p[0], p[1], p[2], (p[3] if len(p) > 3 else None)) for p in pts],
     )
-    vo2 = derive_vo2max_submax(cur, user_id, tz, track_id)
-    _denormalise_summary(cur, user_id, track_id, vo2)
+    vo2 = score_track(cur, user_id, tz, track_id)
     return {"ok": True, "track_id": str(track_id), "points": len(pts), "vo2max": vo2}
-
-
-def _denormalise_summary(cur: Cur, user_id: UUID, track_id: str, vo2: dict) -> None:
-    """Write distance/duration/HR/elevation + submax onto the track row for lists."""
-    det = gps_track_detail(cur, user_id, track_id)
-    if not det:
-        return
-    s = det["summary"]
-    cur.execute(
-        "UPDATE gps_track SET distance_m=%s, duration_s=%s, avg_hr=%s, ele_gain_m=%s, "
-        "vo2max_submax=%s, r2=%s WHERE user_id=%s AND id=%s",
-        (
-            round(s["distance_km"] * 1000),
-            s["duration_s"],
-            s["avg_hr"],
-            s["ele_gain_m"],
-            (vo2.get("vo2max_submax") if vo2.get("ok") else None),
-            (vo2.get("r2") if vo2.get("ok") else None),
-            user_id,
-            track_id,
-        ),
-    )
 
 
 def list_gps_tracks(cur: Cur, user_id: UUID, limit: int = 30) -> dict:

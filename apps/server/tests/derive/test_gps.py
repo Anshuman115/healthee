@@ -18,6 +18,14 @@ import math
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from tests.derive._gps_seed import (
+    OCEAN_LAT,
+    OCEAN_LNG,
+    STAGES,
+    insert_hr,
+    insert_track,
+    synthetic_run,
+)
 
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
@@ -30,7 +38,7 @@ from healthee.derive.gps import (
 )
 from healthee.derive.gps_detail import gps_track_detail
 from healthee.derive.vo2max_reserve import WITHHOLD_WALKING_ONLY
-from healthee.derive.vo2max_submax import VO2MAX_HI, VO2MAX_LO, _vo2_speed_grade
+from healthee.derive.vo2max_submax import VO2MAX_HI, VO2MAX_LO
 
 # ── make_hr_interpolator — pure edge/gap logic ───────────────────────────────
 
@@ -57,26 +65,6 @@ def test_hr_interpolator_gap_and_empty() -> None:
 # ── derive_vo2max_submax + gps_track_detail — seeded plumbing ────────────────
 
 _START_EPOCH = 1_700_000_000.0
-_OCEAN_LAT, _OCEAN_LNG = 0.0, -30.0  # mid-Atlantic: no SRTM tile -> GPS-ele fallback
-_STAGES = ((3.0, 480), (3.4, 480), (3.8, 480))  # (speed m/s, seconds) progressive run
-
-
-def _synthetic_run() -> tuple[list[tuple[float, float, float, float]], list[tuple[float, float]]]:
-    """A noise-free progressive flat run: perfectly linear VO2<->HR (fit recovers ~50)."""
-    hrmax = 208 - 0.7 * 30
-    slope = (50.0 - 3.5) / (hrmax - 60)
-    intercept = 3.5 - slope * 60
-    points: list[tuple[float, float, float, float]] = []
-    hr_rows: list[tuple[float, float]] = []
-    t, lng = _START_EPOCH, _OCEAN_LNG
-    for speed, dur in _STAGES:
-        hr = (_vo2_speed_grade(speed, 0.0) - intercept) / slope
-        for _ in range(dur):
-            lng += speed / (111_320 * math.cos(math.radians(_OCEAN_LAT)))
-            points.append((t, _OCEAN_LAT, lng, 100.0))
-            hr_rows.append((t, hr))
-            t += 1.0
-    return points, hr_rows
 
 
 def _seed_track(cur) -> str:
@@ -95,29 +83,9 @@ def _seed_track(cur) -> str:
         "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now() - interval '1 day', 72)",
         (SENTINEL_USER_ID,),
     )
-    points, hr_rows = _synthetic_run()
-    start = datetime.fromtimestamp(points[0][0], UTC)
-    end = datetime.fromtimestamp(points[-1][0], UTC)
-    cur.execute(
-        "INSERT INTO gps_track (user_id, start_ts, end_ts) VALUES (%s, %s, %s) RETURNING id",
-        (SENTINEL_USER_ID, start, end),
-    )
-    row = cur.fetchone()
-    assert row is not None
-    track_id = str(row[0])
-    cur.executemany(
-        "INSERT INTO gps_point (user_id, track_id, ts, lat, lng, ele_m) "
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        [
-            (SENTINEL_USER_ID, track_id, datetime.fromtimestamp(p[0], UTC), p[1], p[2], p[3])
-            for p in points
-        ],
-    )
-    cur.executemany(
-        "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, 'hr', %s) "
-        "ON CONFLICT (user_id, metric, ts) DO NOTHING",
-        [(SENTINEL_USER_ID, datetime.fromtimestamp(ts, UTC), hr) for ts, hr in hr_rows],
-    )
+    points, hr_rows = synthetic_run(_START_EPOCH)
+    track_id = insert_track(cur, SENTINEL_USER_ID, points)
+    insert_hr(cur, SENTINEL_USER_ID, hr_rows)
     return track_id
 
 
@@ -146,10 +114,10 @@ def _flat_run(hr_lo: float, hr_hi: float, speed_ms: float, dur_s: int) -> tuple[
     """
     points: list[tuple[float, float, float, float]] = []
     hr_rows: list[tuple[float, float]] = []
-    t, lng = _START_EPOCH, _OCEAN_LNG
+    t, lng = _START_EPOCH, OCEAN_LNG
     for i in range(dur_s):
-        lng += speed_ms / (111_320 * math.cos(math.radians(_OCEAN_LAT)))
-        points.append((t, _OCEAN_LAT, lng, 100.0))
+        lng += speed_ms / (111_320 * math.cos(math.radians(OCEAN_LAT)))
+        points.append((t, OCEAN_LAT, lng, 100.0))
         hr_rows.append((t, hr_lo + (hr_hi - hr_lo) * i / dur_s))
         t += 1.0
     return points, hr_rows
@@ -177,11 +145,7 @@ def _seed_flat(cur, hr_lo: float, hr_hi: float, speed_ms: float, rhr: float) -> 
             for p in points
         ],
     )
-    cur.executemany(
-        "INSERT INTO sample (user_id, ts, metric, value) VALUES (%s, %s, 'hr', %s) "
-        "ON CONFLICT (user_id, metric, ts) DO NOTHING",
-        [(SENTINEL_USER_ID, datetime.fromtimestamp(ts, UTC), hr) for ts, hr in hr_rows],
-    )
+    insert_hr(cur, SENTINEL_USER_ID, hr_rows)
     day = datetime.fromtimestamp(_START_EPOCH, UTC).date()
     cur.executemany(
         "INSERT INTO derived_daily (user_id, day, metric, value, flags) "
@@ -244,4 +208,4 @@ def test_gps_track_detail_summary(db: None) -> None:  # noqa: ARG001 — DB gate
     assert summary["n_points"] == len(detail["points"]) > 100
     assert summary["distance_km"] > 1.0
     assert summary["avg_hr"] is not None and summary["max_hr"] is not None
-    assert summary["duration_s"] == pytest.approx(sum(d for _, d in _STAGES) - 1, abs=1)
+    assert summary["duration_s"] == pytest.approx(sum(d for _, d in STAGES) - 1, abs=1)
