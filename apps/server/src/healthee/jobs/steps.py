@@ -102,7 +102,12 @@ def step_warm(
     *,
     client: LLMClient | None = None,
 ) -> dict:
-    """Warm one owner's read-surface coaching lines for their local day (off the read path).
+    """Warm one owner's generated lines for their local day (off the read path).
+
+    Since #95 that includes the BRIEFING body: one merged call produces it and the daily
+    action together, so the ``briefing`` step below usually sends warmed text instead of
+    generating. Which lines exist is ``insights.coaching``'s business, not this module's —
+    this adapter did not change when a third one appeared.
 
     ``_day`` is unused deliberately: a coaching line is advice for the owner's day as
     it is NOW, and its cache freshness is stamped from ``tz`` (``cache.today_iso``).
@@ -113,5 +118,10 @@ def step_warm(
 
 
 def step_briefing(day: date, user_id: UUID, tz: str, *, client: LLMClient | None = None) -> dict:
-    """Send one owner's morning Telegram briefing."""
+    """Send one owner's morning Telegram briefing (usually warmed by ``step_warm``, #95).
+
+    ``day`` is used here, unlike in ``step_warm``: it date-stamps the message that goes
+    out, and a briefing presented undated is the staleness failure the honesty contract
+    names by name.
+    """
     return briefing_mod.send_briefing(user_id, tz, day, client=client)

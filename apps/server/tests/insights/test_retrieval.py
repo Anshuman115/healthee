@@ -21,8 +21,8 @@ from __future__ import annotations
 
 import re
 
-from healthee.insights.coaching import _DAILY_ACTION_PROMPT, DAILY_ACTION_METRICS
 from healthee.insights.manifest import ManifestNote, all_notes
+from healthee.insights.morning import DAILY_ACTION_METRICS, DAILY_ACTION_PROMPT
 from healthee.insights.retrieval import (
     _ALIAS_HIT,
     _LEXICAL_CAP,
@@ -89,7 +89,7 @@ def test_the_daily_action_prompt_no_longer_embeds_a_critical_power_note() -> Non
     Measured before the fix: ``critical_speed`` was ranked into this prompt's top-6 and
     embedded IN FULL — 6,707 tokens, 16% of a ~42k prompt, every owner, every night.
     """
-    top = [n.id for n in rank_notes(_DAILY_ACTION_PROMPT, DAILY_ACTION_METRICS)[:6]]
+    top = [n.id for n in rank_notes(DAILY_ACTION_PROMPT, DAILY_ACTION_METRICS)[:6]]
     assert "critical_speed" not in top
 
 

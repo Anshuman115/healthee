@@ -145,6 +145,7 @@ def _ask(
         tz,
         metrics=list(question.metrics),
         context_days=question.context_days,
+        response_format=question.response_format,
         client=client,
     )
     return (_outcome(grounded), list(grounded.citations), [])

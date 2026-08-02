@@ -21,7 +21,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from tests.insights._stub import VALID_TEXT, StubLLM
+from tests.insights._stub import MORNING_JSON, VALID_TEXT, StubLLM
 
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
@@ -43,7 +43,10 @@ _AUTH = {"Authorization": f"Bearer {_TOKEN}"}
 
 @pytest.fixture
 def stub(monkeypatch: pytest.MonkeyPatch) -> Iterator[StubLLM]:
-    client = StubLLM()
+    # `json_text` so the merged morning call (#95) takes its SHIPPING path here: without
+    # it a JSON-mode call gets prose, the merged answer fails to validate, and every test
+    # below would quietly be measuring the fallback path instead of production's.
+    client = StubLLM(json_text=MORNING_JSON)
     monkeypatch.setattr(grounded, "get_client", lambda: client)
     monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
     get_settings.cache_clear()
@@ -105,7 +108,9 @@ def test_the_chain_warms_the_lines_and_no_read_ever_generates(
     warm = next(step for step in result.steps if step.name == "warm")
     assert warm.status == "ok", warm.error
     assert warm.detail is not None
-    assert warm.detail["warmed"] == sorted([coaching.DAILY_ACTION_KEY, coaching.SLEEP_TONIGHT_KEY])
+    assert warm.detail["warmed"] == sorted(
+        [coaching.MORNING_BRIEFING_KEY, coaching.DAILY_ACTION_KEY, coaching.SLEEP_TONIGHT_KEY]
+    )
 
     generated = stub.calls
     assert generated > 0

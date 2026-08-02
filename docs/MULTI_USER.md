@@ -536,9 +536,14 @@ nothing, the guard makes it fail the build.
   null forever. They are now a supervised chain step, after `recs` (it shares
   `correlate`'s findings, so a `correlate` failure **skips** it) and before
   `briefing`. A `warm` failure is **non-fatal**: a missing line is a degraded card,
-  and aborting would cost the owner their briefing over a one-liner. Cost: 2 LLM
-  calls per owner per local day, already inside PRICING.md §3.1's ~9-calls/day
-  budget, and bounded by the per-day `kv` cache (a forced re-run spends nothing).
+  and aborting would cost the owner their briefing over a one-liner. Cost: **2** LLM
+  calls per owner per local day — the merged morning call (#95: the briefing body and
+  the action from ONE generation, `insights/morning.py`) and the sleep-tonight line —
+  bounded by the per-day `kv` cache (a forced re-run spends nothing). It was 2 lines in
+  2 calls with the briefing paying for a third downstream; the `briefing` step now
+  usually sends warmed text and spends none. It still generates for itself when nothing
+  was warmed (a `correlate` failure skipped `warm`, or the merged call could not ground
+  itself), so the saving is conditional and the briefing arriving is not.
 - **Retry budget** (`_ATTEMPT_BUDGET = 3`, in-memory): the marker is only set once
   correlate succeeds, so a *failing* chain stays unmarked — under a 5-minute tick it
   would otherwise be retried ~150× per owner-day (150 Telegram alerts + 150 re-sent

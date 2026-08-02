@@ -6,8 +6,9 @@ manifest-ranked retrieval → the one LLM transport call → hard OUTPUT GUARDRA
 one nudged retry and then the honest fallback (never unvalidated text).
 
 **Two surfaces run it, and they run the same code.** ``grounded_ask`` (``grounded.py``)
-is the non-conversational one — ``surfaces``, ``notable``, ``coaching``, ``jobs.recs``,
-``jobs.briefing``, ``challenges.generate``/``program_generate`` are thin tasks over it.
+is the non-conversational one — ``surfaces``, ``notable``, ``coaching``, ``morning``
+(one call for the briefing AND the daily action, #95), ``jobs.recs``,
+``challenges.generate``/``program_generate`` are thin tasks over it.
 ``run_coach`` (``coach.py``) is the conversational one; it needs a bounded tool loop, so
 it supplies a different message layout and a different turn shape — and nothing else.
 The coach used to re-implement the sequence from the same primitives

@@ -313,6 +313,54 @@ $3.00/M output).
 > full-context call *and* its nudged retry — so answer quality is a cost lever roughly
 > the size of the prompt itself.
 
+> ### ✅ #95 SHIPPED — the briefing and the daily action are ONE call (2026-08-02)
+>
+> The two rows above are no longer two calls. `briefing` asked, in its own words, for
+> "today's single most useful action" and `daily action` asked for that line and nothing
+> else, so the product paid twice for one answer. `insights/morning.py` now makes ONE
+> JSON-mode call whose two fields become the Telegram briefing and `/api/today`'s action.
+>
+> **⚠ These figures are COUNTED, NOT BILLED** — and that is the one thing that must not
+> blur into the table above, whose numbers are the provider's own `usage`. They come from
+> a local dry run that assembles the real prompts (same system prompt, same v2 context,
+> same manifest-ranked evidence) and tokenises them with `tiktoken/cl100k_base`, on a
+> 40-day seeded owner. No provider call was made; no money was spent. The counter is not
+> the provider's, so treat the RATIO as the measurement and the absolute counts as ±5 %
+> (as a check on that: the same script counts the two old prompts at 72,103 where the
+> provider counted 69,084 — 4.4 % high).
+>
+> | | input tokens (counted) |
+> |---|---|
+> | briefing, pre-#95 | 35,728 |
+> | daily action, pre-#95 | 36,375 |
+> | **the pair** | **72,103** |
+> | **the merged call** | **37,787** |
+> | **saved, per owner per shipping night** | **34,316 — −47.6 %** |
+>
+> Against the nightly chain, the merge removes one of its four calls — the daily action,
+> whose **provider-counted** input was 33,780 — less the +2,059 the merged prompt adds,
+> so ~31.7k of the chain's 134,092 provider-counted input tokens: **~24 % off the night**
+> (that one figure mixes a counted delta with billed totals, which is why it is quoted to
+> two significant figures and not more). At this section's Gemini 3 Flash rate
+> ($0.50/M input) it is **~$0.017/owner/night ≈ $0.52/premium owner/month**; at the
+> Flash-Lite rate the batch tier actually runs on today ($0.30/M) it is **~$0.31/month**.
+> The token count is measured, **the rate is the assumption** — the billed figure is owed
+> after the deploy, from the provider's own daily spend, exactly as the table above was.
+>
+> What the merge ADDS is counted too: +2,059 tokens on the briefing call, of which 1,360
+> is widening its context window from 14 to 30 days (the daily action's window, kept
+> because the action is calibrated from whole local days) and ~700 the JSON task plus the
+> union of both surfaces' `metrics`. Output is unchanged in substance — both texts are
+> still written once each, ~250 tokens together, ~1 % of the cost.
+>
+> **The failure tail is priced, not hidden.** The merged call is an optimisation, never a
+> dependency: when it cannot ground itself, each surface falls back to the independent
+> generation it made before #95, so neither can go dark because of the other's sentence.
+> That costs one extra attempt on a failing night. The break-even is arithmetic: with a
+> gate failure costing one nudged retry, the merge is cheaper whenever the merged call's
+> total-failure rate is under **50 %** — measured at 0 % on current main (§9.3's arm,
+> 14/14) and 31 % at the 2026-08-01 baseline.
+
 Assumptions per active user (the original planning model, kept for continuity — the
 box above is what to plan on now):
 
@@ -491,7 +539,7 @@ instance cheaper. The options, with measured effects:
 | A | Free coach taste becomes **one-time** (N total on signup) rather than weekly | free ≈ $0.34 → **≈$0.09/mo** and it *decays to ~$0* | the weekly re-hook; conversion may drop |
 | B | Free taste to 1 per **30 days** | free ≈ $0.34 → **≈$0.11/mo** | weaker hook, keeps the habit |
 | C | Evidence block top-6 → **top-4** | **−18.8% input on every surface** (sign established, 95% CI −35,173 to −3,083; ship rate unchanged at n=42, p=1.0) | needs ~200 pairs (~$15/arm) to exclude a small quality loss — see #94/§9.1 |
-| D | Merge `briefing` + `daily_action` (#95) | ~−26% of the nightly chain | a product change, and possibly a second definition of "today's action" |
+| D | Merge `briefing` + `daily_action` (#95) — **SHIPPED 2026-08-02** | **−34,316 input tok/owner/night, −47.6% of the two calls, ~−24% of the nightly chain** (counted not billed, §3.1) | the canonical-definition risk went the OTHER way: the two surfaces now render ONE generated action instead of two that could disagree |
 | E | Raise price | $3.99 → $5.99 adds ~$1.88 net/premium | competitive position (§5: Fitbit ~$9.99, Whoop bundles hardware) |
 | F | Accept as CAC | nothing changes | needs a conversion target and a runway number |
 
@@ -506,6 +554,16 @@ positioning and keeps the honest-and-cheap story intact.
 Deliberately *not* recommended first: E, because the measurement is a reason to
 fix the cost structure before asking users to fund it; and D, because it trades a
 canonical-definition risk for a saving that A and C already cover.
+
+> **D was implemented anyway, on 2026-08-02, and the reservation above did not survive
+> contact.** The "possibly a second definition of today's action" risk was inverted, not
+> accepted: before the merge the briefing's action and `/api/today`'s action were two
+> independent generations that could disagree on the same morning; after it they are one
+> generated sentence rendered on two surfaces. The availability risk — one failure darking
+> both — is handled by construction rather than noted (§3.1's box). This changes nothing
+> about the recommendation: **A + C are still the levers that close the hole**, because D
+> only touches the premium owner's nightly chain and §6.1a's finding is that the free tier
+> is ~70 % of it.
 
 **Not decided here, and not to be silently implemented** — the tables above stay
 as they are until the owner picks. What is settled is the measurement.

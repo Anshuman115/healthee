@@ -68,6 +68,14 @@ is premium (§12.7's invariant is enforced at both, from one source of truth).
 off-read-path warmer they are null forever. It runs here, once per owner per THEIR
 local day, because that is the one place that already knows both.
 
+Since #95 ``warm`` also generates the **briefing body** — one call produces it and the
+daily action together (``insights.morning``), so ``briefing`` below usually sends warmed
+text and spends nothing. That does NOT make ``briefing`` depend on ``warm``: when ``warm``
+was skipped (a ``correlate`` failure) or its merged call could not ship, ``briefing``
+generates for itself exactly as it did before. The order of the two steps is unchanged and
+still only ``warm`` → ``briefing``, which is the order that lets the second read what the
+first wrote.
+
 The chain is deduped per day via the ``kv`` table: once a day's chain has run its
 generating steps, a second ``run_chain`` for that day is a no-op (legacy deduped
 on last-night's sleep landing). That marker is what lets the scheduler tick
