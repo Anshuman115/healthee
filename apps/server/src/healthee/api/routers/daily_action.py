@@ -101,8 +101,10 @@ def post_reveal_daily_action(request: Request, user: DailyActionUser) -> Reveale
     cached = coaching.cached_payload(user.id, user.timezone, coaching.DAILY_ACTION_KEY)
     if cached is not None:
         # The normal premium path: the chain warmed this overnight, so nothing is
-        # generated. The refund is a no-op while this feature is uncapped, and is not
-        # decoration: it is what keeps "the allowance pays for GENERATION" true the day
+        # generated — and since #95 it is the line the MERGED morning call produced, i.e.
+        # the same sentence the Telegram briefing rendered rather than a second opinion
+        # about the same day. The refund is a no-op while this feature is uncapped, and is
+        # not decoration: it is what keeps "the allowance pays for GENERATION" true the day
         # somebody prices the reveal in either table.
         gate.refund_ai_use(request, user)
         return _wire(cached)
