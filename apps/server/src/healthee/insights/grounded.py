@@ -17,8 +17,9 @@ construction, and ``tests/insights/test_pipeline_shared.py`` fails if either sur
 stops inheriting one or reaches for a primitive directly.
 
 The surfaces that call ``grounded_ask``: sleep/activity/metric/workout insights
-(``surfaces``), ``notable``, the daily coaching lines (``coaching``), the two job
-surfaces (``jobs.recs``, ``jobs.briefing``) and challenge/program generation
+(``surfaces``), ``notable``, the sleep-tonight coaching line (``coaching``), the one
+morning generation that feeds both the Telegram briefing and ``/api/today``'s action
+(``morning``, #95), ``jobs.recs`` and challenge/program generation
 (``challenges.generate``, ``challenges.program_generate``). The coach reaches the same
 stages through ``run_coach``. Nothing else may talk to the LLM at all.
 """

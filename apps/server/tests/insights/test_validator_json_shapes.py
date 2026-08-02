@@ -166,3 +166,57 @@ def test_the_programs_own_why_must_be_grounded_too() -> None:
     result = validate_json(_program(why="This suggests a ladder is what you need."))
     assert result.ok is False
     assert any("lacks a citation" in i for i in result.issues)
+
+
+# ── the morning shape (#95): two fields, one verdict ─────────────────────────
+
+
+def _morning(**overrides) -> str:
+    payload = {
+        "briefing": (
+            f"Recovery sits at your median. Steady load may support fitness [{ESTABLISHED_ID}]."
+        ),
+        "action": (
+            f"Walk 20 minutes after lunch; movement may support recovery [{ESTABLISHED_ID}]."
+        ),
+    }
+    payload.update(overrides)
+    return json.dumps(payload)
+
+
+def test_a_well_formed_morning_answer_validates() -> None:
+    result = validate_json(_morning())
+    assert result.ok is True
+    assert ESTABLISHED_ID in result.citations
+
+
+def test_an_uncited_action_blocks_the_briefing_beside_it() -> None:
+    """The coupling, at the layer that creates it: the two fields are ONE candidate.
+
+    ``morning.py`` answers this by letting each surface fall back to its own generation —
+    never by shipping the half that passed.
+    """
+    result = validate_json(_morning(action="This suggests your fitness is low."))
+    assert result.ok is False
+    assert any("lacks a citation" in i for i in result.issues)
+
+
+def test_an_uncited_briefing_blocks_the_action_beside_it() -> None:
+    result = validate_json(_morning(briefing="This suggests your recovery is drifting."))
+    assert result.ok is False
+    assert any("lacks a citation" in i for i in result.issues)
+
+
+def test_the_action_field_is_held_to_the_cited_notes_grade() -> None:
+    """Merging the two calls may not loosen what either text was held to before #95."""
+    result = validate_json(
+        _morning(action=f"Interval work is linked to a higher VO2max [{CONTESTED_ID}].")
+    )
+    assert result.ok is False
+    assert any("Contested" in i for i in result.issues)
+
+
+def test_a_fabricated_id_in_either_morning_field_is_blocked() -> None:
+    result = validate_json(_morning(briefing="Sleep debt is clearing [totally_made_up_note]."))
+    assert result.ok is False
+    assert any("do not exist" in i for i in result.issues)

@@ -1,11 +1,24 @@
 """The ``briefing`` chain step — the morning "daily-insight" Telegram message.
 
 A short grounded summary of where the user stands today, generated THROUGH the
-choke point (``grounded_ask`` → v2 context, cited, blocking-validated) and sent
-via ``core.notify`` (which never raises and no-ops cleanly when Telegram is
-unconfigured). Honest by construction: a flat or below-par day is reported as
-such, and if the model can't ground a claim the choke point returns its honest
-fallback — which we still send, plainly, rather than inventing an upbeat line.
+choke point (v2 context, cited, blocking-validated) and sent via ``core.notify``
+(which never raises and no-ops cleanly when Telegram is unconfigured). Honest by
+construction: a flat or below-par day is reported as such, and if the model can't ground
+a claim the choke point returns its honest fallback — which we still send, plainly,
+rather than inventing an upbeat line.
+
+## This step no longer generates on the normal path (#95)
+
+The briefing task asked for "today's single most useful action" and the daily-action
+prompt asked for that same line and nothing else — two full-corpus calls for one answer.
+Since #95 the ``warm`` step's merged morning call (``insights.morning``) writes the
+briefing BODY into the per-day cache along with the action, so this step usually spends
+**zero** LLM calls and simply date-stamps and sends what was warmed.
+
+It still generates when there is nothing warmed to send, and that is the whole coupling
+story: a merged call that could not ship, or a ``correlate`` failure that skipped ``warm``
+entirely (``jobs/chain.py``), leaves this step doing exactly what it did before #95. The
+cost saving is conditional on the merged call succeeding; the briefing arriving is not.
 """
 
 from __future__ import annotations
@@ -16,54 +29,56 @@ from uuid import UUID
 from healthee.core.logging import get_logger
 from healthee.core.notify import send_telegram
 from healthee.core.tenancy import user_today
+from healthee.insights import coaching, morning
 from healthee.insights.client import LLMClient
-from healthee.insights.grounded import grounded_ask
 
 log = get_logger(__name__)
-
-BRIEFING_METRICS = ["recovery_score", "hrv_sleep_avg", "sleep_health_score_4dim", "mvpa_min"]
-
-BRIEFING_TASK = (
-    "Give me a SHORT morning briefing (3–5 lines) on where I stand today, using my "
-    "real numbers: my recovery/readiness and what training intensity that supports; "
-    "the ONE thing most off my personal baseline; and today's single most useful "
-    "action. Be honest — if it's a flat or below-par day, say so plainly, no "
-    "cheerleading. Cite [note_id] for every health claim. No diagnosis, no alarmism."
-)
 
 
 def send_briefing(
     user_id: UUID, tz: str, day: date | None = None, *, client: LLMClient | None = None
 ) -> dict:
-    """Generate ``user_id``'s grounded briefing and Telegram it. Returns a status dict.
+    """Send ``user_id``'s grounded briefing over Telegram. Returns a status dict.
 
     ``day`` defaults to the OWNER's local today (from their ``tz``), not a global one.
     ``client`` is injectable for tests. Errors from generation propagate to the
     supervised chain runner; the Telegram send itself never raises (``core.notify``).
+
+    ``source`` names which path produced the text — ``warm`` (the merged morning call,
+    no model run here) or ``standalone`` (this step generated). It is on the status dict
+    because "the briefing went out" and "the briefing cost a call" are two different
+    facts, and the job health surface is where the second one is legible.
     """
     day = day or user_today(tz)
-    result = grounded_ask(
-        BRIEFING_TASK,
-        user_id,
-        tz,
-        metrics=BRIEFING_METRICS,
-        context_days=14,
-        client=client,
-    )
-    message = _compose(day, result.text)
-    sent = send_telegram(message)
+    warmed = coaching.cached_line(user_id, tz, coaching.MORNING_BRIEFING_KEY)
+    body, status = _body(user_id, tz, warmed, client=client)
+    sent = send_telegram(_compose(day, body))
     log.info(
-        "briefing[%s] %s: sent=%s validated=%s refused=%s",
+        "briefing[%s] %s: sent=%s source=%s validated=%s refused=%s",
         user_id,
         day,
         sent,
-        result.validated,
-        result.refused,
+        status["source"],
+        status["validated"],
+        status["refused"],
     )
-    return {
-        "ok": True,
-        "day": day.isoformat(),
-        "sent": sent,
+    return {"ok": True, "day": day.isoformat(), "sent": sent, **status}
+
+
+def _body(
+    user_id: UUID, tz: str, warmed: str | None, *, client: LLMClient | None
+) -> tuple[str, dict]:
+    """The message body plus what it cost — the warmed text, or a generation of our own.
+
+    A warmed body is only ever cached after it validated (``coaching._cache``), so this
+    path is validated-by-construction; the standalone path reports what the choke point
+    concluded, including an honest fallback, which is still sent.
+    """
+    if warmed is not None:
+        return warmed, {"source": "warm", "validated": True, "refused": False}
+    result = morning.generate_briefing(user_id, tz, client=client)
+    return result.text, {
+        "source": "standalone",
         "validated": result.validated,
         "refused": result.refused,
     }

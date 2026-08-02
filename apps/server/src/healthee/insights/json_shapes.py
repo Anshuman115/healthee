@@ -132,12 +132,42 @@ def _recs_segments(payload: object) -> list[Segment]:
     )
 
 
+# The ONE morning generation (#95, `insights/morning.py`): the Telegram briefing body and
+# today's daily action, returned as two fields of ONE answer. Both are INTERPRETIVE prose
+# and neither takes the directive exemption a rec's `action` does — before #95 each of these
+# two texts was validated sentence-by-sentence by the PROSE validator, and merging the calls
+# may not quietly loosen what either is held to. So both fields are grounded segments, and
+# the rules that applied to two answers now apply to one.
+#
+# There is no per-field verdict, deliberately: the two are one candidate, so an ungrounded
+# sentence in `action` withholds the briefing too. `morning.py` handles that by letting each
+# surface fall back to its own independent generation, rather than by shipping half a judged
+# answer.
+_MORNING_GROUNDED_FIELDS = ("briefing", "action")
+
+
+def _morning_segments(payload: dict) -> list[Segment]:
+    """The morning answer's two user-facing strings, both held to the grounding rules.
+
+    A missing or non-string field yields no segment — which is why `morning._fields` makes
+    the structural check separately. This function's job is "what text is in here", not
+    "is the payload well-formed"; conflating them is how a shape ends up validating a
+    payload it does not actually understand.
+    """
+    return [
+        Segment(value)
+        for name in _MORNING_GROUNDED_FIELDS
+        if isinstance(value := payload.get(name), str)
+    ]
+
+
 # The JSON shapes this codebase knows how to read, keyed by a top-level key. A shape that
 # is NOT here fails closed (module docstring).
 JSON_SHAPES: dict[str, Callable[[dict], list[Segment]]] = {
     "recommendations": _recs_segments,
     "challenges": _challenge_segments,
     "program": _program_segments,
+    "briefing": _morning_segments,
 }
 
 

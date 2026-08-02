@@ -7,6 +7,8 @@ call" without any network.
 
 from __future__ import annotations
 
+import json
+
 from tests.insights._ids import ESTABLISHED_ID
 
 from healthee.insights.client import ChatResponse
@@ -17,6 +19,10 @@ VALID_TEXT = (
     f"Your recent numbers look steady. Consistent activity may support fitness [{ESTABLISHED_ID}]."
 )
 
+# The merged morning answer (#95) in the shape `json_shapes` registers: two validating
+# fields, one call. A test that wants the fast path hands this to `StubLLM(json_text=…)`.
+MORNING_JSON = json.dumps({"briefing": VALID_TEXT, "action": VALID_TEXT})
+
 
 class StubLLM:
     """Scripted LLM: returns each queued response in turn (repeats the last).
@@ -24,10 +30,18 @@ class StubLLM:
     ``messages`` records what each call was actually asked, so a test can prove a
     surface put something in the prompt (a caller-supplied intent, a calibration band)
     rather than only that the answer came back.
+
+    ``json_text`` is what a JSON-mode call gets, when a test supplies one. It is a
+    SEPARATE script because prose and JSON surfaces interleave inside one chain run
+    (recs, the merged morning call, the sleep line) and a single ordered list would make
+    every test depend on the chain's internal call order. Left ``None``, a JSON call gets
+    the prose script — which is the pre-#95 behaviour and, deliberately, an invalid JSON
+    answer: a test that wants the degraded path needs no special stub for it.
     """
 
-    def __init__(self, responses: list[str] | None = None) -> None:
+    def __init__(self, responses: list[str] | None = None, *, json_text: str | None = None) -> None:
         self._responses = list(responses or [VALID_TEXT])
+        self._json_text = json_text
         self.calls = 0
         self.messages: list[list[dict]] = []
 
@@ -37,4 +51,7 @@ class StubLLM:
         idx = min(self.calls, len(self._responses) - 1)
         self.calls += 1
         self.messages.append(list(messages))
+        json_mode = bool(response_format) and response_format.get("type") == "json_object"
+        if json_mode and self._json_text is not None:
+            return ChatResponse(text=self._json_text)
         return ChatResponse(text=self._responses[idx])

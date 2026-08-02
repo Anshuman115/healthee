@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 
-from healthee.insights import coaching, prompts, surfaces
+from healthee.insights import coaching, morning, prompts, surfaces
 
 # The vocabulary the guardrail's `personal_death_risk_number` / life-projection rules key
 # on. A prompt using any of it is asking the model to walk toward a blocked output.
@@ -35,8 +35,10 @@ _PROHIBITION = re.compile(r"\bnever\b|\bdo not\b|\bdon't\b|\bno\b|\bwithout\b", 
 SHIPPED_PROMPTS: dict[str, str] = {
     "sleep_insight": surfaces._SLEEP_PROMPT,
     "activity_insight": surfaces._ACTIVITY_PROMPT,
-    "daily_action": coaching._DAILY_ACTION_PROMPT,
+    "daily_action": morning.DAILY_ACTION_PROMPT,
     "sleep_tonight": coaching._SLEEP_TONIGHT_PROMPT,
+    "morning": morning.MORNING_TASK,
+    "briefing": morning.BRIEFING_TASK,
     "system": prompts.SYSTEM_PROMPT,
 }
 
