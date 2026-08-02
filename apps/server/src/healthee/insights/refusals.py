@@ -24,6 +24,30 @@ Its ``confirm`` conjunct exists because that screen cannot be a pattern. "I coll
 during my run yesterday" and "what are the signs of heat stroke?" share their words and
 differ in grammar, and an emergency screen that fires on the second trains people to
 ignore the first.
+
+## Why "heat stroke" was NOT handed over to that screen (#110)
+
+The obvious follow-up to #106 is to strip heat/sun stroke out of ``emergency`` — the new
+screen reads them better, so let the better mechanism own them. **Measured, it opens a
+hole.** ``exertional_emergency`` requires OWNER attribution, deliberately, and these do
+not have it:
+
+  * *"my friend collapsed with heat stroke, what do I do?"* — a third party's emergency,
+    and the person typing is the one who can act on it;
+  * *"I think I'm having heat stroke right now"* — first person, but the gerund puts the
+    sign outside ``red_flags``' owner-experience window, so the screen reads it as a topic;
+  * *"I got sun stroke yesterday"* — ``EXERTIONAL_RED_FLAG_RE`` has no sun-stroke
+    alternative at all, so it falls out of both mechanisms.
+
+All three refuse today and would stop refusing. So heat and sun stroke **stay here**,
+where a pattern with no attribution test catches them regardless of who they happened to.
+The cost is that *"what are the signs of heat stroke?"* keeps being refused — a known,
+stated over-refusal, which is the side of the trade this file's doctrine picks and the
+cheap error of the two. The two mechanisms overlap on owner-reported heat stroke;
+``emergency`` is checked first, so such a question is named ``emergency``, not
+``exertional_emergency``. Widening ``owner_reports_emergency`` to third parties is not a
+side effect this change gets to have — it is a behaviour change to a live screen and
+belongs to its own diff.
 """
 
 from __future__ import annotations
@@ -103,7 +127,23 @@ DOMAINS: tuple[Domain, ...] = (
             r"face drooping",
             r"arm weakness",
             r"slurred speech",
-            r"stroke",
+            # Cerebrovascular stroke. The legacy port carried this bare and unanchored,
+            # so it also refused every METRIC sense of the word: "stroke rate" (rowing,
+            # swimming), "stroke volume" and "stroke index" (the cardiac terms four of
+            # our own notes teach), "strokes per minute" — and, unanchored, the inside
+            # of "breaststroke" and "backstroke". Only those senses are excluded, and
+            # only where the qualifier FOLLOWS, because no presentation of a stroke puts
+            # one of these words next to it (#110).
+            # Left refused on purpose: the BARE noun, as in "how do I improve my swim
+            # stroke?". Separating it from "is this a stroke?" needs grammar, not a
+            # pattern — and half-closing the class by naming "swim" would be arbitrary.
+            r"\bstrokes?\b(?!\s*(?:rate|volume|count|length|index|per\b))",
+            # The closed compounds, and ONLY those: "sunstroke", "heatstroke". They need
+            # their own alternative because they carry no internal word boundary for the
+            # line above to anchor on. "heat stroke" and "heat-stroke" are already caught
+            # there (a space and a hyphen are both boundaries) and each has its own test,
+            # so writing them here too would add a branch no mutation could kill.
+            r"\b(?:sun|heat)stroke\b",
             r"faint(ing|ed)?",
             r"pass(ed|ing) out",
             r"loss of consciousness",
