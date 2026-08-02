@@ -14,14 +14,14 @@ import random
 import pytest
 
 from healthee.derive.dem import _tile_name
-from healthee.derive.mvpa import _weekly_mvpa_to_srpa
 from healthee.derive.sleep_score import _sleep_efficiency
-from healthee.derive.vo2max import _vo2max_jurca
+from healthee.derive.vo2max import _JURCA_SEE_ML_KG_MIN, _vo2max_jurca
 from healthee.derive.vo2max_submax import SubmaxResult, _vo2_speed_grade, vo2max_from_track
 
 # ── Jurca 2005 non-exercise VO2max ───────────────────────────────────────────
-# CRF_METs = 18.07 + 2.77*sex - 0.10*age - 0.17*bmi - 0.03*rhr + srpa; VO2 = CRF*3.5.
-# Jurca et al. 2005, Am J Prev Med 29(3):185-193 [[non_exercise_vo2max]].
+# CRF_METs = 18.07 + 2.77*sex - 0.10*age - 0.17*bmi - 0.03*rhr + SRPA_METS[srpa],
+# VO2 = CRF*3.5. Jurca et al. 2005, Am J Prev Med 29(3):185-193, Table 5, NASA column
+# [[non_exercise_vo2max]].
 
 
 def test_vo2max_jurca_male_known_value() -> None:
@@ -41,6 +41,65 @@ def test_vo2max_jurca_female_known_value() -> None:
 def test_vo2max_jurca_floors_at_20() -> None:
     # A very unfit profile drives the regression below 20; the floor holds.
     assert _vo2max_jurca(80, "male", 40.0, 100, 0) == 20.0
+
+
+# ── SR-PA enters DUMMY-CODED — Table 5, NASA column, verbatim (#108) ─────────
+# "the dummy-coded five-category SR-PA scale according to the Pedhauzur method":
+#   SR-PA-0 (reference, folded into the intercept)   0.00 METs
+#   SR-PA-1 (low)        0.32      SR-PA-2 (moderate)      1.06
+#   SR-PA-3 (high)       1.76      SR-PA-4 (very high)     3.03
+# We used to add the CATEGORY NUMBER instead (0/1/2/3/4 METs), over-crediting every level
+# above the reference by up to 1.24 METs = 4.3 ml/kg/min.
+
+
+@pytest.mark.parametrize(
+    ("srpa", "srpa_mets"),
+    [(0, 0.00), (1, 0.32), (2, 1.06), (3, 1.76), (4, 3.03)],
+)
+def test_vo2max_jurca_srpa_uses_published_dummy_coefficients(srpa: int, srpa_mets: float) -> None:
+    # Same 40yo male as the worked check above; only the SR-PA level moves.
+    base_mets = 18.07 + 2.77 - 0.10 * 40 - 0.17 * 24.0 - 0.03 * 55  # 11.11
+    expected = (base_mets + srpa_mets) * 3.5
+    assert _vo2max_jurca(40, "male", 24.0, 55, srpa) == pytest.approx(expected, abs=1e-9)
+
+
+def test_vo2max_jurca_srpa_is_not_the_category_number() -> None:
+    """The regression that produced the flattery: srpa=3 must add 1.76 METs, not 3.00.
+
+    6.16 ml/kg/min apart (1.76 vs 3.00 METs x 3.5) — worth ~2.2 years of biological age
+    on the real owner, and the whole reason a self-described non-exerciser was reading 26.
+    """
+    inactive = _vo2max_jurca(40, "male", 24.0, 55, 0)
+    high = _vo2max_jurca(40, "male", 24.0, 55, 3)
+    assert high - inactive == pytest.approx(1.76 * 3.5, abs=1e-9)
+    assert high - inactive != pytest.approx(3.0 * 3.5, abs=1e-9)
+
+
+def test_vo2max_jurca_srpa_steps_are_not_uniform() -> None:
+    """The published steps are UNEVEN, which is why "robust to +/-1 category" was false.
+
+    0->1 is 0.32 METs and 3->4 is 1.27 — four times the size. A note that priced a
+    category error as one flat MET could not have been right about more than one step.
+    """
+    v = [_vo2max_jurca(40, "male", 24.0, 55, s) for s in range(5)]
+    steps_mets = [round((v[i + 1] - v[i]) / 3.5, 2) for i in range(4)]
+    assert steps_mets == [0.32, 0.74, 0.70, 1.27]
+
+
+def test_vo2max_jurca_see_is_the_published_nasa_standard_error() -> None:
+    """SEE = 1.45 METs (Table 5, NASA column), not the unsourced 5.6 ml/kg/min."""
+    assert pytest.approx(1.45 * 3.5, abs=1e-9) == _JURCA_SEE_ML_KG_MIN
+
+
+def test_vo2max_jurca_sedentary_owner_lands_near_the_population_median() -> None:
+    """The real owner (#108), who states he does not exercise, at SR-PA-0.
+
+    age 32, male, BMI 25.2, RHR 58.4 -> 40.6 ml/kg/min, against FRIEND's published
+    50th-percentile 39.7 for a 30-39 male. A sedentary person reading near the median is
+    the sanity check the cadence-derived category failed: it scored him SR-PA-3 and, with
+    the linear coding, returned 51.1.
+    """
+    assert _vo2max_jurca(32, "male", 25.2, 58.4, 0) == pytest.approx(40.6, abs=0.05)
 
 
 # ── Sleep efficiency is asleep/(asleep+awake) — never > 100% (C2) ────────────
@@ -79,37 +138,22 @@ def test_vo2_speed_grade_uphill_costs_more_than_downhill() -> None:
     assert up > level > down  # Minetti U-shape: uphill dearer, gentle downhill cheaper
 
 
-# ── Jurca 0-4 SRPA category from weekly MVPA-EQUIVALENT minutes ──────────────
-# Bands: 0:<10  1:10-19  2:20-59  3:60-179  4:>=180 (min/wk) [[non_exercise_vo2max]].
+# ── The cadence->SRPA crosswalk is GONE and must not come back (#108) ────────
 
 
-@pytest.mark.parametrize(
-    ("weekly_equiv", "expected"),
-    [
-        (0, 0),
-        (5, 0),
-        (10, 1),
-        (19, 1),
-        (20, 2),
-        (30, 2),
-        (59, 2),
-        (60, 3),
-        (179, 3),
-        (180, 4),
-        (210, 4),
-    ],
-)
-def test_weekly_mvpa_to_srpa_boundaries(weekly_equiv: float, expected: int) -> None:
-    assert _weekly_mvpa_to_srpa(weekly_equiv) == expected
+def test_there_is_no_function_mapping_activity_minutes_to_a_jurca_category() -> None:
+    """`mvpa._weekly_mvpa_to_srpa` was deleted, not re-banded.
 
+    It mapped weekly MVPA-equivalent minutes onto Jurca's SELF-REPORTED category. No
+    published crosswalk exists, and the two are different constructs: Jurca's levels are
+    deliberate exercise ("run/walk for 1 to 3 hours per week") while cadence counts any
+    minute above 100 steps/min, which his own level 1 calls "little activity other than
+    walking for pleasure". This test fails if anyone reintroduces one under any name.
+    """
+    import healthee.derive.mvpa as mvpa
 
-def test_weekly_mvpa_equivalent_doubles_vigorous() -> None:
-    # WHO rule: 10 moderate + 10 vigorous -> 10 + 2*10 = 30 equivalent min (not 20),
-    # which lands in SRPA band 2 (20-59). [[cadence_intensity]]
-    moderate, vigorous = 10, 10
-    weekly_equiv = moderate + 2 * vigorous
-    assert weekly_equiv == 30
-    assert _weekly_mvpa_to_srpa(weekly_equiv) == 2
+    suspects = [n for n in dir(mvpa) if "srpa" in n.lower()]
+    assert suspects == [], f"a cadence->SR-PA mapping is back in derive/mvpa.py: {suspects}"
 
 
 # ── SRTM tile naming ─────────────────────────────────────────────────────────

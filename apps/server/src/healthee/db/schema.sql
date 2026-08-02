@@ -89,6 +89,11 @@ CREATE TABLE IF NOT EXISTS profile (
   height_cm   REAL,
   sex         TEXT CHECK (sex IN ('male', 'female')),
   dob         DATE,
+  -- Jurca 2005's five-level SELF-REPORTED physical-activity category (0014, #108).
+  -- NULL means "never answered", and `derive/vo2max.py` withholds the estimate rather
+  -- than assuming a level — it used to synthesise one from step cadence, which cannot
+  -- tell deliberate exercise from getting around and was worth years of biological age.
+  srpa        SMALLINT CHECK (srpa BETWEEN 0 AND 4),
   updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
   -- The owner IS the key (0005): the old `id INTEGER PK DEFAULT 1 CHECK (id = 1)`
   -- allowed exactly one row globally, so a second owner could not hold a profile

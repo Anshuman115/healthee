@@ -67,7 +67,7 @@ def seed_owner(cur, today: date) -> None:
     false for every day of the year.
     """
     cur.execute(
-        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, 175, 'male', %s)",
+        "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) VALUES (%s, 175, 'male', %s, 0)",
         (SENTINEL_USER_ID, date(today.year - CHRONO_AGE, 1, 1)),
     )
     cur.execute(

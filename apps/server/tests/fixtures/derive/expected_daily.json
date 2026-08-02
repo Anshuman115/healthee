@@ -677,12 +677,12 @@
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.0,
-      "see_ml_kg_min": 5.6,
+      "see_ml_kg_min": 5.075,
       "sex": "male",
-      "srpa": 3
+      "srpa": 2
     },
     "metric": "vo2max_estimate",
-    "value": 51.0764
+    "value": 44.2864
   },
   {
     "day": "2026-03-04",
@@ -914,12 +914,12 @@
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.5,
-      "see_ml_kg_min": 5.6,
+      "see_ml_kg_min": 5.075,
       "sex": "male",
-      "srpa": 3
+      "srpa": 2
     },
     "metric": "vo2max_estimate",
-    "value": 51.0239
+    "value": 44.2339
   },
   {
     "day": "2026-03-05",
@@ -1151,12 +1151,12 @@
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.0,
-      "see_ml_kg_min": 5.6,
+      "see_ml_kg_min": 5.075,
       "sex": "male",
-      "srpa": 3
+      "srpa": 2
     },
     "metric": "vo2max_estimate",
-    "value": 51.0764
+    "value": 44.2864
   },
   {
     "day": "2026-03-06",
@@ -1446,12 +1446,12 @@
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.0,
-      "see_ml_kg_min": 5.6,
+      "see_ml_kg_min": 5.075,
       "sex": "male",
-      "srpa": 4
+      "srpa": 2
     },
     "metric": "vo2max_estimate",
-    "value": 54.5764
+    "value": 44.2864
   },
   {
     "day": "2026-03-07",
@@ -1741,12 +1741,12 @@
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 55.0,
-      "see_ml_kg_min": 5.6,
+      "see_ml_kg_min": 5.075,
       "sex": "male",
-      "srpa": 4
+      "srpa": 2
     },
     "metric": "vo2max_estimate",
-    "value": 54.5764
+    "value": 44.2864
   },
   {
     "day": "2026-03-08",
@@ -2036,11 +2036,11 @@
       "age_years": 36,
       "bmi": 23.5,
       "rhr_med": 56.0,
-      "see_ml_kg_min": 5.6,
+      "see_ml_kg_min": 5.075,
       "sex": "male",
-      "srpa": 4
+      "srpa": 2
     },
     "metric": "vo2max_estimate",
-    "value": 54.4714
+    "value": 44.1814
   }
 ]

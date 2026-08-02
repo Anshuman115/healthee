@@ -77,7 +77,8 @@ def _seed(cur, weight_day: date) -> None:
     for table in ("derived_daily", "weight_log", "profile"):
         cur.execute(f"DELETE FROM {table}")  # noqa: S608 — hardcoded table names
     cur.execute(
-        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, 175, 'male', '1990-01-01')",
+        "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) "
+        "VALUES (%s, 175, 'male', '1990-01-01', 0)",
         (SENTINEL_USER_ID,),
     )
     cur.execute(

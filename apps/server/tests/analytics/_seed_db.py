@@ -119,9 +119,12 @@ def seed_profile(cur, dob: date, sex: str = "male", height_cm: float = 175.0) ->
     0005 re-keyed `profile` to that column and 0007 removed its DEFAULT.
     """
     cur.execute(
-        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, %s, %s, %s) "
+        # srpa 2 — Jurca's self-reported activity category (#108). Required, so it is
+        # seeded explicitly rather than left NULL, and deliberately not the reference
+        # level so the dummy coefficient is actually exercised.
+        "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) VALUES (%s, %s, %s, %s, 2) "
         "ON CONFLICT (user_id) DO UPDATE SET height_cm=EXCLUDED.height_cm, sex=EXCLUDED.sex, "
-        "dob=EXCLUDED.dob",
+        "dob=EXCLUDED.dob, srpa=EXCLUDED.srpa",
         (_OWNER, height_cm, sex, dob),
     )
     cur.execute(

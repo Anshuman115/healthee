@@ -125,7 +125,9 @@ def _seed(cur, day: date, dob: str, height_cm: int, weight_kg: float) -> None:
     for table in ("derived_daily", "weight_log", "profile"):
         cur.execute(f"DELETE FROM {table}")  # noqa: S608 — hardcoded table names
     cur.execute(
-        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, %s, 'male', %s)",
+        # srpa 0 (Jurca's reference level) — the flags under test are age/BMI, and the
+        # activity category must be ANSWERED or the estimate withholds first (#108).
+        "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) VALUES (%s, %s, 'male', %s, 0)",
         (SENTINEL_USER_ID, height_cm, dob),
     )
     cur.execute(

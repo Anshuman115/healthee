@@ -137,7 +137,11 @@ def seed(cur) -> None:
     cur.execute("DELETE FROM weight_log")
     cur.execute("DELETE FROM profile")
     cur.execute(
-        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, %s, %s, %s)",
+        # srpa 2 ("light-to-moderate") — Jurca's SELF-REPORTED activity category, now an
+        # answer the owner gives rather than something derived from cadence (#108).
+        # Deliberately not the reference level, so the fixture exercises a real dummy
+        # coefficient (1.06 METs) instead of the zero one.
+        "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) VALUES (%s, %s, %s, %s, 2)",
         (_OWNER, PROFILE["height_cm"], PROFILE["sex"], PROFILE["dob"]),
     )
     cur.execute(

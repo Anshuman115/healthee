@@ -54,7 +54,8 @@ def _reset(cur) -> None:
 
 def _profile(cur) -> None:
     cur.execute(
-        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, 175, 'male', '1990-01-01')",
+        "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) "
+        "VALUES (%s, 175, 'male', '1990-01-01', 0)",
         (SENTINEL_USER_ID,),
     )
     cur.execute(

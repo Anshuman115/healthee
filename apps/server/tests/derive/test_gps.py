@@ -79,7 +79,8 @@ def _seed_track(cur) -> str:
     cur.execute("DELETE FROM weight_log")
     cur.execute("DELETE FROM profile")
     cur.execute(
-        "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, 175, 'male', '1990-01-01')",
+        "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) "
+        "VALUES (%s, 175, 'male', '1990-01-01', 0)",
         (SENTINEL_USER_ID,),
     )
     cur.execute(

@@ -199,12 +199,18 @@ def upsert_profile(cur: Cur, user_id: UUID, tz: str, profile: ProfileIn) -> None
     """
     dob = parse_dob(profile.dob, tz) if profile.dob is not None else None
     cur.execute(
-        "INSERT INTO profile (user_id, name, height_cm, sex, dob, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, now()) "
+        "INSERT INTO profile (user_id, name, height_cm, sex, dob, srpa, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, now()) "
         "ON CONFLICT (user_id) DO UPDATE SET "
         "name = COALESCE(EXCLUDED.name, profile.name), height_cm = EXCLUDED.height_cm, "
-        "sex = EXCLUDED.sex, dob = EXCLUDED.dob, updated_at = now()",
-        (user_id, profile.name, profile.height_cm, profile.sex, dob),
+        # `srpa` is COALESCEd like `name`, not overwritten like the demographics (#108).
+        # Every existing client builds this payload without the field, so a plain
+        # assignment would let the next routine sync from an un-updated app NULL out an
+        # answer the owner had given — silently withdrawing their own VO₂max. Clearing it
+        # deliberately is not a thing any surface offers, so nothing loses by this.
+        "sex = EXCLUDED.sex, dob = EXCLUDED.dob, "
+        "srpa = COALESCE(EXCLUDED.srpa, profile.srpa), updated_at = now()",
+        (user_id, profile.name, profile.height_cm, profile.sex, dob, profile.srpa),
     )
 
 

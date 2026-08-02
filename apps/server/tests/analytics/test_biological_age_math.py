@@ -11,24 +11,22 @@ Deliberately, this module does NOT import ``GOMPERTZ_MRDT_YEARS`` or
 the constants (or against a replica of the formula) is a tautology that survives
 any change to the maths. The literals 7.7 and 10.0 are the note's values.
 
-Since #86 the note's table has TWO rows, not three — sleep regularity was removed
-rather than re-anchored, because the published SRI→mortality hazards belong to the
-scoring pipeline that produced them (Czeisler et al. 2026, *Sleep* 49(4):zsaf299:
-scored on the same >70 000 adults, two standard SRI calculators agreed on the
-quintile for only two in five, and "the method of calculation alone meaningfully
-changed results and interpretations" for all-cause mortality). The stub cursor below
-therefore RAISES on an SRI read, and the payload's ``excluded`` block is pinned here
-too: a composite that quietly loses a term is a different composite wearing the same
-key name. See ``tests/derive/test_sri_scale.py`` for our scale, measured.
+Since #86 the note's table has TWO rows, not three — sleep regularity was removed rather
+than re-anchored, because the published SRI→mortality hazards belong to the scoring
+pipeline that produced them (Czeisler et al. 2026, *Sleep* 49(4):zsaf299). The stub
+cursor below therefore RAISES on an SRI read, and the payload's ``excluded`` block is
+pinned here too: a composite that quietly loses a term is a different composite wearing
+the same key name. See ``tests/derive/test_sri_scale.py`` for our scale, measured.
 
-Since #97 the sleep term's ANCHOR is pinned as well. Yin 2017's curve is a function of
-QUESTIONNAIRE hours, so the strap's average is converted first, through the gap
-Lauderdale et al. 2008 measured. Those expected numbers are the paper's own published
-points, not this repo's arithmetic — see ``analytics/reference_scales.py``.
+Since #97 the sleep term's ANCHOR is pinned as well (Yin 2017's curve takes QUESTIONNAIRE
+hours, so the strap's average is converted first through Lauderdale et al. 2008's measured
+gap; those numbers are the paper's, not this repo's — ``analytics/reference_scales.py``),
+and since #108 so is the price of the fitness term's self-reported activity input.
 """
 
 from __future__ import annotations
 
+import itertools
 from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
@@ -47,6 +45,7 @@ from healthee.analytics.reference_scales import (
     self_reported_equivalent_h,
     vo2max_median_for,
 )
+from healthee.derive.srpa import JURCA_SRPA_METS, SRPA_SELF_REPORTED
 
 # ── The fitness anchor: FRIEND's published 50th-percentile row (#101) ────────
 # Kaminsky LA, Arena R, Myers J, et al. (2022), "Updated Reference Standards for
@@ -333,15 +332,45 @@ def test_every_priced_term_publishes_its_footing() -> None:
     claim. If a term's anchor is ever properly sourced, its caveat is deleted here on
     purpose — not by a payload key going missing."""
     result = _stub_result()
-    caveats = {c["term"]: c for c in result["caveats"]}
-    assert set(caveats) == {"fitness", "sleep duration"}
-    assert caveats["fitness"]["reason"] == VO2MAX_REFERENCE_CLINICAL_COHORT
-    assert caveats["sleep duration"]["reason"] == SLEEP_DURATION_SELF_REPORT_SCALE
+    # Keyed by REASON, not by term: since #108 the fitness term carries two, because a
+    # term's footing is not only its anchor. A dict keyed by term silently dropped one.
+    caveats = {c["reason"]: c for c in result["caveats"]}
+    assert {c["term"] for c in result["caveats"]} == {"fitness", "sleep duration"}
+    assert set(caveats) == {
+        VO2MAX_REFERENCE_CLINICAL_COHORT,
+        SRPA_SELF_REPORTED,
+        SLEEP_DURATION_SELF_REPORT_SCALE,
+    }
+    assert caveats[VO2MAX_REFERENCE_CLINICAL_COHORT]["term"] == "fitness"
+    assert caveats[SRPA_SELF_REPORTED]["term"] == "fitness"
+    assert caveats[SLEEP_DURATION_SELF_REPORT_SCALE]["term"] == "sleep duration"
     # The fitness anchor is sourced since #101, so its caveat is no longer "this cites
     # nothing" — it is the part that sourcing cannot fix. FRIEND is a laboratory-referral
     # cohort, so "median" here is a reference standard and not a population's middle, and
     # the payload has to say which one it means.
-    assert "not a median of the population" in caveats["fitness"]["message"]
+    assert "not a median of the population" in caveats[VO2MAX_REFERENCE_CLINICAL_COHORT]["message"]
+
+
+def test_the_self_reported_activity_input_is_priced_in_years_for_the_owner() -> None:
+    """#108: the fitness term has an owner-DECLARED input, and the caveat says its cost.
+
+    The number that matters is not "we ask you a question" — it is how much the answer
+    moves the result. Jurca's published category steps are 0.32 / 0.74 / 0.70 / 1.27 METs
+    and ΔAge is 1.81 y per MET, so one category is worth 0.6-2.3 years and the whole
+    scale is 5.5. Those figures are owner-independent, which is why the sentence can
+    state them flatly; this test is what stops the sentence and the coefficients drifting
+    apart."""
+    caveats = {c["reason"]: c for c in _stub_result()["caveats"]}
+    message = caveats[SRPA_SELF_REPORTED]["message"]
+    years_per_met = abs(hazard_delta_years(0.85))
+    assert years_per_met == pytest.approx(1.81, abs=0.01)
+    steps = [b - a for a, b in itertools.pairwise(JURCA_SRPA_METS)]
+    assert min(steps) * years_per_met == pytest.approx(0.58, abs=0.01)  # "half a year"
+    assert max(steps) * years_per_met == pytest.approx(2.29, abs=0.01)  # "two and a half"
+    whole_scale = JURCA_SRPA_METS[-1] * years_per_met
+    assert whole_scale == pytest.approx(5.47, abs=0.01)  # "five and a half years"
+    assert "half a year" in message
+    assert "five and a half years" in message
 
 
 def test_a_caveat_is_neither_withheld_nor_excluded() -> None:

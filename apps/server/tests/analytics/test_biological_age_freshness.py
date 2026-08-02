@@ -194,7 +194,8 @@ def test_an_owner_with_no_inputs_at_all_still_gets_nothing() -> None:
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         reset(cur)
         cur.execute(
-            "INSERT INTO profile (user_id, height_cm, sex, dob) VALUES (%s, 175, 'male', %s)",
+            "INSERT INTO profile (user_id, height_cm, sex, dob, srpa) "
+            "VALUES (%s, 175, 'male', %s, 0)",
             (SENTINEL_USER_ID, date(today.year - CHRONO_AGE, 1, 1)),
         )
         assert compute_biological_age(cur, SENTINEL_USER_ID, SENTINEL_TZ) is None

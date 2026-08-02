@@ -103,9 +103,11 @@ def seed_all() -> None:
 
 def _seed_profile(cur) -> None:
     cur.execute(
-        "INSERT INTO profile (user_id, name, height_cm, sex, dob) "
-        "VALUES (%s,'Test',176,'male','1990-05-01') "
-        "ON CONFLICT (user_id) DO UPDATE SET name=EXCLUDED.name",
+        # srpa 2 — the owner's answer to Jurca's activity question (#108). The estimate
+        # withholds without it, so the contract owner has to have answered.
+        "INSERT INTO profile (user_id, name, height_cm, sex, dob, srpa) "
+        "VALUES (%s,'Test',176,'male','1990-05-01',2) "
+        "ON CONFLICT (user_id) DO UPDATE SET name=EXCLUDED.name, srpa=EXCLUDED.srpa",
         (SENTINEL_USER_ID,),
     )
     cur.execute(
@@ -273,11 +275,15 @@ def _seed_derived_day(cur, day: date, today: date) -> None:
         41.5,
         {
             "rhr_med": 55.0,
-            "srpa": 3,
+            # SR-PA 2, matching the profile this seeder writes — the owner's answer,
+            # not a category derived from step cadence (#108). `see_ml_kg_min` is
+            # Jurca 2005's published NASA SEE of 1.45 METs × 3.5, replacing an
+            # unsourced 5.6 that appears nowhere in the paper.
+            "srpa": 2,
             "bmi": 23.4,
             "age_years": 35,
             "sex": "male",
-            "see_ml_kg_min": 5.6,
+            "see_ml_kg_min": 5.075,
         },
     )
     if day == today:
