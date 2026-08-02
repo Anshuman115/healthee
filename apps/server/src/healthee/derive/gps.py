@@ -10,12 +10,15 @@ that used to share this file now lives in ``derive/gps_detail.py`` (#114 split i
 reasons to change, and the second estimator took the file past 400 lines). Knowledge:
 [[submaximal_vo2max]], [[hr_reserve_vo2max]].
 
-``vo2max_submax`` is stored DELIBERATELY SEPARATE from the live Jurca
-``vo2max_estimate`` so estimates can accumulate for validation before any swap.
+``vo2max_submax`` is the SESSION record — "what did this effort measure" — and since
+#117 it is no longer a parallel answer to "what is this person's VO2max". That question
+has one answer, ``vo2max_estimate``, and ``derive/vo2max_tier.py`` assembles it from
+these rows (primary) or the Jurca model (fallback). Sessions are the observations; the
+canonical metric is the statement.
 
-Since #114 it has TWO instruments behind it (see :data:`METHOD_GRADED`), and this
-module is the only place that knows the precedence between them — the two science
-modules are pure and neither imports the other's decision.
+Since #114 two instruments can read a session, and this module is the only place that
+knows the precedence between them WITHIN a session — the two science modules are pure and
+neither imports the other's decision.
 """
 
 from __future__ import annotations
@@ -32,11 +35,13 @@ from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.robust import median
 from healthee.derive.vo2max import rhr_week
 from healthee.derive.vo2max_reserve import (
+    METHOD_RESERVE,
     RESERVE_WITHHOLD_MESSAGES,
     ReserveResult,
     vo2max_from_reserve,
 )
 from healthee.derive.vo2max_submax import (
+    METHOD_GRADED,
     SubmaxResult,
     steady_windows,
     vo2max_from_track,
@@ -47,21 +52,22 @@ HrAt = Callable[[float], float | None]  # ts_epoch_s -> interpolated strap HR
 
 # The two estimators that can write ``vo2max_submax``, and which one wins.
 #
-# ## One metric, two methods, a stated precedence — NOT two metrics (#114)
+# ## Which INSTRUMENT read this session — not which metric it belongs to (#114, #117)
 #
-# ``vo2max_submax`` means "VO2max measured from a recorded session", and it stays ONE
-# metric with one definition because two numbers both called the owner's VO2max is the
-# lie CLAUDE.md's canonical-definition rule exists to prevent. What varies is the
-# INSTRUMENT, and every row says which in ``flags.method``.
+# ``vo2max_submax`` is the SESSION-LEVEL record: what one recorded effort measured, on the
+# day it was recorded. It is not a second answer to "what is this person's VO2max" — that
+# question has exactly one answer, ``vo2max_estimate``, assembled by
+# ``derive/vo2max_tier.py`` (#117). Every row here says which instrument read it in
+# ``flags.method``, and the ids belong to the instruments themselves
+# (``vo2max_submax.METHOD_GRADED``, ``vo2max_reserve.METHOD_RESERVE``).
 #
 # The graded fit wins whenever it fires. It is the more rigorous method when load
 # genuinely varies: it measures the VO2-HR relationship on this person in this session
 # instead of assuming the population equivalence that ``vo2max_reserve`` inverts. The
 # reserve inversion is the fallback precisely because its assumption is the thing that
 # can be wrong, and on this owner's walking data it IS wrong by 17-30 ml/kg/min — which
-# is why it refuses walking rather than deferring.
-METHOD_GRADED = "gps_graded"
-METHOD_RESERVE = "hr_reserve"
+# is why it refuses walking rather than deferring. The SAME order governs the tier module,
+# because it is the same argument one layer up ([[hr_reserve_vo2max]] Directive 2).
 
 _HR_INTERP_EDGE_S = 120  # accept an edge HR sample within 2 min of the query time
 _HR_INTERP_GAP_S = 180  # a gap >3 min between HR samples is too large to interpolate
