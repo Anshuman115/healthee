@@ -20,14 +20,20 @@ requests replayed and counted. Plain-language version: `docs/MONEY_PLAIN.md`.
 | Annual | $34.99 | **$69** (two months free, 18% off) |
 | Lifetime | $99 | **dropped** |
 | Free tier | 1 coach question / 7 days | **no AI at all** |
-| Coach allowance | "unlimited (fair-use)" | **30 questions / month, stated** |
+| Coach allowance | "unlimited (fair-use)" | **20 questions per rolling 30 days, stated** |
 
 - **Free forever:** the whole honest **tracker** — every metric, chart, baseline, anomaly,
   personal finding, sleep/recovery/VO₂max number, logging. No forced sub to use hardware
   you bought. **And it now costs us exactly $0: the free tier has no AI surface at all.**
-- **Premium:** **$6.99/month** or **$69/year**, including **30 coach questions per month**
-  — one a day. Insight cards, charts and everything deterministic stay unlimited; at
-  $0.0084 a card they are free in practice.
+- **Premium:** **$6.99/month** or **$69/year**, including **20 coach questions per rolling
+  30 days** — a question every day and a half. Insight cards, charts and everything
+  deterministic stay unlimited; at $0.0084 a card they are free in practice.
+
+> **The cap is 20, decided 2026-08-02**, and the window is a *rolling* 30 local days, not a
+> calendar month — a calendar month lets somebody spend the cap on the 31st and the cap
+> again on the 1st. Both numbers are executable in `api/gate.py`'s `PREMIUM_ALLOWANCE` and
+> `PREMIUM_WINDOW_DAYS`, and `tests/premium/test_premium_cap.py` fails the build if this
+> table and that one disagree.
 
 ### ⛔ #105 WAS RUN AND IT FAILED — the fallback is now the decision (2026-08-02)
 
@@ -47,27 +53,32 @@ corpus by fetching it back with `get_knowledge` (7 → 18 invocations), one full
 at a time.
 
 **So the cost of a coach question is $0.179 and there is no measured way down from it
-today.** At the 30-question cap that is the column on the left, and it is the live one:
+today.** That is what decided the cap, and the arithmetic is why 30 was not survivable:
 
-| at the 30-question cap | **today (measured, live)** | if a future cost win lands |
+| at full use | **20 (DECIDED)** | 30 (rejected) |
 |---|---|---|
-| premium cost / month | **$6.98** | $4.92 at $0.110/question |
-| **$6.99/mo** margin | **−8%** ⛔ | +24% |
-| **$69/yr** margin | **−26%** ⛔ | +12% |
+| coach questions × $0.179 | **$3.58** | $5.37 |
+| + nightly chain ($1.27) + 40 cards ($0.34) | **$5.19** | $6.98 |
+| **$6.99/mo** margin | **+25%** | **−8%** ⛔ |
+| **$69/yr** margin (≈$5.75/mo gross) | **+7%** | **−26%** ⛔ |
 
-**⇒ The decision the owner now owns is the cap or the price, not the experiment.** The
-options are exactly the ones §0 already listed as the fallback: **$6.99/$69 with a
-20-question cap** (+25% monthly today — still a question every day and a half), or hold 30
-and move to **$8.99/$99**.
+**⇒ DECIDED 2026-08-02: 20 questions per rolling 30 days at $6.99/$69.** The alternative
+on the table was holding 30 and moving to $8.99/$99; it was rejected because the $69/year
+figure *is* the wedge against Whoop's $199, and a cap that still allows a question every
+day and a half costs the product almost nothing to state honestly. Live in
+`api/gate.py::PREMIUM_ALLOWANCE`.
 
-**Read the −8% correctly**: it is the *worst case*, an owner using every question AND
-opening 40 cards. At a realistic 10 questions the same $69/year runs ~51% margin. The cap
-is the floor, not the expectation. What changed on 2026-08-02 is only that the floor can
-no longer be argued away by a pending experiment.
+**Read the margins correctly**: they are the *worst case*, an owner using every question
+AND opening 40 cards. At a realistic 10 questions the same $69/year runs ~51% margin. The
+cap is the floor, not the expectation — what changed on 2026-08-02 is only that the floor
+can no longer be argued away by a pending experiment.
 
-**The cost lever that is still measured and unspent** is `DEFAULT_TOP_N` 6 → 4 —
-**−18.8% input tokens, sign established, ship rate flat** (INTELLIGENCE §9.1). Shrinking
-the notes block beats moving it, and it was never landed.
+**The path back to 30 at the same price is measured and unspent**: `DEFAULT_TOP_N` 6 → 4
+— **−18.8% input tokens, sign established, ship rate flat** (INTELLIGENCE §9.1). Shrinking
+the notes block beats moving it, and it was never landed. If it lands and holds, 30
+questions costs what 24 does today and the cap can be raised without touching the price.
+That is the path, not a promise: the cap moves when a measurement says it can, in the same
+way it moved down.
 
 ### Why the rest
 
@@ -77,7 +88,9 @@ the notes block beats moving it, and it was never landed.
 - **A stated number beats "unlimited (fair-use)".** Unbounded cost against a fixed price
   is exactly why "we will never lose money" could not be promised as written. A limit that
   resets is honest; *"unlimited" with a silent throttle is the dishonest version of the
-  same thing*, and this product does not do that.
+  same thing*, and this product does not do that. The stated number is **20 per rolling 30
+  days**, it is enforced server-side, and the 402 that refuses a capped owner names the day
+  it reopens rather than telling them to try later.
 - **The old prices never cleared their own cost.** At a realistic 15 questions/month,
   $3.99 ran **−20%** and $34.99/yr ran **−53%**. Removing the free tier's AI deleted the
   19× giveaway multiplier but never touched that: premium had simply never been priced
@@ -144,7 +157,7 @@ safety.
 | **Challenges / programs** (adopt · track · outcome ledger · AI suggestions) | — (premium) | ✓ |
 | **Notable-shift feed** (`/api/notable`) | — (premium) | ✓ |
 | Per-metric anomaly flags on individual cards ("outside your normal") | ✓ | ✓ |
-| **AI coach** | **— (no AI in free)** | ✓ **30 questions / month** |
+| **AI coach** | **— (no AI in free)** | ✓ **20 questions / rolling 30 days** |
 | **Daily action line** | **— (no AI in free)** | ✓ daily |
 | Sleep `tonight` line (this table never named it; same generator, same entitlement) | — (locked field) | ✓ daily |
 | **Daily recommendations** (1–3 cite-or-drop) | — (locked card) | ✓ |
@@ -168,7 +181,11 @@ safety.
   against $3.12 of net revenue**. A weekly free LLM call is not a sample, it is a
   subscription given away — no amount of prompt-shaving fixes a recurring giveaway.
   The free tier now costs **exactly $0**. `core/allowance.py` and `api/gate.py`'s
-  `FREE_ALLOWANCE` remain the executable table; the allowance is simply empty.
+  `FREE_ALLOWANCE` remain the executable table; the allowance is simply empty — **every
+  entry is `0` as of 2026-08-02**, which is what makes re-granting a taste a number rather
+  than a rewrite. The paid counterpart is `PREMIUM_ALLOWANCE`, and the two tables have
+  opposite defaults: a feature absent from the free table is hard-locked, a feature absent
+  from the premium one is unlimited.
   ⚠ **The cost of this:** nobody converts having felt the coach. That job moves to the
   landing page. Revisit if conversion proves worse than the giveaway was.
 
@@ -542,7 +559,12 @@ cheap and conversion clears ~5%. It is a volume + conversion game — the levers
 win it (cheap teaser, cost optimization, a coach worth paying for) are all things we
 control, not market forces.
 
-### 6.5 Does the $99 lifetime lose money?
+### 6.5 Does the $99 lifetime lose money? — ⛔ SUPERSEDED, lifetime was dropped 2026-08-02
+
+> Kept as the working, not as a recommendation. It answers "no" from a **$1/mo**
+> optimized cost that the measurement later put at **$0.179 a coach question** alone;
+> §0 dropped the SKU on exactly that. Read it for the reasoning, not for the SKU.
+
 
 **Short answer: no, not on any realistic user.** A premium user costs ~**$1/mo ≈
 $12/yr** (optimized AI + near-free infra), so:

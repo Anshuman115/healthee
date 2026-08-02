@@ -1,7 +1,8 @@
 # The money, in plain language
 
 > **⚠ PRICES DECIDED 2026-08-02 — see `PRICING.md` §0.**
-> **$6.99/month · $69/year · 30 coach questions/month · no AI in the free tier · lifetime dropped.**
+> **$6.99/month · $69/year · 20 coach questions per rolling 30 days · no AI in the free
+> tier · lifetime dropped.**
 > The tables below were the ANALYSIS that led there and still show the old $3.99/$34.99
 > in places — read them as the working, not the decision. One thing changed materially:
 > the free tier now costs **$0**, so every "19 free users" figure below is superseded.
@@ -9,8 +10,23 @@
 > research corpus on every round of a coach question, taking it from $0.179 to ~$0.110.
 > Measured against the real model, it saved **nothing** (−2.9%, could as easily be +24k
 > tokens as −29k) and shipped **two fewer answers out of fourteen**, so it was reverted.
-> **A coach question still costs $0.179**, and at 30 questions a month that is $6.98 of
-> cost against $6.99 of price. The choice is now the cap or the price — `PRICING.md` §0.
+>
+> **So a coach question still costs $0.179, and the cap is what absorbed that.** Redone
+> for 20 rather than 30, at full use:
+>
+> | per premium user per month | **20 (decided)** | 30 (rejected) |
+> |---|---|---|
+> | coach questions | $3.58 | $5.37 |
+> | the nightly AI that runs anyway | $1.27 | $1.27 |
+> | 40 insight cards | $0.34 | $0.34 |
+> | **total cost** | **$5.19** | **$6.98** |
+> | against $6.99/month | **+25% margin** | −8% ⛔ |
+> | against $69/year (≈$5.75/mo) | **+7% margin** | −26% ⛔ |
+>
+> Twenty questions is still one every day and a half, and the alternative — keeping 30
+> and charging $8.99 — would have thrown away the "$69 a year versus Whoop's $199" line
+> that is the whole pitch. **It is a floor, not an expectation**: at a realistic ten
+> questions the same $69/year runs about 51% margin.
 
 Written 2026-08-01. Every number here comes from **real billing** — actual requests
 replayed through OpenRouter, counted by the provider, not estimated. Assumptions are
@@ -182,16 +198,19 @@ scales the loss. That's the single most important number in this document.
 
 ### Do these now — no measurement needed, both are certain losses
 
-**1. Make the free trial one-time, not weekly.**
-3 coach questions + 3 daily-action reveals when you sign up. Never renewed. Then the
-tracker stays free forever, exactly as promised.
-> **$0.57 once** instead of **$0.81/month forever.** At 100 users: $54 once instead of
-> $923/year.
+**1. Make the free trial one-time, not weekly.** — ✅ **DONE, and went further**
+The recommendation was 3 coach questions + 3 daily-action reveals on signup, never
+renewed. The owner took the whole thing out instead: **no AI in the free tier at all**,
+so the free tier costs **$0**, not $0.57 once. The tracker stays free forever, exactly as
+promised, and the job of selling the coach moves to the landing page.
+> **$0** instead of **$0.81/month forever.** At 100 users: nothing instead of $923/year.
 > A taste exists to show what the product does — that's a one-time job. Someone on their
-> 30th free question in seven months isn't converting; the free tier has *replaced*
+> 30th free question in seven months isn't converting; the free tier had *replaced*
 > converting.
+> The cost of going all the way: nobody converts having felt the coach. Revisit if
+> conversion proves worse than the giveaway was.
 
-**2. Drop the $99 lifetime plan** (or reprice it near $299).
+**2. Drop the $99 lifetime plan** (or reprice it near $299). — ✅ **DONE, dropped**
 It pays for 23 months and then loses forever. You cannot sell a lifetime AI subscription
 against a per-question cost.
 
@@ -205,23 +224,38 @@ optimisation experiment first. Even if it works, note the table — **$3.99/mont
 break-even-ish, and $34.99/year still doesn't.** You'd need roughly **$44/year minimum**
 even in the good case.
 
-### And put a real number on "unlimited"
+### And put a real number on "unlimited" — ✅ DONE, 2026-08-02
 
-The docs currently promise "unlimited (fair-use)" coach questions. That's an unbounded
-cost against a fixed price — it's the reason "we will never lose money" can't be
-promised as written. **10 questions/month included, then it waits for the reset**, is
-honest and safe. All of it (charts, metrics, baselines, insight cards, illness warnings)
-stays unlimited — those are nearly free.
+The docs used to promise "unlimited (fair-use)" coach questions. That's an unbounded
+cost against a fixed price — it's the reason "we will never lose money" couldn't be
+promised as written.
+
+**The number is 20, per rolling 30 days**, and it is live in the code rather than in a
+sentence: the server counts them and the refusal names the day the next one opens.
+Everything else (charts, metrics, baselines, insight cards, illness warnings, the daily
+action) stays genuinely unlimited — those are nearly free.
+
+The window is *rolling* 30 days, not a calendar month, for one plain reason: a calendar
+month lets somebody use all 20 on the 31st and all 20 again on the 1st, which is 40
+questions in two days at the price of one month.
 
 > An honest stated limit is better than "unlimited" with a silent throttle. This product's
 > whole promise is that it doesn't do the second thing.
+>
+> **What would make it 30 again**: one measured, un-taken change — sending the coach four
+> research notes instead of six — cuts input tokens by 18.8% with no measured loss of
+> answer quality. If that lands and holds, 30 questions costs what 24 does today. That is
+> the path back to a bigger number at the same price; it is not a promise.
 
 ---
 
 ## 9. The one-line summary
 
-**Your costs are fine. Your prices are the problem — specifically the annual plan and
-the lifetime plan, both of which lose money by design, and a free tier that gives away
-a recurring subscription.** Fix the free tier and kill lifetime today; then either move
-to $5.99/$59, or spend $3 proving the optimisation and keep $3.99 with a slightly
-higher annual price.
+**Your costs are fine. Your prices were the problem — specifically the annual plan and
+the lifetime plan, both of which lost money by design, and a free tier that gave away a
+recurring subscription.**
+
+**All three are fixed as of 2026-08-02**: the free tier has no AI (so it costs $0),
+lifetime is gone, and the prices are **$6.99/month · $69/year with 20 coach questions per
+rolling 30 days**. The optimisation experiment that would have made 30 affordable was run
+and did not work; the cap absorbed that instead of the price.

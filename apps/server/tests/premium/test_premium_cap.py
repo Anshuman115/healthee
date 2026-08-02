@@ -2,8 +2,8 @@
 
 Until 2026-08-02 ``api/gate.py`` said "premium removes the limit", and it did: a premium
 owner never touched a ledger. It cannot stay that way at a measured **$0.179** a coach
-question against **$6.99** of price — 30 questions is $6.98 of cost, so the cap is the
-product, not an implementation detail.
+question against **$6.99** of price — 30 questions plus the nightly chain and 40 cards is
+$6.98 of cost — so the cap is the product, not an implementation detail.
 
 What is asserted here, and why each one is separate:
 
