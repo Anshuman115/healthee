@@ -1,6 +1,7 @@
 """Phone-recorded GPS tracks — ingest + list + route-map detail.
 
-Wraps the v2 ``derive.gps`` science (``derive_vo2max_submax`` / ``gps_track_detail``,
+Wraps the v2 science (``derive.gps.derive_vo2max_submax`` /
+``derive.gps_detail.gps_track_detail``,
 ported verbatim in WP2). The ingest path stores the track/points, runs the
 submaximal HR-vs-pace VO2max, and denormalises a summary onto the track row for
 the cheap list endpoint. All within the caller's transaction.
@@ -14,7 +15,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from healthee.derive._common import Cur
-from healthee.derive.gps import derive_vo2max_submax, gps_track_detail
+from healthee.derive.gps import derive_vo2max_submax
+from healthee.derive.gps_detail import gps_track_detail
 
 
 class GpsTrackIn(BaseModel):
