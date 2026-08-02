@@ -883,10 +883,12 @@
     "sex": "male",
     "submax": {
       "as_of_date": "2026-07-31",
+      "last_method": "gps_graded",
       "last_r2": 0.82,
       "last_speed_kmh": 8.1,
       "latest": 43.0,
       "median": 43.0,
+      "method_caveat": "Read from how your heart rate tracked your workload across this session \u2014 the more direct of the two methods we have, because it measures the relationship on you rather than assuming it.",
       "n_sessions": 1,
       "trend": [
         {

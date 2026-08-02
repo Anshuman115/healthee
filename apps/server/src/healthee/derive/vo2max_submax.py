@@ -99,6 +99,29 @@ class SubmaxResult:
     speed_kmh_mean: float
 
 
+@dataclass(frozen=True)
+class SteadyWindow:
+    """One steady window of a session: what BOTH estimators score.
+
+    ``hr`` mean bounded HR over the window, ``vo2`` its ACSM-level cost scaled by the
+    Minetti gradient ratio, ``speed_ms`` its mean smoothed speed, and ``elapsed_s`` how
+    far into the session it sits (needed to test for cardiac drift).
+
+    There is one definition of "a steady window" and this is it — ``vo2max_from_track``
+    regresses over these and ``derive/vo2max_reserve.py`` inverts each one
+    independently. Two definitions of steadiness would be two definitions of the
+    workload the whole fitness metric rests on (CLAUDE.md: ONE canonical definition per
+    metric), and the reserve estimator's whole claim to be a SECOND estimator rather
+    than a second *pipeline* is that it disagrees with the first only in the
+    aggregation step.
+    """
+
+    hr: float
+    vo2: float
+    speed_ms: float
+    elapsed_s: float
+
+
 def _smooth_elevation(
     points: list[tuple[float, float, float, float | None]], ts: list[float], ele: list[float | None]
 ) -> list[float | None]:
@@ -199,24 +222,53 @@ def _window_point(
     return sum(hrs) / len(hrs), vo2, mean_sp
 
 
-def _collect_steady_points(
+def _collect_steady_windows(
     windows: dict[int, list[int]],
     inter: list[tuple[int, int, float, float, float]],
     sm_speed: list[float],
     sm_ele: list[float | None],
     hr_at: Callable[[float], float | None],
-) -> tuple[list[tuple[float, float]], list[float]]:
-    """Score every window -> parallel (hr, vo2) points and their mean speeds."""
-    pts: list[tuple[float, float]] = []
-    speeds: list[float] = []
+    t0: float,
+) -> list[SteadyWindow]:
+    """Score every window -> the :class:`SteadyWindow` list both estimators consume."""
+    out: list[SteadyWindow] = []
     for _, ks in sorted(windows.items()):
         wp = _window_point(ks, inter, sm_speed, sm_ele, hr_at)
         if wp is None:
             continue
         hr, vo2, mean_sp = wp
-        pts.append((hr, vo2))
-        speeds.append(mean_sp)
-    return pts, speeds
+        elapsed = sum(inter[k][_MID] for k in ks) / len(ks) - t0
+        out.append(SteadyWindow(hr=hr, vo2=vo2, speed_ms=mean_sp, elapsed_s=elapsed))
+    return out
+
+
+def steady_windows(
+    points: list[tuple[float, float, float, float | None]],
+    hr_at: Callable[[float], float | None],
+) -> list[SteadyWindow] | None:
+    """The steady windows of one session — the shared front half of both estimators.
+
+    Elevation smoothing, interval building, speed smoothing, warm-up drop, binning and
+    the per-window steadiness gates, exactly as ``vo2max_from_track`` has always applied
+    them.
+
+    ``None`` means the track could not be WINDOWED at all (too few fixes, or fewer than
+    10 usable intervals after the gap/glitch filter); an empty list means it windowed
+    fine and nothing in it was steady. Those are different failures and the caller says
+    so differently — collapsing them would be the "no data and operation failed are
+    distinguishable" rule (standards §1) broken inside the science layer.
+    [[submaximal_vo2max]], [[hr_reserve_vo2max]].
+    """
+    if len(points) < 10:
+        return None
+    ts = [p[0] for p in points]
+    sm_ele = _smooth_elevation(points, ts, [p[3] for p in points])
+    inter = _build_intervals(points, ts)
+    if len(inter) < 10:
+        return None
+    t0 = inter[0][_MID]
+    sm_speed = _smooth_interval_speeds(inter)
+    return _collect_steady_windows(_bin_windows(inter, t0), inter, sm_speed, sm_ele, hr_at, t0)
 
 
 def _fit(pts: list[tuple[float, float]], hrmax: float) -> tuple[_FitResult | None, str]:
@@ -261,16 +313,11 @@ def vo2max_from_track(
     """
     if len(points) < 10:
         return None, "too few GPS points"
-    ts = [p[0] for p in points]
-    ele = [p[3] for p in points]
-    sm_ele = _smooth_elevation(points, ts, ele)
-    inter = _build_intervals(points, ts)
-    if len(inter) < 10:
+    wins = steady_windows(points, hr_at)
+    if wins is None:
         return None, "no usable intervals"
-    t0 = inter[0][_MID]
-    sm_speed = _smooth_interval_speeds(inter)
-    windows = _bin_windows(inter, t0)
-    pts, speeds = _collect_steady_points(windows, inter, sm_speed, sm_ele, hr_at)
+    pts = [(w.hr, w.vo2) for w in wins]
+    speeds = [w.speed_ms for w in wins]
 
     if len(pts) < MIN_WINDOWS:
         return None, f"only {len(pts)} steady windows (need {MIN_WINDOWS})"

@@ -191,6 +191,19 @@
       "summary": "Intensity bands from HR — anchor to %HRR (Karvonen) or LTHR, not naive %HRmax, and keep the week ~80% easy. Healthee bins per-minute HR into %HRmax zones as `hr_zone_minutes`."
     },
     {
+      "applies_to_metrics": [
+        "vo2max_submax",
+        "vo2max_estimate",
+        "hr",
+        "rhr_daily",
+        "max_hr"
+      ],
+      "grade": "Contested",
+      "id": "hr_reserve_vo2max",
+      "name": "VO₂max from heart-rate reserve (%HRR = %VO₂R)",
+      "summary": "%HRR ≈ %VO₂R lets every steady window of a session give an independent VO₂max with no regression and no load range — but the equivalence is contested (the largest test, n=737, rejects identity and finds %HRR runs 6–8 points high), it is validated only over roughly 35–95% of reserve on incremental maximal tests, it fails during prolonged constant-load exercise, and measured on real free-living walks it under-reads VO₂max by 17–30 mL/kg/min. Usable for running, refused for walking."
+    },
+    {
       "applies_to_metrics": [],
       "grade": "Myth",
       "id": "hydration_8x8_rule",
