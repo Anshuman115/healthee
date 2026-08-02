@@ -54,6 +54,14 @@ answers "is this current" — rather than in the four modules that consume weigh
 the whole point of one module: :data:`WEIGHT_MAX_AGE_DAYS` is a tunable, tunables in
 honesty gates are places to hide, and the mitigation for a place to hide is that there is
 exactly one of it, with its evidence written next to it. See :func:`weight_is_stale`.
+
+## A MEASURED VO₂max is the second row of that kind (#117)
+
+Nobody derives a session-measured VO₂max nightly either — it exists only on days the
+owner recorded a qualifying effort, which for a real owner is a handful of days a year.
+Today-or-nothing would mean the measured tier of ``vo2max_estimate`` could never win, so
+it gets a horizon too, by the same rule and for the same reason. Its evidence is entirely
+its own and sits with :data:`MEASURED_VO2MAX_MAX_AGE_DAYS`.
 """
 
 from __future__ import annotations
@@ -131,6 +139,76 @@ WEIGHT_STALE_MESSAGE = (
 # Widening this constant is allowed — but it needs evidence in this comment, not a
 # product argument, because everything below it is a claim about somebody's body.
 WEIGHT_MAX_AGE_DAYS = 14
+
+
+# How far a SESSION-MEASURED VO₂max may sit from the day it is offered as, before it
+# stops being a claim about that day.
+#
+# ## The rule is the weight rule; only the evidence is different
+#
+# A held measurement stays current while the drift we would expect over the interval is
+# SMALLER than the error of the instrument that measured it. Past that we cannot tell the
+# held value from a fresh one, so holding it invents nothing; before that we can, so
+# holding it does.
+#
+# **How fast a real VO₂max moves.** [[specificity_and_recovery]], grade Established, from
+# a systematic review of endurance detraining [Barbieri et al. 2024] and the classic
+# two-part review [Mujika & Padilla 2000a/b]: VO₂max falls **~4–7% by ~2–3 weeks of
+# cessation and ~13% by ~8 weeks**, and "brief, deliberate rest — days, not weeks — …
+# does not cause meaningful detraining". Note which rate is NOT the binding one: the
+# ~1%/yr untrained decline [[non_exercise_vo2max]] cites is 0.015 ml/kg/min over a
+# fortnight, four orders below anything we can resolve. Ageing never bounds this; training
+# and its absence do.
+#
+# **What our own instruments can resolve.** The graded fit's independent accuracy is MAPE
+# 6.85% [Carrier 2023, [[submaximal_vo2max]]] ≈ 2.7 ml/kg/min at 40. The reserve
+# inversion's modelled 1 SD for a six-window session median is ±3.2 ml/kg/min at 80–90% of
+# reserve [[hr_reserve_vo2max]].
+#
+# **The arithmetic, at a 40 ml/kg/min owner:**
+#
+#     2 weeks of cessation   −4%   = 1.6 ml/kg/min   < our 2.7–3.2 resolution
+#     3 weeks                −7%   = 2.8            ≈ our resolution
+#     8 weeks               −13%   = 5.2            ≈ 2× resolution, and larger than
+#                                                     Jurca's own 5.075 SEE — past there
+#                                                     the number we are holding is more
+#                                                     wrong than the model we refused
+#
+# Fourteen days is the last point at which the WORST-CASE drift is strictly inside the
+# measuring instrument's own error. It is not a point at which a measurement "goes wrong".
+#
+# **Which way being wrong here would hurt.** Detraining decay makes a held value read
+# HIGH, i.e. it flatters. #108 was exactly that failure — a fitness input overstating a
+# real owner by years — so the loose direction is the one this product must not take.
+#
+# **What the corpus does NOT give, stated rather than papered over.** Those decay figures
+# are for COMPLETE cessation in endurance-trained adults. There is no measured curve for
+# partial reduction, and none for a mostly-sedentary owner who keeps walking. *Reasoned,
+# not measured:* a person with less trained adaptation has less to shed, so their real
+# decay is slower and this horizon errs conservative for them. The opposite direction —
+# someone who starts training and gains — makes a held value read LOW, which is the safe
+# side of this product's contract. Widening this constant needs evidence in this comment,
+# exactly as widening the weight horizon does.
+#
+# **It is deliberately NOT ``WEIGHT_MAX_AGE_DAYS``, despite landing on the same number.**
+# Two claims about two different quantities that happen to agree; one shared constant
+# would mean an edit justified by body-mass drift silently moving a fitness gate.
+MEASURED_VO2MAX_MAX_AGE_DAYS = 14
+
+
+def measured_fitness_is_stale(as_of: date, on: date) -> bool:
+    """Is this session-measured VO₂max too far from ``on`` to be that day's fitness?
+
+    Unlike :func:`weight_is_stale` this is SIGNED: a session recorded after ``on`` is not
+    a claim about ``on`` at all, however close it sits. (Weight compares absolutely
+    because ``_weight_as_of`` deliberately hands pre-first-entry days a later weigh-in;
+    nothing does that here — a day is only ever offered sessions at or before it.)
+
+    The boundary is inclusive, matching how the evidence above is quoted ("by ~2–3
+    weeks"): a session exactly :data:`MEASURED_VO2MAX_MAX_AGE_DAYS` old still speaks.
+    """
+    age = (on - as_of).days
+    return not (0 <= age <= MEASURED_VO2MAX_MAX_AGE_DAYS)
 
 
 def weight_age_days(as_of: date, on: date) -> int:
