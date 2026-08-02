@@ -252,10 +252,7 @@ def test_a_tool_calling_coach_question_charges_the_allowance_once_not_per_call(
     )
     assert reply.status_code == 200
     assert reply.json()["validated"] is True
-    # rounds + 2: the tool rounds, the round that ends gathering (#105 — its text is
-    # discarded), and the answering call. The exact number is incidental; that it is many
-    # and the charge is one is the whole point.
-    assert stub.calls == rounds + 2, "the loop did not actually make many model calls"
+    assert stub.calls == rounds + 1, "the loop did not actually make many model calls"
 
     verdict = allowance.peek(SENTINEL_USER_ID, SENTINEL_TZ, FEATURE, limit=1)
     assert verdict.used == 1, f"eleven model calls billed {verdict.used} weekly questions"

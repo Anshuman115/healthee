@@ -17,7 +17,6 @@ Stage order, and where each one now lives:
   1. question gate ......... :func:`check_question`  (``refusals.classify_refusal``)
   2. context ............... :func:`user_context`    (``context.build_context``)
   3. retrieval ............. :func:`evidence`        (``retrieval.evidence_section``)
-                             :func:`evidence_index`  (``retrieval.index_section``)
   4. LLM turn .............. :func:`complete`        (the ONE transport call)
   5. hard output guardrail . ``_output_guard_gate``  — BLOCKING, never retried
   6. blocking validator .... ``_validator_gate``     — prose or JSON
@@ -49,7 +48,7 @@ from healthee.insights.client import ChatResponse, LLMClient
 from healthee.insights.context import build_context
 from healthee.insights.output_guard import check_output
 from healthee.insights.refusals import Domain, classify_refusal
-from healthee.insights.retrieval import evidence_section, index_section
+from healthee.insights.retrieval import evidence_section
 from healthee.insights.validator import ValidationResult, validate, validate_json
 
 log = get_logger(__name__)
@@ -97,18 +96,6 @@ def user_context(question: str, user_id: UUID, tz: str, *, days: int) -> str:
 def evidence(question: str, metrics: Sequence[str] | None = None) -> tuple[str, list[str]]:
     """The manifest-ranked EVIDENCE NOTES section + the ids embedded in full."""
     return evidence_section(question, list(metrics or []))
-
-
-def evidence_index(question: str, metrics: Sequence[str] | None = None) -> str:
-    """The same retrieval, INDEXED — every note in one line, no bodies (#105).
-
-    The retrieval stage has two forms because the coach's tool loop has two phases: a
-    gathering round decides what to look up and writes nothing, an answering round writes
-    prose and cites. Both forms rank identically and both come through this module, so
-    "the coach retrieves what the insight surfaces retrieve" stays a fact the AST guard
-    in ``tests/insights/test_pipeline_shared.py`` enforces rather than a comment.
-    """
-    return index_section(question, list(metrics or []))
 
 
 def complete(

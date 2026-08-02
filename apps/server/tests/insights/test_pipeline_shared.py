@@ -32,7 +32,7 @@ from tests.insights._coach_stub import CoachStub, NoCallStub, text_turn
 from tests.insights._stub import VALID_TEXT, StubLLM
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights import coach, coach_messages, grounded, pipeline, prompts
+from healthee.insights import coach, grounded, pipeline, prompts
 from healthee.insights.refusals import Domain
 
 # ── 1 · a stage injected into the shared registry reaches BOTH surfaces ──────
@@ -44,14 +44,6 @@ _CANARY_BLOCK = "blocked by the canary stage"
 # claiming no action. If it were rejectable on its own, these tests would pass whether
 # or not the injected stage ran — which is how a canary test quietly becomes decorative.
 _CANARY_ANSWER = f"{VALID_TEXT} {_CANARY_WORD}."
-
-# The coach's loop is two-phase (#105): a gathering round carries the corpus index and no
-# note bodies, so its text is discarded and the answer is asked for again WITH the notes.
-# Every coach script here therefore opens with the round that ends gathering, and the
-# call counts below count answer attempts from there — which is what they were always
-# about ("a blocking stage must not be retried"), stated so the extra round cannot be
-# mistaken for one.
-_END_GATHERING = text_turn("READY")
 
 
 def _canary_block_gate(text: str, ctx: pipeline.AnswerContext) -> pipeline.GateOutcome:  # noqa: ARG001
@@ -85,7 +77,7 @@ def _stub_prompts(monkeypatch: pytest.MonkeyPatch) -> None:
         grounded, "_build_messages", lambda *a, **k: [{"role": "user", "content": "x"}]
     )
     monkeypatch.setattr(
-        coach_messages, "initial_messages", lambda *a, **k: [{"role": "user", "content": "x"}]
+        coach, "_initial_messages", lambda *a, **k: [{"role": "user", "content": "x"}]
     )
 
 
@@ -114,7 +106,7 @@ def test_the_canary_answer_is_otherwise_clean_on_both_surfaces(
     """
     _stub_prompts(monkeypatch)
     assert _ask_grounded(StubLLM([_CANARY_ANSWER])) == _CANARY_ANSWER
-    assert _ask_coach(CoachStub([_END_GATHERING, text_turn(_CANARY_ANSWER)])) == _CANARY_ANSWER
+    assert _ask_coach(CoachStub([text_turn(_CANARY_ANSWER)])) == _CANARY_ANSWER
 
 
 def test_a_new_blocking_stage_reaches_the_choke_point(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -129,9 +121,9 @@ def test_a_new_blocking_stage_reaches_the_coach_too(monkeypatch: pytest.MonkeyPa
     """The bar itself: nobody edited coach.py, and the coach obeys the new stage."""
     _stub_prompts(monkeypatch)
     _add_answer_gate(monkeypatch, _canary_block_gate)
-    stub = CoachStub([_END_GATHERING, text_turn(_CANARY_ANSWER)])
+    stub = CoachStub([text_turn(_CANARY_ANSWER)])
     assert _ask_coach(stub) == _CANARY_BLOCK
-    assert stub.calls == 2, "gathering ended, ONE answer attempt — a block is never retried"
+    assert stub.calls == 1
 
 
 def test_a_new_retryable_stage_reaches_both_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -143,9 +135,9 @@ def test_a_new_retryable_stage_reaches_both_surfaces(monkeypatch: pytest.MonkeyP
     assert _ask_grounded(grounded_stub) == prompts.FALLBACK
     assert grounded_stub.calls == 2, "one nudged retry, then the fallback"
 
-    coach_stub = CoachStub([_END_GATHERING, text_turn(_CANARY_ANSWER), text_turn(_CANARY_ANSWER)])
+    coach_stub = CoachStub([text_turn(_CANARY_ANSWER), text_turn(_CANARY_ANSWER)])
     assert _ask_coach(coach_stub) == prompts.FALLBACK
-    assert coach_stub.calls == 3, "gathering ended, then one nudged retry, then the fallback"
+    assert coach_stub.calls == 2
 
 
 def test_a_new_question_gate_reaches_both_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -193,10 +185,6 @@ _PRIMITIVES: dict[str, str] = {
     "validate": "healthee.insights.validator",
     "validate_json": "healthee.insights.validator",
     "evidence_section": "healthee.insights.retrieval",
-    # Retrieval's second form (#105 — the coach's gathering rounds get the corpus INDEX,
-    # not the note bodies). Guarded for the same reason as its sibling: a surface that
-    # reached it directly could decide for itself what the model is grounded in.
-    "index_section": "healthee.insights.retrieval",
     "build_context": "healthee.insights.context",
 }
 _OWNER_MODULES = {"refusals", "output_guard", "validator", "retrieval", "context"}

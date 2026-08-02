@@ -71,11 +71,7 @@ def test_coach_returns_a_reply_on_a_seeded_conversation(db: None, stub: StubLLM)
     # response metadata and the endpoint dropped it, so a client could render citations
     # with no way to say how firm they are. VALID_TEXT cites one Established note.
     assert body["grade_floor"] == "Established"
-    # Two, not one: a model that answers without calling a tool still spends the round
-    # that ENDS gathering, and the answer is then asked for again with the research notes
-    # attached (#105 — the notes ride only on the round that cites them). This stub
-    # answers on every call, so the first answer is the one that is discarded.
-    assert stub.calls == 2
+    assert stub.calls == 1
 
 
 def test_coach_refuses_a_diagnosis_question_without_calling_the_model(

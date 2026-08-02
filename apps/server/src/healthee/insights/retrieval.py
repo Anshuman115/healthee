@@ -230,41 +230,5 @@ def evidence_section(
         parts.append(f"\n## `[{n.id}]` ({n.grade}) — {n.name}\n{prompt_body(n.id)}")
     if rest:
         parts.append("\n## Other citable notes (summaries only)")
-        parts.extend(_summary_line(n) for n in rest)
+        parts.extend(f"- `[{n.id}]` ({n.grade}): {n.summary}" for n in rest)
     return ("\n".join(parts), [n.id for n in top])
-
-
-def _summary_line(note: ManifestNote) -> str:
-    """One citable note as a single line — id, grade, summary. The cheap form."""
-    return f"- `[{note.id}]` ({note.grade}): {note.summary}"
-
-
-def index_section(question: str, metrics: list[str] | None = None) -> str:
-    """EVERY citable note as one line, most relevant first — the corpus's contents page.
-
-    The same ranking as :func:`evidence_section` and none of its bodies. It exists for
-    the coach's GATHERING rounds (#105): those rounds pick a tool and read its result,
-    they write no prose and cite nothing, and the six full note bodies they used to carry
-    were 65–83% of their prompt. What a gathering round genuinely needs from the corpus
-    is the knowledge that a topic EXISTS — that is what tells the model to go and read
-    HRV when the question is about alcohol — and one line per note says exactly that.
-
-    It is deliberately a strict SUBSET of what those rounds already received:
-    ``evidence_section`` has always listed the notes it did not embed in precisely this
-    form (``_summary_line``, shared), so nothing new reaches the model here. The full
-    text of the ranked notes still arrives — once — on the round that writes the answer,
-    and ``get_knowledge`` still pulls any specific note mid-gathering.
-    """
-    ranked = rank_notes(question, metrics)
-    if not ranked:
-        return ""
-    return "\n".join(
-        [
-            "# EVIDENCE INDEX (titles only — the note TEXT is not in this prompt yet)",
-            "Everything our evidence base covers, most relevant to this question first. "
-            "Use it to decide what to look up. Do not cite from it: you have not read "
-            "these notes, and the full text of the relevant ones is given to you before "
-            "you write the answer.",
-            *(_summary_line(n) for n in ranked),
-        ]
-    )

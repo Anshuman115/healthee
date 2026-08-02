@@ -100,24 +100,11 @@ def _recovery_heading(recovery: dict, stale: dict | None) -> str:
 
 
 def coach_evidence(question: str) -> str:
-    """Top-ranked evidence notes IN FULL for the current question (same retrieval stage).
+    """Top-ranked evidence notes for the current question (the SAME retrieval stage).
 
     Through ``pipeline.evidence`` rather than ``retrieval.evidence_section`` directly, so
     "same retrieval as insights" is a fact the AST guard in
     ``tests/insights/test_pipeline_shared.py`` enforces rather than a comment.
-
-    Sent on the ANSWERING round only (#105) — see ``coach.py``'s module docstring.
     """
     evidence_md, _ids = pipeline.evidence(question)
     return evidence_md
-
-
-def coach_evidence_index(question: str) -> str:
-    """The same notes as one line each — what the GATHERING rounds carry instead (#105).
-
-    A gathering round chooses a tool; it writes no prose and cites nothing, so the six
-    full note bodies it used to carry bought nothing and cost 65–83% of its prompt. The
-    index still tells the model what the corpus covers, which is what it needs to decide
-    what to look up.
-    """
-    return pipeline.evidence_index(question)
