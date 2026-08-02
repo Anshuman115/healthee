@@ -82,8 +82,9 @@ below live in **`insights/pipeline.py`**, and both entry points run them. The
 non-conversational surfaces enter through `grounded_ask` (`grounded.py`); the coach
 enters through `run_coach` (`coach.py`). Each contributes only its message layout
 and its turn shape; neither owns a stage. The surfaces held to it: the coach, the
-sleep/activity/metric/workout insights, notable shifts, the daily coaching lines,
-recs, and challenge/program generation.
+sleep/activity/metric/workout insights, notable shifts, the daily coaching lines, the
+one morning generation that feeds both the Telegram briefing and `/api/today`'s action
+(§3.2), recs, and challenge/program generation.
 
 ```
 question/task
@@ -193,6 +194,55 @@ definition; no owner action brings it back, §2 of `analytics/biological_age.py`
 missing day is *today* is a freshness problem that coverage calls excellent — which is
 exactly why both exist. A metric at 0/14 is reported as 0/14 and nothing more; which of the
 four states it is in is stated where that metric is served, by the code that knows.
+
+### 3.2 · One generation, two surfaces — the morning call (#95)
+
+`BRIEFING_TASK` asked, in its own words, for *"today's single most useful action"*, and
+`_DAILY_ACTION_PROMPT` asked for that same line and nothing else. That was **two
+full-corpus calls per owner per night where the first already contained the second** — and
+the evidence block is ~86 % of either prompt (§3's box), so it was the most expensive
+duplication in the product. Both surfaces stay: the briefing goes to Telegram
+(`jobs/briefing.py`), the action to `/api/today` via the warm cache (`insights/coaching.py`).
+
+**`insights/morning.py` generates them once and renders them twice**, through the JSON seam
+(`grounded_ask(response_format="json")`), with the shape registered in `json_shapes` so
+`validate_json` applies the same grounding, grade-calibration, banned-tone and fabricated-id
+rules to **both fields** that the prose path applied to the two answers. Nothing regexes an
+action line out of a paragraph — a parser against a language model returns the wrong
+sentence silently, and the field is the seam that makes that unnecessary.
+
+**Validation binds both, and there is no partial pass.** The two fields are one candidate at
+the gates, so an ungrounded sentence in `action` withholds the briefing too. That is the
+honest reading — a briefing assembled from a validated body and an unvalidated action is the
+half-checked artefact a blocking validator exists to prevent — and it creates the one real
+risk in the change: a merged surface can halve availability while saving money.
+
+**So the merge is an optimisation, never a dependency.** If the merged call ships, both
+surfaces are filled for one call's price. If it does not, **each surface falls back to
+exactly the independent generation it made before #95** — `coaching.warm_daily_action` for
+the action, `morning.generate_briefing` for the briefing — so neither can go dark because of
+the other's sentence, and each surface's failure MODE is unchanged (the briefing Telegrams
+the honest fallback; the action stays `null` and `/api/today` says nothing rather than
+guessing). The cost of that guarantee is one extra attempt on a night the model could not
+ground itself; the break-even is arithmetic, and the merge is cheaper for any total-failure
+rate under 50 % (measured 0 % on current main, 31 % at the 2026-08-01 baseline).
+
+Two parameters had to be chosen rather than split: `context_days` is **30**, the daily
+action's window, because the action is calibrated from whole local days and narrowing it
+would silently change what a shipped surface can see, while widening the briefing changes
+only what it may consider. `metrics` is the **union**, which is nearly free — `metrics`
+drives retrieval's ranking, and `evidence_section` embeds a fixed `DEFAULT_TOP_N` notes
+however many are named, so the union changes *which* six notes ship in full, not how many.
+
+**Measured, counted-not-billed** (a local dry run over the real assembled prompts, no
+provider call): 72,103 → 37,787 input tokens, **−34,316 per owner per shipping night,
+−47.6 %**, ~24 % off the nightly chain. `PRICING.md` §3.1 carries the table and the dollar
+figures; the billed number is owed after the deploy.
+
+One thing the merge fixed that was not a cost problem: the briefing's action and
+`/api/today`'s action were **two independent generations of the same advice** and could
+disagree on the same morning. They are now one sentence, rendered on both surfaces —
+CLAUDE.md's "ONE canonical definition" applied to a recommendation rather than a metric.
 
 ## 4 · Coach loop v2
 
@@ -504,7 +554,10 @@ It costs real money and hits the network, so it never runs in the normal suite; 
 offline arithmetic tests do (Wilson checked against its own defining equation, McNemar
 against exact binomial values, and the premise that every safety question refuses
 pre-LLM). Measured: 16 questions × 3 repeats = 48 runs, ~5M input tokens, **~$3.00 per
-arm** and ~30 minutes.
+arm** and ~30 minutes. *(#95 added a 17th — the merged morning prompt, §3.2, which is the
+most expensive thing the product sends nightly and was previously unmeasurable here
+because the harness had no JSON arm. Budget ~1/16 more, and note that an arm taken across
+that commit is not comparable: the question set moved, and the fingerprint says so.)*
 
     uv run python -m tests.grounding_eval run --repeats 3 --out before.json
     uv run python -m tests.grounding_eval compare before.json after.json
