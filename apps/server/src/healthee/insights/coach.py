@@ -15,6 +15,35 @@ places). That mirror rule is gone. Every honesty stage now lives once, in
     The gathering allowance (:data:`GATHERING_ROUNDS`) is the coach's alone; the answer
     and its validation retries are the pipeline's, reserved on top.
 
+## The two phases, and why the notes are sent once (#105)
+
+A coach question is ~3 model calls and the EVIDENCE NOTES block — six full research
+notes — used to ride on every one of them: measured, ~33.4k input tokens per call and
+65–83% of each prompt (task #23, INTELLIGENCE §3). Only the LAST call writes prose or
+cites anything; the gathering rounds pick a tool and read its result. Shipping a library
+to a call that produces a function name is the single most expensive habit in the
+product.
+
+The loop cannot know in advance which round is the answering one — the model simply
+stops calling tools. So the phases are separated by what each round is GIVEN:
+
+  * **gathering** — tools, the owner's data, and the corpus INDEX (every note as one
+    line: id, grade, summary). The index is a strict subset of what these rounds already
+    received, since the old block listed its un-embedded notes in exactly that form, and
+    it is what answers "what should I look up?" — the risk this change had to respect is
+    that the corpus may be how the model decides to query HRV for an alcohol question.
+    ``get_knowledge`` still pulls any specific note mid-gathering.
+  * **answering** — the full ranked notes, appended once as a final user turn, and NO
+    tools. Every validation retry is an answering round, so a retry always has them.
+
+The first round that answers instead of calling a tool ends the gathering phase, and its
+text is DISCARDED: it was written without the notes it would have to cite, and a cheaper
+answer that is less grounded is a loss, not a saving. That costs one extra model call on
+a question the model finishes early — priced at the CHEAP prompt, which is the whole
+trade. The turn ceiling is unchanged (``turn_budget`` = 22): the extra round is taken
+from the gathering allowance the model chose not to spend, so metering, which charges the
+QUESTION and not the turn (``api/routers/coach.py``), is untouched.
+
 Everything else — the refusal gate before any tool runs, the hard output guardrails, the
 blocking validator on every final free-text answer, the anti-hallucination gate, the one
 nudged retry and then ``prompts.FALLBACK`` — is the same code the insight surfaces run.
@@ -22,8 +51,9 @@ nudged retry and then ``prompts.FALLBACK`` — is the same code the insight surf
 registry and asserting BOTH surfaces obey it, and fails if any surface reaches a
 primitive directly.
 
-The system message is ``COACH_SYSTEM_PROMPT`` (docs/COACH_PROMPT.md verbatim); the
-context is the history-rich ``build_coach_context``; the tools are ``COACH_TOOLS``.
+Every message this loop sends is laid out by ``coach_messages`` (the system message is
+``COACH_SYSTEM_PROMPT``, docs/COACH_PROMPT.md verbatim; the context is the history-rich
+``build_coach_context``); the tools are ``COACH_TOOLS``.
 """
 
 from __future__ import annotations
@@ -36,10 +66,9 @@ from uuid import UUID
 
 from healthee.analytics import coverage
 from healthee.core.logging import get_logger
-from healthee.insights import coach_tools, pipeline
+from healthee.insights import coach_messages, coach_tools, pipeline
 from healthee.insights.client import LLMClient, coach_model, get_client
-from healthee.insights.coach_context import DEFAULT_COACH_DAYS, build_coach_context, coach_evidence
-from healthee.insights.coach_prompt import COACH_SYSTEM_PROMPT
+from healthee.insights.coach_context import DEFAULT_COACH_DAYS
 
 log = get_logger(__name__)
 
@@ -53,20 +82,6 @@ log = get_logger(__name__)
 # now reserved on top of this by `pipeline.drive`, so gathering can be generous without
 # taking grounding tolerance away from exactly the questions that need it most.
 GATHERING_ROUNDS = 20
-_HISTORY_LIMIT = 12  # last N conversation turns kept (context-window discipline)
-
-_GREETING = "Ask me anything about your sleep, activity, recovery, or logged routines."
-
-# Said once, when the gathering allowance runs out (or the loop stalls) and the tools are
-# withdrawn. Without it the model would face a silent, unexplained loss of its tools; with
-# it the last round is a real answer attempt instead of a wasted one. It asks for honesty
-# about the gap rather than a guess — the validator would refuse the guess anyway, but a
-# refused answer the owner never sees is a worse outcome than a plainly stated limit.
-_ANSWER_NOW = (
-    "You have no more tool calls available. Answer the question now using only the data "
-    "already in this conversation. If something you wanted is missing, say plainly what "
-    "you could not check — do not estimate or invent a number."
-)
 
 
 @dataclass
@@ -111,17 +126,17 @@ def run_coach(
     Every tool the loop runs acts on ``user_id`` only — the coach can neither read
     nor write another owner's data.
     """
-    history = _recent(messages)
-    question = _last_user(history)
+    history = coach_messages.recent_turns(messages)
+    question = coach_messages.last_user(history)
     if not question:
-        return CoachResult(reply=_GREETING)
+        return CoachResult(reply=coach_messages.GREETING)
     refusal = pipeline.check_question(question)
     if refusal is not None:
         log.info("coach refused pre-LLM: domain=%s", refusal.name)
         return CoachResult(reply=refusal.template, refused=True)
     client = client or get_client()
-    convo = _initial_messages(history, question, user_id, tz, context_days)
-    result = _loop(client, convo, user_id, tz)
+    convo = coach_messages.initial_messages(history, question, user_id, tz, context_days)
+    result = _loop(client, convo, coach_messages.evidence_turn(question), user_id, tz)
     result.data_coverage = coverage.measured_payload(
         user_id, tz, _metrics_read(result.tool_calls), context_days
     )
@@ -147,9 +162,11 @@ def _metrics_read(invocations: list[dict]) -> list[str]:
     ]
 
 
-def _loop(client: LLMClient, convo: list[dict], user_id: UUID, tz: str) -> CoachResult:
+def _loop(
+    client: LLMClient, convo: list[dict], evidence: dict, user_id: UUID, tz: str
+) -> CoachResult:
     """The bounded tool loop, driven by the shared pipeline (one gate set, one policy)."""
-    tool_loop = _ToolLoop(client=client, convo=convo, user_id=user_id, tz=tz)
+    tool_loop = _ToolLoop(client=client, convo=convo, evidence=evidence, user_id=user_id, tz=tz)
     outcome = pipeline.drive(
         pipeline.Loop(
             next_turn=tool_loop.next_turn,
@@ -166,31 +183,67 @@ def _loop(client: LLMClient, convo: list[dict], user_id: UUID, tz: str) -> Coach
 class _ToolLoop:
     """The coach's turn shape — the ONE thing ``grounded_ask`` cannot express.
 
-    It holds the state a bounded tool loop needs across turns: the conversation, which
-    action tools returned ok (the anti-hallucination gate reads it at judgement time),
-    every invocation made (so a repeat is recognisable), and whether the tools have
-    already been withdrawn (so the "answer now" instruction is said exactly once).
+    It holds the state a bounded tool loop needs across turns: the conversation, the
+    prepared evidence turn and whether it has been sent, which action tools returned ok
+    (the anti-hallucination gate reads it at judgement time), every invocation made (so a
+    repeat is recognisable), whether the gathering phase has ended, and whether the tools
+    have already been withdrawn (so the "answer now" instruction is said exactly once).
+
+    ``evidence`` is built by ``coach_messages.evidence_turn`` and handed in whole rather than
+    retrieved here: the loop owns the SEQUENCE, the choke point owns retrieval.
     """
 
     client: LLMClient
     convo: list[dict]
+    evidence: dict
     user_id: UUID
     tz: str
     invocations: list[dict] = field(default_factory=list)
     acted_ok: set[str] = field(default_factory=set)
     seen_calls: set[tuple[str, str]] = field(default_factory=set)
+    gathering_done: bool = False
+    evidence_sent: bool = False
     tools_withdrawn: bool = False
 
     def next_turn(self, tools_allowed: bool) -> pipeline.Turn:
-        """One model turn: run any tools it asked for, or hand back its answer."""
+        """One model turn: a gathering round while the phase lasts, otherwise the answer."""
+        if tools_allowed and not self.gathering_done:
+            return self._gather_turn()
+        return self._answer_turn(tools_allowed)
+
+    def _gather_turn(self) -> pipeline.Turn:
+        """A tool round: tools offered, no note bodies, and no answer is kept from it."""
+        response = pipeline.complete(
+            self.client, self.convo, tools=coach_tools.COACH_TOOLS, model=coach_model()
+        )
+        if response.tool_calls:
+            return pipeline.Turn(text=None, progressed=self._run_tools(response))
+        self.gathering_done = True
+        log.info("coach: the model stopped calling tools — gathering over, sending the notes")
+        return pipeline.Turn(text=None)
+
+    def _answer_turn(self, tools_allowed: bool) -> pipeline.Turn:
+        """The answering round: the full notes, no tools. Every validation retry is one."""
         if not tools_allowed:
             self._withdraw_tools()
-        tools = coach_tools.COACH_TOOLS if tools_allowed else None
-        response = pipeline.complete(self.client, self.convo, tools=tools, model=coach_model())
+        self._send_evidence()
+        response = pipeline.complete(self.client, self.convo, tools=None, model=coach_model())
         if response.tool_calls:
-            progressed = self._run_tools(response)
-            return pipeline.Turn(text=None, progressed=progressed)
+            # Unreachable through the real transport (no `tools=` is sent, so none can be
+            # requested) and deliberately NOT executed: this round's output is not going
+            # to be used, and running an action tool for it would be a write the owner
+            # never hears about. The driver turns a text-less tool-less turn into the
+            # honest fallback, which is the right end for a model ignoring the withdrawal.
+            log.warning("coach: a tool call arrived on a tool-less round — ignored, not run")
+            return pipeline.Turn(text=None)
         return pipeline.Turn(text=response.text)
+
+    def _send_evidence(self) -> None:
+        """Put the full research notes into the conversation, once, before the first answer."""
+        if self.evidence_sent:
+            return
+        self.evidence_sent = True
+        self.convo.append(self.evidence)
 
     def nudge(self, text: str, issues: Sequence[str]) -> None:
         """Carry a failed candidate back to the model (shared wording, shared policy)."""
@@ -205,7 +258,7 @@ class _ToolLoop:
         if self.tools_withdrawn:
             return
         self.tools_withdrawn = True
-        self.convo.append({"role": "user", "content": _ANSWER_NOW})
+        self.convo.append({"role": "user", "content": coach_messages.ANSWER_NOW})
 
     def _run_tools(self, response: Any) -> bool:
         """Execute each requested tool; return whether the round learned anything new.
@@ -214,7 +267,7 @@ class _ToolLoop:
         made — same tool, same arguments, hence the same answer. One repeat alongside a
         genuinely new call is still a round that gathered something.
         """
-        self.convo.append(_assistant_tool_message(response))
+        self.convo.append(coach_messages.assistant_tool_message(response))
         fresh = False
         for call in response.tool_calls:
             name = call.function.name
@@ -257,32 +310,6 @@ def _result(outcome: pipeline.Outcome, invocations: list[dict]) -> CoachResult:
     )
 
 
-def _initial_messages(
-    history: list[dict], question: str, user_id: UUID, tz: str, context_days: int
-) -> list[dict]:
-    """System (coach prompt + context + evidence) followed by the conversation."""
-    context = build_coach_context(question, user_id, tz, days=context_days)
-    evidence = coach_evidence(question)
-    system = f"{COACH_SYSTEM_PROMPT}\n\n# THE USER'S DATA (CONTEXT)\n\n{context}\n\n{evidence}"
-    return [{"role": "system", "content": system}, *history]
-
-
-def _assistant_tool_message(response: Any) -> dict:
-    """Rebuild the assistant turn that requested tools (OpenAI tool-call shape)."""
-    return {
-        "role": "assistant",
-        "content": response.text or "",
-        "tool_calls": [
-            {
-                "id": call.id,
-                "type": "function",
-                "function": {"name": call.function.name, "arguments": call.function.arguments},
-            }
-            for call in response.tool_calls
-        ],
-    }
-
-
 def _parse_args(raw: str | None) -> dict:
     """Parse a tool call's JSON arguments; a malformed blob degrades to empty args."""
     try:
@@ -291,18 +318,3 @@ def _parse_args(raw: str | None) -> dict:
         log.warning("coach tool arguments unparseable (%s) — using empty args", exc)
         return {}
     return parsed if isinstance(parsed, dict) else {}
-
-
-def _recent(messages: list[dict]) -> list[dict]:
-    """Keep the last N well-formed turns (role+content) — bound the token cost."""
-    clean = [
-        {"role": m["role"], "content": m["content"]}
-        for m in messages
-        if m.get("role") in ("user", "assistant") and m.get("content")
-    ]
-    return clean[-_HISTORY_LIMIT:]
-
-
-def _last_user(history: list[dict]) -> str:
-    """The most recent user message text, or '' if there is none."""
-    return next((m["content"] for m in reversed(history) if m["role"] == "user"), "")

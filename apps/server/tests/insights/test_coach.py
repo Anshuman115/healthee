@@ -13,17 +13,34 @@ from tests.insights._ids import ESTABLISHED_ID, PROBABLE_ID
 from tests.insights._stub import VALID_TEXT
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights import coach, coach_tools, prompts
+from healthee.insights import coach, coach_messages, coach_tools, prompts
+from healthee.insights.client import ChatResponse
 
 
 @pytest.fixture(autouse=True)
 def _stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Skip the DB-backed context/evidence build — these are control-flow tests."""
+    """Skip the DB-backed context build — these are control-flow tests.
+
+    ``evidence_turn`` is deliberately left REAL: it is pure retrieval (no DB, no network,
+    cached) and it is the thing #105's two-phase loop moves, so stubbing it here would
+    hide the extra round these scripts now have to account for.
+    """
     monkeypatch.setattr(
-        coach,
-        "_initial_messages",
+        coach_messages,
+        "initial_messages",
         lambda history, q, user_id, tz, days: [{"role": "user", "content": q}],
     )
+
+
+def _ready() -> ChatResponse:
+    """The round where the model stops calling tools: it ENDS gathering and is discarded.
+
+    Under the two-phase loop (#105) a gathering round never produces the answer — the
+    notes it would have to cite are not in its prompt. So a script that used to be
+    "tool, tool, answer" is now "tool, tool, ready, answer", and the call counts below
+    say so rather than quietly absorbing the round into a repeated last response.
+    """
+    return text_turn("READY")
 
 
 def _ask(text: str) -> list[dict]:
@@ -52,12 +69,12 @@ def test_medication_question_is_refused_pre_llm() -> None:
 
 def test_fabricated_citation_is_blocked_then_falls_back() -> None:
     bad = "Your recovery suggests overtraining [not_a_real_note]."
-    stub = CoachStub([text_turn(bad), text_turn(bad)])
+    stub = CoachStub([_ready(), text_turn(bad), text_turn(bad)])
     result = _run(_ask("how's my recovery?"), client=stub)
     assert result.reply == prompts.FALLBACK  # never the unvalidated text
     assert result.validated is False
     assert "not_a_real_note" not in result.reply
-    assert stub.calls == 2  # original + one nudged retry, then stop
+    assert stub.calls == 3  # gathering ends, original answer + one nudged retry, then stop
 
 
 def test_retry_after_a_nudge_can_succeed() -> None:

@@ -20,7 +20,14 @@ from tests.insights._ids import ESTABLISHED_ID, MORTALITY_ID
 from tests.insights._stub import StubLLM
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights import coach, grounded, guard_directives, output_guard, validator
+from healthee.insights import (
+    coach,
+    coach_messages,
+    grounded,
+    guard_directives,
+    output_guard,
+    validator,
+)
 from healthee.insights.refusals import EMERGENCY
 
 # ── The rules are sourced, not invented ──────────────────────────────────────
@@ -240,9 +247,10 @@ def test_the_coach_blocks_it_too(monkeypatch: pytest.MonkeyPatch) -> None:
     coach to its own loop fails it. The general bar lives in ``test_pipeline_shared.py``.
     """
     monkeypatch.setattr(
-        coach, "_initial_messages", lambda *a, **k: [{"role": "user", "content": "x"}]
+        coach_messages, "initial_messages", lambda *a, **k: [{"role": "user", "content": "x"}]
     )
-    stub = CoachStub([text_turn(_MORTALITY_ANSWER)])
+    # The first turn ends the two-phase loop's gathering (#105); the second is the answer.
+    stub = CoachStub([text_turn("READY"), text_turn(_MORTALITY_ANSWER)])
     result = coach.run_coach(
         [{"role": "user", "content": "how am I doing?"}], SENTINEL_USER_ID, SENTINEL_TZ, client=stub
     )

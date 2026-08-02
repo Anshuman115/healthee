@@ -30,7 +30,7 @@ from tests.insights._coach_stub import CoachStub, text_turn, tool_call, tool_tur
 from tests.insights._stub import VALID_TEXT
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights import coach, coach_tools, output_guard, pipeline, prompts
+from healthee.insights import coach, coach_messages, coach_tools, output_guard, pipeline, prompts
 
 _BAD = "Your recovery suggests overtraining [not_a_real_note]."
 
@@ -39,8 +39,8 @@ _BAD = "Your recovery suggests overtraining [not_a_real_note]."
 def _stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
     """No DB, no network: these are call-sequence tests, not SQL or grounding tests."""
     monkeypatch.setattr(
-        coach,
-        "_initial_messages",
+        coach_messages,
+        "initial_messages",
         lambda history, q, user_id, tz, days: [{"role": "user", "content": q}],
     )
     monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, user_id, tz: {"ok": True})
@@ -49,6 +49,19 @@ def _stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
 def _tool(n: int) -> object:
     """A tool round asking for a DISTINCT metric — distinct so the stall guard stays out."""
     return tool_turn(tool_call(f"c{n}", "query_metric", f'{{"metric": "m{n}"}}'))
+
+
+def _ready() -> object:
+    """The round where the model stops calling tools — it ENDS gathering and is DISCARDED.
+
+    #105 made the loop two-phase: gathering rounds carry the corpus INDEX and no note
+    bodies, so nothing they write can be shipped (it would cite notes it never read). The
+    first round returning text instead of a tool call therefore ends the phase and is
+    thrown away, and the answer is asked for once more WITH the notes and WITHOUT tools.
+    Every "N tool rounds then an answer" sequence below is one call longer for that
+    reason, and the extra call is charged at the cheap gathering prompt.
+    """
+    return text_turn("READY")
 
 
 def _run(script: list) -> tuple[CoachStub, coach.CoachResult]:
@@ -76,32 +89,39 @@ def _offered_tools(stub: CoachStub) -> list[bool]:
 
 @pytest.mark.parametrize("rounds", [0, 1, 2, 3, 4, 5, 6, 19])
 def test_n_tool_rounds_then_a_prose_turn_all_ship(rounds: int) -> None:
-    """Under the ceiling the sequence is exactly N tool calls + one prose call."""
-    stub, result = _run([*_gather(rounds), text_turn(VALID_TEXT)])
+    """Under the ceiling: N tool calls, the round that ends gathering, one ANSWER call.
+
+    The last call is the only one made WITHOUT tools, because it is the only one made
+    WITH the notes — that pairing is the whole of #105 and is asserted directly in
+    ``test_coach_evidence_phases.py``.
+    """
+    stub, result = _run([*_gather(rounds), _ready(), text_turn(VALID_TEXT)])
     assert result.reply == VALID_TEXT
     assert result.validated is True
-    assert stub.calls == rounds + 1
-    assert _offered_tools(stub) == [True] * (rounds + 1)
+    assert stub.calls == rounds + 2
+    assert _offered_tools(stub) == [True] * (rounds + 1) + [False]
 
 
 def test_the_old_five_round_cliff_is_gone() -> None:
     """The exact row that used to fall back: five tool rounds, then an answer."""
-    stub, result = _run([*_gather(5), text_turn(VALID_TEXT)])
+    stub, result = _run([*_gather(5), _ready(), text_turn(VALID_TEXT)])
     assert result.reply == VALID_TEXT  # was prompts.FALLBACK
-    assert stub.calls == 6  # was 5 — the prose turn was never even requested
+    assert stub.calls == 7  # was 5 — the prose turn was never even requested
 
 
-@pytest.mark.parametrize("rounds", [0, 4, 19, coach.GATHERING_ROUNDS])
+@pytest.mark.parametrize("rounds", [0, 4, 19])
 def test_gathering_never_eats_the_validation_retry_budget(rounds: int) -> None:
     """Defect (b): after ANY amount of gathering, a bad answer still gets its nudge.
 
     Four tool rounds used to leave zero retries — the same first-attempt failure that a
-    trivial question recovers from shipped the fallback instead.
+    trivial question recovers from shipped the fallback instead. The ceiling row (where
+    the model never volunteers prose, so no round ends gathering) is
+    ``test_the_worst_case_call_count_is_the_declared_ceiling``.
     """
-    stub, result = _run([*_gather(rounds), text_turn(_BAD), text_turn(VALID_TEXT)])
+    stub, result = _run([*_gather(rounds), _ready(), text_turn(_BAD), text_turn(VALID_TEXT)])
     assert result.reply == VALID_TEXT
     assert result.validated is True
-    assert stub.calls == rounds + 2
+    assert stub.calls == rounds + 3
 
 
 def test_the_worst_case_call_count_is_the_declared_ceiling() -> None:
@@ -129,7 +149,7 @@ def test_the_model_is_told_why_its_tools_disappeared_exactly_once() -> None:
     rounds = coach.GATHERING_ROUNDS
     stub, _ = _run([*_gather(rounds), text_turn(_BAD), text_turn(VALID_TEXT)])
     final_convo = stub.messages_seen[-1]
-    said = [m for m in final_convo if m.get("content") == coach._ANSWER_NOW]
+    said = [m for m in final_convo if m.get("content") == coach_messages.ANSWER_NOW]
     assert len(said) == 1
 
 
@@ -146,10 +166,10 @@ def test_a_model_that_only_ever_calls_tools_is_still_asked_for_an_answer(rounds:
 
 def test_the_fallback_still_ships_when_grounding_genuinely_fails() -> None:
     """Two bad candidates: the fallback, after exactly two calls — no extra attempts."""
-    stub, result = _run([text_turn(_BAD), text_turn(_BAD)])
+    stub, result = _run([_ready(), text_turn(_BAD), text_turn(_BAD)])
     assert result.reply == prompts.FALLBACK
     assert result.validated is False
-    assert stub.calls == 2
+    assert stub.calls == 3  # the round that ended gathering, then the two answer attempts
 
 
 def test_the_fallback_still_ships_after_a_full_gather_that_cannot_be_grounded() -> None:
@@ -164,10 +184,10 @@ def test_a_blocked_answer_still_returns_without_a_retry() -> None:
     """A hard guardrail is a floor, not a grounding problem to nudge the model out of."""
     forbidden = "At this activity level your life expectancy is around 79."
     assert output_guard.check_output(forbidden) is not None, "the fixture must be blocked"
-    stub, result = _run([*_gather(3), text_turn(forbidden)])
+    stub, result = _run([*_gather(3), _ready(), text_turn(forbidden)])
     assert result.refused is True
     assert result.validated is False
-    assert stub.calls == 4  # three tool rounds + the blocked answer. No retry.
+    assert stub.calls == 5  # three tool rounds, gathering ends, the blocked answer. No retry.
 
 
 # ── the no-progress guard ────────────────────────────────────────────────────
@@ -184,9 +204,9 @@ def test_a_repeated_identical_call_stops_the_gathering_early() -> None:
 
 def test_the_stall_guard_does_not_fire_on_the_same_tool_with_different_arguments() -> None:
     """Two reads of two different metrics is progress, not a loop."""
-    stub, result = _run([_tool(0), _tool(1), _tool(2), text_turn(VALID_TEXT)])
-    assert stub.calls == 4
-    assert _offered_tools(stub) == [True] * 4
+    stub, result = _run([_tool(0), _tool(1), _tool(2), _ready(), text_turn(VALID_TEXT)])
+    assert stub.calls == 5
+    assert _offered_tools(stub) == [True] * 4 + [False]
 
 
 def test_a_round_that_repeats_one_call_but_makes_another_still_counts_as_progress() -> None:
@@ -195,9 +215,9 @@ def test_a_round_that_repeats_one_call_but_makes_another_still_counts_as_progres
         tool_call("a", "query_metric", '{"metric": "m0"}'),
         tool_call("b", "query_metric", '{"metric": "m9"}'),
     )
-    stub, result = _run([_tool(0), mixed, _tool(1), text_turn(VALID_TEXT)])
-    assert stub.calls == 4
-    assert _offered_tools(stub) == [True] * 4
+    stub, result = _run([_tool(0), mixed, _tool(1), _ready(), text_turn(VALID_TEXT)])
+    assert stub.calls == 5
+    assert _offered_tools(stub) == [True] * 4 + [False]
 
 
 def test_a_stalled_loop_that_still_refuses_to_answer_falls_back_rather_than_spinning() -> None:
