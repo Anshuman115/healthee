@@ -1,9 +1,10 @@
 """Derive orchestration — the per-night and per-day passes, in dependency order.
 
 ``derive_night`` materializes one sleep session's metrics; ``derive_day`` runs the
-daily chain (MVPA -> activity/calories -> VO2max -> cardio-load -> sleep debt ->
-recovery) so each step's inputs are already written. ``derive_batch`` is the ONE
-transactional entry point over many of both, and it owns the order between them.
+daily chain (MVPA -> activity/calories -> VO2max -> the day's recorded GPS sessions ->
+cardio-load -> sleep debt -> recovery) so each step's inputs are already written.
+``derive_batch`` is the ONE transactional entry point over many of both, and it owns
+the order between them.
 
 Ported verbatim from legacy v2 ``derive_night`` / ``derive_day``; the only change is
 DB plumbing — the legacy autocommit ``connect()`` becomes the shared ``core.db``
@@ -35,6 +36,7 @@ from psycopg.rows import TupleRow
 from healthee.derive._common import Cur, _upsert_daily, _wake_date
 from healthee.derive.activity import derive_daily_activity
 from healthee.derive.cardio_load import derive_cardio_load
+from healthee.derive.gps_scoring import score_day_tracks
 from healthee.derive.hrv_spo2_resp import derive_night_vitals
 from healthee.derive.mvpa import derive_mvpa
 from healthee.derive.recovery import derive_recovery
@@ -79,8 +81,16 @@ def derive_night(cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: d
 def derive_day(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
     """Full daily derive pass in dependency order.
 
-    MVPA -> activity/calories -> VO2max (needs MVPA + rhr) -> cardio-load (needs
-    rhr) -> sleep debt (needs TST) -> recovery (needs hrv/rhr/rr + sleep need).
+    MVPA -> activity/calories -> VO2max (needs MVPA + rhr) -> the day's recorded GPS
+    sessions (needs rhr for the reserve fallback) -> cardio-load (needs rhr) -> sleep
+    debt (needs TST) -> recovery (needs hrv/rhr/rr + sleep need).
+
+    ``score_day_tracks`` joined this pass in #111 and nothing here reads what it writes:
+    ``vo2max_submax`` is stored deliberately separate from the live ``vo2max_estimate``.
+    It is here because this is the pass every routine path runs — it was previously
+    reachable only from the upload endpoint, which asks before the strap's HR for the
+    session has synced, so 8 production tracks carried zero estimates. Its own freshness
+    gate keeps a re-derive from re-scoring what is already scored.
     """
     out: dict = {}
     if m := derive_mvpa(cur, user_id, tz, day):
@@ -88,6 +98,8 @@ def derive_day(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
     out.update(derive_daily_activity(cur, user_id, tz, day))
     if v := derive_vo2max(cur, user_id, tz, day):
         out.update(v)
+    if g := score_day_tracks(cur, user_id, tz, day):
+        out.update(g)
     if c := derive_cardio_load(cur, user_id, tz, day):
         out.update(c)
     if s := derive_sleep_debt(cur, user_id, tz, day):
