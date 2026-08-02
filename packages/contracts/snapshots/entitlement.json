@@ -1,0 +1,20 @@
+{
+  "expires_at": "2076-07-20T12:37:23.390034Z",
+  "included": [
+    {
+      "feature": "coach",
+      "limit": 20,
+      "remaining": 20,
+      "resets_at": null,
+      "retry_after_s": null,
+      "used": 0,
+      "window_days": 30
+    }
+  ],
+  "locked": [],
+  "plan": "test",
+  "premium": true,
+  "source": "subscription",
+  "status": "active",
+  "upgrade": ""
+}

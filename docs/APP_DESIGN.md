@@ -165,6 +165,13 @@ Adopt-a-commitment layer, up to **3 active**, targets calibrated to *the user's 
 
 Full-width bottom sheet, message bubbles, citation chips, typing dots, persisted multi-chat. Tool-calling backend (query_metric, compare_event, sleep_consistency, log_entry, get_knowledge). Returns `reply`, `citations[]`, `personal_findings[]`, `grade_floor`, `validated`, `refused`. `grade_floor` is the **weakest** grade among the cited notes (`null` when nothing gradeable was cited) — render it as the answer's evidence-confidence chip, same semantics as the insight cards. Persona fixed in `docs/COACH_PROMPT.md` (truth over flattery, mechanism + next step, cite-or-say-so, grade-calibrated certainty, meets the 4h-sleeper where they are). Ships the honest fallback rather than an ungrounded answer — *this is the product's promise; render the fallback with dignity, not as an error.*
 
+**The questions-left meter (#116) belongs on this screen, and it is a subscriber's meter — NOT a paywall.** `GET /api/entitlement` carries `included`: one entry per capped feature with `limit`, `used`, `remaining`, `window_days`, and (only once spent) `resets_at` + `retry_after_s`. Render the coach's entry quietly beside the composer — *"17 of 20 questions left this month"*, and at zero *"all 20 used — the next opens on the 14th"*, from `resets_at`. Design rules that are not negotiable:
+
+- **No upgrade button, ever, on this meter.** The owner already paid. The server deliberately omits the `upgrade` URL from a capped subscriber's 402 for the same reason; a meter that sprouts a subscribe button undoes that.
+- **Never render it from `locked`.** `locked` is the *upgradeable* list and is empty for a subscriber by design. `included` is empty for a **free** owner — they were never sold twenty of anything, and "0 of 20" at somebody with no access is an upsell wearing a meter's clothes. If `premium` is false, show the locked card, not a meter.
+- **A feature absent from `included` is uncapped, not exhausted.** The insight cards and the daily action emit no entry because they have no limit. Do not default a missing entry to zero.
+- The number exists because a stated limit nobody can observe until it refuses them is most of the way back to "unlimited (fair-use)" (`PRICING.md` §0). Hiding the meter until it hits zero would reintroduce exactly that.
+
 ### 3.7 PROFILE + logging
 
 - **Profile** (`/api/profile`) — name, height, sex, dob, weight. Body edits **re-derive** age-dependent science. dob is epoch-ms at owner-local midnight (the tz-correct codec — do not reinvent).

@@ -15,6 +15,10 @@ STATIC_ENDPOINTS: list[tuple[str, str, str, dict | None, dict | None]] = [
     ("activity", "GET", "/api/activity", None, None),
     ("history", "GET", "/api/history", {"metric": "steps_total", "days": 30}, None),
     ("profile", "GET", "/api/profile", None, None),
+    # The paywall's own endpoint is a wire contract like any other: since #116 it carries
+    # `included`, the balance left on the coach cap, and a client that mis-parses that
+    # renders somebody the wrong number of questions.
+    ("entitlement", "GET", "/api/entitlement", None, None),
     ("log_recent", "GET", "/api/log/recent", {"days": 7}, None),
     ("gps_list", "GET", "/api/workout/gps", None, None),
     ("challenges", "GET", "/api/challenges", None, None),
