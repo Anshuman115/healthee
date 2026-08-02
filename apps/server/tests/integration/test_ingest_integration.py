@@ -22,6 +22,7 @@ from healthee.core.db import admin_connection
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.ingest import HelioPayload, ingest_helio
+from healthee.ingest.service import DerivePlan
 
 pytestmark = pytest.mark.integration
 
@@ -34,17 +35,17 @@ def _reset() -> None:
         cur.execute(f"TRUNCATE {_TABLES}")
 
 
-def _noop_derive(conn: Connection, user_id: UUID, tz: str, days: list[Any]) -> None:  # noqa: ARG001
+def _noop_derive(conn: Connection, user_id: UUID, tz: str, plan: DerivePlan) -> None:  # noqa: ARG001
     """Derive stub: does nothing (WP2 owns real derivation)."""
 
 
 def _placeholder_steps_derive(  # noqa: ARG001 — stub mirrors the DeriveTrigger shape
-    conn: Connection, user_id: UUID, tz: str, days: list[Any]
+    conn: Connection, user_id: UUID, tz: str, plan: DerivePlan
 ) -> None:
     """Derive stub that writes a WRONG steps_total for each day, so the override
     test proves apply_daily_totals runs after (and beats) derive."""
     with conn.cursor() as cur:
-        for day in days:
+        for day in plan.days:
             cur.execute(
                 "INSERT INTO derived_daily (user_id, day, metric, value, flags) "
                 "VALUES (%s, %s, 'steps_total', 1, '{}'::jsonb) "
