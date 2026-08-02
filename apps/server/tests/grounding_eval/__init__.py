@@ -34,8 +34,11 @@ Run it (from ``apps/server``, with a reachable TimescaleDB and an OpenRouter key
       uv run python -m tests.grounding_eval compare before.json after.json
 
 ``run`` seeds the throwaway contract dataset into that database — do not point it at
-anything you care about. One run of the shipped set at ``--repeats 3`` is 48 questions
-and measured ~2.0M input tokens (~$1.10 at PRICING.md's assumed rates).
+anything you care about. One run of the shipped set at ``--repeats 3`` was 48 questions
+and measured ~2.0M input tokens (~$1.10 at PRICING.md's assumed rates); #95 added the
+merged morning prompt as a 17th question, so budget ~1/16 more than any figure recorded
+before 2026-08-02 — and an arm taken across that commit is not comparable anyway, which
+the question-set fingerprint already refuses.
 
 The arms are two RUNS of the same code, not a flag inside it: comparing "before" and
 "after" means checking out each side and running it. A harness that carried the old

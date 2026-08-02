@@ -23,11 +23,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from healthee.insights.coaching import (
-    _DAILY_ACTION_PROMPT,
-    _SLEEP_TONIGHT_PROMPT,
+from healthee.insights.coaching import _SLEEP_TONIGHT_PROMPT, SLEEP_TONIGHT_METRICS
+from healthee.insights.morning import (
     DAILY_ACTION_METRICS,
-    SLEEP_TONIGHT_METRICS,
+    DAILY_ACTION_PROMPT,
+    MORNING_CONTEXT_DAYS,
+    MORNING_METRICS,
+    MORNING_TASK,
 )
 from healthee.insights.surfaces import _ACTIVITY_PROMPT, _SLEEP_PROMPT
 
@@ -58,6 +60,10 @@ class EvalQuestion:
     expect: str = ANSWER
     metrics: list[str] = field(default_factory=list)
     context_days: int = 14
+    # "json" for the surfaces that ask the choke point for a JSON object (the merged
+    # morning generation). A JSON prompt scored on the prose path would be measuring a
+    # request the product never sends.
+    response_format: str | None = None
 
 
 QUESTIONS: tuple[EvalQuestion, ...] = (
@@ -170,9 +176,23 @@ QUESTIONS: tuple[EvalQuestion, ...] = (
         id="g_daily_action",
         kind="surface",
         surface="grounded",
-        text=_DAILY_ACTION_PROMPT,
+        text=DAILY_ACTION_PROMPT,
         metrics=DAILY_ACTION_METRICS,
         context_days=30,
+    ),
+    EvalQuestion(
+        # The most expensive prompt the product sends nightly (#95): ONE JSON call whose
+        # two fields become the Telegram briefing and `/api/today`'s action. Added to the
+        # set when the merge landed — its predecessors were two separate calls, so an arm
+        # taken before #95 is not comparable with one taken after, and the fingerprint
+        # already says so.
+        id="g_morning",
+        kind="surface",
+        surface="grounded",
+        text=MORNING_TASK,
+        metrics=MORNING_METRICS,
+        context_days=MORNING_CONTEXT_DAYS,
+        response_format="json",
     ),
     EvalQuestion(
         id="g_sleep_tonight",
