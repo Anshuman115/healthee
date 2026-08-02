@@ -183,8 +183,29 @@ age-predicted HRmax error and HR-decoupling conditions.
 ## Coach Directives
 
 1. Use the submaximal estimate as the **primary** `vo2max_estimate` path when a recorded
-   GPS session supplies ≥~6 steady windows of running/brisk-walking; otherwise fall back to
-   [[non_exercise_vo2max]]. *(confidence: high)*
+   GPS session **inside the last 14 days** supplies ≥~6 steady windows of
+   running/brisk-walking; otherwise fall back to [[non_exercise_vo2max]].
+   *(confidence: high)*
+   > **[Tightened 2026-08-02, #117.]** This directive said only "when a recorded GPS
+   > session supplies ≥~6 steady windows" and said nothing about how OLD that session may
+   > be — a gap nobody had to close while the code implemented no precedence at all and
+   > `vo2max_estimate` was the non-exercise model alone. The window is now stated, and it
+   > is derived rather than chosen: a held measurement stays current while the drift we
+   > would expect over the interval is smaller than the error of the instrument that took
+   > it. VO₂max falls **~4–7% by ~2–3 weeks of cessation and ~13% by ~8 weeks**
+   > ([[specificity_and_recovery]], grade Established — Barbieri et al. 2024; Mujika &
+   > Padilla 2000a/b), which at 40 mL/kg/min is 1.6 mL/kg/min at a fortnight against this
+   > method's own **MAPE 6.85%** ≈ 2.7. At three weeks the drift reaches our resolution;
+   > by eight it is ~5.2, larger than the fallback model's own 5.075 SEE, i.e. past that
+   > point the number being held is more wrong than the model it displaced.
+   > Two things this does NOT rest on, said plainly: the ~1%/yr untrained decline is
+   > 0.015 mL/kg/min over a fortnight and never binds; and the decay figures are for
+   > **complete cessation in endurance-trained adults** — there is no published curve for
+   > partial reduction or for a mostly-sedentary owner who keeps walking. *Reasoned, not
+   > measured:* someone with less trained adaptation has less to shed, so 14 days errs
+   > conservative for them. The direction matters — detraining makes a stale value read
+   > HIGH, and a fitness number that flatters is the failure #108 already cost this
+   > project years over.
 2. **Gate hard on steady-state** (stable HR + stable measured speed; drop warm-up and
    drift); never extrapolate from non-steady or maximal effort. *(high)*
 3. Treat the **Uth ratio only as a sanity bound**, never the engine — it under-ranks fitter
@@ -194,8 +215,21 @@ age-predicted HRmax error and HR-decoupling conditions.
    and the error lands on the slope the extrapolation multiplies; withhold instead
    ([[cadence_derived_speed]]). Flag HR-decoupling conditions (beta-blockers, chronotropic
    issues); do not cite the "0.95 correlation" vendor claim. *(high)*
-5. Report the **7-day median + trend**, never a single number; label it an estimate.
-   *(high)*
+5. Report the **median across the sessions inside that window, and the trend**, never one
+   session as a settled level; label it an estimate. *(high)*
+   > **[Tightened 2026-08-02, #117.]** This read "report the 7-day median + trend". That
+   > wording was inherited from [[non_exercise_vo2max]]'s reporting rule for a **nightly**
+   > metric and does not describe a session-based measurement: a qualifying session
+   > happens a handful of times a year, so a 7-day median is a median of one value or of
+   > none. Two things the old phrasing left open, now settled:
+   > - The median is taken **within one instrument**. A median across the graded fit and
+   >   the reserve inversion *is* the average [[hr_reserve_vo2max]] D4 forbids whenever
+   >   the count is even, so the tier picks the instrument first and only then aggregates.
+   > - At **n = 1** the value still ships. Refusing would leave the measured tier
+   >   permanently inert for anyone who is not a regular runner, which is not what "never
+   >   one session as a fact" asks for. The payload carries the session count and says, in
+   >   the second person, that this is one session rather than a settled level — the
+   >   number is offered, the fact-hood is not.
 
 ## References (primary, verified 2026-06-10)
 
@@ -240,9 +274,18 @@ age-predicted HRmax error and HR-decoupling conditions.
 
 ## Healthee implementation & honesty policy
 
-- **Derived field: `vo2max_estimate`** — this method is the **primary tier**;
-  `vo2max_submax` carries the session-measured value, written by `derive/vo2max_submax.py`
-  via `derive/gps.py` and tagged `flags.method = gps_graded`. Computed from per-minute
+- **Derived field: `vo2max_estimate`** — this method is the **primary tier**, and since
+  #117 that is true in code and not only here. `derive/vo2max_tier.py` is the one writer
+  of `vo2max_estimate` and applies the order these three notes specify: graded fit →
+  reserve inversion → non-exercise model. Every stored row and every payload names the
+  instrument in `method`, with the note that licenses it, the ± band in that instrument's
+  own units of error (this one's is a MAPE, not an SEE) and the number of sessions behind
+  it. `vo2max_submax` carries the SESSION record — what one recorded effort measured, on
+  the day it was recorded — written by `derive/vo2max_submax.py` via `derive/gps.py` and
+  tagged `flags.method = gps_graded`. It is an observation beneath the canonical metric,
+  not a second answer to "what is this person's VO₂max"; the payload's `submax` block is
+  session history, and the comparison field that used to sit there (`vs_jurca`) was
+  removed with the second definition it compared. Computed from per-minute
   workout HR, **GPS-measured speed** (per-fix distance ÷ time, smoothed), **SRTM DEM
   grade** (`derive/dem.py`, which replaces the phone's noisy GPS elevation), measured
   `rhr_daily`, and **Tanaka** HRmax — fitting VO₂ (ACSM level value × Minetti gradient-cost
@@ -255,12 +298,17 @@ age-predicted HRmax error and HR-decoupling conditions.
   [[cadence_derived_speed]]; the single canonical step-length constant lives in
   [[distance_from_steps]] and is used for daily distance only. **This note introduces no
   step-length constant.**
-- **Tiering contract**: submaximal is used when a recorded GPS session supplies ≥~6 steady
-  windows of running/brisk-walking; otherwise the derive pass falls back to the Jurca
-  non-exercise model ([[non_exercise_vo2max]]). When the graded fit declines, the
-  heart-rate-reserve inversion ([[hr_reserve_vo2max]]) may run as a *running-only*
-  fallback and records `flags.graded_why_not`; the two are never blended. The Uth ratio is
-  only a sanity bound, never the engine.
+- **Tiering contract**: submaximal is used when a recorded GPS session **inside the last
+  14 days** supplies ≥~6 steady windows of running/brisk-walking; otherwise the derive
+  pass falls back to the Jurca non-exercise model ([[non_exercise_vo2max]]). When the
+  graded fit declines *on a session*, the heart-rate-reserve inversion
+  ([[hr_reserve_vo2max]]) may run as a *running-only* fallback and records
+  `flags.graded_why_not`; the two are never blended — the tier picks one instrument and
+  takes its median over that instrument's sessions alone, which is enforced structurally
+  and mutation-tested (`tests/derive/test_vo2max_tier.py`). Staleness is decided when the
+  day's row is WRITTEN, so the canonical metric stays what `derive/freshness.py` says
+  every daily row is: a claim about the day it is keyed to. The Uth ratio is only a sanity
+  bound, never the engine.
 - **Honesty rules (carry into UI + LLM)**: label "estimate"; report the **7-day median +
   trend**, never a single number; flag HR-decoupling conditions (beta-blockers,
   chronotropic issues, the short-sleeper's autonomic state); **never** cite the refuted

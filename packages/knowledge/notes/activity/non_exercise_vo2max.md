@@ -293,8 +293,17 @@ published crosswalk, and the constructs differ — see *The category is the OWNE
 ## Coach Directives
 
 1. Compute the non-exercise estimate only as the **fallback** to the submaximal method;
-   prefer [[submaximal_vo2max]] when a good steady-state workout segment exists.
-   *(confidence: high)*
+   prefer [[submaximal_vo2max]] when a good steady-state workout segment exists **inside
+   the last 14 days**. *(confidence: high)*
+   > **[Tightened 2026-08-02, #117.]** Until then this directive was true only on paper:
+   > `vo2max_estimate` was this model and only this model, and the measured values lived
+   > in a separate metric nothing read. The precedence is now in code
+   > (`derive/vo2max_tier.py`), and with it the horizon this directive needed and did not
+   > have — the evidence for 14 days is written out under [[submaximal_vo2max]] D1.
+   > **Two consequences run in this note's favour.** A measured session inside the window
+   > displaces this model entirely, which is what "fallback" always meant; and past the
+   > window the measurement falls THROUGH to this model rather than blanking the metric,
+   > which is what keeping an honest number on screen on sedentary days always meant.
 2. Always label the number an **estimate** with a ±SEE band; surface the **trend**, never
    the bare value. *(high)*
 3. **Skip the derivation** (show "Insufficient data") when any input is missing, RHR 7-day
@@ -355,6 +364,12 @@ published crosswalk, and the constructs differ — see *The category is the OWNE
 ## Healthee implementation & honesty policy
 
 - **Derived field: `vo2max_estimate`** (mL/kg/min), the **non-exercise fallback tier**.
+  One metric, three instruments, one writer: `derive/vo2max_tier.py` runs this model only
+  when no measured session inside the freshness horizon can speak for the day (#117), and
+  every row it writes carries `flags.method = jurca_non_exercise`. A gate on THIS tier —
+  a noisy RHR week, a stale weight, an unanswered activity question — withholds this
+  model's number and nothing else: a fresh measurement still produces the metric, which
+  is the case that was live on 2026-08-02 and returning nothing.
   Computed nightly in the v2 `derive.py` pass, anchored 23:59 IST, `source = 'derived'`,
   **floored at 20** in code. Inputs: profile age/sex/**`srpa`**, BMI from latest
   `weight_kg` + height, and the 7-day rolling median of `rhr_daily`.

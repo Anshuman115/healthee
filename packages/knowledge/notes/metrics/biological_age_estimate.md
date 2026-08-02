@@ -431,6 +431,39 @@ person should read and is the sanity check the fabricated category failed.
 their best week rather than their typical one — which tilts this **towards flattery**. Its
 size has not been measured here.
 
+## The fitness term's INSTRUMENT (2026-08-02, #117)
+
+#108 left the fitness term reading `vo2max_estimate`, which was the Jurca model and only
+the Jurca model. So on the real owner it returned **null** — SR-PA unanswered, model
+withheld — across a fortnight in which two MEASURED VO₂max values (graded 39.6, reserve
+41.7) sat in `vo2max_submax` with nothing reading them. We refused to produce a number
+while holding a better version of the input we were refusing for.
+
+`vo2max_estimate` is now the tiered metric its three notes always specified — graded GPS
+fit, then the %HRR inversion, then the non-exercise model, with a 14-day horizon on the
+measured tiers ([[submaximal_vo2max]] D1). **The hazard maths is untouched**: 0.85 per MET
+against FRIEND's median is the same claim whoever measured the MET, and this section adds
+no term, no anchor and no constant. Two things about disclosure do change:
+
+1. **Each contribution names the instrument behind its own input** (`method`). A fitness
+   number that came from a run last week and a questionnaire this week is not the same
+   measurement twice, and [[hr_reserve_vo2max]] D4 requires the instrument be stated.
+2. **The fitness `caveats` entry swaps with it.** #108's self-reported-activity footing is
+   a true statement about the Jurca model and a **false** one about a number measured from
+   a run — that owner answered no questionnaire, and their VO₂max does not rest on one. A
+   payload that shipped it regardless would be asserting a dependency that does not exist,
+   which is the same class of error as omitting one. So the fitness term carries its
+   anchor caveat plus **exactly one** instrument caveat: `vo2max_srpa_self_reported` for
+   the model, `vo2max_measured_from_session` for the graded fit,
+   `vo2max_measured_from_reserve_inversion` for the inversion (which also says the
+   published bias runs conservative). Still three caveat entries, still one per priced
+   footing; no fourth state was invented, because naming the instrument is exactly what
+   `caveats` is for — it *is* in the number, and it *does* say which way it leans.
+
+The measured caveats also state the horizon in the owner's own terms, because the honest
+consequence of it is a **step**: when a session ages past 14 days the number changes
+instrument, and an owner must be able to tell that from a change in themselves.
+
 ## Operational use
 
 - Surface `biological_age` = chronological + ΔAge, with the **per-term year
@@ -511,9 +544,9 @@ See **Caveats (must surface)** above — all mandatory. In brief: not causal or 
 - **Computed on read, not stored as a daily metric.** `analytics/biological_age.py::compute_biological_age` produces the estimate from `derived_daily` reads; `read/health_metrics.py::biological_age_payload` is a thin wrapper. It returns `chronological_age`, `biological_age`, `delta_years`, `data_confidence`, a `withheld` block, an `excluded` block, a `caveats` block, the signed per-term `contributions`, a `disclaimer` ("Motivational estimate from population data — not a clinical or diagnostic age."), and `research_notes: ["biological_age_estimate"]`; returns **None** without a profile (`dob`/`sex`) or inputs.
 - **EVERY term is REQUIRED — no current input for either of the two, no number.** The Stage-1 directive above ("hold the number back … until the VO₂max estimate and ≥14 nights of sleep exist") is enforced structurally, not by caveat. A term simply left out of `chrono + ΣΔAge` is not an omission: it is the assertion `HR_term = 1.0`, i.e. *this person is exactly at the reference for that lever* — silently invented. So when the owner has no `vo2max_estimate` for their **own today** (withheld by [[non_exercise_vo2max]]'s gate, or not derived yet), or no recorded night in the trailing 14, `biological_age` and `delta_years` are `null`, `data_confidence` is `insufficient_data`, and `withheld.terms` lists EVERY absent term with the input metric's own reason and message verbatim (`derive/vo2max.py::WITHHOLD_MESSAGES`) alongside one `consequence` explaining what the absence costs. The contribution that IS current still ships: it is a standalone hazard→years fact, and hiding it would withhold something we do know. With two terms, *both* absent means no contribution at all, which is the pre-existing "nothing to say" floor — `None`, no card.
   - One rule over all terms, rather than a per-term policy, is deliberate: "which terms matter enough" is the question that produced an uncited constant elsewhere in this codebase.
-  - The freshness rule is `derive/vo2max.py::estimate_unavailable_reason`, bound to the one shared rule in `derive/freshness.py` and shared with `read/vo2max.py` — so the VO₂max card and this estimate can never disagree about whether today has a number.
+  - The freshness rule is `derive/vo2max_tier.py::estimate_unavailable_reason`, bound to the one shared rule in `derive/freshness.py` and shared with `read/vo2max.py` — so the VO₂max card and this estimate can never disagree about whether today has a number. *(It moved out of `derive/vo2max.py` in #117 with the metric itself: it was answering for one tier while claiming to answer for the metric, so an owner with a measurement but no answered activity question was told they had no VO₂max.)*
 - **`excluded` is NOT `withheld`, and the difference is load-bearing.** `withheld` means "you could have this; here is the action". `excluded` names a term the estimate does not price *for anyone*, permanently, because the evidence has no transportable number — `EXCLUDED_TERMS` in `analytics/biological_age.py`, reason id `sri_hazard_not_transportable`. Merging them would promise the owner a fix that does not exist, and would make the composite null forever. Removing a term without saying so would be worse still: "biological age" would mean two different things across two releases under an unchanged key.
-- **`caveats` is the THIRD state, and the three are not interchangeable (#97).** `withheld` = "you could have this; here is the action". `excluded` = "nobody can price this, ever". `caveats` = "this IS in your number, and here is which way it leans" — one permanent entry per priced term, `CAVEAT_TERMS` in `analytics/biological_age.py` over the footing statements in `analytics/reference_scales.py`, reason ids `vo2max_reference_clinical_cohort` (renamed from `vo2max_reference_median_uncited` in #101, when the anchor stopped being uncited and the caveat became the part sourcing cannot fix) and `sleep_duration_self_report_scale`. It carries no machine-readable direction field on purpose: neither residual has a single direction we can stand behind — the sleep one pushes short and long sleepers opposite ways, and the fitness one's direction depends on how a lab-referral cohort differs from the US population, which has not been measured. A key that is right for most owners and wrong for some is worse than a sentence right for all of them.
+- **`caveats` is the THIRD state, and the three are not interchangeable (#97).** `withheld` = "you could have this; here is the action". `excluded` = "nobody can price this, ever". `caveats` = "this IS in your number, and here is which way it leans" — one permanent entry per priced footing, `caveat_terms()` in `analytics/biological_age_terms.py` (split out of `analytics/biological_age.py` in #117, which owns the maths) over the footing statements in `analytics/reference_scales.py`, reason ids `vo2max_reference_clinical_cohort` (renamed from `vo2max_reference_median_uncited` in #101, when the anchor stopped being uncited and the caveat became the part sourcing cannot fix) and `sleep_duration_self_report_scale`, plus **one instrument caveat that swaps with the fitness term's own instrument** (#117): `vo2max_srpa_self_reported` · `vo2max_measured_from_session` · `vo2max_measured_from_reserve_inversion`. It carries no machine-readable direction field on purpose: neither residual has a single direction we can stand behind — the sleep one pushes short and long sleepers opposite ways, and the fitness one's direction depends on how a lab-referral cohort differs from the US population, which has not been measured. A key that is right for most owners and wrong for some is worse than a sentence right for all of them.
 - **Constants.** `GOMPERTZ_MRDT_YEARS = 7.7` (Libert et al. 2025, eLife 13:RP92092 — UK Biobank, both sexes; verified against the paper 2026-08-01, replacing an unattributed "UK Biobank actuarial analysis") and `TERM_CAP_YEARS = 10.0` live in `analytics/biological_age.py`; `b = ln(2)/7.7`, each term `d = clamp(±10, ln(hr)/b)`. The **anchors** moved out to `analytics/reference_scales.py` in #97, because "which anchor came from where" is the question that has now produced three bugs: `_FRIEND_TREADMILL_MEDIAN_MALE/FEMALE` (one published row, sourced per cell, with the replaced table and the full delta beside them — #101), and the Lauderdale device→questionnaire conversion with its two non-extrapolation clamps. `read/vo2max.py` imports `vo2max_median_for` from there too, so the card and the term cannot disagree about the median or about its footing.
 - **The two terms (v2 field names):**
   - **Fitness** — latest `vo2max_estimate` vs FRIEND's age/sex 50th percentile, `0.85 ** ((vo2 − ref)/3.5)`. Sourced in #101; the table it replaced was invented, and the payload's `target` moves with it (e.g. 41 → 40 for a 30-something man).
