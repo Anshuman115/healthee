@@ -8,7 +8,7 @@ contract:
     derive_night(cur, s, e)              -> dict  # per-night metrics for one session
     derive_day(cur, day)                 -> dict  # all daily metrics for one day
     derive_batch(conn, nights, days)     -> None  # BOTH, in dependency order, one txn
-    derive_all_nights()                  -> dict  # every stored main sleep session
+    stored_nights(cur, tz, since)        -> list  # the repair path's night windows
 
 `derive_batch` is the ONLY transactional entry point, and that is deliberate: a
 days-only one existed, ingest called it, and `derive_night` therefore never ran in the
@@ -19,10 +19,10 @@ from __future__ import annotations
 
 from healthee.derive.orchestrator import (
     SleepWindow,
-    derive_all_nights,
     derive_batch,
     derive_day,
     derive_night,
+    stored_nights,
 )
 
-__all__ = ["SleepWindow", "derive_all_nights", "derive_batch", "derive_day", "derive_night"]
+__all__ = ["SleepWindow", "derive_batch", "derive_day", "derive_night", "stored_nights"]

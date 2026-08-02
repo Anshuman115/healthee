@@ -5,22 +5,23 @@ daily chain (MVPA -> activity/calories -> VO2max -> cardio-load -> sleep debt ->
 recovery) so each step's inputs are already written. ``derive_batch`` is the ONE
 transactional entry point over many of both, and it owns the order between them.
 
-Ported verbatim from legacy v2 ``derive_night`` / ``derive_day`` /
-``derive_all_nights``; the only change is DB plumbing — the legacy autocommit
-``connect()`` becomes the shared ``core.db`` pool, preserving one transaction per
-unit of work.
+Ported verbatim from legacy v2 ``derive_night`` / ``derive_day``; the only change is
+DB plumbing — the legacy autocommit ``connect()`` becomes the shared ``core.db``
+pool, preserving one transaction per unit of work.
 
 ## Why there is exactly one batch entry point (#107)
 
-There used to be two, and they split the science in half: ``derive_days`` (days only)
-and ``derive_all_nights`` (nights only, in its own transaction). The ingest path
-reached for the days-only one, so ``derive_night`` never ran in the running system and
-every night-derived metric quietly stopped existing — for two weeks, behind a 200 and
-a green ``data_health``.
+There used to be two: ``derive_days`` (days only) and ``derive_all_nights`` (nights
+only, in its own transaction, called by nothing). The ingest path reached for the
+days-only one, so ``derive_night`` never ran in the running system and every
+night-derived metric quietly stopped existing — for two weeks, behind a 200 and a
+green ``data_health``.
 
 The structural fix is not "also call the other one": it is that **there is no way to
-derive a batch of days without its nights**. A caller passes both; this module decides
-the order.
+derive a batch of days without its nights**. A caller passes both; this module
+decides the order. ``derive_all_nights`` is gone with it — its capability lives in
+``healthee.db.rederive``, which routes through this same function, so the repair path
+cannot disagree with the live path about the order.
 """
 
 from __future__ import annotations
@@ -31,7 +32,6 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.rows import TupleRow
 
-from healthee.core.db import tenant_connection
 from healthee.derive._common import Cur, _upsert_daily, _wake_date
 from healthee.derive.activity import derive_daily_activity
 from healthee.derive.cardio_load import derive_cardio_load
@@ -135,15 +135,18 @@ def derive_batch(
             derive_day(cur, user_id, tz, day)
 
 
-def derive_all_nights(user_id: UUID, tz: str) -> dict[str, dict]:
-    """Derive per-night metrics for every stored main sleep session of `user_id`."""
-    results: dict[str, dict] = {}
-    with tenant_connection(user_id) as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT start_ts, end_ts FROM sleep_session WHERE kind='main' AND user_id=%s "
-            "ORDER BY start_ts",
-            (user_id,),
-        )
-        for start_ts, end_ts in cur.fetchall():
-            results[start_ts.isoformat()] = derive_night(cur, user_id, tz, start_ts, end_ts)
-    return results
+def stored_nights(cur: Cur, user_id: UUID, tz: str, since: date) -> list[SleepWindow]:
+    """The owner's stored MAIN sleep sessions waking on/after ``since``, oldest first.
+
+    The repair path's input (``healthee.db.rederive``), bounded by WAKE date — the
+    session's end in the owner's zone — because that is the day every row
+    :func:`derive_night` writes is keyed to. Naps are excluded: :func:`derive_night` is
+    a statement about a night, the same rule ``ingest.service`` applies when it collects
+    a push's fresh nights.
+    """
+    cur.execute(
+        "SELECT start_ts, end_ts FROM sleep_session WHERE user_id = %s AND kind = 'main' "
+        "AND (end_ts AT TIME ZONE %s)::date >= %s ORDER BY start_ts",
+        (user_id, tz, since),
+    )
+    return [(row[0], row[1]) for row in cur.fetchall()]

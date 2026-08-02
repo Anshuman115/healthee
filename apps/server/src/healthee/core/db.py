@@ -192,7 +192,8 @@ def tenant_connection(user_id: UUID) -> Iterator[Connection[TupleRow]]:
 
     Two callers, both of which hand the CONNECTION to a collaborator rather than a
     cursor: the ingest push (`ingest/service.py`, one atomic transaction across
-    upsert → derive → daily-total override) and `derive/orchestrator.derive_all_nights`.
+    upsert → derive → daily-total override) and the re-derive repair tool
+    (`db/rederive.py`) — both because `derive.derive_batch` opens its own cursor.
     The owner is set once, on the connection's transaction, so every cursor opened
     from it is scoped — including the ones the collaborator opens.
     """

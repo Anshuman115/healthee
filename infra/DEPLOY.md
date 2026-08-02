@@ -347,6 +347,13 @@ the row and its history are kept).
       measure** it (`balance_error` says why — a 401 there means the key is dead).
       A `503` here with `db: ok` is an AI-layer outage, not a server outage: do
       **not** restart anything, go top up or rotate the key.
+- [ ] **The derived layer is current, not just the raw one** →
+      `$COMPOSE exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT metric,
+      max(day) FROM derived_daily GROUP BY metric ORDER BY 2 DESC, 1;"` — the night
+      metrics (`rhr_daily`, `hrv_sleep_avg`, `respiratory_rate_sleep`,
+      `spo2_overnight`) must reach the same day as the day metrics. `data_health`
+      cannot catch this: it measures raw sample **arrival**, not derivation, so it
+      reads `ok` over an empty derived layer. Repair with **F**.
 - [ ] **The scheduler's LLM watch is armed** →
       `$COMPOSE logs --tail 50 scheduler`. Within one tick of start it probes the
       balance; if it is low or the key is dead you get a Telegram message, and if
@@ -504,3 +511,43 @@ outage, Docker would restart the API in a loop over something no restart can fix
 trading a dead AI layer for a flapping read API. `core/config.py` records the same
 argument for the blank-model-id check. So the AI-layer signal lives on `/readyz`, which
 nothing restarts on, and the **push** (Telegram) is what actually reaches a human.
+
+---
+
+## F. Rebuilding the derived layer (`rederive`)
+
+The derived layer (`derived_daily`) is materialized, so it can be behind the raw
+samples without anything looking wrong: pushes still return 200 and `data_health`
+still reads **ok**, because that check measures raw sample *arrival*, not derivation.
+
+```sh
+$COMPOSE run --rm api python -m healthee.db.rederive                    # all owners, 42 d
+$COMPOSE run --rm api python -m healthee.db.rederive --days 40
+$COMPOSE run --rm api python -m healthee.db.rederive --user <uuid> --all
+```
+
+It re-derives every stored **night** in the window and then every **day**, in that
+order, through the same `derive.derive_batch` the ingest push uses — so the repair
+and the live path cannot disagree about the order. It is idempotent (it recomputes
+from raw samples it never touches), so there is no dry run and re-running is free.
+One transaction per owner: a failure leaves that owner's derived layer as it was.
+
+**Run it after** a migration or a science change that alters what a derivation
+computes, and after any incident where pushes were accepted but derivation was not
+running. `--days 42` is the default because 42 is the longest trailing window any
+derivation reads (the recovery baseline); sleep debt reads 14, SRI and VO₂max 7.
+
+### The symptom to recognise
+
+Day metrics current (steps, calories, cardio load, MVPA) while `rhr_daily`,
+`hrv_sleep_avg`, `respiratory_rate_sleep`, `spo2_overnight` and
+`sleep_regularity_index` are **absent**, VO₂max is withheld on
+`insufficient_rhr_days`, and `biological_age` is null. That is a night pass that has
+not run. Check with:
+
+```sh
+$COMPOSE exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+  "SELECT metric, max(day) FROM derived_daily GROUP BY metric ORDER BY 2 DESC, 1;"
+```
+
+A metric whose `max(day)` is older than the others' is the one to chase.

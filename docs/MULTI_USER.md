@@ -225,7 +225,7 @@ this section used to carry, which was wrong in three separate ways:
 
 **`core.db.tenant_transaction(user_id)` is the ONE way tenant data becomes visible**
 to the app role; `tenant_connection(user_id)` is its connection-scoped form (the
-ingest push + `derive_all_nights`, which hand a *connection* to a collaborator).
+ingest push + `db/rederive.py`, which hand a *connection* to a collaborator).
 The consequence is deliberate and worth stating plainly: **a tenant read on plain
 `transaction()` now returns zero rows and raises nothing.** Failing closed is the
 right default, but it means a missed call site shows a user "no data" rather than
