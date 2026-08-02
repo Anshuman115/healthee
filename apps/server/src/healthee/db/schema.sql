@@ -77,6 +77,12 @@ CREATE TABLE IF NOT EXISTS derived_daily (
   flags   JSONB             NOT NULL DEFAULT '{}'::jsonb,
   user_id UUID              NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  -- When this cell was last COMPUTED (0016). Set by both writers of this table
+  -- (`derive/_common._upsert_daily`, `ingest/upsert._upsert_derived`) on insert AND on
+  -- conflict, so it means "a derive pass wrote this", not "the value changed".
+  -- It is what lets a re-derive tell the rows it just produced apart from the rows a
+  -- NARROWED derivation declined to produce — see `db/stale_derived.py`.
+  derived_at TIMESTAMPTZ    NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, day, metric)  -- owner folded into the key (0004)
 );
 CREATE INDEX IF NOT EXISTS derived_daily_metric_day_idx ON derived_daily (metric, day DESC);

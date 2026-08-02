@@ -267,12 +267,17 @@ def upsert_weight(cur: Cur, user_id: UUID, tz: str, weight_kg: float) -> None:
 def _upsert_derived(
     cur: Cur, user_id: UUID, day: date, metric: str, value: float, flags: dict
 ) -> None:
-    """Write one materialized derived-daily cell (ingest's own override write)."""
+    """Write one materialized derived-daily cell (ingest's own override write).
+
+    Stamps `derived_at` exactly as `derive._common._upsert_daily` does (0016) — this is
+    the table's OTHER writer, and a row it wrote without a stamp would read to
+    `db/stale_derived.py` as one no derivation has touched since the column landed.
+    """
     cur.execute(
-        "INSERT INTO derived_daily (user_id, day, metric, value, flags) "
-        "VALUES (%s, %s, %s, %s, %s::jsonb) "
+        "INSERT INTO derived_daily (user_id, day, metric, value, flags, derived_at) "
+        "VALUES (%s, %s, %s, %s, %s::jsonb, now()) "
         "ON CONFLICT (user_id, day, metric) DO UPDATE SET "
-        "value = EXCLUDED.value, flags = EXCLUDED.flags",
+        "value = EXCLUDED.value, flags = EXCLUDED.flags, derived_at = EXCLUDED.derived_at",
         (user_id, day, metric, round(float(value), 4), json.dumps(flags)),
     )
 
