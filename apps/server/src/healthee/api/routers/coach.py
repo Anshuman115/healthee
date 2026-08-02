@@ -3,23 +3,27 @@
 Thin (standards §2): authorize + gate → validate the body → call ``run_coach`` →
 shape the reply. ``CoachUser`` is the premium gate (``api.gate``): a non-premium owner
 gets 402 before a single token is spent, which is the point — the coach is the most
-expensive surface in the product (PRICING.md §3.1), and this is the only place its
-entitlement is checked (the coach's own tools deliberately do not re-check it).
+expensive surface in the product ($0.179 a question, PRICING.md §3.1), and this is the
+only place its entitlement is checked (the coach's own tools deliberately do not
+re-check it). It is also the only surface that is capped *for a paying owner*.
 
-## What one free coach QUESTION is (6.6a-2)
+## What one counted coach QUESTION is
 
-``PRICING.md`` §1a meters a free owner at one coach question per rolling seven days, and
-the unit is this **request** — one turn — not one LLM call. A tool-calling turn can make
-up to 22 (``insights.coach.GATHERING_ROUNDS`` + the reserved validation attempts);
+``PRICING.md`` §0 includes **20 coach questions per rolling 30 days** in a subscription,
+and the unit is this **request** — one turn — not one LLM call. A tool-calling turn can
+make up to 22 (``insights.coach.GATHERING_ROUNDS`` + the reserved validation attempts);
 metering calls would charge a curious question twenty times and an incurious one once,
 which is not a promise anybody could read off the pricing page. That separation is what
 lets the gathering allowance be generous: the ledger is keyed to the question, so a
 question that genuinely needs the data costs the owner exactly what a trivial one does.
-The gate charges the turn; this handler refunds it when the turn produced
-no answer, and the two cases are exactly the ones the coach itself already names:
-``refused`` (classified out of scope before any model ran — no tokens, no answer) and
-``validated=False`` (the honest fallback shipped, which is the product working correctly
-and still not what the owner asked for). A transport failure refunds too, on its way out.
+
+The gate charges the turn; this handler refunds it when the turn produced no answer, and
+the two cases are exactly the ones the coach itself already names: ``refused`` (classified
+out of scope before any model ran — no tokens, no answer) and ``validated=False`` (the
+honest fallback shipped, which is the product working correctly and still not what the
+owner asked for). A transport failure refunds too, on its way out. **A slot is never
+billed for an answer we did not deliver** — that is the honesty contract applied to the
+meter, and it is why the refund is three branches rather than one convenient one.
 
 
 All grounding, tool-calling, refusal-gating and blocking validation live in
@@ -60,7 +64,7 @@ def post_coach(request: Request, user: CoachUser, req: CoachRequest) -> dict:
     except Exception:
         # Not a swallow — it is re-raised unchanged for the error handler to log and
         # report. The refund is the only thing that must happen before it leaves, because
-        # a free owner's week has already been charged by the gate.
+        # the gate has already charged one of the owner's included questions.
         gate.refund_ai_use(request, user)
         raise
     if result.refused or not result.validated:

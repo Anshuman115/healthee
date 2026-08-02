@@ -36,52 +36,58 @@ def test_a_free_owner_can_still_read_it_and_learns_what_is_locked(
 ) -> None:
     """The one endpoint whose subject is the paywall must not be behind the paywall.
 
-    Since 6.6a-2 the list is what is locked *right now*: the two metered teasers are
-    absent while the owner still has them (PRICING.md §1a), and everything else is there.
+    Since 2026-08-02 the free tier has no AI at all, so the list is EVERY feature — the
+    two metered teasers that used to be conditionally absent (PRICING.md §1a) are gone.
     """
     make_free()
     response = bed.get("/api/entitlement", headers=AUTH)
     assert response.status_code == 200
     body = response.json()
     assert body["premium"] is False
-    assert set(body["locked"]) == set(ALL_FEATURES) - {gate.COACH, gate.DAILY_ACTION}
+    assert set(body["locked"]) == set(ALL_FEATURES)
 
 
-def test_a_free_owners_spent_teaser_appears_in_the_locked_list(
+def test_a_capped_premium_owner_is_still_shown_nothing_to_upgrade_to(
     bed: TestClient,
-    make_free: Callable[[], None],
     stub,  # noqa: ANN001, ARG001 — the question must not reach a network
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The upsell screen has to be able to say "you have used this week's" — and change.
+    """``locked`` is the UPGRADEABLE list, and a subscriber at their cap has nothing to buy.
 
-    A `locked` list computed once and cached would pass every other test in this file and
-    fail this one, which is why the endpoint peeks the ledger on each call.
+    This is the deliberate seam between the two surfaces: the entitlement endpoint answers
+    "what would paying get me", so it stays empty for someone who has paid; the *limit*
+    reaches the owner on the 402 that refuses them, with the day it reopens
+    (``test_premium_cap.py``). A capped owner listed here would render as an upgrade card
+    and pitch a subscription at a subscriber.
     """
-    make_free()
-    assert gate.COACH not in bed.get("/api/entitlement", headers=AUTH).json()["locked"]
-    bed.post("/api/coach", json={"messages": [{"role": "user", "content": "hi"}]}, headers=AUTH)
-    locked = bed.get("/api/entitlement", headers=AUTH).json()["locked"]
-    assert gate.COACH in locked
-    # …and asking about it must not itself have been charged: the daily action is untouched.
-    assert gate.DAILY_ACTION not in locked
+    monkeypatch.setitem(gate.PREMIUM_ALLOWANCE, gate.COACH, 1)
+    question = {"messages": [{"role": "user", "content": "hi"}]}
+    assert bed.post("/api/coach", json=question, headers=AUTH).status_code == 200
+    assert bed.post("/api/coach", json=question, headers=AUTH).status_code == 402, (
+        "premise: the cap is actually spent"
+    )
+    body = bed.get("/api/entitlement", headers=AUTH).json()
+    assert body["premium"] is True
+    assert body["locked"] == []
 
 
-def test_reading_the_entitlement_endpoint_never_spends_the_allowance(
+def test_reading_the_entitlement_endpoint_never_spends_anything(
     bed: TestClient,
-    make_free: Callable[[], None],
     stub,  # noqa: ANN001, ARG001
 ) -> None:
-    """It PEEKs. An app that polled this every minute would otherwise cost a free owner
-    their week without them ever opening the coach."""
-    make_free()
+    """It PEEKs. An app that polled this every minute must not cost anybody a question."""
+    from healthee.core.db import tenant_transaction
+    from healthee.core.tenancy import SENTINEL_USER_ID
+
     for _ in range(5):
-        assert gate.COACH not in bed.get("/api/entitlement", headers=AUTH).json()["locked"]
-    assert (
-        bed.post(
-            "/api/coach", json={"messages": [{"role": "user", "content": "hi"}]}, headers=AUTH
-        ).status_code
-        == 200
-    )
+        assert bed.get("/api/entitlement", headers=AUTH).json()["locked"] == []
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        cur.execute(
+            "SELECT count(*) FROM kv WHERE user_id = %s AND key LIKE 'allowance%%'",
+            (SENTINEL_USER_ID,),
+        )
+        row = cur.fetchone()
+    assert row is not None and row[0] == 0, "polling the paywall's own endpoint charged for it"
 
 
 def test_it_reflects_a_revocation_on_the_very_next_call(

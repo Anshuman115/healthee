@@ -1,17 +1,23 @@
-"""``POST /api/today/action`` — the free tier's metered reveal of the daily action line.
+"""``POST /api/today/action`` — the owner-triggered reveal of the daily action line.
 
-The second half of ``PRICING.md`` §1a's teaser: *"1 daily-action reveal per rolling 7
-days"*. The first half (the coach question) needed no new surface — ``POST /api/coach``
-already existed and 6.6a-2 only widened its gate. This one needed a door, and the reason
-is the shape of what 6.6a built.
+Gated on ``DAILY_ACTION`` (``api.gate``), which is **uncapped for a premium owner and
+hard-locked for everyone else**: the free tier has no AI at all since 2026-08-02, and the
+daily action is absent from ``gate.PREMIUM_ALLOWANCE``, so a subscriber may reveal it as
+often as the cost limiter below allows. Only the coach carries an included-use cap.
 
-## Why a POST at all — the jobs skip made "reveal" mean "generate"
+> It was built for a teaser that no longer exists — ``PRICING.md`` §1a's "1 daily-action
+> reveal per rolling 7 days", withdrawn with the rest of the free AI. The endpoint stays
+> because its real user turned out to be the premium owner: it is the only door that
+> **generates** the line rather than reading the overnight cache, which is what a premium
+> owner needs on a day the chain has not run yet, and what a re-granted free taste would
+> need again. The metering machinery it was written against is intact underneath it.
 
-``jobs/chain.py`` skips ``warm`` for a non-premium owner, so a free owner's daily action
-line **is never generated**. Nothing is cached, and ``/api/today`` reads the cache and
-never generates (standards §Performance: "generation never blocks a read path"). So a
-reveal has exactly two possible meanings — generate on demand, or reveal nothing — and
-"nothing" is not a taste of premium.
+## Why a POST at all — a reveal can have to mean "generate"
+
+``/api/today`` reads the cache and never generates (standards §Performance: "generation
+never blocks a read path"), and ``jobs/chain.py`` warms that cache only for a premium
+owner, and only once the chain has run. So a reveal has two possible meanings — generate
+on demand, or reveal nothing — and "nothing" is not an answer.
 
 That leaves generating on demand, which the standards permit *here* and forbid on
 ``/api/today``: this is not a read and not a sync, it is a POST the owner explicitly
@@ -21,35 +27,28 @@ is why ``/api/today`` is left exactly as it was.
 
 ## What counts as a USE
 
-**One reveal that produced a line.** Two cases, and only the first is charged:
+Nothing charges here today, because the only capped feature is the coach. The refunds
+below are therefore no-ops *for this endpoint's current pricing* and are kept anyway, for
+the reason ``gate.refund_ai_use`` exists at all: they are what keeps "the allowance pays
+for a line we actually delivered" true the moment this feature is priced — a re-granted
+free taste, or a premium cap on the reveal. Three outcomes, and only the first would ever
+be charged:
 
 * a **generation that shipped** — the model ran, the validator passed, the owner has a
-  sentence they did not have before. That is the taste, and it is charged.
+  sentence they did not have before;
 * a **degraded line** — refused, or unable to ground itself, so ``action`` is ``null``.
-  The owner got nothing; charging a week's allowance for an apology would be the
-  cheapest possible way to make the teaser feel like a bait. Refunded.
+  The owner got nothing, so a charge is given back;
+* a **cached line** — served without generating (the normal premium path, warmed
+  overnight), so no tokens were spent and a charge is given back.
 
-A cached line is served without generating (the normal path for a premium owner, whose
-chain warmed it overnight) and the charge is given back, since no tokens were spent. For
-a **free** owner that branch is all but unreachable, and the reason is worth stating
-because it is a real consequence rather than an oversight: the gate charges in the
-dependency, *before* the handler can look at the cache, so a free owner's second POST
-inside the same seven days is a **402** and not a re-read. It has to be that way — a gate
-that peeked and let the handler charge afterwards would let a hundred concurrent requests
-all pass the peek and generate before any of them recorded a use, which is a bypass and
-not a nicety. So the reveal is genuinely ONE reveal: the response carries the line, and
-the client is what holds it. ``/api/today`` is deliberately not changed to serve it (see
-``api.gate``) — a page load must not be able to spend the taste.
-
-The refusal case is why this endpoint carries a SECOND limiter. An allowance that is always
-refunded on failure is an unbounded free LLM door for an owner whose data cannot ground a
-line, so the attempts that actually reach a model are bounded by ``core.rate_limit``
-(:data:`REVEAL_ATTEMPTS_PER_DAY` per owner per local day) — the abuse/cost limiter, which
-``challenges/budget.py``'s docstring says composes with entitlement rather than replacing
-it. Entitlement asks *may this person*; the rate limit asks *how often may anyone*. Here
-both are needed, and the ordering is the same as the generation endpoints': the gate
-first, then the budget, and a request refused by the budget refunds the allowance before
-it raises.
+The degraded case is why this endpoint carries a SECOND limiter, and that one is live for
+everybody. An allowance that is always refunded on failure would be an unbounded LLM door
+for an owner whose data cannot ground a line, so the attempts that actually reach a model
+are bounded by ``core.rate_limit`` (:data:`REVEAL_ATTEMPTS_PER_DAY` per owner per local
+day) — the abuse/cost limiter, which ``challenges/budget.py``'s docstring says composes
+with entitlement rather than replacing it. Entitlement asks *may this person*; the rate
+limit asks *how often may anyone*. The ordering is the generation endpoints': the gate
+first, then the budget, and a request refused by the budget refunds before it raises.
 """
 
 from __future__ import annotations
@@ -95,16 +94,16 @@ class RevealedAction(BaseModel):
 def post_reveal_daily_action(request: Request, user: DailyActionUser) -> RevealedAction:
     """Reveal (generating if needed) this owner's daily action line for their local day.
 
-    Seconds, not milliseconds, on a cold day — a model runs inside this request. 402 when
-    a free owner's weekly reveal is already spent (with the instant it comes back); 429
-    when today's generation attempts are used up.
+    Seconds, not milliseconds, on a cold day — a model runs inside this request. 402 for a
+    non-premium owner (the gate, before anything here runs); 429 when today's generation
+    attempts are used up.
     """
     cached = coaching.cached_payload(user.id, user.timezone, coaching.DAILY_ACTION_KEY)
     if cached is not None:
-        # The premium path: the chain warmed this overnight, so nothing is generated. The
-        # refund is a no-op there (a premium request never charged) and is not decoration:
-        # it is what keeps "the allowance pays for GENERATION" true if a free owner ever
-        # reaches here — a warmed line surviving a mid-day lapse, say.
+        # The normal premium path: the chain warmed this overnight, so nothing is
+        # generated. The refund is a no-op while this feature is uncapped, and is not
+        # decoration: it is what keeps "the allowance pays for GENERATION" true the day
+        # somebody prices the reveal in either table.
         gate.refund_ai_use(request, user)
         return _wire(cached)
     _charge_attempt(request, user)
@@ -117,9 +116,9 @@ def post_reveal_daily_action(request: Request, user: DailyActionUser) -> Reveale
 def _charge_attempt(request: Request, user: RequestUser) -> None:
     """Charge one model attempt against today's cost budget, or 429 — refunding first.
 
-    The refund is not optional: the gate has already recorded the owner's weekly reveal
-    by the time this runs, and letting a 429 keep it would spend somebody's week on a
-    request that never reached a model.
+    The refund is not optional: whatever the gate recorded, it recorded before this runs,
+    and letting a 429 keep it would spend an allowance on a request that never reached a
+    model.
     """
     verdict = rate_limit.spend(user.id, user.timezone, REVEAL_FEATURE, REVEAL_ATTEMPTS_PER_DAY)
     if verdict.allowed:
