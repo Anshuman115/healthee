@@ -35,6 +35,7 @@ _ENDPOINTS = [
     "activity",
     "history",
     "profile",
+    "entitlement",
     "log_recent",
     "gps_list",
     "log_post",
@@ -95,6 +96,23 @@ def test_deterministic_derived_values(responses: dict) -> None:
     # end-to-end guard for the anchor bug — 641_520_000_000 here means the encoder
     # went back to UTC midnight and negative-offset owners' birthdays will walk.
     assert responses["profile"]["dob"] == 641_500_200_000
+    # #116: the coach meter, whole. A client renders "N of 20 left" from this and
+    # `assert_conforms` compares keys and types only, so the snapshot alone would not
+    # catch a wrong N — nor `resets_at`/`retry_after_s` becoming non-null, since both are
+    # legitimately null for an owner with questions in hand. 20 and 30 are PRICING.md §0's
+    # decided numbers, pinned here on the wire exactly as `test_premium_cap` pins them in
+    # the table they are read from.
+    assert responses["entitlement"]["included"] == [
+        {
+            "feature": "coach",
+            "limit": 20,
+            "used": 0,
+            "remaining": 20,
+            "window_days": 30,
+            "resets_at": None,
+            "retry_after_s": None,
+        }
+    ]
 
 
 def test_today_has_every_legacy_key(responses: dict) -> None:

@@ -22,6 +22,7 @@ so their JSON response **shapes** (keys, nesting, value types) must stay stable.
 | `workout.json` | `GET /api/activity/workout?start=…` |
 | `history.json` | `GET /api/history?metric=…` |
 | `profile.json` | `GET /api/profile` |
+| `entitlement.json` | `GET /api/entitlement` |
 | `log_recent.json` | `GET /api/log/recent` |
 | `log_post.json` | `POST /api/log` |
 | `gps_list.json` | `GET /api/workout/gps` |
