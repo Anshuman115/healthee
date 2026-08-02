@@ -201,7 +201,12 @@ def test_fitness_payloads_are_owner_as(two_owners: None) -> None:  # noqa: ARG00
         b_vo2 = vo2max_payload(cur, OWNER_B, SENTINEL_TZ)
         b_cardio = cardio_load_payload(cur, OWNER_B, SENTINEL_TZ)
         b_mvpa = mvpa_payload(cur, OWNER_B, OWNER_B_TZ)
-    assert a_vo2 is not None and a_vo2["estimate"] == pytest.approx(41.5)
+    # 43.0 — owner A's seeded day carries a recorded session, and `vo2max_estimate` is
+    # tiered since #117, so the measurement IS the estimate. B has no session and reads
+    # their own 20.0 from the fallback model; the point of the test (each owner gets their
+    # own number) is unchanged, and the two values are still far apart enough to catch a
+    # leak in either direction.
+    assert a_vo2 is not None and a_vo2["estimate"] == pytest.approx(43.0)
     assert a_cardio is not None and a_cardio["load"] == pytest.approx(55.0)
     assert a_mvpa is not None and a_mvpa["today_min"] == 32
     assert b_vo2 is not None and b_vo2["estimate"] == pytest.approx(20.0), "B got A's VO2max"

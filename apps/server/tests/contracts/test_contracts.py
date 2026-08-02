@@ -56,16 +56,23 @@ def test_deterministic_derived_values(responses: dict) -> None:
     """Numbers computed deterministically from the seed match exactly (guards the
     computed-on-read formulas + the v2-native reads, not just the shape)."""
     today = responses["today"]
-    assert today["vo2max"]["estimate"] == 41.5
+    # 43.0, the day's GRADED session — not the 41.5 Jurca number the other 29 seeded days
+    # carry. `vo2max_estimate` is tiered since #117 and a measured session inside the
+    # freshness horizon IS the estimate, so the wire must show the measurement and name
+    # the instrument that took it ([[hr_reserve_vo2max]] D4).
+    assert today["vo2max"]["estimate"] == 43.0
+    assert today["vo2max"]["method"] == "gps_graded"
+    assert today["vo2max"]["research_notes"] == ["vo2max_fitness_mortality", "submaximal_vo2max"]
     # Biological age end to end, and by VALUE: since #86 it is chronological + fitness +
     # sleep duration ONLY, and since #97 the sleep term is read at the QUESTIONNAIRE
     # equivalent of the seeded 380 min (6.333 h → 7.0 h, exactly Yin's nadir, so HR = 1.0
     # and the term contributes nothing). Since #101 the fitness reference is FRIEND's
-    # published 39.7 for a 30–39 male, not the uncited 41.0, so the seeded 41.5 estimate
-    # is +0.514 MET rather than +0.143: 36 − 0.9285 + 0 = 35.07. A snapshot comparison is
-    # keys-and-types, so re-adding a term — or re-anchoring one — would sail through it
-    # while changing the headline number the app renders. [[biological_age_estimate]].
-    assert today["biological_age"]["biological_age"] == 35.1
+    # published 39.7 for a 30–39 male, so the tiered 43.0 estimate is +0.9429 MET:
+    # HR = 0.85^0.9429 = 0.858, ΔAge = ln(0.858)·7.7/ln(2) = −1.7024, and
+    # 36 − 1.7024 + 0 = 34.30. A snapshot comparison is keys-and-types, so re-adding a
+    # term — or re-anchoring one — would sail through it while changing the headline
+    # number the app renders. [[biological_age_estimate]].
+    assert today["biological_age"]["biological_age"] == 34.3
     assert [c["term"] for c in today["biological_age"]["contributions"]] == [
         "fitness",
         "sleep duration",
@@ -75,15 +82,16 @@ def test_deterministic_derived_values(responses: dict) -> None:
     ]
     # …and the footing of the two terms that ARE priced reaches the app, not just the
     # note. `excluded` and `caveats` answer different owner questions and both ship.
-    # Three since #108: the fitness term's footing is its anchor AND the fact that one of
-    # the inputs behind our side of the comparison is the owner's own answer about their
-    # exercise habits — worth 0.6-2.3 years per category. A payload that priced a
-    # self-reported input without saying so would be the #97 defect with a new input.
+    # Three since #108: the fitness term's footing is its anchor AND what the number on
+    # OUR side of the comparison rests on. Since #117 that second entry moves with the
+    # instrument — here the estimate is measured from a session, so the entry says so
+    # rather than citing a self-reported activity category the measurement never used.
     assert [c["reason"] for c in today["biological_age"]["caveats"]] == [
         "vo2max_reference_clinical_cohort",
-        "vo2max_srpa_self_reported",
+        "vo2max_measured_from_session",
         "sleep_duration_self_report_scale",
     ]
+    assert [c["method"] for c in today["biological_age"]["contributions"]] == ["gps_graded", None]
     assert today["sleep_debt"]["performance_pct"] == 79  # 100·380/480, capped
     assert today["cardio_load"]["strain"] == 21.0  # every day is P95 → full strain
     assert today["mvpa"]["week_moderate_min"] >= 24  # from mvpa_min flags (seam fix)

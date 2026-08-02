@@ -408,10 +408,10 @@
     "median_for_age": 39.7,
     "note_id": "vo2max_training_program",
     "plan": {
-      "vilpa_desc": "1 hard session \u2014 4-5 \u00d7 1-min brisk-to-hard bursts (stairs / hill / fast walk)",
+      "vilpa_desc": "1 hard session — 4-5 × 1-min brisk-to-hard bursts (stairs / hill / fast walk)",
       "vilpa_done_min": 20,
       "vilpa_target_min": 15,
-      "zone2_desc": "3 \u00d7 30 min easy aerobic \u2014 Zone 2, conversational pace",
+      "zone2_desc": "3 × 30 min easy aerobic — Zone 2, conversational pace",
       "zone2_done_min": 120,
       "zone2_target_min": 90
     },
@@ -865,21 +865,26 @@
     "age_years": 35,
     "as_of_date": "2026-07-31",
     "data_confidence": "ok",
-    "delta_from_median": 1.8,
-    "estimate": 41.5,
+    "delta_from_median": 3.3,
+    "estimate": 43.0,
     "inputs": {
-      "bmi": 23.4,
-      "pa_score": 3,
-      "rhr_med_7d": 55.0,
+      "bmi": null,
+      "pa_score": null,
+      "rhr_med_7d": null,
       "weekly_mvpa_min": null
     },
+    "measured_as_of": "2026-07-31",
     "median_for_age": 39.7,
+    "method": "gps_graded",
+    "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it — the most direct of the three methods we have, because it measures the relationship on you rather than assuming it. It comes from one session, not a run of them, so read it as that session rather than as a settled level.",
+    "n_sessions": 1,
     "out_of_range_inputs": [],
     "research_notes": [
       "vo2max_fitness_mortality",
-      "non_exercise_vo2max"
+      "submaximal_vo2max"
     ],
-    "see_ml_kg_min": 5.6,
+    "see_ml_kg_min": 2.95,
+    "see_source": "Carrier 2023: MAPE 6.85% vs lab CPET, structured outdoor running",
     "sex": "male",
     "submax": {
       "as_of_date": "2026-07-31",
@@ -887,16 +892,14 @@
       "last_r2": 0.82,
       "last_speed_kmh": 8.1,
       "latest": 43.0,
-      "median": 43.0,
-      "method_caveat": "Read from how your heart rate tracked your workload across this session \u2014 the more direct of the two methods we have, because it measures the relationship on you rather than assuming it.",
+      "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it — the most direct of the three methods we have, because it measures the relationship on you rather than assuming it.",
       "n_sessions": 1,
       "trend": [
         {
           "date": "2026-07-31",
           "value": 43.0
         }
-      ],
-      "vs_jurca": 1.5
+      ]
     },
     "trend_90d": [
       {
@@ -1017,7 +1020,7 @@
       },
       {
         "date": "2026-07-31",
-        "value": 41.5
+        "value": 43.0
       }
     ],
     "withheld": null
