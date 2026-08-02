@@ -572,3 +572,72 @@ would now pass is not counted) and it is **not a ship rate** — the model is st
 a real after-arm would generate different text. **The measurement is still owed.** Run it
 when the account has credits; it is one `run --repeats 3` per side.
 
+> **The owed number arrived incidentally on 2026-08-02.** §9.3's *before* arm is the same
+> question set on current `main` (`cdde686`), and it shipped **14/14 = 100.0%** where the
+> 2026-08-01 baseline shipped 29/42 = 69.0%. That is one repeat, not three, and it is not
+> the paired arm #99 asked for — but the four validator fixes are the only thing between
+> the two runs, and nothing else moved in that direction. Treat it as strong corroboration
+> and a weak measurement. The paired arm is still the honest way to close #99.
+
+### 9.3 · #105 — moving the corpus off the gathering rounds, measured and REVERTED
+
+**The plan.** A coach question is ~3 model calls and the EVIDENCE NOTES block rides on
+every one of them (§3's box: 65–83% of every prompt). Only the last call writes prose or
+cites anything. So: give the gathering rounds the corpus **index** (every note as one
+line — id, grade, summary) and send the note **bodies** once, on the round that answers,
+with the tools withdrawn. Projected ~40% off the most expensive item in the product.
+
+**The result: it saved nothing and it cost grounding.** One repeat per arm, 16 questions,
+14 answer-expecting, `before` = `cdde686`, `after` = `95beae6` (the implementation, kept
+in history for anyone re-measuring it):
+
+| | before | after |
+|---|---|---|
+| ship rate | **14/14 = 100.0%** [95% CI 78.5–100.0] | **12/14 = 85.7%** [95% CI 60.1–96.0] |
+| paired (McNemar, exact) | — | 2 worse, 0 better, **p = 0.500** |
+| citations / shipped answer | 2.7 [1.8–3.6] | 2.4 [1.3–3.5] (paired −23.7%, CI spans 0) |
+| input tokens / question | 82,824 | 80,435 — **paired −2,389 (−2.9%), 95% CI −28,883 to +24,104, sign NOT established** |
+| llm calls / question | 2.1 | 2.8 (paired +29.4%, CI spans 0) |
+| spend | **$0.77** | **$0.77** |
+
+**Why, measured deterministically** (this part needs no repeats — it is prompt
+arithmetic). Over the 10 answer-expecting coach questions: persona **2,660** tokens ·
+context **2,676** · full notes **32,506** · **index 7,578**. So a gathering round really
+did fall from 37,842 to 12,914 tokens — a 66% cut, the mechanism worked. Two things ate
+it:
+
+- **The round that ENDS gathering is a whole extra call.** The loop cannot know which
+  round is the answering one, so it learns by watching the model stop calling tools — and
+  that round's text was written without the notes it would have to cite, so it must be
+  discarded. Modelled against the measured block sizes, break-even sits at **one tool
+  round**, and the measured mean is **1.2**. A question needing no tools at all (3 of 10
+  in the before arm) costs **+54%**.
+
+  | tool rounds | 0 | 1 | 2 | 3 | 4 |
+  |---|---|---|---|---|---|
+  | input tokens vs before | **+54%** | −6% | −26% | −36% | −42% |
+
+- **The model fetched back what was removed.** `get_knowledge` invocations rose **7 → 18**
+  across the arm. `retrieval.py`'s own docstring had predicted exactly this ("the coach
+  then spent a whole extra round on `get_knowledge` fetching the note retrieval should
+  have supplied"). It is the risk the brief named, in its cheaper disguise: not "it looks
+  up the wrong metric" but "it looks up the notes, one full-price round at a time".
+
+**What n = 14 pairs can and cannot say.** It cannot establish that the shape is worse:
+2-worse/0-better is p = 0.500, and a 14-point drop is well inside what this resolution
+produces by chance. It equally cannot show equivalence — at n = 14 only differences larger
+than roughly ±25 points are detectable at all, so a real regression of 10 points would be
+invisible here. What it *can* do is settle the trade: **there is no measured saving to
+weigh the risk against**, in tokens or in dollars, so the honest move is to revert rather
+than to buy an unquantified grounding risk with an unquantified win. The two failures were
+both `compound` questions and both were grade-calibration/citation issues — the same class
+§9.1 measured as ~80% of all failures, which is one more reason not to read them as proof
+of anything about retrieval.
+
+**What this leaves standing.** The measured, unspent cost lever is still §9.1's:
+`DEFAULT_TOP_N` **6 → 4**, −18,128 input tokens per question (−18.8%, **sign
+established**) with the ship rate flat. The notes block is ~86% of a coach prompt;
+shrinking it beats moving it. `PRICING.md` §0 now carries the consequence: a coach
+question costs $0.179 and the 30-question cap is a pricing decision, not a pending
+experiment.
+
