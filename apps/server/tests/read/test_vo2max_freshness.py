@@ -179,8 +179,14 @@ def test_an_unsynced_today_says_so_rather_than_inventing_a_withhold() -> None:
 
 
 @pytest.mark.usefixtures("db")
-def test_the_submax_comparison_is_withheld_with_the_jurca_estimate() -> None:
-    """``vs_jurca`` is a claim about two numbers we hold TODAY. Null when one is gone."""
+def test_the_session_record_survives_a_withheld_estimate_without_becoming_one() -> None:
+    """The session history is a fact about sessions; the estimate is a claim about today.
+
+    ``vs_jurca`` used to live here and was a difference between two definitions of one
+    quantity — the object #117 removed along with the second definition. A session record
+    inside the window is still shown (it happened), and it must not resurrect an estimate
+    the day's canonical row does not have: this payload reads the row, it never re-tiers.
+    """
     today = user_today(SENTINEL_TZ)
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         _reset(cur)
@@ -192,8 +198,10 @@ def test_the_submax_comparison_is_withheld_with_the_jurca_estimate() -> None:
         )
         payload = vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     assert payload is not None
-    assert payload["submax"]["latest"] == 43.0  # the submax method still has a number
-    assert payload["submax"]["vs_jurca"] is None  # but nothing to compare it against
+    assert payload["submax"]["latest"] == 43.0
+    assert "vs_jurca" not in payload["submax"]
+    assert payload["estimate"] is None
+    assert payload["method"] is None, "no number today, so no instrument to name"
 
 
 @pytest.mark.usefixtures("db")

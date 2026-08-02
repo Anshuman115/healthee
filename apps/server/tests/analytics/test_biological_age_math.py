@@ -33,11 +33,8 @@ from uuid import UUID
 
 import pytest
 
-from healthee.analytics.biological_age import (
-    SRI_HAZARD_NOT_TRANSPORTABLE,
-    compute_biological_age,
-    hazard_delta_years,
-)
+from healthee.analytics.biological_age import compute_biological_age, hazard_delta_years
+from healthee.analytics.biological_age_terms import SRI_HAZARD_NOT_TRANSPORTABLE
 from healthee.analytics.reference_scales import (
     SLEEP_DURATION_SELF_REPORT_SCALE,
     VO2MAX_REFERENCE_CLINICAL_COHORT,
@@ -46,6 +43,7 @@ from healthee.analytics.reference_scales import (
     vo2max_median_for,
 )
 from healthee.derive.srpa import JURCA_SRPA_METS, SRPA_SELF_REPORTED
+from healthee.derive.vo2max import METHOD_JURCA
 
 # ── The fitness anchor: FRIEND's published 50th-percentile row (#101) ────────
 # Kaminsky LA, Arena R, Myers J, et al. (2022), "Updated Reference Standards for
@@ -212,7 +210,10 @@ class _StubCursor:
         if "FROM profile" in sql:
             self._row = (self._dob, "male")
         elif "vo2max_estimate" in sql:
-            self._row = (self._vo2max_day, _VO2MAX)
+            # (day, value, flags). The flags carry the INSTRUMENT since #117; this stub
+            # returns the fallback model's id, which is what the arithmetic below is
+            # about — the tier only decides WHICH VO₂max, never how it becomes years.
+            self._row = (self._vo2max_day, _VO2MAX, {"method": METHOD_JURCA})
         elif "sleep_health_score_4dim" in sql:
             self._row = (_TST_MIN,)
         else:  # pragma: no cover — an unrecognised read must not pass silently

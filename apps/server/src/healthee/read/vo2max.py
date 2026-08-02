@@ -1,4 +1,18 @@
-"""The VO2max payload — the estimate, its freshness, and why there isn't one.
+"""The VO2max payload — the estimate, the instrument behind it, and why there isn't one.
+
+## The number is tiered, and this file does NOT decide the tier (#117)
+
+``vo2max_estimate`` is one metric with three instruments in a fixed order — graded GPS
+fit, then the %HRR reserve inversion, then the Jurca non-exercise model. That order is
+applied once, when the day's row is written (``derive/vo2max_tier.py``), and this payload
+reads the row. It never re-tiers: a read-time choice would be a second definition of the
+metric, and the day's row would then mean different things depending on who asked.
+
+What this file owes the owner is the OTHER half of [[hr_reserve_vo2max]] Directive 4 —
+"state which one produced the value". ``method``, ``method_caveat``, ``see_source`` and
+``research_notes`` all move with the instrument, so a number that came from a run last
+week and a questionnaire this week cannot look like the same measurement twice.
+
 
 Split out of ``read/fitness.py`` when the freshness gate below pushed that file past
 the 400-line limit. It was the right home anyway: everything here answers "what do we
@@ -46,34 +60,72 @@ from healthee.analytics.reference_scales import vo2max_median_for
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
 from healthee.derive._common import Cur
 from healthee.derive.freshness import withheld_block
-from healthee.derive.gps import METHOD_GRADED, METHOD_RESERVE
-from healthee.derive.robust import median
 from healthee.derive.vo2max import (
+    METHOD_JURCA,
     WITHHOLD_MESSAGES,
-    estimate_unavailable_reason,
     out_of_range_inputs,
 )
+from healthee.derive.vo2max_reserve import METHOD_RESERVE
+from healthee.derive.vo2max_submax import METHOD_GRADED
+from healthee.derive.vo2max_tier import estimate_unavailable_reason
 
 _WINDOW_DAYS = 95  # the trend window; ~90 days of trend plus slack
 
-# What each instrument's number is worth, in the second person. Both sentences state a
-# LIMIT rather than a confidence score, because the two methods do not differ in
+# What each instrument's number is worth, in the second person. The sentences state a
+# LIMIT rather than a confidence score, because the three methods do not differ in
 # precision so much as in what they assume: the graded fit measures this owner's own
 # VO2-HR line, the reserve inversion assumes a population equivalence that the largest
-# study of it rejects ([[hr_reserve_vo2max]]).
+# study of it rejects ([[hr_reserve_vo2max]]), and the non-exercise model measures no
+# exertion at all ([[non_exercise_vo2max]]).
+#
+# One of these ships with EVERY number this payload reports, because
+# [[hr_reserve_vo2max]] Directive 4 is explicit that the instrument must be stated — an
+# owner whose number comes from a run one week and a questionnaire the next has to be able
+# to see that, or a change of instrument reads as a change in them.
 _METHOD_CAVEATS = {
     METHOD_GRADED: (
-        "Read from how your heart rate tracked your workload across this session — the "
-        "more direct of the two methods we have, because it measures the relationship on "
-        "you rather than assuming it."
+        "Measured from a recorded session, by how your heart rate tracked your workload "
+        "across it — the most direct of the three methods we have, because it measures "
+        "the relationship on you rather than assuming it."
     ),
     METHOD_RESERVE: (
-        "Read from how far into your heart-rate range you were while running, using a "
-        "population relationship rather than one measured on you. It only runs on "
+        "Measured from a recorded RUN, by how far into your heart-rate range you were, "
+        "using a population relationship rather than one measured on you. It only runs on "
         "running, and it most likely reads a little LOW — the published bias in that "
         "relationship under-states fitness by roughly 2-3 mL/kg/min."
     ),
+    METHOD_JURCA: (
+        "Estimated without any exertion, from your age, sex, BMI, resting heart rate and "
+        "your own answer about how much deliberate exercise you do — the fallback we use "
+        "when no recent recorded session can measure it. It is the noisiest of the three."
+    ),
 }
+
+# [[hr_reserve_vo2max]] D6 and [[submaximal_vo2max]] D5: "report the median across
+# sessions … never one session as a fact". Inside the freshness horizon there is usually
+# one session or none, so refusing at n = 1 would leave the measured tier permanently
+# inert. The number ships and the fact-hood does not — this sentence is what makes the
+# difference visible to the owner rather than only to the code.
+_SINGLE_SESSION_CAVEAT = (
+    " It comes from one session, not a run of them, so read it as that session rather "
+    "than as a settled level."
+)
+
+# Which note licenses the number in front of the owner. The fitness↔mortality note is
+# common to all three because it is what makes any VO₂max worth showing.
+_METHOD_NOTES = {
+    METHOD_GRADED: ["vo2max_fitness_mortality", "submaximal_vo2max"],
+    METHOD_RESERVE: ["vo2max_fitness_mortality", "hr_reserve_vo2max"],
+    METHOD_JURCA: ["vo2max_fitness_mortality", "non_exercise_vo2max"],
+}
+
+
+def method_caveat(method: str, n_sessions: int | None) -> str | None:
+    """The instrument's sentence, plus the single-session qualifier when it applies."""
+    base = _METHOD_CAVEATS.get(method)
+    if base is None:
+        return None
+    return base + (_SINGLE_SESSION_CAVEAT if n_sessions == 1 else "")
 
 
 def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
@@ -95,11 +147,27 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     sex = str(flags.get("sex") or "male")
     median_ref = vo2max_median_for(age, sex) if age else None
     estimate = None if withheld else round(last_value, 1)
+    # Rows written before #117 carry no ``method`` and are all Jurca — the tiered writer
+    # is what introduced the other two, so the default cannot mislabel an older row.
+    method = str(flags.get("method") or METHOD_JURCA)
+    n_sessions = flags.get("n_sessions")
     return {
-        "submax": _submax_block(cur, user_id, tz, estimate),
+        "submax": _submax_block(cur, user_id, tz),
         "estimate": estimate,
         "data_confidence": "insufficient_data" if withheld else "ok",
         "withheld": withheld,
+        # WHICH INSTRUMENT produced the number above, on the wire, always. Paired with
+        # `estimate`: null together, because naming the instrument behind a number we have
+        # just declined to report would describe something the owner is not being shown.
+        "method": None if withheld else method,
+        "method_caveat": None if withheld else method_caveat(method, n_sessions),
+        "measured_as_of": None if withheld else flags.get("measured_as_of"),
+        "n_sessions": None if withheld else n_sessions,
+        # The ± band, in the reporting instrument's own units of error — a MAPE for the
+        # graded fit, a modelled SD for the reserve inversion, an SEE for Jurca.
+        # ``see_source`` says WHICH, so a percentage error cannot be read as a standard
+        # error of estimate. Older rows carry Jurca's SEE and nothing else.
+        "see_source": flags.get("see_source"),
         "see_ml_kg_min": float(flags.get("see_ml_kg_min", 5.6)),
         # Paired with `estimate`: both describe today's number, so both are null when
         # there isn't one. The last day that DID have one lives in `withheld`.
@@ -122,7 +190,8 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
         # row already stores (no schema, no backfill), so it also covers rows
         # written before the flag existed. Empty list = every input in range.
         "out_of_range_inputs": out_of_range_inputs(age or None, flags.get("bmi")),
-        "research_notes": ["vo2max_fitness_mortality", "non_exercise_vo2max"],
+        # The notes that license THIS number, which depends on which instrument read it.
+        "research_notes": _METHOD_NOTES[method],
     }
 
 
@@ -167,37 +236,46 @@ def _window(cur: Cur, user_id: UUID, tz: str, metric: str) -> list[tuple]:
     return cur.fetchall()
 
 
-def _submax_block(cur: Cur, user_id: UUID, tz: str, jurca_estimate: float | None) -> dict | None:
-    """VO2max measured from GPS workouts (``vo2max_submax``), and which instrument read it.
+def _submax_block(cur: Cur, user_id: UUID, tz: str) -> dict | None:
+    """The SESSION RECORD beneath the estimate: what each recorded effort measured.
 
-    ``vs_jurca`` compares the two methods as they stand TODAY, so it is null whenever
-    the Jurca side is withheld — a difference against a number we have just declined
-    to report would be an interpretation of data we said we do not have.
+    ``vo2max_submax`` is one row per day that carried a scoreable session — an
+    observation, not a second answer to "what is this person's VO₂max". Since #117 that
+    question has exactly one answer, ``estimate`` above, and on any day a session inside
+    the freshness horizon exists these numbers ARE that answer rather than a rival to it
+    (``derive/vo2max_tier.py``). Two metrics both meaning the owner's VO₂max is what
+    CLAUDE.md's canonical-definition rule forbids; a metric and its observations is not
+    that, in the same way ``rhr_daily`` and the heart-rate samples under it are not.
 
-    ``last_method`` and ``method_caveat`` are not decoration (#114). One metric is now
-    written by two instruments — the graded HR-vs-workload fit and the %HRR reserve
-    inversion — and a session-to-session move that is really an instrument change must
-    not read as a fitness change. That is the same class of defect as showing a stale
-    row as current, one layer along: the number is fresh, but what produced it moved.
-    Rows written before #114 carry no ``method`` flag; they are all graded fits, which is
-    what ``METHOD_GRADED`` defaults them to.
+    ``vs_jurca`` lived here until #117 and is GONE with the tiering: it was a difference
+    between two definitions of one quantity, which is the object that should not have
+    existed. The comparison an owner can still make honestly is the one against the
+    population reference (``delta_from_median``), and the instrument behind today's number
+    is now stated at the top level instead of implied by a gap.
+
+    ``last_method`` records which instrument read the newest session, so a session-to-
+    session move that is really an instrument change does not read as a fitness change
+    (#114). Rows written before #114 carry no ``method``; they are all graded fits, which
+    is what ``METHOD_GRADED`` defaults them to.
     """
     rows = _window(cur, user_id, tz, "vo2max_submax")
     if not rows:
         return None
-    vals = [float(v) for _, v, _ in rows]
-    med = median(vals)
     s_day, s_val, s_flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})
     method = str(s_flags.get("method") or METHOD_GRADED)
     return {
         "latest": round(s_val, 1),
-        "median": round(med, 1),
-        "n_sessions": len(vals),
+        # There was a ``median`` here, over every session in the window regardless of
+        # which instrument read it. It went with ``vs_jurca`` in #117: a median over mixed
+        # instruments IS the average [[hr_reserve_vo2max]] D4 forbids whenever the count
+        # is even, and the only thing it fed was the comparison that no longer exists. The
+        # median that IS reported is the tier's, over one instrument, and it is the
+        # ``estimate`` at the top of this payload.
+        "n_sessions": len(rows),
         "as_of_date": s_day.isoformat(),
         "last_r2": s_flags.get("r2"),
         "last_speed_kmh": s_flags.get("speed_kmh"),
         "last_method": method,
         "method_caveat": _METHOD_CAVEATS.get(method),
-        "vs_jurca": None if jurca_estimate is None else round(med - jurca_estimate, 1),
         "trend": [{"date": d.isoformat(), "value": round(float(v), 1)} for d, v, _ in rows],
     }

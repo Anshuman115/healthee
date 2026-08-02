@@ -42,7 +42,7 @@ from healthee.derive.mvpa import derive_mvpa
 from healthee.derive.recovery import derive_recovery
 from healthee.derive.rhr import derive_rhr
 from healthee.derive.sleep_score import derive_sleep_debt, derive_sleep_score
-from healthee.derive.vo2max import derive_vo2max
+from healthee.derive.vo2max_tier import derive_vo2max_estimate
 
 # One sleep session's window, as (start_ts, end_ts) in UTC — the unit ``derive_night``
 # consumes and the shape a batch's `nights` list carries.
@@ -81,25 +81,27 @@ def derive_night(cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: d
 def derive_day(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
     """Full daily derive pass in dependency order.
 
-    MVPA -> activity/calories -> VO2max (needs MVPA + rhr) -> the day's recorded GPS
-    sessions (needs rhr for the reserve fallback) -> cardio-load (needs rhr) -> sleep
-    debt (needs TST) -> recovery (needs hrv/rhr/rr + sleep need).
+    MVPA -> activity/calories -> the day's recorded GPS sessions (needs rhr for the
+    reserve fallback) -> VO2max (READS those sessions; needs rhr) -> cardio-load (needs
+    rhr) -> sleep debt (needs TST) -> recovery (needs hrv/rhr/rr + sleep need).
 
-    ``score_day_tracks`` joined this pass in #111 and nothing here reads what it writes:
-    ``vo2max_submax`` is stored deliberately separate from the live ``vo2max_estimate``.
-    It is here because this is the pass every routine path runs — it was previously
-    reachable only from the upload endpoint, which asks before the strap's HR for the
-    session has synced, so 8 production tracks carried zero estimates. Its own freshness
-    gate keeps a re-derive from re-scoring what is already scored.
+    ``score_day_tracks`` joined this pass in #111 and this docstring then said "nothing
+    here reads what it writes". **#117 made that false on purpose**: ``vo2max_estimate``
+    is now the tiered metric its three notes always specified, and a session measured
+    today is its PRIMARY input, so the scoring must come first. Reversed, a session
+    recorded today would not reach the day's own estimate until the next push — the
+    day-ordering defect of #107 in a smaller shape.
+    ``tests/derive/test_vo2max_tier.py::test_derive_day_scores_the_days_tracks_before_it_reads_them``
+    pins it by driving the whole pass.
     """
     out: dict = {}
     if m := derive_mvpa(cur, user_id, tz, day):
         out.update(m)
     out.update(derive_daily_activity(cur, user_id, tz, day))
-    if v := derive_vo2max(cur, user_id, tz, day):
-        out.update(v)
     if g := score_day_tracks(cur, user_id, tz, day):
         out.update(g)
+    if v := derive_vo2max_estimate(cur, user_id, tz, day):
+        out.update(v)
     if c := derive_cardio_load(cur, user_id, tz, day):
         out.update(c)
     if s := derive_sleep_debt(cur, user_id, tz, day):
