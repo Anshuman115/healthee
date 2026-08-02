@@ -48,6 +48,18 @@
     {
       "applies_to_metrics": [
         "steps_per_minute",
+        "vo2max_submax",
+        "vo2max_estimate",
+        "distance_m_daily"
+      ],
+      "grade": "Probable",
+      "id": "cadence_derived_speed",
+      "name": "Cadence-derived speed as a workload input",
+      "summary": "Cadence bins intensity well but does not measure speed. Step length is not a constant — it rises with cadence (the walk ratio is the invariant, not the stride), so a fixed stride is wrong by construction, and the resulting speed error propagates into any VO₂↔HR regression as a multiplicative error on the slope. Adequate for a daily-distance total; not adequate as the workload axis of an extrapolation to HRmax."
+    },
+    {
+      "applies_to_metrics": [
+        "steps_per_minute",
         "moderate_min",
         "vigorous_min"
       ],
