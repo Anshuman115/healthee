@@ -186,15 +186,17 @@ Full-width bottom sheet, message bubbles, citation chips, typing dots, persisted
 | Data-health / confidence chips | ✓ | ✓ |
 | Manual logging · workouts · GPS · export · research notes | ✓ | ✓ |
 | Personal findings (correlations/cutoffs) | ✓ as plain stats | ✓ coach explains & acts on them |
-| **AI coach** | teaser 1 q / 7 d | ✓ unlimited |
-| **Daily action line** | teaser 1× / 7 d | ✓ daily |
+| **AI coach** | — (no AI in free) | ✓ **20 questions / rolling 30 days** |
+| **Daily action line** | — (no AI in free) | ✓ daily, uncapped |
 | **Daily recommendations** (1–3) | locked card | ✓ |
 | **AI insight cards** (sleep/activity/metric/workout) | locked card | ✓ |
 | **Challenges / Actions** + **Notable feed** + coach-companion | — | ✓ |
 
-**Design consequence:** every AI surface needs a designed *free / locked / teaser* state. The deterministic pieces (Tonight lever + target, recovery guidance, illness framing) stay free even on premium screens — those screens must degrade to "the facts without the generated prose," never to blank.
+**Design consequence:** every AI surface needs a designed *free / locked* state. The deterministic pieces (Tonight lever + target, recovery guidance, illness framing) stay free even on premium screens — those screens must degrade to "the facts without the generated prose," never to blank. **There is no teaser state to design any more** (2026-08-02): a free owner is refused on the first call, so the free state IS the locked state.
 
-Pricing: $3.99/mo · $34.99/yr · $99 lifetime. The anti-Whoop brand ("we don't hold your data hostage") means the **free tier must stay genuinely excellent.**
+**A second locked state now exists and is NOT an upsell**: a paying owner who has used all 20 coach questions gets the same 402 shape, with `used`/`limit`/`resets_at` and *no* `upgrade` URL. It must read as "the next one opens on the 22nd", never as a subscribe button — the server deliberately omits the upgrade link so the app cannot render one by habit.
+
+Pricing (decided 2026-08-02, `PRICING.md` §0): **$6.99/mo · $69/yr**, lifetime dropped. The anti-Whoop brand ("we don't hold your data hostage") means the **free tier must stay genuinely excellent** — it is the whole tracker, and it now costs us $0 to give away.
 
 ---
 

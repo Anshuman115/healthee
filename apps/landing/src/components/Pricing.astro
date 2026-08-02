@@ -13,10 +13,9 @@ const free = [
   'The research behind it — read it yourself',
   'Own your data — no lock-in',
   'Your personal patterns, shown as plain stats',
-  'A weekly taste of the coach: 1 question + 1 daily action every 7 days',
 ];
 const premium = [
-  'The honest coach — ask it anything (fair use)',
+  'The honest coach — 20 questions every 30 days',
   'A daily action worth doing, every day',
   'Daily suggestions (1–3, backed or dropped)',
   'Insight cards — sleep · activity · workouts',
@@ -27,10 +26,12 @@ const planned = [
   'Challenges & programs — start, track, look back',
   'A coach that remembers, nudges & sets goals (later)',
 ];
+// Prices from PRICING.md §0, DECIDED 2026-08-02. The lifetime plan was dropped there —
+// $99 covers ~23 months of a per-question cost and then loses money forever — so it is
+// not listed here either. Two plans, not three.
 const plans = [
-  { name: 'Monthly', price: '$3.99', unit: '/ month', note: 'Cancel anytime.', feature: false },
-  { name: 'Yearly', price: '$34.99', unit: '/ year', note: '≈ $2.92 a month — the one to pick.', feature: true },
-  { name: 'One-time', price: '$99', unit: 'once', note: 'Pay once, keep it. Early-supporter offer.', feature: false },
+  { name: 'Monthly', price: '$6.99', unit: '/ month', note: 'Cancel anytime.', feature: false },
+  { name: 'Yearly', price: '$69', unit: '/ year', note: '≈ $5.75 a month — two months free.', feature: true },
 ];
 ---
 
@@ -93,9 +94,9 @@ const plans = [
   </div>
 
   <p class="rise mt-8 text-[0.95rem] leading-relaxed text-ink-soft">
-    The coach costs less than one coffee a month:
+    Two plans, and one honest number attached to them:
   </p>
-  <div class="mt-4 grid gap-6 sm:grid-cols-3">
+  <div class="mt-4 grid gap-6 sm:grid-cols-2">
     {
       plans.map((plan) => (
         <div class:list={['surface rise flex flex-col p-6', plan.feature && 'ring-1 ring-accent/60']}>
@@ -112,8 +113,12 @@ const plans = [
       ))
     }
   </div>
-  <p class="mono rise mt-4 text-xs text-ink-faint">
-    14-day free trial. The one-time price is a founder offer, while it lasts — not a permanent plan.
+  <p class="rise mt-4 text-[0.95rem] leading-relaxed text-ink-soft">
+    <strong class="font-medium text-ink">20 coach questions every 30 days</strong> — about one
+    every day and a half. Everything else in the paid tier is unlimited: the daily action, the
+    insight cards, the suggestions. We say the number instead of writing “unlimited” and quietly
+    throttling you, because each question really does cost us money, and this product doesn’t do
+    the quiet version of anything. When you run out, we tell you the day it comes back.
   </p>
 
   <div class="rise mt-12 border-t border-line pt-8">
@@ -121,8 +126,8 @@ const plans = [
       For a sense of scale: <strong class="font-medium text-ink">Whoop</strong> charges $199 a year
       before you can see your own numbers at all, and <strong class="font-medium text-ink">Oura</strong>’s
       full insights cost $69.99 a year on top of a $349 ring. Our whole pitch is the opposite:
-      <span class="text-ink">$35 a year versus Whoop’s $199</span>, on a band that doesn’t hold your
-      numbers hostage.
+      <span class="text-ink">$69 a year versus Whoop’s $199</span>, on a band that doesn’t hold your
+      numbers hostage — and every number stays free whether you subscribe or not.
     </p>
     <p class="mono mt-4 text-xs text-ink-faint">
       Whoop and Oura prices are from their own pages, current as of 2026-07 (links in Sources).

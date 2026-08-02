@@ -6,7 +6,9 @@ request whose owner is not premium.* Two halves are proved here and the third
 
 * **every AI route refuses a free owner** — asserted by CALLING it, not by inspecting a
   decorator, because §12.7's first loophole is "direct API calls bypassing the locked
-  UI" and a direct call is exactly what this makes;
+  UI" and a direct call is exactly what this makes. Since 2026-08-02 that is every AI
+  route on the FIRST call: the free tier has no metered taste left (``test_premium_cap.py``
+  owns the tables and the paid cap);
 * **no AI route can be added without a gate** — ``test_every_mounted_route_is_gated_or_
   allowlisted`` walks the app's real dependency tree, so a new premium endpoint that
   takes ``CurrentUser`` fails the build rather than shipping open.
@@ -33,8 +35,10 @@ from healthee.api.gate import AIGate
 
 pytestmark = pytest.mark.integration
 
-# (method, path, params, body, expected feature) for every premium route whose free
-# allowance is ZERO — a free owner is refused on the FIRST call and every one after.
+# (method, path, params, body, expected feature) for every premium route. Since 2026-08-02
+# that is ALL of them: `FREE_ALLOWANCE` is zero on every feature, so a free owner is
+# refused on the FIRST call and every one after. There is no metered free route left —
+# `/api/coach` and `/api/today/action` were the two, and they are in this table now.
 #
 # The ids are deliberately absurd on the write endpoints: the gate must refuse BEFORE
 # the handler looks anything up, so a 404 here would mean the gate ran too late.
@@ -44,7 +48,9 @@ pytestmark = pytest.mark.integration
 # upsell. Pinning it also makes a swapped gated identity a test failure — a mutation
 # that changed `NotableUser` to `InsightUser` was survivable until this column existed,
 # because both refuse and only the body differs.
-HARD_LOCKED_ROUTES: list[tuple[str, str, dict | None, dict | None, str]] = [
+AI_ROUTES: list[tuple[str, str, dict | None, dict | None, str]] = [
+    ("POST", "/api/coach", None, {"messages": [{"role": "user", "content": "hi"}]}, gate.COACH),
+    ("POST", "/api/today/action", None, None, gate.DAILY_ACTION),
     ("GET", "/api/sleep/insight", None, None, gate.INSIGHT),
     ("GET", "/api/activity/insight", None, None, gate.INSIGHT),
     ("GET", "/api/metric/insight", {"metric": "rhr_daily"}, None, gate.INSIGHT),
@@ -67,18 +73,6 @@ HARD_LOCKED_ROUTES: list[tuple[str, str, dict | None, dict | None, str]] = [
     ("POST", "/api/challenges/generate", None, None, gate.CHALLENGES),
     ("POST", "/api/programs/generate", None, None, gate.CHALLENGES),
 ]
-
-# …and the two PRICING.md §1a meters at one per rolling seven days (6.6a-2). Same gate,
-# same 402 body, different arithmetic: a free owner's FIRST call goes through. They are
-# split out rather than flagged in the table above because "refused" and "refused the
-# second time" are different assertions, and a single parametrised test that branched on
-# a boolean would let a metered route silently become a hard-locked one.
-METERED_ROUTES: list[tuple[str, str, dict | None, dict | None, str]] = [
-    ("POST", "/api/coach", None, {"messages": [{"role": "user", "content": "hi"}]}, gate.COACH),
-    ("POST", "/api/today/action", None, None, gate.DAILY_ACTION),
-]
-
-AI_ROUTES = HARD_LOCKED_ROUTES + METERED_ROUTES
 
 # Routes that are FREE by design, each with the reason it is free. Every mounted path
 # must be here or carry a gate — that is the completeness check, and an entry added
@@ -201,8 +195,8 @@ def test_the_probe_list_covers_every_gated_route() -> None:
 # ── the gate itself ───────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize(("method", "path", "params", "body", "feature"), HARD_LOCKED_ROUTES)
-def test_a_free_owner_is_refused_402_by_every_hard_locked_route(
+@pytest.mark.parametrize(("method", "path", "params", "body", "feature"), AI_ROUTES)
+def test_a_free_owner_is_refused_402_by_every_ai_route(
     bed: TestClient,
     make_free: Callable[[], None],
     stub,  # noqa: ANN001, ARG001 — patched so a leak would be a call, not a network error
@@ -224,31 +218,6 @@ def test_a_free_owner_is_refused_402_by_every_hard_locked_route(
     assert "resets_at" not in detail
 
 
-@pytest.mark.parametrize(("method", "path", "params", "body", "feature"), METERED_ROUTES)
-def test_a_free_owner_gets_exactly_one_of_each_metered_route_then_402(
-    bed: TestClient,
-    make_free: Callable[[], None],
-    stub,  # noqa: ANN001, ARG001
-    method: str,
-    path: str,
-    params: dict | None,
-    body: dict | None,
-    feature: str,
-) -> None:
-    """PRICING.md §1a's teaser, over real HTTP: one goes through, the next is refused."""
-    make_free()
-    first = bed.request(method, path, params=params, json=body, headers=AUTH)
-    assert first.status_code == 200, f"{method} {path} refused a free owner's ONE free use"
-    second = bed.request(method, path, params=params, json=body, headers=AUTH)
-    assert second.status_code == 402, f"{method} {path} gave a free owner a SECOND use"
-    detail = second.json()["detail"]
-    assert detail["locked"] is True
-    assert detail["feature"] == feature
-    assert detail["limit"] == 1
-    assert detail["resets_at"]  # a refusal that cannot say when is the vague one (§Errors)
-    assert int(second.headers["Retry-After"]) > 0
-
-
 @pytest.mark.parametrize(("method", "path", "params", "body", "feature"), AI_ROUTES)
 def test_a_premium_owner_is_never_refused_402(
     bed: TestClient,
@@ -264,57 +233,6 @@ def test_a_premium_owner_is_never_refused_402(
     preconditions to test one dependency. What must never happen is 402."""
     response = bed.request(method, path, params=params, json=body, headers=AUTH)
     assert response.status_code != 402, f"{method} {path} refused a PREMIUM owner"
-
-
-def test_a_refused_coach_question_does_not_consume_the_free_owners_week(
-    bed: TestClient,
-    make_free: Callable[[], None],
-    stub,  # noqa: ANN001
-) -> None:
-    """A pre-LLM refusal costs no tokens and must cost no allowance either.
-
-    "Do I have diabetes?" is classified out of scope before any model runs
-    (``insights.refusals``), so the owner got the product working correctly and no answer.
-    Charging a week's taste for that is the cheapest possible way to make the teaser feel
-    like a bait.
-    """
-    make_free()
-    refusal = bed.post(
-        "/api/coach",
-        json={"messages": [{"role": "user", "content": "do I have diabetes?"}]},
-        headers=AUTH,
-    )
-    assert refusal.status_code == 200
-    assert refusal.json()["refused"] is True
-    assert stub.calls == 0  # nothing was spent, so nothing should have been charged
-    real = bed.post(
-        "/api/coach",
-        json={"messages": [{"role": "user", "content": "how am I doing?"}]},
-        headers=AUTH,
-    )
-    assert real.status_code == 200, "the refusal ate the week's question"
-
-
-def test_an_unvalidatable_coach_answer_does_not_consume_the_free_owners_week(
-    bed: TestClient,
-    make_free: Callable[[], None],
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The honest fallback is the product working — and it is still not an answer."""
-    from tests.insights._stub import StubLLM
-
-    from healthee.insights import coach as coach_module
-    from healthee.insights import grounded
-
-    broken = StubLLM(["Your recovery suggests overtraining [not_a_real_note]."])
-    monkeypatch.setattr(grounded, "get_client", lambda: broken)
-    monkeypatch.setattr(coach_module, "get_client", lambda: broken)
-    make_free()
-    question = {"messages": [{"role": "user", "content": "how's my recovery?"}]}
-    fallback = bed.post("/api/coach", json=question, headers=AUTH)
-    assert fallback.status_code == 200
-    assert fallback.json()["validated"] is False
-    assert bed.post("/api/coach", json=question, headers=AUTH).status_code == 200
 
 
 def test_the_representative_ai_surfaces_actually_serve_a_premium_owner(
@@ -344,30 +262,19 @@ def test_a_free_owner_spends_no_llm_calls_at_the_endpoint(
     the tokens the paywall exists to protect — so the assertion is on the model's call
     count, not on the status code.
 
-    The metered pair is asserted the same way one test down: the invariant is no longer
-    "zero calls for a free owner" but "zero beyond the allowance", and the difference is
-    a number, so it is measured on both sides rather than argued on either.
+    Since the free tier lost its AI entirely the invariant is back to its simplest form:
+    **zero** calls for a free owner, on every surface including the two that used to be
+    metered. The coach is asked five times to make that a measurement rather than a
+    coincidence of a single request.
     """
     make_free()
     for path in ("/api/sleep/insight", "/api/activity/insight", "/api/notable"):
         assert bed.get(path, headers=AUTH).status_code == 402
-    assert stub.calls == 0
-
-
-def test_a_free_owner_spends_no_llm_calls_past_the_allowance(
-    bed: TestClient,
-    make_free: Callable[[], None],
-    stub,  # noqa: ANN001
-) -> None:
-    """The metered half: the taste costs what §1a budgeted for it, and not one call more."""
-    make_free()
     question = {"messages": [{"role": "user", "content": "how am I doing?"}]}
-    assert bed.post("/api/coach", json=question, headers=AUTH).status_code == 200
-    spent = stub.calls
-    assert spent > 0, "the allowed question never reached the model"
-    for _ in range(4):
+    for _ in range(5):
         assert bed.post("/api/coach", json=question, headers=AUTH).status_code == 402
-    assert stub.calls == spent, "a refused question still cost tokens"
+    assert bed.post("/api/today/action", headers=AUTH).status_code == 402
+    assert stub.calls == 0
 
 
 # ── the client is never trusted (§12.7 loophole 1) ────────────────────────────
@@ -385,8 +292,6 @@ def test_a_client_claiming_premium_is_still_refused(
     assert (
         bed.get("/api/sleep/insight", params={"premium": "true"}, headers=lying).status_code == 402
     )
-    # …and a lying client cannot talk its way past a SPENT allowance either: the ledger is
-    # server-owned state, exactly as entitlement is (§12.7).
+    # …and the coach is not persuadable either, however the claim is dressed up.
     question = {"premium": True, "messages": [{"role": "user", "content": "hi"}]}
-    assert bed.post("/api/coach", json=question, headers=lying).status_code == 200
     assert bed.post("/api/coach", json=question, headers=lying).status_code == 402
