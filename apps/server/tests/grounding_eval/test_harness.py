@@ -8,8 +8,11 @@ is both the eval's floor and the reason those two questions cost nothing to run.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from tests.grounding_eval import questions as qs
+from tests.grounding_eval import spend
 from tests.grounding_eval.meter import MeteredClient
 from tests.grounding_eval.records import (
     FALLBACK,
@@ -19,6 +22,7 @@ from tests.grounding_eval.records import (
 )
 from tests.grounding_eval.runner import _is_success, _outcome
 
+from healthee.core.config import get_settings
 from healthee.insights import morning
 from healthee.insights.client import ChatResponse, Usage
 from healthee.insights.coach import CoachResult
@@ -177,3 +181,56 @@ def test_the_merged_morning_prompt_and_both_prompts_it_replaced_are_measurable()
     assert texts["g_morning"] == morning.MORNING_TASK
     assert texts["g_briefing"] == morning.BRIEFING_TASK
     assert texts["g_daily_action"] == morning.DAILY_ACTION_PROMPT
+
+
+# ── whose credit a paid arm spends (#124) ──────────────────────────────────────
+
+
+def test_an_eval_key_is_used_and_the_production_key_is_left_unspent(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The whole point: with a key of its own, an arm cannot touch production's balance."""
+    monkeypatch.setenv(spend.PROD_KEY_VAR, "prod-key-not-a-secret")
+    monkeypatch.setenv(spend.EVAL_KEY_VAR, "eval-key-not-a-secret")
+    monkeypatch.setattr(get_settings, "cache_clear", lambda: None)
+
+    assert spend.select_api_key() == "eval"
+    assert os.environ[spend.PROD_KEY_VAR] == "eval-key-not-a-secret"
+    captured = capsys.readouterr()
+    assert "eval-key-not-a-secret" not in captured.out + captured.err  # standards §Errors
+
+
+def test_no_eval_key_still_runs_but_warns_that_it_is_spending_production(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Not a gate. #102's lesson is 'nobody was told', not 'somebody ran an arm'."""
+    monkeypatch.setenv(spend.PROD_KEY_VAR, "prod-key-not-a-secret")
+    monkeypatch.delenv(spend.EVAL_KEY_VAR, raising=False)
+
+    assert spend.select_api_key() == "production"
+    warning = capsys.readouterr().err
+    assert spend.EVAL_KEY_VAR in warning, "the warning must name the variable that fixes it"
+    assert "PRODUCTION" in warning and "2026-08-01" in warning, "it must name the risk"
+    assert "prod-key-not-a-secret" not in warning
+
+
+def test_no_key_at_all_says_nothing_and_leaves_the_refusal_to_the_client(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Two layers refusing the same missing key makes it ambiguous which one refused."""
+    monkeypatch.delenv(spend.PROD_KEY_VAR, raising=False)
+    monkeypatch.delenv(spend.EVAL_KEY_VAR, raising=False)
+
+    assert spend.select_api_key() == "unset"
+    assert capsys.readouterr().err == ""
+
+
+def test_a_blank_eval_key_is_treated_as_unset_rather_than_as_a_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`EVAL_OPENROUTER_API_KEY=` in a .env would otherwise blank the production key too."""
+    monkeypatch.setenv(spend.PROD_KEY_VAR, "prod-key-not-a-secret")
+    monkeypatch.setenv(spend.EVAL_KEY_VAR, "   ")
+
+    assert spend.select_api_key() == "production"
+    assert os.environ[spend.PROD_KEY_VAR] == "prod-key-not-a-secret"
