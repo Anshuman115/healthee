@@ -43,6 +43,7 @@ from psycopg import sql
 from tests._isolation import TEST_APP_ROLE, TEST_DATABASE, create_database, drop_database
 
 from healthee.core import db as db_module
+from healthee.core import logging as logging_module
 from healthee.core.config import get_settings
 from healthee.db import migrate, provision_app_role
 from healthee.insights import credits, transport_health
@@ -129,6 +130,34 @@ def _clean_llm_health() -> Iterator[None]:
     yield
     transport_health.reset()
     credits.reset_cache()
+
+
+@pytest.fixture(autouse=True)
+def _keep_caplog_capturing() -> Iterator[None]:
+    """Stop `configure_logging()` from silently deleting pytest's capture handler (#119).
+
+    `core.logging.configure_logging` does `root.handlers.clear()` on its FIRST call in a
+    process. pytest's `caplog` works by adding a handler to that same root logger, so any
+    test that reaches an ops `main()`, `create_app()` or `scheduler.main()` before reading
+    `caplog` had its capture removed mid-test — and only sometimes, because the second and
+    later calls are no-ops. That makes a caplog assertion pass or fail on **test order**,
+    and an empty `caplog.text` makes a NEGATIVE assertion ("the secret is not in the log")
+    pass while proving nothing at all. A vacuous assertion is worse than no assertion: it
+    reports a safety it does not provide.
+
+    Fixed once, here, rather than test by test: the flag is pinned so `configure_logging`
+    is a no-op for the duration of every test, and restored afterwards. What that gives up
+    is nothing — the handler/level/httpx-pin wiring is what `tests/test_logging.py` exists
+    for, and it clears the flag itself to exercise the real thing.
+
+    `tests/db/test_stale_derived.py::test_a_plain_run_says_so_in_the_log` is this
+    fixture's canary: it drives the operator's real `main()` and asserts on the log, so
+    removing the pin below turns it red.
+    """
+    was_configured = logging_module._configured
+    logging_module._configured = True
+    yield
+    logging_module._configured = was_configured
 
 
 @pytest.fixture

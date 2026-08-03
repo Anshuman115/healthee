@@ -183,16 +183,18 @@ def test_a_plain_run_finds_the_stale_rows_without_being_asked(seeded: date) -> N
 def test_a_plain_run_says_so_in_the_log(seeded: date, caplog: pytest.LogCaptureFixture) -> None:
     """…and it says so where an operator will read it, unprompted.
 
-    Driven through :func:`rederive.run` rather than ``main``, deliberately:
-    ``core.logging.configure_logging`` clears the root handlers on its FIRST call in a
-    process, which silently removes pytest's capture handler. A caplog assertion behind
-    ``main()`` therefore passes or fails on test ORDER, and a vacuously-empty
-    ``caplog.text`` makes a negative assertion pass while proving nothing.
+    Driven through ``main()`` — the spelling an operator actually types — which also
+    makes this test the canary for ``conftest._keep_caplog_capturing`` (#119).
+    ``main()`` calls ``core.logging.configure_logging``, and that clears the root
+    handlers on its first call in a process, taking pytest's capture handler with them.
+    Before the fixture pinned the flag, a caplog assertion behind ``main()`` passed or
+    failed on test ORDER, and a vacuously-empty ``caplog.text`` made a NEGATIVE
+    assertion pass while proving nothing. Delete the pin and this test goes red.
     """
     _plant(seeded, _WITHHELD_METRIC, 51.1)
 
     with caplog.at_level("WARNING", logger="healthee.db.rederive"):
-        assert rederive.run(SENTINEL_USER_ID, 3) == 0
+        assert _repair() == 0
 
     assert "STALE" in caplog.text
     assert f"{_WITHHELD_METRIC}: 1" in caplog.text
@@ -235,9 +237,9 @@ def test_a_gated_metric_is_refused_until_its_gate_is_reopened(seeded: date) -> N
 def test_a_gated_metric_is_left_out_of_the_stale_report(seeded: date) -> None:
     """…and it is not reported either, or the warning cries wolf on every run and is ignored.
 
-    Asserted on the returned counts rather than on the log, for the reason
-    :func:`test_a_plain_run_says_so_in_the_log` documents: an empty ``caplog.text`` would
-    make this negative assertion pass while testing nothing at all.
+    Asserted on the returned counts rather than on the log. A negative caplog assertion
+    would pass on an empty ``caplog.text`` too, so even with the capture kept alive (#119)
+    the returned value is the stronger reading of the same claim.
     """
     _plant(seeded, "vo2max_submax", 42.3)
 
