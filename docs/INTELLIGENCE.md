@@ -135,6 +135,19 @@ question/task
   → answer SHAPE — a surface whose model output has a CONTRACT (today only the
     coach, §4a) reports a broken one HERE, so a malformed payload is nudged and
     then falls back honestly rather than degrading to free text
+  → PERSONAL CLAIMS (#129) — every gate above checks claims against the research
+    corpus, so a sentence about the OWNER's own data cites nothing and nothing
+    checked it: measured 2026-08-03, a model opened "You logged alcohol yesterday
+    afternoon" on a fixture with zero alcohol rows and returned `validated=True`,
+    because every research sentence in it was correctly cited. The answer contract
+    now carries `asserts[]` — the owner-subjects the answer states a VALUE for —
+    and asserting one the owner has no stored data for is a retryable issue
+    (`insights/personal_claims.py`). Absence is NOT assertion, and that distinction
+    is the whole design: "you have 0 logged alcohol entries" declares nothing and
+    ships; "you logged alcohol yesterday" declares `alcohol` and does not. A
+    textual backstop catches a fabrication that under-declares, for logged event
+    kinds only — a metric key is not a word prose uses. It cannot catch a model
+    that fabricates AND under-declares a metric, and it says so in its docstring
   → once every allowed attempt has failed: honest fallback ("I can't ground that in
     our evidence base") — unvalidated text NEVER ships (legacy shipped it anyway).
     The retry budget is RESERVED, never shared with tool-gathering: the coach's
@@ -153,7 +166,10 @@ question/task
 **Where each stage lives, and why that is now checkable.** The stages above are
 `insights/pipeline.py`: `check_question` · `user_context` · `evidence` ·
 `complete` · the answer-gate registry (`answer_gates()`: output guard → validator →
-anti-hallucination → answer shape) · `drive` (nudge, then the fallback). The two answer
+anti-hallucination → answer shape → personal claims) · `drive` (nudge, then the
+fallback). The gate vocabulary those stages speak (`AnswerContext`, `GateOutcome`, …)
+lives in `insights/gate_types.py` and is re-exported, so a gate whose subject matter has
+its own module can name it without an import cycle. The two answer
 gates that block do so through the **registry**, and the question gate through
 `question_gates()` — so **a stage added to a registry reaches every surface by
 construction**. `tests/insights/test_pipeline_shared.py` proves it two ways: it

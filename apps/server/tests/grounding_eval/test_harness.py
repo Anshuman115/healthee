@@ -156,7 +156,24 @@ def test_the_fingerprint_moves_when_a_prompt_is_edited() -> None:
 
 def test_narrowing_by_kind_returns_only_that_kind() -> None:
     assert {q.kind for q in qs.by_kind({qs.DATA})} == {qs.DATA}
-    assert qs.by_kind(None) == qs.QUESTIONS
+    assert qs.by_kind(None) == tuple(q for q in qs.QUESTIONS if q.kind in qs.DEFAULT_KINDS)
+
+
+def test_an_opt_in_kind_costs_a_default_arm_nothing() -> None:
+    """#129's absence questions must not raise the price — or move the fingerprint.
+
+    Both halves matter and they are the same assertion from two sides: an unnamed run
+    buys the same questions it bought yesterday, so the arms saved for #95/#99/#105 stay
+    comparable (``compare`` refuses two arms whose fingerprints differ). Asking for the
+    kind by name still buys it — an opt-in set nobody can select is a deleted set.
+    """
+    default = qs.by_kind(None)
+    assert qs.ABSENCE not in {q.kind for q in default}
+    assert question_set_fingerprint(default) == question_set_fingerprint(
+        tuple(q for q in qs.QUESTIONS if q.kind != qs.ABSENCE)
+    )
+    assert {q.kind for q in qs.by_kind({qs.ABSENCE})} == {qs.ABSENCE}
+    assert len(qs.by_kind({qs.ABSENCE})) == 4
 
 
 def test_narrowing_by_id_returns_exactly_those_questions_in_the_sets_order() -> None:

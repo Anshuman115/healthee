@@ -18,6 +18,9 @@ places). That mirror rule is gone. Every honesty stage now lives once, in
     the prose, so a claim cannot reach the owner without the ids it rests on (#128). The
     contract is the coach's, but nothing about the gates is: the rendered text is what
     every stage judges, and a broken contract enters the same registry as any other issue.
+    The contract also carries what the answer asserts about the OWNER's data (#129), and
+    this module reads how much of that data exists — the two facts only a surface can
+    supply to ``pipeline._personal_claim_gate``.
 
 Everything else — the refusal gate before any tool runs, the hard output guardrails, the
 blocking validator on every final answer, the anti-hallucination gate, the nudged
@@ -40,7 +43,7 @@ from uuid import UUID
 
 from healthee.analytics import coverage
 from healthee.core.logging import get_logger
-from healthee.insights import coach_answer, coach_tools, pipeline, prompts
+from healthee.insights import coach_answer, coach_tools, personal_claims, pipeline, prompts
 from healthee.insights.client import LLMClient, coach_model, get_client
 from healthee.insights.coach_context import DEFAULT_COACH_DAYS, build_coach_context, coach_evidence
 from healthee.insights.coach_prompt import COACH_SYSTEM_PROMPT
@@ -194,6 +197,8 @@ class _ToolLoop:
     tools_withdrawn: bool = False
     raw_answer: str = ""
     structure_issues: tuple[str, ...] = ()
+    asserted: tuple[str, ...] = ()
+    without_data: frozenset[str] = frozenset()
 
     def next_turn(self, tools_allowed: bool) -> pipeline.Turn:
         """One model turn: run any tools it asked for, or RENDER the answer it returned.
@@ -229,7 +234,15 @@ class _ToolLoop:
         """
         self.raw_answer = raw or ""
         answer, self.structure_issues = coach_answer.parse(self.raw_answer)
-        return coach_answer.render(answer) if answer is not None else self.raw_answer
+        text = coach_answer.render(answer) if answer is not None else self.raw_answer
+        self.asserted = answer.asserts if answer is not None else ()
+        # Gathered here rather than in the gate because only the surface knows the owner
+        # (#129). Reads nothing when the answer neither declares a subject nor records an
+        # event, which is most answers; the RULE over the result stays in the registry.
+        self.without_data = personal_claims.subjects_without_data(
+            self.user_id, self.tz, self.asserted, text
+        )
+        return text
 
     def nudge(self, text: str, issues: Sequence[str]) -> None:  # noqa: ARG002
         """Carry the failed PAYLOAD back to the model, in its own contract's words.
@@ -244,7 +257,10 @@ class _ToolLoop:
     def answer_context(self) -> pipeline.AnswerContext:
         """Read at judgement time, not loop entry — ``acted_ok`` grows as tools run."""
         return pipeline.AnswerContext(
-            acted_ok=frozenset(self.acted_ok), structure_issues=self.structure_issues
+            acted_ok=frozenset(self.acted_ok),
+            structure_issues=self.structure_issues,
+            asserted=self.asserted,
+            without_data=self.without_data,
         )
 
     def _withdraw_tools(self) -> None:
