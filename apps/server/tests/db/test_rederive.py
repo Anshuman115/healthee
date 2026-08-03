@@ -133,9 +133,10 @@ def test_rederive_defaults_to_every_active_owner(db: None) -> None:  # noqa: ARG
     owns, not the test — so re-deriving all of it made the test's cost and outcome a
     function of what earlier sessions had left behind. Measured: against a database
     carrying 1,288 stray `app_user` rows (what a used dev box had accumulated) the
-    single test went 0.3 s → 6.4 s and re-derived 3,864 owner-days it never created,
-    linear and unbounded. Green in CI, green on a fresh database, red on a box that has
-    been used — the same shape as the `.env` phantom `tests/conftest.py::env` documents.
+    single test went 0.3 s → 6.4 s and re-derived 3,864 owner-days it never created —
+    linear in a number nothing bounds. Constant in CI, constant on a fresh database, and
+    worse every week on a box that is in use: the shape of the `.env` phantom
+    `tests/conftest.py::env` documents, where the result is the environment's history.
 
     The two claims are therefore asserted separately: that a `--user`-less run SELECTS
     every active owner, and that a selected owner is really repaired. The selection is a
