@@ -316,6 +316,28 @@ CLAUDE.md's "ONE canonical definition" applied to a recommendation rather than a
   (CHALLENGES.md §2.1 — a number you hand over is a number that can be attributed).
   *Still not present:* live progress, which `query_metric` can fetch and which the
   coach may never adapt anyway (CHALLENGES.md §5.2).
+- **The pivot names the INSTRUMENT, not just the number (#120).** `context._recent_daily`'s
+  compact per-day table handed the model `vo2max_estimate` as a bare number, so the coach
+  could say "your fitness is *measured* at 39.6" about a value the Jurca questionnaire
+  estimated — the #108 conflation re-entering through a different door, and the half of
+  [[hr_reserve_vo2max]] Directive 4 ("**state which one produced the value**") that #117
+  had delivered to `/api/today` but not to the surface that *writes sentences about the
+  number*. The pivot now suffixes each VO₂max with one word — `graded` / `reserve` /
+  `model` — and emits one legend line saying which of those are measurements and which is
+  a questionnaire. `insights/context_provenance.py` owns that vocabulary; the default for
+  a pre-#117 row with no stamp is `vo2max_tier.method_of`, so the payload and the prompt
+  cannot disagree about what produced a row.
+  **The cost was measured, not assumed** (the pivot rides in *every* prompt, and §9.3 is
+  why that matters): tiktoken/cl100k over the real assembled coach prompt gives **+0 tokens**
+  when the window holds no VO₂max, **+59** at one day, **+88** at thirty — 58 for the legend
+  plus exactly one per tagged value, i.e. **+0.11 %** of the 80,435-token coach question
+  §9.3 measured. `tests/insights/test_context_provenance.py` asserts the budget.
+  *Not fixed here, and worth its own PR:* the `## Today snapshot`, `## Trend summary` and
+  `## Personal baselines` sections still reduce `vo2max_estimate` to a z-score, a 7-day
+  **mean** and a 30-day **median** across whatever instruments the window happens to hold.
+  A mean over two instruments is the blend D4 forbids and #117 made structurally impossible
+  in `derive/vo2max_tier.py` — it survives in the *aggregation* the LLM is handed. Fixing it
+  changes a statistic rather than a label, which is a behaviour change and its own diff.
 
 ---
 
