@@ -33,7 +33,7 @@ from healthee.db import migrate, rederive
 from healthee.derive import derive_batch
 from healthee.ingest import HelioPayload, ingest_helio
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("owner_sweep")]
 
 _TABLES = "sample, sleep_session, workout, derived_daily, weight_log, profile, device_daily_total"
 
