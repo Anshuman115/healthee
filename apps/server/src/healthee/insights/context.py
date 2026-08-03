@@ -26,6 +26,7 @@ from healthee.analytics.baselines import (
 )
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
+from healthee.insights.context_provenance import instrument_legends, instrument_tag
 from healthee.insights.context_sessions import (
     findings_section,
     manual_entries_section,
@@ -118,26 +119,37 @@ def _recent_daily(cur, user_id: UUID, tz: str, days: int) -> str:
 
     On v2 data this MUST be non-empty (legacy returned empty here). Pivoted in
     Python to avoid dynamic SQL; metric list is a module constant.
+
+    ``flags->>'method'`` rides along because a bare number cannot say which INSTRUMENT
+    produced it, and for ``vo2max_estimate`` that is the difference between a measured run
+    and a questionnaire ([[hr_reserve_vo2max]] D4, #120). Extracted in SQL rather than
+    fetching whole ``flags`` blobs for ten metrics × ``days`` rows: this section is
+    deliberately compact, and so is its query. ``context_provenance`` owns which metrics
+    that column means anything for — every other cell is byte-identical to before.
     """
     metrics = [m for m, _ in _RECENT_COLUMNS]
     cur.execute(
-        "SELECT (day)::date AS d, metric, value FROM derived_daily "
+        "SELECT (day)::date AS d, metric, value, flags->>'method' FROM derived_daily "
         f"WHERE user_id = %s AND metric = ANY(%s) AND day > ({USER_TODAY_SQL} - %s::int) "
         "ORDER BY d DESC",
         (user_id, metrics, tz, days),
     )
-    by_day: dict[date, dict[str, float]] = {}
-    for d, metric, value in cur.fetchall():
-        by_day.setdefault(d, {})[metric] = value
+    by_day: dict[date, dict[str, str]] = {}
+    tagged: set[str] = set()
+    for d, metric, value, stored_method in cur.fetchall():
+        tag = instrument_tag(metric, stored_method)
+        if tag:
+            tagged.add(metric)
+        by_day.setdefault(d, {})[metric] = f"{_fmt(value)} {tag}" if tag else _fmt(value)
     if not by_day:
         return ""
     header = "| date | " + " | ".join(label for _, label in _RECENT_COLUMNS) + " |"
     sep = "|" + "---|" * (len(_RECENT_COLUMNS) + 1)
     lines = [f"## Recent daily metrics (last {days} days, {tz})", header, sep]
     for d in sorted(by_day, reverse=True):
-        cells = [_fmt(by_day[d].get(m)) for m, _ in _RECENT_COLUMNS]
+        cells = [by_day[d].get(m, "-") for m, _ in _RECENT_COLUMNS]
         lines.append(f"| {d} | " + " | ".join(cells) + " |")
-    return "\n".join(lines)
+    return "\n".join([*lines, *instrument_legends(tagged)])
 
 
 def _fmt(value: float | None) -> str:
