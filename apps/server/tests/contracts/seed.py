@@ -38,7 +38,7 @@ USER_TZ = ZoneInfo(SENTINEL_TZ)
 _TABLES = (
     "sample, sleep_session, workout, derived_daily, weight_log, profile, manual_entry, "
     "illness_flag, recommendation, finding, gps_track, gps_point, kv, program, challenge, "
-    "subscription"
+    "subscription, device_daily_total"
 )
 
 # `challenge` is truncated with CASCADE because `challenge_outcome` references it —

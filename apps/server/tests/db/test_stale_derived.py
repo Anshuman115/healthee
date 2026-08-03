@@ -35,7 +35,7 @@ from healthee.ingest.service import DerivePlan
 
 pytestmark = pytest.mark.integration
 
-_TABLES = "sample, sleep_session, workout, derived_daily, weight_log, profile"
+_TABLES = "sample, sleep_session, workout, derived_daily, weight_log, profile, device_daily_total"
 
 # The owner every test repairs, as `rederive_owner` takes it (the CLI resolves the same
 # thing through `active_users`).

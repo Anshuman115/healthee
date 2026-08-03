@@ -34,7 +34,8 @@
     "day": "2026-03-01",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725
+      "stride_m": 0.725,
+      "source": "steps_per_minute"
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -208,7 +209,9 @@
   },
   {
     "day": "2026-03-01",
-    "flags": {},
+    "flags": {
+      "source": "steps_per_minute"
+    },
     "metric": "steps_total",
     "value": 3105.0
   },
@@ -258,7 +261,8 @@
     "day": "2026-03-02",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725
+      "stride_m": 0.725,
+      "source": "steps_per_minute"
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -432,7 +436,9 @@
   },
   {
     "day": "2026-03-02",
-    "flags": {},
+    "flags": {
+      "source": "steps_per_minute"
+    },
     "metric": "steps_total",
     "value": 3105.0
   },
@@ -482,7 +488,8 @@
     "day": "2026-03-03",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725
+      "stride_m": 0.725,
+      "source": "steps_per_minute"
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -656,7 +663,9 @@
   },
   {
     "day": "2026-03-03",
-    "flags": {},
+    "flags": {
+      "source": "steps_per_minute"
+    },
     "metric": "steps_total",
     "value": 3105.0
   },
@@ -720,7 +729,8 @@
     "day": "2026-03-04",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725
+      "stride_m": 0.725,
+      "source": "steps_per_minute"
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -894,7 +904,9 @@
   },
   {
     "day": "2026-03-04",
-    "flags": {},
+    "flags": {
+      "source": "steps_per_minute"
+    },
     "metric": "steps_total",
     "value": 3105.0
   },
@@ -958,7 +970,8 @@
     "day": "2026-03-05",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725
+      "stride_m": 0.725,
+      "source": "steps_per_minute"
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -1132,7 +1145,9 @@
   },
   {
     "day": "2026-03-05",
-    "flags": {},
+    "flags": {
+      "source": "steps_per_minute"
+    },
     "metric": "steps_total",
     "value": 3105.0
   },
@@ -1196,7 +1211,8 @@
     "day": "2026-03-06",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725
+      "stride_m": 0.725,
+      "source": "steps_per_minute"
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -1428,7 +1444,9 @@
   },
   {
     "day": "2026-03-06",
-    "flags": {},
+    "flags": {
+      "source": "steps_per_minute"
+    },
     "metric": "steps_total",
     "value": 3105.0
   },
@@ -1492,7 +1510,8 @@
     "day": "2026-03-07",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725
+      "stride_m": 0.725,
+      "source": "steps_per_minute"
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -1724,7 +1743,9 @@
   },
   {
     "day": "2026-03-07",
-    "flags": {},
+    "flags": {
+      "source": "steps_per_minute"
+    },
     "metric": "steps_total",
     "value": 3105.0
   },
@@ -1788,7 +1809,8 @@
     "day": "2026-03-08",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725
+      "stride_m": 0.725,
+      "source": "steps_per_minute"
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -2020,7 +2042,9 @@
   },
   {
     "day": "2026-03-08",
-    "flags": {},
+    "flags": {
+      "source": "steps_per_minute"
+    },
     "metric": "steps_total",
     "value": 3105.0
   },

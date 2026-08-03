@@ -620,6 +620,34 @@ Two things to know before running it:
 recomputed, because not being recomputable is the definition of what was purged. Take the
 preview seriously; it is the whole safety story.
 
+### ⛔ F3. `rederive` used to DESTROY the strap's step count (#121) — fixed forward only
+
+Before #121 the strap's own since-midnight step counter (BLE 0x0016) was written straight
+into `derived_daily.steps_total` after the derive pass and stored **nowhere else**. A
+re-derive rebuilds that cell from the per-minute `steps_per_minute` sum — the stream the
+code itself calls "possibly frozen/incomplete", and which demonstrably stalls — so every
+run of the command in section F replaced the device's authoritative count with the worse
+number, permanently. Measured on production 2026-08-02: of 143 `steps_total` rows, **142
+carried the per-minute sum and exactly one carried `strap_0x16`.**
+
+#121 gives the counter a raw table (`device_daily_total`, migration `0017`) that the day
+pass reads, so `steps_total` and `distance_m_daily` are now derivations with a stated
+precedence (device counter → per-minute sum) and a re-derive re-produces the same answer
+however often it runs.
+
+**The 142 days are gone and this deploy does not bring them back.** `device_daily_total`
+starts empty; there is deliberately no backfill, because there is nothing to backfill
+from — those numbers only ever existed in the cell that was overwritten, and two
+pre-repair backups hold the same overwritten values. Days before this deploy keep the
+per-minute sum, correctly labelled `flags.source = 'steps_per_minute'`. Which instrument
+a day carries is readable directly:
+
+```sh
+$COMPOSE exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+  "SELECT flags->>'source' AS src, count(*), max(day) FROM derived_daily \
+   WHERE metric = 'steps_total' GROUP BY 1 ORDER BY 2 DESC;"
+```
+
 ### The symptom to recognise
 
 Day metrics current (steps, calories, cardio load, MVPA) while `rhr_daily`,

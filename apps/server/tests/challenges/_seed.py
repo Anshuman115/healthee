@@ -47,7 +47,8 @@ SLEEP_ROW_METRIC = "sleep_health_score_4dim"
 # one test refuses the FOURTH test in the module with `generation_budget_spent` — a
 # failure that looks like a code bug and is a reset-list bug, exactly as `program` was.
 _TABLES = (
-    "derived_daily", "workout", "manual_entry", "finding", "illness_flag", "kv",
+    "derived_daily", "device_daily_total", "workout", "manual_entry", "finding",
+    "illness_flag", "kv",
 )  # fmt: skip
 
 # `challenge` and `program` are truncated separately with CASCADE: `challenge_outcome`

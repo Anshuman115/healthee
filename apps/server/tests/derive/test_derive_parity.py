@@ -44,6 +44,14 @@ other row is byte-identical to legacy):
       untouched here: the seeded dataset contains no GPS track, so the measured
       tiers cannot fire and the fallback model writes every row exactly as before —
       which is the property this divergence is worth stating rather than hiding.
+  M4  steps_total.flags / distance_m_daily.flags — a new `source` flag on every row
+      (#121), `steps_per_minute` here. `steps_total` is now a tiered metric: the
+      strap's own daily counter when it reported one, this per-minute sum otherwise.
+      The seeded dataset has no `device_daily_total` row, so the fallback tier writes
+      every row exactly as legacy did and NO VALUE MOVES — the flag simply says which
+      instrument spoke, which is what the old shape could not say. (Legacy did not
+      need to: it recomputed this cell from the per-minute sum and then let ingest
+      paste the strap's counter over the top, which is the defect #121 closes.)
   C2  sleep efficiency — the formula changed to tst/(tst+wake) (≤100% by
       construction) but the seed's tst+wake (480) equals its wall-clock span (480),
       so efficiency_pct stays 95.8 and NO sleep row moves. Verified: zero sleep

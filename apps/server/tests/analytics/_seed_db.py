@@ -29,6 +29,7 @@ _OWNER = SENTINEL_USER_ID
 
 _CLEAN_TABLES = (
     "derived_daily",
+    "device_daily_total",
     "sleep_session",
     "manual_entry",
     "finding",

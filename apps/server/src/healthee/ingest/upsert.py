@@ -264,69 +264,51 @@ def upsert_weight(cur: Cur, user_id: UUID, tz: str, weight_kg: float) -> None:
         )
 
 
-def _upsert_derived(
-    cur: Cur, user_id: UUID, day: date, metric: str, value: float, flags: dict
-) -> None:
-    """Write one materialized derived-daily cell (ingest's own override write).
+def upsert_daily_totals(cur: Cur, user_id: UUID, totals: list[DailyTotalIn]) -> int:
+    """Store the strap's live 0x0016 daily totals RAW, as reported. Returns rows stored.
 
-    Stamps `derived_at` exactly as `derive._common._upsert_daily` does (0016) — this is
-    the table's OTHER writer, and a row it wrote without a stamp would read to
-    `db/stale_derived.py` as one no derivation has touched since the column landed.
+    ## What this replaced, and why the replacement is a different KIND of thing (#121)
+
+    This used to be `apply_daily_totals`, which wrote the strap's counter straight into
+    `derived_daily.steps_total` (and `distance_m_daily`) and nowhere else, under a
+    docstring that said it "MUST run AFTER derive … the strap counter is authoritative".
+    Both halves of that were true and together they were the bug: `derived_daily` is
+    exactly what a derive pass REBUILDS, so the next derive over that day — a push
+    carrying one late sample, a `db/rederive` repair, a backfill — recomputed
+    `steps_total` from the per-minute sum and the device's own count was gone, with no
+    raw row anywhere to restore it from. Production held 142 days of the per-minute sum
+    and one day of the strap counter for exactly that reason.
+
+    So this function no longer produces a metric at all. It stores a measurement, in
+    `device_daily_total`, and `derive/device_totals.py` decides what `steps_total` is.
+    The ordering constraint is therefore gone rather than moved: this runs before derive
+    for the same reason `upsert_samples` does — raw first, then derivation — and if it
+    ever ran after, the next derive pass would pick the row up instead of the value being
+    destroyed. Correctness stopped depending on the order.
+
+    A later report for the same day REPLACES an earlier one: the counter is a live
+    since-midnight accumulator, so the newest reading is the most complete one. Rows that
+    carry no number at all are skipped — a payload entry with every field null is not a
+    measurement — but a report with only distance, or only calories, is stored: this
+    table's job is to hold what the device said, and the derivation reads each field
+    independently.
     """
-    cur.execute(
-        "INSERT INTO derived_daily (user_id, day, metric, value, flags, derived_at) "
-        "VALUES (%s, %s, %s, %s, %s::jsonb, now()) "
-        "ON CONFLICT (user_id, day, metric) DO UPDATE SET "
-        "value = EXCLUDED.value, flags = EXCLUDED.flags, derived_at = EXCLUDED.derived_at",
-        (user_id, day, metric, round(float(value), 4), json.dumps(flags)),
-    )
-
-
-def apply_daily_totals(cur: Cur, user_id: UUID, totals: list[DailyTotalIn]) -> int:
-    """Override `steps_total` (+ `distance_m_daily`) in derived_daily with the
-    strap's live 0x0016 totals. MUST run AFTER derive, which recomputes
-    steps_total from the (possibly frozen/incomplete) per-minute sum — the strap
-    counter is authoritative. Returns the number of days overridden."""
-    applied = 0
-    for total in totals:
-        if total.steps is None:
-            continue
-        _upsert_derived(
-            cur, user_id, total.day, "steps_total", float(total.steps), {"source": "strap_0x16"}
+    rows = [
+        (user_id, t.day, t.steps, t.distance_m, t.calories)
+        for t in totals
+        if t.steps is not None or t.distance_m is not None or t.calories is not None
+    ]
+    if rows:
+        cur.executemany(
+            "INSERT INTO device_daily_total "
+            "(user_id, day, steps, distance_m, calories, reported_at) "
+            "VALUES (%s, %s, %s, %s, %s, now()) "
+            "ON CONFLICT (user_id, day) DO UPDATE SET "
+            "steps = EXCLUDED.steps, distance_m = EXCLUDED.distance_m, "
+            "calories = EXCLUDED.calories, reported_at = EXCLUDED.reported_at",
+            rows,
         )
-        _apply_distance(cur, user_id, total)
-        applied += 1
-    return applied
-
-
-def _apply_distance(cur: Cur, user_id: UUID, total: DailyTotalIn) -> None:
-    """Set distance_m_daily from the reported metres, else recompute from the
-    real step total × the stride stored on the derived row (steps changed)."""
-    if total.distance_m is not None:
-        _upsert_derived(
-            cur,
-            user_id,
-            total.day,
-            "distance_m_daily",
-            float(total.distance_m),
-            {"source": "strap_0x16"},
-        )
-        return
-    cur.execute(
-        "SELECT (flags->>'stride_m')::float FROM derived_daily "
-        "WHERE user_id = %s AND day = %s AND metric = 'distance_m_daily'",
-        (user_id, total.day),
-    )
-    stride = cur.fetchone()
-    if stride and stride[0] and total.steps is not None:
-        _upsert_derived(
-            cur,
-            user_id,
-            total.day,
-            "distance_m_daily",
-            float(total.steps) * stride[0],
-            {"source": "strap_0x16", "stride_m": stride[0]},
-        )
+    return len(rows)
 
 
 def build_fresh_predicate(

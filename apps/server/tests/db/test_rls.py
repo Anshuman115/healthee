@@ -285,7 +285,7 @@ def _tenant_tables() -> list[str]:
 
 
 def test_every_tenant_table_has_rls_enabled_and_exactly_one_policy(db: None) -> None:  # noqa: ARG001
-    """All 17, driven off the DATABASE's own list of what references `app_user`.
+    """All 18, driven off the DATABASE's own list of what references `app_user`.
 
     Never a list hand-copied into the test: a tenant table added by a future migration
     is covered by this assertion the day it is created, and the failure names it. A
@@ -294,8 +294,9 @@ def test_every_tenant_table_has_rls_enabled_and_exactly_one_policy(db: None) -> 
     """
     migrate.apply_migrations()
     tables = _tenant_tables()
-    assert len(tables) == 17, (
-        f"expected the 17 tenant tables (§3.2 + subscription), found {len(tables)}: {tables}"
+    assert len(tables) == 18, (
+        f"expected the 18 tenant tables (§3.2 + subscription + device_daily_total), "
+        f"found {len(tables)}: {tables}"
     )
     with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(

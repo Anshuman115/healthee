@@ -36,6 +36,20 @@ run reports, per metric, how many rows in the window it did NOT rewrite — the 
 ran by hand for two weeks), and **removal is not** (``--purge-stale <metric …>`` names what
 may go and previews it; ``--apply`` deletes).
 
+## What a recompute used to DESTROY, and no longer does (#121)
+
+Until #121 this tool actively made one number worse. The strap's own daily step counter
+arrived on the push and was written straight into ``derived_daily.steps_total``, after
+the derive pass, with nothing else holding it — so a re-derive recomputed that cell from
+the per-minute sample sum (the stream our own code called "possibly frozen/incomplete")
+and the device's count was gone for good. The documented repair procedure replaced an
+authoritative measurement with a worse one, permanently, every time it ran.
+
+The counter now lands in ``device_daily_total`` as raw data this tool never touches, and
+``derive/device_totals.py`` re-reads it on every pass — so a re-derive is idempotent for
+steps and distance too, rather than lossy. ⛔ It does NOT recover the 142 production days
+whose counter was already overwritten: nothing anywhere holds those numbers.
+
 ## Why the RECOMPUTE is not dry-run-by-default, and why the PURGE is
 
 ``claim_sentinel`` and ``grant_premium`` are dry-run first because they are irreversible

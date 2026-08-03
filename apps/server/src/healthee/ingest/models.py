@@ -87,7 +87,12 @@ class DailyTotalIn(BaseModel):
     """Live since-midnight totals the strap reports on BLE 0x0016 — the
     authoritative daily step count even when the per-minute stream is frozen.
     `day` is a local 'YYYY-MM-DD' date (the app formats it in the user's tz);
-    pydantic parses the ISO string the app sends into a `date`."""
+    pydantic parses the ISO string the app sends into a `date`.
+
+    This is a RAW measurement and since #121 it has a raw home: `upsert_daily_totals`
+    stores it in `device_daily_total` and `derive/device_totals.py` decides what
+    `steps_total` becomes from it. Before that it went from this model straight into a
+    derived cell and nowhere else, so the next derive pass over the day erased it."""
 
     model_config = ConfigDict(extra="ignore")
 

@@ -6,13 +6,14 @@ from pathlib import Path
 
 import healthee
 
-# The 17 tenant tables (MULTI_USER.md §3.2, + `subscription` from §12.2). `app_user`
-# / `device_token` are identity tables keyed BY the user and are deliberately absent.
+# The 18 tenant tables (MULTI_USER.md §3.2, + `subscription` from §12.2 and
+# `device_daily_total` from 0017). `app_user` / `device_token` are identity tables keyed
+# BY the user and are deliberately absent.
 TENANT_TABLES: frozenset[str] = frozenset({
     "sample", "sleep_session", "workout", "derived_daily", "weight_log", "kv",
     "manual_entry", "illness_flag", "recommendation", "finding", "challenge",
     "program", "challenge_outcome", "gps_track", "gps_point", "profile",
-    "subscription",
+    "subscription", "device_daily_total",
 })  # fmt: skip
 
 # A tenant table named after FROM / JOIN / INTO / UPDATE — i.e. the table the

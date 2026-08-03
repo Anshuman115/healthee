@@ -12,7 +12,7 @@ row that actually lands in ``derived_daily`` — or, for ``moderate_min`` /
 
 v1 → v2 mapping applied (retired names dropped):
   hrv_sleep_avg_ms  → hrv_sleep_avg          (derive/hrv_spo2_resp.py:28)
-  distance_m        → distance_m_daily       (derive/activity.py:42)
+  distance_m        → distance_m_daily       (derive/activity.py:61)
   calories          → total_calories         (derive/energy.py:123)
   sleep_score       → sleep_health_score_4dim(derive/sleep_score.py:119)
   moderate_min      → mvpa_min flags.moderate(derive/mvpa.py:66)

@@ -1,10 +1,17 @@
-"""Orchestrates a full /ingest/helio push: upsert raw + typed rows, derive the
-days the push touched, then apply the strap's authoritative daily-total override.
+"""Orchestrates a full /ingest/helio push: upsert every raw + typed row the push
+carries, then derive the days it touched.
 
 The whole flow is one transaction (`core.db.tenant_connection()` commits on clean
-exit, and sets the owner the `0008` RLS policies gate on),
-so the daily-total override and the derivation it corrects are atomic — a partial
-push never leaves the dashboard half-updated.
+exit, and sets the owner the `0008` RLS policies gate on), so the raw rows and the
+derivation over them are atomic — a partial push never leaves the dashboard
+half-updated.
+
+Ordering (#121): the strap's daily totals are upserted with the rest of the RAW data,
+BEFORE derive, because `derive/activity.py` now reads them to decide `steps_total`. They
+used to be applied AFTER derive, straight into `derived_daily`, to override what it had
+just computed — which meant the next derive over that day destroyed the strap's count
+with nothing to restore it from. Raw first, then derivation, is the only order this file
+has now, and it is the same one every other section of the push already followed.
 
 Derive seam (WP2): the derivation step is an injected callable. Its default lazily
 imports `healthee.derive.derive_batch` INSIDE the function — an intentional seam so
@@ -34,10 +41,10 @@ from healthee.core.db import tenant_connection
 from healthee.core.logging import get_logger
 from healthee.ingest.models import ALLOWED_METRICS, HelioPayload, SleepIn
 from healthee.ingest.upsert import (
-    apply_daily_totals,
     build_fresh_predicate,
     epoch_to_utc,
     local_date,
+    upsert_daily_totals,
     upsert_profile,
     upsert_samples,
     upsert_sleep,
@@ -154,12 +161,15 @@ def ingest_helio(
 ) -> IngestSummary:
     """Apply a push end-to-end under `user_id` and return the counts.
 
-    One transaction: upsert → derive the touched nights and then days → apply the
-    strap's daily-total override (after derive, which it corrects). `user_id` is the
+    One transaction: upsert every raw + typed row (samples, sleep, workouts, profile, and
+    the strap's daily totals) → derive the touched nights and then days. `user_id` is the
     owner every raw, typed, and derived row is written under; the router supplies it
     (the sentinel today, the device token's real owner from 6.4 — MULTI_USER.md §7)."""
     with tenant_connection(user_id) as conn, conn.cursor() as cur:
         accepted, rejected = upsert_samples(cur, user_id, payload.samples)
+        # Before derive, with the other raw writes: `derive/activity.py` READS these to
+        # decide `steps_total` (#121). Nothing overrides a derived cell after the fact.
+        n_totals = upsert_daily_totals(cur, user_id, payload.daily_totals)
         # Predicate must be built BEFORE upsert_sleep — it reads which nights
         # already existed so re-pushed history isn't re-emitted.
         is_fresh = build_fresh_predicate(cur, user_id, payload.sleep)
@@ -173,9 +183,6 @@ def ingest_helio(
         plan = _derive_plan(payload, tz, is_fresh)
         if plan.nights or plan.days:
             derive(conn, user_id, tz, plan)
-        # Daily-total override runs AFTER derive on purpose (it overrides the
-        # steps_total derive just computed with the strap's real counter).
-        n_totals = apply_daily_totals(cur, user_id, payload.daily_totals)
 
     log.info(
         "ingest_helio: samples=%d(-%d) sleep=%d workouts=%d totals=%d nights=%d days=%d",
