@@ -26,6 +26,7 @@ green rings.
 - [The data flow](#the-data-flow)
 - [The honesty contract](#the-honesty-contract)
 - [Tech stack](#tech-stack)
+- [Choosing the model](#choosing-the-model--what-we-measured)
 - [Repository layout](#repository-layout)
 - [API surface](#api-surface)
 - [Self-hosting guide](#self-hosting-guide)
@@ -136,11 +137,108 @@ These five principles are product law, enforced in code (see
 | Layer | Stack |
 |---|---|
 | **Server** | Python 3.13 · FastAPI · psycopg3 · **TimescaleDB** (Postgres 17) · uv · pytest · ruff · pyright |
-| **Intelligence** | OpenRouter (LLM) behind a grounded-ask choke point + blocking citation validator |
+| **Intelligence** | OpenRouter (`gemini-3.5-flash-lite`, [measured](#choosing-the-model--what-we-measured)) behind a grounded-ask choke point + blocking citation validator |
 | **Mobile** (Phase 2) | Flutter · Riverpod · on-device SQLite (60-day tier) |
 | **Knowledge** | Markdown research corpus with per-claim evidence grades + a generated manifest |
 | **Infra** | Docker Compose · nginx (TLS via certbot) · systemd-timed `pg_dump` backups |
 | **CI** | GitHub Actions — file-length gate · ruff · pyright · pytest (against a TimescaleDB service) · gitleaks |
+
+## Choosing the model — what we measured
+
+The coach runs on **`google/gemini-3.5-flash-lite`**, the same model as the batch
+surfaces. That is a measured choice, not a default, and the measurement changed our
+mind twice.
+
+**Everything below is from `tests/grounding_eval/`** — 18 fixed questions across six
+kinds, 4 repeats each (72 runs per arm), all at the same commit, scored by the same
+blocking validator that gates production. Costs are the providers' published rates,
+**not** the harness's printed figure, which uses a stale flat rate.
+
+### The finding that mattered
+
+A cheap model first measured **much worse** than the expensive one, and the reason was
+not health knowledge:
+
+| kind | `gemini-3.6-flash` | `deepseek-v4-flash` |
+|---|---|---|
+| **knowledge** | 6/6 | **3/6** |
+| surface | 10/12 | **12/12** |
+
+Where output was **structured**, the cheap model matched or beat the expensive one.
+Where it was free-text prose carrying an inline `[note_id]` convention, it failed — and
+the failures were all *"Interpretive sentence lacks a citation"*. **That is
+instruction-following on our formatting rule, not a knowledge gap.**
+
+So we made the citation impossible to omit rather than possible to forget: the coach now
+returns claims as data (`text`, `cites`, `grade`) and the prose is rendered from them
+(`insights/coach_answer.py`). Same principle as `derive/vo2max_tier.py`, which cannot
+blend two instruments because the code path never sees two, and `derive/device_totals.py`,
+which cannot lose the strap's step counter because it derives from it.
+**Enforce by structure, not by care.**
+
+The fix lifted **both** models, and cut output tokens 57% (paired, sign established) —
+fewer answers need rewriting, so fewer are written twice.
+
+### The three arms, after the fix
+
+| model | ship rate | knowledge | LLM calls/q | input tok/q | **$/question** | 30 q/month |
+|---|---|---|---|---|---|---|
+| `gemini-3.6-flash` | 100.0% [94.3–100] | 12/12 | 1.7 | 67,433 | $0.1142 | $3.43 |
+| **`gemini-3.5-flash-lite`** | **100.0%** [94.3–100] | 12/12 | **1.2** | **46,636** | **$0.0146** | **$0.44** |
+| `deepseek-v4-flash-0731` | 98.4% [91.7–99.7] | 12/12 | 1.7 | 65,516 | $0.0060 | $0.18 |
+
+Paired McNemar, flash-lite vs `gemini-3.6-flash`: 72 pairs, **zero discordant**.
+
+**Flash-lite wins on behaviour, not just on rate.** It is 5× cheaper per token but
+**7.8×** cheaper in practice, because it reaches the same answer in **1.2 calls instead
+of 1.7** and needs 31% less input to do it. `gemini-3.6-flash` spent **1,481 tokens per
+question on invisible reasoning** — billed at $7.50/M and never shown to anyone.
+
+### Answer character (proxies, not prose)
+
+⚠ The harness records *whether* an answer shipped and *what it cited* — **not the answer
+text**. These are proxies; a real prose comparison needs its own run.
+
+| model | visible output/q | reasoning/q | citations/answer |
+|---|---|---|---|
+| `gemini-3.6-flash` | 262 tok | 1,481 | 2.41 |
+| `gemini-3.5-flash-lite` | 244 tok | 0 | 2.47 |
+| `deepseek-v4-flash-0731` | **364 tok** | 389 | **2.68** |
+
+DeepSeek writes the longest, most-cited answers; flash-lite the most concise.
+**Correctness is not among these differences** — the validator is the arbiter of that, and
+all three cleared it at 98–100%.
+
+### Why not DeepSeek, which is 2.4× cheaper still
+
+1. **Flash-lite is already in production** for every batch surface, so its behaviour is
+   evidenced by real traffic. DeepSeek has none.
+2. **One model everywhere** collapses the `DEFAULT_MODEL` / `COACH_MODEL` split — one
+   rate in every cost calculation, one set of eval numbers. Two tiers is how a stale
+   $0.50/M assumption survived months in our own pricing docs.
+3. The remaining saving is **$0.26/owner/month at 30 questions** — not worth a second
+   unknown.
+
+### What this settles
+
+A coach question went from **$0.1142 to $0.0146**. Thirty of them cost **$0.44**. Every
+cost lever we had been arguing over — shrinking the retrieved-notes count, restructuring
+the tool loop, capping questions per month — was worth a fraction of one model swap plus
+one formatting fix, and two of those three would have cost answer quality.
+
+**Reproduce it:**
+
+```bash
+cd apps/server
+COACH_MODEL=<model> uv run python -m tests.grounding_eval run --repeats 4 --out arm.json
+uv run python -m tests.grounding_eval compare before.json after.json   # free
+```
+
+⚠ `run` **truncates and re-seeds** the database it points at — never aim it at data
+anyone needs. Point `POSTGRES_*` at a throwaway container. Set
+`EVAL_OPENROUTER_API_KEY` to a key with its own small credit limit: this harness once
+drained the shared account and took the production AI layer down behind a green
+`/healthz`.
 
 ## Repository layout
 
