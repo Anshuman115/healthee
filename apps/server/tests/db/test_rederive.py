@@ -10,6 +10,8 @@ drift apart on the order nights and days run in.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -19,7 +21,7 @@ import pytest
 
 from healthee.core import db as db_module
 from healthee.core.db import admin_connection
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, active_users
 from healthee.db import migrate, rederive
 from healthee.ingest import HelioPayload, ingest_helio
 from healthee.ingest.service import DerivePlan
@@ -75,6 +77,33 @@ def _seed_last_night() -> date:
     return wake.astimezone(ZoneInfo(SENTINEL_TZ)).date()
 
 
+@contextmanager
+def _second_owners() -> Iterator[tuple[UUID, UUID]]:
+    """One extra ACTIVE owner and one SUSPENDED one, removed again on the way out.
+
+    Created here so "every active owner" is a claim about real rows rather than about
+    the sentinel alone, and about `status` rather than about the whole table. Removed
+    here because an owner this suite invents and leaves behind is what made the
+    `--user`-less run environment-dependent in the first place.
+    """
+    active_owner, suspended_owner = uuid4(), uuid4()
+    with admin_connection() as conn, conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO app_user (id, email, timezone, status) VALUES (%s, %s, %s, %s)",
+            [
+                (active_owner, "rederive-active@example.test", SENTINEL_TZ, "active"),
+                (suspended_owner, "rederive-suspended@example.test", SENTINEL_TZ, "suspended"),
+            ],
+        )
+    try:
+        yield active_owner, suspended_owner
+    finally:
+        with admin_connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM app_user WHERE id = ANY(%s)", ([active_owner, suspended_owner],)
+            )
+
+
 def _rhr(day: date) -> float | None:
     with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(
@@ -97,11 +126,35 @@ def test_rederive_rebuilds_a_derived_layer_that_was_left_empty(db: None) -> None
 
 
 def test_rederive_defaults_to_every_active_owner(db: None) -> None:  # noqa: ARG001
-    """No --user is the incident form: repair everyone, not nobody."""
+    """No --user is the incident form: repair everyone, not nobody.
+
+    Scoped to the owners THIS TEST creates, which is the whole point (#119). The
+    `--user`-less selection is `core.tenancy.active_users()` — a set the ENVIRONMENT
+    owns, not the test — so re-deriving all of it made the test's cost and outcome a
+    function of what earlier sessions had left behind. Measured: against a database
+    carrying 1,288 stray `app_user` rows (what a used dev box had accumulated) the
+    single test went 0.3 s → 6.4 s and re-derived 3,864 owner-days it never created,
+    linear and unbounded. Green in CI, green on a fresh database, red on a box that has
+    been used — the same shape as the `.env` phantom `tests/conftest.py::env` documents.
+
+    The two claims are therefore asserted separately: that a `--user`-less run SELECTS
+    every active owner, and that a selected owner is really repaired. The selection is a
+    SUPERSET claim plus an identity with `active_users()` — never equality against a
+    literal set of owners, which would only swap one environment dependence for another.
+    """
     _reset()
     wake_day = _seed_last_night()
 
-    assert rederive.main(["--days", "3"]) == 0
+    with _second_owners() as (active_owner, suspended_owner):
+        selected = rederive.owners(None)
+        chosen = {tenant.id for tenant in selected}
+        assert {SENTINEL_USER_ID, active_owner} <= chosen, "the default selected fewer than all"
+        assert suspended_owner not in chosen, "a suspended owner's chain must stay stopped"
+        assert chosen == {tenant.id for tenant in active_users()}, "…and it IS the active set"
+
+        for tenant in selected:
+            if tenant.id in {SENTINEL_USER_ID, active_owner}:
+                rederive.rederive_owner(tenant, days=3)
 
     assert _rhr(wake_day) == pytest.approx(_SLEEP_HR_BPM)
 
@@ -119,11 +172,16 @@ def test_main_releases_the_pool_on_both_paths(db: None) -> None:  # noqa: ARG001
     there is no public reader, and the observable symptom (psycopg's teardown warnings
     on stderr, seconds after the process is logically done) is not something a test can
     catch. Both paths, since the refusal path exits through the same `finally`.
+
+    Named `--user`, though the pool is released either way: a `--user`-less run walks
+    every active owner, which made this test's cost the environment's business too
+    (4.6 s against a database carrying 1,288 strays, 0.2 s named) — the same shape as
+    `test_rederive_defaults_to_every_active_owner`, and nothing to do with the pool.
     """
     _reset()
     _seed_last_night()
 
-    assert rederive.main(["--days", "1"]) == 0
+    assert rederive.main(["--user", str(SENTINEL_USER_ID), "--days", "1"]) == 0
     assert db_module._pool is None
 
     assert rederive.main(["--user", str(uuid4())]) == 2
