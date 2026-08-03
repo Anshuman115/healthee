@@ -145,9 +145,10 @@ These five principles are product law, enforced in code (see
 
 ## Choosing the model — what we measured
 
-The coach runs on **`google/gemini-3.6-flash`**. We measured three models, briefly
-shipped the cheapest, and **reverted within the hour** — because a ship-rate benchmark
-cannot see the failure that matters. The reversal is the most useful thing on this page.
+The coach runs on **`deepseek/deepseek-v4-flash-0731`**. We measured three models,
+briefly shipped the wrong one on a 100% ship rate, **reverted within the hour**, then
+built the test that would have caught it and re-decided on that. The reversal is the most
+useful thing on this page — a ship-rate benchmark cannot see the failure that matters.
 
 **Everything below is from `tests/grounding_eval/`** — 18 fixed questions across six
 kinds, 4 repeats each (72 runs per arm), all at the same commit, scored by the same
@@ -247,9 +248,28 @@ benchmark you must not decide on alone.
 3. The remaining saving is **$0.26/owner/month at 30 questions** — not worth a second
    unknown.
 
-DeepSeek was the *most* accurate arm on the prose test and is the cheapest by far. It is
-a real candidate — it simply has no production history yet, and one fixture question is
-not the evidence on which to hand it the coach.
+### The test that actually decided it
+
+One fixture question is not evidence, so we built the absence test: **four questions about
+data the fixture genuinely lacks** — zero alcohol logs, zero stress rows, zero derived
+weight, no swim ever — two repeats, against both candidates.
+
+**Both `gemini-3.6-flash` and `deepseek-v4-flash-0731` scored 8/8. Neither invented
+anything.** On alcohol both opened *"0 logged alcohol entries"*; on weight and swimming
+both stated the absence and cited the note. **`gemini-3.5-flash-lite` is the outlier**, not
+DeepSeek — which is why it is worth running the cheap model and not worth trusting a
+benchmark that ranked all three by ship rate alone.
+
+So the coach is DeepSeek: **19× cheaper than `gemini-3.6-flash`, equally honest about
+absence, one discordant pair in 72 (p = 1.000)**. It has no production history, which is
+the one thing standing against it and the reason the absence test now exists.
+
+⚠ **One gap both models share, so it is ours and not theirs.** Asked *"how has my stress
+been trending?"* against **zero `stress_daily_avg` rows**, both silently substituted HRV
+and RHR. Neither invented a number — HRV 45 ms and RHR 55 bpm are real — but neither said
+*"you have no stress score."* Answering a nearby question without saying you swapped it is
+a quieter failure than fabricating, and the fix is ours: see the deterministic
+personal-claim check in the open items.
 
 ### What this settles
 
