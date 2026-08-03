@@ -46,21 +46,31 @@ def text_turn(text: str) -> ChatResponse:
     return ChatResponse(text=text)
 
 
-def answer_payload(opening: str = "", claims: Sequence[tuple] = ()) -> dict:
-    """The ``coach_answer`` payload for an opening plus ``(text, note_ids, grade)`` claims."""
+def answer_payload(
+    opening: str = "", claims: Sequence[tuple] = (), asserts: Sequence[str] = ()
+) -> dict:
+    """The ``coach_answer`` payload for an opening plus ``(text, note_ids, grade)`` claims.
+
+    ``asserts`` is the owner-subjects the answer declares a value for (#129). It defaults
+    to empty because most scripted answers assert nothing about the owner's data, which is
+    also what the field means.
+    """
     return {
         "coach_answer": {
             "opening": opening,
             "claims": [
                 {"text": text, "note_ids": list(ids), "grade": grade} for text, ids, grade in claims
             ],
+            "asserts": list(asserts),
         }
     }
 
 
-def answer_turn(opening: str = "", claims: Sequence[tuple] = ()) -> ChatResponse:
+def answer_turn(
+    opening: str = "", claims: Sequence[tuple] = (), asserts: Sequence[str] = ()
+) -> ChatResponse:
     """A turn in the shipped answer contract — what a compliant model returns."""
-    return ChatResponse(text=json.dumps(answer_payload(opening, claims)))
+    return ChatResponse(text=json.dumps(answer_payload(opening, claims, asserts)))
 
 
 # The canonical good answer, and the prose it renders to. Kept as a pair so every test
@@ -78,14 +88,14 @@ def valid_turn() -> ChatResponse:
     return ChatResponse(text=VALID_ANSWER_JSON)
 
 
-def opening_turn(text: str) -> ChatResponse:
+def opening_turn(text: str, asserts: Sequence[str] = ()) -> ChatResponse:
     """An answer that is only its descriptive opening — what a plain report looks like.
 
     It renders to ``text`` unchanged, which is why the control-flow tests that are about
     something ELSE (a fake action confirmation, a hard guardrail) use this: they get to
     keep asserting on the exact sentence they are about.
     """
-    return answer_turn(opening=text)
+    return answer_turn(opening=text, asserts=asserts)
 
 
 def claim_turn(text: str, note_ids: Sequence[str] = (), grade: str = "") -> ChatResponse:

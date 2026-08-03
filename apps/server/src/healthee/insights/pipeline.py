@@ -22,9 +22,10 @@ Stage order, and where each one now lives:
   6. blocking validator .... ``_validator_gate``     — prose or JSON
   7. anti-hallucination .... ``_action_claim_gate``  — an action claim needs a tool
   8. answer shape .......... ``_structure_gate``     — a structured surface's own contract
-  9. gather → answer → nudge → fallback ... :func:`drive` — unvalidated text NEVER ships
+  9. personal claims ....... ``_personal_claim_gate``— a value asserted for data we lack
+ 10. gather → answer → nudge → fallback ... :func:`drive` — unvalidated text NEVER ships
 
-Stages 5–8 are a REGISTRY (:func:`answer_gates`), not a hardcoded sequence, and stage 1
+Stages 5–9 are a REGISTRY (:func:`answer_gates`), not a hardcoded sequence, and stage 1
 is one too (:func:`question_gates`). That is what makes the acceptance bar mechanical: a
 stage added to a registry reaches every surface by construction, and
 ``tests/insights/test_pipeline_shared.py`` proves it by injecting one and asserting BOTH
@@ -48,10 +49,18 @@ from healthee.insights import prompts
 from healthee.insights.action_claims import claim_issues
 from healthee.insights.client import ChatResponse, LLMClient
 from healthee.insights.context import build_context
+
+# The gate vocabulary is re-exported: ``pipeline.AnswerContext`` / ``pipeline.GateOutcome``
+# stay what every caller and test writes. It lives in its own module only so a gate whose
+# subject matter has one (``personal_claims``) can name these types without a cycle.
+from healthee.insights.gate_types import AnswerContext, AnswerGate, Block, GateOutcome, Verdict
 from healthee.insights.output_guard import check_output
+from healthee.insights.personal_claims import issues as personal_claim_issues
 from healthee.insights.refusals import Domain, classify_refusal
 from healthee.insights.retrieval import evidence_section
 from healthee.insights.validator import ValidationResult, validate, validate_json
+
+__all__ = ["AnswerContext", "AnswerGate", "Block", "GateOutcome", "Verdict"]
 
 log = get_logger(__name__)
 
@@ -131,50 +140,6 @@ def complete(
 # ── Stages 5–7 · the answer gates ────────────────────────────────────────────
 
 
-@dataclass(frozen=True)
-class AnswerContext:
-    """The per-surface facts the shared gates need — defaults are the STRICTEST reading.
-
-    ``json_mode`` selects the validator flavour. ``acted_ok`` names the action tools that
-    returned ok this turn; a surface with no tools leaves it empty, which is not an
-    exemption but the strictest possible setting — every action claim is then an issue.
-
-    ``structure_issues`` is how a surface whose model output has a CONTRACT reports that
-    the contract was broken (``coach_answer``). Carried here rather than raised where it
-    is found, so the driver's one policy — nudge, then the honest fallback — applies to it
-    exactly as it applies to a missing citation instead of a second retry loop growing
-    beside the shared one. Empty is the truth for a surface that has no structure.
-    """
-
-    json_mode: bool = False
-    acted_ok: frozenset[str] = frozenset()
-    structure_issues: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class Block:
-    """A hard stop: this exact response ships, and the model is NEVER nudged toward another."""
-
-    name: str
-    response: str
-
-
-@dataclass(frozen=True)
-class GateOutcome:
-    """What one gate concluded: a hard block, retryable issues, or nothing at all.
-
-    ``validation`` is how the validator gate publishes the citations / personal findings /
-    grade floor the surfaces put on their result — no other gate needs to set it.
-    """
-
-    block: Block | None = None
-    issues: tuple[str, ...] = ()
-    validation: ValidationResult | None = None
-
-
-AnswerGate = Callable[[str, AnswerContext], GateOutcome]
-
-
 def _output_guard_gate(text: str, ctx: AnswerContext) -> GateOutcome:  # noqa: ARG001
     """Hard output guardrails — blocking, whatever the text cited or would validate."""
     rule = check_output(text)
@@ -205,31 +170,29 @@ def _structure_gate(text: str, ctx: AnswerContext) -> GateOutcome:  # noqa: ARG0
     return GateOutcome(issues=ctx.structure_issues)
 
 
+def _personal_claim_gate(text: str, ctx: AnswerContext) -> GateOutcome:
+    """Never assert a value for owner-data that does not exist (``personal_claims``, #129).
+
+    The gap every other gate leaves open: they check claims against the research corpus,
+    and a sentence about the owner's own numbers cites nothing, so nothing checked it. It
+    reads BOTH the text and the context because the two halves are different — a declared
+    assertion is structural, the sentence scan is the backstop under it.
+    """
+    return GateOutcome(issues=personal_claim_issues(text, ctx.asserted, ctx.without_data))
+
+
 _ANSWER_GATES: tuple[AnswerGate, ...] = (
     _output_guard_gate,  # the floor FIRST — a forbidden answer is never nudged
     _validator_gate,
     _action_claim_gate,
     _structure_gate,
+    _personal_claim_gate,  # appended, never inserted: no gate's order is another's to move
 )
 
 
 def answer_gates() -> tuple[AnswerGate, ...]:
     """The gates run over every text candidate, in order. THE seam a new stage enters by."""
     return _ANSWER_GATES
-
-
-@dataclass(frozen=True)
-class Verdict:
-    """The folded outcome of every answer gate over one candidate."""
-
-    block: Block | None = None
-    issues: tuple[str, ...] = ()
-    validation: ValidationResult | None = None
-
-    @property
-    def ok(self) -> bool:
-        """True only when nothing blocked and no gate raised an issue (blocking)."""
-        return self.block is None and not self.issues
 
 
 def judge(text: str, ctx: AnswerContext) -> Verdict:

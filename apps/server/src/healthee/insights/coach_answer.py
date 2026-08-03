@@ -66,6 +66,13 @@ log = get_logger(__name__)
 
 ROOT_KEY = "coach_answer"
 
+# The owner-subjects the answer states a VALUE for (#129). A second declared field for the
+# same reason the ids became one: a claim about the owner's own data cites nothing, so
+# nothing checked it, and asking the model to declare what its answer is ABOUT is a
+# question it can answer — unlike asking it to classify its own sentences. The gate over
+# it is ``personal_claims``; parsing stops here.
+ASSERTS_KEY = "asserts"
+
 # The escape a claim with no citable evidence ships under — `prompts.SYSTEM_PROMPT`'s
 # own sentence, lower-cased and joined into the claim so it lands in the SAME sentence
 # unit. `calibration.HONEST_ESCAPE_RE` matches it; a separate sentence would not help,
@@ -92,13 +99,20 @@ confound, caveat and the concrete next step goes here — never in opening.",
      "note_ids": ["ids from EVIDENCE NOTES that support THIS sentence"],
      "grade": "the grade of the WEAKEST note you cited: Established | Probable | \
 Emerging | Contested | Myth"}}
-  ]
+  ],
+  "{ASSERTS_KEY}": ["every metric key or logged kind (rhr_daily, alcohol, ...) this answer \
+states a VALUE, count, date or comparison for from THEIR data — anywhere in it, opening \
+included"]
 }}}}
 
 - Do NOT write `[note_id]` inside `text`; the ids are a field and are rendered for you. \
 A `[personal_finding:...]` tag is the one thing you still write inline.
 - `"note_ids": []` is honest and allowed — the sentence then ships marked \
 "{NO_EVIDENCE}". Never invent an id to avoid that.
+- `"{ASSERTS_KEY}": []` when you assert none — an answer that is only research, or that \
+says data is MISSING, asserts nothing: "you have 0 logged alcohol entries" declares \
+nothing, while "you logged alcohol yesterday" declares `alcohol`. Declaring a value for \
+something no tool returned is how an answer gets discarded whole.
 - Order the claims the way you want them read, biggest lever first, next step last. \
 Everything above about truth, calibration, confounds and tools still binds; only the \
 envelope changed."""
@@ -123,10 +137,18 @@ class Claim:
 
 @dataclass(frozen=True)
 class CoachAnswer:
-    """A parsed coach answer: a descriptive frame and the claims that carry the meaning."""
+    """A parsed coach answer: a descriptive frame, the claims, and what it asserts.
+
+    ``asserts`` is answer-wide rather than per claim because the personal-claim gate's
+    verdict is per SUBJECT — "you have no alcohol" — never per sentence, and because the
+    fabrication that motivated it (#129) landed in ``opening``, which is the field whose
+    whole job is to report the owner's numbers. One list covers both halves of the answer
+    and asks the model for one thing instead of two.
+    """
 
     opening: str = ""
     claims: tuple[Claim, ...] = ()
+    asserts: tuple[str, ...] = ()
 
 
 def parse(raw: str) -> tuple[CoachAnswer | None, tuple[str, ...]]:
@@ -146,11 +168,30 @@ def parse(raw: str) -> tuple[CoachAnswer | None, tuple[str, ...]]:
         return None, (f"Answer JSON has no `{ROOT_KEY}` object: it is the only accepted shape.",)
     opening = body.get("opening") or ""
     claims, issues = _claims(body.get("claims"))
+    asserts, assert_issues = _asserts(body.get(ASSERTS_KEY))
     opening = opening.strip() if isinstance(opening, str) else ""
-    issues += _opening_issues(opening)
+    issues += _opening_issues(opening) + assert_issues
     if not opening and not claims:
         issues += ("Answer carried no opening and no claims: there is nothing to say.",)
-    return CoachAnswer(opening=opening, claims=claims), issues
+    return CoachAnswer(opening=opening, claims=claims, asserts=asserts), issues
+
+
+def _asserts(raw: object) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The declared owner-subjects, plus the issue when the field is not a list of names.
+
+    A MISSING field parses to ``()`` without an issue, and that is deliberate: the honest
+    answer for most questions is that nothing personal is asserted, and failing an answer
+    for omitting an empty list would spend a retry on punctuation. A field of the wrong
+    SHAPE is a different thing — the model tried to declare something and we cannot read
+    it, so it is an issue rather than a silent empty.
+    """
+    if raw is None:
+        return (), ()
+    if not isinstance(raw, list) or any(not isinstance(item, str) for item in raw):
+        return (), (
+            f"Answer `{ASSERTS_KEY}` was not a list of metric/logged-kind names: use [] if none.",
+        )
+    return tuple(item.strip() for item in raw if item.strip()), ()
 
 
 def render(answer: CoachAnswer) -> str:
