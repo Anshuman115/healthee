@@ -195,6 +195,32 @@ missing day is *today* is a freshness problem that coverage calls excellent — 
 exactly why both exist. A metric at 0/14 is reported as 0/14 and nothing more; which of the
 four states it is in is stated where that metric is served, by the code that knows.
 
+> **The LLM prompt was the one surface where it was NOT stated (#126).** `withheld` reached
+> the model as a bare `-` — indistinguishable from "not synced yet" and from "this owner has
+> never had it". That is the sharpest possible version of the gap, because COACH_PROMPT.md
+> instructs the coach to *"say what you'd need"* and the context structurally could not
+> support it: a persona asked for a behaviour its context cannot support is resolved by the
+> model, i.e. by invention. `insights/context_withheld.py` now carries the reason id and the
+> metric's own restoring sentence for the three gated daily metrics (`vo2max_estimate`,
+> `sleep_regularity_index`, `sleep_debt_min`), quoted from the derive modules that own the
+> gates rather than restated. It deliberately does NOT carry `last_as_of_date`, `age_days`
+> or the last value: putting a withheld metric's number back into the prompt is the
+> resurrection the gate exists to prevent. A metric with no stored row at all stays silent,
+> so the legend's account of the remaining silence ("anything else absent was never
+> recorded") is true. Recovery is the fourth gate and stays where it already speaks, in
+> `coach_context._recovery_block`. Cost: **+0 tokens** when nothing is withheld, **+128** on
+> the real assembled coach prompt for a stale VO₂max plus a refused SRI (+0.16 % of #105's
+> 80,435), bounded by `tests/insights/test_context_withheld.py` and mutation-verified.
+>
+> **Coverage itself is still not in the prompt, and that is not cheap to change.** #89's
+> coverage is computed *after* the coach's tool loop, over the metrics the tools actually
+> read — a scope that does not exist at prompt-assembly time, so carrying it would mean
+> choosing a different scope, i.e. a second definition. What the context does now do is make
+> the count it already had legible: `## Personal baselines` prints `Baseline.n`, which §3.1
+> pins as coverage's own counter, and its column is headed `n/30d` so the window is stated
+> rather than assumed. A metric with no rows in the window still prints no line at all —
+> "0/30" remains invisible, and closing that is its own diff.
+
 ### 3.2 · One generation, two surfaces — the morning call (#95)
 
 `BRIEFING_TASK` asked, in its own words, for *"today's single most useful action"*, and
@@ -332,12 +358,43 @@ CLAUDE.md's "ONE canonical definition" applied to a recommendation rather than a
   when the window holds no VO₂max, **+59** at one day, **+88** at thirty — 58 for the legend
   plus exactly one per tagged value, i.e. **+0.11 %** of the 80,435-token coach question
   §9.3 measured. `tests/insights/test_context_provenance.py` asserts the budget.
-  *Not fixed here, and worth its own PR:* the `## Today snapshot`, `## Trend summary` and
-  `## Personal baselines` sections still reduce `vo2max_estimate` to a z-score, a 7-day
-  **mean** and a 30-day **median** across whatever instruments the window happens to hold.
-  A mean over two instruments is the blend D4 forbids and #117 made structurally impossible
-  in `derive/vo2max_tier.py` — it survives in the *aggregation* the LLM is handed. Fixing it
-  changes a statistic rather than a label, which is a behaviour change and its own diff.
+- **The AGGREGATES over those values could still blend them — closed (#125).** #120 named
+  the instrument on each per-day number and left the reductions over them alone: `## Today
+  snapshot` reduced `vo2max_estimate` to a z-score, `## Trend summary` to a 7-day **mean**,
+  `## Personal baselines` to a 30-day **median**, and the anomaly scan to another z — each
+  across whatever instruments the window happened to hold. A mean over two instruments **is**
+  the blend D4 forbids, which #117 made impossible *inside* `derive/vo2max_tier.py` and
+  nowhere else. On the owner's own pair (graded 39.6, reserve 41.7, three days apart, inside
+  all three windows) #117 measured the blend at **40.7** against his single-instrument
+  **40.6** — one tenth, invisible to inspection, which is why this is structure and not care.
+
+  **The fix is refusal, not re-selection.** `context_provenance.InstrumentGuard` answers one
+  question — which instruments does this metric's reduction window hold — and the four
+  sections ask it before reducing. One instrument: reduce as before, and the row NAMES it
+  (`vo2max_estimate (model)`), which is D4's other half applied to a statistic. Two or more:
+  **no mean, median, z-score or anomaly is emitted at all**, and `guard.section()` says so
+  where the numbers would have been, because an omission the model cannot tell from absent
+  data is #126 in a second place.
+
+  Two designs were rejected. *Reduce within the winning instrument* (mirroring
+  `select_measured_tier`) re-applies a per-DAY precedence across DAYS: a graded session 25
+  days old would outrank 28 fresh Jurca days and win the 30-day median, undoing the 14-day
+  freshness horizon in the direction that flatters — the #108 failure. *Per-instrument
+  aggregates* costs three tables' worth of tokens to publish medians over n = 1 and n = 2.
+  Refusal loses nothing the model cannot read: `vo2max_estimate` is in the per-day pivot,
+  tagged, for every day of the window.
+
+  The guard reads ONE window — `30 + 14 = 44` days, the widest span any single statistic
+  above can rest on — because two windows would be two answers to "does this metric mix
+  instruments" and the sections could disagree on the same page. Erring wide withholds a
+  statistic; it never invents one. Cost: **+71 cl100k tokens** when a window actually mixes
+  (0 otherwise) and **+3 per labelled aggregate row**; `tests/insights/test_context_no_blend.py`
+  asserts the budget and is mutation-verified four ways.
+
+  *Registered today: `vo2max_estimate` only.* `steps_total` and `distance_m_daily` also carry
+  two instruments each since #121 (`derive/device_totals.py`) but stamp them in `flags.source`
+  rather than `flags.method`, and blocking them is a product decision rather than a directive —
+  see that module and the #125 report.
 
 ---
 
