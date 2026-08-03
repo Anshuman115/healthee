@@ -67,7 +67,7 @@ from healthee.derive.vo2max import (
 )
 from healthee.derive.vo2max_reserve import METHOD_RESERVE
 from healthee.derive.vo2max_submax import METHOD_GRADED
-from healthee.derive.vo2max_tier import estimate_unavailable_reason
+from healthee.derive.vo2max_tier import estimate_unavailable_reason, method_of
 
 _WINDOW_DAYS = 95  # the trend window; ~90 days of trend plus slack
 
@@ -147,9 +147,10 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     sex = str(flags.get("sex") or "male")
     median_ref = vo2max_median_for(age, sex) if age else None
     estimate = None if withheld else round(last_value, 1)
-    # Rows written before #117 carry no ``method`` and are all Jurca — the tiered writer
-    # is what introduced the other two, so the default cannot mislabel an older row.
-    method = str(flags.get("method") or METHOD_JURCA)
+    # Rows written before #117 carry no ``method`` and are all Jurca. That default lives in
+    # ``vo2max_tier.method_of`` because the coach's pivot resolves the same rows (#120) and
+    # two answers to "what produced this row" is D4 half-kept.
+    method = method_of(flags.get("method"))
     n_sessions = flags.get("n_sessions")
     return {
         "submax": _submax_block(cur, user_id, tz),

@@ -119,6 +119,21 @@ SEE_SOURCES = {
 }
 
 
+def method_of(stored: object) -> str:
+    """The instrument behind a stored ``vo2max_estimate`` row's ``flags.method``.
+
+    Rows written before #117 carry no ``method`` and are all Jurca — the tiered writer is
+    what introduced the other two, so this default cannot mislabel an older row.
+
+    It is a function rather than a default repeated at each read because there are now two
+    surfaces that must not be able to disagree about what an unstamped row was produced by
+    (standards §Duplication): the payload (``read/vo2max.py``) and the coach's compact
+    metric pivot (``insights/context_provenance.py``). A number whose instrument is named
+    one way on screen and another way to the model is [[hr_reserve_vo2max]] D4 half-kept.
+    """
+    return str(stored or METHOD_JURCA)
+
+
 @dataclass(frozen=True)
 class MeasuredSession:
     """One stored ``vo2max_submax`` row: what a recorded session measured, and with what.
