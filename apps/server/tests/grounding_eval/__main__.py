@@ -10,8 +10,15 @@ moment its answers start coming back as errors.
 ⛔ **Use a SEPARATE OpenRouter key, with its own small credit limit.** An arm costs ~$3
 and this harness is what emptied the shared account on 2026-08-01 — after which every
 production LLM call 402'd for hours behind a green ``/healthz``. A drained eval key must
-cost you an eval run, never the live AI layer. The key comes from ``OPENROUTER_API_KEY``
-in ``apps/server/.env``; the setup and the reasoning are in ``infra/DEPLOY.md`` §E2.
+cost you an eval run, never the live AI layer.
+
+``run`` reads that key from **``EVAL_OPENROUTER_API_KEY``** in ``apps/server/.env``. It is
+not a gate: with the variable unset the arm still runs on the production
+``OPENROUTER_API_KEY``, after printing a warning to stderr that names the risk. So nothing
+breaks the day this lands, and nobody spends production's credit on a 105-run arm without
+having been told. Creating the key is an account action and therefore the owner's —
+openrouter.ai → Keys → new key with a small credit limit; ``infra/DEPLOY.md`` §E2 has the
+steps and the reasoning. ``compare`` spends nothing and says nothing.
 """
 
 from __future__ import annotations
@@ -20,7 +27,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from tests.grounding_eval import records, report
+from tests.grounding_eval import records, report, spend
 from tests.grounding_eval.questions import EvalQuestion, by_ids, by_kind
 from tests.grounding_eval.runner import run_questions
 
@@ -43,6 +50,7 @@ def _run(args: argparse.Namespace) -> int:
     if not questions:
         print(f"no questions match --only {args.only}", file=sys.stderr)
         return 2
+    spend.select_api_key()  # before any paid call: whose credit this arm is about to spend
     run = records.new_run(args.label, questions, args.repeats)
     total = len(questions) * args.repeats
     print(f"{args.label}: {len(questions)} question(s) × {args.repeats} = {total} paid runs\n")

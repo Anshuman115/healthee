@@ -51,6 +51,14 @@ _DEPLOY_ONLY_VARS = frozenset(
     }
 )
 
+# Vars the DEV template may declare and the infra one may not: they belong to tooling that
+# runs on a developer's machine and must never reach the VPS (`infra/DEPLOY.md` §E2).
+_DEV_ONLY_VARS = frozenset(
+    {
+        "EVAL_OPENROUTER_API_KEY",  # tests/grounding_eval — a paid arm's own small-limit key
+    }
+)
+
 _ASSIGNMENT = re.compile(r"^(?P<commented>#\s*)?(?P<name>[A-Z][A-Z0-9_]*)\s*=")
 
 
@@ -101,13 +109,30 @@ def test_the_dev_template_declares_every_setting() -> None:
 
 def test_the_templates_declare_nothing_the_app_does_not_read() -> None:
     """The reverse direction: an unknown key is a typo or a var nobody consumes."""
-    allowed = _settings_vars() | _DEPLOY_ONLY_VARS
-    for template in (_INFRA_TEMPLATE, _DEV_TEMPLATE):
+    base = _settings_vars() | _DEPLOY_ONLY_VARS
+    for template, allowed in ((_INFRA_TEMPLATE, base), (_DEV_TEMPLATE, base | _DEV_ONLY_VARS)):
         unknown = _declared(template, include_commented=True) - allowed
         assert not unknown, (
             f"{template.name} declares {sorted(unknown)}, which `Settings` does not "
             f"read and is not a known deploy-only var — a typo'd name is silently inert"
         )
+
+
+def test_the_eval_key_is_offered_to_developers_and_withheld_from_the_vps() -> None:
+    """`EVAL_OPENROUTER_API_KEY` belongs on a dev machine and nowhere near production.
+
+    Both halves matter. Naming it in the dev template is how anyone learns the variable
+    exists at all; keeping it out of `infra/.env.example` is `DEPLOY.md` §E2's actual
+    rule — an eval key that reaches the VPS is just the production key again, and #102
+    was two keys' worth of traffic on one balance.
+    """
+    assert "EVAL_OPENROUTER_API_KEY" in _declared(_DEV_TEMPLATE, include_commented=True), (
+        "apps/server/.env.example never mentions EVAL_OPENROUTER_API_KEY, so the "
+        "separate-key setup is documented only where nobody copies from"
+    )
+    assert "EVAL_OPENROUTER_API_KEY" not in _declared(_INFRA_TEMPLATE, include_commented=True), (
+        "infra/.env.example is copied onto the VPS — an eval key must never be deployed"
+    )
 
 
 def test_the_api_container_receives_every_setting() -> None:

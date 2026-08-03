@@ -476,11 +476,39 @@ incapable of emptying the account:
 - **production key** — limit ≈ a month of expected spend (`docs/PRICING.md` §3.1 has the
   measured numbers). Set in `infra/.env` as `OPENROUTER_API_KEY`; rotation is **D2**.
 - **eval/dev key** — a **separate key with a small limit** (a few dollars covers several
-  harness arms). It lives in `apps/server/.env` on the dev machine and **never** on the
-  VPS. A drained eval key then costs you an eval run, not the live AI layer.
+  harness arms). It lives in `apps/server/.env` on the dev machine as
+  **`EVAL_OPENROUTER_API_KEY`** and **never** on the VPS. A drained eval key then costs
+  you an eval run, not the live AI layer.
 
 Same rule for any other key that runs experiments. The production key belongs to exactly
 one thing: the production containers.
+
+#### The code half is done (#124); the account half is still yours
+
+`tests/grounding_eval/spend.py` reads `EVAL_OPENROUTER_API_KEY` and points the harness's
+LLM client at it before the first paid call. It is **not** a gate — with the variable
+unset an arm still runs on `OPENROUTER_API_KEY`, after printing a warning to stderr that
+names #102, the ~$3 cost and what draining the balance takes down. Nothing broke the day
+it landed; nobody spends production's credit on a 105-run arm without having been told.
+`apps/server/.env.example` documents it, and `tests/test_env_templates.py` fails the build
+if it ever appears in `infra/.env.example` — an eval key on the VPS is just the production
+key again.
+
+**Still OPEN, and only the owner can close it** (creating a key is an account action):
+
+1. openrouter.ai → **Keys** → *Create key*, name it `healthee-eval`, set a **credit limit
+   of ~$20** (an arm is ~$3, so that is several arms and a hard stop well below a month
+   of production).
+2. Put it in `apps/server/.env` on the dev machine only:
+   `EVAL_OPENROUTER_API_KEY=sk-or-v1-…`
+3. While in that screen, set the limit on the **production** key too (E2's first bullet) —
+   it is the half that bounds an outage rather than preventing one.
+4. Do **not** add it to `infra/.env` or `docker-compose.prod.yml`. The containers must
+   never see it.
+
+Until step 1 happens, every `run` prints the warning and spends production credit — which
+is the intended failure mode (loud, not fatal), not a reason to skip the step. Current
+balance is the thing to check first: `GET /readyz` reports it without a paid call.
 
 ### E3. What the server now does about it
 
