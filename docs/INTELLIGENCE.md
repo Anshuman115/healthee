@@ -615,13 +615,25 @@ was run as a throwaway arm, not as a landed change.
 > until then the cap is 20 and the price is $6.99, both unchanged.
 >
 > For anyone who does finish it: the power arithmetic was done before the cancellation
-> and is worth keeping. At **~200 pairs**, with the ±19% discordance rate §9.1's own pilot
-> produced, the 95% interval on the paired difference is about **±6 points**; at the
-> near-ceiling ship rate current `main` actually shows (§9.3, §9.4) discordance is far
-> lower and the bound tightens to roughly **±3.5 points**, and a clean sweep would bound
-> it at **≤1.5**. That is 4–7× sharper than the ±25 points #105 could resolve at n = 14,
-> and it is enough to exclude a regression small enough to matter. The n was never the
-> problem; the decision was that a working retrieval path is not worth re-opening.
+> and is worth keeping. The quantity is the **95% half-width on the paired ship-rate
+> difference** when the arms come out level — i.e. the regression size the run could
+> *exclude* — computed conditionally on the discordant pairs (Clopper–Pearson on `b`/`m`,
+> scaled by `m`/`n`), which is the same exact-binomial footing `stats.mcnemar` stands on:
+>
+> | discordance | n | excludes a regression bigger than |
+> |---|---|---|
+> | 2/14 — what #105 actually got | 14 | **±13.9 points** |
+> | 19% — §9.1's own top-N pilot (8/42) | 200 | **±6.3 points** |
+> | ~6% — the near-ceiling rate current `main` shows (§9.3, §9.4) | 200 | **±3.5 points** |
+> | 0 discordant pairs | 200 | **≤1.5 points** (rule of three) |
+>
+> So ~200 pairs buys a **2–4× sharper bound than #105 managed**, and lands inside single
+> digits under every discordance rate this pipeline has actually produced — enough to
+> exclude a regression small enough to matter. (Note this is a different metric from
+> §9.3's "±25 points", which is a *detectability* threshold — what a test would reject —
+> not a CI half-width; the two are not comparable and are stated separately on purpose.)
+> **The n was never the problem**; the decision was that a working retrieval path is not
+> worth re-opening.
 
 ### 9.2 · #99 — four of those causes were the validator, and the arm that could not be run
 
