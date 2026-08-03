@@ -40,7 +40,13 @@ from healthee.read.health_metrics import active_illness_severity, illness_flag_p
 from healthee.read.recovery import recovery_score_payload
 from healthee.read.today import today_snapshot
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    # This module provisions owners — explicitly, JIT on the first authenticated
+    # request, or via `seed_owner_b` — and removed none of them. `--user`-less ops
+    # tooling walks every active owner it finds, so the strays are not free (#119).
+    pytest.mark.usefixtures("owner_sweep"),
+]
 
 TODAY = user_today(seed.TZ)
 

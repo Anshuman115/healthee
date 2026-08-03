@@ -39,7 +39,11 @@ AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
 @pytest.fixture
-def bed(db: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:  # noqa: ARG001
+def bed(  # noqa: ARG001 — `db` gates reachability; `owner_sweep` removes seeded owners
+    db: None,
+    owner_sweep: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[TestClient]:
     """A seeded, authenticated client. The owner starts PREMIUM (``seed_all`` entitles)."""
     from tests.contracts.seed import seed_all
 

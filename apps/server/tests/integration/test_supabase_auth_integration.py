@@ -24,7 +24,13 @@ from healthee.core.db import transaction
 from healthee.core.supabase_auth import mint_device_token, resolve_device_token
 from healthee.db import migrate
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    # This module provisions owners — explicitly, JIT on the first authenticated
+    # request, or via `seed_owner_b` — and removed none of them. `--user`-less ops
+    # tooling walks every active owner it finds, so the strays are not free (#119).
+    pytest.mark.usefixtures("owner_sweep"),
+]
 
 # >= 32 bytes: PyJWT warns (InsecureKeyLengthWarning) on shorter HMAC keys.
 _SECRET = "integration-supabase-secret-0123456789abcdef"

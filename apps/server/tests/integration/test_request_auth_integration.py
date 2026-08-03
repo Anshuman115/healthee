@@ -27,7 +27,13 @@ from healthee.core.request_auth import CurrentUser
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    # This module provisions owners — explicitly, JIT on the first authenticated
+    # request, or via `seed_owner_b` — and removed none of them. `--user`-less ops
+    # tooling walks every active owner it finds, so the strays are not free (#119).
+    pytest.mark.usefixtures("owner_sweep"),
+]
 
 _SECRET = "request-auth-int-supabase-secret-0123456789abcdef"
 _AUD = "authenticated"

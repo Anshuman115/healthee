@@ -5,6 +5,14 @@ tests depend on `db` (or `db_env`), which auto-skips when no TimescaleDB is
 reachable — so `pytest` is green on a laptop with no database and exercises the
 real DB in CI, where the service container sets POSTGRES_*.
 
+## Every run gets its OWN database AND its own role (#119)
+
+`app_role_pool` creates both, named after a per-process id. A private database alone
+is **not** enough — the role is a cluster-level object, so two suites against one
+PostgreSQL instance meet it even from different databases, and they corrupt each
+other's run in ways that surface as failures in unrelated code. `tests/_isolation.py`
+carries the full account; read it before changing anything session-scoped here.
+
 ## The whole suite runs as the LEAST-PRIVILEGE app role (6.5b-2)
 
 `app_role_pool` below is autouse and session-scoped: it provisions the real
@@ -32,15 +40,14 @@ from uuid import UUID
 import psycopg
 import pytest
 from psycopg import sql
+from tests._isolation import TEST_APP_ROLE, TEST_DATABASE, create_database, drop_database
 
 from healthee.core import db as db_module
+from healthee.core import logging as logging_module
 from healthee.core.config import get_settings
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate, provision_app_role
 from healthee.insights import credits, transport_health
-
-# The suite's own app role. Named `_test` so it can never be confused with (or drop)
-# a real deployment's `healthee_app`.
-TEST_APP_ROLE = "healthee_app_test"
 
 # How long a seeded entitlement runs for. Absurdly long on purpose: `is_premium`
 # requires `now < current_period_end`, so a short term would turn the suite into a time
@@ -126,6 +133,34 @@ def _clean_llm_health() -> Iterator[None]:
     credits.reset_cache()
 
 
+@pytest.fixture(autouse=True)
+def _keep_caplog_capturing() -> Iterator[None]:
+    """Stop `configure_logging()` from silently deleting pytest's capture handler (#119).
+
+    `core.logging.configure_logging` does `root.handlers.clear()` on its FIRST call in a
+    process. pytest's `caplog` works by adding a handler to that same root logger, so any
+    test that reaches an ops `main()`, `create_app()` or `scheduler.main()` before reading
+    `caplog` had its capture removed mid-test — and only sometimes, because the second and
+    later calls are no-ops. That makes a caplog assertion pass or fail on **test order**,
+    and an empty `caplog.text` makes a NEGATIVE assertion ("the secret is not in the log")
+    pass while proving nothing at all. A vacuous assertion is worse than no assertion: it
+    reports a safety it does not provide.
+
+    Fixed once, here, rather than test by test: the flag is pinned so `configure_logging`
+    is a no-op for the duration of every test, and restored afterwards. What that gives up
+    is nothing — the handler/level/httpx-pin wiring is what `tests/test_logging.py` exists
+    for, and it clears the flag itself to exercise the real thing.
+
+    `tests/db/test_stale_derived.py::test_a_plain_run_says_so_in_the_log` is this
+    fixture's canary: it drives the operator's real `main()` and asserts on the log, so
+    removing the pin below turns it red.
+    """
+    was_configured = logging_module._configured
+    logging_module._configured = True
+    yield
+    logging_module._configured = was_configured
+
+
 @pytest.fixture
 def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     """Minimal, hermetic environment for constructing Settings in a unit test.
@@ -181,33 +216,69 @@ def drop_test_role(role: str) -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def app_role_pool() -> Iterator[str | None]:
-    """Point the app pool at the real least-privilege role for the whole session.
+    """Build this run's private database + least-privilege role; point the pool at both.
 
     Yields the role name, or None when no DB is reachable (unit-only runs stay green
     on a laptop with no database — the integration tests skip themselves anyway).
 
-    Migrations run FIRST because `provision_app_role` grants table-by-table from an
-    explicit list: on an empty database those GRANTs have nothing to grant on.
+    **Both halves are per-run and both are load-bearing.** The database is private
+    because the seed fixtures `TRUNCATE` shared tables; the ROLE is private because a
+    role is cluster-scoped, so a private database does not cover it — two suites
+    against one PostgreSQL instance would still re-key and then drop each other's
+    login. `tests/_isolation.py` has the measured account of that failure.
+
+    Migrations run against the NEW database, and before `provision_app_role`, because
+    provision grants table-by-table from an explicit list: on an empty database those
+    GRANTs have nothing to grant on.
 
     A fresh random password per run — a fixed one in git is a credential in git even
-    on a throwaway database. Torn down with `DROP OWNED BY` + `DROP ROLE` so neither
-    the local DB nor CI's accumulates roles across runs.
+    on a throwaway database. Torn down with `DROP OWNED BY` + `DROP ROLE` and then
+    `DROP DATABASE`, so neither the local DB nor CI's accumulates either across runs.
     """
     if not _db_reachable():
         yield None
         return
+    admin_url = get_settings().admin_db_url  # the CONFIGURED database — our bootstrap
     monkeypatch = pytest.MonkeyPatch()
-    migrate.apply_migrations()
+    create_database(admin_url)
+    monkeypatch.setenv("POSTGRES_DB", TEST_DATABASE)
     monkeypatch.setenv("POSTGRES_APP_USER", TEST_APP_ROLE)
     monkeypatch.setenv("POSTGRES_APP_PASSWORD", secrets.token_urlsafe(24))
     get_settings.cache_clear()
     db_module.close_pool()  # so the next get_pool() connects as the app role
+    migrate.apply_migrations()
     provision_app_role.provision()
     yield TEST_APP_ROLE
+    leaked = owner_ids() - {SENTINEL_USER_ID}
     db_module.close_pool()
     drop_test_role(TEST_APP_ROLE)
     monkeypatch.undo()
     get_settings.cache_clear()
+    drop_database(admin_url)
+    _refuse_leaked_owners(leaked)
+
+
+def _refuse_leaked_owners(leaked: set[UUID]) -> None:
+    """Fail the session when it leaves `app_user` rows behind (#119).
+
+    The private database means a leak no longer poisons the NEXT run, so nothing would
+    ever complain — and the leak itself is still a bug: `--user`-less ops tooling
+    (`db/rederive.py`) walks every active owner, so a suite that invents owners and does
+    not remove them makes those runs slower and less deterministic the longer a
+    developer's box has been in use. It reached ~1,288 rows before anyone noticed,
+    because nothing was watching.
+
+    Raised at session teardown rather than asserted in a test, because "the suite left
+    the database as it found it" is a property of the whole run and no single test can
+    see it. A run that fails for other reasons may trip this too — the message names the
+    ids, which is the fastest route to the fixture that forgot its teardown.
+    """
+    if leaked:
+        raise RuntimeError(
+            f"the suite leaked {len(leaked)} app_user row(s): {sorted(map(str, leaked))}. "
+            "Every test that provisions an owner must remove it — request the "
+            "`owner_sweep` fixture, or DELETE the row in the fixture's own teardown."
+        )
 
 
 @pytest.fixture(scope="session")
@@ -224,3 +295,41 @@ def db(db_env: None) -> Iterator[None]:  # noqa: ARG001 — gates on reachabilit
     db_module.close_pool()
     yield
     db_module.close_pool()
+
+
+def owner_ids() -> set[UUID]:
+    """Every `app_user` id, on the ADMIN connection — the question spans owners."""
+    with db_module.admin_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM app_user")
+        return {row[0] for row in cur.fetchall()}
+
+
+@pytest.fixture
+def owner_sweep(db_env: None) -> Iterator[None]:  # noqa: ARG001 — gates on reachability
+    """Delete every `app_user` row the test provisions. The teardown that was missing (#119).
+
+    By DIFFERENCE rather than by a list of ids the test remembers to name, because a list
+    is exactly what was being forgotten — and because two of the three ways an owner
+    appears are invisible at the call site: a JIT provision on the first authenticated
+    request (`core.supabase_auth`), and `tests/contracts/seed_owner_b`. Only the plain
+    `INSERT INTO app_user` announces itself.
+
+    Requested via `pytest.mark.usefixtures` at the top of the leaking modules, which also
+    fixes the ordering: `usefixtures` marks enter the fixture closure ahead of the test's
+    own arguments, so the snapshot is taken before a bed fixture seeds its second owner.
+
+    A run whose sentinel row is missing is left ALONE. `tests/db/test_claim_sentinel.py`
+    re-keys that row to another id, so a sweep during a failed claim would read the
+    re-keyed sentinel as a new owner and delete it — cascading the whole tenant tree away
+    to tidy up.
+    """
+    before = owner_ids()
+    yield
+    after = owner_ids()
+    if SENTINEL_USER_ID not in after:
+        return  # mid-re-key (claim_sentinel) — not ours to tidy
+    leaked = after - before
+    if not leaked:
+        return
+    with db_module.admin_connection() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM app_user WHERE id = ANY(%s)", (list(leaked),))

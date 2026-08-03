@@ -20,7 +20,13 @@ from healthee.core.db import tenant_transaction
 from healthee.derive.freshness import NOT_DERIVED_YET
 from healthee.derive.illness import INSUFFICIENT_BASELINE, derive_illness_flag
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    # This module provisions owners — explicitly, JIT on the first authenticated
+    # request, or via `seed_owner_b` — and removed none of them. `--user`-less ops
+    # tooling walks every active owner it finds, so the strays are not free (#119).
+    pytest.mark.usefixtures("owner_sweep"),
+]
 
 NIGHT = seed.NIGHT
 
