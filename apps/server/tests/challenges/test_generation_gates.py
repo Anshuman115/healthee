@@ -34,6 +34,7 @@ from tests.insights._stub import StubLLM
 from healthee.challenges import bounds, generate
 from healthee.core.db import tenant_transaction
 from healthee.db import migrate
+from healthee.insights import pipeline
 
 pytestmark = pytest.mark.integration
 
@@ -89,7 +90,9 @@ def test_a_fabricated_inline_citation_never_persists(owner_with_history: None) -
         "error": "the evidence base could not ground a challenge",
     }
     assert suggested() == []
-    assert stub.calls == 2  # the choke point's own nudged retry, then the honest fallback
+    # The choke point's own nudged rewrites, then the honest fallback. Read off
+    # `validation_retries()` because the budget is `LLM_VALIDATION_RETRIES` now (#128).
+    assert stub.calls == pipeline.validation_retries() + 1
 
 
 def test_a_fabricated_id_in_the_note_array_alone_is_dropped(owner_with_history: None) -> None:  # noqa: ARG001

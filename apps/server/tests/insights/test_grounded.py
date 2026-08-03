@@ -1,7 +1,7 @@
 """The choke point's control flow — proves the honesty guarantees (holes #1, #2).
 
 No DB: the message-builder is stubbed so these are pure control-flow tests. The
-crux is that after two validation failures the pipeline returns the honest
+crux is that once every allowed attempt has failed the pipeline returns the honest
 FALLBACK — never the unvalidated model text (legacy shipped it anyway, §5.2).
 """
 
@@ -14,7 +14,7 @@ from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import VALID_TEXT, StubLLM
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights import grounded, prompts
+from healthee.insights import grounded, pipeline, prompts
 
 
 @pytest.fixture(autouse=True)
@@ -27,14 +27,18 @@ def _stub_messages(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_two_failures_return_the_honest_fallback_not_the_raw_text() -> None:
     bad = "This suggests a serious problem [not_a_real_note]."
-    stub = StubLLM([bad, bad])  # fails validation both times
+    stub = StubLLM([bad])  # the stub repeats its last response, so every attempt fails
     result = grounded.grounded_ask(
         "why is my rhr high?", SENTINEL_USER_ID, SENTINEL_TZ, client=stub
     )
     assert result.text == prompts.FALLBACK
     assert result.validated is False
     assert "not_a_real_note" not in result.text  # the unvalidated text never ships
-    assert stub.calls == 2  # original + one nudged retry, then stop
+    # The attempt plus every nudged rewrite the configured budget allows, then stop.
+    # Read off `validation_retries()` rather than written as a literal: the number moved
+    # into `LLM_VALIDATION_RETRIES` (#128), and what this test is about is that the
+    # unvalidated text NEVER ships, not how many chances it got.
+    assert stub.calls == pipeline.validation_retries() + 1
 
 
 def test_retry_succeeds_after_a_nudge() -> None:
@@ -82,14 +86,14 @@ def test_json_mode_fabricated_cite_falls_back_with_no_data() -> None:
     bad = json.dumps(
         {"recommendations": [{"action": "x", "rationale": "This suggests gains [made_up_note]."}]}
     )
-    stub = StubLLM([bad, bad])
+    stub = StubLLM([bad])
     result = grounded.grounded_ask(
         "recommend", SENTINEL_USER_ID, SENTINEL_TZ, client=stub, response_format="json"
     )
     assert result.validated is False
     assert result.data is None
     assert result.text == prompts.FALLBACK
-    assert stub.calls == 2
+    assert stub.calls == pipeline.validation_retries() + 1
 
 
 def test_json_mode_malformed_json_falls_back_with_no_data() -> None:
@@ -99,4 +103,4 @@ def test_json_mode_malformed_json_falls_back_with_no_data() -> None:
     )
     assert result.validated is False
     assert result.data is None
-    assert stub.calls == 2
+    assert stub.calls == pipeline.validation_retries() + 1

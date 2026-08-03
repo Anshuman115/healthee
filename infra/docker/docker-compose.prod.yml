@@ -88,6 +88,7 @@ services:
       # Read by /readyz's balance state. The ALERT on it is the scheduler's job;
       # this container only has to agree with it about where "low" starts.
       LLM_LOW_BALANCE_USD: ${LLM_LOW_BALANCE_USD:-20}
+      LLM_VALIDATION_RETRIES: ${LLM_VALIDATION_RETRIES:-2}
       API_HOST: 0.0.0.0
       API_PORT: 8765
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -155,6 +156,10 @@ services:
       # this balance, plus an outage alert on repeated transport failures. Without it
       # here, a dead AI layer stays exactly as invisible as it was on 2026-08-01.
       LLM_LOW_BALANCE_USD: ${LLM_LOW_BALANCE_USD:-20}
+      # The nightly chain is where most generations happen, so the retry budget has
+      # to reach it or the API and the scheduler would disagree about how many
+      # chances an answer gets on the same box.
+      LLM_VALIDATION_RETRIES: ${LLM_VALIDATION_RETRIES:-2}
       # The chain skips the LLM steps for a non-premium owner (§12.3), so this
       # container decides entitlement too — and without the flag a SELF-HOSTED
       # install would serve its owner the AI layer over HTTP while the nightly

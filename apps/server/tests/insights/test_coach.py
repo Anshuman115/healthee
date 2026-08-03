@@ -8,9 +8,18 @@ the coach CANNOT ship unvalidated text or a fabricated action confirmation.
 from __future__ import annotations
 
 import pytest
-from tests.insights._coach_stub import CoachStub, NoCallStub, text_turn, tool_call, tool_turn
+from tests.insights._coach_stub import (
+    VALID_REPLY,
+    CoachStub,
+    NoCallStub,
+    answer_turn,
+    claim_turn,
+    opening_turn,
+    tool_call,
+    tool_turn,
+    valid_turn,
+)
 from tests.insights._ids import ESTABLISHED_ID, PROBABLE_ID
-from tests.insights._stub import VALID_TEXT
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.insights import coach, coach_tools, prompts
@@ -51,26 +60,32 @@ def test_medication_question_is_refused_pre_llm() -> None:
 
 
 def test_fabricated_citation_is_blocked_then_falls_back() -> None:
-    bad = "Your recovery suggests overtraining [not_a_real_note]."
-    stub = CoachStub([text_turn(bad), text_turn(bad)])
+    """An id the manifest does not know is refused wherever the model puts it (#128).
+
+    The ids live in a FIELD now, so the renderer is what puts them back into the text —
+    and the validator's manifest check reads that text exactly as it always did. Nothing
+    about "what a real note is" was re-implemented on the way through.
+    """
+    bad = claim_turn("Your recovery suggests overtraining", ["not_a_real_note"])
+    stub = CoachStub([bad, bad, bad])
     result = _run(_ask("how's my recovery?"), client=stub)
     assert result.reply == prompts.FALLBACK  # never the unvalidated text
     assert result.validated is False
     assert "not_a_real_note" not in result.reply
-    assert stub.calls == 2  # original + one nudged retry, then stop
+    assert stub.calls == 3  # the attempt plus its two nudged rewrites, then stop
 
 
 def test_retry_after_a_nudge_can_succeed() -> None:
-    stub = CoachStub([text_turn("This is great [not_a_real_note]."), text_turn(VALID_TEXT)])
+    stub = CoachStub([claim_turn("This is great", ["not_a_real_note"]), valid_turn()])
     result = _run(_ask("how am I doing?"), client=stub)
-    assert result.reply == VALID_TEXT
+    assert result.reply == VALID_REPLY
     assert result.validated is True
 
 
 def test_claiming_an_action_with_no_tool_call_is_caught() -> None:
     """'I logged your coffee' with NO log_entry tool call must not ship as confirmed."""
     lie = "I logged your coffee for you."
-    stub = CoachStub([text_turn(lie), text_turn(lie)])
+    stub = CoachStub([opening_turn(lie)] * 3)
     result = _run(_ask("log a coffee"), client=stub)
     assert result.reply == prompts.FALLBACK  # the fake confirmation is not echoed
     assert "logged your coffee" not in result.reply
@@ -83,7 +98,7 @@ def test_action_claim_allowed_after_a_successful_tool_call(monkeypatch: pytest.M
     stub = CoachStub(
         [
             tool_turn(tool_call("c1", "log_entry", '{"type": "caffeine", "amount": 80}')),
-            text_turn("Done — I logged your coffee (80 mg)."),
+            opening_turn("Done — I logged your coffee (80 mg)."),
         ]
     )
     result = _run(_ask("log an 80mg coffee"), client=stub)
@@ -105,17 +120,17 @@ def test_tool_result_flows_back_and_a_valid_answer_ships(
     stub = CoachStub(
         [
             tool_turn(tool_call("c1", "query_metric", '{"metric": "hrv_sleep_avg"}')),
-            text_turn(VALID_TEXT),
+            valid_turn(),
         ]
     )
     result = _run(_ask("what's my HRV?"), client=stub)
-    assert result.reply == VALID_TEXT
+    assert result.reply == VALID_REPLY
     assert calls == [("query_metric", {"metric": "hrv_sleep_avg"})]
     assert result.tool_calls[0]["result"]["avg"] == 42.0
 
 
 def test_the_model_is_offered_the_seven_live_tools() -> None:
-    stub = CoachStub([text_turn(VALID_TEXT)])
+    stub = CoachStub([valid_turn()])
     _run(_ask("how am I doing?"), client=stub)
     offered = {t["function"]["name"] for t in stub.tools_seen[0]}
     assert offered == {
@@ -139,7 +154,7 @@ def test_claiming_an_adoption_the_tool_refused_is_caught(monkeypatch: pytest.Mon
     )
     lie = "I've started your steps challenge — you're on 6,250 a day now."
     stub = CoachStub(
-        [tool_turn(tool_call("c1", "adopt_challenge", '{"challenge_id": 9}')), text_turn(lie)]
+        [tool_turn(tool_call("c1", "adopt_challenge", '{"challenge_id": 9}')), opening_turn(lie)]
     )
     result = _run(_ask("start the steps one"), client=stub)
     assert result.reply == prompts.FALLBACK
@@ -154,7 +169,7 @@ def test_a_successful_log_does_not_license_an_adoption_claim(
     monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, user_id, tz: {"ok": True})
     lie = "Logged. I've also adopted the sleep challenge for you."
     stub = CoachStub(
-        [tool_turn(tool_call("c1", "log_entry", '{"type": "caffeine"}')), text_turn(lie)]
+        [tool_turn(tool_call("c1", "log_entry", '{"type": "caffeine"}')), opening_turn(lie)]
     )
     result = _run(_ask("log a coffee"), client=stub)
     assert result.reply == prompts.FALLBACK
@@ -167,7 +182,10 @@ def test_an_adoption_claim_is_allowed_once_the_adopt_tool_returned_ok(
     monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, user_id, tz: {"ok": True})
     said = "Done — I've started your steps challenge at the target we stored."
     stub = CoachStub(
-        [tool_turn(tool_call("c1", "adopt_challenge", '{"challenge_id": 9}')), text_turn(said)]
+        [
+            tool_turn(tool_call("c1", "adopt_challenge", '{"challenge_id": 9}')),
+            opening_turn(said),
+        ]
     )
     result = _run(_ask("start the steps one"), client=stub)
     assert result.reply == said
@@ -182,7 +200,10 @@ def test_claiming_a_creation_the_tool_refused_is_caught(monkeypatch: pytest.Monk
     )
     lie = "I've created a sleep challenge for you."
     stub = CoachStub(
-        [tool_turn(tool_call("c1", "create_challenge", '{"intent": "sleep"}')), text_turn(lie)]
+        [
+            tool_turn(tool_call("c1", "create_challenge", '{"intent": "sleep"}')),
+            opening_turn(lie),
+        ]
     )
     result = _run(_ask("make me a sleep challenge"), client=stub)
     assert result.reply == prompts.FALLBACK
@@ -194,18 +215,21 @@ def test_claiming_a_creation_the_tool_refused_is_caught(monkeypatch: pytest.Monk
 
 def test_the_answers_grade_floor_is_carried_out_of_the_coach() -> None:
     """It was computed on every answer and thrown away — INTELLIGENCE §3 promises it."""
-    result = _run(_ask("how am I doing?"), client=CoachStub([text_turn(VALID_TEXT)]))
+    result = _run(_ask("how am I doing?"), client=CoachStub([valid_turn()]))
     assert result.validated is True
     assert result.grade_floor == "Established"
 
 
 def test_the_floor_is_the_weakest_cited_grade_not_the_strongest() -> None:
     """'Floor' is the whole point: one Probable note under an Established one lowers it."""
-    mixed = (
-        f"Your recent numbers look steady. Consistent activity may support fitness "
-        f"[{ESTABLISHED_ID}]. Regular timing may also help recovery [{PROBABLE_ID}]."
+    mixed = answer_turn(
+        "Your recent numbers look steady.",
+        [
+            ("Consistent activity may support fitness", [ESTABLISHED_ID], "Established"),
+            ("Regular timing may also help recovery", [PROBABLE_ID], "Probable"),
+        ],
     )
-    result = _run(_ask("how am I doing?"), client=CoachStub([text_turn(mixed)]))
+    result = _run(_ask("how am I doing?"), client=CoachStub([mixed]))
     assert result.validated is True
     assert set(result.citations) == {ESTABLISHED_ID, PROBABLE_ID}
     assert result.grade_floor == "Probable"
@@ -219,8 +243,8 @@ def test_a_refusal_carries_no_grade_floor() -> None:
 
 
 def test_the_honest_fallback_carries_no_grade_floor() -> None:
-    bad = "Your recovery suggests overtraining [not_a_real_note]."
-    result = _run(_ask("how's my recovery?"), client=CoachStub([text_turn(bad), text_turn(bad)]))
+    bad = claim_turn("Your recovery suggests overtraining", ["not_a_real_note"])
+    result = _run(_ask("how's my recovery?"), client=CoachStub([bad] * 3))
     assert result.reply == prompts.FALLBACK
     assert result.grade_floor is None
 

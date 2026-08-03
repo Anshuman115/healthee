@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from tests.conftest import entitle
-from tests.insights._stub import VALID_TEXT, StubLLM
+from tests.insights._stub import VALID_REPLY, StubLLM
 
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
@@ -64,12 +64,12 @@ def test_coach_returns_a_reply_on_a_seeded_conversation(db: None, stub: StubLLM)
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["reply"] == VALID_TEXT
+    assert body["reply"] == VALID_REPLY
     assert body["validated"] is True
     assert body["refused"] is False
     # #84 — the wire contract carries the evidence floor. INTELLIGENCE §3 promised it as
     # response metadata and the endpoint dropped it, so a client could render citations
-    # with no way to say how firm they are. VALID_TEXT cites one Established note.
+    # with no way to say how firm they are. The stubbed answer cites one Established note.
     assert body["grade_floor"] == "Established"
     assert stub.calls == 1
 

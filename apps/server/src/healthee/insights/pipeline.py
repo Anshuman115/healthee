@@ -21,9 +21,10 @@ Stage order, and where each one now lives:
   5. hard output guardrail . ``_output_guard_gate``  — BLOCKING, never retried
   6. blocking validator .... ``_validator_gate``     — prose or JSON
   7. anti-hallucination .... ``_action_claim_gate``  — an action claim needs a tool
-  8. gather → answer → nudge → fallback ... :func:`drive` — unvalidated text NEVER ships
+  8. answer shape .......... ``_structure_gate``     — a structured surface's own contract
+  9. gather → answer → nudge → fallback ... :func:`drive` — unvalidated text NEVER ships
 
-Stages 5–7 are a REGISTRY (:func:`answer_gates`), not a hardcoded sequence, and stage 1
+Stages 5–8 are a REGISTRY (:func:`answer_gates`), not a hardcoded sequence, and stage 1
 is one too (:func:`question_gates`). That is what makes the acceptance bar mechanical: a
 stage added to a registry reaches every surface by construction, and
 ``tests/insights/test_pipeline_shared.py`` proves it by injecting one and asserting BOTH
@@ -41,6 +42,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from uuid import UUID
 
+from healthee.core.config import get_settings
 from healthee.core.logging import get_logger
 from healthee.insights import prompts
 from healthee.insights.action_claims import claim_issues
@@ -53,7 +55,23 @@ from healthee.insights.validator import ValidationResult, validate, validate_jso
 
 log = get_logger(__name__)
 
-MAX_VALIDATION_RETRIES = 1  # one nudged rewrite, then the honest fallback (blocking)
+
+def validation_retries() -> int:
+    """How many NUDGED REWRITES one answer gets before the honest fallback ships.
+
+    It was the constant ``MAX_VALIDATION_RETRIES = 1``, set when a retry cost real money
+    on the tier we ran then; it is now ``LLM_VALIDATION_RETRIES`` (default **2**), and
+    ``core.config`` carries why that is one setting rather than a per-model price table.
+
+    A retry is what FIXES the failures this pipeline actually has — measured (INTELLIGENCE
+    §9.1, §9.5), ~80 % of everything the product paid for and never shipped failed on
+    citation or grade-calibration WORDING, which a nudge naming the exact issue repairs.
+    Only a candidate that already failed spends one, and the budget is RESERVED on top of
+    the gathering allowance (:func:`turn_budget`), never taken from it. Zero is legal and
+    means "one attempt, then the fallback"; no value reaches the floor, which is that
+    unvalidated text never ships.
+    """
+    return max(0, get_settings().llm_validation_retries)
 
 
 # ── Stage 1 · the question gate ──────────────────────────────────────────────
@@ -120,10 +138,17 @@ class AnswerContext:
     ``json_mode`` selects the validator flavour. ``acted_ok`` names the action tools that
     returned ok this turn; a surface with no tools leaves it empty, which is not an
     exemption but the strictest possible setting — every action claim is then an issue.
+
+    ``structure_issues`` is how a surface whose model output has a CONTRACT reports that
+    the contract was broken (``coach_answer``). Carried here rather than raised where it
+    is found, so the driver's one policy — nudge, then the honest fallback — applies to it
+    exactly as it applies to a missing citation instead of a second retry loop growing
+    beside the shared one. Empty is the truth for a surface that has no structure.
     """
 
     json_mode: bool = False
     acted_ok: frozenset[str] = frozenset()
+    structure_issues: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -169,10 +194,22 @@ def _action_claim_gate(text: str, ctx: AnswerContext) -> GateOutcome:
     return GateOutcome(issues=tuple(claim_issues(text, ctx.acted_ok)))
 
 
+def _structure_gate(text: str, ctx: AnswerContext) -> GateOutcome:  # noqa: ARG001
+    """The surface's own answer CONTRACT — a shape that was not honoured is an issue.
+
+    It reads the context, not the text, because the contract is about the payload the
+    MODEL produced while ``text`` is what the surface RENDERED from it
+    (``coach_answer.render``). Both are checked: the rendered prose faces every gate above
+    unchanged, and this one says whether what it came from was what was asked for.
+    """
+    return GateOutcome(issues=ctx.structure_issues)
+
+
 _ANSWER_GATES: tuple[AnswerGate, ...] = (
     _output_guard_gate,  # the floor FIRST — a forbidden answer is never nudged
     _validator_gate,
     _action_claim_gate,
+    _structure_gate,
 )
 
 
@@ -253,7 +290,7 @@ class Loop:
 
     ``max_gathering_turns`` is the allowance for rounds that run tools instead of
     answering. It defaults to 0 — a surface with no tools can never spend one — and it
-    is NOT the answer budget: :data:`MAX_VALIDATION_RETRIES` is reserved on top of it by
+    is NOT the answer budget: :func:`validation_retries` is reserved on top of it by
     :func:`drive`, so a question that needed twenty rounds of data arrives at its answer
     with exactly the same grounding tolerance as a trivial one.
     """
@@ -271,7 +308,7 @@ def turn_budget(loop: Loop) -> int:
     A ceiling, not a spend. Nothing consumes a gathering round unless the model actually
     asked for a tool, and the two answer attempts are the same two every surface gets.
     """
-    return loop.max_gathering_turns + MAX_VALIDATION_RETRIES + 1
+    return loop.max_gathering_turns + validation_retries() + 1
 
 
 @dataclass
@@ -336,9 +373,9 @@ def _settle(loop: Loop, text: str, state: _Progress) -> Outcome | None:
         return Outcome(text=verdict.block.response, refused=True, validated=False)
     if verdict.ok:
         return Outcome(text=text, validation=verdict.validation)
-    if state.retries >= MAX_VALIDATION_RETRIES:
+    if state.retries >= validation_retries():
         log.warning(
-            "%s: candidate failed the gates twice (%s) — honest fallback",
+            "%s: candidate failed the gates on every attempt (%s) — honest fallback",
             loop.label,
             verdict.issues,
         )
@@ -348,10 +385,16 @@ def _settle(loop: Loop, text: str, state: _Progress) -> Outcome | None:
     return None
 
 
-def nudge_turns(text: str, issues: Sequence[str]) -> list[dict]:
-    """The two conversation turns that carry a failed candidate back to the model."""
+def nudge_turns(text: str, issues: Sequence[str], *, template: str | None = None) -> list[dict]:
+    """The two conversation turns that carry a failed candidate back to the model.
+
+    ``template`` lets a surface state the fix in ITS OWN output contract's terms: telling
+    the coach to "end every sentence with a `[note_id]`" would be instructions for a
+    format it no longer writes. The POLICY (one nudge per failed attempt, then the honest
+    fallback) stays here and is shared; only the wording is the surface's.
+    """
     listed = "\n".join(f"- {issue}" for issue in issues)
     return [
         {"role": "assistant", "content": text},
-        {"role": "user", "content": prompts.RETRY_NUDGE.format(issues=listed)},
+        {"role": "user", "content": (template or prompts.RETRY_NUDGE).format(issues=listed)},
     ]

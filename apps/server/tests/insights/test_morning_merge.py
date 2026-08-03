@@ -31,7 +31,7 @@ from healthee.core.config import get_settings
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
-from healthee.insights import coaching, grounded, morning
+from healthee.insights import coaching, grounded, morning, pipeline
 from healthee.jobs import briefing as briefing_mod
 from healthee.jobs import chain
 
@@ -204,13 +204,12 @@ def test_a_merged_call_that_cannot_ship_darks_neither_surface(
     assert status["source"] == "standalone"
     assert len(sent) == 1
     assert VALID_TEXT in sent[0]
-    # Five calls on a night the model could not ground the merged answer: the merged
-    # candidate and its nudged retry (2), the action's own generation (1), the sleep line
-    # (1), the briefing's own (1). Before #95 the same failing night cost five too — a
-    # briefing that failed and retried (2), an action that failed and retried (2), the
-    # sleep line (1). The saving is what a SUCCESSFUL night costs; the failure tail is not
-    # paid for out of availability.
-    assert stub.calls == 5
+    # What a night costs when the merged answer cannot be grounded: the merged candidate
+    # and each nudged rewrite the retry budget allows, then the action's own generation,
+    # the sleep line and the briefing's own — three independent calls that all succeed
+    # here. Written off `validation_retries()` because that number is configuration now
+    # (#128) and this test is about the FALLBACK PATH, not about the budget.
+    assert stub.calls == pipeline.validation_retries() + 1 + 3
 
 
 def test_the_briefing_still_generates_when_warm_never_ran(

@@ -271,7 +271,11 @@ def _causes_in(line: str) -> list[str]:
     """
     if "OUTPUT GUARDRAIL fired" in line:
         return ["hard output guardrail"]
-    if "failed the gates twice" not in line:
+    # "failed the gates …" — the tail moved when the retry budget stopped being fixed at
+    # one ("twice" → "on every attempt"), so the match is on the stable half. Arms saved
+    # before that change still carry the old sentence and still parse, which is the point:
+    # a census that could not read last month's arm cannot compare against it.
+    if "failed the gates" not in line:
         return []
     return sorted(set(_CAUSE_RE.findall(line)))
 

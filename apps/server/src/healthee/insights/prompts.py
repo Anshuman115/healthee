@@ -86,6 +86,23 @@ Emerging flagged · Contested "the science is mixed");
 - remove alarmist/reassuring wording that has no citation.
 Keep it under ~250 words."""
 
+# The same policy, stated in the CONTRACT the coach actually writes (`coach_answer`). The
+# prose nudge above would tell it to put `[note_id]` back into sentences it is no longer
+# allowed to put ids into — an instruction for the format it was moved off.
+STRUCTURED_RETRY_NUDGE = """\
+Your previous answer did not ship. What the gates said:
+{issues}
+
+Send the SAME answer again, corrected, as one `coach_answer` JSON object:
+- every interpretive sentence belongs in `claims[]`, one sentence per claim, with the \
+`note_ids` that support it — never in `opening`, which reports numbers only;
+- `note_ids` may only name ids that appear in EVIDENCE NOTES; `[]` is the honest option \
+and ships the sentence marked as unsupported;
+- `grade` is the grade of the WEAKEST note you cited, and the wording matches it \
+(Established plain · Probable hedged · Emerging flagged · Contested "the science is mixed");
+- drop alarmist or reassuring wording that no citation supports.
+No prose outside the JSON object."""
+
 # Shipped verbatim when validation fails twice. Deliberately an honest non-answer
 # — the product never ships text it could not ground (INTELLIGENCE §3, hole #2).
 FALLBACK = (

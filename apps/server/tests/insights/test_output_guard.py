@@ -15,7 +15,7 @@ Two things are asserted here and they pull in opposite directions on purpose:
 from __future__ import annotations
 
 import pytest
-from tests.insights._coach_stub import CoachStub, text_turn
+from tests.insights._coach_stub import CoachStub, opening_turn
 from tests.insights._ids import ESTABLISHED_ID, MORTALITY_ID
 from tests.insights._stub import StubLLM
 
@@ -242,7 +242,7 @@ def test_the_coach_blocks_it_too(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         coach, "_initial_messages", lambda *a, **k: [{"role": "user", "content": "x"}]
     )
-    stub = CoachStub([text_turn(_MORTALITY_ANSWER)])
+    stub = CoachStub([opening_turn(_MORTALITY_ANSWER)])
     result = coach.run_coach(
         [{"role": "user", "content": "how am I doing?"}], SENTINEL_USER_ID, SENTINEL_TZ, client=stub
     )
