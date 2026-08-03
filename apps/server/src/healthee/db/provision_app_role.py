@@ -59,15 +59,16 @@ from healthee.core.logging import configure_logging, get_logger
 
 log = get_logger(__name__)
 
-# The 16 tenant tables (MULTI_USER.md §3.2) plus the two identity tables the app
-# reads and writes on the auth path: `app_user` (JIT provisioning) and
-# `device_token` (pairing). `schema_migrations` is deliberately absent — only the
-# admin's migration runner touches it.
+# The 17 tenant tables (MULTI_USER.md §3.2 + `device_daily_total`, 0017) plus the two
+# identity tables the app reads and writes on the auth path: `app_user` (JIT
+# provisioning) and `device_token` (pairing). `schema_migrations` is deliberately
+# absent — only the admin's migration runner touches it.
 _DML_TABLES: tuple[str, ...] = (
     "app_user",
     "challenge",
     "challenge_outcome",
     "derived_daily",
+    "device_daily_total",
     "device_token",
     "finding",
     "gps_point",

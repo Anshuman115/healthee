@@ -77,9 +77,11 @@ CREATE TABLE IF NOT EXISTS derived_daily (
   flags   JSONB             NOT NULL DEFAULT '{}'::jsonb,
   user_id UUID              NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
             REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  -- When this cell was last COMPUTED (0016). Set by both writers of this table
-  -- (`derive/_common._upsert_daily`, `ingest/upsert._upsert_derived`) on insert AND on
-  -- conflict, so it means "a derive pass wrote this", not "the value changed".
+  -- When this cell was last COMPUTED (0016). Set by the table's ONE writer
+  -- (`derive/_common._upsert_daily`) on insert AND on conflict, so it means "a derive
+  -- pass wrote this", not "the value changed". Ingest had a second writer until 0017
+  -- (it wrote the strap's daily counter straight into `steps_total`); that write is now
+  -- a raw row in `device_daily_total` that the derive pass reads.
   -- It is what lets a re-derive tell the rows it just produced apart from the rows a
   -- NARROWED derivation declined to produce — see `db/stale_derived.py`.
   derived_at TIMESTAMPTZ    NOT NULL DEFAULT now(),
@@ -87,6 +89,28 @@ CREATE TABLE IF NOT EXISTS derived_daily (
 );
 CREATE INDEX IF NOT EXISTS derived_daily_metric_day_idx ON derived_daily (metric, day DESC);
 CREATE INDEX IF NOT EXISTS derived_daily_user_idx ON derived_daily (user_id, metric, day DESC);
+
+-- ── device_daily_total (0017_device_daily_total) ──────────────────────────
+-- The strap's OWN since-midnight totals (BLE 0x0016), one row per owner-local day —
+-- the raw home this measurement did not have (#121). `derive/activity.py` prefers
+-- `steps` here over the per-minute `steps_per_minute` sum when writing
+-- `derived_daily.steps_total`, so a re-derive can no longer destroy it: before 0017
+-- the counter WAS the derived cell, and any derive pass over the day overwrote it
+-- with nothing to restore from (142 of 143 production days lost that way, and NOT
+-- recovered by 0017 — see the migration, it starts empty and is forward-only).
+-- `calories` is stored for completeness of the raw report and derives nothing:
+-- free-living energy is the MET-by-state model, never a device number.
+CREATE TABLE IF NOT EXISTS device_daily_total (
+  day         DATE              NOT NULL,
+  steps       INTEGER,
+  distance_m  DOUBLE PRECISION,
+  calories    DOUBLE PRECISION,
+  source      TEXT              NOT NULL DEFAULT 'strap_0x16',  -- the reporting instrument
+  reported_at TIMESTAMPTZ       NOT NULL DEFAULT now(),         -- when this reading arrived
+  user_id     UUID              NOT NULL
+                REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  PRIMARY KEY (user_id, day)  -- also the only index: every read is (user_id, day)
+);
 
 -- ── profile ───────────────────────────────────────────────────────────────
 -- One profile per owner; inputs for energy/distance/VO₂max/bio-age derivation.
@@ -456,10 +480,15 @@ CREATE TABLE IF NOT EXISTS subscription (
 --     plain ENABLE already binds it; the admin stays unbound on purpose (migrate,
 --     claim_sentinel and the test reset must all see across owners).
 --
--- The 17 tenant tables, each with `<table>_tenant`:
+-- The 18 tenant tables, each with `<table>_tenant`:
 --   sample · sleep_session · workout · derived_daily · weight_log · kv ·
 --   manual_entry · illness_flag · recommendation · finding · challenge · program ·
---   challenge_outcome · gps_track · gps_point · profile · subscription
+--   challenge_outcome · gps_track · gps_point · profile · subscription ·
+--   device_daily_total
+--
+-- `device_daily_total` (0017) declares its own policy in its own migration, of exactly
+-- the shape above — a tenant table added later is policied where it is created, not by
+-- editing 0008, which has already been applied everywhere.
 --
 -- `subscription` (0011) is policied like the rest, and additionally carries a
 -- privilege the others do not need: the app role may only SELECT it, so a request

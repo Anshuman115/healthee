@@ -58,6 +58,14 @@ def seed_every_tenant_table(cur, user_id: UUID) -> None:
         "INSERT INTO profile (user_id, name) VALUES (%s, %s) ON CONFLICT DO NOTHING",
         (user_id, MARK),
     )
+    # 0017. The strap's own daily counter is the owner's measurement like any other row
+    # here — a re-key that left it behind would hand the new identity a step history
+    # derived from the per-minute fallback alone (#121).
+    cur.execute(
+        "INSERT INTO device_daily_total (user_id, day, steps) VALUES (%s, %s, 9264) "
+        "ON CONFLICT DO NOTHING",
+        (user_id, DAY),
+    )
     cur.execute(
         "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, %s, 70) ON CONFLICT DO NOTHING",
         (user_id, TS),

@@ -37,10 +37,10 @@ from healthee.db.claim_sentinel import ClaimRefusedError
 
 pytestmark = pytest.mark.integration
 
-# The 17 tenant tables: MULTI_USER.md §3.2's sixteen plus `subscription` (§12.2, added
-# by 0011). NOT the tool's source of truth — the tool asks the database. This is the
-# cross-check that the discovery finds them all, so a discovery query that quietly
-# matched nothing could not report green.
+# The 18 tenant tables: MULTI_USER.md §3.2's sixteen plus `subscription` (§12.2, added
+# by 0011) and `device_daily_total` (0017). NOT the tool's source of truth — the tool asks
+# the database. This is the cross-check that the discovery finds them all, so a discovery
+# query that quietly matched nothing could not report green.
 #
 # `subscription` belongs in the claim for the same reason every other row does: an
 # owner's entitlement is theirs, and a re-key that moved their health data but left
@@ -49,7 +49,7 @@ _EXPECTED_TENANT_TABLES = {
     "sample", "sleep_session", "workout", "derived_daily", "weight_log", "kv",
     "manual_entry", "illness_flag", "recommendation", "finding", "challenge",
     "program", "challenge_outcome", "gps_track", "gps_point", "profile",
-    "subscription",
+    "subscription", "device_daily_total",
 }  # fmt: skip
 
 
@@ -63,7 +63,7 @@ def _owned(cur, user_id: UUID) -> dict[str, int]:
 
 
 def test_the_tenant_table_list_is_discovered_not_hand_written(claimable: None) -> None:  # noqa: ARG001
-    """Discovery must find all 17 tenant tables — and exclude identity + chunks.
+    """Discovery must find all 18 tenant tables — and exclude identity + chunks.
 
     If this query ever matched nothing, every "no rows left behind" assertion below
     would vacuously pass while the tool moved half a person's history.
