@@ -30,7 +30,7 @@ from tests.grounding_eval.questions import REFUSAL, EvalQuestion
 from tests.grounding_eval.records import ERROR, FALLBACK, GROUNDED, REFUSED, EvalRun, RunRecord
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights.client import get_client
+from healthee.insights.client import coach_model, default_model, get_client
 from healthee.insights.coach import CoachResult, run_coach
 from healthee.insights.grounded import GroundedResult, grounded_ask
 from healthee.insights.retrieval import DEFAULT_TOP_N, rank_notes
@@ -109,6 +109,7 @@ def _run_one(
         question_id=question.id,
         kind=question.kind,
         surface=question.surface,
+        model=(coach_model() if question.surface == "coach" else default_model()),
         repeat=repeat,
         outcome=outcome,
         success=_is_success(question, outcome),

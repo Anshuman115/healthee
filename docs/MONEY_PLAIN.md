@@ -28,6 +28,13 @@
 > that is the whole pitch. **It is a floor, not an expectation**: at a realistic ten
 > questions the same $69/year runs about 51% margin.
 
+> **⚠ SUPERSEDED AGAIN 2026-08-03.** The coach moved to `deepseek-v4-flash-0731` after a
+> measured comparison (README §"Choosing the model"). **A coach question costs $0.0060, not
+> $0.179 — a 19× fall**, and 30 of them now cost **$0.18** against $6.99. The nightly chain
+> is ~$0.99 rather than $1.27 since #95 merged the briefing and daily action. Every table
+> below therefore states costs that are **far too high**; they are kept as the reasoning
+> that led here, not as current figures.
+
 Written 2026-08-01. Every number here comes from **real billing** — actual requests
 replayed through OpenRouter, counted by the provider, not estimated. Assumptions are
 stated where they exist.

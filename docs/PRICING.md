@@ -239,8 +239,33 @@ Our whole pitch is the inverse.
 
 ### 3.1 AI / LLM — the only real marginal cost
 
-All LLM goes through OpenRouter; default model **Gemini 3 Flash** ($0.50/M input,
-$3.00/M output).
+All LLM goes through OpenRouter.
+
+> ### ⚠ SUPERSEDED 2026-08-03 — this line named a model we do not run, at a rate we
+> are not billed
+>
+> It said *"default model Gemini 3 Flash ($0.50/M input, $3.00/M output)"*. That is
+> **neither configured model and matches neither tier's rate.** Models are env-only
+> (`DEFAULT_MODEL` / `COACH_MODEL`, gitignored) so this prose could drift for months
+> without failing anything.
+>
+> **Published rates, read 2026-08-03:**
+>
+> | tier | model | input | output |
+> |---|---|---|---|
+> | batch | `google/gemini-3.5-flash-lite` | $0.30/M | $2.50/M |
+> | coach | `deepseek/deepseek-v4-flash-0731` | $0.09/M | $0.18/M |
+>
+> **The §3.1 figures below were always computed from the real rates** — `$0.179`,
+> `$0.0084` and `$1.27` each reconstruct from the provider's own token counts to 3–4
+> significant figures. The $0.50/$3.00 assumption never entered the arithmetic; it
+> survived only in this sentence and in the eval harness's report, which is fixed
+> (#128) and now prices every record by **the model that produced it**, recorded on the
+> record rather than inferred from its surface.
+>
+> ⚠ **The coach moved tiers on 2026-08-03** (`gemini-3.6-flash` → `deepseek-v4-flash-0731`,
+> measured — see README §"Choosing the model"). A coach question is now **$0.0060**, not
+> `$0.179`. Every per-question figure below predates that move and is a **ceiling**.
 
 > ### ⚠ MEASURED 2026-08-01 (task #23) — the per-call assumption below was ~4× low
 >

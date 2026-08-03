@@ -13,17 +13,64 @@ from collections.abc import Sequence
 from tests.grounding_eval import stats
 from tests.grounding_eval.records import EvalRun, RunRecord
 
-# docs/PRICING.md §6: the default tier is billed $0.50/M input, $3.00/M output. Output is
-# billed on tokens produced INCLUDING the reasoning a reasoning model spends invisibly,
-# which is why the reasoning share is printed rather than folded away.
-USD_PER_M_INPUT = 0.50
-USD_PER_M_OUTPUT = 3.00
+# Published OpenRouter rates, (input, output) USD per MILLION tokens, read 2026-08-03.
+#
+# ## Why one flat rate could not do this
+#
+# This priced every record at $0.50/$3.00. The models we actually run are 17x apart on
+# input, so a single rate was wrong in BOTH directions at once — it understated a
+# gemini-3.6-flash coach record ~2.9x while overstating a flash-lite record ~1.67x. Two
+# runs measured on 2026-08-03 cost $8.22 and $0.43; it printed $2.80 and $2.52, i.e. it
+# reported a 19x difference as no difference at all. Numbers from this report are pasted
+# into INTELLIGENCE.md §9 and read months later as the record of what an experiment cost.
+#
+# ## Why by MODEL and not by surface
+#
+# The obvious fix is to price by `surface` — coach vs grounded. That hardcodes "the coach
+# runs the expensive tier", which was true until the coach moved tiers on 2026-08-03 and
+# would then have quoted the old rate forever, silently. `RunRecord.model` records what
+# actually ran, so the rate follows the evidence rather than an assumption about it.
+#
+# Output is billed on tokens produced INCLUDING the reasoning a reasoning model spends
+# invisibly — which is not a footnote: gemini-3.6-flash spends ~85% of its output there,
+# billed at $7.50/M and never shown to anyone. That is why the reasoning share is printed
+# rather than folded away.
+_RATES: dict[str, tuple[float, float]] = {
+    "google/gemini-3.6-flash": (1.50, 7.50),
+    "google/gemini-3.5-flash-lite": (0.30, 2.50),
+    "deepseek/deepseek-v4-flash-0731": (0.09, 0.18),
+}
+
+# What an UNKNOWN model bills at. Deliberately the dearest rate we know: an unpriced model
+# should make a run look too expensive, never too cheap. A cost that reads high gets
+# questioned; one that reads low gets budgeted against.
+_FALLBACK_RATE = max(_RATES.values())
+
+# Arms saved before `RunRecord.model` existed (< 2026-08-03) carry "". Their coach records
+# ran google/gemini-3.6-flash and their grounded records google/gemini-3.5-flash-lite —
+# the configuration of that period. `cost_is_exact` reports whether any record needed this
+# guess, so an old arm's figure is labelled approximate instead of quietly asserted.
+_LEGACY_BY_SURFACE = {"coach": "google/gemini-3.6-flash"}
+_LEGACY_DEFAULT = "google/gemini-3.5-flash-lite"
+
+
+def rate_for(record: RunRecord) -> tuple[float, float]:
+    """(input, output) USD per M for whatever model produced ``record``."""
+    model = record.model or _LEGACY_BY_SURFACE.get(record.surface, _LEGACY_DEFAULT)
+    return _RATES.get(model, _FALLBACK_RATE)
+
+
+def cost_is_exact(records: Sequence[RunRecord]) -> bool:
+    """False when any record was priced by a guess — an unrecorded model or an unknown one."""
+    return all(r.model and r.model in _RATES for r in records)
 
 
 def _cost_usd(records: Sequence[RunRecord]) -> float:
-    prompt = sum(r.prompt_tokens for r in records)
-    completion = sum(r.completion_tokens for r in records)
-    return prompt / 1e6 * USD_PER_M_INPUT + completion / 1e6 * USD_PER_M_OUTPUT
+    total = 0.0
+    for r in records:
+        rate_in, rate_out = rate_for(r)
+        total += r.prompt_tokens / 1e6 * rate_in + r.completion_tokens / 1e6 * rate_out
+    return total
 
 
 def _mean_line(label: str, values: Sequence[float], unit: str = "") -> str:
@@ -63,13 +110,20 @@ def summary(run: EvalRun) -> str:
         "  " + _mean_line("reasoning tokens", [r.reasoning_tokens for r in ok]),
         "  " + _mean_line("latency", [r.latency_ms for r in ok], " ms"),
     ]
-    lines += ["", "SPEND (measured tokens × PRICING.md §6's rates — the RATE is the assumption)"]
+    models = sorted({r.model for r in records if r.model})
+    exact = cost_is_exact(records)
+    header = "SPEND (measured tokens × each model's published rate)"
+    if not exact:
+        header += "  ⚠ APPROXIMATE — a record carried no model id, or an unknown one"
+    lines += ["", header]
     lines += [
         f"  input {sum(r.prompt_tokens for r in records):,} tok · "
         f"output {sum(r.completion_tokens for r in records):,} tok "
         f"(of which {sum(r.reasoning_tokens for r in records):,} reasoning) "
         f"⇒ ${_cost_usd(records):.2f} for this run",
     ]
+    if models:
+        lines += ["  models: " + " · ".join(models)]
     causes = stats.failure_causes(records)
     if causes:
         lines += ["", "WHY ANSWERS DID NOT SHIP (issue causes, commonest first)"]

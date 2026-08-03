@@ -52,6 +52,12 @@ class RunRecord:
     llm_calls: int = 0
     tool_rounds: int = 0
     tools: list[str] = field(default_factory=list)
+    # WHICH MODEL produced this record. Without it a report can only price by SURFACE,
+    # which silently hardcodes "coach = the expensive tier" — an assumption that was true
+    # until the coach moved tiers on 2026-08-03 and would have kept quoting the old rate
+    # ever after. Defaulted so arms saved before this field still load; a report that
+    # finds it empty says the figure is approximate rather than guessing.
+    model: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
     reasoning_tokens: int = 0

@@ -8,7 +8,8 @@ either hand-computable or a published textbook case.
 
 from __future__ import annotations
 
-from tests.grounding_eval import stats
+import pytest
+from tests.grounding_eval import report, stats
 from tests.grounding_eval.records import ERROR, FALLBACK, GROUNDED, REFUSED, RunRecord
 
 
@@ -263,3 +264,54 @@ def test_paired_deltas_drop_records_the_other_arm_does_not_have() -> None:
     before = [_record("a", 0, prompt_tokens=100), _record("b", 0, prompt_tokens=100)]
     after = [_record("a", 0, prompt_tokens=50)]
     assert stats.paired_delta(before, after, lambda r: float(r.prompt_tokens)).pairs == 1
+
+
+# ── per-model pricing (#128) ─────────────────────────────────────────────────
+# One flat rate priced a $8.22 run and a $0.43 run as $2.80 and $2.52 — it reported a
+# 19x difference as none at all, into numbers that get pasted into INTELLIGENCE.md §9.
+def _priced(model: str, surface: str = "coach", prompt: int = 1_000_000) -> RunRecord:
+    return RunRecord(
+        question_id="q",
+        kind="knowledge",
+        surface=surface,
+        repeat=0,
+        outcome=GROUNDED,
+        success=True,
+        model=model,
+        prompt_tokens=prompt,
+    )
+
+
+def test_each_model_is_priced_at_its_own_published_rate() -> None:
+    assert report._cost_usd([_priced("google/gemini-3.6-flash")]) == pytest.approx(1.50)
+    assert report._cost_usd([_priced("google/gemini-3.5-flash-lite")]) == pytest.approx(0.30)
+    assert report._cost_usd([_priced("deepseek/deepseek-v4-flash-0731")]) == pytest.approx(0.09)
+
+
+def test_a_mixed_run_is_the_sum_of_its_models_not_one_rate_for_all() -> None:
+    """The failure mode is a run spanning tiers, so the sum is the assertion that matters."""
+    both = report._cost_usd(
+        [_priced("google/gemini-3.6-flash"), _priced("deepseek/deepseek-v4-flash-0731")]
+    )
+    assert both == pytest.approx(1.59)
+    assert both != pytest.approx(3.00)  # not the dear rate applied to everything
+    assert both != pytest.approx(0.18)  # nor the cheap one
+
+
+def test_the_rate_follows_the_model_not_the_surface() -> None:
+    """Pricing by surface hardcodes 'coach = expensive', which stopped being true 2026-08-03."""
+    cheap_coach = _priced("deepseek/deepseek-v4-flash-0731", surface="coach")
+    assert report._cost_usd([cheap_coach]) == pytest.approx(0.09)
+
+
+def test_an_unknown_model_bills_at_the_dearest_known_rate() -> None:
+    """An unpriced model must make a run look too expensive, never too cheap."""
+    assert report._cost_usd([_priced("some/model-shipped-next-year")]) == pytest.approx(1.50)
+
+
+def test_an_arm_saved_before_the_model_field_is_flagged_approximate() -> None:
+    """A legacy record is priced by the config of its period, and SAYS the figure is a guess."""
+    legacy = _priced("", surface="coach")
+    assert report._cost_usd([legacy]) == pytest.approx(1.50)  # the coach tier of that period
+    assert report.cost_is_exact([legacy]) is False
+    assert report.cost_is_exact([_priced("google/gemini-3.6-flash")]) is True
