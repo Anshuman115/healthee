@@ -145,9 +145,9 @@ These five principles are product law, enforced in code (see
 
 ## Choosing the model — what we measured
 
-The coach runs on **`google/gemini-3.5-flash-lite`**, the same model as the batch
-surfaces. That is a measured choice, not a default, and the measurement changed our
-mind twice.
+The coach runs on **`google/gemini-3.6-flash`**. We measured three models, briefly
+shipped the cheapest, and **reverted within the hour** — because a ship-rate benchmark
+cannot see the failure that matters. The reversal is the most useful thing on this page.
 
 **Everything below is from `tests/grounding_eval/`** — 18 fixed questions across six
 kinds, 4 repeats each (72 runs per arm), all at the same commit, scored by the same
@@ -209,6 +209,34 @@ DeepSeek writes the longest, most-cited answers; flash-lite the most concise.
 **Correctness is not among these differences** — the validator is the arbiter of that, and
 all three cleared it at 98–100%.
 
+### ⛔ Why the cheapest arm is NOT shipped — read this before trusting a ship rate
+
+The three arms above are scored by the blocking validator, which checks every
+interpretive claim against the research corpus. **It has nothing to say about a claim
+about the owner's own data.** So we ran the same questions again and kept the prose.
+
+Asked *"does alcohol hurt my sleep, and by how much?"* against a fixture with **zero
+logged alcohol events**:
+
+| model | opening sentence | verdict |
+|---|---|---|
+| `deepseek-v4-flash-0731` | *"You have 0 logged alcohol events in your recent history."* | ✅ correct, and refuses to quantify a personal effect |
+| `gemini-3.6-flash` | *(no personal claim at all — answered from research)* | ✅ correct by abstention |
+| `gemini-3.5-flash-lite` | ***"You logged alcohol yesterday afternoon…"*** | ❌ **fabricated the premise** |
+
+Flash-lite invented a logged event and built the answer on it — and the result came back
+**`validated=True`, `grade_floor=Probable`**, because every research sentence in it *was*
+properly cited. It passed every gate we have.
+
+On the other two questions all three models were accurate and near-identical. The
+difference only appears when the honest answer is *"you have no data for that"* — which
+is precisely the moment this product exists for.
+
+**So the ranking on quality is not the ranking on ship rate**, and the cheapest model is
+the one we do not run. n=1 question, so this is a signal rather than a verdict — but it
+is the right direction to be conservative in, and a benchmark that cannot see it is a
+benchmark you must not decide on alone.
+
 ### Why not DeepSeek, which is 2.4× cheaper still
 
 1. **Flash-lite is already in production** for every batch surface, so its behaviour is
@@ -219,9 +247,13 @@ all three cleared it at 98–100%.
 3. The remaining saving is **$0.26/owner/month at 30 questions** — not worth a second
    unknown.
 
+DeepSeek was the *most* accurate arm on the prose test and is the cheapest by far. It is
+a real candidate — it simply has no production history yet, and one fixture question is
+not the evidence on which to hand it the coach.
+
 ### What this settles
 
-A coach question went from **$0.1142 to $0.0146**. Thirty of them cost **$0.44**. Every
+The structural-citation fix lifted every model and cut output tokens 57%. Every
 cost lever we had been arguing over — shrinking the retrieved-notes count, restructuring
 the tool loop, capping questions per month — was worth a fraction of one model swap plus
 one formatting fix, and two of those three would have cost answer quality.
