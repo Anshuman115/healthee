@@ -28,6 +28,7 @@ from healthee.core.config import get_settings
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
+from healthee.insights import pipeline
 from healthee.jobs import recs
 from healthee.jobs.recs_context import build_recs_signals
 
@@ -133,10 +134,13 @@ def test_today_endpoint_returns_the_persisted_recommendations(
 
 def test_a_fabricated_inline_citation_is_blocked_nothing_ships(db: None) -> None:  # noqa: ARG001
     _seed()
-    stub = StubLLM([_FABRICATED, _FABRICATED])  # both tries fail validation
+    stub = StubLLM([_FABRICATED])  # the stub repeats it, so every attempt fails validation
     result = recs.generate_recs(SENTINEL_USER_ID, SENTINEL_TZ, _DAY, client=stub)
 
     assert result["validated"] is False  # the choke point fell back
     assert result["persisted"] == 0
     assert _rows() == []  # no ungrounded rec reaches the table
-    assert stub.calls == 2  # original + one nudged retry, then the honest fallback
+    # The attempt plus every nudged rewrite the budget allows, then the honest fallback.
+    # Read off `validation_retries()`: the number is configuration now (#128), and what
+    # this test is about is that nothing ungrounded persists however many chances it got.
+    assert stub.calls == pipeline.validation_retries() + 1

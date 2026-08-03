@@ -28,7 +28,8 @@ import re
 from pathlib import Path
 
 import pytest
-from tests.insights._coach_stub import CoachStub, NoCallStub, text_turn
+from tests.insights._coach_stub import CoachStub, NoCallStub, answer_turn
+from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import VALID_TEXT, StubLLM
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
@@ -44,6 +45,15 @@ _CANARY_BLOCK = "blocked by the canary stage"
 # claiming no action. If it were rejectable on its own, these tests would pass whether
 # or not the injected stage ran — which is how a canary test quietly becomes decorative.
 _CANARY_ANSWER = f"{VALID_TEXT} {_CANARY_WORD}."
+
+# The coach reaches its gates through the answer contract (#128), so its canary is the
+# same word carried by a compliant `coach_answer` payload. It has to be a CLAIM rather
+# than the same string handed over as an opening: the frame may only report, so a payload
+# that smuggled an interpretive sentence into `opening` would be rejected by the shape
+# check and every assertion below would pass without the injected stage ever running.
+_CANARY_CLAIM = f"Steady load may support fitness {_CANARY_WORD}"
+_CANARY_TURN = answer_turn(claims=[(_CANARY_CLAIM, [ESTABLISHED_ID], "Established")])
+_CANARY_COACH_ANSWER = f"- {_CANARY_CLAIM} [{ESTABLISHED_ID}]."
 
 
 def _canary_block_gate(text: str, ctx: pipeline.AnswerContext) -> pipeline.GateOutcome:  # noqa: ARG001
@@ -106,7 +116,7 @@ def test_the_canary_answer_is_otherwise_clean_on_both_surfaces(
     """
     _stub_prompts(monkeypatch)
     assert _ask_grounded(StubLLM([_CANARY_ANSWER])) == _CANARY_ANSWER
-    assert _ask_coach(CoachStub([text_turn(_CANARY_ANSWER)])) == _CANARY_ANSWER
+    assert _ask_coach(CoachStub([_CANARY_TURN])) == _CANARY_COACH_ANSWER
 
 
 def test_a_new_blocking_stage_reaches_the_choke_point(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -121,23 +131,29 @@ def test_a_new_blocking_stage_reaches_the_coach_too(monkeypatch: pytest.MonkeyPa
     """The bar itself: nobody edited coach.py, and the coach obeys the new stage."""
     _stub_prompts(monkeypatch)
     _add_answer_gate(monkeypatch, _canary_block_gate)
-    stub = CoachStub([text_turn(_CANARY_ANSWER)])
+    stub = CoachStub([_CANARY_TURN])
     assert _ask_coach(stub) == _CANARY_BLOCK
     assert stub.calls == 1
 
 
 def test_a_new_retryable_stage_reaches_both_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An issue-raising stage must nudge once and then ship the honest fallback — on both."""
+    """An issue-raising stage must nudge, then ship the honest fallback — on both surfaces.
+
+    The call count is the configured retry budget rather than a literal 2: the number
+    moved into `LLM_VALIDATION_RETRIES` (#128) and hardcoding it here would make this
+    file fail for a reason that has nothing to do with the bar it holds.
+    """
     _stub_prompts(monkeypatch)
     _add_answer_gate(monkeypatch, _canary_issue_gate)
+    attempts = pipeline.validation_retries() + 1
 
-    grounded_stub = StubLLM([_CANARY_ANSWER, _CANARY_ANSWER])
+    grounded_stub = StubLLM([_CANARY_ANSWER])
     assert _ask_grounded(grounded_stub) == prompts.FALLBACK
-    assert grounded_stub.calls == 2, "one nudged retry, then the fallback"
+    assert grounded_stub.calls == attempts, "every nudged retry, then the fallback"
 
-    coach_stub = CoachStub([text_turn(_CANARY_ANSWER), text_turn(_CANARY_ANSWER)])
+    coach_stub = CoachStub([_CANARY_TURN])
     assert _ask_coach(coach_stub) == prompts.FALLBACK
-    assert coach_stub.calls == 2
+    assert coach_stub.calls == attempts
 
 
 def test_a_new_question_gate_reaches_both_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -171,6 +187,9 @@ def test_the_shared_registry_keeps_the_floor_under_the_validator() -> None:
     """Order is load-bearing: the hard guardrail runs BEFORE the validator (§3)."""
     names = [gate.__name__ for gate in pipeline.answer_gates()]
     assert names.index("_output_guard_gate") < names.index("_validator_gate")
+    # The shape check joined the registry rather than growing beside it (#128), so it
+    # inherits the same policy and the same propagation proof as every other stage.
+    assert "_structure_gate" in names
 
 
 # ── 2 · no surface may reach a choke-point primitive directly ────────────────

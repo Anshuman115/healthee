@@ -132,20 +132,28 @@ question/task
     is an issue unless the tool that can make it true returned ok THIS turn. On a
     tool-less surface the set of successful tools is empty, so every such claim is
     rejected — the strictest reading, not an exemption (`insights/action_claims.py`)
-  → on second failure: honest fallback ("I can't ground that in our evidence
-    base") — unvalidated text NEVER ships (legacy shipped it anyway).
+  → answer SHAPE — a surface whose model output has a CONTRACT (today only the
+    coach, §4a) reports a broken one HERE, so a malformed payload is nudged and
+    then falls back honestly rather than degrading to free text
+  → once every allowed attempt has failed: honest fallback ("I can't ground that in
+    our evidence base") — unvalidated text NEVER ships (legacy shipped it anyway).
     The retry budget is RESERVED, never shared with tool-gathering: the coach's
-    gathering allowance and MAX_VALIDATION_RETRIES are two counters, so an answer
-    arrives at its gates with the same tolerance however much data preceded it
-    (they were one counter until 2026-08-01, and a 5-tool-round question exited
-    having never been asked for an answer at all)
+    gathering allowance and `pipeline.validation_retries()` are two counters, so an
+    answer arrives at its gates with the same tolerance however much data preceded
+    it (they were one counter until 2026-08-01, and a 5-tool-round question exited
+    having never been asked for an answer at all). The budget is now
+    `LLM_VALIDATION_RETRIES`, **default 2**: it was hardcoded to 1, set when a retry
+    cost real money on the tier we ran then, and §9.1 measured that ~80% of what the
+    product never shipped failed on wording a nudge repairs. It is deliberately ONE
+    setting rather than a per-model price table — a table would need model ids in
+    git, which `insights/client` keeps out on purpose
   → response metadata: citations[], evidence grade floor, data coverage (§3.1)
 ```
 
 **Where each stage lives, and why that is now checkable.** The stages above are
 `insights/pipeline.py`: `check_question` · `user_context` · `evidence` ·
 `complete` · the answer-gate registry (`answer_gates()`: output guard → validator →
-anti-hallucination) · `drive` (one nudged retry, then the fallback). The two answer
+anti-hallucination → answer shape) · `drive` (nudge, then the fallback). The two answer
 gates that block do so through the **registry**, and the question gate through
 `question_gates()` — so **a stage added to a registry reaches every surface by
 construction**. `tests/insights/test_pipeline_shared.py` proves it two ways: it
@@ -395,6 +403,58 @@ CLAUDE.md's "ONE canonical definition" applied to a recommendation rather than a
   two instruments each since #121 (`derive/device_totals.py`) but stamp them in `flags.source`
   rather than `flags.method`, and blocking them is a product decision rather than a directive —
   see that module and the #125 report.
+
+### 4a · The coach's answers are STRUCTURED — claims as data, prose rendered by us (#128)
+
+The coach used to answer in free prose carrying an inline `[note_id]` convention, and the
+blocking validator checked whether the model had remembered it. §9.5 measured what that
+convention costs on a cheaper model: **knowledge answers 6/6 → 3/6**, DeepSeek's failures
+almost all *"Interpretive sentence lacks a citation"*, while every surface whose output was
+already STRUCTURED matched or beat the expensive tier (`surface` 10/12 → 12/12). Nothing
+incorrect ever shipped — the validator caught all of it and served the honest fallback — so
+what the convention costs is **availability**, and it costs it for instruction-following on
+a formatting rule rather than for health knowledge.
+
+So the coach now returns its answer as data and `insights/coach_answer.py` renders the
+prose:
+
+```json
+{"coach_answer": {
+  "opening": "<one plain line reporting the owner's own numbers — description only>",
+  "claims": [{"text": "<one sentence>", "note_ids": ["…"], "grade": "Probable"}]}}
+```
+
+- **A claim cannot reach the owner without what grounds it.** The renderer attaches the
+  ids to *every sentence* of every claim; a claim the model marks uncitable (`note_ids:
+  []`) ships carrying `prompts.SYSTEM_PROMPT`'s own escape inside the same sentence, which
+  is what the validator already accepts. There is no third branch, and there is no
+  "degrade to prose" branch either — a malformed payload is an issue, nudged and then
+  fallen back on, because degrading would reinstate the uncited path on exactly the turns
+  where the model was already ignoring instructions.
+- **Interpretation cannot hide in the frame.** `opening` is free text, so it is checked for
+  the one thing that would reopen the hole, using `calibration`'s own vocabulary and
+  `validator`'s own two exemptions: a descriptive line naming real numbers is legal, an
+  interpretive one is redirected into `claims`. Stricter than the validator on that field
+  by design — there an interpretive sentence needs a citation, here it needs to *be a
+  claim*.
+- **The declared `grade` is checked, not trusted** — §5.6's recs hole, closed on the coach.
+  An **overclaim** (declared stronger than the strictest cited note) is refused;
+  under-claiming is allowed, because failing it would spend a retry to make an answer less
+  careful. It never rewrites the sentence: inserting a hedge would be the product asserting
+  something nobody wrote, and `_grade_issue`'s calibration rule still runs on the rendered
+  text unchanged.
+- **Nothing was weakened to buy it.** The rendered prose faces every answer gate exactly as
+  before; the shape check is an *additional* stage, and it enters through
+  `pipeline.answer_gates()` like any other, so it inherits the same nudge-then-fallback
+  policy and the same propagation proof. Seven mutations of the guarantee were verified to
+  turn `tests/insights/test_coach_answer.py` red.
+- **JSON mode is requested only on a round that offers no tools.** The two are not reliably
+  combinable across the providers behind OpenRouter, and a round that answers is a round
+  that stopped calling tools; the shape otherwise arrives by instruction, and the parser
+  tolerates a code fence or a word of preamble.
+- **`docs/COACH_PROMPT.md` is untouched.** It is pinned byte-for-byte and it is the voice;
+  the contract is appended to the system turn exactly as the context and evidence blocks
+  are, and it lives beside the parser that enforces it so the two cannot drift.
 
 ---
 

@@ -168,6 +168,22 @@ class Settings(BaseSettings):
     # many days of warning it buys. 0 disables the warning and leaves only the
     # `exhausted` alert, which is the one that fires when it is already too late.
     llm_low_balance_usd: float = 20.0
+    # How many NUDGED REWRITES one generated answer gets before the honest fallback ships
+    # (`insights.pipeline.validation_retries`). It was hardcoded to 1, chosen when a retry
+    # cost real money on the tier we ran then; on a flash tier three attempts cost a
+    # fraction of one attempt on the tier above, and the failures a retry fixes are
+    # citation/format wording, which is what a nudge naming the exact issue repairs.
+    #
+    # Deliberately ONE number rather than a per-model table. A price-scaled budget would
+    # need model ids in git to key on, and `insights/client` keeps them out of git on
+    # purpose (they resolve from DEFAULT_MODEL / COACH_MODEL); a table that must be edited
+    # every time the env changes is a second, staler statement of which model we run. An
+    # operator who switches to an expensive tier turns this down; that is honest and it is
+    # one line.
+    #
+    # 0 is legal and means "one attempt, then the fallback". It cannot weaken the floor:
+    # unvalidated text never ships at any value.
+    llm_validation_retries: int = 2
 
     # ── Telegram notifications (optional — job status + failures) ─────────
     telegram_bot_token: str = ""

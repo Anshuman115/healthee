@@ -13,11 +13,15 @@ places). That mirror rule is gone. Every honesty stage now lives once, in
     ``Turn(text=None)`` for a round that ran tools instead of answering — and
     ``Turn(progressed=False)`` when that round only repeated calls it had already made.
     The gathering allowance (:data:`GATHERING_ROUNDS`) is the coach's alone; the answer
-    and its validation retries are the pipeline's, reserved on top.
+    and its validation retries are the pipeline's, reserved on top;
+  * an answer CONTRACT — the model returns claims as data and ``coach_answer`` renders
+    the prose, so a claim cannot reach the owner without the ids it rests on (#128). The
+    contract is the coach's, but nothing about the gates is: the rendered text is what
+    every stage judges, and a broken contract enters the same registry as any other issue.
 
 Everything else — the refusal gate before any tool runs, the hard output guardrails, the
-blocking validator on every final free-text answer, the anti-hallucination gate, the one
-nudged retry and then ``prompts.FALLBACK`` — is the same code the insight surfaces run.
+blocking validator on every final answer, the anti-hallucination gate, the nudged
+retries and then ``prompts.FALLBACK`` — is the same code the insight surfaces run.
 ``tests/insights/test_pipeline_shared.py`` proves it by injecting a stage into the shared
 registry and asserting BOTH surfaces obey it, and fails if any surface reaches a
 primitive directly.
@@ -36,7 +40,7 @@ from uuid import UUID
 
 from healthee.analytics import coverage
 from healthee.core.logging import get_logger
-from healthee.insights import coach_tools, pipeline
+from healthee.insights import coach_answer, coach_tools, pipeline, prompts
 from healthee.insights.client import LLMClient, coach_model, get_client
 from healthee.insights.coach_context import DEFAULT_COACH_DAYS, build_coach_context, coach_evidence
 from healthee.insights.coach_prompt import COACH_SYSTEM_PROMPT
@@ -49,8 +53,8 @@ log = get_logger(__name__)
 # the rest, and an unused round costs nothing. It used to be 5
 # AND it doubled as the answer budget, so a question that legitimately needed five rounds
 # of data exited having never been asked for an answer, and a four-round one reached its
-# single answer attempt with zero validation retries left. `MAX_VALIDATION_RETRIES` is
-# now reserved on top of this by `pipeline.drive`, so gathering can be generous without
+# single answer attempt with zero validation retries left. `pipeline.validation_retries`
+# is now reserved on top of this by `pipeline.drive`, so gathering can be generous without
 # taking grounding tolerance away from exactly the questions that need it most.
 GATHERING_ROUNDS = 20
 _HISTORY_LIMIT = 12  # last N conversation turns kept (context-window discipline)
@@ -67,6 +71,14 @@ _ANSWER_NOW = (
     "already in this conversation. If something you wanted is missing, say plainly what "
     "you could not check — do not estimate or invent a number."
 )
+
+# JSON mode, but ONLY on a round that offers no tools. The two are not reliably
+# combinable across the providers behind OpenRouter (a JSON-constrained response and a
+# function call are two different things for a model to emit), and a round that answers
+# is exactly a round that ran out of tools to offer or chose not to use them. Asking for
+# both on every round would risk the tool loop itself to tidy a format the instruction
+# already gets right; `coach_answer._json_object` covers the rest.
+_JSON_OBJECT = {"type": "json_object"}
 
 
 @dataclass
@@ -180,25 +192,60 @@ class _ToolLoop:
     acted_ok: set[str] = field(default_factory=set)
     seen_calls: set[tuple[str, str]] = field(default_factory=set)
     tools_withdrawn: bool = False
+    raw_answer: str = ""
+    structure_issues: tuple[str, ...] = ()
 
     def next_turn(self, tools_allowed: bool) -> pipeline.Turn:
-        """One model turn: run any tools it asked for, or hand back its answer."""
+        """One model turn: run any tools it asked for, or RENDER the answer it returned.
+
+        The turn the driver judges is the rendered prose, never the payload: every answer
+        gate reads the words the owner would actually see. What the payload was is carried
+        separately, on :meth:`answer_context`, so a broken contract is an issue rather
+        than a silent degradation back to free text.
+        """
         if not tools_allowed:
             self._withdraw_tools()
         tools = coach_tools.COACH_TOOLS if tools_allowed else None
-        response = pipeline.complete(self.client, self.convo, tools=tools, model=coach_model())
+        response = pipeline.complete(
+            self.client,
+            self.convo,
+            tools=tools,
+            model=coach_model(),
+            response_format=None if tools_allowed else _JSON_OBJECT,
+        )
         if response.tool_calls:
             progressed = self._run_tools(response)
             return pipeline.Turn(text=None, progressed=progressed)
-        return pipeline.Turn(text=response.text)
+        return pipeline.Turn(text=self._rendered(response.text))
 
-    def nudge(self, text: str, issues: Sequence[str]) -> None:
-        """Carry a failed candidate back to the model (shared wording, shared policy)."""
-        self.convo.extend(pipeline.nudge_turns(text, issues))
+    def _rendered(self, raw: str) -> str:
+        """The answer as prose, with its structural issues recorded for the gate.
+
+        An unparseable payload hands the RAW text on rather than nothing, so the hard
+        output guardrails still see whatever the model wrote — but the structure gate has
+        an issue by then, so it can never ship. "Fall back to prose" is deliberately not a
+        branch here: it would reinstate the uncited-claim path on exactly the turns where
+        the model was already ignoring instructions.
+        """
+        self.raw_answer = raw or ""
+        answer, self.structure_issues = coach_answer.parse(self.raw_answer)
+        return coach_answer.render(answer) if answer is not None else self.raw_answer
+
+    def nudge(self, text: str, issues: Sequence[str]) -> None:  # noqa: ARG002
+        """Carry the failed PAYLOAD back to the model, in its own contract's words.
+
+        The payload, not ``text``: the model is being asked to correct a JSON object, and
+        showing it prose it never wrote is an invitation to answer in prose next time.
+        """
+        self.convo.extend(
+            pipeline.nudge_turns(self.raw_answer, issues, template=prompts.STRUCTURED_RETRY_NUDGE)
+        )
 
     def answer_context(self) -> pipeline.AnswerContext:
         """Read at judgement time, not loop entry — ``acted_ok`` grows as tools run."""
-        return pipeline.AnswerContext(acted_ok=frozenset(self.acted_ok))
+        return pipeline.AnswerContext(
+            acted_ok=frozenset(self.acted_ok), structure_issues=self.structure_issues
+        )
 
     def _withdraw_tools(self) -> None:
         """Tell the model, once, that it must answer with what it already has."""
@@ -260,10 +307,19 @@ def _result(outcome: pipeline.Outcome, invocations: list[dict]) -> CoachResult:
 def _initial_messages(
     history: list[dict], question: str, user_id: UUID, tz: str, context_days: int
 ) -> list[dict]:
-    """System (coach prompt + context + evidence) followed by the conversation."""
+    """System (coach prompt + context + evidence + the output contract) then the conversation.
+
+    ``COACH_SYSTEM_PROMPT`` is ``docs/COACH_PROMPT.md`` verbatim and is pinned
+    byte-for-byte by a test; the answer contract is APPENDED here exactly as the context
+    and evidence blocks are, so the voice document stays the voice document and the
+    envelope lives with the parser that enforces it (``coach_answer.ANSWER_SHAPE``).
+    """
     context = build_coach_context(question, user_id, tz, days=context_days)
     evidence = coach_evidence(question)
-    system = f"{COACH_SYSTEM_PROMPT}\n\n# THE USER'S DATA (CONTEXT)\n\n{context}\n\n{evidence}"
+    system = (
+        f"{COACH_SYSTEM_PROMPT}\n\n# THE USER'S DATA (CONTEXT)\n\n{context}\n\n{evidence}"
+        f"\n\n{coach_answer.ANSWER_SHAPE}"
+    )
     return [{"role": "system", "content": system}, *history]
 
 

@@ -19,12 +19,12 @@ What is asserted here, and why each one is separate:
   either a paywalled subscriber or an uncapped bill.
 
 The HTTP cap tests run against a cap patched down to two. The real 20 is pinned by the
-table test and exercised against the ledger; asking twenty-one questions through the
-pipeline to prove an integer is passed correctly would buy nothing and cost a minute.
+table test and exercised against the ledger.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
@@ -211,10 +211,16 @@ def test_an_unvalidatable_answer_does_not_consume_an_included_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The honest fallback is the product working — and it is still not an answer."""
+    from tests.insights._coach_stub import answer_payload
+
     from healthee.insights import coach as coach_module
     from healthee.insights import grounded
 
-    broken = StubLLM(["Your recovery suggests overtraining [not_a_real_note]."])
+    # `coach_text`, not the prose script: since #128 the coach reads an answer CONTRACT,
+    # so prose fails the shape check rather than the citation check — still a fallback,
+    # but for the wrong reason. This payload is well-shaped and cites an id nobody has.
+    claim = ("Your recovery suggests overtraining", ["not_a_real_note"], "Probable")
+    broken = StubLLM(coach_text=json.dumps(answer_payload(claims=[claim])))
     monkeypatch.setattr(grounded, "get_client", lambda: broken)
     monkeypatch.setattr(coach_module, "get_client", lambda: broken)
 
@@ -259,12 +265,11 @@ def test_a_tool_calling_question_charges_once_not_once_per_model_call(
     """The metered UNIT is the question, and the coach's gathering allowance is 20 deep.
 
     ``routers/coach.py`` says so in prose; this measures it, because the two numbers differ
-    by more than an order of magnitude. A question that spends ten tool rounds makes eleven
-    model calls and must still cost ONE of the twenty — otherwise a generous gathering
-    budget quietly became a 20× pricing change.
+    by more than an order of magnitude. Ten tool rounds is eleven model calls and must
+    still cost ONE of the twenty — or a generous gathering budget quietly became a 20×
+    pricing change.
     """
-    from tests.insights._coach_stub import CoachStub, text_turn, tool_call, tool_turn
-    from tests.insights._stub import VALID_TEXT
+    from tests.insights._coach_stub import CoachStub, tool_call, tool_turn, valid_turn
 
     from healthee.insights import coach as coach_module
     from healthee.insights import coach_tools
@@ -274,7 +279,7 @@ def test_a_tool_calling_question_charges_once_not_once_per_model_call(
         tool_turn(tool_call(f"c{i}", "query_metric", f'{{"metric": "m{i}"}}'))
         for i in range(rounds)
     ]
-    stub = CoachStub([*script, text_turn(VALID_TEXT)])
+    stub = CoachStub([*script, valid_turn()])
     monkeypatch.setattr(coach_module, "get_client", lambda: stub)
     monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, uid, tz: {"ok": True})
 
