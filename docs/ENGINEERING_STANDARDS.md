@@ -142,9 +142,11 @@ apps/server/src/healthee/
   analytics/   baselines, correlations, anomalies, cutoffs, bio-age
   read/        per-endpoint read services (canonical-table reads)
   insights/    llm client, pipeline (THE choke point: its stages + the gate
-               registries), grounded_ask + coach (its two entry points), validator,
+               registries) + gate_types (the vocabulary those gates speak),
+               grounded_ask + coach (its two entry points), validator,
                output_guard (hard guardrails), action_claims (anti-hallucination),
-               refusals, retrieval, context, coach tools
+               personal_claims (no value asserted for data we lack), refusals,
+               retrieval, context, coach tools
   api/         app.py (wiring only) + routers/ (thin HTTP layer)
   jobs/        scheduler (per-owner tick) + supervised chain + correlate/recs/briefing
   db/          schema + numbered migrations + runner + one-off ops modules
