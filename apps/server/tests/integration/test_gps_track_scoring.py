@@ -46,7 +46,10 @@ from healthee.read.gps import GpsTrackIn, ingest_gps_track
 
 pytestmark = pytest.mark.integration
 
-_TABLES = "sample, sleep_session, workout, derived_daily, weight_log, profile, gps_point, gps_track"
+_TABLES = (
+    "sample, sleep_session, workout, derived_daily, weight_log, profile, gps_point, "
+    "gps_track, device_daily_total"
+)
 
 _IST = ZoneInfo(SENTINEL_TZ)
 

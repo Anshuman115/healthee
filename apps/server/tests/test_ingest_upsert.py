@@ -5,14 +5,15 @@ predicate, and the one-per-day weight de-dup.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.ingest.models import SampleIn, SleepIn
+from healthee.ingest.models import DailyTotalIn, SampleIn, SleepIn
 from healthee.ingest.upsert import (
     build_fresh_predicate,
     epoch_to_utc,
+    upsert_daily_totals,
     upsert_samples,
     upsert_weight,
 )
@@ -156,3 +157,43 @@ def test_a_changed_weight_from_an_earlier_day_still_inserts_a_new_row() -> None:
     assert len(cur.executed) == 2
     assert "INSERT INTO weight_log" in cur.executed[1][0]
     assert cur.executed[1][1] == (SENTINEL_USER_ID, 78.4)
+
+
+# --- #121: the strap's daily totals are RAW data with a table of their own ----
+
+
+def _total(**kwargs: Any) -> DailyTotalIn:
+    return DailyTotalIn.model_validate({"day": "2026-06-16", **kwargs})
+
+
+def test_daily_totals_are_written_to_the_raw_table_not_a_derived_cell() -> None:
+    """The whole of #121 in one assertion: this layer no longer produces a metric.
+
+    It used to INSERT INTO derived_daily — the table a derive pass rebuilds — which is
+    why 142 days of the strap's own step count were destroyed and unrecoverable.
+    """
+    cur = FakeCursor()
+    stored = upsert_daily_totals(
+        cur,  # type: ignore[arg-type]
+        SENTINEL_USER_ID,
+        [_total(steps=9264, distance_m=5081.0, calories=451.0)],
+    )
+    assert stored == 1
+    assert cur.executed == []  # no per-row execute; the batch is pipelined
+    assert cur.executemany_rows == [(SENTINEL_USER_ID, date(2026, 6, 16), 9264, 5081.0, 451.0)]
+
+
+def test_a_report_with_no_numbers_at_all_is_not_stored() -> None:
+    """An empty entry is not a measurement — storing it would claim the strap reported."""
+    cur = FakeCursor()
+    assert upsert_daily_totals(cur, SENTINEL_USER_ID, [_total()]) == 0  # type: ignore[arg-type]
+    assert cur.executemany_rows is None
+
+
+def test_a_report_carrying_only_distance_is_still_stored() -> None:
+    """Each field stands alone: the derivation reads steps and distance independently,
+    so a partial report is kept rather than dropped for lacking a step count — which is
+    what the old `apply_daily_totals` did, skipping the whole entry."""
+    cur = FakeCursor()
+    assert upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(distance_m=5081.0)]) == 1  # type: ignore[arg-type]
+    assert cur.executemany_rows == [(SENTINEL_USER_ID, date(2026, 6, 16), None, 5081.0, None)]

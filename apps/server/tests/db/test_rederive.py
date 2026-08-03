@@ -26,7 +26,7 @@ from healthee.ingest.service import DerivePlan
 
 pytestmark = pytest.mark.integration
 
-_TABLES = "sample, sleep_session, workout, derived_daily, weight_log, profile"
+_TABLES = "sample, sleep_session, workout, derived_daily, weight_log, profile, device_daily_total"
 
 _SLEEP_HR_BPM = 52.0
 
