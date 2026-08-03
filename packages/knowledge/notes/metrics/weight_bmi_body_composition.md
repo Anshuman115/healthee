@@ -259,13 +259,41 @@ Opinion/review article, hence Probable, not Established).
 - **Self-report is biased downward** (Connor Gorber 2007) and the magnitude is
   unpooled — so we cannot correct for it, only name it.
 - **Stale weight is no longer used as current weight for BMI — but it still is
-  for BMR.** Since 2026-08-01 a weight more than 14 days from the day being
-  computed withholds the VO₂max estimate (and therefore the biological age)
-  rather than anchoring it. `derive/energy.py` is deliberately unchanged: a
-  kilogram of weight error is ~10 kcal/day of BMR, far inside the MET model's own
-  error, and refusing a whole day's calorie total over it would be a refusal no
-  evidence asked for. So a calorie number can still rest on an old weight, and
-  the coach must not describe it as if the weight behind it were fresh.
+  for BMR, and now it says so.** Since 2026-08-01 a weight more than 14 days from
+  the day being computed withholds the VO₂max estimate (and therefore the
+  biological age) rather than anchoring it. `derive/energy.py` deliberately does
+  **not** withhold: a kilogram of weight error is ~10 kcal/day of BMR, far inside
+  the MET model's own error, and refusing a whole day's calorie total over it
+  would be a refusal no evidence asked for. So a calorie number can still rest on
+  an old weight — but since 2026-08-03 it is no longer *silent* about it.
+  > **[Corrected 2026-08-03, #127.]** The withhold-vs-caveat call above was right
+  > and stands; what this note asserted alongside it was not achievable. It said
+  > "the coach must not describe it as if the weight behind it were fresh", and
+  > Coach Directive 6 says to name the weight's date "whenever weight is used to
+  > justify anything — and name its date when it has one". **No calorie payload
+  > carried a date, an age, or any marker at all**, so both instructions were
+  > unsatisfiable by anything reading the product's own output: the only honest
+  > sentence about a calorie figure's weight was one the coach had no way to
+  > write. `derive/energy.py` now stamps `weight_kg`, `weight_as_of` and
+  > `weight_age_days` on **all three** calorie metrics on every day, and past the
+  > same 14-day horizon adds a `caveats` entry naming the lean — which
+  > `read/today_series.py` and `read/fitness.py` had, separately, been discarding
+  > along with the rest of the row's flags. The horizon is the SAME constant as
+  > BMI's, because it is the same question about the same quantity; only the
+  > response differs, and it differs on measured grounds (below).
+  > **The size, since the decision rests on it.** Total EE is `k·BMR +
+  > workout_cal`, where the MET integral `k` and the device-measured workout term
+  > are both weight-free, so the relative error a wrong mass puts on *any* of the
+  > three metrics is at most `10·Δkg / BMR` — about **0.6% per kilogram**, exact
+  > at `basal_calories` and smaller wherever a workout contributes. Reaching the
+  > **±15–20%** individual error the estimate already advertises
+  > ([[energy_expenditure_derivation]], Brage 2015) would take **~25 kg** of
+  > undetected drift, an amount no elapsed interval in this note's evidence
+  > predicts. And unlike a stale VO₂max — where detraining supplies a signed
+  > decay, so holding one flatters — a stale weight has **no direction**: two-week
+  > free-living drift is 0.26 ± 1.2 kg (Bhutani et al. 2017), a mean swamped by
+  > its own spread. Small and unsigned is what a caveat is for; large or
+  > flattering is what a withhold is for.
 - **The 14-day horizon is a judgement, not a finding.** No study we could verify
   says when a weight stops describing a person. It is anchored to the longest
   elapsed interval for which this note holds a *measured* drift figure (Bhutani
@@ -348,7 +376,12 @@ not the window.
    unpooled). Since #85 the payloads carry `as_of_date`, so "your weight" is
    always sayable as "the 79.9 kg you logged on the 4th". A weight-derived number
    that survives the freshness gate is still not a fresh *measurement*: calories
-   in particular can rest on a weight up to a year old. *(confidence: high)*
+   in particular can rest on a weight up to a year old, and since #127 they carry
+   `weight_as_of` / `weight_age_days` so that sentence is writable rather than
+   merely required. When a calorie figure ships a `caveats` entry, **say it** —
+   the tilt is small (≈0.6% per kilogram of drift) and unsigned, and both halves
+   are the honest framing: it is in the number, and it is not why the number is
+   wrong. *(confidence: high)*
 7. **When comparing weight over time, compare rolling means at least two weeks
    apart, never endpoints.** *(confidence: Emerging / practitioner consensus —
    derived from the sourced noise floor (Cheuvront 2004; Kutáč 2015; Bhutani's
@@ -474,7 +507,11 @@ not the window.
   - `read/today_series.py::_weight_card` nulls its `value` and returns a
     `withheld` block; `read/history.py::profile` keeps the value (it restores a
     reinstall) and dates it.
-  - `derive/energy.py` is unchanged — see the Honesty section.
+  - `derive/energy.py` **caveats** (#127): the value is served unchanged and all
+    three calorie metrics carry `weight_kg` / `weight_as_of` /
+    `weight_age_days`, plus a `caveats` entry past the horizon —
+    `freshness.caveat_block`, the sibling of `withheld_block`. See the Honesty
+    section for the arithmetic that chose that branch over a withhold.
 - **The weight's age was previously unmeasurable, and that was the real defect.**
   The app re-pushes its cached weight on every sync and `/api/profile` hands it
   straight back, so `ingest/upsert.py::upsert_weight` — which deduped only within
