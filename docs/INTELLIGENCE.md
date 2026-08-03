@@ -623,6 +623,40 @@ we bought". Before shipping the trim, either accept that bounded risk deliberate
 run ~200 pairs per arm (~$15/arm). `DEFAULT_TOP_N` is unchanged at 6 — the measurement
 was run as a throwaway arm, not as a landed change.
 
+> **⛔ CLOSED BY OWNER DECISION, 2026-08-02 — do not re-propose this as an open
+> question.** The ~200-pair confirmation arm above was scoped, costed (~$30) and then
+> **cancelled before a cent was spent**. The owner's instruction was *"don't run"* and
+> *"don't change top-N if the previous was working"*. So the state of this lever is:
+> **measured (−18.8% input tokens, sign established, ship rate flat) and deliberately
+> unspent.** `DEFAULT_TOP_N` stays at **6**; retrieval is not to be touched.
+>
+> It is recorded here rather than deleted because it is still the one priced item on the
+> board: it is what would buy the coach cap back from **20 to 30 questions at the same
+> $6.99** (`PRICING.md` §0's arithmetic — 30 × $0.179 = $6.98 today, ~$5.85 after the
+> trim). If raising the cap ever becomes worth doing, this is the measurement to finish;
+> until then the cap is 20 and the price is $6.99, both unchanged.
+>
+> For anyone who does finish it: the power arithmetic was done before the cancellation
+> and is worth keeping. The quantity is the **95% half-width on the paired ship-rate
+> difference** when the arms come out level — i.e. the regression size the run could
+> *exclude* — computed conditionally on the discordant pairs (Clopper–Pearson on `b`/`m`,
+> scaled by `m`/`n`), which is the same exact-binomial footing `stats.mcnemar` stands on:
+>
+> | discordance | n | excludes a regression bigger than |
+> |---|---|---|
+> | 2/14 — what #105 actually got | 14 | **±13.9 points** |
+> | 19% — §9.1's own top-N pilot (8/42) | 200 | **±6.3 points** |
+> | ~6% — the near-ceiling rate current `main` shows (§9.3, §9.4) | 200 | **±3.5 points** |
+> | 0 discordant pairs | 200 | **≤1.5 points** (rule of three) |
+>
+> So ~200 pairs buys a **2–4× sharper bound than #105 managed**, and lands inside single
+> digits under every discordance rate this pipeline has actually produced — enough to
+> exclude a regression small enough to matter. (Note this is a different metric from
+> §9.3's "±25 points", which is a *detectability* threshold — what a test would reject —
+> not a CI half-width; the two are not comparable and are stated separately on purpose.)
+> **The n was never the problem**; the decision was that a working retrieval path is not
+> worth re-opening.
+
 ### 9.2 · #99 — four of those causes were the validator, and the arm that could not be run
 
 The two false positives §9.1 flagged as "worth their own measured PR" turned out to be
@@ -716,3 +750,110 @@ shrinking it beats moving it. `PRICING.md` §0 now carries the consequence: a co
 question costs $0.179 and the 30-question cap is a pricing decision, not a pending
 experiment.
 
+
+### 9.4 · #95 — the merged morning generation, measured against the pair it replaced
+
+**What was owed.** §3.2's merge (`insights/morning.py`, shipped `0ff6a33`) had a
+**counted** saving — 72,103 → 37,787 input tokens, −47.6%, tiktoken over the real
+assembled prompts, no provider call — and **no measured quality number at all**. Its own
+docstring names the risk plainly: a merged surface that halves availability to save money
+is not a win. And because the merge falls back to exactly the pre-#95 independent
+generation when it fails validation, a regression could never appear as *worse answers*.
+It could only appear as **more fallbacks** — the merged candidate failing its gates, both
+surfaces paying for the merged attempt and then paying the old price anyway.
+
+**The design, and how it works inside the fingerprint.** The pre-#95 night sent two
+prompts; the post-#95 night sends one. A cross-commit arm is impossible here on purpose —
+the question set moved when `g_morning` was added, and `records.question_set_fingerprint`
+refuses the comparison. Nothing needed disabling: **all three prompts exist at HEAD**, and
+the two standalone ones are not archaeology, they are the shipped fallback path
+(`morning.generate_briefing`, `coaching.warm_daily_action`). So both arms come from **one
+run at one commit with one fingerprint**, and the unit of pairing is the **night**:
+
+    pre-#95 night  = g_briefing AND g_daily_action both ship at repeat r
+    post-#95 night = g_morning ships at repeat r
+
+Pairing on the repeat index is exactly as strong as the harness's own cross-arm pairing
+and no stronger — `stats.paired`'s docstring already says what it buys.
+
+Two harness gaps had to be closed first, both now permanent:
+
+- **`g_briefing` was missing.** The set carried the merge and *one* of the two prompts it
+  replaced, so it could measure `g_morning` against `g_daily_action` and never against the
+  pair a night actually ran. It is now the 18th question, imported from `BRIEFING_TASK`
+  like every other shipped prompt.
+- **`--only-id`.** Kind was too coarse to aim a paid run: the five shipped surfaces are
+  one kind, so measuring three of them bought all five. An unknown id raises rather than
+  narrowing silently — a typo that spends real money and reports a rate over a set nobody
+  chose is this package's own complaint one level up.
+
+**The arm.** Commit `006df42`, question set `7fe9b7cc12a6` (the three ids), **35 repeats ×
+3 questions = 105 paid runs**, 0 errors, 0 unmetered calls, 0 tool rounds. `grounded_ask`
+is called directly, so no repeat is served from the per-day `kv` cache.
+
+| | pre-#95 (the pair) | post-#95 (merged) |
+|---|---|---|
+| **night ships** | **35/35 = 100.0%** [95% CI 90.1–100.0] | **35/35 = 100.0%** [95% CI 90.1–100.0] |
+| paired (McNemar, exact) | — | 0 worse, 0 better, **p = 1.000** |
+| *F* — merged fails both attempts | — | **0/35 = 0.0%** [95% CI 0.0–9.9] |
+| first-pass gate rate | **13/35 = 37.1%** [23.2–53.7] | **28/35 = 80.0%** [64.1–90.0] |
+| paired (McNemar, exact) | — | 5 worse, 20 better, **p = 0.004 — significant** |
+| input tokens / night (provider-counted) | 109,557 | 48,763 — paired **−60,794 (−55.5%), 95% CI −73,277 to −48,310, sign ESTABLISHED** |
+| model calls / night | 2.80 | 1.20 — paired **−1.60, 95% CI −1.91 to −1.29, sign established** |
+| citations / shipped night | 3.83 | 3.37 — paired −0.46, **95% CI −1.13 to +0.21, sign NOT established** |
+| spend / night (PRICING §6 *assumed* rates) | $0.0556 | $0.0249 (−55.2%) |
+
+**Availability: a null, and the honest size of that null.** Not one generation of the 105
+fell back — no `fallback`, no `refused`, no gate WARNING logged anywhere in the run. With
+zero discordant pairs at n = 35 nights, the exact one-sided 95% bound on the merge's
+availability regression is **≤ 8.2 points**. So this does not prove equivalence; it says a
+regression bigger than about eight points is excluded, and none was seen. Note also that
+availability *cannot* be worse than the pair by construction — a failed merge falls back to
+the pair — so what n = 35 is really bounding is the **wasted merged attempt**, i.e. *F*.
+
+**And *F* is the number #95 actually needs.** The docstring derives break-even at **F =
+0.5**: the merge is cheaper whenever the merged candidate's total-failure rate is under
+half. Measured **F = 0/35, upper bound 9.9%** — a factor of five inside the line. Its cost
+model, evaluated on the measured rates (*a* = 0.800, *s* = 0.600), predicts **2.80 calls
+before and 1.20 after**; the arm observed **2.80 and 1.20**. The model was right.
+
+**The merged prompt clears the gates MORE often, and part of that is arithmetic.** 80.0%
+vs the pair's 37.1% is significant (p = 0.004), but a pair has two candidates and therefore
+two chances to fail: 48.6% × 71.4% = 34.7% against 37.1% observed, so the pair's joint rate
+is very nearly just the product. That is a real property of merging — one judged candidate
+instead of two — and not a claim that the prose got better. The like-for-like comparison,
+one candidate against one candidate, is **merged 80.0% vs briefing 48.6% (5 worse, 16
+better, p = 0.027 — significant)** and **merged 80.0% vs action 71.4% (6 worse, 9 better,
+p = 0.607 — not significant)**. The briefing prompt is the one the merge improves on; the
+action prompt it merely matches.
+
+**#95 UNDERSTATED its own saving.** The shipped claim is −47.6%; the billed traffic says
+**−55.5% per night, sign established**. The gap is not measurement error, it is what the
+counted figure could not see: tiktoken compared *prompts*, one call each, but a night does
+not cost one call each. The pair costs **2.80** calls and the merged call **1.20**, because
+every nudged retry re-sends the whole prompt. Removing a call removes its retries too.
+
+**Nulls, stated as nulls.** Citations per shipped night moved −0.46 with a 95% interval of
+−1.13 to +0.21 — **sign not established**. One merged answer cites about as much as two
+separate answers between them; this arm cannot say it cites less.
+
+**What this does not cover.** One seeded owner (the contract dataset), one model tier, one
+commit, one day of data repeated 35 times — the between-DAY variance is not inside any
+interval here, and the same limitation applies to §9.1 and §9.3. The rates are conditional
+on a pipeline whose ship rate currently sits at the ceiling; if the ship rate ever falls
+again, *F* is the number to re-measure, because it is the only one the merge's economics
+depend on.
+
+**Verdict: the merge holds.** It ships as reliably as the two prompts it replaced (null,
+bounded at ≤8.2 points), it wastes nothing (F = 0/35, break-even 0.5), it is significantly
+more likely to clear the gates on the first attempt, and it saves **more** than it claimed.
+Nothing changes as a result — which is the correct outcome for a measurement that was owed
+on something already shipped.
+
+**Spend.** Two runs (a 3-run calibration pilot and the 105-run arm). Harness figure, tokens
+**counted** × `PRICING.md` §6's **assumed** default-tier rates: **$2.90**. Actually
+**billed**, from the account's own `total_usage` across the window that contained both runs:
+**$0.568** ($204.568 → $205.136) — an upper bound, because the account is shared and other
+traffic lands in the same delta. The two differ by ~5× because §6's $0.50/$3.00 is the
+default-tier assumption, not the batch model's real price; every dollar figure in this
+section and in §9.1–9.3 is tokens × that assumption and should be read as one.

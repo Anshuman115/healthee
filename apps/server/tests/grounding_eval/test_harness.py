@@ -8,6 +8,7 @@ is both the eval's floor and the reason those two questions cost nothing to run.
 
 from __future__ import annotations
 
+import pytest
 from tests.grounding_eval import questions as qs
 from tests.grounding_eval.meter import MeteredClient
 from tests.grounding_eval.records import (
@@ -18,6 +19,7 @@ from tests.grounding_eval.records import (
 )
 from tests.grounding_eval.runner import _is_success, _outcome
 
+from healthee.insights import morning
 from healthee.insights.client import ChatResponse, Usage
 from healthee.insights.coach import CoachResult
 from healthee.insights.refusals import classify_refusal
@@ -151,3 +153,27 @@ def test_the_fingerprint_moves_when_a_prompt_is_edited() -> None:
 def test_narrowing_by_kind_returns_only_that_kind() -> None:
     assert {q.kind for q in qs.by_kind({qs.DATA})} == {qs.DATA}
     assert qs.by_kind(None) == qs.QUESTIONS
+
+
+def test_narrowing_by_id_returns_exactly_those_questions_in_the_sets_order() -> None:
+    """Kind is too coarse to aim a paid run — the five shipped surfaces are one kind."""
+    picked = qs.by_ids(["g_morning", "k_alcohol"])
+    assert [q.id for q in picked] == ["k_alcohol", "g_morning"]
+
+
+def test_an_unknown_question_id_raises_rather_than_running_a_smaller_set() -> None:
+    """A typo must not spend money and then report a rate over a set nobody chose."""
+    with pytest.raises(KeyError, match="g_mornning"):
+        qs.by_ids(["g_morning", "g_mornning"])
+
+
+def test_the_merged_morning_prompt_and_both_prompts_it_replaced_are_measurable() -> None:
+    """#95 asks 'as reliably as the two separate ones' — all three must be in the set.
+
+    And each must be the SHIPPED constant, not a copy: a paraphrase here would measure a
+    prompt the product does not send, which is the drift the set exists to prevent.
+    """
+    texts = {q.id: q.text for q in qs.QUESTIONS}
+    assert texts["g_morning"] == morning.MORNING_TASK
+    assert texts["g_briefing"] == morning.BRIEFING_TASK
+    assert texts["g_daily_action"] == morning.DAILY_ACTION_PROMPT

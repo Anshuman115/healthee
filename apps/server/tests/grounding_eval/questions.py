@@ -21,10 +21,15 @@ silently. ``sleep_insight`` is in the set because it was the worst measured surf
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from healthee.insights.coaching import _SLEEP_TONIGHT_PROMPT, SLEEP_TONIGHT_METRICS
 from healthee.insights.morning import (
+    BRIEFING_CONTEXT_DAYS,
+    BRIEFING_METRICS,
+    BRIEFING_TASK,
+    DAILY_ACTION_CONTEXT_DAYS,
     DAILY_ACTION_METRICS,
     DAILY_ACTION_PROMPT,
     MORNING_CONTEXT_DAYS,
@@ -178,7 +183,21 @@ QUESTIONS: tuple[EvalQuestion, ...] = (
         surface="grounded",
         text=DAILY_ACTION_PROMPT,
         metrics=DAILY_ACTION_METRICS,
-        context_days=30,
+        context_days=DAILY_ACTION_CONTEXT_DAYS,
+    ),
+    EvalQuestion(
+        # The OTHER prompt #95 merged, and still the merged call's own fallback
+        # (``morning.generate_briefing``). Without it the set could measure the merge and
+        # ONE of the two calls it replaced, so it could not say whether one merged
+        # generation ships as reliably as the PAIR that used to run every night — which is
+        # the only question #95 left open. Its predecessor pair is ``g_briefing`` AND
+        # ``g_daily_action``; a night needed both.
+        id="g_briefing",
+        kind="surface",
+        surface="grounded",
+        text=BRIEFING_TASK,
+        metrics=BRIEFING_METRICS,
+        context_days=BRIEFING_CONTEXT_DAYS,
     ),
     EvalQuestion(
         # The most expensive prompt the product sends nightly (#95): ONE JSON call whose
@@ -210,3 +229,22 @@ def by_kind(kinds: set[str] | None = None) -> tuple[EvalQuestion, ...]:
     if not kinds:
         return QUESTIONS
     return tuple(q for q in QUESTIONS if q.kind in kinds)
+
+
+def by_ids(ids: Sequence[str]) -> tuple[EvalQuestion, ...]:
+    """Exactly the named questions, in the SET's order (``--only-id`` on the CLI).
+
+    Kind is too coarse for a targeted paid measurement: the five shipped surfaces share
+    one kind, so a run aimed at three of them would buy all five. Returning the set's own
+    order rather than the caller's keeps the arm's fingerprint a property of *which*
+    questions ran, not of how they were typed on the command line.
+
+    An unknown id RAISES rather than narrowing silently: a typo would spend real money and
+    then report a rate over a set nobody chose, which is the failure mode this whole
+    package exists to prevent (standards §Errors — "no data" is not "operation failed").
+    """
+    unknown = sorted(set(ids) - {q.id for q in QUESTIONS})
+    if unknown:
+        raise KeyError(f"no such question id(s): {', '.join(unknown)}")
+    wanted = set(ids)
+    return tuple(q for q in QUESTIONS if q.id in wanted)

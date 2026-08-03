@@ -21,14 +21,25 @@ import sys
 from pathlib import Path
 
 from tests.grounding_eval import records, report
-from tests.grounding_eval.questions import by_kind
+from tests.grounding_eval.questions import EvalQuestion, by_ids, by_kind
 from tests.grounding_eval.runner import run_questions
 
 from healthee.core.db import close_pool
 
 
+def _select(args: argparse.Namespace) -> tuple[EvalQuestion, ...]:
+    """The questions this run will pay for — by id if named, else by kind.
+
+    ``--only-id`` exists because kind is too coarse to aim a paid run: the five shipped
+    surfaces are one kind, so measuring three of them would buy all five.
+    """
+    if args.only_id:
+        return by_ids(args.only_id)
+    return by_kind(set(args.only) if args.only else None)
+
+
 def _run(args: argparse.Namespace) -> int:
-    questions = by_kind(set(args.only) if args.only else None)
+    questions = _select(args)
     if not questions:
         print(f"no questions match --only {args.only}", file=sys.stderr)
         return 2
@@ -65,7 +76,13 @@ def main(argv: list[str]) -> int:
     run_cmd.add_argument("--repeats", type=int, default=3, help="runs per question (default 3)")
     run_cmd.add_argument("--out", required=True, help="where to write the arm's JSON")
     run_cmd.add_argument("--label", default="arm", help="a name for this arm")
-    run_cmd.add_argument("--only", nargs="*", help="restrict to these question kinds")
+    narrowing = run_cmd.add_mutually_exclusive_group()
+    narrowing.add_argument("--only", nargs="*", help="restrict to these question kinds")
+    narrowing.add_argument(
+        "--only-id",
+        nargs="+",
+        help="restrict to these exact question ids (an unknown id is an error, not a smaller run)",
+    )
     run_cmd.set_defaults(func=_run)
 
     cmp_cmd = sub.add_parser("compare", help="paired comparison of two saved arms (free)")
