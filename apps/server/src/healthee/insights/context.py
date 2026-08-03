@@ -9,6 +9,14 @@ the seam bug is impossible by construction.
 
 The session/log/finding sections live in ``context_sessions.py``; this module
 orchestrates all of them into one markdown context string.
+
+**No statistic here is computed across two instruments (#125).** The three reductions
+below (a z-score, a 7-day mean, a 30-day median) and the anomaly scan all ask
+``context_provenance.InstrumentGuard`` first, and a metric whose window holds more than
+one instrument is not reduced at all — it is named in the guard's own section instead.
+[[hr_reserve_vo2max]] Directive 4 forbids the average, #117 made it impossible inside
+``derive/vo2max_tier.py``, and this is the other half: the tier picks one instrument per
+DAY, and nothing here may re-mix the days it wrote.
 """
 
 from __future__ import annotations
@@ -26,12 +34,27 @@ from healthee.analytics.baselines import (
 )
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import USER_TODAY_SQL, user_today
-from healthee.insights.context_provenance import instrument_legends, instrument_tag
+from healthee.insights.context_provenance import (
+    InstrumentGuard,
+    guard_from_rows,
+    instrument_legends,
+    instrument_tag,
+    registered_metrics,
+)
 from healthee.insights.context_sessions import (
     findings_section,
     manual_entries_section,
     sleep_section,
 )
+
+# Every statistic below is computed against a 30-day baseline, and the anomaly scan walks
+# 14 days each carrying its own 30-day baseline — so the widest span any single number here
+# can rest on is their sum. The instrument guard reads exactly that span: ONE window, so
+# the four sections cannot disagree about whether a metric mixed instruments, and erring
+# wide is the safe direction (it withholds a statistic, it never invents one).
+_BASELINE_WINDOW_DAYS = 30
+_ANOMALY_LOOKBACK_DAYS = 14
+_INSTRUMENT_WINDOW_DAYS = _BASELINE_WINDOW_DAYS + _ANOMALY_LOOKBACK_DAYS
 
 # The subset shown in the compact "recent daily metrics" pivot: (metric, column).
 # All are derived_daily rows (v2 names) — the exact set legacy's broken v1 query
@@ -50,8 +73,13 @@ _RECENT_COLUMNS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _today_snapshot(user_id: UUID, tz: str) -> str:
-    """Latest value per daily metric vs its personal 30-day baseline (z-score)."""
+def _today_snapshot(user_id: UUID, tz: str, guard: InstrumentGuard) -> str:
+    """Latest value per daily metric vs its personal 30-day baseline (z-score).
+
+    The z-score is a comparison against a median, so a blocked metric is skipped whole: a
+    value from one instrument scored against a median over two measures the instrument
+    change, not the owner.
+    """
     lines = [
         "## Today snapshot (latest day vs personal 30d baseline)",
         "| metric | latest | median | z |",
@@ -59,23 +87,28 @@ def _today_snapshot(user_id: UUID, tz: str) -> str:
     ]
     any_row = False
     for metric in DEFAULT_DAILY_METRICS:
-        latest = latest_value(user_id, metric)
+        latest = None if guard.blocks(metric) else latest_value(user_id, metric)
         if latest is None:
             continue
         any_row = True
         day, value = latest
-        baseline = compute_baseline(user_id, tz, metric, window_days=30)
+        baseline = compute_baseline(user_id, tz, metric, window_days=_BASELINE_WINDOW_DAYS)
         z = baseline.z_score(value)
         z_str = (
             f"{z:+.2f}σ{' ⚠️' if z is not None and abs(z) >= 2 else ''}" if z is not None else "-"
         )
         med = f"{baseline.median:.1f}" if baseline.median is not None else "-"
-        lines.append(f"| {metric} | {value:.1f} ({day}) | {med} | {z_str} |")
+        lines.append(f"| {guard.label(metric)} | {value:.1f} ({day}) | {med} | {z_str} |")
     return "\n".join(lines) if any_row else ""
 
 
-def _trends(user_id: UUID, tz: str) -> str:
-    """7-day average vs 30-day median per metric — trend direction."""
+def _trends(user_id: UUID, tz: str, guard: InstrumentGuard) -> str:
+    """7-day average vs 30-day median per metric — trend direction.
+
+    Both halves are reductions and the Δ between them is a third, so a blocked metric
+    produces no row: across an instrument change the arrow would report the change of
+    instrument as a change in the owner's fitness.
+    """
     lines = [
         "## Trend summary (7-day avg vs 30-day median)",
         "| metric | 7d avg | 30d median | Δ | dir |",
@@ -84,10 +117,14 @@ def _trends(user_id: UUID, tz: str) -> str:
     any_row = False
     with tenant_transaction(user_id) as cur:
         for metric in DEFAULT_DAILY_METRICS:
+            if guard.blocks(metric):
+                continue
             row = _seven_day_avg(cur, user_id, tz, metric)
             # On THIS cursor: the self-opening form would borrow a second pooled
             # connection per metric while this one is held (see compute_baselines).
-            baseline = compute_baseline_cur(cur, user_id, tz, metric, window_days=30)
+            baseline = compute_baseline_cur(
+                cur, user_id, tz, metric, window_days=_BASELINE_WINDOW_DAYS
+            )
             if row is None or baseline.median is None:
                 continue
             any_row = True
@@ -98,7 +135,8 @@ def _trends(user_id: UUID, tz: str) -> str:
                 else ("↑" if delta > 0 else "↓")
             )
             lines.append(
-                f"| {metric} | {row:.1f} | {baseline.median:.1f} | {delta:+.1f} | {arrow} |"
+                f"| {guard.label(metric)} | {row:.1f} | {baseline.median:.1f} | "
+                f"{delta:+.1f} | {arrow} |"
             )
     return "\n".join(lines) if any_row else ""
 
@@ -158,32 +196,49 @@ def _fmt(value: float | None) -> str:
     return str(int(value)) if float(value).is_integer() else f"{value:.1f}"
 
 
-def _baselines(user_id: UUID, tz: str) -> str:
-    """Robust personal baselines (median ± σ, quartiles) for the daily metrics."""
+def _baselines(user_id: UUID, tz: str, guard: InstrumentGuard) -> str:
+    """Robust personal baselines (median ± σ, quartiles) for the daily metrics.
+
+    ``n`` is days-with-a-value out of the window — the SAME count ``analytics/coverage.py``
+    publishes as data coverage (INTELLIGENCE §3.1 pins it to ``Baseline.n``), so the header
+    names the window and the model can read coverage off it rather than assume.
+    """
     lines = [
-        "## Personal baselines (trailing 30d, robust median ± σ)",
-        "| metric | n | median | ± σ | p25–p75 |",
+        f"## Personal baselines (trailing {_BASELINE_WINDOW_DAYS}d, robust median ± σ)",
+        f"| metric | n/{_BASELINE_WINDOW_DAYS}d | median | ± σ | p25–p75 |",
         "|---|---|---|---|---|",
     ]
     any_row = False
-    for b in compute_all(user_id, tz, DEFAULT_DAILY_METRICS, 30):
-        if b.median is None:
+    for b in compute_all(user_id, tz, DEFAULT_DAILY_METRICS, _BASELINE_WINDOW_DAYS):
+        if b.median is None or guard.blocks(b.metric):
             continue
         any_row = True
         sd = b.robust_sd
         sd_str = f"±{sd:.1f}" if sd is not None else "-"
         band = f"{b.p25:.0f}–{b.p75:.0f}" if b.p25 is not None and b.p75 is not None else "-"
-        lines.append(f"| {b.metric} | {b.n} | {b.median:.1f} | {sd_str} | {band} |")
+        lines.append(f"| {guard.label(b.metric)} | {b.n} | {b.median:.1f} | {sd_str} | {band} |")
     return "\n".join(lines) if any_row else ""
 
 
-def _anomalies(user_id: UUID, tz: str) -> str:
-    """Recent |z|≥2 deviations vs personal baseline, each with its note ids."""
-    rows = anomalies_mod.detect(user_id, tz, days_back=14, window_days=30)
+def _anomalies(user_id: UUID, tz: str, guard: InstrumentGuard) -> str:
+    """Recent |z|≥2 deviations vs personal baseline, each with its note ids.
+
+    An anomaly IS a z-score, so a blocked metric's anomalies are dropped here rather than
+    filtered in ``analytics/anomalies``: the detector is shared with surfaces that do not
+    assemble this context, and the judgement "this window may not be reduced" belongs
+    beside the reductions it governs.
+    """
+    rows = [
+        a
+        for a in anomalies_mod.detect(
+            user_id, tz, days_back=_ANOMALY_LOOKBACK_DAYS, window_days=_BASELINE_WINDOW_DAYS
+        )
+        if not guard.blocks(a.metric)
+    ]
     if not rows:
         return ""
     lines = [
-        "## Recent anomalies (last 14d, |z|≥2 vs personal baseline)",
+        f"## Recent anomalies (last {_ANOMALY_LOOKBACK_DAYS}d, |z|≥2 vs personal baseline)",
         "| date | metric | value | z | dir | evidence notes |",
         "|---|---|---|---|---|---|",
     ]
@@ -203,17 +258,37 @@ def build_context(user_id: UUID, tz: str, *, days: int = 14, question: str | Non
     read path (standards §Performance: LLM generation is cached, off the read path).
     """
     with tenant_transaction(user_id) as cur:
+        guard = _instrument_guard(cur, user_id, tz)
         session_sections = [
             _recent_daily(cur, user_id, tz, days),
             sleep_section(cur, user_id, tz, days),
             manual_entries_section(cur, user_id, tz, days),
         ]
     sections = [
-        _today_snapshot(user_id, tz),
-        _trends(user_id, tz),
+        _today_snapshot(user_id, tz, guard),
+        _trends(user_id, tz, guard),
         *session_sections,
-        _baselines(user_id, tz),
-        _anomalies(user_id, tz),
+        _baselines(user_id, tz, guard),
+        _anomalies(user_id, tz, guard),
         findings_section(user_id, question),
+        # Last, and never omitted when it fires: it is the statement that the numbers the
+        # sections above did NOT print were refused rather than absent.
+        guard.section(),
     ]
     return "\n\n".join(s for s in sections if s)
+
+
+def _instrument_guard(cur, user_id: UUID, tz: str) -> InstrumentGuard:
+    """Which instruments each instrument-bearing metric's reduction window holds (#125).
+
+    ONE grouped query for every registered metric, on the caller's cursor. ``DISTINCT``
+    in SQL rather than in Python because the guard needs the SET of instruments, not the
+    rows: the window is up to 44 days × the registered metrics, and none of those values
+    is ever rendered.
+    """
+    cur.execute(
+        "SELECT DISTINCT metric, flags->>'method' FROM derived_daily "
+        f"WHERE user_id = %s AND metric = ANY(%s) AND day > ({USER_TODAY_SQL} - %s::int)",
+        (user_id, list(registered_metrics()), tz, _INSTRUMENT_WINDOW_DAYS),
+    )
+    return guard_from_rows(cur.fetchall(), _INSTRUMENT_WINDOW_DAYS)
