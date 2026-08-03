@@ -62,6 +62,20 @@ owner recorded a qualifying effort, which for a real owner is a handful of days 
 Today-or-nothing would mean the measured tier of ``vo2max_estimate`` could never win, so
 it gets a horizon too, by the same rule and for the same reason. Its evidence is entirely
 its own and sits with :data:`MEASURED_VO2MAX_MAX_AGE_DAYS`.
+
+## One question, TWO answers: withhold and caveat (#127)
+
+Answering "is this input a claim about this day" does not settle what to do about a *no*.
+:func:`withheld_block` refuses; :func:`caveat_block` serves the number and names the tilt.
+Both live here, next to each other and next to the one question, precisely so the choice
+between them is visible as a choice — a metric that quietly picked one is how a rule ends
+up applied in two places and two ways.
+
+The branch is the METRIC's decision and is argued at its call site from the SIZE of the
+tilt against that metric's own published error: ``derive/vo2max.py`` withholds,
+``derive/energy.py`` caveats, and each says why. What is never the metric's decision is
+the question or its horizon — those are :func:`weight_is_stale` for every consumer, which
+is why a stale weight cannot mean 14 days to the fitness card and 30 to the calorie card.
 """
 
 from __future__ import annotations
@@ -281,5 +295,38 @@ def withheld_block(
         "message": message,
         "last_as_of_date": last_day.isoformat() if last_day else None,
         "age_days": (today - last_day).days if last_day else None,
+        **extra,
+    }
+
+
+def caveat_block(reason: str, message: str, on: date, as_of: date, **extra: object) -> dict:
+    """The ``caveat`` block: the value IS served, and this is what tilts it.
+
+    :func:`withheld_block`'s sibling, deliberately the same shape because they are two
+    answers to ONE question, not two questions. ``analytics/biological_age.py`` fixed the
+    vocabulary and the three states are not interchangeable::
+
+        withheld   you could have this; here is the action that brings it back
+        excluded   nobody can price this, ever
+        caveats    this IS in your number, and here is which way it leans
+
+    ``extra`` carries the metric's own sizing of the lean — the whole point of choosing
+    this branch over a withhold is that the tilt was measured and found small, so the
+    number that made the decision travels with the disclosure rather than staying in a
+    commit message.
+
+    The paired half of the contract mirrors ``withheld_block``'s and is not optional: the
+    value stays NON-null, and this block must reach every surface that renders it. A
+    caveat only the database can see is the same silence somewhere new.
+
+    ``age_days`` is an ABSOLUTE distance, for the reason :func:`weight_age_days` gives —
+    an input dated long after the day is exactly as uninformative about it as one dated
+    long before, and a signed measure would report a negative age and read as fresh.
+    """
+    return {
+        "reason": reason,
+        "message": message,
+        "as_of_date": as_of.isoformat(),
+        "age_days": abs((on - as_of).days),
         **extra,
     }

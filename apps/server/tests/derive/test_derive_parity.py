@@ -52,6 +52,17 @@ other row is byte-identical to legacy):
       instrument spoke, which is what the old shape could not say. (Legacy did not
       need to: it recomputed this cell from the per-minute sum and then let ingest
       paste the strap's counter over the top, which is the defect #121 closes.)
+  M5  total_calories / active_calories / basal_calories .flags — four new stamps on
+      every row (#127): `weight_kg`, `weight_as_of`, `weight_age_days` and `caveats`.
+      All three metrics rest on a Mifflin-St Jeor BMR whose mass is the owner's last
+      logged weight, and legacy stamped nothing about which weight or how old — the
+      stale-as-current class #85 closed for BMI and missed here. NO VALUE MOVES and no
+      other metric's flags change (verified row-by-row at the re-baseline): the weight
+      is CAVEATED past `freshness.WEIGHT_MAX_AGE_DAYS`, never withheld and never
+      substituted, so the science is byte-identical to legacy and only the provenance is
+      new. The seed's weight is logged 1-8 days before the derived days, so `caveats` is
+      `[]` on every fixture row — the gate's own behaviour is pinned in
+      `test_calorie_weight_staleness.py`, which is where a fixture cannot reach.
   C2  sleep efficiency — the formula changed to tst/(tst+wake) (≤100% by
       construction) but the seed's tst+wake (480) equals its wall-clock span (480),
       so efficiency_pct stays 95.8 and NO sleep row moves. Verified: zero sleep
