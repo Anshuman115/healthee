@@ -308,6 +308,7 @@
   "metrics": [
     {
       "anomalous": false,
+      "caveats": [],
       "label": "Resting HR",
       "median_30d": 55.0,
       "metric": "rhr_daily",
@@ -317,6 +318,7 @@
     },
     {
       "anomalous": false,
+      "caveats": [],
       "label": "Steps",
       "median_30d": 8200.0,
       "metric": "steps_total",
@@ -326,6 +328,7 @@
     },
     {
       "anomalous": false,
+      "caveats": [],
       "label": "Active calories",
       "median_30d": 620.0,
       "metric": "active_calories",
@@ -335,6 +338,7 @@
     },
     {
       "anomalous": false,
+      "caveats": [],
       "label": "Total calories",
       "median_30d": 2350.0,
       "metric": "total_calories",
@@ -344,6 +348,7 @@
     },
     {
       "anomalous": false,
+      "caveats": [],
       "label": "BMR (resting)",
       "median_30d": 1730.0,
       "metric": "basal_calories",
@@ -353,6 +358,7 @@
     },
     {
       "anomalous": false,
+      "caveats": [],
       "label": "Distance",
       "median_30d": 6100.0,
       "metric": "distance_m_daily",

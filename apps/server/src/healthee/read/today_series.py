@@ -73,7 +73,7 @@ def _derived_card(
     latest = reads.latest.get(metric) if reads else latest_derived(cur, user_id, metric)
     if not latest:
         return None
-    day, value, _flags = latest
+    day, value, flags = latest
     meta = METRIC_META[metric]
     # Preloaded baseline when the aggregator supplied one; else compute on demand —
     # on THIS cursor, so a card whose metric the aggregator forgot to preload costs an
@@ -90,6 +90,12 @@ def _derived_card(
         "median_30d": baseline.median,
         "z": z,
         "anomalous": z is not None and abs(z) >= 2,
+        # A PERMANENT key, empty for every metric with nothing to disclose (#127). The
+        # derive layer decides what leans and why — this card only refuses to drop it,
+        # which is the half that was missing: `derive/energy.py` could have stamped a
+        # stale-weight caveat for months and no reader would have rendered it, because
+        # this function discarded `flags` outright.
+        "caveats": flags.get("caveats") or [],
     }
 
 

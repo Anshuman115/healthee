@@ -268,15 +268,21 @@ def activity_metric(
     cur: Cur, user_id: UUID, tz: str, candidates: list[str], days: int = 30
 ) -> dict | None:
     """Latest value + date + N-day series for the first candidate metric with data
-    (steps/calories/distance). v2-native ``derived_daily`` read."""
+    (steps/calories/distance). v2-native ``derived_daily`` read.
+
+    ``caveats`` is a permanent key and empty for a metric with nothing to disclose — the
+    same contract ``read/today_series.py::_derived_card`` holds, because the Activity tab
+    and the Today card render the same two calorie rows and must not differ on whether the
+    weight behind them is current (#127)."""
     for cand in candidates:
         latest = latest_derived(cur, user_id, cand)
         if latest:
-            day, value, _flags = latest
+            day, value, flags = latest
             return {
                 "metric": cand,
                 "value": round(value, 1),
                 "as_of_date": day.isoformat(),
+                "caveats": flags.get("caveats") or [],
                 "trend": derived_series(cur, user_id, tz, cand, days),
             }
     return None

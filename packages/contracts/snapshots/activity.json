@@ -1,6 +1,7 @@
 {
   "active_calories": {
     "as_of_date": "2026-07-31",
+    "caveats": [],
     "metric": "active_calories",
     "trend": [
       {
@@ -277,6 +278,7 @@
   },
   "distance": {
     "as_of_date": "2026-07-31",
+    "caveats": [],
     "metric": "distance_m_daily",
     "trend": [
       {
@@ -609,6 +611,7 @@
   ],
   "steps": {
     "as_of_date": "2026-07-31",
+    "caveats": [],
     "metric": "steps_total",
     "trend": [
       {
@@ -736,6 +739,7 @@
   },
   "total_calories": {
     "as_of_date": "2026-07-31",
+    "caveats": [],
     "metric": "total_calories",
     "trend": [
       {

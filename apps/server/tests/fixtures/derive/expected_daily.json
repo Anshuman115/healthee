@@ -1,13 +1,23 @@
 [
   {
     "day": "2026-03-01",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 1,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "active_calories",
     "value": 370.6232
   },
   {
     "day": "2026-03-01",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 1,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "basal_calories",
     "value": 1638.75
   },
@@ -34,8 +44,8 @@
     "day": "2026-03-01",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725,
-      "source": "steps_per_minute"
+      "source": "steps_per_minute",
+      "stride_m": 0.725
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -219,8 +229,12 @@
     "day": "2026-03-01",
     "flags": {
       "bmr": 1639,
+      "caveats": [],
       "pal": 1.23,
       "stride_m": 0.725,
+      "weight_age_days": 1,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0,
       "workout_cal": 0
     },
     "metric": "total_calories",
@@ -228,13 +242,23 @@
   },
   {
     "day": "2026-03-02",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 2,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "active_calories",
     "value": 370.6232
   },
   {
     "day": "2026-03-02",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 2,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "basal_calories",
     "value": 1638.75
   },
@@ -261,8 +285,8 @@
     "day": "2026-03-02",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725,
-      "source": "steps_per_minute"
+      "source": "steps_per_minute",
+      "stride_m": 0.725
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -446,8 +470,12 @@
     "day": "2026-03-02",
     "flags": {
       "bmr": 1639,
+      "caveats": [],
       "pal": 1.23,
       "stride_m": 0.725,
+      "weight_age_days": 2,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0,
       "workout_cal": 0
     },
     "metric": "total_calories",
@@ -455,13 +483,23 @@
   },
   {
     "day": "2026-03-03",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 3,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "active_calories",
     "value": 370.6232
   },
   {
     "day": "2026-03-03",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 3,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "basal_calories",
     "value": 1638.75
   },
@@ -488,8 +526,8 @@
     "day": "2026-03-03",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725,
-      "source": "steps_per_minute"
+      "source": "steps_per_minute",
+      "stride_m": 0.725
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -673,8 +711,12 @@
     "day": "2026-03-03",
     "flags": {
       "bmr": 1639,
+      "caveats": [],
       "pal": 1.23,
       "stride_m": 0.725,
+      "weight_age_days": 3,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0,
       "workout_cal": 0
     },
     "metric": "total_calories",
@@ -683,9 +725,9 @@
   {
     "day": "2026-03-03",
     "flags": {
-      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
+      "method": "jurca_non_exercise",
       "rhr_med": 55.0,
       "see_ml_kg_min": 5.075,
       "sex": "male",
@@ -696,13 +738,23 @@
   },
   {
     "day": "2026-03-04",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 4,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "active_calories",
     "value": 526.2404
   },
   {
     "day": "2026-03-04",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 4,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "basal_calories",
     "value": 1638.75
   },
@@ -729,8 +781,8 @@
     "day": "2026-03-04",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725,
-      "source": "steps_per_minute"
+      "source": "steps_per_minute",
+      "stride_m": 0.725
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -914,8 +966,12 @@
     "day": "2026-03-04",
     "flags": {
       "bmr": 1639,
+      "caveats": [],
       "pal": 1.32,
       "stride_m": 0.725,
+      "weight_age_days": 4,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0,
       "workout_cal": 200
     },
     "metric": "total_calories",
@@ -924,9 +980,9 @@
   {
     "day": "2026-03-04",
     "flags": {
-      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
+      "method": "jurca_non_exercise",
       "rhr_med": 55.5,
       "see_ml_kg_min": 5.075,
       "sex": "male",
@@ -937,13 +993,23 @@
   },
   {
     "day": "2026-03-05",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 5,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "active_calories",
     "value": 370.6232
   },
   {
     "day": "2026-03-05",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 5,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "basal_calories",
     "value": 1638.75
   },
@@ -970,8 +1036,8 @@
     "day": "2026-03-05",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725,
-      "source": "steps_per_minute"
+      "source": "steps_per_minute",
+      "stride_m": 0.725
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -1155,8 +1221,12 @@
     "day": "2026-03-05",
     "flags": {
       "bmr": 1639,
+      "caveats": [],
       "pal": 1.23,
       "stride_m": 0.725,
+      "weight_age_days": 5,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0,
       "workout_cal": 0
     },
     "metric": "total_calories",
@@ -1165,9 +1235,9 @@
   {
     "day": "2026-03-05",
     "flags": {
-      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
+      "method": "jurca_non_exercise",
       "rhr_med": 55.0,
       "see_ml_kg_min": 5.075,
       "sex": "male",
@@ -1178,13 +1248,23 @@
   },
   {
     "day": "2026-03-06",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 6,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "active_calories",
     "value": 370.6232
   },
   {
     "day": "2026-03-06",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 6,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "basal_calories",
     "value": 1638.75
   },
@@ -1211,8 +1291,8 @@
     "day": "2026-03-06",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725,
-      "source": "steps_per_minute"
+      "source": "steps_per_minute",
+      "stride_m": 0.725
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -1454,8 +1534,12 @@
     "day": "2026-03-06",
     "flags": {
       "bmr": 1639,
+      "caveats": [],
       "pal": 1.23,
       "stride_m": 0.725,
+      "weight_age_days": 6,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0,
       "workout_cal": 0
     },
     "metric": "total_calories",
@@ -1464,9 +1548,9 @@
   {
     "day": "2026-03-06",
     "flags": {
-      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
+      "method": "jurca_non_exercise",
       "rhr_med": 55.0,
       "see_ml_kg_min": 5.075,
       "sex": "male",
@@ -1477,13 +1561,23 @@
   },
   {
     "day": "2026-03-07",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 7,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "active_calories",
     "value": 370.6232
   },
   {
     "day": "2026-03-07",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 7,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "basal_calories",
     "value": 1638.75
   },
@@ -1510,8 +1604,8 @@
     "day": "2026-03-07",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725,
-      "source": "steps_per_minute"
+      "source": "steps_per_minute",
+      "stride_m": 0.725
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -1753,8 +1847,12 @@
     "day": "2026-03-07",
     "flags": {
       "bmr": 1639,
+      "caveats": [],
       "pal": 1.23,
       "stride_m": 0.725,
+      "weight_age_days": 7,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0,
       "workout_cal": 0
     },
     "metric": "total_calories",
@@ -1763,9 +1861,9 @@
   {
     "day": "2026-03-07",
     "flags": {
-      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
+      "method": "jurca_non_exercise",
       "rhr_med": 55.0,
       "see_ml_kg_min": 5.075,
       "sex": "male",
@@ -1776,13 +1874,23 @@
   },
   {
     "day": "2026-03-08",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 8,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "active_calories",
     "value": 394.5217
   },
   {
     "day": "2026-03-08",
-    "flags": {},
+    "flags": {
+      "caveats": [],
+      "weight_age_days": 8,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0
+    },
     "metric": "basal_calories",
     "value": 1638.75
   },
@@ -1809,8 +1917,8 @@
     "day": "2026-03-08",
     "flags": {
       "method": "stride",
-      "stride_m": 0.725,
-      "source": "steps_per_minute"
+      "source": "steps_per_minute",
+      "stride_m": 0.725
     },
     "metric": "distance_m_daily",
     "value": 2249.5725
@@ -2052,8 +2160,12 @@
     "day": "2026-03-08",
     "flags": {
       "bmr": 1639,
+      "caveats": [],
       "pal": 1.24,
       "stride_m": 0.725,
+      "weight_age_days": 8,
+      "weight_as_of": "2026-02-28",
+      "weight_kg": 72.0,
       "workout_cal": 0
     },
     "metric": "total_calories",
@@ -2062,9 +2174,9 @@
   {
     "day": "2026-03-08",
     "flags": {
-      "method": "jurca_non_exercise",
       "age_years": 36,
       "bmi": 23.5,
+      "method": "jurca_non_exercise",
       "rhr_med": 56.0,
       "see_ml_kg_min": 5.075,
       "sex": "male",

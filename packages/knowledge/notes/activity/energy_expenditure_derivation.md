@@ -120,6 +120,22 @@ basal_calories  = RMR
 - Anchored to the user's RMR, RHR, VO₂max → **no Keytel-style overcount**.
 - Without **individual** HR–VO₂ calibration (a step/treadmill test), expect TEE bias < 5%
   on average but **individual error ≈ ±15–20%** [Brage 2015]. Label "estimate".
+- **The mass behind BMR can be old, and the number says so** *(added 2026-08-03, #127 —
+  this note was previously silent on it)*. Mifflin–St Jeor's mass is the owner's last
+  **manually logged** weight, which can be arbitrarily stale
+  ([[weight_bmi_body_composition]]); this note only ever said "never fabricate when
+  profile/weight is **missing**", which does not cover a weight that is present and no
+  longer describes the person. It is **caveated, not withheld**, and the reason is
+  measured rather than preferred: TEE is `k·BMR + workout_cal`, and neither the MET
+  integral `k` nor the device-measured workout term sees the weight, so the relative
+  error a wrong mass puts on `total_calories`, `active_calories` and `basal_calories`
+  alike is at most `10·Δkg / BMR` — about **0.6% per kilogram**, exact at
+  `basal_calories`. Reaching the ±15–20% individual error above would take **~25 kg** of
+  drift. Past `derive/freshness.WEIGHT_MAX_AGE_DAYS` (14 days — the same horizon BMI
+  uses, because it is the same question about the same quantity) every calorie row
+  carries a `caveats` entry naming the lean, and every row on every day carries
+  `weight_kg` / `weight_as_of` / `weight_age_days`. Nothing is withheld and no value
+  moves: a refusal this size is one no evidence asked for.
 - HR elevation from stress/heat with no movement can still over-attribute a little; the
   movement branch + %HRR anchoring bound it.
 - Raw wrist accelerometer counts (not exposed by the strap) would let us implement the full
@@ -143,6 +159,13 @@ free-living minutes (rejected — overcounts).
    estimate. *(high)*
 3. Label calories an **estimate** (individual ±15–20%); never fabricate when
    profile/weight is missing. *(high)*
+4. **When a calorie figure carries a stale-weight `caveats` entry, name it** — say which
+   weight it was built on and when it was logged, and say the tilt is small (≈0.6% per
+   kilogram) and has no direction. Never present the figure as resting on a current
+   measurement of the person's mass, and never withhold it over the caveat.
+   *(confidence: high — the size is arithmetic from the Mifflin coefficient and this
+   note's own ±15–20% band; the disclosure duty is [[weight_bmi_body_composition]]
+   Directive 6)*
 
 ## References
 
@@ -169,3 +192,9 @@ free-living minutes (rejected — overcounts).
 - **Honesty rules**: anchored MET-by-state, never Keytel/HR→EE for free-living (the
   documented rejected approaches above); label calories an estimate (±15–20% individual);
   never fabricate inputs. Related: [[distance_from_steps]].
+- **Weight provenance (#127)**: `derive/energy.py` stamps `weight_kg`, `weight_as_of` and
+  `weight_age_days` on all three metrics, and `caveats` (via
+  `derive/freshness.caveat_block`) past `WEIGHT_MAX_AGE_DAYS`. It reaches the wire through
+  `read/today_series.py::_derived_card` and `read/fitness.py::activity_metric`, where
+  `caveats` is a permanent key and `[]` means "checked, nothing to disclose".
+  [[weight_bmi_body_composition]].
