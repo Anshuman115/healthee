@@ -33,7 +33,13 @@ from healthee.core.supabase_auth import mint_device_token
 from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    # Owners are provisioned here (explicitly, or JIT on the first authenticated
+    # request) and were never removed — 7 stray `app_user` rows per run, ~1,288 on a
+    # box that had been in use. `--user`-less ops tooling walks every one (#119).
+    pytest.mark.usefixtures("owner_sweep"),
+]
 
 _LEGACY_TOKEN = "ingest-attribution-legacy-token"
 _SECRET = "ingest-attribution-supabase-secret-0123456789abcdef"

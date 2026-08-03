@@ -31,7 +31,12 @@ from tests.conftest import entitle
 from healthee.core import allowance
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    # `seed_owner_b` provisions owner B and nothing removed it — one stray
+    # `app_user` row per run that `--user`-less ops tooling then walks (#119).
+    pytest.mark.usefixtures("owner_sweep"),
+]
 
 FEATURE = "coach"
 

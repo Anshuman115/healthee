@@ -29,7 +29,10 @@ def _db_reachable() -> bool:
 
 
 @pytest.fixture
-def seeded_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[TestClient, dict]]:
+def seeded_client(
+    monkeypatch: pytest.MonkeyPatch,
+    owner_sweep: None,  # noqa: ARG001 — `seed_owner_b` provisions an owner; sweep it (#119)
+) -> Iterator[tuple[TestClient, dict]]:
     """Seed the known dataset and yield (client, auth-headers). Skips without a DB."""
     monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
     get_settings.cache_clear()

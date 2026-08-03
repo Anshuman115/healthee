@@ -20,7 +20,13 @@ from healthee.core.db import tenant_transaction
 from healthee.derive.freshness import NOT_DERIVED_YET
 from healthee.derive.illness import INSUFFICIENT_BASELINE, derive_illness_flag
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    # Owners are provisioned here (explicitly, or JIT on the first authenticated
+    # request) and were never removed — 7 stray `app_user` rows per run, ~1,288 on a
+    # box that had been in use. `--user`-less ops tooling walks every one (#119).
+    pytest.mark.usefixtures("owner_sweep"),
+]
 
 NIGHT = seed.NIGHT
 

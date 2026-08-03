@@ -45,6 +45,7 @@ from tests._isolation import TEST_APP_ROLE, TEST_DATABASE, create_database, drop
 from healthee.core import db as db_module
 from healthee.core import logging as logging_module
 from healthee.core.config import get_settings
+from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate, provision_app_role
 from healthee.insights import credits, transport_health
 
@@ -248,11 +249,36 @@ def app_role_pool() -> Iterator[str | None]:
     migrate.apply_migrations()
     provision_app_role.provision()
     yield TEST_APP_ROLE
+    leaked = owner_ids() - {SENTINEL_USER_ID}
     db_module.close_pool()
     drop_test_role(TEST_APP_ROLE)
     monkeypatch.undo()
     get_settings.cache_clear()
     drop_database(admin_url)
+    _refuse_leaked_owners(leaked)
+
+
+def _refuse_leaked_owners(leaked: set[UUID]) -> None:
+    """Fail the session when it leaves `app_user` rows behind (#119).
+
+    The private database means a leak no longer poisons the NEXT run, so nothing would
+    ever complain — and the leak itself is still a bug: `--user`-less ops tooling
+    (`db/rederive.py`) walks every active owner, so a suite that invents owners and does
+    not remove them makes those runs slower and less deterministic the longer a
+    developer's box has been in use. It reached ~1,288 rows before anyone noticed,
+    because nothing was watching.
+
+    Raised at session teardown rather than asserted in a test, because "the suite left
+    the database as it found it" is a property of the whole run and no single test can
+    see it. A run that fails for other reasons may trip this too — the message names the
+    ids, which is the fastest route to the fixture that forgot its teardown.
+    """
+    if leaked:
+        raise RuntimeError(
+            f"the suite leaked {len(leaked)} app_user row(s): {sorted(map(str, leaked))}. "
+            "Every test that provisions an owner must remove it — request the "
+            "`owner_sweep` fixture, or DELETE the row in the fixture's own teardown."
+        )
 
 
 @pytest.fixture(scope="session")
@@ -269,3 +295,41 @@ def db(db_env: None) -> Iterator[None]:  # noqa: ARG001 — gates on reachabilit
     db_module.close_pool()
     yield
     db_module.close_pool()
+
+
+def owner_ids() -> set[UUID]:
+    """Every `app_user` id, on the ADMIN connection — the question spans owners."""
+    with db_module.admin_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM app_user")
+        return {row[0] for row in cur.fetchall()}
+
+
+@pytest.fixture
+def owner_sweep(db_env: None) -> Iterator[None]:  # noqa: ARG001 — gates on reachability
+    """Delete every `app_user` row the test provisions. The teardown that was missing (#119).
+
+    By DIFFERENCE rather than by a list of ids the test remembers to name, because a list
+    is exactly what was being forgotten — and because two of the three ways an owner
+    appears are invisible at the call site: a JIT provision on the first authenticated
+    request (`core.supabase_auth`), and `tests/contracts/seed_owner_b`. Only the plain
+    `INSERT INTO app_user` announces itself.
+
+    Requested via `pytest.mark.usefixtures` at the top of the leaking modules, which also
+    fixes the ordering: `usefixtures` marks enter the fixture closure ahead of the test's
+    own arguments, so the snapshot is taken before a bed fixture seeds its second owner.
+
+    A run whose sentinel row is missing is left ALONE. `tests/db/test_claim_sentinel.py`
+    re-keys that row to another id, so a sweep during a failed claim would read the
+    re-keyed sentinel as a new owner and delete it — cascading the whole tenant tree away
+    to tidy up.
+    """
+    before = owner_ids()
+    yield
+    after = owner_ids()
+    if SENTINEL_USER_ID not in after:
+        return  # mid-re-key (claim_sentinel) — not ours to tidy
+    leaked = after - before
+    if not leaked:
+        return
+    with db_module.admin_connection() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM app_user WHERE id = ANY(%s)", (list(leaked),))
