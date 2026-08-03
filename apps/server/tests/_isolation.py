@@ -14,12 +14,13 @@ its own database — does not work, and fails in a way that reads like a code bu
   still connecting as, and every subsequent test in the survivor dies on a role that
   no longer exists.
 
-Measured on 2026-08-03, two full suites against one container with only the shared
-role in common: one run finished 2205 passed in 3m44s and the other produced 14
-errors and a growing wall of failures, then sat at ~2% CPU with no DB sockets until
-it was killed at the 15-minute mark. The failures land in **unrelated code, in both
-directions**, which is the dangerous part: the noise is indistinguishable from a real
-regression, so the natural reaction is to go debug an innocent diff.
+Measured on 2026-08-03, two full suites started together against one container: one
+finished `2205 passed` in 3m44s, the other produced 14 errors and a growing wall of
+failures and had gone through 64 of 2205 tests when the 15-minute timeout killed it.
+The failures land in **unrelated code, in both directions**, which is the dangerous
+part: the noise is indistinguishable from a real regression, so the natural reaction
+is to go debug an innocent diff. With this module in place the same pair both finish
+`2205 passed`, in 3m10s and 3m12s.
 
 Isolation therefore needs both halves, and this module owns both:
 

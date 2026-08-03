@@ -117,11 +117,11 @@ the thing worth remembering:
 > login the other is still using.
 
 Measured before that was fixed (2026-08-03, #119): two full suites, one container
-— one finished 2205 passed in 3m44s, the other produced 14 errors and a wall of
-failures, then sat at ~2% CPU with no DB sockets until it was killed at 15
-minutes. The failures land in **unrelated code, in both directions**, so the noise
-is indistinguishable from a real regression and the natural reaction is to go
-debug an innocent diff. A private container costs nothing and removes the whole
+— one finished `2205 passed` in 3m44s, the other produced 14 errors and a wall of
+failures and had reached 64 of 2205 tests when a 15-minute timeout killed it. The
+failures land in **unrelated code, in both directions**, so the noise is
+indistinguishable from a real regression and the natural reaction is to go debug
+an innocent diff. A private container costs nothing and removes the whole
 question.
 
 A run killed with `kill -9` skips its teardown and leaves `healthee_test_<pid>_<rand>`
