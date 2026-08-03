@@ -5,6 +5,14 @@ tests depend on `db` (or `db_env`), which auto-skips when no TimescaleDB is
 reachable — so `pytest` is green on a laptop with no database and exercises the
 real DB in CI, where the service container sets POSTGRES_*.
 
+## Every run gets its OWN database AND its own role (#119)
+
+`app_role_pool` creates both, named after a per-process id. A private database alone
+is **not** enough — the role is a cluster-level object, so two suites against one
+PostgreSQL instance meet it even from different databases, and they corrupt each
+other's run in ways that surface as failures in unrelated code. `tests/_isolation.py`
+carries the full account; read it before changing anything session-scoped here.
+
 ## The whole suite runs as the LEAST-PRIVILEGE app role (6.5b-2)
 
 `app_role_pool` below is autouse and session-scoped: it provisions the real
@@ -32,15 +40,12 @@ from uuid import UUID
 import psycopg
 import pytest
 from psycopg import sql
+from tests._isolation import TEST_APP_ROLE, TEST_DATABASE, create_database, drop_database
 
 from healthee.core import db as db_module
 from healthee.core.config import get_settings
 from healthee.db import migrate, provision_app_role
 from healthee.insights import credits, transport_health
-
-# The suite's own app role. Named `_test` so it can never be confused with (or drop)
-# a real deployment's `healthee_app`.
-TEST_APP_ROLE = "healthee_app_test"
 
 # How long a seeded entitlement runs for. Absurdly long on purpose: `is_premium`
 # requires `now < current_period_end`, so a short term would turn the suite into a time
@@ -181,33 +186,44 @@ def drop_test_role(role: str) -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def app_role_pool() -> Iterator[str | None]:
-    """Point the app pool at the real least-privilege role for the whole session.
+    """Build this run's private database + least-privilege role; point the pool at both.
 
     Yields the role name, or None when no DB is reachable (unit-only runs stay green
     on a laptop with no database — the integration tests skip themselves anyway).
 
-    Migrations run FIRST because `provision_app_role` grants table-by-table from an
-    explicit list: on an empty database those GRANTs have nothing to grant on.
+    **Both halves are per-run and both are load-bearing.** The database is private
+    because the seed fixtures `TRUNCATE` shared tables; the ROLE is private because a
+    role is cluster-scoped, so a private database does not cover it — two suites
+    against one PostgreSQL instance would still re-key and then drop each other's
+    login. `tests/_isolation.py` has the measured account of that failure.
+
+    Migrations run against the NEW database, and before `provision_app_role`, because
+    provision grants table-by-table from an explicit list: on an empty database those
+    GRANTs have nothing to grant on.
 
     A fresh random password per run — a fixed one in git is a credential in git even
-    on a throwaway database. Torn down with `DROP OWNED BY` + `DROP ROLE` so neither
-    the local DB nor CI's accumulates roles across runs.
+    on a throwaway database. Torn down with `DROP OWNED BY` + `DROP ROLE` and then
+    `DROP DATABASE`, so neither the local DB nor CI's accumulates either across runs.
     """
     if not _db_reachable():
         yield None
         return
+    admin_url = get_settings().admin_db_url  # the CONFIGURED database — our bootstrap
     monkeypatch = pytest.MonkeyPatch()
-    migrate.apply_migrations()
+    create_database(admin_url)
+    monkeypatch.setenv("POSTGRES_DB", TEST_DATABASE)
     monkeypatch.setenv("POSTGRES_APP_USER", TEST_APP_ROLE)
     monkeypatch.setenv("POSTGRES_APP_PASSWORD", secrets.token_urlsafe(24))
     get_settings.cache_clear()
     db_module.close_pool()  # so the next get_pool() connects as the app role
+    migrate.apply_migrations()
     provision_app_role.provision()
     yield TEST_APP_ROLE
     db_module.close_pool()
     drop_test_role(TEST_APP_ROLE)
     monkeypatch.undo()
     get_settings.cache_clear()
+    drop_database(admin_url)
 
 
 @pytest.fixture(scope="session")
