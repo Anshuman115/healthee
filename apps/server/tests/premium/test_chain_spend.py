@@ -28,8 +28,8 @@ from healthee.jobs import briefing, chain, recs
 
 pytestmark = [
     pytest.mark.integration,
-    # `seed_owner_b` provisions owner B and nothing removed it — one stray
-    # `app_user` row per run that `--user`-less ops tooling then walks (#119).
+    # `seed_owner_b` provisions owner B and nothing removed it. `--user`-less ops
+    # tooling walks every active owner it finds, so the stray is not free (#119).
     pytest.mark.usefixtures("owner_sweep"),
 ]
 

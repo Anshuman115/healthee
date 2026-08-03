@@ -35,9 +35,9 @@ from healthee.db import migrate
 
 pytestmark = [
     pytest.mark.integration,
-    # Owners are provisioned here (explicitly, or JIT on the first authenticated
-    # request) and were never removed — 7 stray `app_user` rows per run, ~1,288 on a
-    # box that had been in use. `--user`-less ops tooling walks every one (#119).
+    # This module provisions owners — explicitly, JIT on the first authenticated
+    # request, or via `seed_owner_b` — and removed none of them. `--user`-less ops
+    # tooling walks every active owner it finds, so the strays are not free (#119).
     pytest.mark.usefixtures("owner_sweep"),
 ]
 
