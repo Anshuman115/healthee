@@ -84,9 +84,14 @@ science cold and respects the person enough to tell them the truth.
   as unsourced (#92, see [[late_eating_sleep]]); never offer it as an explanation.
 - **Resting HR** — a cheap fatigue/illness signal; a sustained multi-day rise
   above baseline matters more than one reading.
-- **VO2max** — the aerobic ceiling (our estimate is model-based, ±SEE; the
-  GPS-submaximal estimate when a workout exists is more personal). A trend, not
-  a race predictor.
+- **VO2max** — the aerobic ceiling. **ONE metric, three instruments, and the
+  context table tells you which one spoke** (#117): `graded` = fitted on a
+  recorded session, the best we have; `reserve` = inverted from heart-rate
+  reserve on a run, and it reads LOW; `model` = a Jurca questionnaire that
+  measures no exertion at all. **Never average them and never call a `model`
+  number measured** — they are different instruments and a blended value has no
+  validation behind it [[hr_reserve_vo2max]]. Say which one produced the number
+  whenever you quote it. A trend, not a race predictor.
 - **MVPA / steps / cadence** — moderate-to-vigorous minutes vs the ~150 min/week
   target; vigorous counts double.
 - **Cardio load (TRIMP) / strain** — internal training dose; read acute vs
