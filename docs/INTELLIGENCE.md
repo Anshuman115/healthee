@@ -195,6 +195,32 @@ missing day is *today* is a freshness problem that coverage calls excellent — 
 exactly why both exist. A metric at 0/14 is reported as 0/14 and nothing more; which of the
 four states it is in is stated where that metric is served, by the code that knows.
 
+> **The LLM prompt was the one surface where it was NOT stated (#126).** `withheld` reached
+> the model as a bare `-` — indistinguishable from "not synced yet" and from "this owner has
+> never had it". That is the sharpest possible version of the gap, because COACH_PROMPT.md
+> instructs the coach to *"say what you'd need"* and the context structurally could not
+> support it: a persona asked for a behaviour its context cannot support is resolved by the
+> model, i.e. by invention. `insights/context_withheld.py` now carries the reason id and the
+> metric's own restoring sentence for the three gated daily metrics (`vo2max_estimate`,
+> `sleep_regularity_index`, `sleep_debt_min`), quoted from the derive modules that own the
+> gates rather than restated. It deliberately does NOT carry `last_as_of_date`, `age_days`
+> or the last value: putting a withheld metric's number back into the prompt is the
+> resurrection the gate exists to prevent. A metric with no stored row at all stays silent,
+> so the legend's account of the remaining silence ("anything else absent was never
+> recorded") is true. Recovery is the fourth gate and stays where it already speaks, in
+> `coach_context._recovery_block`. Cost: **+0 tokens** when nothing is withheld, **+128** on
+> the real assembled coach prompt for a stale VO₂max plus a refused SRI (+0.16 % of #105's
+> 80,435), bounded by `tests/insights/test_context_withheld.py` and mutation-verified.
+>
+> **Coverage itself is still not in the prompt, and that is not cheap to change.** #89's
+> coverage is computed *after* the coach's tool loop, over the metrics the tools actually
+> read — a scope that does not exist at prompt-assembly time, so carrying it would mean
+> choosing a different scope, i.e. a second definition. What the context does now do is make
+> the count it already had legible: `## Personal baselines` prints `Baseline.n`, which §3.1
+> pins as coverage's own counter, and its column is headed `n/30d` so the window is stated
+> rather than assumed. A metric with no rows in the window still prints no line at all —
+> "0/30" remains invisible, and closing that is its own diff.
+
 ### 3.2 · One generation, two surfaces — the morning call (#95)
 
 `BRIEFING_TASK` asked, in its own words, for *"today's single most useful action"*, and

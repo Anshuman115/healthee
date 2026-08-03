@@ -46,6 +46,7 @@ from healthee.insights.context_sessions import (
     manual_entries_section,
     sleep_section,
 )
+from healthee.insights.context_withheld import withheld_section
 
 # Every statistic below is computed against a 30-day baseline, and the anomaly scan walks
 # 14 days each carrying its own 30-day baseline — so the widest span any single number here
@@ -259,6 +260,7 @@ def build_context(user_id: UUID, tz: str, *, days: int = 14, question: str | Non
     """
     with tenant_transaction(user_id) as cur:
         guard = _instrument_guard(cur, user_id, tz)
+        withheld = withheld_section(cur, user_id, tz)
         session_sections = [
             _recent_daily(cur, user_id, tz, days),
             sleep_section(cur, user_id, tz, days),
@@ -266,6 +268,9 @@ def build_context(user_id: UUID, tz: str, *, days: int = 14, question: str | Non
         ]
     sections = [
         _today_snapshot(user_id, tz, guard),
+        # Directly after the snapshot: these are today's REFUSALS, and reading them before
+        # the tables of numbers is what stops the model filling a dash with a guess (#126).
+        withheld,
         _trends(user_id, tz, guard),
         *session_sections,
         _baselines(user_id, tz, guard),

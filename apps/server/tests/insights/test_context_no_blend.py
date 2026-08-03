@@ -42,7 +42,10 @@ import _seed_db as sd  # type: ignore[import-not-found]  # noqa: E402 — shared
 # metric; measured with tiktoken/cl100k_base at 319 characters / **71 tokens** for a
 # two-instrument window and 329 / **73** for all three tiers at once, against the 80,435
 # tokens #105 measured per coach question — **+0.09 %**, and only on a window that
-# actually mixed. 380 leaves room for a wording fix and refuses a paragraph. Raising it is
+# actually mixed. End to end over the real assembled coach prompt
+# (``coach._initial_messages``) the mixed case costs **+73 tokens** and a clean, current
+# 30-day window costs **+9** — the three labelled aggregate rows and nothing else.
+# 380 leaves room for a wording fix and refuses a paragraph. Raising it is
 # a pricing decision and belongs in a PR that says so.
 _MAX_MIXED_BLOCK_CHARS = 380
 
