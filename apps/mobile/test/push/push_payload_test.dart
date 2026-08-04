@@ -13,6 +13,8 @@
 /// than derived from the code under test, so a rename on either side fails.
 library;
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/ble/models/device_daily_totals.dart';
 import 'package:healthee/ble/models/sleep_session.dart';
@@ -31,6 +33,9 @@ Future<Map<String, Object?>> _payloadOf(LocalStore store) async =>
 
 List<Map<String, Object?>> _list(Map<String, Object?> body, String key) =>
     (body[key]! as List).cast<Map<String, Object?>>();
+
+const String _serverModelsPath =
+    '../../apps/server/src/healthee/ingest/models.py';
 
 void main() {
   late LocalStore store;
@@ -118,18 +123,32 @@ void main() {
     });
 
     test('every mapped name is one the server actually accepts', () {
-      // `ALLOWED_METRICS` in apps/server/src/healthee/ingest/models.py, copied
-      // here so a change on either side fails a test rather than becoming a
-      // silent coerce-drop.
-      const allowed = <String>{
-        'hr',
-        'hrv',
-        'spo2',
-        'skin_temp_c',
-        'respiratory_rate',
-        'stress',
-        'steps_per_minute',
-      };
+      // Reads ALLOWED_METRICS out of apps/server/src/healthee/ingest/models.py
+      // IN THE REPOSITORY, not a copy of it. A copy only catches the app half:
+      // change the server's set and a hardcoded list here still passes, while
+      // the app silently sends a metric the server now drops (samples_rejected
+      // counts it; from the phone it still looks sent). The same argument
+      // test/data/today_snapshot_golden_test.dart makes for reading the
+      // contract snapshot rather than duplicating it — a copy breaks exactly
+      // when it matters.
+      final file = File(_serverModelsPath);
+      expect(
+        file.existsSync(),
+        isTrue,
+        reason: 'server ingest models not found at $_serverModelsPath '
+            '(cwd ${Directory.current.path}) — run from apps/mobile.',
+      );
+      final source = file.readAsStringSync();
+      final block = RegExp(r'ALLOWED_METRICS[^=]*=\s*frozenset\(\s*\{(.*?)\}',
+              dotAll: true)
+          .firstMatch(source);
+      expect(block, isNotNull, reason: 'ALLOWED_METRICS not parseable — the '
+          'server changed its shape and this test must be taught the new one.');
+      final allowed = RegExp('"([a-z0-9_]+)"')
+          .allMatches(block!.group(1)!)
+          .map((m) => m.group(1)!)
+          .toSet();
+      expect(allowed, isNotEmpty, reason: 'parsed an empty ALLOWED_METRICS');
       expect(kPushMetricNames.values.toSet(), allowed);
     });
 
