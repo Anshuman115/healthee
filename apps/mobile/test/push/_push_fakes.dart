@@ -13,9 +13,9 @@
 library;
 
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/secret_store.dart';
 import 'package:healthee/data/push/push_client.dart';
@@ -23,13 +23,19 @@ import 'package:healthee/data/push/push_client.dart';
 /// A transport that records every request and answers however the test says.
 class FakeIngestTransport implements HttpClientAdapter {
   /// [failWith] makes every request fail with that status; null means succeed.
-  FakeIngestTransport({this.failWith, this.failFirst = 0});
+  FakeIngestTransport({this.failWith, this.failFirst = 0, this.failAfter});
 
   /// The status to answer with instead of 200, or null to succeed.
   int? failWith;
 
   /// Fail only the first N requests, then succeed. For resume tests.
   int failFirst;
+
+  /// Succeed for the first N requests, then fail every one after.
+  ///
+  /// The mirror of [failFirst], and the shape a transport that dies mid-backlog
+  /// actually has: pages land, then the socket goes.
+  int? failAfter;
 
   /// Every request body sent, decoded, in order.
   final List<Map<String, Object?>> bodies = [];
@@ -56,7 +62,10 @@ class FakeIngestTransport implements HttpClientAdapter {
     rawBodies.add(raw);
     bodies.add(jsonDecode(raw) as Map<String, Object?>);
 
-    final shouldFail = failWith != null || rawBodies.length <= failFirst;
+    final shouldFail =
+        failWith != null ||
+        rawBodies.length <= failFirst ||
+        (failAfter != null && rawBodies.length > failAfter!);
     if (shouldFail) {
       final status = failWith ?? 503;
       return ResponseBody.fromString('{"detail":"nope"}', status, headers: _json);
@@ -126,3 +135,28 @@ Credentials signedIn({String token = 'TEST-API-TOKEN'}) =>
 
 /// Credentials holding nothing — a phone that has never signed in.
 Credentials signedOut() => Credentials(MapSecretStore());
+
+/// A keystore that refuses, the way a locked or broken one does.
+///
+/// Distinct from [signedOut]: "there is no token" and "the store could not be
+/// asked" are different states, and Standards §1 requires a caller to be able to
+/// tell them apart.
+class RefusingSecretStore implements SecretStore {
+  /// Refuses every operation.
+  const RefusingSecretStore();
+
+  static final PlatformException _refused = PlatformException(
+    code: 'Unavailable',
+    message: 'the keystore is locked',
+  );
+
+  @override
+  Future<String?> read({required String key}) async => throw _refused;
+
+  @override
+  Future<void> write({required String key, required String value}) async =>
+      throw _refused;
+
+  @override
+  Future<void> delete({required String key}) async => throw _refused;
+}
