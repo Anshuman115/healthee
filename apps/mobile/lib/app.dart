@@ -24,7 +24,7 @@ class HealtheeApp extends ConsumerStatefulWidget {
 class _HealtheeAppState extends ConsumerState<HealtheeApp> {
   // Built once and held: a GoRouter rebuilt on every frame loses its navigation
   // stack, which shows up as the back button doing nothing.
-  late final GoRouter _router = buildRouter();
+  late final GoRouter _router = buildRouter(ref);
 
   @override
   Widget build(BuildContext context) {
