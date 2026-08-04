@@ -20,6 +20,8 @@ library;
 
 import 'dart:developer' as developer;
 
+import 'package:meta/meta.dart';
+
 /// How loud a message is.
 enum LogLevel {
   /// Routine progress — a sync started, a cache hit.
@@ -39,6 +41,22 @@ enum LogLevel {
 
 /// The app logger. Call it; do not wrap it.
 abstract final class AppLog {
+  /// A test's window onto everything this logger emits. **Null in production.**
+  ///
+  /// `dart:developer`'s `log` writes to the platform log and returns nothing
+  /// catchable, so from inside `flutter test` there is no way to see what the app
+  /// logged — which makes "no secret ever reaches the log" an unfalsifiable claim,
+  /// and this codebase does not ship those. With this seam it is a test:
+  /// `test/pairing/pairing_secrecy_test.dart` runs the whole pairing flow with
+  /// sentinel passwords, tokens and auth keys, and fails if any of them appears
+  /// in a captured line.
+  ///
+  /// It is a hook, not a second logging path — every line still goes to
+  /// [_emit] and out through `developer.log` exactly as before. Nothing in `lib/`
+  /// assigns it, and `logging_test.dart` asserts it starts null.
+  @visibleForTesting
+  static void Function(String line)? sink;
+
   /// Routine progress.
   static void info(String source, String message) =>
       _emit(LogLevel.info, source, message, null, null);
@@ -73,5 +91,9 @@ abstract final class AppLog {
       error: error,
       stackTrace: stackTrace,
     );
+    // Everything `developer.log` was just given, flattened — including the error
+    // object, because an exception's `toString` is a place secrets leak and the
+    // secrecy test has to be able to see it.
+    sink?.call('healthee.$source ${level.name} $message ${error ?? ''}');
   }
 }
