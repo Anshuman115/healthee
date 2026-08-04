@@ -61,6 +61,18 @@ abstract final class SyncKeys {
 
   /// Why the last push failed, in the owner's words. Absent after a good push.
   static const String lastPushFailure = 'last_push_failure';
+
+  /// How many measurements this phone has destroyed before the server saw them.
+  ///
+  /// Cumulative and **never cleared**. `horizon_prune.dart` writes it; nothing
+  /// resets it, because nothing undoes what it counts.
+  static const String droppedUnsentRows = 'dropped_unsent_rows';
+
+  /// The newest calendar day among those measurements, `YYYY-MM-DD`.
+  static const String droppedUnsentThroughDay = 'dropped_unsent_through_day';
+
+  /// Epoch ms of the most recent prune that destroyed something.
+  static const String droppedUnsentAtMs = 'dropped_unsent_at_ms';
 }
 
 /// "This row has not reached the server", as a SQL expression.

@@ -55,6 +55,7 @@ import 'package:healthee/ble/strap_scanner.dart';
 import 'package:healthee/ble/strap_session.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/data/store/prune_report.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/preflight_scan.dart';
 import 'package:healthee/data/sync/sync_failure.dart';
@@ -234,12 +235,18 @@ class SyncEngine {
   }
 
   /// Writes the pull, advances the one-shot flags, applies the horizon.
-  Future<int> _store(StrapSyncResult result, String today) async {
+  ///
+  /// The prune runs AFTER the write and BEFORE the push (`SyncController`
+  /// sequences the two halves), so it can never delete a row a request is
+  /// currently carrying.
+  Future<PruneReport> _store(StrapSyncResult result, String today) async {
     await store.strapWriter.saveSync(result);
     await store.strapWriter.stampBattery(result.batteryPercent);
-    // 60 days, applied by the store's one expression of it. Run on every sync
-    // rather than on a schedule: a phone that syncs is a phone whose horizon
-    // moved, and a prune that needs its own trigger is a prune that stops.
+    // The retention window, applied by the store's one expression of it. Run on
+    // every sync rather than on a schedule: a phone that syncs is a phone whose
+    // horizon moved, and a prune that needs its own trigger is a prune that
+    // stops. Anything it had to destroy is recorded durably by the prune itself
+    // — this outcome is one run's summary and would be gone by morning.
     return store.pruneBeyondHorizon(today);
   }
 
@@ -253,7 +260,7 @@ class SyncEngine {
   SyncOutcome _outcomeFor(
     StrapSyncResult result,
     SyncCancelToken token,
-    int pruned,
+    PruneReport pruned,
   ) {
     if (token.isCancelled) {
       return const SyncPartial('you stopped it part-way through');
@@ -270,7 +277,10 @@ class SyncEngine {
         'total is missing',
       );
     }
-    return SyncComplete(storedSamples: result.samples.length, prunedRows: pruned);
+    return SyncComplete(
+      storedSamples: result.samples.length,
+      prunedRows: pruned.rows,
+    );
   }
 
   /// Records the attempt and lands the state machine.
