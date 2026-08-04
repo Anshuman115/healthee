@@ -53,24 +53,36 @@ final class TodayRepositoryProvider
   }
 }
 
-String _$todayRepositoryHash() => r'9eacfb28076dd14be98978a2f3c518e8ca4163e1';
+String _$todayRepositoryHash() => r'da0fb7f39639a4a2aa7d9cea3774336603004615';
 
-/// Today's snapshot. Watch this from the Today screen.
+/// Today's snapshot, with its provenance. Watch this from the Today screen.
+///
+/// [ProviderLogger] logs every provider failure through the one logging path, so
+/// there is deliberately no `try`/`catch` here: catching would only let us
+/// re-throw after a log entry that already happens.
 
 @ProviderFor(todaySnapshot)
 final todaySnapshotProvider = TodaySnapshotProvider._();
 
-/// Today's snapshot. Watch this from the Today screen.
+/// Today's snapshot, with its provenance. Watch this from the Today screen.
+///
+/// [ProviderLogger] logs every provider failure through the one logging path, so
+/// there is deliberately no `try`/`catch` here: catching would only let us
+/// re-throw after a log entry that already happens.
 
 final class TodaySnapshotProvider
     extends
         $FunctionalProvider<
-          AsyncValue<TodaySnapshot>,
-          TodaySnapshot,
-          FutureOr<TodaySnapshot>
+          AsyncValue<TodayView>,
+          TodayView,
+          FutureOr<TodayView>
         >
-    with $FutureModifier<TodaySnapshot>, $FutureProvider<TodaySnapshot> {
-  /// Today's snapshot. Watch this from the Today screen.
+    with $FutureModifier<TodayView>, $FutureProvider<TodayView> {
+  /// Today's snapshot, with its provenance. Watch this from the Today screen.
+  ///
+  /// [ProviderLogger] logs every provider failure through the one logging path, so
+  /// there is deliberately no `try`/`catch` here: catching would only let us
+  /// re-throw after a log entry that already happens.
   TodaySnapshotProvider._()
     : super(
         from: null,
@@ -87,14 +99,13 @@ final class TodaySnapshotProvider
 
   @$internal
   @override
-  $FutureProviderElement<TodaySnapshot> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<TodayView> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
-  FutureOr<TodaySnapshot> create(Ref ref) {
+  FutureOr<TodayView> create(Ref ref) {
     return todaySnapshot(ref);
   }
 }
 
-String _$todaySnapshotHash() => r'aedd60c6791785f6370be6e736f692e48b1b057e';
+String _$todaySnapshotHash() => r'b6d1708dcd7748d1ae9b0f832a227adcf390826d';
