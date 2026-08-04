@@ -25,14 +25,19 @@
 /// renders them, and the loud/quiet difference is typographic because colour in
 /// this app is a claim about the owner's body (`README.md`).
 ///
-/// ## The one data-loss risk gets a sentence of its own
+/// ## The data-loss risks get sentences of their own
 ///
-/// The push backlog cannot be lost — it is in the durable local store and
-/// nothing is marked sent until the server acknowledges it. The **strap's** ring
-/// buffer can be: it overwrites, and a first-ever sync suggested it holds on the
+/// The push backlog is durable: nothing is marked sent until the server
+/// acknowledges it, and `horizon_prune.dart` keeps an unsent measurement past
+/// the 60-day horizon rather than pruning it with the rest. The **strap's** ring
+/// buffer is not: it overwrites, and a first-ever sync suggested it holds on the
 /// order of nine days. So the honest guard is a warning when the band has gone
 /// unread long enough to be approaching that, while opening the app near it
 /// still fixes everything. See [kStrapHorizonWarning].
+///
+/// One case survives both guards — a queue stuck for a year, at which point the
+/// phone does stop holding samples. That is stated here permanently and in full
+/// ink, never as maintenance; `health_lines.dart` owns the sentence.
 ///
 /// ## Why "not signed in" belongs here rather than in a redirect
 ///

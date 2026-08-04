@@ -12,6 +12,7 @@
 library;
 
 import 'package:healthee/data/push/push_outcome.dart';
+import 'package:healthee/data/store/prune_report.dart';
 import 'package:meta/meta.dart';
 
 /// The last push attempt, and what is still waiting behind it.
@@ -24,6 +25,7 @@ class PushStamp {
     this.lastAttempt,
     this.outcomeId,
     this.failureReason,
+    this.loss,
   });
 
   /// A phone that has never pushed and is holding nothing.
@@ -44,6 +46,15 @@ class PushStamp {
   /// Why the last attempt did not finish, in the owner's own words. Null after
   /// a good push, because a cleared failure must not read as a current one.
   final String? failureReason;
+
+  /// Measurements this phone destroyed before the server ever saw them.
+  ///
+  /// It belongs here rather than beside the prune that caused it: this is the
+  /// type that answers "what does the server not have", and rows the local
+  /// store deleted while still pending are the most final possible answer to
+  /// that question. Null on every phone that has never lost one, which is every
+  /// phone whose push has not been broken for a year.
+  final UnsentLoss? loss;
 
   /// True when the last attempt ended in something less than a full send.
   ///
@@ -75,5 +86,10 @@ class PushStamp {
   /// Nothing pending and nothing failed says nothing — the same rule the data
   /// health card follows. Silence when all is well is what makes the card
   /// meaningful when it speaks.
-  bool get needsAttention => pendingRows > 0 || isFaulted;
+  ///
+  /// A past [loss] counts even when the queue is empty and the last push was
+  /// clean: the measurements are still gone, and a card that goes quiet about
+  /// destroyed data the moment the symptom clears would be reporting tidiness
+  /// rather than truth.
+  bool get needsAttention => pendingRows > 0 || isFaulted || loss != null;
 }

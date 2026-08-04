@@ -165,6 +165,10 @@ class PushReader extends DatabaseAccessor<LocalStore> with _$PushReaderMixin {
       // Empty string is how "cleared" is stored; it is not a reason.
       failureReason: (failure == null || failure.isEmpty) ? null : failure,
       pendingRows: await pendingCount(),
+      // Written by the prune, not by any push — but it is the same question
+      // this type exists to answer, asked about rows that will never be sent
+      // because they no longer exist. `horizon_prune.dart` owns the encoding.
+      loss: await db.horizonPrune.loss(),
     );
   }
 

@@ -20,24 +20,43 @@
 ///   signed out  no token, so nothing can be sent            loud
 ///   faulted     transport died, 401, server unreachable     loud
 ///   strap gap   the band has not been read in days          loud
+///   destroyed   unsent measurements hit the one-year bound  loud, forever
 /// ```
 ///
 /// The first two are self-healing: the phone is holding the rows, nothing is
 /// marked sent until the server acknowledges it, and the next sync — which is
 /// now automatic — takes them. Raising those is how a health surface teaches the
-/// owner to ignore it. The last three do not clear on their own.
+/// owner to ignore it. The rest do not clear on their own, and the last one does
+/// not clear at all.
 ///
 /// ## "Nothing is lost" is said only where it is true
 ///
-/// It is true of the push queue: `push_reader.dart` marks a row only after a
-/// 2xx, so a failed push delays data and never destroys it. It is **not** true
-/// of a queue left stuck past the 60-day horizon (`LocalStore.pruneBefore`
-/// drops rows by date, not by whether they were sent), and it is not true of the
-/// strap's own ring buffer at all. So the reassurance goes on the self-healing
-/// lines and comes off the stuck ones, which say what is actually true instead.
+/// It is true of the push queue, and it is now true *structurally* rather than
+/// by hope. `push_reader.dart` marks a row only after a 2xx, so a failed push
+/// delays data and never destroys it — and since `horizon_prune.dart`, the
+/// 60-day horizon no longer destroys it either: an unsent measurement is kept
+/// past the horizon rather than pruned with it.
+///
+/// This docstring previously said the opposite, because it was: the prune
+/// deleted by date alone, so the reassurance had to be withdrawn from the stuck
+/// lines. The copy retreated because the code was wrong. The code is fixed, so
+/// the copy can come back — and it comes back with the bound stated, because the
+/// honest sentence is "kept for up to a year", not "kept".
+///
+/// It has never been true of the strap's own ring buffer, and still is not.
+/// [kStrapHorizonWarning] is that risk, and it is a different one.
+///
+/// ## The one line that never goes away
+///
+/// If the one-year bound is ever actually reached, measurements were destroyed.
+/// Nothing on this phone or any server can undo that, so there is no state in
+/// which quieting the sentence would be honest, and it is deliberately not tied
+/// to whether the queue currently looks healthy. It is reachable only after the
+/// loud signed-out/faulted line has been on this screen for about 365 days.
 library;
 
 import 'package:healthee/data/push/push_stamp.dart';
+import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/shared/format/time_labels.dart';
 import 'package:meta/meta.dart';
 
@@ -82,6 +101,9 @@ List<HealthLine> dataHealthLines({
   String? cachedDate,
 }) {
   final lines = <HealthLine>[
+    // First among the loud lines, and first for a reason: it is the only one
+    // that reports something already irreversible.
+    if (_destroyed(push) case final HealthLine line) line,
     if (_strapGap(lastStrapSync, now) case final HealthLine line) line,
     if (_pushFault(push) case final HealthLine line) line,
     if (cachedAt case final DateTime received)
@@ -125,6 +147,29 @@ HealthLine? _strapGap(DateTime? lastStrapSync, DateTime now) {
   );
 }
 
+/// Measurements this phone deleted before the server ever saw them.
+///
+/// Says what was lost, how much, through when, and what the owner could have
+/// done — the three things `docs/ENGINEERING_STANDARDS.md` §1 means by a
+/// background failure reaching its health surface, plus the one that makes it
+/// actionable next time. It is deliberately not phrased as maintenance: this is
+/// not "old data was cleaned up", it is health data that no longer exists
+/// anywhere, because the strap cannot be re-read that far back.
+HealthLine? _destroyed(PushStamp? push) {
+  if (push?.loss case final loss?) {
+    return HealthLine(
+      '${loss.rows} measurements recorded up to ${loss.throughDay} were '
+      'deleted from this phone without ever reaching a server. They had been '
+      'waiting $kUnsentSampleRetentionDays days, which is as long as this '
+      'phone will hold unsent readings, and your strap cannot be read back '
+      'that far — they are gone. Signing in to a server, or fixing the send '
+      'error above, is what stops it happening to the rest.',
+      loud: true,
+    );
+  }
+  return null;
+}
+
 /// A push that went wrong. Loud, because nothing on this phone will clear it.
 HealthLine? _pushFault(PushStamp? push) {
   if (push?.failureReason case final String reason) {
@@ -143,21 +188,25 @@ HealthLine? _backlog(PushStamp? push) {
     return null;
   }
   if (push.isFaulted) {
-    // Deliberately not "nothing is lost; they go out on the next sync". Both
-    // halves would be wrong here: the next sync will fail the same way, and a
-    // queue left stuck past the 60-day horizon is pruned by date like any other
-    // row. What IS true is that nothing has been marked sent.
+    // Still not "they go out on the next sync" — the next sync fails the same
+    // way. But the retention half of the sentence is now true rather than
+    // withdrawn: an unsent row outlives the 60-day horizon, so the honest
+    // statement is how long it outlives it by.
     return HealthLine(
       '$rows measurements are still on this phone. Nothing is marked sent '
-      'until your server has it, so none of it has been thrown away — but it '
-      'will not reach the server until the problem above is fixed.',
+      'until your server has it, and unsent readings are kept past the '
+      '$localHorizonDays days this phone shows — for up to '
+      '$kUnsentSampleRetentionDays days — so none of it has been thrown away. '
+      'It will not reach the server until the problem above is fixed.',
       loud: true,
     );
   }
   if (push.isSignedOut) {
     return HealthLine(
       '$rows measurements are waiting here until this phone is signed in to a '
-      'server. Nothing is lost while they wait.',
+      'server. Nothing is lost while they wait: unsent readings are kept for '
+      'up to $kUnsentSampleRetentionDays days, well past the '
+      '$localHorizonDays days of history this phone shows.',
       loud: true,
     );
   }
