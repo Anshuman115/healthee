@@ -79,6 +79,15 @@ good trading terminal, not a lifestyle magazine.
 
 **`--hole` is the withheld state** (§3) — the number-shaped absence. It is a first-class
 token in the design, not an afterthought, and that is exactly right for this product.
+It is a **fill**, not a text colour: a dashed `--line` border around a `--hole`-filled box
+where the number would have been, with the reason in `--ink-2` and the label in `--ink-3`.
+A refusal spends no colour at all, because colour here is reserved for judgement.
+
+> **The app and the public landing page deliberately DIVERGE — do not "fix" this.**
+> The landing (`apps/landing`) is v5 "The Ledger": warm archival paper, clay/terracotta
+> accent (`apps/landing/DESIGN.md` §3). The app is the indigo instrument above. Two
+> surfaces, two looks, by the owner's choice. Any claim that the app's indigo matches
+> the landing page is false and should be corrected wherever it appears.
 
 **Type: `Instrument Sans`**, one face, system-ui fallback. Sizes run 10–18px for body and
 labels, 26–34px for hero figures. Tabular figures **mandatory** on every number — the
@@ -325,7 +334,17 @@ claim.
    it is unavailable the chart shows its 60 days and *says* that is what it is showing.
    Silently drawing a shorter line and labelling it "90 days" is the same class of lie
    this whole product exists to refuse.
-5. Flutter · Riverpod. `apps/mobile/` is empty — this is genuine greenfield.
+5. Flutter · Riverpod. ~~`apps/mobile/` is empty — this is genuine greenfield.~~
+   **Superseded 2026-08-04:** the foundation is merged (`c24dabc`). There are still
+   **no feature screens** — that part is greenfield — but the scaffold below already
+   exists and must be built on rather than re-derived:
+   - the token set of §2, both themes, in `lib/core/theme/`;
+   - `Reading<T>`, a sealed union over the four honesty states of §3, which makes
+     forgetting one a **compile error** (`lib/data/honesty/`);
+   - `ValueHole` — the number-shaped hole of §3 — plus the shared loading /
+     error-with-retry / empty states (`lib/shared/states/`);
+   - one dio client, the drift 60-day store, and a golden test parsing the real
+     contract snapshot.
 
 ---
 

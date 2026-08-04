@@ -237,7 +237,10 @@ Low-hanging richness — the backend already produces these; they just have no s
 
 ## 7. Open decisions (need a call before visual build)
 
-1. **⚠ Brand accent — genuinely unresolved.** The app design system is **forest-green** "warm editorial × instrument" (serif, dark default). But the newest brand work — the landing page v3 "The Instrument" (merged to main 2026-07-17) — sets a binding law: **accent iris/indigo, "accent never green," light-mode default.** Three surfaces now have three looks (app green · dashboard coral · landing indigo). **Decision needed:** does the app adopt the newer indigo brand for cohesion, or keep the green instrument identity? This affects the whole visual layer.
+1. ~~**⚠ Brand accent — genuinely unresolved.**~~ **CLOSED 2026-08-04.** Neither option in this question survived. The owner approved a new design (`Healthee.html`) and ruled: *"the colors and fonts all we will keep from new."* The app is **indigo `#5145e5` / `#8f87ff`, Instrument Sans, light default**, transcribed verbatim in `docs/APP_DESIGN_BRIEF.md` §2 and implemented in `apps/mobile/lib/core/theme/palette.dart`.
+   Two corrections to what this item used to say, because both were still being cited:
+   - The forest-green "warm editorial" system is **explicitly rejected** (brief §2: no serif, no paper texture, no beige).
+   - The landing page is **no longer v3 iris/indigo**. It is **v5 "The Ledger"** — warm paper, clay accent (`apps/landing/DESIGN.md`). So the app and the landing **deliberately diverge**, and any doc claiming the app's indigo "matches the landing page" is wrong.
 2. **Onboarding / first-run / empty-state experience** — not designed anywhere. Greenfield. A brand-new user gets ~60 days of back-history on first sync, then accumulates; the first-run must handle the "still building your baselines" period honestly (ties directly to §5).
 3. **Premium paywall UI** — the gating logic (6.6) is unbuilt and no locked/teaser states are designed. Needed before any AI surface ships.
 4. **Stress card reframe + RR-interval BLE** — flagged for Phase 2, not designed. The current device stress is framed honestly-but-thin; RR-interval extraction would give a real HRV/stress signal.
