@@ -1,4 +1,35 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Bluetooth LE, for the strap. Scanning is all this app does with the
+         radio at pairing time; the protocol layer lands separately.
+
+         `neverForLocation` is the load-bearing attribute: it tells Android this
+         scan is not being used to derive the user's position, which is why
+         Android 12+ never prompts for location here. The pairing screen tells
+         the owner exactly that, so the flag is what keeps the sentence true.
+
+         Android 11 and below have no BLUETOOTH_SCAN and gate BLE scanning on
+         ACCESS_FINE_LOCATION instead — declared below, capped at API 30 so it
+         is not requested on releases that do not need it. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+
+    <!-- required=false so the app still installs on a device without BLE. It
+         cannot sync there, and `BluetoothUnavailable` says so in as many words
+         rather than the Play Store silently hiding the listing. -->
+    <uses-feature android:name="android.hardware.bluetooth_le"
+        android:required="false" />
+
     <application
         android:label="healthee"
         android:name="${applicationName}"

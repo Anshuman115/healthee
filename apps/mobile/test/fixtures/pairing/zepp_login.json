@@ -1,0 +1,9 @@
+{
+  "result": "ok",
+  "token_info": {
+    "login_token": "LOGIN-TOKEN-PLACEHOLDER-4e18a",
+    "app_token": "APP-TOKEN-PLACEHOLDER-2f6d9",
+    "user_id": "1234567890",
+    "ttl": 2592000
+  }
+}

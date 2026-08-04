@@ -26,6 +26,13 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- iOS shows this sentence verbatim in the permission prompt, so it says
+	     what the radio is for and nothing more. Note that CoreBluetooth never
+	     exposes a peripheral's MAC address, which is why the pairing screen
+	     tells iOS owners the presence check cannot run there rather than
+	     reporting their strap as out of range. -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Healthee uses Bluetooth to find and sync with your strap. Your health data stays on your phone and your own server.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

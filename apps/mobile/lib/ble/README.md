@@ -1,11 +1,19 @@
 # `ble/` — the strap protocol layer
 
-Empty. This lands next, and its dependencies are already pinned and resolved in
-`pubspec.yaml` (`flutter_blue_plus`, `pointycastle`, `permission_handler`,
-`workmanager`) so that PR starts from a working set rather than re-deciding
-versions.
+**The protocol is still empty.** What is here is `strap_scanner.dart` and its
+`flutter_blue_plus` implementation: a MAC-matching advertisement scan, used by
+pairing to prove the chosen strap is in range before its credentials are stored.
+No connection, no handshake, no characteristic reads.
 
-## What goes here
+That distinction is worth keeping sharp. The scanner answers *is it here*; the
+protocol answers *what does it have*, and only the second one needs the auth key.
+
+The remaining dependencies are already pinned and resolved in `pubspec.yaml`
+(`pointycastle`, `workmanager`) so that PR starts from a working set rather than
+re-deciding versions. `pointycastle` is in use already — by `data/pairing/`, for
+the Zepp login payload, which is unrelated cryptography on a different key.
+
+## What still goes here
 
 `auth`, `transport`, `fetcher`, `parsers` — version-guarded (Standards §3).
 
@@ -18,7 +26,9 @@ versions.
   from real captured data. Byte offsets get an offset-table comment — this is the
   code CLAUDE.md means when it says byte-format code MUST carry layout comments.
 - **Credentials come from `data/api/credentials.dart`**, never from a
-  `--dart-define`. The MAC and AUTHKEY are per-owner secrets from the Zepp
+  `--dart-define` — read them through `PairingRepository.pairedStrap()`, which
+  returns a validated `PairedStrap` or null and treats half a pairing as none.
+  They are written by `data/pairing/`, at pairing time, from the owner's Zepp
   account; `core/env.dart` explains at length why baking them in is what made
   the legacy app single-owner.
 - **Sync failures reach sync health**, not just the log. A background failure

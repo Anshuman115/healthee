@@ -1,0 +1,1 @@
+https://s3-us-west-2.amazonaws.com/hm-registration/successsignin.html?access=ACCESS-TOKEN-PLACEHOLDER-b7f21&country_code=US&refresh=REFRESH-TOKEN-PLACEHOLDER-9ac03&region=us-west-2&state=REDIRECTION

@@ -35,16 +35,19 @@ lib/
   core/       env.dart (the ONLY dart-define site) · logging · provider_logger
               · router · theme/ (palette · tokens · dimensions · typography
                 · app_theme)
-  ble/        strap protocol — empty, lands next (see its README)
-  data/       honesty/ (the Reading union) · api/ (one dio client + credentials)
-              · models/ (typed wire models) · store/ (drift, 60-day tier)
+  ble/        strap_scanner (the presence check) — the PROTOCOL is still to come
+              (see its README)
+  data/       honesty/ (the Reading union) · api/ (one dio client + credentials
+              + secret_store) · pairing/ (the Zepp account route) · models/
+              (typed wire models) · store/ (drift, 60-day tier)
               · today_repository.dart
   analytics/  on-device engine — empty (see its README)
-  features/   empty by design — one dir per tab (see its README)
+  features/   pairing/ is built; the tabs are not (see its README)
   shared/     states/ (loading · error · empty · withheld · value_hole)
               · foundation_screen
 test/         golden contract parse · envelope unit · store · theme tokens
-              · widget smoke
+              · widget smoke · pairing (crypto goldens · client fixtures ·
+                failure taxonomy · the secrecy proof)
 ```
 
 ## The one thing to understand before writing a screen
@@ -74,6 +77,40 @@ asked* — dropping them takes a deliberate override rather than an oversight.
 `AsyncView` is its sibling for `AsyncValue` (loading / error-with-retry). They are
 separate on purpose: a timeout and a withhold are opposite messages — one is our
 fault and worth retrying, the other is the answer.
+
+## Pairing — what is stored, and what the owner chose
+
+`lib/data/pairing/` reads the strap's MAC and pairing key out of the owner's
+**Zepp account**, which is where pairing the strap in Zepp's own app already put
+them. Three calls (`zepp_endpoints.dart`), the middle one encrypted with a fixed
+key Zepp's Android client publishes to the world. Then a BLE scan confirms the
+strap is actually advertising, because credentials for a strap in a drawer look
+identical to credentials for the one on your wrist.
+
+**Kept, always:** the MAC and the auth key, in the platform keystore. Both are
+device secrets and the auth key is treated exactly like a password — it is never
+rendered on screen, never logged, and **never sent to the Healthee API**. There
+is no endpoint that takes it and this work package added none.
+
+**Kept only if the owner ticks the box** (default off, and turning it back off
+deletes what an earlier pairing stored): the Zepp email and password, so
+re-pairing does not mean typing them again.
+
+**Never kept:** the Zepp app token. It has a ~30-day life, which is exactly the
+argument for caching it — and nothing after pairing reads it, because the strap
+is reached over BLE directly. A stored credential with no consumer is a blast
+radius; a stored credential that silently expires is a bug this repo has already
+paid for once.
+
+**The password's whole life:** typed into the form, held in a private field on
+`PairingController`, sent once to `api-user-us2.zepp.com`, dropped. It is not in
+`PairingState` — an observer that logged state transitions would otherwise print
+it the day someone adds one.
+
+`test/pairing/pairing_secrecy_test.dart` is the proof rather than the promise:
+it drives the whole flow with sentinel secrets, captures everything `AppLog`
+emits, and fails if any of them appears. It covers the failure paths hardest,
+because an exception object is the thing that has the response body in hand.
 
 ## Where tokens live
 
