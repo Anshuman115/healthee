@@ -44,7 +44,7 @@ final class PairingControllerProvider
   }
 }
 
-String _$pairingControllerHash() => r'69f2a059f82b0d4e6e4a9961ccb9a8ddf57e597d';
+String _$pairingControllerHash() => r'5a89afd4c34e1fd3792b0194bb01271cd046a29d';
 
 /// Drives the pairing screen.
 
