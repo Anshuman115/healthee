@@ -1,4 +1,4 @@
-/// The two interceptors on the app's dio client: auth and logging.
+/// The two interceptors on the app's dio client: the session and the logging.
 ///
 /// Split from `api_client.dart` so the client file stays about wiring and these
 /// stay about policy (Standards §1: one reason to change per file).
@@ -8,15 +8,29 @@ import 'package:dio/dio.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/api/credentials.dart';
 
-/// Attaches the owner's bearer token to every outgoing request.
+/// Applies the owner's stored server session — the address AND the bearer token.
 ///
-/// Reading the token per-request rather than caching it at construction is
-/// deliberate: sign-in, sign-out and rotation all take effect on the next call
-/// with no invalidation step. Secure-storage reads are a platform-channel hop,
-/// not a network one, and they are off the render path.
-class AuthInterceptor extends Interceptor {
-  /// Reads the token from [credentials] on each request.
-  AuthInterceptor(this._credentials);
+/// Both, in one interceptor, because they are one fact: the token was accepted
+/// by *that* server and is meaningless at any other. Applying them from two
+/// places would allow the combination this app must never build — one server's
+/// credential sent to a different host.
+///
+/// The base URL only overrides `Env.apiBaseUrl` when a session is stored, so a
+/// build's dart-define stays the default and a phone with no session behaves
+/// exactly as before. `RequestOptions.uri` is a getter over `baseUrl + path`
+/// (dio 5.11 `options.dart`), so setting it here is what the request goes to.
+///
+/// Reading per-request rather than caching at construction is deliberate:
+/// sign-in, sign-out and moving to a different server all take effect on the
+/// next call with no invalidation step. Secure-storage reads are a
+/// platform-channel hop, not a network one, and they are off the render path.
+///
+/// **Nothing here is logged.** The token goes into a header and never into a log
+/// line, a URL or a query — `test/signin/signin_secrecy_test.dart` drives the
+/// app's real client through this interceptor and fails if it ever appears.
+class ServerSessionInterceptor extends Interceptor {
+  /// Reads the session from [credentials] on each request.
+  ServerSessionInterceptor(this._credentials);
 
   final Credentials _credentials;
 
@@ -25,6 +39,10 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    final baseUrl = await _credentials.apiBaseUrl();
+    if (baseUrl != null && baseUrl.isNotEmpty) {
+      options.baseUrl = baseUrl;
+    }
     final token = await _credentials.apiToken();
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';

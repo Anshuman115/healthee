@@ -25,6 +25,9 @@ part 'api_client.g.dart';
 Dio apiClient(Ref ref) {
   final dio = Dio(
     BaseOptions(
+      // The build's default. A stored sign-in overrides it per request in
+      // `ServerSessionInterceptor`, so the owner can point the app at their own
+      // server without rebuilding it.
       baseUrl: Env.apiBaseUrl,
       connectTimeout: Env.requestTimeout,
       receiveTimeout: Env.requestTimeout,
@@ -39,7 +42,7 @@ Dio apiClient(Ref ref) {
   );
 
   dio.interceptors.addAll([
-    AuthInterceptor(ref.watch(credentialsProvider)),
+    ServerSessionInterceptor(ref.watch(credentialsProvider)),
     ApiLogInterceptor(logBodies: Env.logHttpBodies),
   ]);
 
