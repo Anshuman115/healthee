@@ -11,6 +11,7 @@
 /// only appears when something is wrong is a number nobody trusts when it does.
 library;
 
+import 'package:healthee/data/push/push_outcome.dart';
 import 'package:meta/meta.dart';
 
 /// The last push attempt, and what is still waiting behind it.
@@ -49,12 +50,30 @@ class PushStamp {
   /// `skipped` is deliberately included: not being signed in is not a fault, but
   /// it IS a reason the server has nothing, and the card must be able to say so.
   bool get lastAttemptIncomplete =>
-      outcomeId != null && outcomeId != 'sent';
+      outcomeId != null && outcomeId != PushOutcomeId.sent;
+
+  /// Whether something went WRONG, as opposed to something being unfinished.
+  ///
+  /// Keyed on the reason rather than on the id, because `_stamp` writes a reason
+  /// only for a fault and a store written by an older build can still hold the
+  /// retired `partial` id — which always had a reason beside it, so it reads as
+  /// a fault here. Wrong in the loud direction, and it clears on the next push.
+  bool get isFaulted => failureReason != null;
+
+  /// Whether the backlog is being worked through right now, and is not stuck.
+  ///
+  /// A push that stopped at its own page cap left real data on the server and
+  /// will continue. The card shows quiet progress for this and never a fault —
+  /// see `push_outcome.dart` for why the two stopped being one case.
+  bool get isDraining => outcomeId == PushOutcomeId.paused;
+
+  /// Whether the last attempt was not made because this phone has no token.
+  bool get isSignedOut => outcomeId == PushOutcomeId.skipped;
 
   /// Whether this is worth telling the owner about at all.
   ///
   /// Nothing pending and nothing failed says nothing — the same rule the data
   /// health card follows. Silence when all is well is what makes the card
   /// meaningful when it speaks.
-  bool get needsAttention => pendingRows > 0 || failureReason != null;
+  bool get needsAttention => pendingRows > 0 || isFaulted;
 }
