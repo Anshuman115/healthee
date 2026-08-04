@@ -76,6 +76,20 @@ abstract interface class StrapScanner {
   /// Returns a [ScanOutcome]; throws [PairingException] carrying [BluetoothOff],
   /// [BluetoothUnavailable], [BluetoothPermissionDenied] or [StrapNotInRange].
   Future<ScanOutcome> confirmInRange(String mac, {Duration window});
+
+  /// Whether this phone already holds a system connection to [mac].
+  ///
+  /// Asked only after a scan has come up empty, and used only to turn "that
+  /// strap didn't advertise" into the specific truth when the specific truth is
+  /// available: a peripheral that is already connected stops advertising, so
+  /// the Zepp app holding the strap and the strap being in another building
+  /// look identical from a scan.
+  ///
+  /// **True means evidence, false means no evidence** — never "definitely not".
+  /// A platform that cannot answer the question returns false and the caller
+  /// keeps the [StrapNotInRange] message, whose remedy already raises the
+  /// possibility. Nothing here may invent a certainty the radio did not give.
+  Future<bool> isConnectedElsewhere(String mac);
 }
 
 /// The app's scanner. Overridden in tests.

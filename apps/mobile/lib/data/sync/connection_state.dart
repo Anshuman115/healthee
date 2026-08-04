@@ -8,17 +8,30 @@
 /// present tense. Here [Connected] means exactly one thing: **an authenticated
 /// session is open at this moment.**
 ///
-/// That is enforced rather than promised, in three places that all have to agree:
+/// That is enforced rather than promised, in four places that all have to agree:
 ///
-///   1. [Connected] cannot be constructed without a [since] instant, and the
-///      only code that constructs one is `SyncEngine`, inside the callback the
-///      protocol fires from `StrapPhase.authenticated` — which `StrapSession`
-///      emits *after* the strap accepted the proof. There is no path from
-///      "we have a MAC and a key" to this case.
-///   2. `SyncEngine` returns the state to [Disconnected] in a `finally`, so the
+///   1. [Connected] cannot be constructed without a [Connected.since] instant,
+///      and every instant that exists comes from `StrapSession.authenticatedAt`,
+///      which is written on the same line that emits `StrapPhase.authenticated`
+///      — after the strap accepted the proof. There is no path from "we have a
+///      MAC and a key" to this case.
+///   2. Both producers — `SyncEngine` and `ForegroundLink` — build it from a
+///      session that answers `isOpen`, which goes false on the first line of
+///      `close()`. A held session is therefore re-checked, never remembered.
+///   3. `SyncEngine` returns the state to a resting case in a `finally`, so the
 ///      session closing and the state leaving [Connected] are the same unwind.
-///   3. `test/sync/connection_state_test.dart` runs a strap that refuses the key
-///      and asserts [Connected] never appears in the whole transcript.
+///   4. `test/sync/sync_engine_test.dart` runs a strap that refuses the key and
+///      asserts [Connected] never appears in the whole transcript;
+///      `test/sync/foreground_link_test.dart` asserts a backgrounded app holds
+///      no session and never publishes the case.
+///
+/// ## The resting states carry a fact, not a mood
+///
+/// [Disconnected] and [ConnectionFailed] both carry `lastCompleteSync`, because
+/// the useful thing to say when no session is open is *when the strap was last
+/// read* — not that a socket is shut. `link_report.dart` owns the wording; this
+/// file owns the facts, and keeping those apart is what lets the wording be
+/// tested against a pinned clock.
 ///
 /// ## Why a sealed union and not a status enum with side-car fields
 ///
@@ -40,9 +53,6 @@ sealed class StrapConnection {
   /// Base constructor. Use one of the cases.
   const StrapConnection();
 
-  /// A short line for the chrome — quiet, present tense, no exclamation.
-  String get headline;
-
   /// Whether work is in flight, so the chrome can show motion honestly.
   bool get isBusy => switch (this) {
     Disconnected() || Connected() || ConnectionFailed() => false,
@@ -50,20 +60,18 @@ sealed class StrapConnection {
   };
 }
 
-/// Nothing is open. The resting state, and the state after every unwind.
+/// No session is open. The resting state, and the state after every unwind.
 final class Disconnected extends StrapConnection {
   /// [lastCompleteSync] dates the last pull that finished in full, if any.
   const Disconnected({this.lastCompleteSync});
 
   /// When a sync last completed. Null on a phone that has never finished one.
   ///
-  /// Carried here so the chrome can say "synced 2 h ago" while idle — the only
-  /// honest thing to show when nothing is happening, and specifically NOT a
-  /// green dot, which would read as a live link.
+  /// Carried here so the chrome can say "Synced 4 min ago" while idle. That is
+  /// the useful fact and it is also the honest one: after a healthy sync the
+  /// app has released the link on purpose, and reporting the socket ("Not
+  /// connected") describes a normal resting state in the words of a fault.
   final DateTime? lastCompleteSync;
-
-  @override
-  String get headline => 'Not connected';
 }
 
 /// Listening for the strap's advertisement before trying to connect.
@@ -74,18 +82,12 @@ final class Disconnected extends StrapConnection {
 final class Scanning extends StrapConnection {
   /// Looking for the paired strap.
   const Scanning();
-
-  @override
-  String get headline => 'Looking for your strap';
 }
 
 /// The radio link is being opened. Nothing is authenticated yet.
 final class Connecting extends StrapConnection {
   /// Opening the link.
   const Connecting();
-
-  @override
-  String get headline => 'Connecting';
 }
 
 /// The five-step handshake is in flight.
@@ -96,9 +98,6 @@ final class Connecting extends StrapConnection {
 final class Authenticating extends StrapConnection {
   /// Running the handshake.
   const Authenticating();
-
-  @override
-  String get headline => 'Authenticating';
 }
 
 /// Authenticated, and pulling data.
@@ -112,17 +111,11 @@ final class Syncing extends StrapConnection {
   /// `0 of 13`. A determinate bar that is really a guess is the thing
   /// `strap_progress.dart` exists to avoid.
   final StrapSyncProgress? progress;
-
-  @override
-  String get headline => switch (progress) {
-    null => 'Syncing',
-    final StrapSyncProgress at => 'Syncing — ${at.label}',
-  };
 }
 
 /// An authenticated session is open **right now**.
 final class Connected extends StrapConnection {
-  /// [since] is when the handshake succeeded.
+  /// [since] is when the handshake succeeded — `StrapSession.authenticatedAt`.
   const Connected({required this.since, this.batteryPercent});
 
   /// When this session was authenticated. Present tense, evidenced.
@@ -130,19 +123,20 @@ final class Connected extends StrapConnection {
 
   /// Strap battery, when the characteristic answered.
   final int? batteryPercent;
-
-  @override
-  String get headline => 'Connected';
 }
 
 /// The attempt stopped, and here is which failure it was.
 final class ConnectionFailed extends StrapConnection {
   /// [failure] keeps the original taxonomy's own words.
-  const ConnectionFailed(this.failure);
+  const ConnectionFailed(this.failure, {this.lastCompleteSync});
 
   /// The named reason, with its headline and its remedy intact.
   final SyncFailure failure;
 
-  @override
-  String get headline => failure.headline;
+  /// When a sync last completed, so the chrome can show both halves.
+  ///
+  /// An unreachable strap needs two sentences, not one: *why* it is unreachable
+  /// and *how stale the data therefore is*. A failure alone reads as though
+  /// nothing is known; a freshness line alone hides the problem.
+  final DateTime? lastCompleteSync;
 }
