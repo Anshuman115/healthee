@@ -35,7 +35,7 @@ class FakeSecretStore implements SecretStore {
 /// A scanner that answers however the test says, without a radio.
 class FakeStrapScanner implements StrapScanner {
   /// [outcome] is returned; [failure], if set, is thrown instead.
-  FakeStrapScanner({this.outcome, this.failure});
+  FakeStrapScanner({this.outcome, this.failure, this.connectedElsewhere = false});
 
   /// What a successful scan reports.
   ScanOutcome? outcome;
@@ -43,8 +43,14 @@ class FakeStrapScanner implements StrapScanner {
   /// What a failing scan throws.
   PairingFailure? failure;
 
+  /// What the platform says about somebody else holding the strap.
+  bool connectedElsewhere;
+
   /// The MACs this scanner was asked about.
   final List<String> asked = [];
+
+  /// The MACs this scanner was asked *who holds*. Empty unless a scan failed.
+  final List<String> askedWhoHolds = [];
 
   @override
   Future<ScanOutcome> confirmInRange(String mac, {Duration? window}) async {
@@ -54,5 +60,11 @@ class FakeStrapScanner implements StrapScanner {
       throw PairingException(reason);
     }
     return outcome ?? const StrapSighted(rssi: -61, advertisedName: 'Helio');
+  }
+
+  @override
+  Future<bool> isConnectedElsewhere(String mac) async {
+    askedWhoHolds.add(mac);
+    return connectedElsewhere;
   }
 }

@@ -71,6 +71,39 @@ final class StrapUnreachable extends StrapFailure {
   String get code => 'strap_unreachable';
 }
 
+/// Something else on this phone already holds the strap.
+///
+/// ## Why this is its own case rather than "not in range"
+///
+/// Most BLE peripherals accept one connection at a time, and a peripheral that
+/// is already connected **stops advertising**. So a strap held by the Zepp app
+/// or Gadgetbridge looks, to a scan, exactly like a strap left at home — and
+/// telling the owner "that strap didn't advertise in 12 seconds" about a band on
+/// their own wrist is precisely the kind of plausible-but-wrong sentence this
+/// taxonomy exists to prevent. The remedy is different too: nothing about moving
+/// closer will help.
+///
+/// **Raised only on evidence.** `StrapScanner.isConnectedElsewhere` asks the
+/// platform whether it holds a live system connection to that address; the
+/// answer is only trusted when it is yes. "No evidence" stays [StrapNotInRange],
+/// whose own remedy already mentions the possibility.
+final class StrapHeldElsewhere extends StrapFailure {
+  /// The platform reports a live connection to the strap that is not ours.
+  const StrapHeldElsewhere();
+
+  @override
+  String get headline => 'Another app on this phone is holding the strap';
+
+  @override
+  String get remedy =>
+      'The strap accepts one connection at a time, and while it is held it stops '
+      'advertising — so nothing here can reach it. Disconnect it in the Zepp app '
+      '(or Gadgetbridge) and try again.';
+
+  @override
+  String get code => 'strap_held_elsewhere';
+}
+
 /// Connected, but the characteristics the protocol needs are not there.
 ///
 /// Either it is not a ZeppOS strap, or the firmware has moved them. Reporting

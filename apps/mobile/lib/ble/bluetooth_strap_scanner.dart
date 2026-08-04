@@ -54,6 +54,47 @@ class BluetoothStrapScanner implements StrapScanner {
     return _scanFor(mac, window);
   }
 
+  /// Asks Android whether any app on this phone holds a live GATT connection to
+  /// [mac], and subtracts the ones held by us.
+  ///
+  /// `systemDevices` is documented as "devices connected to by *any* app", which
+  /// is exactly the question — the Zepp app holding the strap is the case
+  /// [StrapHeldElsewhere] exists for. `withServices` is required on iOS and
+  /// ignored on Android, and we have no service UUID we could honestly pass
+  /// there, so iOS answers "no evidence" rather than a guess.
+  ///
+  /// ⚠ **Not yet confirmed against the real strap.** The API contract is clear
+  /// and the call is on the failure path only, so the worst case is that this
+  /// keeps returning false and the owner gets today's [StrapNotInRange] message.
+  /// It has not been run against a Helio with the Zepp app connected.
+  @override
+  Future<bool> isConnectedElsewhere(String mac) async {
+    if (!Platform.isAndroid) {
+      return false;
+    }
+    final wanted = mac.toUpperCase();
+    try {
+      final system = await FlutterBluePlus.systemDevices(const <Guid>[]);
+      final ours = FlutterBluePlus.connectedDevices
+          .map((device) => device.remoteId.str.toUpperCase())
+          .toSet();
+      final held = system.any(
+        (device) =>
+            device.remoteId.str.toUpperCase() == wanted &&
+            !ours.contains(wanted),
+      );
+      if (held) {
+        AppLog.info('pairing', 'the strap is connected to another app on this phone');
+      }
+      return held;
+    } on FlutterBluePlusException catch (error, stackTrace) {
+      // Never fatal: this only ever upgrades a message. A platform that will not
+      // answer leaves the owner with [StrapNotInRange], which is still true.
+      AppLog.failure('pairing', 'asking who holds the strap', error, stackTrace);
+      return false;
+    }
+  }
+
   Future<void> _requirePermission() async {
     // Android 12+ splits Bluetooth into scan/connect, and the manifest declares
     // BLUETOOTH_SCAN with `neverForLocation` so scanning never asks for
