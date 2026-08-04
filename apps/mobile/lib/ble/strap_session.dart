@@ -104,6 +104,25 @@ class StrapSession {
   /// Whether the activity-fetch characteristics were found on this device.
   bool get hasActivityChannel => _link.hasActivityChannel;
 
+  DateTime? _authenticatedAt;
+  bool _closed = false;
+
+  /// When the strap accepted the proof on THIS session, or null if it has not.
+  ///
+  /// Set on the same line that emits [StrapPhase.authenticated] and nowhere
+  /// else, so it is the same evidence rather than a second record of it.
+  DateTime? get authenticatedAt => _authenticatedAt;
+
+  /// Whether an authenticated session is open **right now**.
+  ///
+  /// The one question `Connected` is allowed to be built from. It is false
+  /// before the handshake completes and false again the moment [close] runs, so
+  /// a caller holding this object cannot claim a link it no longer has. The
+  /// alternative — the caller remembering that a connect succeeded — is the
+  /// past tense wearing the present, which `connection_state.dart` exists to
+  /// make unrepresentable.
+  bool get isOpen => _authenticatedAt != null && !_closed;
+
   /// Connects, authenticates with [authKey], and opens every channel present.
   ///
   /// Throws [StrapException] carrying [StrapUnreachable],
@@ -121,6 +140,7 @@ class StrapSession {
     // Emitted here and nowhere else: `_authenticate` throws on a refusal and on
     // a timeout, so reaching this line IS the guarantee that an authenticated
     // session exists. Anything that says "connected" has to trace back to it.
+    _authenticatedAt = DateTime.now();
     onPhase?.call(StrapPhase.authenticated);
     _comms = HuamiComms(
       sessionKey: auth.sessionKey,
@@ -278,7 +298,12 @@ class StrapSession {
   }
 
   /// Cancels every subscription and drops the connection.
+  ///
+  /// [isOpen] goes false FIRST, before any await: a close that is in flight is
+  /// already not a session anyone may claim, and the awaits below are exactly
+  /// the window in which something would otherwise still read `true`.
   Future<void> close() async {
+    _closed = true;
     _route = null;
     await _chunkedSub?.cancel();
     await _controlSub?.cancel();

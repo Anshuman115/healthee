@@ -105,11 +105,25 @@ class StrapClient {
   }) async {
     final session = await connect(onPhase: onPhase);
     try {
-      return await StrapSync(session, onProgress: onProgress).run(window);
+      return await syncOver(session, window, onProgress: onProgress);
     } finally {
       await session.close();
     }
   }
+
+  /// Sync over a session somebody else opened, and leave it open.
+  ///
+  /// The counterpart to [syncOnce] for the foreground link, which holds one
+  /// session for as long as the app is in front. **Ownership is the whole
+  /// difference**: whoever called [connect] closes it, so this must not — a
+  /// close here would drop the link the caller is still publishing as
+  /// `Connected`, and the state would be a claim about a session that had just
+  /// been torn down underneath it.
+  Future<StrapSyncResult> syncOver(
+    StrapSession session,
+    StrapSyncWindow window, {
+    StrapProgressSink? onProgress,
+  }) => StrapSync(session, onProgress: onProgress).run(window);
 }
 
 /// The app's strap client.
