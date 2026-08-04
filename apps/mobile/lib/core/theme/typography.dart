@@ -6,25 +6,31 @@
 /// proportional figures a 1 is narrower than an 8, so a resting heart rate moving
 /// 55 → 58 shifts every glyph beside it and a 30-night strip visibly ripples as
 /// you scroll. `FontFeature.tabularFigures()` fixes every digit to one advance
-/// width, so columns line up and a value that changes does not move its
-/// neighbours. `apps/landing/DESIGN.md` §4 makes the same call for the page
-/// ("every data value … with `tabular-nums`").
+/// width, so columns line up and a changing value does not move its neighbours.
 ///
-/// It is applied to the whole [TextTheme] rather than to a numeric style, because
-/// the alternative is remembering — and a number set in the wrong style is exactly
-/// the kind of miss nobody files a bug for. Prose loses nothing: Instrument Sans's
-/// tabular figures are the same shapes at a fixed width.
+/// `docs/APP_DESIGN_BRIEF.md` §7 makes it a hard constraint — *"Tabular figures
+/// everywhere. Non-tabular numerals in a metric column is a defect."* It is
+/// applied to the whole [TextTheme] rather than to a numeric style, because the
+/// alternative is remembering, and a number set in the wrong style is exactly the
+/// kind of miss nobody files a bug for. Prose loses nothing.
+///
+/// ## The scale is the approved design's, measured rather than invented
+///
+/// Brief §2: "Sizes run 10–18px for body and labels, 26–34px for hero figures."
+/// The sizes below are the ones `Healthee.html` actually uses, whose histogram
+/// clusters at 10–15 for body and labels and 26–34 for hero figures. Weight sits
+/// at 600 far more often than 700 — this is an instrument, and hierarchy comes
+/// from weight and spacing rather than from large type.
 ///
 /// ## The font is vendored, not fetched
 ///
 /// `assets/fonts/` holds four weights of Instrument Sans (SIL OFL, see the OFL.txt
 /// beside them). Bundling costs ~195 KB and buys a binary with no network
-/// dependency at paint time — consistent with the project's no-CDN rule and with
-/// a cold-start budget of 2 s to first meaningful paint (Standards §1).
+/// dependency at paint time, against a cold-start budget of 2 s to first
+/// meaningful paint (Standards §1). The face is confirmed by the approved design.
 ///
-/// [fontFamilyFallback] still names the platform faces. If an asset ever fails to
-/// load, text renders in the system font rather than in Flutter's fallback box
-/// glyphs — degraded, but legible.
+/// [healtheeFontFallback] still names the platform faces, so a failed asset
+/// degrades to the system font rather than to Flutter's fallback box glyphs.
 library;
 
 import 'package:flutter/material.dart';
@@ -41,16 +47,20 @@ const List<String> healtheeFontFallback = <String>[
   'Arial',
 ];
 
-/// Every digit at one advance width, plus proper slashed-zero disambiguation.
+/// Every digit at one advance width.
 const List<FontFeature> _numericFeatures = <FontFeature>[
   FontFeature.tabularFigures(),
 ];
 
-/// The app's text theme, coloured for [ink] (primary) and [inkSoft] (secondary).
+/// The app's text theme, coloured for the three ink roles.
 ///
-/// The scale is deliberately small and named for ROLE, not size. v5 is a ledger:
-/// hierarchy comes from weight and rule, not from large type.
-TextTheme healtheeTextTheme({required Color ink, required Color inkSoft}) {
+/// Styles are named for ROLE, not size. [ink3] carries labels, units and captions
+/// — the marginalia that must not compete with the number it annotates.
+TextTheme healtheeTextTheme({
+  required Color ink,
+  required Color ink2,
+  required Color ink3,
+}) {
   TextStyle style(double size, FontWeight weight, Color color, double height, double tracking) {
     return TextStyle(
       fontFamily: healtheeFontFamily,
@@ -65,22 +75,22 @@ TextTheme healtheeTextTheme({required Color ink, required Color inkSoft}) {
   }
 
   return TextTheme(
-    // Hero numbers — the recovery score, the VO₂max estimate.
-    displayLarge: style(44, FontWeight.w700, ink, 1.05, -0.02 * 44),
-    displayMedium: style(32, FontWeight.w700, ink, 1.08, -0.022 * 32),
+    // Hero figures — the recovery score, the VO₂max estimate.
+    displayLarge: style(34, FontWeight.w600, ink, 1.05, -0.022 * 34),
+    displayMedium: style(26, FontWeight.w600, ink, 1.1, -0.02 * 26),
     // Screen and section headings.
-    headlineMedium: style(24, FontWeight.w700, ink, 1.15, -0.02 * 24),
-    headlineSmall: style(20, FontWeight.w600, ink, 1.2, -0.015 * 20),
+    headlineMedium: style(18, FontWeight.w600, ink, 1.25, -0.012 * 18),
+    headlineSmall: style(17, FontWeight.w600, ink, 1.3, -0.01 * 17),
     // A card's own title.
-    titleMedium: style(16, FontWeight.w600, ink, 1.3, 0),
-    titleSmall: style(14, FontWeight.w600, ink, 1.3, 0),
+    titleMedium: style(15, FontWeight.w600, ink, 1.35, 0),
+    titleSmall: style(13.5, FontWeight.w600, ink, 1.35, 0),
     // Prose. `bodyMedium` is the app's default paragraph.
-    bodyLarge: style(16, FontWeight.w400, ink, 1.5, 0),
-    bodyMedium: style(14.5, FontWeight.w400, inkSoft, 1.55, 0),
-    bodySmall: style(13, FontWeight.w400, inkSoft, 1.5, 0),
-    // Units, captions, chips. Wide tracking, small — the ledger's marginalia.
-    labelLarge: style(14, FontWeight.w600, ink, 1.2, 0),
-    labelMedium: style(12, FontWeight.w500, inkSoft, 1.3, 0.02 * 12),
-    labelSmall: style(11, FontWeight.w500, inkSoft, 1.3, 0.06 * 11),
+    bodyLarge: style(15, FontWeight.w400, ink, 1.5, 0),
+    bodyMedium: style(13, FontWeight.w400, ink2, 1.5, 0),
+    bodySmall: style(12, FontWeight.w400, ink2, 1.45, 0),
+    // Units, captions, chips — the instrument's marginalia.
+    labelLarge: style(13, FontWeight.w600, ink, 1.2, 0),
+    labelMedium: style(11.5, FontWeight.w500, ink2, 1.3, 0.01 * 11.5),
+    labelSmall: style(10.5, FontWeight.w500, ink3, 1.3, 0.04 * 10.5),
   );
 }

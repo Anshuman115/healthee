@@ -4,7 +4,9 @@ The Flutter app. **Foundation only** — there are no feature screens yet. What
 exists is the layer everything else gets built on: the theme, the API client, the
 local store, and the type that carries the product's honesty contract.
 
-Read `docs/ENGINEERING_STANDARDS.md` §3 and `docs/APP_DESIGN.md` before writing UI.
+Read `docs/ENGINEERING_STANDARDS.md` §3 and `docs/APP_DESIGN_BRIEF.md` before
+writing UI. (`docs/APP_DESIGN.md` is the older planning doc; where they differ,
+the brief wins.)
 
 ## Run it
 
@@ -31,15 +33,18 @@ build gate, because a warning nobody has to fix is a warning nobody fixes.
 ```
 lib/
   core/       env.dart (the ONLY dart-define site) · logging · provider_logger
-              · router · theme/ (palette · tokens · typography · app_theme)
+              · router · theme/ (palette · tokens · dimensions · typography
+                · app_theme)
   ble/        strap protocol — empty, lands next (see its README)
   data/       honesty/ (the Reading union) · api/ (one dio client + credentials)
               · models/ (typed wire models) · store/ (drift, 60-day tier)
               · today_repository.dart
   analytics/  on-device engine — empty (see its README)
   features/   empty by design — one dir per tab (see its README)
-  shared/     states/ (loading · error · empty · withheld) · foundation_screen
-test/         golden contract parse · envelope unit · store · widget smoke
+  shared/     states/ (loading · error · empty · withheld · value_hole)
+              · foundation_screen
+test/         golden contract parse · envelope unit · store · theme tokens
+              · widget smoke
 ```
 
 ## The one thing to understand before writing a screen
@@ -142,27 +147,49 @@ bump.
 
 ## Design system
 
-The theme is landing-page **v5 "The Ledger"**, transcribed from
-`apps/landing/DESIGN.md` §3 — the same hex, so the app and the page are one
-product. Both light and dark are authored, and brand colours are identical in both.
+The theme is the **approved app design** (`Healthee.html`), transcribed verbatim
+from `docs/APP_DESIGN_BRIEF.md` §2 — indigo accent, near-white light and
+near-black dark, Instrument Sans. Owner decision 2026-08-04: *"the colors and
+fonts all we will keep from new."* Direction is **modern instrument**, explicitly
+not editorial: no serif, no paper texture, no beige.
 
-This resolves `docs/APP_DESIGN.md` §7.1's open "green vs indigo" question by
-noting that **both options are retired**: green was the old app-side system,
-indigo was the landing's v3 "The Instrument", and v5 replaced it. Worth a
-sentence of confirmation from the owner, since §7.1 is still open in that doc.
+**The app and the landing page deliberately diverge.** `apps/landing` is v5 "The
+Ledger" — warm paper, clay accent. The app is not, and that is a choice, not
+drift. It also settles `docs/APP_DESIGN.md` §7.1's open "green vs indigo"
+question: neither option that question offered survived.
 
-Two rules carry over and are structural here:
+Rules that are structural here, not conventions:
 
-- **One accent, a clay/terracotta.** Never "success" — there is no green ring, and
-  score strips use a monochrome opacity ramp, not red/amber/green.
-- **The honesty hue is a cool slate**, and the token is called `withheld`, not
-  `warn`. "A held breath, not an alarm." Material's `error` role is wired to a
-  separate `danger` colour so a refused number can never inherit a failure colour
-  by accident.
+- **Colour is a claim.** Only `fav`/`unf` say something about a reading (better
+  or worse than the owner's *own* normal), and `alert` is the illness flag alone.
+  Everything else is greyscale + accent. Never colour a card to decorate it.
+- **A refusal spends no colour.** A withheld value renders a `ValueHole` — a
+  dashed, `hole`-filled box exactly where the number would have been — with the
+  reason in ordinary ink. Tinting it would make "we are declining to tell you"
+  look like a verdict about the owner's body.
+- **`unf` is not a warning colour and must never be used as one.** "This reading
+  is below your normal" and "we won't guess" are different claims. The recovery
+  signal ladder (brief §5.1) needs the `fav`/`unf` pair and cannot be drawn
+  without it.
+- **There is one red.** `alert`, for illness. `ErrorState` is greyscale with an
+  outlined retry; a dead request is not a fact about the owner's health.
+  `ColorScheme.error` is wired to `alert` only so Material's own widgets do not
+  introduce a second red nobody chose.
+- **The accent is a light/dark PAIR**, not one hex reused. `test/core/theme_test.dart`
+  fails if a theme-invariant brand colour is reinstated.
 
-Instrument Sans is vendored in `assets/fonts/` (SIL OFL, licence beside it, ~195 KB)
-rather than fetched — no CDN at paint time. Tabular figures are on for the whole
-text theme, so a value that changes does not shift the glyphs beside it.
+**One deliberate departure from `Healthee.html`:** it hardcodes `#fff` on the
+accent, which measures 2.97:1 against the dark accent — below WCAG AA and below
+even the 3:1 large-text floor. `onAccent` is therefore per-theme (white on light,
+page-background on dark, 6.30:1 and 6.66:1). No new colour; both values were
+already approved. Flagged for the owner.
 
-**No colour literal exists outside `core/theme/palette.dart`.** Feature code names
-a role — `context.colors.inkFaint` — and never a value.
+Instrument Sans is vendored in `assets/fonts/` (SIL OFL, licence beside it,
+~195 KB) rather than fetched — no CDN at paint time, and the face is confirmed by
+the approved design. Tabular figures are on for the whole text theme, so a value
+that changes does not shift the glyphs beside it (brief §7 makes this a hard
+constraint).
+
+**No colour literal exists outside `core/theme/palette.dart`**, and
+`test/core/theme_test.dart` locks every token to the brief's table — `flutter
+analyze` cannot see a wrong-but-valid colour, so a test has to.

@@ -11,6 +11,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
@@ -39,7 +40,7 @@ class FoundationScreen extends StatelessWidget {
           const SizedBox(height: Insets.xs),
           Text(
             'Specimens, not readings. This screen is deleted when Today lands.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.inkFaint),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.ink3),
           ),
           const SizedBox(height: Insets.xl),
 
@@ -73,19 +74,23 @@ class FoundationScreen extends StatelessWidget {
           const _Specimen(
             title: 'Withheld — no value, and what would bring one back',
             child: ReadingView<String>(
+              // Real production copy, quoted in brief §3 as the text to design
+              // against. Not invented for the specimen.
               reading: Withheld<String>(
                 Disclosure(
-                  reason: 'logged_weight_stale',
+                  reason: 'insufficient_rhr_nights',
                   message:
-                      'The last weight you logged is more than two weeks old, so '
-                      "we can't call it your weight today — log a new one and "
-                      'this comes straight back.',
-                  asOfDate: '2026-06-04',
-                  ageDays: 61,
+                      'Fewer than 3 nights of resting heart rate in the last '
+                      'week — wear the strap overnight for a few more nights '
+                      'and this comes back.',
+                  asOfDate: '2026-07-28',
+                  ageDays: 7,
                 ),
               ),
-              label: 'VO₂max',
+              label: 'Recovery',
               builder: _value,
+              // The explainer pill. It opens the reasoning; it is NOT a retry.
+              onExplainWithheld: _noop,
             ),
           ),
 
@@ -131,6 +136,9 @@ class FoundationScreen extends StatelessWidget {
     );
   }
 
+  /// The specimen sheet has no sheets to open; a real screen supplies one.
+  static void _noop() {}
+
   static Widget _value(BuildContext context, String value) {
     return StateCard(
       child: Text(value, style: Theme.of(context).textTheme.displayMedium),
@@ -153,9 +161,7 @@ class _Specimen extends StatelessWidget {
         children: [
           Text(
             title.toUpperCase(),
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: context.colors.inkFaint),
+            style: Theme.of(context).textTheme.labelSmall,
           ),
           const SizedBox(height: Insets.sm),
           child,

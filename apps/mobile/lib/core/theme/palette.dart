@@ -5,110 +5,189 @@
 /// needs somewhere for the hex to live, and this is it. Everything else reaches
 /// colour through [HealtheeColors] on the theme (`context.colors`), never here.
 ///
-/// ## Which brand this is, and why that question was open
+/// ## Which design this is
 ///
-/// `docs/APP_DESIGN.md` §7.1 lists "brand accent — green vs indigo" as an open
-/// decision gating the visual build. **Both options are retired.** Green was the
-/// old app-side "warm editorial × instrument" system; indigo/iris was the landing
-/// page's v3 "The Instrument". The landing has since moved to **v5 "The Ledger"**,
-/// which `apps/landing/DESIGN.md` records as the binding design law and which the
-/// owner picked ingredient by ingredient. Taking the app anywhere else would give
-/// the product two brands and re-open a question that has been answered.
+/// The approved app design (`Healthee.html`, owner decision 2026-08-04:
+/// *"the colors and fonts all we will keep from new"*), transcribed verbatim into
+/// `docs/APP_DESIGN_BRIEF.md` §2 and again here. Direction: **modern instrument** —
+/// a well-made measuring device, not a lifestyle magazine.
 ///
-/// So these values are v5's, transcribed from `apps/landing/DESIGN.md` §3 — the
-/// same hex, so a screenshot of the app and a screenshot of the page are the same
-/// product. Two rules from that table carry over exactly:
+/// **The app and the landing page deliberately diverge.** `apps/landing` is v5
+/// "The Ledger" — warm paper, clay accent. This is indigo on near-white and
+/// near-black. That is the owner's choice, not drift, and it settles
+/// `docs/APP_DESIGN.md` §7.1: neither option that question offered (app green,
+/// landing v3 iris) survived.
 ///
-///   * **One accent, a clay/terracotta.** It marks actions, links and the owner's
-///     own data line. It is never "success" — this product has no green ring, and
-///     `feedback_no_composite_score` plus APP_DESIGN §1's "honest colour" rule ban
-///     traffic-light scoring outright. Score strips use a monochrome opacity ramp.
-///   * **`warn` is a cool slate reserved for honesty moments** — the
-///     insufficient-data chip, the refusal, the withheld card. "A held breath, not
-///     an alarm; a feature colour, not an error colour." It is deliberately NOT
-///     the colour of failure; [HealtheeColors.danger] is, and the two must not be
-///     used for each other's job.
+/// ## What the previous revision of this file got wrong
 ///
-/// **Brand colours are identical in both themes.** Only the neutrals re-pick.
+/// It argued, carefully and at length, for v5's clay — because v5 was the only
+/// authored token set in the repo at the time. Two of its structural premises are
+/// now dead, and are named here so nobody reinstates them:
+///
+///   * **"Brand colours are identical in both themes."** True of v5, false here.
+///     [LightPalette.accent] and [DarkPalette.accent] are a PAIR, and the second
+///     is not the first re-lightened — `#5145e5` on white and `#8f87ff` on
+///     near-black were each chosen against their own background. The old
+///     `BrandPalette`, whose entire premise was theme-invariant brand colour, is
+///     gone rather than half-kept.
+///   * **A dedicated honesty HUE.** The old palette gave a withheld value a cool
+///     slate. This design spends no colour on it at all — see [LightPalette.hole].
+///
+/// ## The semantic rule that governs everything below
+///
+/// Brief §2: *"Only `fav`/`unf` carry judgement; `alert` is reserved for the
+/// illness flag alone. Everything else is greyscale + accent. Never colour a card
+/// to decorate it."*
+///
+/// Three colours here are allowed to say something about the owner's body —
+/// [LightPalette.fav], [LightPalette.unf], [LightPalette.alert] — plus their
+/// tints. Every other value is structure. Reaching for one of the three to make a
+/// card look interesting is the rule broken, and it is not a rule about taste:
+/// in this app a colour is a claim.
 library;
 
 import 'package:flutter/material.dart';
 
-/// v5 "The Ledger" — light. Warm archival paper.
+/// The approved design — light. The default theme (brief §2).
 abstract final class LightPalette {
-  /// Page background.
-  static const Color canvas = Color(0xFFF4F2ED);
+  /// Page background, behind every surface.
+  static const Color bg = Color(0xFFF4F4F6);
 
-  /// Raised surfaces — cards, sheets.
-  static const Color card = Color(0xFFFBFAF6);
+  /// Cards and sheets.
+  static const Color surface = Color(0xFFFFFFFF);
 
-  /// Recessed bands.
-  static const Color sunk = Color(0xFFEBE8E0);
+  /// A recessed or secondary surface inside a card.
+  static const Color surface2 = Color(0xFFFAFAFB);
 
-  /// Primary text.
-  static const Color ink = Color(0xFF201C15);
+  /// App frame — top bar and tab bar. The same value as [surface] in this theme
+  /// but a separate role: the frame is not a card, and dark mode may part them.
+  static const Color chrome = Color(0xFFFFFFFF);
 
-  /// Secondary text.
-  static const Color inkSoft = Color(0xFF5B544A);
+  /// Primary text and hero figures.
+  static const Color ink = Color(0xFF121217);
 
-  /// Tertiary text — labels, captions, units.
-  static const Color inkFaint = Color(0xFF8A8274);
+  /// Secondary text — the sentence under a number.
+  static const Color ink2 = Color(0xFF56565F);
 
-  /// Hairline dividers.
-  static const Color line = Color(0xFFE0DCCF);
+  /// Tertiary text — labels, units, captions, and a signal sitting at baseline.
+  static const Color ink3 = Color(0xFF6D6D7C);
 
-  /// Card frames — the ledger's crisp border.
-  static const Color lineStrong = Color(0xFFCBC5B4);
+  /// Hairline dividers and card borders.
+  static const Color line = Color.fromRGBO(18, 18, 23, 0.10);
+
+  /// The lighter hairline — rows inside a list, the rule under the app bar.
+  static const Color line2 = Color.fromRGBO(18, 18, 23, 0.06);
+
+  /// The one accent. Actions, links, the owner's own data line.
+  static const Color accent = Color(0xFF5145E5);
+
+  /// The accent under pressure — pressed, hovered, the stronger of the pair.
+  static const Color accent2 = Color(0xFF3F34C9);
+
+  /// A wash of the accent, as a fill behind accent content.
+  static const Color accentSoft = Color.fromRGBO(81, 69, 229, 0.09);
+
+  /// Text and icons sitting ON [accent]. White here — measured at 6.30:1.
+  ///
+  /// Not a new colour: it is [surface]. See [DarkPalette.onAccent] for why this
+  /// role exists at all rather than being a hardcoded white in both themes.
+  static const Color onAccent = surface;
+
+  /// Favourable — this reading sits better than the owner's own normal.
+  static const Color fav = Color(0xFF1A7F57);
+
+  /// [fav] as a fill.
+  static const Color favSoft = Color.fromRGBO(26, 127, 87, 0.10);
+
+  /// Unfavourable — this reading sits worse than the owner's own normal.
+  static const Color unf = Color(0xFFA4680B);
+
+  /// [unf] as a fill.
+  static const Color unfSoft = Color.fromRGBO(164, 104, 11, 0.10);
+
+  /// The illness flag, and nothing else.
+  static const Color alert = Color(0xFFB8352A);
+
+  /// [alert] as a fill.
+  static const Color alertSoft = Color.fromRGBO(184, 53, 42, 0.08);
+
+  /// The number-shaped absence — a very low-alpha fill, not a text colour.
+  static const Color hole = Color.fromRGBO(18, 18, 23, 0.045);
 }
 
-/// v5 "The Ledger" — dark. Warm charcoal.
+/// The approved design — dark. Authored, never derived by inverting light.
 abstract final class DarkPalette {
-  /// Page background.
-  static const Color canvas = Color(0xFF16130E);
+  /// Page background, behind every surface.
+  static const Color bg = Color(0xFF0A0A0E);
 
-  /// Raised surfaces — cards, sheets.
-  static const Color card = Color(0xFF201C16);
+  /// Cards and sheets.
+  static const Color surface = Color(0xFF141419);
 
-  /// Recessed bands.
-  static const Color sunk = Color(0xFF100D09);
+  /// A recessed or secondary surface inside a card.
+  static const Color surface2 = Color(0xFF1A1A21);
 
-  /// Primary text.
-  static const Color ink = Color(0xFFF2EFE7);
+  /// App frame — top bar and tab bar.
+  static const Color chrome = Color(0xFF141419);
 
-  /// Secondary text.
-  static const Color inkSoft = Color(0xFFB1A99A);
+  /// Primary text and hero figures.
+  static const Color ink = Color(0xFFF3F3F6);
 
-  /// Tertiary text — labels, captions, units.
-  static const Color inkFaint = Color(0xFF7B7264);
+  /// Secondary text — the sentence under a number.
+  static const Color ink2 = Color(0xFFA2A2B0);
 
-  /// Hairline dividers.
-  static const Color line = Color(0xFF2F2A22);
+  /// Tertiary text — labels, units, captions, and a signal sitting at baseline.
+  static const Color ink3 = Color(0xFF8D8D99);
 
-  /// Card frames — the ledger's crisp border.
-  static const Color lineStrong = Color(0xFF423B30);
-}
+  /// Hairline dividers and card borders.
+  static const Color line = Color.fromRGBO(255, 255, 255, 0.10);
 
-/// The colours that do NOT change between themes (owner decision, DESIGN.md §3).
-abstract final class BrandPalette {
-  /// The one accent — clay/terracotta. Actions, links, the owner's data line.
-  static const Color accent = Color(0xFFBD4A2A);
+  /// The lighter hairline — rows inside a list, the rule under the app bar.
+  static const Color line2 = Color.fromRGBO(255, 255, 255, 0.055);
 
-  /// The accent, one step softer. Used for text on the accent's own tint.
-  static const Color accentSoft = Color(0xFFC2542F);
+  /// The one accent. Lighter than its light-mode partner, not a tint of it.
+  static const Color accent = Color(0xFF8F87FF);
 
-  /// Text and icons sitting ON the accent.
-  static const Color accentInk = Color(0xFFFFFFFF);
+  /// The accent under pressure — pressed, hovered, the stronger of the pair.
+  static const Color accent2 = Color(0xFFA9A2FF);
 
-  /// Honesty moments — withheld, excluded, refused, insufficient data.
+  /// A wash of the accent, as a fill behind accent content.
+  static const Color accentSoft = Color.fromRGBO(143, 135, 255, 0.14);
+
+  /// Text and icons sitting ON [accent] — the page background, not white.
   ///
-  /// A cool slate. This is the colour of "we won't guess", and it must never be
-  /// used to mean "something broke".
-  static const Color warn = Color(0xFF4D6488);
-
-  /// Genuine failure — a request that did not come back, a sync that died.
+  /// ## The one place this implementation departs from `Healthee.html`
   ///
-  /// Distinct from [warn] on purpose. Muted rather than a signal red: an error is
-  /// information, and this app does not alarm people about their own bodies. It
-  /// is derived from the accent's hue family so the palette stays one system.
-  static const Color danger = Color(0xFF9B3412);
+  /// The design hardcodes `color:#fff` on an accent-filled surface (the coach's
+  /// own message bubble). Against the light theme's `#5145e5` that measures
+  /// **6.30:1** and is right. Against this theme's `#8f87ff` it measures
+  /// **2.97:1** — below WCAG AA for normal text (4.5:1) and below even the 3:1
+  /// large-text floor. The same white is doing two different jobs because the
+  /// prototype had one literal where the token set has a pair.
+  ///
+  /// [bg] on that accent measures **6.66:1**. So the departure is a role
+  /// assignment, not a new colour — both values were already approved, and the
+  /// alternative is shipping text nobody with ordinary eyesight reads comfortably
+  /// in the theme this product defaults to at night. Flagged for the owner.
+  static const Color onAccent = bg;
+
+  /// Favourable — this reading sits better than the owner's own normal.
+  static const Color fav = Color(0xFF4FC691);
+
+  /// [fav] as a fill.
+  static const Color favSoft = Color.fromRGBO(79, 198, 145, 0.14);
+
+  /// Unfavourable — this reading sits worse than the owner's own normal.
+  static const Color unf = Color(0xFFDFA550);
+
+  /// [unf] as a fill.
+  static const Color unfSoft = Color.fromRGBO(223, 165, 80, 0.14);
+
+  /// The illness flag, and nothing else.
+  static const Color alert = Color(0xFFFF7466);
+
+  /// [alert] as a fill.
+  static const Color alertSoft = Color.fromRGBO(255, 116, 102, 0.12);
+
+  /// The number-shaped absence — a very low-alpha fill, not a text colour.
+  static const Color hole = Color.fromRGBO(255, 255, 255, 0.05);
 }

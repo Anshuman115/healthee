@@ -5,12 +5,20 @@
 /// providers (testability is the point)". A widget test can override this
 /// provider and render the dark theme without touching a platform channel.
 ///
-/// The default is [ThemeMode.system], which differs from the landing page (light,
-/// ignoring the OS). That is not drift — it is the same principle applied to a
-/// different surface. A web page is a document the visitor arrived at; a phone app
-/// lives beside the owner's other apps and looks wrong if it ignores the choice
-/// they already made system-wide. Persisting an explicit override belongs with the
-/// Profile screen's appearance section and lands with it.
+/// The default is [ThemeMode.system], where `docs/APP_DESIGN_BRIEF.md` §2 says
+/// "Light default, full dark". Those agree more than they look: the brief's point
+/// is that **light is the authored baseline** — dark is not derived from it and
+/// neither is an afterthought — and `ThemeMode.system` lands on light for anyone
+/// whose phone is set to light, which is the same first impression.
+///
+/// Following the OS is the right default for a phone app specifically. A web page
+/// is a document a visitor arrived at once; this app lives beside the owner's
+/// other apps, is opened first thing in the morning and last thing at night, and
+/// looks broken if it ignores a choice they already made system-wide.
+///
+/// Persisting an explicit override belongs with the Profile screen's appearance
+/// section and lands with it. If the owner would rather force light until they
+/// choose otherwise, this one line is the whole change.
 library;
 
 import 'package:flutter/material.dart';

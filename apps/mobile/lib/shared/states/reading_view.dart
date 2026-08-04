@@ -36,6 +36,7 @@ class ReadingView<T extends Object> extends StatelessWidget {
     this.label,
     this.caveatBuilder,
     this.excludedBuilder,
+    this.onExplainWithheld,
     super.key,
   });
 
@@ -56,6 +57,12 @@ class ReadingView<T extends Object> extends StatelessWidget {
   /// Overrides how a total exclusion renders. Default: [ExcludedNote].
   final Widget Function(BuildContext context, List<Disclosure> exclusions)? excludedBuilder;
 
+  /// Opens the longer explanation behind a [Withheld] value, when one exists.
+  ///
+  /// Passed straight to [WithheldCard]. Deliberately NOT offered for [Excluded]:
+  /// there is nothing to restore, so there is nothing to open about restoring it.
+  final VoidCallback? onExplainWithheld;
+
   @override
   Widget build(BuildContext context) {
     // The exhaustive switch. Adding a fifth Reading case breaks this line, which
@@ -71,7 +78,11 @@ class ReadingView<T extends Object> extends StatelessWidget {
           caveatBuilder?.call(context, caveats) ?? CaveatNote(caveats: caveats),
         ],
       ),
-      Withheld<T>(:final disclosure) => WithheldCard(disclosure: disclosure, label: label),
+      Withheld<T>(:final disclosure) => WithheldCard(
+        disclosure: disclosure,
+        label: label,
+        onExplain: onExplainWithheld,
+      ),
       Excluded<T>(:final exclusions) =>
         excludedBuilder?.call(context, exclusions) ?? ExcludedNote(exclusions: exclusions),
     };

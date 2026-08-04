@@ -1,181 +1,229 @@
-/// Semantic design tokens, reachable from any widget as `context.colors`.
+/// Semantic colour roles, reachable from any widget as `context.colors`.
 ///
-/// Feature code names a ROLE (`colors.inkFaint`, `colors.withheld`) and never a
-/// value. That is what makes both themes real: a widget written against roles is
-/// correct in dark mode by construction, and one written against hex is a bug
-/// nobody sees until they toggle.
+/// Feature code names a ROLE (`colors.ink3`, `colors.unf`) and never a value.
+/// That is what makes both themes real: a widget written against roles is correct
+/// in dark mode by construction; one written against hex is a bug nobody sees
+/// until they toggle.
 ///
-/// This is a `ThemeExtension` rather than a set of top-level constants precisely
-/// so it varies with the theme — Flutter's own `ColorScheme` does not have room
-/// for tokens like "the colour of a withheld number", and squeezing them into
-/// `tertiaryContainer` would be a naming lie.
+/// A `ThemeExtension` rather than top-level constants precisely so it varies with
+/// the theme — and rather than Flutter's `ColorScheme`, which has no room for
+/// "the fill of a number-shaped absence" and would only let us hide it in
+/// `tertiaryContainer` under a name that lies.
+///
+/// ## Three naming decisions, because each replaced something
+///
+/// **[hole] is a FILL, not a hue.** The previous palette gave a withheld value a
+/// cool slate and called the token `withheld`. The approved design spends no
+/// colour on it: a dashed [line] border around a value-shaped box filled with
+/// [hole], at the size and position the number would have had, with the reason in
+/// ordinary [ink2] and the label in [ink3]. That is stronger than a hue. Brief §2
+/// rations colour to judgement — `fav`/`unf` for a reading against baseline,
+/// `alert` for illness — so tinting a refusal would make "we are declining to
+/// tell you" look like a verdict about the owner's body. It is the opposite of one.
+///
+/// **[unf] is not the old `warn`, and merging them would be wrong.** They answer
+/// different questions. `unf` says *this reading is below your normal* — a claim
+/// about the owner, drawn on the recovery ladder. A withhold says *we are not
+/// going to tell you* — a claim about us. Colouring a refusal `unf` asserts the
+/// very thing the refusal exists to decline.
+///
+/// **There is no `danger`.** The old palette had one for a dead request, beside
+/// `alert` for illness. This design has one red, [alert], and the brief reserves
+/// it: *"Reserve true red for the illness/safety flag alone."* A failed network
+/// call is not a fact about the owner's health, so it gets no health colour —
+/// `ErrorState` is greyscale with an accent retry, and it stays distinguishable
+/// from a withhold structurally, by having a button where the withhold has a
+/// hole. `ColorScheme.error` is still wired to [alert] because Material's own
+/// widgets need a red; app-authored failure states do not use it.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/palette.dart';
-
-/// Spacing scale. One rhythm, so gaps compose instead of accumulating.
-abstract final class Insets {
-  /// 4 — hairline gaps, chip padding.
-  static const double xs = 4;
-
-  /// 8 — between a label and its value.
-  static const double sm = 8;
-
-  /// 12 — inside a dense row.
-  static const double md = 12;
-
-  /// 16 — the default card padding and page gutter.
-  static const double lg = 16;
-
-  /// 24 — between cards.
-  static const double xl = 24;
-
-  /// 32 — between sections.
-  static const double xxl = 32;
-}
-
-/// Corner radii — v5 is near-squared; depth comes from borders, not roundness.
-abstract final class Radii {
-  /// 6 — cards and sheets.
-  static const double card = 6;
-
-  /// 4 — chips and stamps.
-  static const double chip = 4;
-
-  /// 5 — buttons.
-  static const double button = 5;
-}
-
-/// The one border width the ledger uses. Named because it is a decision.
-const double hairline = 1;
 
 /// Semantic colour roles for the whole app.
 @immutable
 class HealtheeColors extends ThemeExtension<HealtheeColors> {
   /// Builds a token set. Prefer [HealtheeColors.light] / [HealtheeColors.dark].
   const HealtheeColors({
-    required this.canvas,
-    required this.card,
-    required this.sunk,
+    required this.bg,
+    required this.surface,
+    required this.surface2,
+    required this.chrome,
     required this.ink,
-    required this.inkSoft,
-    required this.inkFaint,
+    required this.ink2,
+    required this.ink3,
     required this.line,
-    required this.lineStrong,
+    required this.line2,
     required this.accent,
+    required this.accent2,
     required this.accentSoft,
-    required this.accentInk,
-    required this.withheld,
-    required this.danger,
+    required this.onAccent,
+    required this.fav,
+    required this.favSoft,
+    required this.unf,
+    required this.unfSoft,
+    required this.alert,
+    required this.alertSoft,
+    required this.hole,
   });
 
-  /// The light token set — v5 "The Ledger" on warm archival paper.
+  /// The approved design, light — the default theme.
   const HealtheeColors.light()
-    : canvas = LightPalette.canvas,
-      card = LightPalette.card,
-      sunk = LightPalette.sunk,
+    : bg = LightPalette.bg,
+      surface = LightPalette.surface,
+      surface2 = LightPalette.surface2,
+      chrome = LightPalette.chrome,
       ink = LightPalette.ink,
-      inkSoft = LightPalette.inkSoft,
-      inkFaint = LightPalette.inkFaint,
+      ink2 = LightPalette.ink2,
+      ink3 = LightPalette.ink3,
       line = LightPalette.line,
-      lineStrong = LightPalette.lineStrong,
-      accent = BrandPalette.accent,
-      accentSoft = BrandPalette.accentSoft,
-      accentInk = BrandPalette.accentInk,
-      withheld = BrandPalette.warn,
-      danger = BrandPalette.danger;
+      line2 = LightPalette.line2,
+      accent = LightPalette.accent,
+      accent2 = LightPalette.accent2,
+      accentSoft = LightPalette.accentSoft,
+      onAccent = LightPalette.onAccent,
+      fav = LightPalette.fav,
+      favSoft = LightPalette.favSoft,
+      unf = LightPalette.unf,
+      unfSoft = LightPalette.unfSoft,
+      alert = LightPalette.alert,
+      alertSoft = LightPalette.alertSoft,
+      hole = LightPalette.hole;
 
-  /// The dark token set — the same brand hex on warm charcoal.
+  /// The approved design, dark — authored, not derived from light.
   const HealtheeColors.dark()
-    : canvas = DarkPalette.canvas,
-      card = DarkPalette.card,
-      sunk = DarkPalette.sunk,
+    : bg = DarkPalette.bg,
+      surface = DarkPalette.surface,
+      surface2 = DarkPalette.surface2,
+      chrome = DarkPalette.chrome,
       ink = DarkPalette.ink,
-      inkSoft = DarkPalette.inkSoft,
-      inkFaint = DarkPalette.inkFaint,
+      ink2 = DarkPalette.ink2,
+      ink3 = DarkPalette.ink3,
       line = DarkPalette.line,
-      lineStrong = DarkPalette.lineStrong,
-      accent = BrandPalette.accent,
-      accentSoft = BrandPalette.accentSoft,
-      accentInk = BrandPalette.accentInk,
-      withheld = BrandPalette.warn,
-      danger = BrandPalette.danger;
+      line2 = DarkPalette.line2,
+      accent = DarkPalette.accent,
+      accent2 = DarkPalette.accent2,
+      accentSoft = DarkPalette.accentSoft,
+      onAccent = DarkPalette.onAccent,
+      fav = DarkPalette.fav,
+      favSoft = DarkPalette.favSoft,
+      unf = DarkPalette.unf,
+      unfSoft = DarkPalette.unfSoft,
+      alert = DarkPalette.alert,
+      alertSoft = DarkPalette.alertSoft,
+      hole = DarkPalette.hole;
 
-  /// Page background.
-  final Color canvas;
+  /// Page background, behind every surface.
+  final Color bg;
 
-  /// Raised surfaces — cards, sheets.
-  final Color card;
+  /// Cards and sheets.
+  final Color surface;
 
-  /// Recessed bands.
-  final Color sunk;
+  /// A recessed or secondary surface inside a card.
+  final Color surface2;
 
-  /// Primary text.
+  /// App frame — top bar and tab bar. Distinct from [surface] by role.
+  final Color chrome;
+
+  /// Primary text and hero figures.
   final Color ink;
 
-  /// Secondary text — supporting prose.
-  final Color inkSoft;
+  /// Secondary text — the sentence under a number, and a withheld reason.
+  final Color ink2;
 
-  /// Tertiary text — labels, units, captions.
-  final Color inkFaint;
+  /// Tertiary text — labels, units, captions, and a signal sitting at baseline.
+  final Color ink3;
 
-  /// Hairline dividers between rows.
+  /// Hairline dividers and card borders. Also the dashed edge of a [hole].
   final Color line;
 
-  /// Card frames.
-  final Color lineStrong;
+  /// The lighter hairline — rows inside a list, the rule under the app bar.
+  final Color line2;
 
   /// The one accent. Actions, links, the owner's own data line.
   final Color accent;
 
-  /// The accent, one step softer — for accent-coloured text.
+  /// The accent under pressure — pressed, hovered, the stronger of the pair.
+  final Color accent2;
+
+  /// A wash of the accent, as a fill behind accent content.
   final Color accentSoft;
 
-  /// Text and icons on top of [accent].
-  final Color accentInk;
+  /// Text and icons sitting ON [accent]. Per-theme — see [DarkPalette.onAccent].
+  final Color onAccent;
 
-  /// The honesty hue: withheld, excluded, refused, insufficient data.
+  /// **Judgement.** This reading sits better than the owner's own normal.
+  final Color fav;
+
+  /// [fav] as a fill — the favourable side of a band or ladder row.
+  final Color favSoft;
+
+  /// **Judgement.** This reading sits worse than the owner's own normal.
   ///
-  /// Named for the state and not the colour ("warn" on the landing page) because
-  /// a widget author reaching for it should be reaching for *the honesty state*.
-  /// If a name suggests "warning", someone will eventually use it for an error,
-  /// and the product's most careful moment will start reading as a fault.
-  final Color withheld;
+  /// Not the colour of an error, and not the colour of a refusal. Required by the
+  /// recovery signal ladder (brief §5.1), which cannot be drawn without the pair.
+  final Color unf;
 
-  /// Genuine failure — a request that never came back.
-  final Color danger;
+  /// [unf] as a fill — the unfavourable side of a band or ladder row.
+  final Color unfSoft;
+
+  /// **The illness flag, and nothing else.** The only red in the product.
+  final Color alert;
+
+  /// [alert] as a fill — the illness banner's background.
+  final Color alertSoft;
+
+  /// The number-shaped absence: the fill of a withheld value's slot.
+  ///
+  /// Drawn as a box the size the number would have been, with a **dashed [line]
+  /// border** and this as its fill. Deliberately almost invisible — 4.5% ink in
+  /// light, 5% white in dark — because the point is the shape, not the colour.
+  final Color hole;
 
   @override
   HealtheeColors copyWith({
-    Color? canvas,
-    Color? card,
-    Color? sunk,
+    Color? bg,
+    Color? surface,
+    Color? surface2,
+    Color? chrome,
     Color? ink,
-    Color? inkSoft,
-    Color? inkFaint,
+    Color? ink2,
+    Color? ink3,
     Color? line,
-    Color? lineStrong,
+    Color? line2,
     Color? accent,
+    Color? accent2,
     Color? accentSoft,
-    Color? accentInk,
-    Color? withheld,
-    Color? danger,
+    Color? onAccent,
+    Color? fav,
+    Color? favSoft,
+    Color? unf,
+    Color? unfSoft,
+    Color? alert,
+    Color? alertSoft,
+    Color? hole,
   }) {
     return HealtheeColors(
-      canvas: canvas ?? this.canvas,
-      card: card ?? this.card,
-      sunk: sunk ?? this.sunk,
+      bg: bg ?? this.bg,
+      surface: surface ?? this.surface,
+      surface2: surface2 ?? this.surface2,
+      chrome: chrome ?? this.chrome,
       ink: ink ?? this.ink,
-      inkSoft: inkSoft ?? this.inkSoft,
-      inkFaint: inkFaint ?? this.inkFaint,
+      ink2: ink2 ?? this.ink2,
+      ink3: ink3 ?? this.ink3,
       line: line ?? this.line,
-      lineStrong: lineStrong ?? this.lineStrong,
+      line2: line2 ?? this.line2,
       accent: accent ?? this.accent,
+      accent2: accent2 ?? this.accent2,
       accentSoft: accentSoft ?? this.accentSoft,
-      accentInk: accentInk ?? this.accentInk,
-      withheld: withheld ?? this.withheld,
-      danger: danger ?? this.danger,
+      onAccent: onAccent ?? this.onAccent,
+      fav: fav ?? this.fav,
+      favSoft: favSoft ?? this.favSoft,
+      unf: unf ?? this.unf,
+      unfSoft: unfSoft ?? this.unfSoft,
+      alert: alert ?? this.alert,
+      alertSoft: alertSoft ?? this.alertSoft,
+      hole: hole ?? this.hole,
     );
   }
 
@@ -185,24 +233,64 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       return this;
     }
     return HealtheeColors(
-      canvas: Color.lerp(canvas, other.canvas, t)!,
-      card: Color.lerp(card, other.card, t)!,
-      sunk: Color.lerp(sunk, other.sunk, t)!,
+      bg: Color.lerp(bg, other.bg, t)!,
+      surface: Color.lerp(surface, other.surface, t)!,
+      surface2: Color.lerp(surface2, other.surface2, t)!,
+      chrome: Color.lerp(chrome, other.chrome, t)!,
       ink: Color.lerp(ink, other.ink, t)!,
-      inkSoft: Color.lerp(inkSoft, other.inkSoft, t)!,
-      inkFaint: Color.lerp(inkFaint, other.inkFaint, t)!,
+      ink2: Color.lerp(ink2, other.ink2, t)!,
+      ink3: Color.lerp(ink3, other.ink3, t)!,
       line: Color.lerp(line, other.line, t)!,
-      lineStrong: Color.lerp(lineStrong, other.lineStrong, t)!,
+      line2: Color.lerp(line2, other.line2, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
+      accent2: Color.lerp(accent2, other.accent2, t)!,
       accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
-      accentInk: Color.lerp(accentInk, other.accentInk, t)!,
-      withheld: Color.lerp(withheld, other.withheld, t)!,
-      danger: Color.lerp(danger, other.danger, t)!,
+      onAccent: Color.lerp(onAccent, other.onAccent, t)!,
+      fav: Color.lerp(fav, other.fav, t)!,
+      favSoft: Color.lerp(favSoft, other.favSoft, t)!,
+      unf: Color.lerp(unf, other.unf, t)!,
+      unfSoft: Color.lerp(unfSoft, other.unfSoft, t)!,
+      alert: Color.lerp(alert, other.alert, t)!,
+      alertSoft: Color.lerp(alertSoft, other.alertSoft, t)!,
+      hole: Color.lerp(hole, other.hole, t)!,
     );
   }
+
+  /// Every role, in declaration order. **Add new roles here too** — this backs
+  /// equality, and Flutter compares theme extensions to decide whether a theme
+  /// change needs a rebuild.
+  List<Color> get _roles => [
+    bg, surface, surface2, chrome,
+    ink, ink2, ink3,
+    line, line2,
+    accent, accent2, accentSoft, onAccent,
+    fav, favSoft, unf, unfSoft,
+    alert, alertSoft, hole,
+  ];
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! HealtheeColors) {
+      return false;
+    }
+    final mine = _roles;
+    final theirs = other._roles;
+    for (var i = 0; i < mine.length; i++) {
+      if (mine[i] != theirs[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAll(_roles);
 }
 
-/// Reaches the token set from a widget: `context.colors.inkFaint`.
+/// Reaches the token set from a widget: `context.colors.ink3`.
 extension HealtheeColorsOf on BuildContext {
   /// The active theme's semantic colours.
   ///
