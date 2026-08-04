@@ -1,19 +1,20 @@
-/// Today — what the strap measured, and what it cannot tell you on its own.
+/// Today — what the strap measured, and what the server made of it.
 ///
-/// ## The order, and where it departs from the brief
+/// ## Two sources, and neither may take the other down
 ///
-/// `docs/APP_DESIGN_BRIEF.md` §4.1 orders Today by **what the owner should act
-/// on**: illness flag, recovery, today's action, sleep, anomalies, metric strip,
-/// data health. Five of those seven are server-derived and are withheld on this
-/// build, so following the list literally would put five refusals above the
-/// first real number and bury the measurements under an apology.
+/// The measured half comes from this phone's own store and renders with no
+/// network at all (brief §7.4). The derived half comes from `/api/today`. They
+/// are watched separately and fail separately, which is the whole reason the
+/// screen is built this way:
 ///
-/// So the ORDERING PRINCIPLE is kept and the list is not: act-on-able first.
-/// Steps, heart rate, sleep and sessions are things the owner can read and act
-/// on today; the server's judgements come next, grouped and explained once
-/// rather than scattered; device and sync health closes, as §5.8 asks. When the
-/// derived numbers arrive they move up into the brief's own order, and the
-/// section widget they live in is already the thing that would move.
+///   * the server unreachable with nothing cached → the derived sections
+///     collapse into ONE error card with a retry, and every measurement is still
+///     on screen;
+///   * the local store unreadable → that IS the screen failing, and it says so
+///     with a retry rather than drawing a page of empty cards.
+///
+/// A page of twenty error cards would be the same news said twenty times, which
+/// reads as breakage rather than as one connection problem.
 ///
 /// ## `ListView.builder` and reveal-once
 ///
@@ -21,7 +22,8 @@
 /// screen's `State`. Both halves are required and neither works alone: the
 /// builder is what keeps a long list at 60 fps, and it is also precisely what
 /// makes a chart's own `State` die on scroll and replay its animation on the way
-/// back. `shared/reveal_once.dart` has the full argument.
+/// back. `shared/reveal_once.dart` has the full argument, and every ported
+/// painter takes its progress as a parameter for exactly this reason.
 library;
 
 import 'package:flutter/material.dart';
@@ -29,18 +31,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_repository.dart';
+import 'package:healthee/data/models/today_view.dart';
+import 'package:healthee/data/push/push_stamp.dart';
+import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
+import 'package:healthee/data/today_repository.dart';
+import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/widgets/connection_strip.dart';
 import 'package:healthee/features/today/widgets/device_health_card.dart';
-import 'package:healthee/features/today/widgets/heart_rate_card.dart';
-import 'package:healthee/features/today/widgets/metric_strip.dart';
-import 'package:healthee/features/today/widgets/server_derived_card.dart';
-import 'package:healthee/features/today/widgets/sleep_card.dart';
-import 'package:healthee/features/today/widgets/steps_card.dart';
-import 'package:healthee/features/today/widgets/workouts_card.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+
+/// The push state, for the data-health strip. Re-read whenever Today is.
+final _pushStampProvider = FutureProvider<PushStamp>((ref) {
+  return ref.watch(localStoreProvider).pushReader.lastAttempt();
+});
 
 /// The app's home screen.
 class TodayScreen extends ConsumerStatefulWidget {
@@ -60,6 +66,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final server = ref.watch(todaySnapshotProvider);
+    final push = ref.watch(_pushStampProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Today')),
       body: Column(
@@ -75,7 +83,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               onRetry: () => ref.invalidate(deviceDayProvider),
               builder: (context, day) => RefreshIndicator(
                 onRefresh: _refresh,
-                child: _TodayBody(day: day, reveals: _reveals, now: widget.now),
+                child: _TodayBody(
+                  day: day,
+                  server: server,
+                  push: push.value,
+                  reveals: _reveals,
+                  now: widget.now,
+                  onRetryServer: () => ref.invalidate(todaySnapshotProvider),
+                ),
               ),
             ),
           ),
@@ -84,21 +99,35 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     );
   }
 
-  /// Pull-to-refresh runs a real sync. New data earns a fresh reveal, which is
-  /// the one thing that may reset the registry — scrolling never does.
+  /// Pull-to-refresh runs a real sync, a push, and a re-read. New data earns a
+  /// fresh reveal, which is the one thing that may reset the registry —
+  /// scrolling never does.
   Future<void> _refresh() async {
     await ref.read(syncControllerProvider.notifier).syncNow();
+    ref
+      ..invalidate(todaySnapshotProvider)
+      ..invalidate(_pushStampProvider);
     _reveals.reset();
   }
 }
 
 /// The ordered sections. Composition only — every module is its own widget.
 class _TodayBody extends StatelessWidget {
-  const _TodayBody({required this.day, required this.reveals, this.now});
+  const _TodayBody({
+    required this.day,
+    required this.server,
+    required this.reveals,
+    required this.onRetryServer,
+    this.push,
+    this.now,
+  });
 
   final DeviceDay day;
+  final AsyncValue<TodayView> server;
+  final PushStamp? push;
   final RevealRegistry reveals;
   final DateTime? now;
+  final VoidCallback onRetryServer;
 
   @override
   Widget build(BuildContext context) {
@@ -117,31 +146,52 @@ class _TodayBody extends StatelessWidget {
 
   /// What to show, in order.
   ///
-  /// A phone that has synced nothing gets ONE honest empty card rather than
-  /// nine identical refusals — nine of the same sentence reads as breakage, and
-  /// the true statement is simply that the strap has not been read yet.
+  /// A phone that has synced nothing AND has heard nothing from the server gets
+  /// ONE honest empty card rather than twenty identical refusals — twenty of the
+  /// same sentence reads as breakage, and the true statement is simply that the
+  /// strap has not been read yet.
   List<Widget> _sections() {
-    if (day.hasNothing) {
+    final view = server.value;
+    if (day.hasNothing && view == null) {
       return [
         const EmptyState(
           message: 'Nothing from your strap yet',
           hint:
               'Tap "Sync now" above with the strap on your wrist and nearby. '
-              'Everything on this screen comes off the device; nothing is '
-              'estimated in the meantime.',
+              'Everything on this screen comes off the device or from the '
+              "server's reading of it; nothing is estimated in the meantime.",
         ),
         DeviceHealthCard(day: day, now: now),
-        ServerDerivedSection(day: day),
+        if (server.hasError) _serverError(),
       ];
     }
     return [
-      StepsCard(day: day, now: now),
-      HeartRateCard(day: day, reveals: reveals, now: now),
-      SleepCard(day: day, now: now),
-      WorkoutsCard(workouts: day.workouts),
-      MetricStrip(metrics: day.metrics, now: now),
-      ServerDerivedSection(day: day),
-      DeviceHealthCard(day: day, now: now),
+      // One card for the whole derived half when the server is unreachable, and
+      // it sits where the derived sections would have started.
+      if (view == null && server.hasError) _serverError(),
+      if (view == null && server.isLoading)
+        const LoadingState(label: "Reading the server's view of today"),
+      ...todaySections(
+        day: day,
+        reveals: reveals,
+        server: view,
+        push: push,
+        now: now,
+      ),
     ];
   }
+
+  /// The derived half is unreachable. Says which half, and offers the retry.
+  ///
+  /// A retry rather than a withheld card, because this is OUR failure and not an
+  /// answer: `WithheldCard` never offers a retry precisely so the two cannot be
+  /// confused.
+  Widget _serverError() => ErrorState(
+    message: "Couldn't reach your server for today's judgements",
+    detail:
+        'Your measurements below are on this phone and are unaffected. '
+        'Recovery, sleep health, debt, VO₂max and biological age are worked out '
+        'on the server, so they are not shown until it answers.',
+    onRetry: onRetryServer,
+  );
 }

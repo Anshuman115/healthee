@@ -4,9 +4,10 @@
 ///   strap ──BLE──▶ StrapSync ──typed models──▶ StrapWriter ──▶ SQLite ──▶ screen
 /// ```
 ///
-/// **There is no network in this path and no push.** The app reads the strap and
-/// keeps what it read; every derived number stays the server's, and Today shows
-/// a refusal where one would go (`data/honesty/server_owned.dart`).
+/// **There is no network in this path.** The engine reads the strap and keeps
+/// what it read; sending it is `data/push/push_service.dart`'s job, run after
+/// this one by `SyncController`. The two are separate so a server that is down
+/// cannot make a good pull look failed.
 ///
 /// ## Where it resumes, and why that is not a decision made here
 ///

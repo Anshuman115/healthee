@@ -90,7 +90,7 @@ final class SyncControllerProvider
   }
 }
 
-String _$syncControllerHash() => r'e39251cea8ed836f9896a6a7f90a67a8a8813cfe';
+String _$syncControllerHash() => r'd3a1053dcbce7d1df219ff30e1c909c014440442';
 
 /// Holds what the link to the strap is doing, and drives it.
 

@@ -29,12 +29,15 @@ import 'dart:async';
 import 'package:healthee/ble/strap_client.dart';
 import 'package:healthee/ble/strap_scanner.dart';
 import 'package:healthee/data/device/device_repository.dart';
+import 'package:healthee/data/push/push_outcome.dart';
+import 'package:healthee/data/push/push_service.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/foreground_link.dart';
 import 'package:healthee/data/sync/foreground_watch.dart';
 import 'package:healthee/data/sync/sync_engine.dart';
 import 'package:healthee/data/sync/sync_outcome.dart';
+import 'package:healthee/data/today_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'sync_controller.g.dart';
@@ -91,6 +94,15 @@ class SyncController extends _$SyncController {
   ///
   /// Near-instant while the app is in front, because the held session skips
   /// both the twelve-second scan and the handshake.
+  ///
+  /// ## The push runs after, and cannot undo the pull
+  ///
+  /// A sync now has two halves — read the strap, then send what is stored — and
+  /// they are deliberately not one operation. The pull's success is already
+  /// recorded by the time the push starts, so a server that is down cannot make
+  /// a good sync look failed, and the measurements are on disk either way. The
+  /// push reports itself through its own health surface (`PushStamp`), which is
+  /// where a background failure belongs (Standards §1).
   Future<SyncOutcome?> syncNow() async {
     if (state.isBusy) {
       return null;
@@ -116,7 +128,29 @@ class SyncController extends _$SyncController {
       // Whatever happened, the store may have moved. Re-reading is cheap and
       // reading stale is the failure this app is built against.
       ref.invalidate(deviceDayProvider);
+      await pushNow();
     }
+  }
+
+  /// Sends everything the local tier is holding back, then re-reads Today.
+  ///
+  /// Separate from [syncNow] and callable on its own, because the two fail
+  /// independently: a phone with no Bluetooth but a good network should still
+  /// clear its backlog, and a phone with a strap in range but no signal should
+  /// still store what it reads.
+  ///
+  /// Returns the outcome so a caller can show it; it is stamped into the store
+  /// regardless, so a caller that ignores it still leaves the health surface
+  /// truthful.
+  Future<PushOutcome> pushNow() async {
+    final outcome = await ref.read(pushServiceProvider).run();
+    if (outcome.rowsSent > 0) {
+      // The server has new measurements, so its derived numbers have moved.
+      // Invalidating only when something was actually sent keeps a failed push
+      // from re-fetching a payload that cannot have changed.
+      ref.invalidate(todaySnapshotProvider);
+    }
+    return outcome;
   }
 
   /// Asks the running sync to stop at its next phase boundary.

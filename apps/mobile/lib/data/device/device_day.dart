@@ -10,12 +10,13 @@
 /// and be missing four judgements, which is precisely the silence this product
 /// is built against.
 ///
-/// The refusals are not placeholders and are not "coming soon" copy. They are
-/// [Withheld] readings carrying a real reason id, built by
-/// `data/honesty/server_owned.dart`, and they render through the same
-/// `WithheldCard` a production withhold renders through. When the push and the
-/// `/api/today` read land, those fields change *source*; nothing about their
-/// shape or their rendering changes.
+/// The derived judgements USED to live here too, as `Withheld` readings whose
+/// reason was "this build does not send anything anywhere". The push and the
+/// `/api/today` read landed, so that sentence stopped being true and the fields
+/// were deleted rather than left saying it — a refusal whose reason is out of
+/// date is worse than no refusal at all. Today now reads them off
+/// `TodaySnapshot`, where they are still `Reading`s and still render through the
+/// same `WithheldCard`. The shape was always the point; only the source moved.
 ///
 /// ## Nothing here is computed
 ///
@@ -30,7 +31,6 @@ import 'package:healthee/data/device/device_night.dart';
 import 'package:healthee/data/device/device_workout.dart';
 import 'package:healthee/data/honesty/device_absence.dart';
 import 'package:healthee/data/honesty/reading.dart';
-import 'package:healthee/data/honesty/server_owned.dart';
 import 'package:meta/meta.dart';
 
 /// One point in a plotted series: a value the strap recorded at an instant.
@@ -171,21 +171,6 @@ class DeviceDay {
 
   /// Strap battery at the last sync, or null when it was never read.
   final int? batteryPercent;
-
-  /// Recovery — **the server's**, and therefore withheld here.
-  Reading<double> get recovery => serverDerived<double>('Recovery');
-
-  /// The four-dimension sleep judgement — the server's.
-  Reading<double> get sleepHealth => serverDerived<double>('Sleep health');
-
-  /// Sleep debt — the server's.
-  Reading<double> get sleepDebt => serverDerived<double>('Sleep debt');
-
-  /// The fitness estimate and its instrument — the server's.
-  Reading<double> get vo2max => serverDerived<double>('VO₂max');
-
-  /// The motivational estimate — the server's.
-  Reading<double> get biologicalAge => serverDerived<double>('Biological age');
 
   /// True when the strap has told us nothing at all about this day.
   ///

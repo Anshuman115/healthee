@@ -1,4 +1,4 @@
-/// `GET /api/today`, typed — the app's proof that the whole boundary works.
+/// `GET /api/today`, typed — the whole Today screen in one model.
 ///
 /// One model, parsed from the committed contract snapshot, exercising every part
 /// of the pipeline: nested objects, lists, nullable fields, and all four honesty
@@ -7,22 +7,38 @@
 /// copy — so a reviewed server-side shape change fails the mobile suite in the
 /// same commit that makes it. That is the point of the file living where it does.
 ///
-/// ## What this model does NOT do
+/// ## Every honesty-bearing block is a [Reading], and none of them decide it
 ///
-/// It does not cover every key `/api/today` sends; the payload is ~20 KB of
-/// deeply nested, largely optional structure and the server's own standards
-/// document names it as the documented exception to typed responses. Fields land
-/// here as the screens that need them land. What is settled is the *shape* of the
-/// work: every honesty-bearing field is a [Reading], and nothing above the data
-/// layer sees a `Map<String, Object?>` again.
+/// The blocks go through [readingFrom], once, so a metric card and a VO₂max card
+/// cannot end up disagreeing about what "withheld" means. A block the server
+/// omitted entirely becomes a `Withheld` with the honest "we don't know why"
+/// sentence rather than being dropped — an absence the UI never hears about is
+/// the silence this whole design is against.
+///
+/// The fields that are NOT readings are the ones that are not claims about a
+/// measurement: [action] (an un-warmed premium surface, not a withheld number),
+/// [illnessFlag] (present or absent, never withheld), the series, and the lists.
+/// Dressing any of those in a refusal card would tell the owner something is
+/// wrong when nothing is.
 library;
 
 import 'package:healthee/data/honesty/envelope.dart';
 import 'package:healthee/data/honesty/reading.dart';
+import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/data_health.dart';
+import 'package:healthee/data/models/finding.dart';
+import 'package:healthee/data/models/illness_flag.dart';
+import 'package:healthee/data/models/last_sleep.dart';
 import 'package:healthee/data/models/metric_card.dart';
+import 'package:healthee/data/models/recommendation.dart';
 import 'package:healthee/data/models/recovery_score.dart';
+import 'package:healthee/data/models/recovery_signals.dart';
+import 'package:healthee/data/models/sleep_debt.dart';
+import 'package:healthee/data/models/sleep_health.dart';
+import 'package:healthee/data/models/sleep_history.dart';
+import 'package:healthee/data/models/today_series.dart';
+import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/models/vo2max.dart';
 import 'package:meta/meta.dart';
 
@@ -34,23 +50,33 @@ class TodaySnapshot {
     required this.date,
     required this.action,
     required this.recovery,
+    required this.recoverySignals,
     required this.metrics,
     required this.vo2max,
     required this.biologicalAge,
     required this.dataHealth,
+    required this.illnessFlag,
+    required this.lastSleep,
+    required this.overnightVitals,
+    required this.sleepHealth,
+    required this.sleepDebt,
+    required this.sleepHistory7d,
+    required this.cardioLoad,
+    required this.mvpa,
+    required this.sparklines,
+    required this.hourlyHeartRate,
+    required this.hourlyStress,
+    required this.findings,
+    required this.recommendations,
   });
 
   /// Parses `GET /api/today`.
-  ///
-  /// Every honesty-bearing block goes through [readingFrom]; none of them decide
-  /// their own state. A block the server omitted entirely becomes a `Withheld`
-  /// with the honest "we don't know why" sentence rather than being dropped — an
-  /// absence the UI never hears about is the silence this whole design is against.
   factory TodaySnapshot.fromJson(Map<String, Object?> json) {
     return TodaySnapshot(
       date: json['date']! as String,
       action: json['action'] as String?,
       recovery: readingFrom(_block(json['recovery_score']), RecoveryScore.maybe),
+      recoverySignals: readingFrom(_block(json['recovery']), RecoverySignals.maybe),
       metrics: [
         for (final entry in (json['metrics'] as List? ?? const []))
           if (entry is Map<String, Object?>) MetricCard.fromJson(entry),
@@ -61,6 +87,26 @@ class TodaySnapshot {
         final Map<String, Object?> health => DataHealth.fromJson(health),
         _ => null,
       },
+      illnessFlag: IllnessFlag.maybe(_block(json['illness_flag'])),
+      lastSleep: readingFrom(_block(json['last_sleep']), LastSleep.maybe),
+      overnightVitals: OvernightVitals.maybe(_block(json['last_sleep_extras'])),
+      sleepHealth: readingFrom(_block(json['sleep_health']), SleepHealth.maybe),
+      sleepDebt: readingFrom(_block(json['sleep_debt']), SleepDebt.maybe),
+      sleepHistory7d: SleepNightSummary.listFrom(json['sleep_history_7d']),
+      cardioLoad: readingFrom(_block(json['cardio_load']), CardioLoad.maybe),
+      mvpa: readingFrom(_block(json['mvpa']), Mvpa.maybe),
+      sparklines: _sparklines(json['sparklines']),
+      hourlyHeartRate: HourPoint.listFrom(json['today_hr_series']),
+      hourlyStress: HourPoint.listFrom(json['today_stress_series']),
+      findings: [
+        for (final entry in (json['top_findings'] as List? ?? const []))
+          if (entry is Map<String, Object?>) Finding.fromJson(entry),
+      ],
+      recommendations: [
+        for (final entry in (json['recommendations'] as List? ?? const []))
+          if (entry is Map<String, Object?> && entry['action'] is String)
+            Recommendation.fromJson(entry),
+      ],
     );
   }
 
@@ -71,12 +117,14 @@ class TodaySnapshot {
   ///
   /// `docs/APP_DESIGN.md` §3.1: null means "show nothing, never a spinner". It is
   /// deliberately NOT a [Reading] — an un-warmed action is not a withheld number,
-  /// it is a premium surface that has nothing to say yet, and dressing it in a
-  /// refusal card would tell the owner something is wrong when nothing is.
+  /// it is a premium surface that has nothing to say yet.
   final String? action;
 
   /// Recovery 0–100 with its per-factor breakdown.
   final Reading<RecoveryScore> recovery;
+
+  /// The per-signal ladder behind that score — brief §5.1's signature chart.
+  final Reading<RecoverySignals> recoverySignals;
 
   /// The metric cards, in server order.
   final List<MetricCard> metrics;
@@ -90,6 +138,47 @@ class TodaySnapshot {
   /// Per-feed freshness, or null when the payload omitted it.
   final DataHealth? dataHealth;
 
+  /// The illness flag, or null when nothing is flagged. Outranks everything.
+  final IllnessFlag? illnessFlag;
+
+  /// Last night as the server staged it.
+  final Reading<LastSleep> lastSleep;
+
+  /// What the strap measured while the owner slept, or null when it measured
+  /// nothing. Not a [Reading]: the server sends no honesty block for it, and
+  /// inventing one would put words in its mouth.
+  final OvernightVitals? overnightVitals;
+
+  /// The four-dimension judgement. Never summed into one number in the UI.
+  final Reading<SleepHealth> sleepHealth;
+
+  /// The fortnight's accumulated shortfall.
+  final Reading<SleepDebt> sleepDebt;
+
+  /// Seven nights of stage totals, oldest first.
+  final List<SleepNightSummary> sleepHistory7d;
+
+  /// Today's training load against the owner's own 30-day baseline.
+  final Reading<CardioLoad> cardioLoad;
+
+  /// Moderate-to-vigorous minutes, today and this week.
+  final Reading<Mvpa> mvpa;
+
+  /// Fourteen days per metric, keyed by the metric's canonical id.
+  final Map<String, List<TrendPoint>> sparklines;
+
+  /// Today's heart rate, hourly.
+  final List<HourPoint> hourlyHeartRate;
+
+  /// Today's stress, hourly.
+  final List<HourPoint> hourlyStress;
+
+  /// Correlations found in this owner's own data. Single-subject, observational.
+  final List<Finding> findings;
+
+  /// Today's cited actions, highest rank first.
+  final List<Recommendation> recommendations;
+
   /// A metric card by its canonical id, or null when today has no such card.
   MetricCard? metric(String id) {
     for (final card in metrics) {
@@ -100,10 +189,25 @@ class TodaySnapshot {
     return null;
   }
 
+  /// One sparkline by metric id. Empty when the payload carried none.
+  List<TrendPoint> sparkline(String id) => sparklines[id] ?? const [];
+
   /// A missing block parses as an empty object, which [readingFrom] resolves to a
   /// `Withheld` carrying [unexplainedAbsenceMessage]. Returning `const {}` rather
   /// than throwing is the choice that keeps a partial payload renderable: one
   /// absent block should cost the owner that block, not the whole page.
   static Map<String, Object?> _block(Object? raw) =>
       raw is Map<String, Object?> ? raw : const <String, Object?>{};
+
+  static Map<String, List<TrendPoint>> _sparklines(Object? raw) {
+    if (raw is! Map<String, Object?>) {
+      return const {};
+    }
+    return <String, List<TrendPoint>>{
+      for (final entry in raw.entries)
+        if (TrendPoint.listFrom(entry.value) case final series
+            when series.isNotEmpty)
+          entry.key: series,
+    };
+  }
 }

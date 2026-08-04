@@ -11,7 +11,8 @@
 /// makes for the server payload. A screen never asks "is this null"; it switches
 /// on a [Reading]. And the distinction the store is uniquely able to draw is the
 /// one this file exists to keep: **a row that is absent because the sensor wrote
-/// nothing** is `notMeasured`, while a number the server owns is `serverDerived`.
+/// nothing** is `notMeasured`, and it is a different refusal from one the
+/// server sends.
 /// Both are withholds; they carry different reasons and different remedies, and
 /// a caller cannot accidentally produce the wrong one because neither is
 /// constructed at the call site.

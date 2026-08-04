@@ -16,35 +16,8 @@
 ///     with a null estimate to accidentally render.
 library;
 
+import 'package:healthee/data/models/trend_point.dart';
 import 'package:meta/meta.dart';
-
-/// One point on a trend line.
-@immutable
-class TrendPoint {
-  /// A dated value.
-  const TrendPoint({required this.date, required this.value});
-
-  /// Parses `{"date": "2026-07-31", "value": 43.0}`.
-  factory TrendPoint.fromJson(Map<String, Object?> json) {
-    return TrendPoint(
-      date: json['date']! as String,
-      value: (json['value']! as num).toDouble(),
-    );
-  }
-
-  /// Owner-local calendar date, `YYYY-MM-DD`.
-  final String date;
-
-  /// The value on that date.
-  final double value;
-
-  @override
-  bool operator ==(Object other) =>
-      other is TrendPoint && other.date == date && other.value == value;
-
-  @override
-  int get hashCode => Object.hash(date, value);
-}
 
 /// A reported VO₂max, with the instrument that read it and that instrument's error.
 @immutable
@@ -86,7 +59,7 @@ class Vo2max {
       medianForAge: (json['median_for_age'] as num?)?.toDouble(),
       deltaFromMedian: (json['delta_from_median'] as num?)?.toDouble(),
       sessionCount: (json['n_sessions'] as num?)?.toInt(),
-      trend90d: _trend(json['trend_90d']),
+      trend90d: TrendPoint.listFrom(json['trend_90d']),
       researchNotes: _strings(json['research_notes']),
     );
   }
@@ -132,16 +105,6 @@ class Vo2max {
 
   /// The notes that license this number in front of the owner.
   final List<String> researchNotes;
-
-  static List<TrendPoint> _trend(Object? raw) {
-    if (raw is! List) {
-      return const [];
-    }
-    return [
-      for (final entry in raw)
-        if (entry is Map<String, Object?>) TrendPoint.fromJson(entry),
-    ];
-  }
 
   static List<String> _strings(Object? raw) {
     if (raw is! List) {

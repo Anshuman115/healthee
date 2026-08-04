@@ -65,6 +65,15 @@ class StrapSamples extends Table {
   /// The decoded value, in the metric's own unit. Untouched.
   RealColumn get value => real()();
 
+  /// When `POST /ingest/helio` accepted this row, epoch ms — null while it is
+  /// still waiting to be sent. See [pushedAtMs] on [DeviceTotals] for why the
+  /// marker lives on the row rather than in a high-water cursor.
+  ///
+  /// A re-pulled sample keeps its marker: `(metric, ts)` is the measurement's
+  /// identity and its value does not change, so re-sending 60 days of samples
+  /// every sync would buy nothing.
+  IntColumn get pushedAtMs => integer().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {metric, tsMs};
 }
@@ -118,6 +127,15 @@ class SleepSessions extends Table {
   /// The stage timeline as `[[startMs, endMs, type], …]` JSON.
   TextColumn get stagesJson => text()();
 
+  /// When the push accepted this night, epoch ms; null while it is pending.
+  ///
+  /// **Cleared whenever the row is re-written.** The fetch plan re-reads two
+  /// days of sleep on purpose so a nap appended later is picked up, and a night
+  /// that gained stages after it was pushed is a different record under the same
+  /// key. Three nights re-sent per sync is nothing; a night whose second half
+  /// never reaches the server is a hole nobody would see.
+  IntColumn get pushedAtMs => integer().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {startMs};
 }
@@ -150,6 +168,10 @@ class StoredWorkouts extends Table {
 
   /// Lowest heart rate.
   IntColumn get minHr => integer()();
+
+  /// When the push accepted this workout, epoch ms; null while it is pending.
+  /// Cleared on re-write for the same reason a night's is.
+  IntColumn get pushedAtMs => integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {startMs};
@@ -185,6 +207,24 @@ class DeviceTotals extends Table {
   /// When the reply landed, epoch milliseconds. A counter read at 09:00 is a
   /// claim about nine hours, not about a day, and the screen says so.
   IntColumn get readAtMs => integer()();
+
+  /// When `POST /ingest/helio` accepted this row, epoch ms; null while pending.
+  ///
+  /// ## Why a per-row marker and not a "pushed up to here" cursor
+  ///
+  /// A high-water cursor is a second claim about what the server holds, and it
+  /// is wrong in the direction that loses data. The one-shot stress and nap
+  /// passes deliberately write rows OLDER than anything already stored; a cursor
+  /// advanced past them would skip every one, permanently, and nothing would
+  /// ever revisit them. The marker is on the row the push is about, so a
+  /// backfilled row is pending by construction. It is the same argument
+  /// `StrapWriter.resumeWindow` makes for the fetch watermark, in the other
+  /// direction.
+  ///
+  /// **Cleared on every re-write**, because this counter is live: it grows all
+  /// day under one primary key, so the 09:00 reading being pushed says nothing
+  /// about the 21:00 one.
+  IntColumn get pushedAtMs => integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {day};
