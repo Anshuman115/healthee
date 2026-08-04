@@ -32,14 +32,22 @@ import '../store/strap_store_test.dart' show nightOn, resultWith;
 const String _today = '2026-08-04';
 final DateTime _now = DateTime(2026, 8, 4, 9, 30);
 
-/// The screen over [store], with the day and the clock pinned.
+/// The screen over [store], with the day, the clock and the link state pinned.
+///
+/// The connection is ALWAYS overridden, even when a test does not care about
+/// it. The real controller opens a strap session as soon as anything watches it
+/// — which is the point of the feature and exactly wrong inside a widget test,
+/// where it would reach for a radio that does not exist. The lifecycle
+/// behaviour has its own suite (`test/sync/foreground_lifecycle_test.dart`)
+/// against a scripted device.
 Widget _host(LocalStore store, {StrapConnection? connection}) {
   return ProviderScope(
     overrides: [
       localStoreProvider.overrideWithValue(store),
       todayProvider.overrideWithValue(_today),
-      if (connection != null)
-        syncControllerProvider.overrideWith(() => _FixedConnection(connection)),
+      syncControllerProvider.overrideWith(
+        () => _FixedConnection(connection ?? const Disconnected()),
+      ),
     ],
     child: MaterialApp(
       theme: AppTheme.light,
@@ -236,7 +244,12 @@ void main() {
 
   group('the connection strip', () {
     for (final (name, state, expected) in <(String, StrapConnection, String)>[
-      ('disconnected', const Disconnected(), 'Not connected'),
+      ('never synced', const Disconnected(), 'Never synced — tap Sync now'),
+      (
+        'released after a healthy sync',
+        Disconnected(lastCompleteSync: _now.subtract(const Duration(minutes: 4))),
+        'Synced 4 min ago',
+      ),
       ('scanning', const Scanning(), 'Looking for your strap'),
       ('connecting', const Connecting(), 'Connecting'),
       ('authenticating', const Authenticating(), 'Authenticating'),
@@ -251,7 +264,25 @@ void main() {
       });
     }
 
-    testWidgets('a failure shows the headline AND the remedy, not a dot', (
+    testWidgets('AN IDLE LINK IS NEVER REPORTED AS A FAULT', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          store,
+          connection: Disconnected(
+            lastCompleteSync: _now.subtract(const Duration(minutes: 4)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.text('Not connected'),
+        findsNothing,
+        reason: 'the app let the link go on purpose; nothing is wrong',
+      );
+    });
+
+    testWidgets('a failure shows the headline, the age AND the remedy', (
       tester,
     ) async {
       const failure = SyncFailure(
@@ -261,11 +292,18 @@ void main() {
         source: 'test',
       );
       await tester.pumpWidget(
-        _host(store, connection: const ConnectionFailed(failure)),
+        _host(
+          store,
+          connection: ConnectionFailed(
+            failure,
+            lastCompleteSync: _now.subtract(const Duration(hours: 9)),
+          ),
+        ),
       );
       await tester.pump();
 
       expect(find.text('Bluetooth is off'), findsOneWidget);
+      expect(find.text('Last full sync 9 h ago.'), findsOneWidget);
       expect(find.text('Turn Bluetooth on and try again.'), findsOneWidget);
     });
 

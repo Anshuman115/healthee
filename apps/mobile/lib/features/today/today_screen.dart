@@ -66,7 +66,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         children: [
           // In the chrome, not in the list: a connection state that scrolls
           // away is one the owner cannot check when they need it.
-          const ConnectionStrip(),
+          ConnectionStrip(now: widget.now),
           Expanded(
             child: AsyncView<DeviceDay>(
               value: ref.watch(deviceDayProvider),

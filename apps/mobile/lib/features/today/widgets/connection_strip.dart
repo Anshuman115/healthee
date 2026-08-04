@@ -12,19 +12,28 @@
 /// is the whole point of the failure being named rather than counted. That is
 /// the brief's "surface them, do not collapse them to a dot", and it is why
 /// `SyncFailure` copies the sentences instead of a code.
+///
+/// **No copy is decided here.** `link_report.dart` owns every word, because the
+/// resting lines are functions of the clock and a widget is the one place they
+/// could not be tested against a pinned one.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:healthee/ble/strap_progress.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/sync/connection_state.dart';
+import 'package:healthee/data/sync/link_report.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 
 /// The chrome's one-line report on the link to the strap.
 class ConnectionStrip extends ConsumerWidget {
-  /// Watches [syncControllerProvider] and drives it.
-  const ConnectionStrip({super.key});
+  /// [now] is injected by tests so the freshness labels are deterministic.
+  const ConnectionStrip({this.now, super.key});
+
+  /// The instant every "x min ago" is measured against.
+  final DateTime? now;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,6 +41,7 @@ class ConnectionStrip extends ConsumerWidget {
     final text = Theme.of(context).textTheme;
     final state = ref.watch(syncControllerProvider);
     final controller = ref.read(syncControllerProvider.notifier);
+    final report = linkReport(state, now: now ?? DateTime.now());
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -47,11 +57,11 @@ class ConnectionStrip extends ConsumerWidget {
         children: [
           Row(
             children: [
-              _StateDot(live: state is Connected || state is Syncing),
+              _StateDot(live: report.live),
               const SizedBox(width: Insets.sm),
               Expanded(
                 child: Text(
-                  state.headline,
+                  report.headline,
                   style: text.labelLarge,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -71,18 +81,20 @@ class ConnectionStrip extends ConsumerWidget {
                 ),
             ],
           ),
-          if (state is Syncing && state.progress != null) ...[
+          if (state case Syncing(:final StrapSyncProgress progress)) ...[
             const SizedBox(height: Insets.sm),
-            _Progress(fraction: state.progress!.fraction),
+            _Progress(fraction: progress.fraction),
           ],
-          if (state is ConnectionFailed) ...[
+          // How old the data is, then what to do about it. Both, always — a
+          // failure with no freshness hides how stale the screen has gone, and
+          // freshness with no remedy is a problem the owner cannot act on.
+          if (report.freshness case final String line) ...[
             const SizedBox(height: Insets.xs),
-            // The remedy, in full. A failure with its reason hidden behind a tap
-            // is a failure the owner cannot act on.
-            Text(
-              state.failure.remedy,
-              style: text.bodySmall?.copyWith(color: colors.ink2),
-            ),
+            Text(line, style: text.bodySmall?.copyWith(color: colors.ink2)),
+          ],
+          if (report.detail case final String line) ...[
+            const SizedBox(height: Insets.xs),
+            Text(line, style: text.bodySmall?.copyWith(color: colors.ink2)),
           ],
         ],
       ),

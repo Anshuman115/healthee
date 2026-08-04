@@ -20,6 +20,21 @@
 /// because re-running a wide pass is cheap and skipping one leaves a permanent
 /// hole (see `strap_sync.dart` for what those two holes were).
 ///
+/// ## Two ways in, one of which owns nothing
+///
+/// When the app is in front, `ForegroundLink` already holds an authenticated
+/// session, and a sync started then is handed that session through [SyncEngine.run]'s
+/// `session` argument. On that path the engine does NOT scan, does NOT connect,
+/// and — the part that matters — does NOT close: whoever opened it closes it.
+/// Skipping the scan and the handshake is what makes `Sync now` near-instant
+/// while the app is open, and the ownership rule is what stops a sync from
+/// tearing down the link the chrome is still reporting as `Connected`.
+///
+/// It also changes where the run lands. With a held session the resting state is
+/// `Connected`, not `Disconnected` — computed from the session's own `isOpen`
+/// rather than from the fact that one was passed in, so a session that died
+/// during the pull cannot leave the state claiming it.
+///
 /// ## What "interruptible" means, precisely
 ///
 /// [SyncCancelToken] is checked at every phase boundary — before the scan,
@@ -34,13 +49,13 @@ library;
 import 'package:healthee/ble/models/strap_sync_result.dart';
 import 'package:healthee/ble/strap_client.dart';
 import 'package:healthee/ble/strap_exception.dart';
-import 'package:healthee/ble/strap_failure.dart';
 import 'package:healthee/ble/strap_progress.dart';
 import 'package:healthee/ble/strap_scanner.dart';
+import 'package:healthee/ble/strap_session.dart';
 import 'package:healthee/core/logging.dart';
-import 'package:healthee/data/pairing/pairing_exception.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/sync/connection_state.dart';
+import 'package:healthee/data/sync/preflight_scan.dart';
 import 'package:healthee/data/sync/sync_failure.dart';
 import 'package:healthee/data/sync/sync_outcome.dart';
 
@@ -77,14 +92,19 @@ class SyncEngine {
   /// Runs one sync for the owner-local [today] (`YYYY-MM-DD`).
   ///
   /// [onState] is called with every [StrapConnection] the run passes through,
-  /// in order, and is the ONLY producer of [Connected] in the app — see that
-  /// class's docstring for why that matters. The run always ends on
-  /// [Disconnected] or [ConnectionFailed], guaranteed by the `finally` below, so
-  /// a state claiming a live session cannot outlive one.
+  /// in order. The run always ends on a resting state — [Disconnected],
+  /// [ConnectionFailed], or [Connected] when a caller-owned [session] is still
+  /// open — guaranteed by the `finally` below, so a state claiming a live
+  /// session cannot outlive one.
+  ///
+  /// [session] is an already-authenticated session the caller owns and will
+  /// close. Passing one skips the scan and the handshake; passing null is the
+  /// original connect → pull → disconnect run.
   Future<SyncOutcome> run({
     required String today,
     required void Function(StrapConnection state) onState,
     SyncCancelToken? cancel,
+    StrapSession? session,
   }) async {
     final token = cancel ?? SyncCancelToken();
     final at = DateTime.now();
@@ -96,63 +116,82 @@ class SyncEngine {
     // failures are surfaced, never swallowed).
     var landedOnRest = false;
     void emit(StrapConnection state) {
-      landedOnRest = state is Disconnected || state is ConnectionFailed;
+      landedOnRest =
+          state is Disconnected ||
+          state is ConnectionFailed ||
+          state is Connected;
       onState(state);
     }
 
     try {
-      final blocked = await _scan(emit);
-      if (blocked != null) {
-        return await _stamp(at, SyncFailed(blocked), emit);
+      // Skipped when a session is already open: it IS the presence check, and
+      // twelve seconds of scanning for a strap we are talking to is the delay
+      // holding the link was meant to remove.
+      if (session == null) {
+        final blocked = await _scan(emit);
+        if (blocked != null) {
+          return await _stamp(at, SyncFailed(blocked), emit, session: session);
+        }
       }
       if (token.isCancelled) {
         return await _stamp(
           at,
           const SyncPartial('you stopped it before it ran'),
           emit,
+          session: session,
         );
       }
-      return await _pull(today: today, at: at, onState: emit, token: token);
+      return await _pull(
+        today: today,
+        at: at,
+        onState: emit,
+        token: token,
+        session: session,
+      );
     } on StrapException catch (error, stackTrace) {
       // Named, logged, and surfaced — never swallowed (Standards §1). Nothing
       // reached the store on this path: `StrapSync` throws before it returns a
       // result, so there is no partial write to reconcile.
       AppLog.failure('sync', 'syncing the strap', error, stackTrace);
-      return await _stamp(at, SyncFailed(SyncFailure.strap(error.failure)), emit);
+      return await _stamp(
+        at,
+        SyncFailed(SyncFailure.strap(error.failure)),
+        emit,
+        session: session,
+      );
     } finally {
       if (!landedOnRest) {
         // Deliberately without a date: the store is the thing that just failed,
         // so asking it when we last synced is the least trustworthy read
-        // available. "Not connected" is the part we are sure of.
-        onState(const Disconnected());
+        // available. A held session that is still open is the one thing we can
+        // still state, because the session itself is what answers.
+        onState(_liveRest(session) ?? const Disconnected());
       }
     }
   }
 
+  /// [Connected] when [session] is open right now, else null.
+  ///
+  /// Asks the session rather than the caller. A session handed in and then
+  /// killed mid-pull must not leave the chrome claiming a link — and the caller
+  /// has no way to know that happened, while the session does.
+  static Connected? _liveRest(StrapSession? session) {
+    if (session == null || !session.isOpen) {
+      return null;
+    }
+    final since = session.authenticatedAt;
+    return since == null
+        ? null
+        : Connected(since: since, batteryPercent: session.batteryPercent);
+  }
+
   /// Looks for the strap before spending fifteen seconds on a handshake.
   ///
-  /// Returns null to proceed, or the failure that stops the run. The check
-  /// earns its seconds by changing the message the owner gets: without it, a
-  /// strap in another room fails as "went quiet mid-handshake (15 s)", which
-  /// sends someone to look at their pairing key rather than at where they left
-  /// the band. [ScanNotPossibleHere] proceeds — iOS cannot match a MAC at all,
-  /// and refusing to sync there would be punishing the platform's honesty.
+  /// The check itself lives in [PreflightScan], which the foreground link runs
+  /// too; this only publishes the state around it.
   Future<SyncFailure?> _scan(void Function(StrapConnection) onState) async {
-    final strap = await client.pairing.pairedStrap();
-    if (strap == null) {
-      return SyncFailure.strap(const StrapNotPaired());
-    }
     onState(const Scanning());
-    try {
-      final outcome = await scanner.confirmInRange(strap.mac);
-      if (outcome is ScanNotPossibleHere) {
-        AppLog.info('sync', 'presence check unavailable: ${outcome.reason}');
-      }
-      return null;
-    } on PairingException catch (error, stackTrace) {
-      AppLog.failure('sync', 'looking for the paired strap', error, stackTrace);
-      return SyncFailure.pairing(error.failure);
-    }
+    return PreflightScan(pairing: client.pairing, scanner: scanner).run();
   }
 
   Future<SyncOutcome> _pull({
@@ -160,19 +199,28 @@ class SyncEngine {
     required DateTime at,
     required void Function(StrapConnection) onState,
     required SyncCancelToken token,
+    required StrapSession? session,
   }) async {
     final window = await store.strapWriter.resumeWindow();
-    final result = await client.syncOnce(
-      window,
-      onPhase: (phase) => onState(switch (phase) {
-        StrapPhase.connecting => const Connecting(),
-        StrapPhase.authenticating => const Authenticating(),
-        // The one place `Connected` is built. `StrapSession` emits this only
-        // after the strap accepted the proof, so the claim is evidenced.
-        StrapPhase.authenticated => Connected(since: DateTime.now()),
-      }),
-      onProgress: (progress) => onState(Syncing(progress: progress)),
-    );
+    void onProgress(StrapSyncProgress progress) =>
+        onState(Syncing(progress: progress));
+
+    final result = session != null
+        // Reused, not reopened — and NOT closed here; see the library docstring
+        // on who owns a session.
+        ? await client.syncOver(session, window, onProgress: onProgress)
+        : await client.syncOnce(
+            window,
+            onPhase: (phase) => onState(switch (phase) {
+              StrapPhase.connecting => const Connecting(),
+              StrapPhase.authenticating => const Authenticating(),
+              // `StrapSession` emits this only after the strap accepted the
+              // proof, and stamps `authenticatedAt` on the same line, so the
+              // claim and its evidence are one fact.
+              StrapPhase.authenticated => Connected(since: DateTime.now()),
+            }),
+            onProgress: onProgress,
+          );
 
     final pruned = await _store(result, today);
     return _stamp(
@@ -180,6 +228,7 @@ class SyncEngine {
       _outcomeFor(result, token, pruned),
       onState,
       result: result,
+      session: session,
     );
   }
 
@@ -227,12 +276,13 @@ class SyncEngine {
   ///
   /// The one exit. `stampAttempt` moves "last complete sync" only when
   /// [SyncOutcome.isComplete], which is where partial-is-not-complete is
-  /// actually enforced; and the state ends on [ConnectionFailed] or
-  /// [Disconnected] so nothing can be left claiming a live session.
+  /// actually enforced; and the state ends on a resting case, so nothing can be
+  /// left claiming a live session that is not there.
   Future<SyncOutcome> _stamp(
     DateTime at,
     SyncOutcome outcome,
     void Function(StrapConnection) onState, {
+    required StrapSession? session,
     StrapSyncResult? result,
   }) async {
     if (outcome.isComplete && result != null) {
@@ -244,11 +294,18 @@ class SyncEngine {
       complete: outcome.isComplete,
     );
     AppLog.info('sync', outcome.summary);
+    final lastComplete = await store.strapWriter.lastCompleteSync();
     onState(switch (outcome) {
-      SyncFailed(:final failure) => ConnectionFailed(failure),
-      _ => Disconnected(
-        lastCompleteSync: await store.strapWriter.lastCompleteSync(),
+      // A failure carries the freshness fact too: "we cannot reach the strap"
+      // without "and your numbers are from this morning" is half the news.
+      SyncFailed(:final failure) => ConnectionFailed(
+        failure,
+        lastCompleteSync: lastComplete,
       ),
+      // A pull over a held session leaves it held, so `Connected` is still the
+      // true statement — but only if the session says so.
+      _ =>
+        _liveRest(session) ?? Disconnected(lastCompleteSync: lastComplete),
     });
     return outcome;
   }
