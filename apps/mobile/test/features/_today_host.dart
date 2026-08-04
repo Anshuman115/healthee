@@ -43,6 +43,7 @@ Widget todayHost(
   StrapConnection? connection,
   TodayView? server,
   bool serverUnreachable = false,
+  ThemeData? themeOverride,
 }) {
   return ProviderScope(
     overrides: [
@@ -55,7 +56,7 @@ Widget todayHost(
         serverUnreachable ? todayUnreachable() : todayIs(server ?? todayView()),
       ),
     ],
-    child: MaterialApp(theme: AppTheme.light, home: TodayScreen(now: now)),
+    child: MaterialApp(theme: themeOverride ?? AppTheme.light, home: TodayScreen(now: now)),
   );
 }
 

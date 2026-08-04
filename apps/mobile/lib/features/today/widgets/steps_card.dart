@@ -23,6 +23,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/features/today/widgets/measured_card.dart';
+import 'package:healthee/shared/format/number_labels.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 
 /// The day's step total, with the distance and calories the strap counted.
@@ -52,7 +53,7 @@ class StepsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HeroValue(value: _grouped(steps)),
+            HeroValue(value: groupedInt(steps)),
             const SizedBox(height: Insets.sm),
             const _CounterNote(),
           ],
@@ -77,18 +78,6 @@ class StepsCard extends StatelessWidget {
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
-  /// Thousands separated, so five digits are readable at a glance.
-  static String _grouped(int value) {
-    final digits = value.toString();
-    final out = StringBuffer();
-    for (var i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) {
-        out.write(',');
-      }
-      out.write(digits[i]);
-    }
-    return out.toString();
-  }
 }
 
 /// Says which of the strap's two step numbers this is.

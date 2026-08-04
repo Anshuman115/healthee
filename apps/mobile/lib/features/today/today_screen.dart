@@ -16,6 +16,15 @@
 /// A page of twenty error cards would be the same news said twenty times, which
 /// reads as breakage rather than as one connection problem.
 ///
+/// ## No app bar, and that is legacy's shape rather than a saving
+///
+/// `design_reference/project/hh/screen_today.jsx` starts the scroll with its own
+/// header — an eyebrow date, a theme toggle, an avatar — and then a display-size
+/// greeting. A Material `AppBar` saying "Today" above a bottom bar whose Today
+/// tab is already lit is the same word twice and 56 px of the first screen spent
+/// on it. The chrome that remains is the connection strip (which must not scroll
+/// away) and the tab bar.
+///
 /// ## `ListView.builder` and reveal-once
 ///
 /// The list is a `ListView.builder` and the [RevealRegistry] lives in this
@@ -39,6 +48,7 @@ import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/widgets/connection_strip.dart';
 import 'package:healthee/features/today/widgets/device_health_card.dart';
+import 'package:healthee/features/today/widgets/today_tab_bar.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
@@ -69,32 +79,35 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     final server = ref.watch(todaySnapshotProvider);
     final push = ref.watch(_pushStampProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Today')),
-      body: Column(
-        children: [
-          // In the chrome, not in the list: a connection state that scrolls
-          // away is one the owner cannot check when they need it.
-          ConnectionStrip(now: widget.now),
-          Expanded(
-            child: AsyncView<DeviceDay>(
-              value: ref.watch(deviceDayProvider),
-              loadingLabel: "Reading today's measurements",
-              errorMessage: "Couldn't read this phone's own store",
-              onRetry: () => ref.invalidate(deviceDayProvider),
-              builder: (context, day) => RefreshIndicator(
-                onRefresh: _refresh,
-                child: _TodayBody(
-                  day: day,
-                  server: server,
-                  push: push.value,
-                  reveals: _reveals,
-                  now: widget.now,
-                  onRetryServer: () => ref.invalidate(todaySnapshotProvider),
+      bottomNavigationBar: const TodayTabBar(),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // In the chrome, not in the list: a connection state that scrolls
+            // away is one the owner cannot check when they need it.
+            ConnectionStrip(now: widget.now),
+            Expanded(
+              child: AsyncView<DeviceDay>(
+                value: ref.watch(deviceDayProvider),
+                loadingLabel: "Reading today's measurements",
+                errorMessage: "Couldn't read this phone's own store",
+                onRetry: () => ref.invalidate(deviceDayProvider),
+                builder: (context, day) => RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: _TodayBody(
+                    day: day,
+                    server: server,
+                    push: push.value,
+                    reveals: _reveals,
+                    now: widget.now,
+                    onRetryServer: () => ref.invalidate(todaySnapshotProvider),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -135,11 +148,15 @@ class _TodayBody extends StatelessWidget {
     return ListView.builder(
       // Always scrollable, so pull-to-refresh works on a short or empty day.
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(Insets.lg),
+      padding: const EdgeInsets.fromLTRB(Insets.lg, Insets.lg, Insets.lg, Insets.xxl),
       itemCount: sections.length,
       itemBuilder: (context, index) => Padding(
-        padding: const EdgeInsets.only(bottom: Insets.xl),
-        child: sections[index],
+        // Per section rather than one uniform gap: the grid's cells sit 10 px
+        // apart and a section break is more than twice that, and padding
+        // everything to one rhythm is what makes a long screen read as a list of
+        // unrelated cards.
+        padding: EdgeInsets.only(bottom: sections[index].gap),
+        child: sections[index].child,
       ),
     );
   }
@@ -150,27 +167,29 @@ class _TodayBody extends StatelessWidget {
   /// ONE honest empty card rather than twenty identical refusals — twenty of the
   /// same sentence reads as breakage, and the true statement is simply that the
   /// strap has not been read yet.
-  List<Widget> _sections() {
+  List<TodaySection> _sections() {
     final view = server.value;
     if (day.hasNothing && view == null) {
       return [
-        const EmptyState(
-          message: 'Nothing from your strap yet',
-          hint:
-              'Tap "Sync now" above with the strap on your wrist and nearby. '
-              'Everything on this screen comes off the device or from the '
-              "server's reading of it; nothing is estimated in the meantime.",
+        const TodaySection(
+          EmptyState(
+            message: 'Nothing from your strap yet',
+            hint:
+                'Tap "Sync now" above with the strap on your wrist and nearby. '
+                'Everything on this screen comes off the device or from the '
+                "server's reading of it; nothing is estimated in the meantime.",
+          ),
         ),
-        DeviceHealthCard(day: day, now: now),
-        if (server.hasError) _serverError(),
+        TodaySection(DeviceHealthCard(day: day, now: now)),
+        if (server.hasError) TodaySection(_serverError()),
       ];
     }
     return [
       // One card for the whole derived half when the server is unreachable, and
       // it sits where the derived sections would have started.
-      if (view == null && server.hasError) _serverError(),
+      if (view == null && server.hasError) TodaySection(_serverError()),
       if (view == null && server.isLoading)
-        const LoadingState(label: "Reading the server's view of today"),
+        const TodaySection(LoadingState(label: "Reading the server's view of today")),
       ...todaySections(
         day: day,
         reveals: reveals,

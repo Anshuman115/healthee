@@ -6,26 +6,21 @@
 /// repo. `now` is injected, because a suite that reads the wall clock fails once
 /// a day at midnight and passes on the retry.
 ///
-/// The tests that matter most, both mutation-checked:
+/// This half is about **what the screen draws when it has data**. The refusals,
+/// the unreachable server and the never-synced phone are `today_refusals_test.dart`
+/// — split when this file crossed the 400-line gate, along the seam the standards
+/// doc asks for: one file per reason to change.
 ///
-///   * **A WITHHELD VALUE IS NEVER A BARE NUMBER.** A screen that renders a
-///     number where the payload sent a refusal is the one bug this whole
-///     architecture exists to make impossible, and it is the last hop — the
-///     compiler can force the switch, but only a test can prove the branch draws
-///     the hole.
+/// The test that matters most here:
+///
 ///   * **THE FOUR SLEEP DIMENSIONS ARE NEVER SUMMED.** The payload carries
 ///     `score: 3` and `max_score: 4` and drawing "3/4" would be one line. Brief
 ///     §5.3 forbids it; this asserts the absence.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/data/store/local_store.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
-import 'package:healthee/shared/states/value_hole.dart';
 
-import '../_today_stubs.dart';
-import '../store/strap_store_test.dart' show resultWith;
 import '_today_host.dart';
 
 void main() {
@@ -37,17 +32,38 @@ void main() {
   group('measurements the strap made', () {
     setUp(() => seedDevice(store));
 
-    testWidgets('the daily counter is on screen, and says which number it is', (
+    testWidgets('the daily counter opens the screen, in the grid', (
       tester,
     ) async {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
       await reveal(tester, find.text('9,264'));
 
-      expect(find.text('9,264'), findsOneWidget);
+      expect(find.text('9,264'), findsWidgets);
+      // The grid cell is an index entry, so it says which of the strap's TWO
+      // step numbers this is in its foot — uppercased for the legacy eyebrow
+      // look, with the written case kept on the semantics label.
+      expect(
+        find.textContaining('SINCE-MIDNIGHT COUNTER'),
+        findsOneWidget,
+        reason: '#121 — the counter, never the frozen per-minute sum',
+      );
+    });
+
+    testWidgets('the full steps card names the instrument and the number', (
+      tester,
+    ) async {
+      await tester.pumpWidget(todayHost(store));
+      await tester.pumpAndSettle();
+      // The grid is the index; the Activity section is the entry, and it is
+      // the one that carries the provenance and the whole #121 sentence.
+      await reveal(tester, find.textContaining('that stream freezes'));
+
       expect(find.textContaining('Measured by your strap'), findsWidgets);
-      // And which of the strap's TWO step numbers this is (#121).
-      expect(find.textContaining('since-midnight counter'), findsOneWidget);
+      expect(
+        find.textContaining("The strap's own since-midnight counter"),
+        findsOneWidget,
+      );
     });
 
     testWidgets("the strap's calories are labelled as the strap's", (tester) async {
@@ -74,10 +90,16 @@ void main() {
       await reveal(tester, find.text('72'));
 
       expect(find.text('72'), findsOneWidget);
-      expect(find.text('What it is made of'), findsOneWidget);
-      // `feedback_no_composite_score`: the components are the licence.
+      // Module eyebrows render uppercase; `ModuleLabel` keeps the written case
+      // on the semantics label so a screen reader does not spell them out.
+      expect(find.text('WHAT IT IS MADE OF'), findsOneWidget);
+      // `feedback_no_composite_score`: the components are the licence, and they
+      // are beside the number rather than behind a tap.
       expect(find.text('HRV'), findsWidgets);
-      expect(find.text('Resting HR'), findsWidgets);
+      expect(find.text('RESTING HR'), findsWidgets);
+      // Each factor's own sub-score, from the contract snapshot.
+      expect(find.text('80'), findsOneWidget);
+      expect(find.text('70'), findsOneWidget);
     });
 
     testWidgets('the ladder compares each signal to the OWNER’s baseline', (
@@ -176,217 +198,4 @@ void main() {
       expect(find.textContaining('after correcting for the search'), findsOneWidget);
     });
   });
-
-  group('refusals', () {
-    testWidgets('A WITHHELD VALUE IS NEVER A BARE NUMBER', (tester) async {
-      // Nothing but heart rate, so the strap's own steps have no counter behind
-      // them; and VO₂max withheld the way production withholds it.
-      await store.strapWriter.saveSync(
-        resultWith(samples: [StrapSample(DateTime(2026, 8, 4, 9), 'hr', 68)]),
-      );
-      await tester.pumpWidget(
-        todayHost(
-          store,
-          server: todayView(
-            mutate: (json) => {
-              ...json,
-              'vo2max': <String, Object?>{
-                ...json['vo2max']! as Map<String, Object?>,
-                'estimate': null,
-                'method': null,
-                'method_caveat': null,
-                'data_confidence': 'insufficient_data',
-                'withheld': <String, Object?>{
-                  'reason': 'logged_weight_stale',
-                  'message':
-                      'The last weight you logged is more than two weeks old, '
-                      "so we can't call it your weight today — log a new one "
-                      'and this comes straight back.',
-                  'last_as_of_date': '2026-06-04',
-                  'age_days': 57,
-                  // The server puts the stale value INSIDE the block, "where
-                  // nothing can mistake it for today's". This is the number a
-                  // careless parser would promote back to the headline, so the
-                  // fixture carries it on purpose.
-                  'last_estimate': 43.0,
-                },
-              },
-            },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      // Scroll to the REMEDY rather than to the word: several blocks can be
-      // withheld at once, and "the first WITHHELD on screen" is not this one.
-      final remedy = find.textContaining('log a new one');
-      await reveal(tester, remedy);
-
-      final card = find.ancestor(of: remedy, matching: find.byType(StateCard));
-      expect(
-        find.descendant(of: card, matching: find.text('WITHHELD')),
-        findsOneWidget,
-      );
-      // The card keeps its footprint and its title, and the value slot carries
-      // the reason: a number-shaped hole, the word, and the remedy.
-      expect(
-        find.descendant(of: card, matching: find.byType(ValueHole)),
-        findsWidgets,
-      );
-      expect(
-        find.text('43.0'),
-        findsNothing,
-        reason: 'the withheld estimate must not appear anywhere as a number',
-      );
-      // A withhold is an answer, so it never offers a retry.
-      expect(
-        find.descendant(of: card, matching: find.text('Try again')),
-        findsNothing,
-      );
-    });
-
-    testWidgets('A WITHHELD METRIC ROW SHOWS A HOLE, NOT ITS BASELINE', (
-      tester,
-    ) async {
-      // The last-hop bug this architecture exists to prevent, in its most
-      // tempting form: the row HAS a 30-day median sitting right there, and
-      // drawing it where today's value goes would look completely normal and be
-      // a number the owner never recorded.
-      await tester.pumpWidget(
-        todayHost(
-          store,
-          server: todayView(
-            mutate: (json) => <String, Object?>{
-              ...json,
-              'metrics': [
-                for (final card in json['metrics']! as List)
-                  if ((card as Map<String, Object?>)['metric'] == 'rhr_daily')
-                    <String, Object?>{
-                      ...card,
-                      'value': null,
-                      'z': null,
-                      'data_confidence': 'insufficient_data',
-                      'withheld': <String, Object?>{
-                        'reason': 'insufficient_nights',
-                        'message':
-                            'Fewer than 3 nights of resting heart rate in the '
-                            'last week — wear the strap overnight for a few '
-                            'more nights and this comes back.',
-                      },
-                    }
-                  else
-                    card,
-              ],
-            },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Against your own baseline'));
-
-      final strip = find.ancestor(
-        of: find.text('Against your own baseline'),
-        matching: find.byType(StateCard),
-      );
-      expect(
-        find.descendant(of: strip, matching: find.textContaining('wear the strap overnight')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: strip, matching: find.byType(ValueHole)),
-        findsWidgets,
-      );
-      expect(
-        find.descendant(of: strip, matching: find.text('55')),
-        findsNothing,
-        reason: 'the 30-day median is not a stand-in for a value we do not have',
-      );
-    });
-
-    testWidgets('the strap and the server refuse in their own words', (tester) async {
-      await store.strapWriter.saveSync(
-        resultWith(samples: [StrapSample(DateTime(2026, 8, 4, 9), 'hr', 68)]),
-      );
-      await tester.pumpWidget(todayHost(store));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.textContaining('The strap recorded no steps'));
-
-      // A stream the sensor did not write says "wear it". Collapsing that into
-      // a server withhold would send the owner to the wrong place.
-      expect(find.textContaining('The strap recorded no'), findsWidgets);
-    });
-  });
-
-  group('the server is unreachable', () {
-    testWidgets('the measurements still render, and the failure is ONE card', (
-      tester,
-    ) async {
-      await seedDevice(store);
-      await tester.pumpWidget(todayHost(store, serverUnreachable: true));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.textContaining("Couldn't reach your server"),
-        findsOneWidget,
-        reason: 'twenty error cards is the same news said twenty times',
-      );
-      expect(find.text('Try again'), findsOneWidget);
-      await reveal(tester, find.text('9,264'));
-      expect(
-        find.text('9,264'),
-        findsOneWidget,
-        reason: 'brief §7.4 — the app must be readable with no network',
-      );
-    });
-
-    testWidgets('a cached payload says it is cached, and dates itself', (tester) async {
-      await seedDevice(store);
-      await tester.pumpWidget(
-        todayHost(
-          store,
-          server: todayView(
-            fromCache: true,
-            fetchedAt: now.subtract(const Duration(days: 3)),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Data health'), findsOneWidget);
-      expect(
-        find.textContaining('it describes 2026-07-31, 3 d ago'),
-        findsOneWidget,
-        reason: 'a fallback that hides itself is stale-as-current',
-      );
-    });
-
-    testWidgets('a push backlog is said out loud, not hidden', (tester) async {
-      await seedDevice(store);
-      await store.pushReader.stampAttempt(
-        at: now.subtract(const Duration(hours: 2)),
-        outcomeId: 'failed',
-        complete: false,
-        failureReason: 'it could not be reached',
-      );
-      await tester.pumpWidget(todayHost(store));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.textContaining('measurements are waiting here to reach the server'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('it could not be reached'), findsOneWidget);
-    });
-  });
-
-  group('a phone that has never synced and has never reached the server', () {
-    testWidgets('says so once, rather than twenty times', (tester) async {
-      await tester.pumpWidget(todayHost(store, serverUnreachable: true));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Nothing from your strap yet'), findsOneWidget);
-      expect(find.textContaining('nothing is estimated'), findsOneWidget);
-      expect(find.textContaining('never — nothing has been pulled'), findsOneWidget);
-    });
-  });
-
 }
