@@ -18,7 +18,7 @@
 /// What is NOT here, and cannot be added here: recovery, sleep health, sleep
 /// debt, VO₂max, biological age, baselines, anomalies, training load. The server
 /// owns every one, and they reach the screen as a refusal — see
-/// `data/honesty/server_owned.dart`.
+/// `data/models/today_snapshot.dart`.
 library;
 
 import 'package:healthee/data/honesty/reading.dart';

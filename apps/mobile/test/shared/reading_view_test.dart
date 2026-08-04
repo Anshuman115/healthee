@@ -18,9 +18,12 @@ import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
+import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/states/value_hole.dart';
+
+import '../_today_stubs.dart';
 
 const Disclosure _weightStale = Disclosure(
   reason: 'logged_weight_stale',
@@ -56,7 +59,9 @@ void main() {
       addTearDown(store.close);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [localStoreProvider.overrideWithValue(store)],
+          overrides: [localStoreProvider.overrideWithValue(store),
+            todaySnapshotProvider.overrideWith(todayUnreachable()),
+          ],
           child: const HealtheeApp(),
         ),
       );
@@ -74,6 +79,7 @@ void main() {
           overrides: [
             themeControllerProvider.overrideWith(_AlwaysDark.new),
             localStoreProvider.overrideWithValue(store),
+            todaySnapshotProvider.overrideWith(todayUnreachable()),
           ],
           child: const HealtheeApp(),
         ),
