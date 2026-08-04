@@ -18,6 +18,7 @@ import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/states/value_hole.dart';
 
 const Disclosure _weightStale = Disclosure(
   reason: 'logged_weight_stale',
@@ -66,7 +67,15 @@ void main() {
       expect(Theme.of(context).brightness, Brightness.dark);
       // The token set must resolve, not fall back — `context.colors` throws
       // rather than inventing a palette, so reaching it at all is the assertion.
-      expect(context.colors.canvas, const HealtheeColors.dark().canvas);
+      expect(context.colors.bg, const HealtheeColors.dark().bg);
+      // The accent is a PAIR, not one value reused. If someone reinstates a
+      // theme-invariant brand colour, this is the test that catches it.
+      expect(context.colors.accent, const HealtheeColors.dark().accent);
+      expect(
+        context.colors.accent,
+        isNot(const HealtheeColors.light().accent),
+        reason: 'light and dark accents are independently chosen',
+      );
     });
   });
 
@@ -83,7 +92,8 @@ void main() {
       );
 
       expect(find.text('43.0'), findsOneWidget);
-      expect(find.text('Not enough data'), findsNothing);
+      expect(find.text('WITHHELD'), findsNothing);
+      expect(find.byType(ValueHole), findsNothing);
     });
 
     testWidgets('Caveated shows the value AND its caveat, unasked', (tester) async {
@@ -105,7 +115,9 @@ void main() {
       expect(find.text('The fitness term is estimated.'), findsOneWidget);
     });
 
-    testWidgets('Withheld shows the remedy, the label, and no retry', (tester) async {
+    testWidgets('Withheld keeps the number-shaped hole, the label and the remedy', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           const ReadingView<String>(
@@ -116,7 +128,10 @@ void main() {
         ),
       );
 
-      expect(find.text('Not enough data'), findsOneWidget);
+      // Brief §3: "a card with a number-shaped hole, not a card that failed to
+      // load. Same footprint, same title, same position."
+      expect(find.byType(ValueHole), findsOneWidget);
+      expect(find.text('WITHHELD'), findsOneWidget);
       expect(find.text('VO₂max'), findsOneWidget);
       // The remedy — the load-bearing half of the block.
       expect(find.text('Log a new weight and this comes straight back.'), findsOneWidget);
@@ -124,6 +139,36 @@ void main() {
       expect(find.text('Last reading 2026-06-04 — 61 days ago'), findsOneWidget);
       // A withhold is an answer, not a failure. Offering "Try again" would
       // invite the owner to re-ask a question we have already answered.
+      expect(find.text('Try again'), findsNothing);
+    });
+
+    testWidgets('Withheld shows the explainer pill only when one can open', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const ReadingView<String>(
+            reading: Withheld<String>(_weightStale),
+            builder: _label,
+          ),
+        ),
+      );
+      // No sheet to open: no dead affordance.
+      expect(find.text('What would restore it'), findsNothing);
+
+      var opened = 0;
+      await tester.pumpWidget(
+        _host(
+          ReadingView<String>(
+            reading: const Withheld<String>(_weightStale),
+            builder: _label,
+            onExplainWithheld: () => opened++,
+          ),
+        ),
+      );
+
+      expect(find.text('What would restore it'), findsOneWidget);
+      await tester.tap(find.text('What would restore it'));
+      expect(opened, 1);
+      // Still not a retry — it opens the reasoning, it does not re-ask.
       expect(find.text('Try again'), findsNothing);
     });
 

@@ -11,60 +11,44 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
-/// The ledger sheet every state renders inside — a 1px frame, near-square.
+/// The card every state renders inside — a hairline frame, generous radius.
+///
+/// "Flat, hairline `line`/`line-2` dividers, generous radii, almost no shadow.
+/// Depth from spacing and contrast." (`docs/APP_DESIGN_BRIEF.md` §2.)
 class StateCard extends StatelessWidget {
   /// Wraps [child] in the app's card frame.
-  const StateCard({required this.child, this.accent, super.key});
+  const StateCard({required this.child, this.border, this.fill, super.key});
 
   /// The card's contents.
   final Widget child;
 
-  /// An optional left rule, used to mark a card's state.
+  /// Overrides the frame colour.
   ///
-  /// A thin border, never a nested container — `feedback_no_card_in_card` is
-  /// explicit that state accents "go on a thin left border or content opacity".
-  final Color? accent;
+  /// Exists for the illness banner, which the design draws as a solid `alert`
+  /// border over an `alertSoft` fill. Default is the hairline
+  /// [HealtheeColors.line]. It is not a decoration hook — brief §2 forbids
+  /// colouring a card to decorate it, so anything but the default is a claim
+  /// about the owner's body.
+  final Color? border;
 
-  /// Width of the state accent rule.
-  static const double _accentWidth = 2;
+  /// Overrides the fill. Pairs with [border]; default is [HealtheeColors.surface].
+  final Color? fill;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final radius = BorderRadius.circular(Radii.card);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.card,
-        borderRadius: radius,
-        // Uniform, always. A BoxDecoration whose border differs per side cannot
-        // carry a borderRadius — Flutter asserts at paint time — so the accent
-        // rule is painted as its own strip below rather than as a fat left side.
-        border: Border.all(color: colors.lineStrong, width: hairline),
+        color: fill ?? colors.surface,
+        borderRadius: BorderRadius.circular(Radii.card),
+        border: Border.all(color: border ?? colors.line, width: hairline),
       ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Stack(
-          children: [
-            // The Stack sizes to this, its only non-positioned child, so the
-            // card still grows with its content in an unbounded list.
-            Padding(
-              padding: const EdgeInsets.all(Insets.lg),
-              child: child,
-            ),
-            if (accent case final Color rule)
-              PositionedDirectional(
-                top: 0,
-                bottom: 0,
-                start: 0,
-                child: ColoredBox(
-                  color: rule,
-                  child: const SizedBox(width: _accentWidth),
-                ),
-              ),
-          ],
-        ),
+      child: Padding(
+        padding: const EdgeInsets.all(Insets.lg),
+        child: child,
       ),
     );
   }
@@ -72,8 +56,8 @@ class StateCard extends StatelessWidget {
 
 /// Waiting on data.
 ///
-/// Deliberately quiet: a determinate-looking spinner over a card that will
-/// usually fill from cache in milliseconds reads as slowness that is not there.
+/// Deliberately quiet: a prominent spinner over a card that will usually fill
+/// from the local store in milliseconds reads as slowness that is not there.
 class LoadingState extends StatelessWidget {
   /// Shows a subdued progress indicator.
   const LoadingState({this.label, super.key});
@@ -90,7 +74,7 @@ class LoadingState extends StatelessWidget {
           SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: colors.inkFaint),
+            child: CircularProgressIndicator(strokeWidth: 2, color: colors.ink3),
           ),
           const SizedBox(width: Insets.md),
           Expanded(
@@ -107,9 +91,13 @@ class LoadingState extends StatelessWidget {
 
 /// Something failed — OUR fault, and retryable.
 ///
-/// Distinct from a withheld value in both colour and copy. A withhold is an
-/// answer; this is the absence of one. [onRetry] is required rather than optional
-/// so "error with no way forward" cannot be built by omission.
+/// Distinct from a withheld value, and the distinction is structural rather than
+/// chromatic. A withhold has a `ValueHole` where the number would be; this has a
+/// button. Neither is tinted: brief §2 reserves the product's one red for the
+/// illness flag, and a dead request is not a fact about the owner's health.
+///
+/// [onRetry] is required rather than optional, so "error with no way forward"
+/// cannot be built by omission.
 class ErrorState extends StatelessWidget {
   /// Shows a failure with a retry affordance.
   const ErrorState({
@@ -122,7 +110,7 @@ class ErrorState extends StatelessWidget {
   /// What went wrong, in plain words the owner can act on.
   final String message;
 
-  /// Optional technical detail — shown small, never instead of [message].
+  /// Optional context — shown small, never instead of [message].
   final String? detail;
 
   /// Tries again. Required: see the class docstring.
@@ -133,18 +121,20 @@ class ErrorState extends StatelessWidget {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
     return StateCard(
-      accent: colors.danger,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(message, style: text.titleSmall),
           if (detail case final String detailText) ...[
             const SizedBox(height: Insets.sm),
-            Text(detailText, style: text.bodySmall?.copyWith(color: colors.inkFaint)),
+            Text(detailText, style: text.bodySmall?.copyWith(color: colors.ink3)),
           ],
           const SizedBox(height: Insets.md),
           Align(
             alignment: Alignment.centerLeft,
+            // Outlined rather than accent-filled: the accent marks the owner's own
+            // data line and the primary path through the app, and a failed request
+            // should not out-shout the numbers around it.
             child: OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
           ),
         ],
@@ -155,9 +145,9 @@ class ErrorState extends StatelessWidget {
 
 /// There is genuinely nothing here yet, and here is how to change that.
 ///
-/// `docs/APP_DESIGN.md` §1: "Empty states, not '—'. Graceful 'no data yet /
-/// here's how to get it' degradation." The [hint] is that second half and is
-/// required for the same reason [ErrorState.onRetry] is.
+/// Brief §2 and `docs/APP_DESIGN.md` §1: "Empty states, not '—'. Graceful 'no
+/// data yet / here's how to get it' degradation." The [hint] is that second half
+/// and is required for the same reason [ErrorState.onRetry] is.
 class EmptyState extends StatelessWidget {
   /// Shows an honest empty card.
   const EmptyState({required this.message, required this.hint, super.key});
@@ -178,7 +168,7 @@ class EmptyState extends StatelessWidget {
         children: [
           Text(message, style: text.titleSmall),
           const SizedBox(height: Insets.sm),
-          Text(hint, style: text.bodySmall?.copyWith(color: colors.inkFaint)),
+          Text(hint, style: text.bodySmall?.copyWith(color: colors.ink3)),
         ],
       ),
     );
