@@ -113,6 +113,43 @@ it drives the whole flow with sentinel secrets, captures everything `AppLog`
 emits, and fails if any of them appears. It covers the failure paths hardest,
 because an exception object is the thing that has the response body in hand.
 
+## What the phone keeps — and the one thing that can end a measurement
+
+The 60-day local tier is a **read** horizon, not a delete-by date. `localHorizonDays`
+bounds how much history the app will show you; it does not decide when your data
+stops existing. `lib/data/store/horizon_prune.dart` is the whole policy and it is
+three tiers, because the five day-keyed tables do not hold the same kind of thing:
+
+| table | what it is | when a row goes |
+|---|---|---|
+| `cached_payloads` | a copy of what the server sent | 60 days, always — the server will send it again |
+| `sleep_sessions` · `stored_workouts` · `device_totals` | measurements, a few rows a day | 60 days **if pushed**; an unsent row is kept with no second bound |
+| `strap_samples` | measurements, 11,520 rows a worn day | 60 days **if pushed**; an unsent row is kept for a year |
+
+The guard is `pushed_at_ms`, which the push already writes and only writes after a
+2xx. A row the server has acknowledged is safe to drop — the server is its durable
+home. A row the server has never seen is not, because the strap's ring buffer
+overwrites in about a week or two and there is nowhere else to read it from.
+
+**Why the event tables get no bound and the samples get one year.** Measured on a
+real drift/SQLite file: a sample row costs ~60 bytes, a staged night ~1.4 kB. Four
+nights, a handful of workouts and one counter a day is ~2 MB a *year* — a table that
+grows by events cannot make a phone grow without limit, so there is no honest bound
+to set. Per-minute samples are ~0.66 MB a worn day, so they are the only real storage
+question: one year caps them at ~240 MB. A year is chosen because no transient cause
+of a stuck queue — signed out, rotated token, server down, a fortnight with no signal
+— lasts one, and because the loud "N measurements are waiting here" line will have
+been on the Today screen roughly 365 times by then.
+
+**If that bound is ever reached, the app says so and does not stop saying so.** The
+count, the date it covers and what the owner could have done are written into
+`SyncMeta`, surfaced on `PushStamp.loss`, and stated in full ink on the data-health
+card — permanently, because nothing undoes it. It is never phrased as maintenance.
+
+`test/mutations.sh` breaks each of these guards on purpose and fails if a test does
+not notice. A guard that fires 60 days after a row is written is a guard nobody
+exercises by using the app.
+
 ## Where tokens live
 
 `core/env.dart` is the **only** place a `--dart-define` is read. `HELIO_API`,
