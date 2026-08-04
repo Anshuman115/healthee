@@ -16,6 +16,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_night.dart';
@@ -80,19 +81,30 @@ class _StageBar extends StatelessWidget {
 
   final DeviceNight night;
 
+  /// The device's minutes in one stage.
+  static int _minutesIn(DeviceNight night, String stage) => switch (stage) {
+    'deep' => night.deepMin,
+    'light' => night.lightMin,
+    'rem' => night.remMin,
+    'awake' => night.wakeMin,
+    _ => 0,
+  };
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
     // Ordered deep → light → REM → awake, which is how the record reads rather
-    // than how a designer would rank them. Shades of ONE accent, because these
-    // are parts of a measurement and not four judgements: brief §2 spends
-    // colour on judgement alone.
+    // than how a designer would rank them. The palette is `stage_colors.dart`'s,
+    // shared with the hypnogram and the week chart — one definition of what
+    // deep sleep looks like.
     final spans = <(String, int, Color)>[
-      ('Deep', night.deepMin, colors.accent),
-      ('Light', night.lightMin, colors.accent.withValues(alpha: 0.55)),
-      ('REM', night.remMin, colors.accent.withValues(alpha: 0.30)),
-      ('Awake', night.wakeMin, colors.line),
+      for (final stage in kSleepStages)
+        (
+          sleepStageLabel(stage),
+          _minutesIn(night, stage),
+          sleepStageColor(colors, stage),
+        ),
     ];
     final total = night.inBedMin;
     if (total <= 0) {
