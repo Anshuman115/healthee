@@ -99,6 +99,10 @@ class LocalStore extends _$LocalStore {
   /// Opens a throwaway in-memory database. Tests only.
   LocalStore.memory() : super(openInMemory());
 
+  /// Opens a database in a real file. Tests only — see [openFileAt] for the one
+  /// kind of claim that needs it.
+  LocalStore.at(String path) : super(openFileAt(path));
+
   @override
   int get schemaVersion => 3;
 
