@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/metric_hues.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/last_sleep.dart';
@@ -120,7 +121,7 @@ class _StageLegend extends StatelessWidget {
                   height: 8,
                   margin: const EdgeInsets.only(right: Insets.xs),
                   decoration: BoxDecoration(
-                    color: sleepStageColor(colors, stage),
+                    color: sleepStageColor(colors, context.hues, stage),
                     borderRadius: BorderRadius.circular(Radii.pill),
                   ),
                 ),

@@ -92,6 +92,21 @@ void drawChartTooltip(
 String hoursMinutes(num minutes) =>
     '${minutes ~/ 60}h ${(minutes % 60).round().toString().padLeft(2, '0')}m';
 
+/// [color] at [progress] through a reveal, without destroying its own alpha.
+///
+/// Exists because getting this wrong is invisible until one palette entry is
+/// translucent. `h_hypnogram.dart` used to fade its bands with
+/// `color.withValues(alpha: progress)`, which REPLACES the alpha — fine while
+/// every sleep stage was an opaque accent tint, and wrong the moment `awake`
+/// became `HealtheeColors.line`, a 10% hairline chosen precisely so the absence
+/// of sleep is the quietest thing on the chart. At progress 1 it became the
+/// loudest.
+///
+/// So the rule is a named function rather than a line every painter retypes: a
+/// reveal SCALES what the token already said, it does not overrule it.
+Color revealed(Color color, double progress) =>
+    color.withValues(alpha: color.a * progress.clamp(0.0, 1.0));
+
 /// Lays out one short label in [style]. Every painter here needs it.
 TextPainter chartLabel(String text, TextStyle style) => TextPainter(
   text: TextSpan(text: text, style: style),

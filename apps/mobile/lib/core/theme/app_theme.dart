@@ -11,23 +11,32 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/metric_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/typography.dart';
 
 /// The app's light and dark themes.
 abstract final class AppTheme {
   /// The approved design, light. The default (brief §2).
-  static ThemeData get light => _build(const HealtheeColors.light(), Brightness.light);
+  static ThemeData get light =>
+      _build(const HealtheeColors.light(), const MetricHues.light(), Brightness.light);
 
   /// The approved design, dark.
-  static ThemeData get dark => _build(const HealtheeColors.dark(), Brightness.dark);
+  static ThemeData get dark =>
+      _build(const HealtheeColors.dark(), const MetricHues.dark(), Brightness.dark);
 
-  static ThemeData _build(HealtheeColors colors, Brightness brightness) {
+  static ThemeData _build(
+    HealtheeColors colors,
+    MetricHues hues,
+    Brightness brightness,
+  ) {
     final text = healtheeTextTheme(ink: colors.ink, ink2: colors.ink2, ink3: colors.ink3);
     return ThemeData(
       brightness: brightness,
       useMaterial3: true,
-      extensions: <ThemeExtension<Object?>>[colors],
+      // Two extensions, deliberately not one: `colors` is structure and
+      // judgement, `hues` is identity. See metric_hues.dart.
+      extensions: <ThemeExtension<Object?>>[colors, hues],
       scaffoldBackgroundColor: colors.bg,
       canvasColor: colors.bg,
       dividerColor: colors.line,

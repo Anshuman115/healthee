@@ -1,46 +1,54 @@
-/// The one sleep-stage palette. Two charts and a card draw from it.
+/// The one sleep-stage palette. Three charts and two cards draw from it.
 ///
-/// ## Why not the legacy palette
+/// ## What this file used to say, and why it changed
 ///
-/// `theme.dart`'s `HColors.sleepStage` gave each stage its own hue — deep amber,
-/// core blue, REM purple, awake red. That is what most sleep apps do and it is
-/// wrong under this design system: brief §2 rations colour to **judgement**
-/// (`fav`/`unf` against the owner's own baseline, `alert` for illness alone), and
-/// four hues across four stages spends the whole palette asserting that deep
-/// sleep is good and awake is bad. Neither claim is the app's to make in a
-/// picture of what the strap recorded.
+/// The previous revision drew all four stages as ONE hue — `accent` at 100%, 55%
+/// and 30% alpha, with awake in `line` — and argued that four hues would spend the
+/// whole palette asserting that deep sleep is good and awake is bad.
 ///
-/// So the stages are shades of the ONE accent, ordered deepest-to-lightest, with
-/// awake drawn in [HealtheeColors.line] because it is the absence of sleep
-/// rather than a fifth kind of it. The reading is carried by width, which is
-/// what the measurement actually is.
+/// The premise was right and the conclusion was wrong. Three tints of indigo
+/// stacked in a hypnogram 30–84 px tall are not separable by eye, and a hypnogram
+/// whose bands cannot be told apart is a decoration where a reading should be.
+/// The legacy screens this rebuild is matching draw four clearly distinct stage
+/// colours for exactly that reason, and the argument against them was never
+/// "distinct is wrong" — it was "distinct must not imply a verdict".
 ///
-/// Extracted here on its second use, per Standards §1 — `sleep_card.dart` had
-/// the ladder inline and the hypnogram needed the same four values.
+/// So the stages now wear the **identity tags** from `metric_hues.dart`, which are
+/// built to carry no verdict: they are hue-disjoint from `fav`, `unf` and `alert`,
+/// they sit at one lightness so none ranks above another, and they are constants
+/// of a category rather than functions of a value. A reader cannot decode "deep is
+/// the good one" from a violet band, because violet is also HRV and readiness and
+/// says nothing about any of them.
+///
+/// Awake keeps [HealtheeColors.line]. It is the absence of sleep rather than a
+/// fourth kind of it, and drawing it in a tag would put it on the same footing as
+/// the three staged bands.
+///
+/// `core` is the server's word for what the strap calls `light`; both map to the
+/// same colour because they are the same stage under two vocabularies, and giving
+/// them different colours would draw a distinction that does not exist.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/metric_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
 /// The stage names the strap and the server both use, deepest first.
-///
-/// `core` is the server's word for what the strap calls `light`; both map to the
-/// same shade because they are the same stage under two vocabularies, and giving
-/// them different colours would draw a distinction that does not exist.
 const List<String> kSleepStages = <String>['deep', 'light', 'rem', 'awake'];
 
 /// The colour for one stage name.
 ///
-/// An unrecognised stage gets [HealtheeColors.line2] rather than a default
-/// shade: the strap emits codes we do not recognise, and painting one as light
-/// sleep would put a stage in the picture that nothing measured.
-Color sleepStageColor(HealtheeColors colors, String stage) => switch (stage) {
-  'deep' => colors.accent,
-  'light' || 'core' => colors.accent.withValues(alpha: 0.55),
-  'rem' => colors.accent.withValues(alpha: 0.30),
-  'awake' => colors.line,
-  _ => colors.line2,
-};
+/// An unrecognised stage gets [HealtheeColors.line2] rather than a tag: the strap
+/// emits codes we do not recognise, and painting one as light sleep would put a
+/// stage in the picture that nothing measured.
+Color sleepStageColor(HealtheeColors colors, MetricHues hues, String stage) =>
+    switch (stage) {
+      'deep' => hues.rest,
+      'light' || 'core' => hues.body,
+      'rem' => hues.heart,
+      'awake' => colors.line,
+      _ => colors.line2,
+    };
 
 /// The owner-facing name for one stage.
 String sleepStageLabel(String stage) => switch (stage) {
