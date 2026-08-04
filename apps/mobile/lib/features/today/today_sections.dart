@@ -120,6 +120,8 @@ List<TodaySection> todaySections({
   TodayView? server,
   PushStamp? push,
   DateTime? now,
+  bool? signedIn,
+  VoidCallback? onSignIn,
 }) {
   final snapshot = server?.snapshot;
   final recovery = snapshot?.recovery.valueOrNull;
@@ -140,6 +142,8 @@ List<TodaySection> todaySections({
             ? snapshot?.date
             : null,
         now: now,
+        signedIn: signedIn,
+        onSignIn: onSignIn,
       ),
     ),
     if (snapshot?.illnessFlag case final flag?) TodaySection(IllnessBanner(flag: flag)),

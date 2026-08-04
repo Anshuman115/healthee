@@ -38,16 +38,17 @@ lib/
   ble/        strap_scanner (the presence check) — the PROTOCOL is still to come
               (see its README)
   data/       honesty/ (the Reading union) · api/ (one dio client + credentials
-              + secret_store) · pairing/ (the Zepp account route) · models/
-              (typed wire models) · store/ (drift, 60-day tier)
-              · today_repository.dart
+              + secret_store + the server session: url · probe · failures)
+              · pairing/ (the Zepp account route) · models/ (typed wire models)
+              · store/ (drift, 60-day tier) · today_repository.dart
   analytics/  on-device engine — empty (see its README)
-  features/   pairing/ is built; the tabs are not (see its README)
+  features/   pairing/, signin/ and today/ are built; the other tabs are not
   shared/     states/ (loading · error · empty · withheld · value_hole)
               · foundation_screen
 test/         golden contract parse · envelope unit · store · theme tokens
               · widget smoke · pairing (crypto goldens · client fixtures ·
                 failure taxonomy · the secrecy proof)
+              · signin (address rules · what is stored · the secrecy proof)
 ```
 
 ## The one thing to understand before writing a screen
@@ -118,14 +119,61 @@ because an exception object is the thing that has the response body in hand.
 `HELIO_TIMEOUT_S` and `HELIO_LOG_HTTP` are the whole list.
 
 **`MAC`, `AUTHKEY` and `HELIO_TOKEN` are deliberately not dart-defines.** They are
-per-owner secrets from the Zepp account, they live in the platform keystore via
-`data/api/credentials.dart`, and they are written at pairing time. The legacy app
-compiled the first two in, and that single decision is what made it single-owner:
-the binary *was* the pairing, a second person could not use a build without
-recompiling it, and the owner's key shipped inside every APK.
+per-owner secrets, they live in the platform keystore via
+`data/api/credentials.dart`, and they are written at runtime — the first two by
+pairing, the third by the sign-in screen. The legacy app compiled the first two
+in, and that single decision is what made it single-owner: the binary *was* the
+pairing, a second person could not use a build without recompiling it, and the
+owner's key shipped inside every APK.
 
 The rule that follows: **a dart-define may describe the build; it may never
 identify the owner.**
+
+## Signing in to the server
+
+`features/signin/` takes a server address and one opaque token, and
+`data/api/server_session.dart` stores them **only after the server has said yes**.
+The order is the whole feature:
+
+```text
+  parse the address   ──▶  cleartext and malformed die here, unsent
+  trim the token      ──▶  a pasted newline never becomes a 401
+  ask the server      ──▶  200 · 401 · unreachable, told apart
+  THEN store          ──▶  only a token the server itself accepted
+```
+
+**The check is `GET /api/entitlement`.** It is the lightest authenticated read on
+the API (one `subscription` row, no samples), it is *deliberately ungated* on the
+server so a free or lapsed owner still gets 200, and it is uncached. `/api/me`
+looks like the obvious probe and is wrong: `routers/auth.py` binds it to Supabase
+JWT only, so it answers 401 to the shared token that is the only thing that works
+today — probing with it would report every correct token as refused.
+
+**The three outcomes are different code paths, not three branches of one catch.**
+The probe's dio sets `validateStatus: (_) => true`, so a 401 is a status on a
+`Response` and only a dead network throws. That is what makes "couldn't reach the
+server" structurally unable to appear for a token the server read and rejected —
+the failure that is expensive precisely because it sends somebody to their router
+for an evening. `data/api/signin_failure.dart` is the named taxonomy; a
+`DioException` type is never shown to anyone.
+
+**Plain `http://` is refused unless the host is loopback**, before the request is
+built. A bearer token on an unencrypted connection to a remote host has leaked by
+the time anything answers, so there is no override to tick.
+
+**Nothing redirects to the sign-in screen.** Strap-only is a supported mode: the
+measured half of Today comes off this phone with no network at all. The way in is
+the Today data-health strip, which says plainly when there is no session and is
+silent when there is, and a "Your server" row on the pairing screen — which is
+also where sign-out lives.
+
+`test/signin/signin_secrecy_test.dart` is the proof that the token is never
+logged: it drives the sign-in check *and* the app's real dio (both interceptors,
+including with body logging switched on) with a sentinel that exists in no other
+file, captures everything `AppLog` emits, and fails if it appears. It was
+mutation-checked three ways — logging request headers, handing the
+`DioException` to the logger, and printing the token on success — and each one
+failed it.
 
 ## Generated code IS committed
 

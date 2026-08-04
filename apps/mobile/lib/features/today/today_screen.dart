@@ -37,7 +37,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_repository.dart';
 import 'package:healthee/data/models/today_view.dart';
@@ -47,6 +50,7 @@ import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/widgets/connection_strip.dart';
+import 'package:healthee/features/today/widgets/data_health_section.dart';
 import 'package:healthee/features/today/widgets/device_health_card.dart';
 import 'package:healthee/features/today/widgets/today_tab_bar.dart';
 import 'package:healthee/shared/reveal_once.dart';
@@ -78,6 +82,11 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   Widget build(BuildContext context) {
     final server = ref.watch(todaySnapshotProvider);
     final push = ref.watch(_pushStampProvider);
+    // `.value?.signedIn` and not `.requireValue`: while the keystore read is in
+    // flight this is null, which the data-health strip reads as "not yet known"
+    // and stays silent about. Guessing "signed out" for a frame would flash an
+    // invitation at an owner who already is.
+    final signedIn = ref.watch(serverSessionProvider).value?.signedIn;
     return Scaffold(
       bottomNavigationBar: const TodayTabBar(),
       body: SafeArea(
@@ -101,6 +110,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                     push: push.value,
                     reveals: _reveals,
                     now: widget.now,
+                    signedIn: signedIn,
+                    onSignIn: () => context.go(Routes.serverSignIn),
                     onRetryServer: () => ref.invalidate(todaySnapshotProvider),
                   ),
                 ),
@@ -133,6 +144,8 @@ class _TodayBody extends StatelessWidget {
     required this.onRetryServer,
     this.push,
     this.now,
+    this.signedIn,
+    this.onSignIn,
   });
 
   final DeviceDay day;
@@ -140,6 +153,8 @@ class _TodayBody extends StatelessWidget {
   final PushStamp? push;
   final RevealRegistry reveals;
   final DateTime? now;
+  final bool? signedIn;
+  final VoidCallback? onSignIn;
   final VoidCallback onRetryServer;
 
   @override
@@ -171,6 +186,12 @@ class _TodayBody extends StatelessWidget {
     final view = server.value;
     if (day.hasNothing && view == null) {
       return [
+        // A fresh install is exactly where "not signed in" is worth saying, so
+        // the strip leads here too. It still renders nothing when a session is
+        // held — the sentence below is then the whole and true answer.
+        TodaySection(
+          DataHealthSection(signedIn: signedIn, onSignIn: onSignIn, now: now),
+        ),
         const TodaySection(
           EmptyState(
             message: 'Nothing from your strap yet',
@@ -196,6 +217,8 @@ class _TodayBody extends StatelessWidget {
         server: view,
         push: push,
         now: now,
+        signedIn: signedIn,
+        onSignIn: onSignIn,
       ),
     ];
   }

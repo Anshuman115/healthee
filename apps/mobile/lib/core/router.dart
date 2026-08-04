@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
+import 'package:healthee/features/signin/server_signin_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/shared/foundation_screen.dart';
 
@@ -45,6 +46,16 @@ abstract final class Routes {
   /// Pair a strap, or review the pairing already held.
   static const String pairing = '/pairing';
 
+  /// Sign in to the Healthee server, or review the session already held.
+  ///
+  /// **Nothing redirects here**, unlike [pairing]. See the router's own
+  /// "Unpaired means pairing" note for the contrast: an app with no strap has
+  /// nothing to show at all, whereas an app with no server session still has
+  /// every measurement this phone read off the strap. Gating on a token would
+  /// take the owner's own data away until they satisfied a server, and
+  /// strap-only is a supported mode rather than a degraded one.
+  static const String serverSignIn = '/server';
+
   /// The honesty-state specimen sheet. **Not a product screen.**
   ///
   /// `FoundationScreen` used to sit on [today], where it was reasonably
@@ -57,10 +68,10 @@ abstract final class Routes {
 
 /// The app's router.
 ///
-/// [Routes.today], [Routes.pairing] and [Routes.devFoundation] are wired. The
-/// remaining constants above are the agreed paths, not dead routes — a route
-/// with no screen would be a link to a crash, so they are added with their
-/// screens.
+/// [Routes.today], [Routes.pairing], [Routes.serverSignIn] and
+/// [Routes.devFoundation] are wired. The remaining constants above are the
+/// agreed paths, not dead routes — a route with no screen would be a link to a
+/// crash, so they are added with their screens.
 ///
 /// ## Unpaired means pairing
 ///
@@ -104,6 +115,11 @@ GoRouter buildRouter(WidgetRef ref) {
         path: Routes.pairing,
         builder: (BuildContext context, GoRouterState state) =>
             PairingScreen(onDone: () => context.go(Routes.today)),
+      ),
+      GoRoute(
+        path: Routes.serverSignIn,
+        builder: (BuildContext context, GoRouterState state) =>
+            ServerSignInScreen(onDone: () => context.go(Routes.today)),
       ),
     ],
   );

@@ -4,21 +4,34 @@
 /// screen before. The strip must make 'this number is 85 hours old' impossible
 /// to miss without being alarming."*
 ///
-/// Three facts live here and they are genuinely different:
+/// Four facts live here and they are genuinely different:
 ///
 /// ```text
+///   session      whether this phone is signed in to a server at all
 ///   feeds        which streams have gone quiet, and for how long
 ///   provenance   whether this whole payload came off disk, and when
 ///   backlog      how much the phone is holding that the server has not seen
 /// ```
 ///
-/// The first is the server's view of what it received; the second and third are
-/// this phone's view of what it sent. A screen that showed only the first would
-/// look perfectly healthy on a phone whose push has been failing for a week —
-/// the server's feeds *are* fresh, up to the last thing it heard.
+/// The second is the server's view of what it received; the rest are this
+/// phone's view of what it sent. A screen that showed only the second would look
+/// perfectly healthy on a phone whose push has been failing for a week — the
+/// server's feeds *are* fresh, up to the last thing it heard.
 ///
-/// It renders nothing when all three are quiet. That silence is what makes it
+/// It renders nothing when all four are quiet. That silence is what makes it
 /// worth reading when it speaks.
+///
+/// ## Why "not signed in" belongs here rather than in a redirect
+///
+/// Without a token every `/api/*` call is a 401, so the derived half of Today
+/// goes quiet and the strip's own subject — *why is this screen not current* —
+/// has exactly one answer. Saying "nothing has synced" while the real cause is
+/// that the app was never signed in is the stale-behind-a-healthy-screen failure
+/// this strip exists to prevent, one step further back.
+///
+/// It is a sentence and a link, **not a wall**: everything the strap measured is
+/// on the screen below it and stays there. The router deliberately does not
+/// redirect (see `core/router.dart`).
 library;
 
 import 'package:flutter/material.dart';
@@ -39,8 +52,18 @@ class DataHealthSection extends StatelessWidget {
     this.cachedAt,
     this.cachedDate,
     this.now,
+    this.signedIn,
+    this.onSignIn,
     super.key,
   });
+
+  /// Whether this phone holds a server session. **Null means not yet known** —
+  /// the keystore read is asynchronous, and announcing "not signed in" during it
+  /// would flash the invitation at an owner who already is.
+  final bool? signedIn;
+
+  /// Opens the sign-in screen. Null in tests and wherever there is no route.
+  final VoidCallback? onSignIn;
 
   /// Per-feed freshness from the server.
   final DataHealth? health;
@@ -64,7 +87,8 @@ class DataHealthSection extends StatelessWidget {
     final at = now ?? DateTime.now();
     final feeds = health?.degraded ?? const [];
     final lines = _lines(at);
-    if (feeds.isEmpty && lines.isEmpty) {
+    final signedOut = signedIn == false;
+    if (feeds.isEmpty && lines.isEmpty && !signedOut) {
       return const SizedBox.shrink();
     }
     return StateCard(
@@ -72,6 +96,26 @@ class DataHealthSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Data health', style: text.labelSmall),
+          if (signedOut) ...[
+            const SizedBox(height: Insets.sm),
+            Text(
+              'This phone is not signed in to a Healthee server. Everything '
+              'your strap measured is below and is still being recorded here; '
+              'the readings the server works out — recovery, sleep health, '
+              'debt, VO₂max, biological age — need a sign-in.',
+              style: text.bodyMedium?.copyWith(color: colors.ink),
+            ),
+            if (onSignIn case final VoidCallback open) ...[
+              const SizedBox(height: Insets.sm),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton(
+                  onPressed: open,
+                  child: const Text('Sign in to your server'),
+                ),
+              ),
+            ],
+          ],
           for (final line in lines) ...[
             const SizedBox(height: Insets.sm),
             Text(line, style: text.bodyMedium?.copyWith(color: colors.ink)),

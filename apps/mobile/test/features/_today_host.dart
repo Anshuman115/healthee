@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/ble/models/device_daily_totals.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/models/today_view.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
@@ -38,12 +39,18 @@ final DateTime now = DateTime(2026, 8, 4, 9, 30);
 /// where it would reach for a radio that does not exist. The lifecycle
 /// behaviour has its own suite (`test/sync/foreground_lifecycle_test.dart`)
 /// against a scripted device.
+/// The server session is ALWAYS overridden too, and defaults to signed in. The
+/// real provider reaches the platform keystore, which a `flutter test` host does
+/// not have — and the data-health strip speaks up when there is no session, so
+/// leaving it unpinned would make every "this section falls silent" assertion
+/// depend on a plugin channel that is not there.
 Widget todayHost(
   LocalStore store, {
   StrapConnection? connection,
   TodayView? server,
   bool serverUnreachable = false,
   ThemeData? themeOverride,
+  bool signedIn = true,
 }) {
   return ProviderScope(
     overrides: [
@@ -51,6 +58,14 @@ Widget todayHost(
       todayProvider.overrideWithValue(todayDate),
       syncControllerProvider.overrideWith(
         () => _FixedConnection(connection ?? const Disconnected()),
+      ),
+      serverSessionProvider.overrideWith(
+        (ref) async => signedIn
+            ? const ServerSessionStatus(
+                signedIn: true,
+                baseUrl: 'https://healthee.example.com',
+              )
+            : const ServerSessionStatus.signedOut(),
       ),
       todaySnapshotProvider.overrideWith(
         serverUnreachable ? todayUnreachable() : todayIs(server ?? todayView()),
