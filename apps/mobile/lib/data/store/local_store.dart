@@ -1,0 +1,147 @@
+/// The on-device 60-day tier: what the app can render before the network answers.
+///
+/// ## Why drift and not raw sqflite
+///
+/// Engineering Standards §3 requires typed models at the data boundary — "feature
+/// code never reads raw `Map<String, dynamic>`". A hand-rolled sqflite layer hands
+/// back exactly that map and asks every call site to remember the column names.
+/// drift generates a row class per table and checks the queries at build time, so
+/// the same guarantee the API models give us at the wire boundary holds at the
+/// storage boundary too, and a renamed column is a compile error rather than a
+/// null at 6 a.m.
+///
+/// ## What this table stores, and what it deliberately does not
+///
+/// One row per (day, metric): the **payload as the server sent it**, kept whole.
+/// It is not a shredded copy of the server's schema — that would be a second
+/// definition of every metric, which is the failure CLAUDE.md names first ("ONE
+/// canonical definition per metric"). The cache holds bytes and dates; meaning
+/// stays in [package:healthee/data/models] and is re-derived on read by the same
+/// parser the network path uses. A cache that parses differently from the network
+/// is a cache that can show a number the server never sent.
+///
+/// The 60-day horizon is a product decision from `docs/ARCHITECTURE.md`, enforced
+/// in one place — [LocalStore.pruneBeyondHorizon] — for the same reason the
+/// server keeps its freshness horizons in one module: a retention window that two
+/// call sites can disagree about is a window nobody can state.
+library;
+
+import 'package:drift/drift.dart';
+import 'package:healthee/data/store/connection.dart';
+
+part 'local_store.g.dart';
+
+/// How many days of history the device keeps. Beyond this the app asks the server.
+const int localHorizonDays = 60;
+
+/// One cached server payload, keyed by the day it describes and the metric it is.
+///
+/// ## `day` is TEXT, and that is the whole point
+///
+/// A server payload is a claim about an owner-local **calendar date** — never an
+/// instant. Those are different types and this repo has shipped the confusion
+/// twice. drift's `dateTime()` column makes the mistake for you: it stores a Unix
+/// timestamp and hands it back in the *device's* local zone, so a date written as
+/// `2026-06-01Z` reads back as `2026-06-01 05:30` in Asia/Kolkata and as
+/// `2026-05-31 19:00` in America/Denver. The row would then be filed, compared and
+/// pruned under a different day depending on where the phone was — and the test
+/// suite would only catch it in one of the two timezones CI runs.
+///
+/// So the key is the ISO date string the server itself sent, stored verbatim.
+/// `YYYY-MM-DD` sorts lexicographically exactly as it sorts chronologically, so
+/// range queries and the horizon prune below work directly on it. There is no
+/// conversion, therefore no zone, therefore nothing to get wrong.
+@DataClassName('CachedPayload')
+class CachedPayloads extends Table {
+  /// The owner-local calendar date this payload describes, as `YYYY-MM-DD`.
+  TextColumn get day => text().withLength(min: 10, max: 10)();
+
+  /// Which payload it is — `today`, `sleep`, `activity`, … (the endpoint's name).
+  TextColumn get metric => text().withLength(min: 1, max: 64)();
+
+  /// The response body, verbatim, as JSON text.
+  TextColumn get payload => text()();
+
+  /// When we received it. A genuine instant, so a DateTime is the right type
+  /// here — and `storeDateTimeAsText` below keeps it in UTC across the round
+  /// trip. It drives staleness display, never correctness.
+  DateTimeColumn get fetchedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {day, metric};
+}
+
+/// The device's local cache. ONE instance, provided by
+/// [package:healthee/data/store/store_provider] — never constructed in a widget.
+@DriftDatabase(tables: [CachedPayloads])
+class LocalStore extends _$LocalStore {
+  /// Opens the app's on-disk database.
+  LocalStore() : super(openLocalStore());
+
+  /// Opens a throwaway in-memory database. Tests only.
+  LocalStore.memory() : super(openInMemory());
+
+  @override
+  int get schemaVersion => 1;
+
+  /// Instants are stored as ISO-8601 text, which preserves UTC across the round
+  /// trip. drift's default (a Unix timestamp read back in the device's local
+  /// zone) is the same class of bug the `day` column's doc describes.
+  @override
+  DriftDatabaseOptions get options => const DriftDatabaseOptions(storeDateTimeAsText: true);
+
+  /// The cached payload for one day, or null when we have never stored it.
+  ///
+  /// Null means "we have not stored this", which is a different state from "the
+  /// server sent an empty payload" — a caller must be able to tell them apart
+  /// (Standards §1: "No data" and "operation failed" are different states).
+  Future<CachedPayload?> read(String metric, String day) {
+    final query = select(cachedPayloads)
+      ..where((row) => row.metric.equals(metric) & row.day.equals(day))
+      ..limit(1);
+    return query.getSingleOrNull();
+  }
+
+  /// Stores (or replaces) one day's payload. [day] is `YYYY-MM-DD`.
+  Future<void> write({
+    required String metric,
+    required String day,
+    required String payload,
+    required DateTime fetchedAt,
+  }) {
+    return into(cachedPayloads).insertOnConflictUpdate(
+      CachedPayloadsCompanion.insert(
+        day: day,
+        metric: metric,
+        payload: payload,
+        fetchedAt: fetchedAt,
+      ),
+    );
+  }
+
+  /// Drops every row dated before [oldestDayToKeep] (`YYYY-MM-DD`, inclusive).
+  ///
+  /// The ONE place the horizon is applied, so the device's retention window
+  /// cannot mean 60 days to one caller and 90 to another. Returns the number of
+  /// rows removed, so a caller can report it to sync health rather than pruning
+  /// silently. Use [horizonStart] to compute the argument.
+  Future<int> pruneBefore(String oldestDayToKeep) {
+    return (delete(cachedPayloads)
+          ..where((row) => row.day.isSmallerThanValue(oldestDayToKeep)))
+        .go();
+  }
+}
+
+/// The oldest calendar date the device keeps, given the owner's [today].
+///
+/// Separate from the query above so the arithmetic is testable without a
+/// database, and so there is exactly one expression of "60 days back".
+String horizonStart(String today) {
+  final anchor = DateTime.parse(today);
+  final start = DateTime.utc(anchor.year, anchor.month, anchor.day)
+      .subtract(const Duration(days: localHorizonDays));
+  return isoDay(start);
+}
+
+/// A UTC instant rendered as the `YYYY-MM-DD` key this table uses.
+String isoDay(DateTime day) => day.toIso8601String().substring(0, 10);

@@ -207,6 +207,14 @@ jobs:
         if: steps.detect.outputs.present == 'true'
         uses: subosito/flutter-action@v2
         with:
+          # PINNED, not floating `stable`. The app's whole dependency set is
+          # decided by the SDK: flutter_test pins `meta` and `test_api`, and
+          # those pins cap the analyzer version, which caps build_runner,
+          # riverpod_generator, drift_dev and freezed (apps/mobile/README.md
+          # §"Dependency conflicts" has the table). On a floating channel a
+          # Flutter release would silently re-resolve the toolchain under CI and
+          # break a build nobody touched. Bump this deliberately, with the lock.
+          flutter-version: 3.44.7
           channel: stable
           cache: true
       - name: Pub get

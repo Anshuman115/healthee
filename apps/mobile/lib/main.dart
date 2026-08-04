@@ -1,0 +1,20 @@
+/// Entry point. Wiring only — everything else lives where it belongs.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:healthee/app.dart';
+import 'package:healthee/core/provider_logger.dart';
+
+void main() {
+  // The ProviderScope is the app's whole dependency graph. riverpod_lint's
+  // `missing_provider_scope` fails the build if this is ever dropped.
+  runApp(
+    const ProviderScope(
+      // Every provider failure reaches the one logging path from here, so no
+      // repository has to remember to log its own.
+      observers: [ProviderLogger()],
+      child: HealtheeApp(),
+    ),
+  );
+}
