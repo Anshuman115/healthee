@@ -27,6 +27,7 @@ import 'package:healthee/ble/fetch/activity_fetcher.dart';
 import 'package:healthee/ble/models/device_daily_totals.dart';
 import 'package:healthee/ble/strap_exception.dart';
 import 'package:healthee/ble/strap_failure.dart';
+import 'package:healthee/ble/strap_progress.dart';
 import 'package:healthee/ble/transport/huami_comms.dart';
 import 'package:healthee/ble/transport/strap_link.dart';
 import 'package:healthee/ble/transport/zeppos_auth.dart';
@@ -56,6 +57,7 @@ class StrapSession {
     this._link, {
     this.handshakeTimeout = kHandshakeTimeout,
     this.dailyTotalsWait = kDailyTotalsWait,
+    this.onPhase,
   });
 
   final StrapLink _link;
@@ -65,6 +67,13 @@ class StrapSession {
 
   /// How long to wait for the daily-totals reply.
   final Duration dailyTotalsWait;
+
+  /// Told which protocol step this session has reached, as it reaches it.
+  ///
+  /// Optional, and the session works identically without it — but a UI that
+  /// wants to distinguish "connecting" from "authenticating" must be told by
+  /// the code doing each, not by a timer. See `strap_progress.dart`.
+  final StrapPhaseSink? onPhase;
 
   void Function(Uint8List)? _route;
   StreamSubscription<Uint8List>? _chunkedSub;
@@ -100,6 +109,7 @@ class StrapSession {
   /// Throws [StrapException] carrying [StrapUnreachable],
   /// [StrapChannelsMissing], [HandshakeRefused] or [HandshakeTimedOut].
   Future<void> open(Uint8List authKey) async {
+    onPhase?.call(StrapPhase.connecting);
     await _link.open();
     batteryPercent = await _link.readBatteryPercent();
 
@@ -108,6 +118,10 @@ class StrapSession {
     });
 
     final auth = await _authenticate(authKey);
+    // Emitted here and nowhere else: `_authenticate` throws on a refusal and on
+    // a timeout, so reaching this line IS the guarantee that an authenticated
+    // session exists. Anything that says "connected" has to trace back to it.
+    onPhase?.call(StrapPhase.authenticated);
     _comms = HuamiComms(
       sessionKey: auth.sessionKey,
       sequence: auth.sequence ?? 0,
@@ -143,6 +157,7 @@ class StrapSession {
     );
     _route = auth.onNotify;
 
+    onPhase?.call(StrapPhase.authenticating);
     AppLog.info('ble', 'starting handshake');
     await auth.start();
 

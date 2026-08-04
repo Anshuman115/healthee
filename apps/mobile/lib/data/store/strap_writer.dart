@@ -228,6 +228,15 @@ class StrapWriter extends DatabaseAccessor<LocalStore> with _$StrapWriterMixin {
     }
   }
 
+  /// When a sync last finished **completely**, or null if none ever has.
+  ///
+  /// Deliberately not "the last sync": a partial pull never writes this key, so
+  /// a screen reading it cannot show a half-finished sync as an up-to-date one.
+  Future<DateTime?> lastCompleteSync() async {
+    final ms = int.tryParse(await meta(SyncKeys.lastCompleteSyncMs) ?? '');
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
   /// One [SyncMeta] value, or null when it was never written.
   Future<String?> meta(String name) async {
     final query = select(syncMeta)..where((row) => row.name.equals(name));

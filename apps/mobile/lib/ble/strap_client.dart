@@ -24,6 +24,7 @@ import 'package:healthee/ble/models/strap_sync_result.dart';
 import 'package:healthee/ble/models/strap_sync_window.dart';
 import 'package:healthee/ble/strap_exception.dart';
 import 'package:healthee/ble/strap_failure.dart';
+import 'package:healthee/ble/strap_progress.dart';
 import 'package:healthee/ble/strap_session.dart';
 import 'package:healthee/ble/strap_sync.dart';
 import 'package:healthee/ble/transport/bluetooth_strap_link.dart';
@@ -63,7 +64,11 @@ class StrapClient {
   /// [StrapChannelsMissing], [HandshakeRefused] or [HandshakeTimedOut] — a
   /// missing pairing and a refused key are different problems with different
   /// remedies, and stay distinguishable all the way up.
-  Future<StrapSession> connect() async {
+  ///
+  /// [onPhase] is told which protocol step the session has reached as it
+  /// reaches it, so a screen can report the truth rather than a plausible
+  /// sequence — see `strap_progress.dart`.
+  Future<StrapSession> connect({StrapPhaseSink? onPhase}) async {
     final strap = await pairing.pairedStrap();
     if (strap == null) {
       throw const StrapException(StrapNotPaired());
@@ -74,6 +79,7 @@ class StrapClient {
       linkFactory(strap.mac),
       handshakeTimeout: handshakeTimeout,
       dailyTotalsWait: dailyTotalsWait,
+      onPhase: onPhase,
     );
     try {
       await session.open(parseAuthKey(strap.authKey));
@@ -92,10 +98,14 @@ class StrapClient {
   ///
   /// The session is closed on every path, including a failed sync, for the
   /// reason above.
-  Future<StrapSyncResult> syncOnce(StrapSyncWindow window) async {
-    final session = await connect();
+  Future<StrapSyncResult> syncOnce(
+    StrapSyncWindow window, {
+    StrapPhaseSink? onPhase,
+    StrapProgressSink? onProgress,
+  }) async {
+    final session = await connect(onPhase: onPhase);
     try {
-      return await StrapSync(session).run(window);
+      return await StrapSync(session, onProgress: onProgress).run(window);
     } finally {
       await session.close();
     }
