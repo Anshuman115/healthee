@@ -49,7 +49,25 @@ abstract final class SyncKeys {
 
   /// Strap battery percent as of the last connection.
   static const String batteryPercent = 'strap_battery_percent';
+
+  /// Epoch ms of the last push that sent everything pending.
+  static const String lastCompletePushMs = 'last_complete_push_ms';
+
+  /// Epoch ms of the last push attempt, complete or not.
+  static const String lastPushAttemptMs = 'last_push_attempt_ms';
+
+  /// The last push attempt's outcome id — see `PushOutcome.id`.
+  static const String lastPushOutcome = 'last_push_outcome';
+
+  /// Why the last push failed, in the owner's words. Absent after a good push.
+  static const String lastPushFailure = 'last_push_failure';
 }
+
+/// "This row has not reached the server", as a SQL expression.
+///
+/// Named because `const Constant<int>(null)` reads like a mistake at four call
+/// sites and like a decision at one.
+const Constant<int> _pending = Constant<int>(null);
 
 /// Writes raw strap data to the local tier and reports where to resume.
 @DriftAccessor(
@@ -69,9 +87,20 @@ class StrapWriter extends DatabaseAccessor<LocalStore> with _$StrapWriterMixin {
   ///
   /// One batch, so a sync is one transaction: a store holding half a night is
   /// worse than a store holding none of it, because nothing downstream can tell.
+  ///
+  /// ## What a re-write does to the push marker
+  ///
+  /// Every conflict clause below is spelled out rather than left to
+  /// `insertAllOnConflictUpdate`, because the interesting column is the one that
+  /// is NOT in it. A sample keeps `pushed_at_ms` — its value cannot change under
+  /// its own key, so re-sending it would be work with no answer. A night, a
+  /// workout and the daily counter all CLEAR it: those three genuinely change
+  /// under the same key (a night gains stages, the counter grows all day), and a
+  /// row the server holds an earlier version of is a row still waiting to be
+  /// sent. See `tables.dart` for the full argument.
   Future<void> saveSync(StrapSyncResult result) {
     return batch((batch) {
-      batch.insertAllOnConflictUpdate(strapSamples, [
+      batch.insertAll(strapSamples, [
         for (final sample in result.samples)
           StrapSamplesCompanion.insert(
             metric: sample.metric,
@@ -79,8 +108,13 @@ class StrapWriter extends DatabaseAccessor<LocalStore> with _$StrapWriterMixin {
             day: isoDay(sample.date),
             value: sample.value,
           ),
-      ]);
-      batch.insertAllOnConflictUpdate(sleepSessions, [
+      ], onConflict: DoUpdate<StrapSamples, StoredSample>.withExcluded(
+        (_, incoming) => StrapSamplesCompanion.custom(
+          day: incoming.day,
+          value: incoming.value,
+        ),
+      ));
+      batch.insertAll(sleepSessions, [
         for (final night in result.sleepSessions)
           SleepSessionsCompanion.insert(
             // `Value(...)` because a single INTEGER PRIMARY KEY is SQLite's
@@ -107,8 +141,23 @@ class StrapWriter extends DatabaseAccessor<LocalStore> with _$StrapWriterMixin {
                 ],
             ]),
           ),
-      ]);
-      batch.insertAllOnConflictUpdate(storedWorkouts, [
+      ], onConflict: DoUpdate<SleepSessions, StoredSleepSession>.withExcluded(
+        (_, incoming) => SleepSessionsCompanion.custom(
+          day: incoming.day,
+          isNap: incoming.isNap,
+          sleepStartMin: incoming.sleepStartMin,
+          sleepEndMin: incoming.sleepEndMin,
+          avgHr: incoming.avgHr,
+          score: incoming.score,
+          remMin: incoming.remMin,
+          lightMin: incoming.lightMin,
+          deepMin: incoming.deepMin,
+          wakeMin: incoming.wakeMin,
+          stagesJson: incoming.stagesJson,
+          pushedAtMs: _pending,
+        ),
+      ));
+      batch.insertAll(storedWorkouts, [
         for (final workout in result.workouts)
           StoredWorkoutsCompanion.insert(
             startMs: Value(workout.start.millisecondsSinceEpoch),
@@ -120,7 +169,18 @@ class StrapWriter extends DatabaseAccessor<LocalStore> with _$StrapWriterMixin {
             maxHr: workout.maxHr,
             minHr: workout.minHr,
           ),
-      ]);
+      ], onConflict: DoUpdate<StoredWorkouts, StoredWorkout>.withExcluded(
+        (_, incoming) => StoredWorkoutsCompanion.custom(
+          day: incoming.day,
+          sportType: incoming.sportType,
+          durationSec: incoming.durationSec,
+          calories: incoming.calories,
+          avgHr: incoming.avgHr,
+          maxHr: incoming.maxHr,
+          minHr: incoming.minHr,
+          pushedAtMs: _pending,
+        ),
+      ));
       // #121, one layer up. The counter is "since midnight" and is therefore
       // NOT re-readable tomorrow — if it does not land here on the day it was
       // read, that day's real step count is gone the way the server's 142 days
@@ -141,6 +201,9 @@ class StrapWriter extends DatabaseAccessor<LocalStore> with _$StrapWriterMixin {
             distanceM: Constant(totals.distanceM),
             calories: Constant(totals.calories),
             readAtMs: Constant(totals.readAt.millisecondsSinceEpoch),
+            // The counter grew since the last push, so the server's copy is no
+            // longer this row. Pending again.
+            pushedAtMs: _pending,
           )),
         );
       }

@@ -28,6 +28,7 @@ library;
 
 import 'package:drift/drift.dart';
 import 'package:healthee/data/store/connection.dart';
+import 'package:healthee/data/store/push_reader.dart';
 import 'package:healthee/data/store/strap_reader.dart';
 import 'package:healthee/data/store/strap_writer.dart';
 import 'package:healthee/data/store/tables.dart';
@@ -89,7 +90,7 @@ class CachedPayloads extends Table {
     DeviceTotals,
     SyncMeta,
   ],
-  daos: [StrapWriter, StrapReader],
+  daos: [StrapWriter, StrapReader, PushReader],
 )
 class LocalStore extends _$LocalStore {
   /// Opens the app's on-disk database.
@@ -99,14 +100,20 @@ class LocalStore extends _$LocalStore {
   LocalStore.memory() : super(openInMemory());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// v1 → v2 added the five raw-strap tables beside the payload cache.
+  /// v2 → v3 added the per-row push marker to the four measurement tables.
   ///
-  /// Additive, so the upgrade creates them and touches nothing that exists. A
-  /// phone that already holds cached server payloads keeps them; there is no
-  /// path here that drops a table, because a migration that can delete health
-  /// data is a migration that eventually will.
+  /// Additive, so each upgrade adds and touches nothing that exists. A phone
+  /// that already holds cached server payloads keeps them; there is no path here
+  /// that drops a table, because a migration that can delete health data is a
+  /// migration that eventually will.
+  ///
+  /// The v3 columns arrive NULL on every existing row, which is the honest
+  /// starting state: this build has never pushed, so nothing on a phone
+  /// upgrading into it has reached the server. The first push sends the 60 days
+  /// it holds, and the server upserts them by their own identity.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
@@ -117,6 +124,12 @@ class LocalStore extends _$LocalStore {
         await m.createTable(storedWorkouts);
         await m.createTable(deviceTotals);
         await m.createTable(syncMeta);
+      }
+      if (from < 3) {
+        await m.addColumn(strapSamples, strapSamples.pushedAtMs);
+        await m.addColumn(sleepSessions, sleepSessions.pushedAtMs);
+        await m.addColumn(storedWorkouts, storedWorkouts.pushedAtMs);
+        await m.addColumn(deviceTotals, deviceTotals.pushedAtMs);
       }
     },
   );
@@ -135,6 +148,24 @@ class LocalStore extends _$LocalStore {
   Future<CachedPayload?> read(String metric, String day) {
     final query = select(cachedPayloads)
       ..where((row) => row.metric.equals(metric) & row.day.equals(day))
+      ..limit(1);
+    return query.getSingleOrNull();
+  }
+
+  /// The NEWEST cached payload of [metric], whatever day it describes.
+  ///
+  /// The offline read path. [read] answers "do we hold today's?", which is the
+  /// wrong question after midnight with no network: the honest answer is not
+  /// "nothing", it is "the last thing the server said, and here is its date".
+  /// The row carries both, so the screen can date what it is showing rather than
+  /// presenting yesterday as today — the stale-as-current failure this product
+  /// exists to refuse.
+  Future<CachedPayload?> readLatest(String metric) {
+    final query = select(cachedPayloads)
+      ..where((row) => row.metric.equals(metric))
+      // `day` is `YYYY-MM-DD`, which sorts lexicographically exactly as it sorts
+      // chronologically — the reason the column is TEXT at all.
+      ..orderBy([(row) => OrderingTerm.desc(row.day)])
       ..limit(1);
     return query.getSingleOrNull();
   }

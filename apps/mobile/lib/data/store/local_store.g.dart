@@ -381,8 +381,19 @@ class $StrapSamplesTable extends StrapSamples
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _pushedAtMsMeta = const VerificationMeta(
+    'pushedAtMs',
+  );
   @override
-  List<GeneratedColumn> get $columns => [metric, tsMs, day, value];
+  late final GeneratedColumn<int> pushedAtMs = GeneratedColumn<int>(
+    'pushed_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [metric, tsMs, day, value, pushedAtMs];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -427,6 +438,15 @@ class $StrapSamplesTable extends StrapSamples
     } else if (isInserting) {
       context.missing(_valueMeta);
     }
+    if (data.containsKey('pushed_at_ms')) {
+      context.handle(
+        _pushedAtMsMeta,
+        pushedAtMs.isAcceptableOrUnknown(
+          data['pushed_at_ms']!,
+          _pushedAtMsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -452,6 +472,10 @@ class $StrapSamplesTable extends StrapSamples
         DriftSqlType.double,
         data['${effectivePrefix}value'],
       )!,
+      pushedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pushed_at_ms'],
+      ),
     );
   }
 
@@ -479,11 +503,21 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
 
   /// The decoded value, in the metric's own unit. Untouched.
   final double value;
+
+  /// When `POST /ingest/helio` accepted this row, epoch ms — null while it is
+  /// still waiting to be sent. See [pushedAtMs] on [DeviceTotals] for why the
+  /// marker lives on the row rather than in a high-water cursor.
+  ///
+  /// A re-pulled sample keeps its marker: `(metric, ts)` is the measurement's
+  /// identity and its value does not change, so re-sending 60 days of samples
+  /// every sync would buy nothing.
+  final int? pushedAtMs;
   const StoredSample({
     required this.metric,
     required this.tsMs,
     required this.day,
     required this.value,
+    this.pushedAtMs,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -492,6 +526,9 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
     map['ts_ms'] = Variable<int>(tsMs);
     map['day'] = Variable<String>(day);
     map['value'] = Variable<double>(value);
+    if (!nullToAbsent || pushedAtMs != null) {
+      map['pushed_at_ms'] = Variable<int>(pushedAtMs);
+    }
     return map;
   }
 
@@ -501,6 +538,9 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
       tsMs: Value(tsMs),
       day: Value(day),
       value: Value(value),
+      pushedAtMs: pushedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pushedAtMs),
     );
   }
 
@@ -514,6 +554,7 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
       tsMs: serializer.fromJson<int>(json['tsMs']),
       day: serializer.fromJson<String>(json['day']),
       value: serializer.fromJson<double>(json['value']),
+      pushedAtMs: serializer.fromJson<int?>(json['pushedAtMs']),
     );
   }
   @override
@@ -524,6 +565,7 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
       'tsMs': serializer.toJson<int>(tsMs),
       'day': serializer.toJson<String>(day),
       'value': serializer.toJson<double>(value),
+      'pushedAtMs': serializer.toJson<int?>(pushedAtMs),
     };
   }
 
@@ -532,11 +574,13 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
     int? tsMs,
     String? day,
     double? value,
+    Value<int?> pushedAtMs = const Value.absent(),
   }) => StoredSample(
     metric: metric ?? this.metric,
     tsMs: tsMs ?? this.tsMs,
     day: day ?? this.day,
     value: value ?? this.value,
+    pushedAtMs: pushedAtMs.present ? pushedAtMs.value : this.pushedAtMs,
   );
   StoredSample copyWithCompanion(StrapSamplesCompanion data) {
     return StoredSample(
@@ -544,6 +588,9 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
       tsMs: data.tsMs.present ? data.tsMs.value : this.tsMs,
       day: data.day.present ? data.day.value : this.day,
       value: data.value.present ? data.value.value : this.value,
+      pushedAtMs: data.pushedAtMs.present
+          ? data.pushedAtMs.value
+          : this.pushedAtMs,
     );
   }
 
@@ -553,13 +600,14 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
           ..write('metric: $metric, ')
           ..write('tsMs: $tsMs, ')
           ..write('day: $day, ')
-          ..write('value: $value')
+          ..write('value: $value, ')
+          ..write('pushedAtMs: $pushedAtMs')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(metric, tsMs, day, value);
+  int get hashCode => Object.hash(metric, tsMs, day, value, pushedAtMs);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -567,7 +615,8 @@ class StoredSample extends DataClass implements Insertable<StoredSample> {
           other.metric == this.metric &&
           other.tsMs == this.tsMs &&
           other.day == this.day &&
-          other.value == this.value);
+          other.value == this.value &&
+          other.pushedAtMs == this.pushedAtMs);
 }
 
 class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
@@ -575,12 +624,14 @@ class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
   final Value<int> tsMs;
   final Value<String> day;
   final Value<double> value;
+  final Value<int?> pushedAtMs;
   final Value<int> rowid;
   const StrapSamplesCompanion({
     this.metric = const Value.absent(),
     this.tsMs = const Value.absent(),
     this.day = const Value.absent(),
     this.value = const Value.absent(),
+    this.pushedAtMs = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   StrapSamplesCompanion.insert({
@@ -588,6 +639,7 @@ class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
     required int tsMs,
     required String day,
     required double value,
+    this.pushedAtMs = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : metric = Value(metric),
        tsMs = Value(tsMs),
@@ -598,6 +650,7 @@ class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
     Expression<int>? tsMs,
     Expression<String>? day,
     Expression<double>? value,
+    Expression<int>? pushedAtMs,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -605,6 +658,7 @@ class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
       if (tsMs != null) 'ts_ms': tsMs,
       if (day != null) 'day': day,
       if (value != null) 'value': value,
+      if (pushedAtMs != null) 'pushed_at_ms': pushedAtMs,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -614,6 +668,7 @@ class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
     Value<int>? tsMs,
     Value<String>? day,
     Value<double>? value,
+    Value<int?>? pushedAtMs,
     Value<int>? rowid,
   }) {
     return StrapSamplesCompanion(
@@ -621,6 +676,7 @@ class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
       tsMs: tsMs ?? this.tsMs,
       day: day ?? this.day,
       value: value ?? this.value,
+      pushedAtMs: pushedAtMs ?? this.pushedAtMs,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -640,6 +696,9 @@ class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
     if (value.present) {
       map['value'] = Variable<double>(value.value);
     }
+    if (pushedAtMs.present) {
+      map['pushed_at_ms'] = Variable<int>(pushedAtMs.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -653,6 +712,7 @@ class StrapSamplesCompanion extends UpdateCompanion<StoredSample> {
           ..write('tsMs: $tsMs, ')
           ..write('day: $day, ')
           ..write('value: $value, ')
+          ..write('pushedAtMs: $pushedAtMs, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -794,6 +854,17 @@ class $SleepSessionsTable extends SleepSessions
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _pushedAtMsMeta = const VerificationMeta(
+    'pushedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> pushedAtMs = GeneratedColumn<int>(
+    'pushed_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     startMs,
@@ -808,6 +879,7 @@ class $SleepSessionsTable extends SleepSessions
     deepMin,
     wakeMin,
     stagesJson,
+    pushedAtMs,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -921,6 +993,15 @@ class $SleepSessionsTable extends SleepSessions
     } else if (isInserting) {
       context.missing(_stagesJsonMeta);
     }
+    if (data.containsKey('pushed_at_ms')) {
+      context.handle(
+        _pushedAtMsMeta,
+        pushedAtMs.isAcceptableOrUnknown(
+          data['pushed_at_ms']!,
+          _pushedAtMsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -978,6 +1059,10 @@ class $SleepSessionsTable extends SleepSessions
         DriftSqlType.string,
         data['${effectivePrefix}stages_json'],
       )!,
+      pushedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pushed_at_ms'],
+      ),
     );
   }
 
@@ -1030,6 +1115,15 @@ class StoredSleepSession extends DataClass
 
   /// The stage timeline as `[[startMs, endMs, type], …]` JSON.
   final String stagesJson;
+
+  /// When the push accepted this night, epoch ms; null while it is pending.
+  ///
+  /// **Cleared whenever the row is re-written.** The fetch plan re-reads two
+  /// days of sleep on purpose so a nap appended later is picked up, and a night
+  /// that gained stages after it was pushed is a different record under the same
+  /// key. Three nights re-sent per sync is nothing; a night whose second half
+  /// never reaches the server is a hole nobody would see.
+  final int? pushedAtMs;
   const StoredSleepSession({
     required this.startMs,
     required this.day,
@@ -1043,6 +1137,7 @@ class StoredSleepSession extends DataClass
     required this.deepMin,
     required this.wakeMin,
     required this.stagesJson,
+    this.pushedAtMs,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1059,6 +1154,9 @@ class StoredSleepSession extends DataClass
     map['deep_min'] = Variable<int>(deepMin);
     map['wake_min'] = Variable<int>(wakeMin);
     map['stages_json'] = Variable<String>(stagesJson);
+    if (!nullToAbsent || pushedAtMs != null) {
+      map['pushed_at_ms'] = Variable<int>(pushedAtMs);
+    }
     return map;
   }
 
@@ -1076,6 +1174,9 @@ class StoredSleepSession extends DataClass
       deepMin: Value(deepMin),
       wakeMin: Value(wakeMin),
       stagesJson: Value(stagesJson),
+      pushedAtMs: pushedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pushedAtMs),
     );
   }
 
@@ -1097,6 +1198,7 @@ class StoredSleepSession extends DataClass
       deepMin: serializer.fromJson<int>(json['deepMin']),
       wakeMin: serializer.fromJson<int>(json['wakeMin']),
       stagesJson: serializer.fromJson<String>(json['stagesJson']),
+      pushedAtMs: serializer.fromJson<int?>(json['pushedAtMs']),
     );
   }
   @override
@@ -1115,6 +1217,7 @@ class StoredSleepSession extends DataClass
       'deepMin': serializer.toJson<int>(deepMin),
       'wakeMin': serializer.toJson<int>(wakeMin),
       'stagesJson': serializer.toJson<String>(stagesJson),
+      'pushedAtMs': serializer.toJson<int?>(pushedAtMs),
     };
   }
 
@@ -1131,6 +1234,7 @@ class StoredSleepSession extends DataClass
     int? deepMin,
     int? wakeMin,
     String? stagesJson,
+    Value<int?> pushedAtMs = const Value.absent(),
   }) => StoredSleepSession(
     startMs: startMs ?? this.startMs,
     day: day ?? this.day,
@@ -1144,6 +1248,7 @@ class StoredSleepSession extends DataClass
     deepMin: deepMin ?? this.deepMin,
     wakeMin: wakeMin ?? this.wakeMin,
     stagesJson: stagesJson ?? this.stagesJson,
+    pushedAtMs: pushedAtMs.present ? pushedAtMs.value : this.pushedAtMs,
   );
   StoredSleepSession copyWithCompanion(SleepSessionsCompanion data) {
     return StoredSleepSession(
@@ -1165,6 +1270,9 @@ class StoredSleepSession extends DataClass
       stagesJson: data.stagesJson.present
           ? data.stagesJson.value
           : this.stagesJson,
+      pushedAtMs: data.pushedAtMs.present
+          ? data.pushedAtMs.value
+          : this.pushedAtMs,
     );
   }
 
@@ -1182,7 +1290,8 @@ class StoredSleepSession extends DataClass
           ..write('lightMin: $lightMin, ')
           ..write('deepMin: $deepMin, ')
           ..write('wakeMin: $wakeMin, ')
-          ..write('stagesJson: $stagesJson')
+          ..write('stagesJson: $stagesJson, ')
+          ..write('pushedAtMs: $pushedAtMs')
           ..write(')'))
         .toString();
   }
@@ -1201,6 +1310,7 @@ class StoredSleepSession extends DataClass
     deepMin,
     wakeMin,
     stagesJson,
+    pushedAtMs,
   );
   @override
   bool operator ==(Object other) =>
@@ -1217,7 +1327,8 @@ class StoredSleepSession extends DataClass
           other.lightMin == this.lightMin &&
           other.deepMin == this.deepMin &&
           other.wakeMin == this.wakeMin &&
-          other.stagesJson == this.stagesJson);
+          other.stagesJson == this.stagesJson &&
+          other.pushedAtMs == this.pushedAtMs);
 }
 
 class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
@@ -1233,6 +1344,7 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
   final Value<int> deepMin;
   final Value<int> wakeMin;
   final Value<String> stagesJson;
+  final Value<int?> pushedAtMs;
   const SleepSessionsCompanion({
     this.startMs = const Value.absent(),
     this.day = const Value.absent(),
@@ -1246,6 +1358,7 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
     this.deepMin = const Value.absent(),
     this.wakeMin = const Value.absent(),
     this.stagesJson = const Value.absent(),
+    this.pushedAtMs = const Value.absent(),
   });
   SleepSessionsCompanion.insert({
     this.startMs = const Value.absent(),
@@ -1260,6 +1373,7 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
     required int deepMin,
     required int wakeMin,
     required String stagesJson,
+    this.pushedAtMs = const Value.absent(),
   }) : day = Value(day),
        isNap = Value(isNap),
        sleepStartMin = Value(sleepStartMin),
@@ -1284,6 +1398,7 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
     Expression<int>? deepMin,
     Expression<int>? wakeMin,
     Expression<String>? stagesJson,
+    Expression<int>? pushedAtMs,
   }) {
     return RawValuesInsertable({
       if (startMs != null) 'start_ms': startMs,
@@ -1298,6 +1413,7 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
       if (deepMin != null) 'deep_min': deepMin,
       if (wakeMin != null) 'wake_min': wakeMin,
       if (stagesJson != null) 'stages_json': stagesJson,
+      if (pushedAtMs != null) 'pushed_at_ms': pushedAtMs,
     });
   }
 
@@ -1314,6 +1430,7 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
     Value<int>? deepMin,
     Value<int>? wakeMin,
     Value<String>? stagesJson,
+    Value<int?>? pushedAtMs,
   }) {
     return SleepSessionsCompanion(
       startMs: startMs ?? this.startMs,
@@ -1328,6 +1445,7 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
       deepMin: deepMin ?? this.deepMin,
       wakeMin: wakeMin ?? this.wakeMin,
       stagesJson: stagesJson ?? this.stagesJson,
+      pushedAtMs: pushedAtMs ?? this.pushedAtMs,
     );
   }
 
@@ -1370,6 +1488,9 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
     if (stagesJson.present) {
       map['stages_json'] = Variable<String>(stagesJson.value);
     }
+    if (pushedAtMs.present) {
+      map['pushed_at_ms'] = Variable<int>(pushedAtMs.value);
+    }
     return map;
   }
 
@@ -1387,7 +1508,8 @@ class SleepSessionsCompanion extends UpdateCompanion<StoredSleepSession> {
           ..write('lightMin: $lightMin, ')
           ..write('deepMin: $deepMin, ')
           ..write('wakeMin: $wakeMin, ')
-          ..write('stagesJson: $stagesJson')
+          ..write('stagesJson: $stagesJson, ')
+          ..write('pushedAtMs: $pushedAtMs')
           ..write(')'))
         .toString();
   }
@@ -1483,6 +1605,17 @@ class $StoredWorkoutsTable extends StoredWorkouts
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _pushedAtMsMeta = const VerificationMeta(
+    'pushedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> pushedAtMs = GeneratedColumn<int>(
+    'pushed_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     startMs,
@@ -1493,6 +1626,7 @@ class $StoredWorkoutsTable extends StoredWorkouts
     avgHr,
     maxHr,
     minHr,
+    pushedAtMs,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1571,6 +1705,15 @@ class $StoredWorkoutsTable extends StoredWorkouts
     } else if (isInserting) {
       context.missing(_minHrMeta);
     }
+    if (data.containsKey('pushed_at_ms')) {
+      context.handle(
+        _pushedAtMsMeta,
+        pushedAtMs.isAcceptableOrUnknown(
+          data['pushed_at_ms']!,
+          _pushedAtMsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1612,6 +1755,10 @@ class $StoredWorkoutsTable extends StoredWorkouts
         DriftSqlType.int,
         data['${effectivePrefix}min_hr'],
       )!,
+      pushedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pushed_at_ms'],
+      ),
     );
   }
 
@@ -1647,6 +1794,10 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
 
   /// Lowest heart rate.
   final int minHr;
+
+  /// When the push accepted this workout, epoch ms; null while it is pending.
+  /// Cleared on re-write for the same reason a night's is.
+  final int? pushedAtMs;
   const StoredWorkout({
     required this.startMs,
     required this.day,
@@ -1656,6 +1807,7 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
     required this.avgHr,
     required this.maxHr,
     required this.minHr,
+    this.pushedAtMs,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1668,6 +1820,9 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
     map['avg_hr'] = Variable<int>(avgHr);
     map['max_hr'] = Variable<int>(maxHr);
     map['min_hr'] = Variable<int>(minHr);
+    if (!nullToAbsent || pushedAtMs != null) {
+      map['pushed_at_ms'] = Variable<int>(pushedAtMs);
+    }
     return map;
   }
 
@@ -1681,6 +1836,9 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
       avgHr: Value(avgHr),
       maxHr: Value(maxHr),
       minHr: Value(minHr),
+      pushedAtMs: pushedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pushedAtMs),
     );
   }
 
@@ -1698,6 +1856,7 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
       avgHr: serializer.fromJson<int>(json['avgHr']),
       maxHr: serializer.fromJson<int>(json['maxHr']),
       minHr: serializer.fromJson<int>(json['minHr']),
+      pushedAtMs: serializer.fromJson<int?>(json['pushedAtMs']),
     );
   }
   @override
@@ -1712,6 +1871,7 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
       'avgHr': serializer.toJson<int>(avgHr),
       'maxHr': serializer.toJson<int>(maxHr),
       'minHr': serializer.toJson<int>(minHr),
+      'pushedAtMs': serializer.toJson<int?>(pushedAtMs),
     };
   }
 
@@ -1724,6 +1884,7 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
     int? avgHr,
     int? maxHr,
     int? minHr,
+    Value<int?> pushedAtMs = const Value.absent(),
   }) => StoredWorkout(
     startMs: startMs ?? this.startMs,
     day: day ?? this.day,
@@ -1733,6 +1894,7 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
     avgHr: avgHr ?? this.avgHr,
     maxHr: maxHr ?? this.maxHr,
     minHr: minHr ?? this.minHr,
+    pushedAtMs: pushedAtMs.present ? pushedAtMs.value : this.pushedAtMs,
   );
   StoredWorkout copyWithCompanion(StoredWorkoutsCompanion data) {
     return StoredWorkout(
@@ -1746,6 +1908,9 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
       avgHr: data.avgHr.present ? data.avgHr.value : this.avgHr,
       maxHr: data.maxHr.present ? data.maxHr.value : this.maxHr,
       minHr: data.minHr.present ? data.minHr.value : this.minHr,
+      pushedAtMs: data.pushedAtMs.present
+          ? data.pushedAtMs.value
+          : this.pushedAtMs,
     );
   }
 
@@ -1759,7 +1924,8 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
           ..write('calories: $calories, ')
           ..write('avgHr: $avgHr, ')
           ..write('maxHr: $maxHr, ')
-          ..write('minHr: $minHr')
+          ..write('minHr: $minHr, ')
+          ..write('pushedAtMs: $pushedAtMs')
           ..write(')'))
         .toString();
   }
@@ -1774,6 +1940,7 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
     avgHr,
     maxHr,
     minHr,
+    pushedAtMs,
   );
   @override
   bool operator ==(Object other) =>
@@ -1786,7 +1953,8 @@ class StoredWorkout extends DataClass implements Insertable<StoredWorkout> {
           other.calories == this.calories &&
           other.avgHr == this.avgHr &&
           other.maxHr == this.maxHr &&
-          other.minHr == this.minHr);
+          other.minHr == this.minHr &&
+          other.pushedAtMs == this.pushedAtMs);
 }
 
 class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
@@ -1798,6 +1966,7 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
   final Value<int> avgHr;
   final Value<int> maxHr;
   final Value<int> minHr;
+  final Value<int?> pushedAtMs;
   const StoredWorkoutsCompanion({
     this.startMs = const Value.absent(),
     this.day = const Value.absent(),
@@ -1807,6 +1976,7 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
     this.avgHr = const Value.absent(),
     this.maxHr = const Value.absent(),
     this.minHr = const Value.absent(),
+    this.pushedAtMs = const Value.absent(),
   });
   StoredWorkoutsCompanion.insert({
     this.startMs = const Value.absent(),
@@ -1817,6 +1987,7 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
     required int avgHr,
     required int maxHr,
     required int minHr,
+    this.pushedAtMs = const Value.absent(),
   }) : day = Value(day),
        sportType = Value(sportType),
        durationSec = Value(durationSec),
@@ -1833,6 +2004,7 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
     Expression<int>? avgHr,
     Expression<int>? maxHr,
     Expression<int>? minHr,
+    Expression<int>? pushedAtMs,
   }) {
     return RawValuesInsertable({
       if (startMs != null) 'start_ms': startMs,
@@ -1843,6 +2015,7 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
       if (avgHr != null) 'avg_hr': avgHr,
       if (maxHr != null) 'max_hr': maxHr,
       if (minHr != null) 'min_hr': minHr,
+      if (pushedAtMs != null) 'pushed_at_ms': pushedAtMs,
     });
   }
 
@@ -1855,6 +2028,7 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
     Value<int>? avgHr,
     Value<int>? maxHr,
     Value<int>? minHr,
+    Value<int?>? pushedAtMs,
   }) {
     return StoredWorkoutsCompanion(
       startMs: startMs ?? this.startMs,
@@ -1865,6 +2039,7 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
       avgHr: avgHr ?? this.avgHr,
       maxHr: maxHr ?? this.maxHr,
       minHr: minHr ?? this.minHr,
+      pushedAtMs: pushedAtMs ?? this.pushedAtMs,
     );
   }
 
@@ -1895,6 +2070,9 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
     if (minHr.present) {
       map['min_hr'] = Variable<int>(minHr.value);
     }
+    if (pushedAtMs.present) {
+      map['pushed_at_ms'] = Variable<int>(pushedAtMs.value);
+    }
     return map;
   }
 
@@ -1908,7 +2086,8 @@ class StoredWorkoutsCompanion extends UpdateCompanion<StoredWorkout> {
           ..write('calories: $calories, ')
           ..write('avgHr: $avgHr, ')
           ..write('maxHr: $maxHr, ')
-          ..write('minHr: $minHr')
+          ..write('minHr: $minHr, ')
+          ..write('pushedAtMs: $pushedAtMs')
           ..write(')'))
         .toString();
   }
@@ -1975,6 +2154,17 @@ class $DeviceTotalsTable extends DeviceTotals
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _pushedAtMsMeta = const VerificationMeta(
+    'pushedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> pushedAtMs = GeneratedColumn<int>(
+    'pushed_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     day,
@@ -1982,6 +2172,7 @@ class $DeviceTotalsTable extends DeviceTotals
     distanceM,
     calories,
     readAtMs,
+    pushedAtMs,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2035,6 +2226,15 @@ class $DeviceTotalsTable extends DeviceTotals
     } else if (isInserting) {
       context.missing(_readAtMsMeta);
     }
+    if (data.containsKey('pushed_at_ms')) {
+      context.handle(
+        _pushedAtMsMeta,
+        pushedAtMs.isAcceptableOrUnknown(
+          data['pushed_at_ms']!,
+          _pushedAtMsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2064,6 +2264,10 @@ class $DeviceTotalsTable extends DeviceTotals
         DriftSqlType.int,
         data['${effectivePrefix}read_at_ms'],
       )!,
+      pushedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pushed_at_ms'],
+      ),
     );
   }
 
@@ -2092,12 +2296,31 @@ class StoredDeviceTotals extends DataClass
   /// When the reply landed, epoch milliseconds. A counter read at 09:00 is a
   /// claim about nine hours, not about a day, and the screen says so.
   final int readAtMs;
+
+  /// When `POST /ingest/helio` accepted this row, epoch ms; null while pending.
+  ///
+  /// ## Why a per-row marker and not a "pushed up to here" cursor
+  ///
+  /// A high-water cursor is a second claim about what the server holds, and it
+  /// is wrong in the direction that loses data. The one-shot stress and nap
+  /// passes deliberately write rows OLDER than anything already stored; a cursor
+  /// advanced past them would skip every one, permanently, and nothing would
+  /// ever revisit them. The marker is on the row the push is about, so a
+  /// backfilled row is pending by construction. It is the same argument
+  /// `StrapWriter.resumeWindow` makes for the fetch watermark, in the other
+  /// direction.
+  ///
+  /// **Cleared on every re-write**, because this counter is live: it grows all
+  /// day under one primary key, so the 09:00 reading being pushed says nothing
+  /// about the 21:00 one.
+  final int? pushedAtMs;
   const StoredDeviceTotals({
     required this.day,
     required this.steps,
     required this.distanceM,
     required this.calories,
     required this.readAtMs,
+    this.pushedAtMs,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2107,6 +2330,9 @@ class StoredDeviceTotals extends DataClass
     map['distance_m'] = Variable<int>(distanceM);
     map['calories'] = Variable<int>(calories);
     map['read_at_ms'] = Variable<int>(readAtMs);
+    if (!nullToAbsent || pushedAtMs != null) {
+      map['pushed_at_ms'] = Variable<int>(pushedAtMs);
+    }
     return map;
   }
 
@@ -2117,6 +2343,9 @@ class StoredDeviceTotals extends DataClass
       distanceM: Value(distanceM),
       calories: Value(calories),
       readAtMs: Value(readAtMs),
+      pushedAtMs: pushedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pushedAtMs),
     );
   }
 
@@ -2131,6 +2360,7 @@ class StoredDeviceTotals extends DataClass
       distanceM: serializer.fromJson<int>(json['distanceM']),
       calories: serializer.fromJson<int>(json['calories']),
       readAtMs: serializer.fromJson<int>(json['readAtMs']),
+      pushedAtMs: serializer.fromJson<int?>(json['pushedAtMs']),
     );
   }
   @override
@@ -2142,6 +2372,7 @@ class StoredDeviceTotals extends DataClass
       'distanceM': serializer.toJson<int>(distanceM),
       'calories': serializer.toJson<int>(calories),
       'readAtMs': serializer.toJson<int>(readAtMs),
+      'pushedAtMs': serializer.toJson<int?>(pushedAtMs),
     };
   }
 
@@ -2151,12 +2382,14 @@ class StoredDeviceTotals extends DataClass
     int? distanceM,
     int? calories,
     int? readAtMs,
+    Value<int?> pushedAtMs = const Value.absent(),
   }) => StoredDeviceTotals(
     day: day ?? this.day,
     steps: steps ?? this.steps,
     distanceM: distanceM ?? this.distanceM,
     calories: calories ?? this.calories,
     readAtMs: readAtMs ?? this.readAtMs,
+    pushedAtMs: pushedAtMs.present ? pushedAtMs.value : this.pushedAtMs,
   );
   StoredDeviceTotals copyWithCompanion(DeviceTotalsCompanion data) {
     return StoredDeviceTotals(
@@ -2165,6 +2398,9 @@ class StoredDeviceTotals extends DataClass
       distanceM: data.distanceM.present ? data.distanceM.value : this.distanceM,
       calories: data.calories.present ? data.calories.value : this.calories,
       readAtMs: data.readAtMs.present ? data.readAtMs.value : this.readAtMs,
+      pushedAtMs: data.pushedAtMs.present
+          ? data.pushedAtMs.value
+          : this.pushedAtMs,
     );
   }
 
@@ -2175,13 +2411,15 @@ class StoredDeviceTotals extends DataClass
           ..write('steps: $steps, ')
           ..write('distanceM: $distanceM, ')
           ..write('calories: $calories, ')
-          ..write('readAtMs: $readAtMs')
+          ..write('readAtMs: $readAtMs, ')
+          ..write('pushedAtMs: $pushedAtMs')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(day, steps, distanceM, calories, readAtMs);
+  int get hashCode =>
+      Object.hash(day, steps, distanceM, calories, readAtMs, pushedAtMs);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2190,7 +2428,8 @@ class StoredDeviceTotals extends DataClass
           other.steps == this.steps &&
           other.distanceM == this.distanceM &&
           other.calories == this.calories &&
-          other.readAtMs == this.readAtMs);
+          other.readAtMs == this.readAtMs &&
+          other.pushedAtMs == this.pushedAtMs);
 }
 
 class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
@@ -2199,6 +2438,7 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
   final Value<int> distanceM;
   final Value<int> calories;
   final Value<int> readAtMs;
+  final Value<int?> pushedAtMs;
   final Value<int> rowid;
   const DeviceTotalsCompanion({
     this.day = const Value.absent(),
@@ -2206,6 +2446,7 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
     this.distanceM = const Value.absent(),
     this.calories = const Value.absent(),
     this.readAtMs = const Value.absent(),
+    this.pushedAtMs = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeviceTotalsCompanion.insert({
@@ -2214,6 +2455,7 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
     required int distanceM,
     required int calories,
     required int readAtMs,
+    this.pushedAtMs = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : day = Value(day),
        steps = Value(steps),
@@ -2226,6 +2468,7 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
     Expression<int>? distanceM,
     Expression<int>? calories,
     Expression<int>? readAtMs,
+    Expression<int>? pushedAtMs,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2234,6 +2477,7 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
       if (distanceM != null) 'distance_m': distanceM,
       if (calories != null) 'calories': calories,
       if (readAtMs != null) 'read_at_ms': readAtMs,
+      if (pushedAtMs != null) 'pushed_at_ms': pushedAtMs,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2244,6 +2488,7 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
     Value<int>? distanceM,
     Value<int>? calories,
     Value<int>? readAtMs,
+    Value<int?>? pushedAtMs,
     Value<int>? rowid,
   }) {
     return DeviceTotalsCompanion(
@@ -2252,6 +2497,7 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
       distanceM: distanceM ?? this.distanceM,
       calories: calories ?? this.calories,
       readAtMs: readAtMs ?? this.readAtMs,
+      pushedAtMs: pushedAtMs ?? this.pushedAtMs,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2274,6 +2520,9 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
     if (readAtMs.present) {
       map['read_at_ms'] = Variable<int>(readAtMs.value);
     }
+    if (pushedAtMs.present) {
+      map['pushed_at_ms'] = Variable<int>(pushedAtMs.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2288,6 +2537,7 @@ class DeviceTotalsCompanion extends UpdateCompanion<StoredDeviceTotals> {
           ..write('distanceM: $distanceM, ')
           ..write('calories: $calories, ')
           ..write('readAtMs: $readAtMs, ')
+          ..write('pushedAtMs: $pushedAtMs, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2520,6 +2770,7 @@ abstract class _$LocalStore extends GeneratedDatabase {
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final StrapWriter strapWriter = StrapWriter(this as LocalStore);
   late final StrapReader strapReader = StrapReader(this as LocalStore);
+  late final PushReader pushReader = PushReader(this as LocalStore);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2721,6 +2972,7 @@ typedef $$StrapSamplesTableCreateCompanionBuilder =
       required int tsMs,
       required String day,
       required double value,
+      Value<int?> pushedAtMs,
       Value<int> rowid,
     });
 typedef $$StrapSamplesTableUpdateCompanionBuilder =
@@ -2729,6 +2981,7 @@ typedef $$StrapSamplesTableUpdateCompanionBuilder =
       Value<int> tsMs,
       Value<String> day,
       Value<double> value,
+      Value<int?> pushedAtMs,
       Value<int> rowid,
     });
 
@@ -2758,6 +3011,11 @@ class $$StrapSamplesTableFilterComposer
 
   ColumnFilters<double> get value => $composableBuilder(
     column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2790,6 +3048,11 @@ class $$StrapSamplesTableOrderingComposer
     column: $table.value,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$StrapSamplesTableAnnotationComposer
@@ -2812,6 +3075,11 @@ class $$StrapSamplesTableAnnotationComposer
 
   GeneratedColumn<double> get value =>
       $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
+    builder: (column) => column,
+  );
 }
 
 class $$StrapSamplesTableTableManager
@@ -2849,12 +3117,14 @@ class $$StrapSamplesTableTableManager
                 Value<int> tsMs = const Value.absent(),
                 Value<String> day = const Value.absent(),
                 Value<double> value = const Value.absent(),
+                Value<int?> pushedAtMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StrapSamplesCompanion(
                 metric: metric,
                 tsMs: tsMs,
                 day: day,
                 value: value,
+                pushedAtMs: pushedAtMs,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2863,12 +3133,14 @@ class $$StrapSamplesTableTableManager
                 required int tsMs,
                 required String day,
                 required double value,
+                Value<int?> pushedAtMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => StrapSamplesCompanion.insert(
                 metric: metric,
                 tsMs: tsMs,
                 day: day,
                 value: value,
+                pushedAtMs: pushedAtMs,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -2910,6 +3182,7 @@ typedef $$SleepSessionsTableCreateCompanionBuilder =
       required int deepMin,
       required int wakeMin,
       required String stagesJson,
+      Value<int?> pushedAtMs,
     });
 typedef $$SleepSessionsTableUpdateCompanionBuilder =
     SleepSessionsCompanion Function({
@@ -2925,6 +3198,7 @@ typedef $$SleepSessionsTableUpdateCompanionBuilder =
       Value<int> deepMin,
       Value<int> wakeMin,
       Value<String> stagesJson,
+      Value<int?> pushedAtMs,
     });
 
 class $$SleepSessionsTableFilterComposer
@@ -2993,6 +3267,11 @@ class $$SleepSessionsTableFilterComposer
 
   ColumnFilters<String> get stagesJson => $composableBuilder(
     column: $table.stagesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3065,6 +3344,11 @@ class $$SleepSessionsTableOrderingComposer
     column: $table.stagesJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SleepSessionsTableAnnotationComposer
@@ -3117,6 +3401,11 @@ class $$SleepSessionsTableAnnotationComposer
     column: $table.stagesJson,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
+    builder: (column) => column,
+  );
 }
 
 class $$SleepSessionsTableTableManager
@@ -3166,6 +3455,7 @@ class $$SleepSessionsTableTableManager
                 Value<int> deepMin = const Value.absent(),
                 Value<int> wakeMin = const Value.absent(),
                 Value<String> stagesJson = const Value.absent(),
+                Value<int?> pushedAtMs = const Value.absent(),
               }) => SleepSessionsCompanion(
                 startMs: startMs,
                 day: day,
@@ -3179,6 +3469,7 @@ class $$SleepSessionsTableTableManager
                 deepMin: deepMin,
                 wakeMin: wakeMin,
                 stagesJson: stagesJson,
+                pushedAtMs: pushedAtMs,
               ),
           createCompanionCallback:
               ({
@@ -3194,6 +3485,7 @@ class $$SleepSessionsTableTableManager
                 required int deepMin,
                 required int wakeMin,
                 required String stagesJson,
+                Value<int?> pushedAtMs = const Value.absent(),
               }) => SleepSessionsCompanion.insert(
                 startMs: startMs,
                 day: day,
@@ -3207,6 +3499,7 @@ class $$SleepSessionsTableTableManager
                 deepMin: deepMin,
                 wakeMin: wakeMin,
                 stagesJson: stagesJson,
+                pushedAtMs: pushedAtMs,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -3243,6 +3536,7 @@ typedef $$StoredWorkoutsTableCreateCompanionBuilder =
       required int avgHr,
       required int maxHr,
       required int minHr,
+      Value<int?> pushedAtMs,
     });
 typedef $$StoredWorkoutsTableUpdateCompanionBuilder =
     StoredWorkoutsCompanion Function({
@@ -3254,6 +3548,7 @@ typedef $$StoredWorkoutsTableUpdateCompanionBuilder =
       Value<int> avgHr,
       Value<int> maxHr,
       Value<int> minHr,
+      Value<int?> pushedAtMs,
     });
 
 class $$StoredWorkoutsTableFilterComposer
@@ -3302,6 +3597,11 @@ class $$StoredWorkoutsTableFilterComposer
 
   ColumnFilters<int> get minHr => $composableBuilder(
     column: $table.minHr,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3354,6 +3654,11 @@ class $$StoredWorkoutsTableOrderingComposer
     column: $table.minHr,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$StoredWorkoutsTableAnnotationComposer
@@ -3390,6 +3695,11 @@ class $$StoredWorkoutsTableAnnotationComposer
 
   GeneratedColumn<int> get minHr =>
       $composableBuilder(column: $table.minHr, builder: (column) => column);
+
+  GeneratedColumn<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
+    builder: (column) => column,
+  );
 }
 
 class $$StoredWorkoutsTableTableManager
@@ -3431,6 +3741,7 @@ class $$StoredWorkoutsTableTableManager
                 Value<int> avgHr = const Value.absent(),
                 Value<int> maxHr = const Value.absent(),
                 Value<int> minHr = const Value.absent(),
+                Value<int?> pushedAtMs = const Value.absent(),
               }) => StoredWorkoutsCompanion(
                 startMs: startMs,
                 day: day,
@@ -3440,6 +3751,7 @@ class $$StoredWorkoutsTableTableManager
                 avgHr: avgHr,
                 maxHr: maxHr,
                 minHr: minHr,
+                pushedAtMs: pushedAtMs,
               ),
           createCompanionCallback:
               ({
@@ -3451,6 +3763,7 @@ class $$StoredWorkoutsTableTableManager
                 required int avgHr,
                 required int maxHr,
                 required int minHr,
+                Value<int?> pushedAtMs = const Value.absent(),
               }) => StoredWorkoutsCompanion.insert(
                 startMs: startMs,
                 day: day,
@@ -3460,6 +3773,7 @@ class $$StoredWorkoutsTableTableManager
                 avgHr: avgHr,
                 maxHr: maxHr,
                 minHr: minHr,
+                pushedAtMs: pushedAtMs,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -3493,6 +3807,7 @@ typedef $$DeviceTotalsTableCreateCompanionBuilder =
       required int distanceM,
       required int calories,
       required int readAtMs,
+      Value<int?> pushedAtMs,
       Value<int> rowid,
     });
 typedef $$DeviceTotalsTableUpdateCompanionBuilder =
@@ -3502,6 +3817,7 @@ typedef $$DeviceTotalsTableUpdateCompanionBuilder =
       Value<int> distanceM,
       Value<int> calories,
       Value<int> readAtMs,
+      Value<int?> pushedAtMs,
       Value<int> rowid,
     });
 
@@ -3536,6 +3852,11 @@ class $$DeviceTotalsTableFilterComposer
 
   ColumnFilters<int> get readAtMs => $composableBuilder(
     column: $table.readAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3573,6 +3894,11 @@ class $$DeviceTotalsTableOrderingComposer
     column: $table.readAtMs,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DeviceTotalsTableAnnotationComposer
@@ -3598,6 +3924,11 @@ class $$DeviceTotalsTableAnnotationComposer
 
   GeneratedColumn<int> get readAtMs =>
       $composableBuilder(column: $table.readAtMs, builder: (column) => column);
+
+  GeneratedColumn<int> get pushedAtMs => $composableBuilder(
+    column: $table.pushedAtMs,
+    builder: (column) => column,
+  );
 }
 
 class $$DeviceTotalsTableTableManager
@@ -3640,6 +3971,7 @@ class $$DeviceTotalsTableTableManager
                 Value<int> distanceM = const Value.absent(),
                 Value<int> calories = const Value.absent(),
                 Value<int> readAtMs = const Value.absent(),
+                Value<int?> pushedAtMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeviceTotalsCompanion(
                 day: day,
@@ -3647,6 +3979,7 @@ class $$DeviceTotalsTableTableManager
                 distanceM: distanceM,
                 calories: calories,
                 readAtMs: readAtMs,
+                pushedAtMs: pushedAtMs,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3656,6 +3989,7 @@ class $$DeviceTotalsTableTableManager
                 required int distanceM,
                 required int calories,
                 required int readAtMs,
+                Value<int?> pushedAtMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeviceTotalsCompanion.insert(
                 day: day,
@@ -3663,6 +3997,7 @@ class $$DeviceTotalsTableTableManager
                 distanceM: distanceM,
                 calories: calories,
                 readAtMs: readAtMs,
+                pushedAtMs: pushedAtMs,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

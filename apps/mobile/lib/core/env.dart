@@ -58,6 +58,20 @@ abstract final class Env {
     seconds: int.fromEnvironment('HELIO_TIMEOUT_S', defaultValue: 10),
   );
 
+  /// How long one `POST /ingest/helio` may take.
+  ///
+  /// Deliberately far longer than [requestTimeout], and the legacy client's
+  /// comment says why in the voice of the person it happened to: a multi-day
+  /// backlog is a big body **and** a server-side multi-day re-derive, "30 s was
+  /// too short, so the sync kept timing out and the backlog never cleared". A
+  /// backlog that can never clear is a permanent hole in the owner's history,
+  /// which is a worse failure than a slow request.
+  ///
+  /// The push is paged, so this bounds a page rather than a whole catch-up.
+  static const Duration pushTimeout = Duration(
+    seconds: int.fromEnvironment('HELIO_PUSH_TIMEOUT_S', defaultValue: 180),
+  );
+
   /// Whether to log every HTTP request/response body.
   ///
   /// Off unless asked for, in every build type. Response bodies here are somebody's
