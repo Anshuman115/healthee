@@ -16,6 +16,8 @@ import 'package:healthee/core/theme/theme_controller.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
+import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/states/value_hole.dart';
@@ -46,18 +48,33 @@ void main() {
     // and a CircularProgressIndicator animates forever — pumpAndSettle would wait
     // for a frame that never comes. Any screen showing a spinner has this
     // property, so the rule generalises to the real screens.
-    testWidgets('boots and renders the foundation screen', (tester) async {
-      await tester.pumpWidget(const ProviderScope(child: HealtheeApp()));
+    testWidgets('boots onto Today, not onto the specimen sheet', (tester) async {
+      // `/` used to render `FoundationScreen`, whose loading specimen the owner
+      // reasonably read as a hung request. The home route is the product now,
+      // and the catalogue is only reachable by typing its dev path.
+      final store = LocalStore.memory();
+      addTearDown(store.close);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [localStoreProvider.overrideWithValue(store)],
+          child: const HealtheeApp(),
+        ),
+      );
       await tester.pump();
 
-      expect(find.text('Healthee'), findsOneWidget);
-      expect(find.text('Foundation — the four honesty states'), findsOneWidget);
+      expect(find.text('Today'), findsOneWidget);
+      expect(find.text('Foundation — the four honesty states'), findsNothing);
     });
 
     testWidgets('builds in dark mode too — both themes are authored', (tester) async {
+      final store = LocalStore.memory();
+      addTearDown(store.close);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [themeControllerProvider.overrideWith(_AlwaysDark.new)],
+          overrides: [
+            themeControllerProvider.overrideWith(_AlwaysDark.new),
+            localStoreProvider.overrideWithValue(store),
+          ],
           child: const HealtheeApp(),
         ),
       );

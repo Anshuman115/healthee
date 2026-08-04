@@ -1,0 +1,48 @@
+/// Clock and age labels. One implementation, so two cards cannot round differently.
+///
+/// Hand-rolled rather than `intl`, for one reason that matters and one that does
+/// not. The one that matters: every label here is a claim about *how old a
+/// measurement is*, and the honesty rule is that it must never round in the
+/// flattering direction. `2 h ago` for something 2 h 55 m old reads as fresher
+/// than it is, so [ageLabel] floors — 2 h 55 m is `2 h ago`, and 59 minutes is
+/// `59 min ago`, never "about an hour". The one that does not: `intl` is a
+/// dependency for locale-aware formats this app does not yet have translations
+/// for anyway.
+///
+/// Everything takes an explicit `now` so a test does not depend on the wall
+/// clock, which is how a suite ends up failing once a day at midnight.
+library;
+
+/// `HH:MM` in the instant's own zone, zero-padded.
+String clockLabel(DateTime at) =>
+    '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+
+/// How long ago [at] was, floored — "just now", "42 min ago", "3 h ago", "2 d ago".
+///
+/// Floors deliberately: a freshness label that rounds up is a label that makes
+/// stale data look current, which is the exact failure `data_health` exists to
+/// surface. Production has served stale numbers behind a healthy-looking screen
+/// before (brief §5.8).
+String ageLabel(DateTime at, {required DateTime now}) {
+  final elapsed = now.difference(at);
+  if (elapsed.isNegative || elapsed.inMinutes < 1) {
+    return 'just now';
+  }
+  if (elapsed.inMinutes < 60) {
+    return '${elapsed.inMinutes} min ago';
+  }
+  if (elapsed.inHours < 24) {
+    return '${elapsed.inHours} h ago';
+  }
+  return '${elapsed.inDays} d ago';
+}
+
+/// A duration in minutes as `7h 20m`, or `48m` under an hour.
+///
+/// Used for sleep and workouts. Never decimal hours — "6.3 h of sleep" is a
+/// number nobody thinks in, and the minutes are what the strap measured.
+String durationLabel(int totalMinutes) {
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  return hours == 0 ? '${minutes}m' : '${hours}h ${minutes}m';
+}

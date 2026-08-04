@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
+import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/shared/foundation_screen.dart';
 
 /// Every route's path, in one place. Screens reference these, never string
@@ -43,13 +44,23 @@ abstract final class Routes {
 
   /// Pair a strap, or review the pairing already held.
   static const String pairing = '/pairing';
+
+  /// The honesty-state specimen sheet. **Not a product screen.**
+  ///
+  /// `FoundationScreen` used to sit on [today], where it was reasonably
+  /// mistaken for a hung request — a catalogue whose loading specimen looks
+  /// exactly like a screen that never loaded. It is kept because it is a useful
+  /// side-by-side of the four `Reading` states while building a card, and it is
+  /// kept OFF the home route for the same reason it was moved.
+  static const String devFoundation = '/dev/foundation';
 }
 
 /// The app's router.
 ///
-/// [Routes.today] and [Routes.pairing] are wired. The remaining constants above
-/// are the agreed paths, not dead routes — a route with no screen would be a
-/// link to a crash, so they are added with their screens.
+/// [Routes.today], [Routes.pairing] and [Routes.devFoundation] are wired. The
+/// remaining constants above are the agreed paths, not dead routes — a route
+/// with no screen would be a link to a crash, so they are added with their
+/// screens.
 ///
 /// ## Unpaired means pairing
 ///
@@ -83,6 +94,10 @@ GoRouter buildRouter(WidgetRef ref) {
     routes: <RouteBase>[
       GoRoute(
         path: Routes.today,
+        builder: (BuildContext context, GoRouterState state) => const TodayScreen(),
+      ),
+      GoRoute(
+        path: Routes.devFoundation,
         builder: (BuildContext context, GoRouterState state) => const FoundationScreen(),
       ),
       GoRoute(
