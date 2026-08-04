@@ -35,6 +35,7 @@ class StrapSyncResult {
     required this.sleepSessions,
     required this.workouts,
     required this.completedAt,
+    required this.activityChannelPresent,
     this.dailyTotals,
     this.batteryPercent,
     this.stressBackfillRan = false,
@@ -49,6 +50,16 @@ class StrapSyncResult {
 
   /// Workout summaries, deduplicated by start.
   final List<Workout> workouts;
+
+  /// Whether the activity-fetch characteristics were there for this pull.
+  ///
+  /// False means the sync ran the counter request and **stopped** — no samples,
+  /// no sleep, no workouts, because the channel that carries them was absent.
+  /// That is a materially incomplete pull, and it is reported as a field rather
+  /// than inferred from empty lists: an incremental sync with genuinely nothing
+  /// new is also empty, and calling that "partial" would cry wolf on the normal
+  /// case until nobody read the word.
+  final bool activityChannelPresent;
 
   /// The strap's since-midnight counters, or null if the reply never landed.
   final DeviceDailyTotals? dailyTotals;

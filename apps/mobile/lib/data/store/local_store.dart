@@ -28,6 +28,9 @@ library;
 
 import 'package:drift/drift.dart';
 import 'package:healthee/data/store/connection.dart';
+import 'package:healthee/data/store/strap_reader.dart';
+import 'package:healthee/data/store/strap_writer.dart';
+import 'package:healthee/data/store/tables.dart';
 
 part 'local_store.g.dart';
 
@@ -71,9 +74,23 @@ class CachedPayloads extends Table {
   Set<Column<Object>> get primaryKey => {day, metric};
 }
 
-/// The device's local cache. ONE instance, provided by
-/// [package:healthee/data/store/store_provider] — never constructed in a widget.
-@DriftDatabase(tables: [CachedPayloads])
+/// The device's local tier — the server's cache AND the strap's own raw record.
+///
+/// ONE instance, provided by [localStoreProvider] — never constructed in a
+/// widget. The two halves live in one database on purpose: they share the 60-day
+/// horizon, and a retention window applied by two schedulers to two files is a
+/// window nobody can state.
+@DriftDatabase(
+  tables: [
+    CachedPayloads,
+    StrapSamples,
+    SleepSessions,
+    StoredWorkouts,
+    DeviceTotals,
+    SyncMeta,
+  ],
+  daos: [StrapWriter, StrapReader],
+)
 class LocalStore extends _$LocalStore {
   /// Opens the app's on-disk database.
   LocalStore() : super(openLocalStore());
@@ -82,7 +99,27 @@ class LocalStore extends _$LocalStore {
   LocalStore.memory() : super(openInMemory());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  /// v1 → v2 added the five raw-strap tables beside the payload cache.
+  ///
+  /// Additive, so the upgrade creates them and touches nothing that exists. A
+  /// phone that already holds cached server payloads keeps them; there is no
+  /// path here that drops a table, because a migration that can delete health
+  /// data is a migration that eventually will.
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(strapSamples);
+        await m.createTable(sleepSessions);
+        await m.createTable(storedWorkouts);
+        await m.createTable(deviceTotals);
+        await m.createTable(syncMeta);
+      }
+    },
+  );
 
   /// Instants are stored as ISO-8601 text, which preserves UTC across the round
   /// trip. drift's default (a Unix timestamp read back in the device's local
@@ -119,17 +156,53 @@ class LocalStore extends _$LocalStore {
     );
   }
 
-  /// Drops every row dated before [oldestDayToKeep] (`YYYY-MM-DD`, inclusive).
+  /// Drops every row dated before [oldestDayToKeep] (`YYYY-MM-DD`, inclusive),
+  /// across **every** day-keyed table.
   ///
   /// The ONE place the horizon is applied, so the device's retention window
-  /// cannot mean 60 days to one caller and 90 to another. Returns the number of
-  /// rows removed, so a caller can report it to sync health rather than pruning
-  /// silently. Use [horizonStart] to compute the argument.
-  Future<int> pruneBefore(String oldestDayToKeep) {
-    return (delete(cachedPayloads)
-          ..where((row) => row.day.isSmallerThanValue(oldestDayToKeep)))
-        .go();
+  /// cannot mean 60 days to one caller and 90 to another — and, now that there
+  /// are six tables, cannot mean 60 days for cached payloads and forever for the
+  /// samples beside them. Returns the total rows removed, so a caller can report
+  /// it rather than pruning silently.
+  ///
+  /// [SyncMeta] is deliberately NOT pruned: its rows are bookkeeping about
+  /// syncing, not dated measurements, and dropping the one-shot backfill flags
+  /// would make a wide pass run again forever.
+  ///
+  /// Prefer [pruneBeyondHorizon], which computes the argument.
+  Future<int> pruneBefore(String oldestDayToKeep) async {
+    // Written out one table at a time rather than looped over a table list: a
+    // loop would need the `day` column reached reflectively, and a table added
+    // later without one would then prune nothing at runtime instead of failing
+    // to compile here.
+    final removed = await Future.wait([
+      (delete(cachedPayloads)
+            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
+          .go(),
+      (delete(strapSamples)
+            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
+          .go(),
+      (delete(sleepSessions)
+            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
+          .go(),
+      (delete(storedWorkouts)
+            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
+          .go(),
+      (delete(deviceTotals)
+            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
+          .go(),
+    ]);
+    return removed.reduce((a, b) => a + b);
   }
+
+  /// Applies the 60-day horizon, given the owner's [today] (`YYYY-MM-DD`).
+  ///
+  /// The form callers should use: it takes the day the owner is living in and
+  /// leaves no arithmetic at the call site, which is where a retention window
+  /// quietly becomes two windows.
+  Future<int> pruneBeyondHorizon(String today) =>
+      pruneBefore(horizonStart(today));
+
 }
 
 /// The oldest calendar date the device keeps, given the owner's [today].
@@ -143,5 +216,11 @@ String horizonStart(String today) {
   return isoDay(start);
 }
 
-/// A UTC instant rendered as the `YYYY-MM-DD` key this table uses.
+/// An instant rendered as the `YYYY-MM-DD` key these tables use.
+///
+/// Reads the calendar date **in whatever zone [day] carries**, which is the
+/// behaviour both callers need and neither should have to think about: the
+/// horizon arithmetic above works in UTC, while a strap sample's `DateTime` is
+/// local wall-clock, and each is asking for its own day. Converting either one
+/// to the other's zone is what files a row under the wrong date.
 String isoDay(DateTime day) => day.toIso8601String().substring(0, 10);

@@ -6,8 +6,15 @@
 /// [Reading] cases are on screen at once, so whoever builds Today tomorrow can see
 /// what a withhold looks like beside a caveated value before writing any of it.
 ///
-/// It is the widget-smoke-test target. When the real Today screen lands, this file
-/// is deleted — it has no other job.
+/// It was the widget-smoke-test target and it sat on `/`, where the owner ran the
+/// app and reasonably took a specimen loading card for a hung request. Today now
+/// owns `/` and this lives at `Routes.devFoundation`.
+///
+/// It is kept rather than deleted, against its own original instruction, for one
+/// concrete reason: it is the only place all four `Reading` states are on screen
+/// together, which is what you want open while building a card that has to
+/// handle them. It is a design reference, reachable only by typing its path, and
+/// it must never be linked from a product screen.
 library;
 
 import 'package:flutter/material.dart';

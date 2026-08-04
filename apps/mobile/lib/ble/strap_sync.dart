@@ -21,6 +21,7 @@ import 'package:healthee/ble/models/strap_sync_window.dart';
 import 'package:healthee/ble/models/workout.dart';
 import 'package:healthee/ble/parsers/sleep_parser.dart';
 import 'package:healthee/ble/parsers/workout_parser.dart';
+import 'package:healthee/ble/strap_progress.dart';
 import 'package:healthee/ble/strap_session.dart';
 import 'package:healthee/core/logging.dart';
 
@@ -47,10 +48,27 @@ const List<(int, String, String)> kFetchPlan = <(int, String, String)>[
 /// Runs one full sync over an authenticated [StrapSession].
 class StrapSync {
   /// [session] must already be open and authenticated.
-  StrapSync(this.session);
+  StrapSync(this.session, {this.onProgress});
 
   /// The authenticated session this sync drives.
   final StrapSession session;
+
+  /// Told which step of the plan has STARTED, as it starts. Optional.
+  final StrapProgressSink? onProgress;
+
+  /// How many steps the plan has: the counter, every metric, the stress
+  /// backfill, sleep and workouts. Named rather than counted at the call site
+  /// so the denominator cannot drift from the sequence below.
+  static final int planSteps = kFetchPlan.length + 4;
+
+  int _step = 0;
+
+  void _startStep(String label) {
+    _step++;
+    onProgress?.call(
+      StrapSyncProgress(step: _step, total: planSteps, label: label),
+    );
+  }
 
   final List<StrapSample> _samples = [];
   final List<SleepSession> _sleep = [];
@@ -69,6 +87,7 @@ class StrapSync {
     // strap that could still report its counter reported nothing. The counter
     // is the one measurement with no durable home elsewhere (#121), so it is
     // now requested before that check rather than after it.
+    _startStep('daily step counter');
     await session.requestDailyTotals();
 
     if (!session.hasActivityChannel) {
@@ -78,10 +97,14 @@ class StrapSync {
 
     final backfill = DateTime.now().subtract(kBackfillWindow);
     for (final (code, name, metric) in kFetchPlan) {
+      _startStep(name);
       await _fetchMetric(code, name, window.lastSampleAt[metric], backfill);
     }
+    _startStep('stress backfill');
     await _stressBackfill(stressBackfillDone: window.stressBackfillDone);
+    _startStep('sleep');
     await _fetchSleep(window, backfill);
+    _startStep('workouts');
     await _fetchWorkouts(window);
 
     AppLog.info('ble', 'sensor fetch complete');
@@ -89,6 +112,7 @@ class StrapSync {
   }
 
   StrapSyncResult _result(DeviceDailyTotals? totals) => StrapSyncResult(
+    activityChannelPresent: session.hasActivityChannel,
     samples: List<StrapSample>.unmodifiable(_samples),
     sleepSessions: List<SleepSession>.unmodifiable(_sleep),
     workouts: List<Workout>.unmodifiable(_workouts),
