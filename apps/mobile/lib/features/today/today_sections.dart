@@ -141,6 +141,10 @@ List<TodaySection> todaySections({
         cachedDate: server != null && server.describesAnotherDay(day.date)
             ? snapshot?.date
             : null,
+        // The strap's own last complete read, which is the one gap that can
+        // cost measurements outright — the band overwrites, the push queue
+        // does not. `health_lines.dart` owns the threshold and the wording.
+        lastStrapSync: day.sync.lastCompleteSync,
         now: now,
         signedIn: signedIn,
         onSignIn: onSignIn,

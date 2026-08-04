@@ -223,10 +223,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('measurements are waiting here to reach the server'),
+        find.textContaining('measurements are still on this phone'),
         findsOneWidget,
       );
       expect(find.textContaining('it could not be reached'), findsOneWidget);
+      expect(
+        find.textContaining('they go out on the next sync'),
+        findsNothing,
+        reason: 'a STUCK backlog is not a waiting one — the next sync fails the '
+            'same way, so promising it would be flattery about our own state',
+      );
     });
   });
 

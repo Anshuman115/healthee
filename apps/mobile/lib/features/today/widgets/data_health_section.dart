@@ -19,7 +19,20 @@
 /// server's feeds *are* fresh, up to the last thing it heard.
 ///
 /// It renders nothing when all four are quiet. That silence is what makes it
-/// worth reading when it speaks.
+/// worth reading when it speaks — and it is why a deliberate mid-drain pause is
+/// no longer allowed to raise its voice here. `health_lines.dart` owns which
+/// sentences are true and which of them the owner has to act on; this file only
+/// renders them, and the loud/quiet difference is typographic because colour in
+/// this app is a claim about the owner's body (`README.md`).
+///
+/// ## The one data-loss risk gets a sentence of its own
+///
+/// The push backlog cannot be lost — it is in the durable local store and
+/// nothing is marked sent until the server acknowledges it. The **strap's** ring
+/// buffer can be: it overwrites, and a first-ever sync suggested it holds on the
+/// order of nine days. So the honest guard is a warning when the band has gone
+/// unread long enough to be approaching that, while opening the app near it
+/// still fixes everything. See [kStrapHorizonWarning].
 ///
 /// ## Why "not signed in" belongs here rather than in a redirect
 ///
@@ -39,18 +52,19 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/data_health.dart';
 import 'package:healthee/data/push/push_stamp.dart';
-import 'package:healthee/shared/format/time_labels.dart';
+import 'package:healthee/data/sync/health_lines.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// What is stale, what is cached, and what has not been sent.
 class DataHealthSection extends StatelessWidget {
-  /// Any of [health], [push] or [cachedAt] may be null; the card renders only
-  /// what it actually has something to say about.
+  /// Any of [health], [push], [cachedAt] or [lastStrapSync] may be null; the
+  /// card renders only what it actually has something to say about.
   const DataHealthSection({
     this.health,
     this.push,
     this.cachedAt,
     this.cachedDate,
+    this.lastStrapSync,
     this.now,
     this.signedIn,
     this.onSignIn,
@@ -77,6 +91,10 @@ class DataHealthSection extends StatelessWidget {
   /// Which day that cached payload describes, when it is not today's.
   final String? cachedDate;
 
+  /// When the strap itself was last read completely. The band's ring buffer is
+  /// the one thing here that can genuinely lose data — see the library docstring.
+  final DateTime? lastStrapSync;
+
   /// The current instant, injected so tests do not read the wall clock.
   final DateTime? now;
 
@@ -86,7 +104,13 @@ class DataHealthSection extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final at = now ?? DateTime.now();
     final feeds = health?.degraded ?? const [];
-    final lines = _lines(at);
+    final lines = dataHealthLines(
+      now: at,
+      push: push,
+      lastStrapSync: lastStrapSync,
+      cachedAt: cachedAt,
+      cachedDate: cachedDate,
+    );
     final signedOut = signedIn == false;
     if (feeds.isEmpty && lines.isEmpty && !signedOut) {
       return const SizedBox.shrink();
@@ -118,7 +142,17 @@ class DataHealthSection extends StatelessWidget {
           ],
           for (final line in lines) ...[
             const SizedBox(height: Insets.sm),
-            Text(line, style: text.bodyMedium?.copyWith(color: colors.ink)),
+            Text(
+              line.text,
+              // The only difference a loud line gets. No colour: `unf` is not a
+              // warning colour and there is exactly one red in this app, for
+              // illness. Full ink at body size against secondary ink one step
+              // down is enough to order two sentences without claiming anything
+              // about the owner's health.
+              style: line.loud
+                  ? text.bodyMedium?.copyWith(color: colors.ink)
+                  : text.bodySmall?.copyWith(color: colors.ink2),
+            ),
           ],
           if (feeds.isNotEmpty) ...[
             const SizedBox(height: Insets.md),
@@ -133,22 +167,6 @@ class DataHealthSection extends StatelessWidget {
     );
   }
 
-  /// The sentences that are true right now. Empty means nothing to say.
-  List<String> _lines(DateTime at) {
-    return <String>[
-      if (cachedAt case final DateTime received)
-        cachedDate == null
-            ? 'Showing the last snapshot the server sent, '
-                  '${ageLabel(received, now: at)}.'
-            : 'Showing the last snapshot the server sent — it describes '
-                  '$cachedDate, ${ageLabel(received, now: at)}.',
-      if (push?.failureReason case final String reason)
-        "The last attempt to send your data didn't finish: $reason",
-      if ((push?.pendingRows ?? 0) > 0)
-        '${push!.pendingRows} measurements are waiting here to reach the '
-            'server. Nothing is lost; they go out on the next sync.',
-    ];
-  }
 }
 
 /// One quiet feed: what it is, and how long it has been quiet.
