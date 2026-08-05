@@ -1,8 +1,16 @@
-/// What Today does when there is NO number: refusals, a dead server, a new phone.
+/// What the app does when there is NO number: refusals, a dead server, a new
+/// phone.
 ///
 /// Split out of `today_screen_test.dart` at the 400-line gate. The seam is the
 /// one that matters: that file proves the screen draws the data it has, and this
 /// one proves it never draws data it does not.
+///
+/// **The refusals moved with their cards** — VO₂max to Activity, the metric strip
+/// and the strap streams to Diagnostics — and the assertions moved with them
+/// unchanged. That is deliberate: these are the mutations that must still fail,
+/// and rewriting them to suit the new layout is how a guard quietly stops
+/// guarding. The pumped screen is the only thing that differs from the version
+/// that ran on Today.
 ///
 /// The test that matters most, mutation-checked:
 ///
@@ -16,6 +24,8 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/activity/activity_screen.dart';
+import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/states/value_hole.dart';
 
@@ -39,6 +49,7 @@ void main() {
       await tester.pumpWidget(
         todayHost(
           store,
+          home: const ActivityScreen(),
           server: todayView(
             mutate: (json) => {
               ...json,
@@ -106,6 +117,7 @@ void main() {
       await tester.pumpWidget(
         todayHost(
           store,
+          home: DiagnosticsScreen(now: now),
           server: todayView(
             mutate: (json) => <String, Object?>{
               ...json,
@@ -158,9 +170,9 @@ void main() {
       await store.strapWriter.saveSync(
         resultWith(samples: [StrapSample(DateTime(2026, 8, 4, 9), 'hr', 68)]),
       );
-      await tester.pumpWidget(todayHost(store));
+      await tester.pumpWidget(todayHost(store, home: DiagnosticsScreen(now: now)));
       await tester.pumpAndSettle();
-      await reveal(tester, find.textContaining('The strap recorded no steps'));
+      await reveal(tester, find.text('From the strap'));
 
       // A stream the sensor did not write says "wear it". Collapsing that into
       // a server withhold would send the owner to the wrong place.

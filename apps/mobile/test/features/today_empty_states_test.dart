@@ -23,6 +23,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/activity/activity_screen.dart';
+import 'package:healthee/features/sleep/sleep_screen.dart';
 
 import '../_today_stubs.dart';
 import '_today_host.dart';
@@ -122,11 +124,12 @@ void main() {
       await tester.pumpWidget(
         todayHost(
           store,
+          home: const SleepScreen(),
           server: todayView(mutate: without('sleep_history_7d', const [])),
         ),
       );
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('Sleep'));
+      await reveal(tester, find.text('MEASURED AT REST'));
 
       expect(find.textContaining('Your last 7 nights'), findsNothing);
     });
@@ -137,13 +140,14 @@ void main() {
       await tester.pumpWidget(
         todayHost(
           store,
+          home: const SleepScreen(),
           server: todayView(
             mutate: without('last_sleep_extras', const <String, Object?>{}),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('Sleep'));
+      await reveal(tester, find.text('MEASURED AT REST'));
 
       expect(find.text('Blood oxygen overnight', skipOffstage: false), findsNothing);
       expect(find.text('Through the night', skipOffstage: false), findsNothing);
@@ -157,6 +161,7 @@ void main() {
       await tester.pumpWidget(
         todayHost(
           store,
+          home: const ActivityScreen(),
           server: todayView(mutate: without('cardio_load', null)),
         ),
       );
@@ -176,7 +181,11 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        todayHost(store, server: todayView(mutate: without('mvpa', null))),
+        todayHost(
+          store,
+          home: const ActivityScreen(),
+          server: todayView(mutate: without('mvpa', null)),
+        ),
       );
       await tester.pumpAndSettle();
       await reveal(tester, find.text('Active minutes'));

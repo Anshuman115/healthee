@@ -6,30 +6,43 @@
 /// foot. This is the density the screen was missing, and it is the whole reason
 /// the rebuild exists.
 ///
-/// ## Every cell has a full entry further down, and that is load-bearing
+/// ## Every cell is a DOOR, and that is load-bearing
 ///
-/// `grid_module.dart` explains why a 118 px cell never carries a refusal's reason
-/// and remedy. The other half of that bargain is here: **each slot below names
-/// the section that owns it**, and `today_sections.dart` keeps every one of them
-/// on the screen unconditionally.
+/// Legacy's cells carry `onClick={() => onOpen('sleep' | 'heart' | 'activity' |
+/// 'respiratory')}` — the grid is an index and the detail lives behind it. Ours
+/// do the same, and where each one leads is the other half of a bargain
+/// `grid_module.dart` strikes: a 118 px cell never carries a refusal's reason and
+/// remedy, because the screen it opens renders the full `WithheldCard`.
 ///
 /// ```text
-///   Sleep         → "Sleep" section, SleepNightCard / SleepCard
-///   Resting HR    → "Baselines", ServerMetricStrip · "From the strap", MetricStrip
-///   HRV           → "From the strap", MetricStrip
-///   Steps         → "Activity", StepsCard
-///   Energy        → "Baselines", ServerMetricStrip
-///   Resp / SpO₂   → "From the strap", MetricStrip · BloodOxygenCard
+///   Sleep         → Sleep      SleepNightCard · sleep health · debt · the week
+///   Resting HR    → Sleep      the overnight instruments live with the night
+///   HRV           → Sleep
+///   Steps         → Activity   StepsCard · cardio load · active minutes
+///   Energy        → Activity
+///   Resp / SpO₂   → Sleep      BloodOxygenCard
 /// ```
+///
+/// The doors arrive as a required argument rather than being read from a table
+/// here, so a cell cannot outlive its destination: deleting the Sleep screen
+/// stops this file compiling rather than shipping a tap into nothing.
 ///
 /// ## Where each figure comes from, and why it is never blended
 ///
 /// Two sources reach this screen and a cell reads exactly one of them, preferring
 /// the server's copy when it has one and falling back to the strap's whole
-/// [Reading] — reason included — when it does not. It never averages them and
-/// never fills a server gap with a device number under the same label: CLAUDE.md
-/// allows one canonical definition per metric, and a cell that silently swapped
-/// instrument would be a second one.
+/// [Reading] — reason included — when it does not. It never averages them.
+///
+/// **When it falls back, the cell says so in its label.** `Resting HR` becomes
+/// `Resting HR · strap` and `HRV` becomes `HRV · strap`, because the two are not
+/// the same measurement: the server's `rhr_daily` is the minimum of 5-minute mean
+/// heart rate inside the sleep window, and the strap's `resting_hr` is the
+/// firmware's own estimate, latest of the day and usually taken awake. Five to
+/// ten bpm apart is ordinary. CLAUDE.md allows one canonical definition per
+/// metric; a cell that silently swapped instrument under one label would be a
+/// second one, which is exactly the failure the owner caught between the
+/// baselines strip and the strap strip. `diagnostics_screen.dart` carries the
+/// full rule.
 library;
 
 import 'package:flutter/material.dart';
@@ -44,6 +57,7 @@ import 'package:healthee/data/models/last_sleep.dart';
 import 'package:healthee/data/models/metric_card.dart';
 import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/models/trend_point.dart';
+import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/widgets/grid_module.dart';
 import 'package:healthee/shared/charts/h_hypnogram.dart';
 import 'package:healthee/shared/format/number_labels.dart';
@@ -56,6 +70,7 @@ class MetricGrid extends StatelessWidget {
   const MetricGrid({
     required this.day,
     required this.reveals,
+    required this.onOpen,
     this.snapshot,
     super.key,
   });
@@ -66,6 +81,9 @@ class MetricGrid extends StatelessWidget {
   /// Where "this cell has already animated" is remembered.
   final RevealRegistry reveals;
 
+  /// Opens the screen a cell indexes. Required — see the library docstring.
+  final void Function(String route) onOpen;
+
   /// What the server made of it, or null when it has not answered.
   final TodaySnapshot? snapshot;
 
@@ -74,7 +92,7 @@ class MetricGrid extends StatelessWidget {
     // Every cell asks `tagFor` rather than naming a field, so the assignment of
     // metric to family lives in ONE table. A grid that hard-coded `hues.heart`
     // for resting HR would be a second copy of that decision, free to disagree
-    // with the strip further down the screen.
+    // with the screen the cell opens.
     final hues = context.hues;
     return ModuleGrid(
       modules: [
@@ -99,6 +117,7 @@ class MetricGrid extends StatelessWidget {
     return GridModule(
       label: 'Sleep',
       tag: hues.tagFor('sleep_duration'),
+      onOpen: () => onOpen(TodayDoors.overnight),
       reading: night.map((n) => n.minutes.toDouble()),
       format: (minutes) => clockDuration(minutes.round()),
       unit: 'hrs',
@@ -120,8 +139,12 @@ class MetricGrid extends StatelessWidget {
   Widget _restingHeartRate(MetricHues hues) {
     final card = _card('rhr_daily');
     return GridModule(
-      label: 'Resting HR',
+      // The label names the instrument when it is not the canonical one. See the
+      // library docstring: these two numbers are five to ten bpm apart by
+      // construction, and one label over both is the lie.
+      label: card == null ? 'Resting HR · strap' : 'Resting HR',
       tag: hues.tagFor('rhr_daily'),
+      onOpen: () => onOpen(TodayDoors.overnight),
       reading: card?.reading ?? _stream('resting_hr').reading,
       format: (value) => value.round().toString(),
       unit: 'bpm',
@@ -142,8 +165,9 @@ class MetricGrid extends StatelessWidget {
     final overnight = snapshot?.overnightVitals?.hrvRmssdMs;
     final stream = _stream('hrv');
     return GridModule(
-      label: 'HRV',
+      label: overnight == null ? 'HRV · strap' : 'HRV',
       tag: hues.tagFor('hrv'),
+      onOpen: () => onOpen(TodayDoors.overnight),
       reading: overnight == null ? stream.reading : Present<double>(overnight),
       format: (value) => value.round().toString(),
       unit: 'ms',
@@ -161,6 +185,7 @@ class MetricGrid extends StatelessWidget {
     return GridModule(
       label: 'Steps',
       tag: hues.tagFor('steps_total'),
+      onOpen: () => onOpen(TodayDoors.daytime),
       reading: day.steps.map((steps) => steps.toDouble()),
       format: (steps) => groupedInt(steps.round()),
       spark: _spark('steps_total'),
@@ -176,6 +201,7 @@ class MetricGrid extends StatelessWidget {
     return GridModule(
       label: 'Energy',
       tag: hues.tagFor('active_calories'),
+      onOpen: () => onOpen(TodayDoors.daytime),
       // No fallback to the strap's own calorie count. CLAUDE.md pins free-living
       // energy to the server's MET-by-state model, and the device figure is a
       // different model — `steps_card.dart` shows it, attributed, and this cell
@@ -195,8 +221,9 @@ class MetricGrid extends StatelessWidget {
     final overnight = vitals?.respiratoryRate;
     final stream = _stream('respiratory_rate');
     return GridModule(
-      label: 'Resp / SpO₂',
+      label: overnight == null ? 'Resp / SpO₂ · strap' : 'Resp / SpO₂',
       tag: hues.tagFor('respiratory_rate'),
+      onOpen: () => onOpen(TodayDoors.overnight),
       reading: overnight == null ? stream.reading : Present<double>(overnight),
       format: (value) => value.toStringAsFixed(1),
       unit: 'br/min',

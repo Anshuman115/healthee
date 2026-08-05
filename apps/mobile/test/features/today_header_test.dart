@@ -13,12 +13,13 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/core/theme/theme_controller.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/today/widgets/greeting_block.dart';
 import 'package:healthee/features/today/widgets/today_header.dart';
-import 'package:healthee/features/today/widgets/today_tab_bar.dart';
+import 'package:healthee/shared/app_tab_bar.dart';
 
 import '_today_host.dart';
 
@@ -143,29 +144,54 @@ void main() {
 
   group('the tab bar', () {
     testWidgets('shows all five tabs', (tester) async {
-      await tester.pumpWidget(host(const TodayTabBar()));
+      await tester.pumpWidget(host(const AppTabBar(currentIndex: 0)));
       await tester.pumpAndSettle();
 
-      for (final tab in kTodayTabs) {
+      for (final tab in kAppTabs) {
         expect(find.text(tab.label), findsOneWidget);
       }
     });
 
     test('ONLY THE TABS WITH SCREENS ARE MARKED BUILT', () {
       // `core/router.dart`: "a route with no screen would be a link to a crash".
-      // The day Sleep ships, this list and that router move together.
-      expect(kTodayTabs.where((tab) => tab.built).map((tab) => tab.label), ['Today']);
+      // A tab is built exactly when it names a route, so this cannot drift from
+      // the router by being edited in one place.
+      expect(kAppTabs.where((tab) => tab.built).map((tab) => tab.label), [
+        'Today',
+        'Sleep',
+        'Activity',
+        'Coach',
+      ]);
+      expect(
+        kAppTabs.where((tab) => !tab.built).map((tab) => tab.label),
+        ['Actions'],
+        reason: 'Actions has no screen yet, and the bar must say so',
+      );
+    });
+
+    test('EVERY BUILT TAB NAMES A ROUTE THE ROUTER WIRES', () {
+      // The failure this guards is a tab pointing at a path nobody registered:
+      // it looks live, it is dim-free, and it crashes on tap.
+      const wired = <String>{
+        Routes.today,
+        Routes.sleep,
+        Routes.activity,
+        Routes.coach,
+      };
+      for (final tab in kAppTabs.where((tab) => tab.built)) {
+        expect(wired, contains(tab.route), reason: '${tab.label} is a live tab');
+      }
     });
 
     testWidgets('an unbuilt tab is disabled to a screen reader, not just dim', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
-      await tester.pumpWidget(host(const TodayTabBar()));
+      await tester.pumpWidget(host(const AppTabBar(currentIndex: 0)));
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel('Sleep — not built yet'), findsOneWidget);
-      expect(find.bySemanticsLabel('Today'), findsOneWidget);
+      expect(find.bySemanticsLabel('Actions — not built yet'), findsOneWidget);
+      expect(find.bySemanticsLabel('Sleep'), findsOneWidget);
       handle.dispose();
     });
   });

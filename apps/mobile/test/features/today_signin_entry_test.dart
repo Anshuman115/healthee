@@ -132,9 +132,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Sign in to your server'), findsOneWidget);
-      // Not a wall: the strap's own numbers are on the same screen.
-      await reveal(tester, find.text('From the strap'));
-      expect(find.text('From the strap'), findsOneWidget);
+      // Not a wall: the strap's own numbers are on the same screen. The daily
+      // step counter is the phone's own reading and needs no server at all.
+      await reveal(tester, find.text('9,264'));
+      expect(find.text('9,264'), findsWidgets);
     });
 
     testWidgets('a signed-in phone is not nagged', (tester) async {

@@ -8,32 +8,53 @@
 ///   * **A CELL WITH NO VALUE DRAWS A HOLE, NEVER A SPARKLINE.** A trend drawn
 ///     where today's reading is missing invites the eye to read its last point as
 ///     today — which is the number the cell just declined to show.
-///   * **A cell never carries the reason, and the section below always does.**
-///     The second half is asserted against the real screen, because it is a fact
-///     about `today_sections.dart` and not about any one widget.
+///   * **A cell never carries the reason, and the screen it opens always does.**
+///     The second half moved when the sections moved: the owning card is now on
+///     the tab the cell taps through to, so the tests assert the DOOR here and
+///     the card on its new screen in `tab_screens_test.dart`.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/data/device/device_day.dart';
+import 'package:healthee/data/device/device_repository.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
+import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/data/today_repository.dart';
+import 'package:healthee/features/activity/widgets/biological_age_card.dart';
+import 'package:healthee/features/activity/widgets/cardio_load_card.dart';
+import 'package:healthee/features/activity/widgets/mvpa_card.dart';
+import 'package:healthee/features/activity/widgets/steps_card.dart';
+import 'package:healthee/features/activity/widgets/vo2max_card.dart';
+import 'package:healthee/features/activity/widgets/workouts_card.dart';
+import 'package:healthee/features/coach/widgets/findings_section.dart';
+import 'package:healthee/features/diagnostics/widgets/metric_strip.dart';
+import 'package:healthee/features/diagnostics/widgets/server_metric_strip.dart';
+import 'package:healthee/features/sleep/widgets/blood_oxygen_card.dart';
+import 'package:healthee/features/sleep/widgets/recovery_ladder.dart';
+import 'package:healthee/features/sleep/widgets/sleep_debt_card.dart';
+import 'package:healthee/features/sleep/widgets/sleep_dimensions_card.dart';
+import 'package:healthee/features/sleep/widgets/sleep_week_card.dart';
 import 'package:healthee/features/today/today_sections.dart';
+import 'package:healthee/features/today/widgets/daily_action_card.dart';
 import 'package:healthee/features/today/widgets/grid_module.dart';
 import 'package:healthee/features/today/widgets/heart_rate_card.dart';
 import 'package:healthee/features/today/widgets/illness_banner.dart';
 import 'package:healthee/features/today/widgets/metric_grid.dart';
-import 'package:healthee/features/today/widgets/metric_strip.dart';
-import 'package:healthee/features/today/widgets/server_metric_strip.dart';
-import 'package:healthee/features/today/widgets/steps_card.dart';
+import 'package:healthee/features/today/widgets/stress_card.dart';
 import 'package:healthee/shared/charts/h_spark.dart';
+import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/states/value_hole.dart';
 
 import '../_today_stubs.dart';
+import '_screen_data.dart';
 import '_today_host.dart';
 
 const Disclosure _refused = Disclosure(
@@ -41,8 +62,12 @@ const Disclosure _refused = Disclosure(
   message: 'Wear the strap overnight for a few more nights.',
 );
 
-/// One cell, on its own, in the light theme.
-Widget cellHost(Reading<double> reading, {List<double> spark = const [55, 57, 54]}) {
+/// One cell, on its own, in the light theme. [onOpen] records the door.
+Widget cellHost(
+  Reading<double> reading, {
+  List<double> spark = const [55, 57, 54],
+  VoidCallback? onOpen,
+}) {
   return MaterialApp(
     theme: AppTheme.light,
     home: Scaffold(
@@ -57,6 +82,7 @@ Widget cellHost(Reading<double> reading, {List<double> spark = const [55, 57, 54
           foot: '30d median 55',
           reveals: RevealRegistry(),
           revealId: 'test.cell',
+          onOpen: onOpen ?? () {},
         ),
       ),
     ),
@@ -184,32 +210,44 @@ void main() {
       }
     });
 
-    testWidgets('A REFUSED CELL IS ALWAYS BACKED BY THE FULL CARD BELOW', (
+    testWidgets('EVERY MODULE IS A DOOR, AND EACH LEADS TO ITS OWN TAB', (
       tester,
     ) async {
-      // The grid's promise: a cell may show only a hole because the section that
-      // owns the metric is on the same screen with the reason and the remedy.
-      await tester.pumpWidget(todayHost(store));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('From the strap'));
-
-      expect(
-        find.textContaining('The strap recorded no'),
-        findsWidgets,
-        reason: 'the strap streams refuse in their own words further down',
+      // Legacy's grid cells all carry `onClick={() => onOpen(...)}` and that is
+      // what makes Today an index. A cell may show a bare hole only because the
+      // screen behind it carries the reason and the remedy in full.
+      final opened = <String>[];
+      await tester.pumpWidget(
+        todayHost(store, home: _GridProbe(onOpen: opened.add)),
       );
+      await tester.pumpAndSettle();
+
+      for (final entry in <String, String>{
+        'SLEEP': Routes.sleep,
+        'RESTING HR': Routes.sleep,
+        'HRV': Routes.sleep,
+        'RESP / SPO\u2082': Routes.sleep,
+        'STEPS': Routes.activity,
+        'ENERGY': Routes.activity,
+      }.entries) {
+        opened.clear();
+        await tester.tap(inGrid(entry.key), warnIfMissed: false);
+        await tester.pumpAndSettle();
+        expect(
+          opened,
+          [entry.value],
+          reason: '${entry.key} must open the tab its full card moved to',
+        );
+      }
     });
   });
 
-  group('the order of the screen', () {
+  group('the shape of the screen', () {
     /// The real section list, built the way the screen builds it.
-    List<TodaySection> sections() => todaySections(
-      day: DeviceDay.empty('2026-08-04'),
-      reveals: RevealRegistry(),
-      server: todayView(),
-    );
+    List<PageSection> sections() =>
+        todaySections(screenData(server: todayView()), const TodayExtras());
 
-    int indexOf<T>(List<TodaySection> list) =>
+    int indexOf<T>(List<PageSection> list) =>
         list.indexWhere((section) => section.child is T);
 
     test('THE ILLNESS FLAG COMES BEFORE EVERY NUMBER IT OVERRIDES', () {
@@ -217,8 +255,7 @@ void main() {
       final flag = indexOf<IllnessBanner>(list);
       expect(flag, isNonNegative, reason: 'the fixture carries an active flag');
       // Brief \u00a74.1 \u2014 it outranks everything, so nothing on this screen can be
-      // read before the sentence that overrides it. Including the guidance in
-      // the greeting, which the flag rewrites.
+      // read before the sentence that overrides it.
       for (final after in <int>[
         indexOf<MetricGrid>(list),
         indexOf<HeartRateCard>(list),
@@ -227,25 +264,90 @@ void main() {
       }
     });
 
-    test('EVERY GRID SLOT HAS ITS FULL CARD FURTHER DOWN', () {
-      // The bargain `grid_module.dart` strikes: a cell may show a hole with no
-      // reason because the section owning that metric is always on this list.
-      // Delete one of these and a refusal quietly becomes a shrug.
+    test("TODAY IS LEGACY'S SHAPE AND NOTHING ELSE", () {
+      // `screen_today.jsx` is 140 lines: readiness, the six-module grid, the
+      // 24-hour heart rate, stress, and one suggested action. The revision this
+      // replaces ran to twenty cards. A card reappearing here is a card that has
+      // stopped being behind a door.
       final list = sections();
-      final grid = indexOf<MetricGrid>(list);
-      expect(grid, isNonNegative);
-      for (final owner in <int>[
-        indexOf<StepsCard>(list), // Steps
-        indexOf<MetricStrip>(list), // HRV, Resp / SpO\u2082, Resting HR
-        indexOf<ServerMetricStrip>(list), // Resting HR, Energy
+      // The readiness instrument arrives wrapped in its honesty view, which is
+      // the point of `ReadingView` — a withheld recovery renders the refusal in
+      // the same slot rather than dropping the section.
+      for (final present in <int>[
+        indexOf<ReadingView<RecoveryScore>>(list),
+        indexOf<MetricGrid>(list),
+        indexOf<HeartRateCard>(list),
+        indexOf<StressCard>(list),
+        indexOf<DailyActionCard>(list),
+      ]) {
+        expect(present, isNonNegative);
+      }
+      expect(
+        list,
+        hasLength(lessThanOrEqualTo(12)),
+        reason:
+            'Today is an index. Twenty sections is the screen this replaced, '
+            'and the count is the only thing that catches a card creeping back.',
+      );
+    });
+
+    test('NOTHING MOVED IS STILL ON TODAY', () {
+      // Named by type so a card that comes home has to be deleted from this list
+      // deliberately rather than by an import going quiet.
+      final drawn = sections().map((section) => section.child.runtimeType).toSet();
+      for (final moved in <Type>[
+        SleepDimensionsCard,
+        SleepDebtCard,
+        SleepWeekCard,
+        BloodOxygenCard,
+        RecoveryLadder,
+        StepsCard,
+        CardioLoadCard,
+        MvpaCard,
+        WorkoutsCard,
+        BiologicalAgeCard,
+        Vo2maxCard,
+        FindingsSection,
+        ServerMetricStrip,
+        MetricStrip,
       ]) {
         expect(
-          owner,
-          greaterThan(grid),
-          reason: 'a grid cell with no section under it is a refusal with no '
-              'reason anywhere on the screen',
+          drawn,
+          isNot(contains(moved)),
+          reason: '$moved moved to its own tab; Today indexes it, not shows it',
         );
       }
     });
   });
+}
+
+/// The grid alone, over the real providers, with its doors recorded.
+///
+/// Not the whole screen: `TodayScreen` wires `onOpen` to `context.go`, and a
+/// widget test has no router \u2014 so the tap would fail for a reason that is about
+/// the test rather than about the grid. The door itself is a parameter precisely
+/// so it can be watched here.
+class _GridProbe extends ConsumerWidget {
+  const _GridProbe({required this.onOpen});
+
+  final void Function(String route) onOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final day = ref.watch(deviceDayProvider).value;
+    final snapshot = ref.watch(todaySnapshotProvider).value?.snapshot;
+    if (day == null) {
+      return const Scaffold(body: SizedBox.shrink());
+    }
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: MetricGrid(
+          day: day,
+          reveals: RevealRegistry(),
+          snapshot: snapshot,
+          onOpen: onOpen,
+        ),
+      ),
+    );
+  }
 }

@@ -44,6 +44,11 @@ final DateTime now = DateTime(2026, 8, 4, 9, 30);
 /// not have — and the data-health strip speaks up when there is no session, so
 /// leaving it unpinned would make every "this section falls silent" assertion
 /// depend on a plugin channel that is not there.
+///
+/// [home] is the screen under test and defaults to Today. Sleep, Activity, Coach
+/// and Diagnostics read the SAME two providers through the same shell
+/// (`shared/instrument_screen.dart`), so one host serves all five rather than
+/// four more copies of these overrides.
 Widget todayHost(
   LocalStore store, {
   StrapConnection? connection,
@@ -51,6 +56,7 @@ Widget todayHost(
   bool serverUnreachable = false,
   ThemeData? themeOverride,
   bool signedIn = true,
+  Widget? home,
 }) {
   return ProviderScope(
     overrides: [
@@ -71,7 +77,10 @@ Widget todayHost(
         serverUnreachable ? todayUnreachable() : todayIs(server ?? todayView()),
       ),
     ],
-    child: MaterialApp(theme: themeOverride ?? AppTheme.light, home: TodayScreen(now: now)),
+    child: MaterialApp(
+      theme: themeOverride ?? AppTheme.light,
+      home: home ?? TodayScreen(now: now),
+    ),
   );
 }
 

@@ -1,4 +1,4 @@
-/// Routes. One route today; the shape of the five-tab shell is already decided.
+/// Routes. Four tabs, the pairing surfaces, and the diagnostics behind them.
 ///
 /// `docs/APP_DESIGN.md` §2 fixes the information architecture — five tabs (Today ·
 /// Sleep · Activity · Insights · Actions), a Coach FAB on Today, and Profile as a
@@ -15,8 +15,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
+import 'package:healthee/features/activity/activity_screen.dart';
+import 'package:healthee/features/coach/coach_screen.dart';
+import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
 import 'package:healthee/features/signin/server_signin_screen.dart';
+import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/shared/foundation_screen.dart';
 
@@ -34,8 +38,8 @@ abstract final class Routes {
   /// Fitness, organised around VO₂max.
   static const String activity = '/activity';
 
-  /// The outcome ledger — what is actually working.
-  static const String insights = '/insights';
+  /// The coach, and — until it ships — the findings in the owner's own data.
+  static const String coach = '/coach';
 
   /// Challenges and commitments.
   static const String actions = '/actions';
@@ -45,6 +49,13 @@ abstract final class Routes {
 
   /// Pair a strap, or review the pairing already held.
   static const String pairing = '/pairing';
+
+  /// Baselines and the strap's own streams — "is the instrument working".
+  ///
+  /// Off the tab bar on purpose. `diagnostics_screen.dart` argues it: these are
+  /// the numbers the owner wants when something looks wrong, and never at 7am.
+  /// Reached from [pairing], which is where the avatar on Today already goes.
+  static const String diagnostics = '/diagnostics';
 
   /// Sign in to the Healthee server, or review the session already held.
   ///
@@ -68,10 +79,10 @@ abstract final class Routes {
 
 /// The app's router.
 ///
-/// [Routes.today], [Routes.pairing], [Routes.serverSignIn] and
-/// [Routes.devFoundation] are wired. The remaining constants above are the
-/// agreed paths, not dead routes — a route with no screen would be a link to a
-/// crash, so they are added with their screens.
+/// Everything above is wired except [Routes.actions] and [Routes.profile], which
+/// have no screens. They are the agreed paths, not dead routes — a route with no
+/// screen would be a link to a crash, so they are added with their screens, and
+/// `app_tab_bar.dart` draws the Actions tab dimmed until that happens.
 ///
 /// ## Unpaired means pairing
 ///
@@ -106,6 +117,22 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(
         path: Routes.today,
         builder: (BuildContext context, GoRouterState state) => const TodayScreen(),
+      ),
+      GoRoute(
+        path: Routes.sleep,
+        builder: (BuildContext context, GoRouterState state) => const SleepScreen(),
+      ),
+      GoRoute(
+        path: Routes.activity,
+        builder: (BuildContext context, GoRouterState state) => const ActivityScreen(),
+      ),
+      GoRoute(
+        path: Routes.coach,
+        builder: (BuildContext context, GoRouterState state) => const CoachScreen(),
+      ),
+      GoRoute(
+        path: Routes.diagnostics,
+        builder: (BuildContext context, GoRouterState state) => const DiagnosticsScreen(),
       ),
       GoRoute(
         path: Routes.devFoundation,
