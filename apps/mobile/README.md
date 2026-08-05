@@ -81,6 +81,32 @@ module is a door**, exactly as legacy's are, and the detail lives behind it:
 settings, and settings is the only door to diagnostics: "is the instrument
 working" is a question asked when something looks wrong, and never at 7am.
 
+### Two known-wrong things Today ported deliberately — one fixed, one for the owner
+
+- **Resp and SpO₂ read `metrics`, which this server never populates for those
+  ids — FIXED.** `read/meta.py::TODAY_SECONDARY_METRICS` has seven slots and
+  neither id is among them, and neither has a recovery marker to fall back on,
+  so both surfaces rendered *"No value for today, and the server did not say
+  why"* — permanently, about numbers the same payload carried in
+  `last_sleep_extras`. Their charts drew fine the whole time, because
+  `sparklines` does back both ids.
+
+  The value now falls through to that block, **caveated**: it is a raw session
+  average with no envelope, no provenance and no date, where the derived metric
+  is a bounded window mean, so the sentence naming the instrument and the night
+  travels with it. The refusal comes *before* the fallback in the chain — a
+  server that sends a card and declines to fill it must not be walked around.
+  The real fix is two rows in `TODAY_SECONDARY_METRICS` and `METRIC_META`, which
+  also buys the medians and delta badges the working four get free; this
+  disappears on its own when that lands.
+
+- **The Sleep tile draws a 4-lane hypnogram at 30 px — SHIPS, and needs the
+  owner.** About 7 px a lane, which reads as scattered dots on real data. The
+  rebuild had replaced it with a proportion bar and the port reverted to
+  legacy's. **This one is design, not honesty** — the chart is not claiming
+  anything false, it is just hard to read — so it is outside what this pass may
+  change.
+
 ### Colour on Insights, and the split that governs it
 
 A **trend** may be coloured `fav`/`unf`, because
@@ -129,7 +155,8 @@ order, so a card cannot move without somebody deciding to move it.
 ```text
   header · Tonight · no-sleep banner · AI analysis · hero
   ══ <night label> ══  stages · breakdown · overnight vitals · sleep health · 4-dim
-  ══ Patterns ══      performance · debt · last 7 nights · bedtime/wake · trends · naps
+  ══ Patterns ══      performance · debt · last 7 nights · bedtime/wake · trends
+                      · findings · naps
 ```
 
 It reads **three** payloads, each with its own provider and its own failure, as
@@ -157,23 +184,93 @@ without saying so fails.
 passed — not scaled, not averaged, not turned into a verdict word. There is no
 validated composite of these four and CLAUDE.md forbids inventing one.
 
-### Six legacy behaviours that ship as-is, and are flagged
+### All five of `/api/sleep`'s fields are read
 
-  * `sleep` is passed as an `infoKey` to a module with **no label**, and legacy's
-    `HModule` only draws its header when a label exists — so the hero card's ⓘ
-    never appears. Ported as found.
-  * Light sleep is labelled **`Core`** in the breakdown and the hypnogram lanes,
-    and **`light`** in the naps legend. One stage, two words, one screen.
-  * `Aug 4` under the odd nights and `4 Aug` under the naps — two date formats,
-    same screen.
-  * The 8 h "need" is `const need = 480.0` and is captioned **"your 8h need"**.
-    Nothing about it is personalised, and it is not the 7–9 h cutoff the
-    sleep-health check scores against.
-  * An unrecognised stage code is drawn where light sleep is drawn
-    (`instrument_hues.dart` records the same for the colour).
-  * `metric_info.dart`'s explainers cite primary literature in prose and are
-    **not wired to `packages/knowledge`** — no id, no grade, no manifest entry.
-    Ported verbatim and reported rather than rewritten.
+The port parsed `nights` and `naps` and dropped the other three. All five are
+parsed now, and every one has a reader:
+
+- **`cutoffs`** feeds the four cut-off strings on the sleep-health card. They
+  were four literals — a second place the science lived, so a change to
+  `read/sleep_common.py::SLEEP_CUTOFFS` would have left the card printing an old
+  threshold beside a check that moved, with nothing failing.
+- **`research_notes`** are the four notes licensing those cut-offs, rendered as a
+  `CitationRow`. The Sleep tab had no citation anywhere.
+- **`findings`** are sleep-scoped correlations, drawn under Patterns through the
+  shared `FindingsSection` — **and only when the list is non-empty**, which is
+  the governing rule for everything surfaced here: a null or empty field renders
+  nothing, no heading and no zero-state.
+
+Two things are recorded rather than fixed, both server-side:
+
+- **`naps[].stages` is structurally always empty.** `read/sleep_page.py:244`
+  ships the raw JSONB hypnogram (`[[startMs, endMs, typeCode]]`) where `nights`
+  ships `stage_timeline()`'s objects, so every nap stage bar is blank. Reading it
+  client-side means re-implementing the strap's stage-code mapping in the UI
+  layer, i.e. a second definition of what a stage is. Pinned by a test until the
+  server changes.
+- **`naps[].source` and `nights[].session_source` are the unconditional literal
+  `"zepp_cloud"`** — the same shape as `read/today.py:83`'s `anomalies = []`. A
+  "source" chip built on either could never say more than one word, so neither is
+  surfaced.
+
+### Six legacy behaviours the port shipped as-is — all six are now REPAIRED
+
+The port flagged these and left them, correctly: a faithful port of something
+imperfect beats an unrequested change. The owner then opened the honesty half
+(*"we can rework on honesty part and its flaws"*), and every one of them was a
+flaw rather than a design decision, so every one is fixed. **None of the six
+moved a pixel of layout** — they are wording, a colour on a refusal, a dead
+parameter, and a citation.
+
+  * `sleep` was passed as an `infoKey` to a module with **no label**, and
+    `HModule` draws its header only when a label exists — so the hero card's ⓘ
+    was unreachable, in legacy too. The dead argument is gone (drawing it means
+    giving that card a header row it has never had, which is the owner's call),
+    and the `sleep` explainer is reachable from Today's Sleep tile instead.
+    `InstrumentModule` now asserts on the combination.
+  * Light sleep was labelled **`Core`** in the breakdown and the hypnogram lanes,
+    **`light`** in the naps legend and **`CORE`** on the seven-night chip. Every
+    surface asks `sleepStageLabel`, which answers `Light`.
+  * `Aug 4` under the odd nights and `4 Aug` under the naps. One `shortDate` now,
+    answering day-month.
+  * The 8 h "need" was `const need = 480.0` captioned **"your 8h need"** —
+    a possessive on a constant, and not even the 7–9 h band the sleep-health
+    check one card up scores against. It says *"of the 8h reference"* and
+    `kSleepNeedMin` records what 480 is (the NSF 2015 band midpoint) and that a
+    real per-owner `sleep_need_min` exists on `/api/today` but not on this
+    payload.
+  * An unrecognised stage code was drawn and labelled as light sleep. See the
+    palette section — it is grey and says "Unrecognised".
+  * `metric_info.dart`'s explainers cited primary literature **in prose**, with
+    no id, no grade and no manifest entry. Auditing all seventeen against the
+    corpus found three citations it refutes outright, six sentences a model would
+    have been blocked from writing, and one hardcoded BMR shown to every owner.
+    They now carry real note ids, render with the **weakest** cited grade, and
+    name what their sources do not cover — see below.
+
+### The explainers are the corpus's, or they say they are not
+
+`shared/metric_info/` holds the seventeen ⓘ sheets. Each carries `notes` — real
+ids from `packages/knowledge/manifest.json` — and the sheet renders them through
+`CitationRow` with `weakestGrade(notes)`, the same floor rule
+`jobs/recs.py::_provable_grade` applies server-side: a claim resting on an
+`Established` note and a `Probable` one ships as `Probable`, because one solid
+citation must not launder a weak one.
+
+Grades come from `shared/format/note_grades.dart`, generated beside
+`note_names.dart` from the same manifest read. `CitationRow` still never *infers*
+a grade from an id it was handed — a `research_notes` array on a payload backs a
+sentence the server composed — but these citations are authored in this repo
+against these notes, so the grade is looked up rather than guessed.
+
+`MetricInfo.uncited` is the other half and is not a loose end: a row of four
+sources beside a paragraph implies the paragraph is sourced, so where part of it
+is our own threshold (the ≥85% efficiency cutoff, SRI ≥ 70), our own constant
+(the 0.5× debt credit, the 14-night window) or our own model (the intraday
+readiness decay), the sheet says so under the sources.
+`test/shared/metric_info_grounding_test.dart` fails if an explainer cites
+nothing, cites an id the corpus does not have, resolves to no grade, rests on
+anything below `Probable`, or lets one of the named refuted claims back in.
 
 ### Four legacy behaviours that did NOT ship, because they are the honesty rule
 
@@ -616,8 +713,12 @@ shared/skeletons/                the content-shaped loading states
 - **A hue is a function of the metric's identity and never of its value.**
   `core/theme/metric_hue.dart` holds the one table, transcribed from legacy's own
   call sites with the line numbers cited; `hueFor` takes an id and nothing else.
-- **One sleep-stage mapping.** `InstrumentHues.sleepStage` — deep amber, light
-  blue, REM purple, awake red — and nothing else decides a stage's colour.
+- **One sleep-stage mapping, and one word per stage.**
+  `InstrumentHues.sleepStage` — deep amber, light blue, REM purple, awake red,
+  **anything else grey** — and nothing else decides a stage's colour;
+  `sleepStageLabel` is the only source of a stage's name. Legacy said `Core` in
+  the breakdown, `light` in the naps legend and `CORE` on the seven-night chip;
+  every surface says `Light`.
 - **A refusal spends no colour.** A withheld value renders a `ValueHole` — a
   dashed, `hole`-filled box exactly where the number would have been — with the
   reason in ordinary ink. This is honesty wording, so it survives the port.
@@ -628,20 +729,32 @@ shared/skeletons/                the content-shaped loading states
   source tables independently — `flutter analyze` cannot see a wrong-but-valid
   colour, so a test has to.
 
-### Three legacy imperfections that ship as-is, and are flagged
+### Two legacy defects that were REPAIRED, and one that still ships
 
-The brief is explicit that a faithful port of something imperfect beats an
-unrequested fix, so each of these is recorded rather than repaired.
+The port shipped these three as found, on the rule that a faithful port of
+something imperfect beats an unrequested fix. The owner then opened the honesty
+half — *"we can rework on honesty part and its flaws"* — so two of them are gone.
+**The accent hue and the four stage hues are untouched; only the ink on them
+moved.**
 
-- **`onGreen` fails contrast on the dark accent.** Legacy puts one off-white
-  (`#FBF7EF`) on both greens: 5.68:1 on light, **2.14:1** on dark — below WCAG AA
-  and below the 3:1 large-text floor. The measurement is pinned in
-  `test/core/theme_test.dart` so it cannot drift further or be forgotten.
-- **An unrecognised sleep stage is drawn as light sleep** (`theme.dart:36`), so a
-  code nothing measured is not visibly distinct from one that was.
-- **Legacy disagrees with itself twice**: cardio load is `cHeart` on Today and
-  `cReady` on Activity; blood oxygen is `cResp` on Today and `cSpo2` on Sleep.
-  Today's wins in `metric_hue.dart`, and both conflicts are documented there.
+- **`onGreen` failed contrast on the dark accent — FIXED.** Legacy put one
+  off-white (`#FBF7EF`) on both greens: 5.68:1 on light, **2.14:1** on dark,
+  under WCAG AA and under the 3:1 large-text floor. The light value stands. The
+  dark one is now `DarkPalette.bg`, the page the theme is already drawn on, at
+  **8.63:1** — no new colour. It doubles as Material's `onError`, where the
+  off-white measured 2.76:1 on the dark alert and nothing asserted it; the page
+  colour reads 6.70:1 there.
+- **An unrecognised sleep stage was drawn as light sleep — FIXED.**
+  `HColors.sleepStage` defaulted an unknown code to `cSpo2` and `_normStage`
+  defaulted it to `'core'`, so a byte nobody has decoded was painted and labelled
+  as a specific stage. Both defaults now answer *unrecognised*: a chroma-free
+  grey (`InstrumentHues.unstaged`) and the word "Unrecognised". Every payload the
+  strap has ever sent renders identically — the four legacy rows did not move.
+- **Legacy disagrees with itself twice — SHIPS AS-IS.** Cardio load is `cHeart`
+  on Today and `cReady` on Activity; blood oxygen is `cResp` on Today and `cSpo2`
+  on Sleep. That is a colour choice, not an honesty defect, so it needs the
+  owner. Today's wins in `metric_hue.dart` and both conflicts are documented
+  there.
 
 ### The hue set, both themes
 
@@ -658,15 +771,32 @@ unrequested fix, so each of these is recorded rather than repaired.
 | `cReady` | `#1F6F54` | `#4BBF93` | VO₂max, biological age, SRI, load |
 | `cRem` | `#8A7FB8` | `#B3A9E0` | nothing — defined by legacy, drawn by none |
 
-Two more legacy values are **one colour in both themes**, because legacy wrote
-one: the warn amber `#E0A33E` (`unf`) and `onGreen` `#FBF7EF` (`onAccent`).
+One more legacy value is **one colour in both themes**, because legacy wrote one:
+the warn amber `#E0A33E` (`unf`). `onGreen` was the other and is now a per-theme
+pair — see the contrast repair above.
+
+There is an eleventh colour that is **not legacy's**: `unstaged`, the chroma-free
+grey an unrecognised stage code is drawn in. It is honesty-layer scaffolding in
+the same family as `hole`, and it exists because legacy had no way to say "we
+could not read this".
 
 **Manrope** is vendored in `assets/fonts/` (SIL OFL, no Reserved Font Name,
-licence beside it, ~290 KB) rather than fetched — no CDN at paint time. Three
-weights, 400/500/600, instanced from upstream's variable font. Two consequences
-of that for the port, both named in `instrument_type.dart` rather than hidden:
-`HType.number` asks for **700 and gets 600**, and `HType.serif(italic: true)`
-renders **upright**, because neither face is vendored.
+licence beside it, ~386 KB) rather than fetched — no CDN at paint time. **Four
+weights, 400/500/600/700**, each instanced from upstream's `Manrope[wght].ttf` at
+a fixed `wght`, so the four are one design rather than four drawings.
+
+The list is derived, not chosen: `test/core/font_bundle_test.dart` scans `lib/`
+for every `FontWeight.w*` the app names, reads `pubspec.yaml` for every weight it
+bundles, and fails if the two sets differ. That gate is why the 700 is here —
+`HType.number` is legacy's `HType.num` and asks for it, the bundle had 400/500/600,
+and Flutter silently substituted the nearest face, so **every instrument readout
+in the app rendered at 600** with nothing to see on screen.
+
+**There is no italic and there cannot be.** Manrope's variable font carries a
+single `wght` axis (200–800) and upstream publishes no italic companion — checked
+against the `fvar` table. Three call sites asked for `FontStyle.italic` and all
+three rendered upright, because Flutter does not synthesise a slant for a bundled
+family. The app stopped asking; the same test fails if it starts again.
 
 Tabular figures are on for the whole text theme and for every `HType` role, so a
 value that changes does not shift the glyphs beside it.
