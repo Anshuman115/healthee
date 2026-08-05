@@ -16,6 +16,20 @@
 /// Standards §1 means by one reason to change — `HArea` changes when the big
 /// scrubbable charts do, and this changes when the grid does.
 ///
+/// ## It has a BODY, not just a hairline
+///
+/// Legacy's `Sparkline` is a bare stroke, but its `AreaChart` — the shape the
+/// same grid uses everywhere it has room — fills under the curve with a gradient
+/// from 32% alpha to nothing. A 2 px line of one hue in a 118 px cell reads as
+/// monochrome from arm's length; the fill is what makes a module's tag visible as
+/// a tag rather than as a detail. So this carries the `AreaChart` gradient at a
+/// lower ceiling ([_fillAlpha]), because a 26 px chart at 32% would be a block of
+/// colour with a line on top rather than a reading.
+///
+/// The fill is drawn from the curve down to the floor of the box, not to the
+/// series minimum: a sparkline has no axis, and an area that started at the
+/// lowest value would look like the metric had fallen to zero.
+///
 /// `progress` is a parameter and this widget owns no ticker, for the reason
 /// `chart_primitives.dart` sets out at length.
 library;
@@ -23,7 +37,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/shared/charts/chart_primitives.dart';
 
-/// A tiny smoothed line over [data], with a dot on the newest point.
+/// A tiny smoothed line over [data], with a fill under it and a dot on the
+/// newest point.
 class HSpark extends StatelessWidget {
   /// [data] is oldest first; [progress] is 0–1 from `RevealOnce`.
   const HSpark(
@@ -91,6 +106,10 @@ class _SparkPainter extends CustomPainter {
   /// Legacy's end-point dot radius.
   static const double _dotRadius = 2.6;
 
+  /// The top of the gradient body. Legacy's `AreaChart` uses 0.32 at 30–120 px;
+  /// this chart is 26 px, where that reads as a filled block.
+  static const double _fillAlpha = 0.20;
+
   @override
   void paint(Canvas canvas, Size size) {
     final min = data.reduce((a, b) => a < b ? a : b);
@@ -112,6 +131,27 @@ class _SparkPainter extends CustomPainter {
       for (var i = 0; i < data.length; i++) Offset(x(i), y(data[i])),
     ];
     final path = smoothPath(points);
+
+    // The body first, so the stroke sits on top of its own gradient. It fades in
+    // with the reveal rather than wiping left-to-right: a half-drawn area with a
+    // hard right edge looks like the series ends there.
+    final body = Path.from(path)
+      ..lineTo(points.last.dx, size.height)
+      ..lineTo(points.first.dx, size.height)
+      ..close();
+    canvas.drawPath(
+      body,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            color.withValues(alpha: _fillAlpha * progress),
+            color.withValues(alpha: 0),
+          ],
+        ).createShader(Offset.zero & size),
+    );
+
     final metric = path.computeMetrics().first;
     canvas.drawPath(
       metric.extractPath(0, metric.length * progress),

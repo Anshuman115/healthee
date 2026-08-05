@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/metric_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/today_series.dart';
 import 'package:healthee/shared/charts/h_bars.dart';
@@ -37,18 +38,23 @@ class StressCard extends StatelessWidget {
     if (hours.length < 2) {
       return const SizedBox.shrink();
     }
+    // The card is about ONE metric, so it wears that metric's identity tag —
+    // `metric_hues.dart` for why that is not a verdict. The tag comes from the
+    // same `tagFor` table the grid asks, so the stress cell and this card cannot
+    // end up different colours.
+    final tag = context.hues.tagFor('stress');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Stress today', style: text.labelSmall),
+          Text('Stress today', style: text.labelSmall?.copyWith(color: tag)),
           const SizedBox(height: Insets.md),
           RevealOnce(
             id: 'stress-hourly',
             registry: reveals,
             builder: (context, t) => HBars(
               [for (final hour in hours) hour.average],
-              color: colors.accent,
+              color: tag,
               progress: t,
               height: 56,
               allHighlighted: true,
