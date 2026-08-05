@@ -1,8 +1,9 @@
 # Healthee — mobile
 
-The Flutter app. **Foundation only** — there are no feature screens yet. What
-exists is the layer everything else gets built on: the theme, the API client, the
-local store, and the type that carries the product's honesty contract.
+The Flutter app. Four tabs — Today · Sleep · Activity · Coach — over the layer
+everything is built on: the theme, the API client, the local store, and the type
+that carries the product's honesty contract. Pairing, server sign-in and
+diagnostics sit outside the tabs.
 
 Read `docs/ENGINEERING_STANDARDS.md` §3 and `docs/APP_DESIGN_BRIEF.md` before
 writing UI. (`docs/APP_DESIGN.md` is the older planning doc; where they differ,
@@ -102,6 +103,51 @@ flutter test test/render/render_screens.dart && ls build/renders/
 
 Run it before and after any layout or colour change and *look at the output*.
 Grep is not a design, and a report of visual work is not the work.
+
+## The tab bar is the shell's, and the tabs are branches
+
+`core/router.dart` mounts the four tabs as the branches of a
+`StatefulShellRoute.indexedStack`; `shared/app_shell.dart` is the only `Scaffold`
+in the app with a `bottomNavigationBar`, and `core/tabs.dart` is the one list the
+bar and the branches are both built from — they are joined by **index**, so two
+lists would be a defect that compiles.
+
+**A screen never draws the bar and never takes a tab index.** They used to: five
+copies over four sibling `GoRoute`s, which meant a tab switch built a new page
+and threw away the scroll offset, the reveal registry and the provider reads with
+it. `RevealOnce` holds "have I been seen" in the screen's `State`, so the replay
+rule CLAUDE.md sets was being kept inside a screen and defeated between them.
+`test/features/tab_shell_test.dart` measures both.
+
+Pairing, sign-in and `/diagnostics` sit **outside** the shell, with no bar: two
+are setup flows the router redirects into, and the third belongs to the pairing
+flow rather than to a tab.
+
+Actions is not in the bar. It was drawn dimmed and inert, which is the right
+shape for a missing *number* — the card is the shape and the sentence under it is
+the answer — and the wrong shape for a navigation control, which is a promise of
+a destination with no room to qualify itself. It comes back with its screen.
+
+## Generated prose renders through `GroundedProse`, always
+
+`/api/today` carries four fields a model wrote: `action`, and each
+recommendation's `action`, `expected_effect` and `rationale`. They arrive with
+inline `[note_id]` citation markers, which is correct — the server's blocking
+validator reads them — and the card used to print the string, markers and all.
+
+`shared/states/grounded_text.dart` is the only thing feature code may use for
+those fields. It takes the **raw** string and renders the sentence and its
+sources together; there is no parameter that turns the second half off, and the
+parse is deliberately not exposed, because a `stripCitations()` helper would make
+dropping the grounding one character cheaper than keeping it.
+
+A bracket that resolves to no citation is **left in the sentence** and announced
+underneath. It might be the model's own prose or a truncation, and deleting it
+would be the app editing a claim it cannot read.
+
+Chips show the corpus's own **name**, never the id — `shared/format/note_names.dart`
+is generated from `packages/knowledge/manifest.json` by `tool/gen_note_names.py`,
+aliases included, because the server cites some of those directly.
 
 ## The one thing to understand before writing a screen
 
@@ -340,7 +386,16 @@ Rules that are structural here, not conventions:
 
 - **Colour is a claim.** Only `fav`/`unf` say something about a reading (better
   or worse than the owner's *own* normal), and `alert` is the illness flag alone.
-  Everything else is greyscale + accent. Never colour a card to decorate it.
+  Everything else is greyscale, accent, or an **identity tag**. Never colour a
+  card to decorate it.
+- **A tag is a function of the metric's identity and never of its value.**
+  `core/theme/metric_hues.dart` holds the one table; `tagFor` takes an id and
+  nothing else. A card about ONE metric wears its tag on the title, the chart and
+  the unit beside the figure — the number itself stays in ink. A card about
+  several (the daily action, the recovery ladder, recorded sessions) wears none.
+- **`fav` is not for clearing a population target.** The MVPA bar turned green at
+  the WHO 150-minute floor, which is a claim about a population and not about the
+  owner's own normal — and a congratulation, which this app does not do.
 - **A refusal spends no colour.** A withheld value renders a `ValueHole` — a
   dashed, `hole`-filled box exactly where the number would have been — with the
   reason in ordinary ink. Tinting it would make "we are declining to tell you"
