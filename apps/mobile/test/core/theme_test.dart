@@ -8,16 +8,21 @@
 ///
 /// ## Two assertions changed on 2026-08-05 and the changes are the point
 ///
-///   * **"the accent is a PAIR"** — it still is for the four per-theme roles, but
-///     `unf` and `onAccent` are now single legacy literals used in BOTH themes,
-///     because legacy wrote one of each. Asserting theme-variance on them would
-///     fail the port for being faithful, so the test now asserts the sameness.
-///   * **"text on the accent clears WCAG AA in BOTH themes"** — legacy's `onGreen`
-///     measures **2.14:1** on the dark green. The previous palette fixed this by
-///     making `onAccent` per-theme; the owner's instruction is that legacy's
-///     values ship unchanged and an imperfection is reported rather than
-///     repaired. The measurement is therefore **pinned as a known failure**, so
-///     it cannot drift further and cannot be forgotten.
+///   * **"the accent is a PAIR"** — it still is for the four per-theme roles, and
+///     `unf` is a single legacy literal used in BOTH themes because legacy wrote
+///     one. Asserting theme-variance on it would fail the port for being
+///     faithful, so the test asserts the sameness.
+///   * **`onAccent` is per-theme again, and the AA assertion is back.** It was
+///     pinned here as a known failure at **2.14:1** on the dark green — under AA
+///     and under the 3:1 large-text floor. Pinning a legibility defect keeps it
+///     from drifting; it does not make the word on the button readable. The
+///     accent hue is untouched (still legacy's `#4BBF93`) and only the ink on it
+///     moved, to the dark page colour that was already in the palette.
+///
+/// The floor is asserted as a FLOOR, not pinned to a measurement: a pin fails
+/// when contrast **improves**, which is the one direction nobody needs stopping.
+/// What the exact-value pin was really protecting is that the tokens are what the
+/// tables above say, and the token assertions do that directly.
 library;
 
 import 'package:flutter/material.dart';
@@ -87,7 +92,10 @@ void main() {
       expect(dark.accent, const Color(0xFF4BBF93), reason: 'legacy green');
       expect(dark.accent2, const Color(0xFF2F8F6C), reason: 'legacy greenDeep');
       expect(dark.accentSoft, const Color(0xFF1E3329), reason: 'legacy greenSoft');
-      expect(dark.onAccent, const Color(0xFFFBF7EF), reason: 'legacy onGreen');
+      // NOT legacy's onGreen — the one departure. See palette.dart: it is the
+      // dark page colour, so no new hex entered the palette.
+      expect(dark.onAccent, dark.bg, reason: 'the dark page colour, on the green');
+      expect(dark.onAccent, isNot(const Color(0xFFFBF7EF)), reason: 'legacy onGreen fails AA here');
       expect(dark.fav, dark.accent);
       expect(dark.favSoft, dark.accentSoft);
       expect(dark.unf, const Color(0xFFE0A33E));
@@ -105,12 +113,14 @@ void main() {
       expect(light.accent2, isNot(dark.accent2));
       expect(light.fav, isNot(dark.fav));
       expect(light.alert, isNot(dark.alert));
-      // Legacy wrote exactly TWO colours as one value for both themes, and both
-      // are ported that way. This asserts the port, not the design: if either
-      // gained a per-theme partner, that would be a change the owner did not ask
-      // for, and this test is where it surfaces.
+      // Legacy wrote TWO colours as one value for both themes. The warn amber is
+      // ported that way — this asserts the port, not the design: if it gained a
+      // per-theme partner, that would be a change the owner did not ask for, and
+      // this test is where it surfaces.
       expect(light.unf, dark.unf, reason: 'legacy’s inline warn amber');
-      expect(light.onAccent, dark.onAccent, reason: 'legacy’s onGreen');
+      // `onGreen` is the other one, and it is deliberately NOT ported that way,
+      // because legacy's two greens need different ink. The asymmetry is the fix.
+      expect(light.onAccent, isNot(dark.onAccent), reason: 'legibility, not design');
     });
 
     test('fav and unf are distinct in both themes — the ladder needs the pair', () {
@@ -140,18 +150,41 @@ void main() {
       expect(dark.hole.a, lessThan(0.10));
     });
 
-    test('LEGACY’S onGreen FAILS AA ON THE DARK ACCENT — pinned, not fixed', () {
-      // Light is fine at 5.68:1. Dark is 2.14:1 — below WCAG AA (4.5:1) and
-      // below the 3:1 large-text floor, because legacy puts ONE off-white on two
-      // different greens.
-      //
-      // The previous palette solved this by making `onAccent` per-theme. The
-      // owner's instruction for this port is that legacy's values ship and an
-      // imperfection is REPORTED, not repaired. So the number is pinned here
-      // instead: this fails the day the value drifts in either direction, and a
-      // reviewer reading it sees the debt rather than inheriting it.
-      expect(_contrast(light.accent, light.onAccent), greaterThanOrEqualTo(4.5));
-      expect(_contrast(dark.accent, dark.onAccent), closeTo(2.14, 0.01));
+    test('text on the accent clears WCAG AA in BOTH themes', () {
+      // This was pinned at `closeTo(2.14)` for the dark theme — a measured
+      // failure, recorded so it could not drift. It has been fixed instead.
+      // Light keeps legacy's off-white at 5.68:1; dark takes the page colour at
+      // 8.63:1.
+      for (final (name, colors) in [('light', light), ('dark', dark)]) {
+        expect(
+          _contrast(colors.accent, colors.onAccent),
+          greaterThanOrEqualTo(4.5),
+          reason: '$name: the label inside a filled accent button',
+        );
+      }
+    });
+
+    test('MUTATION — reinstating legacy’s onGreen on the dark green fails', () {
+      // The assertion above passes for any sufficiently dark ink, including one
+      // chosen by accident. This one names the exact value that was wrong and
+      // proves the gate would catch it coming back — a regression here is a
+      // one-character edit in palette.dart.
+      const legacyOnGreen = Color(0xFFFBF7EF);
+      expect(_contrast(dark.accent, legacyOnGreen), lessThan(3));
+      expect(_contrast(light.accent, legacyOnGreen), greaterThanOrEqualTo(4.5));
+    });
+
+    test('onAccent is Material’s onError too, and clears AA there as well', () {
+      // app_theme.dart wires `onError: colors.onAccent`. The off-white measured
+      // 2.76:1 on the dark alert — the same failure one token over, and it went
+      // unnoticed because nothing asserted it.
+      for (final (name, colors) in [('light', light), ('dark', dark)]) {
+        expect(
+          _contrast(colors.alert, colors.onAccent),
+          greaterThanOrEqualTo(4.5),
+          reason: '$name: text on an error surface',
+        );
+      }
     });
 
     test('body and label ink clear AA against their own surface', () {
