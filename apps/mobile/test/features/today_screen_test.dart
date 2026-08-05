@@ -7,18 +7,26 @@
 /// a day at midnight and passes on the retry.
 ///
 /// This half is about **what the screen draws when it has data**. The refusals,
-/// the unreachable server and the never-synced phone are `today_refusals_test.dart`
-/// — split when this file crossed the 400-line gate, along the seam the standards
-/// doc asks for: one file per reason to change. The cards that moved off Today
-/// are asserted on their new screens in `tab_screens_test.dart`; asserting them
-/// here would have been asserting the screen this change exists to undo.
+/// the unreachable server and the never-synced phone are `today_refusals_test.dart`;
+/// the section ORDER is `today_order_test.dart`; the six tiles are
+/// `today_tiles_test.dart`. What is left here is the handful of claims that need
+/// the whole screen standing up.
 library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
 
+import '../_today_stubs.dart';
 import '_today_host.dart';
+
+/// A viewport tall enough that a `ListView.builder` builds the whole port.
+void _tall(WidgetTester tester) {
+  tester.view
+    ..physicalSize = const Size(420, 14000)
+    ..devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
 
 void main() {
   late LocalStore store;
@@ -26,102 +34,212 @@ void main() {
   setUp(() => store = LocalStore.memory());
   tearDown(() async => store.close());
 
-  group('measurements the strap made', () {
-    setUp(() => seedDevice(store));
-
-    testWidgets('the daily counter opens the screen, in the grid', (
-      tester,
-    ) async {
-      await tester.pumpWidget(todayHost(store));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('9,264'));
-
-      expect(find.text('9,264'), findsWidgets);
-      // The grid cell is an index entry, so it says which of the strap's TWO
-      // step numbers this is in its foot — uppercased for the legacy eyebrow
-      // look, with the written case kept on the semantics label.
-      expect(
-        find.textContaining('SINCE-MIDNIGHT COUNTER'),
-        findsOneWidget,
-        reason: '#121 — the counter, never the frozen per-minute sum',
-      );
-    });
-  });
-
   group('what the server made of it', () {
     setUp(() => seedDevice(store));
 
     testWidgets('recovery ships its per-factor breakdown, never alone', (
       tester,
     ) async {
+      _tall(tester);
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('72'));
 
-      expect(find.text('72'), findsOneWidget);
-      // Module eyebrows render uppercase; `ModuleLabel` keeps the written case
-      // on the semantics label so a screen reader does not spell them out.
-      expect(find.text('WHAT IT IS MADE OF'), findsOneWidget);
       // `feedback_no_composite_score`: the components are the licence, and they
-      // are beside the number rather than behind a tap.
-      expect(find.text('HRV'), findsWidgets);
-      expect(find.text('RESTING HR'), findsWidgets);
-      // Each factor's own sub-score, from the contract snapshot.
-      expect(find.text('80'), findsOneWidget);
-      expect(find.text('70'), findsOneWidget);
+      // are beside the number rather than behind a tap. Legacy's card shows
+      // readiness in the gauge and morning recovery in the sentence — 36 and 72
+      // in the contract snapshot, which is exactly the split that must survive.
+      expect(find.text('36'), findsOneWidget);
+      expect(
+        find.text("Morning recovery 72 · −36 from today's strain"),
+        findsOneWidget,
+      );
+      for (final factor in <String>[
+        'HRV',
+        'Resting HR',
+        'Sleep',
+        'Breathing',
+      ]) {
+        expect(
+          find.text(factor),
+          findsWidgets,
+          reason: '$factor is a factor row on the recovery card',
+        );
+      }
+      // A factor's own reading, out of the `factors` block the model used to
+      // parse away entirely. The contract snapshot scores `sleep` WITHOUT
+      // sending its minutes, and the repaired reading says so with an en dash —
+      // legacy prints `0.0h / 8h` there, a claim that the owner slept nothing.
+      expect(find.text('–'), findsWidgets);
+      expect(find.text('0.0h / 8h'), findsNothing);
     });
 
-    testWidgets('the illness flag renders its calibrated sentence verbatim', (
+    testWidgets('THE ILLNESS FLAG COMES BEFORE EVERY NUMBER IT OVERRIDES', (
       tester,
     ) async {
+      // Legacy references `illness_flag` in NO file. It is kept anyway — brief
+      // §4.1 makes it deterministic and outranking — and it is kept above
+      // everything a number can be read from.
+      _tall(tester);
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
       expect(find.text('POSSIBLE EARLY SIGNAL'), findsOneWidget);
       expect(find.textContaining('Possible early signal'), findsOneWidget);
-      expect(find.textContaining('breathing rate +2.4 bpm vs your baseline'), findsOneWidget);
+      expect(
+        find.textContaining('breathing rate +2.4 bpm vs your baseline'),
+        findsOneWidget,
+      );
+      final flagY = tester.getTopLeft(find.text('POSSIBLE EARLY SIGNAL')).dy;
+      for (final below in <Finder>[
+        find.text('RECOVERY'),
+        find.text('RESTING HR'),
+        find.text('HEART RATE · 24H'),
+      ]) {
+        expect(
+          tester.getTopLeft(below.first).dy,
+          greaterThan(flagY),
+          reason: 'nothing on this screen may be read before the flag',
+        );
+      }
     });
 
-    testWidgets('the suggested action closes the screen, as legacy does', (
+    testWidgets("the guidance sentence renders verbatim, in legacy's own card", (
       tester,
     ) async {
+      _tall(tester);
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('Suggested today'));
 
-      expect(find.text('Suggested today'), findsOneWidget);
+      // An active flag OVERRIDES this string on the server. Re-wording it in the
+      // app would re-word a safety message.
+      expect(find.textContaining('An illness signal is active'), findsOneWidget);
+    });
+
+    testWidgets('the suggested actions block is collapsed, as legacy leaves it', (
+      tester,
+    ) async {
+      _tall(tester);
+      await tester.pumpWidget(todayHost(store));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Suggested actions'), findsOneWidget);
+      expect(find.text('1 way to improve today'), findsOneWidget);
+      // Collapsed: the one thing on Today a model wrote is not what the screen
+      // opens with.
+      expect(find.text('Sleep earlier tonight'), findsNothing);
+
+      await tester.tap(find.text('Suggested actions'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sleep earlier tonight'), findsOneWidget);
     });
   });
 
-  group('what Today no longer carries', () {
+  group('what the API sends that legacy never drew', () {
     setUp(() => seedDevice(store));
 
-    testWidgets('THE PROSE THAT BELONGS TO A CARD MOVED WITH THE CARD', (
-      tester,
-    ) async {
-      // Roughly 500 words of reference writing used to sit on the home screen:
-      // the FRIEND registry, the questionnaire's sleep translation, and why the
-      // Sleep Regularity Index cannot be converted into years. Every sentence is
-      // still in the app — Activity and Sleep render the cards that carry them —
-      // and none of it is on the daily read.
+    testWidgets('STRENGTH IS ON SCREEN, WITH ITS BAND', (tester) async {
+      _tall(tester);
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
-      // Scroll to the bottom so nothing is merely un-built.
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, -4000));
+
+      expect(find.text('STRENGTH · THIS WEEK'), findsOneWidget);
+      // The target is a BAND — the evidence stops improving above 60 minutes,
+      // so the label may not read `/ 60 min`.
+      expect(find.text('/ 30–60 min'), findsOneWidget);
+      expect(find.text('45'), findsWidgets);
+    });
+
+    testWidgets("today's logged sessions are on screen, each naming its source", (
+      tester,
+    ) async {
+      _tall(tester);
+      await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      for (final relocated in <String>[
-        'FRIEND registry',
-        'Sleep regularity is not one of the levers',
-        'Fitted from a recorded session',
-        'Single-subject and observational',
-        'Against your own baseline',
-      ]) {
+      expect(find.text('TODAY · LOGGED'), findsOneWidget);
+      expect(find.text('Outdoor run'), findsOneWidget);
+      expect(find.text('30 min · strap'), findsOneWidget);
+      expect(find.text('Meditation'), findsOneWidget);
+    });
+
+    testWidgets('A DAY WITH NOTHING LOGGED DRAWS NO CARD AT ALL', (
+      tester,
+    ) async {
+      // The rule, and the `anomalies` cautionary case: an empty field renders
+      // nothing — no heading, no zero state, no placeholder.
+      _tall(tester);
+      await tester.pumpWidget(
+        todayHost(
+          store,
+          server: todayView(
+            mutate: (json) => <String, Object?>{
+              ...json,
+              'routine': const <String, Object?>{
+                'open_fast': null,
+                'meditation_today': <String, Object?>{'count': 0, 'minutes': 0},
+                'workouts': <Object?>[],
+                'logs_summary': <String, Object?>{},
+              },
+              'strength': null,
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('TODAY · LOGGED'), findsNothing);
+      expect(find.text('STRENGTH · THIS WEEK'), findsNothing);
+      // And no empty-state sentence in their place.
+      expect(find.textContaining('Nothing logged'), findsNothing);
+    });
+
+    testWidgets('NO RAW IDENTIFIER REACHES ANY SURFACE ON TODAY', (
+      tester,
+    ) async {
+      // The port's third sanctioned difference: citations resolve to readable
+      // source names. This is the whole-screen sweep behind it — a metric id, a
+      // note id or a citation marker printed at a person is a log line where a
+      // name belongs, and `grounded_surfaces_test.dart` only drives the four
+      // generated fields.
+      _tall(tester);
+      await tester.pumpWidget(todayHost(store));
+      await tester.pumpAndSettle();
+      // Both disclosures open, so nothing is merely un-built.
+      await tester.tap(find.text('Suggested actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Sleep earlier tonight'));
+      await tester.pumpAndSettle();
+
+      final snake = RegExp(r'\b[a-z0-9]+(_[a-z0-9]+)+\b');
+      for (final widget in tester.widgetList<Text>(find.byType(Text))) {
+        final line = widget.data;
+        if (line == null) {
+          continue;
+        }
         expect(
-          find.textContaining(relocated),
-          findsNothing,
-          reason: '"$relocated" is reference material, not a daily read',
+          snake.hasMatch(line),
+          isFalse,
+          reason: 'a raw identifier reached the screen: "$line"',
         );
+        expect(
+          line.contains('['),
+          isFalse,
+          reason: 'a citation marker reached the screen: "$line"',
+        );
+      }
+    });
+
+    testWidgets('NEITHER pai NOR anomalies GETS A SECTION', (tester) async {
+      // `pai` is null on this account and `read/today.py:83` sets `anomalies` to
+      // `[]` unconditionally — the real data is behind a separate, premium-gated
+      // `/api/notable`. A heading that can never have content under it is dead
+      // code, so neither is drawn at all.
+      _tall(tester);
+      await tester.pumpWidget(todayHost(store));
+      await tester.pumpAndSettle();
+
+      for (final absent in <String>['PAI', 'Anomalies', 'ANOMALIES']) {
+        expect(find.textContaining(absent), findsNothing);
       }
     });
   });

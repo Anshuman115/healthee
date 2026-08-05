@@ -19,10 +19,6 @@ import 'package:healthee/features/coach/widgets/coach_fab.dart';
 
 import '_today_host.dart';
 
-Future<void> _tapTab(WidgetTester tester, String label) async {
-  await tester.tap(find.text(label));
-  await tester.pumpAndSettle();
-}
 
 void main() {
   late LocalStore store;
@@ -61,7 +57,7 @@ void main() {
     expect(find.byType(CoachFab), findsOneWidget, reason: 'Today has it');
 
     for (final tab in <String>['Sleep', 'Activity', 'Insights', 'Actions']) {
-      await _tapTab(tester, tab);
+      await tapTab(tester, tab);
       expect(
         find.byType(CoachFab),
         findsNothing,
@@ -69,7 +65,7 @@ void main() {
       );
     }
 
-    await _tapTab(tester, 'Today');
+    await tapTab(tester, 'Today');
     expect(find.byType(CoachFab), findsOneWidget, reason: 'and it comes back');
   });
 
@@ -78,7 +74,7 @@ void main() {
     // control that starts a recording nothing can stop would be worse than none.
     await tester.pumpWidget(routedApp(store));
     await tester.pumpAndSettle();
-    await _tapTab(tester, 'Activity');
+    await tapTab(tester, 'Activity');
 
     expect(find.byType(FloatingActionButton), findsNothing);
   });

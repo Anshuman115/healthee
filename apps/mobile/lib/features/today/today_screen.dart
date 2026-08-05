@@ -62,6 +62,7 @@ class TodayScreen extends ConsumerWidget {
       lastStrapSync: ref.watch(deviceDayProvider).value?.sync.lastCompleteSync,
     );
     final controller = ref.read(syncControllerProvider.notifier);
+    final link = ref.watch(syncControllerProvider);
     return InstrumentScreen(
       now: now,
       // Above the scroll, and absent entirely while the answer is quiet: a
@@ -81,10 +82,16 @@ class TodayScreen extends ConsumerWidget {
           push: push,
           signedIn: signedIn,
           health: health,
+          // Legacy's header carries the strap's charge beside the date, and the
+          // ring around the avatar while a sync is running.
+          batteryPercent: ref.watch(deviceDayProvider).value?.batteryPercent,
+          syncing: link.isBusy,
           // Pushed, so back returns to Today. `go` would replace the
           // location and leave the sign-in screen with nothing beneath it.
           onSignIn: () => unawaited(context.push(Routes.serverSignIn)),
-          onOpen: context.go,
+          // Legacy's avatar opens the profile screen; settings is this app's
+          // equivalent surface and was already the avatar's destination.
+          onOpenProfile: () => unawaited(context.push(Routes.settings)),
         ),
       ),
     );

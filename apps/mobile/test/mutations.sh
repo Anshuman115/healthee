@@ -220,22 +220,25 @@ mutate 'the canonical row stops naming its method' "$TABS" "$SERVER_STRIP" \
   '        if (_instrumentNote(card.metric) case final String note)' \
   '        if (_instrumentNote(card.metric) case final String note when false)'
 
-# ── Today is an index ───────────────────────────────────────────────────────
-SECTIONS=lib/features/today/today_sections.dart
-GRID_TEST=test/features/today_grid_test.dart
+# ── Today is LEGACY'S screen, in legacy's order ─────────────────────────────
+BODY=lib/features/today/today_body.dart
+ORDER_TEST=test/features/today_order_test.dart
 
-# A card creeping back onto the daily read. Every one of them is a good card;
-# none of them is a daily read, and the screen this replaced had twenty.
-mutate 'a moved card comes back to Today' "$GRID_TEST" "$SECTIONS" \
-  "import 'package:healthee/features/today/widgets/stress_card.dart';" \
-  "import 'package:healthee/features/sleep/widgets/sleep_week_card.dart';
-import 'package:healthee/features/today/widgets/stress_card.dart';" \
-  '    PageSection(HeartRateCard(day: data.day, reveals: data.reveals, now: data.now)),' \
-  '    PageSection(HeartRateCard(day: data.day, reveals: data.reveals, now: data.now)),
-    if (snapshot != null)
-      PageSection(
-        SleepWeekCard(nights: snapshot.sleepHistory7d, reveals: data.reveals),
-      ),'
+# A re-ordering. Legacy's Today reads Sleep, then Activity, then Fitness, and
+# the whole point of the port is that the owner's screen did not move. A swap
+# like this compiles, renders, and looks like a design decision somebody made.
+mutate "legacy's section order is swapped" "$ORDER_TEST" "$BODY" \
+  '  sleepSections(sections, facts, tiles, reveals);
+  activitySections(sections, facts, tiles, reveals);' \
+  '  activitySections(sections, facts, tiles, reveals);
+  sleepSections(sections, facts, tiles, reveals);'
+
+# A section quietly dropped. Legacy draws the week whenever it has two nights;
+# a card that stops appearing is the failure mode a rendered-scroll test cannot
+# see, because most of Today is never built at 800x600.
+mutate 'a legacy section is dropped' "$ORDER_TEST" "$BODY" \
+  '  if (snapshot.sleepHistory7d.length >= 2) {' \
+  '  if (snapshot.sleepHistory7d.length >= 2 \&\& false) {'
 
 # ── the connection surface may only be quiet when nothing is wrong ──────────
 HEALTH=lib/data/sync/connection_health.dart
@@ -293,7 +296,7 @@ mutate 'polarity is ignored and the sign decides' "$TRENDS_TEST" "$POLARITY" \
       delta > 0 ? TrendVerdict.favourable : TrendVerdict.unfavourable,'
 
 # ── an out-of-shell route reached with `go` is a one-way door ───────────────
-HEADER=lib/features/today/widgets/today_header.dart
+SCREEN=lib/features/today/today_screen.dart
 DIAG_ROW=lib/features/settings/widgets/diagnostics_setting.dart
 STRAP_ROW=lib/features/settings/widgets/strap_setting.dart
 SERVER_ROW=lib/features/settings/widgets/server_setting.dart
@@ -304,9 +307,9 @@ BACK_TEST="test/features/back_navigation_test.dart test/features/out_of_shell_na
 # REPLACES the location, so Settings has nothing beneath it: the shell's back
 # rule finds an empty branch stack, correctly concludes "not on Today", and
 # leaves the app — from a screen the owner tapped into two seconds earlier.
-mutate 'the avatar reaches settings with go' "$BACK_TEST" "$HEADER" \
-  '      onPressed: () => unawaited(context.push(Routes.settings)),' \
-  '      onPressed: () => context.go(Routes.settings),'
+mutate 'the avatar reaches settings with go' "$BACK_TEST" "$SCREEN" \
+  '          onOpenProfile: () => unawaited(context.push(Routes.settings)),' \
+  '          onOpenProfile: () => context.go(Routes.settings),'
 
 # Two levels out: back from diagnostics must land on the screen that opened it.
 mutate 'diagnostics is reached with go' "$BACK_TEST" "$DIAG_ROW" \
@@ -401,6 +404,76 @@ mutate 'a one-night trend is plotted as a flat zero' "$WITHHELD_TEST" "$TRENDS" 
   '  bool get isPlottable => series.length >= minimumPoints;' \
   '  bool get isPlottable => true;'
 
+# ── Today: a refusal must never come back as a number ───────────────────────
+TILE=lib/features/today/widgets/metric_tile.dart
+RECOVERY=lib/features/today/widgets/recovery_card.dart
+LABELS=lib/features/today/today_labels.dart
+TILE_TEST=test/features/today_tiles_test.dart
+WITHHELD_TEST=test/features/today_withheld_test.dart
+LABEL_TEST=test/features/today_labels_test.dart
+
+# THE defect this whole architecture exists to make impossible, at the last hop:
+# a grid cell that draws a figure where the server sent a refusal. Zero is the
+# most dangerous version, because it is a plausible reading.
+mutate 'a withheld tile renders a number anyway' "$TILE_TEST" "$TILE" \
+  '          Withheld<double>(:final disclosure) => _Hole(
+            message: disclosure.message,
+            foot: foot,
+          ),' \
+  '          Withheld<double>() => _body(context, 0),'
+
+# The softer version: the hole is drawn and the REMEDY is dropped. Legacy has no
+# detail screen for these six metrics, so a cell that says only "withheld" is a
+# refusal with no explanation anywhere on the device.
+mutate 'a withheld tile drops the remedy' "$TILE_TEST" "$TILE" \
+  '          Text(message, style: HType.sans(colors.ink2, size: 11, height: 1.35)),' \
+  '          const SizedBox.shrink(),'
+
+# A withheld BLOCK silently vanishing is legacy's own behaviour and the one this
+# port deliberately does not keep: an absent card and a broken screen look the
+# same.
+mutate 'a withheld block is dropped instead of explained' "$WITHHELD_TEST" \
+  lib/shared/states/reading_view.dart \
+  '      Withheld<T>(:final disclosure) => WithheldCard(
+        disclosure: disclosure,
+        label: label,
+        onExplain: onExplainWithheld,
+      ),' \
+  '      Withheld<T>() => const SizedBox.shrink(),'
+
+# The fabricated hypnogram: legacy paints one light-sleep band for a night it
+# staged nothing.
+mutate 'an unstaged night is drawn as light sleep' "$LABEL_TEST" "$LABELS" \
+  'List<SleepStageSpan> hypnogramSpans(List<SleepStageSpan> stages) => [
+  for (final span in stages)
+    if (span.durationMin > 0) span,
+];' \
+  'List<SleepStageSpan> hypnogramSpans(List<SleepStageSpan> stages) {
+  final spans = [
+    for (final span in stages)
+      if (span.durationMin > 0) span,
+  ];
+  return spans.isNotEmpty
+      ? spans
+      : const <SleepStageSpan>[
+          SleepStageSpan(
+            stage: '"'"'core'"'"',
+            startOffsetMin: 0,
+            endOffsetMin: 1,
+            durationMin: 1,
+          ),
+        ];
+}'
+
+# The recovery card claiming a night of no sleep out of a missing field.
+mutate 'a sleep factor with no minutes reads as zero hours' \
+  test/features/today_screen_test.dart "$RECOVERY" \
+  '    if (slept == null || need == null) {
+      return '"'"'–'"'"';
+    }' \
+  '    if (slept == null || need == null) {
+      return '"'"'0.0h / 8h'"'"';
+    }'
 
 echo
 echo "caught $PASS, survived $FAIL"

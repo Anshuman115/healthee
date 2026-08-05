@@ -21,6 +21,7 @@ ScreenData screenData({
   DeviceDay? day,
   TodayView? server,
   AsyncValue<TodayView>? serverState,
+  DateTime? now,
 }) {
   return ScreenData(
     day: day ?? DeviceDay.empty('2026-08-04'),
@@ -30,5 +31,11 @@ ScreenData screenData({
             : AsyncData<TodayView>(server)),
     reveals: RevealRegistry(),
     onRetryServer: () {},
+    // Pinned by default, and it is load-bearing rather than tidy: Today decides
+    // whether last night's readings are stale by comparing the payload's own
+    // `end_iso` to this instant. Left to the wall clock, the contract snapshot
+    // ages past 24 h and the stale-sleep banner appears in every test that
+    // never asked about it.
+    now: now ?? DateTime(2026, 7, 31, 9, 30),
   );
 }

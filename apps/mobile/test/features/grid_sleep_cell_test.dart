@@ -1,4 +1,4 @@
-/// The grid's sleep cell draws a proportion bar, and its stages stay apart.
+/// The stage bar: its stages stay apart, and its widths are the real minutes.
 ///
 /// It drew the full four-lane hypnogram at 28 px — ~7 px a lane, with a 62% band
 /// inside that — so a fragmented night rendered as scattered dots. The drawing
@@ -21,7 +21,6 @@ import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
-import 'package:healthee/features/today/widgets/metric_grid.dart';
 import 'package:healthee/shared/charts/h_hypnogram.dart';
 import 'package:healthee/shared/charts/h_stage_bar.dart';
 
@@ -170,31 +169,25 @@ void main() {
     });
     tearDown(() async => store.close());
 
-    testWidgets('the GRID cell draws the bar and not the hypnogram', (
+    testWidgets("TODAY'S SLEEP TILE DRAWS LEGACY'S 30 px HYPNOGRAM", (
       tester,
     ) async {
+      // **This assertion is the reverse of what it was**, and deliberately.
+      // The rebuild put an `HStageBar` in the Today cell because four lanes in
+      // 28 px read as scattered dots. Legacy draws `HHypnogram(..., height: 30)`
+      // there (`today_screen.dart:177`), the owner made legacy the
+      // specification, and a faithful port of something imperfect beats an
+      // unrequested fix. The old argument is not wrong — it is overruled, and it
+      // is recorded in the port report so it can be re-made deliberately.
       tester.view
-        ..physicalSize = const Size(420, 1400)
+        ..physicalSize = const Size(420, 2600)
         ..devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
+      await reveal(tester, find.byType(HHypnogram));
 
-      expect(
-        find.descendant(
-          of: find.byType(MetricGrid),
-          matching: find.byType(HStageBar),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(MetricGrid),
-          matching: find.byType(HHypnogram),
-        ),
-        findsNothing,
-        reason: 'four lanes in 28 px read as scattered dots on real data',
-      );
+      expect(find.byType(HHypnogram), findsOneWidget);
     });
 
     testWidgets('THE HYPNOGRAM IS STILL ON SLEEP, AT FULL WIDTH', (tester) async {

@@ -48,6 +48,7 @@ class InstrumentModule extends StatelessWidget {
     this.trailing,
     this.onOpen,
     this.minHeight = 118,
+    this.padding = _padding,
     super.key,
   });
 
@@ -84,6 +85,11 @@ class InstrumentModule extends StatelessWidget {
   /// The floor every grid cell shares, so a row's two cards match.
   final double minHeight;
 
+  /// Inside the card. Legacy's `HModule` takes this too and three of its call
+  /// sites pass their own — the readiness block at 18, the actions header at
+  /// 15/13 (`today_screen.dart:572 · 922 · 973`).
+  final EdgeInsets padding;
+
   /// Legacy's `EdgeInsets.all(14)`.
   static const EdgeInsets _padding = EdgeInsets.all(14);
 
@@ -107,12 +113,12 @@ class InstrumentModule extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: minHeight),
           child: Padding(
-            padding: _padding,
+            padding: padding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (label case final String name) ...[
+                if (label case final String name when name.isNotEmpty) ...[
                   Row(
                     children: [
                       Expanded(child: ModuleLabel(name)),
@@ -158,10 +164,11 @@ class ModuleLabel extends StatelessWidget {
   /// Overrides [HealtheeColors.ink3].
   final Color? color;
 
-  /// Legacy's `HEyebrow.size`. 9 is its default; the page eyebrow passes 10.
+  /// Point size. 9 is legacy's `HEyebrow` default; its greeting date passes 10.
   final double size;
 
-  /// Legacy's `HEyebrow.tracking`, in ems.
+  /// Letter spacing in ems, as legacy passed it. 0.12 is the default; the
+  /// greeting date passes 0.16 (`today_screen.dart:450`).
   final double tracking;
 
   @override

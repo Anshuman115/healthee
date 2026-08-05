@@ -47,6 +47,7 @@ class GroundedProse extends StatelessWidget {
     this.grade,
     this.source,
     this.alsoCites = const <String>[],
+    this.maxLines,
     super.key,
   });
 
@@ -67,6 +68,14 @@ class GroundedProse extends StatelessWidget {
   /// claim shows one set of sources rather than two rows that disagree.
   final List<String> alsoCites;
 
+  /// Clamps the PROSE to this many lines, with an ellipsis. Null is unbounded.
+  ///
+  /// Only the prose: the citations underneath are never clipped, because a
+  /// truncated source is a source nobody can check. Added for the collapsed
+  /// action row on Today, which legacy draws as a single line
+  /// (`today_screen.dart:980`) and expands on tap.
+  final int? maxLines;
+
   @override
   Widget build(BuildContext context) {
     final parsed = parseGrounded(text);
@@ -81,7 +90,13 @@ class GroundedProse extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (parsed.prose.isNotEmpty) Text(parsed.prose, style: style),
+        if (parsed.prose.isNotEmpty)
+          Text(
+            parsed.prose,
+            style: style,
+            maxLines: maxLines,
+            overflow: maxLines == null ? null : TextOverflow.ellipsis,
+          ),
         if (ids.isNotEmpty ||
             parsed.personalFindings.isNotEmpty ||
             parsed.unresolved.isNotEmpty ||

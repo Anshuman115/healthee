@@ -34,9 +34,11 @@ import 'package:healthee/data/models/metric_card.dart';
 import 'package:healthee/data/models/recommendation.dart';
 import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/data/models/recovery_signals.dart';
+import 'package:healthee/data/models/routine.dart';
 import 'package:healthee/data/models/sleep_debt.dart';
 import 'package:healthee/data/models/sleep_health.dart';
 import 'package:healthee/data/models/sleep_history.dart';
+import 'package:healthee/data/models/strength.dart';
 import 'package:healthee/data/models/today_series.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/models/vo2max.dart';
@@ -66,6 +68,9 @@ class TodaySnapshot {
     required this.sparklines,
     required this.hourlyHeartRate,
     required this.hourlyStress,
+    required this.stepBuckets,
+    required this.strength,
+    required this.routine,
     required this.findings,
     required this.recommendations,
   });
@@ -98,6 +103,9 @@ class TodaySnapshot {
       sparklines: _sparklines(json['sparklines']),
       hourlyHeartRate: HourPoint.listFrom(json['today_hr_series']),
       hourlyStress: HourPoint.listFrom(json['today_stress_series']),
+      stepBuckets: StepBucket.listFrom(json['today_step_buckets']),
+      strength: Strength.maybe(_block(json['strength'])),
+      routine: Routine.fromJson(_block(json['routine'])),
       findings: [
         for (final entry in (json['top_findings'] as List? ?? const []))
           if (entry is Map<String, Object?>) Finding.fromJson(entry),
@@ -172,6 +180,20 @@ class TodaySnapshot {
 
   /// Today's stress, hourly.
   final List<HourPoint> hourlyStress;
+
+  /// Today's movement in 15-minute buckets — the Steps tile's bar strip.
+  final List<StepBucket> stepBuckets;
+
+  /// The week's strength training against its band, or null when the server
+  /// sent no block. **Legacy surfaced this in one file and Today in none.**
+  ///
+  /// Not a [Reading]: there is no gate on it, and a week at zero minutes is a
+  /// measurement rather than a refusal.
+  final Strength? strength;
+
+  /// What the owner logged or the strap recorded today. **Legacy surfaced this
+  /// nowhere at all.** Never null; `Routine.isEmpty` decides whether it draws.
+  final Routine routine;
 
   /// Correlations found in this owner's own data. Single-subject, observational.
   final List<Finding> findings;
