@@ -33,6 +33,7 @@
 /// dash that could equally mean zero, missing, or broken.
 library;
 
+import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/envelope.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/models/last_sleep.dart';
@@ -89,12 +90,22 @@ class TodayFacts {
       ),
       basalEnergy: snapshot.metric('basal_calories')?.reading.valueOrNull,
       totalEnergy: snapshot.metric('total_calories')?.reading.valueOrNull,
-      respiratoryRate: _chain(snapshot, const ['respiratory_rate_sleep'], signals, null),
+      // These two take a fourth source that the other four do not need, and it
+      // is not an enhancement — without it they were permanently withheld. See
+      // `_overnight`.
+      respiratoryRate: _chain(
+        snapshot,
+        const ['respiratory_rate_sleep'],
+        signals,
+        null,
+        overnight: _overnight(snapshot, endIso, now, (v) => v.respiratoryRate),
+      ),
       bloodOxygen: _chain(
         snapshot,
         const ['spo2_overnight', 'spo2_sleep_avg'],
         signals,
         null,
+        overnight: _overnight(snapshot, endIso, now, (v) => v.spo2Avg),
       ),
       sleepDurationMin: snapshot.lastSleep.map((night) => night.durationMin),
       sleepScore: sleep?.score,
@@ -132,10 +143,10 @@ class TodayFacts {
   /// `total_calories`, for the same foot.
   final double? totalEnergy;
 
-  /// `respiratory_rate_sleep`.
+  /// `respiratory_rate_sleep`, falling back to `last_sleep_extras`.
   final Reading<double> respiratoryRate;
 
-  /// `spo2_overnight`, falling back to `spo2_sleep_avg`.
+  /// `spo2_overnight` → `spo2_sleep_avg` → `last_sleep_extras`.
   final Reading<double> bloodOxygen;
 
   /// Last night's total sleep time, minutes.
@@ -202,8 +213,9 @@ class TodayFacts {
     TodaySnapshot snapshot,
     List<String> candidates,
     RecoverySignals? signals,
-    String? signalContains,
-  ) {
+    String? signalContains, {
+    Reading<double>? overnight,
+  }) {
     Reading<double>? firstRefusal;
     for (final id in candidates) {
       final card = snapshot.metric(id);
@@ -224,7 +236,77 @@ class TodayFacts {
         return Present<double>(value);
       }
     }
-    return firstRefusal ?? _absent;
+    // AFTER the recorded refusal, not before. If the server sent a card and
+    // refused to fill it, that refusal is a decision — "not enough overnight
+    // samples" — and letting an unbounded raw average walk in behind it would
+    // defeat a server gate on the last hop, which is the one failure
+    // `data/honesty/reading.dart` exists to make impossible. The fallback is for
+    // a metric the payload has NO card for at all, which is these two today.
+    return firstRefusal ?? (overnight?.hasValue ?? false ? overnight! : _absent);
+  }
+
+  /// The overnight vitals block as a last resort, **with its instrument named**.
+  ///
+  /// ## The bug this exists for
+  ///
+  /// The Resp and SpO₂ tiles read the `metrics` array, and `metrics` is built
+  /// from `read/meta.py::TODAY_SECONDARY_METRICS` — seven slots, none of them
+  /// respiratory or SpO₂. So `_chain` fell through every candidate, found no
+  /// recovery marker to rescue it (`recovery_signals` carries exactly three:
+  /// Resting HR, Sleep duration, Overnight HRV), and returned [_absent]. Both
+  /// surfaces have therefore rendered **withheld since the port and would have
+  /// forever** — a card permanently saying "no value, and the server did not
+  /// say why" about numbers the same payload was carrying.
+  ///
+  /// The tell is that their CHARTS drew fine: `sparklines` does back both ids,
+  /// so the blood-oxygen module rendered a fortnight of real data with a hole
+  /// where its headline figure should be, and the Resp tile did the same.
+  ///
+  /// ## Why the value arrives caveated rather than present
+  ///
+  /// `last_sleep_extras` is not the same number as `derived_daily`. It is a raw
+  /// `AVG` over the session window (`read/sleep_extras.py`), where the derived
+  /// metric is a bounded window mean — and it carries **no honesty envelope, no
+  /// provenance and no date**. CLAUDE.md's "ONE canonical definition per metric"
+  /// is exactly the rule that makes silently swapping one for the other wrong.
+  ///
+  /// So it is not swapped silently. It is the last link in the chain, so a
+  /// derived value always wins where one exists, and it arrives as [Caveated]
+  /// with a sentence naming the instrument and the night — which is what
+  /// "keep the instrument naming honest" has to mean for a block that names
+  /// none of its own. The sentence rides with the value through `ReadingView`
+  /// and `MetricTile` without either being asked.
+  ///
+  /// The real fix is a server one: add the two ids to `TODAY_SECONDARY_METRICS`
+  /// with their `METRIC_META` rows, and the tiles get medians, z-scores and
+  /// delta badges for free from the same path the working four use. That needs
+  /// a contract snapshot, so it is a server PR. This stops the app lying in the
+  /// meantime, and disappears on its own the day the server sends the card —
+  /// the derived value takes precedence in the chain above.
+  static Reading<double>? _overnight(
+    TodaySnapshot snapshot,
+    String? endIso,
+    DateTime now,
+    double? Function(OvernightVitals vitals) pick,
+  ) {
+    final vitals = snapshot.overnightVitals;
+    if (vitals == null) {
+      return null;
+    }
+    final value = pick(vitals);
+    if (value == null) {
+      return null;
+    }
+    final night = sleepNightLabel(endIso, now).toLowerCase();
+    return Caveated<double>(value, <Disclosure>[
+      Disclosure(
+        reason: 'overnight_session_mean',
+        message:
+            'Measured over your sleep session $night, as a plain average of the '
+            'strap’s overnight samples. It is not the bounded daily figure the '
+            'other cards show, and it is not today.',
+      ),
+    ]);
   }
 
   static RecoverySignal? _marker(RecoverySignals signals, String contains) {
