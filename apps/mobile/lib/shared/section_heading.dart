@@ -9,7 +9,7 @@
 /// a hairline. A heading that competes with the numbers under it is a heading
 /// that has misunderstood which is the content.
 ///
-/// ## Two things it gained
+/// ## What [metric] does
 ///
 /// **[metric] tints the rule and the title** when a section is about one metric
 /// family. It is a metric **id**, resolved through `MetricHues.tagFor` here — the
@@ -20,9 +20,14 @@
 /// did. A section about several families — "Fitness", "In your own data" — names
 /// no metric and stays [ink3].
 ///
-/// **[action] is legacy's `SectionTitle` action**: a `See all →` on the right that
-/// opens the tab owning the section. `screen_today.jsx` puts one over "Suggested
-/// today", and it is what makes Today an index rather than a destination.
+/// ## The `See all →` legacy has, and this does not
+///
+/// `ui.jsx`'s `SectionTitle` takes an action, and `screen_today.jsx` uses it in
+/// exactly one place: a `See all →` over "Suggested today" that opens the actions
+/// tab. **Actions has no screen**, so the parameter is not here — an unused
+/// widget parameter is a shape somebody will fill in eventually, and the only
+/// thing it could be filled in with today is a link to a crash. It comes back in
+/// the commit that ships that tab, which is three lines and a caller.
 library;
 
 import 'package:flutter/material.dart';
@@ -30,15 +35,13 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/metric_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
-/// A section title, optionally tinted, optionally with a link on the right.
+/// A section title, optionally tinted by the metric family it is about.
 class SectionHeading extends StatelessWidget {
   /// [title] names the domain; [subtitle] says what it is for, when that helps.
   const SectionHeading(
     this.title, {
     this.subtitle,
     this.metric,
-    this.action,
-    this.onAction,
     super.key,
   });
 
@@ -52,11 +55,6 @@ class SectionHeading extends StatelessWidget {
   /// section is about several. See the library docstring.
   final String? metric;
 
-  /// `See all` — the words on the right-hand link.
-  final String? action;
-
-  /// What that link does. The link is drawn only when both are given.
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -66,8 +64,6 @@ class SectionHeading extends StatelessWidget {
       final String id => context.hues.tagFor(id),
       _ => null,
     };
-    final link = action;
-    final onTap = onAction;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -76,40 +72,13 @@ class SectionHeading extends StatelessWidget {
           height: Insets.xl,
           thickness: hairline,
         ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Expanded(
-              child: Text(
-                title.toUpperCase(),
-                style: text.labelSmall?.copyWith(
-                  letterSpacing: 0.9,
-                  color: tag ?? colors.ink3,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            if (link != null && onTap != null)
-              // The accent, not the tag: this is a control, and the accent is
-              // what `tokens.dart` reserves for the things the owner can press.
-              // Tinting it with the section's tag would hide the one difference
-              // that matters here.
-              InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(Radii.chip),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Insets.xs,
-                    vertical: 2,
-                  ),
-                  child: Text(
-                    '$link →',
-                    style: text.labelMedium?.copyWith(color: colors.accent),
-                  ),
-                ),
-              ),
-          ],
+        Text(
+          title.toUpperCase(),
+          style: text.labelSmall?.copyWith(
+            letterSpacing: 0.9,
+            color: tag ?? colors.ink3,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         if (subtitle case final String line) ...[
           const SizedBox(height: Insets.xs),
