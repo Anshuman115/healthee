@@ -137,6 +137,11 @@ void main() {
         'week',
         'consistency',
         'trends',
+        // Added 2026-08-05: `/api/sleep` returns a `findings` array that reached
+        // no screen at all. Legacy had nothing here because legacy's endpoint
+        // did not send it. The contract fixture carries one finding; a payload
+        // with none draws no section, which the case below proves.
+        'findings',
         'naps',
       ]);
     });

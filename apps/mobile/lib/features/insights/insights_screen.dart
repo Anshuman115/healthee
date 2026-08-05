@@ -44,8 +44,8 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:healthee/data/models/trend_point.dart';
-import 'package:healthee/features/insights/widgets/findings_section.dart';
 import 'package:healthee/features/insights/widgets/trends_section.dart';
+import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/format/metric_polarity.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_head.dart';

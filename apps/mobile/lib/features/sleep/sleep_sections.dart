@@ -22,6 +22,7 @@
 ///   last 7 nights                ── ≥ 2 nights
 ///   bedtime · wake-time          ── ≥ 2 nights with both ends
 ///   trends · 14 nights
+///   findings                     ── when the payload carries any
 ///   naps · 30 days               ── when there are naps
 /// ```
 ///
@@ -51,6 +52,7 @@ import 'package:healthee/features/sleep/widgets/sleep_trends_card.dart';
 import 'package:healthee/features/sleep/widgets/sleep_week_card.dart';
 import 'package:healthee/features/sleep/widgets/stale_sleep_banner.dart';
 import 'package:healthee/features/sleep/widgets/tonight_card.dart';
+import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/section_heading.dart';
 
 /// Draws one section at the reveal's [progress].
@@ -234,7 +236,11 @@ List<SleepSection> sleepSections({
     SleepSection('vitals', (context, _) => OvernightVitalsCard(night: night)),
     SleepSection(
       'health',
-      (context, _) => SleepHealthCard(night: night),
+      (context, _) => SleepHealthCard(
+        night: night,
+        cutoffs: page.cutoffs,
+        notes: page.researchNotes,
+      ),
       gap: 24,
     ),
     const SleepSection(
@@ -280,6 +286,19 @@ List<SleepSection> sleepSections({
       (context, progress) =>
           SleepTrendsCard(recent: windows.recent, progress: progress),
     ),
+    // `/api/sleep`'s own `findings` — sleep-scoped correlations from this
+    // owner's history, which reached no screen at all: the model was not parsed
+    // and `FindingsSection` was wired only to `/api/today`'s `top_findings`.
+    //
+    // Under Patterns, because that is what they are, and **only when the list is
+    // non-empty**. `read/findings.py` returns `[]` whenever the analytics layer
+    // has nothing, which is most owners most of the time; a heading over an
+    // empty list would be a section that exists to say there is nothing in it.
+    if (page.findings.isNotEmpty)
+      SleepSection(
+        'findings',
+        (context, _) => FindingsSection(findings: page.findings),
+      ),
     if (page.naps.isNotEmpty)
       SleepSection('naps', (context, _) => NapsCard(naps: page.naps), gap: 0),
   ];

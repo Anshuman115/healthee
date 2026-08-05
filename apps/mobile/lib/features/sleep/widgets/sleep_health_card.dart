@@ -36,9 +36,12 @@ import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/models/sleep_night.dart';
+import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/features/sleep/sleep_format.dart';
 import 'package:healthee/features/sleep/widgets/sleep_value.dart';
+import 'package:healthee/shared/format/iso_clock.dart';
 import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/shared/states/citation_row.dart';
 import 'package:healthee/shared/states/value_hole.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -57,19 +60,40 @@ typedef SleepDimension = ({
 
 /// Legacy's "Sleep health · 4-dim" module.
 class SleepHealthCard extends StatelessWidget {
-  /// [night] carries all four checks and the count.
-  const SleepHealthCard({required this.night, super.key});
+  /// [night] carries all four checks and the count; [cutoffs] and [notes] come
+  /// off the same `/api/sleep` payload.
+  const SleepHealthCard({
+    required this.night,
+    this.cutoffs,
+    this.notes = const <String>[],
+    super.key,
+  });
 
   /// The night being judged.
   final SleepNight night;
 
-  /// The four dimensions, in legacy's order, with legacy's cutoff strings.
+  /// The server's own thresholds. Null falls back to the words below.
+  final SleepCutoffs? cutoffs;
+
+  /// The corpus notes licensing those thresholds — `/api/sleep`'s
+  /// `research_notes`. Empty renders nothing.
+  final List<String> notes;
+
+  /// The four dimensions, in legacy's order.
+  ///
+  /// **The cutoff strings are the server's numbers now.** They were four
+  /// literals — `7–9 h`, `≥ 85%`, `2–4 am mid`, `SRI ≥ 70` — which made this
+  /// card a second place the science lived. `read/sleep_common.py::SLEEP_CUTOFFS`
+  /// is what the four checks are actually scored against, so a change there
+  /// would have left the card printing an old threshold beside a check that
+  /// moved, with nothing failing. On the current payload the strings are
+  /// character-identical to legacy's.
   List<SleepDimension> get dimensions => <SleepDimension>[
     (
       name: 'Duration',
       passed: night.pointDuration,
       measured: _formatted(night.tstMin, hoursMinutes),
-      cutoff: '7–9 h',
+      cutoff: _band(cutoffs?.durationHours, (hours) => _hours(hours), '7–9 h'),
     ),
     (
       name: 'Efficiency',
@@ -78,19 +102,29 @@ class SleepHealthCard extends StatelessWidget {
         night.efficiencyPct,
         (value) => '${value.toStringAsFixed(0)}%',
       ),
-      cutoff: '≥ 85%',
+      // The server sends a FRACTION here (0.85) where the reading above is a
+      // percentage. Multiplying in one place is the whole reason this is not
+      // four literals.
+      cutoff: cutoffs?.efficiencyMin == null
+          ? '≥ 85%'
+          : '≥ ${(cutoffs!.efficiencyMin! * 100).round()}%',
     ),
     (
       name: 'Timing',
       passed: night.pointTiming,
-      measured: night.midpointLocal.valueOrNull,
-      cutoff: '2–4 am mid',
+      // `midpoint_local` arrives as a FULL ISO instant with the owner's offset
+      // (`2026-07-31T02:45:00+05:30`), and this row printed it raw into a 13 px
+      // cell — a timestamp ellipsized to nothing where a clock time belongs.
+      measured: clockOfIso(night.midpointLocal.valueOrNull),
+      cutoff: _band(cutoffs?.timingHourBand, _amBand, '2–4 am mid'),
     ),
     (
       name: 'Regularity',
       passed: night.pointRegularity,
       measured: _formatted(night.sri, (value) => value.toStringAsFixed(0)),
-      cutoff: 'SRI ≥ 70',
+      cutoff: cutoffs?.sriMin == null
+          ? 'SRI ≥ 70'
+          : 'SRI ≥ ${cutoffs!.sriMin!.toStringAsFixed(0)}',
     ),
   ];
 
@@ -101,6 +135,24 @@ class SleepHealthCard extends StatelessWidget {
     final value = reading.valueOrNull;
     return value == null ? null : format(value);
   }
+
+  /// [format] applied to [bounds], or [fallback] when the server sent none.
+  static String _band(
+    List<double>? bounds,
+    String Function(List<double> bounds) format,
+    String fallback,
+  ) => bounds == null ? fallback : format(bounds);
+
+  static String _hours(List<double> bounds) =>
+      '${_plain(bounds.first)}–${_plain(bounds.last)} h';
+
+  static String _amBand(List<double> bounds) =>
+      '${_plain(bounds.first)}–${_plain(bounds.last)} am mid';
+
+  /// `7.0` → `7`, `7.5` → `7.5`. A threshold printed as `7.0 h` reads as a
+  /// precision the consensus band does not have.
+  static String _plain(double value) =>
+      value == value.roundToDouble() ? value.round().toString() : '$value';
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +182,15 @@ class SleepHealthCard extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         for (final dimension in dimensions) _DimensionRow(dimension: dimension),
+        // `/api/sleep`'s own `research_notes` — the four notes that license the
+        // cutoffs above. The Sleep tab carried no citation anywhere, on the one
+        // card that is entirely made of published thresholds.
+        //
+        // No heading and no spacer of its own: an empty list must render
+        // NOTHING, and a `SizedBox` above a `CitationRow` that drew nothing
+        // would be a gap with no cause. `CitationRow` shrinks itself.
+        if (notes.isNotEmpty) const SizedBox(height: Insets.sm),
+        CitationRow(noteIds: notes),
         SleepGapNote(
           fields: <String, Reading<Object>>{
             'The count of checks passed': night.healthScore,

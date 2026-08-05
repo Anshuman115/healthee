@@ -175,7 +175,7 @@ mutate 'core and light stop being the same stage' "$STAGE_TEST" "$HUES" \
     'light' => spo2,"
 
 # ── the insight rewrite ─────────────────────────────────────────────────────
-FINDINGS=lib/features/insights/widgets/findings_section.dart
+FINDINGS=lib/shared/findings_section.dart
 WORDING=test/features/findings_wording_test.dart
 
 # The regression this change exists to undo: the server's debug string back on

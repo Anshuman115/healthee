@@ -26,8 +26,8 @@ import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
-import 'package:healthee/features/insights/widgets/findings_section.dart';
 import 'package:healthee/features/insights/widgets/trends_section.dart';
+import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/format/metric_polarity.dart';
 import 'package:healthee/shared/reveal_once.dart';
 

@@ -1,5 +1,13 @@
 /// Personal findings — the app's most personal claim, and its narrowest.
 ///
+/// **Moved out of `features/insights/widgets/` on 2026-08-05.** `/api/sleep`
+/// returns its own `findings` array — sleep-scoped correlations from the same
+/// `read/findings.py::_shape`, the same `Finding` model — and Sleep may not
+/// import from Insights (Standards §3: nothing reaches into another feature).
+/// Two features needing one widget is what `shared/` is for; the alternative was
+/// a second copy of the wording rules, which is the one thing this file's
+/// docstring spends four screens arguing against.
+///
 /// These are correlations discovered in **this one owner's** data. Brief §5.9
 /// requires the label to say so, and it is not a disclaimer bolted on: the
 /// finding was found by searching many metric pairs across one person's history,

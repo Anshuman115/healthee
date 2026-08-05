@@ -135,7 +135,13 @@ void main() {
       // a decision about what to draw, and `sleepSections` is where it is made.
       final page = sleepPageFixture();
       final ids = sleepSections(
-        page: SleepPage(nights: <SleepNight>[page.nights.first], naps: const []),
+        page: SleepPage(
+          nights: <SleepNight>[page.nights.first],
+          naps: const [],
+          cutoffs: page.cutoffs,
+          findings: const [],
+          researchNotes: page.researchNotes,
+        ),
         consistency: consistencyFixture(),
         now: kSleepNow,
       ).map((section) => section.id).toSet();
