@@ -172,7 +172,6 @@ class GreetingHeader extends StatelessWidget {
                     colors.accent,
                     size: 42,
                     height: 1.02,
-                    italic: true,
                   ),
                 ),
               ],

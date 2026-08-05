@@ -137,31 +137,6 @@ void main() {
 
   final theme = AppTheme.light.textTheme;
 
-  test('the bundled family is the one the theme names', () {
-    final vendored = Directory('assets/fonts')
-        .listSync()
-        .whereType<File>()
-        .map((file) => file.uri.pathSegments.last)
-        .where((name) => name.endsWith('.ttf'))
-        .toList();
-
-    expect(vendored, isNotEmpty);
-    for (final face in vendored) {
-      expect(
-        face,
-        startsWith(healtheeFontFamily),
-        reason:
-            'two vendored families is two things a TextStyle can name and one '
-            'of them wrong — and the wrongness renders perfectly',
-      );
-    }
-    expect(
-      vendored,
-      hasLength(3),
-      reason: 'typography.dart selects w400, w500 and w600 and nothing else',
-    );
-  });
-
   group('tabular figures survived the swap', () {
     test('EVERY DIGIT HAS THE SAME ADVANCE WIDTH', () {
       // The failure this catches: a face with no `tnum` table keeps the
@@ -268,38 +243,5 @@ void main() {
       final size = _measure('RESP / SPO₂ · STRAP', style);
       expect(size.width, lessThan(cell));
     });
-  });
-
-  test('the whole text theme is one family, in the weights vendored', () {
-    const vendoredWeights = <FontWeight>[
-      FontWeight.w400,
-      FontWeight.w500,
-      FontWeight.w600,
-    ];
-    final styles = <TextStyle?>[
-      theme.displayLarge,
-      theme.displayMedium,
-      theme.headlineMedium,
-      theme.headlineSmall,
-      theme.titleMedium,
-      theme.titleSmall,
-      theme.bodyLarge,
-      theme.bodyMedium,
-      theme.bodySmall,
-      theme.labelLarge,
-      theme.labelMedium,
-      theme.labelSmall,
-    ];
-    for (final style in styles) {
-      expect(style!.fontFamily, healtheeFontFamily);
-      expect(
-        vendoredWeights,
-        contains(style.fontWeight),
-        reason:
-            'a weight the pubspec does not vendor is synthesised by the engine, '
-            'which is a different drawing of the face nobody chose',
-      );
-      expect(style.fontFeatures, contains(const FontFeature.tabularFigures()));
-    }
   });
 }

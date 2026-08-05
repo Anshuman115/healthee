@@ -169,13 +169,23 @@ flutter:
   # Manrope, vendored rather than fetched — no CDN at paint time, and a
   # cold-start budget of 2 s to first meaningful paint (Standards §1). SIL OFL
   # (no Reserved Font Name); the licence ships beside the files in
-  # assets/fonts/OFL.txt. ~290 KB total.
+  # assets/fonts/OFL.txt. ~386 KB total.
   #
-  # THREE weights and no more: 400/500/600 are exactly what `typography.dart`
-  # asks for. Instrument Sans shipped a 700 nothing selected, which is 48 KB of
-  # binary for a weight no style names. Each file is instanced from upstream's
-  # `Manrope[wght].ttf` variable font at a fixed `wght`, so the three are one
-  # design rather than three drawings.
+  # FOUR weights, and the list is derived rather than chosen: it is exactly the
+  # set of `FontWeight.w*` values the app names (400/500/600/700), which
+  # `test/core/typography_test.dart` re-derives by scanning `lib/` and compares
+  # against this block. A weight a style asks for and the bundle lacks does not
+  # fail to render — Flutter substitutes the nearest one and the text is simply
+  # a shade off, invisibly. `HType.number` (legacy's `HType.num`, weight 700)
+  # was drawing at 600 for exactly that reason.
+  #
+  # Each file is instanced from upstream's `Manrope[wght].ttf` variable font at
+  # a fixed `wght`, so the four are one design rather than four drawings.
+  #
+  # There is NO italic here and there cannot be: Manrope's variable font carries
+  # a single `wght` axis (200–800) and upstream publishes no italic companion.
+  # See `instrument_type.dart` — the slant is not deferred, it is unavailable in
+  # the face the owner chose, so the app stopped asking for it.
   fonts:
     - family: Manrope
       fonts:
@@ -185,3 +195,5 @@ flutter:
           weight: 500
         - asset: assets/fonts/Manrope-SemiBold.ttf
           weight: 600
+        - asset: assets/fonts/Manrope-Bold.ttf
+          weight: 700
