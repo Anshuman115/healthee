@@ -50,7 +50,13 @@ class InstrumentModule extends StatelessWidget {
     this.minHeight = 118,
     this.padding = _padding,
     super.key,
-  });
+  }) : assert(
+         infoKey == null || label != null,
+         'An infoKey with no label is a DEAD CONTROL: the header row this ⓘ '
+         'lives in is only drawn when a label exists, so the explainer is '
+         'unreachable and nothing on screen shows that it is. Give the card a '
+         'label, or drop the infoKey — the Sleep hero did the latter.',
+       );
 
   /// The metric's name. Rendered uppercase by [ModuleLabel].
   ///

@@ -62,6 +62,7 @@ class RecoverySignalsCard extends StatelessWidget {
     final colors = context.colors;
     return InstrumentModule(
       label: 'Recovery signals',
+      infoKey: 'recovery',
       tag: colors.accent,
       minHeight: 0,
       trailing: Text.rich(
@@ -201,10 +202,9 @@ class _SignalRow extends StatelessWidget {
                   if (source.isNotEmpty)
                     TextSpan(
                       text: source,
-                      style: HType.sans(
-                        colors.ink3,
-                        size: 11.5,
-                      ).copyWith(fontStyle: FontStyle.italic),
+                      // Upright, and always was — Manrope ships no italic.
+                      // See `instrument_type.dart`.
+                      style: HType.sans(colors.ink3, size: 11.5),
                     ),
                 ],
               ),

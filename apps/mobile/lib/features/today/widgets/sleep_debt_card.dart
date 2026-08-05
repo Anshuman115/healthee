@@ -55,6 +55,7 @@ class SleepDebtCard extends StatelessWidget {
     final gap = debt.avgDeficitMin;
     return InstrumentModule(
       label: 'Sleep need · debt',
+      infoKey: 'sleep_debt',
       tag: tint,
       minHeight: 0,
       trailing: Text(

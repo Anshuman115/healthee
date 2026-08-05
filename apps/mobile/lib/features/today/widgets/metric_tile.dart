@@ -57,6 +57,7 @@ class MetricTile extends StatelessWidget {
     required this.reading,
     required this.format,
     required this.chart,
+    this.infoKey,
     this.unit,
     this.valueColor,
     this.foot,
@@ -80,6 +81,13 @@ class MetricTile extends StatelessWidget {
 
   /// The 30 px chart. Never drawn when [reading] carries no value.
   final Widget chart;
+
+  /// Which explainer this cell's ⓘ opens — legacy's `_MetricModule.infoKey`.
+  ///
+  /// Every one of legacy's six grid cells passes one. The port dropped them
+  /// because `shared/metric_info/` did not exist yet, which left six cards whose
+  /// only description of the metric was its own three-word label.
+  final String? infoKey;
 
   /// The unit beside the figure.
   final String? unit;
@@ -113,6 +121,7 @@ class MetricTile extends StatelessWidget {
     return InstrumentModule(
       label: label,
       tag: tag,
+      infoKey: infoKey,
       minHeight: 0,
       trailing: rounded != null && rounded != 0
           ? HDeltaBadge(rounded, good: deltaFavorable, size: 10)

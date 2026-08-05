@@ -72,6 +72,7 @@ class StressCard extends StatelessWidget {
         : (series.reduce((a, b) => a + b) / series.length).round();
     return InstrumentModule(
       label: useIntraday ? 'Stress · today' : 'Stress · 14 days',
+      infoKey: 'stress',
       tag: tint,
       minHeight: 0,
       trailing: average == null

@@ -81,6 +81,7 @@ class BioAgeCard extends StatelessWidget {
     return InstrumentModule(
       label: 'Biological age · estimate',
       tag: context.hues.readiness,
+      infoKey: 'biological_age',
       minHeight: 0,
       children: [
         const SizedBox(height: 2),

@@ -71,10 +71,16 @@ class SleepHeroCard extends StatelessWidget {
     final efficiency = night.efficiencyPct.valueOrNull;
     return InstrumentModule(
       tag: null,
-      // Legacy passes `infoKey: 'sleep'` here with NO label — and its `HModule`
-      // only draws the header row when a label exists, so the ⓘ never appears.
-      // Ported as found; reported rather than fixed in the diff.
-      infoKey: 'sleep',
+      // **Legacy's `infoKey: 'sleep'` is deliberately NOT passed here.** It was,
+      // and it was dead: `HModule` draws the header row only when a `label`
+      // exists, this card passes none, so the ⓘ has never rendered — in legacy
+      // either. Keeping the argument left a control in the code that no owner
+      // could reach and no reader could tell was unreachable.
+      //
+      // Rendering it instead would mean giving this card a header row it has
+      // never had — ~25 px above the gauge — and layout is the owner's call, not
+      // this diff's. So the argument goes and the explainer stays reachable: the
+      // `sleep` key is wired to Today's Sleep tile, which has a label.
       minHeight: 0,
       children: <Widget>[
         Row(

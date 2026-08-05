@@ -58,6 +58,7 @@ class MvpaCard extends StatelessWidget {
     ];
     return InstrumentModule(
       label: 'Active minutes · MVPA',
+      infoKey: 'mvpa',
       tag: colors.accent,
       minHeight: 0,
       trailing: Text(

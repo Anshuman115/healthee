@@ -79,6 +79,7 @@ class CardioLoadCard extends StatelessWidget {
     final trend = <double>[for (final point in load.trend30d) point.value];
     return InstrumentModule(
       label: 'Strain · cardio load',
+      infoKey: 'cardio_load',
       tag: tint,
       minHeight: 0,
       trailing: Text(

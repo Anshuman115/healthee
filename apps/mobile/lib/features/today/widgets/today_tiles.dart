@@ -40,6 +40,7 @@ class TodayTiles {
   MetricTile sleep(BuildContext context) => MetricTile(
     label: 'Sleep',
     tag: context.hues.sleep,
+    infoKey: 'sleep',
     reading: facts.sleepDurationMin.map((minutes) => minutes.toDouble()),
     format: (minutes) => clockDuration(minutes.round()),
     unit: 'hrs',
@@ -61,6 +62,7 @@ class TodayTiles {
     return MetricTile(
       label: 'Resting HR',
       tag: tint,
+      infoKey: 'rhr_daily',
       reading: facts.restingHeartRate,
       format: (value) => value.round().toString(),
       unit: 'bpm',
@@ -88,6 +90,7 @@ class TodayTiles {
     return MetricTile(
       label: 'HRV',
       tag: tint,
+      infoKey: 'hrv',
       valueColor: tint,
       reading: facts.heartRateVariability,
       format: (value) => value.round().toString(),
@@ -119,6 +122,7 @@ class TodayTiles {
     return MetricTile(
       label: 'Steps',
       tag: tint,
+      infoKey: 'steps_total',
       reading: facts.steps,
       format: (value) => commaGrouped(value.round()),
       foot: facts.medianFootFor(TodayMetricIds.steps),
@@ -151,6 +155,7 @@ class TodayTiles {
     return MetricTile(
       label: 'Energy · active',
       tag: tint,
+      infoKey: 'energy',
       valueColor: tint,
       reading: facts.activeEnergy,
       format: (value) => value.round().toString(),
@@ -187,6 +192,7 @@ class TodayTiles {
     return MetricTile(
       label: 'Respiratory rate',
       tag: tint,
+      infoKey: 'resp',
       valueColor: tint,
       reading: facts.respiratoryRate,
       format: (value) => value.round().toString(),

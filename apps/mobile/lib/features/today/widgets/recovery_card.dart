@@ -99,6 +99,7 @@ class RecoveryCard extends StatelessWidget {
     final drained = readiness < score.recovery;
     return InstrumentModule(
       label: 'Recovery',
+      infoKey: 'recovery_score',
       tag: tint,
       minHeight: 0,
       children: [

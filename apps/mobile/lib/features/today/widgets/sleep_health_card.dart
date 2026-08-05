@@ -69,6 +69,7 @@ class SleepHealthCard extends StatelessWidget {
     ];
     return InstrumentModule(
       label: 'Sleep health · 4-dim',
+      infoKey: 'sleep_health',
       tag: colors.accent,
       minHeight: 0,
       children: [
@@ -162,10 +163,11 @@ class _DimensionRow extends StatelessWidget {
                       ),
                       TextSpan(
                         text: dimension.source,
-                        style: HType.sans(
-                          colors.ink3,
-                          size: 11.5,
-                        ).copyWith(fontStyle: FontStyle.italic),
+                        // Legacy set the source in italic. Manrope has no
+                        // italic face (see `instrument_type.dart`), so this
+                        // rendered upright and the emphasis was ink3 alone all
+                        // along. The dead `copyWith` is gone; nothing moves.
+                        style: HType.sans(colors.ink3, size: 11.5),
                       ),
                     ],
                   ),

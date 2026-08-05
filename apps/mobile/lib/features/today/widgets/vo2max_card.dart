@@ -63,6 +63,7 @@ class Vo2maxCard extends StatelessWidget {
     final sex = vo2max.sex == 'female' ? 'F' : 'M';
     return InstrumentModule(
       label: 'VO₂max · estimate',
+      infoKey: 'vo2max',
       tag: tint,
       minHeight: 0,
       trailing: Text(
