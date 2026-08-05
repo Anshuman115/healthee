@@ -1,50 +1,48 @@
-/// The quiet rule that separates one domain of a screen from the next.
+/// The title over a run of cards. **Legacy's `HSectionTitle`, ported.**
 ///
-/// Legacy's `today_screen.dart` was organised in domain sections — recovery and
-/// heart, sleep, activity, fitness, insights — and that ordering is the product
-/// of real use rather than of a metric taxonomy. The headings are what make it
-/// legible while scrolling.
+/// ```text
+///   Sleep                                     See all →
+/// ```
 ///
-/// Deliberately small and un-emphatic: [HealtheeColors.ink3] at label size, over
-/// a hairline. A heading that competes with the numbers under it is a heading
-/// that has misunderstood which is the content.
+/// Legacy (`ui.dart:174`) draws a display-size title at 23 px on the left and an
+/// optional uppercase action link on the right, baseline-aligned, with 12 px of
+/// air under the pair and 2 px of inset either side. That is what this is now.
 ///
-/// ## What [metric] does
+/// ## What this replaced, and why it went
 ///
-/// **[metric] tints the rule and the title** when a section is about one metric
-/// family. It is a metric **id**, resolved through `MetricHues.tagFor` here — the
-/// same one table every grid cell asks — so a heading cannot be given a colour
-/// that disagrees with the cards under it, and it cannot be given a judgement
-/// colour at all. It is the reason a Sleep screen reads blue and an Activity
-/// screen reads violet without either of them saying anything about how the owner
-/// did. A section about several families — "Fitness", "In your own data" — names
-/// no metric and stays [ink3].
+/// The previous revision was a rebuild invention: a 10 px uppercase label over a
+/// hairline `Divider`, tinted by the metric family the section was about. It read
+/// well and it is **not what legacy draws**, and legacy is the specification. The
+/// per-section tint went with it — legacy's section titles are always ink, and the
+/// colour system that made a tinted rule safe (the five identity tags) no longer
+/// exists.
 ///
 /// ## The `See all →`
 ///
-/// `ui.jsx`'s `SectionTitle` takes an action, and `screen_today.jsx` uses it in
-/// exactly one place: a `See all →` over "Suggested today" that opens the actions
-/// tab. It was left out while Actions had no screen — a parameter whose only
-/// possible argument is a link to a crash — and it is back with the screen, at
-/// the one call site legacy has.
+/// Legacy's `SectionTitle` takes an action and renders it as `'$action →'` in the
+/// green accent at label size. [onSeeAll] and [seeAllLabel] travel together and
+/// neither is optional without the other: a label with no destination is a dead
+/// control, a destination with no label is an invisible one.
 ///
-/// [onSeeAll] and [seeAllLabel] travel together and neither is optional without
-/// the other: a label with no destination would be a dead control, and a
-/// destination with no label would be an invisible one.
+/// ## [subtitle] is not legacy's, and is kept deliberately
+///
+/// Legacy has no subtitle. This one carries honesty wording — what a section's
+/// numbers are measured from, when that cannot be said inside a card — which is
+/// the one category of addition the port is allowed to make. It renders quietly
+/// under the title and is absent unless a caller passes it.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/shared/instrument/h_tap.dart';
 
-/// A section title, optionally tinted by the metric family it is about.
+/// A section title, with an optional action on the right.
 class SectionHeading extends StatelessWidget {
-  /// [title] names the domain; [subtitle] says what it is for, when that helps.
+  /// [title] names the domain; [subtitle] carries honesty wording when needed.
   const SectionHeading(
     this.title, {
     this.subtitle,
-    this.metric,
     this.onSeeAll,
     this.seeAllLabel = 'See all',
     super.key,
@@ -53,64 +51,60 @@ class SectionHeading extends StatelessWidget {
   /// The domain — "Recovery & heart", "Sleep", "Fitness".
   final String title;
 
-  /// One line under it. Omit unless it earns its place.
+  /// One quiet line under it. Omit unless it earns its place.
   final String? subtitle;
-
-  /// A canonical metric id whose family tints this heading, or null when the
-  /// section is about several. See the library docstring.
-  final String? metric;
 
   /// Opens the whole of what this section indexes. Null draws no control.
   final VoidCallback? onSeeAll;
 
-  /// What that control says.
+  /// What that control says. Legacy renders it as `LABEL →`.
   final String seeAllLabel;
+
+  /// Legacy's `EdgeInsets.fromLTRB(2, 0, 2, 12)`.
+  static const EdgeInsets _padding = EdgeInsets.fromLTRB(2, 0, 2, 12);
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    final tag = switch (metric) {
-      final String id => context.hues.tagFor(id),
-      _ => null,
-    };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Divider(
-          color: tag?.withValues(alpha: 0.45) ?? colors.line2,
-          height: Insets.xl,
-          thickness: hairline,
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                title.toUpperCase(),
-                style: text.labelSmall?.copyWith(
-                  letterSpacing: 0.9,
-                  color: tag ?? colors.ink3,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            if (onSeeAll case final VoidCallback open)
-              GestureDetector(
-                onTap: open,
+    return Padding(
+      padding: _padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
                 child: Text(
-                  '$seeAllLabel →',
-                  // The accent is the colour of an action in this app, and this
-                  // is one. It says nothing about a reading.
-                  style: text.labelSmall?.copyWith(color: colors.accent),
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: HType.serif(colors.ink),
                 ),
               ),
+              if (onSeeAll case final VoidCallback open)
+                HTap(
+                  onTap: open,
+                  child: Semantics(
+                    button: true,
+                    label: '$seeAllLabel $title',
+                    child: ExcludeSemantics(
+                      child: Text(
+                        '${seeAllLabel.toUpperCase()} →',
+                        style: HType.label(colors.accent),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (subtitle case final String line) ...[
+            const SizedBox(height: 4),
+            Text(line, style: HType.sans(colors.ink3, size: 12)),
           ],
-        ),
-        if (subtitle case final String line) ...[
-          const SizedBox(height: Insets.xs),
-          Text(line, style: text.bodySmall?.copyWith(color: colors.ink3)),
         ],
-      ],
+      ),
     );
   }
 }

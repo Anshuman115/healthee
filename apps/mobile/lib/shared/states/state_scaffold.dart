@@ -12,6 +12,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
 /// The card every state renders inside — a hairline frame, generous radius.
@@ -47,10 +48,15 @@ class StateCard extends StatelessWidget {
   final Color? fill;
 
   /// The one card shape, so a grid module and a detail card share a corner.
-  static ShapeBorder shapeOf(Color border) => RoundedSuperellipseBorder(
-    borderRadius: BorderRadius.circular(Radii.card),
-    side: BorderSide(color: border, width: hairline),
-  );
+  /// The one card corner in the app — legacy's `hSquircle` at [Radii.card].
+  ///
+  /// It used to be Flutter's own `RoundedSuperellipseBorder`, which draws Apple's
+  /// continuous corner and is very close to what this returns. It now delegates
+  /// to `shapes.dart` so there is a single definition of the corner, and so that
+  /// definition is the one legacy actually drew against (`smooth_corner` at
+  /// smoothness 0.6).
+  static ShapeBorder shapeOf(Color border) =>
+      hSquircle(Radii.card, side: BorderSide(color: border, width: hairline));
 
   @override
   Widget build(BuildContext context) {

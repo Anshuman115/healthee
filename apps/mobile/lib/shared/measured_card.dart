@@ -17,7 +17,7 @@
 /// the hero figure's unit picks up the same colour so the tag reads as a
 /// property of the metric rather than a decoration on the heading. The **number
 /// stays in ink**: a tinted figure is the first step towards a tinted figure
-/// that means something, and `metric_hues.dart` is emphatic that a tag never
+/// that means something, and `instrument_hues.dart` is emphatic that a tag never
 /// says anything about a value.
 ///
 /// Both are optional, and a card about several metrics passes neither.

@@ -1,39 +1,38 @@
-/// The legacy grid's component language: a module, its label, its value, its foot.
+/// The instrument module — legacy's `HModule`, and the three parts inside it.
 ///
-/// **Ported from** `design_reference/project/hh/ui.jsx` — `Module`,
-/// `ModuleValue`, `Foot` and the `.lbl` class in `styles/hh.css`. Structure and
-/// density are legacy's; type and colour are this app's.
+/// **Ported from** `healthee-legacy/app/lib/ui/ui.dart` (`HModule`, `HEyebrow`,
+/// `HModuleValue`, `HFoot`), geometry unchanged:
 ///
 /// ```text
 ///   ┌──────────────────────────┐
-///   │ SLEEP                  ● │   label (uppercase, wide-tracked) + tag dot
-///   │ 7:50 hrs                 │   value + unit, baseline-aligned
-///   │ ▁▂▃▅▃▂▁                  │   the chart, pinned to the bottom
-///   │ DEEP 90  REM 90          │   foot — the context line
+///   │ SLEEP                  ● │  eyebrow 9 px / 0.12 em · 6 px dot
+///   │ 7:50 hrs                 │  figure 27 px, unit 10 px on the baseline
+///   │ ▁▂▃▅▃▂▁                  │  the chart
+///   │ DEEP 90  REM 90          │  foot, 9 px / 0.04 em, 8 px above
 ///   └──────────────────────────┘
+///     14 px padding · squircle at r16 · 1 px border on the strong hairline
 /// ```
 ///
-/// ## What the dot is, and what it is not
+/// ## What changed from the previous revision of this file
 ///
-/// Legacy put a 6 px coloured dot in every module's top-right corner and used it
-/// to tie the card to its chart's tint. It is kept, and it carries an **identity
-/// tag** from `metric_hues.dart` — a constant of the metric, never a function of
-/// today's reading. `palette.dart` has the whole argument for why that is not the
-/// product colouring a verdict.
+/// It was already a port, from the design bundle rather than from the Flutter
+/// app, and three things had drifted. All three are now legacy's: **14 px**
+/// padding (was 13), a **continuous-corner squircle** (was a rounded rectangle),
+/// and **[HTap]'s press-scale** instead of an `InkWell` ripple — legacy's cards
+/// scale to 97.5% under the finger and never ripple.
 ///
-/// ## Why the module is not a `StateCard`
+/// ## The dot
 ///
-/// It shares [StateCard]'s shape and hairline exactly — `StateCard.shapeOf` is
-/// the single source of the corner — but not its padding. A `StateCard` is 15 px
-/// all round because it holds prose; a module is 13 px because two of them sit
-/// side by side on a 390 px phone and the difference is the sparkline having
-/// somewhere to go. Passing an `EdgeInsets` into `StateCard` would have made the
-/// padding a parameter of every card in the app to serve one screen.
+/// 6 px, top right, in the metric's own hue from `metric_hue.dart`. It ties the
+/// card to its chart's tint, which is what makes a grid of eight modules
+/// scannable. Note that legacy's hues include two that are also verdict colours
+/// — `palette.dart` explains why that is a decision and not a defect.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// One cell of the Today grid.
@@ -52,7 +51,7 @@ class InstrumentModule extends StatelessWidget {
   /// The metric's name. Rendered uppercase by [ModuleLabel].
   final String label;
 
-  /// The identity tag. Null draws no dot — for a module that has [trailing].
+  /// The metric's hue. Null draws no dot — for a module that has [trailing].
   final Color? tag;
 
   /// The module's body, top to bottom.
@@ -63,67 +62,67 @@ class InstrumentModule extends StatelessWidget {
 
   /// What the module opens, or null when it is not a door.
   ///
-  /// Legacy's grid cells all carry one (`onClick={() => onOpen('sleep')}`) and
-  /// the full-width modules on its Today do not — a 24-hour heart-rate strip is
-  /// the detail, not an index of it.
+  /// Legacy's grid cells all carry one (`onTap: () => onOpen('sleep')`) and its
+  /// full-width modules do not — a 24-hour heart-rate strip is the detail, not
+  /// an index of it.
   final VoidCallback? onOpen;
 
   /// The floor every grid cell shares, so a row's two cards match.
   final double minHeight;
 
+  /// Legacy's `EdgeInsets.all(14)`.
+  static const EdgeInsets _padding = EdgeInsets.all(14);
+
+  /// Legacy's `SizedBox(height: 9)` between the eyebrow row and the body.
+  static const double _headerGap = 9;
+
+  /// Legacy's 6 px identity mark.
+  static const double _dotSize = 6;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final shape = StateCard.shapeOf(colors.line);
-    final body = ConstrainedBox(
-      constraints: BoxConstraints(minHeight: minHeight),
-      child: Padding(
-        padding: const EdgeInsets.all(Insets.md + 1),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return HTap(
+      onTap: onOpen,
+      semanticLabel: onOpen == null ? null : '$label — open',
+      child: DecoratedBox(
+        decoration: ShapeDecoration(
+          color: colors.surface,
+          shape: StateCard.shapeOf(colors.line),
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: minHeight),
+          child: Padding(
+            padding: _padding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(child: ModuleLabel(label)),
-                if (trailing case final Widget end)
-                  end
-                else if (tag case final Color dot)
-                  _TagDot(color: dot),
+                Row(
+                  children: [
+                    Expanded(child: ModuleLabel(label)),
+                    if (trailing case final Widget end)
+                      end
+                    else if (tag case final Color dot)
+                      _TagDot(color: dot, size: _dotSize),
+                  ],
+                ),
+                const SizedBox(height: _headerGap),
+                ...children,
               ],
             ),
-            const SizedBox(height: 9),
-            ...children,
-          ],
-        ),
-      ),
-    );
-    return DecoratedBox(
-      decoration: ShapeDecoration(color: colors.surface, shape: shape),
-      child: switch (onOpen) {
-        // `Material` with a transparent type, so the ripple is clipped to the
-        // card's own corner instead of a rectangle overhanging it.
-        final VoidCallback open => Material(
-          type: MaterialType.transparency,
-          shape: shape,
-          child: Semantics(
-            button: true,
-            label: '$label — open',
-            child: InkWell(customBorder: shape, onTap: open, child: body),
           ),
         ),
-        _ => body,
-      },
+      ),
     );
   }
 }
 
-/// Legacy's `.lbl` — uppercase, wide-tracked, quiet.
+/// Legacy's `HEyebrow` — uppercase, wide-tracked, quiet.
 ///
-/// The tracking is legacy's 0.12em and the case is legacy's. The face is
-/// Manrope rather than Space Mono, because this app vendors one family
-/// (`typography.dart`) and a second one for label text is ~50 KB of binary for a
-/// texture. Tabular figures are already on, which is the part of a mono face a
-/// screen of numbers actually needed.
+/// 9 px at 0.12 em of tracking, weight 400, in [HealtheeColors.ink3]. All of
+/// those are legacy's; the face is Manrope rather than Space Mono, which is the
+/// one typographic difference the port is allowed (`instrument_type.dart`).
 ///
 /// The caps are **visual only**: the [Semantics] label carries the text as
 /// written, because several screen readers spell an all-caps run out letter by
@@ -148,19 +147,14 @@ class ModuleLabel extends StatelessWidget {
           text.toUpperCase(),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: color ?? colors.ink3,
-            fontSize: 9.5,
-            letterSpacing: 0.12 * 9.5,
-            fontWeight: FontWeight.w600,
-          ),
+          style: HType.label(color ?? colors.ink3),
         ),
       ),
     );
   }
 }
 
-/// Legacy's `ModuleValue` — a figure with a small unit on its baseline.
+/// Legacy's `HModuleValue` — a figure with a small unit on its baseline.
 class ModuleValue extends StatelessWidget {
   /// [value] is already formatted; this widget does not round.
   const ModuleValue({required this.value, this.unit, this.color, this.size = 27, super.key});
@@ -177,31 +171,31 @@ class ModuleValue extends StatelessWidget {
   /// The figure's size. 27 is legacy's grid module.
   final double size;
 
+  /// Legacy's unit: 10 px, weight 400, in ink3, 3 px after the figure.
+  static const double _unitSize = 10;
+  static const double _unitGap = 3;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Flexible(
           child: Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: text.displayLarge?.copyWith(
-              fontSize: size,
-              color: color ?? colors.ink,
-              letterSpacing: -0.02 * size,
-            ),
+            style: HType.number(color ?? colors.ink, size: size),
           ),
         ),
         if (unit case final String symbol) ...[
-          const SizedBox(width: 3),
+          const SizedBox(width: _unitGap),
           Text(
             symbol,
-            style: text.labelSmall?.copyWith(color: colors.ink3, fontSize: 10),
+            style: HType.number(colors.ink3, size: _unitSize, weight: FontWeight.w400),
           ),
         ],
       ],
@@ -209,10 +203,11 @@ class ModuleValue extends StatelessWidget {
   }
 }
 
-/// Legacy's `Foot` — the one context line under a module's chart.
+/// Legacy's `HFoot` — the one context line under a module's chart.
 ///
-/// Pushed to the bottom of the module by a [Spacer] in the caller, exactly as
-/// legacy's `marginTop: 'auto'` did, so every card in a row aligns its foot.
+/// 9 px at 0.04 em, in ink3, with 8 px of air above it. Pushed to the bottom of
+/// the module by a [Spacer] in the caller, exactly as legacy's `marginTop: auto`
+/// did, so every card in a row aligns its foot.
 class ModuleFoot extends StatelessWidget {
   /// Renders [text] as a module's foot.
   const ModuleFoot(this.text, {super.key});
@@ -220,11 +215,14 @@ class ModuleFoot extends StatelessWidget {
   /// The context line — a median, a goal, a stage split.
   final String text;
 
+  /// Legacy's `EdgeInsets.only(top: 8)`.
+  static const EdgeInsets _padding = EdgeInsets.only(top: 8);
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Padding(
-      padding: const EdgeInsets.only(top: Insets.sm),
+      padding: _padding,
       child: Semantics(
         label: text,
         child: ExcludeSemantics(
@@ -233,15 +231,11 @@ class ModuleFoot extends StatelessWidget {
             // Two lines, where legacy had one. Its feet were `GOAL 10,000 · 84%`;
             // several of ours have to name an instrument as well as a number
             // (`SINCE-MIDNIGHT COUNTER · 09:12`), and an attribution clipped to
-            // an ellipsis is an attribution that did not happen.
+            // an ellipsis is an attribution that did not happen. This is honesty
+            // wording, which is the one category of change the port allows.
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colors.ink3,
-              fontSize: 9,
-              height: 1.35,
-              letterSpacing: 0.04 * 9,
-            ),
+            style: HType.label(colors.ink3, tracking: 0.04),
           ),
         ),
       ),
@@ -251,15 +245,16 @@ class ModuleFoot extends StatelessWidget {
 
 /// The 6 px identity mark in a module's corner. See the library docstring.
 class _TagDot extends StatelessWidget {
-  const _TagDot({required this.color});
+  const _TagDot({required this.color, required this.size});
 
   final Color color;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 6,
-      height: 6,
+      width: size,
+      height: size,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       // Decoration: the label beside it already names the metric, and a screen
       // reader announcing a colour would add nothing it can act on.
