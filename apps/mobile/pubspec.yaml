@@ -100,6 +100,30 @@ dependencies:
   # Resolved by `flutter pub add` at write time, not recalled.
   package_info_plus: ^10.2.1
 
+  # ── the legacy design, ported ────────────────────────────────────────────
+  # Added 2026-08-05, when the owner made the legacy app the design
+  # specification. All three are packages LEGACY depends on; they are here
+  # because the design does, not because they were preferred.
+  #
+  # Versions resolved at write time via `flutter pub add`, never recalled.
+  #
+  # The continuous-corner squircle every card, sheet and badge is drawn with
+  # (`core/theme/shapes.dart`). Flutter's own `RoundedSuperellipseBorder` is
+  # very close and was the incumbent; this is what legacy actually drew
+  # against, at smoothness 0.6, so it is what ships. One definition of the
+  # corner, and `StateCard.shapeOf` delegates to it.
+  smooth_corner: ^1.1.1
+  # The skeletons' shimmer, at legacy's own 1300 ms / 250 ms / 22% highlight
+  # (`shared/skeletons/`). NOTE for anyone testing a widget that uses it: its
+  # `dispose` does not cancel the `Future.delayed` it schedules, so a test that
+  # pumps one frame and ends fails on "pending timers" — `skeletons_test.dart`
+  # pumps past the delay and says so.
+  flutter_animate: ^4.5.2
+  # Legacy's icon set. In use so far by `HDeltaBadge`'s arrows; the 25 screens
+  # still to port name it throughout. If those land on Material icons instead,
+  # this comes out with the last usage (Standards §1, dead code).
+  solar_icons: ^0.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
