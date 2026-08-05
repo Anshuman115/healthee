@@ -20,6 +20,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/metric_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/shared/format/number_labels.dart';
@@ -39,6 +40,11 @@ class StepsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The card is about ONE metric, so it wears that metric's identity tag —
+    // `metric_hues.dart` for why that is not a verdict. It comes from the same
+    // `tagFor` table the grid asks, so the Steps cell and the card it opens
+    // cannot end up different colours.
+    final tag = context.hues.tagFor('steps_total');
     // The withheld case is `ReadingView`'s, so a strap that did not answer gets
     // the same footprint and title as one that did — never a zero, and never a
     // card that quietly vanishes from the list.
@@ -47,6 +53,7 @@ class StepsCard extends StatelessWidget {
       label: 'Steps',
       builder: (context, steps) => MeasuredCard(
         title: 'Steps',
+        tag: tag,
         measuredAt: day.stepsReadAt,
         now: now,
         footnote: _footnote(day),

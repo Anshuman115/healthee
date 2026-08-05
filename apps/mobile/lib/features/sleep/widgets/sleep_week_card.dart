@@ -48,7 +48,15 @@ class SleepWeekCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Your last ${nights.length} nights', style: text.labelSmall),
+          // The title wears the sleep tag; the stacked bars keep the STAGE
+          // palette, because they are a picture of four stages rather than of
+          // one metric.
+          Text(
+            'Your last ${nights.length} nights',
+            style: text.labelSmall?.copyWith(
+              color: context.hues.tagFor('sleep_duration'),
+            ),
+          ),
           const SizedBox(height: Insets.md),
           RevealOnce(
             id: 'sleep-week-stack',

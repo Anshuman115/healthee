@@ -70,9 +70,13 @@ class BloodOxygenCard extends StatelessWidget {
           ),
           const SizedBox(height: Insets.sm),
           if (minimum != null)
-            HeroValue(value: '${minimum.round()}', unit: '% lowest')
+            HeroValue(value: '${minimum.round()}', unit: '% lowest', tag: tag)
           else
-            HeroValue(value: '${vitals.spo2Avg!.round()}', unit: '% average'),
+            HeroValue(
+              value: '${vitals.spo2Avg!.round()}',
+              unit: '% average',
+              tag: tag,
+            ),
           const SizedBox(height: Insets.xs),
           Text(
             _footnote(vitals),

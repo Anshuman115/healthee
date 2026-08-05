@@ -53,6 +53,8 @@ class CardioLoadCard extends StatelessWidget {
         children: [
           Text('Cardio load', style: text.labelSmall?.copyWith(color: tag)),
           const SizedBox(height: Insets.sm),
+          // No unit, so no figure accent: cardio load is a unitless index and
+          // naming one here would be inventing a unit to have something to tint.
           HeroValue(value: load.load.round().toString()),
           const SizedBox(height: Insets.xs),
           Text(
@@ -69,6 +71,12 @@ class CardioLoadCard extends StatelessWidget {
                 color: tag,
                 progress: t,
                 height: 56,
+                // Every bar, not just the last one. `HBars` defaults to the
+                // grid's sparkline emphasis — one tinted bar in a run of
+                // `line2` — which on a full-width chart reads as a grey chart
+                // under a coloured title. Thirty days of a metric is the
+                // metric, so all thirty wear its tag.
+                allHighlighted: true,
               ),
             ),
             const SizedBox(height: Insets.sm),

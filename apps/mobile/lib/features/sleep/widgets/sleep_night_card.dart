@@ -47,13 +47,22 @@ class SleepNightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
+    final tag = context.hues.tagFor('sleep_duration');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Last night', style: text.labelSmall),
+          // One metric — how long the night was — so the title and the unit
+          // wear its tag. The hypnogram under them keeps the STAGE palette:
+          // it is a picture of four stages, not of one metric, and
+          // `stage_colors.dart` is the one table that decides those.
+          Text('Last night', style: text.labelSmall?.copyWith(color: tag)),
           const SizedBox(height: Insets.sm),
-          HeroValue(value: durationLabel(night.durationMin), unit: 'asleep'),
+          HeroValue(
+            value: durationLabel(night.durationMin),
+            unit: 'asleep',
+            tag: tag,
+          ),
           const SizedBox(height: Insets.xs),
           Text(
             _window(night),

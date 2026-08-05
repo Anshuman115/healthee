@@ -88,6 +88,10 @@ List<PageSection> activitySections(ScreenData data) {
       SectionHeading(
         'Fitness',
         subtitle: 'The slow numbers — they move over months, not days',
+        // VO₂max and biological age are one family, and it is the same one the
+        // cards above wear: `metric_hues.dart` puts the fitness numbers with the
+        // movement they are read from.
+        metric: 'vo2max_estimate',
       ),
     ),
     if (snapshot != null)

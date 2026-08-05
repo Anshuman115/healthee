@@ -10,6 +10,17 @@
 /// schedule: a SpO₂ reading can be eight hours old while the card sits next to a
 /// heart rate from four minutes ago. A screen that showed both as "today"
 /// without the clock would be flattening two very different claims.
+///
+/// ## [MeasuredCard.tag] and [HeroValue.tag]
+///
+/// A card about ONE metric wears that metric's identity tag on its title, and
+/// the hero figure's unit picks up the same colour so the tag reads as a
+/// property of the metric rather than a decoration on the heading. The **number
+/// stays in ink**: a tinted figure is the first step towards a tinted figure
+/// that means something, and `metric_hues.dart` is emphatic that a tag never
+/// says anything about a value.
+///
+/// Both are optional, and a card about several metrics passes neither.
 library;
 
 import 'package:flutter/material.dart';
@@ -27,11 +38,16 @@ class MeasuredCard extends StatelessWidget {
     this.measuredAt,
     this.now,
     this.footnote,
+    this.tag,
     super.key,
   });
 
   /// The metric's name, in the same position a withheld card puts it.
   final String title;
+
+  /// The metric's identity tag from `MetricHues.tagFor`, or null when the card
+  /// is about more than one metric. Never a colour named at the call site.
+  final Color? tag;
 
   /// The value, however this metric draws one.
   final Widget child;
@@ -53,7 +69,7 @@ class MeasuredCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: text.labelSmall),
+          Text(title, style: text.labelSmall?.copyWith(color: tag)),
           const SizedBox(height: Insets.sm),
           child,
           if (footnote case final String note) ...[
@@ -88,13 +104,17 @@ class MeasuredCard extends StatelessWidget {
 /// of values still aligns on the digits.
 class HeroValue extends StatelessWidget {
   /// [value] is already formatted; this widget does not round.
-  const HeroValue({required this.value, this.unit, super.key});
+  const HeroValue({required this.value, this.unit, this.tag, super.key});
 
   /// The formatted number.
   final String value;
 
   /// Its unit, or null when there is none.
   final String? unit;
+
+  /// The metric's identity tag, worn by the UNIT. The number stays in ink — see
+  /// the library docstring.
+  final Color? tag;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +127,10 @@ class HeroValue extends StatelessWidget {
         Text(value, style: text.displayLarge),
         if (unit case final String symbol) ...[
           const SizedBox(width: Insets.xs),
-          Text(symbol, style: text.labelMedium?.copyWith(color: colors.ink3)),
+          Text(
+            symbol,
+            style: text.labelMedium?.copyWith(color: tag ?? colors.ink3),
+          ),
         ],
       ],
     );

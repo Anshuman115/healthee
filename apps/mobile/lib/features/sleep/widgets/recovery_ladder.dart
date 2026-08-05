@@ -17,6 +17,16 @@
 ///     have. The row stays, with its value and an honest blank.
 ///   * **The scale is clamped at ±3σ and says so.** Past that the marker would
 ///     leave the row; clamping without a note would draw 5σ and 3σ identically.
+///
+/// ## No identity tag, deliberately
+///
+/// Every other card on Sleep wears the tag of the one metric it is about. This
+/// one is about four or five at once — HRV, resting heart rate, sleep duration,
+/// breathing — and `metric_hues.dart` reserves the tag for a card about a single
+/// metric. Painting the whole ladder in any one family's colour would claim a
+/// family for rows that belong to three of them; painting each row in its own
+/// would put four hues beside markers whose only job is to be read as `fav` or
+/// `unf`. The section heading above it carries the family instead.
 library;
 
 import 'package:flutter/material.dart';

@@ -50,17 +50,25 @@ class Vo2maxCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
+    // The card is about ONE metric, so it wears that metric's identity tag —
+    // `metric_hues.dart` for why that is not a verdict, and for why VO₂max sits
+    // in the movement family rather than defaulting to rest.
+    final tag = context.hues.tagFor('vo2max_estimate');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('VO₂max', style: text.labelSmall),
+          Text('VO₂max', style: text.labelSmall?.copyWith(color: tag)),
           const SizedBox(height: Insets.sm),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              HeroValue(value: vo2max.estimate.toStringAsFixed(1), unit: 'ml/kg/min'),
+              HeroValue(
+                value: vo2max.estimate.toStringAsFixed(1),
+                unit: 'ml/kg/min',
+                tag: tag,
+              ),
               const Spacer(),
               if (_band(vo2max) case final String band)
                 Text(band, style: text.labelMedium?.copyWith(color: colors.ink2)),
@@ -85,7 +93,7 @@ class Vo2maxCard extends StatelessWidget {
               registry: reveals,
               builder: (context, t) => HArea(
                 TrendPoint.valuesOf(vo2max.trend90d),
-                color: context.hues.tagFor('vo2max_estimate'),
+                color: tag,
                 progress: t,
                 height: 56,
                 digits: 1,

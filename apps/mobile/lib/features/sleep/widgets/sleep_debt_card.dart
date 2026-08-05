@@ -20,6 +20,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/metric_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_debt.dart';
 import 'package:healthee/data/models/sleep_history.dart';
@@ -55,13 +56,22 @@ class SleepDebtCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
+    // One metric, one tag. The CHART deliberately does not take it: `HDebtBars`
+    // draws each night `fav` or `unf` against the owner's own need, which is a
+    // verdict about a reading and exactly what those two colours are reserved
+    // for. Tinting it with the tag would erase the one thing it says.
+    final tag = context.hues.tagFor('sleep_debt_min');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Sleep debt', style: text.labelSmall),
+          Text('Sleep debt', style: text.labelSmall?.copyWith(color: tag)),
           const SizedBox(height: Insets.sm),
-          HeroValue(value: durationLabel(debt.debtMin), unit: 'owed'),
+          HeroValue(
+            value: durationLabel(debt.debtMin),
+            unit: 'owed',
+            tag: tag,
+          ),
           const SizedBox(height: Insets.xs),
           Text(_summary(debt), style: text.bodySmall?.copyWith(color: colors.ink2)),
           if (debt.lastTstWithheld) ...[

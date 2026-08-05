@@ -24,9 +24,18 @@
 ///   rest     sleep · HRV · readiness            what the body does at rest
 ///   heart    HR · resting HR · stress           the pump and its load
 ///   body     breathing · SpO₂ · skin temp       what the body exchanges
-///   move     steps · distance · MVPA · load     what the owner did
+///   move     steps · distance · MVPA · load     what the owner did, and the
+///            · VO₂max · biological age          fitness it adds up to
 ///   energy   active · total · basal calories    what it cost
 /// ```
+///
+/// **VO₂max and biological age joined `move`** when the Activity screen was
+/// tagged. They defaulted to `rest`, which put the Fitness section in the sleep
+/// colour directly under cardio load and active minutes in the movement one —
+/// three cards about one subject in two families. They belong here on their own
+/// terms too: every instrument that can produce this product's VO₂max reads a
+/// recorded session (`gps_graded`, `hr_reserve`) or asks about habitual activity
+/// (`jurca_non_exercise`), and biological age's largest term IS that VO₂max.
 ///
 /// The previous set had three, and `body` was carrying breathing, blood oxygen,
 /// steps, distance and every calorie at once — a family whose members have nothing
@@ -88,7 +97,8 @@ class MetricHues extends ThemeExtension<MetricHues> {
   /// Breathing, blood oxygen, skin temperature — and the light-sleep band.
   final Color body;
 
-  /// Steps, distance, active minutes, cardio load.
+  /// Steps, distance, active minutes, cardio load — and the fitness they add up
+  /// to: VO₂max and biological age.
   final Color move;
 
   /// Calories, in every form.
@@ -125,7 +135,10 @@ class MetricHues extends ThemeExtension<MetricHues> {
     'moderate_min' ||
     'vigorous_min' ||
     'cardio_load' ||
-    'cardio_load_trimp' => move,
+    'cardio_load_trimp' ||
+    'vo2max_estimate' ||
+    'vo2max_submax' ||
+    'biological_age' => move,
     'active_calories' ||
     'total_calories' ||
     'basal_calories' => energy,

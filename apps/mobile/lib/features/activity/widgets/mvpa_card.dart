@@ -9,7 +9,16 @@
 /// fact is the count, and the count is right there as a number — a bar running
 /// off the end says nothing extra and makes the floor unreadable.
 ///
-/// Nothing congratulates. Meeting the floor draws a met line, not a well done.
+/// Nothing congratulates. Meeting the floor draws a full bar, not a well done.
+///
+/// ## The week bar used to turn `fav` at 150 minutes, and that was a verdict
+///
+/// `README.md` reserves `fav`/`unf` for one claim: *better or worse than the
+/// owner's **own** normal*. The WHO floor is not that — it is a public-health
+/// recommendation about a population, and a green bar for clearing it is exactly
+/// the congratulation the docstring above says this card does not do. The bar
+/// now wears the metric's identity tag whether the floor is met or not, and
+/// "met" is legible because the bar is full. Same information, no verdict.
 library;
 
 import 'package:flutter/material.dart';
@@ -38,27 +47,35 @@ class MvpaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
+    // The card is about ONE metric, so it wears that metric's identity tag —
+    // `metric_hues.dart` for why that is not a verdict. It comes from the same
+    // `tagFor` table the grid asks, so a cell and the card it opens cannot end
+    // up different colours.
+    final tag = context.hues.tagFor('mvpa_min');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Active minutes', style: text.labelSmall),
+          Text('Active minutes', style: text.labelSmall?.copyWith(color: tag)),
           const SizedBox(height: Insets.sm),
-          HeroValue(value: '${mvpa.todayMin}', unit: 'min today'),
+          HeroValue(value: '${mvpa.todayMin}', unit: 'min today', tag: tag),
           const SizedBox(height: Insets.lg),
           ClipRRect(
             borderRadius: BorderRadius.circular(Radii.pill),
             child: SizedBox(
               height: 8,
               child: Row(
+                // Stretch, or nothing draws: a childless `ColoredBox` takes
+                // `constraints.smallest`, and a `Row` gives its children a loose
+                // cross axis. This bar was laying out at zero height — "Active
+                // minutes has no colour at all" was partly this, not only the
+                // missing tag. `h_stage_bar.dart` carries the full note.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
                     flex: (mvpa.weekProgress * 1000).round(),
-                    child: ColoredBox(
-                      color: mvpa.weekMin >= mvpa.weekTarget
-                          ? colors.fav
-                          : colors.accent,
-                    ),
+                    // The tag, met or not. See the library docstring.
+                    child: ColoredBox(color: tag),
                   ),
                   Expanded(
                     flex: ((1 - mvpa.weekProgress) * 1000).round(),
@@ -81,10 +98,14 @@ class MvpaCard extends StatelessWidget {
               registry: reveals,
               builder: (context, t) => HBars(
                 [for (final day in mvpa.daily) day.mvpaMin.toDouble()],
-                color: context.hues.tagFor('mvpa_min'),
+                color: tag,
                 progress: t,
                 height: 48,
                 unit: 'min',
+                // Every bar. `HBars` defaults to the grid's sparkline emphasis
+                // — one tinted bar in a run of `line2` — which reads as a grey
+                // chart on a full-width card.
+                allHighlighted: true,
               ),
             ),
             const SizedBox(height: Insets.sm),
