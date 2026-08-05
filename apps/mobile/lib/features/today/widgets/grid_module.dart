@@ -12,10 +12,12 @@
 /// `docs/APP_DESIGN_BRIEF.md` §3 is explicit that a withheld value gets both. So
 /// a cell **never carries them and never stands alone**: it draws a [ValueHole]
 /// where the figure would be and the word WITHHELD in its foot, and the full
-/// [WithheldCard] — reason, remedy, no retry — is rendered by the section further
-/// down the screen that owns that metric. `metric_grid.dart` documents the
-/// pairing slot by slot, and `today_sections.dart` keeps every one of those
-/// sections on the screen.
+/// `WithheldCard` — reason, remedy, no retry — is rendered by the screen behind
+/// [onOpen]. `metric_grid.dart` names the destination slot by slot.
+///
+/// That is why [onOpen] is **required** rather than optional. A cell whose door
+/// were omitted would be a refusal with no explanation anywhere on the device,
+/// and the omission would look like nothing at all.
 ///
 /// That is not a softening of the rule. The alternative shapes are worse in ways
 /// this product has already argued about: a cell that vanishes makes the absence
@@ -26,8 +28,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/data/honesty/reading.dart';
-import 'package:healthee/features/today/widgets/instrument_module.dart';
 import 'package:healthee/shared/charts/h_spark.dart';
+import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/value_hole.dart';
 
@@ -41,6 +43,7 @@ class GridModule extends StatelessWidget {
     required this.format,
     required this.reveals,
     required this.revealId,
+    required this.onOpen,
     this.unit,
     this.spark = const <double>[],
     this.foot,
@@ -68,6 +71,12 @@ class GridModule extends StatelessWidget {
   /// make it "a different chart" and animate again.
   final Object revealId;
 
+  /// Opens the screen this cell indexes. **Required**, and required for a
+  /// reason: the cell is allowed to show a hole without a remedy only because
+  /// the screen behind it shows both. A cell with no door is a refusal with no
+  /// explanation anywhere.
+  final VoidCallback onOpen;
+
   /// The unit beside the figure, or null when it has none.
   final String? unit;
 
@@ -84,7 +93,11 @@ class GridModule extends StatelessWidget {
   final Widget Function(BuildContext context, double progress)? chart;
 
   /// The foot a cell shows when its source declined to answer.
-  static const String withheldFoot = 'Withheld — see below';
+  ///
+  /// "See below" was true while the owning section sat further down the same
+  /// scroll. It now sits behind [onOpen], and the foot says so — a pointer at a
+  /// place the reader cannot find is worse than no pointer.
+  static const String withheldFoot = 'Withheld — tap for why';
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +105,7 @@ class GridModule extends StatelessWidget {
     return InstrumentModule(
       label: label,
       tag: tag,
+      onOpen: onOpen,
       children: [
         if (value == null)
           const ValueHole(width: 64, height: 30)

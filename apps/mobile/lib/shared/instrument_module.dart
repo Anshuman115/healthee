@@ -44,6 +44,7 @@ class InstrumentModule extends StatelessWidget {
     required this.tag,
     required this.children,
     this.trailing,
+    this.onOpen,
     this.minHeight = 118,
     super.key,
   });
@@ -60,39 +61,58 @@ class InstrumentModule extends StatelessWidget {
   /// Drawn instead of the dot, for a module whose header carries a range.
   final Widget? trailing;
 
+  /// What the module opens, or null when it is not a door.
+  ///
+  /// Legacy's grid cells all carry one (`onClick={() => onOpen('sleep')}`) and
+  /// the full-width modules on its Today do not — a 24-hour heart-rate strip is
+  /// the detail, not an index of it.
+  final VoidCallback? onOpen;
+
   /// The floor every grid cell shares, so a row's two cards match.
   final double minHeight;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return DecoratedBox(
-      decoration: ShapeDecoration(
-        color: colors.surface,
-        shape: StateCard.shapeOf(colors.line),
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: minHeight),
-        child: Padding(
-          padding: const EdgeInsets.all(Insets.md + 1),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(child: ModuleLabel(label)),
-                  if (trailing case final Widget end)
-                    end
-                  else if (tag case final Color dot)
-                    _TagDot(color: dot),
-                ],
-              ),
-              const SizedBox(height: 9),
-              ...children,
-            ],
-          ),
+    final shape = StateCard.shapeOf(colors.line);
+    final body = ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minHeight),
+      child: Padding(
+        padding: const EdgeInsets.all(Insets.md + 1),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: ModuleLabel(label)),
+                if (trailing case final Widget end)
+                  end
+                else if (tag case final Color dot)
+                  _TagDot(color: dot),
+              ],
+            ),
+            const SizedBox(height: 9),
+            ...children,
+          ],
         ),
       ),
+    );
+    return DecoratedBox(
+      decoration: ShapeDecoration(color: colors.surface, shape: shape),
+      child: switch (onOpen) {
+        // `Material` with a transparent type, so the ripple is clipped to the
+        // card's own corner instead of a rectangle overhanging it.
+        final VoidCallback open => Material(
+          type: MaterialType.transparency,
+          shape: shape,
+          child: Semantics(
+            button: true,
+            label: '$label — open',
+            child: InkWell(customBorder: shape, onTap: open, child: body),
+          ),
+        ),
+        _ => body,
+      },
     );
   }
 }
@@ -100,7 +120,7 @@ class InstrumentModule extends StatelessWidget {
 /// Legacy's `.lbl` — uppercase, wide-tracked, quiet.
 ///
 /// The tracking is legacy's 0.12em and the case is legacy's. The face is
-/// Instrument Sans rather than Space Mono, because this app vendors one family
+/// Manrope rather than Space Mono, because this app vendors one family
 /// (`typography.dart`) and a second one for label text is ~50 KB of binary for a
 /// texture. Tabular figures are already on, which is the part of a mono face a
 /// screen of numbers actually needed.

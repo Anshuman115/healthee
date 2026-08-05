@@ -28,9 +28,9 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/metric_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
-import 'package:healthee/features/today/widgets/instrument_module.dart';
 import 'package:healthee/shared/charts/day_line_chart.dart';
 import 'package:healthee/shared/format/time_labels.dart';
+import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 

@@ -16,24 +16,19 @@
 /// exists. [Routes.profile] is a path with no screen, and linking to it would be
 /// linking to a crash.
 ///
-/// **The toggle sets an explicit mode.** `ThemeController` defaults to
-/// `ThemeMode.system`, so the first tap has to decide what it is toggling FROM.
-/// It reads the brightness actually being rendered and asks for the opposite,
-/// which is what the owner means by tapping it — not "stop following the system"
-/// in the abstract.
+/// **The toggle sets an explicit mode.** It lives in `shared/page_head.dart` now,
+/// because every other screen's header has one too; the reasoning moved with it.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/theme_controller.dart';
-import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/features/today/widgets/instrument_module.dart';
+import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/shared/page_head.dart';
 
 /// Today's date, and the two controls that sit beside it.
-class TodayHeader extends ConsumerWidget {
+class TodayHeader extends StatelessWidget {
   /// [now] is injected so the date does not read the wall clock in a test.
   const TodayHeader({this.now, super.key});
 
@@ -41,11 +36,11 @@ class TodayHeader extends ConsumerWidget {
   final DateTime? now;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(child: ModuleLabel(longDateLabel(now ?? DateTime.now()))),
-        const _ThemeToggle(),
+        const ThemeToggleButton(),
         const SizedBox(width: Insets.sm + 2),
         const _AvatarButton(),
       ],
@@ -68,68 +63,13 @@ String longDateLabel(DateTime at) {
   return '${days[at.weekday - 1]}, ${months[at.month - 1]} ${at.day}';
 }
 
-/// A circular button in the hairline style legacy used for both header controls.
-class _CircleButton extends StatelessWidget {
-  const _CircleButton({
-    required this.icon,
-    required this.semanticLabel,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String semanticLabel;
-  final VoidCallback onPressed;
-
-  static const double _size = 36;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: _size,
-          height: _size,
-          decoration: BoxDecoration(
-            color: colors.surface,
-            shape: BoxShape.circle,
-            border: Border.all(color: colors.line, width: hairline),
-          ),
-          child: Icon(icon, size: 17, color: colors.ink2),
-        ),
-      ),
-    );
-  }
-}
-
-/// Light ⇄ dark, from whatever is actually on screen.
-class _ThemeToggle extends ConsumerWidget {
-  const _ThemeToggle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return _CircleButton(
-      icon: dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-      semanticLabel: dark ? 'Switch to the light theme' : 'Switch to the dark theme',
-      onPressed: () => ref
-          .read(themeControllerProvider.notifier)
-          .set(dark ? ThemeMode.light : ThemeMode.dark),
-    );
-  }
-}
-
 /// The way to the strap this app is paired to. See the library docstring.
 class _AvatarButton extends StatelessWidget {
   const _AvatarButton();
 
   @override
   Widget build(BuildContext context) {
-    return _CircleButton(
+    return CircleIconButton(
       icon: Icons.person_outline,
       semanticLabel: 'Your strap and pairing',
       onPressed: () => context.go(Routes.pairing),
