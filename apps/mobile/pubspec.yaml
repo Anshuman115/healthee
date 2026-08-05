@@ -126,17 +126,22 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Instrument Sans, vendored rather than fetched — no CDN at paint time, and a
-  # cold-start budget of 2 s to first meaningful paint (Standards §1). SIL OFL;
-  # the licence ships beside the files in assets/fonts/OFL.txt. ~195 KB total.
+  # Manrope, vendored rather than fetched — no CDN at paint time, and a
+  # cold-start budget of 2 s to first meaningful paint (Standards §1). SIL OFL
+  # (no Reserved Font Name); the licence ships beside the files in
+  # assets/fonts/OFL.txt. ~290 KB total.
+  #
+  # THREE weights and no more: 400/500/600 are exactly what `typography.dart`
+  # asks for. Instrument Sans shipped a 700 nothing selected, which is 48 KB of
+  # binary for a weight no style names. Each file is instanced from upstream's
+  # `Manrope[wght].ttf` variable font at a fixed `wght`, so the three are one
+  # design rather than three drawings.
   fonts:
-    - family: Instrument Sans
+    - family: Manrope
       fonts:
-        - asset: assets/fonts/InstrumentSans-Regular.ttf
+        - asset: assets/fonts/Manrope-Regular.ttf
           weight: 400
-        - asset: assets/fonts/InstrumentSans-Medium.ttf
+        - asset: assets/fonts/Manrope-Medium.ttf
           weight: 500
-        - asset: assets/fonts/InstrumentSans-SemiBold.ttf
+        - asset: assets/fonts/Manrope-SemiBold.ttf
           weight: 600
-        - asset: assets/fonts/InstrumentSans-Bold.ttf
-          weight: 700

@@ -162,7 +162,7 @@ void main() {
       expect(AppTheme.dark.appBarTheme.backgroundColor, dark.chrome);
     });
 
-    test('set Instrument Sans with tabular figures on every text style', () {
+    test('set Manrope with tabular figures on every text style', () {
       final text = AppTheme.light.textTheme;
       for (final style in [
         text.displayLarge,
@@ -171,7 +171,7 @@ void main() {
         text.bodyMedium,
         text.labelSmall,
       ]) {
-        expect(style!.fontFamily, 'Instrument Sans');
+        expect(style!.fontFamily, 'Manrope');
         expect(
           style.fontFeatures,
           contains(const FontFeature.tabularFigures()),
