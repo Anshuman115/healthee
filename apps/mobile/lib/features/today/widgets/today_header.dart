@@ -12,11 +12,17 @@
 /// **The avatar has no initial.** Legacy drew "M" for Maya. Nothing in this app
 /// stores an owner name — not the pairing record, not the payload — so an initial
 /// would be a character invented to fill a circle. It draws a person outline
-/// instead, and goes to [Routes.settings] — which is the surface it was always
-/// standing in for. It used to open the pairing screen, which is why that screen
-/// had grown a "Your server" card and an "Open diagnostics" card that are not
-/// about pairing; those rows moved to settings and the avatar now goes straight
-/// there. It is still ONE entry point, extended rather than duplicated.
+/// instead, and **pushes** [Routes.settings] — which is the surface it was
+/// always standing in for. It used to open the pairing screen, which is why that
+/// screen had grown a "Your server" card and an "Open diagnostics" card that are
+/// not about pairing; those rows moved to settings and the avatar now goes
+/// straight there. It is still ONE entry point, extended rather than duplicated.
+///
+/// `push` and not `go`, and the difference is not stylistic: `go` **replaces**
+/// the location, so Settings had nothing beneath it and the system back button
+/// took the owner out of the app from a screen they had tapped into two seconds
+/// earlier. `core/router.dart` carries the full rule and the table of which verb
+/// each kind of navigation takes.
 ///
 /// **The toggle sets an explicit mode.** It lives in `shared/page_head.dart` now,
 /// because every other screen's header has one too; the reasoning moved with it.
@@ -28,6 +34,8 @@
 /// otherwise the full strip is already above this row and drawing a second mark
 /// here would be the same fact twice.
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -93,7 +101,9 @@ class _AvatarButton extends StatelessWidget {
     return CircleIconButton(
       icon: Icons.person_outline,
       semanticLabel: 'Settings',
-      onPressed: () => context.go(Routes.settings),
+      // PUSH, not `go`. See the library docstring: settings is a place the
+      // owner comes back from.
+      onPressed: () => unawaited(context.push(Routes.settings)),
     );
   }
 }

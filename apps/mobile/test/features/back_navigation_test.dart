@@ -12,6 +12,15 @@
 /// `SystemChannels.platform` for the `SystemNavigator.pop` the shell actually
 /// sends. A boolean on the shell would have been easier to assert and would have
 /// been asserting the flag rather than the behaviour.
+///
+/// ## What this file does NOT cover, and where that lives
+///
+/// Everything here is *inside* the shell. That is the whole of the rule and it
+/// was still not the whole of the behaviour: every screen the avatar opens lives
+/// outside the shell, was reached with `context.go`, and therefore had nothing
+/// beneath it — so this rule fired and left the app. `out_of_shell_navigation_
+/// test.dart` is that half, and it exists because this file passing was not
+/// evidence that back worked.
 library;
 
 import 'dart:async';

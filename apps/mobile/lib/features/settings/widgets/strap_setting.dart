@@ -24,6 +24,8 @@
 /// unpair here would be a second place the keystore is cleared from.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -71,7 +73,7 @@ class StrapSetting extends ConsumerWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton(
-              onPressed: () => context.go(Routes.pairing),
+              onPressed: () => unawaited(context.push(Routes.pairing)),
               child: Text(strap == null ? 'Pair a strap' : 'Pairing and unpair'),
             ),
           ),

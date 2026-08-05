@@ -25,6 +25,7 @@ import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
+import 'package:healthee/features/settings/app_version.dart';
 import 'package:healthee/features/today/today_screen.dart';
 
 import '../_today_stubs.dart';
@@ -120,6 +121,10 @@ Widget _scoped(
       todaySnapshotProvider.overrideWith(
         serverUnreachable ? todayUnreachable() : todayIs(server ?? todayView()),
       ),
+      // Settings is reachable from Today now, and its About row reads a platform
+      // channel a test host never answers — which would leave that read's own
+      // deadline pending after any test that navigated there.
+      appVersionProvider.overrideWith((ref) async => null),
       if (paired)
         pairingSummaryProvider.overrideWith(
           (ref) async => (

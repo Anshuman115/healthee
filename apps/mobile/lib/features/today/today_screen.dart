@@ -16,6 +16,8 @@
 /// asymmetry is deliberate and why neither widget may decide "quiet" for itself.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -79,7 +81,9 @@ class TodayScreen extends ConsumerWidget {
           push: push,
           signedIn: signedIn,
           health: health,
-          onSignIn: () => context.go(Routes.serverSignIn),
+          // Pushed, so back returns to Today. `go` would replace the
+          // location and leave the sign-in screen with nothing beneath it.
+          onSignIn: () => unawaited(context.push(Routes.serverSignIn)),
           onOpen: context.go,
         ),
       ),

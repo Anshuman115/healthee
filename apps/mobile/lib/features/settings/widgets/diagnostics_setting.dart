@@ -11,6 +11,8 @@
 /// screen you have to open to read it.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
@@ -40,7 +42,9 @@ class DiagnosticsSetting extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton(
-              onPressed: () => context.go(Routes.diagnostics),
+              // Pushed: back lands on Settings, which is where it was
+              // opened from and the only thing that makes it findable.
+              onPressed: () => unawaited(context.push(Routes.diagnostics)),
               child: const Text('Open diagnostics'),
             ),
           ),

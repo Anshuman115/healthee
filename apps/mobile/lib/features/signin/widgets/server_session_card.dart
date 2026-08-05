@@ -64,7 +64,14 @@ class ServerSessionCard extends StatelessWidget {
             style: text.bodySmall?.copyWith(color: colors.ink3),
           ),
           const SizedBox(height: Insets.md),
-          Row(
+          // `Wrap`, not `Row`. The two labels are 110 px wider than a 420 px
+          // phone at this card's padding, so a `Row` overflowed — which Flutter
+          // renders as a striped bar over content that cannot be seen. It went
+          // unnoticed because the widget suites pumped the default 800 px test
+          // window, which is wider than any phone this app runs on.
+          Wrap(
+            spacing: Insets.sm,
+            runSpacing: Insets.sm,
             children: [
               // Outlined, not filled: brief §2 keeps the accent for the primary
               // path, and leaving is not it.
@@ -72,7 +79,6 @@ class ServerSessionCard extends StatelessWidget {
                 onPressed: enabled ? onSignOut : null,
                 child: const Text('Sign out'),
               ),
-              const SizedBox(width: Insets.sm),
               TextButton(
                 onPressed: enabled ? onReplace : null,
                 child: const Text('Use a different server'),

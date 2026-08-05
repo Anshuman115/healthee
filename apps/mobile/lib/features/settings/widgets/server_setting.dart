@@ -19,6 +19,8 @@
 /// accessibility tree.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -74,7 +76,7 @@ class ServerSetting extends ConsumerWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton(
-              onPressed: () => context.go(Routes.serverSignIn),
+              onPressed: () => unawaited(context.push(Routes.serverSignIn)),
               // The label names what is behind it. "Manage" would be a button
               // whose only documentation is the screen you have to open to read.
               child: Text(signedIn ? 'Sign out or change server' : 'Sign in to your server'),

@@ -278,6 +278,46 @@ mutate 'polarity is ignored and the sign decides' "$TRENDS_TEST" "$POLARITY" \
   '    MetricPolarity.lowerIsBetter =>
       delta > 0 ? TrendVerdict.favourable : TrendVerdict.unfavourable,'
 
+# ── an out-of-shell route reached with `go` is a one-way door ───────────────
+HEADER=lib/features/today/widgets/today_header.dart
+DIAG_ROW=lib/features/settings/widgets/diagnostics_setting.dart
+STRAP_ROW=lib/features/settings/widgets/strap_setting.dart
+SERVER_ROW=lib/features/settings/widgets/server_setting.dart
+ROUTER=lib/core/router.dart
+BACK_TEST="test/features/back_navigation_test.dart test/features/out_of_shell_navigation_test.dart"
+
+# The defect exactly as it shipped, found on the device and not here. `go`
+# REPLACES the location, so Settings has nothing beneath it: the shell's back
+# rule finds an empty branch stack, correctly concludes "not on Today", and
+# leaves the app — from a screen the owner tapped into two seconds earlier.
+mutate 'the avatar reaches settings with go' "$BACK_TEST" "$HEADER" \
+  '      onPressed: () => unawaited(context.push(Routes.settings)),' \
+  '      onPressed: () => context.go(Routes.settings),'
+
+# Two levels out: back from diagnostics must land on the screen that opened it.
+mutate 'diagnostics is reached with go' "$BACK_TEST" "$DIAG_ROW" \
+  '              onPressed: () => unawaited(context.push(Routes.diagnostics)),' \
+  '              onPressed: () => context.go(Routes.diagnostics),'
+
+mutate 'pairing is reached with go' "$BACK_TEST" "$STRAP_ROW" \
+  '              onPressed: () => unawaited(context.push(Routes.pairing)),' \
+  '              onPressed: () => context.go(Routes.pairing),'
+
+mutate 'the server screen is reached with go' "$BACK_TEST" "$SERVER_ROW" \
+  '              onPressed: () => unawaited(context.push(Routes.serverSignIn)),' \
+  '              onPressed: () => context.go(Routes.serverSignIn),'
+
+# "Done" on a PUSHED setup flow must return where it came from. Hard-coding the
+# redirect'"'"'s answer throws away the screen underneath, which looks correct until
+# somebody opens pairing from settings.
+mutate 'leaving a setup flow always goes to Today' "$BACK_TEST" "$ROUTER" \
+  '  if (context.canPop()) {
+    context.pop();
+  } else {
+    context.go(Routes.today);
+  }' \
+  '  context.go(Routes.today);'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

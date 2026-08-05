@@ -215,6 +215,29 @@ unsaved (the store is on disk and the sync controller is `keepAlive`), and
 "press back again to exit" trains people to press back twice forever to prevent
 an accident that costs nothing.
 
+**`go` replaces; every out-of-shell destination is `push`ed.** That rule was
+missing and the app shipped a defect the shell rule then executed perfectly: a
+`go` into Settings left nothing beneath it, so back found an empty branch stack,
+concluded "not on Today", and dropped the owner onto the Android home screen.
+Settings → Diagnostics → back did it too. The verbs now go:
+
+| navigation | verb |
+|---|---|
+| tab → tab (`app_tab_bar.dart`) | `go` — a bar switches between siblings |
+| Today → settings · sign-in | `push` |
+| settings → diagnostics · sign-in · pairing | `push` |
+| the router's unpaired redirect | replace — there is nothing to return to |
+
+`push` is also what draws the back arrow: a `go`-ed screen with an `AppBar` has
+no leading control, so those screens offered no way back **at all**. The gesture
+and the affordance went missing together, which is why nothing looked broken.
+
+`router.dart::leaveSetup` is the one place the two columns meet — pairing and
+sign-in are *pushed* from Settings and *redirected into* when unpaired, so "Done"
+asks `canPop()` rather than being told which it was. Back out of a **redirected**
+setup flow still leaves the app, deliberately: there is nothing underneath and
+the redirect would bounce the owner straight back onto it.
+
 ## Settings
 
 `/settings`, off the tab bar, opened by the Today avatar — the entry point that

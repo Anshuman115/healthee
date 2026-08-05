@@ -18,6 +18,33 @@
 /// the branches of a `StatefulShellRoute.indexedStack`, each with its own
 /// `Navigator`, all kept alive — which is also what gives the Android back button
 /// a per-tab stack to pop (the shell owns that rule).
+///
+/// ## `go` REPLACES. Every out-of-shell destination is pushed.
+///
+/// This shipped wrong once and the bug is worth stating in full, because the
+/// mistake reads as correct: `context.go` replaces the location rather than
+/// stacking on it, so a `go` into Settings left **nothing underneath**. The
+/// shell's back rule then did exactly what it says — an empty branch stack, not
+/// on Today, so leave — and the owner was dropped onto the Android home screen
+/// from a screen they had tapped into two seconds earlier. Every out-of-shell
+/// route had it, so Settings → Diagnostics → back left the app too.
+///
+/// The rule, and it is a rule rather than a case-by-case judgement:
+///
+/// | navigation | verb | why |
+/// |---|---|---|
+/// | tab → tab (`app_tab_bar.dart`) | `go` | a bar switches between siblings; stacking them would make back walk a history of tabs |
+/// | Today → settings · sign-in | `push` | a destination the owner came from somewhere and expects to return to |
+/// | settings → diagnostics · sign-in · pairing | `push` | back lands on Settings, which is what made it findable |
+/// | the redirect below | replace | there is nothing to return to |
+///
+/// **`push` is also what draws the back arrow.** A `go`-ed screen with an
+/// `AppBar` has no leading control, so those screens offered no way back at all
+/// — not even a wrong one. The gesture and the affordance were missing together,
+/// which is why nothing on screen looked broken.
+///
+/// [leaveSetup] handles the one place the two columns meet: a setup flow that
+/// may be pushed *or* redirected into.
 library;
 
 import 'package:flutter/material.dart';
@@ -162,12 +189,12 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(
         path: Routes.pairing,
         builder: (BuildContext context, GoRouterState state) =>
-            PairingScreen(onDone: () => context.go(Routes.today)),
+            PairingScreen(onDone: () => leaveSetup(context)),
       ),
       GoRoute(
         path: Routes.serverSignIn,
         builder: (BuildContext context, GoRouterState state) =>
-            ServerSignInScreen(onDone: () => context.go(Routes.today)),
+            ServerSignInScreen(onDone: () => leaveSetup(context)),
       ),
       GoRoute(
         path: Routes.settings,
@@ -176,6 +203,29 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
     ],
   );
+}
+
+/// Leaves a setup screen the way the owner came into it.
+///
+/// The two setup flows are reachable **two ways**, and "Done" cannot mean one
+/// thing for both:
+///
+///   * **Pushed** from Settings, by somebody who went looking for it. There is a
+///     screen underneath and they expect to come back to it, so Done pops.
+///   * **Redirected into** by the router, because the app holds no strap
+///     credentials and has nothing to show. Nothing is underneath, so Done goes
+///     to Today — which the redirect will now allow, because pairing succeeded.
+///
+/// `canPop()` is the question that distinguishes them, and it is the router's
+/// own rather than a flag threaded down through the screens: a parameter saying
+/// "you were pushed" is a second copy of a fact the navigator already holds, and
+/// it would be wrong the first time a third caller forgot to set it.
+void leaveSetup(BuildContext context) {
+  if (context.canPop()) {
+    context.pop();
+  } else {
+    context.go(Routes.today);
+  }
 }
 
 /// Lets [buildRouter] tell go_router that the pairing state moved.
