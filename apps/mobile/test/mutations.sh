@@ -37,6 +37,7 @@ PY
 }
 
 # mutate <name> <test-target> <file> <old> <new> [<old2> <new2>]
+# <test-target> may be more than one path, space-separated.
 mutate() {
   local name="$1" target="$2" file="$3"
   shift 3
@@ -51,7 +52,8 @@ mutate() {
     fi
     shift 2
   done
-  if flutter test "$target" >/dev/null 2>&1; then
+  # shellcheck disable=SC2086 — $target is a space-separated list of paths.
+  if flutter test $target >/dev/null 2>&1; then
     echo "  ✗ SURVIVED — $target passes against broken code"
     FAIL=$((FAIL + 1))
   else
@@ -121,6 +123,105 @@ mutate 'the horizon eats its own boundary day' "$STORE" "$PRUNE" \
 mutate 'the daily counter is never stored' "$STORE" "$WRITER" \
   '      if (result.dailyTotals case final totals?) {' \
   '      if (result.dailyTotals case final totals? when false) {'
+
+# ── colour: a tag is an identity, never a verdict ───────────────────────────
+HUES=lib/core/theme/metric_hues.dart
+PALETTE=lib/core/theme/palette.dart
+HUES_TEST=test/theme/metric_hues_test.dart
+
+# The failure the whole tag argument exists to prevent: a family wearing a
+# colour that already means "worse than your normal". It renders perfectly.
+mutate 'a tag is set to a judgement colour' "$HUES_TEST" "$PALETTE" \
+  '  static const Color heart = Color(0xFFAB3F84);' \
+  '  static const Color heart = LightPalette.unf;'
+
+# Subtler, and the one a reviewer would not catch: a hue nudged to within a few
+# degrees of the illness red. At the 6 px a dot occupies it reads as the verdict.
+mutate 'a tag drifts to the edge of the alert red' "$HUES_TEST" "$PALETTE" \
+  '  static const Color heart = Color(0xFFAB3F84);' \
+  '  static const Color heart = Color(0xFFB03A5A);'
+
+# Lightness is the axis the eye reads as rank. One tag brighter than the rest
+# says "this metric family matters more", which nobody computed.
+mutate 'one tag is lighter than the others' "$HUES_TEST" "$PALETTE" \
+  '  static const Color move = Color(0xFF5462CA);' \
+  '  static const Color move = Color(0xFF9AA3E4);'
+
+# Two families collapsing onto one colour is the split silently undone.
+mutate 'two families share a colour' "$HUES_TEST" "$PALETTE" \
+  '  static const Color energy = Color(0xFF8B4EB3);' \
+  '  static const Color energy = LightTagPalette.move;'
+
+# The invariant `tagFor` exists for: the movement metrics rejoining the family
+# they were split out of, which makes the tag mean "not sleep and not heart".
+mutate 'the movement metrics fall back to the default tag' "$HUES_TEST" "$HUES" \
+  "    'steps_total' ||
+    'steps' ||
+    'steps_per_minute' ||" \
+  "    'steps_per_minute' ||"
+
+# ── the insight rewrite ─────────────────────────────────────────────────────
+FINDINGS=lib/features/coach/widgets/findings_section.dart
+WORDING=test/features/findings_wording_test.dart
+
+# The regression this change exists to undo: the server's debug string back on
+# the surface as the headline.
+mutate 'the raw Spearman string is the headline again' "$WORDING" "$FINDINGS" \
+  '  if (a == null) {
+    return '"'"'A pattern in your own data'"'"';
+  }' \
+  '  if (a == null || true) {
+    return finding.description ?? '"'"'A pattern in your own data'"'"';
+  }'
+
+# The failure that would make the rewrite WORSE than what it replaced: readable,
+# and causal about an observational n-of-1.
+mutate 'the headline acquires a causal verb' "$WORDING" "$FINDINGS" \
+  "    _ => 'moved with'," \
+  "    _ => 'improves',"
+
+# The caveat dropped from the disclosure, so opening the arithmetic means
+# leaving the framing behind.
+mutate 'the caveat is dropped from the disclosure' "$WORDING" "$FINDINGS" \
+  "    'One person, one stretch of time, nothing controlled. It says the two moved '
+        'together — not that either one caused the other.'," \
+  "    ''," \
+
+# ── the two resting heart rates ─────────────────────────────────────────────
+STRAP_STRIP=lib/features/diagnostics/widgets/metric_strip.dart
+SERVER_STRIP=lib/features/diagnostics/widgets/server_metric_strip.dart
+TABS=test/features/tab_screens_test.dart
+
+# The owner'"'"'s own bug report: two differently-defined numbers under one label,
+# with nothing anywhere saying they are different instruments. The stream still
+# CARRIES its instrument sentence here; the row just stops drawing it, which is
+# exactly how an attribution is lost — nothing is deleted and nothing is shown.
+mutate 'the strap row stops naming its instrument' "$TABS" "$STRAP_STRIP" \
+  '        if (metric.stream.instrument case final String note)' \
+  '        if (metric.stream.instrument case final String note when false)'
+
+# The same failure from the other side: the canonical row stops saying it is the
+# canonical one, so the two numbers are back to disagreeing in silence.
+mutate 'the canonical row stops naming its method' "$TABS" "$SERVER_STRIP" \
+  '        if (_instrumentNote(card.metric) case final String note)' \
+  '        if (_instrumentNote(card.metric) case final String note when false)'
+
+# ── Today is an index ───────────────────────────────────────────────────────
+SECTIONS=lib/features/today/today_sections.dart
+GRID_TEST=test/features/today_grid_test.dart
+
+# A card creeping back onto the daily read. Every one of them is a good card;
+# none of them is a daily read, and the screen this replaced had twenty.
+mutate 'a moved card comes back to Today' "$GRID_TEST" "$SECTIONS" \
+  "import 'package:healthee/features/today/widgets/stress_card.dart';" \
+  "import 'package:healthee/features/sleep/widgets/sleep_week_card.dart';
+import 'package:healthee/features/today/widgets/stress_card.dart';" \
+  '    PageSection(HeartRateCard(day: data.day, reveals: data.reveals, now: data.now)),' \
+  '    PageSection(HeartRateCard(day: data.day, reveals: data.reveals, now: data.now)),
+    if (snapshot != null)
+      PageSection(
+        SleepWeekCard(nights: snapshot.sleepHistory7d, reveals: data.reveals),
+      ),'
 
 echo
 echo "caught $PASS, survived $FAIL"
