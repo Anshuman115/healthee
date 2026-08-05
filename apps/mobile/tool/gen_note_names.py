@@ -29,6 +29,7 @@ from pathlib import Path
 
 MANIFEST = Path("../../packages/knowledge/manifest.json")
 OUTPUT = Path("lib/shared/format/note_names.dart")
+GRADES_OUTPUT = Path("lib/shared/format/note_grades.dart")
 
 HEADER = """/// The owner-facing name for a research-note id. **Generated — do not hand-edit.**
 ///
@@ -101,6 +102,84 @@ ALIAS_HEADER = """
 const Map<String, String> kNoteAliases = <String, String>{
 """
 
+GRADE_HEADER = """/// The evidence grade for a research-note id. **Generated — do not hand-edit.**
+///
+/// Emitted by `python3 tool/gen_note_names.py` in the same pass as
+/// `note_names.dart`, from the same read of `packages/knowledge/manifest.json`,
+/// so the two cannot describe different corpus versions. A separate file only
+/// because one file of both would clear 400 lines (Standards §1).
+///
+/// `test/shared/note_names_test.dart` reads the manifest out of the repo and
+/// fails when this file has drifted from it.
+library;
+
+import 'package:healthee/shared/format/note_names.dart';
+
+/// Every note in the corpus, id → the corpus's own `grade` field.
+///
+/// ## Why the app may hold grades at all, when `CitationRow` may not infer them
+///
+/// `CitationRow` never derives a grade from an id it was handed, and that rule
+/// stands: a `research_notes` array arriving on a payload says which notes back
+/// a sentence the SERVER composed, and the server is the only party that knows
+/// what that sentence claims. Guessing a grade there would rebuild the
+/// `evidence_grade`-vs-`grade` split that once published a `Myth` note as
+/// `Established` (#83).
+///
+/// The explainers in `shared/metric_info/` are the opposite case. Their prose is
+/// written **in this repo, against these notes**, by a person who read them —
+/// the citation is authored, not received. So the grade is not inferred from the
+/// id; it is looked up from the corpus's own field, and this table is a
+/// transcription of that field exactly as [kNoteNames] is a transcription of
+/// `name`. The generator emits both from the same manifest read, so they cannot
+/// describe different corpus versions.
+const Map<String, String> kNoteGrades = <String, String>{
+"""
+
+RANK_BLOCK = """
+/// Grade → numeric rank. **The server's `core/knowledge.py::GRADE_RANK`,
+/// transcribed** — one scale, so "weakest" means the same thing on both sides of
+/// the wire. `Contested` and `Emerging` share rank 1 and `Myth`/`Refuted` share
+/// 0, which is the server's map and not a simplification made here.
+const Map<String, int> kGradeRank = <String, int>{
+  'Established': 3,
+  'Probable': 2,
+  'Emerging': 1,
+  'Contested': 1,
+  'Myth': 0,
+  'Refuted': 0,
+};
+
+/// The grade a claim citing [noteIds] may honestly wear: **the weakest one**.
+///
+/// The same rule `jobs/recs.py::_provable_grade` applies server-side — "the
+/// strictest (weakest) grade among the cited notes is the ceiling" — so a claim
+/// resting on an `Established` note and a `Probable` one ships as `Probable`.
+/// Averaging or taking the strongest would let one solid citation launder a weak
+/// one, which is the whole failure mode.
+///
+/// An id this build cannot resolve returns null rather than a grade: an app
+/// older than the corpus must be visibly behind, never confidently wrong. Same
+/// for an empty list — a claim with no citations has no grade to show, and
+/// `MetricInfo` says so in words instead.
+String? weakestGrade(Iterable<String> noteIds) {
+  String? weakest;
+  var lowest = 1 << 30;
+  for (final id in noteIds) {
+    final grade = kNoteGrades[canonicalNoteId(id)];
+    final rank = grade == null ? null : kGradeRank[grade];
+    if (grade == null || rank == null) {
+      return null;
+    }
+    if (rank < lowest) {
+      lowest = rank;
+      weakest = grade;
+    }
+  }
+  return weakest;
+}
+"""
+
 FOOTER = "};\n"
 
 ID_SHAPED = re.compile(r"^[a-z0-9_]+$")
@@ -139,7 +218,17 @@ def main() -> None:
     lines.append(FOOTER)
 
     OUTPUT.write_text("".join(lines))
+
+    grades = [GRADE_HEADER]
+    for record in sorted(records, key=lambda r: r["id"]):
+        grade = _check(str(record["grade"]), record["id"])
+        grades.append(f"  '{record['id']}': '{grade}',\n")
+    grades.append(FOOTER)
+    grades.append(RANK_BLOCK)
+    GRADES_OUTPUT.write_text("".join(grades))
+
     print(f"{OUTPUT}: {len(records)} notes, {len(aliases)} aliases")
+    print(f"{GRADES_OUTPUT}: {len(records)} grades")
 
 
 if __name__ == "__main__":

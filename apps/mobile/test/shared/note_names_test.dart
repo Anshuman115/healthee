@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/shared/format/note_grades.dart';
 import 'package:healthee/shared/format/note_names.dart';
 
 /// The corpus manifest, relative to `apps/mobile` — `flutter test`'s cwd.
@@ -100,6 +101,63 @@ void main() {
     expect(noteName('a_note_this_build_has_never_heard_of'), isNull);
     expect(noteName('sleep_need_debt'), 'Sleep need & cumulative sleep debt');
     expect(canonicalNoteId('sleep_need_debt'), 'sleep_need_debt');
+  });
+
+  test('EVERY NOTE’S GRADE IN THE APP IS THE CORPUS’S OWN GRADE', () {
+    // The half that matters most: a stale grade table would put `Established`
+    // under a claim the corpus has since downgraded, which is #83's failure
+    // (`Myth` shipped as `Established`) rebuilt on the phone.
+    expect(kNoteGrades, <String, String>{
+      for (final record in _records())
+        record['id']! as String: record['grade']! as String,
+    }, reason: _howToFix);
+  });
+
+  test('the rank map is the SERVER’s, value for value', () {
+    // `core/knowledge.py::GRADE_RANK`, transcribed. Contested and Emerging both
+    // rank 1 and Myth/Refuted both rank 0 — a "tidier" 5-point scale here would
+    // make "weakest" mean two different things across the wire.
+    expect(kGradeRank, <String, int>{
+      'Established': 3,
+      'Probable': 2,
+      'Emerging': 1,
+      'Contested': 1,
+      'Myth': 0,
+      'Refuted': 0,
+    });
+    // Every grade the corpus actually uses can be ranked. A grade with no rank
+    // makes `weakestGrade` fail closed, which is right but silent.
+    for (final grade in kNoteGrades.values) {
+      expect(kGradeRank, contains(grade), reason: grade);
+    }
+  });
+
+  test('weakestGrade takes the FLOOR, so one solid note cannot launder a weak one', () {
+    // The rule `jobs/recs.py::_provable_grade` applies server-side.
+    expect(kNoteGrades['resting_heart_rate'], 'Established');
+    expect(kNoteGrades['recovery_readiness'], 'Probable');
+    expect(
+      weakestGrade(<String>['resting_heart_rate', 'recovery_readiness']),
+      'Probable',
+    );
+    // MUTATION — order must not decide it, and the strongest must not win.
+    expect(
+      weakestGrade(<String>['recovery_readiness', 'resting_heart_rate']),
+      'Probable',
+    );
+    expect(
+      weakestGrade(<String>['resting_heart_rate', 'resting_heart_rate']),
+      'Established',
+    );
+  });
+
+  test('an unresolvable id yields NO grade rather than a confident one', () {
+    // Fail closed: an app older than the corpus must be visibly behind.
+    expect(weakestGrade(<String>['not_a_note']), isNull);
+    expect(weakestGrade(<String>['vo2max', 'not_a_note']), isNull);
+    expect(weakestGrade(const <String>[]), isNull);
+    // An alias the server cites still resolves — the same table `noteName` uses.
+    expect(weakestGrade(<String>['cardio_load_trimp']), kNoteGrades['training_stress_score']);
   });
 
   test('no name is a snake_case id wearing a name-shaped label', () {

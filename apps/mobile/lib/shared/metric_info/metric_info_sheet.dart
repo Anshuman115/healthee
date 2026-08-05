@@ -18,7 +18,9 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/shared/format/note_grades.dart';
 import 'package:healthee/shared/metric_info/metric_info.dart';
+import 'package:healthee/shared/states/citation_row.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 /// The small ⓘ button placed in a card header.
@@ -127,28 +129,61 @@ class _MetricInfoSheet extends StatelessWidget {
               accent: hues.heart,
             ),
             const SizedBox(height: 22),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: colors.surface2,
-                borderRadius: BorderRadius.circular(Radii.badge),
-              ),
-              child: Row(
-                children: [
-                  Icon(SolarIconsOutline.shieldCheck, size: 14, color: colors.ink3),
-                  const SizedBox(width: Insets.sm),
-                  Expanded(
-                    child: Text(
-                      'Grounded in peer-reviewed research, not marketing scores.',
-                      style: HType.sans(colors.ink3, size: 11.5, height: 1.4),
-                    ),
-                  ),
-                ],
-              ),
+            // Legacy's grounding badge said "Grounded in peer-reviewed research,
+            // not marketing scores." — over prose carrying no note id and no
+            // grade. A claim of grounding is itself a claim, and it was the one
+            // sentence on the sheet with nothing behind it. The sources replace
+            // it: same slot, same 22 px above, and now it is showing its working
+            // rather than asserting it.
+            CitationRow(
+              noteIds: info.notes,
+              grade: weakestGrade(info.notes),
             ),
+            if (info.uncited.isNotEmpty) ...[
+              const SizedBox(height: Insets.sm),
+              _NotCoveredNote(info.uncited),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+/// What the sources above do **not** cover, said plainly under them.
+///
+/// A list of four sources beside a paragraph implies the whole paragraph is
+/// sourced. Where part of it is our own arithmetic, our own threshold or our own
+/// product decision, the citation row would otherwise be lending it cover it
+/// does not give — and that is a worse failure than no citation at all, because
+/// it is the reader's check that gets defeated.
+///
+/// Drawn in ordinary ink with no colour and no icon, for the reason
+/// `citation_row.dart` gives about broken citations: this is a statement about
+/// our evidence, not a verdict about the owner's body.
+class _NotCoveredNote extends StatelessWidget {
+  const _NotCoveredNote(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(SolarIconsOutline.infoCircle, size: 13, color: colors.ink3),
+        ),
+        const SizedBox(width: Insets.sm),
+        Expanded(
+          child: Text(
+            'Not covered by those sources: $text',
+            style: HType.sans(colors.ink3, size: 11.5, height: 1.45),
+          ),
+        ),
+      ],
     );
   }
 }
