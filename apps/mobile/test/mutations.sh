@@ -174,6 +174,40 @@ mutate 'core and light stop being the same stage' "$STAGE_TEST" "$HUES" \
   "    'core' => rem,
     'light' => spo2,"
 
+# ── the fifth row: an unrecognised stage ────────────────────────────────────
+# The two halves of one defect, in two files, and each is enough on its own to
+# put a byte nobody decoded on screen as a named stage. Fixing one and not the
+# other looks fixed and is not: `normaliseStage` launders the code into `core`
+# BEFORE the colour mapping ever sees it.
+FORMAT=lib/features/sleep/sleep_format.dart
+
+mutate 'an unrecognised code is painted as light sleep again' "$STAGE_TEST" "$HUES" \
+  "    _ => unstaged," \
+  "    _ => spo2,"
+
+mutate 'an unrecognised code is renamed to light sleep again' "$STAGE_TEST" "$FORMAT" \
+  "  return kUnrecognisedStage;
+}" \
+  "  return 'core';
+}"
+
+# ── the two tiles that were withheld forever ────────────────────────────────
+FACTS=lib/features/today/today_facts.dart
+VITALS_TEST=test/features/today_overnight_vitals_test.dart
+
+# Reverting the fallback restores the bug exactly: both surfaces go back to
+# saying "the server did not say why" about numbers in the same payload.
+mutate 'Resp and SpO2 go back to claiming no data' "$VITALS_TEST" "$FACTS" \
+  "    return firstRefusal ?? (overnight?.hasValue ?? false ? overnight! : _absent);" \
+  "    return firstRefusal ?? _absent;"
+
+# The honest bug replacing the dishonest one: the right number with its
+# instrument unnamed, so a raw session average reads as today's derived figure.
+mutate 'the overnight value loses its instrument caveat' "$VITALS_TEST" "$FACTS" \
+  "    return Caveated<double>(value, <Disclosure>[" \
+  "    return Present<double>(value); // ignore: dead_code
+    return Caveated<double>(value, <Disclosure>["
+
 # ── the insight rewrite ─────────────────────────────────────────────────────
 FINDINGS=lib/shared/findings_section.dart
 WORDING=test/features/findings_wording_test.dart
