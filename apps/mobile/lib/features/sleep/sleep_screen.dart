@@ -49,7 +49,7 @@ class SleepScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InstrumentScreen(tabIndex: 1, now: now, sections: sleepSections);
+    return InstrumentScreen(now: now, sections: sleepSections);
   }
 }
 

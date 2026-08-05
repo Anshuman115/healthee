@@ -42,7 +42,7 @@ class CoachScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InstrumentScreen(tabIndex: 3, now: now, sections: coachSections);
+    return InstrumentScreen(now: now, sections: coachSections);
   }
 }
 

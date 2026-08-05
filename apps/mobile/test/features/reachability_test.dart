@@ -21,12 +21,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
+import 'package:healthee/core/tabs.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
-import 'package:healthee/shared/app_tab_bar.dart';
 
 import '../pairing/_pairing_fakes.dart';
 import '../pairing/_zepp_stub.dart';
@@ -113,7 +113,7 @@ void main() {
     expect(find.textContaining('how it was measured'), findsOneWidget);
   });
 
-  test('every live tab names a route, and every route is wired', () {
+  test('every tab names a route, and every route is wired', () {
     const wired = <String>{
       Routes.today,
       Routes.sleep,
@@ -125,24 +125,14 @@ void main() {
       Routes.devFoundation,
     };
     for (final tab in kAppTabs) {
-      if (tab.built) {
-        expect(wired, contains(tab.route), reason: '${tab.label} is live');
-      } else {
-        expect(
-          tab.route,
-          isNull,
-          reason:
-              '${tab.label} is drawn dimmed, so it must have nowhere to go — a '
-              'route on a disabled tab is a link waiting to be re-enabled by '
-              'accident',
-        );
-      }
+      expect(wired, contains(tab.route), reason: '${tab.label} is live');
     }
   });
 
-  test('DiagnosticsScreen is not a tab, and lights Today rather than nothing', () {
-    // It is reached from the pairing surface. Lighting no tab would leave the
-    // bar looking broken on a screen that is otherwise fine.
+  test('DiagnosticsScreen is not a tab and draws no bar', () {
+    // It is reached from the pairing surface, outside the tab shell. It used to
+    // light the Today tab, which told the owner they were somewhere they were
+    // not and offered three exits out of a flow they were in the middle of.
     expect(const DiagnosticsScreen().runtimeType, DiagnosticsScreen);
     expect(
       kAppTabs.map((tab) => tab.route),

@@ -10,10 +10,13 @@
 /// nothing is highlighted.
 library;
 
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/router.dart';
+import 'package:healthee/core/tabs.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/core/theme/theme_controller.dart';
 import 'package:healthee/data/store/local_store.dart';
@@ -143,8 +146,10 @@ void main() {
   });
 
   group('the tab bar', () {
-    testWidgets('shows all five tabs', (tester) async {
-      await tester.pumpWidget(host(const AppTabBar(currentIndex: 0)));
+    testWidgets('shows every tab', (tester) async {
+      await tester.pumpWidget(
+        host(AppTabBar(currentIndex: 0, onSelect: (_) {})),
+      );
       await tester.pumpAndSettle();
 
       for (final tab in kAppTabs) {
@@ -152,46 +157,72 @@ void main() {
       }
     });
 
-    test('ONLY THE TABS WITH SCREENS ARE MARKED BUILT', () {
-      // `core/router.dart`: "a route with no screen would be a link to a crash".
-      // A tab is built exactly when it names a route, so this cannot drift from
-      // the router by being edited in one place.
-      expect(kAppTabs.where((tab) => tab.built).map((tab) => tab.label), [
+    test('THE BAR CONTAINS NO DEAD CONTROL', () {
+      // It used to draw Actions dimmed and inert. `core/tabs.dart` argues why a
+      // navigation control that never responds is worse than four tabs; this is
+      // the check that the argument stayed applied. There is no way to express a
+      // routeless tab any more, so the assertion is on the list's contents.
+      expect(kAppTabs.map((tab) => tab.label), <String>[
         'Today',
         'Sleep',
         'Activity',
         'Coach',
       ]);
-      expect(
-        kAppTabs.where((tab) => !tab.built).map((tab) => tab.label),
-        ['Actions'],
-        reason: 'Actions has no screen yet, and the bar must say so',
-      );
+      expect(kAppTabs.map((tab) => tab.route), isNot(contains(Routes.actions)));
     });
 
-    test('EVERY BUILT TAB NAMES A ROUTE THE ROUTER WIRES', () {
-      // The failure this guards is a tab pointing at a path nobody registered:
-      // it looks live, it is dim-free, and it crashes on tap.
+    test('EVERY TAB NAMES A ROUTE THE ROUTER WIRES', () {
+      // The failure this guards is a tab pointing at a path nobody registered.
+      // The router builds its branches from this same list, so the check is now
+      // that the paths are the agreed ones rather than invented here.
       const wired = <String>{
         Routes.today,
         Routes.sleep,
         Routes.activity,
         Routes.coach,
       };
-      for (final tab in kAppTabs.where((tab) => tab.built)) {
+      for (final tab in kAppTabs) {
         expect(wired, contains(tab.route), reason: '${tab.label} is a live tab');
       }
     });
 
-    testWidgets('an unbuilt tab is disabled to a screen reader, not just dim', (
+    testWidgets('a tap reports its BRANCH INDEX, the active tab included', (
+      tester,
+    ) async {
+      // Index, not route: the shell moves by branch and pressing the tab you are
+      // already on is what pops that branch to its root.
+      final pressed = <int>[];
+      await tester.pumpWidget(
+        host(AppTabBar(currentIndex: 0, onSelect: pressed.add)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Activity'));
+      await tester.tap(find.text('Today'));
+      await tester.pumpAndSettle();
+
+      expect(pressed, <int>[2, 0]);
+    });
+
+    testWidgets('every tab is a button to a screen reader, the active one selected', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
-      await tester.pumpWidget(host(const AppTabBar(currentIndex: 0)));
+      await tester.pumpWidget(
+        host(AppTabBar(currentIndex: 1, onSelect: (_) {})),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel('Actions — not built yet'), findsOneWidget);
-      expect(find.bySemanticsLabel('Sleep'), findsOneWidget);
+      for (final tab in kAppTabs) {
+        expect(find.bySemanticsLabel(tab.label), findsOneWidget);
+      }
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Sleep'))
+            .flagsCollection
+            .isSelected,
+        Tristate.isTrue,
+      );
       handle.dispose();
     });
   });

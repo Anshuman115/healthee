@@ -1,78 +1,61 @@
-/// The five-tab bar every legacy screen sits on — Today · Sleep · Activity ·
-/// Coach · Actions.
+/// The app frame's bottom bar — **drawn once, by the shell**.
 ///
 /// **Ported from** the bottom bar visible in every `design_reference/project/
-/// screens/v2-*.png`: five icon-over-label items on the app frame, the active one
-/// in the accent, the rest quiet.
+/// screens/v2-*.png`: icon-over-label items on the app frame, the active one in
+/// the accent, the rest quiet.
 ///
-/// ## A tab is live only when its screen exists
+/// ## It no longer navigates by route, and that is the whole point
 ///
-/// `core/router.dart` is explicit that it wires only the routes that have
-/// screens: *"a route with no screen would be a link to a crash"*. Four of the
-/// five now do. **Actions has not shipped**, so it is drawn dimmed,
-/// non-interactive, and marked disabled to the semantics tree — a screen reader
-/// says "not built yet" rather than announcing a button that does nothing.
+/// This widget used to call `context.go(tab.route)` and each screen drew its own
+/// copy of the bar with its own `tabIndex`. Both halves of that were wrong:
 ///
-/// That is the same choice the rest of this app makes about a missing number:
-/// show the shape, say it is not there, do not fake the content. Two other shapes
-/// were rejected — leaving the bar out entirely (it is the most recognisable
-/// piece of the legacy screen, and its absence makes Today look like the whole
-/// app), and routing all five to placeholder screens to make the bar look
-/// finished.
+///   * **Five copies of one bar** is five chances for them to disagree
+///     (Standards §1: second occurrence = extract). The bar is now built in
+///     `shared/app_shell.dart`, once, and no screen mentions it.
+///   * **`go` to a sibling route rebuilt the screen.** Under plain `GoRoute`s
+///     each tab was a fresh page, so a tab switch destroyed the scroll position,
+///     re-ran every `RevealOnce` animation — defeating CLAUDE.md's replay rule at
+///     the navigation layer, however correct the widget — and re-read providers.
+///     The router is now a `StatefulShellRoute.indexedStack`; this bar reports
+///     which item was pressed and the shell moves the branch.
 ///
-/// Lives in `shared/` rather than under one feature: four features draw it, and
-/// Standards §1 forbids a feature reaching into another feature's widgets.
+/// The active item is still not a link to itself: [onSelect] is called with the
+/// current index too, and the shell reads that as "pop this tab to its root",
+/// which is what a tab bar implies.
+///
+/// The tab list lives in `core/tabs.dart` because the router's branches are built
+/// from the same list — see there for why they may not be two lists, and for why
+/// the unbuilt Actions tab came out of the bar rather than being drawn dimmed.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:healthee/core/router.dart';
+import 'package:healthee/core/tabs.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
-/// One tab: what it is called, its icon, and the route it opens.
-@immutable
-class AppTab {
-  /// A tab in the bar. [route] is null until the tab's screen ships.
-  const AppTab({required this.label, required this.icon, this.route});
-
-  /// The name under the icon.
-  final String label;
-
-  /// The icon above it.
-  final IconData icon;
-
-  /// Where tapping it goes, or null when there is nowhere to go yet.
-  final String? route;
-
-  /// False until the tab's screen ships. See the library docstring.
-  bool get built => route != null;
-}
-
-/// The five tabs, in `docs/APP_DESIGN.md` §2's order.
-///
-/// Coach sits where the design doc puts a FAB on Today. It is in the bar because
-/// legacy's bar has five items and this one is a picture of legacy's bar.
-const List<AppTab> kAppTabs = <AppTab>[
-  AppTab(label: 'Today', icon: Icons.wb_sunny_outlined, route: Routes.today),
-  AppTab(label: 'Sleep', icon: Icons.nightlight_outlined, route: Routes.sleep),
-  AppTab(label: 'Activity', icon: Icons.show_chart, route: Routes.activity),
-  AppTab(label: 'Coach', icon: Icons.forum_outlined, route: Routes.coach),
-  AppTab(label: 'Actions', icon: Icons.check_circle_outline),
-];
-
-/// The app frame's bottom bar.
+/// The bottom bar. One instance, in the shell.
 class AppTabBar extends StatelessWidget {
-  /// [currentIndex] is the tab being shown.
-  const AppTabBar({required this.currentIndex, super.key});
+  /// [currentIndex] is the shell's branch index; [onSelect] moves it.
+  const AppTabBar({
+    required this.currentIndex,
+    required this.onSelect,
+    super.key,
+  });
 
   /// Which tab is active.
   final int currentIndex;
+
+  /// Called with the pressed tab's index — including the active one.
+  final void Function(int index) onSelect;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return DecoratedBox(
+      // Opaque, by token. The bar sits under the content rather than over it —
+      // it is in the `Scaffold`'s `bottomNavigationBar` slot, so the body is laid
+      // out above it — and `chrome` is a solid colour in both themes so nothing
+      // shows through even while a scroll overshoots.
       decoration: BoxDecoration(
         color: colors.chrome,
         border: Border(top: BorderSide(color: colors.line2, width: hairline)),
@@ -85,7 +68,11 @@ class AppTabBar extends StatelessWidget {
             children: [
               for (var i = 0; i < kAppTabs.length; i++)
                 Expanded(
-                  child: _TabItem(tab: kAppTabs[i], active: i == currentIndex),
+                  child: _TabItem(
+                    tab: kAppTabs[i],
+                    active: i == currentIndex,
+                    onTap: () => onSelect(i),
+                  ),
                 ),
             ],
           ),
@@ -96,34 +83,24 @@ class AppTabBar extends StatelessWidget {
 }
 
 class _TabItem extends StatelessWidget {
-  const _TabItem({required this.tab, required this.active});
+  const _TabItem({required this.tab, required this.active, required this.onTap});
 
   final AppTab tab;
   final bool active;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final tint = switch ((tab.built, active)) {
-      (false, _) => colors.ink3.withValues(alpha: 0.45),
-      (true, true) => colors.accent,
-      (true, false) => colors.ink3,
-    };
-    final route = tab.route;
+    final tint = active ? colors.accent : colors.ink3;
     return Semantics(
-      button: tab.built,
-      enabled: tab.built,
+      button: true,
       selected: active,
-      // Named rather than left to the label alone: "Actions, dimmed" is not
-      // something a screen reader can convey, and "not built yet" is the fact.
-      label: tab.built ? tab.label : '${tab.label} — not built yet',
+      label: tab.label,
       child: ExcludeSemantics(
         child: InkWell(
-          // The active tab is not a no-op link to itself, and an unbuilt tab has
-          // nowhere to go — both take null, which is what makes them un-pressable
-          // rather than pressable-and-inert.
-          onTap: route == null || active ? null : () => context.go(route),
+          onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: Insets.xs),
             child: Column(

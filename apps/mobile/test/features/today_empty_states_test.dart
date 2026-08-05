@@ -100,7 +100,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Today'), findsOneWidget, reason: 'only the app bar');
+      // `Today` is the action card's own label. It used to be the tab bar's too,
+      // so this read `findsOneWidget` — the bar now lives in the shell and this
+      // host pumps the screen alone, which makes the assertion the plain one.
+      expect(find.text('Today'), findsNothing, reason: 'no action card at all');
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 

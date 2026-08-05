@@ -40,7 +40,6 @@ class TodayScreen extends ConsumerWidget {
     // invitation at an owner who already is.
     final signedIn = ref.watch(serverSessionProvider).value?.signedIn;
     return InstrumentScreen(
-      tabIndex: 0,
       now: now,
       // In the chrome, not in the list: a connection state that scrolls away is
       // one the owner cannot check when they need it.

@@ -46,7 +46,7 @@ class ActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InstrumentScreen(tabIndex: 2, now: now, sections: activitySections);
+    return InstrumentScreen(now: now, sections: activitySections);
   }
 }
 

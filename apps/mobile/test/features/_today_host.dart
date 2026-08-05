@@ -12,11 +12,14 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/app.dart';
 import 'package:healthee/ble/models/device_daily_totals.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/models/today_view.dart';
+import 'package:healthee/data/pairing/paired_strap.dart';
+import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/connection_state.dart';
@@ -58,6 +61,47 @@ Widget todayHost(
   bool signedIn = true,
   Widget? home,
 }) {
+  return _scoped(
+    store,
+    connection: connection,
+    server: server,
+    serverUnreachable: serverUnreachable,
+    signedIn: signedIn,
+    child: MaterialApp(
+      theme: themeOverride ?? AppTheme.light,
+      home: home ?? TodayScreen(now: now),
+    ),
+  );
+}
+
+/// The whole app on its REAL router, so tab switching is the real thing.
+///
+/// [todayHost] pumps one screen with no router at all, which is right for asking
+/// what a screen draws and useless for asking what a tab switch costs. The
+/// pairing summary is pinned to a paired strap because `buildRouter` redirects an
+/// unpaired app to `/pairing` — a test of the tab shell would otherwise never see
+/// a tab.
+Widget routedApp(LocalStore store) =>
+    _scoped(store, paired: true, child: const HealtheeApp());
+
+/// The overrides that keep a widget test off the network and off the keystore,
+/// wrapped around [child].
+///
+/// A wrapper rather than a returned override list, for the reason
+/// `_today_stubs.dart` already records: `Override` is not exported by
+/// `flutter_riverpod`, and reaching past that boundary to save a parameter is not
+/// worth it. Extracted on its second use (Standards §1) — a second copy of these
+/// is a second chance to forget one, which surfaces as "pumpAndSettle timed out"
+/// rather than as anything about the test.
+Widget _scoped(
+  LocalStore store, {
+  required Widget child,
+  StrapConnection? connection,
+  TodayView? server,
+  bool serverUnreachable = false,
+  bool signedIn = true,
+  bool paired = false,
+}) {
   return ProviderScope(
     overrides: [
       localStoreProvider.overrideWithValue(store),
@@ -76,11 +120,18 @@ Widget todayHost(
       todaySnapshotProvider.overrideWith(
         serverUnreachable ? todayUnreachable() : todayIs(server ?? todayView()),
       ),
+      if (paired)
+        pairingSummaryProvider.overrideWith(
+          (ref) async => (
+            strap: const PairedStrap(
+              mac: 'C0:FF:EE:00:00:01',
+              authKey: '000102030405060708090a0b0c0d0e0f',
+            ),
+            zeppRemembered: false,
+          ),
+        ),
     ],
-    child: MaterialApp(
-      theme: themeOverride ?? AppTheme.light,
-      home: home ?? TodayScreen(now: now),
-    ),
+    child: child,
   );
 }
 

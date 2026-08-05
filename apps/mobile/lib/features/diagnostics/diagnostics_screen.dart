@@ -90,9 +90,11 @@ class DiagnosticsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The Today tab stays lit: this screen is reached from the pairing surface,
-    // not from the bar, and lighting nothing would leave the bar looking broken.
-    return InstrumentScreen(tabIndex: 0, now: now, sections: diagnosticsSections);
+    // No bar at all. This screen is reached from the pairing surface, outside the
+    // tab shell — it used to light the Today tab, which said the owner was
+    // somewhere they were not, and offered three other tabs as a way out of a
+    // flow they were in the middle of.
+    return InstrumentScreen(now: now, sections: diagnosticsSections);
   }
 }
 

@@ -25,6 +25,19 @@
 /// back. `shared/reveal_once.dart` has the full argument, and every ported
 /// painter takes its progress as a parameter for exactly this reason.
 ///
+/// **That registry is only worth anything while this `State` lives.** It used to
+/// die on every tab switch, because each tab was its own page — so the rule held
+/// inside a screen and was defeated between them. The tabs are branches of a
+/// `StatefulShellRoute.indexedStack` now (`shared/app_shell.dart`), which is what
+/// keeps this object alive across a round trip.
+///
+/// ## No bar here
+///
+/// This widget draws no bottom bar and takes no tab index. There is exactly one
+/// `AppTabBar` in the app and the shell owns it; five screens each drawing their
+/// own was five chances to disagree. The `Scaffold` stays because `/diagnostics`
+/// renders this shell **outside** the tab shell and still needs a page.
+///
 /// ## No app bar, and that is legacy's shape rather than a saving
 ///
 /// `design_reference/project/hh/screen_today.jsx` starts each scroll with its own
@@ -50,7 +63,6 @@ import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/models/today_view.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
-import 'package:healthee/shared/app_tab_bar.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/async_view.dart';
@@ -108,18 +120,14 @@ typedef SectionsBuilder = List<PageSection> Function(ScreenData data);
 
 /// A tab screen: the frame, the two sources, the list.
 class InstrumentScreen extends ConsumerStatefulWidget {
-  /// [tabIndex] lights the bar; [sections] decides everything above it.
+  /// [sections] decides everything the screen draws, in order.
   const InstrumentScreen({
-    required this.tabIndex,
     required this.sections,
     this.chrome,
     this.now,
     this.onRefreshed,
     super.key,
   });
-
-  /// Which tab of [kAppTabs] this screen is.
-  final int tabIndex;
 
   /// What to draw, in order.
   final SectionsBuilder sections;
@@ -147,7 +155,6 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
   Widget build(BuildContext context) {
     final server = ref.watch(todaySnapshotProvider);
     return Scaffold(
-      bottomNavigationBar: AppTabBar(currentIndex: widget.tabIndex),
       body: SafeArea(
         bottom: false,
         child: Column(

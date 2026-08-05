@@ -9,19 +9,25 @@
 /// go_router rather than `Navigator` calls: deep links (a notification opening one
 /// night's sleep detail) and typed paths are both things the app will need, and
 /// retrofitting a router after screens exist means touching every screen.
+///
+/// ## The four tabs are BRANCHES, not sibling pages
+///
+/// They were plain sibling `GoRoute`s, which meant every tab switch built a new
+/// page and threw the old one away — scroll offset, chart reveals and provider
+/// reads with it. `shared/app_shell.dart` records the measurement. They are now
+/// the branches of a `StatefulShellRoute.indexedStack`, each with its own
+/// `Navigator`, all kept alive.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:healthee/core/tabs.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
-import 'package:healthee/features/activity/activity_screen.dart';
-import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
 import 'package:healthee/features/signin/server_signin_screen.dart';
-import 'package:healthee/features/sleep/sleep_screen.dart';
-import 'package:healthee/features/today/today_screen.dart';
+import 'package:healthee/shared/app_shell.dart';
 import 'package:healthee/shared/foundation_screen.dart';
 
 /// Every route's path, in one place. Screens reference these, never string
@@ -81,8 +87,9 @@ abstract final class Routes {
 ///
 /// Everything above is wired except [Routes.actions] and [Routes.profile], which
 /// have no screens. They are the agreed paths, not dead routes — a route with no
-/// screen would be a link to a crash, so they are added with their screens, and
-/// `app_tab_bar.dart` draws the Actions tab dimmed until that happens.
+/// screen would be a link to a crash, so they are added with their screens.
+/// Actions is also **not in the bar** until then; `core/tabs.dart` argues why a
+/// dimmed, inert tab is worse than four tabs.
 ///
 /// ## Unpaired means pairing
 ///
@@ -114,21 +121,24 @@ GoRouter buildRouter(WidgetRef ref) {
       return null;
     },
     routes: <RouteBase>[
-      GoRoute(
-        path: Routes.today,
-        builder: (BuildContext context, GoRouterState state) => const TodayScreen(),
-      ),
-      GoRoute(
-        path: Routes.sleep,
-        builder: (BuildContext context, GoRouterState state) => const SleepScreen(),
-      ),
-      GoRoute(
-        path: Routes.activity,
-        builder: (BuildContext context, GoRouterState state) => const ActivityScreen(),
-      ),
-      GoRoute(
-        path: Routes.coach,
-        builder: (BuildContext context, GoRouterState state) => const CoachScreen(),
+      // The tabs. Branch order IS `kAppTabs` order, by construction rather than
+      // by agreement — the bar moves by index, so two lists would be a defect
+      // that compiles.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: <StatefulShellBranch>[
+          for (final AppTab tab in kAppTabs)
+            StatefulShellBranch(
+              routes: <RouteBase>[
+                GoRoute(
+                  path: tab.route,
+                  builder: (BuildContext context, GoRouterState state) =>
+                      tab.screen(),
+                ),
+              ],
+            ),
+        ],
       ),
       GoRoute(
         path: Routes.diagnostics,
