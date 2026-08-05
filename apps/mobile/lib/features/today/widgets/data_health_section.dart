@@ -73,8 +73,18 @@ class DataHealthSection extends StatelessWidget {
     this.now,
     this.signedIn,
     this.onSignIn,
+    this.bottomGap = 0,
     super.key,
   });
+
+  /// Space under the card, applied **only when the card renders**.
+  ///
+  /// Legacy's banner carries its own `EdgeInsets.only(bottom: 16)` inside the
+  /// widget (`today_screen.dart:663`) precisely so a healthy day leaves no gap
+  /// behind it. A gap supplied by the section list could not do that: the list
+  /// cannot see that this returned `SizedBox.shrink()`, so a quiet day would
+  /// open with sixteen pixels of nothing.
+  final double bottomGap;
 
   /// Whether this phone holds a server session. **Null means not yet known** —
   /// the keystore read is asynchronous, and announcing "not signed in" during it
@@ -125,6 +135,19 @@ class DataHealthSection extends StatelessWidget {
     if (feeds.isEmpty && lines.isEmpty) {
       return const SizedBox.shrink();
     }
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomGap),
+      child: _card(colors, text, feeds, lines, signedOut),
+    );
+  }
+
+  Widget _card(
+    HealtheeColors colors,
+    TextTheme text,
+    List<FeedHealth> feeds,
+    List<HealthLine> lines,
+    bool signedOut,
+  ) {
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,7 +191,6 @@ class DataHealthSection extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// One quiet feed: what it is, and how long it has been quiet.
