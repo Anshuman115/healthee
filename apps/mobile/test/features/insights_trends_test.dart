@@ -8,7 +8,7 @@
 ///   a trend, polarity known    coloured      the metric moved against the owner's own past
 ///   a trend, polarity neutral  NO COLOUR     burning more calories is not better
 ///   a trend, metric unknown    NO COLOUR     unknown is unknown, never a default verdict
-///   a finding, any state       NO COLOUR     a correlation's sign is a direction, not a verdict
+///   a finding, any state       SIGN-BLIND    a correlation's sign is a direction, not a verdict
 /// ```
 ///
 /// **The colourless cases are what this file is really about.** A screen that
@@ -197,64 +197,96 @@ void main() {
     });
   });
 
-  group('NO FINDING RENDERS A VERDICT COLOUR, IN ANY STATE', () {
+  group('NO FINDING TURNS ITS SIGN INTO A VERDICT', () {
     // Enumerated over every kind of finding the payload can carry, and over both
     // signs of the coefficient, because the sign is exactly what a well-meaning
     // change would reach for. `q`-corrected or not, 105 days of one person's
     // history cannot support "this is good for you".
-    final kinds = <String, Finding>{
-      'a positive pairwise correlation': Finding.fromJson(const {
+    //
+    // ## Why this is no longer "spends no fav and no unf"
+    //
+    // It was, until 2026-08-05. Legacy is now the design specification, and
+    // legacy's `cHrv` and `cReady` ARE its green — the same value as `fav`. So a
+    // finding about HRV legitimately paints its metric's hue in the colour that
+    // also means "improving", and "no fav anywhere" became unassertable without
+    // failing the port for being faithful (`palette.dart` has the decision).
+    //
+    // What replaced it is stronger, not weaker: **flip the sign and nothing may
+    // change colour.** A row that encoded a verdict would have to differ, and no
+    // amount of hue-sharing can hide that. It is also mutation-proof in a way the
+    // old assertion was not — the old one passed for a row that was simply grey.
+    final kinds = <String, Map<String, Object?>>{
+      'a pairwise correlation': <String, Object?>{
         'kind': 'pairwise_lag',
         'metric_a': 'hrv_sleep_avg',
         'metric_b': 'recovery_score',
-        'effect_size': 0.72,
         'effect_metric': 'spearman_r',
         'q_value': 0.0001,
         'n_samples': 105,
         'lag_days': 0,
-      }),
-      'a negative pairwise correlation': Finding.fromJson(const {
+      },
+      'a lagged correlation': <String, Object?>{
         'kind': 'pairwise_lag',
         'metric_a': 'caffeine',
         'metric_b': 'sleep_health_score_4dim',
-        'effect_size': -0.42,
         'effect_metric': 'rho',
         'q_value': 0.03,
         'n_samples': 24,
         'lag_days': 0,
-      }),
-      'an event finding': Finding.fromJson(const {
+      },
+      'an event finding': <String, Object?>{
         'kind': 'event_contrast',
         'metric_a': 'rhr_daily',
         'event_kind': 'alcohol',
-        'effect_size': 0.51,
         'n_samples': 30,
-      }),
-      'a finding with no effect size at all': Finding.fromJson(const {
-        'kind': 'pairwise_lag',
-        'metric_a': 'steps_total',
-        'metric_b': 'sleep_score',
-        'n_samples': 40,
-      }),
+      },
     };
 
-    for (final entry in kinds.entries) {
-      testWidgets('${entry.key} spends no fav and no unf', (tester) async {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light,
-            home: Scaffold(
-              body: FindingsSection(findings: <Finding>[entry.value]),
-            ),
+    Future<Set<Color>> colours(WidgetTester tester, Finding finding) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: FindingsSection(findings: <Finding>[finding]),
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
+      return _textColours(tester, find.byType(FindingsSection));
+    }
 
-        final drawn = _textColours(tester, find.byType(FindingsSection));
-        expect(drawn, isNot(contains(_verdicts().fav)), reason: entry.key);
-        expect(drawn, isNot(contains(_verdicts().unf)), reason: entry.key);
+    for (final entry in kinds.entries) {
+      testWidgets('${entry.key} reads the same in both directions', (tester) async {
+        final positive = await colours(
+          tester,
+          Finding.fromJson(<String, Object?>{...entry.value, 'effect_size': 0.51}),
+        );
+        final negative = await colours(
+          tester,
+          Finding.fromJson(<String, Object?>{...entry.value, 'effect_size': -0.51}),
+        );
+        expect(positive, isNotEmpty, reason: '${entry.key} drew no text at all');
+        expect(
+          negative,
+          equals(positive),
+          reason: '${entry.key}: the sign of a coefficient is a direction, not a '
+              'verdict, and nothing on the row may change colour with it',
+        );
       });
     }
+
+    testWidgets('a finding with no effect size at all still draws', (tester) async {
+      final drawn = await colours(
+        tester,
+        Finding.fromJson(const <String, Object?>{
+          'kind': 'pairwise_lag',
+          'metric_a': 'steps_total',
+          'metric_b': 'sleep_score',
+          'n_samples': 40,
+        }),
+      );
+      expect(drawn, isNotEmpty);
+    });
   });
 
   group('the screen', () {
@@ -264,7 +296,7 @@ void main() {
       await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Trends'.toUpperCase()), findsOneWidget);
+      expect(find.text('Trends'), findsOneWidget);
       expect(find.text('Overnight HRV'), findsOneWidget);
       expect(find.text('Resting heart rate'), findsOneWidget);
       expect(find.text('Total calories'), findsOneWidget);

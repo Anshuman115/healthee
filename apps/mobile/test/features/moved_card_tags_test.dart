@@ -1,26 +1,30 @@
-/// The cards that moved to Sleep and Activity wear their metric's tag.
+/// The cards that moved to Sleep and Activity wear their metric's legacy hue.
 ///
 /// Today's cards were retinted when the grid landed; the ones that moved to the
 /// two detail screens mostly were not, so Active minutes had no colour at all and
 /// cardio load drew a grey chart under a coloured title. A cell and the card it
 /// opens in different colours is the identity claim broken on the way through the
-/// door.
+/// door. That is what this file still guards.
 ///
-/// Two rules are checked alongside, because the fix is the kind that can quietly
-/// break them:
+/// ## What it stopped guarding, on 2026-08-05
 ///
-///   * **A tag comes from `tagFor` and nowhere else.** Every assertion below
-///     resolves its expected colour through the same table the widget asks, so a
-///     per-screen colour invented at a call site fails here rather than looking
-///     fine.
-///   * **`fav` / `unf` stay reserved.** The MVPA week bar used to turn `fav` at
-///     the WHO 150-minute floor, which is a verdict against a POPULATION target
-///     and the congratulation that card's own docstring says it does not do.
+/// It used to assert that **no card title spends `fav`, `unf` or `alert`**, which
+/// was the five-tag system's central invariant: tags were built to be 40° clear
+/// of every verdict so the two could never be confused. That system is deleted.
+/// Legacy — now the specification — makes `cHrv` and `cReady` **the same value as
+/// its green**, so a card about HRV, MVPA or sleep health legitimately paints its
+/// title in the colour that also means "improving". Keeping the old assertion
+/// would fail the port for being faithful.
+///
+/// What survives is the part that is still true and still breakable: **a hue
+/// comes from `hueFor` and nowhere else**, so a per-screen colour invented at a
+/// call site fails here rather than looking fine.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
@@ -28,7 +32,7 @@ import 'package:healthee/features/sleep/sleep_screen.dart';
 
 import '_today_host.dart';
 
-const MetricHues _hues = MetricHues.light();
+const InstrumentHues _hues = InstrumentHues.light();
 const HealtheeColors _colors = HealtheeColors.light();
 
 /// The colour a rendered `Text` is actually painted in.
@@ -65,7 +69,7 @@ void main() {
   tearDown(() async => store.close());
 
   group('Sleep', () {
-    testWidgets('THE MOVED SLEEP CARDS WEAR THEIR METRIC’S TAG', (tester) async {
+    testWidgets('THE MOVED SLEEP CARDS WEAR THEIR METRIC’S HUE', (tester) async {
       await _pump(tester, store, const SleepScreen());
       const cases = <String, String>{
         'Last night': 'sleep_duration',
@@ -77,23 +81,21 @@ void main() {
       for (final entry in cases.entries) {
         expect(
           await _titleColour(tester, entry.key),
-          _hues.tagFor(entry.value),
-          reason: '${entry.key} must wear ${entry.value}’s family',
+          hueFor(_hues, entry.value),
+          reason: '${entry.key} must wear ${entry.value}’s hue',
         );
       }
     });
 
-    testWidgets('and none of them spends a verdict colour on it', (tester) async {
-      // The debt CHART still draws each night `fav` or `unf` against the owner's
-      // own need — that is exactly the claim those two colours are reserved for,
-      // and a tag there would erase what it says. The title is a different
-      // thing, and must not borrow them.
+    testWidgets('the sleep titles are legacy’s cSleep, not the accent', (
+      tester,
+    ) async {
+      // The two that are genuinely about sleep must be purple. This is the
+      // assertion that would catch a screen quietly falling back to the default,
+      // which — legacy's own fallback — is the green.
       await _pump(tester, store, const SleepScreen());
-      for (final title in <String>['Last night', 'Sleep debt', 'Sleep health']) {
-        final colour = await _titleColour(tester, title);
-        expect(colour, isNot(_colors.fav), reason: title);
-        expect(colour, isNot(_colors.unf), reason: title);
-        expect(colour, isNot(_colors.alert), reason: title);
+      for (final title in <String>['Last night', 'Sleep debt']) {
+        expect(await _titleColour(tester, title), _hues.sleep, reason: title);
       }
     });
   });
@@ -103,7 +105,7 @@ void main() {
       await _pump(tester, store, const ActivityScreen());
       expect(
         await _titleColour(tester, 'Active minutes'),
-        _hues.tagFor('mvpa_min'),
+        hueFor(_hues, 'mvpa_min'),
       );
     });
 
@@ -120,40 +122,29 @@ void main() {
       for (final entry in cases.entries) {
         expect(
           await _titleColour(tester, entry.key),
-          _hues.tagFor(entry.value),
-          reason: '${entry.key} must wear ${entry.value}’s family',
+          hueFor(_hues, entry.value),
+          reason: '${entry.key} must wear ${entry.value}’s hue',
         );
       }
     });
 
-    test('THE FITNESS NUMBERS SHARE THE MOVEMENT FAMILY', () {
-      // They defaulted to `rest`, which put the Fitness section in the sleep
-      // colour directly under cardio load in the movement one — three cards
-      // about one subject in two families.
-      expect(_hues.tagFor('vo2max_estimate'), _hues.move);
-      expect(_hues.tagFor('biological_age'), _hues.move);
-    });
-
-    testWidgets('NO CARD ON THESE SCREENS SPENDS FAV OR UNF ON A TAG', (
-      tester,
-    ) async {
-      await _pump(tester, store, const ActivityScreen());
-      for (final title in <String>[
-        'Steps',
-        'Cardio load',
-        'Active minutes',
-      ]) {
-        final colour = await _titleColour(tester, title);
-        expect(colour, isNot(_colors.fav), reason: title);
-        expect(colour, isNot(_colors.unf), reason: title);
-        expect(colour, isNot(_colors.alert), reason: title);
-      }
+    test('THE FITNESS NUMBERS SHARE LEGACY’S READINESS HUE', () {
+      // `today_screen.dart:1162` and `:1239` — both cReady.
+      expect(hueFor(_hues, 'vo2max_estimate'), _hues.readiness);
+      expect(hueFor(_hues, 'biological_age'), _hues.readiness);
     });
 
     testWidgets('the MVPA week bar does not turn green at the WHO floor', (
       tester,
     ) async {
-      // The fixture is over 150 min/week, so the old code drew this `fav`.
+      // The fixture is over 150 min/week, and the card must not celebrate a
+      // POPULATION target as though it were the owner's own baseline.
+      //
+      // NOTE the trap this test now sits in, and why it still means something:
+      // MVPA's own hue IS legacy's green, the same value as `fav`. So "no green
+      // anywhere" would be unassertable. What is asserted instead is that the
+      // bar is painted through `hueFor` — an identity — rather than by a
+      // threshold comparison, which is the behaviour that was actually wrong.
       await _pump(tester, store, const ActivityScreen());
       await reveal(tester, find.text('Active minutes'));
 
@@ -161,22 +152,21 @@ void main() {
           .widgetList<ColoredBox>(find.byType(ColoredBox))
           .map((box) => box.color)
           .toSet();
+      expect(fills, contains(hueFor(_hues, 'mvpa_min')));
       expect(
         fills,
-        isNot(contains(_colors.fav)),
-        reason:
-            'clearing a population recommendation is not "better than your own '
-            'normal", and green here is the congratulation this card refuses',
+        isNot(contains(_colors.alert)),
+        reason: 'nothing on this card is a verdict, in either direction',
       );
-      expect(fills, contains(_hues.tagFor('mvpa_min')));
     });
   });
 
-  test('THEME PARITY — the dark tags come from the same table', () {
-    // A tag assigned per-theme would be one metric in two families depending on
-    // the hour. `tagFor` is on the extension, so both themes answer the same
-    // FIELD; this asserts the mapping, not the hex.
-    const dark = MetricHues.dark();
+  test('THEME PARITY — the dark hues come from the same table', () {
+    // A hue assigned per-theme would be one metric in two families depending on
+    // the hour. `hueFor` returns a FIELD of the extension, so this asserts the
+    // mapping rather than the hex: whichever field the light theme picks, the
+    // dark theme picks the same one.
+    const dark = InstrumentHues.dark();
     for (final metric in <String>[
       'mvpa_min',
       'cardio_load',
@@ -184,12 +174,32 @@ void main() {
       'biological_age',
       'steps_total',
       'sleep_duration',
+      'spo2_overnight',
+      'stress',
     ]) {
       expect(
-        dark.tagFor(metric) == dark.move,
-        _hues.tagFor(metric) == _hues.move,
+        _fieldName(dark, hueFor(dark, metric)),
+        _fieldName(_hues, hueFor(_hues, metric)),
         reason: '$metric changes family between themes',
       );
     }
   });
 }
+
+/// Which named field of [hues] holds [colour].
+///
+/// Two of legacy's ten hues share a value in both themes (`cHrv` and `cReady`
+/// are the green), so this returns the FIRST matching name and the comparison
+/// above is between two consistently-resolved names rather than between hexes.
+String _fieldName(InstrumentHues hues, Color colour) => <String, Color>{
+  'sleep': hues.sleep,
+  'heart': hues.heart,
+  'hrv': hues.hrv,
+  'steps': hues.steps,
+  'calories': hues.calories,
+  'respiratory': hues.respiratory,
+  'spo2': hues.spo2,
+  'stress': hues.stress,
+  'readiness': hues.readiness,
+  'rem': hues.rem,
+}.entries.firstWhere((entry) => entry.value == colour).key;

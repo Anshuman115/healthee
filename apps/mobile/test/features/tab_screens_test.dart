@@ -26,6 +26,7 @@ import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
+import 'package:healthee/shared/section_heading.dart';
 
 import '_today_host.dart';
 
@@ -259,7 +260,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Against your own baseline'), findsOneWidget);
-      await reveal(tester, find.text('From the strap'));
+      // The section heading and each metric strip both say 'From the strap'
+      // now that headings render in sentence case, so the scroll target names
+      // the widget as well as the words.
+      await reveal(
+        tester,
+        find.widgetWithText(SectionHeading, 'From the strap'),
+      );
       expect(find.text('From the strap'), findsWidgets);
     });
 
@@ -269,7 +276,13 @@ void main() {
       // would be broken at once and nothing would say so.
       await tester.pumpWidget(todayHost(store, home: DiagnosticsScreen(now: now)));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('From the strap'));
+      // The section heading and each metric strip both say 'From the strap'
+      // now that headings render in sentence case, so the scroll target names
+      // the widget as well as the words.
+      await reveal(
+        tester,
+        find.widgetWithText(SectionHeading, 'From the strap'),
+      );
 
       expect(find.textContaining('The strap recorded no'), findsWidgets);
     });

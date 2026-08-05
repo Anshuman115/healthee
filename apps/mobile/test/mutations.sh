@@ -124,41 +124,55 @@ mutate 'the daily counter is never stored' "$STORE" "$WRITER" \
   '      if (result.dailyTotals case final totals?) {' \
   '      if (result.dailyTotals case final totals? when false) {'
 
-# ── colour: a tag is an identity, never a verdict ───────────────────────────
-HUES=lib/core/theme/metric_hues.dart
+# ── colour: the legacy hue set, and the mapping every sleep chart shares ────
+HUES=lib/core/theme/instrument_hues.dart
 PALETTE=lib/core/theme/palette.dart
-HUES_TEST=test/theme/metric_hues_test.dart
+HUES_TEST=test/theme/legacy_hues_test.dart
+STAGE_TEST=test/theme/sleep_stage_test.dart
 
-# The failure the whole tag argument exists to prevent: a family wearing a
-# colour that already means "worse than your normal". It renders perfectly.
-mutate 'a tag is set to a judgement colour' "$HUES_TEST" "$PALETTE" \
-  '  static const Color heart = Color(0xFFAB3F84);' \
-  '  static const Color heart = LightPalette.unf;'
+# The block this replaced mutated the five identity tags, whose whole invariant
+# was that a tag could never be a verdict colour. Legacy makes two of its hues
+# verdicts on purpose (cHrv IS the green, cHeart IS the alert), so that invariant
+# is gone and mutating toward it would now be mutating toward CORRECT code.
+#
+# What is mutable now is the transcription itself, and the one mapping four
+# charts share.
 
-# Subtler, and the one a reviewer would not catch: a hue nudged to within a few
-# degrees of the illness red. At the 6 px a dot occupies it reads as the verdict.
-mutate 'a tag drifts to the edge of the alert red' "$HUES_TEST" "$PALETTE" \
-  '  static const Color heart = Color(0xFFAB3F84);' \
-  '  static const Color heart = Color(0xFFB03A5A);'
+# A hue transcribed one digit wrong. Renders perfectly; is not legacy's app.
+mutate 'a legacy hue is transcribed wrong' "$HUES_TEST" "$PALETTE" \
+  '  static const Color steps = Color(0xFFB27F2C);' \
+  '  static const Color steps = Color(0xFFB27F2D);'
 
-# Lightness is the axis the eye reads as rank. One tag brighter than the rest
-# says "this metric family matters more", which nobody computed.
-mutate 'one tag is lighter than the others' "$HUES_TEST" "$PALETTE" \
-  '  static const Color move = Color(0xFF5462CA);' \
-  '  static const Color move = Color(0xFF9AA3E4);'
+# The dark theme quietly wearing the light theme's value. Invisible by day.
+mutate 'the dark hue set copies the light one' "$HUES_TEST" "$PALETTE" \
+  '  static const Color sleep = Color(0xFF968EC9);' \
+  '  static const Color sleep = LegacyLightHues.sleep;'
 
-# Two families collapsing onto one colour is the split silently undone.
-mutate 'two families share a colour' "$HUES_TEST" "$PALETTE" \
-  '  static const Color energy = Color(0xFF8B4EB3);' \
-  '  static const Color energy = LightTagPalette.move;'
+# The collision legacy makes ON PURPOSE, undone by a well-meaning reader who
+# thinks a metric hue should never be a verdict. It was true of the old system.
+mutate 'someone separates cHrv from the green accent' "$HUES_TEST" "$PALETTE" \
+  '  static const Color hrv = Color(0xFF1F6F54);' \
+  '  static const Color hrv = Color(0xFF2E8B6A);'
 
-# The invariant `tagFor` exists for: the movement metrics rejoining the family
-# they were split out of, which makes the tag mean "not sleep and not heart".
-mutate 'the movement metrics fall back to the default tag' "$HUES_TEST" "$HUES" \
-  "    'steps_total' ||
-    'steps' ||
-    'steps_per_minute' ||" \
-  "    'steps_per_minute' ||"
+# Two sleep stages collapsing onto one colour: a hypnogram that cannot be read.
+mutate 'deep and light sleep share a colour' "$STAGE_TEST" "$HUES" \
+  "    'deep' => steps," \
+  "    'deep' => spo2,"
+
+# The pair swapped. Every night on every sleep screen is drawn inside out, and
+# nothing about it looks broken.
+mutate 'REM and awake are swapped' "$STAGE_TEST" "$HUES" \
+  "    'rem' => sleep,
+    'awake' => heart," \
+  "    'rem' => heart,
+    'awake' => sleep,"
+
+# `core` and `light` are one stage under two vocabularies. Giving them different
+# colours draws a distinction that does not exist.
+mutate 'core and light stop being the same stage' "$STAGE_TEST" "$HUES" \
+  "    'core' || 'light' => spo2," \
+  "    'core' => rem,
+    'light' => spo2,"
 
 # ── the insight rewrite ─────────────────────────────────────────────────────
 FINDINGS=lib/features/insights/widgets/findings_section.dart

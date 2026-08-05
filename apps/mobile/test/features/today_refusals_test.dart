@@ -26,6 +26,7 @@ import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
+import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/states/value_hole.dart';
 
@@ -172,7 +173,13 @@ void main() {
       );
       await tester.pumpWidget(todayHost(store, home: DiagnosticsScreen(now: now)));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('From the strap'));
+      // The section heading and each metric strip both say 'From the strap'
+      // now that headings render in sentence case, so the scroll target names
+      // the widget as well as the words.
+      await reveal(
+        tester,
+        find.widgetWithText(SectionHeading, 'From the strap'),
+      );
 
       // A stream the sensor did not write says "wear it". Collapsing that into
       // a server withhold would send the owner to the wrong place.

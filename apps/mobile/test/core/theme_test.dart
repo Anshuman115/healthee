@@ -1,18 +1,29 @@
-/// The token set, locked to `docs/APP_DESIGN_BRIEF.md` §2.
+/// The token set, locked: the **scaffolding** to the approved design, the
+/// **accent and verdicts** to `healthee-legacy/app/lib/ui/theme.dart`.
 ///
-/// These tokens were transcribed from an approved design. Transcription is
-/// exactly the kind of work that goes subtly wrong — a transposed digit, an alpha
-/// read off the wrong row — and `flutter analyze` cannot see a wrong-but-valid
-/// colour. So the brief's table is restated here, independently, and compared.
+/// These tokens are transcriptions, and transcription is exactly the kind of work
+/// that goes subtly wrong — a transposed digit, an alpha read off the wrong row —
+/// which `flutter analyze` cannot see. So both source tables are restated here,
+/// independently, and compared.
 ///
-/// It also pins the three judgement calls that are NOT pure transcription, each
-/// of which has a paragraph of reasoning in the source and would otherwise be one
-/// careless edit from being undone.
+/// ## Two assertions changed on 2026-08-05 and the changes are the point
+///
+///   * **"the accent is a PAIR"** — it still is for the four per-theme roles, but
+///     `unf` and `onAccent` are now single legacy literals used in BOTH themes,
+///     because legacy wrote one of each. Asserting theme-variance on them would
+///     fail the port for being faithful, so the test now asserts the sameness.
+///   * **"text on the accent clears WCAG AA in BOTH themes"** — legacy's `onGreen`
+///     measures **2.14:1** on the dark green. The previous palette fixed this by
+///     making `onAccent` per-theme; the owner's instruction is that legacy's
+///     values ship unchanged and an imperfection is reported rather than
+///     repaired. The measurement is therefore **pinned as a known failure**, so
+///     it cannot drift further and cannot be forgotten.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
 /// WCAG 2.x contrast ratio between two opaque colours.
@@ -41,16 +52,20 @@ void main() {
       expect(light.line2, const Color.fromRGBO(18, 18, 23, 0.06));
     });
 
-    test('accent and semantics', () {
-      expect(light.accent, const Color(0xFF5145E5));
-      expect(light.accent2, const Color(0xFF3F34C9));
-      expect(light.accentSoft, const Color.fromRGBO(81, 69, 229, 0.09));
-      expect(light.fav, const Color(0xFF1A7F57));
-      expect(light.favSoft, const Color.fromRGBO(26, 127, 87, 0.10));
-      expect(light.unf, const Color(0xFFA4680B));
-      expect(light.unfSoft, const Color.fromRGBO(164, 104, 11, 0.10));
-      expect(light.alert, const Color(0xFFB8352A));
-      expect(light.alertSoft, const Color.fromRGBO(184, 53, 42, 0.08));
+    test('accent and semantics are LEGACY’s HColors.light', () {
+      expect(light.accent, const Color(0xFF1F6F54), reason: 'legacy green');
+      expect(light.accent2, const Color(0xFF154D3A), reason: 'legacy greenDeep');
+      expect(light.accentSoft, const Color(0xFFE2EBE3), reason: 'legacy greenSoft');
+      expect(light.onAccent, const Color(0xFFFBF7EF), reason: 'legacy onGreen');
+      // fav IS the accent, and cHrv, and cReady. Legacy shares them on purpose.
+      expect(light.fav, light.accent);
+      expect(light.favSoft, light.accentSoft);
+      // Legacy's inline warn amber (today_screen.dart:19).
+      expect(light.unf, const Color(0xFFE0A33E));
+      expect(light.unfSoft, const Color.fromRGBO(224, 163, 62, 0.16));
+      // alert IS cHeart. Legacy has no separate red.
+      expect(light.alert, const Color(0xFFBF472E));
+      expect(light.alertSoft, const Color.fromRGBO(191, 71, 46, 0.16));
       expect(light.hole, const Color.fromRGBO(18, 18, 23, 0.045));
     });
   });
@@ -68,30 +83,34 @@ void main() {
       expect(dark.line2, const Color.fromRGBO(255, 255, 255, 0.055));
     });
 
-    test('accent and semantics', () {
-      expect(dark.accent, const Color(0xFF8F87FF));
-      expect(dark.accent2, const Color(0xFFA9A2FF));
-      expect(dark.accentSoft, const Color.fromRGBO(143, 135, 255, 0.14));
-      expect(dark.fav, const Color(0xFF4FC691));
-      expect(dark.favSoft, const Color.fromRGBO(79, 198, 145, 0.14));
-      expect(dark.unf, const Color(0xFFDFA550));
-      expect(dark.unfSoft, const Color.fromRGBO(223, 165, 80, 0.14));
-      expect(dark.alert, const Color(0xFFFF7466));
-      expect(dark.alertSoft, const Color.fromRGBO(255, 116, 102, 0.12));
+    test('accent and semantics are LEGACY’s HColors.dark', () {
+      expect(dark.accent, const Color(0xFF4BBF93), reason: 'legacy green');
+      expect(dark.accent2, const Color(0xFF2F8F6C), reason: 'legacy greenDeep');
+      expect(dark.accentSoft, const Color(0xFF1E3329), reason: 'legacy greenSoft');
+      expect(dark.onAccent, const Color(0xFFFBF7EF), reason: 'legacy onGreen');
+      expect(dark.fav, dark.accent);
+      expect(dark.favSoft, dark.accentSoft);
+      expect(dark.unf, const Color(0xFFE0A33E));
+      expect(dark.unfSoft, const Color.fromRGBO(224, 163, 62, 0.16));
+      expect(dark.alert, const Color(0xFFE07A5F));
+      expect(dark.alertSoft, const Color.fromRGBO(224, 122, 95, 0.16));
       expect(dark.hole, const Color.fromRGBO(255, 255, 255, 0.05));
     });
   });
 
   group('the structural decisions, pinned', () {
-    test('the accent is a PAIR — no theme-invariant brand colour', () {
-      // The previous palette (landing v5) held brand colour constant across
-      // themes. This design does not, and a `BrandPalette` reappearing would
-      // quietly force one theme to wear the other's accent.
+    test('the accent is a PAIR, and legacy’s two single-value tokens are named', () {
+      // Legacy authors green and cHeart per theme, so these must differ.
       expect(light.accent, isNot(dark.accent));
       expect(light.accent2, isNot(dark.accent2));
       expect(light.fav, isNot(dark.fav));
-      expect(light.unf, isNot(dark.unf));
       expect(light.alert, isNot(dark.alert));
+      // Legacy wrote exactly TWO colours as one value for both themes, and both
+      // are ported that way. This asserts the port, not the design: if either
+      // gained a per-theme partner, that would be a change the owner did not ask
+      // for, and this test is where it surfaces.
+      expect(light.unf, dark.unf, reason: 'legacy’s inline warn amber');
+      expect(light.onAccent, dark.onAccent, reason: 'legacy’s onGreen');
     });
 
     test('fav and unf are distinct in both themes — the ladder needs the pair', () {
@@ -102,9 +121,16 @@ void main() {
       expect(dark.fav, isNot(dark.unf));
     });
 
-    test('alert is the only red, and is not reused as the accent', () {
+    test('alert is not the accent, but it IS legacy’s heart hue', () {
       expect(light.alert, isNot(light.accent));
       expect(dark.alert, isNot(dark.accent));
+      // The collision the port makes deliberately. See palette.dart: legacy's
+      // `improving ? c.green : c.cHeart` puts a metric hue on both sides of a
+      // verdict, so alert == cHeart and fav == cHrv == cReady == the accent.
+      expect(light.alert, const InstrumentHues.light().heart);
+      expect(dark.alert, const InstrumentHues.dark().heart);
+      expect(light.fav, const InstrumentHues.light().hrv);
+      expect(light.fav, const InstrumentHues.light().readiness);
     });
 
     test('hole is a near-invisible FILL, not a hue', () {
@@ -114,14 +140,18 @@ void main() {
       expect(dark.hole.a, lessThan(0.10));
     });
 
-    test('text on the accent clears WCAG AA in BOTH themes', () {
-      // The one place this implementation departs from `Healthee.html`, which
-      // hardcodes #fff on the accent. Against the dark accent that measures
-      // 2.97:1 — below even the 3:1 large-text floor. This test is the reason
-      // the departure exists, so it must fail if onAccent is reverted to white.
+    test('LEGACY’S onGreen FAILS AA ON THE DARK ACCENT — pinned, not fixed', () {
+      // Light is fine at 5.68:1. Dark is 2.14:1 — below WCAG AA (4.5:1) and
+      // below the 3:1 large-text floor, because legacy puts ONE off-white on two
+      // different greens.
+      //
+      // The previous palette solved this by making `onAccent` per-theme. The
+      // owner's instruction for this port is that legacy's values ship and an
+      // imperfection is REPORTED, not repaired. So the number is pinned here
+      // instead: this fails the day the value drifts in either direction, and a
+      // reviewer reading it sees the debt rather than inheriting it.
       expect(_contrast(light.accent, light.onAccent), greaterThanOrEqualTo(4.5));
-      expect(_contrast(dark.accent, dark.onAccent), greaterThanOrEqualTo(4.5));
-      expect(_contrast(dark.accent, const Color(0xFFFFFFFF)), lessThan(3.0));
+      expect(_contrast(dark.accent, dark.onAccent), closeTo(2.14, 0.01));
     });
 
     test('body and label ink clear AA against their own surface', () {

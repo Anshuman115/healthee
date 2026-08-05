@@ -132,7 +132,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('MEASURED AT REST'));
+      await reveal(tester, find.text('Measured at rest'));
 
       expect(find.textContaining('Your last 7 nights'), findsNothing);
     });
@@ -150,7 +150,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('MEASURED AT REST'));
+      await reveal(tester, find.text('Measured at rest'));
 
       expect(find.text('Blood oxygen overnight', skipOffstage: false), findsNothing);
       expect(find.text('Through the night', skipOffstage: false), findsNothing);

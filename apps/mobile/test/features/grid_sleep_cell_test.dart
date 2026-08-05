@@ -16,7 +16,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
@@ -27,7 +27,7 @@ import 'package:healthee/shared/charts/h_stage_bar.dart';
 
 import '_today_host.dart';
 
-const MetricHues _hues = MetricHues.light();
+const InstrumentHues _hues = InstrumentHues.light();
 const HealtheeColors _colors = HealtheeColors.light();
 
 /// One night, deliberately lopsided, so equal widths cannot pass as proportional.
@@ -74,7 +74,7 @@ void main() {
       for (final stage in kSleepStages) {
         expect(
           fills,
-          contains(sleepStageColor(_colors, _hues, stage)),
+          contains(sleepStageColor(_hues, stage)),
           reason: '$stage must be visible as itself',
         );
       }

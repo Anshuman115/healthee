@@ -87,9 +87,9 @@ void main() {
     ) async {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('SUGGESTED TODAY'));
+      await reveal(tester, find.text('Suggested today'));
 
-      expect(find.text('SUGGESTED TODAY'), findsOneWidget);
+      expect(find.text('Suggested today'), findsOneWidget);
     });
   });
 
