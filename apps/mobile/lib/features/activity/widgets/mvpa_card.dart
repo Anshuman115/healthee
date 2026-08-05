@@ -23,7 +23,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/shared/charts/h_bars.dart';
@@ -48,10 +49,10 @@ class MvpaCard extends StatelessWidget {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
     // The card is about ONE metric, so it wears that metric's identity tag —
-    // `metric_hues.dart` for why that is not a verdict. It comes from the same
+    // `instrument_hues.dart` for why that is not a verdict. It comes from the same
     // `tagFor` table the grid asks, so a cell and the card it opens cannot end
     // up different colours.
-    final tag = context.hues.tagFor('mvpa_min');
+    final tag = hueFor(context.hues, 'mvpa_min');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -97,7 +97,6 @@ List<PageSection> sleepSections(ScreenData data) {
       SectionHeading(
         'The week',
         subtitle: 'The fortnight behind last night',
-        metric: 'sleep_duration',
       ),
     ),
     if (snapshot != null)
@@ -124,7 +123,6 @@ List<PageSection> sleepSections(ScreenData data) {
         subtitle:
             'Resting heart rate, HRV, breathing and blood oxygen are all read '
             'inside the sleep window — they are readings of the night.',
-        metric: 'hrv_sleep_avg',
       ),
     ),
     if (snapshot != null)

@@ -20,7 +20,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_health.dart';
 import 'package:healthee/shared/states/citation_row.dart';
@@ -45,11 +46,11 @@ class SleepDimensionsCard extends StatelessWidget {
         children: [
           // The title takes the tag; the four verdict marks below keep `fav` /
           // `unf`, which is what they are for. A tag on the title and a verdict
-          // on the row is the split `metric_hues.dart` describes.
+          // on the row is the split `instrument_hues.dart` describes.
           Text(
             'Sleep health',
             style: text.labelSmall?.copyWith(
-              color: context.hues.tagFor('sleep_health_score_4dim'),
+              color: hueFor(context.hues, 'sleep_health_score_4dim'),
             ),
           ),
           const SizedBox(height: Insets.xs),

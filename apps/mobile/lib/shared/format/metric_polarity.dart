@@ -9,7 +9,7 @@
 ///
 /// ## Why this is a separate table from `core/theme/metric_hues.dart`
 ///
-/// They look alike and they are opposites. `MetricHues.tagFor` is an **identity**
+/// They look alike and they are opposites. `InstrumentHues.tagFor` is an **identity**
 /// — a colour that says *which* metric this is and never how the owner did, and
 /// `apps/mobile/README.md` makes that structural: it takes an id and nothing else,
 /// so a hue driven by today's reading is not something a caller can express.

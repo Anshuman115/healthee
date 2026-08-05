@@ -20,7 +20,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_debt.dart';
 import 'package:healthee/data/models/sleep_history.dart';
@@ -60,7 +61,7 @@ class SleepDebtCard extends StatelessWidget {
     // draws each night `fav` or `unf` against the owner's own need, which is a
     // verdict about a reading and exactly what those two colours are reserved
     // for. Tinting it with the tag would erase the one thing it says.
-    final tag = context.hues.tagFor('sleep_debt_min');
+    final tag = hueFor(context.hues, 'sleep_debt_min');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

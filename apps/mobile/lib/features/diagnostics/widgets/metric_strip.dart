@@ -30,7 +30,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_metric.dart';
 import 'package:healthee/data/honesty/reading.dart';
@@ -79,7 +80,7 @@ class _MetricRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final tag = context.hues.tagFor(metric.stream.metric);
+    final tag = hueFor(context.hues, metric.stream.metric);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

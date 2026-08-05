@@ -14,7 +14,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/last_sleep.dart';
@@ -47,7 +48,7 @@ class SleepNightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final tag = context.hues.tagFor('sleep_duration');
+    final tag = hueFor(context.hues, 'sleep_duration');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,7 +74,7 @@ class SleepNightCard extends StatelessWidget {
             RevealOnce(
               id: 'sleep-hypnogram-${night.startIso}',
               registry: reveals,
-              builder: (context, t) => HHypnogram(night.stages, progress: t),
+              builder: (context, t) => HHypnogram(night.stages, progress: t, height: 84),
             ),
             const SizedBox(height: Insets.sm),
             _StageLegend(night: night),
@@ -130,7 +131,7 @@ class _StageLegend extends StatelessWidget {
                   height: 8,
                   margin: const EdgeInsets.only(right: Insets.xs),
                   decoration: BoxDecoration(
-                    color: sleepStageColor(colors, context.hues, stage),
+                    color: sleepStageColor(context.hues, stage),
                     borderRadius: BorderRadius.circular(Radii.pill),
                   ),
                 ),

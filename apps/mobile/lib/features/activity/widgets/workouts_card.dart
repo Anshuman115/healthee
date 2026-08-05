@@ -2,7 +2,7 @@
 ///
 /// **No identity tag.** A session is not a metric: each row carries a duration,
 /// two heart rates and the strap's calorie count, which is three families at
-/// once. `metric_hues.dart` gives a tag to a card about ONE metric, and this is
+/// once. `instrument_hues.dart` gives a tag to a card about ONE metric, and this is
 /// the same reason the daily action and the data-health strip do not have one.
 library;
 

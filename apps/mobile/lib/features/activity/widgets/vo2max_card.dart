@@ -24,7 +24,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/models/vo2max.dart';
@@ -51,9 +52,9 @@ class Vo2maxCard extends StatelessWidget {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
     // The card is about ONE metric, so it wears that metric's identity tag —
-    // `metric_hues.dart` for why that is not a verdict, and for why VO₂max sits
+    // `instrument_hues.dart` for why that is not a verdict, and for why VO₂max sits
     // in the movement family rather than defaulting to rest.
-    final tag = context.hues.tagFor('vo2max_estimate');
+    final tag = hueFor(context.hues, 'vo2max_estimate');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

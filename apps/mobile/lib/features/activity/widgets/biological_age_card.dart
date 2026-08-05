@@ -20,7 +20,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/features/activity/widgets/vo2max_card.dart';
@@ -48,9 +49,9 @@ class BiologicalAgeCard extends StatelessWidget {
             'Biological age',
             // One metric, one tag. It shares VO₂max's family because its
             // largest term IS the VO₂max on the card above it — see
-            // `metric_hues.dart`.
+            // `instrument_hues.dart`.
             style: text.labelSmall?.copyWith(
-              color: context.hues.tagFor('biological_age'),
+              color: hueFor(context.hues, 'biological_age'),
             ),
           ),
           const SizedBox(height: Insets.sm),
@@ -61,7 +62,7 @@ class BiologicalAgeCard extends StatelessWidget {
               HeroValue(
                 value: age.biologicalAge.toStringAsFixed(1),
                 unit: 'years',
-                tag: context.hues.tagFor('biological_age'),
+                tag: hueFor(context.hues, 'biological_age'),
               ),
               const Spacer(),
               if (age.chronologicalAge case final double actual)

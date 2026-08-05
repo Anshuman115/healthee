@@ -29,7 +29,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/shared/charts/h_meter.dart';
@@ -57,7 +57,7 @@ class RecoveryCard extends StatelessWidget {
     // The tag for rest, not a judgement colour: the gauge is a picture of a
     // score, and tinting it by how good the score is would be the app grading
     // the owner in colour. See palette.dart.
-    final tag = context.hues.rest;
+    final tag = context.hues.readiness;
     return StateCard(
       child: RevealOnce(
         id: 'today.recovery',
@@ -70,6 +70,7 @@ class RecoveryCard extends StatelessWidget {
               children: [
                 HTickGauge(
                   value: score.recovery.toDouble(),
+                  size: 116,
                   color: tag,
                   progress: t,
                   child: _GaugeCentre(score: score, tag: tag),

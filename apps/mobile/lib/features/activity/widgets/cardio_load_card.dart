@@ -13,7 +13,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/data/models/trend_point.dart';
@@ -43,10 +44,10 @@ class CardioLoadCard extends StatelessWidget {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
     // The card is about ONE metric, so it wears that metric's identity tag —
-    // `metric_hues.dart` for why that is not a verdict. It comes from the same
+    // `instrument_hues.dart` for why that is not a verdict. It comes from the same
     // `tagFor` table the grid asks, so a cell and the card it opens cannot end
     // up different colours.
-    final tag = context.hues.tagFor('cardio_load');
+    final tag = hueFor(context.hues, 'cardio_load');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

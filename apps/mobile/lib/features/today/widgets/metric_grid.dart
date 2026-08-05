@@ -46,7 +46,8 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_metric.dart';
@@ -109,7 +110,7 @@ class MetricGrid extends StatelessWidget {
 
   // ── the six slots ─────────────────────────────────────────────────────────
 
-  Widget _sleep(MetricHues hues) {
+  Widget _sleep(InstrumentHues hues) {
     // The server's copy when it has one — it is what every derived sleep
     // judgement further down was computed from — and the strap's own night,
     // reason included, when it does not. Never merged.
@@ -117,7 +118,7 @@ class MetricGrid extends StatelessWidget {
     final night = server.hasValue ? server : _deviceNight;
     return GridModule(
       label: 'Sleep',
-      tag: hues.tagFor('sleep_duration'),
+      tag: hueFor(hues, 'sleep_duration'),
       onOpen: () => onOpen(TodayDoors.overnight),
       reading: night.map((n) => n.minutes.toDouble()),
       format: (minutes) => clockDuration(minutes.round()),
@@ -142,14 +143,14 @@ class MetricGrid extends StatelessWidget {
     );
   }
 
-  Widget _restingHeartRate(MetricHues hues) {
+  Widget _restingHeartRate(InstrumentHues hues) {
     final card = _card('rhr_daily');
     return GridModule(
       // The label names the instrument when it is not the canonical one. See the
       // library docstring: these two numbers are five to ten bpm apart by
       // construction, and one label over both is the lie.
       label: card == null ? 'Resting HR · strap' : 'Resting HR',
-      tag: hues.tagFor('rhr_daily'),
+      tag: hueFor(hues, 'rhr_daily'),
       onOpen: () => onOpen(TodayDoors.overnight),
       reading: card?.reading ?? _stream('resting_hr').reading,
       format: (value) => value.round().toString(),
@@ -163,7 +164,7 @@ class MetricGrid extends StatelessWidget {
     );
   }
 
-  Widget _hrv(MetricHues hues) {
+  Widget _hrv(InstrumentHues hues) {
     // The server's overnight RMSSD is not wrapped in an honesty envelope — it is
     // an extra on `last_sleep`, present or absent — so its absence has no reason
     // to show. The strap's reading has one, so that is what a missing night
@@ -172,7 +173,7 @@ class MetricGrid extends StatelessWidget {
     final stream = _stream('hrv');
     return GridModule(
       label: overnight == null ? 'HRV · strap' : 'HRV',
-      tag: hues.tagFor('hrv'),
+      tag: hueFor(hues, 'hrv'),
       onOpen: () => onOpen(TodayDoors.overnight),
       reading: overnight == null ? stream.reading : Present<double>(overnight),
       format: (value) => value.round().toString(),
@@ -184,13 +185,13 @@ class MetricGrid extends StatelessWidget {
     );
   }
 
-  Widget _steps(MetricHues hues) {
+  Widget _steps(InstrumentHues hues) {
     // The strap's own since-midnight counter (#121), never the server's copy and
     // never a sum of the per-minute stream. `steps_card.dart` has the argument;
     // this cell shows the same number that card does, from the same field.
     return GridModule(
       label: 'Steps',
-      tag: hues.tagFor('steps_total'),
+      tag: hueFor(hues, 'steps_total'),
       onOpen: () => onOpen(TodayDoors.daytime),
       reading: day.steps.map((steps) => steps.toDouble()),
       format: (steps) => groupedInt(steps.round()),
@@ -201,12 +202,12 @@ class MetricGrid extends StatelessWidget {
     );
   }
 
-  Widget _energy(MetricHues hues) {
+  Widget _energy(InstrumentHues hues) {
     final card = _card('active_calories');
     final total = _card('total_calories')?.reading.valueOrNull;
     return GridModule(
       label: 'Energy',
-      tag: hues.tagFor('active_calories'),
+      tag: hueFor(hues, 'active_calories'),
       onOpen: () => onOpen(TodayDoors.daytime),
       // No fallback to the strap's own calorie count. CLAUDE.md pins free-living
       // energy to the server's MET-by-state model, and the device figure is a
@@ -222,13 +223,13 @@ class MetricGrid extends StatelessWidget {
     );
   }
 
-  Widget _breathing(MetricHues hues) {
+  Widget _breathing(InstrumentHues hues) {
     final vitals = snapshot?.overnightVitals;
     final overnight = vitals?.respiratoryRate;
     final stream = _stream('respiratory_rate');
     return GridModule(
       label: overnight == null ? 'Resp / SpO₂ · strap' : 'Resp / SpO₂',
-      tag: hues.tagFor('respiratory_rate'),
+      tag: hueFor(hues, 'respiratory_rate'),
       onOpen: () => onOpen(TodayDoors.overnight),
       reading: overnight == null ? stream.reading : Present<double>(overnight),
       format: (value) => value.toStringAsFixed(1),

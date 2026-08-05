@@ -14,7 +14,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_history.dart';
@@ -54,14 +55,14 @@ class SleepWeekCard extends StatelessWidget {
           Text(
             'Your last ${nights.length} nights',
             style: text.labelSmall?.copyWith(
-              color: context.hues.tagFor('sleep_duration'),
+              color: hueFor(context.hues, 'sleep_duration'),
             ),
           ),
           const SizedBox(height: Insets.md),
           RevealOnce(
             id: 'sleep-week-stack',
             registry: reveals,
-            builder: (context, t) => HStackedSleep(nights, progress: t),
+            builder: (context, t) => HStackedSleep(nights, progress: t, height: 130),
           ),
           const SizedBox(height: Insets.sm),
           Wrap(
@@ -77,7 +78,7 @@ class SleepWeekCard extends StatelessWidget {
                       height: 8,
                       margin: const EdgeInsets.only(right: Insets.xs),
                       decoration: BoxDecoration(
-                        color: sleepStageColor(colors, context.hues, stage),
+                        color: sleepStageColor(context.hues, stage),
                         borderRadius: BorderRadius.circular(Radii.pill),
                       ),
                     ),

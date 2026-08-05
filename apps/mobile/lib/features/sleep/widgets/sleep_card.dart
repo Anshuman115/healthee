@@ -16,7 +16,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
@@ -42,7 +43,7 @@ class SleepCard extends StatelessWidget {
     // The same tag the server-staged night card wears, from the same table —
     // this card is its fallback, and two cards for one night in two colours
     // would look like two different nights.
-    final tag = context.hues.tagFor('sleep_duration');
+    final tag = hueFor(context.hues, 'sleep_duration');
     return ReadingView<DeviceNight>(
       reading: day.lastNight,
       label: 'Last night',

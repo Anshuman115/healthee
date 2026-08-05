@@ -33,7 +33,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/shared/charts/h_spark.dart';
@@ -146,7 +147,7 @@ class TrendRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    final tag = context.hues.tagFor(trend.metric);
+    final tag = hueFor(context.hues, trend.metric);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

@@ -13,7 +13,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/today_series.dart';
 import 'package:healthee/shared/charts/h_bars.dart';
@@ -39,10 +40,10 @@ class StressCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
     // The card is about ONE metric, so it wears that metric's identity tag —
-    // `metric_hues.dart` for why that is not a verdict. The tag comes from the
+    // `instrument_hues.dart` for why that is not a verdict. The tag comes from the
     // same `tagFor` table the grid asks, so the stress cell and this card cannot
     // end up different colours.
-    final tag = context.hues.tagFor('stress');
+    final tag = hueFor(context.hues, 'stress');
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
