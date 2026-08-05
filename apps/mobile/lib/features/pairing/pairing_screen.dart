@@ -8,16 +8,21 @@
 /// step added later without a widget is a compile error rather than a blank
 /// screen — the same guarantee `Reading<T>` gives the honesty states, applied to
 /// the flow.
+///
+/// ## What used to be here and is not
+///
+/// A "Your server" card and an "Open diagnostics" card, both because the Today
+/// avatar opened this screen and this was, in that widget's own words, "the only
+/// identity surface that exists". Neither is about pairing. They are rows on
+/// `features/settings/` now, which is where the avatar goes, and this screen is
+/// about the strap again.
 library;
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/pairing/paired_strap.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/features/pairing/pairing_controller.dart';
@@ -52,97 +57,6 @@ class PairingScreen extends ConsumerWidget {
             loadingLabel: 'Checking what is already paired',
             errorMessage: "Couldn't read this phone's keystore",
             builder: (context, summary) => _PairingBody(summary: summary, onDone: onDone),
-          ),
-          const SizedBox(height: Insets.xl),
-          const _ServerRow(),
-          const SizedBox(height: Insets.md),
-          const _DiagnosticsRow(),
-        ],
-      ),
-    );
-  }
-}
-
-/// The way to the instrument view — baselines, and the strap's own streams.
-///
-/// It belongs here for the same reason [_ServerRow] does: this screen is what
-/// answers "what does this phone hold", and diagnostics answers "is what it
-/// holds any good". `diagnostics_screen.dart` argues why that pair is not on
-/// Today — it is the question an owner asks when something looks wrong, and
-/// never at 7am.
-class _DiagnosticsRow extends StatelessWidget {
-  const _DiagnosticsRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Instruments', style: text.labelSmall),
-          const SizedBox(height: Insets.sm),
-          Text(
-            'Every baseline the app computes, and every stream this phone read '
-            'off the strap — with each number saying how it was measured.',
-            style: text.bodySmall,
-          ),
-          const SizedBox(height: Insets.md),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton(
-              onPressed: () => context.go(Routes.diagnostics),
-              child: const Text('Open diagnostics'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The way to the server session, from the surface that already answers "what
-/// does this phone hold".
-///
-/// It belongs here rather than on a new screen: the Today header's avatar is
-/// labelled "Your strap and pairing" and comes here because this is, in that
-/// widget's own words, "the only identity surface that exists". The server
-/// session is the second thing this phone keeps about the owner's setup, and
-/// **it is the only way to reach sign-out** — the Today data-health strip
-/// speaks up when there is no session and is deliberately silent when there is.
-///
-/// It reaches the sign-in feature by ROUTE, not by import. Standards §3:
-/// "nothing reaches into another feature".
-class _ServerRow extends ConsumerWidget {
-  const _ServerRow();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final text = Theme.of(context).textTheme;
-    final session = ref.watch(serverSessionProvider).value;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Your server', style: text.labelSmall),
-          const SizedBox(height: Insets.sm),
-          Text(
-            session == null
-                ? 'Checking…'
-                : session.signedIn
-                ? 'Signed in to ${session.host}'
-                : 'Not signed in. Your strap still syncs to this phone.',
-            style: text.titleSmall,
-          ),
-          const SizedBox(height: Insets.md),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton(
-              onPressed: () => context.go(Routes.serverSignIn),
-              child: Text(
-                session?.signedIn ?? false ? 'Manage' : 'Sign in to your server',
-              ),
-            ),
           ),
         ],
       ),

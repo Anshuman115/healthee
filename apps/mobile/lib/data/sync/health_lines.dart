@@ -76,38 +76,77 @@ import 'package:meta/meta.dart';
 /// say what measured it.
 const Duration kStrapHorizonWarning = Duration(days: 5);
 
-/// One sentence for the data-health card.
+/// One sentence for the data-health card — and, when it is loud, the four words
+/// the connection indicator shows for the same fact.
+///
+/// ## Why a loud line cannot exist without a headline
+///
+/// The two surfaces are one voice at two lengths. `shared/connection/` collapses
+/// to a dot when everything is well and expands when it is not, and what it
+/// expands into is the [headline] of every loud line here; the card under it
+/// carries the [text] with the remedy in full. The pair is not a restatement —
+/// it is a title and its paragraph — and it is the reason the indicator may go
+/// quiet at all.
+///
+/// So a loud line is built through [HealthLine.alarm], which **requires** the
+/// headline and the id. A `loud: true` flag on the plain constructor would let a
+/// new alarm ship with no short form, and the indicator would then have nothing
+/// to draw for it — which is the collapsing indicator swallowing a real fault,
+/// the exact failure this design is one bad commit away from.
+/// `test/mutations.sh` deletes a headline on purpose to prove the compiler stops
+/// it.
 @immutable
 class HealthLine {
-  /// [loud] marks a line the owner has to act on. See the library docstring.
-  const HealthLine(this.text, {this.loud = false});
+  /// A line that reports progress and asks for nothing.
+  const HealthLine.quiet(this.text) : loud = false, id = '', headline = null;
+
+  /// A line the owner has to act on. [headline] is what the connection
+  /// indicator shows; [text] is the full sentence on the card.
+  const HealthLine.alarm({
+    required this.id,
+    required this.headline,
+    required this.text,
+  }) : loud = true;
 
   /// The sentence. Never empty.
   final String text;
 
   /// Whether this is something only the owner can clear.
   final bool loud;
+
+  /// A stable name for the fault, for the indicator and for a log line. Empty on
+  /// a quiet line, which nothing outside the card ever reads.
+  final String id;
+
+  /// The short form, for the chrome. Non-null exactly when [loud] is true.
+  final String? headline;
 }
 
 /// What the card should say right now. Empty means say nothing at all.
 ///
 /// Loud lines come first: a sentence somebody must act on, under two lines of
 /// progress reporting, is a sentence that gets scrolled past.
+///
+/// [signedIn] is nullable and **null means not yet known** — the keystore read is
+/// asynchronous, and announcing "not signed in" during it would flash the
+/// invitation at an owner who already is.
 List<HealthLine> dataHealthLines({
   required DateTime now,
   PushStamp? push,
   DateTime? lastStrapSync,
   DateTime? cachedAt,
   String? cachedDate,
+  bool? signedIn,
 }) {
   final lines = <HealthLine>[
     // First among the loud lines, and first for a reason: it is the only one
     // that reports something already irreversible.
     if (_destroyed(push) case final HealthLine line) line,
+    if (signedIn == false) _signedOut,
     if (_strapGap(lastStrapSync, now) case final HealthLine line) line,
     if (_pushFault(push) case final HealthLine line) line,
     if (cachedAt case final DateTime received)
-      HealthLine(_cacheLine(received, cachedDate, now)),
+      HealthLine.quiet(_cacheLine(received, cachedDate, now)),
     if (_backlog(push) case final HealthLine line) line,
   ];
   // Two passes rather than a sort: `List.sort` is not documented as stable, and
@@ -115,6 +154,23 @@ List<HealthLine> dataHealthLines({
   // before the backlog sentence that refers to "the problem above".
   return [...lines.where((line) => line.loud), ...lines.where((line) => !line.loud)];
 }
+
+/// No token, so every `/api/*` call is a 401 and the derived half of Today goes
+/// quiet.
+///
+/// It lives here rather than inline in the card because the connection indicator
+/// needs the same fact in four words, and a sentence written in a widget is a
+/// sentence the chrome cannot reach without copying it. The wording is unchanged
+/// from the card's own.
+const HealthLine _signedOut = HealthLine.alarm(
+  id: 'signed_out',
+  headline: 'Not signed in to a server',
+  text:
+      'This phone is not signed in to a Healthee server. Everything your strap '
+      'measured is below and is still being recorded here; the readings the '
+      'server works out — recovery, sleep health, debt, VO₂max, biological age '
+      '— need a sign-in.',
+);
 
 /// The one data-loss risk in this design, named before it costs anything.
 ///
@@ -128,22 +184,25 @@ List<HealthLine> dataHealthLines({
 /// and what to do about it.
 HealthLine? _strapGap(DateTime? lastStrapSync, DateTime now) {
   if (lastStrapSync == null) {
-    // Never synced is not this problem, and the connection strip already says
-    // "Never synced — tap Sync now" in its own words. Two voices on one fact is
-    // how a card stops being read.
+    // Never synced is not this problem, and the connection indicator already
+    // raises it in its own words (`data/sync/connection_health.dart`'s
+    // `never_synced` alert). Two voices on one fact is how a card stops being
+    // read.
     return null;
   }
   final gap = now.difference(lastStrapSync);
   if (gap <= kStrapHorizonWarning) {
     return null;
   }
-  return HealthLine(
-    'Your strap was last read ${ageLabel(lastStrapSync, now: now)}. '
-    'The band only holds about a week or two of minute-by-minute readings '
-    'before it writes over the oldest ones, so anything older than that may '
-    'already be beyond recovery. Open this app near your strap and it will '
-    'pull whatever the band still has.',
-    loud: true,
+  return HealthLine.alarm(
+    id: 'strap_gap',
+    headline: 'Your strap has not been read in days',
+    text:
+        'Your strap was last read ${ageLabel(lastStrapSync, now: now)}. '
+        'The band only holds about a week or two of minute-by-minute readings '
+        'before it writes over the oldest ones, so anything older than that may '
+        'already be beyond recovery. Open this app near your strap and it will '
+        'pull whatever the band still has.',
   );
 }
 
@@ -157,14 +216,16 @@ HealthLine? _strapGap(DateTime? lastStrapSync, DateTime now) {
 /// anywhere, because the strap cannot be re-read that far back.
 HealthLine? _destroyed(PushStamp? push) {
   if (push?.loss case final loss?) {
-    return HealthLine(
-      '${loss.rows} measurements recorded up to ${loss.throughDay} were '
-      'deleted from this phone without ever reaching a server. They had been '
-      'waiting $kUnsentSampleRetentionDays days, which is as long as this '
-      'phone will hold unsent readings, and your strap cannot be read back '
-      'that far — they are gone. Signing in to a server, or fixing the send '
-      'error above, is what stops it happening to the rest.',
-      loud: true,
+    return HealthLine.alarm(
+      id: 'destroyed',
+      headline: 'Measurements were lost before they were sent',
+      text:
+          '${loss.rows} measurements recorded up to ${loss.throughDay} were '
+          'deleted from this phone without ever reaching a server. They had '
+          'been waiting $kUnsentSampleRetentionDays days, which is as long as '
+          'this phone will hold unsent readings, and your strap cannot be read '
+          'back that far — they are gone. Signing in to a server, or fixing the '
+          'send error above, is what stops it happening to the rest.',
     );
   }
   return null;
@@ -173,9 +234,10 @@ HealthLine? _destroyed(PushStamp? push) {
 /// A push that went wrong. Loud, because nothing on this phone will clear it.
 HealthLine? _pushFault(PushStamp? push) {
   if (push?.failureReason case final String reason) {
-    return HealthLine(
-      "The last attempt to send your data didn't finish: $reason",
-      loud: true,
+    return HealthLine.alarm(
+      id: 'push_fault',
+      headline: 'Your data is not reaching the server',
+      text: "The last attempt to send your data didn't finish: $reason",
     );
   }
   return null;
@@ -192,31 +254,37 @@ HealthLine? _backlog(PushStamp? push) {
     // way. But the retention half of the sentence is now true rather than
     // withdrawn: an unsent row outlives the 60-day horizon, so the honest
     // statement is how long it outlives it by.
-    return HealthLine(
-      '$rows measurements are still on this phone. Nothing is marked sent '
-      'until your server has it, and unsent readings are kept past the '
-      '$localHorizonDays days this phone shows — for up to '
-      '$kUnsentSampleRetentionDays days — so none of it has been thrown away. '
-      'It will not reach the server until the problem above is fixed.',
-      loud: true,
+    return HealthLine.alarm(
+      id: 'backlog_faulted',
+      headline: 'Measurements are stuck on this phone',
+      text:
+          '$rows measurements are still on this phone. Nothing is marked sent '
+          'until your server has it, and unsent readings are kept past the '
+          '$localHorizonDays days this phone shows — for up to '
+          '$kUnsentSampleRetentionDays days — so none of it has been thrown '
+          'away. It will not reach the server until the problem above is fixed.',
     );
   }
   if (push.isSignedOut) {
-    return HealthLine(
-      '$rows measurements are waiting here until this phone is signed in to a '
-      'server. Nothing is lost while they wait: unsent readings are kept for '
-      'up to $kUnsentSampleRetentionDays days, well past the '
-      '$localHorizonDays days of history this phone shows.',
-      loud: true,
+    return HealthLine.alarm(
+      id: 'backlog_signed_out',
+      headline: 'Measurements are waiting for a sign-in',
+      text:
+          '$rows measurements are waiting here until this phone is signed in to '
+          'a server. Nothing is lost while they wait: unsent readings are kept '
+          'for up to $kUnsentSampleRetentionDays days, well past the '
+          '$localHorizonDays days of history this phone shows.',
     );
   }
   if (push.isDraining) {
     // Quiet progress, not a fault: the push stopped at its own page cap with
     // every page accepted, and the rest goes out on the next sync — which no
     // longer needs anybody to ask for it.
-    return HealthLine('$rows measurements are still going out to your server.');
+    return HealthLine.quiet(
+      '$rows measurements are still going out to your server.',
+    );
   }
-  return HealthLine(
+  return HealthLine.quiet(
     '$rows measurements are waiting here to reach the server. Nothing is '
     'lost; they go out on the next sync.',
   );

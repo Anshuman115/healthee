@@ -12,34 +12,55 @@
 /// **The avatar has no initial.** Legacy drew "M" for Maya. Nothing in this app
 /// stores an owner name — not the pairing record, not the payload — so an initial
 /// would be a character invented to fill a circle. It draws a person outline
-/// instead, and goes to [Routes.pairing], which is the only identity surface that
-/// exists. [Routes.profile] is a path with no screen, and linking to it would be
-/// linking to a crash.
+/// instead, and goes to [Routes.settings] — which is the surface it was always
+/// standing in for. It used to open the pairing screen, which is why that screen
+/// had grown a "Your server" card and an "Open diagnostics" card that are not
+/// about pairing; those rows moved to settings and the avatar now goes straight
+/// there. It is still ONE entry point, extended rather than duplicated.
 ///
 /// **The toggle sets an explicit mode.** It lives in `shared/page_head.dart` now,
 /// because every other screen's header has one too; the reasoning moved with it.
+/// The settings screen has an appearance row over the same provider — one state,
+/// two controls, no copy.
+///
+/// **The connection dot is the quiet half of the connection surface.** Seven
+/// pixels beside the date, drawn only when `ConnectionHealth.quiet` is true;
+/// otherwise the full strip is already above this row and drawing a second mark
+/// here would be the same fact twice.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/data/sync/connection_health.dart';
+import 'package:healthee/shared/connection/connection_dot.dart';
 import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/page_head.dart';
 
-/// Today's date, and the two controls that sit beside it.
+/// Today's date, the connection dot, and the two controls beside them.
 class TodayHeader extends StatelessWidget {
   /// [now] is injected so the date does not read the wall clock in a test.
-  const TodayHeader({this.now, super.key});
+  const TodayHeader({this.now, this.health, super.key});
 
   /// The instant the date is taken from.
   final DateTime? now;
+
+  /// The classified connection state, or null when nothing has classified one —
+  /// a widget test pumping this row alone. Null draws no dot rather than a
+  /// reassuring one.
+  final ConnectionHealth? health;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: ModuleLabel(longDateLabel(now ?? DateTime.now()))),
+        ModuleLabel(longDateLabel(now ?? DateTime.now())),
+        if (health case final ConnectionHealth state when state.quiet) ...[
+          const SizedBox(width: Insets.sm),
+          ConnectionDot(live: state.live, semanticLabel: state.report.headline),
+        ],
+        const Spacer(),
         const ThemeToggleButton(),
         const SizedBox(width: Insets.sm + 2),
         const _AvatarButton(),
@@ -71,8 +92,8 @@ class _AvatarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return CircleIconButton(
       icon: Icons.person_outline,
-      semanticLabel: 'Your strap and pairing',
-      onPressed: () => context.go(Routes.pairing),
+      semanticLabel: 'Settings',
+      onPressed: () => context.go(Routes.settings),
     );
   }
 }

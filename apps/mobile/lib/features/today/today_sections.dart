@@ -32,8 +32,8 @@
 ///   Steps        → Routes.activity     steps · cardio load · active minutes · workouts
 ///   Energy       → Routes.activity     · biological age · VO₂max
 ///   Resp / SpO₂  → Routes.sleep
-///   findings     → Routes.coach        "In your own data"
-///   baselines    → Routes.diagnostics  reachable from the pairing screen
+///   findings     → Routes.insights     trends, and "In your own data"
+///   baselines    → Routes.diagnostics  reachable from Settings
 ///   from the strap → Routes.diagnostics
 /// ```
 ///
@@ -67,6 +67,7 @@ import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/data/push/push_stamp.dart';
+import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/features/today/widgets/daily_action_card.dart';
 import 'package:healthee/features/today/widgets/data_health_section.dart';
 import 'package:healthee/features/today/widgets/greeting_block.dart';
@@ -100,8 +101,15 @@ abstract final class TodayDoors {
 /// Everything Today needs that is not on [ScreenData].
 @immutable
 class TodayExtras {
-  /// The push state, the session state, and the way to fix the second.
-  const TodayExtras({this.push, this.signedIn, this.onSignIn, this.onOpen});
+  /// The push state, the session state, the classified connection, and the way
+  /// to fix the second.
+  const TodayExtras({
+    this.push,
+    this.signedIn,
+    this.health,
+    this.onSignIn,
+    this.onOpen,
+  });
 
   /// What the app knows about its own pushing, for the data-health strip.
   final PushStamp? push;
@@ -109,6 +117,11 @@ class TodayExtras {
   /// Null while the keystore read is in flight — "not yet known", which the
   /// strip stays silent about rather than guessing "signed out" for a frame.
   final bool? signedIn;
+
+  /// The connection surface's one classification, for the header dot. Null in a
+  /// test that pumps the section list without one — which draws no dot rather
+  /// than a reassuring one.
+  final ConnectionHealth? health;
 
   /// Opens the sign-in screen.
   final VoidCallback? onSignIn;
@@ -129,7 +142,10 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
     return _freshInstall(data, extras);
   }
   return <PageSection>[
-    PageSection(TodayHeader(now: data.now), gap: Insets.lg),
+    PageSection(
+      TodayHeader(now: data.now, health: extras.health),
+      gap: Insets.lg,
+    ),
     PageSection(
       GreetingBlock(
         guidance: snapshot?.recovery.valueOrNull?.guidance,
@@ -173,13 +189,17 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
 
     // ── suggested today ────────────────────────────────────────────────────
     if (snapshot != null) ...[
-      const PageSection(
+      PageSection(
         SectionHeading(
           'Suggested today',
-          // No `See all` yet: Actions has no screen, and `app_tab_bar.dart`
-          // draws its tab dimmed for the same reason. A link to a route that
-          // does not exist is a link to a crash.
           subtitle: 'One action, and the reading behind it',
+          // Legacy's one `See all →`, at legacy's one call site. It exists again
+          // because Actions is a screen again; `section_heading.dart` records
+          // why the parameter was absent while it was not.
+          onSeeAll: switch (extras.onOpen) {
+            final void Function(String) open => () => open(Routes.actions),
+            _ => null,
+          },
         ),
       ),
       PageSection(
@@ -199,7 +219,10 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
 /// strap has not been read yet.
 List<PageSection> _freshInstall(ScreenData data, TodayExtras extras) {
   return <PageSection>[
-    PageSection(TodayHeader(now: data.now), gap: Insets.lg),
+    PageSection(
+      TodayHeader(now: data.now, health: extras.health),
+      gap: Insets.lg,
+    ),
     // A fresh install is exactly where "not signed in" is worth saying, so the
     // strip leads here too. It still renders nothing when a session is held —
     // the sentence below is then the whole and true answer.
@@ -214,8 +237,8 @@ List<PageSection> _freshInstall(ScreenData data, TodayExtras extras) {
       EmptyState(
         message: 'Nothing from your strap yet',
         hint:
-            'Tap "Sync now" above with the strap on your wrist and nearby. '
-            'Everything on this screen comes off the device or from the '
+            'Pull down on this screen with the strap on your wrist and nearby. '
+            'Everything here comes off the device or from the '
             "server's reading of it; nothing is estimated in the meantime.",
       ),
     ),

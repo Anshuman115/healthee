@@ -109,15 +109,20 @@ class DataHealthSection extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final at = now ?? DateTime.now();
     final feeds = health?.degraded ?? const [];
+    // The signed-out sentence comes from `health_lines.dart` like every other
+    // one now, rather than being written here: the connection indicator shows
+    // the SHORT form of each loud line, and a sentence living in a widget is one
+    // the chrome could only reach by copying it.
     final lines = dataHealthLines(
       now: at,
       push: push,
       lastStrapSync: lastStrapSync,
       cachedAt: cachedAt,
       cachedDate: cachedDate,
+      signedIn: signedIn,
     );
     final signedOut = signedIn == false;
-    if (feeds.isEmpty && lines.isEmpty && !signedOut) {
+    if (feeds.isEmpty && lines.isEmpty) {
       return const SizedBox.shrink();
     }
     return StateCard(
@@ -125,26 +130,6 @@ class DataHealthSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Data health', style: text.labelSmall),
-          if (signedOut) ...[
-            const SizedBox(height: Insets.sm),
-            Text(
-              'This phone is not signed in to a Healthee server. Everything '
-              'your strap measured is below and is still being recorded here; '
-              'the readings the server works out — recovery, sleep health, '
-              'debt, VO₂max, biological age — need a sign-in.',
-              style: text.bodyMedium?.copyWith(color: colors.ink),
-            ),
-            if (onSignIn case final VoidCallback open) ...[
-              const SizedBox(height: Insets.sm),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton(
-                  onPressed: open,
-                  child: const Text('Sign in to your server'),
-                ),
-              ),
-            ],
-          ],
           for (final line in lines) ...[
             const SizedBox(height: Insets.sm),
             Text(
@@ -159,6 +144,18 @@ class DataHealthSection extends StatelessWidget {
                   : text.bodySmall?.copyWith(color: colors.ink2),
             ),
           ],
+          // The one action this card offers, and it belongs to exactly one line.
+          if (signedOut)
+            if (onSignIn case final VoidCallback open) ...[
+              const SizedBox(height: Insets.sm),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton(
+                  onPressed: open,
+                  child: const Text('Sign in to your server'),
+                ),
+              ),
+            ],
           if (feeds.isNotEmpty) ...[
             const SizedBox(height: Insets.md),
             for (final feed in feeds)
