@@ -55,6 +55,46 @@ class PairingScreen extends ConsumerWidget {
           ),
           const SizedBox(height: Insets.xl),
           const _ServerRow(),
+          const SizedBox(height: Insets.md),
+          const _DiagnosticsRow(),
+        ],
+      ),
+    );
+  }
+}
+
+/// The way to the instrument view — baselines, and the strap's own streams.
+///
+/// It belongs here for the same reason [_ServerRow] does: this screen is what
+/// answers "what does this phone hold", and diagnostics answers "is what it
+/// holds any good". `diagnostics_screen.dart` argues why that pair is not on
+/// Today — it is the question an owner asks when something looks wrong, and
+/// never at 7am.
+class _DiagnosticsRow extends StatelessWidget {
+  const _DiagnosticsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return StateCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Instruments', style: text.labelSmall),
+          const SizedBox(height: Insets.sm),
+          Text(
+            'Every baseline the app computes, and every stream this phone read '
+            'off the strap — with each number saying how it was measured.',
+            style: text.bodySmall,
+          ),
+          const SizedBox(height: Insets.md),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton(
+              onPressed: () => context.go(Routes.diagnostics),
+              child: const Text('Open diagnostics'),
+            ),
+          ),
         ],
       ),
     );

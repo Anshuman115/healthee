@@ -15,6 +15,15 @@
 /// value the strap itself recorded and handed over, the same way it hands over a
 /// heart-rate sample. Showing a number the device measured is not deriving one.
 ///
+/// ## Two of these streams share a NAME with a server metric and not a DEFINITION
+///
+/// `resting_hr` and `hrv` measure the same quantities as the server's `rhr_daily`
+/// and `hrv_sleep_avg` by a different method, and they disagree by construction —
+/// five to ten bpm on resting heart rate, more on HRV. [DeviceStream.instrument]
+/// carries that sentence so no surface can show one of these numbers without
+/// saying which instrument produced it. `features/diagnostics/diagnostics_screen.dart`
+/// has the whole trace and the rule; this field is how the rule reaches a row.
+///
 /// What is NOT here, and cannot be added here: recovery, sleep health, sleep
 /// debt, VO₂max, biological age, baselines, anomalies, training load. The server
 /// owns every one, and they reach the screen as a refusal — see
@@ -33,6 +42,7 @@ class DeviceStream {
     required this.label,
     required this.unit,
     required this.decimals,
+    this.instrument,
   });
 
   /// The wire name the samples are stored under — `hrv`, `spo2`, `resting_hr`.
@@ -49,6 +59,15 @@ class DeviceStream {
   /// one; a heart rate in whole beats does not, and printing `54.0 bpm` implies
   /// a precision the sensor did not offer.
   final int decimals;
+
+  /// How this stream was measured, when a server metric shares its name.
+  ///
+  /// Null for a stream nothing else claims — nobody is going to confuse the
+  /// strap's skin temperature with a second skin temperature. Non-null exactly
+  /// where two definitions exist, and then it is **shown**, not stored: a row
+  /// that carries a differently-defined number under a familiar label is the
+  /// failure this field exists to prevent.
+  final String? instrument;
 }
 
 /// Every stream Today may show from the strap alone, in display order.
@@ -58,8 +77,23 @@ const List<DeviceStream> kDeviceStreams = [
     label: 'Resting heart rate',
     unit: 'bpm',
     decimals: 0,
+    instrument:
+        "The strap's own estimate, latest of the day and usually taken awake. "
+        'The app\'s canonical resting heart rate is the lowest 5-minute average '
+        'inside your sleep — a sleeping minimum runs several bpm under an awake '
+        'estimate, so these two are not expected to match.',
   ),
-  DeviceStream(metric: 'hrv', label: 'HRV', unit: 'ms', decimals: 0),
+  DeviceStream(
+    metric: 'hrv',
+    label: 'HRV',
+    unit: 'ms',
+    decimals: 0,
+    instrument:
+        'One spot sample, the latest of the day, which may not fall inside your '
+        "sleep at all. The app's canonical HRV is the average across the whole "
+        'night. A single evening reading below the night average is the ordinary '
+        'pattern, not a drop.',
+  ),
   DeviceStream(metric: 'spo2', label: 'Blood oxygen', unit: '%', decimals: 0),
   DeviceStream(
     metric: 'respiratory_rate',
