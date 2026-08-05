@@ -22,10 +22,13 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/data/models/sleep_night.dart';
+import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
-import 'package:healthee/features/sleep/sleep_screen.dart';
+import 'package:healthee/features/sleep/sleep_sections.dart';
 
+import '../_sleep_stubs.dart';
 import '../_today_stubs.dart';
 import '_today_host.dart';
 
@@ -121,39 +124,32 @@ void main() {
       expect(find.text('Stress today'), findsNothing);
     });
 
-    testWidgets('the week chart is absent when there are no nights', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        todayHost(
-          store,
-          home: const SleepScreen(),
-          server: todayView(mutate: without('sleep_history_7d', const [])),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Measured at rest'));
+    test('SLEEP’S CONDITIONAL CARDS ARE ABSENT ON A ONE-NIGHT HISTORY', () {
+      // Legacy draws the debt chart, the week chart and the timing chart only
+      // at two nights or more, and the naps card only when there are naps
+      // (`sleep_screen.dart:387, 411, 425, 443`). One night must therefore draw
+      // none of the four — a chart of one point is a claim about a pattern
+      // there is no pattern in.
+      //
+      // Asked of the section builder rather than of a rendered scroll: this is
+      // a decision about what to draw, and `sleepSections` is where it is made.
+      final page = sleepPageFixture();
+      final ids = sleepSections(
+        page: SleepPage(nights: <SleepNight>[page.nights.first], naps: const []),
+        consistency: consistencyFixture(),
+        now: kSleepNow,
+      ).map((section) => section.id).toSet();
 
-      expect(find.textContaining('Your last 7 nights'), findsNothing);
-    });
-
-    testWidgets('blood oxygen is absent when the strap measured none', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        todayHost(
-          store,
-          home: const SleepScreen(),
-          server: todayView(
-            mutate: without('last_sleep_extras', const <String, Object?>{}),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Measured at rest'));
-
-      expect(find.text('Blood oxygen overnight', skipOffstage: false), findsNothing);
-      expect(find.text('Through the night', skipOffstage: false), findsNothing);
+      for (final conditional in <String>['debt', 'week', 'consistency', 'naps']) {
+        expect(
+          ids,
+          isNot(contains(conditional)),
+          reason: '$conditional needs more than one night to mean anything',
+        );
+      }
+      // And the unconditional half is still all there, so this is a section
+      // falling silent rather than the screen failing.
+      expect(ids, containsAll(<String>['hero', 'hypnogram', 'health', 'trends']));
     });
   });
 

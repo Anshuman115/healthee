@@ -1,97 +1,73 @@
-/// The week's nights, stacked by stage — legacy's `HStackedSleep`, ported.
+/// The last seven nights, stacked by stage.
 ///
-/// The comparison the number alone cannot make: seven nights side by side on one
-/// hour axis, so a short night reads as short *against the owner's own week*
-/// rather than against an idea of what a night should be.
+/// **Legacy** `sleep_screen.dart:411–422`. A 120 px `HStackedSleep` with the
+/// fortnight's average in the trailing slot, then the four-stage legend.
 ///
-/// The bars are stacked by stage because that is what changed, not just how much
-/// — two six-hour nights with very different deep-sleep shares are two different
-/// nights, and a plain total would draw them identically.
-///
-/// Seven nights, labelled seven nights. `/api/today` sends `sleep_history_7d`;
-/// the longer windows live on `/api/sleep`.
+/// `HStackedSleep` reads `SleepNightSummary`, which is the model `/api/today`'s
+/// `sleep_history_7d` already parses into. The nights on this screen come from
+/// `/api/sleep`, so they are mapped across here rather than duplicating the
+/// chart against a second night type — one chart, one input shape.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
-import 'package:healthee/core/theme/metric_hue.dart';
-import 'package:healthee/core/theme/stage_colors.dart';
+import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_history.dart';
+import 'package:healthee/features/sleep/widgets/sleep_legend.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
-import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/instrument_module.dart';
 
-/// Seven nights of stage totals.
+/// Legacy's "Last 7 nights" module.
 class SleepWeekCard extends StatelessWidget {
-  /// [nights] is oldest first. An empty list renders nothing.
+  /// [nights] is **oldest first**; [averageLabel] is legacy's `avg 7h 05m`.
   const SleepWeekCard({
     required this.nights,
-    required this.reveals,
+    required this.averageLabel,
+    required this.progress,
     super.key,
   });
 
-  /// The week's nights.
+  /// The week, chronological.
   final List<SleepNightSummary> nights;
 
-  /// The screen's reveal registry.
-  final RevealRegistry reveals;
+  /// The trailing line, already formatted, or null when there is no average.
+  final String? averageLabel;
+
+  /// How far the reveal has run.
+  final double progress;
+
+  /// Legacy's `SizedBox(height: 120)`.
+  static const double _chartHeight = 120;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    if (nights.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // The title wears the sleep tag; the stacked bars keep the STAGE
-          // palette, because they are a picture of four stages rather than of
-          // one metric.
-          Text(
-            'Your last ${nights.length} nights',
-            style: text.labelSmall?.copyWith(
-              color: hueFor(context.hues, 'sleep_duration'),
+    final hues = context.hues;
+    return InstrumentModule(
+      label: 'Last 7 nights',
+      tag: null,
+      minHeight: 0,
+      trailing: averageLabel == null
+          ? null
+          : Text(
+              'avg $averageLabel',
+              style: HType.number(colors.ink3, size: 10, weight: FontWeight.w400),
             ),
-          ),
-          const SizedBox(height: Insets.md),
-          RevealOnce(
-            id: 'sleep-week-stack',
-            registry: reveals,
-            builder: (context, t) => HStackedSleep(nights, progress: t, height: 130),
-          ),
-          const SizedBox(height: Insets.sm),
-          Wrap(
-            spacing: Insets.md,
-            runSpacing: Insets.xs,
-            children: [
-              for (final stage in kSleepStages)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(right: Insets.xs),
-                      decoration: BoxDecoration(
-                        color: sleepStageColor(context.hues, stage),
-                        borderRadius: BorderRadius.circular(Radii.pill),
-                      ),
-                    ),
-                    Text(
-                      sleepStageLabel(stage),
-                      style: text.labelSmall?.copyWith(color: colors.ink3),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ],
-      ),
+      children: <Widget>[
+        SizedBox(
+          height: _chartHeight,
+          child: HStackedSleep(nights, progress: progress, height: _chartHeight),
+        ),
+        const SizedBox(height: 10),
+        // Legacy's `_StageLegend`, in legacy's order and words.
+        SleepLegend(<LegendKey>[
+          LegendKey(hues.sleepStage('deep'), 'Deep'),
+          LegendKey(hues.sleepStage('core'), 'Core'),
+          LegendKey(hues.sleepStage('rem'), 'REM'),
+          LegendKey(hues.sleepStage('awake'), 'Awake'),
+        ]),
+      ],
     );
   }
 }

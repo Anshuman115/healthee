@@ -29,7 +29,9 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
+import 'package:healthee/shared/instrument_module.dart';
 
+import '../_sleep_stubs.dart';
 import '_today_host.dart';
 
 const InstrumentHues _hues = InstrumentHues.light();
@@ -45,14 +47,36 @@ Future<Color?> _titleColour(WidgetTester tester, String title) async {
   return _colourOf(tester, title);
 }
 
+/// The hue on the module whose eyebrow reads [label], or null when it has none.
+///
+/// Reads the widget's own `tag` rather than hunting for a 6 px box: the tag is
+/// the decision, and the box is one of several things that draw from it.
+Color? _moduleTag(WidgetTester tester, String label) {
+  final drawn = tester
+      .widgetList<InstrumentModule>(find.byType(InstrumentModule))
+      .toList();
+  final module = drawn.where((module) => module.label == label);
+  expect(
+    module,
+    isNotEmpty,
+    reason:
+        'no module labelled "$label" was laid out. Drawn: '
+        '${drawn.map((one) => one.label).join(", ")}',
+  );
+  return module.first.tag;
+}
+
 /// Pumps [screen] on a viewport tall enough that every card is laid out.
 Future<void> _pump(
   WidgetTester tester,
   LocalStore store,
   Widget screen,
 ) async {
+  // Tall enough that the WHOLE screen lays out in one pass: Sleep is a
+  // `ListView.builder`, so a card that is never scrolled to is a card that was
+  // never built, and `widgetList` cannot see it.
   tester.view
-    ..physicalSize = const Size(420, 1400)
+    ..physicalSize = const Size(420, 3400)
     ..devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(todayHost(store, home: screen));
@@ -69,33 +93,46 @@ void main() {
   tearDown(() async => store.close());
 
   group('Sleep', () {
-    testWidgets('THE MOVED SLEEP CARDS WEAR THEIR METRIC’S HUE', (tester) async {
-      await _pump(tester, store, const SleepScreen());
-      const cases = <String, String>{
-        'Last night': 'sleep_duration',
-        'Sleep health': 'sleep_health_score_4dim',
-        'Sleep debt': 'sleep_debt_min',
-        'Your last 7 nights': 'sleep_duration',
-        'Blood oxygen overnight': 'spo2_overnight',
+    // Sleep is legacy's screen now, and legacy tints the module's DOT rather
+    // than its label â `HModule` draws `HEyebrow(label)` in ink3 and the 6 px
+    // mark in `color`. Asserting a title colour here would have been asserting
+    // the rebuild's own design against the screen that replaced it, so the
+    // assertion moved to where the hue actually is.
+    testWidgets('THE SLEEP CARDS THAT CARRY A HUE CARRY LEGACY’S', (
+      tester,
+    ) async {
+      await _pump(tester, store, SleepScreen(now: kSleepNow));
+
+      // `sleep_screen.dart:367` â Sleep performance is `c.cSleep`.
+      // `sleep_screen.dart:647` â Sleep health is `c.green`.
+      final expected = <String, Color>{
+        'Sleep performance': _hues.sleep,
+        'Sleep health · 4-dim': _colors.accent,
       };
-      for (final entry in cases.entries) {
+      for (final entry in expected.entries) {
         expect(
-          await _titleColour(tester, entry.key),
-          hueFor(_hues, entry.value),
-          reason: '${entry.key} must wear ${entry.value}’s hue',
+          _moduleTag(tester, entry.key),
+          entry.value,
+          reason: '${entry.key} must wear legacy’s own hue',
         );
       }
     });
 
-    testWidgets('the sleep titles are legacy’s cSleep, not the accent', (
+    testWidgets('the rest of legacy’s sleep modules carry NO dot', (
       tester,
     ) async {
-      // The two that are genuinely about sleep must be purple. This is the
-      // assertion that would catch a screen quietly falling back to the default,
-      // which — legacy's own fallback — is the green.
-      await _pump(tester, store, const SleepScreen());
-      for (final title in <String>['Last night', 'Sleep debt']) {
-        expect(await _titleColour(tester, title), _hues.sleep, reason: title);
+      // `dot: false` on every one of them. A card that grew a mark would be
+      // claiming an identity legacy did not give it.
+      await _pump(tester, store, SleepScreen(now: kSleepNow));
+      for (final label in <String>[
+        'Sleep stages',
+        'Breakdown',
+        'Overnight vitals',
+        'Sleep debt · last 7 nights',
+        'Last 7 nights',
+        'Trends · 14 nights',
+      ]) {
+        expect(_moduleTag(tester, label), isNull, reason: label);
       }
     });
   });

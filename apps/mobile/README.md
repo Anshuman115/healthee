@@ -72,7 +72,7 @@ module is a door**, exactly as legacy's are, and the detail lives behind it:
 
 | tab | what it holds |
 |---|---|
-| **Sleep** | last night · sleep health · debt · the week · blood oxygen · the recovery ladder |
+| **Sleep** | **legacy’s Sleep tab, ported whole** — see below |
 | **Activity** | steps · cardio load · active minutes · workouts · VO₂max · biological age |
 | **Insights** | trends over the owner's own history, and the correlations found in it |
 | **Actions** | every cited action the server raised for today, in full |
@@ -107,14 +107,85 @@ than the leftover one: a screen that tinted everything would teach the owner tha
 colour here is decoration, after which the rows where it is a claim say nothing.
 `test/mutations.sh` breaks it on purpose.
 
-The **recovery signal ladder stays on Sleep** and keeps using the server's own
-`direction` field. CLAUDE.md allows one definition per metric, and computing a
-second opinion in the client would be a second definition free to disagree.
+The **recovery signal ladder is gone.** It was a rebuild invention — legacy has
+no ladder on any screen — and the owner's 2026-08-05 decision makes legacy the
+specification. Its signals are all still on Sleep, in legacy's own
+`Overnight vitals` card, and the *whole* of `features/sleep/` was replaced with
+the port (`sleep_screen.dart` and its widgets). Today's grid still opens Sleep.
 
 There is **no anomalies section**, because `/api/today` cannot feed one:
 `read/today.py:83` sets `payload["anomalies"] = []` unconditionally and points at
 `/api/notable` — a separate, premium-gated, LLM-backed endpoint this app does not
 call. A heading that can never have anything under it is dead code.
+
+## Sleep is legacy's screen, section for section
+
+`features/sleep/` is a verbatim port of
+`~/projects/healthee-legacy/app/lib/ui/sleep_screen.dart` — every section, in
+legacy's order, at legacy's sizes. `sleep_sections.dart` is the list and each
+card is its own file; `test/features/tab_screens_test.dart` asserts the ids in
+order, so a card cannot move without somebody deciding to move it.
+
+```text
+  header · Tonight · no-sleep banner · AI analysis · hero
+  ══ <night label> ══  stages · breakdown · overnight vitals · sleep health · 4-dim
+  ══ Patterns ══      performance · debt · last 7 nights · bedtime/wake · trends · naps
+```
+
+It reads **three** payloads, each with its own provider and its own failure, as
+legacy did: `/api/sleep`, `/api/sleep/consistency` and the premium
+`/api/sleep/insight`. It is therefore the one tab that does NOT use
+`shared/instrument_screen.dart`, which is built on `/api/today`.
+
+### The one place the port is deliberately not 1:1
+
+Legacy printed `'—'` for every null on this screen, so "the strap was off your
+wrist", "the server has not derived this yet" and "we have a bug" all looked
+identical. Every field is a `Reading` here (`data/models/sleep_night.dart`), and
+which of the three reasons applies is **read off the payload's shape**, never
+guessed — `data/honesty/sleep_gap.dart` holds the whole rule, because
+`/api/sleep` sends no `withheld` block of its own.
+
+A missing value renders a `ValueHole` **at the number's footprint**, so nothing
+moves, and `SleepGapNote` states at the card's foot which values are missing and
+why — grouped by reason, so six absent vitals are one sentence. The note
+**iterates** the readings the card drew rather than naming the ones somebody
+remembered, and `test/mutations.sh` blanks each in turn: a card that goes quiet
+without saying so fails.
+
+**The four sleep-health checks are never summed.** `n / 4` is a count of checks
+passed — not scaled, not averaged, not turned into a verdict word. There is no
+validated composite of these four and CLAUDE.md forbids inventing one.
+
+### Six legacy behaviours that ship as-is, and are flagged
+
+  * `sleep` is passed as an `infoKey` to a module with **no label**, and legacy's
+    `HModule` only draws its header when a label exists — so the hero card's ⓘ
+    never appears. Ported as found.
+  * Light sleep is labelled **`Core`** in the breakdown and the hypnogram lanes,
+    and **`light`** in the naps legend. One stage, two words, one screen.
+  * `Aug 4` under the odd nights and `4 Aug` under the naps — two date formats,
+    same screen.
+  * The 8 h "need" is `const need = 480.0` and is captioned **"your 8h need"**.
+    Nothing about it is personalised, and it is not the 7–9 h cutoff the
+    sleep-health check scores against.
+  * An unrecognised stage code is drawn where light sleep is drawn
+    (`instrument_hues.dart` records the same for the colour).
+  * `metric_info.dart`'s explainers cite primary literature in prose and are
+    **not wired to `packages/knowledge`** — no id, no grade, no manifest entry.
+    Ported verbatim and reported rather than rewritten.
+
+### Four legacy behaviours that did NOT ship, because they are the honesty rule
+
+  * a trend with fewer than two points was drawn as `HArea([0, 0])` — a flat
+    line at zero, in the metric's colour, that the app invented;
+  * a dimension the server never scored rendered as a **failed** check;
+  * a withheld efficiency or performance figure was painted the "below target"
+    red — a verdict on a measurement that does not exist;
+  * the Tonight card **deleted** its `[[note_id]]` markers, and the AI card drew
+    each citation as `id.replaceAll('_', ' ')`. Both go through the grounded
+    renderers now (`shared/states/grounded_markdown.dart` is the markdown
+    sibling of `GroundedProse`, for the multi-paragraph insight surfaces).
 
 ## The coach is a sheet, and it is wired
 

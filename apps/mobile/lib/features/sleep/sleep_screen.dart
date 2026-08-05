@@ -1,149 +1,188 @@
-/// Sleep — last night, the week behind it, and every instrument read at rest.
+/// Sleep — **legacy's Sleep tab, ported**.
 ///
-/// **This is where Today's sleep half went.** Today's grid indexes it: the Sleep,
-/// HRV, Resting HR and Resp/SpO₂ cells all open this screen, and each of them is
-/// allowed to draw a bare hole where its number would be *because* the card here
-/// carries the reason and the remedy in full (`grid_module.dart` strikes that
-/// bargain; this screen is the other half of it).
+/// `healthee-legacy/app/lib/ui/sleep_screen.dart`. Every section, in legacy's
+/// order, at legacy's sizes; `sleep_sections.dart` is the list and each card is
+/// its own file. What differs is what the owner decided may differ: the typeface,
+/// the light/dark scaffolding, and the honesty wording — every field arrives as a
+/// `Reading`, a withheld value renders as withheld with its reason, and every
+/// citation resolves to a source name.
 ///
-/// ## Why the autonomic instruments live here and not on an "Activity" screen
+/// ## Its own screen, not the Today shell
 ///
-/// Resting heart rate, overnight HRV, breathing rate and blood oxygen are all
-/// measured **while the owner is asleep** — `derive/rhr.py` takes the minimum of
-/// 5-minute mean heart rate inside the sleep session, and `hrv_sleep_avg` is the
-/// bounded mean of overnight RMSSD in the same window. They are readings *of the
-/// night*, not of the day, and the recovery ladder that compares them to their own
-/// baselines is the same set of signals. Splitting them across two tabs would put
-/// a number on one screen and the thing it was measured during on another.
+/// `shared/instrument_screen.dart` is built on `/api/today` and this phone's
+/// store. Sleep is built on `/api/sleep`, `/api/sleep/consistency` and
+/// `/api/sleep/insight` — three reads that fail independently — which is legacy's
+/// shape too (`data/providers.dart` gives each its own provider and its own
+/// timeout). Bending the shared shell around a second payload would have made
+/// every screen carry a source only one of them uses.
 ///
-/// The cards are the ones Today used, unchanged. This pass moved them; it did not
-/// redesign them.
+/// ## Reveal-once, and why the registry lives here
+///
+/// `CLAUDE.md`: *"Scrollable chart screens use `ListView.builder` + reveal-once
+/// animation, or charts replay on every scroll."* The builder destroys an item's
+/// element when it leaves the viewport, so "have I animated?" cannot live in the
+/// chart. It lives in this `State`, and each section is handed the reveal's
+/// progress rather than owning a ticker.
+///
+/// The reveal itself is legacy's: a fade with a 16 px rise
+/// (`ui.dart:45` — `fadeIn` + `moveY(begin: 16, end: 0)`), driven by the same
+/// progress the charts grow on, so a card and its chart arrive together.
 library;
 
-import 'package:flutter/widgets.dart';
-import 'package:healthee/data/models/last_sleep.dart';
-import 'package:healthee/data/models/recovery_signals.dart';
-import 'package:healthee/data/models/sleep_debt.dart';
-import 'package:healthee/data/models/sleep_health.dart';
-import 'package:healthee/features/sleep/widgets/blood_oxygen_card.dart';
-import 'package:healthee/features/sleep/widgets/recovery_ladder.dart';
-import 'package:healthee/features/sleep/widgets/sleep_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_debt_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_dimensions_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_night_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_week_card.dart';
-import 'package:healthee/shared/instrument_screen.dart';
-import 'package:healthee/shared/page_head.dart';
-import 'package:healthee/shared/page_section.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:healthee/data/models/sleep_consistency.dart';
+import 'package:healthee/data/models/sleep_page.dart';
+import 'package:healthee/data/sleep_repository.dart';
+import 'package:healthee/data/sync/sync_controller.dart';
+import 'package:healthee/features/sleep/sleep_sections.dart';
 import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/section_heading.dart';
-import 'package:healthee/shared/states/reading_view.dart';
+import 'package:healthee/shared/skeletons/sleep_skeleton.dart';
+import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// The Sleep tab.
-class SleepScreen extends StatelessWidget {
-  /// [now] is injected by tests so the freshness labels are deterministic.
+class SleepScreen extends ConsumerStatefulWidget {
+  /// [now] is injected by tests so the night labels are deterministic.
   const SleepScreen({this.now, super.key});
 
-  /// The instant every "x min ago" is measured against.
+  /// The instant "last night" is measured against.
   final DateTime? now;
 
   @override
+  ConsumerState<SleepScreen> createState() => _SleepScreenState();
+}
+
+class _SleepScreenState extends ConsumerState<SleepScreen> {
+  /// Outlives every list item, which is the whole reveal-once mechanism.
+  final RevealRegistry _reveals = RevealRegistry();
+
+  @override
   Widget build(BuildContext context) {
-    return InstrumentScreen(now: now, sections: sleepSections);
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          // All three states, and each one scrolls, so pull-to-refresh works
+          // while the screen is empty — which is exactly when it is reached for.
+          // `AsyncView` is not used here only because legacy's loading state is
+          // the content-shaped `SleepSkeleton` rather than a spinner.
+          child: ref
+              .watch(sleepPageProvider)
+              .when(
+                skipLoadingOnRefresh: true,
+                loading: () => const SleepSkeleton(),
+                error: (error, stackTrace) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: _SleepList.padding,
+                  children: <Widget>[
+                    ErrorState(
+                      message: "Couldn't reach your server for your sleep",
+                      detail:
+                          'Your nights are safe. This is a connection problem, '
+                          'not a gap in them.',
+                      onRetry: () => ref.invalidate(sleepPageProvider),
+                    ),
+                  ],
+                ),
+                data: (page) => _SleepList(
+                  page: page,
+                  // Soft: the regularity block feeds two cards and must never be
+                  // able to take the measured half of the screen down with it.
+                  consistency: ref.watch(sleepConsistencyProvider).value,
+                  now: widget.now ?? DateTime.now(),
+                  reveals: _reveals,
+                ),
+              ),
+        ),
+      ),
+    );
+  }
+
+  /// Pull-to-refresh runs a real sync and re-reads all three payloads. New data
+  /// earns a fresh reveal, which is the one thing that may reset the registry —
+  /// scrolling never does.
+  Future<void> _refresh() async {
+    await ref.read(syncControllerProvider.notifier).syncNow();
+    ref
+      ..invalidate(sleepPageProvider)
+      ..invalidate(sleepConsistencyProvider)
+      ..invalidate(sleepInsightProvider);
+    _reveals.reset();
   }
 }
 
-/// Builds the ordered section list for one render of Sleep.
-List<PageSection> sleepSections(ScreenData data) {
-  final snapshot = data.snapshot;
-  final reveals = data.reveals;
-  return <PageSection>[
-    const PageSection(
-      PageHead(eyebrow: 'Last night', title: 'Sleep'),
-      gap: PageSpacing.section,
-    ),
-    if (data.serverFailure case final PageSection failure) failure,
-    if (data.serverPending case final PageSection pending) pending,
+class _SleepList extends StatelessWidget {
+  const _SleepList({
+    required this.page,
+    required this.consistency,
+    required this.now,
+    required this.reveals,
+  });
 
-    // The server's staged night when it has one, the strap's own when it does
-    // not. Not a fallback dressed as the same card: each says which instrument
-    // it came from, and with no network at all the owner still sees the night
-    // their phone read (brief §7.4). Showing the server's judgements beside the
-    // server's copy of the night is what keeps the two from disagreeing.
-    if (snapshot != null && snapshot.lastSleep.hasValue)
-      PageSection(
-        ReadingView<LastSleep>(
-          reading: snapshot.lastSleep,
-          label: 'Last night',
-          builder: (context, night) => SleepNightCard(
-            night: night,
-            reveals: reveals,
-            vitals: snapshot.overnightVitals,
+  final SleepPage page;
+  final SleepConsistency? consistency;
+  final DateTime now;
+  final RevealRegistry reveals;
+
+  /// Legacy's `EdgeInsets.fromLTRB(18, 16, 18, 120)`.
+  static const EdgeInsets padding = EdgeInsets.fromLTRB(18, 16, 18, 120);
+
+  @override
+  Widget build(BuildContext context) {
+    if (page.nights.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: padding,
+        children: const <Widget>[
+          SizedBox(height: 200),
+          EmptyState(
+            message: 'No sleep recorded yet',
+            hint: 'Wear the strap overnight and sync, and this fills in.',
           ),
-        ),
-      )
-    else
-      PageSection(SleepCard(day: data.day, now: data.now)),
-    if (snapshot != null)
-      PageSection(
-        ReadingView<SleepHealth>(
-          reading: snapshot.sleepHealth,
-          label: 'Sleep health',
-          builder: (context, health) => SleepDimensionsCard(health: health),
-        ),
-      ),
-
-    const PageSection(
-      SectionHeading(
-        'The week',
-        subtitle: 'The fortnight behind last night',
-      ),
-    ),
-    if (snapshot != null)
-      PageSection(
-        ReadingView<SleepDebt>(
-          reading: snapshot.sleepDebt,
-          label: 'Sleep debt',
-          builder: (context, debt) => SleepDebtCard(
-            debt: debt,
-            nights: snapshot.sleepHistory7d,
-            reveals: reveals,
-          ),
-        ),
-      ),
-    if (snapshot != null)
-      PageSection(
-        SleepWeekCard(nights: snapshot.sleepHistory7d, reveals: reveals),
-        gap: PageSpacing.section,
-      ),
-
-    const PageSection(
-      SectionHeading(
-        'Measured at rest',
-        subtitle:
-            'Resting heart rate, HRV, breathing and blood oxygen are all read '
-            'inside the sleep window — they are readings of the night.',
-      ),
-    ),
-    if (snapshot != null)
-      PageSection(
-        ReadingView<RecoverySignals>(
-          reading: snapshot.recoverySignals,
-          label: 'Recovery signals',
-          builder: (context, signals) => RevealOnce(
-            id: 'sleep.ladder',
+        ],
+      );
+    }
+    final sections = sleepSections(page: page, consistency: consistency, now: now);
+    return ListView.builder(
+      // Always scrollable, so pull-to-refresh works on a short screen.
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: padding,
+      itemCount: sections.length,
+      itemBuilder: (context, index) {
+        final section = sections[index];
+        return Padding(
+          padding: EdgeInsets.only(bottom: section.gap),
+          child: RevealOnce(
+            id: 'sleep.${section.id}',
             registry: reveals,
-            builder: (context, t) => RecoveryLadder(signals: signals, progress: t),
+            builder: (context, progress) => _Rise(
+              progress: progress,
+              child: section.build(context, progress),
+            ),
           ),
-        ),
-      ),
-    if (snapshot?.overnightVitals case final vitals?)
-      PageSection(
-        BloodOxygenCard(
-          vitals: vitals,
-          nightlyMinimums: snapshot!.sparkline('spo2_overnight_min'),
-          reveals: reveals,
-        ),
-      ),
-  ];
+        );
+      },
+    );
+  }
+}
+
+/// Legacy's reveal: fade in while rising 16 px. `ui.dart:45`.
+class _Rise extends StatelessWidget {
+  const _Rise({required this.progress, required this.child});
+
+  final double progress;
+  final Widget child;
+
+  /// Legacy's `moveY(begin: 16, end: 0)`.
+  static const double _travel = 16;
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+    opacity: progress.clamp(0.0, 1.0),
+    child: Transform.translate(
+      offset: Offset(0, _travel * (1 - progress.clamp(0.0, 1.0))),
+      child: child,
+    ),
+  );
 }
