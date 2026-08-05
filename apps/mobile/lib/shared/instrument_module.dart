@@ -45,6 +45,7 @@ class InstrumentModule extends StatelessWidget {
     this.trailing,
     this.onOpen,
     this.minHeight = 118,
+    this.padding = _padding,
     super.key,
   });
 
@@ -70,6 +71,11 @@ class InstrumentModule extends StatelessWidget {
   /// The floor every grid cell shares, so a row's two cards match.
   final double minHeight;
 
+  /// Inside the card. Legacy's `HModule` takes this too and three of its call
+  /// sites pass their own — the readiness block at 18, the actions header at
+  /// 15/13 (`today_screen.dart:572 · 922 · 973`).
+  final EdgeInsets padding;
+
   /// Legacy's `EdgeInsets.all(14)`.
   static const EdgeInsets _padding = EdgeInsets.all(14);
 
@@ -93,21 +99,26 @@ class InstrumentModule extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: minHeight),
           child: Padding(
-            padding: _padding,
+            padding: padding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(child: ModuleLabel(label)),
-                    if (trailing case final Widget end)
-                      end
-                    else if (tag case final Color dot)
-                      _TagDot(color: dot, size: _dotSize),
-                  ],
-                ),
-                const SizedBox(height: _headerGap),
+                // Legacy draws no header row at all for a module with no label
+                // (`ui.dart:122`) — the readiness block and the action rows are
+                // cards with a body and nothing above it.
+                if (label.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      Expanded(child: ModuleLabel(label)),
+                      if (trailing case final Widget end)
+                        end
+                      else if (tag case final Color dot)
+                        _TagDot(color: dot, size: _dotSize),
+                    ],
+                  ),
+                  const SizedBox(height: _headerGap),
+                ],
                 ...children,
               ],
             ),
@@ -129,13 +140,20 @@ class InstrumentModule extends StatelessWidget {
 /// letter and "S-L-E-E-P" is not what this says.
 class ModuleLabel extends StatelessWidget {
   /// Renders [text] as a module eyebrow.
-  const ModuleLabel(this.text, {this.color, super.key});
+  const ModuleLabel(this.text, {this.color, this.size = 9, this.tracking = 0.12, super.key});
 
   /// The label, in any case — this widget uppercases it.
   final String text;
 
   /// Overrides [HealtheeColors.ink3].
   final Color? color;
+
+  /// Point size. 9 is legacy's `HEyebrow` default; its greeting date passes 10.
+  final double size;
+
+  /// Letter spacing in ems, as legacy passed it. 0.12 is the default; the
+  /// greeting date passes 0.16 (`today_screen.dart:450`).
+  final double tracking;
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +165,7 @@ class ModuleLabel extends StatelessWidget {
           text.toUpperCase(),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: HType.label(color ?? colors.ink3),
+          style: HType.label(color ?? colors.ink3, size: size, tracking: tracking),
         ),
       ),
     );

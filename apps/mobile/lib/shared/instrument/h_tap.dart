@@ -71,7 +71,18 @@ class _HTapState extends State<HTap> {
       ),
     );
     return switch (widget.semanticLabel) {
-      final String label => Semantics(button: true, label: label, child: gesture),
+      // `container: true` is load-bearing rather than tidy. Without it the
+      // annotation merges into whatever node the child already contributes —
+      // for an avatar that is the initial inside it — and the control is
+      // announced as "H" while `find.bySemanticsLabel('Settings')` finds
+      // nothing. A control whose name is one character is a control nobody
+      // using a screen reader can identify.
+      final String label => Semantics(
+        container: true,
+        button: true,
+        label: label,
+        child: gesture,
+      ),
       _ => gesture,
     };
   }
