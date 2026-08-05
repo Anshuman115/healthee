@@ -39,16 +39,14 @@ import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
 import 'package:healthee/features/coach/widgets/coach_meter.dart';
 import 'package:healthee/features/coach/widgets/coach_thread.dart';
+import 'package:healthee/shared/sheets/app_sheet.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// Opens the coach sheet over the current screen.
 Future<void> showCoachSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showAppSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
     builder: (context) => const CoachSheet(),
   );
 }
@@ -65,7 +63,9 @@ class CoachSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      // The keyboard AND the gesture inset: the sheet is presented on the root
+      // navigator now, so it covers the tab bar that used to absorb the latter.
+      padding: EdgeInsets.only(bottom: sheetBottomInset(context)),
       child: DecoratedBox(
         decoration: ShapeDecoration(
           color: colors.bg,

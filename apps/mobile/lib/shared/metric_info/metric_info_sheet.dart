@@ -20,6 +20,7 @@ import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/format/note_grades.dart';
 import 'package:healthee/shared/metric_info/metric_info.dart';
+import 'package:healthee/shared/sheets/app_sheet.dart';
 import 'package:healthee/shared/states/citation_row.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -65,10 +66,8 @@ void showMetricInfo(BuildContext context, String key) {
     return;
   }
   unawaited(
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (context) => _MetricInfoSheet(info: info),
     ),
   );
@@ -89,7 +88,10 @@ class _MetricInfoSheet extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.sheet)),
         border: Border.all(color: colors.line),
       ),
-      padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),
+      // Legacy's 22/12/22/32, plus whatever the gesture bar takes. The sheet
+      // now paints OVER the tab bar (`shared/sheets/app_sheet.dart`), so the
+      // inset that bar used to absorb is this sheet's to leave.
+      padding: EdgeInsets.fromLTRB(22, 12, 22, 32 + sheetBottomInset(context)),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -509,6 +509,28 @@ mutate 'a sleep factor with no minutes reads as zero hours' \
       return '"'"'0.0h / 8h'"'"';
     }'
 
+# ── a modal sheet is over the APP, not over one tab ─────────────────────────
+# The owner's report: "the info sheet comes beyond the navbar". Both halves are
+# mutated here because each is enough on its own to put the tail of a sheet
+# under an opaque bar, and each looks completely fine in review.
+SHEET=lib/shared/sheets/app_sheet.dart
+INFO=lib/shared/metric_info/metric_info_sheet.dart
+LAYER_TEST=test/features/sheet_layering_test.dart
+
+# The defect exactly as it shipped: the DEFAULT. `useRootNavigator: false`
+# resolves the current tab's branch navigator, which lives inside
+# `Scaffold.body`, so the sheet is laid out in one tab's content box and stops
+# at the bar's top edge.
+mutate 'the sheet goes back to the tab branch navigator' "$LAYER_TEST" "$SHEET" \
+  '    useRootNavigator: true,' \
+  '    useRootNavigator: false,'
+
+# The other half: covering the bar means owning the inset the bar was absorbing.
+# Dropping it puts the sources inside the gesture bar, which reads as fixed.
+mutate 'the sheet foot stops leaving the gesture inset' "$LAYER_TEST" "$INFO" \
+  '      padding: EdgeInsets.fromLTRB(22, 12, 22, 32 + sheetBottomInset(context)),' \
+  '      padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
