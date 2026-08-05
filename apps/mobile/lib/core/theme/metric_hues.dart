@@ -1,6 +1,6 @@
 /// The identity tags, and the ONE table that says which metric wears which.
 ///
-/// A second [ThemeExtension] rather than three more fields on [HealtheeColors],
+/// A second [ThemeExtension] rather than five more fields on [HealtheeColors],
 /// and the split is the point. That class's docstring is emphatic that everything
 /// in it is either structure or judgement — "three colours here are allowed to say
 /// something about the owner's body" — and a tag is neither. Keeping them in
@@ -16,50 +16,68 @@
 /// `palette.dart`'s [LightTagPalette] for why that is what separates a tag from a
 /// verdict.
 ///
-/// ## Why the assignment is grouped rather than per-metric
+/// ## Five families, grouped by what the metric is about
 ///
-/// Legacy gave every metric its own hue. Three tags cannot, so they are grouped by
-/// what the metric is *about* — rest, heart, body — which is more legible than
-/// seven near-identical blues would have been and survives new metrics without a
-/// palette change. Two modules in one grid row may share a tag; the label above
-/// them is what names the metric, and the dot only ever said which family it
-/// belongs to.
+/// Legacy gave every metric its own hue. Five cannot, so they are grouped:
+///
+/// ```text
+///   rest     sleep · HRV · readiness            what the body does at rest
+///   heart    HR · resting HR · stress           the pump and its load
+///   body     breathing · SpO₂ · skin temp       what the body exchanges
+///   move     steps · distance · MVPA · load     what the owner did
+///   energy   active · total · basal calories    what it cost
+/// ```
+///
+/// The previous set had three, and `body` was carrying breathing, blood oxygen,
+/// steps, distance and every calorie at once — a family whose members have nothing
+/// in common, which made the tag say only "not sleep and not heart". Splitting the
+/// movement and energy metrics out is why the palette grew; `palette.dart` records
+/// what the wheel allowed.
 ///
 /// ## Where tags apply, and where the accent still rules
 ///
-/// Tags are the **grid's** language and the **hypnogram's**: a dense index where
-/// several metrics sit side by side needs each cell tied to its own chart, and a
-/// four-lane sleep chart needs bands that can be told apart. Everywhere else on
-/// Today — the debt bars, the VO₂max trend, the stress hours, the recovery ladder
-/// — a card is titled and alone, and its line stays [HealtheeColors.accent],
-/// which `tokens.dart` defines as "the owner's own data line".
+/// A tag belongs wherever a card is **about one metric**: the grid, the hypnogram,
+/// and now a metric card's chart, its figure accents and its section heading.
+/// The accent stays what `tokens.dart` calls it — the colour of an *action*: links,
+/// buttons, the disclosure a card offers. Those are things the owner can press,
+/// and the one thing worse than a monochrome screen is a screen where the
+/// pressable things are not findable.
 ///
-/// That boundary is deliberate rather than unfinished work. Spending three hues
-/// on a screen where nothing needs telling apart would make the tags decorative,
-/// and a decorative colour in this app is one that will eventually be read as a
-/// claim.
+/// A card about several metrics at once keeps the accent too — the daily action,
+/// the illness banner, the data-health strip. Nothing there is about one metric,
+/// so nothing there has a tag to wear.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/palette.dart';
 
-/// The three identity tags for the active theme.
+/// The five identity tags for the active theme.
 @immutable
 class MetricHues extends ThemeExtension<MetricHues> {
   /// Builds a tag set. Prefer [MetricHues.light] / [MetricHues.dark].
-  const MetricHues({required this.rest, required this.heart, required this.body});
+  const MetricHues({
+    required this.rest,
+    required this.heart,
+    required this.body,
+    required this.move,
+    required this.energy,
+  });
 
   /// The approved tags, light.
   const MetricHues.light()
     : rest = LightTagPalette.rest,
       heart = LightTagPalette.heart,
-      body = LightTagPalette.body;
+      body = LightTagPalette.body,
+      move = LightTagPalette.move,
+      energy = LightTagPalette.energy;
 
   /// The approved tags, dark.
   const MetricHues.dark()
     : rest = DarkTagPalette.rest,
       heart = DarkTagPalette.heart,
-      body = DarkTagPalette.body;
+      body = DarkTagPalette.body,
+      move = DarkTagPalette.move,
+      energy = DarkTagPalette.energy;
 
   /// Sleep, HRV, readiness — and the deep-sleep band on a hypnogram.
   final Color rest;
@@ -67,8 +85,14 @@ class MetricHues extends ThemeExtension<MetricHues> {
   /// Heart rate, resting heart rate, stress — and the REM band.
   final Color heart;
 
-  /// Steps, energy, breathing, blood oxygen — and the light-sleep band.
+  /// Breathing, blood oxygen, skin temperature — and the light-sleep band.
   final Color body;
+
+  /// Steps, distance, active minutes, cardio load.
+  final Color move;
+
+  /// Calories, in every form.
+  final Color energy;
 
   /// The tag for a canonical metric id, defaulting to [rest].
   ///
@@ -85,26 +109,42 @@ class MetricHues extends ThemeExtension<MetricHues> {
     'max_hr' ||
     'stress' ||
     'stress_daily' => heart,
-    'steps_total' ||
-    'steps' ||
-    'distance_m_daily' ||
-    'active_calories' ||
-    'total_calories' ||
-    'basal_calories' ||
     'respiratory_rate' ||
     'respiratory_rate_sleep' ||
     'spo2' ||
     'spo2_overnight' ||
     'spo2_overnight_min' ||
-    'temperature_c' => body,
+    'temperature_c' ||
+    'skin_temp_c' => body,
+    'steps_total' ||
+    'steps' ||
+    'steps_per_minute' ||
+    'distance_m' ||
+    'distance_m_daily' ||
+    'mvpa_min' ||
+    'moderate_min' ||
+    'vigorous_min' ||
+    'cardio_load' ||
+    'cardio_load_trimp' => move,
+    'active_calories' ||
+    'total_calories' ||
+    'basal_calories' => energy,
     _ => rest,
   };
 
   @override
-  MetricHues copyWith({Color? rest, Color? heart, Color? body}) => MetricHues(
+  MetricHues copyWith({
+    Color? rest,
+    Color? heart,
+    Color? body,
+    Color? move,
+    Color? energy,
+  }) => MetricHues(
     rest: rest ?? this.rest,
     heart: heart ?? this.heart,
     body: body ?? this.body,
+    move: move ?? this.move,
+    energy: energy ?? this.energy,
   );
 
   @override
@@ -116,19 +156,36 @@ class MetricHues extends ThemeExtension<MetricHues> {
       rest: Color.lerp(rest, other.rest, t)!,
       heart: Color.lerp(heart, other.heart, t)!,
       body: Color.lerp(body, other.body, t)!,
+      move: Color.lerp(move, other.move, t)!,
+      energy: Color.lerp(energy, other.energy, t)!,
     );
   }
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is MetricHues &&
-          other.rest == rest &&
-          other.heart == heart &&
-          other.body == body);
+  /// Every tag, in declaration order. **Add a new tag here too** — this backs
+  /// equality, and Flutter compares theme extensions to decide whether a theme
+  /// change needs a rebuild.
+  List<Color> get _tags => <Color>[rest, heart, body, move, energy];
 
   @override
-  int get hashCode => Object.hash(rest, heart, body);
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! MetricHues) {
+      return false;
+    }
+    final mine = _tags;
+    final theirs = other._tags;
+    for (var i = 0; i < mine.length; i++) {
+      if (mine[i] != theirs[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAll(_tags);
 }
 
 /// Reaches the tag set from a widget: `context.hues.heart`.
