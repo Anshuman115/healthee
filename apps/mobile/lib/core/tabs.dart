@@ -14,32 +14,32 @@
 /// a switch over routes needs an unreachable default, and an unreachable default
 /// is a runtime error where a missing field would have been a compile error.
 ///
-/// ## Four tabs, not five — Actions came OUT of the bar
+/// ## Five tabs — legacy's five, verbatim
 ///
-/// `docs/APP_DESIGN.md` §2 names five (Today · Sleep · Activity · Insights ·
-/// Actions) and this bar drew all five, with Actions dimmed and inert because it
-/// has no screen. That is the wrong shape for a **navigation control**, and the
-/// argument that put it there confused two different rules:
+/// `~/projects/healthee-legacy/app/lib/ui/nav.dart` lists them: **Today · Sleep ·
+/// Activity · Insights · Actions**. `docs/APP_DESIGN.md` §2 names the same five.
+/// This list drew four, and both of the differences were mistakes with reasons:
 ///
-///   * *"Show the shape, say it is not there"* is about a missing **number**. The
-///     reader is already on the screen, the card is the shape, and the sentence
-///     under it is the whole answer.
-///   * A tab is not a shape, it is a **promise of a destination**. There is no
-///     wording available inside a 10 pt label to keep that promise honest, and a
-///     control in the primary navigation that never responds teaches the owner
-///     that controls in this app may not respond — which is a cost paid on every
-///     other tap, forever.
-///
-/// A near-empty Actions screen was the alternative and was rejected as worse: it
-/// would be a fifth destination that answers nothing, and today's cited actions
-/// already have a home — Today's "Suggested today". Actions returns to this list
-/// in the commit that ships its screen, which is one entry and one branch.
+///   * **Coach was a tab.** It is not one in legacy — `main.dart:399` puts a
+///     `CoachFab` on Today alone and opens a chat sheet from it — and it is not
+///     one here any more (`features/coach/coach_sheet.dart`). The findings that
+///     were parked on that tab have gone to **Insights**, which is what §2 called
+///     the fourth tab all along and which is where they belong: a correlation is
+///     the *evidence* a coach question would be answered from, not the coach.
+///   * **Actions was removed for being inert**, and the reasoning was right: a tab
+///     is a promise of a destination and there is no wording available inside a
+///     10 pt label to qualify one that does not exist, so a dimmed control in the
+///     primary navigation was worse than four tabs. The answer to that was never
+///     a dimmed tab; it was a screen. `features/actions/actions_screen.dart` is
+///     it, and the tab comes back with it — which is exactly the one entry and one
+///     branch this docstring said it would be.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/router.dart';
+import 'package:healthee/features/actions/actions_screen.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
-import 'package:healthee/features/coach/coach_screen.dart';
+import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
 
@@ -70,10 +70,6 @@ class AppTab {
 }
 
 /// The tabs, in bar order — which is also branch order. See the docstring.
-///
-/// Coach sits where `docs/APP_DESIGN.md` puts a FAB on Today. It is in the bar
-/// because the legacy bar this rebuild is matching has its fifth item there, and
-/// the findings live on it.
 const List<AppTab> kAppTabs = <AppTab>[
   AppTab(
     label: 'Today',
@@ -94,9 +90,23 @@ const List<AppTab> kAppTabs = <AppTab>[
     screen: ActivityScreen.new,
   ),
   AppTab(
-    label: 'Coach',
-    icon: Icons.forum_outlined,
-    route: Routes.coach,
-    screen: CoachScreen.new,
+    label: 'Insights',
+    icon: Icons.insights_outlined,
+    route: Routes.insights,
+    screen: InsightsScreen.new,
+  ),
+  AppTab(
+    label: 'Actions',
+    icon: Icons.checklist_outlined,
+    route: Routes.actions,
+    screen: ActionsScreen.new,
   ),
 ];
+
+/// Today's branch index — the one the back button falls home to.
+///
+/// A named constant rather than a literal `0` at the three call sites that need
+/// it: `shared/app_shell.dart`'s back rule, its Coach FAB and the router's
+/// initial location all mean *the home tab*, and a reordering of [kAppTabs]
+/// should move all three together or none.
+const int kHomeTabIndex = 0;

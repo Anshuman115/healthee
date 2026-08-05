@@ -21,6 +21,22 @@ String groupedInt(int value) {
   return out.toString();
 }
 
+/// A figure whose scale is not known in advance — a trend row's value or change.
+///
+/// One decimal under 100 and none above it, which is the resolution the numbers
+/// on this app's screens actually carry: an HRV of `47.3` is a real tenth, a
+/// calorie total of `2,140.0` is a tenth nobody measured. Grouped above a
+/// thousand for the same reason [groupedInt] exists.
+///
+/// It is a **display** rule and never a rounding of a stored value: everything
+/// that decides anything reads the double.
+String decimalLabel(double value) {
+  if (value.abs() >= 100) {
+    return groupedInt(value.round());
+  }
+  return value.toStringAsFixed(1);
+}
+
 /// `7:50` from a minute count — the legacy grid's sleep figure.
 ///
 /// Deliberately NOT `durationLabel`'s `7h 50m`. A grid cell shows a figure with

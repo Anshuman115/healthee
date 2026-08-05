@@ -49,6 +49,7 @@ const Map<String, String> _names = <String, String>{
   'tib_min': 'time in bed',
   'efficiency_pct': 'sleep efficiency',
   'sleep_health_score_4dim': 'sleep health',
+  'sleep_score': 'sleep score',
   'sleep_regularity_index': 'sleep regularity',
   'sleep_dim_duration': 'sleep duration',
   'sleep_dim_efficiency': 'sleep efficiency',

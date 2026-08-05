@@ -20,14 +20,17 @@
 /// did. A section about several families — "Fitness", "In your own data" — names
 /// no metric and stays [ink3].
 ///
-/// ## The `See all →` legacy has, and this does not
+/// ## The `See all →`
 ///
 /// `ui.jsx`'s `SectionTitle` takes an action, and `screen_today.jsx` uses it in
 /// exactly one place: a `See all →` over "Suggested today" that opens the actions
-/// tab. **Actions has no screen**, so the parameter is not here — an unused
-/// widget parameter is a shape somebody will fill in eventually, and the only
-/// thing it could be filled in with today is a link to a crash. It comes back in
-/// the commit that ships that tab, which is three lines and a caller.
+/// tab. It was left out while Actions had no screen — a parameter whose only
+/// possible argument is a link to a crash — and it is back with the screen, at
+/// the one call site legacy has.
+///
+/// [onSeeAll] and [seeAllLabel] travel together and neither is optional without
+/// the other: a label with no destination would be a dead control, and a
+/// destination with no label would be an invisible one.
 library;
 
 import 'package:flutter/material.dart';
@@ -42,6 +45,8 @@ class SectionHeading extends StatelessWidget {
     this.title, {
     this.subtitle,
     this.metric,
+    this.onSeeAll,
+    this.seeAllLabel = 'See all',
     super.key,
   });
 
@@ -55,6 +60,11 @@ class SectionHeading extends StatelessWidget {
   /// section is about several. See the library docstring.
   final String? metric;
 
+  /// Opens the whole of what this section indexes. Null draws no control.
+  final VoidCallback? onSeeAll;
+
+  /// What that control says.
+  final String seeAllLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -72,13 +82,29 @@ class SectionHeading extends StatelessWidget {
           height: Insets.xl,
           thickness: hairline,
         ),
-        Text(
-          title.toUpperCase(),
-          style: text.labelSmall?.copyWith(
-            letterSpacing: 0.9,
-            color: tag ?? colors.ink3,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title.toUpperCase(),
+                style: text.labelSmall?.copyWith(
+                  letterSpacing: 0.9,
+                  color: tag ?? colors.ink3,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (onSeeAll case final VoidCallback open)
+              GestureDetector(
+                onTap: open,
+                child: Text(
+                  '$seeAllLabel →',
+                  // The accent is the colour of an action in this app, and this
+                  // is one. It says nothing about a reading.
+                  style: text.labelSmall?.copyWith(color: colors.accent),
+                ),
+              ),
+          ],
         ),
         if (subtitle case final String line) ...[
           const SizedBox(height: Insets.xs),

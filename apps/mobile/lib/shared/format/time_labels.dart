@@ -37,6 +37,30 @@ String ageLabel(DateTime at, {required DateTime now}) {
   return '${elapsed.inDays} d ago';
 }
 
+/// How long until [at], **ceiled** — "in 3 min", "in 2 h", "in 6 days".
+///
+/// The mirror of [ageLabel] and it rounds the other way for the same reason. A
+/// wait that is 2 h 55 m long shown as "in 2 h" promises something sooner than
+/// it is; the flattering direction for a countdown is *down*, so this floors
+/// nothing and never under-states a wait. An instant already past reads "now",
+/// which is the only honest thing to say about a window that has reopened.
+String untilLabel(DateTime at, {required DateTime now}) {
+  final remaining = at.difference(now);
+  if (remaining.isNegative || remaining.inSeconds == 0) {
+    return 'now';
+  }
+  if (remaining.inMinutes < 60) {
+    return 'in ${_ceilUnits(remaining.inSeconds, 60)} min';
+  }
+  if (remaining.inHours < 24) {
+    return 'in ${_ceilUnits(remaining.inMinutes, 60)} h';
+  }
+  final days = _ceilUnits(remaining.inHours, 24);
+  return 'in $days day${days == 1 ? '' : 's'}';
+}
+
+int _ceilUnits(int amount, int perUnit) => (amount + perUnit - 1) ~/ perUnit;
+
 /// A duration in minutes as `7h 20m`, or `48m` under an hour.
 ///
 /// Used for sleep and workouts. Never decimal hours — "6.3 h of sleep" is a

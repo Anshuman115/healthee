@@ -23,22 +23,31 @@
 /// the last hop was not.
 ///
 /// All four fields the model writes ([TodaySnapshot.action] and each rec's
-/// `action`, `expected_effect` and `rationale`) now go through [GroundedProse],
-/// which is the only thing in the app that knows what a bracket means and cannot
-/// render a stripped sentence without its sources. The rec's structured
-/// `research_note_ids` ride along on the action, so one recommendation shows one
-/// set of sources rather than two rows that can disagree.
+/// `action`, `expected_effect` and `rationale`) go through [GroundedProse], which
+/// is the only thing in the app that knows what a bracket means and cannot render
+/// a stripped sentence without its sources. The row itself lives in
+/// `shared/recommendation_entry.dart` because the Actions tab draws the same one.
+///
+/// ## ONE recommendation here, and the rest behind `See all`
+///
+/// The heading over this card says *"One action, and the reading behind it"*, and
+/// until Actions had a screen this card drew every rec the payload carried —
+/// so the subtitle was describing a shape the card was not keeping. Today is an
+/// index (`today_sections.dart`), the server sends its recs highest-rank first,
+/// and the whole set is now one tap away on a tab that exists. A screen that
+/// showed all of them and a tab that showed all of them would be one destination
+/// twice.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/recommendation.dart';
+import 'package:healthee/shared/recommendation_entry.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
-import 'package:healthee/shared/states/reasoning_note.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
-/// The day's action and the cited recommendations behind it.
+/// The day's action and the highest-ranked recommendation behind it.
 class DailyActionCard extends StatelessWidget {
   /// [action] may be null; [recommendations] may be empty. Both being so means
   /// this card does not render at all.
@@ -51,7 +60,7 @@ class DailyActionCard extends StatelessWidget {
   /// The AI one-liner, or null until the nightly job has warmed it.
   final String? action;
 
-  /// The cited actions, highest rank first.
+  /// The cited actions, highest rank first. Only the first is drawn here.
   final List<Recommendation> recommendations;
 
   @override
@@ -61,6 +70,7 @@ class DailyActionCard extends StatelessWidget {
     if (action == null && recommendations.isEmpty) {
       return const SizedBox.shrink();
     }
+    final rest = recommendations.length - 1;
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,52 +80,21 @@ class DailyActionCard extends StatelessWidget {
             const SizedBox(height: Insets.sm),
             GroundedProse(text: sentence, style: text.headlineSmall),
           ],
-          for (final rec in recommendations) ...[
+          if (recommendations.isNotEmpty) ...[
             Divider(color: colors.line2, height: Insets.xl, thickness: hairline),
-            _RecommendationRow(recommendation: rec),
+            RecommendationEntry(recommendation: recommendations.first),
+          ],
+          // Says the number rather than "more": a count is checkable against the
+          // tab it points at, and "more" is a promise with no size.
+          if (rest > 0) ...[
+            const SizedBox(height: Insets.sm),
+            Text(
+              '$rest more on Actions',
+              style: text.labelSmall?.copyWith(color: colors.ink3),
+            ),
           ],
         ],
       ),
-    );
-  }
-}
-
-class _RecommendationRow extends StatelessWidget {
-  const _RecommendationRow({required this.recommendation});
-
-  final Recommendation recommendation;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GroundedProse(
-          text: recommendation.action,
-          style: text.titleMedium,
-          // The structured ids belong to the whole rec, so they hang off its
-          // headline rather than sitting in a second row underneath.
-          alsoCites: recommendation.researchNoteIds,
-          // The one grade on this screen that the server actually proved.
-          grade: recommendation.gradeLabel,
-        ),
-        if (recommendation.expectedEffect case final String effect) ...[
-          const SizedBox(height: Insets.xs),
-          GroundedProse(
-            text: effect,
-            style: text.bodySmall?.copyWith(color: colors.ink2),
-          ),
-        ],
-        if (recommendation.rationale case final String why) ...[
-          const SizedBox(height: Insets.sm),
-          // Offered, not forced — an inline disclosure, never a modal (§3).
-          // `jobs/recs.py` requires an inline `[note_id]` in here, so this is the
-          // one disclosure whose body reliably carries citations.
-          ReasoningNote(question: 'Why this, today', answer: why),
-        ],
-      ],
     );
   }
 }

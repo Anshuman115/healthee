@@ -1,22 +1,23 @@
-/// Routes. Four tabs, the pairing surfaces, and the diagnostics behind them.
+/// Routes. Five tabs, the setup surfaces, and settings outside the shell.
 ///
 /// `docs/APP_DESIGN.md` §2 fixes the information architecture — five tabs (Today ·
-/// Sleep · Activity · Insights · Actions), a Coach FAB on Today, and Profile as a
-/// right-slide route off the Today avatar rather than a sixth tab. The paths below
-/// are those names, so a screen landing tomorrow attaches to a route that already
-/// exists instead of inventing a URL scheme.
+/// Sleep · Activity · Insights · Actions), a Coach FAB on Today, and the owner's
+/// own surfaces off the Today avatar rather than as a sixth tab. All five tabs and
+/// the avatar's destination now exist; `core/tabs.dart` records what changed and
+/// why.
 ///
 /// go_router rather than `Navigator` calls: deep links (a notification opening one
 /// night's sleep detail) and typed paths are both things the app will need, and
 /// retrofitting a router after screens exist means touching every screen.
 ///
-/// ## The four tabs are BRANCHES, not sibling pages
+/// ## The five tabs are BRANCHES, not sibling pages
 ///
 /// They were plain sibling `GoRoute`s, which meant every tab switch built a new
 /// page and threw the old one away — scroll offset, chart reveals and provider
 /// reads with it. `shared/app_shell.dart` records the measurement. They are now
 /// the branches of a `StatefulShellRoute.indexedStack`, each with its own
-/// `Navigator`, all kept alive.
+/// `Navigator`, all kept alive — which is also what gives the Android back button
+/// a per-tab stack to pop (the shell owns that rule).
 library;
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,7 @@ import 'package:healthee/core/tabs.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
+import 'package:healthee/features/settings/settings_screen.dart';
 import 'package:healthee/features/signin/server_signin_screen.dart';
 import 'package:healthee/shared/app_shell.dart';
 import 'package:healthee/shared/foundation_screen.dart';
@@ -44,14 +46,24 @@ abstract final class Routes {
   /// Fitness, organised around VO₂max.
   static const String activity = '/activity';
 
-  /// The coach, and — until it ships — the findings in the owner's own data.
-  static const String coach = '/coach';
+  /// The owner's own history — trends, and the patterns found in it.
+  ///
+  /// There is no `/coach` path. The coach is a sheet opened from Today's FAB
+  /// (`features/coach/coach_sheet.dart`), which is where legacy puts it and what
+  /// `docs/APP_DESIGN.md` §2 describes; a route for it would be a second way in
+  /// with a different back behaviour.
+  static const String insights = '/insights';
 
-  /// Challenges and commitments.
+  /// Every cited action the server raised for today.
   static const String actions = '/actions';
 
-  /// Identity, body, appearance, data and sync.
-  static const String profile = '/profile';
+  /// Appearance, the server session, the strap, diagnostics and the licences.
+  ///
+  /// **Outside the tab shell**, and reached from the Today header's avatar —
+  /// which is the entry point that already existed, extended rather than
+  /// duplicated. A settings surface inside the bar would light a tab while the
+  /// owner is somewhere that is not a tab.
+  static const String settings = '/settings';
 
   /// Pair a strap, or review the pairing already held.
   static const String pairing = '/pairing';
@@ -85,11 +97,10 @@ abstract final class Routes {
 
 /// The app's router.
 ///
-/// Everything above is wired except [Routes.actions] and [Routes.profile], which
-/// have no screens. They are the agreed paths, not dead routes — a route with no
-/// screen would be a link to a crash, so they are added with their screens.
-/// Actions is also **not in the bar** until then; `core/tabs.dart` argues why a
-/// dimmed, inert tab is worse than four tabs.
+/// Every path in [Routes] is wired to a screen. That is not a coincidence to be
+/// maintained by review — `test/features/reachability_test.dart` walks the tab
+/// list against the wired set, because a tab pointing at an unregistered path
+/// looks like nothing at all until somebody taps it.
 ///
 /// ## Unpaired means pairing
 ///
@@ -157,6 +168,11 @@ GoRouter buildRouter(WidgetRef ref) {
         path: Routes.serverSignIn,
         builder: (BuildContext context, GoRouterState state) =>
             ServerSignInScreen(onDone: () => context.go(Routes.today)),
+      ),
+      GoRoute(
+        path: Routes.settings,
+        builder: (BuildContext context, GoRouterState state) =>
+            const SettingsScreen(),
       ),
     ],
   );
