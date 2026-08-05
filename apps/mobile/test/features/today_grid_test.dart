@@ -35,10 +35,7 @@ import 'package:healthee/features/activity/widgets/workouts_card.dart';
 import 'package:healthee/features/diagnostics/widgets/metric_strip.dart';
 import 'package:healthee/features/diagnostics/widgets/server_metric_strip.dart';
 import 'package:healthee/features/insights/widgets/findings_section.dart';
-import 'package:healthee/features/sleep/widgets/blood_oxygen_card.dart';
-import 'package:healthee/features/sleep/widgets/recovery_ladder.dart';
 import 'package:healthee/features/sleep/widgets/sleep_debt_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_dimensions_card.dart';
 import 'package:healthee/features/sleep/widgets/sleep_week_card.dart';
 import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/widgets/daily_action_card.dart';
@@ -295,12 +292,13 @@ void main() {
       // Named by type so a card that comes home has to be deleted from this list
       // deliberately rather than by an import going quiet.
       final drawn = sections().map((section) => section.child.runtimeType).toSet();
+      // `SleepDimensionsCard`, `BloodOxygenCard` and `RecoveryLadder` used to
+      // be named here. They are gone: `feat/legacy-sleep` replaced the Sleep
+      // tab with legacy's own, which has no recovery ladder and folds blood
+      // oxygen into its overnight-vitals card. Nothing came home to Today.
       for (final moved in <Type>[
-        SleepDimensionsCard,
         SleepDebtCard,
         SleepWeekCard,
-        BloodOxygenCard,
-        RecoveryLadder,
         StepsCard,
         CardioLoadCard,
         MvpaCard,

@@ -332,6 +332,76 @@ mutate 'leaving a setup flow always goes to Today' "$BACK_TEST" "$ROUTER" \
   }' \
   '  context.go(Routes.today);'
 
+# ── Sleep: a card that blanks a value without saying so ─────────────────────
+# The Sleep port's one deliberate difference from legacy is that a missing field
+# renders as WITHHELD rather than as `—`. Half of that is a hole where the number
+# was; the other half is the sentence naming what is missing and why. A hole with
+# no sentence is a blank with a dashed border, and it is exactly what a "the card
+# still renders" test passes for — which is why each `SleepGapNote` is deleted
+# here on purpose.
+WITHHELD_TEST=test/features/sleep_withheld_test.dart
+HERO=lib/features/sleep/widgets/sleep_hero_card.dart
+VITALS=lib/features/sleep/widgets/overnight_vitals_card.dart
+HEALTH=lib/features/sleep/widgets/sleep_health_card.dart
+PERF=lib/features/sleep/widgets/sleep_performance_card.dart
+
+mutate 'the hero blanks its score and says nothing' "$WITHHELD_TEST" "$HERO" \
+  '        SleepGapNote(
+          fields: <String, Reading<Object>>{
+            "The strap'"'"'s sleep score": night.deviceScore,' \
+  '        SleepGapNote(
+          fields: <String, Reading<Object>>{
+            if (false) "The strap'"'"'s sleep score": night.deviceScore,'
+
+mutate 'the vitals card stops iterating its own slots' "$WITHHELD_TEST" "$VITALS" \
+  '        SleepGapNote(fields: slots),' \
+  '        const SleepGapNote(fields: <String, Reading<Object>>{}),'
+
+# The legacy defect itself: a dimension the server never scored drawn as a FAILED
+# check. `point_timing == 1` is false for a null, so the cross appears and the
+# owner reads a judgement made out of nothing.
+mutate 'an unscored sleep dimension renders as a failure' "$WITHHELD_TEST" "$HEALTH" \
+  '    final result = passed.valueOrNull;
+    if (result == null) {' \
+  '    final result = passed.valueOrNull ?? false;
+    if (false) {'
+
+# `0/0` — a ratio out of nothing, which reads as "no nights were short".
+mutate 'an empty fortnight reports 0 of 0' "$WITHHELD_TEST" "$PERF" \
+  '    final measured = totals;
+    if (measured.isEmpty) {
+      return Withheld<String>(SleepGap.noSession.disclosure);
+    }
+    final short = measured.where((minutes) => minutes < kSleepNeedMin).length;' \
+  '    final measured = totals;
+    final short = measured.where((minutes) => minutes < kSleepNeedMin).length;'
+
+# ── Sleep: the citations ────────────────────────────────────────────────────
+# Legacy DELETED its `[[note_id]]` markers and showed the sources nowhere. Going
+# back to a plain `Text` is one keystroke and looks fine in review.
+HONESTY_TEST=test/features/sleep_honesty_test.dart
+TONIGHT=lib/features/sleep/widgets/tonight_card.dart
+
+mutate 'the tonight coaching drops its grounding' "$HONESTY_TEST" "$TONIGHT" \
+  '              child: GroundedProse(
+                text: lever.prose,
+                style: HType.sans(colors.ink2, size: 13, height: 1.45),
+              ),' \
+  '              child: Text(
+                lever.prose,
+                style: HType.sans(colors.ink2, size: 13, height: 1.45),
+              ),'
+
+# ── Sleep: the trends that legacy drew as a flat line at zero ───────────────
+# `HArea(data.length >= 2 ? data : [0, 0])` — two data points the app invented,
+# in the metric'"'"'s own colour, on a health screen.
+TRENDS=lib/features/sleep/widgets/sleep_trends_card.dart
+
+mutate 'a one-night trend is plotted as a flat zero' "$WITHHELD_TEST" "$TRENDS" \
+  '  bool get isPlottable => series.length >= minimumPoints;' \
+  '  bool get isPlottable => true;'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

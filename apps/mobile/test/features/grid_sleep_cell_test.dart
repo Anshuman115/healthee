@@ -202,7 +202,7 @@ void main() {
       // cost it: proportion answers "how did the night divide", never "when".
       await tester.pumpWidget(todayHost(store, home: const SleepScreen()));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('Last night'));
+      await reveal(tester, find.text('SLEEP STAGES'));
 
       expect(find.byType(HHypnogram), findsOneWidget);
     });

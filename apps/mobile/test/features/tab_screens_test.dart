@@ -21,13 +21,16 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
+import 'package:healthee/features/sleep/sleep_sections.dart';
 import 'package:healthee/shared/section_heading.dart';
 
+import '../_sleep_stubs.dart';
 import '_today_host.dart';
 
 void main() {
@@ -40,58 +43,125 @@ void main() {
   tearDown(() async => store.close());
 
   group('Sleep', () {
+    // The Sleep tab is legacy's, ported (`feat/legacy-sleep`). These assertions
+    // moved with it: the cards, the labels and the cutoff strings below are
+    // `healthee-legacy/app/lib/ui/sleep_screen.dart`'s own.
     testWidgets('THE FOUR SLEEP DIMENSIONS ARE NEVER SUMMED', (tester) async {
-      await tester.pumpWidget(todayHost(store, home: const SleepScreen()));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Sleep health'));
-
-      // Four judgements, each with its own published cutoff.
-      expect(find.text('Duration'), findsOneWidget);
-      expect(find.text('Efficiency'), findsOneWidget);
-      expect(find.text('Regularity'), findsOneWidget);
-      expect(find.text('Timing'), findsOneWidget);
-      expect(find.textContaining('Cutoff 7.0–9.0 h'), findsOneWidget);
-      expect(find.textContaining('Cutoff ≥ 85%'), findsOneWidget);
-      expect(find.textContaining('SRI over 14 nights'), findsOneWidget);
-      // And nothing that reads as a composite. The payload carries `score: 3`
-      // and `max_score: 4`; drawing it would be one line, and brief §5.3
-      // forbids it.
-      expect(find.text('3/4'), findsNothing);
-      expect(find.text('3 of 4'), findsNothing);
-    });
-
-    testWidgets('the ladder compares each signal to the OWNER’s baseline', (
-      tester,
-    ) async {
-      await tester.pumpWidget(todayHost(store, home: const SleepScreen()));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Against your own normal'));
-
-      expect(find.text('Sleep duration'), findsOneWidget);
-      expect(find.textContaining('At your usual 380'), findsOneWidget);
-      expect(
-        find.textContaining('not a population average'),
-        findsOneWidget,
-        reason: 'brief §5.2 — population norms are irrelevant here',
+      await tester.pumpWidget(
+        todayHost(store, home: SleepScreen(now: kSleepNow)),
       );
+      await tester.pumpAndSettle();
+      await reveal(tester, find.text('SLEEP HEALTH · 4-DIM'));
+
+      // Four judgements, each against its own published cutoff.
+      for (final dimension in <String>[
+        'Duration',
+        'Efficiency',
+        'Timing',
+        'Regularity',
+      ]) {
+        expect(find.text(dimension), findsOneWidget);
+      }
+      for (final cutoff in <String>[
+        '7–9 h',
+        '≥ 85%',
+        '2–4 am mid',
+        'SRI ≥ 70',
+      ]) {
+        expect(find.text(cutoff), findsOneWidget);
+      }
+
+      // The count is a COUNT. `/ 4` is legacy's denominator and there is no
+      // percentage, no average and no verdict word â CLAUDE.md forbids a
+      // composite without a documented methodology, and there is no validated
+      // one for these four.
+      expect(find.text('/ 4'), findsOneWidget);
+      for (final composite in <String>['75%', '3/4', '3 of 4', '0.75']) {
+        expect(
+          find.text(composite),
+          findsNothing,
+          reason: '"$composite" would be the four checks blended into one',
+        );
+      }
     });
 
-    testWidgets('the night, the debt and the week are all reachable', (
+    testWidgets('every overnight instrument is on the vitals card', (
       tester,
     ) async {
-      await tester.pumpWidget(todayHost(store, home: const SleepScreen()));
+      await tester.pumpWidget(
+        todayHost(store, home: SleepScreen(now: kSleepNow)),
+      );
       await tester.pumpAndSettle();
+      await reveal(tester, find.text('OVERNIGHT VITALS'));
 
-      for (final card in <String>[
-        'Last night',
-        'Sleep health',
-        'Sleep debt',
-        'Your last 7 nights',
-        'Blood oxygen overnight',
+      // Legacy's six cells, in legacy's words. Blood oxygen lives here rather
+      // than in a card of its own, which is what the port restored.
+      for (final label in <String>[
+        'RESTING HR',
+        'HRV',
+        'RESP',
+        'SpO₂',
+        'SpO₂ MIN',
+        'SKIN TEMP',
       ]) {
-        await reveal(tester, find.text(card));
-        expect(find.text(card), findsOneWidget, reason: '$card moved here');
+        expect(find.text(label), findsOneWidget, reason: label);
       }
+    });
+
+    test('LEGACY’S SECTIONS, IN LEGACY’S ORDER', () {
+      // Asked of the builder rather than of a scroll position. `sleepSections`
+      // is a pure function of the payload for exactly this reason: order is a
+      // decision, and scrolling a list until something appears asserts what
+      // happened to be on screen when the drag stopped.
+      final ids = sleepSections(
+        page: sleepPageFixture(),
+        consistency: consistencyFixture(),
+        now: kSleepNow,
+      ).map((section) => section.id).toList();
+
+      expect(ids, <String>[
+        'head',
+        // `tonight` is null on the fixture (the snapshot is a free owner's) and
+        // the night is last night's, so neither the lever nor the stale banner
+        // is drawn. Both have their own cases below.
+        'insight',
+        'hero',
+        'last-night-heading',
+        'hypnogram',
+        'breakdown',
+        'vitals',
+        'health',
+        'patterns-heading',
+        'performance',
+        'debt',
+        'week',
+        'consistency',
+        'trends',
+        'naps',
+      ]);
+    });
+
+    test('the Tonight lever and the stale banner sit where legacy put them', () {
+      // Legacy draws Tonight FIRST — above the banner, above the AI card and
+      // above the hero (`sleep_screen.dart:260`) — and the banner second.
+      final page = sleepPageFixture();
+      final withLever = SleepConsistency.fromJson(<String, Object?>{
+        ...loadJson(kConsistencySnapshotPath),
+        'tonight': const <String, Object?>{
+          'title': 'Lights out by 23:00',
+          'lever': 'bedtime',
+          'target_clock': '23:00',
+          'action': 'Start winding down at 22:15.',
+        },
+      });
+      final ids = sleepSections(
+        page: page,
+        consistency: withLever,
+        // A week later, so the newest session is stale and the banner lands.
+        now: kSleepNow.add(const Duration(days: 7)),
+      ).map((section) => section.id).toList();
+
+      expect(ids.take(4), <String>['head', 'tonight', 'stale', 'insight']);
     });
   });
 

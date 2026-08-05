@@ -17,9 +17,13 @@ import 'package:healthee/ble/models/device_daily_totals.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/models/sleep_consistency.dart';
+import 'package:healthee/data/models/sleep_insight.dart';
+import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/models/today_view.dart';
 import 'package:healthee/data/pairing/paired_strap.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
+import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/connection_state.dart';
@@ -28,6 +32,7 @@ import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/settings/app_version.dart';
 import 'package:healthee/features/today/today_screen.dart';
 
+import '../_sleep_stubs.dart';
 import '../_today_stubs.dart';
 import '../store/strap_store_test.dart' show nightOn, resultWith;
 
@@ -61,6 +66,8 @@ Widget todayHost(
   ThemeData? themeOverride,
   bool signedIn = true,
   Widget? home,
+  SleepPage? sleep,
+  SleepConsistency? consistency,
 }) {
   return _scoped(
     store,
@@ -68,6 +75,8 @@ Widget todayHost(
     server: server,
     serverUnreachable: serverUnreachable,
     signedIn: signedIn,
+    sleep: sleep,
+    consistency: consistency,
     child: MaterialApp(
       theme: themeOverride ?? AppTheme.light,
       home: home ?? TodayScreen(now: now),
@@ -102,6 +111,8 @@ Widget _scoped(
   bool serverUnreachable = false,
   bool signedIn = true,
   bool paired = false,
+  SleepPage? sleep,
+  SleepConsistency? consistency,
 }) {
   return ProviderScope(
     overrides: [
@@ -125,6 +136,25 @@ Widget _scoped(
       // channel a test host never answers — which would leave that read's own
       // deadline pending after any test that navigated there.
       appVersionProvider.overrideWith((ref) async => null),
+      // Sleep reads three payloads of its own — `/api/sleep`,
+      // `/api/sleep/consistency` and `/api/sleep/insight`. All three are
+      // pinned for the same reason the Today one is: an unpinned provider
+      // reaches for a socket and fails as "pumpAndSettle timed out", which
+      // says nothing about the test. The insight defaults to LOCKED so no
+      // suite leaves a spinner running that `pumpAndSettle` will wait on.
+      sleepPageProvider.overrideWith(
+        (ref) async => serverUnreachable
+            ? throw StateError('no server')
+            : sleep ?? sleepPageFixture(),
+      ),
+      sleepConsistencyProvider.overrideWith(
+        (ref) async => serverUnreachable
+            ? throw StateError('no server')
+            : consistency ?? consistencyFixture(),
+      ),
+      sleepInsightProvider.overrideWith(
+        (ref) async => const SleepInsight.locked(),
+      ),
       if (paired)
         pairingSummaryProvider.overrideWith(
           (ref) async => (

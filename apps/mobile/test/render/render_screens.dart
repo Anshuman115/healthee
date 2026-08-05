@@ -43,6 +43,7 @@ import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 
+import '../_sleep_stubs.dart';
 import '../features/_today_host.dart';
 
 /// A phone's width, and enough height that nothing is left unbuilt.
@@ -81,7 +82,13 @@ void main() {
       await _shoot(
         tester,
         'sleep-${theme.key}',
-        todayHost(store, themeOverride: theme.value, home: const SleepScreen()),
+        todayHost(
+          store,
+          themeOverride: theme.value,
+          // Pinned, so the night labels and the whole page eyebrow are the same
+          // in every render rather than drifting with the wall clock.
+          home: SleepScreen(now: kSleepNow),
+        ),
       );
     });
 
