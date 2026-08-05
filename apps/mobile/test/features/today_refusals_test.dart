@@ -193,7 +193,14 @@ void main() {
         findsOneWidget,
         reason: 'twenty error cards is the same news said twenty times',
       );
-      expect(find.text('Try again'), findsOneWidget);
+      expect(
+        find.text('Try again'),
+        findsOneWidget,
+        reason:
+            'and exactly one: the connection strip\'s own action says "Sync '
+            'now", because re-fetching the server and re-reading the strap are '
+            'different repairs',
+      );
       await reveal(tester, find.text('9,264'));
       expect(
         find.text('9,264'),
@@ -254,7 +261,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Nothing from your strap yet'), findsOneWidget);
-      expect(find.textContaining('nothing is estimated'), findsOneWidget);
+      expect(
+        find.textContaining('nothing is estimated'),
+        findsOneWidget,
+        reason:
+            'ONCE. The connection strip is loud on this phone too, and it says '
+            'a different sentence on purpose — the strip is about the link, the '
+            'card is about why the screen is empty',
+      );
       expect(find.textContaining('never — nothing has been pulled'), findsOneWidget);
     });
   });

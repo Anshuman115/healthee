@@ -21,7 +21,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/models/finding.dart';
-import 'package:healthee/features/coach/widgets/findings_section.dart';
+import 'package:healthee/features/insights/widgets/findings_section.dart';
 import 'package:healthee/shared/format/metric_names.dart';
 
 /// The live production finding the owner saw as a log line.

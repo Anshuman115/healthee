@@ -161,7 +161,7 @@ mutate 'the movement metrics fall back to the default tag' "$HUES_TEST" "$HUES" 
   "    'steps_per_minute' ||"
 
 # ── the insight rewrite ─────────────────────────────────────────────────────
-FINDINGS=lib/features/coach/widgets/findings_section.dart
+FINDINGS=lib/features/insights/widgets/findings_section.dart
 WORDING=test/features/findings_wording_test.dart
 
 # The regression this change exists to undo: the server's debug string back on
@@ -222,6 +222,61 @@ import 'package:healthee/features/today/widgets/stress_card.dart';" \
       PageSection(
         SleepWeekCard(nights: snapshot.sleepHistory7d, reveals: data.reveals),
       ),'
+
+# ── the connection surface may only be quiet when nothing is wrong ──────────
+HEALTH=lib/data/sync/connection_health.dart
+LINES=lib/data/sync/health_lines.dart
+STRIP_TEST=test/features/today_connection_strip_test.dart
+
+# The whole bargain of collapsing the strip to a dot. A quiet healthy state is
+# honest ONLY if every unhealthy state is loud, so the mutation is the one that
+# would be easy to write and impossible to see: the data-side faults stop
+# reaching the surface and the dot keeps saying nothing is wrong.
+mutate 'the data-side faults stop opening the strip' "$STRIP_TEST" "$HEALTH" \
+  '      if (line.loud)
+        ConnectionAlert(id: line.id, headline: line.headline!),' \
+  '      if (false) ConnectionAlert(id: line.id, headline: line.headline!),'
+
+# The link half, the same way round: an unreachable strap classified as fine.
+mutate 'a failed link classifies as healthy' "$STRIP_TEST" "$HEALTH" \
+  "  ConnectionFailed(:final failure) => <ConnectionAlert>[" \
+  "  ConnectionFailed(:final failure) => failure.code.isNotEmpty ? null : <ConnectionAlert>["
+
+# A phone that has never read its strap, reported as resting.
+mutate 'never-synced classifies as healthy' "$STRIP_TEST" "$HEALTH" \
+  '  Disconnected(:final lastCompleteSync) => lastCompleteSync == null' \
+  '  Disconnected(:final lastCompleteSync) => lastCompleteSync != null'
+
+# `quiet` is the ONE place the answer is computed. A widget that could decide it
+# for itself could decide it while something is wrong.
+mutate 'quiet stops accounting for the alerts' "$STRIP_TEST" "$HEALTH" \
+  '  bool get quiet => !busy && alerts.isEmpty;' \
+  '  bool get quiet => !busy;'
+
+# A loud line whose short form goes missing renders as nothing on the strip.
+# The constructor makes that impossible; this is the check that it stays so.
+mutate 'a loud line ships with an empty headline' "$STRIP_TEST" "$LINES" \
+  "  headline: 'Not signed in to a server'," \
+  "  headline: '',"
+
+# ── colour on Insights is a claim, and only where there is one ──────────────
+POLARITY=lib/shared/format/metric_polarity.dart
+TRENDS_TEST=test/features/insights_trends_test.dart
+
+# The load-bearing case. Calories turning green or red is how the owner learns
+# that every colour on the screen is decoration.
+mutate 'a NEUTRAL metric acquires a verdict' "$TRENDS_TEST" "$POLARITY" \
+  '    MetricPolarity.neutral || null => TrendVerdict.none,' \
+  '    MetricPolarity.neutral ||
+    null =>
+      delta > 0 ? TrendVerdict.favourable : TrendVerdict.unfavourable,'
+
+# The sign read as the verdict, which gets resting heart rate exactly backwards.
+mutate 'polarity is ignored and the sign decides' "$TRENDS_TEST" "$POLARITY" \
+  '    MetricPolarity.lowerIsBetter =>
+      delta < 0 ? TrendVerdict.favourable : TrendVerdict.unfavourable,' \
+  '    MetricPolarity.lowerIsBetter =>
+      delta > 0 ? TrendVerdict.favourable : TrendVerdict.unfavourable,'
 
 echo
 echo "caught $PASS, survived $FAIL"

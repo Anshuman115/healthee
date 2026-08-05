@@ -1,8 +1,10 @@
 # Healthee — mobile
 
-The Flutter app. Four tabs — Today · Sleep · Activity · Coach — over the layer
-everything is built on: the theme, the API client, the local store, and the type
-that carries the product's honesty contract. Pairing, server sign-in and
+The Flutter app. Five tabs — Today · Sleep · Activity · Insights · Actions —
+over the layer everything is built on: the theme, the API client, the local
+store, and the type that carries the product's honesty contract. **Coach is not
+a tab**: it is a button on Today and a chat sheet behind it, which is legacy's
+shape (`app/lib/main.dart:399`). Pairing, server sign-in, settings and
 diagnostics sit outside the tabs.
 
 Read `docs/ENGINEERING_STANDARDS.md` §3 and `docs/APP_DESIGN_BRIEF.md` before
@@ -43,9 +45,10 @@ lib/
               · pairing/ (the Zepp account route) · models/ (typed wire models)
               · store/ (drift, 60-day tier) · today_repository.dart
   analytics/  on-device engine — empty (see its README)
-  features/   today/ sleep/ activity/ coach/ diagnostics/ pairing/ signin/
-              — actions/ and profile/ are not built
-  shared/     instrument_screen (the shell all four tabs use) · app_tab_bar
+  features/   today/ sleep/ activity/ insights/ actions/ coach/ settings/
+              diagnostics/ pairing/ signin/
+  shared/     instrument_screen (the shell every tab uses) · app_tab_bar
+              · connection/ (the dot and the strip)
               · page_head · page_section · section_heading · instrument_module
               · charts/ · states/ (loading · error · empty · withheld
                 · value_hole) · foundation_screen
@@ -69,12 +72,82 @@ module is a door**, exactly as legacy's are, and the detail lives behind it:
 |---|---|
 | **Sleep** | last night · sleep health · debt · the week · blood oxygen · the recovery ladder |
 | **Activity** | steps · cardio load · active minutes · workouts · VO₂max · biological age |
-| **Coach** | the findings in the owner's own data (the coach itself is not built, and says so) |
-| **Actions** | not built — the tab is drawn dimmed and disabled |
+| **Insights** | trends over the owner's own history, and the correlations found in it |
+| **Actions** | every cited action the server raised for today, in full |
 
-`/diagnostics` is **off the tab bar** and reached from the pairing screen. It
-holds the baselines strip and the strap's own streams: "is the instrument
+`/settings` and `/diagnostics` are **off the tab bar**. The Today avatar opens
+settings, and settings is the only door to diagnostics: "is the instrument
 working" is a question asked when something looks wrong, and never at 7am.
+
+### Colour on Insights, and the split that governs it
+
+A **trend** may be coloured `fav`/`unf`, because
+`shared/format/metric_polarity.dart` holds the one table saying which direction
+is better for each metric — and a metric moving against the owner's own past is
+precisely the claim those two colours are licensed for.
+
+A **finding** may not, in any state. The sign of a rank correlation says *moved
+together* or *moved opposite*; that is a direction, not a verdict, and a
+q-corrected correlation over 105 days of one person's history cannot support
+"this is good for you". Legacy kept the same restraint
+(`insights_screen.dart:274`).
+
+A metric the table calls **neutral** (calories) and a metric it has **never heard
+of** both render with no verdict colour. That is the load-bearing case rather
+than the leftover one: a screen that tinted everything would teach the owner that
+colour here is decoration, after which the rows where it is a claim say nothing.
+`test/mutations.sh` breaks it on purpose.
+
+The **recovery signal ladder stays on Sleep** and keeps using the server's own
+`direction` field. CLAUDE.md allows one definition per metric, and computing a
+second opinion in the client would be a second definition free to disagree.
+
+There is **no anomalies section**, because `/api/today` cannot feed one:
+`read/today.py:83` sets `payload["anomalies"] = []` unconditionally and points at
+`/api/notable` — a separate, premium-gated, LLM-backed endpoint this app does not
+call. A heading that can never have anything under it is dead code.
+
+## The coach is a sheet, and it is wired
+
+`features/coach/` is a FAB on Today (`shared/app_shell.dart` draws it for the
+home branch alone) opening a chat sheet. `POST /api/coach` is real and metered at
+**20 questions per rolling 30 days**, so three things are structural:
+
+1. **The input cannot exist without the meter.** The sheet reads
+   `/api/entitlement` first and only builds a composer when it holds a balance
+   that permits a question. Checking, failed, locked and spent each render their
+   own sentence and no box to type in.
+2. **The cost is on the button before the tap** — `Ask — uses 1 of your 17`.
+3. **The meter is re-read, never decremented.** `routers/coach.py` refunds the
+   question on a refusal, on an unvalidated answer and on a transport failure, so
+   a local subtraction would be wrong in three of five outcomes — and wrong in
+   the flattering direction.
+
+Every failure lands **in the thread**, saying whether anything was charged. A
+question that vanished, or that left the thread looking unanswered, is how "did
+that use one of my twenty?" becomes unanswerable.
+
+## The connection surface: a dot, until it isn't
+
+A full-width `Connected · Sync now` bar used to sit at the top of Today forever.
+It is now a 7 px dot beside the date when nothing is wrong
+(`shared/connection/connection_dot.dart`), and a full-width strip when something
+is (`connection_strip.dart`).
+
+**A quiet healthy state is honest only if every unhealthy state is loud.** So
+`data/sync/connection_health.dart` is the ONE place the quiet answer is computed;
+its link half is a `switch` over the sealed union with no default; and its data
+half **iterates** `dataHealthLines` rather than naming the faults it knows about,
+because the failure mode of a hand-written list is silence.
+
+`HealthLine` has two constructors and `HealthLine.alarm` **requires** a short
+headline and an id, so a loud line the strip could not draw does not compile.
+The strip shows the headline and the data-health card shows the paragraph: a
+title and its body from one function, not two voices.
+
+**Pull-to-refresh is the manual sync** — `SyncController.syncNow`, the
+un-debounced path — which is what let the permanent button go. The button
+survives only on the strip that appears when something is wrong.
 
 ### Two resting heart rates, and the rule
 
@@ -106,7 +179,7 @@ Grep is not a design, and a report of visual work is not the work.
 
 ## The tab bar is the shell's, and the tabs are branches
 
-`core/router.dart` mounts the four tabs as the branches of a
+`core/router.dart` mounts the five tabs as the branches of a
 `StatefulShellRoute.indexedStack`; `shared/app_shell.dart` is the only `Scaffold`
 in the app with a `bottomNavigationBar`, and `core/tabs.dart` is the one list the
 bar and the branches are both built from — they are joined by **index**, so two
@@ -119,14 +192,46 @@ it. `RevealOnce` holds "have I been seen" in the screen's `State`, so the replay
 rule CLAUDE.md sets was being kept inside a screen and defeated between them.
 `test/features/tab_shell_test.dart` measures both.
 
-Pairing, sign-in and `/diagnostics` sit **outside** the shell, with no bar: two
-are setup flows the router redirects into, and the third belongs to the pairing
-flow rather than to a tab.
+Pairing, sign-in, `/settings` and `/diagnostics` sit **outside** the shell, with
+no bar: two are setup flows the router redirects into, and the other two are
+about the app rather than about a day.
 
-Actions is not in the bar. It was drawn dimmed and inert, which is the right
-shape for a missing *number* — the card is the shape and the sentence under it is
-the answer — and the wrong shape for a navigation control, which is a promise of
-a destination with no room to qualify itself. It comes back with its screen.
+Actions used to be drawn dimmed and inert, which is the right shape for a missing
+*number* — the card is the shape and the sentence under it is the answer — and
+the wrong shape for a navigation control, which is a promise of a destination
+with no room to qualify itself. It came back with its screen, as that argument
+said it would.
+
+### Android back
+
+`shared/app_shell.dart` answers it in three steps: pop the current branch's own
+`Navigator`; failing that, and not on Today, go to Today; on Today with an empty
+stack, leave the app. Step 1 reads `StatefulShellBranch.navigatorKey` rather than
+a history list — the branch navigator already holds what a tab has pushed, and a
+parallel list would be a second copy of the navigation state.
+
+Leaving on the third step is deliberate: it is the platform contract, nothing is
+unsaved (the store is on disk and the sync controller is `keepAlive`), and
+"press back again to exit" trains people to press back twice forever to prevent
+an accident that costs nothing.
+
+## Settings
+
+`/settings`, off the tab bar, opened by the Today avatar — the entry point that
+already existed, extended rather than duplicated. Five rows and every one does
+something real today: **appearance** (over the SAME `themeControllerProvider` the
+header toggle writes, so the two agree by construction), **your server**, **your
+strap** (pairing, `lastCompleteSync` — never `lastAttempt` — and the battery at
+that sync), **diagnostics**, and **about**.
+
+Sign-out and unpair are *routed to*, not re-implemented: `features/signin/` and
+`features/pairing/` own them, §3 forbids a feature reaching into another's code,
+and two sign-outs would be two places the keystore write can diverge.
+
+**The licence notice is a licence term, not a nicety.** `assets/fonts/OFL.txt`
+was never declared as an asset, so the SIL OFL shipped to git and not to a phone.
+It is bundled now, registered with `LicenseRegistry` in `core/licences.dart`, and
+reachable through the About row's `showLicensePage`.
 
 ## Generated prose renders through `GroundedProse`, always
 

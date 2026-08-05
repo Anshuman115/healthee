@@ -23,8 +23,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
-import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
+import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 
 import '_today_host.dart';
@@ -157,12 +157,13 @@ void main() {
     });
   });
 
-  group('Coach', () {
+  group('Insights', () {
     testWidgets('a finding says single-subject, and never says "caused"', (
       tester,
     ) async {
-      await tester.pumpWidget(todayHost(store, home: const CoachScreen()));
+      await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
       await tester.pumpAndSettle();
+      await reveal(tester, find.text('In your own data'));
 
       expect(
         find.textContaining(
@@ -185,8 +186,9 @@ void main() {
     testWidgets('THE STATISTIC IS BEHIND A DISCLOSURE, NOT ON THE SURFACE', (
       tester,
     ) async {
-      await tester.pumpWidget(todayHost(store, home: const CoachScreen()));
+      await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
       await tester.pumpAndSettle();
+      await reveal(tester, find.text('The statistic behind this'));
 
       // The server's `description_raw` is a log line. It reached the home screen
       // verbatim once, which is what this rewrite exists to undo.
@@ -206,14 +208,18 @@ void main() {
       );
     });
 
-    testWidgets('the coach surface says plainly that it is not built', (
+    testWidgets('INSIGHTS IS NOT THE COACH, AND DOES NOT PRETEND TO BE', (
       tester,
     ) async {
-      await tester.pumpWidget(todayHost(store, home: const CoachScreen()));
+      // The findings lived on a tab called Coach with a card underneath saying
+      // the coach was not built. Both halves are gone: the coach is a sheet off
+      // Today's FAB and it is wired, and this tab is about the history.
+      await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('The coach cannot answer questions yet'));
 
-      expect(find.text('The coach cannot answer questions yet'), findsOneWidget);
+      expect(find.text('Insights'), findsOneWidget);
+      expect(find.text('Coach'), findsNothing);
+      expect(find.textContaining('cannot answer questions yet'), findsNothing);
     });
   });
 
@@ -276,7 +282,7 @@ void main() {
       for (final screen in <Widget>[
         const SleepScreen(),
         const ActivityScreen(),
-        const CoachScreen(),
+        const InsightsScreen(),
       ]) {
         await tester.pumpWidget(
           todayHost(store, serverUnreachable: true, home: screen),

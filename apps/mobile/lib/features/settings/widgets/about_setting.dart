@@ -12,52 +12,25 @@
 /// list as dio's and drift's rather than on a screen of its own that would need
 /// updating whenever a dependency moves.
 ///
-/// ## The version is read, not written down
-///
-/// `package_info_plus` reports the version this binary was actually built with.
-/// A constant in `core/env.dart` would have been a second definition of the
-/// number in `pubspec.yaml`, and the copy that goes stale is always the one on
-/// screen — in the row whose entire job is to say which build the owner is
-/// running when they report something.
-///
-/// When the platform channel is not there — a `flutter test` host has no plugin
-/// registrant — the row says the version is unavailable rather than inventing
-/// one. `PlatformException`/`MissingPluginException` is caught with an `on`
-/// clause and logged (Standards §3), never swallowed.
+/// The version comes from `features/settings/app_version.dart`, which explains
+/// why it is read rather than written down and why the read is bounded. A host
+/// that cannot answer gets the sentence saying so, never a number.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/features/settings/app_version.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-
-/// The app's own version, or null when this host cannot report one.
-///
-/// A `FutureBuilder` rather than a provider: it is read once, by one widget, and
-/// a provider would be a graph node for a string that never changes within a
-/// process.
-Future<String?> appVersionLabel() async {
-  try {
-    final info = await PackageInfo.fromPlatform();
-    return '${info.version} (${info.buildNumber})';
-  } on MissingPluginException {
-    // A test host has no plugin registrant. Not a failure of the app, and not a
-    // reason to show a made-up number.
-    return null;
-  } on PlatformException {
-    return null;
-  }
-}
 
 /// The version, and the door to the licences.
-class AboutSetting extends StatelessWidget {
+class AboutSetting extends ConsumerWidget {
   /// The about row.
   const AboutSetting({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
     return StateCard(
@@ -68,17 +41,9 @@ class AboutSetting extends StatelessWidget {
           const SizedBox(height: Insets.sm),
           Text('Healthee', style: text.titleSmall),
           const SizedBox(height: Insets.xs),
-          FutureBuilder<String?>(
-            future: appVersionLabel(),
-            builder: (context, snapshot) => Text(
-              switch (snapshot.connectionState) {
-                ConnectionState.done => snapshot.data == null
-                    ? 'Version unavailable on this device'
-                    : 'Version ${snapshot.data}',
-                _ => 'Reading the version…',
-              },
-              style: text.bodySmall?.copyWith(color: colors.ink2),
-            ),
+          Text(
+            versionLine(ref.watch(appVersionProvider)),
+            style: text.bodySmall?.copyWith(color: colors.ink2),
           ),
           const SizedBox(height: Insets.sm),
           Text(
@@ -103,3 +68,16 @@ class AboutSetting extends StatelessWidget {
     );
   }
 }
+
+/// What the version line says for each state of the read.
+///
+/// Public so a test can pin the three sentences without pumping a widget. An
+/// error and a null answer say the same thing on purpose: both mean *we do not
+/// know which build this is*, and the difference between them is a fact about
+/// the platform channel rather than about the owner's app.
+String versionLine(AsyncValue<String?> version) => switch (version) {
+  AsyncData(:final String value) => 'Version $value',
+  AsyncData() => 'Version unavailable on this device',
+  AsyncError() => 'Version unavailable on this device',
+  _ => 'Reading the version…',
+};

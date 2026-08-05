@@ -37,9 +37,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/actions/actions_screen.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
-import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
+import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 
 import '../features/_today_host.dart';
@@ -92,11 +93,19 @@ void main() {
       );
     });
 
-    testWidgets('render coach — ${theme.key}', (tester) async {
+    testWidgets('render insights — ${theme.key}', (tester) async {
       await _shoot(
         tester,
-        'coach-${theme.key}',
-        todayHost(store, themeOverride: theme.value, home: const CoachScreen()),
+        'insights-${theme.key}',
+        todayHost(store, themeOverride: theme.value, home: const InsightsScreen()),
+      );
+    });
+
+    testWidgets('render actions — ${theme.key}', (tester) async {
+      await _shoot(
+        tester,
+        'actions-${theme.key}',
+        todayHost(store, themeOverride: theme.value, home: const ActionsScreen()),
       );
     });
 

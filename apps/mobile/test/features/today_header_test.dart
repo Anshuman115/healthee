@@ -166,9 +166,13 @@ void main() {
         'Today',
         'Sleep',
         'Activity',
-        'Coach',
+        'Insights',
+        'Actions',
       ]);
-      expect(kAppTabs.map((tab) => tab.route), isNot(contains(Routes.actions)));
+      // Coach is not among them. It is a FAB on Today and a sheet behind it,
+      // which is what legacy does (`app/lib/main.dart:399`) and what
+      // `docs/APP_DESIGN.md` §2 describes.
+      expect(kAppTabs.map((tab) => tab.label), isNot(contains('Coach')));
     });
 
     test('EVERY TAB NAMES A ROUTE THE ROUTER WIRES', () {
@@ -179,7 +183,8 @@ void main() {
         Routes.today,
         Routes.sleep,
         Routes.activity,
-        Routes.coach,
+        Routes.insights,
+        Routes.actions,
       };
       for (final tab in kAppTabs) {
         expect(wired, contains(tab.route), reason: '${tab.label} is a live tab');
