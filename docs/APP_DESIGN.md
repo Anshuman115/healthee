@@ -237,7 +237,7 @@ Low-hanging richness — the backend already produces these; they just have no s
 
 ## 7. Open decisions (need a call before visual build)
 
-1. ~~**⚠ Brand accent — genuinely unresolved.**~~ **CLOSED 2026-08-04.** Neither option in this question survived. The owner approved a new design (`Healthee.html`) and ruled: *"the colors and fonts all we will keep from new."* The app is **indigo `#5145e5` / `#8f87ff`, Instrument Sans, light default**, transcribed verbatim in `docs/APP_DESIGN_BRIEF.md` §2 and implemented in `apps/mobile/lib/core/theme/palette.dart`.
+1. ~~**⚠ Brand accent — genuinely unresolved.**~~ **CLOSED 2026-08-04.** Neither option in this question survived. The owner approved a new design (`Healthee.html`) and ruled: *"the colors and fonts all we will keep from new."* The app is **indigo `#5145e5` / `#8f87ff`, light default**, transcribed verbatim in `docs/APP_DESIGN_BRIEF.md` §2 and implemented in `apps/mobile/lib/core/theme/palette.dart`. The face was Instrument Sans and is now **Manrope** (owner, 2026-08-05 — see the type note in brief §2).
    Two corrections to what this item used to say, because both were still being cited:
    - The forest-green "warm editorial" system is **explicitly rejected** (brief §2: no serif, no paper texture, no beige).
    - The landing page is **no longer v3 iris/indigo**. It is **v5 "The Ledger"** — warm paper, clay accent (`apps/landing/DESIGN.md`). So the app and the landing **deliberately diverge**, and any doc claiming the app's indigo "matches the landing page" is wrong.

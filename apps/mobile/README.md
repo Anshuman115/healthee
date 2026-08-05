@@ -33,8 +33,8 @@ build gate, because a warning nobody has to fix is a warning nobody fixes.
 ```
 lib/
   core/       env.dart (the ONLY dart-define site) · logging · provider_logger
-              · router · theme/ (palette · tokens · dimensions · typography
-                · app_theme)
+              · router · theme/ (palette · tokens · metric_hues · dimensions
+                · typography · app_theme)
   ble/        strap_scanner (the presence check) — the PROTOCOL is still to come
               (see its README)
   data/       honesty/ (the Reading union) · api/ (one dio client + credentials
@@ -42,14 +42,66 @@ lib/
               · pairing/ (the Zepp account route) · models/ (typed wire models)
               · store/ (drift, 60-day tier) · today_repository.dart
   analytics/  on-device engine — empty (see its README)
-  features/   pairing/, signin/ and today/ are built; the other tabs are not
-  shared/     states/ (loading · error · empty · withheld · value_hole)
-              · foundation_screen
+  features/   today/ sleep/ activity/ coach/ diagnostics/ pairing/ signin/
+              — actions/ and profile/ are not built
+  shared/     instrument_screen (the shell all four tabs use) · app_tab_bar
+              · page_head · page_section · section_heading · instrument_module
+              · charts/ · states/ (loading · error · empty · withheld
+                · value_hole) · foundation_screen
 test/         golden contract parse · envelope unit · store · theme tokens
-              · widget smoke · pairing (crypto goldens · client fixtures ·
-                failure taxonomy · the secrecy proof)
+              · typography (the face swap, measured) · widget smoke
+              · pairing (crypto goldens · client fixtures · failure taxonomy ·
+                the secrecy proof)
               · signin (address rules · what is stored · the secrecy proof)
+              · render/ (a look-at-it harness, NOT a test — see below)
 ```
+
+## The screens, and why Today is short
+
+**Today is an index.** It carries the greeting, the data-health strip, the
+illness flag, the readiness instrument, a six-module grid, the 24-hour heart
+rate, stress, and one suggested action — the shape of
+`design_reference/project/hh/screen_today.jsx`, which is 140 lines. **Every grid
+module is a door**, exactly as legacy's are, and the detail lives behind it:
+
+| tab | what it holds |
+|---|---|
+| **Sleep** | last night · sleep health · debt · the week · blood oxygen · the recovery ladder |
+| **Activity** | steps · cardio load · active minutes · workouts · VO₂max · biological age |
+| **Coach** | the findings in the owner's own data (the coach itself is not built, and says so) |
+| **Actions** | not built — the tab is drawn dimmed and disabled |
+
+`/diagnostics` is **off the tab bar** and reached from the pairing screen. It
+holds the baselines strip and the strap's own streams: "is the instrument
+working" is a question asked when something looks wrong, and never at 7am.
+
+### Two resting heart rates, and the rule
+
+Resting heart rate and HRV each have **two instruments** in this product, and
+they disagree by construction. The full trace is in
+`features/diagnostics/diagnostics_screen.dart`; the rule is:
+
+1. **The canonical daily read is the server's** — `rhr_daily` (the lowest
+   5-minute mean heart rate inside the sleep window) and `hrv_sleep_avg` (the
+   bounded mean of overnight RMSSD).
+2. **The strap's own estimates are still shown, and every one names its
+   instrument** — as VO₂max names `gps_graded` against `jurca_non_exercise`.
+3. **A label may never carry two definitions.** Where a grid cell falls back to
+   a strap value it becomes `Resting HR · strap`.
+
+## Looking at it
+
+`test/render/render_screens.dart` renders every screen to PNG in both themes,
+with the app's real fonts loaded, at a phone's width and a viewport tall enough
+that the whole scroll lays out in one pass. It is **not a test** — it asserts
+nothing, and its filename keeps it out of `flutter test`.
+
+```bash
+flutter test test/render/render_screens.dart && ls build/renders/
+```
+
+Run it before and after any layout or colour change and *look at the output*.
+Grep is not a design, and a report of visual work is not the work.
 
 ## The one thing to understand before writing a screen
 
@@ -271,9 +323,13 @@ bump.
 
 The theme is the **approved app design** (`Healthee.html`), transcribed verbatim
 from `docs/APP_DESIGN_BRIEF.md` §2 — indigo accent, near-white light and
-near-black dark, Instrument Sans. Owner decision 2026-08-04: *"the colors and
-fonts all we will keep from new."* Direction is **modern instrument**, explicitly
-not editorial: no serif, no paper texture, no beige.
+near-black dark. Owner decision 2026-08-04: *"the colors and fonts all we will
+keep from new."* Direction is **modern instrument**, explicitly not editorial: no
+serif, no paper texture, no beige.
+
+**The face is Manrope**, not the brief's Instrument Sans (owner decision
+2026-08-05: the old one *reads "newspaper" at display sizes*, which is the one
+direction the brief rules out by name). Everything else in §2 stands.
 
 **The app and the landing page deliberately diverge.** `apps/landing` is v5 "The
 Ledger" — warm paper, clay accent. The app is not, and that is a choice, not
@@ -299,6 +355,17 @@ Rules that are structural here, not conventions:
   introduce a second red nobody chose.
 - **The accent is a light/dark PAIR**, not one hex reused. `test/core/theme_test.dart`
   fails if a theme-invariant brand colour is reinstated.
+- **A tag is an identity, never a verdict.** `core/theme/metric_hues.dart` holds
+  five per-family hues — `rest` · `heart` · `body` · `move` · `energy` — and
+  `tagFor` takes **a metric id and nothing else**, so a colour driven by today's
+  reading is not something a caller can express. They are hue-disjoint from
+  `fav`/`unf`/`alert` (42.7° at the closest measured approach) and sit at one
+  lightness, so none reads as ranked. `test/theme/metric_hues_test.dart` measures
+  both, and `test/mutations.sh` breaks them on purpose.
+
+  Tags apply wherever a card is **about one metric** — the grid, the hypnogram, a
+  metric card's chart, figure accents and section heading. The accent stays the
+  colour of an *action*: links, buttons, the disclosure a card offers.
 
 **One deliberate departure from `Healthee.html`:** it hardcodes `#fff` on the
 accent, which measures 2.97:1 against the dark accent — below WCAG AA and below
@@ -306,11 +373,19 @@ even the 3:1 large-text floor. `onAccent` is therefore per-theme (white on light
 page-background on dark, 6.30:1 and 6.66:1). No new colour; both values were
 already approved. Flagged for the owner.
 
-Instrument Sans is vendored in `assets/fonts/` (SIL OFL, licence beside it,
-~195 KB) rather than fetched — no CDN at paint time, and the face is confirmed by
-the approved design. Tabular figures are on for the whole text theme, so a value
-that changes does not shift the glyphs beside it (brief §7 makes this a hard
-constraint).
+**Manrope** is vendored in `assets/fonts/` (SIL OFL, no Reserved Font Name,
+licence beside it, ~290 KB) rather than fetched — no CDN at paint time. Three
+weights, 400/500/600, instanced from upstream's variable font at exactly the
+weights `typography.dart` selects; a weight the pubspec does not vendor would be
+synthesised by the engine, which is a different drawing of the face nobody chose.
+
+Tabular figures are on for the whole text theme, so a value that changes does not
+shift the glyphs beside it (brief §7 makes this a hard constraint).
+`test/core/typography_test.dart` measures that rather than trusting it, checks
+the display strings against the narrowest phone (Manrope runs wider), and reads
+the font's own `cmap` to prove the glyphs are there — **Instrument Sans had no
+U+2082**, so `SpO₂` drew a tofu box on the live screen, and no `σ` for the
+recovery ladder's caption either.
 
 **No colour literal exists outside `core/theme/palette.dart`**, and
 `test/core/theme_test.dart` locks every token to the brief's table — `flutter
