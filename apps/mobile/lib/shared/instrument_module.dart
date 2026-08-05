@@ -30,18 +30,21 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// One cell of the Today grid.
 class InstrumentModule extends StatelessWidget {
   /// [label] names the metric; [tag] tints its dot and its chart.
   const InstrumentModule({
-    required this.label,
     required this.tag,
     required this.children,
+    this.label,
+    this.infoKey,
     this.trailing,
     this.onOpen,
     this.minHeight = 118,
@@ -49,7 +52,18 @@ class InstrumentModule extends StatelessWidget {
   });
 
   /// The metric's name. Rendered uppercase by [ModuleLabel].
-  final String label;
+  ///
+  /// **Null draws no header row at all**, which is legacy's `HModule` (`label`
+  /// is nullable there and the whole `Row` plus its 9 px gap sit behind an
+  /// `if`). The AI-analysis card is the live case: it draws its own title inside
+  /// the body and an empty eyebrow above it would be 9 px of nothing.
+  final String? label;
+
+  /// Opens the plain-language explainer for this metric, when it has one.
+  ///
+  /// Legacy's `HModule.infoKey` — an ⓘ sits before [trailing] or the dot, and an
+  /// unknown key draws nothing (`shared/metric_info/`).
+  final String? infoKey;
 
   /// The metric's hue. Null draws no dot — for a module that has [trailing].
   final Color? tag;
@@ -98,16 +112,23 @@ class InstrumentModule extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(child: ModuleLabel(label)),
-                    if (trailing case final Widget end)
-                      end
-                    else if (tag case final Color dot)
-                      _TagDot(color: dot, size: _dotSize),
-                  ],
-                ),
-                const SizedBox(height: _headerGap),
+                if (label case final String name) ...[
+                  Row(
+                    children: [
+                      Expanded(child: ModuleLabel(name)),
+                      // Legacy's `[HInfoDot(infoKey), SizedBox(width: 8)]`.
+                      if (infoKey case final String key) ...[
+                        MetricInfoDot(key),
+                        const SizedBox(width: Insets.sm),
+                      ],
+                      if (trailing case final Widget end)
+                        end
+                      else if (tag case final Color dot)
+                        _TagDot(color: dot, size: _dotSize),
+                    ],
+                  ),
+                  const SizedBox(height: _headerGap),
+                ],
                 ...children,
               ],
             ),
@@ -129,13 +150,19 @@ class InstrumentModule extends StatelessWidget {
 /// letter and "S-L-E-E-P" is not what this says.
 class ModuleLabel extends StatelessWidget {
   /// Renders [text] as a module eyebrow.
-  const ModuleLabel(this.text, {this.color, super.key});
+  const ModuleLabel(this.text, {this.color, this.size = 9, this.tracking = 0.12, super.key});
 
   /// The label, in any case — this widget uppercases it.
   final String text;
 
   /// Overrides [HealtheeColors.ink3].
   final Color? color;
+
+  /// Legacy's `HEyebrow.size`. 9 is its default; the page eyebrow passes 10.
+  final double size;
+
+  /// Legacy's `HEyebrow.tracking`, in ems.
+  final double tracking;
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +174,7 @@ class ModuleLabel extends StatelessWidget {
           text.toUpperCase(),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: HType.label(color ?? colors.ink3),
+          style: HType.label(color ?? colors.ink3, size: size, tracking: tracking),
         ),
       ),
     );
