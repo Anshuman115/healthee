@@ -50,6 +50,21 @@
 /// It is a sentence and a link, **not a wall**: everything the strap measured is
 /// on the screen below it and stays there. The router deliberately does not
 /// redirect (see `core/router.dart`).
+///
+/// ## Why the RADIO's faults are printed here too
+///
+/// The top connection strip is gone (owner, 2026-08-05). It carried two faults
+/// that exist nowhere else — an unreachable strap and a phone that has never
+/// synced — and neither has a [HealthLine], because `health_lines.dart` is a
+/// pure function of stored facts and both are facts about a live socket. A ring
+/// round an avatar cannot say *"Bluetooth is off — turn Bluetooth on and try
+/// again"*.
+///
+/// So [connection] arrives here and its `linkAlerts` are printed **first**: they
+/// are the faults the owner can usually fix in ten seconds, and this is now the
+/// only place their remedy appears. `LinkReport.freshness` comes with them,
+/// because *"we cannot reach the strap"* without *"and your numbers are from 9 h
+/// ago"* is half the news.
 library;
 
 import 'package:flutter/material.dart';
@@ -57,6 +72,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/data_health.dart';
 import 'package:healthee/data/push/push_stamp.dart';
+import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/health_lines.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
@@ -66,6 +82,7 @@ class DataHealthSection extends StatelessWidget {
   /// card renders only what it actually has something to say about.
   const DataHealthSection({
     this.health,
+    this.connection,
     this.push,
     this.cachedAt,
     this.cachedDate,
@@ -76,6 +93,12 @@ class DataHealthSection extends StatelessWidget {
     this.bottomGap = 0,
     super.key,
   });
+
+  /// The classified connection, for the radio's own faults. See the docstring.
+  ///
+  /// Null means nothing has classified one — a widget test pumping this card
+  /// alone — and draws no link section rather than a reassuring absence.
+  final ConnectionHealth? connection;
 
   /// Space under the card, applied **only when the card renders**.
   ///
@@ -132,12 +155,13 @@ class DataHealthSection extends StatelessWidget {
       signedIn: signedIn,
     );
     final signedOut = signedIn == false;
-    if (feeds.isEmpty && lines.isEmpty) {
+    final link = connection?.linkAlerts ?? const <ConnectionAlert>[];
+    if (feeds.isEmpty && lines.isEmpty && link.isEmpty) {
       return const SizedBox.shrink();
     }
     return Padding(
       padding: EdgeInsets.only(bottom: bottomGap),
-      child: _card(colors, text, feeds, lines, signedOut),
+      child: _card(colors, text, feeds, lines, link, signedOut),
     );
   }
 
@@ -146,6 +170,7 @@ class DataHealthSection extends StatelessWidget {
     TextTheme text,
     List<FeedHealth> feeds,
     List<HealthLine> lines,
+    List<ConnectionAlert> link,
     bool signedOut,
   ) {
     return StateCard(
@@ -153,6 +178,22 @@ class DataHealthSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Data health', style: text.labelSmall),
+          // The radio first, and only this card carries its remedy.
+          for (final alert in link) ...[
+            const SizedBox(height: Insets.sm),
+            Text(
+              alert.headline,
+              style: text.bodyMedium?.copyWith(color: colors.ink),
+            ),
+            if (connection?.report.freshness case final String age) ...[
+              const SizedBox(height: Insets.xs),
+              Text(age, style: text.bodySmall?.copyWith(color: colors.ink2)),
+            ],
+            if (alert.detail case final String remedy) ...[
+              const SizedBox(height: Insets.xs),
+              Text(remedy, style: text.bodySmall?.copyWith(color: colors.ink2)),
+            ],
+          ],
           for (final line in lines) ...[
             const SizedBox(height: Insets.sm),
             Text(

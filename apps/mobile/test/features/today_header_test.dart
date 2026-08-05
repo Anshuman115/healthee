@@ -21,9 +21,12 @@ import 'package:healthee/core/router.dart';
 import 'package:healthee/core/tabs.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/data/sync/connection_health.dart';
+import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/widgets/greeting_header.dart';
 import 'package:healthee/shared/app_tab_bar.dart';
+import 'package:healthee/shared/connection/sync_ring.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 
 import '_today_host.dart';
@@ -36,15 +39,20 @@ Widget _header({
   String date = '2026-08-06',
   DateTime? at,
   int? battery,
-  bool syncing = false,
+  ConnectionHealth? health,
 }) => host(
   GreetingHeader(
     date: date,
     now: at ?? DateTime(2026, 8, 6, 9),
     batteryPercent: battery,
-    syncing: syncing,
+    health: health,
   ),
 );
+
+/// One classification, from a real link. There is no `syncing` flag any more:
+/// the ring reads `busy` off the same object the card reads its faults off.
+ConnectionHealth _connection(StrapConnection link) =>
+    connectionHealth(link: link, now: DateTime(2026, 8, 6, 9), signedIn: true);
 
 void main() {
   group('the date eyebrow', () {
@@ -108,15 +116,41 @@ void main() {
   });
 
   group('the avatar', () {
-    testWidgets('carries a ring only while a sync is running', (tester) async {
+    testWidgets('carries no ring when nothing has classified a link', (
+      tester,
+    ) async {
       await tester.pumpWidget(_header());
       await tester.pumpAndSettle();
+
+      expect(find.byType(SyncRing), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.byType(HAvatar), findsOneWidget);
+    });
 
-      await tester.pumpWidget(_header(syncing: true));
+    testWidgets('draws the ring once there IS a classification', (tester) async {
+      await tester.pumpWidget(
+        _header(health: _connection(Connected(since: DateTime(2026, 8, 6, 9)))),
+      );
       await tester.pump();
+
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(HAvatar), findsOneWidget);
+    });
+
+    testWidgets('THE DATE ROW CARRIES NO SECOND MARK', (tester) async {
+      // The 7 px dot went with the strip. Two marks for one fact was the whole
+      // argument for the dot's existence, and it cuts both ways — the ring says
+      // `live` and `idle` in the same colours, eight pixels to the right.
+      await tester.pumpWidget(
+        _header(health: _connection(Connected(since: DateTime(2026, 8, 6, 9)))),
+      );
+      await tester.pump();
+
+      expect(
+        find.byType(CircularProgressIndicator),
+        findsOneWidget,
+        reason: 'exactly one mark in this row reports the connection',
+      );
     });
   });
 

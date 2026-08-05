@@ -25,8 +25,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/models/sleep_night.dart';
 import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
+import 'package:healthee/shared/connection/sync_ring.dart';
 
 import '../_sleep_stubs.dart';
 import '../_today_stubs.dart';
@@ -56,7 +58,14 @@ void main() {
       // would look healthy on a phone whose push has been failing for a week.
       final pending = await store.pushReader.pending();
       await store.pushReader.markPushed(pending, now);
-      await tester.pumpWidget(todayHost(store));
+      // The LINK has to be healthy too, and that is a fact about the pinned
+      // connection rather than about the store. A bare `Disconnected()` means
+      // "this phone has never finished a sync", which is one of the two radio
+      // faults the card prints since the top strip was deleted — a real state,
+      // and not the one this test is about.
+      await tester.pumpWidget(
+        todayHost(store, connection: Disconnected(lastCompleteSync: now)),
+      );
       await tester.pumpAndSettle();
 
       // The fixture's feeds are all `ok`, nothing is pending, and the payload
@@ -107,7 +116,22 @@ void main() {
       // so this read `findsOneWidget` — the bar now lives in the shell and this
       // host pumps the screen alone, which makes the assertion the plain one.
       expect(find.text('Today'), findsNothing, reason: 'no action card at all');
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      // Scoped OUT of the header: the connection ring is a
+      // `CircularProgressIndicator` in every state now, and it is chrome rather
+      // than a section waiting for data. An unscoped finder would be asserting
+      // the ring away instead of the spinner.
+      expect(
+        find.descendant(
+          of: find.byType(SyncRing),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byType(CircularProgressIndicator),
+        findsOneWidget,
+        reason: 'the ring, and nothing else — no section is still loading',
+      );
     });
 
     testWidgets('the stress chart is absent when the day has no hours', (

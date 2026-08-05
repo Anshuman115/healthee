@@ -31,11 +31,14 @@ import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_repository.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
+import 'package:healthee/data/sync/connection_state.dart';
+import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/settings/app_version.dart';
 import 'package:healthee/features/settings/settings_screen.dart';
 
 import '../pairing/_pairing_fakes.dart';
+import '_today_host.dart';
 
 /// The settings screen on a real router, so every row's tap goes somewhere real.
 ///
@@ -60,6 +63,11 @@ Widget _routedSettings() {
       deviceDayProvider.overrideWith((ref) async => DeviceDay.empty('2026-08-04')),
       // Its real read is a platform channel a test host never answers.
       appVersionProvider.overrideWith((ref) async => null),
+      // The strap row draws a Stop while a sync is running, so it watches the
+      // controller — which opens a strap session as soon as anything does.
+      syncControllerProvider.overrideWith(
+        () => FixedConnection(const Disconnected()),
+      ),
     ],
     child: MaterialApp.router(
       theme: AppTheme.light,

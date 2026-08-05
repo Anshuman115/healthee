@@ -22,6 +22,19 @@
 /// **Unpair is routed to, not re-implemented.** `features/pairing/` owns the
 /// credential lifecycle and Standards §3 forbids reaching into it; a second
 /// unpair here would be a second place the keystore is cleared from.
+///
+/// ## Stop lives here now, and it had to live somewhere
+///
+/// The deleted connection strip carried a **Stop** while a sync was running, for
+/// a reason it stated plainly: *"the strap accepts one connection at a time and
+/// a sync the owner cannot end is a phone they have to background to escape."*
+/// The ring that replaced the strip is a status indicator and deliberately takes
+/// no gesture, so the control needed a home rather than a deletion.
+///
+/// This is that home, and it is one tap from the ring: the avatar the ring is
+/// drawn around opens Settings. It is drawn **only while a sync is running**, so
+/// it is never a dead control, and it says what it will do — `cancel()` stops at
+/// the next phase boundary rather than aborting mid-fetch.
 library;
 
 import 'dart:async';
@@ -35,6 +48,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_repository.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
+import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/shared/format/time_labels.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
@@ -53,6 +67,7 @@ class StrapSetting extends ConsumerWidget {
     final at = now ?? DateTime.now();
     final strap = ref.watch(pairingSummaryProvider).value?.strap;
     final day = ref.watch(deviceDayProvider).value;
+    final syncing = ref.watch(syncControllerProvider).isBusy;
     return StateCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,9 +87,24 @@ class StrapSetting extends ConsumerWidget {
           const SizedBox(height: Insets.md),
           Align(
             alignment: Alignment.centerLeft,
-            child: OutlinedButton(
-              onPressed: () => unawaited(context.push(Routes.pairing)),
-              child: Text(strap == null ? 'Pair a strap' : 'Pairing and unpair'),
+            child: Wrap(
+              spacing: Insets.sm,
+              runSpacing: Insets.sm,
+              children: [
+                OutlinedButton(
+                  onPressed: () => unawaited(context.push(Routes.pairing)),
+                  child: Text(
+                    strap == null ? 'Pair a strap' : 'Pairing and unpair',
+                  ),
+                ),
+                // Drawn only while something is running, so it is never a dead
+                // control. See the library docstring for why it is here at all.
+                if (syncing)
+                  OutlinedButton(
+                    onPressed: ref.read(syncControllerProvider.notifier).cancel,
+                    child: const Text('Stop the sync'),
+                  ),
+              ],
             ),
           ),
         ],

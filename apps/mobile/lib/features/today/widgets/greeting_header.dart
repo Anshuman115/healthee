@@ -7,11 +7,28 @@
 /// whose second line is the accent.
 ///
 /// ```text
-///   TUE · AUG 4   🔋 71%                          ⊕      (H)
+///   TUE · AUG 4   🔋 71%                          ⊕     ((H))
 ///
 ///   Good morning,
 ///   there.
 /// ```
+///
+/// ## The ring is the app's ONLY connection chrome now
+///
+/// Legacy draws a 46 px indeterminate ring behind the avatar while a sync runs.
+/// This app additionally grew a full-width connection strip above the scroll and
+/// a 7 px dot beside the date; the owner asked for both to go (2026-08-05,
+/// *"remove that top device connection and sync now that we have the sync
+/// visible as a progress ring around profile"*), which moves the header **back
+/// toward** legacy rather than away from it.
+///
+/// The dot went with the strip and it is not mourned: it said `live` or `idle` in
+/// a colour, and [SyncRing] says the same two things plus two more in the same
+/// colours, eight pixels to the right. Two marks for one fact was the argument
+/// for the dot in the first place and it cuts both ways.
+///
+/// Nothing else in this row moved. The date, the battery bands, the two controls
+/// and the 42 px greeting are legacy's, unchanged.
 ///
 /// ## Three notes on fidelity, all reported rather than repaired
 ///
@@ -38,7 +55,7 @@ import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/features/today/today_labels.dart';
-import 'package:healthee/shared/connection/connection_dot.dart';
+import 'package:healthee/shared/connection/sync_ring.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/instrument_module.dart';
@@ -53,7 +70,6 @@ class GreetingHeader extends StatelessWidget {
     this.name,
     this.batteryPercent,
     this.health,
-    this.syncing = false,
     this.onOpenProfile,
     this.onAddLog,
     super.key,
@@ -72,12 +88,13 @@ class GreetingHeader extends StatelessWidget {
   final int? batteryPercent;
 
   /// The classified connection state, or null when nothing has classified one —
-  /// a widget test pumping this row alone. Null draws no dot rather than a
+  /// a widget test pumping this row alone. Null draws no ring rather than a
   /// reassuring one.
+  ///
+  /// It carries `busy` and the fetch's progress too, so there is no separate
+  /// `syncing` flag: one classification, one ring, and no second copy of a fact
+  /// that could disagree with the first.
   final ConnectionHealth? health;
-
-  /// Whether a sync is in flight — draws the ring around the avatar.
-  final bool syncing;
 
   /// Opens the owner's own screen. Null draws the avatar without a gesture,
   /// which is what [HTap] does with a null callback.
@@ -105,20 +122,6 @@ class GreetingHeader extends StatelessWidget {
               Row(
                 children: [
                   ModuleLabel(prettyDate(date), size: 10, tracking: 0.16),
-                  // The quiet half of the connection surface — 7 px, and drawn
-                  // only when `ConnectionHealth.quiet`. Legacy has no such mark;
-                  // it is kept because `connection_health.dart`'s whole argument
-                  // is that a quiet healthy state is honest only if it is
-                  // visible at all. When the answer is NOT quiet the full strip
-                  // is already above this row and no dot is drawn, so the two
-                  // never say the same thing twice.
-                  if (health case final ConnectionHealth state when state.quiet) ...[
-                    const SizedBox(width: 8),
-                    ConnectionDot(
-                      live: state.live,
-                      semanticLabel: state.report.headline,
-                    ),
-                  ],
                   if (batteryPercent case final int percent)
                     _Battery(percent: percent),
                 ],
@@ -137,23 +140,16 @@ class GreetingHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 13),
                   ],
-                  HTap(
-                    onTap: onOpenProfile,
-                    semanticLabel: 'Settings',
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        if (syncing)
-                          SizedBox(
-                            width: 46,
-                            height: 46,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colors.accent,
-                            ),
-                          ),
-                        HAvatar(initial),
-                      ],
+                  // The ring is OUTSIDE the tap, deliberately. It is a status
+                  // indicator and contributes no gesture; the avatar inside it
+                  // still opens Settings, and `HTap`'s `container: true`
+                  // semantics would otherwise swallow the ring's own label.
+                  SyncRing(
+                    health: health,
+                    child: HTap(
+                      onTap: onOpenProfile,
+                      semanticLabel: 'Settings',
+                      child: HAvatar(initial),
                     ),
                   ),
                 ],

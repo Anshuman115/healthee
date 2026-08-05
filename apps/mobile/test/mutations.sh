@@ -277,7 +277,7 @@ mutate 'a legacy section is dropped' "$ORDER_TEST" "$BODY" \
 # ── the connection surface may only be quiet when nothing is wrong ──────────
 HEALTH=lib/data/sync/connection_health.dart
 LINES=lib/data/sync/health_lines.dart
-STRIP_TEST=test/features/today_connection_strip_test.dart
+STRIP_TEST="test/features/today_connection_surface_test.dart test/features/connection_quiet_test.dart"
 
 # The whole bargain of collapsing the strip to a dot. A quiet healthy state is
 # honest ONLY if every unhealthy state is loud, so the mutation is the one that
@@ -309,6 +309,56 @@ mutate 'quiet stops accounting for the alerts' "$STRIP_TEST" "$HEALTH" \
 mutate 'a loud line ships with an empty headline' "$STRIP_TEST" "$LINES" \
   "  headline: 'Not signed in to a server'," \
   "  headline: '',"
+
+# ── the ring, and the card that carries what a ring cannot say ──────────────
+CARD=lib/features/today/widgets/data_health_section.dart
+RING=lib/shared/connection/sync_ring.dart
+SURFACE_TEST="test/features/today_connection_surface_test.dart test/features/connection_quiet_test.dart"
+RING_TEST=test/features/sync_ring_test.dart
+
+# THE mutation the strip's deletion is exposed to. The two RADIO faults have no
+# `HealthLine` behind them, so the card is the only place their words exist —
+# dropping the loop leaves them classified, loud, and drawn nowhere at all.
+mutate 'the radio faults stop reaching the card' "$SURFACE_TEST" "$CARD" \
+  '          for (final alert in link) ...[' \
+  '          for (final alert in const <ConnectionAlert>[]) ...['
+
+# The remedy dropped while the headline stays. "Bluetooth is off" with no
+# "turn Bluetooth on" is a fault with no answer, and it looks fixed.
+mutate 'a radio fault loses its remedy' "$SURFACE_TEST" "$CARD" \
+  '            if (alert.detail case final String remedy) ...[' \
+  '            if (alert.detail case final String remedy when false) ...['
+
+# The ring deciding quietness for itself. It reads `quiet` — the ONE place the
+# answer is computed — and a ring that consulted only the link would draw the
+# resting state over a phone that cannot reach its server.
+mutate 'the ring re-derives quiet from the link alone' "$RING_TEST" "$RING" \
+  '  if (!health.quiet) {' \
+  '  if (health.linkAlerts.isNotEmpty) {'
+
+# An invented fraction. `strap_progress.dart` is explicit: a determinate bar that
+# is really a guess is the interface version of a number nobody measured, and it
+# makes a stalled sync indistinguishable from a working one in the other
+# direction — the bar simply sits at whatever was invented.
+mutate 'a phase with no progress fakes a fraction' "$RING_TEST" "$RING" \
+  '        SyncRingState.syncing => health.progress?.fraction,' \
+  '        SyncRingState.syncing => health.progress?.fraction ?? 0.5,'
+
+# The fault ring wearing a verdict colour. `README.md`: there is one red and it
+# is illness; `unf` is not a warning colour. A radio is not a fact about a body.
+mutate 'the fault ring spends a verdict colour' "$RING_TEST" "$RING" \
+  '    SyncRingState.needsAttention => colors.ink,' \
+  '    SyncRingState.needsAttention => colors.unf,'
+
+# The label collapsing to one sentence for every state: four colours and one
+# word is what a screen reader gets from a ring nobody labelled.
+mutate 'every ring state announces the same thing' "$RING_TEST" "$RING" \
+  '    case SyncRingState.connected:
+    case SyncRingState.idle:
+      return health.report.headline;' \
+  '    case SyncRingState.connected:
+    case SyncRingState.idle:
+      return '"'"'Syncing'"'"';'
 
 # ── colour on Insights is a claim, and only where there is one ──────────────
 POLARITY=lib/shared/format/metric_polarity.dart

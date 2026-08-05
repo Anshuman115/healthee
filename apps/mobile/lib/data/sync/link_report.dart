@@ -15,7 +15,7 @@
 /// | working | `Looking for your strap` · `Connecting` · `Authenticating` · `Syncing` |
 /// | released after a healthy sync | `Synced 4 min ago` |
 /// | strap unreachable | the named reason, plus how old the data is, plus the remedy |
-/// | never synced | `Never synced — tap Sync now` |
+/// | never synced | `Never synced — pull down to sync` |
 ///
 /// "Not connected" after a healthy sync reads as a fault when nothing is wrong:
 /// the app let the link go on purpose, and the owner's actual question is how
@@ -94,7 +94,10 @@ LinkReport linkReport(StrapConnection state, {required DateTime now}) =>
 /// The resting headline: what the owner actually wants to know.
 String _atRest(DateTime? lastCompleteSync, DateTime now) =>
     lastCompleteSync == null
-    ? 'Never synced — tap Sync now'
+    // Not "tap Sync now". That button lived on the connection strip, which is
+    // deleted; naming a control that is not on the screen is worse than naming
+    // none. Pull-to-refresh is the manual path and always was the other one.
+    ? 'Never synced — pull down to sync'
     : 'Synced ${ageLabel(lastCompleteSync, now: now)}';
 
 /// The freshness line under a failure. Never omitted, because "we cannot reach

@@ -123,7 +123,6 @@ class InstrumentScreen extends ConsumerStatefulWidget {
   /// [sections] decides everything the screen draws, in order.
   const InstrumentScreen({
     required this.sections,
-    this.chrome,
     this.now,
     this.onRefreshed,
     super.key,
@@ -131,10 +130,6 @@ class InstrumentScreen extends ConsumerStatefulWidget {
 
   /// What to draw, in order.
   final SectionsBuilder sections;
-
-  /// Drawn above the scroll and outside it. A connection state that scrolls away
-  /// is one the owner cannot check when they need it.
-  final Widget? chrome;
 
   /// [now] is injected by tests so the freshness labels are deterministic.
   final DateTime? now;
@@ -157,32 +152,29 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            if (widget.chrome case final Widget bar) bar,
-            Expanded(
-              child: AsyncView<DeviceDay>(
-                value: ref.watch(deviceDayProvider),
-                loadingLabel: "Reading today's measurements",
-                errorMessage: "Couldn't read this phone's own store",
-                onRetry: () => ref.invalidate(deviceDayProvider),
-                builder: (context, day) => RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: _SectionList(
-                    sections: widget.sections(
-                      ScreenData(
-                        day: day,
-                        server: server,
-                        reveals: _reveals,
-                        now: widget.now,
-                        onRetryServer: () => ref.invalidate(todaySnapshotProvider),
-                      ),
-                    ),
-                  ),
+        // No page chrome above the list. Today's connection strip was the only
+        // thing that ever sat here and the owner asked for it gone; the ring
+        // round the avatar and the data-health card carry it now, both INSIDE
+        // the scroll where legacy put them.
+        child: AsyncView<DeviceDay>(
+          value: ref.watch(deviceDayProvider),
+          loadingLabel: "Reading today's measurements",
+          errorMessage: "Couldn't read this phone's own store",
+          onRetry: () => ref.invalidate(deviceDayProvider),
+          builder: (context, day) => RefreshIndicator(
+            onRefresh: _refresh,
+            child: _SectionList(
+              sections: widget.sections(
+                ScreenData(
+                  day: day,
+                  server: server,
+                  reveals: _reveals,
+                  now: widget.now,
+                  onRetryServer: () => ref.invalidate(todaySnapshotProvider),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

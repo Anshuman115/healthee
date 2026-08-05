@@ -111,7 +111,6 @@ class TodayExtras {
     this.signedIn,
     this.health,
     this.batteryPercent,
-    this.syncing = false,
     this.onSignIn,
     this.onOpenProfile,
     this.onAddLog,
@@ -124,14 +123,14 @@ class TodayExtras {
   /// card stays silent about rather than guessing "signed out" for a frame.
   final bool? signedIn;
 
-  /// The connection surface's one classification. Null draws no dot.
+  /// The connection surface's one classification.
+  ///
+  /// Null draws no ring in the header and no link section on the data-health
+  /// card. It carries `busy` and the fetch's progress, so nothing else has to.
   final ConnectionHealth? health;
 
   /// Strap battery at the last sync, for the header.
   final int? batteryPercent;
-
-  /// Whether a sync is in flight — the ring around the avatar.
-  final bool syncing;
 
   /// Opens the sign-in screen.
   final VoidCallback? onSignIn;
@@ -158,7 +157,6 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
       now: now,
       batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
       health: extras.health,
-      syncing: extras.syncing,
       onOpenProfile: extras.onOpenProfile,
       onAddLog: extras.onAddLog,
     ),
@@ -249,7 +247,6 @@ List<PageSection> _freshInstall(ScreenData data, TodayExtras extras) {
         now: now,
         batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
         health: extras.health,
-        syncing: extras.syncing,
         onOpenProfile: extras.onOpenProfile,
         onAddLog: extras.onAddLog,
       ),
@@ -274,6 +271,9 @@ Widget _dataHealth(ScreenData data, TodayExtras extras) {
   final view = data.server.value;
   return DataHealthSection(
     health: data.snapshot?.dataHealth,
+    // The radio's own faults have nowhere else to be said since the top strip
+    // was deleted — see the card's docstring.
+    connection: extras.health,
     push: extras.push,
     cachedAt: view != null && view.fromCache ? view.fetchedAt : null,
     cachedDate: view != null && view.describesAnotherDay(data.day.date)

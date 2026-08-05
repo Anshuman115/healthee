@@ -119,7 +119,7 @@ class SyncController extends _$SyncController {
   /// nothing would ever sync unasked.
   ///
   /// A foreground that fails to connect syncs nothing and says nothing extra:
-  /// the connection strip is already showing the named failure and its remedy,
+  /// the data-health card is already showing the named failure and its remedy,
   /// and the link's own backoff owns the retry.
   Future<void> _cameToFront(ForegroundLink link) async {
     await link.toForeground();
@@ -238,7 +238,7 @@ class SyncController extends _$SyncController {
   /// be interrupted mid-flight, and what is kept when a run is stopped.
   void cancel() => _token?.cancel();
 
-  /// The session held for the foreground, or null. For tests and for the strip.
+  /// The session held for the foreground, or null. For tests and for the chrome.
   ///
   /// Exposed so `a backgrounded app holds no session` can be ASSERTED rather
   /// than assumed — the one claim in this feature that cannot be checked from

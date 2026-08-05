@@ -49,7 +49,7 @@ lib/
   features/   today/ sleep/ activity/ insights/ actions/ coach/ settings/
               diagnostics/ pairing/ signin/
   shared/     instrument_screen (the shell every tab uses) · app_tab_bar
-              · connection/ (the dot and the strip)
+              · connection/ (the sync ring) · sheets/ (the one modal opener)
               · page_head · page_section · section_heading · instrument_module
               · instrument/ (the ported HTap · badges · progress bar)
               · charts/ · skeletons/ · states/ (loading · error · empty
@@ -250,6 +250,24 @@ parameter, and a citation.
 
 ### The explainers are the corpus's, or they say they are not
 
+## Every modal sheet is opened one way
+
+`shared/sheets/app_sheet.dart` is the only place `showModalBottomSheet` is
+called, and `test/features/sheet_layering_test.dart` reads `lib/` to keep it
+that way.
+
+The default `useRootNavigator: false` resolves the **nearest** `Navigator`, which
+inside `StatefulShellRoute.indexedStack` is the current tab's branch navigator —
+living inside `Scaffold.body`. Measured on a 360×780 phone, the metric-info sheet
+was laid out `0 → 683` (the tab bar's top edge) instead of `0 → 780`. Its last
+line ran into the bar with nothing to say the rest scrolled, its scrim left the
+bar lit and tappable under a modal, and the longest explainer got a 637 px
+viewport for 1,844 px of content.
+
+A modal is over the **app**, not over one tab. Covering the bar also means owning
+the inset the bar was absorbing, so `sheetBottomInset` is the other half:
+`viewInsets.bottom + padding.bottom`, correct with the keyboard up and down.
+
 `shared/metric_info/` holds the seventeen ⓘ sheets. Each carries `notes` — real
 ids from `packages/knowledge/manifest.json` — and the sheet renders them through
 `CitationRow` with `weakestGrade(notes)`, the same floor rule
@@ -304,27 +322,48 @@ Every failure lands **in the thread**, saying whether anything was charged. A
 question that vanished, or that left the thread looking unanswered, is how "did
 that use one of my twenty?" becomes unanswerable.
 
-## The connection surface: a dot, until it isn't
+## The connection surface: a ring, and the card behind it
 
-A full-width `Connected · Sync now` bar used to sit at the top of Today forever.
-It is now a 7 px dot beside the date when nothing is wrong
-(`shared/connection/connection_dot.dart`), and a full-width strip when something
-is (`connection_strip.dart`).
+A full-width `Connected · Sync now` bar used to sit at the top of Today forever;
+then a 7 px dot beside the date plus a strip that opened when something was
+wrong. **Both are gone** (owner, 2026-08-05). What is left is legacy's own ring
+round the avatar — `shared/connection/sync_ring.dart`, 46 px, `strokeWidth: 2`,
+unchanged geometry — and the data-health card that was always on Today anyway.
+
+```text
+   idle              a thin ink3 circle       nothing running, no session
+   connected         a full accent circle     a session is open right now
+   syncing           an accent arc            determinate where the fetch says so
+   needs attention   a full ink circle        something is wrong; the card says what
+```
 
 **A quiet healthy state is honest only if every unhealthy state is loud.** So
 `data/sync/connection_health.dart` is the ONE place the quiet answer is computed;
 its link half is a `switch` over the sealed union with no default; and its data
 half **iterates** `dataHealthLines` rather than naming the faults it knows about,
-because the failure mode of a hand-written list is silence.
+because the failure mode of a hand-written list is silence. The ring reads that
+`quiet`; it never re-derives one.
 
-`HealthLine` has two constructors and `HealthLine.alarm` **requires** a short
-headline and an id, so a loud line the strip could not draw does not compile.
-The strip shows the headline and the data-health card shows the paragraph: a
-title and its body from one function, not two voices.
+**A ring cannot say "your token was rotated".** That is the whole reason the
+loudness and the sentence are separate surfaces: the ring says *that* something
+is wrong and speaks the headline, the card says *what* in full. `HealthLine`
+has two constructors and `HealthLine.alarm` **requires** a short headline and an
+id, so a loud line with nothing to announce does not compile.
 
-**Pull-to-refresh is the manual sync** — `SyncController.syncNow`, the
-un-debounced path — which is what let the permanent button go. The button
-survives only on the strip that appears when something is wrong.
+The card also prints `ConnectionHealth.linkAlerts` — an unreachable strap, and a
+phone that has never synced. Those two have no `HealthLine` behind them because
+they are facts about a live socket rather than a stored one, and **when the strip
+was deleted they were the half with nowhere to go**.
+
+**The ring is a status indicator, not a button.** The avatar inside it still
+opens Settings. **Pull-to-refresh is the manual sync** — `SyncController.syncNow`,
+the un-debounced path — and `Stop` moved to Settings' strap row, where it is drawn
+only while a sync is running.
+
+**The fault ring is full ink, never `unf` or `alert`.** There is one red in this
+app and it is illness; a radio is not a fact about a body. Loud is weight here,
+the same rule `health_lines.dart` applies to the card's typography — and colour is
+never the only carrier, because the sentence is always on the card as well.
 
 ### Two resting heart rates, and the rule
 

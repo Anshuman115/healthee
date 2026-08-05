@@ -10,10 +10,13 @@
 /// ## The connection surface is assembled here, from one classification
 ///
 /// `connectionHealth(...)` is called once, in this build, and the answer goes to
-/// two places: the strip above the scroll (which draws nothing when the answer is
-/// quiet) and the dot in the header row (which is drawn only when it is). One
-/// call, two readers — see `shared/connection/connection_strip.dart` for why that
-/// asymmetry is deliberate and why neither widget may decide "quiet" for itself.
+/// two places: the ring round the avatar in the header row, and the data-health
+/// card four lines below it. **There is no page chrome above the scroll** — the
+/// full-width strip that used to sit there is gone, and with it the one thing it
+/// alone carried, which is now printed on that card
+/// (`data/sync/connection_health.dart`, `linkAlerts`).
+///
+/// One call, two readers, and neither of them may decide "quiet" for itself.
 library;
 
 import 'dart:async';
@@ -29,7 +32,6 @@ import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/features/today/today_sections.dart';
-import 'package:healthee/shared/connection/connection_strip.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 
 /// The push state, for the data-health strip. Re-read whenever Today is.
@@ -61,20 +63,8 @@ class TodayScreen extends ConsumerWidget {
       signedIn: signedIn,
       lastStrapSync: ref.watch(deviceDayProvider).value?.sync.lastCompleteSync,
     );
-    final controller = ref.read(syncControllerProvider.notifier);
-    final link = ref.watch(syncControllerProvider);
     return InstrumentScreen(
       now: now,
-      // Above the scroll, and absent entirely while the answer is quiet: a
-      // connection state that scrolls away is one the owner cannot check when
-      // they need it, and one that is always there is one they stop reading.
-      chrome: ConnectionStrip(
-        health: health,
-        // The same un-debounced path pull-to-refresh takes. `syncNow` is never
-        // debounced by design — an explicit request is not a heuristic.
-        onRetry: controller.syncNow,
-        onStop: controller.cancel,
-      ),
       onRefreshed: () => ref.invalidate(_pushStampProvider),
       sections: (data) => todaySections(
         data,
@@ -83,9 +73,9 @@ class TodayScreen extends ConsumerWidget {
           signedIn: signedIn,
           health: health,
           // Legacy's header carries the strap's charge beside the date, and the
-          // ring around the avatar while a sync is running.
+          // ring around the avatar. The ring reads `health` for its own busy and
+          // progress, so there is no second `syncing` flag to keep in step.
           batteryPercent: ref.watch(deviceDayProvider).value?.batteryPercent,
-          syncing: link.isBusy,
           // Pushed, so back returns to Today. `go` would replace the
           // location and leave the sign-in screen with nothing beneath it.
           onSignIn: () => unawaited(context.push(Routes.serverSignIn)),

@@ -81,17 +81,17 @@ const Duration kStrapHorizonWarning = Duration(days: 5);
 ///
 /// ## Why a loud line cannot exist without a headline
 ///
-/// The two surfaces are one voice at two lengths. `shared/connection/` collapses
-/// to a dot when everything is well and expands when it is not, and what it
-/// expands into is the [headline] of every loud line here; the card under it
+/// The two surfaces are one voice at two lengths. `shared/connection/sync_ring.dart`
+/// is a ring round the avatar that goes to its attention state when anything
+/// here is loud and **speaks the [headline]** of the first such line; the card
 /// carries the [text] with the remedy in full. The pair is not a restatement —
-/// it is a title and its paragraph — and it is the reason the indicator may go
-/// quiet at all.
+/// it is a title and its paragraph — and it is the reason the ring may be quiet
+/// at all.
 ///
 /// So a loud line is built through [HealthLine.alarm], which **requires** the
 /// headline and the id. A `loud: true` flag on the plain constructor would let a
-/// new alarm ship with no short form, and the indicator would then have nothing
-/// to draw for it — which is the collapsing indicator swallowing a real fault,
+/// new alarm ship with no short form, and the ring would then have nothing to
+/// announce for it — which is the collapsing indicator swallowing a real fault,
 /// the exact failure this design is one bad commit away from.
 /// `test/mutations.sh` deletes a headline on purpose to prove the compiler stops
 /// it.
@@ -184,10 +184,10 @@ const HealthLine _signedOut = HealthLine.alarm(
 /// and what to do about it.
 HealthLine? _strapGap(DateTime? lastStrapSync, DateTime now) {
   if (lastStrapSync == null) {
-    // Never synced is not this problem, and the connection indicator already
-    // raises it in its own words (`data/sync/connection_health.dart`'s
-    // `never_synced` alert). Two voices on one fact is how a card stops being
-    // read.
+    // Never synced is not this problem. `connection_health.dart` raises it in
+    // its own words as the `never_synced` link alert, which this same card
+    // prints a few lines higher. Two voices on one fact is how a card stops
+    // being read.
     return null;
   }
   final gap = now.difference(lastStrapSync);

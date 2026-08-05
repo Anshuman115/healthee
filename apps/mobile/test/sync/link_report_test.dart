@@ -90,7 +90,9 @@ void main() {
     test('a phone that has never synced says exactly that', () {
       final report = linkReport(const Disconnected(), now: _now);
 
-      expect(report.headline, 'Never synced — tap Sync now');
+      // Not "tap Sync now": that button was on the connection strip, and the
+      // strip is deleted. Pull-to-refresh is the manual path.
+      expect(report.headline, 'Never synced — pull down to sync');
     });
   });
 

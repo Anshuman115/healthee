@@ -120,7 +120,7 @@ Widget _scoped(
       localStoreProvider.overrideWithValue(store),
       todayProvider.overrideWithValue(todayDate),
       syncControllerProvider.overrideWith(
-        () => _FixedConnection(connection ?? const Disconnected()),
+        () => FixedConnection(connection ?? const Disconnected()),
       ),
       serverSessionProvider.overrideWith(
         (ref) async => signedIn
@@ -172,8 +172,14 @@ Widget _scoped(
 }
 
 /// A controller pinned to one state, so each case can be rendered on its own.
-class _FixedConnection extends SyncController {
-  _FixedConnection(this._state);
+///
+/// Public because Settings watches `syncControllerProvider` too now (its strap
+/// row draws a Stop while a sync is running), so a second suite needs the same
+/// override — and the real controller reaches for a radio and a platform store
+/// the moment anything watches it.
+class FixedConnection extends SyncController {
+  /// [_state] is what `build` returns, forever.
+  FixedConnection(this._state);
 
   final StrapConnection _state;
 
