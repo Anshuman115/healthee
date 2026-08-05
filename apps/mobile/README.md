@@ -36,7 +36,8 @@ build gate, because a warning nobody has to fix is a warning nobody fixes.
 ```
 lib/
   core/       env.dart (the ONLY dart-define site) · logging · provider_logger
-              · router · theme/ (palette · tokens · metric_hues · dimensions
+              · router · theme/ (palette · tokens · instrument_hues
+                · metric_hue · instrument_type · shapes · motion · dimensions
                 · typography · app_theme)
   ble/        strap_scanner (the presence check) — the PROTOCOL is still to come
               (see its README)
@@ -50,8 +51,9 @@ lib/
   shared/     instrument_screen (the shell every tab uses) · app_tab_bar
               · connection/ (the dot and the strip)
               · page_head · page_section · section_heading · instrument_module
-              · charts/ · states/ (loading · error · empty · withheld
-                · value_hole) · foundation_screen
+              · instrument/ (the ported HTap · badges · progress bar)
+              · charts/ · skeletons/ · states/ (loading · error · empty
+                · withheld · value_hole) · foundation_screen
 test/         golden contract parse · envelope unit · store · theme tokens
               · typography (the face swap, measured) · widget smoke
               · pairing (crypto goldens · client fixtures · failure taxonomy ·
@@ -86,11 +88,18 @@ A **trend** may be coloured `fav`/`unf`, because
 is better for each metric — and a metric moving against the owner's own past is
 precisely the claim those two colours are licensed for.
 
-A **finding** may not, in any state. The sign of a rank correlation says *moved
-together* or *moved opposite*; that is a direction, not a verdict, and a
-q-corrected correlation over 105 days of one person's history cannot support
-"this is good for you". Legacy kept the same restraint
+A **finding** may not turn its sign into a verdict, in any state. The sign of a
+rank correlation says *moved together* or *moved opposite*; that is a direction,
+not a verdict, and a q-corrected correlation over 105 days of one person's
+history cannot support "this is good for you". Legacy kept the same restraint
 (`insights_screen.dart:274`).
+
+The test for that used to be "a finding spends no `fav` and no `unf`". It cannot
+be, since the port: legacy's `cHrv` **is** its green, so a finding about HRV
+legitimately paints its own hue in the colour that also means improving. What is
+asserted instead is stronger — **flip the sign of the coefficient and nothing may
+change colour** — and it is mutation-proof in a way the old assertion was not,
+because the old one also passed for a row that was simply grey.
 
 A metric the table calls **neutral** (calories) and a metric it has **never heard
 of** both render with no verdict colour. That is the load-bearing case rather
@@ -495,81 +504,103 @@ bump.
 
 ## Design system
 
-The theme is the **approved app design** (`Healthee.html`), transcribed verbatim
-from `docs/APP_DESIGN_BRIEF.md` §2 — indigo accent, near-white light and
-near-black dark. Owner decision 2026-08-04: *"the colors and fonts all we will
-keep from new."* Direction is **modern instrument**, explicitly not editorial: no
-serif, no paper texture, no beige.
+**The legacy app is the specification.** Owner decision 2026-08-05: *"not a
+single change in design, every section remains as is, every tab, everything —
+only honesty wording as mentioned."* Everything visual is ported from
+`~/projects/healthee-legacy/app/lib/ui/`. Exactly three things may differ:
 
-**The face is Manrope**, not the brief's Instrument Sans (owner decision
-2026-08-05: the old one *reads "newspaper" at display sizes*, which is the one
-direction the brief rules out by name). Everything else in §2 stands.
+1. **The typeface** — Manrope replaces Newsreader / Hanken Grotesk / Space Mono.
+2. **The light/dark scaffolding** — page, surface, ink and hairline keep the
+   rebuild's near-white and near-black values. Every *other* colour is legacy's,
+   to the hex.
+3. **Honesty wording** — `Reading<T>` still governs every field, a withheld value
+   still renders withheld, citations still resolve to readable source names.
 
-**The app and the landing page deliberately diverge.** `apps/landing` is v5 "The
-Ledger" — warm paper, clay accent. The app is not, and that is a choice, not
-drift. It also settles `docs/APP_DESIGN.md` §7.1's open "green vs indigo"
-question: neither option that question offered survived.
+### Where the design lives
 
-Rules that are structural here, not conventions:
+```
+core/theme/palette.dart          the ONLY colour literals: scaffolding + legacy
+core/theme/tokens.dart           semantic roles → context.colors
+core/theme/instrument_hues.dart  legacy's ten per-metric hues + sleepStage()
+core/theme/metric_hue.dart       which metric wears which, from legacy's call sites
+core/theme/instrument_type.dart  legacy's HType roles, wearing Manrope
+core/theme/shapes.dart           hSquircle — the continuous corner every card has
+core/theme/motion.dart           legacy's four durations and its signature ease
+shared/instrument/               HTap · HDeltaBadge · HProgressBar · HIconBadge
+shared/instrument_module.dart    HModule and its eyebrow, value and foot
+shared/charts/                   the ported painters
+shared/skeletons/                the content-shaped loading states
+```
 
-- **Colour is a claim.** Only `fav`/`unf` say something about a reading (better
-  or worse than the owner's *own* normal), and `alert` is the illness flag alone.
-  Everything else is greyscale, accent, or an **identity tag**. Never colour a
-  card to decorate it.
-- **A tag is a function of the metric's identity and never of its value.**
-  `core/theme/metric_hues.dart` holds the one table; `tagFor` takes an id and
-  nothing else. A card about ONE metric wears its tag on the title, the chart and
-  the unit beside the figure — the number itself stays in ink. A card about
-  several (the daily action, the recovery ladder, recorded sessions) wears none.
-- **`fav` is not for clearing a population target.** The MVPA bar turned green at
-  the WHO 150-minute floor, which is a claim about a population and not about the
-  owner's own normal — and a congratulation, which this app does not do.
+### Rules that are structural here, not conventions
+
+- **Identity and judgement SHARE hues, by decision.** Legacy's `cHrv` and
+  `cReady` *are* its green, which is also "improving"; its `cHeart` is also
+  "degrading" and the illness flag (`insights_screen.dart:171` —
+  `improving ? c.green : c.cHeart`). The five-hue identity-tag system existed to
+  make exactly that impossible, and is **deleted** — `metric_hues.dart` and its
+  test are gone. Do not reintroduce a separate verdict palette; `palette.dart`
+  carries the whole argument, and `test/theme/legacy_hues_test.dart` asserts the
+  collisions rather than avoiding them, so a "fix" fails and has to be argued.
+- **A hue is a function of the metric's identity and never of its value.**
+  `core/theme/metric_hue.dart` holds the one table, transcribed from legacy's own
+  call sites with the line numbers cited; `hueFor` takes an id and nothing else.
+- **One sleep-stage mapping.** `InstrumentHues.sleepStage` — deep amber, light
+  blue, REM purple, awake red — and nothing else decides a stage's colour.
 - **A refusal spends no colour.** A withheld value renders a `ValueHole` — a
   dashed, `hole`-filled box exactly where the number would have been — with the
-  reason in ordinary ink. Tinting it would make "we are declining to tell you"
-  look like a verdict about the owner's body.
-- **`unf` is not a warning colour and must never be used as one.** "This reading
-  is below your normal" and "we won't guess" are different claims. The recovery
-  signal ladder (brief §5.1) needs the `fav`/`unf` pair and cannot be drawn
-  without it.
-- **There is one red.** `alert`, for illness. `ErrorState` is greyscale with an
-  outlined retry; a dead request is not a fact about the owner's health.
-  `ColorScheme.error` is wired to `alert` only so Material's own widgets do not
-  introduce a second red nobody chose.
-- **The accent is a light/dark PAIR**, not one hex reused. `test/core/theme_test.dart`
-  fails if a theme-invariant brand colour is reinstated.
-- **A tag is an identity, never a verdict.** `core/theme/metric_hues.dart` holds
-  five per-family hues — `rest` · `heart` · `body` · `move` · `energy` — and
-  `tagFor` takes **a metric id and nothing else**, so a colour driven by today's
-  reading is not something a caller can express. They are hue-disjoint from
-  `fav`/`unf`/`alert` (42.7° at the closest measured approach) and sit at one
-  lightness, so none reads as ranked. `test/theme/metric_hues_test.dart` measures
-  both, and `test/mutations.sh` breaks them on purpose.
+  reason in ordinary ink. This is honesty wording, so it survives the port.
+- **Charts animate once.** `progress` is a parameter supplied by `RevealOnce`; no
+  chart owns a ticker, or it replays on every scroll-back.
+- **No colour literal exists outside `core/theme/palette.dart`.**
+  `test/core/theme_test.dart` and `test/theme/legacy_hues_test.dart` restate both
+  source tables independently — `flutter analyze` cannot see a wrong-but-valid
+  colour, so a test has to.
 
-  Tags apply wherever a card is **about one metric** — the grid, the hypnogram, a
-  metric card's chart, figure accents and section heading. The accent stays the
-  colour of an *action*: links, buttons, the disclosure a card offers.
+### Three legacy imperfections that ship as-is, and are flagged
 
-**One deliberate departure from `Healthee.html`:** it hardcodes `#fff` on the
-accent, which measures 2.97:1 against the dark accent — below WCAG AA and below
-even the 3:1 large-text floor. `onAccent` is therefore per-theme (white on light,
-page-background on dark, 6.30:1 and 6.66:1). No new colour; both values were
-already approved. Flagged for the owner.
+The brief is explicit that a faithful port of something imperfect beats an
+unrequested fix, so each of these is recorded rather than repaired.
+
+- **`onGreen` fails contrast on the dark accent.** Legacy puts one off-white
+  (`#FBF7EF`) on both greens: 5.68:1 on light, **2.14:1** on dark — below WCAG AA
+  and below the 3:1 large-text floor. The measurement is pinned in
+  `test/core/theme_test.dart` so it cannot drift further or be forgotten.
+- **An unrecognised sleep stage is drawn as light sleep** (`theme.dart:36`), so a
+  code nothing measured is not visibly distinct from one that was.
+- **Legacy disagrees with itself twice**: cardio load is `cHeart` on Today and
+  `cReady` on Activity; blood oxygen is `cResp` on Today and `cSpo2` on Sleep.
+  Today's wins in `metric_hue.dart`, and both conflicts are documented there.
+
+### The hue set, both themes
+
+| legacy | light | dark | what wears it |
+|---|---|---|---|
+| `cSleep` | `#5B5483` | `#968EC9` | sleep, sleep debt, REM |
+| `cHeart` | `#BF472E` | `#E07A5F` | heart rate, cardio load, awake, **`alert`** |
+| `cHrv` | `#1F6F54` | `#4BBF93` | HRV, MVPA — **the accent and `fav`** |
+| `cSteps` | `#B27F2C` | `#D9A84E` | steps, distance, deep sleep |
+| `cCal` | `#CE6131` | `#E8835A` | calories, and legacy's stress card |
+| `cResp` | `#3C7A84` | `#5FA9B4` | breathing, overnight blood oxygen |
+| `cSpo2` | `#587A97` | `#7DA3C4` | light/core sleep, SpO₂ vitals, zone 1 |
+| `cStress` | `#A55F6D` | `#C98A96` | skin temperature |
+| `cReady` | `#1F6F54` | `#4BBF93` | VO₂max, biological age, SRI, load |
+| `cRem` | `#8A7FB8` | `#B3A9E0` | nothing — defined by legacy, drawn by none |
+
+Two more legacy values are **one colour in both themes**, because legacy wrote
+one: the warn amber `#E0A33E` (`unf`) and `onGreen` `#FBF7EF` (`onAccent`).
 
 **Manrope** is vendored in `assets/fonts/` (SIL OFL, no Reserved Font Name,
 licence beside it, ~290 KB) rather than fetched — no CDN at paint time. Three
-weights, 400/500/600, instanced from upstream's variable font at exactly the
-weights `typography.dart` selects; a weight the pubspec does not vendor would be
-synthesised by the engine, which is a different drawing of the face nobody chose.
+weights, 400/500/600, instanced from upstream's variable font. Two consequences
+of that for the port, both named in `instrument_type.dart` rather than hidden:
+`HType.number` asks for **700 and gets 600**, and `HType.serif(italic: true)`
+renders **upright**, because neither face is vendored.
 
-Tabular figures are on for the whole text theme, so a value that changes does not
-shift the glyphs beside it (brief §7 makes this a hard constraint).
+Tabular figures are on for the whole text theme and for every `HType` role, so a
+value that changes does not shift the glyphs beside it.
 `test/core/typography_test.dart` measures that rather than trusting it, checks
 the display strings against the narrowest phone (Manrope runs wider), and reads
 the font's own `cmap` to prove the glyphs are there — **Instrument Sans had no
 U+2082**, so `SpO₂` drew a tofu box on the live screen, and no `σ` for the
 recovery ladder's caption either.
-
-**No colour literal exists outside `core/theme/palette.dart`**, and
-`test/core/theme_test.dart` locks every token to the brief's table — `flutter
-analyze` cannot see a wrong-but-valid colour, so a test has to.
