@@ -21,6 +21,7 @@ import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_night.dart';
+import 'package:healthee/shared/charts/h_stage_bar.dart';
 import 'package:healthee/shared/format/time_labels.dart';
 import 'package:healthee/shared/measured_card.dart';
 import 'package:healthee/shared/states/reading_view.dart';
@@ -38,18 +39,27 @@ class SleepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The same tag the server-staged night card wears, from the same table —
+    // this card is its fallback, and two cards for one night in two colours
+    // would look like two different nights.
+    final tag = context.hues.tagFor('sleep_duration');
     return ReadingView<DeviceNight>(
       reading: day.lastNight,
       label: 'Last night',
       builder: (context, night) => MeasuredCard(
         title: 'Last night',
+        tag: tag,
         measuredAt: night.end,
         now: now,
         footnote: _footnote(night),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HeroValue(value: durationLabel(night.asleepMin), unit: 'asleep'),
+            HeroValue(
+              value: durationLabel(night.asleepMin),
+              unit: 'asleep',
+              tag: tag,
+            ),
             const SizedBox(height: Insets.md),
             _StageBar(night: night),
           ],
@@ -76,65 +86,47 @@ class SleepCard extends StatelessWidget {
   }
 }
 
-/// Four widths in proportion to four measured minute counts.
+/// The stage proportions and their minutes, under the night's total.
+///
+/// The bar itself is [HStageBar] — the same widget the Today grid's sleep cell
+/// draws. It was a private copy here, and the copy carried a layout bug the
+/// shared one has a test for: its segments laid out at zero height, so the bar
+/// was invisible on a real render. Standards §1: second occurrence = extract.
 class _StageBar extends StatelessWidget {
   const _StageBar({required this.night});
 
   final DeviceNight night;
 
-  /// The device's minutes in one stage.
-  static int _minutesIn(DeviceNight night, String stage) => switch (stage) {
-    'deep' => night.deepMin,
-    'light' => night.lightMin,
-    'rem' => night.remMin,
-    'awake' => night.wakeMin,
-    _ => 0,
+  /// The device's minutes per stage, in record order.
+  Map<String, int> get _minutes => <String, int>{
+    'deep': night.deepMin,
+    'light': night.lightMin,
+    'rem': night.remMin,
+    'awake': night.wakeMin,
   };
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    // Ordered deep → light → REM → awake, which is how the record reads rather
-    // than how a designer would rank them. The palette is `stage_colors.dart`'s,
-    // shared with the hypnogram and the week chart — one definition of what
-    // deep sleep looks like.
-    final spans = <(String, int, Color)>[
-      for (final stage in kSleepStages)
-        (
-          sleepStageLabel(stage),
-          _minutesIn(night, stage),
-          sleepStageColor(colors, context.hues, stage),
-        ),
-    ];
-    final total = night.inBedMin;
-    if (total <= 0) {
+    if (night.inBedMin <= 0) {
       return const SizedBox.shrink();
     }
+    final minutes = _minutes;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(Radii.pill),
-          child: SizedBox(
-            height: 10,
-            child: Row(
-              children: [
-                for (final (_, minutes, colour) in spans)
-                  if (minutes > 0)
-                    Expanded(flex: minutes, child: ColoredBox(color: colour)),
-              ],
-            ),
-          ),
-        ),
+        // Not animated: this card is the strap-only fallback and draws no
+        // reveal registry of its own, so the bar arrives finished.
+        HStageBar(minutes, progress: 1),
         const SizedBox(height: Insets.sm),
         Wrap(
           spacing: Insets.md,
           children: [
-            for (final (label, minutes, _) in spans)
-              if (minutes > 0)
+            for (final stage in kSleepStages)
+              if ((minutes[stage] ?? 0) > 0)
                 Text(
-                  '$label ${durationLabel(minutes)}',
+                  '${sleepStageLabel(stage)} ${durationLabel(minutes[stage]!)}',
                   style: text.labelSmall?.copyWith(color: colors.ink3),
                 ),
           ],

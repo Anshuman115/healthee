@@ -47,6 +47,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_metric.dart';
 import 'package:healthee/data/device/device_night.dart';
@@ -59,7 +60,7 @@ import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/widgets/grid_module.dart';
-import 'package:healthee/shared/charts/h_hypnogram.dart';
+import 'package:healthee/shared/charts/h_stage_bar.dart';
 import 'package:healthee/shared/format/number_labels.dart';
 import 'package:healthee/shared/format/time_labels.dart';
 import 'package:healthee/shared/reveal_once.dart';
@@ -123,10 +124,15 @@ class MetricGrid extends StatelessWidget {
       unit: 'hrs',
       reveals: reveals,
       revealId: 'today.grid.sleep',
-      chart: (context, t) => HHypnogram(
-        night.valueOrNull?.spans ?? const <SleepStageSpan>[],
-        progress: t,
-        height: 28,
+      // A proportion bar, not the hypnogram. `h_stage_bar.dart` has the whole
+      // argument: four lanes in 28 px is ~7 px a lane, and a fragmented night
+      // read as scattered dots. The hypnogram is unchanged and stays on Sleep,
+      // at the width it needs.
+      chart: (context, t) => Align(
+        child: HStageBar(
+          night.valueOrNull?.stageMinutes ?? const <String, int>{},
+          progress: t,
+        ),
       ),
       foot: switch (night.valueOrNull) {
         final _NightShape shape =>
@@ -304,47 +310,40 @@ class _NightShape {
     required this.minutes,
     required this.deepMin,
     required this.remMin,
-    required this.spans,
+    required this.stageMinutes,
   });
 
   factory _NightShape.fromServer(LastSleep night) => _NightShape(
     minutes: night.durationMin,
     deepMin: night.minutesIn('deep'),
     remMin: night.minutesIn('rem'),
-    spans: night.stages,
+    stageMinutes: <String, int>{
+      for (final stage in kSleepStages) stage: night.minutesIn(stage),
+    },
   );
 
-  /// The strap stages by wall-clock instants; the hypnogram's x-axis is elapsed
-  /// time from onset, so the spans are re-expressed as offsets here. No stage is
-  /// invented and none is dropped — an unrecognised `kind` stays unrecognised
-  /// and `stage_colors.dart` draws it in the unrecognised grey.
-  factory _NightShape.fromDevice(DeviceNight night) {
-    final spans = <SleepStageSpan>[];
-    var elapsed = 0.0;
-    for (final stage in night.stages) {
-      final minutes = stage.length.inSeconds / 60;
-      spans.add(
-        SleepStageSpan(
-          stage: stage.kind,
-          startOffsetMin: elapsed,
-          endOffsetMin: elapsed + minutes,
-          durationMin: minutes,
-        ),
-      );
-      elapsed += minutes;
-    }
-    return _NightShape(
-      minutes: night.asleepMin,
-      deepMin: night.deepMin,
-      remMin: night.remMin,
-      spans: spans,
-    );
-  }
+  /// The strap's own night. Its stage totals are already summed on
+  /// [DeviceNight], so nothing is re-derived here — a second sum over the spans
+  /// would be a second definition of "how much deep sleep".
+  factory _NightShape.fromDevice(DeviceNight night) => _NightShape(
+    minutes: night.asleepMin,
+    deepMin: night.deepMin,
+    remMin: night.remMin,
+    stageMinutes: <String, int>{
+      'deep': night.deepMin,
+      'light': night.lightMin,
+      'rem': night.remMin,
+      'awake': night.wakeMin,
+    },
+  );
 
   final int minutes;
   final int deepMin;
   final int remMin;
-  final List<SleepStageSpan> spans;
+
+  /// Minutes per stage name, for [HStageBar]. Keyed by [kSleepStages]'s names,
+  /// which both sources already speak.
+  final Map<String, int> stageMinutes;
 }
 
 /// The refusal a cell carries when the server sent no block for it at all.
