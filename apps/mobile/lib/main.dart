@@ -4,9 +4,15 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/app.dart';
+import 'package:healthee/core/licences.dart';
 import 'package:healthee/core/provider_logger.dart';
 
 void main() {
+  // The vendored font's SIL OFL notice, added to Flutter's own licence registry
+  // so `showLicensePage` can find it. Registration is lazy — the stream is not
+  // run until somebody opens the page — so this costs nothing at start-up, and
+  // it has to happen before `runApp` because the registry is read from there on.
+  registerAssetLicences();
   // The ProviderScope is the app's whole dependency graph. riverpod_lint's
   // `missing_provider_scope` fails the build if this is ever dropped.
   runApp(
