@@ -82,6 +82,7 @@ class RecoverySignals {
     required this.favorable,
     required this.unfavorable,
     required this.neutral,
+    required this.total,
   });
 
   /// Parses `recovery`, or null when there are no signals to draw.
@@ -102,6 +103,11 @@ class RecoverySignals {
       favorable: (json['favorable'] as num?)?.toInt() ?? 0,
       unfavorable: (json['unfavorable'] as num?)?.toInt() ?? 0,
       neutral: (json['neutral'] as num?)?.toInt() ?? 0,
+      // The server's own count, not `signals.length` and not the three tallies
+      // summed. `recovery_signals` counts only the markers it could position, so
+      // deriving the denominator here would silently disagree with the numerator
+      // beside it the moment one marker has no baseline yet.
+      total: (json['total'] as num?)?.toInt() ?? signals.length,
     );
   }
 
@@ -121,4 +127,8 @@ class RecoverySignals {
 
   /// How many are at baseline.
   final int neutral;
+
+  /// How many markers the server judged in all — the denominator of legacy's
+  /// `N of M favorable` line (`today_screen.dart:795`).
+  final int total;
 }
