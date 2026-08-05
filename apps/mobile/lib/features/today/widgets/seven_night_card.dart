@@ -37,13 +37,12 @@ class SevenNightCard extends StatelessWidget {
   /// Legacy's `HStackedSleep(week, height: 108)`.
   static const double chartHeight = 108;
 
-  /// The legend, in legacy's order.
-  static const List<String> legendStages = <String>[
-    'deep',
-    'core',
-    'rem',
-    'awake',
-  ];
+  /// The legend, in legacy's order — [kSleepStages] itself, so a stage cannot be
+  /// listed here and missing from the chart.
+  ///
+  /// The fifth "Unrecognised" key `legendStages()` can add is deliberately not
+  /// used: this chart is drawn from [SleepNightSummary], which carries four
+  /// named minute totals and has no slot an unreadable code could arrive in.
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +61,7 @@ class SevenNightCard extends StatelessWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-            for (final stage in legendStages) _LegendChip(stage: stage),
+            for (final stage in kSleepStages) _LegendChip(stage: stage),
           ],
         ),
       ],
@@ -94,10 +93,11 @@ class _LegendChip extends StatelessWidget {
           ),
           const SizedBox(width: 5),
           Text(
-            // Legacy prints its own captions: DEEP · CORE · REM · AWAKE.
-            // `sleepStageLabel` renames `core` to "Light", which is this app's
-            // vocabulary and would put a word on the legend that no bar uses.
-            stage.toUpperCase(),
+            // Legacy printed the raw key — DEEP · CORE · REM · AWAKE — while the
+            // Sleep tab's naps legend printed `light` for the same stage. The
+            // word comes from `sleepStageLabel` now, so the app says LIGHT
+            // everywhere or CORE nowhere.
+            sleepStageLabel(stage).toUpperCase(),
             style: HType.label(colors.ink3, size: 8, tracking: 0.08),
           ),
         ],

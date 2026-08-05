@@ -92,11 +92,8 @@ abstract final class LightPalette {
 
   /// Text and icons sitting ON [accent] — legacy's `onGreen`.
   ///
-  /// **One value in both themes, which is legacy's own choice and is ported
-  /// unchanged.** It measures 5.68:1 on this theme's green and **2.14:1** on the
-  /// dark theme's — below WCAG AA and below the 3:1 large-text floor. Flagged for
-  /// the owner rather than corrected in the diff, because the brief is explicit
-  /// that a faithful port of something imperfect beats an unrequested fix.
+  /// **5.68:1 on this theme's green, so this half of legacy's value stands.** The
+  /// dark theme's half did not; see [DarkPalette.onAccent].
   static const Color onAccent = Color(0xFFFBF7EF);
 
   /// **Judgement — favourable.** Legacy's green, the same value as [accent] and
@@ -130,6 +127,21 @@ abstract final class LightPalette {
   ///
   /// Scaffolding, and part of the honesty layer: a refusal spends no hue.
   static const Color hole = Color.fromRGBO(18, 18, 23, 0.045);
+
+  /// **A span the strap staged with a code we do not recognise.**
+  ///
+  /// The one colour here that is neither legacy's nor the approved design's, and
+  /// it exists because legacy had no way to say this. `HColors.sleepStage`
+  /// defaults an unknown code to `cSpo2`, so a byte nobody has decoded is drawn
+  /// as *light sleep* — a specific, named, confident claim about a measurement
+  /// we could not read. That is the failure this product exists to prevent, and
+  /// it is invisible on screen precisely because it looks like a stage.
+  ///
+  /// A flat grey with **no chroma at all** is the point: legacy's four stage
+  /// hues are all chromatic (amber, blue, indigo, red), so "unrecognised" is not
+  /// a fifth hue competing with them — it is the visible absence of one. It sits
+  /// in the same family as [hole]: the honesty layer spends no colour.
+  static const Color unstaged = Color(0xFF8C8C8C);
 }
 
 /// The scaffolding, dark. Authored, never derived by inverting light.
@@ -170,10 +182,24 @@ abstract final class DarkPalette {
   /// A wash of the accent — legacy's `greenSoft`.
   static const Color accentSoft = Color(0xFF1E3329);
 
-  /// Text on [accent] — legacy's `onGreen`, the SAME value as the light theme's.
+  /// Text and icons sitting ON [accent]. **The one legacy value not ported.**
   ///
-  /// 2.14:1 here. See [LightPalette.onAccent] for why it ships anyway.
-  static const Color onAccent = LightPalette.onAccent;
+  /// Legacy uses its off-white `onGreen` on both greens. On this theme's green it
+  /// measures **2.14:1** — under WCAG AA (4.5:1) and under even the 3:1
+  /// large-text floor — so the word inside a filled accent button is a light
+  /// smudge on a light-mid green. That is legibility, not design: the accent
+  /// itself is untouched and still legacy's `#4BBF93`, and only the ink on top of
+  /// it moves.
+  ///
+  /// **No new colour was introduced.** This is [bg], the page the whole dark
+  /// theme is already drawn on, which measures **8.63:1** on the accent and
+  /// **6.70:1** on [alert] (`onAccent` doubles as Material's `onError`, where the
+  /// off-white was 2.76:1 — the same failure, one token over).
+  ///
+  /// Legacy's own value is kept in the light theme, where it passes. The pair is
+  /// asymmetric because legacy's two greens are: `#1F6F54` is dark enough for
+  /// off-white and `#4BBF93` is not.
+  static const Color onAccent = bg;
 
   /// **Judgement — favourable.** Legacy's green, shared with [accent].
   static const Color fav = accent;
@@ -196,6 +222,9 @@ abstract final class DarkPalette {
 
   /// The number-shaped absence.
   static const Color hole = Color.fromRGBO(255, 255, 255, 0.05);
+
+  /// A span staged with a code we do not recognise. See [LightPalette.unstaged].
+  static const Color unstaged = Color(0xFF767676);
 }
 
 /// **Legacy's ten per-metric hues, light — transcribed from

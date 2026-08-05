@@ -13,6 +13,8 @@
 /// because the type that produced it is gone.
 library;
 
+import 'package:healthee/core/theme/stage_colors.dart';
+
 /// Minutes → `7h 05m`. Legacy's `_hm`, without its null branch.
 String hoursMinutes(num minutes) {
   final whole = minutes.round();
@@ -33,11 +35,18 @@ String clock(DateTime at) {
 /// on one axis without the line wrapping at the date boundary.
 double hoursFrom6pm(DateTime at) => (at.hour + at.minute / 60.0 - 18 + 24) % 24;
 
-/// Canonical stage normalisation. Legacy's `_normStage`.
+/// Canonical stage normalisation. Legacy's `_normStage`, with its default fixed.
 ///
 /// `light` becomes **`core`**, which is legacy's vocabulary rather than the
 /// server's. Both resolve to the same colour in `InstrumentHues.sleepStage`, so
 /// the mapping is about the word on the label and not about the paint.
+///
+/// **Legacy's last line was `return 'core'`** — every code it did not match came
+/// back as light sleep, including an empty string and a byte nobody has decoded.
+/// That is `HColors.sleepStage`'s silent-mislabel bug wearing a different hat:
+/// one function turns the unknown code into a named stage and the other paints
+/// it, so the grey never gets a chance to appear. Unmatched now returns
+/// [kUnrecognisedStage], which paints grey and labels "Unrecognised".
 String normaliseStage(String? raw) {
   final stage = (raw ?? '').toLowerCase();
   if (stage.contains('deep')) {
@@ -49,7 +58,10 @@ String normaliseStage(String? raw) {
   if (stage.contains('wake') || stage.contains('awake')) {
     return 'awake';
   }
-  return 'core';
+  if (stage.contains('light') || stage.contains('core')) {
+    return 'core';
+  }
+  return kUnrecognisedStage;
 }
 
 /// Nap minutes → `35m` or `1h 20m`. Legacy's `_napDur`.
@@ -71,19 +83,21 @@ String napRange(DateTime start, DateTime end) {
   return '${at(start)}–${at(end)}';
 }
 
-/// `2026-08-04` → `4 Aug`. Legacy's `_napDate`.
-String napDate(String? iso) {
-  final day = _date(iso);
-  return day == null ? '' : '${day.day} ${_months[day.month - 1]}';
-}
-
-/// `2026-08-04` → `Aug 4`. Legacy's `_shortDate`.
+/// `2026-08-04` → `4 Aug`. **The one short date on this screen.**
 ///
-/// The other way round from [napDate], on the same screen, in legacy. Ported as
-/// found; see the port notes.
+/// Legacy had two, and used both: `_napDate` gave `4 Aug` in the naps column and
+/// `_shortDate` gave `Aug 4` in the odd-nights list, one card apart. Two
+/// orderings for one kind of value on one screen is the sort of thing a reader
+/// notices without being able to say why the page feels unfinished.
+///
+/// Day-month wins because it is the form the screen renders most — up to eight
+/// nap rows against a handful of odd nights — so unifying changes the fewest
+/// strings. An unparseable date returns the empty string, which is `_napDate`'s
+/// behaviour; `_shortDate` echoed the raw ISO back, and a `2026-08-04` in a
+/// 50 px column is not a date, it is a leak.
 String shortDate(String? iso) {
   final day = _date(iso);
-  return day == null ? (iso ?? '') : '${_months[day.month - 1]} ${day.day}';
+  return day == null ? '' : '${day.day} ${_months[day.month - 1]}';
 }
 
 /// `2026-08-04` → `Tu`. Legacy's `_weekday`.

@@ -6,20 +6,24 @@
 /// `sans(ink, 14, w600)`, the duration at `num(ink2, 13)` and a right-aligned
 /// 36 px percentage at `num(ink3, 11)`.
 ///
-/// **Legacy's word for `light` is `Core` here and `light` in the naps legend.**
-/// Both are ported as found — see the port notes.
+/// **The labels are no longer legacy's literals.** Legacy wrote `Core` here and
+/// `light` in the naps legend — one stage, two words, one screen. Every stage
+/// name on the app now comes from `sleepStageLabel`, which answers `Light`. The
+/// rows, their order and their geometry are untouched.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
+import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_night.dart';
 import 'package:healthee/features/sleep/sleep_format.dart';
 import 'package:healthee/shared/instrument_module.dart';
 
-/// One row of the breakdown: a stage, its minutes, its share.
-typedef StageRow = ({String key, String label, double minutes});
+/// One row of the breakdown: a stage and its minutes. The label is looked up
+/// from [sleepStageLabel] rather than carried, so it cannot be written twice.
+typedef StageRow = ({String key, double minutes});
 
 /// Legacy's "Breakdown" module.
 class BreakdownCard extends StatelessWidget {
@@ -29,12 +33,12 @@ class BreakdownCard extends StatelessWidget {
   /// The night to break down.
   final SleepNight night;
 
-  /// Legacy's rows, in legacy's order, with legacy's labels.
+  /// Legacy's rows, in legacy's order.
   List<StageRow> get rows => <StageRow>[
-    (key: 'deep', label: 'Deep', minutes: night.stages.deep),
-    (key: 'core', label: 'Core', minutes: night.stages.light),
-    (key: 'rem', label: 'REM', minutes: night.stages.rem),
-    (key: 'awake', label: 'Awake', minutes: night.stages.awake),
+    (key: 'deep', minutes: night.stages.deep),
+    (key: 'core', minutes: night.stages.light),
+    (key: 'rem', minutes: night.stages.rem),
+    (key: 'awake', minutes: night.stages.awake),
   ];
 
   @override
@@ -110,7 +114,7 @@ class _StageRow extends StatelessWidget {
           const SizedBox(width: 11),
           Expanded(
             child: Text(
-              row.label,
+              sleepStageLabel(row.key),
               style: HType.sans(colors.ink, weight: FontWeight.w600),
             ),
           ),

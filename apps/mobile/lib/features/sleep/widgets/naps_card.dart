@@ -8,13 +8,21 @@
 /// padding, which is a different legend from the one under the charts and is kept
 /// different. Then the caption about late naps.
 ///
-/// **Legacy labels light sleep `light` here and `Core` in the breakdown above.**
-/// One stage, two words, one screen. Ported as found; reported.
+/// **Legacy labelled light sleep `light` here and `Core` in the breakdown two
+/// cards above** — one stage, two words, one screen. Both now ask
+/// `sleepStageLabel`, which answers `Light`.
+///
+/// The legend also gains a fifth key — **Unrecognised** — but only on a render
+/// where a nap actually carried a stage code this app cannot name. This is the
+/// one chart on the screen where that can happen: a nap's spans arrive as raw
+/// strings the strap wrote, where a night's arrive already staged. An always-on
+/// fifth key would announce a stage no bar drew.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
+import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/features/sleep/sleep_format.dart';
@@ -31,16 +39,18 @@ class NapsCard extends StatelessWidget {
   /// Legacy draws at most eight.
   static const int _shown = 8;
 
-  /// Legacy's own vocabulary for this legend, in its own order.
-  static const List<(String, String)> _legend = <(String, String)>[
-    ('core', 'light'),
-    ('deep', 'deep'),
-    ('rem', 'rem'),
-    ('awake', 'awake'),
-  ];
-
   /// Total nap minutes across the window.
   double get totalMin => naps.fold<double>(0, (sum, nap) => sum + (nap.durationMin ?? 0));
+
+  /// Every stage code the bars on this render actually drew, normalised.
+  ///
+  /// Only the naps that are **shown** — a legend describes the picture above it,
+  /// not the window behind it.
+  Iterable<String> get _drawnStages => <String>[
+    for (final nap in naps.take(_shown))
+      for (final stage in nap.stages)
+        if (stage.durationMin > 0) normaliseStage(stage.stage),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +69,7 @@ class NapsCard extends StatelessWidget {
         const SizedBox(height: 4),
         Row(
           children: <Widget>[
-            for (final (stage, label) in _legend)
+            for (final stage in legendStages(_drawnStages))
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.only(right: 13),
@@ -76,7 +86,7 @@ class NapsCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          label,
+                          sleepStageLabel(stage).toLowerCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: HType.sans(colors.ink3, size: 9.5),
@@ -120,7 +130,7 @@ class _NapRow extends StatelessWidget {
               SizedBox(
                 width: 50,
                 child: Text(
-                  napDate(nap.date),
+                  shortDate(nap.date),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: HType.sans(colors.ink, size: 13.5, weight: FontWeight.w600),

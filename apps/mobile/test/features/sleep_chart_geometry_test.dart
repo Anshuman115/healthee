@@ -130,8 +130,12 @@ void main() {
         .where((box) => box.constraints?.maxHeight == 14)
         .toList();
     expect(segments, hasLength(4));
-    for (final label in const <String>['Deep', 'Core', 'REM', 'Awake']) {
+    // "Light", not legacy's "Core". Legacy said `Core` here and `light` in the
+    // naps legend one card down — one stage, two words, one screen — and every
+    // stage name in the app now comes from `sleepStageLabel`.
+    for (final label in const <String>['Deep', 'Light', 'REM', 'Awake']) {
       expect(find.text(label), findsOneWidget);
     }
+    expect(find.text('Core'), findsNothing);
   });
 }

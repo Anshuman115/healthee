@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
+import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_night.dart';
 import 'package:healthee/features/sleep/sleep_format.dart';
@@ -93,14 +94,10 @@ class HypnogramCard extends StatelessWidget {
 class _HypnogramLanes extends StatelessWidget {
   const _HypnogramLanes();
 
-  /// Legacy's order and legacy's words. `Core` is legacy's name for what the
-  /// server calls `light`; both resolve to one colour.
-  static const List<(String, String)> _lanes = <(String, String)>[
-    ('Awake', 'awake'),
-    ('REM', 'rem'),
-    ('Core', 'core'),
-    ('Deep', 'deep'),
-  ];
+  /// Legacy's lane order, top to bottom. The words come from `sleepStageLabel`
+  /// — legacy wrote `Core` here and `light` in the naps legend, and one stage
+  /// gets one name.
+  static const List<String> _lanes = <String>['awake', 'rem', 'core', 'deep'];
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +109,7 @@ class _HypnogramLanes extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
-          for (final (label, stage) in _lanes)
+          for (final stage in _lanes)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
@@ -127,7 +124,7 @@ class _HypnogramLanes extends StatelessWidget {
                 const SizedBox(width: 5),
                 Flexible(
                   child: Text(
-                    label,
+                    sleepStageLabel(stage),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: HType.label(colors.ink2, size: 9, tracking: 0.02),

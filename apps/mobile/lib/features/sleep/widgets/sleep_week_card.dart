@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
+import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_history.dart';
 import 'package:healthee/features/sleep/widgets/sleep_legend.dart';
@@ -60,12 +61,12 @@ class SleepWeekCard extends StatelessWidget {
           child: HStackedSleep(nights, progress: progress, height: _chartHeight),
         ),
         const SizedBox(height: 10),
-        // Legacy's `_StageLegend`, in legacy's order and words.
+        // Legacy's `_StageLegend`, in legacy's order. The words come from
+        // `sleepStageLabel` — legacy wrote `Core` here and `light` in the naps
+        // legend two cards down.
         SleepLegend(<LegendKey>[
-          LegendKey(hues.sleepStage('deep'), 'Deep'),
-          LegendKey(hues.sleepStage('core'), 'Core'),
-          LegendKey(hues.sleepStage('rem'), 'REM'),
-          LegendKey(hues.sleepStage('awake'), 'Awake'),
+          for (final stage in kSleepStages)
+            LegendKey(hues.sleepStage(stage), sleepStageLabel(stage)),
         ]),
       ],
     );

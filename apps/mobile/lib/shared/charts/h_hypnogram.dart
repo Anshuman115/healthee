@@ -6,10 +6,16 @@
 ///
 /// The lane order is the sleep-science convention (awake at the top, deep at the
 /// bottom) and the lane an unrecognised stage lands in is `light`'s — a decision
-/// inherited from the legacy `levels` map. It is worth naming rather than
-/// leaving implicit: an unrecognised code is drawn where light sleep is drawn,
-/// but in `stage_colors.dart`'s unrecognised grey, so it is visibly not a
-/// staged span.
+/// inherited from the legacy `levels` map, and kept, because the lane is
+/// geometry and geometry is the port. What is **not** kept is legacy's colour
+/// for it: an unrecognised code is drawn where light sleep is drawn, in
+/// `InstrumentHues.unstaged`'s grey, so it is visibly not a staged span.
+///
+/// That sentence used to be in this docstring while the code painted the span in
+/// light sleep's blue — the port took legacy's colour fallback and left the
+/// comment describing the rebuild's. A false claim inside the honesty layer is
+/// the worst kind, so the two agree again, and `test/theme/sleep_stage_test.dart`
+/// is what keeps them agreeing.
 library;
 
 import 'package:flutter/material.dart';

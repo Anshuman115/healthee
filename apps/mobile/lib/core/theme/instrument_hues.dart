@@ -48,11 +48,13 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
     required this.stress,
     required this.readiness,
     required this.rem,
+    required this.unstaged,
   });
 
   /// Legacy's `HColors.light` hues, verbatim.
   const InstrumentHues.light()
-    : sleep = LegacyLightHues.sleep,
+    : unstaged = LightPalette.unstaged,
+      sleep = LegacyLightHues.sleep,
       heart = LegacyLightHues.heart,
       hrv = LegacyLightHues.hrv,
       steps = LegacyLightHues.steps,
@@ -65,7 +67,8 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
 
   /// Legacy's `HColors.dark` hues, verbatim.
   const InstrumentHues.dark()
-    : sleep = LegacyDarkHues.sleep,
+    : unstaged = DarkPalette.unstaged,
+      sleep = LegacyDarkHues.sleep,
       heart = LegacyDarkHues.heart,
       hrv = LegacyDarkHues.hrv,
       steps = LegacyDarkHues.steps,
@@ -108,35 +111,50 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
   /// `cRem` — defined by legacy, drawn by no legacy screen. See `palette.dart`.
   final Color rem;
 
+  /// **Not legacy's.** The chroma-free grey an unrecognised stage code is drawn
+  /// in. See [sleepStage] and `LightPalette.unstaged`.
+  final Color unstaged;
+
   /// **The canonical sleep-stage colour. One mapping, every sleep chart.**
   ///
-  /// Ported verbatim from `HColors.sleepStage`:
+  /// Legacy's four, to the hex (`HColors.sleepStage`):
   ///
   /// ```text
-  ///   deep          → cSteps   amber
-  ///   core / light  → cSpo2    blue
-  ///   rem           → cSleep   purple
-  ///   awake         → cHeart   red
-  ///   anything else → cSpo2
+  ///   deep          → cSteps     amber
+  ///   core / light  → cSpo2      blue
+  ///   rem           → cSleep     purple
+  ///   awake         → cHeart     red
+  ///   anything else → unstaged   grey        ← NOT legacy
   /// ```
   ///
   /// `core` is the server's word for what the strap calls `light`; they are one
   /// stage under two vocabularies, so they are one colour.
   ///
-  /// **An unrecognised code falls back to `cSpo2`, i.e. it is drawn as light
-  /// sleep.** That is legacy's behaviour (`theme.dart:36` and
-  /// `instrument_charts.dart:403` both default to `cSpo2`) and it is ported
-  /// unchanged. It is worth naming as a finding: the rebuild's previous mapping
-  /// gave an unknown code a grey of its own so it was visibly not a staged span,
-  /// which is the more honest picture. Legacy is the specification, so legacy's
-  /// fallback ships and the divergence is reported rather than kept.
+  /// ## The fifth row is the one departure, and it is not a design change
+  ///
+  /// Legacy defaults an unrecognised code to `cSpo2` (`theme.dart:36` and
+  /// `instrument_charts.dart:403` both do) — **it draws a byte nobody has
+  /// decoded as light sleep.** That is not a colour choice, it is a claim: a
+  /// specific named stage, asserted about a measurement we could not read, and
+  /// indistinguishable on screen from a real one. Silently mislabelling a
+  /// measurement is the failure this app exists to prevent, so the fifth row is
+  /// a grey and [sleepStageLabel] already answers "Unrecognised" beside it.
+  ///
+  /// The four legacy rows are untouched. A screen showing only recognised stages
+  /// — which is every screen, on every payload the strap has ever sent — is
+  /// pixel-identical to legacy.
   Color sleepStage(String stage) => switch (stage) {
     'deep' => steps,
     'core' || 'light' => spo2,
     'rem' => sleep,
     'awake' => heart,
-    _ => spo2,
+    _ => unstaged,
   };
+
+  /// Whether [stage] is a code this app can name. The predicate the charts and
+  /// their legends share, so a grey band and its key cannot disagree.
+  static bool isRecognised(String stage) =>
+      const <String>{'deep', 'core', 'light', 'rem', 'awake'}.contains(stage);
 
   @override
   InstrumentHues copyWith({
@@ -150,7 +168,9 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
     Color? stress,
     Color? readiness,
     Color? rem,
+    Color? unstaged,
   }) => InstrumentHues(
+    unstaged: unstaged ?? this.unstaged,
     sleep: sleep ?? this.sleep,
     heart: heart ?? this.heart,
     hrv: hrv ?? this.hrv,
@@ -169,6 +189,7 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
       return this;
     }
     return InstrumentHues(
+      unstaged: Color.lerp(unstaged, other.unstaged, t)!,
       sleep: Color.lerp(sleep, other.sleep, t)!,
       heart: Color.lerp(heart, other.heart, t)!,
       hrv: Color.lerp(hrv, other.hrv, t)!,
@@ -188,6 +209,7 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
   List<Color> get _hues => <Color>[
     sleep, heart, hrv, steps, calories,
     respiratory, spo2, stress, readiness, rem,
+    unstaged,
   ];
 
   @override

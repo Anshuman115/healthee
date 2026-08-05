@@ -8,6 +8,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/honesty/sleep_gap.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
@@ -136,9 +137,19 @@ void main() {
       expect(clock(DateTime(2026, 8, 4, 0, 5)), '12:05a');
       expect(napRange(DateTime(2026, 8, 4, 14, 30), DateTime(2026, 8, 4, 15, 5)),
           '2:30 pm–3:05 pm');
-      expect(napDate('2026-08-04'), '4 Aug');
-      expect(shortDate('2026-08-04'), 'Aug 4');
       expect(weekdayInitials('2026-08-04'), 'Tu');
+    });
+
+    test('ONE SHORT DATE, not two orderings one card apart', () {
+      // Legacy had `_napDate` → `4 Aug` in the naps column and `_shortDate` →
+      // `Aug 4` in the odd-nights list, both on the Sleep tab. There is one
+      // function now, and it answers day-month.
+      expect(shortDate('2026-08-04'), '4 Aug');
+      expect(shortDate('2026-01-31'), '31 Jan');
+      // An unparseable date says nothing rather than leaking the raw ISO into a
+      // 50 px column — `_shortDate` echoed it back.
+      expect(shortDate('not-a-date'), '');
+      expect(shortDate(null), '');
     });
 
     test('THE 18:00 SCALE RUNS THROUGH MIDNIGHT WITHOUT WRAPPING', () {
@@ -160,15 +171,18 @@ void main() {
       expect(noSleepLastNight(end, DateTime(2026, 8, 4, 9)), isTrue);
     });
 
-    test('a stage the strap did not name is drawn where light sleep is', () {
-      // Legacy's `_normStage` default. Ported as found and reported: an
-      // unrecognised code is NOT visibly distinct from a measured one.
+    test('A STAGE THE STRAP DID NOT NAME IS NOT LAUNDERED INTO LIGHT SLEEP', () {
+      // Legacy's `_normStage` ended `return 'core'`, so an unreadable code
+      // became a named stage here, one layer BEFORE the colour mapping — fixing
+      // only `sleepStage` would have left this path turning it blue anyway.
       expect(normaliseStage('deepSleep'), 'deep');
       expect(normaliseStage('REM'), 'rem');
       expect(normaliseStage('awake'), 'awake');
       expect(normaliseStage('light'), 'core');
-      expect(normaliseStage('something-nobody-measured'), 'core');
-      expect(normaliseStage(null), 'core');
+      expect(normaliseStage('core'), 'core');
+      expect(normaliseStage('something-nobody-measured'), kUnrecognisedStage);
+      expect(normaliseStage(null), kUnrecognisedStage);
+      expect(normaliseStage(''), kUnrecognisedStage);
     });
   });
 }
