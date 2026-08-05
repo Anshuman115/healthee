@@ -2,65 +2,64 @@
 ///
 /// Engineering Standards §3: "Design tokens only — colors/typography/spacing from
 /// the theme system, no inline `Color(0xFF…)` in feature code." A rule like that
-/// needs somewhere for the hex to live, and this is it. Everything else reaches
-/// colour through [HealtheeColors] on the theme (`context.colors`), never here.
+/// needs somewhere for the hex to live, and this is it.
 ///
-/// ## Which design this is
+/// ## Which design this is — and what changed on 2026-08-05
 ///
-/// The approved app design (`Healthee.html`, owner decision 2026-08-04:
-/// *"the colors and fonts all we will keep from new"*), transcribed verbatim into
-/// `docs/APP_DESIGN_BRIEF.md` §2 and again here. Direction: **modern instrument** —
-/// a well-made measuring device, not a lifestyle magazine.
+/// **The legacy app is now the specification.** Owner decision: *"not a single
+/// change in design, every section remains as is, every tab, everything — only
+/// honesty wording as mentioned."* Three things and only three may differ from
+/// `~/projects/healthee-legacy/app/lib/ui/theme.dart`:
 ///
-/// **The app and the landing page deliberately diverge.** `apps/landing` is v5
-/// "The Ledger" — warm paper, clay accent. This is indigo on near-white and
-/// near-black. That is the owner's choice, not drift, and it settles
-/// `docs/APP_DESIGN.md` §7.1: neither option that question offered (app green,
-/// landing v3 iris) survived.
+///   1. the typeface (Manrope, `typography.dart`),
+///   2. the light/dark **scaffolding** — page, surface, ink and hairline,
+///   3. honesty wording.
 ///
-/// ## What the previous revision of this file got wrong
+/// So this file is now in two halves, and the split is the decision:
 ///
-/// It argued, carefully and at length, for v5's clay — because v5 was the only
-/// authored token set in the repo at the time. Two of its structural premises are
-/// now dead, and are named here so nobody reinstates them:
+///   * [LightPalette] / [DarkPalette] keep the **scaffolding** of the rebuild's
+///     approved design — near-white and near-black, neutral ink, alpha hairlines.
+///     Those are the paper/ink/surface/line roles the owner kept.
+///   * Every other value below is **legacy's, to the hex**: the green accent
+///     family, the verdict colours, and the ten per-metric hues in
+///     [LegacyLightHues] / [LegacyDarkHues].
 ///
-///   * **"Brand colours are identical in both themes."** True of v5, false here.
-///     [LightPalette.accent] and [DarkPalette.accent] are a PAIR, and the second
-///     is not the first re-lightened — `#5145e5` on white and `#8f87ff` on
-///     near-black were each chosen against their own background. The old
-///     `BrandPalette`, whose entire premise was theme-invariant brand colour, is
-///     gone rather than half-kept.
-///   * **A dedicated honesty HUE.** The old palette gave a withheld value a cool
-///     slate. This design spends no colour on it at all — see [LightPalette.hole].
+/// ## What was DELETED, so nobody reinstates it
 ///
-/// ## The semantic rule that governs everything below
+/// `LightTagPalette` / `DarkTagPalette` — the five-hue "identity tag" system, with
+/// its OKLCH hue-separation argument and its 40° floor against the verdicts. It is
+/// **superseded**, not refuted: legacy has ten per-metric hues and deliberately
+/// reuses two of them as verdicts, so a palette built to guarantee tags and
+/// verdicts can never be confused is a palette that cannot express legacy.
 ///
-/// Brief §2: *"Only `fav`/`unf` carry judgement; `alert` is reserved for the
-/// illness flag alone. Everything else is greyscale + accent. Never colour a card
-/// to decorate it."*
+/// ## The collision legacy makes on purpose (do not "fix" it)
 ///
-/// Three colours here are allowed to say something about the owner's body —
-/// [LightPalette.fav], [LightPalette.unf], [LightPalette.alert] — plus their
-/// tints. Every other value is structure. Reaching for one of the three to make a
-/// card look interesting is the rule broken, and it is not a rule about taste:
-/// in this app a colour is a claim.
+/// Legacy's green is **HRV, readiness AND "improving"**; its red-orange is
+/// **heart, cardio load AND "degrading"**. `insights_screen.dart:171` is literally
+/// `improving ? c.green : c.cHeart`. Identity and judgement therefore share hues
+/// here **by decision**. That is legacy's language and it is what ships.
 library;
 
 import 'package:flutter/material.dart';
 
-/// The approved design — light. The default theme (brief §2).
+/// The scaffolding, light — page, surface, ink, hairline. Kept from the rebuild.
+///
+/// The accent and verdict values below are legacy's; see [LegacyLightHues].
 abstract final class LightPalette {
-  /// Page background, behind every surface.
+  /// Page background, behind every surface. Legacy's `paper`, this theme's value.
   static const Color bg = Color(0xFFF4F4F6);
 
-  /// Cards and sheets.
+  /// Cards and sheets. Legacy's `paper2`, this theme's value.
   static const Color surface = Color(0xFFFFFFFF);
 
   /// A recessed or secondary surface inside a card.
+  ///
+  /// Also the fill of a loading skeleton. Legacy had a fourth paper tone
+  /// (`sunken`) for that; the kept scaffolding is a three-tone set, so the
+  /// skeletons use this role rather than a colour nobody approved.
   static const Color surface2 = Color(0xFFFAFAFB);
 
-  /// App frame — top bar and tab bar. The same value as [surface] in this theme
-  /// but a separate role: the frame is not a card, and dark mode may part them.
+  /// App frame — top bar and tab bar.
   static const Color chrome = Color(0xFFFFFFFF);
 
   /// Primary text and hero figures.
@@ -69,53 +68,71 @@ abstract final class LightPalette {
   /// Secondary text — the sentence under a number.
   static const Color ink2 = Color(0xFF56565F);
 
-  /// Tertiary text — labels, units, captions, and a signal sitting at baseline.
+  /// Tertiary text — labels, units, captions.
   static const Color ink3 = Color(0xFF6D6D7C);
 
-  /// Hairline dividers and card borders.
+  /// Card borders and the stronger rule. **Legacy's `line2`** by role.
   static const Color line = Color.fromRGBO(18, 18, 23, 0.10);
 
-  /// The lighter hairline — rows inside a list, the rule under the app bar.
+  /// The quieter hairline — rows inside a list. **Legacy's `line`** by role.
+  ///
+  /// The names are inverted between the two systems and it matters: legacy's
+  /// `line2` is the STRONGER of its pair and is what `HModule` draws its border
+  /// with. A port that matched on name would draw every card edge at 6%.
   static const Color line2 = Color.fromRGBO(18, 18, 23, 0.06);
 
-  /// The one accent. Actions, links, the owner's own data line.
-  static const Color accent = Color(0xFF5145E5);
+  /// The one accent — **legacy's forest green**, `HColors.light.green`.
+  static const Color accent = Color(0xFF1F6F54);
 
-  /// The accent under pressure — pressed, hovered, the stronger of the pair.
-  static const Color accent2 = Color(0xFF3F34C9);
+  /// The accent under pressure — legacy's `greenDeep`.
+  static const Color accent2 = Color(0xFF154D3A);
 
-  /// A wash of the accent, as a fill behind accent content.
-  static const Color accentSoft = Color.fromRGBO(81, 69, 229, 0.09);
+  /// A wash of the accent — legacy's `greenSoft`. Opaque in legacy, kept opaque.
+  static const Color accentSoft = Color(0xFFE2EBE3);
 
-  /// Text and icons sitting ON [accent]. White here — measured at 6.30:1.
+  /// Text and icons sitting ON [accent] — legacy's `onGreen`.
   ///
-  /// Not a new colour: it is [surface]. See [DarkPalette.onAccent] for why this
-  /// role exists at all rather than being a hardcoded white in both themes.
-  static const Color onAccent = surface;
+  /// **One value in both themes, which is legacy's own choice and is ported
+  /// unchanged.** It measures 5.68:1 on this theme's green and **2.14:1** on the
+  /// dark theme's — below WCAG AA and below the 3:1 large-text floor. Flagged for
+  /// the owner rather than corrected in the diff, because the brief is explicit
+  /// that a faithful port of something imperfect beats an unrequested fix.
+  static const Color onAccent = Color(0xFFFBF7EF);
 
-  /// Favourable — this reading sits better than the owner's own normal.
-  static const Color fav = Color(0xFF1A7F57);
+  /// **Judgement — favourable.** Legacy's green, the same value as [accent] and
+  /// as [LegacyLightHues.hrv]. See the library docstring: legacy shares them.
+  static const Color fav = accent;
 
-  /// [fav] as a fill.
-  static const Color favSoft = Color.fromRGBO(26, 127, 87, 0.10);
+  /// [fav] as a fill — legacy's `greenSoft`.
+  static const Color favSoft = accentSoft;
 
-  /// Unfavourable — this reading sits worse than the owner's own normal.
-  static const Color unf = Color(0xFFA4680B);
+  /// **Judgement — the middle band.** Legacy's warn amber.
+  ///
+  /// Legacy never put this in `HColors`; it is an inline `const Color(0xFFE0A33E)`
+  /// at `today_screen.dart:19`, `profile_screen.dart:307` and
+  /// `sleep_screen.dart:804` — the same literal, one value, used in both themes.
+  /// Ported as legacy has it: one value, both themes.
+  static const Color unf = Color(0xFFE0A33E);
 
-  /// [unf] as a fill.
-  static const Color unfSoft = Color.fromRGBO(164, 104, 11, 0.10);
+  /// [unf] as a fill, at the 0.16 alpha legacy uses for a tinted verdict chip
+  /// (`challenge_celebration.dart:77`, `insights_screen.dart:572`).
+  static const Color unfSoft = Color.fromRGBO(224, 163, 62, 0.16);
 
-  /// The illness flag, and nothing else.
-  static const Color alert = Color(0xFFB8352A);
+  /// **Judgement — unfavourable, and the illness flag.** Legacy's `cHeart`.
+  ///
+  /// The same value as [LegacyLightHues.heart]. Legacy has no separate red.
+  static const Color alert = Color(0xFFBF472E);
 
-  /// [alert] as a fill.
-  static const Color alertSoft = Color.fromRGBO(184, 53, 42, 0.08);
+  /// [alert] as a fill, at legacy's 0.16.
+  static const Color alertSoft = Color.fromRGBO(191, 71, 46, 0.16);
 
   /// The number-shaped absence — a very low-alpha fill, not a text colour.
+  ///
+  /// Scaffolding, and part of the honesty layer: a refusal spends no hue.
   static const Color hole = Color.fromRGBO(18, 18, 23, 0.045);
 }
 
-/// The approved design — dark. Authored, never derived by inverting light.
+/// The scaffolding, dark. Authored, never derived by inverting light.
 abstract final class DarkPalette {
   /// Page background, behind every surface.
   static const Color bg = Color(0xFF0A0A0E);
@@ -123,7 +140,7 @@ abstract final class DarkPalette {
   /// Cards and sheets.
   static const Color surface = Color(0xFF141419);
 
-  /// A recessed or secondary surface inside a card.
+  /// A recessed or secondary surface inside a card, and a skeleton's fill.
   static const Color surface2 = Color(0xFF1A1A21);
 
   /// App frame — top bar and tab bar.
@@ -135,183 +152,132 @@ abstract final class DarkPalette {
   /// Secondary text — the sentence under a number.
   static const Color ink2 = Color(0xFFA2A2B0);
 
-  /// Tertiary text — labels, units, captions, and a signal sitting at baseline.
+  /// Tertiary text — labels, units, captions.
   static const Color ink3 = Color(0xFF8D8D99);
 
-  /// Hairline dividers and card borders.
+  /// Card borders and the stronger rule. Legacy's `line2` by role.
   static const Color line = Color.fromRGBO(255, 255, 255, 0.10);
 
-  /// The lighter hairline — rows inside a list, the rule under the app bar.
+  /// The quieter hairline. Legacy's `line` by role — see [LightPalette.line2].
   static const Color line2 = Color.fromRGBO(255, 255, 255, 0.055);
 
-  /// The one accent. Lighter than its light-mode partner, not a tint of it.
-  static const Color accent = Color(0xFF8F87FF);
+  /// The one accent — **legacy's dark green**, `HColors.dark.green`.
+  static const Color accent = Color(0xFF4BBF93);
 
-  /// The accent under pressure — pressed, hovered, the stronger of the pair.
-  static const Color accent2 = Color(0xFFA9A2FF);
+  /// The accent under pressure — legacy's `greenDeep`.
+  static const Color accent2 = Color(0xFF2F8F6C);
 
-  /// A wash of the accent, as a fill behind accent content.
-  static const Color accentSoft = Color.fromRGBO(143, 135, 255, 0.14);
+  /// A wash of the accent — legacy's `greenSoft`.
+  static const Color accentSoft = Color(0xFF1E3329);
 
-  /// Text and icons sitting ON [accent] — the page background, not white.
+  /// Text on [accent] — legacy's `onGreen`, the SAME value as the light theme's.
   ///
-  /// ## The one place this implementation departs from `Healthee.html`
-  ///
-  /// The design hardcodes `color:#fff` on an accent-filled surface (the coach's
-  /// own message bubble). Against the light theme's `#5145e5` that measures
-  /// **6.30:1** and is right. Against this theme's `#8f87ff` it measures
-  /// **2.97:1** — below WCAG AA for normal text (4.5:1) and below even the 3:1
-  /// large-text floor. The same white is doing two different jobs because the
-  /// prototype had one literal where the token set has a pair.
-  ///
-  /// [bg] on that accent measures **6.66:1**. So the departure is a role
-  /// assignment, not a new colour — both values were already approved, and the
-  /// alternative is shipping text nobody with ordinary eyesight reads comfortably
-  /// in the theme this product defaults to at night. Flagged for the owner.
-  static const Color onAccent = bg;
+  /// 2.14:1 here. See [LightPalette.onAccent] for why it ships anyway.
+  static const Color onAccent = LightPalette.onAccent;
 
-  /// Favourable — this reading sits better than the owner's own normal.
-  static const Color fav = Color(0xFF4FC691);
+  /// **Judgement — favourable.** Legacy's green, shared with [accent].
+  static const Color fav = accent;
 
-  /// [fav] as a fill.
-  static const Color favSoft = Color.fromRGBO(79, 198, 145, 0.14);
+  /// [fav] as a fill — legacy's `greenSoft`.
+  static const Color favSoft = accentSoft;
 
-  /// Unfavourable — this reading sits worse than the owner's own normal.
-  static const Color unf = Color(0xFFDFA550);
+  /// **Judgement — the middle band.** Legacy's warn amber, one value in both
+  /// themes because legacy wrote one literal. See [LightPalette.unf].
+  static const Color unf = LightPalette.unf;
 
-  /// [unf] as a fill.
-  static const Color unfSoft = Color.fromRGBO(223, 165, 80, 0.14);
+  /// [unf] as a fill, at legacy's 0.16.
+  static const Color unfSoft = LightPalette.unfSoft;
 
-  /// The illness flag, and nothing else.
-  static const Color alert = Color(0xFFFF7466);
+  /// **Judgement — unfavourable, and the illness flag.** Legacy's `cHeart`.
+  static const Color alert = Color(0xFFE07A5F);
 
-  /// [alert] as a fill.
-  static const Color alertSoft = Color.fromRGBO(255, 116, 102, 0.12);
+  /// [alert] as a fill, at legacy's 0.16.
+  static const Color alertSoft = Color.fromRGBO(224, 122, 95, 0.16);
 
-  /// The number-shaped absence — a very low-alpha fill, not a text colour.
+  /// The number-shaped absence.
   static const Color hole = Color.fromRGBO(255, 255, 255, 0.05);
 }
 
-/// The five **identity tags** — the one deliberate extension to the design above.
+/// **Legacy's ten per-metric hues, light — transcribed from
+/// `healthee-legacy/app/lib/ui/theme.dart`, `HColors.light`.**
 ///
-/// ## Why the palette grew at all
+/// Every value here is legacy's to the hex. The field names drop legacy's `c`
+/// prefix (`cSleep` → [sleep]) because the prefix meant "this is a metric colour"
+/// in a class that also held paper and ink, and this class holds nothing else.
 ///
-/// The legacy Today screen (`design_reference/project/hh/screen_today.jsx`) is a
-/// grid of instrument modules, each carrying a coloured dot and a chart tinted to
-/// match: sleep purple, heart red-orange, HRV green, steps amber, energy orange,
-/// respiratory teal, SpO₂ blue, stress rose. That per-metric colour IS the legacy
-/// design language, and the owner asked for that language. This palette had no
-/// per-metric family, and `tokens.dart` says why: *"in this app a colour is a
-/// claim."*
-///
-/// Two things forced a decision rather than a straight refusal:
-///
-///   * **A hypnogram needs more than one hue.** `stage_colors.dart` used to draw
-///     all four sleep stages as one accent at 100%/55%/30% alpha. Three tints of
-///     indigo in a chart 30 px tall is unreadable, which makes the picture of the
-///     night a decoration rather than a reading.
-///   * **A grid of seven modules tinted one colour is not the legacy screen.**
-///     The tint ties a card's dot to its sparkline; drop it and the grid loses the
-///     thing that makes it scannable.
-///
-/// ## What makes these NOT judgement colours
-///
-/// A verdict must be able to change — "worse than your normal" is a claim that is
-/// true some days and false others. **A tag never changes.** It is a constant of
-/// the metric, fixed at compile time in `metric_hues.dart`, and there is no API
-/// anywhere that derives a tag from a value. A colour that cannot vary cannot
-/// encode a verdict, and a reader who watches the screen for two days sees the
-/// dots stay put while `fav`/`unf`/`alert` move.
-///
-/// That structural argument is backed by a chromatic one: the tags are
-/// **hue-disjoint from every judgement colour**. Measured in OKLCH, the closest
-/// approach in either theme is **42.7°** (body vs [DarkPalette.fav]); the floor
-/// `metric_hues_test.dart` enforces is 40°. Nothing here is within reach of the
-/// product's green, amber or red, so a tag cannot be mistaken for one at a glance.
-///
-/// ## Why five, and why the wheel allows exactly five
-///
-/// Legacy had eight hues. Eight cannot be had honestly here. Excluding everything
-/// within 40° of `fav` (161°), `unf` (69°) and `alert` (29°) leaves two runs of
-/// usable wheel, measured rather than estimated:
-///
-/// ```text
-///   light   [110°, 121°]   [202°, 348°]
-///   dark    [115°, 121°]   [202°, 347°]
-/// ```
-///
-/// **The narrow run is rejected**, though it clears the 40° floor. Its only
-/// candidate hue is an olive around 118°, and it is the one place on the wheel
-/// with a judgement colour on *both* sides — amber below, green above. Every other
-/// tag can be misread in at most one direction; that one can be misread in two.
-///
-/// The wide run is 145–146°. Five hues inside it sit **34.6° apart at the worst
-/// pair**, which is what the 6 px dot and the 2 px sparkline can actually carry;
-/// eight would have been 21° and invisible. Six would be 29° and were not
-/// attempted. The hues are 204 · 239 · 274 · 310 · 345, laid out to leave 43° of
-/// clearance at each end of the run rather than crowding the verdicts.
-///
-/// ## Lightness is equalised; chroma is whatever the gamut allows
-///
-/// Every tag sits at **one lightness** — L 0.540 here, 0.685 dark, uniform to
-/// 0.002 — precisely so none reads as ranked above another. That is the axis the
-/// eye reads as "more" and it is the one held flat.
-///
-/// Chroma is not equal and cannot be: sRGB simply has less cyan than it has violet
-/// at a fixed lightness ([body] tops out at C 0.088 where [move] reaches 0.160).
-/// The spread is capped at 0.160 so the difference stays 1.8× rather than the 2.4×
-/// the previous three-tag set carried. Each tag clears **4.4:1** against both the
-/// card and the page.
-///
-/// ## [rest] no longer aliases the accent, and that was forced by measurement
-///
-/// The three-tag set made `rest` [LightPalette.accent] itself, to spend fewer
-/// literals. With five that stops working: the accent's own hue differs by 6.2°
-/// between the themes (277.7° light, 283.9° dark), and pinning a tag to it drags
-/// the dark set down to **31.5°** at the worst pair — under what a dot can carry.
-/// Freeing it buys 34.7° in both themes.
-///
-/// It also buys something the brief asked for outright: the readiness gauge wears
-/// [rest], and while `rest` *was* the accent that gauge was drawn in the same
-/// colour as every link and button on the screen. It is now a blue of its own.
-abstract final class LightTagPalette {
-  /// Breathing, blood oxygen, skin temperature. OKLCH L 0.540 · C 0.088 · H 204°.
-  static const Color body = Color(0xFF137D86);
+/// **Two of these ARE verdict colours.** [hrv] and [readiness] are the same value
+/// as [LightPalette.accent] and [LightPalette.fav]; [heart] is
+/// [LightPalette.alert]. Legacy shares them deliberately — see the library
+/// docstring. The duplication is written out rather than aliased so that a reader
+/// diffing this file against legacy's `HColors.light` sees the same ten lines in
+/// the same order.
+abstract final class LegacyLightHues {
+  /// `cSleep` — sleep, sleep debt, the sleep gauge. Muted indigo.
+  static const Color sleep = Color(0xFF5B5483);
 
-  /// Sleep, HRV, readiness — what the body does at rest.
-  /// OKLCH L 0.540 · C 0.118 · H 239°.
-  static const Color rest = Color(0xFF0E76AB);
+  /// `cHeart` — heart rate, resting HR, cardio load. Also the "degrading"
+  /// verdict and the illness flag ([LightPalette.alert]).
+  static const Color heart = Color(0xFFBF472E);
 
-  /// Steps, distance, active minutes, cardio load.
-  /// OKLCH L 0.540 · C 0.160 · H 274°.
-  static const Color move = Color(0xFF5462CA);
+  /// `cHrv` — HRV. **Identical to the green accent**, in legacy and here.
+  static const Color hrv = Color(0xFF1F6F54);
 
-  /// Calories, in every form. OKLCH L 0.540 · C 0.160 · H 310°.
-  static const Color energy = Color(0xFF8B4EB3);
+  /// `cSteps` — steps and distance. Also **deep sleep** on every sleep chart.
+  static const Color steps = Color(0xFFB27F2C);
 
-  /// Heart rate, resting heart rate, stress. OKLCH L 0.540 · C 0.161 · H 345°.
-  static const Color heart = Color(0xFFAB3F84);
+  /// `cCal` — calories, and legacy's stress card.
+  static const Color calories = Color(0xFFCE6131);
+
+  /// `cResp` — respiratory rate, and legacy's overnight blood-oxygen card.
+  static const Color respiratory = Color(0xFF3C7A84);
+
+  /// `cSpo2` — **light/core sleep** on every sleep chart, and zone 1. Legacy's
+  /// SpO₂ vitals row on the sleep screen also uses it.
+  static const Color spo2 = Color(0xFF587A97);
+
+  /// `cStress` — skin temperature on legacy's sleep screen. Despite the name,
+  /// legacy's stress card wears [calories].
+  static const Color stress = Color(0xFFA55F6D);
+
+  /// `cReady` — VO₂max, biological age, regularity, training load. **Identical
+  /// to the green accent**, in legacy and here.
+  static const Color readiness = Color(0xFF1F6F54);
+
+  /// `cRem` — defined by legacy and **used by no legacy screen**; REM sleep is
+  /// drawn in [sleep]. Ported because the hue set is ported whole.
+  static const Color rem = Color(0xFF8A7FB8);
 }
 
-/// The identity tags, dark. Authored against `#141419`, not lightened from light.
-///
-/// See [LightTagPalette] for the whole argument. The lightnesses here are the
-/// dark theme's own (OKLCH L 0.685, uniform to 0.002), and both floors hold:
-/// 42.7° to the nearest verdict, 34.7° between the closest pair of tags.
-abstract final class DarkTagPalette {
-  /// Breathing, blood oxygen, skin temperature. OKLCH L 0.686 · C 0.113 · H 204°.
-  static const Color body = Color(0xFF1AAEBA);
+/// **Legacy's ten per-metric hues, dark — `HColors.dark`.** See
+/// [LegacyLightHues] for what each one is for; the roles are identical.
+abstract final class LegacyDarkHues {
+  /// `cSleep`.
+  static const Color sleep = Color(0xFF968EC9);
 
-  /// Sleep, HRV, readiness. OKLCH L 0.684 · C 0.151 · H 239°.
-  static const Color rest = Color(0xFF14A4EC);
+  /// `cHeart` — also [DarkPalette.alert].
+  static const Color heart = Color(0xFFE07A5F);
 
-  /// Steps, distance, active minutes, cardio load.
-  /// OKLCH L 0.684 · C 0.160 · H 274°.
-  static const Color move = Color(0xFF7C8FFB);
+  /// `cHrv` — identical to [DarkPalette.accent].
+  static const Color hrv = Color(0xFF4BBF93);
 
-  /// Calories, in every form. OKLCH L 0.685 · C 0.161 · H 310°.
-  static const Color energy = Color(0xFFB87AE3);
+  /// `cSteps` — also deep sleep.
+  static const Color steps = Color(0xFFD9A84E);
 
-  /// Heart rate, resting heart rate, stress. OKLCH L 0.685 · C 0.161 · H 345°.
-  static const Color heart = Color(0xFFDD6CB0);
+  /// `cCal`.
+  static const Color calories = Color(0xFFE8835A);
+
+  /// `cResp`.
+  static const Color respiratory = Color(0xFF5FA9B4);
+
+  /// `cSpo2` — also light/core sleep.
+  static const Color spo2 = Color(0xFF7DA3C4);
+
+  /// `cStress`.
+  static const Color stress = Color(0xFFC98A96);
+
+  /// `cReady` — identical to [DarkPalette.accent].
+  static const Color readiness = Color(0xFF4BBF93);
+
+  /// `cRem` — unused by legacy's screens. See [LegacyLightHues.rem].
+  static const Color rem = Color(0xFFB3A9E0);
 }

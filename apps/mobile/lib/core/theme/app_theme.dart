@@ -11,23 +11,24 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/typography.dart';
 
 /// The app's light and dark themes.
 abstract final class AppTheme {
-  /// The approved design, light. The default (brief §2).
+  /// Light — the default.
   static ThemeData get light =>
-      _build(const HealtheeColors.light(), const MetricHues.light(), Brightness.light);
+      _build(const HealtheeColors.light(), const InstrumentHues.light(), Brightness.light);
 
-  /// The approved design, dark.
+  /// Dark.
   static ThemeData get dark =>
-      _build(const HealtheeColors.dark(), const MetricHues.dark(), Brightness.dark);
+      _build(const HealtheeColors.dark(), const InstrumentHues.dark(), Brightness.dark);
 
   static ThemeData _build(
     HealtheeColors colors,
-    MetricHues hues,
+    InstrumentHues hues,
     Brightness brightness,
   ) {
     final text = healtheeTextTheme(ink: colors.ink, ink2: colors.ink2, ink3: colors.ink3);
@@ -35,7 +36,8 @@ abstract final class AppTheme {
       brightness: brightness,
       useMaterial3: true,
       // Two extensions, deliberately not one: `colors` is structure and
-      // judgement, `hues` is identity. See metric_hues.dart.
+      // judgement, `hues` is identity. See instrument_hues.dart — and note that
+      // legacy makes two of the hues BE verdicts, by decision.
       extensions: <ThemeExtension<Object?>>[colors, hues],
       scaffoldBackgroundColor: colors.bg,
       canvasColor: colors.bg,
@@ -73,13 +75,12 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: colors.surface,
-        // "almost no shadow — depth from spacing and contrast" (brief §2).
+        // Legacy's modules carry no shadow at all; depth is the hairline.
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: colors.line, width: hairline),
-          borderRadius: BorderRadius.circular(Radii.card),
-        ),
+        // The continuous-corner squircle legacy draws every card with, not a
+        // circular-arc rounded rectangle. See shapes.dart.
+        shape: hSquircle(Radii.card, side: BorderSide(color: colors.line, width: hairline)),
       ),
       appBarTheme: AppBarTheme(
         // `chrome`, not `bg` — the app frame is its own surface in this design,
