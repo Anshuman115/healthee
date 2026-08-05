@@ -27,15 +27,35 @@
 /// An id with no entry keeps its id (see [noteName]), which is the same stance
 /// `metric_names.dart` takes and is now a corpus-ahead-of-app condition rather
 /// than a routine one.
+///
+/// ## Aliases are here because the SERVER cites them
+///
+/// `/api/today` does not only send note ids. `read/activity.py` cites
+/// `cardio_load_trimp` and `read/vo2max.py` cites `vo2max_fitness_mortality`,
+/// and neither is a note id — both are **aliases**, of `training_stress_score`
+/// and `vo2max` respectively. An ids-only table left those two chips reading as
+/// raw snake_case on the Activity screen, which is the defect this file exists
+/// to fix, so [kNoteAliases] resolves them.
+///
+/// Only aliases **shaped like an id** are here (`^[a-z0-9_]+$`) — those are the
+/// only ones that can arrive in a `research_notes` array — and any alias claimed
+/// by two or more notes is dropped rather than guessed at. `methodology` belongs
+/// to seven notes; naming one of them would be picking a source for the reader.
 library;
 
-/// The readable source name for [noteId], or null when this build has never
-/// heard of it.
+/// The readable source name for [cited], or null when this build cannot resolve
+/// it to a note.
 ///
-/// Null rather than a manufactured phrase: an app older than the corpus should
-/// show the id and be visibly behind, not invent a title for a note it does not
-/// have. `CitationRow` renders the id in that case and logs it.
-String? noteName(String noteId) => kNoteNames[noteId];
+/// [cited] is whatever the payload carried: a note id, or one of the aliases the
+/// server's read layer cites. Null rather than a manufactured phrase — an app
+/// older than the corpus should show the id and be visibly behind, not invent a
+/// title for a note it does not have. `CitationRow` renders the id then, and
+/// logs it.
+String? noteName(String cited) => kNoteNames[canonicalNoteId(cited)];
+
+/// The note id [cited] refers to — itself, or the note it is an alias of.
+String canonicalNoteId(String cited) =>
+    kNoteNames.containsKey(cited) ? cited : (kNoteAliases[cited] ?? cited);
 
 /// Every note in the corpus, id → the corpus's own name.
 const Map<String, String> kNoteNames = <String, String>{
@@ -117,4 +137,145 @@ const Map<String, String> kNoteNames = <String, String>{
   'wearable_spo2_validity': 'Wearable SpO2 — validity & limits',
   'wearable_stress_validity': 'Wearable stress scores — validity & limits',
   'weight_bmi_body_composition': 'Body weight, BMI, and body composition',
+};
+
+/// Id-shaped aliases the corpus declares, → the note they belong to.
+///
+/// See the library docstring: the server cites some of these directly. Ambiguous
+/// aliases are omitted, so a lookup here is never a guess.
+const Map<String, String> kNoteAliases = <String, String>{
+  '8x8': 'hydration_8x8_rule',
+  'acclimatization': 'environmental_stress',
+  'acwr': 'training_load_acwr',
+  'adiposity': 'weight_bmi_body_composition',
+  'alcohol': 'alcohol_sleep',
+  'amenorrhea': 'menstrual_cycle_and_training',
+  'apmhr': 'maximum_heart_rate',
+  'atl': 'fitness_fatigue_form',
+  'autonomic': 'respiratory_rate_normal',
+  'autoregulation': 'recovery_readiness',
+  'bedtime': 'sleep_timing_chronotype',
+  'biological_age': 'biological_age_estimate',
+  'biomechanics': 'running_form_metrics',
+  'bmi': 'weight_bmi_body_composition',
+  'bonking': 'fueling_and_hydration',
+  'breathwork': 'slow_breathing_hrv_acute',
+  'caffeine': 'caffeine_sleep',
+  'cardio_load_trimp': 'training_stress_score',
+  'chronotype': 'sleep_timing_chronotype',
+  'coffee': 'caffeine_sleep',
+  'composite': 'biological_age_estimate',
+  'ctl': 'fitness_fatigue_form',
+  'decoupling': 'aerobic_decoupling',
+  'dehydrated': 'hydration_everyday',
+  'dehydration': 'hydration_everyday',
+  'deload': 'progressive_overload',
+  'detraining': 'specificity_and_recovery',
+  'drinking': 'alcohol_sleep',
+  'dysmenorrhea': 'menstrual_cycle_and_training',
+  'electrolytes': 'fueling_and_hydration',
+  'estrogen': 'menstrual_cycle_and_training',
+  'euhydration': 'fueling_and_hydration',
+  'fasting': 'fasting_metrics',
+  'fluids': 'hydration_everyday',
+  'form': 'fitness_fatigue_form',
+  'freshness': 'fitness_fatigue_form',
+  'gels': 'fueling_and_hydration',
+  'glycogen': 'fueling_and_hydration',
+  'guardrails': 'llm_health_advice_safety',
+  'hr': 'wearable_hr_validity',
+  'hr_zone_minutes': 'heart_rate_zones',
+  'hrr': 'heart_rate_zones',
+  'hrtss': 'training_stress_score',
+  'hrv_improvement': 'heart_rate_variability',
+  'hrv_recovery_marker': 'heart_rate_variability',
+  'hrv_rmssd_ms': 'heart_rate_variability',
+  'hrv_sleep_avg_ms': 'heart_rate_variability',
+  'humidity': 'environmental_stress',
+  'hunt3': 'non_exercise_vo2max',
+  'hydrated': 'hydration_everyday',
+  'hydration': 'hydration_everyday',
+  'hyponatremia': 'fueling_and_hydration',
+  'hypoxia': 'environmental_stress',
+  'illness': 'illness_flag_plan',
+  'illness_flag': 'illness_flag_plan',
+  'jurca': 'non_exercise_vo2max',
+  'karvonen': 'heart_rate_zones',
+  'longevity': 'biological_age_estimate',
+  'lthr': 'heart_rate_zones',
+  'macrocycle': 'periodization',
+  'meditation': 'mindfulness_anxiety_depression',
+  'melatonin': 'morning_light_circadian',
+  'mental_health': 'mindfulness_anxiety_depression',
+  'mesocycle': 'periodization',
+  'mhr': 'maximum_heart_rate',
+  'microcycle': 'periodization',
+  'mindfulness': 'mindfulness_anxiety_depression',
+  'motivational': 'biological_age_estimate',
+  'mvpa': 'mvpa_minutes_mortality',
+  'nap': 'napping',
+  'naps': 'napping',
+  'nightcap': 'alcohol_sleep',
+  'oestrogen': 'menstrual_cycle_and_training',
+  'overload': 'progressive_overload',
+  'overstride': 'stride_length',
+  'overstriding': 'stride_length',
+  'ovulation': 'menstrual_cycle_and_training',
+  'peaking': 'periodization',
+  'period': 'menstrual_cycle_and_training',
+  'periodisation': 'periodization',
+  'photoplethysmography': 'wearable_hr_validity',
+  'plyometrics': 'strength_training_for_runners',
+  'plyos': 'strength_training_for_runners',
+  'pmc': 'fitness_fatigue_form',
+  'polysomnography': 'wearable_sleep_stage_validity',
+  'ppg': 'wearable_hr_validity',
+  'progesterone': 'menstrual_cycle_and_training',
+  'psg': 'wearable_sleep_stage_validity',
+  'readiness': 'recovery_readiness',
+  'respiration': 'respiratory_rate_normal',
+  'respiratory_rate': 'respiratory_rate_normal',
+  'responders': 'individualization',
+  'rest': 'sleep_and_recovery',
+  'resting_hr_health_marker': 'resting_heart_rate',
+  'riegel': 'race_prediction',
+  'rtss': 'training_stress_score',
+  'sauna': 'sauna_cv_benefits',
+  'scale': 'weight_bmi_body_composition',
+  'siesta': 'napping',
+  'skin_temp_c': 'skin_temp_signals',
+  'sleep': 'sleep_and_recovery',
+  'sleep_duration': 'sleep_duration_mortality',
+  'sleep_stage': 'wearable_sleep_stage_validity',
+  'sodium': 'fueling_and_hydration',
+  'spo2': 'wearable_spo2_validity',
+  'srpe': 'training_stress_score',
+  'strain': 'training_stress_score',
+  'stress': 'wearable_stress_validity',
+  'stride': 'stride_length',
+  'sunlight': 'morning_light_circadian',
+  'taper': 'periodization',
+  'tapering': 'periodization',
+  'temp': 'skin_temp_signals',
+  'temperature': 'skin_temp_signals',
+  'thirst': 'hydration_everyday',
+  'trainability': 'individualization',
+  'trimp': 'training_stress_score',
+  'tsb': 'fitness_fatigue_form',
+  'tss': 'training_stress_score',
+  'turnover': 'cadence',
+  'vagal_tone': 'slow_breathing_hrv_acute',
+  'vdot': 'race_prediction',
+  'vilpa': 'mvpa_minutes_mortality',
+  'vo2max_estimate_plan': 'non_exercise_vo2max',
+  'vo2max_fitness_mortality': 'vo2max',
+  'vo2max_reserve': 'hr_reserve_vo2max',
+  'vo2max_submax': 'submaximal_vo2max',
+  'vo2max_training_program': 'vo2max',
+  'vo2peak': 'vo2max',
+  'water': 'hydration_everyday',
+  'wearable_stress_scores': 'wearable_stress_validity',
+  'weighing': 'weight_bmi_body_composition',
+  'weight': 'weight_bmi_body_composition',
+  'weights': 'strength_training_for_runners',
 };
