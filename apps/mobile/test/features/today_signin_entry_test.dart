@@ -128,13 +128,22 @@ void main() {
     testWidgets('a signed-out phone is invited, and keeps every measurement', (
       tester,
     ) async {
-      await tester.pumpWidget(todayHost(store, signedIn: false));
+      // Signed out AND unreachable, which is the real pair: a phone with no
+      // session gets no payload. Legacy's Today is entirely server-backed, so
+      // this is the state where the measured half has to carry the screen on
+      // its own — see `_measuredOnly` in `today_sections.dart`.
+      tester.view
+        ..physicalSize = const Size(420, 3000)
+        ..devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        todayHost(store, signedIn: false, serverUnreachable: true),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Sign in to your server'), findsOneWidget);
       // Not a wall: the strap's own numbers are on the same screen. The daily
       // step counter is the phone's own reading and needs no server at all.
-      await reveal(tester, find.text('9,264'));
       expect(find.text('9,264'), findsWidgets);
     });
 

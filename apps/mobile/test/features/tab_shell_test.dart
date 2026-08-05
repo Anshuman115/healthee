@@ -47,11 +47,6 @@ double _todayOffset(WidgetTester tester) {
   return tester.state<ScrollableState>(scrollable.first).position.pixels;
 }
 
-Future<void> _tap(WidgetTester tester, String label) async {
-  await tester.tap(find.text(label));
-  await tester.pumpAndSettle();
-}
-
 /// Every live `RevealOnce` state object on the Today branch, in tree order.
 List<State<RevealOnce>> _revealStates(WidgetTester tester) {
   final reveals = find.descendant(
@@ -79,13 +74,13 @@ void main() {
     final scrolled = _todayOffset(tester);
     expect(scrolled, greaterThan(0), reason: 'the drag has to have moved it');
 
-    await _tap(tester, 'Sleep');
+    await tapTab(tester, 'Sleep');
     expect(
       find.byType(SleepScreen),
       findsOneWidget,
       reason: 'the bar has to actually navigate',
     );
-    await _tap(tester, 'Today');
+    await tapTab(tester, 'Today');
 
     expect(
       _todayOffset(tester),
@@ -112,8 +107,8 @@ void main() {
     final before = _revealStates(tester);
     expect(before, isNotEmpty, reason: 'Today opens on charts');
 
-    await _tap(tester, 'Sleep');
-    await _tap(tester, 'Today');
+    await tapTab(tester, 'Sleep');
+    await tapTab(tester, 'Today');
 
     // Identity, not "is anything animating". `RevealOnce` asks the registry
     // exactly once, in `initState` — so the same `State` objects coming back is

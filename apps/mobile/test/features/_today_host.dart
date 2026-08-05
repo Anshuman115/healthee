@@ -27,6 +27,7 @@ import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/settings/app_version.dart';
 import 'package:healthee/features/today/today_screen.dart';
+import 'package:healthee/shared/app_tab_bar.dart';
 
 import '../_today_stubs.dart';
 import '../store/strap_store_test.dart' show nightOn, resultWith;
@@ -180,4 +181,18 @@ Future<void> seedDevice(LocalStore store) async {
 /// most of Today is not built until it is needed — which is the point of it.
 Future<void> reveal(WidgetTester tester, Finder finder) =>
     tester.scrollUntilVisible(finder, 400);
+
+/// Taps the tab named [label], **scoped to the bar**.
+///
+/// `find.text('Sleep')` used to be unique while Today was drawing one screen of
+/// index cards. It is not since the legacy port: the recovery card has a factor
+/// row called "Sleep" and the signal ladder a marker called "Sleep duration".
+/// The bar is the only place any of those words is a control, so that is where a
+/// test taps.
+Future<void> tapTab(WidgetTester tester, String label) async {
+  await tester.tap(
+    find.descendant(of: find.byType(AppTabBar), matching: find.text(label)),
+  );
+  await tester.pumpAndSettle();
+}
 

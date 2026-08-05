@@ -21,6 +21,7 @@
 ///     the hole.
 library;
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/data/store/local_store.dart';
@@ -192,6 +193,11 @@ void main() {
       tester,
     ) async {
       await seedDevice(store);
+      // Tall enough that the fallback row below the failure card is built.
+      tester.view
+        ..physicalSize = const Size(420, 3000)
+        ..devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(todayHost(store, serverUnreachable: true));
       await tester.pumpAndSettle();
 
@@ -208,7 +214,6 @@ void main() {
             'now", because re-fetching the server and re-reading the strap are '
             'different repairs',
       );
-      await reveal(tester, find.text('9,264'));
       expect(
         find.text('9,264'),
         findsOneWidget,

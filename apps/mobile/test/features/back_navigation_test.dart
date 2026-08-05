@@ -65,10 +65,6 @@ Future<void> _pressBack(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _tapTab(WidgetTester tester, String label) async {
-  await tester.tap(find.text(label));
-  await tester.pumpAndSettle();
-}
 
 /// Pushes a detail route onto whichever branch navigator is showing.
 Future<void> _pushDetail(WidgetTester tester) async {
@@ -118,7 +114,7 @@ void main() {
     final platform = _watchPlatformCalls(tester);
     await tester.pumpWidget(routedApp(store));
     await tester.pumpAndSettle();
-    await _tapTab(tester, 'Sleep');
+    await tapTab(tester, 'Sleep');
     expect(find.byType(SleepScreen), findsOneWidget);
 
     await _pressBack(tester);
@@ -142,7 +138,7 @@ void main() {
     for (final tab in <String>['Sleep', 'Activity', 'Insights', 'Actions']) {
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
-      await _tapTab(tester, tab);
+      await tapTab(tester, tab);
       await _pressBack(tester);
 
       expect(find.byType(TodayScreen), findsOneWidget, reason: 'back from $tab');
@@ -157,7 +153,7 @@ void main() {
     // close that before it decides they meant to leave Sleep.
     await tester.pumpWidget(routedApp(store));
     await tester.pumpAndSettle();
-    await _tapTab(tester, 'Sleep');
+    await tapTab(tester, 'Sleep');
     final context = tester.element(find.byType(SleepScreen).first);
     unawaited(
       Navigator.of(context).push<void>(
@@ -204,7 +200,7 @@ void main() {
     final platform = _watchPlatformCalls(tester);
     await tester.pumpWidget(routedApp(store));
     await tester.pumpAndSettle();
-    await _tapTab(tester, 'Activity');
+    await tapTab(tester, 'Activity');
     await _pressBack(tester);
     expect(platform, isEmpty);
 

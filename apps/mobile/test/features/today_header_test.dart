@@ -1,80 +1,122 @@
-/// The editorial head of Today: the date row, the greeting, and the tab bar.
+/// The editorial head of Today: legacy's greeting header, and the tab bar.
 ///
-/// The test that matters most here is the one about what the greeting does NOT
-/// say. Legacy tints a fragment of its opening sentence — "You're **well
-/// recovered** —" — and the obvious way to reproduce that is to derive a phrase
-/// from `recovery_score.band`. The contract snapshot is exactly the case that
-/// makes it a bug: `band: "high"` sitting beside guidance that begins "An
-/// illness signal is active". A cheerful phrase beside a safety message is the
-/// flattery this product exists not to do, so the sentence renders verbatim and
-/// nothing is highlighted.
+/// The header is `_GreetingHeader` ported (`today_screen.dart:433`) — an eyebrow
+/// date, the strap's charge, the avatar, and a two-line display greeting. The
+/// tests here hold the three things about it that are claims rather than layout:
+/// the date table has no off-by-one, the greeting follows legacy's two
+/// boundaries, and **no cheerful phrase sits beside a safety sentence**.
+///
+/// That last one is why the greeting is the greeting and nothing else. Legacy
+/// tints a fragment of an opening sentence, and the obvious way to reproduce it
+/// is to derive a phrase from `recovery_score.band`. The contract snapshot is
+/// exactly the case that makes it a bug: `band: "high"` beside guidance that
+/// begins "An illness signal is active".
 library;
 
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/tabs.dart';
 import 'package:healthee/core/theme/app_theme.dart';
-import 'package:healthee/core/theme/theme_controller.dart';
 import 'package:healthee/data/store/local_store.dart';
-import 'package:healthee/features/today/widgets/greeting_block.dart';
-import 'package:healthee/features/today/widgets/today_header.dart';
+import 'package:healthee/features/today/today_labels.dart';
+import 'package:healthee/features/today/widgets/greeting_header.dart';
 import 'package:healthee/shared/app_tab_bar.dart';
+import 'package:healthee/shared/instrument/h_icon_badge.dart';
 
 import '_today_host.dart';
 
-/// One widget in the light theme, with a provider scope for the toggle.
-Widget host(Widget child) => ProviderScope(
-  child: MaterialApp(theme: AppTheme.light, home: Scaffold(body: child)),
+/// One widget in the light theme.
+Widget host(Widget child) =>
+    MaterialApp(theme: AppTheme.light, home: Scaffold(body: child));
+
+Widget _header({
+  String date = '2026-08-06',
+  DateTime? at,
+  int? battery,
+  bool syncing = false,
+}) => host(
+  GreetingHeader(
+    date: date,
+    now: at ?? DateTime(2026, 8, 6, 9),
+    batteryPercent: battery,
+    syncing: syncing,
+  ),
 );
 
 void main() {
   group('the date eyebrow', () {
-    testWidgets('spells the day out, as legacy does', (tester) async {
-      await tester.pumpWidget(host(TodayHeader(now: DateTime(2026, 8, 6))));
+    testWidgets("abbreviates the day and month, as legacy's does", (tester) async {
+      await tester.pumpWidget(_header());
       await tester.pumpAndSettle();
 
-      expect(find.text('THURSDAY, AUGUST 6'), findsOneWidget);
+      expect(find.text('THU · AUG 6'), findsOneWidget);
     });
 
     test('every weekday and month has a name', () {
       // Off-by-one in a hand-rolled name table is the classic version of this
       // bug, and it only shows on one day of the week.
-      expect(longDateLabel(DateTime(2026, 1, 5)), 'Monday, January 5');
-      expect(longDateLabel(DateTime(2026, 12, 27)), 'Sunday, December 27');
+      expect(prettyDate('2026-01-05'), 'MON · JAN 5');
+      expect(prettyDate('2026-12-27'), 'SUN · DEC 27');
+    });
+
+    test('an unparseable date keeps its own text rather than going blank', () {
+      // Legacy's `catch` — a date we cannot read is still information, and a gap
+      // where a date belongs reads as a broken header.
+      expect(prettyDate('not-a-date'), 'NOT-A-DATE');
     });
   });
 
   group('the greeting', () {
-    test('follows the clock, and the small hours are not "morning"', () {
-      expect(greetingFor(DateTime(2026, 8, 4, 2)), 'Still up.');
-      expect(greetingFor(DateTime(2026, 8, 4, 9)), 'Good morning.');
-      expect(greetingFor(DateTime(2026, 8, 4, 14)), 'Good afternoon.');
-      expect(greetingFor(DateTime(2026, 8, 4, 21)), 'Good evening.');
+    test("follows legacy's two boundaries", () {
+      // Legacy has no small-hours case, so 03:00 really is "Good morning".
+      expect(greetingFor(DateTime(2026, 8, 4, 3)), 'Good morning');
+      expect(greetingFor(DateTime(2026, 8, 4, 9)), 'Good morning');
+      expect(greetingFor(DateTime(2026, 8, 4, 14)), 'Good afternoon');
+      expect(greetingFor(DateTime(2026, 8, 4, 21)), 'Good evening');
     });
 
-    testWidgets('renders the server sentence verbatim', (tester) async {
-      const guidance = 'Keep today easy and skip anything hard.';
-      await tester.pumpWidget(
-        host(const GreetingBlock(guidance: guidance)),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(guidance), findsOneWidget);
-    });
-
-    testWidgets('says nothing extra when the server sent no recovery block', (
+    testWidgets('addresses nobody by name, because nothing stores one', (
       tester,
     ) async {
-      await tester.pumpWidget(host(GreetingBlock(now: DateTime(2026, 8, 4, 9))));
+      await tester.pumpWidget(_header());
       await tester.pumpAndSettle();
 
-      expect(find.text('Good morning.'), findsOneWidget);
-      // No invented sentence in place of one we do not have.
-      expect(find.byType(Text), findsOneWidget);
+      // Legacy's own fallback (`today_screen.dart:443`), not an invention — and
+      // it is the branch that always runs here. Reported in the port notes.
+      expect(find.textContaining('Good morning'), findsOneWidget);
+      expect(find.textContaining('there.'), findsOneWidget);
+    });
+  });
+
+  group('the strap battery', () {
+    testWidgets('is absent entirely when nothing has read one', (tester) async {
+      await tester.pumpWidget(_header());
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('%'), findsNothing);
+    });
+
+    testWidgets('shows the charge when there is one', (tester) async {
+      await tester.pumpWidget(_header(battery: 71));
+      await tester.pumpAndSettle();
+
+      expect(find.text('71%'), findsOneWidget);
+    });
+  });
+
+  group('the avatar', () {
+    testWidgets('carries a ring only while a sync is running', (tester) async {
+      await tester.pumpWidget(_header());
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(HAvatar), findsOneWidget);
+
+      await tester.pumpWidget(_header(syncing: true));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
   });
 
@@ -93,11 +135,10 @@ void main() {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      // The fixture's band is `high` and its guidance is the illness override.
-      expect(
-        find.textContaining('An illness signal is active'),
-        findsOneWidget,
-      );
+      // The fixture's band is `high` and its guidance is the illness override,
+      // which the recovery card renders verbatim.
+      await reveal(tester, find.textContaining('An illness signal is active'));
+      expect(find.textContaining('An illness signal is active'), findsOneWidget);
       for (final flattery in <String>[
         'Well recovered',
         'well recovered',
@@ -111,37 +152,6 @@ void main() {
           reason: 'the band is not a phrase, and the flag overrides the day',
         );
       }
-    });
-  });
-
-  group('the theme toggle', () {
-    testWidgets('asks for the opposite of what is on screen', (tester) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      // The controller is auto-disposed, and the header only ever `read`s it —
-      // `app.dart` is what watches it in the real tree. Without a listener here
-      // the notifier is thrown away the instant the tap returns and the state
-      // reads back as `system`, which looks exactly like a toggle that does
-      // nothing.
-      final subscription = container.listen(themeControllerProvider, (_, _) {});
-      addTearDown(subscription.close);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: Scaffold(body: TodayHeader(now: DateTime(2026, 8, 4))),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Starts on `system`, so the first tap has to decide from the brightness
-      // actually being rendered rather than from the stored mode.
-      expect(container.read(themeControllerProvider), ThemeMode.system);
-      await tester.tap(find.byIcon(Icons.dark_mode_outlined));
-      await tester.pumpAndSettle();
-      expect(container.read(themeControllerProvider), ThemeMode.dark);
     });
   });
 

@@ -64,16 +64,22 @@ Future<void> _openTheCard(WidgetTester tester, LocalStore store) async {
   // Tall enough to hold the whole action card. `scrollUntilVisible` will happily
   // stop with a widget one pixel inside the viewport, and the tap then lands
   // outside the render tree.
+  // Tall enough to hold the whole port with both disclosures open.
+  // `scrollUntilVisible` will happily stop with a widget one pixel inside the
+  // viewport, and the tap then lands outside the render tree.
   tester.view
-    ..physicalSize = const Size(420, 2000)
+    ..physicalSize = const Size(420, 14000)
     ..devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(todayHost(store, server: todayView(mutate: _cited)));
   await tester.pumpAndSettle();
-  await reveal(tester, find.text('Why this, today'));
-  await tester.ensureVisible(find.text('Why this, today'));
+  // Legacy's actions block is collapsed twice over: the section, then the row.
+  // Both are opened here, because a marker behind a tap is still a marker on
+  // screen — and the open state is ASSERTED, so a tap that silently missed
+  // cannot turn the leak tests into tests of an empty tree.
+  await tester.tap(find.text('Suggested actions'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Why this, today'));
+  await tester.tap(find.textContaining('Sleep earlier tonight'));
   await tester.pumpAndSettle();
   expect(
     find.textContaining('Your debt is 120 minutes'),
