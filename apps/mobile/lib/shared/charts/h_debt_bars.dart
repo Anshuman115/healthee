@@ -17,10 +17,13 @@
 ///     and a `480` inside the tooltip's shortfall arithmetic, in two places that
 ///     could disagree. The need comes from `sleep_debt.need_min` on the wire, so
 ///     it is passed in once and both uses read it.
-///   * **Colour is judgement here, and is spent deliberately.** A night that met
-///     the need is `fav`, one that fell short is `unf` — this IS a reading
-///     against a published threshold, which is what brief §2 reserves those two
-///     roles for. It is not decoration.
+///   * **Colour is judgement here, and is legacy's own pair.** A night that met
+///     the need is `fav`, one that fell short is `alert` — legacy's
+///     `_DebtPainter(… c.green, c.cHeart …)` (`instrument_charts.dart:616`).
+///     A previous revision drew the shortfall in `unf` (amber) on the argument
+///     that red is reserved for illness. Legacy is the specification and legacy
+///     draws it red-orange, so the reservation is what gave way; `palette.dart`
+///     records that `alert` IS `cHeart` and that legacy shares them by decision.
 library;
 
 import 'package:flutter/material.dart';
@@ -192,7 +195,7 @@ class _DebtPainter extends CustomPainter {
 
   void _paintTargetLine(Canvas canvas, Size size, double y) {
     final dash = Paint()
-      ..color = colors.unf.withValues(alpha: 0.5)
+      ..color = colors.alert.withValues(alpha: 0.5)
       ..strokeWidth = 1;
     for (var x = _leftPad; x < size.width; x += 7) {
       canvas.drawLine(Offset(x, y), Offset(x + 4, y), dash);
@@ -210,7 +213,7 @@ class _DebtPainter extends CustomPainter {
     required String? label,
   }) {
     final met = hours >= targetHours;
-    final colour = met ? colors.fav : colors.unf;
+    final colour = met ? colors.fav : colors.alert;
     canvas.drawRRect(
       RRect.fromRectAndCorners(
         Rect.fromLTRB(
@@ -237,7 +240,7 @@ class _DebtPainter extends CustomPainter {
           topLeft: const Radius.circular(3),
           topRight: const Radius.circular(3),
         ),
-        Paint()..color = colors.unf.withValues(alpha: 0.16 * progress),
+        Paint()..color = colors.alert.withValues(alpha: 0.16 * progress),
       );
     }
     if (label != null) {
@@ -269,7 +272,7 @@ class _DebtPainter extends CustomPainter {
       '${short > 0 ? '  ·  ${hoursMinutes(short)} short' : ''}',
       anchorX: centre,
       background: colors.surface,
-      border: colors.line2,
+      border: colors.line,
       style: bubbleStyle,
     );
   }

@@ -12,7 +12,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_history.dart';
@@ -24,7 +24,7 @@ class HStackedSleep extends StatelessWidget {
   const HStackedSleep(
     this.nights, {
     required this.progress,
-    this.height = 130,
+    this.height = 110,
     super.key,
   });
 
@@ -34,7 +34,7 @@ class HStackedSleep extends StatelessWidget {
   /// How far the bars have grown, 0–1.
   final double progress;
 
-  /// How tall to draw the chart.
+  /// How tall to draw the chart. 110 is legacy's default.
   final double height;
 
   @override
@@ -73,7 +73,7 @@ class _StackedPainter extends CustomPainter {
 
   final List<SleepNightSummary> nights;
   final HealtheeColors colors;
-  final MetricHues hues;
+  final InstrumentHues hues;
   final double progress;
   final TextStyle labelStyle;
   final TextStyle lastLabelStyle;
@@ -106,7 +106,7 @@ class _StackedPainter extends CustomPainter {
         final segment = (minutes / axisMinutes) * chartHeight * progress;
         canvas.drawRect(
           Rect.fromLTWH(x, chartHeight - stacked - segment, barWidth, segment),
-          Paint()..color = sleepStageColor(colors, hues, stage),
+          Paint()..color = sleepStageColor(hues, stage),
         );
         stacked += segment;
       }

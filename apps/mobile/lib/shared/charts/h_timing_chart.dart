@@ -12,13 +12,15 @@
 /// inside one continuous run, so what the line shows is drift rather than an
 /// artefact of where the day is cut.
 ///
-/// Changed: `progress` is a parameter (see `chart_primitives.dart`), and the two
-/// series are drawn in [HealtheeColors.accent] and its softer pair rather than
-/// in two unrelated hues — brief §2 spends colour on judgement, and neither of
-/// these lines is one.
+/// Changed: `progress` is a parameter (see `chart_primitives.dart`). Nothing
+/// else. The two series are legacy's own hues — **bedtime in `cSleep`, wake in
+/// `cSteps`** (`instrument_charts.dart:482`). A previous revision drew both in
+/// the accent at two alphas, on the argument that neither line is a judgement;
+/// legacy is the specification and legacy gives them two hues.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/charts/chart_primitives.dart';
 
@@ -88,6 +90,7 @@ class _HTimingChartState extends State<HTimingChart> {
                 bedtime: widget.bedtime,
                 wake: widget.wake,
                 colors: colors,
+                hues: context.hues,
                 selected: _selected,
                 progress: widget.progress,
                 labelStyle: TextStyle(fontSize: 9, color: colors.ink3),
@@ -110,6 +113,7 @@ class _TimingPainter extends CustomPainter {
     required this.bedtime,
     required this.wake,
     required this.colors,
+    required this.hues,
     required this.selected,
     required this.progress,
     required this.labelStyle,
@@ -119,6 +123,7 @@ class _TimingPainter extends CustomPainter {
   final List<double> bedtime;
   final List<double> wake;
   final HealtheeColors colors;
+  final InstrumentHues hues;
   final int? selected;
   final double progress;
   final TextStyle labelStyle;
@@ -149,14 +154,8 @@ class _TimingPainter extends CustomPainter {
         _topPad + (1 - (value - yMin) / (yMax - yMin)) * plotHeight;
 
     _paintGrid(canvas, size, yMin, yMax, yAt);
-    _paintLine(canvas, bedtime, colors.accent, xAt, yAt);
-    _paintLine(
-      canvas,
-      wake,
-      colors.accent.withValues(alpha: 0.45),
-      xAt,
-      yAt,
-    );
+    _paintLine(canvas, bedtime, hues.sleep, xAt, yAt);
+    _paintLine(canvas, wake, hues.steps, xAt, yAt);
     _paintCrosshair(canvas, size, xAt, yAt);
   }
 
@@ -218,19 +217,15 @@ class _TimingPainter extends CustomPainter {
         ..color = colors.ink3.withValues(alpha: 0.35)
         ..strokeWidth = 1,
     );
-    canvas.drawCircle(Offset(x, yAt(bedtime[index])), 3, Paint()..color = colors.accent);
-    canvas.drawCircle(
-      Offset(x, yAt(wake[index])),
-      3,
-      Paint()..color = colors.accent.withValues(alpha: 0.45),
-    );
+    canvas.drawCircle(Offset(x, yAt(bedtime[index])), 3, Paint()..color = hues.sleep);
+    canvas.drawCircle(Offset(x, yAt(wake[index])), 3, Paint()..color = hues.steps);
     drawChartTooltip(
       canvas,
       size,
       'bed ${clockAt(bedtime[index])}  ·  wake ${clockAt(wake[index])}',
       anchorX: x,
       background: colors.surface,
-      border: colors.line2,
+      border: colors.line,
       style: bubbleStyle,
     );
   }

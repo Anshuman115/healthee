@@ -37,7 +37,7 @@ class HTickGauge extends StatelessWidget {
     required this.color,
     required this.progress,
     this.max = 100,
-    this.size = 116,
+    this.size = 150,
     this.child,
     super.key,
   });
@@ -56,7 +56,8 @@ class HTickGauge extends StatelessWidget {
   /// How much of the sweep has lit, 0–1.
   final double progress;
 
-  /// The diameter.
+  /// The diameter. 150 is legacy's class default; every legacy call site
+  /// passes its own (Today's gauge is 116, `today_screen.dart:575`).
   final double size;
 
   /// Drawn centred inside the arc — the figure and its band.

@@ -13,7 +13,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/metric_hues.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/last_sleep.dart';
@@ -25,7 +25,7 @@ class HHypnogram extends StatelessWidget {
   const HHypnogram(
     this.spans, {
     required this.progress,
-    this.height = 84,
+    this.height = 30,
     super.key,
   });
 
@@ -35,7 +35,9 @@ class HHypnogram extends StatelessWidget {
   /// How far the bands have grown, 0–1.
   final double progress;
 
-  /// How tall to draw the four lanes.
+  /// How tall to draw the four lanes. 30 is legacy's default — the in-card
+  /// mini. Legacy's own sleep screen passes 120 (`sleep_screen.dart:321`),
+  /// so a caller that wants the full picture says so.
   final double height;
 
   @override
@@ -68,7 +70,7 @@ class _HypnogramPainter extends CustomPainter {
 
   final List<SleepStageSpan> spans;
   final HealtheeColors colors;
-  final MetricHues hues;
+  final InstrumentHues hues;
   final double progress;
 
   /// Lane index per stage — awake highest, deep lowest. Legacy's `levels`.
@@ -107,7 +109,7 @@ class _HypnogramPainter extends CustomPainter {
       elapsed += span.durationMin;
       final lane = _lanes[span.stage] ?? 2;
       final y = lane * laneHeight + (laneHeight - bandHeight) / 2;
-      final stage = sleepStageColor(colors, hues, span.stage);
+      final stage = sleepStageColor(hues, span.stage);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           // The 1.5 px trim is what separates two adjacent spans of the same
