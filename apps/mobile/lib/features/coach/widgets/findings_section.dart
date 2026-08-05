@@ -82,10 +82,11 @@ class FindingsSection extends StatelessWidget {
         children: [
           Text('In your own data', style: text.labelSmall),
           const SizedBox(height: Insets.xs),
+          // The one wording, shared with every `[personal_finding:…]` chip a
+          // cited answer draws (`citation_row.dart`). Two copies of a caveat is
+          // one copy that can be softened without the other moving.
           Text(
-            'Single-subject and observational: these are patterns found in your '
-            'history, not effects shown in a trial. They say what moved '
-            'together, never what caused what.',
+            kSingleSubjectFraming,
             style: text.bodySmall?.copyWith(color: colors.ink2),
           ),
           for (final finding in findings) ...[

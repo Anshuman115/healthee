@@ -13,13 +13,28 @@
 ///
 /// Nothing here congratulates anyone. Brief §6: never congratulate, never scold,
 /// never use urgency to drive engagement.
+///
+/// ## Every string on this card is model prose, and none of it is printed raw
+///
+/// This card is where the `[note_id]` leak was seen: the action arrived from the
+/// nightly job carrying its citation markers and the card rendered the string.
+/// The markers are correct — `insights/morning.py`'s prompt says *"Cite
+/// [note_id] for any health claim"* and the blocking validator reads them — and
+/// the last hop was not.
+///
+/// All four fields the model writes ([TodaySnapshot.action] and each rec's
+/// `action`, `expected_effect` and `rationale`) now go through [GroundedProse],
+/// which is the only thing in the app that knows what a bracket means and cannot
+/// render a stripped sentence without its sources. The rec's structured
+/// `research_note_ids` ride along on the action, so one recommendation shows one
+/// set of sources rather than two rows that can disagree.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/recommendation.dart';
-import 'package:healthee/shared/states/citation_row.dart';
+import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/states/reasoning_note.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
@@ -53,7 +68,7 @@ class DailyActionCard extends StatelessWidget {
           Text('Today', style: text.labelSmall),
           if (action case final String sentence) ...[
             const SizedBox(height: Insets.sm),
-            Text(sentence, style: text.headlineSmall),
+            GroundedProse(text: sentence, style: text.headlineSmall),
           ],
           for (final rec in recommendations) ...[
             Divider(color: colors.line2, height: Insets.xl, thickness: hairline),
@@ -77,22 +92,29 @@ class _RecommendationRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(recommendation.action, style: text.titleMedium),
+        GroundedProse(
+          text: recommendation.action,
+          style: text.titleMedium,
+          // The structured ids belong to the whole rec, so they hang off its
+          // headline rather than sitting in a second row underneath.
+          alsoCites: recommendation.researchNoteIds,
+          // The one grade on this screen that the server actually proved.
+          grade: recommendation.gradeLabel,
+        ),
         if (recommendation.expectedEffect case final String effect) ...[
           const SizedBox(height: Insets.xs),
-          Text(effect, style: text.bodySmall?.copyWith(color: colors.ink2)),
+          GroundedProse(
+            text: effect,
+            style: text.bodySmall?.copyWith(color: colors.ink2),
+          ),
         ],
         if (recommendation.rationale case final String why) ...[
           const SizedBox(height: Insets.sm),
           // Offered, not forced — an inline disclosure, never a modal (§3).
+          // `jobs/recs.py` requires an inline `[note_id]` in here, so this is the
+          // one disclosure whose body reliably carries citations.
           ReasoningNote(question: 'Why this, today', answer: why),
         ],
-        const SizedBox(height: Insets.sm),
-        CitationRow(
-          noteIds: recommendation.researchNoteIds,
-          // The one grade on this screen that the server actually proved.
-          grade: recommendation.gradeLabel,
-        ),
       ],
     );
   }
