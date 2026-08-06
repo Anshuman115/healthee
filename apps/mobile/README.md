@@ -726,7 +726,8 @@ only honesty wording as mentioned."* Everything visual is ported from
 ### Where the design lives
 
 ```
-core/theme/palette.dart          the ONLY colour literals: scaffolding + legacy
+core/theme/palette.dart          colour literals: scaffolding + legacy's hues
+core/theme/sleep_stage_palette.dart  the other colour literals: the stage ramp
 core/theme/tokens.dart           semantic roles → context.colors
 core/theme/instrument_hues.dart  legacy's ten per-metric hues + sleepStage()
 core/theme/metric_hue.dart       which metric wears which, from legacy's call sites
@@ -753,28 +754,36 @@ shared/skeletons/                the content-shaped loading states
   `core/theme/metric_hue.dart` holds the one table, transcribed from legacy's own
   call sites with the line numbers cited; `hueFor` takes an id and nothing else.
 - **One sleep-stage mapping, and one word per stage.**
-  `InstrumentHues.sleepStage` — deep amber, light blue, REM purple, awake red,
-  **anything else grey** — and nothing else decides a stage's colour;
+  `InstrumentHues.sleepStage` — deep amber, light blue, REM purple, awake
+  red-orange, **anything else grey** — and nothing else decides a stage's colour;
   `sleepStageLabel` is the only source of a stage's name. Legacy said `Core` in
   the breakdown, `light` in the naps legend and `CORE` on the seven-night chip;
-  every surface says `Light`.
+  every surface says `Light`. **The four values are the app's own, not four
+  borrowed metric hues** — see the stage-contrast section below.
 - **A refusal spends no colour.** A withheld value renders a `ValueHole` — a
   dashed, `hole`-filled box exactly where the number would have been — with the
   reason in ordinary ink. This is honesty wording, so it survives the port.
 - **Charts animate once.** `progress` is a parameter supplied by `RevealOnce`; no
   chart owns a ticker, or it replays on every scroll-back.
-- **No colour literal exists outside `core/theme/palette.dart`.**
-  `test/core/theme_test.dart` and `test/theme/legacy_hues_test.dart` restate both
-  source tables independently — `flutter analyze` cannot see a wrong-but-valid
-  colour, so a test has to.
+- **No colour literal exists outside `core/theme/palette.dart` and
+  `core/theme/sleep_stage_palette.dart`.** That used to be one file, and the
+  second is not a slackening: the first is a *transcription* (legacy's values,
+  read wrong or read right) and the second is a *derivation* (a ramp re-measured
+  when a card colour moves). Two reasons to change, two files.
+  `test/core/colour_literal_gate_test.dart` reads `lib/` and fails on a third —
+  a convention that has just gone from one file to two is a convention on its way
+  to five. `test/core/theme_test.dart` and `test/theme/legacy_hues_test.dart`
+  restate the source tables independently, because `flutter analyze` cannot see a
+  wrong-but-valid colour.
 
 ### Two legacy defects that were REPAIRED, and one that still ships
 
 The port shipped these three as found, on the rule that a faithful port of
 something imperfect beats an unrequested fix. The owner then opened the honesty
 half — *"we can rework on honesty part and its flaws"* — so two of them are gone.
-**The accent hue and the four stage hues are untouched; only the ink on them
-moved.**
+**The accent hue is untouched; only the ink on it moved.** The four *stage*
+colours were untouched at that point too; they moved later, under their own
+authorisation — see the stage-ramp section below.
 
 - **`onGreen` failed contrast on the dark accent — FIXED.** Legacy put one
   off-white (`#FBF7EF`) on both greens: 5.68:1 on light, **2.14:1** on dark,
@@ -787,8 +796,9 @@ moved.**
   `HColors.sleepStage` defaulted an unknown code to `cSpo2` and `_normStage`
   defaulted it to `'core'`, so a byte nobody has decoded was painted and labelled
   as a specific stage. Both defaults now answer *unrecognised*: a chroma-free
-  grey (`InstrumentHues.unstaged`) and the word "Unrecognised". Every payload the
-  strap has ever sent renders identically — the four legacy rows did not move.
+  grey (`InstrumentHues.unstaged`) and the word "Unrecognised". The four legacy
+  rows did not move *at that point*; they moved later, for contrast — see the
+  stage-ramp section below.
 - **Legacy disagrees with itself twice — SHIPS AS-IS.** Cardio load is `cHeart`
   on Today and `cReady` on Activity; blood oxygen is `cResp` on Today and `cSpo2`
   on Sleep. That is a colour choice, not an honesty defect, so it needs the
@@ -799,25 +809,94 @@ moved.**
 
 | legacy | light | dark | what wears it |
 |---|---|---|---|
-| `cSleep` | `#5B5483` | `#968EC9` | sleep, sleep debt, REM |
-| `cHeart` | `#BF472E` | `#E07A5F` | heart rate, cardio load, awake, **`alert`** |
+| `cSleep` | `#5B5483` | `#968EC9` | sleep, sleep debt |
+| `cHeart` | `#BF472E` | `#E07A5F` | heart rate, cardio load, **`alert`** |
 | `cHrv` | `#1F6F54` | `#4BBF93` | HRV, MVPA — **the accent and `fav`** |
-| `cSteps` | `#B27F2C` | `#D9A84E` | steps, distance, deep sleep |
+| `cSteps` | `#B27F2C` | `#D9A84E` | steps, distance |
 | `cCal` | `#CE6131` | `#E8835A` | calories, and legacy's stress card |
 | `cResp` | `#3C7A84` | `#5FA9B4` | breathing, overnight blood oxygen |
-| `cSpo2` | `#587A97` | `#7DA3C4` | light/core sleep, SpO₂ vitals, zone 1 |
+| `cSpo2` | `#587A97` | `#7DA3C4` | SpO₂ vitals, zone 1 |
 | `cStress` | `#A55F6D` | `#C98A96` | skin temperature |
 | `cReady` | `#1F6F54` | `#4BBF93` | VO₂max, biological age, SRI, load |
 | `cRem` | `#8A7FB8` | `#B3A9E0` | nothing — defined by legacy, drawn by none |
+
+**All ten are legacy's to the hex and none of them moved.** Four of them used to
+wear a second hat — `cSteps` was also deep sleep, `cSpo2` light, `cSleep` REM,
+`cHeart` awake — and those hats came off; see below.
 
 One more legacy value is **one colour in both themes**, because legacy wrote one:
 the warn amber `#E0A33E` (`unf`). `onGreen` was the other and is now a per-theme
 pair — see the contrast repair above.
 
-There is an eleventh colour that is **not legacy's**: `unstaged`, the chroma-free
-grey an unrecognised stage code is drawn in. It is honesty-layer scaffolding in
-the same family as `hole`, and it exists because legacy had no way to say "we
-could not read this".
+### The sleep-stage ramp — an authorised accessibility departure
+
+The owner, on the installed dark build: *"the sleep graph i think the color needs
+to changed it looks dull and has acisiblity issues only yellow is visisble others
+are not."* Measured, he was exactly right, and the reason was not the values but
+the fact that legacy **borrows** four metric hues for its four stages. Each
+cleared its card; none cleared the others.
+
+| pair | dark, before | light, before |
+|---|---|---|
+| REM vs awake | **1.02:1** | 1.37:1 |
+| light vs awake | 1.11:1 | **1.12:1** |
+| light vs REM | 1.13:1 | 1.53:1 |
+| deep vs light | 1.22:1 | 1.28:1 |
+
+Three of the dark four were **near-isoluminant** (WCAG luminance 0.345 · 0.306 ·
+0.301), so they differed by hue alone — which is what red-green colour deficiency
+takes away, and what greyscale takes away. WCAG 2.1 SC 1.4.11 asks 3:1 of a
+graphical object needed to understand content, and adjacent hypnogram bands are
+that. The owner authorised fixing it as a **deliberate departure from the
+verbatim-legacy rule** (2026-08-06), recorded at the definition site so nobody
+"restores" the old values later.
+
+`core/theme/sleep_stage_palette.dart` carries the whole derivation. In short:
+
+| stage | light | dark | rung |
+|---|---|---|---|
+| deep | `#B4802E` ← `#B27F2C` | `#FFCC73` ← `#D9A84E` | lightest |
+| light | `#4C6E8B` ← `#587A97` | `#87AECF` ← `#7DA3C4` | |
+| rem | `#4F4875` ← `#5B5483` | `#867EB8` ← `#968EC9` | |
+| awake | `#631000` ← `#BF472E` | `#A8472E` ← `#E07A5F` | darkest |
+| unstaged | `#7A7A7A` ← `#8C8C8C` | `#757575` ← `#767676` | in a gap |
+
+- **Worked in OKLCH, and only lightness moved.** Every hue angle lands within
+  **0.8°** of legacy's and every chroma is legacy's to four decimals, except
+  light-theme `awake`, where sRGB simply holds no more chroma at that lightness
+  (0.1595 → 0.1185). The set is still amber, blue, purple, red-orange.
+- **Lightness tracks depth: deep is lightest, awake darkest**, in both themes.
+  The hypnogram already puts depth on its y-axis, so lane position and lightness
+  now say the same thing — redundant encoding, which is the point — and
+  `kSleepStages` is already that order, so a stacked bar reads as one gradient.
+  It is also the direction legacy's own hues lean, which is why they survive it.
+- **The floor is 1.5:1, and it is a floor, not a pin.** Not 3:1, because 3:1
+  pairwise is impossible for four colours *anywhere*: contrast multiplies along a
+  ladder, so three steps of 3:1 need 27:1 end to end and sRGB tops out at 21:1.
+  Add "every stage also clears 3:1 on its card" and the usable span is 6.1:1
+  (dark) / 6.4:1 (light) — **1.83:1 per step at the theoretical best**, spending
+  both ends on achromatic extremes. The shipped worst pairs are **1.57:1** (dark)
+  and **1.55:1** (light), up from 1.02 and 1.12, with every stage still ≥3:1 on
+  both the card and the page. `test/theme/stage_contrast_test.dart` measures all
+  six pairs in both themes and proves the ceiling as its own test.
+- **The metric hues did not move — the stage colour was split off instead.** All
+  four had to be: `cSteps` is the steps tile, `cSpo2` the SpO₂ vitals row,
+  `cSleep` the sleep gauge, and `cHeart` is `alert`, the illness flag. Repainting
+  a verdict to fix a chart would have been the larger change.
+- **`unstaged` stays chroma-free**, and moved because under the new ramp the old
+  light grey sat **1.05:1** from deep. It now sits at the midpoint of the ramp gap
+  nearest the card. Luminance cannot do more: every gap is 1.56:1 wide, so 1.25:1
+  from its neighbours is the best any fifth value can reach. **Chroma** and **the
+  word** carry it instead — it is the only value in the set with no chroma, every
+  stage is asserted chromatic, and `legendStages` adds an "Unrecognised" key
+  exactly when a grey band was drawn.
+
+**Colour is not the only carrier anywhere.** The hypnogram has labelled lanes, the
+breakdown a labelled row per stage, the naps and seven-night charts a legend, and
+the sleep-week card a key list. The one exception was **Today's 10 px sleep bar**,
+where a legend does not fit: it now has the luminance ramp, its fixed
+`kSleepStages` order, and a `Semantics` label per segment from `sleepStageLabel`.
+No layout moved.
 
 **Manrope** is vendored in `assets/fonts/` (SIL OFL, no Reserved Font Name,
 licence beside it, ~386 KB) rather than fetched — no CDN at paint time. **Four
