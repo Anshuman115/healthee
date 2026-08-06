@@ -109,8 +109,25 @@ class HStageBar extends StatelessWidget {
                   for (final (stage, minutes) in spans)
                     Expanded(
                       flex: minutes,
-                      child: ColoredBox(
-                        color: sleepStageColor(hues, stage),
+                      // **The one stage surface with no legend beside it.**
+                      // Every other chart that spends these four colours is
+                      // drawn under a row of labelled keys — the hypnogram's
+                      // lanes, the breakdown's rows, the naps and seven-night
+                      // legends. This bar is 10 px in a grid cell that has no
+                      // room for one, so colour was its only carrier.
+                      //
+                      // Two carriers were added without moving a pixel: the
+                      // stages are now a monotonic light-to-dark ramp in
+                      // `kSleepStages` order, which survives greyscale and
+                      // colour-vision deficiency, and each segment names itself
+                      // to a screen reader. The word comes from
+                      // `sleepStageLabel`, the one source of a stage's name, so
+                      // this cannot drift from what the legends say.
+                      child: Semantics(
+                        label: sleepStageLabel(stage),
+                        child: ColoredBox(
+                          color: sleepStageColor(hues, stage),
+                        ),
                       ),
                     ),
                 ],

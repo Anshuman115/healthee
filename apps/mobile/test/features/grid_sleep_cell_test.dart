@@ -89,6 +89,49 @@ void main() {
       );
     });
 
+    testWidgets('COLOUR IS NOT THE ONLY CARRIER — the ramp, and the words', (
+      tester,
+    ) async {
+      // This is the one stage surface with no legend beside it: 10 px in a grid
+      // cell with no room for a row of keys. So two carriers do the work colour
+      // cannot, and neither one moved a pixel.
+      await tester.pumpWidget(_bar(_night));
+      await tester.pumpAndSettle();
+
+      // 1. The ramp. Segment order is `kSleepStages` and the stage colours are
+      //    luminance-ordered, so the bar darkens left to right even in
+      //    greyscale — and for a reader with red-green colour deficiency.
+      final fills = tester
+          .widgetList<ColoredBox>(
+            find.descendant(
+              of: find.byType(FractionallySizedBox),
+              matching: find.byType(ColoredBox),
+            ),
+          )
+          .map((box) => box.color.computeLuminance())
+          .toList();
+      for (var i = 1; i < fills.length; i++) {
+        expect(
+          fills[i],
+          lessThan(fills[i - 1]),
+          reason: '${kSleepStages[i]} does not continue the ramp',
+        );
+      }
+
+      // 2. The words. Each segment names its own stage, from the ONE label
+      //    source every legend uses, so a screen reader gets the key the cell
+      //    has no room to draw.
+      final handle = tester.ensureSemantics();
+      for (final stage in kSleepStages) {
+        expect(
+          find.bySemanticsLabel(sleepStageLabel(stage)),
+          findsOneWidget,
+          reason: '$stage is unnamed',
+        );
+      }
+      handle.dispose();
+    });
+
     testWidgets('WIDTHS ARE IN PROPORTION TO THE MEASURED MINUTES', (tester) async {
       await tester.pumpWidget(_bar(_night));
       await tester.pumpAndSettle();
