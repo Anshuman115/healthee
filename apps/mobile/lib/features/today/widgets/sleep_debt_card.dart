@@ -1,133 +1,163 @@
-/// Sleep debt, with the reasoning offered rather than the number asserted.
+/// `Sleep need · debt` — the fortnight's shortfall, as legacy draws it on Today.
 ///
-/// Brief §3 names the exact disclosure this card owes: *"Why debt is 120
-/// minutes, not 1,400"*. It is the question anyone asks on seeing a fortnight of
-/// short nights add up to two hours, and the answer is on the wire — the debt
-/// model is bounded, it is not a running total of every minute ever missed.
-/// Offering it inline, never as a modal, is §3's other half.
+/// **Ported from** `healthee-legacy/app/lib/ui/today_screen.dart:1408` —
+/// `_SleepDebtModule`. Anatomy unchanged: the average night as a 40 px figure,
+/// then either last night's sleep performance or the average gap, a 6 px
+/// progress bar of average-against-need, and three stat columns.
 ///
-/// The chart is legacy's `HDebtBars`, ported: a solid bar to each night's own
-/// total and a faint ghost continuing up to the need line on the nights that
-/// fell short. Brief §5.4 asks for exactly that shape, because it makes "small
-/// nightly shortfall, large monthly cost" visible in a way a single number never
-/// does.
+/// ```text
+///   SLEEP NEED · DEBT                                 8h need
+///   6.3h  avg / night
+///   79%  sleep performance last night · 6.3h
+///   ▬▬▬▬▬▬▬▬▬▬▬▬▬▭▭▭▭
+///   NIGHTS SHORT   AVG GAP   2-WK DEBT
+///      12/14         1.7h       2.0h
+/// ```
 ///
-/// The nightly totals come from `sleep_history_7d`, and the label says **seven
-/// nights** even though the debt window is fourteen. Drawing seven and captioning
-/// it fourteen would be the same class of lie as drawing sixty days and calling
-/// them ninety (brief §7.4).
+/// The `else if` between the performance line and the gap line is legacy's, and
+/// the order matters: performance is about **last night**, the gap is about the
+/// fortnight, and legacy prefers the more recent claim when it has one.
+///
+/// The 85% threshold that tints the performance figure is legacy's own.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_debt.dart';
-import 'package:healthee/data/models/sleep_history.dart';
-import 'package:healthee/features/today/widgets/measured_card.dart';
-import 'package:healthee/shared/charts/h_debt_bars.dart';
-import 'package:healthee/shared/format/time_labels.dart';
+import 'package:healthee/features/today/today_labels.dart';
+import 'package:healthee/features/today/widgets/stat_columns.dart';
+import 'package:healthee/shared/instrument/h_progress_bar.dart';
+import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/states/citation_row.dart';
-import 'package:healthee/shared/states/reasoning_note.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
 
-/// The fortnight's accumulated shortfall, with the nights behind it.
+/// Sleep need against what the owner actually got.
 class SleepDebtCard extends StatelessWidget {
-  /// [nights] is `sleep_history_7d`; it may be empty, in which case the chart
-  /// is simply not drawn.
-  const SleepDebtCard({
-    required this.debt,
-    required this.nights,
-    required this.reveals,
-    super.key,
-  });
+  /// [debt] is the whole `sleep_debt` block.
+  const SleepDebtCard({required this.debt, required this.reveals, super.key});
 
-  /// The debt payload.
+  /// The fortnight's need, averages and accumulated debt.
   final SleepDebt debt;
 
-  /// The nights the chart is drawn from.
-  final List<SleepNightSummary> nights;
-
-  /// The screen's reveal registry.
+  /// Where "this bar has already animated" is remembered.
   final RevealRegistry reveals;
+
+  /// Legacy's threshold for a favourable sleep-performance figure.
+  static const int goodPerformancePct = 85;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Sleep debt', style: text.labelSmall),
-          const SizedBox(height: Insets.sm),
-          HeroValue(value: durationLabel(debt.debtMin), unit: 'owed'),
-          const SizedBox(height: Insets.xs),
-          Text(_summary(debt), style: text.bodySmall?.copyWith(color: colors.ink2)),
-          if (debt.lastTstWithheld) ...[
-            const SizedBox(height: Insets.sm),
+    final tint = context.hues.sleep;
+    final need = debt.needMin;
+    final average = debt.avgTstMin;
+    final gap = debt.avgDeficitMin;
+    return InstrumentModule(
+      label: 'Sleep need · debt',
+      infoKey: 'sleep_debt',
+      tag: tint,
+      minHeight: 0,
+      trailing: Text(
+        '${need ~/ 60}h need',
+        style: HType.number(colors.ink3, size: 11, weight: FontWeight.w400),
+      ),
+      children: [
+        const SizedBox(height: 2),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
             Text(
-              'Last night’s own total could not be established, so it is not in '
-              'this window. The figure above still stands for the nights that '
-              'could.',
-              style: text.bodySmall?.copyWith(color: colors.ink2),
-            ),
-          ],
-          if (nights.isNotEmpty) ...[
-            const SizedBox(height: Insets.lg),
-            RevealOnce(
-              id: 'sleep-debt-bars',
-              registry: reveals,
-              builder: (context, t) => HDebtBars(
-                totalsMin: [
-                  for (final night in nights) night.durationMin.toDouble(),
-                ],
-                labels: [for (final night in nights) night.weekdayInitial],
-                needMin: debt.needMin,
-                progress: t,
+              average == null ? '—' : decimalHours(average),
+              style: HType.number(
+                colors.ink,
+                size: 40,
+                weight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: Insets.xs),
+            const SizedBox(width: 8),
             Text(
-              'The last ${nights.length} nights against your '
-              '${durationLabel(debt.needMin)} need. The debt above is measured '
-              'over ${debt.nights}.',
-              style: text.labelSmall?.copyWith(color: colors.ink3),
+              'avg / night',
+              style: HType.number(
+                colors.ink3,
+                size: 13,
+                weight: FontWeight.w400,
+              ),
             ),
           ],
-          const SizedBox(height: Insets.md),
-          ReasoningNote(
-            question:
-                'Why debt is ${debt.debtMin} minutes, not '
-                '${debt.nights * (debt.avgDeficitMin ?? 0)}',
-            answer: _reasoning(debt),
+        ),
+        if (debt.performancePct case final int performance) ...[
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Text(
+                '$performance%',
+                style: HType.number(
+                  performance >= goodPerformancePct
+                      ? colors.accent
+                      : colors.alert,
+                  size: 15,
+                  weight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _performanceLine(debt.lastTstMin),
+                  style: HType.sans(colors.ink3, size: 12.5),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: Insets.sm),
-          CitationRow(noteIds: debt.researchNotes),
+        ] else if (gap != null && gap > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${decimalHours(gap)} below your ${need ~/ 60}h need',
+            style: HType.sans(
+              colors.alert,
+              size: 13,
+              weight: FontWeight.w600,
+            ),
+          ),
         ],
-      ),
+        const SizedBox(height: 14),
+        RevealOnce(
+          id: 'today.sleep-debt',
+          registry: reveals,
+          builder: (context, t) => HProgressBar(
+            value: (average ?? 0).toDouble(),
+            max: need.toDouble(),
+            progress: t,
+            height: 6,
+            color: tint,
+            semanticLabel:
+                '${average ?? 0} minutes of a $need-minute need',
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            StatColumn(
+              label: 'NIGHTS SHORT',
+              value: '${debt.nightsBelow}/${debt.nights}',
+            ),
+            StatColumn(
+              label: 'AVG GAP',
+              value: gap == null ? '—' : decimalHours(gap),
+            ),
+            StatColumn(label: '2-WK DEBT', value: decimalHours(debt.debtMin)),
+          ],
+        ),
+      ],
     );
   }
 
-  static String _summary(SleepDebt debt) {
-    final parts = <String>[
-      '${debt.nightsBelow} of ${debt.nights} nights below need',
-      if (debt.avgTstMin case final int average)
-        'averaging ${durationLabel(average)}',
-      if (debt.performancePct case final int performance)
-        '$performance% of need met',
-    ];
-    return parts.join(' · ');
-  }
-
-  /// The disclosure brief §3 asks for, built from the fields the server sent.
-  static String _reasoning(SleepDebt debt) {
-    return 'Debt here is what the last ${debt.nights} nights owe you, not a '
-        'running total of every minute ever missed. Each night is measured '
-        'against a ${durationLabel(debt.needMin)} need, the shortfalls are '
-        'added up, and the window then moves on — a night from last month has '
-        'already rolled out of it. Sleeping past your need does not bank '
-        'credit either, which is why the figure moves down slowly and up '
-        'quickly.';
+  /// Legacy's `'sleep performance last night${lastTst != null ? ' · …' : ''}'`.
+  static String _performanceLine(int? lastTstMin) {
+    if (lastTstMin == null) {
+      return 'sleep performance last night';
+    }
+    return 'sleep performance last night · ${decimalHours(lastTstMin)}';
   }
 }

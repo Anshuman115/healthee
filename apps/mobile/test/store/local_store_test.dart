@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/data/push/push_stamp.dart';
 import 'package:healthee/data/store/local_store.dart';
 
 void main() {
@@ -90,9 +91,13 @@ void main() {
       await seed(localHorizonDays); // exactly at the cutoff — kept
       await seed(localHorizonDays + 1); // one day beyond — dropped
 
-      final removed = await store.pruneBefore(horizonStart(today));
+      final report = await store.pruneBeyondHorizon(today);
 
-      expect(removed, 1, reason: 'only the row past the horizon may be dropped');
+      expect(
+        report.cachedPayloads,
+        1,
+        reason: 'only the row past the horizon may be dropped',
+      );
       final survivors = await store.select(store.cachedPayloads).get();
       expect(survivors, hasLength(1));
       expect(survivors.single.day, '2026-06-01');
@@ -101,7 +106,24 @@ void main() {
     test('reports what it removed rather than pruning silently', () async {
       await seed(200);
       await seed(300);
-      expect(await store.pruneBefore(horizonStart(today)), 2);
+      final report = await store.pruneBeyondHorizon(today);
+      expect(report.cachedPayloads, 2);
+      expect(report.rows, 2);
+    });
+
+    test('A CACHED PAYLOAD IS NOT A MEASUREMENT, so it goes by date alone', () async {
+      // Tier 1. A payload older than the UNSENT bound is still only a cached
+      // copy of something the server will send again, so it is dropped and it
+      // is never counted as something destroyed.
+      await seed(kUnsentSampleRetentionDays + 1);
+
+      final report = await store.pruneBeyondHorizon(today);
+
+      expect(report.cachedPayloads, 1);
+      expect(report.unsentSamples, 0);
+      expect(report.destroyedSomething, isFalse);
+      expect(await store.pushReader.lastAttempt(), isA<PushStamp>()
+          .having((s) => s.loss, 'loss', isNull));
     });
   });
 }

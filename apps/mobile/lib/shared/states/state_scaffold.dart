@@ -12,12 +12,22 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
 /// The card every state renders inside — a hairline frame, generous radius.
 ///
 /// "Flat, hairline `line`/`line-2` dividers, generous radii, almost no shadow.
 /// Depth from spacing and contrast." (`docs/APP_DESIGN_BRIEF.md` §2.)
+///
+/// ## The corner is a superellipse, and it costs nothing
+///
+/// The legacy design used the `smooth_corner` package for squircle cards, and
+/// that shape is part of the language this screen is matching. It is NOT worth a
+/// dependency — but since Flutter 3.35 the framework draws it natively, so
+/// [RoundedSuperellipseBorder] buys the corner for one class name and no package.
+/// At [Radii.card] the difference from a circular corner is small and cumulative:
+/// it is what stops a grid of seven cards reading as seven rounded rectangles.
 class StateCard extends StatelessWidget {
   /// Wraps [child] in the app's card frame.
   const StateCard({required this.child, this.border, this.fill, super.key});
@@ -37,14 +47,24 @@ class StateCard extends StatelessWidget {
   /// Overrides the fill. Pairs with [border]; default is [HealtheeColors.surface].
   final Color? fill;
 
+  /// The one card shape, so a grid module and a detail card share a corner.
+  /// The one card corner in the app — legacy's `hSquircle` at [Radii.card].
+  ///
+  /// It used to be Flutter's own `RoundedSuperellipseBorder`, which draws Apple's
+  /// continuous corner and is very close to what this returns. It now delegates
+  /// to `shapes.dart` so there is a single definition of the corner, and so that
+  /// definition is the one legacy actually drew against (`smooth_corner` at
+  /// smoothness 0.6).
+  static ShapeBorder shapeOf(Color border) =>
+      hSquircle(Radii.card, side: BorderSide(color: border, width: hairline));
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: fill ?? colors.surface,
-        borderRadius: BorderRadius.circular(Radii.card),
-        border: Border.all(color: border ?? colors.line, width: hairline),
+        shape: shapeOf(border ?? colors.line),
       ),
       child: Padding(
         padding: const EdgeInsets.all(Insets.lg),

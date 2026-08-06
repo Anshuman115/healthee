@@ -12,6 +12,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/sleep_history.dart';
@@ -23,7 +24,7 @@ class HStackedSleep extends StatelessWidget {
   const HStackedSleep(
     this.nights, {
     required this.progress,
-    this.height = 130,
+    this.height = 110,
     super.key,
   });
 
@@ -33,12 +34,13 @@ class HStackedSleep extends StatelessWidget {
   /// How far the bars have grown, 0–1.
   final double progress;
 
-  /// How tall to draw the chart.
+  /// How tall to draw the chart. 110 is legacy's default.
   final double height;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final hues = context.hues;
     if (nights.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -49,6 +51,7 @@ class HStackedSleep extends StatelessWidget {
         painter: _StackedPainter(
           nights: nights,
           colors: colors,
+          hues: hues,
           progress: progress,
           labelStyle: TextStyle(fontSize: 9, color: colors.ink3),
           lastLabelStyle: TextStyle(fontSize: 9, color: colors.ink2),
@@ -62,6 +65,7 @@ class _StackedPainter extends CustomPainter {
   const _StackedPainter({
     required this.nights,
     required this.colors,
+    required this.hues,
     required this.progress,
     required this.labelStyle,
     required this.lastLabelStyle,
@@ -69,6 +73,7 @@ class _StackedPainter extends CustomPainter {
 
   final List<SleepNightSummary> nights;
   final HealtheeColors colors;
+  final InstrumentHues hues;
   final double progress;
   final TextStyle labelStyle;
   final TextStyle lastLabelStyle;
@@ -101,7 +106,7 @@ class _StackedPainter extends CustomPainter {
         final segment = (minutes / axisMinutes) * chartHeight * progress;
         canvas.drawRect(
           Rect.fromLTWH(x, chartHeight - stacked - segment, barWidth, segment),
-          Paint()..color = sleepStageColor(colors, stage),
+          Paint()..color = sleepStageColor(hues, stage),
         );
         stacked += segment;
       }

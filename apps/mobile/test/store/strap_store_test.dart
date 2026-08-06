@@ -304,11 +304,20 @@ void main() {
     test('DAY 61 IS GONE, and day 60 is kept — on all four tables', () async {
       await seedAt(localHorizonDays); // the boundary day, kept
       await seedAt(localHorizonDays + 1); // one past it, dropped
+      // The horizon applies to a row the SERVER HAS. It never applied to an
+      // unsent one — it only looked as though it did, which is the defect
+      // `prune_safety_test.dart` exists for. Marking first is what keeps this
+      // test about the horizon rather than about the guard.
+      await store.pushReader.markPushed(
+        await store.pushReader.pending(),
+        DateTime(2026, 8, 4, 9, 30),
+      );
 
-      final removed = await store.pruneBeyondHorizon(today);
+      final report = await store.pruneBeyondHorizon(today);
 
       // One row per table for the day past the horizon.
-      expect(removed, 4);
+      expect(report.sentMeasurements, 4);
+      expect(report.unsentSamples, 0);
       for (final rows in [
         await store.select(store.strapSamples).get(),
         await store.select(store.sleepSessions).get(),

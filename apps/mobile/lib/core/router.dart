@@ -1,22 +1,62 @@
-/// Routes. One route today; the shape of the five-tab shell is already decided.
+/// Routes. Five tabs, the setup surfaces, and settings outside the shell.
 ///
 /// `docs/APP_DESIGN.md` §2 fixes the information architecture — five tabs (Today ·
-/// Sleep · Activity · Insights · Actions), a Coach FAB on Today, and Profile as a
-/// right-slide route off the Today avatar rather than a sixth tab. The paths below
-/// are those names, so a screen landing tomorrow attaches to a route that already
-/// exists instead of inventing a URL scheme.
+/// Sleep · Activity · Insights · Actions), a Coach FAB on Today, and the owner's
+/// own surfaces off the Today avatar rather than as a sixth tab. All five tabs and
+/// the avatar's destination now exist; `core/tabs.dart` records what changed and
+/// why.
 ///
 /// go_router rather than `Navigator` calls: deep links (a notification opening one
 /// night's sleep detail) and typed paths are both things the app will need, and
 /// retrofitting a router after screens exist means touching every screen.
+///
+/// ## The five tabs are BRANCHES, not sibling pages
+///
+/// They were plain sibling `GoRoute`s, which meant every tab switch built a new
+/// page and threw the old one away — scroll offset, chart reveals and provider
+/// reads with it. `shared/app_shell.dart` records the measurement. They are now
+/// the branches of a `StatefulShellRoute.indexedStack`, each with its own
+/// `Navigator`, all kept alive — which is also what gives the Android back button
+/// a per-tab stack to pop (the shell owns that rule).
+///
+/// ## `go` REPLACES. Every out-of-shell destination is pushed.
+///
+/// This shipped wrong once and the bug is worth stating in full, because the
+/// mistake reads as correct: `context.go` replaces the location rather than
+/// stacking on it, so a `go` into Settings left **nothing underneath**. The
+/// shell's back rule then did exactly what it says — an empty branch stack, not
+/// on Today, so leave — and the owner was dropped onto the Android home screen
+/// from a screen they had tapped into two seconds earlier. Every out-of-shell
+/// route had it, so Settings → Diagnostics → back left the app too.
+///
+/// The rule, and it is a rule rather than a case-by-case judgement:
+///
+/// | navigation | verb | why |
+/// |---|---|---|
+/// | tab → tab (`app_tab_bar.dart`) | `go` | a bar switches between siblings; stacking them would make back walk a history of tabs |
+/// | Today → settings · sign-in | `push` | a destination the owner came from somewhere and expects to return to |
+/// | settings → diagnostics · sign-in · pairing | `push` | back lands on Settings, which is what made it findable |
+/// | the redirect below | replace | there is nothing to return to |
+///
+/// **`push` is also what draws the back arrow.** A `go`-ed screen with an
+/// `AppBar` has no leading control, so those screens offered no way back at all
+/// — not even a wrong one. The gesture and the affordance were missing together,
+/// which is why nothing on screen looked broken.
+///
+/// [leaveSetup] handles the one place the two columns meet: a setup flow that
+/// may be pushed *or* redirected into.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:healthee/core/tabs.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
+import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
-import 'package:healthee/features/today/today_screen.dart';
+import 'package:healthee/features/settings/settings_screen.dart';
+import 'package:healthee/features/signin/server_signin_screen.dart';
+import 'package:healthee/shared/app_shell.dart';
 import 'package:healthee/shared/foundation_screen.dart';
 
 /// Every route's path, in one place. Screens reference these, never string
@@ -33,17 +73,44 @@ abstract final class Routes {
   /// Fitness, organised around VO₂max.
   static const String activity = '/activity';
 
-  /// The outcome ledger — what is actually working.
+  /// The owner's own history — trends, and the patterns found in it.
+  ///
+  /// There is no `/coach` path. The coach is a sheet opened from Today's FAB
+  /// (`features/coach/coach_sheet.dart`), which is where legacy puts it and what
+  /// `docs/APP_DESIGN.md` §2 describes; a route for it would be a second way in
+  /// with a different back behaviour.
   static const String insights = '/insights';
 
-  /// Challenges and commitments.
+  /// Every cited action the server raised for today.
   static const String actions = '/actions';
 
-  /// Identity, body, appearance, data and sync.
-  static const String profile = '/profile';
+  /// Appearance, the server session, the strap, diagnostics and the licences.
+  ///
+  /// **Outside the tab shell**, and reached from the Today header's avatar —
+  /// which is the entry point that already existed, extended rather than
+  /// duplicated. A settings surface inside the bar would light a tab while the
+  /// owner is somewhere that is not a tab.
+  static const String settings = '/settings';
 
   /// Pair a strap, or review the pairing already held.
   static const String pairing = '/pairing';
+
+  /// Baselines and the strap's own streams — "is the instrument working".
+  ///
+  /// Off the tab bar on purpose. `diagnostics_screen.dart` argues it: these are
+  /// the numbers the owner wants when something looks wrong, and never at 7am.
+  /// Reached from [pairing], which is where the avatar on Today already goes.
+  static const String diagnostics = '/diagnostics';
+
+  /// Sign in to the Healthee server, or review the session already held.
+  ///
+  /// **Nothing redirects here**, unlike [pairing]. See the router's own
+  /// "Unpaired means pairing" note for the contrast: an app with no strap has
+  /// nothing to show at all, whereas an app with no server session still has
+  /// every measurement this phone read off the strap. Gating on a token would
+  /// take the owner's own data away until they satisfied a server, and
+  /// strap-only is a supported mode rather than a degraded one.
+  static const String serverSignIn = '/server';
 
   /// The honesty-state specimen sheet. **Not a product screen.**
   ///
@@ -57,10 +124,10 @@ abstract final class Routes {
 
 /// The app's router.
 ///
-/// [Routes.today], [Routes.pairing] and [Routes.devFoundation] are wired. The
-/// remaining constants above are the agreed paths, not dead routes — a route
-/// with no screen would be a link to a crash, so they are added with their
-/// screens.
+/// Every path in [Routes] is wired to a screen. That is not a coincidence to be
+/// maintained by review — `test/features/reachability_test.dart` walks the tab
+/// list against the wired set, because a tab pointing at an unregistered path
+/// looks like nothing at all until somebody taps it.
 ///
 /// ## Unpaired means pairing
 ///
@@ -92,9 +159,28 @@ GoRouter buildRouter(WidgetRef ref) {
       return null;
     },
     routes: <RouteBase>[
+      // The tabs. Branch order IS `kAppTabs` order, by construction rather than
+      // by agreement — the bar moves by index, so two lists would be a defect
+      // that compiles.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: <StatefulShellBranch>[
+          for (final AppTab tab in kAppTabs)
+            StatefulShellBranch(
+              routes: <RouteBase>[
+                GoRoute(
+                  path: tab.route,
+                  builder: (BuildContext context, GoRouterState state) =>
+                      tab.screen(),
+                ),
+              ],
+            ),
+        ],
+      ),
       GoRoute(
-        path: Routes.today,
-        builder: (BuildContext context, GoRouterState state) => const TodayScreen(),
+        path: Routes.diagnostics,
+        builder: (BuildContext context, GoRouterState state) => const DiagnosticsScreen(),
       ),
       GoRoute(
         path: Routes.devFoundation,
@@ -103,10 +189,43 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(
         path: Routes.pairing,
         builder: (BuildContext context, GoRouterState state) =>
-            PairingScreen(onDone: () => context.go(Routes.today)),
+            PairingScreen(onDone: () => leaveSetup(context)),
+      ),
+      GoRoute(
+        path: Routes.serverSignIn,
+        builder: (BuildContext context, GoRouterState state) =>
+            ServerSignInScreen(onDone: () => leaveSetup(context)),
+      ),
+      GoRoute(
+        path: Routes.settings,
+        builder: (BuildContext context, GoRouterState state) =>
+            const SettingsScreen(),
       ),
     ],
   );
+}
+
+/// Leaves a setup screen the way the owner came into it.
+///
+/// The two setup flows are reachable **two ways**, and "Done" cannot mean one
+/// thing for both:
+///
+///   * **Pushed** from Settings, by somebody who went looking for it. There is a
+///     screen underneath and they expect to come back to it, so Done pops.
+///   * **Redirected into** by the router, because the app holds no strap
+///     credentials and has nothing to show. Nothing is underneath, so Done goes
+///     to Today — which the redirect will now allow, because pairing succeeded.
+///
+/// `canPop()` is the question that distinguishes them, and it is the router's
+/// own rather than a flag threaded down through the screens: a parameter saying
+/// "you were pushed" is a second copy of a fact the navigator already holds, and
+/// it would be wrong the first time a third caller forgot to set it.
+void leaveSetup(BuildContext context) {
+  if (context.canPop()) {
+    context.pop();
+  } else {
+    context.go(Routes.today);
+  }
 }
 
 /// Lets [buildRouter] tell go_router that the pairing state moved.

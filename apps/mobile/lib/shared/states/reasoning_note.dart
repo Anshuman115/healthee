@@ -12,11 +12,22 @@
 ///
 /// It renders **inside** whatever card it belongs to and draws no frame of its
 /// own: brief §2's first "never" is card-inside-a-card.
+///
+/// ## The answer goes through [GroundedProse], whoever wrote it
+///
+/// Most answers here are composed in Dart from typed fields and carry no
+/// citation markers, so the parse is a no-op on them. One is not: a
+/// recommendation's `rationale` is model prose that `jobs/recs.py` **requires**
+/// to contain an inline `[note_id]` — it drops any rec whose rationale has none.
+/// Routing every answer through the grounded widget rather than only that one
+/// means a disclosure filled with server prose tomorrow is covered by
+/// construction instead of by somebody noticing.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/shared/states/grounded_text.dart';
 
 /// A one-line question that opens into its answer.
 class ReasoningNote extends StatefulWidget {
@@ -75,8 +86,8 @@ class _ReasoningNoteState extends State<ReasoningNote> {
         if (_open)
           Padding(
             padding: const EdgeInsets.only(top: Insets.xs),
-            child: Text(
-              widget.answer,
+            child: GroundedProse(
+              text: widget.answer,
               style: text.bodySmall?.copyWith(color: colors.ink2),
             ),
           ),

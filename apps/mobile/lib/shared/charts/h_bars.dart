@@ -61,6 +61,19 @@ class _HBarsState extends State<HBars> {
   int? _touch;
   double _width = 1;
 
+  /// Legacy holds a tapped value on screen for 1200 ms after the finger
+  /// leaves (`instrument_charts.dart:77`), so a tap is readable. A drag still
+  /// clears the moment it ends.
+  static const Duration _linger = Duration(milliseconds: 1200);
+
+  void _clearAfterLinger() {
+    Future<void>.delayed(_linger, () {
+      if (mounted) {
+        setState(() => _touch = null);
+      }
+    });
+  }
+
   void _scrub(double dx) {
     if (widget.data.isEmpty) {
       return;
@@ -75,7 +88,7 @@ class _HBarsState extends State<HBars> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (details) => _scrub(details.localPosition.dx),
-      onTapUp: (_) => setState(() => _touch = null),
+      onTapUp: (_) => _clearAfterLinger(),
       onHorizontalDragStart: (details) => _scrub(details.localPosition.dx),
       onHorizontalDragUpdate: (details) => _scrub(details.localPosition.dx),
       onHorizontalDragEnd: (_) => setState(() => _touch = null),

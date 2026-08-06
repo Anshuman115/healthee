@@ -8,6 +8,14 @@
 /// step added later without a widget is a compile error rather than a blank
 /// screen — the same guarantee `Reading<T>` gives the honesty states, applied to
 /// the flow.
+///
+/// ## What used to be here and is not
+///
+/// A "Your server" card and an "Open diagnostics" card, both because the Today
+/// avatar opened this screen and this was, in that widget's own words, "the only
+/// identity surface that exists". Neither is about pairing. They are rows on
+/// `features/settings/` now, which is where the avatar goes, and this screen is
+/// about the strap again.
 library;
 
 import 'dart:async';

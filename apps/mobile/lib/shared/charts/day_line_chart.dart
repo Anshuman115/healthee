@@ -28,7 +28,9 @@ class DayLineChart extends StatelessWidget {
   const DayLineChart({
     required this.points,
     required this.progress,
+    required this.color,
     this.height = 96,
+    this.showRange = true,
     super.key,
   });
 
@@ -40,6 +42,21 @@ class DayLineChart extends StatelessWidget {
 
   /// How tall to draw it.
   final double height;
+
+  /// The line's colour and, at low alpha, the fill under it.
+  ///
+  /// A parameter rather than [HealtheeColors.accent] as it used to be: the Today
+  /// grid ties every chart to its metric's identity tag, and a day of heart rate
+  /// drawn in the accent while the module's dot is the heart tag would be the one
+  /// chart on the screen that does not match its own card.
+  final Color color;
+
+  /// Whether to print `49–112 across 869 samples` beneath the line.
+  ///
+  /// Off when the caller has already put the range in its header, which is where
+  /// the legacy 24 h module puts it — the same sentence twice on one card reads
+  /// as a layout mistake.
+  final bool showRange;
 
   @override
   Widget build(BuildContext context) {
@@ -65,16 +82,18 @@ class DayLineChart extends StatelessWidget {
               low: low,
               high: high,
               progress: progress,
-              line: colors.accent,
-              fill: colors.accentSoft,
+              line: color,
+              fill: color.withValues(alpha: 0.14),
             ),
           ),
         ),
-        const SizedBox(height: Insets.sm),
-        Text(
-          '${low.round()}–${high.round()} across ${points.length} samples',
-          style: text.labelSmall?.copyWith(color: colors.ink3),
-        ),
+        if (showRange) ...[
+          const SizedBox(height: Insets.sm),
+          Text(
+            '${low.round()}–${high.round()} across ${points.length} samples',
+            style: text.labelSmall?.copyWith(color: colors.ink3),
+          ),
+        ],
       ],
     );
   }

@@ -17,6 +17,7 @@
 /// definition waiting to drift.
 library;
 
+import 'package:healthee/shared/format/iso_clock.dart';
 import 'package:meta/meta.dart';
 
 /// One dimension: what it measures, what it scored, and against what.
@@ -160,7 +161,7 @@ class SleepHealth {
       SleepDimension(
         name: 'Timing',
         passed: point('point_timing'),
-        reading: _clockOf(json['midpoint_local']),
+        reading: clockOfIso(json['midpoint_local']),
         cutoff: band == null
             ? '02:00–04:00'
             : '${_hourLabel(band.first)}–${_hourLabel(band.last)}',
@@ -169,13 +170,6 @@ class SleepHealth {
     ];
   }
 
-  /// `HH:MM` out of the ISO midpoint, without parsing it into an instant.
-  ///
-  /// The string already carries the owner's own offset, so slicing it keeps the
-  /// wall-clock time the server meant. `DateTime.parse` would hand back the same
-  /// moment in the *device's* zone, which is a different clock face.
-  static String? _clockOf(Object? raw) =>
-      raw is String && raw.length >= 16 ? raw.substring(11, 16) : null;
 
   static String _hourLabel(Object? hour) {
     final value = (hour as num?)?.toDouble() ?? 0;

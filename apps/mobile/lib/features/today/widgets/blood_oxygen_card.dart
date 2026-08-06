@@ -1,107 +1,109 @@
-/// Overnight blood oxygen — full width, because the **minimum** is the signal.
+/// `Blood oxygen · 14 nights` — full width, because the nightly LOW is the point.
 ///
-/// Legacy gave this its own full-width block in the sleep section and that was
-/// right: SpO₂ is the one overnight series where the average is nearly useless
-/// and the nightly low is the clinical fact. A night that sat at 97% and dipped
-/// to 88% is a different night from one that sat at 97% throughout, and only the
-/// minimum distinguishes them.
+/// **Ported from** `healthee-legacy/app/lib/ui/today_screen.dart:312`. Legacy's
+/// own comment says why this one is not a grid tile: *"full-width because the
+/// NIGHTLY MINIMUM (desaturation signal) is what matters clinically and needs
+/// room"*. So: the average trend as a 52 px line, then the last night's minimum
+/// and the lowest of the period as one mono caption, then the research note.
 ///
-/// So the minimum is the hero and the average is the footnote — the opposite of
-/// how every other metric on this screen is laid out, deliberately.
+/// ```text
+///   BLOOD OXYGEN · 14 NIGHTS                            97%
+///   ╱‾‾╲__╱‾‾╲___
+///   LAST NIGHT LOW 95%  ·  LOWEST 14N 91%
+///   Healthy overnight oxygen — averages in the normal 95–100% range …
+/// ```
 ///
-/// **No threshold is drawn and no verdict is given.** Where a nightly low
-/// becomes clinically interesting is a medical judgement with a real cutoff
-/// behind it, and this app does not hold that cutoff — `/api/today` sends the
-/// numbers and nothing else. Colouring a low reading `unf` would be inventing
-/// the threshold in the UI layer, which is the one place with no access to the
-/// evidence.
+/// Both figures come from the `spo2_overnight_min` sparkline and neither is
+/// invented: with no minima at all the caption is absent rather than showing the
+/// average in its place.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/instrument_type.dart';
+import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/data/models/last_sleep.dart';
-import 'package:healthee/data/models/trend_point.dart';
-import 'package:healthee/features/today/widgets/measured_card.dart';
+import 'package:healthee/data/honesty/reading.dart';
+import 'package:healthee/features/today/today_facts.dart';
+import 'package:healthee/features/today/widgets/metric_note.dart';
+import 'package:healthee/features/today/widgets/trailing_reading.dart';
 import 'package:healthee/shared/charts/h_area.dart';
+import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
 
-/// Last night's blood oxygen, minimum first.
+/// The fortnight of overnight oxygen, and what its lows say.
 class BloodOxygenCard extends StatelessWidget {
-  /// [nightlyMinimums] is the `spo2_overnight_min` sparkline, oldest first.
+  /// [averages] and [minima] are the two sparklines, oldest first.
   const BloodOxygenCard({
-    required this.vitals,
-    required this.nightlyMinimums,
+    required this.averages,
+    required this.minima,
+    required this.reading,
     required this.reveals,
     super.key,
   });
 
-  /// The overnight block. Rendered only when it carries a blood-oxygen figure.
-  final OvernightVitals vitals;
+  /// `spo2_overnight` — the nightly averages.
+  final List<double> averages;
 
-  /// Fourteen nights of nightly lows.
-  final List<TrendPoint> nightlyMinimums;
+  /// `spo2_overnight_min` — the nightly minima.
+  final List<double> minima;
 
-  /// The screen's reveal registry.
+  /// The current overnight average and its honesty state.
+  final Reading<double> reading;
+
+  /// Where "this chart has already animated" is remembered.
   final RevealRegistry reveals;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    final minimum = vitals.spo2Min;
-    if (minimum == null && vitals.spo2Avg == null) {
-      return const SizedBox.shrink();
-    }
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Blood oxygen overnight', style: text.labelSmall),
-          const SizedBox(height: Insets.sm),
-          if (minimum != null)
-            HeroValue(value: '${minimum.round()}', unit: '% lowest')
-          else
-            HeroValue(value: '${vitals.spo2Avg!.round()}', unit: '% average'),
-          const SizedBox(height: Insets.xs),
-          Text(
-            _footnote(vitals),
-            style: text.bodySmall?.copyWith(color: colors.ink2),
-          ),
-          if (nightlyMinimums.length >= 2) ...[
-            const SizedBox(height: Insets.lg),
-            RevealOnce(
-              id: 'spo2-overnight-min',
-              registry: reveals,
-              builder: (context, t) => HArea(
-                TrendPoint.valuesOf(nightlyMinimums),
-                color: colors.accent,
-                progress: t,
-                height: 56,
-                unit: '%',
-              ),
-            ),
-            const SizedBox(height: Insets.sm),
-            Text(
-              'Nightly lows over the last ${nightlyMinimums.length} nights. '
-              'The low is the number worth watching; the average smooths away '
-              'the dips that make it interesting.',
-              style: text.labelSmall?.copyWith(color: colors.ink3),
-            ),
-          ],
-        ],
+    final tint = hueFor(context.hues, TodayMetricIds.bloodOxygen);
+    final lastMinimum = minima.isEmpty ? null : minima.last;
+    final lowest = minima.isEmpty
+        ? null
+        : minima.reduce((a, b) => a < b ? a : b);
+    return InstrumentModule(
+      label: 'Blood oxygen · 14 nights',
+      tag: tint,
+      // The live case, and it was silent: on the committed contract snapshot
+      // `spo2_overnight` has no metric card, so this figure comes from
+      // `last_sleep_extras` CAVEATED with the sentence naming the instrument and
+      // the night — and `TrailingReading` renders a figure or a hole, never a
+      // disclosure. The header mark is where that sentence reaches the screen.
+      caveats: reading.caveatsOrEmpty,
+      minHeight: 0,
+      trailing: TrailingReading(
+        reading: reading,
+        format: (value) => '${value.round()}%',
+        color: tint,
       ),
+      children: [
+        RevealOnce(
+          id: 'today.blood-oxygen',
+          registry: reveals,
+          builder: (context, t) => HArea(
+            averages,
+            color: tint,
+            progress: t,
+            height: 52,
+            unit: '%',
+          ),
+        ),
+        if (lastMinimum != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            'LAST NIGHT LOW ${lastMinimum.round()}%'
+            '${lowest == null ? '' : '  ·  LOWEST 14N ${lowest.round()}%'}',
+            style: HType.number(
+              colors.ink3,
+              size: 10,
+              weight: FontWeight.w500,
+            ),
+          ),
+        ],
+        const SizedBox(height: 7),
+        MetricNote(spo2Note(reading.valueOrNull, lastMinimum, lowest)),
+      ],
     );
-  }
-
-  static String _footnote(OvernightVitals vitals) {
-    final parts = <String>[
-      if (vitals.spo2Min != null)
-        if (vitals.spo2Avg case final double average)
-          'averaged ${average.round()}% across the night',
-    ];
-    parts.add('measured by your strap while you slept');
-    return parts.join(' · ');
   }
 }

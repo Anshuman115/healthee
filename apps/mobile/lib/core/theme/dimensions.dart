@@ -25,25 +25,32 @@ abstract final class Insets {
   static const double xxl = 32;
 }
 
-/// Corner radii, taken from the approved design.
+/// Corner radii — **legacy's ladder**, `theme.dart`'s `HRadius`.
 ///
-/// Brief §2 asks for "generous radii, almost no shadow — depth from spacing and
-/// contrast". These are the values `Healthee.html` actually uses; 16 is by far
-/// the most common and is the card.
+/// Legacy names its rungs by size (`sm 10 · md 14 · lg 16 · xl 24 · pill`);
+/// these are named by what wears them, which is the same five numbers plus two
+/// the honesty layer needs. Every radius is drawn as a **continuous-corner
+/// squircle** (`shapes.dart`), never a circular arc.
 abstract final class Radii {
-  /// 16 — cards, sheets, the illness banner.
+  /// 16 — legacy's `lg`: every module, card and banner.
   static const double card = 16;
 
-  /// 10 — buttons, and the value-shaped hole in a withheld card.
+  /// 24 — legacy's `xl`: sheets.
+  static const double sheet = 24;
+
+  /// 14 — legacy's `md`: badges and small tinted blocks.
+  static const double badge = 14;
+
+  /// 10 — legacy's `sm`: buttons, and the value-shaped hole in a withheld card.
   static const double button = 10;
 
-  /// 8 — chips and small stamps.
+  /// 8 — chips and small stamps. Below legacy's ladder; the honesty layer's own.
   static const double chip = 8;
 
   /// 6 — an inline hole, sitting on a single row.
   static const double inlineHole = 6;
 
-  /// Fully rounded — pills, progress tracks, dots.
+  /// Fully rounded — pills, progress tracks, dots. Legacy's `pill`.
   static const double pill = 999;
 }
 

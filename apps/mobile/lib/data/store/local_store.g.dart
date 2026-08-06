@@ -2771,6 +2771,7 @@ abstract class _$LocalStore extends GeneratedDatabase {
   late final StrapWriter strapWriter = StrapWriter(this as LocalStore);
   late final StrapReader strapReader = StrapReader(this as LocalStore);
   late final PushReader pushReader = PushReader(this as LocalStore);
+  late final HorizonPrune horizonPrune = HorizonPrune(this as LocalStore);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();

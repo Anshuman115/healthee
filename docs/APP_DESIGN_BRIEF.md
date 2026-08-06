@@ -36,7 +36,7 @@ Two sources, and the split is deliberate:
 | from the **legacy app** (`~/projects/healthee-legacy/app/lib/ui/`) | from the **new design** (`Healthee.html`) |
 |---|---|
 | screen set, navigation, information architecture | the entire colour system (below) |
-| `instrument_charts.dart` — 704 lines of proven custom painters: `HArea` · `HBars` · `HStackedSleep` · `HHypnogram` · `HTimingChart` · `HDebtBars` | **Instrument Sans** as the single face |
+| `instrument_charts.dart` — 704 lines of proven custom painters: `HArea` · `HBars` · `HStackedSleep` · `HHypnogram` · `HTimingChart` · `HDebtBars` | ~~**Instrument Sans**~~ **Manrope** as the single face (see §2's type note) |
 | `theme.dart`'s shape — `HColors`, `HType`, and the tabular-numeral constant | the light/dark token pairs |
 | the 24 shipped screens as the map of what exists | new components added since |
 
@@ -89,9 +89,17 @@ A refusal spends no colour at all, because colour here is reserved for judgement
 > surfaces, two looks, by the owner's choice. Any claim that the app's indigo matches
 > the landing page is false and should be corrected wherever it appears.
 
-**Type: `Instrument Sans`**, one face, system-ui fallback. Sizes run 10–18px for body and
-labels, 26–34px for hero figures. Tabular figures **mandatory** on every number — the
-legacy theme already has the constant for it.
+**Type: ~~`Instrument Sans`~~ `Manrope`**, one face, system-ui fallback. Sizes run 10–18px
+for body and labels, 26–34px for hero figures. Tabular figures **mandatory** on every
+number — the legacy theme already has the constant for it.
+
+> **Superseded 2026-08-05.** The owner: Instrument Sans *reads "newspaper" at display
+> sizes* — which is the direction §2 above rules out by name. Manrope replaces it: open
+> apertures, near-uniform stroke, and it ships `tnum`, so the tabular rule survives.
+> The swap also fixed a live defect nobody had a check for — **Instrument Sans has no
+> U+2082**, so `SpO₂` drew a tofu box on the running screen, as did the `σ` in the
+> recovery ladder's caption. `apps/mobile/test/core/typography_test.dart` now reads the
+> vendored font's own `cmap` so that cannot happen again. Nothing else in §2 moves.
 
 | | |
 |---|---|

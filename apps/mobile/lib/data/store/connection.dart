@@ -29,3 +29,12 @@ QueryExecutor openLocalStore() {
 
 /// A private in-memory database. Tests only.
 QueryExecutor openInMemory() => NativeDatabase.memory();
+
+/// A database in a real file at [path]. Tests only.
+///
+/// [openInMemory] is the right seam for almost everything and should stay so.
+/// This one exists for the claims where **the file is the point**: a cold start
+/// is a new process reading bytes an earlier one wrote, and an in-memory
+/// database cannot represent that at all — it would agree with any code, which
+/// is precisely how a debounce that resets on every launch passes its own test.
+QueryExecutor openFileAt(String path) => NativeDatabase(File(path));

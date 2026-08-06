@@ -1,4 +1,4 @@
-/// The type system: Instrument Sans, and tabular figures wherever a number lives.
+/// The type system: Manrope, and tabular figures wherever a number lives.
 ///
 /// ## Tabular figures are on by default, and that is a correctness decision
 ///
@@ -22,12 +22,38 @@
 /// at 600 far more often than 700 — this is an instrument, and hierarchy comes
 /// from weight and spacing rather than from large type.
 ///
+/// ## The face is Manrope, and it replaced Instrument Sans
+///
+/// Owner decision 2026-08-05: *Instrument Sans reads "newspaper" at display
+/// sizes.* It does — its high-contrast, tight-apertured caps carry an editorial
+/// texture, which is the one direction `docs/APP_DESIGN_BRIEF.md` §2 rules out by
+/// name ("modern instrument. **Not editorial**"). Manrope is the opposite build:
+/// open apertures, near-uniform stroke, a wide and untroubled `0`.
+///
+/// **The old family is deleted, not left beside the new one.** Two vendored
+/// families is two things a `TextStyle` can name and one of them wrong, and the
+/// wrongness is invisible — a stray `fontFamily: 'Instrument Sans'` would render
+/// perfectly and simply not be the app's face.
+///
+/// Two measurements came with the swap, because a face is not a drop-in:
+///
+///   * **Tabular figures survive.** Manrope ships `tnum`, which is what
+///     [FontFeature.tabularFigures] selects. That mattered more than the face —
+///     brief §7 makes it a hard constraint, and a face without it would have been
+///     rejected whatever it looked like.
+///   * **Manrope runs wider**, so every display-size string was re-checked
+///     against overflow (`test/core/typography_test.dart`), and the subscript in
+///     `SpO₂` was checked for a glyph. Instrument Sans **had none** — U+2082 drew
+///     a tofu box on the live screen, as did the `σ` in the recovery ladder's
+///     caption. Manrope covers both.
+///
 /// ## The font is vendored, not fetched
 ///
-/// `assets/fonts/` holds four weights of Instrument Sans (SIL OFL, see the OFL.txt
-/// beside them). Bundling costs ~195 KB and buys a binary with no network
-/// dependency at paint time, against a cold-start budget of 2 s to first
-/// meaningful paint (Standards §1). The face is confirmed by the approved design.
+/// `assets/fonts/` holds three weights of Manrope (SIL OFL, no Reserved Font
+/// Name; see the OFL.txt beside them), instanced from upstream's variable font at
+/// the exact weights below. Bundling costs ~290 KB and buys a binary with no
+/// network dependency at paint time, against a cold-start budget of 2 s to first
+/// meaningful paint (Standards §1).
 ///
 /// [healtheeFontFallback] still names the platform faces, so a failed asset
 /// degrades to the system font rather than to Flutter's fallback box glyphs.
@@ -36,7 +62,7 @@ library;
 import 'package:flutter/material.dart';
 
 /// The bundled family name, as declared in pubspec.yaml.
-const String healtheeFontFamily = 'Instrument Sans';
+const String healtheeFontFamily = 'Manrope';
 
 /// Platform faces to fall back on if the bundled asset is unavailable.
 const List<String> healtheeFontFallback = <String>[

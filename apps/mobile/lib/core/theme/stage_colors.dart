@@ -1,48 +1,49 @@
-/// The one sleep-stage palette. Two charts and a card draw from it.
+/// The sleep-stage vocabulary: the order stages stack in, and their labels.
 ///
-/// ## Why not the legacy palette
+/// **The colour itself lives on [InstrumentHues.sleepStage]** and nowhere else,
+/// exactly as legacy put it on `HColors.sleepStage` — one mapping, used by the
+/// hypnogram, the seven-night bars and every legend. This file is what is left
+/// once the colour moved: the stacking order and the owner-facing names.
 ///
-/// `theme.dart`'s `HColors.sleepStage` gave each stage its own hue — deep amber,
-/// core blue, REM purple, awake red. That is what most sleep apps do and it is
-/// wrong under this design system: brief §2 rations colour to **judgement**
-/// (`fav`/`unf` against the owner's own baseline, `alert` for illness alone), and
-/// four hues across four stages spends the whole palette asserting that deep
-/// sleep is good and awake is bad. Neither claim is the app's to make in a
-/// picture of what the strap recorded.
+/// The previous revision of this file argued for a one-hue hypnogram (an accent
+/// at three alphas), then for the five identity tags. Both are gone. Legacy draws
+/// four clearly distinct stage colours and legacy is the specification.
 ///
-/// So the stages are shades of the ONE accent, ordered deepest-to-lightest, with
-/// awake drawn in [HealtheeColors.line] because it is the absence of sleep
-/// rather than a fifth kind of it. The reading is carried by width, which is
-/// what the measurement actually is.
+/// ## One stage, one word
 ///
-/// Extracted here on its second use, per Standards §1 — `sleep_card.dart` had
-/// the ladder inline and the hypnogram needed the same four values.
+/// Legacy called the light stage **`Core`** in the breakdown and the hypnogram
+/// lanes, **`light`** in the naps legend, and **`LIGHT`** on the seven-night
+/// chip — three words for one stage, two of them on the same screen. Every
+/// surface now asks [sleepStageLabel], which answers **`Light`**: the strap's own
+/// word, and the one the server's `light` key already uses. This is wording, not
+/// layout — no swatch, gap or row moves.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 
-/// The stage names the strap and the server both use, deepest first.
-///
-/// `core` is the server's word for what the strap calls `light`; both map to the
-/// same shade because they are the same stage under two vocabularies, and giving
-/// them different colours would draw a distinction that does not exist.
+/// The stage names the strap and the server both use, **deepest first** — the
+/// order legacy stacks them in (`instrument_charts.dart:335`).
 const List<String> kSleepStages = <String>['deep', 'light', 'rem', 'awake'];
 
-/// The colour for one stage name.
+/// The stand-in stage for a code this app cannot name.
 ///
-/// An unrecognised stage gets [HealtheeColors.line2] rather than a default
-/// shade: the strap emits codes we do not recognise, and painting one as light
-/// sleep would put a stage in the picture that nothing measured.
-Color sleepStageColor(HealtheeColors colors, String stage) => switch (stage) {
-  'deep' => colors.accent,
-  'light' || 'core' => colors.accent.withValues(alpha: 0.55),
-  'rem' => colors.accent.withValues(alpha: 0.30),
-  'awake' => colors.line,
-  _ => colors.line2,
-};
+/// Not a stage the strap ever sends — it is what a chart resolves an unreadable
+/// code to, so the band, its colour and its legend key all speak about the same
+/// thing. See [InstrumentHues.sleepStage].
+const String kUnrecognisedStage = 'unrecognised';
+
+/// The colour for one stage name. A thin alias for [InstrumentHues.sleepStage],
+/// kept so call sites read `sleepStageColor(hues, stage)` at the point of use.
+Color sleepStageColor(InstrumentHues hues, String stage) =>
+    hues.sleepStage(stage);
 
 /// The owner-facing name for one stage.
+///
+/// `core` is the server's word for what the strap calls `light`; one stage, two
+/// vocabularies, one label. Anything else is **named as unrecognised rather than
+/// as a stage** — the label half of the rule `InstrumentHues.sleepStage` holds
+/// for the colour.
 String sleepStageLabel(String stage) => switch (stage) {
   'deep' => 'Deep',
   'light' || 'core' => 'Light',
@@ -50,3 +51,16 @@ String sleepStageLabel(String stage) => switch (stage) {
   'awake' => 'Awake',
   _ => 'Unrecognised',
 };
+
+/// The legend keys for a chart that actually drew [drawn].
+///
+/// [kSleepStages], plus [kUnrecognisedStage] **only when [drawn] contains a code
+/// this app cannot name**. A legend that always carried the fifth key would
+/// announce a stage the chart did not paint, which is the empty-section failure
+/// the honesty rules forbid; a legend that never carried it would leave a grey
+/// band on screen with nothing to explain it.
+List<String> legendStages(Iterable<String> drawn) => <String>[
+  ...kSleepStages,
+  if (drawn.any((stage) => !InstrumentHues.isRecognised(stage)))
+    kUnrecognisedStage,
+];

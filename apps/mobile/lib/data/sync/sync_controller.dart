@@ -22,16 +22,27 @@
 /// session is invalidated rather than kept — the state has just said the link
 /// failed, and continuing to hold a session behind that would be the two
 /// disagreeing.
+///
+/// ## Coming to the front does two things now
+///
+/// It always opens the link. It *also* starts a sync, unasked, when
+/// [AutoSyncGate] allows one — which is what makes "Sync now" a button the owner
+/// may press rather than one they must. The two entry points are separate on
+/// purpose: [autoSyncNow] is debounced, [syncNow] never is. An explicit request
+/// is not a heuristic, and a heuristic that could be triggered by asking would
+/// make the button feel broken exactly when someone reached for it.
 library;
 
 import 'dart:async';
 
 import 'package:healthee/ble/strap_client.dart';
 import 'package:healthee/ble/strap_scanner.dart';
+import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/device/device_repository.dart';
 import 'package:healthee/data/push/push_outcome.dart';
 import 'package:healthee/data/push/push_service.dart';
 import 'package:healthee/data/store/store_provider.dart';
+import 'package:healthee/data/sync/auto_sync.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/foreground_link.dart';
 import 'package:healthee/data/sync/foreground_watch.dart';
@@ -48,6 +59,21 @@ SyncEngine syncEngine(Ref ref) => SyncEngine(
   client: ref.watch(strapClientProvider),
   store: ref.watch(localStoreProvider),
   scanner: ref.watch(strapScannerProvider),
+);
+
+/// The wall clock, as a provider so a test can pin it.
+///
+/// Overriding `DateTime.now` is not possible and a test that waited out a
+/// fifteen-minute window would not be a test. Everything time-dependent in this
+/// file reads the clock through here.
+@Riverpod(keepAlive: true)
+DateTime Function() syncClock(Ref ref) => DateTime.now;
+
+/// The debounce, reading the persisted "last complete sync" stamp.
+@Riverpod(keepAlive: true)
+AutoSyncGate autoSyncGate(Ref ref) => AutoSyncGate(
+  lastCompleteSync: ref.watch(localStoreProvider).strapWriter.lastCompleteSync,
+  now: ref.watch(syncClockProvider),
 );
 
 /// Holds what the link to the strap is doing, and drives it.
@@ -70,7 +96,7 @@ class SyncController extends _$SyncController {
       onState: (next) => state = next,
     );
     final watch = ForegroundWatch(
-      onForeground: () => unawaited(link.toForeground()),
+      onForeground: () => unawaited(_cameToFront(link)),
       onBackground: () => unawaited(link.toBackground()),
     );
     _link = link;
@@ -85,12 +111,51 @@ class SyncController extends _$SyncController {
     return const Disconnected();
   }
 
+  /// Opens the link, then syncs if the gate allows — the whole of "automatic".
+  ///
+  /// Sequenced rather than concurrent: the gate asks whether a session is held,
+  /// and a session is held only once [ForegroundLink.toForeground] has finished
+  /// its scan and handshake. Asking first would answer "no link" every time and
+  /// nothing would ever sync unasked.
+  ///
+  /// A foreground that fails to connect syncs nothing and says nothing extra:
+  /// the data-health card is already showing the named failure and its remedy,
+  /// and the link's own backoff owns the retry.
+  Future<void> _cameToFront(ForegroundLink link) async {
+    await link.toForeground();
+    await autoSyncNow();
+  }
+
+  /// Starts a sync the owner did not ask for, if [AutoSyncGate] allows one.
+  ///
+  /// The debounced entry point, and the ONLY debounced one. Every refusal is
+  /// logged with its reason: a foreground that quietly does nothing is
+  /// indistinguishable from a foreground that is broken, and this is background
+  /// work, which Standards §1 requires to reach a surface rather than vanish.
+  Future<SyncOutcome?> autoSyncNow() async {
+    final decision = await ref.read(autoSyncGateProvider).decide(
+      linkHeld: holdsSession,
+      busy: state.isBusy,
+    );
+    if (!decision.shouldStart) {
+      AppLog.info('sync', 'no automatic sync: ${decision.name}');
+      return null;
+    }
+    AppLog.info('sync', 'starting an automatic sync — nobody asked');
+    return syncNow();
+  }
+
   /// Runs one sync, publishing every state it passes through.
   ///
   /// A no-op while one is already running: the strap accepts a single
   /// connection at a time, so a second attempt would fail on the radio and
   /// report a confusing "couldn't connect" for a strap that is right there and
   /// busy talking to us.
+  ///
+  /// **Never debounced.** This is what "Sync now" calls, and a button that
+  /// silently declines because a heuristic says it is too soon is a button the
+  /// owner learns not to trust. [autoSyncNow] is the entry point the window
+  /// applies to.
   ///
   /// Near-instant while the app is in front, because the held session skips
   /// both the twelve-second scan and the handshake.
@@ -104,7 +169,15 @@ class SyncController extends _$SyncController {
   /// push reports itself through its own health surface (`PushStamp`), which is
   /// where a background failure belongs (Standards §1).
   Future<SyncOutcome?> syncNow() async {
-    if (state.isBusy) {
+    // `_token != null` and not `state.isBusy` alone. The state is published by
+    // the engine, which does not get to run until this method's first await, so
+    // between the call and that point `isBusy` is still false and a second
+    // caller walks straight past the guard into a second session on a radio
+    // that accepts one. That window was unreachable while the only caller was a
+    // button; a foreground transition that syncs on its own can now land in it
+    // beside a pull-to-refresh. The token is set synchronously below, so it
+    // closes the window rather than narrowing it.
+    if (state.isBusy || _token != null) {
       return null;
     }
     final token = SyncCancelToken();
@@ -139,11 +212,17 @@ class SyncController extends _$SyncController {
   /// clear its backlog, and a phone with a strap in range but no signal should
   /// still store what it reads.
   ///
+  /// [PushService.drain] rather than a single `run`, because a run stops at its
+  /// own page cap: a phone holding tens of thousands of samples sent 80,000 and
+  /// then waited for somebody to press a button again. The drain's termination
+  /// argument is in `push_service.dart` — it repeats only while the pending
+  /// count is verifiably falling.
+  ///
   /// Returns the outcome so a caller can show it; it is stamped into the store
   /// regardless, so a caller that ignores it still leaves the health surface
   /// truthful.
   Future<PushOutcome> pushNow() async {
-    final outcome = await ref.read(pushServiceProvider).run();
+    final outcome = await ref.read(pushServiceProvider).drain();
     if (outcome.rowsSent > 0) {
       // The server has new measurements, so its derived numbers have moved.
       // Invalidating only when something was actually sent keeps a failed push
@@ -159,7 +238,7 @@ class SyncController extends _$SyncController {
   /// be interrupted mid-flight, and what is kept when a run is stopped.
   void cancel() => _token?.cancel();
 
-  /// The session held for the foreground, or null. For tests and for the strip.
+  /// The session held for the foreground, or null. For tests and for the chrome.
   ///
   /// Exposed so `a backgrounded app holds no session` can be ASSERTED rather
   /// than assumed — the one claim in this feature that cannot be checked from

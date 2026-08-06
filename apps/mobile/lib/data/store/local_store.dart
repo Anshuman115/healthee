@@ -23,11 +23,15 @@
 /// The 60-day horizon is a product decision from `docs/ARCHITECTURE.md`, enforced
 /// in one place — [LocalStore.pruneBeyondHorizon] — for the same reason the
 /// server keeps its freshness horizons in one module: a retention window that two
-/// call sites can disagree about is a window nobody can state.
+/// call sites can disagree about is a window nobody can state. The two day
+/// windows and their arithmetic live at the bottom of this file; what they mean
+/// per table, and why a measurement outlives them, is `horizon_prune.dart`.
 library;
 
 import 'package:drift/drift.dart';
 import 'package:healthee/data/store/connection.dart';
+import 'package:healthee/data/store/horizon_prune.dart';
+import 'package:healthee/data/store/prune_report.dart';
 import 'package:healthee/data/store/push_reader.dart';
 import 'package:healthee/data/store/strap_reader.dart';
 import 'package:healthee/data/store/strap_writer.dart';
@@ -36,7 +40,20 @@ import 'package:healthee/data/store/tables.dart';
 part 'local_store.g.dart';
 
 /// How many days of history the device keeps. Beyond this the app asks the server.
+///
+/// **This is a READ horizon, not a delete-by date.** A row the server has
+/// acknowledged is dropped here; a measurement the server has never seen is
+/// kept past it. See `horizon_prune.dart`.
 const int localHorizonDays = 60;
+
+/// How long an unsent per-minute sample is kept past [localHorizonDays].
+///
+/// One year, and `horizon_prune.dart`'s docstring is where the number is argued
+/// — briefly: no transient cause of a stuck push queue lasts a year, the owner
+/// has been shown a loud line about it every day of that year, and the measured
+/// ceiling is ~240 MB. It is the only bound in this app that can end a
+/// measurement's life, and doing so is counted, dated and surfaced.
+const int kUnsentSampleRetentionDays = 365;
 
 /// One cached server payload, keyed by the day it describes and the metric it is.
 ///
@@ -90,7 +107,7 @@ class CachedPayloads extends Table {
     DeviceTotals,
     SyncMeta,
   ],
-  daos: [StrapWriter, StrapReader, PushReader],
+  daos: [StrapWriter, StrapReader, PushReader, HorizonPrune],
 )
 class LocalStore extends _$LocalStore {
   /// Opens the app's on-disk database.
@@ -98,6 +115,10 @@ class LocalStore extends _$LocalStore {
 
   /// Opens a throwaway in-memory database. Tests only.
   LocalStore.memory() : super(openInMemory());
+
+  /// Opens a database in a real file. Tests only — see [openFileAt] for the one
+  /// kind of claim that needs it.
+  LocalStore.at(String path) : super(openFileAt(path));
 
   @override
   int get schemaVersion => 3;
@@ -187,63 +208,42 @@ class LocalStore extends _$LocalStore {
     );
   }
 
-  /// Drops every row dated before [oldestDayToKeep] (`YYYY-MM-DD`, inclusive),
-  /// across **every** day-keyed table.
+  /// Applies the retention window, given the owner's [today] (`YYYY-MM-DD`).
   ///
-  /// The ONE place the horizon is applied, so the device's retention window
-  /// cannot mean 60 days to one caller and 90 to another — and, now that there
-  /// are six tables, cannot mean 60 days for cached payloads and forever for the
-  /// samples beside them. Returns the total rows removed, so a caller can report
-  /// it rather than pruning silently.
+  /// The ONE entry point, so the device's retention window cannot mean 60 days
+  /// to one caller and 90 to another. It takes the day the owner is living in
+  /// and leaves no arithmetic at the call site, which is where a retention
+  /// window quietly becomes two windows.
   ///
-  /// [SyncMeta] is deliberately NOT pruned: its rows are bookkeeping about
-  /// syncing, not dated measurements, and dropping the one-shot backfill flags
-  /// would make a wide pass run again forever.
-  ///
-  /// Prefer [pruneBeyondHorizon], which computes the argument.
-  Future<int> pruneBefore(String oldestDayToKeep) async {
-    // Written out one table at a time rather than looped over a table list: a
-    // loop would need the `day` column reached reflectively, and a table added
-    // later without one would then prune nothing at runtime instead of failing
-    // to compile here.
-    final removed = await Future.wait([
-      (delete(cachedPayloads)
-            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
-          .go(),
-      (delete(strapSamples)
-            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
-          .go(),
-      (delete(sleepSessions)
-            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
-          .go(),
-      (delete(storedWorkouts)
-            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
-          .go(),
-      (delete(deviceTotals)
-            ..where((r) => r.day.isSmallerThanValue(oldestDayToKeep)))
-          .go(),
-    ]);
-    return removed.reduce((a, b) => a + b);
-  }
-
-  /// Applies the 60-day horizon, given the owner's [today] (`YYYY-MM-DD`).
-  ///
-  /// The form callers should use: it takes the day the owner is living in and
-  /// leaves no arithmetic at the call site, which is where a retention window
-  /// quietly becomes two windows.
-  Future<int> pruneBeyondHorizon(String today) =>
-      pruneBefore(horizonStart(today));
-
+  /// The policy itself — which tables lose a row at 60 days, which keep an
+  /// unsent one past it, and the one table with a second bound — is
+  /// [HorizonPrune]. It hands back a [PruneReport] rather than an `int` because
+  /// "rows removed" and "measurements destroyed" must not be the same number.
+  Future<PruneReport> pruneBeyondHorizon(String today, {DateTime? at}) =>
+      horizonPrune.run(today: today, at: at);
 }
 
-/// The oldest calendar date the device keeps, given the owner's [today].
+/// The oldest calendar date the device keeps a **sent** measurement for.
 ///
-/// Separate from the query above so the arithmetic is testable without a
-/// database, and so there is exactly one expression of "60 days back".
-String horizonStart(String today) {
+/// Separate from the queries so the arithmetic is testable without a database,
+/// and so there is exactly one expression of "60 days back".
+String horizonStart(String today) => _daysBack(today, localHorizonDays);
+
+/// The oldest calendar date an **unsent** sample survives to.
+///
+/// The second, wider bound. Everything before it has been waiting a year for a
+/// server that never took it, and is destroyed — loudly. See
+/// [kUnsentSampleRetentionDays].
+String unsentSampleFloor(String today) =>
+    _daysBack(today, kUnsentSampleRetentionDays);
+
+String _daysBack(String today, int days) {
   final anchor = DateTime.parse(today);
-  final start = DateTime.utc(anchor.year, anchor.month, anchor.day)
-      .subtract(const Duration(days: localHorizonDays));
+  final start = DateTime.utc(
+    anchor.year,
+    anchor.month,
+    anchor.day,
+  ).subtract(Duration(days: days));
   return isoDay(start);
 }
 

@@ -20,11 +20,18 @@
 /// function: a caller who treats [Caveated] as "same as Present" gets the
 /// disclosure anyway, and dropping it takes a deliberate `caveatBuilder`
 /// override rather than an oversight.
+///
+/// What that disclosure LOOKS like changed on 2026-08-06: it was every message in
+/// full, inline, which put ~2,780 characters of server prose under Today's
+/// biological-age card. It is now [CaveatNote]'s one-line signpost, which names
+/// the state, counts the disclosures and opens them in a sheet. The rule is
+/// unchanged and is the one that matters — a caveated value discloses, unasked.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/withheld_card.dart';
 
 /// Renders a [Reading] with the honest state widgets supplied for free.
@@ -75,7 +82,8 @@ class ReadingView<T extends Object> extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           builder(context, value),
-          caveatBuilder?.call(context, caveats) ?? CaveatNote(caveats: caveats),
+          caveatBuilder?.call(context, caveats) ??
+              CaveatNote(caveats: caveats, label: label),
         ],
       ),
       Withheld<T>(:final disclosure) => WithheldCard(

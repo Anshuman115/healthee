@@ -1,0 +1,295 @@
+/// The four sleep-and-night charts — **what they PAINT**.
+///
+/// `HHypnogram`, `HStackedSleep`, `HTimingChart` and `HDebtBars`. Split from
+/// `legacy_charts_test.dart` at the 400-line gate; the probes both files use
+/// live in `_chart_probe.dart`, and its docstring explains why a recorded canvas
+/// is the only honest way to assert a chart drew something.
+///
+/// ## What "verbatim" is being defended here
+///
+/// The hypnogram's four lanes at 62% of a lane; the stacked chart's even-hour
+/// axis with a floor of two; the timing chart's two hues and its 18:00 origin;
+/// the debt chart's ghost, and its green-and-red-orange pair.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/data/models/last_sleep.dart';
+import 'package:healthee/data/models/sleep_history.dart';
+import 'package:healthee/shared/charts/h_debt_bars.dart';
+import 'package:healthee/shared/charts/h_hypnogram.dart';
+import 'package:healthee/shared/charts/h_stacked_sleep.dart';
+import 'package:healthee/shared/charts/h_timing_chart.dart';
+
+import '_chart_probe.dart';
+
+void main() {
+  group('HHypnogram', () {
+    final spans = <SleepStageSpan>[
+      span('awake', 0, 12),
+      span('light', 12, 180),
+      span('deep', 192, 70),
+      span('rem', 262, 80),
+    ];
+
+    testWidgets('FOUR LANES, AND EVERY BAND HAS HEIGHT', (tester) async {
+      await tester.pumpWidget(
+        chartHost(HHypnogram(spans, progress: 1, height: 84)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.getSize(find.byType(HHypnogram)), const Size(hostWidth, 84));
+      final painted = paintedBy(tester, find.byType(HHypnogram));
+      expect(countOf(painted, #drawLine), 4, reason: 'one guide per lane');
+
+      final bands = rectsOf(painted);
+      expect(bands.length, spans.length);
+      for (final band in bands) {
+        // 62% of a 21 px lane.
+        expect(band.height, closeTo(84 / 4 * 0.62, 0.01));
+        expect(band.width, greaterThan(0));
+      }
+      // Awake is the top lane and deep the bottom — sleep-science convention.
+      expect(bands[0].top, lessThan(bands[2].top));
+    });
+
+    testWidgets('EACH STAGE IS PAINTED IN ITS OWN LEGACY HUE', (tester) async {
+      await tester.pumpWidget(
+        chartHost(HHypnogram(spans, progress: 1, height: 84)),
+      );
+      await tester.pumpAndSettle();
+
+      const hues = InstrumentHues.light();
+      final drawn = coloursOf(paintedBy(tester, find.byType(HHypnogram)));
+      for (final stage in const <String>['awake', 'light', 'deep', 'rem']) {
+        expect(
+          drawn,
+          contains(hues.sleepStage(stage).toARGB32()),
+          reason: '$stage is missing from the chart',
+        );
+      }
+    });
+
+    testWidgets('the bands grow with the reveal, and are gone at zero', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        chartHost(HHypnogram(spans, progress: 0, height: 84)),
+      );
+      await tester.pumpAndSettle();
+      final bands = rectsOf(paintedBy(tester, find.byType(HHypnogram)));
+      expect(bands.every((band) => band.height == 0), isTrue);
+    });
+  });
+
+  group('HStackedSleep', () {
+    testWidgets('SEVEN NIGHTS, FOUR SEGMENTS EACH, ALL WITH HEIGHT', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        chartHost(HStackedSleep(week(), progress: 1, height: 130)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(find.byType(HStackedSleep)),
+        const Size(hostWidth, 130),
+      );
+      final segments = rectsOf(paintedBy(tester, find.byType(HStackedSleep)));
+      expect(segments.length, 7 * 4);
+      for (final segment in segments) {
+        expect(segment.height, greaterThan(0));
+      }
+    });
+
+    testWidgets('the axis is an EVEN number of hours, never below two', (
+      tester,
+    ) async {
+      // Legacy's rule, and the reason the gridlines land on 0h/2h/4h for every
+      // week rather than most weeks. A twelve-minute night must still get a
+      // two-hour axis.
+      await tester.pumpWidget(
+        chartHost(
+          const HStackedSleep(
+            <SleepNightSummary>[
+              SleepNightSummary(
+                date: '2026-08-01',
+                durationMin: 12,
+                deepMin: 3,
+                lightMin: 6,
+                remMin: 2,
+                awakeMin: 1,
+                deviceScore: null,
+              ),
+            ],
+            progress: 1,
+            height: 130,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final painted = paintedBy(tester, find.byType(HStackedSleep));
+      final segments = rectsOf(painted);
+      expect(segments.length, 4);
+      // 12 minutes against a 120-minute axis over a 114 px plot: every segment
+      // is tiny but present. If the axis had collapsed to the data, they would
+      // fill the chart.
+      final stackedHeight = segments.map((r) => r.height).reduce((a, b) => a + b);
+      expect(stackedHeight, lessThan(130 * 0.2));
+      expect(stackedHeight, greaterThan(0));
+    });
+  });
+  group('HTimingChart', () {
+    testWidgets('TWO LINES IN LEGACY’S TWO HUES, NOT ONE ACCENT TWICE', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        chartHost(
+          const HTimingChart(
+            bedtime: <double>[5.5, 6.0, 5.2, 6.4],
+            wake: <double>[13.0, 13.5, 12.8, 14.0],
+            progress: 1,
+            height: 130,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(find.byType(HTimingChart)),
+        const Size(hostWidth, 130),
+      );
+      const hues = InstrumentHues.light();
+      final drawn = coloursOf(paintedBy(tester, find.byType(HTimingChart)));
+      expect(drawn, contains(hues.sleep.toARGB32()), reason: 'bedtime is cSleep');
+      expect(drawn, contains(hues.steps.toARGB32()), reason: 'wake is cSteps');
+    });
+
+    testWidgets('five gridlines and two paths', (tester) async {
+      await tester.pumpWidget(
+        chartHost(
+          const HTimingChart(
+            bedtime: <double>[5.5, 6.0, 5.2],
+            wake: <double>[13.0, 13.5, 12.8],
+            progress: 1,
+            height: 130,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final painted = paintedBy(tester, find.byType(HTimingChart));
+      expect(countOf(painted, #drawLine), 5);
+      expect(countOf(painted, #drawPath), 2);
+    });
+
+    testWidgets('the 18:00 origin turns midnight into a continuous run', (
+      tester,
+    ) async {
+      // 23:40 and 00:20 are forty minutes apart. On a midnight clock they are
+      // 23.7 and 0.3 and the line jumps the full height of the plot.
+      await tester.pumpWidget(
+        chartHost(
+          const HTimingChart(
+            bedtime: <double>[5.667, 6.333],
+            wake: <double>[13.0, 13.2],
+            progress: 1,
+            height: 130,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('HDebtBars', () {
+    testWidgets('A SHORT NIGHT DRAWS ITS BAR AND ITS GHOST', (tester) async {
+      await tester.pumpWidget(
+        chartHost(
+          const HDebtBars(
+            totalsMin: <double>[300, 480],
+            labels: <String>['M', 'T'],
+            needMin: 480,
+            progress: 1,
+            height: 150,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.getSize(find.byType(HDebtBars)), const Size(hostWidth, 150));
+      final rects = rectsOf(paintedBy(tester, find.byType(HDebtBars)));
+      // Two solid bars plus ONE ghost — the met night has no shortfall.
+      expect(rects.length, 3);
+      for (final rect in rects) {
+        expect(rect.height, greaterThan(0));
+      }
+    });
+
+    testWidgets('MET AND SHORT ARE LEGACY’S GREEN AND RED-ORANGE', (tester) async {
+      await tester.pumpWidget(
+        chartHost(
+          const HDebtBars(
+            totalsMin: <double>[300, 480],
+            labels: <String>['M', 'T'],
+            needMin: 480,
+            progress: 1,
+            height: 150,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      const colors = HealtheeColors.light();
+      final drawn = coloursOf(paintedBy(tester, find.byType(HDebtBars)));
+      expect(drawn, contains(colors.fav.toARGB32()), reason: 'a met night is legacy’s green');
+      expect(
+        drawn,
+        contains(colors.alert.toARGB32()),
+        reason: 'a short night is legacy’s cHeart, not the amber',
+      );
+      expect(
+        drawn,
+        isNot(contains(colors.unf.toARGB32())),
+        reason: 'the amber is not in this chart at all — legacy uses two colours',
+      );
+    });
+
+    testWidgets('every night met means no ghost anywhere', (tester) async {
+      await tester.pumpWidget(
+        chartHost(
+          const HDebtBars(
+            totalsMin: <double>[480, 500],
+            labels: <String>['M', 'T'],
+            needMin: 480,
+            progress: 1,
+            height: 150,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(rectsOf(paintedBy(tester, find.byType(HDebtBars))).length, 2);
+    });
+  });
+  group('both themes', () {
+    testWidgets('every chart paints in dark mode too, at the same size', (
+      tester,
+    ) async {
+      for (final theme in <ThemeData>[AppTheme.light, AppTheme.dark]) {
+        await tester.pumpWidget(
+          chartHost(HStackedSleep(week(), progress: 1, height: 130), theme: theme),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSize(find.byType(HStackedSleep)),
+          const Size(hostWidth, 130),
+        );
+        expect(rectsOf(paintedBy(tester, find.byType(HStackedSleep))).length, 28);
+      }
+    });
+  });}

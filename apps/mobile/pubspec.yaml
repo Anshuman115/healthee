@@ -92,6 +92,38 @@ dependencies:
   pointycastle: ^4.0.0
   permission_handler: ^12.0.3
 
+  # ── the app's own version, for the About row ─────────────────────────────
+  # Reads the version this binary was actually built with. The alternative was a
+  # constant in `core/env.dart`, which would be a SECOND definition of the number
+  # in `pubspec.yaml` above — and the one that goes stale is the one on screen,
+  # in the row whose whole job is to say which build the owner is running.
+  # Resolved by `flutter pub add` at write time, not recalled.
+  package_info_plus: ^10.2.1
+
+  # ── the legacy design, ported ────────────────────────────────────────────
+  # Added 2026-08-05, when the owner made the legacy app the design
+  # specification. All three are packages LEGACY depends on; they are here
+  # because the design does, not because they were preferred.
+  #
+  # Versions resolved at write time via `flutter pub add`, never recalled.
+  #
+  # The continuous-corner squircle every card, sheet and badge is drawn with
+  # (`core/theme/shapes.dart`). Flutter's own `RoundedSuperellipseBorder` is
+  # very close and was the incumbent; this is what legacy actually drew
+  # against, at smoothness 0.6, so it is what ships. One definition of the
+  # corner, and `StateCard.shapeOf` delegates to it.
+  smooth_corner: ^1.1.1
+  # The skeletons' shimmer, at legacy's own 1300 ms / 250 ms / 22% highlight
+  # (`shared/skeletons/`). NOTE for anyone testing a widget that uses it: its
+  # `dispose` does not cancel the `Future.delayed` it schedules, so a test that
+  # pumps one frame and ends fails on "pending timers" — `skeletons_test.dart`
+  # pumps past the delay and says so.
+  flutter_animate: ^4.5.2
+  # Legacy's icon set. In use so far by `HDeltaBadge`'s arrows; the 25 screens
+  # still to port name it throughout. If those land on Material icons instead,
+  # this comes out with the last usage (Standards §1, dead code).
+  solar_icons: ^0.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -126,17 +158,42 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Instrument Sans, vendored rather than fetched — no CDN at paint time, and a
-  # cold-start budget of 2 s to first meaningful paint (Standards §1). SIL OFL;
-  # the licence ships beside the files in assets/fonts/OFL.txt. ~195 KB total.
+  # The font licence, BUNDLED. It sat beside the .ttf files and was not an asset,
+  # so it shipped in the repo and not in the app — and the SIL OFL requires the
+  # notice to travel with the fonts, which means inside the binary an owner
+  # installs. `core/licences.dart` registers it with `LicenseRegistry` and the
+  # About row on Settings is where it is read.
+  assets:
+    - assets/fonts/OFL.txt
+
+  # Manrope, vendored rather than fetched — no CDN at paint time, and a
+  # cold-start budget of 2 s to first meaningful paint (Standards §1). SIL OFL
+  # (no Reserved Font Name); the licence ships beside the files in
+  # assets/fonts/OFL.txt. ~386 KB total.
+  #
+  # FOUR weights, and the list is derived rather than chosen: it is exactly the
+  # set of `FontWeight.w*` values the app names (400/500/600/700), which
+  # `test/core/typography_test.dart` re-derives by scanning `lib/` and compares
+  # against this block. A weight a style asks for and the bundle lacks does not
+  # fail to render — Flutter substitutes the nearest one and the text is simply
+  # a shade off, invisibly. `HType.number` (legacy's `HType.num`, weight 700)
+  # was drawing at 600 for exactly that reason.
+  #
+  # Each file is instanced from upstream's `Manrope[wght].ttf` variable font at
+  # a fixed `wght`, so the four are one design rather than four drawings.
+  #
+  # There is NO italic here and there cannot be: Manrope's variable font carries
+  # a single `wght` axis (200–800) and upstream publishes no italic companion.
+  # See `instrument_type.dart` — the slant is not deferred, it is unavailable in
+  # the face the owner chose, so the app stopped asking for it.
   fonts:
-    - family: Instrument Sans
+    - family: Manrope
       fonts:
-        - asset: assets/fonts/InstrumentSans-Regular.ttf
+        - asset: assets/fonts/Manrope-Regular.ttf
           weight: 400
-        - asset: assets/fonts/InstrumentSans-Medium.ttf
+        - asset: assets/fonts/Manrope-Medium.ttf
           weight: 500
-        - asset: assets/fonts/InstrumentSans-SemiBold.ttf
+        - asset: assets/fonts/Manrope-SemiBold.ttf
           weight: 600
-        - asset: assets/fonts/InstrumentSans-Bold.ttf
+        - asset: assets/fonts/Manrope-Bold.ttf
           weight: 700

@@ -13,7 +13,15 @@ import 'package:meta/meta.dart';
 @immutable
 class RecoveryFactor {
   /// A named factor.
-  const RecoveryFactor({required this.name, required this.subScore, required this.weight});
+  const RecoveryFactor({
+    required this.name,
+    required this.subScore,
+    required this.weight,
+    this.value,
+    this.baseline,
+    this.tstMin,
+    this.needMin,
+  });
 
   /// Signal id: `hrv`, `rhr`, `rr`, `sleep`.
   final String name;
@@ -26,6 +34,24 @@ class RecoveryFactor {
 
   /// Its share of the total, 0–1.
   final double? weight;
+
+  /// Today's reading for the three baseline-scored factors (`hrv`, `rhr`, `rr`).
+  ///
+  /// `derive/recovery.py::_personal_factor` writes `value` and `baseline` beside
+  /// `sub`, and legacy's recovery card renders them as `48 · base 45`. They were
+  /// parsed away here, so the card could only ever show the sub-score.
+  final double? value;
+
+  /// The owner's own median for this factor. Never a population norm.
+  final double? baseline;
+
+  /// Total sleep time, minutes. Only the `sleep` factor carries it —
+  /// `_sleep_factor` scores against an ABSOLUTE need rather than a baseline, so
+  /// it sends a different pair.
+  final int? tstMin;
+
+  /// The night's sleep need, minutes. The denominator behind the `sleep` bar.
+  final int? needMin;
 }
 
 /// The day's recovery, readiness, and the guidance line derived from them.
@@ -90,13 +116,25 @@ class RecoveryScore {
     final weights = rawWeights is Map<String, Object?> ? rawWeights : const <String, Object?>{};
     return [
       for (final entry in rawFactors.entries)
-        RecoveryFactor(
-          name: entry.key,
-          subScore: entry.value is Map<String, Object?>
-              ? ((entry.value! as Map<String, Object?>)['sub'] as num?)?.toInt()
-              : null,
-          weight: (weights[entry.key] as num?)?.toDouble(),
+        _factor(
+          entry.key,
+          entry.value is Map<String, Object?>
+              ? entry.value! as Map<String, Object?>
+              : const <String, Object?>{},
+          (weights[entry.key] as num?)?.toDouble(),
         ),
     ];
+  }
+
+  static RecoveryFactor _factor(String name, Map<String, Object?> raw, double? weight) {
+    return RecoveryFactor(
+      name: name,
+      subScore: (raw['sub'] as num?)?.toInt(),
+      weight: weight,
+      value: (raw['value'] as num?)?.toDouble(),
+      baseline: (raw['baseline'] as num?)?.toDouble(),
+      tstMin: (raw['tst_min'] as num?)?.toInt(),
+      needMin: (raw['need_min'] as num?)?.toInt(),
+    );
   }
 }

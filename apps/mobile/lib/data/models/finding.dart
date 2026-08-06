@@ -26,6 +26,7 @@ class Finding {
     required this.kind,
     required this.metricA,
     required this.metricB,
+    required this.eventKind,
     required this.description,
     required this.effectSize,
     required this.effectMetric,
@@ -41,6 +42,7 @@ class Finding {
       kind: json['kind'] as String?,
       metricA: json['metric_a'] as String?,
       metricB: json['metric_b'] as String?,
+      eventKind: json['event_kind'] as String?,
       description: json['description_raw'] as String?,
       effectSize: (json['effect_size'] as num?)?.toDouble(),
       effectMetric: json['effect_metric'] as String?,
@@ -60,10 +62,25 @@ class Finding {
   /// The first metric in the pair.
   final String? metricA;
 
-  /// The second.
+  /// The second. Null on an event finding, which compares one metric across two
+  /// groups of days rather than two metrics against each other.
   final String? metricB;
 
-  /// The server's own short description, e.g. "Caffeine ↔ sleep".
+  /// What separated the two groups of days on an event finding — the server's
+  /// own label for the event. Null on a pairwise one.
+  final String? eventKind;
+
+  /// The server's `description_raw` — a debug string, not a sentence.
+  ///
+  /// `analytics/correlations.py` builds it as
+  /// `Spearman(hrv_sleep_avg, recovery_score) = +0.72 over 105 days (p=0.000)`,
+  /// and `read/findings.py` ships it under a key that says `_raw` beside the
+  /// structured fields it calls *"structured fields for a plain-English card"*.
+  ///
+  /// **Do not render it.** `findings_section.dart` composes the owner-facing
+  /// sentence from the structured fields; this is kept because a log line is
+  /// worth having when a finding looks wrong, and it is deliberately not on any
+  /// surface. It reached the home screen verbatim once.
   final String? description;
 
   /// How strong the relationship is, in [effectMetric]'s units.
@@ -84,14 +101,4 @@ class Finding {
 
   /// The notes that let this be shown at all.
   final List<String> researchNoteIds;
-
-  /// The direction, as a word, or null when there is no effect size.
-  ///
-  /// Deliberately "rose together" / "moved opposite" rather than "helps" or
-  /// "hurts": the second pair are causal and this is a correlation.
-  String? get directionLabel => switch (effectSize) {
-    null => null,
-    final double size when size >= 0 => 'moved together',
-    _ => 'moved in opposite directions',
-  };
 }

@@ -67,3 +67,59 @@ class HourPoint {
   /// `HH:00` for an axis label.
   String get label => '${hour.toString().padLeft(2, '0')}:00';
 }
+
+/// One 15-minute bucket of today's movement — `today_step_buckets`.
+///
+/// `{bucket, time, steps, distance_m, calories}`. Legacy's Steps tile draws the
+/// [steps] of each bucket as a bar strip (`today_screen.dart:195`); the other two
+/// fields are parsed because the payload carries them and dropping a measurement
+/// at the boundary is how a card later "cannot" show something the server sent.
+@immutable
+class StepBucket {
+  /// One bucket of the day.
+  const StepBucket({
+    required this.bucket,
+    required this.time,
+    required this.steps,
+    required this.distanceM,
+    required this.calories,
+  });
+
+  /// Parses one entry of `today_step_buckets`.
+  factory StepBucket.fromJson(Map<String, Object?> json) {
+    return StepBucket(
+      bucket: (json['bucket']! as num).toInt(),
+      time: json['time'] as String?,
+      steps: (json['steps'] as num?)?.toDouble() ?? 0,
+      distanceM: (json['distance_m'] as num?)?.toDouble(),
+      calories: (json['calories'] as num?)?.toDouble(),
+    );
+  }
+
+  /// Index of the bucket within the day, 0–95.
+  final int bucket;
+
+  /// Wall-clock start of the bucket, `HH:MM`, in the owner's own zone.
+  final String? time;
+
+  /// Steps counted in it.
+  final double steps;
+
+  /// Metres covered in it.
+  final double? distanceM;
+
+  /// Kilocalories attributed to it.
+  final double? calories;
+
+  /// Parses the whole strip, skipping anything that is not a bucket.
+  static List<StepBucket> listFrom(Object? raw) {
+    if (raw is! List) {
+      return const [];
+    }
+    return [
+      for (final entry in raw)
+        if (entry is Map<String, Object?> && entry['bucket'] is num)
+          StepBucket.fromJson(entry),
+    ];
+  }
+}

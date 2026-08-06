@@ -16,8 +16,44 @@
 ///     with a null estimate to accidentally render.
 library;
 
+import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:meta/meta.dart';
+
+/// The inputs behind a non-exercise estimate, as the row stored them.
+@immutable
+class Vo2maxInputs {
+  /// Builds an input set. Every field is nullable — see [Vo2max.inputs].
+  const Vo2maxInputs({
+    required this.bmi,
+    required this.restingHrMedian7d,
+    required this.weeklyMvpaMin,
+    required this.physicalActivityScore,
+  });
+
+  /// Parses `vo2max.inputs`.
+  factory Vo2maxInputs.fromJson(Map<String, Object?> json) {
+    double? number(String key) => (json[key] as num?)?.toDouble();
+    return Vo2maxInputs(
+      bmi: number('bmi'),
+      restingHrMedian7d: number('rhr_med_7d'),
+      weeklyMvpaMin: number('weekly_mvpa_min'),
+      physicalActivityScore: number('pa_score'),
+    );
+  }
+
+  /// Body mass index at the time the row was written.
+  final double? bmi;
+
+  /// Seven-day median resting heart rate.
+  final double? restingHrMedian7d;
+
+  /// Moderate-to-vigorous minutes that week.
+  final double? weeklyMvpaMin;
+
+  /// Jurca's self-reported physical-activity score, 0–7.
+  final double? physicalActivityScore;
+}
 
 /// A reported VO₂max, with the instrument that read it and that instrument's error.
 @immutable
@@ -35,6 +71,9 @@ class Vo2max {
     required this.sessionCount,
     required this.trend90d,
     required this.researchNotes,
+    required this.ageYears,
+    required this.sex,
+    required this.inputs,
   });
 
   /// Parses the payload when it carries a current estimate; null when it does not.
@@ -61,6 +100,13 @@ class Vo2max {
       sessionCount: (json['n_sessions'] as num?)?.toInt(),
       trend90d: TrendPoint.listFrom(json['trend_90d']),
       researchNotes: _strings(json['research_notes']),
+      ageYears: (json['age_years'] as num?)?.toInt(),
+      sex: json['sex'] as String?,
+      inputs: Vo2maxInputs.fromJson(
+        json['inputs'] is Map<String, Object?>
+            ? json['inputs']! as Map<String, Object?>
+            : const <String, Object?>{},
+      ),
     );
   }
 
@@ -74,6 +120,22 @@ class Vo2max {
   /// That instrument's limit, in the second person. Always rendered with the
   /// number; it is the honest half of the estimate.
   final String methodCaveat;
+
+  /// [methodCaveat] as the disclosure it is, so the cards carry it the same way
+  /// every other caveat on the app is carried.
+  ///
+  /// It arrives outside the `caveats` array — it is a property of the instrument
+  /// rather than of this reading — but it is the same kind of claim and the same
+  /// length: the live one is 568 characters, and printing it as body prose is
+  /// what made Today's Fitness section an essay. Both VO₂max cards render it
+  /// through `CaveatNote` now, which puts it one tap away instead of on the card.
+  ///
+  /// **The method itself stays ON the card.** [[hr_reserve_vo2max]] Directive 4
+  /// requires the instrument to be named wherever the number is — that is the
+  /// short "Read by …" line, not this paragraph, and moving the paragraph does
+  /// not touch it.
+  Disclosure get methodDisclosure =>
+      Disclosure(reason: 'vo2max_method_caveat', message: methodCaveat);
 
   /// The ± band, in the reporting instrument's own units of error.
   ///
@@ -105,6 +167,21 @@ class Vo2max {
 
   /// The notes that license this number in front of the owner.
   final List<String> researchNotes;
+
+  /// The age the population median was looked up for. A fact about the reference
+  /// group; legacy prints it beside [sex] in the module's header.
+  final int? ageYears;
+
+  /// `male` or `female`, as the profile holds it — again, the reference group.
+  final String? sex;
+
+  /// The four numbers Jurca's non-exercise model takes.
+  ///
+  /// Every one of them can be null, and on this server three of them usually
+  /// are: `read/vo2max.py` maps `weekly_mvpa_min` to `None` outright (a
+  /// documented WP7 gap), and `bmi` / `rhr_med_7d` / `pa_score` only exist on a
+  /// row the Jurca tier wrote. A measured tier leaves all four empty.
+  final Vo2maxInputs inputs;
 
   static List<String> _strings(Object? raw) {
     if (raw is! List) {

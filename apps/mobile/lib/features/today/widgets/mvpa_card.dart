@@ -1,105 +1,142 @@
-/// Active minutes — this week against the WHO floor, which comes off the wire.
+/// `Active minutes · MVPA` — the week against 150, with its daily bars.
 ///
-/// `mvpa.week_target` is 150 min/week and it is **not written in this file**.
-/// That number is a public-health recommendation with a citation behind it; a
-/// copy in a widget is a copy that is wrong on the day the recommendation moves,
-/// and nobody would notice because it would still look like a number.
+/// **Ported from** `healthee-legacy/app/lib/ui/today_screen.dart:1280` —
+/// `_MvpaModule`. Anatomy unchanged: the week's minutes as a 40 px figure over
+/// the target with the percentage on the right, a 6 px bar, a 40 px bar strip of
+/// the daily minutes with every bar highlighted, then three stat columns.
 ///
-/// The bar stops at the floor rather than overfilling. Past 150 the interesting
-/// fact is the count, and the count is right there as a number — a bar running
-/// off the end says nothing extra and makes the floor unreadable.
+/// ```text
+///   ACTIVE MINUTES · MVPA                         this week
+///   160  / 150 min                                     107%
+///   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+///   ▮ ▮▮ ▮ ▮▮▮ ▮
+///   MODERATE   VIGOROUS   TODAY
+///      120         20       32
+/// ```
 ///
-/// Nothing congratulates. Meeting the floor draws a met line, not a well done.
+/// `allHighlighted` on the bar strip is legacy's: these are days of a week, not
+/// a trend with a "latest" to pick out.
+///
+/// Legacy falls back to a two-bar `[0, 0]` strip when there are fewer than two
+/// days (`bars.length >= 2 ? bars : [0, 0]`). That draws two empty bars where no
+/// day was measured, so the strip is simply not drawn here when the payload has
+/// nothing in it — `today_facts.dart` carries the argument.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/activity_today.dart';
-import 'package:healthee/features/today/widgets/measured_card.dart';
+import 'package:healthee/features/today/widgets/stat_columns.dart';
 import 'package:healthee/shared/charts/h_bars.dart';
+import 'package:healthee/shared/instrument/h_progress_bar.dart';
+import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/states/citation_row.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
 
-/// Today's and this week's moderate-to-vigorous minutes.
+/// Moderate-to-vigorous minutes, this week and today.
 class MvpaCard extends StatelessWidget {
-  /// Renders [mvpa].
+  /// [mvpa] is the whole `mvpa` block.
   const MvpaCard({required this.mvpa, required this.reveals, super.key});
 
-  /// The MVPA payload.
+  /// The week's minutes, its target, and the daily breakdown.
   final Mvpa mvpa;
 
-  /// The screen's reveal registry.
+  /// Where "this chart has already animated" is remembered.
   final RevealRegistry reveals;
+
+  /// Legacy's `SizedBox(height: 40, child: HBars(..., height: 40))`.
+  static const double barsHeight = 40;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Active minutes', style: text.labelSmall),
-          const SizedBox(height: Insets.sm),
-          HeroValue(value: '${mvpa.todayMin}', unit: 'min today'),
-          const SizedBox(height: Insets.lg),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(Radii.pill),
-            child: SizedBox(
-              height: 8,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: (mvpa.weekProgress * 1000).round(),
-                    child: ColoredBox(
-                      color: mvpa.weekMin >= mvpa.weekTarget
-                          ? colors.fav
-                          : colors.accent,
-                    ),
-                  ),
-                  Expanded(
-                    flex: ((1 - mvpa.weekProgress) * 1000).round(),
-                    child: ColoredBox(color: colors.line2),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: Insets.sm),
-          Text(
-            '${mvpa.weekMin} of ${mvpa.weekTarget} min this week · '
-            '${mvpa.weekModerateMin} moderate, ${mvpa.weekVigorousMin} vigorous',
-            style: text.bodySmall?.copyWith(color: colors.ink2),
-          ),
-          if (mvpa.daily.length >= 2) ...[
-            const SizedBox(height: Insets.lg),
-            RevealOnce(
-              id: 'mvpa-daily',
-              registry: reveals,
-              builder: (context, t) => HBars(
-                [for (final day in mvpa.daily) day.mvpaMin.toDouble()],
-                color: colors.accent,
-                progress: t,
-                height: 48,
-                unit: 'min',
-              ),
-            ),
-            const SizedBox(height: Insets.sm),
+    final week = mvpa.weekMin;
+    final target = mvpa.weekTarget;
+    final percent = target == 0 ? 0 : (week / target * 100).round();
+    final bars = <double>[
+      for (final day in mvpa.daily) day.mvpaMin.toDouble(),
+    ];
+    return InstrumentModule(
+      label: 'Active minutes · MVPA',
+      infoKey: 'mvpa',
+      tag: colors.accent,
+      minHeight: 0,
+      trailing: Text(
+        'this week',
+        style: HType.number(colors.ink3, size: 10, weight: FontWeight.w400),
+      ),
+      children: [
+        const SizedBox(height: 2),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
             Text(
-              'The last ${mvpa.daily.length} days.',
-              style: text.labelSmall?.copyWith(color: colors.ink3),
+              '$week',
+              style: HType.number(
+                colors.ink,
+                size: 40,
+                weight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '/ $target min',
+              style: HType.number(
+                colors.ink3,
+                size: 13,
+                weight: FontWeight.w400,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '$percent%',
+              style: HType.number(
+                colors.accent,
+                size: 16,
+                weight: FontWeight.w700,
+              ),
             ),
           ],
-          const SizedBox(height: Insets.md),
-          CitationRow(
-            noteIds: mvpa.researchNotes,
-            source: 'The ${mvpa.weekTarget} min/week floor comes from the '
-                'server, not from this app.',
+        ),
+        const SizedBox(height: 12),
+        RevealOnce(
+          id: 'today.mvpa-week',
+          registry: reveals,
+          builder: (context, t) => HProgressBar(
+            value: week.toDouble(),
+            max: target.toDouble(),
+            progress: t,
+            height: 6,
+            color: colors.accent,
+            semanticLabel: '$week of $target active minutes this week',
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: barsHeight,
+          child: RevealOnce(
+            id: 'today.mvpa-daily',
+            registry: reveals,
+            builder: (context, t) => HBars(
+              bars,
+              color: colors.accent,
+              progress: t,
+              height: barsHeight,
+              allHighlighted: true,
+              unit: 'min',
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            StatColumn(label: 'MODERATE', value: '${mvpa.weekModerateMin}'),
+            StatColumn(label: 'VIGOROUS', value: '${mvpa.weekVigorousMin}'),
+            StatColumn(label: 'TODAY', value: '${mvpa.todayMin}'),
+          ],
+        ),
+      ],
     );
   }
 }

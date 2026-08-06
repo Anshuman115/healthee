@@ -22,8 +22,15 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/data/models/sleep_night.dart';
+import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/data/sync/connection_state.dart';
+import 'package:healthee/features/activity/activity_screen.dart';
+import 'package:healthee/features/sleep/sleep_sections.dart';
+import 'package:healthee/shared/connection/sync_ring.dart';
 
+import '../_sleep_stubs.dart';
 import '../_today_stubs.dart';
 import '_today_host.dart';
 
@@ -51,7 +58,14 @@ void main() {
       // would look healthy on a phone whose push has been failing for a week.
       final pending = await store.pushReader.pending();
       await store.pushReader.markPushed(pending, now);
-      await tester.pumpWidget(todayHost(store));
+      // The LINK has to be healthy too, and that is a fact about the pinned
+      // connection rather than about the store. A bare `Disconnected()` means
+      // "this phone has never finished a sync", which is one of the two radio
+      // faults the card prints since the top strip was deleted — a real state,
+      // and not the one this test is about.
+      await tester.pumpWidget(
+        todayHost(store, connection: Disconnected(lastCompleteSync: now)),
+      );
       await tester.pumpAndSettle();
 
       // The fixture's feeds are all `ok`, nothing is pending, and the payload
@@ -98,8 +112,26 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Today'), findsOneWidget, reason: 'only the app bar');
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      // `Today` is the action card's own label. It used to be the tab bar's too,
+      // so this read `findsOneWidget` — the bar now lives in the shell and this
+      // host pumps the screen alone, which makes the assertion the plain one.
+      expect(find.text('Today'), findsNothing, reason: 'no action card at all');
+      // Scoped OUT of the header: the connection ring is a
+      // `CircularProgressIndicator` in every state now, and it is chrome rather
+      // than a section waiting for data. An unscoped finder would be asserting
+      // the ring away instead of the spinner.
+      expect(
+        find.descendant(
+          of: find.byType(SyncRing),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byType(CircularProgressIndicator),
+        findsOneWidget,
+        reason: 'the ring, and nothing else — no section is still loading',
+      );
     });
 
     testWidgets('the stress chart is absent when the day has no hours', (
@@ -116,37 +148,38 @@ void main() {
       expect(find.text('Stress today'), findsNothing);
     });
 
-    testWidgets('the week chart is absent when there are no nights', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        todayHost(
-          store,
-          server: todayView(mutate: without('sleep_history_7d', const [])),
+    test('SLEEP’S CONDITIONAL CARDS ARE ABSENT ON A ONE-NIGHT HISTORY', () {
+      // Legacy draws the debt chart, the week chart and the timing chart only
+      // at two nights or more, and the naps card only when there are naps
+      // (`sleep_screen.dart:387, 411, 425, 443`). One night must therefore draw
+      // none of the four — a chart of one point is a claim about a pattern
+      // there is no pattern in.
+      //
+      // Asked of the section builder rather than of a rendered scroll: this is
+      // a decision about what to draw, and `sleepSections` is where it is made.
+      final page = sleepPageFixture();
+      final ids = sleepSections(
+        page: SleepPage(
+          nights: <SleepNight>[page.nights.first],
+          naps: const [],
+          cutoffs: page.cutoffs,
+          findings: const [],
+          researchNotes: page.researchNotes,
         ),
-      );
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Sleep'));
+        consistency: consistencyFixture(),
+        now: kSleepNow,
+      ).map((section) => section.id).toSet();
 
-      expect(find.textContaining('Your last 7 nights'), findsNothing);
-    });
-
-    testWidgets('blood oxygen is absent when the strap measured none', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        todayHost(
-          store,
-          server: todayView(
-            mutate: without('last_sleep_extras', const <String, Object?>{}),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Sleep'));
-
-      expect(find.text('Blood oxygen overnight', skipOffstage: false), findsNothing);
-      expect(find.text('Through the night', skipOffstage: false), findsNothing);
+      for (final conditional in <String>['debt', 'week', 'consistency', 'naps']) {
+        expect(
+          ids,
+          isNot(contains(conditional)),
+          reason: '$conditional needs more than one night to mean anything',
+        );
+      }
+      // And the unconditional half is still all there, so this is a section
+      // falling silent rather than the screen failing.
+      expect(ids, containsAll(<String>['hero', 'hypnogram', 'health', 'trends']));
     });
   });
 
@@ -157,6 +190,7 @@ void main() {
       await tester.pumpWidget(
         todayHost(
           store,
+          home: const ActivityScreen(),
           server: todayView(mutate: without('cardio_load', null)),
         ),
       );
@@ -176,7 +210,11 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        todayHost(store, server: todayView(mutate: without('mvpa', null))),
+        todayHost(
+          store,
+          home: const ActivityScreen(),
+          server: todayView(mutate: without('mvpa', null)),
+        ),
       );
       await tester.pumpAndSettle();
       await reveal(tester, find.text('Active minutes'));

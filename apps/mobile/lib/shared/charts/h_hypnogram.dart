@@ -6,16 +6,24 @@
 ///
 /// The lane order is the sleep-science convention (awake at the top, deep at the
 /// bottom) and the lane an unrecognised stage lands in is `light`'s — a decision
-/// inherited from the legacy `levels` map. It is worth naming rather than
-/// leaving implicit: an unrecognised code is drawn where light sleep is drawn,
-/// but in `stage_colors.dart`'s unrecognised grey, so it is visibly not a
-/// staged span.
+/// inherited from the legacy `levels` map, and kept, because the lane is
+/// geometry and geometry is the port. What is **not** kept is legacy's colour
+/// for it: an unrecognised code is drawn where light sleep is drawn, in
+/// `InstrumentHues.unstaged`'s grey, so it is visibly not a staged span.
+///
+/// That sentence used to be in this docstring while the code painted the span in
+/// light sleep's blue — the port took legacy's colour fallback and left the
+/// comment describing the rebuild's. A false claim inside the honesty layer is
+/// the worst kind, so the two agree again, and `test/theme/sleep_stage_test.dart`
+/// is what keeps them agreeing.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/last_sleep.dart';
+import 'package:healthee/shared/charts/chart_primitives.dart';
 
 /// One night's stage timeline.
 class HHypnogram extends StatelessWidget {
@@ -23,7 +31,7 @@ class HHypnogram extends StatelessWidget {
   const HHypnogram(
     this.spans, {
     required this.progress,
-    this.height = 84,
+    this.height = 30,
     super.key,
   });
 
@@ -33,7 +41,9 @@ class HHypnogram extends StatelessWidget {
   /// How far the bands have grown, 0–1.
   final double progress;
 
-  /// How tall to draw the four lanes.
+  /// How tall to draw the four lanes. 30 is legacy's default — the in-card
+  /// mini. Legacy's own sleep screen passes 120 (`sleep_screen.dart:321`),
+  /// so a caller that wants the full picture says so.
   final double height;
 
   @override
@@ -48,6 +58,7 @@ class HHypnogram extends StatelessWidget {
         painter: _HypnogramPainter(
           spans: spans,
           colors: context.colors,
+          hues: context.hues,
           progress: progress,
         ),
       ),
@@ -59,11 +70,13 @@ class _HypnogramPainter extends CustomPainter {
   const _HypnogramPainter({
     required this.spans,
     required this.colors,
+    required this.hues,
     required this.progress,
   });
 
   final List<SleepStageSpan> spans;
   final HealtheeColors colors;
+  final InstrumentHues hues;
   final double progress;
 
   /// Lane index per stage — awake highest, deep lowest. Legacy's `levels`.
@@ -102,6 +115,7 @@ class _HypnogramPainter extends CustomPainter {
       elapsed += span.durationMin;
       final lane = _lanes[span.stage] ?? 2;
       final y = lane * laneHeight + (laneHeight - bandHeight) / 2;
+      final stage = sleepStageColor(hues, span.stage);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           // The 1.5 px trim is what separates two adjacent spans of the same
@@ -114,11 +128,11 @@ class _HypnogramPainter extends CustomPainter {
           ),
           const Radius.circular(3),
         ),
-        Paint()
-          ..color = sleepStageColor(
-            colors,
-            span.stage,
-          ).withValues(alpha: progress),
+        // `revealed`, not `withValues(alpha: progress)`. See its docstring:
+        // replacing the alpha made `awake` — the 10% hairline, chosen so the
+        // absence of sleep is the quietest thing here — the loudest band on the
+        // chart at progress 1.
+        Paint()..color = revealed(stage, progress),
       );
     }
   }

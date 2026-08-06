@@ -2,9 +2,15 @@
 ///
 /// The values here are what `core/env.dart` explains at length must NOT be
 /// compiled in: the API bearer token, the strap's MAC address, and the pairing
-/// AUTHKEY. All of them come from the owner's Zepp account at pairing time, all
-/// of them are per-owner, and baking them into the binary is what made the legacy
-/// app single-owner.
+/// AUTHKEY. The last two come from the owner's Zepp account at pairing time and
+/// the first is typed on the sign-in screen; all of them are per-owner, and
+/// baking them into the binary is what made the legacy app single-owner.
+///
+/// ## The server address is stored beside the token, and is not a secret
+///
+/// [apiBaseUrl] is ordinary configuration. It lives here because it is only
+/// meaningful *with* the token — see [setServerSession] — and because a second
+/// store is a second thing that can be half-written.
 ///
 /// `flutter_secure_storage` puts them in the iOS Keychain and the Android
 /// EncryptedSharedPreferences/Keystore, which is where a credential belongs — not
@@ -44,6 +50,7 @@ class Credentials {
   final SecretStore _storage;
 
   static const String _tokenKey = 'helio_token';
+  static const String _baseUrlKey = 'helio_base_url';
   static const String _strapMacKey = 'strap_mac';
   static const String _strapAuthKeyKey = 'strap_auth_key';
   static const String _zeppEmailKey = 'zepp_email';
@@ -52,8 +59,34 @@ class Credentials {
   /// The API bearer token, or null when the owner has not signed in.
   Future<String?> apiToken() => _storage.read(key: _tokenKey);
 
-  /// Stores the API bearer token.
-  Future<void> setApiToken(String token) => _storage.write(key: _tokenKey, value: token);
+  /// The server that token was accepted by, or null when there is no session.
+  ///
+  /// Not a secret, and kept here anyway: it is meaningless apart from the token
+  /// and must never be half-present. A second store would let the app hold a
+  /// token for one server and an address for another, which is a request sent
+  /// somewhere it was never authorised.
+  Future<String?> apiBaseUrl() => _storage.read(key: _baseUrlKey);
+
+  /// Stores a verified server sign-in.
+  ///
+  /// Both halves together, for the reason [strapMac] gives about pairings: half
+  /// a session is not a state any caller can do anything with. **Only
+  /// `data/api/server_session.dart` calls this, and only after the server has
+  /// answered 200** — storing an unverified token is what makes "signed in"
+  /// mean nothing.
+  Future<void> setServerSession({
+    required String baseUrl,
+    required String token,
+  }) async {
+    await _storage.write(key: _baseUrlKey, value: baseUrl);
+    await _storage.write(key: _tokenKey, value: token);
+  }
+
+  /// Drops the server sign-in, leaving the strap pairing alone. Sign-out.
+  Future<void> forgetServerSession() async {
+    await _storage.delete(key: _tokenKey);
+    await _storage.delete(key: _baseUrlKey);
+  }
 
   /// The paired strap's Bluetooth MAC, or null when nothing is paired.
   Future<String?> strapMac() => _storage.read(key: _strapMacKey);
@@ -94,9 +127,9 @@ class Credentials {
     await _storage.delete(key: _zeppPasswordKey);
   }
 
-  /// Forgets everything. Sign-out, and the first step of re-pairing.
+  /// Forgets everything: the server session, the strap and any Zepp sign-in.
   Future<void> clear() async {
-    await _storage.delete(key: _tokenKey);
+    await forgetServerSession();
     await forgetStrapPairing();
     await forgetZeppAccount();
   }

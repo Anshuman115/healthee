@@ -19,6 +19,7 @@ import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/today_repository.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/states/value_hole.dart';
@@ -119,9 +120,16 @@ void main() {
       expect(find.byType(ValueHole), findsNothing);
     });
 
-    testWidgets('Caveated shows the value AND its caveat, unasked', (tester) async {
+    testWidgets('Caveated shows the value AND says it is caveated, unasked', (
+      tester,
+    ) async {
       // "A caveat only the database can see is the same silence somewhere new."
       // The caller passed no caveatBuilder; the disclosure must appear anyway.
+      //
+      // What appears changed on 2026-08-06 — the signpost, not the essay. The
+      // prose is one tap behind it (asserted below), because printing four
+      // server disclosures in full put ~2,780 characters under Today's
+      // biological-age card.
       await tester.pumpWidget(
         _host(
           const ReadingView<String>(
@@ -135,7 +143,54 @@ void main() {
       );
 
       expect(find.text('34.3'), findsOneWidget);
+      expect(find.text(caveatHeadline(1)), findsOneWidget);
+      // Compact means compact: the prose is NOT on the card.
+      expect(find.text('The fitness term is estimated.'), findsNothing);
+    });
+
+    testWidgets('THE CAVEAT DETAIL IS REACHABLE — one tap, in full', (
+      tester,
+    ) async {
+      // The half that makes the compaction honest. A signpost pointing at
+      // nothing is worse than the essay it replaced.
+      await tester.pumpWidget(
+        _host(
+          const ReadingView<String>(
+            reading: Caveated<String>('34.3', [
+              Disclosure(reason: 'fitness_estimated', message: 'The fitness term is estimated.'),
+              Disclosure(
+                reason: 'sleep_scaled',
+                message: 'Your sleep hours are translated first.',
+                term: 'sleep duration',
+              ),
+            ]),
+            label: 'Biological age',
+            builder: _label,
+          ),
+        ),
+      );
+
+      expect(find.text(caveatHeadline(2)), findsOneWidget);
+      await tester.tap(find.text(caveatHeadline(2)));
+      await tester.pumpAndSettle();
+
+      expect(find.text(kCaveatSheetTitle), findsOneWidget);
+      // EVERY disclosure, in the server's own words — not the first one only.
       expect(find.text('The fitness term is estimated.'), findsOneWidget);
+      expect(find.text('Your sleep hours are translated first.'), findsOneWidget);
+      // And the term that scopes the second one.
+      expect(find.text('SLEEP DURATION'), findsOneWidget);
+    });
+
+    testWidgets('THE COUNT IS ON THE SCREEN — a dropped disclosure shows', (
+      tester,
+    ) async {
+      // Why the headline counts rather than just naming the state: it is the
+      // only part of a compacted caveat a reader sees without tapping, so it is
+      // where a disclosure going missing has to become visible.
+      expect(caveatHeadline(1), isNot(caveatHeadline(2)));
+      expect(caveatHeadline(3), contains('3'));
+      expect(caveatHeadline(4), contains('4'));
     });
 
     testWidgets('Withheld keeps the number-shaped hole, the label and the remedy', (
