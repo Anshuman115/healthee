@@ -725,6 +725,94 @@ mutate 'the sheet foot stops leaving the gesture inset' "$LAYER_TEST" "$INFO" \
   '      padding: EdgeInsets.fromLTRB(22, 12, 22, 32 + sheetBottomInset(context)),' \
   '      padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),'
 
+# ── the four vitals charts, and the corpus rules on them ───────────────────
+# Owner report 2026-08-06: "can we change the heartrate, stress, hrv, blood
+# oxygen graphs to be more meaningful ones, this graphs all look similar." The
+# fix gave each chart a reference — and every mutation below is a way for one of
+# those references to become a claim the corpus forbids, or for two of the four
+# to collapse back onto one picture. Every one of them renders perfectly, and
+# three of them look like MORE care rather than less: a mood label reads as
+# insight, a flag on one low night reads as vigilance, and a baseline computed
+# from the visible window reads as data.
+AROUSAL=lib/features/today/widgets/stress_card.dart
+OXYGEN=lib/features/today/widgets/blood_oxygen_card.dart
+HRVCARD=lib/features/today/widgets/hrv_trend_card.dart
+NOTE=lib/features/today/widgets/metric_note.dart
+DEVIATION=lib/shared/charts/h_deviation.dart
+DOTS=lib/shared/charts/h_night_dots.dart
+AROUSAL_TEST=test/features/vitals_arousal_test.dart
+THRESHOLD_TEST=test/features/vitals_thresholds_test.dart
+MARKS_TEST=test/features/vitals_marks_test.dart
+
+# wearable_stress_validity D1/D2, SAFETY-CRITICAL. The number banded into a
+# feeling — the single thing this note exists to forbid, and the most natural
+# "improvement" anyone could make to a bare number in a header.
+mutate 'the arousal figure is banded into a mood' "$AROUSAL_TEST" "$AROUSAL" \
+  "              '\$average avg'," \
+  '              "$average avg · ${average > 40 ? \"tense\" : \"calm\"}",'
+
+# D1 again, one word up: the card goes back to calling arousal "stress", which
+# is the label the note says misrepresents what the sensor captures.
+mutate 'the card calls arousal stress again' "$AROUSAL_TEST" "$AROUSAL" \
+  "      label: useIntraday ? 'Arousal · today' : 'Arousal · 14 days'," \
+  "      label: useIntraday ? 'Stress · today' : 'Stress · 14 days'," \
+  "        const ModuleFoot(
+          'The strap calls this stress · no personal baseline for it',
+        )," \
+  "        const ModuleFoot('No personal baseline for it'),"
+
+# D3: a high or low value is non-specific and must never be singled out.
+# `HBars` emphasises its last bar by default, so this mutation is a DELETION —
+# exactly what a reviewer removing a "redundant" argument would do.
+mutate 'the latest hour of arousal is picked out' "$AROUSAL_TEST" "$AROUSAL" \
+  '              allHighlighted: true,' \
+  '              allHighlighted: false,'
+
+# wearable_spo2_validity D1/D3: "never a single-reading alarm", "never call out
+# individual low-reading minutes". A run of one IS a single-reading alarm.
+mutate 'one low night counts as a sustained run' "$THRESHOLD_TEST" "$NOTE" \
+  'const int sustainedLowNights = 3;' \
+  'const int sustainedLowNights = 1;'
+
+# The same directive from the other side: the run counter stops resetting, so
+# four scattered artefact nights across a fortnight add up to a "run".
+mutate 'scattered low nights accumulate into a run' "$THRESHOLD_TEST" "$NOTE" \
+  '    run = minimum < spo2ConventionPercent ? run + 1 : 0;' \
+  '    run = minimum < spo2ConventionPercent ? run + 1 : run;'
+
+# D2: the ~92% figure is a clinical convention, NOT a wearable-validated cutoff
+# (#98 sourced none). Drawn without that word it becomes a pass/fail line about
+# this owner's oxygen, measured by a sensor whose error is unquantified.
+mutate 'the 92% line stops saying it is a convention' "$THRESHOLD_TEST" "$OXYGEN" \
+  "              label:
+                  'CLINICAL CONVENTION \${spo2ConventionPercent.round()}% '
+                  '— NOT A CUTOFF FOR THIS DEVICE'," \
+  "              label: 'MIN \${spo2ConventionPercent.round()}%',"
+
+# CLAUDE.md, ONE canonical definition per metric. The baseline the server did
+# not send, computed from the fourteen points on screen instead. It renders
+# identically to a real one and is a different number over a different window
+# from the median every other surface in the app quotes.
+mutate 'the HRV baseline is invented from the visible window' \
+  "$THRESHOLD_TEST" "$HRVCARD" \
+  '    final median = baseline;' \
+  '    final median = baseline ?? series.reduce((a, b) => a + b) / series.length;'
+
+# The honesty rule all four share: too short to be a trend draws NOTHING. One
+# night is a reading; a chart of it invites it to be read as a fortnight.
+mutate 'a single night is drawn as a fortnight' "$MARKS_TEST" "$DOTS" \
+  '    if (data.length < HNightDots.minimumNights) {' \
+  '    if (data.isEmpty) {'
+
+# The owner's actual complaint, mechanised: HRV fills to the floor of its box
+# again instead of to its baseline, which makes it the same picture as the
+# heart-rate chart — one mark, two questions.
+mutate 'HRV goes back to filling to the floor' "$MARKS_TEST" "$DEVIATION" \
+  '      ..lineTo(size.width - _padX, baselineY)
+      ..lineTo(_padX, baselineY)' \
+  '      ..lineTo(size.width - _padX, size.height)
+      ..lineTo(_padX, size.height)'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

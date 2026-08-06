@@ -194,6 +194,10 @@ void main() {
             ...json['sparklines']! as Map<String, Object?>,
             'hrv_sleep_avg': const <Object?>[],
             'spo2_overnight': const <Object?>[],
+            // The blood-oxygen module is gated on its DRAWN series, and since
+            // 2026-08-06 that is the nightly minimums rather than the averages.
+            // See `blood_oxygen_card.dart`.
+            'spo2_overnight_min': const <Object?>[],
           },
           'today_hr_series': const <Object?>[],
         },
