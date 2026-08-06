@@ -34,6 +34,7 @@ import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_head.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/section_heading.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 
 /// The Activity tab.
@@ -68,6 +69,7 @@ List<PageSection> activitySections(ScreenData data) {
         ReadingView<CardioLoad>(
           reading: snapshot.cardioLoad,
           label: 'Cardio load',
+          caveatCarrier: CaveatCarrier.insideCard,
           builder: (context, load) => CardioLoadCard(load: load, reveals: reveals),
         ),
       ),
@@ -76,6 +78,7 @@ List<PageSection> activitySections(ScreenData data) {
         ReadingView<Mvpa>(
           reading: snapshot.mvpa,
           label: 'Active minutes',
+          caveatCarrier: CaveatCarrier.insideCard,
           builder: (context, mvpa) => MvpaCard(mvpa: mvpa, reveals: reveals),
         ),
       ),
@@ -95,6 +98,7 @@ List<PageSection> activitySections(ScreenData data) {
         ReadingView<Vo2max>(
           reading: snapshot.vo2max,
           label: 'VO₂max',
+          caveatCarrier: CaveatCarrier.insideCard,
           builder: (context, vo2max) => Vo2maxCard(vo2max: vo2max, reveals: reveals),
         ),
       ),
@@ -103,6 +107,7 @@ List<PageSection> activitySections(ScreenData data) {
         ReadingView<BiologicalAge>(
           reading: snapshot.biologicalAge,
           label: 'Biological age',
+          caveatCarrier: CaveatCarrier.insideCard,
           builder: (context, age) => BiologicalAgeCard(age: age),
         ),
       ),

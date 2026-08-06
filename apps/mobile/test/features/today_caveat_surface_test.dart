@@ -132,9 +132,9 @@ void main() {
       reason: 'the signpost under a card',
     );
     expect(
-      find.byType(CaveatMark),
+      find.byType(CaveatFoot),
       findsWidgets,
-      reason: 'the mark in a module header',
+      reason: 'the counted line in a grid tile’s foot',
     );
     expect(find.text(caveatHeadline(4)), findsOneWidget);
   });
@@ -174,8 +174,13 @@ void main() {
       of: find.text('RESPIRATORY RATE'),
       matching: find.byType(MetricTile),
     );
-    final mark = find.descendant(of: tile, matching: find.byType(CaveatMark));
+    final mark = find.descendant(of: tile, matching: find.byType(CaveatFoot));
     expect(mark, findsOneWidget, reason: 'the tile must say it is caveated');
+    // IN WORDS, and counted — the whole point of replacing the `*`.
+    expect(
+      find.descendant(of: tile, matching: find.text('1 CAVEAT · TAP TO READ')),
+      findsOneWidget,
+    );
     // Visible, not merely mounted.
     expect(tester.getSize(mark).height, greaterThan(0));
     expect(tester.getSize(mark).width, greaterThan(0));
@@ -256,7 +261,7 @@ void main() {
       matching: find.byType(InstrumentModule),
     );
     expect(
-      find.descendant(of: module, matching: find.byType(CaveatMark)),
+      find.descendant(of: module, matching: find.byType(CaveatNote)),
       findsOneWidget,
     );
   });

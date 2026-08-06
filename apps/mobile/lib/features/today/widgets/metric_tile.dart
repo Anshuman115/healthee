@@ -48,10 +48,17 @@
 /// is a fixed-shape module and *"if the content cannot fit the tile, the content
 /// is wrong, not the tile"*.
 ///
-/// So a caveated tile discloses in the **header**, through
-/// [InstrumentModule.caveats], where the mark costs no height and the full prose
-/// is one tap away. The body is byte-for-byte the [Present] body: a caveated
-/// value is a real value and the port's geometry does not bend for it.
+/// So a caveated tile discloses in its **foot**, through [CaveatFoot], and the
+/// full prose is one tap away. It used to disclose in the header through a bare
+/// `*`; the owner asked what that symbol was, which is the answer — see
+/// `shared/states/caveat_disclosure.dart`.
+///
+/// The foot is the one place a fixed-shape cell has room for words, and the room
+/// is **reserved on every cell** rather than found on the caveated one — see
+/// [MetricTile.disclosureHeight] for the measurement that forced that. So a
+/// caveated cell is exactly as tall as the cell beside it by construction, and
+/// the body above it is byte-for-byte the [Present] body: a caveated value is a
+/// real value and the port's geometry does not bend for it.
 library;
 
 import 'package:flutter/material.dart';
@@ -60,6 +67,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/shared/instrument/h_delta_badge.dart';
 import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/value_hole.dart';
 
 /// A grid cell built from a [Reading].
@@ -124,6 +132,17 @@ class MetricTile extends StatelessWidget {
   /// Legacy's `SizedBox(height: 30, child: chart)`.
   static const double chartHeight = 30;
 
+  /// The disclosure line's slot, reserved on **every** cell.
+  ///
+  /// A 9 px foot line at 1.3 line-height, plus the 2 px that clears the foot
+  /// above it. It is reserved whether or not the cell is caveated, and that is
+  /// the whole trick: legacy's 92 px body has **2.7 px** of slack, measured —
+  /// the first attempt put the line inside it and overflowed by 11 px on the
+  /// real screen. Reserving the slot outside the body means a caveated cell and
+  /// a plain one are the same height by construction rather than by luck, and
+  /// legacy's ported 92 px does not move.
+  static const double disclosureHeight = 14;
+
   @override
   Widget build(BuildContext context) {
     // Legacy rounds the z to one decimal BEFORE testing it against zero, so a
@@ -132,13 +151,13 @@ class MetricTile extends StatelessWidget {
     final rounded = delta == null
         ? null
         : double.parse(delta!.toStringAsFixed(1));
+    // The disclosure rides in the foot. It is read off the union rather than
+    // passed in, so a caller cannot render a caveated tile without it.
+    final caveats = reading.caveatsOrEmpty;
     return InstrumentModule(
       label: label,
       tag: tag,
       infoKey: infoKey,
-      // The disclosure rides in the header. It is read off the union rather than
-      // passed in, so a caller cannot render a caveated tile without it.
-      caveats: reading.caveatsOrEmpty,
       minHeight: 0,
       trailing: rounded != null && rounded != 0
           ? HDeltaBadge(rounded, good: deltaFavorable, size: 10)
@@ -146,7 +165,8 @@ class MetricTile extends StatelessWidget {
       children: [
         switch (reading) {
           Present<double>(:final value) => _body(context, value),
-          // Identical to Present, deliberately: see the library docstring.
+          // Identical to Present, deliberately: a caveated value is a real
+          // value. What it adds is the reserved line below, not a changed body.
           Caveated<double>(:final value) => _body(context, value),
           Withheld<double>(:final disclosure) => _Hole(
             message: disclosure.message,
@@ -157,6 +177,12 @@ class MetricTile extends StatelessWidget {
             foot: foot,
           ),
         },
+        SizedBox(
+          height: disclosureHeight,
+          child: caveats.isEmpty
+              ? null
+              : CaveatFoot(caveats: caveats, label: label, gap: 2),
+        ),
       ],
     );
   }

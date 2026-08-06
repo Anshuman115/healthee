@@ -27,7 +27,6 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/today/widgets/metric_tile.dart';
 import 'package:healthee/shared/charts/h_area.dart';
 import 'package:healthee/shared/instrument/h_delta_badge.dart';
-import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/value_hole.dart';
 
@@ -135,7 +134,7 @@ void main() {
       expect(heights, contains(MetricTile.chartHeight));
     });
 
-    testWidgets('a caveated value is still a value, and its tilt is marked', (
+    testWidgets('a caveated value is still a value, and its tilt is in WORDS', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -145,9 +144,11 @@ void main() {
 
       expect(find.text('54'), findsOneWidget);
       expect(find.byType(ValueHole), findsNothing);
-      // The mark, in the header. The prose is NOT in the body — that is what
-      // grew the Resp tile past the tile beside it.
-      expect(find.byType(CaveatMark), findsOneWidget);
+      // The counted line, in the foot, IN WORDS. The prose is NOT in the body
+      // — that is what grew the Resp tile past the tile beside it.
+      expect(find.byType(CaveatFoot), findsOneWidget);
+      expect(find.text('1 CAVEAT · TAP TO READ'), findsOneWidget);
+      expect(find.text('*'), findsNothing, reason: 'the owner asked what it was');
       expect(find.textContaining('plain average'), findsNothing);
     });
 
@@ -156,7 +157,7 @@ void main() {
         tileHost(const Caveated<double>(54, [_tilted])),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(CaveatMark));
+      await tester.tap(find.byType(CaveatFoot));
       await tester.pumpAndSettle();
 
       expect(find.text(kCaveatSheetTitle), findsOneWidget);
@@ -192,13 +193,16 @@ void main() {
       expect(caveated.height, plain.height, reason: 'the row must stay a row');
       expect(caveated.height, greaterThan(MetricTile.bodyHeight));
       // And the disclosure is still on the screen at that height.
-      expect(find.byType(CaveatMark), findsOneWidget);
-      // WHY it costs nothing: the mark shares the ⓘ's footprint, so it lands in
-      // a header row that was already that tall. A bigger glyph would push the
-      // row and the tile would grow again by a different route.
+      expect(find.byType(CaveatFoot), findsOneWidget);
+      // WHY it costs nothing: `ModuleFoot` already lays out to two lines and
+      // legacy's 92 px body has the slack for the second, so the caveat line
+      // lands inside a box that was already that tall. A carrier that grew the
+      // body would break the row by a different route, and the equality above
+      // is what catches it.
       expect(
-        tester.getSize(find.byType(CaveatMark)).height,
-        tester.getSize(find.byType(MetricInfoDot).first).height,
+        tester.getSize(find.byType(CaveatFoot)).height,
+        greaterThan(0),
+        reason: 'laid out, not merely mounted',
       );
     });
 

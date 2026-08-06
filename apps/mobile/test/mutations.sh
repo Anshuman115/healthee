@@ -607,21 +607,28 @@ mutate 'a withheld block is dropped instead of explained' "$WITHHELD_TEST" \
 VIEW=lib/shared/states/reading_view.dart
 CAVEAT=lib/shared/states/caveat_disclosure.dart
 MODULE=lib/shared/instrument_module.dart
-CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/shared/reading_view_test.dart"
+CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/shared/reading_view_test.dart test/features/caveat_attribution_test.dart"
 
 # THE mutation: a Caveated renders exactly like a Present. This is what "just
 # stop printing the bullet points" would have been if nobody replaced them, and
 # it is a one-line diff that makes the screen look better.
 mutate 'a caveated value renders as if it were Present' "$CAVEAT_TEST" "$VIEW" \
-  '      Caveated<T>(:final value, :final caveats) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          builder(context, value),
-          caveatBuilder?.call(context, caveats) ??
-              CaveatNote(caveats: caveats, label: label),
-        ],
-      ),' \
+  '      Caveated<T>(:final value, :final caveats) =>
+        caveatCarrier == CaveatCarrier.insideCard
+        ? CaveatScope(
+            caveats: caveats,
+            label: label,
+            child: builder(context, value),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              builder(context, value),
+              caveatBuilder?.call(context, caveats) ??
+                  CaveatNote(caveats: caveats, label: label),
+            ],
+          ),' \
   '      Caveated<T>(:final value) => builder(context, value),'
 
 # The same failure on the tile side, where the carrier is a header mark rather
@@ -629,17 +636,26 @@ mutate 'a caveated value renders as if it were Present' "$CAVEAT_TEST" "$VIEW" \
 # saying the number came from a different instrument on a different night.
 mutate 'a caveated tile stops marking itself' "$CAVEAT_TEST" \
   lib/features/today/widgets/metric_tile.dart \
-  '      caveats: reading.caveatsOrEmpty,' \
-  '      caveats: const [],'
+  '    final caveats = reading.caveatsOrEmpty;' \
+  '    final caveats = const <Disclosure>[];'
 
-# The header ignoring what it was handed — same outcome, one layer down, and it
-# takes out the Resp tile, the blood-oxygen module and the HRV module at once.
-mutate 'the module header drops the caveat mark' "$CAVEAT_TEST" "$MODULE" \
-  '                      if (caveats.isNotEmpty) ...[
-                        CaveatMark(caveats: caveats, label: label),
-                        const SizedBox(width: Insets.sm),
-                      ],' \
+# The module ignoring what it was handed — same outcome, one layer down, and it
+# takes out the blood-oxygen module, the HRV module and every card a ReadingView
+# hands its disclosures down to.
+mutate 'the module drops the caveat note' "$CAVEAT_TEST" "$MODULE" \
+  '                if (disclosed.isNotEmpty)
+                  CaveatNote(caveats: disclosed, label: named),' \
   ''
+
+# The module stops CLAIMING the scope. This is the 2026-08-06 orphan defect
+# reintroduced: the disclosure is still drawn, by `ReadingView`, as a sibling
+# beneath the whole card — in the gutter, naming neither card. Nothing looks
+# missing, which is exactly why it needs a mutation.
+mutate 'the card stops claiming its own caveats' "$CAVEAT_TEST" "$MODULE" \
+  '    final scope = CaveatScope.of(context);
+    final disclosed = <Disclosure>[...caveats, ...?scope?.caveats];' \
+  '    final scope = CaveatScope.of(context);
+    final disclosed = <Disclosure>[...caveats];'
 
 # The sheet keeping only the first disclosure. The card still says "4 things
 # tilt this number", so the count and the contents disagree and only the sheet
@@ -657,19 +673,51 @@ mutate 'the headline stops counting the disclosures' "$CAVEAT_TEST" "$CAVEAT" \
     : 'Caveated — \$count things tilt this number';" \
   "String caveatHeadline(int count) => 'Caveated';"
 
-# The geometric half of the bargain. The mark costs no height ONLY because that
-# explicit box holds it to the ⓘ'"'"'s 16 px; let the glyph size its own line box
-# and the header row grows, and the tile grows with it — which is the owner'"'"'s
-# second report arriving by a different route.
-mutate 'the caveat mark sizes itself instead of matching the ⓘ' "$TILE_TEST" "$CAVEAT" \
-  '            child: SizedBox(
-              width: size,
-              height: size,
-              child: Center(
-                child: _MarkGlyph(color: colors.accent, size: 14),
-              ),
-            ),' \
-  '            child: _MarkGlyph(color: colors.accent, size: 14),'
+# The geometric half of the bargain. The disclosure line costs a caveated tile no
+# height ONLY because EVERY tile reserves the slot; reserve it just-in-time and
+# the caveated cell stands proud of the one beside it — which is the owner'"'"'s
+# "the card too big" report arriving by a different route.
+mutate 'only a caveated tile reserves the disclosure line' "$TILE_TEST" \
+  lib/features/today/widgets/metric_tile.dart \
+  '        SizedBox(
+          height: disclosureHeight,
+          child: caveats.isEmpty
+              ? null
+              : CaveatFoot(caveats: caveats, label: label, gap: 2),
+        ),' \
+  '        if (caveats.isNotEmpty)
+          SizedBox(
+            height: disclosureHeight,
+            child: CaveatFoot(caveats: caveats, label: label, gap: 2),
+          ),'
+
+# ── the asterisk must not come back ─────────────────────────────────────────
+# Owner, on the installed build: *"what are those * symbol in card"*. A bare
+# footnote mark is not words, and the file it lived in says in its own docstring
+# that a caveated value discloses IN WORDS. This is the regression test for the
+# GLYPH: any carrier that reaches for a lone mark again fails here.
+mutate 'the caveat goes back to a bare footnote mark' "$CAVEAT_TEST" "$CAVEAT" \
+  "String caveatFootnote(int count) =>
+    count == 1 ? '1 caveat · tap to read' : '\$count caveats · tap to read';" \
+  "String caveatFootnote(int count) => '*';"
+
+# ── the two quiet chart inks ────────────────────────────────────────────────
+# The gridline defect exactly as it shipped: `withValues` REPLACES the alpha, so
+# a 10% hairline is drawn at 70%. On dark that is the "almost white" the owner
+# reported, and it looks like a deliberate emphasis in a diff.
+CHART_INK=test/theme/chart_ink_test.dart
+
+mutate 'a gridline derives itself from the hairline again' "$CHART_INK" \
+  lib/shared/charts/h_stacked_sleep.dart \
+  '      ..color = colors.grid' \
+  '      ..color = colors.line.withValues(alpha: 0.7)'
+
+# The reference line back at full ink3 — the same weight as the caption naming
+# it, which is what the owner asked us to quieten.
+mutate 'the reference line goes back to full-strength ink' "$CHART_INK" \
+  lib/shared/charts/h_area.dart \
+  '                referenceInk: colors.reference,' \
+  '                referenceInk: colors.ink3,'
 
 # The Sleep cell'"'"'s chart. `hypnogramSpans` was mutated here until 2026-08-06 —
 # it guarded legacy'"'"'s fabricated one-minute light-sleep band for an unstaged
@@ -849,7 +897,7 @@ mutate 'the reference goes back behind the fill' "$LABEL_TEST" "$AREA" \
         size,
         reference,
         scale: scale,
-        color: ink3,
+        color: referenceInk,
         progress: progress,
       );
     }
@@ -862,7 +910,7 @@ mutate 'the reference goes back behind the fill' "$LABEL_TEST" "$AREA" \
         size,
         reference,
         scale: scale,
-        color: ink3,
+        color: referenceInk,
         progress: progress,
       );
     }
