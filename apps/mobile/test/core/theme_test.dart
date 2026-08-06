@@ -106,6 +106,63 @@ void main() {
     });
   });
 
+  group('the sleep-stage ramp, transcribed', () {
+    // These eight are DERIVED rather than transcribed from legacy — the
+    // accessibility repair in `lib/core/theme/sleep_stage_palette.dart` — but
+    // they are pinned here for the same reason every other token is: a
+    // transposed digit is invisible to the analyzer.
+    //
+    // The pin also closes the one hole the property tests cannot. Restoring
+    // legacy's light-theme `deep` (`#B27F2C`) changes luminance by 0.005 and so
+    // breaks neither the pair floor nor the depth ordering — legacy's light gold
+    // was already on its rung. `test/theme/stage_contrast_test.dart` measures
+    // that and names it; this is what fails when it comes back.
+    const lightHues = InstrumentHues.light();
+    const darkHues = InstrumentHues.dark();
+
+    test('light — the four rungs and the grey', () {
+      expect(lightHues.stageDeep, const Color(0xFFB4802E));
+      expect(lightHues.stageLight, const Color(0xFF4C6E8B));
+      expect(lightHues.stageRem, const Color(0xFF4F4875));
+      expect(lightHues.stageAwake, const Color(0xFF631000));
+      expect(lightHues.unstaged, const Color(0xFF7A7A7A));
+    });
+
+    test('dark — the four rungs and the grey', () {
+      expect(darkHues.stageDeep, const Color(0xFFFFCC73));
+      expect(darkHues.stageLight, const Color(0xFF87AECF));
+      expect(darkHues.stageRem, const Color(0xFF867EB8));
+      expect(darkHues.stageAwake, const Color(0xFFA8472E));
+      expect(darkHues.unstaged, const Color(0xFF757575));
+    });
+
+    test('NO STAGE IS A METRIC HUE — the split, asserted from the token side', () {
+      // The four metric hues legacy borrowed are unchanged and still in use, so
+      // "the stage moved" and "the metric moved" are both possible edits and
+      // only one of them is the repair. This says which.
+      for (final (name, hues) in <(String, InstrumentHues)>[
+        ('light', lightHues),
+        ('dark', darkHues),
+      ]) {
+        final metrics = <Color>[hues.steps, hues.spo2, hues.sleep, hues.heart];
+        for (final stage in <Color>[
+          hues.stageDeep, hues.stageLight, hues.stageRem, hues.stageAwake,
+        ]) {
+          expect(metrics, isNot(contains(stage)), reason: name);
+        }
+      }
+    });
+
+    test('the awake stage is NOT the alert colour — the split that mattered', () {
+      // `cHeart` is the illness flag. Moving it to fix a chart would have
+      // repainted a verdict.
+      expect(lightHues.stageAwake, isNot(light.alert));
+      expect(darkHues.stageAwake, isNot(dark.alert));
+      expect(lightHues.heart, light.alert, reason: 'and alert itself did not move');
+      expect(darkHues.heart, dark.alert);
+    });
+  });
+
   group('the structural decisions, pinned', () {
     test('the accent is a PAIR, and legacy’s two single-value tokens are named', () {
       // Legacy authors green and cHeart per theme, so these must differ.

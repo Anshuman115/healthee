@@ -27,10 +27,23 @@ void main() {
   for (final theme in themes.entries) {
     final hues = theme.value;
 
-    group('${theme.key} — legacy’s canonical four', () {
-      /// `theme.dart:31` — deep=cSteps · core/light=cSpo2 · rem=cSleep ·
-      /// awake=cHeart.
+    group('${theme.key} — the canonical four', () {
+      /// The stage colours, which since the contrast repair are their OWN four
+      /// values rather than four borrowed metric hues. See
+      /// `lib/core/theme/sleep_stage_palette.dart`.
       final canonical = <String, Color>{
+        'deep': hues.stageDeep,
+        'light': hues.stageLight,
+        'core': hues.stageLight,
+        'rem': hues.stageRem,
+        'awake': hues.stageAwake,
+      };
+
+      /// What legacy drew each stage in, and what the port drew it in until the
+      /// repair (`theme.dart:31` — deep=cSteps · core/light=cSpo2 · rem=cSleep ·
+      /// awake=cHeart). Those four metric hues still exist and still have those
+      /// values; they are simply no longer what a stage is painted with.
+      final borrowed = <String, Color>{
         'deep': hues.steps,
         'light': hues.spo2,
         'core': hues.spo2,
@@ -38,24 +51,57 @@ void main() {
         'awake': hues.heart,
       };
 
-      test('each stage answers legacy’s hue', () {
+      test('each stage answers its own stage colour', () {
         for (final entry in canonical.entries) {
           expect(
             hues.sleepStage(entry.key),
             entry.value,
-            reason: '${entry.key} is not legacy’s colour',
+            reason: '${entry.key} is not its stage colour',
           );
         }
       });
 
-      test('MUTATION — no stage answers another stage’s hue', () {
-        // The check that makes the one above mean something. Deep must be amber
+      test('THE STAGE COLOUR IS SPLIT FROM THE METRIC COLOUR', () {
+        // The load-bearing half of the repair. Deep sleep and the steps metric
+        // used to be one value; awake and `alert` used to be one value. Moving
+        // the stage without splitting it would have dragged the steps tile, the
+        // SpO₂ vitals row, the sleep gauge and the illness flag along with it.
+        for (final entry in borrowed.entries) {
+          expect(
+            hues.sleepStage(entry.key),
+            isNot(entry.value),
+            reason: '${entry.key} is back on its old metric hue',
+          );
+        }
+      });
+
+      test('THE METRIC HUES DID NOT MOVE — only the stages did', () {
+        // Restating the four legacy values here, independently of palette.dart,
+        // is what makes the assertion above safe: it could otherwise be
+        // satisfied by moving the METRIC hue instead of the stage.
+        final expected = theme.key == 'dark'
+            ? const <Color>[
+                Color(0xFFD9A84E), Color(0xFF7DA3C4),
+                Color(0xFF968EC9), Color(0xFFE07A5F),
+              ]
+            : const <Color>[
+                Color(0xFFB27F2C), Color(0xFF587A97),
+                Color(0xFF5B5483), Color(0xFFBF472E),
+              ];
+        expect(
+          <Color>[hues.steps, hues.spo2, hues.sleep, hues.heart],
+          expected,
+        );
+      });
+
+      test('MUTATION — no stage answers another stage’s colour', () {
+        // The check that makes the first one mean something. Deep must be amber
         // and must NOT be the blue, the purple or the red; and so on round.
         final distinct = <String, Color>{
-          'deep': hues.steps,
-          'light': hues.spo2,
-          'rem': hues.sleep,
-          'awake': hues.heart,
+          'deep': hues.stageDeep,
+          'light': hues.stageLight,
+          'rem': hues.stageRem,
+          'awake': hues.stageAwake,
         };
         for (final mine in distinct.entries) {
           for (final other in distinct.entries) {
@@ -100,9 +146,11 @@ void main() {
       test('MUTATION — no unrecognised code resolves to ANY of the four', () {
         // The assertion above passes for a mapping that answers `unstaged` for
         // everything, and it would also pass if `unstaged` were quietly set to
-        // `spo2`. This is the one that fails if the fallback goes back to being
-        // a stage.
-        final four = <Color>[hues.steps, hues.spo2, hues.sleep, hues.heart];
+        // `stageLight`. This is the one that fails if the fallback goes back to
+        // being a stage.
+        final four = <Color>[
+          hues.stageDeep, hues.stageLight, hues.stageRem, hues.stageAwake,
+        ];
         for (final code in const <String>['0x7f', '', 'nap', 'LIGHT', 'unknown']) {
           expect(four, isNot(contains(hues.sleepStage(code))), reason: code);
         }
@@ -206,17 +254,17 @@ void main() {
     const dark = InstrumentHues.dark();
     String fieldOf(InstrumentHues hues, String stage) {
       final colour = hues.sleepStage(stage);
-      if (colour == hues.steps) {
-        return 'cSteps';
+      if (colour == hues.stageDeep) {
+        return 'stageDeep';
       }
-      if (colour == hues.spo2) {
-        return 'cSpo2';
+      if (colour == hues.stageLight) {
+        return 'stageLight';
       }
-      if (colour == hues.sleep) {
-        return 'cSleep';
+      if (colour == hues.stageRem) {
+        return 'stageRem';
       }
-      if (colour == hues.heart) {
-        return 'cHeart';
+      if (colour == hues.stageAwake) {
+        return 'stageAwake';
       }
       return 'unknown';
     }

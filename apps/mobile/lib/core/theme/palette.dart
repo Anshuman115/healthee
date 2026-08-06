@@ -1,8 +1,18 @@
-/// The ONLY file in this app allowed to contain a colour literal.
+/// One of the **two** files in this app allowed to contain a colour literal. The
+/// other is `sleep_stage_palette.dart`.
 ///
 /// Engineering Standards §3: "Design tokens only — colors/typography/spacing from
 /// the theme system, no inline `Color(0xFF…)` in feature code." A rule like that
 /// needs somewhere for the hex to live, and this is it.
+///
+/// **Why there are two files and not one.** This file is a transcription: the
+/// approved scaffolding, plus legacy's hues to the hex, and its one reason to
+/// change is "legacy's value was read wrong". `sleep_stage_palette.dart` holds
+/// four values that are *derived* rather than transcribed — an authorised
+/// accessibility repair with its own arithmetic — and its reason to change is "the
+/// card colour moved, so re-derive the ramp". Two reasons, two files
+/// (Standards §1). `test/core/colour_literal_gate_test.dart` reads `lib/` and
+/// fails on a third.
 ///
 /// ## Which design this is — and what changed on 2026-08-05
 ///
@@ -126,22 +136,11 @@ abstract final class LightPalette {
   /// The number-shaped absence — a very low-alpha fill, not a text colour.
   ///
   /// Scaffolding, and part of the honesty layer: a refusal spends no hue.
+  ///
+  /// `unstaged`, its sibling in that layer, moved to
+  /// `LightStagePalette.unstaged`: it is only ever drawn beside the four stage
+  /// colours, and it has to be re-measured whenever they move.
   static const Color hole = Color.fromRGBO(18, 18, 23, 0.045);
-
-  /// **A span the strap staged with a code we do not recognise.**
-  ///
-  /// The one colour here that is neither legacy's nor the approved design's, and
-  /// it exists because legacy had no way to say this. `HColors.sleepStage`
-  /// defaults an unknown code to `cSpo2`, so a byte nobody has decoded is drawn
-  /// as *light sleep* — a specific, named, confident claim about a measurement
-  /// we could not read. That is the failure this product exists to prevent, and
-  /// it is invisible on screen precisely because it looks like a stage.
-  ///
-  /// A flat grey with **no chroma at all** is the point: legacy's four stage
-  /// hues are all chromatic (amber, blue, indigo, red), so "unrecognised" is not
-  /// a fifth hue competing with them — it is the visible absence of one. It sits
-  /// in the same family as [hole]: the honesty layer spends no colour.
-  static const Color unstaged = Color(0xFF8C8C8C);
 }
 
 /// The scaffolding, dark. Authored, never derived by inverting light.
@@ -220,11 +219,9 @@ abstract final class DarkPalette {
   /// [alert] as a fill, at legacy's 0.16.
   static const Color alertSoft = Color.fromRGBO(224, 122, 95, 0.16);
 
-  /// The number-shaped absence.
+  /// The number-shaped absence. See [LightPalette.hole] for where `unstaged`
+  /// went.
   static const Color hole = Color.fromRGBO(255, 255, 255, 0.05);
-
-  /// A span staged with a code we do not recognise. See [LightPalette.unstaged].
-  static const Color unstaged = Color(0xFF767676);
 }
 
 /// **Legacy's ten per-metric hues, light — transcribed from
@@ -251,7 +248,12 @@ abstract final class LegacyLightHues {
   /// `cHrv` — HRV. **Identical to the green accent**, in legacy and here.
   static const Color hrv = Color(0xFF1F6F54);
 
-  /// `cSteps` — steps and distance. Also **deep sleep** on every sleep chart.
+  /// `cSteps` — steps and distance.
+  ///
+  /// It **used to be deep sleep as well**, in legacy and in this port. The stage
+  /// half moved to `LightStagePalette.deep`; this value did not move a bit, so
+  /// the steps tile is unchanged. See `sleep_stage_palette.dart` for why they
+  /// had to split.
   static const Color steps = Color(0xFFB27F2C);
 
   /// `cCal` — calories, and legacy's stress card.
@@ -260,8 +262,8 @@ abstract final class LegacyLightHues {
   /// `cResp` — respiratory rate, and legacy's overnight blood-oxygen card.
   static const Color respiratory = Color(0xFF3C7A84);
 
-  /// `cSpo2` — **light/core sleep** on every sleep chart, and zone 1. Legacy's
-  /// SpO₂ vitals row on the sleep screen also uses it.
+  /// `cSpo2` — zone 1, and legacy's SpO₂ vitals row on the sleep screen. It was
+  /// **light/core sleep** too; that half is now `LightStagePalette.light`.
   static const Color spo2 = Color(0xFF587A97);
 
   /// `cStress` — skin temperature on legacy's sleep screen. Despite the name,
@@ -289,7 +291,7 @@ abstract final class LegacyDarkHues {
   /// `cHrv` — identical to [DarkPalette.accent].
   static const Color hrv = Color(0xFF4BBF93);
 
-  /// `cSteps` — also deep sleep.
+  /// `cSteps`. It was deep sleep too; see [LegacyLightHues.steps].
   static const Color steps = Color(0xFFD9A84E);
 
   /// `cCal`.
@@ -298,7 +300,7 @@ abstract final class LegacyDarkHues {
   /// `cResp`.
   static const Color respiratory = Color(0xFF5FA9B4);
 
-  /// `cSpo2` — also light/core sleep.
+  /// `cSpo2`. It was light/core sleep too; see [LegacyLightHues.spo2].
   static const Color spo2 = Color(0xFF7DA3C4);
 
   /// `cStress`.

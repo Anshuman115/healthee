@@ -136,11 +136,17 @@ void main() {
       expect(dark.heart, const HealtheeColors.dark().alert);
     });
 
-    test('cRem is defined and drawn by nothing — legacy draws REM in cSleep', () {
+    test('cRem is defined and drawn by nothing — not even REM', () {
       // Ported because the set is ported whole. Asserting it is distinct keeps
       // a later "it is unused, delete it" honest about what would be lost.
       expect(light.rem, isNot(light.sleep));
-      expect(const InstrumentHues.light().sleepStage('rem'), light.sleep);
+      // Legacy drew REM in `cSleep`, and the port did too until the stage
+      // contrast repair. REM now has its own value and `cRem` is still drawn by
+      // nothing — see `sleep_stage_palette.dart`.
+      expect(light.sleepStage('rem'), isNot(light.sleep));
+      expect(light.sleepStage('rem'), isNot(light.rem));
+      expect(dark.sleepStage('rem'), isNot(dark.sleep));
+      expect(dark.sleepStage('rem'), isNot(dark.rem));
     });
   });
 
