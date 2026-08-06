@@ -16,6 +16,7 @@
 ///     with a null estimate to accidentally render.
 library;
 
+import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:meta/meta.dart';
 
@@ -119,6 +120,22 @@ class Vo2max {
   /// That instrument's limit, in the second person. Always rendered with the
   /// number; it is the honest half of the estimate.
   final String methodCaveat;
+
+  /// [methodCaveat] as the disclosure it is, so the cards carry it the same way
+  /// every other caveat on the app is carried.
+  ///
+  /// It arrives outside the `caveats` array — it is a property of the instrument
+  /// rather than of this reading — but it is the same kind of claim and the same
+  /// length: the live one is 568 characters, and printing it as body prose is
+  /// what made Today's Fitness section an essay. Both VO₂max cards render it
+  /// through `CaveatNote` now, which puts it one tap away instead of on the card.
+  ///
+  /// **The method itself stays ON the card.** [[hr_reserve_vo2max]] Directive 4
+  /// requires the instrument to be named wherever the number is — that is the
+  /// short "Read by …" line, not this paragraph, and moving the paragraph does
+  /// not touch it.
+  Disclosure get methodDisclosure =>
+      Disclosure(reason: 'vo2max_method_caveat', message: methodCaveat);
 
   /// The ± band, in the reporting instrument's own units of error.
   ///

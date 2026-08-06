@@ -32,6 +32,7 @@ import 'package:healthee/data/models/vo2max.dart';
 import 'package:healthee/shared/charts/h_area.dart';
 import 'package:healthee/shared/measured_card.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/citation_row.dart';
 import 'package:healthee/shared/states/reasoning_note.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
@@ -78,10 +79,12 @@ class Vo2maxCard extends StatelessWidget {
           const SizedBox(height: Insets.md),
           // The instrument, named, in the position the design gives it.
           Text(instrumentLabel(vo2max.method), style: text.titleSmall),
-          const SizedBox(height: Insets.xs),
-          Text(
-            vo2max.methodCaveat,
-            style: text.bodySmall?.copyWith(color: colors.ink2),
+          // Its limit — the same 568-character paragraph Today's card carries,
+          // and carried the same way, because two cards showing one metric must
+          // not disagree about how much of it a reader is shown unasked.
+          CaveatNote(
+            caveats: [vo2max.methodDisclosure],
+            label: 'VO₂max · ${instrumentLabel(vo2max.method)}',
           ),
           if (_reference(vo2max) case final String reference) ...[
             const SizedBox(height: Insets.md),

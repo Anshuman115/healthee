@@ -43,6 +43,7 @@ import 'package:healthee/features/today/widgets/stat_columns.dart';
 import 'package:healthee/shared/charts/h_area.dart';
 import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
 
 /// The estimate, the instrument that read it, and what went into it.
 class Vo2maxCard extends StatelessWidget {
@@ -123,9 +124,14 @@ class Vo2maxCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          vo2max.methodCaveat,
-          style: HType.sans(colors.ink3, size: 11.5, height: 1.45),
+        // The instrument's limit — 568 characters on the live payload. It was
+        // printed here in full and it is half of what the owner reported as
+        // *"raw text ... below the fitness card"*. The method itself is still
+        // named on the card, two slots up, which is what Directive 4 asks for;
+        // this is the paragraph about that method, and it opens on a tap.
+        CaveatNote(
+          caveats: [vo2max.methodDisclosure],
+          label: 'VO₂max · ${methodLabel(vo2max.method)}',
         ),
         const SizedBox(height: 16),
         Row(
