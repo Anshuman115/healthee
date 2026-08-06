@@ -99,7 +99,7 @@ class HNightLine extends StatelessWidget {
         painter: _NightLinePainter(
           data: data,
           color: color,
-          ink3: colors.ink3,
+          referenceInk: colors.reference,
           progress: progress,
           radius: radius,
           strokeWidth: strokeWidth,
@@ -115,7 +115,7 @@ class _NightLinePainter extends CustomPainter {
   const _NightLinePainter({
     required this.data,
     required this.color,
-    required this.ink3,
+    required this.referenceInk,
     required this.progress,
     required this.radius,
     required this.strokeWidth,
@@ -125,7 +125,7 @@ class _NightLinePainter extends CustomPainter {
 
   final List<double> data;
   final Color color;
-  final Color ink3;
+  final Color referenceInk;
   final double progress;
   final double radius;
   final double strokeWidth;
@@ -158,7 +158,7 @@ class _NightLinePainter extends CustomPainter {
         size,
         line,
         scale: scale,
-        color: ink3,
+        color: referenceInk,
         progress: progress,
       );
     }

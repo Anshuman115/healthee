@@ -40,6 +40,27 @@
 /// `include`, and a painter and its reference cannot disagree about where a
 /// number sits.
 ///
+/// ## How loud it is, and why the caption is louder — 2026-08-06
+///
+/// Owner report on the installed build: *"can we make the baseline line a bit
+/// subtle in the charts"*. The line was opaque `ink3` — the same value as the
+/// caption naming it — so a 1 px rule spanning the whole plot carried as much
+/// ink as the words. It is [HealtheeColors.reference] now: `ink3` at 55%,
+/// clearly visible and no longer a competitor with the trace.
+///
+/// **The caption did not follow it down, and that is measured rather than
+/// lazy.** These are 9 px caps. `ink3` on this app's card surfaces measures
+/// 5.17:1 in light and 5.55:1 in dark; at the reference's own 55% the same text
+/// falls to **2.2:1**, and even 75% lands near 3.1:1 — under the 4.5:1 floor
+/// that `DarkPalette.onAccent` exists in this codebase to respect. A hairline
+/// may sit at the edge of perception; a word a reader has to read may not.
+///
+/// So the caption stays in `ink3` and is tied to its line a different way: it
+/// carries a **swatch of the line itself**, dashed exactly when the line is
+/// dashed ([_ReferenceSwatch]). That also puts the personal-baseline /
+/// convention distinction on the screen for the first time — it used to live
+/// only in the wording.
+///
 /// ## Structure, not verdict
 ///
 /// A reference is drawn in a quiet ink and **never** in `fav`/`unf`/`alert`.
@@ -62,6 +83,7 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/charts/chart_primitives.dart';
@@ -281,19 +303,64 @@ class ChartReferenceCaption extends StatelessWidget {
             Semantics(
               label: reference.label,
               child: ExcludeSemantics(
-                // Caps are the module foot's voice; the semantic label above
-                // carries the sentence as written, because several screen
-                // readers spell an all-caps run out letter by letter.
-                child: Text(
-                  reference.label.toUpperCase(),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: HType.label(colors.ink3, tracking: 0.04),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _ReferenceSwatch(dashed: reference.isDashed),
+                    const SizedBox(width: Insets.xs + 2),
+                    // Caps are the module foot's voice; the semantic label above
+                    // carries the sentence as written, because several screen
+                    // readers spell an all-caps run out letter by letter.
+                    Flexible(
+                      child: Text(
+                        reference.label.toUpperCase(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: HType.label(colors.ink3, tracking: 0.04),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+/// A 12 px sample of the line this caption names, in the line's own ink.
+///
+/// The one thing on the card that says WHICH mark the words are about, and the
+/// only place the solid/dashed distinction is visible at caption size. Drawn
+/// from [HealtheeColors.reference], so a swatch cannot disagree with the rule
+/// [paintChartReference] drew.
+class _ReferenceSwatch extends StatelessWidget {
+  const _ReferenceSwatch({required this.dashed});
+
+  /// Whether the line it samples is broken. [ChartReference.isDashed].
+  final bool dashed;
+
+  /// Wide enough to read as a line rather than as a dot, narrow enough that it
+  /// never competes with the words beside it.
+  static const double width = 12;
+
+  @override
+  Widget build(BuildContext context) {
+    final rule = ColoredBox(color: context.colors.reference);
+    return SizedBox(
+      width: width,
+      height: hairline,
+      child: dashed
+          // The painter's own 3-on-3-off, at this width: two dashes and a gap.
+          ? Row(
+              children: [
+                Expanded(child: rule),
+                const Spacer(),
+                Expanded(child: rule),
+              ],
+            )
+          : rule,
     );
   }
 }

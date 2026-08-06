@@ -91,6 +91,19 @@ abstract final class LightPalette {
   /// with. A port that matched on name would draw every card edge at 6%.
   static const Color line2 = Color.fromRGBO(18, 18, 23, 0.06);
 
+  /// A rule drawn INSIDE a plot — gridlines and axis rules. See [DarkPalette.grid]
+  /// for the defect this token was added to fix; the value is half of [line].
+  static const Color grid = Color.fromRGBO(18, 18, 23, 0.05);
+
+  /// The horizontal line a series is READ AGAINST — a baseline or a convention.
+  ///
+  /// [ink3] at 55%. It used to be opaque `ink3`, which drew the context line at
+  /// the same weight as the caption naming it; owner report 2026-08-06 — *"can
+  /// we make the baseline line a bit subtle in the charts"*. Louder than [grid],
+  /// because a reference is a claim about a number rather than structure, and
+  /// quieter than the trace and than any text.
+  static const Color reference = Color.fromRGBO(109, 109, 124, 0.55);
+
   /// The one accent — **legacy's forest green**, `HColors.light.green`.
   static const Color accent = Color(0xFF1F6F54);
 
@@ -171,6 +184,23 @@ abstract final class DarkPalette {
 
   /// The quieter hairline. Legacy's `line` by role — see [LightPalette.line2].
   static const Color line2 = Color.fromRGBO(255, 255, 255, 0.055);
+
+  /// A rule drawn INSIDE a plot — gridlines and axis rules.
+  ///
+  /// **The defect it replaced, 2026-08-06.** Owner report: *"gridlines are
+  /// almost white"*. Three painters drew their grid as
+  /// `colors.line.withValues(alpha: 0.5)` — 0.7 in `h_stacked_sleep` — and
+  /// `withValues` **replaces** the alpha instead of scaling it. That is the
+  /// exact mistake `chart_primitives.dart`'s `revealed()` was written to
+  /// prevent, one file over. [line] is a 10% hairline, so those gridlines were
+  /// white at **50% and 70%** — five and seven times their intended weight —
+  /// and the light theme drew the same lines near-black. This value is what the
+  /// arithmetic meant: half of [line].
+  static const Color grid = Color.fromRGBO(255, 255, 255, 0.05);
+
+  /// The horizontal line a series is read against. [ink3] at 55%; see
+  /// [LightPalette.reference].
+  static const Color reference = Color.fromRGBO(141, 141, 153, 0.55);
 
   /// The one accent — **legacy's dark green**, `HColors.dark.green`.
   static const Color accent = Color(0xFF4BBF93);

@@ -93,7 +93,7 @@ class HDeviation extends StatelessWidget {
         painter: _DeviationPainter(
           data: data,
           color: color,
-          ink3: colors.ink3,
+          referenceInk: colors.reference,
           progress: progress,
           strokeWidth: strokeWidth,
           reference: reference,
@@ -107,7 +107,7 @@ class _DeviationPainter extends CustomPainter {
   const _DeviationPainter({
     required this.data,
     required this.color,
-    required this.ink3,
+    required this.referenceInk,
     required this.progress,
     required this.strokeWidth,
     required this.reference,
@@ -115,7 +115,7 @@ class _DeviationPainter extends CustomPainter {
 
   final List<double> data;
   final Color color;
-  final Color ink3;
+  final Color referenceInk;
   final double progress;
   final double strokeWidth;
   final ChartReference? reference;
@@ -152,7 +152,7 @@ class _DeviationPainter extends CustomPainter {
         size,
         line,
         scale: scale,
-        color: ink3,
+        color: referenceInk,
         progress: progress,
       );
     }

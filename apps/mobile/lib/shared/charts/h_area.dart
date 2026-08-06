@@ -130,6 +130,7 @@ class _HAreaState extends State<HArea> {
                 data: widget.data,
                 color: widget.color,
                 ink3: colors.ink3,
+                referenceInk: colors.reference,
                 bubbleInk: colors.surface,
                 progress: widget.progress,
                 strokeWidth: widget.strokeWidth,
@@ -152,6 +153,7 @@ class _AreaPainter extends CustomPainter {
     required this.data,
     required this.color,
     required this.ink3,
+    required this.referenceInk,
     required this.bubbleInk,
     required this.progress,
     required this.strokeWidth,
@@ -165,6 +167,7 @@ class _AreaPainter extends CustomPainter {
   final List<double> data;
   final Color color;
   final Color ink3;
+  final Color referenceInk;
   final Color bubbleInk;
   final double progress;
   final double strokeWidth;
@@ -226,7 +229,7 @@ class _AreaPainter extends CustomPainter {
         size,
         reference,
         scale: scale,
-        color: ink3,
+        color: referenceInk,
         progress: progress,
       );
     }
