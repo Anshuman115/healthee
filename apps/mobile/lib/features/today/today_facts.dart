@@ -59,7 +59,6 @@ class TodayFacts {
     required this.bloodOxygen,
     required this.sleepDurationMin,
     required this.sleepScore,
-    required this.sleepStages,
     required this.sleepTotals,
     required this.sleepNight,
     required this.staleSleep,
@@ -109,7 +108,6 @@ class TodayFacts {
       ),
       sleepDurationMin: snapshot.lastSleep.map((night) => night.durationMin),
       sleepScore: sleep?.score,
-      sleepStages: hypnogramSpans(sleep?.stages ?? const []),
       sleepTotals: sleep?.totals ?? const <String, int>{},
       sleepNight: sleepNightLabel(endIso, now),
       staleSleep: noSleepLastNight(endIso, now),
@@ -155,10 +153,11 @@ class TodayFacts {
   /// The strap's own sleep score for that night, 0–100.
   final int? sleepScore;
 
-  /// The staged spans behind the Sleep tile's hypnogram.
-  final List<SleepStageSpan> sleepStages;
-
-  /// Minutes per stage for that night — the Sleep tile's foot.
+  /// Minutes per stage for that night — the Sleep tile's foot **and its chart**.
+  ///
+  /// One field feeding both is the point: `HStageBar` draws these exact minutes
+  /// in proportion and `stageFoot` prints the same two percentages under it, so
+  /// the picture and the caption cannot disagree about the night.
   final Map<String, int> sleepTotals;
 
   /// "Last night" · "Night before last" · "3 nights ago".

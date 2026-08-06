@@ -18,7 +18,7 @@ import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/widgets/metric_tile.dart';
 import 'package:healthee/shared/charts/h_area.dart';
 import 'package:healthee/shared/charts/h_bars.dart';
-import 'package:healthee/shared/charts/h_hypnogram.dart';
+import 'package:healthee/shared/charts/h_stage_bar.dart';
 import 'package:healthee/shared/reveal_once.dart';
 
 /// Builds the six tiles for one render.
@@ -36,7 +36,27 @@ class TodayTiles {
   /// Where "this chart has already animated" is remembered.
   final RevealRegistry reveals;
 
-  /// `SLEEP · 6:20 hrs` with the night's hypnogram. Legacy 173.
+  /// `SLEEP · 6:20 hrs` with the night's stage proportions. Legacy 173.
+  ///
+  /// ## A DELIBERATE DEPARTURE FROM LEGACY — owner-delegated, decided 2026-08-06
+  ///
+  /// **Do not "restore" the hypnogram here.** Legacy draws
+  /// `HHypnogram(..., height: 30)` in this cell and the port did too. At 30 px
+  /// that is four lanes of ~7 px with a 62% band inside each, so on this owner's
+  /// real nights — fragmented ones — every span is a 4 px sliver on its own row
+  /// and the chart reads as scattered dots. The drawing was never wrong; the SIZE
+  /// was wrong for it.
+  ///
+  /// The owner delegated the call and it was made: the tile draws [HStageBar],
+  /// the stacked proportion bar, which spends the whole 30 px on one row so the
+  /// smallest stage a real night carries is still several pixels tall. The stage
+  /// colours are unchanged — the same `stage_colors.dart` table the hypnogram
+  /// uses — so nothing about what deep sleep looks like moved.
+  ///
+  /// **The full hypnogram stays on the Sleep tab, at full width, unchanged**
+  /// (`features/sleep/widgets/hypnogram_card.dart`). Proportion answers "how did
+  /// the night divide"; it never answers "when", and this cell is a door to the
+  /// screen that does.
   MetricTile sleep(BuildContext context) => MetricTile(
     label: 'Sleep',
     tag: context.hues.sleep,
@@ -48,10 +68,12 @@ class TodayTiles {
     chart: RevealOnce(
       id: 'today.tile.sleep',
       registry: reveals,
-      builder: (context, t) => HHypnogram(
-        facts.sleepStages,
-        progress: t,
-        height: MetricTile.chartHeight,
+      builder: (context, t) => Align(
+        // The bar is 10 px inside the 30 px chart slot legacy sizes. The slot
+        // keeps its height so the tile keeps its footprint, and the bar sits on
+        // the baseline the hypnogram's lowest lane used.
+        alignment: Alignment.bottomCenter,
+        child: HStageBar(facts.sleepTotals, progress: t),
       ),
     ),
   );

@@ -71,16 +71,21 @@ class SleepHeroCard extends StatelessWidget {
     final efficiency = night.efficiencyPct.valueOrNull;
     return InstrumentModule(
       tag: null,
-      // **Legacy's `infoKey: 'sleep'` is deliberately NOT passed here.** It was,
-      // and it was dead: `HModule` draws the header row only when a `label`
-      // exists, this card passes none, so the ⓘ has never rendered — in legacy
-      // either. Keeping the argument left a control in the code that no owner
-      // could reach and no reader could tell was unreachable.
+      // **Legacy's `infoKey: 'sleep'` is deliberately NOT passed here, and that
+      // is now a DECISION, not a deferral — owner-delegated, taken 2026-08-06.**
       //
-      // Rendering it instead would mean giving this card a header row it has
-      // never had — ~25 px above the gauge — and layout is the owner's call, not
-      // this diff's. So the argument goes and the explainer stays reachable: the
-      // `sleep` key is wired to Today's Sleep tile, which has a label.
+      // It was passed once, and it was dead: `HModule` draws the header row only
+      // when a `label` exists, this card passes none, so the ⓘ has never rendered
+      // — in legacy either. Restoring it would mean giving this card a header row
+      // it has never had, ~25 px above the gauge, for content that is **already
+      // reachable twice over**: the `sleep` explainer opens from Today's Sleep
+      // tile, which has a label, and the sleep-health card below carries its own
+      // `CitationRow`. A new row for a second door to the same room is not worth
+      // the hero's proportions.
+      //
+      // So: it stays removed. Do not re-add the argument — the assert in
+      // `InstrumentModule` will reject it, and `test/features/reachability_test.dart`
+      // is what proves the explainer is still reachable without it.
       minHeight: 0,
       children: <Widget>[
         Row(

@@ -17,8 +17,6 @@
 /// this screen already has an injected instant (`ScreenData.now`).
 library;
 
-import 'package:healthee/data/models/last_sleep.dart';
-
 /// `9264` → `9,264`. Legacy's `_comma`, regex and all.
 String commaGrouped(int value) => value.toString().replaceAllMapped(
   RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
@@ -97,21 +95,14 @@ String stageFoot(Map<String, int> totals) {
       'REM ${(minutes('rem') / asleep * 100).round()}%';
 }
 
-/// The hypnogram legacy draws in the Sleep tile. Legacy's `_hypnoFromTotals`.
-///
-/// Spans of zero minutes are dropped, and an unstaged night returns an **empty
-/// list**, which `HHypnogram` draws as nothing.
-///
-/// **This is a repaired flaw, not a port.** Legacy falls back to
-/// `[(stage: 'core', min: 1)]` — one full-width band in light-sleep blue for a
-/// night nothing was staged. That is a chart of a measurement that was not made,
-/// and it is indistinguishable from a night the strap really did score as one
-/// unbroken light-sleep block. The slot keeps its 30 px either way, so the tile
-/// does not move; what changes is that an unmeasured night now looks unmeasured.
-List<SleepStageSpan> hypnogramSpans(List<SleepStageSpan> stages) => [
-  for (final span in stages)
-    if (span.durationMin > 0) span,
-];
+// `hypnogramSpans` lived here — legacy's `_hypnoFromTotals`, with legacy's
+// fabricated one-minute light-sleep band for an unstaged night removed. It went
+// with the Sleep tile's hypnogram on 2026-08-06 (see `today_tiles.dart`, the
+// owner-delegated departure): the tile draws `HStageBar` now and nothing else
+// consumed it. The guard did not go with it — `HStageBar` drops zero-minute
+// stages itself and draws NOTHING for a night with no staged minutes, which
+// `test/features/grid_sleep_cell_test.dart` asserts. Standards §1: delete dead
+// code, git has it.
 
 /// `6a` · `12p` · `11p` — legacy's short clock, from a real hour.
 ///
