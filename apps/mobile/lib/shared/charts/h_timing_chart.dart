@@ -167,7 +167,8 @@ class _TimingPainter extends CustomPainter {
     double Function(double) yAt,
   ) {
     final grid = Paint()
-      ..color = colors.line.withValues(alpha: 0.5)
+      // One definition of a gridline; see `palette.dart`'s `DarkPalette.grid`.
+      ..color = colors.grid
       ..strokeWidth = 1;
     for (var step = 0; step <= 4; step++) {
       final value = yMin + (yMax - yMin) * step / 4;

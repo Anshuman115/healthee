@@ -5,6 +5,8 @@
 /// so they live in one place rather than being copied (Standards §1).
 library;
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
@@ -45,6 +47,46 @@ List<Rect> rectsOf(List<RecordedInvocation> invocations) => <Rect>[
       call.invocation.positionalArguments[0] as Rect
     else if (call.invocation.memberName == #drawRRect)
       (call.invocation.positionalArguments[0] as RRect).outerRect,
+];
+
+/// Every text glyph a painter put on the canvas, as the rect it occupies.
+///
+/// `drawParagraph` records the laid-out paragraph and the offset it was painted
+/// at, so the rect is exact rather than estimated: `longestLine` is the widest
+/// line the text engine measured and `height` is what it laid out to.
+///
+/// This exists because "the label is inside the plot" is a geometric claim and
+/// it shipped. Counting `drawParagraph` calls would not have caught it — the
+/// labels were being drawn, correctly, in the wrong place.
+List<Rect> glyphRectsOf(List<RecordedInvocation> invocations) => <Rect>[
+  for (final call in invocations)
+    if (call.invocation.memberName == #drawParagraph)
+      Rect.fromLTWH(
+        (call.invocation.positionalArguments[1] as Offset).dx,
+        (call.invocation.positionalArguments[1] as Offset).dy,
+        (call.invocation.positionalArguments[0] as ui.Paragraph).longestLine,
+        (call.invocation.positionalArguments[0] as ui.Paragraph).height,
+      ),
+];
+
+/// Every DATA mark a painter drew, as a bounding rect.
+///
+/// Deliberately excludes `drawLine`: a reference line is not data, and it is the
+/// one thing a label is allowed to sit near. Everything a series is drawn with —
+/// the dots, the columns, the curve and its fill — is here.
+List<Rect> markRectsOf(List<RecordedInvocation> invocations) => <Rect>[
+  for (final call in invocations)
+    if (call.invocation.memberName == #drawCircle)
+      Rect.fromCircle(
+        center: call.invocation.positionalArguments[0] as Offset,
+        radius: call.invocation.positionalArguments[1] as double,
+      )
+    else if (call.invocation.memberName == #drawPath)
+      (call.invocation.positionalArguments[0] as Path).getBounds()
+    else if (call.invocation.memberName == #drawRRect)
+      (call.invocation.positionalArguments[0] as RRect).outerRect
+    else if (call.invocation.memberName == #drawRect)
+      call.invocation.positionalArguments[0] as Rect,
 ];
 
 /// Every colour a painter used, as packed ARGB.

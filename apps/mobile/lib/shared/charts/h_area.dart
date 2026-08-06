@@ -13,11 +13,21 @@
 ///   * **Colours are roles.** `HColors.paper`/`paper2` became
 ///     [HealtheeColors.surface]/[HealtheeColors.ink]; the caller passes the line
 ///     colour, which is `accent` for the owner's own data everywhere it is used.
+///
+/// ## The third change, and it is the owner's (2026-08-06)
+///
+/// [references] — the horizontal lines this chart is read against. Legacy has
+/// none, and their absence is what the owner's *"this graphs all look similar"*
+/// report was really about; `chart_reference.dart` carries the whole argument
+/// and the departure. With an empty list the geometry is byte-for-byte legacy's:
+/// [ChartScale] is this painter's own scale extracted, and it only widens when a
+/// reference asks it to.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/charts/chart_primitives.dart';
+import 'package:healthee/shared/charts/chart_reference.dart';
 
 /// A smooth area chart over [data], revealed left-to-right by [progress].
 class HArea extends StatefulWidget {
@@ -31,6 +41,7 @@ class HArea extends StatefulWidget {
     this.fill = true,
     this.unit = '',
     this.digits = 0,
+    this.references = const <ChartReference>[],
     super.key,
   });
 
@@ -57,6 +68,13 @@ class HArea extends StatefulWidget {
 
   /// Decimal places in the scrub bubble.
   final int digits;
+
+  /// The lines this series is read against. Empty is legacy's chart exactly.
+  ///
+  /// They widen the plot's scale rather than clipping to its edge — see
+  /// `chart_reference.dart`, which is the whole reason a reference here is a
+  /// claim rather than a decoration.
+  final List<ChartReference> references;
 
   @override
   State<HArea> createState() => _HAreaState();
@@ -112,6 +130,7 @@ class _HAreaState extends State<HArea> {
                 data: widget.data,
                 color: widget.color,
                 ink3: colors.ink3,
+                referenceInk: colors.reference,
                 bubbleInk: colors.surface,
                 progress: widget.progress,
                 strokeWidth: widget.strokeWidth,
@@ -119,6 +138,7 @@ class _HAreaState extends State<HArea> {
                 touch: _touch,
                 unit: widget.unit,
                 digits: widget.digits,
+                references: widget.references,
               ),
             );
           },
@@ -133,6 +153,7 @@ class _AreaPainter extends CustomPainter {
     required this.data,
     required this.color,
     required this.ink3,
+    required this.referenceInk,
     required this.bubbleInk,
     required this.progress,
     required this.strokeWidth,
@@ -140,11 +161,13 @@ class _AreaPainter extends CustomPainter {
     required this.touch,
     required this.unit,
     required this.digits,
+    required this.references,
   });
 
   final List<double> data;
   final Color color;
   final Color ink3;
+  final Color referenceInk;
   final Color bubbleInk;
   final double progress;
   final double strokeWidth;
@@ -152,9 +175,9 @@ class _AreaPainter extends CustomPainter {
   final int? touch;
   final String unit;
   final int digits;
+  final List<ChartReference> references;
 
-  /// Legacy's `yPad` and `padX`, unchanged.
-  static const double _yPad = 0.18;
+  /// Legacy's `padX`, unchanged. Its `yPad` now lives in [ChartScale].
   static const double _padX = 4;
 
   @override
@@ -162,14 +185,13 @@ class _AreaPainter extends CustomPainter {
     if (data.length < 2) {
       return;
     }
-    final min = data.reduce((a, b) => a < b ? a : b);
-    final max = data.reduce((a, b) => a > b ? a : b);
-    final span = (max - min) == 0 ? 1.0 : (max - min);
-    final low = min - span * _yPad;
-    final high = max + span * _yPad;
-    double x(int i) => _padX + (i / (data.length - 1)) * (size.width - _padX * 2);
-    double y(double v) =>
-        size.height - 3 - ((v - low) / (high - low)) * (size.height - 6);
+    final scale = ChartScale.of(
+      data,
+      include: <double>[for (final line in references) line.value],
+    );
+    double x(int i) =>
+        _padX + (i / (data.length - 1)) * (size.width - _padX * 2);
+    double y(double v) => scale.y(v, size.height);
 
     final points = [
       for (var i = 0; i < data.length; i++) Offset(x(i), y(data[i])),
@@ -192,6 +214,23 @@ class _AreaPainter extends CustomPainter {
               color.withValues(alpha: 0),
             ],
           ).createShader(Offset.zero & size),
+      );
+    }
+
+    // ON the fill, UNDER the trace — the 2026-08-06 repair. It used to be
+    // painted first, which put a grey hairline and a grey caption beneath a warm
+    // 32% wash: the owner's report on that build was that the heart-rate chart
+    // "looks wried", and what he was looking at was `ink3` seen through clay.
+    // "Ground under the measurement" is about the DATA LINE, which still crosses
+    // over it; a reference the fill has muddied is not ground, it is sludge.
+    for (final reference in references) {
+      paintChartReference(
+        canvas,
+        size,
+        reference,
+        scale: scale,
+        color: referenceInk,
+        progress: progress,
       );
     }
 
@@ -265,5 +304,6 @@ class _AreaPainter extends CustomPainter {
       old.progress != progress ||
       old.data != data ||
       old.color != color ||
-      old.touch != touch;
+      old.touch != touch ||
+      old.references != references;
 }

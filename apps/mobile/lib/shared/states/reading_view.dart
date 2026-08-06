@@ -26,12 +26,19 @@
 /// biological-age card. It is now [CaveatNote]'s one-line signpost, which names
 /// the state, counts the disclosures and opens them in a sheet. The rule is
 /// unchanged and is the one that matters — a caveated value discloses, unasked.
+///
+/// **Where it is drawn changed later the same day**, on the owner's second
+/// report: a signpost rendered as a sibling *beneath* a whole card lands in the
+/// gutter between two cards and stops naming which number it is about.
+/// [caveatCarrier] is the answer — see `caveat_scope.dart`, which carries the
+/// argument and the guard.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/withheld_card.dart';
 
 /// Renders a [Reading] with the honest state widgets supplied for free.
@@ -41,6 +48,7 @@ class ReadingView<T extends Object> extends StatelessWidget {
     required this.reading,
     required this.builder,
     this.label,
+    this.caveatCarrier = CaveatCarrier.beneath,
     this.caveatBuilder,
     this.excludedBuilder,
     this.onExplainWithheld,
@@ -58,7 +66,18 @@ class ReadingView<T extends Object> extends StatelessWidget {
   /// value is a real value and is meant to be shown.
   final Widget Function(BuildContext context, T value) builder;
 
+  /// Where a [Caveated] value's signpost is drawn.
+  ///
+  /// [CaveatCarrier.beneath] — the default and the old behaviour — is right when
+  /// [builder] returns loose content. Pass [CaveatCarrier.insideCard] when it
+  /// returns a CARD: the disclosures then travel down a [CaveatScope] and the
+  /// card's own `InstrumentModule` draws them within its bounds, instead of the
+  /// note floating in the gap between two cards. See `caveat_scope.dart`.
+  final CaveatCarrier caveatCarrier;
+
   /// Overrides how caveats render. Default: [CaveatNote] beneath the value.
+  ///
+  /// Ignored under [CaveatCarrier.insideCard], where the card is the carrier.
   final Widget Function(BuildContext context, List<Disclosure> caveats)? caveatBuilder;
 
   /// Overrides how a total exclusion renders. Default: [ExcludedNote].
@@ -77,15 +96,22 @@ class ReadingView<T extends Object> extends StatelessWidget {
     // that decides what a new honesty state looks like.
     return switch (reading) {
       Present<T>(:final value) => builder(context, value),
-      Caveated<T>(:final value, :final caveats) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          builder(context, value),
-          caveatBuilder?.call(context, caveats) ??
-              CaveatNote(caveats: caveats, label: label),
-        ],
-      ),
+      Caveated<T>(:final value, :final caveats) =>
+        caveatCarrier == CaveatCarrier.insideCard
+        ? CaveatScope(
+            caveats: caveats,
+            label: label,
+            child: builder(context, value),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              builder(context, value),
+              caveatBuilder?.call(context, caveats) ??
+                  CaveatNote(caveats: caveats, label: label),
+            ],
+          ),
       Withheld<T>(:final disclosure) => WithheldCard(
         disclosure: disclosure,
         label: label,

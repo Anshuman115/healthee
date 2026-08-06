@@ -14,6 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/data/honesty/disclosure.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
 
 /// The card every state renders inside — a hairline frame, generous radius.
 ///
@@ -58,9 +61,18 @@ class StateCard extends StatelessWidget {
   static ShapeBorder shapeOf(Color border) =>
       hSquircle(Radii.card, side: BorderSide(color: border, width: hairline));
 
+  /// ## It claims an enclosing [CaveatScope]
+  ///
+  /// A `ReadingView` that wraps a whole card used to draw the card's caveat
+  /// signpost as a sibling BENEATH it, which put the sentence in the gutter
+  /// between two cards where it names neither. `caveat_scope.dart` carries the
+  /// argument. `InstrumentModule` claims the scope on the ported screens; this
+  /// claims it everywhere else a card is drawn, so the fix is not per-screen.
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final scope = CaveatScope.of(context);
+    final disclosed = scope?.caveats ?? const <Disclosure>[];
     return DecoratedBox(
       decoration: ShapeDecoration(
         color: fill ?? colors.surface,
@@ -68,7 +80,21 @@ class StateCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(Insets.lg),
-        child: child,
+        // Shadowed for the subtree, so a card inside a card cannot render the
+        // same disclosure twice.
+        child: CaveatScope(
+          caveats: const <Disclosure>[],
+          child: disclosed.isEmpty
+              ? child
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    child,
+                    CaveatNote(caveats: disclosed, label: scope?.label),
+                  ],
+                ),
+        ),
       ),
     );
   }

@@ -607,21 +607,28 @@ mutate 'a withheld block is dropped instead of explained' "$WITHHELD_TEST" \
 VIEW=lib/shared/states/reading_view.dart
 CAVEAT=lib/shared/states/caveat_disclosure.dart
 MODULE=lib/shared/instrument_module.dart
-CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/shared/reading_view_test.dart"
+CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/shared/reading_view_test.dart test/features/caveat_attribution_test.dart"
 
 # THE mutation: a Caveated renders exactly like a Present. This is what "just
 # stop printing the bullet points" would have been if nobody replaced them, and
 # it is a one-line diff that makes the screen look better.
 mutate 'a caveated value renders as if it were Present' "$CAVEAT_TEST" "$VIEW" \
-  '      Caveated<T>(:final value, :final caveats) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          builder(context, value),
-          caveatBuilder?.call(context, caveats) ??
-              CaveatNote(caveats: caveats, label: label),
-        ],
-      ),' \
+  '      Caveated<T>(:final value, :final caveats) =>
+        caveatCarrier == CaveatCarrier.insideCard
+        ? CaveatScope(
+            caveats: caveats,
+            label: label,
+            child: builder(context, value),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              builder(context, value),
+              caveatBuilder?.call(context, caveats) ??
+                  CaveatNote(caveats: caveats, label: label),
+            ],
+          ),' \
   '      Caveated<T>(:final value) => builder(context, value),'
 
 # The same failure on the tile side, where the carrier is a header mark rather
@@ -629,17 +636,26 @@ mutate 'a caveated value renders as if it were Present' "$CAVEAT_TEST" "$VIEW" \
 # saying the number came from a different instrument on a different night.
 mutate 'a caveated tile stops marking itself' "$CAVEAT_TEST" \
   lib/features/today/widgets/metric_tile.dart \
-  '      caveats: reading.caveatsOrEmpty,' \
-  '      caveats: const [],'
+  '    final caveats = reading.caveatsOrEmpty;' \
+  '    final caveats = const <Disclosure>[];'
 
-# The header ignoring what it was handed — same outcome, one layer down, and it
-# takes out the Resp tile, the blood-oxygen module and the HRV module at once.
-mutate 'the module header drops the caveat mark' "$CAVEAT_TEST" "$MODULE" \
-  '                      if (caveats.isNotEmpty) ...[
-                        CaveatMark(caveats: caveats, label: label),
-                        const SizedBox(width: Insets.sm),
-                      ],' \
+# The module ignoring what it was handed — same outcome, one layer down, and it
+# takes out the blood-oxygen module, the HRV module and every card a ReadingView
+# hands its disclosures down to.
+mutate 'the module drops the caveat note' "$CAVEAT_TEST" "$MODULE" \
+  '                if (disclosed.isNotEmpty)
+                  CaveatNote(caveats: disclosed, label: named),' \
   ''
+
+# The module stops CLAIMING the scope. This is the 2026-08-06 orphan defect
+# reintroduced: the disclosure is still drawn, by `ReadingView`, as a sibling
+# beneath the whole card — in the gutter, naming neither card. Nothing looks
+# missing, which is exactly why it needs a mutation.
+mutate 'the card stops claiming its own caveats' "$CAVEAT_TEST" "$MODULE" \
+  '    final scope = CaveatScope.of(context);
+    final disclosed = <Disclosure>[...caveats, ...?scope?.caveats];' \
+  '    final scope = CaveatScope.of(context);
+    final disclosed = <Disclosure>[...caveats];'
 
 # The sheet keeping only the first disclosure. The card still says "4 things
 # tilt this number", so the count and the contents disagree and only the sheet
@@ -657,19 +673,51 @@ mutate 'the headline stops counting the disclosures' "$CAVEAT_TEST" "$CAVEAT" \
     : 'Caveated — \$count things tilt this number';" \
   "String caveatHeadline(int count) => 'Caveated';"
 
-# The geometric half of the bargain. The mark costs no height ONLY because that
-# explicit box holds it to the ⓘ'"'"'s 16 px; let the glyph size its own line box
-# and the header row grows, and the tile grows with it — which is the owner'"'"'s
-# second report arriving by a different route.
-mutate 'the caveat mark sizes itself instead of matching the ⓘ' "$TILE_TEST" "$CAVEAT" \
-  '            child: SizedBox(
-              width: size,
-              height: size,
-              child: Center(
-                child: _MarkGlyph(color: colors.accent, size: 14),
-              ),
-            ),' \
-  '            child: _MarkGlyph(color: colors.accent, size: 14),'
+# The geometric half of the bargain. The disclosure line costs a caveated tile no
+# height ONLY because EVERY tile reserves the slot; reserve it just-in-time and
+# the caveated cell stands proud of the one beside it — which is the owner'"'"'s
+# "the card too big" report arriving by a different route.
+mutate 'only a caveated tile reserves the disclosure line' "$TILE_TEST" \
+  lib/features/today/widgets/metric_tile.dart \
+  '        SizedBox(
+          height: disclosureHeight,
+          child: caveats.isEmpty
+              ? null
+              : CaveatFoot(caveats: caveats, label: label, gap: 2),
+        ),' \
+  '        if (caveats.isNotEmpty)
+          SizedBox(
+            height: disclosureHeight,
+            child: CaveatFoot(caveats: caveats, label: label, gap: 2),
+          ),'
+
+# ── the asterisk must not come back ─────────────────────────────────────────
+# Owner, on the installed build: *"what are those * symbol in card"*. A bare
+# footnote mark is not words, and the file it lived in says in its own docstring
+# that a caveated value discloses IN WORDS. This is the regression test for the
+# GLYPH: any carrier that reaches for a lone mark again fails here.
+mutate 'the caveat goes back to a bare footnote mark' "$CAVEAT_TEST" "$CAVEAT" \
+  "String caveatFootnote(int count) =>
+    count == 1 ? '1 caveat · tap to read' : '\$count caveats · tap to read';" \
+  "String caveatFootnote(int count) => '*';"
+
+# ── the two quiet chart inks ────────────────────────────────────────────────
+# The gridline defect exactly as it shipped: `withValues` REPLACES the alpha, so
+# a 10% hairline is drawn at 70%. On dark that is the "almost white" the owner
+# reported, and it looks like a deliberate emphasis in a diff.
+CHART_INK=test/theme/chart_ink_test.dart
+
+mutate 'a gridline derives itself from the hairline again' "$CHART_INK" \
+  lib/shared/charts/h_stacked_sleep.dart \
+  '      ..color = colors.grid' \
+  '      ..color = colors.line.withValues(alpha: 0.7)'
+
+# The reference line back at full ink3 — the same weight as the caption naming
+# it, which is what the owner asked us to quieten.
+mutate 'the reference line goes back to full-strength ink' "$CHART_INK" \
+  lib/shared/charts/h_area.dart \
+  '                referenceInk: colors.reference,' \
+  '                referenceInk: colors.ink3,'
 
 # The Sleep cell'"'"'s chart. `hypnogramSpans` was mutated here until 2026-08-06 —
 # it guarded legacy'"'"'s fabricated one-minute light-sleep band for an unstaged
@@ -724,6 +772,210 @@ mutate 'the sheet goes back to the tab branch navigator' "$LAYER_TEST" "$SHEET" 
 mutate 'the sheet foot stops leaving the gesture inset' "$LAYER_TEST" "$INFO" \
   '      padding: EdgeInsets.fromLTRB(22, 12, 22, 32 + sheetBottomInset(context)),' \
   '      padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),'
+
+# ── the four vitals charts, and the corpus rules on them ───────────────────
+# Owner report 2026-08-06: "can we change the heartrate, stress, hrv, blood
+# oxygen graphs to be more meaningful ones, this graphs all look similar." The
+# fix gave each chart a reference — and the SECOND report, on that build, was
+# "stress is named as AROUSAL, heart rate is also looks wried, same as blood
+# oxygen you just made it bad": three of the four captions had been painted on
+# top of the data, the metric had been renamed out from under him, and two
+# y-scales spent the plot on air. Every mutation below is a way for one of those
+# to come back, or for a reference to become a claim the corpus forbids, or for
+# two of the four to collapse onto one picture. Every one renders perfectly, and
+# three look like MORE care rather than less: a mood label reads as insight, a
+# flag on one low night reads as vigilance, and a baseline computed from the
+# visible window reads as data.
+STRESSCARD=lib/features/today/widgets/stress_card.dart
+OXYGEN=lib/features/today/widgets/blood_oxygen_card.dart
+HRVCARD=lib/features/today/widgets/hrv_trend_card.dart
+NOTE=lib/features/today/widgets/metric_note.dart
+DEVIATION=lib/shared/charts/h_deviation.dart
+NIGHTLINE=lib/shared/charts/h_night_line.dart
+REFERENCE=lib/shared/charts/chart_reference.dart
+AREA=lib/shared/charts/h_area.dart
+STRESS_TEST=test/features/vitals_stress_test.dart
+LABEL_TEST=test/features/vitals_labels_test.dart
+SCALE_TEST=test/features/vitals_scales_test.dart
+THRESHOLD_TEST=test/features/vitals_thresholds_test.dart
+MARKS_TEST=test/features/vitals_marks_test.dart
+
+# wearable_stress_validity D1/D2, SAFETY-CRITICAL. The number banded into a
+# feeling — the single thing this note exists to forbid, and the most natural
+# "improvement" anyone could make to a bare number in a header.
+mutate 'the stress figure is banded into a mood' "$STRESS_TEST" "$STRESSCARD" \
+  "              '\$average avg'," \
+  '              "$average avg · ${average > 40 ? \"tense\" : \"calm\"}",'
+
+# The rename itself, which is what the owner actually reported. The directives
+# are about CLAIMS the card makes, never about the name of the metric, and the
+# verbatim-legacy rule says keep legacy's word — so this edit reads like corpus
+# compliance and is a design change nobody asked for.
+mutate 'the card is renamed Arousal again' "$STRESS_TEST" "$STRESSCARD" \
+  "      label: useIntraday ? 'Stress · today' : 'Stress · 14 days'," \
+  "      label: useIntraday ? 'Arousal · today' : 'Arousal · 14 days',"
+
+# D3: a high or low value is non-specific and must never be singled out.
+# `HBars` emphasises its last bar by default, so this mutation is a DELETION —
+# exactly what a reviewer removing a "redundant" argument would do.
+mutate 'the latest hour of stress is picked out' "$STRESS_TEST" "$STRESSCARD" \
+  '              allHighlighted: true,' \
+  '              allHighlighted: false,'
+
+# wearable_spo2_validity D1/D3: "never a single-reading alarm", "never call out
+# individual low-reading minutes". A run of one IS a single-reading alarm.
+mutate 'one low night counts as a sustained run' "$THRESHOLD_TEST" "$NOTE" \
+  'const int sustainedLowNights = 3;' \
+  'const int sustainedLowNights = 1;'
+
+# The same directive from the other side: the run counter stops resetting, so
+# four scattered artefact nights across a fortnight add up to a "run".
+mutate 'scattered low nights accumulate into a run' "$THRESHOLD_TEST" "$NOTE" \
+  '    run = minimum < spo2ConventionPercent ? run + 1 : 0;' \
+  '    run = minimum < spo2ConventionPercent ? run + 1 : run;'
+
+# D2: the ~92% figure is a clinical convention, NOT a wearable-validated cutoff
+# (#98 sourced none). Drawn without that word it becomes a pass/fail line about
+# this owner's oxygen, measured by a sensor whose error is unquantified.
+mutate 'the 92% line stops saying it is a convention' "$THRESHOLD_TEST" "$OXYGEN" \
+  "      label:
+          '\${spo2ConventionPercent.round()}% is a clinical convention '
+          '— not a cutoff for this strap'," \
+  "      label: 'MIN \${spo2ConventionPercent.round()}%',"
+
+# CLAUDE.md, ONE canonical definition per metric. The baseline the server did
+# not send, computed from the fourteen points on screen instead. It renders
+# identically to a real one and is a different number over a different window
+# from the median every other surface in the app quotes.
+mutate 'the HRV baseline is invented from the visible window' \
+  "$THRESHOLD_TEST" "$HRVCARD" \
+  '    final median = baseline;' \
+  '    final median = baseline ?? series.reduce((a, b) => a + b) / series.length;'
+
+# The honesty rule all four share: too short to be a trend draws NOTHING. One
+# night is a reading; a chart of it invites it to be read as a fortnight.
+mutate 'a single night is drawn as a fortnight' "$MARKS_TEST" "$NIGHTLINE" \
+  '    if (data.length < HNightLine.minimumNights) {' \
+  '    if (data.isEmpty) {'
+
+# The owner's actual complaint, mechanised: HRV fills to the floor of its box
+# again instead of to its baseline, which makes it the same picture as the
+# heart-rate chart — one mark, two questions.
+mutate 'HRV goes back to filling to the floor' "$MARKS_TEST" "$DEVIATION" \
+  '      ..lineTo(size.width - _padX, baselineY)
+      ..lineTo(_padX, baselineY)' \
+  '      ..lineTo(size.width - _padX, size.height)
+      ..lineTo(_padX, size.height)'
+
+# ── THE DEFECT THE OWNER PHOTOGRAPHED: a label lying on the data ────────────
+# `YOUR 30-DAY NORMAL 53 MS` across the HRV trace, `RESTING 56` in the same
+# pixels as the hour captions, a 55-character SpO2 sentence through the nights.
+# It renders, and the label is drawn CORRECTLY — in the wrong place. Nothing
+# short of geometry catches that, which is why it shipped.
+mutate 'a reference caption is painted back into the plot' "$LABEL_TEST" "$REFERENCE" \
+  '  } else {
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+  }
+}' \
+  '  } else {
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+  }
+  final label = chartLabel(
+    reference.label,
+    TextStyle(fontSize: 8, color: color),
+  );
+  label.paint(canvas, Offset(0, (y - label.height - 1).clamp(0.0, size.height)));
+}'
+
+# The other half of "looks wried", and it is invisible to every assertion about
+# WHAT was drawn: the reference painted first, so a grey hairline sits under a
+# 32% clay wash and comes out as brown sludge. This is the code as it shipped.
+mutate 'the reference goes back behind the fill' "$LABEL_TEST" "$AREA" \
+  '    for (final reference in references) {
+      paintChartReference(
+        canvas,
+        size,
+        reference,
+        scale: scale,
+        color: referenceInk,
+        progress: progress,
+      );
+    }
+' \
+  '' \
+  '    if (fill) {' \
+  '    for (final reference in references) {
+      paintChartReference(
+        canvas,
+        size,
+        reference,
+        scale: scale,
+        color: referenceInk,
+        progress: progress,
+      );
+    }
+
+    if (fill) {'
+
+# `include:` is what makes a reference honest rather than decorative. Dropped,
+# the resting line still draws — on the floor of the box, where it reads as
+# "you never went below your resting rate". A false claim made by layout alone.
+mutate 'the heart-rate reference is left out of its own scale' "$SCALE_TEST" "$AREA" \
+  '      include: <double>[for (final line in references) line.value],' \
+  '      include: const <double>[],'
+
+# The padding made symmetric again — "why would a reference pad differently from
+# the data?" It is a tidy-up, it renders, and it is the owner's flat trace: his
+# day drops from 59% of its plot to 51%, and a reading in an empty box is what
+# he was looking at when he said the chart looked wrong.
+mutate 'the reference pad reverts to the data pad' "$SCALE_TEST" "$REFERENCE" \
+  '  static const double referencePadFraction = 0.06;' \
+  '  static const double referencePadFraction = padFraction;'
+
+# Blood oxygen back to unconnected dots — my own instruction of that morning,
+# and the shape that hides the multi-night trend D1 makes the only readable
+# thing about SpO2. It also collapses this chart back toward the other three.
+mutate 'blood oxygen goes back to unconnected dots' "$MARKS_TEST" "$NIGHTLINE" \
+  '    final metric = path.computeMetrics().first;
+    canvas.drawPath(
+      metric.extractPath(0, metric.length * progress),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+' \
+  ''
+
+# The fixed window dropped for an auto-scale. It looks like less code and more
+# data, and it makes the axis move every night: the same 95% night lands on a
+# different pixel depending on which OTHER nights are in the fortnight, on a
+# sensor whose error is unquantified and at least ±3.5%.
+mutate 'the blood-oxygen window is dropped for an auto-scale' "$SCALE_TEST" "$OXYGEN" \
+  '            window: (low: scaleFloorPercent, high: scaleCeilingPercent),
+' \
+  ''
+
+# The plot back to legacy's 52 px, which is the verbatim-port rule applied to the
+# one card legacy itself gave extra room. At 52 a percentage point is 3.8 px —
+# narrower than a night mark — so consecutive nights smear into one another.
+mutate 'the blood-oxygen plot goes back to 52 px' "$SCALE_TEST" "$OXYGEN" \
+  '  static const double chartHeight = 76;' \
+  '  static const double chartHeight = 52;'
+
+# A fixed scale that silently stops being fixed. The low night is still plotted,
+# so nothing looks wrong — the reader is simply reading a different axis from the
+# one every other night was drawn on, and is never told.
+mutate 'the widened scale stops saying so' "$SCALE_TEST" "$OXYGEN" \
+  '        if (lowest != null && lowest < scaleFloorPercent)
+          ModuleFoot(
+            '"'"'Scale widened below ${scaleFloorPercent.round()}% '"'"'
+            '"'"'to keep every night on it'"'"',
+          ),
+' \
+  ''
 
 echo
 echo "caught $PASS, survived $FAIL"

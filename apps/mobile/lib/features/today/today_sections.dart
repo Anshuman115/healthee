@@ -171,11 +171,11 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   // server flagged nothing. See the library docstring.
   if (snapshot?.illnessFlag case final flag?) {
     sections.add(IllnessBanner(flag: flag));
-    sections.gap(16);
+    sections.gap(PageSpacing.group);
   }
   if (data.serverFailure case final PageSection failure) {
     sections.addSection(failure);
-    sections.gap(10);
+    sections.gap(PageSpacing.card);
     _measuredOnly(sections, data);
   }
   if (data.serverPending case final PageSection pending) {
@@ -233,7 +233,7 @@ void _measuredOnly(SectionList sections, ScreenData data) {
       ),
     ),
   );
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   sections.add(DeviceHealthCard(day: day, now: data.now));
 }
 

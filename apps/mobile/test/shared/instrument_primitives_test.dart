@@ -194,7 +194,7 @@ void main() {
   });
 
   group('InstrumentModule', () {
-    testWidgets('LEGACY’S 14 PX PADDING AND ITS 6 PX DOT', (tester) async {
+    testWidgets('LEGACY’S 14 PX PADDING, AND NO IDENTITY DOT', (tester) async {
       await tester.pumpWidget(
         _host(
           InstrumentModule(
@@ -214,14 +214,24 @@ void main() {
       );
       expect(padding.padding, const EdgeInsets.all(14));
 
-      // The dot: 6 px, in the metric's hue.
-      final dot = tester.widgetList<Container>(find.byType(Container)).firstWhere(
-        (container) =>
-            (container.decoration as BoxDecoration?)?.shape == BoxShape.circle,
+      // THE DOT IS GONE — owner-directed, 2026-08-06: *"can we remove that
+      // colored dots from cards"*. Legacy draws a 6 px circle in the metric's
+      // hue at the top right of every module and this port drew it too. The hue
+      // is still DECLARED (`tag`, asserted in `moved_card_tags_test.dart`) and
+      // still tints the module's chart; nothing paints it as a mark.
+      final circles = tester
+          .widgetList<Container>(find.byType(Container))
+          .where(
+            (container) =>
+                (container.decoration as BoxDecoration?)?.shape ==
+                BoxShape.circle,
+          );
+      expect(circles, isEmpty, reason: 'the identity dot is not drawn');
+      expect(
+        tester.widget<InstrumentModule>(find.byType(InstrumentModule)).tag,
+        _hues.sleep,
+        reason: 'the hue is still the module’s declared identity',
       );
-      final decoration = dot.decoration! as BoxDecoration;
-      expect(decoration.color, _hues.sleep);
-      expect(tester.getSize(find.byWidget(dot)), const Size(6, 6));
     });
 
     testWidgets('the eyebrow is uppercase on screen and NOT to a screen reader', (

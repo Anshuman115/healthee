@@ -26,6 +26,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/shared/format/number_labels.dart';
 import 'package:healthee/shared/measured_card.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 
 /// The day's step total, with the distance and calories the strap counted.
@@ -52,6 +53,7 @@ class StepsCard extends StatelessWidget {
     return ReadingView<int>(
       reading: day.steps,
       label: 'Steps',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, steps) => MeasuredCard(
         title: 'Steps',
         tag: tag,

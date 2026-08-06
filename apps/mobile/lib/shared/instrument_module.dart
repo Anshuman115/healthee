@@ -5,7 +5,7 @@
 ///
 /// ```text
 ///   ┌──────────────────────────┐
-///   │ SLEEP                  ● │  eyebrow 9 px / 0.12 em · 6 px dot
+///   │ SLEEP                  ⓘ │  eyebrow 9 px / 0.12 em · the one control
 ///   │ 7:50 hrs                 │  figure 27 px, unit 10 px on the baseline
 ///   │ ▁▂▃▅▃▂▁                  │  the chart
 ///   │ DEEP 90  REM 90          │  foot, 9 px / 0.04 em, 8 px above
@@ -21,12 +21,25 @@
 /// and **[HTap]'s press-scale** instead of an `InkWell` ripple — legacy's cards
 /// scale to 97.5% under the finger and never ripple.
 ///
-/// ## The dot
+/// ## THE DOT IS GONE — owner-directed, 2026-08-06
 ///
-/// 6 px, top right, in the metric's own hue from `metric_hue.dart`. It ties the
-/// card to its chart's tint, which is what makes a grid of eight modules
-/// scannable. Note that legacy's hues include two that are also verdict colours
-/// — `palette.dart` explains why that is a decision and not a defect.
+/// *"can we remove that colored dots from cards"*. Legacy draws a 6 px mark in
+/// the metric's own hue at the top right of every module, and this port drew it
+/// too; **this is an owner-directed departure from the verbatim-legacy rule**
+/// (`feedback_port_legacy_design_verbatim`), recorded here at the site.
+///
+/// Nothing became ambiguous by losing it, and that was checked rather than
+/// assumed. Every module is still named by its eyebrow, and every module that
+/// had a chart still tints that chart with the same hue. The pairs that could in
+/// principle have collided were **already** colliding under the dot: legacy
+/// makes `cHrv` and `cReady` the same green, so HRV, VO₂max, biological age,
+/// MVPA and sleep health all wore one dot between them, and `cHeart` is the same
+/// value as `alert`. The dot never separated those and does not now.
+///
+/// [tag] stays, and is no longer painted here. It is the module's **declared**
+/// hue — the identity a card and the grid cell that opens it must agree on — and
+/// it is what `test/features/moved_card_tags_test.dart` reads. Deleting it would
+/// delete that guard's subject, not just a decoration.
 library;
 
 import 'package:flutter/material.dart';
@@ -37,6 +50,7 @@ import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// One cell of the Today grid.
@@ -62,11 +76,10 @@ class InstrumentModule extends StatelessWidget {
        ),
        assert(
          caveats.length == 0 || label != null,
-         'Caveats with no label would be an INVISIBLE DISCLOSURE: the header '
-         'row this mark lives in is only drawn when a label exists. A '
-         'label-less module must carry its caveats in its body instead — '
-         'silently dropping them is the one failure the honesty layer exists '
-         'to prevent.',
+         'Caveats with no label would name no metric: the sheet they open is '
+         'titled by the label, so a label-less module opens a sheet about an '
+         'unnamed number. Give the module a label — silently dropping the '
+         'disclosure is the one failure the honesty layer exists to prevent.',
        );
 
   /// The metric's name. Rendered uppercase by [ModuleLabel].
@@ -83,15 +96,22 @@ class InstrumentModule extends StatelessWidget {
   /// unknown key draws nothing (`shared/metric_info/`).
   final String? infoKey;
 
-  /// What tilts this module's value, disclosed as a mark in the header.
+  /// What tilts this module's value, disclosed **inside this card**.
   ///
-  /// **Not legacy's** — legacy has no surface for a caveat anywhere. It is here
-  /// rather than in the body because the body of a grid cell is a fixed 92 px and
-  /// a tile that grows to fit prose breaks its row; the header row absorbs a
-  /// 16 px mark at zero cost. See `shared/states/caveat_disclosure.dart`.
+  /// **Not legacy's** — legacy has no surface for a caveat anywhere. Rendered as
+  /// a [CaveatNote] at the bottom of the body, within the card's own bounds:
+  /// `caveat_scope.dart` records why a signpost drawn *outside* the card was a
+  /// misattribution rather than a style problem. A module also picks up whatever
+  /// an enclosing [CaveatScope] hands it, which is how a `ReadingView` that wraps
+  /// a whole card gets its disclosures into it without every card growing a
+  /// parameter.
+  ///
+  /// A fixed-height grid cell cannot take a note; it uses `CaveatFoot` instead
+  /// and does not pass this (`features/today/widgets/metric_tile.dart`).
   final List<Disclosure> caveats;
 
-  /// The metric's hue. Null draws no dot — for a module that has [trailing].
+  /// The metric's declared hue. **No longer painted** — see the library
+  /// docstring on the dot the owner removed.
   final Color? tag;
 
   /// The module's body, top to bottom.
@@ -121,12 +141,28 @@ class InstrumentModule extends StatelessWidget {
   /// Legacy's `SizedBox(height: 9)` between the eyebrow row and the body.
   static const double _headerGap = 9;
 
-  /// Legacy's 6 px identity mark.
-  static const double _dotSize = 6;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    // Whatever a `ReadingView` above handed down, plus whatever this module was
+    // given directly. One list, so the count in the signpost is the truth.
+    final scope = CaveatScope.of(context);
+    final disclosed = <Disclosure>[...caveats, ...?scope?.caveats];
+    final named = label ?? scope?.label;
+    // Shadowed for the subtree: a module nested inside this one must not render
+    // the same disclosure a second time.
+    return CaveatScope(
+      caveats: const <Disclosure>[],
+      child: _card(context, colors, disclosed, named),
+    );
+  }
+
+  Widget _card(
+    BuildContext context,
+    HealtheeColors colors,
+    List<Disclosure> disclosed,
+    String? named,
+  ) {
     return HTap(
       onTap: onOpen,
       semanticLabel: onOpen == null ? null : '$label — open',
@@ -152,21 +188,16 @@ class InstrumentModule extends StatelessWidget {
                         MetricInfoDot(key),
                         const SizedBox(width: Insets.sm),
                       ],
-                      // The footnote mark, after the ⓘ and before the dot: "what
-                      // this metric is" then "how to read THIS reading of it".
-                      if (caveats.isNotEmpty) ...[
-                        CaveatMark(caveats: caveats, label: label),
-                        const SizedBox(width: Insets.sm),
-                      ],
-                      if (trailing case final Widget end)
-                        end
-                      else if (tag case final Color dot)
-                        _TagDot(color: dot, size: _dotSize),
+                      if (trailing case final Widget end) end,
                     ],
                   ),
                   const SizedBox(height: _headerGap),
                 ],
                 ...children,
+                // Inside the card, under the number it is about. See
+                // `caveat_scope.dart` for why "inside" is the whole point.
+                if (disclosed.isNotEmpty)
+                  CaveatNote(caveats: disclosed, label: named),
               ],
             ),
           ),
@@ -304,26 +335,6 @@ class ModuleFoot extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// The 6 px identity mark in a module's corner. See the library docstring.
-class _TagDot extends StatelessWidget {
-  const _TagDot({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      // Decoration: the label beside it already names the metric, and a screen
-      // reader announcing a colour would add nothing it can act on.
-      child: const ExcludeSemantics(child: SizedBox.shrink()),
     );
   }
 }

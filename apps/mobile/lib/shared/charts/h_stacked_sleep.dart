@@ -128,7 +128,9 @@ class _StackedPainter extends CustomPainter {
     double Function(double) yFor,
   ) {
     final grid = Paint()
-      ..color = colors.line.withValues(alpha: 0.7)
+      // One definition of a gridline; see `palette.dart`'s `DarkPalette.grid`.
+      // This one was the loudest of the three at 0.7 — 70% white on dark.
+      ..color = colors.grid
       ..strokeWidth = 1;
     final maxHours = (axisMinutes / 60).round();
     for (var hour = 0; hour <= maxHours; hour += 2) {

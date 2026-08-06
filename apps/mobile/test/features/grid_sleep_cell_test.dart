@@ -302,7 +302,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(kMetricInfo['sleep']!.title), findsOneWidget);
+      // Scoped to the sheet, for the reason this file already gives about
+      // `find.text('SLEEP')` a few lines up: the explainer's title is "Sleep
+      // duration" and so is a marker on the recovery ladder, so a bare text
+      // finder resolves to whichever of the two the `ListView` has built — i.e.
+      // to the scroll offset, which is not what this test is about.
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text(kMetricInfo['sleep']!.title),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

@@ -49,8 +49,11 @@ Future<Color?> _titleColour(WidgetTester tester, String title) async {
 
 /// The hue on the module whose eyebrow reads [label], or null when it has none.
 ///
-/// Reads the widget's own `tag` rather than hunting for a 6 px box: the tag is
-/// the decision, and the box is one of several things that draw from it.
+/// Reads the widget's own `tag`, which is now the ONLY place the decision lives:
+/// the owner removed the 6 px identity dot on 2026-08-06 (`instrument_module.dart`
+/// records the departure), so a card's declared hue is no longer painted as a
+/// mark. It still tints the card's chart, and it is still what stops a grid cell
+/// and the card it opens from disagreeing about a metric.
 Color? _moduleTag(WidgetTester tester, String label) {
   final drawn = tester
       .widgetList<InstrumentModule>(find.byType(InstrumentModule))
@@ -118,11 +121,12 @@ void main() {
       }
     });
 
-    testWidgets('the rest of legacy’s sleep modules carry NO dot', (
+    testWidgets('the rest of legacy’s sleep modules DECLARE no hue', (
       tester,
     ) async {
-      // `dot: false` on every one of them. A card that grew a mark would be
-      // claiming an identity legacy did not give it.
+      // `dot: false` on every one of them in legacy. A card that grew a hue
+      // would be claiming an identity legacy did not give it — still true after
+      // the dot went, because the declaration is what tints a card's chart.
       await _pump(tester, store, SleepScreen(now: kSleepNow));
       for (final label in <String>[
         'Sleep stages',

@@ -180,7 +180,10 @@ class _DebtPainter extends CustomPainter {
     double Function(double) yAt,
   ) {
     final grid = Paint()
-      ..color = colors.line.withValues(alpha: 0.5)
+      // `colors.grid`, never `line` scaled here: `withValues` REPLACES the
+      // alpha, so the old `line.withValues(alpha: 0.5)` drew a 10% hairline at
+      // 50% — see `palette.dart`'s `DarkPalette.grid`.
+      ..color = colors.grid
       ..strokeWidth = 1;
     for (final hour in const [0, 3, 6, 9]) {
       if (hour > yMax) {

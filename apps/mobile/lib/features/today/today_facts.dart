@@ -51,6 +51,7 @@ class TodayFacts {
     required this.now,
     required this.restingHeartRate,
     required this.heartRateVariability,
+    required this.heartRateVariabilityBaseline,
     required this.steps,
     required this.activeEnergy,
     required this.basalEnergy,
@@ -80,6 +81,7 @@ class TodayFacts {
         signals,
         'HRV',
       ),
+      heartRateVariabilityBaseline: _hrvBaseline(snapshot, signals),
       steps: _chain(snapshot, const ['steps_total'], signals, null),
       activeEnergy: _chain(
         snapshot,
@@ -126,6 +128,12 @@ class TodayFacts {
 
   /// `hrv_sleep_avg` → `hrv_rmssd_ms` → the HRV marker.
   final Reading<double> heartRateVariability;
+
+  /// The owner's own normal for overnight HRV — **the server's, or nothing**.
+  ///
+  /// Null is a real and expected answer, and the HRV chart draws no baseline
+  /// line when it comes back null rather than inventing one. See [_baseline].
+  final double? heartRateVariabilityBaseline;
 
   /// `steps_total`.
   final Reading<double> steps;
@@ -306,6 +314,34 @@ class TodayFacts {
             'other cards show, and it is not today.',
       ),
     ]);
+  }
+
+  /// The server's 30-day median for overnight HRV, from whichever block has it.
+  ///
+  /// **Two carriers, ONE definition** — which is the only reason the chain is
+  /// allowed. `metrics[].median_30d` and `recovery.signals[].baseline` are both
+  /// `analytics.baselines.compute_baseline(metric, window_days=30).median`
+  /// (`read/today_series.py::_derived_card`, `read/recovery.py::_hrv_signal`):
+  /// same function, same window, same metric id. CLAUDE.md forbids a second
+  /// definition, not a second carrier. The chain exists because `hrv_sleep_avg`
+  /// is baselined by the server (`read/today.py::_BASELINE_METRICS`) but has
+  /// **no metric card** (`read/meta.py::TODAY_SECONDARY_METRICS` lists seven ids
+  /// and that is not one), so the ladder is the only place its median appears.
+  ///
+  /// **What it deliberately does NOT do** is fall back to a median of the
+  /// fourteen points on the chart. That is a baseline over a different window
+  /// from the one every other surface quotes — the second definition, arriving
+  /// as a helpful-looking last resort. A metric the server has not baselined
+  /// draws no baseline.
+  static double? _hrvBaseline(TodaySnapshot snapshot, RecoverySignals? signals) {
+    final card = snapshot.metric(TodayMetricIds.heartRateVariability);
+    if (card?.median30d case final double median) {
+      return median;
+    }
+    if (signals == null) {
+      return null;
+    }
+    return _marker(signals, 'HRV')?.baseline;
   }
 
   static RecoverySignal? _marker(RecoverySignals signals, String contains) {

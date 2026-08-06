@@ -54,6 +54,8 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
     required this.ink3,
     required this.line,
     required this.line2,
+    required this.grid,
+    required this.reference,
     required this.accent,
     required this.accent2,
     required this.accentSoft,
@@ -78,6 +80,8 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       ink3 = LightPalette.ink3,
       line = LightPalette.line,
       line2 = LightPalette.line2,
+      grid = LightPalette.grid,
+      reference = LightPalette.reference,
       accent = LightPalette.accent,
       accent2 = LightPalette.accent2,
       accentSoft = LightPalette.accentSoft,
@@ -101,6 +105,8 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       ink3 = DarkPalette.ink3,
       line = DarkPalette.line,
       line2 = DarkPalette.line2,
+      grid = DarkPalette.grid,
+      reference = DarkPalette.reference,
       accent = DarkPalette.accent,
       accent2 = DarkPalette.accent2,
       accentSoft = DarkPalette.accentSoft,
@@ -139,6 +145,20 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
 
   /// The lighter hairline — rows inside a list, the rule under the app bar.
   final Color line2;
+
+  /// A rule drawn INSIDE a plot: gridlines and axis rules.
+  ///
+  /// Structure at the edge of perception, and **never** derived at a call site.
+  /// Every gridline in the app resolves here, because the three painters that
+  /// each derived their own from [line] all derived it wrong — see
+  /// [DarkPalette.grid] for the arithmetic and the owner report.
+  final Color grid;
+
+  /// The horizontal line a series is READ AGAINST — a baseline, a convention.
+  ///
+  /// Quieter than a caption and louder than [grid]. See
+  /// [LightPalette.reference]; `charts/chart_reference.dart` is the only user.
+  final Color reference;
 
   /// The one accent. Actions, links, the owner's own data line.
   final Color accent;
@@ -191,6 +211,8 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
     Color? ink3,
     Color? line,
     Color? line2,
+    Color? grid,
+    Color? reference,
     Color? accent,
     Color? accent2,
     Color? accentSoft,
@@ -213,6 +235,8 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       ink3: ink3 ?? this.ink3,
       line: line ?? this.line,
       line2: line2 ?? this.line2,
+      grid: grid ?? this.grid,
+      reference: reference ?? this.reference,
       accent: accent ?? this.accent,
       accent2: accent2 ?? this.accent2,
       accentSoft: accentSoft ?? this.accentSoft,
@@ -242,6 +266,8 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       ink3: Color.lerp(ink3, other.ink3, t)!,
       line: Color.lerp(line, other.line, t)!,
       line2: Color.lerp(line2, other.line2, t)!,
+      grid: Color.lerp(grid, other.grid, t)!,
+      reference: Color.lerp(reference, other.reference, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
       accent2: Color.lerp(accent2, other.accent2, t)!,
       accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
@@ -262,7 +288,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
   List<Color> get _roles => [
     bg, surface, surface2, chrome,
     ink, ink2, ink3,
-    line, line2,
+    line, line2, grid, reference,
     accent, accent2, accentSoft, onAccent,
     fav, favSoft, unf, unfSoft,
     alert, alertSoft, hole,

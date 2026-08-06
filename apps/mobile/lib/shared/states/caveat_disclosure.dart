@@ -34,18 +34,33 @@
 ///   * [caveatHeadline] is the ONE sentence both carriers show and it **counts
 ///     the disclosures**, so dropping one changes text that is on screen rather
 ///     than text nobody was reading.
-///   * Neither carrier can render empty. [CaveatNote] and [CaveatMark] both assert
+///   * Neither carrier can render empty. [CaveatNote] and [CaveatFoot] both assert
 ///     a non-empty list, because "zero caveats" is [Present]'s job and a carrier
 ///     that quietly draws nothing is the silence this whole layer exists to
 ///     prevent.
 ///
-/// ## Why there are two carriers and not one
+/// ## THE ASTERISK IS GONE — 2026-08-06
 ///
-/// A full-width card has a line to spare beneath it, so it gets [CaveatNote] — the
-/// signpost in words. A grid tile does not: its body is legacy's fixed 92 px and a
-/// tile that grows to fit prose breaks the row. So a tile gets [CaveatMark] in the
-/// module header, beside the ⓘ, where it costs **no height at all**. The two share
-/// the sentence, the sheet and the disclosure list; only the placement differs.
+/// Owner, on the installed build: *"what are those * symbol in card"*. Exactly.
+/// `CaveatMark` rendered a bare `*` in the module header and nothing anywhere
+/// said what it meant, which **broke the rule this file's own docstring states
+/// two paragraphs up**: a caveated value discloses that it is caveated *in
+/// words*. An asterisk is not words. It was a glyph that could only be
+/// understood by someone who had read this file.
+///
+/// Both carriers say it in words now, and neither is a bare glyph:
+///
+///   * [CaveatNote] — the signpost with a line to spare. It sits **inside** its
+///     card (`caveat_scope.dart` explains why that moved too), names the state
+///     and counts the disclosures.
+///   * [CaveatFoot] — the fixed-height grid tile's carrier, in legacy's own foot
+///     voice at the bottom of the cell: `1 CAVEAT · TAP TO READ`. A tile's body
+///     is a fixed 92 px, but its foot already runs to two lines, so a second
+///     short line costs the tile no height at all — which
+///     `today_tiles_test.dart` measures rather than assumes.
+///
+/// The header is left with **one** control, the ⓘ, which is what the owner
+/// already understands. Nothing in a header row is now unlabelled.
 library;
 
 import 'package:flutter/material.dart';
@@ -56,7 +71,7 @@ import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/shared/sheets/app_sheet.dart';
 
 /// The sentence a caveated value shows without being asked, and the label a
-/// screen reader gets from [CaveatMark].
+/// screen reader gets from [CaveatFoot].
 ///
 /// It names the state plainly — the same choice `WithheldCard` makes with the
 /// word "WITHHELD" — and it **counts**. The count is not decoration: it is what
@@ -65,6 +80,15 @@ import 'package:healthee/shared/sheets/app_sheet.dart';
 String caveatHeadline(int count) => count == 1
     ? 'Caveated — one thing tilts this number'
     : 'Caveated — $count things tilt this number';
+
+/// The same disclosure in the few words a fixed-height grid tile can hold.
+///
+/// It **counts**, for the reason [caveatHeadline] counts, and it names its own
+/// affordance — a reader who has never seen this app before is told both that
+/// there is something to know and how to get it. That is the whole difference
+/// between this and the `*` it replaced.
+String caveatFootnote(int count) =>
+    count == 1 ? '1 caveat · tap to read' : '$count caveats · tap to read';
 
 /// What the sheet is called, and the line under its title.
 const String kCaveatSheetTitle = 'What tilts this number';
@@ -92,7 +116,8 @@ Future<void> showCaveats(
 /// Replaces the inline essay. It is deliberately NOT tinted and NOT a badge: a
 /// caveat is a note about how to read a number, not a verdict about the owner's
 /// body, and `README.md`'s colour rule rations colour to judgement. The accent is
-/// spent only on the marker glyph, which is the affordance.
+/// spent only on the word `READ`, which is the affordance — it used to be spent
+/// on a bare `*` as well, and the owner could not read that.
 class CaveatNote extends StatelessWidget {
   /// Renders the signpost for [caveats], which must not be empty.
   const CaveatNote({required this.caveats, this.label, super.key})
@@ -124,8 +149,6 @@ class CaveatNote extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _MarkGlyph(color: colors.accent, size: 12),
-                const SizedBox(width: Insets.sm),
                 Expanded(
                   child: Text(
                     caveatHeadline(caveats.length),
@@ -146,23 +169,27 @@ class CaveatNote extends StatelessWidget {
   }
 }
 
-/// The signpost inside a module header: the footnote mark, and nothing else.
+/// The signpost a fixed-height grid tile can carry: a short counted line, in
+/// legacy's own foot voice, at the bottom of the cell.
 ///
-/// For a card whose body has no line to spare — legacy's grid cell, whose body is
-/// a fixed 92 px. It sits in the header row beside [MetricInfoDot], so it adds no
-/// height whatsoever and lands where "there is more to read about this" already
-/// lives on every other card.
+/// **Replaces `CaveatMark`, the bare `*` in the module header.** See the library
+/// docstring for the owner report that killed it. The trade this widget makes is
+/// the same one the mark made — cost the tile no height — but it pays for the
+/// words rather than for a glyph:
 ///
-/// It is an asterisk rather than a second ⓘ on purpose: two info circles in one
-/// header would be two controls that look like the same control. The full
-/// sentence is on the [Semantics] label, so the mark is never silent to a screen
-/// reader even though it is one glyph on screen.
-class CaveatMark extends StatelessWidget {
-  /// Renders the mark for [caveats], which must not be empty.
-  const CaveatMark({required this.caveats, this.label, super.key})
+///   * `ModuleFoot` already lays out to **two lines** (its docstring says why:
+///     several of our feet have to name an instrument as well as a number), and
+///     a tile's 92 px body has the slack for the second one. So the caveat line
+///     sits under the median line and the cell is exactly as tall as its
+///     neighbour, which `today_tiles_test.dart` measures.
+///   * it is the tap target itself, so the tile does not need a second control
+///     in a header row that has no width to spare.
+class CaveatFoot extends StatelessWidget {
+  /// Renders the foot line for [caveats], which must not be empty.
+  const CaveatFoot({required this.caveats, this.label, this.gap = 8, super.key})
     : assert(
         caveats.length > 0,
-        'A CaveatMark with no caveats is a control that opens an empty sheet.',
+        'A CaveatFoot with no caveats is a control that opens an empty sheet.',
       );
 
   /// What tilts the value. Non-empty.
@@ -171,49 +198,34 @@ class CaveatMark extends StatelessWidget {
   /// The metric's name, for the sheet.
   final String? label;
 
-  /// Matches [MetricInfoDot]'s 16 px footprint so the header row keeps its
-  /// height whichever of the two is drawn.
-  static const double size = 16;
+  /// The air above it. `ModuleFoot`'s 8 when this line stands alone, and 2 when
+  /// it follows a foot that has already spent it.
+  final double gap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return GestureDetector(
-      onTap: () => showCaveats(context, caveats, label: label),
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.only(left: Insets.xs),
+    return Padding(
+      padding: EdgeInsets.only(top: gap),
+      child: GestureDetector(
+        onTap: () => showCaveats(context, caveats, label: label),
+        behavior: HitTestBehavior.opaque,
         child: Semantics(
           button: true,
           label: '${caveatHeadline(caveats.length)}. Opens the detail.',
           child: ExcludeSemantics(
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Center(
-                child: _MarkGlyph(color: colors.accent, size: 14),
-              ),
+            child: Text(
+              // Caps are the foot's voice; the semantic label above carries the
+              // sentence as written, because several screen readers spell an
+              // all-caps run out letter by letter.
+              caveatFootnote(caveats.length).toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: HType.label(colors.accent, tracking: 0.04),
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// The footnote mark itself. One definition, so the row and the header agree.
-class _MarkGlyph extends StatelessWidget {
-  const _MarkGlyph({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '*',
-      textAlign: TextAlign.center,
-      style: HType.number(color, size: size, weight: FontWeight.w700),
     );
   }
 }
@@ -312,7 +324,7 @@ class _CaveatBlock extends StatelessWidget {
 /// The sheet's uppercase eyebrow, styled from [HType] directly.
 ///
 /// Not `ModuleLabel`: that widget lives beside `InstrumentModule`, which has to
-/// import THIS file to place a [CaveatMark] in its header, and a sheet is not a
+/// import THIS file to place a [CaveatNote] in its body, and a sheet is not a
 /// module anyway. `metric_info_sheet.dart` styles its own block labels the same
 /// way for the same reason.
 class _Eyebrow extends StatelessWidget {

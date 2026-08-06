@@ -43,9 +43,11 @@ import 'package:healthee/features/today/widgets/stress_card.dart';
 import 'package:healthee/features/today/widgets/today_tiles.dart';
 import 'package:healthee/features/today/widgets/vo2max_card.dart';
 import 'package:healthee/shared/instrument_screen.dart';
+import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/section_list.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 
 /// Everything from the recovery card down. Split out only so neither half is a
@@ -59,18 +61,20 @@ void todayBody(SectionList sections, TodayFacts facts, ScreenData data) {
     ReadingView<RecoveryScore>(
       reading: snapshot.recovery,
       label: 'Recovery',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, score) => RecoveryCard(score: score, reveals: reveals),
     ),
   );
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   sections.add(
     ReadingView<RecoverySignals>(
       reading: snapshot.recoverySignals,
       label: 'Recovery signals',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, signals) => RecoverySignalsCard(signals: signals),
     ),
   );
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   if (snapshot.recommendations.isNotEmpty || snapshot.action != null) {
     sections.add(
       ActionsSection(
@@ -79,7 +83,7 @@ void todayBody(SectionList sections, TodayFacts facts, ScreenData data) {
         action: snapshot.action,
       ),
     );
-    sections.gap(24);
+    sections.gap(PageSpacing.section);
   }
   sections.add(
     Builder(
@@ -91,19 +95,22 @@ void todayBody(SectionList sections, TodayFacts facts, ScreenData data) {
   );
   final hrvSpark = facts.spark(TodayMetricIds.heartRateVariability);
   if (hrvSpark.length > 2) {
-    sections.gap(10);
+    sections.gap(PageSpacing.card);
     sections.add(
       HrvTrendCard(
         series: hrvSpark,
         reading: facts.heartRateVariability,
-        median30d: facts.median(TodayMetricIds.heartRateVariability),
+        // NOT `facts.median('hrv_sleep_avg')`, which is null on every payload:
+        // the server baselines this metric but gives it no metric card. See
+        // `TodayFacts._hrvBaseline`.
+        baseline: facts.heartRateVariabilityBaseline,
         reveals: reveals,
       ),
     );
   }
   final stressDaily = facts.spark(TodayMetricIds.stress);
   if (StressCard.hasSomethingToDraw(facts.stressDay, stressDaily)) {
-    sections.gap(10);
+    sections.gap(PageSpacing.card);
     sections.add(
       StressCard(
         intraday: facts.stressDay,
@@ -114,16 +121,20 @@ void todayBody(SectionList sections, TodayFacts facts, ScreenData data) {
   }
   final heartRateDay = facts.heartRateDay;
   if (heartRateDay.length > 2) {
-    sections.gap(10);
+    sections.gap(PageSpacing.card);
     sections.add(
-      HeartRateDayCard(points: snapshot.hourlyHeartRate, reveals: reveals),
+      HeartRateDayCard(
+        points: snapshot.hourlyHeartRate,
+        restingHeartRate: facts.restingHeartRate,
+        reveals: reveals,
+      ),
     );
   }
   sleepSections(sections, facts, tiles, reveals);
   activitySections(sections, facts, tiles, reveals);
   fitnessSections(sections, facts, reveals);
   if (snapshot.findings.isNotEmpty) {
-    sections.gap(24);
+    sections.gap(PageSpacing.section);
     sections.add(const SectionHeading('Insights'));
     sections.add(InsightsSection(findings: snapshot.findings));
   }
@@ -136,11 +147,11 @@ void sleepSections(
   RevealRegistry reveals,
 ) {
   final snapshot = facts.snapshot;
-  sections.gap(24);
+  sections.gap(PageSpacing.section);
   sections.add(const SectionHeading('Sleep'));
   if (facts.staleSleep) {
     sections.add(StaleSleepBanner(nightLabel: facts.sleepNight));
-    sections.gap(10);
+    sections.gap(PageSpacing.card);
   }
   sections.add(
     ReadinessBlock(
@@ -150,7 +161,7 @@ void sleepSections(
       reveals: reveals,
     ),
   );
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   sections.add(
     Builder(
       builder: (context) => MetricTileRow(
@@ -159,36 +170,42 @@ void sleepSections(
       ),
     ),
   );
-  final oxygen = facts.spark(TodayMetricIds.bloodOxygen);
-  if (oxygen.length > 2) {
-    sections.gap(10);
+  // Legacy gates this module on its DRAWN series having more than two points,
+  // and the drawn series is the nightly minimums now (see the card). The two
+  // sparklines arrive together in practice — `derive/hrv_spo2_resp.py` writes
+  // both from one window or writes neither — so this is legacy's gate applied
+  // to legacy's rule, not a narrower one.
+  final oxygenMinima = facts.spark(TodayMetricIds.bloodOxygenMin);
+  if (oxygenMinima.length > 2) {
+    sections.gap(PageSpacing.card);
     sections.add(
       BloodOxygenCard(
-        averages: oxygen,
-        minima: facts.spark(TodayMetricIds.bloodOxygenMin),
+        minima: oxygenMinima,
         reading: facts.bloodOxygen,
         reveals: reveals,
       ),
     );
   }
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   sections.add(
     ReadingView<SleepDebt>(
       reading: snapshot.sleepDebt,
       label: 'Sleep need · debt',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, debt) => SleepDebtCard(debt: debt, reveals: reveals),
     ),
   );
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   sections.add(
     ReadingView<SleepHealth>(
       reading: snapshot.sleepHealth,
       label: 'Sleep health · 4-dim',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, health) => SleepHealthCard(health: health),
     ),
   );
   if (snapshot.sleepHistory7d.length >= 2) {
-    sections.gap(10);
+    sections.gap(PageSpacing.card);
     sections.add(
       SevenNightCard(nights: snapshot.sleepHistory7d, reveals: reveals),
     );
@@ -201,7 +218,7 @@ void activitySections(
   TodayTiles tiles,
   RevealRegistry reveals,
 ) {
-  sections.gap(24);
+  sections.gap(PageSpacing.section);
   sections.add(const SectionHeading('Activity'));
   sections.add(
     Builder(
@@ -211,30 +228,32 @@ void activitySections(
       ),
     ),
   );
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   sections.add(
     ReadingView<CardioLoad>(
       reading: facts.snapshot.cardioLoad,
       label: 'Strain · cardio load',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, load) => CardioLoadCard(load: load, reveals: reveals),
     ),
   );
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   sections.add(
     ReadingView<Mvpa>(
       reading: facts.snapshot.mvpa,
       label: 'Active minutes · MVPA',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, mvpa) => MvpaCard(mvpa: mvpa, reveals: reveals),
     ),
   );
   // Added, not legacy's — the other half of the same recommendation.
   if (facts.snapshot.strength case final Strength strength) {
-    sections.gap(10);
+    sections.gap(PageSpacing.card);
     sections.add(StrengthCard(strength: strength, reveals: reveals));
   }
   // Added, not legacy's. A day with nothing logged draws nothing at all.
   if (!facts.snapshot.routine.isEmpty) {
-    sections.gap(10);
+    sections.gap(PageSpacing.card);
     sections.add(RoutineCard(routine: facts.snapshot.routine));
   }
 }
@@ -244,20 +263,22 @@ void fitnessSections(
   TodayFacts facts,
   RevealRegistry reveals,
 ) {
-  sections.gap(24);
+  sections.gap(PageSpacing.section);
   sections.add(const SectionHeading('Fitness'));
   sections.add(
     ReadingView<BiologicalAge>(
       reading: facts.snapshot.biologicalAge,
       label: 'Biological age · estimate',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, age) => BioAgeCard(age: age, reveals: reveals),
     ),
   );
-  sections.gap(10);
+  sections.gap(PageSpacing.card);
   sections.add(
     ReadingView<Vo2max>(
       reading: facts.snapshot.vo2max,
       label: 'VO₂max · estimate',
+      caveatCarrier: CaveatCarrier.insideCard,
       builder: (context, vo2max) =>
           Vo2maxCard(vo2max: vo2max, reveals: reveals),
     ),
