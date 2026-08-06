@@ -13,11 +13,21 @@
 ///   * **Colours are roles.** `HColors.paper`/`paper2` became
 ///     [HealtheeColors.surface]/[HealtheeColors.ink]; the caller passes the line
 ///     colour, which is `accent` for the owner's own data everywhere it is used.
+///
+/// ## The third change, and it is the owner's (2026-08-06)
+///
+/// [references] — the horizontal lines this chart is read against. Legacy has
+/// none, and their absence is what the owner's *"this graphs all look similar"*
+/// report was really about; `chart_reference.dart` carries the whole argument
+/// and the departure. With an empty list the geometry is byte-for-byte legacy's:
+/// [ChartScale] is this painter's own scale extracted, and it only widens when a
+/// reference asks it to.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/charts/chart_primitives.dart';
+import 'package:healthee/shared/charts/chart_reference.dart';
 
 /// A smooth area chart over [data], revealed left-to-right by [progress].
 class HArea extends StatefulWidget {
@@ -31,6 +41,7 @@ class HArea extends StatefulWidget {
     this.fill = true,
     this.unit = '',
     this.digits = 0,
+    this.references = const <ChartReference>[],
     super.key,
   });
 
@@ -57,6 +68,13 @@ class HArea extends StatefulWidget {
 
   /// Decimal places in the scrub bubble.
   final int digits;
+
+  /// The lines this series is read against. Empty is legacy's chart exactly.
+  ///
+  /// They widen the plot's scale rather than clipping to its edge — see
+  /// `chart_reference.dart`, which is the whole reason a reference here is a
+  /// claim rather than a decoration.
+  final List<ChartReference> references;
 
   @override
   State<HArea> createState() => _HAreaState();
@@ -119,6 +137,7 @@ class _HAreaState extends State<HArea> {
                 touch: _touch,
                 unit: widget.unit,
                 digits: widget.digits,
+                references: widget.references,
               ),
             );
           },
@@ -140,6 +159,7 @@ class _AreaPainter extends CustomPainter {
     required this.touch,
     required this.unit,
     required this.digits,
+    required this.references,
   });
 
   final List<double> data;
@@ -152,9 +172,9 @@ class _AreaPainter extends CustomPainter {
   final int? touch;
   final String unit;
   final int digits;
+  final List<ChartReference> references;
 
-  /// Legacy's `yPad` and `padX`, unchanged.
-  static const double _yPad = 0.18;
+  /// Legacy's `padX`, unchanged. Its `yPad` now lives in [ChartScale].
   static const double _padX = 4;
 
   @override
@@ -162,19 +182,31 @@ class _AreaPainter extends CustomPainter {
     if (data.length < 2) {
       return;
     }
-    final min = data.reduce((a, b) => a < b ? a : b);
-    final max = data.reduce((a, b) => a > b ? a : b);
-    final span = (max - min) == 0 ? 1.0 : (max - min);
-    final low = min - span * _yPad;
-    final high = max + span * _yPad;
+    final scale = ChartScale.of(
+      data,
+      include: <double>[for (final line in references) line.value],
+    );
     double x(int i) => _padX + (i / (data.length - 1)) * (size.width - _padX * 2);
-    double y(double v) =>
-        size.height - 3 - ((v - low) / (high - low)) * (size.height - 6);
+    double y(double v) => scale.y(v, size.height);
 
     final points = [
       for (var i = 0; i < data.length; i++) Offset(x(i), y(data[i])),
     ];
     final line = smoothPath(points);
+
+    // BEHIND the series, deliberately: a reference is the ground the reading is
+    // read against, and ground does not sit on top of the measurement.
+    for (final reference in references) {
+      paintChartReference(
+        canvas,
+        size,
+        reference,
+        scale: scale,
+        color: ink3,
+        labelStyle: _referenceLabel.copyWith(color: ink3),
+        progress: progress,
+      );
+    }
 
     if (fill) {
       final area = Path.from(line)
@@ -265,5 +297,14 @@ class _AreaPainter extends CustomPainter {
       old.progress != progress ||
       old.data != data ||
       old.color != color ||
-      old.touch != touch;
+      old.touch != touch ||
+      old.references != references;
 }
+
+/// A reference caption: the module eyebrow's size and tracking, one step
+/// quieter. The colour is supplied per-paint from the theme's `ink3`.
+const TextStyle _referenceLabel = TextStyle(
+  fontSize: 8,
+  fontWeight: FontWeight.w600,
+  letterSpacing: 0.6,
+);
