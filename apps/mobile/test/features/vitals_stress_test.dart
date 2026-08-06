@@ -1,10 +1,17 @@
-/// The arousal card says nothing about how the owner FEELS, in any state.
+/// The stress card says nothing about how the owner FEELS, in any state.
+///
+/// It is called Stress again, which is what the strap calls it, what legacy
+/// called it and what the owner asked for after it shipped as `AROUSAL · TODAY`.
+/// The rename was a misreading: the four directives below govern **claims about
+/// the value**, and none of them is about the card's name. What they forbid is
+/// asserted here, on the card that carries the name.
 ///
 /// `wearable_stress_validity` carries four SAFETY-CRITICAL directives, and all
 /// four are about this one card:
 ///
 ///   * **D1** — never present the number as a psychological, emotional or mental
-///     state. It is physiological arousal vs the owner's own baseline.
+///     state. It is physiological arousal vs the owner's own baseline, and
+///     the card's title is the strap's name for it, not a claim about it.
 ///   * **D2** — never infer mood or valence. "Stressed" and "excited" are
 ///     identical to this sensor.
 ///   * **D3** — a high or low value is non-specific (exertion, caffeine,
@@ -35,7 +42,7 @@ import '../shared/_chart_probe.dart';
 import '_vitals_probe.dart';
 
 void main() {
-  group('the arousal card — wearable_stress_validity D1–D4', () {
+  group('the stress card — wearable_stress_validity D1–D4', () {
     /// Every state this card has.
     const states = <String, (List<double>, List<double>)>{
       'a full day of hours': (
@@ -80,17 +87,25 @@ void main() {
 
           final card = find.byType(StressCard);
           final rendered = textOf(tester, card).join(' · ').toLowerCase();
-          for (final word in forbiddenOfArousal) {
+          for (final word in forbiddenOfStress) {
             expect(
               RegExp('\\b${RegExp.escape(word)}\\b').hasMatch(rendered),
               isFalse,
               reason:
-                  'the arousal card said "$word" — D1/D2 forbid naming a state '
+                  'the stress card said "$word" — D1/D2 forbid naming a state '
                   'or a band of one. What it rendered: $rendered',
             );
           }
-          // The positive half: it says what the number IS.
-          expect(rendered, contains('arousal'));
+          // The positive half, and the owner's own report: the card carries the
+          // name his strap, his old app and every other screen use.
+          expect(rendered, contains('stress'));
+          expect(
+            rendered,
+            isNot(contains('arousal')),
+            reason:
+                'the metric was renamed out from under the owner once; the '
+                'directives never asked for it',
+          );
         });
 
         testWidgets('${theme.key} · ${state.key} — PAINTS NO VERDICT', (
@@ -109,7 +124,7 @@ void main() {
               find.byType(HBars),
             ).intersection(verdictsOf(colors)),
             isEmpty,
-            reason: 'a verdict colour reached the arousal card',
+            reason: 'a verdict colour reached the stress card',
           );
         });
       }

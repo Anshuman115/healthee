@@ -24,7 +24,7 @@ import 'package:healthee/features/today/widgets/blood_oxygen_card.dart';
 import 'package:healthee/features/today/widgets/hrv_trend_card.dart';
 import 'package:healthee/features/today/widgets/metric_note.dart';
 import 'package:healthee/shared/charts/h_deviation.dart';
-import 'package:healthee/shared/charts/h_night_dots.dart';
+import 'package:healthee/shared/charts/h_night_line.dart';
 import 'package:healthee/shared/reveal_once.dart';
 
 import '../shared/_chart_probe.dart';
@@ -111,8 +111,8 @@ void main() {
         tester,
         const <double>[96, 95, 97, 94, 96, 95, 97],
       );
-      final chart = tester.widget<HNightDots>(
-        find.descendant(of: card, matching: find.byType(HNightDots)),
+      final chart = tester.widget<HNightLine>(
+        find.descendant(of: card, matching: find.byType(HNightLine)),
       );
 
       expect(chart.reference, isNotNull);
@@ -125,7 +125,7 @@ void main() {
       );
       // And it is painted, not merely configured.
       expect(
-        countOf(paintedBy(tester, find.byType(HNightDots)), #drawLine),
+        countOf(paintedBy(tester, find.byType(HNightLine)), #drawLine),
         greaterThan(1),
         reason: 'a dashed line is many segments',
       );
@@ -136,7 +136,7 @@ void main() {
       // callout the note forbids, and it is the first thing anyone would add.
       await pumpNights(tester, const <double>[96, 91, 89, 90, 96, 95, 97]);
       final dots = <int>{
-        for (final call in paintedBy(tester, find.byType(HNightDots)))
+        for (final call in paintedBy(tester, find.byType(HNightLine)))
           if (call.invocation.memberName == #drawCircle)
             for (final argument in call.invocation.positionalArguments)
               if (argument is Paint) argument.color.toARGB32(),

@@ -20,7 +20,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/honesty/reading.dart';
-import 'package:healthee/data/models/today_series.dart';
 import 'package:healthee/features/today/widgets/blood_oxygen_card.dart';
 import 'package:healthee/features/today/widgets/heart_rate_card.dart';
 import 'package:healthee/features/today/widgets/hrv_trend_card.dart';
@@ -29,10 +28,11 @@ import 'package:healthee/shared/charts/chart_reference.dart';
 import 'package:healthee/shared/charts/h_area.dart';
 import 'package:healthee/shared/charts/h_bars.dart';
 import 'package:healthee/shared/charts/h_deviation.dart';
-import 'package:healthee/shared/charts/h_night_dots.dart';
+import 'package:healthee/shared/charts/h_night_line.dart';
 import 'package:healthee/shared/reveal_once.dart';
 
 import '../shared/_chart_probe.dart';
+import '_vitals_probe.dart';
 
 /// The canvas operations a painter recorded, counted by name.
 ///
@@ -53,8 +53,8 @@ Map<Symbol, int> markOf(WidgetTester tester, Finder chart) {
 /// ## Why this is part of the mark and the op counts are not enough
 ///
 /// The first version of this suite compared operation counts alone, and heart
-/// rate and HRV came out **identical** — `drawPath` × 2, `drawLine` × 1,
-/// `drawParagraph` × 1. That is not a flaw in the charts, it is the measurement
+/// rate and HRV came out **identical** — `drawPath` × 2 and `drawLine` × 1.
+/// That is not a flaw in the charts, it is the measurement
 /// being too coarse: an area chart and a deviation chart both stroke a curve and
 /// fill a region, and what differs is WHERE the region is anchored.
 ///
@@ -82,18 +82,6 @@ double? fillFloorOf(WidgetTester tester, Finder chart) {
   return lowest;
 }
 
-/// Twelve hours of an ordinary day.
-List<HourPoint> hours() => <HourPoint>[
-  for (var i = 0; i < 12; i++)
-    HourPoint(
-      hour: 6 + i,
-      average: 62 + (i % 5) * 7,
-      minimum: 58,
-      maximum: 96,
-      count: 60,
-    ),
-];
-
 void main() {
   group('the four marks', () {
     /// Each card, laid out for real: its operation counts and its fill anchor.
@@ -119,7 +107,7 @@ void main() {
         ),
         find.byType(HArea),
       );
-      final arousal = await markFor(
+      final stress = await markFor(
         tester,
         StressCard(
           intraday: const <double>[30, 44, 38, 51, 33, 29, 47],
@@ -145,7 +133,7 @@ void main() {
           reading: const Present<double>(97),
           reveals: RevealRegistry(),
         ),
-        find.byType(HNightDots),
+        find.byType(HNightLine),
       );
 
       const double slot = 52;
@@ -163,11 +151,11 @@ void main() {
         reason: 'the day fills to the FLOOR — its ink is the size of the number',
       );
       expect(
-        arousal.$1[#drawRRect],
+        stress.$1[#drawRRect],
         7,
-        reason: 'arousal is one column an hour, and nothing else',
+        reason: 'stress is one column an hour, and nothing else',
       );
-      expect(arousal.$1[#drawPath], isNull);
+      expect(stress.$1[#drawPath], isNull);
       expect(
         hrv.$1[#drawPath],
         2,
@@ -182,16 +170,22 @@ void main() {
       expect(
         oxygen.$1[#drawCircle],
         7,
-        reason: 'one unconnected dot a night — nights are not continuous',
+        reason: 'one mark a night — the reader can still see the measurements',
       );
-      expect(oxygen.$1[#drawPath], isNull);
+      expect(
+        oxygen.$1[#drawPath],
+        1,
+        reason: 'ONE path: the nights are JOINED (D1 makes SpO2 a multi-night '
+            'trend, and a scatter hides one), and there is no fill — which is '
+            'what keeps this different from the heart-rate area beside it',
+      );
 
       // And pairwise, which is the owner's sentence: no two of the four are the
       // same picture. Reverting any card to the shared `HArea` collapses two of
       // these onto one signature and fails here.
       final marks = <String, (Map<Symbol, int>, double?)>{
         'heart rate': heart,
-        'arousal': arousal,
+        'stress': stress,
         'HRV': hrv,
         'blood oxygen': oxygen,
       };
@@ -245,7 +239,7 @@ void main() {
             reading: const Present<double>(97),
             reveals: RevealRegistry(),
           ),
-          find.byType(HNightDots),
+          find.byType(HNightLine),
         ),
       ]) {
         await tester.pumpWidget(chartHost(card));
@@ -276,7 +270,7 @@ void main() {
               find.byType(HArea),
             ),
             (
-              'arousal',
+              'stress',
               const HBars(
                 <double>[],
                 color: Colors.indigo,
@@ -292,8 +286,8 @@ void main() {
             ),
             (
               'blood oxygen',
-              const HNightDots(<double>[93], color: Colors.indigo, progress: 1),
-              find.byType(HNightDots),
+              const HNightLine(<double>[93], color: Colors.indigo, progress: 1),
+              find.byType(HNightLine),
             ),
           ]) {
         await tester.pumpWidget(chartHost(chart));
@@ -318,7 +312,7 @@ void main() {
       // while claiming nothing was measured.
       await tester.pumpWidget(
         chartHost(
-          const HNightDots(
+          const HNightLine(
             <double>[93],
             color: Colors.indigo,
             progress: 1,
@@ -328,7 +322,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(paintedBy(tester, find.byType(HNightDots)), isEmpty);
+      expect(paintedBy(tester, find.byType(HNightLine)), isEmpty);
     });
   });
 
