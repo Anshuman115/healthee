@@ -1,4 +1,4 @@
-/// `Arousal · today` — the strap's `stress` signal, hour by hour, as columns.
+/// `Stress · today` — the strap's `stress` signal, hour by hour, as columns.
 ///
 /// **Ported from** `healthee-legacy/app/lib/ui/today_screen.dart:261` — the
 /// `Builder` that picks between the intraday series and the daily trend, titles
@@ -14,27 +14,32 @@
 /// hue. That is a legacy inconsistency (`metric_hue.dart` records it) and it is
 /// ported: `hueFor(hues, 'stress')` resolves to the same colour.
 ///
-/// ## Two owner-directed departures, 2026-08-06
+/// ## One owner-directed departure, and one rename UNDONE, 2026-08-06
 ///
 /// The owner reported that this chart and three others *"all look similar"*.
 /// They were all one 52 px area line. This one is now **hourly columns** — 24
 /// discrete hours, which is what the series actually is, and a mark no other
-/// chart on this screen's vitals run uses.
+/// chart on this screen's vitals run uses. That stands.
 ///
-/// The label is **Arousal**, not Stress. `wearable_stress_validity` is a
-/// SAFETY-CRITICAL note and the wording is its D1: the number is *"physiological
-/// arousal vs their own baseline"*, and the score is heart-rate-dominated,
-/// non-specific, and unvalidated on Huami/Zepp hardware. The foot names the
-/// device's own word for it so the two cannot come apart in the reader's head.
+/// The title was also changed to **Arousal**, and that was wrong. Owner:
+/// *"stress is named as AROUSAL."* `wearable_stress_validity` is SAFETY-CRITICAL
+/// and its four directives govern **claims about the value** — never a mood,
+/// never a verdict, never an alarm, only caveated trends against the owner's own
+/// baseline. Not one of them is about what the card is called, and the
+/// verbatim-legacy rule (`feedback_port_legacy_design_verbatim`) says keep
+/// legacy's label. Renaming the metric was reading a directive as licence for a
+/// design change it does not ask for — and it cost the owner the word his strap,
+/// his old app and every other screen use for the same number.
 ///
 /// ## The four directives, and where each one lands here
 ///
-///   * **D1 — never a psychological/emotional/mental state.** The title says
-///     arousal. Nothing on this card names a feeling, and nothing bands the
-///     number into one: no "calm", no "stressed", no "elevated", no verdict of
-///     any kind. `test/features/vitals_charts_test.dart` enumerates this card's
-///     states and asserts the absence in every one, and `test/mutations.sh`
-///     puts a banded emotional label back to prove the test would catch it.
+///   * **D1 — never a psychological/emotional/mental state.** The title is the
+///     device's own word for the signal, which is a name and not a claim.
+///     Nothing on this card names a feeling, and nothing bands the number into
+///     one: no "calm", no "stressed", no "elevated", no verdict of any kind.
+///     `test/features/vitals_stress_test.dart` enumerates this card's states and
+///     asserts the absence in every one, and `test/mutations.sh` puts a banded
+///     emotional label back to prove the test would catch it.
 ///   * **D2 — never infer mood or valence.** Same surface, same assertion:
 ///     "stressed" and "excited" are the same signal and this card says neither.
 ///   * **D3 — a high or low value is non-specific; never alarm.** The columns
@@ -44,8 +49,7 @@
 ///   * **D4 — unvalidated on our hardware; caveated personal trends only.** The
 ///     ⓘ is wired to the `stress` explainer, which says so in as many words and
 ///     cites the note; `test/shared/metric_info_grounding_test.dart` holds that
-///     link. The foot states the missing baseline, because a "personal trend
-///     vs baseline" with no baseline must not read as one.
+///     link. That sentence is the caveat, and the ⓘ is its route.
 ///
 /// ## The baseline this chart cannot draw
 ///
@@ -56,7 +60,13 @@
 /// permanently empty `sparklines.stress`. The only honest options were to draw
 /// no reference or to invent one from the hours on screen — and a baseline
 /// derived from today's own 12 hours is not the owner's normal, it is today
-/// compared with itself. So the card draws none and says why.
+/// compared with itself. So the card draws none.
+///
+/// The foot says what the chart **is** first, and names the absence second. It
+/// used to read `THE STRAP CALLS THIS STRESS · NO PERSONAL BASELINE FOR IT` —
+/// an apology in the loudest line on the card, and half of it was only there
+/// because the title had been renamed away from the strap's word. The absence is
+/// true and stays; it is no longer the headline.
 library;
 
 import 'package:flutter/material.dart';
@@ -68,7 +78,7 @@ import 'package:healthee/shared/charts/h_bars.dart';
 import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
 
-/// Today's arousal if there is enough of it, else the fortnight's.
+/// Today's hourly stress if there is enough of it, else the fortnight's.
 class StressCard extends StatelessWidget {
   /// [intraday] is today's hours; [daily] is the 14-day trend.
   const StressCard({
@@ -110,7 +120,7 @@ class StressCard extends StatelessWidget {
         ? null
         : (series.reduce((a, b) => a + b) / series.length).round();
     return InstrumentModule(
-      label: useIntraday ? 'Arousal · today' : 'Arousal · 14 days',
+      label: useIntraday ? 'Stress · today' : 'Stress · 14 days',
       infoKey: 'stress',
       tag: tint,
       minHeight: 0,
@@ -143,7 +153,7 @@ class StressCard extends StatelessWidget {
           ),
         ),
         const ModuleFoot(
-          'The strap calls this stress · no personal baseline for it',
+          "The strap's own hourly score · no server baseline behind it",
         ),
       ],
     );
