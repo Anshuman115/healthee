@@ -21,6 +21,7 @@ import 'package:healthee/features/today/widgets/metric_tile.dart';
 import 'package:healthee/shared/charts/h_area.dart';
 import 'package:healthee/shared/charts/h_hypnogram.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
+import 'package:healthee/shared/charts/h_stage_bar.dart';
 import 'package:healthee/shared/charts/h_tick_gauge.dart';
 
 import '../shared/_chart_probe.dart';
@@ -45,28 +46,62 @@ void main() {
   }
 
   group('the tile charts', () {
-    testWidgets("THE SLEEP TILE'S HYPNOGRAM IS 30 px TALL AND DRAWS BANDS", (
+    testWidgets("THE SLEEP TILE'S STAGE BAR FILLS THE 30 px SLOT AND IS PAINTED", (
       tester,
     ) async {
+      // Owner-delegated departure, 2026-08-06: this cell drew legacy's four-lane
+      // hypnogram at 30 px, which is ~7 px a lane and reads as scattered dots on
+      // a fragmented night. It draws `HStageBar` now. `today_tiles.dart` carries
+      // the decision; the full hypnogram is unchanged on the Sleep tab.
       await openToday(tester);
-      await reveal(tester, find.byType(HHypnogram));
+      await reveal(tester, find.byType(HStageBar));
 
-      final chart = find.byType(HHypnogram).first;
-      final size = tester.getSize(chart);
-      expect(size.height, MetricTile.chartHeight, reason: "legacy's 30 px");
-      expect(size.width, greaterThan(100));
-
-      final painted = paintedBy(tester, chart);
-      // Four lane guides, and at least one band per staged span.
-      expect(countOf(painted, #drawLine), 4);
+      final chart = find.byType(HStageBar).first;
       expect(
-        countOf(painted, #drawRRect),
-        greaterThan(0),
-        reason: 'a hypnogram that drew no band is a hypnogram of nothing',
+        tester.getSize(chart).height,
+        lessThanOrEqualTo(MetricTile.chartHeight),
+        reason: 'the bar lives INSIDE legacy 30 px slot; it does not grow it',
       );
-      final bands = rectsOf(painted);
-      expect(bands.every((band) => band.height > 0), isTrue);
-      expect(bands.every((band) => band.width > 0), isTrue);
+      // The slot itself keeps legacy's height whichever chart is in it, which is
+      // what stops the tile moving.
+      expect(
+        tester
+            .widgetList<SizedBox>(
+              find.ancestor(of: chart, matching: find.byType(SizedBox)),
+            )
+            .map((box) => box.height),
+        contains(MetricTile.chartHeight),
+      );
+
+      // Painted, not merely present: every segment at real height and width.
+      // Two charts on this project shipped at zero height because a test only
+      // asked whether the widget existed.
+      //
+      // Scoped to THIS chart. Today has other `FractionallySizedBox`es — the
+      // biological-age waterfall's bars are one — and a screen-wide finder was
+      // measuring them instead, which is a test that fails for a reason having
+      // nothing to do with what it is named after.
+      final segments = find.descendant(
+        of: find.descendant(of: chart, matching: find.byType(FractionallySizedBox)),
+        matching: find.byType(ColoredBox),
+      );
+      expect(segments, findsWidgets);
+      for (var i = 0; i < tester.widgetList(segments).length; i++) {
+        final size = tester.getSize(segments.at(i));
+        expect(size.height, greaterThan(0), reason: 'segment $i collapsed');
+        expect(size.width, greaterThan(0), reason: 'segment $i has no width');
+      }
+    });
+
+    testWidgets('THE HYPNOGRAM IS GONE FROM TODAY, AND ONLY FROM TODAY', (
+      tester,
+    ) async {
+      // The other half of the same decision. If this ever fails because a
+      // hypnogram came back to the grid, read `today_tiles.dart` first — the
+      // departure is deliberate and recorded there.
+      await openToday(tester);
+
+      expect(find.byType(HHypnogram), findsNothing);
     });
 
     testWidgets('a tile sparkline is laid out at 30 px and draws a path', (

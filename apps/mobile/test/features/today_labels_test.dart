@@ -6,15 +6,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/data/models/last_sleep.dart';
 import 'package:healthee/features/today/today_labels.dart';
-
-SleepStageSpan _span(String stage, double minutes) => SleepStageSpan(
-  stage: stage,
-  startOffsetMin: 0,
-  endOffsetMin: minutes,
-  durationMin: minutes,
-);
 
 void main() {
   group('the figures', () {
@@ -56,22 +48,12 @@ void main() {
     });
   });
 
-  group('the hypnogram spans', () {
-    test('zero-minute spans are dropped', () {
-      final spans = hypnogramSpans([_span('deep', 90), _span('rem', 0)]);
-      expect(spans, hasLength(1));
-      expect(spans.single.stage, 'deep');
-    });
-
-    test('AN UNSTAGED NIGHT DRAWS NOTHING — a repaired flaw', () {
-      // Legacy falls back to `[(stage: 'core', min: 1)]`, which paints one
-      // full-width band in light-sleep blue for a night nothing was staged. It
-      // is indistinguishable from a night the strap really did score as one
-      // unbroken light block, which is a chart of a measurement never made.
-      expect(hypnogramSpans(const <SleepStageSpan>[]), isEmpty);
-      expect(hypnogramSpans([_span('deep', 0)]), isEmpty);
-    });
-  });
+  // The `hypnogram spans` group lived here. `hypnogramSpans` went with the Sleep
+  // tile's hypnogram (owner-delegated departure, 2026-08-06 — `today_tiles.dart`),
+  // and its two assertions did not evaporate: `HStageBar` drops zero-minute
+  // stages itself and draws NOTHING for a night with none, which
+  // `test/features/grid_sleep_cell_test.dart` asserts against the real widget
+  // rather than against a helper feeding it.
 
   group('the sleep-night label', () {
     final now = DateTime(2026, 8, 4, 9, 30);

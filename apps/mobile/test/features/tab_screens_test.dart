@@ -29,6 +29,7 @@ import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
 import 'package:healthee/shared/section_heading.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
 
 import '../_sleep_stubs.dart';
 import '_today_host.dart';
@@ -199,10 +200,15 @@ void main() {
       // Verbatim safety statement.
       expect(find.textContaining('not a clinical or diagnostic age'), findsOneWidget);
       // `excluded` here means "regularity is not one of the levers", not "there
-      // is no number" — the value stays and the exclusion travels with it.
+      // is no number" — the value stays and the exclusion travels with it as a
+      // caveat, so four disclosures ride on this card. Since 2026-08-06 they
+      // ride as a SIGNPOST: printed in full they were ~2,780 characters of
+      // prose under the card, which is what the owner reported. The tap-through
+      // lives in `today_caveat_surface_test.dart`, which owns this concern.
+      expect(find.text(caveatHeadline(4)), findsOneWidget);
       expect(
         find.textContaining('Sleep regularity is not one of the levers'),
-        findsWidgets,
+        findsNothing,
       );
     });
 

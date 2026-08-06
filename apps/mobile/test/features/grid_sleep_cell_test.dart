@@ -1,9 +1,10 @@
 /// The stage bar: its stages stay apart, and its widths are the real minutes.
 ///
-/// It drew the full four-lane hypnogram at 28 px — ~7 px a lane, with a 62% band
-/// inside that — so a fragmented night rendered as scattered dots. The drawing
-/// was never wrong: the same chart is legible at full width on Sleep, and stays
-/// there. The SIZE was wrong for it.
+/// Today's Sleep cell drew the full four-lane hypnogram at 30 px — ~7 px a lane,
+/// with a 62% band inside that — so a fragmented night rendered as scattered
+/// dots. The drawing was never wrong: the same chart is legible at full width on
+/// Sleep, and stays there. The SIZE was wrong for it. Owner-delegated decision,
+/// 2026-08-06; the argument and its provenance live at `today_tiles.dart`.
 ///
 /// What a 30 px bar can carry is proportion, and the two things that make it a
 /// reading rather than a swatch are asserted here: the stages are **told apart**
@@ -21,8 +22,12 @@ import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
+import 'package:healthee/features/sleep/widgets/sleep_hero_card.dart';
+import 'package:healthee/features/today/widgets/metric_tile.dart';
 import 'package:healthee/shared/charts/h_hypnogram.dart';
 import 'package:healthee/shared/charts/h_stage_bar.dart';
+import 'package:healthee/shared/metric_info/metric_info.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
 import '_today_host.dart';
 
@@ -169,25 +174,34 @@ void main() {
     });
     tearDown(() async => store.close());
 
-    testWidgets("TODAY'S SLEEP TILE DRAWS LEGACY'S 30 px HYPNOGRAM", (
+    testWidgets("TODAY'S SLEEP TILE DRAWS THE PROPORTION BAR, NOT THE HYPNOGRAM", (
       tester,
     ) async {
-      // **This assertion is the reverse of what it was**, and deliberately.
-      // The rebuild put an `HStageBar` in the Today cell because four lanes in
-      // 28 px read as scattered dots. Legacy draws `HHypnogram(..., height: 30)`
-      // there (`today_screen.dart:177`), the owner made legacy the
-      // specification, and a faithful port of something imperfect beats an
-      // unrequested fix. The old argument is not wrong — it is overruled, and it
-      // is recorded in the port report so it can be re-made deliberately.
+      // **This assertion has now been reversed twice, and this is the settled
+      // one.** The rebuild put an `HStageBar` here; the verbatim port put
+      // legacy's `HHypnogram(..., height: 30)` back (`today_screen.dart:177`),
+      // on the rule that a faithful port of something imperfect beats an
+      // unrequested fix; and on 2026-08-06 the owner delegated the call and it
+      // was decided: the bar. Four lanes in 30 px is ~7 px a lane with a 62%
+      // band inside it, and on this owner's fragmented nights that reads as
+      // scattered dots. A chart that reads as noise is not showing data.
+      //
+      // The departure is deliberate and is recorded at the site
+      // (`today_tiles.dart`) so the next reader does not "restore" it.
       tester.view
         ..physicalSize = const Size(420, 2600)
         ..devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
-      await reveal(tester, find.byType(HHypnogram));
+      await reveal(tester, find.byType(HStageBar));
 
-      expect(find.byType(HHypnogram), findsOneWidget);
+      expect(find.byType(HStageBar), findsOneWidget);
+      expect(
+        find.byType(HHypnogram),
+        findsNothing,
+        reason: 'the grid cell is the ONE place the hypnogram was too small',
+      );
     });
 
     testWidgets('THE HYPNOGRAM IS STILL ON SLEEP, AT FULL WIDTH', (tester) async {
@@ -198,6 +212,54 @@ void main() {
       await reveal(tester, find.text('SLEEP STAGES'));
 
       expect(find.byType(HHypnogram), findsOneWidget);
+    });
+
+    testWidgets('THE SLEEP HERO HAS NO ⓘ, AND THE EXPLAINER IS REACHABLE ANYWAY', (
+      tester,
+    ) async {
+      // Owner-delegated decision, 2026-08-06: it stays removed. Legacy passed
+      // `infoKey: 'sleep'` to this card and it has NEVER rendered — `HModule`
+      // draws the header row only when a `label` exists and this card passes
+      // none — so drawing it now would mean adding a header row the hero has
+      // never had, for a door that already exists.
+      //
+      // The second half is what makes that honest, and it is the half a comment
+      // cannot keep true: the `sleep` explainer opens from Today's Sleep tile.
+      await tester.pumpWidget(todayHost(store, home: const SleepScreen()));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byType(SleepHeroCard),
+          matching: find.byType(MetricInfoDot),
+        ),
+        findsNothing,
+      );
+
+      tester.view
+        ..physicalSize = const Size(420, 2600)
+        ..devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(todayHost(store));
+      await tester.pumpAndSettle();
+
+      // By the tile's own label, not by `find.text('SLEEP')` — the readiness
+      // block above it renders that exact string and is not a tile, so a text
+      // finder resolves to whichever of the two the ListView has built.
+      final tile = find.byWidgetPredicate(
+        (widget) => widget is MetricTile && widget.label == 'Sleep',
+      );
+      await reveal(tester, tile);
+      // `warnIfMissed: false` is this repo's convention for the ⓘ — see
+      // `sheet_layering_test.dart::openInfoSheet`. The dot is a 16 px target
+      // inside a card that is itself a gesture detector.
+      await tester.tap(
+        find.descendant(of: tile, matching: find.byType(MetricInfoDot)),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kMetricInfo['sleep']!.title), findsOneWidget);
     });
   });
 }

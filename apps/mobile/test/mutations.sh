@@ -491,10 +491,8 @@ mutate 'a one-night trend is plotted as a flat zero' "$WITHHELD_TEST" "$TRENDS" 
 # ── Today: a refusal must never come back as a number ───────────────────────
 TILE=lib/features/today/widgets/metric_tile.dart
 RECOVERY=lib/features/today/widgets/recovery_card.dart
-LABELS=lib/features/today/today_labels.dart
 TILE_TEST=test/features/today_tiles_test.dart
 WITHHELD_TEST=test/features/today_withheld_test.dart
-LABEL_TEST=test/features/today_labels_test.dart
 
 # THE defect this whole architecture exists to make impossible, at the last hop:
 # a grid cell that draws a figure where the server sent a refusal. Zero is the
@@ -525,29 +523,100 @@ mutate 'a withheld block is dropped instead of explained' "$WITHHELD_TEST" \
       ),' \
   '      Withheld<T>() => const SizedBox.shrink(),'
 
-# The fabricated hypnogram: legacy paints one light-sleep band for a night it
-# staged nothing.
-mutate 'an unstaged night is drawn as light sleep' "$LABEL_TEST" "$LABELS" \
-  'List<SleepStageSpan> hypnogramSpans(List<SleepStageSpan> stages) => [
-  for (final span in stages)
-    if (span.durationMin > 0) span,
-];' \
-  'List<SleepStageSpan> hypnogramSpans(List<SleepStageSpan> stages) {
-  final spans = [
-    for (final span in stages)
-      if (span.durationMin > 0) span,
-  ];
-  return spans.isNotEmpty
-      ? spans
-      : const <SleepStageSpan>[
-          SleepStageSpan(
-            stage: '"'"'core'"'"',
-            startOffsetMin: 0,
-            endOffsetMin: 1,
-            durationMin: 1,
-          ),
-        ];
-}'
+# ── a compacted caveat must not become an invisible one ─────────────────────
+# The disclosures moved off the card and into a sheet on 2026-08-06, because the
+# server's are essays and four of them under one card is what the owner reported.
+# Every mutation below is the SAME failure the compaction could have introduced:
+# the prose is gone from the screen and nothing took its place. None of them look
+# broken — that is the entire risk, and it is worse than the essay was.
+VIEW=lib/shared/states/reading_view.dart
+CAVEAT=lib/shared/states/caveat_disclosure.dart
+MODULE=lib/shared/instrument_module.dart
+CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/shared/reading_view_test.dart"
+
+# THE mutation: a Caveated renders exactly like a Present. This is what "just
+# stop printing the bullet points" would have been if nobody replaced them, and
+# it is a one-line diff that makes the screen look better.
+mutate 'a caveated value renders as if it were Present' "$CAVEAT_TEST" "$VIEW" \
+  '      Caveated<T>(:final value, :final caveats) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          builder(context, value),
+          caveatBuilder?.call(context, caveats) ??
+              CaveatNote(caveats: caveats, label: label),
+        ],
+      ),' \
+  '      Caveated<T>(:final value) => builder(context, value),'
+
+# The same failure on the tile side, where the carrier is a header mark rather
+# than a row. The tile keeps its number, its chart and its height, and stops
+# saying the number came from a different instrument on a different night.
+mutate 'a caveated tile stops marking itself' "$CAVEAT_TEST" \
+  lib/features/today/widgets/metric_tile.dart \
+  '      caveats: reading.caveatsOrEmpty,' \
+  '      caveats: const [],'
+
+# The header ignoring what it was handed — same outcome, one layer down, and it
+# takes out the Resp tile, the blood-oxygen module and the HRV module at once.
+mutate 'the module header drops the caveat mark' "$CAVEAT_TEST" "$MODULE" \
+  '                      if (caveats.isNotEmpty) ...[
+                        CaveatMark(caveats: caveats, label: label),
+                        const SizedBox(width: Insets.sm),
+                      ],' \
+  ''
+
+# The sheet keeping only the first disclosure. The card still says "4 things
+# tilt this number", so the count and the contents disagree and only the sheet
+# knows. Biological age loses three paragraphs including the SRI exclusion.
+mutate 'the sheet shows only the first disclosure' "$CAVEAT_TEST" "$CAVEAT" \
+  '            for (final caveat in caveats) _CaveatBlock(caveat: caveat),' \
+  '            _CaveatBlock(caveat: caveats.first),'
+
+# The headline stops counting. It is the ONLY part of a compacted caveat a
+# reader sees without tapping, so this is where a dropped disclosure has to
+# become visible — a fixed sentence would hide it completely.
+mutate 'the headline stops counting the disclosures' "$CAVEAT_TEST" "$CAVEAT" \
+  "String caveatHeadline(int count) => count == 1
+    ? 'Caveated — one thing tilts this number'
+    : 'Caveated — \$count things tilt this number';" \
+  "String caveatHeadline(int count) => 'Caveated';"
+
+# The geometric half of the bargain. The mark costs no height ONLY because that
+# explicit box holds it to the ⓘ'"'"'s 16 px; let the glyph size its own line box
+# and the header row grows, and the tile grows with it — which is the owner'"'"'s
+# second report arriving by a different route.
+mutate 'the caveat mark sizes itself instead of matching the ⓘ' "$TILE_TEST" "$CAVEAT" \
+  '            child: SizedBox(
+              width: size,
+              height: size,
+              child: Center(
+                child: _MarkGlyph(color: colors.accent, size: 14),
+              ),
+            ),' \
+  '            child: _MarkGlyph(color: colors.accent, size: 14),'
+
+# The Sleep cell'"'"'s chart. `hypnogramSpans` was mutated here until 2026-08-06 —
+# it guarded legacy'"'"'s fabricated one-minute light-sleep band for an unstaged
+# night. The cell draws `HStageBar` now (owner-delegated departure, recorded in
+# `today_tiles.dart`) and the guard moved into the chart: no minutes, no bar.
+# Feeding it an empty map is the same claim the deleted fallback made in reverse
+# — a chart slot that says nothing about a night we DO have staged.
+TILES=lib/features/today/widgets/today_tiles.dart
+SLEEP_CELL_TEST="test/features/grid_sleep_cell_test.dart test/features/today_charts_test.dart"
+
+mutate 'the sleep cell bar is drawn from nothing' "$SLEEP_CELL_TEST" "$TILES" \
+  '        child: HStageBar(facts.sleepTotals, progress: t),' \
+  '        child: HStageBar(const <String, int>{}, progress: t),'
+
+# The bar drawn from the wrong night'"'"'s shape: every stage equal. It renders as a
+# perfectly plausible four-colour bar and is a picture of no measurement.
+mutate 'every sleep stage is drawn the same width' "$SLEEP_CELL_TEST" \
+  lib/shared/charts/h_stage_bar.dart \
+  '                    Expanded(
+                      flex: minutes,' \
+  '                    Expanded(
+                      flex: 1,'
 
 # The recovery card claiming a night of no sleep out of a missing field.
 mutate 'a sleep factor with no minutes reads as zero hours' \
