@@ -186,27 +186,14 @@ class _AreaPainter extends CustomPainter {
       data,
       include: <double>[for (final line in references) line.value],
     );
-    double x(int i) => _padX + (i / (data.length - 1)) * (size.width - _padX * 2);
+    double x(int i) =>
+        _padX + (i / (data.length - 1)) * (size.width - _padX * 2);
     double y(double v) => scale.y(v, size.height);
 
     final points = [
       for (var i = 0; i < data.length; i++) Offset(x(i), y(data[i])),
     ];
     final line = smoothPath(points);
-
-    // BEHIND the series, deliberately: a reference is the ground the reading is
-    // read against, and ground does not sit on top of the measurement.
-    for (final reference in references) {
-      paintChartReference(
-        canvas,
-        size,
-        reference,
-        scale: scale,
-        color: ink3,
-        labelStyle: _referenceLabel.copyWith(color: ink3),
-        progress: progress,
-      );
-    }
 
     if (fill) {
       final area = Path.from(line)
@@ -224,6 +211,23 @@ class _AreaPainter extends CustomPainter {
               color.withValues(alpha: 0),
             ],
           ).createShader(Offset.zero & size),
+      );
+    }
+
+    // ON the fill, UNDER the trace — the 2026-08-06 repair. It used to be
+    // painted first, which put a grey hairline and a grey caption beneath a warm
+    // 32% wash: the owner's report on that build was that the heart-rate chart
+    // "looks wried", and what he was looking at was `ink3` seen through clay.
+    // "Ground under the measurement" is about the DATA LINE, which still crosses
+    // over it; a reference the fill has muddied is not ground, it is sludge.
+    for (final reference in references) {
+      paintChartReference(
+        canvas,
+        size,
+        reference,
+        scale: scale,
+        color: ink3,
+        progress: progress,
       );
     }
 
@@ -300,11 +304,3 @@ class _AreaPainter extends CustomPainter {
       old.touch != touch ||
       old.references != references;
 }
-
-/// A reference caption: the module eyebrow's size and tracking, one step
-/// quieter. The colour is supplied per-paint from the theme's `ink3`.
-const TextStyle _referenceLabel = TextStyle(
-  fontSize: 8,
-  fontWeight: FontWeight.w600,
-  letterSpacing: 0.6,
-);

@@ -153,7 +153,6 @@ class _DeviationPainter extends CustomPainter {
         line,
         scale: scale,
         color: ink3,
-        labelStyle: _label.copyWith(color: ink3),
         progress: progress,
       );
     }
@@ -197,9 +196,3 @@ class _DeviationPainter extends CustomPainter {
       old.color != color ||
       old.reference != reference;
 }
-
-const TextStyle _label = TextStyle(
-  fontSize: 8,
-  fontWeight: FontWeight.w600,
-  letterSpacing: 0.6,
-);

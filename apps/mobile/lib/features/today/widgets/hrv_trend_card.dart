@@ -35,6 +35,14 @@
 /// replaced by a median of the fourteen points on screen: that would be a second
 /// definition of the owner's normal over a different window, which is the exact
 /// failure `CLAUDE.md` names, and it would look completely convincing.
+///
+/// ## Where the baseline's caption went, 2026-08-06
+///
+/// It was painted inside the plot, and on the installed build
+/// `YOUR 30-DAY NORMAL 53 MS` lay across the trace: neither the words nor the
+/// line could be read. It is a [ChartReferenceCaption] under the chart now.
+/// `chart_reference.dart` records the rule — a reference line may be drawn in
+/// the plot, its label may not sit on the data.
 library;
 
 import 'package:flutter/material.dart';
@@ -77,6 +85,13 @@ class HrvTrendCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tint = context.hues.hrv;
     final median = baseline;
+    final references = <ChartReference>[
+      if (median != null)
+        ChartReference.personalBaseline(
+          value: median,
+          label: 'Your 30-day normal ${median.round()} ms',
+        ),
+    ];
     return InstrumentModule(
       label: 'HRV · 14 days',
       tag: tint,
@@ -100,14 +115,10 @@ class HrvTrendCard extends StatelessWidget {
             color: tint,
             progress: t,
             height: chartHeight,
-            reference: median == null
-                ? null
-                : ChartReference.personalBaseline(
-                    value: median,
-                    label: 'YOUR 30-DAY NORMAL ${median.round()} MS',
-                  ),
+            reference: references.isEmpty ? null : references.first,
           ),
         ),
+        ChartReferenceCaption(references),
         if (median == null)
           const ModuleFoot('No 30-day baseline from the server yet'),
         const SizedBox(height: 7),
