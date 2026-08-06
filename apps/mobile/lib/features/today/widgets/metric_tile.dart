@@ -37,6 +37,21 @@
 /// has to: legacy's Today gives these six metrics no detail screen to point at,
 /// so a cell that said only WITHHELD would be a refusal with no explanation
 /// anywhere on the device.
+///
+/// ## Why a CAVEAT gets the opposite treatment to a withhold
+///
+/// A withhold's remedy is short and there is no number in the cell to compete
+/// with it. A caveat's prose is not short — the one live on this screen is a
+/// 230-character sentence naming the instrument behind the Resp figure — and it
+/// arrives beside a number that IS being shown. Printed in the body it grew the
+/// tile past the tile beside it, which is what the owner reported. Legacy's grid
+/// is a fixed-shape module and *"if the content cannot fit the tile, the content
+/// is wrong, not the tile"*.
+///
+/// So a caveated tile discloses in the **header**, through
+/// [InstrumentModule.caveats], where the mark costs no height and the full prose
+/// is one tap away. The body is byte-for-byte the [Present] body: a caveated
+/// value is a real value and the port's geometry does not bend for it.
 library;
 
 import 'package:flutter/material.dart';
@@ -46,7 +61,6 @@ import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/shared/instrument/h_delta_badge.dart';
 import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/states/value_hole.dart';
-import 'package:healthee/shared/states/withheld_card.dart';
 
 /// A grid cell built from a [Reading].
 class MetricTile extends StatelessWidget {
@@ -122,6 +136,9 @@ class MetricTile extends StatelessWidget {
       label: label,
       tag: tag,
       infoKey: infoKey,
+      // The disclosure rides in the header. It is read off the union rather than
+      // passed in, so a caller cannot render a caveated tile without it.
+      caveats: reading.caveatsOrEmpty,
       minHeight: 0,
       trailing: rounded != null && rounded != 0
           ? HDeltaBadge(rounded, good: deltaFavorable, size: 10)
@@ -129,11 +146,8 @@ class MetricTile extends StatelessWidget {
       children: [
         switch (reading) {
           Present<double>(:final value) => _body(context, value),
-          Caveated<double>(:final value, :final caveats) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [_body(context, value), CaveatNote(caveats: caveats)],
-          ),
+          // Identical to Present, deliberately: see the library docstring.
+          Caveated<double>(:final value) => _body(context, value),
           Withheld<double>(:final disclosure) => _Hole(
             message: disclosure.message,
             foot: foot,

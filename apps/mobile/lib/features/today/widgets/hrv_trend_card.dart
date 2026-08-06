@@ -51,6 +51,11 @@ class HrvTrendCard extends StatelessWidget {
     return InstrumentModule(
       label: 'HRV · 14 days',
       tag: tint,
+      // `TrailingReading` draws a figure or a hole and CANNOT carry a caveat —
+      // a 20 px header slot has no room for one. Without this line a caveated
+      // HRV rendered as a bare number: the value shown, the tilt on it silently
+      // dropped, which is the exact silence `Caveated` exists to prevent.
+      caveats: reading.caveatsOrEmpty,
       minHeight: 0,
       trailing: TrailingReading(
         reading: reading,

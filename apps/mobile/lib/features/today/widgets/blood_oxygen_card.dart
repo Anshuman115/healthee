@@ -65,6 +65,12 @@ class BloodOxygenCard extends StatelessWidget {
     return InstrumentModule(
       label: 'Blood oxygen · 14 nights',
       tag: tint,
+      // The live case, and it was silent: on the committed contract snapshot
+      // `spo2_overnight` has no metric card, so this figure comes from
+      // `last_sleep_extras` CAVEATED with the sentence naming the instrument and
+      // the night — and `TrailingReading` renders a figure or a hole, never a
+      // disclosure. The header mark is where that sentence reaches the screen.
+      caveats: reading.caveatsOrEmpty,
       minHeight: 0,
       trailing: TrailingReading(
         reading: reading,
