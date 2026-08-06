@@ -102,6 +102,19 @@ sealed class Reading<T extends Object> {
   /// Whether a number reached the owner at all — true for [Present] and [Caveated].
   bool get hasValue => valueOrNull != null;
 
+  /// What tilts the value, or an empty list when nothing does.
+  ///
+  /// The opposite of [valueOrNull]'s escape hatch, and it exists **for**
+  /// rendering: a card that draws its own header — `InstrumentModule` and the
+  /// tiles built on it — has to hand its disclosures somewhere, and reading them
+  /// off the union means a caveated value cannot be drawn without them. Only
+  /// [Caveated] has any; [Excluded]'s are a different claim (no value at all) and
+  /// are deliberately not folded in here.
+  List<Disclosure> get caveatsOrEmpty => switch (this) {
+    Caveated<T>(:final caveats) => caveats,
+    Present<T>() || Withheld<T>() || Excluded<T>() => const <Disclosure>[],
+  };
+
   /// Applies [transform] to the value, carrying the honesty state through unchanged.
   ///
   /// Exists so a repository can convert units or reshape a payload without

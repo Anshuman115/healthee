@@ -33,8 +33,10 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// One cell of the Today grid.
@@ -45,6 +47,7 @@ class InstrumentModule extends StatelessWidget {
     required this.children,
     this.label,
     this.infoKey,
+    this.caveats = const <Disclosure>[],
     this.trailing,
     this.onOpen,
     this.minHeight = 118,
@@ -56,6 +59,14 @@ class InstrumentModule extends StatelessWidget {
          'lives in is only drawn when a label exists, so the explainer is '
          'unreachable and nothing on screen shows that it is. Give the card a '
          'label, or drop the infoKey — the Sleep hero did the latter.',
+       ),
+       assert(
+         caveats.length == 0 || label != null,
+         'Caveats with no label would be an INVISIBLE DISCLOSURE: the header '
+         'row this mark lives in is only drawn when a label exists. A '
+         'label-less module must carry its caveats in its body instead — '
+         'silently dropping them is the one failure the honesty layer exists '
+         'to prevent.',
        );
 
   /// The metric's name. Rendered uppercase by [ModuleLabel].
@@ -71,6 +82,14 @@ class InstrumentModule extends StatelessWidget {
   /// Legacy's `HModule.infoKey` — an ⓘ sits before [trailing] or the dot, and an
   /// unknown key draws nothing (`shared/metric_info/`).
   final String? infoKey;
+
+  /// What tilts this module's value, disclosed as a mark in the header.
+  ///
+  /// **Not legacy's** — legacy has no surface for a caveat anywhere. It is here
+  /// rather than in the body because the body of a grid cell is a fixed 92 px and
+  /// a tile that grows to fit prose breaks its row; the header row absorbs a
+  /// 16 px mark at zero cost. See `shared/states/caveat_disclosure.dart`.
+  final List<Disclosure> caveats;
 
   /// The metric's hue. Null draws no dot — for a module that has [trailing].
   final Color? tag;
@@ -131,6 +150,12 @@ class InstrumentModule extends StatelessWidget {
                       // Legacy's `[HInfoDot(infoKey), SizedBox(width: 8)]`.
                       if (infoKey case final String key) ...[
                         MetricInfoDot(key),
+                        const SizedBox(width: Insets.sm),
+                      ],
+                      // The footnote mark, after the ⓘ and before the dot: "what
+                      // this metric is" then "how to read THIS reading of it".
+                      if (caveats.isNotEmpty) ...[
+                        CaveatMark(caveats: caveats, label: label),
                         const SizedBox(width: Insets.sm),
                       ],
                       if (trailing case final Widget end)

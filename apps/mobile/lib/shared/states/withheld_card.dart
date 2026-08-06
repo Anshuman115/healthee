@@ -204,56 +204,8 @@ class ExcludedNote extends StatelessWidget {
   }
 }
 
-/// The tilts attached to a value that IS reported.
-///
-/// `caveat_block`'s docstring: "this block must reach every surface that renders
-/// it. A caveat only the database can see is the same silence somewhere new."
-/// `ReadingView` renders this automatically for a `Caveated`, so that silence
-/// takes a deliberate act rather than an oversight.
-///
-/// Brief §3 calls the caveats "the most interesting one" and asks for "an
-/// unobtrusive marker on the number that expands — never a modal, never a badge
-/// that demands attention". The accent dot below is that marker; the expansion
-/// lands with the first screen that needs it.
-class CaveatNote extends StatelessWidget {
-  /// Renders the caveats attached to a value.
-  const CaveatNote({required this.caveats, super.key});
-
-  /// What tilts the number, and which way.
-  final List<Disclosure> caveats;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final caveat in caveats)
-          Padding(
-            padding: const EdgeInsets.only(top: Insets.sm),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 5,
-                  height: 5,
-                  margin: const EdgeInsets.only(top: 6, right: Insets.sm),
-                  decoration: BoxDecoration(
-                    color: colors.accent,
-                    borderRadius: BorderRadius.circular(Radii.pill),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    caveat.message,
-                    style: text.bodySmall?.copyWith(color: colors.ink2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
+// `CaveatNote` — the tilts attached to a value that IS reported — used to live
+// here and printed every disclosure in full, inline. It now lives in
+// `caveat_disclosure.dart` as a one-line signpost that opens the full prose in a
+// sheet, because the server's disclosures are essays and four of them under one
+// card is what the owner saw. See that file for the whole argument.
