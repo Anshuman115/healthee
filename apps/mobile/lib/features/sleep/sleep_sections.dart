@@ -26,7 +26,9 @@
 ///   naps · 30 days               ── when there are naps
 /// ```
 ///
-/// The conditions are legacy's own, to the comparison. So is every gap: 14 under
+/// The conditions are legacy's own, to the comparison. Every gap names a rung of
+/// `PageSpacing`, which the owner widened on 2026-08-06; legacy's own numbers are
+/// recorded there. It was: 14 under
 /// Tonight and the banner, 10 between cards in a group, 24 before a section
 /// heading, and none after one (a `SectionHeading` carries its own 12).
 library;
@@ -53,6 +55,7 @@ import 'package:healthee/features/sleep/widgets/sleep_week_card.dart';
 import 'package:healthee/features/sleep/widgets/stale_sleep_banner.dart';
 import 'package:healthee/features/sleep/widgets/tonight_card.dart';
 import 'package:healthee/shared/findings_section.dart';
+import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/section_heading.dart';
 
 /// Draws one section at the reveal's [progress].
@@ -62,7 +65,7 @@ typedef SleepSectionBuilder = Widget Function(BuildContext context, double progr
 @immutable
 class SleepSection {
   /// Builds an entry.
-  const SleepSection(this.id, this.build, {this.gap = 10});
+  const SleepSection(this.id, this.build, {this.gap = PageSpacing.card});
 
   /// Stable across reorderings, so a card that moves does not re-animate and two
   /// cards cannot share a reveal (`shared/reveal_once.dart`).
@@ -205,13 +208,13 @@ List<SleepSection> sleepSections({
       SleepSection(
         'tonight',
         (context, progress) => TonightCard(lever: lever, progress: progress),
-        gap: 14,
+        gap: PageSpacing.related,
       ),
     if (windows.stale)
       SleepSection(
         'stale',
         (context, _) => StaleSleepBanner(windows.label),
-        gap: 14,
+        gap: PageSpacing.related,
       ),
     SleepSection('insight', (context, _) => const SleepInsightCard()),
     SleepSection(
@@ -221,7 +224,7 @@ List<SleepSection> sleepSections({
         previous: windows.previous,
         progress: progress,
       ),
-      gap: 24,
+      gap: PageSpacing.section,
     ),
     SleepSection(
       'last-night-heading',
@@ -241,7 +244,7 @@ List<SleepSection> sleepSections({
         cutoffs: page.cutoffs,
         notes: page.researchNotes,
       ),
-      gap: 24,
+      gap: PageSpacing.section,
     ),
     const SleepSection(
       'patterns-heading',

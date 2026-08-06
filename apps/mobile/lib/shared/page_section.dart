@@ -13,15 +13,42 @@
 library;
 
 import 'package:flutter/widgets.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 
-/// The gap under a section.
+/// The gap under a section — **the only place a screen's vertical rhythm lives**.
+///
+/// ## Owner-directed departure from the verbatim-legacy rule, 2026-08-06
+///
+/// *"give some space between cards it looks too cramped in between"*. Legacy's
+/// gaps were ported literally and they are tight: 10 px between sibling cards,
+/// 14 under a chart, 16 before a related block, 24 before a section heading. All
+/// four grew, and they grew **as a ladder**, because the rungs are what carry the
+/// grouping — a screen that padded everything to one gap would read as a pile of
+/// unrelated cards, which is what this rebuild replaced. The relationship legacy
+/// encodes is preserved: a section break is still comfortably wider than a gap
+/// between siblings (34 against 18, where legacy had 24 against 10).
+///
+/// This grew by the same repair as the caveat carrier and is not a coincidence:
+/// a wider gutter is only an improvement once the gutter is EMPTY. While a
+/// caveat note floated between two cards, widening the gap would have made the
+/// misattribution worse rather than better. See `caveat_scope.dart`.
+///
+/// Call sites name a rung. A literal at a call site is how a ladder stops being
+/// one, so `test/features/page_spacing_test.dart` fails the build on a screen
+/// that writes its own number.
 abstract final class PageSpacing {
-  /// Between two cards in the same section.
-  static const double card = Insets.md;
+  /// Between two cards in the same section. Legacy's 10.
+  static const double card = 18;
 
-  /// Under the last card of a section, before the next heading.
-  static const double section = Insets.xl;
+  /// Between a card and the one it is directly about — a chart and its legend,
+  /// a pair that reads as one block. Legacy's 14.
+  static const double related = 22;
+
+  /// Between two groups inside one section, where there is no heading to carry
+  /// the break. Legacy's 16.
+  static const double group = 26;
+
+  /// Under the last card of a section, before the next heading. Legacy's 24.
+  static const double section = 34;
 }
 
 /// A section [child] followed by [gap] of space.

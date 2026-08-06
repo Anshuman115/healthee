@@ -139,21 +139,41 @@ void main() {
     });
   });
 
-  group("the gaps between sections are legacy's SizedBoxes", () {
-    test('a section break is 24 and a card break is 10', () {
+  group('the gaps between sections are a LADDER, not four numbers', () {
+    // The owner widened all of them on 2026-08-06 — *"give some space between
+    // cards it looks too cramped"* — so this asserts the RELATIONSHIP legacy
+    // encodes rather than legacy's four constants. Pinning the numbers would
+    // fail the build for an improvement, which is the mistake this repo has
+    // already made once on `onAccent`. `PageSpacing` records legacy's values.
+    test('a section break is clearly wider than a card break', () {
       final list = sections();
       // Legacy: `_ActionsSection, SizedBox(height: 24)` (242) then the grid.
-      expect(list[_indexOf<ActionsSection>(list)].gap, 24);
+      expect(list[_indexOf<ActionsSection>(list)].gap, PageSpacing.section);
       // Legacy: `_RecoveryCard, SizedBox(height: 10)` (234).
-      expect(list[_indexOf<ReadingView<RecoveryScore>>(list)].gap, 10);
-      // Legacy puts 24 before each `HSectionTitle`, on the card above it.
-      expect(list[_headingIndex(list, 'Sleep') - 1].gap, 24);
-      expect(list[_headingIndex(list, 'Activity') - 1].gap, 24);
-      expect(list[_headingIndex(list, 'Fitness') - 1].gap, 24);
-      expect(list[_headingIndex(list, 'Insights') - 1].gap, 24);
+      expect(list[_indexOf<ReadingView<RecoveryScore>>(list)].gap, PageSpacing.card);
+      // Legacy puts its section break before each `HSectionTitle`, on the card
+      // above it.
+      for (final heading in <String>['Sleep', 'Activity', 'Fitness', 'Insights']) {
+        expect(list[_headingIndex(list, heading) - 1].gap, PageSpacing.section);
+      }
       // And nothing between a heading and the first card under it — the heading
       // carries its own 12 px (`ui.dart:183`).
       expect(list[_headingIndex(list, 'Sleep')].gap, 0);
+    });
+
+    test('THE RUNGS STAY IN ORDER, and every one clears legacy’s own', () {
+      // The grouping is carried by the gaps being DIFFERENT, so a change that
+      // added one constant to all four would read as a pile of unrelated cards.
+      expect(PageSpacing.card, lessThan(PageSpacing.related));
+      expect(PageSpacing.related, lessThan(PageSpacing.group));
+      expect(PageSpacing.group, lessThan(PageSpacing.section));
+      // Comfortably wider, not marginally: legacy's own ratio was 2.4.
+      expect(PageSpacing.section, greaterThan(PageSpacing.card * 1.5));
+      // Legacy's four, which the owner asked us to exceed.
+      expect(PageSpacing.card, greaterThan(10));
+      expect(PageSpacing.related, greaterThan(14));
+      expect(PageSpacing.group, greaterThan(16));
+      expect(PageSpacing.section, greaterThan(24));
     });
   });
 
