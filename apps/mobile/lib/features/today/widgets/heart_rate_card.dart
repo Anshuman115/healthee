@@ -25,31 +25,53 @@
 /// positions **of the series itself**, so each one names the hour the curve is
 /// actually at. That is what the app claims to be true, not where it is drawn.
 ///
-/// The range in the header is the range **of the samples on screen** and nothing
-/// more: no baseline band, no shaded normal, no population reference.
+/// ## The floor under the trace — owner-directed, 2026-08-06
+///
+/// The header range used to be the whole reference: *"no baseline band, no
+/// shaded normal, no population reference."* On the installed build the owner
+/// reported that this chart and three others *"all look similar"*, and the cause
+/// was that a bare 24-hour trace has nothing to be read against — a peak of 112
+/// is only interesting relative to where the day sits when nothing is happening.
+///
+/// So the chart now draws **the owner's own resting heart rate** as a solid
+/// reference line: the floor the day departs from and returns to. It is
+/// `rhr_daily` as the server derived it, never a minimum of the visible hours —
+/// the day's lowest hour and a resting rate are different quantities and the
+/// second is the one with a definition. With no resting rate today the line is
+/// absent and the foot says so.
+///
+/// This is a deliberate departure from the verbatim-legacy rule
+/// (`feedback_port_legacy_design_verbatim`); `chart_reference.dart` carries the
+/// argument for all four charts.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/models/today_series.dart';
 import 'package:healthee/features/today/today_labels.dart';
+import 'package:healthee/shared/charts/chart_reference.dart';
 import 'package:healthee/shared/charts/h_area.dart';
 import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
 
-/// The day's heart rate, hour by hour.
+/// The day's heart rate, hour by hour, against the owner's resting rate.
 class HeartRateDayCard extends StatelessWidget {
   /// [points] is today's hourly summary, earliest first.
   const HeartRateDayCard({
     required this.points,
+    required this.restingHeartRate,
     required this.reveals,
     super.key,
   });
 
   /// Today's hours, as the server aggregated them.
   final List<HourPoint> points;
+
+  /// `rhr_daily`, the reference line. A withheld reading draws no line.
+  final Reading<double> restingHeartRate;
 
   /// Where "this chart has already animated" is remembered.
   final RevealRegistry reveals;
@@ -64,9 +86,11 @@ class HeartRateDayCard extends StatelessWidget {
     final series = <double>[for (final point in points) point.average];
     final low = series.reduce((a, b) => a < b ? a : b).round();
     final high = series.reduce((a, b) => a > b ? a : b).round();
+    final resting = restingHeartRate.valueOrNull;
     return InstrumentModule(
       label: 'Heart rate · 24h',
       tag: tint,
+      caveats: restingHeartRate.caveatsOrEmpty,
       minHeight: 0,
       trailing: Text(
         '$low–$high bpm',
@@ -76,8 +100,19 @@ class HeartRateDayCard extends StatelessWidget {
         RevealOnce(
           id: 'today.heart-rate',
           registry: reveals,
-          builder: (context, t) =>
-              HArea(series, color: tint, progress: t, height: 52),
+          builder: (context, t) => HArea(
+            series,
+            color: tint,
+            progress: t,
+            height: 52,
+            references: <ChartReference>[
+              if (resting != null)
+                ChartReference.personalBaseline(
+                  value: resting,
+                  label: 'RESTING ${resting.round()}',
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 4),
         Row(
@@ -94,6 +129,8 @@ class HeartRateDayCard extends StatelessWidget {
               ),
           ],
         ),
+        if (resting == null)
+          const ModuleFoot('No resting rate today — no floor to read this against'),
       ],
     );
   }

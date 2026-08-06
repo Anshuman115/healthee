@@ -96,7 +96,10 @@ void todayBody(SectionList sections, TodayFacts facts, ScreenData data) {
       HrvTrendCard(
         series: hrvSpark,
         reading: facts.heartRateVariability,
-        median30d: facts.median(TodayMetricIds.heartRateVariability),
+        // NOT `facts.median('hrv_sleep_avg')`, which is null on every payload:
+        // the server baselines this metric but gives it no metric card. See
+        // `TodayFacts._hrvBaseline`.
+        baseline: facts.heartRateVariabilityBaseline,
         reveals: reveals,
       ),
     );
@@ -116,7 +119,11 @@ void todayBody(SectionList sections, TodayFacts facts, ScreenData data) {
   if (heartRateDay.length > 2) {
     sections.gap(10);
     sections.add(
-      HeartRateDayCard(points: snapshot.hourlyHeartRate, reveals: reveals),
+      HeartRateDayCard(
+        points: snapshot.hourlyHeartRate,
+        restingHeartRate: facts.restingHeartRate,
+        reveals: reveals,
+      ),
     );
   }
   sleepSections(sections, facts, tiles, reveals);
@@ -159,13 +166,17 @@ void sleepSections(
       ),
     ),
   );
-  final oxygen = facts.spark(TodayMetricIds.bloodOxygen);
-  if (oxygen.length > 2) {
+  // Legacy gates this module on its DRAWN series having more than two points,
+  // and the drawn series is the nightly minimums now (see the card). The two
+  // sparklines arrive together in practice — `derive/hrv_spo2_resp.py` writes
+  // both from one window or writes neither — so this is legacy's gate applied
+  // to legacy's rule, not a narrower one.
+  final oxygenMinima = facts.spark(TodayMetricIds.bloodOxygenMin);
+  if (oxygenMinima.length > 2) {
     sections.gap(10);
     sections.add(
       BloodOxygenCard(
-        averages: oxygen,
-        minima: facts.spark(TodayMetricIds.bloodOxygenMin),
+        minima: oxygenMinima,
         reading: facts.bloodOxygen,
         reveals: reveals,
       ),
