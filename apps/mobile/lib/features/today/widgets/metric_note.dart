@@ -44,6 +44,18 @@
 /// honesty-wording exception the port allows, and it is the only category of
 /// change made here.
 ///
+/// ## Shortened 2026-08-06, and the meaning is intact
+///
+/// The three sentences below ran to five lines under a chart that was itself
+/// only 52 px, so the card read as an essay with a picture on top. Every load-
+/// bearing clause survives — the run logic, the clinical routing, "convention
+/// not a cutoff", "not a diagnosis", and single low nights being the sensor
+/// rather than the owner. What went is repetition: the note no longer lists the
+/// artefacts it means (a cold hand, a loose strap, movement), and it no longer
+/// says twice that a single night is not flagged. `vitals_thresholds_test.dart`
+/// asserts each surviving clause by name, so a future trim cannot quietly take
+/// one of them with it.
+///
 /// ## Where this threshold lives, and why not in `analytics/`
 ///
 /// [spo2ConventionPercent] and [sustainedLowNights] sit beside the sentence that
@@ -136,17 +148,15 @@ String spo2Note(List<double> minima) {
   if (minima.isEmpty) {
     return 'Overnight blood-oxygen is normally 95–100%. The nightly LOW matters '
         'more than the average, and only a pattern across several nights means '
-        'anything — a single low night is usually the sensor, not you.';
+        'anything.';
   }
   final run = longestLowNightRun(minima);
   if (run >= sustainedLowNights) {
-    return 'Your nightly low has sat under ${spo2ConventionPercent.round()}% on '
-        '$run nights in a row. That figure is a clinical convention rather than '
-        'a measurement threshold for this strap, which is not a cleared '
-        'oximeter — so this is a reason to have your sleep breathing looked at '
-        'by a clinician, not a finding about your oxygen and not a diagnosis.';
+    return 'Your nightly low sat under ${spo2ConventionPercent.round()}% on '
+        '$run nights in a row. That figure is a clinical convention, not a '
+        'threshold measured for this strap — so it is worth having your sleep '
+        'breathing looked at by a clinician, and it is not a diagnosis.';
   }
-  return 'No sustained run of low nightly minimums. Single low nights are '
-      'usually artefacts — a cold hand, a loose strap, movement — so they are '
-      'not flagged here; only a run across several nights is.';
+  return 'No sustained run of low nightly minimums. A single low night is '
+      'usually the sensor rather than you, so it is not flagged.';
 }
