@@ -127,8 +127,11 @@ mutate 'the daily counter is never stored' "$STORE" "$WRITER" \
 # ── colour: the legacy hue set, and the mapping every sleep chart shares ────
 HUES=lib/core/theme/instrument_hues.dart
 PALETTE=lib/core/theme/palette.dart
+STAGES=lib/core/theme/sleep_stage_palette.dart
 HUES_TEST=test/theme/legacy_hues_test.dart
 STAGE_TEST=test/theme/sleep_stage_test.dart
+CONTRAST_TEST=test/theme/stage_contrast_test.dart
+TOKEN_TEST=test/core/theme_test.dart
 
 # The block this replaced mutated the five identity tags, whose whole invariant
 # was that a tag could never be a verdict colour. Legacy makes two of its hues
@@ -155,24 +158,96 @@ mutate 'someone separates cHrv from the green accent' "$HUES_TEST" "$PALETTE" \
   '  static const Color hrv = Color(0xFF2E8B6A);'
 
 # Two sleep stages collapsing onto one colour: a hypnogram that cannot be read.
-mutate 'deep and light sleep share a colour' "$STAGE_TEST" "$HUES" \
-  "    'deep' => steps," \
-  "    'deep' => spo2,"
+mutate 'deep and light sleep share a colour' "$STAGE_TEST $CONTRAST_TEST" "$HUES" \
+  "    'deep' => stageDeep," \
+  "    'deep' => stageLight,"
 
 # The pair swapped. Every night on every sleep screen is drawn inside out, and
 # nothing about it looks broken.
-mutate 'REM and awake are swapped' "$STAGE_TEST" "$HUES" \
-  "    'rem' => sleep,
-    'awake' => heart," \
-  "    'rem' => heart,
-    'awake' => sleep,"
+mutate 'REM and awake are swapped' "$STAGE_TEST $CONTRAST_TEST" "$HUES" \
+  "    'rem' => stageRem,
+    'awake' => stageAwake," \
+  "    'rem' => stageAwake,
+    'awake' => stageRem,"
 
 # `core` and `light` are one stage under two vocabularies. Giving them different
 # colours draws a distinction that does not exist.
 mutate 'core and light stop being the same stage' "$STAGE_TEST" "$HUES" \
-  "    'core' || 'light' => spo2," \
-  "    'core' => rem,
-    'light' => spo2,"
+  "    'core' || 'light' => stageLight," \
+  "    'core' => stageRem,
+    'light' => stageLight,"
+
+# ── the stage contrast repair ───────────────────────────────────────────────
+# The owner's report, on the installed dark build: "the sleep graph … looks dull
+# and has accessibility issues, only yellow is visible, others are not." Legacy
+# borrows four near-isoluminant metric hues for its four stages, so three of them
+# measured 1.02:1 to 1.38:1 AGAINST EACH OTHER. Every mutation below is a way for
+# that to come back, and each one renders perfectly.
+
+# The whole set reverted — "restore legacy's values", by someone who reads the
+# verbatim-port rule and not the docstring under it.
+mutate "legacy's four dark stage values are restored" \
+  "$CONTRAST_TEST $TOKEN_TEST" "$STAGES" \
+  '  static const Color deep = Color(0xFFFFCC73);' \
+  '  static const Color deep = Color(0xFFD9A84E);' \
+  '  static const Color light = Color(0xFF87AECF);' \
+  '  static const Color light = Color(0xFF7DA3C4);' \
+  '  static const Color rem = Color(0xFF867EB8);' \
+  '  static const Color rem = Color(0xFF968EC9);' \
+  '  static const Color awake = Color(0xFFA8472E);' \
+  '  static const Color awake = Color(0xFFE07A5F);'
+
+# ONE value put back. The 1.02:1 pair, which is the specific thing the owner
+# could not see. A wholesale-revert test would not catch a single-line edit.
+mutate "the dark REM value alone goes back to cSleep" \
+  "$CONTRAST_TEST $TOKEN_TEST" "$STAGES" \
+  '  static const Color rem = Color(0xFF867EB8);' \
+  '  static const Color rem = Color(0xFF968EC9);'
+
+# The light theme's worst pair was `light` vs `awake` at 1.12:1.
+mutate "the light AWAKE value alone goes back to cHeart" \
+  "$CONTRAST_TEST $TOKEN_TEST" "$STAGES" \
+  '  static const Color awake = Color(0xFF631000);' \
+  '  static const Color awake = Color(0xFFBF472E);'
+
+# The split undone at the source: a stage pointed back at its metric hue. This is
+# the edit that looks like a tidy-up — "these are the same colour, why two names".
+mutate 'a stage colour is re-merged with its metric hue' \
+  "$CONTRAST_TEST $TOKEN_TEST $STAGE_TEST" "$HUES" \
+  '      stageDeep = DarkStagePalette.deep,' \
+  '      stageDeep = LegacyDarkHues.steps,'
+
+# The ramp kept but scrambled: four fine colours, no longer ordered by depth, so
+# lane position and lightness stop agreeing and greyscale says nothing.
+mutate 'the ramp stops being ordered by depth' "$CONTRAST_TEST" "$STAGES" \
+  '  static const Color deep = Color(0xFFFFCC73);
+' \
+  '  static const Color deep = Color(0xFF867EB8);
+' \
+  '  static const Color rem = Color(0xFF867EB8);
+' \
+  '  static const Color rem = Color(0xFFFFCC73);
+'
+
+# The grey joining the ramp. "Unrecognised" is the absence of a stage identity;
+# giving it chroma makes it a fifth stage nobody named.
+mutate 'the unrecognised grey gains chroma' "$CONTRAST_TEST" "$STAGES" \
+  '  static const Color unstaged = Color(0xFF757575);' \
+  '  static const Color unstaged = Color(0xFF75855F);'
+
+# Colour left as the ONLY carrier on the one surface with no legend — Today's
+# 10 px sleep bar, where a row of keys does not fit.
+mutate 'the stage bar stops naming its segments' \
+  test/features/grid_sleep_cell_test.dart lib/shared/charts/h_stage_bar.dart \
+  '                      child: Semantics(
+                        label: sleepStageLabel(stage),
+                        child: ColoredBox(
+                          color: sleepStageColor(hues, stage),
+                        ),
+                      ),' \
+  '                      child: ColoredBox(
+                        color: sleepStageColor(hues, stage),
+                      ),'
 
 # ── the fifth row: an unrecognised stage ────────────────────────────────────
 # The two halves of one defect, in two files, and each is enough on its own to
@@ -183,7 +258,7 @@ FORMAT=lib/features/sleep/sleep_format.dart
 
 mutate 'an unrecognised code is painted as light sleep again' "$STAGE_TEST" "$HUES" \
   "    _ => unstaged," \
-  "    _ => spo2,"
+  "    _ => stageLight,"
 
 mutate 'an unrecognised code is renamed to light sleep again' "$STAGE_TEST" "$FORMAT" \
   "  return kUnrecognisedStage;
