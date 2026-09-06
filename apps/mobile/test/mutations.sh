@@ -1211,10 +1211,10 @@ mutate 'the v02 panel drops the caveats it was handed' "$V02_CAVEAT_TEST" "$PANE
 # own mutation: the biological-age block carries FOUR disclosures on the
 # committed payload and is the card the owner reported.
 mutate 'the hero drops the caveats it was handed' "$V02_CAVEAT_TEST" "$HERO" \
-  '                if (disclosed.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: modelGap),
-                  _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
-                ],' \
+  '    if (disclosed.isNotEmpty) ...<Widget>[
+      const SizedBox(height: modelGap),
+      _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
+    ],' \
   ''
 
 # A half-width panel blanking on a refusal. It keeps its title, its slot and its
@@ -1255,7 +1255,7 @@ mutate 'the movement tile invents a step target' "$HERO_TEST" \
 # looks right on the first screen, and it never pauses again.
 mutate 'the hero art is dropped from the card' "$HERO_TEST" \
   lib/features/today/v02/today_hero.dart \
-  '      art: const BioHalo(),' \
+  '      art: BioHalo(paused: _paused),' \
   '      art: null,'
 
 # ── the v02 Today fixes (withheld hero · provenance off the cards) ───────────
@@ -1459,6 +1459,63 @@ mutate 'the measured half stops following the selection' \
   "$DATE_TEST" "$DEVICE_REPO" \
   '  return store.strapReader.day(ref.watch(viewDateProvider));' \
   '  return store.strapReader.day(ref.watch(todayProvider));'
+
+HERO=lib/shared/v02/bio_hero.dart
+HERO_HALO=lib/shared/v02/instruments/bio_halo.dart
+GEOMETRY_TEST=test/features/today_hero_geometry_test.dart
+FIELD_TEST=test/features/today_hero_field_test.dart
+
+# ── the hero's geometry ─────────────────────────────────────────────────────
+# THE DEFECT ITSELF: the field stops being a background layer and becomes a
+# sized child of the stack, so the card is as tall as the FIELD and the
+# contributions and the model label go off the bottom of the screen.
+mutate 'the field drives the card height' "$GEOMETRY_TEST" "$HERO" \
+  '    return Positioned.fill(
+      // The constraints here are the card'"'"'s finished size' \
+  '    return SizedBox.fromSize(
+      size: const Size(300, 900),
+      // The constraints here are the card'"'"'s finished size'
+
+# The clip goes soft: `overflow: clip` over a 28px radius becomes a square
+# corner, and the field paints into the four corners the card does not have.
+mutate 'the card stops clipping to its rounded rect' "$FIELD_TEST" "$HERO" \
+  '        borderRadius: BorderRadius.circular(radius),' \
+  '        borderRadius: BorderRadius.zero,'
+
+# The hole goes back to the middle of the CARD: the densest part of the field
+# crosses the figure, and the still centre lands on the sentence and the ruler.
+mutate 'the still centre leaves the figure' "$FIELD_TEST" "$HERO" \
+  '          stillCentre: centred
+              ? bioStillCentre(constraints.biggest)
+              : Alignment.center,' \
+  '          stillCentre: Alignment.center,'
+
+# `motion.css` resets `.age-value { margin: 0 }`; richer.css'"'"'s 20 comes back
+# and the square no longer starts directly under the eyebrow.
+mutate 'the centred display takes the inline layout gap' \
+  "$GEOMETRY_TEST" "$HERO" \
+  '    if (!centred) const SizedBox(height: valueGap),' \
+  '    const SizedBox(height: valueGap),'
+
+# The two margins stop being told apart: the divider'"'"'s own 16 is replaced by
+# the collapsed 18, which is only right when the caption abuts the rule.
+mutate 'the divider gap is always the collapsed one' "$GEOMETRY_TEST" "$HERO" \
+  '        height: caption != null && instrument == null ? ruleGap : dividerGap,' \
+  '        height: ruleGap,'
+
+# The eyebrow row stops being the control'"'"'s 32: the still centre'"'"'s arithmetic
+# is then wrong by the difference, and the square moves up.
+mutate 'the eyebrow row loses its pinned extent' "$GEOMETRY_TEST" "$HERO" \
+  '    constraints: BoxConstraints(minHeight: centred ? eyebrowExtent : 0),' \
+  '    constraints: const BoxConstraints(),'
+
+# The pause control becomes decoration: it paints a play triangle and the
+# ticker keeps running, which is the failure the marks-not-a-flag test exists
+# for.
+mutate 'the pause control does not stop the field' \
+  "$FIELD_TEST" "$HERO_HALO" \
+  '        _foreground && !_reducedMotion && !widget.paused && _onScreen();' \
+  '        _foreground && !_reducedMotion && _onScreen();'
 
 echo
 echo "caught $PASS, survived $FAIL"
