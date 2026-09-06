@@ -1,8 +1,9 @@
 /// The account's straps. Tap one.
 ///
-/// One outer card with hairline-divided rows, never a card per device — brief §2
-/// bans a card inside a card, and a list of two devices rendered as two cards is
-/// exactly that shape.
+/// One `.card.flush` with hairline-divided `.list-row`s, never a card per
+/// device — a list of two devices rendered as two cards is a card inside a card,
+/// which the design forbids, and `FlushCard` draws the rule between rows rather
+/// than asking each row to draw its own.
 ///
 /// ## A row that has no name says so
 ///
@@ -15,15 +16,21 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/pairing/zepp_device.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/list_row.dart';
+import 'package:healthee/shared/v02/notices.dart';
+import 'package:healthee/shared/v02/section_head.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
 
 /// Renders the device list from a Zepp account.
 class DevicePicker extends StatelessWidget {
   /// [devices] is never empty — an empty account is a named failure instead.
-  const DevicePicker({required this.devices, required this.onSelected, super.key});
+  const DevicePicker({
+    required this.devices,
+    required this.onSelected,
+    super.key,
+  });
 
   /// The straps to choose from.
   final List<ZeppDevice> devices;
@@ -33,87 +40,33 @@ class DevicePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final colors = context.colors;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Your Zepp devices', style: text.titleMedium),
-          const SizedBox(height: Insets.sm),
-          Text(
-            'Tap the strap you wear. Nothing is stored until you confirm it on '
-            'the next screen.',
-            style: text.bodySmall?.copyWith(color: colors.ink2),
-          ),
-          const SizedBox(height: Insets.md),
-          for (final device in devices)
-            _DeviceRow(
-              device: device,
-              onTap: () => onSelected(device),
-              isFirst: device == devices.first,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeviceRow extends StatelessWidget {
-  const _DeviceRow({
-    required this.device,
-    required this.onTap,
-    required this.isFirst,
-  });
-
-  final ZeppDevice device;
-  final VoidCallback onTap;
-  final bool isFirst;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final colors = context.colors;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: isFirst
-            ? null
-            : Border(top: BorderSide(color: colors.line2, width: hairline)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: Insets.md),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(device.label, style: text.titleSmall),
-                    const SizedBox(height: Insets.xs),
-                    Text(
-                      device.hasVendorName
-                          ? device.strap.mac
-                          : 'Zepp did not name this one',
-                      style: text.bodySmall?.copyWith(color: colors.ink3),
-                    ),
-                  ],
-                ),
-              ),
-              if (device.isActive)
-                Padding(
-                  padding: const EdgeInsets.only(right: Insets.sm),
-                  child: Text(
-                    'IN USE',
-                    style: text.labelSmall?.copyWith(color: colors.accent),
-                  ),
-                ),
-              Icon(Icons.chevron_right, color: colors.ink3),
-            ],
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        const SectionHead(title: 'Your Zepp devices'),
+        const SmallProse(
+          'Tap the strap you wear. Nothing is stored until you confirm it on '
+          'the next screen.',
         ),
-      ),
+        const SizedBox(height: SectionGap.height),
+        FlushCard(
+          children: <Widget>[
+            for (final ZeppDevice device in devices)
+              ListRow(
+                icon: Icons.watch_outlined,
+                title: device.label,
+                subtitle: device.hasVendorName
+                    ? device.strap.mac
+                    : 'Zepp did not name this one',
+                onTap: () => onSelected(device),
+                trailing: device.isActive
+                    ? const HBadge('IN USE', kind: BadgeKind.accent)
+                    : null,
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

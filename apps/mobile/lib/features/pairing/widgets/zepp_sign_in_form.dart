@@ -11,13 +11,22 @@
 /// server, which has no endpoint for it. That sentence is on screen rather than
 /// in a privacy page, because it is the question a reasonable person asks when
 /// an app they self-host wants a third-party password, and the answer is good.
+///
+/// v02's `.field` geometry; the promises, the opt-in default and the disposal
+/// are unchanged. **Remembering is off by default** — storing somebody's
+/// password is a thing they opt into, not out of — and the switch is the
+/// prototype's own `.toggle-row`, which states what turning it on adds.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/fields.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:healthee/shared/v02/toggle_row.dart';
 
 /// Collects a Zepp sign-in and the "remember this" opt-in.
 class ZeppSignInForm extends StatefulWidget {
@@ -76,83 +85,70 @@ class _ZeppSignInFormState extends State<ZeppSignInForm> {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final colors = context.colors;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Sign in to Zepp', style: text.titleMedium),
-          const SizedBox(height: Insets.sm),
-          Text(
-            'Your strap is already bound to a Zepp account, and its pairing key '
-            'is stored there. Signing in reads it out. The password goes to '
-            'zepp.com and nowhere else — the Healthee server never sees it and '
-            'has no endpoint that could.',
-            style: text.bodySmall?.copyWith(color: colors.ink2),
-          ),
-          const SizedBox(height: Insets.lg),
-          TextField(
-            controller: _email,
-            enabled: widget.enabled,
-            keyboardType: TextInputType.emailAddress,
-            autocorrect: false,
-            autofillHints: const [AutofillHints.email],
-            decoration: const InputDecoration(labelText: 'Zepp email'),
-          ),
-          const SizedBox(height: Insets.md),
-          TextField(
-            controller: _password,
-            enabled: widget.enabled,
-            obscureText: true,
-            autocorrect: false,
-            enableSuggestions: false,
-            autofillHints: const [AutofillHints.password],
-            onSubmitted: (_) => _submit(),
-            decoration: const InputDecoration(labelText: 'Zepp password'),
-          ),
-          const SizedBox(height: Insets.md),
-          // A bare Checkbox in a Row rather than CheckboxListTile: ListTile
-          // paints its background on the nearest Material ancestor and asserts
-          // when it finds a DecoratedBox in between — which every StateCard is.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Checkbox(
-                value: widget.rememberZepp,
-                onChanged: widget.enabled
-                    ? (value) => widget.onRememberChanged(value ?? false)
-                    : null,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        PlainCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                'Sign in to Zepp',
+                style: FormType.heading3.copyWith(color: colors.ink),
               ),
-              const SizedBox(width: Insets.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: Insets.md),
-                    Text('Remember this Zepp sign-in', style: text.bodyMedium),
-                    const SizedBox(height: Insets.xs),
-                    Text(
-                      PairingDisclosure.whatRememberingAdds,
-                      style: text.bodySmall?.copyWith(color: colors.ink3),
-                    ),
-                  ],
+              const SizedBox(height: SectionGap.height),
+              const SmallProse(
+                'Your strap is already bound to a Zepp account, and its '
+                'pairing key is stored there. Signing in reads it out. The '
+                'password goes to zepp.com and nowhere else — the Healthee '
+                'server never sees it and has no endpoint that could.',
+              ),
+              const SizedBox(height: SectionGap.height),
+              HField(
+                label: 'Zepp email',
+                child: HTextField(
+                  controller: _email,
+                  enabled: widget.enabled,
+                  keyboardType: TextInputType.emailAddress,
                 ),
+              ),
+              HField(
+                label: 'Zepp password',
+                child: HTextField(
+                  controller: _password,
+                  enabled: widget.enabled,
+                  obscure: true,
+                  onSubmitted: (_) => _submit(),
+                ),
+              ),
+              HButton(
+                label: 'Find my straps',
+                onPressed: widget.enabled ? _submit : null,
               ),
             ],
           ),
-          const SizedBox(height: Insets.md),
-          FilledButton(
-            onPressed: widget.enabled ? _submit : null,
-            child: const Text('Find my straps'),
-          ),
-          const SizedBox(height: Insets.sm),
-          TextButton(
-            onPressed: widget.enabled ? widget.onUseManualEntry : null,
-            child: const Text('Enter the MAC and key by hand instead'),
-          ),
-        ],
-      ),
+        ),
+        const SectionGap(),
+        FlushCard(
+          children: <Widget>[
+            ToggleRow(
+              title: 'Remember this Zepp sign-in',
+              body: PairingDisclosure.whatRememberingAdds,
+              value: widget.rememberZepp,
+              onChanged: widget.enabled ? widget.onRememberChanged : null,
+            ),
+          ],
+        ),
+        const SectionGap(),
+        HButton(
+          label: 'Enter the MAC and key by hand instead',
+          kind: HButtonKind.secondary,
+          onPressed: widget.enabled ? widget.onUseManualEntry : null,
+        ),
+      ],
     );
   }
 }

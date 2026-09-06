@@ -1,5 +1,9 @@
 /// The server address and the token — the only typing this screen asks for.
 ///
+/// v02's `.field` geometry (`fields.dart`), the same two controls, the same
+/// promises, the same submit. Nothing about where the token goes changed; only
+/// what the boxes look like.
+///
 /// ## What the form says, in the form
 ///
 /// The same discipline `zepp_sign_in_form.dart` uses: the promise about where a
@@ -15,12 +19,20 @@
 /// one end — so being able to look at what is in the field is a correctness
 /// feature, not a convenience. The whitespace that causes that is trimmed
 /// anyway (`data/api/server_session.dart`), which is the belt to this brace.
+///
+/// **The token is never rendered anywhere but this field.** It is not put in
+/// the semantics label, not in a log line, and not in the state object — see
+/// `server_signin_state.dart`, and `test/signin/signin_secrecy_test.dart`,
+/// which executes the claim.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/fields.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
 
 /// Collects the server address and the API token.
 class ServerSignInForm extends StatefulWidget {
@@ -76,76 +88,67 @@ class _ServerSignInFormState extends State<ServerSignInForm> {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final colors = context.colors;
-    return StateCard(
+    return PlainCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Sign in to your server', style: text.titleMedium),
-          const SizedBox(height: Insets.sm),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
           Text(
+            'Sign in to your server',
+            style: FormType.heading3.copyWith(color: colors.ink),
+          ),
+          const SizedBox(height: SectionGap.height),
+          const SmallProse(
             'Healthee reads what your strap measured with no server at all. '
             'Signing in adds the half that is worked out on it — recovery, '
             'sleep health, debt, VO₂max and biological age.',
-            style: text.bodySmall?.copyWith(color: colors.ink2),
           ),
-          const SizedBox(height: Insets.lg),
-          TextField(
-            controller: _url,
-            enabled: widget.enabled,
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            enableSuggestions: false,
-            onChanged: (_) => widget.onEdited(),
-            decoration: const InputDecoration(
-              labelText: 'Server address',
-              helperText: 'https:// unless it is this phone itself',
-              helperMaxLines: 2,
+          const SizedBox(height: SectionGap.height),
+          HField(
+            label: 'Server address',
+            hint: 'https:// unless it is this phone itself',
+            child: HTextField(
+              controller: _url,
+              enabled: widget.enabled,
+              keyboardType: TextInputType.url,
+              onChanged: (_) => widget.onEdited(),
             ),
           ),
-          const SizedBox(height: Insets.md),
-          TextField(
-            controller: _token,
-            enabled: widget.enabled,
-            obscureText: !_revealed,
-            autocorrect: false,
-            enableSuggestions: false,
-            maxLines: 1,
-            // A token is pasted, and a smart keyboard capitalising the first
-            // character of an opaque secret is a 401 nobody can explain.
-            textCapitalization: TextCapitalization.none,
-            smartDashesType: SmartDashesType.disabled,
-            smartQuotesType: SmartQuotesType.disabled,
-            onSubmitted: (_) => _submit(),
-            onChanged: (_) => widget.onEdited(),
-            decoration: InputDecoration(
-              labelText: 'API token',
-              helperText: 'Checked against the server before it is saved',
-              helperMaxLines: 2,
+          HField(
+            label: 'API token',
+            hint: 'Checked against the server before it is saved',
+            child: HTextField(
+              controller: _token,
+              enabled: widget.enabled,
+              obscure: !_revealed,
+              onSubmitted: (_) => _submit(),
+              onChanged: (_) => widget.onEdited(),
+              // A token is pasted, and a smart keyboard capitalising the first
+              // character of an opaque secret is a 401 nobody can explain.
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _revealed = !_revealed),
                 tooltip: _revealed ? 'Hide the token' : 'Show the token',
                 icon: Icon(
-                  _revealed ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  _revealed
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   size: 18,
                   color: colors.ink3,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: Insets.md),
-          Text(
-            'The token is kept in this phone\'s secure keystore — the same place '
-            'a password manager uses — and is sent only to the address above, as '
-            'an Authorization header. It is never written to a log and never put '
-            'in a web address.',
-            style: text.bodySmall?.copyWith(color: colors.ink3),
+          const SmallProse(
+            'The token is kept in this phone’s secure keystore — the same place '
+            'a password manager uses — and is sent only to the address above, '
+            'as an Authorization header. It is never written to a log and never '
+            'put in a web address.',
           ),
-          const SizedBox(height: Insets.md),
-          FilledButton(
+          const SizedBox(height: SectionGap.height),
+          HButton(
+            label: 'Check and sign in',
             onPressed: widget.enabled ? _submit : null,
-            child: const Text('Check and sign in'),
           ),
         ],
       ),

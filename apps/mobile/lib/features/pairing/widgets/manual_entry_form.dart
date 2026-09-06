@@ -8,13 +8,20 @@
 ///
 /// The values come from the same places they always have: `huami-token` on a
 /// desktop, Gadgetbridge's device info, or an earlier install of this app.
+///
+/// v02's `.field` geometry. The input filters, the validation boundary and the
+/// disposal are unchanged: `PairedStrap.parse` still owns what a valid pairing
+/// is, so a typed one is held to the same shape as an account one.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/fields.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
 
 /// Collects a hand-typed pairing.
 class ManualEntryForm extends StatefulWidget {
@@ -57,61 +64,66 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final colors = context.colors;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Enter the pairing by hand', style: text.titleMedium),
-          const SizedBox(height: Insets.sm),
-          Text(
-            'For when the Zepp route cannot work — a sign-in through Google, an '
-            'account outside the US region, or an API that has moved. Both '
-            'values also come out of huami-token or Gadgetbridge.',
-            style: text.bodySmall?.copyWith(color: colors.ink2),
-          ),
-          const SizedBox(height: Insets.lg),
-          TextField(
-            controller: _mac,
-            enabled: widget.enabled,
-            autocorrect: false,
-            textCapitalization: TextCapitalization.characters,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F:-]')),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        PlainCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                'Enter the pairing by hand',
+                style: FormType.heading3.copyWith(color: colors.ink),
+              ),
+              const SizedBox(height: SectionGap.height),
+              const SmallProse(
+                'For when the Zepp route cannot work — a sign-in through '
+                'Google, an account outside the US region, or an API that has '
+                'moved. Both values also come out of huami-token or '
+                'Gadgetbridge.',
+              ),
+              const SizedBox(height: SectionGap.height),
+              HField(
+                label: 'Bluetooth MAC',
+                child: HTextField(
+                  controller: _mac,
+                  enabled: widget.enabled,
+                  hintText: 'DB:98:1F:80:4C:3D',
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F:-]')),
+                  ],
+                ),
+              ),
+              HField(
+                label: 'Auth key',
+                child: HTextField(
+                  controller: _key,
+                  enabled: widget.enabled,
+                  hintText: '32 hex digits, 0x optional',
+                  onSubmitted: (_) => _submit(),
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-FxX]')),
+                  ],
+                ),
+              ),
+              HButton(
+                label: 'Use this pairing',
+                onPressed: widget.enabled ? _submit : null,
+              ),
             ],
-            decoration: const InputDecoration(
-              labelText: 'Bluetooth MAC',
-              hintText: 'DB:98:1F:80:4C:3D',
-            ),
           ),
-          const SizedBox(height: Insets.md),
-          TextField(
-            controller: _key,
-            enabled: widget.enabled,
-            autocorrect: false,
-            enableSuggestions: false,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-FxX]')),
-            ],
-            onSubmitted: (_) => _submit(),
-            decoration: const InputDecoration(
-              labelText: 'Auth key',
-              hintText: '32 hex digits, 0x optional',
-            ),
-          ),
-          const SizedBox(height: Insets.lg),
-          FilledButton(
-            onPressed: widget.enabled ? _submit : null,
-            child: const Text('Use this pairing'),
-          ),
-          const SizedBox(height: Insets.sm),
-          TextButton(
-            onPressed: widget.enabled ? widget.onUseAccount : null,
-            child: const Text('Back to signing in with Zepp'),
-          ),
-        ],
-      ),
+        ),
+        const SectionGap(),
+        HButton(
+          label: 'Back to signing in with Zepp',
+          kind: HButtonKind.secondary,
+          onPressed: widget.enabled ? widget.onUseAccount : null,
+        ),
+      ],
     );
   }
 }
