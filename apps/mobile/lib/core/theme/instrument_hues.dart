@@ -18,20 +18,21 @@
 /// Two questions, two extensions, and a reviewer can tell at the call site which
 /// one is being asked.
 ///
-/// ## The stage ramp is NOT v02's, and that is a decision with a number on it
+/// ## The stage ramp IS v02's — `richer.css`, hex for hex
 ///
-/// `richer.css` ships four stage colours — `#5E38C1 #89A9F1 #C96BCC #EDA253`
-/// light — that **fail the accessibility gate this app already has**. Measured:
-/// light-vs-REM is 1.39:1 and light-vs-awake is 1.10:1 against a floor of
-/// `kStagePairFloor` (1.5), and in the light theme `light` and `awake` reach only
-/// 2.33:1 and 2.12:1 on a white card against `kStageSurfaceFloor` (3.0). That is
-/// the same class of defect the ramp in `sleep_stage_palette.dart` was authored
-/// to repair, and the owner reported it on a shipped build.
+/// [stageDeep] and its three siblings are `--stage-deep`, `--stage-light`,
+/// `--stage-rem` and `--stage-awake` exactly as the prototype ships them, in
+/// both themes. They were substituted once, on accessibility grounds, for a
+/// derived luminance ramp; the owner answered by restating the standing rule —
+/// **`design/mobile-preview/` is the specification and we match it** — and the
+/// substitution is reverted.
 ///
-/// So [stageDeep] and friends keep the repaired ramp. v02's four are recorded in
-/// `sleep_stage_palette.dart` as `V02StagePrototype`, and
-/// `test/theme/stage_contrast_test.dart` proves the gate rejects them — because a
-/// rejected design that is not written down is a design that comes back.
+/// The measurements that motivated the substitution are **kept in full** in
+/// `sleep_stage_palette.dart` and in `test/theme/stage_contrast_test.dart`, where
+/// they are now *recordings* rather than gates: the suite prints every pair in
+/// both themes and passes. The superseded ramp is kept beside the live one under
+/// the same names it always had, labelled as superseded, so the trade stays
+/// legible without being re-argued.
 library;
 
 import 'package:flutter/material.dart';
@@ -68,10 +69,10 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
       oxygenSoft = LightFamilies.oxygenSoft,
       stress = LightFamilies.stress,
       stressSoft = LightFamilies.stressSoft,
-      stageDeep = LightStagePalette.deep,
-      stageLight = LightStagePalette.light,
-      stageRem = LightStagePalette.rem,
-      stageAwake = LightStagePalette.awake,
+      stageDeep = V02StagePrototype.lightDeep,
+      stageLight = V02StagePrototype.lightLight,
+      stageRem = V02StagePrototype.lightRem,
+      stageAwake = V02StagePrototype.lightAwake,
       unstaged = LightStagePalette.unstaged;
 
   /// v02's families, dark. Authored by the prototype, not derived from light.
@@ -88,10 +89,10 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
       oxygenSoft = DarkFamilies.oxygenSoft,
       stress = DarkFamilies.stress,
       stressSoft = DarkFamilies.stressSoft,
-      stageDeep = DarkStagePalette.deep,
-      stageLight = DarkStagePalette.light,
-      stageRem = DarkStagePalette.rem,
-      stageAwake = DarkStagePalette.awake,
+      stageDeep = V02StagePrototype.darkDeep,
+      stageLight = V02StagePrototype.darkLight,
+      stageRem = V02StagePrototype.darkRem,
+      stageAwake = V02StagePrototype.darkAwake,
       unstaged = DarkStagePalette.unstaged;
 
   /// Recovery, HRV, VO₂max, readiness. Also the app's accent.
@@ -130,30 +131,30 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
   /// The fill behind [stress] content.
   final Color stressSoft;
 
-  /// Deep sleep — the lightest rung of the ramp.
+  /// Deep sleep — `--stage-deep`, the prototype's violet.
   final Color stageDeep;
 
-  /// Light (`core`) sleep — the second rung.
+  /// Light (`core`) sleep — `--stage-light`, the prototype's blue.
   final Color stageLight;
 
-  /// REM — the third rung.
+  /// REM — `--stage-rem`, the prototype's magenta.
   final Color stageRem;
 
-  /// Awake — the darkest rung.
+  /// Awake — `--stage-awake`, the prototype's amber.
   final Color stageAwake;
 
-  /// A span the strap staged with a code this app cannot name. Chroma-free, and
-  /// not a fifth rung.
+  /// A span the strap staged with a code this app cannot name. Chroma-free, so
+  /// it is the one value in the set that names no stage.
   final Color unstaged;
 
   /// **The one sleep-stage mapping.** Every hypnogram, stacked bar and legend
   /// resolves a stage name here and nowhere else.
   ///
   /// ```text
-  ///   deep          → stageDeep    lightest rung
-  ///   core / light  → stageLight
-  ///   rem           → stageRem
-  ///   awake         → stageAwake   darkest rung
+  ///   deep          → stageDeep    violet
+  ///   core / light  → stageLight   blue
+  ///   rem           → stageRem     magenta
+  ///   awake         → stageAwake   amber
   ///   anything else → unstaged     grey, and named "Unrecognised"
   /// ```
   ///

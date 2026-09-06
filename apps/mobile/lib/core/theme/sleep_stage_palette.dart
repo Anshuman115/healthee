@@ -2,7 +2,32 @@
 /// only other — file in this app that may hold a colour literal; `palette.dart`
 /// is the first, and its library docstring names this one.
 ///
-/// ## Why this is not in `palette.dart`, and not legacy's values
+/// ## What ships: [V02StagePrototype], the owner's own four
+///
+/// `design/mobile-preview/richer.css` assigns the stages violet, blue, magenta
+/// and amber, and **those are the shipped values** — hex for hex, both themes,
+/// wired in `instrument_hues.dart`. The prototype is the specification.
+///
+/// ## What is kept beside them, and why nothing here is deleted
+///
+/// [LightStagePalette] and [DarkStagePalette] hold a **superseded** luminance
+/// ramp that shipped for one month in their place, and everything below is the
+/// record of how it was derived and what it measured. It is kept, in full and
+/// under its own names, for two reasons:
+///
+///   * `unstaged` is still live. v02 has no fifth value, so the grey for a span
+///     the strap staged with a code we cannot name is still ours to choose, and
+///     it is chosen here.
+///   * A trade nobody can see the price of is a trade that gets re-made. The
+///     numbers below and in `test/theme/stage_contrast_test.dart` are what the
+///     v02 set costs, stated once, measured rather than argued.
+///
+/// **These are recordings, not gates.** No assertion fails on them, nothing warns
+/// at runtime, and [kStagePairFloor] / [kStageSurfaceFloor] are reference
+/// numbers to measure against rather than thresholds to clear. The owner has
+/// answered this question and it is not reopened.
+///
+/// ## Why the ramp was derived in the first place
 ///
 /// Legacy has no stage palette. `HColors.sleepStage` *borrows* four metric hues
 /// — `cSteps` for deep, `cSpo2` for light, `cSleep` for REM, `cHeart` for awake —
@@ -10,8 +35,8 @@
 /// the owner reported the result: *"the sleep graph … looks dull and has
 /// accessibility issues, only yellow is visible, others are not."*
 ///
-/// He was right, and the reason is measurable. Each of the four clears the card
-/// it is drawn on comfortably; what they do not clear is **each other**:
+/// Each of the four cleared the card it was drawn on comfortably; what they did
+/// not clear was **each other**:
 ///
 /// ```text
 ///   dark, against the card #141419      dark, band against band
@@ -37,10 +62,10 @@
 /// object needed to understand content, and adjacent hypnogram bands are exactly
 /// that.
 ///
-/// **This is an accessibility flaw fix, authorised as a deliberate departure from
-/// the verbatim-legacy rule** (owner, 2026-08-06). It is recorded here so that
-/// nobody restores legacy's values later believing they are fixing a drift. The
-/// numbers above are what would come back.
+/// Three of legacy's four dark values were near-isoluminant, so an adjacent pair
+/// measured 1.02:1 — the same colour to the eye. That is the defect the ramp
+/// below was derived to repair, and it is why these numbers are worth keeping
+/// even now that the ramp is superseded.
 ///
 /// ## 3:1 on every pair is impossible, and here is the arithmetic
 ///
@@ -112,24 +137,28 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// The measured floor every adjacent stage pair clears, in both themes.
+/// **A reference number, no longer a gate.** The best adjacent-pair contrast the
+/// superseded ramp reached: 1.55:1 (light), 1.53:1 (dark).
 ///
-/// **1.5:1, and it is a floor, not a pin.** The palette measures 1.55:1 (light)
-/// and 1.57:1 (dark) at its worst pair; the ceiling proved in the library
-/// docstring is 1.83:1. Pinning the exact value would fail the day contrast
-/// *improves*, which this repo has already paid for once on `onAccent`.
+/// The shipped v02 set measures 1.10:1 (light) and 1.14:1 (dark) at its worst
+/// pair. `test/theme/stage_contrast_test.dart` prints both against this number
+/// and passes; nothing anywhere asserts the shipped set clears it.
 ///
-/// It is deliberately not 3:1. See the library docstring: four colours cannot
-/// reach 3:1 pairwise in any colour space, on any background.
+/// It was never 3:1, and could not have been. See the library docstring: four
+/// colours cannot reach 3:1 pairwise in any colour space, on any background.
 const double kStagePairFloor = 1.5;
 
-/// The floor every stage clears against the card it is drawn on, in both themes.
+/// **A reference number, no longer a gate.** WCAG 2.1 SC 1.4.11's 3:1 for a
+/// graphical object, which adjacent hypnogram bands are.
 ///
-/// WCAG 2.1 SC 1.4.11. This one **is** reachable, and every stage clears it with
-/// room: the tightest is dark `awake` at 3.15:1.
+/// The superseded ramp cleared it everywhere, tightest at dark `awake`, 3.21:1.
+/// The shipped v02 set clears it in the dark theme (tightest `deep`, 3.56:1) and
+/// misses it on a white card in the light theme, at `light` 2.33:1 and `awake`
+/// 2.12:1. Recorded, measured, and not enforced.
 const double kStageSurfaceFloor = 3.0;
 
-/// **The four stage colours, light theme.** Derived; see the library docstring.
+/// **SUPERSEDED — the derived light ramp.** Only [LightStagePalette.unstaged] is
+/// still drawn; the four stages ship from [V02StagePrototype].
 ///
 /// Drawn on `LightPalette.surface` (`#FFFFFF`). Measured against it, and against
 /// the page `#F4F4F6`, because the 3:1 floor holds on both:
@@ -166,21 +195,23 @@ abstract final class LightStagePalette {
   /// **A span the strap staged with a code we do not recognise.** Chroma-free,
   /// and not a fifth rung.
   ///
-  /// Was `#8C8C8C`, which under the new ramp sat 1.05:1 from `deep` — visually
-  /// the same colour. It is placed at the geometric midpoint of the ramp gap
-  /// **nearest the card**, so an unreadable span is the quietest mark on the
-  /// chart while still clearing the card at 4.29:1.
+  /// **Live.** v02 ships no fifth value, so this one stays ours. It was placed
+  /// at the geometric midpoint of the superseded ramp's gap nearest the card and
+  /// has not moved with the ramp — moving it would be a design judgement, and
+  /// those are the owner's.
   ///
-  /// **Luminance cannot do this job and is not asked to.** Every gap in a
-  /// four-rung ladder is 1.56:1 wide, so the best any fifth value can manage is
-  /// 1.25:1 from its neighbours, which is what this reaches. The carriers that do
-  /// the work are **chroma** — this is the only value in the set with none, and
-  /// every stage is asserted chromatic — and the **word**: `legendStages` adds an
-  /// "Unrecognised" key exactly when a grey band was drawn.
+  /// Against the shipped v02 set it measures 4.29:1 on the card, 3.94:1 on the
+  /// page, and 1.32 · 1.74 · 1.84 · 2.02 from REM, deep, light and awake.
+  ///
+  /// **Luminance was never what did this job.** The carriers are **chroma** —
+  /// this is the only value in the set with none, and every stage is asserted
+  /// chromatic — and the **word**: `legendStages` adds an "Unrecognised" key
+  /// exactly when a grey band was drawn.
   static const Color unstaged = Color(0xFF7A7A7A);
 }
 
-/// **The four stage colours, dark theme.** Derived; see the library docstring.
+/// **SUPERSEDED — the derived dark ramp.** Only [DarkStagePalette.unstaged] is
+/// still drawn; the four stages ship from [V02StagePrototype].
 ///
 /// Drawn on `DarkPalette.surface` (`#141419`):
 ///
@@ -231,45 +262,51 @@ abstract final class DarkStagePalette {
   /// counterpart.
   static const Color awake = Color(0xFFAE4D33);
 
-  /// A span staged with a code we do not recognise. See
-  /// [LightStagePalette.unstaged] for the whole argument — same placement rule,
-  /// same reasoning. Re-placed with the ramp: at the geometric midpoint of the
-  /// rem/awake gap it is 1.24:1 from each and 3.98:1 on the card.
+  /// **Live**, for the reason [LightStagePalette.unstaged] gives: v02 has no
+  /// fifth value, and moving this one to suit a ramp the owner replaced would be
+  /// a design judgement rather than a derivation.
+  ///
+  /// Against the shipped v02 set it measures 3.96:1 on the card and 4.40:1 on
+  /// the page, and 1.11 · 1.63 · 2.32 · 2.65 from deep, REM, light and awake.
+  /// **The 1.11 is real**: an unrecognised span and a deep-sleep span are close
+  /// to the same lightness in the dark theme, and only the missing chroma and
+  /// the legend's "Unrecognised" key tell them apart.
   static const Color unstaged = Color(0xFF797979);
 }
 
-/// **v02's four stage colours, as the prototype ships them — and why they are
-/// not what this app draws.**
+/// **THE SHIPPED SET — v02's four stage colours, exactly as the prototype writes
+/// them.**
 ///
-/// `design/mobile-preview/richer.css` assigns the stages their own hue family:
-/// violet deep, blue light, magenta REM, amber awake. Measured against the two
-/// floors this file exists to hold:
+/// `design/mobile-preview/richer.css` gives the stages their own hue family:
+/// violet deep, blue light, magenta REM, amber awake. `instrument_hues.dart`
+/// reads these eight constants and nothing else for the four stages.
+///
+/// Measured — recorded, not gated. `card` is `surface` (`#FFFFFF` light,
+/// `#181C19` dark) and `page` is `bg`:
 ///
 /// ```text
-///   light theme        Y       on a white card    worst pair
-///   deep  #5E38C1   0.0906         7.47              light vs REM    1.39   ✗
-///   light #89A9F1   0.4005         2.33   ✗          light vs awake  1.10   ✗
-///   rem   #C96BCC   0.2750         3.23              rem   vs awake  1.52
-///   awake #EDA253   0.4448         2.12   ✗          deep  vs light  3.20
+///   light theme        Y      card   page    OKLCH                worst pairs
+///   deep  #5E38C1   0.0906    7.47   6.86    L .471 C .200 H 289   light-rem  1.39
+///   light #89A9F1   0.4005    2.33   2.14    L .739 C .111 H 265   light-awake 1.10
+///   rem   #C96BCC   0.2729    3.25   2.99    L .670 C .170 H 326   rem-awake  1.53
+///   awake #EDA253   0.4447    2.12   1.95    L .771 C .130 H  65   deep-light 3.20
 ///
-///   dark theme         Y       on the dark card   worst pair
-///   deep  #7859E3   0.1677        16.8              light vs REM    1.42   ✗
-///   light #9EBDFF   0.5079        49.4              light vs awake  1.15   ✗
-///   rem   #DA7BDD   0.3420        33.4              rem   vs awake  1.63
-///   awake #FFBD76   0.5894        57.2              deep  vs light  2.56
+///   dark theme         Y      card   page    OKLCH                worst pairs
+///   deep  #7859E3   0.1668    3.56   3.95    L .570 C .200 H 289   light-awake 1.14
+///   light #9EBDFF   0.5088    9.17  10.18    L .800 C .100 H 265   light-rem  1.42
+///   rem   #DA7BDD   0.3429    6.45   7.16    L .721 C .170 H 326   rem-awake  1.63
+///   awake #FFBD76   0.5896   10.49  11.66    L .844 C .116 H  67   deep-light 2.58
 /// ```
 ///
-/// Two pairs are under [kStagePairFloor] in both themes and two stages are under
-/// [kStageSurfaceFloor] on the light card. That is the same defect the ramp above
-/// was authored to repair — bands told apart by hue alone, which is what red-green
-/// colour deficiency removes — and the owner reported it on a shipped build:
-/// *"only yellow is visible, others are not."*
+/// What that costs against the numbers the superseded ramp was fitted to: two
+/// pairs land under [kStagePairFloor] in each theme, and on the light theme's
+/// white card `light` and `awake` land under [kStageSurfaceFloor]. The four are
+/// told apart by **hue** rather than by lightness, so the separation red-green
+/// colour deficiency removes is the separation this set leans on.
 ///
-/// **So the app keeps the repaired ramp and this set is recorded, not drawn.** It
-/// is here rather than deleted because `test/theme/stage_contrast_test.dart`
-/// mutates the ramp to these exact values and requires the gate to reject them: a
-/// rejected design that is not written down is a design that comes back. Adopting
-/// it is a decision for the owner, and it costs the floors.
+/// The owner has been shown these numbers and has chosen the prototype's values.
+/// `test/theme/stage_contrast_test.dart` prints them on every run and asserts
+/// nothing about them. **Do not re-raise it.**
 abstract final class V02StagePrototype {
   /// `--stage-deep`, light theme.
   static const Color lightDeep = Color(0xFF5E38C1);
