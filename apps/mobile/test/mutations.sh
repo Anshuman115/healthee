@@ -1528,6 +1528,174 @@ mutate 'the rim dust wears the stream glow' \
           glint: dot.glint,
           width: dot.extent * 6,'
 
+# ── Actions · Journal · Coach, rebuilt to v02 ───────────────────────────────
+# The honesty layer on these three screens is almost entirely a set of things
+# that must NOT be drawn — a bar with no observation behind it, an input with no
+# balance behind it, a prompt that spends a question the owner does not have.
+# Every one of those is invisible when it is right, so each is broken here.
+SUGGESTION=lib/features/actions/v02/suggestion_card.dart
+CHALLENGE_CARD=lib/features/actions/v02/challenge_card.dart
+ACTIONS_SCREEN=lib/features/actions/actions_screen.dart
+OUTCOME_CARD=lib/shared/challenge_outcome_card.dart
+CHOICES=lib/shared/v02/choices.dart
+COACH_SHEET=lib/features/coach/coach_sheet.dart
+COACH_CTRL=lib/features/coach/coach_controller.dart
+COMPOSER=lib/features/coach/v02/coach_composer.dart
+JOURNAL_GRID=lib/features/journal/v02/journal_grid.dart
+LOG_SHEET=lib/features/journal/v02/log_sheet.dart
+ACTIONS_TEST=test/features/actions_v02_test.dart
+CARDS_TEST=test/features/actions_cards_test.dart
+COACH_TEST=test/features/coach_sheet_test.dart
+COMPOSER_TEST=test/features/coach_composer_test.dart
+JOURNAL_TEST=test/journal/journal_screen_test.dart
+
+# A snake_case token on a health screen is a log line where a source belongs.
+mutate 'a raw signal id reaches the suggestion card' "$ACTIONS_TEST" "$SUGGESTION" \
+  "  return hasMetricName(signal)
+      ? 'Raised by your \${metricName(signal)}'
+      : 'Raised by a reading this build cannot name yet';" \
+  "  return 'Raised by \$signal';"
+
+# Adoption records an INTENTION. Nothing in this app observes the doing.
+mutate 'the checkbox starts claiming the action was done' "$ACTIONS_TEST" "$SUGGESTION" \
+  "const String kAdoptNote = 'One manageable change to start with.';" \
+  "const String kAdoptNote = 'Marks it Done for today.';"
+
+# The family is the rec's own category. A card that picked one would be a hue
+# that can disagree with what the card is about.
+mutate 'the suggestion card ignores its category' "$ACTIONS_TEST" "$SUGGESTION" \
+  '      tone: toneForCategory(rec.category),' \
+  '      tone: Tone.fitness,'
+
+# The eyebrow is the only thing that says which of the ranked set this is.
+mutate 'every suggestion claims to be the top one' "$ACTIONS_TEST" "$ACTIONS_SCREEN" \
+  '            SuggestionCard(recommendation: recommendations[i], first: i == 0),' \
+  '            SuggestionCard(recommendation: recommendations[i], first: true),'
+
+# The prototype's order, moved by one.
+mutate 'the Actions sections come out of order' "$ACTIONS_TEST" "$ACTIONS_SCREEN" \
+  '    const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),
+    const PageSection(WorkingOn(), gap: PageSpacing.block),' \
+  '    const PageSection(WorkingOn(), gap: PageSpacing.block),
+    const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),'
+
+# "Nothing observed yet" and "you are at zero" are different days.
+mutate 'a challenge with no progress draws a bar at zero' "$CARDS_TEST" "$CHALLENGE_CARD" \
+  '  static double? fraction(ChallengeProgress? progress) {
+    if (progress == null) {
+      return null;
+    }' \
+  '  static double? fraction(ChallengeProgress? progress) {
+    if (progress == null) {
+      return 0;
+    }'
+
+# A 7-day window over something nobody started reads as a commitment.
+mutate 'a suggested challenge is labelled as a running one' "$CARDS_TEST" "$CHALLENGE_CARD" \
+  "    return challenge.status == 'active'
+        ? '\$window challenge'
+        : 'Suggested · \$window';" \
+  "    return '\$window challenge';"
+
+# `.check-action .checkbox { width: 24px; height: 24px }`.
+mutate 'the adopt checkbox loses its box' "$ACTIONS_TEST" "$CHOICES" \
+  '  static const double boxSize = 24;' \
+  '  static const double boxSize = 20;'
+
+# Half a comparison drawn as a whole one is the claim the card refuses.
+mutate 'an outcome invents the half of the comparison it was not sent' \
+  "$CARDS_TEST" "$OUTCOME_CARD" \
+  '    if (before == null || during == null) {
+      return null;
+    }' \
+  '    if (during == null) {
+      return null;
+    }
+    final start = before ?? during;'
+
+# The sentence that keeps an outcome an observation.
+mutate 'the outcome drops its "not a proven effect" sentence' \
+  "$CARDS_TEST" "$OUTCOME_CARD" \
+  "const String kObservationNote =
+    'These are the readings inside the window, beside the readings before it. '
+    'That is an observation, not a proven effect of the challenge.';" \
+  "const String kObservationNote =
+    'The challenge raised your average over the window.';"
+
+# ── the coach's meter, which is the only spend in the product ───────────────
+# An input beside an unknown or empty balance is the silent spend the feature is
+# not allowed to have.
+mutate 'the coach composer appears with no balance behind it' \
+  "$COACH_TEST" "$COACH_SHEET" \
+  '    final canAsk = uncapped || (allowance?.hasRemaining ?? false);' \
+  '    final canAsk = true;'
+
+# A prompt button asks a question, so it costs one — same gate as the input.
+mutate 'the opening prompts stop being gated by the balance' \
+  "$COMPOSER_TEST" "$COACH_SHEET" \
+  '                  canAsk: canAsk,' \
+  '                  canAsk: true,'
+
+# `routers/coach.py` refunds three of five outcomes, so a local subtraction is
+# wrong — and wrong the flattering way round. THE METER IS RE-READ.
+mutate 'the meter stops being re-read after an attempt' "$COACH_TEST" "$COACH_CTRL" \
+  '      if (_isCurrent(generation)) {
+        ref.invalidate(coachEntitlementProvider);
+        state = state.copyWith(asking: false);
+      }' \
+  '      if (_isCurrent(generation)) {
+        state = state.copyWith(asking: false);
+      }'
+
+# The cost is on the button, before the tap, in the number.
+mutate 'the cost comes off the ask button' "$COACH_TEST" "$COMPOSER" \
+  "    remaining == null ? 'Ask' : 'Ask — uses 1 of your \$remaining';" \
+  "    remaining == null ? 'Ask' : 'Ask';"
+
+# A cost label that squeezes the input off the page satisfies "the label is
+# present" and makes the surface unusable.
+mutate 'the composer stops making room for its input' "$COMPOSER_TEST" "$COMPOSER" \
+  '          if (room >= CoachComposer.minFieldWidth) {' \
+  '          if (room >= 0) {'
+
+# ── the journal ────────────────────────────────────────────────────────────
+# Current fasting state is FETCHED, never inferred.
+mutate 'the fast tile guesses instead of reading the state' \
+  "$JOURNAL_TEST" "$JOURNAL_GRID" \
+  "    final label = tile.kind == null && fastOpen ? 'End fast' : tile.label;" \
+  '    final label = tile.label;'
+
+# `grid-template-columns: repeat(3, minmax(0, 1fr))`.
+mutate 'the journal grid loses a column' "$JOURNAL_TEST" "$JOURNAL_GRID" \
+  '  static const int columns = 3;' \
+  '  static const int columns = 2;'
+
+# `screens-actions.js::H.journalKinds`, in its order.
+mutate 'the journal kinds are reordered' "$JOURNAL_TEST" "$JOURNAL_GRID" \
+  "  JournalKindTile(Icons.water_drop_outlined, 'Water', LogKind.water),
+  JournalKindTile(Icons.sentiment_satisfied_outlined, 'Mood', LogKind.mood)," \
+  "  JournalKindTile(Icons.sentiment_satisfied_outlined, 'Mood', LogKind.mood),
+  JournalKindTile(Icons.water_drop_outlined, 'Water', LogKind.water),"
+
+# An entry nobody acknowledged must not clear the form — the owner types a
+# weight once.
+mutate 'a failed journal write clears the draft anyway' "$JOURNAL_TEST" "$LOG_SHEET" \
+  "      AppLog.failure('journal', 'saving an observation', error, stack);
+      if (mounted) {" \
+  "      AppLog.failure('journal', 'saving an observation', error, stack);
+      _value.clear();
+      if (mounted) {"
+
+# The phone and the endpoint agree about what a valid entry is.
+mutate 'an invalid amount reaches the wire' "$JOURNAL_TEST" "$LOG_SHEET" \
+  '    if (problem != null) {
+      setState(() => _message = problem);
+      return;
+    }' \
+  '    if (problem != null) {
+      setState(() => _message = problem);
+    }'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
