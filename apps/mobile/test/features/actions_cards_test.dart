@@ -137,8 +137,17 @@ void main() {
       await tester.pumpWidget(host(outcome(baseline: 8200)));
       await tester.pumpAndSettle();
 
-      expect(find.text(kObservationNote), findsOneWidget);
-      expect(find.text(kLearnBody), findsOneWidget);
+      // The phrase, not the constant: `find.text(kObservationNote)` passes
+      // against any sentence the constant is given, including one that claims
+      // the challenge produced the change.
+      expect(
+        find.textContaining('an observation, not a proven effect'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('it cannot settle cause and effect'),
+        findsOneWidget,
+      );
       for (final verb in <String>['caused', 'because of', 'thanks to']) {
         expect(
           find.textContaining(verb),

@@ -65,6 +65,19 @@ class CoachComposer extends StatefulWidget {
   /// The narrowest an input may be and still be one — under this the row wraps.
   static const double minFieldWidth = 132;
 
+  /// Whether the prototype's single row survives with [wanted] px of button in
+  /// [available] px of composer.
+  ///
+  /// A pure function rather than an expression inside `build`, because the
+  /// rendered layout **cannot** be asked this in a widget test: `flutter test`
+  /// substitutes a fixed-width test font, which measures this button's label at
+  /// roughly twice its real width and so wraps at every phone size. A geometry
+  /// assertion would therefore be green whatever this decided. The rendered
+  /// invariant — the input is never narrower than [minFieldWidth] and the button
+  /// never leaves the page — is asserted separately and holds in both branches.
+  static bool fitsOneRow(double available, double wanted) =>
+      available - wanted - gap >= minFieldWidth;
+
   /// Whether a question is in flight.
   final bool asking;
 
@@ -117,9 +130,7 @@ class _CoachComposerState extends State<CoachComposer> {
         hintText: 'What’s on your mind?',
         isDense: true,
         contentPadding: const EdgeInsets.all(12),
-        constraints: const BoxConstraints(
-          minHeight: CoachComposer.fieldHeight,
-        ),
+        constraints: const BoxConstraints(minHeight: CoachComposer.fieldHeight),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(CoachComposer.fieldRadius),
           borderSide: BorderSide(color: colors.rule, width: hairline),
@@ -135,9 +146,7 @@ class _CoachComposerState extends State<CoachComposer> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final wanted = _buttonWidth(context, label);
-          final room =
-              constraints.maxWidth - wanted - CoachComposer.gap;
-          if (room >= CoachComposer.minFieldWidth) {
+          if (CoachComposer.fitsOneRow(constraints.maxWidth, wanted)) {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[

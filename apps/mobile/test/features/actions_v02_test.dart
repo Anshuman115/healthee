@@ -172,8 +172,11 @@ void main() {
             )
             .first,
       );
-      expect(box.width, CheckAction.boxSize);
-      expect(box.height, CheckAction.boxSize);
+      // The literal, not the constant: an assertion that reads the number it
+      // is checking passes against any value the constant is given.
+      expect(box.width, 24);
+      expect(box.height, 24);
+      expect(CheckAction.boxSize, 24, reason: '.checkbox { width: 24px }');
 
       expect(find.text(kAdoptLabel), findsOneWidget);
       expect(find.text(kAdoptNote), findsOneWidget);

@@ -188,4 +188,37 @@ void main() {
       });
     }
   });
+
+  group('THE ROW WRAPS RATHER THAN SQUEEZING THE INPUT', () {
+    // Asked of the decision, not of the render: `flutter test` substitutes a
+    // fixed-width font that measures this button's label at about twice its real
+    // width, so every rendered case wraps whatever the branch decides. See
+    // `CoachComposer.fitsOneRow`.
+    test('a row survives only while a usable input survives with it', () {
+      const gap = CoachComposer.gap;
+      const floor = CoachComposer.minFieldWidth;
+      expect(CoachComposer.fitsOneRow(390, 200), isTrue);
+      // Exactly enough is enough.
+      expect(CoachComposer.fitsOneRow(200 + gap + floor, 200), isTrue);
+      // One pixel less is not.
+      expect(CoachComposer.fitsOneRow(200 + gap + floor - 1, 200), isFalse);
+      expect(
+        CoachComposer.fitsOneRow(272, 219),
+        isFalse,
+        reason: 'a 320 px phone with the full cost label has no room for both',
+      );
+    });
+
+    test('an input squeezed to nothing is never called a fit', () {
+      // The defect the branch exists to prevent: a row that keeps the label on
+      // screen by leaving the owner a box they cannot type in.
+      for (final width in <double>[320, 360, 390, 414]) {
+        expect(
+          CoachComposer.fitsOneRow(width, width - CoachComposer.gap),
+          isFalse,
+          reason: '$width',
+        );
+      }
+    });
+  });
 }

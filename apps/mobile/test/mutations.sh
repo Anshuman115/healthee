@@ -1655,8 +1655,10 @@ mutate 'the cost comes off the ask button' "$COACH_TEST" "$COMPOSER" \
 # A cost label that squeezes the input off the page satisfies "the label is
 # present" and makes the surface unusable.
 mutate 'the composer stops making room for its input' "$COMPOSER_TEST" "$COMPOSER" \
-  '          if (room >= CoachComposer.minFieldWidth) {' \
-  '          if (room >= 0) {'
+  '  static bool fitsOneRow(double available, double wanted) =>
+      available - wanted - gap >= minFieldWidth;' \
+  '  static bool fitsOneRow(double available, double wanted) =>
+      available - wanted - gap >= 0;'
 
 # ── the journal ────────────────────────────────────────────────────────────
 # Current fasting state is FETCHED, never inferred.
