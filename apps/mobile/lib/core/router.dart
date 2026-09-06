@@ -50,22 +50,17 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:healthee/core/settings_routes.dart';
 import 'package:healthee/core/tabs.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/features/actions/challenge_detail_screen.dart';
 import 'package:healthee/features/actions/outcomes_screen.dart';
 import 'package:healthee/features/actions/program_detail_screen.dart';
 import 'package:healthee/features/actions/recommendation_history_screen.dart';
-import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/gps/gps_screen.dart';
 import 'package:healthee/features/gps/route_detail_screen.dart';
 import 'package:healthee/features/gps/routes_screen.dart';
 import 'package:healthee/features/history/history_screen.dart';
-import 'package:healthee/features/journal/journal_screen.dart';
-import 'package:healthee/features/pairing/pairing_screen.dart';
-import 'package:healthee/features/profile/profile_screen.dart';
-import 'package:healthee/features/settings/settings_screen.dart';
-import 'package:healthee/features/signin/server_signin_screen.dart';
 import 'package:healthee/features/workouts/workout_detail_screen.dart';
 import 'package:healthee/features/workouts/workout_history_screen.dart';
 import 'package:healthee/shared/app_shell.dart';
@@ -120,6 +115,43 @@ abstract final class Routes {
   /// duplicated. A settings surface inside the bar would light a tab while the
   /// owner is somewhere that is not a tab.
   static const String settings = '/settings';
+
+  /// Light · Dark · System, and the accent this build wears.
+  ///
+  /// ## The sub-screens are paths under [settings], not flags on it
+  ///
+  /// The v02 design turns Settings from one long scroll of expanding cards into
+  /// an **index of rows**, each opening a screen of its own. A boolean on the
+  /// settings screen saying "show the appearance panel" would be a route the
+  /// router does not know about: no deep link, no back arrow, and a system back
+  /// gesture that leaves the app instead of closing the panel.
+  ///
+  /// They nest under `/settings` because that is what they are under, and
+  /// because a `push` from the index then pops back to the index — which is the
+  /// same rule `leaveSetup` keeps for the two setup flows.
+  static const String appearance = '/settings/appearance';
+
+  /// The three optional nudges, and the times they arrive at.
+  static const String reminders = '/settings/reminders';
+
+  /// Whether the phone collects and uploads on its own, and under what limits.
+  static const String background = '/settings/background';
+
+  /// The strap this phone is paired to: its charge, its last read, its sync.
+  static const String device = '/settings/device';
+
+  /// Which streams are current, and how old each one is.
+  static const String dataFreshness = '/settings/sync';
+
+  /// What this app is, which build it is, and the licences it carries.
+  static const String about = '/settings/about';
+
+  /// The first screen an app with nothing set up has to show.
+  ///
+  /// Not reached by a redirect — the router still sends a strapless app to
+  /// [pairing], which is the flow that gets it working. This is the door
+  /// **into** that flow, and the account screen beside it.
+  static const String welcome = '/welcome';
 
   /// Pair a strap, or review the pairing already held.
   static const String pairing = '/pairing';
@@ -223,24 +255,9 @@ GoRouter buildRouter(WidgetRef ref) {
         ],
       ),
       GoRoute(
-        path: Routes.diagnostics,
-        builder: (BuildContext context, GoRouterState state) =>
-            const DiagnosticsScreen(),
-      ),
-      GoRoute(
         path: Routes.devFoundation,
         builder: (BuildContext context, GoRouterState state) =>
             const FoundationScreen(),
-      ),
-      GoRoute(
-        path: Routes.pairing,
-        builder: (BuildContext context, GoRouterState state) =>
-            PairingScreen(onDone: () => leaveSetup(context)),
-      ),
-      GoRoute(
-        path: Routes.serverSignIn,
-        builder: (BuildContext context, GoRouterState state) =>
-            ServerSignInScreen(onDone: () => leaveSetup(context)),
       ),
       GoRoute(
         path: '${Routes.challenge}/:id',
@@ -269,23 +286,11 @@ GoRouter buildRouter(WidgetRef ref) {
         ),
       ),
       GoRoute(
-        path: Routes.profile,
-        builder: (context, state) => const ProfileScreen(),
-      ),
-      GoRoute(
         path: Routes.history,
         builder: (context, state) =>
             HistoryScreen(initialMetric: state.uri.queryParameters['metric']),
       ),
-      GoRoute(
-        path: Routes.journal,
-        builder: (context, state) => const JournalScreen(),
-      ),
-      GoRoute(
-        path: Routes.settings,
-        builder: (BuildContext context, GoRouterState state) =>
-            const SettingsScreen(),
-      ),
+      ...settingsRoutes(),
     ],
   );
 }

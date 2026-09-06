@@ -32,7 +32,7 @@ import 'package:healthee/core/router.dart';
 import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
 import 'package:healthee/data/device/device_repository.dart';
-import 'package:healthee/data/push/push_stamp.dart';
+import 'package:healthee/data/push/push_stamp_provider.dart';
 import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/store/view_date.dart';
@@ -43,11 +43,6 @@ import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/features/today/v02/today_chapters.dart';
 import 'package:healthee/shared/instrument_screen.dart';
-
-/// The push state, for the data-health strip. Re-read whenever Today is.
-final _pushStampProvider = FutureProvider<PushStamp>((ref) {
-  return ref.watch(localStoreProvider).pushReader.lastAttempt();
-});
 
 /// The app's home screen.
 class TodayScreen extends ConsumerStatefulWidget {
@@ -72,7 +67,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     // The wall-clock day, NOT the selection: it is the control's forward bound
     // and the day `Latest` returns to, so it has to keep meaning "now".
     final today = ref.watch(todayProvider);
-    final push = ref.watch(_pushStampProvider).value;
+    final push = ref.watch(pushStampProvider).value;
     // `.value?.signedIn` and not `.requireValue`: while the keystore read is in
     // flight this is null, which the data-health strip reads as "not yet known"
     // and stays silent about. Guessing "signed out" for a frame would flash an
@@ -88,7 +83,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     return InstrumentScreen(
       now: widget.now,
       onRefreshed: () {
-        ref.invalidate(_pushStampProvider);
+        ref.invalidate(pushStampProvider);
         ref.invalidate(challengeFeedProvider);
         ref.invalidate(sleepConsistencyProvider);
       },
