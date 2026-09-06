@@ -3,20 +3,24 @@
 /// Composition only. The frame, the two data sources, the failure rules and the
 /// reveal registry all live in `shared/instrument_screen.dart`, which four other
 /// screens use for the same reasons; `today_sections.dart` decides what Today
-/// shows and in what order. This file is the wiring between them plus the three
-/// things only Today watches — the push stamp, the server session, and the
-/// classified connection state those two feed.
+/// shows and in what order. This file is the wiring between them plus the four
+/// things only Today holds — the push stamp, the server session, the classified
+/// connection those two feed, and the chapter anchors.
 ///
 /// ## The connection surface is assembled here, from one classification
 ///
 /// `connectionHealth(...)` is called once, in this build, and the answer goes to
-/// two places: the ring round the avatar in the header row, and the data-health
-/// card four lines below it. **There is no page chrome above the scroll** — the
-/// full-width strip that used to sit there is gone, and with it the one thing it
-/// alone carried, which is now printed on that card
-/// (`data/sync/connection_health.dart`, `linkAlerts`).
+/// three places: the ring round the avatar, the dot on the device strip, and the
+/// data-health card under it. One call, three readers, and none of them may
+/// decide "quiet" for itself.
 ///
-/// One call, two readers, and neither of them may decide "quiet" for itself.
+/// ## Why this is stateful now
+///
+/// The chapter nav jumps to three headings, and a heading is found through a
+/// `GlobalKey` that must be **the same object across rebuilds** — a key created
+/// in `build` would move the anchor every frame and would collide with a second
+/// live Today in a test. `TodayChapters` owns those three keys, so it has to
+/// outlive a build: it is a `final` field of this `State`.
 library;
 
 import 'dart:async';
@@ -33,7 +37,9 @@ import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
+import 'package:healthee/features/coach/coach_sheet.dart';
 import 'package:healthee/features/today/today_sections.dart';
+import 'package:healthee/features/today/v02/today_chapters.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 
 /// The push state, for the data-health strip. Re-read whenever Today is.
@@ -42,7 +48,7 @@ final _pushStampProvider = FutureProvider<PushStamp>((ref) {
 });
 
 /// The app's home screen.
-class TodayScreen extends ConsumerWidget {
+class TodayScreen extends ConsumerStatefulWidget {
   /// [now] is injected by tests so the freshness labels are deterministic.
   const TodayScreen({this.now, super.key});
 
@@ -50,8 +56,17 @@ class TodayScreen extends ConsumerWidget {
   final DateTime? now;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final at = now ?? DateTime.now();
+  ConsumerState<TodayScreen> createState() => _TodayScreenState();
+}
+
+class _TodayScreenState extends ConsumerState<TodayScreen> {
+  /// The three jump anchors. Per screen, and outliving every build — see the
+  /// library docstring.
+  final TodayChapters _chapters = TodayChapters();
+
+  @override
+  Widget build(BuildContext context) {
+    final at = widget.now ?? DateTime.now();
     final push = ref.watch(_pushStampProvider).value;
     // `.value?.signedIn` and not `.requireValue`: while the keystore read is in
     // flight this is null, which the data-health strip reads as "not yet known"
@@ -66,7 +81,7 @@ class TodayScreen extends ConsumerWidget {
       lastStrapSync: ref.watch(deviceDayProvider).value?.sync.lastCompleteSync,
     );
     return InstrumentScreen(
-      now: now,
+      now: widget.now,
       onRefreshed: () {
         ref.invalidate(_pushStampProvider);
         ref.invalidate(challengeFeedProvider);
@@ -78,16 +93,17 @@ class TodayScreen extends ConsumerWidget {
           push: push,
           signedIn: signedIn,
           health: health,
-          // Legacy's header carries the strap's charge beside the date, and the
-          // ring around the avatar. The ring reads `health` for its own busy and
-          // progress, so there is no second `syncing` flag to keep in step.
           batteryPercent: ref.watch(deviceDayProvider).value?.batteryPercent,
+          chapters: _chapters,
           // Pushed, so back returns to Today. `go` would replace the
           // location and leave the sign-in screen with nothing beneath it.
           onSignIn: () => unawaited(context.push(Routes.serverSignIn)),
-          // Legacy's avatar opens the profile screen; settings is this app's
-          // equivalent surface and was already the avatar's destination.
           onOpenProfile: () => unawaited(context.push(Routes.settings)),
+          onOpenSync: () => unawaited(context.push(Routes.settings)),
+          // The coach is a sheet, not a route — `app_shell.dart`'s FAB opens
+          // the same one, so the entry card and the FAB cannot drift apart.
+          onOpenCoach: () => unawaited(showCoachSheet(context)),
+          onOpenActions: () => context.go(Routes.actions),
         ),
       ),
     );
