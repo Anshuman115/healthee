@@ -52,6 +52,9 @@ class PanelValue extends StatelessWidget {
   /// `.panel-value > small { margin-left: 4px }`.
   static const double unitGap = 4;
 
+  /// Identifies the figure's box, so a test can measure what it was given.
+  static const Key valueKey = ValueKey<String>('panel-value.figure');
+
   /// The figure.
   final String value;
 
@@ -61,62 +64,146 @@ class PanelValue extends StatelessWidget {
   /// The right-hand sentence — a date, a reference, a second reading.
   final String? context_;
 
+  /// **The figure is intrinsic; only the sentence flexes.**
+  ///
+  /// It used to be `Flexible(figure)` beside `Flexible(sentence)`. Both default
+  /// to `flex: 1`, so `RenderFlex` handed each exactly half the row — and a
+  /// panel whose figure is `7h 42m` or `1,284` beside a sentence lost the end of
+  /// its own number at every phone width. This is the `ChapterHeading` defect in
+  /// a second place, and it is fixed the same way and for the same reason: the
+  /// CSS is `space-between` over two `auto` boxes, which is "each takes what it
+  /// needs", not "each takes half".
+  ///
+  /// Raising the figure's flex does not fix it — a loose `Flexible` that uses
+  /// less than its share does not hand the surplus back, so a short figure would
+  /// leave the sentence stranded in a corner. So the figure is measured and
+  /// given exactly what it needs, and the sentence takes the true remainder.
+  ///
+  /// [available] is the row minus its [gap]. **The sentence's floor is its own
+  /// min-content width — its longest word — and not a number picked here.** That
+  /// is what a browser reserves for a flex item with `min-width: auto`, and it
+  /// is why the CSS needs no minimum: a paragraph shrinks by wrapping until it
+  /// is one word wide, and only then does the figure start to give way. A fixed
+  /// reserve would have clipped a long figure on a 320 px phone in order to
+  /// hold room the sentence did not need.
+  double _figureWidth(BuildContext context, double available, bool compact) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    TextPainter painterFor(String text, TextStyle style, {int? maxLines}) =>
+        TextPainter(
+          text: TextSpan(text: text, style: style),
+          maxLines: maxLines,
+          textDirection: direction,
+          textScaler: scaler,
+        )..layout();
+
+    double widthOf(String text, TextStyle style) {
+      final painter = painterFor(text, style, maxLines: 1);
+      final width = painter.width;
+      painter.dispose();
+      return width;
+    }
+
+    var wanted = widthOf(
+      value,
+      compact ? TypeScale.panelValueCompact : TypeScale.panelValue,
+    );
+    if (unit case final String unit) {
+      wanted +=
+          unitGap +
+          widthOf(
+            unit,
+            compact ? TypeScale.panelUnitCompact : TypeScale.panelUnit,
+          );
+    }
+    var floor = 0.0;
+    if (context_ case final String side) {
+      final painter = painterFor(side, TypeScale.panelContext);
+      floor = painter.minIntrinsicWidth;
+      painter.dispose();
+    }
+    final room = available - floor;
+    if (wanted < room) {
+      return wanted;
+    }
+    return room < 0 ? 0 : room;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final compact = context.compactPanel;
-    final unit = this.unit;
     final side = context_;
     return Padding(
       padding: const EdgeInsets.only(bottom: bottomGap),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: <Widget>[
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+      child: side == null
+          // Nothing to share the row with, so the figure simply takes it —
+          // `Flexible` rather than a measurement, because there is no second
+          // box whose share could be got wrong.
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
-                Flexible(
-                  child: Text(
-                    value,
-                    style:
-                        (compact
-                                ? TypeScale.panelValueCompact
-                                : TypeScale.panelValue)
-                            .copyWith(color: colors.ink),
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.clip,
+                Flexible(key: valueKey, child: _figure(context)),
+              ],
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) => Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  SizedBox(
+                    key: valueKey,
+                    width: _figureWidth(
+                      context,
+                      constraints.maxWidth - gap,
+                      context.compactPanel,
+                    ),
+                    child: _figure(context),
                   ),
-                ),
-                if (unit != null) ...<Widget>[
-                  const SizedBox(width: unitGap),
-                  Text(
-                    unit,
-                    style:
-                        (compact
-                                ? TypeScale.panelUnitCompact
-                                : TypeScale.panelUnit)
-                            .copyWith(color: colors.ink2),
+                  const SizedBox(width: gap),
+                  Expanded(
+                    child: Text(
+                      side,
+                      textAlign: TextAlign.right,
+                      style: TypeScale.panelContext.copyWith(
+                        color: context.colors.ink2,
+                      ),
+                    ),
                   ),
                 ],
-              ],
-            ),
-          ),
-          if (side != null) ...<Widget>[
-            const SizedBox(width: gap),
-            Flexible(
-              child: Text(
-                side,
-                textAlign: TextAlign.right,
-                style: TypeScale.panelContext.copyWith(color: colors.ink2),
               ),
             ),
-          ],
+    );
+  }
+
+  /// The figure and its unit, on one baseline. Intrinsically as wide as it
+  /// wants; the box around it decides how much of that it gets.
+  Widget _figure(BuildContext context) {
+    final colors = context.colors;
+    final compact = context.compactPanel;
+    final unit = this.unit;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: <Widget>[
+        Flexible(
+          child: Text(
+            value,
+            style:
+                (compact ? TypeScale.panelValueCompact : TypeScale.panelValue)
+                    .copyWith(color: colors.ink),
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.clip,
+          ),
+        ),
+        if (unit != null) ...<Widget>[
+          const SizedBox(width: unitGap),
+          Text(
+            unit,
+            style: (compact ? TypeScale.panelUnitCompact : TypeScale.panelUnit)
+                .copyWith(color: colors.ink2),
+          ),
         ],
-      ),
+      ],
     );
   }
 }
