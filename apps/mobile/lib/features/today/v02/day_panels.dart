@@ -32,15 +32,20 @@ import 'package:healthee/features/today/today_facts.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/shared/charts/v02/v02_bucket_chart.dart';
 import 'package:healthee/shared/charts/v02/v02_linked_chart.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 
-/// What the bucket chart is and is not, said under it.
+/// What the bucket chart is. Method, so it lives behind the ⓘ.
 const String kStepBucketNote =
     'Bars show the fifteen-minute intervals the strap recorded, not the '
-    'full-day total. Energy is modelled.';
+    'full-day total.';
+
+/// KEPT ON THE CARD. It names the instrument behind the kcal figures beside it
+/// — a modelled number standing next to measured ones has to say so.
+const String kEnergyModelledNote = 'Energy is modelled.';
 
 /// `Heart rate & stress` — two signals, one hour cursor, two labelled scales.
 class HeartStressPanel extends StatelessWidget {
@@ -163,6 +168,7 @@ class StepsEnergyPanel extends StatelessWidget {
         title: title,
         icon: Icons.directions_walk,
         infoKey: 'steps_total',
+        detail: const MetricDetail(method: <String>[kStepBucketNote]),
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
       ),
@@ -191,7 +197,7 @@ class StepsEnergyPanel extends StatelessWidget {
             const SizedBox(height: statsGap),
             StatRow(stats),
           ],
-          const PanelNote(kStepBucketNote),
+          const PanelNote(kEnergyModelledNote),
         ],
       ),
     );

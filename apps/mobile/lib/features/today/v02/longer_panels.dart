@@ -32,8 +32,8 @@ import 'package:healthee/data/models/routine.dart';
 import 'package:healthee/data/models/vo2max.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/shared/format/metric_names.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/states/citation_row.dart';
 import 'package:healthee/shared/v02/instruments/vo2max_rail.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
@@ -77,6 +77,14 @@ class FitnessPanel extends StatelessWidget {
         title: title,
         icon: Icons.trending_up,
         infoKey: 'vo2max',
+        detail: MetricDetail(
+          references: <String>[
+            if (vo2max.medianForAge case final double median)
+              'Age/sex reference ${median.toStringAsFixed(1)} ml/kg/min',
+          ],
+          notes: vo2max.researchNotes,
+          source: vo2max.standardErrorSource,
+        ),
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
       ),
@@ -99,31 +107,26 @@ class FitnessPanel extends StatelessWidget {
               progress: t,
             ),
           ),
-          PanelNote(_reference(vo2max)),
-          if (vo2max.researchNotes.isNotEmpty ||
-              vo2max.standardErrorSource != null) ...<Widget>[
-            const SizedBox(height: PanelNote.topGap),
-            CitationRow(
-              noteIds: vo2max.researchNotes,
-              source: vo2max.standardErrorSource,
-            ),
-          ],
+          PanelNote(_qualifiers(vo2max)),
         ],
       ),
     );
   }
 
-  /// The prototype's own short line: what the estimate is read against, how
-  /// many sessions are behind it, and what the error magnitude is not.
+  /// What still qualifies the figure after the reference moved to the ⓘ.
+  ///
+  /// Both survivors are **about this number**, not about the metric: how many
+  /// sessions are behind it, and what the ± beside it is not. The second is the
+  /// live example of the line this sweep must not cross — an error magnitude
+  /// silently read as a confidence interval is a reader mis-reading the
+  /// uncertainty of a number they are looking at, so the correction stays where
+  /// the number is.
   ///
   /// Built from the payload's structured fields rather than from its prose, so
   /// a server that lengthens `method_caveat` cannot lengthen this card.
-  static String _reference(Vo2max vo2max) {
-    final median = vo2max.medianForAge;
+  static String _qualifiers(Vo2max vo2max) {
     final sessions = vo2max.sessionCount;
     return <String>[
-      if (median != null)
-        'Age/sex reference ${median.toStringAsFixed(1)} ml/kg/min',
       if (sessions != null && sessions > 0)
         '$sessions ${sessions == 1 ? 'session' : 'sessions'}',
       if (vo2max.standardErrorMlKgMin != null)

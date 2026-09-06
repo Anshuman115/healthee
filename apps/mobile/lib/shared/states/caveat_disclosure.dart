@@ -93,6 +93,20 @@ String caveatFootnote(int count) =>
 /// What the sheet is called, and the line under its title.
 const String kCaveatSheetTitle = 'What tilts this number';
 
+/// The line under [kCaveatSheetTitle]. Says the number is real.
+const String kCaveatSheetBlurb =
+    'This number IS your number. These are the things that tilt it, and which '
+    'way.';
+
+/// The same sheet, for a lever that is left OUT of a number rather than tilting
+/// it — see [ExcludedNote] in `withheld_card.dart`.
+const String kExclusionSheetTitle = 'What is left out';
+
+/// And its line, which must not say the exclusion is in the number.
+const String kExclusionSheetBlurb =
+    'These levers are not behind this number and cannot be. Nothing you sync '
+    'will add them — this is a limit of the evidence, not a gap in your data.';
+
 /// Opens the full disclosures behind a caveated value.
 ///
 /// Through [showAppSheet] like every other sheet in this app — see its docstring
@@ -101,13 +115,16 @@ Future<void> showCaveats(
   BuildContext context,
   List<Disclosure> caveats, {
   String? label,
+  String title = kCaveatSheetTitle,
+  String blurb = kCaveatSheetBlurb,
 }) async {
   if (caveats.isEmpty) {
     return;
   }
   await showAppSheet<void>(
     context: context,
-    builder: (context) => _CaveatSheet(caveats: caveats, label: label),
+    builder: (context) =>
+        _CaveatSheet(caveats: caveats, label: label, title: title, blurb: blurb),
   );
 }
 
@@ -237,9 +254,16 @@ class CaveatFoot extends StatelessWidget {
 /// exactly right for a reader who has asked for it, and exactly wrong printed
 /// under a card nobody asked. The sheet is the place where the length is fine.
 class _CaveatSheet extends StatelessWidget {
-  const _CaveatSheet({required this.caveats, this.label});
+  const _CaveatSheet({
+    required this.caveats,
+    required this.title,
+    required this.blurb,
+    this.label,
+  });
 
   final List<Disclosure> caveats;
+  final String title;
+  final String blurb;
   final String? label;
 
   @override
@@ -276,13 +300,14 @@ class _CaveatSheet extends StatelessWidget {
               _Eyebrow(name),
               const SizedBox(height: 6),
             ],
-            Text(kCaveatSheetTitle, style: HType.serif(colors.ink, size: 24)),
+            Text(title, style: HType.serif(colors.ink, size: 24)),
             const SizedBox(height: 6),
-            // Says the number is real. A reader who opened this because the
-            // value looked suspicious must not leave thinking it was withheld.
+            // Says what state the number is in. A reader who opened this because
+            // the value looked suspicious must not leave thinking a caveated
+            // number was withheld, nor that an exclusion is something they can
+            // fix by syncing.
             Text(
-              'This number IS your number. These are the things that tilt it, '
-              'and which way.',
+              blurb,
               style: HType.sans(colors.ink3, size: 12.5, height: 1.45),
             ),
             const SizedBox(height: 18),

@@ -130,7 +130,8 @@ class ReadingView<T extends Object> extends StatelessWidget {
               onExplain: onExplainWithheld,
             ),
       Excluded<T>(:final exclusions) =>
-        excludedBuilder?.call(context, exclusions) ?? ExcludedNote(exclusions: exclusions),
+        excludedBuilder?.call(context, exclusions) ??
+            ExcludedNote(exclusions: exclusions, label: label),
     };
   }
 }

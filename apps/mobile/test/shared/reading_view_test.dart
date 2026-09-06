@@ -282,9 +282,26 @@ void main() {
         ),
       );
 
-      expect(find.text('Left out: regularity'), findsOneWidget);
-      expect(find.text('We cannot honestly convert regularity into years.'), findsOneWidget);
+      // The FACT stays on the card, naming the term. The reasoning is one tap
+      // behind it — the same trade `CaveatNote` made, for the same report.
+      expect(find.text('Left out of this number: regularity'), findsOneWidget);
+      expect(
+        find.text('We cannot honestly convert regularity into years.'),
+        findsNothing,
+        reason: 'the essay inline is the defect; the signpost is the fix',
+      );
       expect(find.text('Try again'), findsNothing);
+
+      await tester.tap(find.text('READ'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('We cannot honestly convert regularity into years.'),
+        findsOneWidget,
+        reason:
+            'an exclusion whose reasoning became unreachable is a regression, '
+            'not a tidy-up',
+      );
+      expect(find.text(kExclusionSheetTitle), findsOneWidget);
     });
   });
 

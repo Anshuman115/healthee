@@ -33,9 +33,9 @@ import 'package:healthee/data/models/sleep_health.dart';
 import 'package:healthee/data/models/sleep_history.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
-import 'package:healthee/shared/states/citation_row.dart';
 import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/meters.dart';
 import 'package:healthee/shared/v02/panel.dart';
@@ -84,6 +84,9 @@ class SleepWeekPanel extends StatelessWidget {
         title: title,
         icon: Icons.bedtime_outlined,
         infoKey: 'sleep',
+        // The legend's own sentence. It teaches — it says nothing about THIS
+        // week's nights — so it went where the owner asked method text to live.
+        detail: const MetricDetail(method: <String>[kStageColourNote]),
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
       ),
@@ -109,7 +112,9 @@ class SleepWeekPanel extends StatelessWidget {
                 colour: sleepStageColor(hues, stage),
               ),
           ]),
-          PanelNote('${nights.length} nights · $kStageColourNote'),
+          // The count stays: it says how much of a week this chart IS, which is
+          // a fact about the bars beside it rather than a lesson about them.
+          PanelNote('${nights.length} nights'),
         ],
       ),
     );
@@ -158,6 +163,16 @@ class SleepHealthPanel extends StatelessWidget {
         title: title,
         icon: Icons.bedtime_outlined,
         infoKey: 'sleep_health',
+        detail: MetricDetail(
+          // The four "Reference …" pills the owner asked us to take off the
+          // cards. Kept, not deleted: a published cutoff with no source is a
+          // number this app made up.
+          references: <String>[
+            for (final dimension in health.dimensions)
+              '${dimension.name} — reference ${dimension.cutoff}',
+          ],
+          notes: health.researchNotes,
+        ),
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
       ),
@@ -172,13 +187,15 @@ class SleepHealthPanel extends StatelessWidget {
                 // An unscored dimension prints a dash, never its cutoff dressed
                 // up as a reading.
                 dimension.reading ?? '—',
-                note: 'Reference ${dimension.cutoff}',
               ),
             Dimension(
               'Breathing',
               breathing.valueOrNull == null
                   ? '—'
                   : '${breathing.valueOrNull!.toStringAsFixed(1)} /min',
+              // KEPT. Not a lesson — it names the instrument behind the figure
+              // beside it, which is the one class of sentence that must stay on
+              // the card it is about.
               note: 'Overnight average',
             ),
           ]),
@@ -191,10 +208,6 @@ class SleepHealthPanel extends StatelessWidget {
             ),
           if (breathing case Withheld<double>(:final disclosure))
             PanelNote('Breathing: ${disclosure.message}'),
-          if (health.researchNotes.isNotEmpty) ...<Widget>[
-            const SizedBox(height: PanelNote.topGap),
-            CitationRow(noteIds: health.researchNotes),
-          ],
         ],
       ),
     );

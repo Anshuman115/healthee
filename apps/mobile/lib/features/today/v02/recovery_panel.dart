@@ -32,17 +32,26 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/shared/format/metric_names.dart';
-import 'package:healthee/shared/states/citation_row.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/meters.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 
-/// What the four bars are, said in words, on every payload.
-const String kRecoveryFramingNote =
-    'Model components, not four additional health scores. How you feel and any '
-    'illness signal take priority.';
+/// What the four bars ARE. Method, so it lives behind the ⓘ.
+const String kRecoveryComponentsNote =
+    'Model components, not four additional health scores.';
+
+/// KEPT ON THE CARD, deliberately.
+///
+/// This is clinical routing, not teaching copy: it tells an owner that a symptom
+/// outranks the number they are looking at. The sweep that moved method text off
+/// the cards is explicitly not allowed to take a sentence like this with it —
+/// deleting one to reduce clutter is the one failure that would make the screen
+/// worse rather than tidier.
+const String kRecoveryPriorityNote =
+    'How you feel and any illness signal take priority.';
 
 /// The family a recovery factor or signal belongs to, from its id or its name.
 ///
@@ -106,6 +115,10 @@ class RecoveryPanel extends StatelessWidget {
         title: title,
         icon: Icons.monitor_heart_outlined,
         infoKey: 'recovery_score',
+        detail: MetricDetail(
+          method: const <String>[kRecoveryComponentsNote],
+          notes: <String>[if (score.noteId case final String id) id],
+        ),
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
       ),
@@ -146,11 +159,7 @@ class RecoveryPanel extends StatelessWidget {
             ]),
           ],
           if (score.guidance case final String guidance) PanelNote(guidance),
-          const PanelNote(kRecoveryFramingNote),
-          if (score.noteId case final String id) ...<Widget>[
-            const SizedBox(height: stackGap),
-            CitationRow(noteIds: <String>[id]),
-          ],
+          const PanelNote(kRecoveryPriorityNote),
         ],
       ),
     );
