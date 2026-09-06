@@ -1069,6 +1069,75 @@ mutate 'the linked lanes stop leaving air between them' "$V02_COLUMNS" "$V02_LIN
   'const double _laneGap = 5;' \
   'const double _laneGap = 0;'
 
+# ── the v02 hero instruments ────────────────────────────────────────────────
+HALO=lib/shared/v02/instruments/bio_halo.dart
+FIELD=lib/shared/v02/instruments/halo_field.dart
+WATERFALL=lib/shared/v02/instruments/age_waterfall.dart
+RULER=lib/shared/v02/instruments/age_scale.dart
+RAIL=lib/shared/v02/instruments/vo2max_rail.dart
+ROUTE=lib/shared/v02/instruments/route_plot.dart
+HALO_TEST=test/shared/instruments/halo_motion_test.dart
+AGE_TEST=test/shared/instruments/age_instruments_test.dart
+FITNESS_TEST=test/shared/instruments/fitness_instruments_test.dart
+
+# THE failure the waterfall exists to prevent. A term that could not be computed
+# is drawn as a minimum-height bar, which is pixel-identical to the sleep term
+# that WAS computed and came out at zero. One says "we could not price this",
+# the other says "we priced it and it was nothing".
+mutate 'an excluded age term is drawn as a stub bar' "$AGE_TEST" "$WATERFALL" \
+  '            from: running,
+            to: null,' \
+  '            from: running,
+            to: running,'
+
+# The ladder snapped onto the estimate. It looks tidier, and it draws a
+# reconciliation that did not happen.
+mutate 'the waterfall snaps its ladder onto the estimate' "$AGE_TEST" "$WATERFALL" \
+  '    final anchor = column.from == null ? bottom : y(column.from!);' \
+  '    final anchor = column.from == null ? bottom : y(column.to ?? running);'
+
+# A value off the 28-44 ruler clamped to the end instead of drawing nothing.
+mutate 'the age ruler clamps an off-scale estimate' "$AGE_TEST" "$RULER" \
+  '    if (onScale(estimate, low: kAgeScaleLow, high: kAgeScaleHigh)) {' \
+  '    if (estimate.isFinite) {'
+
+# The three ways the halo must stop, broken one at a time: a halo that pauses
+# two ways out of three still burns the battery the third way.
+mutate 'the halo keeps animating in the background' "$HALO_TEST" "$HALO" \
+  '    _foreground = state == AppLifecycleState.resumed;' \
+  '    _foreground = true;'
+
+mutate 'the halo ignores the system reduced-motion setting' "$HALO_TEST" "$HALO" \
+  '    _reducedMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;' \
+  '    _reducedMotion = false;'
+
+mutate 'the halo keeps animating offscreen' "$HALO_TEST" "$HALO" \
+  '    if (!_onScreen()) {
+      _ticker.stop();
+      return;
+    }
+' \
+  ''
+
+# The still centre stops being enforced, so particles drift across the figure.
+mutate 'particles are allowed into the still centre' "$HALO_TEST" "$FIELD" \
+  '    if ((at - centre).distance < stillRadius) {
+      return null;
+    }
+' \
+  ''
+
+# The extent renamed. A wording mutation on purpose: the sentence is the honesty
+# half of the instrument, and it is as breakable as the geometry.
+mutate 'the error magnitude is called a confidence interval' "$FITNESS_TEST" "$RAIL" \
+  'const String kErrorMagnitudeNote = '"'"'not a confidence interval'"'"';' \
+  'const String kErrorMagnitudeNote = '"'"'a 95% confidence interval'"'"';'
+
+# Elevations that do not line up with the fixes are drawn anyway — the profile
+# of a different walk, plotted along this one.
+mutate 'mismatched elevations are drawn anyway' "$FITNESS_TEST" "$ROUTE" \
+  'if (series == null || series.length != points.length || series.length < 2) {' \
+  'if (series == null || series.length < 2) {'
 
 echo
 echo "caught $PASS, survived $FAIL"
