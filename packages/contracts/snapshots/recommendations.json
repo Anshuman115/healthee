@@ -1,0 +1,21 @@
+{
+  "days": 180,
+  "offset": 0,
+  "recommendations": [
+    {
+      "action": "Sleep earlier tonight",
+      "adopted": null,
+      "category": "sleep",
+      "date": "2026-07-31",
+      "evidence_grade": 3,
+      "expected_effect": "Lower debt",
+      "id": 10343,
+      "rank": 1,
+      "rationale": "Debt is 120 min",
+      "research_note_ids": [
+        "sleep_need_debt"
+      ],
+      "signal_source": "sleep_debt"
+    }
+  ]
+}
