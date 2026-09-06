@@ -26,26 +26,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/metric_hue.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
+import 'package:healthee/features/activity/v02/movement_panels.dart';
+import 'package:healthee/features/activity/v02/training_panels.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/shared/v02/metric_tone.dart';
+import 'package:healthee/shared/v02/panel.dart';
 
 import '../_sleep_stubs.dart';
 import '_today_host.dart';
 
 const InstrumentHues _hues = InstrumentHues.light();
 const HealtheeColors _colors = HealtheeColors.light();
-
-/// The colour a rendered `Text` is actually painted in.
-Color? _colourOf(WidgetTester tester, String label) =>
-    tester.widget<Text>(find.text(label).first).style?.color;
-
-/// Scrolls [title] into view on the pumped screen and answers its colour.
-Future<Color?> _titleColour(WidgetTester tester, String title) async {
-  await reveal(tester, find.text(title));
-  return _colourOf(tester, title);
-}
 
 /// The hue on the module whose eyebrow reads [label], or null when it has none.
 ///
@@ -142,63 +137,93 @@ void main() {
   });
 
   group('Activity', () {
-    testWidgets('ACTIVE MINUTES IS NO LONGER COLOURLESS', (tester) async {
-      await _pump(tester, store, const ActivityScreen());
-      expect(
-        await _titleColour(tester, 'Active minutes'),
-        hueFor(_hues, 'mvpa_min'),
-      );
-    });
+    // **Activity is v02 now, and v02 does not pass colours at all.** A panel
+    // declares a `Tone` and everything inside it resolves `context.family` from
+    // the enclosing `ToneScope` (`core/theme/tone.dart`). So the assertion that
+    // used to read a title's `Color` reads the panel's declared family instead —
+    // the same claim, at the place the decision is now made.
+    //
+    // The claim itself is unchanged and is the one that matters: a family is an
+    // IDENTITY, chosen from the metric's id and never from its reading, so it
+    // cannot become a verdict. `shared/v02/metric_tone.dart` holds the table.
 
-    testWidgets('steps, cardio load, VO₂max and biological age all carry theirs', (
+    /// The `Tone` declared by the panel that contains [title].
+    Future<Tone?> panelTone(WidgetTester tester, String title) async {
+      await reveal(tester, find.text(title));
+      final panel = find
+          .ancestor(of: find.text(title), matching: find.byType(Panel))
+          .first;
+      return tester.widget<Panel>(panel).tone;
+    }
+
+    testWidgets('EVERY ACTIVITY PANEL DECLARES ITS METRIC’S FAMILY', (
       tester,
     ) async {
       await _pump(tester, store, const ActivityScreen());
-      const cases = <String, String>{
-        'Steps': 'steps_total',
-        'Cardio load': 'cardio_load',
-        'VO₂max': 'vo2max_estimate',
-        'Biological age': 'biological_age',
+      final cases = <String, Tone>{
+        MovementPanel.title: Tone.movement,
+        IntensityPanel.title: Tone.movement,
+        TrainingLoadPanel.title: Tone.load,
+        FitnessSourcePanel.title: Tone.fitness,
       };
       for (final entry in cases.entries) {
         expect(
-          await _titleColour(tester, entry.key),
-          hueFor(_hues, entry.value),
-          reason: '${entry.key} must wear ${entry.value}’s hue',
+          await panelTone(tester, entry.key),
+          entry.value,
+          reason: '${entry.key} must declare ${entry.value}',
         );
       }
     });
 
-    test('THE FITNESS NUMBERS SHARE LEGACY’S READINESS HUE', () {
-      // `today_screen.dart:1162` and `:1239` — both cReady.
-      expect(hueFor(_hues, 'vo2max_estimate'), _hues.fitness);
-      expect(hueFor(_hues, 'biological_age'), _hues.fitness);
-    });
-
-    testWidgets('the MVPA week bar does not turn green at the WHO floor', (
+    testWidgets('A PANEL’S FAMILY IS THE TABLE’S, NOT A CALL SITE’S', (
       tester,
     ) async {
-      // The fixture is over 150 min/week, and the card must not celebrate a
-      // POPULATION target as though it were the owner's own baseline.
-      //
-      // NOTE the trap this test now sits in, and why it still means something:
-      // MVPA's own hue IS legacy's green, the same value as `fav`. So "no green
-      // anywhere" would be unassertable. What is asserted instead is that the
-      // bar is painted through `hueFor` — an identity — rather than by a
-      // threshold comparison, which is the behaviour that was actually wrong.
+      // The v02 restatement of "a hue comes from `hueFor` and nowhere else": the
+      // families the screen declares are the ones `metric_tone.dart` assigns to
+      // the ids those panels are about, so a colour invented at a call site
+      // fails here rather than looking fine.
       await _pump(tester, store, const ActivityScreen());
-      await reveal(tester, find.text('Active minutes'));
+      expect(await panelTone(tester, MovementPanel.title),
+          toneForMetric('steps_total'));
+      expect(await panelTone(tester, IntensityPanel.title),
+          toneForMetric('mvpa_min'));
+      expect(await panelTone(tester, TrainingLoadPanel.title),
+          toneForMetric('cardio_load'));
+      expect(await panelTone(tester, FitnessSourcePanel.title),
+          toneForMetric('vo2max_estimate'));
+    });
 
-      final fills = tester
-          .widgetList<ColoredBox>(find.byType(ColoredBox))
+    test('THE FITNESS NUMBERS SHARE LEGACY’S READINESS HUE', () {
+      // `today_screen.dart:1162` and `:1239` — both cReady. Still true, and
+      // still the reason VO₂max and biological age are one family in v02 too.
+      expect(hueFor(_hues, 'vo2max_estimate'), _hues.fitness);
+      expect(hueFor(_hues, 'biological_age'), _hues.fitness);
+      expect(toneForMetric('vo2max_estimate'), Tone.fitness);
+      expect(toneForMetric('biological_age'), Tone.fitness);
+    });
+
+    testWidgets('NOTHING ON THE INTENSITY PANEL TURNS AT THE WHO FLOOR', (
+      tester,
+    ) async {
+      // The fixture is over 150 min/week, and the panel must not celebrate a
+      // POPULATION target as though it were the owner's own baseline. In v02
+      // there is no threshold comparison left to get wrong — the bars take the
+      // family — so what is asserted is the consequence: no verdict colour of
+      // any kind is painted inside this panel.
+      await _pump(tester, store, const ActivityScreen());
+      await reveal(tester, find.text(IntensityPanel.title));
+
+      final panel = find
+          .ancestor(of: find.text(IntensityPanel.title), matching: find.byType(Panel))
+          .first;
+      final painted = tester
+          .widgetList<ColoredBox>(
+            find.descendant(of: panel, matching: find.byType(ColoredBox)),
+          )
           .map((box) => box.color)
           .toSet();
-      expect(fills, contains(hueFor(_hues, 'mvpa_min')));
-      expect(
-        fills,
-        isNot(contains(_colors.alert)),
-        reason: 'nothing on this card is a verdict, in either direction',
-      );
+      expect(painted, isNot(contains(_colors.alert)));
+      expect(painted, isNot(contains(_colors.unf)));
     });
   });
 

@@ -26,6 +26,7 @@ import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
+import 'package:healthee/features/insights/insights_sections.dart';
 import 'package:healthee/features/insights/widgets/trends_section.dart';
 import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/format/metric_polarity.dart';
@@ -55,7 +56,7 @@ Set<Color> _textColours(WidgetTester tester, Finder finder) {
 Widget _row(MetricTrend trend) => MaterialApp(
   theme: AppTheme.light,
   home: Scaffold(
-    body: TrendRow(trend: trend, reveals: RevealRegistry()),
+    body: TrendPanel(trend: trend, reveals: RevealRegistry()),
   ),
 );
 
@@ -133,14 +134,14 @@ void main() {
       await tester.pumpWidget(_row(_trend('rhr_daily', 4)));
       await tester.pumpAndSettle();
 
-      expect(_textColours(tester, find.byType(TrendRow)), contains(_verdicts().unf));
+      expect(_textColours(tester, find.byType(TrendPanel)), contains(_verdicts().unf));
     });
 
     testWidgets('a polarity -1 metric FALLING renders fav', (tester) async {
       await tester.pumpWidget(_row(_trend('rhr_daily', -4)));
       await tester.pumpAndSettle();
 
-      expect(_textColours(tester, find.byType(TrendRow)), contains(_verdicts().fav));
+      expect(_textColours(tester, find.byType(TrendPanel)), contains(_verdicts().fav));
     });
 
     testWidgets('a polarity +1 metric rising renders fav, falling unf', (
@@ -148,11 +149,11 @@ void main() {
     ) async {
       await tester.pumpWidget(_row(_trend('hrv_sleep_avg', 4)));
       await tester.pumpAndSettle();
-      expect(_textColours(tester, find.byType(TrendRow)), contains(_verdicts().fav));
+      expect(_textColours(tester, find.byType(TrendPanel)), contains(_verdicts().fav));
 
       await tester.pumpWidget(_row(_trend('hrv_sleep_avg', -4)));
       await tester.pumpAndSettle();
-      expect(_textColours(tester, find.byType(TrendRow)), contains(_verdicts().unf));
+      expect(_textColours(tester, find.byType(TrendPanel)), contains(_verdicts().unf));
     });
 
     testWidgets('MUTATION: A POLARITY-0 METRIC RENDERS NO VERDICT COLOUR', (
@@ -169,7 +170,7 @@ void main() {
         await tester.pumpWidget(_row(_trend('total_calories', delta)));
         await tester.pumpAndSettle();
 
-        final drawn = _textColours(tester, find.byType(TrendRow));
+        final drawn = _textColours(tester, find.byType(TrendPanel));
         expect(
           drawn,
           isNot(contains(_verdicts().fav)),
@@ -191,7 +192,7 @@ void main() {
       await tester.pumpWidget(_row(_trend('weight_kg', 3)));
       await tester.pumpAndSettle();
 
-      final drawn = _textColours(tester, find.byType(TrendRow));
+      final drawn = _textColours(tester, find.byType(TrendPanel));
       expect(drawn, isNot(contains(_verdicts().fav)));
       expect(drawn, isNot(contains(_verdicts().unf)));
     });
@@ -293,10 +294,17 @@ void main() {
     testWidgets('draws a trend for each tracked metric the payload carries', (
       tester,
     ) async {
+      tester.view
+        ..physicalSize = const Size(420, 6000)
+        ..devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
       await tester.pumpAndSettle();
+      await reveal(tester, find.text('Your longer patterns'));
 
-      expect(find.text('Trends'), findsOneWidget);
+      // The prototype's own heading for this block, and one panel per metric
+      // the payload carried a window for.
+      expect(find.text('Your longer patterns'), findsOneWidget);
       expect(find.text('Overnight HRV'), findsOneWidget);
       expect(find.text('Resting heart rate'), findsOneWidget);
       expect(find.text('Total calories'), findsOneWidget);
@@ -332,7 +340,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('No trend windows yet'), findsOneWidget);
+      // No windows draws NOTHING — not an empty-state card under a heading.
+      // A heading over nothing reads as breakage; `insights_sections.dart`
+      // drops the heading with the panels, which is v02's rule for every
+      // block on every redesigned screen.
+      expect(find.text('Your longer patterns'), findsNothing);
+      expect(find.byType(TrendPanel), findsNothing);
     });
 
     test('trendsOf drops a metric with fewer than two points', () {

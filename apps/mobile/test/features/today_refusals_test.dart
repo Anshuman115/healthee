@@ -30,6 +30,7 @@ import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/states/value_hole.dart';
+import 'package:healthee/shared/v02/withheld_panel.dart';
 
 import '../_today_stubs.dart';
 import '../store/strap_store_test.dart' show resultWith;
@@ -86,15 +87,22 @@ void main() {
       final remedy = find.textContaining('log a new one');
       await reveal(tester, remedy);
 
-      final card = find.ancestor(of: remedy, matching: find.byType(StateCard));
+      // Activity is v02 now, so the carrier is `WithheldPanel` — the metric's
+      // name, a DASHED hole and the server's reason, in the slot the panel
+      // would have taken. The claim under it is the one that was always here.
+      final card = find.ancestor(
+        of: remedy,
+        matching: find.byType(WithheldPanel),
+      );
+      expect(card, findsOneWidget);
+      // It keeps its name, so a refusal is self-describing in a list.
       expect(
-        find.descendant(of: card, matching: find.text('WITHHELD')),
+        find.descendant(of: card, matching: find.text('VO₂max · estimate')),
         findsOneWidget,
       );
-      // The card keeps its footprint and its title, and the value slot carries
-      // the reason: a number-shaped hole, the word, and the remedy.
+      // A number-shaped hole where the figure would have been.
       expect(
-        find.descendant(of: card, matching: find.byType(ValueHole)),
+        find.descendant(of: card, matching: find.text('—')),
         findsWidgets,
       );
       expect(

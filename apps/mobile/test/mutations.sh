@@ -1528,6 +1528,83 @@ mutate 'the rim dust wears the stream glow' \
           glint: dot.glint,
           width: dot.extent * 6,'
 
+# ── Activity and Insights, rebuilt to v02 ──────────────────────────────────
+ACT_SECTIONS=lib/features/activity/activity_sections.dart
+ACT_TRAIN=lib/features/activity/v02/training_panels.dart
+ACT_MOVE=lib/features/activity/v02/movement_panels.dart
+INS_TRENDS=lib/features/insights/widgets/trends_section.dart
+ACT_ORDER_TEST=test/features/activity_order_test.dart
+INS_ORDER_TEST=test/features/insights_order_test.dart
+SURFACE_TEST=test/features/activity_insights_surface_test.dart
+EMPTY_TEST=test/features/today_empty_states_test.dart
+
+# The refusal loses its carrier and the panel silently vanishes from the list —
+# the failure `WithheldPanel` exists for, and the one a "does it render" test
+# passes straight through.
+mutate 'a refused Activity block draws nothing instead of saying why' \
+  "$EMPTY_TEST" "$ACT_SECTIONS" \
+  '        withheldBuilder: (context, disclosure) => WithheldPanel(
+          disclosure: disclosure,
+          label: '"'"'Active minutes · MVPA'"'"',
+        ),' \
+  '        withheldBuilder: (context, disclosure) => const SizedBox.shrink(),'
+
+# The wire id reaches a health screen where the instrument'"'"'s NAME belongs.
+# [[hr_reserve_vo2max]] D4 requires the method wherever the number is, and
+# `gps_graded` is a log line, not a method.
+mutate 'the VO2max method is printed as its wire id on Activity' \
+  "$SURFACE_TEST" "$ACT_TRAIN" \
+  "      'Read by \${methodLabel(vo2max.method)}'," \
+  "      'Read by \${vo2max.method}',"
+
+# The reference pill returns to the card face. The owner asked twice for these
+# to live in the info sheet; the sources must stay reachable, not stay printed.
+mutate 'the reference label returns to the intensity card' \
+  "$SURFACE_TEST" "$ACT_MOVE" \
+  "          PanelValue('\${mvpa.weekMin}', unit: 'equivalent min')," \
+  "          PanelValue('\${mvpa.weekMin}', unit: 'equivalent min',
+              context_: 'Reference \${mvpa.weekTarget} min/week'),"
+
+# The prototype'"'"'s order breaks: the age bridge climbs above the panel whose
+# number it is about, so a connective sentence arrives before the thing it
+# connects to.
+mutate "Activity's sections leave the prototype's order" \
+  "$ACT_ORDER_TEST" "$ACT_SECTIONS" \
+  '  sections.gap(PageSpacing.block);
+  sections.add(
+    const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'),
+  );' \
+  '  sections.gap(PageSpacing.block);
+  sections.add(const DataFooter());
+  sections.gap(PageSpacing.block);
+  sections.add(
+    const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'),
+  );'
+
+# A heading over nothing. `insights_sections.dart` drops the head with the
+# panels precisely so an empty block reads as silence rather than as breakage.
+mutate 'Insights keeps a trends heading with no trends under it' \
+  "$INS_ORDER_TEST" lib/features/insights/insights_sections.dart \
+  '  if (trends.isNotEmpty) {
+    sections.gap(PageSpacing.block);' \
+  '  if (true) {
+    sections.gap(PageSpacing.block);'
+
+# THE load-bearing case, in its v02 carrier: a metric with no known polarity —
+# or a neutral one — acquires a verdict colour, after which every colour on the
+# screen is decoration and the two that are claims stop meaning anything.
+mutate 'a polarity-less trend panel acquires a verdict colour' \
+  test/features/insights_trends_test.dart "$INS_TRENDS" \
+  '      TrendVerdict.none => null,' \
+  '      TrendVerdict.none => colors.fav,'
+
+# The sparkline collapses to nothing. Two charts have shipped at zero height in
+# this repo because a test only asked whether the widget existed.
+mutate 'a trend sparkline is laid out at zero height' \
+  "$SURFACE_TEST" "$INS_TRENDS" \
+  '  static const double sparklineHeight = 30;' \
+  '  static const double sparklineHeight = 0;'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
