@@ -31,7 +31,11 @@
 /// `test/features/insights_trends_test.dart` breaks it on purpose.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/metric_hue.dart';
@@ -123,8 +127,19 @@ class TrendsSection extends StatelessWidget {
             style: text.bodySmall?.copyWith(color: colors.ink2),
           ),
           for (final trend in trends) ...[
-            Divider(color: colors.line2, height: Insets.xl, thickness: hairline),
-            TrendRow(trend: trend, reveals: reveals),
+            Divider(
+              color: colors.line2,
+              height: Insets.xl,
+              thickness: hairline,
+            ),
+            InkWell(
+              onTap: () => unawaited(
+                context.push(
+                  '${Routes.history}?metric=${Uri.encodeComponent(trend.metric)}',
+                ),
+              ),
+              child: TrendRow(trend: trend, reveals: reveals),
+            ),
           ],
         ],
       ),
@@ -205,7 +220,11 @@ class _ChangeLabel extends StatelessWidget {
       TrendVerdict.unfavourable => colors.unf,
       TrendVerdict.none => null,
     };
-    final sign = trend.delta > 0 ? '+' : trend.delta < 0 ? '−' : '';
+    final sign = trend.delta > 0
+        ? '+'
+        : trend.delta < 0
+        ? '−'
+        : '';
     return Text(
       '$sign${decimalLabel(trend.delta.abs())} over ${trend.days} days',
       style: text.bodySmall?.copyWith(color: verdict ?? colors.ink3),

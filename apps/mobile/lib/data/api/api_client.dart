@@ -16,6 +16,7 @@ import 'package:dio/dio.dart';
 import 'package:healthee/core/env.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/interceptors.dart';
+import 'package:healthee/data/api/server_session.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'api_client.g.dart';
@@ -23,6 +24,8 @@ part 'api_client.g.dart';
 /// The app's dio instance, configured and authenticated.
 @Riverpod(keepAlive: true)
 Dio apiClient(Ref ref) {
+  // Rebuild every dependent repository/provider after sign-in or sign-out.
+  ref.watch(serverSessionProvider);
   final dio = Dio(
     BaseOptions(
       // The build's default. A stored sign-in overrides it per request in
@@ -37,7 +40,8 @@ Dio apiClient(Ref ref) {
       // Non-2xx is raised as a DioException so a failure cannot be mistaken for
       // an empty body — "no data" and "operation failed" must stay distinguishable
       // (Standards §1).
-      validateStatus: (status) => status != null && status >= 200 && status < 300,
+      validateStatus: (status) =>
+          status != null && status >= 200 && status < 300,
     ),
   );
 
@@ -46,6 +50,6 @@ Dio apiClient(Ref ref) {
     ApiLogInterceptor(logBodies: Env.logHttpBodies),
   ]);
 
-  ref.onDispose(dio.close);
+  ref.onDispose(() => dio.close(force: true));
   return dio;
 }

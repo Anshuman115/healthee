@@ -63,7 +63,9 @@ void main() {
       expect(find.text('Checking what is already signed in'), findsOneWidget);
     });
 
-    testWidgets('a keystore failure renders an error WITH a retry', (tester) async {
+    testWidgets('a keystore failure renders an error WITH a retry', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -73,7 +75,10 @@ void main() {
               ),
             ),
           ],
-          child: MaterialApp(theme: AppTheme.light, home: const ServerSignInScreen()),
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const ServerSignInScreen(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -82,7 +87,9 @@ void main() {
       expect(find.text('Try again'), findsOneWidget);
     });
 
-    testWidgets('signed out renders the form, not a blank card', (tester) async {
+    testWidgets('signed out renders the form, not a blank card', (
+      tester,
+    ) async {
       await tester.pumpWidget(_host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
@@ -102,11 +109,14 @@ void main() {
       expect(url.controller!.text, startsWith('http'));
     });
 
-    testWidgets('the token field is obscured, and the eye reveals it', (tester) async {
+    testWidgets('the token field is obscured, and the eye reveals it', (
+      tester,
+    ) async {
       await tester.pumpWidget(_host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
-      TextField token() => tester.widget<TextField>(find.byType(TextField).last);
+      TextField token() =>
+          tester.widget<TextField>(find.byType(TextField).last);
       expect(token().obscureText, isTrue);
 
       await tester.tap(find.byTooltip('Show the token'));
@@ -124,19 +134,24 @@ void main() {
       await tester.pumpWidget(_host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining("kept in this phone's secure keystore"), findsOneWidget);
+      expect(
+        find.textContaining("kept in this phone's secure keystore"),
+        findsOneWidget,
+      );
       expect(find.textContaining('never written to a log'), findsOneWidget);
     });
   });
 
   group('the three outcomes are genuinely different on screen', () {
-    testWidgets('200 stores the session and shows what is held', (tester) async {
+    testWidgets('200 stores the session and shows what is held', (
+      tester,
+    ) async {
       final store = FakeSecretStore();
       await tester.pumpWidget(_host(store, ScriptedServer()));
       await tester.pumpAndSettle();
       await _submit(tester);
 
-      expect(store.values['helio_token'], kSentinelToken);
+      expect(await Credentials(store).apiToken(), kSentinelToken);
       expect(find.text('Signed in'), findsOneWidget);
       expect(find.text(_url), findsOneWidget);
       expect(find.text('Sign out'), findsOneWidget);
@@ -155,7 +170,10 @@ void main() {
       await _submit(tester);
 
       expect(find.text('That token was refused by the server'), findsOneWidget);
-      expect(find.textContaining('the connection itself is fine'), findsOneWidget);
+      expect(
+        find.textContaining('the connection itself is fine'),
+        findsOneWidget,
+      );
       // Retrying the same token fails identically, so no button pretends otherwise.
       expect(find.text('Try again'), findsNothing);
       expect(store.values, isEmpty);
@@ -194,12 +212,17 @@ void main() {
       await tester.pumpAndSettle();
       await _submit(tester);
 
-      expect(find.textContaining('HTTPS certificate was rejected'), findsOneWidget);
+      expect(
+        find.textContaining('HTTPS certificate was rejected'),
+        findsOneWidget,
+      );
     });
   });
 
   group('the address rules are enforced at the screen, before any request', () {
-    testWidgets('a remote http:// address is refused, and says why', (tester) async {
+    testWidgets('a remote http:// address is refused, and says why', (
+      tester,
+    ) async {
       final store = FakeSecretStore();
       final server = ScriptedServer();
       await tester.pumpWidget(_host(store, server));
@@ -224,12 +247,15 @@ void main() {
       await _submit(tester, token: '  $kSentinelToken\n');
 
       expect(find.text('Signed in'), findsOneWidget);
-      expect(store.values['helio_token'], kSentinelToken);
+      expect(await Credentials(store).apiToken(), kSentinelToken);
     });
   });
 
   group('a phone already signed in', () {
-    Future<void> pumpSignedIn(WidgetTester tester, FakeSecretStore store) async {
+    Future<void> pumpSignedIn(
+      WidgetTester tester,
+      FakeSecretStore store,
+    ) async {
       store.values
         ..['helio_token'] = kSentinelToken
         ..['helio_base_url'] = _url;
@@ -237,15 +263,16 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('shows the session rather than a form that would overwrite it', (
-      tester,
-    ) async {
-      await pumpSignedIn(tester, FakeSecretStore());
+    testWidgets(
+      'shows the session rather than a form that would overwrite it',
+      (tester) async {
+        await pumpSignedIn(tester, FakeSecretStore());
 
-      expect(find.text('Signed in'), findsOneWidget);
-      expect(find.text(_url), findsOneWidget);
-      expect(find.byType(TextField), findsNothing);
-    });
+        expect(find.text('Signed in'), findsOneWidget);
+        expect(find.text(_url), findsOneWidget);
+        expect(find.byType(TextField), findsNothing);
+      },
+    );
 
     testWidgets('sign-out clears the token from the keystore', (tester) async {
       final store = FakeSecretStore();
@@ -259,7 +286,9 @@ void main() {
       expect(find.byType(TextField), findsNWidgets(2));
     });
 
-    testWidgets('sign-out says what it does and does not take away', (tester) async {
+    testWidgets('sign-out says what it does and does not take away', (
+      tester,
+    ) async {
       await pumpSignedIn(tester, FakeSecretStore());
 
       expect(

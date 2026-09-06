@@ -53,7 +53,7 @@ final class TodayRepositoryProvider
   }
 }
 
-String _$todayRepositoryHash() => r'da0fb7f39639a4a2aa7d9cea3774336603004615';
+String _$todayRepositoryHash() => r'9b715fc2421c68f4b3cae20c77255b1491fcc32a';
 
 /// Today's snapshot, with its provenance. Watch this from the Today screen.
 ///

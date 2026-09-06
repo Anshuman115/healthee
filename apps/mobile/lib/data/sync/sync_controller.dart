@@ -44,6 +44,7 @@ import 'package:healthee/data/push/push_service.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/auto_sync.dart';
 import 'package:healthee/data/sync/connection_state.dart';
+import 'package:healthee/data/sync/device_lease.dart';
 import 'package:healthee/data/sync/foreground_link.dart';
 import 'package:healthee/data/sync/foreground_watch.dart';
 import 'package:healthee/data/sync/sync_engine.dart';
@@ -90,9 +91,13 @@ class SyncController extends _$SyncController {
   @override
   StrapConnection build() {
     final link = ForegroundLink(
+      lease: DeviceLease(ref.watch(localStoreProvider)),
       client: ref.watch(strapClientProvider),
       scanner: ref.watch(strapScannerProvider),
-      lastCompleteSync: ref.watch(localStoreProvider).strapWriter.lastCompleteSync,
+      lastCompleteSync: ref
+          .watch(localStoreProvider)
+          .strapWriter
+          .lastCompleteSync,
       onState: (next) => state = next,
     );
     final watch = ForegroundWatch(
@@ -133,10 +138,9 @@ class SyncController extends _$SyncController {
   /// indistinguishable from a foreground that is broken, and this is background
   /// work, which Standards §1 requires to reach a surface rather than vanish.
   Future<SyncOutcome?> autoSyncNow() async {
-    final decision = await ref.read(autoSyncGateProvider).decide(
-      linkHeld: holdsSession,
-      busy: state.isBusy,
-    );
+    final decision = await ref
+        .read(autoSyncGateProvider)
+        .decide(linkHeld: holdsSession, busy: state.isBusy);
     if (!decision.shouldStart) {
       AppLog.info('sync', 'no automatic sync: ${decision.name}');
       return null;
@@ -184,12 +188,14 @@ class SyncController extends _$SyncController {
     _token = token;
     final link = _link;
     try {
-      final outcome = await ref.read(syncEngineProvider).run(
-        today: ref.read(todayProvider),
-        onState: (next) => state = next,
-        cancel: token,
-        session: link?.held,
-      );
+      final outcome = await ref
+          .read(syncEngineProvider)
+          .run(
+            today: ref.read(todayProvider),
+            onState: (next) => state = next,
+            cancel: token,
+            session: link?.held,
+          );
       if (outcome is SyncFailed && link != null) {
         // The session we were handed did not carry a sync. Keeping it would
         // mean the chrome showing a failure over a link we still claim.

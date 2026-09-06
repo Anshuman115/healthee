@@ -19,23 +19,22 @@
 /// server's `recommendation` table and read back by `read/today.py`. Three facts
 /// about that shape the copy here rather than being hidden by it:
 ///
-///   * **It is one day's set, not a history.** `_recommendations_today` returns
-///     the latest set of 1–3 rows and falls back up to two days; there is no
-///     endpoint for older ones, so this screen does not imply a log.
-///   * **The app cannot mark one done.** `adopted` is on the wire and nothing in
-///     this app writes it. A checkbox that changed nothing on the server would be
-///     a control that lies, so there is none — see the standing rule that a
-///     surface may not offer an affordance it cannot honour.
-///   * **They need the server.** With no session or no answer the derived half is
-///     empty and says so once, through the shared failure card, exactly as every
-///     other tab does.
+/// Today shows the most recent set. Action history adds dated recommendations
+/// and acknowledged adoption/dismissal; adoption records intent, not completion.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/data/challenges/commitment_repository.dart';
 import 'package:healthee/data/models/recommendation.dart';
+import 'package:healthee/features/actions/widgets/challenge_hub.dart';
 import 'package:healthee/shared/instrument_screen.dart';
+import 'package:healthee/shared/journal_link.dart';
 import 'package:healthee/shared/page_head.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/recommendation_entry.dart';
@@ -43,7 +42,7 @@ import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// The Actions tab.
-class ActionsScreen extends StatelessWidget {
+class ActionsScreen extends ConsumerWidget {
   /// [now] is injected by tests so the freshness labels are deterministic.
   const ActionsScreen({this.now, super.key});
 
@@ -51,8 +50,9 @@ class ActionsScreen extends StatelessWidget {
   final DateTime? now;
 
   @override
-  Widget build(BuildContext context) {
-    return InstrumentScreen(now: now, sections: actionsSections);
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InstrumentScreen(now: now, sections: actionsSections,
+      onRefreshed: () => ref.invalidate(commitmentRepositoryProvider));
   }
 }
 
@@ -67,6 +67,17 @@ List<PageSection> actionsSections(ScreenData data) {
     ),
     if (data.serverFailure case final PageSection failure) failure,
     if (data.serverPending case final PageSection pending) pending,
+    const PageSection(JournalLink()),
+    PageSection(
+      Builder(
+        builder: (context) => ListTile(
+          title: const Text('Action history and adoption'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => unawaited(context.push(Routes.recommendations)),
+        ),
+      ),
+    ),
+    const PageSection(ChallengeHub()),
 
     if (snapshot?.action case final String sentence)
       PageSection(_DailyLine(sentence: sentence)),
@@ -85,7 +96,6 @@ List<PageSection> actionsSections(ScreenData data) {
     else ...[
       for (final recommendation in recommendations)
         PageSection(_ActionCard(recommendation: recommendation)),
-      const PageSection(_TodayOnlyNote(), gap: PageSpacing.section),
     ],
   ];
 }
@@ -130,18 +140,3 @@ class _ActionCard extends StatelessWidget {
 }
 
 /// Says what this list is and is not, once, at the bottom.
-class _TodayOnlyNote extends StatelessWidget {
-  const _TodayOnlyNote();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    return Text(
-      "This is today's set. The server keeps no history of past actions and "
-      'this app cannot mark one as done, so nothing here is a checklist — it is '
-      'what your own readings suggested this morning.',
-      style: text.bodySmall?.copyWith(color: colors.ink3),
-    );
-  }
-}

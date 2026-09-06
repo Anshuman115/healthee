@@ -31,11 +31,13 @@ class DayLineChart extends StatelessWidget {
     required this.color,
     this.height = 96,
     this.showRange = true,
+    this.breakBefore = const {},
     super.key,
   });
 
   /// The samples, oldest first.
   final List<DevicePoint> points;
+  final Set<DateTime> breakBefore;
 
   /// How much of the line to draw, 0–1.
   final double progress;
@@ -79,6 +81,7 @@ class DayLineChart extends StatelessWidget {
           child: CustomPaint(
             painter: _DayLinePainter(
               points: points,
+              breakBefore: breakBefore,
               low: low,
               high: high,
               progress: progress,
@@ -107,9 +110,11 @@ class _DayLinePainter extends CustomPainter {
     required this.progress,
     required this.line,
     required this.fill,
+    required this.breakBefore,
   });
 
   final List<DevicePoint> points;
+  final Set<DateTime> breakBefore;
   final double low;
   final double high;
   final double progress;
@@ -168,7 +173,9 @@ class _DayLinePainter extends CustomPainter {
       if (here.dx > cutoff) {
         break;
       }
-      final broke = point.at.difference(previous.at) > _breakAfter;
+      final broke =
+          point.at.difference(previous.at) > _breakAfter ||
+          breakBefore.contains(point.at);
       if (!started || broke) {
         closeRun(at(previous));
         path.moveTo(here.dx, here.dy);
@@ -185,7 +192,8 @@ class _DayLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(_DayLinePainter old) =>
       old.progress != progress ||
-      old.points.length != points.length ||
+      old.points != points ||
+      old.breakBefore != breakBefore ||
       old.low != low ||
       old.high != high ||
       old.line != line;

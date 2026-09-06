@@ -34,6 +34,7 @@ library;
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:healthee/data/api/secret_store.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'credentials.g.dart';
@@ -49,6 +50,7 @@ class Credentials {
 
   final SecretStore _storage;
 
+  static const String _sessionKey = 'helio_server_session';
   static const String _tokenKey = 'helio_token';
   static const String _baseUrlKey = 'helio_base_url';
   static const String _strapMacKey = 'strap_mac';
@@ -57,7 +59,7 @@ class Credentials {
   static const String _zeppPasswordKey = 'zepp_password';
 
   /// The API bearer token, or null when the owner has not signed in.
-  Future<String?> apiToken() => _storage.read(key: _tokenKey);
+  Future<String?> apiToken() async => (await serverSession())?.token;
 
   /// The server that token was accepted by, or null when there is no session.
   ///
@@ -65,7 +67,26 @@ class Credentials {
   /// and must never be half-present. A second store would let the app hold a
   /// token for one server and an address for another, which is a request sent
   /// somewhere it was never authorised.
-  Future<String?> apiBaseUrl() => _storage.read(key: _baseUrlKey);
+  Future<String?> apiBaseUrl() async => (await serverSession())?.baseUrl;
+
+  /// Reads ONE snapshot. Old keys are immutable in this version and only used
+  /// until the first new-format write. The tombstone prevents sign-out revival.
+  Future<StoredServerSession?> serverSession() async {
+    final encoded = await _storage.read(key: _sessionKey);
+    if (encoded != null) return StoredServerSession.decode(encoded);
+    final baseUrl = await _storage.read(key: _baseUrlKey);
+    final token = await _storage.read(key: _tokenKey);
+    final updated = await _storage.read(key: _sessionKey);
+    if (updated != null) return StoredServerSession.decode(updated);
+    if (baseUrl == null || baseUrl.isEmpty || token == null || token.isEmpty) {
+      return null;
+    }
+    return StoredServerSession(
+      baseUrl: baseUrl,
+      token: token,
+      cacheScope: 'legacy',
+    );
+  }
 
   /// Stores a verified server sign-in.
   ///
@@ -78,12 +99,13 @@ class Credentials {
     required String baseUrl,
     required String token,
   }) async {
-    await _storage.write(key: _baseUrlKey, value: baseUrl);
-    await _storage.write(key: _tokenKey, value: token);
+    final session = StoredServerSession.create(baseUrl, token);
+    await _storage.write(key: _sessionKey, value: session.encode());
   }
 
   /// Drops the server sign-in, leaving the strap pairing alone. Sign-out.
   Future<void> forgetServerSession() async {
+    await _storage.write(key: _sessionKey, value: 'null');
     await _storage.delete(key: _tokenKey);
     await _storage.delete(key: _baseUrlKey);
   }
@@ -96,7 +118,10 @@ class Credentials {
 
   /// Stores a strap pairing. Both halves are written together because half a
   /// pairing is not a state the BLE layer can do anything with.
-  Future<void> setStrapPairing({required String mac, required String authKey}) async {
+  Future<void> setStrapPairing({
+    required String mac,
+    required String authKey,
+  }) async {
     await _storage.write(key: _strapMacKey, value: mac);
     await _storage.write(key: _strapAuthKeyKey, value: authKey);
   }
@@ -114,7 +139,10 @@ class Credentials {
   Future<String?> zeppPassword() => _storage.read(key: _zeppPasswordKey);
 
   /// Remembers a Zepp sign-in. **Only ever called after an explicit opt-in.**
-  Future<void> setZeppAccount({required String email, required String password}) async {
+  Future<void> setZeppAccount({
+    required String email,
+    required String password,
+  }) async {
     await _storage.write(key: _zeppEmailKey, value: email);
     await _storage.write(key: _zeppPasswordKey, value: password);
   }

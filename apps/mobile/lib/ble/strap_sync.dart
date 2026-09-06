@@ -13,6 +13,7 @@
 /// Standards §1 caps a method at 40 lines.
 library;
 
+import 'package:healthee/ble/fetch/fetch_exception.dart';
 import 'package:healthee/ble/models/device_daily_totals.dart';
 import 'package:healthee/ble/models/sleep_session.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
@@ -21,6 +22,7 @@ import 'package:healthee/ble/models/strap_sync_window.dart';
 import 'package:healthee/ble/models/workout.dart';
 import 'package:healthee/ble/parsers/sleep_parser.dart';
 import 'package:healthee/ble/parsers/workout_parser.dart';
+import 'package:healthee/ble/strap_failure.dart';
 import 'package:healthee/ble/strap_progress.dart';
 import 'package:healthee/ble/strap_session.dart';
 import 'package:healthee/core/logging.dart';
@@ -95,6 +97,23 @@ class StrapSync {
       return _result(await session.awaitDailyTotals());
     }
 
+    try {
+      await _fetchHistory(window);
+    } on FetchException catch (error, stackTrace) {
+      AppLog.failure('ble', 'collecting strap history', error, stackTrace);
+      if (error.type == 0x48) {
+        _mergeSleep(SleepParser.parse(error.raw));
+      } else if (error.type == 0x05) {
+        _mergeWorkouts(WorkoutParser.parseStream(error.raw));
+      } else {
+        _samples.addAll(error.samples);
+      }
+      return _result(await session.awaitDailyTotals(), failure: error.failure);
+    }
+    return _result(await session.awaitDailyTotals());
+  }
+
+  Future<void> _fetchHistory(StrapSyncWindow window) async {
     final backfill = DateTime.now().subtract(kBackfillWindow);
     for (final (code, name, metric) in kFetchPlan) {
       _startStep(name);
@@ -108,20 +127,21 @@ class StrapSync {
     await _fetchWorkouts(window);
 
     AppLog.info('ble', 'sensor fetch complete');
-    return _result(await session.awaitDailyTotals());
   }
 
-  StrapSyncResult _result(DeviceDailyTotals? totals) => StrapSyncResult(
-    activityChannelPresent: session.hasActivityChannel,
-    samples: List<StrapSample>.unmodifiable(_samples),
-    sleepSessions: List<SleepSession>.unmodifiable(_sleep),
-    workouts: List<Workout>.unmodifiable(_workouts),
-    dailyTotals: totals,
-    batteryPercent: session.batteryPercent,
-    stressBackfillRan: _stressBackfillRan,
-    napBackfillRan: _napBackfillRan,
-    completedAt: DateTime.now(),
-  );
+  StrapSyncResult _result(DeviceDailyTotals? totals, {StrapFailure? failure}) =>
+      StrapSyncResult(
+        failure: failure,
+        activityChannelPresent: session.hasActivityChannel,
+        samples: List<StrapSample>.unmodifiable(_samples),
+        sleepSessions: List<SleepSession>.unmodifiable(_sleep),
+        workouts: List<Workout>.unmodifiable(_workouts),
+        dailyTotals: totals,
+        batteryPercent: session.batteryPercent,
+        stressBackfillRan: _stressBackfillRan,
+        napBackfillRan: _napBackfillRan,
+        completedAt: DateTime.now(),
+      );
 
   /// One metric, incrementally — with the stale-feed recovery.
   ///

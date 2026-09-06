@@ -57,6 +57,20 @@ all run end to end against it.
 
 ## The two production lessons this layer carries
 
+History failures are now explicit. `ActivityFetcher` throws `FetchException` on
+timeout, rejected/control writes, or a round limit reached before the end of the
+stream. The exception carries only completed rounds. `StrapSync` returns those
+readings and the daily counter with a failure; the sync engine persists them,
+reports failure, and leaves the last-complete timestamp and backfill flags alone.
+The controller releases a failed foreground session before another attempt.
+
+Packet counters must begin at zero and advance modulo 256. A missing or duplicate
+packet invalidates the whole round. The fetcher ACKs with KEEP, retries the same
+cursor at most twice, then fails explicitly. It never parses the damaged round.
+ACK writes finish before the next round starts. These checks use scripted
+notification loss (`test/ble/fetch_integrity_test.dart`), not captured hardware
+frames; the hardware-verification limitation above still applies.
+
 - **The `0xFF` sentinel and the pager stall.** The per-minute stream stalls and
   leaves `0xFF` in minutes it never wrote. Parsers drop it; the fetcher steps
   `since` forward by the round's minute count so the pager crosses a dead block

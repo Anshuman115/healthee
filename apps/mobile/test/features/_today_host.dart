@@ -9,6 +9,7 @@
 /// Not a `*_test.dart` file, so it is never run as a suite.
 library;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,11 +17,22 @@ import 'package:healthee/app.dart';
 import 'package:healthee/ble/models/device_daily_totals.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/data/api/account_api.dart';
+import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/api/server_snapshot.dart';
+import 'package:healthee/data/challenges/challenge_feed.dart';
+import 'package:healthee/data/challenges/commitment_repository.dart';
+import 'package:healthee/data/challenges/milestones.dart';
+import 'package:healthee/data/challenges/program_feed.dart';
+import 'package:healthee/data/gps/gps_recorder.dart';
+import 'package:healthee/data/gps/gps_recording_state.dart';
+import 'package:healthee/data/insights/notable_event.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_insight.dart';
 import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/models/today_view.dart';
+import 'package:healthee/data/notifications/notify_completions.dart';
 import 'package:healthee/data/pairing/paired_strap.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/data/sleep_repository.dart';
@@ -62,6 +74,7 @@ final DateTime now = DateTime(2026, 8, 4, 9, 30);
 Widget todayHost(
   LocalStore store, {
   StrapConnection? connection,
+  SyncController? sync,
   TodayView? server,
   bool serverUnreachable = false,
   ThemeData? themeOverride,
@@ -73,6 +86,7 @@ Widget todayHost(
   return _scoped(
     store,
     connection: connection,
+    sync: sync,
     server: server,
     serverUnreachable: serverUnreachable,
     signedIn: signedIn,
@@ -108,6 +122,7 @@ Widget _scoped(
   LocalStore store, {
   required Widget child,
   StrapConnection? connection,
+  SyncController? sync,
   TodayView? server,
   bool serverUnreachable = false,
   bool signedIn = true,
@@ -117,10 +132,26 @@ Widget _scoped(
 }) {
   return ProviderScope(
     overrides: [
+      challengeFeedProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
+        const ChallengeFeed(active: [], suggested: [], recent: [], maxActive: 3),
+        fetchedAt: now,
+      ))),
+      programFeedProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
+        const ProgramFeed(active: null, suggested: [], recent: []), fetchedAt: now,
+      ))),
+      milestonesProvider.overrideWith((ref) async => []),
+      notifyCompletionsProvider().overrideWith((ref) async {}),
+      notableEventsProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
+        <NotableEvent>[], fetchedAt: now,
+      ))),
+      gpsRecorderProvider.overrideWith(FixedGps.new),
+      commitmentRepositoryProvider.overrideWith((ref) async => CommitmentRepository(
+        AccountApi(Dio(), await CacheSession.capture(null)),
+      )),
       localStoreProvider.overrideWithValue(store),
       todayProvider.overrideWithValue(todayDate),
       syncControllerProvider.overrideWith(
-        () => FixedConnection(connection ?? const Disconnected()),
+        () => sync ?? FixedConnection(connection ?? const Disconnected()),
       ),
       serverSessionProvider.overrideWith(
         (ref) async => signedIn
@@ -232,3 +263,9 @@ Future<void> tapTab(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+
+/// GPS acquisition has its own scripted suite; screen tests never open hardware.
+class FixedGps extends GpsRecorder {
+  @override
+  Future<GpsRecordingState> build() async => const GpsRecordingState();
+}

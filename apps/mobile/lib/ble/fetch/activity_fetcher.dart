@@ -43,13 +43,15 @@
 ///  * The legacy `log` callback is replaced by [AppLog].
 ///  * Control writes were fire-and-forget. They are now sent through
 ///    [_writeControl], which logs a failure with context and ends the job with a
-///    named reason. Before, a failed write showed up only as the 30-second
-///    timeout; the samples handed back are the same either way.
+///    named failure. Completed rounds survive in `FetchException`; a timeout
+///    or a failed write cannot certify an empty-but-successful stream.
+///  * Packet-counter gaps discard and retry the round before any parsing.
 library;
 
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:healthee/ble/fetch/fetch_exception.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/ble/parsers/activity_parser.dart';
 import 'package:healthee/ble/parsers/workout_parser.dart';
@@ -62,6 +64,7 @@ class ActivityFetcher {
   /// to [onControl] and char `0x0005` notifications to [onData].
   ActivityFetcher(this.writeControl);
 
+  static const int _maxIntegrityRetries = 2;
   static const int _response = 0x10;
   static const int _cmdStartDate = 0x01;
   static const int _cmdFetchData = 0x02;
@@ -106,20 +109,14 @@ class ActivityFetcher {
       ..maxRounds = maxRounds;
     _job = job;
     _startRound();
-    return job.completer.future.timeout(
-      timeout,
-      onTimeout: () {
-        if (!probeOnly) {
-          AppLog.warning('ble', 'fetch 0x${code.toRadixString(16)} timed out');
-        }
-        lastRaw = job.allRaw.toBytes(); // keep what we paged before the timeout
-        _job = null;
-        return job.samples;
-      },
-    );
+    job.timer = Timer(timeout, () {
+      if (identical(_job, job)) _finish('history fetch timed out');
+    });
+    return job.completer.future;
   }
 
   Future<void> _writeControl(List<int> cmd) async {
+    final owner = _job;
     try {
       await writeControl(cmd);
     } on Exception catch (error, stackTrace) {
@@ -129,7 +126,7 @@ class ActivityFetcher {
         error,
         stackTrace,
       );
-      _finish('control write failed');
+      if (identical(_job, owner)) _finish('control write failed');
     }
   }
 
@@ -138,6 +135,7 @@ class ActivityFetcher {
     if (job == null) return;
     job.data.clear();
     job.lastCounter = -1;
+    job.counterGap = false;
     job.rounds++;
     final cmd = <int>[_cmdStartDate, job.code, ...HuamiTime.bytes(job.since)];
     unawaited(_writeControl(cmd));
@@ -173,7 +171,7 @@ class ActivityFetcher {
         );
       }
       if (parsed.expected == 0 || job.probeOnly) {
-        _ackThenFinish(); // probe: don't download, just ack-abort
+        unawaited(_ackThenFinish()); // probe: don't download, just ack-abort
         return;
       }
       unawaited(_writeControl([_cmdFetchData]));
@@ -182,7 +180,7 @@ class ActivityFetcher {
         _finish('fetch failed 0x${status.toRadixString(16)}');
         return;
       }
-      _ackAndParseRound();
+      unawaited(_ackAndParseRound());
     } else if (cmd == _cmdAck) {
       // device's reply to our ack — ignore
     }
@@ -193,7 +191,8 @@ class ActivityFetcher {
     final job = _job;
     if (job == null || value.isEmpty) return;
     final counter = value[0];
-    if (job.lastCounter >= 0 && counter != ((job.lastCounter + 1) & 0xFF)) {
+    if (counter != ((job.lastCounter + 1) & 0xFF)) {
+      job.counterGap = true;
       AppLog.warning(
         'ble',
         'counter gap got=$counter exp=${(job.lastCounter + 1) & 0xFF}',
@@ -203,10 +202,20 @@ class ActivityFetcher {
     job.data.add(value.sublist(1));
   }
 
-  void _ackAndParseRound() {
+  Future<void> _ackAndParseRound() async {
     final job = _job;
     if (job == null) return;
-    unawaited(_writeControl([_cmdAck, _ackKeep])); // KEEP on device
+    await _writeControl([_cmdAck, _ackKeep]); // KEEP on device
+    if (!identical(_job, job)) return;
+    if (job.counterGap) {
+      if (++job.integrityRetries <= _maxIntegrityRetries) {
+        _startRound(); // same cursor, discard this entire round
+      } else {
+        _finish('packets were missing after two retries');
+      }
+      return;
+    }
+    job.integrityRetries = 0;
     final raw = job.data.toBytes();
     job.allRaw.add(raw);
     final samples = ActivityParser.parse(job.code, raw, job.roundStart);
@@ -221,7 +230,7 @@ class ActivityFetcher {
     // workout time instead — otherwise we only ever get the first (oldest) page.
     if (job.code == 0x05) {
       final wk = WorkoutParser.parseStream(job.allRaw.toBytes());
-      if (wk.isNotEmpty && job.rounds < job.maxRounds) {
+      if (wk.isNotEmpty) {
         var last = wk.first.start;
         for (final w in wk) {
           if (w.start.isAfter(last)) last = w.start;
@@ -235,6 +244,10 @@ class ActivityFetcher {
             'workouts: ${wk.length} so far, paging from '
                 '${nextSince.toIso8601String()}',
           );
+          if (job.rounds >= job.maxRounds) {
+            _finish('history round limit reached');
+            return;
+          }
           job.since = nextSince;
           _startRound();
           return;
@@ -249,9 +262,12 @@ class ActivityFetcher {
       final last = samples.last.date;
       final nextSince = last.add(const Duration(minutes: 1));
       final now = DateTime.now();
-      if (job.rounds < job.maxRounds &&
-          nextSince.isBefore(now.subtract(const Duration(seconds: 30))) &&
+      if (nextSince.isBefore(now.subtract(const Duration(seconds: 30))) &&
           nextSince.isAfter(job.since)) {
+        if (job.rounds >= job.maxRounds) {
+          _finish('history round limit reached');
+          return;
+        }
         job.since = nextSince;
         _startRound();
         return;
@@ -268,9 +284,12 @@ class ActivityFetcher {
       final mins = (raw.length ~/ recSize).clamp(1, 1440);
       final nextSince = job.since.add(Duration(minutes: mins));
       final now = DateTime.now();
-      if (job.rounds < job.maxRounds &&
-          nextSince.isBefore(now.subtract(const Duration(seconds: 30))) &&
+      if (nextSince.isBefore(now.subtract(const Duration(seconds: 30))) &&
           nextSince.isAfter(job.since)) {
+        if (job.rounds >= job.maxRounds) {
+          _finish('history round limit reached');
+          return;
+        }
         job.since = nextSince;
         _startRound();
         return;
@@ -279,14 +298,16 @@ class ActivityFetcher {
     _finishOk();
   }
 
-  void _ackThenFinish() {
-    unawaited(_writeControl([_cmdAck, _ackKeep]));
-    _finishOk();
+  Future<void> _ackThenFinish() async {
+    final job = _job;
+    await _writeControl([_cmdAck, _ackKeep]);
+    if (identical(_job, job)) _finishOk();
   }
 
   void _finishOk() {
     final job = _job;
     if (job == null) return;
+    job.timer?.cancel();
     lastRaw = job.allRaw.toBytes();
     _job = null;
     if (!job.completer.isCompleted) job.completer.complete(job.samples);
@@ -296,14 +317,25 @@ class ActivityFetcher {
     final job = _job;
     if (job == null) return;
     if (!job.probeOnly) {
-      AppLog.warning(
-        'ble',
-        'finish 0x${job.code.toRadixString(16)}: $reason',
-      );
+      AppLog.warning('ble', 'finish 0x${job.code.toRadixString(16)}: $reason');
     }
+    job.timer?.cancel();
     lastRaw = job.allRaw.toBytes();
     _job = null;
-    if (!job.completer.isCompleted) job.completer.complete(job.samples);
+    if (!job.completer.isCompleted) {
+      if (job.probeOnly) {
+        job.completer.complete(job.samples);
+      } else {
+        job.completer.completeError(
+          FetchException(
+            type: job.code,
+            reason: reason,
+            samples: List.unmodifiable(job.samples),
+            raw: lastRaw,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -315,6 +347,9 @@ class _FetchJob {
   DateTime roundStart;
   final BytesBuilder data = BytesBuilder();
   final BytesBuilder allRaw = BytesBuilder();
+  Timer? timer;
+  bool counterGap = false;
+  int integrityRetries = 0;
   bool probeOnly = false;
   int maxRounds = 20;
   int lastCounter = -1;

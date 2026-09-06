@@ -23,7 +23,7 @@ final class ThemeControllerProvider
         argument: null,
         retry: null,
         name: r'themeControllerProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -44,7 +44,7 @@ final class ThemeControllerProvider
   }
 }
 
-String _$themeControllerHash() => r'07db36db0355d047a898f54953c54fafbf7da867';
+String _$themeControllerHash() => r'2111a4769a6b6023530010bca9589c22740e038a';
 
 /// The active theme mode.
 

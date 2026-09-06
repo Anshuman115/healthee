@@ -66,6 +66,7 @@ import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/async_view.dart';
+import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// Everything a screen's section list is built from.
@@ -111,7 +112,9 @@ class ScreenData {
 
   /// The placeholder while the derived half is still in flight.
   PageSection? get serverPending => server.value == null && server.isLoading
-      ? const PageSection(LoadingState(label: "Reading the server's view of today"))
+      ? const PageSection(
+          LoadingState(label: "Reading the server's view of today"),
+        )
       : null;
 }
 
@@ -148,7 +151,7 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final server = ref.watch(todaySnapshotProvider);
+    final server = currentAccountValue(ref.watch(todaySnapshotProvider));
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -201,7 +204,12 @@ class _SectionList extends StatelessWidget {
     return ListView.builder(
       // Always scrollable, so pull-to-refresh works on a short or empty day.
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(Insets.lg, Insets.lg, Insets.lg, Insets.xxl),
+      padding: const EdgeInsets.fromLTRB(
+        Insets.lg,
+        Insets.lg,
+        Insets.lg,
+        Insets.xxl,
+      ),
       itemCount: sections.length,
       itemBuilder: (context, index) => Padding(
         padding: EdgeInsets.only(bottom: sections[index].gap),

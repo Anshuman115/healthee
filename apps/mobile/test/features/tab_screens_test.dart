@@ -279,6 +279,8 @@ void main() {
       expect(find.textContaining('q = '), findsNothing);
 
       // And it IS reachable — one tap, no modal.
+      await tester.ensureVisible(find.text('The statistic behind this'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('The statistic behind this'));
       await tester.pumpAndSettle();
       expect(find.textContaining('rho = -0.42'), findsOneWidget);

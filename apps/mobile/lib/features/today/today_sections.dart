@@ -40,16 +40,8 @@
 ///   patterns
 /// ```
 ///
-/// ## What is NOT here, and why
-///
-/// **`TodayFocus`** (legacy 230) surfaces active challenges from
-/// `GET /api/challenges`. This app has no client for that endpoint; the widget
-/// renders nothing when there are no active challenges, so the omission costs no
-/// pixels on an owner with none. Reported.
-///
-/// **`_SleepTonightMini`** (legacy 303) mirrors the Sleep tab's "Tonight" focus
-/// from `GET /api/sleep/consistency`. Same situation, same `SizedBox.shrink()`
-/// when absent. Reported.
+/// TodayFocus and TonightFocus restore the legacy challenge and sleep-focus
+/// summaries using the same account-bound data providers as their detail tabs.
 ///
 /// ## Three things the server sends that NO legacy file reads
 ///
@@ -100,6 +92,7 @@ import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/section_list.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/today_focus.dart';
 
 /// Everything Today needs that is not on [ScreenData].
 @immutable
@@ -172,6 +165,10 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   if (snapshot?.illnessFlag case final flag?) {
     sections.add(IllnessBanner(flag: flag));
     sections.gap(PageSpacing.group);
+  }
+  if (extras.signedIn == true) {
+    sections.gap(PageSpacing.card);
+    sections.add(const TodayFocus());
   }
   if (data.serverFailure case final PageSection failure) {
     sections.addSection(failure);

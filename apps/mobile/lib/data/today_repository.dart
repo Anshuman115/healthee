@@ -36,6 +36,8 @@ import 'package:dio/dio.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/core/provider_logger.dart';
 import 'package:healthee/data/api/api_client.dart';
+import 'package:healthee/data/api/cache_session.dart';
+import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/models/today_view.dart';
 import 'package:healthee/data/store/local_store.dart';
@@ -51,7 +53,10 @@ const String kTodayPayload = 'today';
 /// cannot.
 class TodayRepository {
   /// [dio] is the app's one client; [store] is the local 60-day tier.
-  const TodayRepository(this._dio, this._store);
+  const TodayRepository(this._dio, this._store, {this.credentials});
+
+  /// The account that owns every request and cached response.
+  final Credentials? credentials;
 
   final Dio _dio;
   final LocalStore _store;
@@ -63,12 +68,14 @@ class TodayRepository {
   /// data" and must stay different (Standards §1).
   Future<TodayView> load({DateTime? now}) async {
     final at = now ?? DateTime.now();
+    final session = await CacheSession.capture(credentials);
     try {
-      return await fetch(now: at);
+      return await _fetch(at, session);
     } on DioException catch (error, stackTrace) {
       // Named, logged, then either substituted or rethrown — never swallowed.
       AppLog.failure('today', 'fetching /api/today', error, stackTrace);
-      final cached = await this.cached();
+      await session.ensureCurrent();
+      final cached = await _cached(session);
       if (cached == null) {
         rethrow;
       }
@@ -83,8 +90,18 @@ class TodayRepository {
   /// readable, and a cache that only some code paths fill is a cache that is
   /// empty on the day it matters.
   Future<TodayView> fetch({DateTime? now}) async {
-    final at = now ?? DateTime.now();
-    final response = await _dio.get<Map<String, Object?>>('/api/today');
+    return _fetch(
+      now ?? DateTime.now(),
+      await CacheSession.capture(credentials),
+    );
+  }
+
+  Future<TodayView> _fetch(DateTime at, CacheSession session) async {
+    final response = await _dio.get<Map<String, Object?>>(
+      '/api/today',
+      options: session.options(),
+    );
+    await session.ensureCurrent();
     final body = response.data;
     if (body == null) {
       // An empty body is not an empty snapshot. Saying so out loud keeps "no
@@ -96,6 +113,7 @@ class TodayRepository {
     // thing the app falls back to. A cache full of unparseable JSON is worse
     // than an empty one: it looks like coverage.
     await _store.write(
+      scope: session.scope,
       metric: kTodayPayload,
       day: snapshot.date,
       payload: jsonEncode(body),
@@ -108,8 +126,12 @@ class TodayRepository {
   ///
   /// A row we cannot parse is treated as absent and said out loud. It cannot be
   /// repaired here, and rendering half of it would be inventing the other half.
-  Future<TodayView?> cached() async {
-    final row = await _store.readLatest(kTodayPayload);
+  Future<TodayView?> cached() async =>
+      _cached(await CacheSession.capture(credentials));
+
+  Future<TodayView?> _cached(CacheSession session) async {
+    final row = await _store.readLatest(kTodayPayload, scope: session.scope);
+    await session.ensureCurrent();
     if (row == null) {
       return null;
     }
@@ -128,8 +150,11 @@ class TodayRepository {
 
 /// The app's [TodayRepository].
 @riverpod
-TodayRepository todayRepository(Ref ref) =>
-    TodayRepository(ref.watch(apiClientProvider), ref.watch(localStoreProvider));
+TodayRepository todayRepository(Ref ref) => TodayRepository(
+  ref.watch(apiClientProvider),
+  ref.watch(localStoreProvider),
+  credentials: ref.watch(credentialsProvider),
+);
 
 /// Today's snapshot, with its provenance. Watch this from the Today screen.
 ///

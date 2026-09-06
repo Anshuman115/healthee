@@ -20,7 +20,11 @@
 /// redesign them.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/vo2max.dart';
@@ -30,6 +34,8 @@ import 'package:healthee/features/activity/widgets/mvpa_card.dart';
 import 'package:healthee/features/activity/widgets/steps_card.dart';
 import 'package:healthee/features/activity/widgets/vo2max_card.dart';
 import 'package:healthee/features/activity/widgets/workouts_card.dart';
+import 'package:healthee/shared/gps_recording_link.dart';
+import 'package:healthee/shared/insight_card.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_head.dart';
 import 'package:healthee/shared/page_section.dart';
@@ -62,6 +68,27 @@ List<PageSection> activitySections(ScreenData data) {
     ),
     if (data.serverFailure case final PageSection failure) failure,
     if (data.serverPending case final PageSection pending) pending,
+    PageSection(
+      Builder(
+        builder: (context) => ListTile(
+          title: const Text('Recorded workouts'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => unawaited(context.push(Routes.workouts)),
+        ),
+      ),
+    ),
+    const PageSection(GpsRecordingLink()),
+    PageSection(
+      Builder(
+        builder: (context) => ListTile(
+          title: const Text('Saved route maps'),
+          onTap: () => unawaited(context.push(Routes.routes)),
+        ),
+      ),
+    ),
+    const PageSection(
+      InsightCard(scope: 'activity', title: 'Activity analysis'),
+    ),
 
     PageSection(StepsCard(day: data.day, now: data.now)),
     if (snapshot != null)
@@ -70,7 +97,8 @@ List<PageSection> activitySections(ScreenData data) {
           reading: snapshot.cardioLoad,
           label: 'Cardio load',
           caveatCarrier: CaveatCarrier.insideCard,
-          builder: (context, load) => CardioLoadCard(load: load, reveals: reveals),
+          builder: (context, load) =>
+              CardioLoadCard(load: load, reveals: reveals),
         ),
       ),
     if (snapshot != null)
@@ -99,7 +127,8 @@ List<PageSection> activitySections(ScreenData data) {
           reading: snapshot.vo2max,
           label: 'VO₂max',
           caveatCarrier: CaveatCarrier.insideCard,
-          builder: (context, vo2max) => Vo2maxCard(vo2max: vo2max, reveals: reveals),
+          builder: (context, vo2max) =>
+              Vo2maxCard(vo2max: vo2max, reveals: reveals),
         ),
       ),
     if (snapshot != null)

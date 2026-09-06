@@ -65,7 +65,10 @@ class ServerSessionStatus {
 /// Verifies, stores and clears the owner's server sign-in.
 class ServerSessionRepository {
   /// [credentials] is the keystore; [probe] is the one authenticated check.
-  const ServerSessionRepository({required this.credentials, required this.probe});
+  const ServerSessionRepository({
+    required this.credentials,
+    required this.probe,
+  });
 
   /// Where the session is kept.
   final Credentials credentials;
@@ -97,7 +100,10 @@ class ServerSessionRepository {
   /// session still reads and stores everything the strap measured.
   Future<void> signOut() async {
     await credentials.forgetServerSession();
-    AppLog.info('signin', 'signed out of the server; the strap pairing is kept');
+    AppLog.info(
+      'signin',
+      'signed out of the server; the strap pairing is kept',
+    );
   }
 
   /// What is held right now.
@@ -106,12 +112,9 @@ class ServerSessionRepository {
   /// `PairingRepository.pairedStrap` treats half a pairing: a token we cannot
   /// say the server for is a token we cannot honestly claim a session with.
   Future<ServerSessionStatus> status() async {
-    final token = await credentials.apiToken();
-    final baseUrl = await credentials.apiBaseUrl();
-    if (token == null || token.isEmpty || baseUrl == null || baseUrl.isEmpty) {
-      return const ServerSessionStatus.signedOut();
-    }
-    return ServerSessionStatus(signedIn: true, baseUrl: baseUrl);
+    final session = await credentials.serverSession();
+    if (session == null) return const ServerSessionStatus.signedOut();
+    return ServerSessionStatus(signedIn: true, baseUrl: session.baseUrl);
   }
 }
 

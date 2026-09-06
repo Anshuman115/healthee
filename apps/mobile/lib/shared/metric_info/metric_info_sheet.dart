@@ -14,10 +14,13 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/shared/format/note_grades.dart';
 import 'package:healthee/shared/metric_info/metric_info.dart';
 import 'package:healthee/shared/sheets/app_sheet.dart';
@@ -51,7 +54,11 @@ class MetricInfoDot extends StatelessWidget {
           button: true,
           label: 'What ${info.title} means',
           child: ExcludeSemantics(
-            child: Icon(SolarIconsOutline.infoCircle, size: _size, color: colors.ink3),
+            child: Icon(
+              SolarIconsOutline.infoCircle,
+              size: _size,
+              color: colors.ink3,
+            ),
           ),
         ),
       ),
@@ -68,15 +75,16 @@ void showMetricInfo(BuildContext context, String key) {
   unawaited(
     showAppSheet<void>(
       context: context,
-      builder: (context) => _MetricInfoSheet(info: info),
+      builder: (context) => _MetricInfoSheet(info: info, metric: key),
     ),
   );
 }
 
 class _MetricInfoSheet extends StatelessWidget {
-  const _MetricInfoSheet({required this.info});
+  const _MetricInfoSheet({required this.info, required this.metric});
 
   final MetricInfo info;
+  final String metric;
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +93,9 @@ class _MetricInfoSheet extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colors.bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.sheet)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(Radii.sheet),
+        ),
         border: Border.all(color: colors.line),
       ),
       // Legacy's 22/12/22/32, plus whatever the gesture bar takes. The sheet
@@ -108,6 +118,19 @@ class _MetricInfoSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
+            if (historyMetricFor(metric) != null)
+              TextButton(
+                onPressed: () {
+                  final router = GoRouter.of(context);
+                  Navigator.of(context).pop();
+                  unawaited(
+                    router.push(
+                      '${Routes.history}?metric=${Uri.encodeComponent(historyMetricFor(metric)!)}',
+                    ),
+                  );
+                },
+                child: const Text('View history and analysis'),
+              ),
             Text(info.title, style: HType.serif(colors.ink, size: 24)),
             const SizedBox(height: 18),
             _InfoBlock(
@@ -137,10 +160,7 @@ class _MetricInfoSheet extends StatelessWidget {
             // sentence on the sheet with nothing behind it. The sources replace
             // it: same slot, same 22 px above, and now it is showing its working
             // rather than asserting it.
-            CitationRow(
-              noteIds: info.notes,
-              grade: weakestGrade(info.notes),
-            ),
+            CitationRow(noteIds: info.notes, grade: weakestGrade(info.notes)),
             if (info.uncited.isNotEmpty) ...[
               const SizedBox(height: Insets.sm),
               _NotCoveredNote(info.uncited),
@@ -176,7 +196,11 @@ class _NotCoveredNote extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 2),
-          child: Icon(SolarIconsOutline.infoCircle, size: 13, color: colors.ink3),
+          child: Icon(
+            SolarIconsOutline.infoCircle,
+            size: 13,
+            color: colors.ink3,
+          ),
         ),
         const SizedBox(width: Insets.sm),
         Expanded(

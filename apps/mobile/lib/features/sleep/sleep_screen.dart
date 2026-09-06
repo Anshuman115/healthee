@@ -38,6 +38,7 @@ import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/skeletons/sleep_skeleton.dart';
+import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// The Sleep tab.
@@ -89,7 +90,9 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                   page: page,
                   // Soft: the regularity block feeds two cards and must never be
                   // able to take the measured half of the screen down with it.
-                  consistency: ref.watch(sleepConsistencyProvider).value,
+                  consistency: currentAccountValue(
+                    ref.watch(sleepConsistencyProvider),
+                  ).value,
                   now: widget.now ?? DateTime.now(),
                   reveals: _reveals,
                 ),
@@ -143,7 +146,11 @@ class _SleepList extends StatelessWidget {
         ],
       );
     }
-    final sections = sleepSections(page: page, consistency: consistency, now: now);
+    final sections = sleepSections(
+      page: page,
+      consistency: consistency,
+      now: now,
+    );
     return ListView.builder(
       // Always scrollable, so pull-to-refresh works on a short screen.
       physics: const AlwaysScrollableScrollPhysics(),

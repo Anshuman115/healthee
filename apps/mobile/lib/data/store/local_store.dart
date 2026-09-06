@@ -30,6 +30,7 @@ library;
 
 import 'package:drift/drift.dart';
 import 'package:healthee/data/store/connection.dart';
+import 'package:healthee/data/store/gps_tables.dart';
 import 'package:healthee/data/store/horizon_prune.dart';
 import 'package:healthee/data/store/prune_report.dart';
 import 'package:healthee/data/store/push_reader.dart';
@@ -74,6 +75,9 @@ const int kUnsentSampleRetentionDays = 365;
 /// conversion, therefore no zone, therefore nothing to get wrong.
 @DataClassName('CachedPayload')
 class CachedPayloads extends Table {
+  /// Opaque sign-in namespace. No token or personal identifier is stored here.
+  TextColumn get scope => text().withDefault(const Constant(''))();
+
   /// The owner-local calendar date this payload describes, as `YYYY-MM-DD`.
   TextColumn get day => text().withLength(min: 10, max: 10)();
 
@@ -89,7 +93,7 @@ class CachedPayloads extends Table {
   DateTimeColumn get fetchedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {day, metric};
+  Set<Column<Object>> get primaryKey => {scope, day, metric};
 }
 
 /// The device's local tier — the server's cache AND the strap's own raw record.
@@ -106,6 +110,8 @@ class CachedPayloads extends Table {
     StoredWorkouts,
     DeviceTotals,
     SyncMeta,
+    GpsRecordings,
+    GpsFixes,
   ],
   daos: [StrapWriter, StrapReader, PushReader, HorizonPrune],
 )
@@ -121,15 +127,14 @@ class LocalStore extends _$LocalStore {
   LocalStore.at(String path) : super(openFileAt(path));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   /// v1 → v2 added the five raw-strap tables beside the payload cache.
   /// v2 → v3 added the per-row push marker to the four measurement tables.
   ///
-  /// Additive, so each upgrade adds and touches nothing that exists. A phone
-  /// that already holds cached server payloads keeps them; there is no path here
-  /// that drops a table, because a migration that can delete health data is a
-  /// migration that eventually will.
+  /// v3 → v4 scopes cached server responses to a sign-in. Old cache rows have
+  /// no attributable owner and are discarded; every raw measurement and pending
+  /// upload survives. Earlier upgrades are additive.
   ///
   /// The v3 columns arrive NULL on every existing row, which is the honest
   /// starting state: this build has never pushed, so nothing on a phone
@@ -152,6 +157,16 @@ class LocalStore extends _$LocalStore {
         await m.addColumn(storedWorkouts, storedWorkouts.pushedAtMs);
         await m.addColumn(deviceTotals, deviceTotals.pushedAtMs);
       }
+      if (from < 4) {
+        // Old cached responses have no provable owner. Only this disposable
+        // cache is rebuilt; raw strap data and pending uploads remain intact.
+        await m.deleteTable('cached_payloads');
+        await m.createTable(cachedPayloads);
+      }
+      if (from < 5) {
+        await m.createTable(gpsRecordings);
+        await m.createTable(gpsFixes);
+      }
     },
   );
 
@@ -159,16 +174,22 @@ class LocalStore extends _$LocalStore {
   /// trip. drift's default (a Unix timestamp read back in the device's local
   /// zone) is the same class of bug the `day` column's doc describes.
   @override
-  DriftDatabaseOptions get options => const DriftDatabaseOptions(storeDateTimeAsText: true);
+  DriftDatabaseOptions get options =>
+      const DriftDatabaseOptions(storeDateTimeAsText: true);
 
   /// The cached payload for one day, or null when we have never stored it.
   ///
   /// Null means "we have not stored this", which is a different state from "the
   /// server sent an empty payload" — a caller must be able to tell them apart
   /// (Standards §1: "No data" and "operation failed" are different states).
-  Future<CachedPayload?> read(String metric, String day) {
+  Future<CachedPayload?> read(String metric, String day, {String scope = ''}) {
     final query = select(cachedPayloads)
-      ..where((row) => row.metric.equals(metric) & row.day.equals(day))
+      ..where(
+        (row) =>
+            row.scope.equals(scope) &
+            row.metric.equals(metric) &
+            row.day.equals(day),
+      )
       ..limit(1);
     return query.getSingleOrNull();
   }
@@ -181,9 +202,9 @@ class LocalStore extends _$LocalStore {
   /// The row carries both, so the screen can date what it is showing rather than
   /// presenting yesterday as today — the stale-as-current failure this product
   /// exists to refuse.
-  Future<CachedPayload?> readLatest(String metric) {
+  Future<CachedPayload?> readLatest(String metric, {String scope = ''}) {
     final query = select(cachedPayloads)
-      ..where((row) => row.metric.equals(metric))
+      ..where((row) => row.scope.equals(scope) & row.metric.equals(metric))
       // `day` is `YYYY-MM-DD`, which sorts lexicographically exactly as it sorts
       // chronologically — the reason the column is TEXT at all.
       ..orderBy([(row) => OrderingTerm.desc(row.day)])
@@ -197,9 +218,11 @@ class LocalStore extends _$LocalStore {
     required String day,
     required String payload,
     required DateTime fetchedAt,
+    String scope = '',
   }) {
     return into(cachedPayloads).insertOnConflictUpdate(
       CachedPayloadsCompanion.insert(
+        scope: Value(scope),
         day: day,
         metric: metric,
         payload: payload,

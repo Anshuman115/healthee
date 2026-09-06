@@ -6,7 +6,9 @@ library;
 
 import 'package:dio/dio.dart';
 import 'package:healthee/core/logging.dart';
+import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/credentials.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 
 /// Applies the owner's stored server session — the address AND the bearer token.
 ///
@@ -39,13 +41,12 @@ class ServerSessionInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final baseUrl = await _credentials.apiBaseUrl();
-    if (baseUrl != null && baseUrl.isNotEmpty) {
-      options.baseUrl = baseUrl;
-    }
-    final token = await _credentials.apiToken();
-    if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+    final session = options.extra.containsKey(CacheSession.requestKey)
+        ? options.extra[CacheSession.requestKey] as StoredServerSession?
+        : await _credentials.serverSession();
+    if (session != null) {
+      options.baseUrl = session.baseUrl;
+      options.headers['Authorization'] = 'Bearer ${session.token}';
     }
     handler.next(options);
   }
@@ -75,12 +76,15 @@ class ApiLogInterceptor extends Interceptor {
   }
 
   @override
-  void onResponse(Response<Object?> response, ResponseInterceptorHandler handler) {
+  void onResponse(
+    Response<Object?> response,
+    ResponseInterceptorHandler handler,
+  ) {
     final path = response.requestOptions.path;
     AppLog.info(
       'api',
       '← ${response.statusCode} $path ${_elapsed(response.requestOptions)}'
-      '${logBodies ? ' ${response.data}' : ''}',
+          '${logBodies ? ' ${response.data}' : ''}',
     );
     handler.next(response);
   }
@@ -92,7 +96,7 @@ class ApiLogInterceptor extends Interceptor {
     AppLog.failure(
       'api',
       '${err.requestOptions.method} ${err.requestOptions.path} failed '
-      '${_elapsed(err.requestOptions)}',
+          '${_elapsed(err.requestOptions)}',
       err,
       err.stackTrace,
     );

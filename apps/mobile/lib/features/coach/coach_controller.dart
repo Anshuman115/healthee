@@ -32,8 +32,13 @@ part 'coach_controller.g.dart';
 /// The running conversation with the coach.
 @Riverpod(keepAlive: true)
 class CoachController extends _$CoachController {
+  int _generation = 0;
   @override
-  CoachConversation build() => const CoachConversation();
+  CoachConversation build() {
+    ref.watch(coachClientProvider);
+    _generation++;
+    return const CoachConversation();
+  }
 
   /// Asks [question]. Spends one of the owner's included questions.
   ///
@@ -49,28 +54,40 @@ class CoachController extends _$CoachController {
       entries: [...state.entries, OwnerQuestion(text)],
       asking: true,
     );
+    final generation = _generation;
     try {
       final answer = await ref.read(coachClientProvider).ask(state.toWire());
-      state = state.copyWith(entries: [...state.entries, CoachReply(answer)]);
+      if (_isCurrent(generation)) {
+        state = state.copyWith(entries: [...state.entries, CoachReply(answer)]);
+      }
     } on CoachRefusal catch (refusal) {
       // The gate said no. It is an answer about the account, not a fault, and it
       // carries the instant the window reopens.
-      _trouble(refusal.message, spent: false, resetsAt: refusal.resetsAt);
+      if (_isCurrent(generation)) {
+        _trouble(refusal.message, spent: false, resetsAt: refusal.resetsAt);
+      }
     } on CoachUnreachable catch (failure) {
-      _trouble(failure.message, spent: false);
+      if (_isCurrent(generation)) _trouble(failure.message, spent: false);
     } finally {
       // Whatever happened — including the two `on` clauses above and anything
       // they did not catch — the balance is re-read from the server rather than
       // guessed at. See the library docstring.
-      ref.invalidate(coachEntitlementProvider);
-      state = state.copyWith(asking: false);
+      if (_isCurrent(generation)) {
+        ref.invalidate(coachEntitlementProvider);
+        state = state.copyWith(asking: false);
+      }
     }
   }
 
   /// Starts a fresh thread. The old one is dropped, not archived: nothing in this
   /// app persists a conversation, and a "history" button over a list that dies
   /// with the process would be a promise the storage layer does not keep.
-  void newThread() => state = const CoachConversation();
+  void newThread() {
+    _generation++;
+    state = const CoachConversation();
+  }
+
+  bool _isCurrent(int generation) => ref.mounted && generation == _generation;
 
   void _trouble(String message, {required bool spent, DateTime? resetsAt}) {
     AppLog.info('coach', 'question not answered: $message');

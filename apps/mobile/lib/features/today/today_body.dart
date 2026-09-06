@@ -49,6 +49,7 @@ import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/section_list.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/reading_view.dart';
+import 'package:healthee/shared/tonight_focus.dart';
 
 /// Everything from the recovery card down. Split out only so neither half is a
 /// forty-line function (Standards §1); the order across the seam is unbroken.
@@ -149,6 +150,8 @@ void sleepSections(
   final snapshot = facts.snapshot;
   sections.gap(PageSpacing.section);
   sections.add(const SectionHeading('Sleep'));
+  sections.add(const TonightFocus());
+  sections.gap(PageSpacing.card);
   if (facts.staleSleep) {
     sections.add(StaleSleepBanner(nightLabel: facts.sleepNight));
     sections.gap(PageSpacing.card);

@@ -34,13 +34,20 @@
 /// keeps the ones that are its own.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/features/settings/widgets/about_setting.dart';
+import 'package:healthee/features/settings/widgets/background_setting.dart';
 import 'package:healthee/features/settings/widgets/diagnostics_setting.dart';
+import 'package:healthee/features/settings/widgets/reminder_setting.dart';
 import 'package:healthee/features/settings/widgets/server_setting.dart';
 import 'package:healthee/features/settings/widgets/strap_setting.dart';
 import 'package:healthee/features/settings/widgets/theme_setting.dart';
+import 'package:healthee/shared/journal_link.dart';
 
 /// Appearance, the server, the strap, the instruments and the notices.
 class SettingsScreen extends StatelessWidget {
@@ -57,7 +64,18 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(Insets.lg),
         children: <Widget>[
+          ListTile(
+            title: const Text('Profile'),
+            subtitle: const Text('Name, body details and a new weigh-in'),
+            leading: const Icon(Icons.person_outline),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => unawaited(context.push(Routes.profile)),
+          ),
+          const JournalLink(),
+          const SizedBox(height: Insets.md),
           const ThemeSetting(),
+          const BackgroundSetting(),
+          const ReminderSetting(),
           const SizedBox(height: Insets.md),
           const ServerSetting(),
           const SizedBox(height: Insets.md),

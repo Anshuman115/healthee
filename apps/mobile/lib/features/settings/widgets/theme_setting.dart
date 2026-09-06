@@ -15,6 +15,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:healthee/core/theme/appearance_preferences.dart';
+import 'package:healthee/core/theme/appearance_variant.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/theme_controller.dart';
 import 'package:healthee/core/theme/tokens.dart';
@@ -29,6 +31,8 @@ class ThemeSetting extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
+    final variant = ref.watch(appearanceControllerProvider);
+    final error = ref.watch(appearanceErrorProvider);
     final mode = ref.watch(themeControllerProvider);
     return StateCard(
       child: Column(
@@ -38,21 +42,60 @@ class ThemeSetting extends ConsumerWidget {
           const SizedBox(height: Insets.sm),
           SegmentedButton<ThemeMode>(
             segments: const <ButtonSegment<ThemeMode>>[
-              ButtonSegment<ThemeMode>(value: ThemeMode.light, label: Text('Light')),
-              ButtonSegment<ThemeMode>(value: ThemeMode.dark, label: Text('Dark')),
-              ButtonSegment<ThemeMode>(value: ThemeMode.system, label: Text('System')),
+              ButtonSegment<ThemeMode>(
+                value: ThemeMode.light,
+                label: Text('Light'),
+              ),
+              ButtonSegment<ThemeMode>(
+                value: ThemeMode.dark,
+                label: Text('Dark'),
+              ),
+              ButtonSegment<ThemeMode>(
+                value: ThemeMode.system,
+                label: Text('System'),
+              ),
             ],
             selected: <ThemeMode>{mode},
             showSelectedIcon: false,
             onSelectionChanged: (selection) =>
                 ref.read(themeControllerProvider.notifier).set(selection.first),
           ),
+          DropdownButton<int>(
+            value: variant.accent,
+            isExpanded: true,
+            items: [
+              for (var i = 0; i < AppearanceVariant.accentNames.length; i++)
+                DropdownMenuItem(
+                  value: i,
+                  child: Text(AppearanceVariant.accentNames[i]),
+                ),
+            ],
+            onChanged: (v) => ref
+                .read(appearanceControllerProvider.notifier)
+                .set(
+                  AppearanceVariant(accent: v!, background: variant.background),
+                ),
+          ),
+          DropdownButton<BackgroundVariant>(
+            value: variant.background,
+            isExpanded: true,
+            items: [
+              for (final v in BackgroundVariant.values)
+                DropdownMenuItem(
+                  value: v,
+                  child: Text('Dark background: ${v.name}'),
+                ),
+            ],
+            onChanged: (v) => ref
+                .read(appearanceControllerProvider.notifier)
+                .set(AppearanceVariant(accent: variant.accent, background: v!)),
+          ),
           const SizedBox(height: Insets.sm),
           Text(
             // Says what the default does rather than leaving "System" to be
             // guessed at, and says the one true limitation: nothing persists it.
-            'System follows your phone. The choice lasts until the app is closed '
-            '— nothing here is written to disk yet.',
+            error ??
+                'System follows your phone. Your choices are saved on this phone.',
             style: text.bodySmall?.copyWith(color: colors.ink3),
           ),
         ],

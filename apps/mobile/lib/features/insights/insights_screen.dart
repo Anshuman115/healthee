@@ -42,11 +42,19 @@
 /// says to delete rather than keep in case.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
+import 'package:healthee/data/insights/notable_event.dart';
 import 'package:healthee/data/models/trend_point.dart';
+import 'package:healthee/features/insights/widgets/notable_events.dart';
 import 'package:healthee/features/insights/widgets/trends_section.dart';
 import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/format/metric_polarity.dart';
+import 'package:healthee/shared/history_link.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_head.dart';
 import 'package:healthee/shared/page_section.dart';
@@ -54,7 +62,7 @@ import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// The Insights tab.
-class InsightsScreen extends StatelessWidget {
+class InsightsScreen extends ConsumerWidget {
   /// [now] is injected by tests so the freshness labels are deterministic.
   const InsightsScreen({this.now, super.key});
 
@@ -62,8 +70,9 @@ class InsightsScreen extends StatelessWidget {
   final DateTime? now;
 
   @override
-  Widget build(BuildContext context) {
-    return InstrumentScreen(now: now, sections: insightsSections);
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InstrumentScreen(now: now, sections: insightsSections,
+      onRefreshed: () => ref.invalidate(notableEventsProvider));
   }
 }
 
@@ -79,6 +88,19 @@ List<PageSection> insightsSections(ScreenData data) {
     ),
     if (data.serverFailure case final PageSection failure) failure,
     if (data.serverPending case final PageSection pending) pending,
+    const PageSection(HistoryLink()),
+    const PageSection(NotableEvents()),
+    PageSection(
+      Builder(
+        builder: (context) => ListTile(
+          title: const Text('Challenge outcomes'),
+          subtitle: const Text(
+            'Progress, data coverage and what changed together',
+          ),
+          onTap: () => unawaited(context.push(Routes.outcomes)),
+        ),
+      ),
+    ),
 
     // ── trends ───────────────────────────────────────────────────────────────
     const PageSection(
@@ -108,7 +130,8 @@ List<PageSection> insightsSections(ScreenData data) {
     const PageSection(
       SectionHeading(
         'Patterns',
-        subtitle: 'What moved together in your history — never what caused what',
+        subtitle:
+            'What moved together in your history — never what caused what',
       ),
     ),
     if (findings.isEmpty)
@@ -123,7 +146,10 @@ List<PageSection> insightsSections(ScreenData data) {
         gap: PageSpacing.section,
       )
     else
-      PageSection(FindingsSection(findings: findings), gap: PageSpacing.section),
+      PageSection(
+        FindingsSection(findings: findings),
+        gap: PageSpacing.section,
+      ),
   ];
 }
 

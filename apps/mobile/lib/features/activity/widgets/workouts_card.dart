@@ -6,7 +6,11 @@
 /// the same reason the daily action and the data-health strip do not have one.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_workout.dart';
@@ -40,8 +44,19 @@ class WorkoutsCard extends StatelessWidget {
         children: [
           Text('Recorded sessions', style: text.labelSmall),
           for (final workout in workouts) ...[
-            Divider(color: colors.line2, height: Insets.lg, thickness: hairline),
-            _WorkoutRow(workout: workout),
+            Divider(
+              color: colors.line2,
+              height: Insets.lg,
+              thickness: hairline,
+            ),
+            InkWell(
+              onTap: () => unawaited(
+                context.push(
+                  '${Routes.workout}?start=${Uri.encodeComponent(workout.start.toUtc().toIso8601String())}',
+                ),
+              ),
+              child: _WorkoutRow(workout: workout),
+            ),
           ],
         ],
       ),

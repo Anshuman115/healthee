@@ -26,8 +26,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/challenges/commitment_repository.dart';
 import 'package:healthee/data/device/device_repository.dart';
 import 'package:healthee/data/push/push_stamp.dart';
+import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
@@ -65,7 +67,11 @@ class TodayScreen extends ConsumerWidget {
     );
     return InstrumentScreen(
       now: now,
-      onRefreshed: () => ref.invalidate(_pushStampProvider),
+      onRefreshed: () {
+        ref.invalidate(_pushStampProvider);
+        ref.invalidate(challengeFeedProvider);
+        ref.invalidate(sleepConsistencyProvider);
+      },
       sections: (data) => todaySections(
         data,
         TodayExtras(

@@ -23,6 +23,10 @@ QueryExecutor openLocalStore() {
     final directory = await getApplicationSupportDirectory();
     return NativeDatabase.createInBackground(
       File('${directory.path}/healthee.sqlite'),
+      setup: (db) {
+        db.execute('PRAGMA journal_mode=WAL');
+        db.execute('PRAGMA busy_timeout=5000');
+      },
     );
   });
 }

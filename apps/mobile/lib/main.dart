@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/app.dart';
 import 'package:healthee/core/licences.dart';
 import 'package:healthee/core/provider_logger.dart';
+import 'package:healthee/data/api/provider_retry.dart';
 
 void main() {
   // The vendored font's SIL OFL notice, added to Flutter's own licence registry
@@ -17,6 +18,7 @@ void main() {
   // `missing_provider_scope` fails the build if this is ever dropped.
   runApp(
     const ProviderScope(
+      retry: apiProviderRetry,
       // Every provider failure reaches the one logging path from here, so no
       // repository has to remember to log its own.
       observers: [ProviderLogger()],

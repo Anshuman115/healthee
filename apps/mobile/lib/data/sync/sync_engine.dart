@@ -57,6 +57,7 @@ import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/prune_report.dart';
 import 'package:healthee/data/sync/connection_state.dart';
+import 'package:healthee/data/sync/device_lease.dart';
 import 'package:healthee/data/sync/preflight_scan.dart';
 import 'package:healthee/data/sync/sync_failure.dart';
 import 'package:healthee/data/sync/sync_outcome.dart';
@@ -108,6 +109,7 @@ class SyncEngine {
     SyncCancelToken? cancel,
     StrapSession? session,
   }) async {
+    final lease = session == null ? DeviceLease(store) : null;
     final token = cancel ?? SyncCancelToken();
     final at = DateTime.now();
     // The net under the whole run. Every ordinary path lands through `_stamp`,
@@ -126,6 +128,20 @@ class SyncEngine {
     }
 
     try {
+      if (lease != null && !await lease.acquire()) {
+        const failure = SyncFailure(
+          headline: 'Another sync owns the strap',
+          remedy: 'Wait for the current connection to finish.',
+          code: 'connection_busy',
+          source: 'device_lease',
+        );
+        return await _stamp(
+          at,
+          const SyncFailed(failure),
+          emit,
+          session: session,
+        );
+      }
       // Skipped when a session is already open: it IS the presence check, and
       // twelve seconds of scanning for a strap we are talking to is the delay
       // holding the link was meant to remove.
@@ -162,6 +178,7 @@ class SyncEngine {
         session: session,
       );
     } finally {
+      await lease?.release();
       if (!landedOnRest) {
         // Deliberately without a date: the store is the thing that just failed,
         // so asking it when we last synced is the least trustworthy read
@@ -262,6 +279,9 @@ class SyncEngine {
     SyncCancelToken token,
     PruneReport pruned,
   ) {
+    if (result.failure case final failure?) {
+      return SyncFailed(SyncFailure.strap(failure));
+    }
     if (token.isCancelled) {
       return const SyncPartial('you stopped it part-way through');
     }
@@ -315,8 +335,7 @@ class SyncEngine {
       ),
       // A pull over a held session leaves it held, so `Connected` is still the
       // true statement — but only if the session says so.
-      _ =>
-        _liveRest(session) ?? Disconnected(lastCompleteSync: lastComplete),
+      _ => _liveRest(session) ?? Disconnected(lastCompleteSync: lastComplete),
     });
     return outcome;
   }

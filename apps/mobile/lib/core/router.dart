@@ -52,10 +52,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/tabs.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
+import 'package:healthee/features/actions/challenge_detail_screen.dart';
+import 'package:healthee/features/actions/outcomes_screen.dart';
+import 'package:healthee/features/actions/program_detail_screen.dart';
+import 'package:healthee/features/actions/recommendation_history_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
+import 'package:healthee/features/gps/gps_screen.dart';
+import 'package:healthee/features/gps/route_detail_screen.dart';
+import 'package:healthee/features/gps/routes_screen.dart';
+import 'package:healthee/features/history/history_screen.dart';
+import 'package:healthee/features/journal/journal_screen.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
+import 'package:healthee/features/profile/profile_screen.dart';
 import 'package:healthee/features/settings/settings_screen.dart';
 import 'package:healthee/features/signin/server_signin_screen.dart';
+import 'package:healthee/features/workouts/workout_detail_screen.dart';
+import 'package:healthee/features/workouts/workout_history_screen.dart';
 import 'package:healthee/shared/app_shell.dart';
 import 'package:healthee/shared/foundation_screen.dart';
 
@@ -64,6 +76,23 @@ import 'package:healthee/shared/foundation_screen.dart';
 /// the reasoning is the same here: a typo'd path fails at runtime, a typo'd
 /// constant fails at compile time.
 abstract final class Routes {
+  static const recommendations = '/recommendations';
+  static const gps = '/gps';
+  static const routes = '/routes';
+  static const route = '/route';
+  static const String challenge = '/challenge';
+  static const String program = '/program';
+  static const String outcomes = '/outcomes';
+  static const String workouts = '/workouts';
+  static const String workout = '/workout';
+  static const String profile = '/profile';
+
+  /// Daily metric observations over selectable periods.
+  static const String history = '/history';
+
+  /// Manual observations and recent entries.
+  static const String journal = '/journal';
+
   /// The daily snapshot. The app's home.
   static const String today = '/';
 
@@ -153,12 +182,27 @@ GoRouter buildRouter(WidgetRef ref) {
       if (summary.isLoading || summary.hasError) {
         return null;
       }
-      if (summary.value?.strap == null && state.matchedLocation != Routes.pairing) {
+      if (summary.value?.strap == null &&
+          state.matchedLocation != Routes.pairing) {
         return Routes.pairing;
       }
       return null;
     },
     routes: <RouteBase>[
+      GoRoute(
+        path: Routes.recommendations,
+        builder: (context, state) => const RecommendationHistoryScreen(),
+      ),
+      GoRoute(path: Routes.gps, builder: (context, state) => const GpsScreen()),
+      GoRoute(
+        path: Routes.routes,
+        builder: (context, state) => const RoutesScreen(),
+      ),
+      GoRoute(
+        path: '${Routes.route}/:id',
+        builder: (context, state) =>
+            RouteDetailScreen(id: state.pathParameters['id']!),
+      ),
       // The tabs. Branch order IS `kAppTabs` order, by construction rather than
       // by agreement — the bar moves by index, so two lists would be a defect
       // that compiles.
@@ -180,11 +224,13 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       GoRoute(
         path: Routes.diagnostics,
-        builder: (BuildContext context, GoRouterState state) => const DiagnosticsScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const DiagnosticsScreen(),
       ),
       GoRoute(
         path: Routes.devFoundation,
-        builder: (BuildContext context, GoRouterState state) => const FoundationScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const FoundationScreen(),
       ),
       GoRoute(
         path: Routes.pairing,
@@ -195,6 +241,45 @@ GoRouter buildRouter(WidgetRef ref) {
         path: Routes.serverSignIn,
         builder: (BuildContext context, GoRouterState state) =>
             ServerSignInScreen(onDone: () => leaveSetup(context)),
+      ),
+      GoRoute(
+        path: '${Routes.challenge}/:id',
+        builder: (context, state) => ChallengeDetailScreen(
+          id: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
+        ),
+      ),
+      GoRoute(
+        path: '${Routes.program}/:id',
+        builder: (context, state) => ProgramDetailScreen(
+          id: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
+        ),
+      ),
+      GoRoute(
+        path: Routes.outcomes,
+        builder: (context, state) => const OutcomesScreen(),
+      ),
+      GoRoute(
+        path: Routes.workouts,
+        builder: (context, state) => const WorkoutHistoryScreen(),
+      ),
+      GoRoute(
+        path: Routes.workout,
+        builder: (context, state) => WorkoutDetailScreen(
+          start: state.uri.queryParameters['start'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: Routes.profile,
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: Routes.history,
+        builder: (context, state) =>
+            HistoryScreen(initialMetric: state.uri.queryParameters['metric']),
+      ),
+      GoRoute(
+        path: Routes.journal,
+        builder: (context, state) => const JournalScreen(),
       ),
       GoRoute(
         path: Routes.settings,
