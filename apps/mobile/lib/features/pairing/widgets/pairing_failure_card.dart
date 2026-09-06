@@ -3,26 +3,31 @@
 ///
 /// Two shapes, chosen by [PairingFailure.canRetry] rather than by the caller:
 ///
-///  * retryable → the shared [ErrorState], so a pairing failure offers a retry
-///    that looks and behaves exactly like every other retry in the app;
-///  * not retryable → the same card frame with **no button**, because a wrong
+///  * retryable → a **Try again**, so a pairing failure offers a retry that
+///    looks and behaves exactly like every other retry in the app;
+///  * not retryable → the same banner with **no button**, because a wrong
 ///    password does not become right by pressing Try again. The remedy sentence
 ///    is the way forward, and it points somewhere real.
 ///
-/// Neither is tinted. `docs/APP_DESIGN_BRIEF.md` §2 rations colour to judgement
-/// about the owner's body, and none of these failures is one.
+/// Neither is tinted. `notices.dart` records why: `alert` is this product's one
+/// red and belongs to the illness flag, and none of these failures is a fact
+/// about the owner's body.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/pairing/pairing_failure.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/notices.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
 
 /// A pairing failure, said plainly.
 class PairingFailureCard extends StatelessWidget {
   /// [onRetry] is only used when [failure] says a retry is worth offering.
-  const PairingFailureCard({required this.failure, required this.onRetry, super.key});
+  const PairingFailureCard({
+    required this.failure,
+    required this.onRetry,
+    super.key,
+  });
 
   /// What went wrong.
   final PairingFailure failure;
@@ -32,26 +37,20 @@ class PairingFailureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (failure.canRetry) {
-      return ErrorState(
-        message: failure.headline,
-        detail: failure.remedy,
-        onRetry: onRetry,
-      );
-    }
-    final text = Theme.of(context).textTheme;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(failure.headline, style: text.titleSmall),
-          const SizedBox(height: Insets.sm),
-          Text(
-            failure.remedy,
-            style: text.bodySmall?.copyWith(color: context.colors.ink3),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        HNotice(title: failure.headline, body: failure.remedy),
+        if (failure.canRetry) ...<Widget>[
+          const SectionGap(),
+          HButton(
+            label: 'Try again',
+            kind: HButtonKind.secondary,
+            onPressed: onRetry,
           ),
         ],
-      ),
+      ],
     );
   }
 }

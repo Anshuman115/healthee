@@ -27,9 +27,9 @@ import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
-import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/states/value_hole.dart';
+import 'package:healthee/shared/v02/section_head.dart';
 
 import '../_today_stubs.dart';
 import '../store/strap_store_test.dart' show resultWith;
@@ -176,10 +176,11 @@ void main() {
       await tester.pumpAndSettle();
       // The section heading and each metric strip both say 'From the strap'
       // now that headings render in sentence case, so the scroll target names
-      // the widget as well as the words.
+      // the widget as well as the words — v02's `SectionHead`, which is what
+      // this screen's headings are drawn with now.
       await reveal(
         tester,
-        find.widgetWithText(SectionHeading, 'From the strap'),
+        find.widgetWithText(SectionHead, 'From the strap'),
       );
 
       // A stream the sensor did not write says "wear it". Collapsing that into

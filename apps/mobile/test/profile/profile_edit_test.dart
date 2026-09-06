@@ -9,6 +9,7 @@ import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/profile/health_profile.dart';
 import 'package:healthee/data/profile/profile_repository.dart';
 import 'package:healthee/features/profile/profile_screen.dart';
+import 'package:healthee/shared/v02/buttons.dart';
 
 import '../pairing/_pairing_fakes.dart';
 
@@ -109,12 +110,26 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.textContaining('2026-07-31'), findsOneWidget);
+      // v02 keeps the new-weigh-in field behind a button, so it has to be
+      // revealed before it can be read. Without this the last `TextField` on
+      // the screen is HEIGHT, and the assertion below would be about the wrong
+      // control while still reading like it passed.
+      final reveal = find.widgetWithText(HButton, 'Log a new weigh-in');
+      await tester.ensureVisible(reveal);
+      await tester.pumpAndSettle();
+      await tester.tap(reveal);
+      await tester.pumpAndSettle();
       expect(
         tester.widget<TextField>(find.byType(TextField).last).controller!.text,
         isEmpty,
+        reason: 'the stored weight is never prefilled as today’s measurement',
       );
-      await tester.ensureVisible(find.text('Save profile'));
-      await tester.tap(find.text('Save profile'));
+      final save = find.widgetWithText(HButton, 'Save profile');
+      // The pump between is load-bearing: `ensureVisible` starts an ANIMATED
+      // scroll, so tapping straight after it aims at where the button was.
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
       await tester.pumpAndSettle();
       expect(requests.single.data, isNot(contains('measured_weight_kg')));
     },

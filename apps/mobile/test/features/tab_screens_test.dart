@@ -28,8 +28,8 @@ import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
-import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/v02/section_head.dart';
 
 import '../_sleep_stubs.dart';
 import '_today_host.dart';
@@ -345,10 +345,11 @@ void main() {
       expect(find.text('Against your own baseline'), findsOneWidget);
       // The section heading and each metric strip both say 'From the strap'
       // now that headings render in sentence case, so the scroll target names
-      // the widget as well as the words.
+      // the widget as well as the words — v02's `SectionHead`, which is what
+      // this screen's headings are drawn with now.
       await reveal(
         tester,
-        find.widgetWithText(SectionHeading, 'From the strap'),
+        find.widgetWithText(SectionHead, 'From the strap'),
       );
       expect(find.text('From the strap'), findsWidgets);
     });
@@ -361,10 +362,11 @@ void main() {
       await tester.pumpAndSettle();
       // The section heading and each metric strip both say 'From the strap'
       // now that headings render in sentence case, so the scroll target names
-      // the widget as well as the words.
+      // the widget as well as the words — v02's `SectionHead`, which is what
+      // this screen's headings are drawn with now.
       await reveal(
         tester,
-        find.widgetWithText(SectionHeading, 'From the strap'),
+        find.widgetWithText(SectionHead, 'From the strap'),
       );
 
       expect(find.textContaining('The strap recorded no'), findsWidgets);

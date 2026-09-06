@@ -60,3 +60,19 @@ Future<String?> appVersion(Ref ref) async {
     return null;
   }
 }
+
+/// What the version line says for each state of the read.
+///
+/// Moved here from the deleted `widgets/about_setting.dart`, so the sentences
+/// sit beside the provider whose states they name. Public so a test can pin all
+/// three without pumping a widget.
+///
+/// An error and a null answer say the same thing on purpose: both mean *we do
+/// not know which build this is*, and the difference between them is a fact
+/// about the platform channel rather than about the owner's app.
+String versionLine(AsyncValue<String?> version) => switch (version) {
+  AsyncData(:final String value) => 'Version $value',
+  AsyncData() => 'Version unavailable on this device',
+  AsyncError() => 'Version unavailable on this device',
+  _ => 'Reading the version…',
+};

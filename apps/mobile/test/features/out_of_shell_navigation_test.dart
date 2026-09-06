@@ -31,9 +31,11 @@ import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
+import 'package:healthee/features/settings/device_screen.dart';
 import 'package:healthee/features/settings/settings_screen.dart';
 import 'package:healthee/features/signin/server_signin_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
+import 'package:healthee/shared/v02/buttons.dart';
 
 import '_today_host.dart';
 
@@ -99,11 +101,18 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// Taps a settings row by its button label, scrolling to it first.
-    Future<void> tapRow(WidgetTester tester, String label) async {
-      final button = find.widgetWithText(OutlinedButton, label);
-      await tester.scrollUntilVisible(button, 300);
-      await tester.tap(button);
+    /// Taps a settings row by its title, scrolling it into view first.
+    ///
+    /// v02's rows are `ListRow`s inside a `FlushCard`, so there is no
+    /// `OutlinedButton` to look for any more; the row's own words are what the
+    /// owner aims at. `ensureVisible` rather than `scrollUntilVisible` because
+    /// it scrolls the row's OWN scrollable — once a push has happened there are
+    /// two in the tree, the pushed screen's and the index's underneath it.
+    Future<void> tapRow(WidgetTester tester, String title) async {
+      final row = find.text(title);
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      await tester.tap(row);
       await tester.pumpAndSettle();
     }
 
@@ -147,7 +156,7 @@ void main() {
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
       await openSettings(tester);
-      await tapRow(tester, 'Open diagnostics');
+      await tapRow(tester, 'Instruments');
       expect(find.byType(DiagnosticsScreen), findsOneWidget);
 
       await _pressBack(tester);
@@ -165,7 +174,7 @@ void main() {
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
       await openSettings(tester);
-      await tapRow(tester, 'Open diagnostics');
+      await tapRow(tester, 'Instruments');
 
       await _pressBack(tester);
       await _pressBack(tester);
@@ -174,21 +183,32 @@ void main() {
       expect(platform, isNot(contains('SystemNavigator.pop')));
     });
 
-    testWidgets('back from the pairing screen returns to Settings', (
+    testWidgets('back from the pairing screen unwinds one screen at a time', (
       tester,
     ) async {
+      // Renamed: v02 took `/pairing` off the settings index and put it on the
+      // strap's own screen, so pairing is now THREE levels out of the shell and
+      // one back lands on the strap screen rather than on Settings. That is a
+      // longer stack to unwind, not a weaker claim — both hops are asserted, and
+      // a `pushReplacement` anywhere in it would still skip a level.
       tallViewport(tester);
       final platform = _watchPlatformCalls(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
       await openSettings(tester);
+      await tapRow(tester, 'Amazfit Helio Strap');
       await tapRow(tester, 'Pairing and unpair');
-      expect(find.byType(PairingScreen), findsOneWidget);
       expect(find.byType(PairingScreen), findsOneWidget);
 
       await _pressBack(tester);
 
+      expect(find.byType(DeviceScreen), findsOneWidget);
+      expect(find.byType(PairingScreen), findsNothing);
+
+      await _pressBack(tester);
+
       expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.byType(DeviceScreen), findsNothing);
       expect(platform, isNot(contains('SystemNavigator.pop')));
     });
 
@@ -200,10 +220,10 @@ void main() {
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
       await openSettings(tester);
-      // The label is the signed-in one, because `routedApp` holds a session.
-      // `server_setting.dart` names what is behind the button rather than
-      // saying "Manage", so the two states have two labels.
-      await tapRow(tester, 'Sign out or change server');
+      // v02's index names the destination rather than the action, so the row
+      // reads the same signed in or out; which session is held is what the
+      // screen behind it says, and `settings_screen_test.dart` asserts that.
+      await tapRow(tester, 'Account & server');
       expect(find.byType(ServerSignInScreen), findsOneWidget);
 
       await _pressBack(tester);
@@ -212,30 +232,38 @@ void main() {
       expect(platform, isNot(contains('SystemNavigator.pop')));
     });
 
-    testWidgets('DONE ON A PUSHED SETUP FLOW RETURNS TO SETTINGS', (
+    testWidgets('DONE ON A PUSHED SETUP FLOW RETURNS TO WHAT OPENED IT', (
       tester,
     ) async {
       // "Done" cannot mean one thing for both ways in. Pushed from Settings it
       // has a screen underneath and must pop to it; redirected into by an
       // unpaired app it has nothing underneath and must go to Today.
       // `router.dart::leaveSetup` asks `canPop()` rather than being told.
+      //
+      // Renamed with the route: what is underneath a pushed pairing flow is now
+      // the strap screen, so "returns to Settings" would name the wrong screen.
+      // Landing there is also the STRONGER assertion — Settings stays mounted
+      // under the whole stack, so it is found whether Done popped one level or
+      // threw the stack away.
       tallViewport(tester);
       final platform = _watchPlatformCalls(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
       await openSettings(tester);
+      await tapRow(tester, 'Amazfit Helio Strap');
       await tapRow(tester, 'Pairing and unpair');
       expect(find.byType(PairingScreen), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+      await tester.tap(find.widgetWithText(HButton, 'Done'));
       await tester.pumpAndSettle();
 
       expect(
-        find.byType(SettingsScreen),
+        find.byType(DeviceScreen),
         findsOneWidget,
         reason: 'hard-coding the redirect\'s answer throws away the screen '
             'underneath, which looks correct until pairing is opened from here',
       );
+      expect(find.byType(PairingScreen), findsNothing);
       expect(platform, isNot(contains('SystemNavigator.pop')));
     });
 
@@ -244,12 +272,17 @@ void main() {
       // `go`-ed screen with an `AppBar` has no leading control, so these screens
       // offered no way back AT ALL — not a wrong one, none. The gesture and the
       // affordance went missing together.
+      //
+      // v02 has no `AppBar` and so no `BackButton` to look for: the control is
+      // `DetailHeader`, which draws an `Icons.arrow_back` inside a
+      // `Semantics(button: true, label: 'Go back')`. The glyph is the assertion
+      // because it is the affordance — the thing that was missing.
       tallViewport(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
       await openSettings(tester);
 
-      expect(find.byType(BackButton), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
     });
   });
 

@@ -9,12 +9,27 @@
 /// on a screen, in a screenshot and in the accessibility tree, and nothing here
 /// needs it. Replacing it means signing out and signing in again, which is one
 /// tap more and no ambiguity about what is stored.
+///
+/// ## The two controls are stacked, not in a `Row`
+///
+/// They used to be a `Row`, and the two labels are 110 px wider than a 420 px
+/// phone at this card's padding — so it overflowed, which Flutter renders as a
+/// striped bar over content that cannot be seen. It went unnoticed because
+/// every widget suite pumped the default 800 px test window, which is wider
+/// than any phone this app runs on.
+///
+/// v02's buttons are `.button.full`: full-width and stacked by design, so the
+/// failure is no longer reachable at any width rather than merely avoided at
+/// the ones somebody remembered to test. `test/features/settings_layout_test.dart`
+/// pumps 320 · 360 · 390 · 414 anyway, because "not reachable" is a claim.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
 
 /// The current session, with sign-out.
 class ServerSessionCard extends StatelessWidget {
@@ -26,6 +41,9 @@ class ServerSessionCard extends StatelessWidget {
     required this.enabled,
     super.key,
   });
+
+  /// `.stack { gap: 16px }` between the two controls.
+  static const double stackGap = 16;
 
   /// The server this phone talks to.
   final String baseUrl;
@@ -41,49 +59,44 @@ class ServerSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final colors = context.colors;
-    return StateCard(
+    return PlainCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Signed in', style: text.labelSmall),
-          const SizedBox(height: Insets.sm),
-          Text(baseUrl, style: text.titleSmall),
-          const SizedBox(height: Insets.sm),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
           Text(
-            'A token for this server is in this phone\'s keystore, and it was '
-            'checked against the server before it was saved.',
-            style: text.bodySmall?.copyWith(color: colors.ink2),
+            'Signed in',
+            style: FormType.statLabel.copyWith(color: colors.ink2),
           ),
-          const SizedBox(height: Insets.md),
           Text(
+            baseUrl,
+            style: FormType.heading3.copyWith(color: colors.ink),
+          ),
+          const SizedBox(height: SectionGap.height),
+          const SmallProse(
+            'A token for this server is in this phone’s keystore, and it was '
+            'checked against the server before it was saved.',
+          ),
+          const SizedBox(height: stackGap),
+          const SmallProse(
             'Signing out deletes the token from this phone. Everything your '
             'strap measured stays here and keeps being recorded; the readings '
             'the server works out simply stop until you sign in again.',
-            style: text.bodySmall?.copyWith(color: colors.ink3),
           ),
-          const SizedBox(height: Insets.md),
-          // `Wrap`, not `Row`. The two labels are 110 px wider than a 420 px
-          // phone at this card's padding, so a `Row` overflowed — which Flutter
-          // renders as a striped bar over content that cannot be seen. It went
-          // unnoticed because the widget suites pumped the default 800 px test
-          // window, which is wider than any phone this app runs on.
-          Wrap(
-            spacing: Insets.sm,
-            runSpacing: Insets.sm,
-            children: [
-              // Outlined, not filled: brief §2 keeps the accent for the primary
-              // path, and leaving is not it.
-              OutlinedButton(
-                onPressed: enabled ? onSignOut : null,
-                child: const Text('Sign out'),
-              ),
-              TextButton(
-                onPressed: enabled ? onReplace : null,
-                child: const Text('Use a different server'),
-              ),
-            ],
+          const SizedBox(height: SectionGap.height),
+          // Secondary, not primary: v02 keeps the accent for the path forward,
+          // and leaving is not it.
+          HButton(
+            label: 'Sign out',
+            kind: HButtonKind.secondary,
+            onPressed: enabled ? onSignOut : null,
+          ),
+          const SizedBox(height: stackGap),
+          HButton(
+            label: 'Use a different server',
+            kind: HButtonKind.soft,
+            onPressed: enabled ? onReplace : null,
           ),
         ],
       ),

@@ -1,193 +1,122 @@
-/// Settings — one source of truth per setting, and no row that controls nothing.
+/// Settings and its sub-screens — the rules the redesign had to carry over.
 ///
-/// `reachability_test.dart` covers where each row GOES. This covers the two
-/// rules the screen was built to keep:
+/// The v02 index moved every control onto a screen of its own, so the four
+/// things that were true of the old one-scroll screen are now true one level
+/// down, and each is asserted where it now lives:
 ///
-///   * **The appearance row and the header toggle are one state.** They write the
-///     same `themeControllerProvider`, so the round button in a screen header
-///     moves this row and this row moves the button. A `bool _dark` in either
-///     widget's `State` would be a second copy of a fact the app already has, and
-///     it would disagree in exactly one direction, once, on somebody's phone.
-///   * **Every row says something true about this phone.** The strap row reports
-///     `lastCompleteSync`, never `lastAttempt` — an attempt that failed halfway
-///     left data unread, and calling it a sync is the stale-behind-a-healthy-
-///     screen failure one screen over.
+///   * **Appearance is ONE state.** The tiles write `themeControllerProvider`,
+///     the same object the header toggle writes. The assertion is the
+///     *rendered brightness of the whole app*, not a flag on a widget — a
+///     second copy could set a flag and would not be able to do this.
+///   * **The strap screen reports `lastCompleteSync`, never `lastAttempt`.** An
+///     attempt that failed halfway left data unread, and calling it a sync is
+///     the stale-behind-a-healthy-screen failure one screen over.
+///   * **The account screen shows the address and never the token.**
+///   * **The licence notice is reachable in the shipped app.** That is a licence
+///     term, not a nicety: the SIL OFL requires the notice to travel with the
+///     fonts, and `assets/fonts/OFL.txt` shipped only to git until it became an
+///     asset with a door.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/core/theme/app_theme.dart';
-import 'package:healthee/core/theme/theme_controller.dart';
-import 'package:healthee/data/api/credentials.dart';
-import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/data/device/device_day.dart';
-import 'package:healthee/data/device/device_repository.dart';
-import 'package:healthee/data/pairing/paired_strap.dart';
-import 'package:healthee/data/pairing/pairing_repository.dart';
+import 'package:healthee/data/honesty/device_absence.dart';
 import 'package:healthee/features/settings/app_version.dart';
-import 'package:healthee/features/settings/settings_screen.dart';
-import 'package:healthee/features/settings/widgets/strap_setting.dart';
+import 'package:healthee/features/settings/strap_lines.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/theme_options.dart';
 
-import '../pairing/_pairing_fakes.dart';
-
-final DateTime _now = DateTime(2026, 8, 5, 9, 30);
-
-const PairedStrap _strap = PairedStrap(
-  mac: 'C0:FF:EE:00:00:01',
-  authKey: '000102030405060708090a0b0c0d0e0f',
-);
-
-/// A day with one complete sync and a battery reading behind it.
-DeviceDay _dayWithSync() {
-  final empty = DeviceDay.empty('2026-08-05');
-  return DeviceDay(
-    date: empty.date,
-    steps: empty.steps,
-    distanceKm: empty.distanceKm,
-    deviceCalories: empty.deviceCalories,
-    stepsReadAt: null,
-    heartRate: empty.heartRate,
-    heartRateSeries: empty.heartRateSeries,
-    lastNight: empty.lastNight,
-    metrics: empty.metrics,
-    workouts: empty.workouts,
-    sync: DeviceSyncStamp(
-      lastCompleteSync: _now.subtract(const Duration(minutes: 12)),
-      lastAttempt: _now,
-      lastOutcomeId: 'complete',
-    ),
-    batteryPercent: 71,
-  );
-}
-
-Widget _settings({
-  PairedStrap? strap,
-  DeviceDay? day,
-  bool signedIn = false,
-  ThemeMode? mode,
-  String? version,
-}) {
-  final secrets = FakeSecretStore();
-  return ProviderScope(
-    overrides: [
-      credentialsProvider.overrideWithValue(Credentials(secrets)),
-      pairingSummaryProvider.overrideWith(
-        (ref) async => (strap: strap, zeppRemembered: false),
-      ),
-      serverSessionProvider.overrideWith(
-        (ref) async => signedIn
-            ? const ServerSessionStatus(
-                signedIn: true,
-                baseUrl: 'https://healthee.example.test',
-              )
-            : const ServerSessionStatus.signedOut(),
-      ),
-      deviceDayProvider.overrideWith((ref) async => day ?? DeviceDay.empty('2026-08-05')),
-      // The real read talks to a platform channel a test host never answers,
-      // and its own deadline would leave a pending timer behind every widget
-      // test that draws this row.
-      appVersionProvider.overrideWith((ref) async => version),
-      if (mode case final ThemeMode pinned)
-        themeControllerProvider.overrideWith(() => _FixedTheme(pinned)),
-    ],
-    child: _ThemedApp(now: _now),
-  );
-}
-
-/// The settings screen under the app's real theme wiring, so the appearance row
-/// can be observed changing the theme rather than merely changing a provider.
-class _ThemedApp extends ConsumerWidget {
-  const _ThemedApp({required this.now});
-
-  final DateTime now;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp(
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ref.watch(themeControllerProvider),
-      home: SettingsScreen(now: now),
-    );
-  }
-}
-
-class _FixedTheme extends ThemeController {
-  _FixedTheme(this._mode);
-
-  final ThemeMode _mode;
-
-  @override
-  ThemeMode build() => _mode;
-}
-
-void _tallViewport(WidgetTester tester) {
-  tester.view
-    ..physicalSize = const Size(420, 2400)
-    ..devicePixelRatio = 1.0;
-  addTearDown(tester.view.reset);
-}
+import '_settings_harness.dart';
 
 void main() {
   group('appearance is ONE state, not a second toggle', () {
-    testWidgets('the row shows the mode the app is actually in', (tester) async {
-      _tallViewport(tester);
-      await tester.pumpWidget(_settings(mode: ThemeMode.dark));
+    testWidgets('the tiles show the mode the app is actually in', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        settingsApp(location: Routes.appearance, themeMode: ThemeMode.dark),
+      );
       await tester.pumpAndSettle();
 
-      final segmented = tester.widget<SegmentedButton<ThemeMode>>(
-        find.byType(SegmentedButton<ThemeMode>),
+      // The RENDERED tile, not a flag: `aria-pressed` is a decoration in the
+      // prototype and a `Semantics.selected` here, and the tile that is drawn
+      // in the accent is the one the app is in.
+      final selected = tester.widget<Semantics>(
+        find
+            .ancestor(
+              of: find.text('Dark'),
+              matching: find.byType(Semantics),
+            )
+            .first,
       );
-      expect(segmented.selected, <ThemeMode>{ThemeMode.dark});
+      expect(selected.properties.selected, isTrue);
     });
 
-    testWidgets('CHOOSING A MODE HERE MOVES THE HEADER TOGGLE TOO', (tester) async {
-      // The proof that they are one state: the toggle reads the brightness
-      // actually being rendered, so the settings row changing the theme is what
-      // changes the button's icon. Two copies could not do this.
-      _tallViewport(tester);
-      await tester.pumpWidget(_settings());
+    testWidgets('CHOOSING A MODE HERE MOVES THE WHOLE APP', (tester) async {
+      // The proof that they are one state: the header toggle reads the
+      // brightness actually being rendered, so the tiles changing the theme is
+      // what changes that button. Two copies could not do this.
+      tallViewport(tester);
+      await tester.pumpWidget(settingsApp(location: Routes.appearance));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Dark'));
       await tester.pumpAndSettle();
 
-      final context = tester.element(find.byType(SettingsScreen));
+      final context = tester.element(find.byType(ThemeOptions<ThemeMode>));
       expect(
         Theme.of(context).brightness,
         Brightness.dark,
-        reason: 'the row writes the same provider the header button writes',
+        reason: 'the tiles write the same provider the header button writes',
       );
     });
   });
 
-  group('the strap row', () {
+  group('the strap screen', () {
     testWidgets('reports the last COMPLETE sync and the battery behind it', (
       tester,
     ) async {
-      _tallViewport(tester);
-      await tester.pumpWidget(_settings(strap: _strap, day: _dayWithSync()));
+      tallViewport(tester);
+      await tester.pumpWidget(
+        settingsApp(
+          location: Routes.device,
+          strap: pairedStrap,
+          day: dayWithSync(),
+        ),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Paired'), findsOneWidget);
-      expect(find.text(_strap.mac), findsOneWidget);
+      expect(find.textContaining(pairedStrap.mac), findsOneWidget);
       expect(find.textContaining('Last full sync 12 min ago.'), findsOneWidget);
       expect(find.textContaining('Battery 71% at that sync.'), findsOneWidget);
     });
 
     testWidgets('an unpaired phone says so and offers pairing', (tester) async {
-      _tallViewport(tester);
-      await tester.pumpWidget(_settings());
+      tallViewport(tester);
+      await tester.pumpWidget(settingsApp(location: Routes.device));
       await tester.pumpAndSettle();
 
       expect(find.text('No strap paired'), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Pair a strap'), findsOneWidget);
+      // The way to pairing is a row on this screen, not a button: the flow is
+      // a screen of its own and `features/pairing/` owns it.
+      expect(find.text('Connect a strap'), findsOneWidget);
+      expect(
+        find.text('Find your strap and confirm its key'),
+        findsOneWidget,
+        reason: 'the row names what is behind it',
+      );
     });
 
     test('a phone with no finished sync does not call that a fault', () {
       // Freshly paired is this state for a minute and nothing is wrong with it.
-      final lines = strapLines(DeviceDay.empty('2026-08-05'), now: _now);
+      final lines = strapLines(
+        DeviceDay.empty(settingsDate),
+        now: settingsNow,
+      );
 
       expect(lines.first, 'No sync has finished on this phone yet.');
       expect(lines.last, contains('has not reported its battery'));
@@ -196,34 +125,45 @@ void main() {
     test('a lastAttempt is NEVER reported as a sync', () {
       // The two are different facts: an attempt that failed halfway left data
       // unread. `device_day.dart` keeps both and this row reads only one.
-      final attemptedOnly = DeviceDay.empty('2026-08-05');
+      final attemptedOnly = DeviceDay.empty(settingsDate);
       expect(attemptedOnly.sync.lastCompleteSync, isNull);
       expect(
-        strapLines(attemptedOnly, now: _now).first,
+        strapLines(attemptedOnly, now: settingsNow).first,
         isNot(contains('Last full sync')),
       );
     });
   });
 
-  group('the server row', () {
-    testWidgets('a signed-out phone says the strap still works', (tester) async {
-      _tallViewport(tester);
-      await tester.pumpWidget(_settings());
+  group('the account screen', () {
+    testWidgets('a signed-out phone says the strap still works', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      await tester.pumpWidget(settingsApp(location: Routes.serverSignIn));
       await tester.pumpAndSettle();
 
-      expect(find.text('Not signed in'), findsOneWidget);
-      expect(find.textContaining('still syncs to this phone'), findsOneWidget);
+      expect(find.text('Sign in to your server'), findsOneWidget);
+      expect(
+        find.textContaining('with no server at all'),
+        findsOneWidget,
+        reason: 'strap-only is a supported mode, and the screen says so',
+      );
     });
 
-    testWidgets('a signed-in phone shows the address and never a token', (tester) async {
-      _tallViewport(tester);
-      await tester.pumpWidget(_settings(signedIn: true));
+    testWidgets('a signed-in phone shows the address and never a token', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        settingsApp(location: Routes.serverSignIn, signedIn: true),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Signed in'), findsOneWidget);
       expect(find.text('https://healthee.example.test'), findsOneWidget);
+      expect(find.widgetWithText(HButton, 'Sign out'), findsOneWidget);
       expect(
-        find.widgetWithText(OutlinedButton, 'Sign out or change server'),
+        find.widgetWithText(HButton, 'Use a different server'),
         findsOneWidget,
         reason: 'the label names what is behind it, rather than "Manage"',
       );
@@ -231,16 +171,16 @@ void main() {
   });
 
   group('about', () {
-    testWidgets('the licence notice is reachable in the shipped app', (tester) async {
-      // A licence term, not a nicety: the SIL OFL requires the notice to travel
-      // with the fonts, and `assets/fonts/OFL.txt` shipped only to git until it
-      // became an asset with a door.
-      _tallViewport(tester);
-      await tester.pumpWidget(_settings());
+    testWidgets('the licence notice is reachable in the shipped app', (
+      tester,
+    ) async {
+      // A licence term, not a nicety — see the library docstring.
+      tallViewport(tester);
+      await tester.pumpWidget(settingsApp(location: Routes.about));
       await tester.pumpAndSettle();
 
-      final licences = find.widgetWithText(OutlinedButton, 'Licences and notices');
-      await tester.scrollUntilVisible(licences, 300);
+      final licences = find.widgetWithText(HButton, 'Licences and notices');
+      await revealRow(tester, licences);
       expect(find.textContaining('SIL Open Font License'), findsOneWidget);
 
       await tester.tap(licences);
@@ -248,16 +188,14 @@ void main() {
       expect(find.textContaining('Healthee'), findsWidgets);
     });
 
-    testWidgets('a host with no plugin says so rather than inventing a version', (
+    testWidgets('a host with no plugin says so rather than inventing one', (
       tester,
     ) async {
       // A host with no plugin registrant answers nothing at all, so the read
-      // resolves to null through its own deadline. The row names the build it
-      // does not know rather than showing one it made up.
-      _tallViewport(tester);
-      await tester.pumpWidget(_settings());
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('About'), 300);
+      // resolves to null through its own deadline. The screen names the build
+      // it does not know rather than showing one it made up.
+      tallViewport(tester);
+      await tester.pumpWidget(settingsApp(location: Routes.about));
       await tester.pumpAndSettle();
 
       expect(find.text('Version unavailable on this device'), findsOneWidget);
@@ -266,6 +204,50 @@ void main() {
         findsNothing,
         reason: 'a row that waits forever is the failure this app is against',
       );
+    });
+
+    test('the three version sentences stay distinct', () {
+      // Kept as a plain test so all three can be pinned without pumping.
+      expect(versionLine(const AsyncData<String?>('1.2.0 (7)')), 'Version 1.2.0 (7)');
+      expect(
+        versionLine(const AsyncData<String?>(null)),
+        'Version unavailable on this device',
+      );
+      expect(versionLine(const AsyncLoading<String?>()), 'Reading the version…');
+    });
+  });
+
+  group('data freshness names each stream and each absence', () {
+    testWidgets('A STREAM WITH NO READING PRINTS ITS SENTENCE, NOT ITS KEY', (
+      tester,
+    ) async {
+      // `disclosure.dart` says it plainly: the reason is an operator's filter
+      // key and the message is what the owner reads. A row printing
+      // `not_measured_by_strap` would be a stream explaining itself in ours.
+      tallViewport(tester);
+      await tester.pumpWidget(settingsApp(location: Routes.dataFreshness));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('The strap recorded no'), findsWidgets);
+      expect(
+        find.textContaining(notMeasuredReason),
+        findsNothing,
+        reason: 'the filter key is never shown to the owner',
+      );
+    });
+
+    testWidgets('a stream with a reading dates it and counts its samples', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        settingsApp(location: Routes.dataFreshness, day: dayWithSync()),
+      );
+      await tester.pumpAndSettle();
+
+      // Every row states its own instrument's age, or says there is none.
+      expect(find.text('Data freshness'), findsOneWidget);
+      expect(find.text(settingsDate), findsOneWidget);
     });
   });
 }

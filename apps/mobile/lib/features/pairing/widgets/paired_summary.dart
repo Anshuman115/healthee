@@ -5,14 +5,19 @@
 /// rather than saying "Success!" and moving on. Whether the Zepp sign-in was
 /// kept is stated either way, because "we did not store your password" is only
 /// reassuring if the same screen would have admitted the opposite.
+///
+/// The two controls are `.button.full` and stacked. They used to be a `Row`,
+/// which is the shape that overflowed at phone width on the sign-in screen; a
+/// full-width button cannot, at any width.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/pairing/paired_strap.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
+import 'package:healthee/shared/v02/stat_block.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
 
 /// The paired state, with an unpair action.
 class PairedSummary extends StatelessWidget {
@@ -24,6 +29,9 @@ class PairedSummary extends StatelessWidget {
     required this.onDone,
     super.key,
   });
+
+  /// `.stack { gap: 16px }`.
+  static const double stackGap = 16;
 
   /// The strap we hold credentials for.
   final PairedStrap strap;
@@ -39,40 +47,39 @@ class PairedSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final colors = context.colors;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Paired', style: text.titleMedium),
-          const SizedBox(height: Insets.sm),
-          Text(strap.mac, style: text.titleSmall),
-          const SizedBox(height: Insets.lg),
-          Text(
-            PairingDisclosure.whatIsAlwaysStored,
-            style: text.bodySmall?.copyWith(color: colors.ink2),
-          ),
-          const SizedBox(height: Insets.sm),
-          Text(
-            zeppRemembered
-                ? 'Your Zepp email and password are also in the keystore, '
-                      'because you asked us to remember them. Unpairing removes '
-                      'them too.'
-                : 'Nothing about your Zepp account was kept — not the password, '
-                      'not the session. Only the strap.',
-            style: text.bodySmall?.copyWith(color: colors.ink2),
-          ),
-          const SizedBox(height: Insets.lg),
-          Row(
-            children: [
-              FilledButton(onPressed: onDone, child: const Text('Done')),
-              const SizedBox(width: Insets.md),
-              OutlinedButton(onPressed: onUnpair, child: const Text('Unpair')),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        PlainCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              StatBlock(label: 'Paired', value: strap.mac),
+              const SizedBox(height: SectionGap.height),
+              const SmallProse(PairingDisclosure.whatIsAlwaysStored),
+              const SizedBox(height: stackGap),
+              SmallProse(
+                zeppRemembered
+                    ? 'Your Zepp email and password are also in the keystore, '
+                          'because you asked us to remember them. Unpairing '
+                          'removes them too.'
+                    : 'Nothing about your Zepp account was kept — not the '
+                          'password, not the session. Only the strap.',
+              ),
             ],
           ),
-        ],
-      ),
+        ),
+        const SectionGap(),
+        HButton(label: 'Done', onPressed: onDone),
+        const SizedBox(height: stackGap),
+        HButton(
+          label: 'Unpair',
+          kind: HButtonKind.secondary,
+          onPressed: onUnpair,
+        ),
+      ],
     );
   }
 }
