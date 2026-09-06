@@ -109,3 +109,65 @@ final class TodaySnapshotProvider
 }
 
 String _$todaySnapshotHash() => r'b6d1708dcd7748d1ae9b0f832a227adcf390826d';
+
+/// The last biological age this phone holds, and the day it belonged to.
+///
+/// Deliberately **lazy**: only the withheld hero watches it, so a payload that
+/// carried a number never touches the local tier at all. A field on [TodayView]
+/// would scan the cache on every load to answer a question almost every load
+/// does not ask.
+
+@ProviderFor(lastKnownBiologicalAge)
+final lastKnownBiologicalAgeProvider = LastKnownBiologicalAgeProvider._();
+
+/// The last biological age this phone holds, and the day it belonged to.
+///
+/// Deliberately **lazy**: only the withheld hero watches it, so a payload that
+/// carried a number never touches the local tier at all. A field on [TodayView]
+/// would scan the cache on every load to answer a question almost every load
+/// does not ask.
+
+final class LastKnownBiologicalAgeProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<LastKnown<double>?>,
+          LastKnown<double>?,
+          FutureOr<LastKnown<double>?>
+        >
+    with
+        $FutureModifier<LastKnown<double>?>,
+        $FutureProvider<LastKnown<double>?> {
+  /// The last biological age this phone holds, and the day it belonged to.
+  ///
+  /// Deliberately **lazy**: only the withheld hero watches it, so a payload that
+  /// carried a number never touches the local tier at all. A field on [TodayView]
+  /// would scan the cache on every load to answer a question almost every load
+  /// does not ask.
+  LastKnownBiologicalAgeProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'lastKnownBiologicalAgeProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$lastKnownBiologicalAgeHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<LastKnown<double>?> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<LastKnown<double>?> create(Ref ref) {
+    return lastKnownBiologicalAge(ref);
+  }
+}
+
+String _$lastKnownBiologicalAgeHash() =>
+    r'1363b5c2f872c50af294e0a2701d221466cebd12';

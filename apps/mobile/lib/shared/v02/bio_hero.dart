@@ -60,8 +60,10 @@ class BioHero extends StatelessWidget {
     required this.eyebrow,
     required this.value,
     this.eyebrowIcon,
+    this.eyebrowAction,
     this.unit,
     this.caption,
+    this.figure,
     this.instrument,
     this.stats = const <BioStat>[],
     this.modelLabel,
@@ -126,7 +128,18 @@ class BioHero extends StatelessWidget {
   /// Drawn at the right of the eyebrow row.
   final IconData? eyebrowIcon;
 
+  /// A control at the right of the eyebrow row, before [eyebrowIcon].
+  ///
+  /// The hero's ⓘ lives here. It is a slot rather than an `infoKey` because the
+  /// dot has to be given the hero's own ink — this card has its own dark surface
+  /// in both themes, and nothing inside it may reach for the page's ink.
+  final Widget? eyebrowAction;
+
   /// The figure itself.
+  ///
+  /// Always supplied, even when [figure] replaces the drawing of it: it is what
+  /// a screen reader is given, and a hero with no spoken value would be silent
+  /// rather than merely refusing.
   final String value;
 
   /// Its unit, drawn small and beside it.
@@ -134,6 +147,15 @@ class BioHero extends StatelessWidget {
 
   /// The sentence under the figure.
   final String? caption;
+
+  /// Draws the figure slot instead of [value], for a hero whose number is not a
+  /// current reading.
+  ///
+  /// The withheld hero uses it (`today_hero_withheld.dart`): a refused hero is
+  /// still a hero — same ground, radius, padding and eyebrow — but what stands
+  /// in the figure's place is either a dash or a **dated** last-known value, and
+  /// neither is a `String` the two type scales here could draw honestly.
+  final Widget? figure;
 
   /// The reading drawn on a scale, between the caption and the rule.
   ///
@@ -304,12 +326,14 @@ class BioHero extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
       ),
+      if (eyebrowAction case final Widget action) action,
       if (eyebrowIcon != null)
         Icon(eyebrowIcon, size: eyebrowIconSize, color: ink),
     ],
   );
 
-  Widget _value(Color ink) => centred ? _centredValue(ink) : _inlineValue(ink);
+  Widget _value(Color ink) =>
+      figure ?? (centred ? _centredValue(ink) : _inlineValue(ink));
 
   /// `motion.css`'s `.bio-display`: a square, the figure in the middle of it,
   /// the unit under the figure. The square is what puts the halo's ring around

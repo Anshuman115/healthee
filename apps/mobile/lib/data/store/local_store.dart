@@ -212,6 +212,30 @@ class LocalStore extends _$LocalStore {
     return query.getSingleOrNull();
   }
 
+  /// The cached payloads of [metric], newest day first, at most [limit] of them.
+  ///
+  /// [readLatest] answers "what is the last thing the server said"; this answers
+  /// "what is the last day it said anything about X", which is a different
+  /// question and cannot be built from the first: the newest row is exactly the
+  /// one that withheld the value, so a search has to walk backwards past it.
+  ///
+  /// Bounded on purpose. The horizon is 60 days, so a scan is bounded anyway;
+  /// the limit is here so the bound is stated at the query rather than inferred
+  /// from a prune that runs somewhere else.
+  Future<List<CachedPayload>> readRecent(
+    String metric, {
+    String scope = '',
+    int limit = localHorizonDays,
+  }) {
+    final query = select(cachedPayloads)
+      ..where((row) => row.scope.equals(scope) & row.metric.equals(metric))
+      // `YYYY-MM-DD` sorts lexicographically exactly as it sorts
+      // chronologically — the reason the column is TEXT at all.
+      ..orderBy([(row) => OrderingTerm.desc(row.day)])
+      ..limit(limit);
+    return query.get();
+  }
+
   /// Stores (or replaces) one day's payload. [day] is `YYYY-MM-DD`.
   Future<void> write({
     required String metric,

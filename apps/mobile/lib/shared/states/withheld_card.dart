@@ -22,8 +22,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/states/value_hole.dart';
 
@@ -144,32 +146,71 @@ class _ExplainPill extends StatelessWidget {
   }
 }
 
-/// "Nobody can price this" — a lever permanently left out, with the reasoning.
+/// "Nobody can price this" — a lever permanently left out, **signposted**.
 ///
 /// Separate from [WithheldCard] because the owner can do nothing about it. The
 /// copy says so: no action, no "yet". Offering either would be a claim about what
 /// we could do with more data, and the exclusion exists because we cannot.
 ///
-/// The design draws an excluded term in the biological-age waterfall as the same
-/// dashed hole — an explicit gap in the bar run rather than a silently missing
-/// bar (brief §5.7) — so the two states share a visual language on purpose.
+/// ## It used to print the whole thing, and that is what the owner saw
+///
+/// Owner, on the installed build: *"all these unnecessary Sleep regularity long
+/// text and other texts in pills in evrycard"*. The regularity exclusion is
+/// ~800 characters about two SRI calculators and 70,000 people, and this widget
+/// printed it inline — under, and on a refused biological age INSTEAD OF, the
+/// hero. That is the same defect `caveat_disclosure.dart` fixed for caveats, and
+/// it is fixed the same way: the **fact** stays on the card in a few words, the
+/// **essay** is one tap behind it.
+///
+/// What must NOT change is that the exclusion stays visible at all. A lever left
+/// out and drawn as nothing is indistinguishable from a lever scoring zero, and
+/// this project has already ruled that a zero-height bar passing for an
+/// exclusion is a failure rather than a tidy default. So the term is named, on
+/// the card, always — and [ValueHole.inline] keeps the dashed-gap vocabulary the
+/// waterfall uses for the same idea.
 class ExcludedNote extends StatelessWidget {
   /// Renders the exclusions attached to a value.
-  const ExcludedNote({required this.exclusions, super.key});
+  const ExcludedNote({required this.exclusions, this.label, super.key});
 
   /// What was left out, and why.
   final List<Disclosure> exclusions;
+
+  /// The metric's name, for the sheet's subtitle.
+  final String? label;
+
+  /// The signpost's words. It **names the terms**, so an exclusion that
+  /// disappears changes text that is on screen rather than text nobody reads.
+  static String headline(List<Disclosure> exclusions) {
+    final named = <String>[
+      for (final exclusion in exclusions)
+        if (exclusion.term case final String term) term,
+    ];
+    return named.isEmpty
+        ? 'Left out of this number'
+        : 'Left out of this number: ${named.join(', ')}';
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final exclusion in exclusions)
-          Padding(
-            padding: const EdgeInsets.only(top: Insets.sm),
+    if (exclusions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: Insets.sm),
+      child: InkWell(
+        onTap: () => showCaveats(
+          context,
+          exclusions,
+          label: label,
+          title: kExclusionSheetTitle,
+          blurb: kExclusionSheetBlurb,
+        ),
+        child: Semantics(
+          button: true,
+          label: '${headline(exclusions)}. Opens the reasoning.',
+          child: ExcludeSemantics(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -179,27 +220,18 @@ class ExcludedNote extends StatelessWidget {
                 ),
                 const SizedBox(width: Insets.md),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        exclusion.term == null
-                            ? 'Left out of this number'
-                            : 'Left out: ${exclusion.term}',
-                        style: text.labelSmall,
-                      ),
-                      const SizedBox(height: Insets.xs),
-                      Text(
-                        exclusion.message,
-                        style: text.bodySmall?.copyWith(color: colors.ink2),
-                      ),
-                    ],
+                  child: Text(
+                    headline(exclusions),
+                    style: text.labelSmall?.copyWith(color: colors.ink2),
                   ),
                 ),
+                const SizedBox(width: Insets.sm),
+                Text('READ', style: HType.label(colors.accent, tracking: 0.1)),
               ],
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }

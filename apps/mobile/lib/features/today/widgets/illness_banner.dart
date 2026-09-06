@@ -18,10 +18,14 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/illness_flag.dart';
-import 'package:healthee/shared/states/citation_row.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// A possible early illness signal, with what fired it.
+/// What the banner's own ⓘ sheet is called. Its heading, in sentence case.
+const String kIllnessBannerTitle = 'Possible early signal';
+
 class IllnessBanner extends StatelessWidget {
   /// Renders [flag]. Callers show this only when the payload carried one.
   const IllnessBanner({required this.flag, super.key});
@@ -54,6 +58,17 @@ class IllnessBanner extends StatelessWidget {
                   'sustained',
                   style: text.labelSmall?.copyWith(color: colors.alert),
                 ),
+              // This banner had citations and no ⓘ. Taking the chips off its
+              // face without giving it one would have removed the grounding
+              // from the single most consequential claim on the screen — so the
+              // dot is the sheet, and the sheet is the sources.
+              MetricInfoDot(
+                null,
+                detail: MetricDetail(
+                  title: kIllnessBannerTitle,
+                  notes: flag.researchNoteIds,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: Insets.sm),
@@ -63,8 +78,6 @@ class IllnessBanner extends StatelessWidget {
             const SizedBox(height: Insets.sm),
             Text(line, style: text.bodySmall?.copyWith(color: colors.ink2)),
           ],
-          const SizedBox(height: Insets.md),
-          CitationRow(noteIds: flag.researchNoteIds),
         ],
       ),
     );

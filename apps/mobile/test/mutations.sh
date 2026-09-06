@@ -1227,7 +1227,7 @@ mutate 'the VO2max method is printed as its wire id' \
 # *"raw text below the fitness card"* report, arriving by the shortest route.
 mutate "the method essay is printed on the card again" \
   "test/features/today_caveat_surface_test.dart" "$FITNESS" \
-  '          PanelNote(_reference(vo2max)),' \
+  '          PanelNote(_qualifiers(vo2max)),' \
   '          PanelNote(vo2max.methodCaveat),'
 
 # A meter drawn against a target the payload never sent. `/api/today` carries no
@@ -1247,6 +1247,117 @@ mutate 'the hero art is dropped from the card' "$HERO_TEST" \
   lib/features/today/v02/today_hero.dart \
   '      art: const BioHalo(),' \
   '      art: null,'
+
+# ── the v02 Today fixes (withheld hero · provenance off the cards) ───────────
+ENVELOPE=lib/data/honesty/envelope.dart
+WITHHELD_HERO=lib/features/today/v02/today_hero_withheld.dart
+HERO_PARTS=lib/shared/v02/bio_hero_parts.dart
+SHEET=lib/shared/metric_info/metric_info_sheet.dart
+NIGHT=lib/features/today/v02/night_panels.dart
+RECOVERY=lib/features/today/v02/recovery_panel.dart
+CHAPTER=lib/shared/v02/chapter.dart
+EXCLUDED=lib/shared/states/withheld_card.dart
+BODY=lib/features/today/today_body.dart
+WITHHELD_HERO_TEST=test/features/today_withheld_hero_test.dart
+PROVENANCE_TEST=test/features/card_provenance_test.dart
+CHAPTER_TEST=test/shared/chapter_heading_test.dart
+READING_TEST=test/shared/reading_view_test.dart
+
+# THE ORIGINAL DEFECT. The composite `withheld` block carries `consequence` +
+# `terms` and no top-level `reason`, so the envelope read it as absent, the null
+# value fell through to `Excluded`, and Today drew the 400-word regularity essay
+# where the hero belongs. Put the blind spot back.
+mutate 'the composite withheld block is unreadable again' \
+  "$WITHHELD_HERO_TEST" "$ENVELOPE" \
+  '    return _composite(raw);' \
+  '    return null;'
+
+# The essay back on the card's face, by the shortest route there is.
+mutate 'the withheld hero prints the server prose inline' \
+  "$WITHHELD_HERO_TEST" "$WITHHELD_HERO" \
+  '      kWithheldPointer,
+      if (left.isNotEmpty)' \
+  '      withheld.message,
+      for (final term in withheld.terms) term.message,
+      for (final exclusion in exclusions) exclusion.message,
+      kWithheldPointer,
+      if (left.isNotEmpty)'
+
+# A marker placed for a value that does not exist — the held figure fed to the
+# ruler, which is exactly the stale-as-current step this design forbids.
+mutate 'a held value is drawn on the age ruler' \
+  "$WITHHELD_HERO_TEST" "$WITHHELD_HERO" \
+  "import 'package:healthee/shared/v02/bio_hero.dart';" \
+  "import 'package:healthee/shared/v02/bio_hero.dart';
+import 'package:healthee/shared/v02/instruments/age_scale.dart';" \
+  '      figure: BioWithheldFigure(' \
+  '      instrument: held == null
+          ? null
+          : AgeScale(estimate: held.value, chronologicalAge: 36),
+      figure: BioWithheldFigure('
+
+# The date blanked. A held figure with no date IS the stale-as-current bug.
+mutate 'the last-known date is blanked' \
+  "$WITHHELD_HERO_TEST" "$HERO_PARTS" \
+  "          '\$asOfPrefix\${plainDay(day)}'," \
+  "          ''," 
+
+# The refused hero collapsed back into a panel — the small dashed box the owner
+# read as the card being missing.
+mutate 'the refused hero collapses into a panel' \
+  "$WITHHELD_HERO_TEST" "$BODY" \
+  '      withheldBuilder: (context, disclosure) => TodayBioHeroWithheld(
+        withheld: disclosure,
+        exclusions: switch (snapshot.biologicalAge) {
+          Withheld<BiologicalAge>(:final exclusions) => exclusions,
+          _ => const <Disclosure>[],
+        },
+      ),' \
+  '      withheldBuilder: (context, disclosure) => WithheldPanel(
+        disclosure: disclosure,
+        label: '"'"'Biological age · estimate'"'"',
+      ),'
+
+# The ⓘ sheet emptied of the sources the cards handed it. Every card would keep
+# its ⓘ and lose its grounding — the one way this change can do harm.
+mutate "the info sheet drops the card's citations" \
+  "$PROVENANCE_TEST" "$SHEET" \
+  '              noteIds: _notes,' \
+  '              noteIds: const <String>[],'
+
+# A reference pill back on a card's face.
+mutate 'the reference label returns to the sleep-health grid' \
+  "$PROVENANCE_TEST" "$NIGHT" \
+  '                dimension.reading ?? '"'"'—'"'"',
+              ),' \
+  '                dimension.reading ?? '"'"'—'"'"',
+                note: '"'"'Reference \${dimension.cutoff}'"'"',
+              ),'
+
+# Clinical routing swept away with the method text. A symptom outranks the score
+# above it, and that sentence is not clutter.
+mutate 'the illness-priority sentence is tidied off the card' \
+  "$PROVENANCE_TEST" "$RECOVERY" \
+  '          const PanelNote(kRecoveryPriorityNote),' \
+  ''
+
+# The exclusion essay back inline, under every value that has one.
+mutate 'the exclusion prints its reasoning on the card again' \
+  "$READING_TEST" "$EXCLUDED" \
+  '                  child: Text(
+                    headline(exclusions),' \
+  '                  child: Text(
+                    exclusions.first.message,'
+
+# The equal-flex split restored: the title and the rule share the row, so every
+# chapter heading is cut and the rule stops half way.
+mutate 'the chapter title goes back to sharing the row' \
+  "$CHAPTER_TEST" "$CHAPTER" \
+  '              SizedBox(
+                width: wanted < room ? wanted : (room < 0 ? 0 : room),
+                child: Text(' \
+  '              Flexible(
+                child: Text('
 
 echo
 echo "caught $PASS, survived $FAIL"

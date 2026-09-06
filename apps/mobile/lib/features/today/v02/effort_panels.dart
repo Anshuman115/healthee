@@ -22,8 +22,8 @@ import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/data/models/strength.dart';
 import 'package:healthee/shared/charts/v02/v02_bar_chart.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/states/citation_row.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
@@ -63,6 +63,7 @@ class EffortPanel extends StatelessWidget {
         title: title,
         icon: Icons.monitor_heart_outlined,
         infoKey: 'cardio_load',
+        detail: MetricDetail(notes: load.researchNotes),
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
       ),
@@ -91,10 +92,6 @@ class EffortPanel extends StatelessWidget {
           if (_stats() case final List<Stat> stats) ...<Widget>[
             const SizedBox(height: statsGap),
             StatRow(stats),
-          ],
-          if (load.researchNotes.isNotEmpty) ...<Widget>[
-            const SizedBox(height: PanelNote.topGap),
-            CitationRow(noteIds: load.researchNotes),
           ],
         ],
       ),
@@ -148,10 +145,14 @@ class ActiveMinutesPanel extends StatelessWidget {
     return Panel(
       tone: Tone.movement,
       label: 'Active minutes · MVPA',
-      head: const PanelHead(
+      head: PanelHead(
         title: title,
         icon: Icons.directions_walk,
         infoKey: 'mvpa',
+        detail: MetricDetail(
+          references: <String>['Active minutes — ${mvpa.weekTarget} min/week'],
+          notes: mvpa.researchNotes,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -164,15 +165,14 @@ class ActiveMinutesPanel extends StatelessWidget {
                 ? 0
                 : mvpa.weekMin / mvpa.weekTarget,
           ),
+          // KEPT. The `×2` is arithmetic invisible in the figure above it: 120
+          // moderate + 20 vigorous is 160, and a reader who does not see the
+          // doubling gets the number wrong. That qualifies the figure on this
+          // card, so it stays on this card. The reference moved to the ⓘ.
           PanelNote(
             '${mvpa.weekModerateMin} moderate + '
-            '${mvpa.weekVigorousMin} vigorous ×2\n'
-            'Reference: ${mvpa.weekTarget} min/week',
+            '${mvpa.weekVigorousMin} vigorous ×2',
           ),
-          if (mvpa.researchNotes.isNotEmpty) ...<Widget>[
-            const SizedBox(height: PanelNote.topGap),
-            CitationRow(noteIds: mvpa.researchNotes),
-          ],
         ],
       ),
     );
@@ -195,7 +195,25 @@ class StrengthPanel extends StatelessWidget {
     return Panel(
       tone: Tone.fitness,
       label: 'Strength · this week',
-      head: const PanelHead(title: title, icon: Icons.fitness_center),
+      // Strength has no `kMetricInfo` entry, and it has citations. Before this
+      // sweep its sources sat on the card; without an ⓘ they would simply be
+      // gone, which is the one way this change could do harm. So the head takes
+      // a detail-only ⓘ: a sheet holding the reference and the source, titled
+      // from the panel's own name.
+      head: PanelHead(
+        title: title,
+        icon: Icons.fitness_center,
+        detail: MetricDetail(
+          title: title,
+          references: <String>[
+            'Strength — ${strength.targetLowMin}–${strength.targetHighMin} '
+                'min/week',
+          ],
+          notes: <String>[
+            if (strength.researchNote case final String note) note,
+          ],
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -207,17 +225,14 @@ class StrengthPanel extends StatelessWidget {
                 ? 0
                 : strength.weekMin / strength.targetHighMin,
           ),
+          // KEPT. "tracked separately" says this figure is NOT part of the
+          // active-minutes total beside it — a definition of the number, not a
+          // lesson about it.
           PanelNote(
             '${strength.sessions} '
             '${strength.sessions == 1 ? 'session' : 'sessions'} · '
-            'tracked separately\n'
-            'Reference: ${strength.targetLowMin}–${strength.targetHighMin} '
-            'min/week',
+            'tracked separately',
           ),
-          if (strength.researchNote case final String note) ...<Widget>[
-            const SizedBox(height: PanelNote.topGap),
-            CitationRow(noteIds: <String>[note]),
-          ],
         ],
       ),
     );

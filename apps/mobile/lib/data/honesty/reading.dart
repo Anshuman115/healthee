@@ -122,7 +122,8 @@ sealed class Reading<T extends Object> {
   Reading<R> map<R extends Object>(R Function(T value) transform) => switch (this) {
     Present<T>(:final value) => Present<R>(transform(value)),
     Caveated<T>(:final value, :final caveats) => Caveated<R>(transform(value), caveats),
-    Withheld<T>(:final disclosure) => Withheld<R>(disclosure),
+    Withheld<T>(:final disclosure, :final exclusions) =>
+      Withheld<R>(disclosure, exclusions: exclusions),
     Excluded<T>(:final exclusions) => Excluded<R>(exclusions),
   };
 }
@@ -183,17 +184,34 @@ final class Caveated<T extends Object> extends Reading<T> {
 /// the reason id without the message has told the owner they are stuck.
 final class Withheld<T extends Object> extends Reading<T> {
   /// A refusal, with its reason and its remedy.
-  const Withheld(this.disclosure);
+  const Withheld(this.disclosure, {this.exclusions = const <Disclosure>[]});
 
   /// Why there is no current value, what would restore it, and how old the last
   /// one was.
   final Disclosure disclosure;
 
-  @override
-  bool operator ==(Object other) => other is Withheld<T> && other.disclosure == disclosure;
+  /// Levers this metric permanently does not price, when the payload named any.
+  ///
+  /// **Not a blurring of the withheld/excluded line — it is what keeps it.** The
+  /// biological-age payload carries `excluded` on EVERY response, refused or
+  /// not: sleep regularity is not one of the levers, and that is true on a day
+  /// the number ships and on a day it does not. Folding the list into
+  /// [Excluded] when the composite is withheld would say "there is no number
+  /// because regularity cannot be priced", which is a different and false claim;
+  /// dropping it would let "biological age" quietly change meaning between two
+  /// days. So it rides along, and a surface draws it as a short signpost — never
+  /// as the reason.
+  final List<Disclosure> exclusions;
 
   @override
-  int get hashCode => Object.hash(Withheld<T>, disclosure);
+  bool operator ==(Object other) =>
+      other is Withheld<T> &&
+      other.disclosure == disclosure &&
+      _sameDisclosures(other.exclusions, exclusions);
+
+  @override
+  int get hashCode =>
+      Object.hash(Withheld<T>, disclosure, Object.hashAll(exclusions));
 
   @override
   String toString() => 'Withheld(${disclosure.reason})';

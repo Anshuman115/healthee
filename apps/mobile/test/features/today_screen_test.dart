@@ -188,12 +188,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Strength'), findsOneWidget);
-      // The target is a BAND — the evidence stops improving above 60 minutes,
-      // so the label may not read `60 min/week`.
-      expect(
-        find.textContaining('Reference: 30–60 min/week'),
-        findsOneWidget,
-      );
+      // The reference moved off the card's face and behind its ⓘ — the owner
+      // asked for exactly that. It is still a BAND wherever it is drawn: the
+      // evidence stops improving above 60 minutes, so it may not read
+      // `60 min/week`. `card_provenance_test.dart` opens the sheet and proves
+      // the band is reachable there.
+      expect(find.textContaining('Reference: 30–60 min/week'), findsNothing);
       expect(find.text('45'), findsWidgets);
     });
 

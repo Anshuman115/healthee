@@ -22,6 +22,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tone.dart';
+import 'package:healthee/data/honesty/disclosure.dart';
+import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/data/models/sleep_debt.dart';
@@ -34,6 +36,7 @@ import 'package:healthee/features/today/v02/night_panels.dart';
 import 'package:healthee/features/today/v02/recovery_panel.dart';
 import 'package:healthee/features/today/v02/today_chapters.dart';
 import 'package:healthee/features/today/v02/today_hero.dart';
+import 'package:healthee/features/today/v02/today_hero_withheld.dart';
 import 'package:healthee/features/today/widgets/stale_sleep_banner.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_section.dart';
@@ -46,6 +49,12 @@ import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
 /// The bridge under the hero: what the estimate is, and what it is not.
+///
+/// **Kept, against one instruction and with another.** It was named as prose to
+/// move behind an ⓘ; it is `H.bridge('fitness', …)` in the prototype — a
+/// designed element BETWEEN chapters, not copy on a card — and the standing rule
+/// is to match the prototype and leave judgement to charts and data. A
+/// `ContextBridge` also has no ⓘ to move into: it belongs to no metric.
 const String kAgeBridge =
     'This estimate combines fitness and sleep contributions. Recovery describes '
     'a different timescale: how you start today.';
@@ -65,14 +74,22 @@ void todayBody(
   final snapshot = facts.snapshot;
   final reveals = data.reveals;
 
+  // A refused hero is still a hero. `WithheldPanel` is right for a PANEL — a
+  // named slot, a hole and a sentence — and wrong for the one 88 px figure on
+  // the screen: it collapsed the card the owner reads first into a small dashed
+  // box. `today_hero_withheld.dart` keeps the hero's ground, radius, padding,
+  // eyebrow and model label, and puts the server's prose behind the ⓘ.
   sections.add(
     ReadingView<BiologicalAge>(
       reading: snapshot.biologicalAge,
       label: 'Biological age · estimate',
       caveatCarrier: CaveatCarrier.insideCard,
-      withheldBuilder: (context, disclosure) => WithheldPanel(
-        disclosure: disclosure,
-        label: 'Biological age · estimate',
+      withheldBuilder: (context, disclosure) => TodayBioHeroWithheld(
+        withheld: disclosure,
+        exclusions: switch (snapshot.biologicalAge) {
+          Withheld<BiologicalAge>(:final exclusions) => exclusions,
+          _ => const <Disclosure>[],
+        },
       ),
       builder: (context, age) => TodayBioHero(age: age, reveals: reveals),
     ),

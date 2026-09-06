@@ -179,30 +179,79 @@ class ChapterHeading extends StatelessWidget {
         : ToneScope(tone: tone, child: Builder(builder: _body));
   }
 
+  /// The shortest the rule is allowed to get before the title gives way.
+  ///
+  /// `.chapter-heading .grow` has no minimum in the CSS because a browser never
+  /// needs one — the `h2` is `width: auto` and simply takes what it needs. Here
+  /// it is the graceful-degradation floor: a title too long for the row keeps
+  /// this much rule and ellipsizes into the rest, rather than pushing the rule
+  /// to nothing or overflowing the row.
+  static const double minRule = 24;
+
+  /// Identifies the rule, so a test can measure where it ends.
+  static const Key ruleKey = ValueKey<String>('chapter-heading.rule');
+
+  /// **The title is intrinsic; only the rule flexes.**
+  ///
+  /// It used to be `Flexible(title)` beside `Expanded(rule)`. Both default to
+  /// `flex: 1`, so `RenderFlex` split the free space **equally** — on a 390 px
+  /// phone the title's half is about 148 px and `Last night → today` at
+  /// 18 px/-0.6 needs about 160, so every chapter title on the installed build
+  /// ellipsized while the rule ran half the row. The owner: *"these header texts
+  /// in web looks right but in app its getting clipped of or truncated"*.
+  ///
+  /// Raising the title's flex does not fix it: a LOOSE `Flexible` that uses less
+  /// than its share does not hand the surplus back, so the title comes out whole
+  /// and the rule comes out stubby — wrong in the other direction, and only
+  /// visible at some widths.
+  ///
+  /// So the title is measured and given exactly what it needs, and the rule
+  /// takes the true remainder — which is what `width: auto` beside `flex: 1`
+  /// does in the prototype. `TextPainter` rather than `IntrinsicWidth` because
+  /// the row must also know when the title does NOT fit, and because intrinsics
+  /// inside a `ListView.builder` cost a second layout pass per item.
   Widget _body(BuildContext context) {
     final colors = context.colors;
+    final style = TypeScale.chapterTitle.copyWith(color: colors.ink);
     return Padding(
       padding: margin,
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: iconSize, color: context.family),
-          const SizedBox(width: gap),
-          Flexible(
-            child: Text(
-              title,
-              style: TypeScale.chapterTitle.copyWith(color: colors.ink),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: gap * 2),
-          Expanded(
-            child: SizedBox(
-              height: hairline,
-              child: ColoredBox(color: colors.line),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final room = constraints.maxWidth - iconSize - gap - gap * 2 - minRule;
+          final painter = TextPainter(
+            text: TextSpan(text: title, style: style),
+            maxLines: 1,
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout();
+          final wanted = painter.width;
+          painter.dispose();
+          return Row(
+            children: <Widget>[
+              Icon(icon, size: iconSize, color: context.family),
+              const SizedBox(width: gap),
+              SizedBox(
+                width: wanted < room ? wanted : (room < 0 ? 0 : room),
+                child: Text(
+                  title,
+                  style: style,
+                  maxLines: 1,
+                  // The floor, not the normal case: a title that fits is given
+                  // its own width above and never reaches this.
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: gap * 2),
+              Expanded(
+                child: SizedBox(
+                  key: ruleKey,
+                  height: hairline,
+                  child: ColoredBox(color: colors.line),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

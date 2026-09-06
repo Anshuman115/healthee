@@ -6,9 +6,22 @@
 /// a 36×5 grab handle, a 24 px display title, three labelled blocks, and the
 /// grounding line at the foot.
 ///
-/// The dot **draws nothing for a key the map does not hold**, which is legacy's
-/// behaviour and is the right one: an ⓘ that opens an empty sheet is worse than
-/// no ⓘ.
+/// ## It is now the ONE destination for a card's method text
+///
+/// The owner, on the installed v02 build: *"that reference pill can we remove
+/// those from cards please info sheets are for that"*. So this sheet also
+/// renders the card's OWN, payload-derived provenance — [MetricDetail]: the
+/// references its figures are read against, the sources the payload cited, the
+/// prose that used to sit under its chart, and any server disclosure too long to
+/// print beside a number.
+///
+/// **The dot's own gate moved with it.** It used to draw nothing for a key the
+/// map does not hold, which was right when the sheet held only the static
+/// explainer: an ⓘ that opens an empty sheet is worse than no ⓘ. It is wrong now
+/// — a card with citations and no explainer entry (Strength is the live one)
+/// would lose its grounding to a sheet nobody can open. So the dot draws when
+/// there is an explainer **or** a non-empty detail, and only vanishes when there
+/// is genuinely nothing behind it.
 library;
 
 import 'dart:async';
@@ -22,18 +35,54 @@ import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/shared/format/note_grades.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info.dart';
+import 'package:healthee/shared/metric_info/metric_info_blocks.dart';
 import 'package:healthee/shared/sheets/app_sheet.dart';
 import 'package:healthee/shared/states/citation_row.dart';
 import 'package:solar_icons/solar_icons.dart';
 
+/// What the sheet calls the references a card's figures are read against.
+const String kReferenceBlockLabel = 'READ AGAINST';
+
+/// What it calls the prose moved off the card's face.
+const String kMethodBlockLabel = 'HOW TO READ IT';
+
+/// The default heading over a withheld or excluded run of server prose.
+const String kDisclosureBlockLabel = 'WHY THERE IS NO NUMBER';
+
 /// The small ⓘ button placed in a card header.
 class MetricInfoDot extends StatelessWidget {
-  /// [infoKey] indexes [kMetricInfo]. An unknown key draws nothing.
-  const MetricInfoDot(this.infoKey, {super.key});
+  /// [infoKey] indexes [kMetricInfo]; [detail] is the card's own provenance.
+  ///
+  /// An unknown (or null) key with an empty [detail] draws nothing.
+  const MetricInfoDot(
+    this.infoKey, {
+    this.detail = MetricDetail.none,
+    this.fallbackTitle,
+    this.ink,
+    super.key,
+  });
 
-  /// Which explainer this opens.
-  final String infoKey;
+  /// Which explainer this opens. Null for a card that has none.
+  final String? infoKey;
+
+  /// What this card carries that the static explainer cannot know.
+  final MetricDetail detail;
+
+  /// The sheet's heading when neither the explainer nor [detail] names one —
+  /// a panel passes its own title.
+  final String? fallbackTitle;
+
+  /// The glyph's colour, for a card that supplies its own ink.
+  ///
+  /// **Not a hue a call site chose**, which is the rule this would otherwise
+  /// break. The biological-age hero has its own dark surface in BOTH themes
+  /// (`bioBackground`/`bioInk` are tokens for exactly that reason), so nothing
+  /// drawn inside it may reach for the page's ink — the same argument
+  /// `bio_hero_parts.dart` makes for the two widgets under the hero's rule.
+  /// Null, everywhere else, resolves [HealtheeColors.ink3] as before.
+  final Color? ink;
 
   /// Legacy's `Icon(..., size: 16)`.
   static const double _size = 16;
@@ -41,23 +90,30 @@ class MetricInfoDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final info = kMetricInfo[infoKey];
-    if (info == null) {
+    final key = infoKey;
+    final info = key == null ? null : kMetricInfo[key];
+    if (info == null && detail.isEmpty) {
       return const SizedBox.shrink();
     }
+    final name = info?.title ?? detail.title ?? fallbackTitle ?? 'this reading';
     return GestureDetector(
-      onTap: () => showMetricInfo(context, infoKey),
+      onTap: () => showMetricInfo(
+        context,
+        key,
+        detail: detail,
+        fallbackTitle: fallbackTitle,
+      ),
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.only(left: Insets.xs),
         child: Semantics(
           button: true,
-          label: 'What ${info.title} means',
+          label: 'What $name means, and what backs it',
           child: ExcludeSemantics(
             child: Icon(
               SolarIconsOutline.infoCircle,
               size: _size,
-              color: colors.ink3,
+              color: ink ?? colors.ink3,
             ),
           ),
         ),
@@ -66,30 +122,64 @@ class MetricInfoDot extends StatelessWidget {
   }
 }
 
-/// Opens the plain-language explainer for [key]. No-op for an unknown key.
-void showMetricInfo(BuildContext context, String key) {
-  final info = kMetricInfo[key];
-  if (info == null) {
+/// Opens the plain-language explainer for [key], plus whatever [detail] carries.
+///
+/// A no-op only when there is neither — the one case where the sheet would be
+/// empty. A key the map does not hold but a card with sources still opens: the
+/// sources ARE the content.
+void showMetricInfo(
+  BuildContext context,
+  String? key, {
+  MetricDetail detail = MetricDetail.none,
+  String? fallbackTitle,
+}) {
+  final info = key == null ? null : kMetricInfo[key];
+  if (info == null && detail.isEmpty) {
     return;
   }
   unawaited(
     showAppSheet<void>(
       context: context,
-      builder: (context) => _MetricInfoSheet(info: info, metric: key),
+      builder: (context) => _MetricInfoSheet(
+        info: info,
+        metric: key,
+        detail: detail,
+        fallbackTitle: fallbackTitle,
+      ),
     ),
   );
 }
 
 class _MetricInfoSheet extends StatelessWidget {
-  const _MetricInfoSheet({required this.info, required this.metric});
+  const _MetricInfoSheet({
+    required this.info,
+    required this.metric,
+    required this.detail,
+    required this.fallbackTitle,
+  });
 
-  final MetricInfo info;
-  final String metric;
+  final MetricInfo? info;
+  final String? metric;
+  final MetricDetail detail;
+  final String? fallbackTitle;
+
+  /// The explainer's notes, then the card's, with no id twice.
+  ///
+  /// Order matters and is not alphabetical: the explainer's first note is the
+  /// one a reader should open to check the headline claim, and the payload's
+  /// notes are about this particular figure.
+  List<String> get _notes => <String>[
+    ...?info?.notes,
+    for (final id in detail.notes)
+      if (!(info?.notes.contains(id) ?? false)) id,
+  ];
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final hues = context.hues;
+    final explainer = info;
+    final history = metric == null ? null : historyMetricFor(metric!);
     return Container(
       decoration: BoxDecoration(
         color: colors.bg,
@@ -106,7 +196,7 @@ class _MetricInfoSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          children: <Widget>[
             Center(
               child: Container(
                 width: 36,
@@ -118,131 +208,94 @@ class _MetricInfoSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            if (historyMetricFor(metric) != null)
+            if (history != null)
               TextButton(
                 onPressed: () {
                   final router = GoRouter.of(context);
                   Navigator.of(context).pop();
                   unawaited(
                     router.push(
-                      '${Routes.history}?metric=${Uri.encodeComponent(historyMetricFor(metric)!)}',
+                      '${Routes.history}?metric=${Uri.encodeComponent(history)}',
                     ),
                   );
                 },
                 child: const Text('View history and analysis'),
               ),
-            Text(info.title, style: HType.serif(colors.ink, size: 24)),
+            Text(
+              explainer?.title ?? detail.title ?? fallbackTitle ?? 'This reading',
+              style: HType.serif(colors.ink, size: 24),
+            ),
             const SizedBox(height: 18),
-            _InfoBlock(
-              icon: SolarIconsOutline.documentText,
-              label: 'WHAT IT IS',
-              body: info.what,
-              accent: colors.ink3,
-            ),
-            const SizedBox(height: 16),
-            _InfoBlock(
-              icon: SolarIconsOutline.target,
-              label: 'WHAT TO AIM FOR',
-              body: info.target,
-              accent: colors.accent,
-            ),
-            const SizedBox(height: 16),
-            _InfoBlock(
-              icon: SolarIconsOutline.heartPulse,
-              label: 'WHY IT MATTERS',
-              body: info.why,
-              accent: hues.heart,
-            ),
-            const SizedBox(height: 22),
+            if (explainer != null) ...<Widget>[
+              InfoBlock(
+                icon: SolarIconsOutline.documentText,
+                label: 'WHAT IT IS',
+                body: explainer.what,
+                accent: colors.ink3,
+              ),
+              const SizedBox(height: 16),
+              InfoBlock(
+                icon: SolarIconsOutline.target,
+                label: 'WHAT TO AIM FOR',
+                body: explainer.target,
+                accent: colors.accent,
+              ),
+              const SizedBox(height: 16),
+              InfoBlock(
+                icon: SolarIconsOutline.heartPulse,
+                label: 'WHY IT MATTERS',
+                body: explainer.why,
+                accent: hues.heart,
+              ),
+              const SizedBox(height: 16),
+            ],
+            // The reference pills, off the card and kept. A cutoff with no
+            // source is a number this app made up.
+            if (detail.references.isNotEmpty) ...<Widget>[
+              InfoLines(
+                icon: SolarIconsOutline.target,
+                label: kReferenceBlockLabel,
+                lines: detail.references,
+                accent: colors.accent,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (detail.method.isNotEmpty) ...<Widget>[
+              InfoLines(
+                icon: SolarIconsOutline.documentText,
+                label: kMethodBlockLabel,
+                lines: detail.method,
+                accent: colors.ink3,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (detail.disclosures.isNotEmpty) ...<Widget>[
+              DisclosureBlock(
+                label: detail.disclosuresLabel ?? kDisclosureBlockLabel,
+                disclosures: detail.disclosures,
+                accent: colors.ink3,
+              ),
+              const SizedBox(height: 16),
+            ],
+            const SizedBox(height: 6),
             // Legacy's grounding badge said "Grounded in peer-reviewed research,
             // not marketing scores." — over prose carrying no note id and no
             // grade. A claim of grounding is itself a claim, and it was the one
             // sentence on the sheet with nothing behind it. The sources replace
-            // it: same slot, same 22 px above, and now it is showing its working
-            // rather than asserting it.
-            CitationRow(noteIds: info.notes, grade: weakestGrade(info.notes)),
-            if (info.uncited.isNotEmpty) ...[
+            // it: same slot, and now it is showing its working rather than
+            // asserting it.
+            CitationRow(
+              noteIds: _notes,
+              grade: explainer == null ? null : weakestGrade(explainer.notes),
+              source: detail.source,
+            ),
+            if (explainer != null && explainer.uncited.isNotEmpty) ...<Widget>[
               const SizedBox(height: Insets.sm),
-              _NotCoveredNote(info.uncited),
+              NotCoveredNote(explainer.uncited),
             ],
           ],
         ),
       ),
-    );
-  }
-}
-
-/// What the sources above do **not** cover, said plainly under them.
-///
-/// A list of four sources beside a paragraph implies the whole paragraph is
-/// sourced. Where part of it is our own arithmetic, our own threshold or our own
-/// product decision, the citation row would otherwise be lending it cover it
-/// does not give — and that is a worse failure than no citation at all, because
-/// it is the reader's check that gets defeated.
-///
-/// Drawn in ordinary ink with no colour and no icon, for the reason
-/// `citation_row.dart` gives about broken citations: this is a statement about
-/// our evidence, not a verdict about the owner's body.
-class _NotCoveredNote extends StatelessWidget {
-  const _NotCoveredNote(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(
-            SolarIconsOutline.infoCircle,
-            size: 13,
-            color: colors.ink3,
-          ),
-        ),
-        const SizedBox(width: Insets.sm),
-        Expanded(
-          child: Text(
-            'Not covered by those sources: $text',
-            style: HType.sans(colors.ink3, size: 11.5, height: 1.45),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InfoBlock extends StatelessWidget {
-  const _InfoBlock({
-    required this.icon,
-    required this.label,
-    required this.body,
-    required this.accent,
-  });
-
-  final IconData icon;
-  final String label;
-  final String body;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 15, color: accent),
-            const SizedBox(width: Insets.sm),
-            Text(label, style: HType.label(accent, tracking: 0.1)),
-          ],
-        ),
-        const SizedBox(height: 7),
-        Text(body, style: HType.sans(colors.ink, size: 14.5, height: 1.55)),
-      ],
     );
   }
 }

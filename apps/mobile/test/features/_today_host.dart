@@ -27,6 +27,7 @@ import 'package:healthee/data/challenges/milestones.dart';
 import 'package:healthee/data/challenges/program_feed.dart';
 import 'package:healthee/data/gps/gps_recorder.dart';
 import 'package:healthee/data/gps/gps_recording_state.dart';
+import 'package:healthee/data/honesty/last_known.dart';
 import 'package:healthee/data/insights/notable_event.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_insight.dart';
@@ -87,6 +88,7 @@ Widget todayHost(
   Widget? home,
   SleepPage? sleep,
   SleepConsistency? consistency,
+  LastKnown<double>? lastKnownBioAge,
 }) {
   return _scoped(
     store,
@@ -97,6 +99,7 @@ Widget todayHost(
     signedIn: signedIn,
     sleep: sleep,
     consistency: consistency,
+    lastKnownBioAge: lastKnownBioAge,
     child: MaterialApp(
       theme: themeOverride ?? AppTheme.light,
       // **Reduced motion, always.** Today's hero carries `BioHalo`, an ambient
@@ -159,9 +162,17 @@ Widget _scoped(
   bool paired = false,
   SleepPage? sleep,
   SleepConsistency? consistency,
+  LastKnown<double>? lastKnownBioAge,
 }) {
   return ProviderScope(
     overrides: [
+      // ALWAYS overridden, defaulting to "this phone holds no earlier value".
+      // The real provider walks the cached-payload table through
+      // `TodayRepository`, which reaches `credentialsProvider` and the api
+      // client — a keystore and a socket a `flutter test` host does not have.
+      // The walk itself has its own suite against a memory store
+      // (`test/store/last_known_test.dart`).
+      lastKnownBiologicalAgeProvider.overrideWith((ref) async => lastKnownBioAge),
       challengeFeedProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
         const ChallengeFeed(active: [], suggested: [], recent: [], maxActive: 3),
         fetchedAt: now,

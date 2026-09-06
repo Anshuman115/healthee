@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/v02/panel_density.dart';
 
@@ -35,6 +36,7 @@ class PanelHead extends StatelessWidget {
     required this.title,
     this.icon,
     this.infoKey,
+    this.detail = MetricDetail.none,
     this.actionLabel,
     this.onAction,
     super.key,
@@ -62,6 +64,15 @@ class PanelHead extends StatelessWidget {
   /// nothing (`metric_info_sheet.dart`), so a panel naming a metric this build
   /// has no explainer for is silent rather than dead.
   final String? infoKey;
+
+  /// This panel's OWN provenance — its references, its payload citations, and
+  /// the prose that used to sit under its chart.
+  ///
+  /// The head owns the ⓘ, so the head is where a card hands over what the ⓘ has
+  /// to carry. A non-empty detail draws the dot even for a panel with no
+  /// explainer entry, because the alternative is a card whose sources became
+  /// unreachable — see `metric_info_sheet.dart`.
+  final MetricDetail detail;
 
   /// The text button's label. Null draws no action.
   final String? actionLabel;
@@ -106,7 +117,7 @@ class PanelHead extends StatelessWidget {
             ],
           ),
         ),
-        if (infoKey case final String key) MetricInfoDot(key),
+        MetricInfoDot(infoKey, detail: detail, fallbackTitle: title),
         if (label != null) ...<Widget>[
           const SizedBox(width: gap),
           TextButton(
@@ -152,7 +163,7 @@ class PanelHead extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      if (infoKey case final String key) MetricInfoDot(key),
+      MetricInfoDot(infoKey, detail: detail, fallbackTitle: title),
       if (label != null) ...<Widget>[
         const SizedBox(width: compactGap),
         Semantics(

@@ -66,13 +66,14 @@ Reading<T> readingFrom<T extends Object>(
   Map<String, Object?> json,
   T? Function(Map<String, Object?> json) value,
 ) {
+  final excluded = _disclosures(json['excluded']);
   final withheld = _disclosure(json['withheld']);
   if (withheld != null) {
-    return Withheld<T>(withheld);
+    // The exclusions ride along rather than being dropped — see `Withheld`.
+    return Withheld<T>(withheld, exclusions: excluded);
   }
 
   final parsed = value(json);
-  final excluded = _disclosures(json['excluded']);
   final caveats = _disclosures(json['caveats']);
 
   if (parsed == null) {
@@ -108,9 +109,45 @@ Disclosure? _disclosure(Object? raw) {
   // inventing the missing half would be worse than admitting the gap. Treated as
   // absent so the caller's "no value, no reason" path names it.
   if (raw['reason'] is! String || raw['message'] is! String) {
-    return null;
+    return _composite(raw);
   }
   return Disclosure.fromJson(raw);
+}
+
+/// The reason id a composite refusal is filed under.
+///
+/// **Ours, and deliberately so.** `analytics/biological_age.py` writes a
+/// `withheld` block with `consequence` and `terms` and NO `reason` — the reasons
+/// live one level down, on each absent term, because they are the input
+/// metrics' own. `reason` is an operator's filter key and is never shown to the
+/// owner (`disclosure.dart`), so naming the shape here is honest; making up the
+/// owner-facing `message` would not be, and this does not — the message IS the
+/// server's `consequence`, verbatim.
+const String kCompositeTermsAbsentReason = 'required_terms_absent';
+
+/// The composite shape: a consequence over a list of absent terms.
+///
+/// This function is the whole of defect #1. Without it the biological-age
+/// `withheld` block failed the reason/message check above, was read as absent,
+/// and the null value fell through to [Excluded] — so a refused hero rendered as
+/// a dashed hole followed by the ~400-word regularity exclusion, inline, where
+/// the hero should be. The owner reported it as the card being missing.
+Disclosure? _composite(Map<String, Object?> raw) {
+  final consequence = raw['consequence'];
+  if (consequence is! String) {
+    return null;
+  }
+  final terms = _disclosures(raw['terms']);
+  if (terms.isEmpty) {
+    return null;
+  }
+  return Disclosure(
+    reason: kCompositeTermsAbsentReason,
+    message: consequence,
+    terms: terms,
+    asOfDate: (raw['last_as_of_date'] ?? raw['as_of_date']) as String?,
+    ageDays: (raw['age_days'] as num?)?.toInt(),
+  );
 }
 
 List<Disclosure> _disclosures(Object? raw) {
