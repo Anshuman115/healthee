@@ -1508,6 +1508,26 @@ mutate 'the eyebrow row loses its pinned extent' "$GEOMETRY_TEST" "$HERO" \
   '    constraints: BoxConstraints(minHeight: centred ? eyebrowExtent : 0),' \
   '    constraints: const BoxConstraints(),'
 
+# The rim's dust handed the stream heads' glow — one line, and 1,120 grains
+# become solid balls six times too wide. This IS the defect the owner reported.
+SCALE_TEST=test/shared/instruments/halo_scale_test.dart
+mutate 'the rim dust wears the stream glow' \
+  "$SCALE_TEST" lib/shared/v02/instruments/halo_painter.dart \
+  '    dust.forEach(
+      (dot) => canvas.drawPoints(
+        ui.PointMode.points,
+        dot.at,
+        _dot(
+          glint: dot.glint,
+          width: dot.extent,' \
+  '    dust.forEach(
+      (dot) => canvas.drawPoints(
+        ui.PointMode.points,
+        dot.at,
+        _dot(
+          glint: dot.glint,
+          width: dot.extent * 6,'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

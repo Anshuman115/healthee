@@ -25,10 +25,22 @@
 ///
 /// ## No blur filter, anywhere
 ///
-/// A `MaskFilter.blur` per particle is a saved layer per particle. The glow is
-/// two `drawPoints` passes instead — one wide and dim, one small and bright —
-/// and the rim's halo is one gradient-filled annulus. Roughly 40 draw calls a
-/// frame for up to 1,400 particles, at the 30 fps `bio_halo.dart` clocks.
+/// A `MaskFilter.blur` per particle is a saved layer per particle, and a
+/// gradient shader per particle is a shader per particle. So the prototype's
+/// soft sprite is approximated by [kHaloGlowPasses] concentric `drawPoints`
+/// passes — the blend sums them into a stepped cone — and the rim's halo is one
+/// gradient-filled annulus. Roughly 60 draw calls a frame for up to 1,400
+/// particles, at the 30 fps `bio_halo.dart` clocks.
+///
+/// ## The two kinds of particle are drawn as two kinds
+///
+/// `bio-halo.js` sizes them an order of magnitude apart, and the glow belongs to
+/// exactly one of them. The rim's 1,120 grains are hard dots of
+/// [kHaloDustMin]–[kHaloDustMax] reference pixels and nothing else; the 280
+/// stream heads get the soft falloff, with a hard core under one in three. A
+/// painter that cannot tell them apart gives the dust the heads' glow, which is
+/// the bug this file shipped: fourteen hundred balls where there should have
+/// been dust around a ring.
 library;
 
 import 'dart:ui' as ui;
@@ -36,13 +48,24 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/shared/v02/instruments/halo_batches.dart';
 import 'package:healthee/shared/v02/instruments/halo_field.dart';
 
 /// How many brightness bands particles are quantised into before batching.
 const int kHaloAlphaBands = 3;
 
-/// How many size buckets they are quantised into.
+/// How many size buckets the rim's dust is quantised into.
 const int kHaloSizeBuckets = 3;
+
+/// How many the stream heads get. Fewer, because each bucket costs
+/// [kHaloGlowPasses] calls rather than one, and a soft edge hides the step.
+const int kHaloGlowBuckets = 2;
+
+/// And how many brightness bands they get, for the same reason.
+const int kHaloGlowBands = 2;
+
+/// Concentric passes standing in for the prototype's radial-gradient sprite.
+const int kHaloGlowPasses = 3;
 
 /// How many filament strands ring the rim.
 const int kHaloFilaments = 5;
@@ -148,7 +171,8 @@ class HaloPainter extends CustomPainter {
     _paintRim(canvas, field);
     _paintFilaments(canvas, field, time);
     _paintTrails(canvas, field, time);
-    _paintParticles(canvas, field, time);
+    _paintDust(canvas, field, time);
+    _paintStreams(canvas, field, time);
   }
 
   /// The rim's glow: **an annulus**, so the still centre is a hole in the
@@ -226,59 +250,106 @@ class HaloPainter extends CustomPainter {
     );
   }
 
-  /// Every particle, batched into (ink x size x brightness) buckets so 1,400
-  /// dots cost a few dozen calls rather than 1,400.
-  void _paintParticles(Canvas canvas, HaloField field, double time) {
-    final buckets = <int, List<Offset>>{};
-    void add(HaloMark? mark) {
-      if (mark == null || mark.alpha <= 0) {
-        return;
-      }
-      final band = (mark.alpha * kHaloAlphaBands).ceil().clamp(
-        1,
-        kHaloAlphaBands,
-      );
-      final size = ((mark.radius / field.unit - 0.3) / 0.75)
-          .clamp(0, kHaloSizeBuckets - 1)
-          .round();
-      final key = (mark.glint ? 1 : 0) * 100 + size * 10 + band;
-      (buckets[key] ??= <Offset>[]).add(mark.at);
-    }
-
+  /// The rim's dust: a hard dot each, at the size `bio-halo.js` seeded it, and
+  /// **not one of them glowing**. The ring's light is the annulus and the
+  /// filaments; a glow per grain is what made the field read as a bag of balls.
+  void _paintDust(Canvas canvas, HaloField field, double time) {
+    final dust = HaloBatches(
+      unit: field.unit,
+      min: kHaloDustMin,
+      max: kHaloDustMax,
+      steps: kHaloSizeBuckets,
+      bands: kHaloAlphaBands,
+    );
     for (var i = 0; i < field.ring.length; i++) {
-      add(field.ringMark(i, time));
+      final mark = field.ringMark(i, time);
+      if (mark != null) {
+        dust.add(mark, mark.core);
+      }
     }
-    for (var i = 0; i < field.streams.length; i++) {
-      add(field.streamMark(i, time));
-    }
-    for (final entry in buckets.entries) {
-      final glint = entry.key >= 100;
-      final size = entry.key % 100 ~/ 10;
-      final band = entry.key % 10;
-      final radius = (0.3 + size * 0.75) * field.unit;
-      final alpha = band / kHaloAlphaBands * ink.weight;
-      final colour = glint ? ink.glint : ink.core;
-      // A glow without a blur: one wide dim pass under one small bright pass.
-      canvas.drawPoints(
+    dust.forEach(
+      (dot) => canvas.drawPoints(
         ui.PointMode.points,
-        entry.value,
-        Paint()
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = radius * 6
-          ..blendMode = ink.blend
-          ..color = colour.withValues(alpha: alpha * 0.18),
-      );
-      canvas.drawPoints(
-        ui.PointMode.points,
-        entry.value,
-        Paint()
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = radius * 2
-          ..blendMode = ink.blend
-          ..color = colour.withValues(alpha: alpha),
-      );
-    }
+        dot.at,
+        _dot(
+          glint: dot.glint,
+          width: dot.extent,
+          alpha: dot.alpha * ink.weight,
+        ),
+      ),
+    );
   }
+
+  /// The streams: a soft head, with a hard core under one in three.
+  ///
+  /// The prototype's head is a sprite — a radial gradient solid to 12% of its
+  /// radius and transparent at the edge — and there is no cheap per-particle
+  /// gradient here (see the library docstring). [kHaloGlowPasses] concentric
+  /// dots, each carrying a share of the brightness, sum to a stepped cone
+  /// instead: bright in the middle, faint at the rim, no layer saved. The core
+  /// is the prototype's own `arc`, and it is solid because the prototype's is.
+  void _paintStreams(Canvas canvas, HaloField field, double time) {
+    final glow = HaloBatches(
+      unit: field.unit,
+      min: kHaloGlowMin,
+      max: kHaloGlowMax,
+      steps: kHaloGlowBuckets,
+      bands: kHaloGlowBands,
+    );
+    final cores = HaloBatches(
+      unit: field.unit,
+      min: kHaloCoreMin,
+      max: kHaloCoreMax,
+      steps: kHaloGlowBuckets,
+      bands: kHaloAlphaBands,
+    );
+    for (var i = 0; i < field.streams.length; i++) {
+      final mark = field.streamMark(i, time);
+      if (mark == null) {
+        continue;
+      }
+      glow.add(mark, mark.glow);
+      cores.add(mark, mark.core);
+    }
+    glow.forEach((dot) {
+      for (var pass = kHaloGlowPasses; pass >= 1; pass--) {
+        canvas.drawPoints(
+          ui.PointMode.points,
+          dot.at,
+          _dot(
+            glint: dot.glint,
+            width: dot.extent * pass / kHaloGlowPasses,
+            alpha: dot.alpha * ink.weight / kHaloGlowPasses,
+          ),
+        );
+      }
+    });
+    cores.forEach(
+      (dot) => canvas.drawPoints(
+        ui.PointMode.points,
+        dot.at,
+        _dot(
+          glint: dot.glint,
+          width: dot.extent,
+          alpha: dot.alpha * ink.weight,
+        ),
+      ),
+    );
+  }
+
+  /// One batched pass of round dots, [width] across — a stroke width on a
+  /// round-capped `drawPoints` is the dot's DIAMETER.
+  Paint _dot({
+    required bool glint,
+    required double width,
+    required double alpha,
+  }) => Paint()
+    ..strokeCap = StrokeCap.round
+    ..strokeWidth = width
+    ..blendMode = ink.blend
+    ..color = (glint ? ink.glint : ink.core).withValues(
+      alpha: alpha.clamp(0.0, 1.0),
+    );
 
   @override
   bool shouldRepaint(HaloPainter oldDelegate) =>

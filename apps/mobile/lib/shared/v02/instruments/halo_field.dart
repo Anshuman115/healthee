@@ -60,8 +60,43 @@ const double kHaloStillRatio = 0.72;
 /// The floor on the area budget: a small halo still reads as a halo.
 const double kHaloMinimumBudget = 0.25;
 
-/// One painted mark: where it is, how bright, how big, and whether it is a glint.
-typedef HaloMark = ({Offset at, double alpha, double radius, bool glint});
+/// The rim's dust, in reference pixels. `bio-halo.js`: `size: .3 + noise * 1.1`,
+/// which is the whole of a grain — the solid part of its sprite is smaller still.
+const double kHaloDustMin = 0.3;
+
+/// The widest grain of rim dust. See [kHaloDustMin].
+const double kHaloDustMax = 1.4;
+
+/// A stream head's soft extent. `bio-halo.js`: `size = 3 + noise(i+60) * 5`,
+/// drawn as a radial-gradient sprite that is opaque only to 12% of its radius.
+const double kHaloGlowMin = 3;
+
+/// The widest stream head. See [kHaloGlowMin].
+const double kHaloGlowMax = 8;
+
+/// The hard core one stream in three carries under that glow. `bio-halo.js`:
+/// `arc(x, y, .35 + noise(i+40) * .4)` — a **diameter** of `.7 + noise * .8`.
+const double kHaloCoreMin = 0.7;
+
+/// The largest that core gets. See [kHaloCoreMin].
+const double kHaloCoreMax = 1.5;
+
+/// One painted mark, and **which kind of particle it is**, said in what it is
+/// drawn with: the rim's dust is a hard [core] and no [glow]; a stream is a soft
+/// [glow] with, one in three, a hard core under it. Either may be zero; no mark
+/// has neither.
+///
+/// Both are DIAMETERS in logical pixels, because a round-capped `drawPoints`
+/// stroke width is a diameter. They replace a single `radius` the painter could
+/// not tell the kinds apart by — which is how 1,120 grains of rim dust ended up
+/// wearing the 280 stream heads' glow, and why the field read as a bag of balls.
+typedef HaloMark = ({
+  Offset at,
+  double alpha,
+  double core,
+  double glow,
+  bool glint,
+});
 
 /// A particle orbiting the rim.
 @immutable
@@ -106,7 +141,8 @@ class HaloStreamParticle {
     required this.duration,
     required this.phase,
     required this.curve,
-    required this.size,
+    required this.glow,
+    required this.core,
     required this.glint,
     required this.trail,
   });
@@ -129,8 +165,13 @@ class HaloStreamParticle {
   /// How much it curves on the way in.
   final double curve;
 
-  /// Its dot size, in reference pixels.
-  final double size;
+  /// The extent of its soft head, in reference pixels. [kHaloGlowMin] to
+  /// [kHaloGlowMax].
+  final double glow;
+
+  /// The diameter of the hard core under that head, in reference pixels. Only
+  /// painted when [trail]: the prototype draws both on the same one in three.
+  final double core;
 
   /// Drawn in the glint ink.
   final bool glint;
@@ -208,7 +249,10 @@ class HaloField {
       duration: 6 + haloNoise(index + 680) * 5,
       phase: haloNoise(index + 930),
       curve: (haloNoise(index + 450) - 0.5) * 0.28,
-      size: 1.5 + haloNoise(index + 60) * 2.5,
+      glow:
+          kHaloGlowMin + haloNoise(index + 60) * (kHaloGlowMax - kHaloGlowMin),
+      core:
+          kHaloCoreMin + haloNoise(index + 40) * (kHaloCoreMax - kHaloCoreMin),
       glint: index % 13 == 0,
       trail: index % 3 == 0,
     );
@@ -246,10 +290,14 @@ class HaloField {
     final life =
         0.45 + (0.5 + 0.5 * math.sin(time * 1.5 + particle.phase)) * 0.55;
     final depth = math.max(0.18, 1 - particle.spread.abs() / 26);
+    // No glow, and no `i % 5` either: the prototype's fivefold size step is on
+    // the SPRITE, and the rim's sprite is what this field does not draw. What is
+    // left is the grain itself, at the size `bio-halo.js` seeded it.
     return (
       at: at,
       alpha: (life * depth * 0.8).clamp(0.0, 1.0),
-      radius: particle.size * unit * (index % 5 == 0 ? 1.8 : 0.9),
+      core: particle.size * unit,
+      glow: 0,
       glint: particle.glint,
     );
   }
@@ -285,7 +333,8 @@ class HaloField {
     return (
       at: at,
       alpha: (fade * (0.3 + progress * 0.65)).clamp(0.0, 1.0),
-      radius: stream.size * unit * 0.5,
+      core: stream.trail ? stream.core * unit : 0,
+      glow: stream.glow * unit,
       glint: stream.glint,
     );
   }
