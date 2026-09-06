@@ -23,6 +23,11 @@ library;
 /// call site that reads it from here is unchanged.
 export 'package:healthee/shared/format/date_labels.dart' show prettyDate;
 
+/// `shortClock` moved to `shared/format/time_labels.dart` when Insights grew
+/// the same hour axis. Same reason, same re-export: one definition, and two
+/// screens drawing one chart cannot label it two ways.
+export 'package:healthee/shared/format/time_labels.dart' show shortClock;
+
 /// `9264` → `9,264`. Legacy's `_comma`, regex and all.
 String commaGrouped(int value) => value.toString().replaceAllMapped(
   RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
@@ -91,19 +96,6 @@ String stageFoot(Map<String, int> totals) {
 // stages itself and draws NOTHING for a night with no staged minutes, which
 // `test/features/grid_sleep_cell_test.dart` asserts. Standards §1: delete dead
 // code, git has it.
-
-/// `6a` · `12p` · `11p` — legacy's short clock, from a real hour.
-///
-/// Legacy hard-codes the five captions under its 24-hour heart rate and lays
-/// them out `spaceBetween`, so on every partial day they describe hours the
-/// curve above them does not cover. This turns an actual hour into legacy's own
-/// format so the captions can be built from the series instead.
-String shortClock(int hour) {
-  final wrapped = hour % 24;
-  final suffix = wrapped < 12 ? 'a' : 'p';
-  final twelve = wrapped % 12 == 0 ? 12 : wrapped % 12;
-  return '$twelve$suffix';
-}
 
 /// `MED 55`, or `14-DAY TREND` when there is no median yet. Legacy's `medFoot`.
 ///

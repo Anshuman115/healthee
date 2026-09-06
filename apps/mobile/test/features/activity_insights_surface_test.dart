@@ -69,6 +69,14 @@ void main() {
       testWidgets('NO RAW IDENTIFIER REACHES THE SCREEN', (tester) async {
         await open(tester, screen.value);
 
+        // The guard on the guard. A scan over an empty list passes for a screen
+        // that drew nothing at all, which is exactly how a "no offenders" test
+        // goes green against a blank page.
+        expect(
+          _saidOn(tester).length,
+          greaterThan(20),
+          reason: 'the scan found almost no text — it is not seeing the screen',
+        );
         final offenders = <String>[
           for (final said in _saidOn(tester))
             for (final match in _rawId.allMatches(said)) match.group(0)!,
@@ -111,6 +119,49 @@ void main() {
       });
     });
   }
+
+  group('neither screen overflows at a real phone width', () {
+    // **Never test layout at Flutter's 800 px default.** Every layout defect
+    // this project has shipped was a title beside a figure, or a row of three
+    // statistics, at a width the default viewport never reaches. `PanelValue`,
+    // `StatRow` and `V02ListRow` all share a row with something intrinsic, so
+    // each is a candidate.
+    for (final width in <double>[320, 360, 390, 414]) {
+      for (final screen in <String, Widget>{
+        'Activity': const ActivityScreen(),
+        'Insights': const InsightsScreen(),
+      }.entries) {
+        testWidgets('${screen.key} lays out at $width px', (tester) async {
+          tester.view
+            ..physicalSize = Size(width, 14000)
+            ..devicePixelRatio = 1.0;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(todayHost(store, home: screen.value));
+          await tester.pumpAndSettle();
+
+          // `pumpAndSettle` does not fail on an overflow; the exception is
+          // recorded and has to be asked for.
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: '${screen.key} overflowed at $width px',
+          );
+          // And nothing ran off the right edge of the page.
+          for (final text in find.byType(Text).evaluate()) {
+            final box = text.renderObject! as RenderBox;
+            final left = box.localToGlobal(Offset.zero).dx;
+            expect(
+              left + box.size.width,
+              lessThanOrEqualTo(width + 0.5),
+              reason:
+                  '"${(text.widget as Text).data}" runs past $width px on '
+                  '${screen.key}',
+            );
+          }
+        });
+      }
+    }
+  });
 
   group('Activity’s charts paint, at the size the layout gave them', () {
     testWidgets('THE INTENSITY BARS DRAW ONE COLUMN PER MEASURED DAY', (

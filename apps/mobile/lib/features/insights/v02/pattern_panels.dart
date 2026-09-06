@@ -45,6 +45,7 @@ import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/models/today_series.dart';
 import 'package:healthee/shared/charts/v02/v02_linked_chart.dart';
 import 'package:healthee/shared/format/metric_names.dart';
+import 'package:healthee/shared/format/time_labels.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/entry_card.dart';
 import 'package:healthee/shared/v02/panel.dart';
@@ -130,14 +131,17 @@ class EffortStressPanel extends StatelessWidget {
                 ),
               ],
               progress: t,
+              // `shortClock`, and not the prototype's `06:00`: Today draws this
+              // same chart from the same series, and one chart labelled two ways
+              // on two screens is the drift `shared/format/` exists to stop.
               captions: hours < 2
                   ? const <String>[]
                   : <String>[
-                      _clock(heartRate.first.hour),
-                      _clock(heartRate[hours - 1].hour),
+                      shortClock(heartRate.first.hour),
+                      shortClock(heartRate[hours - 1].hour),
                     ],
               sampleLabels: <String>[
-                for (var i = 0; i < hours; i++) _clock(heartRate[i].hour),
+                for (var i = 0; i < hours; i++) shortClock(heartRate[i].hour),
               ],
               semanticLabel:
                   'Heart rate and stress through today, on a shared hour axis',
@@ -148,9 +152,6 @@ class EffortStressPanel extends StatelessWidget {
       ),
     );
   }
-
-  static String _clock(int hour) =>
-      '${hour.toString().padLeft(2, '0')}:00';
 }
 
 /// `A useful question comes next` — the way from a pattern to a question.
