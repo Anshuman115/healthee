@@ -22,6 +22,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/today/v02/today_hero_withheld.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
 import '../_today_stubs.dart';
@@ -90,8 +91,24 @@ void main() {
       ) async {
         await pump(tester, (json) => _withheld(json, entry.key));
 
-        expect(find.text('Sentinel remedy for ${entry.key}.'), findsOneWidget);
-        expect(find.byType(WithheldPanel), findsWidgets);
+        // The remedy is on screen either way. The hero joins it to its pointer
+        // in one paragraph (`today_hero_withheld.dart`), so the match is on the
+        // sentence rather than the whole widget's text.
+        expect(
+          find.textContaining('Sentinel remedy for ${entry.key}.'),
+          findsOneWidget,
+        );
+        expect(
+          find.byType(
+            entry.key == 'biological_age'
+                ? TodayBioHeroWithheld
+                : WithheldPanel,
+          ),
+          findsWidgets,
+          reason:
+              'the one 88px figure on the screen keeps the hero shape when it '
+              'is refused; every other block is a panel',
+        );
         expect(
           find.text(entry.value),
           findsNothing,
@@ -113,6 +130,13 @@ void main() {
         expect(
           find.textContaining('the server did not say why'),
           findsWidgets,
+        );
+        expect(
+          find.textContaining('Left out: regularity'),
+          findsNothing,
+          reason:
+              'the exclusion essay printed inline where the hero belongs is '
+              'the defect this build fixed; it lives behind the ⓘ now',
         );
         expect(find.text(cases[key]!), findsNothing);
       });
