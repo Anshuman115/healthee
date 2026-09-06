@@ -226,6 +226,13 @@ abstract final class LightPalette {
 
   /// `--bio-line` — the hero's contour art and its divider.
   static const Color bioLine = Color(0xFF328B54);
+
+  /// `--halo-warm` — the amber one particle in eleven is drawn in.
+  ///
+  /// `motion.css`: `oklch(88% .13 86)`. **The same value in both themes**,
+  /// because the prototype declares it once, outside either theme block, on a
+  /// halo surface that is dark in both. See [DarkPalette.haloWarm].
+  static const Color haloWarm = Color(0xFFFED16B);
 }
 
 /// The v02 scaffolding, dark — **the default appearance for this direction**.
@@ -320,6 +327,20 @@ abstract final class DarkPalette {
 
   /// `--bio-line`.
   static const Color bioLine = Color(0xFF57AE74);
+
+  /// `--halo-warm` — **the same amber as [LightPalette.haloWarm]**, and that is
+  /// the port rather than an oversight.
+  ///
+  /// The rest of this palette is authored per theme because it sits on a page
+  /// whose ground flips. The halo does not: `motion.css` forces its own dark
+  /// surface in both themes and declares `--halo-warm` once, beside
+  /// `--halo-core` and `--halo-mist`. A second value here would be inventing a
+  /// theme the prototype does not have.
+  ///
+  /// It is deliberately **not** [DarkFamilies.movement], the product's other
+  /// amber: the halo glint is the prototype's decoration, and borrowing an
+  /// identity hue would put "steps" inside the biological-age card.
+  static const Color haloWarm = Color(0xFFFED16B);
 }
 
 /// The owner's seven selectable accents and three dark grounds, authored

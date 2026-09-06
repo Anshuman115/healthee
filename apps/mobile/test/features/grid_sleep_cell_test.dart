@@ -94,14 +94,24 @@ void main() {
       tester,
     ) async {
       // This is the one stage surface with no legend beside it: 10 px in a grid
-      // cell with no room for a row of keys. So two carriers do the work colour
-      // cannot, and neither one moved a pixel.
+      // cell with no room for a row of keys.
+      //
+      // **The second carrier used to be a luminance ramp** — the shipped stage
+      // colours were derived to darken in `kSleepStages` order, so the bar read
+      // left to right in greyscale too. The owner has since restated that
+      // `design/mobile-preview/` is the specification, and `richer.css` orders
+      // its four stages by HUE, so the ramp is gone. It is recorded below rather
+      // than asserted; `test/theme/stage_contrast_test.dart` carries the full
+      // measurement and the reasoning.
+      //
+      // What is left is the WORD, and it is now the only carrier a greyscale or
+      // colour-deficient reader has here. That makes the semantics assertion
+      // below more load-bearing than it was, not less, which is why it stays a
+      // gate.
       await tester.pumpWidget(_bar(_night));
       await tester.pumpAndSettle();
 
-      // 1. The ramp. Segment order is `kSleepStages` and the stage colours are
-      //    luminance-ordered, so the bar darkens left to right even in
-      //    greyscale — and for a reader with red-green colour deficiency.
+      // 1. The luminances, in segment order. Recorded.
       final fills = tester
           .widgetList<ColoredBox>(
             find.descendant(
@@ -111,13 +121,10 @@ void main() {
           )
           .map((box) => box.color.computeLuminance())
           .toList();
-      for (var i = 1; i < fills.length; i++) {
-        expect(
-          fills[i],
-          lessThan(fills[i - 1]),
-          reason: '${kSleepStages[i]} does not continue the ramp',
-        );
-      }
+      debugPrint(
+        '  stage bar luminance in lane order  '
+        '${fills.map((y) => y.toStringAsFixed(4)).join('  ')}',
+      );
 
       // 2. The words. Each segment names its own stage, from the ONE label
       //    source every legend uses, so a screen reader gets the key the cell

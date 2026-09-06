@@ -3,12 +3,15 @@
 /// ## Three inks, all of them palette roles
 ///
 /// `motion.css` gives the prototype `--halo-core`, `--halo-mist` and
-/// `--halo-warm`, where warm is an amber glint. The v02 palette has **no warm
-/// role that is not another family's identity** — the only amber in the product
-/// is `movement`, and borrowing it would put "steps" inside the biological-age
-/// card. So the glint is a brightness event rather than a hue one:
-/// `bioGlow` lifted toward `bioInk`. Colour stays identity here as everywhere,
-/// and nothing outside the palette is invented.
+/// `--halo-warm`, and the glint is **warm** — `oklch(88% .13 86)`, the amber
+/// `HealtheeColors.haloWarm` carries verbatim.
+///
+/// It shipped once as a brightness event instead (`bioGlow` lifted toward
+/// `bioInk`), to avoid importing the `movement` family's amber into the
+/// biological-age card. The reasoning was sound and the call was wrong: the
+/// answer to "the only amber we have means steps" is a halo role of its own,
+/// which `palette.dart` now holds in both themes, not a different design. The
+/// glint does not borrow `movement` and never did.
 ///
 /// ## The ground decides the blend, because additive light on a pale ground is
 /// white mush
@@ -61,9 +64,10 @@ class HaloInk {
     return HaloInk(
       core: dark ? colors.bioGlow : colors.bioLine,
       mist: colors.bioLine,
-      glint: dark
-          ? Color.lerp(colors.bioGlow, colors.bioInk, 0.6)!
-          : colors.bioInk,
+      // The prototype's own amber, whichever way the ground goes. `--halo-warm`
+      // is declared once in `motion.css` for a halo surface that is dark in
+      // both themes, so there is nothing here to pick between.
+      glint: colors.haloWarm,
       additive: dark,
     );
   }
@@ -74,7 +78,7 @@ class HaloInk {
   /// The rim's depth and the filaments — `--halo-mist`.
   final Color mist;
 
-  /// One particle in eleven — `--halo-warm`, as brightness. See the docstring.
+  /// One particle in eleven — `--halo-warm`, the prototype's amber.
   final Color glint;
 
   /// Whether marks add light (dark ground) or lay ink over it (pale ground).

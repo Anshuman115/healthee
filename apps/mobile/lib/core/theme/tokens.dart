@@ -67,6 +67,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
     required this.bioInk,
     required this.bioGlow,
     required this.bioLine,
+    required this.haloWarm,
   });
 
   /// The approved design, light — the default theme.
@@ -100,7 +101,8 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       bioBackground = LightPalette.bioBackground,
       bioInk = LightPalette.bioInk,
       bioGlow = LightPalette.bioGlow,
-      bioLine = LightPalette.bioLine;
+      bioLine = LightPalette.bioLine,
+      haloWarm = LightPalette.haloWarm;
 
   /// The approved design, dark — authored, not derived from light.
   const HealtheeColors.dark()
@@ -133,7 +135,8 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       bioBackground = DarkPalette.bioBackground,
       bioInk = DarkPalette.bioInk,
       bioGlow = DarkPalette.bioGlow,
-      bioLine = DarkPalette.bioLine;
+      bioLine = DarkPalette.bioLine,
+      haloWarm = DarkPalette.haloWarm;
 
   /// The ground the app shell sits on, behind [bg]. `--canvas`, new in v02.
   final Color canvas;
@@ -246,38 +249,23 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
   /// The hero's contour art and its divider. `--bio-line`.
   final Color bioLine;
 
+  /// The halo's amber glint — one particle in eleven. `--halo-warm`.
+  ///
+  /// A role of its own rather than [LightFamilies.movement], which is the same
+  /// family of amber: `movement` MEANS steps, and the halo is decoration on the
+  /// biological-age card. See `shared/v02/instruments/halo_painter.dart`.
+  final Color haloWarm;
+
   @override
   HealtheeColors copyWith({
-    Color? canvas,
-    Color? bg,
-    Color? surface,
-    Color? surface2,
-    Color? chrome,
-    Color? ink,
-    Color? ink2,
-    Color? ink3,
-    Color? line,
-    Color? line2,
-    Color? rule,
-    Color? grid,
-    Color? reference,
-    Color? accent,
-    Color? accent2,
-    Color? accentSoft,
-    Color? onAccent,
-    Color? fav,
-    Color? favSoft,
-    Color? unf,
-    Color? unfSoft,
-    Color? alert,
-    Color? alertSoft,
-    Color? hole,
-    Color? overlay,
-    Color? shadow,
-    Color? bioBackground,
-    Color? bioInk,
-    Color? bioGlow,
-    Color? bioLine,
+    Color? canvas, Color? bg, Color? surface, Color? surface2, Color? chrome,
+    Color? ink, Color? ink2, Color? ink3,
+    Color? line, Color? line2, Color? rule, Color? grid, Color? reference,
+    Color? accent, Color? accent2, Color? accentSoft, Color? onAccent,
+    Color? fav, Color? favSoft, Color? unf, Color? unfSoft,
+    Color? alert, Color? alertSoft, Color? hole, Color? overlay, Color? shadow,
+    Color? bioBackground, Color? bioInk, Color? bioGlow, Color? bioLine,
+    Color? haloWarm,
   }) {
     return HealtheeColors(
       canvas: canvas ?? this.canvas,
@@ -310,6 +298,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       bioInk: bioInk ?? this.bioInk,
       bioGlow: bioGlow ?? this.bioGlow,
       bioLine: bioLine ?? this.bioLine,
+      haloWarm: haloWarm ?? this.haloWarm,
     );
   }
 
@@ -349,6 +338,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       bioInk: Color.lerp(bioInk, other.bioInk, t)!,
       bioGlow: Color.lerp(bioGlow, other.bioGlow, t)!,
       bioLine: Color.lerp(bioLine, other.bioLine, t)!,
+      haloWarm: Color.lerp(haloWarm, other.haloWarm, t)!,
     );
   }
 
@@ -362,7 +352,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
     accent, accent2, accentSoft, onAccent,
     fav, favSoft, unf, unfSoft,
     alert, alertSoft, hole, overlay, shadow,
-    bioBackground, bioInk, bioGlow, bioLine,
+    bioBackground, bioInk, bioGlow, bioLine, haloWarm,
   ];
 
   @override

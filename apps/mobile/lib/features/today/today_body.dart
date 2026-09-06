@@ -98,7 +98,12 @@ void todayBody(
   sections.gap(PageSpacing.block);
   sections.add(ContextBridge.text(kAgeBridge));
   if (extras.chapters case final TodayChapters chapters) {
-    sections.add(TodayChapterNav(chapters: chapters));
+    // Pinned: `richer.css` gives `.chapter-nav` `position: sticky; top: 0`, and
+    // it is the one element on the page that has it.
+    sections.addPinned(
+      TodayChapterNav(chapters: chapters),
+      ChapterNav.extentOf,
+    );
   }
   _nightChapter(sections, facts, reveals, extras);
   todayDaySections(sections, facts, data, extras);

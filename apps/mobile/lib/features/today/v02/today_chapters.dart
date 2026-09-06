@@ -23,11 +23,22 @@
 /// The keys are **per instance**, not module-level finals. Two live Today
 /// screens with one set of `GlobalKey`s between them is a duplicate-key crash,
 /// and a widget test that pumps the screen twice is exactly that case.
+///
+/// ## The nav pins, so the landing has to allow for it
+///
+/// The control is a pinned sliver (`shared/instrument_screen.dart`), which means
+/// it covers the top of the viewport for the whole scroll. `Scrollable.
+/// ensureVisible` puts its target at the very top — **underneath** the pinned
+/// nav, where nobody can read it. `.chapter-heading { scroll-margin-top: 66px }`
+/// is the prototype's answer to the same problem, and [_landing] is ours: the
+/// offset that would reveal the heading, minus the nav's own measured height.
+/// Measured rather than typed, so the two cannot drift apart.
 library;
 
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:healthee/shared/v02/chapter.dart';
 
 /// The three anchors Today's chapter nav jumps to.
@@ -60,7 +71,7 @@ class TodayChapters {
       }
       final anchor = key.currentContext;
       if (anchor != null) {
-        await Scrollable.ensureVisible(anchor, duration: step);
+        await _landing(from, anchor);
         return;
       }
       final position = Scrollable.maybeOf(from)?.position;
@@ -76,6 +87,24 @@ class TodayChapters {
       }
       await position.animateTo(next, duration: step, curve: Curves.easeOut);
     }
+  }
+
+  /// Scrolls so [anchor] sits just **below** the pinned nav rather than under
+  /// it. Falls back to `ensureVisible` when the geometry cannot be read, which
+  /// is the pre-pinning behaviour and still lands the heading on screen.
+  Future<void> _landing(BuildContext from, BuildContext anchor) async {
+    final box = anchor.findRenderObject();
+    final position = Scrollable.maybeOf(from)?.position;
+    final viewport = box is RenderBox ? RenderAbstractViewport.maybeOf(box) : null;
+    if (box is! RenderBox || position == null || viewport == null) {
+      await Scrollable.ensureVisible(anchor, duration: step);
+      return;
+    }
+    final target =
+        (viewport.getOffsetToReveal(box, 0).offset -
+                ChapterNav.extentOf(from))
+            .clamp(position.minScrollExtent, position.maxScrollExtent);
+    await position.animateTo(target, duration: step, curve: Curves.easeOut);
   }
 }
 
