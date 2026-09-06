@@ -1255,7 +1255,7 @@ mutate 'the movement tile invents a step target' "$HERO_TEST" \
 # looks right on the first screen, and it never pauses again.
 mutate 'the hero art is dropped from the card' "$HERO_TEST" \
   lib/features/today/v02/today_hero.dart \
-  '      art: BioHalo(paused: _paused),' \
+  '      art: const BioHalo(),' \
   '      art: null,'
 
 # ── the v02 Today fixes (withheld hero · provenance off the cards) ───────────
@@ -1461,7 +1461,6 @@ mutate 'the measured half stops following the selection' \
   '  return store.strapReader.day(ref.watch(todayProvider));'
 
 HERO=lib/shared/v02/bio_hero.dart
-HERO_HALO=lib/shared/v02/instruments/bio_halo.dart
 GEOMETRY_TEST=test/features/today_hero_geometry_test.dart
 FIELD_TEST=test/features/today_hero_field_test.dart
 
@@ -1509,13 +1508,25 @@ mutate 'the eyebrow row loses its pinned extent' "$GEOMETRY_TEST" "$HERO" \
   '    constraints: BoxConstraints(minHeight: centred ? eyebrowExtent : 0),' \
   '    constraints: const BoxConstraints(),'
 
-# The pause control becomes decoration: it paints a play triangle and the
-# ticker keeps running, which is the failure the marks-not-a-flag test exists
-# for.
-mutate 'the pause control does not stop the field' \
-  "$FIELD_TEST" "$HERO_HALO" \
-  '        _foreground && !_reducedMotion && !widget.paused && _onScreen();' \
-  '        _foreground && !_reducedMotion && _onScreen();'
+# The rim's dust handed the stream heads' glow — one line, and 1,120 grains
+# become solid balls six times too wide. This IS the defect the owner reported.
+SCALE_TEST=test/shared/instruments/halo_scale_test.dart
+mutate 'the rim dust wears the stream glow' \
+  "$SCALE_TEST" lib/shared/v02/instruments/halo_painter.dart \
+  '    dust.forEach(
+      (dot) => canvas.drawPoints(
+        ui.PointMode.points,
+        dot.at,
+        _dot(
+          glint: dot.glint,
+          width: dot.extent,' \
+  '    dust.forEach(
+      (dot) => canvas.drawPoints(
+        ui.PointMode.points,
+        dot.at,
+        _dot(
+          glint: dot.glint,
+          width: dot.extent * 6,'
 
 echo
 echo "caught $PASS, survived $FAIL"

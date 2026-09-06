@@ -17,10 +17,11 @@
 ///
 /// ## Four ways it stops, and each one really stops it
 ///
-/// The prototype pauses offscreen, pauses when the tab is hidden, disables
-/// itself under the system's reduced-motion setting, and gives the owner a
-/// button (`motion_toggle.dart`). All four are here, and all four **stop the
-/// ticker** rather than setting a flag the painter consults:
+/// The prototype pauses offscreen, pauses when the tab is hidden, and disables
+/// itself under the system's reduced-motion setting. All three are here, they
+/// stay three separate conditions rather than one switch a later change can
+/// flip in a single place, and each one **stops the ticker** rather than
+/// setting a flag the painter consults:
 ///
 ///   * **Offscreen** — the render box's screen rect is tested every frame, and
 ///     the enclosing `ScrollPosition` wakes it again on the way back. A flag
@@ -30,9 +31,10 @@
 ///   * **Reduced motion** — `MediaQuery.disableAnimations`. The field is still
 ///     painted, once, at time zero: the card keeps its texture and loses its
 ///     motion, which is what the setting asks for.
-///   * **[BioHalo.paused]** — the hero's own control. It is a fourth reason to
-///     stop, not a replacement for the other three: resuming by hand cannot
-///     start a field that is offscreen, backgrounded, or under reduced motion.
+///
+/// There is no fourth, manual stop. A pause button shipped here for a while and
+/// the owner asked for it back out; the three above are not a preference and
+/// none of them was ever the button's to grant.
 ///
 /// A route pushed on top is handled for free: `TickerMode` mutes the ticker
 /// wherever Flutter already knows the widget is not the current route.
@@ -64,12 +66,7 @@ const double kHaloMaxStep = 0.05;
 class BioHalo extends StatefulWidget {
   /// Builds the halo. It fills its box and takes **no colour**: the inks come
   /// from the bio roles of the active theme.
-  const BioHalo({
-    this.alignment,
-    this.paused = false,
-    this.onFrame,
-    super.key,
-  });
+  const BioHalo({this.alignment, this.onFrame, super.key});
 
   /// Where the still centre sits inside the box.
   ///
@@ -77,9 +74,6 @@ class BioHalo extends StatefulWidget {
   /// hole over the figure when the field is stretched across the whole card. A
   /// field pumped with no hero in scope falls back to [Alignment.center].
   final Alignment? alignment;
-
-  /// Stopped by hand. See the library docstring's fourth stop.
-  final bool paused;
 
   /// Called once per advanced frame. Diagnostics and tests only — this is how
   /// `halo_motion_test.dart` proves the halo stopped rather than that a flag
@@ -123,14 +117,6 @@ class _BioHaloState extends State<BioHalo>
   }
 
   @override
-  void didUpdateWidget(BioHalo oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.paused != widget.paused) {
-      _sync();
-    }
-  }
-
-  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
     _sync();
@@ -165,8 +151,7 @@ class _BioHaloState extends State<BioHalo>
     if (!mounted) {
       return;
     }
-    final run =
-        _foreground && !_reducedMotion && !widget.paused && _onScreen();
+    final run = _foreground && !_reducedMotion && _onScreen();
     if (run == _ticker.isActive) {
       return;
     }
