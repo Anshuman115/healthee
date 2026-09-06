@@ -255,4 +255,110 @@ abstract final class TypeScale {
     FontWeight.w700,
     height: 1.2,
   );
+
+  /// `.page-header.detail h1` — a pushed screen's name, smaller than a tab's.
+  static final TextStyle detailTitle = _style(
+    23,
+    FontWeight.w600,
+    height: 1.2,
+    tracking: -0.8,
+  );
+
+  /// `.small` — the prototype's one step down from body copy.
+  static final TextStyle small = _style(12, FontWeight.w400);
+
+  /// `.tiny-label`, `.list-row small`, `.timeline-item p`, `.stat-label`.
+  static final TextStyle tinyLabel = _style(11, FontWeight.w400);
+
+  /// `.badge` — `font-size:10px; font-weight:700`.
+  static final TextStyle badge = _style(10, FontWeight.w700);
+
+  /// `.notice strong`.
+  static final TextStyle noticeTitle = _style(12, FontWeight.w700);
+
+  /// `.notice p`, `.focus-card p`, `.challenge-card p` — all `11px/1.8`.
+  static final TextStyle noticeBody = _style(11, FontWeight.w400, height: 1.8);
+
+  /// `.focus-card .focus-title`.
+  static final TextStyle focusEyebrow = _style(10, FontWeight.w700);
+
+  /// `.focus-card h3` — the base `h3` at the focus card's own size.
+  static final TextStyle focusTitle = _style(
+    14,
+    FontWeight.w700,
+    height: 1.5,
+    tracking: -0.2,
+  );
+
+  /// `.sleep-hero .hero-number`.
+  static final TextStyle heroNumber = _style(
+    64,
+    FontWeight.w600,
+    height: 1,
+    tracking: -4,
+  );
+
+  /// `.hero-number .duration-unit`.
+  static final TextStyle heroUnit = _style(
+    30,
+    FontWeight.w400,
+    height: 1,
+    tracking: -1,
+  );
+
+  /// `.list-row strong`, `.timeline-item h3`, `.journal-strip h3`,
+  /// `.check-action strong` — the base `h3` at 13.
+  static final TextStyle rowTitle = _style(
+    13,
+    FontWeight.w700,
+    height: 1.5,
+    tracking: -0.2,
+  );
+
+  /// `.challenge-card h3` — the base `h3` at 17.
+  static final TextStyle challengeTitle = _style(
+    17,
+    FontWeight.w700,
+    height: 1.5,
+    tracking: -0.2,
+  );
+
+  /// `.stat-number` — the statistic inside a `.card`, NOT the `.panel .three`
+  /// override [statValue] transcribes. Two sizes because the prototype has two.
+  static final TextStyle cardStatValue = _style(
+    27,
+    FontWeight.w600,
+    height: 1.4,
+    tracking: -1,
+  );
+
+  /// `.stat-number > span` — its unit.
+  static final TextStyle cardStatUnit = _style(
+    11,
+    FontWeight.w400,
+    height: 1.4,
+  );
+
+  /// `.button`.
+  static final TextStyle buttonLabel = _style(13, FontWeight.w700);
+
+  /// `.text-button` — the page-level link, not [textButton]'s in-panel 11px.
+  static final TextStyle textLink = _style(12, FontWeight.w700);
+
+  /// `.coach-intro h2`.
+  static final TextStyle coachIntroTitle = _style(
+    26,
+    FontWeight.w700,
+    height: 1.35,
+    tracking: -1,
+  );
+
+  /// `.coach-intro p` and `.coach-message` — both `12px/1.9`.
+  static final TextStyle coachBody = _style(12, FontWeight.w400, height: 1.9);
+
+  /// `.form-note`, `.journal-strip p`.
+  static final TextStyle formNote = _style(10, FontWeight.w400);
+
+  /// `.field input` — 16px, which is also what keeps iOS from zooming a form.
+  static final TextStyle inputText = _style(16, FontWeight.w400);
 }
