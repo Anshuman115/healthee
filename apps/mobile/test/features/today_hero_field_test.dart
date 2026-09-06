@@ -6,11 +6,11 @@
 /// one is asked of the painted geometry here: the field's box is the card's, it
 /// is painted before the content, and it is cut to the rounded rect.
 ///
-/// The fourth is the prototype's own control — `README.md`: *"The hero pause
-/// button and Explore control stop animation"* — and it is asserted the way
-/// `halo_motion_test.dart` asserts the other three pauses: **identical particle
-/// coordinates**, never a flag. A field that keeps painting somewhere new has
-/// not stopped, whatever it says about itself.
+/// There is no fourth claim about a pause control here. One shipped for a while
+/// and the owner asked for it back out. The field's three automatic stops are
+/// `halo_motion_test.dart`'s, asserted there the only way they can be —
+/// **identical particle coordinates**, never a flag. A field that keeps painting
+/// somewhere new has not stopped, whatever it says about itself.
 ///
 /// `today_hero_geometry_test.dart` asks the other half: what the card's height
 /// is made of. The font and the widths are `_hero_probe.dart`'s.
@@ -26,7 +26,6 @@ import 'package:healthee/shared/v02/bio_hero.dart';
 import 'package:healthee/shared/v02/instruments/age_scale.dart';
 import 'package:healthee/shared/v02/instruments/bio_halo.dart';
 import 'package:healthee/shared/v02/instruments/halo_painter.dart';
-import 'package:healthee/shared/v02/instruments/motion_toggle.dart';
 
 import '../shared/instruments/_instrument_probe.dart';
 import '_hero_probe.dart';
@@ -174,58 +173,5 @@ void main() {
         );
       });
     }
-  });
-
-  group('the pause control', () {
-    testWidgets('IT STOPS THE FIELD — the marks do not move again', (
-      tester,
-    ) async {
-      await pumpHeroAt(tester, store, 390, reducedMotion: false);
-      expect(find.byType(MotionToggle), findsOneWidget);
-
-      final before = pointsOf(paintedAt(tester, heroField));
-      expect(before, isNotEmpty);
-      await tester.pump(const Duration(milliseconds: 120));
-      await tester.pump(const Duration(milliseconds: 120));
-      expect(
-        pointsOf(paintedAt(tester, heroField)),
-        isNot(equals(before)),
-        reason: 'the field was not running, so pausing it proves nothing',
-      );
-
-      await tester.tap(find.byType(MotionToggle));
-      await tester.pump();
-      final frozen = pointsOf(paintedAt(tester, heroField));
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pump(const Duration(milliseconds: 200));
-
-      expect(pointsOf(paintedAt(tester, heroField)), frozen);
-    });
-
-    testWidgets('AND IT LETS GO AGAIN', (tester) async {
-      // The three automatic pauses are untouched by it: this only ever adds a
-      // reason to stop, and releasing it hands the field back to them.
-      await pumpHeroAt(tester, store, 390, reducedMotion: false);
-      await tester.tap(find.byType(MotionToggle));
-      await tester.pump();
-      final frozen = pointsOf(paintedAt(tester, heroField));
-
-      await tester.tap(find.byType(MotionToggle));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.pump(const Duration(milliseconds: 200));
-
-      expect(pointsOf(paintedAt(tester, heroField)), isNot(equals(frozen)));
-    });
-
-    testWidgets('THE FIGURE DOES NOT MOVE WHEN IT IS PRESSED', (tester) async {
-      // The halo moves, the measurement does not — and pausing the halo is not
-      // an excuse to reflow anything either.
-      await pumpHeroAt(tester, store, 390, reducedMotion: false);
-      final figure = tester.getRect(find.text('34.3'));
-      await tester.tap(find.byType(MotionToggle));
-      await tester.pump();
-      expect(tester.getRect(find.text('34.3')), figure);
-    });
   });
 }

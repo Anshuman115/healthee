@@ -1255,7 +1255,7 @@ mutate 'the movement tile invents a step target' "$HERO_TEST" \
 # looks right on the first screen, and it never pauses again.
 mutate 'the hero art is dropped from the card' "$HERO_TEST" \
   lib/features/today/v02/today_hero.dart \
-  '      art: BioHalo(paused: _paused),' \
+  '      art: const BioHalo(),' \
   '      art: null,'
 
 # ── the v02 Today fixes (withheld hero · provenance off the cards) ───────────
@@ -1461,7 +1461,6 @@ mutate 'the measured half stops following the selection' \
   '  return store.strapReader.day(ref.watch(todayProvider));'
 
 HERO=lib/shared/v02/bio_hero.dart
-HERO_HALO=lib/shared/v02/instruments/bio_halo.dart
 GEOMETRY_TEST=test/features/today_hero_geometry_test.dart
 FIELD_TEST=test/features/today_hero_field_test.dart
 
@@ -1508,14 +1507,6 @@ mutate 'the divider gap is always the collapsed one' "$GEOMETRY_TEST" "$HERO" \
 mutate 'the eyebrow row loses its pinned extent' "$GEOMETRY_TEST" "$HERO" \
   '    constraints: BoxConstraints(minHeight: centred ? eyebrowExtent : 0),' \
   '    constraints: const BoxConstraints(),'
-
-# The pause control becomes decoration: it paints a play triangle and the
-# ticker keeps running, which is the failure the marks-not-a-flag test exists
-# for.
-mutate 'the pause control does not stop the field' \
-  "$FIELD_TEST" "$HERO_HALO" \
-  '        _foreground && !_reducedMotion && !widget.paused && _onScreen();' \
-  '        _foreground && !_reducedMotion && _onScreen();'
 
 echo
 echo "caught $PASS, survived $FAIL"

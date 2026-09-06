@@ -108,7 +108,7 @@ class BioHero extends StatelessWidget {
   /// `.bio-eyebrow .icon { width: 17px }`.
   static const double eyebrowIconSize = 17;
 
-  /// `.bio-controls { gap: 12px }` — between the pause control and the arrow.
+  /// `.bio-controls { gap: 12px }` — between the action and the arrow.
   static const double controlsGap = 12;
 
   /// The eyebrow row's own height in the motion layout. See [kBioEyebrowExtent].
@@ -167,7 +167,7 @@ class BioHero extends StatelessWidget {
 
   /// A control at the right of the eyebrow row, before [eyebrowIcon].
   ///
-  /// `.bio-controls` — the hero's ⓘ and the pause control both live here. It is
+  /// `.bio-controls` — the hero's ⓘ lives here. It is
   /// a slot rather than an `infoKey` because the dot has to be given the hero's
   /// own ink: this card has its own dark surface in both themes, and nothing
   /// inside it may reach for the page's ink.
