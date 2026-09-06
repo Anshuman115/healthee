@@ -1,15 +1,64 @@
+/// `Your intentions.` — `screens-actions.js::H.screens['action-history']`.
+///
+/// ```text
+///   header (detail)  "Action history · 30 days" · "Your intentions."
+///   small            adopting records an intention, not a completed action
+///   segment          30 · 90 · 180 days
+///   section <day>    the action, its state, the evidence, the control
+///   section          Keep exploring → active challenges · completed outcomes
+///   footer
+/// ```
+///
+/// ## The sentence at the top is the screen's whole point
+///
+/// The prototype writes it and the server means it: `adopted` records that the
+/// owner said they would try something. Nothing in this app observes whether they
+/// did. A history that showed ticks without that line would be a log of
+/// completions nobody measured.
+library;
+
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/tone.dart';
+import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/api/account_api.dart';
 import 'package:healthee/data/recommendations/recommendation_history.dart';
 import 'package:healthee/data/today_repository.dart';
-import 'package:healthee/shared/recommendation_entry.dart';
+import 'package:healthee/features/actions/v02/evidence_sheet.dart';
+import 'package:healthee/features/actions/v02/suggestion_card.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/server_action_button.dart';
 import 'package:healthee/shared/states/account_async_view.dart';
+import 'package:healthee/shared/states/grounded_text.dart';
+import 'package:healthee/shared/v02/choices.dart';
+import 'package:healthee/shared/v02/controls.dart';
+import 'package:healthee/shared/v02/detail_page.dart';
+import 'package:healthee/shared/v02/rows.dart';
+import 'package:healthee/shared/v02/section_head.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
 
+/// The prototype's own h1.
+const String kHistoryTitle = 'Your intentions.';
+
+/// The sentence under it, verbatim.
+const String kIntentionNote =
+    'Adopting a suggestion records your intention. It doesn’t mean the action '
+    'was completed.';
+
+/// The prototype's closing section heading.
+const String kExploreHeading = 'Keep exploring';
+
+/// The dated recommendations, and what the owner said about each.
 class RecommendationHistoryScreen extends ConsumerStatefulWidget {
+  /// Reads `recommendationHistoryProvider` for the chosen window and page.
   const RecommendationHistoryScreen({super.key});
+
   @override
   ConsumerState<RecommendationHistoryScreen> createState() => _HistoryState();
 }
@@ -17,104 +66,212 @@ class RecommendationHistoryScreen extends ConsumerStatefulWidget {
 class _HistoryState extends ConsumerState<RecommendationHistoryScreen> {
   int _days = 30;
   int _page = 0;
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final provider = recommendationHistoryProvider(_days, _page);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Action history')),
-      body: Column(
-        children: [
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 30, label: Text('30 days')),
-              ButtonSegment(value: 90, label: Text('90 days')),
-              ButtonSegment(value: 180, label: Text('180 days')),
+    return DetailPage(
+      eyebrow: 'Action history · $_days days',
+      title: kHistoryTitle,
+      children: <Widget>[
+        Text(
+          kIntentionNote,
+          style: TypeScale.small.copyWith(color: colors.ink2),
+        ),
+        const SizedBox(height: Insets.lg),
+        Segment<int>(
+          options: const <(int, String)>[
+            (30, '30 days'),
+            (90, '90 days'),
+            (180, '180 days'),
+          ],
+          selected: _days,
+          onSelect: (days) => setState(() {
+            _days = days;
+            _page = 0;
+          }),
+        ),
+        AccountAsyncView<List<DatedRecommendation>>(
+          value: ref.watch(provider),
+          onRetry: () => ref.invalidate(provider),
+          builder: (context, items) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              for (final item in items) ...<Widget>[
+                const SizedBox(height: SectionHead.sectionGap),
+                SectionHead(title: item.day),
+                _Entry(item: item, onChanged: _reread),
+              ],
+              _Paging(
+                page: _page,
+                count: items.length,
+                onPage: (page) => setState(() => _page = page),
+              ),
             ],
-            selected: {_days},
-            onSelectionChanged: (value) => setState(() {
-              _days = value.single;
-              _page = 0;
-            }),
           ),
-          Expanded(
-            child: AccountAsyncView<List<DatedRecommendation>>(
-              value: ref.watch(provider),
-              onRetry: () => ref.invalidate(provider),
-              builder: (context, items) => ListView.builder(
-                padding: const EdgeInsets.all(Insets.lg),
-                itemCount: items.length + 1,
-                itemBuilder: (context, index) => index == items.length
-                    ? _paging(items.length)
-                    : _entry(items[index]),
+        ),
+        const SizedBox(height: SectionHead.sectionGap),
+        const SectionHead(title: kExploreHeading),
+        RowCard(<Widget>[
+          ListRow(
+            icon: Icons.flag_outlined,
+            title: 'Active challenges',
+            subtitle: 'Turn an intention into a measured experiment',
+            tone: Tone.movement,
+            onTap: () => context.go(Routes.actions),
+          ),
+          ListRow(
+            icon: Icons.insights_outlined,
+            title: 'Completed outcomes',
+            subtitle: 'What happened during your changes',
+            tone: Tone.fitness,
+            onTap: () => unawaited(context.push(Routes.outcomes)),
+          ),
+        ]),
+        const DataFooter(),
+      ],
+    );
+  }
+
+  void _reread() {
+    ref.invalidate(recommendationHistoryProvider);
+    ref.invalidate(todaySnapshotProvider);
+  }
+}
+
+/// One dated recommendation: what was suggested, and what was said about it.
+class _Entry extends ConsumerWidget {
+  const _Entry({required this.item, required this.onChanged});
+
+  final DatedRecommendation item;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final rec = item.recommendation;
+    final adopted = rec.adopted;
+    return SurfaceCard(
+      tone: toneForCategory(rec.category),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: GroundedProse(
+                  text: rec.action,
+                  style: TypeScale.rowTitle.copyWith(color: colors.ink),
+                  alsoCites: rec.researchNoteIds,
+                  grade: rec.gradeLabel,
+                ),
+              ),
+              const SizedBox(width: Insets.sm),
+              StatusBadge(switch (adopted) {
+                true => 'Adopted',
+                false => 'Dismissed',
+                null => 'Suggested',
+              }, accented: adopted ?? false),
+            ],
+          ),
+          if (signalLabel(rec.signalSource) case final String raised) ...[
+            const SizedBox(height: Insets.sm),
+            Text(
+              raised,
+              style: TypeScale.tinyLabel.copyWith(color: colors.ink3),
+            ),
+          ],
+          if (rec.rationale case final String why)
+            TextLink(
+              label: 'How we know',
+              icon: Icons.info_outline,
+              onPressed: () => showEvidenceSheet(
+                context,
+                title: 'Behind this suggestion',
+                prose: why,
+                alsoCites: rec.researchNoteIds,
+                grade: rec.gradeLabel,
               ),
             ),
-          ),
+          // No id, no control: there is nowhere to write the decision to.
+          if (rec.id case final int id)
+            AccountAsyncView<AccountApi>(
+              value: ref.watch(accountApiProvider),
+              onRetry: () => ref.invalidate(accountApiProvider),
+              builder: (context, api) => ServerActionButton(
+                key: ObjectKey(api),
+                label: (adopted ?? false)
+                    ? 'Remove intention'
+                    : 'Adopt suggestion',
+                action: () => setRecommendationAdoption(
+                  api,
+                  id,
+                  (adopted ?? false) ? 'dismiss' : 'adopt',
+                ),
+                onSaved: onChanged,
+              ),
+            ),
         ],
       ),
     );
   }
+}
 
-  Widget _entry(DatedRecommendation item) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(Insets.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(item.day),
-          RecommendationEntry(
-            recommendation: item.recommendation,
-            showSignal: true,
+/// Previous / next, and the one sentence an empty page owes the reader.
+class _Paging extends StatelessWidget {
+  const _Paging({
+    required this.page,
+    required this.count,
+    required this.onPage,
+  });
+
+  /// The server's page size. `Next` is offered only on a full page.
+  static const int pageSize = 100;
+
+  final int page;
+  final int count;
+  final ValueChanged<int> onPage;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (count == 0) ...<Widget>[
+          const SizedBox(height: Insets.lg),
+          Text(
+            'No actions in this part of your history.',
+            style: TypeScale.small.copyWith(color: colors.ink2),
           ),
-          Text(switch (item.recommendation.adopted) {
-            true => 'Adopted',
-            false => 'Dismissed',
-            null => 'Not decided',
-          }),
-          AccountAsyncView<AccountApi>(
-            value: ref.watch(accountApiProvider),
-            onRetry: () => ref.invalidate(accountApiProvider),
-            builder: (context, api) => Wrap(
-              key: ObjectKey(api),
-              spacing: Insets.sm,
-              children: [
-                for (final action in ['adopt', 'dismiss'])
-                  ServerActionButton(
-                    label: action == 'adopt' ? 'Adopt' : 'Dismiss',
-                    action: () => setRecommendationAdoption(
-                      api,
-                      item.recommendation.id!,
-                      action,
-                    ),
-                    onSaved: () {
-                      ref.invalidate(recommendationHistoryProvider);
-                      ref.invalidate(todaySnapshotProvider);
-                    },
-                  ),
+        ],
+        if (page > 0 || count == pageSize)
+          Padding(
+            padding: const EdgeInsets.only(top: Insets.lg),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                TextLink(
+                  label: 'Previous',
+                  icon: Icons.arrow_back,
+                  onPressed: page > 0 ? () => onPage(page - 1) : null,
+                ),
+                Text(
+                  'Page ${page + 1}',
+                  style: TypeScale.tinyLabel.copyWith(color: colors.ink3),
+                ),
+                TextLink(
+                  label: 'Next',
+                  onPressed: count == pageSize ? () => onPage(page + 1) : null,
+                ),
               ],
             ),
           ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _paging(int count) => Column(
-    children: [
-      if (count == 0) const Text('No actions in this part of your history.'),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          TextButton(
-            onPressed: _page > 0 ? () => setState(() => _page--) : null,
-            child: const Text('Previous'),
-          ),
-          Text('Page ${_page + 1}'),
-          TextButton(
-            onPressed: count == 100 ? () => setState(() => _page++) : null,
-            child: const Text('Next'),
-          ),
-        ],
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
