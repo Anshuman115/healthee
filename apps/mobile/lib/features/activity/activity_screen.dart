@@ -1,23 +1,13 @@
 /// Activity — what the owner did today, what it cost, and what it adds up to.
 ///
-/// **This is where Today's activity and fitness halves went.** Today's Steps and
-/// Energy cells open it, and each of those cells is allowed to draw a bare hole
-/// where its number would be *because* the card here carries the reason and the
-/// remedy in full (`grid_module.dart` strikes that bargain; this screen holds the
-/// other half).
+/// Composition only. The frame, the two data sources, the failure rules and the
+/// reveal registry live in `shared/instrument_screen.dart`, and
+/// `activity_sections.dart` decides what this screen shows and in what order.
+/// This file is the wiring between them: the five destinations the screen can
+/// reach, and nothing else.
 ///
-/// ## Why fitness sits under activity rather than on a tab of its own
-///
-/// `docs/APP_DESIGN_BRIEF.md` §4.3 puts VO₂max, ACWR and MVPA on one screen and
-/// §4.4 gives biological age its own. Biological age is here instead, for a
-/// reason the brief itself supplies: its largest term is the fitness term, and
-/// that term is the VO₂max estimate on this screen with its instrument named.
-/// Two screens, one of which exists to restate the other's headline number, is
-/// how two numbers start disagreeing. When the waterfall of §5.7 is built it can
-/// have its own route; the card as it stands belongs beside its input.
-///
-/// The cards are the ones Today used, unchanged. This pass moved them; it did not
-/// redesign them.
+/// Today's screen has the same shape for the same reason (Standards §3: a screen
+/// is composition, not a God-widget).
 library;
 
 import 'dart:async';
@@ -25,23 +15,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
-import 'package:healthee/data/models/activity_today.dart';
-import 'package:healthee/data/models/biological_age.dart';
-import 'package:healthee/data/models/vo2max.dart';
-import 'package:healthee/features/activity/widgets/biological_age_card.dart';
-import 'package:healthee/features/activity/widgets/cardio_load_card.dart';
-import 'package:healthee/features/activity/widgets/mvpa_card.dart';
-import 'package:healthee/features/activity/widgets/steps_card.dart';
-import 'package:healthee/features/activity/widgets/vo2max_card.dart';
-import 'package:healthee/features/activity/widgets/workouts_card.dart';
-import 'package:healthee/shared/gps_recording_link.dart';
-import 'package:healthee/shared/insight_card.dart';
+import 'package:healthee/features/activity/activity_sections.dart';
 import 'package:healthee/shared/instrument_screen.dart';
-import 'package:healthee/shared/page_head.dart';
-import 'package:healthee/shared/page_section.dart';
-import 'package:healthee/shared/section_heading.dart';
-import 'package:healthee/shared/states/caveat_scope.dart';
-import 'package:healthee/shared/states/reading_view.dart';
 
 /// The Activity tab.
 class ActivityScreen extends StatelessWidget {
@@ -53,92 +28,31 @@ class ActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InstrumentScreen(now: now, sections: activitySections);
+    return InstrumentScreen(
+      now: now,
+      sections: (ScreenData data) => activitySections(
+        data,
+        ActivityExtras(
+          // Pushed, never `go`: `go` REPLACES the location, which leaves the
+          // destination with nothing beneath it and the next Back leaves the
+          // app. `back_navigation_test.dart` owns that rule.
+          onOpenProfile: () => unawaited(context.push(Routes.settings)),
+          onOpenWorkouts: () => unawaited(context.push(Routes.workouts)),
+          onOpenWorkout: (workout) => unawaited(
+            context.push(
+              '${Routes.workout}?start='
+              '${Uri.encodeComponent(workout.start.toUtc().toIso8601String())}',
+            ),
+          ),
+          onOpenRoutes: () => unawaited(context.push(Routes.routes)),
+          onRecord: () => unawaited(context.push(Routes.gps)),
+          onOpenMetric: (metric) => unawaited(
+            context.push(
+              '${Routes.history}?metric=${Uri.encodeComponent(metric)}',
+            ),
+          ),
+        ),
+      ),
+    );
   }
-}
-
-/// Builds the ordered section list for one render of Activity.
-List<PageSection> activitySections(ScreenData data) {
-  final snapshot = data.snapshot;
-  final reveals = data.reveals;
-  return <PageSection>[
-    const PageSection(
-      PageHead(eyebrow: 'Today', title: 'Activity'),
-      gap: PageSpacing.section,
-    ),
-    if (data.serverFailure case final PageSection failure) failure,
-    if (data.serverPending case final PageSection pending) pending,
-    PageSection(
-      Builder(
-        builder: (context) => ListTile(
-          title: const Text('Recorded workouts'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => unawaited(context.push(Routes.workouts)),
-        ),
-      ),
-    ),
-    const PageSection(GpsRecordingLink()),
-    PageSection(
-      Builder(
-        builder: (context) => ListTile(
-          title: const Text('Saved route maps'),
-          onTap: () => unawaited(context.push(Routes.routes)),
-        ),
-      ),
-    ),
-    const PageSection(
-      InsightCard(scope: 'activity', title: 'Activity analysis'),
-    ),
-
-    PageSection(StepsCard(day: data.day, now: data.now)),
-    if (snapshot != null)
-      PageSection(
-        ReadingView<CardioLoad>(
-          reading: snapshot.cardioLoad,
-          label: 'Cardio load',
-          caveatCarrier: CaveatCarrier.insideCard,
-          builder: (context, load) =>
-              CardioLoadCard(load: load, reveals: reveals),
-        ),
-      ),
-    if (snapshot != null)
-      PageSection(
-        ReadingView<Mvpa>(
-          reading: snapshot.mvpa,
-          label: 'Active minutes',
-          caveatCarrier: CaveatCarrier.insideCard,
-          builder: (context, mvpa) => MvpaCard(mvpa: mvpa, reveals: reveals),
-        ),
-      ),
-    PageSection(
-      WorkoutsCard(workouts: data.day.workouts),
-      gap: PageSpacing.section,
-    ),
-
-    const PageSection(
-      SectionHeading(
-        'Fitness',
-        subtitle: 'The slow numbers — they move over months, not days',
-      ),
-    ),
-    if (snapshot != null)
-      PageSection(
-        ReadingView<Vo2max>(
-          reading: snapshot.vo2max,
-          label: 'VO₂max',
-          caveatCarrier: CaveatCarrier.insideCard,
-          builder: (context, vo2max) =>
-              Vo2maxCard(vo2max: vo2max, reveals: reveals),
-        ),
-      ),
-    if (snapshot != null)
-      PageSection(
-        ReadingView<BiologicalAge>(
-          reading: snapshot.biologicalAge,
-          label: 'Biological age',
-          caveatCarrier: CaveatCarrier.insideCard,
-          builder: (context, age) => BiologicalAgeCard(age: age),
-        ),
-      ),
-  ];
 }

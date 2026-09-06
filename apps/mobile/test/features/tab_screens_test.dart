@@ -1,4 +1,4 @@
-/// The four screens Today's cards moved to — and the proof nothing was lost.
+/// The screens Today's cards moved to — and the proof nothing was lost.
 ///
 /// Cutting Today from twenty sections to six modules is only honest if every
 /// removed card **landed somewhere the owner can reach**. This suite is the other
@@ -15,8 +15,11 @@
 ///     The grid is allowed a bare hole because the screen behind it carries both.
 ///     If a refusal lost its reason in the move, the grid's bargain would be
 ///     broken on both sides at once and nothing anywhere would say why.
-///   * **The insights are no longer a debug readout**, and the statistic is still
-///     reachable.
+///
+/// **Activity and Insights moved out of this file** when they were rebuilt to
+/// v02 and it crossed the 400-line gate (Standards §1). Their half lives in
+/// `activity_insights_screens_test.dart`, which is the same suite split by
+/// screen rather than a weaker one.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -28,6 +31,7 @@ import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
+import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 
@@ -168,142 +172,6 @@ void main() {
       ).map((section) => section.id).toList();
 
       expect(ids.take(4), <String>['head', 'tonight', 'stale', 'insight']);
-    });
-  });
-
-  group('Activity', () {
-    testWidgets('VO₂max names its instrument and its kind of error', (tester) async {
-      await tester.pumpWidget(todayHost(store, home: const ActivityScreen()));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('VO₂max'));
-
-      expect(find.text('43.0'), findsOneWidget);
-      // [[hr_reserve_vo2max]] D4 — the instrument travels with the number.
-      expect(find.text('Fitted from a recorded session'), findsOneWidget);
-      expect(find.text('± 2.95'), findsOneWidget);
-      // WHICH error, not a bare ±: a MAPE is not a standard error of estimate.
-      expect(find.textContaining('Carrier 2023'), findsOneWidget);
-      expect(find.textContaining('median for your age and sex is 39.7'), findsOneWidget);
-    });
-
-    testWidgets('biological age shows its levers, its disclaimer and its exclusion', (
-      tester,
-    ) async {
-      await tester.pumpWidget(todayHost(store, home: const ActivityScreen()));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Biological age'));
-
-      expect(find.text('34.3'), findsOneWidget);
-      expect(find.text('What moves it'), findsOneWidget);
-      expect(find.text('Fitness'), findsWidgets);
-      expect(find.text('-1.7 y'), findsOneWidget);
-      // Verbatim safety statement.
-      expect(find.textContaining('not a clinical or diagnostic age'), findsOneWidget);
-      // `excluded` here means "regularity is not one of the levers", not "there
-      // is no number" — the value stays and the exclusion travels with it as a
-      // caveat, so four disclosures ride on this card. Since 2026-08-06 they
-      // ride as a SIGNPOST: printed in full they were ~2,780 characters of
-      // prose under the card, which is what the owner reported. The tap-through
-      // lives in `today_caveat_surface_test.dart`, which owns this concern.
-      expect(find.text(caveatHeadline(4)), findsOneWidget);
-      expect(
-        find.textContaining('Sleep regularity is not one of the levers'),
-        findsNothing,
-      );
-    });
-
-    testWidgets('the full steps card names the instrument and the number', (
-      tester,
-    ) async {
-      await tester.pumpWidget(todayHost(store, home: const ActivityScreen()));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.textContaining('that stream freezes'));
-
-      expect(find.textContaining('Measured by your strap'), findsWidgets);
-      expect(
-        find.textContaining("The strap's own since-midnight counter"),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets("the strap's calories are labelled as the strap's", (tester) async {
-      await tester.pumpWidget(todayHost(store, home: const ActivityScreen()));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.textContaining("by the strap's own count"));
-
-      expect(
-        find.textContaining("412 kcal by the strap's own count"),
-        findsOneWidget,
-        reason: "the product's energy model is the server's, not this number",
-      );
-    });
-  });
-
-  group('Insights', () {
-    testWidgets('a finding says single-subject, and never says "caused"', (
-      tester,
-    ) async {
-      await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('In your own data'));
-
-      expect(
-        find.textContaining(
-          'They say what moved together, never what caused what.',
-        ),
-        findsOneWidget,
-        reason: 'the framing is on the surface, where it cannot be collapsed',
-      );
-      expect(
-        find.textContaining('Single-subject and observational'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('moved opposite to'),
-        findsOneWidget,
-        reason: 'the direction is stated, and it is not a causal verb',
-      );
-    });
-
-    testWidgets('THE STATISTIC IS BEHIND A DISCLOSURE, NOT ON THE SURFACE', (
-      tester,
-    ) async {
-      await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('The statistic behind this'));
-
-      // The server's `description_raw` is a log line. It reached the home screen
-      // verbatim once, which is what this rewrite exists to undo.
-      expect(find.textContaining('Spearman('), findsNothing);
-      expect(find.textContaining('rho '), findsNothing);
-      expect(find.textContaining('q = '), findsNothing);
-
-      // And it IS reachable — one tap, no modal.
-      await tester.ensureVisible(find.text('The statistic behind this'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('The statistic behind this'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('rho = -0.42'), findsOneWidget);
-      expect(find.textContaining('q = 0.030'), findsOneWidget);
-      expect(
-        find.textContaining('not that either one caused the other'),
-        findsOneWidget,
-        reason: 'opening the arithmetic must not mean leaving the caveat behind',
-      );
-    });
-
-    testWidgets('INSIGHTS IS NOT THE COACH, AND DOES NOT PRETEND TO BE', (
-      tester,
-    ) async {
-      // The findings lived on a tab called Coach with a card underneath saying
-      // the coach was not built. Both halves are gone: the coach is a sheet off
-      // Today's FAB and it is wired, and this tab is about the history.
-      await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Insights'), findsOneWidget);
-      expect(find.text('Coach'), findsNothing);
-      expect(find.textContaining('cannot answer questions yet'), findsNothing);
     });
   });
 

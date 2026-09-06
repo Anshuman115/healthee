@@ -30,6 +30,7 @@ import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
 import 'package:healthee/features/today/widgets/actions_section.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
+import 'package:healthee/shared/v02/withheld_panel.dart';
 
 import '../_sleep_stubs.dart';
 import '../_today_stubs.dart';
@@ -197,7 +198,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('Cardio load'));
+      await reveal(tester, find.text('Strain · cardio load'));
 
       // An absence we cannot explain is worse than one we can, and the copy
       // does not hide that — it does not claim the owner did anything wrong.
@@ -205,7 +206,9 @@ void main() {
         find.textContaining('the server did not say why'),
         findsOneWidget,
       );
-      expect(find.text('WITHHELD'), findsWidgets);
+      // v02's carrier for a refusal: the metric's name, a dashed hole and the
+      // reason, in the slot the panel would have taken (`withheld_panel.dart`).
+      expect(find.byType(WithheldPanel), findsWidgets);
     });
 
     testWidgets('a refused block keeps its title and its footprint', (
@@ -219,11 +222,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('Active minutes'));
+      await reveal(tester, find.text('Active minutes · MVPA'));
 
-      // Same title, same position. It reads as the app being careful, not as a
-      // card that failed to load.
-      expect(find.text('Active minutes'), findsOneWidget);
+      // Same name, same position. It reads as the app being careful, not as a
+      // card that failed to load — and the panel that would have been there is
+      // not silently missing from the list.
+      expect(find.text('Active minutes · MVPA'), findsOneWidget);
+      expect(find.byType(WithheldPanel), findsWidgets);
     });
   });
 }

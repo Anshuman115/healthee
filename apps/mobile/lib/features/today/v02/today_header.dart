@@ -46,6 +46,11 @@ import 'package:healthee/shared/connection/sync_ring.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 
+/// `DataFooter` moved to `shared/v02/` when Activity and Insights grew the same
+/// footer (Standards §1, second use). Re-exported so Today's call sites and its
+/// order test are unchanged and there is still one definition.
+export 'package:healthee/shared/v02/data_footer.dart' show DataFooter;
+
 /// The date, the title, and the avatar with its ring.
 class TodayHeader extends StatelessWidget {
   /// [date] is the payload's own `YYYY-MM-DD`.
@@ -207,42 +212,5 @@ class DeviceStrip extends StatelessWidget {
             label: '$deviceName · $action',
             child: GestureDetector(onTap: onOpenSync, child: strip),
           );
-  }
-}
-
-/// `.data-footer` — the two lines Today closes on.
-class DataFooter extends StatelessWidget {
-  /// Builds the footer.
-  const DataFooter({super.key});
-
-  /// `.data-footer { margin-top: 32px }`.
-  static const double topGap = 32;
-
-  /// `.data-footer > .icon { width: 12px }`.
-  static const double iconSize = 12;
-
-  /// The prototype's own closing line.
-  static const String line = 'Your data. A little better understood.';
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Padding(
-      padding: const EdgeInsets.only(top: topGap),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Icon(Icons.shield_outlined, size: iconSize, color: colors.ink3),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              line,
-              textAlign: TextAlign.center,
-              style: TypeScale.footer.copyWith(color: colors.ink3),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
