@@ -17,29 +17,17 @@
 /// this screen already has an injected instant (`ScreenData.now`).
 library;
 
+/// `prettyDate` moved to `shared/format/` when Activity and Insights grew the
+/// same header (Standards §1, second use; §3, no cross-feature imports). It is
+/// re-exported rather than copied, so there is still one definition and every
+/// call site that reads it from here is unchanged.
+export 'package:healthee/shared/format/date_labels.dart' show prettyDate;
+
 /// `9264` → `9,264`. Legacy's `_comma`, regex and all.
 String commaGrouped(int value) => value.toString().replaceAllMapped(
   RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
   (match) => '${match[1]},',
 );
-
-/// `2026-08-04` → `TUE · AUG 4`. Legacy's `_prettyDate`.
-///
-/// Falls back to the raw string uppercased when the date will not parse, which
-/// is legacy's own `catch` — an unparseable date is still information, and a
-/// blank where a date belongs reads as a broken header.
-String prettyDate(String iso) {
-  final parsed = DateTime.tryParse(iso);
-  if (parsed == null) {
-    return iso.toUpperCase();
-  }
-  const days = <String>['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-  const months = <String>[
-    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
-  ];
-  return '${days[parsed.weekday - 1]} · ${months[parsed.month - 1]} ${parsed.day}';
-}
 
 /// Honest name for the sleep session on screen. Legacy's `_sleepNightLabel`.
 ///
