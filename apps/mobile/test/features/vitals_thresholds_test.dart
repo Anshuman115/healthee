@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/today/v02/mini_trend_panel.dart';
 import 'package:healthee/features/today/widgets/blood_oxygen_card.dart';
 import 'package:healthee/features/today/widgets/hrv_trend_card.dart';
 import 'package:healthee/features/today/widgets/metric_note.dart';
@@ -212,11 +213,17 @@ void main() {
       );
     });
 
-    testWidgets('ON THE REAL PAYLOAD, HRV HAS NONE AND SAYS SO', (tester) async {
+    testWidgets('ON THE REAL PAYLOAD, HRV HAS NONE AND NAMES NONE', (
+      tester,
+    ) async {
       // Not a hypothetical: the committed contract snapshot carries no HRV
       // recovery signal, and `hrv_sleep_avg` has no metric card on any payload,
-      // so this is what the owner's phone renders today. The chart is honest
-      // about it rather than filling the gap.
+      // so this is what the owner's phone renders today.
+      //
+      // The v02 panel says how many nights are on the line and stops there. It
+      // does NOT compute a median of those nights and call it a baseline —
+      // `today_facts.dart` records why that would be a second definition of the
+      // owner's normal, arriving as a helpful-looking last resort.
       final store = LocalStore.memory();
       addTearDown(store.close);
       await seedDevice(store);
@@ -227,12 +234,21 @@ void main() {
 
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
-      await reveal(tester, find.byType(HrvTrendCard));
+      final panel = find.byWidgetPredicate(
+        (widget) => widget is MiniTrendPanel && widget.title == 'Overnight HRV',
+      );
+      await reveal(tester, panel);
 
-      expect(countOf(paintedBy(tester, find.byType(HDeviation)), #drawLine), 0);
+      final words = textOf(tester, panel).join(' ').toLowerCase();
+      // On this payload the FIGURE is withheld too — `hrv_sleep_avg` has no
+      // metric card and the ladder carries no HRV marker — so the panel shows
+      // the server's own reason where the number goes. That is the contract:
+      // a hole that says why it is a hole, never a blank.
+      expect(words, contains('the server did not say why'));
       expect(
-        textOf(tester, find.byType(HrvTrendCard)).join(' ').toLowerCase(),
-        contains('no 30-day baseline'),
+        words,
+        isNot(contains('baseline')),
+        reason: 'a baseline the server did not send may not be named',
       );
     });
   });

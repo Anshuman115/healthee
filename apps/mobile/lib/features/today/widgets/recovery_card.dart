@@ -51,6 +51,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/shared/charts/h_tick_gauge.dart';
+import 'package:healthee/shared/format/metric_names.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_progress_bar.dart';
 import 'package:healthee/shared/instrument_module.dart';
@@ -312,15 +313,6 @@ class _FactorRow extends StatelessWidget {
     );
   }
 }
-
-/// The owner-facing name for a factor id. Legacy's `names` map.
-String factorLabel(String name) => switch (name) {
-  'hrv' => 'HRV',
-  'rhr' => 'Resting HR',
-  'rr' => 'Breathing',
-  'sleep' => 'Sleep',
-  _ => name,
-};
 
 /// The right-hand reading on a factor row. Legacy's `fval`.
 ///

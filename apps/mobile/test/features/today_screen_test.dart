@@ -16,6 +16,7 @@ library;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/shared/v02/meters.dart';
 
 import '../_today_stubs.dart';
 import '_today_host.dart';
@@ -45,14 +46,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // `feedback_no_composite_score`: the components are the licence, and they
-      // are beside the number rather than behind a tap. Legacy's card shows
-      // readiness in the gauge and morning recovery in the sentence — 36 and 72
-      // in the contract snapshot, which is exactly the split that must survive.
-      expect(find.text('36'), findsOneWidget);
-      expect(
-        find.text("Morning recovery 72 · −36 from today's strain"),
-        findsOneWidget,
-      );
+      // are beside the number rather than behind a tap. The overnight estimate
+      // and what is left of today are 72 and 36 in the contract snapshot, and
+      // that split is exactly what must survive the redesign.
+      expect(find.text('72'), findsWidgets);
+      expect(find.textContaining('36 / 100 remaining'), findsOneWidget);
       for (final factor in <String>[
         'HRV',
         'Resting HR',
@@ -65,12 +63,59 @@ void main() {
           reason: '$factor is a factor row on the recovery card',
         );
       }
-      // A factor's own reading, out of the `factors` block the model used to
-      // parse away entirely. The contract snapshot scores `sleep` WITHOUT
-      // sending its minutes, and the repaired reading says so with an en dash —
-      // legacy prints `0.0h / 8h` there, a claim that the owner slept nothing.
-      expect(find.text('–'), findsWidgets);
+      // The contract snapshot scores `sleep` WITHOUT sending its minutes, and
+      // no surface invents them: legacy printed `0.0h / 8h` there, a claim that
+      // the owner slept nothing.
       expect(find.text('0.0h / 8h'), findsNothing);
+    });
+
+    testWidgets('AN UNSCORED FACTOR DRAWS NO BAR, NOT A BAR OF ZERO', (
+      tester,
+    ) async {
+      // A factor the model did not score and a factor it scored zero are
+      // different claims, and an empty track next to a zero-width fill is the
+      // same picture — so the fill has to be ABSENT, not empty. The em dash in
+      // the reading column says which of the two this is; the missing
+      // `FractionallySizedBox` is what makes the bar agree with it.
+      _tall(tester);
+      await tester.pumpWidget(
+        todayHost(
+          store,
+          server: todayView(
+            mutate: (json) {
+              final score = json['recovery_score']! as Map<String, Object?>;
+              final factors = score['factors']! as Map<String, Object?>;
+              return <String, Object?>{
+                ...json,
+                'recovery_score': <String, Object?>{
+                  ...score,
+                  'factors': <String, Object?>{
+                    ...factors,
+                    // Scored by the model, but with no sub-score on the wire.
+                    'sleep': const <String, Object?>{},
+                  },
+                },
+              };
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final bars = find.byType(FactorBars);
+      expect(bars, findsOneWidget);
+      final rows = tester.widget<FactorBars>(bars).factors;
+      final scored = rows.where((factor) => factor.fraction != null).length;
+      expect(scored, rows.length - 1, reason: 'one factor lost its sub-score');
+      expect(
+        find.descendant(of: bars, matching: find.byType(FractionallySizedBox)),
+        findsNWidgets(scored),
+        reason: 'an unscored factor drew a fill anyway',
+      );
+      expect(
+        find.descendant(of: bars, matching: find.text('—')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('THE ILLNESS FLAG COMES BEFORE EVERY NUMBER IT OVERRIDES', (
@@ -91,9 +136,9 @@ void main() {
       );
       final flagY = tester.getTopLeft(find.text('POSSIBLE EARLY SIGNAL')).dy;
       for (final below in <Finder>[
-        find.text('RECOVERY'),
-        find.text('RESTING HR'),
-        find.text('HEART RATE · 24H'),
+        find.text('Recovery, explained'),
+        find.text('Resting heart'),
+        find.text('Heart rate & stress'),
       ]) {
         expect(
           tester.getTopLeft(below.first).dy,
@@ -142,10 +187,13 @@ void main() {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      expect(find.text('STRENGTH · THIS WEEK'), findsOneWidget);
+      expect(find.text('Strength'), findsOneWidget);
       // The target is a BAND — the evidence stops improving above 60 minutes,
-      // so the label may not read `/ 60 min`.
-      expect(find.text('/ 30–60 min'), findsOneWidget);
+      // so the label may not read `60 min/week`.
+      expect(
+        find.textContaining('Reference: 30–60 min/week'),
+        findsOneWidget,
+      );
       expect(find.text('45'), findsWidgets);
     });
 
@@ -156,10 +204,10 @@ void main() {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      expect(find.text('TODAY · LOGGED'), findsOneWidget);
+      expect(find.text('Daily journal'), findsOneWidget);
       expect(find.text('Outdoor run'), findsOneWidget);
       expect(find.text('30 min · strap'), findsOneWidget);
-      expect(find.text('Meditation'), findsOneWidget);
+      expect(find.text('Meditation'), findsWidgets);
     });
 
     testWidgets('A DAY WITH NOTHING LOGGED DRAWS NO CARD AT ALL', (
@@ -187,8 +235,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('TODAY · LOGGED'), findsNothing);
-      expect(find.text('STRENGTH · THIS WEEK'), findsNothing);
+      expect(find.text('Daily journal'), findsNothing);
+      expect(find.text('Strength'), findsNothing);
       // And no empty-state sentence in their place.
       expect(find.textContaining('Nothing logged'), findsNothing);
     });

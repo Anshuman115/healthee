@@ -98,6 +98,22 @@ abstract final class TypeScale {
   /// `.bio-hero .age-value small` — its unit.
   static final TextStyle bioAgeUnit = _style(13, FontWeight.w400, height: 1);
 
+  /// `motion.css`'s override: the figure centred inside the halo, 84 not 88.
+  static final TextStyle bioAgeCentred = _style(
+    84,
+    FontWeight.w600,
+    height: 1,
+    tracking: -5,
+  );
+
+  /// `motion.css`: `small { display:block; font-size:11px; letter-spacing:1px }`.
+  static final TextStyle bioAgeUnitCentred = _style(
+    11,
+    FontWeight.w400,
+    height: 1.4,
+    tracking: 1,
+  );
+
   /// `.bio-hero .age-context` — the sentence under the figure.
   static final TextStyle bioContext = _style(12, FontWeight.w400);
 
@@ -129,4 +145,98 @@ abstract final class TypeScale {
 
   /// `.context-bridge p` — the connective sentence between two panels.
   static final TextStyle bridge = _style(11, FontWeight.w400, height: 1.8);
+
+  /// `.panel-summary p` — the right-hand qualifier beside a panel's number.
+  static final TextStyle panelContext = _style(11, FontWeight.w400, height: 1.5);
+
+  /// `.twin-panels .panel-title` — a half-width panel's name.
+  static final TextStyle panelTitleCompact = _style(
+    11,
+    FontWeight.w700,
+    height: 1.35,
+  );
+
+  /// `.twin-panels .panel-value`. The tracking scales with the size: -1.8 at 36
+  /// is -1.4 at 28, which keeps the glyphs at the same optical density.
+  static final TextStyle panelValueCompact = _style(
+    28,
+    FontWeight.w600,
+    height: 1.2,
+    tracking: -1.4,
+  );
+
+  /// `.twin-panels .panel-value > small`.
+  static final TextStyle panelUnitCompact = _style(
+    10,
+    FontWeight.w400,
+    height: 1.2,
+  );
+
+  /// `.twin-panels .panel-note`.
+  static final TextStyle panelNoteCompact = _style(
+    10,
+    FontWeight.w400,
+    height: 1.7,
+  );
+
+  /// `.panel .stat-label` — the label over a statistic in a `.three` row.
+  static final TextStyle statLabel = _style(10, FontWeight.w400, height: 1.4);
+
+  /// `.panel .three .stat-number`.
+  static final TextStyle statValue = _style(
+    22,
+    FontWeight.w600,
+    height: 1.4,
+    tracking: -1,
+  );
+
+  /// `.stat-number > span` — its unit.
+  static final TextStyle statUnit = _style(11, FontWeight.w400, height: 1.4);
+
+  /// `.chapter-heading h2` — a chapter's name.
+  static final TextStyle chapterTitle = _style(
+    20,
+    FontWeight.w700,
+    height: 1.4,
+    tracking: -0.6,
+  );
+
+  /// `.chapter-nav button` — one jump target.
+  static final TextStyle chapterNav = _style(10, FontWeight.w400, height: 1.2);
+
+  /// `.factor-row` — a model component's name and its score.
+  static final TextStyle factorRow = _style(11, FontWeight.w400, height: 1.4);
+
+  /// `.dimension-cell > span` — an independent reading's name.
+  static final TextStyle dimensionLabel = _style(
+    11,
+    FontWeight.w400,
+    height: 1.4,
+  );
+
+  /// `.dimension-cell strong` — the reading.
+  static final TextStyle dimensionValue = _style(
+    22,
+    FontWeight.w600,
+    height: 1.3,
+    tracking: -0.7,
+  );
+
+  /// `.dimension-cell small` — the reference under it.
+  static final TextStyle dimensionNote = _style(9, FontWeight.w400, height: 1.4);
+
+  /// `.device-strip` — the strap row under the title.
+  static final TextStyle deviceStrip = _style(10, FontWeight.w400, height: 1.4);
+
+  /// `.relationship-card h3` — an entry point's name.
+  static final TextStyle entryTitle = _style(15, FontWeight.w700, height: 1.35);
+
+  /// `.relationship-card p` — what it leads to.
+  static final TextStyle entryBody = _style(11, FontWeight.w400, height: 1.6);
+
+  /// `.data-footer` — the closing line.
+  static final TextStyle footer = _style(10, FontWeight.w400, height: 2);
+
+  /// `.data-footer span` — its second line.
+  static final TextStyle footerFine = _style(9, FontWeight.w400, height: 2);
 }

@@ -51,6 +51,7 @@ class ReadingView<T extends Object> extends StatelessWidget {
     this.caveatCarrier = CaveatCarrier.beneath,
     this.caveatBuilder,
     this.excludedBuilder,
+    this.withheldBuilder,
     this.onExplainWithheld,
     super.key,
   });
@@ -79,6 +80,15 @@ class ReadingView<T extends Object> extends StatelessWidget {
   ///
   /// Ignored under [CaveatCarrier.insideCard], where the card is the carrier.
   final Widget Function(BuildContext context, List<Disclosure> caveats)? caveatBuilder;
+
+  /// Overrides how a refusal renders. Default: [WithheldCard].
+  ///
+  /// **It cannot be overridden into silence**, only into a different shape: the
+  /// builder is called with the disclosure and whatever it returns is what the
+  /// screen shows. v02 passes `WithheldPanel`, which is the same contract — the
+  /// metric's name, a hole, and the reason — in the new geometry.
+  final Widget Function(BuildContext context, Disclosure disclosure)?
+  withheldBuilder;
 
   /// Overrides how a total exclusion renders. Default: [ExcludedNote].
   final Widget Function(BuildContext context, List<Disclosure> exclusions)? excludedBuilder;
@@ -112,11 +122,13 @@ class ReadingView<T extends Object> extends StatelessWidget {
                   CaveatNote(caveats: caveats, label: label),
             ],
           ),
-      Withheld<T>(:final disclosure) => WithheldCard(
-        disclosure: disclosure,
-        label: label,
-        onExplain: onExplainWithheld,
-      ),
+      Withheld<T>(:final disclosure) =>
+        withheldBuilder?.call(context, disclosure) ??
+            WithheldCard(
+              disclosure: disclosure,
+              label: label,
+              onExplain: onExplainWithheld,
+            ),
       Excluded<T>(:final exclusions) =>
         excludedBuilder?.call(context, exclusions) ?? ExcludedNote(exclusions: exclusions),
     };

@@ -48,19 +48,10 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
-
-/// One of the two statistics under the hero's rule.
-@immutable
-class BioStat {
-  /// Builds a statistic: a small [label] over a larger [value].
-  const BioStat(this.label, this.value);
-
-  /// `.bio-bottom span`.
-  final String label;
-
-  /// `.bio-bottom strong`.
-  final String value;
-}
+import 'package:healthee/data/honesty/disclosure.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
+import 'package:healthee/shared/v02/bio_hero_parts.dart';
 
 /// The biological-age hero.
 class BioHero extends StatelessWidget {
@@ -71,10 +62,13 @@ class BioHero extends StatelessWidget {
     this.eyebrowIcon,
     this.unit,
     this.caption,
+    this.instrument,
     this.stats = const <BioStat>[],
     this.modelLabel,
     this.modelIcon,
     this.art,
+    this.artFillsCard = false,
+    this.centred = false,
     super.key,
   });
 
@@ -141,6 +135,14 @@ class BioHero extends StatelessWidget {
   /// The sentence under the figure.
   final String? caption;
 
+  /// The reading drawn on a scale, between the caption and the rule.
+  ///
+  /// `panels.js` puts `H.charts.ageScale()` exactly here. It is a slot rather
+  /// than a hard-wired `AgeScale` because the hero is not only the age card —
+  /// the same shape carries VO₂max on Activity — and a hero that named its own
+  /// instrument would have to grow a second one for each.
+  final Widget? instrument;
+
   /// The two statistics under the rule.
   final List<BioStat> stats;
 
@@ -153,11 +155,65 @@ class BioHero extends StatelessWidget {
   /// The decorative contour behind everything. Optional and purely visual.
   final Widget? art;
 
+  /// `motion.css`'s override of `.bio-art`, for a live field rather than a
+  /// static contour:
+  ///
+  /// ```css
+  /// .bio-hero .bio-art        { inset:0; width:100%; height:100%; opacity:1 }
+  /// .bio-hero .bio-atmosphere { opacity: .9 }
+  /// ```
+  ///
+  /// False keeps `richer.css`'s 300 x 230 box at `right: -60px`, which is what a
+  /// drawn contour wants. True fills the card, which is what a particle field
+  /// wants — the ring is meant to sit **around** the figure, not beside it.
+  final bool artFillsCard;
+
+  /// `motion.css`'s `.bio-display`: the figure centred in a square, with its
+  /// unit on its own line under it rather than beside it.
+  ///
+  /// ```css
+  /// .bio-display  { width:100%; max-width:304px; aspect-ratio:1;
+  ///                 display:grid; place-items:center; margin:0 auto }
+  /// .age-value    { margin:0; text-align:center; font-size:84px;
+  ///                 letter-spacing:-5px }
+  /// .age-value small { display:block; margin:4px 0 0; font-size:11px;
+  ///                    letter-spacing:1px }
+  /// ```
+  ///
+  /// Default false, so every caller written against `richer.css` alone is
+  /// unchanged. It is opt-in rather than inferred from [artFillsCard] because
+  /// they are two different stylesheets' decisions and a hero may want either.
+  final bool centred;
+
+  /// `.bio-art { opacity: 1 }` with `.bio-atmosphere`'s own `.9` on top of it.
+  static const double fieldOpacity = 0.9;
+
+  /// `.bio-display { max-width: 304px }`.
+  static const double displayMaxWidth = 304;
+
+  /// `motion.css`: `.age-value small { margin: 4px 0 0 }`.
+  static const double centredUnitGap = 4;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final ink = colors.bioInk;
     final rule = colors.bioLine.withValues(alpha: colors.bioLine.a * lineMix);
+    final scope = CaveatScope.of(context);
+    final disclosed = scope?.caveats ?? const <Disclosure>[];
+    return CaveatScope(
+      caveats: const <Disclosure>[],
+      child: _card(colors, ink, rule, scope, disclosed),
+    );
+  }
+
+  Widget _card(
+    HealtheeColors colors,
+    Color ink,
+    Color rule,
+    CaveatScope? scope,
+    List<Disclosure> disclosed,
+  ) {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -171,13 +227,18 @@ class BioHero extends StatelessWidget {
       child: Stack(
         children: <Widget>[
           if (art != null)
-            Positioned(
-              right: artRight,
-              top: artRect.top,
-              width: artRect.width,
-              height: artRect.height,
-              child: Opacity(opacity: artOpacity, child: art),
-            ),
+            if (artFillsCard)
+              Positioned.fill(
+                child: Opacity(opacity: fieldOpacity, child: art),
+              )
+            else
+              Positioned(
+                right: artRight,
+                top: artRect.top,
+                width: artRect.width,
+                height: artRect.height,
+                child: Opacity(opacity: artOpacity, child: art),
+              ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: padding),
             child: Column(
@@ -196,15 +257,29 @@ class BioHero extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (instrument case final Widget scale) ...<Widget>[
+                  const SizedBox(height: captionGap),
+                  _inset(scale),
+                ],
                 if (stats.isNotEmpty) ...<Widget>[
                   const SizedBox(height: ruleGap),
                   SizedBox(height: hairline, child: ColoredBox(color: rule)),
                   const SizedBox(height: statsGap),
-                  _inset(_stats(ink)),
+                  _inset(BioStatsRow(stats: stats, ink: ink)),
                 ],
                 if (modelLabel != null) ...<Widget>[
                   const SizedBox(height: modelGap),
-                  _inset(_model(ink)),
+                  _inset(BioModelLabel(label: modelLabel!, icon: modelIcon, ink: ink)),
+                ],
+                // The hero is a card, so the hero is a caveat carrier. A
+                // `ReadingView` with `CaveatCarrier.insideCard` hands its
+                // disclosures down a `CaveatScope` and draws nothing itself; a
+                // card that did not read it would drop the sentence silently,
+                // which is the one failure the honesty layer exists to prevent.
+                // `panel.dart` carries the same block for the same reason.
+                if (disclosed.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: modelGap),
+                  _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
                 ],
               ],
             ),
@@ -234,7 +309,42 @@ class BioHero extends StatelessWidget {
     ],
   );
 
-  Widget _value(Color ink) => Row(
+  Widget _value(Color ink) => centred ? _centredValue(ink) : _inlineValue(ink);
+
+  /// `motion.css`'s `.bio-display`: a square, the figure in the middle of it,
+  /// the unit under the figure. The square is what puts the halo's ring around
+  /// the number instead of behind one corner of it.
+  Widget _centredValue(Color ink) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: displayMaxWidth),
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              style: TypeScale.bioAgeCentred.copyWith(color: ink),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.clip,
+            ),
+            if (unit != null) ...<Widget>[
+              const SizedBox(height: centredUnitGap),
+              Text(
+                unit!,
+                textAlign: TextAlign.center,
+                style: TypeScale.bioAgeUnitCentred.copyWith(color: ink),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _inlineValue(Color ink) => Row(
     crossAxisAlignment: CrossAxisAlignment.baseline,
     textBaseline: TextBaseline.alphabetic,
     children: <Widget>[
@@ -254,49 +364,4 @@ class BioHero extends StatelessWidget {
     ],
   );
 
-  Widget _stats(Color ink) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: <Widget>[
-      for (var i = 0; i < stats.length; i++) ...<Widget>[
-        if (i > 0) const SizedBox(width: statsSpacing),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                stats[i].label,
-                style: TypeScale.bioStatLabel.copyWith(
-                  color: ink.withValues(alpha: ink.a * 0.85),
-                ),
-              ),
-              Text(
-                stats[i].value,
-                style: TypeScale.bioStat.copyWith(color: ink),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ],
-  );
-
-  Widget _model(Color ink) {
-    final faded = ink.withValues(alpha: ink.a * 0.8);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        if (modelIcon != null) ...<Widget>[
-          Icon(modelIcon, size: modelIconSize, color: faded),
-          const SizedBox(width: modelIconGap),
-        ],
-        Flexible(
-          child: Text(
-            modelLabel!,
-            style: TypeScale.modelLabel.copyWith(color: faded),
-          ),
-        ),
-      ],
-    );
-  }
 }

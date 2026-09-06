@@ -1,112 +1,107 @@
 /// The ordered sections of Today. Composition only — no widget is defined here.
 ///
-/// **This is legacy's screen, in legacy's order.** Owner decision 2026-08-05:
-/// *"not a single change in design, every section remains as is, every tab,
-/// everything — only honesty wording as mentioned."* The order below is
-/// `healthee-legacy/app/lib/ui/today_screen.dart:217–378` read top to bottom, and
-/// the spacers between the sections are legacy's own `SizedBox`es, which is what
-/// [_Sections.gap] exists to express.
+/// **This is the v02 prototype's screen, in the prototype's order.** Owner
+/// decision, 2026-09: *"we need every screen to be designed pixel perfect with
+/// the same idea that i told."* The order below is `design/mobile-preview`'s
+/// `screens-overview.js::H.screens.today` read top to bottom.
 ///
 /// ```text
-///   greeting header           date · battery · avatar · "Good morning,"
-///   Recovery — <summary>.
+///   header                    date · Today · avatar with its sync ring
+///   device strip              Helio Strap · charge · Data & sync
 ///   data health               silent when everything is fresh
-///   illness banner            ADDED · silent when nothing is flagged
-///   recovery card             the gauge, the guidance, four factors
-///   recovery signals          the ladder
-///   suggested actions         collapsed
-///   ── grid ──                Resting HR · HRV
-///   HRV · 14 days
-///   Stress · today
-///   Heart rate · 24h
-///   Sleep ─────────────────
-///   (stale-sleep banner)
-///   readiness block           the device sleep score
-///   ── grid ──                Sleep · Respiratory rate
-///   Blood oxygen · 14 nights
-///   Sleep need · debt
-///   Sleep health · 4-dim
-///   Sleep · 7 nights
-///   Activity ──────────────
-///   ── grid ──                Steps · Energy · active
-///   Strain · cardio load
-///   Active minutes · MVPA
-///   Strength · this week      ADDED · silent when the block is absent
-///   Today · logged            ADDED · silent when nothing was logged
-///   Fitness ───────────────
-///   Biological age · estimate
-///   VO₂max · estimate
-///   Insights ──────────────
-///   patterns
+///   illness banner            silent when nothing is flagged
+///   ── the hero ──────────────
+///   biological age            the halo, the figure, the ruler, two terms
+///   summary tiles             recovery · sleep · movement
+///   context bridge            what the estimate is, and is not
+///   chapter nav               Your night · Your day · Longer view
+///   ── Last night → today ────
+///   recovery, explained       weights, colour key, four factor bars
+///   overnight HRV | resting heart
+///   sleep stages · seven nights
+///   sleep health, beyond duration
+///   context bridge            sleep's share of the recovery model
+///   blood oxygen | sleep need & debt
+///   ── Movement → recovery ───
+///   heart rate & stress       one hour cursor, two labelled scales
+///   steps & energy
+///   context bridge            today's effort against remaining readiness
+///   effort in context
+///   active minutes | strength
+///   ── Patterns → small changes ──
+///   cardiorespiratory fitness
+///   daily journal
+///   suggested actions · insights
+///   coach | actions           the two entry points
+///   footer
 /// ```
 ///
-/// TodayFocus and TonightFocus restore the legacy challenge and sleep-focus
-/// summaries using the same account-bound data providers as their detail tabs.
+/// ## What survived the redesign unchanged, and why
 ///
-/// ## Three things the server sends that NO legacy file reads
+/// The **data wiring**. Every figure is still a [Reading] off `TodayFacts`, every
+/// block is still gated on what the payload carried, and every refusal still
+/// renders as a refusal with its reason. The presentation is new; the honesty
+/// layer under it is the same one, wired the same way.
 ///
-/// The owner's second instruction: surface what the API returns and legacy never
-/// showed. Each one is added in legacy's own visual language, and each renders
-/// **nothing** when its field is null or empty.
-///
-///   * **The illness banner** (`illness_flag`). Legacy references it in zero
-///     files — a strictly verbatim port would delete a safety surface. It stays,
-///     and it stays **above everything a number can be read from**: brief §4.1
-///     makes it deterministic and outranking, so nothing on this screen may be
-///     read before it. Null today on the live account, and null draws nothing.
-///   * **`Strength · this week`** (`strength`), under `Active minutes · MVPA`.
-///     They are the two halves of one recommendation.
-///   * **`Today · logged`** (`routine`), under it. Sessions, meditation and an
-///     open fast — a log, not a judgement.
+/// The **illness banner** stays above everything a number can be read from —
+/// brief §4.1 makes it deterministic and outranking, so nothing on this screen
+/// may be read before it. It is null on this account today, and null draws
+/// nothing.
 ///
 /// **`pai` is null on this account and `anomalies` is `[]` unconditionally**
-/// (`read/today.py:83` sets it, and the real data is behind a separate
-/// premium-gated `/api/notable`). Neither gets a section: a heading that can
-/// never have content under it is dead code.
+/// (`read/today.py:83`). Neither gets a section: a heading that can never have
+/// content under it is dead code.
 ///
-/// ## The one structural difference from legacy, and it is the brief's
+/// ## Two sections the prototype has that this screen does not
 ///
-/// Legacy gates each block on `is Map` and draws **nothing** when the server sent
-/// none. Every such block is a [Reading] here, so an absent or refused block
-/// renders as a `WithheldCard` carrying its reason. That is the product's whole
-/// premise applied to the last hop — "not enough data" beats a silent gap — and
-/// it is state rather than layout: the card sits where legacy's card sat.
+/// The prototype's `.date-controls` (previous / date / next) drives its
+/// historical-day feature; this app reads one day and has no history route yet,
+/// so the header prints the date rather than offering to change it. A control
+/// that looks tappable and does nothing is worse than a missing one — the same
+/// argument the pre-v02 header used for its own absent `+`.
+///
+/// The prototype's `.scenarioNotice` is its review-scenario switch. The live
+/// equivalent is the data-health card, which says the same class of thing about
+/// real data, so that is what sits in the slot.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/data/push/push_stamp.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/features/today/today_body.dart';
 import 'package:healthee/features/today/today_facts.dart';
 import 'package:healthee/features/today/today_labels.dart';
+import 'package:healthee/features/today/v02/today_chapters.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/features/today/widgets/data_health_section.dart';
-import 'package:healthee/features/today/widgets/greeting_header.dart';
 import 'package:healthee/features/today/widgets/illness_banner.dart';
-import 'package:healthee/features/today/widgets/metric_tile.dart';
-import 'package:healthee/features/today/widgets/recovery_summary_line.dart';
-import 'package:healthee/shared/charts/day_line_chart.dart';
 import 'package:healthee/shared/device_health_card.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_section.dart';
-import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/section_list.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
-import 'package:healthee/shared/today_focus.dart';
+import 'package:healthee/shared/v02/panel.dart';
+import 'package:healthee/shared/v02/panel_head.dart';
+import 'package:healthee/shared/v02/panel_parts.dart';
 
 /// Everything Today needs that is not on [ScreenData].
 @immutable
 class TodayExtras {
   /// The push state, the session state, the classified connection, the strap's
-  /// charge, and the two things the header can open.
+  /// charge, the three things the header and the entry cards can open, and the
+  /// chapter anchors the jump nav walks to.
   const TodayExtras({
     this.push,
     this.signedIn,
     this.health,
     this.batteryPercent,
+    this.chapters,
     this.onSignIn,
     this.onOpenProfile,
+    this.onOpenSync,
     this.onAddLog,
+    this.onOpenCoach,
+    this.onOpenActions,
   });
 
   /// What the app knows about its own pushing, for the data-health card.
@@ -118,22 +113,35 @@ class TodayExtras {
 
   /// The connection surface's one classification.
   ///
-  /// Null draws no ring in the header and no link section on the data-health
-  /// card. It carries `busy` and the fetch's progress, so nothing else has to.
+  /// Null draws no ring in the header, a neutral dot on the device strip and no
+  /// link section on the data-health card. It carries `busy` and the fetch's
+  /// progress, so nothing else has to.
   final ConnectionHealth? health;
 
-  /// Strap battery at the last sync, for the header.
+  /// Strap battery at the last sync, for the device strip.
   final int? batteryPercent;
+
+  /// Where the chapter nav jumps to. Null draws no nav rather than three dead
+  /// buttons — see `today_chapters.dart`.
+  final TodayChapters? chapters;
 
   /// Opens the sign-in screen.
   final VoidCallback? onSignIn;
 
-  /// Opens settings. Legacy's avatar opened the profile screen.
+  /// Opens settings. The avatar's destination.
   final VoidCallback? onOpenProfile;
 
-  /// Opens the manual-entry log sheet, when there is one. See
-  /// `greeting_header.dart`.
+  /// Opens the sync surface, from the device strip.
+  final VoidCallback? onOpenSync;
+
+  /// Opens the manual-entry log sheet, when there is one.
   final VoidCallback? onAddLog;
+
+  /// Opens the coach.
+  final VoidCallback? onOpenCoach;
+
+  /// Opens the actions tab.
+  final VoidCallback? onOpenActions;
 }
 
 /// Builds the ordered section list for one render of Today.
@@ -145,18 +153,18 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   final now = data.now ?? DateTime.now();
   final sections = SectionList();
   sections.add(
-    GreetingHeader(
+    TodayHeader(
       date: snapshot?.date ?? data.day.date,
       now: now,
-      batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
       health: extras.health,
       onOpenProfile: extras.onOpenProfile,
-      onAddLog: extras.onAddLog,
     ),
   );
   sections.add(
-    RecoverySummaryLine(
-      summary: snapshot?.recoverySignals.valueOrNull?.summary,
+    DeviceStrip(
+      health: extras.health,
+      batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
+      onOpenSync: extras.onOpenSync,
     ),
   );
   sections.add(_dataHealth(data, extras));
@@ -164,73 +172,58 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   // server flagged nothing. See the library docstring.
   if (snapshot?.illnessFlag case final flag?) {
     sections.add(IllnessBanner(flag: flag));
-    sections.gap(PageSpacing.group);
-  }
-  if (extras.signedIn == true) {
-    sections.gap(PageSpacing.card);
-    sections.add(const TodayFocus());
+    sections.gap(PageSpacing.block);
   }
   if (data.serverFailure case final PageSection failure) {
     sections.addSection(failure);
-    sections.gap(PageSpacing.card);
+    sections.gap(PageSpacing.panel);
     _measuredOnly(sections, data);
   }
   if (data.serverPending case final PageSection pending) {
     sections.addSection(pending);
   }
   if (snapshot != null) {
-    todayBody(sections, TodayFacts.of(snapshot, now), data);
+    todayBody(sections, TodayFacts.of(snapshot, now), data, extras);
   }
   return sections.build();
 }
 
 /// What this phone measured, when the server cannot be reached.
 ///
-/// **Not a legacy section, and it appears in one state only.** Legacy's Today is
-/// entirely server-backed — it has no local store, so a dead server leaves it
-/// with a retry and nothing else. This app holds the strap's own readings on
-/// disk, and `docs/APP_DESIGN_BRIEF.md` §7.4 requires that half to render with no
-/// network at all: an app that shows zero measurements while sitting on a
-/// database of them is broken, not careful.
+/// **Not a prototype section, and it appears in one state only.** This app holds
+/// the strap's own readings on disk, and `docs/APP_DESIGN_BRIEF.md` §7.4 requires
+/// that half to render with no network at all: an app that shows zero
+/// measurements while sitting on a database of them is broken, not careful.
 ///
-/// So it draws **only** behind the failure card, in legacy's own two-up row, and
+/// It draws only behind the failure card, in v02's own twin-panel row, and
 /// nothing on the healthy path moves by a pixel.
 void _measuredOnly(SectionList sections, ScreenData data) {
   final day = data.day;
   sections.add(
-    Builder(
-      builder: (context) => MetricTileRow(
-        left: MetricTile(
-          label: 'Steps · from the strap',
-          tag: context.hues.movement,
-          reading: day.steps.map((count) => count.toDouble()),
-          format: (value) => commaGrouped(value.round()),
-          foot: 'SINCE-MIDNIGHT COUNTER',
-          chart: const SizedBox.shrink(),
-        ),
-        right: MetricTile(
-          label: 'Heart rate · from the strap',
-          tag: context.hues.heart,
-          reading: day.heartRate,
-          format: (value) => value.round().toString(),
-          unit: 'bpm',
-          foot: 'LATEST READING',
-          chart: RevealOnce(
-            id: 'today.offline.heart-rate',
-            registry: data.reveals,
-            builder: (context, t) => DayLineChart(
-              points: day.heartRateSeries,
-              progress: t,
-              color: context.hues.heart,
-              height: MetricTile.chartHeight,
-              showRange: false,
-            ),
+    Panel(
+      head: const PanelHead(
+        title: 'From the strap',
+        icon: Icons.watch_outlined,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          StatRow(<Stat>[
+            if (day.steps.valueOrNull case final int steps)
+              Stat('Steps', commaGrouped(steps)),
+            if (day.heartRate.valueOrNull case final double bpm)
+              Stat('Heart rate', bpm.round().toString(), unit: 'bpm'),
+          ]),
+          const PanelNote(
+            'Measured on this phone, since midnight. The server has not been '
+            'reached, so nothing here has been derived.',
           ),
-        ),
+        ],
       ),
     ),
   );
-  sections.gap(PageSpacing.card);
+  sections.gap(PageSpacing.panel);
   sections.add(DeviceHealthCard(day: day, now: data.now));
 }
 
@@ -239,13 +232,19 @@ List<PageSection> _freshInstall(ScreenData data, TodayExtras extras) {
   final now = data.now ?? DateTime.now();
   return <PageSection>[
     PageSection(
-      GreetingHeader(
+      TodayHeader(
         date: data.day.date,
         now: now,
-        batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
         health: extras.health,
         onOpenProfile: extras.onOpenProfile,
-        onAddLog: extras.onAddLog,
+      ),
+      gap: 0,
+    ),
+    PageSection(
+      DeviceStrip(
+        health: extras.health,
+        batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
+        onOpenSync: extras.onOpenSync,
       ),
       gap: 0,
     ),
@@ -268,8 +267,7 @@ Widget _dataHealth(ScreenData data, TodayExtras extras) {
   final view = data.server.value;
   return DataHealthSection(
     health: data.snapshot?.dataHealth,
-    // The radio's own faults have nowhere else to be said since the top strip
-    // was deleted — see the card's docstring.
+    // The radio's own faults have nowhere else to be said — see the card.
     connection: extras.health,
     push: extras.push,
     cachedAt: view != null && view.fromCache ? view.fetchedAt : null,
@@ -280,7 +278,7 @@ Widget _dataHealth(ScreenData data, TodayExtras extras) {
     now: data.now,
     signedIn: extras.signedIn,
     onSignIn: extras.onSignIn,
-    // Legacy's banner carries its own 16 px, so a healthy day leaves no gap.
+    // The card carries its own bottom space, so a healthy day leaves no gap.
     bottomGap: 16,
   );
 }

@@ -23,8 +23,9 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/sleep/widgets/sleep_hero_card.dart';
-import 'package:healthee/features/today/widgets/metric_tile.dart';
+import 'package:healthee/features/today/v02/night_panels.dart';
 import 'package:healthee/shared/charts/h_hypnogram.dart';
+import 'package:healthee/shared/charts/h_stacked_sleep.dart';
 import 'package:healthee/shared/charts/h_stage_bar.dart';
 import 'package:healthee/shared/metric_info/metric_info.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
@@ -217,34 +218,35 @@ void main() {
     });
     tearDown(() async => store.close());
 
-    testWidgets("TODAY'S SLEEP TILE DRAWS THE PROPORTION BAR, NOT THE HYPNOGRAM", (
+    testWidgets('TODAY DRAWS NO HYPNOGRAM AT ALL, AND STILL SHOWS STAGES', (
       tester,
     ) async {
-      // **This assertion has now been reversed twice, and this is the settled
-      // one.** The rebuild put an `HStageBar` here; the verbatim port put
-      // legacy's `HHypnogram(..., height: 30)` back (`today_screen.dart:177`),
-      // on the rule that a faithful port of something imperfect beats an
-      // unrequested fix; and on 2026-08-06 the owner delegated the call and it
-      // was decided: the bar. Four lanes in 30 px is ~7 px a lane with a 62%
-      // band inside it, and on this owner's fragmented nights that reads as
-      // scattered dots. A chart that reads as noise is not showing data.
+      // **This assertion has now been reversed three times, and the reason has
+      // changed under it.** The rebuild put an `HStageBar` in Today's sleep grid
+      // cell; the verbatim port put legacy's 30 px `HHypnogram` back; the owner
+      // delegated the call on 2026-08-06 and the bar won, because four lanes in
+      // 30 px reads as scattered dots.
       //
-      // The departure is deliberate and is recorded at the site
-      // (`today_tiles.dart`) so the next reader does not "restore" it.
+      // The v02 redesign removed the grid entirely. Today's picture of the
+      // night is `screens-overview.js`'s seven-night stack — a stage chart at
+      // 108 px with a legend — so the small-chart problem has no site left. The
+      // claim that survives is the one that always mattered: **no stage
+      // timeline is drawn on Today at a size nobody can read**, and the stages
+      // are still shown.
       tester.view
-        ..physicalSize = const Size(420, 2600)
+        ..physicalSize = const Size(420, 14000)
         ..devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
-      await reveal(tester, find.byType(HStageBar));
 
-      expect(find.byType(HStageBar), findsOneWidget);
       expect(
         find.byType(HHypnogram),
         findsNothing,
-        reason: 'the grid cell is the ONE place the hypnogram was too small',
+        reason: 'the timeline belongs to Sleep, at full width',
       );
+      await reveal(tester, find.byType(HStackedSleep));
+      expect(tester.getSize(find.byType(HStackedSleep)).height, 108);
     });
 
     testWidgets('THE HYPNOGRAM IS STILL ON SLEEP, AT FULL WIDTH', (tester) async {
@@ -286,12 +288,10 @@ void main() {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      // By the tile's own label, not by `find.text('SLEEP')` — the readiness
-      // block above it renders that exact string and is not a tile, so a text
-      // finder resolves to whichever of the two the ListView has built.
-      final tile = find.byWidgetPredicate(
-        (widget) => widget is MetricTile && widget.label == 'Sleep',
-      );
+      // By the panel's own type, not by `find.text('Sleep')` — several things
+      // on Today carry that word (a summary tile, a recovery factor row) and a
+      // text finder resolves to whichever of them the ListView has built.
+      final tile = find.byType(SleepWeekPanel);
       await reveal(tester, tile);
       // `warnIfMissed: false` is this repo's convention for the ⓘ — see
       // `sheet_layering_test.dart::openInfoSheet`. The dot is a 16 px target

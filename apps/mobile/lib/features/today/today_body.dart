@@ -1,289 +1,221 @@
-/// Today's body, from the recovery card down — composition only.
+/// Today's body: the hero, the tiles, and the `Last night → today` chapter.
 ///
-/// Split out of `today_sections.dart` at the 400-line gate (Standards §1). The
-/// seam is deliberate and it is not arbitrary: `today_sections.dart` owns the
-/// **head** of the screen — the things that are true before any number is read
-/// (the greeting, the data-health card, the illness flag) and the two states
-/// that replace the whole body (a fresh install, an unreachable server). This
-/// file owns the instruments.
+/// Split from `today_sections.dart` at the 400-line gate (Standards §1), and the
+/// seam is the same one as before the redesign: that file owns the **head** —
+/// the things true before any number is read — and this one owns the
+/// instruments. `today_day_sections.dart` carries the two chapters after this
+/// one, for the same reason.
 ///
-/// The ORDER across the seam is unbroken, and `test/features/today_order_test.dart`
-/// asserts it against legacy's own list rather than against either file.
+/// The ORDER across all three files is unbroken and
+/// `test/features/today_order_test.dart` asserts it against the prototype rather
+/// than against any one file.
+///
+/// ## Every gate here is a gate on what the payload carried
+///
+/// A block with no data draws **nothing** — no empty panel, no zero-state
+/// heading. A block the server *refused* draws a refusal with its reason, which
+/// is a different thing and is the whole point of `Reading`. The two are not
+/// interchangeable: "there is no sleep history" and "we will not show you the
+/// sleep history" are different sentences, and only one of them is about the
+/// owner.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/data/models/activity_today.dart';
+import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/recovery_score.dart';
-import 'package:healthee/data/models/recovery_signals.dart';
 import 'package:healthee/data/models/sleep_debt.dart';
 import 'package:healthee/data/models/sleep_health.dart';
-import 'package:healthee/data/models/strength.dart';
-import 'package:healthee/data/models/vo2max.dart';
+import 'package:healthee/features/today/today_day_sections.dart';
 import 'package:healthee/features/today/today_facts.dart';
-import 'package:healthee/features/today/widgets/actions_section.dart';
-import 'package:healthee/features/today/widgets/bio_age_card.dart';
-import 'package:healthee/features/today/widgets/blood_oxygen_card.dart';
-import 'package:healthee/features/today/widgets/cardio_load_card.dart';
-import 'package:healthee/features/today/widgets/heart_rate_card.dart';
-import 'package:healthee/features/today/widgets/hrv_trend_card.dart';
-import 'package:healthee/features/today/widgets/insights_section.dart';
-import 'package:healthee/features/today/widgets/metric_tile.dart';
-import 'package:healthee/features/today/widgets/mvpa_card.dart';
-import 'package:healthee/features/today/widgets/readiness_block.dart';
-import 'package:healthee/features/today/widgets/recovery_card.dart';
-import 'package:healthee/features/today/widgets/recovery_signals_card.dart';
-import 'package:healthee/features/today/widgets/routine_card.dart';
-import 'package:healthee/features/today/widgets/seven_night_card.dart';
-import 'package:healthee/features/today/widgets/sleep_debt_card.dart';
-import 'package:healthee/features/today/widgets/sleep_health_card.dart';
+import 'package:healthee/features/today/today_sections.dart';
+import 'package:healthee/features/today/v02/mini_trend_panel.dart';
+import 'package:healthee/features/today/v02/night_panels.dart';
+import 'package:healthee/features/today/v02/recovery_panel.dart';
+import 'package:healthee/features/today/v02/today_chapters.dart';
+import 'package:healthee/features/today/v02/today_hero.dart';
 import 'package:healthee/features/today/widgets/stale_sleep_banner.dart';
-import 'package:healthee/features/today/widgets/strength_card.dart';
-import 'package:healthee/features/today/widgets/stress_card.dart';
-import 'package:healthee/features/today/widgets/today_tiles.dart';
-import 'package:healthee/features/today/widgets/vo2max_card.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/section_list.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/reading_view.dart';
-import 'package:healthee/shared/tonight_focus.dart';
+import 'package:healthee/shared/v02/chapter.dart';
+import 'package:healthee/shared/v02/context_bridge.dart';
+import 'package:healthee/shared/v02/withheld_panel.dart';
 
-/// Everything from the recovery card down. Split out only so neither half is a
-/// forty-line function (Standards §1); the order across the seam is unbroken.
-void todayBody(SectionList sections, TodayFacts facts, ScreenData data) {
+/// The bridge under the hero: what the estimate is, and what it is not.
+const String kAgeBridge =
+    'This estimate combines fitness and sleep contributions. Recovery describes '
+    'a different timescale: how you start today.';
+
+/// The bridge under sleep health: sleep's share of the recovery model.
+const String kSleepBridge =
+    'Sleep carries the largest single share of the recovery model. The full '
+    'night includes its stages, its efficiency and its overnight physiology.';
+
+/// Everything from the hero down.
+void todayBody(
+  SectionList sections,
+  TodayFacts facts,
+  ScreenData data,
+  TodayExtras extras,
+) {
   final snapshot = facts.snapshot;
   final reveals = data.reveals;
-  final tiles = TodayTiles(facts: facts, reveals: reveals);
 
+  sections.add(
+    ReadingView<BiologicalAge>(
+      reading: snapshot.biologicalAge,
+      label: 'Biological age · estimate',
+      caveatCarrier: CaveatCarrier.insideCard,
+      withheldBuilder: (context, disclosure) => WithheldPanel(
+        disclosure: disclosure,
+        label: 'Biological age · estimate',
+      ),
+      builder: (context, age) => TodayBioHero(age: age, reveals: reveals),
+    ),
+  );
+  sections.add(TodaySummaryTiles(facts: facts));
+  sections.gap(PageSpacing.block);
+  sections.add(ContextBridge.text(kAgeBridge));
+  if (extras.chapters case final TodayChapters chapters) {
+    sections.add(TodayChapterNav(chapters: chapters));
+  }
+  _nightChapter(sections, facts, reveals, extras);
+  todayDaySections(sections, facts, data, extras);
+}
+
+/// `Last night → today` — recovery, the two overnight trends, and the night.
+void _nightChapter(
+  SectionList sections,
+  TodayFacts facts,
+  RevealRegistry reveals,
+  TodayExtras extras,
+) {
+  final snapshot = facts.snapshot;
+  sections.add(
+    ChapterHeading(
+      key: extras.chapters?.night,
+      title: 'Last night → today',
+      icon: Icons.bedtime_outlined,
+      tone: Tone.sleep,
+    ),
+  );
+  if (facts.staleSleep) {
+    sections.add(StaleSleepBanner(nightLabel: facts.sleepNight));
+    sections.gap(PageSpacing.panel);
+  }
   sections.add(
     ReadingView<RecoveryScore>(
       reading: snapshot.recovery,
       label: 'Recovery',
       caveatCarrier: CaveatCarrier.insideCard,
-      builder: (context, score) => RecoveryCard(score: score, reveals: reveals),
+      withheldBuilder: (context, disclosure) =>
+          WithheldPanel(disclosure: disclosure, label: 'Recovery'),
+      builder: (context, score) => RecoveryPanel(score: score),
     ),
   );
-  sections.gap(PageSpacing.card);
+  sections.gap(PageSpacing.panel);
   sections.add(
-    ReadingView<RecoverySignals>(
-      reading: snapshot.recoverySignals,
-      label: 'Recovery signals',
-      caveatCarrier: CaveatCarrier.insideCard,
-      builder: (context, signals) => RecoverySignalsCard(signals: signals),
-    ),
-  );
-  sections.gap(PageSpacing.card);
-  if (snapshot.recommendations.isNotEmpty || snapshot.action != null) {
-    sections.add(
-      ActionsSection(
-        recommendations: snapshot.recommendations,
-        // `/api/today.action` — a model-written line legacy renders nowhere.
-        action: snapshot.action,
-      ),
-    );
-    sections.gap(PageSpacing.section);
-  }
-  sections.add(
-    Builder(
-      builder: (context) => MetricTileRow(
-        left: tiles.restingHeartRate(context),
-        right: tiles.heartRateVariability(context),
-      ),
-    ),
-  );
-  final hrvSpark = facts.spark(TodayMetricIds.heartRateVariability);
-  if (hrvSpark.length > 2) {
-    sections.gap(PageSpacing.card);
-    sections.add(
-      HrvTrendCard(
-        series: hrvSpark,
+    TwinPanels(
+      left: MiniTrendPanel(
+        title: 'Overnight HRV',
+        label: 'HRV · overnight',
+        infoKey: 'hrv',
+        icon: Icons.monitor_heart_outlined,
+        tone: Tone.fitness,
         reading: facts.heartRateVariability,
-        // NOT `facts.median('hrv_sleep_avg')`, which is null on every payload:
-        // the server baselines this metric but gives it no metric card. See
-        // `TodayFacts._hrvBaseline`.
-        baseline: facts.heartRateVariabilityBaseline,
+        series: facts.spark(TodayMetricIds.heartRateVariability),
+        revealId: 'today.hrv-trend',
         reveals: reveals,
+        unit: 'ms',
+        note: _baselineNote(
+          facts.spark(TodayMetricIds.heartRateVariability).length,
+          facts.heartRateVariabilityBaseline,
+          'ms',
+        ),
       ),
-    );
-  }
-  final stressDaily = facts.spark(TodayMetricIds.stress);
-  if (StressCard.hasSomethingToDraw(facts.stressDay, stressDaily)) {
-    sections.gap(PageSpacing.card);
-    sections.add(
-      StressCard(
-        intraday: facts.stressDay,
-        daily: stressDaily,
+      right: MiniTrendPanel(
+        title: 'Resting heart',
+        label: 'Resting heart rate',
+        infoKey: 'rhr_daily',
+        icon: Icons.favorite_outline,
+        tone: Tone.heart,
+        reading: facts.restingHeartRate,
+        series: facts.spark(TodayMetricIds.restingHeartRate),
+        revealId: 'today.rhr-trend',
         reveals: reveals,
-      ),
-    );
-  }
-  final heartRateDay = facts.heartRateDay;
-  if (heartRateDay.length > 2) {
-    sections.gap(PageSpacing.card);
-    sections.add(
-      HeartRateDayCard(
-        points: snapshot.hourlyHeartRate,
-        restingHeartRate: facts.restingHeartRate,
-        reveals: reveals,
-      ),
-    );
-  }
-  sleepSections(sections, facts, tiles, reveals);
-  activitySections(sections, facts, tiles, reveals);
-  fitnessSections(sections, facts, reveals);
-  if (snapshot.findings.isNotEmpty) {
-    sections.gap(PageSpacing.section);
-    sections.add(const SectionHeading('Insights'));
-    sections.add(InsightsSection(findings: snapshot.findings));
-  }
-}
-
-void sleepSections(
-  SectionList sections,
-  TodayFacts facts,
-  TodayTiles tiles,
-  RevealRegistry reveals,
-) {
-  final snapshot = facts.snapshot;
-  sections.gap(PageSpacing.section);
-  sections.add(const SectionHeading('Sleep'));
-  sections.add(const TonightFocus());
-  sections.gap(PageSpacing.card);
-  if (facts.staleSleep) {
-    sections.add(StaleSleepBanner(nightLabel: facts.sleepNight));
-    sections.gap(PageSpacing.card);
-  }
-  sections.add(
-    ReadinessBlock(
-      sleepScore: facts.sleepScore,
-      durationMin: facts.sleepDurationMin,
-      nightLabel: facts.sleepNight,
-      reveals: reveals,
-    ),
-  );
-  sections.gap(PageSpacing.card);
-  sections.add(
-    Builder(
-      builder: (context) => MetricTileRow(
-        left: tiles.sleep(context),
-        right: tiles.respiratoryRate(context),
+        unit: 'bpm',
+        note: _baselineNote(
+          facts.spark(TodayMetricIds.restingHeartRate).length,
+          facts.median(TodayMetricIds.restingHeartRate),
+          'bpm',
+        ),
       ),
     ),
   );
-  // Legacy gates this module on its DRAWN series having more than two points,
-  // and the drawn series is the nightly minimums now (see the card). The two
-  // sparklines arrive together in practice — `derive/hrv_spo2_resp.py` writes
-  // both from one window or writes neither — so this is legacy's gate applied
-  // to legacy's rule, not a narrower one.
-  final oxygenMinima = facts.spark(TodayMetricIds.bloodOxygenMin);
-  if (oxygenMinima.length > 2) {
-    sections.gap(PageSpacing.card);
+  // One bar is not a week. The prototype draws seven; the payload decides.
+  if (snapshot.sleepHistory7d.length >= 2) {
+    sections.gap(PageSpacing.panel);
     sections.add(
-      BloodOxygenCard(
-        minima: oxygenMinima,
-        reading: facts.bloodOxygen,
-        reveals: reveals,
-      ),
+      SleepWeekPanel(nights: snapshot.sleepHistory7d, reveals: reveals),
     );
   }
-  sections.gap(PageSpacing.card);
-  sections.add(
-    ReadingView<SleepDebt>(
-      reading: snapshot.sleepDebt,
-      label: 'Sleep need · debt',
-      caveatCarrier: CaveatCarrier.insideCard,
-      builder: (context, debt) => SleepDebtCard(debt: debt, reveals: reveals),
-    ),
-  );
-  sections.gap(PageSpacing.card);
+  sections.gap(PageSpacing.panel);
   sections.add(
     ReadingView<SleepHealth>(
       reading: snapshot.sleepHealth,
       label: 'Sleep health · 4-dim',
       caveatCarrier: CaveatCarrier.insideCard,
-      builder: (context, health) => SleepHealthCard(health: health),
+      withheldBuilder: (context, disclosure) =>
+          WithheldPanel(disclosure: disclosure, label: 'Sleep health · 4-dim'),
+      builder: (context, health) =>
+          SleepHealthPanel(health: health, breathing: facts.respiratoryRate),
     ),
   );
-  if (snapshot.sleepHistory7d.length >= 2) {
-    sections.gap(PageSpacing.card);
-    sections.add(
-      SevenNightCard(nights: snapshot.sleepHistory7d, reveals: reveals),
-    );
-  }
-}
-
-void activitySections(
-  SectionList sections,
-  TodayFacts facts,
-  TodayTiles tiles,
-  RevealRegistry reveals,
-) {
-  sections.gap(PageSpacing.section);
-  sections.add(const SectionHeading('Activity'));
+  sections.gap(PageSpacing.block);
+  sections.add(ContextBridge.text(kSleepBridge));
+  sections.gap(PageSpacing.panel);
   sections.add(
-    Builder(
-      builder: (context) => MetricTileRow(
-        left: tiles.steps(context),
-        right: tiles.energy(context),
+    TwinPanels(
+      left: MiniTrendPanel(
+        title: 'Blood oxygen',
+        label: 'Blood oxygen · overnight',
+        infoKey: 'spo2',
+        icon: Icons.water_drop_outlined,
+        tone: Tone.oxygen,
+        reading: facts.bloodOxygen,
+        series: facts.spark(TodayMetricIds.bloodOxygenMin),
+        revealId: 'today.blood-oxygen',
+        reveals: reveals,
+        unit: '%',
+        digits: 1,
+        note: 'Nightly minimums. Gaps stay visible.',
+      ),
+      right: ReadingView<SleepDebt>(
+        reading: facts.snapshot.sleepDebt,
+        label: 'Sleep need · debt',
+        caveatCarrier: CaveatCarrier.insideCard,
+        withheldBuilder: (context, disclosure) =>
+            WithheldPanel(disclosure: disclosure, label: 'Sleep need · debt'),
+        builder: (context, debt) => SleepNeedPanel(debt: debt),
       ),
     ),
   );
-  sections.gap(PageSpacing.card);
-  sections.add(
-    ReadingView<CardioLoad>(
-      reading: facts.snapshot.cardioLoad,
-      label: 'Strain · cardio load',
-      caveatCarrier: CaveatCarrier.insideCard,
-      builder: (context, load) => CardioLoadCard(load: load, reveals: reveals),
-    ),
-  );
-  sections.gap(PageSpacing.card);
-  sections.add(
-    ReadingView<Mvpa>(
-      reading: facts.snapshot.mvpa,
-      label: 'Active minutes · MVPA',
-      caveatCarrier: CaveatCarrier.insideCard,
-      builder: (context, mvpa) => MvpaCard(mvpa: mvpa, reveals: reveals),
-    ),
-  );
-  // Added, not legacy's — the other half of the same recommendation.
-  if (facts.snapshot.strength case final Strength strength) {
-    sections.gap(PageSpacing.card);
-    sections.add(StrengthCard(strength: strength, reveals: reveals));
-  }
-  // Added, not legacy's. A day with nothing logged draws nothing at all.
-  if (!facts.snapshot.routine.isEmpty) {
-    sections.gap(PageSpacing.card);
-    sections.add(RoutineCard(routine: facts.snapshot.routine));
-  }
 }
 
-void fitnessSections(
-  SectionList sections,
-  TodayFacts facts,
-  RevealRegistry reveals,
-) {
-  sections.gap(PageSpacing.section);
-  sections.add(const SectionHeading('Fitness'));
-  sections.add(
-    ReadingView<BiologicalAge>(
-      reading: facts.snapshot.biologicalAge,
-      label: 'Biological age · estimate',
-      caveatCarrier: CaveatCarrier.insideCard,
-      builder: (context, age) => BioAgeCard(age: age, reveals: reveals),
-    ),
-  );
-  sections.gap(PageSpacing.card);
-  sections.add(
-    ReadingView<Vo2max>(
-      reading: facts.snapshot.vo2max,
-      label: 'VO₂max · estimate',
-      caveatCarrier: CaveatCarrier.insideCard,
-      builder: (context, vo2max) =>
-          Vo2maxCard(vo2max: vo2max, reveals: reveals),
-    ),
-  );
+/// `14 nights · baseline 45 ms`, or the count alone when nothing is baselined.
+///
+/// **Never a baseline computed here.** `today_facts.dart` records why: a median
+/// over the fourteen points on the chart is a baseline over a different window
+/// from the one every other surface quotes — a second definition arriving as a
+/// helpful-looking last resort. A metric the server has not baselined draws no
+/// baseline.
+String _baselineNote(int samples, double? baseline, String unit) {
+  final nights = '$samples ${samples == 1 ? 'night' : 'nights'}';
+  return baseline == null
+      ? nights
+      : '$nights · baseline ${baseline.round()} $unit';
 }

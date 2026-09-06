@@ -42,6 +42,7 @@ class SummaryTile extends StatelessWidget {
     this.icon,
     this.meta,
     this.tone,
+    this.fraction,
     this.segments = 0,
     this.filled = defaultFilled,
     super.key,
@@ -98,6 +99,33 @@ class SummaryTile extends StatelessWidget {
   /// Declares the family for this tile. Null inherits the enclosing scope.
   final Tone? tone;
 
+  /// `.tile-meter` — a continuous fill, 0–1, or null for no meter.
+  ///
+  /// ```css
+  /// .tile-meter   { height:4px; border-radius:4px; margin:14px 0 6px;
+  ///                 background:color-mix(in oklch,var(--family) 22%,
+  ///                                      var(--family-soft)); overflow:clip; }
+  /// .tile-meter i { background:var(--family); height:100%; }
+  /// ```
+  ///
+  /// The prototype's Today uses this rather than the [segments] track: the three
+  /// readings it shows are continuous, and four lit rungs out of eight would be
+  /// a resolution the measurement does not have. Null draws **nothing** — a
+  /// reading with no reference has no proportion to draw.
+  final double? fraction;
+
+  /// `.tile-meter { height: 4px }`, and its radius.
+  static const double meterHeight = 4;
+
+  /// `.tile-meter { margin: 14px 0 6px }` — the top half.
+  static const double meterGap = 14;
+
+  /// Its bottom half.
+  static const double meterBottomGap = 6;
+
+  /// The share of the family in the meter's ground — `color-mix … 22%`.
+  static const double meterGroundMix = 0.22;
+
   /// How many segments the micro-track has. Zero draws no track.
   final int segments;
 
@@ -151,6 +179,11 @@ class SummaryTile extends StatelessWidget {
             softWrap: false,
             overflow: TextOverflow.clip,
           ),
+          if (fraction case final double filled) ...<Widget>[
+            const SizedBox(height: meterGap),
+            TileMeter(fraction: filled),
+            const SizedBox(height: meterBottomGap - metaGap),
+          ],
           if (meta != null) ...<Widget>[
             const SizedBox(height: metaGap),
             Text(
@@ -166,6 +199,44 @@ class SummaryTile extends StatelessWidget {
             MicroTrack(segments: segments, filled: filled),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// `.tile-meter` — one continuous fill on a tinted ground, in the family.
+///
+/// The ground is `color-mix(in oklch, var(--family) 22%, var(--family-soft))`,
+/// drawn as `Color.lerp(familySoft, family, 0.22)`: sRGB against OKLab, on a
+/// 4 px strip between two colours of the same family, is not a difference the
+/// eye has anywhere to see. `bio_hero.dart` records the same trade.
+class TileMeter extends StatelessWidget {
+  /// Builds a meter filled to [fraction] of its width.
+  const TileMeter({required this.fraction, super.key});
+
+  /// How full it is, 0–1. Clamped: a bar longer than its track is a reading
+  /// drawn outside the scale it is read against.
+  final double fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    final family = context.family;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SummaryTile.meterHeight),
+      child: SizedBox(
+        height: SummaryTile.meterHeight,
+        child: ColoredBox(
+          color: Color.lerp(
+            context.familySoft,
+            family,
+            SummaryTile.meterGroundMix,
+          )!,
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: fraction.isFinite ? fraction.clamp(0.0, 1.0) : 0.0,
+            child: ColoredBox(color: family),
+          ),
+        ),
       ),
     );
   }

@@ -28,6 +28,7 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
+import 'package:healthee/features/today/widgets/actions_section.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
 
 import '../_sleep_stubs.dart';
@@ -112,10 +113,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // `Today` is the action card's own label. It used to be the tab bar's too,
-      // so this read `findsOneWidget` — the bar now lives in the shell and this
-      // host pumps the screen alone, which makes the assertion the plain one.
-      expect(find.text('Today'), findsNothing, reason: 'no action card at all');
+      // By type, not by text: `Today` is the screen's own h1 since the v02
+      // redesign, so the old text finder would now be asking about the title
+      // rather than about the card that is meant to be absent.
+      expect(find.byType(ActionsSection), findsNothing,
+          reason: 'no action card at all');
       // Scoped OUT of the header: the connection ring is a
       // `CircularProgressIndicator` in every state now, and it is chrome rather
       // than a section waiting for data. An unscoped finder would be asserting

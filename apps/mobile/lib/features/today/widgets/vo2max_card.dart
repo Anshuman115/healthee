@@ -41,6 +41,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/vo2max.dart';
 import 'package:healthee/features/today/widgets/stat_columns.dart';
 import 'package:healthee/shared/charts/h_area.dart';
+import 'package:healthee/shared/format/metric_names.dart';
 import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
@@ -187,14 +188,3 @@ String statValue(double? value) {
   }
   return value % 1 == 0 ? value.round().toString() : value.toStringAsFixed(1);
 }
-
-/// The owner-facing name for a VO₂max instrument.
-///
-/// The ids are `read/vo2max.py`'s three tiers. An unknown one keeps its id, so a
-/// fourth instrument is visible rather than silently unnamed.
-String methodLabel(String method) => switch (method) {
-  'gps_graded' => 'a recorded session',
-  'hr_reserve' => 'heart-rate reserve',
-  'jurca_non_exercise' => 'the non-exercise model',
-  _ => method,
-};

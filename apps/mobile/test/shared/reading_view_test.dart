@@ -68,7 +68,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Today'), findsOneWidget);
+      // Two of them since the v02 redesign: the tab bar's label, and the
+      // screen's own h1. Both are Today, which is the claim.
+      expect(find.text('Today'), findsWidgets);
       expect(find.text('Foundation — the four honesty states'), findsNothing);
     });
 

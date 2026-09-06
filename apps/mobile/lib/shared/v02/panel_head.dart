@@ -25,6 +25,8 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
+import 'package:healthee/shared/v02/panel_density.dart';
 
 /// The head of a [Panel]: title (+ optional icon) left, optional action right.
 class PanelHead extends StatelessWidget {
@@ -32,6 +34,7 @@ class PanelHead extends StatelessWidget {
   const PanelHead({
     required this.title,
     this.icon,
+    this.infoKey,
     this.actionLabel,
     this.onAction,
     super.key,
@@ -52,17 +55,35 @@ class PanelHead extends StatelessWidget {
   /// Drawn in the resolved family colour, before the title.
   final IconData? icon;
 
+  /// Opens the plain-language explainer for this metric, when it has one.
+  ///
+  /// The prototype's `H.evidence(...)` — *"How we know"* with an info glyph —
+  /// on every panel whose number is a model output. An unknown key draws
+  /// nothing (`metric_info_sheet.dart`), so a panel naming a metric this build
+  /// has no explainer for is silent rather than dead.
+  final String? infoKey;
+
   /// The text button's label. Null draws no action.
   final String? actionLabel;
 
   /// What the action does.
   final VoidCallback? onAction;
 
+  /// `.twin-panels .panel-head .text-button .icon { width: 13px }`.
+  static const double compactActionIcon = 13;
+
+  /// `.twin-panels .panel-title { gap: 5px }`.
+  static const double compactGap = 5;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final family = context.family;
+    final compact = context.compactPanel;
     final label = actionLabel;
+    if (compact) {
+      return _compact(context, colors.ink, family, label);
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
@@ -85,6 +106,7 @@ class PanelHead extends StatelessWidget {
             ],
           ),
         ),
+        if (infoKey case final String key) MetricInfoDot(key),
         if (label != null) ...<Widget>[
           const SizedBox(width: gap),
           TextButton(
@@ -102,4 +124,50 @@ class PanelHead extends StatelessWidget {
       ],
     );
   }
+
+  /// The half-width head: a smaller title, and an action reduced to its arrow.
+  ///
+  /// `font-size: 0` on the text button is the prototype deleting the words and
+  /// keeping the glyph. A `Text('')` would do the same thing and would still be
+  /// read aloud as an empty button, so the label travels as the icon's semantic
+  /// label instead — the control keeps its name for anyone who cannot see the
+  /// arrow.
+  Widget _compact(
+    BuildContext context,
+    Color ink,
+    Color family,
+    String? label,
+  ) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: <Widget>[
+      if (icon != null) ...<Widget>[
+        Icon(icon, size: iconSize, color: family),
+        const SizedBox(width: compactGap),
+      ],
+      Expanded(
+        child: Text(
+          title,
+          style: TypeScale.panelTitleCompact.copyWith(color: ink),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      if (infoKey case final String key) MetricInfoDot(key),
+      if (label != null) ...<Widget>[
+        const SizedBox(width: compactGap),
+        Semantics(
+          button: true,
+          label: label,
+          child: GestureDetector(
+            onTap: onAction,
+            child: Icon(
+              Icons.arrow_forward,
+              size: compactActionIcon,
+              color: family,
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
 }

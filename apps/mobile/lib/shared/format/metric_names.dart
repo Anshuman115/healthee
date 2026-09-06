@@ -76,3 +76,39 @@ const Map<String, String> _names = <String, String>{
   'caffeine': 'caffeine',
   'alcohol': 'alcohol',
 };
+
+/// The owner-facing name for a VO₂max instrument.
+///
+/// The ids are `read/vo2max.py`'s three tiers. An unknown one keeps its id, so a
+/// fourth instrument is visible rather than silently unnamed.
+///
+/// It lives here rather than beside one of the three cards that print it: the
+/// v02 fitness panel, the pre-v02 Today card and the Activity card all name the
+/// same instrument, and three copies of this switch is three chances for one of
+/// them to call `hr_reserve` something else.
+String methodLabel(String method) => switch (method) {
+  'gps_graded' => 'a recorded session',
+  'hr_reserve' => 'heart-rate reserve',
+  'jurca_non_exercise' => 'the non-exercise model',
+  _ => method,
+};
+
+/// The owner-facing name for a recovery factor id.
+///
+/// The keys are `recovery_score.factors`'s own — `hrv`, `rhr`, `rr`, `sleep` —
+/// and they are identifiers, not words. `rr` under a bar on a health screen is
+/// a log line where a name belongs, which is the same rule `note_names.dart`
+/// holds for citations. An unknown key keeps its key, so a fifth factor is
+/// visible rather than silently unnamed.
+///
+/// Here rather than beside one of the two cards that draw these bars: the v02
+/// recovery panel and the pre-v02 recovery card name the same four things, and
+/// two copies of this switch is two chances for one of them to call `rr`
+/// something else.
+String factorLabel(String name) => switch (name) {
+  'hrv' => 'HRV',
+  'rhr' => 'Resting HR',
+  'rr' => 'Breathing',
+  'sleep' => 'Sleep',
+  _ => name,
+};
