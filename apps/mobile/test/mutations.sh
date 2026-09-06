@@ -128,7 +128,7 @@ mutate 'the daily counter is never stored' "$STORE" "$WRITER" \
 HUES=lib/core/theme/instrument_hues.dart
 PALETTE=lib/core/theme/palette.dart
 STAGES=lib/core/theme/sleep_stage_palette.dart
-HUES_TEST=test/theme/legacy_hues_test.dart
+HUES_TEST=test/theme/v02_tokens_test.dart
 STAGE_TEST=test/theme/sleep_stage_test.dart
 CONTRAST_TEST=test/theme/stage_contrast_test.dart
 TOKEN_TEST=test/core/theme_test.dart
@@ -142,20 +142,21 @@ TOKEN_TEST=test/core/theme_test.dart
 # charts share.
 
 # A hue transcribed one digit wrong. Renders perfectly; is not legacy's app.
-mutate 'a legacy hue is transcribed wrong' "$HUES_TEST" "$PALETTE" \
-  '  static const Color steps = Color(0xFFB27F2C);' \
-  '  static const Color steps = Color(0xFFB27F2D);'
+mutate 'a v02 family hue is transcribed wrong' "$HUES_TEST" "$PALETTE" \
+  '  static const Color movement = Color(0xFF774000);' \
+  '  static const Color movement = Color(0xFF774001);'
 
 # The dark theme quietly wearing the light theme's value. Invisible by day.
 mutate 'the dark hue set copies the light one' "$HUES_TEST" "$PALETTE" \
-  '  static const Color sleep = Color(0xFF968EC9);' \
-  '  static const Color sleep = LegacyLightHues.sleep;'
+  '  static const Color sleep = Color(0xFFC5A8FF);' \
+  '  static const Color sleep = LightFamilies.sleep;'
 
-# The collision legacy makes ON PURPOSE, undone by a well-meaning reader who
-# thinks a metric hue should never be a verdict. It was true of the old system.
-mutate 'someone separates cHrv from the green accent' "$HUES_TEST" "$PALETTE" \
-  '  static const Color hrv = Color(0xFF1F6F54);' \
-  '  static const Color hrv = Color(0xFF2E8B6A);'
+# The reverse of legacy's rule. Legacy FUSED identity and verdict (cHrv WAS the
+# green); v02 separates them, so the regression is someone re-merging the two
+# because "the fitness colour and the good colour should surely match".
+mutate 'the fitness family is re-merged with the favourable verdict' "$HUES_TEST" "$PALETTE" \
+  '  static const Color fav = Color(0xFF065F3D);' \
+  '  static const Color fav = LightFamilies.fitness;'
 
 # Two sleep stages collapsing onto one colour: a hypnogram that cannot be read.
 mutate 'deep and light sleep share a colour' "$STAGE_TEST $CONTRAST_TEST" "$HUES" \
@@ -188,20 +189,20 @@ mutate 'core and light stop being the same stage' "$STAGE_TEST" "$HUES" \
 # verbatim-port rule and not the docstring under it.
 mutate "legacy's four dark stage values are restored" \
   "$CONTRAST_TEST $TOKEN_TEST" "$STAGES" \
-  '  static const Color deep = Color(0xFFFFCC73);' \
+  '  static const Color deep = Color(0xFFFECC73);' \
   '  static const Color deep = Color(0xFFD9A84E);' \
-  '  static const Color light = Color(0xFF87AECF);' \
+  '  static const Color light = Color(0xFF89B0D1);' \
   '  static const Color light = Color(0xFF7DA3C4);' \
-  '  static const Color rem = Color(0xFF867EB8);' \
+  '  static const Color rem = Color(0xFF8A82BC);' \
   '  static const Color rem = Color(0xFF968EC9);' \
-  '  static const Color awake = Color(0xFFA8472E);' \
+  '  static const Color awake = Color(0xFFAE4D33);' \
   '  static const Color awake = Color(0xFFE07A5F);'
 
 # ONE value put back. The 1.02:1 pair, which is the specific thing the owner
 # could not see. A wholesale-revert test would not catch a single-line edit.
 mutate "the dark REM value alone goes back to cSleep" \
   "$CONTRAST_TEST $TOKEN_TEST" "$STAGES" \
-  '  static const Color rem = Color(0xFF867EB8);' \
+  '  static const Color rem = Color(0xFF8A82BC);' \
   '  static const Color rem = Color(0xFF968EC9);'
 
 # The light theme's worst pair was `light` vs `awake` at 1.12:1.
@@ -215,25 +216,25 @@ mutate "the light AWAKE value alone goes back to cHeart" \
 mutate 'a stage colour is re-merged with its metric hue' \
   "$CONTRAST_TEST $TOKEN_TEST $STAGE_TEST" "$HUES" \
   '      stageDeep = DarkStagePalette.deep,' \
-  '      stageDeep = LegacyDarkHues.steps,'
+  '      stageDeep = DarkFamilies.movement,'
 
 # The ramp kept but scrambled: four fine colours, no longer ordered by depth, so
 # lane position and lightness stop agreeing and greyscale says nothing.
 mutate 'the ramp stops being ordered by depth' "$CONTRAST_TEST" "$STAGES" \
-  '  static const Color deep = Color(0xFFFFCC73);
+  '  static const Color deep = Color(0xFFFECC73);
 ' \
-  '  static const Color deep = Color(0xFF867EB8);
+  '  static const Color deep = Color(0xFF8A82BC);
 ' \
-  '  static const Color rem = Color(0xFF867EB8);
+  '  static const Color rem = Color(0xFF8A82BC);
 ' \
-  '  static const Color rem = Color(0xFFFFCC73);
+  '  static const Color rem = Color(0xFFFECC73);
 '
 
 # The grey joining the ramp. "Unrecognised" is the absence of a stage identity;
 # giving it chroma makes it a fifth stage nobody named.
 mutate 'the unrecognised grey gains chroma' "$CONTRAST_TEST" "$STAGES" \
-  '  static const Color unstaged = Color(0xFF757575);' \
-  '  static const Color unstaged = Color(0xFF75855F);'
+  '  static const Color unstaged = Color(0xFF797979);' \
+  '  static const Color unstaged = Color(0xFF79885F);'
 
 # Colour left as the ONLY carrier on the one surface with no legend — Today's
 # 10 px sleep bar, where a row of keys does not fit.
