@@ -41,6 +41,21 @@ Widget _host(FakeSecretStore store, ScriptedServer server) {
   );
 }
 
+/// Pumps [app] into a viewport tall enough to hit-test the whole screen.
+///
+/// v02 draws the form inside one scrolling page under a detail header, so the
+/// submit button sits below the default 800x600 window's fold — and a tap on a
+/// widget that is built but off-screen misses SILENTLY, which reads here as
+/// "the 200 outcome renders nothing". What these tests assert is which sentence
+/// each outcome produces, never what fits above the fold.
+Future<void> _pump(WidgetTester tester, Widget app) async {
+  tester.view
+    ..physicalSize = const Size(420, 2400)
+    ..devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(app);
+}
+
 /// Fills both fields and submits.
 Future<void> _submit(
   WidgetTester tester, {
@@ -57,7 +72,7 @@ void main() {
   group('the three shared async states', () {
     testWidgets('loading names what it is waiting for', (tester) async {
       // One frame only: the keystore read has not resolved yet.
-      await tester.pumpWidget(_host(FakeSecretStore(), ScriptedServer()));
+      await _pump(tester, _host(FakeSecretStore(), ScriptedServer()));
 
       expect(find.byType(LoadingState), findsOneWidget);
       expect(find.text('Checking what is already signed in'), findsOneWidget);
@@ -66,7 +81,8 @@ void main() {
     testWidgets('a keystore failure renders an error WITH a retry', (
       tester,
     ) async {
-      await tester.pumpWidget(
+      await _pump(
+        tester,
         ProviderScope(
           overrides: [
             serverSessionProvider.overrideWith(
@@ -90,7 +106,7 @@ void main() {
     testWidgets('signed out renders the form, not a blank card', (
       tester,
     ) async {
-      await tester.pumpWidget(_host(FakeSecretStore(), ScriptedServer()));
+      await _pump(tester, _host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
       expect(find.text('Sign in to your server'), findsOneWidget);
@@ -101,7 +117,7 @@ void main() {
 
   group('the form', () {
     testWidgets('prefills the address from the build', (tester) async {
-      await tester.pumpWidget(_host(FakeSecretStore(), ScriptedServer()));
+      await _pump(tester, _host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
       final url = tester.widget<TextField>(find.byType(TextField).first);
@@ -112,7 +128,7 @@ void main() {
     testWidgets('the token field is obscured, and the eye reveals it', (
       tester,
     ) async {
-      await tester.pumpWidget(_host(FakeSecretStore(), ScriptedServer()));
+      await _pump(tester, _host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
       TextField token() =>
@@ -131,11 +147,13 @@ void main() {
     testWidgets('the promise about where the token goes is ON the form', (
       tester,
     ) async {
-      await tester.pumpWidget(_host(FakeSecretStore(), ScriptedServer()));
+      await _pump(tester, _host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
+      // v02 sets the prose with a typographic apostrophe, so the needle carries
+      // one too — the promise itself is word for word what it was.
       expect(
-        find.textContaining("kept in this phone's secure keystore"),
+        find.textContaining('kept in this phone’s secure keystore'),
         findsOneWidget,
       );
       expect(find.textContaining('never written to a log'), findsOneWidget);
@@ -147,7 +165,7 @@ void main() {
       tester,
     ) async {
       final store = FakeSecretStore();
-      await tester.pumpWidget(_host(store, ScriptedServer()));
+      await _pump(tester, _host(store, ScriptedServer()));
       await tester.pumpAndSettle();
       await _submit(tester);
 
@@ -163,7 +181,8 @@ void main() {
       tester,
     ) async {
       final store = FakeSecretStore();
-      await tester.pumpWidget(
+      await _pump(
+        tester,
         _host(store, ScriptedServer(reply: const ServerReply(401))),
       );
       await tester.pumpAndSettle();
@@ -185,7 +204,8 @@ void main() {
       tester,
     ) async {
       final store = FakeSecretStore();
-      await tester.pumpWidget(
+      await _pump(
+        tester,
         _host(
           store,
           ScriptedServer(failWith: hostNotFound('healthee.example.com')),
@@ -206,7 +226,8 @@ void main() {
     testWidgets('a rejected certificate reads as TLS, not as a dead network', (
       tester,
     ) async {
-      await tester.pumpWidget(
+      await _pump(
+        tester,
         _host(FakeSecretStore(), ScriptedServer(failWith: tlsRejected())),
       );
       await tester.pumpAndSettle();
@@ -225,7 +246,7 @@ void main() {
     ) async {
       final store = FakeSecretStore();
       final server = ScriptedServer();
-      await tester.pumpWidget(_host(store, server));
+      await _pump(tester, _host(store, server));
       await tester.pumpAndSettle();
       await _submit(tester, url: 'http://healthee.example.com');
 
@@ -242,7 +263,7 @@ void main() {
       tester,
     ) async {
       final store = FakeSecretStore();
-      await tester.pumpWidget(_host(store, ScriptedServer()));
+      await _pump(tester, _host(store, ScriptedServer()));
       await tester.pumpAndSettle();
       await _submit(tester, token: '  $kSentinelToken\n');
 
@@ -259,7 +280,7 @@ void main() {
       store.values
         ..['helio_token'] = kSentinelToken
         ..['helio_base_url'] = _url;
-      await tester.pumpWidget(_host(store, ScriptedServer()));
+      await _pump(tester, _host(store, ScriptedServer()));
       await tester.pumpAndSettle();
     }
 

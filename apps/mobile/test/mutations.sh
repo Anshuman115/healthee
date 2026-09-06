@@ -479,9 +479,12 @@ mutate 'polarity is ignored and the sign decides' "$TRENDS_TEST" "$POLARITY" \
 
 # ── an out-of-shell route reached with `go` is a one-way door ───────────────
 SCREEN=lib/features/today/today_screen.dart
-DIAG_ROW=lib/features/settings/widgets/diagnostics_setting.dart
-STRAP_ROW=lib/features/settings/widgets/strap_setting.dart
-SERVER_ROW=lib/features/settings/widgets/server_setting.dart
+# The three rows moved onto the v02 settings index and the device screen when
+# the supporting flows were rebuilt. The GUARD is unchanged — an out-of-shell
+# route reached with `go` still has nothing beneath it — so the mutation follows
+# the row rather than being retired with the widget that used to hold it.
+SETTINGS_INDEX=lib/features/settings/settings_screen.dart
+DEVICE_SCREEN=lib/features/settings/device_screen.dart
 ROUTER=lib/core/router.dart
 BACK_TEST="test/features/back_navigation_test.dart test/features/out_of_shell_navigation_test.dart"
 
@@ -494,17 +497,17 @@ mutate 'the avatar reaches settings with go' "$BACK_TEST" "$SCREEN" \
   '          onOpenProfile: () => context.go(Routes.settings),'
 
 # Two levels out: back from diagnostics must land on the screen that opened it.
-mutate 'diagnostics is reached with go' "$BACK_TEST" "$DIAG_ROW" \
-  '              onPressed: () => unawaited(context.push(Routes.diagnostics)),' \
-  '              onPressed: () => context.go(Routes.diagnostics),'
+mutate 'diagnostics is reached with go' "$BACK_TEST" "$SETTINGS_INDEX" \
+  '              onTap: () => unawaited(context.push(Routes.diagnostics)),' \
+  '              onTap: () => context.go(Routes.diagnostics),'
 
-mutate 'pairing is reached with go' "$BACK_TEST" "$STRAP_ROW" \
-  '              onPressed: () => unawaited(context.push(Routes.pairing)),' \
-  '              onPressed: () => context.go(Routes.pairing),'
+mutate 'pairing is reached with go' "$BACK_TEST" "$DEVICE_SCREEN" \
+  '              onTap: () => unawaited(context.push(Routes.pairing)),' \
+  '              onTap: () => context.go(Routes.pairing),'
 
-mutate 'the server screen is reached with go' "$BACK_TEST" "$SERVER_ROW" \
-  '              onPressed: () => unawaited(context.push(Routes.serverSignIn)),' \
-  '              onPressed: () => context.go(Routes.serverSignIn),'
+mutate 'the server screen is reached with go' "$BACK_TEST" "$SETTINGS_INDEX" \
+  '              onTap: () => unawaited(context.push(Routes.serverSignIn)),' \
+  '              onTap: () => context.go(Routes.serverSignIn),'
 
 # "Done" on a PUSHED setup flow must return where it came from. Hard-coding the
 # redirect'"'"'s answer throws away the screen underneath, which looks correct until
@@ -516,6 +519,66 @@ mutate 'leaving a setup flow always goes to Today' "$BACK_TEST" "$ROUTER" \
     context.go(Routes.today);
   }' \
   '  context.go(Routes.today);'
+
+# ── the v02 supporting flows: settings, profile, account, pairing ───────────
+APPEARANCE=lib/features/settings/appearance_screen.dart
+PROFILE_FORM=lib/features/profile/widgets/profile_editor.dart
+SESSION_CARD=lib/features/signin/widgets/server_session_card.dart
+FRESHNESS=lib/features/settings/data_freshness_screen.dart
+SETTINGS_TEST=test/features/settings_screen_test.dart
+LAYOUT_TEST=test/features/settings_layout_test.dart
+PROFILE_TEST=test/profile/profile_edit_test.dart
+
+# Appearance must READ the one theme state, never hold a second copy. A control
+# pinned to a literal renders one theme before the picker opens and another
+# after — the exact drift the single source of truth exists to prevent.
+mutate 'the appearance tiles stop reading the app state' "$SETTINGS_TEST" "$APPEARANCE" \
+  '          selected: mode,' \
+  '          selected: ThemeMode.light,'
+
+# A prefilled weight that the owner taps Save on becomes a weight measured
+# TODAY, and the freshness horizon that withholds a stale VO2max is then
+# satisfied by a number nobody stepped on a scale for.
+mutate 'the stored weight is prefilled as a new weigh-in' "$PROFILE_TEST" "$PROFILE_FORM" \
+  '  final TextEditingController _weight = TextEditingController();' \
+  '  late final TextEditingController _weight = TextEditingController(
+    text: widget.profile.weightKg?.toString(),
+  );'
+
+# The card that overflowed by 110px on a 420px phone, restored. It went
+# unnoticed because every suite pumped the 800px default.
+mutate 'the session controls go back into a Row' "$LAYOUT_TEST" "$SESSION_CARD" \
+  '          HButton(
+            label: '"'"'Sign out'"'"',
+            kind: HButtonKind.secondary,
+            onPressed: enabled ? onSignOut : null,
+          ),
+          const SizedBox(height: stackGap),
+          HButton(
+            label: '"'"'Use a different server'"'"',
+            kind: HButtonKind.soft,
+            onPressed: enabled ? onReplace : null,
+          ),' \
+  '          Row(
+            children: <Widget>[
+              HButton(
+                label: '"'"'Sign out'"'"',
+                kind: HButtonKind.secondary,
+                onPressed: enabled ? onSignOut : null,
+              ),
+              HButton(
+                label: '"'"'Use a different server'"'"',
+                kind: HButtonKind.soft,
+                onPressed: enabled ? onReplace : null,
+              ),
+            ],
+          ),'
+
+# `disclosure.reason` is an operator'"'"'s filter key; `.message` is the sentence
+# the owner reads. A row printing the key explains itself in our words.
+mutate 'a withheld stream prints its filter key' "$SETTINGS_TEST" "$FRESHNESS" \
+  '        disclosure.message,' \
+  '        disclosure.reason,'
 
 # ── Sleep: a card that blanks a value without saying so ─────────────────────
 # The Sleep port's one deliberate difference from legacy is that a missing field
