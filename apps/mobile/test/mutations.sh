@@ -178,49 +178,59 @@ mutate 'core and light stop being the same stage' "$STAGE_TEST" "$HUES" \
   "    'core' => stageRem,
     'light' => stageLight,"
 
-# ── the stage contrast repair ───────────────────────────────────────────────
-# The owner's report, on the installed dark build: "the sleep graph … looks dull
-# and has accessibility issues, only yellow is visible, others are not." Legacy
-# borrows four near-isoluminant metric hues for its four stages, so three of them
-# measured 1.02:1 to 1.38:1 AGAINST EACH OTHER. Every mutation below is a way for
-# that to come back, and each one renders perfectly.
+# ── the shipped stage set is the prototype's ────────────────────────────────
+# `design/mobile-preview/richer.css` ships four stage hues and those are what the
+# app draws. They were once substituted for a derived luminance ramp on
+# accessibility grounds; the owner restated the rule — the prototype IS the
+# specification — so the substitution is reverted and the measurements are kept
+# as recordings. Every mutation below is a way for a stage to drift off
+# `richer.css` while still rendering perfectly.
 
-# The whole set reverted — "restore legacy's values", by someone who reads the
-# verbatim-port rule and not the docstring under it.
-mutate "legacy's four dark stage values are restored" \
+# The whole dark set reverted to legacy's borrowed metric hues — the edit made by
+# someone who reads the ramp's docstring and not the file header above it.
+mutate "legacy's four dark stage values replace the prototype's" \
   "$CONTRAST_TEST $TOKEN_TEST" "$STAGES" \
-  '  static const Color deep = Color(0xFFFECC73);' \
-  '  static const Color deep = Color(0xFFD9A84E);' \
-  '  static const Color light = Color(0xFF89B0D1);' \
-  '  static const Color light = Color(0xFF7DA3C4);' \
-  '  static const Color rem = Color(0xFF8A82BC);' \
-  '  static const Color rem = Color(0xFF968EC9);' \
-  '  static const Color awake = Color(0xFFAE4D33);' \
-  '  static const Color awake = Color(0xFFE07A5F);'
+  '  static const Color darkDeep = Color(0xFF7859E3);' \
+  '  static const Color darkDeep = Color(0xFFD9A84E);' \
+  '  static const Color darkLight = Color(0xFF9EBDFF);' \
+  '  static const Color darkLight = Color(0xFF7DA3C4);' \
+  '  static const Color darkRem = Color(0xFFDA7BDD);' \
+  '  static const Color darkRem = Color(0xFF968EC9);' \
+  '  static const Color darkAwake = Color(0xFFFFBD76);' \
+  '  static const Color darkAwake = Color(0xFFE07A5F);'
 
-# ONE value put back. The 1.02:1 pair, which is the specific thing the owner
-# could not see. A wholesale-revert test would not catch a single-line edit.
-mutate "the dark REM value alone goes back to cSleep" \
+# ONE value moved. A wholesale-revert test would not catch a single-line edit,
+# and one wrong stage is a whole hypnogram lane painted in another stage's hue.
+mutate "the dark REM value alone drifts off richer.css" \
   "$CONTRAST_TEST $TOKEN_TEST" "$STAGES" \
-  '  static const Color rem = Color(0xFF8A82BC);' \
-  '  static const Color rem = Color(0xFF968EC9);'
+  '  static const Color darkRem = Color(0xFFDA7BDD);' \
+  '  static const Color darkRem = Color(0xFF968EC9);'
 
-# The light theme's worst pair was `light` vs `awake` at 1.12:1.
-mutate "the light AWAKE value alone goes back to cHeart" \
+# The same, in the theme the owner reads by day.
+mutate "the light AWAKE value alone drifts off richer.css" \
   "$CONTRAST_TEST $TOKEN_TEST" "$STAGES" \
-  '  static const Color awake = Color(0xFF631000);' \
-  '  static const Color awake = Color(0xFFBF472E);'
+  '  static const Color lightAwake = Color(0xFFEDA253);' \
+  '  static const Color lightAwake = Color(0xFFBF472E);'
+
+# The superseded ramp put back where the prototype's set belongs — the exact
+# revert this branch exists to undo, and it renders beautifully.
+mutate 'the superseded ramp is restored over the prototype' \
+  "$CONTRAST_TEST $TOKEN_TEST" "$HUES" \
+  '      stageDeep = V02StagePrototype.darkDeep,' \
+  '      stageDeep = DarkStagePalette.deep,'
 
 # The split undone at the source: a stage pointed back at its metric hue. This is
 # the edit that looks like a tidy-up — "these are the same colour, why two names".
 mutate 'a stage colour is re-merged with its metric hue' \
   "$CONTRAST_TEST $TOKEN_TEST $STAGE_TEST" "$HUES" \
-  '      stageDeep = DarkStagePalette.deep,' \
+  '      stageDeep = V02StagePrototype.darkDeep,' \
   '      stageDeep = DarkFamilies.movement,'
 
-# The ramp kept but scrambled: four fine colours, no longer ordered by depth, so
-# lane position and lightness stop agreeing and greyscale says nothing.
-mutate 'the ramp stops being ordered by depth' "$CONTRAST_TEST" "$STAGES" \
+# The kept record decaying into a story. The superseded ramp is retained so the
+# trade stays legible, and its docstring claims it darkens monotonically by
+# depth; scramble it and the claim is fiction nobody checks.
+mutate 'the superseded ramp stops measuring what it claims' \
+  "$CONTRAST_TEST" "$STAGES" \
   '  static const Color deep = Color(0xFFFECC73);
 ' \
   '  static const Color deep = Color(0xFF8A82BC);
@@ -1358,6 +1368,97 @@ mutate 'the chapter title goes back to sharing the row' \
                 child: Text(' \
   '              Flexible(
                 child: Text('
+
+# ── the prototype's own chrome: the pinned nav, the glint, the date control ──
+# Four things had drifted from `design/mobile-preview/` on judgement calls that
+# were not ours to make. Each mutation below is the drift coming back, and every
+# one of them renders perfectly.
+SHELL_SRC=lib/shared/instrument_screen.dart
+BODY_SRC=lib/features/today/today_body.dart
+REVEAL=lib/shared/reveal_once.dart
+PINNED_TEST=test/features/chapter_nav_pinned_test.dart
+REVEAL_TEST=test/shared/reveal_once_test.dart
+HALO=lib/shared/v02/instruments/halo_painter.dart
+HALO_TEST=test/shared/instruments/halo_ink_test.dart
+PARTS=lib/shared/v02/panel_parts.dart
+PARTS_TEST=test/shared/panel_value_width_test.dart
+VIEW_DATE=lib/data/store/view_date.dart
+DEVICE_REPO=lib/data/device/device_repository.dart
+SECTIONS=lib/features/today/today_sections.dart
+DATE_TEST=test/features/date_control_test.dart
+
+# The nav un-pinned — the edit that reads as a simplification and silently gives
+# back `position: sticky`.
+mutate 'the chapter nav scrolls away again' "$PINNED_TEST" "$BODY_SRC" \
+  '    sections.addPinned(
+      TodayChapterNav(chapters: chapters),
+      ChapterNav.extentOf,
+    );' \
+  '    sections.add(TodayChapterNav(chapters: chapters));'
+
+# The pin kept but the shell told to ignore it. Same rendered result, different
+# line, and a test that only watched the call site would miss it.
+mutate 'the shell stops honouring a pinned section' "$PINNED_TEST" "$SHELL_SRC" \
+  '      if (section.pinnedExtent case final SectionExtent extent) {' \
+  '      if (section.pinnedExtent case final SectionExtent extent when false) {'
+
+# `CLAUDE.md`'s hard rule, broken inside the restructured scroll: every chart
+# replays its reveal on the way back, which is the known expensive legacy bug.
+mutate 'a chart replays its reveal on scroll-back' \
+  "$REVEAL_TEST $PINNED_TEST" "$REVEAL" \
+  '  bool markSeen(Object id) => _seen.add(id);' \
+  '  bool markSeen(Object id) {
+    _seen.add(id);
+    return true;
+  }'
+
+# The glint back to a brightness event: `--halo-warm` resolved and then not used.
+mutate 'the halo glint stops being warm' "$HALO_TEST" "$HALO" \
+  '      glint: colors.haloWarm,' \
+  '      glint: colors.bioInk,'
+
+# `--halo-warm` transcribed one digit wrong. Renders; is not the prototype.
+mutate 'the halo warm is transcribed wrong' "$HALO_TEST" "$PALETTE" \
+  '  static const Color haloWarm = Color(0xFFFED16B);' \
+  '  static const Color haloWarm = Color(0xFFFED16C);'
+
+# `.panel-summary` back to two equal halves, which clips every long figure on
+# every phone width and looks fine on the 800 px test surface.
+mutate 'the panel figure goes back to sharing the row' "$PARTS_TEST" "$PARTS" \
+  '                    width: _figureWidth(
+                      context,
+                      constraints.maxWidth - gap,
+                      context.compactPanel,
+                    ),' \
+  '                    width: (constraints.maxWidth - gap) / 2,'
+
+# ⛔ STALE-AS-CURRENT. The date control without its refusal: a past day draws
+# today'"'"'s recovery, sleep health, debt, VO₂max and biological age under an older
+# date, and every one of them looks like a reading about that day.
+mutate "a past day renders today's judgements as its own" \
+  "$DATE_TEST" "$SECTIONS" \
+  '  final past =
+      extras.navigation != null && data.day.date != extras.navigation!.latest;' \
+  '  const past = false;'
+
+# The window gone: the control can ask for tomorrow, or for a day the horizon
+# already pruned, and both answer with a screen of withholds.
+mutate 'the date control can leave its window' "$DATE_TEST" "$VIEW_DATE" \
+  '  void select(String day) {
+    if (isViewableDay(day, ref.read(todayProvider))) {
+      state = day;
+    }
+  }' \
+  '  void select(String day) {
+    state = day;
+  }'
+
+# The selection stops reaching the data: the header moves and the screen does
+# not, which is a date control that lies about what is under it.
+mutate 'the measured half stops following the selection' \
+  "$DATE_TEST" "$DEVICE_REPO" \
+  '  return store.strapReader.day(ref.watch(viewDateProvider));' \
+  '  return store.strapReader.day(ref.watch(todayProvider));'
 
 echo
 echo "caught $PASS, survived $FAIL"
