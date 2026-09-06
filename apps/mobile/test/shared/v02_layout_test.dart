@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
+import 'package:healthee/shared/v02/bio_hero_parts.dart';
 import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/icon_tile.dart';

@@ -29,6 +29,7 @@ import 'package:healthee/shared/charts/h_area.dart';
 import 'package:healthee/shared/instrument/h_delta_badge.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/value_hole.dart';
+import 'package:healthee/shared/v02/summary_tile.dart';
 
 import '_today_host.dart';
 
@@ -306,7 +307,7 @@ void main() {
     });
   });
 
-  group('the six tiles on the real screen', () {
+  group('the summary tiles on the real screen', () {
     late LocalStore store;
 
     setUp(() async {
@@ -315,9 +316,13 @@ void main() {
     });
     tearDown(() async => store.close());
 
-    testWidgets("carries all six of legacy's tiles, by their legacy labels", (
+    testWidgets("CARRIES THE PROTOTYPE'S THREE TILES, BY ITS OWN LABELS", (
       tester,
     ) async {
+      // v02 replaces legacy's six-cell grid with `screens-overview.js`'s
+      // `summaryTiles()`: recovery, sleep and movement, three across, each a
+      // way into the chapter that explains it. `MetricTile` is unchanged and
+      // still has its own suite above; it is simply no longer on this screen.
       tester.view
         ..physicalSize = const Size(420, 14000)
         ..devicePixelRatio = 1.0;
@@ -325,23 +330,14 @@ void main() {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      // Scoped to the tiles: several of these words also appear as a recovery
-      // factor row or a gauge caption, which is the grid and the instruments
-      // above it agreeing rather than a duplicate.
       Finder inTile(String label) => find.descendant(
-        of: find.byType(MetricTile),
+        of: find.byType(SummaryTile),
         matching: find.text(label),
       );
-      for (final label in <String>[
-        'RESTING HR',
-        'HRV',
-        'SLEEP',
-        'RESPIRATORY RATE',
-        'STEPS',
-        'ENERGY · ACTIVE',
-      ]) {
+      for (final label in <String>['Recovery', 'Sleep', 'Movement']) {
         expect(inTile(label), findsOneWidget, reason: '$label is a tile');
       }
+      expect(find.byType(MetricTile), findsNothing);
     });
 
     testWidgets('the sleep tile reads the SERVER night the judgements came from', (
@@ -357,9 +353,14 @@ void main() {
       // `last_sleep.duration_min` is 380 in the contract snapshot; the strap row
       // the store was seeded with is a different night. Showing the server's is
       // what keeps its sleep-health judgement from sitting beside a night it was
-      // not computed from. The foot is legacy's stage split, of time ASLEEP.
-      expect(find.text('6:20'), findsOneWidget);
-      expect(find.text('DEEP 24% · REM 24%'), findsOneWidget);
+      // not computed from.
+      expect(
+        find.descendant(
+          of: find.byType(SummaryTile),
+          matching: find.text('6h 20m'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('renders in BOTH themes, not just the one it was built in', (
@@ -375,8 +376,8 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(
           find.descendant(
-            of: find.byType(MetricTile),
-            matching: find.text('STEPS'),
+            of: find.byType(SummaryTile),
+            matching: find.text('Movement'),
           ),
           findsOneWidget,
         );

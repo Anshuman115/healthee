@@ -22,7 +22,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
-import 'package:healthee/shared/states/withheld_card.dart';
+import 'package:healthee/shared/v02/withheld_panel.dart';
 
 import '../_today_stubs.dart';
 import '_today_host.dart';
@@ -91,7 +91,7 @@ void main() {
         await pump(tester, (json) => _withheld(json, entry.key));
 
         expect(find.text('Sentinel remedy for ${entry.key}.'), findsOneWidget);
-        expect(find.byType(WithheldCard), findsWidgets);
+        expect(find.byType(WithheldPanel), findsWidgets);
         expect(
           find.text(entry.value),
           findsNothing,
@@ -125,7 +125,7 @@ void main() {
 
       final card = find.ancestor(
         of: find.text('Sentinel remedy for vo2max.'),
-        matching: find.byType(WithheldCard),
+        matching: find.byType(WithheldPanel),
       );
       expect(card, findsOneWidget);
       expect(

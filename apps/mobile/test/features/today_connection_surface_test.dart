@@ -28,7 +28,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/health_lines.dart';
-import 'package:healthee/features/today/widgets/greeting_header.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
 
 import '_connection_fixtures.dart';
@@ -53,7 +53,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final header = tester.getRect(find.byType(GreetingHeader));
+      final header = tester.getRect(find.byType(TodayHeader));
       final body = tester.getRect(find.byType(Scaffold).first);
       expect(
         header.top - body.top,

@@ -34,6 +34,8 @@ import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/bio_hero.dart';
+import 'package:healthee/shared/v02/panel.dart';
 
 import '../_sleep_stubs.dart';
 import '_today_host.dart';
@@ -61,6 +63,11 @@ List<Rect> _cards(WidgetTester tester) => <Rect>[
   for (final type in <Finder>[
     find.byType(StateCard),
     find.byType(InstrumentModule),
+    // v02's two carriers. `Panel` and `BioHero` read the same `CaveatScope`
+    // that `InstrumentModule` does, so a Today card is measured the same way a
+    // Sleep card is.
+    find.byType(Panel),
+    find.byType(BioHero),
   ])
     for (var i = 0; i < tester.widgetList(type).length; i++)
       tester.getRect(type.at(i)),
@@ -109,6 +116,20 @@ void main() {
           isEmpty,
           reason: '${screen.key} rendered ${bare.length} unlabelled mark(s): '
               '$bare',
+        );
+      });
+
+      testWidgets('IT REALLY DOES CARRY CAVEATED READINGS', (tester) async {
+        // Without this the two assertions around it pass on a screen that has
+        // no disclosures to place, which is the shape of a vacuous suite — and
+        // it is exactly how a carrier that stopped drawing its note would slip
+        // through: nothing would be misplaced, because nothing would be there.
+        await pump(tester, screen.value);
+
+        expect(
+          _carriers(tester),
+          isNotEmpty,
+          reason: '${screen.key} draws no caveat carrier at all',
         );
       });
 

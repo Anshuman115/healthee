@@ -67,6 +67,10 @@ final DateTime now = DateTime(2026, 8, 4, 9, 30);
 /// leaving it unpinned would make every "this section falls silent" assertion
 /// depend on a plugin channel that is not there.
 ///
+/// [reducedMotion] defaults to TRUE and almost every suite wants it — see the
+/// `MediaQuery` in the body. `today_hero_test.dart` is the one that turns it off,
+/// because the halo running is the thing it is about.
+///
 /// [home] is the screen under test and defaults to Today. Sleep, Activity, Coach
 /// and Diagnostics read the SAME two providers through the same shell
 /// (`shared/instrument_screen.dart`), so one host serves all five rather than
@@ -79,6 +83,7 @@ Widget todayHost(
   bool serverUnreachable = false,
   ThemeData? themeOverride,
   bool signedIn = true,
+  bool reducedMotion = true,
   Widget? home,
   SleepPage? sleep,
   SleepConsistency? consistency,
@@ -94,6 +99,18 @@ Widget todayHost(
     consistency: consistency,
     child: MaterialApp(
       theme: themeOverride ?? AppTheme.light,
+      // **Reduced motion, always.** Today's hero carries `BioHalo`, an ambient
+      // particle field on a 30 fps ticker — a screen containing a running one
+      // never becomes idle, so every `pumpAndSettle` in every suite that pumps
+      // this screen would time out. `bio_halo.dart` reads
+      // `MediaQuery.disableAnimations` and stops dead under it, which is the
+      // same path a phone with the accessibility setting on takes. The halo's
+      // own motion has its own suite (`test/shared/instruments/`), against a
+      // pumped clock rather than a settled tree.
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: reducedMotion),
+        child: child!,
+      ),
       home: home ?? TodayScreen(now: now),
     ),
   );
@@ -106,8 +123,21 @@ Widget todayHost(
 /// pairing summary is pinned to a paired strap because `buildRouter` redirects an
 /// unpaired app to `/pairing` — a test of the tab shell would otherwise never see
 /// a tab.
-Widget routedApp(LocalStore store) =>
-    _scoped(store, paired: true, child: const HealtheeApp());
+Widget routedApp(LocalStore store) {
+  // `HealtheeApp` builds its own `MaterialApp`, which installs
+  // `MediaQuery.fromView` and overrides anything wrapped around it — so the
+  // reduced-motion switch `todayHost` uses cannot be reached from out here.
+  // The platform dispatcher is where that `MediaQuery` reads the flag from, and
+  // the binding clears its test values after every test.
+  //
+  // Same reason as `todayHost`: Today's hero halo never lets a tree settle.
+  TestWidgetsFlutterBinding.ensureInitialized()
+      .platformDispatcher
+      .accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+    disableAnimations: true,
+  );
+  return _scoped(store, paired: true, child: const HealtheeApp());
+}
 
 /// The overrides that keep a widget test off the network and off the keystore,
 /// wrapped around [child].
@@ -247,7 +277,15 @@ Future<void> seedDevice(LocalStore store) async {
 /// Scrolls until [finder] is on screen. The list is a `ListView.builder`, so
 /// most of Today is not built until it is needed — which is the point of it.
 Future<void> reveal(WidgetTester tester, Finder finder) =>
-    tester.scrollUntilVisible(finder, 400);
+    tester.scrollUntilVisible(
+      finder,
+      400,
+      // The page's own list, explicitly. Today's chapter nav is a horizontal
+      // `SingleChildScrollView` inside it (`chapter.dart` says why), so the
+      // default `find.byType(Scrollable)` resolves two and throws before it
+      // scrolls anything. The outer list is an ancestor, so it is first.
+      scrollable: find.byType(Scrollable).first,
+    );
 
 /// Taps the tab named [label], **scoped to the bar**.
 ///

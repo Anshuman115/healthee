@@ -1,31 +1,47 @@
-/// Today's charts PAINT, at the size they were really laid out to.
+/// Today's v02 charts PAINT, at the size they were really laid out to.
 ///
 /// Two charts have already shipped at zero height in this repo because a test
-/// only checked that the widget existed. `find.byType(HArea)` passes for a chart
-/// inside a `SizedBox(height: 0)`, for a chart with an empty series, and for a
-/// chart whose painter returned on its first line. So every assertion here reads
-/// the **recorded canvas**: the chart is laid out on the real screen, its painter
-/// is replayed at the size the layout gave it, and what it actually drew is
-/// counted.
+/// only checked that the widget existed. `find.byType(V02Sparkline)` passes for
+/// a chart inside a `SizedBox(height: 0)`, for a chart with an empty series, and
+/// for a chart whose painter returned on its first line. So every assertion here
+/// reads the **recorded canvas**: the chart is laid out on the real screen, its
+/// painter is replayed at the size the layout gave it, and what it actually drew
+/// is counted.
 ///
-/// `test/shared/_chart_probe.dart` owns the recording helpers; this file is
-/// about the charts as Today lays them out, which is the half a widget-level
-/// chart suite cannot see.
+/// `test/shared/_chart_probe.dart` owns the recording helpers; `_v02_chart_probe`
+/// owns the widget-level ones. This file is about the charts **as Today lays
+/// them out**, which is the half neither of those can see.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
-import 'package:healthee/features/today/widgets/heart_rate_card.dart';
-import 'package:healthee/features/today/widgets/metric_tile.dart';
-import 'package:healthee/shared/charts/h_area.dart';
-import 'package:healthee/shared/charts/h_hypnogram.dart';
+import 'package:healthee/features/today/v02/mini_trend_panel.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
-import 'package:healthee/shared/charts/h_stage_bar.dart';
-import 'package:healthee/shared/charts/h_tick_gauge.dart';
+import 'package:healthee/shared/charts/v02/v02_bar_chart.dart';
+import 'package:healthee/shared/charts/v02/v02_bucket_chart.dart';
+import 'package:healthee/shared/charts/v02/v02_linked_chart.dart';
+import 'package:healthee/shared/charts/v02/v02_sparkline.dart';
+import 'package:healthee/shared/v02/instruments/age_scale.dart';
+import 'package:healthee/shared/v02/instruments/vo2max_rail.dart';
 
+import '../_today_stubs.dart';
 import '../shared/_chart_probe.dart';
+import '../shared/_v02_chart_probe.dart';
 import '_today_host.dart';
+
+/// Replays a painter that IS the finder, rather than one inside it.
+///
+/// `paintedBy` and `paintedAt` both look for a `CustomPaint` **descending from**
+/// what they are given. `AgeScale` and `Vo2maxRail` publish a key on the
+/// `CustomPaint` itself, so the descendant search finds nothing — this replays
+/// the one that was found, at the size the layout gave it.
+List<RecordedInvocation> replayKeyed(WidgetTester tester, Finder paint) {
+  final widget = tester.widget<CustomPaint>(paint);
+  final canvas = TestRecordingCanvas();
+  widget.painter!.paint(canvas, tester.getSize(paint));
+  return canvas.invocations;
+}
 
 void main() {
   late LocalStore store;
@@ -45,95 +61,100 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  group('the tile charts', () {
-    testWidgets("THE SLEEP TILE'S STAGE BAR FILLS THE 30 px SLOT AND IS PAINTED", (
-      tester,
-    ) async {
-      // Owner-delegated departure, 2026-08-06: this cell drew legacy's four-lane
-      // hypnogram at 30 px, which is ~7 px a lane and reads as scattered dots on
-      // a fragmented night. It draws `HStageBar` now. `today_tiles.dart` carries
-      // the decision; the full hypnogram is unchanged on the Sleep tab.
+  group('the twin-panel sparklines', () {
+    testWidgets('A SPARKLINE IS 30 px TALL AND DRAWS A PATH', (tester) async {
       await openToday(tester);
-      await reveal(tester, find.byType(HStageBar));
+      final chart = find.byType(V02Sparkline).first;
+      await reveal(tester, chart);
 
-      final chart = find.byType(HStageBar).first;
-      expect(
-        tester.getSize(chart).height,
-        lessThanOrEqualTo(MetricTile.chartHeight),
-        reason: 'the bar lives INSIDE legacy 30 px slot; it does not grow it',
-      );
-      // The slot itself keeps legacy's height whichever chart is in it, which is
-      // what stops the tile moving.
-      expect(
-        tester
-            .widgetList<SizedBox>(
-              find.ancestor(of: chart, matching: find.byType(SizedBox)),
-            )
-            .map((box) => box.height),
-        contains(MetricTile.chartHeight),
-      );
-
-      // Painted, not merely present: every segment at real height and width.
-      // Two charts on this project shipped at zero height because a test only
-      // asked whether the widget existed.
-      //
-      // Scoped to THIS chart. Today has other `FractionallySizedBox`es — the
-      // biological-age waterfall's bars are one — and a screen-wide finder was
-      // measuring them instead, which is a test that fails for a reason having
-      // nothing to do with what it is named after.
-      final segments = find.descendant(
-        of: find.descendant(of: chart, matching: find.byType(FractionallySizedBox)),
-        matching: find.byType(ColoredBox),
-      );
-      expect(segments, findsWidgets);
-      for (var i = 0; i < tester.widgetList(segments).length; i++) {
-        final size = tester.getSize(segments.at(i));
-        expect(size.height, greaterThan(0), reason: 'segment $i collapsed');
-        expect(size.width, greaterThan(0), reason: 'segment $i has no width');
-      }
+      expect(tester.getSize(chart).height, MiniTrendPanel.sparklineHeight);
+      // Body + trace. A chart that drew one of the two lost half its ink.
+      expect(countOf(paintedAt(tester, chart), #drawPath), greaterThan(0));
     });
 
-    testWidgets('THE HYPNOGRAM IS GONE FROM TODAY, AND ONLY FROM TODAY', (
+    testWidgets('A SHORT SERIES DRAWS NOTHING AND KEEPS ITS SLOT', (
       tester,
     ) async {
-      // The other half of the same decision. If this ever fails because a
-      // hypnogram came back to the grid, read `today_tiles.dart` first — the
-      // departure is deliberate and recorded there.
-      await openToday(tester);
-
-      expect(find.byType(HHypnogram), findsNothing);
-    });
-
-    testWidgets('a tile sparkline is laid out at 30 px and draws a path', (
-      tester,
-    ) async {
-      await openToday(tester);
-      final chart = find.descendant(
-        of: find.byType(MetricTile),
-        matching: find.byType(HArea),
+      tester.view
+        ..physicalSize = const Size(420, 14000)
+        ..devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        todayHost(
+          store,
+          server: todayView(
+            mutate: (json) => <String, Object?>{
+              ...json,
+              'sparklines': <String, Object?>{
+                ...json['sparklines']! as Map<String, Object?>,
+                // One night is not a trend, and a line through one point is a
+                // claim about a history that was never measured.
+                'hrv_sleep_avg': const <Object?>[],
+              },
+            },
+          ),
+        ),
       );
-      await reveal(tester, chart.first);
+      await tester.pumpAndSettle();
 
-      final size = tester.getSize(chart.first);
-      expect(size.height, MetricTile.chartHeight);
-      expect(countOf(paintedBy(tester, chart.first), #drawPath), greaterThan(0));
+      final chart = find.byType(V02Sparkline).first;
+      await reveal(tester, chart);
+
+      // The slot is the same 30 px, which is what stops the pair wobbling when
+      // one half has no trend...
+      expect(tester.getSize(chart).height, MiniTrendPanel.sparklineHeight);
+      // ...and nothing is drawn in it. `V02Sparkline` returns a `ChartVoid`
+      // rather than a flat line at the one value it has, because a line through
+      // one point is a claim about a history that was never measured.
+      expect(
+        find.descendant(of: chart, matching: find.byType(CustomPaint)),
+        findsNothing,
+      );
     });
   });
 
   group('the full-width charts', () {
-    testWidgets('the 24-hour heart rate is 52 px and draws its line', (
+    testWidgets('THE LINKED CHART DRAWS BOTH PANES, AT REAL HEIGHT', (
       tester,
     ) async {
       await openToday(tester);
-      await reveal(tester, find.byType(HeartRateDayCard));
+      final chart = find.byType(V02LinkedChart);
+      await reveal(tester, chart);
 
-      final chart = find.descendant(
-        of: find.byType(HeartRateDayCard),
-        matching: find.byType(HArea),
+      expect(paintSize(tester, chart).height, greaterThan(0));
+      final painted = paintedAt(tester, chart);
+      // Two traces plus their two bodies, at least. A single-pane "linked"
+      // chart is a comparison the reader cannot make.
+      expect(countOf(painted, #drawPath), greaterThanOrEqualTo(2));
+    });
+
+    testWidgets('THE STEP BUCKETS ARE COLUMNS WITH HEIGHT', (tester) async {
+      await openToday(tester);
+      final chart = find.byType(V02BucketChart);
+      await reveal(tester, chart);
+
+      expect(paintSize(tester, chart).height, greaterThan(0));
+      final columns = rectsOf(paintedAt(tester, chart));
+      expect(columns, isNotEmpty);
+      expect(
+        columns.where((rect) => rect.height > 0),
+        isNotEmpty,
+        reason: 'a bucket chart of zero-height columns is an empty axis',
       );
-      expect(tester.getSize(chart).height, 52);
-      // Fill + stroke: a chart that drew one of the two lost half its ink.
-      expect(countOf(paintedBy(tester, chart), #drawPath), 2);
+    });
+
+    testWidgets('THE LOAD BARS ARE DRAWN AT THEIR LAID-OUT SIZE', (
+      tester,
+    ) async {
+      await openToday(tester);
+      final chart = find.byType(V02BarChart);
+      await reveal(tester, chart);
+
+      expect(paintSize(tester, chart).height, greaterThan(0));
+      expect(
+        rectsOf(paintedAt(tester, chart)).where((rect) => rect.height > 0),
+        isNotEmpty,
+      );
     });
 
     testWidgets('the seven-night stack fills its 108 px and draws seven bars', (
@@ -147,24 +168,33 @@ void main() {
       final painted = paintedBy(tester, chart);
       // Four stage segments a night, seven nights.
       expect(countOf(painted, #drawRect), 7 * 4);
-      final segments = rectsOf(painted).where((rect) => rect.height > 0);
       expect(
-        segments,
+        rectsOf(painted).where((rect) => rect.height > 0),
         isNotEmpty,
         reason: 'a stacked bar of zero-height segments is an empty axis',
       );
     });
+  });
 
-    testWidgets('the recovery gauge lights ticks in proportion to the score', (
+  group('the hero instruments', () {
+    testWidgets('THE AGE RULER IS LAID OUT AT ITS OWN HEIGHT AND PAINTS', (
       tester,
     ) async {
       await openToday(tester);
-      await reveal(tester, find.byType(HTickGauge).first);
+      final scale = find.byKey(AgeScale.plotKey);
+      await reveal(tester, scale);
 
-      final gauge = find.byType(HTickGauge).first;
-      expect(tester.getSize(gauge), const Size(116, 116));
-      // 45 marks over a 270° arc, every one drawn — the unlit ones are the scale.
-      expect(countOf(paintedBy(tester, gauge), #drawLine), HTickGauge.ticks + 1);
+      expect(tester.getSize(scale).height, AgeScale.height);
+      expect(replayKeyed(tester, scale), isNotEmpty);
+    });
+
+    testWidgets('THE VO2MAX RAIL PAINTS AT ITS LAID-OUT SIZE', (tester) async {
+      await openToday(tester);
+      final rail = find.byKey(Vo2maxRail.plotKey);
+      await reveal(tester, rail);
+
+      expect(tester.getSize(rail).height, greaterThan(0));
+      expect(replayKeyed(tester, rail), isNotEmpty);
     });
   });
 
@@ -178,9 +208,9 @@ void main() {
       await reveal(tester, find.byType(HStackedSleep));
       final before = rectsOf(paintedBy(tester, find.byType(HStackedSleep)));
 
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, 2000));
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 3000));
       await tester.pump();
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, -2000));
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -3000));
       // ONE frame, deliberately: a chart that restarted its reveal would be at
       // progress 0 here and every bar would have zero height.
       await tester.pump();

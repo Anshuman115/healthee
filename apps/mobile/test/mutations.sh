@@ -334,14 +334,26 @@ mutate 'the canonical row stops naming its method' "$TABS" "$SERVER_STRIP" \
 BODY=lib/features/today/today_body.dart
 ORDER_TEST=test/features/today_order_test.dart
 
-# A re-ordering. Legacy's Today reads Sleep, then Activity, then Fitness, and
-# the whole point of the port is that the owner's screen did not move. A swap
-# like this compiles, renders, and looks like a design decision somebody made.
-mutate "legacy's section order is swapped" "$ORDER_TEST" "$BODY" \
-  '  sleepSections(sections, facts, tiles, reveals);
-  activitySections(sections, facts, tiles, reveals);' \
-  '  activitySections(sections, facts, tiles, reveals);
-  sleepSections(sections, facts, tiles, reveals);'
+# A re-ordering. The v02 prototype reads night, then day, then the longer view,
+# and the whole point of the rebuild is that the owner's screen matches it. A
+# swap like this compiles, renders, and looks like a design decision somebody
+# made.
+mutate "the prototype's chapter order is swapped" "$ORDER_TEST" "$BODY" \
+  '  _nightChapter(sections, facts, reveals, extras);
+  todayDaySections(sections, facts, data, extras);' \
+  '  todayDaySections(sections, facts, data, extras);
+  _nightChapter(sections, facts, reveals, extras);'
+
+# The bridge under the hero moves above it. It still reads as a sentence about
+# the estimate, the chapters are untouched, and nothing looks wrong — the
+# connective line has simply stopped connecting the two things it names.
+mutate 'the context bridge is drawn before the hero' "$ORDER_TEST" "$BODY" \
+  '  sections.add(TodaySummaryTiles(facts: facts));
+  sections.gap(PageSpacing.block);
+  sections.add(ContextBridge.text(kAgeBridge));' \
+  '  sections.add(ContextBridge.text(kAgeBridge));
+  sections.add(TodaySummaryTiles(facts: facts));
+  sections.gap(PageSpacing.block);'
 
 # A section quietly dropped. Legacy draws the week whenever it has two nights;
 # a card that stops appearing is the failure mode a rendered-scroll test cannot
@@ -592,12 +604,24 @@ mutate 'a withheld tile drops the remedy' "$TILE_TEST" "$TILE" \
 # same.
 mutate 'a withheld block is dropped instead of explained' "$WITHHELD_TEST" \
   lib/shared/states/reading_view.dart \
-  '      Withheld<T>(:final disclosure) => WithheldCard(
-        disclosure: disclosure,
-        label: label,
-        onExplain: onExplainWithheld,
-      ),' \
+  '      Withheld<T>(:final disclosure) =>
+        withheldBuilder?.call(context, disclosure) ??
+            WithheldCard(
+              disclosure: disclosure,
+              label: label,
+              onExplain: onExplainWithheld,
+            ),' \
   '      Withheld<T>() => const SizedBox.shrink(),'
+
+# The v02 carrier drops the REASON and keeps the hole. A dash with nothing
+# beside it is the state this whole layer exists to make impossible: it reads as
+# "nothing happened" rather than as "the server would not say".
+mutate 'the withheld panel drops its reason' "$WITHHELD_TEST" \
+  lib/shared/v02/withheld_panel.dart \
+  '                  child: Text(
+                    disclosure.message,' \
+  '                  child: Text(
+                    '"'"''"'"',' 
 
 # ── a compacted caveat must not become an invisible one ─────────────────────
 # The disclosures moved off the card and into a sheet on 2026-08-06, because the
@@ -635,7 +659,7 @@ mutate 'a caveated value renders as if it were Present' "$CAVEAT_TEST" "$VIEW" \
 # The same failure on the tile side, where the carrier is a header mark rather
 # than a row. The tile keeps its number, its chart and its height, and stops
 # saying the number came from a different instrument on a different night.
-mutate 'a caveated tile stops marking itself' "$CAVEAT_TEST" \
+mutate 'a caveated tile stops marking itself' "$TILE_TEST" \
   lib/features/today/widgets/metric_tile.dart \
   '    final caveats = reading.caveatsOrEmpty;' \
   '    final caveats = const <Disclosure>[];'
@@ -697,7 +721,7 @@ mutate 'only a caveated tile reserves the disclosure line' "$TILE_TEST" \
 # footnote mark is not words, and the file it lived in says in its own docstring
 # that a caveated value discloses IN WORDS. This is the regression test for the
 # GLYPH: any carrier that reaches for a lone mark again fails here.
-mutate 'the caveat goes back to a bare footnote mark' "$CAVEAT_TEST" "$CAVEAT" \
+mutate 'the caveat goes back to a bare footnote mark' "$TILE_TEST" "$CAVEAT" \
   "String caveatFootnote(int count) =>
     count == 1 ? '1 caveat · tap to read' : '\$count caveats · tap to read';" \
   "String caveatFootnote(int count) => '*';"
@@ -729,9 +753,15 @@ mutate 'the reference line goes back to full-strength ink' "$CHART_INK" \
 TILES=lib/features/today/widgets/today_tiles.dart
 SLEEP_CELL_TEST="test/features/grid_sleep_cell_test.dart test/features/today_charts_test.dart"
 
-mutate 'the sleep cell bar is drawn from nothing' "$SLEEP_CELL_TEST" "$TILES" \
-  '        child: HStageBar(facts.sleepTotals, progress: t),' \
-  '        child: HStageBar(const <String, int>{}, progress: t),'
+mutate 'the seven-night stack is drawn from no nights' "$SLEEP_CELL_TEST" \
+  lib/features/today/v02/night_panels.dart \
+  '            builder: (context, t) =>
+                HStackedSleep(nights, progress: t, height: chartHeight),' \
+  '            builder: (context, t) => HStackedSleep(
+                  const <SleepNightSummary>[],
+                  progress: t,
+                  height: chartHeight,
+                ),'
 
 # The bar drawn from the wrong night'"'"'s shape: every stage equal. It renders as a
 # perfectly plausible four-colour bar and is a picture of no measurement.
@@ -742,15 +772,26 @@ mutate 'every sleep stage is drawn the same width' "$SLEEP_CELL_TEST" \
   '                    Expanded(
                       flex: 1,'
 
-# The recovery card claiming a night of no sleep out of a missing field.
-mutate 'a sleep factor with no minutes reads as zero hours' \
-  test/features/today_screen_test.dart "$RECOVERY" \
-  '    if (slept == null || need == null) {
-      return '"'"'–'"'"';
-    }' \
-  '    if (slept == null || need == null) {
-      return '"'"'0.0h / 8h'"'"';
-    }'
+# A factor the model did not score, drawn as a factor scored zero. An empty
+# track and a full-length zero-width fill are the same picture; the em dash in
+# the reading column is the only thing that says which of the two this is.
+mutate 'an unscored recovery factor reads as zero' \
+  test/features/today_screen_test.dart \
+  lib/shared/v02/meters.dart \
+  '                    child: factor.fraction == null
+                        ? const SizedBox.shrink()
+                        : FractionallySizedBox(' \
+  '                    child: factor.fraction == 999
+                        ? const SizedBox.shrink()
+                        : FractionallySizedBox('
+
+# The factor rows print the payload's own keys. `rr` under a bar on a health
+# screen is a log line where a name belongs.
+mutate 'a recovery factor is labelled by its wire key' \
+  test/features/today_screen_test.dart \
+  lib/features/today/v02/recovery_panel.dart \
+  '                  factorLabel(factor.name),' \
+  '                  factor.name,'
 
 # ── a modal sheet is over the APP, not over one tab ─────────────────────────
 # The owner's report: "the info sheet comes beyond the navbar". Both halves are
@@ -1139,6 +1180,73 @@ mutate 'the error magnitude is called a confidence interval' "$FITNESS_TEST" "$R
 mutate 'mismatched elevations are drawn anyway' "$FITNESS_TEST" "$ROUTE" \
   'if (series == null || series.length != points.length || series.length < 2) {' \
   'if (series == null || series.length < 2) {'
+
+# ── the v02 Today: what a panel may not stop saying ─────────────────────────
+PANEL=lib/shared/v02/panel.dart
+HERO=lib/shared/v02/bio_hero.dart
+MINI=lib/features/today/v02/mini_trend_panel.dart
+FITNESS=lib/features/today/v02/longer_panels.dart
+HERO_TEST=test/features/today_hero_test.dart
+V02_CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/features/caveat_attribution_test.dart"
+
+# The v02 carrier stops reading the scope it was handed. `ReadingView` draws
+# nothing itself under `CaveatCarrier.insideCard`, so this is the disclosure
+# vanishing in silence — the one failure worse than the essay it replaced.
+mutate 'the v02 panel drops the caveats it was handed' "$V02_CAVEAT_TEST" "$PANEL" \
+  '          if (disclosed.isNotEmpty)
+            CaveatNote(caveats: disclosed, label: named),' \
+  ''
+
+# The same, in the hero. It is not a `Panel`, so it needs its own block and its
+# own mutation: the biological-age block carries FOUR disclosures on the
+# committed payload and is the card the owner reported.
+mutate 'the hero drops the caveats it was handed' "$V02_CAVEAT_TEST" "$HERO" \
+  '                if (disclosed.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: modelGap),
+                  _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
+                ],' \
+  ''
+
+# A half-width panel blanking on a refusal. It keeps its title, its slot and its
+# chart void, and stops saying why the number is missing — which reads as a
+# metric that simply has nothing today.
+mutate 'a twin panel blanks instead of saying why' "$THRESHOLD_TEST" "$MINI" \
+  '      withheldBuilder: (context, disclosure) =>
+          _panel(value: '"'"'—'"'"', note: disclosure.message),' \
+  '      withheldBuilder: (context, disclosure) =>
+          _panel(value: '"'"'—'"'"', note: '"'"''"'"'),'
+
+# The tier id printed raw. `gps_graded` under a VO₂max figure is an identifier
+# where an instrument's name belongs, and it looks like a deliberate label.
+mutate 'the VO2max method is printed as its wire id' \
+  test/features/today_screen_test.dart "$FITNESS" \
+  "      'Read by \${methodLabel(vo2max.method)}'," \
+  '      vo2max.method,'
+
+# The server's 300-character method prose back inline. This is the owner's
+# *"raw text below the fitness card"* report, arriving by the shortest route.
+mutate "the method essay is printed on the card again" \
+  "test/features/today_caveat_surface_test.dart" "$FITNESS" \
+  '          PanelNote(_reference(vo2max)),' \
+  '          PanelNote(vo2max.methodCaveat),'
+
+# A meter drawn against a target the payload never sent. `/api/today` carries no
+# step goal, so any fraction here is this app inventing the owner's target and
+# then reporting progress against it.
+mutate 'the movement tile invents a step target' "$HERO_TEST" \
+  lib/features/today/v02/today_hero.dart \
+  '      value: commaGrouped(steps.round()),
+      meta: facts.medianFootFor(TodayMetricIds.steps).toLowerCase(),' \
+  '      value: commaGrouped(steps.round()),
+      fraction: steps / 10000,
+      meta: facts.medianFootFor(TodayMetricIds.steps).toLowerCase(),'
+
+# The halo placed outside the scroll it watches. It still animates, it still
+# looks right on the first screen, and it never pauses again.
+mutate 'the hero art is dropped from the card' "$HERO_TEST" \
+  lib/features/today/v02/today_hero.dart \
+  '      art: const BioHalo(),' \
+  '      art: null,'
 
 echo
 echo "caught $PASS, survived $FAIL"

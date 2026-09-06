@@ -1,186 +1,225 @@
-/// Today is legacy's screen, in legacy's order — and this is where that is held.
+/// Today is the v02 prototype's screen, in the prototype's order — held here.
 ///
-/// `healthee-legacy/app/lib/ui/today_screen.dart:217–378` is one list literal.
-/// The port is `todaySections`, and the only way a re-ordering, a dropped card or
-/// a card that crept back in gets caught is by reading that list and comparing it
-/// to the original section by section. A rendered scroll cannot do it: half the
+/// `design/mobile-preview/screens-overview.js::H.screens.today` is one template
+/// literal, and the only way a re-ordering, a dropped panel or a panel that
+/// crept back in gets caught is by reading the section list and comparing it to
+/// the prototype entry by entry. A rendered scroll cannot do it: most of the
 /// screen is off the viewport and a `ListView.builder` has not built it.
 ///
-/// The order below was transcribed from legacy with the file open. Every entry
-/// cites the legacy line it came from.
+/// The order below was transcribed from the prototype with it open in a browser
+/// (`python3 -m http.server --directory design/mobile-preview`), scrolled top to
+/// bottom. Every entry names the prototype construct it came from.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/recovery_score.dart';
-import 'package:healthee/data/models/recovery_signals.dart';
-import 'package:healthee/data/models/sleep_debt.dart';
 import 'package:healthee/data/models/sleep_health.dart';
 import 'package:healthee/data/models/vo2max.dart';
 import 'package:healthee/features/today/today_sections.dart';
+import 'package:healthee/features/today/v02/day_panels.dart';
+import 'package:healthee/features/today/v02/longer_panels.dart';
+import 'package:healthee/features/today/v02/night_panels.dart';
+import 'package:healthee/features/today/v02/today_chapters.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
+import 'package:healthee/features/today/v02/today_hero.dart';
 import 'package:healthee/features/today/widgets/actions_section.dart';
-import 'package:healthee/features/today/widgets/blood_oxygen_card.dart';
 import 'package:healthee/features/today/widgets/data_health_section.dart';
-import 'package:healthee/features/today/widgets/greeting_header.dart';
-import 'package:healthee/features/today/widgets/heart_rate_card.dart';
-import 'package:healthee/features/today/widgets/hrv_trend_card.dart';
 import 'package:healthee/features/today/widgets/insights_section.dart';
-import 'package:healthee/features/today/widgets/readiness_block.dart';
-import 'package:healthee/features/today/widgets/recovery_summary_line.dart';
-import 'package:healthee/features/today/widgets/seven_night_card.dart';
 import 'package:healthee/features/today/widgets/stale_sleep_banner.dart';
-import 'package:healthee/features/today/widgets/stress_card.dart';
 import 'package:healthee/shared/page_section.dart';
-import 'package:healthee/shared/section_heading.dart';
 import 'package:healthee/shared/states/reading_view.dart';
+import 'package:healthee/shared/v02/chapter.dart';
+import 'package:healthee/shared/v02/context_bridge.dart';
+import 'package:healthee/shared/v02/entry_card.dart';
+import 'package:healthee/shared/v02/section_head.dart';
 
 import '../_today_stubs.dart';
 import '_screen_data.dart';
 
 /// The section list, built the way the screen builds it.
+///
+/// The chapter anchors are supplied, because the nav is only drawn when there is
+/// something for it to jump to — a screen with no anchors would be three dead
+/// buttons, and `today_chapters.dart` refuses that.
 List<PageSection> sections({
   Map<String, Object?> Function(Map<String, Object?> json)? mutate,
 }) => todaySections(
   screenData(server: todayView(mutate: mutate)),
-  const TodayExtras(),
+  TodayExtras(chapters: TodayChapters()),
 );
 
 int _indexOf<T>(List<PageSection> list) =>
     list.indexWhere((section) => section.child is T);
 
-/// The heading whose title is [title], by index.
-int _headingIndex(List<PageSection> list, String title) => list.indexWhere(
-  (section) => section.child is SectionHeading &&
-      (section.child as SectionHeading).title == title,
+/// The nth section whose child is a [T], counting from zero.
+int _nthOf<T>(List<PageSection> list, int n) {
+  var seen = 0;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].child is T) {
+      if (seen == n) {
+        return i;
+      }
+      seen++;
+    }
+  }
+  return -1;
+}
+
+/// The chapter heading whose title is [title], by index.
+int _chapterIndex(List<PageSection> list, String title) => list.indexWhere(
+  (section) =>
+      section.child is ChapterHeading &&
+      (section.child as ChapterHeading).title == title,
 );
 
 void main() {
-  group("legacy's order, section by section", () {
-    test('EVERY SECTION LEGACY DRAWS IS DRAWN, AND IN LEGACY\'S ORDER', () {
+  group("the prototype's order, entry by entry", () {
+    test('EVERY SECTION THE PROTOTYPE DRAWS IS DRAWN, AND IN ITS ORDER', () {
       final list = sections();
       final order = <int>[
-        // 218 · the greeting header
-        _indexOf<GreetingHeader>(list),
-        // 219 · "Recovery — <summary>."
-        _indexOf<RecoverySummaryLine>(list),
-        // 228 · the data-health banner
+        // `H.header('Today', …)` — the date, the h1, the avatar.
+        _indexOf<TodayHeader>(list),
+        // `<a class="device-strip">` immediately under it.
+        _indexOf<DeviceStrip>(list),
+        // `H.scenarioNotice()`'s live equivalent — see `today_sections.dart`.
         _indexOf<DataHealthSection>(list),
-        // 234 · the recovery card
-        _indexOf<ReadingView<RecoveryScore>>(list),
-        // 238 · the recovery signal ladder
-        _indexOf<ReadingView<RecoverySignals>>(list),
-        // 242 · the collapsible suggested actions
-        _indexOf<ActionsSection>(list),
-        // 248 · HRV · 14 days  (the grid above it is checked separately)
-        _indexOf<HrvTrendCard>(list),
-        // 263 · Stress
-        _indexOf<StressCard>(list),
-        // 283 · Heart rate · 24h
-        _indexOf<HeartRateDayCard>(list),
-        // 300 · the Sleep heading
-        _headingIndex(list, 'Sleep'),
-        // 304 · the readiness block
-        _indexOf<ReadinessBlock>(list),
-        // 316 · Blood oxygen · 14 nights
-        _indexOf<BloodOxygenCard>(list),
-        // 338 · Sleep need · debt
-        _indexOf<ReadingView<SleepDebt>>(list),
-        // 342 · Sleep health · 4-dim
-        _indexOf<ReadingView<SleepHealth>>(list),
-        // 346 · Sleep · 7 nights
-        _indexOf<SevenNightCard>(list),
-        // 351 · the Activity heading
-        _headingIndex(list, 'Activity'),
-        // 355 · Strain · cardio load
-        _indexOf<ReadingView<CardioLoad>>(list),
-        // 359 · Active minutes · MVPA
-        _indexOf<ReadingView<Mvpa>>(list),
-        // 365 · the Fitness heading
-        _headingIndex(list, 'Fitness'),
-        // 366 · Biological age
+        // `H.bioHero()` — the halo, the figure, the ruler, the two terms.
         _indexOf<ReadingView<BiologicalAge>>(list),
-        // 368 · VO₂max
+        // `summaryTiles()` — recovery · sleep · movement.
+        _indexOf<TodaySummaryTiles>(list),
+        // `H.bridge('fitness', …)`.
+        _nthOf<ContextBridge>(list, 0),
+        // `<nav class="chapter-nav">`.
+        _indexOf<TodayChapterNav>(list),
+        // `H.chapter('overnight','Last night → today', …)`.
+        _chapterIndex(list, 'Last night → today'),
+        // `H.recoveryPanel()`.
+        _indexOf<ReadingView<RecoveryScore>>(list),
+        // `nightCharts()`'s first `.twin-panels` — HRV beside resting heart.
+        _nthOf<TwinPanels>(list, 0),
+        // `H.panel('Sleep stages · seven nights', …)`.
+        _indexOf<SleepWeekPanel>(list),
+        // `H.panel('Sleep health, beyond duration', …)`.
+        _indexOf<ReadingView<SleepHealth>>(list),
+        // `H.bridge('sleep', …)`.
+        _nthOf<ContextBridge>(list, 1),
+        // The second `.twin-panels` — blood oxygen beside need & debt.
+        _nthOf<TwinPanels>(list, 1),
+        // `H.chapter('daytime','Movement → recovery', …)`.
+        _chapterIndex(list, 'Movement → recovery'),
+        // `H.panel('Heart rate & stress', …)`.
+        _indexOf<HeartStressPanel>(list),
+        // `H.panel('Steps & energy', …)`.
+        _indexOf<StepsEnergyPanel>(list),
+        // `H.bridge('movement', …)`.
+        _nthOf<ContextBridge>(list, 2),
+        // `H.panel('Effort in context', …)`.
+        _indexOf<ReadingView<CardioLoad>>(list),
+        // The third `.twin-panels` — active minutes beside strength. The
+        // reading wraps the LEFT PANEL rather than the pair, so the row's own
+        // type is what sits in the list; `today_day_sections.dart` says why.
+        _nthOf<TwinPanels>(list, 2),
+        // `H.chapter('longer-view','Patterns → small changes', …)`.
+        _chapterIndex(list, 'Patterns → small changes'),
+        // `H.panel('Cardiorespiratory fitness', …)`.
         _indexOf<ReadingView<Vo2max>>(list),
-        // 374 · the Insights heading
-        _headingIndex(list, 'Insights'),
-        // 375 · the patterns
+        // `H.panel('Daily journal', …)`.
+        _indexOf<JournalPanel>(list),
+        // This app's own: the recommendations the prototype has no surface for.
+        _indexOf<ActionsSection>(list),
+        // `.relationship-grid`'s heading, then the findings under it.
+        _indexOf<SectionHead>(list),
         _indexOf<InsightsSection>(list),
+        // `.relationship-grid` — the coach and the actions entry points.
+        _indexOf<EntryGrid>(list),
+        // `H.footer()`.
+        _indexOf<DataFooter>(list),
       ];
       for (final index in order) {
-        expect(index, isNonNegative, reason: 'a legacy section is missing');
+        expect(index, isNonNegative, reason: 'a prototype section is missing');
       }
-      // Strictly increasing: every section sits after the one legacy puts before
-      // it. This is the assertion a re-order fails.
+      // Strictly increasing: every section sits after the one the prototype
+      // puts before it. This is the assertion a re-order fails.
       for (var i = 1; i < order.length; i++) {
         expect(
           order[i],
           greaterThan(order[i - 1]),
-          reason: 'section $i is out of legacy order',
+          reason: 'section $i is out of the prototype’s order',
         );
       }
     });
 
-    test('the three grid rows sit where legacy puts them', () {
-      // Legacy's `_grid` calls are at 245 (RHR · HRV), 306 (Sleep · Resp) and
-      // 352 (Steps · Energy) — one before the HRV trend, one after the readiness
-      // block, one after the Activity heading.
+    test('THE THREE CHAPTERS ARE THE THREE THE NAV JUMPS TO', () {
+      // A fourth chapter with no button, or a button with no chapter, is a
+      // control that scrolls to nothing — the failure `today_chapters.dart`
+      // spends thirty lines avoiding.
       final list = sections();
-      final rows = <int>[
-        for (var i = 0; i < list.length; i++)
-          if (list[i].child.toString().contains('Builder')) i,
+      final headings = <String>[
+        for (final section in list)
+          if (section.child is ChapterHeading)
+            (section.child as ChapterHeading).title,
       ];
-      expect(rows, hasLength(3), reason: 'three two-up rows, exactly');
-      expect(rows[0], lessThan(_indexOf<HrvTrendCard>(list)));
-      expect(rows[1], greaterThan(_indexOf<ReadinessBlock>(list)));
-      expect(rows[1], lessThan(_indexOf<BloodOxygenCard>(list)));
-      expect(rows[2], greaterThan(_headingIndex(list, 'Activity')));
-      expect(rows[2], lessThan(_indexOf<ReadingView<CardioLoad>>(list)));
+      expect(headings, hasLength(TodayChapterNav.labels.length));
+      expect(headings, <String>[
+        'Last night → today',
+        'Movement → recovery',
+        'Patterns → small changes',
+      ]);
+    });
+
+    test('the nav is absent when nothing gave it anchors', () {
+      // `TodayExtras.chapters` null: three buttons that jump nowhere is worse
+      // than no buttons at all.
+      final list = todaySections(
+        screenData(server: todayView()),
+        const TodayExtras(),
+      );
+      expect(_indexOf<TodayChapterNav>(list), -1);
+      // The chapters themselves stay: they are content, not navigation.
+      expect(_chapterIndex(list, 'Last night → today'), isNonNegative);
     });
   });
 
-  group('the gaps between sections are a LADDER, not four numbers', () {
-    // The owner widened all of them on 2026-08-06 — *"give some space between
-    // cards it looks too cramped"* — so this asserts the RELATIONSHIP legacy
-    // encodes rather than legacy's four constants. Pinning the numbers would
-    // fail the build for an improvement, which is the mistake this repo has
-    // already made once on `onAccent`. `PageSpacing` records legacy's values.
-    test('a section break is clearly wider than a card break', () {
+  group('the gaps are v02’s two rungs, not legacy’s four', () {
+    test('a panel gap is 12 and a block gap is 24, and they are different', () {
+      // `richer.css`: `.panel { margin-top: 12px }`, `.section { margin-top:
+      // 24px }`. Two rungs, and the grouping is carried by them being unequal.
+      expect(PageSpacing.panel, 12);
+      expect(PageSpacing.block, 24);
+      expect(PageSpacing.panel, lessThan(PageSpacing.block));
+    });
+
+    test('THE SCREEN USES THOSE TWO AND NOT LEGACY’S LADDER', () {
       final list = sections();
-      // Legacy: `_ActionsSection, SizedBox(height: 24)` (242) then the grid.
-      expect(list[_indexOf<ActionsSection>(list)].gap, PageSpacing.section);
-      // Legacy: `_RecoveryCard, SizedBox(height: 10)` (234).
-      expect(list[_indexOf<ReadingView<RecoveryScore>>(list)].gap, PageSpacing.card);
-      // Legacy puts its section break before each `HSectionTitle`, on the card
-      // above it.
-      for (final heading in <String>['Sleep', 'Activity', 'Fitness', 'Insights']) {
-        expect(list[_headingIndex(list, heading) - 1].gap, PageSpacing.section);
-      }
-      // And nothing between a heading and the first card under it — the heading
-      // carries its own 12 px (`ui.dart:183`).
-      expect(list[_headingIndex(list, 'Sleep')].gap, 0);
+      final gaps = <double>{
+        for (final section in list)
+          if (section.gap > 0) section.gap,
+      };
+      expect(
+        gaps.difference(<double>{PageSpacing.panel, PageSpacing.block}),
+        isEmpty,
+        reason:
+            'a v02 screen uses one ladder or the other; a legacy rung here is '
+            'the two systems drifting into one screen',
+      );
     });
 
-    test('THE RUNGS STAY IN ORDER, and every one clears legacy’s own', () {
-      // The grouping is carried by the gaps being DIFFERENT, so a change that
-      // added one constant to all four would read as a pile of unrelated cards.
-      expect(PageSpacing.card, lessThan(PageSpacing.related));
-      expect(PageSpacing.related, lessThan(PageSpacing.group));
-      expect(PageSpacing.group, lessThan(PageSpacing.section));
-      // Comfortably wider, not marginally: legacy's own ratio was 2.4.
-      expect(PageSpacing.section, greaterThan(PageSpacing.card * 1.5));
-      // Legacy's four, which the owner asked us to exceed.
-      expect(PageSpacing.card, greaterThan(10));
-      expect(PageSpacing.related, greaterThan(14));
-      expect(PageSpacing.group, greaterThan(16));
-      expect(PageSpacing.section, greaterThan(24));
+    test('a bridge is a block break, and two panels are a panel break', () {
+      final list = sections();
+      // `.context-bridge` follows `.section`-spaced content in the prototype.
+      expect(list[_nthOf<ContextBridge>(list, 0) - 1].gap, PageSpacing.block);
+      // `H.recoveryPanel()` then the twin pair: `.panel { margin-top: 12px }`.
+      expect(
+        list[_indexOf<ReadingView<RecoveryScore>>(list)].gap,
+        PageSpacing.panel,
+      );
     });
   });
 
-  group('the conditional sections are legacy\'s conditions', () {
+  group('the conditional sections are the payload’s conditions', () {
     test('the stale-sleep banner appears only for a night over 24 h old', () {
-      // The fixture's `last_sleep.end_iso` is recent relative to `screenData`'s
-      // clock, so legacy draws no banner.
       expect(_indexOf<StaleSleepBanner>(sections()), -1);
 
       final stale = todaySections(
@@ -195,36 +234,13 @@ void main() {
             },
           ),
         ),
-        const TodayExtras(),
+        TodayExtras(chapters: TodayChapters()),
       );
       final banner = _indexOf<StaleSleepBanner>(stale);
       expect(banner, isNonNegative);
-      // It dates the whole overnight section, so it comes first inside it.
-      expect(banner, greaterThan(_headingIndex(stale, 'Sleep')));
-      expect(banner, lessThan(_indexOf<ReadinessBlock>(stale)));
-    });
-
-    test('a trend with two points or fewer draws no module', () {
-      // Legacy's `_nums(spark[…]).length > 2`. Two nights is not a trend, and a
-      // chart of it invites one point to be read as a pattern.
-      final thin = sections(
-        mutate: (json) => {
-          ...json,
-          'sparklines': <String, Object?>{
-            ...json['sparklines']! as Map<String, Object?>,
-            'hrv_sleep_avg': const <Object?>[],
-            'spo2_overnight': const <Object?>[],
-            // The blood-oxygen module is gated on its DRAWN series, and since
-            // 2026-08-06 that is the nightly minimums rather than the averages.
-            // See `blood_oxygen_card.dart`.
-            'spo2_overnight_min': const <Object?>[],
-          },
-          'today_hr_series': const <Object?>[],
-        },
-      );
-      expect(_indexOf<HrvTrendCard>(thin), -1);
-      expect(_indexOf<BloodOxygenCard>(thin), -1);
-      expect(_indexOf<HeartRateDayCard>(thin), -1);
+      // It dates the whole overnight chapter, so it comes first inside it.
+      expect(banner, greaterThan(_chapterIndex(stale, 'Last night → today')));
+      expect(banner, lessThan(_indexOf<ReadingView<RecoveryScore>>(stale)));
     });
 
     test('one night is not a week', () {
@@ -234,23 +250,78 @@ void main() {
           'sleep_history_7d': [(json['sleep_history_7d']! as List).first],
         },
       );
-      expect(_indexOf<SevenNightCard>(oneNight), -1);
+      expect(_indexOf<SleepWeekPanel>(oneNight), -1);
+    });
+
+    test('two hours is not a day, and the linked chart is not drawn for it', () {
+      final thin = sections(
+        mutate: (json) => {
+          ...json,
+          'today_hr_series': const <Object?>[],
+          'today_stress_series': const <Object?>[],
+        },
+      );
+      expect(_indexOf<HeartStressPanel>(thin), -1);
     });
 
     test('no recommendations means no suggested-actions block at all', () {
       final none = sections(
-        mutate: (json) => {...json, 'recommendations': const <Object?>[]},
+        mutate: (json) => {
+          ...json,
+          'recommendations': const <Object?>[],
+          'action': null,
+        },
       );
       expect(_indexOf<ActionsSection>(none), -1);
     });
 
-    test('no findings means no Insights heading — a heading over nothing is dead',
-        () {
+    test('no findings means no heading — a heading over nothing is dead', () {
       final none = sections(
         mutate: (json) => {...json, 'top_findings': const <Object?>[]},
       );
-      expect(_headingIndex(none, 'Insights'), -1);
+      expect(_indexOf<SectionHead>(none), -1);
       expect(_indexOf<InsightsSection>(none), -1);
+    });
+
+    test('nothing logged means no journal panel', () {
+      final none = sections(
+        mutate: (json) => {
+          ...json,
+          'routine': const <String, Object?>{},
+        },
+      );
+      expect(_indexOf<JournalPanel>(none), -1);
+    });
+  });
+
+  group('the two fields that can never have content', () {
+    test('PAI AND ANOMALIES GET NO SECTION, ON ANY PAYLOAD', () {
+      // `read/today.py:83` sets `anomalies` to `[]` unconditionally and `pai` is
+      // null on this account. A heading that can never have content under it is
+      // dead code, and a zero-state for a field the server never fills is a
+      // gap the owner is invited to read as a measurement.
+      //
+      // Asserted on a payload that DOES carry both, so this fails the day
+      // somebody adds a section keyed on them rather than the day the fixture
+      // changes.
+      final withBoth = sections(
+        mutate: (json) => {
+          ...json,
+          'pai': const <String, Object?>{'score': 84},
+          'anomalies': const <Object?>[
+            <String, Object?>{'metric': 'rhr_daily', 'z': 3.1},
+          ],
+        },
+      );
+      final types = <String>[
+        for (final section in withBoth) section.child.runtimeType.toString(),
+      ];
+      for (final name in types) {
+        expect(name.toLowerCase(), isNot(contains('pai')));
+        expect(name.toLowerCase(), isNot(contains('anomal')));
+      }
+      // And the list is the same length as without them: nothing appeared.
+      expect(withBoth, hasLength(sections().length));
     });
   });
 }
