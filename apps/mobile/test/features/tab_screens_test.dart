@@ -31,8 +31,6 @@ import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
-import 'package:healthee/shared/section_heading.dart';
-import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 
 import '../_sleep_stubs.dart';
