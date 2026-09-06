@@ -1,10 +1,12 @@
 /// The coach, as a bottom sheet off Today — not a tab.
 ///
-/// **Legacy's shape.** `app/lib/main.dart:399` puts a `CoachFab` on Today and
-/// nowhere else, and `app/lib/ui/coach_sheet.dart` opens a tall chat sheet from
-/// it. The bar has five items and Coach is not among them; `core/tabs.dart` now
-/// matches that, and the findings that were parked on a Coach tab have gone to
-/// Insights, where they belong.
+/// **Legacy's shape, and v02's contents.** `app/lib/main.dart:399` puts a
+/// `CoachFab` on Today and nowhere else. The prototype draws the coach as a
+/// screen (`screens-actions.js::H.screens.coach`); this app opens the same
+/// composition in a sheet, because the sheet is where the entry point leads and
+/// a modal over the app is what `shared/sheets/app_sheet.dart` exists to give.
+/// Everything inside is the prototype's: the symbol, the heading, the three
+/// prompts, the `.coach-message` bubbles and the `.coach-form`.
 ///
 /// ## The input cannot exist without the meter
 ///
@@ -15,17 +17,19 @@
 /// state, a failed check, a locked account and a spent window each render their
 /// own sentence and no box to type in.
 ///
-/// That is structural rather than careful — [_Composer] takes a non-null
-/// [IncludedAllowance]-or-uncapped decision as a required argument, so an input
-/// with no meter behind it is not a widget this file can build.
+/// That is structural rather than careful — [CoachComposer] takes a non-null
+/// remaining-or-uncapped decision as a required argument, so an input with no
+/// meter behind it is not a widget this file can build. The **prompt buttons are
+/// under the same rule**: a prompt asks a question, so it spends one, and
+/// `CoachIntro` draws none when `onAsk` is null.
 ///
-/// ## What is deliberately not here
+/// ## The meter is the server's, after every attempt
 ///
-/// Legacy's sheet persists forty conversations to the store and offers a history
-/// list. Nothing in this app persists a conversation, so there is no history
-/// button: a control over a list that dies with the process is a promise the
-/// storage layer does not keep. The thread survives the sheet closing (the
-/// controller is `keepAlive`) and no longer.
+/// It is never decremented here. `coach_controller.dart` re-reads
+/// `/api/entitlement` in a `finally`, because `routers/coach.py` refunds a
+/// refusal, an unvalidated answer and a transport failure — a local subtraction
+/// would be wrong in three of the five outcomes and wrong the flattering way
+/// round. Nothing in this file subtracts anything.
 library;
 
 import 'dart:async';
@@ -34,14 +38,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
+import 'package:healthee/features/coach/v02/coach_composer.dart';
+import 'package:healthee/features/coach/v02/coach_intro.dart';
 import 'package:healthee/features/coach/widgets/coach_meter.dart';
 import 'package:healthee/features/coach/widgets/coach_thread.dart';
 import 'package:healthee/shared/sheets/app_sheet.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+
+// The cost-carrying label lives with the control that prints it. Re-exported so
+// the sheet stays the one import a caller — or a test pinning the wording —
+// needs for this surface.
+export 'package:healthee/features/coach/v02/coach_composer.dart'
+    show CoachComposer, askLabel;
+
+/// The prototype's own h1 and eyebrow for this surface.
+const String kCoachTitle = 'Your coach.';
+
+/// Its eyebrow.
+const String kCoachEyebrow = 'A conversation with context';
+
+/// `.form-note` — what an answer carries, said before one arrives.
+const String kCoachFormNote =
+    'Answers name the research notes behind them and the weakest grade among '
+    'those notes. The coach says when it does not know.';
 
 /// Opens the coach sheet over the current screen.
 Future<void> showCoachSheet(BuildContext context) {
@@ -56,6 +80,9 @@ class CoachSheet extends ConsumerWidget {
   /// [now] is injected by tests so "reopens in …" is deterministic.
   const CoachSheet({this.now, super.key});
 
+  /// The sheet takes nine tenths of the app, as it always has.
+  static const double heightFactor = 0.9;
+
   /// The instant the reset countdown is measured against.
   final DateTime? now;
 
@@ -64,22 +91,20 @@ class CoachSheet extends ConsumerWidget {
     final colors = context.colors;
     return Padding(
       // The keyboard AND the gesture inset: the sheet is presented on the root
-      // navigator now, so it covers the tab bar that used to absorb the latter.
+      // navigator, so it covers the tab bar that used to absorb the latter.
       padding: EdgeInsets.only(bottom: sheetBottomInset(context)),
       child: DecoratedBox(
-        decoration: ShapeDecoration(
+        decoration: BoxDecoration(
           color: colors.bg,
-          shape: RoundedSuperellipseBorder(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(Radii.card),
-            ),
-            side: BorderSide(color: colors.line, width: hairline),
+          border: Border(top: BorderSide(color: colors.line, width: hairline)),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(Radii.sheet),
           ),
         ),
         child: FractionallySizedBox(
-          heightFactor: 0.9,
+          heightFactor: heightFactor,
           child: Column(
-            children: [
+            children: <Widget>[
               const _SheetHead(),
               Expanded(
                 child: AsyncView<Entitlement>(
@@ -99,26 +124,36 @@ class CoachSheet extends ConsumerWidget {
   }
 }
 
+/// `.page-header.detail`, in the sheet: the eyebrow, the title, and the controls.
 class _SheetHead extends ConsumerWidget {
   const _SheetHead();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
     final started = !ref.watch(coachControllerProvider).isEmpty;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Insets.lg, Insets.md, Insets.sm, Insets.sm),
+      padding: const EdgeInsets.fromLTRB(
+        Insets.xl,
+        Insets.md,
+        Insets.sm,
+        Insets.sm,
+      ),
       child: Row(
-        children: [
+        children: <Widget>[
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Coach', style: text.titleLarge),
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
                 Text(
-                  'Grounded in your own data and the research notes',
-                  style: text.bodySmall?.copyWith(color: colors.ink3),
+                  kCoachEyebrow,
+                  style: TypeScale.pageDate.copyWith(color: colors.ink2),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  kCoachTitle,
+                  style: TypeScale.detailTitle.copyWith(color: colors.ink),
                 ),
               ],
             ),
@@ -126,11 +161,15 @@ class _SheetHead extends ConsumerWidget {
           if (started)
             TextButton(
               onPressed: ref.read(coachControllerProvider.notifier).newThread,
-              child: const Text('New'),
+              child: Text(
+                'New',
+                style: TypeScale.textLink.copyWith(color: colors.accent),
+              ),
             ),
           IconButton(
             onPressed: Navigator.of(context).pop,
             icon: const Icon(Icons.close),
+            color: colors.ink,
             tooltip: 'Close the coach',
           ),
         ],
@@ -147,6 +186,7 @@ class _Body extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
     final conversation = ref.watch(coachControllerProvider);
     final allowance = entitlement.allowanceFor(kCoachFeature);
     // Uncapped means the feature is absent from PREMIUM_ALLOWANCE for a premium
@@ -154,159 +194,102 @@ class _Body extends ConsumerWidget {
     // missing meter is good news rather than an empty one.
     final uncapped = entitlement.premium && allowance == null;
     final canAsk = uncapped || (allowance?.hasRemaining ?? false);
+    void ask(String question) => unawaited(
+      ref.read(coachControllerProvider.notifier).ask(question),
+    );
     return Column(
-      children: [
+      children: <Widget>[
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Insets.lg),
+          padding: const EdgeInsets.symmetric(horizontal: Insets.xl),
           child: Align(
             alignment: Alignment.centerLeft,
             child: CoachMeter(entitlement: entitlement, now: now),
           ),
         ),
-        const SizedBox(height: Insets.md),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(
-              Insets.lg,
+              Insets.xl,
               0,
-              Insets.lg,
+              Insets.xl,
               Insets.lg,
             ),
             itemCount: conversation.entries.length + 1,
             itemBuilder: (context, index) {
               if (index == conversation.entries.length) {
-                return conversation.asking
-                    ? const Padding(
-                        padding: EdgeInsets.only(top: Insets.md),
-                        child: LoadingState(label: 'Asking your coach'),
-                      )
-                    : _Opening(canAsk: canAsk);
+                return _tail(
+                  started: !conversation.isEmpty,
+                  asking: conversation.asking,
+                  canAsk: canAsk,
+                  ask: ask,
+                );
               }
-              return Padding(
-                padding: const EdgeInsets.only(bottom: Insets.md),
-                child: CoachEntryView(entry: conversation.entries[index]),
-              );
+              return CoachEntryView(entry: conversation.entries[index]);
             },
           ),
         ),
         if (canAsk)
-          _Composer(
-            asking: conversation.asking,
-            remaining: allowance?.remaining,
-            onAsk: (question) => unawaited(
-              ref.read(coachControllerProvider.notifier).ask(question),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Insets.xl,
+              0,
+              Insets.xl,
+              Insets.lg,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                CoachComposer(
+                  asking: conversation.asking,
+                  remaining: allowance?.remaining,
+                  onAsk: ask,
+                ),
+                const SizedBox(height: Insets.lg),
+                Text(
+                  kCoachFormNote,
+                  style: TypeScale.formNote.copyWith(color: colors.ink2),
+                ),
+              ],
             ),
           ),
       ],
     );
   }
-}
 
-/// What the sheet says before anything has been asked.
-class _Opening extends StatelessWidget {
-  const _Opening({required this.canAsk});
-
-  final bool canAsk;
-
-  @override
-  Widget build(BuildContext context) {
-    if (canAsk) {
-      return const EmptyState(
-        message: 'Ask about your own data',
-        hint:
-            'The coach reads your sleep, activity and recovery and answers from '
-            'the research notes, citing every one it uses and stating the '
-            'weakest grade among them. It will say when it does not know.',
+  /// What sits under the last entry: the spinner, the opening, or nothing.
+  Widget _tail({
+    required bool started,
+    required bool asking,
+    required bool canAsk,
+    required void Function(String question) ask,
+  }) {
+    if (asking) {
+      return const Padding(
+        padding: EdgeInsets.only(top: Insets.md),
+        child: LoadingState(label: 'Asking your coach'),
       );
     }
-    // No input is built in this state, so this card is the whole surface. It
-    // must therefore carry the reason rather than leaving a dead box on screen.
-    return const EmptyState(
-      message: 'No questions can be asked right now',
-      hint:
-          'The line above is your server’s own answer about this account, read '
-          'just now. Nothing here has been spent.',
-    );
-  }
-}
-
-/// The input. Only ever built with a balance that permits a question.
-class _Composer extends StatefulWidget {
-  const _Composer({
-    required this.asking,
-    required this.remaining,
-    required this.onAsk,
-  });
-
-  final bool asking;
-
-  /// How many are left, or null when the account is uncapped.
-  final int? remaining;
-
-  final void Function(String question) onAsk;
-
-  @override
-  State<_Composer> createState() => _ComposerState();
-}
-
-class _ComposerState extends State<_Composer> {
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _send() {
-    final question = _controller.text.trim();
-    if (question.isEmpty || widget.asking) {
-      return;
+    // The opening is what an EMPTY thread stands on. Once anything has been
+    // asked it is gone, prompts included: three openers under a running
+    // conversation are three more spends offered as decoration.
+    if (started) {
+      return const SizedBox.shrink();
     }
-    _controller.clear();
-    widget.onAsk(question);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(Insets.lg, Insets.md, Insets.lg, Insets.lg),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: colors.line2, width: hairline)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _controller,
-            enabled: !widget.asking,
-            minLines: 1,
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            onSubmitted: (_) => _send(),
-            decoration: const InputDecoration(
-              hintText: 'Ask your coach…',
-              isDense: true,
-            ),
-          ),
-          const SizedBox(height: Insets.sm),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: widget.asking ? null : _send,
-              // The cost is on the button, in the number, before the tap. A
-              // meter at the top of a sheet and a bare "Send" at the bottom is
-              // still a spend the owner has to remember to have read about.
-              child: Text(askLabel(widget.remaining)),
-            ),
-          ),
-        ],
-      ),
-    );
+    // No permitting balance, no prompts — the same rule as the input, and the
+    // card that replaces them carries the reason rather than leaving a dead box.
+    return canAsk
+        ? CoachIntro(onAsk: ask)
+        : const Column(
+            children: <Widget>[
+              CoachIntro(onAsk: null),
+              EmptyState(
+                message: 'No questions can be asked right now',
+                hint:
+                    'The line above is your server’s own answer about this '
+                    'account, read just now. Nothing here has been spent.',
+              ),
+            ],
+          );
   }
 }
-
-/// What the ask button says. Public so a test can pin the wording.
-String askLabel(int? remaining) =>
-    remaining == null ? 'Ask' : 'Ask — uses 1 of your $remaining';
