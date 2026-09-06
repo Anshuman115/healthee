@@ -33,6 +33,7 @@ from healthee.api.routers import (
     logs,
     programs,
     readiness,
+    recommendations,
     sleep,
     today,
     workouts,
@@ -98,6 +99,7 @@ def create_app() -> FastAPI:
     # WP-C2 challenges: the feed, the lifecycle writes, and the outcome ledger.
     # Deterministic only — generation (WP-C3) and the coach tools (WP-C5) are later.
     # Premium in full since 6.6a: every handler takes a gated identity (api.gate).
+    app.include_router(recommendations.router)
     app.include_router(challenges.router)
     # WP-C4 programs: the multi-week ladder over those challenges. Mounted beside
     # them rather than inside them because a rung's own lifecycle is the challenges

@@ -23,6 +23,10 @@ What the push derives (#107): a `DerivePlan` of the push's fresh NIGHTS and the 
 it touched — in that order, which `derive.derive_batch` owns. This used to be days
 only, so the night pass never ran and every metric derived from a sleep session
 silently stopped existing while the day metrics kept updating.
+
+The plan also includes stored nights overlapping incoming HR/HRV/SpO2/respiratory
+samples. Mobile sends sessions and samples on separate pages, so a sample-only
+page must repair the night and its wake day even without a repeated session.
 """
 
 from __future__ import annotations
@@ -32,6 +36,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from psycopg import Connection
 from psycopg.rows import TupleRow
@@ -39,6 +44,7 @@ from pydantic import BaseModel
 
 from healthee.core.db import tenant_connection
 from healthee.core.logging import get_logger
+from healthee.ingest.affected_nights import sample_affected_nights
 from healthee.ingest.models import ALLOWED_METRICS, HelioPayload, SleepIn
 from healthee.ingest.upsert import (
     build_fresh_predicate,
@@ -149,11 +155,19 @@ def _affected_nights(
     return sorted(windows)
 
 
-def _derive_plan(payload: HelioPayload, tz: str, is_fresh: Callable[[SleepIn], bool]) -> DerivePlan:
-    """Everything this push must derive, in the two passes it takes."""
-    return DerivePlan(
-        nights=_affected_nights(payload, is_fresh), days=_affected_days(payload, tz, is_fresh)
-    )
+def _derive_plan(
+    payload: HelioPayload,
+    tz: str,
+    is_fresh: Callable[[SleepIn], bool],
+    stored_nights: tuple[tuple[datetime, datetime], ...] = (),
+) -> DerivePlan:
+    """Recalculate both supplied nights and stored nights touched by late samples."""
+    nights = sorted(set(_affected_nights(payload, is_fresh)) | set(stored_nights))
+    days = set(_affected_days(payload, tz, is_fresh))
+    zone = ZoneInfo(tz)
+    for start, end in nights:
+        days.update((start.astimezone(zone).date(), end.astimezone(zone).date()))
+    return DerivePlan(nights=nights, days=sorted(days))
 
 
 def ingest_helio(
@@ -180,7 +194,9 @@ def ingest_helio(
             if payload.profile.weight_kg is not None:
                 upsert_weight(cur, user_id, tz, payload.profile.weight_kg)
 
-        plan = _derive_plan(payload, tz, is_fresh)
+        plan = _derive_plan(
+            payload, tz, is_fresh, tuple(sample_affected_nights(cur, user_id, payload.samples))
+        )
         if plan.nights or plan.days:
             derive(conn, user_id, tz, plan)
 

@@ -31,6 +31,7 @@ from uuid import UUID
 
 from healthee.core.logging import get_logger
 from healthee.derive._common import Cur, _age, _load_profile, _upsert_daily
+from healthee.derive.body_mass import body_mass_index
 from healthee.derive.freshness import (
     NOT_DERIVED_YET,
     PROFILE_INCOMPLETE,
@@ -339,7 +340,7 @@ def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     if reason := _profile_withhold_reason(prof, day):
         return _withheld(user_id, day, reason)
     age = _age(prof["dob"], day)
-    bmi = prof["weight_kg"] / ((prof["height_cm"] / 100) ** 2)
+    bmi = body_mass_index(prof["weight_kg"], prof["height_cm"])
     rhrs = rhr_week(cur, user_id, day)
     if reason := vo2max_withhold_reason(rhrs):
         return _withheld(user_id, day, reason)

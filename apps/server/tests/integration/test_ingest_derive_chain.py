@@ -278,3 +278,31 @@ def test_a_push_with_no_sleep_still_derives_its_days(db: None) -> None:  # noqa:
     summary = ingest_helio(payload, SENTINEL_USER_ID, SENTINEL_TZ)
     assert summary.days_derived == 1
     assert _value(_WAKE_DAY, "steps_total") == pytest.approx(9264.0)
+
+
+def test_samples_uploaded_after_sessions_repair_overnight_metrics(db: None) -> None:
+    """First page has all sessions; later sample-only pages must converge to one push."""
+    _reset()
+    payload = _night_payload()
+    first = payload.model_copy(update={"samples": []})
+    ingest_helio(first, SENTINEL_USER_ID, SENTINEL_TZ)
+    assert _derived(_WAKE_DAY, "hrv_sleep_avg") is None
+
+    # The raw points arrive independently of the session, as in mobile paging.
+    for metric in ("hr", "hrv", "spo2", "respiratory_rate"):
+        page = HelioPayload(samples=[s for s in payload.samples if s.metric == metric])
+        ingest_helio(page, SENTINEL_USER_ID, SENTINEL_TZ)
+    for metric, expected in _NIGHT_METRICS.items():
+        assert _value(_WAKE_DAY, metric) == pytest.approx(expected), metric
+    assert _flags(_WAKE_DAY, "cardio_load")["rhr"] == round(_SLEEP_HR_BPM)
+
+
+def test_late_before_midnight_hrv_repairs_the_wake_day(db: None) -> None:
+    """A previous-day sample still invalidates the following morning's night metric."""
+    _reset()
+    ingest_helio(_night_payload(), SENTINEL_USER_ID, SENTINEL_TZ)
+    late = HelioPayload.model_validate(
+        {"samples": [{"metric": "hrv", "ts": _ms(_NIGHT_START), "value": 61.0}]}
+    )
+    ingest_helio(late, SENTINEL_USER_ID, SENTINEL_TZ)
+    assert _value(_WAKE_DAY, "hrv_sleep_avg") == pytest.approx(46.0)

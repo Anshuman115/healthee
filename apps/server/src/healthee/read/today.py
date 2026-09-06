@@ -33,6 +33,7 @@ from healthee.read.health_metrics import (
     pai_payload,
     sleep_debt_payload,
 )
+from healthee.read.recommendations import recommendation_shape
 from healthee.read.recovery import (
     data_health_payload,
     recovery_score_payload,
@@ -149,20 +150,4 @@ def _recommendations_today(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     if not rows:
         return []
     latest_date = rows[0][1]
-    return [_rec_shape(r) for r in rows if r[1] == latest_date]
-
-
-def _rec_shape(r: tuple) -> dict:
-    return {
-        "id": r[0],
-        "date": r[1].isoformat(),
-        "rank": r[2],
-        "action": r[3],
-        "rationale": r[4],
-        "expected_effect": r[5],
-        "category": r[6],
-        "evidence_grade": r[7],
-        "research_note_ids": list(r[8] or []),
-        "signal_source": r[9],
-        "adopted": r[10],
-    }
+    return [recommendation_shape(r) for r in rows if r[1] == latest_date]

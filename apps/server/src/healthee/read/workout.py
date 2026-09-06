@@ -17,7 +17,6 @@ from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.trimp import trimp_total
 from healthee.read.common import sport_name
 from healthee.read.fitness import cardio_load_payload
-from healthee.read.vo2max import vo2max_payload
 
 
 def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
@@ -35,9 +34,11 @@ def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
     start_ts, sport, dur_s, cal, dist, avg_hr, max_hr, min_hr = row
     end_ts = start_ts + timedelta(seconds=int(dur_s or 0))
     hrs, series = _hr_profile(cur, user_id, tz, start_ts, end_ts)
-    hrmax = (cardio_load_payload(cur, user_id, tz) or {}).get("hrmax")
-    rhr = (cardio_load_payload(cur, user_id, tz) or {}).get("rhr")
-    sex = (vo2max_payload(cur, user_id, tz) or {}).get("sex") or "male"
+    load = cardio_load_payload(cur, user_id, tz) or {}
+    hrmax, rhr = load.get("hrmax"), load.get("rhr")
+    cur.execute("SELECT sex FROM profile WHERE user_id = %s", (user_id,))
+    profile_row = cur.fetchone()
+    sex = profile_row[0] if profile_row else None
     zones = _zone_minutes(hrs, hrmax)
     dur_min = round((dur_s or 0) / 60) if dur_s else None
     metrics = _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones)
@@ -119,7 +120,7 @@ def _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones) ->
         m["speed_kmh"] = round((dist / 1000) / (dur_min / 60), 1)
     if cal and dur_min:
         m["cal_per_min"] = round(cal / dur_min, 1)
-    if hrmax and rhr and hrmax > rhr and hrs:
+    if hrmax and rhr and hrmax > rhr and hrs and sex in ("male", "female"):
         m["trimp"] = _session_trimp(hrs, hrmax, rhr, sex)
     if len(hrs) >= 6:
         h = len(hrs) // 2

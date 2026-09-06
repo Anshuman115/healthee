@@ -49,6 +49,9 @@ pytestmark = pytest.mark.integration
 # that changed `NotableUser` to `InsightUser` was survivable until this column existed,
 # because both refuse and only the body differs.
 AI_ROUTES: list[tuple[str, str, dict | None, dict | None, str]] = [
+    ("GET", "/api/recommendations", None, None, gate.DAILY_ACTION),
+    ("POST", "/api/recommendations/999999/adopt", None, None, gate.DAILY_ACTION),
+    ("POST", "/api/recommendations/999999/dismiss", None, None, gate.DAILY_ACTION),
     ("POST", "/api/coach", None, {"messages": [{"role": "user", "content": "hi"}]}, gate.COACH),
     ("POST", "/api/today/action", None, None, gate.DAILY_ACTION),
     ("GET", "/api/sleep/insight", None, None, gate.INSIGHT),
@@ -87,8 +90,10 @@ FREE_PATHS: dict[str, str] = {
     "/api/sleep/consistency": "free tier; its `tonight` AI field is omitted instead",
     "/api/activity": "free tier — activity numbers",
     "/api/activity/workout": "free tier — workout detail",
+    "/api/history/logs": "free tier — owner-authored history markers",
     "/api/history": "free tier — full history is deliberately never paywalled",
     "/api/profile": "free tier — the owner's own demographics",
+    "/api/account": "authenticated identity for durable local data ownership",
     "/api/log": "free tier — manual logging",
     "/api/log/recent": "free tier — manual logging",
     "/api/workout/gps": "free tier — GPS routes",
@@ -188,6 +193,7 @@ def test_the_probe_list_covers_every_gated_route() -> None:
     probed_templates = {p.replace("999999", "{challenge_id}") for p in probed} | {
         p.replace("999999", "{program_id}") for p in probed
     }
+    probed_templates |= {p.replace("999999", "{rec_id}") for p in probed}
     missing = sorted(gated - probed_templates)
     assert not missing, f"gated routes never probed for a 402: {missing}"
 
