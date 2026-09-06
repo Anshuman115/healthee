@@ -1,0 +1,69 @@
+.chart { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--subtle); font: 10px var(--font-body); }
+.gridline { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 4; fill: none; }
+.data-line { stroke: var(--accent); stroke-width: 2.3; stroke-linejoin: round; stroke-linecap: round; fill: none; }
+.data-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.area-top { stop-color: var(--chart-light); stop-opacity: .6; }
+.area-bottom { stop-color: var(--chart-faint); stop-opacity: 0; }
+.baseline-band { fill: var(--chart-faint); }
+.baseline-line { stroke: var(--subtle); stroke-width: 1; stroke-dasharray: 4 4; fill: none; }
+.bar { fill: var(--chart-light); }
+.bar.current { fill: var(--chart-strong); }
+.chart-interactive { position: relative; margin-top: var(--space-lg); }
+.chart-scrubber { position: absolute; left: 0; top: 0; width: 90%; height: calc(100% - 32px); opacity: .001; margin: 0; cursor: ew-resize; }
+.chart-interactive:has(.chart-scrubber:focus-visible) { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+.chart-readout { display: block; font-size: 10px; color: var(--subtle); text-align: center; min-height: 22px; padding-top: 4px; }
+.chart-axis { display: flex; justify-content: space-between; color: var(--subtle); font-size: 10px; margin-top: var(--space-sm); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 10px; margin-top: var(--space-sm); }
+.chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.chart-legend i { width: 7px; height: 7px; border-radius: 2px; background: var(--chart-strong); }
+.chart-legend .light { background: var(--chart-light); }
+.chart-legend .medium { background: var(--chart-medium); }
+.chart-legend .wake { background: var(--chart-wake); }
+.sparkline { width: 100%; height: 35px; margin-top: var(--space-sm); }
+.sparkline .data-line { stroke-width: 3; }
+.stage-awake { fill: var(--chart-wake); background: var(--chart-wake); }
+.stage-rem { fill: var(--chart-medium); background: var(--chart-medium); }
+.stage-light { fill: var(--chart-light); background: var(--chart-light); }
+.stage-deep { fill: var(--chart-strong); background: var(--chart-strong); }
+.sleep-connector { fill: none; stroke: var(--chart-light); stroke-width: 2; }
+.sleep-strip { display: flex; gap: 3px; height: 24px; margin-top: var(--space-xl); }
+.sleep-strip i { border-radius: 5px; }
+.signal-chart { margin-block: var(--space-lg); }
+.signal-chart-key { display: flex; justify-content: space-between; padding: 0 48px 12px 80px; color: var(--subtle); font-size: 8px; }
+.signal-row { display: grid; grid-template-columns: 68px minmax(0, 1fr) 56px; gap: var(--space-sm); align-items: center; margin-block: 17px; font-size: 11px; }
+.signal-row b { font-size: 10px; text-align: right; font-weight: 500; }
+.signal-track { position: relative; height: 5px; border-radius: 5px; background: var(--surface-soft); }
+.signal-band { position: absolute; inset: -7px 32%; background: var(--chart-faint); border-radius: 4px; }
+.signal-center { position: absolute; left: 50%; width: 1px; height: 27px; top: -11px; background: var(--rule); }
+.signal-dot { position: absolute; top: -3px; width: 11px; height: 11px; background: var(--accent); border: 2px solid var(--surface); border-radius: 50%; transform: translateX(-50%); }
+.factor-bars { display: grid; gap: 12px; margin-block: var(--space-lg); }
+.factor-row { display: grid; grid-template-columns: 85px minmax(0, 1fr) 28px; gap: 12px; font-size: 11px; align-items: center; }
+.factor-track { height: 6px; border-radius: 6px; background: var(--surface-soft); overflow: clip; }
+.factor-track i { display: block; height: 100%; border-radius: 6px; background: var(--chart-strong); }
+.factor-row:nth-child(2) i { background: var(--chart-medium); }
+.factor-row:nth-child(3) i { background: var(--chart-light); }
+.factor-row:nth-child(4) i { background: var(--chart-medium); }
+.step-bars { display: flex; align-items: end; gap: 3px; height: 88px; padding-top: 10px; margin-top: 20px; }
+.step-bars i { flex: 1; background: var(--chart-light); color: var(--ink); border-radius: 3px 3px 1px 1px; min-height: 2px; }
+.step-bars i:nth-child(4n) { background: var(--chart-strong); }
+.route-map { border-radius: var(--radius-md); overflow: clip; }
+.map-land { fill: var(--map-land); }
+.map-park { fill: var(--map-park); }
+.map-water { fill: var(--map-water); }
+.map-road { stroke: var(--surface); stroke-width: 13; fill: none; }
+.route-underlay { stroke: var(--surface); stroke-width: 8; fill: none; }
+.route-line { stroke: var(--accent); stroke-width: 4; fill: none; stroke-linecap: round; }
+.route-start { fill: var(--surface); stroke: var(--accent); stroke-width: 3; }
+.sleep-dimensions { display: grid; gap: var(--space-lg); }
+.dimension-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; }
+.dimension-row strong { font-size: 12px; }
+.dimension-row p { font-size: 10px; }
+.dimension-track { height: 5px; border-radius: 5px; background: var(--surface-soft); margin-top: 4px; position: relative; overflow: clip; }
+.dimension-track i { height: 100%; display: block; background: var(--chart-medium); border-radius: 5px; }
+.weekly-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 7px; margin-block: 20px; }
+.day { text-align: center; color: var(--subtle); font-size: 10px; }
+.day span { display: grid; place-items: center; width: 100%; aspect-ratio: 1; border-radius: 50%; margin-top: 8px; background: var(--surface-soft); color: var(--muted); font-size: 12px; }
+.day .done { color: var(--accent); background: var(--accent-soft); }
+.day .current { border: 1px solid var(--accent); color: var(--accent); }
+.day .icon { width: 16px; }

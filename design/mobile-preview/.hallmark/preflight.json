@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-06",
+  "scope": "Standalone mobile HTML prototype; user explicitly requested a whole-app redesign proposal before Flutter changes",
+  "sources": [
+    "docs/APP_DESIGN_BRIEF.md",
+    "docs/LEGACY_FEATURE_PARITY.md",
+    "docs/ENGINEERING_STANDARDS.md",
+    "docs/ARCHITECTURE.md",
+    "apps/mobile/assets/fonts",
+    "packages/contracts/snapshots"
+  ],
+  "font": "Vendored Manrope; regular and bold",
+  "palette": "Metric-specific OKLCH colours: green recovery/fitness, violet sleep, coral heart, amber movement, blue oxygen; authored light and dark themes",
+  "framework": "Vanilla HTML, CSS and JavaScript; no runtime dependencies",
+  "motion": "Short transform/opacity interactions, reduced-motion fallback",
+  "preserve": [
+    "five main destinations",
+    "feature coverage",
+    "sample-data provenance",
+    "existing production implementation"
+  ],
+  "introduce": [
+    "connected daily hierarchy",
+    "shared chart language",
+    "contextual detail flows",
+    "interactive review controls"
+  ]
+}

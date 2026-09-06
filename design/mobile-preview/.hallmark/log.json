@@ -1,0 +1,37 @@
+[
+  {
+    "date": "2026-09-06",
+    "version": "v02",
+    "macrostructure": "Stat-Led",
+    "theme": "Custom Healthee metric palette",
+    "enrichment": "Biological-age contours and source-backed SVG charts",
+    "brief": "Data-rich mobile preview, full chart inventory and four explicit sleep checks",
+    "critique": {
+      "philosophy": 4,
+      "hierarchy": 4,
+      "execution": 4,
+      "specificity": 5,
+      "restraint": 4,
+      "variety": 4
+    },
+    "validation": "285 screen/viewport/theme combinations; navigation, interaction, source-data, privacy and reduced-motion checks passed"
+  },
+  {
+    "date": "2026-09-06",
+    "macrostructure": "Stat-Led",
+    "theme": "Existing Healthee instrument",
+    "enrichment": "Functional SVG charts; no decorative imagery",
+    "nav": "N5 mobile adaptation",
+    "footer": "Ft2",
+    "brief": "Connected, premium mobile health app redesign; interactive HTML review before Flutter implementation",
+    "critique": {
+      "philosophy": 4,
+      "hierarchy": 4,
+      "execution": 4,
+      "specificity": 5,
+      "restraint": 4,
+      "variety": 4
+    },
+    "validation": "180 route/viewport/theme combinations; selected contrast token pairs exceed 4.5:1; functional acceptance and reduced-motion checks"
+  }
+]
