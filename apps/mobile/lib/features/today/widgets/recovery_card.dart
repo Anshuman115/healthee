@@ -89,7 +89,7 @@ class RecoveryCard extends StatelessWidget {
     final tint = switch (band) {
       'high' => colors.accent,
       'low' => colors.alert,
-      _ => hues.calories,
+      _ => hues.movement,
     };
     final word = switch (band) {
       'high' => 'Recovered',
@@ -276,7 +276,7 @@ class _FactorRow extends StatelessWidget {
     final bar = sub >= 60
         ? colors.accent
         : sub >= 40
-        ? hues.calories
+        ? hues.movement
         : colors.alert;
     return Padding(
       padding: const EdgeInsets.only(top: 9),

@@ -32,7 +32,7 @@ class StaleSleepBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final tint = context.hues.steps;
+    final tint = context.hues.movement;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),

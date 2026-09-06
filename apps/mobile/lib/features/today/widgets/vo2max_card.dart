@@ -59,7 +59,7 @@ class Vo2maxCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final tint = context.hues.readiness;
+    final tint = context.hues.fitness;
     final trend = <double>[for (final point in vo2max.trend90d) point.value];
     final sex = vo2max.sex == 'female' ? 'F' : 'M';
     return InstrumentModule(
@@ -164,7 +164,7 @@ class _MedianPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint = context.hues.steps;
+    final tint = context.hues.movement;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(

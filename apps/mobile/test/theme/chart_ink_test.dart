@@ -189,9 +189,16 @@ void main() {
           isNot(contains(colors.line.withValues(alpha: 0.7).toARGB32())),
           reason: 'this is the "almost white" the owner reported',
         );
+        // The 0.5 half of this pair retired on 2026-09-06 and the reason is
+        // worth writing down: v02's `--line` is OPAQUE, so `line` at alpha 0.5
+        // is no longer a mistake — it is exactly what `grid` is. The mistake
+        // that replaces it is the louder one the prototype's own CSS invites
+        // (`.gridline { stroke: var(--line) }`): the undimmed hairline, drawn
+        // at full strength inside a plot.
         expect(
           painted,
-          isNot(contains(colors.line.withValues(alpha: 0.5).toARGB32())),
+          isNot(contains(colors.line.toARGB32())),
+          reason: 'the undimmed hairline is the v02-shaped version of the bug',
         );
       });
     });

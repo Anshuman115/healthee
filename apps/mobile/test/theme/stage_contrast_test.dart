@@ -173,47 +173,45 @@ void main() {
         expect(stages.values.toSet().length, kSleepStages.length);
       });
 
-      test('MUTATION — the WHOLE borrowed set is under the floor', () {
-        // Reverting the four values wholesale — the "restore legacy" mutation —
-        // must fail. Dark's worst pair was 1.02:1 (rem vs awake), light's 1.12:1
-        // (light vs awake).
-        expect(
-          _worstPair(<Color>[hues.steps, hues.spo2, hues.sleep, hues.heart]),
-          lessThan(kStagePairFloor),
-        );
+        test('MUTATION — ADOPTING v02’s OWN STAGE COLOURS IS UNDER THE FLOOR', () {
+        // The live conflict, measured rather than argued. `richer.css` ships its
+        // own four stage colours and they do not clear this gate: in both themes
+        // light-vs-REM and light-vs-awake fall under the pair floor, and in the
+        // light theme two of the four fall under the surface floor on a white
+        // card. So the app draws the repaired ramp and the prototype's set is
+        // recorded in `sleep_stage_palette.dart` as the rejected input.
+        //
+        // This is the "restore legacy" mutation's successor: same shape, current
+        // temptation. Whether to adopt v02's set anyway is the owner's call, and
+        // it costs these floors.
+        final proposed = entry.key == 'light'
+            ? V02StagePrototype.light
+            : V02StagePrototype.dark;
+        expect(_worstPair(proposed), lessThan(kStagePairFloor));
+        expect(_isDescending(proposed), isFalse);
       });
 
-      test('MUTATION — restoring ONE old value, stage by stage', () {
-        // Stronger than the wholesale revert: each stage is put back on its old
-        // metric hue alone, with the other three left repaired.
-        //
-        // Seven of the eight are caught by the properties this file asserts —
-        // the pair floor, or the depth ordering. **The eighth is not, and saying
-        // so is the point of this comment**: light-theme `deep` moved from
-        // luminance 0.2483 to 0.2534, because legacy's light gold was already
-        // sitting on its rung. The light theme's deep sleep was never the
-        // problem — its `awake` was, at 1.12:1 — so no property can object to
-        // putting the old gold back. `test/core/theme_test.dart` pins the eight
-        // derived values for exactly that case; properties catch what they can
-        // and a transcription catches the rest.
-        final borrowed = <String, Color>{
-          'deep': hues.steps,
-          'light': hues.spo2,
-          'rem': hues.sleep,
-          'awake': hues.heart,
-        };
+      test('MUTATION — swapping ONE stage for v02’s, stage by stage', () {
+        // Stronger than the wholesale substitution: each rung is put back on
+        // v02's value alone, with the other three left repaired. Every one is
+        // caught — three by the depth ordering and, in the dark theme, one by
+        // the pair floor after the ordering happens to survive. `unguarded` is
+        // the list of stages that slipped past BOTH properties, and it is empty.
+        final proposed = entry.key == 'light'
+            ? V02StagePrototype.light
+            : V02StagePrototype.dark;
         final unguarded = <String>[
-          for (final stage in kSleepStages)
+          for (var i = 0; i < kSleepStages.length; i++)
             if (_slipsPast(<Color>[
-              for (final other in kSleepStages)
-                other == stage ? borrowed[stage]! : stages[other]!,
+              for (var j = 0; j < kSleepStages.length; j++)
+                j == i ? proposed[j] : stages[kSleepStages[j]]!,
             ]))
-              stage,
+              kSleepStages[i],
         ];
         expect(
           unguarded,
-          entry.key == 'light' ? <String>['deep'] : <String>[],
-          reason: 'a restored legacy value slipped past both properties',
+          isEmpty,
+          reason: 'a v02 stage value slipped past both properties',
         );
       });
 

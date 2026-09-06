@@ -83,7 +83,7 @@ class HrvTrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint = context.hues.hrv;
+    final tint = context.hues.fitness;
     final median = baseline;
     final references = <ChartReference>[
       if (median != null)

@@ -166,7 +166,7 @@ void main() {
       const hues = InstrumentHues.light();
       final drawn = coloursOf(paintedBy(tester, find.byType(HTimingChart)));
       expect(drawn, contains(hues.sleep.toARGB32()), reason: 'bedtime is cSleep');
-      expect(drawn, contains(hues.steps.toARGB32()), reason: 'wake is cSteps');
+      expect(drawn, contains(hues.movement.toARGB32()), reason: 'wake is cSteps');
     });
 
     testWidgets('five gridlines and two paths', (tester) async {

@@ -186,15 +186,27 @@ abstract final class LightStagePalette {
 ///
 /// ```text
 ///   stage   value      was        Y       card   page    OKLCH
-///   deep    #FFCC73    #D9A84E    0.6568  12.36  13.30   L .872  C .1217  H  80.0
-///   light   #87AECF    #7DA3C4    0.3993  7.86   8.46    L .734  C .0640  H 244.3
-///   rem     #867EB8    #968EC9    0.2345  4.97   5.35    L .623  C .0867  H 290.0
-///   awake   #A8472E    #E07A5F    0.1303  3.15   3.39    L .521  C .1339  H  35.5
+///   deep    #FECC73    #FFCC73    0.6549  11.57  12.85   L .871  C .1217  H  80.0
+///   light   #89B0D1    #87AECF    0.4097  7.54   8.38    L .742  C .0640  H 244.3
+///   rem     #8A82BC    #867EB8    0.2500  4.92   5.47    L .637  C .0867  H 290.0
+///   awake   #AE4D33    #A8472E    0.1455  3.21   3.56    L .540  C .1339  H  35.5
 ///
 ///   band against band          deep   light  rem
-///                     light    1.57
-///                     rem      2.48   1.58
-///                     awake    3.92   2.49   1.58
+///                     light    1.53
+///                     rem      2.35   1.53
+///                     awake    3.61   2.35   1.54
+/// ```
+///
+/// **Re-derived on 2026-09-06 because the card moved.** v02's dark `--surface`
+/// is `#181C19`, lighter than the `#141419` this ramp was first fitted to, and
+/// on it the old `awake` measured **2.96:1** — under [kStageSurfaceFloor] by
+/// four hundredths. That is this file's stated reason to change ("the card
+/// colour moved, so re-derive the ramp"), so all four rungs were re-spaced
+/// rather than the one nudged: every hue angle and every chroma is unchanged to
+/// four decimal places, and only the luminances moved, from
+/// `.6568/.3993/.2345/.1303` to `.6549/.4097/.2500/.1455`.
+///
+/// ```text
 /// ```
 ///
 /// Every chroma is legacy's to four decimal places. The gold could have been
@@ -204,23 +216,98 @@ abstract final class LightStagePalette {
 abstract final class DarkStagePalette {
   /// **Deep sleep — the lightest rung.** Legacy's `cSteps` hue and chroma at
   /// Y 0.6568, the highest luminance that hue reaches without losing chroma.
-  static const Color deep = Color(0xFFFFCC73);
+  static const Color deep = Color(0xFFFECC73);
 
   /// **Light sleep — second rung.** Legacy's `cSpo2` hue and chroma. It moves
   /// least of the four (Y 0.345 → 0.399): it was already near its rung.
-  static const Color light = Color(0xFF87AECF);
+  static const Color light = Color(0xFF89B0D1);
 
   /// **REM — third rung.** Legacy's `cSleep` hue and chroma, darkened. This and
   /// `awake` were the 1.02:1 pair — the two that were literally indistinguishable.
-  static const Color rem = Color(0xFF867EB8);
+  static const Color rem = Color(0xFF8A82BC);
 
   /// **Awake — the darkest rung**, at 3.15:1 on the card. Legacy's `cHeart` hue
   /// and chroma, darkened; it keeps all of its chroma, unlike its light-theme
   /// counterpart.
-  static const Color awake = Color(0xFFA8472E);
+  static const Color awake = Color(0xFFAE4D33);
 
   /// A span staged with a code we do not recognise. See
   /// [LightStagePalette.unstaged] for the whole argument — same placement rule,
-  /// same reasoning. Was `#767676`; 3.98:1 on the card.
-  static const Color unstaged = Color(0xFF757575);
+  /// same reasoning. Re-placed with the ramp: at the geometric midpoint of the
+  /// rem/awake gap it is 1.24:1 from each and 3.98:1 on the card.
+  static const Color unstaged = Color(0xFF797979);
+}
+
+/// **v02's four stage colours, as the prototype ships them — and why they are
+/// not what this app draws.**
+///
+/// `design/mobile-preview/richer.css` assigns the stages their own hue family:
+/// violet deep, blue light, magenta REM, amber awake. Measured against the two
+/// floors this file exists to hold:
+///
+/// ```text
+///   light theme        Y       on a white card    worst pair
+///   deep  #5E38C1   0.0906         7.47              light vs REM    1.39   ✗
+///   light #89A9F1   0.4005         2.33   ✗          light vs awake  1.10   ✗
+///   rem   #C96BCC   0.2750         3.23              rem   vs awake  1.52
+///   awake #EDA253   0.4448         2.12   ✗          deep  vs light  3.20
+///
+///   dark theme         Y       on the dark card   worst pair
+///   deep  #7859E3   0.1677        16.8              light vs REM    1.42   ✗
+///   light #9EBDFF   0.5079        49.4              light vs awake  1.15   ✗
+///   rem   #DA7BDD   0.3420        33.4              rem   vs awake  1.63
+///   awake #FFBD76   0.5894        57.2              deep  vs light  2.56
+/// ```
+///
+/// Two pairs are under [kStagePairFloor] in both themes and two stages are under
+/// [kStageSurfaceFloor] on the light card. That is the same defect the ramp above
+/// was authored to repair — bands told apart by hue alone, which is what red-green
+/// colour deficiency removes — and the owner reported it on a shipped build:
+/// *"only yellow is visible, others are not."*
+///
+/// **So the app keeps the repaired ramp and this set is recorded, not drawn.** It
+/// is here rather than deleted because `test/theme/stage_contrast_test.dart`
+/// mutates the ramp to these exact values and requires the gate to reject them: a
+/// rejected design that is not written down is a design that comes back. Adopting
+/// it is a decision for the owner, and it costs the floors.
+abstract final class V02StagePrototype {
+  /// `--stage-deep`, light theme.
+  static const Color lightDeep = Color(0xFF5E38C1);
+
+  /// `--stage-light`, light theme. 2.33:1 on a white card.
+  static const Color lightLight = Color(0xFF89A9F1);
+
+  /// `--stage-rem`, light theme.
+  static const Color lightRem = Color(0xFFC96BCC);
+
+  /// `--stage-awake`, light theme. 2.12:1 on a white card.
+  static const Color lightAwake = Color(0xFFEDA253);
+
+  /// `--stage-deep`, dark theme.
+  static const Color darkDeep = Color(0xFF7859E3);
+
+  /// `--stage-light`, dark theme.
+  static const Color darkLight = Color(0xFF9EBDFF);
+
+  /// `--stage-rem`, dark theme.
+  static const Color darkRem = Color(0xFFDA7BDD);
+
+  /// `--stage-awake`, dark theme.
+  static const Color darkAwake = Color(0xFFFFBD76);
+
+  /// The light ramp in `kSleepStages` order, for a mutation to substitute whole.
+  static const List<Color> light = <Color>[
+    lightDeep,
+    lightLight,
+    lightRem,
+    lightAwake,
+  ];
+
+  /// The dark ramp in `kSleepStages` order.
+  static const List<Color> dark = <Color>[
+    darkDeep,
+    darkLight,
+    darkRem,
+    darkAwake,
+  ];
 }

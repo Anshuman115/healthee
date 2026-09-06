@@ -63,7 +63,7 @@ class _SleepInsightCardState extends ConsumerState<SleepInsightCard> {
           children: <Widget>[
             HIconBadge(
               SolarIconsBold.magicStick,
-              color: hues.readiness,
+              color: hues.fitness,
               size: 36,
               radius: 11,
             ),
@@ -87,7 +87,7 @@ class _SleepInsightCardState extends ConsumerState<SleepInsightCard> {
                 height: 15,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: hues.readiness,
+                  color: hues.fitness,
                 ),
               )
             else
@@ -166,7 +166,7 @@ class _SleepInsightCardState extends ConsumerState<SleepInsightCard> {
         }
         return GroundedMarkdown(
           text: analysis.text,
-          accent: hues.readiness,
+          accent: hues.fitness,
           grade: analysis.gradeFloor,
           alsoCites: analysis.citations,
         );

@@ -136,7 +136,7 @@ class _Adherence extends StatelessWidget {
             color: share >= _good
                 ? colors.fav
                 : share >= _fair
-                ? hues.calories
+                ? hues.movement
                 : hues.heart,
             semanticLabel: 'Hit the target on $hit of $of nights',
           ),

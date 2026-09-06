@@ -155,7 +155,7 @@ class _TimingPainter extends CustomPainter {
 
     _paintGrid(canvas, size, yMin, yMax, yAt);
     _paintLine(canvas, bedtime, hues.sleep, xAt, yAt);
-    _paintLine(canvas, wake, hues.steps, xAt, yAt);
+    _paintLine(canvas, wake, hues.movement, xAt, yAt);
     _paintCrosshair(canvas, size, xAt, yAt);
   }
 
@@ -219,7 +219,7 @@ class _TimingPainter extends CustomPainter {
         ..strokeWidth = 1,
     );
     canvas.drawCircle(Offset(x, yAt(bedtime[index])), 3, Paint()..color = hues.sleep);
-    canvas.drawCircle(Offset(x, yAt(wake[index])), 3, Paint()..color = hues.steps);
+    canvas.drawCircle(Offset(x, yAt(wake[index])), 3, Paint()..color = hues.movement);
     drawChartTooltip(
       canvas,
       size,

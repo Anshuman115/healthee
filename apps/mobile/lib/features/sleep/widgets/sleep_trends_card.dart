@@ -103,14 +103,14 @@ class SleepTrendsCard extends StatelessWidget {
         target: 'median 81',
         series: series(recent, (night) => night.sri.valueOrNull),
         unit: '',
-        colour: hues.readiness,
+        colour: hues.fitness,
       ),
       SleepTrend(
         label: 'HRV',
         target: 'vs baseline',
         series: series(recent, (night) => night.hrvSleepAvg.valueOrNull),
         unit: 'ms',
-        colour: hues.hrv,
+        colour: hues.fitness,
       ),
     ];
   }

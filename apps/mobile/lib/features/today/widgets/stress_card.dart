@@ -10,9 +10,11 @@
 /// which is exactly why it must not: an hourly mean computed two ways is two
 /// definitions of one number, and the server's is the canonical one.
 ///
-/// Legacy draws the whole module in `cCal` — the calories hue, not the stress
-/// hue. That is a legacy inconsistency (`metric_hue.dart` records it) and it is
-/// ported: `hueFor(hues, 'stress')` resolves to the same colour.
+/// Legacy drew the whole module in `cCal` — the calories hue, not the stress
+/// hue — and the port carried that inconsistency. **v02 ended it**: the
+/// prototype gives stress a family of its own ("warm"), so
+/// `hueFor(hues, 'stress')` now resolves `Tone.stress` rather than the movement
+/// family. `metric_hue.dart` records the change and why.
 ///
 /// ## One owner-directed departure, and one rename UNDONE, 2026-08-06
 ///

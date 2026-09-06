@@ -88,7 +88,7 @@ class SleepConsistencyCard extends StatelessWidget {
         SleepLegend(
           <LegendKey>[
             LegendKey(hues.sleep, 'Bedtime'),
-            LegendKey(hues.steps, 'Wake-time'),
+            LegendKey(hues.movement, 'Wake-time'),
           ],
           spacing: 16,
         ),
@@ -177,7 +177,7 @@ class _BandBlock extends StatelessWidget {
                   label: 'Sleep regularity',
                   builder: (context, sri) => Text(
                     'SRI ${sri.round()}',
-                    style: HType.number(hues.readiness, size: 13),
+                    style: HType.number(hues.fitness, size: 13),
                   ),
                 ),
               ),

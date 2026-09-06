@@ -308,9 +308,9 @@ Color categoryColor(BuildContext context, String? category) {
   return switch (category) {
     'sleep' => hues.sleep,
     'activity' => colors.accent,
-    'fitness' => hues.readiness,
+    'fitness' => hues.fitness,
     'recovery' => hues.heart,
-    'intake' => hues.calories,
+    'intake' => hues.movement,
     _ => colors.accent,
   };
 }
