@@ -1,0 +1,118 @@
+---
+import Section from './Section.astro';
+// The waitlist, promoted to its own moment — the page's one mass-market action.
+// Posts same-origin to /api/waitlist (Hono worker → the Supabase project's
+// Postgres). Honest promise: one email when sign-ups open, nothing else. The
+// plain form works without JS (the Worker answers with an HTML page); with JS
+// the whole panel swaps to a real success state, remembered per visitor.
+---
+
+<Section id="waitlist" tone="canvas" labelledby="waitlist-h">
+  <div class="surface rise mx-auto max-w-2xl p-7 text-center sm:p-10" data-waitlist-panel>
+    <h2 id="waitlist-h" class="text-[clamp(1.7rem,3.6vw,2.6rem)] font-bold tracking-tight">
+      Be first in line when sign-ups <span class="text-accent-soft">open</span>.
+    </h2>
+    <p class="mx-auto mt-4 max-w-lg text-[0.98rem] leading-relaxed text-ink-soft">
+      Leave your email and we&rsquo;ll tell you the moment they do &mdash; one email,
+      nothing else, no newsletter.
+    </p>
+
+    <form method="post" action="/api/waitlist" class="mx-auto mt-7 max-w-md" data-waitlist>
+      <div class="flex flex-wrap justify-center gap-2.5">
+        <label class="sr-only" for="waitlist-email">Your email</label>
+        <input
+          id="waitlist-email"
+          name="email"
+          type="email"
+          required
+          maxlength="254"
+          placeholder="you@example.com"
+          autocomplete="email"
+          class="min-w-0 flex-1 basis-56 rounded-[6px] border border-line-strong bg-canvas px-3.5 py-3 text-[1rem] text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-accent"
+        />
+        <button type="submit" class="btn btn-primary shrink-0 px-6 py-3 text-[1rem]">
+          Join the waitlist
+        </button>
+      </div>
+      {/* honeypot — humans never see it; bots that fill it get a polite no-op */}
+      <input
+        type="text"
+        name="website"
+        tabindex="-1"
+        autocomplete="off"
+        aria-hidden="true"
+        style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;"
+      />
+      <p
+        class="mono mt-3 min-h-[1.2em] text-xs text-warn"
+        data-waitlist-msg
+        aria-live="polite"
+      >
+      </p>
+    </form>
+
+    {/* the success state — hidden until joined; also shown to returning joiners */}
+    <div class="hidden" data-waitlist-done>
+      <p class="mt-7 inline-flex items-center gap-2">
+        <span class="chip chip-accent chip-dot">on the list</span>
+      </p>
+      <p class="mt-4 text-[clamp(1.25rem,2.4vw,1.7rem)] font-semibold tracking-tight text-ink">
+        You&rsquo;re on the list.
+      </p>
+      <p class="mx-auto mt-2 max-w-md text-[0.95rem] leading-relaxed text-ink-soft">
+        We&rsquo;ll only write when it&rsquo;s ready &mdash; nothing else, no newsletter.
+      </p>
+    </div>
+  </div>
+</Section>
+
+<script>
+  // Progressive enhancement: without JS the form posts and the Worker answers
+  // with a plain page. With JS the panel swaps to the success state, and the
+  // joined flag is remembered so returning visitors see it immediately.
+  const form = document.querySelector<HTMLFormElement>('[data-waitlist]');
+  const done = document.querySelector<HTMLElement>('[data-waitlist-done]');
+  const msg = document.querySelector<HTMLElement>('[data-waitlist-msg]');
+
+  const showDone = () => {
+    form?.classList.add('hidden');
+    done?.classList.remove('hidden');
+  };
+
+  try {
+    if (localStorage.getItem('healthee-waitlist') === 'joined') showDone();
+  } catch {
+    /* no storage — the form simply shows */
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!msg) return;
+    const data = new FormData(form);
+    const button = form.querySelector('button');
+    button?.setAttribute('disabled', '');
+    msg.textContent = '';
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: data.get('email'), website: data.get('website') }),
+      });
+      const out = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (res.ok && out?.ok) {
+        showDone();
+        try {
+          localStorage.setItem('healthee-waitlist', 'joined');
+        } catch {
+          /* fine — the swap above already happened */
+        }
+      } else {
+        msg.textContent = out?.error ?? 'That didn’t go through — try again in a minute.';
+      }
+    } catch {
+      msg.textContent = 'That didn’t go through — try again in a minute.';
+    } finally {
+      button?.removeAttribute('disabled');
+    }
+  });
+</script>
