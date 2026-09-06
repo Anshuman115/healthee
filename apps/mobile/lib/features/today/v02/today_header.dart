@@ -41,6 +41,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/features/today/today_labels.dart';
+import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
@@ -52,6 +53,7 @@ class TodayHeader extends StatelessWidget {
     required this.date,
     required this.now,
     this.health,
+    this.navigation,
     this.onOpenProfile,
     super.key,
   });
@@ -76,6 +78,11 @@ class TodayHeader extends StatelessWidget {
   /// draws no ring rather than a reassuring one.
   final ConnectionHealth? health;
 
+  /// Where the date may move to, and who to tell. **Null draws the date as a
+  /// plain label** — a screen that cannot change the day it is showing should
+  /// not offer chevrons that do nothing.
+  final DateNavigation? navigation;
+
   /// Opens the owner's own screen.
   final VoidCallback? onOpenProfile;
 
@@ -92,10 +99,13 @@ class TodayHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(
-                  prettyDate(date),
-                  style: TypeScale.pageDate.copyWith(color: colors.ink2),
-                ),
+                if (navigation case final DateNavigation navigation)
+                  DateControl(date: date, navigation: navigation)
+                else
+                  Text(
+                    prettyDate(date),
+                    style: TypeScale.pageDate.copyWith(color: colors.ink2),
+                  ),
                 const SizedBox(height: dateGap),
                 Text(
                   title,

@@ -52,13 +52,19 @@
 /// (`read/today.py:83`). Neither gets a section: a heading that can never have
 /// content under it is dead code.
 ///
-/// ## Two sections the prototype has that this screen does not
+/// ## The date control, and the one half of the screen it can move
 ///
-/// The prototype's `.date-controls` (previous / date / next) drives its
-/// historical-day feature; this app reads one day and has no history route yet,
-/// so the header prints the date rather than offering to change it. A control
-/// that looks tappable and does nothing is worse than a missing one — the same
-/// argument the pre-v02 header used for its own absent `+`.
+/// `.date-navigation` is built (`v02/date_control.dart`) and the header carries
+/// it. The selection lives in `data/store/view_date.dart` and follows the reader
+/// between screens.
+///
+/// **A past day draws the measured half only.** `/api/today` takes no day and
+/// answers for the current one; there is no endpoint that would let a past day's
+/// recovery, sleep health, debt, VO₂max or biological age be fetched. Drawing
+/// today's judgements under yesterday's date would be the stale-as-current
+/// failure — the one this repo has swept three times and the reason `LastKnown`
+/// exists — so [_pastDay] draws what the strap measured on that day, says in one
+/// sentence why there is nothing derived beneath it, and stops.
 ///
 /// The prototype's `.scenarioNotice` is its review-scenario switch. The live
 /// equivalent is the data-health card, which says the same class of thing about
@@ -71,6 +77,7 @@ import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/features/today/today_body.dart';
 import 'package:healthee/features/today/today_facts.dart';
 import 'package:healthee/features/today/today_labels.dart';
+import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/features/today/v02/today_chapters.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/features/today/widgets/data_health_section.dart';
@@ -96,6 +103,7 @@ class TodayExtras {
     this.health,
     this.batteryPercent,
     this.chapters,
+    this.navigation,
     this.onSignIn,
     this.onOpenProfile,
     this.onOpenSync,
@@ -125,6 +133,10 @@ class TodayExtras {
   /// buttons — see `today_chapters.dart`.
   final TodayChapters? chapters;
 
+  /// The window the date control may move within. Null prints the date as a
+  /// label, which is what a host with no writable selection gets.
+  final DateNavigation? navigation;
+
   /// Opens the sign-in screen.
   final VoidCallback? onSignIn;
 
@@ -147,16 +159,33 @@ class TodayExtras {
 /// Builds the ordered section list for one render of Today.
 List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   final snapshot = data.snapshot;
-  if (data.day.hasNothing && snapshot == null) {
+  // `navigation.latest` is the wall-clock day, so this is "the owner has chosen
+  // a day that is not today" — not "these two dates disagree", which is also
+  // true of a cached payload on the current day and means something else.
+  final past =
+      extras.navigation != null && data.day.date != extras.navigation!.latest;
+  if (!past && data.day.hasNothing && snapshot == null) {
     return _freshInstall(data, extras);
   }
   final now = data.now ?? DateTime.now();
   final sections = SectionList();
   sections.add(
     TodayHeader(
-      date: snapshot?.date ?? data.day.date,
+      // **The day being READ.** With a control in the header the date is no
+      // longer a label on the payload; it is the thing the two chevrons move,
+      // and a control whose own figure disagreed with its arithmetic would step
+      // two days on the first press. A payload that describes an older day
+      // still says so — `today_facts.dart`'s provenance line and the
+      // stale-sleep banner are where that belongs, and both name the date.
+      //
+      // With no control there is nothing to move, so the payload's own date
+      // stays the label it always was.
+      date: extras.navigation == null
+          ? (snapshot?.date ?? data.day.date)
+          : data.day.date,
       now: now,
       health: extras.health,
+      navigation: extras.navigation,
       onOpenProfile: extras.onOpenProfile,
     ),
   );
@@ -167,6 +196,10 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
       onOpenSync: extras.onOpenSync,
     ),
   );
+  if (past) {
+    _pastDay(sections, data);
+    return sections.build();
+  }
   sections.add(_dataHealth(data, extras));
   // Above everything a number can be read from, and absent entirely when the
   // server flagged nothing. See the library docstring.
@@ -187,6 +220,51 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   }
   return sections.build();
 }
+
+/// A day that is not today: what the strap measured, and nothing derived.
+///
+/// **The refusal is the point.** Every judgement on this screen — recovery,
+/// sleep health, debt, VO₂max, biological age — comes from `/api/today`, which
+/// takes no day and answers for the current one. There is no request that would
+/// produce them for a past day, so the alternatives were to draw today's numbers
+/// under a past date or to draw nothing derived. The first is stale-as-current;
+/// this is the second, and it says so rather than leaving a short screen to be
+/// read as a bad day.
+///
+/// The measured half is real: the local tier stores the strap's own readings per
+/// calendar day, so this renders with no network at all — the same guarantee
+/// `docs/APP_DESIGN_BRIEF.md` section 7.4 makes for the current day.
+void _pastDay(SectionList sections, ScreenData data) {
+  final day = data.day;
+  sections.add(
+    Panel(
+      head: const PanelHead(
+        title: 'From the strap',
+        icon: Icons.watch_outlined,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          StatRow(<Stat>[
+            if (day.steps.valueOrNull case final int steps)
+              Stat('Steps', commaGrouped(steps)),
+            if (day.heartRate.valueOrNull case final double bpm)
+              Stat('Heart rate', bpm.round().toString(), unit: 'bpm'),
+          ]),
+          const PanelNote(kPastDayNote),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Why a past day carries no judgements. One sentence, and it is about us.
+const String kPastDayNote =
+    'Measured on this phone on the day you are viewing. Recovery, sleep health, '
+    'debt, VO₂max and biological age are worked out for the current day only, so '
+    'nothing derived is shown here rather than today’s figures under an older '
+    'date.';
 
 /// What this phone measured, when the server cannot be reached.
 ///

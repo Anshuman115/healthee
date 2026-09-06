@@ -35,10 +35,12 @@ import 'package:healthee/data/device/device_repository.dart';
 import 'package:healthee/data/push/push_stamp.dart';
 import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/store_provider.dart';
+import 'package:healthee/data/store/view_date.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/features/coach/coach_sheet.dart';
 import 'package:healthee/features/today/today_sections.dart';
+import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/features/today/v02/today_chapters.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 
@@ -67,6 +69,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   @override
   Widget build(BuildContext context) {
     final at = widget.now ?? DateTime.now();
+    // The wall-clock day, NOT the selection: it is the control's forward bound
+    // and the day `Latest` returns to, so it has to keep meaning "now".
+    final today = ref.watch(todayProvider);
     final push = ref.watch(_pushStampProvider).value;
     // `.value?.signedIn` and not `.requireValue`: while the keystore read is in
     // flight this is null, which the data-health strip reads as "not yet known"
@@ -95,6 +100,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           health: health,
           batteryPercent: ref.watch(deviceDayProvider).value?.batteryPercent,
           chapters: _chapters,
+          navigation: DateNavigation(
+            // The wall clock bounds the forward end and the retention horizon
+            // the backward one, so the control can only ask for a day this
+            // phone is able to answer for. `view_date.dart` owns both.
+            earliest: earliestViewableDay(today),
+            latest: today,
+            onSelect: ref.read(viewDateProvider.notifier).select,
+          ),
           // Pushed, so back returns to Today. `go` would replace the
           // location and leave the sign-in screen with nothing beneath it.
           onSignIn: () => unawaited(context.push(Routes.serverSignIn)),

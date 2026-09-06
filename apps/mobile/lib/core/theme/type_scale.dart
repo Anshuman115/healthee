@@ -239,4 +239,20 @@ abstract final class TypeScale {
 
   /// `.data-footer span` — its second line.
   static final TextStyle footerFine = _style(9, FontWeight.w400, height: 2);
+
+  /// `.date-caret` — the chevron beside the date the reader is on.
+  static final TextStyle dateCaret = _style(13, FontWeight.w400, height: 1);
+
+  /// `.calendar-heading strong` — the month a calendar is showing.
+  static final TextStyle calendarMonth = _style(16, FontWeight.w700, height: 1.3);
+
+  /// `.date-calendar button` — one day in the grid.
+  static final TextStyle calendarDay = _style(13, FontWeight.w400, height: 1.2);
+
+  /// `.date-calendar button[aria-current]` — the day being shown.
+  static final TextStyle calendarDayCurrent = _style(
+    13,
+    FontWeight.w700,
+    height: 1.2,
+  );
 }
