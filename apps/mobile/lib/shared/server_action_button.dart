@@ -41,6 +41,7 @@ class ServerActionButton extends StatefulWidget {
     required this.action,
     required this.onSaved,
     this.style = ActionButtonStyle.legacy,
+    this.full = false,
     super.key,
   });
 
@@ -55,6 +56,10 @@ class ServerActionButton extends StatefulWidget {
 
   /// Which drawing. See the library docstring.
   final ActionButtonStyle style;
+
+  /// `.button.full` — stretches to the row. Ignored by [ActionButtonStyle.legacy],
+  /// which is left-aligned by its own design.
+  final bool full;
 
   @override
   State<ServerActionButton> createState() => _ServerActionButtonState();
@@ -77,10 +82,18 @@ class _ServerActionButtonState extends State<ServerActionButton> {
             child: Text(_busy ? 'Working…' : widget.label),
           ),
         ),
-        ActionButtonStyle.v02 => HButton(
-          label: _busy ? 'Working…' : widget.label,
-          onPressed: _busy ? null : _run,
-        ),
+        ActionButtonStyle.v02 => widget.full
+            ? HButton(
+                label: _busy ? 'Working…' : widget.label,
+                onPressed: _busy ? null : _run,
+              )
+            : Align(
+                alignment: Alignment.centerLeft,
+                child: HButton(
+                  label: _busy ? 'Working…' : widget.label,
+                  onPressed: _busy ? null : _run,
+                ),
+              ),
       },
       if (_error case final String message) ...[
         const SizedBox(height: Insets.sm),

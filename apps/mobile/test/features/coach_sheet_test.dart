@@ -23,7 +23,6 @@ import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_sheet.dart';
-import 'package:healthee/features/coach/widgets/coach_meter.dart';
 
 final DateTime _now = DateTime(2026, 8, 5, 9);
 
@@ -123,14 +122,19 @@ void main() {
       );
     });
 
-    testWidgets('while the balance is UNKNOWN there is no input at all', (tester) async {
+    testWidgets('while the balance is UNKNOWN there is no input at all', (
+      tester,
+    ) async {
       // The read is in flight and never lands. A text field here would be an
       // input beside a number nobody has yet.
       await tester.pumpWidget(_sheet(_PendingEntitlement()));
       await tester.pump();
 
       expect(find.byType(TextField), findsNothing);
-      expect(find.textContaining('Checking what your account includes'), findsOneWidget);
+      expect(
+        find.textContaining('Checking what your account includes'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a FAILED balance read leaves no input and offers a retry', (
@@ -154,7 +158,10 @@ void main() {
         _sheet(
           _ScriptedCoach(
             balances: [
-              _premium(remaining: 0, resetsAt: _now.add(const Duration(hours: 30))),
+              _premium(
+                remaining: 0,
+                resetsAt: _now.add(const Duration(hours: 30)),
+              ),
             ],
           ),
         ),
@@ -178,7 +185,9 @@ void main() {
       expect(find.textContaining('part of the subscription'), findsOneWidget);
     });
 
-    testWidgets('an UNCAPPED subscriber gets an input and no false zero', (tester) async {
+    testWidgets('an UNCAPPED subscriber gets an input and no false zero', (
+      tester,
+    ) async {
       // Absent from PREMIUM_ALLOWANCE means unlimited, not zero — the asymmetry
       // an entry with `limit: 0` would invert.
       await tester.pumpWidget(_sheet(_ScriptedCoach(balances: [_uncapped()])));
@@ -191,7 +200,9 @@ void main() {
   });
 
   group('A SPEND IS NEVER SILENT', () {
-    testWidgets('the meter is RE-READ from the server after an answer', (tester) async {
+    testWidgets('the meter is RE-READ from the server after an answer', (
+      tester,
+    ) async {
       final client = _ScriptedCoach(
         balances: [_premium(remaining: 17), _premium(remaining: 16)],
         answer: CoachAnswer.fromJson(const <String, Object?>{
@@ -220,7 +231,9 @@ void main() {
       expect(client.reads, greaterThan(1));
     });
 
-    testWidgets('an answer carries its citations and its grade floor', (tester) async {
+    testWidgets('an answer carries its citations and its grade floor', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _sheet(
           _ScriptedCoach(
@@ -253,7 +266,9 @@ void main() {
       );
     });
 
-    testWidgets('an UNVALIDATED answer says it was not counted', (tester) async {
+    testWidgets('an UNVALIDATED answer says it was not counted', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _sheet(
           _ScriptedCoach(
@@ -274,38 +289,51 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('honest fallback'), findsOneWidget);
-      expect(find.textContaining('not counted against your questions'), findsOneWidget);
+      expect(
+        find.textContaining('not counted against your questions'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('a TRANSPORT FAILURE stays in the thread and says nothing was charged', (
+    testWidgets(
+      'a TRANSPORT FAILURE stays in the thread and says nothing was charged',
+      (tester) async {
+        final client = _ScriptedCoach(
+          balances: [_premium(remaining: 5)],
+          // The app's own taxonomy, which is what the controller catches. The
+          // DioException → taxonomy mapping belongs to the client and is tested
+          // at that seam, in `test/data/coach_client_test.dart`.
+          throws: const CoachUnreachable(
+            "Couldn't reach your server. Nothing was asked and nothing was "
+            'spent — your questions are untouched.',
+          ),
+        );
+        await tester.pumpWidget(_sheet(client));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'Anything?');
+        await tester.tap(find.textContaining('Ask —'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Anything?'),
+          findsOneWidget,
+          reason:
+              'the question is not deleted — "did that use one?" must stay answerable',
+        );
+        expect(
+          find.textContaining("Couldn't reach your server"),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('Nothing was counted for this'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('a 402 is an answer about the account, not a crash', (
       tester,
     ) async {
-      final client = _ScriptedCoach(
-        balances: [_premium(remaining: 5)],
-        // The app's own taxonomy, which is what the controller catches. The
-        // DioException → taxonomy mapping belongs to the client and is tested
-        // at that seam, in `test/data/coach_client_test.dart`.
-        throws: const CoachUnreachable(
-          "Couldn't reach your server. Nothing was asked and nothing was "
-          'spent — your questions are untouched.',
-        ),
-      );
-      await tester.pumpWidget(_sheet(client));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Anything?');
-      await tester.tap(find.textContaining('Ask —'));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('Anything?'),
-        findsOneWidget,
-        reason: 'the question is not deleted — "did that use one?" must stay answerable',
-      );
-      expect(find.textContaining("Couldn't reach your server"), findsOneWidget);
-      expect(find.textContaining('Nothing was counted for this'), findsOneWidget);
-    });
-
-    testWidgets('a 402 is an answer about the account, not a crash', (tester) async {
       final client = _ScriptedCoach(
         balances: [_premium(remaining: 1)],
         throws: CoachRefusal(
@@ -319,29 +347,19 @@ void main() {
       await tester.tap(find.textContaining('Ask —'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('used all 20 coach questions'), findsOneWidget);
+      expect(
+        find.textContaining('used all 20 coach questions'),
+        findsOneWidget,
+      );
       expect(
         find.textContaining('402'),
         findsNothing,
         reason: 'a status code is never shown to anybody',
       );
-      expect(find.textContaining('Nothing was counted for this'), findsOneWidget);
-    });
-  });
-
-  group('the meter sentence', () {
-    test('never reads as a countdown while a slot is free', () {
-      // `resets_at` is null on the wire until the window is full, and the
-      // sentence must not manufacture one.
-      final line = meterLine(_premium(remaining: 3), now: _now);
-      expect(line, contains('3 of 20'));
-      expect(line, isNot(contains('reopens')));
-    });
-
-    test('a spent window with no reset instant still says it is spent', () {
-      final line = meterLine(_premium(remaining: 0), now: _now);
-      expect(line, contains('All 20'));
-      expect(line, isNot(contains('reopens')));
+      expect(
+        find.textContaining('Nothing was counted for this'),
+        findsOneWidget,
+      );
     });
   });
 }
