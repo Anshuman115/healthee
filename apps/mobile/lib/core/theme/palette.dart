@@ -371,24 +371,3 @@ abstract final class AppearancePalette {
   static const blackLine2 = Color(0xFF2C2C30);
 }
 
-/// Legacy's seven owner-selectable accents, authored independently for light/dark.
-abstract final class AppearancePalette {
-  static const accents = <List<Color>>[
-    [Color(0xFF1F6F54), Color(0xFF4BBF93)],
-    [Color(0xFFC2553A), Color(0xFFEC8568)],
-    [Color(0xFFB07D1C), Color(0xFFE2B24E)],
-    [Color(0xFF0E7B8A), Color(0xFF3FBECE)],
-    [Color(0xFF4A55BE), Color(0xFF8B97EE)],
-    [Color(0xFFA63E72), Color(0xFFDB7DAC)],
-    [Color(0xFFD95448), Color(0xFFE8796C)],
-  ];
-  static const neutralBg = Color(0xFF121214);
-  static const neutralSurface = Color(0xFF1B1B20);
-  static const neutralSunken = Color(0xFF0C0C0F);
-  static const neutralLine = Color(0xFF2A2A31);
-  static const neutralLine2 = Color(0xFF3A3A43);
-  static const blackBg = Color(0xFF000000);
-  static const blackSurface = Color(0xFF0C0C0D);
-  static const blackLine = Color(0xFF1B1B1E);
-  static const blackLine2 = Color(0xFF2C2C30);
-}
