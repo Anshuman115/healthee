@@ -37,6 +37,7 @@ import 'package:healthee/shared/v02/bio_hero.dart';
 import 'package:healthee/shared/v02/bio_hero_parts.dart';
 import 'package:healthee/shared/v02/instruments/age_scale.dart';
 import 'package:healthee/shared/v02/instruments/bio_halo.dart';
+import 'package:healthee/shared/v02/instruments/motion_toggle.dart';
 import 'package:healthee/shared/v02/summary_tile.dart';
 
 /// What the prototype prints under the age when the server sent no disclaimer.
@@ -44,7 +45,12 @@ const String kPopulationModelLabel =
     'Population-based model · not a clinical age';
 
 /// The biological-age hero, with the halo around the figure.
-class TodayBioHero extends StatelessWidget {
+///
+/// Stateful for one reason: `.bio-controls` carries a pause control beside the
+/// arrow, and somebody has to hold whether it is pressed. It is held here rather
+/// than inside the field so the control and the field cannot disagree — the
+/// button renders from the same bool the ticker is stopped by.
+class TodayBioHero extends StatefulWidget {
   /// [age] is the payload's block; nothing here is computed.
   const TodayBioHero({required this.age, required this.reveals, super.key});
 
@@ -58,19 +64,33 @@ class TodayBioHero extends StatelessWidget {
   final RevealRegistry reveals;
 
   @override
+  State<TodayBioHero> createState() => _TodayBioHeroState();
+}
+
+class _TodayBioHeroState extends State<TodayBioHero> {
+  /// Stopped by hand. The three automatic pauses are the field's own and keep
+  /// working either way — this one only ever adds a reason to stop.
+  bool _paused = false;
+
+  @override
   Widget build(BuildContext context) {
+    final age = widget.age;
     return BioHero(
-      eyebrow: eyebrow,
+      eyebrow: TodayBioHero.eyebrow,
       eyebrowIcon: Icons.arrow_forward,
+      eyebrowAction: MotionToggle(
+        paused: _paused,
+        onChanged: (value) => setState(() => _paused = value),
+      ),
       value: _figure(age.biologicalAge),
       unit: 'years',
       caption: _caption(age),
       artFillsCard: true,
       centred: true,
-      art: const BioHalo(),
+      art: BioHalo(paused: _paused),
       instrument: RevealOnce(
         id: 'today.bio-age-scale',
-        registry: reveals,
+        registry: widget.reveals,
         builder: (context, t) => AgeScale(
           estimate: age.biologicalAge,
           chronologicalAge: age.chronologicalAge,

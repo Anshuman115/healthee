@@ -11,23 +11,33 @@
 /// .bio-eyebrow           { display:flex; justify-content:space-between;
 ///                          font-size:12px; font-weight:600; }
 /// .bio-eyebrow .icon     { width: 17px; }
+/// .bio-controls          { display:flex; align-items:center; gap:12px; }
 /// .age-value             { font-size:88px; line-height:1; letter-spacing:-6px;
 ///                          font-weight:600; margin-top:20px; }
-/// .age-value small       { font-size:13px; font-weight:400; margin-left:8px; }
 /// .age-context           { font-size:12px; margin-block:12px 18px; }
 /// .bio-divider           { border-top:1px solid
 ///                            color-mix(in oklch,var(--bio-line) 35%,transparent);
 ///                          margin:16px -22px 0; padding:14px 22px 0; }
 /// .bio-bottom            { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-/// .bio-bottom span       { font-size:10px; opacity:.85; }
-/// .bio-bottom strong     { font-size:17px; font-weight:600; }
 /// .model-label           { font-size:9px; margin-top:14px; opacity:.8; gap:5px; }
-/// .model-label .icon     { width: 11px; }
 /// ```
 ///
 /// **This card has its own dark surface in both themes**, which is why
 /// `bioBackground` / `bioInk` are tokens rather than `surface` / `ink`. Nothing
 /// inside it may reach for the page's ink.
+///
+/// ## THE ART IS A BACKGROUND LAYER. THE CONTENT MAKES THE HEIGHT.
+///
+/// Both `.bio-art` rules are `position: absolute`, so in the prototype the field
+/// is **sized by the card** and takes part in no layout: `inset: 0` under
+/// `motion.css`, a 300 x 230 box at `right: -60px` under `richer.css`, and
+/// `z-index: -1` under the content either way, clipped to the 28 px radius by
+/// `overflow: clip`. Here that is a `Positioned` first child of a `Stack` inside
+/// a clipping `Container` — positioned, so it cannot contribute a single pixel
+/// of height, and first, so it paints behind everything.
+///
+/// The height therefore comes from the content, and the tallest term in it is
+/// `.bio-display`'s square (`bio_display.dart`), not the field.
 ///
 /// ## Two CSS constructs with no Flutter equivalent, and what was drawn instead
 ///
@@ -39,9 +49,23 @@
 /// The divider's `margin: 16px -22px 0` is a **full-bleed rule inside a padded
 /// box**. Rather than negative margins, the hero pads each child horizontally and
 /// leaves the rule at full width — the rendered result is identical and there is
-/// no negative geometry to get wrong. The 16 px above the rule and the 18 px below
-/// `.age-context` are adjacent CSS margins, which collapse to **18**; that is the
-/// number used.
+/// no negative geometry to get wrong.
+///
+/// ## The vertical gaps, and which stylesheet each one comes from
+///
+/// CSS margins between siblings collapse, so each gap below is stated once, at
+/// the size the browser actually leaves:
+///
+///   * [valueGap] 20 — `.age-value { margin-top: 20px }`, `richer.css` only.
+///     `motion.css` resets it (`.age-value { margin: 0 }`), so the centred
+///     display sits directly under the eyebrow.
+///   * [captionGap] 12 — `.age-context { margin-top: 12px }`, `richer.css` only;
+///     `motion.css` resets it too (`margin: 0 0 18px`).
+///   * [contextGap] 18 — `.age-context { margin-bottom: 18px }`, before the ruler.
+///   * [dividerGap] 16 — `.bio-divider { margin-top: 16px }`, when something
+///     other than the caption is above the rule.
+///   * [ruleGap] 18 — the caption's 18 **collapsed** with the divider's 16, for
+///     the layout that has no ruler between them.
 library;
 
 import 'package:flutter/material.dart';
@@ -51,6 +75,7 @@ import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
+import 'package:healthee/shared/v02/bio_display.dart';
 import 'package:healthee/shared/v02/bio_hero_parts.dart';
 
 /// The biological-age hero.
@@ -75,7 +100,7 @@ class BioHero extends StatelessWidget {
   });
 
   /// `padding: 22px`.
-  static const double padding = 22;
+  static const double padding = kBioHeroPadding;
 
   /// `border-radius: 28px`.
   static const double radius = 28;
@@ -83,16 +108,25 @@ class BioHero extends StatelessWidget {
   /// `.bio-eyebrow .icon { width: 17px }`.
   static const double eyebrowIconSize = 17;
 
-  /// `.age-value { margin-top: 20px }`.
+  /// `.bio-controls { gap: 12px }` — between the pause control and the arrow.
+  static const double controlsGap = 12;
+
+  /// The eyebrow row's own height in the motion layout. See [kBioEyebrowExtent].
+  static const double eyebrowExtent = kBioEyebrowExtent;
+
+  /// `.age-value { margin-top: 20px }`. See the docstring: `richer.css` only.
   static const double valueGap = 20;
 
-  /// `.age-value small { margin-left: 8px }`.
-  static const double unitGap = 8;
-
-  /// `.age-context { margin-block: 12px … }`.
+  /// `.age-context { margin-top: 12px }`. `richer.css` only.
   static const double captionGap = 12;
 
-  /// `.age-context`'s 18 collapsed with `.bio-divider`'s 16. See the docstring.
+  /// `.age-context { margin-bottom: 18px }`.
+  static const double contextGap = 18;
+
+  /// `.bio-divider { margin-top: 16px }`.
+  static const double dividerGap = 16;
+
+  /// The caption's 18 collapsed with the divider's 16. See the docstring.
   static const double ruleGap = 18;
 
   /// `.bio-divider { padding-top: 14px }`.
@@ -122,6 +156,9 @@ class BioHero extends StatelessWidget {
   /// `.bio-art { opacity: .6 }`.
   static const double artOpacity = 0.6;
 
+  /// `.bio-art { opacity: 1 }` with `.bio-atmosphere`'s own `.9` on top of it.
+  static const double fieldOpacity = 0.9;
+
   /// The label row above the figure.
   final String eyebrow;
 
@@ -130,9 +167,10 @@ class BioHero extends StatelessWidget {
 
   /// A control at the right of the eyebrow row, before [eyebrowIcon].
   ///
-  /// The hero's ⓘ lives here. It is a slot rather than an `infoKey` because the
-  /// dot has to be given the hero's own ink — this card has its own dark surface
-  /// in both themes, and nothing inside it may reach for the page's ink.
+  /// `.bio-controls` — the hero's ⓘ and the pause control both live here. It is
+  /// a slot rather than an `infoKey` because the dot has to be given the hero's
+  /// own ink: this card has its own dark surface in both themes, and nothing
+  /// inside it may reach for the page's ink.
   final Widget? eyebrowAction;
 
   /// The figure itself.
@@ -174,7 +212,8 @@ class BioHero extends StatelessWidget {
   /// Drawn before [modelLabel].
   final IconData? modelIcon;
 
-  /// The decorative contour behind everything. Optional and purely visual.
+  /// The decorative field behind everything. Optional, purely visual, and
+  /// **always positioned**, so it never takes part in the card's height.
   final Widget? art;
 
   /// `motion.css`'s override of `.bio-art`, for a live field rather than a
@@ -186,35 +225,15 @@ class BioHero extends StatelessWidget {
   /// ```
   ///
   /// False keeps `richer.css`'s 300 x 230 box at `right: -60px`, which is what a
-  /// drawn contour wants. True fills the card, which is what a particle field
-  /// wants — the ring is meant to sit **around** the figure, not beside it.
+  /// drawn contour wants. True stretches the field across the card, which is what
+  /// a particle field wants — and hands it the still centre
+  /// ([bioStillCentre]) that keeps its hole over the figure.
   final bool artFillsCard;
 
   /// `motion.css`'s `.bio-display`: the figure centred in a square, with its
-  /// unit on its own line under it rather than beside it.
-  ///
-  /// ```css
-  /// .bio-display  { width:100%; max-width:304px; aspect-ratio:1;
-  ///                 display:grid; place-items:center; margin:0 auto }
-  /// .age-value    { margin:0; text-align:center; font-size:84px;
-  ///                 letter-spacing:-5px }
-  /// .age-value small { display:block; margin:4px 0 0; font-size:11px;
-  ///                    letter-spacing:1px }
-  /// ```
-  ///
-  /// Default false, so every caller written against `richer.css` alone is
-  /// unchanged. It is opt-in rather than inferred from [artFillsCard] because
-  /// they are two different stylesheets' decisions and a hero may want either.
+  /// unit on its own line under it rather than beside it. Default false, so
+  /// every caller written against `richer.css` alone is unchanged.
   final bool centred;
-
-  /// `.bio-art { opacity: 1 }` with `.bio-atmosphere`'s own `.9` on top of it.
-  static const double fieldOpacity = 0.9;
-
-  /// `.bio-display { max-width: 304px }`.
-  static const double displayMaxWidth = 304;
-
-  /// `motion.css`: `.age-value small { margin: 4px 0 0 }`.
-  static const double centredUnitGap = 4;
 
   @override
   Widget build(BuildContext context) {
@@ -248,65 +267,84 @@ class BioHero extends StatelessWidget {
       ),
       child: Stack(
         children: <Widget>[
-          if (art != null)
-            if (artFillsCard)
-              Positioned.fill(
-                child: Opacity(opacity: fieldOpacity, child: art),
-              )
-            else
-              Positioned(
-                right: artRight,
-                top: artRect.top,
-                width: artRect.width,
-                height: artRect.height,
-                child: Opacity(opacity: artOpacity, child: art),
-              ),
+          // FIRST, so it paints behind the content, and POSITIONED, so the
+          // card's height is the content's and never the field's.
+          if (art != null) _art(),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: padding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                _inset(_eyebrow(ink)),
-                const SizedBox(height: valueGap),
-                _inset(_value(ink)),
-                if (caption != null) ...<Widget>[
-                  const SizedBox(height: captionGap),
-                  _inset(
-                    Text(
-                      caption!,
-                      style: TypeScale.bioContext.copyWith(color: ink),
-                    ),
-                  ),
-                ],
-                if (instrument case final Widget scale) ...<Widget>[
-                  const SizedBox(height: captionGap),
-                  _inset(scale),
-                ],
-                if (stats.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: ruleGap),
-                  SizedBox(height: hairline, child: ColoredBox(color: rule)),
-                  const SizedBox(height: statsGap),
-                  _inset(BioStatsRow(stats: stats, ink: ink)),
-                ],
-                if (modelLabel != null) ...<Widget>[
-                  const SizedBox(height: modelGap),
-                  _inset(BioModelLabel(label: modelLabel!, icon: modelIcon, ink: ink)),
-                ],
-                // The hero is a card, so the hero is a caveat carrier. A
-                // `ReadingView` with `CaveatCarrier.insideCard` hands its
-                // disclosures down a `CaveatScope` and draws nothing itself; a
-                // card that did not read it would drop the sentence silently,
-                // which is the one failure the honesty layer exists to prevent.
-                // `panel.dart` carries the same block for the same reason.
-                if (disclosed.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: modelGap),
-                  _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
-                ],
-              ],
+              children: _content(ink, rule, scope, disclosed),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _content(
+    Color ink,
+    Color rule,
+    CaveatScope? scope,
+    List<Disclosure> disclosed,
+  ) => <Widget>[
+    _inset(_eyebrow(ink)),
+    if (!centred) const SizedBox(height: valueGap),
+    _inset(figure ?? BioFigure(value: value, unit: unit, centred: centred)),
+    if (caption case final String sentence) ...<Widget>[
+      if (!centred) const SizedBox(height: captionGap),
+      _inset(Text(sentence, style: TypeScale.bioContext.copyWith(color: ink))),
+    ],
+    if (instrument case final Widget scale) ...<Widget>[
+      if (caption != null) const SizedBox(height: contextGap),
+      _inset(scale),
+    ],
+    if (stats.isNotEmpty) ...<Widget>[
+      SizedBox(
+        height: caption != null && instrument == null ? ruleGap : dividerGap,
+      ),
+      SizedBox(height: hairline, child: ColoredBox(color: rule)),
+      const SizedBox(height: statsGap),
+      _inset(BioStatsRow(stats: stats, ink: ink)),
+    ],
+    if (modelLabel case final String label) ...<Widget>[
+      const SizedBox(height: modelGap),
+      _inset(BioModelLabel(label: label, icon: modelIcon, ink: ink)),
+    ],
+    // The hero is a card, so the hero is a caveat carrier. A `ReadingView` with
+    // `CaveatCarrier.insideCard` hands its disclosures down a `CaveatScope` and
+    // draws nothing itself; a card that did not read it would drop the sentence
+    // silently, which is the one failure the honesty layer exists to prevent.
+    // `panel.dart` carries the same block for the same reason.
+    if (disclosed.isNotEmpty) ...<Widget>[
+      const SizedBox(height: modelGap),
+      _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
+    ],
+  ];
+
+  /// `.bio-art`, in whichever of its two boxes. Positioned either way.
+  Widget _art() {
+    if (!artFillsCard) {
+      return Positioned(
+        right: artRight,
+        top: artRect.top,
+        width: artRect.width,
+        height: artRect.height,
+        child: Opacity(opacity: artOpacity, child: art),
+      );
+    }
+    return Positioned.fill(
+      // The constraints here are the card's finished size — a positioned child
+      // is laid out against the stack, which is laid out against the content —
+      // so this is where the still centre can be worked out at all.
+      child: LayoutBuilder(
+        builder: (context, constraints) => BioDisplayScope(
+          stillCentre: centred
+              ? bioStillCentre(constraints.biggest)
+              : Alignment.center,
+          child: Opacity(opacity: fieldOpacity, child: art),
+        ),
       ),
     );
   }
@@ -316,76 +354,27 @@ class BioHero extends StatelessWidget {
     child: child,
   );
 
-  Widget _eyebrow(Color ink) => Row(
-    children: <Widget>[
-      Expanded(
-        child: Text(
-          eyebrow,
-          style: TypeScale.bioEyebrow.copyWith(color: ink),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+  Widget _eyebrow(Color ink) => ConstrainedBox(
+    // `.bio-controls .motion-toggle` is 32 px tall and it, not the 12 px label,
+    // sets this row's height in the motion layout. Pinned so the still centre
+    // is arithmetic rather than a measurement.
+    constraints: BoxConstraints(minHeight: centred ? eyebrowExtent : 0),
+    child: Row(
+      children: <Widget>[
+        Expanded(
+          child: Text(
+            eyebrow,
+            style: TypeScale.bioEyebrow.copyWith(color: ink),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-      ),
-      if (eyebrowAction case final Widget action) action,
-      if (eyebrowIcon != null)
-        Icon(eyebrowIcon, size: eyebrowIconSize, color: ink),
-    ],
-  );
-
-  Widget _value(Color ink) =>
-      figure ?? (centred ? _centredValue(ink) : _inlineValue(ink));
-
-  /// `motion.css`'s `.bio-display`: a square, the figure in the middle of it,
-  /// the unit under the figure. The square is what puts the halo's ring around
-  /// the number instead of behind one corner of it.
-  Widget _centredValue(Color ink) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: displayMaxWidth),
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              value,
-              textAlign: TextAlign.center,
-              style: TypeScale.bioAgeCentred.copyWith(color: ink),
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.clip,
-            ),
-            if (unit != null) ...<Widget>[
-              const SizedBox(height: centredUnitGap),
-              Text(
-                unit!,
-                textAlign: TextAlign.center,
-                style: TypeScale.bioAgeUnitCentred.copyWith(color: ink),
-              ),
-            ],
-          ],
-        ),
-      ),
+        if (eyebrowAction case final Widget action) action,
+        if (eyebrowAction != null && eyebrowIcon != null)
+          const SizedBox(width: controlsGap),
+        if (eyebrowIcon != null)
+          Icon(eyebrowIcon, size: eyebrowIconSize, color: ink),
+      ],
     ),
   );
-
-  Widget _inlineValue(Color ink) => Row(
-    crossAxisAlignment: CrossAxisAlignment.baseline,
-    textBaseline: TextBaseline.alphabetic,
-    children: <Widget>[
-      Flexible(
-        child: Text(
-          value,
-          style: TypeScale.bioAge.copyWith(color: ink),
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.clip,
-        ),
-      ),
-      if (unit != null) ...<Widget>[
-        const SizedBox(width: unitGap),
-        Text(unit!, style: TypeScale.bioAgeUnit.copyWith(color: ink)),
-      ],
-    ],
-  );
-
 }
