@@ -20,10 +20,12 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/store/view_date.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/today_sections.dart';
@@ -198,6 +200,45 @@ void main() {
     test('day arithmetic crosses a month and a year end', () {
       expect(shiftDay('2026-03-01', -1), '2026-02-28');
       expect(shiftDay('2026-12-31', 1), '2027-01-01');
+    });
+
+    test('AND THE SELECTION ITSELF REFUSES A DAY OUTSIDE IT', () {
+      // The bound belongs on the selection, not only on the two chevrons. The
+      // calendar can name any day of its month and a future caller has no
+      // reason to check first, so the provider is where "this phone cannot
+      // speak about that day" has to hold.
+      //
+      // It refuses rather than clamps: answering a request for one day with a
+      // different day would put something nobody asked for on screen under a
+      // date they did not choose.
+      final container = ProviderContainer(
+        // Untyped on purpose: `Override` is not exported by `flutter_riverpod`,
+        // which `_today_stubs.dart` already records.
+        overrides: [todayProvider.overrideWithValue(todayDate)],
+      );
+      addTearDown(container.dispose);
+      final selection = container.read(viewDateProvider.notifier);
+
+      expect(container.read(viewDateProvider), todayDate);
+
+      selection.select('2026-08-05');
+      expect(container.read(viewDateProvider), todayDate, reason: 'tomorrow');
+
+      selection.select('2026-06-04');
+      expect(
+        container.read(viewDateProvider),
+        todayDate,
+        reason: 'a day the horizon has already pruned',
+      );
+
+      selection.select('2026-08-01');
+      expect(container.read(viewDateProvider), '2026-08-01');
+
+      selection.move(-1);
+      expect(container.read(viewDateProvider), '2026-07-31');
+
+      selection.latest();
+      expect(container.read(viewDateProvider), todayDate);
     });
   });
 }
