@@ -69,15 +69,33 @@ abstract final class PageSpacing {
   static const double block = 24;
 }
 
+/// How tall a pinned section is, measured in the context it will be drawn in.
+///
+/// A sliver that pins has to declare its extent **before** it lays out — that is
+/// what lets the viewport hold it at the top while the rest of the list slides
+/// under it — so a pinned section cannot simply be as tall as its child. The
+/// context is passed because the answer depends on the text scale the owner
+/// chose, and a hard-coded height would clip a pinned control at anything but
+/// the default.
+typedef SectionExtent = double Function(BuildContext context);
+
 /// A section [child] followed by [gap] of space.
 @immutable
 class PageSection {
   /// Builds one entry of a screen's list.
-  const PageSection(this.child, {this.gap = PageSpacing.card});
+  const PageSection(this.child, {this.gap = PageSpacing.card, this.pinnedExtent});
 
   /// What to draw.
   final Widget child;
 
   /// The space under it.
   final double gap;
+
+  /// Non-null makes this section **pin to the top of the scroll**, and answers
+  /// how tall it is. Null is an ordinary section that scrolls away.
+  ///
+  /// `richer.css` gives exactly one element `position: sticky` — the chapter
+  /// nav — and this is that, in the only shape a scroll view has for it. The
+  /// screen shell reads it; nothing else needs to know.
+  final SectionExtent? pinnedExtent;
 }

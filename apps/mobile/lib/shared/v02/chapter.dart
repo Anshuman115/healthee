@@ -17,13 +17,19 @@
 ///                         gap:10px; }
 /// ```
 ///
-/// **The nav's `position: sticky` is not reproduced, and this is the honest
-/// trade.** The screen is a `ListView.builder` whose items are destroyed off
-/// screen (`shared/reveal_once.dart` says why that must stay), and a sticky
-/// header inside one is a `SliverPersistentHeader` — a different scroll
-/// structure for the whole screen. The rendered result differs in one way: the
-/// control scrolls away with the content instead of pinning to the top. It is
-/// still where the prototype puts it and still jumps to the same three places.
+/// **The nav's `position: sticky` IS reproduced.** It was skipped once, on the
+/// grounds that a sticky header inside a `ListView.builder` means a
+/// `SliverPersistentHeader` and a different scroll structure for the whole
+/// screen. That is true, and it is what `shared/instrument_screen.dart` now
+/// builds: a section declares [ChapterNav.extentOf] as its pinned extent and the
+/// shell splits its list around it. Lazy building — and therefore reveal-once —
+/// is unchanged, because a `SliverList.builder` destroys off-screen items on
+/// exactly the same terms.
+///
+/// A pinned header covers the top of the viewport, so a jump has to land its
+/// target BELOW it. `.chapter-heading { scroll-margin-top: 66px }` is the CSS's
+/// answer and `today_chapters.dart` is ours — it subtracts this control's own
+/// measured height rather than a number typed twice.
 ///
 /// The prototype colours the FIRST button and no other, which reads as "you are
 /// here" and is wrong the moment you scroll. [ChapterNav] colours [selected]
@@ -72,6 +78,26 @@ class ChapterNav extends StatelessWidget {
 
   /// `.chapter-nav button { border-radius: 20px }`.
   static const double radius = 20;
+
+  /// How tall this control is, in the context it will be drawn in.
+  ///
+  /// A pinned sliver declares its extent before it lays out, so the height has
+  /// to be computed rather than observed. Every term is one of the constants
+  /// above plus the one thing that is not fixed — the pill's line of text, which
+  /// grows with the owner's text-scale setting. A literal here would clip the
+  /// nav at any scale but the default, which is the failure the measurement
+  /// exists to avoid.
+  static double extentOf(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(text: 'Ag', style: TypeScale.chapterNav),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final line = painter.height;
+    painter.dispose();
+    return margin.vertical + buttonPadding.vertical + hairline * 2 + line;
+  }
 
   /// Where each button goes.
   final List<ChapterTarget> targets;
