@@ -18,21 +18,35 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 
 /// One legend entry.
 @immutable
 class ColourKeyEntry {
-  /// [colour] of null takes the resolved family.
-  const ColourKeyEntry(this.label, {this.colour});
+  /// [colour] of null takes [tone]'s family, and a null [tone] the enclosing
+  /// scope's.
+  const ColourKeyEntry(this.label, {this.colour, this.tone});
 
   /// What the swatch means.
   final String label;
 
   /// The swatch's colour, or null for the family.
+  ///
+  /// Only the **sleep stages** pass one. Those four are their own mapping and
+  /// do not follow any card's tone; everything else names a [tone] instead, so
+  /// the hue is still resolved rather than handed over.
   final Color? colour;
+
+  /// Which family this entry's swatch takes. Null inherits the card's.
+  ///
+  /// A recovery legend is four entries in four different families inside one
+  /// card that already has a family of its own — the same shape `meters.dart`
+  /// solves with a per-segment `Tone`, and solved the same way here.
+  final Tone? tone;
 }
 
 /// A wrapping row of labelled dots.
@@ -58,6 +72,7 @@ class ColourKey extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final hues = Theme.of(context).extension<InstrumentHues>()!;
     final family = context.family;
     return Wrap(
       spacing: entryGap,
@@ -72,7 +87,7 @@ class ColourKey extends StatelessWidget {
                 width: dotSize,
                 height: dotSize,
                 decoration: BoxDecoration(
-                  color: entry.colour ?? family,
+                  color: entry.colour ?? entry.tone?.family(hues) ?? family,
                   shape: BoxShape.circle,
                 ),
               ),

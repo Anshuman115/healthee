@@ -49,6 +49,24 @@ abstract final class PageSpacing {
 
   /// Under the last card of a section, before the next heading. Legacy's 24.
   static const double section = 34;
+
+  /// **v02's own two rungs.** `richer.css`, not legacy:
+  ///
+  /// ```css
+  /// .panel   { margin-top: 12px }
+  /// .section { margin-top: 24px }
+  /// ```
+  ///
+  /// They are tighter than the four above and that is not a regression of the
+  /// owner's 2026-08-06 widening. Those four space **legacy's** cards, which
+  /// carry no internal rhythm of their own; a v02 panel has 18 px of padding
+  /// and a 22 px corner, so 12 between two of them reads wider than legacy's 10
+  /// between two flat modules. A screen uses one ladder or the other, never
+  /// both — `today_order_test.dart` asserts Today uses this one.
+  static const double panel = 12;
+
+  /// v02's `.section { margin-top: 24px }` — between two groups of panels.
+  static const double block = 24;
 }
 
 /// A section [child] followed by [gap] of space.
