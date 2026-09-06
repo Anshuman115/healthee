@@ -977,6 +977,99 @@ mutate 'the widened scale stops saying so' "$SCALE_TEST" "$OXYGEN" \
 ' \
   ''
 
+# ── v02 charts: the foundation and the series charts (phase 2a) ─────────────
+V02_FOUNDATION="test/shared/v02_chart_foundation_test.dart"
+V02_SERIES="test/shared/v02_charts_series_test.dart"
+V02_COLUMNS="test/shared/v02_charts_columns_test.dart"
+V02_TICKS="lib/shared/charts/v02/chart_ticks.dart"
+V02_CURVE="lib/shared/charts/v02/chart_curve.dart"
+V02_SCRUB="lib/shared/charts/v02/chart_scrub.dart"
+V02_FRAME="lib/shared/charts/v02/chart_frame.dart"
+V02_INK="lib/shared/charts/v02/chart_ink.dart"
+V02_VOID="lib/shared/charts/v02/chart_void.dart"
+V02_COLUMN_PAINTER="lib/shared/charts/v02/column_painter.dart"
+V02_BARS="lib/shared/charts/v02/v02_bar_chart.dart"
+V02_LINKED="lib/shared/charts/v02/v02_linked_chart.dart"
+V02_LINKED_PAINTER="lib/shared/charts/v02/linked_painter.dart"
+
+# The axis goes back to the prototype's [min, mid, max]: three rules at whatever
+# the data reached, so every chart carries a different arbitrary scale.
+mutate 'the tick step stops being a round number' "$V02_FOUNDATION" "$V02_TICKS" \
+  '  return multiple * magnitude;' \
+  '  return rough;'
+
+# The Fritsch-Carlson limiter removed. The curve is still smooth and still
+# passes through every sample -- and now draws values between them that the
+# sensor never produced.
+mutate 'the monotone limiter is dropped' "$V02_FOUNDATION" "$V02_CURVE" \
+  '    if (radius > 9) {' \
+  '    if (radius > 1e9) {'
+
+# The turning-point rule removed, which is the half that stops a curve
+# continuing downward past a local minimum.
+mutate 'a local extremum stops flattening the tangent' "$V02_FOUNDATION" "$V02_CURVE" \
+  '    tangent[i] = slope[i - 1] * slope[i] <= 0
+        ? 0
+        : (slope[i - 1] + slope[i]) / 2;' \
+  '    tangent[i] = (slope[i - 1] + slope[i]) / 2;'
+
+# One reading becomes a line. This is the shipped bug: HArea([0, 0]).
+mutate 'one sample is enough to draw a trend' "$V02_SERIES" "$V02_VOID" \
+  '      if (measured >= 2) {' \
+  '      if (measured >= 1) {'
+
+# The tick labels move back inside the plot -- the exact 2026-08-06 failure,
+# where three charts shipped with words lying across the trace.
+mutate 'the value labels move into the plot' "$V02_SERIES" "$V02_FRAME" \
+  '  final left = math.max(
+    box.values.left,
+    box.values.right - _gutterPad - painter.width,
+  );' \
+  '  final left = box.plot.left;'
+
+# A withheld chart collapses its slot, so every card below it jumps when the
+# sync lands and an absence stops looking like an absence.
+mutate 'the empty slot stops holding its height' "$V02_SERIES" "$V02_VOID" \
+  '      SizedBox(height: height, width: double.infinity);' \
+  '      const SizedBox.shrink();'
+
+# withValues REPLACES alpha. This is the gridline-at-five-times bug, exactly.
+mutate 'the gridline alpha is replaced instead of scaled' "$V02_SERIES" "$V02_INK" \
+  '    ..color = revealed(grid, progress)' \
+  '    ..color = grid.withValues(alpha: progress)'
+
+# The finger is mapped across the whole widget instead of the plot inside it, so
+# the scrubber reports a sample next to the one under the cursor -- and looks
+# exactly right doing it.
+mutate 'the scrubber maps the finger against the widget, not the plot' "$V02_SERIES" "$V02_SCRUB" \
+  '    final box = widget.metrics.box(Size(_width, widget.height));
+    final index = box.indexAt(dx, widget.sampleCount);' \
+  '    final index = ((dx / _width).clamp(0.0, 1.0) * (widget.sampleCount - 1))
+        .round();'
+
+# A bar axis cut above zero: a 9,000-step day then draws twice the bar of an
+# 8,000-step day, and nobody can see the arithmetic that did it.
+mutate 'the bar axis stops standing on zero' "$V02_COLUMNS" "$V02_BARS" \
+  '                zeroBased: true,' \
+  '                zeroBased: false,'
+
+# A measured zero and an unmeasured day become the same picture.
+mutate 'a measured zero stops marking its baseline' "$V02_COLUMNS" "$V02_COLUMN_PAINTER" \
+  '    final height = math.max(full.abs() * progress.clamp(0.0, 1.0), _floorMark);' \
+  '    final height = full.abs() * progress.clamp(0.0, 1.0);'
+
+# Both panes forced onto one axis: heart rate flattens into the bottom third and
+# the crossing point of the two traces starts looking like it means something.
+mutate 'the linked panes share one scale' "$V02_COLUMNS" "$V02_LINKED" \
+  '          ticks: ChartTicks.nice(pane.values.whereType<double>()),' \
+  '          ticks: ChartTicks.nice(panes.first.values.whereType<double>()),'
+
+# The lanes abut, and the second pane title sits on the first pane fill.
+mutate 'the linked lanes stop leaving air between them' "$V02_COLUMNS" "$V02_LINKED_PAINTER" \
+  'const double _laneGap = 5;' \
+  'const double _laneGap = 0;'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
