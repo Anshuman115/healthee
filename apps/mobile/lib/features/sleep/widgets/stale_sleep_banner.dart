@@ -32,15 +32,15 @@ class StaleSleepBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: ShapeDecoration(
-        color: hues.steps.withValues(alpha: 0.12),
+        color: hues.movement.withValues(alpha: 0.12),
         shape: hSquircle(
           Radii.badge,
-          side: BorderSide(color: hues.steps.withValues(alpha: 0.35)),
+          side: BorderSide(color: hues.movement.withValues(alpha: 0.35)),
         ),
       ),
       child: Row(
         children: <Widget>[
-          Icon(Icons.bedtime_outlined, size: 18, color: hues.steps),
+          Icon(Icons.bedtime_outlined, size: 18, color: hues.movement),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

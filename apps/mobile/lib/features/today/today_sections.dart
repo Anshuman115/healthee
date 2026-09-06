@@ -202,7 +202,7 @@ void _measuredOnly(SectionList sections, ScreenData data) {
       builder: (context) => MetricTileRow(
         left: MetricTile(
           label: 'Steps · from the strap',
-          tag: context.hues.steps,
+          tag: context.hues.movement,
           reading: day.steps.map((count) => count.toDouble()),
           format: (value) => commaGrouped(value.round()),
           foot: 'SINCE-MIDNIGHT COUNTER',

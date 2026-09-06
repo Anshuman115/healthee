@@ -55,7 +55,7 @@ class RoutineCard extends StatelessWidget {
     final hues = context.hues;
     return InstrumentModule(
       label: 'Today · logged',
-      tag: hues.steps,
+      tag: hues.movement,
       minHeight: 0,
       children: [
         for (final session in routine.workouts)
@@ -78,7 +78,7 @@ class RoutineCard extends StatelessWidget {
         if (routine.openFast case final OpenFast fast)
           _Row(
             icon: SolarIconsBold.hourglass,
-            tint: hues.calories,
+            tint: hues.movement,
             title: 'Fasting, still open',
             detail: hoursMinutes(fast.elapsedMin),
           ),

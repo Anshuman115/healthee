@@ -61,10 +61,10 @@ class CardioLoadCard extends StatelessWidget {
     final tint = hues.heart;
     // Legacy's Z1..Z5 ramp (`today_screen.dart:1345`).
     final zoneColors = <Color>[
-      hues.spo2,
+      hues.oxygen,
       colors.accent,
-      hues.steps,
-      hues.calories,
+      hues.movement,
+      hues.movement,
       hues.heart,
     ];
     final zones = <int>[

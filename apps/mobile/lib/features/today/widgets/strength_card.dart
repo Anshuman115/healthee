@@ -61,7 +61,7 @@ class StrengthCard extends StatelessWidget {
     final colors = context.colors;
     // `cReady` — the hue legacy gives training load and fitness, which is what
     // this is. It is the same value as the accent in both themes.
-    final tint = context.hues.readiness;
+    final tint = context.hues.fitness;
     final floor = strength.targetLowMin;
     final percent = floor == 0 ? 0 : (strength.weekMin / floor * 100).round();
     return InstrumentModule(

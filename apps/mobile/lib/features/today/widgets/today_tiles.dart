@@ -108,7 +108,7 @@ class TodayTiles {
   /// `HRV · 45 ms` over its 14-day bars. Legacy 186 — note that legacy tints the
   /// figure itself here, which it does for three of the six.
   MetricTile heartRateVariability(BuildContext context) {
-    final tint = context.hues.hrv;
+    final tint = context.hues.fitness;
     return MetricTile(
       label: 'HRV',
       tag: tint,
@@ -140,7 +140,7 @@ class TodayTiles {
   /// which is why every bar is highlighted: there is no "latest" to pick out of
   /// a day that is still happening.
   MetricTile steps(BuildContext context) {
-    final tint = context.hues.steps;
+    final tint = context.hues.movement;
     return MetricTile(
       label: 'Steps',
       tag: tint,
@@ -171,7 +171,7 @@ class TodayTiles {
   /// says `ACTIVE TODAY` otherwise, which is legacy's own condition: half of a
   /// breakdown is not a breakdown.
   MetricTile energy(BuildContext context) {
-    final tint = context.hues.calories;
+    final tint = context.hues.movement;
     final basal = facts.basalEnergy;
     final total = facts.totalEnergy;
     return MetricTile(
@@ -210,7 +210,7 @@ class TodayTiles {
   /// Its foot is a **population range**, not the owner's own median — the one
   /// tile whose context line is not personal. Legacy's, unchanged.
   MetricTile respiratoryRate(BuildContext context) {
-    final tint = context.hues.respiratory;
+    final tint = context.hues.oxygen;
     return MetricTile(
       label: 'Respiratory rate',
       tag: tint,

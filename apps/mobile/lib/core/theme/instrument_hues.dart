@@ -1,195 +1,169 @@
-/// Legacy's ten per-metric hues, as a theme extension — and the ONE canonical
-/// sleep-stage mapping every sleep chart draws from.
+/// v02's six category families as a theme extension, plus the ONE canonical
+/// sleep-stage mapping every stage plot and legend draws from.
 ///
-/// **This file replaces `metric_hues.dart`**, which is deleted. That file held a
-/// five-hue "identity tag" system built so a tag could never be mistaken for a
-/// verdict: five hues, one lightness, 40° clear of `fav`/`unf`/`alert`. It was
-/// internally consistent and it is **superseded**, because the legacy app — now
-/// the specification — has ten hues and **deliberately reuses two of them as
-/// verdicts**:
+/// **This replaced legacy's ten per-metric hues on 2026-09-06.** The prototype in
+/// `design/mobile-preview/` assigns meaning to six colours and no more, so the
+/// ten collapsed: `hrv`/`readiness` → [fitness], `steps`/`calories` →
+/// [movement], `respiratory`/`spo2` → [oxygen], `rem` → [sleep]. `palette.dart`
+/// records the collapse; `metric_hue.dart` records which metric lands where.
 ///
-/// ```dart
-/// // healthee-legacy/app/lib/ui/insights_screen.dart:171
-/// improving ? c.green : c.cHeart
-/// ```
-///
-/// [hrv] and [readiness] ARE the green accent and the "improving" verdict.
-/// [heart] IS the "degrading" verdict and the illness flag. **Identity and
-/// judgement share hues here by decision.** A future reader who notices and
-/// "fixes" it will be undoing the owner's call, not a mistake — see
-/// `palette.dart`'s library docstring.
+/// **Nothing should read these fields by name.** `tone.dart` is the reader: a
+/// card declares a [Tone] and its contents resolve `context.family`. The fields
+/// are public only because a `ThemeExtension` cannot hide them.
 ///
 /// ## Why still a second extension rather than fields on `HealtheeColors`
 ///
-/// The split survives the redesign for a different reason than it was created
-/// for. `HealtheeColors` is the set a widget reaches for to answer *what surface
-/// am I on, what ink do I use, is this reading good or bad*. This set answers
-/// *which metric is this card about*. Two questions, two extensions, and a
-/// reviewer can still tell at the call site which one is being asked.
+/// `HealtheeColors` answers *what surface am I on, what ink do I use, is this
+/// reading good or bad*. This one answers *which category is this card about*.
+/// Two questions, two extensions, and a reviewer can tell at the call site which
+/// one is being asked.
 ///
-/// ## The four sleep stages are no longer four of the ten
+/// ## The stage ramp is NOT v02's, and that is a decision with a number on it
 ///
-/// Legacy's [sleepStage] borrows `cSteps` / `cSpo2` / `cSleep` / `cHeart`, and
-/// those four are near-isoluminant: three of them measured **1.02:1 to 1.38:1
-/// against each other**, so adjacent hypnogram bands were the same colour to the
-/// eye. That is an accessibility flaw rather than a design choice, the owner
-/// authorised fixing it, and [stageDeep] · [stageLight] · [stageRem] ·
-/// [stageAwake] carry the repaired values from `sleep_stage_palette.dart`.
+/// `richer.css` ships four stage colours — `#5E38C1 #89A9F1 #C96BCC #EDA253`
+/// light — that **fail the accessibility gate this app already has**. Measured:
+/// light-vs-REM is 1.39:1 and light-vs-awake is 1.10:1 against a floor of
+/// `kStagePairFloor` (1.5), and in the light theme `light` and `awake` reach only
+/// 2.33:1 and 2.12:1 on a white card against `kStageSurfaceFloor` (3.0). That is
+/// the same class of defect the ramp in `sleep_stage_palette.dart` was authored
+/// to repair, and the owner reported it on a shipped build.
 ///
-/// **The ten metric hues did not move.** Splitting rather than moving is what
-/// keeps the steps tile, the SpO₂ vitals row, the sleep gauge and the illness
-/// flag exactly as they were — `cHeart` in particular is `alert`, and dragging a
-/// verdict colour along behind a chart repair would have been the larger change.
+/// So [stageDeep] and friends keep the repaired ramp. v02's four are recorded in
+/// `sleep_stage_palette.dart` as `V02StagePrototype`, and
+/// `test/theme/stage_contrast_test.dart` proves the gate rejects them — because a
+/// rejected design that is not written down is a design that comes back.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/palette.dart';
 import 'package:healthee/core/theme/sleep_stage_palette.dart';
 
-/// The ten per-metric hues for the active theme, plus the four stage colours.
-///
-/// Field names drop legacy's `c` prefix: `cSleep` → [sleep]. Nothing else moved.
+/// v02's category families, and the sleep-stage ramp, for one theme.
 @immutable
 class InstrumentHues extends ThemeExtension<InstrumentHues> {
   /// Builds a hue set. Prefer [InstrumentHues.light] / [InstrumentHues.dark].
   const InstrumentHues({
-    required this.sleep,
-    required this.heart,
-    required this.hrv,
-    required this.steps,
-    required this.calories,
-    required this.respiratory,
-    required this.spo2,
-    required this.stress,
-    required this.readiness,
-    required this.rem,
-    required this.stageDeep,
-    required this.stageLight,
-    required this.stageRem,
-    required this.stageAwake,
+    required this.fitness, required this.fitnessSoft,
+    required this.sleep, required this.sleepSoft,
+    required this.heart, required this.heartSoft,
+    required this.movement, required this.movementSoft,
+    required this.oxygen, required this.oxygenSoft,
+    required this.stress, required this.stressSoft,
+    required this.stageDeep, required this.stageLight,
+    required this.stageRem, required this.stageAwake,
     required this.unstaged,
   });
 
-  /// Legacy's `HColors.light` hues, verbatim.
+  /// v02's families, light, with the repaired stage ramp.
   const InstrumentHues.light()
-    : unstaged = LightStagePalette.unstaged,
+    : fitness = LightFamilies.fitness,
+      fitnessSoft = LightFamilies.fitnessSoft,
+      sleep = LightFamilies.sleep,
+      sleepSoft = LightFamilies.sleepSoft,
+      heart = LightFamilies.heart,
+      heartSoft = LightFamilies.heartSoft,
+      movement = LightFamilies.movement,
+      movementSoft = LightFamilies.movementSoft,
+      oxygen = LightFamilies.oxygen,
+      oxygenSoft = LightFamilies.oxygenSoft,
+      stress = LightFamilies.stress,
+      stressSoft = LightFamilies.stressSoft,
       stageDeep = LightStagePalette.deep,
       stageLight = LightStagePalette.light,
       stageRem = LightStagePalette.rem,
       stageAwake = LightStagePalette.awake,
-      sleep = LegacyLightHues.sleep,
-      heart = LegacyLightHues.heart,
-      hrv = LegacyLightHues.hrv,
-      steps = LegacyLightHues.steps,
-      calories = LegacyLightHues.calories,
-      respiratory = LegacyLightHues.respiratory,
-      spo2 = LegacyLightHues.spo2,
-      stress = LegacyLightHues.stress,
-      readiness = LegacyLightHues.readiness,
-      rem = LegacyLightHues.rem;
+      unstaged = LightStagePalette.unstaged;
 
-  /// Legacy's `HColors.dark` hues, verbatim.
+  /// v02's families, dark. Authored by the prototype, not derived from light.
   const InstrumentHues.dark()
-    : unstaged = DarkStagePalette.unstaged,
+    : fitness = DarkFamilies.fitness,
+      fitnessSoft = DarkFamilies.fitnessSoft,
+      sleep = DarkFamilies.sleep,
+      sleepSoft = DarkFamilies.sleepSoft,
+      heart = DarkFamilies.heart,
+      heartSoft = DarkFamilies.heartSoft,
+      movement = DarkFamilies.movement,
+      movementSoft = DarkFamilies.movementSoft,
+      oxygen = DarkFamilies.oxygen,
+      oxygenSoft = DarkFamilies.oxygenSoft,
+      stress = DarkFamilies.stress,
+      stressSoft = DarkFamilies.stressSoft,
       stageDeep = DarkStagePalette.deep,
       stageLight = DarkStagePalette.light,
       stageRem = DarkStagePalette.rem,
       stageAwake = DarkStagePalette.awake,
-      sleep = LegacyDarkHues.sleep,
-      heart = LegacyDarkHues.heart,
-      hrv = LegacyDarkHues.hrv,
-      steps = LegacyDarkHues.steps,
-      calories = LegacyDarkHues.calories,
-      respiratory = LegacyDarkHues.respiratory,
-      spo2 = LegacyDarkHues.spo2,
-      stress = LegacyDarkHues.stress,
-      readiness = LegacyDarkHues.readiness,
-      rem = LegacyDarkHues.rem;
+      unstaged = DarkStagePalette.unstaged;
 
-  /// `cSleep` — sleep, sleep debt, the sleep gauge. **No longer REM**; see
-  /// [stageRem].
+  /// Recovery, HRV, VO₂max, readiness. Also the app's accent.
+  final Color fitness;
+
+  /// The fill behind [fitness] content.
+  final Color fitnessSoft;
+
+  /// Sleep, sleep debt, sleep timing.
   final Color sleep;
 
-  /// `cHeart` — heart rate, resting HR, cardio load. Also the "degrading"
-  /// verdict and the illness flag. **No longer awake**; see [stageAwake].
+  /// The fill behind [sleep] content.
+  final Color sleepSoft;
+
+  /// Heart rate, resting HR, cardio load.
   final Color heart;
 
-  /// `cHrv` — HRV. The same value as the green accent and the `fav` verdict.
-  final Color hrv;
+  /// The fill behind [heart] content.
+  final Color heartSoft;
 
-  /// `cSteps` — steps and distance. **No longer deep sleep**; see [stageDeep].
-  final Color steps;
+  /// Steps, distance, calories, energy.
+  final Color movement;
 
-  /// `cCal` — calories, and legacy's stress card.
-  final Color calories;
+  /// The fill behind [movement] content.
+  final Color movementSoft;
 
-  /// `cResp` — respiratory rate, and legacy's overnight blood-oxygen card.
-  final Color respiratory;
+  /// Respiratory rate, blood oxygen.
+  final Color oxygen;
 
-  /// `cSpo2` — SpO₂ vitals and zone 1. **No longer light/core sleep**; see
-  /// [stageLight].
-  final Color spo2;
+  /// The fill behind [oxygen] content.
+  final Color oxygenSoft;
 
-  /// `cStress` — skin temperature. Legacy's stress card wears [calories].
+  /// Stress, skin temperature.
   final Color stress;
 
-  /// `cReady` — VO₂max, biological age, regularity, training load. The same
-  /// value as the green accent.
-  final Color readiness;
+  /// The fill behind [stress] content.
+  final Color stressSoft;
 
-  /// `cRem` — defined by legacy, drawn by no legacy screen. See `palette.dart`.
-  final Color rem;
-
-  /// **Deep sleep.** The lightest rung of the stage ramp, in both themes.
-  ///
-  /// Legacy drew this in [steps] and the two are now separate values — the split
-  /// is the point. See `sleep_stage_palette.dart`.
+  /// Deep sleep — the lightest rung of the ramp.
   final Color stageDeep;
 
-  /// **Light / core sleep.** Second rung. Was [spo2].
+  /// Light (`core`) sleep — the second rung.
   final Color stageLight;
 
-  /// **REM.** Third rung. Was [sleep].
+  /// REM — the third rung.
   final Color stageRem;
 
-  /// **Awake.** The darkest rung. Was [heart] — which is also `alert`, so this
-  /// is the split that mattered most: a hypnogram band is not a verdict.
+  /// Awake — the darkest rung.
   final Color stageAwake;
 
-  /// **Not legacy's.** The chroma-free grey an unrecognised stage code is drawn
-  /// in. See [sleepStage] and `LightStagePalette.unstaged`.
+  /// A span the strap staged with a code this app cannot name. Chroma-free, and
+  /// not a fifth rung.
   final Color unstaged;
 
-  /// **The canonical sleep-stage colour. One mapping, every sleep chart.**
+  /// **The one sleep-stage mapping.** Every hypnogram, stacked bar and legend
+  /// resolves a stage name here and nowhere else.
   ///
   /// ```text
-  ///   deep          → stageDeep    amber        lightest rung
-  ///   core / light  → stageLight   blue
-  ///   rem           → stageRem     purple
-  ///   awake         → stageAwake   red-orange   darkest rung
-  ///   anything else → unstaged     grey         ← NOT legacy
+  ///   deep          → stageDeep    lightest rung
+  ///   core / light  → stageLight
+  ///   rem           → stageRem
+  ///   awake         → stageAwake   darkest rung
+  ///   anything else → unstaged     grey, and named "Unrecognised"
   /// ```
   ///
-  /// `core` is the server's word for what the strap calls `light`; they are one
-  /// stage under two vocabularies, so they are one colour.
+  /// `core` is the server's word for what the strap calls `light`; one stage,
+  /// two vocabularies, one colour.
   ///
-  /// ## Two departures from legacy, both authorised, both measured
-  ///
-  /// **The values.** Legacy borrows four metric hues here — `cSteps`, `cSpo2`,
-  /// `cSleep`, `cHeart` — which are near-isoluminant, so three of the four bands
-  /// were told apart by hue alone and measured **1.02:1 to 1.38:1 against each
-  /// other** on the dark card. The owner reported it as "only yellow is visible".
-  /// The four now come from `sleep_stage_palette.dart`, a luminance-ordered ramp
-  /// keeping legacy's hue angle and chroma, and **the four metric hues did not
-  /// move** — so the steps tile, the SpO₂ row, the sleep gauge and the illness
-  /// flag are all pixel-identical. That file carries the whole derivation.
-  ///
-  /// **The fifth row.** Legacy defaults an unrecognised code to `cSpo2`
-  /// (`theme.dart:36` and `instrument_charts.dart:403` both do) — **it draws a
-  /// byte nobody has decoded as light sleep.** That is not a colour choice, it is
-  /// a claim: a specific named stage, asserted about a measurement we could not
-  /// read, and indistinguishable on screen from a real one. So the fifth row is a
-  /// grey and [sleepStageLabel] answers "Unrecognised" beside it.
+  /// The fifth row is not legacy's. Legacy defaults an unrecognised code to
+  /// `cSpo2` — it draws a byte nobody has decoded **as light sleep**, which is a
+  /// claim rather than a colour choice. So the fifth row is a grey and
+  /// `sleepStageLabel` answers "Unrecognised" beside it.
   Color sleepStage(String stage) => switch (stage) {
     'deep' => stageDeep,
     'core' || 'light' => stageLight,
@@ -205,38 +179,36 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
 
   @override
   InstrumentHues copyWith({
-    Color? sleep,
-    Color? heart,
-    Color? hrv,
-    Color? steps,
-    Color? calories,
-    Color? respiratory,
-    Color? spo2,
-    Color? stress,
-    Color? readiness,
-    Color? rem,
-    Color? stageDeep,
-    Color? stageLight,
-    Color? stageRem,
-    Color? stageAwake,
+    Color? fitness, Color? fitnessSoft,
+    Color? sleep, Color? sleepSoft,
+    Color? heart, Color? heartSoft,
+    Color? movement, Color? movementSoft,
+    Color? oxygen, Color? oxygenSoft,
+    Color? stress, Color? stressSoft,
+    Color? stageDeep, Color? stageLight,
+    Color? stageRem, Color? stageAwake,
     Color? unstaged,
-  }) => InstrumentHues(
-    unstaged: unstaged ?? this.unstaged,
-    stageDeep: stageDeep ?? this.stageDeep,
-    stageLight: stageLight ?? this.stageLight,
-    stageRem: stageRem ?? this.stageRem,
-    stageAwake: stageAwake ?? this.stageAwake,
-    sleep: sleep ?? this.sleep,
-    heart: heart ?? this.heart,
-    hrv: hrv ?? this.hrv,
-    steps: steps ?? this.steps,
-    calories: calories ?? this.calories,
-    respiratory: respiratory ?? this.respiratory,
-    spo2: spo2 ?? this.spo2,
-    stress: stress ?? this.stress,
-    readiness: readiness ?? this.readiness,
-    rem: rem ?? this.rem,
-  );
+  }) {
+    return InstrumentHues(
+      fitness: fitness ?? this.fitness,
+      fitnessSoft: fitnessSoft ?? this.fitnessSoft,
+      sleep: sleep ?? this.sleep,
+      sleepSoft: sleepSoft ?? this.sleepSoft,
+      heart: heart ?? this.heart,
+      heartSoft: heartSoft ?? this.heartSoft,
+      movement: movement ?? this.movement,
+      movementSoft: movementSoft ?? this.movementSoft,
+      oxygen: oxygen ?? this.oxygen,
+      oxygenSoft: oxygenSoft ?? this.oxygenSoft,
+      stress: stress ?? this.stress,
+      stressSoft: stressSoft ?? this.stressSoft,
+      stageDeep: stageDeep ?? this.stageDeep,
+      stageLight: stageLight ?? this.stageLight,
+      stageRem: stageRem ?? this.stageRem,
+      stageAwake: stageAwake ?? this.stageAwake,
+      unstaged: unstaged ?? this.unstaged,
+    );
+  }
 
   @override
   InstrumentHues lerp(ThemeExtension<InstrumentHues>? other, double t) {
@@ -244,32 +216,33 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
       return this;
     }
     return InstrumentHues(
-      unstaged: Color.lerp(unstaged, other.unstaged, t)!,
+      fitness: Color.lerp(fitness, other.fitness, t)!,
+      fitnessSoft: Color.lerp(fitnessSoft, other.fitnessSoft, t)!,
+      sleep: Color.lerp(sleep, other.sleep, t)!,
+      sleepSoft: Color.lerp(sleepSoft, other.sleepSoft, t)!,
+      heart: Color.lerp(heart, other.heart, t)!,
+      heartSoft: Color.lerp(heartSoft, other.heartSoft, t)!,
+      movement: Color.lerp(movement, other.movement, t)!,
+      movementSoft: Color.lerp(movementSoft, other.movementSoft, t)!,
+      oxygen: Color.lerp(oxygen, other.oxygen, t)!,
+      oxygenSoft: Color.lerp(oxygenSoft, other.oxygenSoft, t)!,
+      stress: Color.lerp(stress, other.stress, t)!,
+      stressSoft: Color.lerp(stressSoft, other.stressSoft, t)!,
       stageDeep: Color.lerp(stageDeep, other.stageDeep, t)!,
       stageLight: Color.lerp(stageLight, other.stageLight, t)!,
       stageRem: Color.lerp(stageRem, other.stageRem, t)!,
       stageAwake: Color.lerp(stageAwake, other.stageAwake, t)!,
-      sleep: Color.lerp(sleep, other.sleep, t)!,
-      heart: Color.lerp(heart, other.heart, t)!,
-      hrv: Color.lerp(hrv, other.hrv, t)!,
-      steps: Color.lerp(steps, other.steps, t)!,
-      calories: Color.lerp(calories, other.calories, t)!,
-      respiratory: Color.lerp(respiratory, other.respiratory, t)!,
-      spo2: Color.lerp(spo2, other.spo2, t)!,
-      stress: Color.lerp(stress, other.stress, t)!,
-      readiness: Color.lerp(readiness, other.readiness, t)!,
-      rem: Color.lerp(rem, other.rem, t)!,
+      unstaged: Color.lerp(unstaged, other.unstaged, t)!,
     );
   }
 
-  /// Every hue, in declaration order. **Add a new hue here too** — this backs
+  /// Every hue, in declaration order. **Add new hues here too** — this backs
   /// equality, and Flutter compares theme extensions to decide whether a theme
   /// change needs a rebuild.
-  List<Color> get _hues => <Color>[
-    sleep, heart, hrv, steps, calories,
-    respiratory, spo2, stress, readiness, rem,
-    stageDeep, stageLight, stageRem, stageAwake,
-    unstaged,
+  List<Color> get _hues => [
+    fitness, fitnessSoft, sleep, sleepSoft, heart, heartSoft,
+    movement, movementSoft, oxygen, oxygenSoft, stress, stressSoft,
+    stageDeep, stageLight, stageRem, stageAwake, unstaged,
   ];
 
   @override
@@ -294,12 +267,12 @@ class InstrumentHues extends ThemeExtension<InstrumentHues> {
   int get hashCode => Object.hashAll(_hues);
 }
 
-/// Reaches the hue set from a widget: `context.hues.heart`.
+/// Reaches the hue set from a widget: `context.hues.sleep`.
 extension InstrumentHuesOf on BuildContext {
-  /// The active theme's per-metric hues.
+  /// The active theme's category families.
   ///
-  /// Throws when the theme was built without the extension, which is the right
-  /// behaviour: a silent fallback would let a screen render in colours nobody
-  /// chose and look almost right.
+  /// Throws if the theme was built without the extension, which is the right
+  /// behaviour — a silent fallback would let a screen render in colours nobody
+  /// chose, and look almost right.
   InstrumentHues get hues => Theme.of(this).extension<InstrumentHues>()!;
 }

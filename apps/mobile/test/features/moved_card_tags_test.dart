@@ -171,8 +171,8 @@ void main() {
 
     test('THE FITNESS NUMBERS SHARE LEGACY’S READINESS HUE', () {
       // `today_screen.dart:1162` and `:1239` — both cReady.
-      expect(hueFor(_hues, 'vo2max_estimate'), _hues.readiness);
-      expect(hueFor(_hues, 'biological_age'), _hues.readiness);
+      expect(hueFor(_hues, 'vo2max_estimate'), _hues.fitness);
+      expect(hueFor(_hues, 'biological_age'), _hues.fitness);
     });
 
     testWidgets('the MVPA week bar does not turn green at the WHO floor', (
@@ -235,12 +235,12 @@ void main() {
 String _fieldName(InstrumentHues hues, Color colour) => <String, Color>{
   'sleep': hues.sleep,
   'heart': hues.heart,
-  'hrv': hues.hrv,
-  'steps': hues.steps,
-  'calories': hues.calories,
-  'respiratory': hues.respiratory,
-  'spo2': hues.spo2,
+  'hrv': hues.fitness,
+  'steps': hues.movement,
+  'calories': hues.movement,
+  'respiratory': hues.oxygen,
+  'spo2': hues.oxygen,
   'stress': hues.stress,
-  'readiness': hues.readiness,
-  'rem': hues.rem,
+  'readiness': hues.fitness,
+  'rem': hues.sleep,
 }.entries.firstWhere((entry) => entry.value == colour).key;
