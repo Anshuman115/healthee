@@ -632,7 +632,7 @@ mutate 'the withheld panel drops its reason' "$WITHHELD_TEST" \
 VIEW=lib/shared/states/reading_view.dart
 CAVEAT=lib/shared/states/caveat_disclosure.dart
 MODULE=lib/shared/instrument_module.dart
-CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/shared/reading_view_test.dart test/features/caveat_attribution_test.dart"
+CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/shared/reading_view_test.dart test/shared/caveat_carriers_test.dart test/features/caveat_attribution_test.dart"
 
 # THE mutation: a Caveated renders exactly like a Present. This is what "just
 # stop printing the bullet points" would have been if nobody replaced them, and

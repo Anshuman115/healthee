@@ -96,16 +96,28 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  final screens = <String, Widget?>{
-    'Today': null,
-    'Sleep': SleepScreen(now: kSleepNow),
-    'Activity': const ActivityScreen(),
+  /// Each screen, and whether the committed payload gives it a caveated
+  /// reading to place.
+  ///
+  /// The flag is an assertion in both directions, and that is the point. A
+  /// `true` that goes false is a carrier that stopped drawing — the silent
+  /// failure this whole layer exists to prevent, and the one the two geometric
+  /// tests below pass vacuously through. A `false` that goes true is a screen
+  /// that grew a disclosure nobody has looked at the placement of.
+  ///
+  /// Sleep is the `false`: `/api/sleep`'s blocks arrive `Present` on this
+  /// fixture. It is still pumped, because the geometry check is what catches a
+  /// carrier landing in the gutter the day one appears.
+  final screens = <String, ({Widget? home, bool carries})>{
+    'Today': (home: null, carries: true),
+    'Sleep': (home: SleepScreen(now: kSleepNow), carries: false),
+    'Activity': (home: const ActivityScreen(), carries: true),
   };
 
   for (final screen in screens.entries) {
     group(screen.key, () {
       testWidgets('NO BARE `*` REACHES THE SCREEN', (tester) async {
-        await pump(tester, screen.value);
+        await pump(tester, screen.value.home);
 
         final bare = <String>[
           for (final widget in tester.widgetList<Text>(find.byType(Text)))
@@ -119,24 +131,28 @@ void main() {
         );
       });
 
-      testWidgets('IT REALLY DOES CARRY CAVEATED READINGS', (tester) async {
+      testWidgets('THE CARRIERS IT SHOULD HAVE ARE THE ONES IT HAS', (
+        tester,
+      ) async {
         // Without this the two assertions around it pass on a screen that has
         // no disclosures to place, which is the shape of a vacuous suite — and
         // it is exactly how a carrier that stopped drawing its note would slip
         // through: nothing would be misplaced, because nothing would be there.
-        await pump(tester, screen.value);
+        await pump(tester, screen.value.home);
 
         expect(
           _carriers(tester),
-          isNotEmpty,
-          reason: '${screen.key} draws no caveat carrier at all',
+          screen.value.carries ? isNotEmpty : isEmpty,
+          reason: screen.value.carries
+              ? '${screen.key} draws no caveat carrier at all'
+              : '${screen.key} grew a disclosure — check where it landed',
         );
       });
 
       testWidgets('EVERY CAVEAT CARRIER IS INSIDE THE CARD IT IS ABOUT', (
         tester,
       ) async {
-        await pump(tester, screen.value);
+        await pump(tester, screen.value.home);
 
         final cards = _cards(tester);
         for (final carrier in _carriers(tester)) {
