@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="charts.css">
   <link rel="stylesheet" href="screens.css">
   <link rel="stylesheet" href="richer.css">
+  <link rel="stylesheet" href="motion.css">
+  <link rel="stylesheet" href="history.css">
   <script defer src="sample-data.js"></script>
   <script defer src="components.js"></script>
   <script defer src="charts.js"></script>
@@ -24,6 +26,12 @@
   <script defer src="screens-sleep.js"></script>
   <script defer src="screens-fitness.js"></script>
   <script defer src="interactions.js"></script>
+  <script defer src="history-data.js"></script>
+  <script defer src="date-navigation.js"></script>
+  <script defer src="history-screens.js"></script>
+  <script defer src="sleep-history-view.js"></script>
+  <script defer src="bio-halo.js"></script>
+  <script defer src="motion.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -31,8 +39,8 @@
   <aside class="studio" aria-label="Design preview controls">
     <a class="brand" href="#today"><span class="brand-mark">h<span>·</span></span>healthee</a>
     <p class="studio-kicker">Mobile design exploration</p>
-    <h1>Your data.<br>One connected picture.</h1>
-    <p class="studio-description">A complete view of your fitness, sleep and recovery. Follow the signals, see the context, keep the detail.</p>
+    <h1>Healthee<br>design preview.</h1>
+    <p class="studio-description">Explore the mobile screens, inspect charts and try the interactions.</p>
     <nav id="screen-directory" aria-label="Explore prototype screens"></nav>
     <div class="studio-bottom">
       <button class="text-button" data-action="theme">Switch to light <span aria-hidden="true">↗</span></button>
@@ -44,7 +52,7 @@
     <main id="main" tabindex="-1"></main>
     <nav id="bottom-nav" class="bottom-nav" aria-label="Main navigation"></nav>
   </div>
-  <aside class="design-note" aria-label="About this design"><span class="tiny-label">The direction</span><h2>More than<br>a collection<br>of scores.</h2><p>Sleep, daily effort and long-term fitness belong in the same picture. Colour keeps each signal recognisable as you move between views.</p><div class="palette"><i></i><i></i><i></i><i></i><i></i></div><span class="tiny-label">Recovery · Sleep · Heart · Movement · Oxygen</span><p class="note-hint">Drag the linked heart-rate and stress chart. Follow a contribution from biological age to fitness or sleep.</p></aside>
+  <aside class="design-note" aria-label="About this design"><span class="tiny-label">The direction</span><h2>Fitness.<br>Sleep.<br>Recovery.</h2><p>Sleep, daily effort and long-term fitness belong in the same picture. Colour keeps each signal recognisable as you move between views.</p><div class="palette"><i></i><i></i><i></i><i></i><i></i></div><span class="tiny-label">Recovery · Sleep · Heart · Movement · Oxygen</span><p class="note-hint">Drag the linked heart-rate and stress chart. Follow a contribution from biological age to fitness or sleep.</p></aside>
   <dialog id="sheet" aria-labelledby="sheet-title"></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   <noscript><p>This interactive prototype needs JavaScript enabled.</p></noscript>

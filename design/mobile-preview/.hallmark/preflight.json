@@ -12,7 +12,7 @@
   "font": "Vendored Manrope; regular and bold",
   "palette": "Metric-specific OKLCH colours: green recovery/fitness, violet sleep, coral heart, amber movement, blue oxygen; authored light and dark themes",
   "framework": "Vanilla HTML, CSS and JavaScript; no runtime dependencies",
-  "motion": "Short transform/opacity interactions, reduced-motion fallback",
+  "motion": "Reference-inspired emerald particle halo, warm glints and a still central reading; 30fps canvas, offscreen/hidden-tab pause, static reduced-motion rendering",
   "preserve": [
     "five main destinations",
     "feature coverage",

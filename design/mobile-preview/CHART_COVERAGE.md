@@ -77,3 +77,12 @@ summary has no paired raw values, so no scatter plot is invented.
 
 Colour and data-rich chart coverage supersede the v01 monochrome reduction.
 This remains a browser prototype. No Flutter installation or backend changes.
+
+## Shared historical day selection
+
+Today owns the only header date control. Its selected day is shared by the main
+measurement screens and history views, which show a non-interactive date label. Historical series use explicit fixture dates, ending on the chosen
+day. Sleep keeps its stage timeline, stage proportions, timing chart, physiological
+trends and four independent checks, with missing recordings shown explicitly.
+Archived biological-age/recovery/debt results are not present in the fixtures and
+are withheld on older days. Session-specific pages keep their recorded date.

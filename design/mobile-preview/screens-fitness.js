@@ -2,7 +2,7 @@
 (() => {
   H.screens.body = () => {
     const age=H.demo.today.biological_age;
-    return `${H.header('Your longer view.','Biological age & its contributors',true)}${H.bioHero()}
+    return `${H.header('Biological age','Biological age & its contributors',true)}${H.bioHero()}
       ${H.bridge('fitness','This number has two included contributors. The calculation is visible, and unpriced factors stay outside it.','fitness','Explore fitness')}
       ${H.panel('From your age to this estimate','fitness',`${H.charts.ageWaterfall()}${H.note('36 chronological years − 1.7 fitness + 0.0 sleep = 34.3 modelled years.')}`,'','activity')}
       ${H.panel('Fitness contribution','fitness',`${H.value('−1.7','years','GPS-graded<br>VO₂max estimate 43.0')}${H.charts.vo2()}<div class="two">${H.stat('43.0','','Current estimate')}${H.stat('40.0','','Age-model target')}</div>${H.note('The model compares fitness against its own reference and converts the result into a year contribution.')}${H.link('Open the fitness detail','fitness')}`,'fitness')}
@@ -10,7 +10,7 @@
       ${H.panel('Excluded, not counted as zero','sleep',`<h3>Sleep regularity</h3>${H.note(age.excluded[0].message)}${H.link('Still visible in Sleep','sleep')}`,'','info')}
       ${H.panel('How much confidence to place in it','fitness',`${H.note('This is a population-based motivational model, not a clinical age. The fitness input is estimated, and its uncertainty carries into the result.')}<details class="section"><summary>Method and important caveats</summary>${age.caveats.map(c=>`<p class="panel-note">${H.escape(c.message)}</p>`).join('')}</details>${H.evidence('biological_age','Research & method')}`,'','shield')}${H.footer()}`;
   };
-  H.screens.fitness = () => `${H.header('Fitness,<br>with perspective.','Capacity · workload · consistency',true)}
+  H.screens.fitness = () => `${H.header('Fitness','Capacity · workload · consistency',true)}
     ${H.panel('Cardiorespiratory fitness','fitness',`${H.value('43.0','ml/kg/min','VO₂max estimate<br>31 July')}${H.charts.vo2()}<div class="three">${H.stat('39.7','','Age/sex median')}${H.stat('+3.3','','vs reference')}${H.stat('1','','Session')}</div>${H.note('Supplied error magnitude: ±2.95 ml/kg/min, derived from MAPE 6.85%. The band is not a confidence interval.')}`,'','activity')}
     ${H.panel('Your stored estimate history','fitness',`${H.charts.line(H.demo.today.vo2max.trend_90d.map(p=>p.value),{min:30,max:55,baseline:39.7,start:'2 Jul',end:'31 Jul',unit:'ml/kg/min',label:'Stored VO₂max estimates'})}${H.note('The latest point is GPS-graded. Historical method metadata is not supplied, so a method change cannot be distinguished from a fitness change here.')}`,'metric/vo2')}
     ${H.panel('Which instrument produced it?','fitness',`<div class="row between"><h3>GPS-graded session</h3>${H.badge('Latest')}</div>${H.note(H.demo.today.vo2max.method_caveat)}<div class="two section">${H.stat('0.82','','Session fit · R²')}${H.stat('8.1','km/h','Last fitted speed')}</div>${H.evidence('vo2max_fitness_mortality','Evidence & uncertainty')}`,'workout','location')}

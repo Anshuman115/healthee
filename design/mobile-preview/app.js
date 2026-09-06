@@ -1,9 +1,9 @@
 /* Small hash router: browser back, deep links and mobile navigation all work. */
 (() => {
   H.actions.jump = element => document.getElementById(element.dataset.target)?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
-  H.actions['sleep-previous'] = () => { H.state.sleepIndex=Math.min(H.demo.sleep.nights.length-1,(H.state.sleepIndex||0)+1); H.render(true); };
-  H.actions['sleep-next'] = () => { H.state.sleepIndex=Math.max(0,(H.state.sleepIndex||0)-1); H.render(true); };
-  H.actions['select-night'] = element => { H.state.sleepIndex=Number(element.dataset.value); H.navigate('sleep'); };
+  H.actions['sleep-previous'] = H.actions['date-previous'];
+  H.actions['sleep-next'] = H.actions['date-next'];
+  H.actions['select-night'] = element => { H.setViewDate(H.demo.sleep.nights[Number(element.dataset.value)].date); H.navigate('sleep'); };
   const tabs = [['today','Today','sun'],['sleep','Sleep','moon'],['activity','Activity','activity'],['insights','Insights','insights'],['actions','Actions','actions']];
   const parents = { recovery:'today','sleep-history':'sleep',workouts:'activity',workout:'activity',route:'activity',record:'activity',fitness:'activity',body:'activity',metric:'insights',metrics:'insights',insight:'insights',challenge:'actions',program:'actions',outcomes:'actions','action-history':'actions',journal:'actions' };
   const scrollPositions = new Map();
@@ -31,7 +31,7 @@
   H.render = (keepScroll = false) => {
     const oldPosition = window.scrollY;
     const base = H.route.split('/')[0], active = tabs.some(tab=>tab[0]===base) ? base : parents[base] || 'today';
-    const screen = H.screens[base];
+    const screen = H.isPast() && H.historyScreens[base] ? H.historyScreens[base] : H.screens[base];
     const tones={today:'fitness',sleep:'sleep',activity:'movement',insights:'oxygen',actions:'fitness'};
     document.querySelector('#main').dataset.tone = base==='metric' ? (H.metricDefinitions[H.route.split('/')[1]]?.tone || 'fitness') : (['workout','program','challenge','outcomes','fitness','body','route','record'].includes(base)?H.toneFor(base):tones[active]);
     document.querySelector('#main').innerHTML = `<div class="${keepScroll?'':'page-enter'}">${screen ? screen() : `${H.header('A small detour.','Screen not found',true)}${H.link('Back to Today','today','button full')}`}</div>`;
@@ -40,15 +40,17 @@
     document.title = `Healthee · ${base[0].toUpperCase()+base.slice(1)} — design preview`;
     restorePreferences();
     window.scrollTo({top:keepScroll ? oldPosition : scrollPositions.get(H.route) || 0,behavior:'instant'});
+    H.mountMotion();
   };
   addEventListener('hashchange', () => {
     scrollPositions.set(H.route,window.scrollY);
     const next = location.hash.slice(1) || 'today';
     if (routeHistory.at(-1) === next) routeHistory.pop(); else routeHistory.push(H.route);
-    H.route = next;
+    H.syncViewDate(); H.route = next;
     H.closeSheet(); H.render();
     document.querySelector('#main').focus({preventScroll:true});
   });
+  addEventListener('popstate',()=>{ if(H.syncViewDate()) H.render(true); });
   document.addEventListener('click', event => {
     const element = event.target.closest('[data-action]');
     if (element && !element.disabled) {

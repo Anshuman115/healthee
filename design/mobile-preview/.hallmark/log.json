@@ -1,6 +1,59 @@
 [
   {
     "date": "2026-09-06",
+    "version": "v02-shared-dates",
+    "macrostructure": "Stat-Led",
+    "theme": "Custom Healthee metric palette",
+    "enrichment": "Single compact date control on Today; other data screens inherit its date with a quiet label; retained converging halo",
+    "brief": "Centralise historical date selection on Today and reflect it throughout the app",
+    "critique": {
+      "philosophy": 4,
+      "hierarchy": 4,
+      "execution": 4,
+      "specificity": 5,
+      "restraint": 5,
+      "variety": 4
+    },
+    "validation": "285 current screen/viewport/theme checks; 192 historical layouts with browser-back, date persistence, keyboard calendar, missing-data and dated-journal acceptance"
+  },
+  {
+    "date": "2026-09-06",
+    "version": "v02-particle-halo",
+    "checkpoint": "7d6a16f",
+    "macrostructure": "Stat-Led",
+    "theme": "Custom Healthee metric palette",
+    "enrichment": "Full circular halo: 1,400 particles; 280 converging particles stream inward from all card edges, brighten and merge at the rim",
+    "brief": "User refinement: spread-out card particles should visibly converge to form the dense halo",
+    "critique": {
+      "philosophy": 4,
+      "hierarchy": 4,
+      "execution": 4,
+      "specificity": 5,
+      "restraint": 4,
+      "variety": 4
+    },
+    "validation": "Dark and light visual review; 285 layout/route/theme checks; motion tests compare canvas frames for animation and paused states"
+  },
+  {
+    "date": "2026-09-06",
+    "version": "v02-motion",
+    "checkpoint": "7d6a16f",
+    "macrostructure": "Stat-Led",
+    "theme": "Custom Healthee metric palette",
+    "enrichment": "Flowing biological-age contours, light and particles; chart/meter entry",
+    "brief": "User-requested expressive animation after a committed design checkpoint; plain main-screen labels",
+    "critique": {
+      "philosophy": 4,
+      "hierarchy": 4,
+      "execution": 4,
+      "specificity": 5,
+      "restraint": 4,
+      "variety": 4
+    },
+    "validation": "285 screen/viewport/theme combinations passed; dedicated motion acceptance covers pause, offscreen behavior, reduced motion, stable values and repeat navigation"
+  },
+  {
+    "date": "2026-09-06",
     "version": "v02",
     "macrostructure": "Stat-Led",
     "theme": "Custom Healthee metric palette",

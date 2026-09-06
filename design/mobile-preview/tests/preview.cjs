@@ -113,10 +113,14 @@ async function checkConnectedViews(page) {
   assert.equal(await page.locator('.sleep-check.short').count(),2);
   assert.match(await page.locator('.sleep-checks').textContent(),/Regularity · SRI/);
   assert.match(await page.locator('.sleep-checks').textContent(),/40 minutes below/);
-  await page.getByRole('button',{name:'Previous night',exact:true}).click();
-  assert.match(await page.locator('.date-controls').textContent(),/30 July/);
-  await page.getByRole('button',{name:'Next night',exact:true}).click();
-  assert.match(await page.locator('.date-controls').textContent(),/31 July/);
+  await page.locator('#bottom-nav a[href="#today"]').click();
+  await page.getByRole('button',{name:'Previous day',exact:true}).click();
+  await page.locator('#bottom-nav a[href="#sleep"]').click();
+  await page.locator('.sleep-check').first().waitFor();
+  assert.match(await page.locator('.page-header .date').textContent(),/30 July/);
+  assert.equal(await page.locator('.date-navigation').count(),0);
+  await page.locator('#bottom-nav a[href="#today"]').click();
+  await page.getByRole('button',{name:'Next day',exact:true}).click();
   await navigate(page,'today');
   assert.ok(await page.locator('#main svg.chart').count()>=9);
   const slider=page.getByRole('slider',{name:'Compare heart rate and stress by hour'});

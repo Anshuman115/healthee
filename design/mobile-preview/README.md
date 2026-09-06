@@ -34,6 +34,27 @@ Sleep keeps its four explicit checks: duration, efficiency, regularity (SRI) and
 timing. Each shows the reading, reference, result and what is outside the range.
 The 25-entry metric explorer includes all 20 historical metrics from the app.
 
+## Animation checkpoint
+
+The design before this animation pass is saved in commit `7d6a16f` on
+`feat/mobile-design-preview`. This pass also replaces generic main-screen slogans
+with direct labels such as Today, Sleep, Activity and Biological age.
+
+## Historical dates
+
+A single previous/date/next control sits in the Today header. Other data screens
+show only a small date label. Tap Today’s date for a calendar; Latest returns to
+the newest sample. The selected
+July day follows Today, Sleep, Activity, Insights, Actions, recovery, fitness,
+biological age, metrics, workouts, journal and suggestion history. Event-specific
+workout and outcome details retain their own explicit dates.
+
+Selection is reflected in the URL, survives reloads and restores on browser back.
+The preview includes dated readings from 2–31 July. Historical charts stop at the
+selected day. Missing nights, overnight values and archived model outputs remain
+missing; current recovery, biological age and debt are never relabelled as older
+results. Journal entries are filtered by day and new entries start on that date.
+
 ## Explore
 
 - **Today:** recovery → contributing signals → tonight's focus; sleep, movement,
@@ -69,8 +90,15 @@ the missing-data and offline designs.
 - Native mobile proportions with no imitation phone bezel or status bar.
 - Light and dark tokens are authored separately in OKLCH. Main text token pairs
   exceed 4.5:1 contrast in both themes; focus and chart accents remain distinct.
-- Motion is limited to short opacity/transform transitions. Reduced motion uses
-  a 100 ms fade; focus indicators appear immediately.
+- Biological age has a circular emerald halo with 1,400 particles, warm glints
+  and a still centre. Particles from all four card edges flow inward, brighten, and merge into the
+  dense ring; short trails make their direction visible. Charts
+  and meters reveal on first view; measurements never count up or change for effect.
+  A local canvas renders the halo at up to 30 fps with capped pixel density. The
+  dark hero surface keeps the light effect legible in both themes.
+  Ambient motion pauses offscreen and when the tab is hidden. The hero pause button
+  and Explore control stop animation; system reduced motion disables it automatically.
+  Focus indicators appear immediately. No animation library is required.
 
 ## Sample data and functional limits
 
@@ -121,6 +149,11 @@ links/actions, browser errors, chart keyboard interaction, journal input escapin
 intent adoption, target adjustment, coach citations, reminder toggles, pairing,
 sync, the recording timer, reduced motion and absence of external requests.
 Screenshots and the result JSON go to `/tmp/healthee-design-review` by default.
+Run `tests/history.cjs` for 192 historical layouts plus calendar keyboard access,
+shared date selection, reload/back restoration, missing data and dated journal
+checks. Run `tests/motion.cjs` with the same environment variables for motion-specific
+checks: pause/resume, offscreen pause, stable readings, repeat navigation,
+reduced-motion changes and the four sleep checks.
 
 Review the visual direction before changing Flutter. Prototype state and sample
 data must not be ported as production business logic.

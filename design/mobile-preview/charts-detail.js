@@ -3,7 +3,7 @@
   const svg = (body,label,height=170) => `<svg class="chart" viewBox="0 0 340 ${height}" role="img" aria-label="${label}">${body}</svg>`;
   const text = (x,y,label,anchor='start',className='') => `<text x="${x}" y="${y}" text-anchor="${anchor}" class="${className}">${label}</text>`;
   const line = points => points.map((point,index)=>`${index?'L':'M'}${point.join(',')}`).join(' ');
-  H.charts.bioField = () => `<svg class="bio-art" viewBox="0 0 300 240" aria-hidden="true">${Array.from({length:18},(_,i)=>`<path d="M${12+i*2},240 C${-30+i*4},${150-i*4} ${230-i*6},${175-i*5} ${260-i*2},${8+i*2}"/>`).join('')}</svg>`;
+  H.charts.bioField = () => '<canvas class="bio-art bio-halo" width="640" height="640" aria-hidden="true"></canvas>';
   H.charts.ageScale = () => {
     const age=H.demo.today.biological_age, x=value=>16+(value-28)/16*308;
     return svg(`${Array.from({length:33},(_,i)=>`<path d="M${16+i*9.625} ${i%4===0?8:15}v${i%4===0?19:12}" stroke="var(--bio-line)"/>`).join('')}<path d="M${x(age.biological_age)} 0V31" stroke="var(--bio-ink)" stroke-width="2"/><circle cx="${x(age.chronological_age)}" cy="18" r="3" fill="var(--bio-ink)"/>${[28,32,36,40,44].map(v=>text(x(v),46,v,'middle')).join('')}`,'Age scale: estimated 34.3 years compared with chronological age 36.',52);

@@ -1,0 +1,29 @@
+/* Shared date navigation stays in the header; the calendar opens only on request. */
+.date-navigation { display:flex; align-items:center; gap:2px; margin: -4px 0 2px -6px; min-height:32px; width:max-content; max-width:100%; }
+.date-navigation button { display:inline-flex; align-items:center; justify-content:center; min-width:28px; min-height:32px; padding:4px; color:var(--muted); border-radius:8px; }
+.date-navigation button:disabled { opacity:.28; }
+.date-navigation .icon { width:12px; height:12px; }
+.date-navigation .date-picker-trigger { gap:6px; padding-inline:6px; font-size:11px; color:var(--ink); white-space:nowrap; }
+.date-caret { font-size:13px; color:var(--subtle); }
+.date-navigation .date-latest { font-size:10px; color:var(--family); margin-left:4px; padding-inline:6px; }
+.date-sample { font-size:9px; color:var(--subtle); margin-left:6px; }
+.date-navigation button:hover { background:var(--surface-soft); }
+.calendar-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:24px; }
+.calendar-heading strong { font-size:16px; }
+.calendar-heading .text-button { font-size:11px; }
+.calendar-week, .date-calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; text-align:center; }
+.calendar-week { font-size:10px; color:var(--muted); margin:20px 0 8px; }
+.date-calendar button { position:relative; aspect-ratio:1; min-height:36px; border-radius:12px; font-size:13px; }
+.date-calendar button i { position:absolute; bottom:5px; left:calc(50% - 1.5px); width:3px; height:3px; border-radius:50%; background:var(--fitness); }
+.date-calendar button:hover { background:var(--surface-soft); }
+.date-calendar button[aria-current='date'] { background:var(--fitness-soft); color:var(--fitness); font-weight:700; outline:1px solid var(--fitness); }
+.calendar-help { font-size:11px; margin:20px 0 8px; line-height:1.7; }
+.history-caption { font-size:10px; color:var(--muted); margin-bottom:16px; }
+.history-missing { padding:20px; border:1px dashed var(--rule); border-radius:18px; margin:12px 0; }
+.history-missing h3 { font-size:13px; }
+.history-missing p { font-size:11px; margin-top:8px; }
+.history-tiles { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:20px; }
+.history-tiles a { background:var(--family-soft); border-radius:16px; padding:14px 10px; }
+.history-tiles span { display:block; font-size:10px; color:var(--muted); }
+.history-tiles strong { display:block; font-size:20px; margin-top:8px; color:var(--family); letter-spacing:-.6px; }
+@media(max-width:359px) { .history-tiles strong { font-size:18px; } .date-navigation .date-latest { margin-left:0; } }
