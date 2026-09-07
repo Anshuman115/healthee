@@ -98,6 +98,11 @@ FREE_PATHS: dict[str, str] = {
     "/api/log/recent": "free tier — manual logging",
     "/api/workout/gps": "free tier — GPS routes",
     "/api/workout/gps/{track_id}": "free tier — GPS routes",
+    "/api/map": "free tier — the basemap's credit line and zoom range, not owner data",
+    "/api/map/tiles/{z}/{x}/{y}": (
+        "free tier — a proxied public map tile. It is context, never data or AI output, "
+        "and paywalling it would leave a free owner's recorded track drawn on nothing"
+    ),
     "/api/me": "identity",
     "/api/device": "identity — device pairing",
     "/api/entitlement": "the paywall's own status; a locked-out owner must be able to read it",
