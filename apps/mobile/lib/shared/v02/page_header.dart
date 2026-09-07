@@ -45,6 +45,7 @@ class V02PageHeader extends StatelessWidget {
   const V02PageHeader({
     required this.title,
     this.date,
+    this.status,
     this.onOpenProfile,
     super.key,
   });
@@ -60,6 +61,15 @@ class V02PageHeader extends StatelessWidget {
 
   /// The day this screen describes. Null draws no line rather than a blank one.
   final String? date;
+
+  /// `Latest sample` or `Selected day`, appended after a middot.
+  ///
+  /// Null prints the bare date, which is what a host with no selection to
+  /// report gets. It is separate from [date] because the two say different
+  /// things: the date is which day, this is **what kind of day** — and a header
+  /// that promised the newest readings on a day that cannot have them is the
+  /// whole failure `shared/v02/view_day.dart` is about.
+  final String? status;
 
   /// Opens the owner's own screen. Null draws the avatar without a tap.
   final VoidCallback? onOpenProfile;
@@ -81,7 +91,9 @@ class V02PageHeader extends StatelessWidget {
               children: <Widget>[
                 if (date case final String iso) ...<Widget>[
                   Text(
-                    prettyDate(iso),
+                    status == null
+                        ? prettyDate(iso)
+                        : '${prettyDate(iso)} · $status',
                     style: TypeScale.pageDate.copyWith(color: colors.ink2),
                   ),
                   const SizedBox(height: dateGap),

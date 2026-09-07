@@ -24,8 +24,11 @@ typedef DebtNight = ({double totalMin, String label});
 @immutable
 class SleepWindows {
   /// Slices [page] against [now].
-  factory SleepWindows(SleepPage page, DateTime now) {
-    final nights = page.nights;
+  factory SleepWindows(SleepPage page, DateTime now) =>
+      SleepWindows._of(page.nights, now);
+
+  /// [nights] is newest first, the order `/api/sleep` sends.
+  factory SleepWindows._of(List<SleepNight> nights, DateTime now) {
     final latest = nights.first;
     // The nights that HAVE a total. A night with no measurement is not a night
     // of no sleep, and a zero bar would say it was.
@@ -84,6 +87,27 @@ class SleepWindows {
     required this.label,
     required this.stale,
   });
+
+  /// The same slices, ending on [day] rather than on the newest night.
+  ///
+  /// **This closes the seam `sleep_history_screen.dart` recorded.** Its night
+  /// rows already set `viewDateProvider` and pushed Sleep, and Sleep still
+  /// opened on the newest night — so choosing 29 July landed on 31 July's page.
+  /// `/api/sleep` sends a dated window rather than one night, so the fix is a
+  /// slice and not a request: every night at or before [day] is real, measured,
+  /// and already on this phone.
+  ///
+  /// Null when the window holds no night on or before [day]. "Nothing on or
+  /// before this day" is an answer; showing the nearest LATER night would be
+  /// answering with a different night under a date nobody chose, which is the
+  /// same refusal `ViewDate.select` makes about clamping.
+  static SleepWindows? through(SleepPage page, DateTime now, String day) {
+    final nights = <SleepNight>[
+      for (final night in page.nights)
+        if (night.date.compareTo(day) <= 0) night,
+    ];
+    return nights.isEmpty ? null : SleepWindows._of(nights, now);
+  }
 
   /// The most recent night.
   final SleepNight latest;

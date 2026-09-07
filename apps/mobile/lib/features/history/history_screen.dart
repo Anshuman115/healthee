@@ -56,8 +56,6 @@ import 'package:healthee/data/history/history_marker.dart';
 import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/history/history_repository.dart';
 import 'package:healthee/data/models/trend_point.dart';
-import 'package:healthee/data/store/store_provider.dart';
-import 'package:healthee/data/store/view_date.dart';
 import 'package:healthee/features/coach/coach_topics.dart';
 import 'package:healthee/features/history/history_window.dart';
 import 'package:healthee/features/history/v02/dated_readings.dart';
@@ -79,6 +77,7 @@ import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/section_head.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// The four windows `H.segment` offers, in its order.
 const List<(int, String)> kHistoryPeriods = <(int, String)>[
@@ -120,12 +119,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = metricHistoryProvider(_metric, _days);
-    final viewDate = ref.watch(viewDateProvider);
-    final today = ref.watch(todayProvider);
-    final past = viewDate != today;
+    // One wording for the whole app. This screen had `· Latest` while the
+    // prototype and every other date-aware head say `· Latest sample`, which is
+    // exactly the drift `shared/format/` exists to stop.
+    final ViewDay day = watchViewDay(ref);
+    final String viewDate = day.day;
+    final bool past = day.isPast;
     return DetailPage(
       title: '${metricTitle(_metric.id)}.',
-      eyebrow: '${prettyDate(viewDate)} · ${past ? 'Selected day' : 'Latest'}',
+      eyebrow: day.line,
       children: <Widget>[
         AsyncView<List<TrendPoint>>(
           value: currentAccountValue(ref.watch(provider)),

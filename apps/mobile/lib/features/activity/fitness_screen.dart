@@ -43,7 +43,6 @@ import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/activity/activity_sections.dart';
 import 'package:healthee/features/activity/v02/fitness_effort_panels.dart';
 import 'package:healthee/features/activity/v02/fitness_panels.dart';
-import 'package:healthee/shared/format/date_labels.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
@@ -52,10 +51,15 @@ import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
+import 'package:healthee/shared/v02/past_day.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
 /// The prototype's own title for this screen.
 const String kFitnessTitle = 'Fitness';
+
+/// `screens.fitness`'s past-day heading, with the app's own reason under it.
+const String kFitnessPastTitle = 'VO₂max, its instrument and its history';
 
 /// The fitness detail screen.
 class FitnessScreen extends ConsumerStatefulWidget {
@@ -72,6 +76,20 @@ class _FitnessScreenState extends ConsumerState<FitnessScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ViewDay day = watchViewDay(ref);
+    // The estimate, its instrument and its stored history all arrive on
+    // `/api/today`, which takes no day. A past date gets the refusal; the
+    // VO₂max SERIES is still readable, dated, on its own metric screen.
+    if (day.isPast) {
+      return _Frame(
+        date: day.day,
+        status: day.status,
+        children: const <Widget>[
+          PastDayNotice(title: kFitnessPastTitle, body: kPastDayReason),
+          DataFooter(),
+        ],
+      );
+    }
     final view = currentAccountValue(ref.watch(todaySnapshotProvider));
     return view.when(
       skipLoadingOnRefresh: true,
@@ -191,18 +209,19 @@ class FitnessDetail extends StatelessWidget {
 /// The page every state of this screen is drawn in, so the head and the gutter
 /// cannot differ between them.
 class _Frame extends StatelessWidget {
-  const _Frame({required this.children, this.date});
+  const _Frame({required this.children, this.date, this.status = kLatestSample});
 
   final List<Widget> children;
   final String? date;
 
+  /// `Latest sample` unless the caller says otherwise: the body below is
+  /// `/api/today`'s, which is the current day by construction.
+  final String? status;
+
   @override
   Widget build(BuildContext context) => DetailPage(
     title: kFitnessTitle,
-    eyebrow: switch (date) {
-      final String iso => prettyDate(iso),
-      null => null,
-    },
+    eyebrow: dayEyebrow(date, status),
     children: children,
   );
 }

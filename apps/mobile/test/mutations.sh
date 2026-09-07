@@ -1540,8 +1540,7 @@ mutate 'the panel figure goes back to sharing the row' "$PARTS_TEST" "$PARTS" \
 # date, and every one of them looks like a reading about that day.
 mutate "a past day renders today's judgements as its own" \
   "$DATE_TEST" "$SECTIONS" \
-  '  final past =
-      extras.navigation != null && data.day.date != extras.navigation!.latest;' \
+  '  final past = data.view.isPast;' \
   '  const past = false;'
 
 # The window gone: the control can ask for tomorrow, or for a day the horizon
@@ -1673,16 +1672,20 @@ mutate 'the reference label returns to the intensity card' \
 # connects to.
 mutate "Activity's sections leave the prototype's order" \
   "$ACT_ORDER_TEST" "$ACT_SECTIONS" \
-  '  sections.gap(PageSpacing.block);
-  sections.add(
-    const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'),
-  );' \
+  '  if (!past) {
+    sections.gap(PageSpacing.block);
+    sections.add(
+      const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'),
+    );
+  }' \
   '  sections.gap(PageSpacing.block);
   sections.add(const DataFooter());
-  sections.gap(PageSpacing.block);
-  sections.add(
-    const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'),
-  );'
+  if (!past) {
+    sections.gap(PageSpacing.block);
+    sections.add(
+      const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'),
+    );
+  }'
 
 # A heading over nothing. `insights_sections.dart` drops the head with the
 # panels precisely so an empty block reads as silence rather than as breakage.
@@ -1753,10 +1756,10 @@ mutate 'every suggestion claims to be the top one' "$ACTIONS_TEST" "$ACTIONS_SCR
 
 # The prototype's order, moved by one.
 mutate 'the Actions sections come out of order' "$ACTIONS_TEST" "$ACTIONS_SCREEN" \
-  '    const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),
-    const PageSection(WorkingOn(), gap: PageSpacing.block),' \
-  '    const PageSection(WorkingOn(), gap: PageSpacing.block),
-    const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),'
+  '      const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),
+      const PageSection(WorkingOn(), gap: PageSpacing.block),' \
+  '      const PageSection(WorkingOn(), gap: PageSpacing.block),
+      const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),'
 
 # "Nothing observed yet" and "you are at zero" are different days.
 mutate 'a challenge with no progress draws a bar at zero' "$CARDS_TEST" "$CHALLENGE_CARD" \
@@ -2489,6 +2492,54 @@ mutate 'a coach trouble note becomes a turn' \
           break;" \
   "        case CoachTrouble(:final message):
           wire.add(CoachTurn(role: 'user', content: message));"
+
+# ── the selected day, carried in the route ─────────────────────────────────
+# Four failures that are all silent: the screen still draws, the header still
+# says a date, and nothing throws. `view_date_route_test.dart` and
+# `past_day_screens_test.dart` are the proof.
+DATE_ROUTE=lib/core/view_date_route.dart
+DATE_ROUTE_TEST=test/features/view_date_route_test.dart
+PAST_TEST=test/features/past_day_screens_test.dart
+
+# The day reaches Today and is dropped by every other route, which is exactly
+# what a tab switch looks like: the header on Activity quietly says today.
+mutate 'the day is dropped on a tab switch' \
+  "$DATE_ROUTE_TEST" "$DATE_ROUTE" \
+  '  if (!isDateAwareRoute(state.uri.path)) {
+    return null;
+  }' \
+  '  if (state.uri.path != Routes.today) {
+    return null;
+  }'
+
+# The retention bound comes off the link's day. A bookmark kept past the
+# 60-day horizon then leaves a date in the URL the screen is not showing.
+mutate 'the route accepts a day outside the retention window' \
+  "$DATE_ROUTE_TEST" "$DATE_ROUTE" \
+  '  if (requested != null &&
+      requested != selected &&
+      isViewableDay(requested, latest)) {' \
+  '  if (requested != null &&
+      requested != selected) {'
+
+# THE stale-as-current failure, in one line: Activity draws today'"'"'s MVPA,
+# load and VO₂max under whatever date the header happens to carry.
+mutate 'a past day renders a derived value as if it were today’s' \
+  "$PAST_TEST" lib/features/activity/activity_sections.dart \
+  '  final snapshot = past ? null : data.snapshot;' \
+  '  final snapshot = data.snapshot;'
+
+# Sleep'"'"'s window stops following the reader and slices from the newest night
+# again — the seam `sleep_history_screen.dart` used to record, reopened.
+mutate 'a chart ignores the selected day and windows on the newest sample' \
+  "$PAST_TEST" lib/features/sleep/sleep_windows.dart \
+  '    final nights = <SleepNight>[
+      for (final night in page.nights)
+        if (night.date.compareTo(day) <= 0) night,
+    ];' \
+  '    final nights = <SleepNight>[
+      for (final night in page.nights) night,
+    ];'
 
 echo
 echo "caught $PASS, survived $FAIL"

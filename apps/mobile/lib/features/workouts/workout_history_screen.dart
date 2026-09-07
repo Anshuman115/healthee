@@ -60,9 +60,11 @@ import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/full_button.dart';
+import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/surface_cards.dart' show SmallProse;
 import 'package:healthee/shared/v02/surface_panels.dart' show Notice;
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// `.section { margin-top: 24px }`.
 const double kWorkoutsSectionGap = 24;
@@ -79,6 +81,17 @@ const String kHistoryBounds =
 const String kNoSessionsTitle = 'No uploaded sessions yet';
 
 /// Its sentence.
+/// What Workouts cannot date. `screens.workouts` refuses the same block.
+const String kStrengthPastTitle = 'This week’s strength work';
+
+/// The empty state on a past day, which is a different claim.
+const String kNoSessionOnDayTitle = 'No session on or before this day';
+
+/// And what it does not mean.
+const String kNoSessionOnDayBody =
+    'This does not mean you were inactive. It means the server holds no '
+    'uploaded session dated on or before the day you are viewing.';
+
 const String kNoSessionsBody =
     'Start a workout on the strap and sync. This list shows what the server '
     'holds, so a session still on the strap has not reached it yet.';
@@ -91,9 +104,10 @@ class WorkoutHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = workoutHistoryProvider;
+    final ViewDay day = watchViewDay(ref);
     return DetailPage(
       title: 'Your workouts.',
-      eyebrow: 'Activity history',
+      eyebrow: day.line,
       children: <Widget>[
         V02FullButton(
           label: kRecordLabel,
@@ -105,9 +119,14 @@ class WorkoutHistoryScreen extends ConsumerWidget {
         AsyncView<List<WorkoutSummary>>(
           value: currentAccountValue(ref.watch(provider)),
           onRetry: () => ref.invalidate(provider),
-          builder: (context, sessions) => _days(context, sessions),
+          builder: (context, sessions) => _days(context, sessions, day),
         ),
-        if (_strength(ref) case final Strength week) ...<Widget>[
+        // `/api/today`'s week-to-date strength block, and it takes no day. On
+        // an older date it would be this week's sets under last week's heading,
+        // so it is replaced by the reason it is not there.
+        if (day.isPast)
+          const PastDayNotice(title: kStrengthPastTitle, body: kPastDayReason)
+        else if (_strength(ref) case final Strength week) ...<Widget>[
           const SizedBox(height: kWorkoutsSectionGap),
           const SectionHead(title: StrengthCard.title),
           StrengthCard(strength: week),
@@ -118,9 +137,22 @@ class WorkoutHistoryScreen extends ConsumerWidget {
   }
 
   /// One caption and one flush card per local day, newest day first.
-  Widget _days(BuildContext context, List<WorkoutSummary> sessions) {
+  Widget _days(BuildContext context, List<WorkoutSummary> raw, ViewDay day) {
+    // The list ends on the day being read, the way every history view in the
+    // prototype does (`H.historySeries` filters `date <= viewDate`). A session
+    // recorded after the chosen day is not evidence about it.
+    final sessions = <WorkoutSummary>[
+      for (final session in raw)
+        if (session.start.toLocal().toIso8601String().substring(0, 10)
+                .compareTo(day.day) <=
+            0)
+          session,
+    ];
     if (sessions.isEmpty) {
-      return const Notice(title: kNoSessionsTitle, body: kNoSessionsBody);
+      return Notice(
+        title: day.isPast ? kNoSessionOnDayTitle : kNoSessionsTitle,
+        body: day.isPast ? kNoSessionOnDayBody : kNoSessionsBody,
+      );
     }
     final days = byDay(sessions);
     return Column(

@@ -75,9 +75,9 @@ Everything below has been checked against the running prototype.
   workouts, journal, action-history` — **fourteen** screens carry the selected
   day. Confirmed by walking: the day rides in the URL as `?date=YYYY-MM-DD`,
   persists across tab switches, re-windows every chart on the screen it lands
-  on, and flips the header from `Latest sample` to `Selected day`. **The app has
-  the date control on Today only, and does not carry a day in its routes at
-  all.**
+  on, and flips the header from `Latest sample` to `Selected day`. **The app now
+  does all four** — `core/view_date_route.dart` and `shared/v02/view_day.dart`,
+  with the selection itself still owned by `data/store/view_date.dart`.
 
 Tone is derived from the route, not passed by the caller (`panels.js:3`,
 `H.toneFor`) — `sleep→sleep`, `recovery/fitness/body→fitness`,
@@ -217,13 +217,21 @@ heart-rate/stress dual chart with a scrubber, `Add your context` → `journal`,
 | Existing screens reachable but unlinked | `metrics`, `metric/:key`, `outcomes`, `action-history`, `sync`, `journal` from several parents |
 | Screens where the app's shape differs | **1** — `account` (a server form, not the app's sign-in). `coach` is a route now. |
 | Screens built but still on the legacy frame | **0** — `record`, `route` and the saved-route list are on `DetailPage` |
-| Structural gaps | the **`?date=` view state** carried in the route · route-derived tone. The `parents` back-map is built. |
+| Structural gaps | route-derived tone. The `parents` back-map and the **`?date=` view state** are built. |
 
 The connectivity was not blocked on the server. The coach, the GPS frame, the
-back-map and the links are done; **the date in the route is what is left**, and
-it is the largest single piece: fourteen screens are date-aware in the
-prototype, the day survives tab switches, and it re-windows every chart it lands
-on. The app has no day in any route.
+back-map and the links are done, and **the date in the route is done too** —
+`core/routes.dart` owns the round trip (`dateLocation` / `viewDateOf`),
+`core/view_date_route.dart` keeps the URL and `viewDateProvider` in step through
+one `GoRouter` redirect, and thirteen paths carry the prototype's fourteen
+date-aware routes (`metrics` and `metric` are one route here).
+
+**What a past day shows is bounded by the API, not by taste.** `/api/today` and
+`/api/activity` take no day parameter and `/api/sleep` takes a window, so a past
+day draws its MEASURED half — the strap's per-day readings, the dated sleep
+window, each metric's own `/api/history` series — and refuses the derived half
+in words rather than relabelling the current day's judgements.
+`shared/v02/past_day.dart` carries that refusal and the reasoning.
 
 ### Resolved since this walk
 

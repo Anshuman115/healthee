@@ -46,16 +46,20 @@ import 'package:healthee/features/today/v02/body_limits_panels.dart';
 import 'package:healthee/features/today/v02/body_panels.dart';
 import 'package:healthee/features/today/v02/today_hero.dart';
 import 'package:healthee/features/today/v02/today_hero_withheld.dart';
-import 'package:healthee/shared/format/date_labels.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
+import 'package:healthee/shared/v02/past_day.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// The prototype's own title for this screen.
 const String kBodyTitle = 'Biological age';
+
+/// `screens.body`'s past-day heading, with the app's own reason under it.
+const String kBodyPastTitle = 'Estimated biological age';
 
 /// `H.bridge('fitness', …)` — what the estimate includes, and what it leaves out.
 const String kContributorsBridge =
@@ -77,6 +81,20 @@ class _BodyScreenState extends ConsumerState<BodyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ViewDay day = watchViewDay(ref);
+    // One age-model result exists and it is dated today. `/api/today` takes no
+    // day, so an older date gets the refusal rather than this morning's figure
+    // under it — see `shared/v02/past_day.dart`.
+    if (day.isPast) {
+      return _Frame(
+        date: day.day,
+        status: day.status,
+        children: const <Widget>[
+          PastDayNotice(title: kBodyPastTitle, body: kPastDayReason),
+          DataFooter(),
+        ],
+      );
+    }
     final view = currentAccountValue(ref.watch(todaySnapshotProvider));
     return view.when(
       skipLoadingOnRefresh: true,
@@ -209,18 +227,19 @@ class BodyDetail extends StatelessWidget {
 /// The page every state of this screen is drawn in, so the head and the gutter
 /// cannot differ between them.
 class _Frame extends StatelessWidget {
-  const _Frame({required this.children, this.date});
+  const _Frame({required this.children, this.date, this.status = kLatestSample});
 
   final List<Widget> children;
   final String? date;
 
+  /// `Latest sample` unless the caller says otherwise: the body below is
+  /// `/api/today`'s, which is the current day by construction.
+  final String? status;
+
   @override
   Widget build(BuildContext context) => DetailPage(
     title: kBodyTitle,
-    eyebrow: switch (date) {
-      final String iso => prettyDate(iso),
-      null => null,
-    },
+    eyebrow: dayEyebrow(date, status),
     children: children,
   );
 }

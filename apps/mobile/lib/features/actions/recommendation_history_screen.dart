@@ -39,9 +39,11 @@ import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/choices.dart';
 import 'package:healthee/shared/v02/controls.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
+import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// The prototype's own h1.
 const String kHistoryTitle = 'Your intentions.';
@@ -53,6 +55,14 @@ const String kIntentionNote =
 
 /// The prototype's closing section heading.
 const String kExploreHeading = 'Keep exploring';
+
+/// `screens['action-history']`'s own past-day heading.
+const String kNoEarlierTitle = 'No earlier suggestions';
+
+/// And what that is a fact about.
+const String kNoEarlierBody =
+    'Nothing in this window is dated on or before the day you are viewing. '
+    'Choose Latest to see the most recent suggestions.';
 
 /// The dated recommendations, and what the owner said about each.
 class RecommendationHistoryScreen extends ConsumerStatefulWidget {
@@ -71,8 +81,11 @@ class _HistoryState extends ConsumerState<RecommendationHistoryScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final provider = recommendationHistoryProvider(_days, _page);
+    final ViewDay day = watchViewDay(ref);
     return DetailPage(
-      eyebrow: 'Action history · $_days days',
+      // The window this list covers is on the segment control below, so the
+      // head says the one thing only it can: which day the list ends on.
+      eyebrow: day.line,
       title: kHistoryTitle,
       children: <Widget>[
         Text(
@@ -95,22 +108,7 @@ class _HistoryState extends ConsumerState<RecommendationHistoryScreen> {
         AccountAsyncView<List<DatedRecommendation>>(
           value: ref.watch(provider),
           onRetry: () => ref.invalidate(provider),
-          builder: (context, items) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              for (final item in items) ...<Widget>[
-                const SizedBox(height: SectionHead.sectionGap),
-                SectionHead(title: item.day),
-                _Entry(item: item, onChanged: _reread),
-              ],
-              _Paging(
-                page: _page,
-                count: items.length,
-                onPage: (page) => setState(() => _page = page),
-              ),
-            ],
-          ),
+          builder: (context, items) => _list(_through(items, day), day),
         ),
         const SizedBox(height: SectionHead.sectionGap),
         const SectionHead(title: kExploreHeading),
@@ -134,6 +132,39 @@ class _HistoryState extends ConsumerState<RecommendationHistoryScreen> {
       ],
     );
   }
+
+  /// The history, ending on the day being read.
+  ///
+  /// `H.historySeries` filters every history view to `date <= viewDate`, and a
+  /// suggestion written after the chosen day is not something that day was
+  /// told. Each row already carries its own date, so nothing here is relabelled
+  /// — the list is only cut short.
+  static List<DatedRecommendation> _through(
+    List<DatedRecommendation> items,
+    ViewDay day,
+  ) => <DatedRecommendation>[
+    for (final item in items)
+      if (item.day.compareTo(day.day) <= 0) item,
+  ];
+
+  Widget _list(List<DatedRecommendation> items, ViewDay day) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    mainAxisSize: MainAxisSize.min,
+    children: <Widget>[
+      if (items.isEmpty && day.isPast)
+        const PastDayNotice(title: kNoEarlierTitle, body: kNoEarlierBody),
+      for (final item in items) ...<Widget>[
+        const SizedBox(height: SectionHead.sectionGap),
+        SectionHead(title: item.day),
+        _Entry(item: item, onChanged: _reread),
+      ],
+      _Paging(
+        page: _page,
+        count: items.length,
+        onPage: (page) => setState(() => _page = page),
+      ),
+    ],
+  );
 
   void _reread() {
     ref.invalidate(recommendationHistoryProvider);

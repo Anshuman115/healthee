@@ -74,9 +74,31 @@ import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/chapter.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/page_header.dart';
+import 'package:healthee/shared/v02/past_day.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// `H.chapter('sleep-trends','Beyond a single night','sleep','insights')`.
 const String kSleepTrendsChapter = 'Beyond a single night';
+
+/// The one panel a past night cannot carry, and the prototype's own heading.
+const String kSleepDebtPastTitle = 'Sleep need & debt';
+
+/// `sleep-history-view.js`'s own sentence for it, kept word for word.
+const String kSleepDebtPast =
+    'Historical sleep-need and debt analyses are not included. The latest debt '
+    'is not carried backward.';
+
+/// The tail of the screen — the lever, the analysis, the correlations.
+const String kSleepTonightPastTitle = 'Tonight’s lever and this week’s analysis';
+
+/// When the chosen day is older than every night the window holds.
+const String kNoNightTitle = 'No night on or before this day';
+
+/// Why that is an answer rather than an empty screen.
+const String kNoNightBody =
+    'Your nights are sent as a window, and this one begins after the day you '
+    'chose. A later night is not shown in its place — that would be a different '
+    'night under a date you did not pick.';
 
 /// Everything Sleep needs that is not on the payloads.
 @immutable
@@ -122,19 +144,32 @@ List<PageSection> sleepSections({
   required SleepConsistency? consistency,
   required DateTime now,
   required RevealRegistry reveals,
+  required ViewDay view,
   SleepExtras extras = const SleepExtras(),
 }) {
-  final windows = SleepWindows(page, now);
+  final past = view.isPast;
+  // **The window ENDS on the day being read.** `/api/sleep` sends a dated
+  // window rather than one night, so a past night is a real measurement this
+  // phone already holds — which is why Sleep is the one screen where a past day
+  // draws its charts instead of refusing them.
+  final windows = SleepWindows.through(page, now, view.day);
+  if (windows == null) {
+    return _noNight(view, extras);
+  }
   final night = windows.latest;
   final sections = SectionList()
     ..add(
       V02PageHeader(
         title: 'Sleep',
         date: night.date,
+        status: view.status,
         onOpenProfile: extras.onOpenProfile,
       ),
     );
-  if (windows.stale) {
+  // "No sleep last night" is a statement about the wall clock, so it belongs to
+  // the newest night only. Under an older date it would be measuring a night
+  // the reader chose against an instant they did not.
+  if (!past && windows.stale) {
     sections
       ..add(StaleNightNotice(label: windows.label))
       ..gap(PageSpacing.panel);
@@ -170,8 +205,15 @@ List<PageSection> sleepSections({
       ),
     )
     ..gap(PageSpacing.panel)
+    // `sleep-history-view.js` refuses exactly this panel on a past day:
+    // *"Historical sleep-need and debt analyses are not included. The latest
+    // debt is not carried backward."* Debt is a fourteen-night model computed
+    // to now, so it is the one block on this screen that an older date cannot
+    // honestly carry.
     ..add(
-      SleepNeedPanel(night: night, nights: windows.debt, reveals: reveals),
+      past
+          ? const PastDayNotice(title: kSleepDebtPastTitle, body: kSleepDebtPast)
+          : SleepNeedPanel(night: night, nights: windows.debt, reveals: reveals),
     );
   if (windows.week.length >= SleepWindows.minimumNights) {
     sections
@@ -192,7 +234,11 @@ List<PageSection> sleepSections({
         bedtime: windows.bedtime,
         wake: windows.wake,
         dates: windows.timingDates,
-        consistency: consistency,
+        // The bedtimes and wakes are dated and re-window above; the regularity
+        // FIGURE is `/api/sleep/consistency`'s single current answer, and it
+        // takes no day. The chart follows the reader, the score does not
+        // pretend to.
+        consistency: past ? null : consistency,
         reveals: reveals,
       ),
     )
@@ -215,11 +261,18 @@ List<PageSection> sleepSections({
       )
       ..gap(PageSpacing.panel);
   }
+  // Everything from here down is about tonight or about now: the nap list the
+  // server sends for the current window, the lever for the night ahead, the
+  // written analysis of the latest data, and the correlations recomputed each
+  // night. None of them takes a day, so none of them may wear an older one.
+  if (!past) {
+    sections
+      ..add(
+        NapsPanel(naps: page.naps, onOpenJournal: extras.onOpenJournal),
+      )
+      ..gap(PageSpacing.block);
+  }
   sections
-    ..add(
-      NapsPanel(naps: page.naps, onOpenJournal: extras.onOpenJournal),
-    )
-    ..gap(PageSpacing.block)
     ..add(
       HLinkButton(
         label: 'Sleep recommendations',
@@ -227,20 +280,47 @@ List<PageSection> sleepSections({
       ),
     )
     ..gap(PageSpacing.block);
-  if (consistency?.tonight case final TonightLever lever) {
-    sections
-      ..add(TonightPanel(lever: lever))
-      ..gap(PageSpacing.panel);
-  }
-  sections.add(const SleepAnalysisPanel());
-  // `/api/sleep`'s own sleep-scoped correlations, and only when there are any.
-  if (page.findings.isNotEmpty) {
-    sections
-      ..gap(PageSpacing.block)
-      ..add(FindingsSection(findings: page.findings));
+  if (past) {
+    sections.add(
+      const PastDayNotice(title: kSleepTonightPastTitle, body: kPastDayReason),
+    );
+  } else {
+    if (consistency?.tonight case final TonightLever lever) {
+      sections
+        ..add(TonightPanel(lever: lever))
+        ..gap(PageSpacing.panel);
+    }
+    sections.add(const SleepAnalysisPanel());
+    // `/api/sleep`'s own sleep-scoped correlations, and only when there are any.
+    if (page.findings.isNotEmpty) {
+      sections
+        ..gap(PageSpacing.block)
+        ..add(FindingsSection(findings: page.findings));
+    }
   }
   sections
     ..gap(PageSpacing.block)
     ..add(const DataFooter());
   return sections.build();
 }
+
+/// The chosen day is older than every night the window holds.
+///
+/// A header and one sentence, not an empty frame: a screen that simply ends is
+/// read as a night of no sleep, and this is a fact about the WINDOW.
+List<PageSection> _noNight(ViewDay view, SleepExtras extras) => <PageSection>[
+  PageSection(
+    V02PageHeader(
+      title: 'Sleep',
+      date: view.day,
+      status: view.status,
+      onOpenProfile: extras.onOpenProfile,
+    ),
+    gap: 0,
+  ),
+  const PageSection(
+    PastDayNotice(title: kNoNightTitle, body: kNoNightBody),
+    gap: PageSpacing.block,
+  ),
+  const PageSection(DataFooter()),
+];

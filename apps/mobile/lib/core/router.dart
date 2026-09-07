@@ -56,8 +56,10 @@ import 'package:go_router/go_router.dart';
 import 'package:healthee/core/routes.dart';
 import 'package:healthee/core/settings_routes.dart';
 import 'package:healthee/core/tabs.dart';
+import 'package:healthee/core/view_date_route.dart';
 import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
+import 'package:healthee/data/store/view_date.dart';
 import 'package:healthee/features/actions/challenge_detail_screen.dart';
 import 'package:healthee/features/actions/outcomes_screen.dart';
 import 'package:healthee/features/actions/program_detail_screen.dart';
@@ -105,6 +107,11 @@ GoRouter buildRouter(WidgetRef ref) {
   // app would sit on a screen it has no data for.
   final refresh = _RouterRefresh();
   ref.listenManual(pairingSummaryProvider, (previous, next) => refresh.bump());
+  // The date control's tap IS a navigation: `viewDateRedirect` rewrites the
+  // location from the selection, and this is what makes it look again. Without
+  // it the day would move on screen and the URL would keep the old one, which
+  // is exactly the state a restored stack reads back.
+  ref.listenManual(viewDateProvider, (previous, next) => refresh.bump());
 
   return GoRouter(
     initialLocation: Routes.today,
@@ -118,7 +125,10 @@ GoRouter buildRouter(WidgetRef ref) {
           state.matchedLocation != Routes.pairing) {
         return Routes.pairing;
       }
-      return null;
+      // After the pairing gate, never before it: an app with no strap has
+      // nothing to show for any day, and stamping one on the way to /pairing
+      // would put a date on a screen that is not about a day at all.
+      return viewDateRedirect(ref, state);
     },
     routes: <RouteBase>[
       GoRoute(

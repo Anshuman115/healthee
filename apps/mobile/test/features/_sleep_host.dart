@@ -14,6 +14,7 @@ import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 import '../_sleep_stubs.dart';
 
@@ -27,12 +28,20 @@ List<PageSection> sleepList({
   SleepPage? page,
   SleepConsistency? consistency,
   DateTime? now,
-}) => sleepSections(
-  page: page ?? sleepPageFixture(),
-  consistency: consistency ?? consistencyFixture(),
-  now: now ?? kSleepNow,
-  reveals: RevealRegistry(),
-);
+  String? day,
+}) {
+  final SleepPage sent = page ?? sleepPageFixture();
+  // The newest night in the payload is the latest day, so a suite that says
+  // nothing about a date gets the screen it always got.
+  final String latest = sent.nights.first.date;
+  return sleepSections(
+    page: sent,
+    consistency: consistency ?? consistencyFixture(),
+    now: now ?? kSleepNow,
+    reveals: RevealRegistry(),
+    view: ViewDay(day: day ?? latest, latest: latest),
+  );
+}
 
 /// The index of the first section whose child is a [T], or -1.
 int indexOfSection<T>(List<PageSection> list) =>

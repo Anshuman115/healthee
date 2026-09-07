@@ -63,7 +63,6 @@ import 'package:healthee/data/models/metric_card.dart';
 import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/history/v02/metric_tile.dart';
-import 'package:healthee/shared/format/date_labels.dart';
 import 'package:healthee/shared/format/metric_names.dart';
 import 'package:healthee/shared/format/number_labels.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
@@ -71,6 +70,7 @@ import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/surface_cards.dart' show SmallProse;
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// `H.screens.metrics`'s own opening line.
 const String kExplorerCaption =
@@ -82,6 +82,12 @@ const String kExplorerCaption =
 const String kDashCaption =
     'A dash means this signal has no reading on the day above.';
 
+/// What every dash means on a past day, which is a different thing entirely.
+const String kPastDayCaption =
+    'This directory lists the latest reading of each signal, and the latest '
+    'reading is not the reading for the day above. Open a signal to see its '
+    'own dated series, which stops on the day you chose.';
+
 /// The explorer: every metric with a history, and the way into each one.
 class MetricExplorerScreen extends ConsumerWidget {
   /// Builds the screen.
@@ -92,18 +98,25 @@ class MetricExplorerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final ViewDay day = watchViewDay(ref);
     final view = currentAccountValue(ref.watch(todaySnapshotProvider));
-    final snapshot = view.value?.snapshot;
+    // **Null on a past day, and the grid then draws every tile as a dash.**
+    // Each figure here is the LATEST reading off `/api/today`, which takes no
+    // day, so under an older date the whole grid would be today's numbers with
+    // yesterday's caption above them — the one thing this feature must not do.
+    // The dated figure for any of these lives one tap away, on the metric's own
+    // screen, which reads `/api/history` and can honestly answer for a day.
+    final snapshot = day.isPast ? null : view.value?.snapshot;
     return DetailPage(
       title: 'Your health signals.',
-      eyebrow: snapshot == null
-          ? null
-          : '${prettyDate(snapshot.date)} · Latest',
+      eyebrow: day.isPast
+          ? day.line
+          : dayEyebrow(view.value?.snapshot.date, day.status),
       children: <Widget>[
         const SmallProse(kExplorerCaption),
         // Above the grid, where `history-screens.js::screens.metrics` puts its
         // own dash caption: a reader who meets the dash first has to guess.
-        const SmallProse(kDashCaption),
+        SmallProse(day.isPast ? kPastDayCaption : kDashCaption),
         const SizedBox(height: sectionGap),
         MetricGrid(
           entries: explorerEntries(snapshot),
