@@ -2280,7 +2280,9 @@ PARENTS=lib/core/parent_tabs.dart
 NAV_TEST=test/features/out_of_shell_navigation_test.dart
 PARENTS_TEST=test/core/parent_tabs_test.dart
 TOPIC_TEST=test/features/coach_topic_test.dart
-ROUTER=lib/core/router.dart
+# `coachLocation` lives with the path table, not with the wiring — `routes.dart`
+# was split out of `router.dart` at the 400-line gate and is re-exported from it.
+ROUTES=lib/core/routes.dart
 COACH_TOPICS=lib/features/coach/coach_topics.dart
 
 # THE ORIGINAL DEFECT: no stack, no control, no way off the screen. It is
@@ -2330,7 +2332,7 @@ mutate 'the system back gesture stops taking the same door' \
 # The subject is the whole reason the coach became a route. A dropped topic
 # leaves `Discuss this workout` opening a coach that knows nothing about it —
 # which is what the sheet did, and it looked fine.
-mutate 'the coach topic never reaches the location' "$TOPIC_TEST" "$ROUTER" \
+mutate 'the coach topic never reaches the location' "$TOPIC_TEST" "$ROUTES" \
   "  return subject.isEmpty
       ? Routes.coach
       : '\${Routes.coach}?topic=\${Uri.encodeQueryComponent(subject)}';" \
@@ -2344,7 +2346,7 @@ mutate 'the seeded topic never reaches the input' "$TOPIC_TEST" \
 
 # A blank topic from a caller that had no label would open the coach with an
 # empty box claiming to hold a question.
-mutate 'a blank topic is carried into the route as one' "$TOPIC_TEST" "$ROUTER" \
+mutate 'a blank topic is carried into the route as one' "$TOPIC_TEST" "$ROUTES" \
   "  final String subject = topic?.trim() ?? '';" \
   "  final String subject = topic ?? ' ';"
 

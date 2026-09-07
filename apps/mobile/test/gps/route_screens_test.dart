@@ -237,6 +237,28 @@ void main() {
     });
   });
 
+  group('THE DRAWING IS THINNED; THE TRACK IS NOT', () {
+    test('a long track is sampled down and keeps BOTH ENDS', () {
+      // The start ring and the finish dot mark the first and last fixes, so a
+      // thinning that dropped either would move a marker onto a fix that is not
+      // where the owner started or stopped. The saved track is untouched.
+      final List<RoutePoint> long = _track(fixes: 9001);
+
+      final List<RoutePoint> drawn = RouteMap.displayPoints(long);
+
+      expect(drawn, hasLength(RouteMap.maxDrawnPoints));
+      expect(drawn.first.at, long.first.at);
+      expect(drawn.last.at, long.last.at);
+      expect(long, hasLength(9001), reason: 'the input is not mutated');
+    });
+
+    test('a short track is drawn whole', () {
+      final List<RoutePoint> short = _track(fixes: 12);
+
+      expect(RouteMap.displayPoints(short), same(short));
+    });
+  });
+
   group('the recorder’s own reading', () {
     test('the timer wears hours only once there are any', () {
       expect(elapsedLabel(const Duration(seconds: 0)), '00:00');

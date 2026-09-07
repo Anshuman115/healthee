@@ -28,6 +28,15 @@
 /// specifies a schematic, and a schematic is also the only version of this
 /// drawing that needs no network to render a track already on the phone.
 ///
+/// ## The drawing is thinned; the SAVED TRACK is not
+///
+/// A long run is tens of thousands of fixes and the box is 340 px wide, so most
+/// of them are sub-pixel and none of them is legible. [displayPoints] samples
+/// down to [maxDrawnPoints] and **keeps both ends**, so the start ring and the
+/// finish dot still mark the fixes they mark. Standards section 1: unbounded
+/// data is windowed. The upload path is untouched and retains every valid fix —
+/// this is a decision about what is drawn, never about what is kept.
+///
 /// ## The shape is the owner's, normalised — so it carries no scale
 ///
 /// Latitude and longitude are fitted to the box with **one** ratio for both axes
@@ -69,8 +78,27 @@ class RouteMap extends StatelessWidget {
   /// saying so is the honest thing to do.
   static const String caption = 'Your recorded track · no basemap, no scale';
 
+  /// The most fixes this drawing plots. See the class docstring.
+  static const int maxDrawnPoints = 2000;
+
   /// The track.
   final List<RoutePoint> points;
+
+  /// [points] thinned to at most [maxDrawnPoints], both ends retained.
+  ///
+  /// Public because the guarantee — first and last survive — is what the start
+  /// ring and the finish dot depend on, and that is worth asking directly
+  /// rather than reading back off a canvas.
+  static List<RoutePoint> displayPoints(List<RoutePoint> points) {
+    if (points.length <= maxDrawnPoints) {
+      return points;
+    }
+    final int last = points.length - 1;
+    return <RoutePoint>[
+      for (var i = 0; i < maxDrawnPoints; i++)
+        points[(i * last / (maxDrawnPoints - 1)).round()],
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +114,7 @@ class RouteMap extends StatelessWidget {
         child: CustomPaint(
           size: const Size.fromHeight(height),
           painter: _RoutePainter(
-            points: points,
+            points: displayPoints(points),
             land: colors.mapLand,
             track: colors.accent,
             underlay: colors.surface,

@@ -12,9 +12,9 @@
 library;
 
 /// Every route's path, in one place. Screens reference these, never string
-/// literals — Standards §3 bans the string-literal habit for user constants and
-/// the reasoning is the same here: a typo'd path fails at runtime, a typo'd
-/// constant fails at compile time.
+/// literals — Standards section 3 bans the string-literal habit for user
+/// constants and the reasoning is the same here: a typo'd path fails at
+/// runtime, a typo'd constant fails at compile time.
 abstract final class Routes {
   static const recommendations = '/recommendations';
   static const gps = '/gps';
