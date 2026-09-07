@@ -190,6 +190,38 @@ void main() {
       expect(find.text(RouteMap.plainCaption), findsOneWidget);
     });
 
+    testWidgets('A GROWING TRACK DOES NOT RE-FETCH WHAT IT ALREADY HAS', (
+      tester,
+    ) async {
+      // Every accepted fix grows the bounding box, so the recorder produces a
+      // NEW view about once a second. A tile reference carries its own zoom and
+      // is therefore still correct after the view pans — clearing on every view
+      // would blank the basemap between fixes and re-ask for the same squares
+      // for as long as the owner keeps running.
+      final _FixedTiles tiles = _FixedTiles(_tileImage());
+      await tester.pumpWidget(
+        _mapHost(_track(fixes: 8), style: kStyle, tiles: tiles),
+      );
+      await tester.pumpAndSettle();
+      expect(tiles.asked, isNotEmpty);
+
+      await tester.pumpWidget(
+        _mapHost(_track(fixes: 9), style: kStyle, tiles: tiles),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tiles.asked.toSet().length,
+        tiles.asked.length,
+        reason: 'no square was fetched twice',
+      );
+      expect(
+        find.text(kStyle.attribution),
+        findsOneWidget,
+        reason: 'the basemap did not blank between one fix and the next',
+      );
+    });
+
     test('THE TRACK IS DRAWN WHATEVER THE TILES DID', () {
       // The guard `paint` actually consults. Requiring a tile here is the
       // mutation `test/mutations.sh` proves is caught.

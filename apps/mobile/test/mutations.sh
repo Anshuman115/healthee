@@ -2731,6 +2731,19 @@ mutate 'the recording state drops the coordinates it recorded' \
   '      track: <RoutePoint>[...value.track, _asRoutePoint(fix)],' \
   '      track: <RoutePoint>[_asRoutePoint(fix)],'
 
+# The tiles are thrown away whenever the view moves. On the recorder the view
+# moves on every accepted fix, so this is a basemap that blanks once a second
+# and re-asks for the squares it is already holding, for as long as somebody
+# keeps running.
+mutate 'a new view throws away the tiles it could have kept' \
+  "$MAP_TEST" "$ROUTE_MAP" \
+  '    final List<MapTileRef> missing = <MapTileRef>[
+      for (final MapTileRef tile in view.tiles())
+        if (!_tiles.containsKey(tile)) tile,
+    ];' \
+  '    _tiles = const <MapTileRef, ui.Image>{};
+    final List<MapTileRef> missing = view.tiles();'
+
 # A cache miss withholds the track instead of drawing it on the plain ground.
 # Offline is the day the owner most needs to see what they recorded, and this
 # failure looks exactly like a screen that has not finished loading.

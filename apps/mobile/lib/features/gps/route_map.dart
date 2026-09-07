@@ -101,12 +101,18 @@ class RouteMap extends ConsumerStatefulWidget {
 }
 
 class _RouteMapState extends ConsumerState<RouteMap> {
-  /// The tiles that have arrived for the view currently on screen.
+  /// The tiles that have arrived, keyed by their absolute place in the grid.
+  ///
+  /// Absolute is what makes them reusable: a [MapTileRef] carries its own zoom,
+  /// so a tile stays correct as the view pans and rescales, and only a change of
+  /// ZOOM makes one a picture at the wrong scale. That matters on the recorder,
+  /// where every accepted fix grows the track's bounding box and so produces a
+  /// new view about once a second — emptying this on every view would blank the
+  /// basemap between fixes and re-fetch the same squares forever.
   Map<MapTileRef, ui.Image> _tiles = const <MapTileRef, ui.Image>{};
 
-  /// The view those tiles belong to. A new view empties them: a tile drawn at
-  /// the wrong zoom is a picture of somewhere else.
-  BasemapView? _loadedFor;
+  /// The view whose tiles have already been asked for.
+  BasemapView? _asked;
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +157,10 @@ class _RouteMapState extends ConsumerState<RouteMap> {
     List<RoutePoint> drawn,
     HealtheeColors colors,
   ) {
-    final bool mapped = _tiles.isNotEmpty;
+    // "Mapped" is about THIS view, not about the cache: a tile held from a
+    // previous zoom is not drawn, so it may not put a credit line on screen or
+    // change the caption's claim about the picture the owner is looking at.
+    final bool mapped = view.tiles().any(_tiles.containsKey);
     final String caption = mapped
         ? RouteMap.mappedCaption
         : RouteMap.plainCaption;
@@ -205,23 +214,37 @@ class _RouteMapState extends ConsumerState<RouteMap> {
     ),
   );
 
-  /// Asks for every tile this view needs, once, after the frame.
+  /// Asks for the tiles this view needs and does not already have.
   ///
   /// After the frame because it is called from `build`: a tile that resolves
   /// synchronously (already in the source's cache) would otherwise `setState`
-  /// during a build. Tiles that are already held are not re-requested, so a
-  /// rebuild per GPS fix on the recorder screen costs nothing.
+  /// during a build. Tiles already held are never re-requested, so the rebuild
+  /// per GPS fix on the recorder costs one bounding-box comparison.
   void _request(BasemapStyle style, BasemapView view) {
-    if (_loadedFor == view) {
+    if (_asked == view) {
       return;
     }
-    _loadedFor = view;
-    _tiles = const <MapTileRef, ui.Image>{};
+    _asked = view;
+    // A tile from another zoom is the right place at the wrong scale and
+    // nothing draws it, so dropping it is what keeps this map bounded.
+    if (_tiles.keys.any((MapTileRef held) => held.z != view.zoom)) {
+      _tiles = <MapTileRef, ui.Image>{
+        for (final MapEntry<MapTileRef, ui.Image> held in _tiles.entries)
+          if (held.key.z == view.zoom) held.key: held.value,
+      };
+    }
+    final List<MapTileRef> missing = <MapTileRef>[
+      for (final MapTileRef tile in view.tiles())
+        if (!_tiles.containsKey(tile)) tile,
+    ];
+    if (missing.isEmpty) {
+      return;
+    }
     final BasemapTiles source = ref.read(basemapTilesProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      for (final MapTileRef tile in view.tiles()) {
+      for (final MapTileRef tile in missing) {
         final ui.Image? image = await source.tile(style, tile);
-        if (!mounted || _loadedFor != view || image == null) {
+        if (!mounted || image == null || _tiles.containsKey(tile)) {
           continue;
         }
         setState(() {
