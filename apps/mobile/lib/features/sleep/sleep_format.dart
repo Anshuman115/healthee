@@ -15,6 +15,15 @@ library;
 
 import 'package:healthee/core/theme/stage_colors.dart';
 
+/// The sleep-need reference this screen measures against, in minutes.
+///
+/// **The one definition on this screen.** `/api/sleep` sends no need and no
+/// debt — those live on `/api/today`'s `sleep_debt` block — so every figure the
+/// Sleep screen derives from a reference derives it from here, and the panel
+/// that uses it names the reference in words rather than leaving a percentage
+/// to look like a mark out of a hundred.
+const double kSleepNeedMin = 480;
+
 /// Minutes → `7h 05m`. Legacy's `_hm`, without its null branch.
 String hoursMinutes(num minutes) {
   final whole = minutes.round();
