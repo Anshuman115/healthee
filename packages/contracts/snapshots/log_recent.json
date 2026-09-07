@@ -2,7 +2,7 @@
   "entries": [
     {
       "amount": 72.5,
-      "ts": 1785510225087,
+      "ts": 1788786385787,
       "type": "weight",
       "unit": "kg"
     },
@@ -10,7 +10,7 @@
       "amount": 10.0,
       "name": "mindfulness",
       "notes": null,
-      "ts": 1785503025185,
+      "ts": 1788779185866,
       "type": "meditation",
       "unit": "min"
     },
@@ -18,7 +18,7 @@
       "amount": 80.0,
       "name": null,
       "notes": null,
-      "ts": 1785499425185,
+      "ts": 1788775585866,
       "type": "caffeine",
       "unit": "mg"
     },
@@ -26,7 +26,7 @@
       "amount": 45.0,
       "name": "strength",
       "notes": null,
-      "ts": 1785423825087,
+      "ts": 1788699985787,
       "type": "exercise",
       "unit": "min"
     }

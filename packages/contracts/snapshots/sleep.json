@@ -1,4 +1,9 @@
 {
+  "as_of": {
+    "day": "2026-09-07",
+    "derived_at": "2026-09-07T13:06:25.787421+00:00",
+    "is_today": true
+  },
   "cutoffs": {
     "duration_hours": [
       7.0,
@@ -11,6 +16,7 @@
       4
     ]
   },
+  "date": "2026-09-07",
   "findings": [
     {
       "description_raw": "Caffeine \u2194 sleep",
@@ -30,23 +36,23 @@
   ],
   "naps": [
     {
-      "date": "2026-07-31",
+      "date": "2026-09-07",
       "duration_min": 35,
-      "end_iso": "2026-07-31T09:05:00+00:00",
+      "end_iso": "2026-09-07T09:05:00+00:00",
       "midpoint_local": "14:17",
       "source": "zepp_cloud",
       "stages": [],
-      "start_iso": "2026-07-31T08:30:00+00:00"
+      "start_iso": "2026-09-07T08:30:00+00:00"
     }
   ],
   "nights": [
     {
-      "date": "2026-07-31",
+      "date": "2026-09-07",
       "duration_min": 380,
       "efficiency_pct": 84.4,
-      "end_iso": "2026-07-31T01:00:00+00:00",
+      "end_iso": "2026-09-07T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-31T02:45:00+05:30",
+      "midpoint_local": "2026-09-07T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -85,18 +91,18 @@
         "light": 200,
         "rem": 90
       },
-      "start_iso": "2026-07-30T17:30:00+00:00",
+      "start_iso": "2026-09-06T17:30:00+00:00",
       "tib_min": 450,
       "tst_min": 380,
       "zepp_score": 86
     },
     {
-      "date": "2026-07-30",
+      "date": "2026-09-06",
       "duration_min": 380,
       "efficiency_pct": 84.4,
-      "end_iso": "2026-07-30T01:00:00+00:00",
+      "end_iso": "2026-09-06T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-30T02:45:00+05:30",
+      "midpoint_local": "2026-09-06T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -135,18 +141,18 @@
         "light": 200,
         "rem": 90
       },
-      "start_iso": "2026-07-29T17:30:00+00:00",
+      "start_iso": "2026-09-05T17:30:00+00:00",
       "tib_min": 450,
       "tst_min": 380,
       "zepp_score": 86
     },
     {
-      "date": "2026-07-29",
+      "date": "2026-09-05",
       "duration_min": 380,
       "efficiency_pct": 84.4,
-      "end_iso": "2026-07-29T01:00:00+00:00",
+      "end_iso": "2026-09-05T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-29T02:45:00+05:30",
+      "midpoint_local": "2026-09-05T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -185,18 +191,18 @@
         "light": 200,
         "rem": 90
       },
-      "start_iso": "2026-07-28T17:30:00+00:00",
+      "start_iso": "2026-09-04T17:30:00+00:00",
       "tib_min": 450,
       "tst_min": 380,
       "zepp_score": 86
     },
     {
-      "date": "2026-07-28",
+      "date": "2026-09-04",
       "duration_min": 380,
       "efficiency_pct": 84.4,
-      "end_iso": "2026-07-28T01:00:00+00:00",
+      "end_iso": "2026-09-04T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-28T02:45:00+05:30",
+      "midpoint_local": "2026-09-04T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -235,18 +241,18 @@
         "light": 200,
         "rem": 90
       },
-      "start_iso": "2026-07-27T17:30:00+00:00",
+      "start_iso": "2026-09-03T17:30:00+00:00",
       "tib_min": 450,
       "tst_min": 380,
       "zepp_score": 86
     },
     {
-      "date": "2026-07-27",
+      "date": "2026-09-03",
       "duration_min": 380,
       "efficiency_pct": 84.4,
-      "end_iso": "2026-07-27T01:00:00+00:00",
+      "end_iso": "2026-09-03T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-27T02:45:00+05:30",
+      "midpoint_local": "2026-09-03T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -285,18 +291,18 @@
         "light": 200,
         "rem": 90
       },
-      "start_iso": "2026-07-26T17:30:00+00:00",
+      "start_iso": "2026-09-02T17:30:00+00:00",
       "tib_min": 450,
       "tst_min": 380,
       "zepp_score": 86
     },
     {
-      "date": "2026-07-26",
+      "date": "2026-09-02",
       "duration_min": 380,
       "efficiency_pct": 84.4,
-      "end_iso": "2026-07-26T01:00:00+00:00",
+      "end_iso": "2026-09-02T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-26T02:45:00+05:30",
+      "midpoint_local": "2026-09-02T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -335,18 +341,18 @@
         "light": 200,
         "rem": 90
       },
-      "start_iso": "2026-07-25T17:30:00+00:00",
+      "start_iso": "2026-09-01T17:30:00+00:00",
       "tib_min": 450,
       "tst_min": 380,
       "zepp_score": 86
     },
     {
-      "date": "2026-07-25",
+      "date": "2026-09-01",
       "duration_min": 380,
       "efficiency_pct": 84.4,
-      "end_iso": "2026-07-25T01:00:00+00:00",
+      "end_iso": "2026-09-01T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-25T02:45:00+05:30",
+      "midpoint_local": "2026-09-01T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -385,18 +391,18 @@
         "light": 200,
         "rem": 90
       },
-      "start_iso": "2026-07-24T17:30:00+00:00",
+      "start_iso": "2026-08-31T17:30:00+00:00",
       "tib_min": 450,
       "tst_min": 380,
       "zepp_score": 86
     },
     {
-      "date": "2026-07-24",
+      "date": "2026-08-31",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-24T02:45:00+05:30",
+      "midpoint_local": "2026-08-31T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -422,12 +428,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-23",
+      "date": "2026-08-30",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-23T02:45:00+05:30",
+      "midpoint_local": "2026-08-30T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -453,12 +459,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-22",
+      "date": "2026-08-29",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-22T02:45:00+05:30",
+      "midpoint_local": "2026-08-29T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -484,12 +490,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-21",
+      "date": "2026-08-28",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-21T02:45:00+05:30",
+      "midpoint_local": "2026-08-28T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -515,12 +521,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-20",
+      "date": "2026-08-27",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-20T02:45:00+05:30",
+      "midpoint_local": "2026-08-27T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -546,12 +552,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-19",
+      "date": "2026-08-26",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-19T02:45:00+05:30",
+      "midpoint_local": "2026-08-26T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -577,12 +583,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-18",
+      "date": "2026-08-25",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-18T02:45:00+05:30",
+      "midpoint_local": "2026-08-25T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -608,12 +614,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-17",
+      "date": "2026-08-24",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-17T02:45:00+05:30",
+      "midpoint_local": "2026-08-24T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -639,12 +645,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-16",
+      "date": "2026-08-23",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-16T02:45:00+05:30",
+      "midpoint_local": "2026-08-23T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -670,12 +676,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-15",
+      "date": "2026-08-22",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-15T02:45:00+05:30",
+      "midpoint_local": "2026-08-22T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -701,12 +707,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-14",
+      "date": "2026-08-21",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-14T02:45:00+05:30",
+      "midpoint_local": "2026-08-21T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -732,12 +738,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-13",
+      "date": "2026-08-20",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-13T02:45:00+05:30",
+      "midpoint_local": "2026-08-20T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -763,12 +769,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-12",
+      "date": "2026-08-19",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-12T02:45:00+05:30",
+      "midpoint_local": "2026-08-19T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -794,12 +800,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-11",
+      "date": "2026-08-18",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-11T02:45:00+05:30",
+      "midpoint_local": "2026-08-18T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -825,12 +831,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-10",
+      "date": "2026-08-17",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-10T02:45:00+05:30",
+      "midpoint_local": "2026-08-17T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -856,12 +862,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-09",
+      "date": "2026-08-16",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-09T02:45:00+05:30",
+      "midpoint_local": "2026-08-16T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -887,12 +893,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-08",
+      "date": "2026-08-15",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-08T02:45:00+05:30",
+      "midpoint_local": "2026-08-15T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -918,12 +924,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-07",
+      "date": "2026-08-14",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-07T02:45:00+05:30",
+      "midpoint_local": "2026-08-14T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -949,12 +955,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-06",
+      "date": "2026-08-13",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-06T02:45:00+05:30",
+      "midpoint_local": "2026-08-13T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -980,12 +986,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-05",
+      "date": "2026-08-12",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-05T02:45:00+05:30",
+      "midpoint_local": "2026-08-12T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -1011,12 +1017,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-04",
+      "date": "2026-08-11",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-04T02:45:00+05:30",
+      "midpoint_local": "2026-08-11T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -1042,12 +1048,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-03",
+      "date": "2026-08-10",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-03T02:45:00+05:30",
+      "midpoint_local": "2026-08-10T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
@@ -1073,12 +1079,12 @@
       "zepp_score": null
     },
     {
-      "date": "2026-07-02",
+      "date": "2026-08-09",
       "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
-      "midpoint_local": "2026-07-02T02:45:00+05:30",
+      "midpoint_local": "2026-08-09T02:45:00+05:30",
       "point_duration": 1,
       "point_efficiency": 1,
       "point_regularity": 1,
