@@ -189,3 +189,87 @@ String? coachTopicOf(Uri uri) {
   final String subject = uri.queryParameters['topic']?.trim() ?? '';
   return subject.isEmpty ? null : subject;
 }
+
+/// The query parameter the selected day rides in — `?date=2026-07-29`.
+///
+/// The prototype's own name for it (`history-data.js`), kept so a URL read off
+/// the design preview names the same day here.
+const String kDateParameter = 'date';
+
+/// Every route that carries the selected day.
+///
+/// `design/mobile-preview/history-data.js:10` lists **fourteen** date-aware
+/// routes: `today, sleep, activity, insights, actions, recovery, body, fitness,
+/// metrics, metric, sleep-history, workouts, journal, action-history`. Thirteen
+/// paths carry them here because `metrics` and `metric` are one route in this
+/// app — [Routes.history] with and without a `metric=` — which the router
+/// records as a deliberate collapse rather than a gap.
+const Set<String> kDateAwareRoutes = <String>{
+  Routes.today,
+  Routes.sleep,
+  Routes.activity,
+  Routes.insights,
+  Routes.actions,
+  Routes.recovery,
+  Routes.body,
+  Routes.fitness,
+  Routes.history,
+  Routes.sleepHistory,
+  Routes.workouts,
+  Routes.journal,
+  Routes.recommendations,
+};
+
+/// Whether [path] is one of the screens the day follows the reader onto.
+///
+/// The path only — a query string never decides this. A route outside the set
+/// keeps whatever query it was given, because the day means nothing there and
+/// stamping one on would be a parameter no screen reads.
+bool isDateAwareRoute(String path) => kDateAwareRoutes.contains(path);
+
+/// The day named in [uri], or null when it names none this app can read.
+///
+/// The other half of [dateLocation], and it lives beside the half that writes
+/// it for the reason [coachTopicOf] does: a day dropped HERE looks exactly like
+/// a link that carried none, and the screen opens on the latest day either way.
+///
+/// **Shape only.** `2026-02-31` is refused because it is not a day at all —
+/// `DateTime` rolls it silently into March, and the app would then be showing a
+/// date nobody wrote. Whether a real day is one this phone still holds is the
+/// *retention* question, and that answer belongs to `ViewDate.select`, which is
+/// the one place the horizon is known.
+String? viewDateOf(Uri uri) {
+  final String? raw = uri.queryParameters[kDateParameter];
+  if (raw == null || !_isoDay.hasMatch(raw)) {
+    return null;
+  }
+  final DateTime? parsed = DateTime.tryParse('${raw}T00:00:00Z');
+  return parsed != null && parsed.toIso8601String().startsWith(raw)
+      ? raw
+      : null;
+}
+
+/// [location] carrying [day], or carrying none when [day] is [latest].
+///
+/// The parameter is **removed** on the newest day rather than written out in
+/// full, which is `date-navigation.js::H.setViewDate`'s own rule
+/// (`url.searchParams.delete('date')`). A link to the current day is then the
+/// plain route, so it still means "the newest readings" tomorrow; a stamped one
+/// would mean "that Tuesday" forever.
+///
+/// Every other query parameter survives, so `/history?metric=hrv` keeps its
+/// metric when the day is stamped onto it.
+String dateLocation(String location, String day, String latest) {
+  final Uri uri = Uri.parse(location);
+  final Map<String, String> query = <String, String>{...uri.queryParameters};
+  if (day == latest) {
+    query.remove(kDateParameter);
+  } else {
+    query[kDateParameter] = day;
+  }
+  return query.isEmpty
+      ? uri.path
+      : Uri(path: uri.path, queryParameters: query).toString();
+}
+
+final RegExp _isoDay = RegExp(r'^\d{4}-\d{2}-\d{2}$');
