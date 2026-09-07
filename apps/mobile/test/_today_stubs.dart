@@ -58,6 +58,29 @@ TodayView todayView({
   );
 }
 
+/// The snapshot re-dated to [day], as the server would answer for it.
+///
+/// `/api/today?day=D` echoes D in `date` and in `as_of.day` and reports whether D
+/// is the owner's today (`docs/AS_OF_DAY.md`). A fixture that only changed `date`
+/// would be a payload no server can send — the screens read `as_of`, precisely
+/// because the owner's calendar day is the server's to decide and not a phone's.
+///
+/// The VALUES stay the fixture's; that is what makes it usable and harmless. What
+/// a past day changes on the server is WHICH ROWS are read, and that is proven
+/// there (`tests/read/test_as_of_day.py`). What it changes on the client is which
+/// day the screen is entitled to draw them under, which is what this exercises.
+TodayView todayViewFor(String day, {required String today}) => todayView(
+  mutate: (json) => <String, Object?>{
+    ...json,
+    'date': day,
+    'as_of': <String, Object?>{
+      'day': day,
+      'is_today': day == today,
+      'derived_at': '${day}T05:30:00+00:00',
+    },
+  },
+);
+
 /// The body of a `todaySnapshotProvider.overrideWith` that answers with [view].
 ///
 /// The override itself is written at each call site rather than returned from

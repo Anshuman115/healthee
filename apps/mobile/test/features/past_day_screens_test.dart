@@ -1,10 +1,18 @@
-/// A past day never wears today's judgements — on any of the fourteen screens.
+/// A past day never wears ANOTHER day's judgements — on any of the fourteen screens.
 ///
-/// `date_control_test.dart` holds this rule for Today, where it was first
-/// built. The day now follows the reader onto thirteen more screens, and the
-/// rule has to hold on every one of them or the feature is a way to put the
-/// current day's recovery, MVPA, VO₂max, correlations and suggestions under an
-/// older date. That is stale-as-current, which this repo has swept three times.
+/// `date_control_test.dart` holds this rule for Today, where it was first built.
+/// The day follows the reader onto thirteen more screens, and the rule has to
+/// hold on every one of them or the feature is a way to put one day's recovery,
+/// MVPA, VO₂max, correlations and suggestions under another day's date. That is
+/// stale-as-current, which this repo has swept three times.
+///
+/// **What the rule means changed when the server learned to answer for a day.**
+/// Today and Activity read `/api/today`, which now takes `day=YYYY-MM-DD`
+/// (`docs/AS_OF_DAY.md`), so their figures ARE that day's and are drawn: the
+/// guard there is that the payload must answer for the day being read, not that
+/// nothing derived may appear. The screens below that still refuse outright are
+/// the ones whose content is LLM-authored or windowed on the current day, and
+/// each says which in its own group.
 ///
 /// Asked of the section builders rather than of a rendered scroll wherever
 /// possible: what is being asserted is what the screen DECIDED, and a viewport
@@ -18,6 +26,8 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/data/device/device_day.dart';
+import 'package:healthee/data/history/dated_history.dart';
+import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/models/vo2max.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/actions/actions_screen.dart';
@@ -40,6 +50,7 @@ import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/reading_view.dart';
+import 'package:healthee/shared/v02/dated_panel.dart';
 import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/view_day.dart';
 
@@ -52,24 +63,110 @@ import '_today_host.dart';
 /// A day the owner has stepped back to, inside the retention window.
 const String _past = '2026-08-01';
 
+/// A fortnight of steps that runs PAST the day under test, so a panel windowed
+/// on the newest reading rather than on the selection would have somewhere wrong
+/// to go.
+const DatedHistory _spanning = DatedHistory(
+  days: 90,
+  series: <String, List<TrendPoint>>{
+    'steps_total': <TrendPoint>[
+      TrendPoint(date: '2026-07-30', value: 5000),
+      TrendPoint(date: '2026-07-31', value: 5100),
+      TrendPoint(date: '2026-08-01', value: 5200),
+      // Everything below is AFTER the day under test.
+      TrendPoint(date: '2026-08-02', value: 9100),
+      TrendPoint(date: '2026-08-03', value: 9200),
+      TrendPoint(date: '2026-08-04', value: 9300),
+    ],
+  },
+);
+
 bool _has<T>(List<PageSection> list) =>
     list.any((section) => section.child is T);
 
 void main() {
   group('Activity', () {
-    test('THE DERIVED HALF IS GONE AND THE MEASURED HALF IS NOT', () {
+    test('THE DERIVED HALF IS DRAWN, FOR THE DAY IT ANSWERS FOR', () {
+      // Reversed on purpose. Activity's figures come from `/api/today`, which
+      // takes a `day` now (`docs/AS_OF_DAY.md`), so VO₂max here is that day's own
+      // stored row rather than the current day's under an older header. The
+      // notice that used to head this screen refused something we can now answer,
+      // and a refusal you are not entitled to is its own kind of dishonesty.
       final past = activitySections(
-        screenData(day: DeviceDay.empty(_past), server: todayView()),
+        screenData(
+          day: DeviceDay.empty(_past),
+          server: todayViewFor(_past, today: todayDate),
+        ),
         const ActivityExtras(),
       );
-      expect(_has<PastDayNotice>(past), isTrue, reason: 'it says why');
-      expect(
-        _has<ReadingView<Vo2max>>(past),
-        isFalse,
-        reason: 'VO₂max is worked out for the current day only',
-      );
+      expect(_has<PastDayNotice>(past), isFalse, reason: 'nothing left to refuse');
+      expect(_has<ReadingView<Vo2max>>(past), isTrue, reason: 'VO₂max as of that day');
       // The strap's own counts are stored per calendar day, so they stay.
       expect(_has<MovementPanel>(past), isTrue);
+    });
+
+    test('AND A PAYLOAD ABOUT ANOTHER DAY IS STILL NOT THIS DAY’S', () {
+      // The guard that replaced the refusal, on this screen too: the answer on
+      // hand while the new request is in flight is about the wrong day, and
+      // drawing it would be the same stale-as-current failure with a shorter
+      // lifetime. `ScreenData.snapshot` is where that is decided, once.
+      final mid = activitySections(
+        screenData(
+          day: DeviceDay.empty(_past),
+          server: todayViewFor(todayDate, today: todayDate),
+        ),
+        const ActivityExtras(),
+      );
+      expect(_has<ReadingView<Vo2max>>(mid), isFalse);
+    });
+
+    test('A PAYLOAD THAT SAYS IT IS NOT TODAY IS NOT DRAWN AS TODAY', () {
+      // The other direction of the same guard, and the one an exact-date test
+      // cannot see. On the CURRENT day the question is the server's own
+      // `is_today`, not a string comparison — because a payload dated a few days
+      // back IS drawn here when it came from the cache, with its own date on it.
+      // What must never be drawn is a payload that says outright it is about
+      // another day, which is what the in-flight answer says after stepping
+      // forward to the newest day.
+      final mid = activitySections(
+        screenData(server: todayViewFor(_past, today: todayDate)),
+        const ActivityExtras(),
+      );
+      expect(
+        _has<ReadingView<Vo2max>>(mid),
+        isFalse,
+        reason: "a payload about $_past was drawn as the current day's",
+      );
+    });
+
+    test('A DATED SERIES ENDS ON THE CHOSEN DAY, NOT ON THE NEWEST READING', () {
+      // The stale-as-current failure with a chart instead of a figure. The series
+      // runs to 4 August and the header says 1 August, so a window taken from the
+      // newest reading would put three days of the reader's future on screen
+      // under an older date — and the panel's own figure would be one of them.
+      final panel = activitySections(
+            screenData(
+              day: DeviceDay.empty(_past),
+              server: todayViewFor(_past, today: todayDate),
+              history: _spanning,
+            ),
+            const ActivityExtras(),
+          )
+          .map((section) => section.child)
+          .whereType<DatedPanel>()
+          .firstWhere((panel) => panel.metric == 'steps_total');
+
+      expect(panel.window.days.last, _past);
+      expect(panel.window.on(_past), 5200);
+      for (final point in panel.window.observed) {
+        expect(
+          point.date.compareTo(_past) <= 0,
+          isTrue,
+          reason: '${point.date} is after the day being read',
+        );
+      }
+      // 9100, 9200 and 9300 are the readings from after the selection.
+      expect(panel.window.values, isNot(contains(9100.0)));
     });
 
     test('and the current day still draws all of it', () {
