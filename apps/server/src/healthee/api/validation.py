@@ -9,7 +9,14 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 
-from healthee.analytics.metrics import is_known_metric
+from healthee.analytics.metrics import KNOWN_METRICS, is_known_metric
+
+# The most metrics one batched read may name. It is the size of the registry
+# itself: asking for more than the server serves is a malformed request, not a
+# bigger question, and an unbounded list is an unbounded query (standards
+# section 1, "unbounded data is windowed"). Deriving it rather than writing a
+# number means a new metric raises the ceiling by exactly one, automatically.
+MAX_METRIC_LIST: int = len(KNOWN_METRICS)
 
 # Domain refusal reason -> HTTP status. A rule outcome is a real answer, so it is not
 # a 500 and not a 200-with-an-error-field; mapping it here keeps the routers thin and
@@ -56,6 +63,34 @@ def require_known_metric(metric: str) -> str:
     if not is_known_metric(metric):
         raise HTTPException(status_code=422, detail=f"unknown metric: {metric!r}")
     return metric
+
+
+def require_metric_list(metrics: str) -> tuple[str, ...]:
+    """Split ``a,b,c`` into validated canonical names, or raise 422.
+
+    **An unknown id refuses the whole call.** The tempting alternative is to drop
+    it and answer with the rest, and that is the failure this product cannot
+    afford: a client that asked for nine series and got eight cannot tell which
+    name the server did not recognise, and the missing key reads exactly like
+    "you have no readings for that". Every entry therefore goes through
+    :func:`require_known_metric`, which is the same gate the single-metric form
+    passes — one definition of a valid metric, not two.
+
+    Repeats collapse (a client naming a metric twice asked one question), order
+    is kept so the caller can pair the answer with what it sent, and the list is
+    capped at :data:`MAX_METRIC_LIST`.
+    """
+    wanted = tuple(dict.fromkeys(part.strip() for part in metrics.split(",") if part.strip()))
+    if not wanted:
+        raise HTTPException(status_code=422, detail="'metrics' must name at least one metric")
+    if len(wanted) > MAX_METRIC_LIST:
+        raise HTTPException(
+            status_code=422,
+            detail=f"at most {MAX_METRIC_LIST} metrics per call, got {len(wanted)}",
+        )
+    for metric in wanted:
+        require_known_metric(metric)
+    return wanted
 
 
 def require_ok(result: dict) -> dict:

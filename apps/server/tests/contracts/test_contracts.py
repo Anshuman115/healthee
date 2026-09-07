@@ -34,6 +34,7 @@ _ENDPOINTS = [
     "sleep_consistency",
     "activity",
     "history",
+    "history_batch",
     "profile",
     "entitlement",
     "log_recent",
