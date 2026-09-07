@@ -34,6 +34,11 @@ STATIC_ENDPOINTS: list[tuple[str, str, str, dict | None, dict | None]] = [
     # renders somebody the wrong number of questions.
     ("entitlement", "GET", "/api/entitlement", None, None),
     ("log_recent", "GET", "/api/log/recent", {"days": 7}, None),
+    # The basemap's own contract: what the app must credit on screen, and the zoom
+    # range it may ask for. Pinned because the app draws NO basemap when it cannot
+    # parse this — a renamed key here is a map that quietly stops appearing, with
+    # nothing failing anywhere.
+    ("map", "GET", "/api/map", None, None),
     ("gps_list", "GET", "/api/workout/gps", None, None),
     ("challenges", "GET", "/api/challenges", None, None),
     ("challenge_outcomes", "GET", "/api/challenges/outcomes", {"limit": 20}, None),

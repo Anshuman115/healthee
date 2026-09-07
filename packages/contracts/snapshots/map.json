@@ -1,0 +1,6 @@
+{
+  "attribution": "© OpenStreetMap contributors",
+  "min_zoom": 1,
+  "max_zoom": 17,
+  "tile_path": "/api/map/tiles/{z}/{x}/{y}"
+}

@@ -31,6 +31,7 @@ from healthee.api.routers import (
     ingest,
     insights,
     logs,
+    map_tiles,
     programs,
     readiness,
     recommendations,
@@ -41,7 +42,8 @@ from healthee.api.routers import (
 from healthee.core.db import close_pool
 from healthee.core.dob import DobError
 from healthee.core.entitlement import warn_if_self_host_unlocked
-from healthee.core.logging import configure_logging, get_logger
+from healthee.core.logging import configure_logging, get_logger, silence_access_log_for
+from healthee.core.map_tiles import TILE_PATH_PREFIX
 
 log = get_logger(__name__)
 
@@ -68,6 +70,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Startup/shutdown: configure logging on the way up, close the pool on the
     way down. The pool itself opens lazily on first query."""
     configure_logging()
+    # Before the first request, and here rather than in `configure_logging`
+    # because uvicorn configures its own loggers after ours: a basemap tile path
+    # in an access log is a location history, which is what proxying the tiles
+    # exists to prevent (core/map_tiles).
+    silence_access_log_for(TILE_PATH_PREFIX)
     log.info("healthee server starting")
     warn_if_self_host_unlocked()
     yield
@@ -121,6 +128,10 @@ def create_app() -> FastAPI:
     # which is a POST and not a read. Mounted after `today` because it is a different
     # concern (spend, not read) on the same subject.
     app.include_router(daily_action.router)
+    # The basemap proxy. Mounted last because it is the only router that serves
+    # bytes rather than JSON, and the only one whose request PATH is personal —
+    # `api/routers/map_tiles.py` says what follows from that.
+    app.include_router(map_tiles.router)
     return app
 
 
