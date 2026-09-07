@@ -28,8 +28,15 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
+import 'package:healthee/features/sleep/v02/checks_panel.dart';
+import 'package:healthee/features/sleep/v02/need_panel.dart';
+import 'package:healthee/features/sleep/v02/night_panels.dart';
+import 'package:healthee/features/sleep/v02/sleep_reading.dart';
+import 'package:healthee/features/sleep/v02/timing_panel.dart';
+import 'package:healthee/features/sleep/v02/week_panel.dart';
 import 'package:healthee/features/today/widgets/actions_section.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
+import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
 import '../_sleep_stubs.dart';
@@ -151,17 +158,17 @@ void main() {
       expect(find.text('Stress today'), findsNothing);
     });
 
-    test('SLEEP’S CONDITIONAL CARDS ARE ABSENT ON A ONE-NIGHT HISTORY', () {
-      // Legacy draws the debt chart, the week chart and the timing chart only
-      // at two nights or more, and the naps card only when there are naps
-      // (`sleep_screen.dart:387, 411, 425, 443`). One night must therefore draw
-      // none of the four — a chart of one point is a claim about a pattern
-      // there is no pattern in.
+    test('SLEEP’S CONDITIONAL SECTION IS ABSENT ON A ONE-NIGHT HISTORY', () {
+      // A stacked week of one bar is a claim about a pattern there is no
+      // pattern in, so the stage-week panel is the one section that does not
+      // exist at a single night. The need and timing panels DO exist — they
+      // have something true to say about one night — and each draws no chart
+      // and keeps its slot, which their own suites assert.
       //
       // Asked of the section builder rather than of a rendered scroll: this is
       // a decision about what to draw, and `sleepSections` is where it is made.
       final page = sleepPageFixture();
-      final ids = sleepSections(
+      final types = sleepSections(
         page: SleepPage(
           nights: <SleepNight>[page.nights.first],
           naps: const [],
@@ -171,18 +178,26 @@ void main() {
         ),
         consistency: consistencyFixture(),
         now: kSleepNow,
-      ).map((section) => section.id).toSet();
+        reveals: RevealRegistry(),
+      ).map((section) => section.child.runtimeType).toSet();
 
-      for (final conditional in <String>['debt', 'week', 'consistency', 'naps']) {
-        expect(
-          ids,
-          isNot(contains(conditional)),
-          reason: '$conditional needs more than one night to mean anything',
-        );
-      }
-      // And the unconditional half is still all there, so this is a section
-      // falling silent rather than the screen failing.
-      expect(ids, containsAll(<String>['hero', 'hypnogram', 'health', 'trends']));
+      expect(
+        types,
+        isNot(contains(StageWeekPanel)),
+        reason: 'seven stacked bars need more than one night to mean anything',
+      );
+      // And the rest is still all there, so this is one section falling silent
+      // rather than the screen failing.
+      expect(
+        types,
+        containsAll(<Type>[
+          SleepReading,
+          NightTimelinePanel,
+          SleepChecksPanel,
+          SleepNeedPanel,
+          SleepTimingPanel,
+        ]),
+      );
     });
   });
 

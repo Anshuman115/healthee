@@ -16,6 +16,10 @@
 ///     If a refusal lost its reason in the move, the grid's bargain would be
 ///     broken on both sides at once and nothing anywhere would say why.
 ///
+/// **Sleep moved out of this file** when it was rebuilt to v02: its order, its
+/// checks, its charts and its refusals are four suites of their own under
+/// `sleep_*_test.dart`, because one screen's worth of them no longer fitted here.
+///
 /// **Activity and Insights moved out of this file** when they were rebuilt to
 /// v02 and it crossed the 400-line gate (Standards §1). Their half lives in
 /// `activity_insights_screens_test.dart`, which is the same suite split by
@@ -24,16 +28,13 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
-import 'package:healthee/features/sleep/sleep_sections.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 
-import '../_sleep_stubs.dart';
 import '_today_host.dart';
 
 void main() {
@@ -44,134 +45,6 @@ void main() {
     await seedDevice(store);
   });
   tearDown(() async => store.close());
-
-  group('Sleep', () {
-    // The Sleep tab is legacy's, ported (`feat/legacy-sleep`). These assertions
-    // moved with it: the cards, the labels and the cutoff strings below are
-    // `healthee-legacy/app/lib/ui/sleep_screen.dart`'s own.
-    testWidgets('THE FOUR SLEEP DIMENSIONS ARE NEVER SUMMED', (tester) async {
-      await tester.pumpWidget(
-        todayHost(store, home: SleepScreen(now: kSleepNow)),
-      );
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('SLEEP HEALTH · 4-DIM'));
-
-      // Four judgements, each against its own published cutoff.
-      for (final dimension in <String>[
-        'Duration',
-        'Efficiency',
-        'Timing',
-        'Regularity',
-      ]) {
-        expect(find.text(dimension), findsOneWidget);
-      }
-      for (final cutoff in <String>[
-        '7–9 h',
-        '≥ 85%',
-        '2–4 am mid',
-        'SRI ≥ 70',
-      ]) {
-        expect(find.text(cutoff), findsOneWidget);
-      }
-
-      // The count is a COUNT. `/ 4` is legacy's denominator and there is no
-      // percentage, no average and no verdict word â CLAUDE.md forbids a
-      // composite without a documented methodology, and there is no validated
-      // one for these four.
-      expect(find.text('/ 4'), findsOneWidget);
-      for (final composite in <String>['75%', '3/4', '3 of 4', '0.75']) {
-        expect(
-          find.text(composite),
-          findsNothing,
-          reason: '"$composite" would be the four checks blended into one',
-        );
-      }
-    });
-
-    testWidgets('every overnight instrument is on the vitals card', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        todayHost(store, home: SleepScreen(now: kSleepNow)),
-      );
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('OVERNIGHT VITALS'));
-
-      // Legacy's six cells, in legacy's words. Blood oxygen lives here rather
-      // than in a card of its own, which is what the port restored.
-      for (final label in <String>[
-        'RESTING HR',
-        'HRV',
-        'RESP',
-        'SpO₂',
-        'SpO₂ MIN',
-        'SKIN TEMP',
-      ]) {
-        expect(find.text(label), findsOneWidget, reason: label);
-      }
-    });
-
-    test('LEGACY’S SECTIONS, IN LEGACY’S ORDER', () {
-      // Asked of the builder rather than of a scroll position. `sleepSections`
-      // is a pure function of the payload for exactly this reason: order is a
-      // decision, and scrolling a list until something appears asserts what
-      // happened to be on screen when the drag stopped.
-      final ids = sleepSections(
-        page: sleepPageFixture(),
-        consistency: consistencyFixture(),
-        now: kSleepNow,
-      ).map((section) => section.id).toList();
-
-      expect(ids, <String>[
-        'head',
-        // `tonight` is null on the fixture (the snapshot is a free owner's) and
-        // the night is last night's, so neither the lever nor the stale banner
-        // is drawn. Both have their own cases below.
-        'insight',
-        'hero',
-        'last-night-heading',
-        'hypnogram',
-        'breakdown',
-        'vitals',
-        'health',
-        'patterns-heading',
-        'performance',
-        'debt',
-        'week',
-        'consistency',
-        'trends',
-        // Added 2026-08-05: `/api/sleep` returns a `findings` array that reached
-        // no screen at all. Legacy had nothing here because legacy's endpoint
-        // did not send it. The contract fixture carries one finding; a payload
-        // with none draws no section, which the case below proves.
-        'findings',
-        'naps',
-      ]);
-    });
-
-    test('the Tonight lever and the stale banner sit where legacy put them', () {
-      // Legacy draws Tonight FIRST — above the banner, above the AI card and
-      // above the hero (`sleep_screen.dart:260`) — and the banner second.
-      final page = sleepPageFixture();
-      final withLever = SleepConsistency.fromJson(<String, Object?>{
-        ...loadJson(kConsistencySnapshotPath),
-        'tonight': const <String, Object?>{
-          'title': 'Lights out by 23:00',
-          'lever': 'bedtime',
-          'target_clock': '23:00',
-          'action': 'Start winding down at 22:15.',
-        },
-      });
-      final ids = sleepSections(
-        page: page,
-        consistency: withLever,
-        // A week later, so the newest session is stale and the banner lands.
-        now: kSleepNow.add(const Duration(days: 7)),
-      ).map((section) => section.id).toList();
-
-      expect(ids.take(4), <String>['head', 'tonight', 'stale', 'insight']);
-    });
-  });
 
   group('Diagnostics', () {
     testWidgets('BOTH RESTING HEART RATES ARE HERE AND EACH NAMES ITS INSTRUMENT', (

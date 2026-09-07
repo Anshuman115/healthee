@@ -1,6 +1,8 @@
 /// The four sleep-and-night charts — **what they PAINT**.
 ///
-/// `HHypnogram`, `HStackedSleep`, `HTimingChart` and `HDebtBars`. Split from
+/// `HHypnogram`, `HStackedSleep` and `HDebtBars`. `HTimingChart` was the fourth
+/// until the v02 rebuild moved it to `shared/charts/v02/v02_timing_chart.dart`;
+/// its geometry is asserted in `test/features/sleep_charts_test.dart`. Split from
 /// `legacy_charts_test.dart` at the 400-line gate; the probes both files use
 /// live in `_chart_probe.dart`, and its docstring explains why a recorded canvas
 /// is the only honest way to assert a chart drew something.
@@ -22,7 +24,6 @@ import 'package:healthee/data/models/sleep_history.dart';
 import 'package:healthee/shared/charts/h_debt_bars.dart';
 import 'package:healthee/shared/charts/h_hypnogram.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
-import 'package:healthee/shared/charts/h_timing_chart.dart';
 
 import '_chart_probe.dart';
 
@@ -143,70 +144,6 @@ void main() {
       expect(stackedHeight, greaterThan(0));
     });
   });
-  group('HTimingChart', () {
-    testWidgets('TWO LINES IN LEGACY’S TWO HUES, NOT ONE ACCENT TWICE', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        chartHost(
-          const HTimingChart(
-            bedtime: <double>[5.5, 6.0, 5.2, 6.4],
-            wake: <double>[13.0, 13.5, 12.8, 14.0],
-            progress: 1,
-            height: 130,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        tester.getSize(find.byType(HTimingChart)),
-        const Size(hostWidth, 130),
-      );
-      const hues = InstrumentHues.light();
-      final drawn = coloursOf(paintedBy(tester, find.byType(HTimingChart)));
-      expect(drawn, contains(hues.sleep.toARGB32()), reason: 'bedtime is cSleep');
-      expect(drawn, contains(hues.movement.toARGB32()), reason: 'wake is cSteps');
-    });
-
-    testWidgets('five gridlines and two paths', (tester) async {
-      await tester.pumpWidget(
-        chartHost(
-          const HTimingChart(
-            bedtime: <double>[5.5, 6.0, 5.2],
-            wake: <double>[13.0, 13.5, 12.8],
-            progress: 1,
-            height: 130,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final painted = paintedBy(tester, find.byType(HTimingChart));
-      expect(countOf(painted, #drawLine), 5);
-      expect(countOf(painted, #drawPath), 2);
-    });
-
-    testWidgets('the 18:00 origin turns midnight into a continuous run', (
-      tester,
-    ) async {
-      // 23:40 and 00:20 are forty minutes apart. On a midnight clock they are
-      // 23.7 and 0.3 and the line jumps the full height of the plot.
-      await tester.pumpWidget(
-        chartHost(
-          const HTimingChart(
-            bedtime: <double>[5.667, 6.333],
-            wake: <double>[13.0, 13.2],
-            progress: 1,
-            height: 130,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
-  });
-
   group('HDebtBars', () {
     testWidgets('A SHORT NIGHT DRAWS ITS BAR AND ITS GHOST', (tester) async {
       await tester.pumpWidget(
