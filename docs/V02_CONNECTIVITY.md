@@ -215,23 +215,15 @@ heart-rate/stress dual chart with a scrubber, `Add your context` → `journal`,
 | Screens missing outright | **0** — `body`, `fitness`, `recovery` and `sleep-history` are built; `insight` before them |
 | Screens needing new backend data | **0** |
 | Existing screens reachable but unlinked | `metrics`, `metric/:key`, `outcomes`, `action-history`, `sync`, `journal` from several parents |
-| Screens where the app's shape differs | **2** — `coach` (a route in the design, a sheet in the app) and `account` (a server form, not the app's sign-in) |
-| Screens built but still on the legacy frame | **1** — `record` (`GpsScreen`) |
-| Structural gaps | the **`?date=` view state** carried in the route · the `parents` back-map · route-derived tone |
+| Screens where the app's shape differs | **1** — `account` (a server form, not the app's sign-in). `coach` is a route now. |
+| Screens built but still on the legacy frame | **0** — `record`, `route` and the saved-route list are on `DetailPage` |
+| Structural gaps | the **`?date=` view state** carried in the route · route-derived tone. The `parents` back-map is built. |
 
-The connectivity was not blocked on the server, and all five screens are now
-built. What remains is structural: the coach as a route, the GPS frame, the
-back-map, the date in the route, and the last of the links.
-
-### The three that are not simply "a missing screen" — all that is left
-
-1. **The date belongs in the route.** Fourteen screens are date-aware, the day
-   survives tab switches, and it re-windows every chart it lands on. The app has
-   no day in any route. This is the largest single piece.
-2. **The coach wants to be a route.** Five screens link to it, one of them
-   asking to discuss a specific finding or workout. A sheet cannot carry that.
-3. **`record` is the last legacy frame.** `GpsScreen` still has a Material
-   `AppBar` where every other pushed screen uses `DetailPage`.
+The connectivity was not blocked on the server. The coach, the GPS frame, the
+back-map and the links are done; **the date in the route is what is left**, and
+it is the largest single piece: fourteen screens are date-aware in the
+prototype, the day survives tab switches, and it re-windows every chart it lands
+on. The app has no day in any route.
 
 ### Resolved since this walk
 
@@ -239,3 +231,33 @@ back-map, the date in the route, and the last of the links.
   carries the finding with it.
 - **`workout`** — reachable. `workout_history_screen.dart:136` pushes it, and
   the same screen draws the prototype's link to GPS recording.
+- **The coach is a route.** `Routes.coach` on `DetailPage`; the sheet is gone
+  rather than left beside it. All five callers push it, and the two that ask
+  about something specific carry their subject in `?topic=` — which
+  `coach_screen.dart` writes into the prototype's own `.coach-form` rather than
+  sending, because a question costs one of twenty and a navigation must not
+  spend one.
+- **`record`, `route` and the saved-route list are on the v02 frame.** No legacy
+  `Scaffold`/`AppBar` screen is left in the app. The map is a schematic drawn
+  from the owner's own coordinates: the prototype's park, water and road shapes
+  are fixture geometry and are not drawn under a real track, and the tile layer
+  went with them (`flutter_map`, `latlong2` and `url_launcher` are gone).
+- **The `parents` back-map is built** — `core/parent_tabs.dart`. `DetailPage`
+  pops when there is a stack and otherwise goes to the mapped tab, and the
+  system back gesture takes the same door. `SettingsPage` took the rule too.
+- **The links are drawn**, except two that have nowhere to go and say so where
+  they are: Today's heart-rate/stress panel (`metric/hr` — this build keeps no
+  daily heart-rate or stress series) and sleep-history's duration panel
+  (`metric/sleep` — no sleep-DURATION series; it silently fell back to HRV).
+
+### Still open
+
+- **The `?date=` view state.** Fourteen screens are date-aware in the prototype
+  and the day survives a tab switch; the app carries no day in any route. This
+  is the largest remaining piece and nothing above touched it.
+- **Route-derived tone.** `ToneScope` is declared per screen; nothing reads the
+  route to set it. The GPS screens declare `Tone.movement` explicitly, which is
+  what `panels.js:3` would have derived for them.
+- **The fitness screen's `workout` and `program` Details links**, and Today's
+  `insight` entry card where the app draws a coach card. Both need an id or a
+  content decision rather than a wire.
