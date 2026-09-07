@@ -20,6 +20,7 @@ class MetricCard {
     required this.reading,
     required this.unit,
     required this.median30d,
+    required this.sd30d,
     required this.z,
     required this.anomalous,
   });
@@ -35,6 +36,7 @@ class MetricCard {
       reading: numericReadingFrom(json, 'value'),
       unit: json['unit'] as String?,
       median30d: (json['median_30d'] as num?)?.toDouble(),
+      sd30d: (json['sd_30d'] as num?)?.toDouble(),
       z: (json['z'] as num?)?.toDouble(),
       anomalous: json['anomalous'] as bool? ?? false,
     );
@@ -56,6 +58,13 @@ class MetricCard {
   /// The owner's own 30-day median. Null when there is no baseline yet — weight
   /// never has one, and a new owner has none for anything.
   final double? median30d;
+
+  /// One robust standard deviation of that same 30-day window — the divisor
+  /// behind [z], not a spread computed here (`docs/BACKEND_GAPS_FROM_UI.md` B4).
+  ///
+  /// Null wherever [median30d] is, and also on the weight card, which has no
+  /// derived baseline at all.
+  final double? sd30d;
 
   /// Standard scores from that baseline. Null whenever [median30d] is.
   final double? z;

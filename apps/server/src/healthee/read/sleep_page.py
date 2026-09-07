@@ -229,12 +229,26 @@ def _apply_physiology(
 
 
 def _naps(cur: Cur, user_id: UUID, tz: str, days: int, as_of: date) -> list[dict]:
-    """Sessions the strap tagged ``kind='nap'`` (>=5 min) in the window, newest first."""
+    """Sessions the strap tagged ``kind='nap'`` (>=5 min) in the window, newest first.
+
+    **A nap is shaped exactly like a night.** This used to select the ``stages`` JSONB
+    and ship it under the key ``stages`` — but on a night that key holds the per-stage
+    TOTALS (``stage_totals``) and the hypnogram travels separately as
+    ``stage_timeline``. So the one field a nap stage-bar reads was a raw
+    ``[[startMs, endMs, type]]`` array wearing the totals' name, and every nap breakdown
+    in the app rendered blank whatever the strap had recorded. The typed minute columns
+    were on the row the whole time and simply were not selected.
+
+    Both halves ship now, from the same two helpers ``_session_nights`` uses, because a
+    second shaping of one thing is how the two drift apart (the standards' duplication rule). A
+    nap the strap staged only in summary keeps an empty ``stage_timeline`` — an honest
+    empty, not a structural one.
+    """
     cur.execute(
         "SELECT start_ts, end_ts, (start_ts AT TIME ZONE %s)::date, "
         "  EXTRACT(EPOCH FROM (end_ts - start_ts))::int / 60, "
         "  TO_CHAR((start_ts + (end_ts - start_ts)/2) AT TIME ZONE %s, 'HH24:MI'), "
-        "  stages "
+        "  stages, light_min, deep_min, rem_min, wake_min "
         "FROM sleep_session WHERE user_id = %s AND kind='nap' "
         # `start_ts` is timestamptz: comparing it to a DATE would make Postgres cast
         # that date at the SESSION's timezone (UTC), reintroducing the very bug this
@@ -257,7 +271,10 @@ def _naps(cur: Cur, user_id: UUID, tz: str, days: int, as_of: date) -> list[dict
             "date": local_date.isoformat(),
             "duration_min": int(dur),
             "midpoint_local": mid,
-            "stages": stages or [],
+            "stages": stage_totals(light, deep, rem, wake),
+            "stage_timeline": stage_timeline(stages, start_ts),
         }
-        for start_ts, end_ts, local_date, dur, mid, stages in cur.fetchall()
+        for start_ts, end_ts, local_date, dur, mid, stages, light, deep, rem, wake in (
+            cur.fetchall()
+        )
     ]

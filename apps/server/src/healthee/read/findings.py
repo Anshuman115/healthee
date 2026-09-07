@@ -77,8 +77,19 @@ def is_trivial_finding(f: dict) -> bool:
     return eff is not None and (abs(eff) >= 0.95 or (abs(eff) >= 0.85 and n < 20))
 
 
-def _shape(f: dict) -> dict:
-    """Legacy finding payload shape (structured fields for a plain-English card)."""
+def _shape(f: dict, as_of: date | None = None) -> dict:
+    """Legacy finding payload shape (structured fields for a plain-English card).
+
+    ``points`` is the addition: the paired days the correlation was actually computed
+    over, so the finding-detail screen can draw the scatter that lets the owner see for
+    themselves that a correlation is not a cause. Nothing is reconstructed here — they
+    are the pairs ``analytics/correlations.py`` recorded at compute time, in
+    ``details``, from the same alignment the effect size came out of.
+
+    Empty for an event finding, which compares two GROUPS and has no paired points; the
+    honest answer there is no chart, not an invented axis.
+    """
+    points, truncated = _points(f.get("details"), as_of)
     return {
         "kind": f["kind"],
         "metric_a": f["metric_a"],
@@ -91,7 +102,30 @@ def _shape(f: dict) -> dict:
         "q_value": f["q_value"],
         "n_samples": f["n_samples"],
         "research_note_ids": f["research_note_ids"],
+        "points": points,
+        # The count of what is PLOTTABLE, beside ``n_samples`` — the count the effect
+        # size was computed from. They differ when the payload cap bit or when the
+        # as-of bound dropped a point, and a screen that showed the second while
+        # plotting the first would be describing a chart it is not drawing.
+        "points_n": len(points),
+        "points_truncated": truncated,
     }
+
+
+def _points(details: dict | None, as_of: date | None) -> tuple[list[dict], bool]:
+    """The stored pairs, bounded by ``as_of``, and whether the served set is partial.
+
+    The bound is belt-and-braces and it stays: a finding is already withheld from a day
+    that precedes its ``computed_at`` (``analytics.finding.significant_findings``), so a
+    served finding cannot in practice carry a pair dated after the day being answered
+    for. Making it structural rather than inherited is the whole lesson of
+    ``docs/AS_OF_DAY.md`` section 3 — "latest" is everywhere, and a future leak is what
+    happens when one place relies on another place's bound.
+    """
+    stored = (details or {}).get("points") or []
+    kept = [p for p in stored if as_of is None or p.get("date", "") <= as_of.isoformat()]
+    truncated = bool((details or {}).get("points_truncated")) or len(kept) < len(stored)
+    return kept, truncated
 
 
 def _discovered_before(tz: str, day: date | None) -> datetime | None:
@@ -116,13 +150,14 @@ def top_findings(
     ``day`` withholds every finding discovered after it — the app must not show a
     pattern on a date before anyone had found it.
     """
+    as_of = reference_day(day, tz)
     out: list[dict] = []
     for f in significant_findings(
         cur, user_id, limit=40, discovered_before=_discovered_before(tz, day)
     ):
         if is_trivial_finding(f):
             continue
-        out.append(_shape(f))
+        out.append(_shape(f, as_of))
         if len(out) >= limit:
             break
     return out
@@ -132,6 +167,7 @@ def sleep_findings(
     cur: Cur, user_id: UUID, tz: str, limit: int = 10, day: date | None = None
 ) -> list[dict]:
     """Sleep-related non-trivial findings for the Sleep page (legacy sleep slice)."""
+    as_of = reference_day(day, tz)
     out: list[dict] = []
     for f in significant_findings(
         cur, user_id, limit=80, discovered_before=_discovered_before(tz, day)
@@ -141,7 +177,7 @@ def sleep_findings(
         related = is_cutoff or a in _SLEEP_FINDING_METRICS or b in _SLEEP_FINDING_METRICS
         if not related or is_trivial_finding(f):
             continue
-        out.append(_shape(f))
+        out.append(_shape(f, as_of))
         if len(out) >= limit:
             break
     return out

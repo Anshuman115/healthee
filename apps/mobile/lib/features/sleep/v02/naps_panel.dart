@@ -12,18 +12,28 @@
 ///   'journal','moon')
 /// ```
 ///
-/// ## ⛔ `naps[].stages` IS ALWAYS EMPTY, AND THAT IS WHY NO BAR IS DRAWN
+/// ## `naps[].stages` USED TO BE STRUCTURALLY EMPTY. IT NO LONGER IS.
 ///
-/// `/api/sleep` ships `naps[].stages` as a list of `{stage, duration_min}`
-/// objects and **the server never populates it** — the shape that reaches the
-/// phone is structurally empty on every nap, on every day, for every owner. The
-/// pre-v02 card drew a stage bar from it, which meant every nap on this screen
-/// rendered a strip with nothing in it.
+/// `/api/sleep` shipped the raw hypnogram under the key a *night* uses for
+/// per-stage minute totals, so the shape that reached the phone was empty on
+/// every nap, on every day, for every owner. The pre-v02 card drew a stage bar
+/// from it and rendered a strip with nothing in it; this panel drew no bar and
+/// said in a sentence that the server did not send the breakdown.
 ///
-/// So this panel draws **no stage bar at all**, and says in words that the
-/// breakdown is not sent. An empty bar is a picture of a measurement that does
-/// not exist; a sentence is the truth. When the server starts filling that field
-/// the bar can come back, and the sentence with it.
+/// The server sends it now (`docs/BACKEND_GAPS_FROM_UI.md` A1), so **that
+/// sentence is gone — it had become false, which is worse than the gap it was
+/// describing.**
+///
+/// **No bar came back with it, and that is not an oversight.** The prototype
+/// (`design/mobile-preview/sleep-history-view.js`, quoted above) draws nap rows
+/// as text and has no stage element on this panel at all. The old comment's
+/// "when the server starts filling that field the bar can come back" was reading
+/// the pre-v02 card as the specification; it is not. Adding one now would be a
+/// design decision, and the design is the owner's.
+///
+/// What replaces the sentence is the honest half of it: [kNapsUnstagedNote] says
+/// the *strap* recorded no stages, and only when that is true of every nap shown.
+/// That is a fact about the recording rather than a complaint about the wire.
 library;
 
 import 'package:flutter/material.dart';
@@ -40,10 +50,14 @@ import 'package:healthee/shared/v02/panel_parts.dart';
 /// `H.note('No nap record included for this day.')`.
 const String kNoNapsNote = 'No nap record included for this day.';
 
-/// Why no nap here carries a stage breakdown. See the library docstring.
-const String kNapStagesNote =
-    'Your server sends a nap’s start, end and length, but not its stages, so '
-    'there is no breakdown to draw for one.';
+/// Shown only when the strap staged NONE of the naps listed. See the docstring.
+///
+/// It replaces a sentence that blamed the server for a breakdown it now sends.
+/// The distinction matters to the reader: "we were not told" and "there was
+/// nothing to tell" are different states, and only one of them is about them.
+const String kNapsUnstagedNote =
+    'The strap recorded no stage breakdown for these naps — only when they '
+    'started, when they ended and how long they ran.';
 
 /// `Naps & your day`.
 class NapsPanel extends StatelessWidget {
@@ -71,6 +85,13 @@ class NapsPanel extends StatelessWidget {
   /// Total minutes napped across [naps].
   double get totalMin =>
       naps.fold<double>(0, (sum, nap) => sum + (nap.durationMin ?? 0));
+
+  /// Whether the strap staged none of the naps shown.
+  ///
+  /// Every one, not any one: a note that fired because a single short nap went
+  /// unstaged would be describing the panel wrongly whenever another nap on it
+  /// carries a full breakdown.
+  bool get noneStaged => naps.take(shown).every((nap) => nap.stages.isEmpty);
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +125,7 @@ class NapsPanel extends StatelessWidget {
                   style: TypeScale.panelContext.copyWith(color: colors.ink),
                 ),
               ),
-            const PanelNote(kNapStagesNote),
+            if (noneStaged) const PanelNote(kNapsUnstagedNote),
           ],
           if (onOpenJournal != null) ...<Widget>[
             const SizedBox(height: linkGap),

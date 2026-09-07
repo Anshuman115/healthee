@@ -43,13 +43,10 @@ const Map<String, List<String>> kCardCitations = <String, List<String>>{
     'sleep_health_score_multidim',
     'sleep_regularity_index',
   ],
-  'Effort in context': <String>['cardio_load_trimp'],
+  'Effort in context': <String>['training_stress_score'],
   'Active minutes': <String>['mvpa_minutes_mortality', 'cadence_intensity'],
   'Strength': <String>['strength_training_mortality'],
-  'Cardiorespiratory fitness': <String>[
-    'vo2max_fitness_mortality',
-    'submaximal_vo2max',
-  ],
+  'Cardiorespiratory fitness': <String>['vo2max', 'submaximal_vo2max'],
 };
 
 /// The references that used to be pills on a card's face.

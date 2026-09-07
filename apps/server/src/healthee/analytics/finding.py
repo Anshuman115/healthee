@@ -125,6 +125,11 @@ _SELECT_KEYS = (
     "q_value",
     "n_samples",
     "research_note_ids",
+    # The computation's own extras: the two group sizes for an event effect, and the
+    # paired days behind a pairwise correlation (``correlations._attach_pairs``). It was
+    # written on every INSERT above and read by nothing, so the points a finding was
+    # measured on could not reach the screen that asks the reader to judge it.
+    "details",
 )
 
 

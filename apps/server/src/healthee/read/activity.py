@@ -48,9 +48,16 @@ def activity_snapshot(cur: Cur, user_id: UUID, tz: str, day: date | None = None)
         "total_calories": activity_metric(cur, user_id, tz, ["total_calories"], day=as_of),
         "distance": activity_metric(cur, user_id, tz, ["distance_m_daily"], day=as_of),
         "workouts": workouts_list(cur, user_id, tz, day=as_of),
+        # Manifest IDs, never aliases. ``vo2max_fitness_mortality`` and
+        # ``cardio_load_trimp`` are alias vocabulary for ``vo2max`` and
+        # ``training_stress_score``; every consumer of a cited id resolves it by id
+        # (``manifest.by_id`` / ``note_ids`` / ``grade_of``, none of which read
+        # ``aliases``), so those two named nothing and the app's ⓘ sheet opened empty.
+        # ``tests/test_source_citations.py`` states the rule for ``[[id]]`` citations in
+        # source; ``test_wire_note_ids`` there now holds the wire to it too.
         "research_notes": [
-            "vo2max_fitness_mortality",
+            "vo2max",
             "mvpa_minutes_mortality",
-            "cardio_load_trimp",
+            "training_stress_score",
         ],
     }

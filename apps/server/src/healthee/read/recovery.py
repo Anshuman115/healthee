@@ -175,7 +175,18 @@ def recovery_signals(
 ) -> dict | None:
     """Individual recovery markers (RHR / sleep duration / overnight HRV), each with
     its evidence citation. No composite score — the literature backs the markers
-    individually but has no replicated composite formula. Ported to v2-native reads."""
+    individually but has no replicated composite formula. Ported to v2-native reads.
+
+    **Each signal now ships the spread it was scored against**, not just the centre.
+    All three divide by a robust SD to get ``z`` and then sent only ``baseline`` and
+    ``z``, so a client could draw the reference LINE but not the band around it — and a
+    reader with no σ cannot tell a value one unit above a tight baseline from one unit
+    above a scattered one, which is the whole content of the z it is being handed.
+    ``baseline_sd`` is that exact divisor (``Baseline.robust_sd``, MAD scaled to a
+    normal-equivalent SD; the sleep signal's own floored form), so ``value``,
+    ``baseline``, ``baseline_sd`` and ``z`` are arithmetically consistent on the wire and
+    a band is drawable without a second read.
+    """
     as_of = reference_day(day, tz)
     candidates = (
         _rhr_signal(cur, user_id, tz, reads, as_of),
@@ -226,9 +237,12 @@ def _rhr_signal(
         "value": value,
         "unit": "bpm",
         "baseline": b.median,
+        "baseline_sd": b.robust_sd,
         "z": z,
         "direction": direction,
-        "research_note_id": "resting_hr_health_marker",
+        # The manifest ID; ``resting_hr_health_marker`` was an ALIAS — see
+        # ``read/activity.py`` for why an alias on the wire resolves to nothing.
+        "research_note_id": "resting_heart_rate",
     }
 
 
@@ -264,7 +278,11 @@ def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
     # of an even-length window rather than interpolating — not a median, and a second
     # definition of one alongside ``derive/recovery``'s. See that module's baseline.
     med = median(durs)
-    z = (today_dur - med) / robust_sd(median_abs_deviation(durs), _SLEEP_MIN_SD_MIN)
+    # The one divisor, named: it is floored at `_SLEEP_MIN_SD_MIN` (unlike the two
+    # `Baseline.robust_sd` signals, which are unfloored — see that property), so shipping
+    # the unfloored MAD instead would hand the client a σ that does not reproduce `z`.
+    sd = robust_sd(median_abs_deviation(durs), _SLEEP_MIN_SD_MIN)
+    z = (today_dur - med) / sd
     direction = (
         "favorable"
         if today_dur >= 360 and z > -0.5
@@ -277,6 +295,7 @@ def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
         "value": today_dur,
         "unit": "min",
         "baseline": med,
+        "baseline_sd": sd,
         "z": z,
         "direction": direction,
         "research_note_id": "sleep_duration_mortality",
@@ -307,7 +326,11 @@ def _hrv_signal(
         "value": round(value, 1),
         "unit": "ms",
         "baseline": round(b.median, 1),
+        # NOT rounded to the baseline's 1 dp: `z` is `(value - baseline) / baseline_sd`,
+        # and rounding the divisor would make the three numbers stop reconciling.
+        "baseline_sd": b.robust_sd,
         "z": z,
         "direction": direction,
-        "research_note_id": "hrv_recovery_marker",
+        # The manifest ID; ``hrv_recovery_marker`` was an ALIAS — see ``read/activity.py``.
+        "research_note_id": "heart_rate_variability",
     }

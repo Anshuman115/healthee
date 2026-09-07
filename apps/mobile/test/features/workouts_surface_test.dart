@@ -184,6 +184,57 @@ void main() {
         expect(disclosure.message.endsWith('.'), isTrue);
       }
     });
+
+    test('THE SERVER\'S OWN REASON WINS OVER THE ONE RECONSTRUCTED HERE', () {
+      // The point of `metrics_withheld` (`docs/BACKEND_GAPS_FROM_UI.md` B6), and
+      // TRIMP is the case that proves it. Its gate turns on a resting heart rate
+      // and the owner's sex; neither is on this payload, so this file could only
+      // ever name all four inputs and hope. The server names the one that failed.
+      final readings = WorkoutReadings(
+        workoutFixture(
+          mutate: (json) => <String, Object?>{
+            ...json,
+            'metrics': <String, Object?>{
+              ...json['metrics']! as Map<String, Object?>,
+            }..remove('trimp'),
+            'metrics_withheld': const <String, Object?>{
+              'trimp': <String, Object?>{
+                'reason': 'resting_hr_unavailable',
+                'message':
+                    'A session load is measured against your resting heart '
+                    'rate, and there was none on file for this session.',
+              },
+            },
+          },
+        ),
+      );
+      final refused = readings.trimp;
+      expect(refused, isA<Withheld<double>>());
+      final disclosure = (refused as Withheld<double>).disclosure;
+      expect(disclosure.reason, 'resting_hr_unavailable');
+      expect(disclosure.message, contains('resting heart rate'));
+      // And the local four-input sentence is NOT what reached the screen.
+      expect(disclosure.message, isNot(contains('your sex')));
+    });
+
+    test('a payload with no envelope still explains itself', () {
+      // An installed app meets servers it did not ship with. The local reasons
+      // are the fallback, and deleting them with the defect would have traded
+      // one silence for another.
+      final readings = WorkoutReadings(
+        workoutFixture(
+          mutate: (json) => <String, Object?>{
+            ...json,
+            'metrics': <String, Object?>{
+              ...json['metrics']! as Map<String, Object?>,
+            }..remove('trimp'),
+          },
+        ),
+      );
+      final disclosure = (readings.trimp as Withheld<double>).disclosure;
+      expect(disclosure.reason, 'trimp_inputs_missing');
+      expect(disclosure.message, contains('resting heart rate'));
+    });
   });
 
   group('nothing on a card face is a source chip', () {

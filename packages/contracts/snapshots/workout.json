@@ -168,6 +168,7 @@
     "speed_kmh": 8.4,
     "trimp": 36.9
   },
+  "metrics_withheld": {},
   "workout": {
     "avg_hr": 135,
     "calories": 250,

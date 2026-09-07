@@ -27,6 +27,31 @@ MIN_N = 10
 _MWU_MIN_TREATED = 3
 
 
+def aligned_pairs(
+    series_a: dict[date, float],
+    series_b: dict[date, float],
+    lag_days: int,
+) -> list[tuple[date, float, float]]:
+    """The (day, a(d), b(d + lag_days)) triples that a lag correlation is computed over.
+
+    Extracted from :func:`spearman_lag`'s own loop, unchanged, so that the points a
+    correlation was measured on can be reported beside the correlation itself
+    (``read/findings.py`` sends them; the finding-detail screen draws the scatter). It
+    is one function rather than two because a scatter assembled by a second alignment
+    rule could show a different set of days than the number it sits under was computed
+    from — a plot that quietly disagrees with its own statistic.
+
+    The date rides along because the caller needs to bound the points it serves by a
+    reference day (``docs/AS_OF_DAY.md``); :func:`spearman_lag` ignores it.
+    """
+    out: list[tuple[date, float, float]] = []
+    for d, va in series_a.items():
+        target = d + timedelta(days=lag_days)
+        if target in series_b:
+            out.append((d, va, series_b[target]))
+    return out
+
+
 def spearman_lag(
     series_a: dict[date, float],
     series_b: dict[date, float],
@@ -35,17 +60,14 @@ def spearman_lag(
     """Spearman rank correlation of a(d) vs b(d + lag_days).
 
     Returns (rho, p_value, n_pairs) or None when fewer than ``MIN_N`` day-pairs
-    align. Verbatim from legacy ``_spearman_lag``.
+    align. Verbatim from legacy ``_spearman_lag``; the pair-alignment loop moved
+    verbatim into :func:`aligned_pairs` so the same pairing feeds the reported points.
     """
-    pairs: list[tuple[float, float]] = []
-    for d, va in series_a.items():
-        target = d + timedelta(days=lag_days)
-        if target in series_b:
-            pairs.append((va, series_b[target]))
+    pairs = aligned_pairs(series_a, series_b, lag_days)
     if len(pairs) < MIN_N:
         return None
-    xa = np.asarray([p[0] for p in pairs])
-    xb = np.asarray([p[1] for p in pairs])
+    xa = np.asarray([p[1] for p in pairs])
+    xb = np.asarray([p[2] for p in pairs])
     # scipy ≥1.18 returns a SignificanceResult with .statistic/.pvalue; the stubs
     # type it loosely, so cast for the type checker (values are plain floats).
     res = cast(Any, stats.spearmanr(xa, xb))

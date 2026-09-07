@@ -35,6 +35,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/models/finding.dart';
+import 'package:healthee/shared/charts/h_scatter.dart';
 import 'package:healthee/shared/format/metric_names.dart';
 import 'package:healthee/shared/v02/stat_block.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
@@ -135,21 +136,65 @@ class StatisticsCard extends StatelessWidget {
           const CardDivider(),
           Text(correctionLine(finding), style: small),
           const SizedBox(height: Insets.lg),
-          // The prototype writes this sentence itself. It is not a placeholder:
-          // `read/findings.py` sends summary statistics only, so the points a
-          // scatter plot would need never leave the server. Saying so beats an
-          // empty frame, and beats a chart drawn from two numbers.
-          Text(kPairedValuesAbsent, style: small),
+          // The prototype's own sentence used to sit here, and it promised this
+          // chart: "A scatter plot appears here when those values are
+          // available." `read/findings.py` sent summary statistics only, so the
+          // points never left the server. It sends them now, so the promise is
+          // kept — and where it still cannot, the sentence says which of the two
+          // reasons it is rather than the one that has stopped being true.
+          if (finding.isPlottable) ...<Widget>[
+            HScatter(
+              finding.points,
+              color: colors.accent,
+              progress: 1,
+              height: scatterHeight,
+            ),
+            const SizedBox(height: Insets.sm),
+            Text(scatterCaption(finding), style: small),
+          ] else
+            Text(pairedValuesAbsent(finding), style: small),
         ],
       ),
     );
   }
+
+  /// How tall the cloud is drawn. Enough for a shape, short enough that the
+  /// sentence above it stays the thing the eye lands on first.
+  static const double scatterHeight = 148;
 }
 
-/// What the server does not send, in the prototype's own words.
-const String kPairedValuesAbsent =
-    'The response contains a summary, not the underlying paired values. '
-    'A scatter plot appears here when those values are available.';
+/// Why there is no cloud, for a finding that cannot carry one.
+///
+/// Two different states and two different sentences, because they are not the
+/// same fact about the owner's data. An event finding compares two GROUPS of
+/// days and has no paired points at all — that is permanent and about the
+/// method. Too few pairs is about this finding today.
+String pairedValuesAbsent(Finding finding) {
+  if (finding.metricB == null) {
+    return 'This one compares two groups of days rather than pairing them up, '
+        'so there are no paired values to plot.';
+  }
+  return 'Fewer than ${Finding.minPlottablePoints} paired days reached us for '
+      'this one, which is too few to be a shape rather than a line.';
+}
+
+/// What the cloud is, and whether it is all of it.
+///
+/// The count is stated because it can differ from `Paired observations` above:
+/// that figure is what the statistic was computed from, and the chart may hold
+/// fewer. A reader comparing the two and finding no explanation would be right
+/// to distrust both.
+String scatterCaption(Finding finding) {
+  final drawn = finding.points.length;
+  final metrics =
+      '${metricName(finding.metricA ?? '')} against '
+      '${metricName(finding.metricB ?? '')}';
+  if (!finding.pointsTruncated) {
+    return 'Each dot is one day — $metrics. Nothing is fitted through them.';
+  }
+  return 'Each dot is one day — $metrics, the most recent $drawn of '
+      '${finding.nSamples ?? drawn}. Nothing is fitted through them.';
+}
 
 /// The two-line statement. See the library docstring — line two never varies.
 String observationHeadline(Finding finding) {
@@ -199,9 +244,7 @@ String findingTitle(Finding finding) {
 /// `Observational · 24 samples` — the badge over everything else.
 String observationalBadge(Finding finding) {
   final samples = finding.nSamples;
-  return samples == null
-      ? 'Observational'
-      : 'Observational · $samples samples';
+  return samples == null ? 'Observational' : 'Observational · $samples samples';
 }
 
 /// The label over the coefficient.

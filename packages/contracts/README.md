@@ -88,3 +88,18 @@ and leave their dates alone. The diff a reviewer should get for a new key is the
 new key. Note also that the committed files carry literal `—` and `₂` where
 `generate.py` writes `—` and `₂`, so a hand-applied edit wants
 `ensure_ascii=False`.
+
+**A new key can carry a date of its own**, and a merge that only copied values
+across would then stamp the generating run's date inside a snapshot dated months
+earlier — `metrics[].as_of_date` and a finding's `points[].date` are both like
+this. Shift every date inside an added value by
+`snapshot["date"] - fresh["date"]` so the file stays internally consistent; a
+snapshot whose new key disagrees with its own payload date is a false record in
+the file that is meant to *be* the contract.
+
+**A CHANGED value is not a new key and no merge will find it.** Three of the
+honesty-sweep edits were value changes — `anomalies` `[]` → `null`,
+`naps[].stages` array → totals object, `weekly_mvpa_min` `null` → a number — and
+each had to be applied deliberately. The shape test compares key sets and types
+and accepts a null on either side, so it will not fail on a stale value: only
+reading the diff catches these.

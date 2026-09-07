@@ -2,8 +2,8 @@
 ///
 ///   * **no raw `snake_case` id and no `[` marker on any surface** — the whole
 ///     screen is scrolled and every string on it is read;
-///   * `naps[].stages` is asserted to be the always-empty field it is, so nobody
-///     builds a section on it believing it can have content;
+///   * `naps[].stages` carries the strap's per-stage MINUTES, as a night's does,
+///     and the panel no longer blames the server for a breakdown it now sends;
 ///   * `findings` draws nothing when it is empty, and something when it is not;
 ///   * and the screen lays out at four phone widths, none of them 800.
 library;
@@ -78,42 +78,45 @@ void main() {
   });
 
   group('naps', () {
-    test('naps[].stages is ALWAYS EMPTY, and that is a server-side shape bug', () {
-      // Recorded rather than worked around. `read/sleep_page.py` ships the raw
-      // JSONB hypnogram for a nap — `[[startMs, endMs, typeCode]]` — where
-      // `nights` ships `stage_timeline()`'s objects, so `NapStage.fromJson`
-      // never sees a map and a nap's stage list is empty on every payload.
+    test('THE SNAPSHOT CARRIES PER-STAGE MINUTES, NOT THE RAW HYPNOGRAM', () {
+      // This asserted the opposite, with a note reading "if this passes maps
+      // now, the server was fixed — drop this". It was: `read/sleep_page.py`
+      // shipped the `[[startMs, endMs, typeCode]]` array under the key a NIGHT
+      // uses for totals, so a nap's breakdown was structurally empty for every
+      // owner (`docs/BACKEND_GAPS_FROM_UI.md` A1).
       //
-      // A client-side fix would mean re-implementing the strap's stage-code
-      // mapping in the UI layer, i.e. a second definition of what a stage is.
+      // Asserted on the committed contract snapshot, so the check is against the
+      // wire rather than against a fixture this repo also writes.
       final raw = loadJson(kSleepSnapshotPath);
       final naps = raw['naps']! as List<Object?>;
       expect(naps, isNotEmpty);
       for (final nap in naps.cast<Map<String, Object?>>()) {
-        for (final span in nap['stages']! as List<Object?>) {
-          expect(
-            span,
-            isNot(isA<Map<String, Object?>>()),
-            reason: 'if this passes maps now, the server was fixed — drop this',
-          );
-        }
+        expect(nap['stages'], isA<Map<String, Object?>>());
+        expect(nap['stage_timeline'], isA<List<Object?>>());
       }
+      // And the minutes survive the parse. `isNotEmpty` on a list would have
+      // passed on a dict of zeroes; the total is what makes this a measurement.
       for (final nap in sleepPageFixture().naps) {
-        expect(nap.stages, isEmpty);
+        expect(nap.stages.total, greaterThan(0));
+        expect(nap.stages.isEmpty, isFalse);
       }
     });
 
-    testWidgets('SO THE PANEL DRAWS NO BAR, AND SAYS WHY IN WORDS', (
+    testWidgets('THE PANEL NO LONGER BLAMES THE SERVER FOR THE BREAKDOWN', (
       tester,
     ) async {
-      // An empty bar is a picture of a measurement that does not exist.
+      // The sentence it used to print — "your server sends … not its stages" —
+      // had become false, which is worse than the gap it described.
       await tester.pumpWidget(
         sleepPanelHost(NapsPanel(naps: sleepPageFixture().naps)),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(kNapStagesNote), findsOneWidget);
-      // And nothing in the panel is a stage strip.
+      expect(find.text(kNapsUnstagedNote), findsNothing);
+      // Still no stage bar, and that is the PROTOTYPE's call rather than the
+      // payload's: `sleep-history-view.js` draws nap rows as text and has no
+      // stage element on this panel. The old comment's "the bar can come back"
+      // was reading the pre-v02 card as the specification.
       expect(
         find.descendant(
           of: find.byType(NapsPanel),
@@ -121,6 +124,20 @@ void main() {
         ),
         findsNothing,
       );
+    });
+
+    testWidgets('AN UNSTAGED NAP SAYS THE STRAP DID NOT STAGE IT', (
+      tester,
+    ) async {
+      // The honest half of the sentence that went: a fact about the recording,
+      // not a complaint about the wire. Only when NO nap on the panel carries a
+      // breakdown — one that fired beside a fully staged nap would describe the
+      // panel wrongly.
+      await tester.pumpWidget(
+        sleepPanelHost(NapsPanel(naps: <SleepNap>[unstagedNap()])),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(kNapsUnstagedNote), findsOneWidget);
     });
 
     testWidgets('a day with no nap says so rather than drawing an empty list', (

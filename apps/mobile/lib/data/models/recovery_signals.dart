@@ -27,6 +27,7 @@ class RecoverySignal {
     required this.name,
     required this.value,
     required this.baseline,
+    required this.baselineSd,
     required this.z,
     required this.direction,
     required this.unit,
@@ -39,6 +40,7 @@ class RecoverySignal {
       name: json['name']! as String,
       value: (json['value'] as num?)?.toDouble(),
       baseline: (json['baseline'] as num?)?.toDouble(),
+      baselineSd: (json['baseline_sd'] as num?)?.toDouble(),
       z: (json['z'] as num?)?.toDouble(),
       direction: json['direction'] as String?,
       unit: json['unit'] as String?,
@@ -55,6 +57,21 @@ class RecoverySignal {
   /// The owner's own normal for this signal. **Not a population norm** — brief
   /// §5.2 is explicit that population norms are irrelevant here.
   final double? baseline;
+
+  /// The spread [z] was measured in — one robust standard deviation of the
+  /// owner's own window, and the exact divisor the server used.
+  ///
+  /// It arrived with `docs/BACKEND_GAPS_FROM_UI.md` B4. Before it, a reader had
+  /// a centre and a score and no way to turn one into the other, so the only
+  /// thing drawable was a reference LINE: a value one unit above a tight
+  /// baseline and one unit above a scattered one looked identical.
+  ///
+  /// **Not recomputed on the phone, ever.** `today_facts.dart` states the rule
+  /// for the centre and it holds for the spread: a second, on-device σ over the
+  /// fourteen points a card happens to hold would be a different number from the
+  /// one that produced [z], and the two would disagree in exactly the cases that
+  /// matter.
+  final double? baselineSd;
 
   /// Standard scores from [baseline]. Null when there is no baseline yet.
   final double? z;

@@ -17,6 +17,7 @@ from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.trimp import trimp_total
 from healthee.read.common import sport_name
 from healthee.read.fitness import cardio_load_payload
+from healthee.read.workout_absence import WorkoutInputs, workout_absences
 
 
 def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
@@ -42,13 +43,42 @@ def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
     zones = _zone_minutes(hrs, hrmax)
     dur_min = round((dur_s or 0) / 60) if dur_s else None
     metrics = _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones)
+    inputs = WorkoutInputs(
+        avg_hr=avg_hr,
+        max_hr=max_hr,
+        distance_m=dist,
+        duration_min=dur_min,
+        calories=cal,
+        hrmax=hrmax,
+        rhr=rhr,
+        sex=sex,
+        hr_sample_count=len(hrs),
+        zoned_minutes=sum(zones),
+    )
     return {
         "workout": _workout_block(start_ts, sport, dur_min, cal, dist, avg_hr, max_hr, min_hr),
         "hr_series": series,
         "zones": zones,
         "hrmax": hrmax,
         "metrics": metrics,
+        # The honesty envelope this payload never had: one {reason, message} per derived
+        # figure the session could not carry, so an absence arrives explained instead of
+        # being reconstructed by whoever renders it (``read/workout_absence.py``).
+        # ``zones`` is keyed here as well as in ``metrics``: an all-zero list means an
+        # easy session when an HRmax exists and a structural blank when one does not.
+        "metrics_withheld": workout_absences(inputs, set(metrics) | _present_zones(hrmax, hrs)),
     }
+
+
+def _present_zones(hrmax: float | None, hrs: list[int]) -> set[str]:
+    """``{"zones"}`` when the zone buckets are a measurement rather than a blank.
+
+    All-zero IS a reading — "no minute reached 50% of HRmax" — but only when there was an
+    HRmax to cut against AND minutes to cut. Without either, ``_zone_minutes`` returns
+    five zeroes that mean nothing was computed, which is the one thing an empty
+    collection must not be allowed to say (standards section 1).
+    """
+    return {"zones"} if hrmax and hrs else set()
 
 
 def _parse_start(start: str) -> datetime:

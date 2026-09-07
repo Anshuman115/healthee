@@ -64,7 +64,7 @@ def test_deterministic_derived_values(responses: dict) -> None:
     # the instrument that took it ([[hr_reserve_vo2max]] D4).
     assert today["vo2max"]["estimate"] == 43.0
     assert today["vo2max"]["method"] == "gps_graded"
-    assert today["vo2max"]["research_notes"] == ["vo2max_fitness_mortality", "submaximal_vo2max"]
+    assert today["vo2max"]["research_notes"] == ["vo2max", "submaximal_vo2max"]
     # Biological age end to end, and by VALUE: since #86 it is chronological + fitness +
     # sleep duration ONLY, and since #97 the sleep term is read at the QUESTIONNAIRE
     # equivalent of the seeded 380 min (6.333 h → 7.0 h, exactly Yin's nadir, so HR = 1.0

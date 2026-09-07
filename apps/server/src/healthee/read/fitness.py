@@ -22,7 +22,9 @@ from uuid import UUID
 
 from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day
 from healthee.derive._common import Cur, _day_bounds_utc
+from healthee.derive.freshness import NOT_DERIVED_YET_MESSAGE, unavailable_reason, withheld_block
 from healthee.read.common import derived_series, latest_derived, sport_name
+from healthee.read.mvpa_week import mvpa_week, weekly_mvpa_rows
 from healthee.read.vo2max import vo2max_payload
 
 # Auto-detected sub-10-min bouts are movement noise, not structured exercise
@@ -70,7 +72,9 @@ def cardio_load_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = Non
         "rhr": flags.get("rhr"),
         "hr_minutes": flags.get("hr_minutes"),
         "trend_30d": trend,
-        "research_notes": ["cardio_load_trimp"],
+        # The manifest ID. ``cardio_load_trimp`` is an ALIAS of it, and an alias resolves
+        # to nothing in every consumer of a cited id — see ``read/activity.py``.
+        "research_notes": ["training_stress_score"],
     }
 
 
@@ -102,51 +106,25 @@ def _strain(cur: Cur, user_id: UUID, as_of: date, latest_load: float) -> float |
     return strain_from_load(latest_load, p95)
 
 
-def _weekly_mvpa_rows(cur: Cur, user_id: UUID, as_of: date, days: int) -> list[tuple]:
-    """(day, moderate, vigorous, mvpa) for the ``days`` days ENDING at ``as_of`` —
-    moderate/vigorous read from the ``mvpa_min`` flags (v2 stores them there, not as
-    own rows)."""
-    cur.execute(
-        "SELECT day, COALESCE((flags->>'moderate')::float,0), "
-        "COALESCE((flags->>'vigorous')::float,0), value FROM derived_daily "
-        f"WHERE user_id = %s AND metric='mvpa_min' AND day > ({AS_OF_DAY_SQL} - %s::int) "
-        f"AND day <= {AS_OF_DAY_SQL} ORDER BY day",
-        (user_id, as_of, days, as_of),
-    )
-    return cur.fetchall()
-
-
 def mvpa_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
     """Weekly moderate-to-vigorous minutes vs the WHO 150-min target + 8-day
     breakdown, as of a day. [[mvpa_minutes_mortality]], [[cadence_intensity]].
 
-    "This week" is the week CONTAINING the reference day and it stops there: a Wednesday
-    in June reports Monday-to-Wednesday, not that whole June week seen from August.
-    ``today_min`` means the reference day's own minutes, for the same reason.
+    The summing itself moved to ``read/mvpa_week.py`` when ``read/vo2max.py`` stopped
+    shipping ``weekly_mvpa_min`` as a hardcoded null: two surfaces reporting one
+    quantity get one implementation, or they get two definitions of "this week".
     """
-    as_of = reference_day(day, tz)
-    rows = _weekly_mvpa_rows(cur, user_id, as_of, 8)
-    if not rows:
+    week = mvpa_week(cur, user_id, reference_day(day, tz))
+    if week is None:
         return None
-    monday = as_of - timedelta(days=as_of.weekday())
-    daily, week_mod, week_vig, week_mvpa, today_mvpa = [], 0, 0, 0, 0
-    for d, m, v, mv in rows:
-        m_i, v_i, mv_i = int(m), int(v), int(mv)
-        daily.append(
-            {"date": d.isoformat(), "moderate_min": m_i, "vigorous_min": v_i, "mvpa_min": mv_i}
-        )
-        if d >= monday:
-            week_mod, week_vig, week_mvpa = week_mod + m_i, week_vig + v_i, week_mvpa + mv_i
-        if d == as_of:
-            today_mvpa = mv_i
     return {
-        "today_min": today_mvpa,
-        "week_min": week_mvpa,
+        "today_min": week.on_day_min,
+        "week_min": week.mvpa_min,
         "week_target": 150,
-        "week_moderate_min": week_mod,
-        "week_vigorous_min": week_vig,
-        "week_start_iso": monday.isoformat(),
-        "daily": daily,
+        "week_moderate_min": week.moderate_min,
+        "week_vigorous_min": week.vigorous_min,
+        "week_start_iso": week.week_start.isoformat(),
+        "daily": week.daily,
         "research_notes": ["mvpa_minutes_mortality", "cadence_intensity"],
     }
 
@@ -278,7 +256,7 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = No
     gain = round(min(5.0, max(2.0, 0.4 * max(0.0, median_ref - cur_vo))), 1)
     monday = as_of - timedelta(days=as_of.weekday())
     wk = {m: 0.0 for m in ("moderate_min", "vigorous_min")}
-    for _d, mod, vig, _mv in _weekly_mvpa_rows(cur, user_id, as_of, (as_of - monday).days + 1):
+    for _d, mod, vig, _mv in weekly_mvpa_rows(cur, user_id, as_of, (as_of - monday).days + 1):
         wk["moderate_min"] += mod
         wk["vigorous_min"] += vig
     return {
@@ -296,7 +274,8 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = No
             "vilpa_desc": "1 hard session — 4-5 × 1-min brisk-to-hard bursts "
             "(stairs / hill / fast walk)",
         },
-        "note_id": "vo2max_training_program",
+        # ``vo2max_training_program`` is an ALIAS of ``vo2max`` — see ``read/activity.py``.
+        "note_id": "vo2max",
         "trend_90d": vo.get("trend_90d") or [],
     }
 
@@ -315,17 +294,36 @@ def activity_metric(
     ``caveats`` is a permanent key and empty for a metric with nothing to disclose — the
     same contract ``read/today_series.py::_derived_card`` holds, because the Activity tab
     and the Today card render the same two calorie rows and must not differ on whether the
-    weight behind them is current (#127)."""
+    weight behind them is current (#127).
+
+    **The freshness gate is here for the same reason, and it is the same gate.** This
+    already carried ``as_of_date``, which the Today card did not — but a date is only half
+    the contract, and half of it was on each side: the Activity tab dated a value it
+    would still present as the day's, and the Today card refused nothing and said nothing.
+    Two surfaces rendering one row cannot answer "is this current" differently, or the
+    stale number simply moves one tab across (``derive/freshness.py``: five checks is how
+    a metric ends up with two definitions of current).
+    """
     as_of = reference_day(day, tz)
     for cand in candidates:
         latest = latest_derived(cur, user_id, cand, as_of)
         if latest:
             row_day, value, flags = latest
+            reason = unavailable_reason(as_of, row_day)
             return {
                 "metric": cand,
-                "value": round(value, 1),
+                "value": None if reason else round(value, 1),
                 "as_of_date": row_day.isoformat(),
                 "caveats": flags.get("caveats") or [],
+                "withheld": withheld_block(
+                    reason, NOT_DERIVED_YET_MESSAGE, as_of, row_day, last_value=round(value, 1)
+                )
+                if reason
+                else None,
+                # The series keeps its own days and is NOT withheld: a trend that ends
+                # before the reference day is honest as long as nothing claims it ends on
+                # it (``read/vo2max.py`` keeps ``trend_90d`` on a withheld day for the
+                # same reason).
                 "trend": derived_series(cur, user_id, cand, days, as_of),
             }
     return None

@@ -125,7 +125,8 @@
         "value": 620.0
       }
     ],
-    "value": 620.0
+    "value": 620.0,
+    "withheld": null
   },
   "acwr": {
     "acute_7d": 55.0,
@@ -146,7 +147,7 @@
     "hrmax": 185,
     "load": 55.0,
     "research_notes": [
-      "cardio_load_trimp"
+      "training_stress_score"
     ],
     "rhr": 55,
     "strain": 21.0,
@@ -408,13 +409,14 @@
         "value": 6100.0
       }
     ],
-    "value": 6100.0
+    "value": 6100.0,
+    "withheld": null
   },
   "fitness_plan": {
     "current": 41.5,
     "gain": 2.0,
     "median_for_age": 39.7,
-    "note_id": "vo2max_training_program",
+    "note_id": "vo2max",
     "plan": {
       "vilpa_desc": "1 hard session — 4-5 × 1-min brisk-to-hard bursts (stairs / hill / fast walk)",
       "vilpa_done_min": 20,
@@ -427,122 +429,152 @@
     "trend_90d": [
       {
         "date": "2026-07-02",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-03",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-04",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-05",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-06",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-07",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-08",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-09",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-10",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-11",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-12",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-13",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-14",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-15",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-16",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-17",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-18",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-19",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-20",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-21",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-22",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-23",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-24",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-25",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-26",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-27",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-28",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-29",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-30",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-31",
+        "method": "gps_graded",
         "value": 41.5
       }
     ],
@@ -611,9 +643,9 @@
     "week_vigorous_min": 20
   },
   "research_notes": [
-    "vo2max_fitness_mortality",
+    "vo2max",
     "mvpa_minutes_mortality",
-    "cardio_load_trimp"
+    "training_stress_score"
   ],
   "steps": {
     "as_of_date": "2026-07-31",
@@ -741,7 +773,8 @@
         "value": 8200.0
       }
     ],
-    "value": 8200.0
+    "value": 8200.0,
+    "withheld": null
   },
   "total_calories": {
     "as_of_date": "2026-07-31",
@@ -869,7 +902,8 @@
         "value": 2350.0
       }
     ],
-    "value": 2350.0
+    "value": 2350.0,
+    "withheld": null
   },
   "vo2max": {
     "age_years": 35,
@@ -890,7 +924,7 @@
     "n_sessions": 1,
     "out_of_range_inputs": [],
     "research_notes": [
-      "vo2max_fitness_mortality",
+      "vo2max",
       "submaximal_vo2max"
     ],
     "see_ml_kg_min": 2.95,
@@ -907,6 +941,7 @@
       "trend": [
         {
           "date": "2026-07-31",
+          "method": "gps_graded",
           "value": 43.0
         }
       ]
@@ -914,122 +949,152 @@
     "trend_90d": [
       {
         "date": "2026-07-02",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-03",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-04",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-05",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-06",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-07",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-08",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-09",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-10",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-11",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-12",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-13",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-14",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-15",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-16",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-17",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-18",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-19",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-20",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-21",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-22",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-23",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-24",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-25",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-26",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-27",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-28",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-29",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-30",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-31",
+        "method": "gps_graded",
         "value": 43.0
       }
     ],

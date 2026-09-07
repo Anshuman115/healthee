@@ -177,6 +177,7 @@ void _nightChapter(
           facts.spark(TodayMetricIds.heartRateVariability).length,
           facts.heartRateVariabilityBaseline,
           'ms',
+          facts.heartRateVariabilityBaselineSd,
         ),
       ),
       right: MiniTrendPanel(
@@ -195,6 +196,7 @@ void _nightChapter(
           facts.spark(TodayMetricIds.restingHeartRate).length,
           facts.median(TodayMetricIds.restingHeartRate),
           'bpm',
+          facts.spread(TodayMetricIds.restingHeartRate),
         ),
       ),
     ),
@@ -287,9 +289,23 @@ VoidCallback? _metric(TodayExtras extras, String metric) {
 /// from the one every other surface quotes — a second definition arriving as a
 /// helpful-looking last resort. A metric the server has not baselined draws no
 /// baseline.
-String _baselineNote(int samples, double? baseline, String unit) {
+/// `14 nights · baseline 44 ± 6 ms`.
+///
+/// The ± is the server's own `sd_30d` / `baseline_sd`
+/// (`docs/BACKEND_GAPS_FROM_UI.md` B4) — one robust standard deviation of the
+/// same 30 days the median came from, and the exact divisor behind the `z` the
+/// rest of the payload quotes. Without it "baseline 44" is a point, and a
+/// reading of 50 could be a normal night or an extraordinary one.
+///
+/// It is dropped rather than defaulted when the server sends none: a baseline
+/// with no spread is still a baseline, and a ± computed from the fourteen points
+/// on the chart beside it would be a spread over a different window from the
+/// centre it is attached to.
+String _baselineNote(int samples, double? baseline, String unit, [double? sd]) {
   final nights = '$samples ${samples == 1 ? 'night' : 'nights'}';
-  return baseline == null
-      ? nights
-      : '$nights · baseline ${baseline.round()} $unit';
+  if (baseline == null) {
+    return nights;
+  }
+  final spread = sd == null ? '' : ' ± ${sd.round()}';
+  return '$nights · baseline ${baseline.round()}$spread $unit';
 }

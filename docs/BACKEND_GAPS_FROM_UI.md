@@ -20,66 +20,130 @@ screens, ranked by whether it can mislead the owner.
 | Endpoints the app calls | 25 |
 | Exposed but never called | `/api/sleep/health_score`, `/api/today/action`, the challenge/program/recommendation mutation routes the app reaches by other means, `/device`, `/me`, `/healthz`, `/readyz` |
 | Screens blocked on missing data | **0** |
-| Gaps that can put a wrong number on screen | **4** (section A) |
+| Gaps that can put a wrong number on screen | **0** — all four of section A are CLOSED |
 
 ---
 
 ## A. Correctness — these can put a wrong or unqualified number on screen
 
-**A1. `naps[].stages` is structurally always empty.** `read/sleep_page.py:244`
-ships the raw JSONB where `nights` ships shaped objects. Every nap stage bar
-rendered blank. The client now says the breakdown is not sent, so the app is
-apologising for a server bug. **Fix is a shape correction on the server.**
+**All four are CLOSED.** What each was, and what closing it turned out to need:
 
-**A2. `rhr_daily` ships with no date and no freshness gate**
-(`read/today_series.py::_derived_card`). An older night's resting heart rate can
-render as today's — the same stale-as-current shape as issue #108, on a
-different metric.
+**A1. `naps[].stages` was structurally always empty** — `read/sleep_page.py`
+shipped the raw hypnogram JSONB under the key a *night* uses for per-stage minute
+TOTALS, so a client reading totals got an array it could make nothing of and
+every nap bar rendered blank. The typed minute columns were on the row the whole
+time and were not selected. A nap now shapes through `stage_totals` and
+`stage_timeline` — the same two helpers a night uses, because a second shaping of
+one thing is how the two drift.
 
-**A3. `anomalies` is `[]` unconditionally** (`read/today.py:83`). The real data
-is behind premium `/api/notable`. An empty array is indistinguishable from
-"nothing was anomalous", so the screen reads as a clean bill of health that
-nothing computed.
+**A2. `rhr_daily` shipped with no date and no freshness gate** — CLOSED, and it
+was never only RHR: `_derived_card` unpacked `latest_derived` as `_day, value,
+flags` and threw the date away for **every** metric in the Today row. The card
+carries `as_of_date` always, and past `freshness.unavailable_reason` its `value`
+goes null behind a `withheld` block carrying the last reading.
 
-**A4. `read/activity.py`, `read/fitness.py` and `read/vo2max.py` emit note
-*aliases*, not ids.** Citation resolution is by id, so a rename on the corpus
-side silently degrades grounding on three surfaces. The client shows an
-unresolved marker, which is correct and also a defect nobody caused today.
+> **`read/fitness.py::activity_metric` needed the same gate**, and that was found
+> by a test rather than by reading. The Activity tab dated its value and served it
+> anyway while the Today card did neither — half the contract on each side, which
+> is how a stale number moves one tab across instead of disappearing. Two surfaces
+> render the same row and now answer "is this current" with the same function.
+
+**A3. `anomalies` was `[]` unconditionally** — it is `null` now, with an
+`anomalies_withheld` block naming the reason and pointing at `/api/notable`.
+Serving the shifts from `/api/today` instead was considered and refused, on two
+grounds recorded at the site: `analytics.anomalies.detect` anchors its window on
+`USER_TODAY_SQL` and opens a transaction per metric, so it would be a future leak
+on any past day *and* a per-metric connection fan-out on the request path; and
+`/api/notable` already owns the question, deduped and with a grounded meaning per
+shift, so a second scan would be a second definition of "notable for this owner".
+
+**A4. Three read modules emitted note *aliases*, not ids** — fixed, and the sweep
+found **two more the report had not**: `read/recovery.py` shipped
+`resting_hr_health_marker` and `hrv_recovery_marker`, aliases of
+`resting_heart_rate` and `heart_rate_variability`. Five sites, not three.
+
+> The durable half is the guard, not the rename.
+> `tests/read/test_wire_honesty.py::test_every_note_id_on_the_wire_resolves_to_a_manifest_id`
+> walks `/api/today`, `/api/activity` and `/api/sleep`, collects every note
+> reference under any of the six keys the read layer files them under, and fails
+> on anything that is not a manifest id. It is the wire counterpart of
+> `tests/test_source_citations.py`, which holds the same rule for `[[id]]`
+> citations in source — and which says why an alias must not count: nothing that
+> consumes a cited id reads the alias list, so an alias resolves to nothing *in
+> the behaviour that matters* and the explainer sheet opens blank.
 
 ---
 
 ## B. Thin — the screen works, but shows less than it should
 
-**B1. Findings carry summary statistics only — no paired values.**
-`read/findings.py:81-91` sends `effect_size`, `q_value`, `n_samples`,
-`lag_days`; the underlying points never leave the server. So the finding-detail
-screen cannot draw the one chart that would let the owner see for themselves
-that a correlation is not a cause. The prototype's own fallback sentence is
-shipped instead. **Cheap to add**: `analytics/correlations.py:47` already holds
-both full series in memory at compute time.
+**B1, B2, B3, B4 and B6 are CLOSED. B5 stands**, and is left as it is because the
+Sleep page's shortfall is already honest about what it counts.
 
-**B2. VO₂max history carries no per-point method metadata.**
-`read/vo2max.py:180` builds `trend_90d` as `{date, value}` and discards the
-third tuple element. The chart therefore says, correctly, that a method change
-cannot be told from a fitness change. Emitting `method` per point turns a caveat
-into a legend.
+**B1. Findings carried summary statistics only — no paired values.** — **CLOSED.**
 
-**B3. `weekly_mvpa_min` is hardcoded `None`** (`read/vo2max.py:186`) while
-`/api/activity.mvpa.week_min` computes exactly that number.
+Each pairwise finding now travels with `points: [{date, a, b}]`, `points_n` and
+`points_truncated`. They are not reconstructed at read time: `stats.aligned_pairs`
+is the pairing loop lifted out of `spearman_lag` itself, so the scatter cannot
+show a different set of days than the number above it was computed from, and
+`correlations._attach_pairs` records them in `details` — the JSONB column that
+already carried an event finding's group sizes and that `_SELECT_KEYS` never read.
 
-**B4. No σ anywhere on `/api/today`** — only a centre and a precomputed `z`.
-Exposing `Baseline.robust_sd` is ~4 lines plus a contract snapshot, and turns
-three reference *lines* into *bands* with **zero client change**.
+Bounded three ways, because `daily_series` reads the owner's **entire** history:
+attached only after significance is marked and only to findings that survive it;
+capped at `MAX_REPORTED_PAIRS` keeping the most recent; and re-bounded by the
+reference day at read time rather than inheriting the finding's own `computed_at`
+gate — relying on another place's bound is how "latest" leaks. When the served set
+is partial the payload says so, because a scatter silently showing fewer points
+than its own `n_samples` invites a check it cannot support.
+
+> **The cap is 90 and it is argued against the surface, not chosen.** The scatter
+> is ~320 px wide with a 3 px dot radius, so the x-axis holds roughly 50 separable
+> columns; at 90 points the cloud is already ~2 dots per column, and denser is a
+> smear. At ~39 bytes a pair that bounds the worst case at ~18 KB on a Today
+> payload this report measures at ~20 KB — the first draft used 180, which would
+> have doubled the payload to draw detail nobody can see.
+
+Event findings get no points, deliberately: a Mann-Whitney effect compares two
+groups, so an x-axis for it would be a chart the statistic does not license.
+
+**B2. VO₂max history carried no per-point method.** — **CLOSED.** `trend_90d` and
+`submax.trend` both name their instrument per point. The two default an undated
+row *differently* on purpose — a `vo2max_estimate` row without a method predates
+#117 and is Jurca, a `vo2max_submax` row without one predates #114 and is a graded
+fit — so one shared default would mislabel one of the two series.
+
+**B3. `weekly_mvpa_min` was hardcoded `None`.** — **CLOSED**, and not by a second
+sum. The summing moved to `read/mvpa_week.py` and both surfaces read it, because
+`read/fitness.py` imports `read/vo2max.py` and the arrow only points one way. Null
+survives only where there is genuinely nothing to sum — never `0`, which would
+read as a measured week of stillness.
+
+**B4. No σ anywhere on `/api/today`.** — **CLOSED.** The three recovery signals
+ship `baseline_sd`, the exact divisor their own `z` was computed with (including
+the sleep signal's *floored* form — the unfloored MAD would not reproduce its z),
+and the secondary cards ship `sd_30d` alongside `median_30d` for the same reason.
 
 **B5. `/api/sleep` sends no need and no debt.** Those live in Today's block, so
 Sleep computes a shortfall over measured nights and honestly labels the stat
 `Nights counted`, never `Modelled nights`.
 
-**B6. `/api/activity/workout` is the only payload with NO honesty envelope.**
-It sends a bare nullable for every derived metric and no `withheld` block, so
-nothing on the wire makes the screen explain an absence.
-`data/workouts/workout_readings.dart` is what does, reading each reason off data
-the app already holds. No remedy is invented, but the server should be saying it.
+**B6. `/api/activity/workout` was the only payload with NO honesty envelope.** —
+**CLOSED.** `metrics_withheld` is `{metric: {reason, message}}` for every derived
+figure the session could not carry, built in `read/workout_absence.py` for exactly
+the keys `_metrics` did not produce.
+
+The gain over the client-side reconstruction is the one the app's own docstring
+named: **the server can see which input was missing.** A session TRIMP needs an
+HRmax, a resting heart rate, the owner's sex and heart-rate samples, and the
+middle two are not on that payload at all — so `workout_readings.dart` could only
+list all four and hope. The server names the one that failed.
+
+No remedy is invented, and that is a rule rather than an omission: `withheld_block`
+earns its second-person "do this and it comes back" for a stale weight, but a
+treadmill run recorded no distance and never will, so each message states the
+precondition and stops. `zones` is keyed here too — an all-zero zone list is a
+real reading about an easy session when an HRmax exists and a structural blank
+when one does not, and only the server can tell those apart.
 
 ---
 

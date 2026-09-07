@@ -18,13 +18,14 @@ import 'package:meta/meta.dart';
 @immutable
 class TrendPoint {
   /// A dated value.
-  const TrendPoint({required this.date, required this.value});
+  const TrendPoint({required this.date, required this.value, this.method});
 
-  /// Parses `{"date": "2026-07-31", "value": 43.0}`.
+  /// Parses `{"date": "2026-07-31", "value": 43.0}`, and the instrument if sent.
   factory TrendPoint.fromJson(Map<String, Object?> json) {
     return TrendPoint(
       date: json['date']! as String,
       value: (json['value']! as num).toDouble(),
+      method: json['method'] as String?,
     );
   }
 
@@ -33,6 +34,21 @@ class TrendPoint {
 
   /// The value on that date.
   final double value;
+
+  /// Which instrument read this point, when the series carries one.
+  ///
+  /// `vo2max.trend_90d` and `vo2max.submax.trend` do
+  /// (`docs/BACKEND_GAPS_FROM_UI.md` B2); the sparklines and the cardio-load
+  /// trend do not, because each of those has exactly one instrument and a key
+  /// repeating the same word on every point would be noise.
+  ///
+  /// It exists because a VO₂max series changes instrument between points BY
+  /// DESIGN — `derive/vo2max_tier.py` picks a graded fit, a reserve inversion or
+  /// Jurca depending on what the day had — so a step in the line can be a change
+  /// of ruler rather than a change in the owner. Null means the server did not
+  /// say, which is not the same as "one method throughout" and must not be
+  /// rendered as it.
+  final String? method;
 
   /// Parses a whole series, skipping entries that are not a dated number.
   ///
@@ -51,15 +67,31 @@ class TrendPoint {
   }
 
   /// Just the values, in order — what a chart painter wants.
-  static List<double> valuesOf(List<TrendPoint> points) =>
-      [for (final point in points) point.value];
+  static List<double> valuesOf(List<TrendPoint> points) => [
+    for (final point in points) point.value,
+  ];
+
+  /// How many distinct instruments read [points], ignoring the ones that did
+  /// not say.
+  ///
+  /// More than one means the line crosses a change of ruler, which is the whole
+  /// reason the key exists. Zero means the server named none — a caller must
+  /// tell that apart from one, because "we were not told" and "one method
+  /// throughout" are different claims.
+  static Set<String> methodsIn(List<TrendPoint> points) => <String>{
+    for (final point in points)
+      if (point.method case final String method) method,
+  };
 
   @override
   bool operator ==(Object other) =>
-      other is TrendPoint && other.date == date && other.value == value;
+      other is TrendPoint &&
+      other.date == date &&
+      other.value == value &&
+      other.method == method;
 
   @override
-  int get hashCode => Object.hash(date, value);
+  int get hashCode => Object.hash(date, value, method);
 
   @override
   String toString() => '$date=$value';

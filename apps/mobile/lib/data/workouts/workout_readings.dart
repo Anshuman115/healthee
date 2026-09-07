@@ -2,21 +2,31 @@
 ///
 /// ## Why this file exists at all
 ///
-/// `/api/activity/workout` is the one payload in this app that carries **no
+/// `/api/activity/workout` used to be the one payload in this app carrying **no
 /// honesty envelope**. `read/workout.py` writes a derived metric into its
-/// `metrics` object only when that metric's inputs existed, and simply omits it
-/// otherwise: no `withheld`, no `reason`, no sentence. So `readingFrom` — the
-/// single site that folds a server block into a [Reading] — has nothing to fold,
-/// and the screen would be back to the nullable fields `reading.dart` exists to
-/// replace, with a silent gap wherever an input was missing. The pre-v02 screen
-/// did exactly that: `if (detail.trimp != null) Text(...)`, and a session with no
-/// TRIMP said nothing about why.
+/// `metrics` object only when that metric's inputs existed, and simply omitted
+/// it otherwise: no `withheld`, no `reason`, no sentence. So `readingFrom` — the
+/// single site that folds a server block into a [Reading] — had nothing to fold,
+/// and the screen would have been back to the nullable fields `reading.dart`
+/// exists to replace, with a silent gap wherever an input was missing. The
+/// pre-v02 screen did exactly that: `if (detail.trimp != null) Text(...)`, and a
+/// session with no TRIMP said nothing about why.
 ///
-/// ## The rule that keeps this honest rather than inventive
+/// ## The server says it now, and this file reads it rather than repeating it
 ///
-/// **Every reason here is read off the payload the app is already holding**, not
-/// guessed. `read/workout.py` states each precondition in code, and all but one
-/// of them is visible on the wire:
+/// `metrics_withheld` (`docs/BACKEND_GAPS_FROM_UI.md` B6) carries one
+/// `{reason, message}` per absent figure, keyed by its `metrics` key, and every
+/// getter below prefers it. **That is a gain in truth, not only in tidiness**,
+/// and the session load is the proof: TRIMP turns on an HRmax, a resting heart
+/// rate, the owner's sex and heart-rate samples, and the middle two are not on
+/// this payload at all. This file could only ever name all four and hope; the
+/// server names the one that actually failed.
+///
+/// ## The local reasons stay, as the fallback, under the same rule
+///
+/// **Every reason written here is read off the payload the app is already
+/// holding**, never guessed. `read/workout.py` states each precondition in code,
+/// and all but one is visible on the wire:
 ///
 /// ```text
 ///   pace, speed        distance > 50 m AND a duration   → both in `workout`
@@ -27,18 +37,21 @@
 ///   session TRIMP      HRmax, resting HR, sex, samples  → only partly visible
 /// ```
 ///
-/// TRIMP is the exception and it is treated as one: its sentence names all four
-/// of its inputs rather than pretending to know which of them was missing. Where
-/// the app genuinely cannot say, it falls back to [unexplainedAbsenceMessage] —
-/// the shared sentence for "no value and no reason", which `envelope.dart` wrote
-/// precisely so nobody would be tempted to make a nicer one up.
+/// They are kept rather than deleted because an installed app meets servers it
+/// did not ship with, and a payload without the envelope must still explain
+/// itself. Two of the readings below — [distanceKm] and [heartRate] — have no
+/// server key at all: they are absences of *measurements*, not of derivations,
+/// so nothing on the server has an opinion about them and this file is their
+/// only author. Where neither can say, the shared [unexplainedAbsenceMessage] is
+/// used — `envelope.dart` wrote it precisely so nobody would make a nicer one up.
 ///
 /// ## What is deliberately NOT here
 ///
-/// No remedy is invented. `withheld_block`'s second-person "do this and it comes
-/// back" is the server's to write, and it did not write one; a *"sync and it will
-/// appear"* on a treadmill run with no GPS would be an instruction that cannot
-/// work. A truthful absence with no action beats an action that is not one.
+/// No remedy is invented, on either side of the wire. `withheld_block`'s
+/// second-person "do this and it comes back" is earned by a stale weight; a
+/// *"sync and it will appear"* on a treadmill run with no GPS would be an
+/// instruction that cannot work. A truthful absence with no action beats an
+/// action that is not one.
 library;
 
 import 'package:healthee/data/device/device_day.dart';
@@ -79,12 +92,20 @@ class WorkoutReadings {
   );
 
   /// Minutes per kilometre, as the server computed them.
-  Reading<double> get pace =>
-      _read(detail.paceMinPerKm, 'pace_needs_distance_and_duration', _paceWhy);
+  Reading<double> get pace => _read(
+    detail.paceMinPerKm,
+    'pace_needs_distance_and_duration',
+    _paceWhy,
+    serverKey: 'pace_min_per_km',
+  );
 
   /// Kilometres per hour, from the same two inputs as [pace].
-  Reading<double> get speed =>
-      _read(detail.speedKmh, 'speed_needs_distance_and_duration', _paceWhy);
+  Reading<double> get speed => _read(
+    detail.speedKmh,
+    'speed_needs_distance_and_duration',
+    _paceWhy,
+    serverKey: 'speed_kmh',
+  );
 
   /// The session's average heart rate, as the strap summarised it.
   Reading<int> get avgHr =>
@@ -116,6 +137,7 @@ class WorkoutReadings {
     'hrmax_unavailable',
     'Zone minutes are cut against an HRmax estimate, and the server sent none '
         'for this session.',
+    serverKey: 'zones',
   );
 
   /// How many of the session's minutes landed in a zone.
@@ -128,6 +150,7 @@ class WorkoutReadings {
     'trimp_inputs_missing',
     'A session load needs your HRmax, your resting heart rate and your sex on '
         'the server, together with heart-rate samples inside the session.',
+    serverKey: 'trimp',
   );
 
   /// The strap's own calorie count for the session.
@@ -143,15 +166,24 @@ class WorkoutReadings {
     'drift_needs_six_minutes',
     'Comparing the halves of a session needs at least '
         '$kDriftMinimumSamples recorded heart-rate minutes.',
+    serverKey: 'hr_drift_bpm',
   );
 
   /// The average, as a percentage of HRmax.
-  Reading<double> get avgPercentHrmax =>
-      _read(detail.averagePercentHrmax, 'hrmax_unavailable', _percentWhy);
+  Reading<double> get avgPercentHrmax => _read(
+    detail.averagePercentHrmax,
+    'hrmax_unavailable',
+    _percentWhy,
+    serverKey: 'avg_pct_hrmax',
+  );
 
   /// The peak, on the same scale.
-  Reading<double> get maxPercentHrmax =>
-      _read(detail.maxPercentHrmax, 'hrmax_unavailable', _percentWhy);
+  Reading<double> get maxPercentHrmax => _read(
+    detail.maxPercentHrmax,
+    'hrmax_unavailable',
+    _percentWhy,
+    serverKey: 'max_pct_hrmax',
+  );
 
   static const String _paceWhy =
       'A pace needs both a recorded distance and a duration. The server '
@@ -165,18 +197,30 @@ class WorkoutReadings {
       'A share of HRmax needs an HRmax estimate, and the server sent none for '
       'this session.';
 
-  /// [value] as a [Present], or a [Withheld] carrying [reason] and [message].
+  /// [value] as a [Present], or a [Withheld] explaining why it is not there.
+  ///
+  /// The server's own disclosure wins whenever [serverKey] names one it sent:
+  /// it saw inputs this payload does not carry, so where the two disagree the
+  /// wire is the one that knows. [reason] and [message] are the fallback, for a
+  /// figure the server has no opinion about and for a server that predates the
+  /// envelope.
   ///
   /// An empty [message] cannot happen from this file, and if it ever did the
   /// shared "no value and no reason" sentence is used rather than a blank one —
   /// `envelope.dart` makes the same call at the same boundary.
-  static Reading<T> _read<T extends Object>(
+  Reading<T> _read<T extends Object>(
     T? value,
     String reason,
-    String message,
-  ) {
+    String message, {
+    String? serverKey,
+  }) {
     if (value != null) {
       return Present<T>(value);
+    }
+    if (serverKey != null) {
+      if (detail.withheld[serverKey] case final Disclosure stated) {
+        return Withheld<T>(stated);
+      }
     }
     return message.isEmpty
         ? Withheld<T>(

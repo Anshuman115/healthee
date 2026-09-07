@@ -1,6 +1,11 @@
 {
   "action": null,
-  "anomalies": [],
+  "anomalies": null,
+  "anomalies_withheld": {
+    "endpoint": "/api/notable",
+    "message": "The Today page does not scan for notable shifts, so this is not an all-clear — nothing here has looked. The scan lives on /api/notable.",
+    "reason": "not_computed_on_this_endpoint"
+  },
   "as_of": {
     "day": "2026-07-31",
     "derived_at": "2026-07-31T02:14:07.512340+00:00",
@@ -71,7 +76,7 @@
     "hrmax": 185,
     "load": 55.0,
     "research_notes": [
-      "cardio_load_trimp"
+      "training_stress_score"
     ],
     "rhr": 55,
     "strain": 21.0,
@@ -313,62 +318,80 @@
   "metrics": [
     {
       "anomalous": false,
+      "as_of_date": "2026-07-31",
       "caveats": [],
       "label": "Resting HR",
       "median_30d": 55.0,
       "metric": "rhr_daily",
+      "sd_30d": 0.0,
       "unit": "bpm",
       "value": 55.0,
+      "withheld": null,
       "z": null
     },
     {
       "anomalous": false,
+      "as_of_date": "2026-07-31",
       "caveats": [],
       "label": "Steps",
       "median_30d": 8200.0,
       "metric": "steps_total",
+      "sd_30d": 0.0,
       "unit": null,
       "value": 8200.0,
+      "withheld": null,
       "z": null
     },
     {
       "anomalous": false,
+      "as_of_date": "2026-07-31",
       "caveats": [],
       "label": "Active calories",
       "median_30d": 620.0,
       "metric": "active_calories",
+      "sd_30d": 0.0,
       "unit": "kcal",
       "value": 620.0,
+      "withheld": null,
       "z": null
     },
     {
       "anomalous": false,
+      "as_of_date": "2026-07-31",
       "caveats": [],
       "label": "Total calories",
       "median_30d": 2350.0,
       "metric": "total_calories",
+      "sd_30d": 0.0,
       "unit": "kcal",
       "value": 2350.0,
+      "withheld": null,
       "z": null
     },
     {
       "anomalous": false,
+      "as_of_date": "2026-07-31",
       "caveats": [],
       "label": "BMR (resting)",
       "median_30d": 1730.0,
       "metric": "basal_calories",
+      "sd_30d": 0.0,
       "unit": "kcal",
       "value": 1730.0,
+      "withheld": null,
       "z": null
     },
     {
       "anomalous": false,
+      "as_of_date": "2026-07-31",
       "caveats": [],
       "label": "Distance",
       "median_30d": 6100.0,
       "metric": "distance_m_daily",
+      "sd_30d": 0.0,
       "unit": "m",
       "value": 6100.0,
+      "withheld": null,
       "z": null
     },
     {
@@ -377,6 +400,7 @@
       "label": "Weight",
       "median_30d": null,
       "metric": "weight_kg",
+      "sd_30d": null,
       "unit": "kg",
       "value": 72.5,
       "withheld": null,
@@ -469,6 +493,7 @@
     "signals": [
       {
         "baseline": 380.0,
+        "baseline_sd": 1.0,
         "direction": "favorable",
         "name": "Sleep duration",
         "research_note_id": "sleep_duration_mortality",
@@ -1666,6 +1691,130 @@
       "metric_a": "caffeine",
       "metric_b": "sleep_health_score_4dim",
       "n_samples": 24,
+      "points": [
+        {
+          "a": 40.0,
+          "b": 80.0,
+          "date": "2026-07-08"
+        },
+        {
+          "a": 41.0,
+          "b": 79.0,
+          "date": "2026-07-09"
+        },
+        {
+          "a": 42.0,
+          "b": 78.0,
+          "date": "2026-07-10"
+        },
+        {
+          "a": 43.0,
+          "b": 77.0,
+          "date": "2026-07-11"
+        },
+        {
+          "a": 44.0,
+          "b": 76.0,
+          "date": "2026-07-12"
+        },
+        {
+          "a": 45.0,
+          "b": 75.0,
+          "date": "2026-07-13"
+        },
+        {
+          "a": 46.0,
+          "b": 74.0,
+          "date": "2026-07-14"
+        },
+        {
+          "a": 47.0,
+          "b": 73.0,
+          "date": "2026-07-15"
+        },
+        {
+          "a": 48.0,
+          "b": 72.0,
+          "date": "2026-07-16"
+        },
+        {
+          "a": 49.0,
+          "b": 71.0,
+          "date": "2026-07-17"
+        },
+        {
+          "a": 50.0,
+          "b": 70.0,
+          "date": "2026-07-18"
+        },
+        {
+          "a": 51.0,
+          "b": 69.0,
+          "date": "2026-07-19"
+        },
+        {
+          "a": 52.0,
+          "b": 68.0,
+          "date": "2026-07-20"
+        },
+        {
+          "a": 53.0,
+          "b": 67.0,
+          "date": "2026-07-21"
+        },
+        {
+          "a": 54.0,
+          "b": 66.0,
+          "date": "2026-07-22"
+        },
+        {
+          "a": 55.0,
+          "b": 65.0,
+          "date": "2026-07-23"
+        },
+        {
+          "a": 56.0,
+          "b": 64.0,
+          "date": "2026-07-24"
+        },
+        {
+          "a": 57.0,
+          "b": 63.0,
+          "date": "2026-07-25"
+        },
+        {
+          "a": 58.0,
+          "b": 62.0,
+          "date": "2026-07-26"
+        },
+        {
+          "a": 59.0,
+          "b": 61.0,
+          "date": "2026-07-27"
+        },
+        {
+          "a": 60.0,
+          "b": 60.0,
+          "date": "2026-07-28"
+        },
+        {
+          "a": 61.0,
+          "b": 59.0,
+          "date": "2026-07-29"
+        },
+        {
+          "a": 62.0,
+          "b": 58.0,
+          "date": "2026-07-30"
+        },
+        {
+          "a": 63.0,
+          "b": 57.0,
+          "date": "2026-07-31"
+        }
+      ],
+      "points_n": 24,
+      "points_truncated": false,
       "q_value": 0.03,
       "research_note_ids": [
         "caffeine_sleep"
@@ -1682,7 +1831,7 @@
       "bmi": null,
       "pa_score": null,
       "rhr_med_7d": null,
-      "weekly_mvpa_min": null
+      "weekly_mvpa_min": 160
     },
     "measured_as_of": "2026-07-31",
     "median_for_age": 39.7,
@@ -1691,7 +1840,7 @@
     "n_sessions": 1,
     "out_of_range_inputs": [],
     "research_notes": [
-      "vo2max_fitness_mortality",
+      "vo2max",
       "submaximal_vo2max"
     ],
     "see_ml_kg_min": 2.95,
@@ -1708,6 +1857,7 @@
       "trend": [
         {
           "date": "2026-07-31",
+          "method": "gps_graded",
           "value": 43.0
         }
       ]
@@ -1715,122 +1865,152 @@
     "trend_90d": [
       {
         "date": "2026-07-02",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-03",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-04",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-05",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-06",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-07",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-08",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-09",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-10",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-11",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-12",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-13",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-14",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-15",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-16",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-17",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-18",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-19",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-20",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-21",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-22",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-23",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-24",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-25",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-26",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-27",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-28",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-29",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-30",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-31",
+        "method": "gps_graded",
         "value": 43.0
       }
     ],

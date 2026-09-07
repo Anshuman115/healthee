@@ -53,6 +53,7 @@ age and sex, not a claim about them), and the last estimate itself — inside th
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from uuid import UUID
 
@@ -68,6 +69,7 @@ from healthee.derive.vo2max import (
 from healthee.derive.vo2max_reserve import METHOD_RESERVE
 from healthee.derive.vo2max_submax import METHOD_GRADED
 from healthee.derive.vo2max_tier import estimate_unavailable_reason, method_of
+from healthee.read.mvpa_week import mvpa_week
 
 _WINDOW_DAYS = 95  # the trend window; ~90 days of trend plus slack
 
@@ -113,10 +115,15 @@ _SINGLE_SESSION_CAVEAT = (
 
 # Which note licenses the number in front of the owner. The fitness↔mortality note is
 # common to all three because it is what makes any VO₂max worth showing.
+#
+# These are manifest IDs. They read ``vo2max_fitness_mortality`` until #B-A4, which is an
+# ALIAS of ``vo2max`` — and nothing that consumes a cited id looks at the alias list
+# (``manifest.by_id`` / ``note_ids`` / ``grade_of``), so the id licensing this number
+# resolved to nothing and the app's ⓘ sheet opened empty on all three tiers.
 _METHOD_NOTES = {
-    METHOD_GRADED: ["vo2max_fitness_mortality", "submaximal_vo2max"],
-    METHOD_RESERVE: ["vo2max_fitness_mortality", "hr_reserve_vo2max"],
-    METHOD_JURCA: ["vo2max_fitness_mortality", "non_exercise_vo2max"],
+    METHOD_GRADED: ["vo2max", "submaximal_vo2max"],
+    METHOD_RESERVE: ["vo2max", "hr_reserve_vo2max"],
+    METHOD_JURCA: ["vo2max", "non_exercise_vo2max"],
 }
 
 
@@ -184,13 +191,20 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) ->
         "sex": sex,
         "median_for_age": median_ref,
         "delta_from_median": _delta(estimate, median_ref),
-        "trend_90d": [{"date": d.isoformat(), "value": round(float(v), 1)} for d, v, _ in rows],
-        # v2 flag names: rhr_med_7d←rhr_med, pa_score←srpa; weekly_mvpa_min not
-        # stored in v2 vo2max flags → null (documented WP7 note).
+        "trend_90d": _trend_points(rows, method_of),
+        # v2 flag names: rhr_med_7d←rhr_med, pa_score←srpa.
+        #
+        # ``weekly_mvpa_min`` shipped as a hardcoded ``None`` with a note saying v2 does
+        # not store it in the VO₂max flags. That was true and it was not a reason: the
+        # number is not stored, but it IS computed, from the same ``derived_daily``
+        # rows, by the function ``/api/activity.mvpa.week_min`` is built on. It is read
+        # from there now (``read/mvpa_week.py``, the one definition both surfaces share)
+        # and stays ``None`` only when there is genuinely nothing to sum — never a 0,
+        # which would read as a measured week of stillness.
         "inputs": {
             "bmi": flags.get("bmi"),
             "rhr_med_7d": flags.get("rhr_med"),
-            "weekly_mvpa_min": None,
+            "weekly_mvpa_min": _weekly_mvpa_min(cur, user_id, as_of),
             "pa_score": flags.get("srpa"),
         },
         # Directive 5 of [[non_exercise_vo2max]]: an estimate computed outside the
@@ -201,6 +215,39 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) ->
         # The notes that license THIS number, which depends on which instrument read it.
         "research_notes": _METHOD_NOTES[method],
     }
+
+
+def _weekly_mvpa_min(cur: Cur, user_id: UUID, as_of: date) -> int | None:
+    """MVPA minutes for the week containing ``as_of``, or None with nothing to sum."""
+    week = mvpa_week(cur, user_id, as_of)
+    return week.mvpa_min if week else None
+
+
+def _trend_points(rows: list[tuple], resolve: Callable[[object], str]) -> list[dict]:
+    """(day, value, flags) → trend points that each NAME the instrument that read them.
+
+    The third tuple element was being dropped, so a 90-day trend was a list of bare
+    ``{date, value}`` — and this metric changes instrument between points by design
+    (``derive/vo2max_tier.py``: a graded fit when a session is fresh, the reserve
+    inversion, otherwise Jurca). A rise from a questionnaire estimate to a measured one
+    is a change of ruler, and on a bare series it is indistinguishable from a change in
+    the owner. The chart said exactly that, correctly, as a caveat; with the method on
+    each point it can be a legend instead.
+
+    ``resolve`` is the caller's default for a row written before its metric recorded a
+    method, and the two series disagree about it on purpose: an undated
+    ``vo2max_estimate`` row predates #117 and is Jurca (``method_of``), while an undated
+    ``vo2max_submax`` row predates #114 and is a graded fit. One shared default would
+    mislabel one of the two series, which is the failure this key exists to prevent.
+    """
+    return [
+        {
+            "date": d.isoformat(),
+            "value": round(float(v), 1),
+            "method": resolve((f or {}).get("method")),
+        }
+        for d, v, f in rows
+    ]
 
 
 def _withheld_block(
@@ -281,7 +328,7 @@ def _submax_block(cur: Cur, user_id: UUID, as_of: date) -> dict | None:
     if not rows:
         return None
     s_day, s_val, s_flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})
-    method = str(s_flags.get("method") or METHOD_GRADED)
+    method = _submax_method(s_flags.get("method"))
     return {
         "latest": round(s_val, 1),
         # There was a ``median`` here, over every session in the window regardless of
@@ -296,5 +343,14 @@ def _submax_block(cur: Cur, user_id: UUID, as_of: date) -> dict | None:
         "last_speed_kmh": s_flags.get("speed_kmh"),
         "last_method": method,
         "method_caveat": _METHOD_CAVEATS.get(method),
-        "trend": [{"date": d.isoformat(), "value": round(float(v), 1)} for d, v, _ in rows],
+        # Every session point names its own instrument, not just the newest. ``#114``
+        # put ``last_method`` here so an instrument change would not read as a fitness
+        # change — but it only ever said so about the last point, and the chart drawn
+        # from this list is exactly where the confusion happens.
+        "trend": _trend_points(rows, _submax_method),
     }
+
+
+def _submax_method(raw: object) -> str:
+    """The instrument that read one ``vo2max_submax`` row; pre-#114 rows are graded fits."""
+    return str(raw or METHOD_GRADED)
