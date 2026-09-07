@@ -153,6 +153,7 @@ class _Entry extends ConsumerWidget {
     final colors = context.colors;
     final rec = item.recommendation;
     final adopted = rec.adopted;
+    final grounding = rec.grounding;
     return SurfaceCard(
       tone: toneForCategory(rec.category),
       child: Column(
@@ -166,8 +167,6 @@ class _Entry extends ConsumerWidget {
                 child: GroundedProse(
                   text: rec.action,
                   style: TypeScale.rowTitle.copyWith(color: colors.ink),
-                  alsoCites: rec.researchNoteIds,
-                  grade: rec.gradeLabel,
                 ),
               ),
               const SizedBox(width: Insets.sm),
@@ -185,15 +184,19 @@ class _Entry extends ConsumerWidget {
               style: TypeScale.tinyLabel.copyWith(color: colors.ink3),
             ),
           ],
-          if (rec.rationale case final String why)
+          // The dated card's own ⓘ. Drawn whenever there is something behind
+          // this rec, rationale or not — see `suggestion_card.dart`.
+          if (rec.rationale != null ||
+              grounding.isNotEmpty ||
+              rec.gradeLabel != null)
             TextLink(
               label: 'How we know',
               icon: Icons.info_outline,
               onPressed: () => showEvidenceSheet(
                 context,
-                title: 'Behind this suggestion',
-                prose: why,
-                alsoCites: rec.researchNoteIds,
+                title: kWhyTitle,
+                prose: rec.rationale ?? '',
+                grounding: grounding,
                 grade: rec.gradeLabel,
               ),
             ),

@@ -22,11 +22,19 @@
 /// Routing every answer through the grounded widget rather than only that one
 /// means a disclosure filled with server prose tomorrow is covered by
 /// construction instead of by somebody noticing.
+///
+/// The same argument puts an ⓘ on the question row, carrying whatever the answer
+/// cites. An answer composed in Dart cites nothing and the dot draws nothing, so
+/// the cost of covering the general case is zero pixels on every surface that
+/// does not need it.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/data/honesty/citations.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
 
 /// A one-line question that opens into its answer.
@@ -51,6 +59,13 @@ class ReasoningNote extends StatefulWidget {
 
 class _ReasoningNoteState extends State<ReasoningNote> {
   bool _open = false;
+
+  /// What the answer cites. Empty for an answer composed in Dart, which is most
+  /// of them — so most disclosures draw no ⓘ at all.
+  MetricDetail get _detail => MetricDetail.grounded(
+    groundingOf(widget.answer),
+    title: widget.question,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -79,6 +94,13 @@ class _ReasoningNoteState extends State<ReasoningNote> {
                   size: 16,
                   color: colors.accent,
                 ),
+                if (_detail case final MetricDetail detail
+                    when detail.isNotEmpty)
+                  MetricInfoDot(
+                    null,
+                    detail: detail,
+                    fallbackTitle: widget.question,
+                  ),
               ],
             ),
           ),

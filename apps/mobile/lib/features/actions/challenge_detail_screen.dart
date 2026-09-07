@@ -33,6 +33,7 @@ import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/challenges/challenge.dart';
 import 'package:healthee/data/challenges/challenge_feed.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/features/actions/v02/challenge_card.dart';
 import 'package:healthee/features/actions/v02/evidence_sheet.dart';
 import 'package:healthee/features/actions/v02/suggestion_card.dart';
@@ -143,7 +144,10 @@ class _Body extends StatelessWidget {
                   context,
                   title: 'Behind this challenge',
                   prose: challenge.why,
-                  alsoCites: challenge.citations,
+                  grounding: groundingOf(
+                    challenge.why,
+                    alsoCites: challenge.citations,
+                  ),
                 ),
               ),
             ),

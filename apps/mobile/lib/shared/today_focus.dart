@@ -9,9 +9,22 @@ import 'package:healthee/data/challenges/challenge_feed.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
 import 'package:healthee/data/challenges/milestones.dart';
 import 'package:healthee/data/notifications/notify_completions.dart';
+import 'package:healthee/shared/metric_info/challenge_sources.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/account_async_view.dart';
 import 'package:healthee/shared/states/cached_async_view.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
+
+/// The ⓘ for one challenge: what its server-written title cites, and the
+/// `citations` the payload sent beside it. Draws nothing when it cites nothing.
+///
+/// The chips used to sit under the title, inside the row. On a list of tiles
+/// that put them between a headline and its own subtitle, which is where the
+/// owner saw them and asked for them gone.
+Widget? _sources(Challenge challenge) {
+  final detail = challengeSources(challenge);
+  return detail.isEmpty ? null : MetricInfoDot(null, detail: detail);
+}
 
 /// Active commitments remain reachable from the daily home, as in legacy.
 class TodayFocus extends ConsumerWidget {
@@ -38,10 +51,8 @@ class TodayFocus extends ConsumerWidget {
                   ),
                 for (final challenge in feed.active)
                   ListTile(
-                    title: GroundedProse(
-                      text: challenge.title,
-                      alsoCites: challenge.citations,
-                    ),
+                    title: GroundedProse(text: challenge.title),
+                    trailing: _sources(challenge),
                     subtitle: Text(
                       challenge.progress?.protectedToday == true
                           ? 'Today is protected for recovery'
@@ -63,10 +74,8 @@ class TodayFocus extends ConsumerWidget {
                   ListTile(
                     leading: const Icon(Icons.celebration),
                     title: const Text('Challenge completed'),
-                    subtitle: GroundedProse(
-                      text: challenge.title,
-                      alsoCites: challenge.citations,
-                    ),
+                    trailing: _sources(challenge),
+                    subtitle: GroundedProse(text: challenge.title),
                     onTap: () => unawaited(context.push(Routes.outcomes)),
                   ),
               ],

@@ -18,6 +18,13 @@
 /// A challenge with no `progress` block draws **no bar** — not an empty one and
 /// not one at zero. "Nothing has been observed yet" and "you are at zero" are
 /// different days, and a bar sitting at the left edge says the second one.
+///
+/// ## The title is model prose, so its sources are in the head's ⓘ
+///
+/// `challenge.title` carries inline `[note_id]` markers and the payload sends
+/// `citations` beside it. Both used to be drawn as chips under the title, on the
+/// card's face. They are now one tap behind the ⓘ on the head row, which draws
+/// nothing at all for a challenge that cites nothing.
 library;
 
 import 'package:flutter/material.dart';
@@ -28,6 +35,9 @@ import 'package:healthee/data/challenges/challenge.dart';
 import 'package:healthee/data/challenges/challenge_progress.dart';
 import 'package:healthee/features/actions/v02/suggestion_card.dart';
 import 'package:healthee/shared/format/metric_names.dart';
+import 'package:healthee/shared/metric_info/challenge_sources.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
@@ -142,13 +152,23 @@ class ChallengeCard extends StatelessWidget {
                         windowLabel(challenge),
                         style: TypeScale.tinyLabel.copyWith(color: colors.ink3),
                       ),
+                      if (challengeSources(challenge)
+                          case final MetricDetail detail
+                          when detail.isNotEmpty)
+                        MetricInfoDot(
+                          // No explainer key: a challenge is a commitment, not
+                          // a metric the corpus has an entry for. Its sources
+                          // ARE the content, which is what the dot draws for.
+                          null,
+                          detail: detail,
+                          fallbackTitle: metricName(challenge.metric),
+                        ),
                     ],
                   ),
                   const SizedBox(height: titleGap),
                   GroundedProse(
                     text: challenge.title,
                     style: TypeScale.challengeTitle.copyWith(color: colors.ink),
-                    alsoCites: challenge.citations,
                   ),
                   const SizedBox(height: bodyGap),
                   Text(

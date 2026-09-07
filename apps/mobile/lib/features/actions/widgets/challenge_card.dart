@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/data/challenges/challenge.dart';
 import 'package:healthee/shared/format/metric_names.dart';
+import 'package:healthee/shared/metric_info/challenge_sources.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
@@ -17,7 +20,20 @@ class ChallengeCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GroundedProse(text: challenge.title, alsoCites: challenge.citations),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: GroundedProse(text: challenge.title)),
+            // What the title cites, off the card face and one tap away.
+            if (challengeSources(challenge) case final MetricDetail detail
+                when detail.isNotEmpty)
+              MetricInfoDot(
+                null,
+                detail: detail,
+                fallbackTitle: metricName(challenge.metric),
+              ),
+          ],
+        ),
         Text(
           '${challenge.status} · ${challenge.difficulty} · ${challenge.cadence}',
         ),

@@ -29,6 +29,16 @@
 ///
 /// **A rec with no server id gets no checkbox.** There is nowhere to write the
 /// adoption to, and a control that silently does nothing is worse than none.
+///
+/// ## Where this card's sources are
+///
+/// Behind `Why this suggestion` — the prototype's `H.evidence()`, and this
+/// card's ⓘ. The action, the rationale and the expected effect are three
+/// sentences about ONE suggestion sharing one `research_note_ids`, so they are
+/// grounded together and the card face carries no chip at all.
+///
+/// The link therefore draws for a rec with sources and no rationale, and for
+/// neither it draws nothing: an ⓘ opening an empty sheet is worse than no ⓘ.
 library;
 
 import 'dart:async';
@@ -79,6 +89,12 @@ String? signalLabel(String? signal) {
       ? 'Raised by your ${metricName(signal)}'
       : 'Raised by a reading this build cannot name yet';
 }
+
+/// What the evidence link says. The prototype's own label.
+const String kWhyLabel = 'Why this suggestion';
+
+/// The heading of the sheet it opens.
+const String kWhyTitle = 'Behind this suggestion';
 
 /// The eyebrow over the first suggestion of the day.
 const String kFirstEyebrow = 'Today’s suggestion';
@@ -138,6 +154,7 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
     final colors = context.colors;
     final rec = widget.recommendation;
     final adopted = rec.adopted ?? false;
+    final grounding = rec.grounding;
     return FocusCard(
       tone: toneForCategory(rec.category),
       icon: iconForCategory(rec.category),
@@ -145,10 +162,6 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
       title: GroundedProse(
         text: rec.action,
         style: TypeScale.focusTitle.copyWith(color: colors.ink),
-        // The structured ids belong to the whole rec and ride its headline, so
-        // one recommendation shows one set of sources.
-        alsoCites: rec.researchNoteIds,
-        grade: rec.gradeLabel,
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,15 +196,19 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
                 style: TypeScale.tinyLabel.copyWith(color: colors.ink2),
               ),
             ),
-          if (rec.rationale case final String why)
+          // Drawn for a rec with sources but no rationale too — the sources are
+          // the content in that case. With neither, nothing.
+          if (rec.rationale != null ||
+              grounding.isNotEmpty ||
+              rec.gradeLabel != null)
             TextLink(
-              label: 'Why this suggestion',
+              label: kWhyLabel,
               icon: Icons.info_outline,
               onPressed: () => showEvidenceSheet(
                 context,
-                title: 'Behind this suggestion',
-                prose: why,
-                alsoCites: rec.researchNoteIds,
+                title: kWhyTitle,
+                prose: rec.rationale ?? '',
+                grounding: grounding,
                 grade: rec.gradeLabel,
               ),
             ),

@@ -8,23 +8,31 @@
 ///
 /// Every string here is model prose and none of it is printed raw: the action,
 /// the expected effect and the rationale all go through [GroundedProse], which is
-/// the only thing in the app that knows what a `[note_id]` bracket means. The
-/// rec's structured `research_note_ids` ride along on the action so one
-/// recommendation shows one set of sources rather than two rows that can
-/// disagree.
+/// the only thing in the app that knows what a `[note_id]` bracket means.
 ///
-/// The grade is the one on this screen the server actually **proved** —
-/// `jobs/recs.py::_provable_grade` replaces the model's declaration with the
-/// weakest grade among the notes the rec cites. `data/models/recommendation.dart`
-/// has the full argument for why nothing else in the app may show one.
+/// All three of them, plus the rec's structured `research_note_ids`, ground the
+/// ⓘ beside the action — `recommendationGrounding` builds that bundle and the
+/// v02 suggestion card builds the same one from the same function, so a reader
+/// meeting one recommendation on two screens is shown one set of sources.
+///
+/// The grade in that sheet is the one on this screen the server actually
+/// **proved** — `jobs/recs.py::_provable_grade` replaces the model's declaration
+/// with the weakest grade among the notes the rec cites.
+/// `data/models/recommendation.dart` has the full argument for why nothing else
+/// in the app may show one.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/recommendation.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/states/reasoning_note.dart';
+
+/// What this entry's ⓘ calls itself.
+const String kRecommendationSheetTitle = 'Behind this suggestion';
 
 /// One recommendation: what to do, what it should change, and why.
 class RecommendationEntry extends StatelessWidget {
@@ -50,14 +58,30 @@ class RecommendationEntry extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GroundedProse(
-          text: recommendation.action,
-          style: text.titleMedium,
-          // The structured ids belong to the whole rec, so they hang off its
-          // headline rather than sitting in a second row underneath.
-          alsoCites: recommendation.researchNoteIds,
-          // The one grade in this app that the server actually proved.
-          grade: recommendation.gradeLabel,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: GroundedProse(
+                text: recommendation.action,
+                style: text.titleMedium,
+              ),
+            ),
+            // The one grade in this app that the server actually proved rides
+            // in here; a rec that grounds nothing draws no ⓘ.
+            if (MetricDetail.grounded(
+                  recommendation.grounding,
+                  grade: recommendation.gradeLabel,
+                )
+                case final MetricDetail detail when detail.isNotEmpty)
+              MetricInfoDot(
+                // A recommendation is not a metric the corpus has an entry for.
+                // Its sources ARE the sheet, which is what the dot draws for.
+                null,
+                detail: detail,
+                fallbackTitle: kRecommendationSheetTitle,
+              ),
+          ],
         ),
         if (recommendation.expectedEffect case final String effect) ...[
           const SizedBox(height: Insets.xs),

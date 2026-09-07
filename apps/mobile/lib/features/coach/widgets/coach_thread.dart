@@ -10,11 +10,15 @@
 /// ```
 ///
 /// The coach's own prose goes through [GroundedProse] like every other field a
-/// model wrote in this app: the raw string with its `[note_id]` markers, rendered
-/// as a sentence with its sources under it, and no parameter that turns the
-/// second half off.
+/// model wrote in this app: the raw string with its `[note_id]` markers rendered
+/// rather than printed.
 ///
-/// Two pieces of response metadata ride on the citation row rather than beside it:
+/// Its sources sit behind the ⓘ at the foot of the bubble, not under the
+/// sentence — the owner asked three times for citation chips off the surfaces
+/// that carry prose, and a reply that cited four notes was four stamps of chrome
+/// under every answer. An answer that cites nothing draws no ⓘ at all.
+///
+/// Two pieces of response metadata ride in that sheet rather than beside it:
 ///
 ///   * **`grade_floor`** — the weakest evidence grade among the notes cited. It is
 ///     the answer's own statement of how firm it is, and `INTELLIGENCE §3` makes
@@ -34,8 +38,14 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/features/coach/coach_conversation.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
+
+/// What the coach's grounding sheet calls itself.
+const String kCoachSourcesTitle = 'What this answer is based on';
 
 /// One entry of the thread.
 class CoachEntryView extends StatelessWidget {
@@ -115,9 +125,19 @@ class _Reply extends StatelessWidget {
 
   final CoachAnswer answer;
 
+  /// What this answer cites: its inline markers, the `citations` the payload
+  /// sent, and the grade floor — the weakest grade among the notes cited, which
+  /// the server computes and this app never infers.
+  MetricDetail get _detail => MetricDetail.grounded(
+    groundingOf(answer.reply, alsoCites: answer.citations),
+    grade: answer.gradeFloor,
+    title: kCoachSourcesTitle,
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final detail = _detail;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -134,11 +154,14 @@ class _Reply extends StatelessWidget {
         GroundedProse(
           text: answer.reply,
           style: TypeScale.coachBody.copyWith(color: colors.ink),
-          alsoCites: answer.citations,
-          // The weakest grade among the notes cited. Never inferred — the
-          // server sends it or it is absent, and absent renders nothing.
-          grade: answer.gradeFloor,
         ),
+        // At the foot of the bubble, right-aligned, and drawing nothing at all
+        // when the answer cited nothing.
+        if (detail.isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: MetricInfoDot(null, detail: detail),
+          ),
       ],
     );
   }

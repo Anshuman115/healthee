@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/sleep_repository.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/account_async_view.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
 
@@ -20,7 +23,16 @@ class TonightFocus extends ConsumerWidget {
       final lever = consistency.tonight;
       if (lever == null) return const SizedBox.shrink();
       return Card(child: ListTile(
-        title: Text('Tonight · ${lever.title}'),
+        title: Row(children: <Widget>[
+          Flexible(child: Text('Tonight · ${lever.title}')),
+          // The lever's prose is the server's. Its sources are one tap behind
+          // this, never chips between the headline and the clock.
+          MetricInfoDot(
+            'sleep_consistency',
+            detail: MetricDetail.grounded(groundingOf(lever.prose)),
+            fallbackTitle: lever.title,
+          ),
+        ]),
         subtitle: GroundedProse(text: lever.prose),
         trailing: lever.targetClock == null ? null : Text(lever.targetClock!),
         onTap: () => unawaited(context.push(Routes.sleep)),
