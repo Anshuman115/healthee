@@ -12,7 +12,7 @@
 /// sub-score, and a zero-width bar is visually identical to a score of zero —
 /// one says "we never measured this", the other says "we measured it and it was
 /// as bad as it gets". So a null draws the track alone, and the row beside it
-/// says "no signal" in words. `RecoveryCard` had this branch inline; it moved
+/// says "no signal" in words. Legacy's recovery card had this branch inline; it moved
 /// here on its second use, which is Standards §1.
 library;
 
