@@ -57,12 +57,12 @@ class SleepWindows {
         for (final night in nights.take(7).toList().reversed)
           SleepNightSummary(
             date: night.date,
-            durationMin:
-                night.tstMin.valueOrNull?.round() ?? night.stages.total.round(),
-            deepMin: night.stages.deep.round(),
-            lightMin: night.stages.light.round(),
-            remMin: night.stages.rem.round(),
-            awakeMin: night.stages.awake.round(),
+            // See `sleep_history_screen.dart`: a withheld `tst_min` stays withheld.
+            durationMin: night.tstMin.valueOrNull?.round(),
+            deepMin: night.stages?.deep.round(),
+            lightMin: night.stages?.light.round(),
+            remMin: night.stages?.rem.round(),
+            awakeMin: night.stages?.awake.round(),
             deviceScore: night.deviceScore.valueOrNull?.round(),
           ),
       ],

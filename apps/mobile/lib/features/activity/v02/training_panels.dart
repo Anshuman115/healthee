@@ -124,8 +124,9 @@ class TrainingLoadPanel extends StatelessWidget {
     if (baseline == null || baseline <= 0) {
       return null;
     }
+    final over = load.baselineDaysLabel;
     return 'Ratio ${(load.load / baseline).toStringAsFixed(1)}\n'
-        'today / 30-day load';
+        'today / 30-day load${over == null ? '' : ' · $over'}';
   }
 
   List<Stat> _stats() => <Stat>[

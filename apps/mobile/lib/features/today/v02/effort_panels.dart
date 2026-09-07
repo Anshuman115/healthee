@@ -104,7 +104,8 @@ class EffortPanel extends StatelessWidget {
     if (baseline == null || baseline <= 0) {
       return null;
     }
-    return '30-day load ${baseline.round()}\n'
+    final over = load.baselineDaysLabel;
+    return '30-day load ${baseline.round()}${over == null ? '' : ' · $over'}\n'
         'ratio ${(load.load / baseline).toStringAsFixed(1)}';
   }
 
@@ -154,7 +155,10 @@ class ActiveMinutesPanel extends StatelessWidget {
         icon: Icons.directions_walk,
         infoKey: 'mvpa',
         detail: MetricDetail(
-          references: <String>['Active minutes — ${mvpa.weekTarget} min/week'],
+          references: <String>[
+            if (mvpa.weekTarget case final int target)
+              'Active minutes — $target min/week',
+          ],
           notes: mvpa.researchNotes,
         ),
         actionLabel: onDetails == null ? null : 'Details',
@@ -165,25 +169,42 @@ class ActiveMinutesPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           PanelValue('${mvpa.weekMin}', unit: 'min/week'),
-          const SizedBox(height: trackGap),
-          ProgressTrack(
-            fraction: mvpa.weekTarget <= 0
-                ? 0
-                : mvpa.weekMin / mvpa.weekTarget,
-          ),
+          // The ring is drawn only against a target the SERVER sent. It used to
+          // fall back to a hard-coded 150, so a payload carrying no target still
+          // produced a confident percentage of a number nobody sent — with no
+          // `Reading` wrapper and no withheld path to fall into.
+          if (mvpa.weekProgress case final double fraction) ...<Widget>[
+            const SizedBox(height: trackGap),
+            ProgressTrack(fraction: fraction),
+          ],
           // KEPT. The `×2` is arithmetic invisible in the figure above it: 120
           // moderate + 20 vigorous is 160, and a reader who does not see the
           // doubling gets the number wrong. That qualifies the figure on this
           // card, so it stays on this card. The reference moved to the ⓘ.
+          //
+          // Withheld with a reason when a day of the week carries no intensity
+          // breakdown: printing the days that DO have one under a weekly label
+          // would understate the split by exactly the days nobody measured.
           PanelNote(
-            '${mvpa.weekModerateMin} moderate + '
-            '${mvpa.weekVigorousMin} vigorous ×2',
+            mvpa.hasSplit
+                ? '${mvpa.weekModerateMin} moderate + '
+                      '${mvpa.weekVigorousMin} vigorous ×2'
+                : kMvpaSplitUnmeasuredNote,
           ),
         ],
       ),
     );
   }
 }
+
+/// Shown in place of the moderate/vigorous split when a day of the week has none.
+///
+/// The weekly total above it is unaffected — `mvpa_min` is stored per day and is
+/// always a real sum. It is only the SPLIT that a missing breakdown makes
+/// unknowable, and saying so is shorter than a total that quietly leaves days out.
+const String kMvpaSplitUnmeasuredNote =
+    'The moderate/vigorous split is not recorded for every day of this week, so '
+    'the total above cannot be broken down.';
 
 /// `Strength` — the other half of the same recommendation, counted separately.
 class StrengthPanel extends StatelessWidget {

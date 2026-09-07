@@ -95,7 +95,16 @@ class SleepWeekPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           PanelValue(
-            hoursMinutes(nights.last.durationMin),
+            // `—` when the latest night carries no measured total. It used to fall
+            // back to the stage sum, which for an unstaged night is zero — so the
+            // panel headline read `0h 0m` over a night nobody measured. The dash
+            // is this app's existing absence glyph, four lines down on the same
+            // panel; a second vocabulary for the same fact would be worse than a
+            // dash the owner already knows.
+            switch (nights.last.durationMin) {
+              final int minutes => hoursMinutes(minutes),
+              null => '—',
+            },
             context_: 'Latest night\n${nights.first.date} → ${nights.last.date}',
           ),
           RevealOnce(

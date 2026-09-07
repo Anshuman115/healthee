@@ -195,8 +195,17 @@ def out_of_range_inputs(age_years: float | None, bmi: float | None) -> list[dict
 
 
 def _flag(name: str, label: str, value: float, low: float, high: float) -> dict:
-    """One out-of-range input, machine-readable and self-explaining."""
+    """One out-of-range input, machine-readable and self-explaining.
+
+    ``reason`` + ``message`` are the honesty layer's OWN two required fields, not decoration:
+    ``derive/freshness.caveat_block`` writes exactly that pair, and the app's envelope
+    (``apps/mobile/lib/data/honesty/envelope.dart``) drops any block missing either — so a
+    disclosure without a ``reason`` is a disclosure that never reaches a screen. These blocks
+    shipped under a key of their own with no ``reason``, and the estimate rendered at full
+    confidence because of it. The extra keys below are additive and ignored by the envelope.
+    """
     return {
+        "reason": f"vo2max_{name}_out_of_validated_range",
         "input": name,
         "value": value,
         "validated_low": low,

@@ -61,9 +61,46 @@ def stage_timeline(stages: list | None, start_ts: datetime) -> list[dict]:
     return out
 
 
-def stage_totals(light: int | None, deep: int | None, rem: int | None, wake: int | None) -> dict:
-    """Per-stage total minutes (typed sleep_session columns)."""
+def stage_totals(
+    light: int | None, deep: int | None, rem: int | None, wake: int | None
+) -> dict | None:
+    """Per-stage total minutes, or ``None`` when the strap staged nothing.
+
+    ``None`` is the whole point of this function now. The columns were `NOT NULL DEFAULT
+    0` until `0018`, so "no breakdown" and "zero minutes in every stage" were the same
+    four bytes and this returned a zeroed dict for both — which the app painted as four
+    zero-height bars, indistinguishable from a night of literal zero sleep.
+
+    The rule is `read/recovery.py`'s, not a second one invented here: that module's sleep
+    signal has always read the same quantity and treated an absent stage-sum as absence
+    (`if not row or not row[0]: return None`) rather than as a measurement. One codebase,
+    one answer to what a missing breakdown means.
+
+    A PARTIAL breakdown keeps `or 0` per field. The ingest path sends the four together or
+    not at all, so that branch is not reachable from the strap; it is kept rather than
+    made strict because a single missing stage from some future source is a thinner claim
+    than no breakdown at all, and refusing the whole night for it would lose real data.
+    """
+    if light is None and deep is None and rem is None and wake is None:
+        return None
     return {"light": light or 0, "deep": deep or 0, "rem": rem or 0, "awake": wake or 0}
+
+
+def stage_sleep_min(light: int | None, deep: int | None, rem: int | None) -> int | None:
+    """Total sleep time from the stage columns — light + deep + REM, wake excluded.
+
+    ``None`` when there is no breakdown to sum. This was written out at three call sites as
+    `(light or 0) + (deep or 0) + (rem or 0)`, which turned an unstaged night into a
+    measured **0 minutes of sleep** — the single most misleading number the sleep payload
+    could carry, and the one the app's `?? night.stages.total` fallback then substituted
+    for a correct withhold of `tst_min`.
+
+    One definition rather than three copies (standards, Duplication), because TST is a
+    named metric and this repo's first hard rule is that a metric has one of them.
+    """
+    if light is None and deep is None and rem is None:
+        return None
+    return (light or 0) + (deep or 0) + (rem or 0)
 
 
 def main_sessions(cur: Cur, user_id: UUID, tz: str, days: int, on_or_before: date) -> list[tuple]:

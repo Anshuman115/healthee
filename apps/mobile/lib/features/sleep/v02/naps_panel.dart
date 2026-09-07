@@ -91,7 +91,8 @@ class NapsPanel extends StatelessWidget {
   /// Every one, not any one: a note that fired because a single short nap went
   /// unstaged would be describing the panel wrongly whenever another nap on it
   /// carries a full breakdown.
-  bool get noneStaged => naps.take(shown).every((nap) => nap.stages.isEmpty);
+  bool get noneStaged =>
+      naps.take(shown).every((nap) => nap.stages?.isEmpty ?? true);
 
   @override
   Widget build(BuildContext context) {

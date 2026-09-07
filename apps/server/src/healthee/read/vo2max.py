@@ -158,9 +158,24 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) ->
     last_day, last_value, flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})
     withheld = _withheld_block(cur, user_id, tz, as_of, last_day, last_value)
     age = int(flags.get("age_years") or 0)
-    sex = str(flags.get("sex") or "male")
-    median_ref = vo2max_median_for(age, sex) if age else None
+    # NOT ``or "male"``. That default was both SHIPPED and SPENT: ``vo2max_median_for``
+    # would answer from the male reference distribution for an owner whose sex was never
+    # recorded, and ``delta_from_median`` would then price this owner against it. Line
+    # 160's ``or 0`` is safe only because the line below refuses to spend a falsy age; the
+    # fence is the refusal, not the coalesce, so the same fence now guards both inputs —
+    # exactly as ``read/workout.py``'s TRIMP gate fences ``derive/trimp``'s own
+    # ``_DEFAULT_SEX``. Absent means absent, and a population median for the wrong
+    # population is a worse answer than none.
+    sex = flags.get("sex") if flags.get("sex") in ("male", "female") else None
+    median_ref = vo2max_median_for(age, sex) if age and sex else None
     estimate = None if withheld else round(last_value, 1)
+    # The instrument's own error figure, or NOTHING. There is no default here on purpose:
+    # #108 deleted the constant 5.6 from ``derive/vo2max.py`` for appearing nowhere in
+    # Jurca 2005, and a read-layer default restored it for every row whose flags lack the
+    # key. Swapping it for the correct 5.075 would be the same mistake in better taste —
+    # a row that carries no SEE has no error bar to report, and ``see_source`` being null
+    # beside a number is the tell. The client draws no band when this is null.
+    see = flags.get("see_ml_kg_min")
     # Rows written before #117 carry no ``method`` and are all Jurca. That default lives in
     # ``vo2max_tier.method_of`` because the coach's pivot resolves the same rows (#120) and
     # two answers to "what produced this row" is D4 half-kept.
@@ -183,11 +198,11 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) ->
         # ``see_source`` says WHICH, so a percentage error cannot be read as a standard
         # error of estimate. Older rows carry Jurca's SEE and nothing else.
         "see_source": flags.get("see_source"),
-        "see_ml_kg_min": float(flags.get("see_ml_kg_min", 5.6)),
+        "see_ml_kg_min": float(see) if see is not None else None,
         # Paired with `estimate`: both describe today's number, so both are null when
         # there isn't one. The last day that DID have one lives in `withheld`.
         "as_of_date": None if withheld else last_day.isoformat(),
-        "age_years": age,
+        "age_years": age or None,
         "sex": sex,
         "median_for_age": median_ref,
         "delta_from_median": _delta(estimate, median_ref),
@@ -211,7 +226,16 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) ->
         # range the model was validated on says so. Recomputed from the inputs the
         # row already stores (no schema, no backfill), so it also covers rows
         # written before the flag existed. Empty list = every input in range.
-        "out_of_range_inputs": out_of_range_inputs(age or None, flags.get("bmi")),
+        #
+        # THE KEY IS ``caveats``, and the name is the whole fix. These blocks shipped
+        # under ``out_of_range_inputs`` — a key the app's honesty envelope does not read
+        # (it inspects ``withheld``, ``excluded`` and ``caveats``, and this block has no
+        # ``caveats`` sibling), so an estimate the server had explicitly flagged as
+        # outside its model's validated range resolved to ``Present`` at full confidence.
+        # A confidence the server computed that cannot reach the screen is the sealed
+        # union defeated by a spelling. Filed where the envelope looks, it becomes
+        # ``Caveated`` with no new client code. ``docs/HOW_WE_VERIFY.md`` section 3.
+        "caveats": out_of_range_inputs(age or None, flags.get("bmi")),
         # The notes that license THIS number, which depends on which instrument read it.
         "research_notes": _METHOD_NOTES[method],
     }

@@ -111,6 +111,7 @@ class Vo2max {
     required this.standardErrorMlKgMin,
     required this.standardErrorSource,
     required this.asOfDate,
+    required this.measuredAsOf,
     required this.medianForAge,
     required this.deltaFromMedian,
     required this.sessionCount,
@@ -141,6 +142,7 @@ class Vo2max {
       standardErrorMlKgMin: (json['see_ml_kg_min'] as num?)?.toDouble(),
       standardErrorSource: json['see_source'] as String?,
       asOfDate: json['as_of_date'] as String?,
+      measuredAsOf: json['measured_as_of'] as String?,
       medianForAge: (json['median_for_age'] as num?)?.toDouble(),
       deltaFromMedian: (json['delta_from_median'] as num?)?.toDouble(),
       sessionCount: (json['n_sessions'] as num?)?.toInt(),
@@ -199,6 +201,20 @@ class Vo2max {
   /// The day this estimate is a claim about, `YYYY-MM-DD`.
   final String? asOfDate;
 
+  /// The day the MEASUREMENT behind it was recorded, `YYYY-MM-DD`.
+  ///
+  /// A different fact from [asOfDate] and that is the whole reason it is here.
+  /// `derive/vo2max_tier.py` lets a graded session or a reserve inversion speak
+  /// for up to `MEASURED_VO2MAX_MAX_AGE_DAYS` = 14 days, and the freshness
+  /// argument that permits it (`derive/freshness.py`) rests on the owner being
+  /// told which day it was measured. This was on the wire and unparsed, so a card
+  /// read "as of today" over a run recorded a fortnight ago — the stale-as-current
+  /// lie reached through the client rather than the server, which is why the
+  /// server's own guard could not catch it.
+  ///
+  /// Rendered only when it DIFFERS from [asOfDate]; see [measuredEarlier].
+  final String? measuredAsOf;
+
   /// The population median for the owner's age and sex — a fact about the
   /// reference group, not a claim about them.
   final double? medianForAge;
@@ -213,6 +229,13 @@ class Vo2max {
   /// Up to 90 days of history. Kept even when the estimate is withheld — a trend
   /// that ends before today is honest as long as nothing claims it ends now.
   final List<TrendPoint> trend90d;
+
+  /// The measurement day when it is NOT the day the estimate is offered for.
+  ///
+  /// Null when the two agree, so a screen that prints this prints nothing on the
+  /// ordinary day and names the gap on the day there is one.
+  String? get measuredEarlier =>
+      measuredAsOf != null && measuredAsOf != asOfDate ? measuredAsOf : null;
 
   /// The notes that license this number in front of the owner.
   final List<String> researchNotes;

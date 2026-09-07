@@ -17,6 +17,7 @@ and the decision gets re-argued rather than silently inherited.
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -26,6 +27,7 @@ from healthee.derive._common import _day_bounds_utc, _load_profile
 from healthee.derive.energy import (
     AWAKE_SEDENTARY_MET,
     MIFFLIN_KCAL_PER_KG_DAY,
+    UNCOUNTED_WORKOUT,
     derive_calories,
     weight_tilt_pct_per_kg,
 )
@@ -298,3 +300,65 @@ def test_caveats_is_a_permanent_key_even_where_there_is_nothing_to_say() -> None
     assert cards["basal_calories"]["caveats"] == []
     assert "caveats" not in cards["weight_kg"]
     assert cards["weight_kg"]["withheld"] is not None  # `_DAY` is long past the owner's today
+
+
+# ── A13(b): the workout the strap logged without a calorie figure ────────────
+
+
+def _log_workout(cur, *, minutes: int, calories: int | None) -> None:
+    """One session on ``_DAY``, with or without the device's own calorie figure."""
+    start = datetime.combine(_DAY, time(9), tzinfo=ZoneInfo(SENTINEL_TZ)).astimezone(UTC)
+    cur.execute(
+        "INSERT INTO workout (user_id, start_ts, sport, duration_s, calories) "
+        "VALUES (%s, %s, 1, %s, %s)",
+        (SENTINEL_USER_ID, start, minutes * 60, calories),
+    )
+
+
+def _derive_with_workout(cur, *, minutes: int, calories: int | None) -> dict[str, tuple]:
+    _seed(cur, _DAY)
+    _log_workout(cur, minutes=minutes, calories=calories)
+    prof = _load_profile(cur, SENTINEL_USER_ID, SENTINEL_TZ, _DAY)
+    assert prof is not None
+    start_utc, end_utc = _day_bounds_utc(_DAY, SENTINEL_TZ)
+    derive_calories(cur, SENTINEL_USER_ID, _DAY, prof, start_utc, end_utc, _STRIDE_M)
+    return _stored(cur)
+
+
+@pytest.mark.integration
+@pytest.mark.usefixtures("db")
+def test_a_workout_with_no_device_calories_is_disclosed_not_silently_dropped() -> None:
+    """``_tee_met`` removes workout minutes because the caller adds the device's figure.
+
+    With no figure to add, the minutes leave and nothing comes back: a 60-minute session
+    subtracts an hour of at-least-sedentary METs and contributes zero. The direction is
+    conservative rather than flattering, which is the right side to be wrong on — but a
+    wrong number served with ``caveats: []``, in a payload built with a caveat vocabulary
+    for exactly this, is silence rather than modesty.
+
+    The model is deliberately NOT changed. Keeping those minutes in the MET walk would be a
+    behaviour change to science code, which is its own PR with its own known-value tests
+    (CLAUDE.md). This says what the number is missing; it does not bend the number.
+    """
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        stored = _derive_with_workout(cur, minutes=60, calories=None)
+
+    for metric in ("total_calories", "active_calories"):
+        caveats = stored[metric][1]["caveats"]
+        assert [c["reason"] for c in caveats] == [UNCOUNTED_WORKOUT], metric
+        assert caveats[0]["uncounted_minutes"] == 60, metric
+        assert caveats[0]["sessions"] == 1, metric
+        assert isinstance(caveats[0]["message"], str) and caveats[0]["message"], metric
+    # `basal_calories` IS the BMR and no session enters it, so it has nothing to disclose.
+    assert stored["basal_calories"][1]["caveats"] == []
+
+
+@pytest.mark.integration
+@pytest.mark.usefixtures("db")
+def test_a_workout_that_did_report_calories_needs_no_disclosure() -> None:
+    """The caveat must be about the missing figure, not about workouts."""
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        stored = _derive_with_workout(cur, minutes=60, calories=400)
+
+    assert stored["total_calories"][1]["caveats"] == []
+    assert stored["total_calories"][1]["workout_cal"] == 400

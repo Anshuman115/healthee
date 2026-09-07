@@ -50,7 +50,21 @@ class SampleIn(BaseModel):
 class SleepIn(BaseModel):
     """One sleep session. `stages` is the hypnogram [[startMs, endMs, type], …]
     (type 7 = awake); the per-minute stage/asleep stream is materialized from it
-    for main sleep only."""
+    for main sleep only.
+
+    ## The stage minutes default to None, not 0
+
+    They defaulted to `0`, and a default of zero on a MEASUREMENT is a lie the boundary
+    tells the rest of the system: a payload that omitted the breakdown became a session
+    that measured no REM, no light and no deep sleep, and every layer downstream then
+    read that as a night of zero sleep — `duration_min` summed the three to nothing, the
+    stacked chart painted four zero-height bars, and the client's fallback replaced a
+    correct server withhold with the same zero.
+
+    Validation at the boundary is what keeps a bad value out of the science layer
+    (standards section 2), and a fabricated zero is a bad value. `None` here says what the
+    payload said, and `0018` gave the columns somewhere to put it.
+    """
 
     model_config = ConfigDict(extra="ignore")
 
@@ -59,10 +73,10 @@ class SleepIn(BaseModel):
     kind: str = "main"  # 'main' night sleep | 'nap'
     score: int | None = None
     avg_hr: int | None = None
-    rem_min: int = 0
-    light_min: int = 0
-    deep_min: int = 0
-    wake_min: int = 0
+    rem_min: int | None = None
+    light_min: int | None = None
+    deep_min: int | None = None
+    wake_min: int | None = None
     stages: list[list[int]] = Field(default_factory=list)
 
 

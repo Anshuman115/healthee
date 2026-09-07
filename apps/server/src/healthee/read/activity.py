@@ -10,10 +10,10 @@ from uuid import UUID
 
 from healthee.core.tenancy import reference_day
 from healthee.derive._common import Cur
+from healthee.read.acwr import acwr
 from healthee.read.common import as_of_block
 from healthee.read.fitness import (
     activity_metric,
-    acwr,
     cardio_load_payload,
     fitness_plan_payload,
     mvpa_payload,
@@ -59,5 +59,9 @@ def activity_snapshot(cur: Cur, user_id: UUID, tz: str, day: date | None = None)
             "vo2max",
             "mvpa_minutes_mortality",
             "training_stress_score",
+            # The ratio's own note, Contested, added with the ``state`` verdict's removal:
+            # ``acwr`` cited only ``training_stress_score`` (a Probable note about TRIMP),
+            # so this endpoint published a ratio whose governing note named no surface.
+            "training_load_acwr",
         ],
     }

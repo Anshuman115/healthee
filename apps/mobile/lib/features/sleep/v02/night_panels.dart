@@ -161,17 +161,26 @@ class StageTablePanel extends StatelessWidget {
   /// Where "already revealed" is remembered.
   final RevealRegistry reveals;
 
-  /// Minutes per stage, in the app's own stage names.
-  Map<String, double> get minutes => <String, double>{
-    'deep': night.stages.deep,
-    'light': night.stages.light,
-    'rem': night.stages.rem,
-    'awake': night.stages.awake,
+  /// Minutes per stage, in the app's own stage names — empty with no breakdown.
+  ///
+  /// The empty map and a map of four zeros are the same picture on this panel and
+  /// a different claim underneath, which is why [total] is read off `stages`
+  /// being null rather than off these values summing to nothing.
+  Map<String, double> get minutes => switch (night.stages) {
+    final StageMinutes stages => <String, double>{
+      'deep': stages.deep,
+      'light': stages.light,
+      'rem': stages.rem,
+      'awake': stages.awake,
+    },
+    null => const <String, double>{},
   };
 
   @override
   Widget build(BuildContext context) {
-    final total = night.stages.total;
+    // Null stages -> no breakdown was recorded; zero total -> the strap staged the
+    // night as nothing. Both draw `kNoStagesNote`, and neither draws a strip.
+    final total = night.stages?.total ?? 0;
     return Panel(
       tone: Tone.sleep,
       label: 'Stage totals',
