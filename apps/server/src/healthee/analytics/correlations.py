@@ -47,7 +47,7 @@ _MIN_EVENT_DAYS = 3
 # The cap is a PAYLOAD bound, not a statistical one. ``series.daily_series`` reads the
 # owner's entire history by design (the engine needs every day it has), so an owner three
 # years in would otherwise put ~1,100 pairs per finding into a JSONB column and then onto
-# the wire — the unbounded-data case standards §1 names. 180 is about half a year of
+# the wire — the unbounded-data case standards section 1 names. 180 is about half a year of
 # daily pairs.
 #
 # When the cap bites, the MOST RECENT pairs are kept — the days an owner can still

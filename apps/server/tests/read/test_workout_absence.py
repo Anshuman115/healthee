@@ -10,7 +10,7 @@ resting heart rate and the owner's sex, and neither is in that payload.
 
 Split out of ``test_wire_thinness.py`` at the 400-line gate. It was the right seam
 anyway: the other section-B items are each one field on one payload, while this is a
-whole vocabulary with a gate per figure (standards §1 — a file has one reason to change).
+whole vocabulary with a gate per figure (standards section 1 — a file has one reason to change).
 
 The load-bearing property is not that reasons EXIST but that they agree with the
 producer: every session below is put through ``read/workout.py::_metrics`` itself, and

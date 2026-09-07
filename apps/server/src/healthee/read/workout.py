@@ -76,7 +76,7 @@ def _present_zones(hrmax: float | None, hrs: list[int]) -> set[str]:
     All-zero IS a reading — "no minute reached 50% of HRmax" — but only when there was an
     HRmax to cut against AND minutes to cut. Without either, ``_zone_minutes`` returns
     five zeroes that mean nothing was computed, which is the one thing an empty
-    collection must not be allowed to say (standards §1).
+    collection must not be allowed to say (standards section 1).
     """
     return {"zones"} if hrmax and hrs else set()
 

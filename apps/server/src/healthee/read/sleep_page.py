@@ -240,7 +240,7 @@ def _naps(cur: Cur, user_id: UUID, tz: str, days: int, as_of: date) -> list[dict
     were on the row the whole time and simply were not selected.
 
     Both halves ship now, from the same two helpers ``_session_nights`` uses, because a
-    second shaping of one thing is how the two drift apart (standards §Duplication). A
+    second shaping of one thing is how the two drift apart (the standards' duplication rule). A
     nap the strap staged only in summary keeps an empty ``stage_timeline`` — an honest
     empty, not a structural one.
     """

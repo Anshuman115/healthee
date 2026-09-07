@@ -101,7 +101,7 @@ def today_snapshot(cur: Cur, user_id: UUID, tz: str, day: date | None = None) ->
 # written — and an empty list is indistinguishable from "nothing was anomalous", so any
 # reader of this payload was being handed a clean bill of health that nothing had
 # computed. "No data" and "operation not performed" are different states and must be
-# distinguishable by the caller (standards §1); an empty collection cannot carry that
+# distinguishable by the caller (standards section 1); an empty collection cannot carry that
 # difference, which is why it is the one thing this key may not remain.
 #
 # ``null`` is what "we have nothing to say here" already means across these payloads
