@@ -212,6 +212,17 @@ mutate 'zeroed zones with no hrmax read as an easy session' \
   '    return {"zones"} if hrmax and hrs else set()' \
   '    return {"zones"}'
 
+# ── the basemap proxy ────────────────────────────────────────────────────────
+# Not a read-layer guard, and it lives here because this is the server's only
+# mutation harness. The argument is the header's own: this guard is invisible
+# when it breaks. A forwarded out-of-range tile draws the same plain ground in
+# the app as a refused one — the difference shows up on somebody else's quota
+# and, eventually, on their ban list.
+mutate 'the tile route forwards an out-of-range zoom' \
+  tests/test_map_tiles.py src/healthee/api/routers/map_tiles.py \
+  '    if not tile_in_range(z, x, y):' \
+  '    if False:'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
