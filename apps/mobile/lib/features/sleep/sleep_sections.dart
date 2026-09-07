@@ -88,6 +88,7 @@ class SleepExtras {
     this.onOpenMetric,
     this.onOpenJournal,
     this.onOpenActions,
+    this.onOpenHistory,
   });
 
   /// Opens settings. The avatar's destination.
@@ -101,6 +102,14 @@ class SleepExtras {
 
   /// Opens the recommendations.
   final VoidCallback? onOpenActions;
+
+  /// Opens the sleep history.
+  ///
+  /// `H.panel('How your night unfolded', …, 'sleep-history', …)` and
+  /// `H.panel('Your week, stage by stage', …, 'sleep-history', …)` — both of
+  /// this screen's `Details` links go to the same place, which is the screen
+  /// that holds every night rather than one metric's dated series.
+  final VoidCallback? onOpenHistory;
 }
 
 /// Builds the ordered section list for one render of Sleep.
@@ -133,7 +142,7 @@ List<PageSection> sleepSections({
       NightTimelinePanel(
         night: night,
         reveals: reveals,
-        onDetails: _metric(extras, 'sleep_stages'),
+        onDetails: extras.onOpenHistory,
       ),
     )
     ..gap(PageSpacing.panel)
@@ -167,7 +176,7 @@ List<PageSection> sleepSections({
           nights: windows.week,
           span: windows.weekSpan,
           reveals: reveals,
-          onDetails: _metric(extras, 'sleep_stages'),
+          onDetails: extras.onOpenHistory,
         ),
       );
   }
@@ -230,6 +239,3 @@ List<PageSection> sleepSections({
     ..add(const DataFooter());
   return sections.build();
 }
-
-VoidCallback? _metric(SleepExtras extras, String metric) =>
-    extras.onOpenMetric == null ? null : () => extras.onOpenMetric!(metric);

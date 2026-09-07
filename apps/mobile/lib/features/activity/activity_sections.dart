@@ -99,6 +99,9 @@ class ActivityExtras {
     this.onOpenRoutes,
     this.onRecord,
     this.onOpenMetric,
+    this.onOpenRecovery,
+    this.onOpenFitness,
+    this.onOpenBody,
   });
 
   /// Opens settings. The avatar's destination.
@@ -118,6 +121,15 @@ class ActivityExtras {
 
   /// Opens one metric's own history. The panels' `Details` action.
   final void Function(String metric)? onOpenMetric;
+
+  /// Opens the recovery detail — `H.bridge('movement', …, 'recovery', …)`.
+  final VoidCallback? onOpenRecovery;
+
+  /// Opens the fitness detail — the VO₂max panel's `Details`.
+  final VoidCallback? onOpenFitness;
+
+  /// Opens the age calculation — `H.bridge('fitness', …, 'body', …)`.
+  final VoidCallback? onOpenBody;
 }
 
 /// Builds the ordered section list for one render of Activity.
@@ -149,7 +161,13 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
     ),
   );
   sections.gap(PageSpacing.block);
-  sections.add(ContextBridge.text(kActivityRecoveryBridge));
+  sections.add(
+    ContextBridge.link(
+      kActivityRecoveryBridge,
+      label: 'View recovery',
+      onOpen: extras.onOpenRecovery,
+    ),
+  );
   if (snapshot != null) {
     sections.gap(PageSpacing.panel);
     sections.add(
@@ -198,13 +216,22 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
         builder: (context, vo2max) => FitnessSourcePanel(
           vo2max: vo2max,
           reveals: reveals,
-          onDetails: _metric(extras, 'vo2max_estimate'),
+          // `H.panel('Fitness with its source', …, 'fitness')` — the panel's
+          // Details opens the fitness screen, not the metric's dated series.
+          onDetails: extras.onOpenFitness,
         ),
       ),
     );
-    if (_fitnessYears(snapshot.biologicalAge.valueOrNull) case final double y) {
+    if (fitnessContributionYears(snapshot.biologicalAge.valueOrNull)
+        case final double y) {
       sections.gap(PageSpacing.block);
-      sections.add(ContextBridge.text(ageBridge(y)));
+      sections.add(
+        ContextBridge.link(
+          ageBridge(y),
+          label: 'See the calculation',
+          onOpen: extras.onOpenBody,
+        ),
+      );
     }
   }
   sections.gap(PageSpacing.block);
@@ -279,7 +306,11 @@ String _sessionDetail(DeviceWorkout workout) => <String>[
 ].join(' · ');
 
 /// The fitness term of the age model, or null when the payload has none.
-double? _fitnessYears(BiologicalAge? age) {
+///
+/// Public because the fitness screen carries the same bridge: two readings of
+/// `contributions[]` would be two chances to name a different number under one
+/// sentence.
+double? fitnessContributionYears(BiologicalAge? age) {
   for (final term in age?.contributions ?? const <AgeContribution>[]) {
     if (term.term == 'fitness' && term.deltaYears != null) {
       return term.deltaYears;

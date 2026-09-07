@@ -58,12 +58,16 @@ import 'package:healthee/features/actions/challenge_detail_screen.dart';
 import 'package:healthee/features/actions/outcomes_screen.dart';
 import 'package:healthee/features/actions/program_detail_screen.dart';
 import 'package:healthee/features/actions/recommendation_history_screen.dart';
+import 'package:healthee/features/activity/fitness_screen.dart';
 import 'package:healthee/features/gps/gps_screen.dart';
 import 'package:healthee/features/gps/route_detail_screen.dart';
 import 'package:healthee/features/gps/routes_screen.dart';
 import 'package:healthee/features/history/history_screen.dart';
 import 'package:healthee/features/history/metric_explorer_screen.dart';
 import 'package:healthee/features/insights/v02/finding_detail_screen.dart';
+import 'package:healthee/features/sleep/sleep_history_screen.dart';
+import 'package:healthee/features/today/body_screen.dart';
+import 'package:healthee/features/today/recovery_screen.dart';
 import 'package:healthee/features/workouts/workout_detail_screen.dart';
 import 'package:healthee/features/workouts/workout_history_screen.dart';
 import 'package:healthee/shared/app_shell.dart';
@@ -107,6 +111,25 @@ abstract final class Routes {
   /// `docs/APP_DESIGN.md` §2 describes; a route for it would be a second way in
   /// with a different back behaviour.
   static const String insights = '/insights';
+
+  /// The biological-age estimate, opened up: the ladder, its two terms, and
+  /// the lever it does not price.
+  ///
+  /// Reached from Today's hero (its eyebrow arrow and both contribution rows)
+  /// and from the Insights relationship card. The prototype files it under
+  /// Activity in its `parents` map; the app pushes it, so it returns to
+  /// whichever screen opened it.
+  static const String body = '/body';
+
+  /// VO₂max with its instrument, its stored history and the work behind it.
+  static const String fitness = '/fitness';
+
+  /// The recovery model, opened up: its weights, its factors, and each signal
+  /// against the owner's own baseline.
+  static const String recovery = '/recovery';
+
+  /// Every night in the window, and the way into one of them.
+  static const String sleepHistory = '/sleep-history';
 
   /// One correlation found in the owner's own history, opened from the Insights
   /// relationship card.
@@ -284,6 +307,19 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(
         path: Routes.outcomes,
         builder: (context, state) => const OutcomesScreen(),
+      ),
+      GoRoute(path: Routes.body, builder: (context, state) => const BodyScreen()),
+      GoRoute(
+        path: Routes.fitness,
+        builder: (context, state) => const FitnessScreen(),
+      ),
+      GoRoute(
+        path: Routes.recovery,
+        builder: (context, state) => const RecoveryScreen(),
+      ),
+      GoRoute(
+        path: Routes.sleepHistory,
+        builder: (context, state) => const SleepHistoryScreen(),
       ),
       GoRoute(
         path: Routes.workouts,

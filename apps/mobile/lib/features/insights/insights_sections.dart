@@ -82,6 +82,8 @@ class InsightsExtras {
     this.onOpenOutcomes,
     this.onOpenJournal,
     this.onOpenCoach,
+    this.onOpenSleepHistory,
+    this.onOpenFitness,
   });
 
   /// Opens settings. The avatar's destination.
@@ -101,6 +103,12 @@ class InsightsExtras {
 
   /// Opens the coach sheet.
   final VoidCallback? onOpenCoach;
+
+  /// Opens the sleep history — every night in the window.
+  final VoidCallback? onOpenSleepHistory;
+
+  /// Opens the fitness detail — VO₂max and its instrument.
+  final VoidCallback? onOpenFitness;
 }
 
 /// Builds the ordered section list for one render of Insights.
@@ -230,6 +238,20 @@ void _changedTogether(
           detail: 'Your caffeine, meditation and fasting context',
           tone: Tone.stress,
           onOpen: extras.onOpenJournal,
+        ),
+        V02ListRow(
+          icon: Icons.bedtime_outlined,
+          title: 'Sleep history',
+          detail: 'Every night in the window, and the way into one of them',
+          tone: Tone.sleep,
+          onOpen: extras.onOpenSleepHistory,
+        ),
+        V02ListRow(
+          icon: Icons.trending_up,
+          title: 'Fitness estimates',
+          detail: 'VO₂max, the instrument behind it, and what it is stored as',
+          tone: Tone.fitness,
+          onOpen: extras.onOpenFitness,
         ),
       ],
     ),

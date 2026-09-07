@@ -91,12 +91,30 @@ void todayBody(
           _ => const <Disclosure>[],
         },
       ),
-      builder: (context, age) => TodayBioHero(age: age, reveals: reveals),
+      builder: (context, age) => TodayBioHero(
+        age: age,
+        reveals: reveals,
+        onOpenBody: extras.onOpenBody,
+        onOpenTerm: extras.onOpenTerm,
+      ),
     ),
   );
-  sections.add(TodaySummaryTiles(facts: facts));
+  sections.add(
+    TodaySummaryTiles(
+      facts: facts,
+      onOpenRecovery: extras.onOpenRecovery,
+      onOpenSleep: extras.onOpenSleep,
+      onOpenActivity: extras.onOpenActivity,
+    ),
+  );
   sections.gap(PageSpacing.block);
-  sections.add(ContextBridge.text(kAgeBridge));
+  sections.add(
+    ContextBridge.link(
+      kAgeBridge,
+      label: 'See the contributors',
+      onOpen: extras.onOpenBody,
+    ),
+  );
   if (extras.chapters case final TodayChapters chapters) {
     // Pinned: `richer.css` gives `.chapter-nav` `position: sticky; top: 0`, and
     // it is the one element on the page that has it.

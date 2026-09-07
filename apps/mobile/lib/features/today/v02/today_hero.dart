@@ -51,10 +51,19 @@ const String kPopulationModelLabel =
 /// backgrounded, reduced motion — are not a preference and are the field's own.
 class TodayBioHero extends StatelessWidget {
   /// [age] is the payload's block; nothing here is computed.
-  const TodayBioHero({required this.age, required this.reveals, super.key});
+  const TodayBioHero({
+    required this.age,
+    required this.reveals,
+    this.onOpenBody,
+    this.onOpenTerm,
+    super.key,
+  });
 
   /// The prototype's eyebrow for this card.
   static const String eyebrow = 'Biological age · estimate';
+
+  /// The prototype's own `aria-label` on the eyebrow's anchor.
+  static const String eyebrowSemantics = 'Understand your biological age';
 
   /// The estimate and everything the server said about it.
   final BiologicalAge age;
@@ -62,11 +71,26 @@ class TodayBioHero extends StatelessWidget {
   /// Where "this instrument has already revealed" is remembered.
   final RevealRegistry reveals;
 
+  /// `<a href="#body">` on the eyebrow's arrow — the calculation behind the
+  /// figure.
+  final VoidCallback? onOpenBody;
+
+  /// Where one contribution row goes, by its `term`.
+  ///
+  /// `.bio-bottom` is two anchors in the prototype — `#fitness` and `#sleep` —
+  /// and the term decides which. Passing the term rather than two callbacks is
+  /// what keeps the hero honest about a model that adds a third one: the host
+  /// answers for the term it is given, or does not, and the row is drawn either
+  /// way.
+  final void Function(String term)? onOpenTerm;
+
   @override
   Widget build(BuildContext context) {
     return BioHero(
       eyebrow: eyebrow,
       eyebrowIcon: Icons.arrow_forward,
+      onEyebrowTap: onOpenBody,
+      eyebrowSemantics: eyebrowSemantics,
       value: _figure(age.biologicalAge),
       unit: 'years',
       caption: _caption(age),
@@ -85,7 +109,13 @@ class TodayBioHero extends StatelessWidget {
       stats: <BioStat>[
         for (final term in age.contributions)
           if (term.deltaYears case final double delta)
-            BioStat('${_termName(term.term)} contribution', _years(delta)),
+            BioStat(
+              '${_termName(term.term)} contribution',
+              _years(delta),
+              onOpen: onOpenTerm == null
+                  ? null
+                  : () => onOpenTerm!(term.term),
+            ),
       ],
       modelLabel: age.disclaimer ?? kPopulationModelLabel,
       modelIcon: Icons.info_outline,
@@ -141,7 +171,13 @@ class TodayBioHero extends StatelessWidget {
 /// `.summary-tiles` — recovery, sleep and movement, three across.
 class TodaySummaryTiles extends StatelessWidget {
   /// [facts] is the screen's one parse of the payload.
-  const TodaySummaryTiles({required this.facts, super.key});
+  const TodaySummaryTiles({
+    required this.facts,
+    this.onOpenRecovery,
+    this.onOpenSleep,
+    this.onOpenActivity,
+    super.key,
+  });
 
   /// `.summary-tiles { gap: 8px }`.
   static const double gap = 8;
@@ -151,6 +187,15 @@ class TodaySummaryTiles extends StatelessWidget {
 
   /// The figures, series and labels this render is built from.
   final TodayFacts facts;
+
+  /// Where the three tiles go.
+  ///
+  /// `docs/V02_CONNECTIVITY.md` section 0: *"Today's entry points are three
+  /// tappable hero summary rows … not the panel 'Details' links the source read
+  /// suggested. The recovery row is what opens `#recovery`."*
+  final VoidCallback? onOpenRecovery;
+  final VoidCallback? onOpenSleep;
+  final VoidCallback? onOpenActivity;
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +229,7 @@ class TodaySummaryTiles extends StatelessWidget {
       value: '${score.recovery}',
       fraction: score.recovery / 100,
       meta: _remaining(score),
+      onOpen: onOpenRecovery,
     );
   }
 
@@ -206,6 +252,7 @@ class TodaySummaryTiles extends StatelessWidget {
       meta: need == null || need <= 0
           ? null
           : '${(minutes / need * 100).round()}% of ${hoursMinutes(need)} need',
+      onOpen: onOpenSleep,
     );
   }
 
@@ -221,6 +268,7 @@ class TodaySummaryTiles extends StatelessWidget {
       tone: Tone.movement,
       value: commaGrouped(steps.round()),
       meta: facts.medianFootFor(TodayMetricIds.steps).toLowerCase(),
+      onOpen: onOpenActivity,
     );
   }
 }

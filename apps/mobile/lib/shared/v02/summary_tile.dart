@@ -32,6 +32,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/shared/instrument/h_tap.dart';
 
 /// One summary tile: label, value, qualifier, and an optional micro-track.
 class SummaryTile extends StatelessWidget {
@@ -45,6 +46,7 @@ class SummaryTile extends StatelessWidget {
     this.fraction,
     this.segments = 0,
     this.filled = defaultFilled,
+    this.onOpen,
     super.key,
   });
 
@@ -132,12 +134,24 @@ class SummaryTile extends StatelessWidget {
   /// How many of them are at full opacity.
   final int filled;
 
+  /// Where this tile goes.
+  ///
+  /// **The tile IS the entry point.** `docs/V02_CONNECTIVITY.md` section 0
+  /// records that Today's three doorways are the summary rows themselves and not
+  /// a panel "Details" link, and a tile that opens nothing has no chevron to
+  /// give the fact away — so a caller that leaves this null gets a tile that
+  /// reads exactly as it always did.
+  final VoidCallback? onOpen;
+
   @override
   Widget build(BuildContext context) {
     final tone = this.tone;
-    return tone == null
+    final tile = tone == null
         ? _body(context)
         : ToneScope(tone: tone, child: Builder(builder: _body));
+    return onOpen == null
+        ? tile
+        : HTap(onTap: onOpen, semanticLabel: '$title · $value', child: tile);
   }
 
   Widget _body(BuildContext context) {
