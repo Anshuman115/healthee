@@ -7,6 +7,12 @@
 /// `feedback_verify_primary_sources` and CLAUDE.md's *"science code is sacred"*
 /// both land on the same rule.
 ///
+/// **The source is in the ⓘ, not under the control.** The chip that used to
+/// sit below this field named the note in the field's own body; the owner asked
+/// for those off every surface, twice. Nothing was dropped on the way: `HField`
+/// carries a [MetricDetail] to the dot beside its label, so the note the five
+/// labels come from is one tap away and the field itself is just the question.
+///
 /// **It is never inferred from steps and never auto-filled.** The self-report is
 /// a different instrument from the strap's step count, and the whole reason the
 /// question is asked is that everyday walking does not answer it. An unanswered
@@ -15,7 +21,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/shared/states/citation_row.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/fields.dart';
 
@@ -58,6 +64,16 @@ class ActivityLevelField extends StatelessWidget {
             'Your self-report, separate from strap measurements. Choose the '
             'closest description of a typical week; everyday steps do not '
             'answer it.',
+        detail: const MetricDetail(
+          title: 'Usual activity',
+          notes: <String>['non_exercise_vo2max'],
+          method: <String>[
+            'The five levels are Jurca’s NASA Table 1 categories — the '
+            'reference levels the non-exercise fitness estimate was fitted '
+            'against — so they are worded the way the paper words them, not '
+            'the way an app would.',
+          ],
+        ),
         child: HSelect<int>(
           value: value,
           placeholder: 'Not answered',
@@ -73,7 +89,6 @@ class ActivityLevelField extends StatelessWidget {
           kind: HButtonKind.soft,
           onPressed: enabled ? () => onChanged(null) : null,
         ),
-      const CitationRow(noteIds: ['non_exercise_vo2max']),
     ],
   );
 }

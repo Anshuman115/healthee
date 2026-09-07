@@ -58,6 +58,24 @@
 ///
 /// Renders nothing when there are no findings. An empty heading over a blank card
 /// reads as breakage; the honest state is silence.
+///
+/// ## The source chips moved to the ⓘ — 2026-09-07
+///
+/// The owner, for the second time: *"as i have stated previously to remove that
+/// reference pills from everywhere it seems you forgot that"*. This file was the
+/// one still drawing them, and because **Insights and Sleep both render it**, one
+/// missed widget put chips back on two screens. That is why the sweep is now a
+/// gate (`test/features/citation_sweep_test.dart`) rather than another pass.
+///
+/// Each finding's citations went into **its own** [MetricInfoDot], not a single
+/// dot on the card: two findings on one card cite different notes, and one merged
+/// sheet would tell the reader that either finding is backed by either source.
+/// A finding citing nothing draws no dot — there is nothing behind it, and an
+/// ⓘ opening an empty sheet is worse than none.
+///
+/// **[kSingleSubjectFraming] did not move.** It is not provenance; it is the
+/// qualification that makes every headline on the card readable, and it stays on
+/// the face where it cannot be collapsed.
 library;
 
 import 'package:flutter/material.dart';
@@ -65,6 +83,8 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/shared/format/metric_names.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/citation_row.dart';
 import 'package:healthee/shared/states/reasoning_note.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
@@ -116,10 +136,27 @@ class _FindingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
+    final headline = findingHeadline(finding);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(findingHeadline(finding), style: text.titleSmall),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(child: Text(headline, style: text.titleSmall)),
+            MetricInfoDot(
+              // No explainer key: a correlation found in one person's history is
+              // not a metric the corpus has an entry for. The detail IS the
+              // content, which is the case `MetricInfoDot` draws itself for.
+              null,
+              detail: MetricDetail(
+                title: headline,
+                notes: finding.researchNoteIds,
+              ),
+              fallbackTitle: headline,
+            ),
+          ],
+        ),
         const SizedBox(height: Insets.xs),
         Text(
           findingWindow(finding),
@@ -129,7 +166,6 @@ class _FindingRow extends StatelessWidget {
           question: 'The statistic behind this',
           answer: findingStatistics(finding),
         ),
-        CitationRow(noteIds: finding.researchNoteIds),
       ],
     );
   }

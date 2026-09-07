@@ -663,7 +663,6 @@ mutate 'the stage strip draws stages with no minutes' "$CHARTS_TEST" "$STRIP" \
 
 # ── Today: a refusal must never come back as a number ───────────────────────
 TILE=lib/features/today/widgets/metric_tile.dart
-RECOVERY=lib/features/today/widgets/recovery_card.dart
 TILE_TEST=test/features/today_tiles_test.dart
 WITHHELD_TEST=test/features/today_withheld_test.dart
 
@@ -1345,6 +1344,9 @@ EXCLUDED=lib/shared/states/withheld_card.dart
 BODY=lib/features/today/today_body.dart
 WITHHELD_HERO_TEST=test/features/today_withheld_hero_test.dart
 PROVENANCE_TEST=test/features/card_provenance_test.dart
+SWEEP_TEST=test/features/citation_sweep_test.dart
+FINDINGS=lib/shared/findings_section.dart
+ACTIVITY_LEVEL=lib/features/profile/widgets/activity_level_field.dart
 CHAPTER_TEST=test/shared/chapter_heading_test.dart
 READING_TEST=test/shared/reading_view_test.dart
 
@@ -1412,7 +1414,7 @@ mutate "the info sheet drops the card's citations" \
 
 # A reference pill back on a card's face.
 mutate 'the reference label returns to the sleep-health grid' \
-  "$PROVENANCE_TEST" "$NIGHT" \
+  "$PROVENANCE_TEST $SWEEP_TEST" "$NIGHT" \
   '                dimension.reading ?? '"'"'—'"'"',
               ),' \
   '                dimension.reading ?? '"'"'—'"'"',
@@ -1899,6 +1901,41 @@ mutate 'a tile falls back to the raw metric id' "$EXPLORER_TEST" "$EXPLORER" \
 mutate 'the window ignores the selected day' "$WINDOW_TEST" "$WINDOW" \
   '      if (point.date.compareTo(day) <= 0) point,' \
   '      point,'
+
+# ── the citation sweep: chips off every card, and still reachable ────────────
+# Both directions, because either one alone is satisfied by the wrong fix. A
+# suite that only checked the chip was gone would pass on DELETING the evidence.
+
+# The chip back on the findings card — the exact regression the owner reported
+# twice, and the one that lands on two screens at once (Insights and Sleep).
+mutate 'a source chip returns to the findings card' \
+  "$SWEEP_TEST" "$FINDINGS" \
+  '        ReasoningNote(
+          question: '"'"'The statistic behind this'"'"',
+          answer: findingStatistics(finding),
+        ),' \
+  '        ReasoningNote(
+          question: '"'"'The statistic behind this'"'"',
+          answer: findingStatistics(finding),
+        ),
+        CitationRow(noteIds: finding.researchNoteIds),'
+
+# The other half: the chips come off and the ⓘ is handed nothing. The card looks
+# exactly as the sweep intended and the grounding is gone from the device.
+mutate "the findings ⓘ is emptied of the card's citations" \
+  "$SWEEP_TEST" "$FINDINGS" \
+  '              detail: MetricDetail(
+                title: headline,
+                notes: finding.researchNoteIds,
+              ),' \
+  '              detail: MetricDetail(title: headline),'
+
+# The same emptying on the profile field, where the note behind five verbatim
+# science labels is the only thing licensing them.
+mutate 'the activity-level ⓘ loses the note its labels come from' \
+  "$SWEEP_TEST" "$ACTIVITY_LEVEL" \
+  "          notes: <String>['non_exercise_vo2max']," \
+  '          notes: <String>[],'
 
 echo
 echo "caught $PASS, survived $FAIL"
