@@ -26,8 +26,16 @@
 /// ## It cannot be constructed without a decision about the balance
 ///
 /// [remaining] is `int?` and means *how many are left, or uncapped* — it is never
-/// "unknown". A sheet that has not read the meter does not build this widget at
-/// all; see `coach_sheet.dart`.
+/// "unknown". A screen that has not read the meter does not build this widget at
+/// all; see `coach_screen.dart`.
+///
+/// ## [initialQuestion] is how a subject reaches the coach
+///
+/// `/api/coach` takes `messages` and nothing else, so the only place a topic can
+/// live is the first user turn. *Discuss this workout* and *Talk this through*
+/// therefore arrive as text already in this box — **written, not sent**. Sending
+/// it on arrival would spend one of twenty on a navigation, and the standing rule
+/// on this surface is that a spend follows a press.
 library;
 
 import 'package:flutter/material.dart';
@@ -47,6 +55,7 @@ class CoachComposer extends StatefulWidget {
     required this.asking,
     required this.remaining,
     required this.onAsk,
+    this.initialQuestion,
     super.key,
   });
 
@@ -84,6 +93,10 @@ class CoachComposer extends StatefulWidget {
   /// How many are left, or null when the account is uncapped.
   final int? remaining;
 
+  /// The opening question a caller opened this screen about. Written into the
+  /// field once, on first build; never sent by itself.
+  final String? initialQuestion;
+
   /// Asks one.
   final void Function(String question) onAsk;
 
@@ -92,7 +105,12 @@ class CoachComposer extends StatefulWidget {
 }
 
 class _CoachComposerState extends State<CoachComposer> {
-  final TextEditingController _controller = TextEditingController();
+  late final TextEditingController _controller = TextEditingController(
+    // Once, in `initState`'s position. A topic re-applied on every build would
+    // erase whatever the owner had typed over it, and a topic applied in
+    // `didUpdateWidget` would do it again on the next rebuild of the parent.
+    text: widget.initialQuestion ?? '',
+  );
 
   @override
   void dispose() {

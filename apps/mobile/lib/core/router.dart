@@ -1,4 +1,7 @@
-/// Routes. Five tabs, the setup surfaces, and settings outside the shell.
+/// The router. Five tabs, the setup surfaces, and settings outside the shell.
+///
+/// The paths themselves are `core/routes.dart` — split out at the 400-line gate
+/// and re-exported below, so `import 'core/router.dart'` still names them.
 ///
 /// `docs/APP_DESIGN.md` §2 fixes the information architecture — five tabs (Today ·
 /// Sleep · Activity · Insights · Actions), a Coach FAB on Today, and the owner's
@@ -50,6 +53,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:healthee/core/routes.dart';
 import 'package:healthee/core/settings_routes.dart';
 import 'package:healthee/core/tabs.dart';
 import 'package:healthee/data/models/finding.dart';
@@ -59,6 +63,7 @@ import 'package:healthee/features/actions/outcomes_screen.dart';
 import 'package:healthee/features/actions/program_detail_screen.dart';
 import 'package:healthee/features/actions/recommendation_history_screen.dart';
 import 'package:healthee/features/activity/fitness_screen.dart';
+import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/gps/gps_screen.dart';
 import 'package:healthee/features/gps/route_detail_screen.dart';
 import 'package:healthee/features/gps/routes_screen.dart';
@@ -73,148 +78,10 @@ import 'package:healthee/features/workouts/workout_history_screen.dart';
 import 'package:healthee/shared/app_shell.dart';
 import 'package:healthee/shared/foundation_screen.dart';
 
-/// Every route's path, in one place. Screens reference these, never string
-/// literals — Standards §3 bans the string-literal habit for user constants and
-/// the reasoning is the same here: a typo'd path fails at runtime, a typo'd
-/// constant fails at compile time.
-abstract final class Routes {
-  static const recommendations = '/recommendations';
-  static const gps = '/gps';
-  static const routes = '/routes';
-  static const route = '/route';
-  static const String challenge = '/challenge';
-  static const String program = '/program';
-  static const String outcomes = '/outcomes';
-  static const String workouts = '/workouts';
-  static const String workout = '/workout';
-  static const String profile = '/profile';
-
-  /// Daily metric observations over selectable periods.
-  static const String history = '/history';
-
-  /// Manual observations and recent entries.
-  static const String journal = '/journal';
-
-  /// The daily snapshot. The app's home.
-  static const String today = '/';
-
-  /// Last night, and the one lever to improve tonight.
-  static const String sleep = '/sleep';
-
-  /// Fitness, organised around VO₂max.
-  static const String activity = '/activity';
-
-  /// The owner's own history — trends, and the patterns found in it.
-  ///
-  /// There is no `/coach` path. The coach is a sheet opened from Today's FAB
-  /// (`features/coach/coach_sheet.dart`), which is where legacy puts it and what
-  /// `docs/APP_DESIGN.md` §2 describes; a route for it would be a second way in
-  /// with a different back behaviour.
-  static const String insights = '/insights';
-
-  /// The biological-age estimate, opened up: the ladder, its two terms, and
-  /// the lever it does not price.
-  ///
-  /// Reached from Today's hero (its eyebrow arrow and both contribution rows)
-  /// and from the Insights relationship card. The prototype files it under
-  /// Activity in its `parents` map; the app pushes it, so it returns to
-  /// whichever screen opened it.
-  static const String body = '/body';
-
-  /// VO₂max with its instrument, its stored history and the work behind it.
-  static const String fitness = '/fitness';
-
-  /// The recovery model, opened up: its weights, its factors, and each signal
-  /// against the owner's own baseline.
-  static const String recovery = '/recovery';
-
-  /// Every night in the window, and the way into one of them.
-  static const String sleepHistory = '/sleep-history';
-
-  /// One correlation found in the owner's own history, opened from the Insights
-  /// relationship card.
-  ///
-  /// Takes the pair as a path segment because the server sends findings with no
-  /// id — see `features/insights/v02/finding_detail_screen.dart`.
-  static const String insight = '/insight';
-
-  /// Every cited action the server raised for today.
-  static const String actions = '/actions';
-
-  /// Appearance, the server session, the strap, diagnostics and the licences.
-  ///
-  /// **Outside the tab shell**, and reached from the Today header's avatar —
-  /// which is the entry point that already existed, extended rather than
-  /// duplicated. A settings surface inside the bar would light a tab while the
-  /// owner is somewhere that is not a tab.
-  static const String settings = '/settings';
-
-  /// Light · Dark · System, and the accent this build wears.
-  ///
-  /// ## The sub-screens are paths under [settings], not flags on it
-  ///
-  /// The v02 design turns Settings from one long scroll of expanding cards into
-  /// an **index of rows**, each opening a screen of its own. A boolean on the
-  /// settings screen saying "show the appearance panel" would be a route the
-  /// router does not know about: no deep link, no back arrow, and a system back
-  /// gesture that leaves the app instead of closing the panel.
-  ///
-  /// They nest under `/settings` because that is what they are under, and
-  /// because a `push` from the index then pops back to the index — which is the
-  /// same rule `leaveSetup` keeps for the two setup flows.
-  static const String appearance = '/settings/appearance';
-
-  /// The three optional nudges, and the times they arrive at.
-  static const String reminders = '/settings/reminders';
-
-  /// Whether the phone collects and uploads on its own, and under what limits.
-  static const String background = '/settings/background';
-
-  /// The strap this phone is paired to: its charge, its last read, its sync.
-  static const String device = '/settings/device';
-
-  /// Which streams are current, and how old each one is.
-  static const String dataFreshness = '/settings/sync';
-
-  /// What this app is, which build it is, and the licences it carries.
-  static const String about = '/settings/about';
-
-  /// The first screen an app with nothing set up has to show.
-  ///
-  /// Not reached by a redirect — the router still sends a strapless app to
-  /// [pairing], which is the flow that gets it working. This is the door
-  /// **into** that flow, and the account screen beside it.
-  static const String welcome = '/welcome';
-
-  /// Pair a strap, or review the pairing already held.
-  static const String pairing = '/pairing';
-
-  /// Baselines and the strap's own streams — "is the instrument working".
-  ///
-  /// Off the tab bar on purpose. `diagnostics_screen.dart` argues it: these are
-  /// the numbers the owner wants when something looks wrong, and never at 7am.
-  /// Reached from [pairing], which is where the avatar on Today already goes.
-  static const String diagnostics = '/diagnostics';
-
-  /// Sign in to the Healthee server, or review the session already held.
-  ///
-  /// **Nothing redirects here**, unlike [pairing]. See the router's own
-  /// "Unpaired means pairing" note for the contrast: an app with no strap has
-  /// nothing to show at all, whereas an app with no server session still has
-  /// every measurement this phone read off the strap. Gating on a token would
-  /// take the owner's own data away until they satisfied a server, and
-  /// strap-only is a supported mode rather than a degraded one.
-  static const String serverSignIn = '/server';
-
-  /// The honesty-state specimen sheet. **Not a product screen.**
-  ///
-  /// `FoundationScreen` used to sit on [today], where it was reasonably
-  /// mistaken for a hung request — a catalogue whose loading specimen looks
-  /// exactly like a screen that never loaded. It is kept because it is a useful
-  /// side-by-side of the four `Reading` states while building a card, and it is
-  /// kept OFF the home route for the same reason it was moved.
-  static const String devFoundation = '/dev/foundation';
-}
+// The path table and the coach's location builder live in `routes.dart`
+// (Standards section 1, the 400-line gate). Re-exported so this file stays
+// the one import a screen needs to name a destination.
+export 'package:healthee/core/routes.dart';
 
 /// The app's router.
 ///
@@ -308,6 +175,18 @@ GoRouter buildRouter(WidgetRef ref) {
         path: Routes.outcomes,
         builder: (context, state) => const OutcomesScreen(),
       ),
+      GoRoute(
+        path: Routes.coach,
+        // An empty `topic` is no topic. A caller that built the query from a
+        // label it did not have would otherwise open the coach with a blank
+        // first message sitting in the box.
+        builder: (context, state) => CoachScreen(
+          topic: switch (state.uri.queryParameters['topic']) {
+            final String topic when topic.trim().isNotEmpty => topic,
+            _ => null,
+          },
+        ),
+      ),
       GoRoute(path: Routes.body, builder: (context, state) => const BodyScreen()),
       GoRoute(
         path: Routes.fitness,
@@ -383,6 +262,7 @@ void leaveSetup(BuildContext context) {
     context.go(Routes.today);
   }
 }
+
 
 /// Lets [buildRouter] tell go_router that the pairing state moved.
 /// `notifyListeners` is protected, so poking a bare `ChangeNotifier` from

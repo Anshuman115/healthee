@@ -58,7 +58,7 @@ import 'package:healthee/data/history/history_repository.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/store/view_date.dart';
-import 'package:healthee/features/coach/coach_sheet.dart';
+import 'package:healthee/features/coach/coach_topics.dart';
 import 'package:healthee/features/history/history_window.dart';
 import 'package:healthee/features/history/v02/dated_readings.dart';
 import 'package:healthee/features/history/v02/history_panel.dart';
@@ -149,7 +149,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               title: 'Ask about this trend',
               detail: 'Explore the reading with your coach',
               tone: Tone.fitness,
-              onOpen: () => unawaited(showCoachSheet(context)),
+              // The trend is the subject, so the trend's own name opens
+              // the conversation. `coach_screen.dart` says why a topic is
+              // written into the input rather than sent on arrival.
+              onOpen: () => unawaited(
+                context.push(coachLocation(trendTopic(_metric.id))),
+              ),
             ),
           ],
         ),

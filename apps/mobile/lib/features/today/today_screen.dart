@@ -38,7 +38,6 @@ import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/store/view_date.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
-import 'package:healthee/features/coach/coach_sheet.dart';
 import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/features/today/v02/today_chapters.dart';
@@ -108,9 +107,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           onSignIn: () => unawaited(context.push(Routes.serverSignIn)),
           onOpenProfile: () => unawaited(context.push(Routes.settings)),
           onOpenSync: () => unawaited(context.push(Routes.settings)),
-          // The coach is a sheet, not a route — `app_shell.dart`'s FAB opens
-          // the same one, so the entry card and the FAB cannot drift apart.
-          onOpenCoach: () => unawaited(showCoachSheet(context)),
+          // The coach is a route now — `app_shell.dart`'s FAB pushes the same
+          // one, so the entry card and the FAB cannot drift apart. No topic:
+          // this card asks nothing in particular.
+          onOpenCoach: () => unawaited(context.push(Routes.coach)),
           onOpenActions: () => context.go(Routes.actions),
           // The three hero summary rows and the hero's own arrow. Pushed,
           // because they are destinations the owner came from Today and

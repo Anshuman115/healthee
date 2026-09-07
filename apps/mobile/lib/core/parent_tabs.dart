@@ -35,7 +35,7 @@
 /// tabs, so there is no one tab it belongs under.
 library;
 
-import 'package:healthee/core/router.dart';
+import 'package:healthee/core/routes.dart';
 
 /// The prototype's map, in this app's paths.
 ///

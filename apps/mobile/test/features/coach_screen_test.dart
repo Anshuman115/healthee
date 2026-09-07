@@ -1,4 +1,7 @@
-/// The coach sheet — and the rule that the input cannot exist without the meter.
+/// The coach SCREEN — and the rule that the input cannot exist without the meter.
+///
+/// It was a sheet until the coach became a route. Nothing here changed with the
+/// frame: every assertion is about what the composition renders for a balance.
 ///
 /// A coach question costs one of twenty per rolling thirty days. `PRICING.md` §0
 /// argues that *"a stated number beats 'unlimited (fair-use)'"* because
@@ -22,7 +25,7 @@ import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
-import 'package:healthee/features/coach/coach_sheet.dart';
+import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/shared/format/note_names.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
@@ -97,11 +100,11 @@ class _ScriptedCoach implements CoachClient {
   }
 }
 
-Widget _sheet(CoachClient client) => ProviderScope(
+Widget _screen(CoachClient client, {String? topic}) => ProviderScope(
   overrides: [coachClientProvider.overrideWithValue(client)],
   child: MaterialApp(
     theme: AppTheme.light,
-    home: Scaffold(body: CoachSheet(now: _now)),
+    home: CoachScreen(topic: topic, now: _now),
   ),
 );
 
@@ -111,7 +114,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _sheet(_ScriptedCoach(balances: [_premium(remaining: 17)])),
+        _screen(_ScriptedCoach(balances: [_premium(remaining: 17)])),
       );
       await tester.pumpAndSettle();
 
@@ -129,7 +132,7 @@ void main() {
     ) async {
       // The read is in flight and never lands. A text field here would be an
       // input beside a number nobody has yet.
-      await tester.pumpWidget(_sheet(_PendingEntitlement()));
+      await tester.pumpWidget(_screen(_PendingEntitlement()));
       await tester.pump();
 
       expect(find.byType(TextField), findsNothing);
@@ -142,7 +145,7 @@ void main() {
     testWidgets('a FAILED balance read leaves no input and offers a retry', (
       tester,
     ) async {
-      await tester.pumpWidget(_sheet(_FailingEntitlement()));
+      await tester.pumpWidget(_screen(_FailingEntitlement()));
       await tester.pumpAndSettle();
 
       expect(find.byType(TextField), findsNothing);
@@ -157,7 +160,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _sheet(
+        _screen(
           _ScriptedCoach(
             balances: [
               _premium(
@@ -179,7 +182,7 @@ void main() {
       // "0 of 20 left" for somebody who was never sold twenty of anything is an
       // upsell disguised as a meter. `api/allowance_report.py` argues it and the
       // wire enforces it by sending an empty list.
-      await tester.pumpWidget(_sheet(_ScriptedCoach(balances: [_free()])));
+      await tester.pumpWidget(_screen(_ScriptedCoach(balances: [_free()])));
       await tester.pumpAndSettle();
 
       expect(find.byType(TextField), findsNothing);
@@ -192,7 +195,7 @@ void main() {
     ) async {
       // Absent from PREMIUM_ALLOWANCE means unlimited, not zero — the asymmetry
       // an entry with `limit: 0` would invert.
-      await tester.pumpWidget(_sheet(_ScriptedCoach(balances: [_uncapped()])));
+      await tester.pumpWidget(_screen(_ScriptedCoach(balances: [_uncapped()])));
       await tester.pumpAndSettle();
 
       expect(find.byType(TextField), findsOneWidget);
@@ -215,7 +218,7 @@ void main() {
           'validated': true,
         }),
       );
-      await tester.pumpWidget(_sheet(client));
+      await tester.pumpWidget(_screen(client));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'How is my recovery?');
@@ -237,7 +240,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _sheet(
+        _screen(
           _ScriptedCoach(
             balances: [_premium(remaining: 5)],
             answer: CoachAnswer.fromJson(const <String, Object?>{
@@ -280,7 +283,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _sheet(
+        _screen(
           _ScriptedCoach(
             balances: [_premium(remaining: 5)],
             answer: CoachAnswer.fromJson(const <String, Object?>{
@@ -318,7 +321,7 @@ void main() {
             'spent — your questions are untouched.',
           ),
         );
-        await tester.pumpWidget(_sheet(client));
+        await tester.pumpWidget(_screen(client));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), 'Anything?');
         await tester.tap(find.textContaining('Ask —'));
@@ -351,7 +354,7 @@ void main() {
           resetsAt: _now.add(const Duration(days: 4)),
         ),
       );
-      await tester.pumpWidget(_sheet(client));
+      await tester.pumpWidget(_screen(client));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'One more?');
       await tester.tap(find.textContaining('Ask —'));

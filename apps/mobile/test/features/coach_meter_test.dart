@@ -2,9 +2,9 @@
 ///
 /// Unit tests, not widget tests: `meterLine` is a pure function of an
 /// `Entitlement` and an instant, and asking it directly is stronger than reading
-/// pixels back off a sheet. Split out of `coach_sheet_test.dart` at the 400-line
-/// gate (Standards section 1); that suite renders the sheet, this one asks the
-/// function it prints.
+/// pixels back off a screen. Split out of `coach_screen_test.dart` at the
+/// 400-line gate (Standards section 1); that suite renders the screen, this one
+/// asks the function it prints.
 ///
 /// The rule under all of them: **the number is the server's**. Nothing here
 /// computes a balance, and nothing manufactures a reset instant the wire did not

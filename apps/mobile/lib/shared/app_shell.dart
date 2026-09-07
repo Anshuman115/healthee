@@ -87,11 +87,13 @@
 /// says the owner is somewhere they are not.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/tabs.dart';
-import 'package:healthee/features/coach/coach_sheet.dart';
 import 'package:healthee/features/coach/widgets/coach_fab.dart';
 import 'package:healthee/shared/app_tab_bar.dart';
 
@@ -120,7 +122,7 @@ class AppShell extends StatelessWidget {
       child: Scaffold(
         body: navigationShell,
         floatingActionButton: onHome
-            ? CoachFab(onTap: () => showCoachSheet(context))
+            ? CoachFab(onTap: () => unawaited(context.push(Routes.coach)))
             : null,
         bottomNavigationBar: AppTabBar(
           currentIndex: navigationShell.currentIndex,
