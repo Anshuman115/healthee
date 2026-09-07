@@ -48,9 +48,12 @@
 /// may be read before it. It is null on this account today, and null draws
 /// nothing.
 ///
-/// **`pai` is null on this account and `anomalies` is `[]` unconditionally**
-/// (`read/today.py:83`). Neither gets a section: a heading that can never have
-/// content under it is dead code.
+/// **`pai` is null on this account, and `anomalies` is not computed by this
+/// endpoint at all** — it shipped as `[]`, which read as "nothing was
+/// anomalous"; it is `null` now with a block naming `/api/notable` as the place
+/// that does scan (`docs/BACKEND_GAPS_FROM_UI.md` A3). Neither gets a section
+/// here: a heading that can never have content under it is dead code, and the
+/// scan already has a home on the Insights tab as Notable events.
 ///
 /// ## The date control, and the one half of the screen it can move
 ///

@@ -226,10 +226,16 @@ class Vo2max {
 
   /// The four numbers Jurca's non-exercise model takes.
   ///
-  /// Every one of them can be null, and on this server three of them usually
-  /// are: `read/vo2max.py` maps `weekly_mvpa_min` to `None` outright (a
-  /// documented WP7 gap), and `bmi` / `rhr_med_7d` / `pa_score` only exist on a
-  /// row the Jurca tier wrote. A measured tier leaves all four empty.
+  /// Every one of them can be null, and `bmi` / `rhr_med_7d` / `pa_score` exist
+  /// only on a row the Jurca tier wrote.
+  ///
+  /// `weekly_mvpa_min` used to be null on EVERY row — `read/vo2max.py` mapped it
+  /// to `None` outright, beside a note saying v2 does not store it in the VO₂max
+  /// flags. That was true and it was not a reason: the number is computed twenty
+  /// lines away for `/api/activity.mvpa.week_min`, and both surfaces read it from
+  /// one place now (`docs/BACKEND_GAPS_FROM_UI.md` B3). It is null only when
+  /// there is genuinely no MVPA row to sum — never `0`, which would read as a
+  /// measured week of stillness.
   final Vo2maxInputs inputs;
 
   /// The fit behind a session-measured estimate, when there was a session.

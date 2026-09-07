@@ -151,10 +151,11 @@ specification. Its signals are all still on Sleep, in legacy's own
 `Overnight vitals` card, and the *whole* of `features/sleep/` was replaced with
 the port (`sleep_screen.dart` and its widgets). Today's grid still opens Sleep.
 
-There is **no anomalies section**, because `/api/today` cannot feed one:
-`read/today.py:83` sets `payload["anomalies"] = []` unconditionally and points at
-`/api/notable` — a separate, premium-gated, LLM-backed endpoint now surfaced in
-Insights as Notable events.
+There is **no anomalies section**, because `/api/today` does not scan for one.
+That key shipped as `[]` — indistinguishable from "nothing was anomalous" — and
+is `null` now beside a block naming `/api/notable`, the separate, premium-gated,
+LLM-backed endpoint that does scan and is surfaced in Insights as Notable
+events (`docs/BACKEND_GAPS_FROM_UI.md` A3).
 
 ## Sleep is legacy's screen, section for section
 
@@ -214,16 +215,18 @@ parsed now, and every one has a reader:
 
 Two things are recorded rather than fixed, both server-side:
 
-- **`naps[].stages` is structurally always empty.** `read/sleep_page.py:244`
-  ships the raw JSONB hypnogram (`[[startMs, endMs, typeCode]]`) where `nights`
-  ships `stage_timeline()`'s objects, so every nap stage bar is blank. Reading it
-  client-side means re-implementing the strap's stage-code mapping in the UI
-  layer, i.e. a second definition of what a stage is. Pinned by a test until the
-  server changes.
+- ~~**`naps[].stages` is structurally always empty**~~ — **FIXED on the server**
+  (`docs/BACKEND_GAPS_FROM_UI.md` A1). It shipped the raw JSONB hypnogram
+  (`[[startMs, endMs, typeCode]]`) under the key a *night* uses for per-stage
+  minute totals, so every nap bar was blank. A nap is shaped like a night now —
+  `stages` are the totals, `stage_timeline` the hypnogram — and the panel's
+  sentence blaming the server went with the defect. **No stage bar came back**:
+  the prototype draws nap rows as text and has no stage element on that panel,
+  and the pre-v02 card is not the specification.
 - **`naps[].source` and `nights[].session_source` are the unconditional literal
-  `"zepp_cloud"`** — the same shape as `read/today.py:83`'s `anomalies = []`. A
-  "source" chip built on either could never say more than one word, so neither is
-  surfaced.
+  `"zepp_cloud"`.** A "source" chip built on either could never say more than one
+  word, so neither is surfaced. (The `anomalies = []` this used to be compared
+  with is fixed; this one is not.)
 
 ### Six legacy behaviours the port shipped as-is — all six are now REPAIRED
 

@@ -17,7 +17,8 @@
 /// So they keep their carriers and gain the prototype's section heading and its
 /// two entry cards around them. Both still render **nothing at all** when the
 /// payload carried nothing — a heading over an empty list is the dead code this
-/// screen's docstring already refuses for `pai` and `anomalies`.
+/// screen's docstring already refuses for `pai` and for the Today payload's
+/// `anomalies`.
 library;
 
 import 'package:flutter/material.dart';

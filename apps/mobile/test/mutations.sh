@@ -2013,11 +2013,14 @@ mutate 'a disclosure filled with server prose draws no ⓘ' \
                     when detail.isNotEmpty)' \
   '                if (_detail case final MetricDetail detail when false)'
 
-# ── Workouts: the payload with NO honesty envelope ──────────────────────────
-# `/api/activity/workout` sends a bare nullable for every derived metric and no
-# `withheld` block at all, so nothing on the wire forces this screen to explain
-# an absence. `workout_readings.dart` is the only thing that does, which makes
-# every one of these mutations a silent regression in review.
+# ── Workouts: the payload that had NO honesty envelope ─────────────────────
+# `/api/activity/workout` sent a bare nullable for every derived metric and no
+# `withheld` block at all, so nothing on the wire forced this screen to explain
+# an absence. It carries `metrics_withheld` now
+# (`docs/BACKEND_GAPS_FROM_UI.md` B6) and `workout_readings.dart` prefers it —
+# but the local reasons stay as the fallback, because an installed app meets
+# servers it did not ship with. Both halves are mutated below: dropping either
+# is a silent regression in review.
 
 W_READINGS=lib/data/workouts/workout_readings.dart
 W_EFFORT=lib/features/workouts/v02/effort_cards.dart
@@ -2037,6 +2040,24 @@ mutate 'the zones are drawn without the HRmax they are cut against' \
   "$W_SURFACE_TEST" "$W_READINGS" \
   '    detail.hrmax == null || detail.zones.isEmpty ? null : detail.zones,' \
   '    detail.zones.isEmpty ? null : detail.zones,'
+
+# The server's own reason is discarded and the local guess printed instead. It
+# looks harmless — a sentence still appears — and it is the whole point of B6
+# undone: the server can see the resting heart rate and the profile sex that
+# this payload does not carry, so its reason names the input that actually
+# failed while the local one lists all four and hopes.
+mutate 'the wire says which input failed and the app ignores it' \
+  "$W_SURFACE_TEST" "$W_READINGS" \
+  '      if (detail.withheld[serverKey] case final Disclosure stated) {' \
+  '      if (null case final Disclosure stated) {'
+
+# And the fallback removed: a server with no envelope would then refuse mutely,
+# trading one silence for another.
+mutate 'a payload without the envelope refuses without a reason' \
+  "$W_SURFACE_TEST" "$W_READINGS" \
+  "    'A session load needs your HRmax, your resting heart rate and your sex on '" \
+  "    ''
+        '"
 
 # The hole stays and the sentence goes. `withheld_panel.dart`: a hole that says
 # why it is a hole is the whole design; without the why it is a dash.
@@ -2244,13 +2265,22 @@ mutate 'the VO₂max band stops saying it is not a confidence interval' \
   "ml/kg/min\$derived. The band is not a confidence interval.'" \
   "ml/kg/min\$derived.'"
 
-# The stored series implies a continuity it cannot support: three instruments
-# wrote it and none of them is named on any point but the last.
-mutate 'the stored history hides that a method change looks like a fitness change' \
+# The stored series is written by three instruments and now names which one read
+# each point (`docs/BACKEND_GAPS_FROM_UI.md` B2). Collapsing the three endings
+# into one is the regression: a window nobody labelled would then read as a
+# window read one way throughout, which is the caveat vanishing rather than
+# being answered.
+mutate 'an unlabelled window reads as a single-instrument one' \
   "$FITNESS_TEST" "$FITNESS_PANELS" \
-  "    'Historical method metadata is not supplied, so a method change cannot be '
-    'distinguished from a fitness change here.';" \
-  "    '';"
+  "      0 => kStoredHistoryNote," \
+  "      0 => kSingleMethodNote,"
+
+# And the other direction: a window that really did cross two instruments says
+# nothing about it, so a step that is a change of ruler reads as the owner.
+mutate 'a mixed-instrument window stops saying it is mixed' \
+  "$FITNESS_TEST" "$FITNESS_PANELS" \
+  "      _ => kMixedMethodNote," \
+  "      _ => kSingleMethodNote,"
 
 # A signal with no baseline gets drawn at dead centre, which asserts it is
 # exactly normal — the one claim `recovery_signals.dart` says we cannot make.
@@ -2628,6 +2658,64 @@ mutate 'the batched parse drops a malformed point instead of refusing' \
   '    if (points.isNotEmpty && points.last.date.compareTo(day) >= 0) {
       continue;
     }'
+
+# ── what the server started sending, and what the app stopped apologising for ─
+# `docs/BACKEND_GAPS_FROM_UI.md` sections A and B. Every guard here sits at the
+# seam where a payload that got RICHER could quietly go back to being read as
+# though it had not — the failure mode that leaves a true-sounding sentence on
+# screen beside data contradicting it.
+
+H_SLEEP_MODEL=lib/data/models/sleep_page.dart
+H_NAPS=lib/features/sleep/v02/naps_panel.dart
+H_SLEEP_TEST=test/features/sleep_surface_test.dart
+H_FINDING_MODEL=lib/data/models/finding.dart
+H_SCATTER=lib/shared/charts/h_scatter.dart
+H_SCATTER_TEST=test/shared/scatter_test.dart
+H_TODAY_BODY=lib/features/today/today_body.dart
+H_GOLDEN_TEST=test/data/today_snapshot_golden_test.dart
+
+# A1. The nap's stage TOTALS read as an empty split — the defect the server just
+# fixed, arriving from the other side. The panel would go back to saying the
+# strap staged nothing, on a nap it staged.
+mutate 'a nap ignores the stage minutes the server now sends' \
+  "$H_SLEEP_TEST" "$H_SLEEP_MODEL" \
+  "      stages: StageMinutes.fromJson(
+        json['stages'] is Map<String, Object?>
+            ? json['stages']! as Map<String, Object?>
+            : const <String, Object?>{},
+      )," \
+  "      stages: StageMinutes.fromJson(const <String, Object?>{}),"
+
+# A1. The sentence blaming the server comes back unconditionally — true once,
+# false now, and the worst kind of copy because it reads as an explanation.
+mutate 'the nap panel blames the wire for a breakdown it received' \
+  "$H_SLEEP_TEST" "$H_NAPS" \
+  '            if (noneStaged) const PanelNote(kNapsUnstagedNote),' \
+  '            const PanelNote(kNapsUnstagedNote),'
+
+# B1. A pair with one half missing becomes a dot at zero — a day sitting on the
+# axis that nobody measured, inside the one chart whose job is to let the owner
+# check the number above it against their own days.
+mutate 'half a pair is plotted at zero instead of dropped' \
+  "$H_SCATTER_TEST" "$H_FINDING_MODEL" \
+  '    if (a == null || b == null) {' \
+  '    if (a == null && b == null) {' \
+  "    return FindingPoint(date: json['date'] as String?, a: a, b: b);" \
+  "    return FindingPoint(date: json['date'] as String?, a: a ?? 0, b: b ?? 0);"
+
+# B1. Two points make a perfect line whatever the data is: a picture of
+# arithmetic offered as a picture of the owner.
+mutate 'a scatter is drawn from too few pairs to be a shape' \
+  "$H_SCATTER_TEST" "$H_SCATTER" \
+  '    if (points.length < Finding.minPlottablePoints) {' \
+  '    if (points.isEmpty) {'
+
+# B4. The centre ships and the spread is dropped, so "baseline 44" is a bare
+# point again and a reading of 50 could be an ordinary night or a remarkable one.
+mutate 'the baseline loses the spread it is only meaningful with' \
+  "$H_GOLDEN_TEST test/features/today_screen_test.dart" "$H_TODAY_BODY" \
+  "  final spread = sd == null ? '' : ' ± \${sd.round()}';" \
+  "  final spread = '';"
 
 echo
 echo "caught $PASS, survived $FAIL"

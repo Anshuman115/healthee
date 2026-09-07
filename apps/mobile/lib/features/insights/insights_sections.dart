@@ -47,9 +47,13 @@
 /// metric: computing a second opinion here would be free to disagree with the
 /// first.
 ///
-/// **There is no "days that stood out" block fed by `anomalies`.**
-/// `read/today.py:83` sets it to `[]` unconditionally, so a section keyed on it
-/// is a heading that can never have anything under it.
+/// **There is no "days that stood out" block fed by `/api/today`'s
+/// `anomalies`.** That endpoint does not scan for shifts: the key used to ship
+/// `[]`, which is indistinguishable from "nothing was anomalous", and is `null`
+/// now beside a reason pointing at `/api/notable`
+/// (`docs/BACKEND_GAPS_FROM_UI.md` A3). Notable events on this tab IS that
+/// endpoint, so a second section keyed on the Today payload would be a heading
+/// that can never have anything under it.
 library;
 
 import 'package:flutter/material.dart';
