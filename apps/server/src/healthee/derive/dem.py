@@ -9,11 +9,16 @@ Privacy: we download a 1x1-degree terrain TILE for the region (public elevation
 data) and do all lookups LOCALLY — the user's GPS track is never sent anywhere.
 Falls back to the caller's GPS elevation when a tile is unavailable.
 
-Ported verbatim from legacy v2 ``dem`` (a proven, dependency-free module). The
-only change: the tile-download failure is now logged through the app logger and
-narrowed to network/IO/decode errors instead of a bare ``except`` (standards §1 —
-errors are never swallowed; a miss is still a meaningful "fall back to GPS
-elevation", now observable). Knowledge: [[grade_adjusted_pace]].
+Ported verbatim from legacy v2 ``dem`` (a proven, dependency-free module). Two
+changes since, neither to the science: the tile-download failure is logged
+through the app logger and narrowed to network/IO/decode errors instead of a bare
+``except`` (standards §1 — errors are never swallowed; a miss is still a
+meaningful "fall back to GPS elevation", now observable); and the cache directory
+comes from ``Settings`` rather than a direct ``os.environ`` read defaulting under
+``/tmp`` (see ``_cache_dir``). Knowledge: [[grade_adjusted_pace]].
+
+The basemap under a recorded track is the same architecture one layer up —
+``core/map_tiles.py`` quotes this module's privacy note and applies it.
 """
 
 from __future__ import annotations
@@ -26,14 +31,28 @@ import urllib.error
 import urllib.request
 from functools import lru_cache
 
+from healthee.core.config import get_settings
 from healthee.core.logging import get_logger
 
 log = get_logger(__name__)
 
-CACHE_DIR = os.environ.get("SRTM_CACHE_DIR", "/tmp/srtm")  # noqa: S108 — public-data tile cache
 _BASE = "https://elevation-tiles-prod.s3.amazonaws.com/skadi"
 _VOID = -32768
 _DOWNLOAD_TIMEOUT_S = 30
+
+
+def _cache_dir() -> str:
+    """Where downloaded HGT tiles live — `Settings.srtm_cache_dir`.
+
+    Read per call rather than bound at import, so this module stays import-safe
+    (`core/config`'s own rule: nothing is constructed at import time). It used to
+    read the environment directly and default to a path under `/tmp`, which was
+    wrong twice: it read `os.environ` outside the one config path (standards
+    section 2), and `infra/` declared no volume for that path — so the entire
+    elevation cache was re-downloaded after every container restart, paying the
+    public dataset again for tiles we already had.
+    """
+    return get_settings().srtm_cache_dir
 
 
 def _tile_name(lat: float, lng: float) -> str:
@@ -50,7 +69,7 @@ def _load_tile(name: str) -> tuple[bytes, int] | None:
     None when the tile is unavailable (missing over ocean, or the download failed
     — logged), so the caller falls back to GPS elevation.
     """
-    path = os.path.join(CACHE_DIR, name + ".hgt")
+    path = os.path.join(_cache_dir(), name + ".hgt")
     if not os.path.exists(path) and not _download_tile(name, path):
         return None
     with open(path, "rb") as handle:
@@ -61,10 +80,18 @@ def _load_tile(name: str) -> tuple[bytes, int] | None:
 
 
 def _download_tile(name: str, path: str) -> bool:
-    """Fetch+cache one gzip HGT tile. False (logged) on any network/IO/decode error."""
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    """Fetch+cache one gzip HGT tile. False (logged) on any network/IO/decode error.
+
+    The ``makedirs`` is INSIDE the try. It used to sit above it, back when the
+    cache defaulted under ``/tmp`` and could be assumed writable; now that the
+    path is configuration pointing at a container volume, an unwritable one is a
+    real state — and an unwritable cache must degrade to "no terrain elevation,
+    fall back to the phone's" like any other miss, never raise out through an
+    ingest and 500 an upload.
+    """
     url = f"{_BASE}/{name[:3]}/{name}.hgt.gz"
     try:
+        os.makedirs(_cache_dir(), exist_ok=True)
         req = urllib.request.Request(url, headers={"User-Agent": "healthee-dem/1"})
         with urllib.request.urlopen(req, timeout=_DOWNLOAD_TIMEOUT_S) as r:  # noqa: S310 — https literal
             data = gzip.decompress(r.read())

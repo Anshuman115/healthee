@@ -185,6 +185,36 @@ class Settings(BaseSettings):
     # unvalidated text never ships at any value.
     llm_validation_retries: int = 2
 
+    # ── On-disk caches for public geodata (SRTM elevation + basemap tiles) ─
+    # Both hold PUBLIC data — squares of the world this server fetched, never an
+    # owner's coordinates. Config rather than constants for one reason each: the
+    # elevation cache defaulted to `/tmp/srtm` with no volume behind it, so every
+    # container restart re-downloaded what it had already paid for; and a basemap
+    # cache that does not persist hands the provider the same request rate as no
+    # proxy at all. `map_tile_cache_mb` is the eviction budget — tiles are fetched
+    # per z/x/y, and unbounded is tens of thousands of files.
+    srtm_cache_dir: str = "/var/cache/healthee/srtm"
+    map_tile_cache_dir: str = "/var/cache/healthee/tiles"
+    map_tile_cache_mb: int = 512
+
+    # ── Basemap (the tile proxy — core/map_tiles.py) ───────────────────────
+    # The upstream template is CONFIGURATION on purpose: the owner may repoint it
+    # at a commercial provider or their own rendering stack with no new build of
+    # the app, because the app only ever talks to this server. http(s), and it
+    # must carry {z}, {x} and {y}. The default is OpenStreetMap's own server —
+    # their policy asks applications not to point at it directly and does permit
+    # one cached server sending a real User-Agent, which is this module.
+    map_tile_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    # Who the basemap is credited to, on screen. It travels WITH the url because
+    # it is a fact about that url: an operator who repoints one and not the other
+    # would have the app crediting the wrong project, and the app cannot tell.
+    # `GET /api/map` serves it, and the app draws no basemap without it.
+    map_tile_attribution: str = "© OpenStreetMap contributors"
+    # The zoom range served. Outside it a request is refused here rather than
+    # forwarded — it is either a bug or someone using us as an open relay.
+    map_tile_min_zoom: int = 1
+    map_tile_max_zoom: int = 17
+
     # ── Telegram notifications (optional — job status + failures) ─────────
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -263,6 +293,38 @@ class Settings(BaseSettings):
                 "model id reaches OpenRouter verbatim and every LLM call returns 400, "
                 "with nothing failing in /healthz. Set the model id(s), or unset "
                 "OPENROUTER_API_KEY to run without the AI layer."
+            )
+        return self
+
+    @field_validator("map_tile_url")
+    @classmethod
+    def _require_a_usable_tile_template(cls, value: str) -> str:
+        """Refuse a template this server cannot safely expand.
+
+        Two failures, both silent without this. A template missing a placeholder
+        expands to the SAME url for every tile, so the cache fills with one image
+        and the whole basemap is one square of the world repeated — which looks
+        like a rendering bug in the app. And a non-http scheme reaches
+        `urllib.request.urlopen` verbatim: `file:///etc/passwd` would make the
+        tile route a file-read primitive with the z/x/y ignored.
+        """
+        if not value.startswith(("http://", "https://")):
+            raise ValueError(f"MAP_TILE_URL must be an http(s) url, not {value!r}")
+        missing = [token for token in ("{z}", "{x}", "{y}") if token not in value]
+        if missing:
+            raise ValueError(
+                f"MAP_TILE_URL is missing {' and '.join(missing)} — a template without "
+                f"them expands to one tile for every request"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _require_an_ordered_zoom_range(self) -> Self:
+        """An inverted range refuses every tile, which reads as "the map is broken"."""
+        if self.map_tile_min_zoom > self.map_tile_max_zoom:
+            raise ValueError(
+                f"MAP_TILE_MIN_ZOOM ({self.map_tile_min_zoom}) is above MAP_TILE_MAX_ZOOM "
+                f"({self.map_tile_max_zoom}) — no zoom would ever be servable"
             )
         return self
 

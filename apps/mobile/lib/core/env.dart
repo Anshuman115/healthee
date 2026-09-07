@@ -49,6 +49,27 @@ abstract final class Env {
     defaultValue: 'http://127.0.0.1:8765',
   );
 
+  /// Where basemap tiles come from, when that is not [apiBaseUrl].
+  ///
+  /// Blank — the default and the normal case — means the app asks its OWN
+  /// server, the one it is signed into, and the tiles ride the same session and
+  /// the same bearer token as every other call. That is the whole architecture:
+  /// the phone never talks to a tile provider, because a tile request says where
+  /// somebody is looking, and the server proxies and caches so the provider
+  /// learns a square of the world instead of an owner's neighbourhood.
+  ///
+  /// Set it (`--dart-define=HELIO_TILES=https://maps.example.com`) to point the
+  /// basemap at a different Healthee-compatible host — a build talking to a
+  /// laptop API but wanting the VPS's warm tile cache, say. A host named here is
+  /// NOT the signed-in server, so nothing sends it the owner's session: no base
+  /// URL override, no `Authorization` header. That is the rule this file opens
+  /// with, in its other direction — a define may describe the build, and it may
+  /// never carry, or leak, a secret.
+  static const String tileBaseUrl = String.fromEnvironment('HELIO_TILES');
+
+  /// True when tiles come from a host that is not the signed-in server.
+  static bool get hasSeparateTileHost => tileBaseUrl.isNotEmpty;
+
   /// How long a single API call may take before it is an error.
   ///
   /// Standards §1 budgets server read endpoints at p95 < 100 ms, so ten seconds

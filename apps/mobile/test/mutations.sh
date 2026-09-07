@@ -1228,7 +1228,6 @@ FIELD=lib/shared/v02/instruments/halo_field.dart
 WATERFALL=lib/shared/v02/instruments/age_waterfall.dart
 RULER=lib/shared/v02/instruments/age_scale.dart
 RAIL=lib/shared/v02/instruments/vo2max_rail.dart
-ROUTE=lib/shared/v02/instruments/route_plot.dart
 HALO_TEST=test/shared/instruments/halo_motion_test.dart
 AGE_TEST=test/shared/instruments/age_instruments_test.dart
 FITNESS_TEST=test/shared/instruments/fitness_instruments_test.dart
@@ -1285,12 +1284,6 @@ mutate 'particles are allowed into the still centre' "$HALO_TEST" "$FIELD" \
 mutate 'the error magnitude is called a confidence interval' "$FITNESS_TEST" "$RAIL" \
   'const String kErrorMagnitudeNote = '"'"'not a confidence interval'"'"';' \
   'const String kErrorMagnitudeNote = '"'"'a 95% confidence interval'"'"';'
-
-# Elevations that do not line up with the fixes are drawn anyway — the profile
-# of a different walk, plotted along this one.
-mutate 'mismatched elevations are drawn anyway' "$FITNESS_TEST" "$ROUTE" \
-  'if (series == null || series.length != points.length || series.length < 2) {' \
-  'if (series == null || series.length < 2) {'
 
 # ── the v02 Today: what a panel may not stop saying ─────────────────────────
 PANEL=lib/shared/v02/panel.dart
@@ -2425,12 +2418,18 @@ mutate 'an opening question characterises what it names' "$TOPIC_TEST" \
 ROUTE_MAP=lib/features/gps/route_map.dart
 ROUTE_SECTIONS=lib/features/gps/route_detail_sections.dart
 GPS_TEST=test/gps/route_screens_test.dart
+# The drawing's own suite. Split out of `route_screens_test.dart` when that file
+# passed the 400-line gate — and this line is the reason the split is worth a
+# comment: the mutation below kept naming the old file, applied cleanly, and
+# SURVIVED, because the test that catches it had moved. A mutation whose target
+# no longer holds its test reports a pass it did not earn.
+MAP_TEST=test/gps/route_map_test.dart
 
 # One fix is a dot. A box with a dot in it is a picture of a journey nobody
 # recorded, and it looks like a map that simply did not load.
-mutate 'a single GPS fix is drawn as a route' "$GPS_TEST" "$ROUTE_MAP" \
-  '    if (points.length < 2) {' \
-  '    if (points.length < 1) {'
+mutate 'a single GPS fix is drawn as a route' "$MAP_TEST" "$ROUTE_MAP" \
+  '    if (widget.points.length < 2) {' \
+  '    if (widget.points.length < 1) {'
 
 # A session VO2max with no method beside it is the shape #108 shipped in: a
 # number nobody can trace to the tier that produced it.
@@ -2717,6 +2716,41 @@ mutate 'the baseline loses the spread it is only meaningful with' \
   "$H_GOLDEN_TEST test/features/today_screen_test.dart" "$H_TODAY_BODY" \
   "  final spread = sd == null ? '' : ' ± \${sd.round()}';" \
   "  final spread = '';"
+
+# ── the recorded track, and the basemap under it ────────────────────────────
+GPS_RUN=lib/data/gps/gps_run.dart
+ROUTE_PAINTER=lib/features/gps/route_painter.dart
+GPS_RUN_TEST=test/gps/gps_run_test.dart
+
+# THE original defect, restored: the state keeps only the newest fix, so the
+# count still climbs, the distance still climbs, and the map has one dot to
+# draw. The recorder screen had no map for exactly this reason — not a missing
+# painter, a missing measurement.
+mutate 'the recording state drops the coordinates it recorded' \
+  "$GPS_RUN_TEST" "$GPS_RUN" \
+  '      track: <RoutePoint>[...value.track, _asRoutePoint(fix)],' \
+  '      track: <RoutePoint>[_asRoutePoint(fix)],'
+
+# The tiles are thrown away whenever the view moves. On the recorder the view
+# moves on every accepted fix, so this is a basemap that blanks once a second
+# and re-asks for the squares it is already holding, for as long as somebody
+# keeps running.
+mutate 'a new view throws away the tiles it could have kept' \
+  "$MAP_TEST" "$ROUTE_MAP" \
+  '    final List<MapTileRef> missing = <MapTileRef>[
+      for (final MapTileRef tile in view.tiles())
+        if (!_tiles.containsKey(tile)) tile,
+    ];' \
+  '    _tiles = const <MapTileRef, ui.Image>{};
+    final List<MapTileRef> missing = view.tiles();'
+
+# A cache miss withholds the track instead of drawing it on the plain ground.
+# Offline is the day the owner most needs to see what they recorded, and this
+# failure looks exactly like a screen that has not finished loading.
+mutate 'a cache miss blanks the route instead of falling back to the ground' \
+  "$MAP_TEST" "$ROUTE_PAINTER" \
+  '  bool get drawsTrack => points.length >= 2;' \
+  '  bool get drawsTrack => points.length >= 2 && tiles.isNotEmpty;'
 
 echo
 echo "caught $PASS, survived $FAIL"

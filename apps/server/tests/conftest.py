@@ -31,6 +31,7 @@ premise so a future env change cannot quietly undo it.
 
 from __future__ import annotations
 
+import os
 import secrets
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -112,6 +113,31 @@ _DEFAULTED_ENV_VARS = (
     "UPGRADE_URL",
     "LLM_LOW_BALANCE_USD",
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _geodata_caches_are_hermetic(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Point the SRTM and basemap caches at a throwaway directory for the run.
+
+    Both default to `/var/cache/healthee/...` — the container's volume, which on a
+    developer's machine is not writable and in CI would be a directory the suite
+    silently populates and never cleans. Neither cache holds anything a test
+    asserts on: `tests/derive/_gps_seed.py` uses ocean coordinates precisely so
+    the DEM lookup misses, and the tile tests stub the fetch. Session-scoped
+    because `os.environ` is process-wide and this only has to be true once.
+    """
+    root = tmp_path_factory.mktemp("geocache")
+    previous = {name: os.environ.get(name) for name in ("SRTM_CACHE_DIR", "MAP_TILE_CACHE_DIR")}
+    os.environ["SRTM_CACHE_DIR"] = str(root / "srtm")
+    os.environ["MAP_TILE_CACHE_DIR"] = str(root / "tiles")
+    get_settings.cache_clear()
+    yield
+    for name, value in previous.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+    get_settings.cache_clear()
 
 
 @pytest.fixture(autouse=True)

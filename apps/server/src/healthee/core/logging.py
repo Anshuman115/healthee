@@ -44,6 +44,38 @@ def configure_logging(level: str | None = None) -> None:
     _configured = True
 
 
+class _PathFilter(logging.Filter):
+    """Drops access-log records whose line mentions [prefix]."""
+
+    def __init__(self, prefix: str) -> None:
+        super().__init__()
+        self._prefix = prefix
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return self._prefix not in record.getMessage()
+
+
+def silence_access_log_for(prefix: str) -> None:
+    """Stop uvicorn's access log printing request lines under [prefix].
+
+    The basemap tile route is the caller, and the reason is the same one that
+    pins `httpx` to WARNING above: the SECRET IS IN THE URL. There it is a
+    Telegram bot token; here it is z/x/y, which is a street corner and a
+    timestamp — a location history assembled one access line at a time, which
+    would undo the entire point of proxying the tiles in the first place.
+
+    Applied to the `uvicorn.access` logger rather than the root, because it is
+    uvicorn that owns that handler, and applied at startup rather than in
+    [configure_logging] because uvicorn configures its loggers after ours.
+    Idempotent: a second call for the same prefix adds nothing.
+    """
+    access = logging.getLogger("uvicorn.access")
+    for existing in access.filters:
+        if isinstance(existing, _PathFilter) and existing._prefix == prefix:
+            return
+    access.addFilter(_PathFilter(prefix))
+
+
 def get_logger(name: str) -> logging.Logger:
     """Return a named logger. Use `__name__` at each call site so log lines
     identify their originating module."""
