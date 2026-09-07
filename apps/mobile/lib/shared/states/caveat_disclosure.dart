@@ -31,13 +31,12 @@
 /// **The failure mode is a caveat that becomes invisible, and it is worse than the
 /// essay.** Two things are structural against it:
 ///
-///   * [caveatHeadline] is the ONE sentence both carriers show and it **counts
+///   * [caveatHeadline] is the ONE sentence the carrier shows and it **counts
 ///     the disclosures**, so dropping one changes text that is on screen rather
 ///     than text nobody was reading.
-///   * Neither carrier can render empty. [CaveatNote] and [CaveatFoot] both assert
-///     a non-empty list, because "zero caveats" is [Present]'s job and a carrier
-///     that quietly draws nothing is the silence this whole layer exists to
-///     prevent.
+///   * The carrier cannot render empty. [CaveatNote] asserts a non-empty list,
+///     because "zero caveats" is [Present]'s job and a carrier that quietly
+///     draws nothing is the silence this whole layer exists to prevent.
 ///
 /// ## THE ASTERISK IS GONE — 2026-08-06
 ///
@@ -48,19 +47,25 @@
 /// words*. An asterisk is not words. It was a glyph that could only be
 /// understood by someone who had read this file.
 ///
-/// Both carriers say it in words now, and neither is a bare glyph:
+/// The carrier says it in words now, and it is not a bare glyph:
 ///
 ///   * [CaveatNote] — the signpost with a line to spare. It sits **inside** its
 ///     card (`caveat_scope.dart` explains why that moved too), names the state
 ///     and counts the disclosures.
-///   * [CaveatFoot] — the fixed-height grid tile's carrier, in legacy's own foot
-///     voice at the bottom of the cell: `1 CAVEAT · TAP TO READ`. A tile's body
-///     is a fixed 92 px, but its foot already runs to two lines, so a second
-///     short line costs the tile no height at all — which
-///     `today_tiles_test.dart` measures rather than assumes.
 ///
 /// The header is left with **one** control, the ⓘ, which is what the owner
 /// already understands. Nothing in a header row is now unlabelled.
+///
+/// ## THERE IS ONE CARRIER — v02
+///
+/// There were two. `CaveatFoot` was the fixed-height grid tile's, in legacy's
+/// own foot voice at the bottom of the cell: `1 CAVEAT · TAP TO READ`. Its only
+/// caller was `features/today/widgets/metric_tile.dart`, and the v02 redesign
+/// replaced that grid with three summary tiles — so the foot, its
+/// `caveatFootnote` string and the mutation that put the `*` back are all
+/// deleted. One carrier was always the intent (`caveat_scope.dart` records that
+/// the gutter version was a misattribution); it is now the only shape the code
+/// can express.
 library;
 
 import 'package:flutter/material.dart';
@@ -71,7 +76,7 @@ import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/shared/sheets/app_sheet.dart';
 
 /// The sentence a caveated value shows without being asked, and the label a
-/// screen reader gets from [CaveatFoot].
+/// screen reader gets from [CaveatNote].
 ///
 /// It names the state plainly — the same choice `WithheldCard` makes with the
 /// word "WITHHELD" — and it **counts**. The count is not decoration: it is what
@@ -80,15 +85,6 @@ import 'package:healthee/shared/sheets/app_sheet.dart';
 String caveatHeadline(int count) => count == 1
     ? 'Caveated — one thing tilts this number'
     : 'Caveated — $count things tilt this number';
-
-/// The same disclosure in the few words a fixed-height grid tile can hold.
-///
-/// It **counts**, for the reason [caveatHeadline] counts, and it names its own
-/// affordance — a reader who has never seen this app before is told both that
-/// there is something to know and how to get it. That is the whole difference
-/// between this and the `*` it replaced.
-String caveatFootnote(int count) =>
-    count == 1 ? '1 caveat · tap to read' : '$count caveats · tap to read';
 
 /// What the sheet is called, and the line under its title.
 const String kCaveatSheetTitle = 'What tilts this number';
@@ -178,67 +174,6 @@ class CaveatNote extends StatelessWidget {
                   style: HType.label(colors.accent, tracking: 0.1),
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The signpost a fixed-height grid tile can carry: a short counted line, in
-/// legacy's own foot voice, at the bottom of the cell.
-///
-/// **Replaces `CaveatMark`, the bare `*` in the module header.** See the library
-/// docstring for the owner report that killed it. The trade this widget makes is
-/// the same one the mark made — cost the tile no height — but it pays for the
-/// words rather than for a glyph:
-///
-///   * `ModuleFoot` already lays out to **two lines** (its docstring says why:
-///     several of our feet have to name an instrument as well as a number), and
-///     a tile's 92 px body has the slack for the second one. So the caveat line
-///     sits under the median line and the cell is exactly as tall as its
-///     neighbour, which `today_tiles_test.dart` measures.
-///   * it is the tap target itself, so the tile does not need a second control
-///     in a header row that has no width to spare.
-class CaveatFoot extends StatelessWidget {
-  /// Renders the foot line for [caveats], which must not be empty.
-  const CaveatFoot({required this.caveats, this.label, this.gap = 8, super.key})
-    : assert(
-        caveats.length > 0,
-        'A CaveatFoot with no caveats is a control that opens an empty sheet.',
-      );
-
-  /// What tilts the value. Non-empty.
-  final List<Disclosure> caveats;
-
-  /// The metric's name, for the sheet.
-  final String? label;
-
-  /// The air above it. `ModuleFoot`'s 8 when this line stands alone, and 2 when
-  /// it follows a foot that has already spent it.
-  final double gap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Padding(
-      padding: EdgeInsets.only(top: gap),
-      child: GestureDetector(
-        onTap: () => showCaveats(context, caveats, label: label),
-        behavior: HitTestBehavior.opaque,
-        child: Semantics(
-          button: true,
-          label: '${caveatHeadline(caveats.length)}. Opens the detail.',
-          child: ExcludeSemantics(
-            child: Text(
-              // Caps are the foot's voice; the semantic label above carries the
-              // sentence as written, because several screen readers spell an
-              // all-caps run out letter by letter.
-              caveatFootnote(caveats.length).toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: HType.label(colors.accent, tracking: 0.04),
             ),
           ),
         ),

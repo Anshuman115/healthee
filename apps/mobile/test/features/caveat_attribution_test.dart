@@ -52,8 +52,12 @@ bool isBareMark(String text) {
 }
 
 /// Every rect a caveat carrier occupies on the pumped screen.
+///
+/// A list of one since v02: `CaveatFoot` was the grid tile's carrier and both
+/// the grid and the foot are deleted. Kept as a loop because "one carrier" is a
+/// decision this file measures, not a fact about the language.
 List<Rect> _carriers(WidgetTester tester) => <Rect>[
-  for (final type in <Finder>[find.byType(CaveatNote), find.byType(CaveatFoot)])
+  for (final type in <Finder>[find.byType(CaveatNote)])
     for (var i = 0; i < tester.widgetList(type).length; i++)
       tester.getRect(type.at(i)),
 ];

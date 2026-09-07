@@ -23,7 +23,6 @@ import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/api/server_snapshot.dart';
 import 'package:healthee/data/challenges/challenge_feed.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
-import 'package:healthee/data/challenges/milestones.dart';
 import 'package:healthee/data/challenges/program_feed.dart';
 import 'package:healthee/data/gps/gps_recorder.dart';
 import 'package:healthee/data/gps/gps_recording_state.dart';
@@ -186,7 +185,6 @@ Widget _scoped(
       programFeedProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
         const ProgramFeed(active: null, suggested: [], recent: []), fetchedAt: now,
       ))),
-      milestonesProvider.overrideWith((ref) async => []),
       notifyCompletionsProvider().overrideWith((ref) async {}),
       notableEventsProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
         <NotableEvent>[], fetchedAt: now,
