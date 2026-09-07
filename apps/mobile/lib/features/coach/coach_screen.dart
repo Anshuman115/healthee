@@ -66,6 +66,7 @@ import 'package:healthee/features/coach/widgets/coach_meter.dart';
 import 'package:healthee/features/coach/widgets/coach_thread.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
 
@@ -179,6 +180,19 @@ class CoachBody extends ConsumerWidget {
           Text(
             kCoachFormNote,
             style: TypeScale.formNote.copyWith(color: colors.ink2),
+          ),
+        ],
+        // Only once there is something to end. An empty thread offering to be
+        // ended is a control that does nothing, and the prototype's coach opens
+        // empty. See `CoachController.newThread` for why this exists at all.
+        if (!conversation.isEmpty && !conversation.asking) ...<Widget>[
+          const SizedBox(height: Insets.md),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: HLinkButton(
+              label: 'Start a new thread',
+              onPressed: ref.read(coachControllerProvider.notifier).newThread,
+            ),
           ),
         ],
       ],

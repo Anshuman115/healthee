@@ -81,6 +81,25 @@ class CoachController extends _$CoachController {
 
   bool _isCurrent(int generation) => ref.mounted && generation == _generation;
 
+  /// Drops the thread and starts an empty one.
+  ///
+  /// **Not a tidiness control — a cost and a clarity one.** [ask] sends
+  /// `state.toWire()`, the WHOLE conversation, on every question, and this
+  /// notifier is `keepAlive` so the thread outlives the screen. Without a way
+  /// to end it, each question carries every earlier one: the owner's allowance
+  /// is 20 questions per rolling 30 days at a measured $0.179 each, and a
+  /// thread that only grows makes the twentieth cost far more than the first.
+  ///
+  /// It matters more since the coach became a route that can be opened **about
+  /// something** (`?topic=`). Arriving from a workout on top of an unrelated
+  /// ten-turn conversation asks the model to answer in a context the owner did
+  /// not choose.
+  ///
+  /// The prototype's coach screen draws no such control, so this is a
+  /// deliberate departure from it: the design never modelled a thread that
+  /// persists, and the honesty layer is where that gets paid for.
+  void newThread() => state = const CoachConversation();
+
   void _trouble(String message, {required bool spent, DateTime? resetsAt}) {
     AppLog.info('coach', 'question not answered: $message');
     state = state.copyWith(

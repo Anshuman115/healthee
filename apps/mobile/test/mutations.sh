@@ -2465,6 +2465,24 @@ mutate 'the metric directory sends Fitness estimates to the Activity tab' \
   '              onOpen: () => unawaited(context.push(Routes.fitness)),' \
   '              onOpen: () => context.go(Routes.activity),'
 
+# The coach stops carrying its history, so every question arrives contextless.
+# The other half of the same rule: `ask` sends the WHOLE thread, which is why
+# the thread must be endable — see `CoachController.newThread`.
+mutate 'the coach forgets the conversation it is in' \
+  "test/features/coach_thread_test.dart" "lib/features/coach/coach_conversation.dart" \
+  "    final wire = <CoachTurn>[];
+    for (final entry in entries) {" \
+  "    final wire = <CoachTurn>[];
+    for (final entry in <CoachEntry>[]) {"
+
+# The refusal notes start reaching the model as conversation.
+mutate 'a coach trouble note becomes a turn' \
+  "test/features/coach_thread_test.dart" "lib/features/coach/coach_conversation.dart" \
+  "        case CoachTrouble():
+          break;" \
+  "        case CoachTrouble(:final message):
+          wire.add(CoachTurn(role: 'user', content: message));"
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
