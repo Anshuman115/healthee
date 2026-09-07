@@ -358,11 +358,37 @@ mutate "the prototype's chapter order is swapped" "$ORDER_TEST" "$BODY" \
 # the estimate, the chapters are untouched, and nothing looks wrong — the
 # connective line has simply stopped connecting the two things it names.
 mutate 'the context bridge is drawn before the hero' "$ORDER_TEST" "$BODY" \
-  '  sections.add(TodaySummaryTiles(facts: facts));
+  '  sections.add(
+    TodaySummaryTiles(
+      facts: facts,
+      onOpenRecovery: extras.onOpenRecovery,
+      onOpenSleep: extras.onOpenSleep,
+      onOpenActivity: extras.onOpenActivity,
+    ),
+  );
   sections.gap(PageSpacing.block);
-  sections.add(ContextBridge.text(kAgeBridge));' \
-  '  sections.add(ContextBridge.text(kAgeBridge));
-  sections.add(TodaySummaryTiles(facts: facts));
+  sections.add(
+    ContextBridge.link(
+      kAgeBridge,
+      label: '"'"'See the contributors'"'"',
+      onOpen: extras.onOpenBody,
+    ),
+  );' \
+  '  sections.add(
+    ContextBridge.link(
+      kAgeBridge,
+      label: '"'"'See the contributors'"'"',
+      onOpen: extras.onOpenBody,
+    ),
+  );
+  sections.add(
+    TodaySummaryTiles(
+      facts: facts,
+      onOpenRecovery: extras.onOpenRecovery,
+      onOpenSleep: extras.onOpenSleep,
+      onOpenActivity: extras.onOpenActivity,
+    ),
+  );
   sections.gap(PageSpacing.block);'
 
 # A section quietly dropped. Legacy draws the week whenever it has two nights;
@@ -590,7 +616,7 @@ WITHHELD_TEST=test/features/sleep_withheld_test.dart
 CHECKS_TEST=test/features/sleep_checks_test.dart
 CHARTS_TEST='test/features/sleep_charts_test.dart test/features/sleep_stage_charts_test.dart'
 READING=lib/features/sleep/v02/sleep_reading.dart
-VITALS=lib/features/sleep/v02/vitals_panel.dart
+VITALS=lib/shared/v02/vitals_table.dart
 CHECKS=lib/features/sleep/v02/checks_panel.dart
 BANDS=lib/features/sleep/v02/sleep_cutoffs.dart
 TIMING_CHART=lib/shared/charts/v02/v02_timing_chart.dart
@@ -2158,6 +2184,92 @@ mutate 'the fallback chain drops its monochrome symbol faces' \
   'Apple Symbols', // iOS / macOS
 " \
   ""
+
+# ── The four v02 detail screens ────────────────────────────────────────────────
+#
+# Each of these breaks a REFUSAL or a qualification — the sentences that make a
+# number safe to read. A screen that draws the figure and drops the sentence
+# looks finished, which is exactly why none of them can be left to review.
+
+BODY_TEST=test/features/body_screen_test.dart
+FITNESS_TEST=test/features/fitness_screen_test.dart
+RECOVERY_TEST=test/features/recovery_screen_test.dart
+HISTORY_TEST=test/features/sleep_history_screen_test.dart
+BODY_SCREEN=lib/features/today/body_screen.dart
+BODY_LIMITS=lib/features/today/v02/body_limits_panels.dart
+BODY_PANELS=lib/features/today/v02/body_panels.dart
+FITNESS_PANELS=lib/features/activity/v02/fitness_panels.dart
+RECOVERY_PANELS=lib/features/today/v02/recovery_detail_panels.dart
+SIGNAL=lib/shared/v02/signal_chart.dart
+HISTORY_PANELS=lib/features/sleep/v02/history_panels.dart
+
+# The exclusion stops being an exclusion: the term is named and the server's
+# reasoning — the whole reason it cannot be priced — is dropped.
+mutate 'the excluded term loses the server’s reasoning' \
+  "$BODY_TEST" "$BODY_LIMITS" \
+  '            PanelNote(exclusions[i].message),' \
+  "            const PanelNote(''),"
+
+# The exclusion is counted as a caveat as well, so the screen states it twice —
+# once as "not a lever" and once as a tilt on a number it is not in.
+mutate 'the exclusion is repeated as a caveat' \
+  "$BODY_TEST" "$BODY_SCREEN" \
+  '      if (!exclusions.contains(caveat)) caveat,' \
+  '      caveat,'
+
+# The equation stops being the payload's arithmetic and becomes a fixed
+# sentence, which cannot follow a model that reweights or drops a term.
+mutate 'the age equation stops reading its own terms' \
+  "$BODY_TEST" "$BODY_PANELS" \
+  '    for (final term in age.contributions) {' \
+  '    for (final term in <AgeContribution>[]) {'
+
+# The line every reader needs and no reader asks for: without it a published
+# model error reads as an interval computed for this owner.
+mutate 'the VO₂max band stops saying it is not a confidence interval' \
+  "$FITNESS_TEST" "$FITNESS_PANELS" \
+  "ml/kg/min\$derived. The band is not a confidence interval.'" \
+  "ml/kg/min\$derived.'"
+
+# The stored series implies a continuity it cannot support: three instruments
+# wrote it and none of them is named on any point but the last.
+mutate 'the stored history hides that a method change looks like a fitness change' \
+  "$FITNESS_TEST" "$FITNESS_PANELS" \
+  "    'Historical method metadata is not supplied, so a method change cannot be '
+    'distinguished from a fitness change here.';" \
+  "    '';"
+
+# A signal with no baseline gets drawn at dead centre, which asserts it is
+# exactly normal — the one claim `recovery_signals.dart` says we cannot make.
+mutate 'a signal with no baseline is drawn at the centre line' \
+  "$RECOVERY_TEST" "$SIGNAL" \
+  '    if (z == null || !z.isFinite) {
+      return null;
+    }' \
+  '    if (z == null || !z.isFinite) {
+      return 0.5;
+    }'
+
+# The bridge states a share the payload never sent.
+mutate 'the sleep share is asserted rather than read' \
+  "$RECOVERY_TEST" "$RECOVERY_PANELS" \
+  "String sleepShareBridge(double? weight) => weight == null
+    ? kNightBridge" \
+  "String sleepShareBridge(double? weight) => weight == null
+    ? 'Sleep contributes 40% of the model. \$kNightBridge'"
+
+# A night the strap did not record is given a duration out of thin air.
+mutate 'an unrecorded night is drawn as a measured one' \
+  "$HISTORY_TEST" "$HISTORY_PANELS" \
+  "    return minutes == null ? '—' : hoursMinutes(minutes);" \
+  "    return hoursMinutes(minutes ?? 0);"
+
+# The same night's session times are invented rather than left absent.
+mutate 'an unrecorded night invents its bedtime and wake' \
+  "$HISTORY_TEST" "$HISTORY_PANELS" \
+  "    return '\${start == null ? '—' : clock(start)} → '
+        '\${end == null ? '—' : clock(end)}';" \
+  "    return '23:00 → 06:30';"
 
 echo
 echo "caught $PASS, survived $FAIL"
