@@ -29,10 +29,25 @@ import 'package:healthee/core/theme/type_scale.dart';
 class ColourKeyEntry {
   /// [colour] of null takes [tone]'s family, and a null [tone] the enclosing
   /// scope's.
-  const ColourKeyEntry(this.label, {this.colour, this.tone});
+  const ColourKeyEntry(this.label, {this.colour, this.tone}) : dot = true;
+
+  /// An entry with **no swatch** — a fact standing beside the coded ones.
+  ///
+  /// `screens-sleep.js` writes exactly one of these:
+  /// `<span>${H.duration(night.tib_min)} in bed</span>`, with no `<i>` child, so
+  /// the CSS draws no dot. It sits in the same key because it belongs to the
+  /// same reading; it carries no colour because time in bed is not a series on
+  /// any chart, and a dot would promise a line that is not there.
+  const ColourKeyEntry.plain(this.label)
+    : colour = null,
+      tone = null,
+      dot = false;
 
   /// What the swatch means.
   final String label;
+
+  /// Whether this entry draws a swatch at all.
+  final bool dot;
 
   /// The swatch's colour, or null for the family.
   ///
@@ -83,15 +98,17 @@ class ColourKey extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Container(
-                width: dotSize,
-                height: dotSize,
-                decoration: BoxDecoration(
-                  color: entry.colour ?? entry.tone?.family(hues) ?? family,
-                  shape: BoxShape.circle,
+              if (entry.dot) ...<Widget>[
+                Container(
+                  width: dotSize,
+                  height: dotSize,
+                  decoration: BoxDecoration(
+                    color: entry.colour ?? entry.tone?.family(hues) ?? family,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: dotGap),
+                const SizedBox(width: dotGap),
+              ],
               Text(
                 entry.label,
                 style: TypeScale.colourKey.copyWith(color: colors.ink2),
