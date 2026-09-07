@@ -17,15 +17,23 @@
 /// sentence that says so is drawn from the payload's own two fields rather than
 /// written out — a server that revises the figure revises the sentence.
 ///
-/// ## The history cannot tell a method change from a fitness change
+/// ## The history now names the instrument that read each point
 ///
-/// `trend_90d` carries a date and a value and **no method**. `vo2max_tier.py`
-/// writes that series from three different instruments, so a step in it may be
-/// the owner or may be the instrument, and nothing on the wire distinguishes
-/// them. The note says exactly that rather than letting the line imply
-/// continuity it cannot support — and the points are joined with straight
-/// segments, because a spline between two stored estimates would draw a fitness
-/// nobody estimated.
+/// `trend_90d` used to carry a date and a value and **no method**, while
+/// `vo2max_tier.py` writes that series from three different instruments — so a
+/// step in it might be the owner or might be the ruler, and nothing on the wire
+/// could tell them apart. The note said exactly that.
+///
+/// It carries `method` now (`docs/BACKEND_GAPS_FROM_UI.md` B2), so the caveat is
+/// a legend: [StoredHistoryPanel.note] names what read the latest point and, when
+/// the window crosses more than one instrument, says that a step in the line may
+/// be that change. **The sentence still appears when the wire says nothing** —
+/// an old server sending no method is not the same fact as a window read by one
+/// instrument throughout, and collapsing the two would be the caveat quietly
+/// disappearing rather than being answered.
+///
+/// The points are still joined with straight segments, because a spline between
+/// two stored estimates would draw a fitness nobody estimated.
 library;
 
 import 'package:flutter/material.dart';
@@ -33,6 +41,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
+import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/models/vo2max.dart';
 import 'package:healthee/shared/charts/v02/chart_curve.dart';
 import 'package:healthee/shared/charts/v02/v02_line_chart.dart';
@@ -46,10 +55,30 @@ import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/surface_panels.dart';
 
-/// The prototype's line under the stored history.
+/// Shown only when the wire named no instrument on any point of the window.
+///
+/// It was unconditional, and true, until the server started sending `method`
+/// per point. It is kept for the server that does not: an unlabelled series is
+/// still a series a method change could be hiding in.
 const String kStoredHistoryNote =
     'Historical method metadata is not supplied, so a method change cannot be '
     'distinguished from a fitness change here.';
+
+/// Shown when the window was read by more than one instrument.
+///
+/// The caveat's answer rather than its removal: the thing it warned about has
+/// happened, and now the line can say so instead of warning that it could not.
+const String kMixedMethodNote =
+    'This window was read by more than one instrument, so a step in the line '
+    'can be a change of method rather than a change of fitness.';
+
+/// Shown when every point of the window names the SAME instrument.
+///
+/// The one case the old caveat was wrong about: nothing was mixed, and saying a
+/// method change could be hiding here would be inventing a doubt.
+const String kSingleMethodNote =
+    'Every estimate in this window was read the same way, so its shape is a '
+    'change in you rather than a change of instrument.';
 
 /// `Cardiorespiratory fitness` — the estimate, its rail and its error magnitude.
 class CardiorespiratoryPanel extends StatelessWidget {
@@ -173,14 +202,25 @@ class StoredHistoryPanel extends StatelessWidget {
   final VoidCallback? onDetails;
 
   /// The dates behind the series, oldest first.
-  List<String> get dates =>
-      <String>[for (final point in vo2max.trend90d) shortDate(point.date)];
+  List<String> get dates => <String>[
+    for (final point in vo2max.trend90d) shortDate(point.date),
+  ];
 
-  /// The prototype's note, with the latest point's instrument in front of it.
+  /// The note, with the latest point's instrument in front of it.
+  ///
+  /// Three endings, and they are three different facts about the window — see
+  /// the library docstring for why the unlabelled one may not be folded into
+  /// the single-instrument one.
   String get note {
-    final latest = 'The latest estimate was read by '
-        '${methodLabel(vo2max.method)}.';
-    return '$latest $kStoredHistoryNote';
+    final latest =
+        'The latest estimate was read by ${methodLabel(vo2max.method)}.';
+    final methods = TrendPoint.methodsIn(vo2max.trend90d);
+    final tail = switch (methods.length) {
+      0 => kStoredHistoryNote,
+      1 => kSingleMethodNote,
+      _ => kMixedMethodNote,
+    };
+    return '$latest $tail';
   }
 
   @override
@@ -227,7 +267,11 @@ class StoredHistoryPanel extends StatelessWidget {
 /// `Which instrument produced it?` — the fit behind a session-read estimate.
 class InstrumentPanel extends StatelessWidget {
   /// [vo2max] must carry a `submax` block; the screen gates on it.
-  const InstrumentPanel({required this.vo2max, required this.submax, super.key});
+  const InstrumentPanel({
+    required this.vo2max,
+    required this.submax,
+    super.key,
+  });
 
   /// The prototype's title.
   static const String title = 'Which instrument produced it?';
@@ -279,11 +323,7 @@ class InstrumentPanel extends StatelessWidget {
             if (submax.lastR2 case final double r2)
               Stat('Session fit · R²', r2.toStringAsFixed(2)),
             if (submax.lastSpeedKmh case final double speed)
-              Stat(
-                'Last fitted speed',
-                speed.toStringAsFixed(1),
-                unit: 'km/h',
-              ),
+              Stat('Last fitted speed', speed.toStringAsFixed(1), unit: 'km/h'),
           ]),
         ],
       ),

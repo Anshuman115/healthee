@@ -6,9 +6,13 @@
 ///     A reader who takes a published model error for a confidence interval has
 ///     mis-read the uncertainty of the number in front of them, and that
 ///     sentence is the only thing stopping them. `test/mutations.sh` breaks it.
-///   * **The stored history cannot tell a method change from a fitness change**,
-///     because `trend_90d` carries no method. The note says so; without it the
-///     line implies a continuity the payload cannot support.
+///   * **The stored history names the instrument that read each point.**
+///     `trend_90d` carried no method and the note said a method change could not
+///     be told from a fitness change; it carries one now
+///     (`docs/BACKEND_GAPS_FROM_UI.md` B2) and the note answers the question
+///     instead of warning that it could not be answered. Three endings, because
+///     "the wire said nothing", "one instrument throughout" and "more than one"
+///     are three different facts about the window.
 ///   * **The instrument panel draws the fit, not the estimate again** — R² and
 ///     the fitted speed — and is absent entirely when no session produced the
 ///     number.
@@ -21,6 +25,7 @@ import 'package:healthee/features/activity/fitness_screen.dart';
 import 'package:healthee/features/activity/v02/fitness_effort_panels.dart';
 import 'package:healthee/features/activity/v02/fitness_panels.dart';
 import 'package:healthee/shared/charts/v02/v02_line_chart.dart';
+import 'package:healthee/shared/reveal_once.dart';
 
 import '../_today_stubs.dart';
 import '_settings_harness.dart' show tallViewport;
@@ -35,6 +40,32 @@ Map<String, Object?> _withoutSubmax(Map<String, Object?> json) =>
         'submax': null,
       },
     };
+
+/// The snapshot's own VO2max block with [trend] swapped in.
+///
+/// Built off the wire rather than hand-constructed, so the only thing that
+/// differs between the three cases below is the field under test.
+Vo2max _vo2maxWith(List<Map<String, Object?>> trend) {
+  final block = Map<String, Object?>.from(
+    loadTodayJson()['vo2max']! as Map<String, Object?>,
+  );
+  block['trend_90d'] = trend;
+  final parsed = Vo2max.maybe(block);
+  expect(parsed, isNotNull, reason: 'the snapshot no longer carries a VO2max');
+  return parsed!;
+}
+
+/// A trend where each point names [methods] — null for a point the wire did not
+/// label, which is the shape an older server sends.
+List<Map<String, Object?>> _trend(List<String?> methods) =>
+    <Map<String, Object?>>[
+      for (var i = 0; i < methods.length; i++)
+        <String, Object?>{
+          'date': '2026-07-${(i + 1).toString().padLeft(2, '0')}',
+          'value': 41.0 + i,
+          if (methods[i] case final String method) 'method': method,
+        },
+    ];
 
 void main() {
   late LocalStore store;
@@ -80,7 +111,7 @@ void main() {
     );
   });
 
-  testWidgets('THE HISTORY SAYS A METHOD CHANGE CANNOT BE TOLD APART', (
+  testWidgets('THE HISTORY NAMES WHAT READ EACH POINT, OR SAYS IT WAS NOT TOLD', (
     tester,
   ) async {
     tallViewport(tester);
@@ -91,7 +122,35 @@ void main() {
 
     expect(find.text(StoredHistoryPanel.title), findsOneWidget);
     expect(find.byType(V02LineChart), findsOneWidget);
-    expect(find.textContaining(kStoredHistoryNote), findsOneWidget);
+    // The contract snapshot's window really does cross two instruments — a
+    // graded fit and Jurca — so this is the mixed ending, and it is the case the
+    // old caveat could only warn about in the abstract. The unlabelled sentence
+    // must be GONE: it says the wire did not tell us, and the wire did.
+    expect(find.textContaining(kMixedMethodNote), findsOneWidget);
+    expect(find.textContaining(kStoredHistoryNote), findsNothing);
+  });
+
+  test('the three endings are three different facts about the window', () {
+    // A window nobody labelled is not a window read one way throughout, and
+    // collapsing the two would be the caveat disappearing rather than being
+    // answered.
+    String noteFor(List<Map<String, Object?>> trend) => StoredHistoryPanel(
+      vo2max: _vo2maxWith(trend),
+      reveals: RevealRegistry(),
+    ).note;
+
+    expect(
+      noteFor(_trend(<String?>[null, null])),
+      contains(kStoredHistoryNote),
+    );
+    expect(
+      noteFor(_trend(<String?>['jurca_non_exercise', 'jurca_non_exercise'])),
+      contains(kSingleMethodNote),
+    );
+    expect(
+      noteFor(_trend(<String?>['jurca_non_exercise', 'gps_graded'])),
+      contains(kMixedMethodNote),
+    );
   });
 
   group('the instrument panel', () {
