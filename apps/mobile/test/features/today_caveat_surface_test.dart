@@ -133,10 +133,11 @@ void main() {
       findsWidgets,
       reason: 'the signpost under a card',
     );
-    // `CaveatFoot` was the grid tile's carrier and the grid is gone: v02 has one
-    // carrier, the note inside the panel or the hero. One carrier is the point —
-    // `caveat_scope.dart` records that the gutter version was a misattribution.
-    expect(find.byType(CaveatFoot), findsNothing);
+    // v02 has ONE carrier, the note inside the panel or the hero, and that is
+    // the point — `caveat_scope.dart` records that the gutter version was a
+    // misattribution. This used to be an `expect(CaveatFoot, findsNothing)`;
+    // the grid tile's carrier is deleted along with the grid, so the claim is
+    // now structural rather than asserted.
     expect(find.text(caveatHeadline(4)), findsOneWidget);
   });
 
