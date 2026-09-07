@@ -233,6 +233,9 @@ abstract final class LightPalette {
   /// because the prototype declares it once, outside either theme block, on a
   /// halo surface that is dark in both. See [DarkPalette.haloWarm].
   static const Color haloWarm = Color(0xFFFED16B);
+
+  /// `--map-land`, `oklch(95% .018 145)` — see `features/gps/route_map.dart`.
+  static const Color mapLand = Color(0xFFE7F2E7);
 }
 
 /// The v02 scaffolding, dark — **the default appearance for this direction**.
@@ -341,6 +344,9 @@ abstract final class DarkPalette {
   /// amber: the halo glint is the prototype's decoration, and borrowing an
   /// identity hue would put "steps" inside the biological-age card.
   static const Color haloWarm = Color(0xFFFED16B);
+
+  /// `--map-land`, `oklch(24% .016 145)` — the same ground, dark.
+  static const Color mapLand = Color(0xFF1B211B);
 }
 
 /// The owner's seven selectable accents and three dark grounds, authored
