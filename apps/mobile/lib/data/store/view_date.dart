@@ -28,11 +28,20 @@
 ///
 /// `deviceDayProvider` follows it — the strap's own measurements are stored per
 /// calendar day, so a past day is a real answer this phone can give with no
-/// network at all. **The server's `/api/today` does not**: it takes no day and
-/// answers for the current one only. `today_sections.dart` therefore refuses to
-/// draw the derived half on a past day rather than relabelling today's
-/// judgements with yesterday's date, which is the stale-as-current failure this
-/// repo has already swept three times.
+/// network at all.
+///
+/// **`todaySnapshotProvider` follows it too**, and that is the one `watch` that
+/// makes the derived half date-aware: `/api/today` takes an optional
+/// `day=YYYY-MM-DD` and answers from the rows filed under it
+/// (`docs/AS_OF_DAY.md`), so stepping back re-requests rather than relabelling.
+/// Serving today's judgements under yesterday's date would still be the
+/// stale-as-current failure this repo has swept three times — the difference is
+/// that we now ask for the right day instead of declining to ask.
+///
+/// What still does not follow it is the LLM half. A written analysis or a daily
+/// action for a past day would have to be regenerated, which is a new claim
+/// rather than a record, so those surfaces stay absent — and absent is what the
+/// screens already drew for an un-warmed today.
 library;
 
 import 'package:healthee/data/store/local_store.dart';
