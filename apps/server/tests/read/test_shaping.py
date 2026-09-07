@@ -78,6 +78,9 @@ def test_finding_shape_keys() -> None:
         "q_value",
         "n_samples",
         "research_note_ids",
+        "points",
+        "points_n",
+        "points_truncated",
     }
 
 
