@@ -2541,6 +2541,59 @@ mutate 'a chart ignores the selected day and windows on the newest sample' \
       for (final night in page.nights) night,
     ];'
 
+# ── the dated history a past day now draws ──────────────────────────────────
+DATED=lib/shared/v02/dated_history.dart
+DATED_PANEL=lib/shared/v02/dated_panel.dart
+DATED_DATA=lib/data/history/dated_history.dart
+DATED_TEST=test/features/dated_panel_test.dart
+DATED_DATA_TEST=test/history/dated_history_test.dart
+DATE_TEST=test/features/date_control_test.dart
+
+# THE LINE. A past day may gain charts of measurements; it may not gain a
+# judgement. Let the derived half through on Today and the biological age, the
+# recovery score and the day's analysis all appear under an older date.
+mutate 'a past day draws the derived half under an older date' \
+  "$DATE_TEST" lib/features/today/today_sections.dart \
+  '  if (past) {
+    pastDaySections(sections, data, onOpenMetric: extras.onOpenMetric);
+    return sections.build();
+  }' \
+  '  if (past) {
+    pastDaySections(sections, data, onOpenMetric: extras.onOpenMetric);
+  }'
+
+# The same failure a chart at a time: window on today and every dated panel
+# draws the newest fortnight there is, captioned with the day the reader chose.
+mutate 'a dated series is windowed on today rather than the chosen day' \
+  "$DATE_TEST $DATED_TEST" "$DATED" \
+  '          window: HistoryWindow.endingOn(
+            series[metric.id],
+            day,
+            kDatedPanelDays,
+          ),' \
+  '          window: HistoryWindow(series[metric.id]),'
+
+# Fill the holes from the neighbour on the left and the chart draws a line
+# through days nobody measured — a measurement nobody took.
+mutate 'a missing day is interpolated across instead of left as a gap' \
+  "test/history/history_window_test.dart $DATED_TEST" \
+  lib/data/history/history_window.dart \
+  '      final value = byDay[iso];
+      values.add(value);' \
+  '      final value = byDay[iso] ?? (values.isEmpty ? null : values.last);
+      values.add(value);' \
+
+# A batched read that drops what it does not recognise hands back eight series
+# where nine were asked for, and the missing one reads as "you have no data".
+mutate 'the batched parse drops a malformed point instead of refusing' \
+  "$DATED_DATA_TEST" "$DATED_DATA" \
+  '    if (points.isNotEmpty && points.last.date.compareTo(day) >= 0) {
+      throw FormatException('"'"'History dates must increase for $metric'"'"');
+    }' \
+  '    if (points.isNotEmpty && points.last.date.compareTo(day) >= 0) {
+      continue;
+    }'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

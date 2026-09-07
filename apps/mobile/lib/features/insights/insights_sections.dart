@@ -53,7 +53,10 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/theme/tone.dart';
+import 'package:healthee/data/history/dated_history.dart';
+import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/features/insights/v02/pattern_panels.dart';
@@ -66,6 +69,7 @@ import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/section_list.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
+import 'package:healthee/shared/v02/dated_history.dart';
 import 'package:healthee/shared/v02/entry_card.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/page_header.dart';
@@ -115,6 +119,26 @@ class InsightsExtras {
   final VoidCallback? onOpenFitness;
 }
 
+/// `history-screens.js::screens.insights` — `panels([…])`, in its order.
+///
+/// ```js
+/// panels(['hrv','rhr','efficiency','regularity','vo2','steps'])
+/// ```
+///
+/// Five of the six. `efficiency` is the night's efficiency percentage, which
+/// this server keeps on the sleep session and not as a daily series — see
+/// [kInsightsUnserved].
+const List<HistoryMetric> kInsightsDatedMetrics = <HistoryMetric>[
+  HistoryMetric.hrv,
+  HistoryMetric.restingHr,
+  HistoryMetric.sleepRegularity,
+  HistoryMetric.fitness,
+  HistoryMetric.steps,
+];
+
+/// The one panel `screens.insights` draws that has no dated series here.
+const List<String> kInsightsUnserved = <String>[kUnservedSleepEfficiency];
+
 /// Builds the ordered section list for one render of Insights.
 List<PageSection> insightsSections(ScreenData data, InsightsExtras extras) {
   final past = data.view.isPast;
@@ -138,6 +162,25 @@ List<PageSection> insightsSections(ScreenData data, InsightsExtras extras) {
     sections
       ..add(const PastDayNotice(title: kInsightsPastTitle, body: kPastDayReason))
       ..gap(PageSpacing.panel);
+    // `screens.insights`'s own words: *"explore the measurements available up
+    // to this day"*. The correlations are refused above and stay refused; what
+    // the reader gets instead is the dated series they were computed over.
+    if (data.history case final AsyncValue<DatedHistory> history) {
+      addDatedPanels(
+        sections,
+        history: history,
+        metrics: kInsightsDatedMetrics,
+        day: data.view.day,
+        reveals: data.reveals,
+        onRetry: data.onRetryHistory,
+        onOpenMetric: extras.onOpenMetric,
+      );
+      if (unservedNotice(kInsightsUnserved) case final Widget notice) {
+        sections.gap(PageSpacing.panel);
+        sections.add(notice);
+      }
+      sections.gap(PageSpacing.block);
+    }
   }
   if (!past) {
     if (data.serverFailure case final PageSection failure) {

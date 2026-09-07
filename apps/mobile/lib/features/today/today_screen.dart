@@ -41,6 +41,7 @@ import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/features/today/v02/today_chapters.dart';
+import 'package:healthee/shared/history_link.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 
 /// The app's home screen.
@@ -128,11 +129,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           // bar switches between siblings; everything below is a destination
           // the owner came from Today and expects to come back to, so it is
           // pushed (`router.dart`'s table).
-          onOpenMetric: (metric) => unawaited(
-            context.push(
-              '${Routes.history}?metric=${Uri.encodeComponent(metric)}',
-            ),
-          ),
+          onOpenMetric: (metric) => openMetricHistory(context, metric),
           onOpenFitness: () => unawaited(context.push(Routes.fitness)),
           onOpenWorkouts: () => unawaited(context.push(Routes.workouts)),
         ),

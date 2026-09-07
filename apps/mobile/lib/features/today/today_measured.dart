@@ -18,11 +18,17 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:healthee/core/theme/tone.dart';
+import 'package:healthee/data/history/dated_history.dart';
+import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/shared/device_health_card.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/section_list.dart';
+import 'package:healthee/shared/v02/chapter.dart';
+import 'package:healthee/shared/v02/dated_history.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
@@ -41,7 +47,11 @@ import 'package:healthee/shared/v02/past_day.dart';
 /// The measured half is real: the local tier stores the strap's own readings per
 /// calendar day, so this renders with no network at all — the same guarantee
 /// `docs/APP_DESIGN_BRIEF.md` section 7.4 makes for the current day.
-void pastDaySections(SectionList sections, ScreenData data) {
+void pastDaySections(
+  SectionList sections,
+  ScreenData data, {
+  void Function(String metric)? onOpenMetric,
+}) {
   final day = data.day;
   // `history-screens.js::screens.today` opens on exactly this block, above the
   // dated panels, so the reader meets the absence before the readings rather
@@ -71,7 +81,131 @@ void pastDaySections(SectionList sections, ScreenData data) {
       ),
     ),
   );
+  if (data.history case final AsyncValue<DatedHistory> history) {
+    pastDayChapters(sections, data, history, onOpenMetric: onOpenMetric);
+  }
 }
+
+/// `screens.today`'s three dated chapters, in the prototype's order.
+///
+/// ```js
+/// H.chapter('overnight','Overnight readings','sleep','moon')
+///   panels(['sleep','hrv','rhr','spo2','breathing','temperature',
+///           'efficiency','regularity'])
+/// H.chapter('daytime','Movement & effort','movement','walk')
+///   panels(['steps','energy','total-energy','distance','mvpa','load'])
+/// missing('Heart rate & stress timeline', …)
+/// H.chapter('longer-view','Fitness & context','fitness','activity')
+///   panels(['vo2'])
+/// ```
+///
+/// The headings are the prototype's own and they are what make a long run of
+/// cards readable as three groups rather than fourteen unrelated charts. They
+/// are plain [ChapterHeading]s here, not the tab's jump targets: the chapter nav
+/// belongs to the current day's screen, and a nav over a different set of
+/// chapters would be a control that means one thing on Monday and another on
+/// Tuesday.
+void pastDayChapters(
+  SectionList sections,
+  ScreenData data,
+  AsyncValue<DatedHistory> history, {
+  void Function(String metric)? onOpenMetric,
+}) {
+  void chapter(
+    String title,
+    IconData icon,
+    Tone tone,
+    List<HistoryMetric> metrics,
+    List<String> unserved,
+  ) {
+    sections.gap(PageSpacing.block);
+    sections.add(ChapterHeading(title: title, icon: icon, tone: tone));
+    addDatedPanels(
+      sections,
+      history: history,
+      metrics: metrics,
+      day: data.view.day,
+      reveals: data.reveals,
+      onRetry: data.onRetryHistory,
+      onOpenMetric: onOpenMetric,
+    );
+    if (unservedNotice(unserved) case final Widget notice) {
+      sections.gap(PageSpacing.panel);
+      sections.add(notice);
+    }
+  }
+
+  chapter(
+    'Overnight readings',
+    Icons.bedtime_outlined,
+    Tone.sleep,
+    kNightDatedMetrics,
+    kNightUnserved,
+  );
+  chapter(
+    'Movement & effort',
+    Icons.directions_walk,
+    Tone.movement,
+    kDayDatedMetrics,
+    const <String>[],
+  );
+  // `missing('Heart rate & stress timeline', 'Hourly traces are included only
+  // for the latest sample day.')` — and for the same structural reason as the
+  // rest: `/api/today` carries the hourly traces and takes no day.
+  sections.gap(PageSpacing.panel);
+  sections.add(
+    const PastDayNotice(title: kPastDayTracesTitle, body: kPastDayTracesNote),
+  );
+  chapter(
+    'Fitness & context',
+    Icons.monitor_heart_outlined,
+    Tone.fitness,
+    kLongerDatedMetrics,
+    const <String>[],
+  );
+}
+
+/// `H.chapter('overnight', …)`'s panels — `sleep` and the two the server keeps
+/// no daily series for are in [kNightUnserved] instead.
+const List<HistoryMetric> kNightDatedMetrics = <HistoryMetric>[
+  HistoryMetric.hrv,
+  HistoryMetric.restingHr,
+  HistoryMetric.oxygen,
+  HistoryMetric.breathing,
+  HistoryMetric.sleepRegularity,
+];
+
+/// Three of the prototype's eight overnight panels have no dated daily series
+/// on this server — `BACKEND_GAPS_FROM_UI.md` C3 checked both sides.
+const List<String> kNightUnserved = <String>[
+  kUnservedSleepDuration,
+  kUnservedSleepEfficiency,
+  kUnservedSkinTemperature,
+];
+
+/// `H.chapter('daytime', …)`'s panels. All six are served.
+const List<HistoryMetric> kDayDatedMetrics = <HistoryMetric>[
+  HistoryMetric.steps,
+  HistoryMetric.activeEnergy,
+  HistoryMetric.totalEnergy,
+  HistoryMetric.distance,
+  HistoryMetric.activeMinutes,
+  HistoryMetric.cardioLoad,
+];
+
+/// `H.chapter('longer-view', …)`'s one panel.
+const List<HistoryMetric> kLongerDatedMetrics = <HistoryMetric>[
+  HistoryMetric.fitness,
+];
+
+/// `missing('Heart rate & stress timeline', …)` — the prototype's own heading.
+const String kPastDayTracesTitle = 'Heart rate & stress timeline';
+
+/// Why the hourly traces are not here. Structural, like every other refusal.
+const String kPastDayTracesNote =
+    'The hour-by-hour heart rate and stress traces arrive with the current '
+    'day’s payload, which takes no date, so they are shown for the latest day '
+    'only rather than replayed under an older one.';
 
 /// `missing('Daily analysis', …)` — the prototype's own heading for the block.
 const String kPastDayAnalysisTitle = 'Daily analysis';

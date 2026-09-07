@@ -33,6 +33,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/tone.dart';
+import 'package:healthee/data/history/dated_history.dart';
+import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/honesty/envelope.dart';
 import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/data/models/recovery_signals.dart';
@@ -41,6 +43,7 @@ import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/today/today_facts.dart';
 import 'package:healthee/features/today/v02/recovery_detail_panels.dart';
 import 'package:healthee/features/today/v02/recovery_panel.dart';
+import 'package:healthee/shared/history_link.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/reveal_once.dart';
@@ -50,8 +53,8 @@ import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
+import 'package:healthee/shared/v02/dated_history.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
-import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/view_day.dart';
 import 'package:healthee/shared/v02/vitals_table.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
@@ -81,18 +84,37 @@ class _RecoveryScreenState extends ConsumerState<RecoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final ViewDay day = watchViewDay(ref);
-    // Every figure on this screen is `/api/today`'s, and that endpoint takes no
-    // day. So a past date gets the refusal instead of the screen — before the
-    // read is even consulted, because a spinner here would be waiting for an
-    // answer that could not be about the day in the header.
+    // The SCORE is `/api/today`'s and that endpoint takes no day, so a past
+    // date still gets the refusal — before the read is even consulted, because
+    // a spinner here would be waiting for an answer that could not be about the
+    // day in the header.
+    //
+    // What a past day now also gets is `screens.recovery`'s dated panels: the
+    // four measurements the model is computed FROM, each on the calendar it was
+    // measured on. They are readings, not judgements, so they are as true of
+    // 24 July as of today — and having them under the refusal is the difference
+    // between "we will not say" and "there is nothing here".
     if (day.isPast) {
       return _Frame(
         date: day.day,
         status: day.status,
-        children: const <Widget>[
-          PastDayNotice(title: kRecoveryPastTitle, body: kPastDayReason),
-          DataFooter(),
-        ],
+        children: pastDayDetail(
+          refusalTitle: kRecoveryPastTitle,
+          history: ref.watch(datedHistoryProvider),
+          // `panels(['hrv','rhr','breathing','sleep','load'])`, less the one
+          // this server keeps no dated series for.
+          metrics: const <HistoryMetric>[
+            HistoryMetric.hrv,
+            HistoryMetric.restingHr,
+            HistoryMetric.breathing,
+            HistoryMetric.cardioLoad,
+          ],
+          unserved: const <String>[kUnservedSleepDuration],
+          day: day.day,
+          reveals: _reveals,
+          onRetry: () => ref.invalidate(datedHistoryProvider),
+          onOpenMetric: (metric) => openMetricHistory(context, metric),
+        ),
       );
     }
     final view = currentAccountValue(ref.watch(todaySnapshotProvider));

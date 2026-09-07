@@ -23,7 +23,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/device/device_day.dart';
+import 'package:healthee/data/history/dated_history.dart';
 import 'package:healthee/data/models/biological_age.dart';
+import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/store/view_date.dart';
@@ -36,6 +38,7 @@ import 'package:healthee/features/today/v02/today_hero.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/v02/chapter.dart';
+import 'package:healthee/shared/v02/dated_panel.dart';
 
 import '../_today_stubs.dart';
 import '_screen_data.dart';
@@ -50,9 +53,32 @@ DateNavigation _window({ValueChanged<String>? onSelect}) => DateNavigation(
 
 /// The section list for a phone showing [day], with a server that only ever
 /// answers for [todayDate].
-List<PageSection> _sectionsFor(String day) => todaySections(
-  screenData(day: DeviceDay.empty(day), server: todayView()),
-  TodayExtras(navigation: _window()),
+List<PageSection> _sectionsFor(String day, {DatedHistory? history}) =>
+    todaySections(
+      screenData(
+        day: DeviceDay.empty(day),
+        server: todayView(),
+        history: history,
+      ),
+      TodayExtras(navigation: _window()),
+    );
+
+/// A fortnight of resting heart rate that runs PAST the day under test, so a
+/// panel that windowed on the newest reading rather than on the selection would
+/// have somewhere wrong to go.
+const DatedHistory _spanning = DatedHistory(
+  days: 90,
+  series: <String, List<TrendPoint>>{
+    'rhr_daily': <TrendPoint>[
+      TrendPoint(date: '2026-07-30', value: 50),
+      TrendPoint(date: '2026-07-31', value: 51),
+      TrendPoint(date: '2026-08-01', value: 52),
+      // Everything below is AFTER the day under test.
+      TrendPoint(date: '2026-08-02', value: 61),
+      TrendPoint(date: '2026-08-03', value: 62),
+      TrendPoint(date: '2026-08-04', value: 63),
+    ],
+  },
 );
 
 bool _has<T>(List<PageSection> list) =>
@@ -145,8 +171,74 @@ void main() {
         isFalse,
         reason: 'the biological age',
       );
-      expect(_has<ChapterHeading>(past), isFalse, reason: 'the chapters');
       expect(_has<TodaySummaryTiles>(past), isFalse, reason: 'the tiles');
+    });
+
+    test('AND THE CHAPTERS IT DOES DRAW ARE THE DATED ONES, NOT TODAY’S', () {
+      // A past day gained `history-screens.js`'s three chapters of dated
+      // measurements. This asserts they are those and not the current day's,
+      // which is the whole distinction: `Last night → today` heads a run of
+      // judgements about tonight's readiness, `Overnight readings` heads a run
+      // of measurements laid on the calendar. Same widget, opposite claims — so
+      // the test names them rather than counting them.
+      final headings = <String>[
+        for (final section in _sectionsFor('2026-08-01'))
+          if (section.child case final ChapterHeading heading) heading.title,
+      ];
+      expect(headings, <String>[
+        'Overnight readings',
+        'Movement & effort',
+        'Fitness & context',
+      ]);
+      expect(
+        _sectionsFor(todayDate).map((s) => s.child).whereType<ChapterHeading>()
+            .map((h) => h.title),
+        containsAll(<String>['Last night → today', 'Movement → recovery']),
+        reason: 'the current day keeps its own three, unchanged',
+      );
+    });
+
+    test('A PAST DAY DRAWS MEASUREMENTS, AND ONLY MEASUREMENTS', () {
+      // The line this whole feature is built against. Everything a dated panel
+      // can draw is a row `derive` stamped with a calendar day; everything the
+      // refusal covers is worked out for the current day and no other.
+      final past = _sectionsFor('2026-08-01');
+      expect(_has<DatedPanel>(past), isTrue, reason: 'the dated charts');
+      for (final section in past) {
+        expect(
+          section.child,
+          isNot(isA<ReadingView<BiologicalAge>>()),
+          reason: 'a derived value reached a past day',
+        );
+      }
+      // And every panel is windowed on the day being READ, never on today.
+      for (final section in past) {
+        if (section.child case final DatedPanel panel) {
+          expect(panel.day, '2026-08-01');
+        }
+      }
+    });
+
+    test('A DATED CHART ENDS ON THE CHOSEN DAY, NOT ON THE NEWEST READING', () {
+      // The stale-as-current failure with a chart instead of a figure: the
+      // series runs to 4 August and the header says 1 August, so a window taken
+      // from the newest reading would put three days of the future on screen
+      // under an older date — and the panel's own figure would be one of them.
+      final panel = _sectionsFor('2026-08-01', history: _spanning)
+          .map((section) => section.child)
+          .whereType<DatedPanel>()
+          .firstWhere((panel) => panel.metric == 'rhr_daily');
+      expect(panel.window.days.last, '2026-08-01');
+      expect(panel.window.on('2026-08-01'), 52);
+      for (final point in panel.window.observed) {
+        expect(
+          point.date.compareTo('2026-08-01') <= 0,
+          isTrue,
+          reason: '${point.date} is after the day being read',
+        );
+      }
+      // 61, 62 and 63 are the readings from after the selection.
+      expect(panel.window.values, isNot(contains(61.0)));
     });
 
     test('and the current day still draws all of it', () {

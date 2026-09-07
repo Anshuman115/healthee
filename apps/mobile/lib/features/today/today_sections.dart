@@ -232,7 +232,7 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
     ),
   );
   if (past) {
-    pastDaySections(sections, data);
+    pastDaySections(sections, data, onOpenMetric: extras.onOpenMetric);
     return sections.build();
   }
   sections.add(_dataHealth(data, extras));
