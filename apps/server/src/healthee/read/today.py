@@ -8,9 +8,9 @@ WP5 (insights) OWNS the AI narrative that legacy embedded here — the daily
 recommendation "action"/rationale text is written by the insights job into the
 ``recommendation`` table; this endpoint only READS whatever rows exist (so the
 metric/data content is complete and the LLM text arrives when WP5/WP8 populate the
-table). The legacy live-computed ``anomalies`` block stays ``[]`` exactly as
-legacy returned it (the app reads notable shifts from ``/api/notable``, a WP5
-endpoint).
+table). The legacy live-computed ``anomalies`` block is NOT computed here — it is
+``null`` with a reason beside it pointing at ``/api/notable``, because the ``[]`` it
+used to ship read as "nothing was anomalous" (see ``_ANOMALIES_NOT_SCANNED``).
 """
 
 from __future__ import annotations
@@ -91,9 +91,47 @@ def today_snapshot(cur: Cur, user_id: UUID, tz: str, day: date | None = None) ->
     payload.update(_metric_blocks(cur, user_id, tz, reads, as_of))
     payload.update(_signal_blocks(cur, user_id, tz, reads, as_of))
     payload.update(_series_blocks(cur, user_id, tz, as_of))
-    payload["anomalies"] = []  # legacy computed these live; app reads /api/notable (WP5)
+    payload.update(_anomalies_block())
     payload["top_findings"] = top_findings(cur, user_id, tz, day=as_of)
     return payload
+
+
+# This endpoint does not scan for notable shifts, and the key that says so used to say
+# the opposite. ``anomalies`` shipped as a bare ``[]`` from the day the v2 read layer was
+# written — and an empty list is indistinguishable from "nothing was anomalous", so any
+# reader of this payload was being handed a clean bill of health that nothing had
+# computed. "No data" and "operation not performed" are different states and must be
+# distinguishable by the caller (standards §1); an empty collection cannot carry that
+# difference, which is why it is the one thing this key may not remain.
+#
+# ``null`` is what "we have nothing to say here" already means across these payloads
+# (``docs/AS_OF_DAY.md`` section 7, where ``data_health`` and an open fast take it), and
+# the block beside it names the reason and the endpoint that does have the answer.
+#
+# **Computing them here instead was considered and refused, on two grounds.**
+# ``analytics.anomalies.detect`` anchors its window on ``USER_TODAY_SQL`` and opens a
+# ``tenant_transaction`` per metric, so calling it from this aggregator would be a future
+# leak on any past day (``docs/AS_OF_DAY.md`` section 3) and a per-metric connection
+# fan-out on the request path. And ``/api/notable`` already owns the question, deduped
+# and with a grounded meaning per shift; a second scan here would be a second definition
+# of "notable for this owner" (CLAUDE.md).
+_ANOMALIES_NOT_SCANNED = "not_computed_on_this_endpoint"
+_ANOMALIES_MESSAGE = (
+    "The Today page does not scan for notable shifts, so this is not an all-clear — "
+    "nothing here has looked. The scan lives on /api/notable."
+)
+
+
+def _anomalies_block() -> dict:
+    """``anomalies`` and why it is null — never an empty list that reads as an all-clear."""
+    return {
+        "anomalies": None,
+        "anomalies_withheld": {
+            "reason": _ANOMALIES_NOT_SCANNED,
+            "message": _ANOMALIES_MESSAGE,
+            "endpoint": "/api/notable",
+        },
+    }
 
 
 def _sleep_blocks(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict:

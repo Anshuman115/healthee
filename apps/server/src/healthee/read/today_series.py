@@ -16,8 +16,10 @@ from healthee.analytics.baselines import compute_baseline_cur
 from healthee.core.tenancy import reference_day
 from healthee.derive._common import Cur, _day_bounds_utc
 from healthee.derive.freshness import (
+    NOT_DERIVED_YET_MESSAGE,
     WEIGHT_STALE,
     WEIGHT_STALE_MESSAGE,
+    unavailable_reason,
     weight_is_stale,
     withheld_block,
 )
@@ -77,10 +79,33 @@ def _card_for(
 def _derived_card(
     cur: Cur, user_id: UUID, tz: str, metric: str, reads: TodayReads | None, as_of: date
 ) -> dict | None:
+    """One derived secondary card — the day's value, its date, and the gate on both.
+
+    **The date was being thrown away.** ``latest_derived`` answers "the newest row at or
+    before this day", which on a day with no row is an OLDER day's row — and this card
+    unpacked it as ``_day, value, flags`` and shipped the value bare. So a resting heart
+    rate measured three nights ago rendered in the Today row as this morning's, with
+    nothing on the wire able to say otherwise. That is the stale-as-current class in
+    ``derive/freshness.py``'s opening paragraph, on the page whose whole contract is the
+    named day, and it applied to every metric in this row: RHR, steps, all three calorie
+    rows, distance.
+
+    The gate is ``freshness.unavailable_reason`` — the ONE question, not a fourth date
+    check — and the treatment is the one ``_weight_card`` below already gives: the date
+    always ships, and past the gate ``value`` itself goes ``None`` with a ``withheld``
+    block carrying the last reading. Both halves, because a date in a field the UI may
+    not render does not undo a confident current-looking number
+    (``read/vo2max.py``).
+
+    Weight is deliberately NOT on this path: it is typed in rather than derived, so it
+    gets ``freshness``'s documented horizon instead of today-or-nothing. That split is
+    argued in that module, not re-decided here.
+    """
     latest = reads.latest.get(metric) if reads else latest_derived(cur, user_id, metric, as_of)
     if not latest:
         return None
-    _day, value, flags = latest
+    row_day, value, flags = latest
+    reason = unavailable_reason(as_of, row_day)
     meta = METRIC_META[metric]
     # Preloaded baseline when the aggregator supplied one; else compute on demand —
     # on THIS cursor, so a card whose metric the aggregator forgot to preload costs an
@@ -89,15 +114,30 @@ def _derived_card(
     baseline = (reads.baselines.get(metric) if reads else None) or compute_baseline_cur(
         cur, user_id, tz, metric, window_days=30, end_date=as_of
     )
-    z = baseline.z_score(value)
+    z = None if reason else baseline.z_score(value)
     return {
         "metric": metric,
         "label": meta["label"],
-        "value": value,
+        "value": None if reason else value,
         "unit": meta["unit"],
+        # The window's own centre and spread, ending at the reference day. Kept when the
+        # value is withheld for the reason ``read/vo2max.py`` keeps ``median_for_age``:
+        # this describes the 30 days behind the day, not the day itself, so withholding
+        # it would be silence about something we do know. `sd_30d` is the MAD scaled to a
+        # normal-equivalent SD (#B4) — the same spread `z` is already divided by, so a
+        # client can draw the band it was scored against instead of a bare line.
         "median_30d": baseline.median,
+        "sd_30d": baseline.robust_sd,
         "z": z,
         "anomalous": z is not None and abs(z) >= 2,
+        # The row's OWN day, always — including when it is the reference day. A field
+        # that appears only on stale answers is one the client learns to ignore.
+        "as_of_date": row_day.isoformat(),
+        "withheld": withheld_block(
+            reason, NOT_DERIVED_YET_MESSAGE, as_of, row_day, last_value=value
+        )
+        if reason
+        else None,
         # A PERMANENT key, empty for every metric with nothing to disclose (#127). The
         # derive layer decides what leans and why — this card only refuses to drop it,
         # which is the half that was missing: `derive/energy.py` could have stamped a
@@ -144,7 +184,12 @@ def _weight_card(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
         "label": meta["label"],
         "value": None if stale else kg,
         "unit": meta["unit"],
+        # Both null and both PRESENT: weight lives in ``weight_log``, so it has no
+        # ``derived_daily`` baseline to take a centre or a spread from. The keys stay so
+        # every card in this row carries the same shape — a key that appears on some
+        # cards and not others is one a client has to guess about.
         "median_30d": None,
+        "sd_30d": None,
         "z": None,
         "anomalous": False,
         "as_of_date": logged_on.isoformat(),
