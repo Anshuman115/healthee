@@ -2,25 +2,25 @@
   "action": null,
   "anomalies": [],
   "as_of": {
-    "day": "2026-09-07",
-    "derived_at": "2026-09-07T13:06:25.787421+00:00",
+    "day": "2026-07-31",
+    "derived_at": "2026-07-31T02:14:07.512340+00:00",
     "is_today": true
   },
   "biological_age": {
     "biological_age": 34.3,
     "caveats": [
       {
-        "message": "The fitness term measures your VO\u2082max estimate against a reference for your age and sex. That reference is now the US standard \u2014 the median of 16,278 treadmill exercise tests in the FRIEND registry \u2014 replacing a table that had no published source and was charging most people up to about two years they had not earned. It is still not a median of the population: FRIEND is people who came to a laboratory for a test, and how that differs from everyone else has not been measured in the US. Where it has been compared with a whole-population sample abroad, FRIEND sat lower, which would make this comparison generous rather than harsh \u2014 but that was a different country. Either way it is the smaller uncertainty here: your own VO\u2082max is estimated rather than measured, and that estimate's error is worth about two and a half years.",
+        "message": "The fitness term measures your VO₂max estimate against a reference for your age and sex. That reference is now the US standard — the median of 16,278 treadmill exercise tests in the FRIEND registry — replacing a table that had no published source and was charging most people up to about two years they had not earned. It is still not a median of the population: FRIEND is people who came to a laboratory for a test, and how that differs from everyone else has not been measured in the US. Where it has been compared with a whole-population sample abroad, FRIEND sat lower, which would make this comparison generous rather than harsh — but that was a different country. Either way it is the smaller uncertainty here: your own VO₂max is estimated rather than measured, and that estimate's error is worth about two and a half years.",
         "reason": "vo2max_reference_clinical_cohort",
         "term": "fitness"
       },
       {
-        "message": "The fitness half of this number was measured rather than modelled: it comes from how your heart rate tracked your workload across a recorded session in the last two weeks. That is the most direct reading we can take without a laboratory, and it is still an estimate \u2014 checked against lab tests it is off by about 7% on average. We stop using a session after two weeks, because fitness lost to a break in training starts to show at about that point \u2014 after which this falls back to the no-exercise model and the number may step as the instrument changes, not as you do.",
+        "message": "The fitness half of this number was measured rather than modelled: it comes from how your heart rate tracked your workload across a recorded session in the last two weeks. That is the most direct reading we can take without a laboratory, and it is still an estimate — checked against lab tests it is off by about 7% on average. We stop using a session after two weeks, because fitness lost to a break in training starts to show at about that point — after which this falls back to the no-exercise model and the number may step as the instrument changes, not as you do.",
         "reason": "vo2max_measured_from_session",
         "term": "fitness"
       },
       {
-        "message": "Your sleep hours are translated before the risk curve is applied to them. That curve was measured on sleep people reported on questionnaires, and questionnaires run long: in the study that measured both, people who actually slept 5 hours said 6.2, and people who slept 7 said 7.4. Your strap's nightly average is converted to its questionnaire equivalent first, so you are not charged for hours you never claimed \u2014 which also means the lowest-risk point sits near 6h20 on your strap rather than at the 7 hours the studies quote. Two things are left uncorrected: wrist devices read about 17 minutes short of a sleep lab, which charges a short sleeper slightly too much and credits a long sleeper slightly too much; and above 8 hours we stop translating altogether rather than extrapolate past what was measured, which keeps the long-sleep penalty at its full size.",
+        "message": "Your sleep hours are translated before the risk curve is applied to them. That curve was measured on sleep people reported on questionnaires, and questionnaires run long: in the study that measured both, people who actually slept 5 hours said 6.2, and people who slept 7 said 7.4. Your strap's nightly average is converted to its questionnaire equivalent first, so you are not charged for hours you never claimed — which also means the lowest-risk point sits near 6h20 on your strap rather than at the 7 hours the studies quote. Two things are left uncorrected: wrist devices read about 17 minutes short of a sleep lab, which charges a short sleeper slightly too much and credits a long sleeper slightly too much; and above 8 hours we stop translating altogether rather than extrapolate past what was measured, which keeps the long-sleep penalty at its full size.",
         "reason": "sleep_duration_self_report_scale",
         "term": "sleep duration"
       }
@@ -34,7 +34,7 @@
         "method": "gps_graded",
         "target": 40,
         "term": "fitness",
-        "unit": "ml/kg/min VO\u2082max",
+        "unit": "ml/kg/min VO₂max",
         "value": 43.0
       },
       {
@@ -50,10 +50,10 @@
     ],
     "data_confidence": "ok",
     "delta_years": -1.7,
-    "disclaimer": "Motivational estimate from population data \u2014 not a clinical or diagnostic age.",
+    "disclaimer": "Motivational estimate from population data — not a clinical or diagnostic age.",
     "excluded": [
       {
-        "message": "Sleep regularity is not one of the levers behind this number. Scored on the same 70,000 people, the two standard Sleep Regularity Index calculators put only two in five into the same fifth of the population, and one found a mortality association where the other found none \u2014 so the published risk-per-SRI-point belongs to the software, not to the index. Yours is measured a third way again. You still get your regularity score and its one-hour-band target on the sleep page; what we cannot honestly do is convert it into years.",
+        "message": "Sleep regularity is not one of the levers behind this number. Scored on the same 70,000 people, the two standard Sleep Regularity Index calculators put only two in five into the same fifth of the population, and one found a mortality association where the other found none — so the published risk-per-SRI-point belongs to the software, not to the index. Yours is measured a third way again. You still get your regularity score and its one-hour-band target on the sleep page; what we cannot honestly do is convert it into years.",
         "reason": "sri_hazard_not_transportable",
         "term": "regularity"
       }
@@ -64,7 +64,7 @@
     "withheld": null
   },
   "cardio_load": {
-    "as_of_date": "2026-09-07",
+    "as_of_date": "2026-07-31",
     "baseline_30d": 55.0,
     "edwards_tl": 120,
     "hr_minutes": 47,
@@ -78,123 +78,123 @@
     "strain_max": 21.0,
     "trend_30d": [
       {
-        "date": "2026-08-09",
+        "date": "2026-07-02",
         "value": 55.0
       },
       {
-        "date": "2026-08-10",
+        "date": "2026-07-03",
         "value": 55.0
       },
       {
-        "date": "2026-08-11",
+        "date": "2026-07-04",
         "value": 55.0
       },
       {
-        "date": "2026-08-12",
+        "date": "2026-07-05",
         "value": 55.0
       },
       {
-        "date": "2026-08-13",
+        "date": "2026-07-06",
         "value": 55.0
       },
       {
-        "date": "2026-08-14",
+        "date": "2026-07-07",
         "value": 55.0
       },
       {
-        "date": "2026-08-15",
+        "date": "2026-07-08",
         "value": 55.0
       },
       {
-        "date": "2026-08-16",
+        "date": "2026-07-09",
         "value": 55.0
       },
       {
-        "date": "2026-08-17",
+        "date": "2026-07-10",
         "value": 55.0
       },
       {
-        "date": "2026-08-18",
+        "date": "2026-07-11",
         "value": 55.0
       },
       {
-        "date": "2026-08-19",
+        "date": "2026-07-12",
         "value": 55.0
       },
       {
-        "date": "2026-08-20",
+        "date": "2026-07-13",
         "value": 55.0
       },
       {
-        "date": "2026-08-21",
+        "date": "2026-07-14",
         "value": 55.0
       },
       {
-        "date": "2026-08-22",
+        "date": "2026-07-15",
         "value": 55.0
       },
       {
-        "date": "2026-08-23",
+        "date": "2026-07-16",
         "value": 55.0
       },
       {
-        "date": "2026-08-24",
+        "date": "2026-07-17",
         "value": 55.0
       },
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 55.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 55.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 55.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 55.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 55.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 55.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 55.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 55.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 55.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 55.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 55.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 55.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 55.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 55.0
       }
     ],
@@ -210,57 +210,57 @@
     "degraded": [],
     "items": [
       {
-        "age_h": 0.9,
+        "age_h": 2.8,
         "label": "Heart rate",
-        "last_iso": "2026-09-07T12:15:00+00:00",
+        "last_iso": "2026-07-31T12:15:00+00:00",
         "metric": "hr",
         "status": "ok"
       },
       {
-        "age_h": 0.9,
+        "age_h": 2.8,
         "label": "Steps",
-        "last_iso": "2026-09-07T12:15:00+00:00",
+        "last_iso": "2026-07-31T12:15:00+00:00",
         "metric": "steps_per_minute",
         "status": "ok"
       },
       {
-        "age_h": 12.6,
+        "age_h": 14.6,
         "label": "HRV",
-        "last_iso": "2026-09-07T00:30:00+00:00",
+        "last_iso": "2026-07-31T00:30:00+00:00",
         "metric": "hrv",
         "status": "ok"
       },
       {
-        "age_h": 12.6,
+        "age_h": 14.6,
         "label": "Blood oxygen",
-        "last_iso": "2026-09-07T00:30:00+00:00",
+        "last_iso": "2026-07-31T00:30:00+00:00",
         "metric": "spo2",
         "status": "ok"
       },
       {
-        "age_h": 12.6,
+        "age_h": 14.6,
         "label": "Breathing",
-        "last_iso": "2026-09-07T00:30:00+00:00",
+        "last_iso": "2026-07-31T00:30:00+00:00",
         "metric": "respiratory_rate",
         "status": "ok"
       },
       {
-        "age_h": 0.9,
+        "age_h": 2.8,
         "label": "Stress",
-        "last_iso": "2026-09-07T12:15:00+00:00",
+        "last_iso": "2026-07-31T12:15:00+00:00",
         "metric": "stress",
         "status": "ok"
       }
     ],
     "overall": "ok",
     "sync_status": "ok",
-    "synced_age_h": 0.9,
-    "synced_iso": "2026-09-07T12:15:00+00:00"
+    "synced_age_h": 2.8,
+    "synced_iso": "2026-07-31T12:15:00+00:00"
   },
-  "date": "2026-09-07",
+  "date": "2026-07-31",
   "illness_flag": {
-    "date": "2026-09-07",
-    "framing": "Possible early signal \u2014 consider lighter activity today. Breathing rate +2.4 bpm vs your 14-day baseline; skin temperature +0.35\u00b0C. Not a diagnosis.",
+    "date": "2026-07-31",
+    "framing": "Possible early signal — consider lighter activity today. Breathing rate +2.4 bpm vs your 14-day baseline; skin temperature +0.35°C. Not a diagnosis.",
     "research_note_ids": [
       "respiratory_rate_normal",
       "skin_temp_signals"
@@ -273,7 +273,7 @@
   "last_sleep": {
     "avg_hr": null,
     "duration_min": 380,
-    "end_iso": "2026-09-07T01:00:00+00:00",
+    "end_iso": "2026-07-31T01:00:00+00:00",
     "score": 86,
     "stages": [
       {
@@ -295,7 +295,7 @@
         "start_offset_min": 290.0
       }
     ],
-    "start_iso": "2026-09-06T17:30:00+00:00",
+    "start_iso": "2026-07-30T17:30:00+00:00",
     "totals": {
       "awake": 20,
       "deep": 90,
@@ -373,7 +373,7 @@
     },
     {
       "anomalous": false,
-      "as_of_date": "2026-09-07",
+      "as_of_date": "2026-07-31",
       "label": "Weight",
       "median_30d": null,
       "metric": "weight_kg",
@@ -386,49 +386,49 @@
   "mvpa": {
     "daily": [
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "moderate_min": 24,
         "mvpa_min": 32,
         "vigorous_min": 4
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "moderate_min": 24,
         "mvpa_min": 32,
         "vigorous_min": 4
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "moderate_min": 24,
         "mvpa_min": 32,
         "vigorous_min": 4
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "moderate_min": 24,
         "mvpa_min": 32,
         "vigorous_min": 4
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "moderate_min": 24,
         "mvpa_min": 32,
         "vigorous_min": 4
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "moderate_min": 24,
         "mvpa_min": 32,
         "vigorous_min": 4
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "moderate_min": 24,
         "mvpa_min": 32,
         "vigorous_min": 4
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "moderate_min": 24,
         "mvpa_min": 32,
         "vigorous_min": 4
@@ -439,11 +439,11 @@
       "cadence_intensity"
     ],
     "today_min": 32,
-    "week_min": 32,
-    "week_moderate_min": 24,
-    "week_start_iso": "2026-09-07",
+    "week_min": 160,
+    "week_moderate_min": 120,
+    "week_start_iso": "2026-07-27",
     "week_target": 150,
-    "week_vigorous_min": 4
+    "week_vigorous_min": 20
   },
   "pai": null,
   "recommendations": [
@@ -451,10 +451,10 @@
       "action": "Sleep earlier tonight",
       "adopted": null,
       "category": "sleep",
-      "date": "2026-09-07",
+      "date": "2026-07-31",
       "evidence_grade": 3,
       "expected_effect": "Lower debt",
-      "id": 2,
+      "id": 10343,
       "rank": 1,
       "rationale": "Debt is 120 min",
       "research_note_ids": [
@@ -483,7 +483,7 @@
   },
   "recovery_score": {
     "band": "high",
-    "date": "2026-09-07",
+    "date": "2026-07-31",
     "factors": {
       "hrv": {
         "sub": 80
@@ -498,7 +498,7 @@
         "sub": 60
       }
     },
-    "guidance": "An illness signal is active \u2014 it overrides today's recovery number. Keep today easy and skip anything hard until the signal clears. Not a diagnosis. Today's training has already used some of your capacity.",
+    "guidance": "An illness signal is active — it overrides today's recovery number. Keep today easy and skip anything hard until the signal clears. Not a diagnosis. Today's training has already used some of your capacity.",
     "note_id": "recovery_readiness",
     "readiness": 36,
     "recovery": 72,
@@ -532,28 +532,28 @@
     },
     "open_fast": {
       "elapsed_min": 300,
-      "id": "1a1b868d-52ca-4c5d-84b0-c93eee36d7d4",
-      "start_iso": "2026-09-07T08:06:25.866224+00:00"
+      "id": "ce8d8a82-7e3f-4c1f-b7a5-83aeb9622e1e",
+      "start_iso": "2026-07-31T10:03:45.185827+00:00"
     },
     "workouts": [
       {
         "duration_min": 30,
-        "end_iso": "2026-09-07T02:00:00+00:00",
+        "end_iso": "2026-07-31T02:00:00+00:00",
         "intensity": null,
         "kind": "workout",
         "source": "strap",
-        "start_iso": "2026-09-07T01:30:00+00:00",
+        "start_iso": "2026-07-31T01:30:00+00:00",
         "type": "Outdoor run"
       }
     ]
   },
   "sleep_debt": {
-    "as_of_date": "2026-09-07",
+    "as_of_date": "2026-07-31",
     "avg_deficit_min": 100,
     "avg_tst_min": 380,
     "data_confidence": "ok",
     "debt_min": 120,
-    "last_tst_as_of_date": "2026-09-07",
+    "last_tst_as_of_date": "2026-07-31",
     "last_tst_min": 380,
     "last_tst_withheld": null,
     "need_min": 480,
@@ -580,10 +580,10 @@
         4
       ]
     },
-    "date": "2026-09-07",
+    "date": "2026-07-31",
     "efficiency_pct": 84.4,
     "max_score": 4,
-    "midpoint_local": "2026-09-07T02:45:00+05:30",
+    "midpoint_local": "2026-07-31T02:45:00+05:30",
     "point_duration": 1,
     "point_efficiency": 1,
     "point_regularity": 1,
@@ -603,7 +603,7 @@
   "sleep_history_7d": [
     {
       "awake": 20,
-      "date": "2026-09-01",
+      "date": "2026-07-25",
       "deep": 90,
       "duration_min": 380,
       "light": 200,
@@ -612,7 +612,7 @@
     },
     {
       "awake": 20,
-      "date": "2026-09-02",
+      "date": "2026-07-26",
       "deep": 90,
       "duration_min": 380,
       "light": 200,
@@ -621,7 +621,7 @@
     },
     {
       "awake": 20,
-      "date": "2026-09-03",
+      "date": "2026-07-27",
       "deep": 90,
       "duration_min": 380,
       "light": 200,
@@ -630,7 +630,7 @@
     },
     {
       "awake": 20,
-      "date": "2026-09-04",
+      "date": "2026-07-28",
       "deep": 90,
       "duration_min": 380,
       "light": 200,
@@ -639,7 +639,7 @@
     },
     {
       "awake": 20,
-      "date": "2026-09-05",
+      "date": "2026-07-29",
       "deep": 90,
       "duration_min": 380,
       "light": 200,
@@ -648,7 +648,7 @@
     },
     {
       "awake": 20,
-      "date": "2026-09-06",
+      "date": "2026-07-30",
       "deep": 90,
       "duration_min": 380,
       "light": 200,
@@ -657,7 +657,7 @@
     },
     {
       "awake": 20,
-      "date": "2026-09-07",
+      "date": "2026-07-31",
       "deep": 90,
       "duration_min": 380,
       "light": 200,
@@ -668,563 +668,565 @@
   "sparklines": {
     "hrv_sleep_avg": [
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 45.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 45.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 45.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 45.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 45.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 45.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 45.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 45.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 45.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 45.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 45.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 45.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 45.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 45.0
       }
     ],
     "pai_total": [],
     "respiratory_rate_sleep": [
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 14.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 14.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 14.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 14.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 14.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 14.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 14.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 14.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 14.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 14.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 14.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 14.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 14.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 14.0
       }
     ],
     "rhr_daily": [
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 55.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 55.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 55.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 55.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 55.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 55.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 55.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 55.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 55.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 55.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 55.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 55.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 55.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 55.0
       }
     ],
     "sleep_health_score_4dim": [
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 3.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 3.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 3.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 3.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 3.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 3.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 3.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 3.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 3.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 3.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 3.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 3.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 3.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 3.0
       }
     ],
     "sleep_regularity_index": [
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 74.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 74.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 74.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 74.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 74.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 74.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 74.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 74.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 74.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 74.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 74.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 74.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 74.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 74.0
       }
     ],
     "sleep_score": [],
     "spo2_overnight": [
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 97.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 97.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 97.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 97.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 97.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 97.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 97.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 97.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 97.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 97.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 97.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 97.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 97.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 97.0
       }
     ],
     "spo2_overnight_min": [
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 93.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 93.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 93.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 93.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 93.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 93.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 93.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 93.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 93.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 93.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 93.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 93.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 93.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 93.0
       }
     ],
     "stress": [],
     "total_calories": [
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 2350.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 2350.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 2350.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 2350.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 2350.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 2350.0
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 2350.0
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 2350.0
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 2350.0
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 2350.0
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 2350.0
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 2350.0
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 2350.0
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 2350.0
       }
     ]
   },
   "strength": {
     "research_note": "strength_training_mortality",
-    "sessions": 0,
+    "sessions": 1,
     "target_high": 60,
     "target_low": 30,
-    "types": [],
-    "week_min": 0,
-    "week_start_iso": "2026-09-07"
+    "types": [
+      "strength"
+    ],
+    "week_min": 45,
+    "week_start_iso": "2026-07-27"
   },
   "today_hr_series": [
     {
       "avg": 64,
       "hour": 6,
-      "hour_iso": "2026-09-07T06:00:00",
+      "hour_iso": "2026-07-31T06:00:00",
       "max": 65,
       "min": 62
     },
     {
       "avg": 127,
       "hour": 7,
-      "hour_iso": "2026-09-07T07:00:00",
+      "hour_iso": "2026-07-31T07:00:00",
       "max": 149,
       "min": 66
     },
     {
       "avg": 72,
       "hour": 8,
-      "hour_iso": "2026-09-07T08:00:00",
+      "hour_iso": "2026-07-31T08:00:00",
       "max": 73,
       "min": 70
     },
     {
       "avg": 76,
       "hour": 9,
-      "hour_iso": "2026-09-07T09:00:00",
+      "hour_iso": "2026-07-31T09:00:00",
       "max": 77,
       "min": 74
     },
     {
       "avg": 80,
       "hour": 10,
-      "hour_iso": "2026-09-07T10:00:00",
+      "hour_iso": "2026-07-31T10:00:00",
       "max": 81,
       "min": 78
     },
     {
       "avg": 64,
       "hour": 11,
-      "hour_iso": "2026-09-07T11:00:00",
+      "hour_iso": "2026-07-31T11:00:00",
       "max": 65,
       "min": 62
     },
     {
       "avg": 68,
       "hour": 12,
-      "hour_iso": "2026-09-07T12:00:00",
+      "hour_iso": "2026-07-31T12:00:00",
       "max": 69,
       "min": 66
     },
     {
       "avg": 72,
       "hour": 13,
-      "hour_iso": "2026-09-07T13:00:00",
+      "hour_iso": "2026-07-31T13:00:00",
       "max": 73,
       "min": 70
     },
     {
       "avg": 76,
       "hour": 14,
-      "hour_iso": "2026-09-07T14:00:00",
+      "hour_iso": "2026-07-31T14:00:00",
       "max": 77,
       "min": 74
     },
     {
       "avg": 80,
       "hour": 15,
-      "hour_iso": "2026-09-07T15:00:00",
+      "hour_iso": "2026-07-31T15:00:00",
       "max": 81,
       "min": 78
     },
     {
       "avg": 64,
       "hour": 16,
-      "hour_iso": "2026-09-07T16:00:00",
+      "hour_iso": "2026-07-31T16:00:00",
       "max": 65,
       "min": 62
     },
     {
       "avg": 68,
       "hour": 17,
-      "hour_iso": "2026-09-07T17:00:00",
+      "hour_iso": "2026-07-31T17:00:00",
       "max": 69,
       "min": 66
     }
@@ -1571,91 +1573,91 @@
     {
       "avg": 32,
       "hour": 6,
-      "hour_iso": "2026-09-07T06:00:00",
+      "hour_iso": "2026-07-31T06:00:00",
       "max": 33,
       "n": 4
     },
     {
       "avg": 36,
       "hour": 7,
-      "hour_iso": "2026-09-07T07:00:00",
+      "hour_iso": "2026-07-31T07:00:00",
       "max": 37,
       "n": 4
     },
     {
       "avg": 40,
       "hour": 8,
-      "hour_iso": "2026-09-07T08:00:00",
+      "hour_iso": "2026-07-31T08:00:00",
       "max": 41,
       "n": 4
     },
     {
       "avg": 44,
       "hour": 9,
-      "hour_iso": "2026-09-07T09:00:00",
+      "hour_iso": "2026-07-31T09:00:00",
       "max": 45,
       "n": 4
     },
     {
       "avg": 48,
       "hour": 10,
-      "hour_iso": "2026-09-07T10:00:00",
+      "hour_iso": "2026-07-31T10:00:00",
       "max": 49,
       "n": 4
     },
     {
       "avg": 52,
       "hour": 11,
-      "hour_iso": "2026-09-07T11:00:00",
+      "hour_iso": "2026-07-31T11:00:00",
       "max": 53,
       "n": 4
     },
     {
       "avg": 37,
       "hour": 12,
-      "hour_iso": "2026-09-07T12:00:00",
+      "hour_iso": "2026-07-31T12:00:00",
       "max": 54,
       "n": 4
     },
     {
       "avg": 34,
       "hour": 13,
-      "hour_iso": "2026-09-07T13:00:00",
+      "hour_iso": "2026-07-31T13:00:00",
       "max": 36,
       "n": 4
     },
     {
       "avg": 38,
       "hour": 14,
-      "hour_iso": "2026-09-07T14:00:00",
+      "hour_iso": "2026-07-31T14:00:00",
       "max": 40,
       "n": 4
     },
     {
       "avg": 42,
       "hour": 15,
-      "hour_iso": "2026-09-07T15:00:00",
+      "hour_iso": "2026-07-31T15:00:00",
       "max": 44,
       "n": 4
     },
     {
       "avg": 46,
       "hour": 16,
-      "hour_iso": "2026-09-07T16:00:00",
+      "hour_iso": "2026-07-31T16:00:00",
       "max": 48,
       "n": 4
     },
     {
       "avg": 50,
       "hour": 17,
-      "hour_iso": "2026-09-07T17:00:00",
+      "hour_iso": "2026-07-31T17:00:00",
       "max": 52,
       "n": 4
     }
   ],
   "top_findings": [
     {
-      "description_raw": "Caffeine \u2194 sleep",
+      "description_raw": "Caffeine ↔ sleep",
       "effect_metric": "rho",
       "effect_size": -0.42,
       "event_kind": null,
@@ -1672,7 +1674,7 @@
   ],
   "vo2max": {
     "age_years": 35,
-    "as_of_date": "2026-09-07",
+    "as_of_date": "2026-07-31",
     "data_confidence": "ok",
     "delta_from_median": 3.3,
     "estimate": 43.0,
@@ -1682,10 +1684,10 @@
       "rhr_med_7d": null,
       "weekly_mvpa_min": null
     },
-    "measured_as_of": "2026-09-07",
+    "measured_as_of": "2026-07-31",
     "median_for_age": 39.7,
     "method": "gps_graded",
-    "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it \u2014 the most direct of the three methods we have, because it measures the relationship on you rather than assuming it. It comes from one session, not a run of them, so read it as that session rather than as a settled level.",
+    "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it — the most direct of the three methods we have, because it measures the relationship on you rather than assuming it. It comes from one session, not a run of them, so read it as that session rather than as a settled level.",
     "n_sessions": 1,
     "out_of_range_inputs": [],
     "research_notes": [
@@ -1696,139 +1698,139 @@
     "see_source": "Carrier 2023: MAPE 6.85% vs lab CPET, structured outdoor running",
     "sex": "male",
     "submax": {
-      "as_of_date": "2026-09-07",
+      "as_of_date": "2026-07-31",
       "last_method": "gps_graded",
       "last_r2": 0.82,
       "last_speed_kmh": 8.1,
       "latest": 43.0,
-      "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it \u2014 the most direct of the three methods we have, because it measures the relationship on you rather than assuming it.",
+      "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it — the most direct of the three methods we have, because it measures the relationship on you rather than assuming it.",
       "n_sessions": 1,
       "trend": [
         {
-          "date": "2026-09-07",
+          "date": "2026-07-31",
           "value": 43.0
         }
       ]
     },
     "trend_90d": [
       {
-        "date": "2026-08-09",
+        "date": "2026-07-02",
         "value": 41.5
       },
       {
-        "date": "2026-08-10",
+        "date": "2026-07-03",
         "value": 41.5
       },
       {
-        "date": "2026-08-11",
+        "date": "2026-07-04",
         "value": 41.5
       },
       {
-        "date": "2026-08-12",
+        "date": "2026-07-05",
         "value": 41.5
       },
       {
-        "date": "2026-08-13",
+        "date": "2026-07-06",
         "value": 41.5
       },
       {
-        "date": "2026-08-14",
+        "date": "2026-07-07",
         "value": 41.5
       },
       {
-        "date": "2026-08-15",
+        "date": "2026-07-08",
         "value": 41.5
       },
       {
-        "date": "2026-08-16",
+        "date": "2026-07-09",
         "value": 41.5
       },
       {
-        "date": "2026-08-17",
+        "date": "2026-07-10",
         "value": 41.5
       },
       {
-        "date": "2026-08-18",
+        "date": "2026-07-11",
         "value": 41.5
       },
       {
-        "date": "2026-08-19",
+        "date": "2026-07-12",
         "value": 41.5
       },
       {
-        "date": "2026-08-20",
+        "date": "2026-07-13",
         "value": 41.5
       },
       {
-        "date": "2026-08-21",
+        "date": "2026-07-14",
         "value": 41.5
       },
       {
-        "date": "2026-08-22",
+        "date": "2026-07-15",
         "value": 41.5
       },
       {
-        "date": "2026-08-23",
+        "date": "2026-07-16",
         "value": 41.5
       },
       {
-        "date": "2026-08-24",
+        "date": "2026-07-17",
         "value": 41.5
       },
       {
-        "date": "2026-08-25",
+        "date": "2026-07-18",
         "value": 41.5
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-07-19",
         "value": 41.5
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-07-20",
         "value": 41.5
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-07-21",
         "value": 41.5
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-07-22",
         "value": 41.5
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-07-23",
         "value": 41.5
       },
       {
-        "date": "2026-08-31",
+        "date": "2026-07-24",
         "value": 41.5
       },
       {
-        "date": "2026-09-01",
+        "date": "2026-07-25",
         "value": 41.5
       },
       {
-        "date": "2026-09-02",
+        "date": "2026-07-26",
         "value": 41.5
       },
       {
-        "date": "2026-09-03",
+        "date": "2026-07-27",
         "value": 41.5
       },
       {
-        "date": "2026-09-04",
+        "date": "2026-07-28",
         "value": 41.5
       },
       {
-        "date": "2026-09-05",
+        "date": "2026-07-29",
         "value": 41.5
       },
       {
-        "date": "2026-09-06",
+        "date": "2026-07-30",
         "value": 41.5
       },
       {
-        "date": "2026-09-07",
+        "date": "2026-07-31",
         "value": 43.0
       }
     ],
