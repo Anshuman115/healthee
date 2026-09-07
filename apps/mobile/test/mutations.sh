@@ -588,7 +588,7 @@ mutate 'a withheld stream prints its filter key' "$SETTINGS_TEST" "$FRESHNESS" \
 # which is why each refusal line is deleted here on purpose.
 WITHHELD_TEST=test/features/sleep_withheld_test.dart
 CHECKS_TEST=test/features/sleep_checks_test.dart
-CHARTS_TEST=test/features/sleep_charts_test.dart
+CHARTS_TEST='test/features/sleep_charts_test.dart test/features/sleep_stage_charts_test.dart'
 READING=lib/features/sleep/v02/sleep_reading.dart
 VITALS=lib/features/sleep/v02/vitals_panel.dart
 CHECKS=lib/features/sleep/v02/checks_panel.dart

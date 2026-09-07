@@ -19,16 +19,12 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/data/models/sleep_night.dart';
 import 'package:healthee/features/sleep/sleep_windows.dart';
-import 'package:healthee/features/sleep/v02/need_panel.dart';
 import 'package:healthee/features/sleep/v02/night_panels.dart';
 import 'package:healthee/features/sleep/v02/timing_panel.dart';
 import 'package:healthee/features/sleep/v02/week_panel.dart';
-import 'package:healthee/shared/charts/h_debt_bars.dart';
-import 'package:healthee/shared/charts/h_stacked_sleep.dart';
 import 'package:healthee/shared/charts/v02/chart_box.dart';
 import 'package:healthee/shared/charts/v02/chart_void.dart';
 import 'package:healthee/shared/charts/v02/v02_hypnogram.dart';
-import 'package:healthee/shared/charts/v02/v02_stage_strip.dart';
 import 'package:healthee/shared/charts/v02/v02_timing_chart.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/panel.dart';
@@ -134,127 +130,6 @@ void main() {
         tester.getSize(find.byType(ChartVoid)).height,
         NightTimelinePanel.chartHeight,
       );
-    });
-  });
-
-  group('the stage proportion strip', () {
-    testWidgets('ONE SEGMENT PER STAGE, EACH IN ITS OWN HUE', (tester) async {
-      await tester.pumpWidget(
-        sleepPanelHost(
-          StageTablePanel(night: night, reveals: RevealRegistry()),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final strip = tester.getSize(find.byType(V02StageStrip));
-      expect(strip.height, 24);
-      expect(strip.width, _panelInnerWidth);
-
-      // The fixture stages all four, so all four are on the strip. A stage that
-      // rounded away would have vanished from the picture without vanishing
-      // from the rows beneath it.
-      final boxes = tester
-          .widgetList<DecoratedBox>(
-            find.descendant(
-              of: find.byType(V02StageStrip),
-              matching: find.byType(DecoratedBox),
-            ),
-          )
-          .toList();
-      expect(boxes, hasLength(4));
-      final drawn = <int>{
-        for (final box in boxes)
-          ((box.decoration as BoxDecoration).color!).toARGB32(),
-      };
-      for (final stage in const <String>['deep', 'light', 'rem', 'awake']) {
-        expect(
-          drawn,
-          contains(_hues.sleepStage(stage).toARGB32()),
-          reason: stage,
-        );
-      }
-      expect(drawn, hasLength(4), reason: 'two stages sharing a hue');
-    });
-
-    testWidgets('a night with no stage totals draws no strip at all', (
-      tester,
-    ) async {
-      final page = sleepPageWithout(<String>['stages']);
-      await tester.pumpWidget(
-        sleepPanelHost(
-          StageTablePanel(night: page.nights.first, reveals: RevealRegistry()),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(V02StageStrip), findsNothing);
-      expect(find.text(kNoStagesNote), findsOneWidget);
-    });
-  });
-
-  group('the stacked week', () {
-    testWidgets('it fills the panel, in the four stage hues', (tester) async {
-      await tester.pumpWidget(
-        sleepPanelHost(
-          StageWeekPanel(
-            nights: windows.week,
-            span: windows.weekSpan,
-            reveals: RevealRegistry(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final size = tester.getSize(find.byType(HStackedSleep));
-      expect(size.height, StageWeekPanel.chartHeight);
-      expect(size.width, _panelInnerWidth);
-
-      final painted = paintedBy(tester, find.byType(HStackedSleep));
-      final bars = rectsOf(painted).where((rect) => rect.height > 0).toList();
-      expect(bars, isNotEmpty, reason: 'a chart that painted nothing');
-      final drawn = coloursOf(painted);
-      for (final stage in const <String>['deep', 'light', 'rem', 'awake']) {
-        expect(drawn, contains(_hues.sleepStage(stage).toARGB32()), reason: stage);
-      }
-    });
-  });
-
-  group('the need-versus-actual chart', () {
-    testWidgets('IT FILLS THE PANEL AND DRAWS A BAR PER MEASURED NIGHT', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        sleepPanelHost(
-          SleepNeedPanel(
-            night: night,
-            nights: windows.debt,
-            reveals: RevealRegistry(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final size = tester.getSize(find.byType(HDebtBars));
-      expect(size.height, SleepNeedPanel.chartHeight);
-      expect(size.width, _panelInnerWidth);
-
-      final painted = paintedBy(tester, find.byType(HDebtBars));
-      final bars = rectsOf(painted).where((rect) => rect.height > 1).toList();
-      expect(bars.length, greaterThanOrEqualTo(windows.debt.length));
-    });
-
-    testWidgets('one night draws no chart and keeps its slot', (tester) async {
-      await tester.pumpWidget(
-        sleepPanelHost(
-          SleepNeedPanel(
-            night: night,
-            nights: <DebtNight>[windows.debt.first],
-            reveals: RevealRegistry(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(HDebtBars), findsNothing);
-      expect(find.textContaining('1 measured night'), findsOneWidget);
     });
   });
 
