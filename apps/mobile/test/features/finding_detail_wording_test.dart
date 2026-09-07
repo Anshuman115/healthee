@@ -41,6 +41,31 @@ const Finding _negative = Finding(
   researchNoteIds: <String>['caffeine_sleep'],
 );
 
+/// [source] with [count] paired days attached, as the server would send them.
+Finding _withPoints(Finding source, int count, {bool truncated = false}) =>
+    Finding(
+      kind: source.kind,
+      metricA: source.metricA,
+      metricB: source.metricB,
+      eventKind: source.eventKind,
+      description: source.description,
+      effectSize: source.effectSize,
+      effectMetric: source.effectMetric,
+      qValue: source.qValue,
+      nSamples: source.nSamples,
+      lagDays: source.lagDays,
+      researchNoteIds: source.researchNoteIds,
+      points: <FindingPoint>[
+        for (var i = 0; i < count; i++)
+          FindingPoint(
+            date: '2026-07-${(i + 1).toString().padLeft(2, '0')}',
+            a: 40 + i.toDouble(),
+            b: 80 - i.toDouble(),
+          ),
+      ],
+      pointsTruncated: truncated,
+    );
+
 /// Verbs that assert a cause. None may appear anywhere on this screen.
 const List<String> _causal = <String>[
   'caused',
@@ -62,7 +87,10 @@ void main() {
   group('the observation', () {
     test('NEVER DROPS THE SECOND LINE, whichever way the pair moved', () {
       for (final finding in <Finding>[_live, _negative]) {
-        expect(observationHeadline(finding), contains('That doesn’t tell us why.'));
+        expect(
+          observationHeadline(finding),
+          contains('That doesn’t tell us why.'),
+        );
       }
     });
 
@@ -93,7 +121,10 @@ void main() {
           observationBody(finding),
           effectLabel(finding),
           correctionLine(finding),
-          kPairedValuesAbsent,
+          // Both halves of the chart's own wording: the caption under a cloud
+          // that IS drawn, and the sentence that replaces one that is not.
+          scatterCaption(finding),
+          pairedValuesAbsent(finding),
         ].join(' ').toLowerCase();
         for (final verb in _causal) {
           expect(
@@ -131,30 +162,75 @@ void main() {
       expect(lagLabel(2), 'strongest 2 days apart');
     });
 
-    test('rho keeps its symbol; an unknown effect metric does not borrow it', () {
-      expect(effectLabel(_live), 'Correlation · ρ');
-      expect(
-        effectLabel(
-          const Finding(
-            kind: 'x',
-            metricA: 'a',
-            metricB: 'b',
-            eventKind: null,
-            description: '',
-            effectSize: 0.1,
-            effectMetric: 'cliffs_delta',
-            qValue: null,
-            nSamples: null,
-            lagDays: null,
-            researchNoteIds: <String>[],
+    test(
+      'rho keeps its symbol; an unknown effect metric does not borrow it',
+      () {
+        expect(effectLabel(_live), 'Correlation · ρ');
+        expect(
+          effectLabel(
+            const Finding(
+              kind: 'x',
+              metricA: 'a',
+              metricB: 'b',
+              eventKind: null,
+              description: '',
+              effectSize: 0.1,
+              effectMetric: 'cliffs_delta',
+              qValue: null,
+              nSamples: null,
+              lagDays: null,
+              researchNoteIds: <String>[],
+            ),
           ),
-        ),
-        'Effect · cliffs_delta',
+          'Effect · cliffs_delta',
+        );
+      },
+    );
+
+    test('THE SCATTER IS DRAWN FROM THE SERVER\'S OWN PAIRS, OR NOT AT ALL', () {
+      // `read/findings.py` sent summary statistics only, and the prototype's
+      // sentence here promised the chart for when it stopped. It has
+      // (`docs/BACKEND_GAPS_FROM_UI.md` B1), so the promise is kept — and every
+      // number in the caption comes off the payload rather than the chart.
+      expect(_live.isPlottable, isFalse, reason: 'no points on this fixture');
+      final plotted = _withPoints(_live, 24);
+      expect(plotted.isPlottable, isTrue);
+      expect(scatterCaption(plotted), contains('Each dot is one day'));
+      expect(
+        scatterCaption(plotted),
+        contains('Nothing is fitted through them'),
       );
     });
 
-    test('the missing scatter plot is stated, not faked', () {
-      expect(kPairedValuesAbsent, contains('not the underlying paired values'));
+    test('A PARTIAL CLOUD SAYS SO, BECAUSE n_samples IS ON THE SAME CARD', () {
+      // `Paired observations` above the chart is what the STATISTIC rests on.
+      // A cloud holding fewer dots with nothing saying why would invite a check
+      // it cannot support.
+      final partial = _withPoints(_live, 20, truncated: true);
+      expect(scatterCaption(partial), contains('the most recent 20 of 138'));
+    });
+
+    test('too few pairs and no pairs at all are different sentences', () {
+      // An event finding compares two GROUPS of days: it has no paired points
+      // ever, and that is about the method rather than about this owner's data.
+      const event = Finding(
+        kind: 'event_effect',
+        metricA: 'sleep_health_score_4dim',
+        metricB: null,
+        eventKind: 'alcohol',
+        description: '',
+        effectSize: 0.6,
+        effectMetric: 'mann_whitney_rb',
+        qValue: 0.04,
+        nSamples: 40,
+        lagDays: 0,
+        researchNoteIds: <String>[],
+      );
+      expect(pairedValuesAbsent(event), contains('two groups of days'));
+      expect(
+        pairedValuesAbsent(_withPoints(_live, 2)),
+        contains('too few to be a shape'),
+      );
     });
   });
 
