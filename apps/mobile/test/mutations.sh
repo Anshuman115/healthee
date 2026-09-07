@@ -284,7 +284,8 @@ VITALS_TEST=test/features/today_overnight_vitals_test.dart
 # Reverting the fallback restores the bug exactly: both surfaces go back to
 # saying "the server did not say why" about numbers in the same payload.
 mutate 'Resp and SpO2 go back to claiming no data' "$VITALS_TEST" "$FACTS" \
-  "    return firstRefusal ?? (overnight?.hasValue ?? false ? overnight! : _absent);" \
+  "    return firstRefusal ??
+        (overnight?.hasValue ?? false ? overnight! : _absent);" \
   "    return firstRefusal ?? _absent;"
 
 # The honest bug replacing the dishonest one: the right number with its

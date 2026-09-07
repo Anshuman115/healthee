@@ -16,10 +16,12 @@ library;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/today/v02/mini_trend_panel.dart';
 import 'package:healthee/shared/v02/meters.dart';
 
 import '../_today_stubs.dart';
 import '_today_host.dart';
+import '_vitals_probe.dart' show textOf;
 
 /// A viewport tall enough that a `ListView.builder` builds the whole port.
 void _tall(WidgetTester tester) {
@@ -37,6 +39,34 @@ void main() {
 
   group('what the server made of it', () {
     setUp(() => seedDevice(store));
+
+    testWidgets(
+      'A BASELINE REACHES THE SCREEN WITH THE SPREAD IT IS MEASURED IN',
+      (tester) async {
+        // `docs/BACKEND_GAPS_FROM_UI.md` B4. The centre alone is a point, and a
+        // reading one unit above it means something different against a tight
+        // window than against a scattered one — which is the whole content of the
+        // `z` the same payload quotes. The σ is the server's own `sd_30d`, never
+        // recomputed here.
+        _tall(tester);
+        await tester.pumpWidget(todayHost(store));
+        await tester.pumpAndSettle();
+
+        final panel = find.byWidgetPredicate(
+          (widget) =>
+              widget is MiniTrendPanel && widget.title == 'Resting heart',
+        );
+        expect(panel, findsOneWidget);
+        final words = textOf(tester, panel).join(' ');
+        expect(words, contains('baseline'));
+        expect(
+          words,
+          contains('±'),
+          reason:
+              'a baseline with no spread is a point, and B4 exists to fix that',
+        );
+      },
+    );
 
     testWidgets('recovery ships its per-factor breakdown, never alone', (
       tester,
@@ -157,26 +187,30 @@ void main() {
 
       // An active flag OVERRIDES this string on the server. Re-wording it in the
       // app would re-word a safety message.
-      expect(find.textContaining('An illness signal is active'), findsOneWidget);
+      expect(
+        find.textContaining('An illness signal is active'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('the suggested actions block is collapsed, as legacy leaves it', (
-      tester,
-    ) async {
-      _tall(tester);
-      await tester.pumpWidget(todayHost(store));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'the suggested actions block is collapsed, as legacy leaves it',
+      (tester) async {
+        _tall(tester);
+        await tester.pumpWidget(todayHost(store));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Suggested actions'), findsOneWidget);
-      expect(find.text('1 way to improve today'), findsOneWidget);
-      // Collapsed: the one thing on Today a model wrote is not what the screen
-      // opens with.
-      expect(find.text('Sleep earlier tonight'), findsNothing);
+        expect(find.text('Suggested actions'), findsOneWidget);
+        expect(find.text('1 way to improve today'), findsOneWidget);
+        // Collapsed: the one thing on Today a model wrote is not what the screen
+        // opens with.
+        expect(find.text('Sleep earlier tonight'), findsNothing);
 
-      await tester.tap(find.text('Suggested actions'));
-      await tester.pumpAndSettle();
-      expect(find.text('Sleep earlier tonight'), findsOneWidget);
-    });
+        await tester.tap(find.text('Suggested actions'));
+        await tester.pumpAndSettle();
+        expect(find.text('Sleep earlier tonight'), findsOneWidget);
+      },
+    );
   });
 
   group('what the API sends that legacy never drew', () {
@@ -197,18 +231,19 @@ void main() {
       expect(find.text('45'), findsWidgets);
     });
 
-    testWidgets("today's logged sessions are on screen, each naming its source", (
-      tester,
-    ) async {
-      _tall(tester);
-      await tester.pumpWidget(todayHost(store));
-      await tester.pumpAndSettle();
+    testWidgets(
+      "today's logged sessions are on screen, each naming its source",
+      (tester) async {
+        _tall(tester);
+        await tester.pumpWidget(todayHost(store));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Daily journal'), findsOneWidget);
-      expect(find.text('Outdoor run'), findsOneWidget);
-      expect(find.text('30 min · strap'), findsOneWidget);
-      expect(find.text('Meditation'), findsWidgets);
-    });
+        expect(find.text('Daily journal'), findsOneWidget);
+        expect(find.text('Outdoor run'), findsOneWidget);
+        expect(find.text('30 min · strap'), findsOneWidget);
+        expect(find.text('Meditation'), findsWidgets);
+      },
+    );
 
     testWidgets('A DAY WITH NOTHING LOGGED DRAWS NO CARD AT ALL', (
       tester,
