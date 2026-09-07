@@ -175,3 +175,12 @@ def test_a_real_session_with_no_heart_rate_explains_every_figure_it_lacks() -> N
     assert withheld["trimp"]["reason"] == NO_HR_SAMPLES
     assert all(block["message"] for block in withheld.values())
     assert all(block["reason"] != UNEXPLAINED for block in withheld.values())
+
+    # `zones` is five zeroes on this payload and it is NOT a measurement: there
+    # was no HRmax to cut them against. All-zero IS a reading on a session that
+    # had one — "no minute reached 50%" is a fact about an easy hour — so only
+    # the server can tell the two apart, and an unexplained zero list would
+    # render as the easy session this owner did not have.
+    assert detail["zones"] == [0, 0, 0, 0, 0]
+    assert detail["hrmax"] is None
+    assert withheld["zones"]["reason"] == NO_HRMAX

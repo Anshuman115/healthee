@@ -31,6 +31,23 @@ FAIL=0
 
 : "${POSTGRES_HOST:?set POSTGRES_* for a throwaway database — see the header}"
 
+# ⛔ NOT optional, and it cost a confusing hour to find out why.
+#
+# Restoring the source is not enough: CPython caches the compiled module beside
+# it and decides whether the cache is stale from the source's mtime and size.
+# `cp` + `mv` restores the file with the mtime it had when the copy was taken,
+# which can land in the same second as the mutation's write — so the .pyc from
+# the MUTATED source is accepted as current, and every later run in that
+# checkout imports bytecode that matches no source anyone can read. The symptom
+# is a test failing against a file that is provably correct, with `git status`
+# clean and `inspect.getsource` showing the right code; only `dis` disagrees.
+#
+# That is the "fictional mutation" failure inverted, and worse: a fictional
+# mutation reports a pass it did not earn, while this one poisons the checkout
+# for everything that runs afterwards. Writing no bytecode at all is the cheap,
+# total fix.
+export PYTHONDONTWRITEBYTECODE=1
+
 patch() {
   python3 - "$1" "$2" "$3" <<'PY'
 import sys
@@ -63,6 +80,10 @@ mutate() {
     PASS=$((PASS + 1))
   fi
   mv "$file.orig" "$file"
+  # Belt and braces beside PYTHONDONTWRITEBYTECODE: a cache written by some
+  # earlier run in this checkout would be accepted for the restored file just as
+  # readily. Cheap, and the alternative is a poisoned checkout.
+  find src -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
 }
 
 READ_HONESTY=tests/read/test_wire_honesty.py
