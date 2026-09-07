@@ -133,3 +133,17 @@ String factorLabel(String name) => switch (name) {
   'sleep' => 'Sleep',
   _ => name,
 };
+
+/// The separator between two metrics in a correlation — `Caffeine ↔ sleep`.
+///
+/// The character is the prototype's own (`screens-overview.js`, the
+/// relationship card). What is added is `\u{FE0E}`, VARIATION SELECTOR-15:
+/// U+2194 carries **emoji presentation by default on Android**, so written bare
+/// it rendered as a boxed colour glyph in the middle of a sentence. The selector
+/// asks for the text form. Nothing about the design changed; only its rendering
+/// was wrong.
+///
+/// Shared rather than inlined because a correlation is named on more than one
+/// surface, and a second copy is a second chance to reach for `→` — which would
+/// claim a direction the statistic does not have.
+const String kPairArrow = '↔︎';

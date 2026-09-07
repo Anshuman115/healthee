@@ -27,4 +27,14 @@ void main() {
       expect(metricName(m.id), isNot(m.id), reason: '${m.id} has no real name');
     }
   });
+
+  // The arrow between two correlated metrics. U+2194 alone takes EMOJI
+  // presentation on Android and rendered as a boxed colour glyph mid-sentence;
+  // U+FE0E asks for the text form. The selector is invisible in an editor and
+  // reads like a stray byte, so this is the note that stops it being tidied
+  // away — and it asserts the arrow itself is still the prototype's, since a
+  // single-headed replacement would claim a direction the statistic lacks.
+  test('THE PAIR ARROW CARRIES ITS TEXT-PRESENTATION SELECTOR', () {
+    expect(kPairArrow.runes.toList(), <int>[0x2194, 0xFE0E]);
+  });
 }

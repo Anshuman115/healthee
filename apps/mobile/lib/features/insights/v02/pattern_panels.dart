@@ -244,10 +244,21 @@ class FindingEntryCard extends StatelessWidget {
     );
   }
 
+  /// `Caffeine ↔ sleep` — the prototype's own separator, forced to render as
+  /// text rather than as an emoji.
+  ///
+  /// U+2194 has **emoji presentation by default on Android**, so the bare
+  /// character the prototype writes came out as a blue-boxed glyph in a line of
+  /// prose. `\u{FE0E}` is VARIATION SELECTOR-15, which requests the text form;
+  /// the character itself is unchanged, so this is the design's arrow rendered
+  /// the way the design renders it, not a substitute for it.
+  ///
+  /// The arrow is also the right symbol on its merits: a correlation has no
+  /// direction, and every single-headed alternative would claim one.
   static String _pair(Finding finding) {
     final a = metricName(finding.metricA!);
     final b = metricName(finding.metricB!);
-    return '${a[0].toUpperCase()}${a.substring(1)} ↔ $b';
+    return '${a[0].toUpperCase()}${a.substring(1)} $kPairArrow $b';
   }
 }
 
