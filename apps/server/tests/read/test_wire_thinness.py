@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from healthee.analytics.correlations import MAX_REPORTED_PAIRS
-from healthee.analytics.stats import aligned_pairs
+from healthee.analytics.stats import MIN_N, aligned_pairs
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.derive.vo2max import METHOD_JURCA
@@ -147,9 +147,15 @@ def test_a_finding_never_plots_a_day_after_the_one_it_answers_for() -> None:
 
 
 def test_the_payload_cap_is_a_bound_not_a_default() -> None:
-    """Big enough to be a real plot, small enough to bound an unbounded history."""
-    assert MAX_REPORTED_PAIRS >= 30
-    assert MAX_REPORTED_PAIRS <= 400
+    """Big enough to be a real plot, small enough to bound an unbounded history.
+
+    The upper bound is the one that matters and it is a BUDGET, not a taste: at ~39 bytes
+    a pair, ten findings on ``/api/sleep`` is 39 KB per hundred pairs, against a Today
+    payload the gap report measures at ~20 KB. Raising this needs the argument at the
+    constant re-made, not a bigger number.
+    """
+    assert MAX_REPORTED_PAIRS >= MIN_N
+    assert MAX_REPORTED_PAIRS <= 120
 
 
 # ── B2. a trend point names its instrument ───────────────────────────────────

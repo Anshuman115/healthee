@@ -96,6 +96,13 @@ gate — relying on another place's bound is how "latest" leaks. When the served
 is partial the payload says so, because a scatter silently showing fewer points
 than its own `n_samples` invites a check it cannot support.
 
+> **The cap is 90 and it is argued against the surface, not chosen.** The scatter
+> is ~320 px wide with a 3 px dot radius, so the x-axis holds roughly 50 separable
+> columns; at 90 points the cloud is already ~2 dots per column, and denser is a
+> smear. At ~39 bytes a pair that bounds the worst case at ~18 KB on a Today
+> payload this report measures at ~20 KB — the first draft used 180, which would
+> have doubled the payload to draw detail nobody can see.
+
 Event findings get no points, deliberately: a Mann-Whitney effect compares two
 groups, so an x-axis for it would be a chart the statistic does not license.
 

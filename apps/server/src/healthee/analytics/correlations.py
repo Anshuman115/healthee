@@ -44,18 +44,27 @@ _MIN_EVENT_DAYS = 3
 # How many paired days travel with a significant pairwise finding, so the app can plot
 # the relationship rather than only quote a number about it.
 #
-# The cap is a PAYLOAD bound, not a statistical one. ``series.daily_series`` reads the
-# owner's entire history by design (the engine needs every day it has), so an owner three
-# years in would otherwise put ~1,100 pairs per finding into a JSONB column and then onto
-# the wire — the unbounded-data case standards section 1 names. 180 is about half a year of
-# daily pairs.
+# The cap is a PAYLOAD bound, not a statistical one — ``stats.MIN_N`` already decides
+# whether a correlation exists at all. ``series.daily_series`` reads the owner's entire
+# history by design (the engine needs every day it has), so an owner three years in would
+# otherwise put ~1,100 pairs per finding into a JSONB column and then onto the wire: the
+# unbounded-data case standards section 1 names, on a payload ``/api/today`` carries up to
+# five of and ``/api/sleep`` up to ten.
+#
+# **90, argued against the surface that draws it rather than picked.** The scatter is
+# ~320 px wide with a 6 px inset and a 3 px dot radius, so the x-axis holds roughly 50
+# separable columns; at 90 points the cloud is already ~2 dots per column and denser is a
+# smear the eye cannot resolve. Each pair is ~39 bytes on the wire, so this bounds the
+# worst case at ~18 KB on a Today payload the gap report measures at ~20 KB — a payload
+# that doubled to show detail nobody can see would be trading the app's cold-start budget
+# for nothing.
 #
 # When the cap bites, the MOST RECENT pairs are kept — the days an owner can still
 # place — and ``points_truncated`` says so. That flag is not decoration: the plotted
-# points would then be a tail of the set the effect size was computed over, and a scatter
-# that silently shows fewer points than its own ``n_samples`` invites the reader to check
-# a correlation against a picture that cannot show it.
-MAX_REPORTED_PAIRS = 180
+# points are then a tail of the set the effect size was computed over, and a scatter that
+# silently shows fewer points than its own ``n_samples`` invites the reader to check a
+# correlation against a picture that cannot show it.
+MAX_REPORTED_PAIRS = 90
 
 
 def compute_all_findings(
