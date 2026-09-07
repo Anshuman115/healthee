@@ -77,7 +77,9 @@ Sleep computes a shortfall over measured nights and honestly labels the stat
 
 ## C. Structural — the shape of the API against the shape of the design
 
-**C1. The read endpoints have no notion of a day.** `/api/today` and
+**C1. The read endpoints have no notion of a day.** *(Client side now handled —
+the day rides in the route and every screen refuses rather than relabels. What
+follows is why it must refuse.)* `/api/today` and
 `/api/activity` take **no parameters at all** (`api/routers/today.py:30`,
 `api/routers/activity.py:15`); `/api/sleep` takes a window (`days`), not a
 target day.
@@ -94,6 +96,22 @@ place where guessing would be dangerous:** relabelling today's judgements with
 an older day's date is precisely the stale-as-current trap. Correct behaviour
 until it is built is to show the measured half and say so — which is what the
 app does.
+
+**C1a. A past day can show measurements, but not the prototype's dated panels.**
+The `?date=` work landed and every date-aware screen now either re-windows on
+the chosen day or refuses. But the prototype draws **dated `/api/history`
+panels** on past-day Today, Activity, Insights, Recovery, Body and Fitness, and
+the app **refuses instead**.
+
+The reason is the same C2 below, one level worse: those screens read the
+snapshot's sparklines, which are the *current* day's window. Drawing the
+prototype's version needs **five to nine per-metric `/api/history` reads per
+screen**, which is new plumbing rather than chart craft. The dated series for
+every one of those metrics is already one tap away on its own metric screen,
+which does re-window correctly.
+
+This is the largest remaining difference between the app and the design, and it
+is a data-layer job — a batched history endpoint (C2) would serve both.
 
 **C2. The metric explorer would need 20 `/api/history` calls for one screen.**
 Left latest-only, with the day named in the header. A batch history endpoint
