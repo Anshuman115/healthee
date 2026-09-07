@@ -24,7 +24,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/core/theme/type_scale_bio.dart';
 
 /// `.bio-hero { padding: 22px }`.
 const double kBioHeroPadding = 22;
@@ -139,7 +139,7 @@ class BioFigure extends StatelessWidget {
             Text(
               value,
               textAlign: TextAlign.center,
-              style: TypeScale.bioAgeCentred.copyWith(color: ink),
+              style: BioType.bioAgeCentred.copyWith(color: ink),
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.clip,
@@ -149,7 +149,7 @@ class BioFigure extends StatelessWidget {
               Text(
                 unit!,
                 textAlign: TextAlign.center,
-                style: TypeScale.bioAgeUnitCentred.copyWith(color: ink),
+                style: BioType.bioAgeUnitCentred.copyWith(color: ink),
               ),
             ],
           ],
@@ -165,7 +165,7 @@ class BioFigure extends StatelessWidget {
       Flexible(
         child: Text(
           value,
-          style: TypeScale.bioAge.copyWith(color: ink),
+          style: BioType.bioAge.copyWith(color: ink),
           maxLines: 1,
           softWrap: false,
           overflow: TextOverflow.clip,
@@ -173,7 +173,7 @@ class BioFigure extends StatelessWidget {
       ),
       if (unit != null) ...<Widget>[
         const SizedBox(width: unitGap),
-        Text(unit!, style: TypeScale.bioAgeUnit.copyWith(color: ink)),
+        Text(unit!, style: BioType.bioAgeUnit.copyWith(color: ink)),
       ],
     ],
   );

@@ -71,7 +71,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/core/theme/type_scale_bio.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
@@ -310,7 +310,7 @@ class BioHero extends StatelessWidget {
     _inset(figure ?? BioFigure(value: value, unit: unit, centred: centred)),
     if (caption case final String sentence) ...<Widget>[
       if (!centred) const SizedBox(height: captionGap),
-      _inset(Text(sentence, style: TypeScale.bioContext.copyWith(color: ink))),
+      _inset(Text(sentence, style: BioType.bioContext.copyWith(color: ink))),
     ],
     if (instrument case final Widget scale) ...<Widget>[
       if (caption != null) const SizedBox(height: contextGap),
@@ -380,7 +380,7 @@ class BioHero extends StatelessWidget {
         Expanded(
           child: Text(
             eyebrow,
-            style: TypeScale.bioEyebrow.copyWith(color: ink),
+            style: BioType.bioEyebrow.copyWith(color: ink),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

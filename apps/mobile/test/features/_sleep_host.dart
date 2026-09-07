@@ -62,10 +62,11 @@ Widget sleepPanelHost(Widget panel, {double width = 390, ThemeData? theme}) =>
 /// all one em wide, so text measures about twice its real width and any claim
 /// about a laid-out box would be a claim about the wrong box.
 Future<void> loadSleepFont() async {
-  final loader = FontLoader('Inter');
-  for (final weight in <String>['Regular', 'Medium', 'SemiBold', 'Bold']) {
-    final bytes = File('assets/fonts/Inter-$weight.ttf').readAsBytesSync();
-    loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
-  }
+  // ONE file: Figtree is a variable font, so there are no static weights to
+  // enumerate. The measurements below are of the real face at its default
+  // instance, which is what a test can load.
+  final loader = FontLoader('Figtree');
+  final bytes = File('assets/fonts/Figtree.ttf').readAsBytesSync();
+  loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
   await loader.load();
 }

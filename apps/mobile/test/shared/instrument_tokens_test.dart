@@ -55,7 +55,7 @@ void main() {
         HType.label(_light.ink3),
         HType.eyebrow(_light.ink3),
       ]) {
-        expect(style.fontFamily, 'Inter');
+        expect(style.fontFamily, 'Figtree');
         expect(style.fontFeatures, contains(const FontFeature.tabularFigures()));
       }
     });

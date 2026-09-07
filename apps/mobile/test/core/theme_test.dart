@@ -147,7 +147,7 @@ void main() {
         text.bodyMedium,
         text.labelSmall,
       ]) {
-        expect(style!.fontFamily, 'Inter');
+        expect(style!.fontFamily, 'Figtree');
         expect(
           style.fontFeatures,
           contains(const FontFeature.tabularFigures()),

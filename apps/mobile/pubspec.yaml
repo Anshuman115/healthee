@@ -173,37 +173,27 @@ flutter:
   # installs. `core/licences.dart` registers it with `LicenseRegistry` and the
   # About row on Settings is where it is read.
   assets:
+    - assets/fonts/OFL-Figtree.txt
     - assets/fonts/OFL-Inter.txt
 
-  # Inter, vendored rather than fetched — no CDN at paint time, and a
+  # Figtree, vendored rather than fetched — no CDN at paint time, and a
   # cold-start budget of 2 s to first meaningful paint (Standards §1). SIL OFL
   # (no Reserved Font Name); the licence ships beside the files in
   # assets/fonts/OFL-Inter.txt. ~1.1 MB total.
   #
-  # FOUR weights, and the list is derived rather than chosen: it is exactly the
-  # set of `FontWeight.w*` values the app names (400/500/600/700), which
-  # `test/core/typography_test.dart` re-derives by scanning `lib/` and compares
-  # against this block. A weight a style asks for and the bundle lacks does not
-  # fail to render — Flutter substitutes the nearest one and the text is simply
-  # a shade off, invisibly. `HType.number` (legacy's `HType.num`, weight 700)
-  # was drawing at 600 for exactly that reason.
-  #
-  # Each file is upstream's static instance from the Inter 4.1 release at
-  # a fixed `wght`, so the four are one design rather than four drawings.
-  #
-  # There is NO italic here, and now that is a CHOICE rather than a constraint.
-  # Manrope published no italic companion, so the app stopped asking for one and
-  # `instrument_type.dart` records that. Inter does ship an italic — it is left
-  # out because nothing in the app sets one, and a weight nobody draws is a
-  # megabyte of APK for a style that would arrive by accident if it existed.
+  # ONE file: Figtree is a VARIABLE font and the wght axis is driven directly
+  # (see `_style` in core/theme/typography.dart), so four static instances are
+  # not shipped. Inter rides alongside as HealtheeSymbols purely to cover the
+  # characters Figtree lacks.
   fonts:
-    - family: Inter
+    - family: Figtree
       fonts:
-        - asset: assets/fonts/Inter-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Inter-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Inter-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Inter-Bold.ttf
-          weight: 700
+        - asset: assets/fonts/Figtree.ttf
+
+    # The glyph safety net, and it is BUNDLED on purpose. Figtree has no U+2194;
+    # naming a platform symbol face in fontFamilyFallback does NOT stop Android
+    # reaching for NotoColorEmoji — measured on the device, twice. A bundled
+    # family does. See core/theme/typography.dart.
+    - family: HealtheeSymbols
+      fonts:
+        - asset: assets/fonts/InterFallback.ttf

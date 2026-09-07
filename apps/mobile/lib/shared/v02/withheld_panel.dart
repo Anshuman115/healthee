@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/core/theme/type_scale_bio.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 
 /// A refused reading, in v02's geometry: the metric's name, a hole, the reason.
@@ -83,7 +84,7 @@ class WithheldPanel extends StatelessWidget {
               children: <Widget>[
                 Text(
                   '—',
-                  style: TypeScale.bioAge.copyWith(
+                  style: BioType.bioAge.copyWith(
                     color: colors.ink3,
                     fontSize: holeSize,
                   ),

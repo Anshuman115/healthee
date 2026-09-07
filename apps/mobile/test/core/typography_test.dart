@@ -125,11 +125,23 @@ Set<int> _codepoints(String path) {
 /// A single- or double-quoted Dart string with no escapes or interpolation.
 final RegExp _literal = RegExp(r"'([^'\\\n$]*)'" r'|"([^"\\\n$]*)"');
 
-/// Codepoints the bundled face does not carry and does not need to.
+/// Codepoints neither bundled face carries, and why each is safe anyway.
 ///
-/// `ⓘ` is drawn in prose on the withheld hero and in the instrument module. No
-/// text family carries it and there is no colour-emoji form of it either, so the
-/// named symbol faces answer for it — which the test below insists on.
+/// **One entry, and the reason it may be waived is specific.** `ⓘ` (U+24D8) is
+/// drawn in prose on the withheld hero and in the instrument module. No text
+/// family carries it — not Figtree, not Inter — so it reaches a platform face.
+/// That is acceptable **only because U+24D8 has no colour-emoji form**, so the
+/// platform face that answers is monochrome. Confirmed on the device: it draws
+/// as a plain circled i.
+///
+/// `↔` is the counter-example and the reason this set is not a convenience.
+/// U+2194 DOES have an emoji form, so when no bundled face could draw it,
+/// Android reached `NotoColorEmoji` and put a blue box in a sentence — twice,
+/// under two different typefaces, with the platform symbol faces named in the
+/// fallback chain the whole time.
+///
+/// **So: a character may be waived here only if it has no emoji presentation.**
+/// Anything else needs a bundled face that can draw it.
 const Set<int> kFallbackGlyphs = <int>{0x24D8};
 
 void main() {
@@ -189,7 +201,8 @@ void main() {
     late Set<int> covered;
 
     setUpAll(() {
-      covered = _codepoints('assets/fonts/Inter-Regular.ttf');
+      covered = _codepoints('assets/fonts/Figtree.ttf')
+        ..addAll(_codepoints('assets/fonts/InterFallback.ttf'));
       expect(
         covered,
         isNotEmpty,
@@ -197,8 +210,9 @@ void main() {
       );
       // A control: a private-use codepoint no text font covers. Without it a
       // reader that silently answered "everything" would pass every case.
-      // U+4E00, the CJK ideograph "one". Inter DOES cover the private-use area,
-      // so the old control (U+E000) passed vacuously against it.
+      // U+4E00, the CJK ideograph "one". Neither face covers the CJK block, and
+      // the earlier control (U+E000) passed vacuously because Inter DOES cover
+      // the private-use area.
       expect(covered, isNot(contains(0x4E00)));
     });
 
@@ -246,19 +260,17 @@ void main() {
       // "no characters are missing" looks like either way.
       expect(_literal.hasMatch("  const x = 'HRV ↔ recovery';"), isTrue);
       expect(_literal.hasMatch('  const x = "a ↔ b";'), isTrue);
-      // U+2194 is the character that shipped broken. Inter has it; the old face
-      // did not, which is the whole reason the face changed.
+      // U+2194 shipped broken twice: Manrope had no glyph, and Figtree has none
+      // either. What fixed it was BUNDLING a face that does, not naming a
+      // platform one — so this asserts the union of the two bundled faces.
       expect(covered, contains(0x2194));
     });
 
-    test('the fallback waiver names a symbol face for each glyph it excuses', () {
-      // A waiver with no face behind it is a silent tofu, so the chain must
-      // name at least one monochrome symbol family.
-      expect(
-        healtheeFontFallback,
-        contains(anyOf('Noto Sans Symbols', 'Segoe UI Symbol', 'Apple Symbols')),
-        reason: 'kFallbackGlyphs excuses ${kFallbackGlyphs.length} codepoints',
-      );
+    test('THE BUNDLED FALLBACK IS NAMED FIRST, AHEAD OF EVERY PLATFORM FACE', () {
+      // The order is the fix. Naming platform symbol faces did NOT stop Android
+      // reaching for NotoColorEmoji — measured on the device, twice. A bundled
+      // family does, and it only helps if nothing platform-supplied precedes it.
+      expect(healtheeFontFallback.first, 'HealtheeSymbols');
     });
   });
 

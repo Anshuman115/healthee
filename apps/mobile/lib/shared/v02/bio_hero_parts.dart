@@ -24,7 +24,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/core/theme/type_scale_bio.dart';
 import 'package:healthee/data/honesty/last_known.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 
@@ -79,13 +79,13 @@ class BioStatsRow extends StatelessWidget {
               children: <Widget>[
                 Text(
                   stats[i].label,
-                  style: TypeScale.bioStatLabel.copyWith(
+                  style: BioType.bioStatLabel.copyWith(
                     color: ink.withValues(alpha: ink.a * labelOpacity),
                   ),
                 ),
                 Text(
                   stats[i].value,
-                  style: TypeScale.bioStat.copyWith(color: ink),
+                  style: BioType.bioStat.copyWith(color: ink),
                 ),
               ],
             ),
@@ -177,7 +177,7 @@ class BioWithheldFigure extends StatelessWidget {
       return Text(
         noValue,
         key: holeKey,
-        style: TypeScale.bioAge.copyWith(
+        style: BioType.bioAge.copyWith(
           color: ink.withValues(alpha: ink.a * holeOpacity),
         ),
         maxLines: 1,
@@ -194,7 +194,7 @@ class BioWithheldFigure extends StatelessWidget {
           child: Text(
             held,
             key: staleFigureKey,
-            style: TypeScale.bioAge.copyWith(color: ink),
+            style: BioType.bioAge.copyWith(color: ink),
             maxLines: 1,
             softWrap: false,
             overflow: TextOverflow.clip,
@@ -212,7 +212,7 @@ class BioWithheldFigure extends StatelessWidget {
         Text(
           '$asOfPrefix${plainDay(day)}',
           key: dateKey,
-          style: TypeScale.bioContext.copyWith(color: ink),
+          style: BioType.bioContext.copyWith(color: ink),
         ),
       ],
     );
@@ -289,7 +289,7 @@ class BioModelLabel extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: TypeScale.modelLabel.copyWith(color: faded),
+            style: BioType.modelLabel.copyWith(color: faded),
           ),
         ),
       ],

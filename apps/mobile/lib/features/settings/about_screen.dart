@@ -11,7 +11,7 @@
 ///
 /// ## The fourth block is a licence term, not a design choice
 ///
-/// Inter ships vendored in `assets/fonts/` under the SIL OFL 1.1, and those
+/// Figtree and Inter both ship vendored in `assets/fonts/` under the SIL OFL 1.1, and those
 /// terms require the notice to travel **with the fonts** — inside the binary
 /// somebody installs, not beside them in a repository. `core/licences.dart`
 /// registers the bundled `OFL.txt` with `LicenseRegistry`, and this screen is
@@ -106,7 +106,8 @@ class AboutScreen extends ConsumerWidget {
               _Block(
                 title: 'Built on work that is credited.',
                 body:
-                    'The typeface is Inter, under the SIL Open Font License '
+                    'The typeface is Figtree, with Inter covering the characters it '
+                    'has no glyph for. Both under the SIL Open Font License '
                     '1.1, bundled with this app rather than fetched. Its '
                     'notice and every package licence are below — that is a '
                     'licence term, not a nicety.',

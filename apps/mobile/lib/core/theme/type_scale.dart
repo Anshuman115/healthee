@@ -38,6 +38,8 @@ TextStyle _style(
   fontFamilyFallback: healtheeFontFallback,
   fontSize: size,
   fontWeight: weight,
+  // Figtree is variable: drive the wght axis, not only the weight slot.
+  fontVariations: <FontVariation>[FontVariation('wght', weight.value.toDouble())],
   height: height,
   letterSpacing: tracking,
   fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
@@ -83,48 +85,6 @@ abstract final class TypeScale {
 
   /// `.panel .text-button` — a panel head's action.
   static final TextStyle textButton = _style(11, FontWeight.w700, height: 1.2);
-
-  /// `.bio-hero .bio-eyebrow` — the hero's label row.
-  static final TextStyle bioEyebrow = _style(12, FontWeight.w600, height: 1.4);
-
-  /// `.bio-hero .age-value` — the one 88px figure in the product.
-  static final TextStyle bioAge = _style(
-    88,
-    FontWeight.w600,
-    height: 1,
-    tracking: -6,
-  );
-
-  /// `.bio-hero .age-value small` — its unit.
-  static final TextStyle bioAgeUnit = _style(13, FontWeight.w400, height: 1);
-
-  /// `motion.css`'s override: the figure centred inside the halo, 84 not 88.
-  static final TextStyle bioAgeCentred = _style(
-    84,
-    FontWeight.w600,
-    height: 1,
-    tracking: -5,
-  );
-
-  /// `motion.css`: `small { display:block; font-size:11px; letter-spacing:1px }`.
-  static final TextStyle bioAgeUnitCentred = _style(
-    11,
-    FontWeight.w400,
-    height: 1.4,
-    tracking: 1,
-  );
-
-  /// `.bio-hero .age-context` — the sentence under the figure.
-  static final TextStyle bioContext = _style(12, FontWeight.w400);
-
-  /// `.bio-bottom strong` — a hero footer statistic.
-  static final TextStyle bioStat = _style(17, FontWeight.w600, height: 1.3);
-
-  /// `.bio-bottom span` — its label.
-  static final TextStyle bioStatLabel = _style(10, FontWeight.w400, height: 1.4);
-
-  /// `.bio-hero .model-label` — which instrument produced the figure.
-  static final TextStyle modelLabel = _style(9, FontWeight.w400, height: 1.4);
 
   /// `.summary-tile .tile-title` — a tile's label, in its family colour.
   static final TextStyle tileTitle = _style(10, FontWeight.w400, height: 1.4);

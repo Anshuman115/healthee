@@ -33,7 +33,7 @@ import '_today_host.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(loadInter);
+  setUpAll(loadFigtree);
   late LocalStore store;
 
   setUp(() async {

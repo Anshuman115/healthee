@@ -42,6 +42,8 @@ TextStyle _style(
   fontFamilyFallback: healtheeFontFallback,
   fontSize: size,
   fontWeight: weight,
+  // Figtree is variable: drive the wght axis, not only the weight slot.
+  fontVariations: <FontVariation>[FontVariation('wght', weight.value.toDouble())],
   height: height,
   letterSpacing: tracking,
   fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],

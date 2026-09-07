@@ -11,7 +11,7 @@
 /// all one em wide. In it `34.3` is 336 px wide at 84 px and clips to the whole
 /// display square, so any claim about what the field does or does not cross
 /// would be a claim about the wrong box. Inter is bundled with the app, so
-/// [loadInter] measures the figure the owner actually sees.
+/// [loadFigtree] measures the figure the owner actually sees.
 ///
 /// ## Four phone widths, and not one of them is 800
 ///
@@ -43,12 +43,13 @@ Finder get heroField => find
 
 /// Loads the app's own typeface, so the text boxes measured here are the real
 /// ones.
-Future<void> loadInter() async {
-  final loader = FontLoader('Inter');
-  for (final weight in <String>['Regular', 'Medium', 'SemiBold', 'Bold']) {
-    final bytes = File('assets/fonts/Inter-$weight.ttf').readAsBytesSync();
-    loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
-  }
+Future<void> loadFigtree() async {
+  // ONE file: Figtree is a variable font, so there are no static weights to
+  // enumerate. The measurements below are of the real face at its default
+  // instance, which is what a test can load.
+  final loader = FontLoader('Figtree');
+  final bytes = File('assets/fonts/Figtree.ttf').readAsBytesSync();
+  loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
   await loader.load();
 }
 

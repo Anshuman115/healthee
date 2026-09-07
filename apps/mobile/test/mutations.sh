@@ -2172,18 +2172,25 @@ mutate 'the pair arrow becomes single-headed' \
   "const String kPairArrow = '↔';" \
   "const String kPairArrow = '→';"
 
-# The symbol faces come out of the fallback chain, all three together. `ⓘ` is
-# drawn in prose and no text family carries it, so with nothing named behind it
-# the character reaches the platform default — which is how a colour emoji got
-# into a sentence on the owner's phone in the first place.
-mutate 'the fallback chain drops its monochrome symbol faces' \
+# The BUNDLED fallback is dropped from the chain. Figtree has no U+2194, so
+# without a bundled face that does, Android reaches NotoColorEmoji and puts a
+# blue box in a sentence — measured on the device, twice, with the platform
+# symbol faces named the whole time.
+mutate 'the bundled glyph fallback is dropped' \
   "test/core/typography_test.dart" "lib/core/theme/typography.dart" \
-  "  // Symbols — monochrome, and ahead of the platform's colour emoji font.
-  'Noto Sans Symbols', // Android
-  'Segoe UI Symbol', // Windows
-  'Apple Symbols', // iOS / macOS
-" \
+  "  // Bundled. Complete. Load-bearing — see above.
+  'HealtheeSymbols'," \
   ""
+
+# It stays named, but behind a platform face — which is the arrangement that
+# demonstrably did not work.
+mutate 'the bundled fallback stops being first' \
+  "test/core/typography_test.dart" "lib/core/theme/typography.dart" \
+  "  'HealtheeSymbols',
+  // Platform text faces, for the case where the bundled asset fails entirely.
+  'SF Pro Text', // iOS" \
+  "  'SF Pro Text', // iOS
+  'HealtheeSymbols',"
 
 # ── The four v02 detail screens ────────────────────────────────────────────────
 #

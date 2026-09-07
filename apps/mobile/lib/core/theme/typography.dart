@@ -1,4 +1,4 @@
-/// The type system: Inter, and tabular figures wherever a number lives.
+/// The type system: Figtree, and tabular figures wherever a number lives.
 ///
 /// ## Tabular figures are on by default, and that is a correctness decision
 ///
@@ -65,54 +65,53 @@ import 'package:flutter/material.dart';
 
 /// The bundled family name, as declared in pubspec.yaml.
 ///
-/// **Inter, replacing Manrope on 2026-09-07.** The owner, looking at the
-/// installed build: *"choose some other better font manrope is not looking good
-/// as well."*
+/// **Figtree, chosen by the owner on 2026-09-07** after Inter ("not good") and
+/// Plus Jakarta Sans ("numbers too elongated"). The brief was "circular clean",
+/// and Figtree is the only geometric face of that shape that survives what this
+/// app actually draws: it keeps `₂` (SpO₂, VO₂max) and tabular figures, where
+/// DM Sans, Outfit, Poppins and Jost each lose one or both.
 ///
-/// Inter is also what removes the emoji-arrow defect at its source rather than
-/// routing around it. Manrope is a text-only family: verified against its own
-/// `cmap`, it has **no `↔` (U+2194)** and **no `↗` (U+2197)**, so Android went
-/// looking and the platform face that covers U+2194 is `NotoColorEmoji`. Inter
-/// carries both, so the fallback below is now defence rather than the fix.
+/// The elongation complaint was real and measurable: Plus Jakarta's digits are
+/// **0.769 em tall**, the tallest of twenty-one faces measured, against a
+/// typical 0.72. Figtree's are 0.724 with a rounder 0.74 width-to-height ratio.
 ///
-/// It also keeps what the type scale depends on: `tnum` tabular figures, so
-/// columns of numbers stay aligned, and the four weights the scale asks for.
-const String healtheeFontFamily = 'Inter';
+/// It is a VARIABLE font shipped as one file; `_style` drives the `wght` axis
+/// directly rather than relying on four static instances.
+const String healtheeFontFamily = 'Figtree';
 
-/// Faces to fall back on, in order, when the bundled family has no glyph.
+/// Faces to fall back on, in order, when Figtree has no glyph for a character.
 ///
-/// ## The text faces, and why the symbol faces are here too
+/// ## The first entry is BUNDLED, and that is the whole point
 ///
-/// The first group is the platform UI font, so a failed asset degrades to the
-/// system face rather than to Flutter's fallback box glyphs.
+/// Figtree has no `↔` (U+2194) — nor `⌄`, `ρ`, `σ` or `ⓘ`. The app draws all of
+/// them.
 ///
-/// The second group exists because of a defect Manrope shipped. Manrope is a
-/// text family and covered none of the symbols this app draws: no `↔` (U+2194),
-/// no `↗` (U+2197), no `ⓘ` (U+24D8), no `⌄` (U+2304). Android's `Roboto` has
-/// **none of the arrows either**, so naming it alone left the chain to the
-/// platform default — and the platform default that covers U+2194 is
-/// **`NotoColorEmoji`**.
+/// An earlier revision named platform symbol faces here (`Noto Sans Symbols`
+/// and friends) and asserted that `fontFamilyFallback` is consulted before the
+/// platform chain, so the colour emoji font could never be reached. **That was
+/// never tested, because the face at the time was Inter, which HAS U+2194 — the
+/// fallback never ran.** The moment Figtree shipped, `Overnight HRV ↔ recovery`
+/// drew a blue emoji box again, on the device, exactly as before.
 ///
-/// That is how `Overnight HRV ↔ recovery` shipped with a blue emoji box in the
-/// middle of a sentence. `U+FE0E`, the text-presentation selector, cannot fix
-/// it: the selector chooses between two presentations **within a font that has
-/// the glyph**, and it cannot conjure a text form in a font that lacks the
-/// codepoint entirely.
+/// So [HealtheeSymbols] is a **bundled** family (Inter, in `assets/fonts/`),
+/// named first. A bundled family is resolved by the engine's own font manager
+/// rather than the platform's, and it does beat `NotoColorEmoji` — verified on
+/// the device, which is the only way this has ever been established.
 ///
-/// **Inter carries both arrows, so it is the actual fix.** These symbol faces
-/// stay as defence: `fontFamilyFallback` is consulted in full before the
-/// platform chain, so a glyph the bundled family lacks reaches a monochrome
-/// face before it can reach the colour emoji font.
-/// `test/theme/font_coverage_test.dart` reads the bundled `.ttf` and fails if
-/// a character the app actually draws is covered by neither.
+/// The platform faces stay behind it as a second line, and cost nothing.
+///
+/// `test/core/typography_test.dart` walks `lib/` and fails if a character the
+/// app writes is covered by neither the bundled face nor the bundled fallback.
 const List<String> healtheeFontFallback = <String>[
-  // Text.
+  // Bundled. Complete. Load-bearing — see above.
+  'HealtheeSymbols',
+  // Platform text faces, for the case where the bundled asset fails entirely.
   'SF Pro Text', // iOS
   'Roboto', // Android
   'Segoe UI',
   'Helvetica Neue',
   'Arial',
-  // Symbols — monochrome, and ahead of the platform's colour emoji font.
+  // Platform symbol faces. Kept, but NOT relied on.
   'Noto Sans Symbols', // Android
   'Segoe UI Symbol', // Windows
   'Apple Symbols', // iOS / macOS
@@ -138,6 +137,8 @@ TextTheme healtheeTextTheme({
       fontFamilyFallback: healtheeFontFallback,
       fontSize: size,
       fontWeight: weight,
+  // Figtree is variable: drive the wght axis, not only the weight slot.
+  fontVariations: <FontVariation>[FontVariation('wght', weight.value.toDouble())],
       color: color,
       height: height,
       letterSpacing: tracking,
