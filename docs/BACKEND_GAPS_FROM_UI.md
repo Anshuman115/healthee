@@ -85,23 +85,32 @@ the app already holds. No remedy is invented, but the server should be saying it
 
 ## C. Structural — the shape of the API against the shape of the screens
 
-**C1. `/api/history` serves ONE metric, windowed from today.**
-`api/routers/history.py:34` — `get_history(user, metric: str, days: int = 90)`.
-There is no `metrics=` list and no `end=` date.
+**C1. `/api/history` serves ONE metric, windowed from today.** — **CLOSED.**
+
+`?metrics=a,b,c` answers `{days, series: {metric: […]}}`; `?metric=` is
+unchanged and its snapshot proves it. Both forms are shaped from
+`read/history.py::history_series`, so there is one definition of a day's value,
+and the plain `derived_daily` metrics are read in ONE statement — naming the
+whole registry costs four queries, not twenty-five. An unknown id refuses the
+whole call rather than being dropped from the answer. Snapshot:
+`packages/contracts/snapshots/history_batch.json`.
+
+**Still no `end=` date, and none is needed** — a client asking for enough
+`days` and slicing at the chosen date is what both the metric screen and the
+dated panels do.
+
+The report as it stood:
 
 Two consequences, and they are the biggest items in this report:
 
 - **The metric explorer needs 20 calls for one screen**, so it stays
-  latest-only with the day named in the header.
-- **A past day cannot show the prototype's dated history panels.** Today,
-  Activity, Insights, Recovery, Body and Fitness each want five to nine series
-  ending on the chosen day. The app refuses instead. *(A client can already
+  latest-only with the day named in the header. *(Still true: the explorer has
+  not been moved onto the batched read. It now could be, off the same cached
+  provider the panels use.)*
+- **A past day cannot show the prototype's dated history panels.** — **CLOSED.**
+  All six screens draw them, windowed on the day chosen. *(A client can already
   slice — asking for enough `days` and cutting at the chosen date works — so
-  this is a call-count problem, not a windowing one.)*
-
-  **One batched endpoint fixes both.** `GET /api/history?metrics=a,b,c&days=N`
-  returning `{metric: series}` is a small change against
-  `read/history.py`, and it is the single highest-value item here.
+  this was a call-count problem, not a windowing one.)*
 
 **C2. `/api/today` and `/api/activity` take no parameters at all**
 (`api/routers/today.py:30`, `api/routers/activity.py:15`); `/api/sleep` takes a
@@ -113,16 +122,21 @@ paths re-window or refuse, and nothing relabels today's judgements with an older
 date. **The refusal is the right behaviour until the server can answer for a
 day**, and making it answer is a much larger job than C1.
 
-**C3. Metric coverage does not reconcile.** Verified by reading both sides:
+**C3. Metric coverage does not reconcile.** — **CLOSED.** Both sides now list
+**25**: `HistoryMetric` gained `spo2_overnight_min` and the four sleep-health
+dimensions, which is the whole of `KNOWN_METRICS`.
+
+The four dimensions were also **renamed**. They are 0-or-1 points — did the
+night clear that dimension's published cutoff — and three of them carried the
+name of the quantity instead, so `sleep_dim_efficiency` and `efficiency_pct`
+were both "sleep efficiency" and a chart of ones and zeroes would have sat
+under a heading the owner reads as a percentage. They end in "check" now.
+
+The report as it stood:
 
 - Server `V2_DAILY_METRICS` — **22**
 - App `HistoryMetric` — **20**
 - Prototype's explorer — **25**
-
-**The server already serves five daily metrics the app does not list**:
-`spo2_overnight_min`, `sleep_dim_duration`, `sleep_dim_efficiency`,
-`sleep_dim_timing`, `sleep_dim_regularity`. **Five more working histories are one
-enum entry each.**
 
 The prototype's five extras — HR, stress, sleep duration, sleep efficiency, skin
 temperature — have **no daily series on this server**, so a tile for them would
@@ -156,7 +170,7 @@ gap was never the server's.)*
 
 ## E. Client-side, still open
 
-- **Five daily metrics unlisted** — see C3. One line each.
+- ~~**Five daily metrics unlisted**~~ — closed, see C3.
 - **47 unreachable files** in `lib/`, the pre-v02 widget set and chart library
   the redesign superseded. Dead weight that misleads every future grep.
 - **GPS recording keeps no track.** `GpsRecordingState` holds a fix *count* and
@@ -170,6 +184,6 @@ gap was never the server's.)*
 
 | request | needs | where |
 |---|---|---|
-| **Dated history on past days** | the batched history endpoint (C1), then per-screen wiring | server, small · client, medium |
+| ~~**Dated history on past days**~~ | ~~the batched history endpoint (C1), then per-screen wiring~~ | **DONE.** Three of the prototype's panels are named and not drawn — sleep duration, sleep efficiency and skin temperature have no daily series here (C3), and the screens say so |
 | **A proper map on the recording screen** | `GpsRecordingState` to retain coordinates (E) · a decision on tiles vs schematic | client only |
 | **Delete the dead code** | 47 files plus their tests and mutation entries | client only |

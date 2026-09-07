@@ -41,7 +41,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/data/history/history_statistics.dart';
-import 'package:healthee/features/history/history_window.dart';
+import 'package:healthee/data/history/history_window.dart';
 import 'package:healthee/features/history/v02/dated_readings.dart';
 import 'package:healthee/shared/charts/v02/metric_series.dart';
 import 'package:healthee/shared/charts/v02/v02_line_chart.dart';

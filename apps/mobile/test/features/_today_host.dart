@@ -27,12 +27,14 @@ import 'package:healthee/data/challenges/milestones.dart';
 import 'package:healthee/data/challenges/program_feed.dart';
 import 'package:healthee/data/gps/gps_recorder.dart';
 import 'package:healthee/data/gps/gps_recording_state.dart';
+import 'package:healthee/data/history/dated_history.dart';
 import 'package:healthee/data/honesty/last_known.dart';
 import 'package:healthee/data/insights/notable_event.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_insight.dart';
 import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/models/today_view.dart';
+import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/notifications/notify_completions.dart';
 import 'package:healthee/data/pairing/paired_strap.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
@@ -89,6 +91,7 @@ Widget todayHost(
   SleepPage? sleep,
   SleepConsistency? consistency,
   LastKnown<double>? lastKnownBioAge,
+  DatedHistory? history,
 }) {
   return _scoped(
     store,
@@ -100,6 +103,7 @@ Widget todayHost(
     sleep: sleep,
     consistency: consistency,
     lastKnownBioAge: lastKnownBioAge,
+    history: history,
     child: MaterialApp(
       theme: themeOverride ?? AppTheme.light,
       // **Reduced motion, always.** Today's hero carries `BioHalo`, an ambient
@@ -163,6 +167,7 @@ Widget _scoped(
   SleepPage? sleep,
   SleepConsistency? consistency,
   LastKnown<double>? lastKnownBioAge,
+  DatedHistory? history,
 }) {
   return ProviderScope(
     overrides: [
@@ -209,6 +214,21 @@ Widget _scoped(
       // channel a test host never answers — which would leave that read's own
       // deadline pending after any test that navigated there.
       appVersionProvider.overrideWith((ref) async => null),
+      // The batched dated series, ALWAYS pinned. The real provider is only
+      // watched on a past day, but on a past day it reaches a socket — and an
+      // unpinned read there leaves a spinner running that `pumpAndSettle` waits
+      // on forever, which reads as a broken test rather than as a missing
+      // override. Empty by default: a suite about what a screen DECIDES does
+      // not need readings, and a suite about the panels passes its own.
+      datedHistoryProvider.overrideWith(
+        (ref) async => serverUnreachable
+            ? throw StateError('no server')
+            : history ??
+                  const DatedHistory(
+                    days: 90,
+                    series: <String, List<TrendPoint>>{},
+                  ),
+      ),
       // Sleep reads three payloads of its own — `/api/sleep`,
       // `/api/sleep/consistency` and `/api/sleep/insight`. All three are
       // pinned for the same reason the Today one is: an unpinned provider

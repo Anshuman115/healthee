@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/features/activity/activity_sections.dart';
+import 'package:healthee/shared/history_link.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 
 /// The Activity tab.
@@ -46,11 +47,7 @@ class ActivityScreen extends StatelessWidget {
           ),
           onOpenRoutes: () => unawaited(context.push(Routes.routes)),
           onRecord: () => unawaited(context.push(Routes.gps)),
-          onOpenMetric: (metric) => unawaited(
-            context.push(
-              '${Routes.history}?metric=${Uri.encodeComponent(metric)}',
-            ),
-          ),
+          onOpenMetric: (metric) => openMetricHistory(context, metric),
           onOpenRecovery: () => unawaited(context.push(Routes.recovery)),
           onOpenFitness: () => unawaited(context.push(Routes.fitness)),
           onOpenBody: () => unawaited(context.push(Routes.body)),

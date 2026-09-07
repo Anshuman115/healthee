@@ -1,6 +1,7 @@
 import 'package:healthee/data/api/api_client.dart';
 import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/credentials.dart';
+import 'package:healthee/data/history/dated_history.dart';
 import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -26,25 +27,15 @@ Future<List<TrendPoint>> metricHistory(
 }
 
 /// Reject a mismatched or malformed response instead of drawing another metric.
+///
+/// The echo check is this form's own — the single-metric endpoint names what it
+/// answered for, and a response about a different metric under this metric's
+/// heading is a wrong chart rather than a missing one. The points themselves go
+/// through `parseSeries`, which the batched read uses too: two parsers over one
+/// wire format is two chances for one of them to accept a day the other refuses.
 List<TrendPoint> parseHistory(Map<String, Object?> json, HistoryMetric metric) {
   if (json['metric'] != metric.id) {
     throw const FormatException('Unexpected history metric');
   }
-  final points = <TrendPoint>[];
-  for (final item in json['series']! as List<Object?>) {
-    final row = item! as Map<String, Object?>;
-    final day = row['day']! as String;
-    final value = (row['value']! as num).toDouble();
-    final date = DateTime.tryParse(day);
-    if (!value.isFinite ||
-        date == null ||
-        date.toIso8601String().substring(0, 10) != day) {
-      throw const FormatException('Invalid history observation');
-    }
-    if (points.isNotEmpty && points.last.date.compareTo(day) >= 0) {
-      throw const FormatException('History dates must increase');
-    }
-    points.add(TrendPoint(date: day, value: value));
-  }
-  return points;
+  return parseSeries(json['series'], metric.id);
 }

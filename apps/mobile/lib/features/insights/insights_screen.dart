@@ -26,6 +26,7 @@ import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/data/insights/notable_event.dart';
 import 'package:healthee/features/insights/insights_sections.dart';
+import 'package:healthee/shared/history_link.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 
 /// The Insights tab.
@@ -48,11 +49,7 @@ class InsightsScreen extends ConsumerWidget {
           // destination with nothing beneath it and the next Back leaves the
           // app. `back_navigation_test.dart` owns that rule.
           onOpenProfile: () => unawaited(context.push(Routes.settings)),
-          onOpenMetric: (metric) => unawaited(
-            context.push(
-              '${Routes.history}?metric=${Uri.encodeComponent(metric)}',
-            ),
-          ),
+          onOpenMetric: (metric) => openMetricHistory(context, metric),
           onOpenHistory: () => unawaited(context.push(Routes.history)),
           onOpenOutcomes: () => unawaited(context.push(Routes.outcomes)),
           onOpenJournal: () => unawaited(context.push(Routes.journal)),

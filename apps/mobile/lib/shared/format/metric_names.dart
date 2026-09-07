@@ -67,10 +67,18 @@ const Map<String, String> _names = <String, String>{
   'sleep_health_score_4dim': 'sleep health',
   'sleep_score': 'sleep score',
   'sleep_regularity_index': 'sleep regularity',
-  'sleep_dim_duration': 'sleep duration',
-  'sleep_dim_efficiency': 'sleep efficiency',
-  'sleep_dim_timing': 'sleep timing',
-  'sleep_dim_regularity': 'sleep regularity',
+  // The four 0-or-1 dimensions of the sleep-health count, and the word "check"
+  // is load-bearing. `derive/sleep_score.py:218` writes a POINT for each — 1 if
+  // the night cleared that dimension's published cutoff, 0 if it did not — so a
+  // series named "sleep duration" would put a chart of ones and zeroes under a
+  // heading the owner reads as hours. It also collided: `efficiency_pct` and
+  // `sleep_regularity_index` are the real quantities and already hold those two
+  // names, and one name for two metrics is the drift this file exists to stop.
+  // The words match the Sleep screen's own "Sleep checks" panel.
+  'sleep_dim_duration': 'sleep duration check',
+  'sleep_dim_efficiency': 'sleep efficiency check',
+  'sleep_dim_timing': 'sleep timing check',
+  'sleep_dim_regularity': 'sleep regularity check',
   'asleep': 'time asleep',
   // The two the metric explorer found missing. Both are already words on the
   // Sleep screen (`need_panel.dart`), and an id printed on a tile is the exact

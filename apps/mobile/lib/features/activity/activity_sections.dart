@@ -48,8 +48,11 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/device/device_workout.dart';
+import 'package:healthee/data/history/dated_history.dart';
+import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/vo2max.dart';
@@ -64,6 +67,7 @@ import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
+import 'package:healthee/shared/v02/dated_history.dart';
 import 'package:healthee/shared/v02/full_button.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/page_header.dart';
@@ -136,6 +140,29 @@ class ActivityExtras {
   final VoidCallback? onOpenBody;
 }
 
+/// `history-screens.js::screens.activity` — `panels([…])`, in its order.
+///
+/// ```js
+/// panels(['steps','energy','total-energy','distance','mvpa','moderate',
+///         'vigorous','load','vo2'])
+/// ```
+///
+/// Nine, and this server serves a dated daily series for all nine. The list
+/// lives at the screen it belongs to rather than in `shared/`: it IS the design
+/// of this screen, and a reader looking for what Activity draws should find it
+/// in Activity's own file.
+const List<HistoryMetric> kActivityDatedMetrics = <HistoryMetric>[
+  HistoryMetric.steps,
+  HistoryMetric.activeEnergy,
+  HistoryMetric.totalEnergy,
+  HistoryMetric.distance,
+  HistoryMetric.activeMinutes,
+  HistoryMetric.moderate,
+  HistoryMetric.vigorous,
+  HistoryMetric.cardioLoad,
+  HistoryMetric.fitness,
+];
+
 /// Builds the ordered section list for one render of Activity.
 List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
   final past = data.view.isPast;
@@ -160,6 +187,22 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
     sections
       ..add(const PastDayNotice(title: kActivityPastTitle, body: kPastDayReason))
       ..gap(PageSpacing.panel);
+    // `screens.activity` on a past day IS this run of panels, in this order.
+    // Every one of them is a row `derive` stamped with a calendar day, so they
+    // are as true of 24 July as of today — the refusal above is about the
+    // week's totals, the sessions and the analysis, none of which is dated.
+    if (data.history case final AsyncValue<DatedHistory> history) {
+      addDatedPanels(
+        sections,
+        history: history,
+        metrics: kActivityDatedMetrics,
+        day: data.view.day,
+        reveals: reveals,
+        onRetry: data.onRetryHistory,
+        onOpenMetric: extras.onOpenMetric,
+      );
+      sections.gap(PageSpacing.block);
+    }
   }
   // The server's own state is reported on the day it is about. A retry card
   // headed "today's judgements" under a past date would be offering to fetch

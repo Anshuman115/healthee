@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from healthee.api.validation import require_known_metric
+from healthee.api.validation import require_known_metric, require_metric_list
 from healthee.core.db import tenant_transaction
 from healthee.core.request_auth import CurrentUser
-from healthee.read.history import history, profile
+from healthee.read.history import history, history_batch, profile
 from healthee.read.history_logs import history_logs
 from healthee.read.profile_edit import ProfileEdit, ProfileEditResult, edit_profile
 
@@ -31,11 +31,38 @@ def get_account(user: CurrentUser) -> AccountIdentity:
 
 
 @router.get("/api/history")
-def get_history(user: CurrentUser, metric: str, days: int = 90) -> dict:
-    """Daily series for a metric over a bounded range."""
-    require_known_metric(metric)
+def get_history(
+    user: CurrentUser,
+    metric: str | None = None,
+    metrics: str | None = None,
+    days: int = 90,
+) -> dict:
+    """Daily series for one metric, or for a list of them in a single read.
+
+    ``?metric=steps_total`` answers ``{metric, series}`` — the metric-detail
+    screen's form, unchanged. ``?metrics=a,b,c`` answers ``{days, series}`` with
+    ``series`` keyed by metric — the dated-history panels' form, which exists
+    because six screens want five to nine series each and one round trip per
+    series is thirty to fifty of them for one screen.
+
+    Exactly one of the two is required. Neither is a 422 rather than a default,
+    because "every metric" is a query nobody should be able to ask by accident.
+
+    Returns ``dict`` rather than a response model: the batch is keyed by metric
+    name, so a model would either lose the keys to a ``dict[str, …]`` alias that
+    documents nothing or pin one field per metric and rot on the next one. The
+    contract snapshots in ``packages/contracts`` are the pin, which is the
+    documented exception in standards section 2.
+    """
+    if (metric is None) == (metrics is None):
+        raise HTTPException(status_code=422, detail="give exactly one of 'metric' or 'metrics'")
+    if metric is not None:
+        require_known_metric(metric)
+        with tenant_transaction(user.id) as cur:
+            return history(cur, user.id, user.timezone, metric, days)
+    wanted = require_metric_list(metrics or "")
     with tenant_transaction(user.id) as cur:
-        return history(cur, user.id, user.timezone, metric, days)
+        return history_batch(cur, user.id, user.timezone, wanted, days)
 
 
 @router.get("/api/profile")

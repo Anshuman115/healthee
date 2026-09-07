@@ -36,6 +36,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
+import 'package:healthee/data/history/dated_history.dart';
+import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/models/vo2max.dart';
@@ -43,6 +45,7 @@ import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/activity/activity_sections.dart';
 import 'package:healthee/features/activity/v02/fitness_effort_panels.dart';
 import 'package:healthee/features/activity/v02/fitness_panels.dart';
+import 'package:healthee/shared/history_link.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
@@ -50,8 +53,8 @@ import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
+import 'package:healthee/shared/v02/dated_history.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
-import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/view_day.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
@@ -60,6 +63,23 @@ const String kFitnessTitle = 'Fitness';
 
 /// `screens.fitness`'s past-day heading, with the app's own reason under it.
 const String kFitnessPastTitle = 'VO₂max, its instrument and its history';
+
+/// `H.note('Historical method and uncertainty metadata are not supplied with
+/// these estimates.')` — the sentence the prototype puts under the dated VO₂max
+/// chart, said about this server's own wire.
+///
+/// It is not decoration. VO₂max is a **tiered** metric (#117): a graded session,
+/// a heart-rate-reserve inversion and the non-exercise model can each have
+/// produced a point on this line, and they differ by more than a fortnight of
+/// real fitness change. `read/vo2max.py:180` drops the method when it builds
+/// the series and `/api/history` never carried one, so a rise on this chart
+/// cannot be told from a change of instrument.
+/// `BACKEND_GAPS_FROM_UI.md` B2 is the entry for fixing that; until it is fixed
+/// the chart says so, which is the difference between a caveat and a legend.
+const String kFitnessSeriesNote =
+    'Each point is the estimate stored for that day, and the wire does not say '
+    'which instrument produced it. A step on this line can be a change of '
+    'method rather than a change of fitness.';
 
 /// The fitness detail screen.
 class FitnessScreen extends ConsumerStatefulWidget {
@@ -77,17 +97,33 @@ class _FitnessScreenState extends ConsumerState<FitnessScreen> {
   @override
   Widget build(BuildContext context) {
     final ViewDay day = watchViewDay(ref);
-    // The estimate, its instrument and its stored history all arrive on
-    // `/api/today`, which takes no day. A past date gets the refusal; the
-    // VO₂max SERIES is still readable, dated, on its own metric screen.
+    // The estimate, its INSTRUMENT and its freshness gate all arrive on
+    // `/api/today`, which takes no day, so a past date still gets the refusal.
+    // The stored series is a different thing and is drawn: `derived_daily`
+    // holds one VO₂max row per day, dated, and charting it claims nothing about
+    // what today's tier would say.
     if (day.isPast) {
       return _Frame(
         date: day.day,
         status: day.status,
-        children: const <Widget>[
-          PastDayNotice(title: kFitnessPastTitle, body: kPastDayReason),
-          DataFooter(),
-        ],
+        children: pastDayDetail(
+          refusalTitle: kFitnessPastTitle,
+          history: ref.watch(datedHistoryProvider),
+          // `panels(['vo2'])`, the note, then `panels(['load','mvpa','steps'])`.
+          metrics: const <HistoryMetric>[
+            HistoryMetric.fitness,
+            HistoryMetric.cardioLoad,
+            HistoryMetric.activeMinutes,
+            HistoryMetric.steps,
+          ],
+          notes: const <HistoryMetric, String>{
+            HistoryMetric.fitness: kFitnessSeriesNote,
+          },
+          day: day.day,
+          reveals: _reveals,
+          onRetry: () => ref.invalidate(datedHistoryProvider),
+          onOpenMetric: (metric) => openMetricHistory(context, metric),
+        ),
       );
     }
     final view = currentAccountValue(ref.watch(todaySnapshotProvider));

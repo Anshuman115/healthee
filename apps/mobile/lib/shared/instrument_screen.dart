@@ -77,6 +77,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_repository.dart';
+import 'package:healthee/data/history/dated_history.dart';
 import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/models/today_view.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
@@ -97,7 +98,9 @@ class ScreenData {
     required this.server,
     required this.reveals,
     required this.onRetryServer,
+    required this.onRetryHistory,
     required this.view,
+    this.history,
     this.now,
   });
 
@@ -122,6 +125,27 @@ class ScreenData {
   /// Re-reads `/api/today`. Handed to [serverErrorCard] by whichever section
   /// list decides to draw one.
   final VoidCallback onRetryServer;
+
+  /// **The dated series, and null on the current day.**
+  ///
+  /// A third source, and it is read on a past day only. Nothing on the current
+  /// day is drawn from it — the panels it feeds are `history-screens.js`'s, and
+  /// those exist precisely because the derived half cannot answer for an older
+  /// date — so watching it unconditionally would put a twenty-five-series
+  /// request on every cold start to render nothing.
+  ///
+  /// Null therefore means *"not read, because this render is on the newest
+  /// day"*, never "empty" and never "failed". Those two are inside the
+  /// [AsyncValue], which is why this is a nullable [AsyncValue] rather than a
+  /// [DatedHistory] that could be empty for three different reasons. The
+  /// invariant — non-null exactly when [view] is past — is established in ONE
+  /// place, [_InstrumentScreenState.build], so no section list can get it
+  /// wrong.
+  final AsyncValue<DatedHistory>? history;
+
+  /// Re-reads the batched history. Always callable, because the retry belongs
+  /// to the card that draws it and that card only exists on a past day.
+  final VoidCallback onRetryHistory;
 
   /// The instant every "x min ago" is measured against.
   final DateTime? now;
@@ -180,6 +204,16 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
   @override
   Widget build(BuildContext context) {
     final server = currentAccountValue(ref.watch(todaySnapshotProvider));
+    final view = watchViewDay(ref);
+    // **The one place the past-day invariant is established.** A conditional
+    // `watch` is how a provider is subscribed to only when it is needed:
+    // Riverpod recomputes the dependency set on every build, so stepping onto a
+    // past day subscribes and stepping back to the newest day unsubscribes.
+    // `datedHistoryProvider` is `keepAlive`, so the round trip is paid once per
+    // session rather than once per step. See `ScreenData.history`.
+    final history = view.isPast
+        ? currentAccountValue(ref.watch(datedHistoryProvider))
+        : null;
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -200,9 +234,11 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
                   day: day,
                   server: server,
                   reveals: _reveals,
-                  view: watchViewDay(ref),
+                  view: view,
+                  history: history,
                   now: widget.now,
                   onRetryServer: () => ref.invalidate(todaySnapshotProvider),
+                  onRetryHistory: () => ref.invalidate(datedHistoryProvider),
                 ),
               ),
             ),
@@ -218,6 +254,9 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
   Future<void> _refresh() async {
     await ref.read(syncControllerProvider.notifier).syncNow();
     ref.invalidate(todaySnapshotProvider);
+    // The dated series moves when a sync lands new days, and never otherwise —
+    // it is `keepAlive`, so this is the one thing that refreshes it.
+    ref.invalidate(datedHistoryProvider);
     widget.onRefreshed?.call();
     _reveals.reset();
   }

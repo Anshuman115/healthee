@@ -8,8 +8,8 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/data/history/history_window.dart';
 import 'package:healthee/data/models/trend_point.dart';
-import 'package:healthee/features/history/history_window.dart';
 
 const List<TrendPoint> _holed = <TrendPoint>[
   TrendPoint(date: '2026-03-07', value: 40),
@@ -88,5 +88,61 @@ void main() {
     expect(window.sampleLabels.length, window.values.length);
     expect(window.sampleLabels.first, '7 Mar');
     expect(window.sampleLabels.last, '11 Mar');
+  });
+
+  group('endingOn — both edges are the calendar', () {
+    test('THE WINDOW ENDS ON THE CHOSEN DAY, NOT ON THE LAST READING', () {
+      // The failure this guards: a dated panel captioned with the selected day
+      // while its chart stopped three days earlier, so two panels side by side
+      // are two different fortnights.
+      final window = HistoryWindow.endingOn(_holed, '2026-03-14', 5);
+      expect(window.days, <String>[
+        '2026-03-10',
+        '2026-03-11',
+        '2026-03-12',
+        '2026-03-13',
+        '2026-03-14',
+      ]);
+      // 11 Mar is the only reading inside it; the three days after it were not
+      // measured and stay empty.
+      expect(window.values, <double?>[null, 39, null, null, null]);
+      expect(window.observed.length, 1);
+    });
+
+    test('A HOLE IN THE MIDDLE IS STILL A HOLE', () {
+      final window = HistoryWindow.endingOn(_holed, '2026-03-11', 5);
+      expect(window.values, <double?>[40, 42, null, null, 39]);
+    });
+
+    test('A READING AFTER THE CHOSEN DAY IS NOT IN THE WINDOW', () {
+      // The point of the whole feature: 11 Mar must not appear on a chart the
+      // header dates 9 Mar.
+      final window = HistoryWindow.endingOn(_holed, '2026-03-09', 3);
+      expect(window.days.last, '2026-03-09');
+      expect(window.values, <double?>[40, 42, null]);
+      expect(window.on('2026-03-11'), isNull);
+    });
+
+    test('a window before every reading is empty, not the nearest one', () {
+      final window = HistoryWindow.endingOn(_holed, '2026-03-01', 14);
+      expect(window.isEmpty, isTrue);
+      expect(window.values.length, 14);
+      expect(window.values.whereType<double>(), isEmpty);
+      // The slots exist but the captions do not: a chart that drew nothing must
+      // not gain a pair of dates implying it drew a fortnight.
+      expect(window.captions, isEmpty);
+    });
+
+    test('a day count below one is one, never a chart of no days', () {
+      final window = HistoryWindow.endingOn(_holed, '2026-03-11', 0);
+      expect(window.days, <String>['2026-03-11']);
+      expect(window.values, <double?>[39]);
+    });
+
+    test('the slot labels stay one per day', () {
+      final window = HistoryWindow.endingOn(_holed, '2026-03-11', 5);
+      expect(window.sampleLabels.length, 5);
+      expect(window.captions, <String>['7 Mar', '11 Mar']);
+    });
   });
 }

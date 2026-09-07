@@ -37,6 +37,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/tone.dart';
+import 'package:healthee/data/history/dated_history.dart';
+import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/models/biological_age.dart';
@@ -46,13 +48,14 @@ import 'package:healthee/features/today/v02/body_limits_panels.dart';
 import 'package:healthee/features/today/v02/body_panels.dart';
 import 'package:healthee/features/today/v02/today_hero.dart';
 import 'package:healthee/features/today/v02/today_hero_withheld.dart';
+import 'package:healthee/shared/history_link.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
+import 'package:healthee/shared/v02/dated_history.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
-import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/view_day.dart';
 
 /// The prototype's own title for this screen.
@@ -85,14 +88,29 @@ class _BodyScreenState extends ConsumerState<BodyScreen> {
     // One age-model result exists and it is dated today. `/api/today` takes no
     // day, so an older date gets the refusal rather than this morning's figure
     // under it — see `shared/v02/past_day.dart`.
+    //
+    // `screens.body`'s own words for what sits under that refusal: *"historical
+    // fitness and sleep inputs remain visible below"*. They are the model's
+    // measured inputs, dated; the estimate they feed is not.
     if (day.isPast) {
       return _Frame(
         date: day.day,
         status: day.status,
-        children: const <Widget>[
-          PastDayNotice(title: kBodyPastTitle, body: kPastDayReason),
-          DataFooter(),
-        ],
+        children: pastDayDetail(
+          refusalTitle: kBodyPastTitle,
+          history: ref.watch(datedHistoryProvider),
+          // `panels(['vo2','sleep','regularity'])`, less the one this server
+          // keeps no dated series for.
+          metrics: const <HistoryMetric>[
+            HistoryMetric.fitness,
+            HistoryMetric.sleepRegularity,
+          ],
+          unserved: const <String>[kUnservedSleepDuration],
+          day: day.day,
+          reveals: _reveals,
+          onRetry: () => ref.invalidate(datedHistoryProvider),
+          onOpenMetric: (metric) => openMetricHistory(context, metric),
+        ),
       );
     }
     final view = currentAccountValue(ref.watch(todaySnapshotProvider));
