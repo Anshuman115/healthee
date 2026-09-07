@@ -19,9 +19,20 @@ import 'package:healthee/data/honesty/sleep_gap.dart';
 import 'package:healthee/data/models/last_sleep.dart';
 import 'package:meta/meta.dart';
 
-/// The four stage totals of one night, in minutes. Always present — the server
-/// defaults the map to zeros rather than nulling it, so an absent night is an
-/// absent *night*, not four absent numbers.
+/// The four stage totals of one night, in minutes — or NOTHING, when the strap
+/// staged nothing.
+///
+/// This used to be "always present": the server defaulted the map to zeros rather
+/// than nulling it, because `sleep_session`'s four stage columns were `NOT NULL
+/// DEFAULT 0` and had no way to say "not measured". So an unstaged night arrived
+/// as four honest-looking zeros, [SleepNight.tstMin]'s fallback replaced a correct
+/// server withhold with their sum, and the stacked chart painted four zero-height
+/// bars — pixel-identical to a night of literal zero sleep.
+///
+/// Migration `0018` made those columns nullable and `read/sleep_common.py` now
+/// sends `null` for the whole map. [SleepNight.stages] is therefore nullable, and
+/// the compiler is what makes every screen answer the question rather than
+/// summing its way past it.
 @immutable
 class StageMinutes {
   /// Builds a stage split.
@@ -32,9 +43,15 @@ class StageMinutes {
     required this.awake,
   });
 
-  /// Parses `nights[].stages`.
-  factory StageMinutes.fromJson(Map<String, Object?> json) {
-    double minutes(String key) => (json[key] as num?)?.toDouble() ?? 0;
+  /// Parses `nights[].stages`, or null when the server sent no breakdown.
+  ///
+  /// Null in, null out — deliberately not a zeroed object. Building one here would
+  /// put the defect back one layer up, where it is harder to see.
+  static StageMinutes? maybe(Object? raw) {
+    if (raw is! Map<String, Object?>) {
+      return null;
+    }
+    double minutes(String key) => (raw[key] as num?)?.toDouble() ?? 0;
     return StageMinutes(
       deep: minutes('deep'),
       light: minutes('light'),
@@ -124,11 +141,7 @@ class SleepNight {
       spo2Avg: sleepReading(number('spo2_avg'), sampled),
       spo2Min: sleepReading(number('spo2_min'), sampled),
       skinTempC: sleepReading(number('skin_temp_c'), sampled),
-      stages: StageMinutes.fromJson(
-        json['stages'] is Map<String, Object?>
-            ? json['stages']! as Map<String, Object?>
-            : const <String, Object?>{},
-      ),
+      stages: StageMinutes.maybe(json['stages']),
       timeline: <SleepStageSpan>[
         for (final span in (json['stage_timeline'] as List<Object?>? ?? const <Object?>[]))
           if (span is Map<String, Object?>) SleepStageSpan.fromJson(span),
@@ -202,8 +215,12 @@ class SleepNight {
   /// Mean skin temperature across the window, °C.
   final Reading<double> skinTempC;
 
-  /// The night's stage totals.
-  final StageMinutes stages;
+  /// The night's stage totals, or null when the strap staged nothing.
+  ///
+  /// Nullable on purpose and the nullability is the fix: see [StageMinutes]. A
+  /// screen that wants a number out of this has to say what it draws when there
+  /// is no breakdown, and cannot reach a zero by accident.
+  final StageMinutes? stages;
 
   /// The hypnogram, in order.
   final List<SleepStageSpan> timeline;

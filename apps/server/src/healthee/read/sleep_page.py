@@ -20,6 +20,7 @@ from healthee.read.sleep_common import (
     SLEEP_RESEARCH_NOTES,
     derived_night_pivot,
     main_sessions,
+    stage_sleep_min,
     stage_timeline,
     stage_totals,
 )
@@ -137,9 +138,8 @@ def _session_nights(sessions: list[tuple]) -> dict[str, dict]:
                 "session_source": "zepp_cloud",
                 "start_iso": start_ts.isoformat(),
                 "end_iso": end_ts.isoformat(),
-                "duration_min": (light or 0)
-                + (deep or 0)
-                + (rem or 0),  # TST (v2: no summary blob)
+                # TST (v2: no summary blob); null without a breakdown to sum.
+                "duration_min": stage_sleep_min(light, deep, rem),
                 "zepp_score": score,
                 "stages": stage_totals(light, deep, rem, wake),
                 "stage_timeline": stage_timeline(stages, start_ts),
@@ -158,7 +158,11 @@ def _stub_night(date_iso: str) -> dict:
         "end_iso": None,
         "duration_min": None,
         "zepp_score": None,
-        "stages": {"light": 0, "deep": 0, "rem": 0, "awake": 0},
+        # NULL, not four zeros. A stub is emitted for a date with a `derived_daily` row
+        # and no `sleep_session` row — the absence of a session is not a measurement of
+        # zero minutes in four stages, and null is already the convention for every other
+        # field of this object.
+        "stages": None,
         "stage_timeline": [],
         "score": None,
         "point_duration": None,

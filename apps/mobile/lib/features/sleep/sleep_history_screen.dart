@@ -158,12 +158,14 @@ class SleepHistoryDetail extends StatelessWidget {
     for (final night in dated.take(kSleepHistoryWeek).toList().reversed)
       SleepNightSummary(
         date: night.date,
-        durationMin:
-            night.tstMin.valueOrNull?.round() ?? night.stages.total.round(),
-        deepMin: night.stages.deep.round(),
-        lightMin: night.stages.light.round(),
-        remMin: night.stages.rem.round(),
-        awakeMin: night.stages.awake.round(),
+        // NO `?? night.stages.total` fallback. `tst_min` is withheld by the server
+        // when it cannot say, and replacing a withhold with a stage sum put the
+        // refusal back as a number — which for an unstaged night was zero.
+        durationMin: night.tstMin.valueOrNull?.round(),
+        deepMin: night.stages?.deep.round(),
+        lightMin: night.stages?.light.round(),
+        remMin: night.stages?.rem.round(),
+        awakeMin: night.stages?.awake.round(),
         deviceScore: night.deviceScore.valueOrNull?.round(),
       ),
   ];

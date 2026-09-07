@@ -120,7 +120,27 @@ def upsert_sleep(
 ) -> int:
     """Upsert typed sleep sessions; emit per-minute rows only for fresh MAIN
     sleep (`should_emit`). Naps never feed the per-minute stream — daytime
-    minutes must not pollute the night-only SRI/regularity reads."""
+    minutes must not pollute the night-only SRI/regularity reads.
+
+    ## Every optional measurement is COALESCEd, so a partial re-push cannot erase one
+
+    The conflict branch was a plain `col = EXCLUDED.col` on every column. A re-push of an
+    existing key that omitted a field therefore replaced a measured value with the model's
+    default — which, before `0018`, was `0` for all four stage minutes. The shipped client
+    always sends complete records, so this was latent rather than live; it is fixed anyway
+    because `/ingest/helio` is reachable by any device token including an older app build,
+    and because it is the mechanism by which A5's zeros could overwrite a night that had
+    been recorded correctly.
+
+    The team had already identified and fixed this exact class one table over —
+    `upsert_profile` COALESCEs `srpa` "so a plain assignment would let the next routine
+    sync from an un-updated app NULL out an answer the owner had given" — and did not carry
+    it across. It is carried across now, here and in `upsert_workouts` and
+    `upsert_daily_totals`.
+
+    `end_ts` and `kind` are NOT coalesced: they are required on the model, so `EXCLUDED`
+    always carries a real value and coalescing would only hide a future mistake.
+    """
     for s in sessions:
         cur.execute(
             "INSERT INTO sleep_session "
@@ -128,10 +148,18 @@ def upsert_sleep(
             "wake_min, stages) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb) "
             "ON CONFLICT (user_id, start_ts) DO UPDATE SET "
-            "end_ts = EXCLUDED.end_ts, kind = EXCLUDED.kind, score = EXCLUDED.score, "
-            "avg_hr = EXCLUDED.avg_hr, rem_min = EXCLUDED.rem_min, "
-            "light_min = EXCLUDED.light_min, deep_min = EXCLUDED.deep_min, "
-            "wake_min = EXCLUDED.wake_min, stages = EXCLUDED.stages",
+            "end_ts = EXCLUDED.end_ts, kind = EXCLUDED.kind, "
+            "score = COALESCE(EXCLUDED.score, sleep_session.score), "
+            "avg_hr = COALESCE(EXCLUDED.avg_hr, sleep_session.avg_hr), "
+            "rem_min = COALESCE(EXCLUDED.rem_min, sleep_session.rem_min), "
+            "light_min = COALESCE(EXCLUDED.light_min, sleep_session.light_min), "
+            "deep_min = COALESCE(EXCLUDED.deep_min, sleep_session.deep_min), "
+            "wake_min = COALESCE(EXCLUDED.wake_min, sleep_session.wake_min), "
+            # The hypnogram is NOT NULL DEFAULT '[]', so an omitted `stages` arrives as an
+            # empty array rather than a null and COALESCE cannot see it. Tested for
+            # emptiness instead: a re-push carrying no hypnogram keeps the stored one.
+            "stages = CASE WHEN jsonb_array_length(EXCLUDED.stages) > 0 "
+            "THEN EXCLUDED.stages ELSE sleep_session.stages END",
             (
                 user_id,
                 epoch_to_utc(s.start_ts),
@@ -152,7 +180,14 @@ def upsert_sleep(
 
 
 def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
-    """Upsert typed workouts with device-measured HR/calories/distance."""
+    """Upsert typed workouts with device-measured HR/calories/distance.
+
+    Every nullable measurement is COALESCEd for the reason `upsert_sleep` gives: a partial
+    re-push must not replace a recorded figure with the model's default. `sport` and
+    `duration_s` default to `0` on `WorkoutIn` rather than to None, so they cannot be
+    distinguished from a genuine zero here and are assigned; the fix for that is a model
+    change, not a COALESCE that would silently pin the first value ever pushed.
+    """
     for w in workouts:
         cur.execute(
             "INSERT INTO workout "
@@ -160,8 +195,11 @@ def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (user_id, start_ts) DO UPDATE SET "
             "sport = EXCLUDED.sport, duration_s = EXCLUDED.duration_s, "
-            "calories = EXCLUDED.calories, distance_m = EXCLUDED.distance_m, "
-            "avg_hr = EXCLUDED.avg_hr, max_hr = EXCLUDED.max_hr, min_hr = EXCLUDED.min_hr",
+            "calories = COALESCE(EXCLUDED.calories, workout.calories), "
+            "distance_m = COALESCE(EXCLUDED.distance_m, workout.distance_m), "
+            "avg_hr = COALESCE(EXCLUDED.avg_hr, workout.avg_hr), "
+            "max_hr = COALESCE(EXCLUDED.max_hr, workout.max_hr), "
+            "min_hr = COALESCE(EXCLUDED.min_hr, workout.min_hr)",
             (
                 user_id,
                 epoch_to_utc(w.start_ts),
@@ -303,9 +341,16 @@ def upsert_daily_totals(cur: Cur, user_id: UUID, totals: list[DailyTotalIn]) -> 
             "INSERT INTO device_daily_total "
             "(user_id, day, steps, distance_m, calories, reported_at) "
             "VALUES (%s, %s, %s, %s, %s, now()) "
+            # COALESCEd per field: a report carrying only distance must not blank the
+            # step count the same day already had. The table's own docstring says "the
+            # derivation reads each field independently", and a plain assignment made
+            # that untrue on the write side. `reported_at` IS assigned — it dates this
+            # report, and the newest report is the one that arrived.
             "ON CONFLICT (user_id, day) DO UPDATE SET "
-            "steps = EXCLUDED.steps, distance_m = EXCLUDED.distance_m, "
-            "calories = EXCLUDED.calories, reported_at = EXCLUDED.reported_at",
+            "steps = COALESCE(EXCLUDED.steps, device_daily_total.steps), "
+            "distance_m = COALESCE(EXCLUDED.distance_m, device_daily_total.distance_m), "
+            "calories = COALESCE(EXCLUDED.calories, device_daily_total.calories), "
+            "reported_at = EXCLUDED.reported_at",
             rows,
         )
     return len(rows)

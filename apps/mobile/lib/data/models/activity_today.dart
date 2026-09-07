@@ -27,12 +27,14 @@ class MvpaDay {
 
   /// Parses one entry of `mvpa.daily`.
   factory MvpaDay.fromJson(Map<String, Object?> json) {
-    int minutes(String key) => (json[key] as num?)?.toInt() ?? 0;
     return MvpaDay(
       date: json['date']! as String,
-      mvpaMin: minutes('mvpa_min'),
-      moderateMin: minutes('moderate_min'),
-      vigorousMin: minutes('vigorous_min'),
+      mvpaMin: (json['mvpa_min'] as num?)?.toInt() ?? 0,
+      // Null when the day's `mvpa_min` row carries no intensity breakdown. The
+      // server used to coalesce those to 0 in SQL, so a day nobody split read as
+      // a day of no moderate and no vigorous minutes.
+      moderateMin: (json['moderate_min'] as num?)?.toInt(),
+      vigorousMin: (json['vigorous_min'] as num?)?.toInt(),
     );
   }
 
@@ -42,11 +44,11 @@ class MvpaDay {
   /// Moderate-to-vigorous minutes on that day.
   final int mvpaMin;
 
-  /// Of which moderate.
-  final int moderateMin;
+  /// Of which moderate, or null when that day carries no breakdown.
+  final int? moderateMin;
 
-  /// Of which vigorous.
-  final int vigorousMin;
+  /// Of which vigorous, or null when that day carries no breakdown.
+  final int? vigorousMin;
 }
 
 /// Moderate-to-vigorous activity, today and across the week.
@@ -72,10 +74,13 @@ class Mvpa {
     return Mvpa(
       todayMin: (json['today_min'] as num?)?.toInt() ?? 0,
       weekMin: week,
-      // The WHO floor, from the wire.
-      weekTarget: (json['week_target'] as num?)?.toInt() ?? 150,
-      weekModerateMin: (json['week_moderate_min'] as num?)?.toInt() ?? 0,
-      weekVigorousMin: (json['week_vigorous_min'] as num?)?.toInt() ?? 0,
+      // The WHO floor, from the wire, and NOTHING when the wire does not carry
+      // it. The `?? 150` here made this file's own docstring false — "the app
+      // never hard-codes it" — and drew a confident percentage of a number the
+      // server never sent, through a ring with no withheld path.
+      weekTarget: (json['week_target'] as num?)?.toInt(),
+      weekModerateMin: (json['week_moderate_min'] as num?)?.toInt(),
+      weekVigorousMin: (json['week_vigorous_min'] as num?)?.toInt(),
       daily: [
         for (final entry in (json['daily'] as List? ?? const []))
           if (entry is Map<String, Object?>) MvpaDay.fromJson(entry),
@@ -94,13 +99,21 @@ class Mvpa {
   final int weekMin;
 
   /// The weekly floor, from the server. 150 min/week is WHO's.
-  final int weekTarget;
+  ///
+  /// Null when the server sent none, and the ring is withheld rather than drawn
+  /// against a target this app invented.
+  final int? weekTarget;
 
-  /// Of the week's total, moderate minutes.
-  final int weekModerateMin;
+  /// Of the week's total, moderate minutes — null when any day in the week has
+  /// no intensity breakdown, because the split is then unknowable rather than
+  /// smaller. [weekMin] is unaffected: it sums a stored per-day value.
+  final int? weekModerateMin;
 
-  /// Of the week's total, vigorous minutes.
-  final int weekVigorousMin;
+  /// Of the week's total, vigorous minutes. See [weekModerateMin].
+  final int? weekVigorousMin;
+
+  /// Whether the week's moderate/vigorous split was measured on every day of it.
+  bool get hasSplit => weekModerateMin != null && weekVigorousMin != null;
 
   /// The per-day split, oldest first.
   final List<MvpaDay> daily;
@@ -111,8 +124,12 @@ class Mvpa {
   /// Progress against the floor, clamped to 1. Never above: a bar that overfills
   /// says nothing a number does not, and the interesting fact past 100% is the
   /// count, which is shown as a number.
-  double get weekProgress =>
-      weekTarget <= 0 ? 0 : (weekMin / weekTarget).clamp(0.0, 1.0);
+  /// Null without a target: a fraction of a denominator we do not have is not a
+  /// smaller fraction, it is not a fraction.
+  double? get weekProgress => switch (weekTarget) {
+    final int target when target > 0 => (weekMin / target).clamp(0.0, 1.0),
+    _ => null,
+  };
 }
 
 /// Training load — today's, against the owner's own 30-day baseline.

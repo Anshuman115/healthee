@@ -97,8 +97,11 @@ void main() {
       // And the minutes survive the parse. `isNotEmpty` on a list would have
       // passed on a dict of zeroes; the total is what makes this a measurement.
       for (final nap in sleepPageFixture().naps) {
-        expect(nap.stages.total, greaterThan(0));
-        expect(nap.stages.isEmpty, isFalse);
+        // Non-null too: `stages` is nullable now precisely so an unstaged session
+        // can say so, and the fixture's naps ARE staged.
+        expect(nap.stages, isNotNull);
+        expect(nap.stages!.total, greaterThan(0));
+        expect(nap.stages!.isEmpty, isFalse);
       }
     });
 

@@ -71,9 +71,19 @@ def derive_night(cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: d
         (user_id, start_ts),
     )
     sr = cur.fetchone()
-    if sr:
+    # A session with NO stage breakdown scores nothing. Three of the four dimensions —
+    # duration, efficiency, and the sleep debt that reads `tst_min` — are functions of the
+    # stage minutes, so scoring one without them would have to invent a total sleep time,
+    # and the only value available to invent is zero. That is A5's defect arriving in the
+    # derive layer instead of the read layer: a 0-of-4 sleep score, an efficiency of 0%,
+    # and a full night of sleep debt, all for a night nobody measured.
+    #
+    # The columns became nullable in `0018`; before it they were `NOT NULL DEFAULT 0` and
+    # this branch was unreachable, which is exactly how the zeros got through.
+    if sr and any(v is not None for v in sr):
+        rem, light, deep, wake = (int(v or 0) for v in sr)
         out.update(
-            derive_sleep_score(cur, user_id, tz, start_ts, end_ts, sr[0], sr[1], sr[2], sr[3], day)
+            derive_sleep_score(cur, user_id, tz, start_ts, end_ts, rem, light, deep, wake, day)
         )
     return out
 

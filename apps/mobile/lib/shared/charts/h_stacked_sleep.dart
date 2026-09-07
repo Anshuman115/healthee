@@ -100,15 +100,19 @@ class _StackedPainter extends CustomPainter {
     for (var i = 0; i < count; i++) {
       final night = nights[i];
       final x = _leftPad + i * (barWidth + _gap);
-      var stacked = 0.0;
-      for (final stage in kSleepStages) {
-        final minutes = _minutesIn(night, stage).toDouble();
-        final segment = (minutes / axisMinutes) * chartHeight * progress;
-        canvas.drawRect(
-          Rect.fromLTWH(x, chartHeight - stacked - segment, barWidth, segment),
-          Paint()..color = sleepStageColor(hues, stage),
-        );
-        stacked += segment;
+      if (!night.hasBreakdown) {
+        _paintUnmeasured(canvas, x, barWidth, chartHeight);
+      } else {
+        var stacked = 0.0;
+        for (final stage in kSleepStages) {
+          final minutes = _minutesIn(night, stage).toDouble();
+          final segment = (minutes / axisMinutes) * chartHeight * progress;
+          canvas.drawRect(
+            Rect.fromLTWH(x, chartHeight - stacked - segment, barWidth, segment),
+            Paint()..color = sleepStageColor(hues, stage),
+          );
+          stacked += segment;
+        }
       }
       final label = chartLabel(
         night.weekdayInitial,
@@ -119,6 +123,27 @@ class _StackedPainter extends CustomPainter {
         Offset(x + barWidth / 2 - label.width / 2, size.height - 11),
       );
     }
+  }
+
+  /// A night with NO stage breakdown, drawn as an absence rather than as zero.
+  ///
+  /// Four zero-height segments are pixel-identical to a night of literal zero
+  /// sleep, and that is exactly what this chart used to paint for a night the
+  /// strap never staged — the loudest end of the A5 chain, because the owner sees
+  /// a bar chart saying they did not sleep.
+  ///
+  /// A short hollow stub on the baseline instead: it occupies the night's slot so
+  /// the week still reads as seven nights and the weekday label still has a bar
+  /// to sit under, and it is visibly not a measurement. No new colour — the grid
+  /// tone is already the app's "structure, not data" ink.
+  void _paintUnmeasured(Canvas canvas, double x, double barWidth, double chartHeight) {
+    const double stubHeight = 3;
+    canvas.drawRect(
+      Rect.fromLTWH(x, chartHeight - stubHeight, barWidth, stubHeight),
+      Paint()
+        ..color = colors.grid
+        ..style = PaintingStyle.fill,
+    );
   }
 
   void _paintGrid(
@@ -149,8 +174,11 @@ class _StackedPainter extends CustomPainter {
   /// never below two. Legacy's rule, kept — it is what makes the gridlines land
   /// on round hours for every week rather than most weeks.
   double _axisMinutes() {
+    // An unmeasured night contributes NOTHING to the axis rather than a zero: it
+    // has no height to fit, and letting it read as the shortest night would be
+    // the same absence-as-measurement error one layer up.
     final tallest = nights
-        .map((night) => _totalOf(night))
+        .map((night) => night.hasBreakdown ? _totalOf(night) : 0)
         .reduce((a, b) => a > b ? a : b);
     var hours = (tallest / 60).ceil();
     if (hours < 2) {
@@ -162,15 +190,20 @@ class _StackedPainter extends CustomPainter {
     return hours * 60.0;
   }
 
+  /// Only ever called for a night with a breakdown; a missing stage inside one is
+  /// zero minutes of that stage, which is a real reading.
   static int _totalOf(SleepNightSummary night) =>
-      night.deepMin + night.lightMin + night.remMin + night.awakeMin;
+      (night.deepMin ?? 0) +
+      (night.lightMin ?? 0) +
+      (night.remMin ?? 0) +
+      (night.awakeMin ?? 0);
 
   static int _minutesIn(SleepNightSummary night, String stage) =>
       switch (stage) {
-        'deep' => night.deepMin,
-        'light' => night.lightMin,
-        'rem' => night.remMin,
-        'awake' => night.awakeMin,
+        'deep' => night.deepMin ?? 0,
+        'light' => night.lightMin ?? 0,
+        'rem' => night.remMin ?? 0,
+        'awake' => night.awakeMin ?? 0,
         _ => 0,
       };
 

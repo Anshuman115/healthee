@@ -61,11 +61,7 @@ class SleepNap {
       end: _instant(json['end_iso']),
       durationMin: (json['duration_min'] as num?)?.toDouble(),
       midpointLocal: json['midpoint_local'] as String?,
-      stages: StageMinutes.fromJson(
-        json['stages'] is Map<String, Object?>
-            ? json['stages']! as Map<String, Object?>
-            : const <String, Object?>{},
-      ),
+      stages: StageMinutes.maybe(json['stages']),
       timeline: <SleepStageSpan>[
         for (final span
             in (json['stage_timeline'] as List<Object?>? ?? const <Object?>[]))
@@ -92,7 +88,8 @@ class SleepNap {
   /// Its per-stage minute totals. Zeroed rather than absent when the strap
   /// staged nothing, exactly as a night's are — [StageMinutes.isEmpty] is how
   /// "not staged" is asked, never a missing field.
-  final StageMinutes stages;
+  /// Null when the strap staged nothing for the nap — see [StageMinutes].
+  final StageMinutes? stages;
 
   /// Its hypnogram, in order. Often empty on a nap even when [stages] is not:
   /// the strap frequently sends a summary without the spans behind it, and the

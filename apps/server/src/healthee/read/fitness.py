@@ -273,10 +273,17 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = No
     median_ref = float(vo.get("median_for_age") or 41)
     gain = round(min(5.0, max(2.0, 0.4 * max(0.0, median_ref - cur_vo))), 1)
     monday = as_of - timedelta(days=as_of.weekday())
-    wk = {m: 0.0 for m in ("moderate_min", "vigorous_min")}
+    # A day whose `mvpa_min` row carries no intensity breakdown makes the week's
+    # done-minutes unknowable rather than smaller — the same rule `mvpa_week` applies, and
+    # applied here rather than re-derived because progress against a plan is exactly where
+    # an understated total reads as "you have done less than you have".
+    week_mod: float | None = 0.0
+    week_vig: float | None = 0.0
     for _d, mod, vig, _mv in weekly_mvpa_rows(cur, user_id, as_of, (as_of - monday).days + 1):
-        wk["moderate_min"] += mod
-        wk["vigorous_min"] += vig
+        if mod is None or vig is None:
+            week_mod = week_vig = None
+        elif week_mod is not None and week_vig is not None:
+            week_mod, week_vig = week_mod + mod, week_vig + vig
     return {
         "current": round(cur_vo, 1),
         "projected_12wk": round(cur_vo + gain, 1),
@@ -285,10 +292,10 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = No
         "weeks": 12,
         "plan": {
             "zone2_target_min": 90,
-            "zone2_done_min": round(wk["moderate_min"]),
+            "zone2_done_min": None if week_mod is None else round(week_mod),
             "zone2_desc": "3 × 30 min easy aerobic — Zone 2, conversational pace",
             "vilpa_target_min": 15,
-            "vilpa_done_min": round(wk["vigorous_min"]),
+            "vilpa_done_min": None if week_vig is None else round(week_vig),
             "vilpa_desc": "1 hard session — 4-5 × 1-min brisk-to-hard bursts "
             "(stairs / hill / fast walk)",
         },

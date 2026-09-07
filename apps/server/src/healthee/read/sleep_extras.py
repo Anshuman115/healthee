@@ -19,6 +19,7 @@ from healthee.derive.sleep_score import SRI_MESSAGES, sri_unavailable_reason
 from healthee.read.sleep_common import (
     SLEEP_CUTOFFS,
     SLEEP_RESEARCH_NOTES,
+    stage_sleep_min,
     stage_timeline,
     stage_totals,
 )
@@ -50,7 +51,9 @@ def last_sleep(session: tuple | None) -> dict | None:
     return {
         "start_iso": start_ts.isoformat(),
         "end_iso": end_ts.isoformat(),
-        "duration_min": (light or 0) + (deep or 0) + (rem or 0),  # TST (v2: no summary blob)
+        # TST (v2: no summary blob), and NULL without a breakdown to sum — an unstaged
+        # night is not a night of zero sleep.
+        "duration_min": stage_sleep_min(light, deep, rem),
         "score": score,
         "avg_hr": None,  # v2 avg_hr lives on the session row; see last_sleep_extras
         "totals": stage_totals(light, deep, rem, wake),
@@ -102,12 +105,14 @@ def sleep_history_7d(cur: Cur, user_id: UUID, tz: str, day: date | None = None) 
     return [
         {
             "date": d.isoformat(),
-            "duration_min": (light or 0) + (deep or 0) + (rem or 0),
+            "duration_min": stage_sleep_min(light, deep, rem),
             "score": score,
-            "light": light or 0,
-            "deep": deep or 0,
-            "rem": rem or 0,
-            "awake": wake or 0,
+            # Null rather than 0 for the same reason, and all the way down: the app's
+            # mini history bar reads these four directly, so a zero here paints a bar.
+            "light": light,
+            "deep": deep,
+            "rem": rem,
+            "awake": wake,
         }
         for d, light, deep, rem, wake, score in rows
     ]
