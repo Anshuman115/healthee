@@ -3,6 +3,12 @@
 /// A skeleton is content-shaped on purpose: the screen that arrives occupies
 /// exactly this space, so nothing jumps when it does. That only holds if the
 /// shape keeps matching the screen, which is what the counts below are for.
+///
+/// `TodaySkeleton` had a test here — three two-up grid rows and one rich card,
+/// legacy's shape. The v02 redesign replaced that screen and
+/// `shared/skeletons/today_skeleton.dart` became unreachable from `main.dart`,
+/// so the file and its assertions are deleted. A skeleton matching a screen
+/// nobody draws is the one kind of content-shaped that means nothing.
 library;
 
 import 'package:flutter/material.dart';
@@ -11,7 +17,6 @@ import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/skeletons/h_skeleton.dart';
 import 'package:healthee/shared/skeletons/sleep_skeleton.dart';
-import 'package:healthee/shared/skeletons/today_skeleton.dart';
 
 const HealtheeColors _light = HealtheeColors.light();
 
@@ -59,33 +64,6 @@ void main() {
       await _unmount(tester);
     });
 
-    testWidgets('TODAY’S SKELETON IS CONTENT-SHAPED, not a spinner', (
-      tester,
-    ) async {
-      // Tall enough that the list builds every child: a `ListView` is lazy, and
-      // a skeleton nobody scrolls to is one nobody sees either.
-      tester.view
-        ..physicalSize = const Size(420, 1600)
-        ..devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-      await _pumpSkeleton(
-        tester,
-        MaterialApp(theme: AppTheme.light, home: const Scaffold(body: TodaySkeleton())),
-      );
-
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      // Three two-up grid rows, one recovery card and one rich card — legacy's
-      // shape. A skeleton that stopped matching the screen would be a jump.
-      expect(find.byType(SkeletonTileRow), findsNWidgets(3));
-      expect(find.byType(SkeletonRichCard), findsOneWidget);
-      for (final size in tester
-          .widgetList<HSkeleton>(find.byType(HSkeleton))
-          .map((skeleton) => skeleton.height)) {
-        expect(size, greaterThan(0));
-      }
-      await _unmount(tester);
-    });
-
     testWidgets('sleep’s skeleton carries its two chart blocks at legacy’s sizes', (
       tester,
     ) async {
@@ -106,20 +84,18 @@ void main() {
       await _unmount(tester);
     });
 
-    testWidgets('both skeletons render in dark mode too', (tester) async {
+    testWidgets('the sleep skeleton renders in dark mode too', (tester) async {
       tester.view
         ..physicalSize = const Size(420, 1600)
         ..devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
-      for (final body in <Widget>[const TodaySkeleton(), const SleepSkeleton()]) {
-        await _pumpSkeleton(
-          tester,
-          MaterialApp(theme: AppTheme.dark, home: Scaffold(body: body)),
-        );
-        expect(tester.takeException(), isNull);
-        expect(find.byType(HSkeleton), findsWidgets);
-        await _unmount(tester);
-      }
+      await _pumpSkeleton(
+        tester,
+        MaterialApp(theme: AppTheme.dark, home: const Scaffold(body: SleepSkeleton())),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.byType(HSkeleton), findsWidgets);
+      await _unmount(tester);
     });
   });
 }

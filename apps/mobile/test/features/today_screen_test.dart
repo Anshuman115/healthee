@@ -20,8 +20,8 @@ import 'package:healthee/features/today/v02/mini_trend_panel.dart';
 import 'package:healthee/shared/v02/meters.dart';
 
 import '../_today_stubs.dart';
+import '_text_probe.dart' show textOf;
 import '_today_host.dart';
-import '_vitals_probe.dart' show textOf;
 
 /// A viewport tall enough that a `ListView.builder` builds the whole port.
 void _tall(WidgetTester tester) {
@@ -324,6 +324,43 @@ void main() {
       for (final absent in <String>['PAI', 'Anomalies', 'ANOMALIES']) {
         expect(find.textContaining(absent), findsNothing);
       }
+    });
+
+    testWidgets('ON THE REAL PAYLOAD, HRV HAS NONE AND NAMES NONE', (
+      tester,
+    ) async {
+      // Moved here from `vitals_thresholds_test.dart`, which was deleted with
+      // legacy's vitals cards. This half was never about those cards: it is
+      // about `MiniTrendPanel`, which is live, and it is what the owner's phone
+      // renders today.
+      //
+      // Not a hypothetical: the committed contract snapshot carries no HRV
+      // recovery signal, and `hrv_sleep_avg` has no metric card on any payload.
+      //
+      // The v02 panel says how many nights are on the line and stops there. It
+      // does NOT compute a median of those nights and call it a baseline —
+      // `today_facts.dart` records why that would be a second definition of the
+      // owner's normal, arriving as a helpful-looking last resort.
+      _tall(tester);
+      await tester.pumpWidget(todayHost(store));
+      await tester.pumpAndSettle();
+
+      final panel = find.byWidgetPredicate(
+        (widget) => widget is MiniTrendPanel && widget.title == 'Overnight HRV',
+      );
+      await reveal(tester, panel);
+
+      final words = textOf(tester, panel).join(' ').toLowerCase();
+      // On this payload the FIGURE is withheld too — `hrv_sleep_avg` has no
+      // metric card and the ladder carries no HRV marker — so the panel shows
+      // the server's own reason where the number goes. That is the contract:
+      // a hole that says why it is a hole, never a blank.
+      expect(words, contains('the server did not say why'));
+      expect(
+        words,
+        isNot(contains('baseline')),
+        reason: 'a baseline the server did not send may not be named',
+      );
     });
   });
 }

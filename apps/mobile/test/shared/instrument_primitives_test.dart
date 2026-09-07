@@ -1,13 +1,18 @@
-/// The widgets ported from `ui.dart` — measured, not merely rendered.
+/// The widgets ported from `ui.dart` that v02 still draws — measured, not
+/// merely rendered.
 ///
 /// It would be easy to test only that these render. What is actually
 /// load-bearing is their **geometry**: a module that pads at 13 instead of 14,
-/// an eyebrow at the wrong tracking, a progress bar whose fill ignores its
-/// reveal. Every one of those is invisible in a diff and visible on a phone.
+/// an eyebrow at the wrong tracking. Both are invisible in a diff and visible
+/// on a phone.
 ///
-/// The verdict colours get a **mutation**: asserting that a delta of -4 draws
-/// `alert` means nothing unless the same table also proves `good: true` flips
-/// it. Legacy's polarity flag is the thing that would silently invert.
+/// ## What left, and why
+///
+/// Three groups lived here — `HDeltaBadge`, `HProgressBar` and `SectionHeading`
+/// — including the polarity mutation that proved `good: true` flips a verdict
+/// colour. All three widgets became unreachable from `main.dart` in the v02
+/// redesign and are deleted, so their assertions are gone with them rather than
+/// kept green against code nothing draws.
 ///
 /// The pure values these lean on — the corner, the curve, the type roles — are
 /// in `instrument_tokens_test.dart`; the skeletons are in `skeletons_test.dart`.
@@ -18,12 +23,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/shared/instrument/h_delta_badge.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
-import 'package:healthee/shared/instrument/h_progress_bar.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/instrument_module.dart';
-import 'package:healthee/shared/section_heading.dart';
 
 const HealtheeColors _light = HealtheeColors.light();
 const InstrumentHues _hues = InstrumentHues.light();
@@ -78,90 +80,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(scale(), 1);
       expect(taps, 1);
-    });
-  });
-
-  group('HDeltaBadge', () {
-    Future<Color> colourOf(WidgetTester tester, num value, {bool? good}) async {
-      await tester.pumpWidget(_host(HDeltaBadge(value, good: good)));
-      await tester.pumpAndSettle();
-      return _styleOf(tester, '${value > 0 ? '+' : ''}$value').color!;
-    }
-
-    testWidgets('UP IS GREEN AND DOWN IS RED — legacy’s default polarity', (
-      tester,
-    ) async {
-      expect(await colourOf(tester, 4), _light.fav);
-      expect(await colourOf(tester, -4), _light.alert);
-    });
-
-    testWidgets('MUTATION — `good` OVERRIDES THE SIGN, in both directions', (
-      tester,
-    ) async {
-      // The assertion above passes for a badge that ignores `good` entirely.
-      // This one does not. Note what `good` means: legacy's `good ?? up` asks
-      // "is THIS change favourable", not "is up favourable" — so a fall that is
-      // good news is `good: true`, and a rise that is bad news is `good: false`.
-      expect(await colourOf(tester, 4, good: false), _light.alert);
-      expect(await colourOf(tester, -4, good: true), _light.fav);
-    });
-
-    testWidgets('ZERO IS NEITHER — no arrow, no verdict colour', (tester) async {
-      await tester.pumpWidget(_host(const HDeltaBadge(0)));
-      await tester.pumpAndSettle();
-      expect(find.byType(Icon), findsNothing, reason: 'no direction to point in');
-      expect(_styleOf(tester, '0').color, _light.ink3);
-    });
-
-    testWidgets('the direction is in the SEMANTICS, not only in the colour', (
-      tester,
-    ) async {
-      // Colour is the only thing carrying the verdict on screen, and a screen
-      // reader cannot see it.
-      await tester.pumpWidget(_host(const HDeltaBadge(-4, good: true)));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<Text>(find.byType(Text)).semanticsLabel,
-        '-4, better',
-      );
-    });
-  });
-
-  group('HProgressBar', () {
-    Future<double> fillWidth(WidgetTester tester, double value, double progress) async {
-      await tester.pumpWidget(
-        _host(HProgressBar(value: value, progress: progress)),
-      );
-      await tester.pumpAndSettle();
-      return tester
-          .getSize(find.descendant(
-            of: find.byType(HProgressBar),
-            matching: find.byType(Container),
-          ).last)
-          .width;
-    }
-
-    testWidgets('THE FILL IS PROPORTIONAL, AND THE REVEAL SCALES IT', (
-      tester,
-    ) async {
-      expect(await fillWidth(tester, 100, 1), closeTo(320, 0.01));
-      expect(await fillWidth(tester, 50, 1), closeTo(160, 0.01));
-      // Half revealed, half the value: a quarter of the track.
-      expect(await fillWidth(tester, 50, 0.5), closeTo(80, 0.01));
-    });
-
-    testWidgets('a value past the top of the scale does not overflow the track', (
-      tester,
-    ) async {
-      expect(await fillWidth(tester, 260, 1), closeTo(320, 0.01));
-    });
-
-    testWidgets('the bar is legacy’s 5 px, and fully pilled', (tester) async {
-      await tester.pumpWidget(
-        _host(const HProgressBar(value: 40, progress: 1)),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(HProgressBar)).height, 5);
     });
   });
 
@@ -290,37 +208,6 @@ void main() {
         tester.widget<Padding>(find.byType(Padding).first).padding,
         const EdgeInsets.only(top: 8),
       );
-    });
-  });
-
-  group('SectionHeading', () {
-    testWidgets('IS A 23 PX TITLE IN SENTENCE CASE, as legacy draws it', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_host(const SectionHeading('Measured at rest')));
-      await tester.pumpAndSettle();
-
-      // The rebuild used to uppercase these over a hairline rule. Legacy does
-      // neither.
-      expect(find.text('Measured at rest'), findsOneWidget);
-      expect(find.text('MEASURED AT REST'), findsNothing);
-      expect(find.byType(Divider), findsNothing);
-      expect(_styleOf(tester, 'Measured at rest').fontSize, 23);
-    });
-
-    testWidgets('the action renders as legacy’s `LABEL →` in the accent', (
-      tester,
-    ) async {
-      var opened = 0;
-      await tester.pumpWidget(
-        _host(SectionHeading('Suggested today', onSeeAll: () => opened++)),
-      );
-      await tester.pumpAndSettle();
-
-      expect(_styleOf(tester, 'SEE ALL →').color, _light.accent);
-      await tester.tap(find.text('SEE ALL →'));
-      await tester.pumpAndSettle();
-      expect(opened, 1);
     });
   });
 }

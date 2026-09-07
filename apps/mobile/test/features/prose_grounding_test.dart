@@ -24,21 +24,15 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/api/server_snapshot.dart';
-import 'package:healthee/data/challenges/challenge.dart';
-import 'package:healthee/data/challenges/challenge_feed.dart';
-import 'package:healthee/data/challenges/commitment_repository.dart';
-import 'package:healthee/data/challenges/milestones.dart';
 import 'package:healthee/data/insights/generated_insight.dart';
 import 'package:healthee/data/insights/insight_repository.dart';
 import 'package:healthee/data/insights/notable_event.dart';
 import 'package:healthee/data/models/recommendation.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_insight.dart';
-import 'package:healthee/data/notifications/notify_completions.dart';
 import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/features/actions/v02/challenge_card.dart';
 import 'package:healthee/features/actions/v02/suggestion_card.dart';
-import 'package:healthee/features/actions/widgets/challenge_card.dart' as pre;
 import 'package:healthee/features/coach/coach_conversation.dart';
 import 'package:healthee/features/coach/widgets/coach_thread.dart';
 import 'package:healthee/features/insights/widgets/notable_events.dart';
@@ -47,10 +41,8 @@ import 'package:healthee/features/sleep/v02/timing_panel.dart';
 import 'package:healthee/features/today/widgets/actions_section.dart';
 import 'package:healthee/shared/format/note_names.dart';
 import 'package:healthee/shared/insight_card.dart';
-import 'package:healthee/shared/recommendation_entry.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/reasoning_note.dart';
-import 'package:healthee/shared/today_focus.dart';
 import '_citation_probe.dart';
 import '_prose_fixtures.dart';
 
@@ -77,21 +69,6 @@ void main() {
         );
       }
       expect(find.text('Probable'), findsOneWidget, reason: 'the proved grade');
-    });
-
-    testWidgets('the shared recommendation entry', (tester) async {
-      await pumpAt(tester, 390, RecommendationEntry(recommendation: kRec));
-
-      expectGrounds(
-        tester,
-        RecommendationEntry,
-        '${kRec.action} ${kRec.rationale} ${kRec.expectedEffect}',
-        alsoCites: kRec.researchNoteIds,
-      );
-      expect(
-        detailIn(tester, find.byType(RecommendationEntry)).grade,
-        'Probable',
-      );
     });
 
     testWidgets('Today’s action row', (tester) async {
@@ -259,51 +236,6 @@ void main() {
         InsightCard,
         analysis,
         alsoCites: const <String>['vo2max'],
-      );
-    });
-
-    testWidgets('Today’s focus list', (tester) async {
-      await pumpAt(
-        tester,
-        390,
-        ProviderScope(
-          overrides: [
-            notifyCompletionsProvider().overrideWith((ref) async {}),
-            challengeFeedProvider.overrideWith(
-              (ref) => Stream<ServerSnapshot<ChallengeFeed>>.value(
-                ServerSnapshot<ChallengeFeed>(
-                  ChallengeFeed(
-                    active: <Challenge>[kChallenge],
-                    suggested: const <Challenge>[],
-                    recent: const <Challenge>[],
-                    maxActive: 3,
-                  ),
-                  fetchedAt: DateTime(2026, 8, 5),
-                ),
-              ),
-            ),
-            milestonesProvider.overrideWith((ref) async => <Challenge>[]),
-          ],
-          child: const TodayFocus(),
-        ),
-      );
-
-      expectGrounds(
-        tester,
-        TodayFocus,
-        kChallenge.title,
-        alsoCites: kChallenge.citations,
-      );
-    });
-
-    testWidgets('the pre-v02 challenge card', (tester) async {
-      await pumpAt(tester, 390, pre.ChallengeCard(challenge: kChallenge));
-
-      expectGrounds(
-        tester,
-        pre.ChallengeCard,
-        kChallenge.title,
-        alsoCites: kChallenge.citations,
       );
     });
 

@@ -1,222 +1,40 @@
-/// The stage bar: its stages stay apart, and its widths are the real minutes.
+/// Today's picture of the night, and Sleep's — the two are deliberately unalike.
 ///
-/// Today's Sleep cell drew the full four-lane hypnogram at 30 px — ~7 px a lane,
-/// with a 62% band inside that — so a fragmented night rendered as scattered
-/// dots. The drawing was never wrong: the same chart is legible at full width on
-/// Sleep, and stays there. The SIZE was wrong for it. Owner-delegated decision,
-/// 2026-08-06; the argument and its provenance live at `today_tiles.dart`.
+/// ## What this file used to be
 ///
-/// What a 30 px bar can carry is proportion, and the two things that make it a
-/// reading rather than a swatch are asserted here: the stages are **told apart**
-/// (four colours, from the one `stage_colors.dart` table the hypnogram uses), and
-/// the widths are **in proportion to the measured minutes**. A bar whose segments
-/// were equal, or whose stages shared a colour, would pass a "does it render"
-/// test and say nothing true about the night.
+/// It was the suite for `HStageBar`, the 30 px proportion bar the rebuild put
+/// in Today's sleep grid cell after the full four-lane hypnogram rendered there
+/// as scattered dots. Owner-delegated decision, 2026-08-06.
+///
+/// The v02 redesign removed the grid entirely, and with it the site that
+/// problem existed at: `h_stage_bar.dart` is unreachable from `main.dart` now,
+/// so the bar and its mutations are gone. Today's picture of the night is
+/// `screens-overview.js`'s seven-night stack instead — `HStackedSleep` at
+/// 108 px, whose own guard ("no minutes, no bar") is mutated against this file
+/// and `today_charts_test.dart`.
+///
+/// The claim that survives every one of those moves is the one this file now
+/// carries: **no stage timeline is drawn on Today at a size nobody can read**,
+/// the stages are still shown there, and the timeline itself is still on Sleep
+/// at full width — because proportion answers "how did the night divide" and
+/// never "when".
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/core/theme/app_theme.dart';
-import 'package:healthee/core/theme/instrument_hues.dart';
-import 'package:healthee/core/theme/stage_colors.dart';
-import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/sleep/v02/night_panels.dart';
 import 'package:healthee/features/sleep/v02/sleep_reading.dart';
 import 'package:healthee/features/today/v02/night_panels.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
-import 'package:healthee/shared/charts/h_stage_bar.dart';
 import 'package:healthee/shared/charts/v02/v02_hypnogram.dart';
 import 'package:healthee/shared/metric_info/metric_info.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
 import '_today_host.dart';
 
-const InstrumentHues _hues = InstrumentHues.light();
-const HealtheeColors _colors = HealtheeColors.light();
-
-/// One night, deliberately lopsided, so equal widths cannot pass as proportional.
-const Map<String, int> _night = <String, int>{
-  'deep': 60,
-  'light': 240,
-  'rem': 80,
-  'awake': 20,
-};
-
-Widget _bar(Map<String, int> minutes, {double progress = 1}) => MaterialApp(
-  theme: AppTheme.light,
-  home: Scaffold(
-    body: Center(
-      child: SizedBox(
-        width: 160,
-        child: HStageBar(minutes, progress: progress),
-      ),
-    ),
-  ),
-);
-
-List<Expanded> _segments(WidgetTester tester) => tester
-    .widgetList<Expanded>(
-      find.descendant(of: find.byType(HStageBar), matching: find.byType(Expanded)),
-    )
-    .toList();
-
 void main() {
-  group('the bar itself', () {
-    testWidgets('THE FOUR STAGES ARE FOUR DISTINGUISHABLE COLOURS', (tester) async {
-      await tester.pumpWidget(_bar(_night));
-      await tester.pumpAndSettle();
-
-      final fills = tester
-          .widgetList<ColoredBox>(
-            find.descendant(
-              of: find.byType(HStageBar),
-              matching: find.byType(ColoredBox),
-            ),
-          )
-          .map((box) => box.color)
-          .toSet();
-      for (final stage in kSleepStages) {
-        expect(
-          fills,
-          contains(sleepStageColor(_hues, stage)),
-          reason: '$stage must be visible as itself',
-        );
-      }
-      expect(
-        fills.where((fill) => fill != _colors.line2).toSet(),
-        hasLength(4),
-        reason: 'four stages sharing a colour is a swatch, not a chart',
-      );
-    });
-
-    testWidgets('COLOUR IS NOT THE ONLY CARRIER — the ramp, and the words', (
-      tester,
-    ) async {
-      // This is the one stage surface with no legend beside it: 10 px in a grid
-      // cell with no room for a row of keys.
-      //
-      // **The second carrier used to be a luminance ramp** — the shipped stage
-      // colours were derived to darken in `kSleepStages` order, so the bar read
-      // left to right in greyscale too. The owner has since restated that
-      // `design/mobile-preview/` is the specification, and `richer.css` orders
-      // its four stages by HUE, so the ramp is gone. It is recorded below rather
-      // than asserted; `test/theme/stage_contrast_test.dart` carries the full
-      // measurement and the reasoning.
-      //
-      // What is left is the WORD, and it is now the only carrier a greyscale or
-      // colour-deficient reader has here. That makes the semantics assertion
-      // below more load-bearing than it was, not less, which is why it stays a
-      // gate.
-      await tester.pumpWidget(_bar(_night));
-      await tester.pumpAndSettle();
-
-      // 1. The luminances, in segment order. Recorded.
-      final fills = tester
-          .widgetList<ColoredBox>(
-            find.descendant(
-              of: find.byType(FractionallySizedBox),
-              matching: find.byType(ColoredBox),
-            ),
-          )
-          .map((box) => box.color.computeLuminance())
-          .toList();
-      debugPrint(
-        '  stage bar luminance in lane order  '
-        '${fills.map((y) => y.toStringAsFixed(4)).join('  ')}',
-      );
-
-      // 2. The words. Each segment names its own stage, from the ONE label
-      //    source every legend uses, so a screen reader gets the key the cell
-      //    has no room to draw.
-      final handle = tester.ensureSemantics();
-      for (final stage in kSleepStages) {
-        expect(
-          find.bySemanticsLabel(sleepStageLabel(stage)),
-          findsOneWidget,
-          reason: '$stage is unnamed',
-        );
-      }
-      handle.dispose();
-    });
-
-    testWidgets('WIDTHS ARE IN PROPORTION TO THE MEASURED MINUTES', (tester) async {
-      await tester.pumpWidget(_bar(_night));
-      await tester.pumpAndSettle();
-
-      expect(
-        _segments(tester).map((segment) => segment.flex),
-        <int>[60, 240, 80, 20],
-        reason: 'deep → light → REM → awake, at their measured minutes',
-      );
-    });
-
-    testWidgets('AND THEY ARE ACTUALLY PAINTED, AT THE BAR’S FULL HEIGHT', (
-      tester,
-    ) async {
-      // The check the flex assertion above cannot make, and the one a real
-      // render caught: every segment was in the tree with the right flex and
-      // ZERO HEIGHT, because a childless `ColoredBox` under a loose `Stack`
-      // takes `constraints.smallest`. The bar drew as an empty grey track.
-      await tester.pumpWidget(_bar(_night));
-      await tester.pumpAndSettle();
-
-      final painted = find.descendant(
-        of: find.byType(FractionallySizedBox),
-        matching: find.byType(ColoredBox),
-      );
-      expect(painted, findsNWidgets(4));
-      var widest = 0.0;
-      for (var i = 0; i < 4; i++) {
-        final size = tester.getSize(painted.at(i));
-        expect(size.height, 10, reason: 'segment $i collapsed');
-        expect(size.width, greaterThan(0), reason: 'segment $i has no width');
-        widest = size.width > widest ? size.width : widest;
-      }
-      // Light sleep is 240 of 400 minutes, so it must be the widest by far.
-      expect(tester.getSize(painted.at(1)).width, widest);
-    });
-
-    testWidgets('a stage with no minutes takes no width, and none is invented', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_bar(const <String, int>{'deep': 30, 'light': 90}));
-      await tester.pumpAndSettle();
-
-      expect(_segments(tester).map((segment) => segment.flex), <int>[30, 90]);
-    });
-
-    testWidgets('the reveal fills the bar without moving the proportions', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_bar(_night, progress: 0.5));
-      await tester.pumpAndSettle();
-
-      expect(_segments(tester).map((segment) => segment.flex), <int>[60, 240, 80, 20]);
-      expect(
-        tester.widget<FractionallySizedBox>(find.byType(FractionallySizedBox)).widthFactor,
-        0.5,
-      );
-    });
-
-    testWidgets('a night with no staged minutes draws nothing at all', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_bar(const <String, int>{}));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.descendant(
-          of: find.byType(HStageBar),
-          matching: find.byType(ColoredBox),
-        ),
-        findsNothing,
-        reason: 'not even an empty track — a bar of nothing is not a reading',
-      );
-    });
-  });
-
   group('on the screens', () {
     late LocalStore store;
 
