@@ -16,6 +16,7 @@
 /// only when it "always renders its per-factor breakdown".
 library;
 
+import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:meta/meta.dart';
 
 /// One lever's contribution, in years.
@@ -29,6 +30,7 @@ class AgeContribution {
     required this.target,
     required this.unit,
     required this.method,
+    this.comparedAs,
   });
 
   /// Parses one entry of `contributions`.
@@ -40,6 +42,7 @@ class AgeContribution {
       target: (json['target'] as num?)?.toDouble(),
       unit: json['unit'] as String?,
       method: json['method'] as String?,
+      comparedAs: (json['compared_as'] as num?)?.toDouble(),
     );
   }
 
@@ -60,6 +63,19 @@ class AgeContribution {
 
   /// The instrument behind [value], when it had one.
   final String? method;
+
+  /// **The value the hazard curve was actually read at**, when it is not
+  /// [value] itself — the server's own words for the field.
+  ///
+  /// The sleep term is the live case: the curve was measured on hours people
+  /// reported on questionnaires, and questionnaires run long, so the strap's
+  /// nightly average is translated to its questionnaire equivalent before the
+  /// curve is applied. Null on a term that is read at its own value.
+  ///
+  /// It is parsed and drawn rather than dropped because the translation is the
+  /// thing the server spends a whole caveat disclosing: a panel showing only
+  /// [value] would show a number the model did not use.
+  final double? comparedAs;
 }
 
 /// A motivational biological-age estimate with its levers.
@@ -73,6 +89,7 @@ class BiologicalAge {
     required this.contributions,
     required this.disclaimer,
     required this.researchNotes,
+    this.exclusions = const <Disclosure>[],
   });
 
   /// Parses the payload, or null when there is no estimate.
@@ -93,6 +110,13 @@ class BiologicalAge {
       researchNotes: [
         for (final entry in (json['research_notes'] as List? ?? const []))
           if (entry is String) entry,
+      ],
+      exclusions: [
+        for (final entry in (json['excluded'] as List? ?? const []))
+          if (entry is Map<String, Object?> &&
+              entry['reason'] is String &&
+              entry['message'] is String)
+            Disclosure.fromJson(entry),
       ],
     );
   }
@@ -116,4 +140,18 @@ class BiologicalAge {
 
   /// The notes licensing the estimate.
   final List<String> researchNotes;
+
+  /// **`excluded[]`, kept as its own list even when a value arrived.**
+  ///
+  /// `readingFrom` folds exclusions in with the caveats on a payload that
+  /// carries a value, which is right for a card that draws one disclosure line
+  /// — but it makes the two indistinguishable, and the screen that opens up
+  /// this estimate has a whole panel for the exclusion and a different
+  /// disclosure for the caveats. Telling them apart by re-reading a `reason`
+  /// string would be a guess; parsing the key the server actually sent is not.
+  ///
+  /// The [Withheld] case keeps carrying them too. Both are the same claim: the
+  /// term is not one of the levers, on a day the number ships and on a day it
+  /// does not.
+  final List<Disclosure> exclusions;
 }
