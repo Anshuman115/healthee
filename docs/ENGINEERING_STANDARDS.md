@@ -74,6 +74,14 @@ copied into 11 files, and five features silently dead behind swallowed errors.
   stored in `packages/contracts`.
 - **Device analytics** → parity tests against server-exported golden fixtures.
 
+### How we verify — the practices, and how each has failed
+
+`HOW_WE_VERIFY.md` is the companion to this file: this one says what the code
+must be, that one says how we find out whether it is. Mutation testing and its
+four ways of lying, the honesty layer's structural enforcement, the two
+symmetric lies (stale-as-current and future leak), verifying against the design,
+and the contract-snapshot trap.
+
 ### Dead code
 - Delete, don't comment out. Delete, don't keep "just in case" — git has it.
   Unused dependencies are removed in the same PR that orphans them.

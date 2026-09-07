@@ -16,6 +16,9 @@ cutover.
 - **docs/ENGINEERING_STANDARDS.md** — binding quality gates (400-line file max,
   no swallowed errors, tests in the same PR, science code is sacred). Diffs that
   violate a MUST get rejected in review even if they work.
+- **docs/HOW_WE_VERIFY.md** — how we find out whether the code is what it
+  claims: mutation testing and its four ways of lying, the honesty layer's
+  structural enforcement, and the traps that have cost us real time.
 - **docs/ARCHITECTURE.md** — target architecture + the phase plan.
 
 ## Working model
