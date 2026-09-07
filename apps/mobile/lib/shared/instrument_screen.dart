@@ -86,6 +86,7 @@ import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// Everything a screen's section list is built from.
 @immutable
@@ -96,11 +97,20 @@ class ScreenData {
     required this.server,
     required this.reveals,
     required this.onRetryServer,
+    required this.view,
     this.now,
   });
 
   /// What the strap measured, and its refusals.
   final DeviceDay day;
+
+  /// The day being read, and the wall-clock day it is judged against.
+  ///
+  /// Required rather than optional, and it is the difference between a section
+  /// list that can be honest and one that cannot: [day] alone says *which* day
+  /// this is, never whether it is the newest one, and every refusal on a
+  /// date-aware screen turns on that second question.
+  final ViewDay view;
 
   /// What the server made of it — including its loading and error states, which
   /// a section list is sometimes the right place to render.
@@ -190,6 +200,7 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
                   day: day,
                   server: server,
                   reveals: _reveals,
+                  view: watchViewDay(ref),
                   now: widget.now,
                   onRetryServer: () => ref.invalidate(todaySnapshotProvider),
                 ),

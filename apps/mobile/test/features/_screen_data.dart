@@ -14,6 +14,7 @@ import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/models/today_view.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// One render's inputs. [day] defaults to a phone that has synced nothing, so a
 /// test that cares only about the server half does not have to build a day.
@@ -22,9 +23,15 @@ ScreenData screenData({
   TodayView? server,
   AsyncValue<TodayView>? serverState,
   DateTime? now,
+  String latest = '2026-08-04',
 }) {
+  final DeviceDay measured = day ?? DeviceDay.empty('2026-08-04');
   return ScreenData(
-    day: day ?? DeviceDay.empty('2026-08-04'),
+    day: measured,
+    // The day being read IS the day the store was asked for — `deviceDay`
+    // watches `viewDateProvider`, so the two cannot disagree in the app and
+    // must not be allowed to in a test either.
+    view: ViewDay(day: measured.date, latest: latest),
     server: serverState ??
         (server == null
             ? const AsyncLoading<TodayView>()
