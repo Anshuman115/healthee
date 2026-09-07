@@ -15,6 +15,13 @@
 /// prose that used to sit under its chart, and any server disclosure too long to
 /// print beside a number.
 ///
+/// **Server-authored prose sends its grounding here too.** `GroundedProse` and
+/// `GroundedMarkdown` used to draw a citation row under every sentence a model
+/// wrote — Sleep's analysis, Actions' rationales, Insights and the coach. The
+/// owner asked three times for those off the card faces; the ids, the grade, the
+/// server's source sentence, the `[personal_finding:…]` markers and anything
+/// that resolved to nothing all arrive here instead, on [MetricDetail].
+///
 /// **The dot's own gate moved with it.** It used to draw nothing for a key the
 /// map does not hold, which was right when the sheet held only the static
 /// explainer: an ⓘ that opens an empty sheet is worse than no ⓘ. It is wrong now
@@ -50,6 +57,49 @@ const String kMethodBlockLabel = 'HOW TO READ IT';
 
 /// The default heading over a withheld or excluded run of server prose.
 const String kDisclosureBlockLabel = 'WHY THERE IS NO NUMBER';
+
+/// The grounding at the foot of a sheet: sources, grade, the server's own source
+/// sentence, the single-subject findings, and anything that resolved to nothing.
+///
+/// Public, and the reason is the one this file's docstring gives for the sheet
+/// itself. The ⓘ is not the only sheet that answers *"how do we know this"* —
+/// `features/actions/v02/evidence_sheet.dart` is the prototype's own
+/// `H.evidence()` destination and needs the identical foot. Two hand-built
+/// citation rows would be two places a claim's grounding could shrink, and the
+/// one that shrank would look completely normal.
+class DetailGrounding extends StatelessWidget {
+  /// [noteIds] is the final, merged, de-duplicated id list; the rest of the
+  /// grounding travels on [detail] so none of it can be left behind.
+  const DetailGrounding({
+    required this.noteIds,
+    required this.detail,
+    this.fallbackGrade,
+    super.key,
+  });
+
+  /// The sources to name, in reading order.
+  final List<String> noteIds;
+
+  /// The card's own provenance — its grade, source sentence, personal findings
+  /// and unresolved markers.
+  final MetricDetail detail;
+
+  /// The grade to show when the payload sent none.
+  ///
+  /// Only ever the **explainer's** own, looked up from the corpus for prose
+  /// written in this repo against those notes (`shared/format/note_grades.dart`
+  /// argues the distinction). Never derived from an id the payload sent.
+  final String? fallbackGrade;
+
+  @override
+  Widget build(BuildContext context) => CitationRow(
+    noteIds: noteIds,
+    personalFindings: detail.personalFindings,
+    unresolved: detail.unresolved,
+    grade: detail.grade ?? fallbackGrade,
+    source: detail.source,
+  );
+}
 
 /// The small ⓘ button placed in a card header.
 class MetricInfoDot extends StatelessWidget {
@@ -284,10 +334,12 @@ class _MetricInfoSheet extends StatelessWidget {
             // sentence on the sheet with nothing behind it. The sources replace
             // it: same slot, and now it is showing its working rather than
             // asserting it.
-            CitationRow(
+            DetailGrounding(
               noteIds: _notes,
-              grade: explainer == null ? null : weakestGrade(explainer.notes),
-              source: detail.source,
+              detail: detail,
+              fallbackGrade: explainer == null
+                  ? null
+                  : weakestGrade(explainer.notes),
             ),
             if (explainer != null && explainer.uncited.isNotEmpty) ...<Widget>[
               const SizedBox(height: Insets.sm),

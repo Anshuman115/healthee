@@ -12,8 +12,15 @@
 ///
 /// [GroundedProse] stays a plain `Text` because that is right for a sentence, and
 /// putting a markdown parser behind every `action` field would make the common
-/// case pay for the rare one. Both take the **raw** string and neither offers a
-/// way to drop the citations — that rule is the point of both files.
+/// case pay for the rare one. Both take the **raw** string, and neither offers a
+/// way to hand it a pre-stripped one — that rule is the point of both files.
+///
+/// ## Where the sources went
+///
+/// Underneath, until the owner asked three times for them off the card faces.
+/// They are now in the ⓘ of the surface that draws this block, put there by the
+/// same `groundingOf` this widget's parse comes from — see [GroundedProse]'s
+/// docstring for why that move keeps the grounding as hard to drop as it was.
 ///
 /// ## The one thing that is not legacy's
 ///
@@ -22,26 +29,22 @@
 /// regularity index". That is an internal id with its underscores taken out, on a
 /// health screen, presented as a source. Here the parse is
 /// `data/honesty/citations.dart` (the server's own grammar, shared with every
-/// other surface) and the chips are [CitationRow]'s, which resolve each id to the
-/// corpus's own NAME and say so plainly when they cannot. That is honesty
-/// wording, which is the one category of change this port allows.
+/// other surface) and the chips are `CitationRow`'s, in the sheet, which resolve
+/// each id to the corpus's own NAME and say so plainly when they cannot. That is
+/// honesty wording, which is the one category of change this port allows.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/citations.dart';
-import 'package:healthee/shared/states/citation_row.dart';
 
-/// A block of server-authored markdown, with the sources it names underneath.
+/// A block of server-authored markdown. Its sources are in the surface's ⓘ.
 class GroundedMarkdown extends StatelessWidget {
   /// [text] is the raw field off the wire, markers included.
   const GroundedMarkdown({
     required this.text,
     required this.accent,
-    this.grade,
-    this.alsoCites = const <String>[],
     super.key,
   });
 
@@ -51,41 +54,11 @@ class GroundedMarkdown extends StatelessWidget {
   /// Colours the bullet dots. Legacy passes the section's own hue.
   final Color accent;
 
-  /// An evidence grade the payload sent alongside, or null. Never inferred.
-  final String? grade;
-
-  /// Ids the payload carried in a structured field beside the prose — the
-  /// insight's `citations`. Merged with the inline ones so one analysis shows
-  /// one set of sources rather than two rows that disagree.
-  final List<String> alsoCites;
-
   @override
-  Widget build(BuildContext context) {
-    final parsed = parseGrounded(text);
-    final ids = <String>[
-      ...parsed.noteIds,
-      for (final id in alsoCites)
-        if (!parsed.noteIds.contains(id)) id,
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ..._blocks(context, parsed.prose),
-        if (ids.isNotEmpty ||
-            parsed.personalFindings.isNotEmpty ||
-            parsed.unresolved.isNotEmpty ||
-            grade != null) ...[
-          const SizedBox(height: Insets.xs),
-          CitationRow(
-            noteIds: ids,
-            personalFindings: parsed.personalFindings,
-            unresolved: parsed.unresolved,
-            grade: grade,
-          ),
-        ],
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: _blocks(context, parseGrounded(text).prose),
+  );
 
   /// Legacy's line loop: blank → 10 px of air, `**Header:**` → a label,
   /// `* item` → an accent bullet, anything else → a paragraph.

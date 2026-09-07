@@ -39,6 +39,7 @@
 /// stays.
 library;
 
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:meta/meta.dart';
 
@@ -49,12 +50,46 @@ class MetricDetail {
   const MetricDetail({
     this.title,
     this.notes = const <String>[],
+    this.personalFindings = const <String>[],
+    this.unresolved = const <String>[],
+    this.grade,
     this.source,
     this.references = const <String>[],
     this.method = const <String>[],
     this.disclosures = const <Disclosure>[],
     this.disclosuresLabel,
   });
+
+  /// The bundle for a card whose prose was written by a model.
+  ///
+  /// Takes the [Grounding] **whole** rather than its three lists, and that is
+  /// the point of the constructor existing at all. A card routing its sources to
+  /// its ⓘ has to carry three different kinds of thing — the corpus, this
+  /// owner's own history, and the brackets we could not read — and only the
+  /// first of them flatters the app. There is no parameter here for two of the
+  /// three, so a call site cannot keep the sources and quietly leave the
+  /// single-subject framing or an unreadable citation behind.
+  factory MetricDetail.grounded(
+    Grounding grounding, {
+    String? title,
+    String? grade,
+    String? source,
+    List<String> references = const <String>[],
+    List<String> method = const <String>[],
+    List<Disclosure> disclosures = const <Disclosure>[],
+    String? disclosuresLabel,
+  }) => MetricDetail(
+    title: title,
+    notes: grounding.noteIds,
+    personalFindings: grounding.personalFindings,
+    unresolved: grounding.unresolved,
+    grade: grade,
+    source: source,
+    references: references,
+    method: method,
+    disclosures: disclosures,
+    disclosuresLabel: disclosuresLabel,
+  );
 
   /// The bundle a card with nothing to disclose passes. Also the default.
   static const MetricDetail none = MetricDetail();
@@ -70,6 +105,33 @@ class MetricDetail {
   /// `sleep_health.research_notes`. Merged with the explainer's own in the sheet
   /// and de-duplicated, so a note cited by both is one chip.
   final List<String> notes;
+
+  /// `[personal_finding:<name>]` names the card's prose cited.
+  ///
+  /// Kept apart from [notes] all the way to the sheet. A pattern found by
+  /// searching one owner's history is not a literature review, and the sheet
+  /// draws it with `kSingleSubjectFraming` under it — the one wording, shared
+  /// with `findings_section.dart`, because a caveat written twice is a caveat
+  /// that can be softened in one place.
+  final List<String> personalFindings;
+
+  /// Bracketed runs in the card's prose that resolved to no citation at all.
+  ///
+  /// **Carried, never dropped.** A citation we cannot read is our failure, not a
+  /// fact about the owner's body; hiding it would let the app delete a claim's
+  /// grounding on a guess. The marker also stays in the sentence — see
+  /// `data/honesty/citations.dart`.
+  final List<String> unresolved;
+
+  /// An evidence grade the payload sent for this card's claim, or null.
+  ///
+  /// **Never inferred from an id**, here or in the sheet. `citation_row.dart`
+  /// has the argument: deriving one would rebuild the split that once published
+  /// a `Myth` note as `Established` (#83), in the layer with no access to the
+  /// corpus. A recommendation's `evidence_grade` and a coach answer's
+  /// `grade_floor` are the live cases — both computed by the server from the
+  /// notes actually cited.
+  final String? grade;
 
   /// A human sentence about the source, when the payload carried one —
   /// VO₂max's `see_source` is the live example. Rendered verbatim.
@@ -100,6 +162,9 @@ class MetricDetail {
   /// True when there is nothing here worth an ⓘ of its own.
   bool get isEmpty =>
       notes.isEmpty &&
+      personalFindings.isEmpty &&
+      unresolved.isEmpty &&
+      grade == null &&
       source == null &&
       references.isEmpty &&
       method.isEmpty &&

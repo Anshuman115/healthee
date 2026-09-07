@@ -41,6 +41,15 @@
 /// observation from this owner's own history and a note id is the research
 /// corpus; rendering one as the other would give an n-of-1 correlation the
 /// standing of a literature review.
+///
+/// ## Two readers of one parse, and why they must not disagree
+///
+/// The prose and its grounding are now drawn in two different places — the
+/// sentence on the card, the sources in that card's ⓘ. [groundingOf] is what
+/// both of them call, so "what does this prose cite" has ONE answer. A card that
+/// computed its own id list would be a second implementation of the grammar
+/// three lines from the first, and the failure mode is silent: the sentence
+/// keeps its marker stripped and the sheet shows a different set of sources.
 library;
 
 import 'package:meta/meta.dart';
@@ -127,6 +136,102 @@ GroundedText parseGrounded(String raw) {
     personalFindings: personal,
     unresolved: unresolved,
   );
+}
+
+/// Everything backing one claim: the corpus, the owner's own data, and the
+/// brackets that resolved to neither.
+///
+/// The three travel together on purpose. They are the three ways a claim can be
+/// grounded — a published source, a pattern in this one person's history, and a
+/// reference we could not read — and a surface that carried one without the
+/// others would be showing the flattering subset. `MetricDetail.grounded` takes
+/// this whole object rather than its parts for exactly that reason.
+@immutable
+class Grounding {
+  /// Built by [groundingOf] / [groundingOfAll].
+  const Grounding({
+    required this.noteIds,
+    required this.personalFindings,
+    required this.unresolved,
+  });
+
+  /// Nothing cited anything — the bundle a claim with no grounding carries.
+  static const Grounding none = Grounding(
+    noteIds: <String>[],
+    personalFindings: <String>[],
+    unresolved: <String>[],
+  );
+
+  /// The corpus ids: those written inline in the prose, then those the payload
+  /// sent in a structured field beside it, each appearing once.
+  final List<String> noteIds;
+
+  /// The `[personal_finding:<name>]` names cited. Never merged into [noteIds];
+  /// see the library docstring.
+  final List<String> personalFindings;
+
+  /// Bracketed runs that yielded no citation at all. Kept, and shown.
+  final List<String> unresolved;
+
+  /// True when there is nothing here to show and no ⓘ worth drawing.
+  bool get isEmpty =>
+      noteIds.isEmpty && personalFindings.isEmpty && unresolved.isEmpty;
+
+  /// The negation, for a call site that reads better positively.
+  bool get isNotEmpty => !isEmpty;
+}
+
+/// What [text] cites, merged with the ids the payload sent beside it.
+///
+/// The one answer to that question. See the library docstring's second section.
+Grounding groundingOf(
+  String text, {
+  List<String> alsoCites = const <String>[],
+}) => groundingOfAll(<String>[text], alsoCites: alsoCites);
+
+/// The same, for a card carrying several pieces of prose about one subject.
+///
+/// A recommendation's action, its rationale and its expected effect are three
+/// sentences about one suggestion, and they share the rec's `research_note_ids`.
+/// One subject gets one set of sources; two subjects get two ⓘ — the rule
+/// `shared/findings_section.dart` states, because a merged sheet would tell the
+/// reader either claim is backed by either source.
+///
+/// Nulls are skipped, so a call site can pass an optional field straight in
+/// rather than composing the list around it.
+Grounding groundingOfAll(
+  Iterable<String?> texts, {
+  List<String> alsoCites = const <String>[],
+}) {
+  final noteIds = <String>[];
+  final personal = <String>[];
+  final unresolved = <String>[];
+  for (final text in texts) {
+    if (text == null) {
+      continue;
+    }
+    final parsed = parseGrounded(text);
+    _addAll(noteIds, parsed.noteIds);
+    _addAll(personal, parsed.personalFindings);
+    // Not de-duplicated against the others: two brackets we could not read are
+    // two things the reader is owed, even when they read the same.
+    unresolved.addAll(parsed.unresolved);
+  }
+  _addAll(noteIds, alsoCites);
+  return Grounding(
+    noteIds: noteIds,
+    personalFindings: personal,
+    unresolved: unresolved,
+  );
+}
+
+/// Appends [from] to [into], in order, without repeats.
+void _addAll(List<String> into, Iterable<String> from) {
+  for (final value in from) {
+    if (!into.contains(value)) {
+      into.add(value);
+    }
+  }
 }
 
 /// Closes the holes a removed marker leaves.
