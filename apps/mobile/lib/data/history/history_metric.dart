@@ -4,9 +4,22 @@ enum HistoryMetric {
   hrv('hrv_sleep_avg', 'ms'),
   restingHr('rhr_daily', 'bpm'),
   oxygen('spo2_overnight', '%'),
+  // The night's LOWEST reading, which is a different question from its average
+  // and the one the desaturation literature is about. Served since the registry
+  // was written and unlisted here until now — see `BACKEND_GAPS_FROM_UI.md` C3.
+  lowestOxygen('spo2_overnight_min', '%'),
   breathing('respiratory_rate_sleep', 'breaths/min'),
   sleepHealth('sleep_health_score_4dim', '/4'),
   sleepRegularity('sleep_regularity_index', '/100'),
+  // The four checks the sleep-health count is the sum of, each 0 or 1 for one
+  // night. They are **not** duration, efficiency, timing or regularity
+  // themselves — they are whether that night cleared the published cutoff for
+  // one of them, which is why their names all end in "check". Charting them is
+  // charting a pass/fail history, and the unit says so.
+  sleepDurationCheck('sleep_dim_duration', '/1'),
+  sleepEfficiencyCheck('sleep_dim_efficiency', '/1'),
+  sleepTimingCheck('sleep_dim_timing', '/1'),
+  sleepRegularityCheck('sleep_dim_regularity', '/1'),
   steps('steps_total', 'steps'),
   activeMinutes('mvpa_min', 'min'),
   activeEnergy('active_calories', 'kcal'),
