@@ -122,9 +122,16 @@ question is *about*, so the grounding is whatever the model infers from prose.
 
 - **Biological age is fully served.** `analytics/biological_age.py:219-286`
   sends `contributions[]` with `term`, `delta_years`, `hr`, `value`, `unit`,
-  `target`, `compared_as` and `method`, plus `excluded` and `caveats` — and
-  `data/models/biological_age.dart` already parses every field. The `body`
-  screen needs no backend work at all.
+  `target`, `compared_as` and `method`, plus `excluded` and `caveats`. The
+  `body` screen needed no backend work at all.
+
+  **Correction to an earlier claim here.** This section said the app "already
+  parses every field". It did not: **`compared_as` was on the wire and absent
+  from the Dart model**, as was the whole **`vo2max.submax`** block that the
+  fitness screen's instrument panel needs. Both were added when those screens
+  were built. The gap was never on the server — it was a client model quietly
+  dropping fields nobody had needed yet, which is the same silence as a metric
+  name falling back to its id.
 - **Recovery's per-factor breakdown is served** and already modelled in
   `RecoveryScore` (sub-score, weight, value, baseline).
 - **VO₂max sends its own instrument**: `method`, `method_caveat`,

@@ -102,9 +102,18 @@ summary rows**: `Recovery 72/100 · 36 remaining` → **`recovery`** ❌,
 `settings`, a journal strip → `journal`, and three body tabs (Your night · Your
 day · Longer view).
 
-**`sleep`** ✅ — `Details` links to `sleep-history` ❌, five overnight vital rows
-→ `metric/:key`, bridges to `body` and `fitness`. On a past day the absent
-vitals render `—`.
+**`sleep`** ✅ — its two `Details` links (`How your night unfolded`, `Your week,
+stage by stage`) both point at `sleep-history`, and five overnight vital rows go
+to `metric/:key`. On a past day the absent vitals render `—`.
+
+> **Correction.** An earlier revision of this line claimed Sleep carries bridges
+> to `body` and `fitness`. **It does not** — `H.screens.sleep` is defined in
+> `sleep-history-view.js` and contains no `H.bridge` call at all; the hrefs that
+> produced the claim came from `screens-sleep.js`, which defines only the
+> `H.sleepView` helper. The static extraction split a concatenation on
+> `H.screens.` and attributed one file's links to another file's screen. The
+> walk had already shown no such links on screen and the wrong line was carried
+> over anyway. Caught by the agent that built these screens, not by me.
 
 **`activity`** ✅ — per-panel `Details` → `metric/steps`, `metric/mvpa`,
 `metric/load`, `workouts`, `program`, `fitness`; a bridge to `recovery`.
@@ -203,17 +212,18 @@ heart-rate/stress dual chart with a scrubber, `Add your context` → `journal`,
 
 | | count |
 |---|---|
-| Screens missing outright | **4** (`recovery`, `body`, `fitness`, `sleep-history`) — `insight` is now built |
+| Screens missing outright | **0** — `body`, `fitness`, `recovery` and `sleep-history` are built; `insight` before them |
 | Screens needing new backend data | **0** |
 | Existing screens reachable but unlinked | `metrics`, `metric/:key`, `outcomes`, `action-history`, `sync`, `journal` from several parents |
 | Screens where the app's shape differs | **2** — `coach` (a route in the design, a sheet in the app) and `account` (a server form, not the app's sign-in) |
 | Screens built but still on the legacy frame | **1** — `record` (`GpsScreen`) |
 | Structural gaps | the **`?date=` view state** carried in the route · the `parents` back-map · route-derived tone |
 
-The connectivity is not blocked on the server. It is four screens, one back-map,
-the date in the route, and about forty links.
+The connectivity was not blocked on the server, and all five screens are now
+built. What remains is structural: the coach as a route, the GPS frame, the
+back-map, the date in the route, and the last of the links.
 
-### The three that are not simply "a missing screen"
+### The three that are not simply "a missing screen" — all that is left
 
 1. **The date belongs in the route.** Fourteen screens are date-aware, the day
    survives tab switches, and it re-windows every chart it lands on. The app has
