@@ -14,10 +14,16 @@
 ///
 /// Both directions are mutation-verified:
 ///
-///   * stripping without chipping — `GroundedProse` rendering only its prose —
-///     fails `THE CITATION SURVIVES AS A SOURCE`;
-///   * chipping without stripping — rendering the raw string above the chips —
-///     fails `NO RAW CITATION MARKER REACHES ANY SURFACE`.
+///   * the grounding dropped on the way to the ⓘ fails
+///     `THE CITATION SURVIVES AS A SOURCE`;
+///   * the raw string rendered instead of the parsed one fails
+///     `NO RAW CITATION MARKER REACHES ANY SURFACE`.
+///
+/// **The sources are read out of the ⓘ, not off the card.** They used to be
+/// drawn under the prose; the owner asked three times for them off the card
+/// faces, and `citation_sweep_test.dart` now fails the build on any surface that
+/// puts them back. So this suite opens the action row's ⓘ — which is also the
+/// only way to prove the move did not simply delete them.
 ///
 /// The surfaces driven are every field on the wire a model wrote: `/api/today`'s
 /// `action`, and each recommendation's `action`, `expected_effect` and
@@ -28,6 +34,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/today/widgets/actions_section.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
 import '../_today_stubs.dart';
 import '_today_host.dart';
@@ -88,6 +96,26 @@ Future<void> _openTheCard(WidgetTester tester, LocalStore store) async {
   );
 }
 
+/// Opens the action row's ⓘ, where the rec's sources now live.
+///
+/// The row's, not the block head's: the head grounds `/api/today`'s own daily
+/// `action`, which is a different job's prose citing different notes.
+Future<void> _openTheSources(WidgetTester tester, Type surface) async {
+  final dots = find.descendant(
+    of: find.byType(surface),
+    matching: find.byType(MetricInfoDot),
+  );
+  expect(
+    dots,
+    findsWidgets,
+    reason: 'the card lost its chips and gained no ⓘ — that is a deletion',
+  );
+  // The first inside the named surface. For `ActionsSection` that is the block
+  // head's, which grounds the daily line; the rows' own come after it.
+  await tester.tap(dots.first);
+  await tester.pumpAndSettle();
+}
+
 /// Every string this frame is drawing, from every `Text` in the tree.
 Iterable<String> _rendered(WidgetTester tester) sync* {
   for (final widget in tester.widgetList<Text>(find.byType(Text))) {
@@ -127,18 +155,35 @@ void main() {
     // chip carries the corpus's own NAME, so this also pins the id → name
     // resolution: `sleep_need_debt` is never what the owner reads.
     await _openTheCard(tester, store);
+    // Nothing on the card's face, and everything in the sheet behind its ⓘ.
+    expect(find.text('Sleep need & cumulative sleep debt'), findsNothing);
+    await _openTheSources(tester, ActionRow);
 
     expect(find.text('Sleep need & cumulative sleep debt'), findsWidgets);
-    expect(find.text('Daily Recovery / Readiness'), findsWidgets);
-    expect(find.text('Minimum exercise dose and mortality'), findsWidgets);
     for (final line in _rendered(tester)) {
       expect(line, isNot('sleep_need_debt'), reason: 'a chip is a name, not an id');
       expect(line, isNot('recovery_readiness'));
     }
   });
 
+  testWidgets('THE DAILY LINE’S OWN SOURCES ARE NOT THE REC’S', (tester) async {
+    // Two pieces of prose written by two jobs. Folding them into one sheet
+    // would say a recommendation was backed by a note it never named.
+    await _openTheCard(tester, store);
+    await _openTheSources(tester, ActionsSection);
+
+    expect(find.text('Daily Recovery / Readiness'), findsWidgets);
+    expect(find.text('Minimum exercise dose and mortality'), findsWidgets);
+    expect(
+      find.text('Sleep need & cumulative sleep debt'),
+      findsNothing,
+      reason: 'the daily line never cited it',
+    );
+  });
+
   testWidgets('A PERSONAL FINDING IS NOT DRESSED AS RESEARCH', (tester) async {
     await _openTheCard(tester, store);
+    await _openTheSources(tester, ActionRow);
 
     expect(
       find.text('your own data · overnight HRV'),
@@ -190,6 +235,13 @@ void main() {
       findsOneWidget,
       reason: 'we cannot tell what it was meant to be, so we do not edit it out',
     );
+    // This payload carries no recommendations, so the only ⓘ in the block is
+    // the head's — the one grounding the daily line under test.
+    // And the notice reaches the ⓘ. A marker we could not read is our failure,
+    // not a fact about the owner's body: it is carried, never dropped on the
+    // way into the sheet.
+    expect(find.textContaining('no source we can resolve'), findsNothing);
+    await _openTheSources(tester, ActionsSection);
     expect(find.textContaining('no source we can resolve'), findsOneWidget);
   });
 }

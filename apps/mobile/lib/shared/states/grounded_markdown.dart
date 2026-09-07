@@ -1,4 +1,4 @@
-/// Generated prose that arrives as **markdown**, with its grounding intact.
+/// Generated prose that arrives as **markdown**, rendered rather than printed.
 ///
 /// ## Why this exists beside [GroundedProse] rather than inside it
 ///
