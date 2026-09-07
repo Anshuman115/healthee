@@ -27,19 +27,43 @@ enum HistoryMetric {
   final String unit;
 }
 
+/// The explainer key for a canonical metric id — [historyMetricFor] inverted.
+///
+/// `kMetricInfo` is keyed by the explainer's own vocabulary (`hrv`, `vo2max`,
+/// `resp`) for some entries and by the canonical id (`rhr_daily`,
+/// `steps_total`) for others, so a screen that has an id and wants the
+/// explainer has to search the same alias table this file already owns rather
+/// than keeping a second one — two tables is two chances for one of them to map
+/// `spo2` somewhere else.
+///
+/// Falls back to [metric] itself, which is right for every entry keyed by its
+/// id. An id with no explainer either way resolves to a key the map does not
+/// hold, and `MetricInfoDot` already draws nothing for that unless the card
+/// carries provenance of its own.
+String explainerKeyFor(String metric) {
+  for (final entry in _aliases.entries) {
+    if (entry.value == metric) {
+      return entry.key;
+    }
+  }
+  return metric;
+}
+
 /// Explainer vocabulary maps to canonical server metrics without v1 aliases.
 String? historyMetricFor(String key) {
-  const aliases = {
-    'hrv': 'hrv_sleep_avg',
-    'resp': 'respiratory_rate_sleep',
-    'vo2max': 'vo2max_estimate',
-    'sleep_health': 'sleep_health_score_4dim',
-    'sleep_consistency': 'sleep_regularity_index',
-    'sleep_debt': 'sleep_debt_min',
-    'energy': 'total_calories',
-    'mvpa': 'mvpa_min',
-    'spo2': 'spo2_overnight',
-  };
-  final id = aliases[key] ?? key;
+  final id = _aliases[key] ?? key;
   return HistoryMetric.values.any((m) => m.id == id) ? id : null;
 }
+
+/// The one alias table, read in both directions.
+const Map<String, String> _aliases = <String, String>{
+  'hrv': 'hrv_sleep_avg',
+  'resp': 'respiratory_rate_sleep',
+  'vo2max': 'vo2max_estimate',
+  'sleep_health': 'sleep_health_score_4dim',
+  'sleep_consistency': 'sleep_regularity_index',
+  'sleep_debt': 'sleep_debt_min',
+  'energy': 'total_calories',
+  'mvpa': 'mvpa_min',
+  'spo2': 'spo2_overnight',
+};

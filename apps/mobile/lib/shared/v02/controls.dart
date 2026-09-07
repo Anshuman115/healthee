@@ -134,6 +134,7 @@ class TextLink extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon = Icons.arrow_forward,
+    this.iconLeading = false,
     super.key,
   });
 
@@ -155,6 +156,14 @@ class TextLink extends StatelessWidget {
   /// The glyph after the label.
   final IconData icon;
 
+  /// Whether the glyph comes BEFORE the words instead.
+  ///
+  /// Two `.text-button` call sites, two orders: `H.link` writes
+  /// `${label}${arrow}` and `H.evidence` writes `${info}${label}`. Both are the
+  /// same CSS rule with the same gap, so this is which side the icon is
+  /// transcribed on rather than a second opinion about the control.
+  final bool iconLeading;
+
   @override
   Widget build(BuildContext context) {
     final family = context.family;
@@ -168,6 +177,10 @@ class TextLink extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
+          if (iconLeading) ...<Widget>[
+            Icon(icon, size: iconSize, color: family),
+            const SizedBox(width: gap),
+          ],
           Flexible(
             child: Text(
               label,
@@ -176,8 +189,10 @@ class TextLink extends StatelessWidget {
               style: TypeScale.textLink.copyWith(color: family),
             ),
           ),
-          const SizedBox(width: gap),
-          Icon(icon, size: iconSize, color: family),
+          if (!iconLeading) ...<Widget>[
+            const SizedBox(width: gap),
+            Icon(icon, size: iconSize, color: family),
+          ],
         ],
       ),
     );

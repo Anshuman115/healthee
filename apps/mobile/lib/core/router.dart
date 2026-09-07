@@ -61,6 +61,7 @@ import 'package:healthee/features/gps/gps_screen.dart';
 import 'package:healthee/features/gps/route_detail_screen.dart';
 import 'package:healthee/features/gps/routes_screen.dart';
 import 'package:healthee/features/history/history_screen.dart';
+import 'package:healthee/features/history/metric_explorer_screen.dart';
 import 'package:healthee/features/workouts/workout_detail_screen.dart';
 import 'package:healthee/features/workouts/workout_history_screen.dart';
 import 'package:healthee/shared/app_shell.dart';
@@ -287,8 +288,17 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       GoRoute(
         path: Routes.history,
-        builder: (context, state) =>
-            HistoryScreen(initialMetric: state.uri.queryParameters['metric']),
+        // One route, two screens. With no `metric` it is the explorer — the
+        // directory of every signal the app holds a history for, which is what
+        // `H.link('All measurements', 'metrics')` opens in the prototype. With
+        // one, it is that metric's own dated series. A second path would mean
+        // two names for one destination and a second thing to keep reachable.
+        builder: (context, state) {
+          final metric = state.uri.queryParameters['metric'];
+          return metric == null
+              ? const MetricExplorerScreen()
+              : HistoryScreen(initialMetric: metric);
+        },
       ),
       ...settingsRoutes(),
     ],

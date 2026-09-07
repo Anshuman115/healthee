@@ -1,12 +1,15 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+/// `/api/history`'s parse rules — the layer that decides what a day *is*.
+///
+/// The screen these observations are drawn on is v02's now and has its own
+/// suites (`history_screen_test.dart`, `history_window_test.dart`). What stayed
+/// here is the half a redesign must never touch: a mismatched metric, an
+/// impossible date and an out-of-order series are all refused, and a real zero
+/// is kept apart from a missing day.
+library;
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/core/theme/app_theme.dart';
-import 'package:healthee/data/history/history_marker.dart';
 import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/history/history_repository.dart';
-import 'package:healthee/data/models/trend_point.dart';
-import 'package:healthee/features/history/history_screen.dart';
 
 void main() {
   test('preserves missing days and actual zero observations', () {
@@ -51,32 +54,5 @@ void main() {
       }, HistoryMetric.restingHr),
       throwsFormatException,
     );
-  });
-
-  testWidgets('period selection loads new data and renders dated values', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          historyMarkersProvider(90).overrideWith((ref) async => []),
-          historyMarkersProvider(30).overrideWith((ref) async => []),
-          metricHistoryProvider(HistoryMetric.hrv, 90).overrideWith(
-            (ref) async => [const TrendPoint(date: '2026-01-01', value: 42)],
-          ),
-          metricHistoryProvider(
-            HistoryMetric.hrv,
-            30,
-          ).overrideWith((ref) async => []),
-        ],
-        child: MaterialApp(theme: AppTheme.light, home: const HistoryScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('42.0 ms'), findsOneWidget);
-    await tester.tap(find.text('30 days'));
-    await tester.pumpAndSettle();
-    expect(find.text('42.0 ms'), findsNothing);
-    expect(find.text('No observations in this period'), findsOneWidget);
   });
 }

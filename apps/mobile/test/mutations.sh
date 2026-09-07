@@ -1849,6 +1849,57 @@ mutate 'an invalid amount reaches the wire' "$JOURNAL_TEST" "$LOG_SHEET" \
       setState(() => _message = problem);
     }'
 
+# ── the v02 history surfaces ────────────────────────────────────────────────
+TILE=lib/features/history/v02/metric_tile.dart
+PANEL=lib/features/history/v02/history_panel.dart
+WINDOW=lib/features/history/history_window.dart
+EXPLORER=lib/features/history/metric_explorer_screen.dart
+EXPLORER_TEST=test/history/metric_explorer_test.dart
+HISTORY_TEST=test/history/history_screen_test.dart
+WINDOW_TEST=test/history/history_window_test.dart
+
+# A refusal that is silently dropped leaves the tile reading as "no data", which
+# is a different and much softer claim than the server's own sentence.
+mutate 'a withheld reading loses its reason in the tile' "$EXPLORER_TEST" "$TILE" \
+  '    final refusal = withheld is Withheld<double>
+        ? withheld.disclosure.message
+        : null;' \
+  '    final refusal = withheld is Withheld<double> ? null : null;'
+
+# THE ONE THAT MATTERS MOST. Colour by the sign of the delta and every metric
+# gets a verdict — after which the colours that really ARE verdicts stop meaning
+# anything, and calories rising reads as good news.
+mutate 'a polarity-unknown metric is coloured by the sign of its delta' \
+  "$HISTORY_TEST" "$PANEL" \
+  '      TrendVerdict.none => null,' \
+  '      TrendVerdict.none => delta > 0 ? colors.fav : colors.unf,'
+
+# Squeeze the holes out and a fortnight with two missing nights draws twelve
+# evenly-spaced points with every one of them joined up.
+mutate 'a missing day is squeezed out instead of left as a hole' \
+  "$WINDOW_TEST $HISTORY_TEST" "$WINDOW" \
+  '      values.add(byDay[day]);' \
+  '      if (byDay[day] != null) values.add(byDay[day]);'
+
+# One metric quietly missing from the directory is a door nobody can find, and
+# the screen looks entirely correct without it.
+mutate 'the explorer drops a metric from the directory' "$EXPLORER_TEST" "$EXPLORER" \
+  '    for (final metric in HistoryMetric.values)
+      _entryFor(metric, cards[metric.id], snapshot),' \
+  '    for (final metric in HistoryMetric.values.skip(1))
+      _entryFor(metric, cards[metric.id], snapshot),'
+
+# An id on a tile is a log line where a name belongs.
+mutate 'a tile falls back to the raw metric id' "$EXPLORER_TEST" "$EXPLORER" \
+  '    title: card?.label ?? metricTitle(metric.id),' \
+  '    title: card?.label ?? metric.id,'
+
+# The window must stop on the day the reader chose. Showing the newest reading
+# under an older date is stale-as-current at one metric's scale.
+mutate 'the window ignores the selected day' "$WINDOW_TEST" "$WINDOW" \
+  '      if (point.date.compareTo(day) <= 0) point,' \
+  '      point,'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

@@ -24,3 +24,24 @@ String prettyDate(String iso) {
   ];
   return '${days[parsed.weekday - 1]} · ${months[parsed.month - 1]} ${parsed.day}';
 }
+
+/// `2026-07-18` → `18 Jul`. The prototype's chart captions and table rows.
+///
+/// `history-data.js`: `Intl.DateTimeFormat('en-GB', {day:'numeric',
+/// month:'short'})`. Separate from [prettyDate] because they answer different
+/// questions — a header names the day the reader is on, and a chart caption
+/// names an edge of a window — and one form used for both would either put a
+/// weekday on thirty axis labels or take it off the header that needs it.
+///
+/// Same fallback as [prettyDate]: an unparseable date is still information.
+String shortDate(String iso) {
+  final parsed = DateTime.tryParse(iso);
+  if (parsed == null) {
+    return iso.toUpperCase();
+  }
+  const months = <String>[
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${parsed.day} ${months[parsed.month - 1]}';
+}
