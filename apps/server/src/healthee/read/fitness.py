@@ -19,10 +19,9 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
-from healthee.core.tenancy import USER_TODAY_SQL, user_today
-from healthee.derive._common import Cur
+from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day
+from healthee.derive._common import Cur, _day_bounds_utc
 from healthee.read.common import derived_series, latest_derived, sport_name
 from healthee.read.vo2max import vo2max_payload
 
@@ -37,14 +36,20 @@ _STRENGTH_TYPES = {
 _YOGA_MIN_DURATION = 30  # generic yoga counts only if >=30 min, at 50% credit
 
 
-def cardio_load_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
-    """Daily cardio load (Banister TRIMP) + strain 0-21 + 30-day trend/baseline.
-    [[training_stress_score]]."""
+def cardio_load_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
+    """Daily cardio load (Banister TRIMP) + strain 0-21 + 30-day trend, as of a day.
+    [[training_stress_score]].
+
+    The window closes at the reference day, so ``rows[-1]`` — which every field below
+    treats as "the load that speaks for this day" — cannot be a day after it. The 30-day
+    baseline is the mean of the window's PRIOR days, so it moves with the same bound.
+    """
+    as_of = reference_day(day, tz)
     cur.execute(
         "SELECT day, value, flags FROM derived_daily "
         "WHERE user_id = %s AND metric='cardio_load' "
-        f"AND day >= ({USER_TODAY_SQL} - 35) ORDER BY day",
-        (user_id, tz),
+        f"AND day >= ({AS_OF_DAY_SQL} - 35) AND day <= {AS_OF_DAY_SQL} ORDER BY day",
+        (user_id, as_of, as_of),
     )
     rows = cur.fetchall()
     if not rows:
@@ -55,7 +60,7 @@ def cardio_load_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     baseline = round(sum(prior) / len(prior), 1) if prior else None
     return {
         "load": round(latest_value, 1),
-        "strain": _strain(cur, user_id, tz, latest_value),
+        "strain": _strain(cur, user_id, as_of, latest_value),
         "strain_max": 21.0,
         "as_of_date": rows[-1][0].isoformat(),
         "baseline_30d": baseline,
@@ -79,40 +84,51 @@ def strain_from_load(load: float, p95: float | None) -> float | None:
     return round(max(0.0, min(21.0, 21.0 * (load / p95) ** 0.75)), 1)
 
 
-def _strain(cur: Cur, user_id: UUID, tz: str, latest_load: float) -> float | None:
-    """Read the personal 90-day P95 of cardio-load and map ``latest_load`` onto 0-21."""
+def _strain(cur: Cur, user_id: UUID, as_of: date, latest_load: float) -> float | None:
+    """The personal 90-day P95 of cardio-load ENDING at ``as_of``, mapped onto 0-21.
+
+    "A hard day for this person" is a claim about the 90 days behind the day being
+    answered for. An open-topped window would price a June effort against a P95 that
+    includes August — the same value read on a scale it could not have been measured on.
+    """
     cur.execute(
         "SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY value) FROM derived_daily "
         "WHERE user_id = %s AND metric='cardio_load' AND value > 0 "
-        f"AND day >= ({USER_TODAY_SQL} - 90)",
-        (user_id, tz),
+        f"AND day >= ({AS_OF_DAY_SQL} - 90) AND day <= {AS_OF_DAY_SQL}",
+        (user_id, as_of, as_of),
     )
     row = cur.fetchone()
     p95 = float(row[0]) if row and row[0] else None
     return strain_from_load(latest_load, p95)
 
 
-def _weekly_mvpa_rows(cur: Cur, user_id: UUID, tz: str, days: int) -> list[tuple]:
-    """(day, moderate, vigorous, mvpa) for the last ``days`` days — moderate/vigorous
-    read from the ``mvpa_min`` flags (v2 stores them there, not as own rows)."""
+def _weekly_mvpa_rows(cur: Cur, user_id: UUID, as_of: date, days: int) -> list[tuple]:
+    """(day, moderate, vigorous, mvpa) for the ``days`` days ENDING at ``as_of`` —
+    moderate/vigorous read from the ``mvpa_min`` flags (v2 stores them there, not as
+    own rows)."""
     cur.execute(
         "SELECT day, COALESCE((flags->>'moderate')::float,0), "
         "COALESCE((flags->>'vigorous')::float,0), value FROM derived_daily "
-        f"WHERE user_id = %s AND metric='mvpa_min' AND day > ({USER_TODAY_SQL} - %s::int) "
-        "ORDER BY day",
-        (user_id, tz, days),
+        f"WHERE user_id = %s AND metric='mvpa_min' AND day > ({AS_OF_DAY_SQL} - %s::int) "
+        f"AND day <= {AS_OF_DAY_SQL} ORDER BY day",
+        (user_id, as_of, days, as_of),
     )
     return cur.fetchall()
 
 
-def mvpa_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
+def mvpa_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
     """Weekly moderate-to-vigorous minutes vs the WHO 150-min target + 8-day
-    breakdown. [[mvpa_minutes_mortality]], [[cadence_intensity]]."""
-    rows = _weekly_mvpa_rows(cur, user_id, tz, 8)
+    breakdown, as of a day. [[mvpa_minutes_mortality]], [[cadence_intensity]].
+
+    "This week" is the week CONTAINING the reference day and it stops there: a Wednesday
+    in June reports Monday-to-Wednesday, not that whole June week seen from August.
+    ``today_min`` means the reference day's own minutes, for the same reason.
+    """
+    as_of = reference_day(day, tz)
+    rows = _weekly_mvpa_rows(cur, user_id, as_of, 8)
     if not rows:
         return None
-    today = user_today(tz)
-    monday = today - timedelta(days=today.weekday())
+    monday = as_of - timedelta(days=as_of.weekday())
     daily, week_mod, week_vig, week_mvpa, today_mvpa = [], 0, 0, 0, 0
     for d, m, v, mv in rows:
         m_i, v_i, mv_i = int(m), int(v), int(mv)
@@ -121,7 +137,7 @@ def mvpa_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
         )
         if d >= monday:
             week_mod, week_vig, week_mvpa = week_mod + m_i, week_vig + v_i, week_mvpa + mv_i
-        if d == today:
+        if d == as_of:
             today_mvpa = mv_i
     return {
         "today_min": today_mvpa,
@@ -135,14 +151,19 @@ def mvpa_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     }
 
 
-def strength_payload(cur: Cur, user_id: UUID, tz: str) -> dict:
+def strength_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict:
     """Weekly strength-training minutes vs the 30-60 min sweet spot (Momma 2022).
     v2-native: manual ``exercise`` logs + strength-coded device ``workout`` rows
-    (legacy read the v1 ``session`` table). [[strength_training_mortality]]."""
-    today = user_today(tz)
-    monday = today - timedelta(days=today.weekday())
-    minutes, sessions, types = _strength_manual(cur, user_id, tz, monday)
-    m2, s2, t2 = _strength_workouts(cur, user_id, tz, monday)
+    (legacy read the v1 ``session`` table). [[strength_training_mortality]].
+
+    The week is Monday through ``day`` inclusive, both edges bound as instants in the
+    owner's zone. Open at the top it would count sessions the reference day had not
+    seen yet — a week in June reporting effort logged in August.
+    """
+    as_of = reference_day(day, tz)
+    monday = as_of - timedelta(days=as_of.weekday())
+    minutes, sessions, types = _strength_manual(cur, user_id, tz, monday, as_of)
+    m2, s2, t2 = _strength_workouts(cur, user_id, tz, monday, as_of)
     minutes, sessions, types = minutes + m2, sessions + s2, types | t2
     return {
         "week_min": int(round(minutes)),
@@ -155,12 +176,14 @@ def strength_payload(cur: Cur, user_id: UUID, tz: str) -> dict:
     }
 
 
-def _strength_manual(cur: Cur, user_id: UUID, tz: str, monday) -> tuple[float, int, set[str]]:
-    """Strength minutes from manual ``exercise`` entries since Monday (v2-native)."""
+def _strength_manual(
+    cur: Cur, user_id: UUID, tz: str, monday: date, as_of: date
+) -> tuple[float, int, set[str]]:
+    """Strength minutes from manual ``exercise`` entries, Monday through ``as_of``."""
     cur.execute(
         "SELECT ts, end_ts, name, amount FROM manual_entry "
-        "WHERE user_id = %s AND kind='exercise' AND ts >= %s",
-        (user_id, _monday_utc(monday, tz)),
+        "WHERE user_id = %s AND kind='exercise' AND ts >= %s AND ts < %s",
+        (user_id, *_week_bounds_utc(monday, as_of, tz)),
     )
     minutes, sessions, types = 0.0, 0, set()
     for ts, end_ts, name, amount in cur.fetchall():
@@ -177,12 +200,14 @@ def _strength_manual(cur: Cur, user_id: UUID, tz: str, monday) -> tuple[float, i
     return minutes, sessions, types
 
 
-def _strength_workouts(cur: Cur, user_id: UUID, tz: str, monday) -> tuple[float, int, set[str]]:
-    """Strength minutes from strength-coded device ``workout`` rows since Monday."""
+def _strength_workouts(
+    cur: Cur, user_id: UUID, tz: str, monday: date, as_of: date
+) -> tuple[float, int, set[str]]:
+    """Strength minutes from strength-coded ``workout`` rows, Monday through ``as_of``."""
     cur.execute(
         "SELECT sport, duration_s FROM workout "
-        "WHERE user_id = %s AND sport = ANY(%s) AND start_ts >= %s",
-        (user_id, list(_STRENGTH_SPORTS), _monday_utc(monday, tz)),
+        "WHERE user_id = %s AND sport = ANY(%s) AND start_ts >= %s AND start_ts < %s",
+        (user_id, list(_STRENGTH_SPORTS), *_week_bounds_utc(monday, as_of, tz)),
     )
     minutes, sessions, types = 0.0, 0, set()
     for sport, dur_s in cur.fetchall():
@@ -194,9 +219,17 @@ def _strength_workouts(cur: Cur, user_id: UUID, tz: str, monday) -> tuple[float,
     return minutes, sessions, types
 
 
-def _monday_utc(monday: date, tz: str) -> datetime:
-    """UTC-aware instant for the start of the local week."""
-    return datetime(monday.year, monday.month, monday.day, tzinfo=ZoneInfo(tz))
+def _week_bounds_utc(monday: date, as_of: date, tz: str) -> tuple[datetime, datetime]:
+    """The half-open UTC bracket for the local days ``monday`` through ``as_of``.
+
+    Replaces ``_monday_utc``, which built a local midnight by hand. Now that the week
+    has a CLOSING edge as well as an opening one, that hand-rolled instant would have
+    been a second definition of a local day boundary sitting beside
+    ``derive._common._day_bounds_utc`` — the module whose whole docstring is about the
+    two ways a day edge is got wrong across a DST transition. One definition, used at
+    both ends (standards §Duplication).
+    """
+    return _day_bounds_utc(monday, tz)[0], _day_bounds_utc(as_of, tz)[1]
 
 
 def acwr(cardio: dict | None) -> dict | None:
@@ -229,19 +262,23 @@ def acwr(cardio: dict | None) -> dict | None:
     }
 
 
-def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
+def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
     """VO2max-raising weekly Rx + a 12-week projected trajectory (an estimate of
-    typical response, bounded +2..+5 ml/kg/min, never a promise). [[vo2max]]."""
-    vo = vo2max_payload(cur, user_id, tz)
+    typical response, bounded +2..+5 ml/kg/min, never a promise). [[vo2max]].
+
+    Every input is the reference day's: the estimate it starts from, and the
+    week-to-date it measures progress against.
+    """
+    as_of = reference_day(day, tz)
+    vo = vo2max_payload(cur, user_id, tz, as_of)
     if not vo or vo.get("estimate") is None:
         return None
     cur_vo = float(vo["estimate"])
     median_ref = float(vo.get("median_for_age") or 41)
     gain = round(min(5.0, max(2.0, 0.4 * max(0.0, median_ref - cur_vo))), 1)
-    today = user_today(tz)
-    monday = today - timedelta(days=today.weekday())
+    monday = as_of - timedelta(days=as_of.weekday())
     wk = {m: 0.0 for m in ("moderate_min", "vigorous_min")}
-    for _d, mod, vig, _mv in _weekly_mvpa_rows(cur, user_id, tz, (today - monday).days + 1):
+    for _d, mod, vig, _mv in _weekly_mvpa_rows(cur, user_id, as_of, (as_of - monday).days + 1):
         wk["moderate_min"] += mod
         wk["vigorous_min"] += vig
     return {
@@ -265,36 +302,50 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
 
 
 def activity_metric(
-    cur: Cur, user_id: UUID, tz: str, candidates: list[str], days: int = 30
+    cur: Cur,
+    user_id: UUID,
+    tz: str,
+    candidates: list[str],
+    days: int = 30,
+    day: date | None = None,
 ) -> dict | None:
-    """Latest value + date + N-day series for the first candidate metric with data
+    """Value + date + N-day series, as of ``day``, for the first candidate with data
     (steps/calories/distance). v2-native ``derived_daily`` read.
 
     ``caveats`` is a permanent key and empty for a metric with nothing to disclose — the
     same contract ``read/today_series.py::_derived_card`` holds, because the Activity tab
     and the Today card render the same two calorie rows and must not differ on whether the
     weight behind them is current (#127)."""
+    as_of = reference_day(day, tz)
     for cand in candidates:
-        latest = latest_derived(cur, user_id, cand)
+        latest = latest_derived(cur, user_id, cand, as_of)
         if latest:
-            day, value, flags = latest
+            row_day, value, flags = latest
             return {
                 "metric": cand,
                 "value": round(value, 1),
-                "as_of_date": day.isoformat(),
+                "as_of_date": row_day.isoformat(),
                 "caveats": flags.get("caveats") or [],
-                "trend": derived_series(cur, user_id, tz, cand, days),
+                "trend": derived_series(cur, user_id, cand, days, as_of),
             }
     return None
 
 
-def workouts_list(cur: Cur, user_id: UUID, limit: int = 100) -> list[dict]:
-    """Device-recorded workouts (>=10 min) with HR detail, newest first."""
+def workouts_list(
+    cur: Cur, user_id: UUID, tz: str, limit: int = 100, day: date | None = None
+) -> list[dict]:
+    """Device-recorded workouts (>=10 min) with HR detail, newest first, ending at ``day``.
+
+    A list "newest first" is a list of latests, so it takes the bound like every other:
+    the Activity tab as of 29 July must not show a session recorded in August above the
+    ones it is meant to be about.
+    """
+    as_of = reference_day(day, tz)
     cur.execute(
         "SELECT start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr "
-        "FROM workout WHERE user_id = %s AND COALESCE(duration_s, 0) >= %s "
+        "FROM workout WHERE user_id = %s AND COALESCE(duration_s, 0) >= %s AND start_ts < %s "
         "ORDER BY start_ts DESC LIMIT %s",
-        (user_id, _MIN_WORKOUT_S, limit),
+        (user_id, _MIN_WORKOUT_S, _day_bounds_utc(as_of, tz)[1], limit),
     )
     out = []
     for start_ts, sport, dur_s, cal, dist, avg_hr, max_hr, min_hr in cur.fetchall():

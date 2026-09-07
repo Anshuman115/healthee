@@ -7,11 +7,11 @@ view or a ``source=`` filter.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import LiteralString, cast
 from uuid import UUID
 
-from healthee.core.tenancy import USER_TODAY_SQL
+from healthee.core.tenancy import AS_OF_DAY_SQL
 from healthee.derive._common import Cur
 
 # Hypnogram stage-type codes → name (ZeppOS 0x48 blob; derive uses 7=awake).
@@ -66,10 +66,10 @@ def stage_totals(light: int | None, deep: int | None, rem: int | None, wake: int
     return {"light": light or 0, "deep": deep or 0, "rem": rem or 0, "awake": wake or 0}
 
 
-def main_sessions(cur: Cur, user_id: UUID, tz: str, days: int) -> list[tuple]:
-    """One main sleep session per local wake-date over the window, newest first.
-    The main sleep is the LONGEST session of the wake-date (keeps a short daytime
-    session from ever being picked as the night)."""
+def main_sessions(cur: Cur, user_id: UUID, tz: str, days: int, on_or_before: date) -> list[tuple]:
+    """One main sleep session per local wake-date over the window ENDING at
+    ``on_or_before``, newest first. The main sleep is the LONGEST session of the
+    wake-date (keeps a short daytime session from ever being picked as the night)."""
     # The local wake-date is computed ONCE in a subquery: with server-side binding
     # each `AT TIME ZONE %s` is a DISTINCT parameter, so repeating the expression
     # would make DISTINCT ON and ORDER BY non-matching expressions (a hard error)
@@ -82,18 +82,23 @@ def main_sessions(cur: Cur, user_id: UUID, tz: str, days: int) -> list[tuple]:
         "    light_min, deep_min, rem_min, wake_min, score, stages "
         "  FROM sleep_session WHERE user_id = %s AND kind='main'"
         ") s "
-        f"WHERE local_date > ({USER_TODAY_SQL} - %s::int) "
+        f"WHERE local_date > ({AS_OF_DAY_SQL} - %s::int) AND local_date <= {AS_OF_DAY_SQL} "
         "ORDER BY local_date, (end_ts - start_ts) DESC",
-        (tz, user_id, tz, days),
+        (tz, user_id, on_or_before, days, on_or_before),
     )
     return cur.fetchall()
 
 
 def derived_night_pivot(
-    cur: Cur, user_id: UUID, tz: str, days: int, metrics: tuple[str, ...]
+    cur: Cur,
+    user_id: UUID,
+    days: int,
+    metrics: tuple[str, ...],
+    on_or_before: date,
 ) -> dict[str, dict]:
     """Pivot the derived per-night rows (score, dims, SRI, HRV, RHR) into
-    {date_iso: {field: value}} for the requested metric set."""
+    {date_iso: {field: value}} for the requested metric set, over the window
+    ENDING at ``on_or_before``."""
     # `placeholders` is only "%s, %s, …" (count of the metrics tuple) — never
     # caller data — so interpolating it into the IN-list is injection-safe.
     placeholders = ", ".join(["%s"] * len(metrics))
@@ -102,9 +107,9 @@ def derived_night_pivot(
             LiteralString,
             "SELECT day, metric, value, flags FROM derived_daily "
             f"WHERE user_id = %s AND metric IN ({placeholders}) "
-            f"AND day > ({USER_TODAY_SQL} - %s::int)",
+            f"AND day > ({AS_OF_DAY_SQL} - %s::int) AND day <= {AS_OF_DAY_SQL}",
         ),
-        (user_id, *metrics, tz, days),
+        (user_id, *metrics, on_or_before, days, on_or_before),
     )
     out: dict[str, dict] = {}
     for day, metric, value, flags in cur.fetchall():

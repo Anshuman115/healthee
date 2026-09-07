@@ -9,10 +9,11 @@ analytics/metrics.py). Documented in the WP7 report.
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from healthee.analytics.baselines import compute_baseline_cur
-from healthee.core.tenancy import user_today
+from healthee.core.tenancy import reference_day
 from healthee.derive._common import Cur, _day_bounds_utc
 from healthee.derive.freshness import (
     WEIGHT_STALE,
@@ -39,28 +40,34 @@ from healthee.read.meta import METRIC_META, TODAY_SECONDARY_METRICS
 
 
 def secondary_cards(
-    cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None
+    cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None, day: date | None = None
 ) -> list[dict]:
     """RHR / steps / calories / distance / weight cards — first candidate with data
     wins, each with its 30-day median + z-anomaly flag. ``reads`` (when supplied by
     the Today aggregator) serves latest-values + baselines from a single preloaded
     batch instead of a per-card query fan-out."""
+    as_of = reference_day(day, tz)
     out: list[dict] = []
     for candidates in TODAY_SECONDARY_METRICS:
-        card = _card_for(cur, user_id, tz, candidates, reads)
+        card = _card_for(cur, user_id, tz, candidates, reads, as_of)
         if card:
             out.append(card)
     return out
 
 
 def _card_for(
-    cur: Cur, user_id: UUID, tz: str, candidates: list[str], reads: TodayReads | None
+    cur: Cur,
+    user_id: UUID,
+    tz: str,
+    candidates: list[str],
+    reads: TodayReads | None,
+    as_of: date,
 ) -> dict | None:
     for cand in candidates:
         picked = (
-            _weight_card(cur, user_id, tz)
+            _weight_card(cur, user_id, tz, as_of)
             if cand == "weight_kg"
-            else _derived_card(cur, user_id, tz, cand, reads)
+            else _derived_card(cur, user_id, tz, cand, reads, as_of)
         )
         if picked:
             return picked
@@ -68,18 +75,19 @@ def _card_for(
 
 
 def _derived_card(
-    cur: Cur, user_id: UUID, tz: str, metric: str, reads: TodayReads | None
+    cur: Cur, user_id: UUID, tz: str, metric: str, reads: TodayReads | None, as_of: date
 ) -> dict | None:
-    latest = reads.latest.get(metric) if reads else latest_derived(cur, user_id, metric)
+    latest = reads.latest.get(metric) if reads else latest_derived(cur, user_id, metric, as_of)
     if not latest:
         return None
-    day, value, flags = latest
+    _day, value, flags = latest
     meta = METRIC_META[metric]
     # Preloaded baseline when the aggregator supplied one; else compute on demand —
     # on THIS cursor, so a card whose metric the aggregator forgot to preload costs an
-    # extra query, never an extra pooled connection.
+    # extra query, never an extra pooled connection. Either way it ENDS at the reference
+    # day, so the z-score prices this value against days that had already happened.
     baseline = (reads.baselines.get(metric) if reads else None) or compute_baseline_cur(
-        cur, user_id, tz, metric, window_days=30
+        cur, user_id, tz, metric, window_days=30, end_date=as_of
     )
     z = baseline.z_score(value)
     return {
@@ -99,7 +107,7 @@ def _derived_card(
     }
 
 
-def _weight_card(cur: Cur, user_id: UUID, tz: str) -> dict | None:
+def _weight_card(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
     """Weight is stored in ``weight_log`` (not derived_daily); no derived baseline.
 
     This card sat in the Today row beside steps and calories and rendered the newest
@@ -113,17 +121,23 @@ def _weight_card(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     ``withheld`` block carries the last reading — because a date in a field the UI may
     not render does not undo a confident current-looking number, which is the lesson
     ``read/vo2max.py`` is written on.
+
+    As of a past day the weigh-in is the newest one filed ON OR BEFORE it, and the
+    14-day horizon is measured from THAT day. A weight logged three days before 29 July
+    was that owner's weight on 29 July, and a weigh-in in August is not — which is the
+    horizon-from-D rule, and the reason both the row and the staleness test move
+    together rather than one of them.
     """
     cur.execute(
         "SELECT kg, (ts AT TIME ZONE %s)::date FROM weight_log "
-        "WHERE user_id = %s ORDER BY ts DESC LIMIT 1",
-        (tz, user_id),
+        "WHERE user_id = %s AND (ts AT TIME ZONE %s)::date <= %s ORDER BY ts DESC LIMIT 1",
+        (tz, user_id, tz, as_of),
     )
     r = cur.fetchone()
     if not r:
         return None
-    kg, as_of, today = float(r[0]), r[1], user_today(tz)
-    stale = weight_is_stale(as_of, today)
+    kg, logged_on = float(r[0]), r[1]
+    stale = weight_is_stale(logged_on, as_of)
     meta = METRIC_META["weight_kg"]
     return {
         "metric": "weight_kg",
@@ -133,8 +147,8 @@ def _weight_card(cur: Cur, user_id: UUID, tz: str) -> dict | None:
         "median_30d": None,
         "z": None,
         "anomalous": False,
-        "as_of_date": as_of.isoformat(),
-        "withheld": withheld_block(WEIGHT_STALE, WEIGHT_STALE_MESSAGE, today, as_of, last_kg=kg)
+        "as_of_date": logged_on.isoformat(),
+        "withheld": withheld_block(WEIGHT_STALE, WEIGHT_STALE_MESSAGE, as_of, logged_on, last_kg=kg)
         if stale
         else None,
     }
@@ -157,26 +171,32 @@ _SPARKLINE_METRICS: dict[str, str | None] = {
 }
 
 
-def sparklines(cur: Cur, user_id: UUID, tz: str) -> dict[str, list[dict]]:
-    """14-day daily series per Today sparkline slot (empty for v2 gaps).
+def sparklines(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict[str, list[dict]]:
+    """The 14 days ENDING at ``day``, per Today sparkline slot (empty for v2 gaps).
 
     All backed slots load in ONE batched query (``derived_series_many``) rather
     than a query per slot; the v2-gap slots (metric ``None``) stay empty."""
     backed = {key: m for key, m in _SPARKLINE_METRICS.items() if m}
-    series = derived_series_many(cur, user_id, tz, list(backed.values()), 14)
+    series = derived_series_many(cur, user_id, list(backed.values()), 14, reference_day(day, tz))
     return {
         key: (series.get(metric, []) if metric else [])
         for key, metric in _SPARKLINE_METRICS.items()
     }
 
 
-def hr_hourly(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
-    """Hourly avg/min/max HR for today (local) — today's heart-rate shape.
+def hr_hourly(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> list[dict]:
+    """Hourly avg/min/max HR for one local day — that day's heart-rate shape.
+
+    **This one needed only its anchor.** The query was already a per-day read
+    (``(ts AT TIME ZONE %s)::date = %s``) with the wall clock supplying the day, so an
+    older date is answerable from the same statement over the same raw samples. The
+    hourly traces were the largest block ``docs/AS_OF_DAY.md`` did not have to argue
+    for: nothing about them is derived or "latest".
 
     Bounded by ``derive.hr_validity``, the one plausibility predicate every HR
     reader shares.
     """
-    day = user_today(tz)
+    day = reference_day(day, tz)
     ts_from, ts_to = _day_bounds_utc(day, tz)  # chunk pruning + the date filter; see above
     cur.execute(
         "SELECT date_trunc('hour', ts AT TIME ZONE %s) AS h, ROUND(AVG(value))::int, "
@@ -192,9 +212,9 @@ def hr_hourly(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     ]
 
 
-def step_buckets(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
-    """Today's 15-minute step buckets (distance ≈ steps × 0.78 m stride)."""
-    day = user_today(tz)
+def step_buckets(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> list[dict]:
+    """One local day's 15-minute step buckets (distance ≈ steps × 0.78 m stride)."""
+    day = reference_day(day, tz)
     ts_from, ts_to = _day_bounds_utc(day, tz)  # chunk pruning + the date filter; see above
     cur.execute(
         "SELECT (time_bucket('15 minutes', ts) AT TIME ZONE %s)::time AS local_t, "
@@ -219,9 +239,9 @@ def step_buckets(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     ]
 
 
-def stress_series(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
-    """Hourly stress averages for today (local). Empty if no stress rows."""
-    day = user_today(tz)
+def stress_series(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> list[dict]:
+    """Hourly stress averages for one local day. Empty if no stress rows."""
+    day = reference_day(day, tz)
     ts_from, ts_to = _day_bounds_utc(day, tz)  # chunk pruning + the date filter; see above
     cur.execute(
         "SELECT date_trunc('hour', ts AT TIME ZONE %s) AS h, ROUND(AVG(value))::int, "

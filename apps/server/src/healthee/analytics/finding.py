@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import LiteralString, cast
 from uuid import UUID
 
 from healthee.core.db import tenant_transaction
@@ -126,7 +128,9 @@ _SELECT_KEYS = (
 )
 
 
-def significant_findings(cur: Cur, user_id: UUID, limit: int = 30) -> list[dict]:
+def significant_findings(
+    cur: Cur, user_id: UUID, limit: int = 30, discovered_before: datetime | None = None
+) -> list[dict]:
     """Read one owner's significant findings on the CALLER's cursor, largest |effect| first.
 
     The cursor-taking form is the one the read path must use. A read service that is
@@ -135,11 +139,26 @@ def significant_findings(cur: Cur, user_id: UUID, limit: int = 30) -> list[dict]
     while holding the first, and ~`_POOL_MAX_SIZE` concurrent requests would then all
     hold #1 and all wait for #2 — a collective stall, not a slowdown (standards §1:
     "no per-item connections — the pool is the only way in").
+
+    ``discovered_before`` is ``docs/AS_OF_DAY.md``'s "a finding must not appear on a day
+    before it was discovered": pass the instant a past day ended and only findings the
+    correlator had already written by then come back. ``computed_at`` is the only record
+    of when a finding existed, and note what it means after :data:`_UPSERT_TAIL` — a
+    re-computed finding carries the NEW instant, so a pattern first found in June and
+    re-confirmed today is EXCLUDED from a June answer. That errs toward silence rather
+    than toward claiming we knew something we may not have, which is the direction this
+    product's contract takes whenever the record cannot settle it.
     """
+    bound = "" if discovered_before is None else "AND computed_at < %s "
+    args: tuple = (user_id,) if discovered_before is None else (user_id, discovered_before)
     cur.execute(
-        f"SELECT {', '.join(_SELECT_KEYS)} FROM finding "
-        "WHERE user_id = %s AND significant = TRUE ORDER BY ABS(effect_size) DESC LIMIT %s",
-        (user_id, limit),
+        cast(
+            LiteralString,
+            f"SELECT {', '.join(_SELECT_KEYS)} FROM finding "
+            f"WHERE user_id = %s AND significant = TRUE {bound}"
+            "ORDER BY ABS(effect_size) DESC LIMIT %s",
+        ),
+        (*args, limit),
     )
     return [dict(zip(_SELECT_KEYS, r, strict=True)) for r in cur.fetchall()]
 
