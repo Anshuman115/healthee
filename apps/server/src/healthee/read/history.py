@@ -108,11 +108,27 @@ def history_series(
 def _daily_rows(
     cur: Cur, user_id: UUID, tz: str, metrics: list[str], days: int
 ) -> dict[str, list[dict]]:
-    """One statement for every plain ``derived_daily`` metric asked for."""
+    """One statement for every plain ``derived_daily`` metric asked for.
+
+    **Both edges.** This had a lower bound only, while the other two series paths in this
+    file close at the owner's today — ``_flag_points`` filters ``day <= today`` and
+    ``_weight_points`` binds it in SQL. Two of three were given the closing edge; the one
+    that serves every ``derived_daily`` metric, and therefore every dated history panel on
+    every screen, was not.
+
+    ``docs/AS_OF_DAY.md`` section 7 states the principle against inheriting it from the
+    caller: *"Inheriting another place's bound is exactly how 'latest' leaks; the point of
+    section 3 is that the bound goes where the data is served."* Whether a future-dated
+    ``derived_daily`` row can actually exist is unproven — ``SampleIn.ts`` is an unvalidated
+    epoch-ms integer so the input path allows one, and confirming it has happened would need
+    the production database — but the bound removes no row in the normal case, matches its
+    two siblings, and costs nothing.
+    """
     cur.execute(
         "SELECT metric, day, value FROM derived_daily WHERE user_id = %s AND metric = ANY(%s) "
-        f"AND day > ({USER_TODAY_SQL} - %s::int) ORDER BY metric, day",
-        (user_id, metrics, tz, days),
+        f"AND day > ({USER_TODAY_SQL} - %s::int) AND day <= ({USER_TODAY_SQL}) "
+        "ORDER BY metric, day",
+        (user_id, metrics, tz, days, tz),
     )
     rows: dict[str, list[dict]] = {}
     for metric, day, value in cur.fetchall():

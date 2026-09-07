@@ -497,6 +497,7 @@
         "baseline": 380.0,
         "baseline_sd": 1.0,
         "direction": "favorable",
+        "n": 7,
         "name": "Sleep duration",
         "research_note_id": "sleep_duration_mortality",
         "unit": "min",

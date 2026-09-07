@@ -54,6 +54,23 @@ log = get_logger(__name__)
 # an ungoverned metric's z-score with no note behind it.
 _SLEEP_MIN_SD_MIN = 1.0
 
+# Days of history a recovery signal needs before it publishes a direction.
+#
+# The RHR and HRV signals had NO count gate at all: their only admission rule was a
+# non-zero `robust_sd`, and with **two** days MAD is the half-distance, so the z is finite
+# and the payload published `baseline`, `baseline_sd`, `z` and a `direction` of "favorable"
+# or "unfavorable" — a verdict on this owner's autonomic state from two mornings.
+#
+# Five is not a new number. `_sleep_signal` in this same function has always used
+# `len(durs) < 5`, and `derive/recovery._BASELINE_MIN_POINTS` is 5 with the comment "need
+# at least this many days to trust a baseline". One payload was running three signals under
+# two admission rules; this is the one that was already written down.
+#
+# `Baseline.n` was on the object both functions already held and was simply not consulted.
+# It ships beside `baseline` and `baseline_sd` now, on all three, so a reader can weigh a
+# direction rather than take it.
+_SIGNAL_MIN_DAYS = 5
+
 
 def recovery_score_payload(
     cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None, day: date | None = None
@@ -198,13 +215,7 @@ def recovery_signals(
         return None
     favorable = sum(1 for s in signals if s["direction"] == "favorable")
     unfavorable = sum(1 for s in signals if s["direction"] == "unfavorable")
-    summary = (
-        "Recovery signals lean favorable"
-        if favorable > unfavorable
-        else "Recovery signals lean unfavorable"
-        if unfavorable > favorable
-        else "Mixed recovery signals"
-    )
+    summary = _summary(signals, favorable, unfavorable)
     return {
         "summary": summary,
         "favorable": favorable,
@@ -213,6 +224,29 @@ def recovery_signals(
         "total": len(signals),
         "signals": signals,
     }
+
+
+def _summary(signals: list[dict], favorable: int, unfavorable: int) -> str:
+    """The one-line reading of the markers — SINGULAR when there is one marker.
+
+    "Recovery signals lean favorable" from a single available marker is a plural sentence
+    about one thing, and the plural is the claim: it reads as agreement across markers when
+    there was nothing to agree with. The module docstring says this payload reports
+    "individual favourable/unfavourable markers, no composite", and a plural summary over an
+    unweighted vote is the closest this file comes to contradicting it.
+
+    Which way it leans is unchanged. Only the sentence's arithmetic honesty is.
+    """
+    if len(signals) == 1:
+        lean = signals[0]["direction"]
+        if lean == "neutral":
+            return f"One recovery signal, and it is neutral: {signals[0]['name'].lower()}"
+        return f"One recovery signal, and it leans {lean}: {signals[0]['name'].lower()}"
+    if favorable > unfavorable:
+        return "Recovery signals lean favorable"
+    if unfavorable > favorable:
+        return "Recovery signals lean unfavorable"
+    return "Mixed recovery signals"
 
 
 def _rhr_signal(
@@ -228,7 +262,7 @@ def _rhr_signal(
     b = (reads.baselines.get("rhr_daily") if reads else None) or compute_baseline_cur(
         cur, user_id, tz, "rhr_daily", window_days=30, end_date=as_of
     )
-    if b.median is None or not b.robust_sd:
+    if b.median is None or not b.robust_sd or b.n < _SIGNAL_MIN_DAYS:
         return None
     z = (value - b.median) / b.robust_sd
     direction = "favorable" if z < -0.3 else "unfavorable" if z > 0.5 else "neutral"
@@ -238,6 +272,7 @@ def _rhr_signal(
         "unit": "bpm",
         "baseline": b.median,
         "baseline_sd": b.robust_sd,
+        "n": b.n,
         "z": z,
         "direction": direction,
         # The manifest ID; ``resting_hr_health_marker`` was an ALIAS — see
@@ -272,7 +307,7 @@ def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
         (user_id, ends_before - timedelta(days=30), ends_before),
     )
     durs = [float(r[0]) for r in cur.fetchall() if r[0]]
-    if len(durs) < 5:
+    if len(durs) < _SIGNAL_MIN_DAYS:
         return None
     # The ONE median/MAD (``derive/robust``). This used to take the UPPER-middle value
     # of an even-length window rather than interpolating — not a median, and a second
@@ -296,6 +331,7 @@ def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
         "unit": "min",
         "baseline": med,
         "baseline_sd": sd,
+        "n": len(durs),
         "z": z,
         "direction": direction,
         "research_note_id": "sleep_duration_mortality",
@@ -317,7 +353,7 @@ def _hrv_signal(
     b = (reads.baselines.get("hrv_sleep_avg") if reads else None) or compute_baseline_cur(
         cur, user_id, tz, "hrv_sleep_avg", window_days=30, end_date=as_of
     )
-    if b.median is None or not b.robust_sd:
+    if b.median is None or not b.robust_sd or b.n < _SIGNAL_MIN_DAYS:
         return None
     z = (value - b.median) / b.robust_sd
     direction = "favorable" if z > 0.3 else "unfavorable" if z < -0.5 else "neutral"
@@ -326,6 +362,7 @@ def _hrv_signal(
         "value": round(value, 1),
         "unit": "ms",
         "baseline": round(b.median, 1),
+        "n": b.n,
         # NOT rounded to the baseline's 1 dp: `z` is `(value - baseline) / baseline_sd`,
         # and rounding the divisor would make the three numbers stop reconciling.
         "baseline_sd": b.robust_sd,

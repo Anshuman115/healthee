@@ -24,6 +24,31 @@ from healthee.read.sleep_common import (
     stage_totals,
 )
 
+# Nights required before this endpoint says anything about how tight the owner's bedtime
+# band is. [[sleep_regularity_index]] Directive 4 — "Do not compute or report SRI from <7
+# days of data" — and the band verdict is an answer to the SAME question the SRI answers,
+# so it takes the same floor rather than a lower one of its own. See `_consistency_payload`.
+REGULARITY_MIN_NIGHTS = 7
+
+# The onset-spread cut-points, in hours, against the ~1-hour behavioural target both
+# [[sleep_consistency]] and [[sleep_regularity_index]] state ("keep sleep and wake within a
+# ~1-hour band day to day, weekends included"). They were inline and unnamed; they are
+# coaching bands around a cited target, not validated thresholds, and the wording says so.
+_BAND_TIGHT_MAX_H = 1.5
+_BAND_MODERATE_MAX_H = 2.5
+
+# How far a night's onset must sit from the median before it is SURFACED as an odd one.
+# Two hours: an uncited practitioner cut, named here rather than left inline so a reader
+# can see it is a display threshold and not a finding.
+_IRREGULAR_NIGHT_DELTA_H = 2
+
+# Minutes past midnight before which a median bedtime is called "late" — i.e. the owner is
+# habitually going to bed after midnight and before 06:00. Named because inline it read as
+# an unexplained `< 360`, and because the boundary is worth seeing: at exactly 06:00 this
+# stops calling a bedtime late, which is the right edge for an anchor at 18:00 but is a
+# convention rather than a result. [[sleep_timing_chronotype]].
+_LATE_BEDTIME_BEFORE_MIN = 360
+
 
 def latest_main_session(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> tuple | None:
     """The main sleep session the owner WOKE FROM on or before ``day``, or None.
@@ -265,38 +290,75 @@ def _sri_block(cur: Cur, user_id: UUID, tz: str) -> dict:
 def _consistency_payload(  # noqa: PLR0913 — the regularity payload needs all its series
     sri: dict, days: int, rows: list, onset: list[int], wake: list[int]
 ) -> dict:
-    """Assemble the regularity numbers + surfaced odd nights + SRI (verbatim math)."""
+    """Assemble the regularity numbers + surfaced odd nights + SRI (verbatim math).
+
+    ## The band verdict needs the same seven nights the SRI does
+
+    ``_sri_block`` correctly withholds the Sleep Regularity Index under seven days —
+    [[sleep_regularity_index]] Directive 4, *"Do not compute or report SRI from <7 days of
+    data; the formula's variance is too high with fewer pairs of consecutive days"* — and
+    this payload then published an ungraded, uncited, home-made regularity verdict from
+    three nights in its place. The endpoint refused the cited statistic and substituted an
+    invented one, which is worse than either answer alone.
+
+    It is the same question, so it gets the same floor. Below it, ``onset_band`` and
+    ``onset_band_h`` are ``None``: a p90-minus-p10 "band" over three points is
+    ``sorted[2] - sorted[0]``, i.e. the full range reported as a percentile spread, and
+    ``onset_range_h_raw`` already ships the range under its own honest name. The plain
+    dispersions (``onset_sd_min``, ``wake_sd_min``) stay — a population SD of three points
+    is exactly what it says it is — and ``nights`` sits beside them.
+
+    ## "Top-quintile territory" is deleted
+
+    It was a claim about where this owner sits in a population distribution, with no
+    reference distribution read, no note cited, and no ``n`` beside it. The corpus has no
+    quintile for an onset band in hours; what it does have is the behavioural target — the
+    ~1-hour band, day to day, weekends included ([[sleep_consistency]],
+    [[sleep_regularity_index]]) — which the replacement wording states and the ``target``
+    field below has always carried.
+    """
     med_on = statistics.median(onset)
     on_band_h = (_pct(onset, 0.9) - _pct(onset, 0.1)) / 60.0
     irregular = []
     for (d, _s, _e), o in zip(rows, onset, strict=True):
         delta = (o - med_on) / 60.0
-        if abs(delta) > 2:
+        if abs(delta) > _IRREGULAR_NIGHT_DELTA_H:
             irregular.append(
                 {"date": d.isoformat(), "bedtime": _clk(1080 + o), "delta_h": round(delta, 1)}
             )
     irregular.sort(key=lambda x: -abs(x["delta_h"]))
     median_bed_min = (1080 + round(med_on)) % 1440
-    band = (
-        "tight — top-quintile territory (~1 h band)"
-        if on_band_h <= 1.5
-        else "moderate — pull it under ~1 h"
-        if on_band_h <= 2.5
-        else "loose (~3 h+) — your biggest lever"
-    )
+    banded = len(rows) >= REGULARITY_MIN_NIGHTS
     return {
         "days": days,
         "nights": len(rows),
+        # The floor on the wire, so a null band reads as "too few nights" rather than as
+        # a gap — the same pairing `baseline_30d_n` makes in `read/fitness.py`.
+        "band_min_nights": REGULARITY_MIN_NIGHTS,
         "median_bedtime": _clk(1080 + med_on),
         "mean_wake": _clk(statistics.mean(wake)),
         "onset_sd_min": round(statistics.pstdev(onset), 1),
-        "onset_band_h": round(on_band_h, 1),
+        "onset_band_h": round(on_band_h, 1) if banded else None,
         "onset_range_h_raw": round((max(onset) - min(onset)) / 60.0, 1),
         "wake_sd_min": round(statistics.pstdev(wake), 1),
         **sri,
-        "late": median_bed_min < 360,
-        "onset_band": band,
+        "late": median_bed_min < _LATE_BEDTIME_BEFORE_MIN if banded else None,
+        "onset_band": _band_verdict(on_band_h) if banded else None,
         "irregular_nights": irregular[:6],
         "irregular_count": len(irregular),
         "target": "keep sleep & wake within a ~1-hour band, weekends included",
     }
+
+
+def _band_verdict(on_band_h: float) -> str:
+    """The onset spread, said in words, against the ~1-hour behavioural target.
+
+    Every threshold below is a named constant with the note it comes from. They were
+    inline, unnamed and uncited, and the tightest of them claimed a population percentile
+    the corpus does not contain.
+    """
+    if on_band_h <= _BAND_TIGHT_MAX_H:
+        return "tight — inside the ~1 h band, near enough"
+    if on_band_h <= _BAND_MODERATE_MAX_H:
+        return "moderate — pull it under ~1 h"
+    return "loose (~3 h+) — your biggest lever"
