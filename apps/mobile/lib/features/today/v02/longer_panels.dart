@@ -135,6 +135,11 @@ class FitnessPanel extends StatelessWidget {
   }
 
   /// `VO₂max estimate` over the method that produced it, in the server's words.
+  ///
+  /// The measurement day appears only when it is not the day the estimate is
+  /// offered for. A graded session speaks for up to fourteen days, so without
+  /// this line the panel read as today's fitness over a run recorded a fortnight
+  /// ago — the freshness horizon's own argument depends on saying which day.
   static String _instrument(Vo2max vo2max) {
     final sessions = vo2max.sessionCount;
     return <String>[
@@ -142,6 +147,8 @@ class FitnessPanel extends StatelessWidget {
       // Named, never the raw tier id: `gps_graded` on a health screen is a log
       // line where an instrument's name belongs.
       'Read by ${methodLabel(vo2max.method)}',
+      if (vo2max.measuredEarlier case final String day)
+        'Measured ${prettyDate(day)}',
       if (sessions != null && sessions > 0)
         '$sessions ${sessions == 1 ? 'session' : 'sessions'}',
     ].join('\n');

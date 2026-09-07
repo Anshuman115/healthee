@@ -104,7 +104,8 @@ class EffortPanel extends StatelessWidget {
     if (baseline == null || baseline <= 0) {
       return null;
     }
-    return '30-day load ${baseline.round()}\n'
+    final over = load.baselineDaysLabel;
+    return '30-day load ${baseline.round()}${over == null ? '' : ' · $over'}\n'
         'ratio ${(load.load / baseline).toStringAsFixed(1)}';
   }
 

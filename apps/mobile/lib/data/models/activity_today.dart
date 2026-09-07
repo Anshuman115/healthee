@@ -122,6 +122,7 @@ class CardioLoad {
   const CardioLoad({
     required this.load,
     required this.baseline30d,
+    required this.baseline30dDays,
     required this.hrMinutes,
     required this.edwardsTl,
     required this.strain,
@@ -141,6 +142,7 @@ class CardioLoad {
     return CardioLoad(
       load: load,
       baseline30d: (json['baseline_30d'] as num?)?.toDouble(),
+      baseline30dDays: (json['baseline_30d_n'] as num?)?.toInt(),
       hrMinutes: (json['hr_minutes'] as num?)?.toInt(),
       edwardsTl: (json['edwards_tl'] as num?)?.toInt(),
       strain: (json['strain'] as num?)?.toDouble(),
@@ -163,7 +165,20 @@ class CardioLoad {
 
   /// The owner's own 30-day baseline — the comparison that makes [load] mean
   /// anything. A population figure would not.
+  ///
+  /// Null when the server had too few days to report one. It used to be the mean
+  /// of however many rows came back, with no floor, over a window of 36 days
+  /// behind a 30-day name — so with two rows this was one day's value and
+  /// [versusBaseline] expressed today's load as a multiple of it.
   final double? baseline30d;
+
+  /// How many days of history are behind [baseline30d].
+  ///
+  /// Shipped whether or not the baseline is: present it says how much is behind
+  /// the number, absent it says how far short the window fell. A ratio drawn
+  /// against a denominator whose sample size nobody can see is the defect this
+  /// field closes, and [baselineDaysLabel] is where it reaches the screen.
+  final int? baseline30dDays;
 
   /// Minutes of heart-rate data behind it. One minute and four hundred are
   /// different confidences in the same number.
@@ -194,4 +209,10 @@ class CardioLoad {
   /// Today against the owner's own normal, as a ratio. Null without a baseline.
   double? get versusBaseline =>
       (baseline30d == null || baseline30d == 0) ? null : load / baseline30d!;
+
+  /// `30-day load · 29 days` — the denominator with its sample size, or without
+  /// it when the server sent no count.
+  String? get baselineDaysLabel => baseline30dDays == null
+      ? null
+      : '$baseline30dDays ${baseline30dDays == 1 ? 'day' : 'days'}';
 }

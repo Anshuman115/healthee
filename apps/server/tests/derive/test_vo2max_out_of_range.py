@@ -153,7 +153,7 @@ def test_an_in_range_owner_gets_no_flags_in_the_payload() -> None:
         payload = vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     assert payload is not None
     assert payload["age_years"] == 35
-    assert payload["out_of_range_inputs"] == []
+    assert payload["caveats"] == []
 
 
 @pytest.mark.usefixtures("db")
@@ -170,6 +170,14 @@ def test_an_out_of_range_owner_is_flagged_but_still_gets_the_number() -> None:
         payload = vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     assert payload is not None
     assert payload["estimate"] is not None
-    assert [f["input"] for f in payload["out_of_range_inputs"]] == ["age_years", "bmi"]
-    assert payload["out_of_range_inputs"][0]["value"] == 80
-    assert payload["out_of_range_inputs"][1]["value"] == 49.0  # 150 / 1.75^2 = 48.98
+    # UNDER ``caveats``, which is the key the app's honesty envelope reads. Filed under a
+    # key of its own the flag never became a `Caveated` reading and the estimate rendered
+    # `Present` at full confidence, which is what this assertion is really guarding.
+    assert [f["input"] for f in payload["caveats"]] == ["age_years", "bmi"]
+    assert payload["caveats"][0]["value"] == 80
+    assert payload["caveats"][1]["value"] == 49.0  # 150 / 1.75^2 = 48.98
+    # `reason` + `message` are the envelope's two required fields; a block missing either
+    # is dropped on the client, so the disclosure would exist and never be shown.
+    for flag in payload["caveats"]:
+        assert isinstance(flag["reason"], str) and flag["reason"]
+        assert isinstance(flag["message"], str) and flag["message"]

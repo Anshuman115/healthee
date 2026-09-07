@@ -1,5 +1,5 @@
 """Fitness metric payloads — cardio load (+ strain 0-21), MVPA, strength,
-acute:chronic ratio, and the VO2max-raising plan.
+and the VO2max-raising plan.
 
 Shared by ``/api/today`` and ``/api/activity``. v2-native: reads ``derived_daily``
 (never the ``metric_sample`` view, never a ``source=`` filter). ``moderate_min`` /
@@ -11,8 +11,12 @@ rows), so they are read from flags — the WP6 seam fix.
 was the right home anyway — "what do we know about aerobic fitness today" is not a
 training-load concern (standards §1: a file has one reason to change).
 
-Computed-on-read formulas (strain, ACWR) are ported VERBATIM — they are the
-audit-verified science, cited inline.
+``acwr`` moved to ``read/acwr.py`` when its own argument pushed this file past the
+400-line limit. That was the right home too: the ratio's governing note is graded
+Contested and its evidence is still moving, which is a different reason to change from
+anything else here.
+
+The strain formula is ported VERBATIM — audit-verified science, cited inline.
 """
 
 from __future__ import annotations
@@ -37,6 +41,26 @@ _STRENGTH_TYPES = {
 }  # fmt: skip
 _YOGA_MIN_DURATION = 30  # generic yoga counts only if >=30 min, at 50% credit
 
+# The window ``baseline_30d`` and ``trend_30d`` are BOTH named after. It read
+# ``as_of - 35`` — thirty-SIX days behind two keys that say thirty — so the baseline a
+# ratio is drawn against, and the chart beside it, covered a window neither name
+# described. One window, one length, and the two names now tell the truth.
+_LOAD_WINDOW_DAYS = 30
+
+# The floor a personal baseline is reported above, in days of history.
+#
+# NOT a new number: ``derive/recovery._BASELINE_MIN_POINTS`` is 5 with the comment "need
+# at least this many days to trust a baseline", and ``read/recovery._sleep_signal``
+# already refuses under five nights. ``baseline_30d`` had NO floor at all — with two rows
+# it was one day's value, published under a thirty-day name and drawn by the app as
+# ``load / baseline_30d``. A ratio against a single day is an invented normal.
+#
+# The count ships beside the value (``baseline_30d_n``) rather than only gating it,
+# because a floor answers "may we say this" and the count answers "how much is behind
+# it", and those are different questions. ``analytics.Baseline`` has carried ``n`` for
+# exactly this reason since it was written.
+_BASELINE_MIN_DAYS = 5
+
 
 def cardio_load_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
     """Daily cardio load (Banister TRIMP) + strain 0-21 + 30-day trend, as of a day.
@@ -45,13 +69,30 @@ def cardio_load_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = Non
     The window closes at the reference day, so ``rows[-1]`` — which every field below
     treats as "the load that speaks for this day" — cannot be a day after it. The 30-day
     baseline is the mean of the window's PRIOR days, so it moves with the same bound.
+
+    ## ``baseline_30d`` is thirty days, has a floor, and ships its count
+
+    Three things were wrong with it and the app draws the result as a RATIO
+    (``activity_today.dart``'s ``load / baseline_30d``), which is the reason all three
+    matter rather than only the first:
+
+    * the window was ``as_of - 35``, i.e. **36 days** under a 30-day name;
+    * there was **no minimum** — with two rows in the window the "30-day baseline" was one
+      day's value, and today's load was expressed as a multiple of it;
+    * there was **no ``n``** on the wire, so no client could tell the two apart.
+
+    It is still an arithmetic MEAN, deliberately and not by omission: a load baseline is
+    the same summary ACWR's chronic term is (``[[training_load_acwr]]``: "the average dose
+    over a longer window"), and swapping it for ``analytics.baselines``' median+MAD would
+    change a published number with no note behind the change. What it borrows from that
+    module is the discipline, not the statistic — a floor, and ``n`` beside the value.
     """
     as_of = reference_day(day, tz)
     cur.execute(
         "SELECT day, value, flags FROM derived_daily "
         "WHERE user_id = %s AND metric='cardio_load' "
-        f"AND day >= ({AS_OF_DAY_SQL} - 35) AND day <= {AS_OF_DAY_SQL} ORDER BY day",
-        (user_id, as_of, as_of),
+        f"AND day > ({AS_OF_DAY_SQL} - %s::int) AND day <= {AS_OF_DAY_SQL} ORDER BY day",
+        (user_id, as_of, _LOAD_WINDOW_DAYS, as_of),
     )
     rows = cur.fetchall()
     if not rows:
@@ -59,13 +100,20 @@ def cardio_load_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = Non
     trend = [{"date": d.isoformat(), "value": round(float(v), 1)} for d, v, _ in rows]
     latest_value, flags = float(rows[-1][1]), (rows[-1][2] or {})
     prior = [float(v) for _, v, _ in rows[:-1]]
-    baseline = round(sum(prior) / len(prior), 1) if prior else None
+    # Withheld, not floored to something: under the minimum there is no honest number to
+    # report and `baseline_30d_n` says how far short it fell. The app already draws
+    # nothing without a baseline, so the ratio disappears with its denominator.
+    baseline = round(sum(prior) / len(prior), 1) if len(prior) >= _BASELINE_MIN_DAYS else None
     return {
         "load": round(latest_value, 1),
         "strain": _strain(cur, user_id, as_of, latest_value),
         "strain_max": 21.0,
         "as_of_date": rows[-1][0].isoformat(),
         "baseline_30d": baseline,
+        # Days of history behind it, always — present when the baseline is, and present
+        # when it is not so the absence is legible as "too few days" rather than as a gap.
+        "baseline_30d_n": len(prior),
+        "baseline_30d_min_n": _BASELINE_MIN_DAYS,
         "zone_minutes": flags.get("zone_min"),
         "edwards_tl": flags.get("edwards_tl"),
         "hrmax": flags.get("hrmax"),
@@ -208,36 +256,6 @@ def _week_bounds_utc(monday: date, as_of: date, tz: str) -> tuple[datetime, date
     both ends (standards §Duplication).
     """
     return _day_bounds_utc(monday, tz)[0], _day_bounds_utc(as_of, tz)[1]
-
-
-def acwr(cardio: dict | None) -> dict | None:
-    """Acute:chronic workload ratio (Gabbett 2016): acute 7d mean ÷ chronic 28d mean;
-    0.8-1.3 = the progressive "sweet spot". Ported VERBATIM. [[training_stress_score]]."""
-    vals = [
-        float(t["value"]) for t in (cardio or {}).get("trend_30d", []) if t.get("value") is not None
-    ]
-    if len(vals) < 7:
-        return None
-    acute = sum(vals[-7:]) / 7.0
-    chronic = sum(vals[-28:]) / min(len(vals), 28)
-    if chronic <= 0:
-        return None
-    ratio = acute / chronic
-    state = (
-        "detraining"
-        if ratio < 0.8
-        else "optimal"
-        if ratio <= 1.3
-        else "caution"
-        if ratio <= 1.5
-        else "overreaching"
-    )
-    return {
-        "ratio": round(ratio, 2),
-        "acute_7d": round(acute, 1),
-        "chronic_28d": round(chronic, 1),
-        "state": state,
-    }
 
 
 def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:

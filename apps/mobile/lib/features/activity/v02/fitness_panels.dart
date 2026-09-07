@@ -114,10 +114,17 @@ class CardiorespiratoryPanel extends StatelessWidget {
         'ml/kg/min$derived. The band is not a confidence interval.';
   }
 
-  /// `VO₂max estimate` over the day it was read.
+  /// `VO₂max estimate` over the day it was read, and the day it was MEASURED.
+  ///
+  /// The second date appears only when it differs from the first. `as_of_date` is
+  /// the day the estimate is offered for; `measured_as_of` is the day the session
+  /// behind it was recorded, and the tiered metric lets those be up to fourteen
+  /// days apart. Drawing only the first read as "as of today" over a fortnight-old
+  /// run — the stale-as-current lie, arriving through the client.
   static String context_(Vo2max vo2max) => <String>[
     'VO₂max estimate',
     if (vo2max.asOfDate case final String date) prettyDate(date),
+    if (vo2max.measuredEarlier case final String day) 'Measured ${prettyDate(day)}',
   ].join('\n');
 
   @override

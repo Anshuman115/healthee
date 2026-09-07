@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from healthee.read.fitness import acwr, strain_from_load
+from healthee.read.acwr import acwr
+from healthee.read.fitness import strain_from_load
 from healthee.read.health_metrics import sleep_performance_pct
 from healthee.read.recovery import decayed_readiness
 
@@ -52,29 +53,58 @@ def test_sleep_performance_ratio_and_cap() -> None:
     assert sleep_performance_pct(400, 0) is None
 
 
-def test_acwr_optimal_flat_load() -> None:
+def test_acwr_flat_load_is_a_ratio_and_never_a_verdict() -> None:
+    """The ratio and its two terms ship; no categorical judgement does.
+
+    ``state`` was a bare string — "detraining" / "optimal" / "caution" /
+    "overreaching" — off cut-points [[training_load_acwr]] calls "soft heuristics, not
+    guardrails" and whose figure Impellizzeri 2019 showed to be schematic rather than
+    data-derived. The note's summary is "never a verdict"; this asserts the wire agrees.
+    """
     trend = {"trend_30d": [{"value": 50.0} for _ in range(28)]}
     out = acwr(trend)
     assert out is not None
     assert out["ratio"] == 1.0
-    assert out["state"] == "optimal"
+    assert "state" not in out
+    assert out["n_acute"] == 7
+    assert out["n_chronic"] == 28
+    # Its OWN note, Contested. It cited `training_stress_score`, a different note.
+    assert out["research_notes"] == ["training_load_acwr"]
 
 
-def test_acwr_states() -> None:
-    def ratio_state(acute: float, chronic_tail: float) -> str:
+def test_acwr_reports_the_ratio_it_measured() -> None:
+    def ratio(acute: float, chronic_tail: float) -> float:
         vals = [chronic_tail] * 21 + [acute] * 7  # last 7 are the acute window
         out = acwr({"trend_30d": [{"value": v} for v in vals]})
         assert out is not None
-        return out["state"]
+        return out["ratio"]
 
-    assert ratio_state(30, 60) == "detraining"  # ratio 0.5
-    assert ratio_state(90, 60) == "caution"  # ratio 1.5
-    assert ratio_state(200, 60) == "overreaching"
+    # The acute window is a SUBSET of the chronic one, so the denominator moves with the
+    # numerator: at an acute 30 against a 60 tail the chronic mean is 52.5, not 60. That
+    # is Lolli 2019's mathematical coupling, computed here rather than argued — and the
+    # reason the note refuses to let this ratio carry a verdict.
+    assert ratio(30, 60) == 0.57  # 30 / 52.5
+    assert ratio(90, 60) == 1.33  # 90 / 67.5
+    assert ratio(200, 60) == 2.11  # 200 / 95.0
 
 
-def test_acwr_needs_seven_days() -> None:
-    assert acwr({"trend_30d": [{"value": 50.0} for _ in range(6)]}) is None
+def test_acwr_is_suppressed_below_twenty_eight_days_of_chronic_history() -> None:
+    """[[training_load_acwr]] D6, Established: suppress under 28 days of chronic history.
+
+    Seven rows was the old floor and it is the degenerate case in its purest form: with
+    exactly seven values ``vals[-7:]`` and ``vals[-28:]`` are the SAME values, so the
+    ratio is 1.0 by construction and the payload published the sweet spot from one week
+    with no history to compare it against.
+    """
+    for n in (6, 7, 20, 27):
+        assert acwr({"trend_30d": [{"value": 50.0} for _ in range(n)]}) is None
+    assert acwr({"trend_30d": [{"value": 50.0} for _ in range(28)]}) is not None
     assert acwr(None) is None
+
+
+def test_acwr_is_suppressed_when_chronic_load_is_zero() -> None:
+    """The note's other suppression limb — a small denominator manufactures ratios."""
+    assert acwr({"trend_30d": [{"value": 0.0} for _ in range(28)]}) is None
 
 
 @pytest.mark.parametrize("p95,load,expected", [(120.0, 60.0, 12.5), (200.0, 200.0, 21.0)])

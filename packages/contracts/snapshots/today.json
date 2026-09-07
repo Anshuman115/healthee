@@ -71,6 +71,8 @@
   "cardio_load": {
     "as_of_date": "2026-07-31",
     "baseline_30d": 55.0,
+    "baseline_30d_min_n": 5,
+    "baseline_30d_n": 29,
     "edwards_tl": 120,
     "hr_minutes": 47,
     "hrmax": 185,
@@ -1824,6 +1826,7 @@
   "vo2max": {
     "age_years": 35,
     "as_of_date": "2026-07-31",
+    "caveats": [],
     "data_confidence": "ok",
     "delta_from_median": 3.3,
     "estimate": 43.0,
@@ -1838,7 +1841,6 @@
     "method": "gps_graded",
     "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it — the most direct of the three methods we have, because it measures the relationship on you rather than assuming it. It comes from one session, not a run of them, so read it as that session rather than as a settled level.",
     "n_sessions": 1,
-    "out_of_range_inputs": [],
     "research_notes": [
       "vo2max",
       "submaximal_vo2max"
