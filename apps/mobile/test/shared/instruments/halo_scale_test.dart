@@ -95,7 +95,7 @@ Future<_Frame> _frameAt(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(loadManrope);
+  setUpAll(loadInter);
   late LocalStore store;
 
   setUp(() async {

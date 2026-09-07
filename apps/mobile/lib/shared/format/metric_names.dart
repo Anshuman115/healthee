@@ -136,14 +136,25 @@ String factorLabel(String name) => switch (name) {
 
 /// The separator between two metrics in a correlation — `Caffeine ↔ sleep`.
 ///
-/// The character is the prototype's own (`screens-overview.js`, the
-/// relationship card). What is added is `\u{FE0E}`, VARIATION SELECTOR-15:
-/// U+2194 carries **emoji presentation by default on Android**, so written bare
-/// it rendered as a boxed colour glyph in the middle of a sentence. The selector
-/// asks for the text form. Nothing about the design changed; only its rendering
-/// was wrong.
+/// The prototype's own character (`screens-overview.js`, the relationship card),
+/// written plainly.
+///
+/// ## It shipped as a blue emoji box, and the selector did not save it
+///
+/// Manrope had **no U+2194 at all**. Android went looking, and the platform face
+/// that covers U+2194 is `NotoColorEmoji` — so a correlation label rendered a
+/// colour emoji mid-sentence. The first fix appended `U+FE0E`, the
+/// text-presentation selector, and **it did nothing**: the selector chooses
+/// between two presentations *within a font that has the glyph*, and cannot
+/// conjure a text form in a font that lacks the codepoint. The test passed
+/// because it asserted codepoints rather than coverage.
+///
+/// Inter carries U+2194, so the character now needs nothing appended to it. The
+/// guard is `test/core/typography_test.dart`, which walks `lib/` and fails if
+/// the bundled face has no glyph for a character the app actually draws — a
+/// check that is derived rather than listed, so it covers the next one too.
 ///
 /// Shared rather than inlined because a correlation is named on more than one
 /// surface, and a second copy is a second chance to reach for `→` — which would
 /// claim a direction the statistic does not have.
-const String kPairArrow = '↔︎';
+const String kPairArrow = '↔';

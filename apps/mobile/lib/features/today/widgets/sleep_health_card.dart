@@ -163,7 +163,7 @@ class _DimensionRow extends StatelessWidget {
                       ),
                       TextSpan(
                         text: dimension.source,
-                        // Legacy set the source in italic. Manrope has no
+                        // Legacy set the source in italic. The bundled family has no
                         // italic face (see `instrument_type.dart`), so this
                         // rendered upright and the emphasis was ink3 alone all
                         // along. The dead `copyWith` is gone; nothing moves.

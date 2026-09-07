@@ -10,7 +10,7 @@
 ///   * `todayProvider` and `viewDateProvider` — the wall clock, which would
 ///     make "is the reader on a past day" depend on the calendar.
 ///
-/// ## Manrope, loaded
+/// ## Inter, loaded
 ///
 /// `flutter test`'s default font draws every glyph as a one-em box, so a
 /// measured width is the character count rather than the text. Every geometric
@@ -46,7 +46,7 @@ const int kDefaultDays = 90;
 /// The widths a v02 layout is measured at. Never Flutter's 800 px default.
 const List<double> kPhoneWidths = <double>[320, 360, 390, 414];
 
-/// Loads Manrope, so a measured width is the text rather than the glyph count.
+/// Loads Inter, so a measured width is the text rather than the glyph count.
 void useRealFonts() {
   setUpAll(() async {
     final loader = FontLoader(healtheeFontFamily);

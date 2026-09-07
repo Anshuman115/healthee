@@ -78,10 +78,10 @@ void main() {
     expect(vendored, contains(700));
   });
 
-  test('NOTHING ASKS FOR AN ITALIC — Manrope has no such face to give', () {
-    // Not a deferred vendoring job: Manrope's variable font carries a single
+  test('NOTHING ASKS FOR AN ITALIC — Inter has no such face to give', () {
+    // Not a deferred vendoring job: Inter's variable font carries a single
     // `wght` axis (200–800) and upstream publishes no italic companion —
-    // measured off `Manrope[wght].ttf`'s `fvar` table, not remembered. So the
+    // measured off `Inter[wght].ttf`'s `fvar` table, not remembered. So the
     // app stopped asking, and this fails if it starts again.
     final asking = <String>[
       for (final file in _libSources())

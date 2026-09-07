@@ -176,12 +176,12 @@ flutter:
   # installs. `core/licences.dart` registers it with `LicenseRegistry` and the
   # About row on Settings is where it is read.
   assets:
-    - assets/fonts/OFL.txt
+    - assets/fonts/OFL-Inter.txt
 
-  # Manrope, vendored rather than fetched — no CDN at paint time, and a
+  # Inter, vendored rather than fetched — no CDN at paint time, and a
   # cold-start budget of 2 s to first meaningful paint (Standards §1). SIL OFL
   # (no Reserved Font Name); the licence ships beside the files in
-  # assets/fonts/OFL.txt. ~386 KB total.
+  # assets/fonts/OFL-Inter.txt. ~1.1 MB total.
   #
   # FOUR weights, and the list is derived rather than chosen: it is exactly the
   # set of `FontWeight.w*` values the app names (400/500/600/700), which
@@ -191,21 +191,22 @@ flutter:
   # a shade off, invisibly. `HType.number` (legacy's `HType.num`, weight 700)
   # was drawing at 600 for exactly that reason.
   #
-  # Each file is instanced from upstream's `Manrope[wght].ttf` variable font at
+  # Each file is upstream's static instance from the Inter 4.1 release at
   # a fixed `wght`, so the four are one design rather than four drawings.
   #
-  # There is NO italic here and there cannot be: Manrope's variable font carries
-  # a single `wght` axis (200–800) and upstream publishes no italic companion.
-  # See `instrument_type.dart` — the slant is not deferred, it is unavailable in
-  # the face the owner chose, so the app stopped asking for it.
+  # There is NO italic here, and now that is a CHOICE rather than a constraint.
+  # Manrope published no italic companion, so the app stopped asking for one and
+  # `instrument_type.dart` records that. Inter does ship an italic — it is left
+  # out because nothing in the app sets one, and a weight nobody draws is a
+  # megabyte of APK for a style that would arrive by accident if it existed.
   fonts:
-    - family: Manrope
+    - family: Inter
       fonts:
-        - asset: assets/fonts/Manrope-Regular.ttf
+        - asset: assets/fonts/Inter-Regular.ttf
           weight: 400
-        - asset: assets/fonts/Manrope-Medium.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
           weight: 500
-        - asset: assets/fonts/Manrope-SemiBold.ttf
+        - asset: assets/fonts/Inter-SemiBold.ttf
           weight: 600
-        - asset: assets/fonts/Manrope-Bold.ttf
+        - asset: assets/fonts/Inter-Bold.ttf
           weight: 700

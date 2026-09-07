@@ -96,7 +96,7 @@ class Vo2maxCard extends StatelessWidget {
               const SizedBox(width: 8),
               // `Flexible`, where legacy has none. Legacy's row is the figure,
               // a flexible `± SEE` and a fixed pill, and it overflows here by
-              // ~29 px at a 420 px phone — Manrope sets this string wider than
+              // ~29 px at a 420 px phone — the face sets this string wider than
               // Space Mono did, and the typeface is one of the three sanctioned
               // differences. The pill shrinks and wraps rather than clipping,
               // because "vs age median" truncated is a different claim.

@@ -62,9 +62,9 @@ Widget sleepPanelHost(Widget panel, {double width = 390, ThemeData? theme}) =>
 /// all one em wide, so text measures about twice its real width and any claim
 /// about a laid-out box would be a claim about the wrong box.
 Future<void> loadSleepFont() async {
-  final loader = FontLoader('Manrope');
+  final loader = FontLoader('Inter');
   for (final weight in <String>['Regular', 'Medium', 'SemiBold', 'Bold']) {
-    final bytes = File('assets/fonts/Manrope-$weight.ttf').readAsBytesSync();
+    final bytes = File('assets/fonts/Inter-$weight.ttf').readAsBytesSync();
     loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
   }
   await loader.load();

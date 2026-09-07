@@ -10,8 +10,8 @@
 /// `flutter test` renders every glyph in a placeholder font whose characters are
 /// all one em wide. In it `34.3` is 336 px wide at 84 px and clips to the whole
 /// display square, so any claim about what the field does or does not cross
-/// would be a claim about the wrong box. Manrope is bundled with the app, so
-/// [loadManrope] measures the figure the owner actually sees.
+/// would be a claim about the wrong box. Inter is bundled with the app, so
+/// [loadInter] measures the figure the owner actually sees.
 ///
 /// ## Four phone widths, and not one of them is 800
 ///
@@ -43,10 +43,10 @@ Finder get heroField => find
 
 /// Loads the app's own typeface, so the text boxes measured here are the real
 /// ones.
-Future<void> loadManrope() async {
-  final loader = FontLoader('Manrope');
+Future<void> loadInter() async {
+  final loader = FontLoader('Inter');
   for (final weight in <String>['Regular', 'Medium', 'SemiBold', 'Bold']) {
-    final bytes = File('assets/fonts/Manrope-$weight.ttf').readAsBytesSync();
+    final bytes = File('assets/fonts/Inter-$weight.ttf').readAsBytesSync();
     loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
   }
   await loader.load();

@@ -1,4 +1,4 @@
-/// The type system: Manrope, and tabular figures wherever a number lives.
+/// The type system: Inter, and tabular figures wherever a number lives.
 ///
 /// ## Tabular figures are on by default, and that is a correctness decision
 ///
@@ -22,12 +22,13 @@
 /// at 600 far more often than 700 — this is an instrument, and hierarchy comes
 /// from weight and spacing rather than from large type.
 ///
-/// ## The face is Manrope, and it replaced Instrument Sans
+/// ## The face is Inter — it replaced Manrope, which replaced Instrument Sans
 ///
 /// Owner decision 2026-08-05: *Instrument Sans reads "newspaper" at display
 /// sizes.* It does — its high-contrast, tight-apertured caps carry an editorial
 /// texture, which is the one direction `docs/APP_DESIGN_BRIEF.md` §2 rules out by
-/// name ("modern instrument. **Not editorial**"). Manrope is the opposite build:
+/// name ("modern instrument. **Not editorial**"). Both replacements are the
+/// opposite build:
 /// open apertures, near-uniform stroke, a wide and untroubled `0`.
 ///
 /// **The old family is deleted, not left beside the new one.** Two vendored
@@ -37,19 +38,20 @@
 ///
 /// Two measurements came with the swap, because a face is not a drop-in:
 ///
-///   * **Tabular figures survive.** Manrope ships `tnum`, which is what
+///   * **Tabular figures survive.** Inter ships `tnum`, which is what
 ///     [FontFeature.tabularFigures] selects. That mattered more than the face —
 ///     brief §7 makes it a hard constraint, and a face without it would have been
 ///     rejected whatever it looked like.
-///   * **Manrope runs wider**, so every display-size string was re-checked
+///   * **Inter runs narrower than Manrope**, so display-size strings gained
+///     room rather than losing it; the widths were re-checked
 ///     against overflow (`test/core/typography_test.dart`), and the subscript in
 ///     `SpO₂` was checked for a glyph. Instrument Sans **had none** — U+2082 drew
 ///     a tofu box on the live screen, as did the `σ` in the recovery ladder's
-///     caption. Manrope covers both.
+///     caption. Inter covers both, and covers the arrows Manrope did not.
 ///
 /// ## The font is vendored, not fetched
 ///
-/// `assets/fonts/` holds three weights of Manrope (SIL OFL, no Reserved Font
+/// `assets/fonts/` holds four weights of Inter (SIL OFL, no Reserved Font
 /// Name; see the OFL.txt beside them), instanced from upstream's variable font at
 /// the exact weights below. Bundling costs ~290 KB and buys a binary with no
 /// network dependency at paint time, against a cold-start budget of 2 s to first
@@ -62,15 +64,58 @@ library;
 import 'package:flutter/material.dart';
 
 /// The bundled family name, as declared in pubspec.yaml.
-const String healtheeFontFamily = 'Manrope';
+///
+/// **Inter, replacing Manrope on 2026-09-07.** The owner, looking at the
+/// installed build: *"choose some other better font manrope is not looking good
+/// as well."*
+///
+/// Inter is also what removes the emoji-arrow defect at its source rather than
+/// routing around it. Manrope is a text-only family: verified against its own
+/// `cmap`, it has **no `↔` (U+2194)** and **no `↗` (U+2197)**, so Android went
+/// looking and the platform face that covers U+2194 is `NotoColorEmoji`. Inter
+/// carries both, so the fallback below is now defence rather than the fix.
+///
+/// It also keeps what the type scale depends on: `tnum` tabular figures, so
+/// columns of numbers stay aligned, and the four weights the scale asks for.
+const String healtheeFontFamily = 'Inter';
 
-/// Platform faces to fall back on if the bundled asset is unavailable.
+/// Faces to fall back on, in order, when the bundled family has no glyph.
+///
+/// ## The text faces, and why the symbol faces are here too
+///
+/// The first group is the platform UI font, so a failed asset degrades to the
+/// system face rather than to Flutter's fallback box glyphs.
+///
+/// The second group exists because of a defect Manrope shipped. Manrope is a
+/// text family and covered none of the symbols this app draws: no `↔` (U+2194),
+/// no `↗` (U+2197), no `ⓘ` (U+24D8), no `⌄` (U+2304). Android's `Roboto` has
+/// **none of the arrows either**, so naming it alone left the chain to the
+/// platform default — and the platform default that covers U+2194 is
+/// **`NotoColorEmoji`**.
+///
+/// That is how `Overnight HRV ↔ recovery` shipped with a blue emoji box in the
+/// middle of a sentence. `U+FE0E`, the text-presentation selector, cannot fix
+/// it: the selector chooses between two presentations **within a font that has
+/// the glyph**, and it cannot conjure a text form in a font that lacks the
+/// codepoint entirely.
+///
+/// **Inter carries both arrows, so it is the actual fix.** These symbol faces
+/// stay as defence: `fontFamilyFallback` is consulted in full before the
+/// platform chain, so a glyph the bundled family lacks reaches a monochrome
+/// face before it can reach the colour emoji font.
+/// `test/theme/font_coverage_test.dart` reads the bundled `.ttf` and fails if
+/// a character the app actually draws is covered by neither.
 const List<String> healtheeFontFallback = <String>[
+  // Text.
   'SF Pro Text', // iOS
   'Roboto', // Android
   'Segoe UI',
   'Helvetica Neue',
   'Arial',
+  // Symbols — monochrome, and ahead of the platform's colour emoji font.
+  'Noto Sans Symbols', // Android
+  'Segoe UI Symbol', // Windows
+  'Apple Symbols', // iOS / macOS
 ];
 
 /// Every digit at one advance width.

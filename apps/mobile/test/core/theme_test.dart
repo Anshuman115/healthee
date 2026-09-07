@@ -138,7 +138,7 @@ void main() {
       expect(AppTheme.dark.colorScheme.primary, Tone.fitness.family(darkHues));
     });
 
-    test('set Manrope with tabular figures on every text style', () {
+    test('set Inter with tabular figures on every text style', () {
       final text = AppTheme.light.textTheme;
       for (final style in [
         text.displayLarge,
@@ -147,7 +147,7 @@ void main() {
         text.bodyMedium,
         text.labelSmall,
       ]) {
-        expect(style!.fontFamily, 'Manrope');
+        expect(style!.fontFamily, 'Inter');
         expect(
           style.fontFeatures,
           contains(const FontFeature.tabularFigures()),

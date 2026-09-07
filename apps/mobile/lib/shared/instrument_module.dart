@@ -210,7 +210,7 @@ class InstrumentModule extends StatelessWidget {
 /// Legacy's `HEyebrow` — uppercase, wide-tracked, quiet.
 ///
 /// 9 px at 0.12 em of tracking, weight 400, in [HealtheeColors.ink3]. All of
-/// those are legacy's; the face is Manrope rather than Space Mono, which is the
+/// those are legacy’s; the face is Inter rather than Space Mono, which is the
 /// one typographic difference the port is allowed (`instrument_type.dart`).
 ///
 /// The caps are **visual only**: the [Semantics] label carries the text as

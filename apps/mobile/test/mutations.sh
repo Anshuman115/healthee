@@ -2140,11 +2140,24 @@ mutate 'the observation loses "That doesn’t tell us why."' \
   "'They moved in opposite directions.\nThat doesn’t tell us why.'" \
   "'They moved in opposite directions.'"
 
-# The arrow loses its text-presentation selector and renders as an emoji again.
-mutate 'the correlation arrow goes back to emoji presentation' \
+# The arrow acquires a direction the statistic does not have.
+mutate 'the pair arrow becomes single-headed' \
   "$NAMES_TEST" "$NAMES" \
-  "const String kPairArrow = '↔︎';" \
-  "const String kPairArrow = '↔';"
+  "const String kPairArrow = '↔';" \
+  "const String kPairArrow = '→';"
+
+# The symbol faces come out of the fallback chain, all three together. `ⓘ` is
+# drawn in prose and no text family carries it, so with nothing named behind it
+# the character reaches the platform default — which is how a colour emoji got
+# into a sentence on the owner's phone in the first place.
+mutate 'the fallback chain drops its monochrome symbol faces' \
+  "test/core/typography_test.dart" "lib/core/theme/typography.dart" \
+  "  // Symbols — monochrome, and ahead of the platform's colour emoji font.
+  'Noto Sans Symbols', // Android
+  'Segoe UI Symbol', // Windows
+  'Apple Symbols', // iOS / macOS
+" \
+  ""
 
 echo
 echo "caught $PASS, survived $FAIL"

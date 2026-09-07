@@ -177,5 +177,5 @@ Future<void> _loadBundledFonts() async {
   await loader.load();
 }
 
-/// `Manrope-SemiBold.ttf` → `Manrope`. The family is the part before the dash.
+/// `Inter-SemiBold.ttf` → `Inter`. The family is the part before the dash.
 String _familyOf(String fileName) => fileName.split('-').first;

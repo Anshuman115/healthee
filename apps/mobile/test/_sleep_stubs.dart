@@ -94,7 +94,7 @@ SleepPage sleepPageWithoutSession() {
 ///
 /// **390, not `_chart_probe.dart`'s 300.** `flutter test` loads no fonts, so
 /// every glyph is a square of the font size — legacy's `7h 05m` at 27 px measures
-/// 162 logical pixels here and about 85 in Manrope on a phone. A card that fits
+/// 162 logical pixels here and about 85 in Inter on a phone. A card that fits
 /// on every shipping handset would otherwise overflow in a test, and chasing that
 /// with a `Flexible` on the hero figure would be letting the test font redesign
 /// the screen.

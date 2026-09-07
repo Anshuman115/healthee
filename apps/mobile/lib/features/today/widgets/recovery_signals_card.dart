@@ -202,7 +202,7 @@ class _SignalRow extends StatelessWidget {
                   if (source.isNotEmpty)
                     TextSpan(
                       text: source,
-                      // Upright, and always was — Manrope ships no italic.
+                      // Upright, and always was — the bundled family ships no italic.
                       // See `instrument_type.dart`.
                       style: HType.sans(colors.ink3, size: 11.5),
                     ),
