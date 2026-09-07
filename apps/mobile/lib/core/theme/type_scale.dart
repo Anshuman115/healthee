@@ -201,6 +201,19 @@ abstract final class TypeScale {
     tracking: -0.6,
   );
 
+  /// `.metric-list strong { font-size:20px; letter-spacing:-.6px }` over the
+  /// body's own `font: 14px/1.6` and `strong`'s 700.
+  ///
+  /// The same three numbers as [chapterTitle] and a different line box: that
+  /// one is an `h2` at `line-height: 1.4`, this one is inline text inheriting
+  /// the body's 1.6. Two transcriptions of two rules.
+  static final TextStyle metricListValue = _style(
+    20,
+    FontWeight.w700,
+    height: 1.6,
+    tracking: -0.6,
+  );
+
   /// `.chapter-nav button` — one jump target.
   static final TextStyle chapterNav = _style(10, FontWeight.w400, height: 1.2);
 
@@ -301,6 +314,28 @@ abstract final class TypeScale {
   /// `.hero-number .duration-unit`.
   static final TextStyle heroUnit = _style(
     30,
+    FontWeight.w400,
+    height: 1,
+    tracking: -1,
+  );
+
+  /// `.metric-hero .hero-number { font-size: 68px }` over the base
+  /// `.hero-number { line-height:1; font-weight:600; letter-spacing:-5px }`.
+  ///
+  /// Four pixels off [heroNumber] and a tighter track, because `screens.css`
+  /// overrides the base rule differently for the two heroes. Two transcriptions
+  /// of two rules, not two opinions about one — the same distinction
+  /// `stat_block.dart` records for `.stat` inside and outside a panel.
+  static final TextStyle metricHeroNumber = _style(
+    68,
+    FontWeight.w600,
+    height: 1,
+    tracking: -5,
+  );
+
+  /// `.hero-number .unit { font-size:24px; letter-spacing:-1px }`.
+  static final TextStyle metricHeroUnit = _style(
+    24,
     FontWeight.w400,
     height: 1,
     tracking: -1,

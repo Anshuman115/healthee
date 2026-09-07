@@ -29,6 +29,22 @@ library;
 /// and every id it can emit is either here or deliberately absent.
 String metricName(String metric) => _names[metric] ?? metric;
 
+/// The same name, cased for a heading rather than for a sentence.
+///
+/// [metricName] answers "what do I call this inside a sentence", so its table
+/// is lower case — *"your overnight HRV rose"*. A screen title is the other
+/// position and needs the same words with a capital, and deriving it here keeps
+/// the ONE table: a second, title-cased map would be a second place for a
+/// metric to be renamed and only one of them to get the memo.
+///
+/// Only the first character moves. `VO₂max` and `HRV` keep the capitals the
+/// table already gives them, and an unknown id keeps its own shape — an id on
+/// screen is legible as a gap, which is the argument this file already makes.
+String metricTitle(String metric) {
+  final name = metricName(metric);
+  return name.isEmpty ? name : name[0].toUpperCase() + name.substring(1);
+}
+
 /// True when [metric] has a name here — i.e. the app can put it in a sentence.
 ///
 /// A finding whose metrics are both unnamed still renders; it just falls back to
@@ -56,6 +72,11 @@ const Map<String, String> _names = <String, String>{
   'sleep_dim_timing': 'sleep timing',
   'sleep_dim_regularity': 'sleep regularity',
   'asleep': 'time asleep',
+  // The two the metric explorer found missing. Both are already words on the
+  // Sleep screen (`need_panel.dart`), and an id printed on a tile is the exact
+  // failure the library docstring above describes.
+  'sleep_debt_min': 'sleep debt',
+  'sleep_need_min': 'sleep need',
 
   // Movement and energy.
   'steps_total': 'steps',
