@@ -68,6 +68,43 @@ def user_today(tz: str) -> date:
     return datetime.now(tz=ZoneInfo(tz)).date()
 
 
+# "The day this read answers for" in SQL — ``USER_TODAY_SQL``'s as-of twin, and a bound
+# DATE rather than an expression over the clock. Every read-layer window that used to
+# subtract from ``USER_TODAY_SQL`` now subtracts from this, with :func:`reference_day`'s
+# result bound in place of the timezone.
+#
+# It is a named constant and not an inline ``%s::date`` for one reason: the substitution
+# is the whole of ``docs/AS_OF_DAY.md``'s section 3, and a grep for this name is what
+# tells a reader which windows have been made answerable for a past day and which are
+# still pinned to the wall clock. An anonymous cast would be invisible.
+#
+# The default is unchanged behaviour: ``reference_day(None, tz)`` IS ``user_today(tz)``,
+# which is what ``USER_TODAY_SQL`` evaluates to for the same owner.
+AS_OF_DAY_SQL: LiteralString = "%s::date"
+
+
+def reference_day(day: date | None, tz: str) -> date:
+    """The day a read answers for: ``day`` when one was asked for, else the owner's today.
+
+    The ONE way an optional reference day is resolved (``docs/AS_OF_DAY.md`` section 2).
+    It generalises the convention ``analytics/baselines.py`` already used
+    (``end_date = end_date or user_today(tz)``) rather than inventing a second one, and it
+    is a function rather than that idiom repeated so the default cannot drift: an ``or``
+    would also swallow a falsy day, and every read that skipped the helper would be a
+    place the owner's zone could stop being consulted.
+
+    Nothing here validates the day, deliberately: this is the resolver, and the boundary
+    is where a request is judged. ``api.validation.require_reference_day`` refuses a
+    malformed date and a day in the owner's future — the second because every window
+    would be bounded by it and every surface would withhold, so the payload would be
+    technically honest while reading as "we have nothing for you" instead of "that day
+    has not happened". Putting that judgement here as well would be a second opinion
+    about what a day means, and the job path (jobs, ops tooling) legitimately asks for
+    days this function must simply answer.
+    """
+    return day if day is not None else user_today(tz)
+
+
 @dataclass(frozen=True)
 class Tenant:
     """One owner the science/jobs layers work on behalf of: their id + their zone.
@@ -98,10 +135,12 @@ def active_users() -> list[Tenant]:
 
 
 __all__ = [
+    "AS_OF_DAY_SQL",
     "SENTINEL_TZ",
     "SENTINEL_USER_ID",
     "USER_TODAY_SQL",
     "Tenant",
     "active_users",
+    "reference_day",
     "user_today",
 ]
