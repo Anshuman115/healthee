@@ -1883,7 +1883,7 @@ mutate 'an invalid amount reaches the wire' "$JOURNAL_TEST" "$LOG_SHEET" \
 # ── the v02 history surfaces ────────────────────────────────────────────────
 TILE=lib/features/history/v02/metric_tile.dart
 PANEL=lib/features/history/v02/history_panel.dart
-WINDOW=lib/features/history/history_window.dart
+WINDOW=lib/data/history/history_window.dart
 EXPLORER=lib/features/history/metric_explorer_screen.dart
 EXPLORER_TEST=test/history/metric_explorer_test.dart
 HISTORY_TEST=test/history/history_screen_test.dart

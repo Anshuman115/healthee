@@ -28,6 +28,29 @@
 /// what makes a past day a past day rather than today's chart under an old
 /// heading. [HistoryWindow.through] is that filter, and it is the only place a
 /// date bound is applied.
+///
+/// ## Two ways to end on a day, and they answer different questions
+///
+/// [HistoryWindow.through] keeps every reading up to a day and lets the window
+/// end wherever the last one did — right for the metric screen, whose caption is
+/// the range of what was measured.
+///
+/// [HistoryWindow.endingOn] fixes both edges on the calendar: exactly `days`
+/// slots, the last of them the chosen day, whatever was measured. It is what a
+/// dated panel needs, and the difference is visible whenever the last reading is
+/// older than the selection. The prototype takes the last N **observations**
+/// (`slice(-limit)` over a filtered array), which on an index-positioned chart
+/// pulls older readings forward until the fortnight looks complete. This chart
+/// is calendar-positioned, so the same trick would silently redate them. A
+/// window that ends on the selected day with trailing nulls says the true thing:
+/// nothing was measured since.
+///
+/// ## It lives in `data/`, not in a feature
+///
+/// Six screens draw dated panels from it and `shared/v02/dated_history.dart`
+/// builds them, so a copy in `features/history/` would be five features reaching
+/// sideways into a sixth — which Standards section 1 forbids for the reason this
+/// type exists to serve: one definition of where a gap is.
 library;
 
 import 'package:healthee/data/models/trend_point.dart';
@@ -59,6 +82,43 @@ class HistoryWindow {
       values.add(byDay[day]);
     }
     return HistoryWindow._(values, days, points);
+  }
+
+  /// The [days] calendar days ending on [day], filled from [points].
+  ///
+  /// Both edges are the calendar's, so the chart ends on the day in the header
+  /// even when the last reading is older — the empty slots between are drawn as
+  /// the holes they are. [days] below one is one: a window of no days is not a
+  /// shorter question, it is a malformed one, and an empty chart under a figure
+  /// would say nothing about why.
+  factory HistoryWindow.endingOn(
+    List<TrendPoint> points,
+    String day,
+    int days,
+  ) {
+    final span = days < 1 ? 1 : days;
+    final last = _day(day);
+    final first = last.subtract(Duration(days: span - 1));
+    final firstIso = _iso(first);
+    final byDay = <String, double>{
+      for (final point in points)
+        if (point.date.compareTo(firstIso) >= 0 &&
+            point.date.compareTo(day) <= 0)
+          point.date: point.value,
+    };
+    final values = <double?>[];
+    final calendar = <String>[];
+    final observed = <TrendPoint>[];
+    for (var i = 0; i < span; i++) {
+      final iso = _iso(first.add(Duration(days: i)));
+      calendar.add(iso);
+      final value = byDay[iso];
+      values.add(value);
+      if (value != null) {
+        observed.add(TrendPoint(date: iso, value: value));
+      }
+    }
+    return HistoryWindow._(values, calendar, observed);
   }
 
   const HistoryWindow._(this.values, this.days, this.observed);
