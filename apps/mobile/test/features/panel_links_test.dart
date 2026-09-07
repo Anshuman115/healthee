@@ -10,8 +10,12 @@
 /// and names the screen it expects, rather than asking whether a callback is
 /// non-null.
 ///
-/// `today_order_test.dart` owns which panels are drawn and in what order. This
-/// file owns where they GO.
+/// Three suites divide this subject and the seam is the KIND of control:
+/// `today_order_test.dart` owns which panels are drawn and in what order;
+/// `v02_screen_links_test.dart` owns the doorways into the four screens that
+/// were built last (a hero row, a bridge, a relationship card); and this file
+/// owns the `Details` link on a panel head, the two bridges Today draws, the
+/// device strip and the metric directory's closing rows.
 library;
 
 import 'dart:async';

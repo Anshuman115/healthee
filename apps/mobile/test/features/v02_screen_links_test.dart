@@ -11,6 +11,11 @@
 /// first of them is the one section 0 corrected: **Today's entry points are the
 /// three hero summary rows**, not a panel `Details` link. The recovery row is
 /// what opens `#recovery`, so that is the tap this suite makes.
+///
+/// The panel `Details` links themselves — and the two bridges, the device strip
+/// and the metric directory's closing rows — are `panel_links_test.dart`. The
+/// seam is the kind of control, not the destination: several of them land on
+/// screens this file also reaches, by a different door.
 library;
 
 import 'package:flutter/material.dart';
