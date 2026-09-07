@@ -38,6 +38,8 @@ import 'package:flutter/services.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
 /// `.field` — the wrapper around one labelled control.
 class HField extends StatelessWidget {
@@ -47,6 +49,7 @@ class HField extends StatelessWidget {
     required this.child,
     this.hint,
     this.reserveHint = false,
+    this.detail = MetricDetail.none,
     super.key,
   });
 
@@ -72,6 +75,15 @@ class HField extends StatelessWidget {
   /// one that explains itself stays aligned.
   final bool reserveHint;
 
+  /// This field's own provenance, bound for the ⓘ beside its label.
+  ///
+  /// A control whose answer feeds a published number has sources, and they are
+  /// not card decoration — `activity_level_field.dart` is the live one, and its
+  /// five labels are the reference levels a fitness model was fitted against.
+  /// The default is empty, and `MetricInfoDot` then draws **nothing at all**, so
+  /// every field without one keeps the label row it has to the pixel.
+  final MetricDetail detail;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -82,7 +94,17 @@ class HField extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(label, style: FormType.fieldLabel.copyWith(color: colors.ink)),
+          Row(
+            children: <Widget>[
+              Flexible(
+                child: Text(
+                  label,
+                  style: FormType.fieldLabel.copyWith(color: colors.ink),
+                ),
+              ),
+              MetricInfoDot(null, detail: detail, fallbackTitle: label),
+            ],
+          ),
           const SizedBox(height: gap),
           child,
           if (hint != null || reserveHint) ...<Widget>[
