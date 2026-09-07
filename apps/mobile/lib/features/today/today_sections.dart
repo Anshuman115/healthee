@@ -115,6 +115,9 @@ class TodayExtras {
     this.onOpenTerm,
     this.onOpenSleep,
     this.onOpenActivity,
+    this.onOpenMetric,
+    this.onOpenFitness,
+    this.onOpenWorkouts,
   });
 
   /// What the app knows about its own pushing, for the data-health card.
@@ -174,6 +177,19 @@ class TodayExtras {
 
   /// Opens the activity tab — the hero's third summary row.
   final VoidCallback? onOpenActivity;
+
+  /// Opens one metric's own dated series, by its canonical id.
+  ///
+  /// Every `H.panel(…, 'metric/:key')` Details link on this screen. Null draws
+  /// no link at all, which is what a panel whose metric this build keeps no
+  /// history for gets — `today_day_sections.dart` names the one such panel.
+  final void Function(String metric)? onOpenMetric;
+
+  /// Opens the VO₂max screen — the fitness panel's Details link.
+  final VoidCallback? onOpenFitness;
+
+  /// Opens the workout list — the strength panel's Details link.
+  final VoidCallback? onOpenWorkouts;
 }
 
 /// Builds the ordered section list for one render of Today.

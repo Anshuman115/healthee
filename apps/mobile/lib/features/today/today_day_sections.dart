@@ -73,6 +73,11 @@ void todayDaySections(
     snapshot.hourlyStress,
   )) {
     sections.add(
+      // **No Details link, and it is the one panel on this screen without
+      // one.** The prototype points it at `metric/hr`; `history_metric.dart`
+      // has no daily heart-rate or stress series, so there is nothing to open.
+      // A link to a neighbouring metric would be a different measurement
+      // behind the same word, and a dead control is worse than none.
       HeartStressPanel(
         heartRate: snapshot.hourlyHeartRate,
         stress: snapshot.hourlyStress,
@@ -81,9 +86,22 @@ void todayDaySections(
     );
     sections.gap(PageSpacing.panel);
   }
-  sections.add(StepsEnergyPanel(facts: facts, reveals: reveals));
+  sections.add(
+    StepsEnergyPanel(
+      facts: facts,
+      reveals: reveals,
+      onDetails: extras.onOpenActivity,
+    ),
+  );
   sections.gap(PageSpacing.block);
-  sections.add(ContextBridge.text(kMovementBridge));
+  sections.add(
+    // `H.bridge('movement', …, 'recovery', 'See the relationship')`.
+    ContextBridge.link(
+      kMovementBridge,
+      label: 'See the relationship',
+      onOpen: extras.onOpenRecovery,
+    ),
+  );
   sections.gap(PageSpacing.panel);
   sections.add(
     ReadingView<CardioLoad>(
@@ -92,12 +110,23 @@ void todayDaySections(
       caveatCarrier: CaveatCarrier.insideCard,
       withheldBuilder: (context, disclosure) =>
           WithheldPanel(disclosure: disclosure, label: 'Strain · cardio load'),
-      builder: (context, load) => EffortPanel(load: load, reveals: reveals),
+      builder: (context, load) => EffortPanel(
+        load: load,
+        reveals: reveals,
+        onDetails: _dayMetric(extras, 'cardio_load'),
+      ),
     ),
   );
   sections.gap(PageSpacing.panel);
-  _targets(sections, facts);
+  _targets(sections, facts, extras);
   _longerChapter(sections, facts, reveals, extras);
+}
+
+/// One panel's Details link, or none. The twin of `today_body.dart::_metric`,
+/// separate only because the two files may not import each other's privates.
+VoidCallback? _dayMetric(TodayExtras extras, String metric) {
+  final void Function(String metric)? open = extras.onOpenMetric;
+  return open == null ? null : () => open(metric);
 }
 
 /// Active minutes beside strength, or active minutes alone.
@@ -105,7 +134,7 @@ void todayDaySections(
 /// The strength block is absent on a payload that has none, and a twin row with
 /// one live half is a half-width panel next to a hole. So the pair collapses to
 /// a single full-width panel rather than drawing a gap where a card would be.
-void _targets(SectionList sections, TodayFacts facts) {
+void _targets(SectionList sections, TodayFacts facts, TodayExtras extras) {
   final strength = facts.snapshot.strength;
   // The `ReadingView` wraps the LEFT PANEL ONLY, and that is load-bearing: a
   // `CaveatScope` handed to a `TwinPanels` would be read by both halves, and
@@ -118,13 +147,17 @@ void _targets(SectionList sections, TodayFacts facts) {
     caveatCarrier: CaveatCarrier.insideCard,
     withheldBuilder: (context, disclosure) =>
         WithheldPanel(disclosure: disclosure, label: 'Active minutes · MVPA'),
-    builder: (context, mvpa) => ActiveMinutesPanel(mvpa: mvpa),
+    builder: (context, mvpa) =>
+        ActiveMinutesPanel(mvpa: mvpa, onDetails: extras.onOpenActivity),
   );
   sections.add(
     strength is Strength
         ? TwinPanels(
             left: minutes,
-            right: StrengthPanel(strength: strength),
+            right: StrengthPanel(
+              strength: strength,
+              onDetails: extras.onOpenWorkouts,
+            ),
           )
         : minutes,
   );
@@ -153,8 +186,11 @@ void _longerChapter(
       caveatCarrier: CaveatCarrier.insideCard,
       withheldBuilder: (context, disclosure) =>
           WithheldPanel(disclosure: disclosure, label: 'VO₂max · estimate'),
-      builder: (context, vo2max) =>
-          FitnessPanel(vo2max: vo2max, reveals: reveals),
+      builder: (context, vo2max) => FitnessPanel(
+        vo2max: vo2max,
+        reveals: reveals,
+        onDetails: extras.onOpenFitness,
+      ),
     ),
   );
   // A day with nothing logged draws nothing at all.

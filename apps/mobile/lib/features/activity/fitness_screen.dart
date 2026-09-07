@@ -153,7 +153,14 @@ class FitnessDetail extends StatelessWidget {
         ],
         if (years != null) ...<Widget>[
           const SizedBox(height: blockGap),
-          ContextBridge.text(ageBridge(years)),
+          // `H.bridge('fitness', …, 'body', 'Age contributions')` — the
+          // sentence ends in the link, which is where the years it names are
+          // worked out.
+          ContextBridge.link(
+            ageBridge(years),
+            label: 'Age contributions',
+            onOpen: () => unawaited(context.push(Routes.body)),
+          ),
         ],
         const SizedBox(height: panelGap),
         ReadingView<CardioLoad>(

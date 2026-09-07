@@ -106,7 +106,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           // location and leave the sign-in screen with nothing beneath it.
           onSignIn: () => unawaited(context.push(Routes.serverSignIn)),
           onOpenProfile: () => unawaited(context.push(Routes.settings)),
-          onOpenSync: () => unawaited(context.push(Routes.settings)),
+          // `<a href="#sync">` — the DEVICE strip opens the sync surface, not
+          // the settings index. It was pointed at the index, which is a screen
+          // about the app rather than an answer to "is my strap current?".
+          onOpenSync: () => unawaited(context.push(Routes.dataFreshness)),
           // The coach is a route now — `app_shell.dart`'s FAB pushes the same
           // one, so the entry card and the FAB cannot drift apart. No topic:
           // this card asks nothing in particular.
@@ -121,6 +124,17 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           onOpenTerm: (term) => _openTerm(context, term),
           onOpenSleep: () => context.go(Routes.sleep),
           onOpenActivity: () => context.go(Routes.activity),
+          // Every panel's `Details` link. The two tabs above use `go` because a
+          // bar switches between siblings; everything below is a destination
+          // the owner came from Today and expects to come back to, so it is
+          // pushed (`router.dart`'s table).
+          onOpenMetric: (metric) => unawaited(
+            context.push(
+              '${Routes.history}?metric=${Uri.encodeComponent(metric)}',
+            ),
+          ),
+          onOpenFitness: () => unawaited(context.push(Routes.fitness)),
+          onOpenWorkouts: () => unawaited(context.push(Routes.workouts)),
         ),
       ),
     );
