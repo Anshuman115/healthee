@@ -75,7 +75,11 @@ class ServerMetricStrip extends StatelessWidget {
         children: [
           Text('Against your own baseline', style: text.labelSmall),
           for (final card in metrics) ...[
-            Divider(color: colors.line2, height: Insets.lg, thickness: hairline),
+            Divider(
+              color: colors.line2,
+              height: Insets.lg,
+              thickness: hairline,
+            ),
             _MetricRow(
               card: card,
               series: sparklines[card.metric] ?? const [],
@@ -114,7 +118,10 @@ class _MetricRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(card.label, style: text.titleSmall?.copyWith(color: tag)),
+                  Text(
+                    card.label,
+                    style: text.titleSmall?.copyWith(color: tag),
+                  ),
                   const SizedBox(height: Insets.xs),
                   Text(
                     _comparison(card),
@@ -126,7 +133,10 @@ class _MetricRow extends StatelessWidget {
             const SizedBox(width: Insets.md),
             switch (card.reading) {
               Present<double>(:final value) => _Value(card: card, value: value),
-              Caveated<double>(:final value) => _Value(card: card, value: value),
+              Caveated<double>(:final value) => _Value(
+                card: card,
+                value: value,
+              ),
               Withheld<double>() || Excluded<double>() => const Padding(
                 padding: EdgeInsets.only(top: 2),
                 child: ValueHole.inline(),
@@ -186,17 +196,26 @@ class _MetricRow extends StatelessWidget {
       return 'No 30-day baseline for this — shown plainly, with nothing to '
           'compare it against.';
     }
+    // The σ is the SERVER's, `sd_30d`, and it is stated in the metric's own
+    // units rather than left as a bare multiplier (`BACKEND_GAPS_FROM_UI.md`
+    // B4). A reader given "1.4σ" and nothing else cannot tell a signal that
+    // moved a lot from one whose baseline barely varies, which is the whole
+    // content of the score. It is never computed here: the divisor that made
+    // `z` is the only one that reconciles with it.
+    final spread = card.sd30d;
+    final usual = spread == null
+        ? 'Your usual is ${_number(median)}${_unit(card)}'
+        : 'Your usual is ${_number(median)} ± ${_number(spread)}${_unit(card)}';
     final z = card.z;
     if (z == null) {
-      return 'Your usual is ${_number(median)}${_unit(card)}.';
+      return '$usual.';
     }
     if (z.abs() < 0.5) {
-      return 'Inside your usual range, around ${_number(median)}${_unit(card)}.';
+      return 'Inside your usual range. $usual.';
     }
     final side = z > 0 ? 'Above' : 'Below';
-    return '$side your usual ${_number(median)}${_unit(card)} — '
-        '${z.abs().toStringAsFixed(1)}σ'
-        '${card.anomalous ? ', outside your normal' : ''}.';
+    return '$side it — ${z.abs().toStringAsFixed(1)}σ'
+        '${card.anomalous ? ', outside your normal' : ''}. $usual.';
   }
 
   static String _unit(MetricCard card) =>
