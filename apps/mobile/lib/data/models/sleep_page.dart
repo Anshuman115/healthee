@@ -18,16 +18,24 @@
 ///   * **`findings`** are sleep-scoped correlations from the same shape
 ///     `/api/today`'s `top_findings` uses, and were reaching no screen.
 ///
-/// **`naps[].stages` is parsed to nothing and always will be**, and that is a
-/// server-side bug rather than a gap here: `read/sleep_page.py:244` ships the
-/// raw JSONB hypnogram (`[[startMs, endMs, typeCode]]`) where `nights` ships
-/// `stage_timeline()`'s objects. A client-side fix would mean re-implementing
-/// the strap's stage-code mapping in the UI layer — a second definition of what
-/// a stage is. Reported instead. The contract fixture has an empty nap
-/// hypnogram, so no test on either side exercises the non-empty shape.
+/// **`naps[].stages` used to parse to nothing, and that was a server bug rather
+/// than a gap here**: `read/sleep_page.py` shipped the raw JSONB hypnogram
+/// (`[[startMs, endMs, typeCode]]`) under the key a *night* uses for per-stage
+/// minute TOTALS, so `NapStage.fromJson` never saw a map and every nap's stage
+/// list was empty on every payload. It was reported rather than worked around,
+/// because reading that array here would have meant re-implementing the strap's
+/// stage-code mapping in the UI layer — a second definition of what a stage is.
+///
+/// The server shapes a nap like a night now, so this model does too: `stages` is
+/// [StageMinutes] and the hypnogram is [SleepStageSpan]s under `timeline`, both
+/// of them the night's own types. `NapStage` is gone with the bug that created
+/// it — it existed only to read a shape that turned out to be the defect, and
+/// keeping a nap-only span type beside `SleepStageSpan` would be the second
+/// definition the old comment was refusing.
 library;
 
 import 'package:healthee/data/models/finding.dart';
+import 'package:healthee/data/models/last_sleep.dart';
 import 'package:healthee/data/models/sleep_night.dart';
 import 'package:meta/meta.dart';
 
@@ -42,9 +50,10 @@ class SleepNap {
     required this.durationMin,
     required this.midpointLocal,
     required this.stages,
+    required this.timeline,
   });
 
-  /// Parses one entry of `naps[]`.
+  /// Parses one entry of `naps[]` — the same two stage fields a night carries.
   factory SleepNap.fromJson(Map<String, Object?> json) {
     return SleepNap(
       date: json['date'] as String?,
@@ -52,9 +61,15 @@ class SleepNap {
       end: _instant(json['end_iso']),
       durationMin: (json['duration_min'] as num?)?.toDouble(),
       midpointLocal: json['midpoint_local'] as String?,
-      stages: <NapStage>[
-        for (final span in (json['stages'] as List<Object?>? ?? const <Object?>[]))
-          if (span is Map<String, Object?>) NapStage.fromJson(span),
+      stages: StageMinutes.fromJson(
+        json['stages'] is Map<String, Object?>
+            ? json['stages']! as Map<String, Object?>
+            : const <String, Object?>{},
+      ),
+      timeline: <SleepStageSpan>[
+        for (final span
+            in (json['stage_timeline'] as List<Object?>? ?? const <Object?>[]))
+          if (span is Map<String, Object?>) SleepStageSpan.fromJson(span),
       ],
     );
   }
@@ -74,29 +89,15 @@ class SleepNap {
   /// Its midpoint as the server formatted it, `HH:MM`.
   final String? midpointLocal;
 
-  /// Its staged spans, in order. Often empty — a nap is short and the strap
-  /// frequently stages nothing.
-  final List<NapStage> stages;
-}
+  /// Its per-stage minute totals. Zeroed rather than absent when the strap
+  /// staged nothing, exactly as a night's are — [StageMinutes.isEmpty] is how
+  /// "not staged" is asked, never a missing field.
+  final StageMinutes stages;
 
-/// One staged span inside a nap. Narrower than `SleepStageSpan` on purpose: the
-/// nap bar is drawn from durations alone and never from offsets.
-@immutable
-class NapStage {
-  /// Builds a nap span.
-  const NapStage({required this.stage, required this.durationMin});
-
-  /// Parses one entry of `naps[].stages`.
-  factory NapStage.fromJson(Map<String, Object?> json) => NapStage(
-    stage: json['stage'] as String? ?? '',
-    durationMin: (json['duration_min'] as num?)?.toDouble() ?? 0,
-  );
-
-  /// `light` · `deep` · `rem` · `awake`, as the strap wrote it.
-  final String stage;
-
-  /// How long the span lasted.
-  final double durationMin;
+  /// Its hypnogram, in order. Often empty on a nap even when [stages] is not:
+  /// the strap frequently sends a summary without the spans behind it, and the
+  /// two are independent facts.
+  final List<SleepStageSpan> timeline;
 }
 
 /// The published thresholds the four sleep-health checks are scored against.
@@ -175,7 +176,8 @@ class SleepPage {
   /// chart on the screen reverses the slice it wants, exactly as legacy does.
   factory SleepPage.fromJson(Map<String, Object?> json) => SleepPage(
     nights: <SleepNight>[
-      for (final night in (json['nights'] as List<Object?>? ?? const <Object?>[]))
+      for (final night
+          in (json['nights'] as List<Object?>? ?? const <Object?>[]))
         if (night is Map<String, Object?>) SleepNight.fromJson(night),
     ],
     naps: <SleepNap>[
@@ -184,11 +186,13 @@ class SleepPage {
     ],
     cutoffs: SleepCutoffs.maybe(json['cutoffs']),
     findings: <Finding>[
-      for (final entry in (json['findings'] as List<Object?>? ?? const <Object?>[]))
+      for (final entry
+          in (json['findings'] as List<Object?>? ?? const <Object?>[]))
         if (entry is Map<String, Object?>) Finding.fromJson(entry),
     ],
     researchNotes: <String>[
-      for (final id in (json['research_notes'] as List<Object?>? ?? const <Object?>[]))
+      for (final id
+          in (json['research_notes'] as List<Object?>? ?? const <Object?>[]))
         if (id is String) id,
     ],
   );
