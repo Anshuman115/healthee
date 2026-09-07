@@ -22,11 +22,12 @@ import 'package:healthee/core/theme/stage_colors.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
-import 'package:healthee/features/sleep/widgets/sleep_hero_card.dart';
+import 'package:healthee/features/sleep/v02/night_panels.dart';
+import 'package:healthee/features/sleep/v02/sleep_reading.dart';
 import 'package:healthee/features/today/v02/night_panels.dart';
-import 'package:healthee/shared/charts/h_hypnogram.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
 import 'package:healthee/shared/charts/h_stage_bar.dart';
+import 'package:healthee/shared/charts/v02/v02_hypnogram.dart';
 import 'package:healthee/shared/metric_info/metric_info.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
@@ -248,7 +249,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.byType(HHypnogram),
+        find.byType(V02Hypnogram),
         findsNothing,
         reason: 'the timeline belongs to Sleep, at full width',
       );
@@ -261,19 +262,17 @@ void main() {
       // cost it: proportion answers "how did the night divide", never "when".
       await tester.pumpWidget(todayHost(store, home: const SleepScreen()));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('SLEEP STAGES'));
+      await reveal(tester, find.text(NightTimelinePanel.title));
 
-      expect(find.byType(HHypnogram), findsOneWidget);
+      expect(find.byType(V02Hypnogram), findsOneWidget);
     });
 
     testWidgets('THE SLEEP HERO HAS NO ⓘ, AND THE EXPLAINER IS REACHABLE ANYWAY', (
       tester,
     ) async {
-      // Owner-delegated decision, 2026-08-06: it stays removed. Legacy passed
-      // `infoKey: 'sleep'` to this card and it has NEVER rendered — `HModule`
-      // draws the header row only when a `label` exists and this card passes
-      // none — so drawing it now would mean adding a header row the hero has
-      // never had, for a door that already exists.
+      // Owner-delegated decision, 2026-08-06, and v02 keeps it: the reading at
+      // the top of Sleep is a naked block with no head, so there is nowhere for
+      // a ⓘ to sit that would not be a head the block has never had.
       //
       // The second half is what makes that honest, and it is the half a comment
       // cannot keep true: the `sleep` explainer opens from Today's Sleep tile.
@@ -282,7 +281,7 @@ void main() {
 
       expect(
         find.descendant(
-          of: find.byType(SleepHeroCard),
+          of: find.byType(SleepReading),
           matching: find.byType(MetricInfoDot),
         ),
         findsNothing,

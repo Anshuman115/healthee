@@ -31,38 +31,14 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/activity/v02/movement_panels.dart';
 import 'package:healthee/features/activity/v02/training_panels.dart';
-import 'package:healthee/features/sleep/sleep_screen.dart';
-import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/v02/metric_tone.dart';
 import 'package:healthee/shared/v02/panel.dart';
 
-import '../_sleep_stubs.dart';
 import '_today_host.dart';
 
 const InstrumentHues _hues = InstrumentHues.light();
 const HealtheeColors _colors = HealtheeColors.light();
 
-/// The hue on the module whose eyebrow reads [label], or null when it has none.
-///
-/// Reads the widget's own `tag`, which is now the ONLY place the decision lives:
-/// the owner removed the 6 px identity dot on 2026-08-06 (`instrument_module.dart`
-/// records the departure), so a card's declared hue is no longer painted as a
-/// mark. It still tints the card's chart, and it is still what stops a grid cell
-/// and the card it opens from disagreeing about a metric.
-Color? _moduleTag(WidgetTester tester, String label) {
-  final drawn = tester
-      .widgetList<InstrumentModule>(find.byType(InstrumentModule))
-      .toList();
-  final module = drawn.where((module) => module.label == label);
-  expect(
-    module,
-    isNotEmpty,
-    reason:
-        'no module labelled "$label" was laid out. Drawn: '
-        '${drawn.map((one) => one.label).join(", ")}',
-  );
-  return module.first.tag;
-}
 
 /// Pumps [screen] on a viewport tall enough that every card is laid out.
 Future<void> _pump(
@@ -89,52 +65,6 @@ void main() {
     await seedDevice(store);
   });
   tearDown(() async => store.close());
-
-  group('Sleep', () {
-    // Sleep is legacy's screen now, and legacy tints the module's DOT rather
-    // than its label â `HModule` draws `HEyebrow(label)` in ink3 and the 6 px
-    // mark in `color`. Asserting a title colour here would have been asserting
-    // the rebuild's own design against the screen that replaced it, so the
-    // assertion moved to where the hue actually is.
-    testWidgets('THE SLEEP CARDS THAT CARRY A HUE CARRY LEGACY’S', (
-      tester,
-    ) async {
-      await _pump(tester, store, SleepScreen(now: kSleepNow));
-
-      // `sleep_screen.dart:367` â Sleep performance is `c.cSleep`.
-      // `sleep_screen.dart:647` â Sleep health is `c.green`.
-      final expected = <String, Color>{
-        'Sleep performance': _hues.sleep,
-        'Sleep health · 4-dim': _colors.accent,
-      };
-      for (final entry in expected.entries) {
-        expect(
-          _moduleTag(tester, entry.key),
-          entry.value,
-          reason: '${entry.key} must wear legacy’s own hue',
-        );
-      }
-    });
-
-    testWidgets('the rest of legacy’s sleep modules DECLARE no hue', (
-      tester,
-    ) async {
-      // `dot: false` on every one of them in legacy. A card that grew a hue
-      // would be claiming an identity legacy did not give it — still true after
-      // the dot went, because the declaration is what tints a card's chart.
-      await _pump(tester, store, SleepScreen(now: kSleepNow));
-      for (final label in <String>[
-        'Sleep stages',
-        'Breakdown',
-        'Overnight vitals',
-        'Sleep debt · last 7 nights',
-        'Last 7 nights',
-        'Trends · 14 nights',
-      ]) {
-        expect(_moduleTag(tester, label), isNull, reason: label);
-      }
-    });
-  });
 
   group('Activity', () {
     // **Activity is v02 now, and v02 does not pass colours at all.** A panel

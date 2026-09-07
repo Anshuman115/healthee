@@ -580,74 +580,86 @@ mutate 'a withheld stream prints its filter key' "$SETTINGS_TEST" "$FRESHNESS" \
   '        disclosure.message,' \
   '        disclosure.reason,'
 
-# ── Sleep: a card that blanks a value without saying so ─────────────────────
-# The Sleep port's one deliberate difference from legacy is that a missing field
-# renders as WITHHELD rather than as `—`. Half of that is a hole where the number
-# was; the other half is the sentence naming what is missing and why. A hole with
-# no sentence is a blank with a dashed border, and it is exactly what a "the card
-# still renders" test passes for — which is why each `SleepGapNote` is deleted
-# here on purpose.
+# ── Sleep: a panel that blanks a value without saying so ───────────────────
+# The v02 Sleep screen's whole bargain is that a missing field renders as
+# WITHHELD rather than as a bare dash. Half of that is the dash; the other half
+# is the sentence naming what is missing and why. A dash with no sentence is a
+# blank, and it is exactly what a "the panel still renders" test passes for —
+# which is why each refusal line is deleted here on purpose.
 WITHHELD_TEST=test/features/sleep_withheld_test.dart
-HERO=lib/features/sleep/widgets/sleep_hero_card.dart
-VITALS=lib/features/sleep/widgets/overnight_vitals_card.dart
-HEALTH=lib/features/sleep/widgets/sleep_health_card.dart
-PERF=lib/features/sleep/widgets/sleep_performance_card.dart
+CHECKS_TEST=test/features/sleep_checks_test.dart
+CHARTS_TEST='test/features/sleep_charts_test.dart test/features/sleep_stage_charts_test.dart'
+READING=lib/features/sleep/v02/sleep_reading.dart
+VITALS=lib/features/sleep/v02/vitals_panel.dart
+CHECKS=lib/features/sleep/v02/checks_panel.dart
+BANDS=lib/features/sleep/v02/sleep_cutoffs.dart
+TIMING_CHART=lib/shared/charts/v02/v02_timing_chart.dart
+TIMING=lib/features/sleep/v02/timing_panel.dart
+NIGHT=lib/features/sleep/v02/night_panels.dart
+STRIP=lib/shared/charts/v02/v02_stage_strip.dart
 
-mutate 'the hero blanks its score and says nothing' "$WITHHELD_TEST" "$HERO" \
-  '        SleepGapNote(
-          fields: <String, Reading<Object>>{
-            "The strap'"'"'s sleep score": night.deviceScore,' \
-  '        SleepGapNote(
-          fields: <String, Reading<Object>>{
-            if (false) "The strap'"'"'s sleep score": night.deviceScore,'
+mutate 'the night reading blanks its refusals' "$WITHHELD_TEST" "$READING" \
+  '    for (final field in <String, Reading<double>>{
+      '"'"'Time asleep'"'"': night.tstMin,' \
+  '    for (final field in <String, Reading<double>>{
+      if (false) '"'"'Time asleep'"'"': night.tstMin,'
 
-mutate 'the vitals card stops iterating its own slots' "$WITHHELD_TEST" "$VITALS" \
-  '        SleepGapNote(fields: slots),' \
-  '        const SleepGapNote(fields: <String, Reading<Object>>{}),'
+mutate 'the overnight table stops naming what it could not measure' \
+  "$WITHHELD_TEST" "$VITALS" \
+  '    for (final vital in rows)' \
+  '    for (final vital in <Vital>[])'
 
-# The legacy defect itself: a dimension the server never scored drawn as a FAILED
-# check. `point_timing == 1` is false for a null, so the cross appears and the
-# owner reads a judgement made out of nothing.
-mutate 'an unscored sleep dimension renders as a failure' "$WITHHELD_TEST" "$HEALTH" \
-  '    final result = passed.valueOrNull;
-    if (result == null) {' \
-  '    final result = passed.valueOrNull ?? false;
-    if (false) {'
+# The legacy defect itself: a dimension the server never scored drawn as a
+# PASSED check. A tick made out of nothing is worse than no tick at all.
+mutate 'an unscored sleep check renders as a pass' "$CHECKS_TEST" "$CHECKS" \
+  '      child: passed == true' \
+  '      child: passed != false'
 
-# `0/0` — a ratio out of nothing, which reads as "no nights were short".
-mutate 'an empty fortnight reports 0 of 0' "$WITHHELD_TEST" "$PERF" \
-  '    final measured = totals;
-    if (measured.isEmpty) {
-      return Withheld<String>(SleepGap.noSession.disclosure);
-    }
-    final short = measured.where((minutes) => minutes < kSleepNeedMin).length;' \
-  '    final measured = totals;
-    final short = measured.where((minutes) => minutes < kSleepNeedMin).length;'
+# CLAUDE.md's no-composite rule, at the one place it could be broken silently:
+# the payload already carries the count, so drawing it is a one-line change that
+# looks like a helpful summary in review.
+mutate 'THE FOUR CHECKS ARE SUMMED INTO ONE NUMBER' "$CHECKS_TEST" "$CHECKS" \
+  '          for (var i = 0; i < rows.length; i++)' \
+  '          PanelValue(
+            night.healthScore.valueOrNull?.round().toString() ?? '"'"'—'"'"',
+            unit: '"'"'/ 4'"'"',
+          ),
+          for (var i = 0; i < rows.length; i++)'
 
-# ── Sleep: the citations ────────────────────────────────────────────────────
-# Legacy DELETED its `[[note_id]]` markers and showed the sources nowhere. Going
-# back to a plain `Text` is one keystroke and looks fine in review.
-HONESTY_TEST=test/features/sleep_honesty_test.dart
-TONIGHT=lib/features/sleep/widgets/tonight_card.dart
+# A published cutoff hard-coded back into the widget. The panel would keep
+# printing 7–9 hours beside a check the server scored against 6–8.
+mutate 'the duration cutoff comes out of the widget again' "$CHECKS_TEST" "$BANDS" \
+  '  double get durationLowMin => (cutoffs?.durationHours?.first ?? 7) * 60;' \
+  '  double get durationLowMin => 7 * 60;'
 
-mutate 'the tonight coaching drops its grounding' "$HONESTY_TEST" "$TONIGHT" \
-  '              child: GroundedProse(
-                text: lever.prose,
-                style: HType.sans(colors.ink2, size: 13, height: 1.45),
-              ),' \
-  '              child: Text(
-                lever.prose,
-                style: HType.sans(colors.ink2, size: 13, height: 1.45),
-              ),'
+# ── Sleep: an interpolation that invents a reading ──────────────────────────
+# Catmull-Rom overshoots. On two late nights either side of an early one it
+# draws a bedtime earlier than any night measured — the same class of error as a
+# spline through nightly minimums drawing a minimum lower than any night.
+mutate 'the timing curve goes back to Catmull-Rom' "$CHARTS_TEST" "$TIMING_CHART" \
+  '    final path = curvePath(points, SeriesCurve.monotone);' \
+  '    final path = smoothPath(points);'
 
-# ── Sleep: the trends that legacy drew as a flat line at zero ───────────────
-# `HArea(data.length >= 2 ? data : [0, 0])` — two data points the app invented,
-# in the metric'"'"'s own colour, on a health screen.
-TRENDS=lib/features/sleep/widgets/sleep_trends_card.dart
+# ── Sleep: a chart that is present and draws nothing ────────────────────────
+# Two charts on this screen once shipped at zero height because a suite only
+# checked the widget existed.
+mutate 'the stage timeline is handed no height' "$CHARTS_TEST" "$NIGHT" \
+  '                progress: t,
+                height: chartHeight,' \
+  '                progress: t,
+                height: 0,'
 
-mutate 'a one-night trend is plotted as a flat zero' "$WITHHELD_TEST" "$TRENDS" \
-  '  bool get isPlottable => series.length >= minimumPoints;' \
-  '  bool get isPlottable => true;'
+# One point is not a line. Below the floor the panel must draw nothing and keep
+# its slot, not plot a single night as a trend.
+mutate 'a one-night timing chart is plotted anyway' "$CHARTS_TEST" "$TIMING" \
+  '          if (bedtime.length < 2)' \
+  '          if (bedtime.length < 0)'
+
+# A stage with no minutes drawn as a segment: a picture of sleep that did not
+# happen, and on a night with no staging at all, a whole bar of it.
+mutate 'the stage strip draws stages with no minutes' "$CHARTS_TEST" "$STRIP" \
+  '        if ((minutes[stage] ?? 0) > 0) stage,' \
+  '        stage,'
 
 # ── Today: a refusal must never come back as a number ───────────────────────
 TILE=lib/features/today/widgets/metric_tile.dart
