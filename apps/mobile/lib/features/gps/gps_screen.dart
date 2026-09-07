@@ -34,6 +34,7 @@ import 'package:healthee/data/gps/gps_recording_state.dart';
 import 'package:healthee/data/gps/route_repository.dart';
 import 'package:healthee/features/gps/gps_live_summary.dart';
 import 'package:healthee/features/gps/local_routes.dart';
+import 'package:healthee/features/gps/route_map.dart';
 import 'package:healthee/shared/server_action_button.dart';
 import 'package:healthee/shared/states/account_async_view.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
@@ -105,6 +106,12 @@ class _Recorder extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
+        // `H.charts.route()` sits directly under the header in the prototype,
+        // and it could not be drawn here until the recorder retained its
+        // coordinates: the state carried a fix COUNT, so this screen could say
+        // "412 fixes" and had not one metre of them to plot. It draws nothing
+        // until there are two fixes, so an idle recorder is unchanged.
+        RouteMap(points: recording.track),
         GpsLiveSummary(recording: recording),
         if (recording.error case final String failure) ...<Widget>[
           const SizedBox(height: Insets.md),

@@ -1,40 +1,30 @@
-/// **The VO₂max rail and the route plot, measured.**
+/// **The VO₂max rail, measured.**
 ///
-/// Two claims here are honesty claims rather than layout ones, and both are
-/// mutation-tested:
+/// One claim here is an honesty claim rather than a layout one, and it is
+/// mutation-tested: the shaded extent is **the supplied error magnitude, not a
+/// confidence interval**, and the widget renders that sentence itself so no card
+/// can show the band without it.
 ///
-///   * the shaded extent is **the supplied error magnitude, not a confidence
-///     interval**, and the widget renders that sentence itself so no card can
-///     show the band without it;
-///   * the schematic ground carries **no family colour** — the recorded track is
-///     the only thing on the plot that is a measurement, so it is the only thing
-///     that gets the identity hue.
+/// The rest is geometry: the extent is centred on the estimate, and the
+/// reference line sits at the reference value.
 ///
-/// The rest is geometry: the extent is centred on the estimate, the reference
-/// line sits at the reference value, the track keeps its aspect ratio, and the
-/// elevation strip holds its height when there are no elevations to draw.
+/// > This file also covered `shared/v02/instruments/route_plot.dart` until that
+/// > instrument was deleted. It was never reachable from `main.dart`, and the
+/// > ground it drew — parks, a river and two roads at fixed fractions of the box
+/// > — is precisely what a real basemap replaces. The route drawing that ships
+/// > is `features/gps/route_map.dart`, and `test/gps/route_screens_test.dart`
+/// > measures it.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
-import 'package:healthee/shared/v02/instruments/route_plot.dart';
 import 'package:healthee/shared/v02/instruments/vo2max_rail.dart';
 
 import '../_chart_probe.dart';
 import '_instrument_probe.dart';
 
 Finder get _rail => find.byKey(Vo2maxRail.plotKey);
-Finder get _route => find.byKey(RoutePlot.plotKey);
-
-/// A 2:1 out-and-back, in lon/lat order.
-const List<Offset> kTrack = <Offset>[
-  Offset(0, 0),
-  Offset(1, 0.5),
-  Offset(2, 0),
-  Offset(2, 1),
-  Offset(0, 1),
-];
 
 void main() {
   group('the VO₂max rail', () {
@@ -126,100 +116,6 @@ void main() {
       final dot = circlesOf(paintedAt(tester, _rail)).single;
       expect(dot.at.dx, lessThan(tester.getSize(_rail).width));
       expect(dot.at.dx, greaterThan(0));
-    });
-  });
-
-  group('the route plot', () {
-    testWidgets('the track keeps its aspect ratio', (tester) async {
-      await tester.pumpWidget(
-        instrumentHost(const RoutePlot(points: kTrack)),
-      );
-      final stroked = pathsOf(
-        paintedAt(tester, _route),
-      ).where((drawn) => drawn.style == PaintingStyle.stroke).toList();
-
-      expect(stroked, isNotEmpty);
-      final bounds = stroked.first.path.getBounds();
-      expect(
-        bounds.width / bounds.height,
-        closeTo(2, 0.02),
-        reason: 'a stretched route is a different route',
-      );
-    });
-
-    testWidgets('ONE FIX DRAWS NO TRACK, and no family colour appears', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        instrumentHost(
-          const RoutePlot(points: <Offset>[Offset(0, 0)]),
-        ),
-      );
-      expect(
-        coloursOf(paintedAt(tester, _route)),
-        isNot(contains(const InstrumentHues.dark().fitness.toARGB32())),
-        reason: 'the schematic ground carries no identity colour',
-      );
-    });
-
-    testWidgets('NO ELEVATIONS PAINTS NOTHING IN THE STRIP, and keeps it', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        instrumentHost(const RoutePlot(points: kTrack)),
-      );
-      final painted = paintedAt(tester, _route);
-      for (final rect in <Rect>[
-        ...markRectsOf(painted),
-        ...glyphRectsOf(painted),
-      ]) {
-        expect(
-          rect.bottom,
-          lessThanOrEqualTo(kRouteMapHeight + 0.5),
-          reason: 'a flat line at the mean would be a fabricated profile',
-        );
-      }
-      expect(
-        tester.getSize(_route).height,
-        kRouteMapHeight + kRouteElevationHeight,
-      );
-    });
-
-    testWidgets('ELEVATIONS THAT DO NOT MATCH THE FIXES ARE NOT DRAWN', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        instrumentHost(
-          const RoutePlot(points: kTrack, elevations: <double>[894, 900]),
-        ),
-      );
-      for (final rect in markRectsOf(paintedAt(tester, _route))) {
-        expect(rect.bottom, lessThanOrEqualTo(kRouteMapHeight + 0.5));
-      }
-    });
-
-    testWidgets('elevations that match are drawn in the strip', (tester) async {
-      await tester.pumpWidget(
-        instrumentHost(
-          const RoutePlot(
-            points: kTrack,
-            elevations: <double>[894, 896, 900, 898, 895],
-          ),
-        ),
-      );
-      final painted = paintedAt(tester, _route);
-      expect(
-        markRectsOf(painted).where(
-          (rect) => rect.bottom > kRouteMapHeight,
-        ),
-        isNotEmpty,
-      );
-      expect(find.byType(RoutePlot), findsOneWidget);
-      expect(
-        glyphRectsOf(painted).where((rect) => rect.top > kRouteMapHeight).length,
-        2,
-        reason: 'the profile labels its own low and high',
-      );
     });
   });
 }

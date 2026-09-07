@@ -1,17 +1,18 @@
-/// The three GPS screens on the v02 frame — and what each of them refuses.
+/// The route detail, section by section — and what each section refuses.
 ///
-/// They were the last legacy `Scaffold`/`AppBar` screens in the app. Porting the
-/// frame is the visible half; the half worth a suite is what the port made
-/// possible to get wrong:
+/// These screens were the last legacy `Scaffold`/`AppBar` screens in the app.
+/// Porting the frame is the visible half; the half worth a suite is what the
+/// port made possible to get wrong:
 ///
-///   * the schematic map draws the **owner's** track and nothing else. The
-///     prototype paints park, water and road shapes from fixture path data, and
-///     under a real recording those would be a river and two roads that were not
-///     there, at the top of a screen about where somebody went;
 ///   * a summary field the server did not send leaves **no slot**, rather than a
 ///     dash that reads as a measurement that came back empty;
 ///   * a session VO₂max is either printed **with the instrument that produced
-///     it** or withheld with its reason, which is the prototype's own notice.
+///     it** or withheld with its reason, which is the prototype's own notice;
+///   * a track with no altitudes gets no elevation section, rather than a flat
+///     line at zero that reads as level ground nobody measured.
+///
+/// The drawing itself — the track, the basemap under it, the thinning — moved to
+/// `route_map_test.dart` when this file passed the 400-line gate.
 library;
 
 import 'package:flutter/material.dart';
@@ -20,9 +21,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/gps/recorded_route.dart';
 import 'package:healthee/data/gps/route_point.dart';
+import 'package:healthee/data/map/basemap_source.dart';
 import 'package:healthee/features/gps/gps_live_summary.dart';
 import 'package:healthee/features/gps/route_detail_sections.dart';
-import 'package:healthee/features/gps/route_map.dart';
 import 'package:healthee/shared/charts/v02/v02_line_chart.dart';
 import 'package:healthee/shared/reveal_once.dart';
 
@@ -79,7 +80,12 @@ void _tallViewport(WidgetTester tester) {
 }
 
 /// The sections under a theme, in a scroll, the way the screen builds them.
+///
+/// No basemap style is overridden here, so `basemapStyleProvider` resolves to
+/// null and the drawing falls back to the plain ground — which is the state
+/// every one of these assertions is about anyway.
 Widget _host(RecordedRoute route) => ProviderScope(
+  overrides: [basemapStyleProvider.overrideWith((ref) async => null)],
   child: MaterialApp(
     theme: AppTheme.light,
     home: Builder(
@@ -93,42 +99,6 @@ Widget _host(RecordedRoute route) => ProviderScope(
 );
 
 void main() {
-  group('THE MAP DRAWS THE TRACK AND NOTHING IT DID NOT MEASURE', () {
-    testWidgets('a track with two or more fixes is drawn', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(theme: AppTheme.light, home: RouteMap(points: _track())),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byType(CustomPaint), findsWidgets);
-      expect(find.text(RouteMap.caption), findsOneWidget);
-    });
-
-    testWidgets('THE CAPTION SAYS THERE IS NO BASEMAP AND NO SCALE', (
-      tester,
-    ) async {
-      // The drawing looks enough like a map to be read as one. It has neither
-      // a basemap under it nor a scale on it, and saying so is the point of
-      // drawing a schematic rather than tiles.
-      expect(RouteMap.caption.toLowerCase(), contains('no basemap'));
-      expect(RouteMap.caption.toLowerCase(), contains('no scale'));
-    });
-
-    testWidgets('A SINGLE FIX DRAWS NOTHING AT ALL', (tester) async {
-      // One point is a dot nobody can read a route off. A box with a dot in it
-      // would be a picture of a journey that was never recorded.
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: RouteMap(points: _track(fixes: 1)),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(RouteMap.caption), findsNothing);
-    });
-  });
-
   group('the route detail, section by section', () {
     testWidgets('the three summary figures and the fix count', (tester) async {
       _tallViewport(tester);
@@ -234,28 +204,6 @@ void main() {
     test('the fit note says what a fit is and is not', () {
       expect(fitNote(0.91), contains('0.91'));
       expect(fitNote(0.91), contains('does not establish'));
-    });
-  });
-
-  group('THE DRAWING IS THINNED; THE TRACK IS NOT', () {
-    test('a long track is sampled down and keeps BOTH ENDS', () {
-      // The start ring and the finish dot mark the first and last fixes, so a
-      // thinning that dropped either would move a marker onto a fix that is not
-      // where the owner started or stopped. The saved track is untouched.
-      final List<RoutePoint> long = _track(fixes: 9001);
-
-      final List<RoutePoint> drawn = RouteMap.displayPoints(long);
-
-      expect(drawn, hasLength(RouteMap.maxDrawnPoints));
-      expect(drawn.first.at, long.first.at);
-      expect(drawn.last.at, long.last.at);
-      expect(long, hasLength(9001), reason: 'the input is not mutated');
-    });
-
-    test('a short track is drawn whole', () {
-      final List<RoutePoint> short = _track(fixes: 12);
-
-      expect(RouteMap.displayPoints(short), same(short));
     });
   });
 
