@@ -12,13 +12,11 @@
 /// > instrument was deleted. It was never reachable from `main.dart`, and the
 /// > ground it drew — parks, a river and two roads at fixed fractions of the box
 /// > — is precisely what a real basemap replaces. The route drawing that ships
-/// > is `features/gps/route_map.dart`, and `test/gps/route_screens_test.dart`
+/// > is `features/gps/route_map.dart`, and `test/gps/route_map_test.dart`
 /// > measures it.
 library;
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/shared/v02/instruments/vo2max_rail.dart';
 
 import '../_chart_probe.dart';
