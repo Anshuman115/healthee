@@ -23,6 +23,8 @@ import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_sheet.dart';
+import 'package:healthee/shared/format/note_names.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
 final DateTime _now = DateTime(2026, 8, 5, 9);
 
@@ -259,6 +261,14 @@ void main() {
         findsNothing,
         reason: 'the marker is rendered as a citation, never printed',
       );
+      // Behind the bubble's ⓘ now, not under the sentence — the rule
+      // `citation_sweep_test.dart` holds for every prose surface.
+      final source = find.text(noteName('sleep_need_debt')!);
+      expect(source, findsNothing, reason: 'a chip is back on the face');
+      await tester.tap(find.byType(MetricInfoDot));
+      await tester.pumpAndSettle();
+
+      expect(source, findsOneWidget);
       expect(
         find.textContaining('PROBABLE'),
         findsWidgets,

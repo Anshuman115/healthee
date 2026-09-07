@@ -1937,6 +1937,50 @@ mutate 'the activity-level ⓘ loses the note its labels come from' \
   "          notes: <String>['non_exercise_vo2max']," \
   '          notes: <String>[],'
 
+# ── server prose: the chips came off, and the ⓘ has to have them ─────────────
+# `GroundedProse` and `GroundedMarkdown` used to draw a citation row under every
+# sentence a model wrote — four screens at once. The chips are gone; these three
+# are the ways the grounding could go with them, each invisible on the card.
+
+PROSE_TEST=test/features/prose_grounding_test.dart
+LOSS_TEST=test/features/prose_grounding_loss_test.dart
+REASONING=lib/shared/states/reasoning_note.dart
+DETAIL=lib/shared/metric_info/metric_detail.dart
+
+# (a) The ⓘ handed an empty note list while the prose still parses ids. This is
+# the whole defect the move can introduce: the card looks exactly as intended
+# and the evidence is off the device.
+mutate 'a prose surface hands its ⓘ no sources at all' \
+  "$PROSE_TEST" "$DETAIL" \
+  '    notes: grounding.noteIds,' \
+  '    notes: const <String>[],'
+
+# (b) The unresolved markers dropped on the way into `MetricDetail`. A citation
+# that resolves to nothing is OUR failure, not a fact about the owner's body,
+# and this is the one loss that leaves no trace anywhere on the screen.
+mutate 'the unresolved markers are dropped on the way to the ⓘ' \
+  "$LOSS_TEST" "$DETAIL" \
+  '    unresolved: grounding.unresolved,' \
+  '    unresolved: const <String>[],'
+
+# (c) The personal findings merged into the note ids, so an n-of-1 correlation
+# from this owner's own history is drawn as a research citation and loses
+# `kSingleSubjectFraming` with it.
+mutate 'a personal finding is dressed as a research note in the ⓘ' \
+  "$LOSS_TEST" "$DETAIL" \
+  '    notes: grounding.noteIds,
+    personalFindings: grounding.personalFindings,' \
+  '    notes: <String>[...grounding.noteIds, ...grounding.personalFindings],
+    personalFindings: const <String>[],'
+
+# The prose surface that keeps its own dot: a disclosure whose answer is server
+# prose. Gating the dot on the wrong thing takes the grounding off every one.
+mutate 'a disclosure filled with server prose draws no ⓘ' \
+  "$PROSE_TEST" "$REASONING" \
+  '                if (_detail case final MetricDetail detail
+                    when detail.isNotEmpty)' \
+  '                if (_detail case final MetricDetail detail when false)'
+
 # ── Workouts: the payload with NO honesty envelope ──────────────────────────
 # `/api/activity/workout` sends a bare nullable for every derived metric and no
 # `withheld` block at all, so nothing on the wire forces this screen to explain

@@ -27,6 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/shared/format/note_names.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
 /// The handset widths every geometric claim is made at.
@@ -41,12 +42,15 @@ const List<double> kSweptWidths = <double>[320, 360, 390, 414];
 ///
 /// Anything else — every card, panel, tile and field under `lib/features/`, and
 /// every card surface in `lib/shared/` — sends its sources to the ⓘ.
+/// The list is down to two. `grounded_text.dart` and `grounded_markdown.dart`
+/// were on it — *"the citation is the sentence's own grounding"* — and that
+/// argument lost: they draw the prose on **every** card face in the app, so the
+/// exemption reinstated a chip under Sleep's analysis, every Actions rationale,
+/// Insights and the coach, on four screens the per-screen sweeps had cleared.
+/// The owner reported it a third time. Their grounding now goes to the same ⓘ as
+/// everything else, so this list has no prose surface on it at all.
 const Map<String, String> kInlineGrounding = <String, String>{
   'lib/shared/states/citation_row.dart': 'the widget itself',
-  'lib/shared/states/grounded_text.dart':
-      'server prose: the citation is the sentence’s own grounding',
-  'lib/shared/states/grounded_markdown.dart':
-      'the same, for prose that arrives with markup',
   'lib/shared/metric_info/metric_info_sheet.dart':
       'the ⓘ — the destination everything above is swept into',
 };
@@ -128,6 +132,24 @@ List<String> wordsOn(WidgetTester tester, Rect where) {
 /// The one ⓘ inside [surface].
 Finder dotIn(Finder surface) =>
     find.descendant(of: surface, matching: find.byType(MetricInfoDot));
+
+/// The provenance the FIRST ⓘ inside [surface] is carrying — the one on its
+/// headline, which is where a card's own claim is grounded.
+///
+/// First rather than only, because a card may hold a second claim with its own
+/// dot: `RecommendationEntry` grounds the whole recommendation on its headline
+/// and the "Why this, today" disclosure grounds that answer, which is the rule
+/// `findings_section.dart` states — one dot per claim, never one merged sheet.
+/// Reading the first is still a real assertion: an inner dot carries only its
+/// own prose's ids, so a card that lost its headline ⓘ fails on the ids the
+/// headline cited.
+///
+/// Read off the widget rather than out of an opened sheet, so a surface can be
+/// asserted without a `pumpAndSettle` per call site — the sheet's own rendering
+/// of the same bundle is proved by the findings card above and by
+/// `prose_grounding_test.dart`'s three "must not lose" cases.
+MetricDetail detailIn(WidgetTester tester, Finder surface) =>
+    tester.widget<MetricInfoDot>(dotIn(surface).first).detail;
 
 /// The dot is drawn at its own size, on the surface, and not past its edge.
 void expectDotSits(WidgetTester tester, Finder dot, Rect surface) {

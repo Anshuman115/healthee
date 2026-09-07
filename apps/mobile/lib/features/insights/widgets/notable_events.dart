@@ -26,7 +26,10 @@ import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/insights/notable_event.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/cached_async_view.dart';
 import 'package:healthee/shared/states/grounded_markdown.dart';
 import 'package:healthee/shared/v02/panel.dart';
@@ -84,7 +87,25 @@ class _Events extends ConsumerWidget {
           for (final event in events)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('${event.label} · ${event.day}'),
+              title: Row(
+                children: <Widget>[
+                  Flexible(child: Text('${event.label} · ${event.day}')),
+                  // What the server's reading of this day cites. The row also
+                  // pushes into the metric's history, so the dot is on the
+                  // title rather than in `trailing`, where the tap would be
+                  // competing with the row's own.
+                  if (MetricDetail.grounded(
+                        groundingOf(event.meaning, alsoCites: event.notes),
+                        title: event.label,
+                      )
+                      case final MetricDetail detail when detail.isNotEmpty)
+                    MetricInfoDot(
+                      null,
+                      detail: detail,
+                      fallbackTitle: event.label,
+                    ),
+                ],
+              ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -95,7 +116,6 @@ class _Events extends ConsumerWidget {
                   if (event.meaning.isNotEmpty)
                     GroundedMarkdown(
                       text: event.meaning,
-                      alsoCites: event.notes,
                       accent: colors.accent,
                     ),
                 ],

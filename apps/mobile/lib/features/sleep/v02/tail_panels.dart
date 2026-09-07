@@ -22,9 +22,11 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_insight.dart';
 import 'package:healthee/data/sleep_repository.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/states/grounded_markdown.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/panel.dart';
@@ -62,6 +64,9 @@ class TonightPanel extends StatelessWidget {
         title: lever.title,
         icon: Icons.bedtime_outlined,
         infoKey: 'sleep_consistency',
+        // The lever's prose is the server's, markers and all. Its sources go to
+        // the ⓘ this head already carries, beside the explainer's own.
+        detail: MetricDetail.grounded(groundingOf(lever.prose)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -130,16 +135,33 @@ class SleepAnalysisPanel extends ConsumerWidget {
     return Panel(
       tone: Tone.fitness,
       label: title,
-      head: const PanelHead(
+      head: PanelHead(
         title: title,
         icon: Icons.auto_awesome,
         infoKey: 'sleep',
+        // The head reads the SAME analysis the body draws, so the sources in
+        // the ⓘ are the sources of the paragraphs underneath it. A locked,
+        // refused or still-pending read carries no prose and grounds nothing.
+        detail: _grounding(insight.value),
       ),
       child: insight.when(
         loading: () => const PanelNote(pending),
         error: (_, _) => const PanelNote(unreachable),
         data: (analysis) => _body(context, analysis),
       ),
+    );
+  }
+
+  /// What the ⓘ carries: the analysis's own markers, the `citations` the payload
+  /// sent, and the grade floor the server computed. Nothing when there is no
+  /// analysis to ground.
+  static MetricDetail _grounding(SleepInsight? analysis) {
+    if (analysis == null || analysis.locked || !analysis.hasText) {
+      return MetricDetail.none;
+    }
+    return MetricDetail.grounded(
+      groundingOf(analysis.text, alsoCites: analysis.citations),
+      grade: analysis.gradeFloor,
     );
   }
 
@@ -153,11 +175,6 @@ class SleepAnalysisPanel extends ConsumerWidget {
     if (!analysis.hasText) {
       return const PanelNote(empty);
     }
-    return GroundedMarkdown(
-      text: analysis.text,
-      accent: context.family,
-      grade: analysis.gradeFloor,
-      alsoCites: analysis.citations,
-    );
+    return GroundedMarkdown(text: analysis.text, accent: context.family);
   }
 }

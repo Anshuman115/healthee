@@ -30,6 +30,7 @@ import 'package:healthee/data/challenges/challenge.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
 import 'package:healthee/data/challenges/health_program.dart';
 import 'package:healthee/data/challenges/program_feed.dart';
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/features/actions/v02/evidence_sheet.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/challenge_outcome_card.dart';
@@ -165,7 +166,7 @@ class _Body extends StatelessWidget {
                   context,
                   title: 'Behind this program',
                   prose: program.why,
-                  alsoCites: citations,
+                  grounding: groundingOf(program.why, alsoCites: citations),
                 ),
               ),
             ),

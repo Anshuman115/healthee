@@ -1,5 +1,4 @@
-/// The ONE way generated prose reaches the screen — sentence and grounding, in
-/// one widget, inseparable.
+/// The ONE way generated prose reaches the screen.
 ///
 /// ## What went wrong, and why a helper function would not have fixed it
 ///
@@ -11,19 +10,38 @@
 /// show. The honesty contract cannot rest on a caller remembering the second
 /// line.
 ///
-/// So the parse is not exposed to feature code at all. This widget takes the RAW
-/// string, renders the prose without its markers, and renders the citations
-/// underneath. There is no parameter that turns the second half off.
+/// So the parse is not exposed to feature code as a string function. This widget
+/// takes the RAW string and renders the prose without its markers; there is no
+/// parameter that hands it a pre-stripped sentence.
+///
+/// ## Where the citations went, and what still holds them here
+///
+/// They used to be drawn underneath, by a [CitationRow] this widget built. The
+/// owner asked three times for them off the card faces — *"info sheets are for
+/// that"* — so they now live in the card's ⓘ, and this widget renders prose and
+/// nothing else.
+///
+/// That move is only safe because **the argument above did not weaken, it moved
+/// with them**:
+///
+///   * the ids are read by `groundingOf`, the same pure function this widget's
+///     call sites hand their ⓘ, so the sentence and the sheet cannot disagree
+///     about what the prose cites;
+///   * `MetricDetail.grounded` takes the whole [Grounding] rather than three
+///     lists, so a card cannot route the note ids to its ⓘ and leave the
+///     single-subject findings or the unreadable markers behind;
+///   * `test/features/citation_sweep_test.dart` names every call site and reads
+///     the ids back out of its ⓘ. Dropping the grounding is no longer one
+///     character; it is a failing test with the call site's own name on it.
 ///
 /// ## What it does with a marker it cannot resolve
 ///
 /// Nothing quiet. `data/honesty/citations.dart` leaves a bracket that yields no
-/// citation **in the sentence**, and `CitationRow` states plainly underneath that
-/// it is there and could not be resolved. The alternative — strip anything
-/// bracket-shaped — would let the app delete a claim's grounding, or a chunk of
-/// its prose, on the strength of a guess. A visible oddity beats an invisible
-/// deletion every time, and this is the surface where that is not a matter of
-/// taste.
+/// citation **in the sentence**, and the ⓘ states plainly that it is there and
+/// could not be resolved. The alternative — strip anything bracket-shaped —
+/// would let the app delete a claim's grounding, or a chunk of its prose, on the
+/// strength of a guess. A visible oddity beats an invisible deletion every time,
+/// and this is the surface where that is not a matter of taste.
 ///
 /// ## Where it is used
 ///
@@ -34,19 +52,15 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/data/honesty/citations.dart';
-import 'package:healthee/shared/states/citation_row.dart';
 
-/// One piece of server-authored prose, with the sources it names.
+/// One piece of server-authored prose, with its markers rendered rather than
+/// printed. Its sources are in the ⓘ of the card that draws it.
 class GroundedProse extends StatelessWidget {
   /// [text] is the raw field off the wire, markers included.
   const GroundedProse({
     required this.text,
     this.style,
-    this.grade,
-    this.source,
-    this.alsoCites = const <String>[],
     this.maxLines,
     super.key,
   });
@@ -57,61 +71,23 @@ class GroundedProse extends StatelessWidget {
   /// How to draw the prose. Defaults to the ambient body style.
   final TextStyle? style;
 
-  /// An evidence grade the payload sent alongside, or null. Never inferred.
-  final String? grade;
-
-  /// The server's own sentence about the source, when it sent one.
-  final String? source;
-
-  /// Ids the payload carried in a structured field beside this prose — a
-  /// recommendation's `research_note_ids`. Merged with the inline ones so one
-  /// claim shows one set of sources rather than two rows that disagree.
-  final List<String> alsoCites;
-
-  /// Clamps the PROSE to this many lines, with an ellipsis. Null is unbounded.
+  /// Clamps the prose to this many lines, with an ellipsis. Null is unbounded.
   ///
-  /// Only the prose: the citations underneath are never clipped, because a
-  /// truncated source is a source nobody can check. Added for the collapsed
-  /// action row on Today, which legacy draws as a single line
-  /// (`today_screen.dart:980`) and expands on tap.
+  /// Added for the collapsed action row on Today, which legacy draws as a single
+  /// line (`today_screen.dart:980`) and expands on tap.
   final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
-    final parsed = parseGrounded(text);
-    final ids = <String>[
-      ...parsed.noteIds,
-      for (final id in alsoCites)
-        if (!parsed.noteIds.contains(id)) id,
-    ];
-    if (parsed.prose.isEmpty && parsed.isBare && ids.isEmpty) {
+    final prose = parseGrounded(text).prose;
+    if (prose.isEmpty) {
       return const SizedBox.shrink();
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (parsed.prose.isNotEmpty)
-          Text(
-            parsed.prose,
-            style: style,
-            maxLines: maxLines,
-            overflow: maxLines == null ? null : TextOverflow.ellipsis,
-          ),
-        if (ids.isNotEmpty ||
-            parsed.personalFindings.isNotEmpty ||
-            parsed.unresolved.isNotEmpty ||
-            grade != null ||
-            source != null) ...[
-          if (parsed.prose.isNotEmpty) const SizedBox(height: Insets.sm),
-          CitationRow(
-            noteIds: ids,
-            personalFindings: parsed.personalFindings,
-            unresolved: parsed.unresolved,
-            grade: grade,
-            source: source,
-          ),
-        ],
-      ],
+    return Text(
+      prose,
+      style: style,
+      maxLines: maxLines,
+      overflow: maxLines == null ? null : TextOverflow.ellipsis,
     );
   }
 }

@@ -31,9 +31,14 @@
 /// The last group is the line the sweep must not cross, asserted by name so a
 /// later tidy-up cannot quietly take one:
 ///
-///   * **grounded prose** — `GroundedProse` cites *the sentence's own* source,
-///     inline with the claim it licenses. That is not a card foot, and moving it
-///     to an ⓘ would separate a claim from its evidence;
+///   * **the prose itself** — `GroundedProse` must still draw the SENTENCE, with
+///     the markers taken out and nothing else lost. It used to be exempt from
+///     the chip rule instead, on the argument that a citation belongs beside the
+///     claim it licenses; the exemption covered every card in the app, so the
+///     chips came back under Sleep's analysis, every Actions rationale, Insights
+///     and the coach. The owner reported it a third time and the exemption is
+///     gone — but a sweep that answered by rendering nothing would be worse than
+///     the defect, so what is asserted here is the prose surviving;
 ///   * **caveat signposts** — a caveated value still discloses in words, inside
 ///     the card that owns the number. Different rule, deliberately kept.
 ///
@@ -277,22 +282,33 @@ void main() {
 
   group('what the sweep may not take', () {
     for (final width in kSweptWidths) {
-      testWidgets('${width.toInt()}px — GROUNDED PROSE KEEPS ITS CITATION', (
+      testWidgets('${width.toInt()}px — GROUNDED PROSE KEEPS ITS SENTENCE', (
         tester,
       ) async {
+        // The half a sweep can break by over-reaching: the marker comes out,
+        // the SENTENCE does not. `GroundedProse` drawing nothing, or drawing
+        // the raw string, would both pass a chip-count assertion.
         await pumpAt(
           tester,
           width,
           const GroundedProse(text: 'Take a short walk today [vo2max].'),
         );
 
-        expect(
-          wordsOn(tester, tester.getRect(find.byType(GroundedProse))),
-          contains(noteName('vo2max')),
-          reason:
-              'this citation licenses the sentence beside it. Sending it to an '
-              'ⓘ would separate a claim from its evidence.',
+        final painted = wordsOn(
+          tester,
+          tester.getRect(find.byType(GroundedProse)),
         );
+        expect(painted, contains('Take a short walk today.'));
+        expect(
+          painted,
+          isNot(contains(noteName('vo2max'))),
+          reason:
+              'prose used to draw its own chips, on every card in the app. The '
+              'sources belong in the ⓘ of the card that draws the sentence.',
+        );
+        for (final line in painted) {
+          expect(line, isNot(contains('[vo2max]')), reason: 'raw marker: $line');
+        }
       });
 
       testWidgets('${width.toInt()}px — A CAVEAT STILL SAYS SO, IN WORDS', (

@@ -39,6 +39,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/features/sleep/sleep_format.dart';
@@ -103,11 +104,16 @@ class SleepTimingPanel extends StatelessWidget {
     return Panel(
       tone: Tone.sleep,
       label: 'Bedtime · wake-time · ${bedtime.length} nights',
-      head: const PanelHead(
+      head: PanelHead(
         title: title,
         icon: Icons.schedule,
         infoKey: 'sleep_consistency',
-        detail: MetricDetail(method: <String>[kTimingNote]),
+        // The server-authored action is the one string on this panel a model
+        // wrote, so its sources join the explainer's in the head's ⓘ.
+        detail: MetricDetail.grounded(
+          groundingOf(block?.action ?? ''),
+          method: const <String>[kTimingNote],
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
