@@ -115,7 +115,8 @@ historically so a method change cannot be told from a fitness change**, a
 panel linking to `program`. **All served** by `/api/activity.vo2max` and
 `.cardio_load`.
 
-**`insight`** — the finding detail. Badge `Observational · N samples`; the
+**`insight`** — the finding detail. **BUILT** (`be09b3f`): the route is
+`/insight/:key`, the card opens it, and the block is no longer inert. Badge `Observational · N samples`; the
 observation *"They moved together. That doesn't tell us why."*; a caveat
 paragraph; a two-stat card (ρ and paired observations) with `Adjusted q-value ·
 same-day association` under a divider; a focus-card next step linking to
@@ -145,10 +146,17 @@ Settings; the app's `/server` is the sign-in form. Related, not the same screen.
 
 | | count |
 |---|---|
-| Screens missing outright | **5** (`recovery`, `body`, `fitness`, `insight`, `sleep-history`) |
+| Screens missing outright | **4** (`recovery`, `body`, `fitness`, `sleep-history`) — `insight` is now built |
 | Screens needing new backend data | **0** |
 | Existing screens reachable but unlinked | `metrics`, `metric/:key`, `outcomes`, `action-history`, `sync`, `journal` from several parents |
 | Structural gaps | the `parents` back-map · route-derived tone · the date control on 14 screens, not 1 |
 
-The connectivity is not blocked on the server. It is five screens, one back-map,
-and about forty links.
+The connectivity is not blocked on the server. It is four remaining screens, one
+back-map, and about forty links.
+
+### Resolved since this walk
+
+- **`insight`** — built (`be09b3f`). The Insights relationship card opens it and
+  carries the finding with it.
+- **`workout`** — reachable. `workout_history_screen.dart:136` pushes it, and
+  the same screen draws the prototype's link to GPS recording.
