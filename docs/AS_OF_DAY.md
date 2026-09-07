@@ -153,6 +153,27 @@ became null, and its elapsed is measured from now, so neither half survives the
 move backwards. Both are `null`, which is what "we have nothing to say here"
 already means everywhere else in these payloads.
 
+**Two later additions took the rule rather than testing it.** The honesty sweep
+(`docs/BACKEND_GAPS_FROM_UI.md` sections A and B) put two new things on the wire
+that could each have reopened section 3, and both are bounded here rather than
+downstream:
+
+- **A finding's paired points.** They are stored at compute time and could carry
+  days after the one being answered for. In practice they cannot — a finding is
+  already withheld from a day preceding its `computed_at` — but `read/findings.py`
+  filters them by the reference day anyway, and the payload reports the count it
+  is actually plotting beside the `n_samples` the statistic came from. Inheriting
+  another place's bound is exactly how "latest" leaks; the point of section 3 is
+  that the bound goes where the data is served.
+- **The freshness gate on the Today cards and the Activity tab.** This is the
+  mirror direction, and the trap is that the two rules could contradict: a row
+  filed under 29 July IS 29 July's answer (section 1), so the gate must refuse a
+  row that is not the reference day's **without** refusing the reference day's own.
+  `freshness.unavailable_reason` compares the row's day to the reference day, not
+  to the wall clock, so asking for a past day still answers.
+  `test_a_past_day_with_its_own_row_is_answered_not_withheld` is the half that
+  keeps the gate from eating the feature it sits beside.
+
 Stored recommendation rows ARE served for a past day. Section 6 puts the LLM
 surfaces out of scope because *authoring* a past day's analysis now would be a new
 claim rather than a record — but those rows are already written and already dated,
