@@ -16,6 +16,7 @@
 /// fact (#83). Ids render as citations; grades render only where one was sent.
 library;
 
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:meta/meta.dart';
 
 /// One dated, cited action.
@@ -89,4 +90,22 @@ class Recommendation {
     2 => 'Probable',
     _ => null,
   };
+
+  /// Everything backing this recommendation, as one bundle for its ⓘ.
+  ///
+  /// All three model-written fields, plus [researchNoteIds]. They are three
+  /// sentences about ONE suggestion sharing one set of notes, so they ground
+  /// together — the rule `data/honesty/citations.dart` states for
+  /// [groundingOfAll].
+  ///
+  /// It lives on the model rather than beside a card because four surfaces draw
+  /// this object (Today's action row, the Actions suggestion card, the dated
+  /// history card, and the shared recommendation entry) and they must not be
+  /// able to show a reader different sources for the same suggestion. A helper
+  /// in any one of their files would also be an import reaching sideways
+  /// between features, which Standards section 1 forbids.
+  Grounding get grounding => groundingOfAll(
+    <String?>[action, rationale, expectedEffect],
+    alsoCites: researchNoteIds,
+  );
 }

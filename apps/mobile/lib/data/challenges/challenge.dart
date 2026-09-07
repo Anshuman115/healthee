@@ -1,5 +1,6 @@
 import 'package:healthee/data/challenges/challenge_outcome.dart';
 import 'package:healthee/data/challenges/challenge_progress.dart';
+import 'package:healthee/data/honesty/citations.dart';
 
 class Challenge {
   const Challenge({
@@ -65,4 +66,13 @@ class Challenge {
   final ChallengeProgress? progress;
   final int? programId;
   final ChallengeOutcome? outcome;
+
+  /// Everything backing this challenge's server-written [title]: its inline
+  /// `[note_id]` markers merged with the [citations] the payload sent beside it.
+  ///
+  /// On the model rather than in a card because three surfaces draw a challenge
+  /// — the v02 card, the pre-v02 card and Today's focus list — and one reader
+  /// meeting the same commitment on two of them must not be shown two different
+  /// sets of sources.
+  Grounding get grounding => groundingOf(title, alsoCites: citations);
 }
