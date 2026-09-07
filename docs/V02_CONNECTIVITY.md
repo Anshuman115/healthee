@@ -13,6 +13,45 @@ Five screens do not exist, one exists only as a sheet, and roughly forty links
 between screens that do exist are simply not drawn. Almost none of this is
 blocked on the backend — see "What it costs" at the end.
 
+## 0. How this was checked, and what the first pass got wrong
+
+The first version of this document was produced by **reading** the prototype's
+source — `grep`/`awk` over `screens-*.js`, `app.js` and `panels.js`, pulling out
+`href="#…"` and the helper calls' route arguments. That was not good enough: a
+static read cannot see which links actually render in a given state, and it
+cannot see **what data a destination shows**, which is half of what the owner
+asked for.
+
+The prototype was then served and **walked** — every screen opened, links
+clicked, destinations and their content recorded. Six things the source read got
+wrong or missed:
+
+1. **The selected date is a URL query parameter**, not screen-local state.
+   Choosing a night gives `?date=2026-07-29#sleep`, and the parameter
+   **survives a tab switch** (`?date=2026-07-29#activity`) and **re-windows
+   every chart on the destination** — Activity's series became `16 Jul to
+   29 Jul` instead of `2 Jul to 31 Jul`. The header switches from
+   `31 July · Latest sample` to `29 July · Selected day`. This is a global,
+   URL-persisted view state, and it is a much bigger thing than "the date
+   control appears on 14 screens".
+2. **A past day renders honest absences.** On 29 July the overnight vitals show
+   `—` for blood oxygen, breathing and skin temperature. The screen does not
+   fall back to the latest reading.
+3. **Today's entry points are three tappable hero summary rows** — `Recovery
+   72/100 · 36 remaining`, `Sleep 6h 20m · 79% of 8h need`, `Movement 8,200 of
+   9,000 target` — not the panel "Details" links the source read suggested.
+   The recovery row is what opens `#recovery`.
+4. **Insights has TWO relationship cards**, not one: `Caffeine ↔ sleep ·
+   ρ −0.42 · 24 observations · Explore ↗` opens `#insight`, and `Fitness → age
+   · −1.7 years · Model contribution · Understand ↗` opens `#body`. Both were
+   verified by clicking.
+5. **Recovery carries the same five `metric/:key` vital rows as Today** —
+   resting heart, HRV, blood oxygen, breathing, skin temperature.
+6. **`sleep-history`'s night rows are buttons, not links.** They set the view
+   date and navigate to Sleep, which is what produces the `?date=` form above.
+
+Everything below has been checked against the running prototype.
+
 ## 1. How the prototype navigates
 
 `app.js` is a hash router with three parts worth copying:
@@ -34,7 +73,11 @@ blocked on the backend — see "What it costs" at the end.
 - **A date-aware route set** (`history-data.js:10`): `today, sleep, activity,
   insights, actions, recovery, body, fitness, metrics, metric, sleep-history,
   workouts, journal, action-history` — **fourteen** screens carry the selected
-  day in their header. The app has the date control on Today only.
+  day. Confirmed by walking: the day rides in the URL as `?date=YYYY-MM-DD`,
+  persists across tab switches, re-windows every chart on the screen it lands
+  on, and flips the header from `Latest sample` to `Selected day`. **The app has
+  the date control on Today only, and does not carry a day in its routes at
+  all.**
 
 Tone is derived from the route, not passed by the caller (`panels.js:3`,
 `H.toneFor`) — `sleep→sleep`, `recovery/fitness/body→fitness`,
