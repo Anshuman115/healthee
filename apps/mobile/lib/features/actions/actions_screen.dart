@@ -52,12 +52,16 @@ import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/journal_strip.dart';
+import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/screen_head.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 
 /// The prototype's own h1 for this screen, its line break included.
 const String kActionsTitle = 'Small steps.\nYour pace.';
+
+/// What Actions cannot date. `screens.actions`'s own past-day heading.
+const String kActionsPastTitle = 'No saved suggestion';
 
 /// The three section headings, in the prototype's words and its order.
 const String kWorkingOnHeading = 'What you’re working on';
@@ -121,12 +125,21 @@ class ActionsLinks {
 
 /// Builds the ordered section list for one render of Actions.
 List<PageSection> actionsSections(ScreenData data, ActionsLinks links) {
-  final snapshot = data.snapshot;
+  final past = data.view.isPast;
+  // Null on a past day. A suggestion is written overnight FOR the current day
+  // and `/api/today` takes no other; the challenge and program a reader is on
+  // are current state for the same reason. Showing either under an older date
+  // would be dating today's advice to a day it was not given on.
+  final snapshot = past ? null : data.snapshot;
   final recommendations = snapshot?.recommendations ?? const <Recommendation>[];
   return <PageSection>[
     PageSection(
       ScreenHead(
-        eyebrow: snapshot == null ? null : prettyDate(snapshot.date),
+        eyebrow: past
+            ? data.view.line
+            : (snapshot == null
+                  ? null
+                  : '${prettyDate(snapshot.date)} · ${data.view.status}'),
         title: kActionsTitle,
         trailing: HTap(
           onTap: links.onOpenProfile,
@@ -136,8 +149,15 @@ List<PageSection> actionsSections(ScreenData data, ActionsLinks links) {
       ),
       gap: 0,
     ),
-    if (data.serverFailure case final PageSection failure) failure,
-    if (data.serverPending case final PageSection pending) pending,
+    if (past)
+      const PageSection(
+        PastDayNotice(title: kActionsPastTitle, body: kPastDayReason),
+        gap: PageSpacing.block,
+      ),
+    if (!past) ...<PageSection>[
+      if (data.serverFailure case final PageSection failure) failure,
+      if (data.serverPending case final PageSection pending) pending,
+    ],
 
     // ── the suggestions ────────────────────────────────────────────────────
     if (snapshot != null)
@@ -162,8 +182,12 @@ List<PageSection> actionsSections(ScreenData data, ActionsLinks links) {
           ),
 
     // ── what you’re working on ─────────────────────────────────────────────
-    const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),
-    const PageSection(WorkingOn(), gap: PageSpacing.block),
+    // Absent on a past day: a challenge's progress and a program's week are
+    // both "as of now", and `screens.actions`'s own past-day view drops them.
+    if (!past) ...<PageSection>[
+      const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),
+      const PageSection(WorkingOn(), gap: PageSpacing.block),
+    ],
 
     // ── your daily check-in ────────────────────────────────────────────────
     const PageSection(SectionHead(title: kCheckInHeading), gap: 0),

@@ -43,6 +43,7 @@ import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/skeletons/sleep_skeleton.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// The Sleep tab.
 class SleepScreen extends ConsumerStatefulWidget {
@@ -91,6 +92,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                 ),
                 data: (page) => SleepList(
                   page: page,
+                  view: watchViewDay(ref),
                   // Soft: the regularity block feeds one panel and must never
                   // be able to take the measured half of the screen down.
                   consistency: currentAccountValue(
@@ -143,12 +145,16 @@ class SleepList extends StatelessWidget {
     required this.consistency,
     required this.now,
     required this.reveals,
+    required this.view,
     this.extras = const SleepExtras(),
     super.key,
   });
 
   /// `/api/sleep`.
   final SleepPage page;
+
+  /// The night being read, and the wall-clock day it is judged against.
+  final ViewDay view;
 
   /// `/api/sleep/consistency`, or null when that read has not answered.
   final SleepConsistency? consistency;
@@ -187,6 +193,7 @@ class SleepList extends StatelessWidget {
     }
     final sections = sleepSections(
       page: page,
+      view: view,
       consistency: consistency,
       now: now,
       reveals: reveals,

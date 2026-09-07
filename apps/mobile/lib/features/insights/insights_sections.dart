@@ -69,7 +69,11 @@ import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/entry_card.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/page_header.dart';
+import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/section_head.dart';
+
+/// What Insights cannot date. `screens.insights`'s own past-day heading.
+const String kInsightsPastTitle = 'Patterns for this day';
 
 /// Everything Insights needs that is not on [ScreenData].
 @immutable
@@ -113,26 +117,45 @@ class InsightsExtras {
 
 /// Builds the ordered section list for one render of Insights.
 List<PageSection> insightsSections(ScreenData data, InsightsExtras extras) {
-  final snapshot = data.snapshot;
+  final past = data.view.isPast;
+  // Null on a past day. Every correlation, trend window and hourly trace on
+  // this screen is computed nightly for the current day and sent on
+  // `/api/today`, which takes no day — so the only honest thing an older date
+  // can do with this payload is not draw it. See `shared/v02/past_day.dart`.
+  final snapshot = past ? null : data.snapshot;
   final findings = snapshot?.findings ?? const <Finding>[];
   final trends = trendsOf(snapshot?.sparklines ?? const {});
   final sections = SectionList()
     ..add(
       V02PageHeader(
         title: 'Insights',
-        date: snapshot?.date ?? data.day.date,
+        date: past ? data.view.day : (data.snapshot?.date ?? data.day.date),
+        status: data.view.status,
         onOpenProfile: extras.onOpenProfile,
       ),
     );
-  if (data.serverFailure case final PageSection failure) {
-    sections.addSection(failure);
-    sections.gap(PageSpacing.panel);
+  if (past) {
+    sections
+      ..add(const PastDayNotice(title: kInsightsPastTitle, body: kPastDayReason))
+      ..gap(PageSpacing.panel);
   }
-  if (data.serverPending case final PageSection pending) {
-    sections.addSection(pending);
-    sections.gap(PageSpacing.panel);
+  if (!past) {
+    if (data.serverFailure case final PageSection failure) {
+      sections.addSection(failure);
+      sections.gap(PageSpacing.panel);
+    }
+    if (data.serverPending case final PageSection pending) {
+      sections.addSection(pending);
+      sections.gap(PageSpacing.panel);
+    }
   }
-  _entries(sections, data, findings);
+  // The contribution is read off the gated snapshot, not off `data`: it is the
+  // age model's own output and dated today like everything else here.
+  _entries(
+    sections,
+    AgeEntryCard.contribution(snapshot?.biologicalAge.valueOrNull),
+    findings,
+  );
   if (snapshot != null &&
       EffortStressPanel.hasSomethingToDraw(
         snapshot.hourlyHeartRate,
@@ -181,10 +204,7 @@ List<PageSection> insightsSections(ScreenData data, InsightsExtras extras) {
 /// Either card may be absent, so the row is built from what there is: two cards
 /// make the grid, one draws full width, none draws nothing. A grid with one live
 /// half is a card beside a hole.
-void _entries(SectionList sections, ScreenData data, List<Finding> findings) {
-  final age = AgeEntryCard.contribution(
-    data.snapshot?.biologicalAge.valueOrNull,
-  );
+void _entries(SectionList sections, double? age, List<Finding> findings) {
   final Finding? pattern = findings
       .where(FindingEntryCard.canDraw)
       .firstOrNull;

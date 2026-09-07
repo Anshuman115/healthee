@@ -41,7 +41,6 @@ import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/today/today_facts.dart';
 import 'package:healthee/features/today/v02/recovery_detail_panels.dart';
 import 'package:healthee/features/today/v02/recovery_panel.dart';
-import 'package:healthee/shared/format/date_labels.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/reveal_once.dart';
@@ -52,11 +51,16 @@ import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
+import 'package:healthee/shared/v02/past_day.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 import 'package:healthee/shared/v02/vitals_table.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
 /// The prototype's own title, full stop included.
 const String kRecoveryTitle = 'Recovery, in context.';
+
+/// `screens.recovery`'s past-day heading, with the app's own reason under it.
+const String kRecoveryPastTitle = 'Recovery & readiness';
 
 /// The recovery detail screen.
 class RecoveryScreen extends ConsumerStatefulWidget {
@@ -76,6 +80,21 @@ class _RecoveryScreenState extends ConsumerState<RecoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ViewDay day = watchViewDay(ref);
+    // Every figure on this screen is `/api/today`'s, and that endpoint takes no
+    // day. So a past date gets the refusal instead of the screen — before the
+    // read is even consulted, because a spinner here would be waiting for an
+    // answer that could not be about the day in the header.
+    if (day.isPast) {
+      return _Frame(
+        date: day.day,
+        status: day.status,
+        children: const <Widget>[
+          PastDayNotice(title: kRecoveryPastTitle, body: kPastDayReason),
+          DataFooter(),
+        ],
+      );
+    }
     final view = currentAccountValue(ref.watch(todaySnapshotProvider));
     return view.when(
       skipLoadingOnRefresh: true,
@@ -261,7 +280,7 @@ class RecoveryDetail extends StatelessWidget {
 /// The page every state of this screen is drawn in, so the head and the gutter
 /// cannot differ between them.
 class _Frame extends StatelessWidget {
-  const _Frame({required this.children, this.date});
+  const _Frame({required this.children, this.date, this.status = kLatestSample});
 
   /// `.panel { margin-top: 12px }`.
   static const double panelGap = 12;
@@ -272,13 +291,14 @@ class _Frame extends StatelessWidget {
   final List<Widget> children;
   final String? date;
 
+  /// `Latest sample` unless the caller says otherwise: the only body below is
+  /// `/api/today`'s, which is the current day by construction.
+  final String? status;
+
   @override
   Widget build(BuildContext context) => DetailPage(
     title: kRecoveryTitle,
-    eyebrow: switch (date) {
-      final String iso => prettyDate(iso),
-      null => null,
-    },
+    eyebrow: dayEyebrow(date, status),
     children: children,
   );
 }

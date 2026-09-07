@@ -67,8 +67,12 @@ import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/full_button.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/page_header.dart';
+import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
+
+/// What Activity cannot date. `screens.activity`'s own past-day heading.
+const String kActivityPastTitle = 'Active minutes, load and fitness';
 
 /// `H.bridge('movement', …)` — what today's movement does and does not move.
 const String kActivityRecoveryBridge =
@@ -134,23 +138,41 @@ class ActivityExtras {
 
 /// Builds the ordered section list for one render of Activity.
 List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
-  final snapshot = data.snapshot;
+  final past = data.view.isPast;
+  // **Null on a past day, and that is the whole refusal.** `/api/activity` and
+  // `/api/today` take no day parameter (`api/routers/activity.py:15`,
+  // `today.py:30`), so this payload describes the CURRENT day whatever the
+  // header above it says. Every block below is gated on it being non-null, so
+  // dropping it here is one decision rather than nine — and there is no path
+  // that draws today's MVPA, load or VO₂max under an older date.
+  final snapshot = past ? null : data.snapshot;
   final reveals = data.reveals;
   final sections = SectionList()
     ..add(
       V02PageHeader(
         title: 'Activity',
-        date: snapshot?.date ?? data.day.date,
+        date: past ? data.view.day : (data.snapshot?.date ?? data.day.date),
+        status: data.view.status,
         onOpenProfile: extras.onOpenProfile,
       ),
     );
-  if (data.serverFailure case final PageSection failure) {
-    sections.addSection(failure);
-    sections.gap(PageSpacing.panel);
+  if (past) {
+    sections
+      ..add(const PastDayNotice(title: kActivityPastTitle, body: kPastDayReason))
+      ..gap(PageSpacing.panel);
   }
-  if (data.serverPending case final PageSection pending) {
-    sections.addSection(pending);
-    sections.gap(PageSpacing.panel);
+  // The server's own state is reported on the day it is about. A retry card
+  // headed "today's judgements" under a past date would be offering to fetch
+  // something no request can ask for.
+  if (!past) {
+    if (data.serverFailure case final PageSection failure) {
+      sections.addSection(failure);
+      sections.gap(PageSpacing.panel);
+    }
+    if (data.serverPending case final PageSection pending) {
+      sections.addSection(pending);
+      sections.gap(PageSpacing.panel);
+    }
   }
   sections.add(
     MovementPanel(
@@ -234,10 +256,12 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
       );
     }
   }
-  sections.gap(PageSpacing.block);
-  sections.add(
-    const InsightCard(scope: 'activity', title: 'Activity analysis'),
-  );
+  if (!past) {
+    sections.gap(PageSpacing.block);
+    sections.add(
+      const InsightCard(scope: 'activity', title: 'Activity analysis'),
+    );
+  }
   sections.gap(PageSpacing.block);
   sections.add(const DataFooter());
   return sections.build();

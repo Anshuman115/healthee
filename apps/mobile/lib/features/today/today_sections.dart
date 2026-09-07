@@ -63,8 +63,9 @@
 /// recovery, sleep health, debt, VO₂max or biological age be fetched. Drawing
 /// today's judgements under yesterday's date would be the stale-as-current
 /// failure — the one this repo has swept three times and the reason `LastKnown`
-/// exists — so [_pastDay] draws what the strap measured on that day, says in one
-/// sentence why there is nothing derived beneath it, and stops.
+/// exists — so `today_measured.dart`'s `pastDaySections` draws what the strap
+/// measured on that day, says in one sentence why there is nothing derived
+/// beneath it, and stops.
 ///
 /// The prototype's `.scenarioNotice` is its review-scenario switch. The live
 /// equivalent is the data-health card, which says the same class of thing about
@@ -76,7 +77,7 @@ import 'package:healthee/data/push/push_stamp.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/features/today/today_body.dart';
 import 'package:healthee/features/today/today_facts.dart';
-import 'package:healthee/features/today/today_labels.dart';
+import 'package:healthee/features/today/today_measured.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/features/today/v02/today_chapters.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
@@ -87,9 +88,6 @@ import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/section_list.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
-import 'package:healthee/shared/v02/panel.dart';
-import 'package:healthee/shared/v02/panel_head.dart';
-import 'package:healthee/shared/v02/panel_parts.dart';
 
 /// Everything Today needs that is not on [ScreenData].
 @immutable
@@ -195,11 +193,12 @@ class TodayExtras {
 /// Builds the ordered section list for one render of Today.
 List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   final snapshot = data.snapshot;
-  // `navigation.latest` is the wall-clock day, so this is "the owner has chosen
-  // a day that is not today" — not "these two dates disagree", which is also
-  // true of a cached payload on the current day and means something else.
-  final past =
-      extras.navigation != null && data.day.date != extras.navigation!.latest;
+  // `view.latest` is the wall-clock day, so this is "the owner has chosen a day
+  // that is not today" — not "these two dates disagree", which is also true of
+  // a cached payload on the current day and means something else. It comes off
+  // `ScreenData` rather than off the control, because a screen reached with no
+  // control on it is still on whatever day was selected.
+  final past = data.view.isPast;
   if (!past && data.day.hasNothing && snapshot == null) {
     return _freshInstall(data, extras);
   }
@@ -233,7 +232,7 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
     ),
   );
   if (past) {
-    _pastDay(sections, data);
+    pastDaySections(sections, data);
     return sections.build();
   }
   sections.add(_dataHealth(data, extras));
@@ -246,7 +245,7 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   if (data.serverFailure case final PageSection failure) {
     sections.addSection(failure);
     sections.gap(PageSpacing.panel);
-    _measuredOnly(sections, data);
+    measuredOnlySections(sections, data);
   }
   if (data.serverPending case final PageSection pending) {
     sections.addSection(pending);
@@ -255,90 +254,6 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
     todayBody(sections, TodayFacts.of(snapshot, now), data, extras);
   }
   return sections.build();
-}
-
-/// A day that is not today: what the strap measured, and nothing derived.
-///
-/// **The refusal is the point.** Every judgement on this screen — recovery,
-/// sleep health, debt, VO₂max, biological age — comes from `/api/today`, which
-/// takes no day and answers for the current one. There is no request that would
-/// produce them for a past day, so the alternatives were to draw today's numbers
-/// under a past date or to draw nothing derived. The first is stale-as-current;
-/// this is the second, and it says so rather than leaving a short screen to be
-/// read as a bad day.
-///
-/// The measured half is real: the local tier stores the strap's own readings per
-/// calendar day, so this renders with no network at all — the same guarantee
-/// `docs/APP_DESIGN_BRIEF.md` section 7.4 makes for the current day.
-void _pastDay(SectionList sections, ScreenData data) {
-  final day = data.day;
-  sections.add(
-    Panel(
-      head: const PanelHead(
-        title: 'From the strap',
-        icon: Icons.watch_outlined,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          StatRow(<Stat>[
-            if (day.steps.valueOrNull case final int steps)
-              Stat('Steps', commaGrouped(steps)),
-            if (day.heartRate.valueOrNull case final double bpm)
-              Stat('Heart rate', bpm.round().toString(), unit: 'bpm'),
-          ]),
-          const PanelNote(kPastDayNote),
-        ],
-      ),
-    ),
-  );
-}
-
-/// Why a past day carries no judgements. One sentence, and it is about us.
-const String kPastDayNote =
-    'Measured on this phone on the day you are viewing. Recovery, sleep health, '
-    'debt, VO₂max and biological age are worked out for the current day only, so '
-    'nothing derived is shown here rather than today’s figures under an older '
-    'date.';
-
-/// What this phone measured, when the server cannot be reached.
-///
-/// **Not a prototype section, and it appears in one state only.** This app holds
-/// the strap's own readings on disk, and `docs/APP_DESIGN_BRIEF.md` §7.4 requires
-/// that half to render with no network at all: an app that shows zero
-/// measurements while sitting on a database of them is broken, not careful.
-///
-/// It draws only behind the failure card, in v02's own twin-panel row, and
-/// nothing on the healthy path moves by a pixel.
-void _measuredOnly(SectionList sections, ScreenData data) {
-  final day = data.day;
-  sections.add(
-    Panel(
-      head: const PanelHead(
-        title: 'From the strap',
-        icon: Icons.watch_outlined,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          StatRow(<Stat>[
-            if (day.steps.valueOrNull case final int steps)
-              Stat('Steps', commaGrouped(steps)),
-            if (day.heartRate.valueOrNull case final double bpm)
-              Stat('Heart rate', bpm.round().toString(), unit: 'bpm'),
-          ]),
-          const PanelNote(
-            'Measured on this phone, since midnight. The server has not been '
-            'reached, so nothing here has been derived.',
-          ),
-        ],
-      ),
-    ),
-  );
-  sections.gap(PageSpacing.panel);
-  sections.add(DeviceHealthCard(day: day, now: data.now));
 }
 
 /// A phone that has synced nothing AND has heard nothing from the server.

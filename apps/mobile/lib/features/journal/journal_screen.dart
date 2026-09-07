@@ -43,6 +43,7 @@ import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/v02/controls.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/section_head.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// The prototype's own h1.
 const String kJournalTitle = 'The rest of your day.';
@@ -113,9 +114,12 @@ class _SignedIn extends ConsumerWidget {
               ref.watch(journalFeedProvider),
             ).value?.data.fastOpen ??
             false;
+        final ViewDay day = watchViewDay(ref);
         return DetailPage(
           key: ObjectKey(repository),
-          eyebrow: kJournalEyebrow,
+          // The journal is date-aware in the prototype's own route table, so
+          // its head says which day these moments are from.
+          eyebrow: day.line,
           title: kJournalTitle,
           children: <Widget>[
             Text(
@@ -139,7 +143,10 @@ class _SignedIn extends ConsumerWidget {
             ),
             const SizedBox(height: SectionHead.sectionGap),
             const SectionHead(title: kMomentsHeading),
-            JournalRecent(now: now),
+            // The grid above still writes to NOW — a log is a write, and a
+            // write dated to a day the owner is only reading would be a
+            // measurement invented on the wrong day. Only the list follows.
+            JournalRecent(now: now, day: day.isPast ? day.day : null),
             const DataFooter(),
           ],
         );

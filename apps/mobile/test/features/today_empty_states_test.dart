@@ -37,6 +37,7 @@ import 'package:healthee/features/sleep/v02/week_panel.dart';
 import 'package:healthee/features/today/widgets/actions_section.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
 import '../_sleep_stubs.dart';
@@ -179,6 +180,10 @@ void main() {
         consistency: consistencyFixture(),
         now: kSleepNow,
         reveals: RevealRegistry(),
+        view: ViewDay(
+          day: page.nights.first.date,
+          latest: page.nights.first.date,
+        ),
       ).map((section) => section.child.runtimeType).toSet();
 
       expect(

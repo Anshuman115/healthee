@@ -35,42 +35,67 @@ import 'package:healthee/shared/v02/rows.dart';
 /// The recent entries, and the running fast when there is one.
 class JournalRecent extends ConsumerWidget {
   /// [now] is injected by tests so the relative times are deterministic.
-  const JournalRecent({this.now, super.key});
+  const JournalRecent({this.now, this.day, super.key});
 
   /// The instant "3 h ago" is measured against.
   final DateTime? now;
+
+  /// Show only the entries written on this `YYYY-MM-DD`. Null shows the feed
+  /// as sent, which is what the current day gets.
+  final String? day;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return CachedAsyncView<JournalFeed>(
       value: currentAccountValue(ref.watch(journalFeedProvider)),
       onRetry: () => ref.invalidate(journalFeedProvider),
-      builder: (context, feed) => _Feed(feed: feed, now: now),
+      builder: (context, feed) => _Feed(feed: feed, now: now, day: day),
     );
   }
 }
 
 class _Feed extends StatelessWidget {
-  const _Feed({required this.feed, required this.now});
+  const _Feed({required this.feed, required this.now, this.day});
 
   final JournalFeed feed;
   final DateTime? now;
+  final String? day;
+
+  /// The feed, cut to the day being read.
+  ///
+  /// `history-screens.js::screens.journal` does the same
+  /// (`entry.time.slice(0,10) === H.viewDate()`), and it has to: these rows are
+  /// captioned in relative time, so a moment from three days ago sitting under
+  /// a chosen date would read as a moment on it.
+  List<JournalEntry> get entries => switch (day) {
+    final String iso => <JournalEntry>[
+      for (final entry in feed.entries)
+        if (entry.at.toLocal().toIso8601String().startsWith(iso)) entry,
+    ],
+    null => feed.entries,
+  };
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final at = now ?? DateTime.now();
-    if (feed.entries.isEmpty && !feed.fastOpen) {
-      return const EmptyState(
-        message: 'No recent entries',
-        hint: 'Your saved observations appear here.',
+    final List<JournalEntry> rows = entries;
+    // A fast is open NOW; it is not a fact about a day the reader has stepped
+    // back to, so it is drawn on the current day only.
+    final bool fasting = feed.fastOpen && day == null;
+    if (rows.isEmpty && !fasting) {
+      return EmptyState(
+        message: day == null ? 'No recent entries' : 'No entries for this day',
+        hint: day == null
+            ? 'Your saved observations appear here.'
+            : 'Nothing was written down on the day you are viewing.',
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        if (feed.fastOpen)
+        if (fasting)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
@@ -82,7 +107,7 @@ class _Feed extends StatelessWidget {
             ),
           ),
         RowCard(<Widget>[
-          for (final entry in feed.entries)
+          for (final entry in rows)
             ListRow(
               icon: iconFor(entry.type),
               title: entry.name ?? labelFor(entry.type),
