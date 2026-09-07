@@ -202,7 +202,7 @@ class Notice extends StatelessWidget {
 class FocusCard extends StatelessWidget {
   /// [eyebrow] is `.focus-title`, [title] the `h3`, [body] the `p`.
   const FocusCard({
-    required this.eyebrow,
+    this.eyebrow,
     required this.title,
     this.icon,
     this.body,
@@ -227,7 +227,12 @@ class FocusCard extends StatelessWidget {
   static const double bodyGap = 5;
 
   /// `.focus-title` — what kind of thing this is.
-  final String eyebrow;
+  ///
+  /// Nullable: the prototype's finding-detail card carries no eyebrow, because
+  /// the section head above it (`A useful next step`) already says what the card
+  /// is. Drawing an empty one there would spend the eyebrow's line box and its
+  /// gap on nothing.
+  final String? eyebrow;
 
   /// The suggestion itself.
   final Widget title;
@@ -270,19 +275,24 @@ class FocusCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  eyebrow,
-                  style: TypeScale.focusEyebrow.copyWith(color: family),
-                ),
-              ),
-              if (icon case final IconData glyph)
-                Icon(glyph, size: iconSize, color: family),
-            ],
-          ),
-          const SizedBox(height: titleGap),
+          if (eyebrow != null || icon != null) ...<Widget>[
+            Row(
+              children: <Widget>[
+                if (eyebrow case final String label)
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TypeScale.focusEyebrow.copyWith(color: family),
+                    ),
+                  )
+                else
+                  const Spacer(),
+                if (icon case final IconData glyph)
+                  Icon(glyph, size: iconSize, color: family),
+              ],
+            ),
+            const SizedBox(height: titleGap),
+          ],
           DefaultTextStyle(
             style: TypeScale.focusTitle.copyWith(color: colors.ink),
             child: title,

@@ -38,6 +38,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/core/theme/type_scale_dates.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/v02/date_calendar_sheet.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
@@ -239,7 +240,7 @@ class DateControl extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               '⌄',
-              style: TypeScale.dateCaret.copyWith(color: colors.ink3),
+              style: DateType.dateCaret.copyWith(color: colors.ink3),
             ),
           ],
         ),

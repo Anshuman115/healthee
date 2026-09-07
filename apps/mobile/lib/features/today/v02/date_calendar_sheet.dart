@@ -45,6 +45,7 @@ import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/core/theme/type_scale_dates.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/sheets/app_sheet.dart';
@@ -171,7 +172,7 @@ class _DateCalendarSheetState extends State<_DateCalendarSheet> {
           child: Text(
             _monthName(_month),
             textAlign: TextAlign.center,
-            style: TypeScale.calendarMonth.copyWith(color: colors.ink),
+            style: DateType.calendarMonth.copyWith(color: colors.ink),
           ),
         ),
         _arrow(context, Icons.chevron_right, 'Next month', 1),
@@ -255,8 +256,8 @@ class _DateCalendarSheetState extends State<_DateCalendarSheet> {
             '$day',
             style:
                 (current
-                        ? TypeScale.calendarDayCurrent
-                        : TypeScale.calendarDay)
+                        ? DateType.calendarDayCurrent
+                        : DateType.calendarDay)
                     .copyWith(color: current ? family : colors.ink),
           ),
           if (available)

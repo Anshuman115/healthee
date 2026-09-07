@@ -1937,6 +1937,68 @@ mutate 'the activity-level ⓘ loses the note its labels come from' \
   "          notes: <String>['non_exercise_vo2max']," \
   '          notes: <String>[],'
 
+
+# ---------------------------------------------------------------------------
+# The finding detail — the screen the owner tapped for and did not get.
+# ---------------------------------------------------------------------------
+
+PATTERNS=lib/features/insights/v02/pattern_panels.dart
+DETAIL_PARTS=lib/features/insights/v02/finding_detail_parts.dart
+DETAIL_SCREEN=lib/features/insights/v02/finding_detail_screen.dart
+ROUTE_TEST=test/features/finding_detail_route_test.dart
+WORDING_TEST=test/features/finding_detail_wording_test.dart
+NAMES=lib/shared/format/metric_names.dart
+NAMES_TEST=test/shared/metric_names_coverage_test.dart
+
+# The original defect, restored: the card keeps its look and loses its
+# destination. This is exactly the state the owner reported.
+mutate 'the relationship card goes inert again' \
+  "$ROUTE_TEST" "$PATTERNS" \
+  "      actionLabel: 'Explore'," \
+  '      actionLabel: null,'
+
+# The finding stops travelling, so the screen must re-derive numbers it was
+# already handed — a second source of truth for one figure.
+mutate 'the finding no longer rides along with the tap' \
+  "$ROUTE_TEST" "$PATTERNS" \
+  '          extra: finding,' \
+  '          extra: null,'
+
+# The route key drops its lag, so two findings on the same pair collide and the
+# wrong one opens.
+mutate 'the route key stops distinguishing two lags of one pair' \
+  "$WORDING_TEST" "$DETAIL_SCREEN" \
+  "'\${finding.metricA ?? ''}~\${finding.metricB ?? ''}~\${finding.lagDays ?? 0}'" \
+  "'\${finding.metricA ?? ''}~\${finding.metricB ?? ''}'"
+
+# q = 3.15e-27 rendered as "0.000" — an exact zero the data does not support.
+mutate 'a vanishing q-value is rounded to an exact zero' \
+  "$WORDING_TEST" "$DETAIL_PARTS" \
+  "  return q < 0.001
+      ? 'Adjusted q-value < 0.001'
+      : 'Adjusted q-value \${q.toStringAsFixed(3)}';" \
+  "  return 'Adjusted q-value \${q.toStringAsFixed(3)}';"
+
+# The screen agrees with itself no longer: a negative correlation is announced
+# as having moved together, contradicting the card that opened it.
+mutate 'the observation ignores the sign of the coefficient' \
+  "$WORDING_TEST" "$DETAIL_PARTS" \
+  '  final opposite = effect != null && effect < 0;' \
+  '  const opposite = false;'
+
+# The second line is the one that does the work. Drop it and the screen states
+# a co-movement with nothing qualifying it.
+mutate 'the observation loses "That doesn’t tell us why."' \
+  "$WORDING_TEST" "$DETAIL_PARTS" \
+  "'They moved in opposite directions.\nThat doesn’t tell us why.'" \
+  "'They moved in opposite directions.'"
+
+# The arrow loses its text-presentation selector and renders as an emoji again.
+mutate 'the correlation arrow goes back to emoji presentation' \
+  "$NAMES_TEST" "$NAMES" \
+  "const String kPairArrow = '↔︎';" \
+  "const String kPairArrow = '↔';"
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

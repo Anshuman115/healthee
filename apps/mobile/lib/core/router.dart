@@ -52,6 +52,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/settings_routes.dart';
 import 'package:healthee/core/tabs.dart';
+import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/features/actions/challenge_detail_screen.dart';
 import 'package:healthee/features/actions/outcomes_screen.dart';
@@ -62,6 +63,7 @@ import 'package:healthee/features/gps/route_detail_screen.dart';
 import 'package:healthee/features/gps/routes_screen.dart';
 import 'package:healthee/features/history/history_screen.dart';
 import 'package:healthee/features/history/metric_explorer_screen.dart';
+import 'package:healthee/features/insights/v02/finding_detail_screen.dart';
 import 'package:healthee/features/workouts/workout_detail_screen.dart';
 import 'package:healthee/features/workouts/workout_history_screen.dart';
 import 'package:healthee/shared/app_shell.dart';
@@ -105,6 +107,13 @@ abstract final class Routes {
   /// `docs/APP_DESIGN.md` §2 describes; a route for it would be a second way in
   /// with a different back behaviour.
   static const String insights = '/insights';
+
+  /// One correlation found in the owner's own history, opened from the Insights
+  /// relationship card.
+  ///
+  /// Takes the pair as a path segment because the server sends findings with no
+  /// id — see `features/insights/v02/finding_detail_screen.dart`.
+  static const String insight = '/insight';
 
   /// Every cited action the server raised for today.
   static const String actions = '/actions';
@@ -285,6 +294,17 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (context, state) => WorkoutDetailScreen(
           start: state.uri.queryParameters['start'] ?? '',
         ),
+      ),
+      GoRoute(
+        path: '${Routes.insight}/:key',
+        // The finding rides in `extra` when a tap opened this, and the path key
+        // re-resolves it when nothing did. The screen owns that fallback; the
+        // router only hands over what it was given.
+        builder: (BuildContext context, GoRouterState state) =>
+            FindingDetailScreen(
+              routeKey: state.pathParameters['key'] ?? '',
+              finding: state.extra is Finding ? state.extra! as Finding : null,
+            ),
       ),
       GoRoute(
         path: Routes.history,

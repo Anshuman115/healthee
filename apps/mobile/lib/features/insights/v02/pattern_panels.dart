@@ -35,7 +35,11 @@
 /// action line until those screens exist.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
@@ -43,6 +47,7 @@ import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/models/today_series.dart';
+import 'package:healthee/features/insights/v02/finding_detail_screen.dart';
 import 'package:healthee/shared/charts/v02/v02_linked_chart.dart';
 import 'package:healthee/shared/format/metric_names.dart';
 import 'package:healthee/shared/format/time_labels.dart';
@@ -241,6 +246,18 @@ class FindingEntryCard extends StatelessWidget {
       body: samples == null
           ? 'Found in your own history.'
           : 'Across $samples days of your own history',
+      // `<span class="text-button">Explore ↗</span>` on the prototype's
+      // relationship card. The card has carried this hook since it was built and
+      // nothing passed it a destination, so the owner tapped it and nothing
+      // happened. The finding travels in `extra` so the screen draws the same
+      // numbers this card is showing, without a second fetch.
+      actionLabel: 'Explore',
+      onOpen: () => unawaited(
+        context.push(
+          '${Routes.insight}/${findingKey(finding)}',
+          extra: finding,
+        ),
+      ),
     );
   }
 

@@ -253,22 +253,6 @@ abstract final class TypeScale {
   /// `.data-footer span` — its second line.
   static final TextStyle footerFine = _style(9, FontWeight.w400, height: 2);
 
-  /// `.date-caret` — the chevron beside the date the reader is on.
-  static final TextStyle dateCaret = _style(13, FontWeight.w400, height: 1);
-
-  /// `.calendar-heading strong` — the month a calendar is showing.
-  static final TextStyle calendarMonth = _style(16, FontWeight.w700, height: 1.3);
-
-  /// `.date-calendar button` — one day in the grid.
-  static final TextStyle calendarDay = _style(13, FontWeight.w400, height: 1.2);
-
-  /// `.date-calendar button[aria-current]` — the day being shown.
-  static final TextStyle calendarDayCurrent = _style(
-    13,
-    FontWeight.w700,
-    height: 1.2,
-  );
-
   /// `.page-header.detail h1` — a pushed screen's name, smaller than a tab's.
   static final TextStyle detailTitle = _style(
     23,
@@ -279,6 +263,23 @@ abstract final class TypeScale {
 
   /// `.small` — the prototype's one step down from body copy.
   static final TextStyle small = _style(12, FontWeight.w400);
+
+  /// `.observation h3 { font-size:17px; line-height:1.5 }` — the finding
+  /// detail's two-line statement. `styles.css` gives every `h3` its −0.2px
+  /// tracking; only the size and leading are overridden here.
+  static final TextStyle observationTitle = _style(
+    17,
+    FontWeight.w400,
+    height: 1.5,
+    tracking: -0.2,
+  );
+
+  /// `.observation p { font-size:12px; line-height:1.9 }` — the caveat under it.
+  ///
+  /// Not [small]: same size, looser leading. The paragraph is the one that says
+  /// a correlation is not a cause, and the prototype gives it more air than any
+  /// other body copy in the product.
+  static final TextStyle observationBody = _style(12, FontWeight.w400, height: 1.9);
 
   /// `.tiny-label`, `.list-row small`, `.timeline-item p`, `.stat-label`.
   static final TextStyle tinyLabel = _style(11, FontWeight.w400);
