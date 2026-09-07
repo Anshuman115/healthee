@@ -1937,6 +1937,109 @@ mutate 'the activity-level ⓘ loses the note its labels come from' \
   "          notes: <String>['non_exercise_vo2max']," \
   '          notes: <String>[],'
 
+# ── Workouts: the payload with NO honesty envelope ──────────────────────────
+# `/api/activity/workout` sends a bare nullable for every derived metric and no
+# `withheld` block at all, so nothing on the wire forces this screen to explain
+# an absence. `workout_readings.dart` is the only thing that does, which makes
+# every one of these mutations a silent regression in review.
+
+W_READINGS=lib/data/workouts/workout_readings.dart
+W_EFFORT=lib/features/workouts/v02/effort_cards.dart
+W_CARDS=lib/features/workouts/v02/session_cards.dart
+W_REFUSED=lib/features/workouts/v02/refused_figures.dart
+W_ROWS=lib/features/workouts/v02/session_rows.dart
+W_LIST=lib/features/workouts/workout_history_screen.dart
+W_LABELS=lib/shared/format/workout_labels.dart
+W_ORDER_TEST=test/features/workouts_order_test.dart
+W_SURFACE_TEST=test/features/workouts_surface_test.dart
+W_LABELS_TEST=test/shared/workout_labels_test.dart
+
+# Zone minutes drawn against a scale that does not exist. The server sends
+# `[0,0,0,0,0]` with no HRmax, so this renders five confident empty bars — a
+# picture of an easy session, on a session nothing was measured against.
+mutate 'the zones are drawn without the HRmax they are cut against' \
+  "$W_SURFACE_TEST" "$W_READINGS" \
+  '    detail.hrmax == null || detail.zones.isEmpty ? null : detail.zones,' \
+  '    detail.zones.isEmpty ? null : detail.zones,'
+
+# The hole stays and the sentence goes. `withheld_panel.dart`: a hole that says
+# why it is a hole is the whole design; without the why it is a dash.
+mutate 'the zones refusal keeps the hole and drops the reason' \
+  "$W_SURFACE_TEST" "$W_READINGS" \
+  "    'Zone minutes are cut against an HRmax estimate, and the server sent none '" \
+  "    'Zone minutes are unavailable. '"
+
+# A stat cell that vanishes with nothing said about it — exactly what the
+# pre-v02 screen did, and the reason this file's whole workouts section exists.
+mutate 'a dropped figure leaves no cell and no explanation' \
+  "$W_SURFACE_TEST" "$W_REFUSED" \
+  '    if (missing.isEmpty) {' \
+  '    if (missing.isNotEmpty) {'
+
+# CLAUDE.md pins free-living energy to the MET-by-state model. This kcal figure
+# is the STRAP's own count, and unnamed an owner reads it as the model's.
+mutate "the energy figure stops naming the strap as its instrument" \
+  "$W_ORDER_TEST" "$W_CARDS" \
+  '          if (energy.hasValue) const PanelNote(kEnergyInstrument),' \
+  '          if (false) const PanelNote(kEnergyInstrument),'
+
+# A second-half heart-rate change presented as a finding rather than a number.
+mutate 'heart-rate drift loses the line saying what it is not' \
+  "$W_ORDER_TEST" "$W_CARDS" \
+  '          if (drift.hasValue) const PanelNote(kDriftCaveat),' \
+  '          if (false) const PanelNote(kDriftCaveat),'
+
+# The wire is one entry per RECORDED minute, so carrying the last reading across
+# a gap draws a heart rate this app never measured, as confidently as the ones
+# it did. This is the whole reason the series is laid back on a minute axis.
+mutate 'the trace carries the last reading across a gap' \
+  "$W_SURFACE_TEST" "$W_EFFORT" \
+  '    return <double?>[for (var i = 0; i <= last; i++) slots[i]];' \
+  '    var carried = points.first.value;
+    return <double?>[
+      for (var i = 0; i <= last; i++) carried = slots[i] ?? carried,
+    ];'
+
+# The declared join. A minute-sampled signal is the one case a spline is allowed
+# for, and which spline it is decides whether the curve can leave its samples.
+mutate 'the trace is joined by something other than the safe spline' \
+  "$W_SURFACE_TEST" "$W_EFFORT" \
+  "        unit: 'bpm',
+        curve: SeriesCurve.monotone," \
+  "        unit: 'bpm',
+        curve: SeriesCurve.straight,"
+
+# Present and painting nothing. Two sleep charts shipped at zero height because
+# a suite only checked the widget was in the tree.
+mutate 'the workout trace is handed no height' \
+  "$W_SURFACE_TEST" "$W_EFFORT" \
+  "        unit: 'bpm',
+        curve: SeriesCurve.monotone," \
+  "        unit: 'bpm',
+        height: 0,
+        curve: SeriesCurve.monotone,"
+
+# `7:8` per kilometre. A pace is read as a clock, and a clock without its
+# padding is a different number.
+mutate 'a pace loses the padding that makes it a clock' \
+  "$W_LABELS_TEST" "$W_LABELS" \
+  "  return '\${minutes + (carried ? 1 : 0)}:\${shown.toString().padLeft(2, '0')}';" \
+  "  return '\${minutes + (carried ? 1 : 0)}:\$shown';"
+
+# A run of sessions with no day over it. The list then reads as "your workouts",
+# undated — and the newest and the oldest look the same.
+mutate 'the session list stops captioning its days' \
+  "$W_ORDER_TEST" "$W_ROWS" \
+  '      TinyLabel(prettyDate(date)),' \
+  '      const SizedBox.shrink(),'
+
+# The list is bounded by the server at 100 sessions of ten minutes. Without the
+# sentence it reads as every session the owner has ever recorded.
+mutate 'the list stops saying what it leaves out' \
+  "$W_ORDER_TEST" "$W_LIST" \
+  '        const SmallProse(kHistoryBounds),' \
+  '        const SizedBox.shrink(),'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
