@@ -71,12 +71,8 @@ import 'package:healthee/shared/v02/dated_history.dart';
 import 'package:healthee/shared/v02/full_button.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/page_header.dart';
-import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
-
-/// What Activity cannot date. `screens.activity`'s own past-day heading.
-const String kActivityPastTitle = 'Active minutes, load and fitness';
 
 /// `H.bridge('movement', …)` — what today's movement does and does not move.
 const String kActivityRecoveryBridge =
@@ -165,14 +161,15 @@ const List<HistoryMetric> kActivityDatedMetrics = <HistoryMetric>[
 
 /// Builds the ordered section list for one render of Activity.
 List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
+  // **The payload is drawn on every day now.** `/api/today` takes an optional
+  // `day` and answers for it (`docs/AS_OF_DAY.md`), so MVPA, load and VO₂max are
+  // that day's own stored rows rather than today's under an older header. The
+  // refusal this line used to make was right while the endpoint answered only for
+  // the current day; keeping it now would be withholding data we hold.
+  final snapshot = data.snapshot;
+  // Layout only — `ScreenData.snapshot` is where "may this payload be drawn under
+  // this day" is decided, for every screen at once.
   final past = data.view.isPast;
-  // **Null on a past day, and that is the whole refusal.** `/api/activity` and
-  // `/api/today` take no day parameter (`api/routers/activity.py:15`,
-  // `today.py:30`), so this payload describes the CURRENT day whatever the
-  // header above it says. Every block below is gated on it being non-null, so
-  // dropping it here is one decision rather than nine — and there is no path
-  // that draws today's MVPA, load or VO₂max under an older date.
-  final snapshot = past ? null : data.snapshot;
   final reveals = data.reveals;
   final sections = SectionList()
     ..add(
@@ -183,10 +180,12 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
         onOpenProfile: extras.onOpenProfile,
       ),
     );
+  // The dated panels stay on a past day, and they are not a duplicate of what
+  // the payload now draws: they are the CALENDAR view of each metric — one chart
+  // per series across the window — where the panels below are that day's figures
+  // with their own breakdowns. The refusal notice that used to head them is gone,
+  // because there is nothing left for it to refuse.
   if (past) {
-    sections
-      ..add(const PastDayNotice(title: kActivityPastTitle, body: kPastDayReason))
-      ..gap(PageSpacing.panel);
     // `screens.activity` on a past day IS this run of panels, in this order.
     // Every one of them is a row `derive` stamped with a calendar day, so they
     // are as true of 24 July as of today — the refusal above is about the
@@ -204,18 +203,17 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
       sections.gap(PageSpacing.block);
     }
   }
-  // The server's own state is reported on the day it is about. A retry card
-  // headed "today's judgements" under a past date would be offering to fetch
-  // something no request can ask for.
-  if (!past) {
-    if (data.serverFailure case final PageSection failure) {
-      sections.addSection(failure);
-      sections.gap(PageSpacing.panel);
-    }
-    if (data.serverPending case final PageSection pending) {
-      sections.addSection(pending);
-      sections.gap(PageSpacing.panel);
-    }
+  // The server's own state is reported on every day now. It was suppressed on a
+  // past one because a retry offered to re-fetch a request nobody could make;
+  // there IS such a request today, so a failed one is a real failure the owner
+  // can act on rather than a card about the wrong day.
+  if (data.serverFailure case final PageSection failure) {
+    sections.addSection(failure);
+    sections.gap(PageSpacing.panel);
+  }
+  if (data.serverPending case final PageSection pending) {
+    sections.addSection(pending);
+    sections.gap(PageSpacing.panel);
   }
   sections.add(
     MovementPanel(

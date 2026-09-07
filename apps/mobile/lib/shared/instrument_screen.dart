@@ -78,97 +78,21 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_repository.dart';
 import 'package:healthee/data/history/dated_history.dart';
-import 'package:healthee/data/models/today_snapshot.dart';
-import 'package:healthee/data/models/today_view.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/screen_data.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/view_day.dart';
 
-/// Everything a screen's section list is built from.
-@immutable
-class ScreenData {
-  /// Handed to a [SectionsBuilder] on every rebuild.
-  const ScreenData({
-    required this.day,
-    required this.server,
-    required this.reveals,
-    required this.onRetryServer,
-    required this.onRetryHistory,
-    required this.view,
-    this.history,
-    this.now,
-  });
-
-  /// What the strap measured, and its refusals.
-  final DeviceDay day;
-
-  /// The day being read, and the wall-clock day it is judged against.
-  ///
-  /// Required rather than optional, and it is the difference between a section
-  /// list that can be honest and one that cannot: [day] alone says *which* day
-  /// this is, never whether it is the newest one, and every refusal on a
-  /// date-aware screen turns on that second question.
-  final ViewDay view;
-
-  /// What the server made of it — including its loading and error states, which
-  /// a section list is sometimes the right place to render.
-  final AsyncValue<TodayView> server;
-
-  /// Where "this chart has already animated" is remembered. The screen's.
-  final RevealRegistry reveals;
-
-  /// Re-reads `/api/today`. Handed to [serverErrorCard] by whichever section
-  /// list decides to draw one.
-  final VoidCallback onRetryServer;
-
-  /// **The dated series, and null on the current day.**
-  ///
-  /// A third source, and it is read on a past day only. Nothing on the current
-  /// day is drawn from it — the panels it feeds are `history-screens.js`'s, and
-  /// those exist precisely because the derived half cannot answer for an older
-  /// date — so watching it unconditionally would put a twenty-five-series
-  /// request on every cold start to render nothing.
-  ///
-  /// Null therefore means *"not read, because this render is on the newest
-  /// day"*, never "empty" and never "failed". Those two are inside the
-  /// [AsyncValue], which is why this is a nullable [AsyncValue] rather than a
-  /// [DatedHistory] that could be empty for three different reasons. The
-  /// invariant — non-null exactly when [view] is past — is established in ONE
-  /// place, [_InstrumentScreenState.build], so no section list can get it
-  /// wrong.
-  final AsyncValue<DatedHistory>? history;
-
-  /// Re-reads the batched history. Always callable, because the retry belongs
-  /// to the card that draws it and that card only exists on a past day.
-  final VoidCallback onRetryHistory;
-
-  /// The instant every "x min ago" is measured against.
-  final DateTime? now;
-
-  /// The server's payload, or null when it has not answered.
-  TodaySnapshot? get snapshot => server.value?.snapshot;
-
-  /// The one card the derived half collapses into when it cannot be reached.
-  ///
-  /// Null when the server answered or is still answering — a screen that drew
-  /// this while a request was in flight would be calling a slow network a
-  /// failure.
-  PageSection? get serverFailure => server.value == null && server.hasError
-      ? PageSection(serverErrorCard(onRetryServer))
-      : null;
-
-  /// The placeholder while the derived half is still in flight.
-  PageSection? get serverPending => server.value == null && server.isLoading
-      ? const PageSection(
-          LoadingState(label: "Reading the server's view of today"),
-        )
-      : null;
-}
+// `ScreenData` moved to its own file at the 400-line gate, and is re-exported
+// because it is half of this file's public interface: a section list is a
+// function OF it, and twenty screens that import the shell would otherwise each
+// gain a second import to say the same thing. The split is about where the code
+// lives, not about what a caller has to know.
+export 'package:healthee/shared/screen_data.dart';
 
 /// Builds the ordered sections for one render.
 typedef SectionsBuilder = List<PageSection> Function(ScreenData data);
@@ -373,16 +297,3 @@ class _PinnedSection extends SliverPersistentHeaderDelegate {
       oldDelegate.child != child;
 }
 
-/// The derived half is unreachable. Says which half, and offers the retry.
-///
-/// A retry rather than a withheld card, because this is OUR failure and not an
-/// answer: `WithheldCard` never offers a retry precisely so the two cannot be
-/// confused. Shared because four screens draw the same card for the same reason.
-Widget serverErrorCard(VoidCallback onRetry) => ErrorState(
-  message: "Couldn't reach your server for today's judgements",
-  detail:
-      'Your measurements are on this phone and are unaffected. Recovery, sleep '
-      'health, debt, VO₂max and biological age are worked out on the server, so '
-      'they are not shown until it answers.',
-  onRetry: onRetry,
-);

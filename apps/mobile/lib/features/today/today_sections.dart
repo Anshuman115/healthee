@@ -58,14 +58,26 @@
 /// it. The selection lives in `data/store/view_date.dart` and follows the reader
 /// between screens.
 ///
-/// **A past day draws the measured half only.** `/api/today` takes no day and
-/// answers for the current one; there is no endpoint that would let a past day's
-/// recovery, sleep health, debt, VO₂max or biological age be fetched. Drawing
-/// today's judgements under yesterday's date would be the stale-as-current
-/// failure — the one this repo has swept three times and the reason `LastKnown`
-/// exists — so `today_measured.dart`'s `pastDaySections` draws what the strap
-/// measured on that day, says in one sentence why there is nothing derived
-/// beneath it, and stops.
+/// **A past day now draws the same screen, answered for that day.** `/api/today`
+/// takes an optional `day=YYYY-MM-DD` and reads the rows filed under it
+/// (`docs/AS_OF_DAY.md`), so recovery, sleep health, debt, VO₂max and biological
+/// age are that day's stored values rather than today's relabelled. The refusal
+/// this file used to carry was correct while the endpoint answered only for the
+/// current day; it is not a refusal we are entitled to any more, because withheld
+/// and *not asked for* are different states.
+///
+/// Nothing about the honesty layer changes with it. A day with no row is
+/// `Withheld` with its reason, exactly as an unsynced today is, and every block is
+/// still a [Reading] — which is why a past day needed no second set of widgets:
+/// the vocabulary that says "we don't have this" already existed and already said
+/// it in the right voice.
+///
+/// **What a past day still refuses is the LLM half**, and that is deliberate
+/// rather than pending. The daily action is cached per current day, so writing one
+/// for an older date would be authoring a new claim rather than replaying a
+/// record; the server sends null and the screen draws nothing, which is the same
+/// thing it does for an un-warmed today. The live trust card goes with it — every
+/// figure on it is an age measured against right now.
 ///
 /// The prototype's `.scenarioNotice` is its review-scenario switch. The live
 /// equivalent is the data-health card, which says the same class of thing about
@@ -198,6 +210,10 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   // a cached payload on the current day and means something else. It comes off
   // `ScreenData` rather than off the control, because a screen reached with no
   // control on it is still on whatever day was selected.
+  // The day the reader asked for. It decides LAYOUT only; whether the payload is
+  // entitled to be drawn under it is `ScreenData.snapshot`'s question and is
+  // answered there, once, for every screen. Two guards would be two chances to
+  // disagree about what "this day" means (Standards section 1).
   final past = data.view.isPast;
   if (!past && data.day.hasNothing && snapshot == null) {
     return _freshInstall(data, extras);
@@ -231,11 +247,12 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
       onOpenSync: extras.onOpenSync,
     ),
   );
-  if (past) {
-    pastDaySections(sections, data, onOpenMetric: extras.onOpenMetric);
-    return sections.build();
+  // The live-feed trust card is an age measured against right now, so it belongs
+  // to the current day only — the server sends it as null otherwise, and this is
+  // the same decision said in the layout rather than left to a null check.
+  if (!past) {
+    sections.add(_dataHealth(data, extras));
   }
-  sections.add(_dataHealth(data, extras));
   // Above everything a number can be read from, and absent entirely when the
   // server flagged nothing. See the library docstring.
   if (snapshot?.illnessFlag case final flag?) {
