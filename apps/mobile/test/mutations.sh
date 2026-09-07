@@ -2418,12 +2418,18 @@ mutate 'an opening question characterises what it names' "$TOPIC_TEST" \
 ROUTE_MAP=lib/features/gps/route_map.dart
 ROUTE_SECTIONS=lib/features/gps/route_detail_sections.dart
 GPS_TEST=test/gps/route_screens_test.dart
+# The drawing's own suite. Split out of `route_screens_test.dart` when that file
+# passed the 400-line gate — and this line is the reason the split is worth a
+# comment: the mutation below kept naming the old file, applied cleanly, and
+# SURVIVED, because the test that catches it had moved. A mutation whose target
+# no longer holds its test reports a pass it did not earn.
+MAP_TEST=test/gps/route_map_test.dart
 
 # One fix is a dot. A box with a dot in it is a picture of a journey nobody
 # recorded, and it looks like a map that simply did not load.
-mutate 'a single GPS fix is drawn as a route' "$GPS_TEST" "$ROUTE_MAP" \
-  '    if (points.length < 2) {' \
-  '    if (points.length < 1) {'
+mutate 'a single GPS fix is drawn as a route' "$MAP_TEST" "$ROUTE_MAP" \
+  '    if (widget.points.length < 2) {' \
+  '    if (widget.points.length < 1) {'
 
 # A session VO2max with no method beside it is the shape #108 shipped in: a
 # number nobody can trace to the tier that produced it.
@@ -2715,7 +2721,6 @@ mutate 'the baseline loses the spread it is only meaningful with' \
 GPS_RUN=lib/data/gps/gps_run.dart
 ROUTE_PAINTER=lib/features/gps/route_painter.dart
 GPS_RUN_TEST=test/gps/gps_run_test.dart
-ROUTE_TEST=test/gps/route_screens_test.dart
 
 # THE original defect, restored: the state keeps only the newest fix, so the
 # count still climbs, the distance still climbs, and the map has one dot to
@@ -2730,7 +2735,7 @@ mutate 'the recording state drops the coordinates it recorded' \
 # Offline is the day the owner most needs to see what they recorded, and this
 # failure looks exactly like a screen that has not finished loading.
 mutate 'a cache miss blanks the route instead of falling back to the ground' \
-  "$ROUTE_TEST" "$ROUTE_PAINTER" \
+  "$MAP_TEST" "$ROUTE_PAINTER" \
   '  bool get drawsTrack => points.length >= 2;' \
   '  bool get drawsTrack => points.length >= 2 && tiles.isNotEmpty;'
 
