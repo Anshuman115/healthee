@@ -30,6 +30,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/v02/detail_header.dart';
+import 'package:healthee/shared/v02/detail_page.dart';
 
 /// A supporting screen: the page frame, its head, and an ordered body.
 class SettingsPage extends StatelessWidget {
@@ -62,8 +63,11 @@ class SettingsPage extends StatelessWidget {
   /// The line above it. Null only on [SettingsPage.headed].
   final String? eyebrow;
 
-  /// Leaves the screen. Null pops the enclosing route, which is what every
-  /// screen reached by a `push` wants.
+  /// Leaves the screen. Null takes `detail_page.dart`'s rule — pop when there
+  /// is a stack, and otherwise go to the screen's home tab, so a settings
+  /// surface restored or deep-linked into is not a dead end. `maybePop()` was
+  /// here before and did **nothing at all** in that state, which is a control
+  /// that looks like a way out and is not one.
   final VoidCallback? onBack;
 
   /// A head that is not a back arrow. Null builds a [DetailHeader].
@@ -98,7 +102,7 @@ class SettingsPage extends StatelessWidget {
                 DetailHeader(
                   title: title!,
                   eyebrow: eyebrow!,
-                  onBack: onBack ?? () => Navigator.of(context).maybePop(),
+                  onBack: onBack ?? () => leaveDetail(context),
                 ),
             ...children,
           ],

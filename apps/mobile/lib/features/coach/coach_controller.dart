@@ -1,8 +1,8 @@
 /// Asking the coach — the one place a metered question is spent.
 ///
-/// `keepAlive` so the thread survives the sheet being dismissed: a conversation
-/// that vanished when the owner looked something up would cost them the context
-/// of a question they have already paid for.
+/// `keepAlive` so the thread survives the screen being left: a conversation that
+/// vanished when the owner looked something up would cost them the context of a
+/// question they have already paid for.
 ///
 /// ## The meter is re-read after every attempt, always
 ///
@@ -43,7 +43,7 @@ class CoachController extends _$CoachController {
   /// Asks [question]. Spends one of the owner's included questions.
   ///
   /// Callers must have shown the meter first. That is not a convention here —
-  /// `coach_sheet.dart` cannot build an input without an [Entitlement] in hand,
+  /// `coach_screen.dart` cannot build an input without an [Entitlement] in hand,
   /// so there is no path from a screen to this method that skipped the number.
   Future<void> ask(String question) async {
     final text = question.trim();
@@ -77,14 +77,6 @@ class CoachController extends _$CoachController {
         state = state.copyWith(asking: false);
       }
     }
-  }
-
-  /// Starts a fresh thread. The old one is dropped, not archived: nothing in this
-  /// app persists a conversation, and a "history" button over a list that dies
-  /// with the process would be a promise the storage layer does not keep.
-  void newThread() {
-    _generation++;
-    state = const CoachConversation();
   }
 
   bool _isCurrent(int generation) => ref.mounted && generation == _generation;

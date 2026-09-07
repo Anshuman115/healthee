@@ -18,22 +18,30 @@
 ///
 /// `test/mutations.sh` flips each `push` back to `go` and requires this file to
 /// go red. That check is what was not there when it shipped.
+///
+/// ## The `parents` back-map, and the screens that had no door at all
+///
+/// The last group is the same defect one level in. `DetailPage` drew its back
+/// control only when `Navigator.canPop()` was true, so a detail screen reached
+/// with an EMPTY stack — a deep link, a notification, a restored process, or the
+/// `go` this file's own title records — had no way off it. The fix is the
+/// prototype's own (`app.js:8`, `core/parent_tabs.dart`): pop when there is a
+/// stack, and otherwise land on the tab the screen belongs under.
 library;
-
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
-import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
 import 'package:healthee/features/pairing/pairing_screen.dart';
 import 'package:healthee/features/settings/device_screen.dart';
 import 'package:healthee/features/settings/settings_screen.dart';
 import 'package:healthee/features/signin/server_signin_screen.dart';
+import 'package:healthee/features/today/body_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/shared/v02/buttons.dart';
 
@@ -70,6 +78,21 @@ Future<void> _pressBack(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// A viewport tall enough to hold the whole settings screen.
+///
+/// The default 800x600 leaves the lower rows BUILT but below the fold, so
+/// `scrollUntilVisible` reports success without moving and the tap then lands
+/// outside the render tree — a silent miss that reads as "the button does
+/// nothing". `reachability_test.dart` documents the same trap. A taller window
+/// is the honest fix: what is asserted here is where a row GOES, not that it
+/// fits above the fold.
+void _tallViewport(WidgetTester tester) {
+  tester.view
+    ..physicalSize = const Size(420, 2400)
+    ..devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   late LocalStore store;
 
@@ -80,21 +103,6 @@ void main() {
   tearDown(() async => store.close());
 
   group('OUT OF THE SHELL — every door the avatar opens comes back', () {
-    /// A viewport tall enough to hold the whole settings screen.
-    ///
-    /// The default 800x600 leaves the lower rows BUILT but below the fold, so
-    /// `scrollUntilVisible` reports success without moving and the tap then lands
-    /// outside the render tree — a silent miss that reads as "the button does
-    /// nothing". `reachability_test.dart` documents the same trap. A taller
-    /// window is the honest fix: what is asserted here is where a row GOES, not
-    /// that it fits above the fold.
-    void tallViewport(WidgetTester tester) {
-      tester.view
-        ..physicalSize = const Size(420, 2400)
-        ..devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-    }
-
     /// Opens Settings the way the owner does: the person outline in the header.
     Future<void> openSettings(WidgetTester tester) async {
       await tester.tap(find.bySemanticsLabel('Settings'));
@@ -121,7 +129,7 @@ void main() {
     ) async {
       // The reported defect, exactly: force-stop, launch, avatar, back — and the
       // owner was on the Android home screen with the process still alive.
-      tallViewport(tester);
+      _tallViewport(tester);
       final platform = _watchPlatformCalls(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
@@ -151,7 +159,7 @@ void main() {
       // Two levels out of the shell. Settings is the only thing that makes
       // diagnostics findable, so returning to Today would lose the owner's place
       // in the surface they were working through.
-      tallViewport(tester);
+      _tallViewport(tester);
       final platform = _watchPlatformCalls(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
@@ -169,7 +177,7 @@ void main() {
     testWidgets('and a second back from there lands on Today', (tester) async {
       // The whole stack unwinds one screen at a time. A `pushReplacement`
       // anywhere in it would skip a level and look almost right.
-      tallViewport(tester);
+      _tallViewport(tester);
       final platform = _watchPlatformCalls(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
@@ -191,7 +199,7 @@ void main() {
       // one back lands on the strap screen rather than on Settings. That is a
       // longer stack to unwind, not a weaker claim — both hops are asserted, and
       // a `pushReplacement` anywhere in it would still skip a level.
-      tallViewport(tester);
+      _tallViewport(tester);
       final platform = _watchPlatformCalls(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
@@ -215,7 +223,7 @@ void main() {
     testWidgets('back from the sign-in screen returns to Settings', (
       tester,
     ) async {
-      tallViewport(tester);
+      _tallViewport(tester);
       final platform = _watchPlatformCalls(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
@@ -245,7 +253,7 @@ void main() {
       // Landing there is also the STRONGER assertion — Settings stays mounted
       // under the whole stack, so it is found whether Done popped one level or
       // threw the stack away.
-      tallViewport(tester);
+      _tallViewport(tester);
       final platform = _watchPlatformCalls(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
@@ -277,7 +285,7 @@ void main() {
       // `DetailHeader`, which draws an `Icons.arrow_back` inside a
       // `Semantics(button: true, label: 'Go back')`. The glyph is the assertion
       // because it is the affordance — the thing that was missing.
-      tallViewport(tester);
+      _tallViewport(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
       await openSettings(tester);
@@ -286,73 +294,85 @@ void main() {
     });
   });
 
-  group('leaving a setup flow the way you came into it', () {
-    /// A router whose setup screen is either pushed onto a home or IS the
-    /// initial location — the two ways `/pairing` is actually reached.
-    Widget host({required bool pushed, required List<String> landed}) {
-      final router = GoRouter(
-        initialLocation: pushed ? '/home' : '/setup',
-        routes: <RouteBase>[
-          GoRoute(
-            path: '/home',
-            builder: (context, state) => Scaffold(
-              body: TextButton(
-                onPressed: () => unawaited(context.push('/setup')),
-                child: const Text('open setup'),
-              ),
-            ),
-          ),
-          GoRoute(
-            path: Routes.today,
-            builder: (context, state) {
-              landed.add(Routes.today);
-              return const Scaffold(body: Text('today'));
-            },
-          ),
-          GoRoute(
-            path: '/setup',
-            builder: (context, state) => Scaffold(
-              body: TextButton(
-                onPressed: () => leaveSetup(context),
-                child: const Text('done'),
-              ),
-            ),
-          ),
-        ],
-      );
-      return MaterialApp.router(theme: AppTheme.light, routerConfig: router);
+  group('THE PARENTS BACK-MAP — a detail screen with an empty stack', () {
+    /// The app's own router, driven to [location] the way a deep link does.
+    ///
+    /// `context.go` REPLACES, which this file's title records — so this leaves
+    /// the destination with **nothing underneath it**, which is exactly the
+    /// state a deep link, a notification and a restored process produce. The
+    /// defect is not reachable any other way, and it is the state the old
+    /// `canPop() ? pop : null` drew no control for.
+    Future<void> deepLink(WidgetTester tester, String location) async {
+      await tester.pumpWidget(routedApp(store));
+      await tester.pumpAndSettle();
+      GoRouter.of(tester.element(find.byType(TodayScreen))).go(location);
+      await tester.pumpAndSettle();
     }
 
-    testWidgets('PUSHED: done pops back to what opened it', (tester) async {
-      final landed = <String>[];
-      await tester.pumpWidget(host(pushed: true, landed: landed));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('open setup'));
-      await tester.pumpAndSettle();
+    testWidgets('DRAWS A BACK CONTROL WITH NOTHING TO POP', (tester) async {
+      // The defect itself: no stack, no arrow, no way off the screen. Not a
+      // wrong way back — none.
+      await deepLink(tester, Routes.body);
 
-      await tester.tap(find.text('done'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('open setup'), findsOneWidget);
+      expect(find.byType(BodyScreen), findsOneWidget);
       expect(
-        landed,
-        isEmpty,
-        reason: 'Today is not where this owner came from',
+        find.byIcon(Icons.arrow_back),
+        findsOneWidget,
+        reason: 'a restored detail screen has to offer a way off it',
       );
     });
 
-    testWidgets('REDIRECTED INTO: done goes to Today, because nothing is under it', (
+    testWidgets('BACK LANDS ON THE MAPPED PARENT TAB, NOT ON TODAY', (
       tester,
     ) async {
-      final landed = <String>[];
-      await tester.pumpWidget(host(pushed: false, landed: landed));
+      // `app.js:8` files `body` under `activity`. Today would be the lazy
+      // answer and would look right on every screen the map exists for.
+      final platform = _watchPlatformCalls(tester);
+      await deepLink(tester, Routes.body);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('done'));
+      expect(find.byType(ActivityScreen), findsOneWidget);
+      expect(find.byType(BodyScreen), findsNothing);
+      expect(platform, isNot(contains('SystemNavigator.pop')));
+    });
+
+    testWidgets('a system back press takes the same door', (tester) async {
+      // The gesture and the affordance went missing together last time, so
+      // they are asserted together this time.
+      final platform = _watchPlatformCalls(tester);
+      await deepLink(tester, Routes.body);
+
+      await _pressBack(tester);
+
+      expect(find.byType(BodyScreen), findsNothing);
+      expect(platform, isNot(contains('SystemNavigator.pop')));
+    });
+
+    testWidgets('AND A PUSHED DETAIL SCREEN STILL POPS TO WHAT OPENED IT', (
+      tester,
+    ) async {
+      // The fallback must not become the rule. Opened from Today's hero, back
+      // returns to Today — never to `body`'s mapped tab, which the owner was
+      // not on.
+      _tallViewport(tester);
+      await tester.pumpWidget(routedApp(store));
+      await tester.pumpAndSettle();
+      await reveal(tester, find.text('See the contributors'));
+      await tester.tap(find.text('See the contributors'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BodyScreen), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
 
-      expect(find.text('today'), findsOneWidget);
-      expect(landed, <String>[Routes.today]);
+      expect(find.byType(TodayScreen), findsOneWidget);
+      expect(
+        find.byType(ActivityScreen),
+        findsNothing,
+        reason: 'the map is the FALLBACK; a real stack outranks it',
+      );
     });
   });
 }

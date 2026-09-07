@@ -35,6 +35,7 @@ class OvernightPanel extends StatelessWidget {
     required this.recent,
     required this.reveals,
     this.onOpenMetric,
+    this.onOpenAll,
     super.key,
   });
 
@@ -55,6 +56,12 @@ class OvernightPanel extends StatelessWidget {
 
   /// Opens one measurement's own history.
   final void Function(String metric)? onOpenMetric;
+
+  /// `H.panel(…,'metrics')` — the DIRECTORY of every signal, which is where the
+  /// prototype's `Details` on this card goes. It used to open the first row's
+  /// own metric: a card of five measurements whose Details silently picked one
+  /// of them, and the one it picked depended on row order.
+  final VoidCallback? onOpenAll;
 
   /// The five rows, in the prototype's order.
   List<Vital> get vitals => <Vital>[
@@ -123,10 +130,8 @@ class OvernightPanel extends StatelessWidget {
         title: title,
         icon: Icons.favorite_border,
         infoKey: 'sleep',
-        actionLabel: onOpenMetric == null ? null : 'Details',
-        onAction: onOpenMetric == null
-            ? null
-            : () => onOpenMetric!(rows.first.metric),
+        actionLabel: onOpenAll == null ? null : 'Details',
+        onAction: onOpenAll,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

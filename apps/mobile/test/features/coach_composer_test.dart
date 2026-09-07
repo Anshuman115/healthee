@@ -1,7 +1,7 @@
 /// The coach's OPENERS and its composer — the two controls a balance licenses.
 ///
-/// Split out of `coach_sheet_test.dart` at the 400-line gate (Standards section
-/// 1). The seam is the one the sheet itself draws: that suite is about the four
+/// Split out of `coach_screen_test.dart` at the 400-line gate (Standards section
+/// 1). The seam is the one the screen itself draws: that suite is about the four
 /// states of the meter, and this one is about the two controls that spend it. A
 /// prompt button asks a question, so it costs one of twenty and is gated exactly
 /// as the text input is — which is the assertion this file exists to make,
@@ -19,7 +19,7 @@ import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
-import 'package:healthee/features/coach/coach_sheet.dart';
+import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/coach/v02/coach_intro.dart';
 
 final DateTime _now = DateTime(2026, 8, 5, 9);
@@ -77,11 +77,11 @@ class _ScriptedCoach implements CoachClient {
   }
 }
 
-Widget _sheet(CoachClient client) => ProviderScope(
+Widget _screen(CoachClient client, {String? topic}) => ProviderScope(
   overrides: [coachClientProvider.overrideWithValue(client)],
   child: MaterialApp(
     theme: AppTheme.light,
-    home: Scaffold(body: CoachSheet(now: _now)),
+    home: CoachScreen(topic: topic, now: _now),
   ),
 );
 
@@ -91,7 +91,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _sheet(_ScriptedCoach(balances: [_premium(remaining: 17)])),
+        _screen(_ScriptedCoach(balances: [_premium(remaining: 17)])),
       );
       await tester.pumpAndSettle();
 
@@ -114,7 +114,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _sheet(_ScriptedCoach(balances: [_premium(remaining: 0)])),
+        _screen(_ScriptedCoach(balances: [_premium(remaining: 0)])),
       );
       await tester.pumpAndSettle();
 
@@ -129,7 +129,7 @@ void main() {
     });
 
     testWidgets('a FREE owner is offered no prompt', (tester) async {
-      await tester.pumpWidget(_sheet(_ScriptedCoach(balances: [_free()])));
+      await tester.pumpWidget(_screen(_ScriptedCoach(balances: [_free()])));
       await tester.pumpAndSettle();
 
       for (final prompt in kCoachPrompts) {
@@ -150,7 +150,7 @@ void main() {
           'validated': true,
         }),
       );
-      await tester.pumpWidget(_sheet(client));
+      await tester.pumpWidget(_screen(client));
       await tester.pumpAndSettle();
       await tester.tap(find.text(kCoachPrompts.first));
       await tester.pumpAndSettle();
@@ -170,7 +170,7 @@ void main() {
           ..devicePixelRatio = 3;
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
-          _sheet(_ScriptedCoach(balances: [_premium(remaining: 17)])),
+          _screen(_ScriptedCoach(balances: [_premium(remaining: 17)])),
         );
         await tester.pumpAndSettle();
 

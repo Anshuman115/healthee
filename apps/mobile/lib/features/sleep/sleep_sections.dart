@@ -89,6 +89,7 @@ class SleepExtras {
     this.onOpenJournal,
     this.onOpenActions,
     this.onOpenHistory,
+    this.onOpenAllMetrics,
   });
 
   /// Opens settings. The avatar's destination.
@@ -110,6 +111,9 @@ class SleepExtras {
   /// this screen's `Details` links go to the same place, which is the screen
   /// that holds every night rather than one metric's dated series.
   final VoidCallback? onOpenHistory;
+
+  /// Opens the metric DIRECTORY — `H.panel('Your body overnight',…,'metrics')`.
+  final VoidCallback? onOpenAllMetrics;
 }
 
 /// Builds the ordered section list for one render of Sleep.
@@ -154,6 +158,7 @@ List<PageSection> sleepSections({
         recent: windows.recent,
         reveals: reveals,
         onOpenMetric: extras.onOpenMetric,
+        onOpenAll: extras.onOpenAllMetrics,
       ),
     )
     ..gap(PageSpacing.panel)

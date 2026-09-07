@@ -154,7 +154,8 @@ void _nightChapter(
       caveatCarrier: CaveatCarrier.insideCard,
       withheldBuilder: (context, disclosure) =>
           WithheldPanel(disclosure: disclosure, label: 'Recovery'),
-      builder: (context, score) => RecoveryPanel(score: score),
+      builder: (context, score) =>
+          RecoveryPanel(score: score, onDetails: extras.onOpenRecovery),
     ),
   );
   sections.gap(PageSpacing.panel);
@@ -171,6 +172,7 @@ void _nightChapter(
         revealId: 'today.hrv-trend',
         reveals: reveals,
         unit: 'ms',
+        onDetails: _metric(extras, TodayMetricIds.heartRateVariability),
         note: _baselineNote(
           facts.spark(TodayMetricIds.heartRateVariability).length,
           facts.heartRateVariabilityBaseline,
@@ -188,6 +190,7 @@ void _nightChapter(
         revealId: 'today.rhr-trend',
         reveals: reveals,
         unit: 'bpm',
+        onDetails: _metric(extras, TodayMetricIds.restingHeartRate),
         note: _baselineNote(
           facts.spark(TodayMetricIds.restingHeartRate).length,
           facts.median(TodayMetricIds.restingHeartRate),
@@ -200,7 +203,11 @@ void _nightChapter(
   if (snapshot.sleepHistory7d.length >= 2) {
     sections.gap(PageSpacing.panel);
     sections.add(
-      SleepWeekPanel(nights: snapshot.sleepHistory7d, reveals: reveals),
+      SleepWeekPanel(
+        nights: snapshot.sleepHistory7d,
+        reveals: reveals,
+        onDetails: extras.onOpenSleep,
+      ),
     );
   }
   sections.gap(PageSpacing.panel);
@@ -211,12 +218,23 @@ void _nightChapter(
       caveatCarrier: CaveatCarrier.insideCard,
       withheldBuilder: (context, disclosure) =>
           WithheldPanel(disclosure: disclosure, label: 'Sleep health · 4-dim'),
-      builder: (context, health) =>
-          SleepHealthPanel(health: health, breathing: facts.respiratoryRate),
+      builder: (context, health) => SleepHealthPanel(
+        health: health,
+        breathing: facts.respiratoryRate,
+        onDetails: extras.onOpenSleep,
+      ),
     ),
   );
   sections.gap(PageSpacing.block);
-  sections.add(ContextBridge.text(kSleepBridge));
+  sections.add(
+    // `H.bridge('sleep', …, 'sleep', 'Open your night')` — the label is the
+    // prototype's, and it ends the sentence rather than sitting under it.
+    ContextBridge.link(
+      kSleepBridge,
+      label: 'Open your night',
+      onOpen: extras.onOpenSleep,
+    ),
+  );
   sections.gap(PageSpacing.panel);
   sections.add(
     TwinPanels(
@@ -232,6 +250,11 @@ void _nightChapter(
         reveals: reveals,
         unit: '%',
         digits: 1,
+        // The overnight series this app keeps a history for. The card draws
+        // nightly MINIMUMS, which `history_metric.dart` has no entry of its
+        // own for; sending the reader to the overnight average would be a
+        // different measurement behind the same word.
+        onDetails: _metric(extras, TodayMetricIds.bloodOxygen),
         note: 'Nightly minimums. Gaps stay visible.',
       ),
       right: ReadingView<SleepDebt>(
@@ -240,10 +263,21 @@ void _nightChapter(
         caveatCarrier: CaveatCarrier.insideCard,
         withheldBuilder: (context, disclosure) =>
             WithheldPanel(disclosure: disclosure, label: 'Sleep need · debt'),
-        builder: (context, debt) => SleepNeedPanel(debt: debt),
+        builder: (context, debt) =>
+            SleepNeedPanel(debt: debt, onDetails: extras.onOpenSleep),
       ),
     ),
   );
+}
+
+/// One panel's Details link, or none when this build has no such history.
+///
+/// [TodayExtras.onOpenMetric] takes the canonical id, so every Details link on
+/// this screen resolves through one function and a panel cannot quietly point
+/// at a different metric from the one it draws.
+VoidCallback? _metric(TodayExtras extras, String metric) {
+  final void Function(String metric)? open = extras.onOpenMetric;
+  return open == null ? null : () => open(metric);
 }
 
 /// `14 nights · baseline 45 ms`, or the count alone when nothing is baselined.

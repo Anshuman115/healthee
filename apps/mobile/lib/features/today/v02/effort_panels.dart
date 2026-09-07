@@ -129,7 +129,7 @@ class EffortPanel extends StatelessWidget {
 /// `Active minutes` — the week against the published reference.
 class ActiveMinutesPanel extends StatelessWidget {
   /// [mvpa] is the payload's block.
-  const ActiveMinutesPanel({required this.mvpa, super.key});
+  const ActiveMinutesPanel({required this.mvpa, this.onDetails, super.key});
 
   /// The prototype's title.
   static const String title = 'Active minutes';
@@ -139,6 +139,10 @@ class ActiveMinutesPanel extends StatelessWidget {
 
   /// This week's moderate-to-vigorous minutes.
   final Mvpa mvpa;
+
+  /// `H.panel(…,'activity')` — the tab this week's minutes are read on. Null
+  /// draws no link.
+  final VoidCallback? onDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +157,8 @@ class ActiveMinutesPanel extends StatelessWidget {
           references: <String>['Active minutes — ${mvpa.weekTarget} min/week'],
           notes: mvpa.researchNotes,
         ),
+        actionLabel: onDetails == null ? null : 'Details',
+        onAction: onDetails,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -182,13 +188,17 @@ class ActiveMinutesPanel extends StatelessWidget {
 /// `Strength` — the other half of the same recommendation, counted separately.
 class StrengthPanel extends StatelessWidget {
   /// [strength] is the payload's block.
-  const StrengthPanel({required this.strength, super.key});
+  const StrengthPanel({required this.strength, this.onDetails, super.key});
 
   /// The prototype's title.
   static const String title = 'Strength';
 
   /// This week's strength minutes.
   final Strength strength;
+
+  /// `H.panel(…,'workouts')` — the sessions this figure is counted from. Null
+  /// draws no link.
+  final VoidCallback? onDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -213,6 +223,8 @@ class StrengthPanel extends StatelessWidget {
             if (strength.researchNote case final String note) note,
           ],
         ),
+        actionLabel: onDetails == null ? null : 'Details',
+        onAction: onDetails,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

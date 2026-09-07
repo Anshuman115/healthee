@@ -161,12 +161,14 @@ class SleepHistoryDetail extends StatelessWidget {
     }
     return _Frame(
       children: <Widget>[
-        SleepDurationPanel(
-          nights: nights,
-          reveals: reveals,
-          onDetails: () =>
-              unawaited(context.push('${Routes.history}?metric=sleep')),
-        ),
+        // **No Details link.** The prototype points this panel at
+        // `metric/sleep`; `history_metric.dart` offers no sleep-DURATION
+        // series, so `?metric=sleep` matched nothing and `history_screen.dart`
+        // fell back to HRV — a control that opened a different measurement
+        // under the same word, silently. Sleep debt and sleep health exist and
+        // are not duration, so neither is a substitute. The link comes back
+        // with the metric.
+        SleepDurationPanel(nights: nights, reveals: reveals),
         // One bar is not a week. The prototype draws seven; the payload decides.
         if (week.length >= 2) ...<Widget>[
           const SizedBox(height: panelGap),

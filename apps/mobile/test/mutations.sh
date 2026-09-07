@@ -1717,14 +1717,14 @@ CHALLENGE_CARD=lib/features/actions/v02/challenge_card.dart
 ACTIONS_SCREEN=lib/features/actions/actions_screen.dart
 OUTCOME_CARD=lib/shared/challenge_outcome_card.dart
 CHOICES=lib/shared/v02/choices.dart
-COACH_SHEET=lib/features/coach/coach_sheet.dart
+COACH_SCREEN=lib/features/coach/coach_screen.dart
 COACH_CTRL=lib/features/coach/coach_controller.dart
 COMPOSER=lib/features/coach/v02/coach_composer.dart
 JOURNAL_GRID=lib/features/journal/v02/journal_grid.dart
 LOG_SHEET=lib/features/journal/v02/log_sheet.dart
 ACTIONS_TEST=test/features/actions_v02_test.dart
 CARDS_TEST=test/features/actions_cards_test.dart
-COACH_TEST=test/features/coach_sheet_test.dart
+COACH_TEST=test/features/coach_screen_test.dart
 COMPOSER_TEST=test/features/coach_composer_test.dart
 JOURNAL_TEST=test/journal/journal_screen_test.dart
 
@@ -1805,15 +1805,15 @@ mutate 'the outcome drops its "not a proven effect" sentence' \
 # An input beside an unknown or empty balance is the silent spend the feature is
 # not allowed to have.
 mutate 'the coach composer appears with no balance behind it' \
-  "$COACH_TEST" "$COACH_SHEET" \
+  "$COACH_TEST" "$COACH_SCREEN" \
   '    final canAsk = uncapped || (allowance?.hasRemaining ?? false);' \
   '    final canAsk = true;'
 
 # A prompt button asks a question, so it costs one — same gate as the input.
 mutate 'the opening prompts stop being gated by the balance' \
-  "$COMPOSER_TEST" "$COACH_SHEET" \
-  '                  canAsk: canAsk,' \
-  '                  canAsk: true,'
+  "$COMPOSER_TEST" "$COACH_SCREEN" \
+  '            canAsk: canAsk, ask: ask),' \
+  '            canAsk: true, ask: ask),'
 
 # `routers/coach.py` refunds three of five outcomes, so a local subtraction is
 # wrong — and wrong the flattering way round. THE METER IS RE-READ.
@@ -2270,6 +2270,200 @@ mutate 'an unrecorded night invents its bedtime and wake' \
   "    return '\${start == null ? '—' : clock(start)} → '
         '\${end == null ? '—' : clock(end)}';" \
   "    return '23:00 → 06:30';"
+
+# ── the way OFF a screen, and the subject a link carries ONTO one ───────────
+# Both are silent. A back control that lands on the wrong tab looks like a back
+# control, and a topic that never reaches the input looks like a coach that was
+# simply opened.
+DETAIL_PAGE=lib/shared/v02/detail_page.dart
+PARENTS=lib/core/parent_tabs.dart
+NAV_TEST=test/features/out_of_shell_navigation_test.dart
+PARENTS_TEST=test/core/parent_tabs_test.dart
+TOPIC_TEST=test/features/coach_topic_test.dart
+# `coachLocation` lives with the path table, not with the wiring — `routes.dart`
+# was split out of `router.dart` at the 400-line gate and is re-exported from it.
+ROUTES=lib/core/routes.dart
+COACH_TOPICS=lib/features/coach/coach_topics.dart
+
+# THE ORIGINAL DEFECT: no stack, no control, no way off the screen. It is
+# invisible until something opens a detail screen without pushing it.
+mutate 'a stranded detail screen draws no back control' "$NAV_TEST" "$DETAIL_PAGE" \
+  '    final bool canLeave = stacked || GoRouter.maybeOf(context) != null;' \
+  '    final bool canLeave = stacked;'
+
+# The fallback fires but goes nowhere useful — Today from every screen looks
+# right on the one screen Today is the answer for.
+mutate 'every stranded screen falls back to Today' "$PARENTS_TEST" "$PARENTS" \
+  '  return kParentTabs[head] ?? Routes.today;' \
+  '  return Routes.today;'
+
+# `/history?metric=hrv` is the metric detail. Splitting on `?` is what makes it
+# resolve at all; without it the whole metric surface falls through to Today.
+mutate 'a query string sends the metric detail to the wrong tab' \
+  "$PARENTS_TEST" "$PARENTS" \
+  "  final String path = location.split('?').first;" \
+  '  final String path = location;'
+
+# The map is the FALLBACK. A pop that stopped outranking it would send an owner
+# who pushed into `body` from Today to Activity instead of back to Today.
+mutate 'the back-map outranks a real stack' "$NAV_TEST" "$DETAIL_PAGE" \
+  '  final NavigatorState navigator = Navigator.of(context);
+  if (navigator.canPop()) {
+    navigator.pop();
+    return;
+  }' \
+  '  final NavigatorState navigator = Navigator.of(context);
+  if (navigator.canPop() && false) {
+    navigator.pop();
+    return;
+  }'
+
+# The gesture and the affordance went missing together last time. Restoring only
+# the glyph leaves the system back button dead on exactly these screens.
+mutate 'the system back gesture stops taking the same door' \
+  "$NAV_TEST" "$DETAIL_PAGE" \
+  '        if (!didPop) {
+          leaveDetail(context);
+        }' \
+  '        if (!didPop) {
+          return;
+        }'
+
+# The subject is the whole reason the coach became a route. A dropped topic
+# leaves `Discuss this workout` opening a coach that knows nothing about it —
+# which is what the sheet did, and it looked fine.
+mutate 'the coach topic never reaches the location' "$TOPIC_TEST" "$ROUTES" \
+  "  return subject.isEmpty
+      ? Routes.coach
+      : '\${Routes.coach}?topic=\${Uri.encodeQueryComponent(subject)}';" \
+  '  return Routes.coach;'
+
+# ...or reaches the location and is dropped reading it back off the route.
+mutate 'the route drops the topic it was given' "$TOPIC_TEST" "$ROUTES" \
+  "  final String subject = uri.queryParameters['topic']?.trim() ?? '';
+  return subject.isEmpty ? null : subject;" \
+  '  return null;'
+
+# ...or reaches it and is dropped on the way into the input.
+mutate 'the seeded topic never reaches the input' "$TOPIC_TEST" \
+  lib/features/coach/coach_screen.dart \
+  '            initialQuestion: conversation.isEmpty ? topic : null,' \
+  '            initialQuestion: null,'
+
+# A blank topic from a caller that had no label would open the coach with an
+# empty box claiming to hold a question.
+mutate 'a blank topic is carried into the route as one' "$TOPIC_TEST" "$ROUTES" \
+  "  final String subject = topic?.trim() ?? '';" \
+  "  final String subject = topic ?? ' ';"
+
+# THE SPEND. Asking on arrival charges one of twenty for a navigation, and the
+# owner never sees the sentence before it is sent.
+mutate 'arriving with a topic asks it immediately' "$TOPIC_TEST" \
+  lib/features/coach/coach_screen.dart \
+  '    void ask(String question) => unawaited(
+      ref.read(coachControllerProvider.notifier).ask(question),
+    );' \
+  '    void ask(String question) => unawaited(
+      ref.read(coachControllerProvider.notifier).ask(question),
+    );
+    if (topic != null && conversation.isEmpty && !conversation.asking) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => ask(topic!));
+    }'
+
+# These sentences are read as the owner's own. A verdict in one is this product
+# asserting something in their voice, before the coach has looked at anything.
+mutate 'an opening question characterises what it names' "$TOPIC_TEST" \
+  "$COACH_TOPICS" \
+  "    'What should I notice in my \${metricName(metric)} trend?';" \
+  "    'Why has my \${metricName(metric)} been getting worse?';"
+
+# ── the GPS screens, ported off the legacy frame ────────────────────────────
+ROUTE_MAP=lib/features/gps/route_map.dart
+ROUTE_SECTIONS=lib/features/gps/route_detail_sections.dart
+GPS_TEST=test/gps/route_screens_test.dart
+
+# One fix is a dot. A box with a dot in it is a picture of a journey nobody
+# recorded, and it looks like a map that simply did not load.
+mutate 'a single GPS fix is drawn as a route' "$GPS_TEST" "$ROUTE_MAP" \
+  '    if (points.length < 2) {' \
+  '    if (points.length < 1) {'
+
+# A session VO2max with no method beside it is the shape #108 shipped in: a
+# number nobody can trace to the tier that produced it.
+mutate 'a session VO2max loses the instrument that produced it' \
+  "$GPS_TEST" "$ROUTE_SECTIONS" \
+  "                ? 'Method not named by the server for this session'" \
+  "                ? ''"
+
+# The withheld estimate stops saying why, and the screen just has less on it.
+mutate 'a withheld fitness estimate stops giving its reason' \
+  "$GPS_TEST" "$ROUTE_SECTIONS" \
+  '  final double? vo2max = route.vo2max;
+  if (vo2max == null) {' \
+  '  final double? vo2max = route.vo2max;
+  if (false) {'
+
+# A track with no altitudes is drawn as level ground no barometer measured.
+mutate 'a track with no altitudes gets a flat elevation profile' \
+  "$GPS_TEST" "$ROUTE_SECTIONS" \
+  '  if (values.nonNulls.length < 2) {
+    return const <Widget>[];
+  }' \
+  '  if (false) {
+    return const <Widget>[];
+  }'
+
+# ── the links section 2 found undrawn, and the ones drawn at a neighbour ────
+# A link that lands on the wrong screen is the hard one: the control is there,
+# the tap does something, and a screen appears.
+LINKS_TEST=test/features/panel_links_test.dart
+TODAY_SCREEN=lib/features/today/today_screen.dart
+TODAY_BODY=lib/features/today/today_body.dart
+TODAY_DAY=lib/features/today/today_day_sections.dart
+EXPLORER=lib/features/history/metric_explorer_screen.dart
+
+# The device strip answers "is my strap current?". The settings index is a
+# screen about the app, and it opens, so nothing looks broken.
+mutate 'the device strip opens the settings index again' \
+  "$LINKS_TEST" "$TODAY_SCREEN" \
+  '          onOpenSync: () => unawaited(context.push(Routes.dataFreshness)),' \
+  '          onOpenSync: () => unawaited(context.push(Routes.settings)),'
+
+# A panel pointed at a metric other than the one it draws.
+mutate 'a panel Details opens a neighbouring metric' "$LINKS_TEST" "$TODAY_BODY" \
+  '        onDetails: _metric(extras, TodayMetricIds.heartRateVariability),' \
+  '        onDetails: _metric(extras, TodayMetricIds.restingHeartRate),'
+
+# `.context-bridge` is one thought that ends in a link. Dropping the link is
+# the state this screen shipped in, and it reads as prose rather than as a gap.
+mutate 'the sleep bridge loses the link that ends it' "$LINKS_TEST" "$TODAY_BODY" \
+  '    ContextBridge.link(
+      kSleepBridge,
+      label: '"'"'Open your night'"'"',
+      onOpen: extras.onOpenSleep,
+    ),' \
+  '    ContextBridge.text(kSleepBridge),'
+
+mutate 'the movement bridge loses the link that ends it' \
+  "$LINKS_TEST" "$TODAY_DAY" \
+  '    ContextBridge.link(
+      kMovementBridge,
+      label: '"'"'See the relationship'"'"',
+      onOpen: extras.onOpenRecovery,
+    ),' \
+  '    ContextBridge.text(kMovementBridge),'
+
+# The directory row promising "duration, stages and regularity" opens last
+# night instead of the thirty nights it names — two screens, one subject.
+mutate 'the metric directory sends Sleep history to the Sleep tab' \
+  "$LINKS_TEST" "$EXPLORER" \
+  '              onOpen: () => unawaited(context.push(Routes.sleepHistory)),' \
+  '              onOpen: () => context.go(Routes.sleep),'
+
+mutate 'the metric directory sends Fitness estimates to the Activity tab' \
+  "$LINKS_TEST" "$EXPLORER" \
+  '              onOpen: () => unawaited(context.push(Routes.fitness)),' \
+  '              onOpen: () => context.go(Routes.activity),'
 
 echo
 echo "caught $PASS, survived $FAIL"

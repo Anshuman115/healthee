@@ -116,19 +116,29 @@ class MetricExplorerScreen extends ConsumerWidget {
         const SizedBox(height: sectionGap),
         FlushCard(
           rows: <Widget>[
+            // `history-screens.js::screens.metrics` closes on
+            // `#sleep-history` and `#fitness` — the two screens these rows
+            // name. They pointed at the Sleep and Activity TABS, which are
+            // different screens with the same subject: the row promising
+            // "duration, stages and regularity" opened last night, and the one
+            // promising VO₂max opened the activity tab.
+            //
+            // Pushed, never `go`: `go` REPLACES, which would leave the
+            // destination with nothing under it and this screen unreachable by
+            // Back. `out_of_shell_navigation_test.dart` owns that rule.
             V02ListRow(
               icon: Icons.bedtime_outlined,
               title: 'Sleep history',
               detail: 'Duration, stages and regularity',
               tone: Tone.sleep,
-              onOpen: () => context.go(Routes.sleep),
+              onOpen: () => unawaited(context.push(Routes.sleepHistory)),
             ),
             V02ListRow(
               icon: Icons.monitor_heart_outlined,
               title: 'Fitness estimates',
               detail: 'VO₂max and biological age',
               tone: Tone.fitness,
-              onOpen: () => context.go(Routes.activity),
+              onOpen: () => unawaited(context.push(Routes.fitness)),
             ),
           ],
         ),

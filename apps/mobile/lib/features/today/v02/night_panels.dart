@@ -217,7 +217,7 @@ class SleepHealthPanel extends StatelessWidget {
 /// `Sleep need & debt` — the shortfall, and what it is a shortfall against.
 class SleepNeedPanel extends StatelessWidget {
   /// [debt] is the payload's block.
-  const SleepNeedPanel({required this.debt, super.key});
+  const SleepNeedPanel({required this.debt, this.onDetails, super.key});
 
   /// The prototype's title.
   static const String title = 'Sleep need & debt';
@@ -231,6 +231,10 @@ class SleepNeedPanel extends StatelessWidget {
   /// The accumulated shortfall and the need behind it.
   final SleepDebt debt;
 
+  /// `H.panel(…,'sleep')` — the whole night, which is where this figure is
+  /// worked out. Null draws no link.
+  final VoidCallback? onDetails;
+
   @override
   Widget build(BuildContext context) {
     final asleep = debt.lastTstMin;
@@ -238,10 +242,12 @@ class SleepNeedPanel extends StatelessWidget {
     return Panel(
       tone: Tone.sleep,
       label: 'Sleep need · debt',
-      head: const PanelHead(
+      head: PanelHead(
         title: title,
         icon: Icons.bedtime_outlined,
         infoKey: 'sleep_debt',
+        actionLabel: onDetails == null ? null : 'Details',
+        onAction: onDetails,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

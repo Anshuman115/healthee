@@ -25,7 +25,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/data/insights/notable_event.dart';
-import 'package:healthee/features/coach/coach_sheet.dart';
 import 'package:healthee/features/insights/insights_sections.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 
@@ -57,9 +56,10 @@ class InsightsScreen extends ConsumerWidget {
           onOpenHistory: () => unawaited(context.push(Routes.history)),
           onOpenOutcomes: () => unawaited(context.push(Routes.outcomes)),
           onOpenJournal: () => unawaited(context.push(Routes.journal)),
-          // The coach is a sheet, not a route — `app_shell.dart`'s FAB opens the
-          // same one, so this entry and the FAB cannot drift apart.
-          onOpenCoach: () => unawaited(showCoachSheet(context)),
+          // `H.panel('A useful question comes next', …, 'coach')` — the panel
+          // whose Details link and whose button both open the coach. No topic:
+          // the panel's own question is what would you like to understand.
+          onOpenCoach: () => unawaited(context.push(Routes.coach)),
           onOpenSleepHistory: () =>
               unawaited(context.push(Routes.sleepHistory)),
           onOpenFitness: () => unawaited(context.push(Routes.fitness)),

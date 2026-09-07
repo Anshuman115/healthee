@@ -10,9 +10,25 @@
 /// argument holds here: the prototype's detail screens open with their own back
 /// control and a 23 px title inside the scroll, and a Material bar above that
 /// would be the screen's name twice and 56 px spent on the second one.
+///
+/// ## Back pops, and lands on the screen's home tab when there is nothing to pop
+///
+/// This used to read `canPop() ? pop : null` — **no control at all** on an empty
+/// stack. Every one of these screens is normally pushed, so the arrow was there
+/// whenever anyone looked; a deep link, a notification or a restored process
+/// opens the same screen with nothing underneath, and the owner was then stuck
+/// on it. `core/parent_tabs.dart` carries the prototype's own answer
+/// (`app.js::H.back`) and the reasoning.
+///
+/// The decision is made **when the control is pressed**, not when it is built:
+/// the stack a page sits on can grow after its head is laid out, and a captured
+/// `canPop` would send the owner to a tab from a screen that had since become
+/// poppable.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/parent_tabs.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/shared/v02/screen_head.dart';
 
@@ -38,28 +54,66 @@ class DetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            Insets.lg,
-            Insets.lg,
-            Insets.lg,
-            Insets.xxl,
-          ),
-          children: <Widget>[
-            DetailHead(
-              title: title,
-              eyebrow: eyebrow,
-              onBack: Navigator.of(context).canPop()
-                  ? Navigator.of(context).pop
-                  : null,
+    // A page hosted with no router and no stack can go nowhere, and draws no
+    // control rather than a dead one. That is the case a widget test builds,
+    // never a case the app reaches: `buildRouter` is above every real screen.
+    final bool stacked = Navigator.of(context).canPop();
+    final bool canLeave = stacked || GoRouter.maybeOf(context) != null;
+    return PopScope<Object?>(
+      // The gesture takes the same door as the glyph. Last time these two went
+      // missing together, which is why nothing on screen looked broken; a fix
+      // that restored only the arrow would leave the system back button doing
+      // nothing at all on the very screen the map exists for.
+      //
+      // `canPop` is only false with an empty stack, so an ordinary pushed
+      // screen is untouched and the framework pops it as it always did.
+      canPop: stacked,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (!didPop) {
+          leaveDetail(context);
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              Insets.lg,
+              Insets.lg,
+              Insets.lg,
+              Insets.xxl,
             ),
-            ...children,
-          ],
+            children: <Widget>[
+              DetailHead(
+                title: title,
+                eyebrow: eyebrow,
+                onBack: canLeave ? () => leaveDetail(context) : null,
+              ),
+              ...children,
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+/// Leaves a detail screen: pop if there is a stack, else go to its home tab.
+///
+/// Public because `SettingsPage` and any screen supplying its own `onBack` want
+/// the same rule, and two copies of a back rule is how one of them ends up
+/// stranding somebody. `core/parent_tabs.dart` owns the map.
+void leaveDetail(BuildContext context) {
+  final NavigatorState navigator = Navigator.of(context);
+  if (navigator.canPop()) {
+    navigator.pop();
+    return;
+  }
+  final GoRouter? router = GoRouter.maybeOf(context);
+  if (router == null) {
+    return;
+  }
+  // `go`, not `push`: there is nothing under this screen, so the tab replaces
+  // it rather than stacking on top of a page the owner has just left.
+  router.go(parentTabFor(router.state.matchedLocation));
 }
