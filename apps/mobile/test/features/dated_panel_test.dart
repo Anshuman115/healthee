@@ -22,6 +22,7 @@ import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/shared/charts/v02/chart_curve.dart';
 import 'package:healthee/shared/charts/v02/v02_line_chart.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/v02/dated_history.dart';
 import 'package:healthee/shared/v02/dated_panel.dart';
 
 const List<TrendPoint> _holed = <TrendPoint>[
@@ -135,6 +136,42 @@ void main() {
       final disclosure = (reading as Withheld<double>).disclosure;
       expect(disclosure.reason, kNoReadingReason);
       expect(disclosure.message, 'No reading on this day');
+    });
+  });
+
+  group('the sentence for a panel this server has no dated series for', () {
+    test('IT CLAIMS NO DIRECTION, BECAUSE IT SITS AFTER WHAT IT MEANS', () {
+      // `pastDayDetail` and Today's chapters both put this notice AFTER the
+      // panels, so a card saying "everything else is below" would be pointing
+      // at the footer. Nothing catches a wrong preposition at runtime, so it is
+      // caught here.
+      final body = unservedBody(const <String>[kUnservedSleepDuration]);
+      expect(body, isNot(contains('below')));
+      expect(body, isNot(contains('above')));
+    });
+
+    test('it names them, agrees in number, and points somewhere real', () {
+      expect(
+        unservedBody(const <String>[kUnservedSleepEfficiency]),
+        'Your sleep efficiency is measured on the night itself, but your '
+            'server keeps no day-by-day series for it, so there is nothing '
+            'dated to chart. Sleep holds this night’s own reading.',
+      );
+      final three = unservedBody(const <String>[
+        kUnservedSleepDuration,
+        kUnservedSleepEfficiency,
+        kUnservedSkinTemperature,
+      ]);
+      expect(three, contains('sleep duration, sleep efficiency and skin '
+          'temperature are measured'));
+      expect(three, contains('for them'));
+      expect(three, contains('own readings'));
+    });
+
+    test('a screen with nothing unserved draws no notice at all', () {
+      // An apology for nothing is a card that reads as a fault.
+      expect(unservedNotice(const <String>[]), isNull);
+      expect(unservedNotice(const <String>[kUnservedSleepDuration]), isNotNull);
     });
   });
 

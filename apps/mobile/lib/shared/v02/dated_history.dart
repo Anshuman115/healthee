@@ -90,6 +90,13 @@ const String kUnservedTitle = 'Not kept as a dated series';
 /// One sentence naming the prototype panels this build cannot draw dated.
 ///
 /// [names] is the screen's own subset, in the order the design puts them.
+///
+/// It ends by pointing at Sleep rather than by pointing up or down the page.
+/// All three of these ARE on that screen per night (`v02/vitals_panel.dart`,
+/// `v02/checks_panel.dart`), so the sentence sends the reader somewhere real —
+/// and a direction would have been wrong anyway: this notice sits after the
+/// panels on every screen that draws it, and a card that says "below" while
+/// everything it means is above is a small lie that nothing would catch.
 String unservedBody(List<String> names) {
   final list = switch (names.length) {
     0 => '',
@@ -97,10 +104,11 @@ String unservedBody(List<String> names) {
     2 => '${names.first} and ${names.last}',
     _ => '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}',
   };
-  final verb = names.length == 1 ? 'is' : 'are';
-  return 'Your $list $verb measured on the night itself, but your server keeps '
-      'no day-by-day series for ${names.length == 1 ? 'it' : 'them'} — so there '
-      'is nothing dated to chart here. Everything else on this day is below.';
+  final one = names.length == 1;
+  return 'Your $list ${one ? 'is' : 'are'} measured on the night itself, but '
+      'your server keeps no day-by-day series for ${one ? 'it' : 'them'}, so '
+      'there is nothing dated to chart. Sleep holds this night’s own '
+      '${one ? 'reading' : 'readings'}.';
 }
 
 /// The note itself, or nothing at all when a screen has no unserved panels.
