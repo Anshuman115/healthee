@@ -259,11 +259,19 @@ def test_the_caveat_reaches_both_surfaces_that_render_a_calorie() -> None:
     ``read/today_series._derived_card`` and ``read/fitness.activity_metric`` read the
     stored row's ``flags`` and then discarded them, so ``derive/energy.py`` could have
     stamped a stale-weight caveat for months and no owner would ever have seen one.
+
+    Both reads are asked for ``_DAY``, the day the rows above were derived for. They used
+    to be asked for *today* and answered anyway with a row months old — which is the
+    separate defect the freshness gate on these two functions now closes, and asking the
+    old question here would have this test proving the caveat reaches a card that is no
+    longer allowed to carry a number.
     """
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         _derive(cur, _DAY - timedelta(days=60))
-        cards = {c["metric"]: c for c in secondary_cards(cur, SENTINEL_USER_ID, SENTINEL_TZ)}
-        tab = activity_metric(cur, SENTINEL_USER_ID, SENTINEL_TZ, ["total_calories"])
+        cards = {
+            c["metric"]: c for c in secondary_cards(cur, SENTINEL_USER_ID, SENTINEL_TZ, day=_DAY)
+        }
+        tab = activity_metric(cur, SENTINEL_USER_ID, SENTINEL_TZ, ["total_calories"], day=_DAY)
 
     for metric in _CALORIE_METRICS:
         assert cards[metric]["value"] is not None, metric  # served, not withheld
