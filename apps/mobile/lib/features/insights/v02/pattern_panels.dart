@@ -26,13 +26,14 @@
 /// would be a verdict painted on a correlation, which is the one thing this
 /// screen exists not to do.
 ///
-/// ## Neither card has an action, and that is the rule rather than an oversight
+/// ## Both cards now have their action, because both destinations exist
 ///
-/// The prototype's destinations are `#insight` and `#body`, two screens that are
-/// not built. `entry_card.dart`: *"An entry point that leads nowhere is worse
-/// than an absent entry point: it spends a tap to teach the reader that the
-/// screen lies about what it can do."* So the cards render their content with no
-/// action line until those screens exist.
+/// The prototype's destinations are `#insight` and `#body`. Neither was built
+/// when these cards were written, and `entry_card.dart`'s rule applied: *"An
+/// entry point that leads nowhere is worse than an absent entry point: it spends
+/// a tap to teach the reader that the screen lies about what it can do."* The
+/// finding screen landed first and took its `Explore`; the age screen has landed
+/// now and takes its `Understand`.
 library;
 
 import 'dart:async';
@@ -293,6 +294,11 @@ class AgeEntryCard extends StatelessWidget {
     icon: Icons.monitor_heart_outlined,
     title: 'Fitness → age',
     body: '${_signed(years)} years\nModel contribution',
+    // `<span class="text-button">Understand ↗</span>` on the prototype's second
+    // relationship card, pointed at `#body`. It carried no action while that
+    // screen did not exist; it does now.
+    actionLabel: 'Understand',
+    onOpen: () => unawaited(context.push(Routes.body)),
   );
 
   /// The fitness term of the age model, or null when the payload has none.

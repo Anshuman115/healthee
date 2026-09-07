@@ -26,18 +26,24 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/honesty/last_known.dart';
+import 'package:healthee/shared/instrument/h_tap.dart';
 
 /// One of the statistics under the hero's rule.
 @immutable
 class BioStat {
   /// Builds a statistic: a small [label] over a larger [value].
-  const BioStat(this.label, this.value);
+  const BioStat(this.label, this.value, {this.onOpen});
 
   /// `.bio-bottom span`.
   final String label;
 
   /// `.bio-bottom strong`.
   final String value;
+
+  /// Where this term goes. `.bio-bottom > a` — both terms are anchors in the
+  /// prototype, one to `#fitness` and one to `#sleep`. Null draws the term with
+  /// no tap rather than a control that leads nowhere.
+  final VoidCallback? onOpen;
 }
 
 /// `.bio-bottom` — the model's terms, side by side.
@@ -64,21 +70,25 @@ class BioStatsRow extends StatelessWidget {
       for (var i = 0; i < stats.length; i++) ...<Widget>[
         if (i > 0) const SizedBox(width: spacing),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                stats[i].label,
-                style: TypeScale.bioStatLabel.copyWith(
-                  color: ink.withValues(alpha: ink.a * labelOpacity),
+          child: HTap(
+            onTap: stats[i].onOpen,
+            semanticLabel: '${stats[i].label} ${stats[i].value}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  stats[i].label,
+                  style: TypeScale.bioStatLabel.copyWith(
+                    color: ink.withValues(alpha: ink.a * labelOpacity),
+                  ),
                 ),
-              ),
-              Text(
-                stats[i].value,
-                style: TypeScale.bioStat.copyWith(color: ink),
-              ),
-            ],
+                Text(
+                  stats[i].value,
+                  style: TypeScale.bioStat.copyWith(color: ink),
+                ),
+              ],
+            ),
           ),
         ),
       ],

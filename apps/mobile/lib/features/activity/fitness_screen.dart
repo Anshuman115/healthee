@@ -1,0 +1,201 @@
+/// `Fitness` — the prototype's `#fitness`, opened from Activity and from Sleep.
+///
+/// `design/mobile-preview/screens-fitness.js::H.screens.fitness`, read top to
+/// bottom:
+///
+/// ```text
+///   header                        Fitness
+///   Cardiorespiratory fitness     the estimate, its rail, its error magnitude
+///   Your stored estimate history  every estimate the server has kept
+///   Which instrument produced it? the fit behind a session-read estimate
+///   context bridge                the fitness term of the age model
+///   The work behind your capacity today's load against the fortnight
+///   A rhythm to build on          the week's minutes, strength and steps
+///   footer
+/// ```
+///
+/// ## The two panels at the bottom read the tab's own blocks
+///
+/// `WorkPanel` and `RhythmPanel` draw `cardio_load`, `mvpa` and `strength` —
+/// the same fields the Activity tab draws, under the prototype's own titles for
+/// this screen. Neither computes a load, a week or a step count of its own,
+/// which is the part CLAUDE.md's one-definition rule is about; what differs is
+/// the question being asked, which is why the prototype gives them their own
+/// titles and notes.
+///
+/// ## The bridge names a contribution only when the model sent one
+///
+/// `ageBridge` builds its sentence from `contributions[]`. There is no fallback:
+/// a bridge that named a year figure the server did not send would be inventing
+/// the one number it exists to carry.
+library;
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
+import 'package:healthee/data/models/activity_today.dart';
+import 'package:healthee/data/models/today_snapshot.dart';
+import 'package:healthee/data/models/vo2max.dart';
+import 'package:healthee/data/today_repository.dart';
+import 'package:healthee/features/activity/activity_sections.dart';
+import 'package:healthee/features/activity/v02/fitness_effort_panels.dart';
+import 'package:healthee/features/activity/v02/fitness_panels.dart';
+import 'package:healthee/shared/format/date_labels.dart';
+import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
+import 'package:healthee/shared/states/current_account_value.dart';
+import 'package:healthee/shared/states/reading_view.dart';
+import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/context_bridge.dart';
+import 'package:healthee/shared/v02/data_footer.dart';
+import 'package:healthee/shared/v02/detail_page.dart';
+import 'package:healthee/shared/v02/withheld_panel.dart';
+
+/// The prototype's own title for this screen.
+const String kFitnessTitle = 'Fitness';
+
+/// The fitness detail screen.
+class FitnessScreen extends ConsumerStatefulWidget {
+  /// Builds the screen.
+  const FitnessScreen({super.key});
+
+  @override
+  ConsumerState<FitnessScreen> createState() => _FitnessScreenState();
+}
+
+class _FitnessScreenState extends ConsumerState<FitnessScreen> {
+  /// Outlives every panel, which is the whole reveal-once mechanism.
+  final RevealRegistry _reveals = RevealRegistry();
+
+  @override
+  Widget build(BuildContext context) {
+    final view = currentAccountValue(ref.watch(todaySnapshotProvider));
+    return view.when(
+      skipLoadingOnRefresh: true,
+      loading: () => const _Frame(
+        children: <Widget>[LoadingState(label: 'Reading your fitness')],
+      ),
+      error: (error, stackTrace) => _Frame(
+        children: <Widget>[
+          ErrorState(
+            message: "Couldn't reach your server for your fitness",
+            detail: 'This is a connection problem, not a gap in your data.',
+            onRetry: () => ref.invalidate(todaySnapshotProvider),
+          ),
+        ],
+      ),
+      data: (value) =>
+          FitnessDetail(snapshot: value.snapshot, reveals: _reveals),
+    );
+  }
+}
+
+/// The screen's body. Public so the screen tests can host it directly.
+class FitnessDetail extends StatelessWidget {
+  /// Builds the detail for one render of `/api/today`.
+  const FitnessDetail({
+    required this.snapshot,
+    required this.reveals,
+    super.key,
+  });
+
+  /// `.panel { margin-top: 12px }`.
+  static const double panelGap = 12;
+
+  /// `.section { margin-top: 24px }`.
+  static const double blockGap = 24;
+
+  /// The payload every figure on this screen comes off.
+  final TodaySnapshot snapshot;
+
+  /// Where "already revealed" is remembered.
+  final RevealRegistry reveals;
+
+  @override
+  Widget build(BuildContext context) {
+    final vo2max = snapshot.vo2max.valueOrNull;
+    final years = fitnessContributionYears(
+      snapshot.biologicalAge.valueOrNull,
+    );
+    final rhythm = RhythmPanel(
+      mvpa: snapshot.mvpa.valueOrNull,
+      strength: snapshot.strength,
+      steps: snapshot.metric('steps_total')?.reading.valueOrNull,
+    );
+    return _Frame(
+      date: snapshot.date,
+      children: <Widget>[
+        ReadingView<Vo2max>(
+          reading: snapshot.vo2max,
+          label: 'VO₂max · estimate',
+          caveatCarrier: CaveatCarrier.insideCard,
+          withheldBuilder: (context, disclosure) =>
+              WithheldPanel(disclosure: disclosure, label: 'VO₂max · estimate'),
+          builder: (context, value) =>
+              CardiorespiratoryPanel(vo2max: value, reveals: reveals),
+        ),
+        if (vo2max != null && vo2max.trend90d.length > 1) ...<Widget>[
+          const SizedBox(height: panelGap),
+          StoredHistoryPanel(
+            vo2max: vo2max,
+            reveals: reveals,
+            onDetails: () => unawaited(
+              context.push('${Routes.history}?metric=vo2max_estimate'),
+            ),
+          ),
+        ],
+        if (vo2max?.submax case final Vo2maxSubmax submax) ...<Widget>[
+          const SizedBox(height: panelGap),
+          InstrumentPanel(vo2max: vo2max!, submax: submax),
+        ],
+        if (years != null) ...<Widget>[
+          const SizedBox(height: blockGap),
+          ContextBridge.text(ageBridge(years)),
+        ],
+        const SizedBox(height: panelGap),
+        ReadingView<CardioLoad>(
+          reading: snapshot.cardioLoad,
+          label: 'Strain · cardio load',
+          caveatCarrier: CaveatCarrier.insideCard,
+          withheldBuilder: (context, disclosure) => WithheldPanel(
+            disclosure: disclosure,
+            label: 'Strain · cardio load',
+          ),
+          builder: (context, load) => WorkPanel(
+            load: load,
+            reveals: reveals,
+            onDetails: () => unawaited(context.push(Routes.activity)),
+          ),
+        ),
+        if (rhythm.hasSomething) ...<Widget>[
+          const SizedBox(height: panelGap),
+          rhythm,
+        ],
+        const SizedBox(height: blockGap),
+        const DataFooter(),
+      ],
+    );
+  }
+}
+
+/// The page every state of this screen is drawn in, so the head and the gutter
+/// cannot differ between them.
+class _Frame extends StatelessWidget {
+  const _Frame({required this.children, this.date});
+
+  final List<Widget> children;
+  final String? date;
+
+  @override
+  Widget build(BuildContext context) => DetailPage(
+    title: kFitnessTitle,
+    eyebrow: switch (date) {
+      final String iso => prettyDate(iso),
+      null => null,
+    },
+    children: children,
+  );
+}

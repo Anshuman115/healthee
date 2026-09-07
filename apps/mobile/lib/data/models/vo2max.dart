@@ -55,6 +55,51 @@ class Vo2maxInputs {
   final double? physicalActivityScore;
 }
 
+/// `vo2max.submax` — the fit behind a session-measured estimate.
+///
+/// **Not a second estimate.** `derive/vo2max_tier.py` writes ONE VO₂max, and
+/// this block describes the session the graded tier read it off: how well the
+/// heart-rate/workload line fitted, and the speed the fit was taken at. It is
+/// parsed so the fitness screen can answer *"which instrument produced it?"*
+/// with the fit's own numbers instead of restating the estimate.
+@immutable
+class Vo2maxSubmax {
+  /// Builds the block. Prefer [Vo2maxSubmax.maybe].
+  const Vo2maxSubmax({
+    required this.lastMethod,
+    required this.lastR2,
+    required this.lastSpeedKmh,
+    required this.asOfDate,
+  });
+
+  /// Parses `submax`, or null when it holds nothing worth drawing.
+  static Vo2maxSubmax? maybe(Map<String, Object?> json) {
+    final block = Vo2maxSubmax(
+      lastMethod: json['last_method'] as String?,
+      lastR2: (json['last_r2'] as num?)?.toDouble(),
+      lastSpeedKmh: (json['last_speed_kmh'] as num?)?.toDouble(),
+      asOfDate: json['as_of_date'] as String?,
+    );
+    return block.isEmpty ? null : block;
+  }
+
+  /// The instrument the last scoreable session was read with.
+  final String? lastMethod;
+
+  /// How well that session's heart-rate/workload line fitted, 0–1.
+  final double? lastR2;
+
+  /// The speed the fit was taken at.
+  final double? lastSpeedKmh;
+
+  /// The day that session was recorded.
+  final String? asOfDate;
+
+  /// Whether every field is absent — a block with nothing to say.
+  bool get isEmpty =>
+      lastMethod == null && lastR2 == null && lastSpeedKmh == null;
+}
+
 /// A reported VO₂max, with the instrument that read it and that instrument's error.
 @immutable
 class Vo2max {
@@ -74,6 +119,7 @@ class Vo2max {
     required this.ageYears,
     required this.sex,
     required this.inputs,
+    this.submax,
   });
 
   /// Parses the payload when it carries a current estimate; null when it does not.
@@ -107,6 +153,9 @@ class Vo2max {
             ? json['inputs']! as Map<String, Object?>
             : const <String, Object?>{},
       ),
+      submax: json['submax'] is Map<String, Object?>
+          ? Vo2maxSubmax.maybe(json['submax']! as Map<String, Object?>)
+          : null,
     );
   }
 
@@ -182,6 +231,9 @@ class Vo2max {
   /// documented WP7 gap), and `bmi` / `rhr_med_7d` / `pa_score` only exist on a
   /// row the Jurca tier wrote. A measured tier leaves all four empty.
   final Vo2maxInputs inputs;
+
+  /// The fit behind a session-measured estimate, when there was a session.
+  final Vo2maxSubmax? submax;
 
   static List<String> _strings(Object? raw) {
     if (raw is! List) {

@@ -110,6 +110,11 @@ class TodayExtras {
     this.onAddLog,
     this.onOpenCoach,
     this.onOpenActions,
+    this.onOpenRecovery,
+    this.onOpenBody,
+    this.onOpenTerm,
+    this.onOpenSleep,
+    this.onOpenActivity,
   });
 
   /// What the app knows about its own pushing, for the data-health card.
@@ -154,6 +159,21 @@ class TodayExtras {
 
   /// Opens the actions tab.
   final VoidCallback? onOpenActions;
+
+  /// Opens the recovery detail — the hero's first summary row.
+  final VoidCallback? onOpenRecovery;
+
+  /// Opens the biological-age detail — the hero's eyebrow arrow.
+  final VoidCallback? onOpenBody;
+
+  /// Opens one age term's own screen, by the term's name.
+  final void Function(String term)? onOpenTerm;
+
+  /// Opens the sleep tab — the hero's second summary row.
+  final VoidCallback? onOpenSleep;
+
+  /// Opens the activity tab — the hero's third summary row.
+  final VoidCallback? onOpenActivity;
 }
 
 /// Builds the ordered section list for one render of Today.

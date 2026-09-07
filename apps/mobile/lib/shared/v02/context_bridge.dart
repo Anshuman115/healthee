@@ -34,6 +34,25 @@ class ContextBridge extends StatelessWidget {
   ContextBridge.text(String text, {super.key})
     : child = _BridgeText(text: text);
 
+  /// `H.bridge(tone, copy, route, label)` — the sentence **and** the link that
+  /// ends it.
+  ///
+  /// Every bridge in the prototype has one: `<p>${copy} <a href="#${route}">
+  /// ${label} ${arrow}</a></p>`. It is the same paragraph, so the label sits
+  /// inline at the end of the sentence rather than on a line of its own — a
+  /// bridge is one thought, and a control under it would read as a second.
+  ///
+  /// [onOpen] of null draws the sentence alone: a bridge whose destination does
+  /// not exist yet must not advertise one.
+  ContextBridge.link(
+    String text, {
+    required String label,
+    VoidCallback? onOpen,
+    super.key,
+  }) : child = onOpen == null
+           ? _BridgeText(text: text)
+           : _BridgeLink(text: text, label: label, onOpen: onOpen);
+
   /// `margin: 0 8px`.
   static const double margin = 8;
 
@@ -90,6 +109,63 @@ class ContextBridge extends StatelessWidget {
               ),
             ),
             child: child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The sentence with its trailing link, as one wrapping paragraph.
+class _BridgeLink extends StatelessWidget {
+  const _BridgeLink({
+    required this.text,
+    required this.label,
+    required this.onOpen,
+  });
+
+  /// `H.icon('arrow','small')` — the glyph the prototype ends the link with.
+  static const double arrowSize = 12;
+
+  final String text;
+  final String label;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final style = TypeScale.bridge;
+    return Text.rich(
+      TextSpan(
+        style: style.copyWith(color: colors.ink2),
+        children: <InlineSpan>[
+          TextSpan(text: '$text '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Semantics(
+              button: true,
+              label: label,
+              child: GestureDetector(
+                onTap: onOpen,
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: TypeScale.textButton.copyWith(
+                        color: context.family,
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: arrowSize,
+                      color: context.family,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),

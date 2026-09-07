@@ -73,6 +73,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
+import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/v02/bio_display.dart';
@@ -86,6 +87,8 @@ class BioHero extends StatelessWidget {
     required this.value,
     this.eyebrowIcon,
     this.eyebrowAction,
+    this.onEyebrowTap,
+    this.eyebrowSemantics,
     this.unit,
     this.caption,
     this.figure,
@@ -172,6 +175,19 @@ class BioHero extends StatelessWidget {
   /// own ink: this card has its own dark surface in both themes, and nothing
   /// inside it may reach for the page's ink.
   final Widget? eyebrowAction;
+
+  /// Where the eyebrow's arrow goes.
+  ///
+  /// `panels.js::H.bioHero` wraps it in
+  /// `<a href="#body" aria-label="Understand your biological age">`, so the
+  /// arrow has always been the doorway rather than decoration. Null draws the
+  /// glyph with no tap, which is what a hero with nowhere to go should look
+  /// like.
+  final VoidCallback? onEyebrowTap;
+
+  /// What that arrow is called for a screen reader — the prototype's own
+  /// `aria-label`. Falls back to [eyebrow].
+  final String? eyebrowSemantics;
 
   /// The figure itself.
   ///
@@ -373,7 +389,11 @@ class BioHero extends StatelessWidget {
         if (eyebrowAction != null && eyebrowIcon != null)
           const SizedBox(width: controlsGap),
         if (eyebrowIcon != null)
-          Icon(eyebrowIcon, size: eyebrowIconSize, color: ink),
+          HTap(
+            onTap: onEyebrowTap,
+            semanticLabel: eyebrowSemantics ?? eyebrow,
+            child: Icon(eyebrowIcon, size: eyebrowIconSize, color: ink),
+          ),
       ],
     ),
   );

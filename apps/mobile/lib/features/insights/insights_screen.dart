@@ -60,6 +60,9 @@ class InsightsScreen extends ConsumerWidget {
           // The coach is a sheet, not a route — `app_shell.dart`'s FAB opens the
           // same one, so this entry and the FAB cannot drift apart.
           onOpenCoach: () => unawaited(showCoachSheet(context)),
+          onOpenSleepHistory: () =>
+              unawaited(context.push(Routes.sleepHistory)),
+          onOpenFitness: () => unawaited(context.push(Routes.fitness)),
         ),
       ),
     );

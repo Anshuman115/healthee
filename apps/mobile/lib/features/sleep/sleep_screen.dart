@@ -118,6 +118,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     ),
     onOpenJournal: () => unawaited(context.push(Routes.journal)),
     onOpenActions: () => unawaited(context.push(Routes.actions)),
+    onOpenHistory: () => unawaited(context.push(Routes.sleepHistory)),
   );
 
   /// Pull-to-refresh runs a real sync and re-reads all three payloads.
