@@ -1,6 +1,11 @@
 {
   "action": null,
   "anomalies": [],
+  "as_of": {
+    "day": "2026-07-31",
+    "derived_at": "2026-07-31T02:14:07.512340+00:00",
+    "is_today": true
+  },
   "biological_age": {
     "biological_age": 34.3,
     "caveats": [

@@ -1535,10 +1535,13 @@ mutate 'the panel figure goes back to sharing the row' "$PARTS_TEST" "$PARTS" \
                     ),' \
   '                    width: (constraints.maxWidth - gap) / 2,'
 
-# ⛔ STALE-AS-CURRENT. The date control without its refusal: a past day draws
-# today'"'"'s recovery, sleep health, debt, VO₂max and biological age under an older
-# date, and every one of them looks like a reading about that day.
-mutate "a past day renders today's judgements as its own" \
+# ⛔ STALE-AS-CURRENT, and note where it moved to. This used to break Today'"'"'s
+# past-day REFUSAL. `/api/today` answers for a day now, so there is no refusal
+# left to break — the guarantee is that a payload is drawn only under the day it
+# answers for, which lives in `ScreenData.snapshot` and is mutated at the end of
+# this file. What survives here is the LAYOUT decision, which must still follow
+# the reader'"'"'s selection: force it and a past day is dressed as the current one.
+mutate "the past-day layout stops following the selection" \
   "$DATE_TEST" "$SECTIONS" \
   '  final past = data.view.isPast;' \
   '  const past = false;'
@@ -2522,13 +2525,6 @@ mutate 'the route accepts a day outside the retention window' \
   '  if (requested != null &&
       requested != selected) {'
 
-# THE stale-as-current failure, in one line: Activity draws today'"'"'s MVPA,
-# load and VO₂max under whatever date the header happens to carry.
-mutate 'a past day renders a derived value as if it were today’s' \
-  "$PAST_TEST" lib/features/activity/activity_sections.dart \
-  '  final snapshot = past ? null : data.snapshot;' \
-  '  final snapshot = data.snapshot;'
-
 # Sleep'"'"'s window stops following the reader and slices from the newest night
 # again — the seam `sleep_history_screen.dart` used to record, reopened.
 mutate 'a chart ignores the selected day and windows on the newest sample' \
@@ -2549,23 +2545,62 @@ DATED_TEST=test/features/dated_panel_test.dart
 DATED_DATA_TEST=test/history/dated_history_test.dart
 DATE_TEST=test/features/date_control_test.dart
 
-# THE LINE. A past day may gain charts of measurements; it may not gain a
-# judgement. Let the derived half through on Today and the biological age, the
-# recovery score and the day's analysis all appear under an older date.
-mutate 'a past day draws the derived half under an older date' \
+# THE LINE, and it MOVED when the server learned to answer for a day. It used to
+# be "a past day may gain charts of measurements, never a judgement", because
+# `/api/today` took no day and the only payload there was described the current
+# one. It is now "a day wears only the judgements computed FOR it" — the same
+# rule, applied where the failure can still get in.
+#
+# The frame between the tap and the response: Riverpod keeps the previous value
+# through a refresh, so let a payload about another day through and one day's
+# recovery, debt and biological age draw under another day's date for the length
+# of a round trip.
+mutate 'a payload about another day is drawn as this day’s answer' \
+  "$DATE_TEST $PAST_TEST" lib/shared/screen_data.dart \
+  '      final bool answersThisDay = view.isPast
+          ? answered.day == view.day
+          : answered.isToday;' \
+  '      final bool answersThisDay = true;'
+
+# The other half of that guard, and the one a "same date" test cannot see: on the
+# CURRENT day the question is the server's own `is_today`, so a payload that
+# says it is about an older day must not be drawn as today's.
+mutate 'a payload that says it is not today is drawn as today' \
+  "$DATE_TEST $PAST_TEST" lib/shared/screen_data.dart \
+  '          : answered.isToday;' \
+  '          : true;'
+
+# The request must CARRY the day, or every screen asks for the current one and
+# the whole feature is a header that lies about which day is on screen.
+mutate 'the day is dropped from the request' \
+  "test/data/today_cache_test.dart" lib/data/today_repository.dart \
+  '      queryParameters: day == null ? null : <String, Object?>{'"'"'day'"'"': day},' \
+  '      queryParameters: null,'
+
+# Offline on a past day, fall back to the NEWEST cached payload and the client
+# commits the exact lie the server refuses to: today's judgements under an older
+# date, reached through the cache instead of through the endpoint.
+mutate 'an offline past day falls back to the newest cached payload' \
+  "test/data/today_cache_test.dart" lib/data/today_repository.dart \
+  '    final row = day == null
+        ? await _store.readLatest(kTodayPayload, scope: session.scope)
+        : await _store.read(kTodayPayload, day, scope: session.scope);' \
+  '    final row = await _store.readLatest(kTodayPayload, scope: session.scope);'
+
+# The live-feed trust card is an age measured against right now. Draw it on a
+# past day and the screen reports an observation made after that day as one of
+# its facts.
+mutate 'the live trust card is drawn on a past day' \
   "$DATE_TEST" lib/features/today/today_sections.dart \
-  '  if (past) {
-    pastDaySections(sections, data, onOpenMetric: extras.onOpenMetric);
-    return sections.build();
+  '  if (!past) {
+    sections.add(_dataHealth(data, extras));
   }' \
-  '  if (past) {
-    pastDaySections(sections, data, onOpenMetric: extras.onOpenMetric);
-  }'
+  '  sections.add(_dataHealth(data, extras));'
 
 # The same failure a chart at a time: window on today and every dated panel
 # draws the newest fortnight there is, captioned with the day the reader chose.
 mutate 'a dated series is windowed on today rather than the chosen day' \
-  "$DATE_TEST $DATED_TEST" "$DATED" \
+  "$PAST_TEST $DATED_TEST" "$DATED" \
   '          window: HistoryWindow.endingOn(
             series[metric.id],
             day,

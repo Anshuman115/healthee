@@ -55,7 +55,19 @@ final class TodayRepositoryProvider
 
 String _$todayRepositoryHash() => r'9b715fc2421c68f4b3cae20c77255b1491fcc32a';
 
-/// Today's snapshot, with its provenance. Watch this from the Today screen.
+/// The snapshot for the day being read, with its provenance.
+///
+/// **It watches [viewDateProvider], so the derived half follows the date
+/// control.** That single `watch` is what turns the server's new `day` parameter
+/// into a screen: stepping back re-requests, and stepping forward to the newest
+/// day re-requests again. It is also why nothing downstream has to remember to
+/// pass a day — a screen that held the selection and forgot to thread it would be
+/// drawing one day's judgements under another's date, which is the failure the
+/// whole feature exists to remove.
+///
+/// The value sent is always the selection, today included, so there is one code
+/// path rather than a null-on-today special case that only the current day
+/// exercises. The server treats an explicit today and an absent day identically.
 ///
 /// [ProviderLogger] logs every provider failure through the one logging path, so
 /// there is deliberately no `try`/`catch` here: catching would only let us
@@ -64,7 +76,19 @@ String _$todayRepositoryHash() => r'9b715fc2421c68f4b3cae20c77255b1491fcc32a';
 @ProviderFor(todaySnapshot)
 final todaySnapshotProvider = TodaySnapshotProvider._();
 
-/// Today's snapshot, with its provenance. Watch this from the Today screen.
+/// The snapshot for the day being read, with its provenance.
+///
+/// **It watches [viewDateProvider], so the derived half follows the date
+/// control.** That single `watch` is what turns the server's new `day` parameter
+/// into a screen: stepping back re-requests, and stepping forward to the newest
+/// day re-requests again. It is also why nothing downstream has to remember to
+/// pass a day — a screen that held the selection and forgot to thread it would be
+/// drawing one day's judgements under another's date, which is the failure the
+/// whole feature exists to remove.
+///
+/// The value sent is always the selection, today included, so there is one code
+/// path rather than a null-on-today special case that only the current day
+/// exercises. The server treats an explicit today and an absent day identically.
 ///
 /// [ProviderLogger] logs every provider failure through the one logging path, so
 /// there is deliberately no `try`/`catch` here: catching would only let us
@@ -78,7 +102,19 @@ final class TodaySnapshotProvider
           FutureOr<TodayView>
         >
     with $FutureModifier<TodayView>, $FutureProvider<TodayView> {
-  /// Today's snapshot, with its provenance. Watch this from the Today screen.
+  /// The snapshot for the day being read, with its provenance.
+  ///
+  /// **It watches [viewDateProvider], so the derived half follows the date
+  /// control.** That single `watch` is what turns the server's new `day` parameter
+  /// into a screen: stepping back re-requests, and stepping forward to the newest
+  /// day re-requests again. It is also why nothing downstream has to remember to
+  /// pass a day — a screen that held the selection and forgot to thread it would be
+  /// drawing one day's judgements under another's date, which is the failure the
+  /// whole feature exists to remove.
+  ///
+  /// The value sent is always the selection, today included, so there is one code
+  /// path rather than a null-on-today special case that only the current day
+  /// exercises. The server treats an explicit today and an absent day identically.
   ///
   /// [ProviderLogger] logs every provider failure through the one logging path, so
   /// there is deliberately no `try`/`catch` here: catching would only let us
@@ -108,7 +144,7 @@ final class TodaySnapshotProvider
   }
 }
 
-String _$todaySnapshotHash() => r'b6d1708dcd7748d1ae9b0f832a227adcf390826d';
+String _$todaySnapshotHash() => r'35da001841fbe003b2c15973abd46c9a521f99a6';
 
 /// The last biological age this phone holds, and the day it belonged to.
 ///

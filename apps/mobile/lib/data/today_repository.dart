@@ -28,6 +28,20 @@
 /// "returning empty-string/empty-map to mean 'something failed'" (Standards §1)
 /// — and would show a page of withheld cards implying the owner's data is
 /// missing when it is merely unreached.
+///
+/// ## The day travels with the request, and with the fallback
+///
+/// `/api/today` takes an optional `day=YYYY-MM-DD` and answers for it
+/// (`docs/AS_OF_DAY.md`), so [TodayRepository.load] passes the day being read and
+/// the derived half stops being a current-day-only answer.
+///
+/// The cache follows the same rule and it is the sharper half. A payload is
+/// filed under the day it describes, and a past-day request that cannot reach the
+/// server falls back to **that day's row or to nothing** — never to the newest
+/// one. `readLatest` for a past day would put today's judgements on screen under
+/// an older date, which is precisely the stale-as-current failure the server-side
+/// work exists to prevent; reaching it through the cache instead of through the
+/// endpoint would be the same lie by a longer route.
 library;
 
 import 'dart:convert';
@@ -43,6 +57,7 @@ import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/models/today_view.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
+import 'package:healthee/data/store/view_date.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'today_repository.g.dart';
@@ -62,21 +77,25 @@ class TodayRepository {
   final Dio _dio;
   final LocalStore _store;
 
-  /// The Today payload, network-first, cache as the fallback.
+  /// The Today payload for [day], network-first, cache as the fallback.
+  ///
+  /// [day] is `YYYY-MM-DD` and null means the owner's today — the server owns
+  /// that default (`core/tenancy.py`), because the owner's calendar day is not
+  /// something a phone's clock may decide.
   ///
   /// Throws only when BOTH fail — a transport error with nothing on disk. That
   /// is genuinely "we could not answer", which is different from "we have no
   /// data" and must stay different (Standards §1).
-  Future<TodayView> load({DateTime? now}) async {
+  Future<TodayView> load({DateTime? now, String? day}) async {
     final at = now ?? DateTime.now();
     final session = await CacheSession.capture(credentials);
     try {
-      return await _fetch(at, session);
+      return await _fetch(at, session, day);
     } on DioException catch (error, stackTrace) {
       // Named, logged, then either substituted or rethrown — never swallowed.
       AppLog.failure('today', 'fetching /api/today', error, stackTrace);
       await session.ensureCurrent();
-      final cached = await _cached(session);
+      final cached = await _cached(session, day);
       if (cached == null) {
         rethrow;
       }
@@ -90,16 +109,25 @@ class TodayRepository {
   /// forget: every successful read is what makes the next offline launch
   /// readable, and a cache that only some code paths fill is a cache that is
   /// empty on the day it matters.
-  Future<TodayView> fetch({DateTime? now}) async {
+  Future<TodayView> fetch({DateTime? now, String? day}) async {
     return _fetch(
       now ?? DateTime.now(),
       await CacheSession.capture(credentials),
+      day,
     );
   }
 
-  Future<TodayView> _fetch(DateTime at, CacheSession session) async {
+  Future<TodayView> _fetch(
+    DateTime at,
+    CacheSession session,
+    String? day,
+  ) async {
     final response = await _dio.get<Map<String, Object?>>(
       '/api/today',
+      // Omitted entirely when null rather than sent empty: an absent parameter
+      // is what tells the server to answer for the owner's own today, and
+      // `day=` would be a malformed date it is right to refuse.
+      queryParameters: day == null ? null : <String, Object?>{'day': day},
       options: session.options(),
     );
     await session.ensureCurrent();
@@ -170,15 +198,22 @@ class TodayRepository {
     return null;
   }
 
-  /// The newest cached payload, or null when this phone holds none.
+  /// The cached payload for [day], or the newest one when [day] is null.
   ///
   /// A row we cannot parse is treated as absent and said out loud. It cannot be
   /// repaired here, and rendering half of it would be inventing the other half.
-  Future<TodayView?> cached() async =>
-      _cached(await CacheSession.capture(credentials));
+  Future<TodayView?> cached({String? day}) async =>
+      _cached(await CacheSession.capture(credentials), day);
 
-  Future<TodayView?> _cached(CacheSession session) async {
-    final row = await _store.readLatest(kTodayPayload, scope: session.scope);
+  Future<TodayView?> _cached(CacheSession session, String? day) async {
+    // **`read`, not `readLatest`, whenever a day was asked for.** The rows are
+    // filed under the day they describe, so asking for 29 July offline yields 29
+    // July's payload or nothing at all. Falling back to the newest row would draw
+    // today's recovery, debt and biological age under an older date — the exact
+    // claim the server refuses to make, made by the client instead.
+    final row = day == null
+        ? await _store.readLatest(kTodayPayload, scope: session.scope)
+        : await _store.read(kTodayPayload, day, scope: session.scope);
     await session.ensureCurrent();
     if (row == null) {
       return null;
@@ -204,14 +239,26 @@ TodayRepository todayRepository(Ref ref) => TodayRepository(
   credentials: ref.watch(credentialsProvider),
 );
 
-/// Today's snapshot, with its provenance. Watch this from the Today screen.
+/// The snapshot for the day being read, with its provenance.
+///
+/// **It watches [viewDateProvider], so the derived half follows the date
+/// control.** That single `watch` is what turns the server's new `day` parameter
+/// into a screen: stepping back re-requests, and stepping forward to the newest
+/// day re-requests again. It is also why nothing downstream has to remember to
+/// pass a day — a screen that held the selection and forgot to thread it would be
+/// drawing one day's judgements under another's date, which is the failure the
+/// whole feature exists to remove.
+///
+/// The value sent is always the selection, today included, so there is one code
+/// path rather than a null-on-today special case that only the current day
+/// exercises. The server treats an explicit today and an absent day identically.
 ///
 /// [ProviderLogger] logs every provider failure through the one logging path, so
 /// there is deliberately no `try`/`catch` here: catching would only let us
 /// re-throw after a log entry that already happens.
 @riverpod
 Future<TodayView> todaySnapshot(Ref ref) =>
-    ref.watch(todayRepositoryProvider).load();
+    ref.watch(todayRepositoryProvider).load(day: ref.watch(viewDateProvider));
 
 /// The last biological age this phone holds, and the day it belonged to.
 ///

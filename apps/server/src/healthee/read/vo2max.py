@@ -57,7 +57,7 @@ from datetime import date
 from uuid import UUID
 
 from healthee.analytics.reference_scales import vo2max_median_for
-from healthee.core.tenancy import USER_TODAY_SQL, user_today
+from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day
 from healthee.derive._common import Cur
 from healthee.derive.freshness import withheld_block
 from healthee.derive.vo2max import (
@@ -128,21 +128,28 @@ def method_caveat(method: str, n_sessions: int | None) -> str | None:
     return base + (_SINGLE_SESSION_CAVEAT if n_sessions == 1 else "")
 
 
-def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
-    """Jurca non-exercise VO2max for TODAY + 90-day trend + submax GPS estimate.
+def vo2max_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
+    """The tiered VO2max AS OF ``day`` + 90-day trend + the session record behind it.
 
     ``None`` only when the owner has no estimate at all in the window — genuinely
-    nothing to say. When there IS history but today has no estimate, the payload is
+    nothing to say. When there IS history but the day has no estimate, the payload is
     returned with ``estimate: None`` and a ``withheld`` block: "we can't tell you
-    today, and here is what we'd need" is a real answer, absence is not.
+    for that day, and here is what we'd need" is a real answer, absence is not.
     [[vo2max]] (Mandsager 2018); derivation [[non_exercise_vo2max]].
+
+    **This is the "latest" ``docs/AS_OF_DAY.md`` names first.** ``rows[-1]`` used to be
+    the newest estimate the owner had; as of ``day`` it is the newest with ``day <=
+    day``, because the window itself now closes there. A June answer that inherited an
+    August measurement would be the future leak in its purest form — the same value
+    dated wrongly, which is exactly what the stale-as-current gate below refuses in the
+    other direction.
     """
-    rows = _window(cur, user_id, tz, "vo2max_estimate")
+    as_of = reference_day(day, tz)
+    rows = _window(cur, user_id, as_of, "vo2max_estimate")
     if not rows:
         return None
-    today = user_today(tz)
     last_day, last_value, flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})
-    withheld = _withheld_block(cur, user_id, tz, today, last_day, last_value)
+    withheld = _withheld_block(cur, user_id, tz, as_of, last_day, last_value)
     age = int(flags.get("age_years") or 0)
     sex = str(flags.get("sex") or "male")
     median_ref = vo2max_median_for(age, sex) if age else None
@@ -153,7 +160,7 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     method = method_of(flags.get("method"))
     n_sessions = flags.get("n_sessions")
     return {
-        "submax": _submax_block(cur, user_id, tz),
+        "submax": _submax_block(cur, user_id, as_of),
         "estimate": estimate,
         "data_confidence": "insufficient_data" if withheld else "ok",
         "withheld": withheld,
@@ -197,24 +204,30 @@ def vo2max_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
 
 
 def _withheld_block(
-    cur: Cur, user_id: UUID, tz: str, today: date, last_day: date, last_value: float
+    cur: Cur, user_id: UUID, tz: str, as_of: date, last_day: date, last_value: float
 ) -> dict | None:
-    """Why there is no estimate for TODAY, or None when today has one.
+    """Why there is no estimate for ``as_of``, or None when that day has one.
 
-    A row for any day other than the owner's today does not make today's estimate
-    exist, and ``derive.vo2max.estimate_unavailable_reason`` is the check that makes that
-    structural: a withheld today cannot "resurrect" tomorrow just because some row
+    A row for any day other than ``as_of`` does not make ``as_of``'s estimate exist, and
+    ``derive.vo2max_tier.estimate_unavailable_reason`` is the check that makes that
+    structural: a withheld day cannot "resurrect" on the next one just because some row
     survives inside the 95-day window. That rule lives beside the gate it belongs to
     because biological age needs the identical answer (standards §Duplication).
+
+    The gate already took its reference day as an argument, so answering for a past day
+    needed nothing added to it — only that this caller stop hardwiring the wall clock.
+    Its own withhold checks (profile, SR-PA, the resting-HR window) are re-run AS OF that
+    day, which is the point: a day whose inputs could not carry a number then must not be
+    told they can now.
 
     Two queries, and only on the days that need them — a fresh estimate short-circuits
     before the gate is re-run, so the common path costs nothing extra.
     """
-    reason = estimate_unavailable_reason(cur, user_id, tz, today, last_day)
+    reason = estimate_unavailable_reason(cur, user_id, tz, as_of, last_day)
     if reason is None:
         return None
     return withheld_block(
-        reason, WITHHOLD_MESSAGES[reason], today, last_day, last_estimate=round(last_value, 1)
+        reason, WITHHOLD_MESSAGES[reason], as_of, last_day, last_estimate=round(last_value, 1)
     )
 
 
@@ -226,18 +239,23 @@ def _delta(estimate: float | None, median_ref: float | None) -> float | None:
     return round(estimate - median_ref, 1)
 
 
-def _window(cur: Cur, user_id: UUID, tz: str, metric: str) -> list[tuple]:
-    """(day, value, flags) for one metric over the trend window, oldest first."""
+def _window(cur: Cur, user_id: UUID, as_of: date, metric: str) -> list[tuple]:
+    """(day, value, flags) for one metric over the trend window ENDING at ``as_of``.
+
+    Both bounds, and the closing one is the load-bearing half: ``rows[-1]`` is read as
+    "the estimate that speaks for this day" by every caller, so a window open at the top
+    would hand a past day a value measured after it.
+    """
     cur.execute(
         "SELECT day, value, flags FROM derived_daily "
         "WHERE user_id = %s AND metric = %s "
-        f"AND day >= ({USER_TODAY_SQL} - %s::int) ORDER BY day",
-        (user_id, metric, tz, _WINDOW_DAYS),
+        f"AND day >= ({AS_OF_DAY_SQL} - %s::int) AND day <= {AS_OF_DAY_SQL} ORDER BY day",
+        (user_id, metric, as_of, _WINDOW_DAYS, as_of),
     )
     return cur.fetchall()
 
 
-def _submax_block(cur: Cur, user_id: UUID, tz: str) -> dict | None:
+def _submax_block(cur: Cur, user_id: UUID, as_of: date) -> dict | None:
     """The SESSION RECORD beneath the estimate: what each recorded effort measured.
 
     ``vo2max_submax`` is one row per day that carried a scoreable session — an
@@ -259,7 +277,7 @@ def _submax_block(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     (#114). Rows written before #114 carry no ``method``; they are all graded fits, which
     is what ``METHOD_GRADED`` defaults them to.
     """
-    rows = _window(cur, user_id, tz, "vo2max_submax")
+    rows = _window(cur, user_id, as_of, "vo2max_submax")
     if not rows:
         return None
     s_day, s_val, s_flags = rows[-1][0], float(rows[-1][1]), (rows[-1][2] or {})

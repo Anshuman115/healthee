@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from healthee.analytics.biological_age import compute_biological_age
-from healthee.core.tenancy import user_today
+from healthee.core.tenancy import reference_day
 from healthee.derive._common import Cur
 from healthee.derive.freshness import NOT_DERIVED_YET, unavailable_reason, withheld_block
 from healthee.derive.sleep_score import SLEEP_DEBT_MESSAGES, sleep_debt_unavailable_reason
@@ -30,7 +30,7 @@ _LAST_TST_MESSAGES = {
 
 
 def sleep_debt_payload(
-    cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None
+    cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None, day: date | None = None
 ) -> dict | None:
     """Sleep need (NSF age-band) + rolling cumulative debt + Sleep Performance %.
 
@@ -45,20 +45,20 @@ def sleep_debt_payload(
     age-band midpoint is a recommendation for someone of this owner's age, not a
     measurement of them (the same reason ``read/vo2max.py`` keeps ``median_for_age``).
     [[sleep_need_debt]]."""
+    as_of = reference_day(day, tz)
     debt = (
         reads.latest.get("sleep_debt_min")
         if reads
-        else latest_derived(cur, user_id, "sleep_debt_min")
+        else latest_derived(cur, user_id, "sleep_debt_min", as_of)
     )
     if not debt:
         return None
-    day, debt_min, flags = debt
-    today = user_today(tz)
-    withheld = _debt_withheld(cur, user_id, tz, today, day, debt_min)
+    debt_day, debt_min, flags = debt
+    withheld = _debt_withheld(cur, user_id, tz, as_of, debt_day, debt_min)
     need_row = (
         reads.latest.get("sleep_need_min")
         if reads
-        else latest_derived(cur, user_id, "sleep_need_min")
+        else latest_derived(cur, user_id, "sleep_need_min", as_of)
     )
     need = need_row[1] if need_row else 480.0
     return {
@@ -72,10 +72,10 @@ def sleep_debt_payload(
         "nights_below": None if withheld else flags.get("nights_below"),
         "window_nights": flags.get("window_nights"),
         "nights": None if withheld else flags.get("nights"),
-        "as_of_date": None if withheld else day.isoformat(),
+        "as_of_date": None if withheld else debt_day.isoformat(),
         "data_confidence": "insufficient_data" if withheld else "ok",
         "withheld": withheld,
-        **_last_night(cur, user_id, today, need),
+        **_last_night(cur, user_id, as_of, need),
         "research_notes": ["sleep_need_debt", "sleep_duration_mortality"],
     }
 
@@ -92,8 +92,8 @@ def _debt_withheld(
     )
 
 
-def _last_night(cur: Cur, user_id: UUID, today: date, need: float) -> dict:
-    """Last night's TST and Sleep Performance %, or a dated withhold when we have neither.
+def _last_night(cur: Cur, user_id: UUID, as_of: date, need: float) -> dict:
+    """The night ending on ``as_of``, and its Sleep Performance %, or a dated withhold.
 
     ``last_tst_min`` was the newest ``sleep_health_score_4dim`` row's TST with the day
     thrown away, and it drove ``performance_pct`` — so after a week without syncing, a
@@ -101,9 +101,9 @@ def _last_night(cur: Cur, user_id: UUID, today: date, need: float) -> dict:
     a week ago. The percentage is the dependent claim and goes with it: a ratio of a
     stale night to today's need is not a number about either.
     """
-    row = _last_tst(cur, user_id)
+    row = _last_tst(cur, user_id, as_of)
     last_day = row[0] if row else None
-    reason = unavailable_reason(today, last_day)
+    reason = unavailable_reason(as_of, last_day)
     if row is not None and reason is None:
         return {
             "last_tst_min": round(row[1]),
@@ -119,7 +119,7 @@ def _last_night(cur: Cur, user_id: UUID, today: date, need: float) -> dict:
         "last_tst_withheld": withheld_block(
             named,
             _LAST_TST_MESSAGES[named],
-            today,
+            as_of,
             last_day,
             last_tst_min=round(row[1]) if row else None,
         ),
@@ -134,25 +134,29 @@ def sleep_performance_pct(last_tst: float | None, need: float) -> int | None:
     return round(min(100.0, 100.0 * last_tst / need))
 
 
-def _last_tst(cur: Cur, user_id: UUID) -> tuple[date, float] | None:
-    """The newest night's ``(day, total sleep time)`` from the sleep-score flags.
+def _last_tst(cur: Cur, user_id: UUID, on_or_before: date) -> tuple[date, float] | None:
+    """The newest night AT OR BEFORE ``on_or_before`` as ``(day, total sleep time)``.
 
     Returns the DAY as well as the value — dropping it here is where "last night's sleep"
-    stopped meaning last night."""
+    stopped meaning last night. The day bound is the other half of the same sentence:
+    without it, "last night" on a past day would mean the most recent night there has
+    ever been."""
     cur.execute(
         "SELECT day, (flags->>'tst_min')::float FROM derived_daily "
         "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND flags ? 'tst_min' "
-        "ORDER BY day DESC LIMIT 1",
-        (user_id,),
+        "AND day <= %s ORDER BY day DESC LIMIT 1",
+        (user_id, on_or_before),
     )
     r = cur.fetchone()
     return (r[0], float(r[1])) if r and r[1] is not None else None
 
 
-def biological_age_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
+def biological_age_payload(
+    cur: Cur, user_id: UUID, tz: str, day: date | None = None
+) -> dict | None:
     """Motivational biological-age estimate (Gompertz hazard→years). Thin wrapper over
     the shared analytics module. research/metrics/biological_age_estimate.md."""
-    return compute_biological_age(cur, user_id, tz)
+    return compute_biological_age(cur, user_id, tz, day)
 
 
 # How long a flag stays "active" after its date. ONE definition, shared by every
@@ -164,7 +168,7 @@ _ILLNESS_ACTIVE_DAYS = 2
 def _latest_active_illness(
     cur: Cur, user_id: UUID, tz: str, today: date | None = None
 ) -> tuple | None:
-    """The owner's most recent still-active illness-flag row, or None.
+    """The illness-flag row still active AS OF the anchor day, or None.
 
     The single source of truth for what "active" means; ``illness_flag_payload`` shapes
     it for the Today card and ``active_illness_severity`` reduces it to the one field
@@ -175,12 +179,19 @@ def _latest_active_illness(
     Today page genuinely asks "right now", but a caller that already holds a pinned
     anchor passes it — otherwise the same request would read two different days if it
     straddled midnight, which is the calendar-date-vs-instant bug class this repo has
-    already shipped twice.
+    already shipped twice. A past-day read passes that day, and the window then sits
+    entirely behind it.
+
+    The window has both ends, and the upper one is not decoration: "active" is a
+    two-day span AROUND the anchor, so an open-topped window would let a flag raised
+    last week make a day in June read as flagged ill.
     """
+    anchor = reference_day(today, tz)
     cur.execute(
         "SELECT date, severity, rr_delta_bpm, temp_delta_c, sustained, research_note_ids "
-        "FROM illness_flag WHERE user_id = %s AND date >= %s ORDER BY date DESC LIMIT 1",
-        (user_id, (today or user_today(tz)) - timedelta(days=_ILLNESS_ACTIVE_DAYS)),
+        "FROM illness_flag WHERE user_id = %s AND date >= %s AND date <= %s "
+        "ORDER BY date DESC LIMIT 1",
+        (user_id, anchor - timedelta(days=_ILLNESS_ACTIVE_DAYS), anchor),
     )
     return cur.fetchone()
 
@@ -198,11 +209,11 @@ def active_illness_severity(
     return row[1] if row else None
 
 
-def illness_flag_payload(cur: Cur, user_id: UUID, tz: str) -> dict | None:
-    """Latest active illness flag (within 2 days). Auto-clears when the deltas fall
+def illness_flag_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
+    """Active illness flag (within 2 days of ``day``). Auto-clears when the deltas fall
     below threshold (no row → no flag). The "framing" is deterministic metric text,
     not LLM. [[respiratory_rate_normal]], [[skin_temp_signals]]."""
-    row = _latest_active_illness(cur, user_id, tz)
+    row = _latest_active_illness(cur, user_id, tz, day)
     if not row:
         return None
     d, severity, rr_delta, temp_delta, sustained, note_ids = row

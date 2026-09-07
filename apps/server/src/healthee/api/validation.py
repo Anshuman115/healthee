@@ -7,9 +7,12 @@ valid ``metric`` is.
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import HTTPException
 
 from healthee.analytics.metrics import KNOWN_METRICS, is_known_metric
+from healthee.core.tenancy import user_today
 
 # The most metrics one batched read may name. It is the size of the registry
 # itself: asking for more than the server serves is a malformed request, not a
@@ -91,6 +94,41 @@ def require_metric_list(metrics: str) -> tuple[str, ...]:
     for metric in wanted:
         require_known_metric(metric)
     return wanted
+
+
+def require_reference_day(day: str | None, tz: str) -> date | None:
+    """Parse the optional ``day=YYYY-MM-DD`` query parameter, or raise 422.
+
+    ``None`` in, ``None`` out — the read services then resolve it to the owner's today
+    themselves (``core.tenancy.reference_day``), so absence keeps meaning "answer for
+    now" and the default lives in ONE place rather than being re-decided at each router.
+
+    Two refusals, and both are the honesty contract rather than input hygiene:
+
+    * **A malformed date is a 422, never a silent fallback to today.** Answering a
+      request for ``2026-07-3`` with today's numbers under no date at all is the
+      stale-as-current failure arriving through the front door.
+    * **A day in the owner's FUTURE is a 422.** Every window would be bounded by it and
+      every surface would withhold, so the payload would technically be honest — but it
+      would read as "we have nothing for you" when the truth is "that day has not
+      happened". Those are different states and must stay distinguishable (standards
+      §1). Today itself is allowed, which is the default.
+    """
+    if day is None:
+        return None
+    try:
+        parsed = date.fromisoformat(day)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422, detail=f"'day' must be YYYY-MM-DD, got {day!r}"
+        ) from exc
+    today = user_today(tz)
+    if parsed > today:
+        raise HTTPException(
+            status_code=422,
+            detail=f"'day' {parsed.isoformat()} is in the future (your today is {today})",
+        )
+    return parsed
 
 
 def require_ok(result: dict) -> dict:

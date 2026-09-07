@@ -52,13 +52,14 @@ from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, active_users
 from healthee.jobs.chain import _chain_done, _mark_chain_done
 from healthee.jobs.recs_context import build_recs_signals
 from healthee.read.activity import activity_snapshot
+from healthee.read.data_health import data_health_payload
 from healthee.read.findings import top_findings
 from healthee.read.fitness import cardio_load_payload, mvpa_payload, workouts_list
 from healthee.read.gps import list_gps_tracks
 from healthee.read.history import history
 from healthee.read.history import profile as read_profile
 from healthee.read.logs import log_recent
-from healthee.read.recovery import data_health_payload, recovery_score_payload
+from healthee.read.recovery import recovery_score_payload
 from healthee.read.sleep_page import sleep_page
 from healthee.read.today import today_snapshot
 from healthee.read.vo2max import vo2max_payload
@@ -217,14 +218,14 @@ def test_fitness_payloads_are_owner_as(two_owners: None) -> None:  # noqa: ARG00
 def test_workouts_list_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """B's workout sits at A's start_ts with absurd values — a leak doubles the list."""
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        workouts = workouts_list(cur, SENTINEL_USER_ID, limit=100)
+        workouts = workouts_list(cur, SENTINEL_USER_ID, SENTINEL_TZ, limit=100)
     assert len(workouts) == 1, f"owner B's workout leaked into A's list: {workouts}"
     assert workouts[0]["calories"] == pytest.approx(250.0)
 
 
 def test_workout_detail_is_owner_as(two_owners: None) -> None:  # noqa: ARG001
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        start = workouts_list(cur, SENTINEL_USER_ID, limit=1)[0]["start_iso"]
+        start = workouts_list(cur, SENTINEL_USER_ID, SENTINEL_TZ, limit=1)[0]["start_iso"]
         detail = workout_detail(cur, SENTINEL_USER_ID, SENTINEL_TZ, start)
     # B's workout sits within the detail lookup's ±3s window of A's start_ts, so only
     # the owner filter keeps A's session from being served to A's request.
@@ -249,7 +250,7 @@ def test_gps_tracks_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
 def test_findings_are_owner_as(two_owners: None) -> None:  # noqa: ARG001
     """Findings are personal statistics — B's would be a claim about A's body."""
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        payload = top_findings(cur, SENTINEL_USER_ID, limit=5)
+        payload = top_findings(cur, SENTINEL_USER_ID, SENTINEL_TZ, limit=5)
     assert "OWNER B FINDING" not in _dumped(payload)
 
 

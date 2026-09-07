@@ -9,11 +9,11 @@ feed ``/api/today``; ``sleep_consistency`` feeds the consistency endpoint (its L
 from __future__ import annotations
 
 import statistics
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
-from healthee.core.tenancy import USER_TODAY_SQL, user_today
-from healthee.derive._common import Cur
+from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day, user_today
+from healthee.derive._common import Cur, _day_bounds_utc
 from healthee.derive.freshness import NOT_DERIVED_YET, withheld_block
 from healthee.derive.sleep_score import SRI_MESSAGES, sri_unavailable_reason
 from healthee.read.sleep_common import (
@@ -24,13 +24,20 @@ from healthee.read.sleep_common import (
 )
 
 
-def latest_main_session(cur: Cur, user_id: UUID) -> tuple | None:
-    """The most recent main sleep session (raw sleep_session row) or None."""
+def latest_main_session(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> tuple | None:
+    """The main sleep session the owner WOKE FROM on or before ``day``, or None.
+
+    Bounded on ``end_ts``, not ``start_ts``: a night is filed by the morning it ends on
+    everywhere else in this module (``sleep_history_7d`` and ``main_sessions`` both
+    bucket by ``end_ts``), and bounding the start instead would let the night that began
+    on the evening OF a past day — and ended the following morning — count as that day's
+    sleep on the Today page while counting as the next day's everywhere else.
+    """
     cur.execute(
         "SELECT start_ts, end_ts, light_min, deep_min, rem_min, wake_min, score, stages "
-        "FROM sleep_session WHERE user_id = %s AND kind='main' "
+        "FROM sleep_session WHERE user_id = %s AND kind='main' AND end_ts < %s "
         "ORDER BY start_ts DESC LIMIT 1",
-        (user_id,),
+        (user_id, _day_bounds_utc(reference_day(day, tz), tz)[1]),
     )
     return cur.fetchone()
 
@@ -72,8 +79,9 @@ def last_sleep_extras(cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datet
     }
 
 
-def sleep_history_7d(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
-    """Last 7 nights of main sleep for the mini history bar."""
+def sleep_history_7d(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> list[dict]:
+    """The 7 nights ENDING at ``day``, for the mini history bar."""
+    as_of = reference_day(day, tz)
     # Local wake-date computed ONCE in a subquery — see main_sessions: repeating
     # `AT TIME ZONE %s` yields distinct bound parameters, which would break the
     # DISTINCT ON / ORDER BY expression match.
@@ -85,9 +93,9 @@ def sleep_history_7d(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
         "    light_min, deep_min, rem_min, wake_min, score "
         "  FROM sleep_session WHERE user_id = %s AND kind='main'"
         ") s "
-        f"WHERE local_date > ({USER_TODAY_SQL} - 8) "
+        f"WHERE local_date > ({AS_OF_DAY_SQL} - 8) AND local_date <= {AS_OF_DAY_SQL} "
         "ORDER BY local_date, (end_ts - start_ts) DESC",
-        (tz, user_id, tz),
+        (tz, user_id, as_of, as_of),
     )
     rows = cur.fetchall()
     rows.sort(key=lambda r: r[0])
@@ -105,15 +113,19 @@ def sleep_history_7d(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
     ]
 
 
-def sleep_health_today(cur: Cur, user_id: UUID) -> dict | None:
-    """Latest 4-dim sleep-health score + per-dimension breakdown for Today."""
+def sleep_health_today(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
+    """The newest 4-dim sleep-health score at or before ``day``, with its breakdown.
+
+    The dimensions are folded from whichever day ``latest_day`` turns out to be, so an
+    unbounded read on a past day would assemble a score out of rows filed after it.
+    """
     cur.execute(
         "SELECT day, metric, value, flags FROM derived_daily "
         "WHERE user_id = %s AND metric IN "
         "  ('sleep_health_score_4dim','sleep_dim_duration','sleep_dim_efficiency',"
         "  'sleep_dim_timing','sleep_dim_regularity','sleep_regularity_index') "
-        "ORDER BY day DESC LIMIT 100",
-        (user_id,),
+        "AND day <= %s ORDER BY day DESC LIMIT 100",
+        (user_id, reference_day(day, tz)),
     )
     rows = cur.fetchall()
     if not rows:

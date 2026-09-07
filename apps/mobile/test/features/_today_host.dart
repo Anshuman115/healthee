@@ -41,6 +41,7 @@ import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
+import 'package:healthee/data/store/view_date.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
@@ -207,8 +208,23 @@ Widget _scoped(
               )
             : const ServerSessionStatus.signedOut(),
       ),
+      // **The override answers PER DAY, exactly as the endpoint does.** A fixed
+      // payload dated today would be no answer at all on a past day now — the
+      // shell drops a payload that is about a different day than the one being
+      // read — and the screen would sit on its loading card forever, which reads
+      // in a widget test as `pumpAndSettle timed out` and says nothing about why.
+      //
+      // A `server` handed in explicitly still wins whole: a test that built its
+      // own payload is asserting something about THAT payload.
       todaySnapshotProvider.overrideWith(
-        serverUnreachable ? todayUnreachable() : todayIs(server ?? todayView()),
+        serverUnreachable
+            ? todayUnreachable()
+            : (server != null
+                  ? todayIs(server)
+                  : (ref) async => todayViewFor(
+                      ref.watch(viewDateProvider),
+                      today: todayDate,
+                    )),
       ),
       // Settings is reachable from Today now, and its About row reads a platform
       // channel a test host never answers — which would leave that read's own

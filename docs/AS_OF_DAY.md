@@ -119,3 +119,43 @@ read layer takes a reference day beside `tz`; the guards in sections 3 and 4.
 **Out for now:** the LLM surfaces. A written analysis or a daily action for a
 past day would have to be either regenerated (a new claim, not a record) or
 absent. Absent is the honest default and is what the app already shows.
+
+---
+
+## 7. What shipped, and the two things it turned out to need
+
+Built as specified. `core/tenancy.py` gained `reference_day(day, tz)` and
+`AS_OF_DAY_SQL`; the read layer's shared primitives took a **required**
+`on_or_before` (a default would have been today, so a caller that forgot its own
+day would silently get the unbounded behaviour back); every window gained a
+closing edge; and the three endpoints take `day=YYYY-MM-DD`.
+
+Two things the design did not anticipate, both discovered by building it:
+
+**A payload about another day is not this day's answer, on the client either.**
+Riverpod keeps the previous value through a refresh, so between the date control
+moving and the response landing, the app holds the *old* day's payload while the
+header already says the new date. Drawing it would be section 3's failure with a
+shorter lifetime, which is not a smaller version of it. The client therefore
+draws a payload only when it answers for the day being read
+(`shared/instrument_screen.dart`), and the request always carries the selection
+so the server's echo makes that comparison exact. The offline cache follows the
+same rule: a past-day request falls back to **that day's row or to nothing**,
+never to the newest one — reaching the lie through the cache is still the lie.
+
+**Two fields describe *now* rather than a day, and they are absent on a past
+one.** The live-feed trust card is a set of ages measured against the request
+instant, so on an older date it would be reporting observations made *after* that
+day as its facts; it moved to `read/data_health.py`, which takes no `day` at all,
+because a signature that accepted one would invite the belief that this question
+has a past tense. An open fast is the other: nothing records when its `end_ts`
+became null, and its elapsed is measured from now, so neither half survives the
+move backwards. Both are `null`, which is what "we have nothing to say here"
+already means everywhere else in these payloads.
+
+Stored recommendation rows ARE served for a past day. Section 6 puts the LLM
+surfaces out of scope because *authoring* a past day's analysis now would be a new
+claim rather than a record — but those rows are already written and already dated,
+exactly as `derived_daily` is, so reading them is the same move this document is
+built on. The daily action is not: its cache is keyed on the current day, so an
+older one has nothing stored and nothing is generated for it.

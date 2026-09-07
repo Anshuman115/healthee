@@ -16,6 +16,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from healthee.api.gate import DAILY_ACTION, SLEEP_CONSISTENCY_AI_FIELDS, gate_free_payload
+from healthee.api.validation import require_reference_day
 from healthee.core.db import tenant_transaction
 from healthee.core.request_auth import CurrentUser
 from healthee.insights import coaching
@@ -26,10 +27,15 @@ router = APIRouter(tags=["sleep"])
 
 
 @router.get("/api/sleep")
-def get_sleep(user: CurrentUser, days: int = 30) -> dict:
-    """Everything the Sleep page needs (nights + naps + findings + cutoffs)."""
+def get_sleep(user: CurrentUser, days: int = 30, day: str | None = None) -> dict:
+    """Everything the Sleep page needs (nights + naps + findings + cutoffs), as of a day.
+
+    ``days`` is the window's LENGTH and ``day`` is where it ends, so the two compose:
+    ``days=30&day=2026-07-29`` is the thirty nights up to and including 29 July.
+    """
+    as_of = require_reference_day(day, user.timezone)
     with tenant_transaction(user.id) as cur:
-        return sleep_page(cur, user.id, user.timezone, days)
+        return sleep_page(cur, user.id, user.timezone, days, as_of)
 
 
 @router.get("/api/sleep/health_score")

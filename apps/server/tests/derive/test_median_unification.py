@@ -27,7 +27,7 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 
 from healthee.core.db import tenant_transaction
-from healthee.core.tenancy import SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.derive.recovery import _AUTONOMIC_MIN_SD, _recovery_baseline
 from healthee.derive.robust import MAD_TO_SD
 from healthee.read.recovery import _SLEEP_MIN_SD_MIN, _sleep_signal
@@ -128,10 +128,12 @@ def _seed_nights(cur, durations: list[float]) -> None:
     """One ``main`` sleep session per trailing day, oldest first — all light minutes,
     so ``light_min + deep_min + rem_min`` is exactly the duration under test.
 
-    Anchored to ``now()`` because ``_sleep_signal``'s history window is
-    ``start_ts > now() - interval '30 days'`` — a fixed calendar date would fall out
-    of the window the moment the suite is run on a later day, which is the flake this
-    repo has already paid for twice.
+    Anchored to ``now()`` because ``_sleep_signal``'s history window is the 30 days
+    ending at the reference day — a fixed calendar date would fall out of the window
+    the moment the suite is run on a later day, which is the flake this repo has
+    already paid for twice. (The window's anchor moved from ``now()`` to the day being
+    answered for when the read layer learned to answer for a past one; the shape of
+    this seed is unaffected, because the reference day here IS the owner's today.)
     """
     cur.execute("DELETE FROM sleep_session")
     start = datetime.now(tz=UTC) - timedelta(days=len(durations), hours=1)
@@ -156,7 +158,7 @@ def test_the_sleep_signal_baseline_is_the_interpolating_median() -> None:
     "unfavorable"."""
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         _seed_nights(cur, _NIGHTS_OLDEST_FIRST)
-        signal = _sleep_signal(cur, SENTINEL_USER_ID)
+        signal = _sleep_signal(cur, SENTINEL_USER_ID, SENTINEL_TZ, user_today(SENTINEL_TZ))
     assert signal is not None
     assert signal["value"] == _LAST_NIGHT
     assert signal["baseline"] == _SLEEP_MEDIAN

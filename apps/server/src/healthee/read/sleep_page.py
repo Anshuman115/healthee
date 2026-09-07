@@ -8,10 +8,12 @@ strap tagged ``kind='nap'`` — no time-of-day heuristic.
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
-from healthee.core.tenancy import USER_TODAY_SQL
+from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day
 from healthee.derive._common import Cur
+from healthee.read.common import as_of_block
 from healthee.read.findings import sleep_findings
 from healthee.read.sleep_common import (
     SLEEP_CUTOFFS,
@@ -63,10 +65,12 @@ _HEALTH_SCORE_FIELDS = (
 )
 
 
-def sleep_health_score(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict:
+def sleep_health_score(
+    cur: Cur, user_id: UUID, tz: str, days: int = 30, day: date | None = None
+) -> dict:
     """Per-night 4-dim score + per-dimension raw measurements (``/api/sleep/health_score``)."""
     days = _clamp_days(days)
-    pivot = derived_night_pivot(cur, user_id, tz, days, _HEALTH_SCORE_METRICS)
+    pivot = derived_night_pivot(cur, user_id, days, _HEALTH_SCORE_METRICS, reference_day(day, tz))
     nights = [
         {"date": d, **{k: row.get(k) for k in _HEALTH_SCORE_FIELDS}} for d, row in pivot.items()
     ]
@@ -74,14 +78,21 @@ def sleep_health_score(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict
     return {"nights": nights, "cutoffs": SLEEP_CUTOFFS, "research_notes": SLEEP_RESEARCH_NOTES}
 
 
-def sleep_page(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict:
-    """Everything the Sleep page needs in one call (``/api/sleep``)."""
+def sleep_page(cur: Cur, user_id: UUID, tz: str, days: int = 30, day: date | None = None) -> dict:
+    """Everything the Sleep page needs in one call (``/api/sleep``), as of a day.
+
+    The window is the ``days`` nights ENDING at ``day``, so a past-day answer is a
+    shorter list of the same nights rather than the same list re-dated. Nothing here is
+    interpolated: a night with no session and no derived row simply is not in ``nights``,
+    exactly as it is not today.
+    """
     days = _clamp_days(days)
+    as_of = reference_day(day, tz)
     # Read the session list ONCE: `_session_nights` and `_apply_physiology` each used
     # to issue this same query with the same arguments.
-    sessions = main_sessions(cur, user_id, tz, days)
+    sessions = main_sessions(cur, user_id, tz, days, as_of)
     nights = _session_nights(sessions)
-    pivot = derived_night_pivot(cur, user_id, tz, days, _SLEEP_PAGE_METRICS)
+    pivot = derived_night_pivot(cur, user_id, days, _SLEEP_PAGE_METRICS, as_of)
     for date_iso, derived in pivot.items():
         nights.setdefault(date_iso, _stub_night(date_iso)).update(
             {k: v for k, v in derived.items() if k in _DERIVED_NIGHT_FIELDS}
@@ -89,10 +100,12 @@ def sleep_page(cur: Cur, user_id: UUID, tz: str, days: int = 30) -> dict:
     _apply_physiology(cur, user_id, nights, sessions)
     nights_list = sorted(nights.values(), key=lambda r: r["date"], reverse=True)
     return {
+        "date": as_of.isoformat(),
+        "as_of": as_of_block(cur, user_id, tz, as_of),
         "nights": nights_list,
-        "naps": _naps(cur, user_id, tz, days),
+        "naps": _naps(cur, user_id, tz, days, as_of),
         "cutoffs": SLEEP_CUTOFFS,
-        "findings": sleep_findings(cur, user_id),
+        "findings": sleep_findings(cur, user_id, tz, day=as_of),
         "research_notes": SLEEP_RESEARCH_NOTES,
     }
 
@@ -215,8 +228,8 @@ def _apply_physiology(
         row["skin_temp_c"] = float(temp) if temp is not None else None
 
 
-def _naps(cur: Cur, user_id: UUID, tz: str, days: int) -> list[dict]:
-    """Sessions the strap tagged ``kind='nap'`` (>=5 min), newest first."""
+def _naps(cur: Cur, user_id: UUID, tz: str, days: int, as_of: date) -> list[dict]:
+    """Sessions the strap tagged ``kind='nap'`` (>=5 min) in the window, newest first."""
     cur.execute(
         "SELECT start_ts, end_ts, (start_ts AT TIME ZONE %s)::date, "
         "  EXTRACT(EPOCH FROM (end_ts - start_ts))::int / 60, "
@@ -228,10 +241,13 @@ def _naps(cur: Cur, user_id: UUID, tz: str, days: int) -> list[dict]:
         # anchor fixes. So the owner's window-start date is turned into an absolute
         # instant IN THEIR ZONE — `::timestamp` makes it their local midnight, and
         # `AT TIME ZONE %s` binds that wall-clock time back to a real instant.
-        f"  AND start_ts > (({USER_TODAY_SQL} - %s::int)::timestamp AT TIME ZONE %s) "
+        f"  AND start_ts > (({AS_OF_DAY_SQL} - %s::int)::timestamp AT TIME ZONE %s) "
+        # The closing edge, built the same way: the START of the day AFTER the reference
+        # one, so a nap taken on that day is in and one taken the morning after is out.
+        f"  AND start_ts < (({AS_OF_DAY_SQL} + 1)::timestamp AT TIME ZONE %s) "
         "  AND EXTRACT(EPOCH FROM (end_ts - start_ts)) / 60 >= 5 "
         "ORDER BY start_ts DESC",
-        (tz, tz, user_id, tz, days, tz),
+        (tz, tz, user_id, as_of, days, tz, as_of, tz),
     )
     return [
         {

@@ -133,6 +133,11 @@
     "ratio": 1.0,
     "state": "optimal"
   },
+  "as_of": {
+    "day": "2026-07-31",
+    "derived_at": "2026-07-31T02:14:07.512340+00:00",
+    "is_today": true
+  },
   "cardio_load": {
     "as_of_date": "2026-07-31",
     "baseline_30d": 55.0,
@@ -276,6 +281,7 @@
       1
     ]
   },
+  "date": "2026-07-31",
   "distance": {
     "as_of_date": "2026-07-31",
     "caveats": [],

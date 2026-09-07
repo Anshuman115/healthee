@@ -1,4 +1,9 @@
 {
+  "as_of": {
+    "day": "2026-07-31",
+    "derived_at": "2026-07-31T02:14:07.512340+00:00",
+    "is_today": true
+  },
   "cutoffs": {
     "duration_hours": [
       7.0,
@@ -11,9 +16,10 @@
       4
     ]
   },
+  "date": "2026-07-31",
   "findings": [
     {
-      "description_raw": "Caffeine \u2194 sleep",
+      "description_raw": "Caffeine ↔ sleep",
       "effect_metric": "rho",
       "effect_size": -0.42,
       "event_kind": null,
