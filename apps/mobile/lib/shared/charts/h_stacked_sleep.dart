@@ -174,11 +174,13 @@ class _StackedPainter extends CustomPainter {
   /// never below two. Legacy's rule, kept — it is what makes the gridlines land
   /// on round hours for every week rather than most weeks.
   double _axisMinutes() {
-    // An unmeasured night contributes NOTHING to the axis rather than a zero: it
-    // has no height to fit, and letting it read as the shortest night would be
-    // the same absence-as-measurement error one layer up.
+    // An unmeasured night has no height to fit, and `_totalOf` already answers 0
+    // for one — so no `hasBreakdown` branch here. A conditional was written and
+    // then removed: its mutation SURVIVED, which is the honest way to find out a
+    // guard guards nothing (`HOW_WE_VERIFY.md` section 2). The absence is drawn
+    // by `_paintUnmeasured`, not by the axis.
     final tallest = nights
-        .map((night) => night.hasBreakdown ? _totalOf(night) : 0)
+        .map(_totalOf)
         .reduce((a, b) => a > b ? a : b);
     var hours = (tallest / 60).ceil();
     if (hours < 2) {
@@ -190,8 +192,8 @@ class _StackedPainter extends CustomPainter {
     return hours * 60.0;
   }
 
-  /// Only ever called for a night with a breakdown; a missing stage inside one is
-  /// zero minutes of that stage, which is a real reading.
+  /// A night's stacked height. An unmeasured night sums to 0 and never reaches
+  /// the painter's stacking branch, so a zero here only ever sets the axis floor.
   static int _totalOf(SleepNightSummary night) =>
       (night.deepMin ?? 0) +
       (night.lightMin ?? 0) +

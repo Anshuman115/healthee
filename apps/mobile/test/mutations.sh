@@ -2529,12 +2529,8 @@ H_GOLDEN_TEST=test/data/today_snapshot_golden_test.dart
 # strap staged nothing, on a nap it staged.
 mutate 'a nap ignores the stage minutes the server now sends' \
   "$H_SLEEP_TEST" "$H_SLEEP_MODEL" \
-  "      stages: StageMinutes.fromJson(
-        json['stages'] is Map<String, Object?>
-            ? json['stages']! as Map<String, Object?>
-            : const <String, Object?>{},
-      )," \
-  "      stages: StageMinutes.fromJson(const <String, Object?>{}),"
+  "      stages: StageMinutes.maybe(json['stages'])," \
+  "      stages: StageMinutes.maybe(const <String, Object?>{}),"
 
 # A1. The sentence blaming the server comes back unconditionally — true once,
 # false now, and the worst kind of copy because it reads as an explanation.
@@ -2601,6 +2597,68 @@ mutate 'a cache miss blanks the route instead of falling back to the ground' \
   "$MAP_TEST" "$ROUTE_PAINTER" \
   '  bool get drawsTrack => points.length >= 2;' \
   '  bool get drawsTrack => points.length >= 2 && tiles.isNotEmpty;'
+
+# ── BACKEND_AUDIT.md section A — the client half ─────────────────────────────
+#
+# Three of the thirteen were defects on THIS side of the wire, and each has the
+# same shape: the server did the honest work and the app undid it. Each mutation
+# below puts the SHIPPED defect back rather than a plausible near miss.
+
+SEVERITY_A=test/data/honesty_severity_a_test.dart
+VO2MAX_MODEL=lib/data/models/vo2max.dart
+STAGE_CHART=lib/shared/charts/h_stacked_sleep.dart
+ACTIVITY_MODEL=lib/data/models/activity_today.dart
+
+# A4. The measurement date is printed whether or not it differs from the day the
+# estimate speaks for. The card fills with a second date that says nothing, which
+# is how the line that matters on the fortnight-old day stops being read.
+mutate 'the measurement date is printed even when it is the same day' \
+  "$SEVERITY_A" "$VO2MAX_MODEL" \
+  '  String? get measuredEarlier =>
+      measuredAsOf != null && measuredAsOf != asOfDate ? measuredAsOf : null;' \
+  '  String? get measuredEarlier => measuredAsOf;'
+
+# A4, the live half. The field stops being parsed at all — which is exactly the
+# state the audit found: `measured_as_of` on the wire, and no client field for
+# it, so a card read "as of today" over a run recorded a fortnight ago.
+mutate 'the measurement date goes back to being unparsed' \
+  "$SEVERITY_A" "$VO2MAX_MODEL" \
+  "      measuredAsOf: json['measured_as_of'] as String?," \
+  '      measuredAsOf: null,'
+
+# A5. The chart stacks an unmeasured night's stages anyway. All four are null so
+# every segment is zero-height — pixel-identical to a night of literal zero
+# sleep, which is what this drew and what the owner saw.
+mutate 'an unmeasured night is stacked as four zero-height stages' \
+  "$SEVERITY_A" "$STAGE_CHART" \
+  '      if (!night.hasBreakdown) {' \
+  '      if (false) {'
+
+# NOT here: a second A5 mutation on the axis. It was written — "an unmeasured
+# night contributes a zero to the axis" — and it SURVIVED, because `_totalOf`
+# already answers 0 for a night with no stages, so the `hasBreakdown` branch it
+# broke changed nothing. The branch was deleted rather than the mutation being
+# quietly dropped: a survivor that reveals a guard guarding nothing is the
+# harness doing its job (`HOW_WE_VERIFY.md` section 2, "the mutation with no
+# test" inverted — here the test was fine and the guard was decoration).
+
+# A13(c). The weekly MVPA target is hard-coded back to 150, so a payload that
+# carries none still draws a confident percentage of a number the server never
+# sent — with no `Reading` wrapper and no withheld path.
+mutate 'the app invents a weekly mvpa target again' \
+  "$SEVERITY_A" "$ACTIVITY_MODEL" \
+  "      weekTarget: (json['week_target'] as num?)?.toInt()," \
+  "      weekTarget: (json['week_target'] as num?)?.toInt() ?? 150,"
+
+# A13(a), client side. A day with no intensity breakdown is read as a day of no
+# moderate and no vigorous minutes, so the week's split understates itself by
+# exactly the days nobody measured.
+mutate 'a missing intensity breakdown is read as measured zeros' \
+  "$SEVERITY_A" "$ACTIVITY_MODEL" \
+  "      weekModerateMin: (json['week_moderate_min'] as num?)?.toInt()," \
+  "      weekModerateMin: (json['week_moderate_min'] as num?)?.toInt() ?? 0," \
+  "      weekVigorousMin: (json['week_vigorous_min'] as num?)?.toInt()," \
+  "      weekVigorousMin: (json['week_vigorous_min'] as num?)?.toInt() ?? 0,"
 
 echo
 echo "caught $PASS, survived $FAIL"

@@ -89,6 +89,11 @@ mutate() {
 READ_HONESTY=tests/read/test_wire_honesty.py
 READ_THIN=tests/read/test_wire_thinness.py
 WORKOUT_TEST=tests/read/test_workout_absence.py
+SEVERITY_A=tests/read/test_honesty_severity_a.py
+SEVERITY_A_SLEEP=tests/read/test_honesty_severity_a_sleep.py
+FORMULAS=tests/read/test_formulas.py
+CALORIES=tests/derive/test_calorie_weight_staleness.py
+OUT_OF_RANGE=tests/derive/test_vo2max_out_of_range.py
 
 # ── A1 ───────────────────────────────────────────────────────────────────────
 # The nap ships the raw hypnogram under the totals' key again — the defect
@@ -222,6 +227,181 @@ mutate 'the tile route forwards an out-of-range zoom' \
   tests/test_map_tiles.py src/healthee/api/routers/map_tiles.py \
   '    if not tile_in_range(z, x, y):' \
   '    if False:'
+
+# ── BACKEND_AUDIT.md section A ───────────────────────────────────────────────
+#
+# One mutation per finding, each putting the SHIPPED defect back rather than a
+# plausible-looking near miss. These are the thirteen that reached the owner's
+# screen past a green suite, so a mutation that goes red for any reason other
+# than the behaviour would be exactly the "fictional mutation" the header warns
+# about — every one below was checked to fail on an assertion, not an import.
+
+# ── A1 ───────────────────────────────────────────────────────────────────────
+# The unsourced 5.6 comes back as a default. Note the shape: the payload still
+# carries a number and still looks complete — that is why it survived.
+mutate 'a row with no recorded error gets the deleted 5.6 back' \
+  "$SEVERITY_A" src/healthee/read/vo2max.py \
+  '        "see_ml_kg_min": float(see) if see is not None else None,' \
+  '        "see_ml_kg_min": float(see) if see is not None else 5.6,'
+
+# ── A2 ───────────────────────────────────────────────────────────────────────
+# An unrecorded sex is assumed male again. The tell is not the shipped letter,
+# it is that `median_for_age` is then SPENT against the wrong distribution.
+mutate 'an unrecorded sex is assumed male and spent on the median' \
+  "$SEVERITY_A" src/healthee/read/vo2max.py \
+  '    sex = flags.get("sex") if flags.get("sex") in ("male", "female") else None' \
+  '    sex = flags.get("sex") if flags.get("sex") in ("male", "female") else "male"'
+
+# ── A3 ───────────────────────────────────────────────────────────────────────
+# Filed back under a key the app's honesty envelope does not read. The server
+# still computes the flag perfectly; it just lands where nothing looks.
+mutate 'the out-of-range flags go back to a key the envelope cannot see' \
+  "$OUT_OF_RANGE" src/healthee/read/vo2max.py \
+  '        "caveats": out_of_range_inputs(age or None, flags.get("bmi")),' \
+  '        "out_of_range_inputs": out_of_range_inputs(age or None, flags.get("bmi")),'
+
+# The reason id is dropped. The block still ships and still reads correctly to a
+# human — and `envelope.dart` silently drops any disclosure missing `reason`.
+mutate 'an out-of-range caveat loses the reason the envelope requires' \
+  "$OUT_OF_RANGE" src/healthee/derive/vo2max.py \
+  '        "reason": f"vo2max_{name}_out_of_validated_range",' \
+  '        "input_name": f"vo2max_{name}_out_of_validated_range",'
+
+# ── A5 ───────────────────────────────────────────────────────────────────────
+# A night with no breakdown is answered with four zeros again — the value that
+# painted a zero-height stacked bar, indistinguishable from no sleep at all.
+mutate 'an unstaged night is answered with four zeroed stages' \
+  "$SEVERITY_A_SLEEP" src/healthee/read/sleep_common.py \
+  '    if light is None and deep is None and rem is None and wake is None:
+        return None' \
+  '    if False:
+        return None'
+
+# TST is summed across absent stages, so an unstaged night reports 0 minutes of
+# sleep — the number the client then substituted for a correct withhold.
+mutate 'an unstaged night reports zero minutes of sleep' \
+  "$SEVERITY_A_SLEEP" src/healthee/read/sleep_common.py \
+  '    if light is None and deep is None and rem is None:
+        return None' \
+  '    if False:
+        return None'
+
+# ── A6 ───────────────────────────────────────────────────────────────────────
+# The clobbering upsert returns: a partial re-push overwrites a measured night.
+mutate 'a partial re-push clobbers the stage breakdown on file' \
+  "$SEVERITY_A_SLEEP" src/healthee/ingest/upsert.py \
+  '            "rem_min = COALESCE(EXCLUDED.rem_min, sleep_session.rem_min), "' \
+  '            "rem_min = EXCLUDED.rem_min, "'
+
+# ── A7 ───────────────────────────────────────────────────────────────────────
+# The floor goes away, so a two-row window publishes one day as a "30-day
+# baseline" and the app draws today's load as a multiple of it.
+mutate 'the 30-day load baseline loses its minimum' \
+  "$SEVERITY_A" src/healthee/read/fitness.py \
+  '    baseline = round(sum(prior) / len(prior), 1) if len(prior) >= _BASELINE_MIN_DAYS else None' \
+  '    baseline = round(sum(prior) / len(prior), 1) if prior else None'
+
+# The window goes back to 36 days behind two keys that say thirty.
+mutate 'the 30-day window is 36 days again' \
+  "$SEVERITY_A" src/healthee/read/fitness.py \
+  '_LOAD_WINDOW_DAYS = 30' \
+  '_LOAD_WINDOW_DAYS = 36'
+
+# ── A8 ───────────────────────────────────────────────────────────────────────
+# Two mornings publish an autonomic verdict again. MAD over two points is the
+# half-distance, so the z is finite and everything downstream looks healthy.
+mutate 'two days of resting heart rate publish a direction' \
+  "$SEVERITY_A" src/healthee/read/recovery.py \
+  '    if b.median is None or not b.robust_sd or b.n < _SIGNAL_MIN_DAYS:
+        return None
+    z = (value - b.median) / b.robust_sd
+    direction = "favorable" if z < -0.3 else "unfavorable" if z > 0.5 else "neutral"' \
+  '    if b.median is None or not b.robust_sd:
+        return None
+    z = (value - b.median) / b.robust_sd
+    direction = "favorable" if z < -0.3 else "unfavorable" if z > 0.5 else "neutral"'
+
+# ── A9 ───────────────────────────────────────────────────────────────────────
+# The reference day is dropped, so the session borrows TODAY's resting heart
+# rate — an answer for a past day containing something measured after it.
+mutate 'a past workout is scored against today reserve' \
+  "$SEVERITY_A" src/healthee/read/workout.py \
+  '    load = cardio_load_payload(cur, user_id, tz, session_day) or {}' \
+  '    load = cardio_load_payload(cur, user_id, tz) or {}'
+
+# ── A10 ──────────────────────────────────────────────────────────────────────
+# The HR profile goes back to one element per raw sample, so TRIMP and every
+# "zone minute" are multiplied by the strap's in-workout sample rate.
+#
+# The bucket is widened to a SECOND rather than removed. Deleting the aggregate
+# leaves invalid SQL, and a mutation that dies on a GroupingError proves the
+# query is malformed, not that anything checks the unit — the header's
+# "fictional mutation", and this one was written that way first.
+mutate 'the session hr profile counts samples and calls them minutes' \
+  "$SEVERITY_A" src/healthee/read/workout.py \
+  '        "SELECT date_trunc('"'"'minute'"'"', ts) AS m, AVG(value) FROM sample "' \
+  '        "SELECT date_trunc('"'"'second'"'"', ts) AS m, AVG(value) FROM sample "'
+
+# ── A11 ──────────────────────────────────────────────────────────────────────
+# The closing edge goes away and a future-dated row reaches every dated panel.
+mutate 'the history series loses its closing edge' \
+  "$SEVERITY_A" src/healthee/read/history.py \
+  '        f"AND day > ({USER_TODAY_SQL} - %s::int) AND day <= ({USER_TODAY_SQL}) "
+        "ORDER BY metric, day",
+        (user_id, metrics, tz, days, tz),' \
+  '        f"AND day > ({USER_TODAY_SQL} - %s::int) "
+        "ORDER BY metric, day",
+        (user_id, metrics, tz, days),'
+
+# ── A12 ──────────────────────────────────────────────────────────────────────
+# Three nights publish a regularity verdict again, beside an SRI the same
+# payload has just refused for having fewer than seven.
+mutate 'three nights publish a bedtime-band verdict' \
+  "$SEVERITY_A_SLEEP" src/healthee/read/sleep_extras.py \
+  '    banded = len(rows) >= REGULARITY_MIN_NIGHTS' \
+  '    banded = True'
+
+# The population claim comes back. It is a statement about where this owner sits
+# in a distribution nothing here reads, with no note and no n.
+mutate 'the band verdict claims a population quintile again' \
+  "$SEVERITY_A_SLEEP" src/healthee/read/sleep_extras.py \
+  '        return "tight — inside the ~1 h band, near enough"' \
+  '        return "tight — top-quintile territory (~1 h band)"'
+
+# ── A13 ──────────────────────────────────────────────────────────────────────
+# The intensity flags are coalesced to zero again, so a day nobody split reads
+# as a day of no moderate and no vigorous minutes.
+mutate 'a missing intensity breakdown becomes zero measured minutes' \
+  "$SEVERITY_A" src/healthee/read/mvpa_week.py \
+  '        "SELECT day, (flags->>'"'"'moderate'"'"')::float, "
+        "(flags->>'"'"'vigorous'"'"')::float, value FROM derived_daily "' \
+  '        "SELECT day, COALESCE((flags->>'"'"'moderate'"'"')::float,0), "
+        "COALESCE((flags->>'"'"'vigorous'"'"')::float,0), value FROM derived_daily "'
+
+# A workout the strap logged with no calorie figure goes back to contributing
+# nothing, silently, after its minutes were removed from the MET walk.
+mutate 'an uncounted workout stops being disclosed' \
+  "$CALORIES" src/healthee/derive/energy.py \
+  '    if sessions_n <= 0:
+        return []' \
+  '    if True:
+        return []'
+
+# ── the ACWR verdict ─────────────────────────────────────────────────────────
+# The suppression [[training_load_acwr]] D6 requires — and which the note already
+# claimed this product had — is lowered back to seven rows. With exactly seven,
+# acute and chronic are the SAME values, so the ratio is 1.0 by construction.
+mutate 'acwr publishes from seven rows of chronic history' \
+  "$FORMULAS" src/healthee/read/acwr.py \
+  '_ACWR_MIN_CHRONIC_DAYS = 28' \
+  '_ACWR_MIN_CHRONIC_DAYS = 7'
+
+# The discredited numeric verdict comes back on the wire.
+mutate 'acwr ships a categorical verdict again' \
+  "$FORMULAS" src/healthee/read/acwr.py \
+  '        "n_acute": len(acute_vals),' \
+  '        "state": "optimal" if 0.8 <= acute / chronic <= 1.3 else "caution",
+        "n_acute": len(acute_vals),'
 
 echo
 echo "caught $PASS, survived $FAIL"
