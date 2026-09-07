@@ -2338,6 +2338,12 @@ mutate 'the coach topic never reaches the location' "$TOPIC_TEST" "$ROUTES" \
       : '\${Routes.coach}?topic=\${Uri.encodeQueryComponent(subject)}';" \
   '  return Routes.coach;'
 
+# ...or reaches the location and is dropped reading it back off the route.
+mutate 'the route drops the topic it was given' "$TOPIC_TEST" "$ROUTES" \
+  "  final String subject = uri.queryParameters['topic']?.trim() ?? '';
+  return subject.isEmpty ? null : subject;" \
+  '  return null;'
+
 # ...or reaches it and is dropped on the way into the input.
 mutate 'the seeded topic never reaches the input' "$TOPIC_TEST" \
   lib/features/coach/coach_screen.dart \

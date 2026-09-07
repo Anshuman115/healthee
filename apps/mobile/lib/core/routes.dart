@@ -174,3 +174,18 @@ String coachLocation([String? topic]) {
       ? Routes.coach
       : '${Routes.coach}?topic=${Uri.encodeQueryComponent(subject)}';
 }
+
+/// [coachLocation] read back — the topic in [uri], or null for the plain coach.
+///
+/// The other half of the round trip, and it lives beside the half that writes
+/// it. It was five lines inside the route's own builder, where nothing could
+/// ask it anything: a topic dropped THERE looks exactly like a caller that
+/// passed none, and the coach opens with an empty box either way.
+///
+/// A blank or whitespace-only `topic=` is no topic, the same answer
+/// [coachLocation] gives — a caller that built the query from a label it did
+/// not have must not produce a coach claiming to hold a question.
+String? coachTopicOf(Uri uri) {
+  final String subject = uri.queryParameters['topic']?.trim() ?? '';
+  return subject.isEmpty ? null : subject;
+}

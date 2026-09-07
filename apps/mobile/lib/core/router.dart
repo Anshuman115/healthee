@@ -177,15 +177,10 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       GoRoute(
         path: Routes.coach,
-        // An empty `topic` is no topic. A caller that built the query from a
-        // label it did not have would otherwise open the coach with a blank
-        // first message sitting in the box.
-        builder: (context, state) => CoachScreen(
-          topic: switch (state.uri.queryParameters['topic']) {
-            final String topic when topic.trim().isNotEmpty => topic,
-            _ => null,
-          },
-        ),
+        // `coachTopicOf` is `coachLocation` read back, and both live in
+        // `routes.dart` so the round trip has one owner.
+        builder: (context, state) =>
+            CoachScreen(topic: coachTopicOf(state.uri)),
       ),
       GoRoute(path: Routes.body, builder: (context, state) => const BodyScreen()),
       GoRoute(

@@ -8,7 +8,8 @@
 ///
 /// That makes three things worth pinning, and they are the three groups here:
 ///
-///   1. `coachLocation` encodes a topic into the route and drops a blank one;
+///   1. `coachLocation` encodes a topic into the route and `coachTopicOf` reads
+///      it back, and both drop a blank one;
 ///   2. the screen puts it in the input and **does not send it** — a navigation
 ///      that spent one of twenty on arrival is the silent spend this whole
 ///      surface is built to refuse;
@@ -92,6 +93,26 @@ void main() {
       // back double-escaped would put `%20` in the owner's own first sentence.
       final Uri uri = Uri.parse(coachLocation(_topic));
       expect(uri.queryParameters['topic'], _topic);
+    });
+
+    test('THE ROUND TRIP SURVIVES THE ROUTE, NOT JUST THE ENCODING', () {
+      // `coachTopicOf` is what the route builder reads. It used to be five
+      // lines inside that builder, where nothing could ask it anything — and a
+      // topic dropped there looks exactly like a caller that passed none,
+      // because the coach opens with an empty box either way.
+      expect(coachTopicOf(Uri.parse(coachLocation(_topic))), _topic);
+      expect(
+        coachTopicOf(Uri.parse(coachLocation('Two words & a symbol'))),
+        'Two words & a symbol',
+      );
+    });
+
+    test('a blank topic in the QUERY is no topic either', () {
+      // The reader is as strict as the writer. A hand-built or stale link is
+      // the case the writer cannot cover.
+      expect(coachTopicOf(Uri.parse('${Routes.coach}?topic=')), isNull);
+      expect(coachTopicOf(Uri.parse('${Routes.coach}?topic=%20%20')), isNull);
+      expect(coachTopicOf(Uri.parse(Routes.coach)), isNull);
     });
 
     test('NO TOPIC AND A BLANK TOPIC BOTH GIVE THE PLAIN COACH', () {
