@@ -6,6 +6,7 @@ import 'package:healthee/data/gps/gps_fix.dart';
 import 'package:healthee/data/gps/gps_local_store.dart';
 import 'package:healthee/data/gps/gps_recording_state.dart';
 import 'package:healthee/data/gps/location_source.dart';
+import 'package:healthee/data/gps/route_point.dart';
 
 /// A run captures its store and identity; an account switch cannot retarget it.
 class GpsRun {
@@ -73,7 +74,10 @@ class GpsRun {
       id: value.id,
       start: value.start,
       recording: true,
-      points: value.points + 1,
+      // The coordinates are RETAINED, not just counted. The recorder screen
+      // draws this list; before it existed the screen had a fix count and
+      // nothing to plot, which is the whole reason it had no map.
+      track: <RoutePoint>[...value.track, _asRoutePoint(fix)],
       distanceM: distance,
     );
     onChanged(value);
@@ -97,7 +101,7 @@ class GpsRun {
     value = GpsRecordingState(
       id: value.id,
       start: value.start,
-      points: value.points,
+      track: value.track,
       distanceM: value.distanceM,
       end: end,
       error: error,
@@ -119,7 +123,7 @@ class GpsRun {
       value = GpsRecordingState(
         id: value.id,
         start: value.start,
-        points: value.points,
+        track: value.track,
         distanceM: value.distanceM,
         error:
             'GPS stopped. Could not finalize the route; reopen recordings to recover saved points.',
@@ -127,6 +131,19 @@ class GpsRun {
       onChanged(value);
     }
   }
+
+  /// One accepted fix as the point type every route drawing in this app takes.
+  ///
+  /// A live fix has no elevation the app trusts (the phone's altitude is the
+  /// noisy one `derive/dem.py` exists to replace) and no heart rate yet — the
+  /// strap's arrives at upload. Both stay null rather than being filled with the
+  /// phone's guess: the map wants the position, and a null is the honest value
+  /// for a measurement nothing has taken.
+  static RoutePoint _asRoutePoint(GpsFix fix) => RoutePoint(
+    at: fix.at,
+    latitude: fix.latitude,
+    longitude: fix.longitude,
+  );
 
   static bool validFix(GpsFix fix, DateTime start, DateTime? previous) =>
       fix.latitude.isFinite &&

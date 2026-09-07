@@ -37,6 +37,35 @@ void main() {
     await run.stop();
     expect(await local.fixes('run'), hasLength(12));
   });
+  test('THE RUN RETAINS THE COORDINATES IT RECORDED, IN ORDER', () async {
+    // The state used to carry a fix COUNT and a distance and nothing else, so
+    // the recorder screen could print "12 fixes" and had not one metre of them
+    // to draw. That — not a missing painter — is why that screen had no map.
+    final run = GpsRun(local: local, source: source, onChanged: (_) {},
+      id: 'run', start: start)..listen();
+    for (var i = 1; i <= 3; i++) { source.controller.add(fix(i)); }
+    await run.stop();
+    expect(run.value.track, hasLength(3));
+    expect(run.value.points, 3, reason: 'the count IS the track length');
+    expect(run.value.track.map((p) => p.latitude),
+      [12.0001, 12.0002, 12.0003]);
+    expect(run.value.track.first.at, fix(1).at, reason: 'oldest first');
+    expect(run.value.track.last.at, fix(3).at);
+    // A rejected fix leaves no coordinate behind: the drawing may only ever
+    // show what the recorder actually accepted and saved.
+    source.controller.add(fix(3));
+    expect(run.value.track, hasLength(3));
+  });
+  test('a stopped run keeps its track for the screen to draw', () async {
+    final run = GpsRun(local: local, source: source, onChanged: (_) {},
+      id: 'run', start: start)..listen();
+    source.controller.add(fix(1));
+    source.controller.add(fix(2));
+    await run.stop();
+    expect(run.value.recording, isFalse);
+    expect(run.value.track, hasLength(2),
+      reason: 'stopping is not forgetting');
+  });
   test('location error finalizes saved points and surfaces interruption', () async {
     final stopped = Completer<GpsRecordingState>();
     GpsRun(local: local, source: source,
