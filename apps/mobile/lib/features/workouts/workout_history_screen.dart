@@ -1,59 +1,159 @@
+/// **Every session this server holds** — the recording action, the days, and
+/// the week's strength.
+///
+/// **This is the v02 prototype's screen, in the prototype's order.**
+/// `design/mobile-preview/screens-explore.js::H.screens.workouts`, top to
+/// bottom:
+///
+/// ```text
+///   header (detail)          Activity history        Your workouts.
+///   .button.full             Record a workout
+///   <p class="small">        what this list is, and what it leaves out
+///   .tiny-label + .card      one caption and one flush card per day
+///   Weekly strength          the minutes, and what they are not counted against
+///   footer
+/// ```
+///
+/// ## What survived the redesign
+///
+/// The data wiring, whole: `workoutHistoryProvider` and its parse are untouched,
+/// and so is the empty state's promise about what the list contains. The
+/// `ListTile` subtitle that carried *"Latest 100 uploaded sessions · at least 10
+/// minutes"* is now a sentence under the button, because it is a **limit on this
+/// list** rather than a row in it — a reader who meets the rows first has no way
+/// to know the list is bounded.
+///
+/// ## The prototype's second row is not invented here
+///
+/// Its day card holds a workout row *and* a `GPS recording` row, because its
+/// fixture has one saved route on that day. This app keeps its routes in their
+/// own list and Activity already carries the door to it (`activity_sections.dart`
+/// draws `Saved routes` in the same flush card as the sessions). A day group
+/// here holds the sessions recorded on that day and nothing else; a routes row
+/// filed under a date would be claiming a route belongs to a day this screen
+/// never asked the server about.
+///
+/// ## Why the strength card reads the Today payload
+///
+/// `read/activity.py` does not carry a `strength` block — only `/api/today`
+/// does, and `IntensityPanel` on Activity already draws it. So this card reads
+/// **the same field from the same provider**: one definition of the week's
+/// strength minutes, drawn on two screens, rather than a second one computed
+/// from this screen's own session list. A payload with no strength block draws
+/// no card at all, because there is then no band for a figure to sit against
+/// (`strength.dart`).
+library;
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
+import 'package:healthee/data/models/strength.dart';
+import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/data/workouts/workout_repository.dart';
 import 'package:healthee/data/workouts/workout_summary.dart';
-import 'package:healthee/shared/format/time_labels.dart';
+import 'package:healthee/features/workouts/v02/session_rows.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/data_footer.dart';
+import 'package:healthee/shared/v02/detail_page.dart';
+import 'package:healthee/shared/v02/full_button.dart';
+import 'package:healthee/shared/v02/section_head.dart';
+import 'package:healthee/shared/v02/surface_cards.dart' show SmallProse;
+import 'package:healthee/shared/v02/surface_panels.dart' show Notice;
 
+/// `.section { margin-top: 24px }`.
+const double kWorkoutsSectionGap = 24;
+
+/// `H.link('Record a workout','record','button full')`.
+const String kRecordLabel = 'Record a workout';
+
+/// What this list is bounded by. The server's own limit, said out loud.
+const String kHistoryBounds =
+    'The latest 100 uploaded sessions of at least ten minutes. A shorter '
+    'session is recorded on the strap and is not listed here.';
+
+/// The empty state's heading and its remedy.
+const String kNoSessionsTitle = 'No uploaded sessions yet';
+
+/// Its sentence.
+const String kNoSessionsBody =
+    'Start a workout on the strap and sync. This list shows what the server '
+    'holds, so a session still on the strap has not reached it yet.';
+
+/// The recorded-workouts list.
 class WorkoutHistoryScreen extends ConsumerWidget {
+  /// Builds the screen.
   const WorkoutHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-    appBar: AppBar(title: const Text('Recorded workouts')),
-    body: AsyncView<List<WorkoutSummary>>(
-      value: currentAccountValue(ref.watch(workoutHistoryProvider)),
-      onRetry: () => ref.invalidate(workoutHistoryProvider),
-      builder: (context, workouts) => workouts.isEmpty
-          ? const EmptyState(
-              message: 'No uploaded workouts yet',
-              hint:
-                  'Sync your strap. This history shows up to 100 recorded sessions of at least 10 minutes.',
-            )
-          : ListView.builder(
-              itemCount: workouts.length + 1,
-              itemBuilder: (context, index) => index == 0
-                  ? const ListTile(
-                      subtitle: Text(
-                        'Latest 100 uploaded sessions · at least 10 minutes',
-                      ),
-                    )
-                  : _row(context, workouts[index - 1]),
-            ),
-    ),
-  );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = workoutHistoryProvider;
+    return DetailPage(
+      title: 'Your workouts.',
+      eyebrow: 'Activity history',
+      children: <Widget>[
+        V02FullButton(
+          label: kRecordLabel,
+          onPressed: () => unawaited(context.push(Routes.gps)),
+        ),
+        const SizedBox(height: kWorkoutsSectionGap),
+        const SmallProse(kHistoryBounds),
+        const SizedBox(height: kWorkoutsSectionGap),
+        AsyncView<List<WorkoutSummary>>(
+          value: currentAccountValue(ref.watch(provider)),
+          onRetry: () => ref.invalidate(provider),
+          builder: (context, sessions) => _days(context, sessions),
+        ),
+        if (_strength(ref) case final Strength week) ...<Widget>[
+          const SizedBox(height: kWorkoutsSectionGap),
+          const SectionHead(title: StrengthCard.title),
+          StrengthCard(strength: week),
+        ],
+        const DataFooter(),
+      ],
+    );
+  }
 
-  Widget _row(BuildContext context, WorkoutSummary workout) => ListTile(
-    title: Text(workout.sportName),
-    subtitle: Text('${workout.start.toLocal()}'),
-    trailing: Text(
-      workout.durationMin == null
-          ? 'Duration unavailable'
-          : durationLabel(workout.durationMin!),
-    ),
-    onTap: () => unawaited(
-      context.push(
-        Uri(
-          path: Routes.workout,
-          queryParameters: {'start': workout.start.toIso8601String()},
-        ).toString(),
-      ),
-    ),
-  );
+  /// One caption and one flush card per local day, newest day first.
+  Widget _days(BuildContext context, List<WorkoutSummary> sessions) {
+    if (sessions.isEmpty) {
+      return const Notice(title: kNoSessionsTitle, body: kNoSessionsBody);
+    }
+    final days = byDay(sessions);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        for (var i = 0; i < days.length; i++) ...<Widget>[
+          if (i > 0) const SizedBox(height: kWorkoutsSectionGap),
+          WorkoutDayGroup(
+            date: days[i].date,
+            sessions: days[i].sessions,
+            onOpen: (workout) => unawaited(
+              context.push(
+                '${Routes.workout}?start='
+                '${Uri.encodeComponent(workout.start.toUtc().toIso8601String())}',
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// This week's strength block, or null when Today has not answered yet.
+  ///
+  /// Read off the value rather than through an `AsyncView`: the Today payload's
+  /// failure is reported on the screens that are ABOUT it, and a workouts list
+  /// that showed a retry card for a block it merely borrows would be reporting
+  /// somebody else's error twice. `metric_explorer_screen.dart` reads the same
+  /// provider the same way.
+  Strength? _strength(WidgetRef ref) =>
+      currentAccountValue(ref.watch(todaySnapshotProvider))
+          .value
+          ?.snapshot
+          .strength;
 }
