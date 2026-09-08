@@ -513,9 +513,10 @@ nothing, the guard makes it fail the build.
 
 - **Scheduler** (`jobs/scheduler.py`): a **tick loop**. It does not compute a next
   fire instant and sleep to it; it wakes every `_TICK_INTERVAL_S` (5 min) and asks
-  of each `active_users()` owner: *is their local wall clock past `DAILY_FIRE`
-  (10:30 in **their** `app_user.timezone`), and has their chain not already run for
-  their local day?* If so, `run_chain(tenant.id, tenant.tz, their_local_day)`.
+  of each `active_users()` owner three questions: *is their local wall clock past
+  `DAILY_FIRE` (10:30 in **their** `app_user.timezone`), **has their day's data
+  actually arrived**, and has their chain not already run for their local day?*
+  If so, `run_chain(tenant.id, tenant.tz, their_local_day)`.
   `core/tenancy.active_users()` returns a frozen `Tenant(id, tz)` per active owner
   (deliberately NOT `RequestUser` — that would couple the science/jobs layers to
   auth; 6.4b converts `RequestUser` → `Tenant` at the edge). One owner's failure is
@@ -531,6 +532,26 @@ nothing, the guard makes it fail the build.
   express that bug. It is also self-healing by construction: a missed tick, a
   container restart, a slow run, or an owner who signs up *after* their own fire
   time all resolve on the next tick.
+- **The clock says EARLIEST; the data says GO** (`jobs/data_gate.py`). `DAILY_FIRE`
+  is the earliest the chain may start, never the instant it does. Until the gate
+  existed, `scheduler.py` asserted in its own docstring that 10:30 was chosen so
+  recs/briefing would not compute on "last night's not-yet-synced sleep" — and
+  nothing checked. Auto-sync fires only on a foreground transition, so an owner who
+  had not opened the app by 10:30 had sent nothing since yesterday; the chain ran
+  anyway, wrote a briefing about a night no row described, and then set the marker
+  below, so the real sleep arriving at noon got no chain at all.
+  `day_data_arrived(user_id, day, tz)` is the check that comment stood in for: a
+  `sample` measured inside the owner's local day, **or** a `sleep_session` that WOKE
+  on it. Each arm covers a state the other misses — a night the strap was not worn
+  produces no session, and the per-minute stream demonstrably stalls.
+- **A gate that stays shut all day is an outcome, not a hang.** That day gets no
+  chain and no briefing, because a briefing about an unrecorded night is the
+  optimistic guess this product exists not to make. It is reported to the Telegram
+  surface once, at `QUIET_DAY_NOTICE` (22:00 local) — once, not on each of the ~24
+  ticks after it. Waiting spends no retry budget. A sync landing at 23:55 still runs
+  that day's chain on the next tick; a sync landing after local midnight does **not**
+  retro-run yesterday (the marker and the question are both per local day, and
+  authoring a past day's analysis now is forbidden — `docs/AS_OF_DAY.md` section 6).
 - **Idempotence is the marker's job, not the loop's.** `run_chain`'s per-owner
   per-day `kv` marker is what makes a repeating tick safe; the scheduler holds no
   dedup of its own.
