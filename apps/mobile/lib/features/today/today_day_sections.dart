@@ -208,6 +208,10 @@ void _longerChapter(
         recommendations: snapshot.recommendations,
         // `/api/today.action` — a model-written line nothing else renders.
         action: snapshot.action,
+        // The day the payload answers for, so the block can say when the
+        // actions it is drawing were written for a different one — the server
+        // reaches back two days for the newest set (A3).
+        viewedDay: snapshot.asOf?.day,
       ),
     );
   }

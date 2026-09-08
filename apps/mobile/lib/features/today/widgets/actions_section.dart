@@ -51,6 +51,7 @@ import 'package:healthee/core/theme/motion.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/models/recommendation.dart';
+import 'package:healthee/shared/format/date_labels.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/instrument_module.dart';
@@ -62,13 +63,52 @@ import 'package:solar_icons/solar_icons.dart';
 /// Legacy's own heading for the block, and what its ⓘ falls back to naming.
 const String kSuggestedActions = 'Suggested actions';
 
+/// What the block says when the actions were written for a different day.
+///
+/// Public so a test can pin the wording rather than re-typing it.
+String actionsFromDay(String isoDay) =>
+    'Written for ${shortDate(isoDay)} — nothing was written for this day.';
+
 /// The collapsible "Suggested actions" block.
 class ActionsSection extends StatefulWidget {
   /// [recommendations] is the day's set, highest rank first.
-  const ActionsSection({required this.recommendations, this.action, super.key});
+  const ActionsSection({
+    required this.recommendations,
+    this.action,
+    this.viewedDay,
+    super.key,
+  });
 
   /// Today's cited actions.
   final List<Recommendation> recommendations;
+
+  /// The day this screen is answering for, `YYYY-MM-DD` — `as_of.day`.
+  ///
+  /// `read/today.py::_recommendations_for` serves the newest recommendation set
+  /// dated **at or before** the day being viewed, reaching back two days. So
+  /// this block is not always showing that day's actions, and without the day
+  /// it is showing them under a heading that says otherwise. Comparing the
+  /// server's `as_of.day` against each row's own `date` is the only way the
+  /// client can tell; a device clock cannot, which is the argument
+  /// `data/models/as_of.dart` already makes about `isToday`.
+  ///
+  /// Null means the payload carried no `as_of` — an older server — and then the
+  /// block claims nothing about which day these are for, rather than guessing.
+  final String? viewedDay;
+
+  /// The recommendations' own day when it is NOT [viewedDay], else null.
+  ///
+  /// Static and pure so the decision is testable without a widget tree, and so
+  /// there is one definition of "these are from another day". All rows in a set
+  /// share a date (the server keeps only the newest date found), so the first
+  /// row speaks for the set.
+  static String? otherDay(List<Recommendation> items, String? viewedDay) {
+    final String? day = items.isEmpty ? null : items.first.date;
+    if (day == null || viewedDay == null || day == viewedDay) {
+      return null;
+    }
+    return day;
+  }
 
   /// `/api/today`'s own top-level `action` — the model's one-line daily
   /// suggestion, **which no legacy file renders**. Legacy reads only
@@ -150,6 +190,19 @@ class _ActionsSectionState extends State<ActionsSection> {
                             '${items.length == 1 ? 'way' : 'ways'} to improve today',
                             style: HType.sans(colors.ink3, size: 12),
                           ),
+                        // The rows' own day, said in words, whenever it is not
+                        // the day on screen. Drawn under whichever subtitle ran
+                        // above, because it qualifies the LIST rather than the
+                        // daily line — `/api/today.action` is generated for the
+                        // day it is served on and never reaches back.
+                        if (ActionsSection.otherDay(items, widget.viewedDay)
+                            case final String day) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            actionsFromDay(day),
+                            style: HType.sans(colors.ink3, size: 11),
+                          ),
+                        ],
                       ],
                     ),
                   ),
