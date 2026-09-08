@@ -15,6 +15,7 @@ from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day
 from healthee.derive._common import Cur
 from healthee.read.common import as_of_block
 from healthee.read.findings import sleep_findings
+from healthee.read.health_metrics import sleep_debt_payload
 from healthee.read.sleep_common import (
     SLEEP_CUTOFFS,
     SLEEP_RESEARCH_NOTES,
@@ -105,6 +106,23 @@ def sleep_page(cur: Cur, user_id: UUID, tz: str, days: int = 30, day: date | Non
         "as_of": as_of_block(cur, user_id, tz, as_of),
         "nights": nights_list,
         "naps": _naps(cur, user_id, tz, days, as_of),
+        # THE SAME BLOCK the Today page carries, from the same rows, through the same
+        # function — not a second sleep-need answer shaped for this endpoint.
+        #
+        # `/api/sleep` sent no need and no debt, so the Sleep tab computed its own
+        # shortfall against a client constant of 480 minutes flat
+        # (`features/sleep/sleep_format.dart::kSleepNeedMin`). For an owner over 65 the
+        # canonical need is 450, so the two tabs reported different shortfalls for the same
+        # nights and neither said which was which. That is the second definition
+        # CLAUDE.md's first hard rule is about, and the fix is not a better client constant
+        # — it is to send the number the server already has.
+        #
+        # `sleep_debt_payload` is called rather than re-shaped because it already owns
+        # every hard part: the debt's own freshness window, the withhold when the newest
+        # row is not today's, and `need_min` surviving a withheld debt (an age-band
+        # recommendation is not a measurement that goes stale). A second shaping would have
+        # had to re-decide all three, and would have got one of them different.
+        "sleep_debt": sleep_debt_payload(cur, user_id, tz, None, as_of),
         "cutoffs": SLEEP_CUTOFFS,
         "findings": sleep_findings(cur, user_id, tz, day=as_of),
         "research_notes": SLEEP_RESEARCH_NOTES,
@@ -128,7 +146,22 @@ _DERIVED_NIGHT_FIELDS = (
 
 
 def _session_nights(sessions: list[tuple]) -> dict[str, dict]:
-    """One main session per wake-date → the session half of each night's payload."""
+    """One main session per wake-date → the session half of each night's payload.
+
+    ``duration_min`` is GONE from this object, and it is a de-duplication rather than a
+    loss. It held ``stage_sleep_min(light, deep, rem)`` — total sleep time — while the
+    derived pivot below overwrote ``tst_min`` with the identical quantity computed by
+    ``derive/sleep_score.py`` from the identical stage columns. So one night carried two
+    keys for one number, and a nap carried the SAME key for a different one (wall-clock
+    time in bed, wake included). One name meaning two quantities in one payload is the
+    duplicate-definition failure at its most literal, and the fix is the vocabulary this
+    payload already speaks: ``tst_min`` and ``tib_min``.
+
+    ``tst_min`` is therefore set HERE too, not only by the pivot, so a night with a session
+    and no ``sleep_health_score_4dim`` row still reports its total sleep time instead of
+    losing it with the old key. Both writers call ``stage_sleep_min``, the one definition
+    (``read/sleep_common.py``), so the pivot's overwrite cannot disagree with this.
+    """
     out: dict[str, dict] = {}
     for local_date, start_ts, end_ts, light, deep, rem, wake, score, stages in sessions:
         date_iso = local_date.isoformat()
@@ -139,7 +172,7 @@ def _session_nights(sessions: list[tuple]) -> dict[str, dict]:
                 "start_iso": start_ts.isoformat(),
                 "end_iso": end_ts.isoformat(),
                 # TST (v2: no summary blob); null without a breakdown to sum.
-                "duration_min": stage_sleep_min(light, deep, rem),
+                "tst_min": stage_sleep_min(light, deep, rem),
                 "zepp_score": score,
                 "stages": stage_totals(light, deep, rem, wake),
                 "stage_timeline": stage_timeline(stages, start_ts),
@@ -156,7 +189,6 @@ def _stub_night(date_iso: str) -> dict:
         "session_source": None,
         "start_iso": None,
         "end_iso": None,
-        "duration_min": None,
         "zepp_score": None,
         # NULL, not four zeros. A stub is emitted for a date with a `derived_daily` row
         # and no `sleep_session` row — the absence of a session is not a measurement of
@@ -273,7 +305,18 @@ def _naps(cur: Cur, user_id: UUID, tz: str, days: int, as_of: date) -> list[dict
             "end_iso": end_ts.isoformat(),
             "source": "zepp_cloud",
             "date": local_date.isoformat(),
-            "duration_min": int(dur),
+            # TIME IN BED, under the name this payload already uses for it. This shipped
+            # as `duration_min`, the key a NIGHT used for total sleep TIME — so one
+            # `/api/sleep` response carried two different quantities under one name and
+            # nothing on the wire said which was which (audit C2). `_naps`' own docstring
+            # says a nap is "shaped exactly like a night"; duration was the one field it
+            # was not, and now it is.
+            "tib_min": int(dur),
+            # And its sleep time, from the stage minutes the row already carries — the
+            # same helper the night uses, so the two cannot drift. Null when the strap
+            # staged nothing, which is a nap with a known span and an unknown sleep time
+            # rather than a nap of zero sleep.
+            "tst_min": stage_sleep_min(light, deep, rem),
             "midpoint_local": mid,
             "stages": stage_totals(light, deep, rem, wake),
             "stage_timeline": stage_timeline(stages, start_ts),

@@ -33,7 +33,6 @@ _BASELINE_MIN_POINTS = 5  # need at least this many days to trust a baseline
 # two are not a shared science constant and must not be unified into one; see that
 # module's `_SLEEP_MIN_SD_MIN`.
 _AUTONOMIC_MIN_SD = 0.5
-_DEFAULT_NEED_MIN = 480.0  # sleep-need fallback
 
 
 def _recovery_baseline(
@@ -91,7 +90,31 @@ def _personal_factor(  # noqa: PLR0913 — one factor needs all its scoring inpu
 
 
 def _sleep_factor(cur: Cur, user_id: UUID, day: date, factors: dict) -> None:
-    """Score sleep vs ABSOLUTE need (not the personal baseline)."""
+    """Score sleep vs the owner's OWN stored need (not the personal baseline, and not a
+    constant).
+
+    ## No fallback need, because there is no such thing as a fallback need
+
+    ``need`` used to be ``float(nr[0]) if nr and nr[0] else _DEFAULT_NEED_MIN``, a module
+    constant of ``480.0``. That is a personal target invented for an owner we have never
+    been able to compute one for, and it published itself: ``flags.factors.sleep.need_min``
+    said 480 was **this owner's** need, and the sleep sub-score was the ratio of their
+    real sleep to it. For an owner over 65 the canonical need is 450
+    (``derive/sleep_score.SLEEP_NEED_MIN_65P``), so the flat value scored them against a
+    target half an hour too high and reported it as theirs.
+
+    It was also the third definition of one metric — this constant, the age-selected pair
+    in ``derive/sleep_score.py``, and a fourth in the client — which is the failure
+    CLAUDE.md names first: "ONE canonical definition per metric … two definitions of sleep
+    debt is a lie waiting to surface". The definition that survives is
+    ``sleep_score.derive_sleep_debt``'s, because it is the one with NSF 2015 behind it and
+    an age selecting between its bands; every other reader takes the row it wrote.
+
+    With no ``sleep_need_min`` row the sleep factor is simply ABSENT — not defaulted, not
+    zeroed. ``derive_recovery`` already weights only the factors it has (``tw`` is the sum
+    over ``factors``), so an absent sleep factor makes the score an honest composite of the
+    autonomic markers rather than a composite containing a fabricated ratio.
+    """
     cur.execute(
         "SELECT (flags->>'tst_min')::float FROM derived_daily "
         "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND day=%s",
@@ -104,7 +127,9 @@ def _sleep_factor(cur: Cur, user_id: UUID, day: date, factors: dict) -> None:
         (user_id, day),
     )
     nr = cur.fetchone()
-    need = float(nr[0]) if nr and nr[0] else _DEFAULT_NEED_MIN
+    if not (nr and nr[0]):
+        return
+    need = float(nr[0])
     if sr and sr[0] is not None:
         tst = float(sr[0])
         factors["sleep"] = {

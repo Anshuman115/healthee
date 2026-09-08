@@ -114,7 +114,7 @@ def derive_day(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
         out.update(v)
     if c := derive_cardio_load(cur, user_id, tz, day):
         out.update(c)
-    if s := derive_sleep_debt(cur, user_id, tz, day):
+    if s := derive_sleep_debt(cur, user_id, day):
         out.update(s)
     if rec := derive_recovery(cur, user_id, day):
         out.update(rec)

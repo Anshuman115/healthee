@@ -28,9 +28,9 @@ import pytest
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.derive.freshness import (
+    DOB_MISSING,
     NO_NIGHTS_IN_WINDOW,
     NOT_DERIVED_YET,
-    PROFILE_INCOMPLETE,
 )
 from healthee.derive.sleep_score import (
     SLEEP_DEBT_MESSAGES,
@@ -231,7 +231,7 @@ def test_a_week_old_night_is_not_last_night_and_carries_no_performance_pct() -> 
         _reset(cur)
         _profile(cur, today)
         _nights(cur, today - timedelta(days=7), 7)  # nothing recorded since
-        derive_sleep_debt(cur, SENTINEL_USER_ID, SENTINEL_TZ, today)  # today's debt IS real
+        derive_sleep_debt(cur, SENTINEL_USER_ID, today)  # today's debt IS real
         payload = sleep_debt_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
 
     assert payload is not None
@@ -253,7 +253,7 @@ def test_last_night_is_reported_when_it_really_is_last_night() -> None:
         _reset(cur)
         _profile(cur, today)
         _nights(cur, today, 14)
-        derive_sleep_debt(cur, SENTINEL_USER_ID, SENTINEL_TZ, today)
+        derive_sleep_debt(cur, SENTINEL_USER_ID, today)
         payload = sleep_debt_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
 
     assert payload is not None
@@ -273,7 +273,7 @@ def test_last_night_is_reported_when_it_really_is_last_night() -> None:
         (True, 14, None),
         (True, 1, None),  # one recorded night IS a window the note computes over
         (True, 0, NO_NIGHTS_IN_WINDOW),
-        (False, 14, PROFILE_INCOMPLETE),
+        (False, 14, DOB_MISSING),
     ],
 )
 def test_the_debt_read_gate_and_the_write_gate_agree(
@@ -290,13 +290,13 @@ def test_the_debt_read_gate_and_the_write_gate_agree(
         if has_profile:
             _profile(cur, today)
         _nights(cur, today, nights)
-        reason = sleep_debt_withhold_reason_for_day(cur, SENTINEL_USER_ID, SENTINEL_TZ, today)
-        wrote = derive_sleep_debt(cur, SENTINEL_USER_ID, SENTINEL_TZ, today) is not None
+        reason = sleep_debt_withhold_reason_for_day(cur, SENTINEL_USER_ID, today)
+        wrote = derive_sleep_debt(cur, SENTINEL_USER_ID, today) is not None
 
     assert reason == expected
     assert wrote is (reason is None)
 
 
 def test_every_debt_reason_has_a_message() -> None:
-    for reason in (PROFILE_INCOMPLETE, NO_NIGHTS_IN_WINDOW, NOT_DERIVED_YET):
+    for reason in (DOB_MISSING, NO_NIGHTS_IN_WINDOW, NOT_DERIVED_YET):
         assert SLEEP_DEBT_MESSAGES[reason].strip()

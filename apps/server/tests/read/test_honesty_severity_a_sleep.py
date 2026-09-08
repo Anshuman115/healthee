@@ -80,7 +80,7 @@ def test_a_date_with_no_session_at_all_sends_no_stage_object() -> None:
 
     stub = next(n for n in nights if n["date"] == today.isoformat())
     assert stub["stages"] is None
-    assert stub["duration_min"] is None
+    assert stub["tst_min"] is None  # `duration_min` was renamed by C2
 
 
 # ── A6. a partial re-push cannot clobber a complete row ──────────────────────
