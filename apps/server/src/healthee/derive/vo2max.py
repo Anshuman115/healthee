@@ -285,7 +285,10 @@ def _profile_withhold_reason(prof: dict, day: date) -> str | None:
     surfaces of ``/api/today`` need in order to agree.
 
     Note what is NOT the argument: the numeric error is small (≈0.2 ml/kg/min per kg of
-    weight error, against Jurca's own 5.6 SEE). The reason to refuse is that the number
+    weight error, against Jurca's own SEE of :data:`_JURCA_SEE_ML_KG_MIN` — 5.075, not
+    the 5.6 this line used to give, which is the figure #108 withdrew as appearing
+    nowhere in the paper and which the same file corrects 220 lines above). The
+    computation never read it; a reader did. The reason to refuse is that the number
     is offered as a fact about this person's body TODAY and one of its inputs is not
     about today at all. A small wrong number presented confidently is still the lie.
     """

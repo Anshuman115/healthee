@@ -61,12 +61,21 @@ where an input is estimated: unknown grade (workload mis-estimated), cardiac dri
 | **Uth 2004 ratio** `15.3 × HRmax/HRrest` | **SEE 2.7** ml/kg/min w/ *measured* HRmax; **SEE 4.7 (~7.8%)** w/ age-predicted HRmax (what we use) | Yes, but weak — cross-check only |
 | ACSM submax + Karvonen %HRR | r≈0.65, SEE 4.2–4.4 | **No** — needs known speed AND grade |
 | Ebbeling single-stage walk | R²=0.86, SEE 4.85 | **No** — assumes a fixed 5% treadmill grade |
-| *Jurca 2005 (fallback baseline)* | r≈0.78, **SEE≈5.6** | — (resting-HR only; no workout data used) |
+| *Jurca 2005 (fallback baseline)* | r=0.81 overall, **SEE 1.45 METs = 5.075** ml/kg/min | — (resting-HR only; no workout data used) |
+
+> ⚠ **[Corrected 2026-09-08.]** This row used to read *"r≈0.78, SEE≈5.6"*. **Neither
+> figure is in the paper** — see [[non_exercise_vo2max]]'s #108 correction, which
+> checked the primary source term by term: Jurca reports **R = 0.81** for the NASA
+> model (cross-validating at 0.76 / 0.75 in the other two cohorts) and **SEE = 1.45
+> METs**, which is **5.075** mL/kg/min, the value `derive/vo2max.py` actually uses
+> (`_JURCA_SEE_ML_KG_MIN`). The withdrawn 5.6 survived here after being retracted in
+> the note next door, and the same file already used 5.075 correctly in the
+> freshness-horizon argument below — so both numbers reached the model in one context.
 
 > ⚠ Cross-study SEE comparisons are **NOT head-to-head** — each method was validated
 > on a different population/protocol, so a lower SEE alone does not prove superiority
-> in our free-living context. Jurca's 5.6 was a general population; Uth's 2.7 was
-> well-trained young men.
+> in our free-living context. Jurca's cohort was a general population (three large
+> adult cohorts); Uth's 2.7 was well-trained young men.
 
 ## The evidence
 

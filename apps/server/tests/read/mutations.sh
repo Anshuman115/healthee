@@ -942,6 +942,7 @@ mutate 'the tenant-scoping guard accepts user_id anywhere in the statement' \
 
 CORPUS_ENFORCEMENT=tests/insights/test_corpus_enforcement_claims.py
 GUARD_DIRECTIVES=tests/insights/test_guard_directives.py
+CORPUS_FIGURES=tests/insights/test_corpus_withdrawn_figures.py
 
 # ── G1 ───────────────────────────────────────────────────────────────────────
 # The false safety claim comes back: D14 asserts unqualified enforcement of
@@ -966,6 +967,22 @@ mutate 'the fluid rule widens to catch a stance rather than a number' \
   "$GUARD_DIRECTIVES" src/healthee/insights/guard_directives.py \
   '    r"\b(?:drink|sip|hydrate)\s+(?:every|each)\s+\d+\s*(?:min\w*|km|miles?|hours?)\b",' \
   '    r"\b(?:ahead\s+of|before)\s+(?:your\s+)?thirst\b",'
+
+# ── G4 ───────────────────────────────────────────────────────────────────────
+# The withdrawn SpO2 precision figure returns to the frontmatter summary — the
+# one field that ships to `research_summaries.json` and into every prompt.
+mutate 'the withdrawn SpO2 RMSE figure returns to the shipped summary' \
+  "$CORPUS_FIGURES" ../../packages/knowledge/notes/metrics/wearable_spo2_validity.md \
+  'not for absolute precision (the true error is unquantified' \
+  'not for absolute precision (±2–3% RMSE, the true error is unquantified'
+
+# ── G5 ───────────────────────────────────────────────────────────────────────
+# The withdrawn Jurca SEE returns to the method-comparison table, where it sits
+# in the model's context beside the correct 5.075 in the same file.
+mutate 'the withdrawn Jurca SEE returns to the comparison table' \
+  "$CORPUS_FIGURES" ../../packages/knowledge/notes/activity/submaximal_vo2max.md \
+  '| *Jurca 2005 (fallback baseline)* | r=0.81 overall, **SEE 1.45 METs = 5.075**' \
+  '| *Jurca 2005 (fallback baseline)* | r≈0.78, **SEE≈5.6**'
 
 echo
 echo "caught $PASS, survived $FAIL"
