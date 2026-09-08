@@ -52,10 +52,19 @@ RecordedRoute _route({
   double? r2,
   double? gain = 21,
   double? loss = 18,
+  int? recordedPoints,
+  int? matchedHrPoints = 0,
+  bool pointsDecimated = false,
 }) => RecordedRoute(
   id: 'track-1',
   start: DateTime.utc(2026, 7, 31, 7),
   points: points ?? _track(),
+  // Defaults to the array's length, which is what an unthinned response sends.
+  // A thinned one is built by passing the two explicitly, and the tests that do
+  // are the point of the whole distinction.
+  recordedPoints: recordedPoints ?? (points ?? _track()).length,
+  matchedHrPoints: matchedHrPoints,
+  pointsDecimated: pointsDecimated,
   distanceKm: distanceKm,
   durationS: durationS,
   avgPaceMinKm: avgPaceMinKm,
@@ -111,6 +120,32 @@ void main() {
       expect(find.textContaining('Phone GPS · 12 fixes'), findsOneWidget);
     });
 
+    testWidgets('A THINNED TRACK STATES WHAT IT RECORDED, AND WHAT IT DREW', (
+      tester,
+    ) async {
+      // The server sends at most `MAX_MAP_POINTS` fixes for the map, so on a
+      // long run `points` is a sample of the recording. `points.length` here
+      // would report a 28,800-fix run as a 40-fix one — the recording
+      // misdescribed to the person who made it.
+      _tallViewport(tester);
+      await tester.pumpWidget(
+        _host(
+          _route(
+            points: _track(fixes: 40),
+            recordedPoints: 28800,
+            pointsDecimated: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Phone GPS · 28800 fixes · 40 drawn'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Phone GPS · 40 fixes'), findsNothing);
+    });
+
     testWidgets('A FIGURE THE SERVER DID NOT SEND LEAVES NO SLOT', (
       tester,
     ) async {
@@ -162,7 +197,9 @@ void main() {
       tester,
     ) async {
       _tallViewport(tester);
-      await tester.pumpWidget(_host(_route(points: _track(hr: 1))));
+      await tester.pumpWidget(
+        _host(_route(points: _track(hr: 1), matchedHrPoints: 1)),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text(kNoFitnessTitle), findsOneWidget);
@@ -171,6 +208,48 @@ void main() {
         findsOneWidget,
         reason: 'the reason is about THIS track, not a general sentence',
       );
+    });
+
+    testWidgets('THE MATCHED-HR COUNT IS THE SERVER’S, NOT THE ARRAY’S', (
+      tester,
+    ) async {
+      // A thinned response: 28,800 fixes recorded, 2,000 sent, and 240 of the
+      // recording's fixes had a heart rate. Counting the array would say how
+      // many of the DRAWN points happen to carry one, which is a fact about the
+      // response and not about the run — and it is smaller, so the sentence
+      // would understate the coverage that the estimate was refused for.
+      _tallViewport(tester);
+      await tester.pumpWidget(
+        _host(
+          _route(
+            points: _track(fixes: 40, hr: 3),
+            recordedPoints: 28800,
+            matchedHrPoints: 240,
+            pointsDecimated: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('240 matched heart-rate points'), findsOneWidget);
+      expect(find.textContaining('3 matched heart-rate points'), findsNothing);
+    });
+
+    testWidgets('NO COUNT FROM THE SERVER NAMES NO NUMBER', (tester) async {
+      // An older payload. "How many matched" is genuinely unknown, and the
+      // sentence must not fall back to counting a possibly-thinned array.
+      _tallViewport(tester);
+      await tester.pumpWidget(
+        _host(_route(points: _track(hr: 5), matchedHrPoints: null)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kNoFitnessTitle), findsOneWidget);
+      expect(
+        find.textContaining('enough matched heart-rate coverage'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('5 matched'), findsNothing);
     });
 
     testWidgets('an estimate is printed WITH the method that produced it', (

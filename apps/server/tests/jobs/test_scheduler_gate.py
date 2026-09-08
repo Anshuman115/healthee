@@ -93,7 +93,7 @@ def test_the_gate_is_asked_about_the_owners_own_local_day(
 
     scheduler.Sweeper(gate=gate).tick(datetime(2026, 7, 20, 21, 0, tzinfo=UTC))
 
-    assert gate.asked == [(EAST.id, date(2026, 7, 21), "Pacific/Kiritimati")]
+    assert gate.asked == [(EAST.id, date(2026, 7, 21), "Pacific/Kiritimati", False)]
 
 
 # ── a shut gate must be visible, and must cost nothing ─────────────────────────
@@ -153,3 +153,48 @@ def test_a_shut_gate_spends_no_retry_budget(
     assert fake_chain.runs == [(TWIN_A.id, date(2026, 7, 20))], (
         "a shut gate spent the retry budget, so the owner's real sync got no chain"
     )
+
+
+def test_the_night_is_required_until_the_fallback_hour(
+    monkeypatch: pytest.MonkeyPatch,
+    fake_chain: FakeChain,  # noqa: ARG001 — the gate is what this asserts on
+) -> None:
+    """Before `SLEEP_FALLBACK` the sweep asks for the night; after it, it will take less.
+
+    The flag is the whole of the 00:53 fix at the loop level: an owner awake at midnight
+    syncs post-midnight samples, and only this `False` stops those from answering for a
+    night that has not happened. A sweep that always passed `True` would restore the bug
+    while every other test in this file still passed.
+    """
+    owners(monkeypatch, TWIN_A)
+    gate = Gate(open_=False)
+    sweeper = scheduler.Sweeper(gate=gate)
+
+    sweeper.tick(datetime(2026, 7, 20, 5, 5, tzinfo=UTC))  # 10:35 IST
+    sweeper.tick(datetime(2026, 7, 20, 9, 0, tzinfo=UTC))  # 14:30 IST
+
+    assert [asked[-1] for asked in gate.asked] == [False, True]
+
+
+def test_a_strap_off_day_still_gets_its_chain_after_the_fallback(
+    monkeypatch: pytest.MonkeyPatch, fake_chain: FakeChain
+) -> None:
+    """Requiring the night flatly would cost an unworn night the whole day's chain.
+
+    "You recorded no sleep last night" is a true and useful thing for a day to say, so
+    the widening has to actually fire — a fallback that never opened would be the fix
+    failing shut, which is quieter than failing open and just as wrong.
+    """
+    owners(monkeypatch, TWIN_A)
+
+    class NightlessGate(Gate):
+        def __call__(self, user_id, day, tz, without_night):  # noqa: ANN001, ANN204
+            super().__call__(user_id, day, tz, without_night)
+            return without_night  # samples exist; no session does
+
+    sweeper = scheduler.Sweeper(gate=NightlessGate())
+    sweeper.tick(datetime(2026, 7, 20, 5, 5, tzinfo=UTC))  # 10:35 IST — holds
+    assert fake_chain.runs == []
+
+    sweeper.tick(datetime(2026, 7, 20, 9, 0, tzinfo=UTC))  # 14:30 IST — runs
+    assert fake_chain.runs == [(TWIN_A.id, date(2026, 7, 20))]

@@ -35,11 +35,17 @@ def activity_snapshot(cur: Cur, user_id: UUID, tz: str, day: date | None = None)
     """
     as_of = reference_day(day, tz)
     cardio = cardio_load_payload(cur, user_id, tz, as_of)
+    # Built ONCE and handed to the plan, which used to build its own. Two calls meant 11
+    # of this endpoint's 22 statements were exact repeats of another statement in the same
+    # request, and the same 96-point `trend_90d` on the wire twice — 12,466 of 22,401
+    # bytes, 55.6% of the payload (`PERF_AUDIT.md` B1/C1). `fitness_plan_payload` now
+    # REQUIRES the block, so the duplication cannot come back by omission.
+    vo2max = vo2max_payload(cur, user_id, tz, as_of)
     return {
         "date": as_of.isoformat(),
         "as_of": as_of_block(cur, user_id, tz, as_of),
-        "vo2max": vo2max_payload(cur, user_id, tz, as_of),
-        "fitness_plan": fitness_plan_payload(cur, user_id, tz, as_of),
+        "vo2max": vo2max,
+        "fitness_plan": fitness_plan_payload(cur, user_id, tz, as_of, vo2max=vo2max),
         "cardio_load": cardio,
         "acwr": acwr(cardio),
         "mvpa": mvpa_payload(cur, user_id, tz, as_of),

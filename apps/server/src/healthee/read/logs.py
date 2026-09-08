@@ -16,6 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from healthee.core.bounds import MAX_MAGNITUDE, assert_plausible_weight_kg, event_instant
 from healthee.derive._common import Cur
 
+# The furthest back the log feed will look, whoever asks. Five years, matching
+# `/api/history`'s own `Query(ge=1, le=1825)` — the two are the same question ("how much
+# of this owner's past may one request reach for") and a second answer to it would be a
+# second definition (`PERF_AUDIT.md` B4). The client asks for 7.
+MAX_LOG_DAYS = 1825
+
 # Instant kinds (a point event with an amount) vs the two duration kinds.
 _INSTANT_KINDS = frozenset(
     {"caffeine", "alcohol", "water", "food", "med", "symptom", "mood", "habit"}
@@ -164,13 +170,21 @@ def _record_fast(cur: Cur, user_id: UUID, t: str, ts: datetime, notes: str | Non
 
 
 def log_recent(cur: Cur, user_id: UUID, days: int = 7) -> dict:
-    """Recent manual logs + current fasting status (the log feed)."""
+    """Recent manual logs + current fasting status (the log feed).
+
+    ``days`` is CLAMPED: it reached the SQL interval straight off the query string
+    (`PERF_AUDIT.md` B4). The `LIMIT 80` below already bounded the ANSWER, which is why
+    this was never a correctness problem — but it did not bound the SCAN, so a large
+    enough `days` widened the range this reads without widening what it returns. Bounding
+    the answer and bounding the work are different guarantees and the standards ask for
+    the second ("every chart query has a range").
+    """
     entries: list[dict] = []
     cur.execute(
         "SELECT kind, ts, name, amount, unit, notes FROM manual_entry "
         "WHERE user_id = %s AND kind <> 'fasting' AND ts >= now() - (%s || ' days')::interval "
         "ORDER BY ts DESC LIMIT 80",
-        (user_id, days),
+        (user_id, max(1, min(days, MAX_LOG_DAYS))),
     )
     for k, ts, name, amount, unit, notes in cur.fetchall():
         entries.append(

@@ -540,10 +540,20 @@ nothing, the guard makes it fail the build.
   had not opened the app by 10:30 had sent nothing since yesterday; the chain ran
   anyway, wrote a briefing about a night no row described, and then set the marker
   below, so the real sleep arriving at noon got no chain at all.
-  `day_data_arrived(user_id, day, tz)` is the check that comment stood in for: a
-  `sample` measured inside the owner's local day, **or** a `sleep_session` that WOKE
-  on it. Each arm covers a state the other misses — a night the strap was not worn
-  produces no session, and the per-minute stream demonstrably stalls.
+  `day_data_arrived(user_id, day, tz, allow_without_night)` is the check that comment
+  stood in for, and it asks for **the night that woke on that day** (`kind = 'main'`),
+  not merely for data stamped with it. The distinction is not academic: a local day
+  starts at midnight, so an owner awake at 00:54 who opens the app syncs an hour of
+  post-midnight heart rate carrying today's date. A gate keyed on "any data" opens on
+  exactly that, and 10:30 then computes a day whose sleep has not happened — the same
+  defect, inside the fix.
+- **`SLEEP_FALLBACK` (14:00 local) is the strap-off escape.** Requiring the night
+  flatly would cost an owner who took the strap off a whole day's chain, and "you
+  recorded no sleep last night" is a true and useful thing for a day to say. Past that
+  hour any sample measured on the day opens the gate. The hour is a judgement, named as
+  one, and lives in `scheduler.py` beside the other fire times — `data_gate` is handed a
+  day and a boolean and knows nothing about clocks. The cost: a strap-off day's chain
+  lands at 14:00 rather than 10:30.
 - **A gate that stays shut all day is an outcome, not a hang.** That day gets no
   chain and no briefing, because a briefing about an unrecorded night is the
   optimistic guess this product exists not to make. It is reported to the Telegram

@@ -699,3 +699,112 @@ Ordered by measured benefit per line of diff.
 None of these is a redesign. The read layer's architecture came through this audit intact:
 the batching is real, the round-trips are bounded, the connection discipline is clean, and
 the one endpoint that is slow is slow for a reason that fits on one line.
+
+---
+
+## H. Addendum — what the fixes measured (2026-09-09, `feat/perf-fixes`)
+
+Nothing above was edited. Every number in sections A-G is the reading that was taken
+then, and this section is what happened when each recommendation was carried out and
+re-measured on the same rig. Where a prediction did not hold, the prediction is left
+standing above and the disagreement is explained here — a prediction quietly overwritten
+by its outcome is a record nobody can audit.
+
+| finding | before | after |
+|---|---|---|
+| A1 `/api/sleep?days=365` p50 | 15,363.0 ms | **92.0 ms** |
+| A1 the physiology statement | 15,316.1 ms | 84.4 ms (all 11 statements) |
+| A1 `/api/sleep?days=30` p50 | 11.3 ms | 8.2 ms |
+| B1 `/api/activity` wire bytes | 22,823 | **16,611** (−27.2%) |
+| B1 `/api/activity` statements | 22 | 19 |
+| B2 `persist_findings` INSERT round-trips | 774 | **1** |
+| B3 `correlate` wall, 1,460 days | 623.0 ms | **422.1 ms** (−32%) |
+| B3 `correlate` wall, 365 days | 288.4 ms | 239.7 ms (−17%) |
+| B4 `/api/workout/gps/{id}` wire bytes at the ingest cap | 2,282,548 | **158,913** (14.4×) |
+| B4 `/api/workout/gps/{id}` p50 at the ingest cap | 144.9 ms | 148.5 ms (unchanged) |
+
+Measured on 366 nights / 988,211 samples / 8,031 `derived_daily` rows, throwaway
+container, app running as the least-privilege role with RLS live.
+
+### A1's 32× did not reproduce, and finding out why found a second defect
+
+Section A1's decisive experiment measured the metric predicate at 1,530.5 ms → 47.5 ms.
+Adding that predicate to the shipped code gave **15,363.0 → 1,517.1 ms** — a tenth of the
+predicted improvement, and still 15× over budget. The predicate was not wrong; it was
+half of the problem.
+
+Twenty consecutive `days=365` calls, predicate in place:
+
+```
+calls  1-10     83 -  90 ms      custom plan
+calls 11-20   1506 -1530 ms      generic plan
+```
+
+psycopg PREPAREs a statement after `prepare_threshold` (5) executions on a pooled
+connection, and PostgreSQL's `plan_cache_mode = auto` then promotes it to a **generic
+plan** — one built without the parameter values. This query cannot survive that: the
+planner has to see the `unnest` arrays to know there are 365 windows and to prune the
+hypertable's chunks against the outer `ts` bound. `force_custom_plan` held all twenty
+calls at 82-127 ms; `force_generic_plan` held all twenty at 1,503-1,559 ms.
+
+**That reconciles the audit's own two readings.** 47.5 ms was measured on a fresh cursor
+(a custom plan) and 16,556 ms through a warm pool (a generic one). Both were honest
+readings of the same statement, and the difference between them was never the predicate.
+The fix is the predicate *and* `prepare=False`; the predicate is still worth having on
+its own, because it cuts the statement's buffer reads 133,193 → 5,476 (24×) whichever
+plan PostgreSQL picks.
+
+### Section E's index gap does not need closing — measured, not reasoned
+
+Section E said the `sample (user_id, ts)` gap was worth closing "**only if** the metric
+predicate does not close it first". It was built and measured, with and without the
+predicate, on the app role with RLS live: **the plan, the buffer counts and the times
+were identical to three significant figures in every combination**, at 27 MB per year of
+samples. No migration was written.
+
+### B4's byte figure is confirmed; its latency is not fixed
+
+The 28,800-point track was synthesised, so the SUSPECTED byte figure is now CONFIRMED at
+2,282,548 bytes. Thinning the map's points to 2,000 (`RouteMap.maxDrawnPoints`, the app's
+own constant — it was already discarding ~26,800 of the points it downloaded) takes that
+to 158,913. **The latency does not move and the endpoint is still outside p95 < 100 ms at
+that cap.** Serialising was never the cost: loading 28,800 rows, a DEM lookup per point,
+an interpolated heart rate per point and a segment walk for pace all happen before
+anything can thin the result. Moving the bound into `_load_points` would fix it and was
+refused: every summary figure is computed over the points that were loaded, so a strided
+load would silently change the distance, moving time, pace and elevation the endpoint
+reports — a science change, which `CLAUDE.md` requires be its own PR.
+
+Bounding that array also reached the app, which is the part worth remembering. It printed
+`Phone GPS · ${route.points.length} fixes` and counted matched heart-rate points off the
+same array — correct only while the array was the whole track. Left alone, the
+performance fix would have described a 28,800-fix run to the person who made it as a
+2,000-fix one. The summary now carries `n_hr_points` beside `n_points` (both over every
+fix) plus `points_returned` and `points_decimated`, and the app reads its counts from
+there.
+
+### C1's repeat count, re-measured
+
+B1's fix removed the doubled `vo2max_payload`. **One same-arguments repeat remains** on
+`/api/activity` and was left: `weekly_mvpa_rows` is read by both `mvpa_payload` (a fixed
+8-day window) and `fitness_plan._week_to_date_mvpa` (week to date), whose windows differ
+on six days in seven and coincide on the seventh. Folding them means deciding which
+module owns the week's moderate/vigorous split — a definition question, not a performance
+one. C1's other entries (`/api/entitlement`'s four transactions, `/api/today`'s illness
+double-read) were not in this job's worklist and are untouched.
+
+### B3: what was taken, and what was refused
+
+Profiling `correlate` found the largest single cost is not a statistical kernel:
+`stats.aligned_pairs` was **0.464 s of the step's 1.044 s at four years — 44%, more than
+all of scipy together**. Two loop-invariants came out of its body (a `timedelta`
+constructed on every one of ~1.2 million iterations, and a double dict probe), and
+`notes_for` is memoised. 774 findings before and after.
+
+The statistics are untouched: no test dropped, no threshold moved, no sampling, no
+approximation. `tests/analytics/test_aligned_pairs_equivalence.py` holds the pre-change
+loop verbatim and asserts the two agree element for element and in order across lags,
+densities, disjoint and empty series, and a legitimate `0.0`. Nothing moved into SQL
+(31-44 ms of a 240-422 ms wall is the database) and the owner sweep stays serial. The
+`O(metrics² × lags × history)` shape is now in `correlations.py`'s module docstring with
+the measured table, so the next metric added is a priced decision — about 90 more tests.

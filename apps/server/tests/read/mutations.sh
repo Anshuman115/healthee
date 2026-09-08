@@ -1336,19 +1336,45 @@ mutate 'the arrival gate loses its lower bound' \
   'WHERE user_id = %s AND ts >= %s AND ts < %s)' \
   'WHERE user_id = %s AND %s IS NOT NULL AND %s IS NOT NULL)'
 
+# The strap-off fallback is always on, so any post-midnight sample answers for a
+# night that has not happened. THE 00:53 bug, restored inside the gate that fixed
+# it, and invisible to every test that only ever seeds a sleep session.
+mutate 'the night requirement is dropped — any of the day data will do' \
+  "$GATE" src/healthee/jobs/data_gate.py \
+  'OR (%s AND EXISTS (SELECT 1 FROM sample' \
+  'OR (%s IS NOT NULL AND EXISTS (SELECT 1 FROM sample'
+
+# A nap counts as the night.
+mutate 'a nap announces that the night has arrived' \
+  "$GATE" src/healthee/jobs/data_gate.py \
+  "WHERE user_id = %s AND kind = 'main'" \
+  'WHERE user_id = %s AND %s IS NOT NULL'
+
+# The sweep always allows the nightless fallback, so 10:30 never waits for sleep.
+mutate 'the sweep always allows the nightless fallback' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '            without_night = is_due(local, self._sleep_fallback)' \
+  '            without_night = True'
+
+# ...and the mirror: it never allows it, so a strap-off night costs the whole day.
+mutate 'the nightless fallback never opens' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '            without_night = is_due(local, self._sleep_fallback)' \
+  '            without_night = False'
+
 # The upper bound goes closed, so the first instant of tomorrow answers for today.
 mutate 'the day bracket stops being half-open' \
   "$GATE" src/healthee/jobs/data_gate.py \
-  'WHERE user_id = %s AND end_ts >= %s AND end_ts < %s)' \
-  'WHERE user_id = %s AND end_ts >= %s AND end_ts <= %s)'
+  '                  AND end_ts >= %s AND end_ts < %s)' \
+  '                  AND end_ts >= %s AND end_ts <= %s)'
 
 # A night is judged by when it STARTED. An ordinary night starts on the previous
 # local day, so last night's sleep stops opening this morning's gate — the fix
 # failing shut, which is quieter than failing open and just as wrong.
 mutate 'the night is dated by when it started, not when it ended' \
   "$GATE" src/healthee/jobs/data_gate.py \
-  'WHERE user_id = %s AND end_ts >= %s AND end_ts < %s)' \
-  'WHERE user_id = %s AND start_ts >= %s AND start_ts < %s)'
+  '                  AND end_ts >= %s AND end_ts < %s)' \
+  '                  AND start_ts >= %s AND start_ts < %s)'
 
 # There is deliberately NO mutation for the "query returned no row" branch. It
 # raises, and it is unreachable — `SELECT EXISTS(...) OR EXISTS(...)` always
@@ -1360,22 +1386,22 @@ mutate 'the night is dated by when it started, not when it ended' \
 # The sweep stops consulting the gate at all: back to firing on the clock alone.
 mutate 'the sweep stops consulting the arrival gate' \
   "$SWEEP" src/healthee/jobs/scheduler.py \
-  '            if not self._gate(tenant.id, day, tenant.tz):' \
+  '            if not self._gate(tenant.id, day, tenant.tz, without_night):' \
   '            if False:'
 
 # The gate is asked about YESTERDAY, which the strap always has — so it is open
 # every morning regardless of whether anything has arrived for today.
 mutate 'the gate is asked about the wrong day' \
   "$SWEEP" src/healthee/jobs/scheduler.py \
-  '            if not self._gate(tenant.id, day, tenant.tz):' \
-  '            if not self._gate(tenant.id, date.fromordinal(day.toordinal() - 1), tenant.tz):'
+  '            if not self._gate(tenant.id, day, tenant.tz, without_night):' \
+  '            if not self._gate(tenant.id, date.fromordinal(day.toordinal() - 1), tenant.tz, without_night):'
 
 # The owner's zone stops reaching the gate, so every owner's day is bracketed in
 # somebody else's — off by up to 25 hours at the edges.
 mutate 'the gate is asked in the wrong timezone' \
   "$SWEEP" src/healthee/jobs/scheduler.py \
-  '            if not self._gate(tenant.id, day, tenant.tz):' \
-  '            if not self._gate(tenant.id, day, "UTC"):'
+  '            if not self._gate(tenant.id, day, tenant.tz, without_night):' \
+  '            if not self._gate(tenant.id, day, "UTC", without_night):'
 
 # A shut gate charges the retry budget, so an owner who syncs at lunchtime finds
 # their three attempts already spent on the morning they had not synced yet.
@@ -1401,6 +1427,154 @@ mutate 'a day nothing arrived for is never reported' \
             return' \
   '        if True:
             return'
+# ── L1 · PERF_AUDIT A1 ──────────────────────────────────────────────────────
+# The performance predicate and the reported metrics drift apart. `skin_temp_c`
+# is still averaged by its own CASE expression in the SELECT, so the query still
+# LOOKS right — it is simply never read, and a measured night ships
+# `skin_temp_c: null`, which this payload's own convention means "the strap did
+# not measure it". The narrowing that made the endpoint affordable is the same
+# narrowing that can silence a metric.
+PHYSIOLOGY=tests/read/test_sleep_physiology.py
+
+mutate 'the physiology read drops a metric it still reports' \
+  "$PHYSIOLOGY" src/healthee/read/sleep_page.py \
+  'PHYSIOLOGY_METRICS = ("spo2", "respiratory_rate", "skin_temp_c")' \
+  'PHYSIOLOGY_METRICS = ("spo2", "respiratory_rate")'
+
+# ── L2 · PERF_AUDIT B1 ──────────────────────────────────────────────────────
+# The 96-point trend comes back as a second copy on the same response. The
+# pointer stays, so the payload looks MORE complete than the fixed one — which
+# is why the guard compares VALUES rather than checking a key name.
+ACTIVITY_DUP=tests/read/test_activity_no_duplicate_trend.py
+
+mutate 'the fitness plan carries its own copy of the trend again' \
+  "$ACTIVITY_DUP" src/healthee/read/fitness_plan.py \
+  '        "trend_source": _TREND_SOURCE,' \
+  '        "trend_source": _TREND_SOURCE,
+        "trend_90d": vo.get("trend_90d") or [],'
+
+# The pointer names a key that is not there. It reads perfectly in a diff and
+# resolves to nothing — the alias failure A4 above is about, one block over.
+mutate 'the trend pointer names a key nothing publishes' \
+  "$ACTIVITY_DUP" src/healthee/read/fitness_plan.py \
+  '_TREND_SOURCE = "vo2max.trend_90d"' \
+  '_TREND_SOURCE = "vo2max.trend"'
+
+# The block is built a second time instead of taken from the caller — the defect
+# itself. Every value on the wire is identical, so only the statement count says.
+mutate 'the fitness plan rebuilds the vo2max block it was handed' \
+  "$ACTIVITY_DUP" src/healthee/read/fitness_plan.py \
+  '    vo = vo2max' \
+  '    from healthee.read.vo2max import vo2max_payload
+
+    vo = vo2max_payload(cur, user_id, tz, as_of)'
+
+# ── L3 · PERF_AUDIT B2 ──────────────────────────────────────────────────────
+# The per-item round-trip comes back. Every row it writes is identical, so no
+# assertion about CONTENT can see it — which is exactly how the loop survived a
+# suite that already covered what this function writes.
+ROUND_TRIPS=tests/analytics/test_finding_round_trips.py
+
+mutate 'persisting findings goes back to one round-trip each' \
+  "$ROUND_TRIPS" src/healthee/analytics/finding.py \
+  '        cur.executemany(_INSERT_SQL + _UPSERT_TAIL, [_params(user_id, f) for f in findings])' \
+  '        for f in findings:
+            cur.execute(_INSERT_SQL + _UPSERT_TAIL, _params(user_id, f))'
+
+# The DELETE goes with it, so a pattern that no longer reaches significance
+# lingers as stale advice — the replace-don't-upsert contract, defeated while
+# every row still looks right.
+mutate 'replacing a kind stops clearing what it replaces' \
+  "$ROUND_TRIPS" src/healthee/analytics/finding.py \
+  '        cur.execute("DELETE FROM finding WHERE user_id = %s AND kind = %s", (user_id, kind))' \
+  '        pass'
+
+# ── L4 · PERF_AUDIT B4 ──────────────────────────────────────────────────────
+# The three client-supplied bounds go back to reaching the SQL raw.
+READ_BOUNDS=tests/read/test_read_bounds.py
+
+mutate 'the outcome ledger takes the client its limit' \
+  "$READ_BOUNDS" src/healthee/challenges/ledger.py \
+  '    cur.execute(query, (user_id, max(1, min(limit, MAX_RECENT_OUTCOMES))))' \
+  '    cur.execute(query, (user_id, limit))'
+
+# The `LIMIT 80` still bounds the ANSWER, so every row is identical and only the
+# size of the SCAN changes — which is why this is asserted on the parameter.
+mutate 'the log feed takes the client its day window' \
+  "$READ_BOUNDS" src/healthee/read/logs.py \
+  '        (user_id, max(1, min(days, MAX_LOG_DAYS))),' \
+  '        (user_id, days),'
+
+# The comparison inverts, so a long track ships every fix — 2.28 MB at the
+# ingest cap, on an endpoint with a p95 < 100 ms budget — and a short one gets
+# padded out to the cap it was never near.
+mutate 'the route detail thins the wrong tracks' \
+  "$READ_BOUNDS" src/healthee/read/gps.py \
+  '    if len(points) <= MAX_MAP_POINTS:' \
+  '    if len(points) >= MAX_MAP_POINTS:'
+
+# The recorded count follows the thinning, so a 5,003-fix run is described to
+# its owner as a 2,000-fix one. Every number on the wire still looks plausible.
+mutate 'the fix count describes the response instead of the run' \
+  "$READ_BOUNDS" src/healthee/read/gps.py \
+  '    detail["summary"]["points_returned"] = len(detail["points"])' \
+  '    detail["summary"]["n_points"] = len(detail["points"])
+    detail["summary"]["points_returned"] = len(detail["points"])'
+
+# The flag stops firing, so a thinned response is indistinguishable from a short
+# run — and the app has no way to caption the difference.
+mutate 'a thinned track stops saying it was thinned' \
+  "$READ_BOUNDS" src/healthee/read/gps.py \
+  '    detail["summary"]["points_decimated"] = len(detail["points"]) < len(points)' \
+  '    detail["summary"]["points_decimated"] = False'
+
+# The matched-heart-rate count is stubbed rather than computed — the shape lands
+# and the value never does, which is exactly how `weekly_mvpa_min` shipped as a
+# hardcoded None. Every track then reads as having no coverage worth naming.
+mutate 'the matched-HR count ships as an unfilled stub' \
+  "$READ_BOUNDS" src/healthee/derive/gps_detail.py \
+  '        "n_hr_points": len(hrs),' \
+  '        "n_hr_points": None,'
+
+# ── L5 · PERF_AUDIT B3 ──────────────────────────────────────────────────────
+# The hoisted lag becomes a constant zero, so every lag-1 correlation is
+# silently computed as a lag-0 one. Every finding still has an effect size, a
+# q-value and a description that SAYS "at d+1" — the number underneath is just
+# answering a different question.
+PAIRS=tests/analytics/test_aligned_pairs_equivalence.py
+
+mutate 'the lag is hoisted out and left behind' \
+  "$PAIRS" src/healthee/analytics/stats.py \
+  '    delta = timedelta(days=lag_days)' \
+  '    delta = timedelta(days=0)'
+
+# The sentinel lookup becomes a truthiness test — the classic wrong way to write
+# this rewrite. A day whose value is a legitimate 0.0 (no MVPA, no alcohol) stops
+# pairing, so the metrics that matter most to a cutoff finding lose exactly the
+# days the finding is about.
+mutate 'a zero-valued day stops pairing' \
+  "$PAIRS" src/healthee/analytics/stats.py \
+  '        vb = lookup(d + delta, missing)
+        if vb is not missing:' \
+  '        vb = lookup(d + delta)
+        if vb:'
+
+# The memo hands out its own list, so one finding sorting or clearing its note
+# ids rewrites every later finding's citations.
+NOTES_CACHE=tests/analytics/test_notes_for_cache.py
+
+mutate 'the note cache hands out the object it is holding' \
+  "$NOTES_CACHE" src/healthee/analytics/notes.py \
+  '    return list(_notes_for(tuple(metrics), tuple(interventions or ()), min_grade))' \
+  '    return _notes_for(tuple(metrics), tuple(interventions or ()), min_grade)  # type: ignore[return-value]'
+
+# The intervention falls out of the cache key, so the first question asked about
+# a metric answers every later one — an event finding cites the notes of whatever
+# was asked first.
+mutate 'the note cache forgets the intervention it was asked about' \
+  "$NOTES_CACHE" src/healthee/analytics/notes.py \
+  '    return list(_notes_for(tuple(metrics), tuple(interventions or ()), min_grade))' \
+  '    return list(_notes_for(tuple(metrics), (), min_grade))'
 
 echo
 echo "caught $PASS, survived $FAIL"

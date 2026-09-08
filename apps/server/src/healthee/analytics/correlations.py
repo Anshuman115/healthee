@@ -10,6 +10,46 @@ The seam fix: every series is read v2-native from ``derived_daily`` /
 ``source='zepp_cloud'`` filter, no v1 metric names). Findings persist to the
 ``finding`` table via ``finding``. Classical stats at our scale (≈100 days, ~100
 pairs) — no ML.
+
+## What this step costs, so the next metric added is a priced decision
+
+Measured (`PERF_AUDIT.md` B3, re-measured after that audit's fixes):
+
+===============  ============  ===========  ==========  =========
+history          statements    DB time      wall        findings
+===============  ============  ===========  ==========  =========
+365 days         32            31.2 ms      239.7 ms     774
+1,460 days       32            44.4 ms      422.1 ms     774
+===============  ============  ===========  ==========  =========
+
+Wall is `compute_all_findings` alone, median of three; statements and DB time are
+that plus `persist_findings`, which is one `executemany` of all 774 rows.
+
+Three facts about the shape, and the third is the one that surprises people:
+
+1. **The statement count does not grow with history** — 32 at one year and at
+   four: 24 series reads, 5 event reads, the transaction set-ups, and ONE insert.
+   There is no N+1 here and there never was.
+2. **The database is not the cost.** 31-44 ms of a 240-422 ms wall: ~88% of
+   `correlate` is Python and scipy, so an optimisation aimed at the SQL would be
+   aimed at a tenth of it. `series.daily_series` reads the entire history on
+   purpose and that read is an index scan, 784 buffers, 0.63 ms for four years.
+3. **The work is ``O(metrics² × lags × history)``.** :data:`CORRELATED_METRICS`
+   is 24 (`V2_DAILY_METRICS` 22 + `FLAG_DERIVED_METRICS` 2), which is 24×23
+   ordered pairs; lag 0 is halved and lag 1 is not, giving **828 Spearman
+   tests**, plus 5 event kinds × 24 metrics × 2 lags = **240 Mann-Whitney
+   tests** — 1,068 statistical tests per owner per night, each over the owner's
+   whole history. **Adding one metric to the registry adds ~90 tests**, and adding
+   a third lag adds ~500.
+
+**Owners are serial.** `jobs/scheduler.py`'s sweep loops `active_users()` and runs
+each owner's chain in-process, back to back, in one tick. At the measured ~400 ms
+of `correlate` per owner at four years, 100 owners is ~40 s of one tick. That is
+fine today and it is written down here so nobody later assumes it is parallel.
+
+The largest single cost inside the step is `stats.aligned_pairs` — 44% of it
+before its loop-invariants were hoisted, and still the biggest line afterwards.
+Its docstring carries the numbers and the equivalence test that licensed the change.
 """
 
 from __future__ import annotations

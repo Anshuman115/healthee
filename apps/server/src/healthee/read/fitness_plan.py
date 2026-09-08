@@ -21,7 +21,6 @@ from healthee.core.tenancy import reference_day
 from healthee.derive._common import Cur
 from healthee.derive.freshness import NO_AGE_MEDIAN, withheld_block
 from healthee.read.mvpa_week import weekly_mvpa_rows
-from healthee.read.vo2max import vo2max_payload
 
 # ── The projection, and where every number in it comes from ──────────────────
 #
@@ -55,6 +54,10 @@ _GAIN_GAP_FRACTION = 0.4
 _GAIN_FLOOR_ML_KG_MIN = 2.0
 _GAIN_CAP_ML_KG_MIN = 5.0
 _PROJECTION_WEEKS = 12
+
+# Where this block's trend lives on the SAME response, rather than a second copy of it.
+# Dotted from the payload root, so a client resolves it without knowing this module.
+_TREND_SOURCE = "vo2max.trend_90d"
 
 # The weekly prescription. [[vo2max]] "The raising-VO₂max protocol (polarized)":
 # "**Aerobic base** — ~3 sessions/week, 30-45 min easy/conversational (~60-70% HRmax,
@@ -104,12 +107,28 @@ def projected_gain(current: float, median_for_age: float) -> float:
     return round(min(_GAIN_CAP_ML_KG_MIN, max(_GAIN_FLOOR_ML_KG_MIN, _GAIN_GAP_FRACTION * gap)), 1)
 
 
-def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
+def fitness_plan_payload(
+    cur: Cur, user_id: UUID, tz: str, day: date | None = None, *, vo2max: dict | None
+) -> dict | None:
     """VO2max-raising weekly Rx + a 12-week projected trajectory (an estimate of
     typical response, bounded +2..+5 ml/kg/min, never a promise). [[vo2max]].
 
     Every input is the reference day's: the estimate it starts from, and the
     week-to-date it measures progress against.
+
+    ## ``vo2max`` is REQUIRED, and that is the fix rather than a convenience
+
+    It is the caller's already-built ``vo2max_payload`` block — the same one the
+    response ships under its own key. This function used to call ``vo2max_payload``
+    itself, so ``/api/activity`` built the identical block twice per request: 11 of its
+    22 statements were exact repeats of another statement in the same request, and the
+    96-point ``trend_90d`` travelled twice, byte for byte, at 12,466 of 22,401 bytes —
+    55.6% of the payload (`PERF_AUDIT.md` B1/C1).
+
+    Required, not defaulted, because a default would have been "fetch it yourself" and a
+    caller that forgot would silently get the double read back (`HOW_WE_VERIFY.md`
+    section 3: a required argument beats a remembered rule). ``None`` is a real value
+    here — the owner has no VO2max estimate — not "not supplied".
 
     ## The projection is WITHHELD without an age median, never computed from a stand-in
 
@@ -125,7 +144,7 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = No
     ``withheld`` block, and the weekly Rx, which needs no median, still ships.
     """
     as_of = reference_day(day, tz)
-    vo = vo2max_payload(cur, user_id, tz, as_of)
+    vo = vo2max
     if not vo or vo.get("estimate") is None:
         return None
     cur_vo = float(vo["estimate"])
@@ -164,7 +183,15 @@ def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = No
         },
         # ``vo2max_training_program`` is an ALIAS of ``vo2max`` — see ``read/activity.py``.
         "note_id": "vo2max",
-        "trend_90d": vo.get("trend_90d") or [],
+        # A POINTER, where a 96-point copy of `vo2max.trend_90d` used to be.
+        #
+        # The array is on this same response already, under the key this names, and it
+        # was identical byte for byte — 6,233 bytes of the 22,401 `/api/activity` ships
+        # (`PERF_AUDIT.md` B1). Deleting the key outright would leave a reader of this
+        # block with no way to know the trend exists at all; naming where it lives costs
+        # 34 bytes and says so. No client read this copy: the app parses the trend from
+        # `vo2max.trend_90d` (`data/models/vo2max.dart`) and has no model for this block.
+        "trend_source": _TREND_SOURCE,
     }
 
 

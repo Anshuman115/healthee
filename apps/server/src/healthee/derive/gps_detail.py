@@ -141,6 +141,14 @@ def _detail_summary(
         "ele_min": round(min(eles)) if eles else None,
         "ele_max": round(max(eles)) if eles else None,
         "n_points": len(out),
+        # How many of those fixes got a heart rate off the interpolator. The app states
+        # this number in words — "This route has N matched heart-rate points. A fitness
+        # estimate is withheld until coverage is sufficient." — and used to COUNT IT
+        # ITSELF off the points array. That was correct only while the array was the
+        # whole track; `read/gps.py` now thins it for the map, so the count has to come
+        # from the side that still sees every fix. It is a fact about the recording, not
+        # about the response, and it belongs beside `n_points` for the same reason.
+        "n_hr_points": len(hrs),
         "vo2max": vo2,
     }
 

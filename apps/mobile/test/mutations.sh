@@ -3119,6 +3119,33 @@ mutate 'meditation is drawn from both of its carriers' "$JOURNAL_TEST" "$ROUTINE
   "  static const Set<String> _ownBlock = <String>{'meditation', 'fasting'};" \
   "  static const Set<String> _ownBlock = <String>{};"
 
+# ── C7 — the route counts describe the RUN, not the response ────────────────
+#
+# The server thins a long track for the map (`read/gps.py::MAX_MAP_POINTS`), so
+# `points` is a sample of the recording rather than all of it. Every count this
+# screen shows the owner has to come off the summary, which still counts the
+# whole track. The first two mutations put a count back on the array: nothing
+# throws, every number stays plausible, and a 28,800-fix run is described to the
+# person who ran it as a 2,000-fix one.
+ROUTE_SECTIONS=lib/features/gps/route_detail_sections.dart
+ROUTE_TEST=test/gps/route_screens_test.dart
+
+mutate 'the fix count is taken off the drawn points' "$ROUTE_TEST" "$ROUTE_SECTIONS" \
+  "  final String recorded = 'Phone GPS · \${route.recordedPoints} fixes';" \
+  "  final String recorded = 'Phone GPS · \${route.points.length} fixes';"
+
+mutate 'the matched-HR count is taken off the drawn points' "$ROUTE_TEST" "$ROUTE_SECTIONS" \
+  'body: noFitnessBody(route.matchedHrPoints)' \
+  'body: noFitnessBody(
+        route.points.where((RoutePoint point) => point.hr != null).length,
+      )'
+
+# The server said it thinned and the caption stops saying so, so a sampled
+# drawing is presented as the whole track.
+mutate 'a thinned drawing stops saying it was thinned' "$ROUTE_TEST" "$ROUTE_SECTIONS" \
+  '  if (!route.pointsDecimated) {' \
+  '  if (true) {'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
