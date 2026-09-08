@@ -32,6 +32,7 @@ from healthee.ingest.models import (
     SleepIn,
     WorkoutIn,
 )
+from healthee.ingest.profile_write import write_profile
 
 Cur = Cursor[TupleRow]
 
@@ -220,13 +221,19 @@ def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
 
 
 def upsert_profile(cur: Cur, user_id: UUID, tz: str, profile: ProfileIn) -> None:
-    """Upsert `user_id`'s profile row. `name` is preserved when the push omits it.
+    """Upsert `user_id`'s profile row, preserving every field the push did not send.
 
-    The OWNER is the conflict target (0005 re-keyed the table to `user_id`), which is
-    what makes this write tenant-safe: the old target was `(id)` against the single
-    `id = 1` row, so any owner's push updated the demographics of whoever held that
-    row — B silently overwriting A's height/sex/dob while the row stayed owned by A.
-    Conflicting on the owner means a push can only ever reach that owner's own row.
+    ## What this used to do, and what it cost (audit B2)
+
+    `name` and `srpa` were COALESCEd; `height_cm`, `sex` and `dob` were plainly ASSIGNED.
+    Every field on `ProfileIn` defaults to `None`, so a push whose `profile` block omitted
+    a demographic **erased it** — and `profile` has no history table, so nothing anywhere
+    else holds the owner's date of birth. The docstring here claimed the opposite of what
+    the SQL did.
+
+    `ingest/profile_write.py` now owns the rule and both writers of this table go through
+    it, which is the half that mattered: the profile editor was already careful and the
+    sync could silently undo it.
 
     Weight is handled by `upsert_weight` (it is a time series, not a profile field).
 
@@ -239,20 +246,17 @@ def upsert_profile(cur: Cur, user_id: UUID, tz: str, profile: ProfileIn) -> None
     age); it is NOT `epoch_to_utc`, whose magnitude guess inverts for pre-2001
     birth dates.
     """
-    dob = parse_dob(profile.dob, tz) if profile.dob is not None else None
-    cur.execute(
-        "INSERT INTO profile (user_id, name, height_cm, sex, dob, srpa, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, now()) "
-        "ON CONFLICT (user_id) DO UPDATE SET "
-        "name = COALESCE(EXCLUDED.name, profile.name), height_cm = EXCLUDED.height_cm, "
-        # `srpa` is COALESCEd like `name`, not overwritten like the demographics (#108).
-        # Every existing client builds this payload without the field, so a plain
-        # assignment would let the next routine sync from an un-updated app NULL out an
-        # answer the owner had given — silently withdrawing their own VO₂max. Clearing it
-        # deliberately is not a thing any surface offers, so nothing loses by this.
-        "sex = EXCLUDED.sex, dob = EXCLUDED.dob, "
-        "srpa = COALESCE(EXCLUDED.srpa, profile.srpa), updated_at = now()",
-        (user_id, profile.name, profile.height_cm, profile.sex, dob, profile.srpa),
+    write_profile(
+        cur,
+        user_id,
+        values={
+            "name": profile.name,
+            "height_cm": profile.height_cm,
+            "sex": profile.sex,
+            "dob": parse_dob(profile.dob, tz) if profile.dob is not None else None,
+            "srpa": profile.srpa,
+        },
+        supplied=frozenset(profile.model_fields_set),
     )
 
 

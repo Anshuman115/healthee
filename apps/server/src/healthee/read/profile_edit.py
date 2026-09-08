@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from healthee.core.dob import parse_dob
 from healthee.derive._common import Cur
+from healthee.ingest.profile_write import PROFILE_COLUMNS, write_profile
 from healthee.read.logs import LogRequest, record_log
 
 
@@ -42,29 +43,29 @@ class ProfileEditResult(BaseModel):
 
 
 def edit_profile(cur: Cur, user_id: UUID, edit: ProfileEdit) -> ProfileEditResult:
-    """One atomic, tenant-scoped edit; concurrent partial edits preserve other fields."""
+    """One atomic, tenant-scoped edit; concurrent partial edits preserve other fields.
+
+    The statement itself lives in `ingest/profile_write.py`, because `profile` has a
+    second writer — the strap sync — and the two used to disagree about what an absent
+    field means (audit B2). This one was right and the other one erased demographics, so
+    the fix is one rule rather than a second careful implementation.
+
+    `dob_date` is this model's name for the `dob` column; the translation happens here so
+    the shared writer asks "was `dob` supplied" about one spelling.
+    """
     supplied = edit.model_fields_set
-    cur.execute(
-        "INSERT INTO profile (user_id, name, height_cm, sex, dob, srpa, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, now()) "
-        "ON CONFLICT (user_id) DO UPDATE SET "
-        "name = CASE WHEN %s THEN EXCLUDED.name ELSE profile.name END, "
-        "height_cm = CASE WHEN %s THEN EXCLUDED.height_cm ELSE profile.height_cm END, "
-        "sex = CASE WHEN %s THEN EXCLUDED.sex ELSE profile.sex END, "
-        "dob = CASE WHEN %s THEN EXCLUDED.dob ELSE profile.dob END, "
-        "srpa = CASE WHEN %s THEN EXCLUDED.srpa ELSE profile.srpa END, updated_at = now()",
-        (
-            user_id,
-            edit.name,
-            edit.height_cm,
-            edit.sex,
-            edit.dob_date,
-            edit.srpa,
-            "name" in supplied,
-            "height_cm" in supplied,
-            "sex" in supplied,
-            "dob_date" in supplied,
-            "srpa" in supplied,
+    write_profile(
+        cur,
+        user_id,
+        values={
+            "name": edit.name,
+            "height_cm": edit.height_cm,
+            "sex": edit.sex,
+            "dob": edit.dob_date,
+            "srpa": edit.srpa,
+        },
+        supplied=frozenset(
+            {"dob" if field == "dob_date" else field for field in supplied} & set(PROFILE_COLUMNS)
         ),
     )
     if edit.measured_weight_kg is not None:

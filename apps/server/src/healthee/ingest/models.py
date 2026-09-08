@@ -263,8 +263,16 @@ class DailyTotalIn(BaseModel):
 
 class ProfileIn(BaseModel):
     """The single user's profile. `weight_kg` feeds the one-per-day weight log.
-    All optional — the app only sends a complete profile, but the server upserts
-    whatever is present.
+
+    All optional, and absence is resolved against `model_fields_set`: a field the push
+    OMITS is preserved, a field it sends as an explicit `null` is cleared. That is the
+    one rule the `profile` table has (`ingest/profile_write.py`), shared with the profile
+    editor.
+
+    It used to say *"the app only sends a complete profile, but the server upserts
+    whatever is present"*, which was the opposite of what the SQL did: `height_cm`, `sex`
+    and `dob` were plainly assigned, so a push that omitted one **erased it** — and
+    nothing anywhere else holds the owner's date of birth (audit B2).
 
     `dob` is an ISO `YYYY-MM-DD` string (preferred) or epoch ms anchored at local
     midnight in the owner's timezone (the installed app's contract). It is kept
