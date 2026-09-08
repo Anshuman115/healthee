@@ -13,6 +13,7 @@ from uuid import UUID
 
 from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day
 from healthee.derive._common import Cur
+from healthee.derive.sleep_score import SESSION_SOURCE
 from healthee.read.common import as_of_block
 from healthee.read.findings import sleep_findings
 from healthee.read.health_metrics import sleep_debt_payload
@@ -168,7 +169,7 @@ def _session_nights(sessions: list[tuple]) -> dict[str, dict]:
         night = _stub_night(date_iso)
         night.update(
             {
-                "session_source": "zepp_cloud",
+                "session_source": SESSION_SOURCE,
                 "start_iso": start_ts.isoformat(),
                 "end_iso": end_ts.isoformat(),
                 # TST (v2: no summary blob); null without a breakdown to sum.
@@ -303,7 +304,7 @@ def _naps(cur: Cur, user_id: UUID, tz: str, days: int, as_of: date) -> list[dict
         {
             "start_iso": start_ts.isoformat(),
             "end_iso": end_ts.isoformat(),
-            "source": "zepp_cloud",
+            "source": SESSION_SOURCE,
             "date": local_date.isoformat(),
             # TIME IN BED, under the name this payload already uses for it. This shipped
             # as `duration_min`, the key a NIGHT used for total sleep TIME — so one

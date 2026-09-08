@@ -48,6 +48,24 @@ SLEEP_RECOVERY_CREDIT = 0.5  # surplus sleep repays debt at half value (partial 
 
 _AWAKE_STAGE = 7  # stage type code for "awake" in the hypnogram triples
 
+# WHICH INSTRUMENT recorded the sleep session behind these rows (write-path audit C1).
+#
+# This was the legacy cloud's name — hardcoded on all six rows a night produces, and again
+# at two sites in ``read/sleep_page.py``. A verbatim carry-over from legacy, where sleep
+# genuinely did arrive from that cloud. **In the rebuild there is no such path**: the only
+# writer of the ``sleep_session`` table is ``ingest.upsert.upsert_sleep``, fed by the strap
+# over BLE, and ``tests/derive/test_session_source.py`` asserts that premise rather than
+# trusting the grep that established it.
+#
+# On the product whose premise is that every number names its instrument, a provenance
+# field naming an instrument that did not take the reading is the clearest possible
+# version of the defect — and it is C rather than higher only because nothing renders the
+# string today. That is not a reason to keep it wrong; it is the reason it survived.
+#
+# One constant, three sites, so the payload cannot say two things: ``MEMORY``'s
+# `project_source_naming_cleanup`.
+SESSION_SOURCE = "strap_ble"
+
 
 def _sleep_efficiency(tst_min: int, wake_min: int) -> float:
     """Sleep efficiency from the sleep timeline: asleep / (asleep + awake-in-bed).
@@ -212,7 +230,7 @@ def derive_sleep_score(
         "midpoint_local": mid.isoformat(),
         "midpoint_hr": mid.hour,
         "sri": sri,
-        "session_source": "zepp_cloud",
+        "session_source": SESSION_SOURCE,
     }
     _upsert_daily(cur, user_id, night_date, "sleep_health_score_4dim", score, flags)
     _upsert_daily(cur, user_id, night_date, "sleep_dim_duration", p_dur, flags)
