@@ -76,10 +76,15 @@ def local_date(ts: int, tz: str) -> date:
 
 
 def upsert_samples(cur: Cur, user_id: UUID, samples: list[SampleIn]) -> tuple[int, int]:
-    """Upsert raw time-series points. Returns (accepted, rejected).
+    """Upsert raw time-series points. Returns (stored, rejected).
 
     Unknown metrics are coerce-dropped and counted (not a hard error), matching
     the legacy contract so a newer app adding a metric never 422s its whole push.
+
+    The first number is rows STORED — new or not. Every row here is written; the
+    `ON CONFLICT` branch rewrites an existing sample with the identical value and it is
+    counted the same as a genuinely new one. `IngestSummary.samples_accepted` carries it
+    to the client under a name that reads stronger than it is, and says so (audit D4).
     """
     rows: list[tuple[UUID, datetime, str, float]] = []
     rejected = 0

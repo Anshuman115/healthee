@@ -124,6 +124,27 @@ mutate 'the daily counter is never stored' "$STORE" "$WRITER" \
   '      if (result.dailyTotals case final totals?) {' \
   '      if (result.dailyTotals case final totals? when false) {'
 
+# ── A1: the counter's READ INSTANT is the second measurement on that row ────
+# The phone has always recorded WHEN it asked the strap, and never sent it. The
+# server then substituted the ARRIVAL instant, so the partial-day caveat named
+# the wrong moment — and suppressed itself entirely whenever a push crossed local
+# midnight, which is the normal case. Two mutations, because there are two ways to
+# get this wrong and only one of them looks wrong.
+PUSH_BATCH=lib/data/push/push_batch.dart
+PAYLOAD=test/push/push_payload_test.dart
+
+# 1. The field goes back to not being sent at all — the defect itself.
+mutate 'the read instant is dropped from the wire again' "$PAYLOAD" "$PUSH_BATCH" \
+  "            'read_at': total.readAtMs," \
+  ""
+
+# 2. The subtler one: a plausible instant is sent that is not the reading. This is
+# the failure to avoid — recreating the same lie with a new mechanism — and the
+# payload still looks complete.
+mutate 'the push time is sent as the read instant' "$PAYLOAD" "$PUSH_BATCH" \
+  "            'read_at': total.readAtMs," \
+  "            'read_at': DateTime.now().millisecondsSinceEpoch,"
+
 # ── colour: the legacy hue set, and the mapping every sleep chart shares ────
 HUES=lib/core/theme/instrument_hues.dart
 PALETTE=lib/core/theme/palette.dart

@@ -81,7 +81,18 @@ DeriveTrigger = Callable[[Connection[TupleRow], UUID, str, DerivePlan], None]
 
 
 class IngestSummary(BaseModel):
-    """Counts returned to the app after a push (mirrors the legacy summary)."""
+    """Counts returned to the app after a push (mirrors the legacy summary).
+
+    `samples_accepted` counts rows STORED, new or not (write-path audit D4). It is
+    `len(rows)` from `upsert_samples`: every whitelisted sample in the payload, including
+    the ones the `ON CONFLICT` branch merely rewrote with the identical value. "Accepted"
+    reads as "landed and was new"; it means "was not rejected". The name is on the wire
+    and the client parses it, so it stays; what changed is that both ends now say what it
+    counts, and the client's receipt line reads `stored N` rather than `accepted N`.
+
+    Counting only genuinely-new rows is possible — `RETURNING (xmax = 0)` — and is not
+    worth a returned row per sample on a path with a < 5 s budget, for a summary line.
+    """
 
     samples_accepted: int
     samples_rejected: int

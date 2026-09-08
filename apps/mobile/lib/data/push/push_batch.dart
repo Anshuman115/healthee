@@ -154,6 +154,24 @@ class PushBatch {
             'steps': total.steps,
             'distance_m': total.distanceM,
             'calories': total.calories,
+            // WHEN WE ASKED THE STRAP. This app has always recorded it —
+            // `DeviceTotals.readAtMs`, whose own comment says why ("a counter
+            // read at 09:00 is a claim about nine hours, not about a day") —
+            // and `PushReader.markPushed` keys the pending marker on it so a
+            // newer reading that overlapped a push is not marked sent.
+            //
+            // It was never sent. The server had no field for it and substituted
+            // the ARRIVAL instant, so the partial-day caveat quoted the wrong
+            // moment, and — worse — suppressed itself entirely whenever a push
+            // crossed local midnight, which is the normal case because
+            // auto-sync fires on a foreground transition. The counter is
+            // preferred over the per-minute sum unconditionally, so nine hours
+            // served as a whole day with nothing said (write-path audit A1).
+            //
+            // A server older than `0019` ignores this key (`extra="ignore"`);
+            // a server newer than this app records the read time as UNKNOWN and
+            // says so, rather than inventing one.
+            'read_at': total.readAtMs,
           },
       ],
     };
