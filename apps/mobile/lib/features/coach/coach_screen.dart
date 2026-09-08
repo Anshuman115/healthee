@@ -176,12 +176,14 @@ class CoachBody extends ConsumerWidget {
           child: CoachMeter(entitlement: entitlement, now: now),
         ),
         for (final entry in conversation.entries) CoachEntryView(entry: entry),
-        _tail(
-          started: !conversation.isEmpty,
-          asking: conversation.asking,
-          canAsk: canAsk,
-          ask: ask,
-        ),
+        // Kept on two lines exactly as it was: `test/mutations.sh` anchors a
+        // guard on this call's `canAsk: canAsk, ask: ask),` text, and a reflow
+        // silently un-anchors it — the stale patch then runs the UNMUTATED
+        // suite and reports a pass (HOW_WE_VERIFY section 2).
+        // dart format off
+        _tail(started: !conversation.isEmpty, asking: conversation.asking,
+            canAsk: canAsk, ask: ask),
+        // dart format on
         if (canAsk) ...<Widget>[
           CoachComposer(
             asking: conversation.asking,
