@@ -17,10 +17,30 @@
 ///
 /// Pure functions, tested directly. Pumping a widget to read the wording back
 /// would be testing the layout — and the layout is not what could be wrong here.
+///
+/// ## THERE ARE TWO COMPOSERS AND THIS FILE NAMES BOTH
+///
+/// It used to name one. `shared/findings_section.dart::findingHeadline` serves
+/// Insights and Sleep; `features/today/widgets/insights_section.dart::describeFinding`
+/// serves the **home screen**, which is the surface the original defect was on. Every
+/// assertion below ran against the first while the second went on printing
+/// `description_raw` as its headline — a test that goes green having exercised
+/// something adjacent, which `docs/HOW_WE_VERIFY.md` section 2 calls the fictional
+/// mutation's cousin.
+///
+/// So the wording rules are asserted over a LIST of composers rather than against one
+/// name, and [_surfaces] is that list. A third composer is one line here on the day it
+/// is written, which is the only version of this guard that cannot rot the same way.
+///
+/// The fixture matters as much as the target: the original test's finding was a
+/// pairwise one with `metricB` set, so the fallback branch — the branch that printed
+/// the raw string — was never entered by either function. [_event] and [_lonely] are
+/// that branch.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/models/finding.dart';
+import 'package:healthee/features/today/widgets/insights_section.dart';
 import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/format/metric_names.dart';
 
@@ -39,6 +59,75 @@ const Finding _live = Finding(
   researchNoteIds: <String>['hrv_recovery_marker'],
 );
 
+/// The event finding the raw string reached the home screen on. `metric_b` is null
+/// for every `event_effect` and `personal_cutoff` finding, which is the branch both
+/// composers fall into and the one that used to print `description_raw` verbatim.
+const Finding _event = Finding(
+  kind: 'event_effect',
+  metricA: 'sleep_health_score_4dim',
+  metricB: null,
+  eventKind: 'caffeine',
+  description:
+      'caffeine days vs others (same day, sleep_health_score_4dim): '
+      'rank-biserial r=-0.42 (p=0.031, n_event=12, n_other=45)',
+  effectSize: -0.42,
+  effectMetric: 'rank_biserial',
+  qValue: 0.031,
+  nSamples: 57,
+  lagDays: 0,
+  researchNoteIds: <String>['caffeine_sleep'],
+);
+
+/// The same branch with no event kind either — nothing structured to say what the
+/// comparison was. The headline must still not fall back to the raw string.
+const Finding _lonely = Finding(
+  kind: 'personal_cutoff',
+  metricA: 'sleep_health_score_4dim',
+  metricB: null,
+  eventKind: null,
+  description:
+      'Spearman(caffeine, sleep_health_score_4dim) = -0.42 over 57 days (p=0.031)',
+  effectSize: -0.42,
+  effectMetric: 'rho',
+  qValue: 0.031,
+  nSamples: 57,
+  lagDays: 0,
+  researchNoteIds: <String>[],
+);
+
+/// **Every function that composes an owner-facing headline from a [Finding].**
+///
+/// The list IS the guard. Naming one of two is how the raw statistic reached the home
+/// screen for a second time while a test called THE RAW SPEARMAN STRING NEVER REACHES
+/// THE SURFACE went green.
+final List<({String name, String Function(Finding) compose})> _surfaces =
+    <({String name, String Function(Finding) compose})>[
+      (name: 'shared/findings_section.dart::findingHeadline', compose: findingHeadline),
+      (
+        name: 'features/today/widgets/insights_section.dart::describeFinding',
+        compose: (finding) => describeFinding(finding).headline,
+      ),
+    ];
+
+/// The finding shapes every composer is asserted over. The two one-metric shapes are
+/// the branch the original fixture never entered.
+final List<({String shape, Finding finding})> _shapes =
+    <({String shape, Finding finding})>[
+      (shape: 'a pairwise finding', finding: _live),
+      (shape: 'an event finding', finding: _event),
+      (shape: 'a one-metric finding with no event kind', finding: _lonely),
+    ];
+
+/// Fragments of the server's own debug strings. None may appear on any surface.
+const List<String> _rawFragments = <String>[
+  'Spearman',
+  'rank-biserial',
+  'p=',
+  'n_event',
+  'hrv_sleep_avg',
+  'sleep_health_score_4dim',
+];
+
 /// Verbs and connectives that assert a cause. None may appear on the surface.
 const List<String> _causal = <String>[
   'caused',
@@ -56,6 +145,62 @@ const List<String> _causal = <String>[
 ];
 
 void main() {
+  group('EVERY composer, on every finding shape', () {
+    // The matrix the single-target version of this file did not have: two composers by
+    // three shapes, the two one-metric shapes being the branch that printed the raw
+    // string.
+    for (final surface in _surfaces) {
+      for (final entry in _shapes) {
+        test('${surface.name} · ${entry.shape} · NO RAW SERVER STRING', () {
+          final headline = surface.compose(entry.finding);
+
+          for (final fragment in _rawFragments) {
+            expect(
+              headline,
+              isNot(contains(fragment)),
+              reason:
+                  '"$fragment" comes out of the server\'s own debug string — '
+                  '${surface.name} is composing from description_raw',
+            );
+          }
+          // Not merely "does not contain it": the whole headline must not BE it.
+          expect(headline, isNot(equals(entry.finding.description)));
+        });
+
+        test('${surface.name} · ${entry.shape} · NOT CAUSAL', () {
+          final headline = surface.compose(entry.finding).toLowerCase();
+          for (final verb in _causal) {
+            expect(
+              headline,
+              isNot(contains(verb)),
+              reason: '"$verb" asserts a cause; this is an observational n-of-1',
+            );
+          }
+        });
+      }
+    }
+
+    test('an event finding names the event, from the structured field', () {
+      // `event_kind` was parsed by both models and used by one. This is the sentence
+      // that exists precisely so the raw string is never needed.
+      expect(
+        describeFinding(_event).headline,
+        'Your sleep health on caffeine days, against your other days.',
+      );
+      expect(
+        findingHeadline(_event),
+        'Your sleep health on caffeine days, against your other days',
+      );
+    });
+
+    test('with no event kind the sentence says only what is known', () {
+      expect(
+        describeFinding(_lonely).headline,
+        'Your sleep health, on the days it was recorded.',
+      );
+    });
+  });
+
   group('the headline is a sentence in the owner\'s language', () {
     test('THE RAW SPEARMAN STRING NEVER REACHES THE SURFACE', () {
       final surface = '${findingHeadline(_live)} ${findingWindow(_live)}';

@@ -190,6 +190,101 @@ def test_a_target_device_token_survives_the_claim(claimable: None) -> None:  # n
     assert row[0] == TARGET
 
 
+# ── entitlement: granted before the claim (C1) ─────────────────────────────────
+
+
+def _grant(cur, user_id: UUID) -> None:
+    """Comp `user_id`, the way `db/grant_premium.py` does — an upsert on the PK."""
+    cur.execute(
+        "INSERT INTO subscription (user_id, status, plan, current_period_end, granted_by) "
+        "VALUES (%s, 'active', 'c1-test', now() + interval '1 year', %s) "
+        "ON CONFLICT (user_id) DO UPDATE SET plan = EXCLUDED.plan, "
+        "granted_by = EXCLUDED.granted_by",
+        (user_id, MARK),
+    )
+
+
+def test_an_entitled_target_is_not_refused_as_owning_health_data(
+    claimable: None,  # noqa: ARG001
+) -> None:
+    """The C1 sequence, end to end: sign in, get comped, then claim.
+
+    `grant_premium` requires an `app_user` row, so a grant BEFORE the claim is the
+    natural order — and it used to make the claim refuse forever, with the wrong
+    diagnosis: it told the operator their target owned health data when the only row
+    they owned was an entitlement. There was no shipped way back, either: `--revoke`
+    writes `status = 'canceled'` through the same upsert and nothing deletes the row.
+    """
+    with admin_connection() as conn, conn.cursor() as cur:
+        _grant(cur, TARGET)
+
+    claim_sentinel.claim(TARGET, apply=True)  # must not raise
+
+    with admin_connection() as conn, conn.cursor() as cur:
+        assert not any(_owned(cur, SENTINEL_USER_ID).values())
+        cur.execute("SELECT plan FROM subscription WHERE user_id = %s", (TARGET,))
+        row = cur.fetchone()
+    assert row is not None, "the target's entitlement was cascade-deleted by the re-key"
+    assert row[0] == "c1-test", "the sentinel's row survived instead of the target's own"
+
+
+def test_health_data_still_refuses_even_beside_an_entitlement(
+    claimable: None,  # noqa: ARG001
+) -> None:
+    """The refusal is narrowed, not removed — one derived row still stops the claim."""
+    with admin_connection() as conn, conn.cursor() as cur:
+        provision(cur, OCCUPIED, "occupied@example.test", TARGET_TZ)
+        _grant(cur, OCCUPIED)
+        cur.execute(
+            "INSERT INTO derived_daily (user_id, day, metric, value) VALUES (%s, %s, %s, 9) "
+            "ON CONFLICT DO NOTHING",
+            (OCCUPIED, DAY, MARK),
+        )
+
+    with pytest.raises(ClaimRefusedError, match="already owns data"):
+        claim_sentinel.claim(OCCUPIED, apply=True)
+
+
+def test_the_superseded_entitlement_is_announced_before_apply(
+    claimable: None,  # noqa: ARG001
+) -> None:
+    """One row per owner, so one is dropped — and the operator is told which, first.
+
+    `subscription.user_id` is the PRIMARY KEY: the two rows cannot be merged and the
+    target's wins. Silently is the one way that must not happen, so the dry run carries
+    the flag and `_report` prints it.
+    """
+    with admin_connection() as conn, conn.cursor() as cur:
+        _grant(cur, TARGET)
+
+    dry = claim_sentinel.claim(TARGET)
+    assert dry is not None and dry.entitlement_superseded is True
+
+    with admin_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM subscription WHERE user_id = %s", (SENTINEL_USER_ID,))
+        assert (cur.fetchone() or (0,))[0] == 1, "the dry run changed something"
+
+
+def test_the_sentinels_entitlement_still_moves_when_the_target_has_none(
+    claimable: None,  # noqa: ARG001
+) -> None:
+    """The unchanged case, kept honest: an owner's entitlement rides the re-key.
+
+    Nothing about C1 may take away the thing the sentinel was paying for — the
+    `_NON_HEALTH_TABLES` split exists precisely so `subscription` stays a tenant table
+    the tool moves and reports, and only stops being a reason to refuse.
+    """
+    dry = claim_sentinel.claim(TARGET)
+    assert dry is not None
+    assert dry.counts.get("subscription") == 1, "the plan stopped reporting the entitlement"
+    assert dry.entitlement_superseded is False
+
+    claim_sentinel.claim(TARGET, apply=True)
+    with admin_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM subscription WHERE user_id = %s", (TARGET,))
+        assert (cur.fetchone() or (0,))[0] == 1
+
+
 # ── refusals + idempotence ─────────────────────────────────────────────────────
 
 

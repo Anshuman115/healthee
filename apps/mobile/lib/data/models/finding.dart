@@ -149,8 +149,15 @@ class FindingPoint {
   ///
   /// All-or-nothing on purpose: a pair with one value is not a point, and
   /// defaulting the absent half to zero would put a dot on the axis that no day
-  /// produced. Dropping it is the only honest reading, and the server's
-  /// `points_n` is what tells the screen how many survived.
+  /// produced. Dropping it is the only honest reading.
+  ///
+  /// **The count the screen shows is its OWN**, not the server's `points_n`. This
+  /// docstring used to say the opposite, and nothing parsed `points_n` at all —
+  /// `finding_detail_parts.dart` counts `finding.points.length`. That is the stricter
+  /// and more honest figure, because it is the number actually plotted after this
+  /// function drops the half-pairs; `points_n` is what the server shipped before they
+  /// were dropped. The field stays on the wire and unparsed on purpose (audit D9), and
+  /// what was wrong was a docstring telling a reader an inert field was load-bearing.
   static FindingPoint? maybe(Map<String, Object?> json) {
     final a = (json['a'] as num?)?.toDouble();
     final b = (json['b'] as num?)?.toDouble();

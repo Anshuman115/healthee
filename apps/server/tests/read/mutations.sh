@@ -315,14 +315,18 @@ mutate 'the 30-day window is 36 days again' \
 # half-distance, so the z is finite and everything downstream looks healthy.
 mutate 'two days of resting heart rate publish a direction' \
   "$SEVERITY_A" src/healthee/read/recovery_signals.py \
-  '    if b.median is None or not b.robust_sd or b.n < _SIGNAL_MIN_DAYS:
-        return None
+  '    if b.median is None or b.n < _SIGNAL_MIN_DAYS:
+        return Unplaced(name, SHORT_HISTORY)
+    if not b.robust_sd:
+        return Unplaced(name, FLAT_HISTORY)
     z = (value - b.median) / b.robust_sd
     direction = (
         "favorable"
         if z < -_AUTONOMIC_FAVORABLE_Z' \
-  '    if b.median is None or not b.robust_sd:
-        return None
+  '    if b.median is None:
+        return Unplaced(name, SHORT_HISTORY)
+    if not b.robust_sd:
+        return Unplaced(name, FLAT_HISTORY)
     z = (value - b.median) / b.robust_sd
     direction = (
         "favorable"
@@ -1195,6 +1199,121 @@ mutate 'a counter running backwards goes unrecorded' \
   '        if incoming[day] < 0:'
 
 
+# ── K1 · B1 ─────────────────────────────────────────────────────────────────
+# The nightly chain marks the day done on `correlate` alone again. This IS the
+# defect: `illness` fails, the day is recorded as run, and nothing retries it —
+# and `derive_illness_flag` is not in `derive_batch`, so `rederive` cannot get it
+# back. The mutation is deliberately the exact code that shipped.
+CHAIN_MARK=tests/jobs/test_chain_mark_on_failure.py
+
+mutate 'a failed step is marked done on correlate alone' \
+  "$CHAIN_MARK" src/healthee/jobs/chain.py \
+  '    if _nothing_failed(steps):
+        _mark_chain_done(user_id, day)' \
+  '    if correlate.status == "ok":
+        _mark_chain_done(user_id, day)'
+
+# The rule stays, but the mark moves back above the last step — so a briefing
+# failure becomes unretryable BY CONSTRUCTION, whatever the rule says.
+mutate 'the chain marks the day before its last step runs' \
+  "$CHAIN_MARK" src/healthee/jobs/chain.py \
+  '    steps.append(_briefing_step(day, user_id, tz, client=client, premium=premium))
+    # LAST, and only on a clean run.' \
+  '    if _nothing_failed(steps):
+        _mark_chain_done(user_id, day)
+    steps.append(_briefing_step(day, user_id, tz, client=client, premium=premium))
+    # LAST, and only on a clean run.'
+
+# A skip is read as a failure, so a free owner's chain never marks and re-enters
+# every five minutes for the rest of their day.
+mutate 'a skipped step counts as a failure' \
+  "$CHAIN_MARK" src/healthee/jobs/chain.py \
+  '    return all(step.status != "failed" for step in steps)' \
+  '    return all(step.status == "ok" for step in steps)'
+
+# ── K2 · C1 ─────────────────────────────────────────────────────────────────
+# An entitlement row makes the claim refuse again, with the wrong diagnosis: the
+# operator is told their target owns health data when it owns none.
+CLAIM_TEST=tests/db/test_claim_sentinel.py
+
+mutate 'an entitlement row is read as owned health data' \
+  "$CLAIM_TEST" src/healthee/db/claim_sentinel.py \
+  '_NON_HEALTH_TABLES = _NON_TENANT_TABLES | {"subscription"}' \
+  '_NON_HEALTH_TABLES = _NON_TENANT_TABLES | set()'
+
+# The target's entitlement stops being parked, so step 2's ON DELETE CASCADE
+# takes it — silently, exactly as it would have taken their device token.
+mutate 'the claim lets the cascade eat the target entitlement' \
+  "$CLAIM_TEST" src/healthee/db/claim_sentinel.py \
+  '    if _has_subscription(cur, claim_plan.target):' \
+  '    if not _has_subscription(cur, claim_plan.target):'
+
+# ── K3 · C2 ─────────────────────────────────────────────────────────────────
+# Today's briefing goes out stamped with whatever day it was handed — the
+# stale-as-current lie on the one channel with no other date beside it.
+BRIEFING_DAY=tests/jobs/test_briefing_day.py
+
+mutate 'the briefing stamps a day its content never answered for' \
+  "$BRIEFING_DAY" src/healthee/jobs/briefing.py \
+  '    if day is not None and day != today:' \
+  '    if day is not None and day == today:'
+
+# ── K4 · C3 ─────────────────────────────────────────────────────────────────
+# The 60-day cooldown goes back to reading a 50-row tail, so an abandonment under
+# deep history reads as never abandoned and the metric is re-offered.
+COOLDOWN=tests/challenges/test_abandon_cooldown_window.py
+
+mutate 'the abandon cooldown reads a row tail instead of its own window' \
+  "$COOLDOWN" src/healthee/challenges/levers.py \
+  '    for outcome in ledger.since(cur, user_id, window_opens):' \
+  '    for outcome in ledger.recent(cur, user_id, limit=_HISTORY_ROWS):'
+
+# The latest row per metric stops being the deciding one, so a completion after an
+# abandonment no longer clears it.
+mutate 'a later completion stops clearing the cooldown' \
+  "$COOLDOWN" src/healthee/challenges/levers.py \
+  '        decided.add(metric)' \
+  '        decided.discard(metric)'
+
+# ── K5 · D5 ─────────────────────────────────────────────────────────────────
+# The gated-metric refusal goes back to living only in the CLI, so `run` and
+# `rederive_owner` reach the DELETE with it — and every correctly GPS-scored
+# session's row is deleted as "stale".
+PURGE_GATE=tests/db/test_purge_gate.py
+
+mutate 'the gated-metric refusal leaves the delete again' \
+  "$PURGE_GATE" src/healthee/db/stale_derived.py \
+  '    refuse_gated(metrics, gates)
+    cur.execute(' \
+  '    cur.execute('
+
+# ── K6 · D6 ─────────────────────────────────────────────────────────────────
+# The row lock stops locking. `INSERT … ON CONFLICT DO NOTHING` still serializes
+# the FIRST use of a feature, which is exactly why this looks harmless: every
+# call after the row exists races freely.
+ALLOWANCE_LOCK=tests/premium/test_allowance_lock.py
+
+mutate 'the allowance spend stops locking its row' \
+  "$ALLOWANCE_LOCK" src/healthee/core/allowance.py \
+  '_LOCK_SQL = "SELECT value FROM kv WHERE user_id = %s AND key = %s FOR UPDATE"' \
+  '_LOCK_SQL = "SELECT value FROM kv WHERE user_id = %s AND key = %s"'
+
+# ── K7 · D10 ────────────────────────────────────────────────────────────────
+# The recovery ladder goes back to a bare absence, so "not enough of your data
+# yet" reaches the owner as "this is probably a bug on our side".
+SEVERITY_A_RECOVERY=tests/read/test_honesty_severity_a.py
+
+mutate 'the empty recovery ladder stops saying why' \
+  "$SEVERITY_A_RECOVERY" src/healthee/read/recovery_signals.py \
+  '        return _withheld([c for c in candidates if isinstance(c, Unplaced)])' \
+  '        return None'
+
+# The reason survives but stops being per marker, so "which of the three, and
+# why" becomes "something, somewhere".
+mutate 'the withheld ladder stops naming which marker' \
+  "$SEVERITY_A_RECOVERY" src/healthee/read/recovery_signals.py \
+  '            "markers": {u.name: u.reason for u in unplaced},' \
+  '            "markers": {},'
 
 echo
 echo "caught $PASS, survived $FAIL"

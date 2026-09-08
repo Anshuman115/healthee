@@ -87,6 +87,16 @@ _NOT_WRITTEN_BY_THIS_RUN: LiteralString = "derived_at < transaction_timestamp()"
 GATED_METRICS: dict[str, str] = {"vo2max_submax": "--rescore-tracks"}
 
 
+class PurgeRefusedError(Exception):
+    """A purge that would delete correct data — refused beside the DELETE, not above it.
+
+    Lives here rather than in ``db/rederive.py`` for the same reason
+    :data:`GATED_METRICS` does: it is a caveat on the predicate, not a fact about the
+    CLI. ``rederive.main`` catches it alongside its own ``RederiveRefusedError`` so an
+    operator still gets exit 2 and a message rather than a traceback.
+    """
+
+
 def open_gates(*, rescore_tracks: bool) -> frozenset[str]:
     """The compute-once gates a run re-opened, named by the flag that re-opens them.
 
@@ -94,6 +104,24 @@ def open_gates(*, rescore_tracks: bool) -> frozenset[str]:
     to :data:`GATED_METRICS` and a flag name here, and nothing else has to change.
     """
     return frozenset({"--rescore-tracks"}) if rescore_tracks else frozenset()
+
+
+def refuse_gated(metrics: Sequence[str], gates: frozenset[str]) -> None:
+    """Refuse a purge naming a compute-once metric whose gate this run did not re-open.
+
+    ONE definition, called by :func:`purge_stale` (beside the DELETE, where it binds every
+    caller) and by ``db/rederive.purge_metrics`` (at the CLI, where it fires before the
+    re-derive is paid for). It was written out twice for one commit and that is exactly
+    the shape standards section 1 forbids — two copies of a refusal is one copy that can be
+    softened without the other moving.
+    """
+    for metric in metrics:
+        flag = GATED_METRICS.get(metric)
+        if flag is not None and flag not in gates:
+            raise PurgeRefusedError(
+                f"{metric} is scored once and this run did not re-attempt it, so its rows "
+                f"only LOOK stale. Re-run with {flag} to recompute them first, then purge."
+            )
 
 
 def gated_off(gates: frozenset[str]) -> tuple[str, ...]:
@@ -126,7 +154,9 @@ def stale_counts(
     return {row[0]: row[1] for row in cur.fetchall()}
 
 
-def purge_stale(cur: Cur, user_id: UUID, span: DaySpan, metrics: Sequence[str]) -> dict[str, int]:
+def purge_stale(
+    cur: Cur, user_id: UUID, span: DaySpan, metrics: Sequence[str], *, gates: frozenset[str]
+) -> dict[str, int]:
     """Delete the named metrics' stale rows in ``span``; return what actually went.
 
     The counts come from the DELETE's own ``RETURNING`` rather than from a SELECT run
@@ -138,7 +168,24 @@ def purge_stale(cur: Cur, user_id: UUID, span: DaySpan, metrics: Sequence[str]) 
     both ``--purge-stale <metric …>`` and ``--apply`` before it calls this. The guarantee
     here is narrower and structural — it removes only rows whose metric the caller named,
     inside the owner and window it was given.
+
+    ## ``gates`` is REQUIRED, and it is the refusal that used to live in the CLI
+
+    A :data:`GATED_METRICS` name whose gate this run did not re-open would delete rows
+    that are perfectly current — the run simply never re-attempted them. That is the one
+    way this feature can destroy correct data, and the refusal used to sit in
+    ``rederive.purge_metrics``, reachable only through ``main``: ``rederive.run`` and
+    ``rederive_owner`` both take ``purge=`` and ``applying=`` and passed them straight
+    here. A guard one layer away from the thing it guards is a caveat about which door
+    you came in by.
+
+    The argument is required rather than defaulted for the reason ``HOW_WE_VERIFY.md``
+    section 3 gives about ``on_or_before``: a default would have to be "no gates open",
+    which is the safe answer, but a caller that forgot would then be silently refused on
+    a legitimate ``--rescore-tracks`` run and nobody would learn why. Naming it is one
+    word; forgetting it is a compile error.
     """
+    refuse_gated(metrics, gates)
     cur.execute(
         "WITH gone AS ("
         "  DELETE FROM derived_daily "

@@ -191,7 +191,14 @@ def test_two_days_of_resting_heart_rate_publish_no_direction() -> None:
         daily(cur, today - timedelta(days=1), "rhr_daily", 54.0)
         payload = recovery_signals(cur, SENTINEL_USER_ID, SENTINEL_TZ)
 
-    assert payload is None
+    # No ladder — and the block SAYS SO rather than vanishing (audit D10). An absent
+    # block renders as `Withheld(unexplained_absence)` on the phone, i.e. "the server did
+    # not say why … if this persists it is a bug on our side", which is the alarming
+    # reading of an honest wait.
+    assert payload is not None
+    assert payload["signals"] == []
+    assert payload["withheld"]["reason"] == "signals_not_positionable"
+    assert payload["withheld"]["markers"]["Resting HR"] == "short_history"
 
 
 @pytest.mark.usefixtures("db")

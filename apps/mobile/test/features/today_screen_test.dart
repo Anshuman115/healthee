@@ -160,9 +160,20 @@ void main() {
 
       expect(find.text('POSSIBLE EARLY SIGNAL'), findsOneWidget);
       expect(find.textContaining('Possible early signal'), findsOneWidget);
+      // The deltas come from the SERVER's calibrated sentence and only from there —
+      // with the baseline WINDOW named, which `[[respiratory_rate_normal]]` Coach
+      // Directive 1 requires because that note ships three of them. The banner used to
+      // print a second, client-side copy of the same number with the window dropped;
+      // that copy is gone (audit C4) and this asserts the surviving one is the qualified
+      // one, not that a delta appears somewhere.
       expect(
-        find.textContaining('breathing rate +2.4 bpm vs your baseline'),
+        find.textContaining('Breathing rate +2.4 bpm vs your 14-day baseline'),
         findsOneWidget,
+      );
+      expect(
+        find.textContaining('vs your baseline.'),
+        findsNothing,
+        reason: 'the unqualified client-side restatement is back',
       );
       final flagY = tester.getTopLeft(find.text('POSSIBLE EARLY SIGNAL')).dy;
       for (final below in <Finder>[

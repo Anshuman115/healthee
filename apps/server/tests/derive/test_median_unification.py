@@ -159,7 +159,9 @@ def test_the_sleep_signal_baseline_is_the_interpolating_median() -> None:
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         _seed_nights(cur, _NIGHTS_OLDEST_FIRST)
         signal = _sleep_signal(cur, SENTINEL_USER_ID, SENTINEL_TZ, user_today(SENTINEL_TZ))
-    assert signal is not None
+    # A dict, not an `Unplaced`: this seeded night HAS a placeable signal, and the
+    # narrowing is what lets the four assertions below index it.
+    assert isinstance(signal, dict)
     assert signal["value"] == _LAST_NIGHT
     assert signal["baseline"] == _SLEEP_MEDIAN
     assert signal["z"] == pytest.approx(-0.786906, abs=1e-6)

@@ -259,7 +259,15 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
   // Above everything a number can be read from, and absent entirely when the
   // server flagged nothing. See the library docstring.
   if (snapshot?.illnessFlag case final flag?) {
-    sections.add(IllnessBanner(flag: flag));
+    sections.add(
+      IllnessBanner(
+        flag: flag,
+        // The day the payload answers for, so the banner can say when the signal it
+        // is drawing was raised on a different one — the server's window reaches two
+        // days back (A4).
+        viewedDay: snapshot?.asOf?.day,
+      ),
+    );
     sections.gap(PageSpacing.block);
   }
   if (data.serverFailure case final PageSection failure) {

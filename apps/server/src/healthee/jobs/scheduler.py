@@ -71,10 +71,10 @@ _TICK_INTERVAL_S = 300
 
 # How many times ONE owner's chain may be attempted for ONE of their local days.
 #
-# The dedup marker is only set once correlate succeeds (deliberately — see
-# `chain.run_chain`), so a *failing* chain stays unmarked and would otherwise be
+# The dedup marker is only set when NO step failed (deliberately — see
+# `chain._nothing_failed`), so a *failing* chain stays unmarked and would otherwise be
 # retried on every tick for the rest of that owner's day: ~150 identical Telegram
-# alerts, plus a re-sent briefing each time (briefing runs even when correlate fails).
+# alerts, plus a re-sent briefing each time (briefing runs even when a step fails).
 # That is alert fatigue, which silently costs the health surface its meaning. This
 # budget keeps the retry — a transient DB blip at 10:30 must not cost an owner their
 # day — while bounding it. It is NOT idempotence (the marker is); it is a retry

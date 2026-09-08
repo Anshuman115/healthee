@@ -14,6 +14,7 @@ Nothing about the statistics changed in the move. The one addition is
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -92,6 +93,36 @@ _SLEEP_UNFAVORABLE_Z = -1.0
 _AUTONOMIC_FAVORABLE_Z = 0.3
 _AUTONOMIC_UNFAVORABLE_Z = 0.5
 
+# What the owner is told when no marker can be placed on the ladder. Deliberately about
+# WAITING rather than about a fault: every reason below is "not yet", and the whole point
+# of D10 is that this state stopped being reported as a possible bug.
+_WITHHELD_MESSAGE = (
+    "No recovery signal can be placed against your own baseline yet — each one needs "
+    f"{_SIGNAL_MIN_DAYS} days of its own history, and a reading for the day being shown. "
+    "Nothing is wrong; there is not enough of your data yet."
+)
+
+# The three reasons a marker cannot be placed. Named constants so the wire vocabulary is
+# one list rather than string literals in three builders that can drift apart.
+NO_READING = "no_reading"  # nothing measured for this marker on or before the day
+SHORT_HISTORY = "short_history"  # fewer than `_SIGNAL_MIN_DAYS` days behind the baseline
+FLAT_HISTORY = "flat_history"  # a baseline with no spread — a z would divide by zero
+
+
+@dataclass(frozen=True)
+class Unplaced:
+    """One marker that could not be positioned, and the reason it could not.
+
+    A type rather than a bare ``None`` return, because the reason lives INSIDE each
+    builder — only ``_rhr_signal`` knows whether it stopped for want of a reading or for
+    want of history — and a caller that receives ``None`` three times can only guess. The
+    guess is what shipped: the block returned nothing and the client filled in "this is
+    probably a bug on our side".
+    """
+
+    name: str
+    reason: str
+
 
 def recovery_signals(
     cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None = None, day: date | None = None
@@ -116,9 +147,9 @@ def recovery_signals(
         _sleep_signal(cur, user_id, tz, as_of),
         _hrv_signal(cur, user_id, tz, reads, as_of),
     )
-    signals = [s for s in candidates if s]
+    signals = [c for c in candidates if isinstance(c, dict)]
     if not signals:
-        return None
+        return _withheld([c for c in candidates if isinstance(c, Unplaced)])
     favorable = sum(1 for s in signals if s["direction"] == "favorable")
     unfavorable = sum(1 for s in signals if s["direction"] == "unfavorable")
     summary = _summary(signals, favorable, unfavorable)
@@ -129,6 +160,46 @@ def recovery_signals(
         "neutral": len(signals) - favorable - unfavorable,
         "total": len(signals),
         "signals": signals,
+        # Always present, never a bare absence. `read/vo2max.py` established the shape and
+        # `data/honesty/envelope.dart` keys on it: a block carrying a value ships
+        # `withheld: null` so a reader cannot mistake the key's absence for "nothing to
+        # say". See :func:`_withheld`.
+        "withheld": None,
+    }
+
+
+def _withheld(unplaced: list[Unplaced]) -> dict:
+    """The ladder with no rows, and WHY — never a bare ``None`` (audit D10).
+
+    This block used to return ``None`` when no marker could be positioned, and the
+    client's fallback for an absent block is ``Withheld(unexplained_absence)``, which
+    renders *"No value for today, and the server did not say why … if this persists it is
+    a bug on our side"*. The server knew exactly why — usually ``b.n < _SIGNAL_MIN_DAYS``
+    — and did not say, so the honest answer reached the owner as the alarming one. "No
+    data" and "operation failed" are different states and standards section 1 requires a
+    caller to be able to tell them apart.
+
+    The direction was always the safe one (it under-claims), which is why this is hygiene
+    and not an A. What it cost is the distinction.
+
+    Each marker reports its own reason and the block carries all three, rather than
+    inventing a single cause: a ladder can be empty because nothing was measured, or
+    because the history is too short, or both, and those are different waits.
+    """
+    return {
+        "summary": None,
+        "favorable": 0,
+        "unfavorable": 0,
+        "neutral": 0,
+        "total": 0,
+        "signals": [],
+        "withheld": {
+            "reason": "signals_not_positionable",
+            "message": _WITHHELD_MESSAGE,
+            # Per marker, because "which of the three, and why" is what an operator
+            # reading a support question actually needs.
+            "markers": {u.name: u.reason for u in unplaced},
+        },
     }
 
 
@@ -157,19 +228,22 @@ def _summary(signals: list[dict], favorable: int, unfavorable: int) -> str:
 
 def _rhr_signal(
     cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None, as_of: date
-) -> dict | None:
+) -> dict | Unplaced:
     """Resting HR vs personal baseline — LOWER is favourable (Aune 2017)."""
+    name = "Resting HR"
     latest = (
         reads.latest.get("rhr_daily") if reads else latest_derived(cur, user_id, "rhr_daily", as_of)
     )
     if not latest:
-        return None
+        return Unplaced(name, NO_READING)
     value = latest[1]
     b = (reads.baselines.get("rhr_daily") if reads else None) or compute_baseline_cur(
         cur, user_id, tz, "rhr_daily", window_days=30, end_date=as_of
     )
-    if b.median is None or not b.robust_sd or b.n < _SIGNAL_MIN_DAYS:
-        return None
+    if b.median is None or b.n < _SIGNAL_MIN_DAYS:
+        return Unplaced(name, SHORT_HISTORY)
+    if not b.robust_sd:
+        return Unplaced(name, FLAT_HISTORY)
     z = (value - b.median) / b.robust_sd
     direction = (
         "favorable"
@@ -179,7 +253,7 @@ def _rhr_signal(
         else "neutral"
     )
     return {
-        "name": "Resting HR",
+        "name": name,
         "value": value,
         "unit": "bpm",
         "baseline": b.median,
@@ -193,7 +267,7 @@ def _rhr_signal(
     }
 
 
-def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
+def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | Unplaced:
     """The night ending on or before ``as_of`` vs personal usual — Cappuccio 2010
     (v2: TST from sleep_session stage minutes).
 
@@ -203,6 +277,7 @@ def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
     one signal: a night after the day being answered for, compared against a usual that
     includes every night since.
     """
+    name = "Sleep duration"
     ends_before = _day_bounds_utc(as_of, tz)[1]
     cur.execute(
         "SELECT (light_min+deep_min+rem_min) FROM sleep_session "
@@ -211,7 +286,7 @@ def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
     )
     row = cur.fetchone()
     if not row or not row[0]:
-        return None
+        return Unplaced(name, NO_READING)
     today_dur = float(row[0])
     cur.execute(
         "SELECT (light_min+deep_min+rem_min) FROM sleep_session "
@@ -220,7 +295,7 @@ def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
     )
     durs = [float(r[0]) for r in cur.fetchall() if r[0]]
     if len(durs) < _SIGNAL_MIN_DAYS:
-        return None
+        return Unplaced(name, SHORT_HISTORY)
     # The ONE median/MAD (``derive/robust``). This used to take the UPPER-middle value
     # of an even-length window rather than interpolating — not a median, and a second
     # definition of one alongside ``derive/recovery``'s. See that module's baseline.
@@ -240,7 +315,7 @@ def _sleep_signal(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
         else "neutral"
     )
     return {
-        "name": "Sleep duration",
+        "name": name,
         "value": today_dur,
         "unit": "min",
         "baseline": med,
@@ -274,21 +349,24 @@ def _direction_basis(direction: str, population: bool, personal: bool) -> str | 
 
 def _hrv_signal(
     cur: Cur, user_id: UUID, tz: str, reads: TodayReads | None, as_of: date
-) -> dict | None:
+) -> dict | Unplaced:
     """Overnight HRV vs personal usual — HIGHER is favourable (Plews 2013)."""
+    name = "Overnight HRV"
     latest = (
         reads.latest.get("hrv_sleep_avg")
         if reads
         else latest_derived(cur, user_id, "hrv_sleep_avg", as_of)
     )
     if not latest:
-        return None
+        return Unplaced(name, NO_READING)
     value = latest[1]
     b = (reads.baselines.get("hrv_sleep_avg") if reads else None) or compute_baseline_cur(
         cur, user_id, tz, "hrv_sleep_avg", window_days=30, end_date=as_of
     )
-    if b.median is None or not b.robust_sd or b.n < _SIGNAL_MIN_DAYS:
-        return None
+    if b.median is None or b.n < _SIGNAL_MIN_DAYS:
+        return Unplaced(name, SHORT_HISTORY)
+    if not b.robust_sd:
+        return Unplaced(name, FLAT_HISTORY)
     z = (value - b.median) / b.robust_sd
     direction = (
         "favorable"
@@ -298,7 +376,7 @@ def _hrv_signal(
         else "neutral"
     )
     return {
-        "name": "Overnight HRV",
+        "name": name,
         "value": round(value, 1),
         "unit": "ms",
         "baseline": round(b.median, 1),

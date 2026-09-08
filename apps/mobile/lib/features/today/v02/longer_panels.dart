@@ -28,6 +28,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
+import 'package:healthee/data/journal/log_kind.dart';
 import 'package:healthee/data/models/routine.dart';
 import 'package:healthee/data/models/vo2max.dart';
 import 'package:healthee/features/today/today_labels.dart';
@@ -156,6 +157,11 @@ class FitnessPanel extends StatelessWidget {
 }
 
 /// `Daily journal` — what was logged today, counted and not judged.
+///
+/// The counts come from three places and each is drawn once: `workouts` from the strap,
+/// `meditation_today` and `open_fast` from their own keys, and every OTHER manual-entry
+/// kind from `logs_summary` via [Routine.otherLogs]. The last of those was dropped at the
+/// client boundary, which is why a caffeine-only day used to render nothing at all.
 class JournalPanel extends StatelessWidget {
   /// [routine] is the payload's block. An empty one draws nothing at all —
   /// `today_body.dart` holds that gate.
@@ -179,6 +185,43 @@ class JournalPanel extends StatelessWidget {
     if (session.durationMin case final int minutes) '$minutes min',
     if (session.source case final String source) source,
   ].join(' · ');
+
+  /// A logged kind's own name — the app's word for it, or the server's id.
+  ///
+  /// `LogKind` is the vocabulary the journal sheet writes with, so a kind it knows is
+  /// named the same way here as where it was entered. A kind it does not know keeps the
+  /// server's id rather than being prettified into prose — `metric_names.dart` makes the
+  /// same argument: an id is honest about being one, an invented name is not.
+  static String logTitle(LogTally tally) {
+    for (final kind in LogKind.values) {
+      if (kind.name == tally.kind) {
+        return kind.label;
+      }
+    }
+    return tally.kind;
+  }
+
+  /// `240 mg · 2 entries`, dropping the amount for a kind that carries none.
+  ///
+  /// The unit is `LogKind`'s, never guessed: a kind the app does not know shows its count
+  /// alone rather than a bare number under no unit. `mood`, `symptom` and `habit` have no
+  /// unit by design and their totals are meaningless, so only the count is drawn.
+  static String logDetail(LogTally tally) {
+    final entries = '${tally.count} ${tally.count == 1 ? 'entry' : 'entries'}';
+    for (final kind in LogKind.values) {
+      if (kind.name != tally.kind) {
+        continue;
+      }
+      if (kind.unit case final String unit) {
+        final amount = tally.total == tally.total.roundToDouble()
+            ? tally.total.round().toString()
+            : tally.total.toStringAsFixed(1);
+        return '$amount $unit · $entries';
+      }
+      return entries;
+    }
+    return entries;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +271,15 @@ class JournalPanel extends StatelessWidget {
             _LoggedRow(
               title: 'Fasting, still open',
               detail: hoursMinutes(fast.elapsedMin),
+            ),
+          // Everything else the day carried, from `routine.logs_summary`. Without it a
+          // day whose only entry was caffeine drew no panel at all while the wire was
+          // reporting that entry (audit C6). The kinds with a block of their own above
+          // are excluded by `Routine.otherLogs`, not filtered again here.
+          for (final tally in routine.otherLogs)
+            _LoggedRow(
+              title: logTitle(tally),
+              detail: logDetail(tally),
             ),
           const PanelNote(note),
         ],
