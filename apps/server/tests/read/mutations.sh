@@ -1377,6 +1377,53 @@ mutate 'replacing a kind stops clearing what it replaces' \
   '        cur.execute("DELETE FROM finding WHERE user_id = %s AND kind = %s", (user_id, kind))' \
   '        pass'
 
+# ── L4 · PERF_AUDIT B4 ──────────────────────────────────────────────────────
+# The three client-supplied bounds go back to reaching the SQL raw.
+READ_BOUNDS=tests/read/test_read_bounds.py
+
+mutate 'the outcome ledger takes the client its limit' \
+  "$READ_BOUNDS" src/healthee/challenges/ledger.py \
+  '    cur.execute(query, (user_id, max(1, min(limit, MAX_RECENT_OUTCOMES))))' \
+  '    cur.execute(query, (user_id, limit))'
+
+# The `LIMIT 80` still bounds the ANSWER, so every row is identical and only the
+# size of the SCAN changes — which is why this is asserted on the parameter.
+mutate 'the log feed takes the client its day window' \
+  "$READ_BOUNDS" src/healthee/read/logs.py \
+  '        (user_id, max(1, min(days, MAX_LOG_DAYS))),' \
+  '        (user_id, days),'
+
+# The comparison inverts, so a long track ships every fix — 2.28 MB at the
+# ingest cap, on an endpoint with a p95 < 100 ms budget — and a short one gets
+# padded out to the cap it was never near.
+mutate 'the route detail thins the wrong tracks' \
+  "$READ_BOUNDS" src/healthee/read/gps.py \
+  '    if len(points) <= MAX_MAP_POINTS:' \
+  '    if len(points) >= MAX_MAP_POINTS:'
+
+# The recorded count follows the thinning, so a 5,003-fix run is described to
+# its owner as a 2,000-fix one. Every number on the wire still looks plausible.
+mutate 'the fix count describes the response instead of the run' \
+  "$READ_BOUNDS" src/healthee/read/gps.py \
+  '    detail["summary"]["points_returned"] = len(detail["points"])' \
+  '    detail["summary"]["n_points"] = len(detail["points"])
+    detail["summary"]["points_returned"] = len(detail["points"])'
+
+# The flag stops firing, so a thinned response is indistinguishable from a short
+# run — and the app has no way to caption the difference.
+mutate 'a thinned track stops saying it was thinned' \
+  "$READ_BOUNDS" src/healthee/read/gps.py \
+  '    detail["summary"]["points_decimated"] = len(detail["points"]) < len(points)' \
+  '    detail["summary"]["points_decimated"] = False'
+
+# The matched-heart-rate count is stubbed rather than computed — the shape lands
+# and the value never does, which is exactly how `weekly_mvpa_min` shipped as a
+# hardcoded None. Every track then reads as having no coverage worth naming.
+mutate 'the matched-HR count ships as an unfilled stub' \
+  "$READ_BOUNDS" src/healthee/derive/gps_detail.py \
+  '        "n_hr_points": len(hrs),' \
+  '        "n_hr_points": None,'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

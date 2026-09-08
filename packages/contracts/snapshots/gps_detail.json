@@ -174,7 +174,10 @@
     "ele_min": 895,
     "max_hr": 69,
     "moving_s": 570,
+    "n_hr_points": 1,
     "n_points": 20,
+    "points_decimated": false,
+    "points_returned": 20,
     "vo2max": null
   },
   "track_id": "c705d7e1-f3b6-4793-9859-09b41ad574ff"

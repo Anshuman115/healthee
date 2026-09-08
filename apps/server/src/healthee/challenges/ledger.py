@@ -52,6 +52,9 @@ log = get_logger(__name__)
 # estimator it qualifies (`series.MIN_COMPARISON_DAYS`) because WP-C3's Gate A judges
 # the same number by the same line; it is re-exported here, not redefined.
 
+# `recent`'s row cap: a query string may not choose an answer's size (`PERF_AUDIT.md` B4).
+MAX_RECENT_OUTCOMES = 100  # `list_gps_tracks`' number, taken rather than invented
+
 # The other metrics whose movement is worth recording — as CO-OCCURRING, never as
 # caused. Deliberately a short fixed panel of the outcomes an owner actually asks
 # about, not "every metric we have": a wide net over a 7-day window is a machine for
@@ -299,13 +302,15 @@ def recent(cur: Cur, user_id: UUID, limit: int = 20) -> list[dict]:
     honest answer. When the question is a RULE with a time bound in it, use
     :func:`since` — a row limit cannot express a 60-day cooldown, and a rule that reads
     a tail is correct only while an unstated throughput invariant holds.
+    ``limit`` is CLAMPED to :data:`MAX_RECENT_OUTCOMES`: it reached ``LIMIT %s`` straight
+    off ``/api/challenges/outcomes``'s query string (`PERF_AUDIT.md` B4).
     """
     query = cast(  # `_READ_SELECT` is a module constant of column names, never input
         LiteralString,
         f"SELECT {_READ_SELECT} FROM challenge_outcome WHERE user_id = %s "
         "ORDER BY ended_at DESC LIMIT %s",
     )
-    cur.execute(query, (user_id, limit))
+    cur.execute(query, (user_id, max(1, min(limit, MAX_RECENT_OUTCOMES))))
     return [dict(zip(_READ_COLUMNS, row, strict=True)) for row in cur.fetchall()]
 
 

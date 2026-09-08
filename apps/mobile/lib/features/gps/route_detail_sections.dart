@@ -59,10 +59,41 @@ const String kElevationHeading = 'Elevation along the way';
 const String kNoFitnessTitle = 'Not enough heart-rate coverage';
 
 /// Why. The count is the track's own, so the sentence is about this recording.
-String noFitnessBody(int matched) =>
-    'This route has ${matched == 1 ? 'one matched heart-rate point' : '$matched '
-        'matched heart-rate points'}. A fitness estimate is withheld until '
-    'coverage is sufficient.';
+///
+/// `null` when the server sent no count — an older payload. "How many matched"
+/// is then genuinely unknown, and the sentence says the estimate is withheld
+/// without naming a number it would be guessing. It must not fall back to
+/// counting `points`: the server thins that array for the map, so the fallback
+/// would state a smaller number in a sentence whose whole job is to say how much
+/// coverage the RECORDING had.
+String noFitnessBody(int? matched) {
+  const String tail =
+      'A fitness estimate is withheld until coverage is sufficient.';
+  if (matched == null) {
+    return 'This route does not have enough matched heart-rate coverage. $tail';
+  }
+  final String count = matched == 1
+      ? 'one matched heart-rate point'
+      : '$matched matched heart-rate points';
+  return 'This route has $count. $tail';
+}
+
+/// `H.source('Phone GPS · 20 sample fixes')` — the count of what was RECORDED.
+///
+/// [RecordedRoute.recordedPoints], never `points.length`. The server sends at
+/// most `MAX_MAP_POINTS` fixes for the map, so on a long run the array holds a
+/// fraction of the track — and this line is the one place the screen says how
+/// big the recording was. When the two differ it says both, the way the finding
+/// scatter's caption states the drawn count beside `n_samples`: a reader who can
+/// see one number and not the other has no way to tell a thinned drawing from a
+/// short run.
+String fixesNote(RecordedRoute route) {
+  final String recorded = 'Phone GPS · ${route.recordedPoints} fixes';
+  if (!route.pointsDecimated) {
+    return recorded;
+  }
+  return '$recorded · ${route.points.length} drawn';
+}
 
 /// `Model fit r²` — a fit, said plainly for what a fit is and is not.
 String fitNote(double r2) =>
@@ -84,7 +115,7 @@ List<Widget> routeDetailSections(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           StatRow(_summaryStats(route)),
-          SourceNote('Phone GPS · ${route.points.length} fixes'),
+          SourceNote(fixesNote(route)),
         ],
       ),
     ),
@@ -166,12 +197,7 @@ List<Widget> _fitness(RecordedRoute route) {
   if (vo2max == null) {
     return <Widget>[
       const SectionGap(),
-      HNotice(
-        title: kNoFitnessTitle,
-        body: noFitnessBody(
-          route.points.where((RoutePoint point) => point.hr != null).length,
-        ),
-      ),
+      HNotice(title: kNoFitnessTitle, body: noFitnessBody(route.matchedHrPoints)),
     ];
   }
   return <Widget>[
