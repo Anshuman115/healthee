@@ -63,7 +63,62 @@ historical damage; if it is not, they are ongoing.
 
 ---
 
-## Not answerable from this dump
+---
+
+# Part 2 — current production, read-only
+
+The July dump could not settle six items. Rather than copy the owner's health
+history onto a laptop, these were answered with **targeted `SELECT`s on the box**
+— counts and dates only, no health rows, no writes, no re-derive.
+
+Current scale: **1 owner · 2026-03-13 → 2026-09-08 · 706,000 samples · 207 sleep
+sessions · 32 `device_daily_total` days · 759 findings · subscription active.**
+
+### RLS is genuinely enforced — `AUTH_AUDIT` B1 CLOSED
+`pg_roles` carries both identities: `healthee` (superuser, bypasses RLS) and
+`healthee_app` (neither). **`pg_stat_activity` shows the live API connected as
+`healthee_app` on 4 connections**, with 2 admin connections beside it. The
+superuser fallback exists in code and **production is not using it**. The
+hardening added this pass makes that structural rather than lucky.
+
+### The date of birth has not been erased — `WRITE_PATH` B2 latent
+`dob` present, 1 of 1 profiles. The clobbering upsert was real and never fired.
+
+### The fabricated sleep zeros never fired here either
+**0 of 207** sessions carry an all-zero stage breakdown, at 207 sessions rather
+than the dump's 127. Latent in code, absent in fact, on current data.
+
+### No future-dated derived rows
+Zero, checked against the owner's own timezone.
+
+### ★ The per-minute step stream HAS recovered — the owner was right
+The owner said *"i think the perminute works now"*. The data agrees, and dates
+the recovery precisely:
+
+| | zero-step days |
+|---|---|
+| before 2026-08-03 | **16** |
+| on/after 2026-08-03 | **1** |
+
+**2026-08-03 is the day `device_daily_total` starts** — the `#121` fix. And the
+per-minute stream itself is alive: **3,692 `steps_per_minute` rows across 31 of
+the last 30 days.** Provenance now splits 144 days `steps_per_minute`, 32
+`strap_0x16`, 4 unlabelled.
+
+⇒ **`#121`'s precedence rule deserves revisiting.** `derive/device_totals.py`
+prefers the strap's daily counter *because the per-minute stream stalled*. That
+premise is measurably weaker than it was. This is not a defect — it is a
+standing rule whose justification has changed, which is exactly the kind of thing
+that goes unexamined for years.
+
+### Still open, and why
+The **coach-timeout charge** and the **chain marker swallowing a failed step**
+cannot be settled by counting: the ledger holds one allowance row and `kv` one
+`job:chain_done` marker, neither of which records a *history* of attempts. Both
+fixes are in and guarded by tests; whether the old defects ever fired is not
+recoverable from state. Recording that as unknowable rather than unknown.
+
+## Not answerable from the July dump
 
 Because it predates multi-user and `0017`, and is 8 weeks old:
 
