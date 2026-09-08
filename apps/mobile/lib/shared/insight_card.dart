@@ -10,6 +10,15 @@ import 'package:healthee/shared/states/account_async_view.dart';
 import 'package:healthee/shared/states/grounded_markdown.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
+/// What sits above an insight the server could not ground.
+///
+/// Public so a test can pin it. Wording matched to the coach thread's own line
+/// for the same state, so the two surfaces do not describe one server outcome
+/// two ways.
+const String kUngroundedInsightNote =
+    'The server could not ground this in its evidence base, so this is its '
+    'honest fallback rather than an interpretation of your data.';
+
 /// Lazy, collapsible server analysis, shared across legacy detail surfaces.
 ///
 /// The analysis is model prose, so its sources are in the ⓘ on this card's own
@@ -72,9 +81,28 @@ class _InsightCardState extends ConsumerState<InsightCard> {
                       hint:
                           'More observations may be needed before the server can interpret this.',
                     )
-                  : GroundedMarkdown(
-                      text: analysis.text,
-                      accent: context.colors.accent,
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        // The honest fallback and a refusal are OUR sentences,
+                        // and they are shown. This line says which kind of
+                        // sentence the reader is looking at, in the same
+                        // treatment the coach thread gives an unvalidated
+                        // reply, so a "we could not ground this" is not read as
+                        // an interpretation of the owner's data.
+                        if (!analysis.validated) ...<Widget>[
+                          Text(
+                            kUngroundedInsightNote,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        GroundedMarkdown(
+                          text: analysis.text,
+                          accent: context.colors.accent,
+                        ),
+                      ],
                     ),
             ),
         ],

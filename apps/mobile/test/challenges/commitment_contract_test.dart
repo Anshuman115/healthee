@@ -70,30 +70,44 @@ void main() {
     expect(result.coOccurrenceNote, contains('not attributed'));
   });
   test(
-    'unvalidated generated claims are withheld while refusals remain visible',
+    'THE HONEST FALLBACK IS SHOWN, AND MARKED — never blanked',
     () {
+      // `validated: false, refused: false` is `insights/prompts.py::FALLBACK`,
+      // a sentence THIS PRODUCT wrote. `grounded._result` replaces the model's
+      // candidate with it before the wire, so there is no state in which this
+      // field carries an ungrounded model claim. Blanking it deleted the one
+      // answer the whole honesty layer exists to be able to give and drew an
+      // empty card in its place.
+      final fallback = GeneratedInsight.fromJson({
+        'insight':
+            "I can't ground that in our evidence base right now, so I'd "
+            'rather not guess.',
+        'validated': false,
+      });
       expect(
-        GeneratedInsight.fromJson({
-          'insight': 'Unsafe assertion',
-          'validated': false,
-        }).text,
-        isEmpty,
+        fallback.text,
+        contains("can't ground that"),
+        reason: 'the honest fallback must reach the screen, not be suppressed',
       );
       expect(
-        GeneratedInsight.fromJson({
-          'insight': 'Cannot infer that',
-          'refused': true,
-        }).text,
-        'Cannot infer that',
+        fallback.validated,
+        isFalse,
+        reason: 'the card frames it as a fallback rather than a finding',
       );
-      expect(
-        GeneratedInsight.fromJson({
-          'insight': 'Grounded [note]',
-          'validated': true,
-          'citations': ['note'],
-        }).citations,
-        ['note'],
-      );
+
+      final refusal = GeneratedInsight.fromJson({
+        'insight': 'Cannot infer that',
+        'refused': true,
+      });
+      expect(refusal.text, 'Cannot infer that');
+
+      final grounded = GeneratedInsight.fromJson({
+        'insight': 'Grounded [note]',
+        'validated': true,
+        'citations': ['note'],
+      });
+      expect(grounded.citations, ['note']);
+      expect(grounded.validated, isTrue);
     },
   );
 }
