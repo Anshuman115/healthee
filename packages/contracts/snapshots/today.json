@@ -325,6 +325,8 @@
       "label": "Resting HR",
       "median_30d": 55.0,
       "metric": "rhr_daily",
+      "note_id": "resting_heart_rate",
+      "provenance": {},
       "sd_30d": 0.0,
       "unit": "bpm",
       "value": 55.0,
@@ -338,6 +340,12 @@
       "label": "Steps",
       "median_30d": 8200.0,
       "metric": "steps_total",
+      "note_id": "steps_mortality",
+      "provenance": {
+        "sample_minutes": 612,
+        "source": "strap_0x16",
+        "steps_per_minute_sum": 8050
+      },
       "sd_30d": 0.0,
       "unit": null,
       "value": 8200.0,
@@ -351,6 +359,8 @@
       "label": "Active calories",
       "median_30d": 620.0,
       "metric": "active_calories",
+      "note_id": "energy_expenditure_derivation",
+      "provenance": {},
       "sd_30d": 0.0,
       "unit": "kcal",
       "value": 620.0,
@@ -364,6 +374,12 @@
       "label": "Total calories",
       "median_30d": 2350.0,
       "metric": "total_calories",
+      "note_id": "energy_expenditure_derivation",
+      "provenance": {
+        "bmr": 1730,
+        "pal": 1.36,
+        "workout_cal": 210
+      },
       "sd_30d": 0.0,
       "unit": "kcal",
       "value": 2350.0,
@@ -377,6 +393,10 @@
       "label": "BMR (resting)",
       "median_30d": 1730.0,
       "metric": "basal_calories",
+      "note_id": "energy_expenditure_derivation",
+      "provenance": {
+        "bmr": 1730
+      },
       "sd_30d": 0.0,
       "unit": "kcal",
       "value": 1730.0,
@@ -390,6 +410,11 @@
       "label": "Distance",
       "median_30d": 6100.0,
       "metric": "distance_m_daily",
+      "note_id": "distance_from_steps",
+      "provenance": {
+        "method": "stride",
+        "stride_m": 0.744
+      },
       "sd_30d": 0.0,
       "unit": "m",
       "value": 6100.0,
@@ -402,6 +427,7 @@
       "label": "Weight",
       "median_30d": null,
       "metric": "weight_kg",
+      "note_id": "weight_bmi_body_composition",
       "sd_30d": null,
       "unit": "kg",
       "value": 72.5,
@@ -497,8 +523,10 @@
         "baseline": 380.0,
         "baseline_sd": 1.0,
         "direction": "favorable",
+        "direction_basis": null,
         "n": 7,
         "name": "Sleep duration",
+        "population_floor_min": 300.0,
         "research_note_id": "sleep_duration_mortality",
         "unit": "min",
         "value": 380.0,
@@ -1262,337 +1290,241 @@
   "today_step_buckets": [
     {
       "bucket": 24,
-      "calories": 0,
-      "distance_m": 31,
       "steps": 40,
       "time": "06:00"
     },
     {
       "bucket": 25,
-      "calories": 0,
-      "distance_m": 32,
       "steps": 41,
       "time": "06:15"
     },
     {
       "bucket": 26,
-      "calories": 0,
-      "distance_m": 33,
       "steps": 42,
       "time": "06:30"
     },
     {
       "bucket": 27,
-      "calories": 0,
-      "distance_m": 34,
       "steps": 43,
       "time": "06:45"
     },
     {
       "bucket": 28,
-      "calories": 0,
-      "distance_m": 34,
       "steps": 44,
       "time": "07:00"
     },
     {
       "bucket": 29,
-      "calories": 0,
-      "distance_m": 35,
       "steps": 45,
       "time": "07:15"
     },
     {
       "bucket": 30,
-      "calories": 0,
-      "distance_m": 36,
       "steps": 46,
       "time": "07:30"
     },
     {
       "bucket": 31,
-      "calories": 0,
-      "distance_m": 37,
       "steps": 47,
       "time": "07:45"
     },
     {
       "bucket": 32,
-      "calories": 0,
-      "distance_m": 37,
       "steps": 48,
       "time": "08:00"
     },
     {
       "bucket": 33,
-      "calories": 0,
-      "distance_m": 38,
       "steps": 49,
       "time": "08:15"
     },
     {
       "bucket": 34,
-      "calories": 0,
-      "distance_m": 39,
       "steps": 50,
       "time": "08:30"
     },
     {
       "bucket": 35,
-      "calories": 0,
-      "distance_m": 40,
       "steps": 51,
       "time": "08:45"
     },
     {
       "bucket": 36,
-      "calories": 0,
-      "distance_m": 41,
       "steps": 52,
       "time": "09:00"
     },
     {
       "bucket": 37,
-      "calories": 0,
-      "distance_m": 41,
       "steps": 53,
       "time": "09:15"
     },
     {
       "bucket": 38,
-      "calories": 0,
-      "distance_m": 42,
       "steps": 54,
       "time": "09:30"
     },
     {
       "bucket": 39,
-      "calories": 0,
-      "distance_m": 43,
       "steps": 55,
       "time": "09:45"
     },
     {
       "bucket": 40,
-      "calories": 0,
-      "distance_m": 44,
       "steps": 56,
       "time": "10:00"
     },
     {
       "bucket": 41,
-      "calories": 0,
-      "distance_m": 44,
       "steps": 57,
       "time": "10:15"
     },
     {
       "bucket": 42,
-      "calories": 0,
-      "distance_m": 45,
       "steps": 58,
       "time": "10:30"
     },
     {
       "bucket": 43,
-      "calories": 0,
-      "distance_m": 46,
       "steps": 59,
       "time": "10:45"
     },
     {
       "bucket": 44,
-      "calories": 0,
-      "distance_m": 47,
       "steps": 60,
       "time": "11:00"
     },
     {
       "bucket": 45,
-      "calories": 0,
-      "distance_m": 48,
       "steps": 61,
       "time": "11:15"
     },
     {
       "bucket": 46,
-      "calories": 0,
-      "distance_m": 48,
       "steps": 62,
       "time": "11:30"
     },
     {
       "bucket": 47,
-      "calories": 0,
-      "distance_m": 49,
       "steps": 63,
       "time": "11:45"
     },
     {
       "bucket": 48,
-      "calories": 0,
-      "distance_m": 50,
       "steps": 64,
       "time": "12:00"
     },
     {
       "bucket": 49,
-      "calories": 0,
-      "distance_m": 51,
       "steps": 65,
       "time": "12:15"
     },
     {
       "bucket": 50,
-      "calories": 0,
-      "distance_m": 51,
       "steps": 66,
       "time": "12:30"
     },
     {
       "bucket": 51,
-      "calories": 0,
-      "distance_m": 52,
       "steps": 67,
       "time": "12:45"
     },
     {
       "bucket": 52,
-      "calories": 0,
-      "distance_m": 53,
       "steps": 68,
       "time": "13:00"
     },
     {
       "bucket": 53,
-      "calories": 0,
-      "distance_m": 54,
       "steps": 69,
       "time": "13:15"
     },
     {
       "bucket": 54,
-      "calories": 0,
-      "distance_m": 31,
       "steps": 40,
       "time": "13:30"
     },
     {
       "bucket": 55,
-      "calories": 0,
-      "distance_m": 32,
       "steps": 41,
       "time": "13:45"
     },
     {
       "bucket": 56,
-      "calories": 0,
-      "distance_m": 33,
       "steps": 42,
       "time": "14:00"
     },
     {
       "bucket": 57,
-      "calories": 0,
-      "distance_m": 34,
       "steps": 43,
       "time": "14:15"
     },
     {
       "bucket": 58,
-      "calories": 0,
-      "distance_m": 34,
       "steps": 44,
       "time": "14:30"
     },
     {
       "bucket": 59,
-      "calories": 0,
-      "distance_m": 35,
       "steps": 45,
       "time": "14:45"
     },
     {
       "bucket": 60,
-      "calories": 0,
-      "distance_m": 36,
       "steps": 46,
       "time": "15:00"
     },
     {
       "bucket": 61,
-      "calories": 0,
-      "distance_m": 37,
       "steps": 47,
       "time": "15:15"
     },
     {
       "bucket": 62,
-      "calories": 0,
-      "distance_m": 37,
       "steps": 48,
       "time": "15:30"
     },
     {
       "bucket": 63,
-      "calories": 0,
-      "distance_m": 38,
       "steps": 49,
       "time": "15:45"
     },
     {
       "bucket": 64,
-      "calories": 0,
-      "distance_m": 39,
       "steps": 50,
       "time": "16:00"
     },
     {
       "bucket": 65,
-      "calories": 0,
-      "distance_m": 40,
       "steps": 51,
       "time": "16:15"
     },
     {
       "bucket": 66,
-      "calories": 0,
-      "distance_m": 41,
       "steps": 52,
       "time": "16:30"
     },
     {
       "bucket": 67,
-      "calories": 0,
-      "distance_m": 41,
       "steps": 53,
       "time": "16:45"
     },
     {
       "bucket": 68,
-      "calories": 0,
-      "distance_m": 42,
       "steps": 54,
       "time": "17:00"
     },
     {
       "bucket": 69,
-      "calories": 0,
-      "distance_m": 43,
       "steps": 55,
       "time": "17:15"
     },
     {
       "bucket": 70,
-      "calories": 0,
-      "distance_m": 44,
       "steps": 56,
       "time": "17:30"
     },
     {
       "bucket": 71,
-      "calories": 0,
-      "distance_m": 44,
       "steps": 57,
       "time": "17:45"
     }

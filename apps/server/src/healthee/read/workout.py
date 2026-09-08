@@ -172,7 +172,23 @@ def _zone_minutes(hrs: list[int], hrmax: float | None) -> list[int]:
 
 
 def _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones) -> dict:
-    """Derived workout metrics (intensity, pace, cal/min, TRIMP, drift, zone)."""
+    """Derived workout metrics (intensity, pace, cal/min, TRIMP, drift, zone).
+
+    ## The pace names what it was measured over (audit D-d)
+
+    ``pace_min_per_km`` divides the DEVICE's ``duration_s`` by the distance, so a session
+    with a long pause reports a slower pace than it was run at. The repo has the better
+    quantity — ``derive/gps_detail.py`` computes ``moving_s`` and publishes an
+    ``avg_pace_min_km`` from it — but only where a GPS track exists, and that number is
+    reconstructed from every point of the track at read time rather than stored. Reaching
+    for it from this endpoint would mean loading a whole track's points inside a payload
+    that has a p95 < 100 ms budget, on the chance that a matching track exists at all.
+
+    So the pace stays elapsed-based and SAYS SO, which is the third of the three honest
+    moves (serve the true value · withhold with a reason · name the limit on the face).
+    ``pace_basis`` ships beside it; a reader who wants moving pace has the GPS detail
+    endpoint, and now knows to want it.
+    """
     m: dict = {}
     if avg_hr and hrmax:
         m["avg_pct_hrmax"] = round(100 * avg_hr / hrmax)
@@ -193,6 +209,9 @@ def _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones) ->
     if dist and dist > 50 and dur_min:
         m["pace_min_per_km"] = round(dur_min / (dist / 1000), 2)
         m["speed_kmh"] = round((dist / 1000) / (dur_min / 60), 1)
+        # ELAPSED, not moving. Both figures above divide by the same denominator, so the
+        # basis is one fact about the pair. See the docstring.
+        m["pace_basis"] = "elapsed"
     if cal and dur_min:
         m["cal_per_min"] = round(cal / dur_min, 1)
     if hrmax and rhr and hrmax > rhr and hrs and sex in ("male", "female"):

@@ -3,6 +3,8 @@
     "as_of_date": "2026-07-31",
     "caveats": [],
     "metric": "active_calories",
+    "note_id": "energy_expenditure_derivation",
+    "provenance": {},
     "trend": [
       {
         "date": "2026-07-02",
@@ -293,6 +295,11 @@
     "as_of_date": "2026-07-31",
     "caveats": [],
     "metric": "distance_m_daily",
+    "note_id": "distance_from_steps",
+    "provenance": {
+      "method": "stride",
+      "stride_m": 0.744
+    },
     "trend": [
       {
         "date": "2026-07-02",
@@ -419,8 +426,18 @@
     "withheld": null
   },
   "fitness_plan": {
+    "caveats": [
+      {
+        "message": "An estimate of the typical response to this plan over 12 weeks, if it is followed — not a promise. Trainability is about 47% heritable and the same program has produced anything from near-zero to a very large gain, so no specific gain can be promised to any one person.",
+        "note_id": "vo2max",
+        "reason": "typical_response_not_a_promise"
+      }
+    ],
     "current": 41.5,
     "gain": 2.0,
+    "gain_cap": 5.0,
+    "gain_floor": 2.0,
+    "gain_gap_fraction": 0.4,
     "median_for_age": 39.7,
     "note_id": "vo2max",
     "plan": {
@@ -584,7 +601,8 @@
         "value": 41.5
       }
     ],
-    "weeks": 12
+    "weeks": 12,
+    "withheld": null
   },
   "mvpa": {
     "daily": [
@@ -658,6 +676,12 @@
     "as_of_date": "2026-07-31",
     "caveats": [],
     "metric": "steps_total",
+    "note_id": "steps_mortality",
+    "provenance": {
+      "sample_minutes": 612,
+      "source": "strap_0x16",
+      "steps_per_minute_sum": 8050
+    },
     "trend": [
       {
         "date": "2026-07-02",
@@ -787,6 +811,12 @@
     "as_of_date": "2026-07-31",
     "caveats": [],
     "metric": "total_calories",
+    "note_id": "energy_expenditure_derivation",
+    "provenance": {
+      "bmr": 1730,
+      "pal": 1.36,
+      "workout_cal": 210
+    },
     "trend": [
       {
         "date": "2026-07-02",

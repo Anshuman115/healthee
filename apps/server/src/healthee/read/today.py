@@ -35,10 +35,8 @@ from healthee.read.health_metrics import (
     sleep_debt_payload,
 )
 from healthee.read.recommendations import recommendation_shape
-from healthee.read.recovery import (
-    recovery_score_payload,
-    recovery_signals,
-)
+from healthee.read.recovery import recovery_score_payload
+from healthee.read.recovery_signals import recovery_signals
 from healthee.read.routine import routine_today
 from healthee.read.sleep_extras import (
     last_sleep,

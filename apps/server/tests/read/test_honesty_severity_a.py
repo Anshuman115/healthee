@@ -43,7 +43,7 @@ from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.read.fitness import cardio_load_payload, mvpa_payload
 from healthee.read.history import history_series
 from healthee.read.mvpa_week import mvpa_week
-from healthee.read.recovery import recovery_signals
+from healthee.read.recovery_signals import recovery_signals
 from healthee.read.vo2max import vo2max_payload
 from healthee.read.workout import workout_detail
 
