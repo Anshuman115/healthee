@@ -1424,6 +1424,46 @@ mutate 'the matched-HR count ships as an unfilled stub' \
   '        "n_hr_points": len(hrs),' \
   '        "n_hr_points": None,'
 
+# ── L5 · PERF_AUDIT B3 ──────────────────────────────────────────────────────
+# The hoisted lag becomes a constant zero, so every lag-1 correlation is
+# silently computed as a lag-0 one. Every finding still has an effect size, a
+# q-value and a description that SAYS "at d+1" — the number underneath is just
+# answering a different question.
+PAIRS=tests/analytics/test_aligned_pairs_equivalence.py
+
+mutate 'the lag is hoisted out and left behind' \
+  "$PAIRS" src/healthee/analytics/stats.py \
+  '    delta = timedelta(days=lag_days)' \
+  '    delta = timedelta(days=0)'
+
+# The sentinel lookup becomes a truthiness test — the classic wrong way to write
+# this rewrite. A day whose value is a legitimate 0.0 (no MVPA, no alcohol) stops
+# pairing, so the metrics that matter most to a cutoff finding lose exactly the
+# days the finding is about.
+mutate 'a zero-valued day stops pairing' \
+  "$PAIRS" src/healthee/analytics/stats.py \
+  '        vb = lookup(d + delta, missing)
+        if vb is not missing:' \
+  '        vb = lookup(d + delta)
+        if vb:'
+
+# The memo hands out its own list, so one finding sorting or clearing its note
+# ids rewrites every later finding's citations.
+NOTES_CACHE=tests/analytics/test_notes_for_cache.py
+
+mutate 'the note cache hands out the object it is holding' \
+  "$NOTES_CACHE" src/healthee/analytics/notes.py \
+  '    return list(_notes_for(tuple(metrics), tuple(interventions or ()), min_grade))' \
+  '    return _notes_for(tuple(metrics), tuple(interventions or ()), min_grade)  # type: ignore[return-value]'
+
+# The intervention falls out of the cache key, so the first question asked about
+# a metric answers every later one — an event finding cites the notes of whatever
+# was asked first.
+mutate 'the note cache forgets the intervention it was asked about' \
+  "$NOTES_CACHE" src/healthee/analytics/notes.py \
+  '    return list(_notes_for(tuple(metrics), tuple(interventions or ()), min_grade))' \
+  '    return list(_notes_for(tuple(metrics), (), min_grade))'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
