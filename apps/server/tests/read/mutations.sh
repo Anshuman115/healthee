@@ -1041,6 +1041,36 @@ mutate 'the sleep ceiling drops back under the canonical need' \
   '    "tst_min": float(SLEEP_NEED_MIN_18_64),' \
   '    "tst_min": 450.0,'
 
+# ── I · the two derived corpus guards, proven on their own subject ───────────
+
+CORPUS_CAUSAL=tests/insights/test_corpus_causal_voice.py
+MINETTI=tests/derive/test_minetti_coefficients.py
+
+# ── I1 ───────────────────────────────────────────────────────────────────────
+# An observational note goes back to causal voice in the "Act on confidently"
+# line — the sentence that tells the model it may state a claim plainly, on a
+# note whose own evidence bullets say "associated with".
+mutate 'an observational claim ships in causal voice again' \
+  "$CORPUS_CAUSAL" ../../packages/knowledge/notes/activity/sedentary_mortality.md \
+  '**Act on confidently:** long sedentary time tracks with higher mortality, mostly in' \
+  '**Act on confidently:** long sedentary time raises mortality, mostly in'
+
+# ── I2 ───────────────────────────────────────────────────────────────────────
+# One digit of one Minetti coefficient in the CODE. Before the note-side copy
+# existed, nothing in the repo could see this: the polynomial still returns a
+# plausible VO2 and every downstream number moves quietly with it.
+mutate 'a Minetti gradient coefficient is mistyped' \
+  "$MINETTI" src/healthee/derive/vo2max_submax.py \
+  'cw = 155.4 * i**5 - 30.4 * i**4' \
+  'cw = 155.4 * i**5 - 30.5 * i**4'
+
+# And the other direction: the NOTE drifts away from the code it documents.
+# Both halves matter — a table nobody checks is the state this replaced.
+mutate 'the note-side Minetti table drifts from the code' \
+  "$MINETTI" ../../packages/knowledge/notes/activity/submaximal_vo2max.md \
+  '| **Walking** | 280.5 | −58.7 |' \
+  '| **Walking** | 280.5 | −58.6 |'
+
 
 echo
 echo "caught $PASS, survived $FAIL"

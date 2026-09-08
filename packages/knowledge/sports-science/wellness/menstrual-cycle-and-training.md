@@ -144,6 +144,32 @@ out — which is exactly what the meta-analytic evidence shows.
 
 **Energy availability, the cycle, and REDs — the part that is solid.**
 
+> ⚠ **This note's grade and this section's grade do not match, and the mismatch has a
+> live cost (audit D12, recorded 2026-09-08 — recorded, not resolved).**
+>
+> The note is graded `Contested`, and correctly so: cycle-phase-based training
+> prescription genuinely is disputed. But the two claims below are marked
+> **[Established]**, the Bottom line calls them *"the safety-critical core"*, and
+> `insights/calibration.MIXED_RE` keys the required framing to the **note's** grade, not
+> the claim's. So `validator._grade_issue` will demand "debated/mixed/contested" framing
+> of **every** sentence citing this note — including one raising an amenorrhea red flag —
+> and `MIN_ACTIONABLE_RANK = 2` means a `Contested` note may never drive an action at all.
+>
+> It **fails safe**: a blocked answer, never a wrongly-hedged one, and
+> `output_guard.py:169-180` compiles an independent REDs hard stop that does not depend on
+> this note. The cost is only that the corpus cannot say the true thing here — which is
+> why it is D-band and not A.
+>
+> **The fix the standards prescribe is a SPLIT, not a regrade** — the same move that
+> produced `hydration_8x8_rule` and `napping_chronic_health` (#91): lift low energy
+> availability and REDs into their own `Established` note, keeping this note's id,
+> aliases and `safety_critical` markers intact so no compiled guardrail moves.
+> **That has deliberately not been done here.** It means authoring a new citable note
+> against Loucks & Thuma 2003 and Mountjoy 2023 read as primary sources, and the corpus
+> rule is that primary sources are verified BEFORE writing. Splitting it on the strength
+> of this note's own summary would be manufacturing a citation, which is the failure the
+> whole audit is about. It is a research task, and it is open.
+
 - **[Established]** Low energy availability disrupts reproductive function. The
   seminal *controlled laboratory experiment* dropped EA to 10, 20, 30 vs 45
   kcal/kg FFM/day for 5 days and showed LH pulsatility was disrupted below ~30
