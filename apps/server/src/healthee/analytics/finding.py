@@ -90,12 +90,25 @@ def _params(user_id: UUID, f: Finding) -> tuple:
 
 
 def persist_findings(user_id: UUID, findings: list[Finding]) -> int:
-    """UPSERT ``user_id``'s findings on their natural key. Returns the count written."""
+    """UPSERT ``user_id``'s findings on their natural key. Returns the count written.
+
+    ONE round-trip, not one per finding. This looped `execute`, so a nightly chain
+    issued **774 separate `INSERT INTO finding` statements** on the owner's own data —
+    the largest single group of the chain's statements, and exactly the shape standards
+    section 1 names a past outage for: *"bulk writes use `executemany`/pipelining (the
+    legacy push once did one round-trip per sample and hit 180 s timeouts)"*.
+    `ingest/upsert.py` obeys that rule and says so; this path never inherited it
+    (`PERF_AUDIT.md` B2).
+
+    Same SQL, same transaction, same UPSERT — only the number of round-trips changes,
+    so nothing about which rows land or what they contain is different. It is not a
+    budget breach today (a background job, and the whole chain is 382 ms), but the count
+    grows with the square of the metric registry, which is the direction that matters.
+    """
     if not findings:
         return 0
     with tenant_transaction(user_id) as cur:
-        for f in findings:
-            cur.execute(_INSERT_SQL + _UPSERT_TAIL, _params(user_id, f))
+        cur.executemany(_INSERT_SQL + _UPSERT_TAIL, [_params(user_id, f) for f in findings])
     return len(findings)
 
 
@@ -104,11 +117,15 @@ def replace_findings_of_kind(user_id: UUID, kind: str, findings: list[Finding]) 
 
     Replacement (not UPSERT) so a pattern that no longer reaches significance is
     removed rather than lingering as stale advice — the cutoff-finder contract.
+
+    The DELETE and the INSERTs stay in one transaction — a reader must never see the
+    gap between them — and the INSERTs are one round-trip, for `persist_findings`'
+    reason. `executemany` on an empty list is a no-op, so a kind whose findings all
+    fell below significance still gets its DELETE and correctly ends with no rows.
     """
     with tenant_transaction(user_id) as cur:
         cur.execute("DELETE FROM finding WHERE user_id = %s AND kind = %s", (user_id, kind))
-        for f in findings:
-            cur.execute(_INSERT_SQL, _params(user_id, f))
+        cur.executemany(_INSERT_SQL, [_params(user_id, f) for f in findings])
     return len(findings)
 
 

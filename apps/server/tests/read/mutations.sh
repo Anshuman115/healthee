@@ -1357,6 +1357,26 @@ mutate 'the fitness plan rebuilds the vo2max block it was handed' \
 
     vo = vo2max_payload(cur, user_id, tz, as_of)'
 
+# ── L3 · PERF_AUDIT B2 ──────────────────────────────────────────────────────
+# The per-item round-trip comes back. Every row it writes is identical, so no
+# assertion about CONTENT can see it — which is exactly how the loop survived a
+# suite that already covered what this function writes.
+ROUND_TRIPS=tests/analytics/test_finding_round_trips.py
+
+mutate 'persisting findings goes back to one round-trip each' \
+  "$ROUND_TRIPS" src/healthee/analytics/finding.py \
+  '        cur.executemany(_INSERT_SQL + _UPSERT_TAIL, [_params(user_id, f) for f in findings])' \
+  '        for f in findings:
+            cur.execute(_INSERT_SQL + _UPSERT_TAIL, _params(user_id, f))'
+
+# The DELETE goes with it, so a pattern that no longer reaches significance
+# lingers as stale advice — the replace-don't-upsert contract, defeated while
+# every row still looks right.
+mutate 'replacing a kind stops clearing what it replaces' \
+  "$ROUND_TRIPS" src/healthee/analytics/finding.py \
+  '        cur.execute("DELETE FROM finding WHERE user_id = %s AND kind = %s", (user_id, kind))' \
+  '        pass'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
