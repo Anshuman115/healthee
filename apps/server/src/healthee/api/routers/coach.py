@@ -53,11 +53,27 @@ from healthee.insights.coach import run_coach
 router = APIRouter(tags=["coach"])
 
 
+# ── The bounds on the conversation the client sends ──────────────────────────
+#
+# ``insights.coach.py`` already bounds the history it USES to the last 12 well-formed
+# turns, so the turn COUNT was bounded and the per-turn SIZE was not — the body was
+# limited in practice only by nginx's ``client_max_body_size``. That is the same
+# denial-of-wallet shape ``read/logs.py`` names for manual-entry notes, against the one
+# surface that is measured at $0.179 a question.
+#
+# ``_MAX_TURNS`` is comfortably above the 12 the pipeline reads, so a client sending its
+# full visible thread is never refused for length; ``_MAX_CONTENT`` is ~700 words, which
+# is far more than anyone types into a chat box and fatal to a prompt-sized paste.
+_MAX_TURNS = 40
+_MAX_CONTENT = 4000
+_MAX_ROLE = 32
+
+
 class CoachMessage(BaseModel):
     """One conversation turn from the client."""
 
-    role: str
-    content: str
+    role: str = Field(max_length=_MAX_ROLE)
+    content: str = Field(max_length=_MAX_CONTENT)
 
 
 class CoachRequest(BaseModel):
@@ -79,7 +95,7 @@ class CoachRequest(BaseModel):
     ``coach_thread.TOPIC_MAX_CHARS``; the app's own topics are one short sentence.
     """
 
-    messages: list[CoachMessage] = []
+    messages: list[CoachMessage] = Field(default_factory=list, max_length=_MAX_TURNS)
     topic: str | None = Field(default=None, max_length=coach_thread.TOPIC_MAX_CHARS)
 
 

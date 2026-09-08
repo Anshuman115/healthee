@@ -458,8 +458,20 @@ holding it would read and write that tenant's health data. `signups_open=true` i
 therefore gated on that removal, not merely on this flag existing.
 
 ### 4.5 Deletion / GDPR
+**Neither half of this is built.** It is written as the plan, and the plan is all it is.
+
 A Supabase **auth delete webhook** → purge that UUID's health data (cascade via
-the `app_user` FK). Data export is already free (own-your-data).
+the `app_user` FK). There is no webhook route, no purge module in `db/`, and
+`SUPABASE_SERVICE_ROLE_KEY` (`core/config.py`) is read by nothing. So deleting the
+Supabase account today leaves the entire local health record in place forever. The
+19 `ON DELETE CASCADE` FKs are the mechanism and nothing calls it;
+`db/claim_sentinel.py` is the shape the admin-run first version should take.
+
+This paragraph used to end "Data export is already free (own-your-data)". **There is
+no export endpoint.** `/api/history` is the closest thing and it clamps to `MAX_DAYS`
+(`read/history.py`), which is a read, not an export. The sentence is corrected rather
+than deleted because a plan-of-record document claiming a shipped capability is how an
+auditor stops looking.
 
 **This resolves [D2]** (session model — Supabase handles refresh/rotation) and
 moves **[D1]** to a Supabase setting (disable public signup / use the allowlist for
