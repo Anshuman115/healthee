@@ -43,12 +43,38 @@ def aligned_pairs(
 
     The date rides along because the caller needs to bound the points it serves by a
     reference day (``docs/AS_OF_DAY.md``); :func:`spearman_lag` ignores it.
+
+    ## Two loop-invariants hoisted, and NOTHING else (`PERF_AUDIT.md` B3)
+
+    This is the single most expensive thing `correlate` does: 828 calls, one per ordered
+    metric pair per lag, each walking the owner's whole history. Profiled at four years
+    of data it was **0.464 s of the step's 1.044 s — 44%, more than all of scipy
+    together**, and it grows as `O(metrics² × lags × history)`.
+
+    The loop shape, the pairing rule, the ordering and the output are UNCHANGED. What
+    moved out of the loop body is a `timedelta` that was being CONSTRUCTED on every one
+    of ~1.2 million iterations from a value that cannot vary inside the call, and a
+    second dict probe: `target in series_b` followed by `series_b[target]` hashed the
+    same key twice. Measured on 1,460 days, best of five over 200 calls each:
+
+        lag 0   0.264 ms -> 0.081 ms      lag 1   0.320 ms -> 0.082 ms
+
+    `tests/analytics/test_aligned_pairs_equivalence.py` holds the pre-change loop
+    verbatim as a reference and asserts the two agree element for element across lags,
+    gaps, and empty and disjoint series. That equivalence is the licence for touching a
+    file whose docstring says these methods are never simplified: the arithmetic
+    `d + timedelta(days=k)` for a fixed `k` is the same arithmetic, and the test is what
+    makes that a checked claim rather than a plausible one. No statistic changed, and no
+    finding changed: 774 findings before and after, on the same data.
     """
     out: list[tuple[date, float, float]] = []
+    delta = timedelta(days=lag_days)
+    lookup = series_b.get
+    missing = object()
     for d, va in series_a.items():
-        target = d + timedelta(days=lag_days)
-        if target in series_b:
-            out.append((d, va, series_b[target]))
+        vb = lookup(d + delta, missing)
+        if vb is not missing:
+            out.append((d, va, vb))  # type: ignore[arg-type]
     return out
 
 

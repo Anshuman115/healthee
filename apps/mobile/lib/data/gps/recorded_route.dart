@@ -5,6 +5,9 @@ class RecordedRoute {
     required this.id,
     required this.start,
     required this.points,
+    required this.recordedPoints,
+    required this.matchedHrPoints,
+    required this.pointsDecimated,
     this.distanceKm,
     this.durationS,
     this.movingS,
@@ -29,6 +32,15 @@ class RecordedRoute {
         for (final row in json['points']! as List<Object?>)
           RoutePoint.fromJson(row! as Map<String, Object?>),
       ],
+      // Facts about the RECORDING, read from the server rather than counted off
+      // `points` — see the class docstring. The fallbacks keep a payload written
+      // before these keys existed readable, and they fall back to the array's own
+      // length, which is exactly right for a response that was never thinned.
+      recordedPoints:
+          (summary['n_points'] as num?)?.toInt() ??
+          (json['points']! as List<Object?>).length,
+      matchedHrPoints: (summary['n_hr_points'] as num?)?.toInt(),
+      pointsDecimated: summary['points_decimated'] as bool? ?? false,
       distanceKm: (summary['distance_km'] as num?)?.toDouble(),
       durationS: (summary['duration_s'] as num?)?.toInt(),
       movingS: (summary['moving_s'] as num?)?.toInt(),
@@ -46,7 +58,31 @@ class RecordedRoute {
   }
   final String id;
   final DateTime start;
+
+  /// The fixes the server SENT — a sample of the recording when it is long.
+  ///
+  /// Draw these; never count them. See [recordedPoints].
   final List<RoutePoint> points;
+
+  /// How many fixes the recording actually holds (`summary.n_points`).
+  ///
+  /// Not `points.length`. The server thins a long track for the map view
+  /// (`read/gps.py::MAX_MAP_POINTS`, 2,000 — this app's own
+  /// `RouteMap.maxDrawnPoints`), so on a maximal 28,800-fix run the array is 7%
+  /// of the recording. Every count shown to the owner comes from here, because a
+  /// count taken off the array would describe the response instead of their run.
+  final int recordedPoints;
+
+  /// How many fixes got a heart rate (`summary.n_hr_points`), or null on a
+  /// payload written before the server sent it.
+  ///
+  /// Same reason as [recordedPoints]: this was counted off `points` and could
+  /// only ever have been right while `points` was the whole track.
+  final int? matchedHrPoints;
+
+  /// Whether [points] is a sample of the recording rather than all of it.
+  final bool pointsDecimated;
+
   final double? distanceKm;
   final int? durationS;
   final int? movingS;

@@ -216,6 +216,41 @@ def _stub_night(date_iso: str) -> dict:
     }
 
 
+# The raw `sample` metrics the night-physiology join reads, named ONCE.
+#
+# They appear TWICE in `_PHYSIOLOGY_SQL` — in the `CASE WHEN s.metric=…` expressions that
+# pick each one out, and in the `s.metric = ANY(%s)` predicate that stops the join reading
+# everything else. A list that disagreed with the CASE names would silently average
+# NOTHING for the dropped metric: a night whose SpO2 was measured would ship
+# `spo2_avg: null`, which this payload's own convention means "not measured".
+# `tests/read/test_sleep_physiology.py` derives the CASE names back out of the SQL text
+# and asserts the two agree, so the pair cannot drift (HOW_WE_VERIFY.md section 4: a
+# derived check beats a listed one).
+PHYSIOLOGY_METRICS = ("spo2", "respiratory_rate", "skin_temp_c")
+
+_PHYSIOLOGY_SQL = (
+    "SELECT w.date_iso, "
+    "  ROUND(AVG(CASE WHEN s.metric='spo2' THEN s.value END)::numeric,1), "
+    "  MIN(CASE WHEN s.metric='spo2' THEN s.value END), "
+    "  ROUND(AVG(CASE WHEN s.metric='respiratory_rate' THEN s.value END)::numeric,1), "
+    "  ROUND(AVG(CASE WHEN s.metric='skin_temp_c' AND s.value>25 THEN s.value END)::numeric,1) "
+    "FROM unnest(%s::text[], %s::timestamptz[], %s::timestamptz[]) "
+    "     AS w(date_iso, start_ts, end_ts) "
+    "LEFT JOIN sample s ON s.user_id = %s "
+    # THE PREDICATE THAT MAKES THIS ENDPOINT AFFORDABLE. It removes no row from the
+    # answer — every other metric was already discarded by the CASE expressions above —
+    # it removes them from the READ, and with `user_id` and `metric` both named the seek
+    # can finally use `sample_user_idx (user_id, metric, ts DESC)`.
+    "  AND s.metric = ANY(%s::text[]) "
+    # The outer bound is implied by the per-window ones, so it removes no row —
+    # it is there to give the hypertable a constant `ts` range to prune chunks on
+    # (the note at the top of read/today_series.py documents the same trap).
+    "  AND s.ts >= %s AND s.ts < %s "
+    "  AND s.ts >= w.start_ts AND s.ts < w.end_ts "
+    "GROUP BY w.date_iso"
+)
+
+
 def _apply_physiology(
     cur: Cur, user_id: UUID, nights: dict[str, dict], sessions: list[tuple]
 ) -> None:
@@ -231,25 +266,43 @@ def _apply_physiology(
     night still aggregates over its OWN [start, end). A night with no samples still
     yields a row of NULLs (LEFT JOIN), exactly as the per-night `fetchone()` did.
 
-    ⚠ **The seeks are not the ones this comment used to claim.** It said the array form
-    "keeps the per-window index seeks"; `EXPLAIN (ANALYZE, BUFFERS)` says otherwise
-    (`docs/PERF_AUDIT.md` A1). The join carries **no `metric` predicate**, so each
-    per-night seek uses the hypertable's `ts`-only index, applies `user_id` as a filter,
-    and pulls every metric's samples inside the window before the four `CASE WHEN`
-    expressions discard the ones it does not want — 731 rows per night, 266,912 for 365
-    nights, of which under a quarter are wanted. `sample_user_idx (user_id, metric, ts
-    DESC)` cannot be used at all, because the predicate never names a metric.
+    **The join names its metrics, and that is the whole cost of this endpoint.** Without
+    the `metric` predicate each per-night seek used the hypertable's `ts`-only index,
+    applied `user_id` as a filter, and pulled EVERY metric's samples inside the window
+    before the four `CASE WHEN` expressions discarded the ones it did not want — 731 rows
+    per night of which under a quarter are wanted, and `sample_user_idx (user_id, metric,
+    ts DESC)` could not be used at all because the predicate named no metric
+    (`docs/PERF_AUDIT.md` A1, which measured the plan and the cost but deliberately left
+    the fix to its own change).
 
-    Measured: 16.5 s at `days=365` on a year of nights, and ~125 ms at the app's default
-    `days=30` from 90 nights of history onward — over the p95 < 100 ms budget. The
-    statement is the whole cost; every other statement in the endpoint is under 3.1 ms.
+    **`prepare=False` is the other half, and it is the larger half.** `PERF_AUDIT.md` A1
+    measured 16.5 s and attributed all of it to the missing predicate; re-measuring here
+    found a second, independent defect underneath it, and the audit's own 32× prediction
+    did not reproduce until this line was added too. Twenty consecutive `days=365` calls,
+    predicate in place:
 
-    The correction is left to its own change and is NOT made here: the fix is one added
-    line (`AND s.metric IN (…)`, measured at 47.5 ms for the same 365 windows) and it is
-    a behaviour-adjacent query change that belongs in a diff whose subject it is. What is
-    corrected here is the comment, because a comment that names a property the plan
-    contradicts is the class `BACKEND_AUDIT.md` D-b names: a reader who checks it stops
-    looking.
+        calls  1-10   83 - 90 ms      custom plan
+        calls 11-20  1506 - 1530 ms   generic plan
+
+    psycopg PREPAREs a statement after `prepare_threshold` (5) executions on a pooled
+    connection, and PostgreSQL's `plan_cache_mode = auto` then promotes it to a GENERIC
+    plan — one built without the parameter values. This query cannot survive that: the
+    planner has to see the `unnest` arrays to know there are 365 windows and to prune the
+    hypertable's chunks against the outer `ts` bound. `force_custom_plan` held all twenty
+    calls at 82-127 ms; `force_generic_plan` held all twenty at 1,503-1,559 ms. The cliff
+    is why an endpoint measured "once, fresh" looks fine and the same endpoint under a
+    warm pool does not — and it is why the audit's 47.5 ms (a fresh cursor) and its
+    16,556 ms (a warm one) were both true.
+
+    Measured end to end, 366 nights / 988,211 samples, `days=365`, p50 over 10 calls:
+    **15,363.0 ms → 92.0 ms**, inside the p95 < 100 ms budget it was 154× outside (steady
+    state is 82-95 ms; the first call of a cold process is ~140 ms). The
+    predicate alone got it to 1,517.1 ms; the predicate also cuts the statement's buffer
+    reads 133,193 → 5,476 (24×), which is the part that does not depend on which plan
+    PostgreSQL picked. No schema change and no index change: an added `sample (user_id,
+    ts)` index was measured and changed the plan, the buffers and the time by nothing at
+    all, at 27 MB per year of samples (`PERF_AUDIT.md` section E's gap does not need
+    closing).
     """
     windows = [
         (local_date.isoformat(), start_ts, end_ts)
@@ -260,21 +313,9 @@ def _apply_physiology(
         return
     dates, starts, ends = (list(col) for col in zip(*windows, strict=True))
     cur.execute(
-        "SELECT w.date_iso, "
-        "  ROUND(AVG(CASE WHEN s.metric='spo2' THEN s.value END)::numeric,1), "
-        "  MIN(CASE WHEN s.metric='spo2' THEN s.value END), "
-        "  ROUND(AVG(CASE WHEN s.metric='respiratory_rate' THEN s.value END)::numeric,1), "
-        "  ROUND(AVG(CASE WHEN s.metric='skin_temp_c' AND s.value>25 THEN s.value END)::numeric,1) "
-        "FROM unnest(%s::text[], %s::timestamptz[], %s::timestamptz[]) "
-        "     AS w(date_iso, start_ts, end_ts) "
-        "LEFT JOIN sample s ON s.user_id = %s "
-        # The outer bound is implied by the per-window ones, so it removes no row —
-        # it is there to give the hypertable a constant `ts` range to prune chunks on
-        # (the note at the top of read/today_series.py documents the same trap).
-        "  AND s.ts >= %s AND s.ts < %s "
-        "  AND s.ts >= w.start_ts AND s.ts < w.end_ts "
-        "GROUP BY w.date_iso",
-        (dates, starts, ends, user_id, min(starts), max(ends)),
+        _PHYSIOLOGY_SQL,
+        (dates, starts, ends, user_id, list(PHYSIOLOGY_METRICS), min(starts), max(ends)),
+        prepare=False,
     )
     for date_iso, spo2_avg, spo2_min, resp, temp in cur.fetchall():
         row = nights[date_iso]

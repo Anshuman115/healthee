@@ -53,8 +53,32 @@ def notes_for(
 
     Verbatim behaviour of legacy ``_matching_notes`` (default ``min_grade=3`` =
     Established-only), just reading the manifest instead of the corpus tree.
+
+    MEMOISED on its arguments, because ``correlate`` calls it once per finding — 774
+    times a night for an owner — and the answer depends on nothing but the manifest,
+    which :func:`_records` already caches for the process's whole life. So this adds no
+    staleness that was not already there: the two caches expire together, on restart.
+    Profiled at 0.055 s of the step's 1.044 s before (`PERF_AUDIT.md` B3).
+
+    A fresh ``list`` is returned every call. The cache holds a tuple, so a caller that
+    mutates what it gets back cannot reach into the cache and change what the next
+    caller sees — the failure that makes a shared mutable cache worse than no cache.
     """
-    interventions = interventions or []
+    return list(_notes_for(tuple(metrics), tuple(interventions or ()), min_grade))
+
+
+# Bounded by the metric registry, not by traffic: the key is a metric list, and
+# `CORRELATED_METRICS` is 24 long, so the reachable key space is a few hundred pairs.
+_NOTES_CACHE_SIZE = 2048
+
+
+@lru_cache(maxsize=_NOTES_CACHE_SIZE)
+def _notes_for(
+    metrics: tuple[str, ...],
+    interventions: tuple[str, ...],
+    min_grade: int,
+) -> tuple[str, ...]:
+    """:func:`notes_for`'s body, keyed on hashable arguments. Never called directly."""
     out: set[str] = set()
     for rec in _records():
         if GRADE_RANK.get(rec.get("grade", ""), 0) < min_grade:
@@ -67,4 +91,4 @@ def notes_for(
         for e in interventions:
             if e in applies_interventions or note_id == e or note_id.startswith(e + "_"):
                 out.add(note_id)
-    return sorted(out)
+    return tuple(sorted(out))
