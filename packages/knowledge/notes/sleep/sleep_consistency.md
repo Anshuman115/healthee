@@ -4,7 +4,7 @@ name: "Sleep timing consistency (day-to-day variability)"
 topic: Day-to-day sleep timing variability is independently linked to cardiometabolic risk
 category: sleep
 grade: Established
-summary: "Higher day-to-day variability in bedtime and sleep duration raises cardiometabolic and mortality risk independently of mean sleep duration; it is a chronic-pattern signal (track SD of bedtime over ~2 weeks, surface weekly), the behavioural sibling of the Sleep Regularity Index."
+summary: "Higher day-to-day variability in bedtime and sleep duration tracks with higher cardiometabolic and mortality risk independently of mean sleep duration; it is a chronic-pattern signal (track SD of bedtime over ~2 weeks, surface weekly), the behavioural sibling of the Sleep Regularity Index."
 aliases: ["sleep consistency", "bedtime consistency", "sleep timing variability", "irregular sleep", "sleep variability", "consistent bedtime", "social jetlag", "bedtime SD", "weekend catch-up sleep"]
 applies_to_metrics: ["sleep_regularity_index", "sleep_health_score_4dim"]
 applies_to_interventions: ["sleep_consistency", "bedtime_consistency"]
@@ -43,7 +43,7 @@ suprachiasmatic nucleus) from the sleep-wake schedule and from peripheral clocks
 that govern glucose handling, blood pressure rhythm, and metabolism. This
 "circadian misalignment" — the same physiology behind social jetlag and shift-work
 risk — is the plausible route by which timing variability, independent of total
-duration, raises cardiometabolic and mortality risk. Morning bright light is the
+duration, tracks with cardiometabolic and mortality risk. Morning bright light is the
 dominant zeitgeber that re-anchors the clock (see `morning_light_circadian`).
 
 ## The evidence
@@ -59,9 +59,15 @@ dominant zeitgeber that re-anchors the clock (see `morning_light_circadian`).
   mangling of the abstract's "20%–48% lower risk", and its CI is far too narrow to
   be the reciprocal of the published one. Corrected to the paper's own direction and
   numbers.]*
-- **[Probable]** **Bedtime variability and cardiometabolic outcomes** — SDs of
-  bedtime ≥1 hour vs <30 min carry small-to-moderate elevations in risk (typically
-  **RR 1.1–1.3**) for blood pressure, fasting glucose, and BMI outcomes.
+- **[Probable]** **Bedtime variability and cardiometabolic outcomes** — larger
+  night-to-night variability in bedtime (SDs ≥1 hour vs <30 min) is associated with
+  worse blood-pressure, fasting-glucose and BMI outcomes. **No effect size is given
+  here, on purpose:** this bullet used to say "typically **RR 1.1–1.3**", which
+  carried no citation and which we could not source (audit B6, 2026-09-08). The
+  DIRECTION is supported by the systematic review below [Bei et al. 2016]; the
+  magnitude is not something this note can quantify, and "typically" was doing a
+  citation's work. The bullet directly above carries a 2026-08-01 primary-source
+  correction of a fabricated hazard ratio — that pass stopped one bullet short.
 - **[Established]** **Systematic review** — Bei B, Wiley JF, Trinder J, Manber R.
   *"Beyond the mean: A systematic review on the correlates of daily
   intraindividual variability of sleep/wake patterns."* Sleep Medicine Reviews

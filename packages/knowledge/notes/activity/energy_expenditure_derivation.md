@@ -84,12 +84,34 @@ BMR/min, so the day sums to BMR×PAL):
 ```
 walking/running  → ACSM:  VO₂ = 0.1·speed+3.5 (or 0.2·speed+3.5 ≥134 m/min); MET = VO₂/3.5
 asleep           → 0.95 MET            (sleep_session windows)
-awake, no steps  → 1.4 MET  (light NEAT; Compendium sitting 1.3 / standing 1.8) ← tunable
+awake, no steps  → TWO STATES, by proximity to movement:
+                     1.55 MET if any step falls within ±7 min  (up & about between strides)
+                     1.30 MET otherwise                        (Compendium 07021, sitting quietly)
 workout window   → excluded; use device-measured calories
 EE_minute = MET · (BMR/1440)
 total_calories = Σ EE_minute + Σ workout.calories ; active = total − BMR
 ```
-Verified on the real day: total 2470, PAL 1.40 — sane for sedentary-light.
+
+> **[Corrected 2026-09-08.]** The awake-no-steps line read *"1.4 MET (light NEAT;
+> Compendium sitting 1.3 / standing 1.8) ← tunable"*, and the shipped code has run a
+> **two-state** model since well before this audit (`derive/energy.py:70-78,155-160`).
+> The code's model is the better one and its own comment argues why: *"A flat 1.4
+> overcounts long sedentary stretches AND undercounts time up-and-about between
+> strides."* The note was describing a formula the product does not run, so a coach
+> explaining the owner's calories from this note explained the wrong model.
+>
+> **Neither of the two-state constants is cited, and neither can be from this note.**
+> `AWAKE_SEDENTARY_MET = 1.3` is Compendium 07021 (sitting quietly) and that much is
+> sourced; `AWAKE_ACTIVE_MET = 1.55` sits between the Compendium's standing values and
+> is a **practitioner choice**, and `NEAT_WINDOW = 7` minutes is a **product decision**
+> with no literature behind it at all. Both are stated as such rather than dressed in a
+> citation, and moving either is a science change owed its own PR.
+
+The worked verification below (*"total 2470, PAL 1.40"*) was computed under the **flat
+1.4** model and is therefore a check on a formula the product no longer runs. It is kept
+as the historical arithmetic, clearly labelled, rather than silently re-baselined against
+a number nobody re-derived: `tests/derive/test_derive_parity.py` is where the shipped
+model's numbers are actually pinned.
 
 ### 3. Workouts — device-measured ★★★
 For workout windows use the device's measured `calories` (fetch 0x05) — real, not derived —

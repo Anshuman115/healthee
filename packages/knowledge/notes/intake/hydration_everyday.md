@@ -5,7 +5,7 @@ topic: There is no evidence-based universal daily water target for a healthy adu
 category: intake
 grade: Probable
 safety_critical: [5, 6]     # → hard guardrails `hydration_everyday_D5`/`_D6`
-summary: "The '8 glasses a day' rule has no scientific basis — a systematic search found 'no scientific studies in support of 8 x 8' (Valtin 2002) — and caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate."
+summary: "Caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate. The '8 glasses a day' question is a separate, Myth-graded topic and lives in [[hydration_8x8_rule]] — cite that note for it, never this one."
 aliases: ["hydration", "hydrated", "water", "drinking water", "water intake", "how much water", "how much water should i drink", "fluid intake", "fluids", "drink more water", "dehydration", "dehydrated", "thirst", "urine colour", "urine color"]
 applies_to_metrics: []
 applies_to_interventions: []
@@ -28,10 +28,14 @@ extends those rules.
 
 Three things are worth saying plainly and one thing is worth saying loudly.
 
-1. **"Eight 8-oz glasses a day" has no evidential basis.** A search of the
-   peer-reviewed literature, older non-indexed literature, and consultation with
-   specialists in thirst and drinking found "**no scientific studies were found in
-   support of 8 x 8**" (Valtin 2002).
+1. **The "eight 8-oz glasses a day" question belongs to [[hydration_8x8_rule]]**, which
+   is graded `Myth` and states the correction, both of Valtin's own insisted limitations,
+   and the "absence of evidence is not proof of absence" framing in full. It is not
+   restated here, and citing THIS note for it makes the validator demand a `Probable`
+   hedge on a claim the evidence supports flatly — the exact failure #91 closed.
+   *(Corrected 2026-09-08: the correction was still stated here, and in the frontmatter
+   summary and the Bottom line, sixty lines above this note's own record that it "simply
+   stopped being the one that states it".)*
 2. **Caffeinated drinks count.** Coffee at 4 mg/kg caffeine per day was
    indistinguishable from water on total body water (51.5 ± 1.4 vs 51.4 ± 1.3 kg)
    and on 24-h urine volume (2409 ± 660 vs 2428 ± 669 mL) across three days
@@ -173,8 +177,7 @@ above euhydration improves anything.
 ## How we compute it
 
 **Nothing.** There is no hydration metric, no fluid log and no derived field.
-`manual_entry` accepts arbitrary `kind` values through `/api/logs`, but the kinds
-the analytics layer actually evaluates are fixed —
+`manual_entry` is written through **`POST /api/log`** (singular — `api/routers/logs.py:18`), whose wire field is **`type`**, not `kind`, and whose value must be one of a **10-value allowlist** (`read/logs.py:20-23`: caffeine, alcohol, water, food, med, symptom, mood, habit, meditation, exercise) — not an arbitrary string. *(Corrected 2026-09-08: this said "arbitrary `kind` via `/api/logs`". The substance below is unaffected — both `water` and `food` are on the allowlist — but three details of the endpoint were wrong.)* But the kinds the analytics layer actually evaluates are fixed —
 `analytics/metrics.py::EVENT_KINDS` = alcohol, caffeine, meditation, exercise,
 fasting — so even a hand-written "water" log would correlate against nothing.
 
@@ -259,8 +262,7 @@ figures.
 
 ## Bottom line
 
-**Act on confidently:** there is no scientific basis for "eight glasses a day";
-caffeinated drinks count toward fluid intake; the published reference values are
+**Act on confidently:** caffeinated drinks count toward fluid intake; the published reference values are
 total water including food, not plain-water targets; and we measure nothing about
 this person's hydration.
 
@@ -326,8 +328,9 @@ hydration and the metrics Healthee computes — for which we have no source at a
 ## Healthee implementation & honesty policy
 
 - **No metric, no derived field, no log kind.** `applies_to_metrics: []` is literal:
-  hydration touches nothing we compute. `manual_entry` will accept a `kind` of
-  `"water"` through `/api/logs`, but `analytics/metrics.py::EVENT_KINDS` evaluates
+  hydration touches nothing we compute. `POST /api/log` will accept a `type` of `"water"`
+  (it is on the 10-value allowlist in `read/logs.py:20-23`), but
+  `analytics/metrics.py::EVENT_KINDS` evaluates
   only alcohol, caffeine, meditation, exercise and fasting, so such a row would
   correlate against nothing and appear nowhere except the coach's raw
   manual-entries table. **Do not imply we track hydration because a log was

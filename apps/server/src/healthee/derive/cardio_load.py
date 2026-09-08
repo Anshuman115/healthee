@@ -9,23 +9,23 @@ Knowledge: [[training_stress_score]], [[heart_rate_zones]], [[maximum_heart_rate
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from healthee.derive._common import Cur, _age, _day_bounds_utc, _load_profile, _upsert_daily
+from healthee.derive.freshness import RHR_MAX_AGE_DAYS
 from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.trimp import trimp_minute
 
 # Edwards zone lower bounds as %HRmax; zone weights are 1..5.
 EDWARDS_ZONE_LO = (0.50, 0.60, 0.70, 0.80, 0.90)
 
-_RHR_FALLBACK = 60.0  # when no measured resting HR is available
-
 
 def derive_cardio_load(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     """Banister TRIMP + Edwards training load over waking minutes for one day.
 
-    None without a profile, without a usable HR reserve, or with no waking HR.
+    None without a profile, **without a measured resting HR fresh enough to anchor the
+    reserve**, without a usable HR reserve, or with no waking HR.
     """
     prof = _load_profile(cur, user_id, tz, day)
     if not prof:
@@ -33,6 +33,8 @@ def derive_cardio_load(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | No
     age = _age(prof["dob"], day)
     hrmax = 208 - 0.7 * age  # Tanaka 2001
     rhr = _measured_rhr(cur, user_id, day)
+    if rhr is None:  # no measured RHR inside the horizon — withhold, never invent one
+        return None
     if hrmax - rhr < 1:
         return None
     start_utc, end_utc = _day_bounds_utc(day, tz)
@@ -69,15 +71,34 @@ def derive_cardio_load(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | No
     return {"cardio_load": round(trimp, 1), "edwards_tl": edwards, "zone_min": zones}
 
 
-def _measured_rhr(cur: Cur, user_id: UUID, day: date) -> float:
-    """Most-recent measured resting HR on/before the day; falls back to 60."""
+def _measured_rhr(cur: Cur, user_id: UUID, day: date) -> float | None:
+    """The most recent MEASURED resting HR that still speaks for ``day``, or ``None``.
+
+    ``None`` means "we cannot price this day's cardio load", and the caller withholds the
+    whole row rather than publishing one built on a number nobody measured.
+
+    Two defects closed here (audit C5, 2026-09-08), both of which shipped a full
+    ``cardio_load`` row that looked exactly like a measured one:
+
+    * **The fabricated 60.** This function used to return a flat ``_RHR_FALLBACK = 60.0``
+      when the owner had no ``rhr_daily`` row at all, and ``derive_cardio_load`` then
+      published TRIMP, Edwards load and the zone minutes off it — which feed strain, ACWR
+      and the readiness decay. ``training-stress-score.md`` says the opposite in as many
+      words: *"measured resting HR (`rhr_daily`, taken from the sleep window — preferred
+      over a generic 60)"*. Every other gate in ``derive/`` withholds; this one invented.
+    * **The unbounded lookback.** The query had no maximum age, so a resting HR from a
+      year ago was silently used as today's — the stale-as-current lie, in the anchor of
+      the HR reserve. :data:`freshness.RHR_MAX_AGE_DAYS` bounds it, and that constant
+      carries the argument for 30.
+    """
+    cutoff = day - timedelta(days=RHR_MAX_AGE_DAYS)
     cur.execute(
-        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='rhr_daily' AND day<=%s "
-        "ORDER BY day DESC LIMIT 1",
-        (user_id, day),
+        "SELECT value FROM derived_daily WHERE user_id = %s AND metric='rhr_daily' "
+        "AND day<=%s AND day>=%s ORDER BY day DESC LIMIT 1",
+        (user_id, day, cutoff),
     )
     r = cur.fetchone()
-    return float(r[0]) if r and r[0] is not None else _RHR_FALLBACK
+    return float(r[0]) if r and r[0] is not None else None
 
 
 def _trimp_and_zones(

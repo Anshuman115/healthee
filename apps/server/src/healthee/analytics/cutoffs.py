@@ -35,6 +35,8 @@ MIN_AFTER_H_NIGHTS = 5
 MIN_CONTROL_NIGHTS = 10
 P_THRESHOLD = 0.10
 MIN_RANK_BISERIAL = 0.30
+# See the note beside `analytics/correlations.py::FDR_Q_THRESHOLD`: one name, two
+# values, two different search families, and no note governing either.
 FDR_Q_THRESHOLD = 0.20
 
 # Outcomes + literature-expected direction (-1 lower / +1 higher in the after-H

@@ -934,6 +934,143 @@ mutate 'the tenant-scoping guard accepts user_id anywhere in the statement' \
 )' \
   '_USER_ID_SCOPED = re.compile(r"user_id", re.IGNORECASE)'
 
+# ── G · the knowledge audit (2026-09-08) ─────────────────────────────────────
+# These mutate the CORPUS, not the source, and that is the point: the corpus is an
+# interpretive channel with no calibration gate on its own prose (KNOWLEDGE_AUDIT.md
+# section 1.1), so the only thing that can stop a false sentence coming back is a test
+# that reads the note. Each one restores the exact sentence the audit found.
+
+CORPUS_ENFORCEMENT=tests/insights/test_corpus_enforcement_claims.py
+GUARD_DIRECTIVES=tests/insights/test_guard_directives.py
+CORPUS_FIGURES=tests/insights/test_corpus_withdrawn_figures.py
+
+# ── G1 ───────────────────────────────────────────────────────────────────────
+# The false safety claim comes back: D14 asserts unqualified enforcement of
+# "never advise drinking ahead of thirst", which the compiled rule cannot see.
+mutate 'a directive claims a guardrail for a move the rule cannot see' \
+  "$CORPUS_ENFORCEMENT" ../../packages/knowledge/sports-science/wellness/environmental-stress.md \
+  '  (SAFETY-CRITICAL; **PARTLY enforced in code, and the part that is not is the part' \
+  '  (SAFETY-CRITICAL; **enforced in code, fully and unqualified. The part that is not is the part'
+
+# ── G2 ───────────────────────────────────────────────────────────────────────
+# The same claim from the fuelling side, which is where it was first written.
+mutate 'the fuelling note re-asserts the unqualified hydration guardrail' \
+  "$CORPUS_ENFORCEMENT" ../../packages/knowledge/sports-science/wellness/fueling-and-hydration.md \
+  '  Established (SAFETY-CRITICAL; **PARTLY enforced in code.** `[[hydration_everyday]]`' \
+  '  Established (SAFETY-CRITICAL; **enforced in code.** `[[hydration_everyday]]`'
+
+# ── G3 ───────────────────────────────────────────────────────────────────────
+# The scope itself moves: the rule grows a "thirst" branch, so it now eats the
+# corpus CORRECTING the myth. Widening is as much a defect as the overclaim was,
+# and the two notes' prose stops being true either way.
+mutate 'the fluid rule widens to catch a stance rather than a number' \
+  "$GUARD_DIRECTIVES" src/healthee/insights/guard_directives.py \
+  '    r"\b(?:drink|sip|hydrate)\s+(?:every|each)\s+\d+\s*(?:min\w*|km|miles?|hours?)\b",' \
+  '    r"\b(?:ahead\s+of|before)\s+(?:your\s+)?thirst\b",'
+
+# ── G4 ───────────────────────────────────────────────────────────────────────
+# The withdrawn SpO2 precision figure returns to the frontmatter summary — the
+# one field that ships to `research_summaries.json` and into every prompt.
+mutate 'the withdrawn SpO2 RMSE figure returns to the shipped summary' \
+  "$CORPUS_FIGURES" ../../packages/knowledge/notes/metrics/wearable_spo2_validity.md \
+  'not for absolute precision (the true error is unquantified' \
+  'not for absolute precision (±2–3% RMSE, the true error is unquantified'
+
+# ── G5 ───────────────────────────────────────────────────────────────────────
+# The withdrawn Jurca SEE returns to the method-comparison table, where it sits
+# in the model's context beside the correct 5.075 in the same file.
+mutate 'the withdrawn Jurca SEE returns to the comparison table' \
+  "$CORPUS_FIGURES" ../../packages/knowledge/notes/activity/submaximal_vo2max.md \
+  '| *Jurca 2005 (fallback baseline)* | r=0.81 overall, **SEE 1.45 METs = 5.075**' \
+  '| *Jurca 2005 (fallback baseline)* | r≈0.78, **SEE≈5.6**'
+
+# ── H · the audit's four gate fixes ──────────────────────────────────────────
+
+MVPA_MET=tests/derive/test_mvpa_met_equivalent.py
+CARDIO_RHR=tests/derive/test_cardio_load_rhr.py
+SKIN_TEMP=tests/read/test_skin_temp_plausibility.py
+REGISTRY=tests/challenges/test_registry.py
+
+# ── H1 · audit C2 ────────────────────────────────────────────────────────────
+# `mvpa_min` goes back to a raw minute count, measured against a MET-equivalent
+# target of 150. The defect under-credits, which is why it survived every sweep.
+mutate 'MVPA stops counting a vigorous minute as two' \
+  "$MVPA_MET" src/healthee/derive/mvpa.py \
+  '    mvpa = moderate + _VIGOROUS_MET_WEIGHT * vigorous' \
+  '    mvpa = moderate + vigorous'
+
+# The weighting moves into the flags instead, so the halves stop being the raw
+# pair the weekly card's "moderate {m} + vigorous {v} x 2" subline needs.
+mutate 'the un-weighted halves are weighted in the flags instead' \
+  "$MVPA_MET" src/healthee/derive/mvpa.py \
+  '{"moderate": moderate, "vigorous": vigorous})' \
+  '{"moderate": moderate, "vigorous": _VIGOROUS_MET_WEIGHT * vigorous})'
+
+# ── H2 · audit C5 ────────────────────────────────────────────────────────────
+# The fabricated resting HR comes back — the one place in derive/ that invented
+# an input rather than withholding. The row it publishes looks measured.
+mutate 'cardio load invents a resting HR again' \
+  "$CARDIO_RHR" src/healthee/derive/cardio_load.py \
+  '    r = cur.fetchone()
+    return float(r[0]) if r and r[0] is not None else None' \
+  '    r = cur.fetchone()
+    return float(r[0]) if r and r[0] is not None else 60.0'
+
+# The freshness bound is dropped while the withhold stays, so a resting HR from a
+# year ago is silently used as today's. Stale-as-current, in the reserve anchor.
+mutate 'the resting-HR lookback goes back to unbounded' \
+  "$CARDIO_RHR" src/healthee/derive/cardio_load.py \
+  '        "AND day<=%s AND day>=%s ORDER BY day DESC LIMIT 1",
+        (user_id, day, cutoff),' \
+  '        "AND day<=%s AND day>=%s ORDER BY day DESC LIMIT 1",
+        (user_id, day, cutoff - timedelta(days=100000)),'
+
+# ── H3 · audit C7 ────────────────────────────────────────────────────────────
+# One surface loses the plausibility filter again, so an off-wrist sample drags
+# last night's skin temperature down here and not on the sleep page.
+mutate 'the skin-temp average takes sentinel samples again' \
+  "$SKIN_TEMP" src/healthee/read/sleep_extras.py \
+  "  ROUND(AVG(CASE WHEN metric='skin_temp_c' AND value>25 THEN value END)::numeric, 1), " \
+  "  ROUND(AVG(CASE WHEN metric='skin_temp_c' THEN value END)::numeric, 1), "
+
+# ── H4 · audit C1 ────────────────────────────────────────────────────────────
+# The challenge engine's sleep ceiling drops below the owner's own need again, so
+# a sleep-duration target can never be raised past 7.5 h.
+mutate 'the sleep ceiling drops back under the canonical need' \
+  "$REGISTRY" src/healthee/challenges/scales.py \
+  '    "tst_min": float(SLEEP_NEED_MIN_18_64),' \
+  '    "tst_min": 450.0,'
+
+# ── I · the two derived corpus guards, proven on their own subject ───────────
+
+CORPUS_CAUSAL=tests/insights/test_corpus_causal_voice.py
+MINETTI=tests/derive/test_minetti_coefficients.py
+
+# ── I1 ───────────────────────────────────────────────────────────────────────
+# An observational note goes back to causal voice in the "Act on confidently"
+# line — the sentence that tells the model it may state a claim plainly, on a
+# note whose own evidence bullets say "associated with".
+mutate 'an observational claim ships in causal voice again' \
+  "$CORPUS_CAUSAL" ../../packages/knowledge/notes/activity/sedentary_mortality.md \
+  '**Act on confidently:** long sedentary time tracks with higher mortality, mostly in' \
+  '**Act on confidently:** long sedentary time raises mortality, mostly in'
+
+# ── I2 ───────────────────────────────────────────────────────────────────────
+# One digit of one Minetti coefficient in the CODE. Before the note-side copy
+# existed, nothing in the repo could see this: the polynomial still returns a
+# plausible VO2 and every downstream number moves quietly with it.
+mutate 'a Minetti gradient coefficient is mistyped' \
+  "$MINETTI" src/healthee/derive/vo2max_submax.py \
+  'cw = 155.4 * i**5 - 30.4 * i**4' \
+  'cw = 155.4 * i**5 - 30.5 * i**4'
+
+# And the other direction: the NOTE drifts away from the code it documents.
+# Both halves matter — a table nobody checks is the state this replaced.
+mutate 'the note-side Minetti table drifts from the code' \
+  "$MINETTI" ../../packages/knowledge/notes/activity/submaximal_vo2max.md \
+  '| **Walking** | 280.5 | −58.7 |' \
+  '| **Walking** | 280.5 | −58.6 |'
+
 
 echo
 echo "caught $PASS, survived $FAIL"

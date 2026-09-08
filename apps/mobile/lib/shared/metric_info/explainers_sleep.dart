@@ -63,12 +63,16 @@ const Map<String, MetricInfo> kSleepExplainers = <String, MetricInfo>{
   'sleep_health': MetricInfo(
     title: 'Sleep health (4 checks)',
     what:
-        'Four qualities of a good night: enough hours, efficient sleep, a healthy '
-        'bedtime, and night-to-night regularity. Each is a simple pass/fail, and '
-        'they are never summed into a score.',
+        'Four qualities of a good night: enough hours, efficient sleep, sleep timing, '
+        'and night-to-night regularity. Timing is scored on the MIDPOINT of your '
+        'night — the clock time halfway between falling asleep and waking — not on '
+        'your bedtime. Each check is a simple pass/fail, and the four are counted, '
+        'never scaled into a 0–100 score.',
     target:
-        'Aim for 4 / 4. Two of the four cut-offs come straight from the literature; '
-        'the other two we chose — see below.',
+        'Aim for 4 / 4 — the count is the score, and it always travels with the four '
+        'checks behind it rather than replacing them. Two of the cut-offs come '
+        'straight from the literature, one is our pick inside a published range, and '
+        'one is ours outright — see below.',
     why:
         'No peer-reviewed composite 0–100 sleep score exists, and refusing to show '
         'one is the honest choice, so this is a count of checks passed and never a '
@@ -83,12 +87,13 @@ const Map<String, MetricInfo> kSleepExplainers = <String, MetricInfo>{
       'sleep_duration_mortality',
     ],
     uncited:
-        'The four cut-offs are unequally sourced. 7–9 h is NSF 2015 consensus. '
-        '≥85% efficiency is clinical consensus whose guideline actually gives a '
-        'range of >80–85%, so picking 85 was ours. The 2–4 am timing band and '
-        'SRI ≥ 70 are both ours — no published SRI threshold of 70 exists. Two '
-        'further dimensions of the published framework, satisfaction and '
-        'alertness, are self-reported and are simply missing here.',
+        'The four cut-offs are unequally sourced. 7–9 h is NSF 2015 consensus. The '
+        '2–4 am midpoint band is Buysse 2014’s definitional cutoff, replicated as the '
+        'timing dimension in later work. ≥85% efficiency is clinical consensus whose '
+        'guideline actually gives a range of >80–85%, so picking 85 was ours. SRI ≥ 70 '
+        'is ours outright — no published SRI threshold of 70 exists; it is a quintile '
+        'boundary rounded down. Two further dimensions of the published framework, '
+        'satisfaction and alertness, are self-reported and are simply missing here.',
   ),
   'sleep_debt': MetricInfo(
     title: 'Sleep need, performance & debt',
@@ -98,8 +103,9 @@ const Map<String, MetricInfo> kSleepExplainers = <String, MetricInfo>{
         'for you — 8 hours for adults 18–64 — so it is a recommendation, not a '
         'measurement of your body. A minority are genuine short or long sleepers.',
     target:
-        'Aim for 100% of that 8-hour midpoint and keep the debt shrinking. Even an '
-        'extra 30 min a night moves it the right way.',
+        'Aim for 100% of that 8-hour midpoint and keep the debt shrinking. Any night '
+        'closer to your need moves it the right way; we recommend catching up rather '
+        'than prescribing a dose, because no catch-up dose is established.',
     why:
         'Sleep restricted to 6 h a night for two weeks degraded cognitive '
         'performance to the level of two nights with no sleep at all — and the '
@@ -115,7 +121,10 @@ const Map<String, MetricInfo> kSleepExplainers = <String, MetricInfo>{
         'The half-credit a long night earns back, and the 14-night window the debt '
         'is summed over, are modelling choices rather than validated constants. '
         'The evidence behind sleep debt is for alertness and thinking, not for '
-        'mood and not for any direct health outcome.',
+        'mood and not for any direct health outcome. The last clause above — that '
+        'the restricted group barely felt sleepy — is a real finding of that paper '
+        'but is not carried by any note we cite, so take it from the paper, not '
+        'from us.',
   ),
   'sleep_consistency': MetricInfo(
     title: 'Sleep consistency (SRI)',
@@ -133,9 +142,11 @@ const Map<String, MetricInfo> kSleepExplainers = <String, MetricInfo>{
     why:
         'In 60,977 UK Biobank adults, sleep regularity predicted mortality more '
         'strongly than sleep duration did — adding duration to the model did not '
-        'improve it — and the steadiest sleepers sat around 30% lower all-cause '
-        'risk (Windred 2024). To improve: pick a fixed wake time, get bright light '
-        'on waking, and shift lights-out a little earlier each week.',
+        'improve it, and the steadiest sleepers carried the lower risk (Windred '
+        '2024). How much lower is not a number that survives the trip to your '
+        'screen: it belongs to the software that scored those nights, not to ours. '
+        'To improve: pick a fixed wake time, get bright light on waking, and shift '
+        'lights-out a little earlier each week.',
     notes: <String>[
       'sleep_regularity_index',
       'sleep_consistency',

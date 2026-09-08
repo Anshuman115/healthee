@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from healthee.challenges.metrics import WINDOW_BASES
 from healthee.challenges.windowed import WINDOW_HOURS, metric_key
+from healthee.derive.sleep_score import SLEEP_NEED_MIN_18_64
 
 __all__ = ["IDEAL", "ROUND_STEP", "round_target"]
 
@@ -61,7 +62,30 @@ __all__ = ["IDEAL", "ROUND_STEP", "round_target"]
 IDEAL: dict[str, float] = {
     "mvpa_min": 150.0,  # WHO weekly MVPA target [mvpa_minutes_mortality]
     "steps_total": 8000.0,  # daily-steps mortality plateau [steps_mortality]
-    "tst_min": 450.0,  # 7.5 h, mid-band of the U-curve [sleep_duration_mortality]
+    # THE CANONICAL SLEEP NEED, imported rather than restated (audit C1, 2026-09-08).
+    #
+    # This entry was `450.0  # 7.5 h, mid-band of the U-curve [sleep_duration_mortality]`,
+    # and it was wrong twice.
+    #
+    # 1. The citation did not support the claim. `sleep_duration_mortality` carries a #88
+    #    correction whose whole point is that **Cappuccio 2010 states no reference band**
+    #    — "neither 7-8 h nor 7-9 h is Cappuccio's" — so there is no mid-band of that
+    #    U-curve to take the middle of. A citation is a claim about a line in a note (#67).
+    # 2. It was a THIRD definition of sleep need. `derive/sleep_score.py` owns the one
+    #    canonical value (NSF 2015), `challenges/targets.py` deliberately keeps `tst_min`
+    #    out of EVIDENCE_TARGET so the target stays the owner's OWN age-banded need, and
+    #    then this table quietly capped every raise below it. CLAUDE.md's "ONE canonical
+    #    definition per metric" is the rule that breaks.
+    #
+    # It was live, not cosmetic: `adapt._ceiling` reads IDEAL as the hard ceiling on any
+    # raise, so for an owner whose computed need is 8 h the engine could never move a
+    # sleep-duration target past 7.5 h — a ceiling under his own need, in the metric this
+    # product exists to be honest about, for an owner who is a chronic short sleeper.
+    #
+    # 480 is the ADULT (18-64) need and the larger of the two age bands, so as a ceiling
+    # it can never cap any owner below their own need; `targets.resolve_target` still sets
+    # the per-owner target from their band. Imported so the two cannot drift apart.
+    "tst_min": float(SLEEP_NEED_MIN_18_64),
     "sri": 70.0,  # `SRI_GOOD`, derived from Windred 2024 [sleep_regularity_index]
     # NOT EVIDENCE, and it must never be presented as such. No note in the corpus
     # supports a specific weekly SESSION count — the evidence is denominated in

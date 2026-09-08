@@ -231,6 +231,35 @@ def test_the_sri_ceiling_is_the_number_its_note_actually_states() -> None:
     assert IDEAL["sri"] == 70.0
 
 
+def test_the_sleep_ceiling_is_never_below_the_owners_own_need() -> None:
+    """``IDEAL["tst_min"]`` is the canonical sleep need, not a fourth number (audit C1).
+
+    It was **450.0**, cited to ``[sleep_duration_mortality]`` as "the mid-band of the
+    U-curve". That note's #88 correction says in as many words that **Cappuccio 2010
+    states no reference band**, so there was no mid-band to take; and 450 is *below*
+    ``derive/sleep_score.SLEEP_NEED_MIN_18_64``, the one canonical adult need.
+
+    The consequence was live and one-directional: ``adapt._ceiling`` reads this as the
+    hard cap on a raise, so for an owner whose computed need is 8 h the engine could
+    never move a sleep-duration target past 7.5 h. In the metric this product exists to
+    be honest about, for an owner who sleeps ~3.7 h a night, the challenge engine had a
+    ceiling under his own need — an under-target it could not climb out of.
+
+    Asserted against the imported constant AND against a literal floor, because
+    ``IDEAL["tst_min"] == SLEEP_NEED_MIN_18_64`` alone would survive both constants
+    being lowered together, which is the shape of the bug it replaces.
+    """
+    from healthee.challenges.adapt import _ceiling
+    from healthee.derive.sleep_score import SLEEP_NEED_MIN_18_64, SLEEP_NEED_MIN_65P
+
+    assert IDEAL["tst_min"] == float(SLEEP_NEED_MIN_18_64)
+    assert IDEAL["tst_min"] >= 480.0, "a ceiling below the adult need caps an owner short"
+    # The larger of the two age bands, so no owner's ceiling sits under their own need.
+    assert IDEAL["tst_min"] >= float(SLEEP_NEED_MIN_65P)
+    # And the ceiling the adapter actually applies is that number, not something derived.
+    assert _ceiling("tst_min", baseline_value=300.0) == float(SLEEP_NEED_MIN_18_64)
+
+
 def test_no_cap_metric_carries_an_evidence_ideal() -> None:
     """`IDEAL` bounds a RAISE, and there is nothing to raise a `good="down"` metric toward.
 

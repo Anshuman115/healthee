@@ -26,6 +26,11 @@ def derive_night_vitals(
     """
     out: dict = {}
 
+    # 5-200 ms: a PLAUSIBILITY gate on RMSSD, not a research constant, and deliberately
+    # uncited — no note in the corpus states a physiological range for it, and
+    # `heart-rate-variability` is about interpretation rather than sensor artefacts.
+    # (Contrast the SpO2 bounds below, which ARE cited, at
+    # `wearable_spo2_validity.md`.) Same reasoning as `derive/hr_validity.py`.
     hrv = _window_stat(cur, user_id, "hrv", start_ts, end_ts, 5, 200)
     if hrv is not None:
         _upsert_daily(cur, user_id, day, "hrv_sleep_avg", hrv)
@@ -40,6 +45,10 @@ def derive_night_vitals(
             _upsert_daily(cur, user_id, day, "spo2_overnight_min", lo)
             out["spo2_overnight_min"] = round(lo, 2)
 
+    # 4-40 br/min: a PLAUSIBILITY gate, uncited for the same reason. It is wider than
+    # `respiratory_rate_normal`'s 12-20 healthy range ON PURPOSE — a filter that
+    # narrowed to the healthy band would delete exactly the elevated nights the illness
+    # flag exists to see.
     rr = _window_stat(cur, user_id, "respiratory_rate", start_ts, end_ts, 4, 40)
     if rr is not None:
         _upsert_daily(cur, user_id, day, "respiratory_rate_sleep", rr)

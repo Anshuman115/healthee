@@ -428,13 +428,24 @@ phrase arrived with the upstream sports-science corpus import. The true position
   red flags. See *Safety bounds* for what it does and does not catch. #100)
 - **D13:** On altitude-illness symptoms (worsening headache, severe breathlessness,
   confusion, ataxia), advise descent and medical care, not continued training. —
-  confidence: Established (SAFETY-CRITICAL; **enforced in code** by D12's rule, whose
-  symptom set includes ataxia, HAPE/HACE and altered consciousness — one rule, not two,
-  because the forbidden move is the same one)
+  confidence: Established (SAFETY-CRITICAL; **enforced in code** by D12's compiled rule
+  `environmental_stress_D12_exertional_red_flags_to_urgent_care`, whose symptom set
+  includes ataxia, HAPE/HACE and altered consciousness — one rule, not two, because the
+  forbidden move is the same one)
 - **D14:** Never advise drinking ahead of thirst even in heat (hyponatremia risk);
   defer hydration specifics to `fueling-and-hydration`. — confidence: Established
-  (SAFETY-CRITICAL; **enforced in code** via `[[hydration_everyday]]` D5, whose compiled
-  rule takes heat as one of its subject triggers)
+  (SAFETY-CRITICAL; **PARTLY enforced in code, and the part that is not is the part
+  this directive is about.** `[[hydration_everyday]]` D5's compiled rule does take heat
+  as a subject trigger, but its forbidden move is only a **numeric volume or rate**
+  instruction — "drink 500 ml every hour" is blocked, "stay ahead of your thirst" is
+  not; the compiled pattern does not contain the word *thirst*, verified by probing
+  every branch of it. Drinking-ahead-of-thirst as a **stance** is a paraphrasable
+  position, not a text pattern, and a regex broad enough to catch it would also catch
+  this corpus **correcting** it — `[[fueling-and-hydration]]:165` grades the phrase
+  **[Myth]**, so the coach's job includes saying it out loud in order to refute it. So
+  this directive is a rule for the coach to follow, backed by a deterministic floor
+  under its numeric half — not a guarantee. Corrected 2026-09-08; the line previously
+  claimed unqualified enforcement.)
 
 ## Key references
 
@@ -491,12 +502,18 @@ phrase arrived with the upstream sports-science corpus import. The true position
   **mortality / cardiovascular** benefit in `sauna_cv_benefits` — same exposure (heat),
   different endpoint (performance-in-heat vs long-term CV/health). Do not conflate the two
   evidence bases.
-- **Safety-critical guardrails that WOULD be worth mirroring in
-  code (see *Safety bounds* for what is and is not enforced today — #87):**
+- **The safety-critical guardrails, and which of them is COMPILED** (see *Safety bounds*
+  for exactly what each does and does not catch — #87. Corrected 2026-09-08: this list
+  was headed "guardrails that WOULD be worth mirroring in code" while the first entry
+  had been mirrored for a month, two hundred lines below the frontmatter that declares
+  it):**
   - **Exertional heat illness is a medical emergency** — on red-flag symptoms (confusion,
     collapse, disorientation, vomiting, altered behavior) during/after hot exercise, **stop
     training advice and direct to immediate cooling + urgent medical care** (D12,
-    SAFETY-CRITICAL).
+    SAFETY-CRITICAL). **✅ ENFORCED**: this note declares `safety_critical: [12]` and
+    `insights/guard_directives.py` compiles
+    `environmental_stress_D12_exertional_red_flags_to_urgent_care`. The rest of this
+    list is NOT compiled and is for the coach to follow.
   - In **extreme heat/WBGT, scale back, move cooler, or postpone**, especially for
     unacclimatized runners (D11, SAFETY-CRITICAL); on **altitude-illness** symptoms
     (worsening headache, severe breathlessness, confusion, ataxia) advise **descent and

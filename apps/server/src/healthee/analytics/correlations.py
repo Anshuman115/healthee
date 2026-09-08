@@ -36,7 +36,17 @@ CORRELATED_METRICS: tuple[str, ...] = V2_DAILY_METRICS + tuple(FLAG_DERIVED_METR
 # Effect-size / significance thresholds for surfacing a finding (verbatim).
 MIN_SPEARMAN_R = 0.30
 MIN_EVENT_DELTA = 0.5  # rank-biserial effect between event/non-event groups
-FDR_Q_THRESHOLD = 0.10  # liberal for n=1 exploration; tighten as data grows
+# Benjamini-Hochberg q. Liberal for n=1 exploration; tighten as data grows.
+#
+# ⚠ `analytics/cutoffs.py` has a constant of the SAME NAME set to 0.20, and the two are
+# deliberately not shared (audit D11 raised the collision). They bound different search
+# spaces: this one screens every metric pair on the correlations surface, where the
+# family is large and a false finding is shown as a finding; that one screens six
+# candidate cutoff hours for two substances, where the family is small and the output is
+# already gated on a literature-direction match. NEITHER is governed by a note — no
+# corpus claim sets an exploratory FDR level — and neither should acquire a citation it
+# cannot support. What they must not do is drift into looking like one number.
+FDR_Q_THRESHOLD = 0.10
 
 # Minimum event-days before an event-effect test is worth running.
 _MIN_EVENT_DAYS = 3

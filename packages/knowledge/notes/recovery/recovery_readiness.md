@@ -528,8 +528,12 @@ strong candidate for the `safety_critical` mechanism.
   - Autonomic factors score `50 + k·z` (higher-better) or `50 − k·z` (lower-better), clamped
     0–100, with **k = 20** for HRV, **20** for RHR, **15** for RR.
   - **Sleep is scored vs ABSOLUTE need** (not the personal baseline): `100 · tst_min / need_min`,
-    reading `sleep_need_min` (fallback **480 min**) and `tst_min` from the
-    `sleep_health_score_4dim` row.
+    reading `sleep_need_min` and `tst_min` from the `sleep_health_score_4dim` row.
+    **There is no fallback.** When `sleep_need_min` is absent the sleep factor is ABSENT and
+    the remaining weights renormalise — `derive/recovery.py:92-138` deleted the 480-minute
+    default deliberately, calling it *"a personal target invented for an owner we have never
+    been able to compute one for"* and *"the third definition of one metric"*.
+    *(Corrected 2026-09-08: this bullet still documented "(fallback **480 min**)".)*
   - The score is **`None` (undefined, not 0)** unless at least one of HRV or RHR is present —
     "no data" stays distinct from "low recovery".
   - The full **per-factor breakdown** (each factor's `sub`, `z`, `value`, `baseline`, the

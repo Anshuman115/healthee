@@ -4,7 +4,7 @@ name: "Respiratory Rate (overnight)"
 topic: Respiratory rate during sleep — normal ranges and what shifts mean
 category: metrics
 grade: Established
-summary: "Overnight respiratory rate is 12–20 br/min (most 12–16 in deep sleep) and personally very stable (<1 br/min night-to-night); a sustained ≥2 br/min rise over the personal baseline is a validated early illness signal, not a diagnosis."
+summary: "Overnight respiratory rate is 12–20 br/min (most 12–16 in deep sleep) and is personally stable enough that a deviation from someone's own baseline is informative — HOW stable is our own unsourced assumption, not a published figure; a sustained ≥2 br/min rise over the personal baseline is a validated early illness signal, not a diagnosis."
 aliases: ["respiratory_rate", "respiration rate", "breathing rate", "RR", "overnight respiratory rate", "sleep respiratory rate", "respiration", "autonomic"]
 applies_to_metrics: ["respiratory_rate_sleep"]
 applies_to_interventions: []
@@ -30,7 +30,7 @@ Breathing rate at rest is set by the brainstem respiratory centres under autonom
 
 ## The evidence
 - **[Established] Healthy resting/sleep respiratory rate is 12–20 br/min**, with clinical norms long established; RR is a sensitive but "neglected" vital sign whose derangements precede clinical deterioration [Cretikos 2008].
-- **[Established] Personal night-to-night stability is high** — a healthy individual's own nightly average varies typically <1 br/min, which is what makes a personal-baseline deviation informative.
+- **[Practitioner consensus — NO SOURCE, stated as such] Personal night-to-night stability is high** — a healthy individual's own nightly average is taken to vary by well under a breath per minute, which is what makes a personal-baseline deviation informative. **No citation in this note supports a figure, and we could source none** (audit B5, 2026-09-08; this bullet used to read "**[Established]** … typically <1 br/min", with the three References beside it — Cretikos 2008, Mishra 2020, Quer 2021 — supporting none of it). It is the operating assumption behind `derive/illness.py`'s `RR_TRIGGER_BPM = 2.0`, not a published result, and a coach must present it as our assumption or not at all. The *replicated* claim is the next bullet: a sustained rise above the person's own baseline precedes symptoms.
 - **[Established] A sustained rise above personal baseline is a replicated early signal of acute respiratory infection** (cold, flu, COVID-19): an increase of ~1–3 br/min over baseline often **precedes symptoms**. Pre-symptomatic elevation was typically **~1.5–3 br/min above personal baseline for 1–2 nights before symptom onset** [Mishra 2020; Quer 2021].
 - **[Probable] Overnight RR also rises with cardiac decompensation** in patients with heart failure, and with **stress, anxiety, and fever** generally — so the signal is sensitive but non-specific about cause.
 

@@ -97,9 +97,11 @@ For each substance ∈ {caffeine, alcohol}:
 
 ### Backend
 
-- New module `src/healthee/analytics/cutoff_finder.py`.
-- Wired into `healthee correlate` so it runs as part of the weekly systemd job (no
-  new schedule needed).
+- Module `src/healthee/analytics/cutoffs.py` (the plan named it `cutoff_finder.py`;
+  the shipped name is `cutoffs.py`).
+- Wired into the weekly correlate job (`jobs/correlate.py`). Scheduling is
+  in-process via `jobs/scheduler.py` — there is no systemd timer; the only `.timer`
+  in the repo is `infra/backup/healthee-backup.timer`.
 - Findings flow through the existing `finding` table → already on Sleep page;
   auto-surfaces.
 
@@ -204,6 +206,13 @@ and cross-substance interactions are out of scope until more data.
   literature-direction match — never a metabolic floor, never a medical directive;
   instability under sparse logging must be surfaced. Reuses the trivial-finding
   rejection from `correlate.py` (|r|≥0.97, n<20).
-- **Status:** this note is a *plan* (methodology of record), not yet shipped; the
-  `applies_to_metrics` use v2 names (`hrv_sleep_avg`, `tst_min`,
-  `sleep_health_score_4dim`, `rhr_daily`).
+- **Status: SHIPPED** (corrected 2026-09-08). This note was written as a plan and
+  still said *"not yet shipped"* long after the plan was built — a coach grounding
+  an answer here told the owner a live feature does not exist, which is the
+  `illness_flag_plan` defect class running backwards. It is implemented under a
+  different filename, exactly as specified: `src/healthee/analytics/cutoffs.py`
+  (Mann-Whitney U over H in {12,14,16,18,20,22} local, caffeine and alcohol only,
+  `kind="personal_cutoff"`, `replace_findings_of_kind`), wired into the weekly
+  correlate job at `jobs/correlate.py:20,37-38`. The methodology below remains the
+  methodology of record; the `applies_to_metrics` use v2 names (`hrv_sleep_avg`,
+  `tst_min`, `sleep_health_score_4dim`, `rhr_daily`).

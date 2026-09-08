@@ -225,10 +225,16 @@ fabricated category failed.
 
 ## How the coach uses it
 
-- Report the **latest 7-day median estimate with a ±1 SEE band (~6 mL/kg/min)** plus a
-  **90-day trend sparkline** and the **age/sex percentile** (vs the Mandsager 2018 norm
-  table). Always label it an **estimate** and cite this note plus the fitness↔mortality
-  evidence in [[vo2max]].
+- Report the **latest 7-day median estimate with a ±1 SEE band (5.1 mL/kg/min** — 1.45
+  METs, this note's own figure at the top and the one `derive/vo2max.py` computes and
+  the card draws; the *"~6"* this line used to give matched nothing on the wire, was
+  wrong in the section the coach reads, and was corrected on 2026-09-08**)** plus a
+  **90-day trend sparkline** and a comparison against **published age/sex norms**.
+  Always label it an **estimate** and cite this note plus the fitness↔mortality evidence
+  in [[vo2max]]. *(The norms actually shipped are FRIEND medians via
+  `analytics/reference_scales.py`, surfaced as `median_for_age` / `delta_from_median` by
+  `read/vo2max.py` — not Mandsager quintiles, and there is no `age_percentile` field.
+  See the implementation section.)*
 - Use the **trend, not the value**, in recommendations. Example: "Your VO₂max estimate
   trended −2 mL/kg/min over the last 12 weeks while MVPA averaged below the 150-min target
   — adding even 30 min/week of vigorous activity historically reverses this in cohort
@@ -388,11 +394,17 @@ published crosswalk, and the constructs differ — see *The category is the OWNE
   state, not an `excluded` one, because one answer fixes it. There is no default and no
   backfill: every existing owner starts unanswered.
 - **`/api/today` payload** carries the estimate, `see_ml_kg_min` (± SEE), a 90-day trend,
-  `age_percentile` (vs Mandsager 2018 age/sex quintiles, a small hard-coded norm table —
-  approximate, not clinical), the citing research notes, and the as-of date. The UI shows
-  the hero value with the ±SEE band always visible, the percentile subtext, the 90-day
-  sparkline (±SEE in the tooltip), an "estimate, non-exercise model" label, and a
-  "trend matters more than the absolute number" footer.
+  `median_for_age` and `delta_from_median`, the citing research notes, and the as-of
+  date. The UI shows the hero value with the ±SEE band always visible, the comparison
+  against the age/sex median, the 90-day sparkline (±SEE in the tooltip), an "estimate,
+  non-exercise model" label, and a "trend matters more than the absolute number" footer.
+  *(Corrected 2026-09-08: this bullet used to name an `age_percentile` field "vs
+  Mandsager 2018 age/sex quintiles". **No such field exists anywhere in `apps/`.**
+  `read/vo2max.py` ships `median_for_age` / `delta_from_median` off the FRIEND reference
+  medians in `analytics/reference_scales.py`, which are a different instrument from
+  Mandsager's cohort quintiles — a note describing a percentile the product does not
+  compute, against a norm table it does not use. `see_ml_kg_min` was correct and stays:
+  `apps/mobile/lib/data/models/vo2max.dart` reads it.)*
 - **Honesty rules (carry into UI + LLM)**: always "estimate"; never a two-decimal number;
   trend over months is the *less bad* reading, not a reliable one (~56% of directions
   called correctly); never a death-risk figure; never a cross-person comparison; withhold

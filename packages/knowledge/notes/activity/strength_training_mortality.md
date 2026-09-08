@@ -4,10 +4,10 @@ name: "Strength training and mortality"
 topic: Muscle-strengthening (resistance) training and all-cause mortality
 category: activity
 grade: Established
-summary: "Muscle-strengthening activity independently lowers all-cause mortality, separate from and additive to aerobic activity, with a J-shaped dose-response whose maximum risk reduction sits at ~30–60 min/week; above that the evidence is explicitly unclear, not a known harm. WHO recommends ≥2 days/week, and meeting both aerobic + strength targets carries the largest benefit."
+summary: "Muscle-strengthening activity is independently associated with lower all-cause mortality, separate from and additive to aerobic activity, with a J-shaped dose-response whose maximum risk reduction sits at ~30–60 min/week; above that the evidence is explicitly unclear, not a known harm. WHO recommends ≥2 days/week, and meeting both aerobic + strength targets carries the largest benefit."
 aliases: ["strength training", "resistance training", "muscle strengthening", "weight training mortality", "strength_training_mortality"]
 tags: ["strength training", "resistance training", "muscle strengthening", "weight training mortality", "strength_training_mortality"]
-applies_to_metrics: ["strength_min_weekly"]
+applies_to_metrics: []
 applies_to_interventions: ["exercise"]
 population: general
 last_reviewed: 2026-07-15
@@ -109,7 +109,8 @@ mortality number is derived; the evidence sets the 30–60 min/week reference ba
 
 ## Bottom line
 
-**Act on confidently:** any strength training lowers mortality (~15%), additive to aerobic;
+**Act on confidently:** any strength training is associated with lower mortality (~15%),
+additive to aerobic;
 the sweet spot is ~30–60 min/week and ≥2 days/week; meeting both aerobic + strength is best.
 
 **Hold loosely:** the shape of the curve above the ~30–60 min/week peak — the
@@ -142,8 +143,21 @@ self-report noisy).
 
 ## Healthee implementation & honesty policy
 
-- **Metric: `strength_min_weekly`** — tallied from logged exercise entries (classifier and
-  card in [[strength_adherence_plan]]).
+- **Weekly strength minutes** — tallied at read time from logged exercise entries and
+  strength-coded workouts (classifier and card in [[strength_adherence_plan]]).
+  ⚠ **`strength_min_weekly` is a NAME, not a metric** (corrected 2026-09-08). It exists
+  nowhere in `apps/server/src` or `apps/mobile/lib`, and neither does
+  `weekly_strength_minutes`. The real thing is `read/fitness.py::strength_payload()` —
+  **read-time only**, computed on request from `manual_entry` exercise logs plus
+  strength-coded device `workout` rows. It writes **no `derived_daily` row**, so there is
+  no daily series, nothing in `analytics/metrics.py::V2_DAILY_METRICS`, and no place for
+  it in correlations or baselines.
+  The live consequence was retrieval, not naming: `insights/retrieval.py:174` scores a
+  note by `metrics.intersection(note.applies_to_metrics)`, so a name no metric set can
+  contain scored **zero metric hits, permanently** — the three notes keyed to it ranked
+  on aliases and lexical overlap alone. It was the only unresolved name of the 31 the
+  manifest claims. `applies_to_metrics` is now empty on all three rather than carrying a
+  fiction; giving strength a real daily metric is a feature, not an audit fix.
 - **Honesty rules**: 30–60 min/week is the sweet spot, ≥2 days/week; frame as the
   under-tracked half; never a death-risk number; don't imply high-dose strength is harmful.
   This is the **health-dose** note; the runner **performance-dose** is

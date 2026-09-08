@@ -115,10 +115,25 @@ derived value.
 
 ## Healthee implementation & honesty policy
 
-- **Metric: `distance_m_daily`** (with per-sample `distance_m`) — a backend-derived metric
-  (it has the profile height + raw steps/cadence); the app renders it. With HC retired,
-  **this is the sole distance source** except for GPS-backed workouts, where the device's
-  measured per-workout distance is used.
-- **Honesty rules**: always "estimate"; ±10–20% vs GPS; a daily-total proxy, not a route
-  distance; never fabricate (needs profile height). Related derivations:
-  [[cadence_intensity]], [[energy_expenditure_derivation]].
+- **Metric: `distance_m_daily`** — a **TIERED** metric, and the tier decides how it may be
+  described (corrected 2026-09-08; this bullet used to call the stride estimate "the sole
+  distance source", which stopped being true when #121 gave the strap's own counter a
+  durable home). `derive/device_totals.py::select_distance` returns:
+  1. **the strap's own measured daily distance** (`device_daily_total.distance_m`)
+     whenever it reported one — a measurement, `flags.method = "device"`, and it needs no
+     profile height at all; then
+  2. **steps × stride** as the fallback, `flags.method = "stride"`, which is the estimate
+     this note derives; then
+  3. **nothing**, when there is no device figure and no height.
+  GPS-backed workouts carry the device's measured per-workout distance separately.
+- **Honesty rules, PER TIER** — the wire says which one produced the row, so the prose
+  must follow it rather than describing every row as an estimate:
+  - `method = "stride"`: always "estimate"; ±10–20% vs GPS; a daily-total proxy, not a
+    route distance; **needs profile height** and is withheld without it.
+  - `method = "device"`: it is the strap's own measurement, not a stride estimate. The
+    ±10–20% band above is the error of *this note's* derivation and does not apply to it,
+    and neither does the height precondition. Wrist step-and-distance counting has its own
+    error, which we have no published figure for — say that, rather than borrowing a
+    number from the wrong tier.
+  - Never fabricate a distance for a day neither tier can price.
+  Related derivations: [[cadence_intensity]], [[energy_expenditure_derivation]].

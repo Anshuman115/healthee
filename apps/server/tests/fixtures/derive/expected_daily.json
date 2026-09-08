@@ -77,7 +77,7 @@
       "vigorous": 5
     },
     "metric": "mvpa_min",
-    "value": 25.0
+    "value": 30.0
   },
   {
     "day": "2026-03-01",
@@ -320,7 +320,7 @@
       "vigorous": 5
     },
     "metric": "mvpa_min",
-    "value": 25.0
+    "value": 30.0
   },
   {
     "day": "2026-03-02",
@@ -563,7 +563,7 @@
       "vigorous": 5
     },
     "metric": "mvpa_min",
-    "value": 25.0
+    "value": 30.0
   },
   {
     "day": "2026-03-03",
@@ -820,7 +820,7 @@
       "vigorous": 5
     },
     "metric": "mvpa_min",
-    "value": 25.0
+    "value": 30.0
   },
   {
     "day": "2026-03-04",
@@ -1077,7 +1077,7 @@
       "vigorous": 5
     },
     "metric": "mvpa_min",
-    "value": 25.0
+    "value": 30.0
   },
   {
     "day": "2026-03-05",
@@ -1334,7 +1334,7 @@
       "vigorous": 5
     },
     "metric": "mvpa_min",
-    "value": 25.0
+    "value": 30.0
   },
   {
     "day": "2026-03-06",
@@ -1649,7 +1649,7 @@
       "vigorous": 5
     },
     "metric": "mvpa_min",
-    "value": 25.0
+    "value": 30.0
   },
   {
     "day": "2026-03-07",
@@ -1964,7 +1964,7 @@
       "vigorous": 5
     },
     "metric": "mvpa_min",
-    "value": 25.0
+    "value": 30.0
   },
   {
     "day": "2026-03-08",
