@@ -22,6 +22,18 @@ flutter run --dart-define=HELIO_API=https://healtheeapi.afk.codes
 
 ## Gates (what CI runs)
 
+Server sessions are stored as one keystore record containing the address, token,
+and an opaque cache namespace. Every verified sign-in gets a new namespace;
+old-format credentials remain readable until replaced or signed out. A sign-out
+tombstone prevents the old keys from reviving a session.
+
+Today and Sleep bind each HTTP request and cache access to the same session
+snapshot. A session change cancels client providers, clears the coach thread,
+and rejects old in-flight responses. UI reloads do not display previous-account
+values while waiting. SQLite schema v4 rebuilds only the old, unscoped response
+cache; raw measurements and pending-upload markers are preserved. The first
+launch after upgrading therefore needs a server read to refill cached analysis.
+
 ```bash
 flutter analyze --fatal-warnings --fatal-infos   # zero warnings AND zero infos
 flutter test
@@ -39,13 +51,13 @@ lib/
               · router · theme/ (palette · tokens · instrument_hues
                 · metric_hue · instrument_type · shapes · motion · dimensions
                 · typography · app_theme)
-  ble/        strap_scanner (the presence check) — the PROTOCOL is still to come
+  ble/        authenticated Huami protocol, paged fetchers, parsers and presence check
               (see its README)
   data/       honesty/ (the Reading union) · api/ (one dio client + credentials
               + secret_store + the server session: url · probe · failures)
               · pairing/ (the Zepp account route) · models/ (typed wire models)
               · store/ (drift, 60-day tier) · today_repository.dart
-  analytics/  on-device engine — empty (see its README)
+  analytics/  on-device engine and server parity fixtures (see its README)
   features/   today/ sleep/ activity/ insights/ actions/ coach/ settings/
               diagnostics/ pairing/ signin/
   shared/     instrument_screen (the shell every tab uses) · app_tab_bar
@@ -139,10 +151,11 @@ specification. Its signals are all still on Sleep, in legacy's own
 `Overnight vitals` card, and the *whole* of `features/sleep/` was replaced with
 the port (`sleep_screen.dart` and its widgets). Today's grid still opens Sleep.
 
-There is **no anomalies section**, because `/api/today` cannot feed one:
-`read/today.py:83` sets `payload["anomalies"] = []` unconditionally and points at
-`/api/notable` — a separate, premium-gated, LLM-backed endpoint this app does not
-call. A heading that can never have anything under it is dead code.
+There is **no anomalies section**, because `/api/today` does not scan for one.
+That key shipped as `[]` — indistinguishable from "nothing was anomalous" — and
+is `null` now beside a block naming `/api/notable`, the separate, premium-gated,
+LLM-backed endpoint that does scan and is surfaced in Insights as Notable
+events (`docs/BACKEND_GAPS_FROM_UI.md` A3).
 
 ## Sleep is legacy's screen, section for section
 
@@ -202,16 +215,23 @@ parsed now, and every one has a reader:
 
 Two things are recorded rather than fixed, both server-side:
 
-- **`naps[].stages` is structurally always empty.** `read/sleep_page.py:244`
-  ships the raw JSONB hypnogram (`[[startMs, endMs, typeCode]]`) where `nights`
-  ships `stage_timeline()`'s objects, so every nap stage bar is blank. Reading it
-  client-side means re-implementing the strap's stage-code mapping in the UI
-  layer, i.e. a second definition of what a stage is. Pinned by a test until the
-  server changes.
-- **`naps[].source` and `nights[].session_source` are the unconditional literal
-  `"zepp_cloud"`** — the same shape as `read/today.py:83`'s `anomalies = []`. A
-  "source" chip built on either could never say more than one word, so neither is
-  surfaced.
+- ~~**`naps[].stages` is structurally always empty**~~ — **FIXED on the server**
+  (`docs/BACKEND_GAPS_FROM_UI.md` A1). It shipped the raw JSONB hypnogram
+  (`[[startMs, endMs, typeCode]]`) under the key a *night* uses for per-stage
+  minute totals, so every nap bar was blank. A nap is shaped like a night now —
+  `stages` are the totals, `stage_timeline` the hypnogram — and the panel's
+  sentence blaming the server went with the defect. **No stage bar came back**:
+  the prototype draws nap rows as text and has no stage element on that panel,
+  and the pre-v02 card is not the specification.
+- ~~**`naps[].source` and `nights[].session_source` are the unconditional literal
+  `"zepp_cloud"`**~~ — **half FIXED on the server** (write-path audit C1). The
+  literal was a carry-over from legacy, where sleep really did arrive from Zepp
+  Cloud; in the rebuild the only writer of `sleep_session` is the strap BLE push,
+  so the field named an instrument that did not take the reading. It is
+  `"strap_ble"` now, from one constant, and a source-scan test asserts the
+  one-writer premise the constant rests on. **Still unconditional**, so a "source"
+  chip built on it would still say one word and still is not surfaced — the field
+  remains a presence sentinel here. What changed is that the one word is true.
 
 ### Six legacy behaviours the port shipped as-is — all six are now REPAIRED
 
@@ -923,3 +943,25 @@ the display strings against the narrowest phone (Manrope runs wider), and reads
 the font's own `cmap` to prove the glyphs are there — **Instrument Sans had no
 U+2082**, so `SpO₂` drew a tofu box on the live screen, and no `σ` for the
 recovery ladder's caption either.
+## Legacy feature parity (2026-09-06)
+
+The implemented parity flows and physical acceptance checklist are maintained in
+[Legacy feature migration](../../docs/LEGACY_FEATURE_PARITY.md).
+
+Actions now includes challenges, programs, outcome review, recommendation history
+and the journal. Activity adds workout history/details, durable GPS recording and
+saved route maps. Insights adds notable events and 20-metric history with
+30/90/365/1825-day ranges, log markers and detail analysis. Settings adds profile
+editing, separate scheduled collection/upload controls, opt-in reminders and
+persisted appearance variants. Today restores active commitments and Tonight.
+
+GPS uses Drift schema v5 with owner-scoped recordings/fixes and immutable upload
+IDs. The earlier schema v4 account-cache migration remains intact. Feed caches
+show saved timestamps and refresh failures. Journal drafts remain editor-local;
+uncertain non-idempotent saves are not automatically retried.
+
+The matching server changes are required for profile edits, account identity,
+recommendation history, expanded history and retry-safe GPS uploads. They are
+implemented locally; this work does not deploy production. Background execution,
+GPS and notification delivery also require physical acceptance, as recorded in
+the checklist. Android native builds include desugaring 2.1.5; iOS requires 14+.

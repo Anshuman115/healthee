@@ -102,8 +102,11 @@ void main() {
   }
 
   tearDown(() async {
-    await store.close();
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await pumpEventQueue();
     container.dispose();
+    await pumpEventQueue();
+    await store.close();
     binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   });
 

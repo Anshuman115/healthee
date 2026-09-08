@@ -24,6 +24,7 @@ import 'package:healthee/ble/models/sleep_session.dart';
 import 'package:healthee/ble/models/strap_data.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/ble/models/workout.dart';
+import 'package:healthee/ble/strap_failure.dart';
 import 'package:meta/meta.dart';
 
 /// The typed result of one sync.
@@ -36,11 +37,15 @@ class StrapSyncResult {
     required this.workouts,
     required this.completedAt,
     required this.activityChannelPresent,
+    this.failure,
     this.dailyTotals,
     this.batteryPercent,
     this.stressBackfillRan = false,
     this.napBackfillRan = false,
   });
+
+  /// A failed stream; retained data is partial and backfills must be retried.
+  final StrapFailure? failure;
 
   /// Every decoded per-metric sample, in fetch order.
   final List<StrapSample> samples;

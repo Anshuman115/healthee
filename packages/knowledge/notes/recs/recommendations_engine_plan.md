@@ -327,10 +327,17 @@ strength tuning weights, and any UI/nav placement details — all revisable.
 ## Healthee implementation & honesty policy
 
 - **This note has no `applies_to_metrics`** — it governs the recs engine's behavior
-  and pipeline, not a derived metric. Provenance: `src/healthee/llm/recs_prompt.py`
-  (locked system prompt), `recs_context.py` (per-run context), `validator.py`
-  (post-hoc citation check), the `recommendation` table above, the
-  `healthee-recs.timer`, and the `/api/recommendations*` endpoints.
+  and pipeline, not a derived metric. Provenance: `jobs/recs.py` (the run itself and its
+  `_provable_grade` grade floor), `insights/prompts.py` and `insights/grounded.py` (the
+  locked system prompt and the grounded-ask choke point), `insights/context.py`
+  (per-run context), `insights/validator.py` (post-hoc citation and calibration check),
+  the `recommendation` table above, `jobs/scheduler.py`, and the
+  `/api/recommendations*` endpoints.
+  *(Corrected 2026-09-08. This named `src/healthee/llm/recs_prompt.py`,
+  `recs_context.py`, `validator.py` and "the `healthee-recs.timer`". **There is no
+  `healthee/llm/` package**, and the only `.timer` in the repo is
+  `infra/backup/healthee-backup.timer` — scheduling is in-process. The sibling note
+  [[llm_health_advice_safety]] corrected exactly this class and this note was missed.)*
 - **Composite-score honesty**: the engine ranks by signal strength but never emits
   a single "health score"; each recommendation carries its own evidence grade and
   cited note(s).

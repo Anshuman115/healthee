@@ -54,7 +54,18 @@ class IllnessFlag {
   /// The day this is about.
   final String? date;
 
-  /// `mild` · `moderate` · `high`, as the rule graded it.
+  /// `moderate` · `high`, as the rule graded it. **Not drawn anywhere.**
+  ///
+  /// Two corrections, both from the audit's D8. The vocabulary used to read
+  /// `mild · moderate · high` and `mild` cannot occur: `schema.sql` is
+  /// `CHECK (severity IN ('moderate', 'high'))` and `derive/illness.py` says mild is
+  /// never written. A docstring naming a state the schema forbids is the same species
+  /// as a comment naming a test that does not exist.
+  ///
+  /// And it reaches no surface: `illness_banner.dart` has one visual treatment for both
+  /// grades, deliberately — the banner spends this product's only red and a two-tier red
+  /// would be a severity scale nothing in the corpus grades. It is parsed because a log
+  /// line and the ⓘ want it, not because a screen reads it.
   final String? severity;
 
   /// Whether the signal has held across more than one night. A single night is

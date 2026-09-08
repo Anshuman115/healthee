@@ -26,9 +26,10 @@ contract):
    (`safety_critical: [5, 6]`) and a rule for it exists in
    `insights/guard_directives.py`; a test asserts the two sets are equal, both ways
    (#87). *(This line used to say safety-critical directives were "mirrored as hard
-   guardrails in `@daud/core`" — a module that exists nowhere. No sports-science doc
-   currently declares a marker, so **none** of the directives in this collection is
-   enforced in code today.)*
+   guardrails in `@daud/core`" — a module that exists nowhere. It then said no
+   sports-science doc declares a marker, which stopped being true when
+   `wellness/environmental-stress.md` declared `safety_critical: [12]`; corrected
+   2026-09-08. That D12 is the one directive in this collection enforced in code.)*
 4. **Calibration** — the AI's confidence and phrasing track each claim's evidence
    grade (Established → Probable → Emerging → Contested → Myth/Refuted).
 
@@ -82,9 +83,11 @@ doc's *overall* grade — individual claims inside a doc carry their own grade.
 >    `insights/guard_directives.py`, bijected by `tests/insights/test_guard_directives.py`
 >    — and every note that does **not** declare one has had its enforcement sentence
 >    rewritten to say plainly that the rule is for the coach to follow, not a guarantee.
->    Four directives are marked so far, all in `notes/`: `napping` D5,
->    `hydration_everyday` D5/D6, `late_eating_sleep` D5. **No sports-science doc is
->    marked**, so nothing in this collection is enforced — which the docs now say.
+>    Five directives are marked so far: `napping` D5, `hydration_everyday` D5/D6,
+>    `late_eating_sleep` D5 — and `environmental_stress` D12, **which IS in this
+>    collection**. (This line said "no sports-science doc is marked" until
+>    2026-09-08, four documents deep, while the marker sat in frontmatter two
+>    directories away.)
 
 ---
 

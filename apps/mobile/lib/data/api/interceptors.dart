@@ -6,7 +6,9 @@ library;
 
 import 'package:dio/dio.dart';
 import 'package:healthee/core/logging.dart';
+import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/credentials.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 
 /// Applies the owner's stored server session — the address AND the bearer token.
 ///
@@ -39,13 +41,12 @@ class ServerSessionInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final baseUrl = await _credentials.apiBaseUrl();
-    if (baseUrl != null && baseUrl.isNotEmpty) {
-      options.baseUrl = baseUrl;
-    }
-    final token = await _credentials.apiToken();
-    if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+    final session = options.extra.containsKey(CacheSession.requestKey)
+        ? options.extra[CacheSession.requestKey] as StoredServerSession?
+        : await _credentials.serverSession();
+    if (session != null) {
+      options.baseUrl = session.baseUrl;
+      options.headers['Authorization'] = 'Bearer ${session.token}';
     }
     handler.next(options);
   }
@@ -75,12 +76,15 @@ class ApiLogInterceptor extends Interceptor {
   }
 
   @override
-  void onResponse(Response<Object?> response, ResponseInterceptorHandler handler) {
+  void onResponse(
+    Response<Object?> response,
+    ResponseInterceptorHandler handler,
+  ) {
     final path = response.requestOptions.path;
     AppLog.info(
       'api',
       '← ${response.statusCode} $path ${_elapsed(response.requestOptions)}'
-      '${logBodies ? ' ${response.data}' : ''}',
+          '${logBodies ? ' ${response.data}' : ''}',
     );
     handler.next(response);
   }
@@ -89,10 +93,21 @@ class ApiLogInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     // Logged, then passed on — never swallowed (Standards §1). The repository
     // above turns this into a typed failure the UI can render with a retry.
+    //
+    // ⚠ The raw `DioException` goes to the logger, and it is safe against the
+    // dio we pin: its `toString` emits `type`, `message` and `error` only, and
+    // no factory message quotes the URI or the headers. `pubspec.yaml` pins a
+    // CARET range, so a future minor could change that format without a change
+    // here — which means **the guard is the test, not the pin**.
+    // `test/signin/signin_secrecy_test.dart` drives this exact interceptor
+    // stack with `AppLog.sink` capturing, including a 401 whose body echoes the
+    // token, and fails if the credential appears anywhere in the transcript.
+    // It is what has to survive a dependency bump; do not delete it as
+    // redundant with this comment.
     AppLog.failure(
       'api',
       '${err.requestOptions.method} ${err.requestOptions.path} failed '
-      '${_elapsed(err.requestOptions)}',
+          '${_elapsed(err.requestOptions)}',
       err,
       err.stackTrace,
     );

@@ -20,13 +20,14 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.conftest import entitle
 from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import StubLLM
 
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
 from healthee.core.db import tenant_transaction
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.db import migrate
 from healthee.insights import pipeline
 from healthee.jobs import recs
@@ -39,7 +40,11 @@ pytestmark = pytest.mark.integration
 
 _TOKEN = "recs-test-token"
 _AUTH = {"Authorization": f"Bearer {_TOKEN}"}
-_DAY = date(2026, 7, 15)
+# The owner's OWN today. `generate_recs` refuses any other day, because every input
+# it has is today's and a row dated otherwise would carry a date its content never
+# answered for (B2). A fixed past date used to work here and was exactly the shape
+# of the mislabelling.
+_DAY = user_today(SENTINEL_TZ)
 
 # A response the choke point validates (inline cites a real Established note) with
 # TWO recs: the first is fully citable; the second cites an unknown note ONLY in
@@ -118,6 +123,12 @@ def test_today_endpoint_returns_the_persisted_recommendations(
     db: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:  # noqa: ARG001
     _seed()
+    # `/api/today` OMITS the `recommendations` key for a non-premium owner (6.6a —
+    # they are LLM-authored, and the free tier has no AI). Without this the test
+    # passed only when an earlier file in the run had entitled the sentinel, because
+    # `subscription` survives the seed truncations — the order-dependent pass
+    # `conftest.entitle` documents, invisible until someone runs this file alone.
+    entitle(SENTINEL_USER_ID)
     monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
     get_settings.cache_clear()
     # Persist for today's real date so /api/today (which reads the latest day) sees them.

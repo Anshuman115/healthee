@@ -65,10 +65,13 @@ fitness-raising stimulus ([[vo2max]]) that a slow stroll does not. Brief vigorou
 
 ## How we compute it
 
-MVPA is derived nightly from cadence-classified per-minute steps plus logged workouts and
-reported as a weekly total (`mvpa_min = moderate_min + 2 × vigorous_min`). The full
-derivation — cadence thresholds, debouncing, workout handling, and the weekly card — is in
-[[mvpa_weekly_plan]]; the cadence→intensity method is in [[cadence_intensity]].
+MVPA is derived nightly from cadence-classified per-minute steps and reported as a weekly
+total (`mvpa_min = moderate_min + 2 × vigorous_min`). **Workouts are not part of it** —
+`derive/mvpa.py` reads `steps_per_minute` and nothing else, so cycling, weights and
+swimming contribute nothing whether or not they are logged (corrected 2026-09-08; adding
+them is planned, and the design is in [[mvpa_weekly_plan]] step 2). The full derivation —
+cadence thresholds, debouncing, and the weekly card — is in [[mvpa_weekly_plan]]; the
+cadence→intensity method is in [[cadence_intensity]].
 
 ## How the coach uses it
 
@@ -135,8 +138,9 @@ cadence proxy's accuracy, and any causal magnitude.
 
 - **Metrics: `moderate_min`, `vigorous_min`, `mvpa_min`** (daily), aggregated to a weekly
   MVPA-equivalent (`moderate_min + 2 × vigorous_min`); derived from per-minute
-  `steps_per_minute` cadence + logged workouts (see [[mvpa_weekly_plan]],
-  [[cadence_intensity]]).
+  `steps_per_minute` cadence **only** — logged workouts are not counted today (see
+  [[mvpa_weekly_plan]], [[cadence_intensity]]). Only `mvpa_min` is a `derived_daily` row;
+  the other two live in its `flags`.
 - **Honesty rules**: 150 min/week is a *lower bound*; surface weekly trends, not single
   days; label the number a cadence-based estimate; never a death-risk figure; the
   1-vig-=-2-mod rule is a practical simplification.

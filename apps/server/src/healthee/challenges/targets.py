@@ -99,8 +99,15 @@ EVIDENCE_TARGET: dict[str, Target] = {
     # ceiling — "most of the benefit banked in the first 150".
     "mvpa_min": Target(150.0, "week", "mvpa_minutes_mortality"),
     # The mortality plateau for adults under 60. The note refuses "10,000" outright as a
-    # marketing artifact and gives ~7,000–8,000 as the reference; 8,000 is the upper end
-    # of that band and the figure the 51 %-reduction comparison (Paluch 2022) is drawn at.
+    # marketing artifact and gives **8,000–10,000/day under 60** (6,000–8,000 at 60+);
+    # 8,000 is the LOWER end of the under-60 band and the figure the 51 %-reduction
+    # comparison (Paluch 2022) is drawn at — the <4,000 vs 8,000 contrast, HR 0.49.
+    #
+    # ⚠ This comment used to give the band as "~7,000–8,000", which appears in NO note in
+    # the corpus (audit, 2026-09-08). It is the same retracted-figure shape as the "~7,500"
+    # the app's steps explainer carried until the grounding pass: a number nobody sourced,
+    # surviving in a place a fix did not look. The target VALUE was and is right; only the
+    # justification beside it was wrong, which is the harder kind to notice.
     "steps_total": Target(8000.0, "day", "steps_mortality"),
     # `SRI_GOOD` — the threshold the note pins and the same number the 4-dim regularity
     # dimension already gates on, so this is not a second definition. It is DERIVED from

@@ -29,6 +29,22 @@ library;
 /// and every id it can emit is either here or deliberately absent.
 String metricName(String metric) => _names[metric] ?? metric;
 
+/// The same name, cased for a heading rather than for a sentence.
+///
+/// [metricName] answers "what do I call this inside a sentence", so its table
+/// is lower case — *"your overnight HRV rose"*. A screen title is the other
+/// position and needs the same words with a capital, and deriving it here keeps
+/// the ONE table: a second, title-cased map would be a second place for a
+/// metric to be renamed and only one of them to get the memo.
+///
+/// Only the first character moves. `VO₂max` and `HRV` keep the capitals the
+/// table already gives them, and an unknown id keeps its own shape — an id on
+/// screen is legible as a gap, which is the argument this file already makes.
+String metricTitle(String metric) {
+  final name = metricName(metric);
+  return name.isEmpty ? name : name[0].toUpperCase() + name.substring(1);
+}
+
 /// True when [metric] has a name here — i.e. the app can put it in a sentence.
 ///
 /// A finding whose metrics are both unnamed still renders; it just falls back to
@@ -51,11 +67,24 @@ const Map<String, String> _names = <String, String>{
   'sleep_health_score_4dim': 'sleep health',
   'sleep_score': 'sleep score',
   'sleep_regularity_index': 'sleep regularity',
-  'sleep_dim_duration': 'sleep duration',
-  'sleep_dim_efficiency': 'sleep efficiency',
-  'sleep_dim_timing': 'sleep timing',
-  'sleep_dim_regularity': 'sleep regularity',
+  // The four 0-or-1 dimensions of the sleep-health count, and the word "check"
+  // is load-bearing. `derive/sleep_score.py:218` writes a POINT for each — 1 if
+  // the night cleared that dimension's published cutoff, 0 if it did not — so a
+  // series named "sleep duration" would put a chart of ones and zeroes under a
+  // heading the owner reads as hours. It also collided: `efficiency_pct` and
+  // `sleep_regularity_index` are the real quantities and already hold those two
+  // names, and one name for two metrics is the drift this file exists to stop.
+  // The words match the Sleep screen's own "Sleep checks" panel.
+  'sleep_dim_duration': 'sleep duration check',
+  'sleep_dim_efficiency': 'sleep efficiency check',
+  'sleep_dim_timing': 'sleep timing check',
+  'sleep_dim_regularity': 'sleep regularity check',
   'asleep': 'time asleep',
+  // The two the metric explorer found missing. Both are already words on the
+  // Sleep screen (`need_panel.dart`), and an id printed on a tile is the exact
+  // failure the library docstring above describes.
+  'sleep_debt_min': 'sleep debt',
+  'sleep_need_min': 'sleep need',
 
   // Movement and energy.
   'steps_total': 'steps',
@@ -76,3 +105,64 @@ const Map<String, String> _names = <String, String>{
   'caffeine': 'caffeine',
   'alcohol': 'alcohol',
 };
+
+/// The owner-facing name for a VO₂max instrument.
+///
+/// The ids are `read/vo2max.py`'s three tiers. An unknown one keeps its id, so a
+/// fourth instrument is visible rather than silently unnamed.
+///
+/// It lives here rather than beside one of the three cards that print it: the
+/// v02 fitness panel, the pre-v02 Today card and the Activity card all name the
+/// same instrument, and three copies of this switch is three chances for one of
+/// them to call `hr_reserve` something else.
+String methodLabel(String method) => switch (method) {
+  'gps_graded' => 'a recorded session',
+  'hr_reserve' => 'heart-rate reserve',
+  'jurca_non_exercise' => 'the non-exercise model',
+  _ => method,
+};
+
+/// The owner-facing name for a recovery factor id.
+///
+/// The keys are `recovery_score.factors`'s own — `hrv`, `rhr`, `rr`, `sleep` —
+/// and they are identifiers, not words. `rr` under a bar on a health screen is
+/// a log line where a name belongs, which is the same rule `note_names.dart`
+/// holds for citations. An unknown key keeps its key, so a fifth factor is
+/// visible rather than silently unnamed.
+///
+/// Here rather than beside one of the two cards that draw these bars: the v02
+/// recovery panel and the pre-v02 recovery card name the same four things, and
+/// two copies of this switch is two chances for one of them to call `rr`
+/// something else.
+String factorLabel(String name) => switch (name) {
+  'hrv' => 'HRV',
+  'rhr' => 'Resting HR',
+  'rr' => 'Breathing',
+  'sleep' => 'Sleep',
+  _ => name,
+};
+
+/// The separator between two metrics in a correlation — `Caffeine ↔ sleep`.
+///
+/// The prototype's own character (`screens-overview.js`, the relationship card),
+/// written plainly.
+///
+/// ## It shipped as a blue emoji box, and the selector did not save it
+///
+/// Manrope had **no U+2194 at all**. Android went looking, and the platform face
+/// that covers U+2194 is `NotoColorEmoji` — so a correlation label rendered a
+/// colour emoji mid-sentence. The first fix appended `U+FE0E`, the
+/// text-presentation selector, and **it did nothing**: the selector chooses
+/// between two presentations *within a font that has the glyph*, and cannot
+/// conjure a text form in a font that lacks the codepoint. The test passed
+/// because it asserted codepoints rather than coverage.
+///
+/// Inter carries U+2194, so the character now needs nothing appended to it. The
+/// guard is `test/core/typography_test.dart`, which walks `lib/` and fails if
+/// the bundled face has no glyph for a character the app actually draws — a
+/// check that is derived rather than listed, so it covers the next one too.
+///
+/// Shared rather than inlined because a correlation is named on more than one
+/// surface, and a second copy is a second chance to reach for `→` — which would
+/// claim a direction the statistic does not have.
+const String kPairArrow = '↔';

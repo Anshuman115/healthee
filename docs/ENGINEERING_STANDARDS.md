@@ -74,6 +74,14 @@ copied into 11 files, and five features silently dead behind swallowed errors.
   stored in `packages/contracts`.
 - **Device analytics** → parity tests against server-exported golden fixtures.
 
+### How we verify — the practices, and how each has failed
+
+`HOW_WE_VERIFY.md` is the companion to this file: this one says what the code
+must be, that one says how we find out whether it is. Mutation testing and its
+four ways of lying, the honesty layer's structural enforcement, the two
+symmetric lies (stale-as-current and future leak), verifying against the design,
+and the contract-snapshot trap.
+
 ### Dead code
 - Delete, don't comment out. Delete, don't keep "just in case" — git has it.
   Unused dependencies are removed in the same PR that orphans them.
@@ -196,11 +204,15 @@ tests/         unit + seeded-DB integration + contract tests + db/ (tenancy guar
 - **Responses are pydantic models for small, stable payloads** (`/api/challenges`,
   `/api/profile`, `/api/me`, …) — the model is cheap there and gives FastAPI a real
   OpenAPI schema plus a pyright-checked boundary.
-  **Large aggregates are the documented exception** (`/api/today` is ~20 KB of deeply
-  nested, largely-optional structure; `/api/sleep` similar): a model would duplicate
-  that shape in a second place and rot, so **the contract snapshot in
+  **Large aggregates are the documented exception** (`/api/today` measures **29.8 KB**
+  live at 200 days of history — 29,777 bytes minified, 6.3 KB gzipped — of deeply
+  nested, largely-optional structure; `/api/sleep` similar at 19.8 KB): a model would
+  duplicate that shape in a second place and rot, so **the contract snapshot in
   `packages/contracts` is the pin** and the handler returns `dict`. A new aggregate
   taking this exception says so in its router docstring.
+  > The figure was "~20 KB" until 2026-09-08, when `PERF_AUDIT.md` A2 measured it. It is
+  > not runaway and it compresses well, but the number a doc quotes has to be the number
+  > on the wire — `MAX_REPORTED_PAIRS`' own sizing argument is written against this one.
   > This rule was rewritten 2026-07-31 to state what we actually do and intend. It
   > previously read "API request/response bodies are pydantic models, not raw dicts"
   > — an absolute that 24 of 28 routers ignored, i.e. a MUST that taught readers the

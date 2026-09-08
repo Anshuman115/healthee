@@ -39,6 +39,7 @@ import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/models/last_sleep.dart';
 import 'package:healthee/data/models/recovery_signals.dart';
 import 'package:healthee/data/models/today_snapshot.dart';
+import 'package:healthee/features/today/today_baseline.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:meta/meta.dart';
 
@@ -52,6 +53,7 @@ class TodayFacts {
     required this.restingHeartRate,
     required this.heartRateVariability,
     required this.heartRateVariabilityBaseline,
+    required this.heartRateVariabilityBaselineSd,
     required this.steps,
     required this.activeEnergy,
     required this.basalEnergy,
@@ -68,20 +70,35 @@ class TodayFacts {
   /// Works the whole lot out from one payload.
   factory TodayFacts.of(TodaySnapshot snapshot, DateTime now) {
     final signals = snapshot.recoverySignals.valueOrNull;
+    // Resolved ONCE, and both halves together — `today_baseline.dart` argues
+    // why a centre from one carrier and a spread from the other is a pair
+    // that was never measured.
+    final hrv = Baseline.of(
+      snapshot,
+      signals,
+      TodayMetricIds.heartRateVariability,
+      'HRV',
+    );
     final sleep = snapshot.lastSleep.valueOrNull;
     final endIso = sleep?.endIso;
     return TodayFacts(
       snapshot: snapshot,
       now: now,
       // Legacy's chains, in legacy's order (today_screen.dart:128–135).
-      restingHeartRate: _chain(snapshot, const ['rhr_daily'], signals, 'Resting'),
+      restingHeartRate: _chain(
+        snapshot,
+        const ['rhr_daily'],
+        signals,
+        'Resting',
+      ),
       heartRateVariability: _chain(
         snapshot,
         const ['hrv_sleep_avg', 'hrv_rmssd_ms'],
         signals,
         'HRV',
       ),
-      heartRateVariabilityBaseline: _hrvBaseline(snapshot, signals),
+      heartRateVariabilityBaseline: hrv.median,
+      heartRateVariabilityBaselineSd: hrv.sd,
       steps: _chain(snapshot, const ['steps_total'], signals, null),
       activeEnergy: _chain(
         snapshot,
@@ -134,6 +151,13 @@ class TodayFacts {
   /// Null is a real and expected answer, and the HRV chart draws no baseline
   /// line when it comes back null rather than inventing one. See [_baseline].
   final double? heartRateVariabilityBaseline;
+
+  /// The spread of that same window — the server's, or nothing.
+  ///
+  /// Paired with [heartRateVariabilityBaseline] and resolved from the same
+  /// carrier, so the centre and the ± beside it were measured together — see
+  /// `today_baseline.dart`, which argues why that is not optional.
+  final double? heartRateVariabilityBaselineSd;
 
   /// `steps_total`.
   final Reading<double> steps;
@@ -198,6 +222,9 @@ class TodayFacts {
   /// The 30-day median for a metric, or null when there is none.
   double? median(String metric) => snapshot.metric(metric)?.median30d;
 
+  /// That window's robust standard deviation, or null when the server sent none.
+  double? spread(String metric) => snapshot.metric(metric)?.sd30d;
+
   /// The z-score for a metric, or null.
   double? standardScore(String metric) => snapshot.metric(metric)?.z;
 
@@ -235,7 +262,7 @@ class TodayFacts {
       firstRefusal ??= card.reading;
     }
     if (signalContains != null && signals != null) {
-      final marker = _marker(signals, signalContains);
+      final marker = signalIn(signals, signalContains);
       if (marker?.value case final double value) {
         // Wrapped as `Present` and not as something softer: the server put this
         // number on the recovery ladder itself, so it is a measurement it is
@@ -249,7 +276,8 @@ class TodayFacts {
     // defeat a server gate on the last hop, which is the one failure
     // `data/honesty/reading.dart` exists to make impossible. The fallback is for
     // a metric the payload has NO card for at all, which is these two today.
-    return firstRefusal ?? (overnight?.hasValue ?? false ? overnight! : _absent);
+    return firstRefusal ??
+        (overnight?.hasValue ?? false ? overnight! : _absent);
   }
 
   /// The overnight vitals block as a last resort, **with its instrument named**.
@@ -314,43 +342,6 @@ class TodayFacts {
             'other cards show, and it is not today.',
       ),
     ]);
-  }
-
-  /// The server's 30-day median for overnight HRV, from whichever block has it.
-  ///
-  /// **Two carriers, ONE definition** — which is the only reason the chain is
-  /// allowed. `metrics[].median_30d` and `recovery.signals[].baseline` are both
-  /// `analytics.baselines.compute_baseline(metric, window_days=30).median`
-  /// (`read/today_series.py::_derived_card`, `read/recovery.py::_hrv_signal`):
-  /// same function, same window, same metric id. CLAUDE.md forbids a second
-  /// definition, not a second carrier. The chain exists because `hrv_sleep_avg`
-  /// is baselined by the server (`read/today.py::_BASELINE_METRICS`) but has
-  /// **no metric card** (`read/meta.py::TODAY_SECONDARY_METRICS` lists seven ids
-  /// and that is not one), so the ladder is the only place its median appears.
-  ///
-  /// **What it deliberately does NOT do** is fall back to a median of the
-  /// fourteen points on the chart. That is a baseline over a different window
-  /// from the one every other surface quotes — the second definition, arriving
-  /// as a helpful-looking last resort. A metric the server has not baselined
-  /// draws no baseline.
-  static double? _hrvBaseline(TodaySnapshot snapshot, RecoverySignals? signals) {
-    final card = snapshot.metric(TodayMetricIds.heartRateVariability);
-    if (card?.median30d case final double median) {
-      return median;
-    }
-    if (signals == null) {
-      return null;
-    }
-    return _marker(signals, 'HRV')?.baseline;
-  }
-
-  static RecoverySignal? _marker(RecoverySignals signals, String contains) {
-    for (final signal in signals.signals) {
-      if (signal.name.contains(contains)) {
-        return signal;
-      }
-    }
-    return null;
   }
 
   /// What a metric with no card and no marker resolves to. The same sentence

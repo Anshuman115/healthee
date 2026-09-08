@@ -34,6 +34,8 @@ class Finding {
     required this.nSamples,
     required this.lagDays,
     required this.researchNoteIds,
+    this.points = const <FindingPoint>[],
+    this.pointsTruncated = false,
   });
 
   /// Parses one entry of `top_findings`.
@@ -53,6 +55,12 @@ class Finding {
         for (final entry in (json['research_note_ids'] as List? ?? const []))
           if (entry is String) entry,
       ],
+      points: [
+        for (final entry in (json['points'] as List? ?? const []))
+          if (entry is Map<String, Object?>)
+            if (FindingPoint.maybe(entry) case final FindingPoint point) point,
+      ],
+      pointsTruncated: json['points_truncated'] as bool? ?? false,
     );
   }
 
@@ -101,4 +109,70 @@ class Finding {
 
   /// The notes that let this be shown at all.
   final List<String> researchNoteIds;
+
+  /// The paired days the effect size was measured on, oldest first.
+  ///
+  /// Empty on an event finding, always: a Mann-Whitney effect compares two
+  /// GROUPS, so it has no paired points and an x-axis for it would be a picture
+  /// the statistic does not license. Empty too on a server that predates
+  /// `docs/BACKEND_GAPS_FROM_UI.md` B1.
+  final List<FindingPoint> points;
+
+  /// Whether [points] is a PART of what the effect size was computed from.
+  ///
+  /// Set by the server when its payload cap bit or when the as-of-day bound
+  /// dropped a day. It matters on screen because [nSamples] is the count behind
+  /// the number: a chart showing fewer dots than the figure beside it, with
+  /// nothing saying so, invites a check it cannot support.
+  final bool pointsTruncated;
+
+  /// Whether there is a real relationship to plot rather than a line of dots.
+  ///
+  /// Two points make a perfect line whatever the data is, which is a picture of
+  /// arithmetic rather than of the owner. Guarded here rather than in the
+  /// painter so every surface asks it the same way.
+  bool get isPlottable => points.length >= minPlottablePoints;
+
+  /// The fewest paired days worth drawing. Not a statistical threshold — the
+  /// server's own `MIN_N` already governs whether a correlation exists at all
+  /// — but the point below which a scatter stops being a shape.
+  static const int minPlottablePoints = 5;
+}
+
+/// One paired day behind a finding: both values, and the day they were measured.
+@immutable
+class FindingPoint {
+  /// Builds a point.
+  const FindingPoint({required this.date, required this.a, required this.b});
+
+  /// Parses one entry of `points[]`, or null when either half is missing.
+  ///
+  /// All-or-nothing on purpose: a pair with one value is not a point, and
+  /// defaulting the absent half to zero would put a dot on the axis that no day
+  /// produced. Dropping it is the only honest reading.
+  ///
+  /// **The count the screen shows is its OWN**, not the server's `points_n`. This
+  /// docstring used to say the opposite, and nothing parsed `points_n` at all —
+  /// `finding_detail_parts.dart` counts `finding.points.length`. That is the stricter
+  /// and more honest figure, because it is the number actually plotted after this
+  /// function drops the half-pairs; `points_n` is what the server shipped before they
+  /// were dropped. The field stays on the wire and unparsed on purpose (audit D9), and
+  /// what was wrong was a docstring telling a reader an inert field was load-bearing.
+  static FindingPoint? maybe(Map<String, Object?> json) {
+    final a = (json['a'] as num?)?.toDouble();
+    final b = (json['b'] as num?)?.toDouble();
+    if (a == null || b == null) {
+      return null;
+    }
+    return FindingPoint(date: json['date'] as String?, a: a, b: b);
+  }
+
+  /// The owner-local day, `YYYY-MM-DD`.
+  final String? date;
+
+  /// `metric_a`'s value on that day.
+  final double a;
+
+  /// `metric_b`'s value at the finding's lag from that day.
+  final double b;
 }

@@ -62,6 +62,28 @@ void _phone(WidgetTester tester) {
   addTearDown(tester.view.reset);
 }
 
+/// Whether a tap at [finder]'s centre would actually reach [finder].
+///
+/// `tester.tap` warns on a miss and carries on; the warning is not fatal unless
+/// asked. So a widget under an opaque sibling is "tapped" and something else
+/// receives the gesture, which is how this suite came to be opening the coach.
+bool hittable(WidgetTester tester, Finder finder) {
+  final box = tester.renderObject<RenderBox>(finder);
+  final centre = box.localToGlobal(box.size.center(Offset.zero));
+  return tester.hitTestOnBinding(centre).path.any((entry) => entry.target == box);
+}
+
+/// The first ⓘ on screen that a real tap would land on, or null.
+Finder? reachableDot(WidgetTester tester) {
+  for (final element in find.byType(MetricInfoDot).evaluate()) {
+    final finder = find.byElementPredicate((candidate) => candidate == element);
+    if (hittable(tester, finder)) {
+      return finder;
+    }
+  }
+  return null;
+}
+
 void main() {
   late LocalStore store;
 
@@ -72,19 +94,33 @@ void main() {
   tearDown(() async => store.close());
 
   /// Opens the sheet the same way a card does, from a context inside Today.
+  ///
+  /// **It stops at an ⓘ the owner could actually hit, and a miss is fatal.**
+  /// The fixture used to stop at the first dot that merely EXISTED and tap it
+  /// with `warnIfMissed: false`. On this phone that dot lands under the coach
+  /// FAB, so the tap opened the COACH sheet instead: `find.byType(BottomSheet)`
+  /// was satisfied by the wrong sheet, and the coach's
+  /// `CircularProgressIndicator` (which repeats forever) meant `pumpAndSettle`
+  /// never returned. A silent miss is a fixture that has stopped testing the
+  /// thing it is named after.
   Future<void> openInfoSheet(WidgetTester tester, {String? key}) async {
     await tester.pumpWidget(routedApp(store));
     await tester.pumpAndSettle();
-    final dot = find.byType(MetricInfoDot);
-    for (var i = 0; i < 25 && dot.evaluate().isEmpty; i++) {
+    var dot = reachableDot(tester);
+    for (var i = 0; i < 25 && dot == null; i++) {
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
       await tester.pumpAndSettle();
+      dot = reachableDot(tester);
     }
-    expect(dot, findsWidgets, reason: 'Today has to actually draw an ⓘ');
+    expect(
+      dot,
+      isNotNull,
+      reason: 'Today has to draw an ⓘ the owner can reach',
+    );
     if (key == null) {
-      await tester.tap(dot.first, warnIfMissed: false);
+      await tester.tap(dot!, warnIfMissed: true);
     } else {
-      showMetricInfo(tester.element(dot.first), key);
+      showMetricInfo(tester.element(dot!), key);
     }
     await tester.pumpAndSettle();
   }
@@ -195,6 +231,17 @@ void main() {
       await openInfoSheet(tester);
 
       expect(find.byType(BottomSheet), findsOneWidget);
+      // WHICH sheet, not just that there is one. A tap that misses the ⓘ and
+      // hits the coach FAB behind it also produces exactly one BottomSheet; the
+      // sources block is what makes this the metric explainer.
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(CitationRow),
+        ),
+        findsOneWidget,
+        reason: 'the ⓘ must open the explainer, not whatever is on top of it',
+      );
       final bar = tester.getRect(find.byType(AppTabBar));
       expect(tester.getRect(find.byType(BottomSheet)).bottom, greaterThan(bar.top));
     });

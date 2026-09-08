@@ -164,10 +164,12 @@
     "hr_drift_bpm": 10,
     "intensity": "Vigorous",
     "max_pct_hrmax": 91,
+    "pace_basis": "elapsed",
     "pace_min_per_km": 7.14,
     "speed_kmh": 8.4,
     "trimp": 36.9
   },
+  "metrics_withheld": {},
   "workout": {
     "avg_hr": 135,
     "calories": 250,

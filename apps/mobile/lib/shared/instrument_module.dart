@@ -106,8 +106,9 @@ class InstrumentModule extends StatelessWidget {
   /// a whole card gets its disclosures into it without every card growing a
   /// parameter.
   ///
-  /// A fixed-height grid cell cannot take a note; it uses `CaveatFoot` instead
-  /// and does not pass this (`features/today/widgets/metric_tile.dart`).
+  /// There is exactly one carrier, [CaveatNote]. The fixed-height grid cell that
+  /// needed a second one — a foot line, because a 92 px body has no room for a
+  /// note — went with the v02 redesign, and `CaveatFoot` went with it.
   final List<Disclosure> caveats;
 
   /// The metric's declared hue. **No longer painted** — see the library
@@ -210,7 +211,7 @@ class InstrumentModule extends StatelessWidget {
 /// Legacy's `HEyebrow` — uppercase, wide-tracked, quiet.
 ///
 /// 9 px at 0.12 em of tracking, weight 400, in [HealtheeColors.ink3]. All of
-/// those are legacy's; the face is Manrope rather than Space Mono, which is the
+/// those are legacy’s; the face is Inter rather than Space Mono, which is the
 /// one typographic difference the port is allowed (`instrument_type.dart`).
 ///
 /// The caps are **visual only**: the [Semantics] label carries the text as

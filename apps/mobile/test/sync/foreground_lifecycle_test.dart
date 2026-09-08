@@ -91,8 +91,11 @@ void main() {
   }
 
   tearDown(() async {
-    await container.read(localStoreProvider).close();
+    final store = container.read(localStoreProvider);
+    await leave();
     container.dispose();
+    await pumpEventQueue();
+    await store.close();
     // Leave the binding where the next test expects to find it.
     binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   });

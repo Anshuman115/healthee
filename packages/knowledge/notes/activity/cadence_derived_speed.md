@@ -242,9 +242,11 @@ magnitudes here come from a single person's data.
     speed was effectively flat (~96 m/min) across 100–150 steps/min, so the cadence axis
     moved while real workload did not.
   - Error budget on the single best bout: regression extrapolation ±3.4, HRmax uncertainty
-    ±4.2, stride-length choice ±14.5 → combined **±15.5 mL/kg/min**, against the 5.6
+    ±4.2, stride-length choice ±14.5 → combined **±15.5 mL/kg/min**, against the **5.075**
     mL/kg/min SEE of the non-exercise model it would have replaced
-    ([[non_exercise_vo2max]]).
+    ([[non_exercise_vo2max]]). *(Corrected 2026-09-08: this read 5.6, the figure #108
+    withdrew as appearing nowhere in Jurca 2005. The comparison it makes is unaffected —
+    three times the error either way — but the number was the retracted one.)*
 - **Honesty rules (carry into UI + LLM)**: never show a cadence-derived pace as measured;
   never fill a withheld VO₂max with a cadence-derived one; when the submaximal estimate is
   unavailable, say which input is missing rather than showing a weaker number — "not enough

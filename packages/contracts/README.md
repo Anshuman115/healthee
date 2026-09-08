@@ -21,11 +21,13 @@ so their JSON response **shapes** (keys, nesting, value types) must stay stable.
 | `activity.json` | `GET /api/activity` |
 | `workout.json` | `GET /api/activity/workout?start=…` |
 | `history.json` | `GET /api/history?metric=…` |
+| `history_batch.json` | `GET /api/history?metrics=a,b,c` |
 | `profile.json` | `GET /api/profile` |
 | `entitlement.json` | `GET /api/entitlement` |
 | `log_recent.json` | `GET /api/log/recent` |
 | `log_post.json` | `POST /api/log` |
 | `gps_list.json` | `GET /api/workout/gps` |
+| `map.json` | `GET /api/map` |
 | `gps_detail.json` | `GET /api/workout/gps/{track_id}` |
 | `challenges.json` | `GET /api/challenges` |
 | `challenge_outcomes.json` | `GET /api/challenges/outcomes` |
@@ -71,3 +73,34 @@ POSTGRES_HOST=… POSTGRES_PORT=… POSTGRES_DB=… POSTGRES_USER=… POSTGRES_P
 
 Review the diff — a snapshot change is a wire-contract change and must be a
 deliberate, reviewed commit (the installed app depends on it).
+
+### A shape change is not a date change
+
+`generate.py` seeds from `now()`, so a full regeneration rewrites **every date in
+every snapshot** — the payload dates, the trend points, the night list. That is
+not a wire-contract change and it is not free: `apps/mobile`'s suite is
+calibrated to these dates (`test/features/_today_host.dart`'s `todayDate`,
+`_screen_data.dart`'s pinned `now`, and the golden test that reads `today.json`
+straight out of this directory), so a regeneration run purely to add a key turned
+273 mobile tests red while changing nothing about the contract.
+
+So: regenerate to SEE the new shape, then apply that shape to the committed files
+and leave their dates alone. The diff a reviewer should get for a new key is the
+new key. Note also that the committed files carry literal `—` and `₂` where
+`generate.py` writes `—` and `₂`, so a hand-applied edit wants
+`ensure_ascii=False`.
+
+**A new key can carry a date of its own**, and a merge that only copied values
+across would then stamp the generating run's date inside a snapshot dated months
+earlier — `metrics[].as_of_date` and a finding's `points[].date` are both like
+this. Shift every date inside an added value by
+`snapshot["date"] - fresh["date"]` so the file stays internally consistent; a
+snapshot whose new key disagrees with its own payload date is a false record in
+the file that is meant to *be* the contract.
+
+**A CHANGED value is not a new key and no merge will find it.** Three of the
+honesty-sweep edits were value changes — `anomalies` `[]` → `null`,
+`naps[].stages` array → totals object, `weekly_mvpa_min` `null` → a number — and
+each had to be applied deliberately. The shape test compares key sets and types
+and accepts a null on either side, so it will not fail on a stale value: only
+reading the diff catches these.

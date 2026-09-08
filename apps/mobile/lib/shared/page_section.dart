@@ -49,17 +49,53 @@ abstract final class PageSpacing {
 
   /// Under the last card of a section, before the next heading. Legacy's 24.
   static const double section = 34;
+
+  /// **v02's own two rungs.** `richer.css`, not legacy:
+  ///
+  /// ```css
+  /// .panel   { margin-top: 12px }
+  /// .section { margin-top: 24px }
+  /// ```
+  ///
+  /// They are tighter than the four above and that is not a regression of the
+  /// owner's 2026-08-06 widening. Those four space **legacy's** cards, which
+  /// carry no internal rhythm of their own; a v02 panel has 18 px of padding
+  /// and a 22 px corner, so 12 between two of them reads wider than legacy's 10
+  /// between two flat modules. A screen uses one ladder or the other, never
+  /// both — `today_order_test.dart` asserts Today uses this one.
+  static const double panel = 12;
+
+  /// v02's `.section { margin-top: 24px }` — between two groups of panels.
+  static const double block = 24;
 }
+
+/// How tall a pinned section is, measured in the context it will be drawn in.
+///
+/// A sliver that pins has to declare its extent **before** it lays out — that is
+/// what lets the viewport hold it at the top while the rest of the list slides
+/// under it — so a pinned section cannot simply be as tall as its child. The
+/// context is passed because the answer depends on the text scale the owner
+/// chose, and a hard-coded height would clip a pinned control at anything but
+/// the default.
+typedef SectionExtent = double Function(BuildContext context);
 
 /// A section [child] followed by [gap] of space.
 @immutable
 class PageSection {
   /// Builds one entry of a screen's list.
-  const PageSection(this.child, {this.gap = PageSpacing.card});
+  const PageSection(this.child, {this.gap = PageSpacing.card, this.pinnedExtent});
 
   /// What to draw.
   final Widget child;
 
   /// The space under it.
   final double gap;
+
+  /// Non-null makes this section **pin to the top of the scroll**, and answers
+  /// how tall it is. Null is an ordinary section that scrolls away.
+  ///
+  /// `richer.css` gives exactly one element `position: sticky` — the chapter
+  /// nav — and this is that, in the only shape a scroll view has for it. The
+  /// screen shell reads it; nothing else needs to know.
+  final SectionExtent? pinnedExtent;
 }

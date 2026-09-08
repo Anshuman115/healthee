@@ -433,8 +433,12 @@ Confirm the startup log says `connected as least-privilege role`. If it says
 Full procedure and the one-time cutover: [`infra/DEPLOY.md`](infra/DEPLOY.md).
 The `api` service binds to `127.0.0.1:8765` only. The `scheduler` service ticks
 every 5 minutes and runs each owner's daily chain (correlate → recs → warm →
-briefing) once per **their own local day**, at 10:30 in **their** `app_user`
-timezone — there is no global fire zone and no staggered start times.
+briefing) once per **their own local day** — there is no global fire zone and no
+staggered start times. 10:30 in **their** `app_user` timezone is the *earliest* it
+may run; it actually starts once that day's data has arrived (a sample measured on
+the day, or a night that woke on it). A day nothing arrives for gets no chain and
+no briefing, and is reported to Telegram once at 22:00 local: an analysis of an
+unrecorded night would be the guess this product exists not to make.
 
 ### 3. Put nginx + TLS in front
 Install the provided vhost and get a certificate:

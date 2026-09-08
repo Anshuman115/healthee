@@ -56,7 +56,18 @@ class PushReceipt {
     );
   }
 
-  /// Samples the server stored.
+  /// Samples the server STORED — new or not.
+  ///
+  /// The server returns `len(rows)`: every whitelisted sample in the payload,
+  /// including the ones its `ON CONFLICT` branch merely rewrote with the
+  /// identical value. "Accepted" reads as "landed and was new"; it means "was
+  /// not rejected" (write-path audit D4), and this app re-sends nothing already
+  /// marked pushed, so on a healthy sync the two coincide — a retry after a
+  /// dropped response is where they part.
+  ///
+  /// The receipt line says `stored` rather than `accepted` for that reason. Low
+  /// consequence, and it is the sync surface: a whole session was once lost to
+  /// misreading a counter of exactly this kind.
   final int samplesAccepted;
 
   /// Samples the server dropped because it does not know the metric.
@@ -84,7 +95,7 @@ class PushReceipt {
 
   @override
   String toString() =>
-      'accepted $samplesAccepted · rejected $samplesRejected · '
+      'stored $samplesAccepted · rejected $samplesRejected · '
       '$nights sleep · $workouts workouts · $dailyTotals daily totals · '
       '$daysDerived days derived';
 }

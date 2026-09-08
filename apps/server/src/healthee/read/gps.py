@@ -15,21 +15,12 @@ ever be scored, which is the moment the strap's HR for it is least likely to hav
 from __future__ import annotations
 
 from datetime import datetime
-from uuid import UUID
-
-from pydantic import BaseModel
+from uuid import UUID, uuid4
 
 from healthee.derive._common import Cur
 from healthee.derive.gps_detail import gps_track_detail
 from healthee.derive.gps_scoring import score_track
-
-
-class GpsTrackIn(BaseModel):
-    """POST body: a session window + compact points ``[epoch_s, lat, lng, ele_m|null]``."""
-
-    start_iso: str
-    end_iso: str
-    points: list[list[float | None]]
+from healthee.read.gps_request import GpsTrackIn
 
 
 def ingest_gps_track(cur: Cur, user_id: UUID, tz: str, req: GpsTrackIn) -> dict:
@@ -47,13 +38,18 @@ def ingest_gps_track(cur: Cur, user_id: UUID, tz: str, req: GpsTrackIn) -> dict:
     if len(pts) < 10:
         return {"ok": False, "reason": f"too few valid points ({len(pts)})"}
     cur.execute(
-        "INSERT INTO gps_track (user_id, start_ts, end_ts, source) "
-        "VALUES (%s, %s, %s, 'phone') RETURNING id",
-        (user_id, datetime.fromisoformat(req.start_iso), datetime.fromisoformat(req.end_iso)),
+        "INSERT INTO gps_track (id, user_id, start_ts, end_ts, source) "
+        "VALUES (%s, %s, %s, %s, 'phone') ON CONFLICT (id) DO NOTHING RETURNING id",
+        (
+            req.client_id or uuid4(),
+            user_id,
+            datetime.fromisoformat(req.start_iso),
+            datetime.fromisoformat(req.end_iso),
+        ),
     )
     inserted = cur.fetchone()
-    if inserted is None:  # RETURNING always yields a row; guard for the type-checker
-        return {"ok": False, "reason": "track insert failed"}
+    if inserted is None:
+        return _recorded_track(cur, user_id, req)
     track_id = inserted[0]
     cur.executemany(
         "INSERT INTO gps_point (user_id, track_id, ts, lat, lng, ele_m) "
@@ -62,6 +58,27 @@ def ingest_gps_track(cur: Cur, user_id: UUID, tz: str, req: GpsTrackIn) -> dict:
     )
     vo2 = score_track(cur, user_id, tz, track_id)
     return {"ok": True, "track_id": str(track_id), "points": len(pts), "vo2max": vo2}
+
+
+def _recorded_track(cur: Cur, user_id: UUID, req: GpsTrackIn) -> dict:
+    """An acknowledged retry never mutates the first stored recording."""
+    cur.execute(
+        "SELECT id FROM gps_track WHERE user_id = %s AND id = %s AND start_ts = %s AND end_ts = %s",
+        (
+            user_id,
+            req.client_id,
+            datetime.fromisoformat(req.start_iso),
+            datetime.fromisoformat(req.end_iso),
+        ),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return {"ok": False, "reason": "recording identity conflict"}
+    cur.execute(
+        "SELECT count(*) FROM gps_point WHERE user_id = %s AND track_id = %s", (user_id, row[0])
+    )
+    count = cur.fetchone()
+    return {"ok": True, "track_id": str(row[0]), "points": count[0] if count else 0, "vo2max": None}
 
 
 def list_gps_tracks(cur: Cur, user_id: UUID, limit: int = 30) -> dict:

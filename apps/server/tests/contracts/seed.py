@@ -96,7 +96,7 @@ def seed_all() -> None:
         _seed_manual(cur)
         _seed_illness(cur, today)
         _seed_recommendation(cur, today)
-        _seed_finding(cur)
+        _seed_finding(cur, today)
         _seed_gps(cur)
         seed_challenges(cur, today, USER_TZ)
         seed_program(cur, today, USER_TZ)
@@ -161,12 +161,25 @@ def _seed_sleep(cur, today: date) -> None:
         )
     nap_start = datetime.combine(today, time(14, 0), tzinfo=USER_TZ)
     nap_end = nap_start + timedelta(minutes=35)
+    # The nap carries a hypnogram too. It was an empty ``[]`` while ``read/sleep_page.py``
+    # shipped that array under the key a night uses for its stage TOTALS, so the snapshot
+    # could not tell a nap with no staging from a nap whose staging never left the server
+    # — which is exactly the defect the shape fix closes.
+    nap_stages = [
+        [int(_ms(nap_start)), int(_ms(nap_start + timedelta(minutes=30))), 4],
+        [int(_ms(nap_start + timedelta(minutes=30))), int(_ms(nap_end)), 5],
+    ]
     cur.execute(
         "INSERT INTO sleep_session "
         "(user_id,start_ts,end_ts,kind,rem_min,light_min,deep_min,wake_min,stages) "
-        "VALUES (%s,%s,%s,'nap',0,30,5,0,'[]'::jsonb) "
+        "VALUES (%s,%s,%s,'nap',0,30,5,0,%s) "
         "ON CONFLICT (user_id, start_ts) DO NOTHING",
-        (SENTINEL_USER_ID, nap_start.astimezone(UTC), nap_end.astimezone(UTC)),
+        (
+            SENTINEL_USER_ID,
+            nap_start.astimezone(UTC),
+            nap_end.astimezone(UTC),
+            json.dumps(nap_stages),
+        ),
     )
 
 
@@ -243,14 +256,33 @@ def _seed_recommendation(cur, today: date) -> None:
     )
 
 
-def _seed_finding(cur) -> None:
+def _seed_finding(cur, today: date) -> None:
+    """One significant pairwise finding, WITH the paired days behind it.
+
+    ``details`` carries the points ``analytics/correlations.py`` records at compute time
+    and ``read/findings.py`` serves, so the snapshot pins the scatter's shape rather than
+    an empty list. ``n_samples`` and the point count agree here on purpose: a snapshot in
+    which they differed would make the truncation flag's contract unreadable.
+    """
+    points = [
+        {
+            "date": (today - timedelta(days=23 - n)).isoformat(),
+            "a": float(40 + n),
+            "b": float(80 - n),
+        }
+        for n in range(24)
+    ]
     cur.execute(
         "INSERT INTO finding (user_id, kind, description, metric_a, metric_b, lag_days, "
         "effect_size, effect_metric, p_value, q_value, n_samples, significant, "
-        "research_note_ids) "
+        "research_note_ids, details) "
         "VALUES (%s,'pairwise_lag','Caffeine ↔ sleep','caffeine','sleep_health_score_4dim',0,"
-        "-0.42,'rho',0.01,0.03,24,true,%s) ON CONFLICT DO NOTHING",
-        (SENTINEL_USER_ID, ["caffeine_sleep"]),
+        "-0.42,'rho',0.01,0.03,24,true,%s,%s::jsonb) ON CONFLICT DO NOTHING",
+        (
+            SENTINEL_USER_ID,
+            ["caffeine_sleep"],
+            json.dumps({"points": points, "points_truncated": False}),
+        ),
     )
 
 

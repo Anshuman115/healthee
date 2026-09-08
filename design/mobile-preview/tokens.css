@@ -1,0 +1,84 @@
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 */
+/* Hallmark · macrostructure: Stat-Led · genre: modern-minimal · theme: existing Healthee instrument · nav: N5 mobile adaptation · footer: Ft2 · enrichment: functional charts */
+@font-face { font-family: 'Manrope'; src: url('assets/Manrope-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400 500; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('assets/Manrope-Bold.ttf') format('truetype'); font-style: normal; font-weight: 600 800; font-display: swap; }
+:root {
+  color-scheme: light;
+  --font-body: 'Manrope', sans-serif;
+  --font-display: var(--font-body);
+  --canvas: oklch(95.7% .008 280);
+  --background: oklch(97.5% .006 280);
+  --surface: oklch(100% 0 280);
+  --surface-soft: oklch(95.8% .009 280);
+  --ink: oklch(23% .023 280);
+  --muted: oklch(47% .025 280);
+  --subtle: oklch(52% .021 280);
+  --line: oklch(90.8% .012 280);
+  --rule: oklch(83% .022 280);
+  --accent: oklch(50% .211 280);
+  --accent-hover: oklch(44% .211 280);
+  --accent-soft: oklch(94% .029 280);
+  --on-accent: oklch(99% .004 280);
+  --positive: oklch(43% .095 160);
+  --positive-soft: oklch(94% .026 160);
+  --caution: oklch(44% .085 72);
+  --caution-soft: oklch(96% .035 78);
+  --danger: oklch(48% .16 28);
+  --danger-soft: oklch(95% .024 28);
+  --chart-strong: oklch(49% .19 282);
+  --chart-medium: oklch(66% .13 282);
+  --chart-light: oklch(81% .074 282);
+  --chart-faint: oklch(94% .024 282);
+  --chart-wake: oklch(70% .087 65);
+  --map-land: oklch(95% .018 145);
+  --map-park: oklch(90% .037 145);
+  --map-water: oklch(89% .039 231);
+  --shadow-color: oklch(25% .04 280 / .07);
+  --overlay: oklch(19% .025 280 / .35);
+  --transparent: oklch(100% 0 280 / 0);
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+  --space-4xl: 40px;
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in: cubic-bezier(.7, 0, .84, 0);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+}
+[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: oklch(13.5% .013 280);
+  --background: oklch(17% .015 280);
+  --surface: oklch(21% .018 280);
+  --surface-soft: oklch(25% .023 280);
+  --ink: oklch(95% .01 280);
+  --muted: oklch(77% .024 280);
+  --subtle: oklch(70% .022 280);
+  --line: oklch(31% .023 280);
+  --rule: oklch(43% .027 280);
+  --accent: oklch(78% .13 280);
+  --accent-hover: oklch(83% .1 280);
+  --accent-soft: oklch(28% .052 280);
+  --on-accent: oklch(19% .028 280);
+  --positive: oklch(77% .1 160);
+  --positive-soft: oklch(25% .033 160);
+  --caution: oklch(82% .1 78);
+  --caution-soft: oklch(26% .035 78);
+  --danger: oklch(78% .11 28);
+  --danger-soft: oklch(26% .04 28);
+  --chart-strong: oklch(76% .14 282);
+  --chart-medium: oklch(61% .13 282);
+  --chart-light: oklch(46% .09 282);
+  --chart-faint: oklch(28% .035 282);
+  --map-land: oklch(24% .016 145);
+  --map-park: oklch(30% .033 145);
+  --map-water: oklch(32% .037 231);
+  --shadow-color: oklch(5% .01 280 / .2);
+  --overlay: oklch(9% .025 280 / .65);
+}

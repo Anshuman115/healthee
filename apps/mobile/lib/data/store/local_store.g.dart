@@ -9,6 +9,16 @@ class $CachedPayloadsTable extends CachedPayloads
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $CachedPayloadsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _scopeMeta = const VerificationMeta('scope');
+  @override
+  late final GeneratedColumn<String> scope = GeneratedColumn<String>(
+    'scope',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _dayMeta = const VerificationMeta('day');
   @override
   late final GeneratedColumn<String> day = GeneratedColumn<String>(
@@ -58,7 +68,13 @@ class $CachedPayloadsTable extends CachedPayloads
     requiredDuringInsert: true,
   );
   @override
-  List<GeneratedColumn> get $columns => [day, metric, payload, fetchedAt];
+  List<GeneratedColumn> get $columns => [
+    scope,
+    day,
+    metric,
+    payload,
+    fetchedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -71,6 +87,12 @@ class $CachedPayloadsTable extends CachedPayloads
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('scope')) {
+      context.handle(
+        _scopeMeta,
+        scope.isAcceptableOrUnknown(data['scope']!, _scopeMeta),
+      );
+    }
     if (data.containsKey('day')) {
       context.handle(
         _dayMeta,
@@ -107,11 +129,15 @@ class $CachedPayloadsTable extends CachedPayloads
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {day, metric};
+  Set<GeneratedColumn> get $primaryKey => {scope, day, metric};
   @override
   CachedPayload map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return CachedPayload(
+      scope: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scope'],
+      )!,
       day: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}day'],
@@ -138,6 +164,9 @@ class $CachedPayloadsTable extends CachedPayloads
 }
 
 class CachedPayload extends DataClass implements Insertable<CachedPayload> {
+  /// Opaque sign-in namespace. No token or personal identifier is stored here.
+  final String scope;
+
   /// The owner-local calendar date this payload describes, as `YYYY-MM-DD`.
   final String day;
 
@@ -152,6 +181,7 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
   /// trip. It drives staleness display, never correctness.
   final DateTime fetchedAt;
   const CachedPayload({
+    required this.scope,
     required this.day,
     required this.metric,
     required this.payload,
@@ -160,6 +190,7 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['scope'] = Variable<String>(scope);
     map['day'] = Variable<String>(day);
     map['metric'] = Variable<String>(metric);
     map['payload'] = Variable<String>(payload);
@@ -169,6 +200,7 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
 
   CachedPayloadsCompanion toCompanion(bool nullToAbsent) {
     return CachedPayloadsCompanion(
+      scope: Value(scope),
       day: Value(day),
       metric: Value(metric),
       payload: Value(payload),
@@ -182,6 +214,7 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return CachedPayload(
+      scope: serializer.fromJson<String>(json['scope']),
       day: serializer.fromJson<String>(json['day']),
       metric: serializer.fromJson<String>(json['metric']),
       payload: serializer.fromJson<String>(json['payload']),
@@ -192,6 +225,7 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'scope': serializer.toJson<String>(scope),
       'day': serializer.toJson<String>(day),
       'metric': serializer.toJson<String>(metric),
       'payload': serializer.toJson<String>(payload),
@@ -200,11 +234,13 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
   }
 
   CachedPayload copyWith({
+    String? scope,
     String? day,
     String? metric,
     String? payload,
     DateTime? fetchedAt,
   }) => CachedPayload(
+    scope: scope ?? this.scope,
     day: day ?? this.day,
     metric: metric ?? this.metric,
     payload: payload ?? this.payload,
@@ -212,6 +248,7 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
   );
   CachedPayload copyWithCompanion(CachedPayloadsCompanion data) {
     return CachedPayload(
+      scope: data.scope.present ? data.scope.value : this.scope,
       day: data.day.present ? data.day.value : this.day,
       metric: data.metric.present ? data.metric.value : this.metric,
       payload: data.payload.present ? data.payload.value : this.payload,
@@ -222,6 +259,7 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
   @override
   String toString() {
     return (StringBuffer('CachedPayload(')
+          ..write('scope: $scope, ')
           ..write('day: $day, ')
           ..write('metric: $metric, ')
           ..write('payload: $payload, ')
@@ -231,11 +269,12 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
   }
 
   @override
-  int get hashCode => Object.hash(day, metric, payload, fetchedAt);
+  int get hashCode => Object.hash(scope, day, metric, payload, fetchedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is CachedPayload &&
+          other.scope == this.scope &&
           other.day == this.day &&
           other.metric == this.metric &&
           other.payload == this.payload &&
@@ -243,12 +282,14 @@ class CachedPayload extends DataClass implements Insertable<CachedPayload> {
 }
 
 class CachedPayloadsCompanion extends UpdateCompanion<CachedPayload> {
+  final Value<String> scope;
   final Value<String> day;
   final Value<String> metric;
   final Value<String> payload;
   final Value<DateTime> fetchedAt;
   final Value<int> rowid;
   const CachedPayloadsCompanion({
+    this.scope = const Value.absent(),
     this.day = const Value.absent(),
     this.metric = const Value.absent(),
     this.payload = const Value.absent(),
@@ -256,6 +297,7 @@ class CachedPayloadsCompanion extends UpdateCompanion<CachedPayload> {
     this.rowid = const Value.absent(),
   });
   CachedPayloadsCompanion.insert({
+    this.scope = const Value.absent(),
     required String day,
     required String metric,
     required String payload,
@@ -266,6 +308,7 @@ class CachedPayloadsCompanion extends UpdateCompanion<CachedPayload> {
        payload = Value(payload),
        fetchedAt = Value(fetchedAt);
   static Insertable<CachedPayload> custom({
+    Expression<String>? scope,
     Expression<String>? day,
     Expression<String>? metric,
     Expression<String>? payload,
@@ -273,6 +316,7 @@ class CachedPayloadsCompanion extends UpdateCompanion<CachedPayload> {
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (scope != null) 'scope': scope,
       if (day != null) 'day': day,
       if (metric != null) 'metric': metric,
       if (payload != null) 'payload': payload,
@@ -282,6 +326,7 @@ class CachedPayloadsCompanion extends UpdateCompanion<CachedPayload> {
   }
 
   CachedPayloadsCompanion copyWith({
+    Value<String>? scope,
     Value<String>? day,
     Value<String>? metric,
     Value<String>? payload,
@@ -289,6 +334,7 @@ class CachedPayloadsCompanion extends UpdateCompanion<CachedPayload> {
     Value<int>? rowid,
   }) {
     return CachedPayloadsCompanion(
+      scope: scope ?? this.scope,
       day: day ?? this.day,
       metric: metric ?? this.metric,
       payload: payload ?? this.payload,
@@ -300,6 +346,9 @@ class CachedPayloadsCompanion extends UpdateCompanion<CachedPayload> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (scope.present) {
+      map['scope'] = Variable<String>(scope.value);
+    }
     if (day.present) {
       map['day'] = Variable<String>(day.value);
     }
@@ -321,6 +370,7 @@ class CachedPayloadsCompanion extends UpdateCompanion<CachedPayload> {
   @override
   String toString() {
     return (StringBuffer('CachedPayloadsCompanion(')
+          ..write('scope: $scope, ')
           ..write('day: $day, ')
           ..write('metric: $metric, ')
           ..write('payload: $payload, ')
@@ -2759,6 +2809,827 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaRow> {
   }
 }
 
+class $GpsRecordingsTable extends GpsRecordings
+    with TableInfo<$GpsRecordingsTable, GpsRecordingRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GpsRecordingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _scopeMeta = const VerificationMeta('scope');
+  @override
+  late final GeneratedColumn<String> scope = GeneratedColumn<String>(
+    'scope',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startMsMeta = const VerificationMeta(
+    'startMs',
+  );
+  @override
+  late final GeneratedColumn<int> startMs = GeneratedColumn<int>(
+    'start_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endMsMeta = const VerificationMeta('endMs');
+  @override
+  late final GeneratedColumn<int> endMs = GeneratedColumn<int>(
+    'end_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _distanceMMeta = const VerificationMeta(
+    'distanceM',
+  );
+  @override
+  late final GeneratedColumn<double> distanceM = GeneratedColumn<double>(
+    'distance_m',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    scope,
+    startMs,
+    endMs,
+    status,
+    distanceM,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'gps_recordings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GpsRecordingRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('scope')) {
+      context.handle(
+        _scopeMeta,
+        scope.isAcceptableOrUnknown(data['scope']!, _scopeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_scopeMeta);
+    }
+    if (data.containsKey('start_ms')) {
+      context.handle(
+        _startMsMeta,
+        startMs.isAcceptableOrUnknown(data['start_ms']!, _startMsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startMsMeta);
+    }
+    if (data.containsKey('end_ms')) {
+      context.handle(
+        _endMsMeta,
+        endMs.isAcceptableOrUnknown(data['end_ms']!, _endMsMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('distance_m')) {
+      context.handle(
+        _distanceMMeta,
+        distanceM.isAcceptableOrUnknown(data['distance_m']!, _distanceMMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  GpsRecordingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GpsRecordingRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      scope: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scope'],
+      )!,
+      startMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_ms'],
+      )!,
+      endMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_ms'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      distanceM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_m'],
+      )!,
+    );
+  }
+
+  @override
+  $GpsRecordingsTable createAlias(String alias) {
+    return $GpsRecordingsTable(attachedDatabase, alias);
+  }
+}
+
+class GpsRecordingRow extends DataClass implements Insertable<GpsRecordingRow> {
+  final String id;
+  final String scope;
+  final int startMs;
+  final int? endMs;
+  final String status;
+  final double distanceM;
+  const GpsRecordingRow({
+    required this.id,
+    required this.scope,
+    required this.startMs,
+    this.endMs,
+    required this.status,
+    required this.distanceM,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['scope'] = Variable<String>(scope);
+    map['start_ms'] = Variable<int>(startMs);
+    if (!nullToAbsent || endMs != null) {
+      map['end_ms'] = Variable<int>(endMs);
+    }
+    map['status'] = Variable<String>(status);
+    map['distance_m'] = Variable<double>(distanceM);
+    return map;
+  }
+
+  GpsRecordingsCompanion toCompanion(bool nullToAbsent) {
+    return GpsRecordingsCompanion(
+      id: Value(id),
+      scope: Value(scope),
+      startMs: Value(startMs),
+      endMs: endMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endMs),
+      status: Value(status),
+      distanceM: Value(distanceM),
+    );
+  }
+
+  factory GpsRecordingRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GpsRecordingRow(
+      id: serializer.fromJson<String>(json['id']),
+      scope: serializer.fromJson<String>(json['scope']),
+      startMs: serializer.fromJson<int>(json['startMs']),
+      endMs: serializer.fromJson<int?>(json['endMs']),
+      status: serializer.fromJson<String>(json['status']),
+      distanceM: serializer.fromJson<double>(json['distanceM']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'scope': serializer.toJson<String>(scope),
+      'startMs': serializer.toJson<int>(startMs),
+      'endMs': serializer.toJson<int?>(endMs),
+      'status': serializer.toJson<String>(status),
+      'distanceM': serializer.toJson<double>(distanceM),
+    };
+  }
+
+  GpsRecordingRow copyWith({
+    String? id,
+    String? scope,
+    int? startMs,
+    Value<int?> endMs = const Value.absent(),
+    String? status,
+    double? distanceM,
+  }) => GpsRecordingRow(
+    id: id ?? this.id,
+    scope: scope ?? this.scope,
+    startMs: startMs ?? this.startMs,
+    endMs: endMs.present ? endMs.value : this.endMs,
+    status: status ?? this.status,
+    distanceM: distanceM ?? this.distanceM,
+  );
+  GpsRecordingRow copyWithCompanion(GpsRecordingsCompanion data) {
+    return GpsRecordingRow(
+      id: data.id.present ? data.id.value : this.id,
+      scope: data.scope.present ? data.scope.value : this.scope,
+      startMs: data.startMs.present ? data.startMs.value : this.startMs,
+      endMs: data.endMs.present ? data.endMs.value : this.endMs,
+      status: data.status.present ? data.status.value : this.status,
+      distanceM: data.distanceM.present ? data.distanceM.value : this.distanceM,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GpsRecordingRow(')
+          ..write('id: $id, ')
+          ..write('scope: $scope, ')
+          ..write('startMs: $startMs, ')
+          ..write('endMs: $endMs, ')
+          ..write('status: $status, ')
+          ..write('distanceM: $distanceM')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, scope, startMs, endMs, status, distanceM);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GpsRecordingRow &&
+          other.id == this.id &&
+          other.scope == this.scope &&
+          other.startMs == this.startMs &&
+          other.endMs == this.endMs &&
+          other.status == this.status &&
+          other.distanceM == this.distanceM);
+}
+
+class GpsRecordingsCompanion extends UpdateCompanion<GpsRecordingRow> {
+  final Value<String> id;
+  final Value<String> scope;
+  final Value<int> startMs;
+  final Value<int?> endMs;
+  final Value<String> status;
+  final Value<double> distanceM;
+  final Value<int> rowid;
+  const GpsRecordingsCompanion({
+    this.id = const Value.absent(),
+    this.scope = const Value.absent(),
+    this.startMs = const Value.absent(),
+    this.endMs = const Value.absent(),
+    this.status = const Value.absent(),
+    this.distanceM = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GpsRecordingsCompanion.insert({
+    required String id,
+    required String scope,
+    required int startMs,
+    this.endMs = const Value.absent(),
+    required String status,
+    this.distanceM = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       scope = Value(scope),
+       startMs = Value(startMs),
+       status = Value(status);
+  static Insertable<GpsRecordingRow> custom({
+    Expression<String>? id,
+    Expression<String>? scope,
+    Expression<int>? startMs,
+    Expression<int>? endMs,
+    Expression<String>? status,
+    Expression<double>? distanceM,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (scope != null) 'scope': scope,
+      if (startMs != null) 'start_ms': startMs,
+      if (endMs != null) 'end_ms': endMs,
+      if (status != null) 'status': status,
+      if (distanceM != null) 'distance_m': distanceM,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GpsRecordingsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? scope,
+    Value<int>? startMs,
+    Value<int?>? endMs,
+    Value<String>? status,
+    Value<double>? distanceM,
+    Value<int>? rowid,
+  }) {
+    return GpsRecordingsCompanion(
+      id: id ?? this.id,
+      scope: scope ?? this.scope,
+      startMs: startMs ?? this.startMs,
+      endMs: endMs ?? this.endMs,
+      status: status ?? this.status,
+      distanceM: distanceM ?? this.distanceM,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (scope.present) {
+      map['scope'] = Variable<String>(scope.value);
+    }
+    if (startMs.present) {
+      map['start_ms'] = Variable<int>(startMs.value);
+    }
+    if (endMs.present) {
+      map['end_ms'] = Variable<int>(endMs.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (distanceM.present) {
+      map['distance_m'] = Variable<double>(distanceM.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GpsRecordingsCompanion(')
+          ..write('id: $id, ')
+          ..write('scope: $scope, ')
+          ..write('startMs: $startMs, ')
+          ..write('endMs: $endMs, ')
+          ..write('status: $status, ')
+          ..write('distanceM: $distanceM, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $GpsFixesTable extends GpsFixes
+    with TableInfo<$GpsFixesTable, GpsFixRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GpsFixesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _recordingIdMeta = const VerificationMeta(
+    'recordingId',
+  );
+  @override
+  late final GeneratedColumn<String> recordingId = GeneratedColumn<String>(
+    'recording_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _atMsMeta = const VerificationMeta('atMs');
+  @override
+  late final GeneratedColumn<int> atMs = GeneratedColumn<int>(
+    'at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _altitudeMMeta = const VerificationMeta(
+    'altitudeM',
+  );
+  @override
+  late final GeneratedColumn<double> altitudeM = GeneratedColumn<double>(
+    'altitude_m',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _accuracyMMeta = const VerificationMeta(
+    'accuracyM',
+  );
+  @override
+  late final GeneratedColumn<double> accuracyM = GeneratedColumn<double>(
+    'accuracy_m',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    recordingId,
+    atMs,
+    latitude,
+    longitude,
+    altitudeM,
+    accuracyM,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'gps_fixes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GpsFixRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('recording_id')) {
+      context.handle(
+        _recordingIdMeta,
+        recordingId.isAcceptableOrUnknown(
+          data['recording_id']!,
+          _recordingIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_recordingIdMeta);
+    }
+    if (data.containsKey('at_ms')) {
+      context.handle(
+        _atMsMeta,
+        atMs.isAcceptableOrUnknown(data['at_ms']!, _atMsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_atMsMeta);
+    }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_latitudeMeta);
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_longitudeMeta);
+    }
+    if (data.containsKey('altitude_m')) {
+      context.handle(
+        _altitudeMMeta,
+        altitudeM.isAcceptableOrUnknown(data['altitude_m']!, _altitudeMMeta),
+      );
+    }
+    if (data.containsKey('accuracy_m')) {
+      context.handle(
+        _accuracyMMeta,
+        accuracyM.isAcceptableOrUnknown(data['accuracy_m']!, _accuracyMMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accuracyMMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {recordingId, atMs};
+  @override
+  GpsFixRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GpsFixRow(
+      recordingId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recording_id'],
+      )!,
+      atMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}at_ms'],
+      )!,
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      )!,
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      )!,
+      altitudeM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}altitude_m'],
+      ),
+      accuracyM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}accuracy_m'],
+      )!,
+    );
+  }
+
+  @override
+  $GpsFixesTable createAlias(String alias) {
+    return $GpsFixesTable(attachedDatabase, alias);
+  }
+}
+
+class GpsFixRow extends DataClass implements Insertable<GpsFixRow> {
+  final String recordingId;
+  final int atMs;
+  final double latitude;
+  final double longitude;
+  final double? altitudeM;
+  final double accuracyM;
+  const GpsFixRow({
+    required this.recordingId,
+    required this.atMs,
+    required this.latitude,
+    required this.longitude,
+    this.altitudeM,
+    required this.accuracyM,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['recording_id'] = Variable<String>(recordingId);
+    map['at_ms'] = Variable<int>(atMs);
+    map['latitude'] = Variable<double>(latitude);
+    map['longitude'] = Variable<double>(longitude);
+    if (!nullToAbsent || altitudeM != null) {
+      map['altitude_m'] = Variable<double>(altitudeM);
+    }
+    map['accuracy_m'] = Variable<double>(accuracyM);
+    return map;
+  }
+
+  GpsFixesCompanion toCompanion(bool nullToAbsent) {
+    return GpsFixesCompanion(
+      recordingId: Value(recordingId),
+      atMs: Value(atMs),
+      latitude: Value(latitude),
+      longitude: Value(longitude),
+      altitudeM: altitudeM == null && nullToAbsent
+          ? const Value.absent()
+          : Value(altitudeM),
+      accuracyM: Value(accuracyM),
+    );
+  }
+
+  factory GpsFixRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GpsFixRow(
+      recordingId: serializer.fromJson<String>(json['recordingId']),
+      atMs: serializer.fromJson<int>(json['atMs']),
+      latitude: serializer.fromJson<double>(json['latitude']),
+      longitude: serializer.fromJson<double>(json['longitude']),
+      altitudeM: serializer.fromJson<double?>(json['altitudeM']),
+      accuracyM: serializer.fromJson<double>(json['accuracyM']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'recordingId': serializer.toJson<String>(recordingId),
+      'atMs': serializer.toJson<int>(atMs),
+      'latitude': serializer.toJson<double>(latitude),
+      'longitude': serializer.toJson<double>(longitude),
+      'altitudeM': serializer.toJson<double?>(altitudeM),
+      'accuracyM': serializer.toJson<double>(accuracyM),
+    };
+  }
+
+  GpsFixRow copyWith({
+    String? recordingId,
+    int? atMs,
+    double? latitude,
+    double? longitude,
+    Value<double?> altitudeM = const Value.absent(),
+    double? accuracyM,
+  }) => GpsFixRow(
+    recordingId: recordingId ?? this.recordingId,
+    atMs: atMs ?? this.atMs,
+    latitude: latitude ?? this.latitude,
+    longitude: longitude ?? this.longitude,
+    altitudeM: altitudeM.present ? altitudeM.value : this.altitudeM,
+    accuracyM: accuracyM ?? this.accuracyM,
+  );
+  GpsFixRow copyWithCompanion(GpsFixesCompanion data) {
+    return GpsFixRow(
+      recordingId: data.recordingId.present
+          ? data.recordingId.value
+          : this.recordingId,
+      atMs: data.atMs.present ? data.atMs.value : this.atMs,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      altitudeM: data.altitudeM.present ? data.altitudeM.value : this.altitudeM,
+      accuracyM: data.accuracyM.present ? data.accuracyM.value : this.accuracyM,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GpsFixRow(')
+          ..write('recordingId: $recordingId, ')
+          ..write('atMs: $atMs, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('altitudeM: $altitudeM, ')
+          ..write('accuracyM: $accuracyM')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(recordingId, atMs, latitude, longitude, altitudeM, accuracyM);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GpsFixRow &&
+          other.recordingId == this.recordingId &&
+          other.atMs == this.atMs &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.altitudeM == this.altitudeM &&
+          other.accuracyM == this.accuracyM);
+}
+
+class GpsFixesCompanion extends UpdateCompanion<GpsFixRow> {
+  final Value<String> recordingId;
+  final Value<int> atMs;
+  final Value<double> latitude;
+  final Value<double> longitude;
+  final Value<double?> altitudeM;
+  final Value<double> accuracyM;
+  final Value<int> rowid;
+  const GpsFixesCompanion({
+    this.recordingId = const Value.absent(),
+    this.atMs = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.altitudeM = const Value.absent(),
+    this.accuracyM = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GpsFixesCompanion.insert({
+    required String recordingId,
+    required int atMs,
+    required double latitude,
+    required double longitude,
+    this.altitudeM = const Value.absent(),
+    required double accuracyM,
+    this.rowid = const Value.absent(),
+  }) : recordingId = Value(recordingId),
+       atMs = Value(atMs),
+       latitude = Value(latitude),
+       longitude = Value(longitude),
+       accuracyM = Value(accuracyM);
+  static Insertable<GpsFixRow> custom({
+    Expression<String>? recordingId,
+    Expression<int>? atMs,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<double>? altitudeM,
+    Expression<double>? accuracyM,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (recordingId != null) 'recording_id': recordingId,
+      if (atMs != null) 'at_ms': atMs,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (altitudeM != null) 'altitude_m': altitudeM,
+      if (accuracyM != null) 'accuracy_m': accuracyM,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GpsFixesCompanion copyWith({
+    Value<String>? recordingId,
+    Value<int>? atMs,
+    Value<double>? latitude,
+    Value<double>? longitude,
+    Value<double?>? altitudeM,
+    Value<double>? accuracyM,
+    Value<int>? rowid,
+  }) {
+    return GpsFixesCompanion(
+      recordingId: recordingId ?? this.recordingId,
+      atMs: atMs ?? this.atMs,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      altitudeM: altitudeM ?? this.altitudeM,
+      accuracyM: accuracyM ?? this.accuracyM,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (recordingId.present) {
+      map['recording_id'] = Variable<String>(recordingId.value);
+    }
+    if (atMs.present) {
+      map['at_ms'] = Variable<int>(atMs.value);
+    }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (altitudeM.present) {
+      map['altitude_m'] = Variable<double>(altitudeM.value);
+    }
+    if (accuracyM.present) {
+      map['accuracy_m'] = Variable<double>(accuracyM.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GpsFixesCompanion(')
+          ..write('recordingId: $recordingId, ')
+          ..write('atMs: $atMs, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('altitudeM: $altitudeM, ')
+          ..write('accuracyM: $accuracyM, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalStore extends GeneratedDatabase {
   _$LocalStore(QueryExecutor e) : super(e);
   $LocalStoreManager get managers => $LocalStoreManager(this);
@@ -2768,6 +3639,8 @@ abstract class _$LocalStore extends GeneratedDatabase {
   late final $StoredWorkoutsTable storedWorkouts = $StoredWorkoutsTable(this);
   late final $DeviceTotalsTable deviceTotals = $DeviceTotalsTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
+  late final $GpsRecordingsTable gpsRecordings = $GpsRecordingsTable(this);
+  late final $GpsFixesTable gpsFixes = $GpsFixesTable(this);
   late final StrapWriter strapWriter = StrapWriter(this as LocalStore);
   late final StrapReader strapReader = StrapReader(this as LocalStore);
   late final PushReader pushReader = PushReader(this as LocalStore);
@@ -2783,11 +3656,14 @@ abstract class _$LocalStore extends GeneratedDatabase {
     storedWorkouts,
     deviceTotals,
     syncMeta,
+    gpsRecordings,
+    gpsFixes,
   ];
 }
 
 typedef $$CachedPayloadsTableCreateCompanionBuilder =
     CachedPayloadsCompanion Function({
+      Value<String> scope,
       required String day,
       required String metric,
       required String payload,
@@ -2796,6 +3672,7 @@ typedef $$CachedPayloadsTableCreateCompanionBuilder =
     });
 typedef $$CachedPayloadsTableUpdateCompanionBuilder =
     CachedPayloadsCompanion Function({
+      Value<String> scope,
       Value<String> day,
       Value<String> metric,
       Value<String> payload,
@@ -2812,6 +3689,11 @@ class $$CachedPayloadsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get day => $composableBuilder(
     column: $table.day,
     builder: (column) => ColumnFilters(column),
@@ -2842,6 +3724,11 @@ class $$CachedPayloadsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get day => $composableBuilder(
     column: $table.day,
     builder: (column) => ColumnOrderings(column),
@@ -2872,6 +3759,9 @@ class $$CachedPayloadsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get scope =>
+      $composableBuilder(column: $table.scope, builder: (column) => column);
+
   GeneratedColumn<String> get day =>
       $composableBuilder(column: $table.day, builder: (column) => column);
 
@@ -2916,12 +3806,14 @@ class $$CachedPayloadsTableTableManager
               $$CachedPayloadsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> scope = const Value.absent(),
                 Value<String> day = const Value.absent(),
                 Value<String> metric = const Value.absent(),
                 Value<String> payload = const Value.absent(),
                 Value<DateTime> fetchedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CachedPayloadsCompanion(
+                scope: scope,
                 day: day,
                 metric: metric,
                 payload: payload,
@@ -2930,12 +3822,14 @@ class $$CachedPayloadsTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String> scope = const Value.absent(),
                 required String day,
                 required String metric,
                 required String payload,
                 required DateTime fetchedAt,
                 Value<int> rowid = const Value.absent(),
               }) => CachedPayloadsCompanion.insert(
+                scope: scope,
                 day: day,
                 metric: metric,
                 payload: payload,
@@ -4162,6 +5056,440 @@ typedef $$SyncMetaTableProcessedTableManager =
       SyncMetaRow,
       PrefetchHooks Function()
     >;
+typedef $$GpsRecordingsTableCreateCompanionBuilder =
+    GpsRecordingsCompanion Function({
+      required String id,
+      required String scope,
+      required int startMs,
+      Value<int?> endMs,
+      required String status,
+      Value<double> distanceM,
+      Value<int> rowid,
+    });
+typedef $$GpsRecordingsTableUpdateCompanionBuilder =
+    GpsRecordingsCompanion Function({
+      Value<String> id,
+      Value<String> scope,
+      Value<int> startMs,
+      Value<int?> endMs,
+      Value<String> status,
+      Value<double> distanceM,
+      Value<int> rowid,
+    });
+
+class $$GpsRecordingsTableFilterComposer
+    extends Composer<_$LocalStore, $GpsRecordingsTable> {
+  $$GpsRecordingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startMs => $composableBuilder(
+    column: $table.startMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endMs => $composableBuilder(
+    column: $table.endMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceM => $composableBuilder(
+    column: $table.distanceM,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$GpsRecordingsTableOrderingComposer
+    extends Composer<_$LocalStore, $GpsRecordingsTable> {
+  $$GpsRecordingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startMs => $composableBuilder(
+    column: $table.startMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endMs => $composableBuilder(
+    column: $table.endMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceM => $composableBuilder(
+    column: $table.distanceM,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$GpsRecordingsTableAnnotationComposer
+    extends Composer<_$LocalStore, $GpsRecordingsTable> {
+  $$GpsRecordingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get scope =>
+      $composableBuilder(column: $table.scope, builder: (column) => column);
+
+  GeneratedColumn<int> get startMs =>
+      $composableBuilder(column: $table.startMs, builder: (column) => column);
+
+  GeneratedColumn<int> get endMs =>
+      $composableBuilder(column: $table.endMs, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<double> get distanceM =>
+      $composableBuilder(column: $table.distanceM, builder: (column) => column);
+}
+
+class $$GpsRecordingsTableTableManager
+    extends
+        RootTableManager<
+          _$LocalStore,
+          $GpsRecordingsTable,
+          GpsRecordingRow,
+          $$GpsRecordingsTableFilterComposer,
+          $$GpsRecordingsTableOrderingComposer,
+          $$GpsRecordingsTableAnnotationComposer,
+          $$GpsRecordingsTableCreateCompanionBuilder,
+          $$GpsRecordingsTableUpdateCompanionBuilder,
+          (
+            GpsRecordingRow,
+            BaseReferences<_$LocalStore, $GpsRecordingsTable, GpsRecordingRow>,
+          ),
+          GpsRecordingRow,
+          PrefetchHooks Function()
+        > {
+  $$GpsRecordingsTableTableManager(_$LocalStore db, $GpsRecordingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GpsRecordingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GpsRecordingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GpsRecordingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> scope = const Value.absent(),
+                Value<int> startMs = const Value.absent(),
+                Value<int?> endMs = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<double> distanceM = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GpsRecordingsCompanion(
+                id: id,
+                scope: scope,
+                startMs: startMs,
+                endMs: endMs,
+                status: status,
+                distanceM: distanceM,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String scope,
+                required int startMs,
+                Value<int?> endMs = const Value.absent(),
+                required String status,
+                Value<double> distanceM = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GpsRecordingsCompanion.insert(
+                id: id,
+                scope: scope,
+                startMs: startMs,
+                endMs: endMs,
+                status: status,
+                distanceM: distanceM,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GpsRecordingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalStore,
+      $GpsRecordingsTable,
+      GpsRecordingRow,
+      $$GpsRecordingsTableFilterComposer,
+      $$GpsRecordingsTableOrderingComposer,
+      $$GpsRecordingsTableAnnotationComposer,
+      $$GpsRecordingsTableCreateCompanionBuilder,
+      $$GpsRecordingsTableUpdateCompanionBuilder,
+      (
+        GpsRecordingRow,
+        BaseReferences<_$LocalStore, $GpsRecordingsTable, GpsRecordingRow>,
+      ),
+      GpsRecordingRow,
+      PrefetchHooks Function()
+    >;
+typedef $$GpsFixesTableCreateCompanionBuilder =
+    GpsFixesCompanion Function({
+      required String recordingId,
+      required int atMs,
+      required double latitude,
+      required double longitude,
+      Value<double?> altitudeM,
+      required double accuracyM,
+      Value<int> rowid,
+    });
+typedef $$GpsFixesTableUpdateCompanionBuilder =
+    GpsFixesCompanion Function({
+      Value<String> recordingId,
+      Value<int> atMs,
+      Value<double> latitude,
+      Value<double> longitude,
+      Value<double?> altitudeM,
+      Value<double> accuracyM,
+      Value<int> rowid,
+    });
+
+class $$GpsFixesTableFilterComposer
+    extends Composer<_$LocalStore, $GpsFixesTable> {
+  $$GpsFixesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get recordingId => $composableBuilder(
+    column: $table.recordingId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get atMs => $composableBuilder(
+    column: $table.atMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get altitudeM => $composableBuilder(
+    column: $table.altitudeM,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get accuracyM => $composableBuilder(
+    column: $table.accuracyM,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$GpsFixesTableOrderingComposer
+    extends Composer<_$LocalStore, $GpsFixesTable> {
+  $$GpsFixesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get recordingId => $composableBuilder(
+    column: $table.recordingId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get atMs => $composableBuilder(
+    column: $table.atMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get altitudeM => $composableBuilder(
+    column: $table.altitudeM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get accuracyM => $composableBuilder(
+    column: $table.accuracyM,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$GpsFixesTableAnnotationComposer
+    extends Composer<_$LocalStore, $GpsFixesTable> {
+  $$GpsFixesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get recordingId => $composableBuilder(
+    column: $table.recordingId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get atMs =>
+      $composableBuilder(column: $table.atMs, builder: (column) => column);
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<double> get altitudeM =>
+      $composableBuilder(column: $table.altitudeM, builder: (column) => column);
+
+  GeneratedColumn<double> get accuracyM =>
+      $composableBuilder(column: $table.accuracyM, builder: (column) => column);
+}
+
+class $$GpsFixesTableTableManager
+    extends
+        RootTableManager<
+          _$LocalStore,
+          $GpsFixesTable,
+          GpsFixRow,
+          $$GpsFixesTableFilterComposer,
+          $$GpsFixesTableOrderingComposer,
+          $$GpsFixesTableAnnotationComposer,
+          $$GpsFixesTableCreateCompanionBuilder,
+          $$GpsFixesTableUpdateCompanionBuilder,
+          (GpsFixRow, BaseReferences<_$LocalStore, $GpsFixesTable, GpsFixRow>),
+          GpsFixRow,
+          PrefetchHooks Function()
+        > {
+  $$GpsFixesTableTableManager(_$LocalStore db, $GpsFixesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GpsFixesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GpsFixesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GpsFixesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> recordingId = const Value.absent(),
+                Value<int> atMs = const Value.absent(),
+                Value<double> latitude = const Value.absent(),
+                Value<double> longitude = const Value.absent(),
+                Value<double?> altitudeM = const Value.absent(),
+                Value<double> accuracyM = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GpsFixesCompanion(
+                recordingId: recordingId,
+                atMs: atMs,
+                latitude: latitude,
+                longitude: longitude,
+                altitudeM: altitudeM,
+                accuracyM: accuracyM,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String recordingId,
+                required int atMs,
+                required double latitude,
+                required double longitude,
+                Value<double?> altitudeM = const Value.absent(),
+                required double accuracyM,
+                Value<int> rowid = const Value.absent(),
+              }) => GpsFixesCompanion.insert(
+                recordingId: recordingId,
+                atMs: atMs,
+                latitude: latitude,
+                longitude: longitude,
+                altitudeM: altitudeM,
+                accuracyM: accuracyM,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GpsFixesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalStore,
+      $GpsFixesTable,
+      GpsFixRow,
+      $$GpsFixesTableFilterComposer,
+      $$GpsFixesTableOrderingComposer,
+      $$GpsFixesTableAnnotationComposer,
+      $$GpsFixesTableCreateCompanionBuilder,
+      $$GpsFixesTableUpdateCompanionBuilder,
+      (GpsFixRow, BaseReferences<_$LocalStore, $GpsFixesTable, GpsFixRow>),
+      GpsFixRow,
+      PrefetchHooks Function()
+    >;
 
 class $LocalStoreManager {
   final _$LocalStore _db;
@@ -4178,4 +5506,8 @@ class $LocalStoreManager {
       $$DeviceTotalsTableTableManager(_db, _db.deviceTotals);
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
+  $$GpsRecordingsTableTableManager get gpsRecordings =>
+      $$GpsRecordingsTableTableManager(_db, _db.gpsRecordings);
+  $$GpsFixesTableTableManager get gpsFixes =>
+      $$GpsFixesTableTableManager(_db, _db.gpsFixes);
 }

@@ -28,14 +28,21 @@
 /// `metric_names.dart` takes and is now a corpus-ahead-of-app condition rather
 /// than a routine one.
 ///
-/// ## Aliases are here because the SERVER cites them
+/// ## Aliases are here because the SERVER used to cite them
 ///
-/// `/api/today` does not only send note ids. `read/activity.py` cites
-/// `cardio_load_trimp` and `read/vo2max.py` cites `vo2max_fitness_mortality`,
+/// `/api/today` did not only send note ids. `read/activity.py` cited
+/// `cardio_load_trimp` and `read/vo2max.py` cited `vo2max_fitness_mortality`,
 /// and neither is a note id — both are **aliases**, of `training_stress_score`
 /// and `vo2max` respectively. An ids-only table left those two chips reading as
 /// raw snake_case on the Activity screen, which is the defect this file exists
 /// to fix, so [kNoteAliases] resolves them.
+///
+/// **The server emits ids now** (`docs/BACKEND_GAPS_FROM_UI.md` A4, guarded by
+/// `tests/read/test_wire_honesty.py`), so nothing on the current wire needs this
+/// table. It stays anyway, and not out of caution: an installed app meets
+/// servers it did not ship with, and the failure it prevents is a raw
+/// `snake_case` id rendered to the owner — silent, and exactly what a payload
+/// from an older deployment would produce.
 ///
 /// Only aliases **shaped like an id** are here (`^[a-z0-9_]+$`) — those are the
 /// only ones that can arrive in a `research_notes` array — and any alias claimed
@@ -120,7 +127,7 @@ const Map<String, String> kNoteNames = <String, String>{
   'sleep_need_debt': 'Sleep need & cumulative sleep debt',
   'sleep_regularity_index': 'Sleep Regularity Index (SRI)',
   'sleep_score_implementation_plan': '4-dimension sleep-health score (implementation plan)',
-  'sleep_timing_chronotype': 'Sleep timing, chronotype & the CVD-lowering bedtime',
+  'sleep_timing_chronotype': 'Sleep timing, chronotype & the lowest-CVD-risk bedtime',
   'slow_breathing_hrv_acute': 'Slow-paced breathing and acute HRV',
   'specificity_and_recovery': 'Specificity & Recovery',
   'steps_mortality': 'Daily steps and mortality',

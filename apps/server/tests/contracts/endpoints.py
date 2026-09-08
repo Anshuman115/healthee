@@ -14,12 +14,31 @@ STATIC_ENDPOINTS: list[tuple[str, str, str, dict | None, dict | None]] = [
     ("sleep_consistency", "GET", "/api/sleep/consistency", {"days": 28}, None),
     ("activity", "GET", "/api/activity", None, None),
     ("history", "GET", "/api/history", {"metric": "steps_total", "days": 30}, None),
+    # The batched form (C1). Pinned separately because it is a DIFFERENT shape,
+    # not a longer one: `{days, series: {metric: […]}}` against the single form's
+    # `{metric, series: […]}`. Three metrics rather than one, and deliberately
+    # one of each kind the read has to handle — a plain `derived_daily` row, a
+    # value carried inside another metric's flags, and the weigh-in that comes
+    # from `weight_log` — so a snapshot cannot pass while two of the three paths
+    # are broken.
+    (
+        "history_batch",
+        "GET",
+        "/api/history",
+        {"metrics": "steps_total,moderate_min,weight_kg", "days": 30},
+        None,
+    ),
     ("profile", "GET", "/api/profile", None, None),
     # The paywall's own endpoint is a wire contract like any other: since #116 it carries
     # `included`, the balance left on the coach cap, and a client that mis-parses that
     # renders somebody the wrong number of questions.
     ("entitlement", "GET", "/api/entitlement", None, None),
     ("log_recent", "GET", "/api/log/recent", {"days": 7}, None),
+    # The basemap's own contract: what the app must credit on screen, and the zoom
+    # range it may ask for. Pinned because the app draws NO basemap when it cannot
+    # parse this — a renamed key here is a map that quietly stops appearing, with
+    # nothing failing anywhere.
+    ("map", "GET", "/api/map", None, None),
     ("gps_list", "GET", "/api/workout/gps", None, None),
     ("challenges", "GET", "/api/challenges", None, None),
     ("challenge_outcomes", "GET", "/api/challenges/outcomes", {"limit": 20}, None),

@@ -38,10 +38,14 @@ CREATE TABLE IF NOT EXISTS sleep_session (
   kind        TEXT         NOT NULL DEFAULT 'main',  -- 'main' night sleep | 'nap'
   score       INTEGER,
   avg_hr      INTEGER,
-  rem_min     INTEGER      NOT NULL DEFAULT 0,
-  light_min   INTEGER      NOT NULL DEFAULT 0,
-  deep_min    INTEGER      NOT NULL DEFAULT 0,
-  wake_min    INTEGER      NOT NULL DEFAULT 0,
+  -- NULLABLE since 0018: NULL means the strap staged nothing for this session, which is
+  -- a different fact from a measured zero minutes in a stage. `NOT NULL DEFAULT 0` gave
+  -- storage no way to say the first, so an unstaged night was served as a night of zero
+  -- sleep. Rows written before 0018 cannot be told apart retroactively — see that file.
+  rem_min     INTEGER,
+  light_min   INTEGER,
+  deep_min    INTEGER,
+  wake_min    INTEGER,
   stages      JSONB        NOT NULL DEFAULT '[]'::jsonb,
   user_id     UUID         NOT NULL  -- tenant (0003; DEFAULT dropped 0007)
                 REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
@@ -106,7 +110,12 @@ CREATE TABLE IF NOT EXISTS device_daily_total (
   distance_m  DOUBLE PRECISION,
   calories    DOUBLE PRECISION,
   source      TEXT              NOT NULL DEFAULT 'strap_0x16',  -- the reporting instrument
-  reported_at TIMESTAMPTZ       NOT NULL DEFAULT now(),         -- when this reading arrived
+  reported_at TIMESTAMPTZ       NOT NULL DEFAULT now(),         -- when this reading ARRIVED
+  -- When the phone ASKED the strap for this counter (0019). NULLABLE and staying that
+  -- way: "we do not know when this was read" is the true state of every row written
+  -- before 0019 and of every row an older client writes, and `now()` in its place is the
+  -- lie 0019 exists to end. `partial_day_caveats` reads this one, never `reported_at`.
+  read_at     TIMESTAMPTZ,
   user_id     UUID              NOT NULL
                 REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, day)  -- also the only index: every read is (user_id, day)

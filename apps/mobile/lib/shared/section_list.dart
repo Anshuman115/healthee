@@ -39,6 +39,11 @@ class SectionList {
   /// Appends a section somebody else built — an error card, a pending card.
   void addSection(PageSection section) => _sections.add(section);
 
+  /// Appends a section that **pins to the top of the scroll** rather than
+  /// scrolling away, [extent] tall. See [PageSection.pinnedExtent].
+  void addPinned(Widget child, SectionExtent extent) =>
+      _sections.add(PageSection(child, gap: 0, pinnedExtent: extent));
+
   /// Legacy's `SizedBox(height: amount)` between two sections.
   ///
   /// A no-op on an empty list: a spacer before anything has been added is a gap
@@ -48,7 +53,12 @@ class SectionList {
       return;
     }
     final last = _sections.removeLast();
-    _sections.add(PageSection(last.child, gap: amount));
+    // `pinnedExtent` is carried over, not dropped: a spacer written after a
+    // pinned section would otherwise quietly un-pin it, and the screen would
+    // still render — just without the one behaviour the section was added for.
+    _sections.add(
+      PageSection(last.child, gap: amount, pinnedExtent: last.pinnedExtent),
+    );
   }
 
   /// The finished list.

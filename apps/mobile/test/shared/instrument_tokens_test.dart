@@ -47,7 +47,7 @@ void main() {
   });
 
   group('HType', () {
-    test('every role is Manrope, and every role is tabular', () {
+    test('every role is Inter, and every role is tabular', () {
       for (final style in <TextStyle>[
         HType.serif(_light.ink),
         HType.sans(_light.ink),
@@ -55,7 +55,7 @@ void main() {
         HType.label(_light.ink3),
         HType.eyebrow(_light.ink3),
       ]) {
-        expect(style.fontFamily, 'Manrope');
+        expect(style.fontFamily, 'Figtree');
         expect(style.fontFeatures, contains(const FontFeature.tabularFigures()));
       }
     });

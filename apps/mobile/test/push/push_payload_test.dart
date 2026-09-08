@@ -9,8 +9,17 @@
 ///
 /// The expected key names are `ingest/models.py`'s — `HelioPayload` with
 /// `samples` · `sleep` · `workouts` · `daily_totals`, and `DailyTotalIn` with
-/// `day` · `steps` · `distance_m` · `calories`. They are spelled out here rather
-/// than derived from the code under test, so a rename on either side fails.
+/// `day` · `steps` · `distance_m` · `calories` · `read_at`. They are spelled out
+/// here rather than derived from the code under test, so a rename on either side
+/// fails.
+///
+/// `read_at` is the second measurement this app records and used to keep to
+/// itself (write-path audit A1). It has always been in the local table —
+/// `DeviceTotals.readAtMs`, "a counter read at 09:00 is a claim about nine
+/// hours" — and the pending marker is keyed on it, and it was never sent. The
+/// server had no field for it and substituted the ARRIVAL instant, so the
+/// partial-day caveat named the wrong moment and, whenever a push crossed local
+/// midnight, suppressed itself entirely.
 library;
 
 import 'dart:io';
@@ -67,6 +76,39 @@ void main() {
       );
       expect(totals.single['distance_m'], 6710);
       expect(totals.single['calories'], 412);
+      expect(
+        totals.single['read_at'],
+        DateTime(2026, 8, 4, 9, 12).millisecondsSinceEpoch,
+        reason: 'WHEN the strap was asked — a counter read at 09:12 is a claim '
+            'about nine hours, and the server cannot know that unless we say so',
+      );
+    });
+
+    test('THE READ INSTANT IS THE READ, NEVER THE PUSH', () async {
+      await store.strapWriter.saveSync(
+        resultWith(
+          totals: DeviceDailyTotals(
+            steps: 4200,
+            distanceM: 3000,
+            calories: 180,
+            readAt: DateTime(2026, 8, 4, 9),
+          ),
+        ),
+      );
+
+      final totals = _list(await _payloadOf(store), 'daily_totals');
+
+      // The instant that reaches the wire is the one the strap was asked at.
+      // Anything later — now(), the push time, the arrival — is the A1 defect
+      // wearing a new mechanism, and it is indistinguishable once stored.
+      expect(
+        totals.single['read_at'],
+        DateTime(2026, 8, 4, 9).millisecondsSinceEpoch,
+      );
+      expect(
+        totals.single['read_at'],
+        lessThan(DateTime.now().millisecondsSinceEpoch),
+      );
     });
 
     test('the counter is pending again after it grows', () async {

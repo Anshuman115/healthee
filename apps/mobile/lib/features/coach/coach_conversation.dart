@@ -42,16 +42,26 @@ final class CoachReply extends CoachEntry {
 
 /// The question did not reach an answer.
 final class CoachTrouble extends CoachEntry {
-  /// [spent] is false whenever this app can state that nothing was charged.
-  const CoachTrouble({required this.message, required this.spent, this.resetsAt});
+  /// [charge] is what this app may honestly say about the meter.
+  const CoachTrouble({
+    required this.message,
+    required this.charge,
+    this.resetsAt,
+  });
 
   /// What went wrong, in the owner's terms.
   final String message;
 
-  /// Whether a question was consumed. Only ever true when we cannot say it
-  /// wasn't — the meter is re-read either way, so this is what the app *claims*
-  /// rather than what it computes.
-  final bool spent;
+  /// What is known about whether a question was consumed.
+  ///
+  /// This was a `bool spent`, and the boolean was the defect rather than a
+  /// carrier of it. Its own docstring said *"only ever true when we cannot say
+  /// it wasn't"* — a value `grep -rn "spent: true" lib/` never found anywhere,
+  /// so the type could describe a state the code could not build, and every
+  /// failure fell into the false branch and printed a denial. A two-value
+  /// [CoachCharge] makes the honest answer sayable and the flattering one
+  /// unrepresentable, which is the same move `Reading` makes for a number.
+  final CoachCharge charge;
 
   /// When the window reopens, on a refusal that carried it.
   final DateTime? resetsAt;

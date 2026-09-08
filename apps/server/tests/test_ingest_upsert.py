@@ -5,17 +5,21 @@ predicate, and the one-per-day weight de-dup.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+import pytest
+
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.ingest.models import DailyTotalIn, SampleIn, SleepIn
+from healthee.ingest.daily_totals import upsert_daily_totals
+from healthee.ingest.models import DailyTotalIn, SampleIn, SleepIn, WorkoutIn
 from healthee.ingest.upsert import (
     build_fresh_predicate,
     epoch_to_utc,
-    upsert_daily_totals,
     upsert_samples,
     upsert_weight,
+    upsert_workouts,
 )
 
 
@@ -27,13 +31,15 @@ class FakeCursor:
     ) -> None:
         self.executed: list[tuple[str, Any]] = []
         self.executemany_rows: list[Any] | None = None
+        self.executemany_sql: str | None = None
         self._fetchone = list(fetchone or [])
         self._fetchall = list(fetchall or [])
 
     def execute(self, sql: str, params: Any = None) -> None:
         self.executed.append((sql, params))
 
-    def executemany(self, sql: str, rows: Any) -> None:  # noqa: ARG002
+    def executemany(self, sql: str, rows: Any) -> None:
+        self.executemany_sql = sql
         self.executemany_rows = list(rows)
 
     def fetchone(self) -> Any:
@@ -101,6 +107,84 @@ def test_fresh_predicate_all_new_when_table_empty() -> None:
     cur = FakeCursor(fetchall=[[]])  # nothing existing
     is_fresh = build_fresh_predicate(cur, SENTINEL_USER_ID, [a, b])  # type: ignore[arg-type]
     assert is_fresh(a) is True and is_fresh(b) is True
+
+
+def test_fresh_predicate_gates_an_old_existing_nap_too() -> None:
+    """Naps mark their day since audit B5, so they have to be gateable (audit B5).
+
+    The existing-starts lookup covered MAIN sleep only, which was harmless while the emit
+    was the only consumer — naps never reach it. With `_marks_its_day` as a second
+    consumer, an unfiltered lookup would make every re-pushed nap permanently "new" and
+    re-derive its day on every sync of history.
+    """
+    now = datetime(2026, 6, 20, 6, 0, tzinfo=UTC)
+    tonight = _session(now - timedelta(hours=8), now)
+    old_nap = _session(now - timedelta(days=10, hours=1), now - timedelta(days=10), kind="nap")
+    cur = FakeCursor(fetchall=[[(epoch_to_utc(old_nap.start_ts),)]])
+    is_fresh = build_fresh_predicate(cur, SENTINEL_USER_ID, [old_nap, tonight])  # type: ignore[arg-type]
+
+    # The LOOKUP is what the fix changed, so the lookup is what is asserted. Asserting
+    # only the predicate's answer passes against the bug: `FakeCursor` hands back its
+    # canned rows whatever the query asked for, so a filtered `starts` list still gets
+    # the nap back and still reads as stale. That is `HOW_WE_VERIFY.md`'s fourth way a
+    # mutation lies — a right mutation over a thin test — and it survived once here.
+    _, params = cur.executed[0]
+    assert epoch_to_utc(old_nap.start_ts) in params[1], (
+        "a nap that is already on file must be asked about, or it is permanently new"
+    )
+    assert is_fresh(old_nap) is False
+    assert is_fresh(tonight) is True
+
+
+def test_a_nap_only_page_is_fresh_because_it_carries_no_night_to_date_it_from() -> None:
+    """The page audit B5 is actually about: a session-only page with a nap and no night.
+
+    The window is "within three days of the batch's latest NIGHT", so a page with no night
+    has no cutoff — every session on it is fresh, and its day gets derived. That is the
+    right answer, and it stays right because the window still comes from main sleep alone.
+    """
+    now = datetime(2026, 6, 20, 14, 0, tzinfo=UTC)
+    nap = _session(now - timedelta(minutes=40), now, kind="nap")
+    cur = FakeCursor(fetchall=[[(epoch_to_utc(nap.start_ts),)]])  # already on file
+    is_fresh = build_fresh_predicate(cur, SENTINEL_USER_ID, [nap])  # type: ignore[arg-type]
+
+    assert is_fresh(nap) is True
+
+
+# --- B4: a re-push that omits a duration must not zero the one on file -------
+
+
+def _workout(**kwargs: Any) -> WorkoutIn:
+    return WorkoutIn.model_validate({"start_ts": 1_718_000_000_000, **kwargs})
+
+
+def test_an_omitted_duration_is_absent_at_the_boundary_not_zero() -> None:
+    """`0` was the model default, so "did not say" and "measured zero" were one value."""
+    assert _workout().duration_s is None
+    assert _workout().sport is None
+    assert _workout(duration_s=0).duration_s == 0
+
+
+def test_a_re_push_that_omits_a_duration_preserves_the_recorded_one() -> None:
+    """THE defect. A zeroed session drops out of three gates at once: `read/fitness.py`
+    and `challenges/series.py` filter on `>= min_duration_s`, and `energy._tee_met` stops
+    removing its minutes from the MET walk, so the day's calories move."""
+    cur = FakeCursor()
+    upsert_workouts(cur, SENTINEL_USER_ID, [_workout(calories=310)])  # type: ignore[arg-type]
+    sql, params = cur.executed[0]
+    assert "duration_s = COALESCE(%s::int, workout.duration_s)" in sql
+    assert "sport = COALESCE(%s::int, workout.sport)" in sql
+    assert params[-2:] == (None, None), "the conflict branch must see the raw absence"
+
+
+def test_a_first_insert_still_supplies_the_columns_not_null_default() -> None:
+    """The residual, pinned rather than assumed: `workout.duration_s` is NOT NULL
+    DEFAULT 0, so a first insert of a duration-less workout stores 0. Making that
+    absence representable is a migration on `workout` plus six read sites."""
+    cur = FakeCursor()
+    upsert_workouts(cur, SENTINEL_USER_ID, [_workout()])  # type: ignore[arg-type]
+    sql, _ = cur.executed[0]
+    assert "COALESCE(%s::int, 0), COALESCE(%s::int, 0)" in sql
 
 
 # The newest weight_log row as `upsert_weight` reads it: (ts, kg, is_today).
@@ -179,8 +263,15 @@ def test_daily_totals_are_written_to_the_raw_table_not_a_derived_cell() -> None:
         [_total(steps=9264, distance_m=5081.0, calories=451.0)],
     )
     assert stored == 1
-    assert cur.executed == []  # no per-row execute; the batch is pipelined
-    assert cur.executemany_rows == [(SENTINEL_USER_ID, date(2026, 6, 16), 9264, 5081.0, 451.0)]
+    # One per-batch read (the regression check below), never one execute per row: the
+    # batch itself is pipelined.
+    assert [sql for sql, _ in cur.executed] == [
+        "SELECT day, steps FROM device_daily_total "
+        "WHERE user_id = %s AND day = ANY(%s) AND steps IS NOT NULL"
+    ]
+    assert cur.executemany_rows == [
+        (SENTINEL_USER_ID, date(2026, 6, 16), 9264, 5081.0, 451.0, None)
+    ]
 
 
 def test_a_report_with_no_numbers_at_all_is_not_stored() -> None:
@@ -196,4 +287,58 @@ def test_a_report_carrying_only_distance_is_still_stored() -> None:
     what the old `apply_daily_totals` did, skipping the whole entry."""
     cur = FakeCursor()
     assert upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(distance_m=5081.0)]) == 1  # type: ignore[arg-type]
-    assert cur.executemany_rows == [(SENTINEL_USER_ID, date(2026, 6, 16), None, 5081.0, None)]
+    assert cur.executemany_rows == [(SENTINEL_USER_ID, date(2026, 6, 16), None, 5081.0, None, None)]
+
+
+# --- A1: the READ instant travels, and absent means unknown -------------------
+
+
+def test_the_read_instant_reaches_the_column_as_the_phone_recorded_it() -> None:
+    """`readAtMs` is when the strap was ASKED. It had no field and no column until 0019."""
+    read_at = datetime(2026, 6, 16, 9, 0, tzinfo=UTC)
+    cur = FakeCursor()
+    upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(steps=9264, read_at=_ms(read_at))])  # type: ignore[arg-type]
+    assert cur.executemany_rows is not None
+    assert cur.executemany_rows[0][5] == read_at
+
+
+def test_a_client_that_sends_no_read_instant_stores_unknown_never_now() -> None:
+    """The A1 failure to avoid: recreating the same lie with a new mechanism.
+
+    An older app build sends no `read_at`. The column must then say nothing, because a
+    substituted instant is indistinguishable from a recorded one — which is exactly what
+    `reported_at` standing in for the reading was.
+    """
+    cur = FakeCursor()
+    upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(steps=9264)])  # type: ignore[arg-type]
+    assert cur.executemany_rows is not None
+    assert cur.executemany_rows[0][5] is None
+    sql = cur.executemany_sql or ""
+    assert "read_at = EXCLUDED.read_at" in sql
+    assert "COALESCE(EXCLUDED.read_at" not in sql
+
+
+def test_a_regressing_counter_is_logged_rather_than_swallowed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Audit B6 stays SUSPECTED, and stops being invisible.
+
+    The stored value is NOT guarded — the reason is in `upsert_daily_totals`' docstring —
+    but a lower reading replacing a higher one now names both numbers in a warning, so the
+    next occurrence is evidence instead of speculation.
+    """
+    cur = FakeCursor(fetchall=[[(date(2026, 6, 16), 9264)]])
+    with caplog.at_level(logging.WARNING):
+        upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(steps=112)])  # type: ignore[arg-type]
+    assert "device_daily_total counter regressed" in caplog.text
+    # And the lower reading is still what lands: this is the RAW table.
+    assert cur.executemany_rows is not None
+    assert cur.executemany_rows[0][2] == 112
+
+
+def test_a_rising_counter_says_nothing(caplog: pytest.LogCaptureFixture) -> None:
+    """A since-midnight accumulator climbing all day is the normal case, not an event."""
+    cur = FakeCursor(fetchall=[[(date(2026, 6, 16), 4200)]])
+    with caplog.at_level(logging.WARNING):
+        upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(steps=9264)])  # type: ignore[arg-type]
+    assert "regressed" not in caplog.text

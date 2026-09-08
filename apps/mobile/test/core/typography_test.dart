@@ -1,6 +1,6 @@
 /// The face swap, measured rather than eyeballed.
 ///
-/// Manrope replaced Instrument Sans (owner decision 2026-08-05: the old face
+/// Inter replaced Instrument Sans (owner decision 2026-08-05: the old face
 /// reads "newspaper" at display sizes). A typeface is not a drop-in, and three
 /// things could have broken silently:
 ///
@@ -9,7 +9,7 @@
 ///      a face without a `tnum` table would keep the `FontFeature` and simply
 ///      ignore it. So this measures two digit strings of the same length and
 ///      asserts they come out the same width, which is what tabular MEANS.
-///   2. **Overflow at display size.** Manrope runs wider. The greeting and the
+///   2. **Overflow at display size.** Inter runs wider. The greeting and the
 ///      hero figures are the strings with the least slack, so they are laid out
 ///      at the narrowest phone this app targets and checked against the box.
 ///   3. **A missing glyph.** Instrument Sans had **no U+2082**, so `SpO₂` drew a
@@ -28,6 +28,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/core/theme/typography.dart';
 
 /// The narrowest phone the app targets, in logical pixels, less the page
@@ -50,7 +52,7 @@ Size _measure(String text, TextStyle style, {double maxWidth = double.infinity})
 ///
 /// A `TextPainter` cannot report "this came out as notdef", and the two obvious
 /// proxies both fail here. Comparing **advance widths** against the notdef box
-/// is not enough — `→` in Manrope lands 0.04 px from it, so a width check would
+/// is not enough — `→` in Inter lands 0.04 px from it, so a width check would
 /// have gone green while proving nothing. Comparing **rasters** needs
 /// `Picture.toImage`, which does not complete under the plain test binding.
 ///
@@ -120,6 +122,28 @@ Set<int> _codepoints(String path) {
   return covered;
 }
 
+/// A single- or double-quoted Dart string with no escapes or interpolation.
+final RegExp _literal = RegExp(r"'([^'\\\n$]*)'" r'|"([^"\\\n$]*)"');
+
+/// Codepoints neither bundled face carries, and why each is safe anyway.
+///
+/// **One entry, and the reason it may be waived is specific.** `ⓘ` (U+24D8) is
+/// drawn in prose on the withheld hero and in the instrument module. No text
+/// family carries it — not Figtree, not Inter — so it reaches a platform face.
+/// That is acceptable **only because U+24D8 has no colour-emoji form**, so the
+/// platform face that answers is monochrome. Confirmed on the device: it draws
+/// as a plain circled i.
+///
+/// `↔` is the counter-example and the reason this set is not a convenience.
+/// U+2194 DOES have an emoji form, so when no bundled face could draw it,
+/// Android reached `NotoColorEmoji` and put a blue box in a sentence — twice,
+/// under two different typefaces, with the platform symbol faces named in the
+/// fallback chain the whole time.
+///
+/// **So: a character may be waived here only if it has no emoji presentation.**
+/// Anything else needs a bundled face that can draw it.
+const Set<int> kFallbackGlyphs = <int>{0x24D8};
+
 void main() {
   setUpAll(() async {
     final faces = Directory('assets/fonts')
@@ -161,11 +185,24 @@ void main() {
     });
   });
 
-  group('the glyphs the old face was missing', () {
+  group('every glyph the app draws has one to draw with', () {
+    // ## Why this group is DERIVED and no longer a list
+    //
+    // It used to be eight hand-written cases, added when Instrument Sans was
+    // replaced and never extended. So when `Overnight HRV <-> recovery` started
+    // drawing a U+2194 that Manrope did not have, nothing failed — the
+    // character simply was not on the list. It shipped, and the owner found it
+    // on the phone as a blue emoji box in the middle of a sentence.
+    //
+    // A list cannot cover characters nobody thought to add. This walks `lib/`
+    // instead, pulls every non-ASCII character out of the string literals that
+    // reach a screen, and requires the bundled face to have a glyph for it — or
+    // the fallback chain to name a face that does.
     late Set<int> covered;
 
     setUpAll(() {
-      covered = _codepoints('assets/fonts/Manrope-Regular.ttf');
+      covered = _codepoints('assets/fonts/Figtree.ttf')
+        ..addAll(_codepoints('assets/fonts/InterFallback.ttf'));
       expect(
         covered,
         isNotEmpty,
@@ -173,35 +210,73 @@ void main() {
       );
       // A control: a private-use codepoint no text font covers. Without it a
       // reader that silently answered "everything" would pass every case.
-      expect(covered, isNot(contains(0xE000)));
+      // U+4E00, the CJK ideograph "one". Neither face covers the CJK block, and
+      // the earlier control (U+E000) passed vacuously because Inter DOES cover
+      // the private-use area.
+      expect(covered, isNot(contains(0x4E00)));
     });
 
-    for (final entry in <String, (int, String)>{
-      '\u2082': (0x2082, 'SpO2 and VO2max - Instrument Sans had NONE, and drew a box'),
-      '\u03C3': (0x03C3, "the recovery ladder's 'capped at +/-3 sigma' caption"),
-      '\u00B1': (0x00B1, 'every uncertainty band'),
-      '\u00B0': (0x00B0, 'skin temperature'),
-      '\u00B7': (0x00B7, 'every module foot separator'),
-      '\u2192': (0x2192, 'the sleep window and the See-all link'),
-      '\u2014': (0x2014, 'the em dash this whole product writes in'),
-      '\u2265': (0x2265, "sleep efficiency's cutoff"),
-    }.entries) {
-      final (codepoint, where) = entry.value;
-      test('U+${entry.value.$1.toRadixString(16)} has a glyph - $where', () {
-        expect(
-          covered,
-          contains(codepoint),
-          reason:
-              'U+${codepoint.toRadixString(16).toUpperCase()} is not in the '
-              'vendored face, so it draws as a tofu box wherever it is used',
-        );
-      });
-    }
+    test('THE BUNDLED FACE COVERS EVERY CHARACTER THE APP PUTS ON SCREEN', () {
+      final missing = <String, String>{};
+      for (final file in Directory('lib').listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) {
+          continue;
+        }
+        var line = 0;
+        for (final text in file.readAsLinesSync()) {
+          line++;
+          final trimmed = text.trimLeft();
+          // Comments and doc comments draw nothing.
+          if (trimmed.startsWith('//') || trimmed.startsWith('*')) {
+            continue;
+          }
+          for (final match in _literal.allMatches(text)) {
+            final body = match.group(1) ?? match.group(2) ?? '';
+            if (body.startsWith('package:') || body.startsWith('dart:')) {
+              continue;
+            }
+            for (final rune in body.runes) {
+              if (rune > 0x7F &&
+                  !covered.contains(rune) &&
+                  !kFallbackGlyphs.contains(rune)) {
+                missing['U+${rune.toRadixString(16).toUpperCase()}'] =
+                    '${file.path}:$line';
+              }
+            }
+          }
+        }
+      }
+      expect(
+        missing,
+        isEmpty,
+        reason:
+            'these draw as tofu, or worse as a colour emoji, because neither '
+            'the bundled face nor a named fallback has them: $missing',
+      );
+    });
+
+    test('MUTATION — the scan can actually see a missing glyph', () {
+      // Otherwise a broken literal pattern reports a clean sweep, which is what
+      // "no characters are missing" looks like either way.
+      expect(_literal.hasMatch("  const x = 'HRV ↔ recovery';"), isTrue);
+      expect(_literal.hasMatch('  const x = "a ↔ b";'), isTrue);
+      // U+2194 shipped broken twice: Manrope had no glyph, and Figtree has none
+      // either. What fixed it was BUNDLING a face that does, not naming a
+      // platform one — so this asserts the union of the two bundled faces.
+      expect(covered, contains(0x2194));
+    });
+
+    test('THE BUNDLED FALLBACK IS NAMED FIRST, AHEAD OF EVERY PLATFORM FACE', () {
+      // The order is the fix. Naming platform symbol faces did NOT stop Android
+      // reaching for NotoColorEmoji — measured on the device, twice. A bundled
+      // family does, and it only helps if nothing platform-supplied precedes it.
+      expect(healtheeFontFallback.first, 'HealtheeSymbols');
+    });
   });
 
   group('display sizes still fit the narrowest phone', () {
     test('the greeting does not overflow', () {
-      // Manrope runs wider than the face it replaced, and the greeting is the
+      // Inter runs wider than the face it replaced, and the greeting is the
       // largest type in the app.
       for (final greeting in <String>[
         'Good morning.',
@@ -231,16 +306,28 @@ void main() {
       }
     });
 
-    test('the widest module label fits its cell without ellipsis', () {
-      // `Resp / SpO₂ · strap` is the longest label the grid can produce, and it
-      // is the one the instrument-naming rule added.
-      const cell = (320 - 16 * 2 - 10) / 2 - 13 * 2;
-      final style = theme.labelSmall!.copyWith(
-        fontSize: 9.5,
-        letterSpacing: 0.12 * 9.5,
-        fontWeight: FontWeight.w600,
+    test('the widest v02 tile label fits its cell without ellipsis', () {
+      // ## What this used to measure, and why it moved
+      //
+      // It measured `RESP / SPO₂ · STRAP` at `HType.label`'s 9.5 px and 0.12 em
+      // — "the longest label the grid can produce" on the pre-v02 Today. That
+      // grid is gone: `recovery_signals_card.dart` is unreachable from
+      // `main.dart`, no string of that shape exists anywhere in `lib/` any
+      // more, and nothing reachable constructs an `InstrumentLabel` with a
+      // literal at all.
+      //
+      // The old assertion did fail when the face changed to Inter — 117.9 px
+      // against a 113 px cell — but it was failing about a label the app had
+      // stopped drawing, which is a stale test rather than a layout defect. It
+      // is retargeted here at the v02 tile label, which IS live, rather than
+      // deleted: the constraint it encodes (the narrowest phone must not
+      // ellipsise a metric’s own name) is still the right one. The 10 px insets
+      // are SummaryTile.padding’s horizontal pair, inlined so the sum reads.
+      const cell = (320 - Insets.lg * 2 - 10) / 2 - (10 + 10);
+      final size = _measure(
+        'Cardiovascular load',
+        TypeScale.tileTitle,
       );
-      final size = _measure('RESP / SPO₂ · STRAP', style);
       expect(size.width, lessThan(cell));
     });
   });

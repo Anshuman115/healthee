@@ -26,6 +26,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/shared/format/time_labels.dart';
 
@@ -43,10 +44,10 @@ class CoachMeter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
     return Text(
       meterLine(entitlement, now: now ?? DateTime.now()),
-      style: text.bodySmall?.copyWith(color: colors.ink2),
+      // `.small`, not a Material role: this line sits inside a v02 surface.
+      style: TypeScale.small.copyWith(color: colors.ink2),
     );
   }
 }

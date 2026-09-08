@@ -18,12 +18,21 @@ lets the gathering allowance be generous: the ledger is keyed to the question, s
 question that genuinely needs the data costs the owner exactly what a trivial one does.
 
 The gate charges the turn; this handler refunds it when the turn produced no answer, and
-the two cases are exactly the ones the coach itself already names: ``refused`` (classified
-out of scope before any model ran — no tokens, no answer) and ``validated=False`` (the
+the cases are exactly the ones the coach itself already names: ``refused`` (classified
+out of scope before any model ran — no tokens, no answer), ``validated=False`` (the
 honest fallback shipped, which is the product working correctly and still not what the
-owner asked for). A transport failure refunds too, on its way out. **A slot is never
-billed for an answer we did not deliver** — that is the honesty contract applied to the
-meter, and it is why the refund is three branches rather than one convenient one.
+owner asked for), and ``answered=False`` (the request carried no owner turn, so the reply
+is the canned greeting). A transport failure refunds too, on its way out. **A slot is
+never billed for an answer we did not deliver** — that is the honesty contract applied to
+the meter, and it is why the refund is four branches rather than one convenient one.
+
+The greeting branch was missing, and the omission was not academic. ``CoachResult``'s
+defaults are ``refused=False, validated=True``, so ``{"messages": []}`` — or a body with
+only assistant turns, or one empty-string user turn — matched none of the other three and
+charged one of the owner's twenty for a fixed sentence no model wrote. This app never
+sends such a body (``coach_controller.ask`` returns early on empty text and always
+appends the owner's question first), but a direct request is exactly the threat model
+``tests/premium/test_ai_gate.py`` was written against.
 
 
 All grounding, tool-calling, refusal-gating and blocking validation live in
@@ -34,40 +43,79 @@ choke point (``insights.pipeline``); nothing LLM-shaped happens in this router.
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from healthee.api import gate
 from healthee.api.gate import CoachUser
+from healthee.insights import coach_thread
 from healthee.insights.coach import run_coach
 
 router = APIRouter(tags=["coach"])
 
 
+# ── The bounds on the conversation the client sends ──────────────────────────
+#
+# ``insights.coach.py`` already bounds the history it USES to the last 12 well-formed
+# turns, so the turn COUNT was bounded and the per-turn SIZE was not — the body was
+# limited in practice only by nginx's ``client_max_body_size``. That is the same
+# denial-of-wallet shape ``read/logs.py`` names for manual-entry notes, against the one
+# surface that is measured at $0.179 a question.
+#
+# ``_MAX_TURNS`` is comfortably above the 12 the pipeline reads, so a client sending its
+# full visible thread is never refused for length; ``_MAX_CONTENT`` is ~700 words, which
+# is far more than anyone types into a chat box and fatal to a prompt-sized paste.
+_MAX_TURNS = 40
+_MAX_CONTENT = 4000
+_MAX_ROLE = 32
+
+
 class CoachMessage(BaseModel):
     """One conversation turn from the client."""
 
-    role: str
-    content: str
+    role: str = Field(max_length=_MAX_ROLE)
+    content: str = Field(max_length=_MAX_CONTENT)
 
 
 class CoachRequest(BaseModel):
-    """POST body: the running conversation (system turns are ignored server-side)."""
+    """POST body: the running conversation (system turns are ignored server-side).
 
-    messages: list[CoachMessage] = []
+    ``topic`` is optional and says WHICH SCREEN the owner opened the coach from — the
+    metric whose trend they were reading, the session they were reviewing, the finding
+    they wanted talked through. Five app surfaces link in and two of them are about
+    something specific; without this the server never learned what, because the app can
+    only put the subject in the first user turn and grounding was then whatever the model
+    inferred from that prose. With it, ``insights.coach_thread.retrieval_key`` ranks the
+    context and the evidence on the subject as well as the words.
+
+    ⛔ **A topic is context, not evidence**, and none of the honesty layer steps aside
+    for it: it is screened by the pre-LLM refusal gate exactly like an owner's turn, it
+    is rendered inside a fence that tells the model it is a label rather than a finding,
+    and the answer that follows faces the same validator, guardrails and personal-claims
+    gate as any other. It is bounded here — the boundary standards section 2 asks for — at
+    ``coach_thread.TOPIC_MAX_CHARS``; the app's own topics are one short sentence.
+    """
+
+    messages: list[CoachMessage] = Field(default_factory=list, max_length=_MAX_TURNS)
+    topic: str | None = Field(default=None, max_length=coach_thread.TOPIC_MAX_CHARS)
 
 
 @router.post("/api/coach")
 def post_coach(request: Request, user: CoachUser, req: CoachRequest) -> dict:
     """Answer the conversation as the grounded coach (validated or honest fallback)."""
     try:
-        result = run_coach([m.model_dump() for m in req.messages], user.id, user.timezone)
+        result = run_coach(
+            [m.model_dump() for m in req.messages],
+            user.id,
+            user.timezone,
+            topic=req.topic,
+        )
     except Exception:
         # Not a swallow — it is re-raised unchanged for the error handler to log and
         # report. The refund is the only thing that must happen before it leaves, because
         # the gate has already charged one of the owner's included questions.
         gate.refund_ai_use(request, user)
         raise
-    if result.refused or not result.validated:
+    if result.refused or not result.validated or not result.answered:
         gate.refund_ai_use(request, user)
     return {
         "reply": result.reply,

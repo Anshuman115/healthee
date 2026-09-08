@@ -14,9 +14,11 @@ from datetime import UTC, date, datetime
 from healthee.derive.device_totals import (
     SOURCE_PER_MINUTE,
     DeviceDailyTotal,
+    partial_day_caveats,
     select_distance,
     select_steps,
 )
+from healthee.derive.freshness import COUNTER_MID_DAY, COUNTER_READ_TIME_UNKNOWN
 
 _DAY = date(2026, 6, 16)
 _REPORTED_AT = datetime(2026, 6, 16, 21, 30, tzinfo=UTC)
@@ -24,7 +26,11 @@ _STRAP = "strap_0x16"
 
 
 def _device(
-    steps: int | None = 9264, distance_m: float | None = None, source: str = _STRAP
+    steps: int | None = 9264,
+    distance_m: float | None = None,
+    source: str = _STRAP,
+    reported_at: datetime = _REPORTED_AT,
+    read_at: datetime | None = _REPORTED_AT,
 ) -> DeviceDailyTotal:
     return DeviceDailyTotal(
         day=_DAY,
@@ -32,7 +38,8 @@ def _device(
         distance_m=distance_m,
         calories=451.0,
         source=source,
-        reported_at=_REPORTED_AT,
+        reported_at=reported_at,
+        read_at=read_at,
     )
 
 
@@ -81,6 +88,82 @@ def test_the_losing_instrument_stays_visible_in_flags() -> None:
     steps = select_steps(_device(steps=9264), per_minute_sum=6100.4)
     assert steps.flags["steps_per_minute_sum"] == 6100
     assert steps.flags["reported_at"] == _REPORTED_AT.isoformat()
+
+
+def test_the_row_carries_both_instants_and_never_confuses_them() -> None:
+    """`read_at` is when the strap was ASKED; `reported_at` is when the push LANDED.
+
+    One column did both jobs until `0019` and the disclosure quoted the wrong one (A1).
+    """
+    read_at = datetime(2026, 6, 16, 9, 0, tzinfo=UTC)
+    steps = select_steps(_device(read_at=read_at, reported_at=_REPORTED_AT), 6100.0)
+    assert steps.flags["read_at"] == read_at.isoformat()
+    assert steps.flags["reported_at"] == _REPORTED_AT.isoformat()
+
+
+def test_an_unrecorded_read_instant_is_null_on_the_row_not_the_arrival() -> None:
+    """The one substitution that must never happen: arrival standing in for reading."""
+    steps = select_steps(_device(read_at=None), 6100.0)
+    assert steps.flags["read_at"] is None
+    assert steps.flags["reported_at"] == _REPORTED_AT.isoformat()
+
+
+# ── the partial-day disclosure: which instant it asks about (audit A1) ────────
+
+_DAY_END_UTC = datetime(2026, 6, 16, 18, 30, tzinfo=UTC)  # next local midnight, Asia/Kolkata
+_READ_MID_DAY = datetime(2026, 6, 16, 3, 30, tzinfo=UTC)  # 09:00 local
+_PUSHED_AFTER_MIDNIGHT = datetime(2026, 6, 17, 2, 0, tzinfo=UTC)  # the normal case
+
+
+def _caveats(**kwargs: object) -> list[dict]:
+    device = _device(**kwargs)  # type: ignore[arg-type]
+    return partial_day_caveats(device, select_steps(device, 6100.0), _DAY_END_UTC)
+
+
+def test_a_counter_read_before_the_day_closed_names_the_read_instant() -> None:
+    caveats = _caveats(read_at=_READ_MID_DAY, reported_at=_READ_MID_DAY)
+    assert [c["reason"] for c in caveats] == [COUNTER_MID_DAY]
+    assert caveats[0]["read_at"] == _READ_MID_DAY.isoformat()
+    assert _READ_MID_DAY.isoformat() in caveats[0]["message"]
+
+
+def test_the_caveat_survives_a_push_that_crossed_local_midnight() -> None:
+    """THE A1 defect, in one assertion.
+
+    The counter was read at 09:00 and the push landed after midnight, which is the normal
+    case — auto-sync fires on a foreground transition. The gate compared the ARRIVAL
+    against the day's end, found it later, and returned `[]`; `select_steps` prefers the
+    counter unconditionally, so nine hours served as the whole day with nothing said.
+    """
+    caveats = _caveats(read_at=_READ_MID_DAY, reported_at=_PUSHED_AFTER_MIDNIGHT)
+    assert [c["reason"] for c in caveats] == [COUNTER_MID_DAY]
+    assert caveats[0]["read_at"] == _READ_MID_DAY.isoformat()
+    assert caveats[0]["reported_at"] == _PUSHED_AFTER_MIDNIGHT.isoformat()
+
+
+def test_a_counter_read_after_the_day_closed_says_nothing() -> None:
+    """It covers the whole day; there is no interval to disclose."""
+    read_at = datetime(2026, 6, 16, 19, 0, tzinfo=UTC)  # past the local day's end
+    assert _caveats(read_at=read_at, reported_at=_PUSHED_AFTER_MIDNIGHT) == []
+
+
+def test_an_unknown_read_instant_gets_its_own_caveat_rather_than_silence() -> None:
+    """Every row written before `0019`, and every row an older app build writes.
+
+    Unknown is neither "read mid-day" nor "read after the day closed". Folding it into the
+    second is exactly how the true caveat went missing, so it gets its own id and says in
+    the second person that we cannot name the interval.
+    """
+    caveats = _caveats(read_at=None, reported_at=_PUSHED_AFTER_MIDNIGHT)
+    assert [c["reason"] for c in caveats] == [COUNTER_READ_TIME_UNKNOWN]
+    assert caveats[0]["read_at"] is None
+    assert "when it was taken" in caveats[0]["message"]
+
+
+def test_the_per_minute_tier_discloses_nothing() -> None:
+    """A sum over samples covers whatever the day delivered, not a prefix of it."""
+    assert partial_day_caveats(None, select_steps(None, 6100.0), _DAY_END_UTC) == []
+    assert _caveats(steps=None, read_at=None) == []
 
 
 def test_the_two_instruments_are_never_blended() -> None:

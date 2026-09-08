@@ -68,6 +68,42 @@ void main() {
       expect(rhr.anomalous, isFalse);
     });
 
+    test('THE SPREAD BEHIND THE z ARRIVES WITH THE CENTRE', () {
+      // `docs/BACKEND_GAPS_FROM_UI.md` B4. Before it a card carried a centre and
+      // a score and no way to get from one to the other, so the only drawable
+      // reference was a LINE: a value one unit above a tight baseline and one
+      // unit above a scattered one looked the same.
+      //
+      // Asserted on every card that has a baseline, not just one — a key parsed
+      // for a single metric is a key that rots on the other six.
+      final withBaseline = today.metrics.where((card) => card.hasBaseline);
+      expect(withBaseline, isNotEmpty);
+      for (final card in withBaseline) {
+        expect(card.sd30d, isNotNull, reason: card.metric);
+      }
+    });
+
+    test('the recovery ladder carries the same divisor, and it reconciles', () {
+      // Value, baseline, sd and z are four numbers about one comparison, and a
+      // sd that did not reproduce the z beside it would let a reader draw a band
+      // the score was never measured against.
+      final signals = today.recoverySignals.valueOrNull;
+      expect(signals, isNotNull);
+      for (final signal in signals!.signals) {
+        if (signal.z case final double z when z != 0) {
+          expect(signal.baselineSd, isNotNull, reason: signal.name);
+          expect(
+            z,
+            closeTo(
+              (signal.value! - signal.baseline!) / signal.baselineSd!,
+              1e-6,
+            ),
+            reason: signal.name,
+          );
+        }
+      }
+    });
+
     test('weight is Present but has NO baseline, and says so', () {
       // The documented exception (`docs/APP_DESIGN.md` §3.1: "Weight has no
       // baseline (z null) — show plainly"). It must not be mistaken for a
@@ -76,6 +112,9 @@ void main() {
       expect(weight.reading, const Present<double>(72.5));
       expect(weight.hasBaseline, isFalse);
       expect(weight.z, isNull);
+      // And no spread either — both keys present and both null, so the card
+      // shape is the same one every other card in the row has.
+      expect(weight.sd30d, isNull);
     });
   });
 
@@ -95,7 +134,7 @@ void main() {
       expect(vo2max.medianForAge, 39.7);
       expect(vo2max.deltaFromMedian, 3.3);
       expect(vo2max.sessionCount, 1);
-      expect(vo2max.researchNotes, contains('vo2max_fitness_mortality'));
+      expect(vo2max.researchNotes, contains('vo2max'));
     });
 
     test('the 90-day trend survives parsing in order', () {
@@ -156,14 +195,19 @@ void main() {
       expect(caveated.value.disclaimer, contains('not a clinical'));
     });
 
-    test('the per-lever breakdown parses — the number is never shown alone', () {
-      final value = (today.biologicalAge as Caveated<BiologicalAge>).value;
-      expect(value.contributions, isNotEmpty);
-      final fitness = value.contributions.firstWhere((c) => c.term == 'fitness');
-      expect(fitness.value, 43.0);
-      expect(fitness.target, 40.0);
-      expect(fitness.method, 'gps_graded');
-    });
+    test(
+      'the per-lever breakdown parses — the number is never shown alone',
+      () {
+        final value = (today.biologicalAge as Caveated<BiologicalAge>).value;
+        expect(value.contributions, isNotEmpty);
+        final fitness = value.contributions.firstWhere(
+          (c) => c.term == 'fitness',
+        );
+        expect(fitness.value, 43.0);
+        expect(fitness.target, 40.0);
+        expect(fitness.method, 'gps_graded');
+      },
+    );
 
     test('an exclusion beside a value narrows it — it does not suppress it', () {
       // The case a reasonable person gets wrong. `excluded` here means "sleep
@@ -172,7 +216,11 @@ void main() {
       final raw = json['biological_age']! as Map<String, Object?>;
       final caveatCount = (raw['caveats']! as List).length;
       final excludedCount = (raw['excluded']! as List).length;
-      expect(excludedCount, greaterThan(0), reason: 'the fixture must exercise this');
+      expect(
+        excludedCount,
+        greaterThan(0),
+        reason: 'the fixture must exercise this',
+      );
 
       final attached = (today.biologicalAge as Caveated<BiologicalAge>).caveats;
       expect(attached, hasLength(caveatCount + excludedCount));
@@ -194,7 +242,10 @@ void main() {
       expect(recovery.band, 'high');
       expect(recovery.noteId, 'recovery_readiness');
       // `feedback_no_composite_score`: a 0–100 score ships with its components.
-      expect(recovery.factors.map((f) => f.name), containsAll(['hrv', 'rhr', 'rr', 'sleep']));
+      expect(
+        recovery.factors.map((f) => f.name),
+        containsAll(['hrv', 'rhr', 'rr', 'sleep']),
+      );
       final hrv = recovery.factors.firstWhere((f) => f.name == 'hrv');
       expect(hrv.subScore, 80);
       expect(hrv.weight, 0.3);

@@ -78,7 +78,7 @@ class StateCard extends StatelessWidget {
         color: fill ?? colors.surface,
         shape: shapeOf(border ?? colors.line),
       ),
-      child: Padding(
+      child: Material(type: MaterialType.transparency, child: Padding(
         padding: const EdgeInsets.all(Insets.lg),
         // Shadowed for the subtree, so a card inside a card cannot render the
         // same disclosure twice.
@@ -95,7 +95,7 @@ class StateCard extends StatelessWidget {
                   ],
                 ),
         ),
-      ),
+      )),
     );
   }
 }

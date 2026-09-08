@@ -1,4 +1,7 @@
-/// Routes. Five tabs, the setup surfaces, and settings outside the shell.
+/// The router. Five tabs, the setup surfaces, and settings outside the shell.
+///
+/// The paths themselves are `core/routes.dart` — split out at the 400-line gate
+/// and re-exported below, so `import 'core/router.dart'` still names them.
 ///
 /// `docs/APP_DESIGN.md` §2 fixes the information architecture — five tabs (Today ·
 /// Sleep · Activity · Insights · Actions), a Coach FAB on Today, and the owner's
@@ -50,77 +53,37 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:healthee/core/routes.dart';
+import 'package:healthee/core/settings_routes.dart';
 import 'package:healthee/core/tabs.dart';
+import 'package:healthee/core/view_date_route.dart';
+import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
-import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
-import 'package:healthee/features/pairing/pairing_screen.dart';
-import 'package:healthee/features/settings/settings_screen.dart';
-import 'package:healthee/features/signin/server_signin_screen.dart';
+import 'package:healthee/data/store/view_date.dart';
+import 'package:healthee/features/actions/challenge_detail_screen.dart';
+import 'package:healthee/features/actions/outcomes_screen.dart';
+import 'package:healthee/features/actions/program_detail_screen.dart';
+import 'package:healthee/features/actions/recommendation_history_screen.dart';
+import 'package:healthee/features/activity/fitness_screen.dart';
+import 'package:healthee/features/coach/coach_screen.dart';
+import 'package:healthee/features/gps/gps_screen.dart';
+import 'package:healthee/features/gps/route_detail_screen.dart';
+import 'package:healthee/features/gps/routes_screen.dart';
+import 'package:healthee/features/history/history_screen.dart';
+import 'package:healthee/features/history/metric_explorer_screen.dart';
+import 'package:healthee/features/insights/v02/finding_detail_screen.dart';
+import 'package:healthee/features/sleep/sleep_history_screen.dart';
+import 'package:healthee/features/today/body_screen.dart';
+import 'package:healthee/features/today/recovery_screen.dart';
+import 'package:healthee/features/workouts/workout_detail_screen.dart';
+import 'package:healthee/features/workouts/workout_history_screen.dart';
 import 'package:healthee/shared/app_shell.dart';
 import 'package:healthee/shared/foundation_screen.dart';
 
-/// Every route's path, in one place. Screens reference these, never string
-/// literals — Standards §3 bans the string-literal habit for user constants and
-/// the reasoning is the same here: a typo'd path fails at runtime, a typo'd
-/// constant fails at compile time.
-abstract final class Routes {
-  /// The daily snapshot. The app's home.
-  static const String today = '/';
-
-  /// Last night, and the one lever to improve tonight.
-  static const String sleep = '/sleep';
-
-  /// Fitness, organised around VO₂max.
-  static const String activity = '/activity';
-
-  /// The owner's own history — trends, and the patterns found in it.
-  ///
-  /// There is no `/coach` path. The coach is a sheet opened from Today's FAB
-  /// (`features/coach/coach_sheet.dart`), which is where legacy puts it and what
-  /// `docs/APP_DESIGN.md` §2 describes; a route for it would be a second way in
-  /// with a different back behaviour.
-  static const String insights = '/insights';
-
-  /// Every cited action the server raised for today.
-  static const String actions = '/actions';
-
-  /// Appearance, the server session, the strap, diagnostics and the licences.
-  ///
-  /// **Outside the tab shell**, and reached from the Today header's avatar —
-  /// which is the entry point that already existed, extended rather than
-  /// duplicated. A settings surface inside the bar would light a tab while the
-  /// owner is somewhere that is not a tab.
-  static const String settings = '/settings';
-
-  /// Pair a strap, or review the pairing already held.
-  static const String pairing = '/pairing';
-
-  /// Baselines and the strap's own streams — "is the instrument working".
-  ///
-  /// Off the tab bar on purpose. `diagnostics_screen.dart` argues it: these are
-  /// the numbers the owner wants when something looks wrong, and never at 7am.
-  /// Reached from [pairing], which is where the avatar on Today already goes.
-  static const String diagnostics = '/diagnostics';
-
-  /// Sign in to the Healthee server, or review the session already held.
-  ///
-  /// **Nothing redirects here**, unlike [pairing]. See the router's own
-  /// "Unpaired means pairing" note for the contrast: an app with no strap has
-  /// nothing to show at all, whereas an app with no server session still has
-  /// every measurement this phone read off the strap. Gating on a token would
-  /// take the owner's own data away until they satisfied a server, and
-  /// strap-only is a supported mode rather than a degraded one.
-  static const String serverSignIn = '/server';
-
-  /// The honesty-state specimen sheet. **Not a product screen.**
-  ///
-  /// `FoundationScreen` used to sit on [today], where it was reasonably
-  /// mistaken for a hung request — a catalogue whose loading specimen looks
-  /// exactly like a screen that never loaded. It is kept because it is a useful
-  /// side-by-side of the four `Reading` states while building a card, and it is
-  /// kept OFF the home route for the same reason it was moved.
-  static const String devFoundation = '/dev/foundation';
-}
+// The path table and the coach's location builder live in `routes.dart`
+// (Standards section 1, the 400-line gate). Re-exported so this file stays
+// the one import a screen needs to name a destination.
+export 'package:healthee/core/routes.dart';
 
 /// The app's router.
 ///
@@ -144,6 +107,11 @@ GoRouter buildRouter(WidgetRef ref) {
   // app would sit on a screen it has no data for.
   final refresh = _RouterRefresh();
   ref.listenManual(pairingSummaryProvider, (previous, next) => refresh.bump());
+  // The date control's tap IS a navigation: `viewDateRedirect` rewrites the
+  // location from the selection, and this is what makes it look again. Without
+  // it the day would move on screen and the URL would keep the old one, which
+  // is exactly the state a restored stack reads back.
+  ref.listenManual(viewDateProvider, (previous, next) => refresh.bump());
 
   return GoRouter(
     initialLocation: Routes.today,
@@ -153,12 +121,30 @@ GoRouter buildRouter(WidgetRef ref) {
       if (summary.isLoading || summary.hasError) {
         return null;
       }
-      if (summary.value?.strap == null && state.matchedLocation != Routes.pairing) {
+      if (summary.value?.strap == null &&
+          state.matchedLocation != Routes.pairing) {
         return Routes.pairing;
       }
-      return null;
+      // After the pairing gate, never before it: an app with no strap has
+      // nothing to show for any day, and stamping one on the way to /pairing
+      // would put a date on a screen that is not about a day at all.
+      return viewDateRedirect(ref, state);
     },
     routes: <RouteBase>[
+      GoRoute(
+        path: Routes.recommendations,
+        builder: (context, state) => const RecommendationHistoryScreen(),
+      ),
+      GoRoute(path: Routes.gps, builder: (context, state) => const GpsScreen()),
+      GoRoute(
+        path: Routes.routes,
+        builder: (context, state) => const RoutesScreen(),
+      ),
+      GoRoute(
+        path: '${Routes.route}/:id',
+        builder: (context, state) =>
+            RouteDetailScreen(id: state.pathParameters['id']!),
+      ),
       // The tabs. Branch order IS `kAppTabs` order, by construction rather than
       // by agreement — the bar moves by index, so two lists would be a defect
       // that compiles.
@@ -179,28 +165,82 @@ GoRouter buildRouter(WidgetRef ref) {
         ],
       ),
       GoRoute(
-        path: Routes.diagnostics,
-        builder: (BuildContext context, GoRouterState state) => const DiagnosticsScreen(),
-      ),
-      GoRoute(
         path: Routes.devFoundation,
-        builder: (BuildContext context, GoRouterState state) => const FoundationScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const FoundationScreen(),
       ),
       GoRoute(
-        path: Routes.pairing,
-        builder: (BuildContext context, GoRouterState state) =>
-            PairingScreen(onDone: () => leaveSetup(context)),
+        path: '${Routes.challenge}/:id',
+        builder: (context, state) => ChallengeDetailScreen(
+          id: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
+        ),
       ),
       GoRoute(
-        path: Routes.serverSignIn,
-        builder: (BuildContext context, GoRouterState state) =>
-            ServerSignInScreen(onDone: () => leaveSetup(context)),
+        path: '${Routes.program}/:id',
+        builder: (context, state) => ProgramDetailScreen(
+          id: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
+        ),
       ),
       GoRoute(
-        path: Routes.settings,
-        builder: (BuildContext context, GoRouterState state) =>
-            const SettingsScreen(),
+        path: Routes.outcomes,
+        builder: (context, state) => const OutcomesScreen(),
       ),
+      GoRoute(
+        path: Routes.coach,
+        // `coachTopicOf` is `coachLocation` read back, and both live in
+        // `routes.dart` so the round trip has one owner.
+        builder: (context, state) =>
+            CoachScreen(topic: coachTopicOf(state.uri)),
+      ),
+      GoRoute(path: Routes.body, builder: (context, state) => const BodyScreen()),
+      GoRoute(
+        path: Routes.fitness,
+        builder: (context, state) => const FitnessScreen(),
+      ),
+      GoRoute(
+        path: Routes.recovery,
+        builder: (context, state) => const RecoveryScreen(),
+      ),
+      GoRoute(
+        path: Routes.sleepHistory,
+        builder: (context, state) => const SleepHistoryScreen(),
+      ),
+      GoRoute(
+        path: Routes.workouts,
+        builder: (context, state) => const WorkoutHistoryScreen(),
+      ),
+      GoRoute(
+        path: Routes.workout,
+        builder: (context, state) => WorkoutDetailScreen(
+          start: state.uri.queryParameters['start'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '${Routes.insight}/:key',
+        // The finding rides in `extra` when a tap opened this, and the path key
+        // re-resolves it when nothing did. The screen owns that fallback; the
+        // router only hands over what it was given.
+        builder: (BuildContext context, GoRouterState state) =>
+            FindingDetailScreen(
+              routeKey: state.pathParameters['key'] ?? '',
+              finding: state.extra is Finding ? state.extra! as Finding : null,
+            ),
+      ),
+      GoRoute(
+        path: Routes.history,
+        // One route, two screens. With no `metric` it is the explorer — the
+        // directory of every signal the app holds a history for, which is what
+        // `H.link('All measurements', 'metrics')` opens in the prototype. With
+        // one, it is that metric's own dated series. A second path would mean
+        // two names for one destination and a second thing to keep reachable.
+        builder: (context, state) {
+          final metric = state.uri.queryParameters['metric'];
+          return metric == null
+              ? const MetricExplorerScreen()
+              : HistoryScreen(initialMetric: metric);
+        },
+      ),
+      ...settingsRoutes(),
     ],
   );
 }
@@ -227,6 +267,7 @@ void leaveSetup(BuildContext context) {
     context.go(Routes.today);
   }
 }
+
 
 /// Lets [buildRouter] tell go_router that the pairing state moved.
 /// `notifyListeners` is protected, so poking a bare `ChangeNotifier` from

@@ -213,7 +213,7 @@ def test_the_payload_names_the_instrument_that_produced_the_number() -> None:
     assert "run" in payload["method_caveat"]
     assert payload["n_sessions"] == 1
     assert "one session" in payload["method_caveat"]  # D6's qualifier at n = 1
-    assert payload["research_notes"] == ["vo2max_fitness_mortality", "hr_reserve_vo2max"]
+    assert payload["research_notes"] == ["vo2max", "hr_reserve_vo2max"]
 
 
 @pytest.mark.usefixtures("db")
@@ -233,7 +233,7 @@ def test_a_legacy_row_without_a_method_reads_as_the_model_it_came_from() -> None
         payload = vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
     assert payload is not None
     assert payload["method"] == METHOD_JURCA
-    assert payload["research_notes"] == ["vo2max_fitness_mortality", "non_exercise_vo2max"]
+    assert payload["research_notes"] == ["vo2max", "non_exercise_vo2max"]
 
 
 # ── biological age spends the tiered number, and says whose it is ────────────

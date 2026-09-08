@@ -1,22 +1,33 @@
 /// Renders a named [ServerSignInFailure] — headline, remedy, and a retry when
 /// one would help.
 ///
-/// The same two shapes `pairing_failure_card.dart` uses, chosen by
-/// [ServerSignInFailure.canRetry] rather than by the caller: a retryable failure
-/// gets the shared [ErrorState] so it looks like every other retry in the app,
-/// and one that needs different input gets the card frame with **no button** —
-/// a token the server has already read and rejected does not become right by
-/// pressing Try again.
+/// ## Three outcomes, three sentences — this is the whole point of the file
 ///
-/// Neither is tinted. `docs/APP_DESIGN_BRIEF.md` §2 rations colour to judgement
-/// about the owner's body, and a sign-in failure is not one.
+/// `data/api/signin_failure.dart` distinguishes **refused** (the server read the
+/// token and said no), **unreachable** (nothing answered), and **answered
+/// unexpectedly** (something answered, but not like our server). This card
+/// prints whichever one happened, verbatim, and never collapses them:
+/// *"Could not reach server"* shown for a wrong token is the exact failure that
+/// once cost an evening.
+///
+/// The shape is chosen by [ServerSignInFailure.canRetry] rather than by the
+/// caller: a retryable failure gets a **Try again**, and one that needs
+/// different input gets **no button** — a token the server has already read and
+/// rejected does not become right by pressing it.
+///
+/// ## Neither is tinted, and that is deliberate
+///
+/// `notices.dart` records the rule: `alert` is this product's one red and it
+/// belongs to the illness flag. A sign-in failure is not a fact about the
+/// owner's body, so it is a plain `.notice` — the same untinted treatment the
+/// pre-v02 card used, in v02's geometry.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/api/signin_failure.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/notices.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
 
 /// A sign-in failure, said plainly.
 class SignInFailureCard extends StatelessWidget {
@@ -35,26 +46,20 @@ class SignInFailureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (failure.canRetry) {
-      return ErrorState(
-        message: failure.headline,
-        detail: failure.remedy,
-        onRetry: onRetry,
-      );
-    }
-    final text = Theme.of(context).textTheme;
-    return StateCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(failure.headline, style: text.titleSmall),
-          const SizedBox(height: Insets.sm),
-          Text(
-            failure.remedy,
-            style: text.bodySmall?.copyWith(color: context.colors.ink3),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        HNotice(title: failure.headline, body: failure.remedy),
+        if (failure.canRetry) ...<Widget>[
+          const SectionGap(),
+          HButton(
+            label: 'Try again',
+            kind: HButtonKind.secondary,
+            onPressed: onRetry,
           ),
         ],
-      ),
+      ],
     );
   }
 }

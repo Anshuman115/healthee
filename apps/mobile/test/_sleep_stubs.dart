@@ -18,7 +18,8 @@ import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_page.dart';
 
 /// Relative to `apps/mobile` — `flutter test`'s working directory.
-const String kSleepSnapshotPath = '../../packages/contracts/snapshots/sleep.json';
+const String kSleepSnapshotPath =
+    '../../packages/contracts/snapshots/sleep.json';
 
 /// The regularity block's snapshot.
 const String kConsistencySnapshotPath =
@@ -46,11 +47,57 @@ Map<String, Object?> loadJson(String path) {
 }
 
 /// The Sleep page as the server really sends it.
-SleepPage sleepPageFixture() => SleepPage.fromJson(loadJson(kSleepSnapshotPath));
+SleepPage sleepPageFixture() =>
+    SleepPage.fromJson(loadJson(kSleepSnapshotPath));
+
+/// The sleep need the snapshot carries, for suites that build a panel directly.
+///
+/// Read off the same payload rather than typed here, so a suite cannot go green
+/// against a need the server does not send. A hardcoded 480 is exactly the
+/// second definition `kSleepNeedMin` was deleted for being.
+int get kSleepNeedFixture {
+  final need = sleepPageFixture().sleepDebt?.needMin;
+  expect(
+    need,
+    isNotNull,
+    reason:
+        'the snapshot no longer carries sleep_debt.need_min, so these panels '
+        'would be exercised against a need the wire does not send',
+  );
+  return need!;
+}
 
 /// The regularity block as the server really sends it.
 SleepConsistency consistencyFixture() =>
     SleepConsistency.fromJson(loadJson(kConsistencySnapshotPath));
+
+/// A nap the strap timed but never staged — a real and common shape.
+///
+/// The snapshot's nap IS staged, so this is the only way to reach the other
+/// branch. Built by blanking the snapshot's own nap rather than by writing a
+/// nap here, so it cannot drift from the wire in any field but the one under
+/// test.
+SleepNap unstagedNap() {
+  final json = loadJson(kSleepSnapshotPath);
+  final nap = Map<String, Object?>.from(
+    (json['naps']! as List<Object?>).first! as Map<String, Object?>,
+  );
+  expect(
+    nap['stages'],
+    isA<Map<String, Object?>>(),
+    reason:
+        'the snapshot nap no longer carries stage totals, so blanking them '
+        'proves nothing — the wire moved and this helper did not',
+  );
+  nap['stages'] = <String, Object?>{
+    'light': 0,
+    'deep': 0,
+    'rem': 0,
+    'awake': 0,
+  };
+  nap['stage_timeline'] = <Object?>[];
+  return SleepNap.fromJson(nap);
+}
 
 /// The same page with [patch] applied to its newest night.
 ///
@@ -59,7 +106,9 @@ SleepConsistency consistencyFixture() =>
 SleepPage sleepPageWithout(List<String> fields) {
   final json = loadJson(kSleepSnapshotPath);
   final nights = json['nights']! as List<Object?>;
-  final latest = Map<String, Object?>.from(nights.first! as Map<String, Object?>);
+  final latest = Map<String, Object?>.from(
+    nights.first! as Map<String, Object?>,
+  );
   for (final field in fields) {
     expect(
       latest.containsKey(field),
@@ -80,7 +129,9 @@ SleepPage sleepPageWithout(List<String> fields) {
 SleepPage sleepPageWithoutSession() {
   final json = loadJson(kSleepSnapshotPath);
   final nights = json['nights']! as List<Object?>;
-  final latest = Map<String, Object?>.from(nights.first! as Map<String, Object?>);
+  final latest = Map<String, Object?>.from(
+    nights.first! as Map<String, Object?>,
+  );
   for (final field in <String>['session_source', 'start_iso', 'end_iso']) {
     latest[field] = null;
   }
@@ -94,7 +145,7 @@ SleepPage sleepPageWithoutSession() {
 ///
 /// **390, not `_chart_probe.dart`'s 300.** `flutter test` loads no fonts, so
 /// every glyph is a square of the font size — legacy's `7h 05m` at 27 px measures
-/// 162 logical pixels here and about 85 in Manrope on a phone. A card that fits
+/// 162 logical pixels here and about 85 in Inter on a phone. A card that fits
 /// on every shipping handset would otherwise overflow in a test, and chasing that
 /// with a `Flexible` on the hero figure would be letting the test font redesign
 /// the screen.

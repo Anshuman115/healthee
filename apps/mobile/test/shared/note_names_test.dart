@@ -84,11 +84,15 @@ void main() {
     }
   });
 
-  test('THE IDS THE SERVER ACTUALLY CITES ALL RESOLVE', () {
-    // Not hypothetical: `read/activity.py` cites `cardio_load_trimp` and
-    // `read/vo2max.py` cites `vo2max_fitness_mortality`. Neither is a note id —
+  test('THE IDS AN OLDER SERVER CITES STILL RESOLVE', () {
+    // Not hypothetical: `read/activity.py` cited `cardio_load_trimp` and
+    // `read/vo2max.py` cited `vo2max_fitness_mortality`. Neither is a note id —
     // both are aliases — and an ids-only table left them on screen as raw
     // snake_case, which is the whole defect.
+    //
+    // Both are FIXED on the server (`docs/BACKEND_GAPS_FROM_UI.md` A4). This
+    // stays because an installed app meets servers it did not ship with, and the
+    // failure it prevents is a raw id shown to the owner — which is silent.
     expect(noteName('cardio_load_trimp'), isNotNull);
     expect(noteName('vo2max_fitness_mortality'), isNotNull);
     expect(canonicalNoteId('cardio_load_trimp'), 'training_stress_score');

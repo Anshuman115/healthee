@@ -2,6 +2,36 @@
 + HR-zone minutes + derived metrics (intensity %HRmax, pace, cal/min, session
 TRIMP, HR drift). v2-native: the workout row from ``workout``, the HR profile from
 the raw ``sample`` table. The session-TRIMP formula ports VERBATIM (Banister).
+
+## The reserve comes from the SESSION's own day (the future leak, A9)
+
+``cardio_load_payload`` was called with no reference day, so it defaulted to the owner's
+**today** and this endpoint took ``hrmax`` and ``rhr`` off today's row. Those two are the
+whole Karvonen reserve, so a June session's zones, ``avg_pct_hrmax``, ``intensity``,
+``dominant_zone`` and ``trimp`` were computed from a resting heart rate measured months
+after it — ``docs/AS_OF_DAY.md`` section 3 in its purest form: *"An answer for day D must
+contain nothing measured, computed or observed after D."*
+
+This endpoint sat outside the as-of-day sweep because it is addressed by **timestamp**
+rather than by day, which is exactly why it was missed. The session's own day was already
+in hand on the line above; it was a missing argument, not a missing capability. Where the
+session's day has no ``cardio_load`` row the reserve-dependent figures are withheld through
+``read/workout_absence.py`` — whose ``NO_HRMAX`` sentence already says "it comes from your
+daily training-load row, which had not been computed" — rather than borrowed from today.
+
+## The HR profile is aggregated to MINUTES (the unit mismatch, A10)
+
+``derive/trimp.trimp_total``'s contract is explicit: *"Each element is taken to be one
+minute — the sum's unit is minutes × weighting."* The daily path honours it
+(``derive/cardio_load.py`` groups by ``date_trunc('minute', ts)``); this one selected raw
+``sample`` rows and appended one element per ROW. So whenever the strap sampled faster than
+once a minute inside a workout — which is the reason a workout HR series exists at all —
+the session TRIMP and every "zone minute" were multiplied by the sample rate, and the same
+athlete-minute scored differently here than in the day's ``cardio_load``.
+
+The magnitude of the past error is NOT stated anywhere, because it is not known: it depends
+on the strap's in-workout sampling cadence, which cannot be observed without a device or the
+production database. The unit is fixed; the size of what it was is left unclaimed.
 """
 
 from __future__ import annotations
@@ -17,7 +47,7 @@ from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
 from healthee.derive.trimp import trimp_total
 from healthee.read.common import sport_name
 from healthee.read.fitness import cardio_load_payload
-from healthee.read.vo2max import vo2max_payload
+from healthee.read.workout_absence import WorkoutInputs, workout_absences
 
 
 def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
@@ -35,19 +65,52 @@ def workout_detail(cur: Cur, user_id: UUID, tz: str, start: str) -> dict:
     start_ts, sport, dur_s, cal, dist, avg_hr, max_hr, min_hr = row
     end_ts = start_ts + timedelta(seconds=int(dur_s or 0))
     hrs, series = _hr_profile(cur, user_id, tz, start_ts, end_ts)
-    hrmax = (cardio_load_payload(cur, user_id, tz) or {}).get("hrmax")
-    rhr = (cardio_load_payload(cur, user_id, tz) or {}).get("rhr")
-    sex = (vo2max_payload(cur, user_id, tz) or {}).get("sex") or "male"
+    # The session's OWN local day, never the owner's today — see the module docstring.
+    session_day = start_ts.astimezone(ZoneInfo(tz)).date()
+    load = cardio_load_payload(cur, user_id, tz, session_day) or {}
+    hrmax, rhr = load.get("hrmax"), load.get("rhr")
+    cur.execute("SELECT sex FROM profile WHERE user_id = %s", (user_id,))
+    profile_row = cur.fetchone()
+    sex = profile_row[0] if profile_row else None
     zones = _zone_minutes(hrs, hrmax)
     dur_min = round((dur_s or 0) / 60) if dur_s else None
     metrics = _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones)
+    inputs = WorkoutInputs(
+        avg_hr=avg_hr,
+        max_hr=max_hr,
+        distance_m=dist,
+        duration_min=dur_min,
+        calories=cal,
+        hrmax=hrmax,
+        rhr=rhr,
+        sex=sex,
+        hr_sample_count=len(hrs),
+        zoned_minutes=sum(zones),
+    )
     return {
         "workout": _workout_block(start_ts, sport, dur_min, cal, dist, avg_hr, max_hr, min_hr),
         "hr_series": series,
         "zones": zones,
         "hrmax": hrmax,
         "metrics": metrics,
+        # The honesty envelope this payload never had: one {reason, message} per derived
+        # figure the session could not carry, so an absence arrives explained instead of
+        # being reconstructed by whoever renders it (``read/workout_absence.py``).
+        # ``zones`` is keyed here as well as in ``metrics``: an all-zero list means an
+        # easy session when an HRmax exists and a structural blank when one does not.
+        "metrics_withheld": workout_absences(inputs, set(metrics) | _present_zones(hrmax, hrs)),
     }
+
+
+def _present_zones(hrmax: float | None, hrs: list[int]) -> set[str]:
+    """``{"zones"}`` when the zone buckets are a measurement rather than a blank.
+
+    All-zero IS a reading — "no minute reached 50% of HRmax" — but only when there was an
+    HRmax to cut against AND minutes to cut. Without either, ``_zone_minutes`` returns
+    five zeroes that mean nothing was computed, which is the one thing an empty
+    collection must not be allowed to say (standards section 1).
+    """
+    return {"zones"} if hrmax and hrs else set()
 
 
 def _parse_start(start: str) -> datetime:
@@ -66,15 +129,24 @@ def _hr_profile(
     Bounded by ``derive.hr_validity`` — the same predicate the daily derivations use,
     so this session's TRIMP and the day's ``cardio_load`` can never disagree about
     whether a given minute happened.
+
+    **One element per MINUTE**, aggregated the same way ``derive/cardio_load.py`` does it:
+    ``date_trunc('minute', ts)`` with ``AVG(value)``. It used to be one element per raw
+    sample, so ``trimp_total`` — whose contract is "each element is taken to be one minute"
+    — and ``_zone_minutes``, which increments one bucket per element and calls the result
+    minutes, were both multiplied by the strap's in-workout sample rate. The validity
+    predicate stays per-SAMPLE (inside ``WHERE``), so a bad reading is dropped before it can
+    move a minute's average, exactly as in the daily path.
     """
     cur.execute(
-        "SELECT ts, value FROM sample WHERE user_id = %s AND metric='hr' "
-        f"AND {HR_VALID_SQL} AND ts >= %s AND ts <= %s ORDER BY ts",
+        "SELECT date_trunc('minute', ts) AS m, AVG(value) FROM sample "
+        f"WHERE user_id = %s AND metric='hr' AND {HR_VALID_SQL} AND ts >= %s AND ts <= %s "
+        "GROUP BY m ORDER BY m",
         (user_id, *HR_VALID_BOUNDS, start_ts, end_ts),
     )
     hrs, series = [], []
     for t, v in cur.fetchall():
-        hr = int(v)
+        hr = round(float(v))
         hrs.append(hr)
         off = int((t - start_ts).total_seconds() // 60)
         series.append({"min": off, "hr": hr, "t": t.astimezone(ZoneInfo(tz)).strftime("%H:%M")})
@@ -82,7 +154,11 @@ def _hr_profile(
 
 
 def _zone_minutes(hrs: list[int], hrmax: float | None) -> list[int]:
-    """Five HR-zone minute buckets (50-60% … 90-100% HRmax)."""
+    """Five HR-zone minute buckets (50-60% … 90-100% HRmax).
+
+    Genuinely minutes: ``_hr_profile`` hands this one element per minute. It used to hand
+    one per raw sample and this function still called the buckets minutes.
+    """
     zones = [0, 0, 0, 0, 0]
     if not hrmax:
         return zones
@@ -96,7 +172,23 @@ def _zone_minutes(hrs: list[int], hrmax: float | None) -> list[int]:
 
 
 def _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones) -> dict:
-    """Derived workout metrics (intensity, pace, cal/min, TRIMP, drift, zone)."""
+    """Derived workout metrics (intensity, pace, cal/min, TRIMP, drift, zone).
+
+    ## The pace names what it was measured over (audit D-d)
+
+    ``pace_min_per_km`` divides the DEVICE's ``duration_s`` by the distance, so a session
+    with a long pause reports a slower pace than it was run at. The repo has the better
+    quantity — ``derive/gps_detail.py`` computes ``moving_s`` and publishes an
+    ``avg_pace_min_km`` from it — but only where a GPS track exists, and that number is
+    reconstructed from every point of the track at read time rather than stored. Reaching
+    for it from this endpoint would mean loading a whole track's points inside a payload
+    that has a p95 < 100 ms budget, on the chance that a matching track exists at all.
+
+    So the pace stays elapsed-based and SAYS SO, which is the third of the three honest
+    moves (serve the true value · withhold with a reason · name the limit on the face).
+    ``pace_basis`` ships beside it; a reader who wants moving pace has the GPS detail
+    endpoint, and now knows to want it.
+    """
     m: dict = {}
     if avg_hr and hrmax:
         m["avg_pct_hrmax"] = round(100 * avg_hr / hrmax)
@@ -117,9 +209,12 @@ def _metrics(avg_hr, max_hr, dist, dur_min, cal, hrmax, rhr, sex, hrs, zones) ->
     if dist and dist > 50 and dur_min:
         m["pace_min_per_km"] = round(dur_min / (dist / 1000), 2)
         m["speed_kmh"] = round((dist / 1000) / (dur_min / 60), 1)
+        # ELAPSED, not moving. Both figures above divide by the same denominator, so the
+        # basis is one fact about the pair. See the docstring.
+        m["pace_basis"] = "elapsed"
     if cal and dur_min:
         m["cal_per_min"] = round(cal / dur_min, 1)
-    if hrmax and rhr and hrmax > rhr and hrs:
+    if hrmax and rhr and hrmax > rhr and hrs and sex in ("male", "female"):
         m["trimp"] = _session_trimp(hrs, hrmax, rhr, sex)
     if len(hrs) >= 6:
         h = len(hrs) // 2

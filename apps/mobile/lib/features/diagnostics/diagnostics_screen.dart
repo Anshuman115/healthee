@@ -5,7 +5,17 @@
 /// which is a question the owner asks when something looks wrong and never at
 /// 7am. Fourteen rows of raw stream state above the daily read was the largest
 /// single block of Today and the least often useful part of it. It is reached
-/// from the pairing screen, which is where the avatar on Today already goes.
+/// from Settings, under `Your connected device`.
+///
+/// ## v02 changed the chrome and NOT one number
+///
+/// The head is the prototype's `.page-header.detail`, the group headings are
+/// `.section-head`, and the two strips are unchanged: every row still names its
+/// instrument and how it was measured, because that is the whole argument for
+/// this screen existing. The prototype has no diagnostics screen to copy, so
+/// the composition is assembled from its own primitives rather than invented —
+/// a detail header, two sections, and the footer every supporting screen ends
+/// with.
 ///
 /// ## The two resting heart rates, and the rule this screen writes down
 ///
@@ -59,39 +69,37 @@
 ///    `Resting HR · strap` (`metric_grid.dart`). Moving the two apart onto
 ///    separate screens would have hidden the contradiction rather than resolved
 ///    it; naming them resolves it.
-///
-/// ### One thing that is a real defect, and is not ours to fix here
-///
-/// `read/today_series.py::_derived_card` ships `rhr_daily` with **no date and no
-/// freshness gate** — `latest_derived_many` has no day bound — so a value derived
-/// from an older night renders as today's. Every other reader on that path dates
-/// or withholds a stale value (`_weight_card` carries `as_of_date`, `read/vo2max.py`
-/// withholds outright). That is a server change and belongs in a server PR; it is
-/// recorded here because it is the one way the canonical 56.2 could be *wrong*
-/// rather than merely *different*.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:healthee/features/diagnostics/widgets/metric_strip.dart';
 import 'package:healthee/features/diagnostics/widgets/server_metric_strip.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/device_health_card.dart';
 import 'package:healthee/shared/instrument_screen.dart';
-import 'package:healthee/shared/page_head.dart';
 import 'package:healthee/shared/page_section.dart';
-import 'package:healthee/shared/section_heading.dart';
+import 'package:healthee/shared/v02/detail_header.dart';
+import 'package:healthee/shared/v02/section_head.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
 
 /// The diagnostics route. Not a tab — see the library docstring.
 class DiagnosticsScreen extends StatelessWidget {
   /// [now] is injected by tests so the freshness labels are deterministic.
   const DiagnosticsScreen({this.now, super.key});
 
+  /// The prototype's own header shape for a sub-screen.
+  static const String title = 'Diagnostics';
+
+  /// Its eyebrow.
+  static const String eyebrow = 'Instruments';
+
   /// The instant every "x min ago" is measured against.
   final DateTime? now;
 
   @override
   Widget build(BuildContext context) {
-    // No bar at all. This screen is reached from the pairing surface, outside the
-    // tab shell — it used to light the Today tab, which said the owner was
+    // No bar at all. This screen is reached from Settings, outside the tab
+    // shell — it used to light the Today tab, which said the owner was
     // somewhere they were not, and offered three other tabs as a way out of a
     // flow they were in the middle of.
     return InstrumentScreen(now: now, sections: diagnosticsSections);
@@ -102,22 +110,22 @@ class DiagnosticsScreen extends StatelessWidget {
 List<PageSection> diagnosticsSections(ScreenData data) {
   final snapshot = data.snapshot;
   return <PageSection>[
-    const PageSection(
-      PageHead(eyebrow: 'Instruments', title: 'Diagnostics'),
-      gap: PageSpacing.section,
-    ),
+    const PageSection(_DiagnosticsHeader(), gap: PageSpacing.block),
     if (data.serverFailure case final PageSection failure) failure,
     if (data.serverPending case final PageSection pending) pending,
 
-    if (snapshot != null && snapshot.metrics.isNotEmpty) ...[
+    if (snapshot != null && snapshot.metrics.isNotEmpty) ...<PageSection>[
       const PageSection(
-        SectionHeading(
-          'Baselines',
-          subtitle:
-              "The server's canonical daily values, each against your own "
-              '30-day normal. These are the numbers every judgement in the app '
-              'is computed from.',
+        SectionHead(title: 'Baselines'),
+        gap: PageSpacing.panel,
+      ),
+      const PageSection(
+        SmallProse(
+          "The server's canonical daily values, each against your own 30-day "
+          'normal. These are the numbers every judgement in the app is '
+          'computed from.',
         ),
+        gap: PageSpacing.panel,
       ),
       PageSection(
         ServerMetricStrip(
@@ -125,20 +133,40 @@ List<PageSection> diagnosticsSections(ScreenData data) {
           sparklines: snapshot.sparklines,
           reveals: data.reveals,
         ),
-        gap: PageSpacing.section,
+        gap: PageSpacing.block,
       ),
     ],
 
     const PageSection(
-      SectionHeading(
-        'From the strap',
-        subtitle:
-            'What this phone read off the device, with nothing added. Two of '
-            'these measure the same thing as a baseline above by a different '
-            'method, and each says which — they are not expected to agree.',
+      SectionHead(title: 'From the strap'),
+      gap: PageSpacing.panel,
+    ),
+    const PageSection(
+      SmallProse(
+        'What this phone read off the device, with nothing added. Two of these '
+        'measure the same thing as a baseline above by a different method, and '
+        'each says which — they are not expected to agree.',
       ),
+      gap: PageSpacing.panel,
     ),
     PageSection(MetricStrip(metrics: data.day.metrics, now: data.now)),
     PageSection(DeviceHealthCard(day: data.day, now: data.now)),
+    const PageSection(DataFooter()),
   ];
+}
+
+/// The head, as its own widget so the back arrow has a `BuildContext`.
+///
+/// [diagnosticsSections] is a top-level builder and holds none, so an inline
+/// `onBack` there would have had nothing to pop. `SettingsPage` solves the same
+/// problem the same way for every sibling screen.
+class _DiagnosticsHeader extends StatelessWidget {
+  const _DiagnosticsHeader();
+
+  @override
+  Widget build(BuildContext context) => DetailHeader(
+    title: DiagnosticsScreen.title,
+    eyebrow: DiagnosticsScreen.eyebrow,
+    onBack: () => Navigator.of(context).maybePop(),
+  );
 }

@@ -1,36 +1,39 @@
-/// Sleep — **legacy's Sleep tab, ported**.
+/// Sleep — the v02 prototype's screen, on this app's own three reads.
 ///
-/// `healthee-legacy/app/lib/ui/sleep_screen.dart`. Every section, in legacy's
-/// order, at legacy's sizes; `sleep_sections.dart` is the list and each card is
-/// its own file. What differs is what the owner decided may differ: the typeface,
-/// the light/dark scaffolding, and the honesty wording — every field arrives as a
-/// `Reading`, a withheld value renders as withheld with its reason, and every
-/// citation resolves to a source name.
+/// Composition only. `sleep_sections.dart` decides what the screen shows and in
+/// what order; this file is the frame around it — the reads, their failure
+/// rules, the reveal registry and the five destinations the screen can reach.
 ///
 /// ## Its own screen, not the Today shell
 ///
 /// `shared/instrument_screen.dart` is built on `/api/today` and this phone's
 /// store. Sleep is built on `/api/sleep`, `/api/sleep/consistency` and
-/// `/api/sleep/insight` — three reads that fail independently — which is legacy's
-/// shape too (`data/providers.dart` gives each its own provider and its own
-/// timeout). Bending the shared shell around a second payload would have made
-/// every screen carry a source only one of them uses.
+/// `/api/sleep/insight` — **three reads that fail independently**. That is not
+/// an accident of the client: `data/sleep_repository.dart` gives each its own
+/// provider and its own timeout, and the regularity block feeds one panel and
+/// must never be able to take the measured half of the screen down with it.
+/// Bending the shared shell around a second payload would have made every other
+/// screen carry a source only this one uses.
 ///
 /// ## Reveal-once, and why the registry lives here
 ///
 /// `CLAUDE.md`: *"Scrollable chart screens use `ListView.builder` + reveal-once
 /// animation, or charts replay on every scroll."* The builder destroys an item's
 /// element when it leaves the viewport, so "have I animated?" cannot live in the
-/// chart. It lives in this `State`, and each section is handed the reveal's
-/// progress rather than owning a ticker.
+/// chart. It lives in this `State` and is handed to the panels, each of which
+/// wraps its own chart in a `RevealOnce` keyed to a stable id.
 ///
-/// The reveal itself is legacy's: a fade with a 16 px rise
-/// (`ui.dart:45` — `fadeIn` + `moveY(begin: 16, end: 0)`), driven by the same
-/// progress the charts grow on, so a card and its chart arrive together.
+/// A refresh is the one thing that may reset the registry — new data earns a
+/// fresh reveal. Scrolling never does.
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/router.dart';
+import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/sleep_repository.dart';
@@ -38,7 +41,9 @@ import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/features/sleep/sleep_sections.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/skeletons/sleep_skeleton.dart';
+import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// The Sleep tab.
 class SleepScreen extends ConsumerStatefulWidget {
@@ -63,10 +68,10 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
         bottom: false,
         child: RefreshIndicator(
           onRefresh: _refresh,
-          // All three states, and each one scrolls, so pull-to-refresh works
-          // while the screen is empty — which is exactly when it is reached for.
-          // `AsyncView` is not used here only because legacy's loading state is
-          // the content-shaped `SleepSkeleton` rather than a spinner.
+          // All three states scroll, so pull-to-refresh works while the screen
+          // is empty — which is exactly when it is reached for. `AsyncView` is
+          // not used here only because the loading state is the content-shaped
+          // `SleepSkeleton` rather than a spinner.
           child: ref
               .watch(sleepPageProvider)
               .when(
@@ -74,7 +79,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                 loading: () => const SleepSkeleton(),
                 error: (error, stackTrace) => ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: _SleepList.padding,
+                  padding: SleepList.padding,
                   children: <Widget>[
                     ErrorState(
                       message: "Couldn't reach your server for your sleep",
@@ -85,13 +90,17 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                     ),
                   ],
                 ),
-                data: (page) => _SleepList(
+                data: (page) => SleepList(
                   page: page,
-                  // Soft: the regularity block feeds two cards and must never be
-                  // able to take the measured half of the screen down with it.
-                  consistency: ref.watch(sleepConsistencyProvider).value,
+                  view: watchViewDay(ref),
+                  // Soft: the regularity block feeds one panel and must never
+                  // be able to take the measured half of the screen down.
+                  consistency: currentAccountValue(
+                    ref.watch(sleepConsistencyProvider),
+                  ).value,
                   now: widget.now ?? DateTime.now(),
                   reveals: _reveals,
+                  extras: _extras(context),
                 ),
               ),
         ),
@@ -99,9 +108,25 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     );
   }
 
-  /// Pull-to-refresh runs a real sync and re-reads all three payloads. New data
-  /// earns a fresh reveal, which is the one thing that may reset the registry —
-  /// scrolling never does.
+  /// The five places this screen can go.
+  ///
+  /// Pushed, never `go`: `go` REPLACES the location, which leaves the
+  /// destination with nothing beneath it and the next Back leaves the app.
+  /// `back_navigation_test.dart` owns that rule.
+  SleepExtras _extras(BuildContext context) => SleepExtras(
+    onOpenProfile: () => unawaited(context.push(Routes.settings)),
+    onOpenMetric: (metric) => unawaited(
+      context.push('${Routes.history}?metric=${Uri.encodeComponent(metric)}'),
+    ),
+    onOpenJournal: () => unawaited(context.push(Routes.journal)),
+    onOpenActions: () => unawaited(context.push(Routes.actions)),
+    onOpenHistory: () => unawaited(context.push(Routes.sleepHistory)),
+    // `Routes.history` with no `metric` IS the directory — one route, two
+    // screens, as `router.dart` records.
+    onOpenAllMetrics: () => unawaited(context.push(Routes.history)),
+  );
+
+  /// Pull-to-refresh runs a real sync and re-reads all three payloads.
   Future<void> _refresh() async {
     await ref.read(syncControllerProvider.notifier).syncNow();
     ref
@@ -112,21 +137,44 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
   }
 }
 
-class _SleepList extends StatelessWidget {
-  const _SleepList({
+/// The section list, scrolled. Public so the screen tests can host it directly.
+class SleepList extends StatelessWidget {
+  /// Builds the list for one render.
+  const SleepList({
     required this.page,
     required this.consistency,
     required this.now,
     required this.reveals,
+    required this.view,
+    this.extras = const SleepExtras(),
+    super.key,
   });
 
+  /// `/api/sleep`.
   final SleepPage page;
+
+  /// The night being read, and the wall-clock day it is judged against.
+  final ViewDay view;
+
+  /// `/api/sleep/consistency`, or null when that read has not answered.
   final SleepConsistency? consistency;
+
+  /// The instant the night labels are measured against.
   final DateTime now;
+
+  /// Where "already revealed" is remembered.
   final RevealRegistry reveals;
 
-  /// Legacy's `EdgeInsets.fromLTRB(18, 16, 18, 120)`.
-  static const EdgeInsets padding = EdgeInsets.fromLTRB(18, 16, 18, 120);
+  /// Where the screen can go.
+  final SleepExtras extras;
+
+  /// The same gutter Today and Activity use.
+  static const EdgeInsets padding = EdgeInsets.fromLTRB(
+    Insets.lg,
+    Insets.lg,
+    Insets.lg,
+    120,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -143,46 +191,23 @@ class _SleepList extends StatelessWidget {
         ],
       );
     }
-    final sections = sleepSections(page: page, consistency: consistency, now: now);
+    final sections = sleepSections(
+      page: page,
+      view: view,
+      consistency: consistency,
+      now: now,
+      reveals: reveals,
+      extras: extras,
+    );
     return ListView.builder(
       // Always scrollable, so pull-to-refresh works on a short screen.
       physics: const AlwaysScrollableScrollPhysics(),
       padding: padding,
       itemCount: sections.length,
-      itemBuilder: (context, index) {
-        final section = sections[index];
-        return Padding(
-          padding: EdgeInsets.only(bottom: section.gap),
-          child: RevealOnce(
-            id: 'sleep.${section.id}',
-            registry: reveals,
-            builder: (context, progress) => _Rise(
-              progress: progress,
-              child: section.build(context, progress),
-            ),
-          ),
-        );
-      },
+      itemBuilder: (context, index) => Padding(
+        padding: EdgeInsets.only(bottom: sections[index].gap),
+        child: sections[index].child,
+      ),
     );
   }
-}
-
-/// Legacy's reveal: fade in while rising 16 px. `ui.dart:45`.
-class _Rise extends StatelessWidget {
-  const _Rise({required this.progress, required this.child});
-
-  final double progress;
-  final Widget child;
-
-  /// Legacy's `moveY(begin: 16, end: 0)`.
-  static const double _travel = 16;
-
-  @override
-  Widget build(BuildContext context) => Opacity(
-    opacity: progress.clamp(0.0, 1.0),
-    child: Transform.translate(
-      offset: Offset(0, _travel * (1 - progress.clamp(0.0, 1.0))),
-      child: child,
-    ),
-  );
 }

@@ -1,32 +1,36 @@
-/// The sleep-stage ramp, measured. Every pair, both themes, against a floor.
+/// The sleep-stage set, measured. Every pair, both themes — **recorded, not
+/// gated**.
 ///
-/// The defect this file exists for: legacy borrows four near-isoluminant metric
-/// hues for its four stages, so on the dark card `rem` and `awake` measured
-/// **1.02:1 against each other** — the same colour to the eye, told apart by hue
-/// alone, which is exactly what red-green colour deficiency removes. The owner
-/// saw it on the installed build before any test did: *"only yellow is visible,
-/// others are not."*
+/// ## What changed, and why the numbers stayed
 ///
-/// ## Why the floor is not 3:1
+/// This file used to be a gate. It measured a derived luminance ramp that had
+/// been substituted for the prototype's four stage colours on accessibility
+/// grounds, and it failed the build on any move back toward them.
 ///
-/// WCAG 2.1 SC 1.4.11 asks 3:1 of a graphical object, and adjacent hypnogram
-/// bands are graphical objects. **Four colours cannot reach it pairwise.**
-/// Contrast is `(Yhi + .05) / (Ylo + .05)`, so it multiplies along a ladder:
-/// three steps of 3:1 need 27:1 end to end and sRGB's absolute maximum is 21:1.
-/// Adding "and every stage clears 3:1 on its own card" narrows the usable
-/// luminance band to a 6.1:1 span (dark) and 6.4:1 (light), i.e. **1.83:1 and
-/// 1.85:1 per step at the theoretical best** — and that best spends both ends on
-/// achromatic extremes, leaving no hue identity at all.
+/// The owner answered by restating the standing instruction — **the prototype in
+/// `design/mobile-preview/` is the specification and we match it exactly** — so
+/// `richer.css`'s four hues are what ships. The argument is over.
 ///
-/// So the floor is `kStagePairFloor`, the measured achievable number, and the
-/// ceiling is stated below as its own test so nobody reads 1.5 as an ambition
-/// that was abandoned rather than a limit that was proved.
+/// The **measurements are not deleted**, because deleting them would leave the
+/// repo unable to say what the set costs. Every number the gate used to assert
+/// is still computed here, by the same code, and printed on every run. What is
+/// gone is the assertion: no test in this file fails because a stage pair is
+/// close, nothing warns at runtime, and no build gate exists anywhere.
 ///
-/// ## Why it is a floor and not a pin
+/// ## What IS still asserted, and why each one is a fact rather than a taste
 ///
-/// `test/core/theme_test.dart` records what a pin costs: `onAccent` was pinned to
-/// an exact ratio and the pin is the thing that fails when contrast *improves*.
-/// Every assertion here is `greaterThanOrEqualTo`.
+///   * **The shipped values are v02's, by hex, in both themes.** A stage that
+///     drifts one digit from `richer.css` is a port defect; that is the property
+///     this file now guards.
+///   * **Four distinct colours.** Two stages sharing a value is a hypnogram that
+///     cannot be read at all, in any palette.
+///   * **The unrecognised grey has no chroma and every stage does.** With the
+///     v02 set the separation between a named stage and an undecoded byte rests
+///     on chroma and on the legend's word, so those are the two things worth
+///     holding — and both are true of the shipped set.
+///   * **The superseded ramp still measures what its docstring claims.** It is
+///     kept in `sleep_stage_palette.dart` as the recorded alternative, so its
+///     numbers are checked rather than left to rot into fiction.
 library;
 
 import 'dart:math' as math;
@@ -61,13 +65,14 @@ double _chroma(Color c) {
   return math.sqrt(aa * aa + bb * bb);
 }
 
-/// The four, by name, so a failure says which pair.
+/// The four, by name, so a recording says which pair.
 Map<String, Color> _stages(InstrumentHues hues) => <String, Color>{
   for (final stage in kSleepStages) stage: hues.sleepStage(stage),
 };
 
 /// The lowest contrast among every pair in [set]. The measurement this file is
-/// built on, so mutations are run through the same code the assertions use.
+/// built on, so the recordings and the superseded ramp's check share one
+/// implementation.
 double _worstPair(List<Color> set) {
   var lowest = double.infinity;
   for (var i = 0; i < set.length; i++) {
@@ -78,8 +83,8 @@ double _worstPair(List<Color> set) {
   return lowest;
 }
 
-/// Whether [set] is strictly darkening — the depth ordering, in `kSleepStages`
-/// order.
+/// Whether [set] is strictly darkening in `kSleepStages` order — the depth
+/// ordering the superseded ramp was built around.
 bool _isDescending(List<Color> set) {
   for (var i = 1; i < set.length; i++) {
     if (set[i].computeLuminance() >= set[i - 1].computeLuminance()) {
@@ -89,9 +94,14 @@ bool _isDescending(List<Color> set) {
   return true;
 }
 
-/// Whether a mutated stage set would pass both properties this file asserts.
-bool _slipsPast(List<Color> set) =>
-    _worstPair(set) >= kStagePairFloor && _isDescending(set);
+/// `#RRGGBB`, so a recording is readable beside `richer.css`.
+String _hex(Color c) =>
+    '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).toUpperCase().padLeft(6, '0')}';
+
+/// Prints one line of the record. Deliberately unconditional: a measurement
+/// nobody sees unless something fails is a measurement that was really an
+/// assertion.
+void _record(String line) => debugPrint('  $line');
 
 void main() {
   const themes = <String, (InstrumentHues, HealtheeColors)>{
@@ -99,134 +109,143 @@ void main() {
     'dark': (InstrumentHues.dark(), HealtheeColors.dark()),
   };
 
+  // The prototype's own values, written out rather than imported, so a mutation
+  // to `V02StagePrototype` is caught instead of compared against itself.
+  const shipped = <String, Map<String, Color>>{
+    'light': <String, Color>{
+      'deep': Color(0xFF5E38C1),
+      'light': Color(0xFF89A9F1),
+      'rem': Color(0xFFC96BCC),
+      'awake': Color(0xFFEDA253),
+    },
+    'dark': <String, Color>{
+      'deep': Color(0xFF7859E3),
+      'light': Color(0xFF9EBDFF),
+      'rem': Color(0xFFDA7BDD),
+      'awake': Color(0xFFFFBD76),
+    },
+  };
+
   for (final entry in themes.entries) {
     final (hues, colors) = entry.value;
     final stages = _stages(hues);
     final names = stages.keys.toList();
 
-    group('${entry.key} — the ramp', () {
-      test('EVERY PAIR CLEARS THE FLOOR — this is the whole repair', () {
+    group('${entry.key} — the shipped stage set', () {
+      test('IS v02’S, BY HEX — `richer.css`, digit for digit', () {
+        // The one gate this file still holds, and the reason the values are
+        // written out above rather than read from `V02StagePrototype`: a
+        // constant compared against itself agrees with every typo.
+        final expected = shipped[entry.key]!;
+        for (final stage in expected.entries) {
+          expect(
+            stages[stage.key],
+            stage.value,
+            reason:
+                '${stage.key} is ${_hex(stages[stage.key]!)}, '
+                '`richer.css` says ${_hex(stage.value)}',
+          );
+        }
+      });
+
+      test('RECORDED — every pair, against the number the ramp reached', () {
         // Six pairs, not three: the stacked bar puts deep beside light, the
         // hypnogram can put any lane above any other, and the legend sets all
-        // four side by side. Asserting only the consecutive pairs would pass a
-        // ramp that folded back on itself.
+        // four side by side.
+        _record('${entry.key}: band against band');
         for (var i = 0; i < names.length; i++) {
           for (var j = i + 1; j < names.length; j++) {
-            expect(
-              _contrast(stages[names[i]]!, stages[names[j]]!),
-              greaterThanOrEqualTo(kStagePairFloor),
-              reason: '${names[i]} vs ${names[j]}',
+            final ratio = _contrast(stages[names[i]]!, stages[names[j]]!);
+            _record(
+              '  ${names[i].padRight(6)} vs ${names[j].padRight(6)} '
+              '${ratio.toStringAsFixed(2)}'
+              '${ratio < kStagePairFloor ? '   under $kStagePairFloor' : ''}',
             );
           }
         }
-      });
-
-      test('every stage clears 3:1 on the card it is drawn on', () {
-        // SC 1.4.11 against the background. Every stage band in this app is
-        // drawn inside a card, so `surface` is the binding one — but the page is
-        // asserted too, because a chart that moved onto the page would otherwise
-        // degrade silently.
-        for (final stage in stages.entries) {
-          expect(
-            _contrast(stage.value, colors.surface),
-            greaterThanOrEqualTo(kStageSurfaceFloor),
-            reason: '${stage.key} on a card',
-          );
-          expect(
-            _contrast(stage.value, colors.bg),
-            greaterThanOrEqualTo(kStageSurfaceFloor),
-            reason: '${stage.key} on the page',
-          );
-        }
-      });
-
-      test('THE RAMP IS ORDERED BY DEPTH — deep lightest, awake darkest', () {
-        // Not decoration. A monotonic ramp is what lets lane position and
-        // lightness say the same thing on the hypnogram, and it is what makes a
-        // stacked bar read as one gradient rather than four blocks. `deep` is
-        // brightest in BOTH themes; on the light card that also makes it the
-        // closest to the paper, which is why its 3:1 is the tight one there.
-        final ladder = <double>[
-          for (final stage in kSleepStages)
-            stages[stage]!.computeLuminance(),
-        ];
-        for (var i = 1; i < ladder.length; i++) {
-          expect(
-            ladder[i],
-            lessThan(ladder[i - 1]),
-            reason: '${kSleepStages[i]} is not darker than ${kSleepStages[i - 1]}',
-          );
-        }
-      });
-
-      test('MUTATION — collapsing two stages to one colour fails the floor', () {
-        // Run the same sweep the first test runs, over a set with REM painted
-        // in light sleep's colour. It must come back under the floor — which
-        // proves the floor is what catches a collapse, rather than some other
-        // assertion in this file happening to notice.
-        expect(
-          _worstPair(<Color>[
-            hues.stageDeep, hues.stageLight, hues.stageLight, hues.stageAwake,
-          ]),
-          lessThan(kStagePairFloor),
+        _record(
+          '  worst pair ${_worstPair(stages.values.toList())
+              .toStringAsFixed(2)} '
+          '(the superseded ramp reached $kStagePairFloor)',
         );
+        // Two stages painted the same colour is not a palette question — it is
+        // a chart with a lane missing — so distinctness stays a gate.
         expect(stages.values.toSet().length, kSleepStages.length);
       });
 
-      test('MUTATION — the WHOLE borrowed set is under the floor', () {
-        // Reverting the four values wholesale — the "restore legacy" mutation —
-        // must fail. Dark's worst pair was 1.02:1 (rem vs awake), light's 1.12:1
-        // (light vs awake).
-        expect(
-          _worstPair(<Color>[hues.steps, hues.spo2, hues.sleep, hues.heart]),
-          lessThan(kStagePairFloor),
-        );
+      test('RECORDED — every stage on its card and on its page', () {
+        _record('${entry.key}: stage on surface ${_hex(colors.surface)} '
+            'and page ${_hex(colors.bg)}');
+        for (final stage in stages.entries) {
+          final card = _contrast(stage.value, colors.surface);
+          final page = _contrast(stage.value, colors.bg);
+          _record(
+            '  ${stage.key.padRight(6)} ${_hex(stage.value)}  '
+            'card ${card.toStringAsFixed(2)}  page ${page.toStringAsFixed(2)}'
+            '${card < kStageSurfaceFloor ? '   under $kStageSurfaceFloor' : ''}',
+          );
+        }
       });
 
-      test('MUTATION — restoring ONE old value, stage by stage', () {
-        // Stronger than the wholesale revert: each stage is put back on its old
-        // metric hue alone, with the other three left repaired.
-        //
-        // Seven of the eight are caught by the properties this file asserts —
-        // the pair floor, or the depth ordering. **The eighth is not, and saying
-        // so is the point of this comment**: light-theme `deep` moved from
-        // luminance 0.2483 to 0.2534, because legacy's light gold was already
-        // sitting on its rung. The light theme's deep sleep was never the
-        // problem — its `awake` was, at 1.12:1 — so no property can object to
-        // putting the old gold back. `test/core/theme_test.dart` pins the eight
-        // derived values for exactly that case; properties catch what they can
-        // and a transcription catches the rest.
-        final borrowed = <String, Color>{
-          'deep': hues.steps,
-          'light': hues.spo2,
-          'rem': hues.sleep,
-          'awake': hues.heart,
-        };
-        final unguarded = <String>[
-          for (final stage in kSleepStages)
-            if (_slipsPast(<Color>[
-              for (final other in kSleepStages)
-                other == stage ? borrowed[stage]! : stages[other]!,
-            ]))
-              stage,
+      test('RECORDED — the depth ordering, which this set does not have', () {
+        // The superseded ramp darkened monotonically in lane order, so lane
+        // position and lightness said the same thing and a greyscale reader got
+        // the hypnogram for free. v02 separates the four by HUE instead. Both
+        // facts are asserted, in the direction each is true.
+        final ladder = <double>[
+          for (final stage in kSleepStages) stages[stage]!.computeLuminance(),
         ];
+        _record(
+          '${entry.key}: luminance in lane order  '
+          '${ladder.map((y) => y.toStringAsFixed(4)).join('  ')}',
+        );
         expect(
-          unguarded,
-          entry.key == 'light' ? <String>['deep'] : <String>[],
-          reason: 'a restored legacy value slipped past both properties',
+          _isDescending(stages.values.toList()),
+          isFalse,
+          reason: 'v02 orders by hue, not by depth — if this passes, the '
+              'shipped set is no longer v02’s',
+        );
+        expect(
+          _isDescending(
+            entry.key == 'light'
+                ? const <Color>[
+                    LightStagePalette.deep,
+                    LightStagePalette.light,
+                    LightStagePalette.rem,
+                    LightStagePalette.awake,
+                  ]
+                : const <Color>[
+                    DarkStagePalette.deep,
+                    DarkStagePalette.light,
+                    DarkStagePalette.rem,
+                    DarkStagePalette.awake,
+                  ],
+          ),
+          isTrue,
+          reason: 'the superseded ramp no longer measures what it claims',
         );
       });
 
-      test('THE UNSTAGED GREY HAS NO CHROMA, and no stage is anywhere near it', () {
-        // Luminance cannot separate a fifth value from a four-rung ladder — the
-        // widest gap is 1.56:1, so the best any grey can do is ~1.25:1 from its
-        // neighbours. Chroma is what does the work here, so it is chroma that is
-        // asserted: exactly zero for the grey, and a real amount for all four.
+      test('THE UNSTAGED GREY HAS NO CHROMA, and every stage has some', () {
+        // With the v02 set this is the separation that carries the fifth value:
+        // chroma, plus `legendStages` adding an "Unrecognised" key exactly when
+        // a grey band was drawn. Luminance never did this job and is recorded
+        // below rather than asserted.
         final grey = hues.unstaged;
         expect(grey.r, closeTo(grey.g, 0.001));
         expect(grey.g, closeTo(grey.b, 0.001));
         expect(_chroma(grey), lessThan(0.005));
+        _record(
+          '${entry.key}: grey ${_hex(grey)}  '
+          'card ${_contrast(grey, colors.surface).toStringAsFixed(2)}  '
+          'page ${_contrast(grey, colors.bg).toStringAsFixed(2)}',
+        );
         for (final stage in stages.entries) {
+          _record(
+            '  grey vs ${stage.key.padRight(6)} '
+            '${_contrast(grey, stage.value).toStringAsFixed(2)}  '
+            'chroma ${_chroma(stage.value).toStringAsFixed(4)}',
+          );
           expect(
             _chroma(stage.value),
             greaterThan(0.05),
@@ -235,50 +254,52 @@ void main() {
           expect(stage.value, isNot(grey), reason: stage.key);
         }
       });
-
-      test('the grey clears the card, and sits in a gap rather than on a rung', () {
-        expect(
-          _contrast(hues.unstaged, colors.surface),
-          greaterThanOrEqualTo(kStageSurfaceFloor),
-        );
-        // "Not on a rung" is the honest claim: it is placed at the midpoint of a
-        // gap, which is 1.25:1 from its neighbours, and that is all luminance
-        // can offer. The word does the rest — `legendStages` adds an
-        // "Unrecognised" key exactly when a grey band was drawn.
-        for (final stage in stages.entries) {
-          expect(
-            _contrast(hues.unstaged, stage.value),
-            greaterThan(1.15),
-            reason: '${stage.key} sits on top of the unstaged grey',
-          );
-        }
-      });
     });
   }
 
+  test('THE SUPERSEDED RAMP STILL MEASURES WHAT ITS DOCSTRING CLAIMS', () {
+    // `sleep_stage_palette.dart` keeps the derived ramp as the recorded
+    // alternative. A record nobody checks decays into a story, so the two
+    // numbers it quotes are checked here — against the ramp's own constants,
+    // never against what ships.
+    const light = <Color>[
+      LightStagePalette.deep,
+      LightStagePalette.light,
+      LightStagePalette.rem,
+      LightStagePalette.awake,
+    ];
+    const dark = <Color>[
+      DarkStagePalette.deep,
+      DarkStagePalette.light,
+      DarkStagePalette.rem,
+      DarkStagePalette.awake,
+    ];
+    _record('superseded ramp: worst pair '
+        'light ${_worstPair(light).toStringAsFixed(2)}  '
+        'dark ${_worstPair(dark).toStringAsFixed(2)}');
+    expect(_worstPair(light), greaterThanOrEqualTo(kStagePairFloor));
+    expect(_worstPair(dark), greaterThanOrEqualTo(kStagePairFloor));
+    for (final stage in light) {
+      expect(
+        _contrast(stage, const HealtheeColors.light().surface),
+        greaterThanOrEqualTo(kStageSurfaceFloor),
+      );
+    }
+    for (final stage in dark) {
+      expect(
+        _contrast(stage, const HealtheeColors.dark().surface),
+        greaterThanOrEqualTo(kStageSurfaceFloor),
+      );
+    }
+  });
+
   test('THE CEILING IS PROVED, so 1.5 reads as a limit and not a surrender', () {
     // Four colours each 3:1 clear of the next need 27:1 end to end; sRGB offers
-    // 21:1 at the absolute most (#000000 on #FFFFFF). If this ever fails,
-    // physics changed and the floor should be revisited.
+    // 21:1 at the absolute most (#000000 on #FFFFFF). It is why the ramp's own
+    // floor was never 3:1, and it is still worth stating beside the recording.
     const black = Color(0xFF000000);
     const white = Color(0xFFFFFFFF);
     expect(_contrast(black, white), lessThan(3.0 * 3.0 * 3.0));
     expect(kStagePairFloor, lessThan(3.0));
-  });
-
-  test('the two themes reach the same floor — neither is the afterthought', () {
-    double worst(InstrumentHues hues) {
-      final values = _stages(hues).values.toList();
-      var lowest = double.infinity;
-      for (var i = 0; i < values.length; i++) {
-        for (var j = i + 1; j < values.length; j++) {
-          lowest = math.min(lowest, _contrast(values[i], values[j]));
-        }
-      }
-      return lowest;
-    }
-
-    expect(worst(const InstrumentHues.light()), greaterThanOrEqualTo(kStagePairFloor));
-    expect(worst(const InstrumentHues.dark()), greaterThanOrEqualTo(kStagePairFloor));
   });
 }

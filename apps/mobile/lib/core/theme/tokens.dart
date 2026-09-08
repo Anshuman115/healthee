@@ -12,29 +12,21 @@
 ///
 /// ## Three naming decisions, because each replaced something
 ///
-/// **[hole] is a FILL, not a hue.** The previous palette gave a withheld value a
-/// cool slate and called the token `withheld`. The approved design spends no
-/// colour on it: a dashed [line] border around a value-shaped box filled with
-/// [hole], at the size and position the number would have had, with the reason in
-/// ordinary [ink2] and the label in [ink3]. That is stronger than a hue. Brief §2
-/// rations colour to judgement — `fav`/`unf` for a reading against baseline,
-/// `alert` for illness — so tinting a refusal would make "we are declining to
-/// tell you" look like a verdict about the owner's body. It is the opposite of one.
+/// **[hole] is a FILL, not a hue.** A withheld value is drawn as a dashed [line]
+/// border around a value-shaped box filled with [hole], at the size and position
+/// the number would have had. Colour is rationed to judgement, so tinting a
+/// refusal would make "we are declining to tell you" look like a verdict about
+/// the owner's body. It is the opposite of one.
 ///
-/// **[unf] is not the old `warn`, and merging them would be wrong.** They answer
-/// different questions. `unf` says *this reading is below your normal* — a claim
-/// about the owner, drawn on the recovery ladder. A withhold says *we are not
-/// going to tell you* — a claim about us. Colouring a refusal `unf` asserts the
-/// very thing the refusal exists to decline.
+/// **[unf] is not a `warn`.** `unf` says *this reading is below your normal* — a
+/// claim about the owner. A withhold says *we are not going to tell you* — a
+/// claim about us. Colouring a refusal `unf` asserts the thing it declines.
 ///
-/// **There is no `danger`.** The old palette had one for a dead request, beside
-/// `alert` for illness. This design has one red, [alert], and the brief reserves
-/// it: *"Reserve true red for the illness/safety flag alone."* A failed network
-/// call is not a fact about the owner's health, so it gets no health colour —
-/// `ErrorState` is greyscale with an accent retry, and it stays distinguishable
-/// from a withhold structurally, by having a button where the withhold has a
-/// hole. `ColorScheme.error` is still wired to [alert] because Material's own
-/// widgets need a red; app-authored failure states do not use it.
+/// **[alert] is the illness flag alone.** A failed network call is not a fact
+/// about the owner's health, so it gets no health colour. `ColorScheme.error` is
+/// still wired to [alert] because Material's own widgets need a red;
+/// app-authored failure states do not use it.
+///
 library;
 
 import 'package:flutter/material.dart';
@@ -45,6 +37,7 @@ import 'package:healthee/core/theme/palette.dart';
 class HealtheeColors extends ThemeExtension<HealtheeColors> {
   /// Builds a token set. Prefer [HealtheeColors.light] / [HealtheeColors.dark].
   const HealtheeColors({
+    required this.canvas,
     required this.bg,
     required this.surface,
     required this.surface2,
@@ -54,6 +47,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
     required this.ink3,
     required this.line,
     required this.line2,
+    required this.rule,
     required this.grid,
     required this.reference,
     required this.accent,
@@ -67,11 +61,20 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
     required this.alert,
     required this.alertSoft,
     required this.hole,
+    required this.overlay,
+    required this.shadow,
+    required this.bioBackground,
+    required this.bioInk,
+    required this.bioGlow,
+    required this.bioLine,
+    required this.haloWarm,
+    required this.mapLand,
   });
 
   /// The approved design, light — the default theme.
   const HealtheeColors.light()
-    : bg = LightPalette.bg,
+    : canvas = LightPalette.canvas,
+      bg = LightPalette.bg,
       surface = LightPalette.surface,
       surface2 = LightPalette.surface2,
       chrome = LightPalette.chrome,
@@ -80,6 +83,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       ink3 = LightPalette.ink3,
       line = LightPalette.line,
       line2 = LightPalette.line2,
+      rule = LightPalette.rule,
       grid = LightPalette.grid,
       reference = LightPalette.reference,
       accent = LightPalette.accent,
@@ -92,11 +96,20 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       unfSoft = LightPalette.unfSoft,
       alert = LightPalette.alert,
       alertSoft = LightPalette.alertSoft,
-      hole = LightPalette.hole;
+      hole = LightPalette.hole,
+      overlay = LightPalette.overlay,
+      shadow = LightPalette.shadow,
+      bioBackground = LightPalette.bioBackground,
+      bioInk = LightPalette.bioInk,
+      bioGlow = LightPalette.bioGlow,
+      bioLine = LightPalette.bioLine,
+      haloWarm = LightPalette.haloWarm,
+      mapLand = LightPalette.mapLand;
 
   /// The approved design, dark — authored, not derived from light.
   const HealtheeColors.dark()
-    : bg = DarkPalette.bg,
+    : canvas = DarkPalette.canvas,
+      bg = DarkPalette.bg,
       surface = DarkPalette.surface,
       surface2 = DarkPalette.surface2,
       chrome = DarkPalette.chrome,
@@ -105,6 +118,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       ink3 = DarkPalette.ink3,
       line = DarkPalette.line,
       line2 = DarkPalette.line2,
+      rule = DarkPalette.rule,
       grid = DarkPalette.grid,
       reference = DarkPalette.reference,
       accent = DarkPalette.accent,
@@ -117,7 +131,18 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       unfSoft = DarkPalette.unfSoft,
       alert = DarkPalette.alert,
       alertSoft = DarkPalette.alertSoft,
-      hole = DarkPalette.hole;
+      hole = DarkPalette.hole,
+      overlay = DarkPalette.overlay,
+      shadow = DarkPalette.shadow,
+      bioBackground = DarkPalette.bioBackground,
+      bioInk = DarkPalette.bioInk,
+      bioGlow = DarkPalette.bioGlow,
+      bioLine = DarkPalette.bioLine,
+      haloWarm = DarkPalette.haloWarm,
+      mapLand = DarkPalette.mapLand;
+
+  /// The ground the app shell sits on, behind [bg]. `--canvas`, new in v02.
+  final Color canvas;
 
   /// Page background, behind every surface.
   final Color bg;
@@ -144,7 +169,15 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
   final Color line;
 
   /// The lighter hairline — rows inside a list, the rule under the app bar.
+  ///
+  /// **v02 has one hairline**, so this holds the same value as [line]; see
+  /// `palette.dart`. The role is kept because the screens that name it have not
+  /// been redesigned yet, and because a design may split the pair again.
   final Color line2;
+
+  /// The louder mark — a sheet handle, a separator, a secondary button's edge.
+  /// `--rule`, new in v02.
+  final Color rule;
 
   /// A rule drawn INSIDE a plot: gridlines and axis rules.
   ///
@@ -200,32 +233,51 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
   /// light, 5% white in dark — because the point is the shape, not the colour.
   final Color hole;
 
+  /// The scrim behind a modal sheet. `--overlay`; already translucent.
+  final Color overlay;
+
+  /// The one shadow v02 casts, under a pressed segment. `--shadow-color`.
+  final Color shadow;
+
+  /// The biological-age hero's own surface — dark in BOTH themes, which is
+  /// why it is a token and not `surface`. `--bio-background`.
+  final Color bioBackground;
+
+  /// Everything written on [bioBackground]. `--bio-ink`.
+  final Color bioInk;
+
+  /// The hero's halo. `--bio-glow`.
+  final Color bioGlow;
+
+  /// The hero's contour art and its divider. `--bio-line`.
+  final Color bioLine;
+
+  /// The halo's amber glint — one particle in eleven. `--halo-warm`.
+  ///
+  /// A role of its own rather than [LightFamilies.movement], which is the same
+  /// family of amber: `movement` MEANS steps, and the halo is decoration on the
+  /// biological-age card. See `shared/v02/instruments/halo_painter.dart`.
+  final Color haloWarm;
+
+  /// The ground a recorded track is drawn on. `--map-land`. A role of its own
+  /// for the same reason [haloWarm] is one — it belongs to one drawing rather
+  /// than to a category. `features/gps/route_map.dart` draws **no basemap**.
+  final Color mapLand;
+
   @override
   HealtheeColors copyWith({
-    Color? bg,
-    Color? surface,
-    Color? surface2,
-    Color? chrome,
-    Color? ink,
-    Color? ink2,
-    Color? ink3,
-    Color? line,
-    Color? line2,
-    Color? grid,
-    Color? reference,
-    Color? accent,
-    Color? accent2,
-    Color? accentSoft,
-    Color? onAccent,
-    Color? fav,
-    Color? favSoft,
-    Color? unf,
-    Color? unfSoft,
-    Color? alert,
-    Color? alertSoft,
-    Color? hole,
+    Color? canvas, Color? bg, Color? surface, Color? surface2, Color? chrome,
+    Color? ink, Color? ink2, Color? ink3,
+    Color? line, Color? line2, Color? rule, Color? grid, Color? reference,
+    Color? accent, Color? accent2, Color? accentSoft, Color? onAccent,
+    Color? fav, Color? favSoft, Color? unf, Color? unfSoft,
+    Color? alert, Color? alertSoft, Color? hole, Color? overlay, Color? shadow,
+    Color? bioBackground, Color? bioInk, Color? bioGlow, Color? bioLine,
+    Color? haloWarm,
+    Color? mapLand,
   }) {
     return HealtheeColors(
+      canvas: canvas ?? this.canvas,
       bg: bg ?? this.bg,
       surface: surface ?? this.surface,
       surface2: surface2 ?? this.surface2,
@@ -235,6 +287,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       ink3: ink3 ?? this.ink3,
       line: line ?? this.line,
       line2: line2 ?? this.line2,
+      rule: rule ?? this.rule,
       grid: grid ?? this.grid,
       reference: reference ?? this.reference,
       accent: accent ?? this.accent,
@@ -248,6 +301,14 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       alert: alert ?? this.alert,
       alertSoft: alertSoft ?? this.alertSoft,
       hole: hole ?? this.hole,
+      overlay: overlay ?? this.overlay,
+      shadow: shadow ?? this.shadow,
+      bioBackground: bioBackground ?? this.bioBackground,
+      bioInk: bioInk ?? this.bioInk,
+      bioGlow: bioGlow ?? this.bioGlow,
+      bioLine: bioLine ?? this.bioLine,
+      haloWarm: haloWarm ?? this.haloWarm,
+      mapLand: mapLand ?? this.mapLand,
     );
   }
 
@@ -257,6 +318,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       return this;
     }
     return HealtheeColors(
+      canvas: Color.lerp(canvas, other.canvas, t)!,
       bg: Color.lerp(bg, other.bg, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
       surface2: Color.lerp(surface2, other.surface2, t)!,
@@ -266,6 +328,7 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       ink3: Color.lerp(ink3, other.ink3, t)!,
       line: Color.lerp(line, other.line, t)!,
       line2: Color.lerp(line2, other.line2, t)!,
+      rule: Color.lerp(rule, other.rule, t)!,
       grid: Color.lerp(grid, other.grid, t)!,
       reference: Color.lerp(reference, other.reference, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
@@ -279,6 +342,14 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
       alert: Color.lerp(alert, other.alert, t)!,
       alertSoft: Color.lerp(alertSoft, other.alertSoft, t)!,
       hole: Color.lerp(hole, other.hole, t)!,
+      overlay: Color.lerp(overlay, other.overlay, t)!,
+      shadow: Color.lerp(shadow, other.shadow, t)!,
+      bioBackground: Color.lerp(bioBackground, other.bioBackground, t)!,
+      bioInk: Color.lerp(bioInk, other.bioInk, t)!,
+      bioGlow: Color.lerp(bioGlow, other.bioGlow, t)!,
+      bioLine: Color.lerp(bioLine, other.bioLine, t)!,
+      haloWarm: Color.lerp(haloWarm, other.haloWarm, t)!,
+      mapLand: Color.lerp(mapLand, other.mapLand, t)!,
     );
   }
 
@@ -286,12 +357,13 @@ class HealtheeColors extends ThemeExtension<HealtheeColors> {
   /// equality, and Flutter compares theme extensions to decide whether a theme
   /// change needs a rebuild.
   List<Color> get _roles => [
-    bg, surface, surface2, chrome,
+    canvas, bg, surface, surface2, chrome,
     ink, ink2, ink3,
-    line, line2, grid, reference,
+    line, line2, rule, grid, reference,
     accent, accent2, accentSoft, onAccent,
     fav, favSoft, unf, unfSoft,
-    alert, alertSoft, hole,
+    alert, alertSoft, hole, overlay, shadow,
+    bioBackground, bioInk, bioGlow, bioLine, haloWarm, mapLand,
   ];
 
   @override

@@ -134,6 +134,36 @@ def method_of(stored: object) -> str:
     return str(stored or METHOD_JURCA)
 
 
+def submax_method_of(flags: dict | None) -> str:
+    """The instrument behind a stored ``vo2max_submax`` row, from its flags.
+
+    NOT :func:`method_of`, and the difference is the whole reason this exists: that one
+    answers for ``vo2max_estimate``, whose unstamped rows are all Jurca. A ``vo2max_submax``
+    row is a SESSION measurement, so an unstamped one is a graded fit — everything written
+    before #114, when the reserve inversion arrived ([[submaximal_vo2max]]). One default
+    used for both would relabel every old measured session as a model estimate.
+
+    Two callers, hence one function (standards, "Duplication"): :func:`measured_sessions`
+    reading the tier out of the day cells, and ``derive/gps._store`` deciding whether a new
+    session may replace the one already in a day's cell.
+    """
+    return str((flags or {}).get("method") or METHOD_GRADED)
+
+
+def outranks(challenger: str, incumbent: str) -> bool:
+    """Does ``challenger`` come EARLIER in the measured precedence than ``incumbent``?
+
+    ``False`` for equal methods, so a re-score of the same instrument still overwrites
+    (``--rescore-tracks`` has to be able to move a value) while a weaker instrument cannot
+    displace a stronger one. A method not in :data:`MEASURED_PRECEDENCE` ranks last, which
+    is the safe direction: an instrument this module has never heard of does not get to
+    outrank a graded fit on the strength of being unknown.
+    """
+    order = {method: rank for rank, method in enumerate(MEASURED_PRECEDENCE)}
+    last = len(MEASURED_PRECEDENCE)
+    return order.get(challenger, last) < order.get(incumbent, last)
+
+
 @dataclass(frozen=True)
 class MeasuredSession:
     """One stored ``vo2max_submax`` row: what a recorded session measured, and with what.
@@ -214,13 +244,12 @@ def measured_sessions(cur: Cur, user_id: UUID, day: date) -> list[MeasuredSessio
     )
     out: list[MeasuredSession] = []
     for row_day, value, flags in cur.fetchall():
-        f = flags or {}
-        hrr = f.get("hrr_median")
+        hrr = (flags or {}).get("hrr_median")
         out.append(
             MeasuredSession(
                 day=row_day,
                 value=float(value),
-                method=str(f.get("method") or METHOD_GRADED),
+                method=submax_method_of(flags),
                 hrr_median=float(hrr) if hrr is not None else None,
             )
         )

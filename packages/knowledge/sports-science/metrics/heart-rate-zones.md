@@ -204,11 +204,25 @@ content on the order of ~20–25% [Granata 2018; Mølmen 2025].
 - **HRmax** — `estimateHrMax(age) = 208 − 0.7·age` (Tanaka). A float internally,
   rounded only for display. Flagged as a **population estimate (±10–20 bpm)**; a
   measured/field-tested HRmax must override it whenever available.
-- **5-zone model** — `computeHrZones({ hrMax, restingHr, lthr? })` builds **Karvonen
-  %HRR** bands: `HRR = HRmax − HRrest`; `targetHR = HRrest + frac·HRR`. Current
-  boundary convention (half-open intervals, each HR lands in exactly one zone):
+- **5-zone model.** ⚠ **THE SHIPPED ANCHOR IS %HRmax, NOT %HRR** (corrected
+  2026-09-08). `derive/cardio_load.py:100` computes `pct = hr / hrmax` and bins it
+  against `EDWARDS_ZONE_LO = (0.50, 0.60, 0.70, 0.80, 0.90)`. It writes
+  `hr_zone_minutes`, and it is the only writer.
+  This section described **Karvonen %HRR** bands (`HRR = HRmax − HRrest`,
+  `targetHR = HRrest + frac·HRR`, `method` tagged `"hrr-karvonen"`) with the *same*
+  numeric edges — and the same edges mean materially different heart rates under the
+  two anchors, which is one metric with two definitions and the thing CLAUDE.md
+  forbids outright. `training-stress-score.md:473-479` describes the shipped %HRmax
+  model correctly, so the corpus disagreed with itself as well as with the code; the
+  corpus converges on the code here, and the table below is now labelled **%HRmax**.
+  The admission that "Healthee's real implementation is `derive/cardio_load.py`"
+  reached this file's preamble and not its table or its coaching section — which is
+  how a correction leaves a live contradiction behind.
+  Karvonen %HRR remains the better *prescription* anchor and is worth building; until
+  something writes it, no surface may describe our zones as %HRR. Current boundary
+  convention (half-open intervals, each HR lands in exactly one zone):
 
-  | Zone | Label | %HRR |
+  | Zone | Label | %HRmax (as shipped) |
   |---|---|---|
   | 1 | Recovery | 50–60% |
   | 2 | Easy / Aerobic base | 60–70% |
@@ -216,8 +230,10 @@ content on the order of ~20–25% [Granata 2018; Mølmen 2025].
   | 4 | Threshold | 80–90% |
   | 5 | VO₂max | 90–100% |
 
-  Below 50% HRR folds into the bottom of Z1 so the model covers the full working range.
-  `method` is tagged `"hrr-karvonen"`.
+  Below 50% HRmax folds into the bottom of Z1 so the model covers the full working
+  range. The `"hrr-karvonen"` method tag described a model nothing computes and is not
+  on the wire; `derive/cardio_load.py` stamps `method: "banister"` on the row it writes
+  alongside these minutes.
 - **LTHR-anchored option** — `lthr` can be passed when independently field-tested
   (see below). When present it is the preferred anchor for the Z3–Z4 (tempo/threshold)
   region, because those zones are *defined by* the threshold the runner actually has,
@@ -246,10 +262,14 @@ zones that matter most for quality work.
 ## How the coach uses it
 Decision logic, by stage:
 
-- **Default anchor:** use Karvonen **%HRR** zones from `computeHrZones`. Prefer a
-  **measured HRmax** (from a max effort / race) over the Tanaka estimate, and a
-  **field-tested LTHR** over fixed %HRR for tempo/threshold prescription, as soon as
-  the runner has either.
+- **Default anchor:** the zones we actually compute are **%HRmax**
+  (`derive/cardio_load.py`), so that is what a coach may describe and read back. Prefer
+  a **measured HRmax** (from a max effort / race) over the Tanaka estimate, and a
+  **field-tested LTHR** over any fixed fraction for tempo/threshold prescription, as
+  soon as the runner has either. *(This line said "use Karvonen %HRR zones from
+  `computeHrZones`" until 2026-09-08 — a coaching instruction naming a module that
+  exists nowhere and an anchor nothing computes. %HRR is the better prescription anchor
+  and remains the thing to build; it is not the thing we have.)*
 - **Stage 1 (beginner):** keep ~the entire week in **Z1–Z2 (easy / aerobic base)**.
   Emphasise building recoverable volume and frequency; the priority adaptation is
   mitochondrial/aerobic, which the evidence says is *volume- and fitness-driven* and

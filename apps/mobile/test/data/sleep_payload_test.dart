@@ -24,7 +24,7 @@ void main() {
       final night = page.latest!;
       expect(night.tstMin, const Present<double>(380));
       expect(night.efficiencyPct, const Present<double>(84.4));
-      expect(night.stages.total, 400);
+      expect(night.stages!.total, 400);
       expect(night.timeline, hasLength(3));
       expect(night.start, isNotNull);
     });
@@ -38,7 +38,6 @@ void main() {
         'start_iso',
         'end_iso',
         'tst_min',
-        'duration_min',
         'spo2_avg',
       ]).nights.first;
       expect(night.start, isNull);

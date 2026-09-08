@@ -383,7 +383,17 @@ sports-science corpus import. The true position:
 - **D7:** Default hydration instruction is "drink to thirst"; do not prescribe
   forced fluid schedules for general training. — confidence: Established
 - **D8:** Never advise drinking beyond thirst or in excess of sweat losses; flag
-  in-run weight gain as an exercise-associated-hyponatremia risk. — confidence: Established (SAFETY-CRITICAL; enforced in code via [[hydration_everyday]] D5/D6 in `insights/guard_directives.py` — see *Safety bounds*, #87)
+  in-run weight gain as an exercise-associated-hyponatremia risk. — confidence:
+  Established (SAFETY-CRITICAL; **PARTLY enforced in code.** `[[hydration_everyday]]`
+  D5/D6 compile in `insights/guard_directives.py`, and what they deterministically catch
+  is a **numeric volume or rate** fluid instruction in an exercise-or-heat sentence, plus
+  any fluid advice at all where a fluid-sensitive condition or restriction is mentioned.
+  "Drink 500 ml every hour" is blocked; "drink beyond thirst" and "stay ahead of your
+  thirst" are **not** — the compiled pattern does not contain the word *thirst*. This
+  note declares no `safety_critical` marker of its own and D8 remains a candidate for
+  that mechanism rather than a user of it; the sweat-loss and weight-gain halves are for
+  the coach to follow. See *Safety bounds* below, which has said this since #87 and which
+  this line contradicted until it was corrected on 2026-09-08.)
 - **D9:** Recommend sodium-containing fuel for long/hot efforts and self-reported
   salty/heavy sweaters, framed for comfort and palatability — not as a guaranteed
   EAH prophylactic. — confidence: Established

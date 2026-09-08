@@ -67,6 +67,29 @@ other row is byte-identical to legacy):
       construction) but the seed's tst+wake (480) equals its wall-clock span (480),
       so efficiency_pct stays 95.8 and NO sleep row moves. Verified: zero sleep
       diffs here — the correction only bites when staged minutes overshoot the span.
+  C4  mvpa_min.value — 25.0 → 30.0 on all eight days (audit C2, 2026-09-08). Legacy
+      stored `moderate + vigorous`; the metric is the WHO MET-EQUIVALENT total
+      `moderate + 2 x vigorous`, which is what its three notes specify five times over
+      and what the 150 target it is measured against is denominated in. The seed is
+      20 moderate + 5 vigorous every day, so 25 → 30 on every row and the arithmetic is
+      checkable by eye. FLAGS ARE UNTOUCHED — `moderate` and `vigorous` stay the raw
+      halves, because the weekly card's subline reads "moderate {m} + vigorous {v} x 2"
+      and needs the pair un-weighted.
+      This is the one divergence that makes a number BIGGER, and that is worth stating:
+      the old value under-credited vigorous minutes by half, so the correction moves
+      the owner's number up. It is not flattery — it is the guideline's own equivalence,
+      and it can only move a day on which vigorous minutes were recorded. This owner has
+      none, which is why the audit banded it C. `test_mvpa_met_equivalent.py` is the
+      known-value test that pins it where a fixture cannot reach.
+  M6  sleep_*.flags.session_source — the legacy cloud's name → `strap_ble` on all six
+      rows a night produces (write-path audit C1, 2026-09-08). A PROVENANCE label and
+      nothing else: **no value moves and no other flag changes**, which is exactly why
+      it appears here as a re-baseline rather than as a science divergence. Legacy's
+      literal was true of legacy — sleep really did arrive from Zepp Cloud there. In
+      this repo the only writer of the sleep session table is the strap BLE push, so
+      the field named an instrument that did not take the reading. The one-writer
+      premise the rename rests on is asserted, not assumed, in
+      `test_session_source.py`.
 """
 
 from __future__ import annotations

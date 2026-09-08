@@ -87,8 +87,15 @@ sleep_debt_min  = Σ over last 14 nights ( nightly_deficit )
 
 Nights **above** need pay debt back (recovery sleep), but physiology only recovers
 a fraction of lost sleep per night — we credit surplus at **0.5×** (you don't
-fully "bank" extra sleep) and cap total debt at a sane ceiling (~ 2 nights' need)
-so a long gap doesn't read as an implausible deficit. This is arithmetic over one
+fully "bank" extra sleep). **There is NO ceiling on total debt, and there must not be**
+(corrected 2026-09-08; this said "cap total debt at a sane ceiling (~ 2 nights' need)
+so a long gap doesn't read as an implausible deficit"). `derive/sleep_score.py:239`
+returns `max(0.0, shortfall - 0.5 * surplus)` uncapped and its docstring says so on
+purpose — *"no artificial cap, so a real chronic deficit shows in full"*. The cap was
+uncited, and for a chronic short sleeper it would clip a genuine fortnightly deficit to
+two nights' worth: flattery by construction, in the one metric this product exists to be
+honest about. "Implausible" was the wrong word for a real number that is merely large.
+Here the CODE is right and this note was wrong. This is arithmetic over one
 measured quantity (TST) against a cited target — not a proprietary composite (cf.
 `no_validated_sleep_score`, `sleep_duration_mortality`).
 

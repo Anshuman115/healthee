@@ -179,11 +179,20 @@ def prompt_body(note_id: str) -> str:
     in the note's *evidence* prose and are untouched.
 
     It is a SECOND accessor rather than a change to :func:`note_body` because the two
-    have different readers. ``note_body`` is the whole note — what a human gets when
-    they open the ⓘ sheet to read the evidence themselves, which PRICING §1a keeps on
-    the free tier precisely so the sourcing is inspectable. Stripping the sources there
-    would take the honesty contract's own receipts away to save tokens nobody was
-    spending.
+    are meant for different readers. ``note_body`` is the whole note, sources included,
+    for a human reading the evidence directly.
+
+    ⚠ **No endpoint serves it, and none ever has** (audit D13, 2026-09-08). This
+    docstring said ``note_body`` is "what a human gets when they open the ⓘ sheet to read
+    the evidence themselves, which PRICING section 1a keeps on the free tier". It has no
+    caller outside :func:`prompt_body`, and no router under ``api/routers/`` exposes the
+    corpus at all. The owner's only access to a claim's sourcing is the Dart explainer
+    prose in ``apps/mobile/lib/shared/metric_info/`` — which is exactly why the
+    2026-09-08 audit's section A matters as much as it does, and why a sentence there is
+    the last line rather than a summary of something inspectable behind it.
+
+    The argument for keeping the sources in ``note_body`` still stands on its own terms:
+    stripping them would leave nothing to serve when a reader finally can.
     """
     return _BIBLIOGRAPHY.sub("", note_body(note_id)).strip()
 

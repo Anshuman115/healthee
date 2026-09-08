@@ -191,6 +191,13 @@ MIN_SPEED_MS = RUN_SPEED_MS
 MIN_RESERVE_WINDOWS = 6
 
 # HRmax must sit meaningfully above HRrest or the reserve span is not a span.
+#
+# PLAUSIBILITY GATE, not a research constant, and no note is cited because none supports
+# a number here (audit D11 — it previously carried no provenance at all). A reserve
+# narrower than 40 bpm on an adult means one of the two anchors is wrong — a
+# beta-blocked or mis-measured RHR, or a Tanaka HRmax on someone far from the mean —
+# and inverting a %HRR through a span that small multiplies the error rather than
+# measuring anything. Widening it needs evidence in this comment.
 _MIN_RESERVE_SPAN_BPM = 40.0
 
 # ── Withhold reasons (the `derive/freshness.py` vocabulary shape) ────────────

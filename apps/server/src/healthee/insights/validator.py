@@ -129,9 +129,23 @@ def is_refusal(text: str) -> bool:
 
 
 def _grade_issue(sentence: str, cited_ids: set[str]) -> str | None:
-    """Enforce grade-calibrated wording for one cited interpretive sentence."""
+    """Enforce grade-calibrated wording for one cited interpretive sentence.
+
+    An unrecognised grade string ranks **0 — the strictest wording rule** — which is
+    ``jobs/recs._provable_grade``'s "an unknown grade ranks 0 (fail-closed)" and
+    ``challenges/screen._grade_issue``'s, applied to the same lookup in the module that
+    should be strictest of the three. It defaulted to 3 (Established, the most permissive
+    branch) here, i.e. the honesty layer's most permissive default sat inside its own
+    validator while the argument for the strict one was written down twice elsewhere.
+
+    Nothing changes today: ``packages/knowledge/tools/gen_manifest.py`` pins the grade
+    vocabulary and aborts on an unknown one, so every string in the manifest is in
+    ``GRADE_RANK``. The point is the day the vocabulary grows a seventh value — the
+    branch a new grade falls into must be the one that demands correction framing, not
+    the one that lets it be stated plainly.
+    """
     grades = [manifest.grade_of(i) for i in cited_ids]
-    ranks = [manifest.GRADE_RANK.get(g or "", 3) for g in grades if g]
+    ranks = [manifest.GRADE_RANK.get(g or "", 0) for g in grades if g]
     if not ranks:
         return None
     strictest = min(ranks)  # lowest rank = weakest evidence = strictest wording
@@ -189,9 +203,15 @@ def _sentence_issues(
 
 
 def _grade_floor(valid_ids: set[str]) -> str | None:
-    """The weakest grade among the response's valid citations (its evidence floor)."""
+    """The weakest grade among the response's valid citations (its evidence floor).
+
+    Same fail-closed default as :func:`_grade_issue`: an unrecognised grade ranks 0, so
+    it BECOMES the floor rather than being ranked as the firmest thing in the answer. A
+    floor is a statement about how weak the ground is; a grade we cannot rank is not
+    evidence that it is strong.
+    """
     graded = [
-        (manifest.GRADE_RANK.get(manifest.grade_of(i) or "", 3), manifest.grade_of(i))
+        (manifest.GRADE_RANK.get(manifest.grade_of(i) or "", 0), manifest.grade_of(i))
         for i in valid_ids
     ]
     return min(graded)[1] if graded else None

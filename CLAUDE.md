@@ -1,9 +1,14 @@
 # Healthee
 
 An honest, self-hosted AI health companion built on data reverse-engineered from
-an Amazfit Helio Strap. It never flatters: every interpretive claim is grounded
-in a graded research corpus, every number carries its data confidence, and
-"not enough data" always beats an optimistic guess.
+an Amazfit Helio Strap. It never flatters: every interpretive claim cites a real
+note in a graded research corpus and is calibrated to that note's grade, every
+number carries its data confidence, and "not enough data" always beats an
+optimistic guess. (What is *enforced* is citation, id-existence and
+grade-calibration against the manifest — not entailment. There is no step that
+reads a note and decides whether it supports the sentence, by choice and for
+cost; `docs/INTELLIGENCE.md` section 3 says so plainly, and the three deterministic
+surfaces that go further are named there.)
 
 **This is the clean rebuild monorepo.** The previous implementation lives at
 `~/projects/healthee-legacy` (read-only reference — mine it for the proven BLE
@@ -16,6 +21,9 @@ cutover.
 - **docs/ENGINEERING_STANDARDS.md** — binding quality gates (400-line file max,
   no swallowed errors, tests in the same PR, science code is sacred). Diffs that
   violate a MUST get rejected in review even if they work.
+- **docs/HOW_WE_VERIFY.md** — how we find out whether the code is what it
+  claims: mutation testing and its four ways of lying, the honesty layer's
+  structural enforcement, and the traps that have cost us real time.
 - **docs/ARCHITECTURE.md** — target architecture + the phase plan.
 
 ## Working model

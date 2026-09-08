@@ -1,28 +1,50 @@
-/// The pairing screen: composition only.
+/// Connect your strap — `H.screens.pairing`, with the real flow under it.
 ///
-/// Standards §3 — "a screen file lays out modules; each module widget lives in
-/// its own file". The switch below picks a module per step and the modules do
-/// the drawing; the logic is all in `pairing_controller.dart`.
+/// ```js
+/// H.screens.pairing = () => `${H.header('A quiet connection.','Connect your strap',true)}
+///   <div class="device-visual">${H.icon('strap')}</div>
+///   <h2 class="center">Your health starts here.</h2>
+///   <p class="small center section">…</p>
+///   <div class="card section"><div class="timeline">
+///     <div class="timeline-item"><span class="node active">1</span>…Find your strap…</div>
+///     <div class="timeline-item"><span class="node">2</span>…Connect securely…</div>
+///     <div class="timeline-item"><span class="node">3</span>…Bring your data together…</div>
+///   </div></div>
+///   ${H.button('Find my strap','scan','full section','strap')}
+///   <p class="form-note center">This button demonstrates pairing…</p>`;
+/// ```
 ///
-/// The `switch` on [PairingStep] is exhaustive because the union is sealed, so a
-/// step added later without a widget is a compile error rather than a blank
-/// screen — the same guarantee `Reading<T>` gives the honesty states, applied to
-/// the flow.
+/// ## The prototype's one screen is our five steps, and the timeline is the seam
 ///
-/// ## What used to be here and is not
+/// `H.screens.pairing` is a single introduction with one button, because a
+/// design preview has nothing to pair. The real flow is a sealed
+/// [PairingStep] union — sign in, choose, confirm, paired, or the manual
+/// fallback — and it cannot be collapsed into one button without deleting it.
 ///
-/// A "Your server" card and an "Open diagnostics" card, both because the Today
-/// avatar opened this screen and this was, in that widget's own words, "the only
-/// identity surface that exists". Neither is about pairing. They are rows on
-/// `features/settings/` now, which is where the avatar goes, and this screen is
-/// about the strap again.
+/// So the prototype's opening is kept **as the screen's head** and the step's
+/// own form is drawn under it. The timeline is not decoration: its `active`
+/// node tracks the real step, so the three numbered stages describe where the
+/// owner actually is rather than illustrating a journey beside one.
+///
+/// The mapping is the prototype's own wording against this flow:
+///
+/// ```text
+///   1  Find your strap             ZeppSignInStep · ManualEntryStep · ChooseDeviceStep
+///   2  Connect securely            ConfirmStrapStep
+///   3  Bring your data together    PairedStep
+/// ```
+///
+/// The `switch` on [PairingStep] is exhaustive because the union is sealed, so
+/// a step added later without a widget is a compile error rather than a blank
+/// screen — the same guarantee `Reading<T>` gives the honesty states.
 library;
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/data/pairing/paired_strap.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/features/pairing/pairing_controller.dart';
@@ -35,33 +57,95 @@ import 'package:healthee/features/pairing/widgets/strap_confirmation.dart';
 import 'package:healthee/features/pairing/widgets/zepp_sign_in_form.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/v02/emblems.dart';
+import 'package:healthee/shared/v02/settings_page.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
 
 /// Pair a strap, or review the pairing already held.
 class PairingScreen extends ConsumerWidget {
   /// [onDone] is what "Done" does — the route back into the app.
   const PairingScreen({this.onDone, super.key});
 
+  /// The prototype's own h1.
+  static const String title = 'A quiet connection.';
+
+  /// Its eyebrow.
+  static const String eyebrow = 'Connect your strap';
+
+  /// The centred headline under the device figure.
+  static const String headline = 'Your health starts here.';
+
+  /// And the sentence under that.
+  static const String opening =
+      'Keep your Helio Strap nearby. Once paired, its readings become part of '
+      'one connected picture.';
+
   /// Called when the owner leaves a completed pairing. Null in tests.
   final VoidCallback? onDone;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Your strap')),
-      body: ListView(
-        padding: const EdgeInsets.all(Insets.lg),
-        children: [
-          AsyncView<({PairedStrap? strap, bool zeppRemembered})>(
-            value: ref.watch(pairingSummaryProvider),
-            onRetry: () => ref.invalidate(pairingSummaryProvider),
-            loadingLabel: 'Checking what is already paired',
-            errorMessage: "Couldn't read this phone's keystore",
-            builder: (context, summary) => _PairingBody(summary: summary, onDone: onDone),
+    final colors = context.colors;
+    return SettingsPage(
+      title: title,
+      eyebrow: eyebrow,
+      children: <Widget>[
+        const DeviceVisual(),
+        Center(
+          child: Text(
+            headline,
+            textAlign: TextAlign.center,
+            style: FormType.heading2.copyWith(color: colors.ink),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: SectionGap.height),
+        const SmallProse(opening, centred: true),
+        const SectionGap(),
+        AsyncView<({PairedStrap? strap, bool zeppRemembered})>(
+          value: ref.watch(pairingSummaryProvider),
+          onRetry: () => ref.invalidate(pairingSummaryProvider),
+          loadingLabel: 'Checking what is already paired',
+          errorMessage: "Couldn't read this phone's keystore",
+          builder: (context, summary) =>
+              _PairingBody(summary: summary, onDone: onDone),
+        ),
+      ],
     );
   }
+}
+
+/// Where the owner is, drawn as the prototype's three-step timeline.
+///
+/// Public so a test can assert the node the flow lit rather than the words
+/// beside it.
+List<TimelineStep> pairingTimeline(PairingStep step) {
+  final stage = switch (step) {
+    ZeppSignInStep() || ManualEntryStep() || ChooseDeviceStep() => 0,
+    ConfirmStrapStep() => 1,
+    PairedStep() => 2,
+  };
+  const List<(String, String)> stages = <(String, String)>[
+    (
+      'Find your strap',
+      'Its key is on your Zepp account, or you can type it in.',
+    ),
+    (
+      'Connect securely',
+      'Confirm the strap on the air before anything is stored.',
+    ),
+    (
+      'Bring your data together',
+      'The first collection may take a little longer.',
+    ),
+  ];
+  return <TimelineStep>[
+    for (var i = 0; i < stages.length; i++)
+      TimelineStep(
+        title: stages[i].$1,
+        body: stages[i].$2,
+        active: i == stage,
+      ),
+  ];
 }
 
 class _PairingBody extends ConsumerWidget {
@@ -89,17 +173,20 @@ class _PairingBody extends ConsumerWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        PlainCard(child: HTimeline(pairingTimeline(state.step))),
+        const SectionGap(),
         _StepBody(state: state, controller: controller, onDone: onDone),
-        if (state.failure case final failure?) ...[
-          const SizedBox(height: Insets.lg),
+        if (state.failure case final failure?) ...<Widget>[
+          const SectionGap(),
           PairingFailureCard(
             failure: failure,
             onRetry: () => _retry(state, controller),
           ),
         ],
-        if (state.isBusy) ...[
-          const SizedBox(height: Insets.lg),
+        if (state.isBusy) ...<Widget>[
+          const SectionGap(),
           LoadingState(label: state.busyLabel),
         ],
       ],

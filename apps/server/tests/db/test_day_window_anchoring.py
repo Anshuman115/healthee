@@ -157,7 +157,7 @@ def test_derived_series_anchors_to_the_owners_today(
 ) -> None:
     """Each owner's window runs to THEIR today — not the database's, not the other's."""
     with tenant_transaction(user_id) as cur:
-        series = derived_series(cur, user_id, tz, "steps_total", _WINDOW)
+        series = derived_series(cur, user_id, "steps_total", _WINDOW, user_today(tz))
 
     got = [date.fromisoformat(point["date"]) for point in series]
     assert got == _expected_days(tz), (
@@ -175,7 +175,7 @@ def test_derived_series_many_anchors_to_the_owners_today(
 ) -> None:
     """The batched Today-sparkline loader shares the single-metric anchor."""
     with tenant_transaction(user_id) as cur:
-        series = derived_series_many(cur, user_id, tz, ["steps_total"], _WINDOW)
+        series = derived_series_many(cur, user_id, ["steps_total"], _WINDOW, user_today(tz))
 
     got = [date.fromisoformat(point["date"]) for point in series["steps_total"]]
     assert got == _expected_days(tz)

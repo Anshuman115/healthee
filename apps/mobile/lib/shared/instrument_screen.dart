@@ -16,14 +16,31 @@
 /// A page of twenty error cards would be the same news said twenty times, which
 /// reads as breakage rather than as one connection problem.
 ///
-/// ## `ListView.builder` and reveal-once
+/// ## A lazy sliver list and reveal-once
 ///
-/// The list is a `ListView.builder` and the [RevealRegistry] lives in this
-/// widget's `State`. Both halves are required and neither works alone: the
-/// builder is what keeps a long list at 60 fps, and it is also precisely what
-/// makes a chart's own `State` die on scroll and replay its animation on the way
-/// back. `shared/reveal_once.dart` has the full argument, and every ported
-/// painter takes its progress as a parameter for exactly this reason.
+/// The list is a **`CustomScrollView` over lazily built slivers**, and the
+/// [RevealRegistry] lives in this widget's `State`. Both halves are required and
+/// neither works alone: laziness is what keeps a long list at 60 fps, and it is
+/// also precisely what makes a chart's own `State` die on scroll and replay its
+/// animation on the way back. `shared/reveal_once.dart` has the full argument,
+/// and every ported painter takes its progress as a parameter for exactly this
+/// reason.
+///
+/// **The restructure from `ListView.builder` did not touch that guarantee, by
+/// construction.** `RevealOnce` never reads a scroll position, an index or a
+/// viewport — it asks a registry that outlives the item whether this id has been
+/// seen. `SliverList.builder` destroys items exactly as `ListView.builder` did,
+/// so the mechanism is under the same pressure and answers the same way.
+///
+/// ## Why slivers, when a `ListView` was simpler
+///
+/// `richer.css` gives the chapter nav `position: sticky; top: 0`, and a header
+/// that stays put while the list moves under it is a `SliverPersistentHeader` —
+/// there is no other shape for it. A section declares
+/// [PageSection.pinnedExtent] and this shell splits the list around it: an
+/// ordinary run becomes one lazy `SliverList`, a pinned section becomes a header
+/// between two of them. A screen with no pinned section builds exactly one
+/// sliver and behaves as it always did.
 ///
 /// **That registry is only worth anything while this `State` lives.** It used to
 /// die on every tab switch, because each tab was its own page — so the rule held
@@ -57,63 +74,25 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/device/device_repository.dart';
-import 'package:healthee/data/models/today_snapshot.dart';
-import 'package:healthee/data/models/today_view.dart';
+import 'package:healthee/data/history/dated_history.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/screen_data.dart';
 import 'package:healthee/shared/states/async_view.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:healthee/shared/states/current_account_value.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
-/// Everything a screen's section list is built from.
-@immutable
-class ScreenData {
-  /// Handed to a [SectionsBuilder] on every rebuild.
-  const ScreenData({
-    required this.day,
-    required this.server,
-    required this.reveals,
-    required this.onRetryServer,
-    this.now,
-  });
-
-  /// What the strap measured, and its refusals.
-  final DeviceDay day;
-
-  /// What the server made of it — including its loading and error states, which
-  /// a section list is sometimes the right place to render.
-  final AsyncValue<TodayView> server;
-
-  /// Where "this chart has already animated" is remembered. The screen's.
-  final RevealRegistry reveals;
-
-  /// Re-reads `/api/today`. Handed to [serverErrorCard] by whichever section
-  /// list decides to draw one.
-  final VoidCallback onRetryServer;
-
-  /// The instant every "x min ago" is measured against.
-  final DateTime? now;
-
-  /// The server's payload, or null when it has not answered.
-  TodaySnapshot? get snapshot => server.value?.snapshot;
-
-  /// The one card the derived half collapses into when it cannot be reached.
-  ///
-  /// Null when the server answered or is still answering — a screen that drew
-  /// this while a request was in flight would be calling a slow network a
-  /// failure.
-  PageSection? get serverFailure => server.value == null && server.hasError
-      ? PageSection(serverErrorCard(onRetryServer))
-      : null;
-
-  /// The placeholder while the derived half is still in flight.
-  PageSection? get serverPending => server.value == null && server.isLoading
-      ? const PageSection(LoadingState(label: "Reading the server's view of today"))
-      : null;
-}
+// `ScreenData` moved to its own file at the 400-line gate, and is re-exported
+// because it is half of this file's public interface: a section list is a
+// function OF it, and twenty screens that import the shell would otherwise each
+// gain a second import to say the same thing. The split is about where the code
+// lives, not about what a caller has to know.
+export 'package:healthee/shared/screen_data.dart';
 
 /// Builds the ordered sections for one render.
 typedef SectionsBuilder = List<PageSection> Function(ScreenData data);
@@ -148,7 +127,17 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final server = ref.watch(todaySnapshotProvider);
+    final server = currentAccountValue(ref.watch(todaySnapshotProvider));
+    final view = watchViewDay(ref);
+    // **The one place the past-day invariant is established.** A conditional
+    // `watch` is how a provider is subscribed to only when it is needed:
+    // Riverpod recomputes the dependency set on every build, so stepping onto a
+    // past day subscribes and stepping back to the newest day unsubscribes.
+    // `datedHistoryProvider` is `keepAlive`, so the round trip is paid once per
+    // session rather than once per step. See `ScreenData.history`.
+    final history = view.isPast
+        ? currentAccountValue(ref.watch(datedHistoryProvider))
+        : null;
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -169,8 +158,11 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
                   day: day,
                   server: server,
                   reveals: _reveals,
+                  view: view,
+                  history: history,
                   now: widget.now,
                   onRetryServer: () => ref.invalidate(todaySnapshotProvider),
+                  onRetryHistory: () => ref.invalidate(datedHistoryProvider),
                 ),
               ),
             ),
@@ -186,6 +178,9 @@ class _InstrumentScreenState extends ConsumerState<InstrumentScreen> {
   Future<void> _refresh() async {
     await ref.read(syncControllerProvider.notifier).syncNow();
     ref.invalidate(todaySnapshotProvider);
+    // The dated series moves when a sync lands new days, and never otherwise —
+    // it is `keepAlive`, so this is the one thing that refreshes it.
+    ref.invalidate(datedHistoryProvider);
     widget.onRefreshed?.call();
     _reveals.reset();
   }
@@ -198,29 +193,107 @@ class _SectionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
+    return CustomScrollView(
       // Always scrollable, so pull-to-refresh works on a short or empty day.
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(Insets.lg, Insets.lg, Insets.lg, Insets.xxl),
-      itemCount: sections.length,
-      itemBuilder: (context, index) => Padding(
-        padding: EdgeInsets.only(bottom: sections[index].gap),
-        child: sections[index].child,
-      ),
+      slivers: _slivers(context),
     );
+  }
+
+  /// The list, split into runs around whatever pins.
+  ///
+  /// The page's own padding is spacers rather than a `SliverPadding` around
+  /// everything: a pinned header has to reach both edges so the content sliding
+  /// under it is hidden, and it takes its own side padding instead.
+  List<Widget> _slivers(BuildContext context) {
+    final slivers = <Widget>[
+      const SliverToBoxAdapter(child: SizedBox(height: Insets.lg)),
+    ];
+    var run = <PageSection>[];
+
+    void flush() {
+      if (run.isEmpty) {
+        return;
+      }
+      final items = run;
+      run = <PageSection>[];
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: Insets.lg),
+          sliver: SliverList.builder(
+            itemCount: items.length,
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(bottom: items[index].gap),
+              child: items[index].child,
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final section in sections) {
+      if (section.pinnedExtent case final SectionExtent extent) {
+        flush();
+        slivers.add(
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _PinnedSection(
+              // The gap below a pinned section is part of the pinned box. A gap
+              // left outside it is a stripe of page the content shows through.
+              extent: extent(context) + section.gap,
+              background: context.colors.bg,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Insets.lg),
+                child: section.child,
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
+      run.add(section);
+    }
+    flush();
+    return slivers
+      ..add(const SliverToBoxAdapter(child: SizedBox(height: Insets.xxl)));
   }
 }
 
-/// The derived half is unreachable. Says which half, and offers the retry.
-///
-/// A retry rather than a withheld card, because this is OUR failure and not an
-/// answer: `WithheldCard` never offers a retry precisely so the two cannot be
-/// confused. Shared because four screens draw the same card for the same reason.
-Widget serverErrorCard(VoidCallback onRetry) => ErrorState(
-  message: "Couldn't reach your server for today's judgements",
-  detail:
-      'Your measurements are on this phone and are unaffected. Recovery, sleep '
-      'health, debt, VO₂max and biological age are worked out on the server, so '
-      'they are not shown until it answers.',
-  onRetry: onRetry,
-);
+/// One section held at the top of the scroll — `position: sticky; top: 0`.
+class _PinnedSection extends SliverPersistentHeaderDelegate {
+  const _PinnedSection({
+    required this.extent,
+    required this.background,
+    required this.child,
+  });
+
+  /// Its height, both floors, because it neither collapses nor stretches.
+  final double extent;
+
+  /// `.chapter-nav { background: var(--background) }` — opaque, so the list
+  /// passing beneath is hidden rather than showing through the control.
+  final Color background;
+
+  /// What is pinned.
+  final Widget child;
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => ColoredBox(color: background, child: child);
+
+  @override
+  bool shouldRebuild(_PinnedSection oldDelegate) =>
+      oldDelegate.extent != extent ||
+      oldDelegate.background != background ||
+      oldDelegate.child != child;
+}
+

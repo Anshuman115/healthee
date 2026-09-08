@@ -70,10 +70,16 @@ class HourPoint {
 
 /// One 15-minute bucket of today's movement — `today_step_buckets`.
 ///
-/// `{bucket, time, steps, distance_m, calories}`. Legacy's Steps tile draws the
-/// [steps] of each bucket as a bar strip (`today_screen.dart:195`); the other two
-/// fields are parsed because the payload carries them and dropping a measurement
-/// at the boundary is how a card later "cannot" show something the server sent.
+/// `{bucket, time, steps}`. Legacy's Steps tile draws the [steps] of each bucket
+/// as a bar strip (`today_screen.dart:195`).
+///
+/// **`distance_m` and `calories` are gone, and were never measurements.** The
+/// distance was `steps × 0.78` computed in SQL — a second, uncited definition of
+/// stride implying a 188 cm owner, beside the canonical `0.414 × height` that
+/// refuses without a profile — and `calories` was a hardcoded `0` for a quantity
+/// nobody computed. Both were parsed here and read by no widget. The rule that
+/// said to parse what the payload carries assumed the payload carried
+/// measurements; these were the case it did not.
 @immutable
 class StepBucket {
   /// One bucket of the day.
@@ -81,8 +87,6 @@ class StepBucket {
     required this.bucket,
     required this.time,
     required this.steps,
-    required this.distanceM,
-    required this.calories,
   });
 
   /// Parses one entry of `today_step_buckets`.
@@ -91,8 +95,6 @@ class StepBucket {
       bucket: (json['bucket']! as num).toInt(),
       time: json['time'] as String?,
       steps: (json['steps'] as num?)?.toDouble() ?? 0,
-      distanceM: (json['distance_m'] as num?)?.toDouble(),
-      calories: (json['calories'] as num?)?.toDouble(),
     );
   }
 
@@ -104,12 +106,6 @@ class StepBucket {
 
   /// Steps counted in it.
   final double steps;
-
-  /// Metres covered in it.
-  final double? distanceM;
-
-  /// Kilocalories attributed to it.
-  final double? calories;
 
   /// Parses the whole strip, skipping anything that is not a bucket.
   static List<StepBucket> listFrom(Object? raw) {

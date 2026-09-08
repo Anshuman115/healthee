@@ -1,0 +1,112 @@
+/// **A card claims the disclosures it was handed, or they vanish in silence.**
+///
+/// `CaveatCarrier.insideCard` makes `ReadingView` draw NOTHING itself and pass
+/// its disclosures down a `CaveatScope` instead. `states/caveat_scope.dart`
+/// records why: a signpost rendered as a sibling *beneath* a whole card lands in
+/// the gutter between two of them and stops naming which number it is about, and
+/// a misattributed disclosure is a new false claim produced entirely by layout.
+///
+/// The cost of that fix is a second failure mode, and it is the worse one: a
+/// card that does not read the scope shows the value with its qualification
+/// dropped, and **nothing looks wrong**. `caveat_attribution_test.dart` walks the
+/// real screens and cannot see it — its assertions are about where a carrier
+/// sits, so a screen with no carrier at all passes both of them. That is not
+/// hypothetical; it is how two mutations against `InstrumentModule` survived
+/// until this file existed.
+///
+/// So the contract is asserted here, at the widget level, where no screen's
+/// composition can make it vacuous. Split out of `reading_view_test.dart` at the
+/// 400-line gate (Standards §1).
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/data/honesty/disclosure.dart';
+import 'package:healthee/data/honesty/reading.dart';
+import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/states/caveat_scope.dart';
+import 'package:healthee/shared/states/reading_view.dart';
+import 'package:healthee/shared/v02/panel.dart';
+
+void main() {
+  group('the two carriers a card can be', () {
+    // `CaveatCarrier.insideCard` makes `ReadingView` draw NOTHING itself and
+    // hand its disclosures down a `CaveatScope` instead. That only works if the
+    // card claims the scope — a card that does not is a disclosure vanishing in
+    // silence, which `caveat_scope.dart` records as worse than the orphaned
+    // note it replaced. Both carriers are asserted here rather than through a
+    // screen, because a screen test passes vacuously the day the screen stops
+    // rendering the card.
+    const tilt = Disclosure(
+      reason: 'overnight_session_mean',
+      message: 'A plain average over the session, not the daily figure.',
+    );
+
+    Widget carrier(Widget card) => MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: ReadingView<double>(
+          reading: const Caveated<double>(14, <Disclosure>[tilt]),
+          label: 'Breathing',
+          caveatCarrier: CaveatCarrier.insideCard,
+          builder: (context, value) => card,
+        ),
+      ),
+    );
+
+    testWidgets('AN INSTRUMENT MODULE DRAWS THE NOTE IT WAS HANDED', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        carrier(
+          InstrumentModule(
+            label: 'Breathing',
+            // No hue: the dot the owner removed is gone, and `tag` is the
+            // module's DECLARED identity rather than something it paints.
+            tag: null,
+            children: const <Widget>[Text('14')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final note = find.descendant(
+        of: find.byType(InstrumentModule),
+        matching: find.byType(CaveatNote),
+      );
+      expect(note, findsOneWidget, reason: 'the pre-v02 carrier');
+      expect(find.text(caveatHeadline(1)), findsOneWidget);
+    });
+
+    testWidgets('A V02 PANEL DRAWS THE NOTE IT WAS HANDED', (tester) async {
+      await tester.pumpWidget(
+        carrier(const Panel(child: Text('14'))),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byType(Panel),
+          matching: find.byType(CaveatNote),
+        ),
+        findsOneWidget,
+        reason: "v02's carrier",
+      );
+    });
+
+    testWidgets('A NESTED CARD DOES NOT DISCLOSE THE SAME THING TWICE', (
+      tester,
+    ) async {
+      // Each carrier shadows the scope for its own subtree.
+      await tester.pumpWidget(
+        carrier(const Panel(child: Panel(child: Text('14')))),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CaveatNote), findsOneWidget);
+    });
+  });
+
+}

@@ -49,6 +49,9 @@ pytestmark = pytest.mark.integration
 # that changed `NotableUser` to `InsightUser` was survivable until this column existed,
 # because both refuse and only the body differs.
 AI_ROUTES: list[tuple[str, str, dict | None, dict | None, str]] = [
+    ("GET", "/api/recommendations", None, None, gate.DAILY_ACTION),
+    ("POST", "/api/recommendations/999999/adopt", None, None, gate.DAILY_ACTION),
+    ("POST", "/api/recommendations/999999/dismiss", None, None, gate.DAILY_ACTION),
     ("POST", "/api/coach", None, {"messages": [{"role": "user", "content": "hi"}]}, gate.COACH),
     ("POST", "/api/today/action", None, None, gate.DAILY_ACTION),
     ("GET", "/api/sleep/insight", None, None, gate.INSIGHT),
@@ -87,12 +90,19 @@ FREE_PATHS: dict[str, str] = {
     "/api/sleep/consistency": "free tier; its `tonight` AI field is omitted instead",
     "/api/activity": "free tier — activity numbers",
     "/api/activity/workout": "free tier — workout detail",
+    "/api/history/logs": "free tier — owner-authored history markers",
     "/api/history": "free tier — full history is deliberately never paywalled",
     "/api/profile": "free tier — the owner's own demographics",
+    "/api/account": "authenticated identity for durable local data ownership",
     "/api/log": "free tier — manual logging",
     "/api/log/recent": "free tier — manual logging",
     "/api/workout/gps": "free tier — GPS routes",
     "/api/workout/gps/{track_id}": "free tier — GPS routes",
+    "/api/map": "free tier — the basemap's credit line and zoom range, not owner data",
+    "/api/map/tiles/{z}/{x}/{y}": (
+        "free tier — a proxied public map tile. It is context, never data or AI output, "
+        "and paywalling it would leave a free owner's recorded track drawn on nothing"
+    ),
     "/api/me": "identity",
     "/api/device": "identity — device pairing",
     "/api/entitlement": "the paywall's own status; a locked-out owner must be able to read it",
@@ -134,9 +144,22 @@ def _flatten(routes: Sequence[object]) -> list[APIRoute]:
 
 
 def _api_routes() -> list[APIRoute]:
-    """Every mounted route of ours — FastAPI's own /docs, /openapi.json etc. excluded."""
-    generated = {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
-    return [r for r in _flatten(create_app().routes) if r.path not in generated]
+    """Every mounted route. There is no exclusion list any more, and that is the point.
+
+    This used to drop ``{"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}``
+    by name. The exclusion was reasonable for a PAYWALL completeness check — a docs page
+    is not AI output — but it meant the only route-walking guard in the repo had a
+    hard-coded blind spot at exactly the four routes that were open by default and had
+    never been argued for. There were 44 routes of ours plus those four, and this test
+    reasoned about 44.
+
+    ``create_app()`` now passes ``docs_url=None, redoc_url=None, openapi_url=None``
+    (AUTH_AUDIT E1), so the routes are gone and the exclusion with them. If someone
+    re-enables the docs, they appear here — un-gated and un-allowlisted — and
+    ``test_every_mounted_route_is_gated_or_allowlisted`` names them. The blind spot
+    closed by deleting the thing it was blind to.
+    """
+    return _flatten(create_app().routes)
 
 
 def test_the_route_walk_actually_finds_routes() -> None:
@@ -188,6 +211,7 @@ def test_the_probe_list_covers_every_gated_route() -> None:
     probed_templates = {p.replace("999999", "{challenge_id}") for p in probed} | {
         p.replace("999999", "{program_id}") for p in probed
     }
+    probed_templates |= {p.replace("999999", "{rec_id}") for p in probed}
     missing = sorted(gated - probed_templates)
     assert not missing, f"gated routes never probed for a 402: {missing}"
 

@@ -1,311 +1,331 @@
-/// The Sleep tab's section list — **legacy's `children`, in legacy's order**.
+/// The ordered sections of Sleep. Composition only — no widget is defined here.
 ///
-/// `sleep_screen.dart:251–496` builds one flat `List<Widget>` and hands it to a
-/// `ListView.builder` that wraps each entry in `HReveal`. This file is that list,
-/// split so each card lives in its own file (Standards §3: a screen is
-/// composition) without a single entry moving.
+/// **This is the v02 prototype's screen, in the prototype's order.**
+/// `design/mobile-preview/sleep-history-view.js::H.screens.sleep`, read top to
+/// bottom at 390 px with the prototype open in a browser:
 ///
 /// ```text
-///   header                       ── the eyebrow, the word Sleep
-///   Tonight                      ── when the plan includes it
-///   no-sleep-last-night banner   ── when the latest session is over a day old
-///   AI sleep analysis
-///   hero: score + time asleep
-///   ══ <night label> ═══════════
-///   sleep stages (hypnogram)
-///   breakdown
-///   overnight vitals
-///   sleep health · 4-dim
-///   ══ Patterns ════════════════
-///   sleep performance
-///   sleep debt · last 7 nights   ── ≥ 2 measured nights
-///   last 7 nights                ── ≥ 2 nights
-///   bedtime · wake-time          ── ≥ 2 nights with both ends
-///   trends · 14 nights
-///   findings                     ── when the payload carries any
-///   naps · 30 days               ── when there are naps
+///   header                     date · Sleep · avatar
+///   .sleep-reading             time asleep, and the strap's own score
+///   .colour-key                bedtime · wake · time in bed
+///   How your night unfolded    the stage timeline and its legend
+///   Every stage, accounted for the proportion strip, then the four totals
+///   Your body overnight        five overnight measurements, each with a spark
+///   Your four sleep checks     four readings, four cutoffs, no total
+///   Sleep need & debt          the shortfall, and what it is a shortfall against
+///   Your week, stage by stage  seven nights, stacked
+///   Sleep timing               bedtime and wake, and the regularity around them
+///   ══ Beyond a single night ══
+///   Sleep efficiency           the fortnight
+///   Sleep regularity           the fortnight
+///   Heart-rate variability     the fortnight
+///   Naps & your day            the daytime sleep, and the journal
+///   Sleep recommendations      the one link out
+///   footer
 /// ```
 ///
-/// The conditions are legacy's own, to the comparison. Every gap names a rung of
-/// `PageSpacing`, which the owner widened on 2026-08-06; legacy's own numbers are
-/// recorded there. It was: 14 under
-/// Tonight and the banner, 10 between cards in a group, 24 before a section
-/// heading, and none after one (a `SectionHeading` carries its own 12).
+/// ## What is on this screen that the prototype has no box for
+///
+/// Four things, and all four sit **after** every panel the prototype draws, so
+/// its order is never interrupted:
+///
+/// - **Tonight** — `/api/sleep/consistency`'s lever.
+/// - **Sleep analysis** — `/api/sleep/insight`'s grounded reading.
+/// - **Findings** — `/api/sleep`'s own sleep-scoped correlations, drawn only
+///   when the list is non-empty; a heading over an empty list is a section that
+///   exists to say there is nothing in it.
+///
+/// The fourth is the **stale banner**, and it is the exception that sits near
+/// the top: it says *everything below is from an older night*, and a sentence
+/// like that is worth nothing under the thing it qualifies. That is the honesty
+/// layer, which is the one place this rebuild has latitude.
+///
+/// ## What survived the redesign
+///
+/// The **data wiring**, whole. Three reads that fail independently, every figure
+/// still a `Reading`, every refusal still rendered as a refusal with the
+/// server's own reason, and the four sleep dimensions still four.
+///
+/// The eleven pre-v02 cards did not survive. Their measurements did: every one
+/// of them is on a panel above, and the references and citations they drew on
+/// their faces now open from the ⓘ, which is where the owner asked them to live.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
-import 'package:healthee/data/models/sleep_history.dart';
-import 'package:healthee/data/models/sleep_night.dart';
 import 'package:healthee/data/models/sleep_page.dart';
-import 'package:healthee/features/sleep/sleep_format.dart';
-import 'package:healthee/features/sleep/widgets/breakdown_card.dart';
-import 'package:healthee/features/sleep/widgets/hypnogram_card.dart';
-import 'package:healthee/features/sleep/widgets/naps_card.dart';
-import 'package:healthee/features/sleep/widgets/overnight_vitals_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_consistency_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_debt_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_health_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_hero_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_insight_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_page_head.dart';
-import 'package:healthee/features/sleep/widgets/sleep_performance_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_trends_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_week_card.dart';
-import 'package:healthee/features/sleep/widgets/stale_sleep_banner.dart';
-import 'package:healthee/features/sleep/widgets/tonight_card.dart';
+import 'package:healthee/features/sleep/sleep_windows.dart';
+import 'package:healthee/features/sleep/v02/checks_panel.dart';
+import 'package:healthee/features/sleep/v02/naps_panel.dart';
+import 'package:healthee/features/sleep/v02/need_panel.dart';
+import 'package:healthee/features/sleep/v02/night_panels.dart';
+import 'package:healthee/features/sleep/v02/sleep_reading.dart';
+import 'package:healthee/features/sleep/v02/tail_panels.dart';
+import 'package:healthee/features/sleep/v02/timing_panel.dart';
+import 'package:healthee/features/sleep/v02/trend_panels.dart';
+import 'package:healthee/features/sleep/v02/vitals_panel.dart';
+import 'package:healthee/features/sleep/v02/week_panel.dart';
+import 'package:healthee/features/sleep/v02/withheld_night.dart';
 import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/page_section.dart';
-import 'package:healthee/shared/section_heading.dart';
+import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/section_list.dart';
+import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/chapter.dart';
+import 'package:healthee/shared/v02/data_footer.dart';
+import 'package:healthee/shared/v02/page_header.dart';
+import 'package:healthee/shared/v02/past_day.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
-/// Draws one section at the reveal's [progress].
-typedef SleepSectionBuilder = Widget Function(BuildContext context, double progress);
+/// `H.chapter('sleep-trends','Beyond a single night','sleep','insights')`.
+const String kSleepTrendsChapter = 'Beyond a single night';
 
-/// One entry of the Sleep list: what to draw, its reveal id, and the gap under it.
+/// The one panel a past night cannot carry, and the prototype's own heading.
+const String kSleepDebtPastTitle = 'Sleep need & debt';
+
+/// `sleep-history-view.js`'s own sentence for it, kept word for word.
+const String kSleepDebtPast =
+    'Historical sleep-need and debt analyses are not included. The latest debt '
+    'is not carried backward.';
+
+/// The tail of the screen — the lever, the analysis, the correlations.
+const String kSleepTonightPastTitle = 'Tonight’s lever and this week’s analysis';
+
+/// When the chosen day is older than every night the window holds.
+const String kNoNightTitle = 'No night on or before this day';
+
+/// Why that is an answer rather than an empty screen.
+const String kNoNightBody =
+    'Your nights are sent as a window, and this one begins after the day you '
+    'chose. A later night is not shown in its place — that would be a different '
+    'night under a date you did not pick.';
+
+/// Everything Sleep needs that is not on the payloads.
 @immutable
-class SleepSection {
-  /// Builds an entry.
-  const SleepSection(this.id, this.build, {this.gap = PageSpacing.card});
-
-  /// Stable across reorderings, so a card that moves does not re-animate and two
-  /// cards cannot share a reveal (`shared/reveal_once.dart`).
-  final String id;
-
-  /// What to draw.
-  final SleepSectionBuilder build;
-
-  /// Legacy's `SizedBox` under this entry.
-  final double gap;
-}
-
-/// Every window the screen slices out of the payload, computed once.
-///
-/// Legacy computed these inline at the top of `build`, which is why the same
-/// `nights.take(7).toList().reversed` appears three times there. They are named
-/// here so each card takes exactly the window it draws, and so the tests can
-/// assert the windows without pumping a widget.
-@immutable
-class SleepWindows {
-  /// Slices [page] against [now].
-  factory SleepWindows(SleepPage page, DateTime now) {
-    final nights = page.nights;
-    final latest = nights.first;
-    // Legacy: `nights.take(7).toList().reversed`, filtered to the nights that
-    // HAVE a total. A night with no measurement is not a night of no sleep.
-    final debt = <DebtNight>[
-      for (final night in nights.take(7).toList().reversed)
-        if (night.tstMin.valueOrNull case final double minutes)
-          (totalMin: minutes, label: weekdayInitials(night.date)),
-    ];
-    final bedtime = <double>[];
-    final wake = <double>[];
-    for (final night in nights.take(29).toList().reversed) {
-      final start = night.start;
-      final end = night.end;
-      if (start != null && end != null) {
-        bedtime.add(hoursFrom6pm(start));
-        wake.add(hoursFrom6pm(end));
-      }
-    }
-    return SleepWindows._(
-      latest: latest,
-      previous: nights.length > 1 ? nights[1] : null,
-      recent: nights.take(14).toList(),
-      week: <SleepNightSummary>[
-        for (final night in nights.take(7).toList().reversed)
-          SleepNightSummary(
-            date: night.date,
-            durationMin: night.tstMin.valueOrNull?.round() ?? night.stages.total.round(),
-            deepMin: night.stages.deep.round(),
-            lightMin: night.stages.light.round(),
-            remMin: night.stages.rem.round(),
-            awakeMin: night.stages.awake.round(),
-            deviceScore: night.deviceScore.valueOrNull?.round(),
-          ),
-      ],
-      debt: debt,
-      bedtime: bedtime,
-      wake: wake,
-      label: nightLabel(latest.end, now),
-      stale: noSleepLastNight(latest.end, now),
-    );
-  }
-
-  const SleepWindows._({
-    required this.latest,
-    required this.previous,
-    required this.recent,
-    required this.week,
-    required this.debt,
-    required this.bedtime,
-    required this.wake,
-    required this.label,
-    required this.stale,
+class SleepExtras {
+  /// The four places this screen can go. Any of them null draws the control
+  /// without its action rather than a control that leads nowhere.
+  const SleepExtras({
+    this.onOpenProfile,
+    this.onOpenMetric,
+    this.onOpenJournal,
+    this.onOpenActions,
+    this.onOpenHistory,
+    this.onOpenAllMetrics,
   });
 
-  /// The most recent night.
-  final SleepNight latest;
+  /// Opens settings. The avatar's destination.
+  final VoidCallback? onOpenProfile;
 
-  /// The one before it, for the hero's delta badge.
-  final SleepNight? previous;
+  /// Opens one measurement's own history.
+  final void Function(String metric)? onOpenMetric;
 
-  /// The last fourteen nights, newest first.
-  final List<SleepNight> recent;
+  /// Opens the journal.
+  final VoidCallback? onOpenJournal;
 
-  /// The last seven nights, oldest first, as the stacked chart's model.
-  final List<SleepNightSummary> week;
+  /// Opens the recommendations.
+  final VoidCallback? onOpenActions;
 
-  /// The measured nights of the last seven, oldest first.
-  final List<DebtNight> debt;
+  /// Opens the sleep history.
+  ///
+  /// `H.panel('How your night unfolded', …, 'sleep-history', …)` and
+  /// `H.panel('Your week, stage by stage', …, 'sleep-history', …)` — both of
+  /// this screen's `Details` links go to the same place, which is the screen
+  /// that holds every night rather than one metric's dated series.
+  final VoidCallback? onOpenHistory;
 
-  /// Bedtimes on the 18:00 scale, oldest first.
-  final List<double> bedtime;
-
-  /// Wake times on the same scale.
-  final List<double> wake;
-
-  /// `Last night` · `3 nights ago` — the caption on the header and the heading.
-  final String label;
-
-  /// Whether the latest session ended more than a day ago.
-  final bool stale;
-
-  /// The fortnight's mean total, or null when nothing in it was measured.
-  double? get averageTstMin {
-    final measured = <double>[
-      for (final night in recent)
-        if (night.tstMin.valueOrNull case final double minutes) minutes,
-    ];
-    return measured.isEmpty
-        ? null
-        : measured.reduce((a, b) => a + b) / measured.length;
-  }
-
-  /// Two is legacy's floor for every conditional chart on this screen.
-  static const int minimumNights = 2;
+  /// Opens the metric DIRECTORY — `H.panel('Your body overnight',…,'metrics')`.
+  final VoidCallback? onOpenAllMetrics;
 }
 
 /// Builds the ordered section list for one render of Sleep.
-List<SleepSection> sleepSections({
+List<PageSection> sleepSections({
   required SleepPage page,
   required SleepConsistency? consistency,
   required DateTime now,
+  required RevealRegistry reveals,
+  required ViewDay view,
+  SleepExtras extras = const SleepExtras(),
 }) {
-  final windows = SleepWindows(page, now);
+  final past = view.isPast;
+  // **The window ENDS on the day being read.** `/api/sleep` sends a dated
+  // window rather than one night, so a past night is a real measurement this
+  // phone already holds — which is why Sleep is the one screen where a past day
+  // draws its charts instead of refusing them.
+  final windows = SleepWindows.through(page, now, view.day);
+  if (windows == null) {
+    return _noNight(view, extras);
+  }
   final night = windows.latest;
-  final average = windows.averageTstMin;
-  return <SleepSection>[
-    SleepSection(
-      'head',
-      (context, _) => SleepPageHead(
-        label: windows.label,
-        start: night.start,
-        end: night.end,
+  final sections = SectionList()
+    ..add(
+      V02PageHeader(
+        title: 'Sleep',
+        date: night.date,
+        status: view.status,
+        onOpenProfile: extras.onOpenProfile,
       ),
-      gap: 0,
-    ),
-    if (consistency?.tonight case final TonightLever lever)
-      SleepSection(
-        'tonight',
-        (context, progress) => TonightCard(lever: lever, progress: progress),
-        gap: PageSpacing.related,
-      ),
-    if (windows.stale)
-      SleepSection(
-        'stale',
-        (context, _) => StaleSleepBanner(windows.label),
-        gap: PageSpacing.related,
-      ),
-    SleepSection('insight', (context, _) => const SleepInsightCard()),
-    SleepSection(
-      'hero',
-      (context, progress) => SleepHeroCard(
+    );
+  // "No sleep last night" is a statement about the wall clock, so it belongs to
+  // the newest night only. Under an older date it would be measuring a night
+  // the reader chose against an instant they did not.
+  if (!past && windows.stale) {
+    sections
+      ..add(StaleNightNotice(label: windows.label))
+      ..gap(PageSpacing.panel);
+  }
+  sections
+    ..add(SleepReading(night: night))
+    ..gap(PageSpacing.panel)
+    ..add(
+      NightTimelinePanel(
         night: night,
-        previous: windows.previous,
-        progress: progress,
+        reveals: reveals,
+        onDetails: extras.onOpenHistory,
       ),
-      gap: PageSpacing.section,
-    ),
-    SleepSection(
-      'last-night-heading',
-      (context, _) => SectionHeading(windows.label),
-      gap: 0,
-    ),
-    SleepSection(
-      'hypnogram',
-      (context, progress) => HypnogramCard(night: night, progress: progress),
-    ),
-    SleepSection('breakdown', (context, _) => BreakdownCard(night: night)),
-    SleepSection('vitals', (context, _) => OvernightVitalsCard(night: night)),
-    SleepSection(
-      'health',
-      (context, _) => SleepHealthCard(
+    )
+    ..gap(PageSpacing.panel)
+    ..add(StageTablePanel(night: night, reveals: reveals))
+    ..gap(PageSpacing.panel)
+    ..add(
+      OvernightPanel(
+        night: night,
+        recent: windows.recent,
+        reveals: reveals,
+        onOpenMetric: extras.onOpenMetric,
+        onOpenAll: extras.onOpenAllMetrics,
+      ),
+    )
+    ..gap(PageSpacing.panel)
+    ..add(
+      SleepChecksPanel(
         night: night,
         cutoffs: page.cutoffs,
         notes: page.researchNotes,
       ),
-      gap: PageSpacing.section,
-    ),
-    const SleepSection(
-      'patterns-heading',
-      _patternsHeading,
-      gap: 0,
-    ),
-    SleepSection(
-      'performance',
-      (context, progress) => SleepPerformanceCard(
-        night: night,
-        recent: windows.recent,
-        progress: progress,
-      ),
-    ),
-    if (windows.debt.length >= SleepWindows.minimumNights)
-      SleepSection(
-        'debt',
-        (context, progress) =>
-            SleepDebtCard(nights: windows.debt, progress: progress),
-      ),
-    if (windows.week.length >= SleepWindows.minimumNights)
-      SleepSection(
-        'week',
-        (context, progress) => SleepWeekCard(
+    )
+    ..gap(PageSpacing.panel)
+    // `sleep-history-view.js` refuses exactly this panel on a past day:
+    // *"Historical sleep-need and debt analyses are not included. The latest
+    // debt is not carried backward."* Debt is a fourteen-night model computed
+    // to now, so it is the one block on this screen that an older date cannot
+    // honestly carry.
+    ..add(
+      past
+          ? const PastDayNotice(title: kSleepDebtPastTitle, body: kSleepDebtPast)
+          : SleepNeedPanel(
+              night: night,
+              nights: windows.debt,
+              needMin: page.sleepDebt?.needMin,
+              reveals: reveals,
+            ),
+    );
+  if (windows.week.length >= SleepWindows.minimumNights) {
+    sections
+      ..gap(PageSpacing.panel)
+      ..add(
+        StageWeekPanel(
           nights: windows.week,
-          averageLabel: average == null ? null : hoursMinutes(average.round()),
-          progress: progress,
+          span: windows.weekSpan,
+          reveals: reveals,
+          onDetails: extras.onOpenHistory,
         ),
+      );
+  }
+  sections
+    ..gap(PageSpacing.panel)
+    ..add(
+      SleepTimingPanel(
+        bedtime: windows.bedtime,
+        wake: windows.wake,
+        dates: windows.timingDates,
+        // The bedtimes and wakes are dated and re-window above; the regularity
+        // FIGURE is `/api/sleep/consistency`'s single current answer, and it
+        // takes no day. The chart follows the reader, the score does not
+        // pretend to.
+        consistency: past ? null : consistency,
+        reveals: reveals,
       ),
-    if (windows.bedtime.length >= SleepWindows.minimumNights)
-      SleepSection(
-        'consistency',
-        (context, progress) => SleepConsistencyCard(
-          bedtime: windows.bedtime,
-          wake: windows.wake,
-          consistency: consistency,
-          progress: progress,
+    )
+    ..gap(PageSpacing.block)
+    ..add(
+      const ChapterHeading(
+        title: kSleepTrendsChapter,
+        icon: Icons.insights_outlined,
+      ),
+    );
+  for (final trend in kSleepTrends) {
+    sections
+      ..add(
+        SleepTrendPanel(
+          trend: trend,
+          recent: windows.recent,
+          reveals: reveals,
+          onDetails: extras.onOpenMetric,
         ),
+      )
+      ..gap(PageSpacing.panel);
+  }
+  // Everything from here down is about tonight or about now: the nap list the
+  // server sends for the current window, the lever for the night ahead, the
+  // written analysis of the latest data, and the correlations recomputed each
+  // night. None of them takes a day, so none of them may wear an older one.
+  if (!past) {
+    sections
+      ..add(
+        NapsPanel(naps: page.naps, onOpenJournal: extras.onOpenJournal),
+      )
+      ..gap(PageSpacing.block);
+  }
+  sections
+    ..add(
+      HLinkButton(
+        label: 'Sleep recommendations',
+        onPressed: extras.onOpenActions,
       ),
-    SleepSection(
-      'trends',
-      (context, progress) =>
-          SleepTrendsCard(recent: windows.recent, progress: progress),
-    ),
-    // `/api/sleep`'s own `findings` — sleep-scoped correlations from this
-    // owner's history, which reached no screen at all: the model was not parsed
-    // and `FindingsSection` was wired only to `/api/today`'s `top_findings`.
-    //
-    // Under Patterns, because that is what they are, and **only when the list is
-    // non-empty**. `read/findings.py` returns `[]` whenever the analytics layer
-    // has nothing, which is most owners most of the time; a heading over an
-    // empty list would be a section that exists to say there is nothing in it.
-    if (page.findings.isNotEmpty)
-      SleepSection(
-        'findings',
-        (context, _) => FindingsSection(findings: page.findings),
-      ),
-    if (page.naps.isNotEmpty)
-      SleepSection('naps', (context, _) => NapsCard(naps: page.naps), gap: 0),
-  ];
+    )
+    ..gap(PageSpacing.block);
+  if (past) {
+    sections.add(
+      const PastDayNotice(title: kSleepTonightPastTitle, body: kPastDayReason),
+    );
+  } else {
+    if (consistency?.tonight case final TonightLever lever) {
+      sections
+        ..add(TonightPanel(lever: lever))
+        ..gap(PageSpacing.panel);
+    }
+    sections.add(const SleepAnalysisPanel());
+    // `/api/sleep`'s own sleep-scoped correlations, and only when there are any.
+    if (page.findings.isNotEmpty) {
+      sections
+        ..gap(PageSpacing.block)
+        ..add(FindingsSection(findings: page.findings));
+    }
+  }
+  sections
+    ..gap(PageSpacing.block)
+    ..add(const DataFooter());
+  return sections.build();
 }
 
-Widget _patternsHeading(BuildContext context, double progress) =>
-    const SectionHeading('Patterns');
+/// The chosen day is older than every night the window holds.
+///
+/// A header and one sentence, not an empty frame: a screen that simply ends is
+/// read as a night of no sleep, and this is a fact about the WINDOW.
+List<PageSection> _noNight(ViewDay view, SleepExtras extras) => <PageSection>[
+  PageSection(
+    V02PageHeader(
+      title: 'Sleep',
+      date: view.day,
+      status: view.status,
+      onOpenProfile: extras.onOpenProfile,
+    ),
+    gap: 0,
+  ),
+  const PageSection(
+    PastDayNotice(title: kNoNightTitle, body: kNoNightBody),
+    gap: PageSpacing.block,
+  ),
+  const PageSection(DataFooter()),
+];

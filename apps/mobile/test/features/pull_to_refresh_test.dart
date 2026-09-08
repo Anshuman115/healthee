@@ -21,25 +21,16 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/core/theme/app_theme.dart';
-import 'package:healthee/data/api/server_session.dart';
-import 'package:healthee/data/models/sleep_insight.dart';
-import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/local_store.dart';
-import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/sync/sync_outcome.dart';
-import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/actions/actions_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
 
-import '../_sleep_stubs.dart';
-import '../_today_stubs.dart';
 import '_today_host.dart';
 
 /// A controller that records which entry point was called and runs nothing.
@@ -62,30 +53,8 @@ class _RecordingSync extends SyncController {
   }
 }
 
-Widget _host(LocalStore store, _RecordingSync sync, Widget home) {
-  return ProviderScope(
-    overrides: [
-      localStoreProvider.overrideWithValue(store),
-      todayProvider.overrideWithValue(todayDate),
-      syncControllerProvider.overrideWith(() => sync),
-      serverSessionProvider.overrideWith(
-        (ref) async => const ServerSessionStatus(
-          signedIn: true,
-          baseUrl: 'https://healthee.example.test',
-        ),
-      ),
-      todaySnapshotProvider.overrideWith(todayIs(todayView())),
-      // Sleep reads three payloads of its own; an unpinned one reaches for a
-      // socket and the pull never settles.
-      sleepPageProvider.overrideWith((ref) async => sleepPageFixture()),
-      sleepConsistencyProvider.overrideWith((ref) async => consistencyFixture()),
-      sleepInsightProvider.overrideWith(
-        (ref) async => const SleepInsight.locked(),
-      ),
-    ],
-    child: MaterialApp(theme: AppTheme.light, home: home),
-  );
-}
+Widget _host(LocalStore store, _RecordingSync sync, Widget home) =>
+    todayHost(store, sync: sync, home: home);
 
 /// Drags the list down far enough to trip the refresh indicator.
 ///

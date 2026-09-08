@@ -54,10 +54,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       # The least-privilege role the request pool uses (MULTI_USER.md §3.3).
-      # Blank ⇒ falls back to the admin creds + a loud startup WARNING that RLS
-      # cannot apply. Provision the role BEFORE setting these (infra/.env.example).
+      # Blank ⇒ the container REFUSES TO START, unless ALLOW_ADMIN_DB_FALLBACK asks
+      # for the transitional admin-cred fallback (bootstrap step 1 only). Provision
+      # the role BEFORE setting these (infra/.env.example, infra/DEPLOY.md B2).
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
+      ALLOW_ADMIN_DB_FALLBACK: ${ALLOW_ADMIN_DB_FALLBACK:-false}
       # API auth — the legacy shared token the un-rebuilt app still sends.
       REALTIME_INGEST_TOKEN: ${REALTIME_INGEST_TOKEN}
       # Supabase identity (MULTI_USER.md §4). The API only VERIFIES the JWT.
@@ -95,6 +97,21 @@ services:
       # Telegram notifications (optional).
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      # Public geodata caches, on the healthee-geocache volume below. The
+      # elevation cache had NO volume and defaulted under /tmp, so every restart
+      # re-downloaded the SRTM tiles this box had already fetched.
+      SRTM_CACHE_DIR: ${SRTM_CACHE_DIR:-/var/cache/healthee/srtm}
+      MAP_TILE_CACHE_DIR: ${MAP_TILE_CACHE_DIR:-/var/cache/healthee/tiles}
+      MAP_TILE_CACHE_MB: ${MAP_TILE_CACHE_MB:-512}
+      # The basemap this deployment proxies, and who it credits. The app talks
+      # only to this container; repointing the url needs the attribution changed
+      # with it (GET /api/map serves the pair).
+      MAP_TILE_URL: ${MAP_TILE_URL:-https://tile.openstreetmap.org/{z}/{x}/{y}.png}
+      MAP_TILE_ATTRIBUTION: ${MAP_TILE_ATTRIBUTION:-© OpenStreetMap contributors}
+      MAP_TILE_MIN_ZOOM: ${MAP_TILE_MIN_ZOOM:-1}
+      MAP_TILE_MAX_ZOOM: ${MAP_TILE_MAX_ZOOM:-17}
+    volumes:
+      - healthee-geocache:/var/cache/healthee
     # Bind ONLY to localhost — nginx on the host reverse-proxies here. Never
     # expose 8765 publicly; auth is Bearer-token only.
     ports:
@@ -137,6 +154,7 @@ services:
       # the api (its nightly chain only reads/writes data tables).
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
+      ALLOW_ADMIN_DB_FALLBACK: ${ALLOW_ADMIN_DB_FALLBACK:-false}
       # Grounded recs + briefing go through the LLM choke point; Telegram carries
       # the morning briefing and every supervised step failure. Blank key ⇒ no-op.
       # The model ids are REQUIRED whenever the key is set — this container IS the
@@ -168,11 +186,22 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      # The nightly re-derive resolves terrain elevation for GPS tracks, so this
+      # container reads and writes the SAME SRTM cache as the api. Sharing the
+      # volume is the point: two caches would download every tile twice.
+      SRTM_CACHE_DIR: ${SRTM_CACHE_DIR:-/var/cache/healthee/srtm}
+    volumes:
+      - healthee-geocache:/var/cache/healthee
     networks:
       - healthee-net
 
 volumes:
   healthee-pgdata:
+  # Public geodata only — SRTM elevation tiles and basemap tiles this box has
+  # fetched. Nothing in here is an owner's data, and losing it costs a
+  # re-download rather than a measurement. It exists because NOT having it cost
+  # that re-download on every single container restart.
+  healthee-geocache:
 
 networks:
   healthee-net:

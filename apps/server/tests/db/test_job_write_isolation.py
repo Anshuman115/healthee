@@ -46,7 +46,7 @@ from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import StubLLM
 
 from healthee.core.db import admin_connection, tenant_transaction, transaction
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.jobs.correlate import run_correlate
 from healthee.jobs.recs import generate_recs
 
@@ -266,7 +266,15 @@ def test_correlate_for_a_leaves_bs_findings_untouched(
 # `core.notify`), so there is no owner-attributed row to isolate. Asserting
 # anything there would be theatre.
 
-_RECS_DAY = date(2999, 6, 15)
+
+# Each owner's OWN local today, not a shared constant and not a far-future one.
+# `generate_recs` refuses any day but the owner's today, because every input it has is
+# today's — a row dated otherwise would carry a date its content never answered for
+# (B2). The two owners are in different zones, so "today" is genuinely two dates and
+# asking for it per-owner is also the more honest fixture.
+def _recs_day(tz: str) -> date:
+    return user_today(tz)
+
 
 # One structurally valid, citable rec — enough for `_persist` to write a row. The
 # LLM is a stub, so this runs offline and deterministically.
@@ -278,22 +286,22 @@ _STUB_REC = """{"recommendations": [
 ]}""".replace("__EST__", ESTABLISHED_ID)
 
 
-def _seed_recommendation(user_id: UUID, action: str) -> None:
+def _seed_recommendation(user_id: UUID, tz: str, action: str) -> None:
     with tenant_transaction(user_id) as cur:
         cur.execute(
             "INSERT INTO recommendation (user_id, date, rank, action, rationale, category, "
             "evidence_grade, research_note_ids, signal_source) "
             "VALUES (%s,%s,1,%s,'seeded rationale','sleep',3,%s,'seeded') "
             "ON CONFLICT (user_id, date, rank) DO UPDATE SET action = EXCLUDED.action",
-            (user_id, _RECS_DAY, action, ["sleep_need_debt"]),
+            (user_id, _recs_day(tz), action, ["sleep_need_debt"]),
         )
 
 
-def _actions(user_id: UUID) -> list[str]:
+def _actions(user_id: UUID, tz: str) -> list[str]:
     with tenant_transaction(user_id) as cur:
         cur.execute(
             "SELECT action FROM recommendation WHERE user_id = %s AND date = %s ORDER BY rank",
-            (user_id, _RECS_DAY),
+            (user_id, _recs_day(tz)),
         )
         return [r[0] for r in cur.fetchall()]
 
@@ -307,15 +315,17 @@ def test_recs_for_b_leaves_as_recommendations_untouched(
     Recs are the highest-stakes write in the chain: they are the AI text a person
     reads as advice about their own body. B's generation must not touch A's.
     """
-    _seed_recommendation(SENTINEL_USER_ID, "OWNER A ACTION")
-    _seed_recommendation(OWNER_B, "OWNER B ACTION")
+    _seed_recommendation(SENTINEL_USER_ID, SENTINEL_TZ, "OWNER A ACTION")
+    _seed_recommendation(OWNER_B, OWNER_B_TZ, "OWNER B ACTION")
 
-    generate_recs(OWNER_B, OWNER_B_TZ, _RECS_DAY, client=StubLLM([_STUB_REC]))
+    generate_recs(OWNER_B, OWNER_B_TZ, _recs_day(OWNER_B_TZ), client=StubLLM([_STUB_REC]))
 
-    assert _actions(SENTINEL_USER_ID) == ["OWNER A ACTION"], (
+    assert _actions(SENTINEL_USER_ID, SENTINEL_TZ) == ["OWNER A ACTION"], (
         "owner B's recs generation rewrote owner A's recommendations"
     )
     # B's own row WAS replaced — proof the run did real work, so A's survival above
     # is isolation and not a no-op.
-    assert _actions(OWNER_B) != ["OWNER B ACTION"], "B's own recs generation did nothing"
-    assert "walk" in _actions(OWNER_B)[0].lower()
+    assert _actions(OWNER_B, OWNER_B_TZ) != ["OWNER B ACTION"], (
+        "B's own recs generation did nothing"
+    )
+    assert "walk" in _actions(OWNER_B, OWNER_B_TZ)[0].lower()

@@ -34,6 +34,9 @@ class _StubTransport implements HttpClientAdapter {
   String? body;
   int calls = 0;
 
+  /// The query the last request carried — what `day=` was, or was not.
+  Map<String, dynamic> lastQuery = const <String, dynamic>{};
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -41,6 +44,7 @@ class _StubTransport implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     calls++;
+    lastQuery = options.queryParameters;
     final payload = body;
     if (payload == null) {
       throw DioException.connectionError(
@@ -88,6 +92,48 @@ void main() {
     final row = await store.read(kTodayPayload, '2026-07-31');
     expect(row, isNotNull, reason: 'every good read is what makes the next '
         'offline launch readable');
+  });
+
+  test('THE DAY TRAVELS WITH THE REQUEST, AND IS ABSENT WHEN THERE IS NONE', () async {
+    // `/api/today?day=D` is the whole server-side feature reaching the client
+    // (`docs/AS_OF_DAY.md`). Drop it and every screen asks for the current day
+    // while its header claims another — the header would be the only thing that
+    // moved, which is a date control that lies.
+    //
+    // Absent rather than empty when no day is named: an omitted parameter is what
+    // tells the server to answer for the owner's OWN today, in their timezone,
+    // and `day=` is a malformed date it is right to refuse.
+    final transport = _StubTransport(_snapshotJson());
+    final repository = _repositoryOver(transport, store);
+
+    await repository.load(now: _fetchedAt, day: '2026-07-29');
+    expect(transport.lastQuery['day'], '2026-07-29');
+
+    await repository.load(now: _fetchedAt);
+    expect(transport.lastQuery.containsKey('day'), isFalse);
+  });
+
+  test('AN OFFLINE PAST DAY GETS THAT DAY\u2019S ROW OR NOTHING', () async {
+    // The cache must not be a second route to the lie the endpoint refuses. A
+    // past-day request that cannot reach the server falls back to the row filed
+    // under THAT day; the newest row would be today's judgements under an older
+    // date, which is exactly what the server declines to send.
+    final transport = _StubTransport(_snapshotJson());
+    final repository = _repositoryOver(transport, store);
+    await repository.load(now: _fetchedAt); // fills the cache with 2026-07-31
+
+    transport.body = null; // the network goes away
+
+    await expectLater(
+      repository.load(now: _fetchedAt, day: '2026-07-29'),
+      throwsA(isA<DioException>()),
+      reason: 'nothing is held for that day, and a neighbour is not an answer',
+    );
+
+    // The day we DO hold still answers, and still says it came from the cache.
+    final held = await repository.load(now: _fetchedAt, day: '2026-07-31');
+    expect(held.snapshot.date, '2026-07-31');
+    expect(held.fromCache, isTrue);
   });
 
   test('AN OFFLINE READ IS SERVED, AND SAYS IT IS CACHED', () async {

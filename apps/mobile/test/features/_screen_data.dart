@@ -11,9 +11,12 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/data/device/device_day.dart';
+import 'package:healthee/data/history/dated_history.dart';
 import 'package:healthee/data/models/today_view.dart';
+import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:healthee/shared/v02/view_day.dart';
 
 /// One render's inputs. [day] defaults to a phone that has synced nothing, so a
 /// test that cares only about the server half does not have to build a day.
@@ -21,16 +24,41 @@ ScreenData screenData({
   DeviceDay? day,
   TodayView? server,
   AsyncValue<TodayView>? serverState,
+  DatedHistory? history,
+  AsyncValue<DatedHistory>? historyState,
   DateTime? now,
+  String latest = '2026-08-04',
 }) {
+  final DeviceDay measured = day ?? DeviceDay.empty('2026-08-04');
+  final bool past = measured.date != latest;
   return ScreenData(
-    day: day ?? DeviceDay.empty('2026-08-04'),
+    day: measured,
+    // The day being read IS the day the store was asked for — `deviceDay`
+    // watches `viewDateProvider`, so the two cannot disagree in the app and
+    // must not be allowed to in a test either.
+    view: ViewDay(day: measured.date, latest: latest),
     server: serverState ??
         (server == null
             ? const AsyncLoading<TodayView>()
             : AsyncData<TodayView>(server)),
+    // The shell's own invariant, restated where a test can rely on it: the
+    // batched history is read on a past day and not otherwise, so a test that
+    // does not name one gets `null` on the newest day and an empty answer on an
+    // older one. Empty rather than loading, because a section list under test is
+    // being asked what it DECIDES, and a permanent spinner decides nothing.
+    history: historyState ??
+        (past
+            ? AsyncData<DatedHistory>(
+                history ??
+                    const DatedHistory(
+                      days: 90,
+                      series: <String, List<TrendPoint>>{},
+                    ),
+              )
+            : null),
     reveals: RevealRegistry(),
     onRetryServer: () {},
+    onRetryHistory: () {},
     // Pinned by default, and it is load-bearing rather than tidy: Today decides
     // whether last night's readings are stale by comparing the payload's own
     // `end_iso` to this instant. Left to the wall clock, the contract snapshot

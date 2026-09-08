@@ -12,6 +12,12 @@ part of 'device_repository.dart';
 ///
 /// Invalidated by `SyncController` after every sync attempt, so a pull that
 /// stored anything is on screen without the owner pulling to refresh.
+///
+/// **`viewDate`, not `today`.** The measured half is stored per calendar day and
+/// can answer for any day inside the retention window with no network at all, so
+/// it is the half that genuinely follows the date control. `view_date.dart` has
+/// the whole division; the short version is that a sync still writes under the
+/// wall clock, and only the reading follows the reader.
 
 @ProviderFor(deviceDay)
 final deviceDayProvider = DeviceDayProvider._();
@@ -20,6 +26,12 @@ final deviceDayProvider = DeviceDayProvider._();
 ///
 /// Invalidated by `SyncController` after every sync attempt, so a pull that
 /// stored anything is on screen without the owner pulling to refresh.
+///
+/// **`viewDate`, not `today`.** The measured half is stored per calendar day and
+/// can answer for any day inside the retention window with no network at all, so
+/// it is the half that genuinely follows the date control. `view_date.dart` has
+/// the whole division; the short version is that a sync still writes under the
+/// wall clock, and only the reading follows the reader.
 
 final class DeviceDayProvider
     extends
@@ -33,6 +45,12 @@ final class DeviceDayProvider
   ///
   /// Invalidated by `SyncController` after every sync attempt, so a pull that
   /// stored anything is on screen without the owner pulling to refresh.
+  ///
+  /// **`viewDate`, not `today`.** The measured half is stored per calendar day and
+  /// can answer for any day inside the retention window with no network at all, so
+  /// it is the half that genuinely follows the date control. `view_date.dart` has
+  /// the whole division; the short version is that a sync still writes under the
+  /// wall clock, and only the reading follows the reader.
   DeviceDayProvider._()
     : super(
         from: null,
@@ -58,4 +76,4 @@ final class DeviceDayProvider
   }
 }
 
-String _$deviceDayHash() => r'c17de1be8f6d57d60decaaf36b0b883d3c129d07';
+String _$deviceDayHash() => r'e750b44159f126247412989e1151fe5ff3464829';

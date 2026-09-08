@@ -32,7 +32,7 @@ which is the worst of both: no record, and no reason.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import LiteralString, cast
 from uuid import UUID
 
@@ -293,13 +293,46 @@ def _store(cur: Cur, user_id: UUID, challenge_id: int, outcome: dict) -> None:
 
 
 def recent(cur: Cur, user_id: UUID, limit: int = 20) -> list[dict]:
-    """One owner's frozen outcomes, newest first — the ledger read (windowed)."""
+    """One owner's frozen outcomes, newest first — the ledger read (windowed by ROWS).
+
+    Use this when the question is "what has this owner done lately" and a tail is the
+    honest answer. When the question is a RULE with a time bound in it, use
+    :func:`since` — a row limit cannot express a 60-day cooldown, and a rule that reads
+    a tail is correct only while an unstated throughput invariant holds.
+    """
     query = cast(  # `_READ_SELECT` is a module constant of column names, never input
         LiteralString,
         f"SELECT {_READ_SELECT} FROM challenge_outcome WHERE user_id = %s "
         "ORDER BY ended_at DESC LIMIT %s",
     )
     cur.execute(query, (user_id, limit))
+    return [dict(zip(_READ_COLUMNS, row, strict=True)) for row in cur.fetchall()]
+
+
+def since(cur: Cur, user_id: UUID, instant: datetime) -> list[dict]:
+    """One owner's frozen outcomes that ended at or after ``instant``, newest first.
+
+    The read a time-bounded rule wants, bounded by the quantity the rule is actually
+    about. ``levers._recently_abandoned`` used ``recent(limit=50)`` with the reason
+    "these rules only care about the LATEST row per metric, and there are nine metrics"
+    — which is not what makes 50 sufficient. What made it sufficient was an unstated
+    invariant, *fewer than ~50 outcomes are frozen in any 60 days*, and the legal worst
+    case exceeds it: ``lifecycle.MAX_ACTIVE = 3`` concurrent challenges at
+    ``gen_prompt.MIN_WINDOW_DAYS = 3`` is up to 60 outcomes in 60 days. A metric whose
+    latest outcome fell past row 50 read as *never abandoned* and was re-offered inside
+    its own cooldown.
+
+    Still windowed (standards section Performance): the bound is the cooldown itself, so
+    the read can never return more than the outcomes physically frozen in that span.
+    ``ended_at`` is the same column ``recent`` orders on, and it is indexed by the
+    table's own ordering read.
+    """
+    query = cast(  # `_READ_SELECT` is a module constant of column names, never input
+        LiteralString,
+        f"SELECT {_READ_SELECT} FROM challenge_outcome WHERE user_id = %s "
+        "AND ended_at >= %s ORDER BY ended_at DESC",
+    )
+    cur.execute(query, (user_id, instant))
     return [dict(zip(_READ_COLUMNS, row, strict=True)) for row in cur.fetchall()]
 
 

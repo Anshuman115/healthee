@@ -71,14 +71,18 @@ from the cadence estimate.
 
 ## How we compute it
 
-For Helio Strap data: read per-minute step counts from `HUAMI_EXTENDED_ACTIVITY_SAMPLE`.
-Treat each minute as **moderate** if steps ≥ 100 (per-minute cadence ≥ 100 spm) AND the
-preceding minute also ≥ 80 spm (debouncing); **vigorous** if steps ≥ 130 AND preceding
-minute ≥ 110 spm. Aggregate to daily `moderate_min` / `vigorous_min`. Add HC/logged workout
-sessions on top (each `session(kind='workout')` of intensity ≥ moderate adds its full
-duration regardless of cadence — covers non-walking MVPA: cycling, weights, swimming),
-avoiding double-counting walking workouts. Compose weekly MVPA = `moderate_min + 2 ×
-vigorous_min` (WHO MET-equivalent) vs the 150-min target ([[mvpa_minutes_mortality]]).
+For Helio Strap data: read per-minute step counts as the `steps_per_minute` metric in
+`sample`. Treat each minute as **moderate** if steps ≥ 100 (per-minute cadence ≥ 100 spm)
+AND the preceding minute also ≥ 80 spm (debouncing); **vigorous** if steps ≥ 130 AND
+preceding minute ≥ 110 spm. Aggregate to daily `moderate_min` / `vigorous_min`. Compose
+weekly MVPA = `moderate_min + 2 × vigorous_min` (WHO MET-equivalent) vs the 150-min target
+([[mvpa_minutes_mortality]]).
+
+⚠ **Adding logged workout sessions on top — each of intensity ≥ moderate contributing its
+full duration regardless of cadence, covering the non-walking MVPA cycling, weights and
+swimming produce, minus any double-counted walking workout — is PLANNED, NOT SHIPPED**
+(2026-09-08). There is no `session` table and `derive/mvpa.py` performs no workout join,
+so non-walking activity currently contributes zero MVPA minutes.
 
 ## How the coach uses it
 
@@ -140,9 +144,13 @@ noise, and any use beyond level-ground walking.
 
 ## Healthee implementation & honesty policy
 
-- **Metric role**: `steps_per_minute` (per-minute, `source='gadgetbridge'` from
-  `HUAMI_EXTENDED_ACTIVITY_SAMPLE`) → binned to `moderate_min` / `vigorous_min` by the
-  cadence thresholds above (debounced), the derivation feeding [[mvpa_weekly_plan]].
+- **Metric role**: `steps_per_minute` (a per-minute row in `sample`, which is
+  `(ts, metric, value, user_id)` — it carries **no `source` column**; only
+  `device_daily_total` does, and neither `gadgetbridge` nor
+  `HUAMI_EXTENDED_ACTIVITY_SAMPLE` appears anywhere in `apps/`. That was v1 vocabulary
+  that survived the v2 rename pass; corrected 2026-09-08) → binned to `moderate_min` /
+  `vigorous_min` by the cadence thresholds above (debounced), the derivation feeding
+  [[mvpa_weekly_plan]].
 - **Honesty rules**: cadence is an intensity *proxy*, not a measured MET; wrist detection is
   noisier than hip; grade/stairs/load and non-ambulatory modalities break the mapping; cite
   this note as the method when displaying MVPA. This is the **health/MVPA** meaning of

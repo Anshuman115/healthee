@@ -17,112 +17,119 @@
 ///   * **Every live tab names a route the router wires.** A tab that looks live
 ///     and points at an unregistered path is a link to a crash, and it looks
 ///     like nothing at all until somebody taps it.
+///
+/// ## v02 turned settings into an INDEX, so this suite walks all of it
+///
+/// The old screen held three rows that navigated and one control that did not;
+/// the v02 screen is ten rows that each open a screen of their own. Every one of
+/// them is walked here, because "do not invent settings that control nothing" is
+/// exactly as easy to break on the tenth row as it was on the third.
+///
+/// The destinations are the **real screens on the real route list** — the
+/// harness mounts `settingsRoutes()`, the same object `buildRouter` splices into
+/// the app — rather than the stand-ins this file used to register. Stand-ins
+/// were the right call while three routes were being checked and one of them was
+/// a whole pairing flow; they cannot answer the question this file now has to
+/// ask, because **`/pairing` is no longer a row on the index**. It is reached
+/// through the strap screen, so proving it is reachable means walking a row that
+/// only the real device screen draws.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/tabs.dart';
-import 'package:healthee/core/theme/app_theme.dart';
-import 'package:healthee/data/api/credentials.dart';
-import 'package:healthee/data/api/server_session.dart';
-import 'package:healthee/data/device/device_day.dart';
-import 'package:healthee/data/device/device_repository.dart';
-import 'package:healthee/data/pairing/pairing_repository.dart';
-import 'package:healthee/data/sync/connection_state.dart';
-import 'package:healthee/data/sync/sync_controller.dart';
+import 'package:healthee/data/pairing/paired_strap.dart';
 import 'package:healthee/features/diagnostics/diagnostics_screen.dart';
-import 'package:healthee/features/settings/app_version.dart';
-import 'package:healthee/features/settings/settings_screen.dart';
+import 'package:healthee/features/journal/journal_screen.dart';
+import 'package:healthee/features/pairing/pairing_screen.dart';
+import 'package:healthee/features/profile/profile_screen.dart';
+import 'package:healthee/features/settings/about_screen.dart';
+import 'package:healthee/features/settings/appearance_screen.dart';
+import 'package:healthee/features/settings/background_screen.dart';
+import 'package:healthee/features/settings/data_freshness_screen.dart';
+import 'package:healthee/features/settings/device_screen.dart';
+import 'package:healthee/features/settings/reminders_screen.dart';
+import 'package:healthee/features/signin/server_signin_screen.dart';
 
-import '../pairing/_pairing_fakes.dart';
-import '_today_host.dart';
+import '_settings_harness.dart';
 
-/// The settings screen on a real router, so every row's tap goes somewhere real.
+/// Taps a settings row by the words on it, scrolling it into view first.
 ///
-/// The destinations are stand-ins rather than the real screens: what is being
-/// asserted is that the row REACHES the registered path, and standing the whole
-/// pairing flow up behind it would make this suite fail for reasons that are
-/// about that flow.
-Widget _routedSettings() {
-  final store = FakeSecretStore();
-  return ProviderScope(
-    overrides: [
-      credentialsProvider.overrideWithValue(Credentials(store)),
-      pairingSummaryProvider.overrideWith(
-        (ref) async => (strap: null, zeppRemembered: false),
-      ),
-      // The keystore and the local store are both platform-backed. Left
-      // unpinned they throw inside a build, which surfaces as "markNeedsBuild
-      // during build" — a message about Riverpod rather than about settings.
-      serverSessionProvider.overrideWith(
-        (ref) async => const ServerSessionStatus.signedOut(),
-      ),
-      deviceDayProvider.overrideWith((ref) async => DeviceDay.empty('2026-08-04')),
-      // Its real read is a platform channel a test host never answers.
-      appVersionProvider.overrideWith((ref) async => null),
-      // The strap row draws a Stop while a sync is running, so it watches the
-      // controller — which opens a strap session as soon as anything does.
-      syncControllerProvider.overrideWith(
-        () => FixedConnection(const Disconnected()),
-      ),
-    ],
-    child: MaterialApp.router(
-      theme: AppTheme.light,
-      routerConfig: GoRouter(
-        initialLocation: Routes.settings,
-        routes: <RouteBase>[
-          GoRoute(
-            path: Routes.settings,
-            builder: (context, state) => const SettingsScreen(),
-          ),
-          for (final (path, name) in <(String, String)>[
-            (Routes.diagnostics, 'the diagnostics route'),
-            (Routes.serverSignIn, 'the server route'),
-            (Routes.pairing, 'the pairing route'),
-          ])
-            GoRoute(
-              path: path,
-              builder: (context, state) => Scaffold(body: Text(name)),
-            ),
-        ],
-      ),
-    ),
-  );
+/// v02's rows are `ListRow`s inside a `FlushCard` rather than buttons, so there
+/// is no `OutlinedButton` to look for any more — and the row's own title is what
+/// the owner actually aims at, which makes it the honest finder as well as the
+/// available one.
+///
+/// `ensureVisible` rather than `scrollUntilVisible`: it scrolls the row's OWN
+/// enclosing scrollable, and once a push has happened there are two of them in
+/// the tree — the pushed screen's and the index's, still mounted underneath.
+Future<void> _tapRow(WidgetTester tester, String title) async {
+  final row = find.text(title);
+  await tester.ensureVisible(row);
+  await tester.pumpAndSettle();
+  await tester.tap(row);
+  await tester.pumpAndSettle();
 }
 
-/// Gives the test a viewport tall enough to hold the whole settings screen.
-void _tallViewport(WidgetTester tester) {
-  tester.view
-    ..physicalSize = const Size(420, 2400)
-    ..devicePixelRatio = 1.0;
-  addTearDown(tester.view.reset);
-}
-
-Future<void> _tapRow(WidgetTester tester, String label) async {
-  final button = find.widgetWithText(OutlinedButton, label);
-  await tester.scrollUntilVisible(button, 300);
-  await tester.tap(button);
+/// Mounts the app fresh, at the settings index, with nothing pushed on it.
+///
+/// The blank frame is load-bearing. `settingsApp()` builds the same widget type
+/// with no key every time, so pumping it a second time REUSES the state that
+/// holds the `GoRouter` — and the second row of a loop would then be looked for
+/// on whatever screen the first row opened.
+Future<void> _openSettings(WidgetTester tester, {PairedStrap? strap}) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pumpWidget(settingsApp(strap: strap));
   await tester.pumpAndSettle();
 }
 
 void main() {
   testWidgets('EVERY SETTINGS ROW REACHES A REAL DESTINATION', (tester) async {
-    // "Do not invent settings that control nothing." The rows that navigate are
-    // checked here; the appearance row changes state rather than navigating and
-    // is checked in `settings_screen_test.dart`.
-    _tallViewport(tester);
-    for (final (label, landing) in <(String, String)>[
-      ('Open diagnostics', 'the diagnostics route'),
-      ('Sign in to your server', 'the server route'),
-      ('Pair a strap', 'the pairing route'),
+    // "Do not invent settings that control nothing." Every row on the index is
+    // here, including the ones added by the v02 split — a row that opens an
+    // unregistered path renders nothing and looks like a dead tap.
+    tallViewport(tester);
+    for (final (title, destination) in <(String, Type)>[
+      ('Your profile & measurements', ProfileScreen),
+      ('Amazfit Helio Strap', DeviceScreen),
+      ('Data & sync', DataFreshnessScreen),
+      ('Instruments', DiagnosticsScreen),
+      ('Appearance', AppearanceScreen),
+      ('Reminders', RemindersScreen),
+      ('Background sync', BackgroundScreen),
+      ('Health journal', JournalScreen),
+      ('Account & server', ServerSignInScreen),
+      ('About Healthee', AboutScreen),
     ]) {
-      await tester.pumpWidget(_routedSettings());
-      await tester.pumpAndSettle();
-      await _tapRow(tester, label);
-      expect(find.text(landing), findsOneWidget, reason: '$label goes nowhere');
+      await _openSettings(tester);
+      await _tapRow(tester, title);
+      expect(
+        find.byType(destination),
+        findsOneWidget,
+        reason: '$title goes nowhere',
+      );
+    }
+  });
+
+  testWidgets('PAIRING IS STILL REACHABLE, ONE ROW FURTHER IN', (tester) async {
+    // `/pairing` came off the index in v02 and now lives on the strap's own
+    // screen, under a row whose title depends on whether anything is paired.
+    // Both wordings are walked, because a route reachable in only one of the two
+    // states is a route the owner cannot find in the other.
+    tallViewport(tester);
+    for (final (strap, row) in <(PairedStrap?, String)>[
+      (null, 'Connect a strap'),
+      (pairedStrap, 'Pairing and unpair'),
+    ]) {
+      await _openSettings(tester, strap: strap);
+      await _tapRow(tester, 'Amazfit Helio Strap');
+      await _tapRow(tester, row);
+      expect(
+        find.byType(PairingScreen),
+        findsOneWidget,
+        reason: '"$row" is the only door to pairing in this state',
+      );
     }
   });
 
@@ -130,9 +137,8 @@ void main() {
     // The row says what it opens in the owner's words, not "Diagnostics" alone —
     // which would be a control whose only documentation is the screen you have
     // to open to read it.
-    _tallViewport(tester);
-    await tester.pumpWidget(_routedSettings());
-    await tester.pumpAndSettle();
+    tallViewport(tester);
+    await _openSettings(tester);
 
     expect(find.textContaining('every stream this phone read'), findsOneWidget);
     expect(find.textContaining('how it was measured'), findsOneWidget);

@@ -21,6 +21,7 @@ from uuid import UUID
 from healthee.analytics.finding import get_significant_findings
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import user_today
+from healthee.derive._common import Cur
 from healthee.read.fitness import mvpa_payload
 from healthee.read.recovery import (
     STALE_RECOVERY_DIRECTIVE,
@@ -43,7 +44,7 @@ def build_recs_signals(user_id: UUID, tz: str) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def _profile_line(cur, user_id: UUID, today: date) -> str:
+def _profile_line(cur: Cur, user_id: UUID, today: date) -> str:
     """Profile from the DB ``profile`` table — never the legacy JSON file."""
     cur.execute("SELECT sex, height_cm, dob FROM profile WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
@@ -61,7 +62,7 @@ def _age(dob: date, today: date) -> int:
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
 
-def _recovery_line(cur, user_id: UUID, tz: str) -> str:
+def _recovery_line(cur: Cur, user_id: UUID, tz: str) -> str:
     """Recovery band SETS today's intensity ceiling — when it IS today's.
 
     The payload carries ``date`` and this line discarded it while asserting "today's
@@ -86,7 +87,7 @@ def _recovery_line(cur, user_id: UUID, tz: str) -> str:
     )
 
 
-def _mvpa_line(cur, user_id: UUID, tz: str) -> str:
+def _mvpa_line(cur: Cur, user_id: UUID, tz: str) -> str:
     """This week's MVPA vs the 150-min target, framed as the remaining gap."""
     payload = mvpa_payload(cur, user_id, tz)
     if not payload:

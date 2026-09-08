@@ -67,6 +67,7 @@ import 'package:healthee/data/push/push_outcome.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/push_reader.dart';
 import 'package:healthee/data/store/store_provider.dart';
+import 'package:healthee/data/sync/device_lease.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'push_service.g.dart';
@@ -118,9 +119,17 @@ class PushService {
   /// health card to read, and logged through the one logging path.
   Future<PushOutcome> run({DateTime? now}) async {
     final at = now ?? DateTime.now();
-    final outcome = await _attempt(at);
-    await _stamp(at, outcome);
-    return outcome;
+    final lease = DeviceLease(store, resource: 'push_lease');
+    if (!await lease.acquire()) {
+      return const PushSkipped('Another upload is already running');
+    }
+    try {
+      final outcome = await _attempt(at);
+      await _stamp(at, outcome);
+      return outcome;
+    } finally {
+      await lease.release();
+    }
   }
 
   /// Repeats [run] until the backlog is gone, it stops shrinking, or it faults.
@@ -161,7 +170,8 @@ class PushService {
       at,
       PushPaused(
         rows: total,
-        reason: 'the backlog is still large; the rest goes out on the next sync',
+        reason:
+            'the backlog is still large; the rest goes out on the next sync',
       ),
     );
   }
@@ -218,11 +228,16 @@ class PushService {
           AppLog.info(
             'push',
             'the server did not recognise ${receipt.samplesRejected} samples — '
-            'check kPushMetricNames against ingest ALLOWED_METRICS',
+                'check kPushMetricNames against ingest ALLOWED_METRICS',
           );
         }
       } on DioException catch (error, stackTrace) {
-        AppLog.failure('push', 'sending ${batch.rowCount} rows', error, stackTrace);
+        AppLog.failure(
+          'push',
+          'sending ${batch.rowCount} rows',
+          error,
+          stackTrace,
+        );
         final reason = _reasonFor(error);
         // Nothing is marked, so nothing is lost. `sent` decides whether this run
         // moved anything at all, which is the difference the owner can see.
@@ -255,11 +270,14 @@ class PushService {
   static PushOutcome _aggregate(PushOutcome last, int total) => switch (last) {
     PushSent() => PushSent(total),
     PushPaused(:final reason) => PushPaused(rows: total, reason: reason),
-    PushInterrupted(:final reason) =>
-      PushInterrupted(rows: total, reason: reason),
-    PushFailed(:final reason) => total == 0
-        ? PushFailed(reason)
-        : PushInterrupted(rows: total, reason: reason),
+    PushInterrupted(:final reason) => PushInterrupted(
+      rows: total,
+      reason: reason,
+    ),
+    PushFailed(:final reason) =>
+      total == 0
+          ? PushFailed(reason)
+          : PushInterrupted(rows: total, reason: reason),
     // Skipped can only mean the token went away mid-drain. Still not a fault,
     // and still the whole answer for why the rest is not going anywhere.
     PushSkipped() => last,
@@ -272,7 +290,8 @@ class PushService {
   /// take the same page and stall in the same place.
   static PushOutcome _stalled(int total, int remaining) => PushInterrupted(
     rows: total,
-    reason: 'sending is not reducing the backlog — $remaining measurements are '
+    reason:
+        'sending is not reducing the backlog — $remaining measurements are '
         'still waiting',
   );
 

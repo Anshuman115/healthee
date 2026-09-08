@@ -68,7 +68,11 @@ class FakeIngestTransport implements HttpClientAdapter {
         (failAfter != null && rawBodies.length > failAfter!);
     if (shouldFail) {
       final status = failWith ?? 503;
-      return ResponseBody.fromString('{"detail":"nope"}', status, headers: _json);
+      return ResponseBody.fromString(
+        '{"detail":"nope"}',
+        status,
+        headers: _json,
+      );
     }
     final body = _summaryFor(bodies.last);
     return ResponseBody.fromString(jsonEncode(body), 200, headers: _json);
@@ -102,7 +106,8 @@ PushClient clientOver(FakeIngestTransport transport) {
   final dio = Dio(
     BaseOptions(
       baseUrl: 'https://example.invalid',
-      validateStatus: (status) => status != null && status >= 200 && status < 300,
+      validateStatus: (status) =>
+          status != null && status >= 200 && status < 300,
     ),
   );
   dio.httpClientAdapter = transport;
@@ -112,8 +117,7 @@ PushClient clientOver(FakeIngestTransport transport) {
 /// A keystore that is a map.
 class MapSecretStore implements SecretStore {
   /// [values] seeds the store.
-  MapSecretStore([Map<String, String>? values])
-    : values = {...?values};
+  MapSecretStore([Map<String, String>? values]) : values = {...?values};
 
   /// Everything currently stored.
   final Map<String, String> values;
@@ -130,8 +134,12 @@ class MapSecretStore implements SecretStore {
 }
 
 /// Credentials holding an API token, which is what a push needs to run.
-Credentials signedIn({String token = 'TEST-API-TOKEN'}) =>
-    Credentials(MapSecretStore({'helio_token': token}));
+Credentials signedIn({String token = 'TEST-API-TOKEN'}) => Credentials(
+  MapSecretStore({
+    'helio_token': token,
+    'helio_base_url': 'https://test.example',
+  }),
+);
 
 /// Credentials holding nothing — a phone that has never signed in.
 Credentials signedOut() => Credentials(MapSecretStore());

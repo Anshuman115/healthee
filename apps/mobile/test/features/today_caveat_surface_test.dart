@@ -24,10 +24,12 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
-import 'package:healthee/features/today/widgets/blood_oxygen_card.dart';
-import 'package:healthee/features/today/widgets/metric_tile.dart';
-import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/features/today/v02/mini_trend_panel.dart';
+import 'package:healthee/features/today/v02/night_panels.dart';
+import 'package:healthee/features/today/v02/today_hero.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/v02/panel.dart';
+import 'package:healthee/shared/v02/summary_tile.dart';
 
 import '../_today_stubs.dart';
 import '_today_host.dart';
@@ -131,11 +133,11 @@ void main() {
       findsWidgets,
       reason: 'the signpost under a card',
     );
-    expect(
-      find.byType(CaveatFoot),
-      findsWidgets,
-      reason: 'the counted line in a grid tile’s foot',
-    );
+    // v02 has ONE carrier, the note inside the panel or the hero, and that is
+    // the point — `caveat_scope.dart` records that the gutter version was a
+    // misattribution. This used to be an `expect(CaveatFoot, findsNothing)`;
+    // the grid tile's carrier is deleted along with the grid, so the claim is
+    // now structural rather than asserted.
     expect(find.text(caveatHeadline(4)), findsOneWidget);
   });
 
@@ -164,28 +166,32 @@ void main() {
     }
   });
 
-  testWidgets('THE RESP TILE DISCLOSES, AND THE PROSE OPENS FROM IT', (
+  testWidgets('THE BREATHING READING DISCLOSES, AND THE PROSE OPENS FROM IT', (
     tester,
   ) async {
+    // The overnight rate comes from `last_sleep_extras` on this payload — a raw
+    // session mean, not the bounded daily figure — so it arrives `Caveated` with
+    // a sentence naming the instrument (`today_facts.dart::_overnight`). It is
+    // drawn in the sleep-health grid now, and its disclosure is named there
+    // rather than folded into the block's.
     await openToday(tester);
-    await reveal(tester, find.text('RESPIRATORY RATE'));
+    await reveal(tester, find.byType(SleepHealthPanel));
 
-    final tile = find.ancestor(
-      of: find.text('RESPIRATORY RATE'),
-      matching: find.byType(MetricTile),
+    final panel = find.descendant(
+      of: find.byType(SleepHealthPanel),
+      matching: find.byType(Panel),
     );
-    final mark = find.descendant(of: tile, matching: find.byType(CaveatFoot));
-    expect(mark, findsOneWidget, reason: 'the tile must say it is caveated');
-    // IN WORDS, and counted — the whole point of replacing the `*`.
-    expect(
-      find.descendant(of: tile, matching: find.text('1 CAVEAT · TAP TO READ')),
-      findsOneWidget,
+    final mark = find.descendant(
+      of: find.byType(SleepHealthPanel),
+      matching: find.byType(CaveatNote),
     );
+    expect(panel, findsWidgets, reason: 'the grid lives in a v02 panel');
+    expect(mark, findsWidgets, reason: 'the card must say it is caveated');
     // Visible, not merely mounted.
-    expect(tester.getSize(mark).height, greaterThan(0));
-    expect(tester.getSize(mark).width, greaterThan(0));
+    expect(tester.getSize(mark.first).height, greaterThan(0));
+    expect(tester.getSize(mark.first).width, greaterThan(0));
 
-    await tester.tap(mark);
+    await tester.tap(mark.first);
     await tester.pumpAndSettle();
 
     expect(find.text(kCaveatSheetTitle), findsOneWidget);
@@ -193,55 +199,44 @@ void main() {
     expect(find.textContaining('not today'), findsOneWidget);
   });
 
-  testWidgets('THE RESP TILE IS THE SAME HEIGHT AS THE SLEEP TILE BESIDE IT', (
+  testWidgets('THE BREATHING CELL NAMES ITS OWN DISCLOSURE, NOT THE BLOCK’S', (
     tester,
   ) async {
-    // The owner's second report, measured. Both cells are in one `MetricTileRow`
-    // whose cross-alignment is legacy's `start`, so a taller cell does not
-    // stretch its neighbour — it just stands proud of it, which is what a grid
-    // is not allowed to do.
+    // Two sources in one card: `sleep_health` and the overnight vitals. One note
+    // carrying both would attach the wrong sentence to one of them.
     await openToday(tester);
-    await reveal(tester, find.text('RESPIRATORY RATE'));
+    await reveal(tester, find.byType(SleepHealthPanel));
 
-    final resp = find.ancestor(
-      of: find.text('RESPIRATORY RATE'),
-      matching: find.byType(MetricTile),
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(SleepHealthPanel),
+            matching: find.byType(CaveatNote),
+          )
+          .first,
     );
-    final sleep = find.ancestor(
-      of: find.text('SLEEP'),
-      matching: find.byType(MetricTile),
-    );
-    expect(sleep, findsOneWidget);
+    await tester.pumpAndSettle();
+
+    // The sheet sets its subtitle in caps (`caveat_disclosure.dart::_Eyebrow`).
     expect(
-      tester.getSize(resp).height,
-      tester.getSize(sleep).height,
-      reason: 'a tile that grows to fit prose breaks the grid',
+      find.text(SleepHealthPanel.breathingLabel.toUpperCase()),
+      findsOneWidget,
     );
   });
 
-  testWidgets('EVERY GRID TILE THAT REPORTS A NUMBER IS THE SAME HEIGHT', (
-    tester,
-  ) async {
-    // The row-by-row version would pass with all six wrong together. This one
-    // asks the question the owner actually asked of the screen.
-    //
-    // **A WITHHELD cell is excluded, and deliberately.** `metric_tile.dart`'s
-    // `_Hole` takes a floor rather than a fixed height because legacy gives
-    // these six metrics no detail screen to point at, so a cell that said only
-    // WITHHELD would be a refusal with no explanation anywhere on the device.
-    // That is a documented exception with a reason; a caveated cell is not one,
-    // because its value IS being shown and the detail HAS somewhere to live.
+  testWidgets('THE THREE SUMMARY TILES ARE THE SAME HEIGHT', (tester) async {
+    // The owner's old report about the grid, asked of the row that replaced it:
+    // three tiles of different heights in one row read as three different kinds
+    // of thing (`summary_tile.dart`).
     await openToday(tester);
-    await reveal(tester, find.text('RESPIRATORY RATE'));
+    await reveal(tester, find.byType(TodaySummaryTiles));
 
-    final tiles = tester.widgetList<MetricTile>(find.byType(MetricTile)).toList();
-    final reported = <double>[
-      for (var i = 0; i < tiles.length; i++)
-        if (tiles[i].reading.hasValue)
-          tester.getSize(find.byType(MetricTile).at(i)).height,
-    ];
-    expect(reported.length, greaterThanOrEqualTo(4));
-    expect(reported.toSet(), hasLength(1), reason: 'saw heights $reported');
+    final tiles = find.byType(SummaryTile);
+    expect(tiles, findsNWidgets(3));
+    final heights = <double>{
+      for (var i = 0; i < 3; i++) tester.getSize(tiles.at(i)).height,
+    };
+    expect(heights, hasLength(1), reason: 'saw heights $heights');
   });
 
   testWidgets('THE BLOOD-OXYGEN MODULE STOPPED SWALLOWING ITS CAVEAT', (
@@ -254,14 +249,13 @@ void main() {
     // the failure mode `Caveated` is a separate case in order to prevent, and it
     // was live.
     await openToday(tester);
-    await reveal(tester, find.byType(BloodOxygenCard));
-
-    final module = find.descendant(
-      of: find.byType(BloodOxygenCard),
-      matching: find.byType(InstrumentModule),
+    final oxygen = find.byWidgetPredicate(
+      (widget) => widget is MiniTrendPanel && widget.title == 'Blood oxygen',
     );
+    await reveal(tester, oxygen);
+
     expect(
-      find.descendant(of: module, matching: find.byType(CaveatNote)),
+      find.descendant(of: oxygen, matching: find.byType(CaveatNote)),
       findsOneWidget,
     );
   });

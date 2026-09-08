@@ -122,6 +122,19 @@ def _derived(day: date, metric: str, user_id: UUID = SENTINEL_USER_ID) -> tuple[
     return float(row[0]), row[1] or {}
 
 
+def _derived_or_none(
+    day: date, metric: str, user_id: UUID = SENTINEL_USER_ID
+) -> tuple[float, dict] | None:
+    """:func:`_derived` without the assertion — for asking whether a row exists at all."""
+    query: LiteralString = (
+        "SELECT value, flags FROM derived_daily WHERE user_id = %s AND day = %s AND metric = %s"
+    )
+    with admin_connection() as conn, conn.cursor() as cur:
+        cur.execute(query, (user_id, day, metric))
+        row = cur.fetchone()
+    return None if row is None else (float(row[0]), row[1] or {})
+
+
 # ── the precedence, through the real derive chain ─────────────────────────────
 
 
@@ -283,7 +296,12 @@ def test_one_owners_counter_never_reaches_another_owners_day(db: None) -> None: 
     with tenant_connection(_OWNER_B) as conn:
         derive_batch(conn, _OWNER_B, SENTINEL_TZ, [], [day])
 
-    value, flags = _derived(day, "steps_total", _OWNER_B)
-    assert value == 0.0, "another owner's strap counter reached this day"
-    assert flags["source"] == "steps_per_minute"
+    # B has NO steps_total row at all, which is a stronger statement of the same
+    # property than the zero this used to assert. B has no samples and no counter, so no
+    # instrument counted their day — and a derivation that wrote 0.0 there was reporting
+    # "walked nowhere" for a day nobody measured (audit C7). If A's counter leaked, this
+    # row exists and carries A's number.
+    assert _derived_or_none(day, "steps_total", _OWNER_B) is None, (
+        "another owner's strap counter reached this day"
+    )
     assert _derived(day, "steps_total")[0] == float(_STRAP_STEPS)  # A's is untouched

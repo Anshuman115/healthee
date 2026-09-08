@@ -1,8 +1,8 @@
 /// Asking the coach — the one place a metered question is spent.
 ///
-/// `keepAlive` so the thread survives the sheet being dismissed: a conversation
-/// that vanished when the owner looked something up would cost them the context
-/// of a question they have already paid for.
+/// `keepAlive` so the thread survives the screen being left: a conversation that
+/// vanished when the owner looked something up would cost them the context of a
+/// question they have already paid for.
 ///
 /// ## The meter is re-read after every attempt, always
 ///
@@ -32,15 +32,26 @@ part 'coach_controller.g.dart';
 /// The running conversation with the coach.
 @Riverpod(keepAlive: true)
 class CoachController extends _$CoachController {
+  int _generation = 0;
   @override
-  CoachConversation build() => const CoachConversation();
+  CoachConversation build() {
+    ref.watch(coachClientProvider);
+    _generation++;
+    return const CoachConversation();
+  }
 
   /// Asks [question]. Spends one of the owner's included questions.
   ///
   /// Callers must have shown the meter first. That is not a convention here —
-  /// `coach_sheet.dart` cannot build an input without an [Entitlement] in hand,
+  /// `coach_screen.dart` cannot build an input without an [Entitlement] in hand,
   /// so there is no path from a screen to this method that skipped the number.
-  Future<void> ask(String question) async {
+  /// [topic] is the subject the screen was opened about, when it was opened
+  /// about one. It rides with every question asked from that screen rather than
+  /// only the first: the thread stays the thread that was opened about a
+  /// workout, and the server's grounding should not stop knowing that on turn
+  /// two. It is sent as CONTEXT, never as a claim — `insights/coach_thread.py`
+  /// screens it with the refusal gate and fences it in the prompt.
+  Future<void> ask(String question, {String? topic}) async {
     final text = question.trim();
     if (text.isEmpty || state.asking) {
       return;
@@ -49,35 +60,75 @@ class CoachController extends _$CoachController {
       entries: [...state.entries, OwnerQuestion(text)],
       asking: true,
     );
+    final generation = _generation;
     try {
-      final answer = await ref.read(coachClientProvider).ask(state.toWire());
-      state = state.copyWith(entries: [...state.entries, CoachReply(answer)]);
+      final answer = await ref
+          .read(coachClientProvider)
+          .ask(state.toWire(), topic: topic);
+      if (_isCurrent(generation)) {
+        state = state.copyWith(entries: [...state.entries, CoachReply(answer)]);
+      }
     } on CoachRefusal catch (refusal) {
       // The gate said no. It is an answer about the account, not a fault, and it
-      // carries the instant the window reopens.
-      _trouble(refusal.message, spent: false, resetsAt: refusal.resetsAt);
+      // carries the instant the window reopens. A 402 is decided BEFORE the slot
+      // is charged, so this is one of the two places the app may state flatly
+      // that nothing was counted.
+      if (_isCurrent(generation)) {
+        _trouble(
+          refusal.message,
+          charge: CoachCharge.notCharged,
+          resetsAt: refusal.resetsAt,
+        );
+      }
     } on CoachUnreachable catch (failure) {
-      _trouble(failure.message, spent: false);
+      // Whatever the client worked out about the meter, unchanged. It used to
+      // pass `spent: false` here whatever had happened, which is how a receive
+      // timeout on a delivered, charged answer printed "nothing was spent".
+      if (_isCurrent(generation)) {
+        _trouble(failure.message, charge: failure.charge);
+      }
     } finally {
       // Whatever happened — including the two `on` clauses above and anything
       // they did not catch — the balance is re-read from the server rather than
       // guessed at. See the library docstring.
-      ref.invalidate(coachEntitlementProvider);
-      state = state.copyWith(asking: false);
+      if (_isCurrent(generation)) {
+        ref.invalidate(coachEntitlementProvider);
+        state = state.copyWith(asking: false);
+      }
     }
   }
 
-  /// Starts a fresh thread. The old one is dropped, not archived: nothing in this
-  /// app persists a conversation, and a "history" button over a list that dies
-  /// with the process would be a promise the storage layer does not keep.
+  bool _isCurrent(int generation) => ref.mounted && generation == _generation;
+
+  /// Drops the thread and starts an empty one.
+  ///
+  /// **Not a tidiness control — a cost and a clarity one.** [ask] sends
+  /// `state.toWire()`, the WHOLE conversation, on every question, and this
+  /// notifier is `keepAlive` so the thread outlives the screen. Without a way
+  /// to end it, each question carries every earlier one: the owner's allowance
+  /// is 20 questions per rolling 30 days at a measured $0.179 each, and a
+  /// thread that only grows makes the twentieth cost far more than the first.
+  ///
+  /// It matters more since the coach became a route that can be opened **about
+  /// something** (`?topic=`). Arriving from a workout on top of an unrelated
+  /// ten-turn conversation asks the model to answer in a context the owner did
+  /// not choose.
+  ///
+  /// The prototype's coach screen draws no such control, so this is a
+  /// deliberate departure from it: the design never modelled a thread that
+  /// persists, and the honesty layer is where that gets paid for.
   void newThread() => state = const CoachConversation();
 
-  void _trouble(String message, {required bool spent, DateTime? resetsAt}) {
+  void _trouble(
+    String message, {
+    required CoachCharge charge,
+    DateTime? resetsAt,
+  }) {
     AppLog.info('coach', 'question not answered: $message');
     state = state.copyWith(
       entries: [
         ...state.entries,
-        CoachTrouble(message: message, spent: spent, resetsAt: resetsAt),
+        CoachTrouble(message: message, charge: charge, resetsAt: resetsAt),
       ],
     );
   }

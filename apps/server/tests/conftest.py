@@ -31,6 +31,7 @@ premise so a future env change cannot quietly undo it.
 
 from __future__ import annotations
 
+import os
 import secrets
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -112,6 +113,64 @@ _DEFAULTED_ENV_VARS = (
     "UPGRADE_URL",
     "LLM_LOW_BALANCE_USD",
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _allow_the_bootstrap_to_build_settings() -> Iterator[None]:
+    """Let the suite's own bootstrap construct `Settings` before it has an app role.
+
+    `core.config` refuses to boot with blank `POSTGRES_APP_*` unless
+    `ALLOW_ADMIN_DB_FALLBACK=true` asks for the transitional state (the B1 fix). The
+    suite's bootstrap is exactly that state and only that state: `_db_reachable()` and
+    `app_role_pool` both build `Settings` to reach `admin_db_url` BEFORE the throwaway
+    role exists, and `app_role_pool` then sets `POSTGRES_APP_*` to the real role for
+    every test that follows.
+
+    ⚠ Without this the failure is silent and mis-reads as a code break:
+    `_db_reachable()` catches the refusal, returns False, and the whole integration
+    suite auto-skips — the exact "looks exactly like a code break and isn't" shape
+    CONTRIBUTING.md warns about for the `POSTGRES_*` vars themselves.
+
+    Session-scoped and autouse because `os.environ` is process-wide. It does NOT weaken
+    what is under test: `tests/db/test_rls.py::test_the_app_pool_is_never_privileged`
+    still asserts from `pg_roles` that the pool is on the least-privilege role, and
+    `tests/test_config.py` constructs `Settings` without this var to exercise the
+    refusal itself.
+    """
+    previous = os.environ.get("ALLOW_ADMIN_DB_FALLBACK")
+    os.environ["ALLOW_ADMIN_DB_FALLBACK"] = "true"
+    get_settings.cache_clear()
+    yield
+    if previous is None:
+        os.environ.pop("ALLOW_ADMIN_DB_FALLBACK", None)
+    else:
+        os.environ["ALLOW_ADMIN_DB_FALLBACK"] = previous
+    get_settings.cache_clear()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _geodata_caches_are_hermetic(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Point the SRTM and basemap caches at a throwaway directory for the run.
+
+    Both default to `/var/cache/healthee/...` — the container's volume, which on a
+    developer's machine is not writable and in CI would be a directory the suite
+    silently populates and never cleans. Neither cache holds anything a test
+    asserts on: `tests/derive/_gps_seed.py` uses ocean coordinates precisely so
+    the DEM lookup misses, and the tile tests stub the fetch. Session-scoped
+    because `os.environ` is process-wide and this only has to be true once.
+    """
+    root = tmp_path_factory.mktemp("geocache")
+    previous = {name: os.environ.get(name) for name in ("SRTM_CACHE_DIR", "MAP_TILE_CACHE_DIR")}
+    os.environ["SRTM_CACHE_DIR"] = str(root / "srtm")
+    os.environ["MAP_TILE_CACHE_DIR"] = str(root / "tiles")
+    get_settings.cache_clear()
+    yield
+    for name, value in previous.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+    get_settings.cache_clear()
 
 
 @pytest.fixture(autouse=True)

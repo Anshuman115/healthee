@@ -123,7 +123,15 @@ dependencies:
   # still to port name it throughout. If those land on Material icons instead,
   # this comes out with the last usage (Standards §1, dead code).
   solar_icons: ^0.1.0
+  geolocator: ^14.0.3
+  workmanager: ^0.10.9
+  flutter_local_notifications: ^22.3.0
+  timezone: ^0.11.1
+  flutter_timezone: ^5.1.0
+  uuid: ^4.6.0
+  shared_preferences: ^2.5.5
 
+  crypto: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -142,6 +150,7 @@ dev_dependencies:
 
   # ── lints ────────────────────────────────────────────────────────────────
   flutter_lints: ^6.0.0
+  shared_preferences_platform_interface: ^2.4.2
   # Neither custom_lint nor riverpod_lint is here, and that is a reported
   # deviation from the brief rather than an omission.
   #
@@ -164,36 +173,27 @@ flutter:
   # installs. `core/licences.dart` registers it with `LicenseRegistry` and the
   # About row on Settings is where it is read.
   assets:
-    - assets/fonts/OFL.txt
+    - assets/fonts/OFL-Figtree.txt
+    - assets/fonts/OFL-Inter.txt
 
-  # Manrope, vendored rather than fetched — no CDN at paint time, and a
+  # Figtree, vendored rather than fetched — no CDN at paint time, and a
   # cold-start budget of 2 s to first meaningful paint (Standards §1). SIL OFL
   # (no Reserved Font Name); the licence ships beside the files in
-  # assets/fonts/OFL.txt. ~386 KB total.
+  # assets/fonts/OFL-Inter.txt. ~1.1 MB total.
   #
-  # FOUR weights, and the list is derived rather than chosen: it is exactly the
-  # set of `FontWeight.w*` values the app names (400/500/600/700), which
-  # `test/core/typography_test.dart` re-derives by scanning `lib/` and compares
-  # against this block. A weight a style asks for and the bundle lacks does not
-  # fail to render — Flutter substitutes the nearest one and the text is simply
-  # a shade off, invisibly. `HType.number` (legacy's `HType.num`, weight 700)
-  # was drawing at 600 for exactly that reason.
-  #
-  # Each file is instanced from upstream's `Manrope[wght].ttf` variable font at
-  # a fixed `wght`, so the four are one design rather than four drawings.
-  #
-  # There is NO italic here and there cannot be: Manrope's variable font carries
-  # a single `wght` axis (200–800) and upstream publishes no italic companion.
-  # See `instrument_type.dart` — the slant is not deferred, it is unavailable in
-  # the face the owner chose, so the app stopped asking for it.
+  # ONE file: Figtree is a VARIABLE font and the wght axis is driven directly
+  # (see `_style` in core/theme/typography.dart), so four static instances are
+  # not shipped. Inter rides alongside as HealtheeSymbols purely to cover the
+  # characters Figtree lacks.
   fonts:
-    - family: Manrope
+    - family: Figtree
       fonts:
-        - asset: assets/fonts/Manrope-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Manrope-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Manrope-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Manrope-Bold.ttf
-          weight: 700
+        - asset: assets/fonts/Figtree.ttf
+
+    # The glyph safety net, and it is BUNDLED on purpose. Figtree has no U+2194;
+    # naming a platform symbol face in fontFamilyFallback does NOT stop Android
+    # reaching for NotoColorEmoji — measured on the device, twice. A bundled
+    # family does. See core/theme/typography.dart.
+    - family: HealtheeSymbols
+      fonts:
+        - asset: assets/fonts/InterFallback.ttf

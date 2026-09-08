@@ -33,10 +33,39 @@ ordering with sleep(). It was not spreading LLM load — the steps were fired in
 same fixed order at fixed offsets, and the sweep runs all owners back-to-back within
 one timer anyway, so N owners already produced N chains in a burst.
 
-Schedule: ``DAILY_FIRE`` (10:30) **in each owner's own timezone** — late morning,
+## The clock says EARLIEST; the data says GO (the arrival gate)
+
+``DAILY_FIRE`` (10:30) **in each owner's own timezone** is the earliest the chain may
+start, never the instant it does. Reaching it is one of two conditions; the other is
+``data_gate.day_data_arrived`` — something MEASURED on the owner's day is actually in
+the database. There is no global fire zone (the old ``TZ``): an owner's
+``app_user.timezone`` is the only zone in play for them.
+
+Until this gate existed, this docstring claimed 10:30 was chosen as "late morning,
 AFTER a typical late wake + app push, so recs/briefing don't compute on last night's
-not-yet-synced sleep. There is no longer a global fire zone (the old ``TZ``): an
-owner's ``app_user.timezone`` is the only zone in play for them.
+not-yet-synced sleep". Nothing checked. The app's auto-sync fires only on a foreground
+transition, so an owner who had not opened the app by 10:30 had handed us nothing since
+yesterday — and the chain ran anyway, writing recommendations and a briefing about a
+night no row described, then setting the per-day marker so the real sleep arriving at
+noon got NO chain at all. A comment about a clock was standing in for a check, which is
+the failure class this codebase keeps finding in itself; ``jobs/data_gate.py`` opens
+with the evidence.
+
+**The gate can stay shut all day, and that is an outcome, not a hang.** A day nothing
+arrived for gets no chain and no briefing, because "not enough data" beats an
+optimistic guess and a briefing about an unrecorded night is the guess. What it must
+never be is *silent*: past ``QUIET_DAY_NOTICE`` the owner-day is reported to the
+Telegram health surface once — once, not once per tick — so a strap that stopped
+syncing surfaces as itself instead of as a product that quietly stopped speaking.
+
+Two consequences worth naming rather than discovering:
+
+* a sync landing at 23:55 local still runs that day's chain on the next tick — the loop
+  asks its question every tick, so late is late, not lost;
+* a sync landing after local midnight does NOT retro-run yesterday. The marker and the
+  question are both per local day. Yesterday's briefing delivered tomorrow is not a
+  briefing, and authoring a past day's analysis now is forbidden anyway
+  (``docs/AS_OF_DAY.md`` section 6, and ``recs.generate_recs`` refuses the call).
 
 Run it as its own container CMD::
 
@@ -47,6 +76,7 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from uuid import UUID
@@ -57,6 +87,7 @@ from healthee.core.logging import configure_logging, get_logger
 from healthee.core.notify import send_telegram
 from healthee.core.tenancy import Tenant, active_users
 from healthee.jobs import chain
+from healthee.jobs.data_gate import day_data_arrived
 from healthee.jobs.llm_watch import LlmWatch
 
 log = get_logger(__name__)
@@ -71,16 +102,24 @@ _TICK_INTERVAL_S = 300
 
 # How many times ONE owner's chain may be attempted for ONE of their local days.
 #
-# The dedup marker is only set once correlate succeeds (deliberately — see
-# `chain.run_chain`), so a *failing* chain stays unmarked and would otherwise be
+# The dedup marker is only set when NO step failed (deliberately — see
+# `chain._nothing_failed`), so a *failing* chain stays unmarked and would otherwise be
 # retried on every tick for the rest of that owner's day: ~150 identical Telegram
-# alerts, plus a re-sent briefing each time (briefing runs even when correlate fails).
+# alerts, plus a re-sent briefing each time (briefing runs even when a step fails).
 # That is alert fatigue, which silently costs the health surface its meaning. This
 # budget keeps the retry — a transient DB blip at 10:30 must not cost an owner their
 # day — while bounding it. It is NOT idempotence (the marker is); it is a retry
 # budget, and it deliberately lives in memory: a container restart is itself a good
 # reason to try again.
 _ATTEMPT_BUDGET = 3
+
+# Statuses the per-tick sweep does NOT log. All three mean "nothing happened, and that
+# is correct": the owner's fire time has not arrived, their day is already done, or the
+# gate is still shut. Each recurs on every one of a day's ~150 ticks, and a log line per
+# tick would bury the statuses that do mean something. "no data yet" is not silent
+# overall — `_report_quiet_day` raises it to the health surface once, at
+# `QUIET_DAY_NOTICE`, which is the difference between quiet and hidden.
+_QUIET_STATUSES = frozenset({"waiting", "deduped", "no data yet"})
 
 
 @dataclass(frozen=True)
@@ -92,6 +131,13 @@ class FireTime:
 
 
 DAILY_FIRE = FireTime(hour=10, minute=30)
+
+# When a day on which NOTHING has arrived is reported to the health surface. Late
+# enough that an owner who syncs in the evening has long since fired and been marked
+# done, so reaching this hour with the gate still shut means the day really is empty
+# rather than merely late. It is a NOTICE, not a deadline: it fires no chain, and the
+# gate stays open for the rest of the local day.
+QUIET_DAY_NOTICE = FireTime(hour=22, minute=0)
 
 
 def local_now(tenant: Tenant, now_utc: datetime) -> datetime:
@@ -117,10 +163,30 @@ class Sweeper:
     no import-time side effects, everything testable).
     """
 
-    def __init__(self, fire: FireTime = DAILY_FIRE, budget: int = _ATTEMPT_BUDGET) -> None:
+    def __init__(
+        self,
+        fire: FireTime = DAILY_FIRE,
+        budget: int = _ATTEMPT_BUDGET,
+        *,
+        gate: Callable[[UUID, date, str], bool] | None = None,
+        quiet_notice: FireTime = QUIET_DAY_NOTICE,
+    ) -> None:
         self._fire = fire
         self._budget = budget
+        # Injected for the same reason the budget is: the loop's contract is "fires
+        # only once the day's data is here", and a test that had to seed a hypertable
+        # to assert it would be testing the gate's SQL instead of the loop's rule.
+        # `tests/jobs/test_data_gate.py` tests the SQL, against a real database.
+        #
+        # A `None` sentinel resolved HERE rather than a default argument of
+        # `day_data_arrived`, matching `generate_recs(client=None)`: a default argument
+        # is bound once at def time, so it would capture the real gate permanently and
+        # every one of the loop's existing tests would open a database connection to
+        # assert something about a clock.
+        self._gate = gate if gate is not None else day_data_arrived
+        self._quiet_notice = quiet_notice
         self._attempts: dict[tuple[UUID, date], int] = {}
+        self._quiet_reported: set[tuple[UUID, date]] = set()
 
     def tick(self, now_utc: datetime | None = None) -> None:
         """Run the chain for every owner whose local fire time has passed today.
@@ -136,7 +202,7 @@ class Sweeper:
             status, day = self._run_for(tenant, now_utc)
             if day is not None:
                 seen.add((tenant.id, day))
-            if status not in ("waiting", "deduped"):
+            if status not in _QUIET_STATUSES:
                 log.info("chain for owner %s → %s", tenant.id, status)
         self._prune(seen)
 
@@ -157,6 +223,9 @@ class Sweeper:
             day = local.date()
             if not is_due(local, self._fire):
                 return "waiting", day
+            if not self._gate(tenant.id, day, tenant.tz):
+                self._report_quiet_day(tenant, local, day)
+                return "no data yet", day
             return self._attempt(tenant, day), day
         except Exception as exc:  # supervised: report, then continue the sweep
             log.exception("chain failed for owner %s", tenant.id)
@@ -189,12 +258,41 @@ class Sweeper:
                 f"for {day} — no further retries until tomorrow"
             )
 
-    def _prune(self, seen: set[tuple[UUID, date]]) -> None:
-        """Drop budget entries for days/owners this tick no longer sees.
+    def _report_quiet_day(self, tenant: Tenant, local: datetime, day: date) -> None:
+        """Once past ``QUIET_DAY_NOTICE`` with nothing arrived, say so — exactly once.
 
-        Without it the dict grows one entry per owner per day for the process's life.
+        A gate that can stay shut is only honest if the shut state is visible. Without
+        this the difference between "the owner's strap has not synced in three days"
+        and "everything is fine" is that one of them produces no Telegram traffic —
+        and so does the other.
+
+        The once-ness is the point and it is why this keeps a set rather than
+        re-deriving the condition: the sweep asks this question on every tick after
+        22:00, which is ~24 times, and 24 identical alerts is the alert fatigue
+        `_ATTEMPT_BUDGET` exists to prevent, arriving through a different door.
+        """
+        if not is_due(local, self._quiet_notice):
+            return
+        key = (tenant.id, day)
+        if key in self._quiet_reported:
+            return
+        self._quiet_reported.add(key)
+        log.warning("no data has arrived for owner %s on %s — no chain run", tenant.id, day)
+        send_telegram(
+            f"no data has arrived for owner {tenant.id} on {day} — their daily chain "
+            f"has not run. Nothing measured on that day has reached the server."
+        )
+
+    def _prune(self, seen: set[tuple[UUID, date]]) -> None:
+        """Drop budget and notice entries for days/owners this tick no longer sees.
+
+        Without it both collections grow one entry per owner per day for the process's
+        life. They are pruned TOGETHER against the same `seen` set deliberately: an
+        owner-day that survived in one and not the other would be a day that could be
+        re-alerted after its budget was forgotten, or budgeted after its alert was.
         """
         self._attempts = {key: n for key, n in self._attempts.items() if key in seen}
+        self._quiet_reported = {key for key in self._quiet_reported if key in seen}
 
 
 def main() -> None:
@@ -202,11 +300,14 @@ def main() -> None:
     configure_logging()
     warn_if_self_host_unlocked()
     log.info(
-        "healthee scheduler starting (pid=%d, fire=%02d:%02d in each owner's own timezone, "
+        "healthee scheduler starting (pid=%d, earliest fire=%02d:%02d in each owner's own "
+        "timezone AND ONLY once their day's data has arrived, quiet-day notice=%02d:%02d, "
         "tick=%ds)",
         os.getpid(),
         DAILY_FIRE.hour,
         DAILY_FIRE.minute,
+        QUIET_DAY_NOTICE.hour,
+        QUIET_DAY_NOTICE.minute,
         _TICK_INTERVAL_S,
     )
     sweeper = Sweeper()

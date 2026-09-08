@@ -60,10 +60,17 @@ and what the science still doesn't know. This section is mandatory.
 ## Safety bounds
 Any hard limits the coach must respect (or "none"). **State the bound and its
 SOURCE; do not claim it is enforced.** Enforcement in this repo lives in
-`apps/server/src/healthee/insights/output_guard.py`, and its rules are currently
-HAND-compiled — no note carries a `safety_critical` flag and the manifest emits no
-directives, so writing "mirrored as a guardrail" in a note does not make it one
-(Engineering Standards §4). A note that asserts enforcement it does not have is
+`apps/server/src/healthee/insights/output_guard.py` (hand-compiled from doc lines) and
+in `insights/guard_directives.py`, which compiles ONE blocking rule per directive a
+note declares `safety_critical` in its frontmatter — a real mechanism, available to
+this collection, and already used by `wellness/environmental-stress.md` D12.
+*(Corrected 2026-09-08: this said "no note carries a `safety_critical` flag and the
+manifest emits no directives", which taught every author working from this template
+that the mechanism does not exist. **Five directives across four notes are marked and compiled today** — `napping` D5, `hydration_everyday` D5 and D6, `late_eating_sleep` D5, and `environmental_stress` D12, the last of which IS in this collection (`wellness/environmental-stress.md` declares `safety_critical: [12]` in its frontmatter and `insights/guard_directives.py` compiles `environmental_stress_D12_exertional_red_flags_to_urgent_care` from it).)*
+Declaring a marker OBLIGES you to write its rule and its fire/no-fire tests in the
+same PR. Writing "mirrored as a guardrail" in prose WITHOUT declaring the marker
+still does not make it one
+(Engineering Standards, section 4). A note that asserts enforcement it does not have is
 worse than one that asserts none.
 
 ## Bottom line

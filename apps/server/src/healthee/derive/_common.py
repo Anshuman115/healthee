@@ -162,6 +162,27 @@ def _age(dob: date, on: date) -> int:
     return years
 
 
+def _date_of_birth(cur: Cur, user_id: UUID) -> date | None:
+    """The owner's date of birth ALONE — for a metric whose only profile input it is.
+
+    :func:`_load_profile` is the loader for a metric that spends the owner's BODY: it
+    wants height, sex and a weight-as-of because BMI, BMR and the Jurca model all do, and
+    it returns None when any of them is missing. Sleep need is not that kind of metric.
+    NSF 2015 selects a band from AGE and nothing else (``derive/sleep_score.py``), so
+    routing it through the full loader made a logged weight a hard input to a number that
+    never reads one — a dependency that is not a dependency, withholding a value we can
+    honestly give (audit C8).
+
+    This is the same argument the loader below already makes about ``srpa``, in its own
+    comment: that field is "NOT part of the 'profile is complete' gate above … sleep need
+    only wants ``dob`` and must not be blocked by it (#108)". The reasoning was written
+    down and applied to one neighbouring field but not to the other.
+    """
+    cur.execute("SELECT dob FROM profile WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    return row[0] if row and row[0] is not None else None
+
+
 def _load_profile(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     """Profile + weight as-of `day` (weight is a time-series, read at that date).
 

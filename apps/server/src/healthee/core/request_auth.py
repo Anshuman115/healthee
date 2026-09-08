@@ -53,20 +53,30 @@ from healthee.core.supabase_auth import (
     RequestUser,
     bearer_token,
     current_user,
+    refuse_unless_active,
     resolve_device_token,
     unauthorized,
 )
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_USER_ID
 
 log = get_logger(__name__)
 
 
-def _timezone_of(user_id: UUID) -> str | None:
-    """The owner's IANA timezone from `app_user`, or None when they have no row."""
+def _active_timezone_of(user_id: UUID) -> str | None:
+    """The owner's IANA timezone from `app_user`, or None when they have no row.
+
+    Raises 403 for a row whose `status` is not `active`. `status` is selected here
+    rather than in the callers because this is the one `app_user` read on the
+    `/api/*` and `/ingest/*` paths, and a suspension that only some of them consult
+    is not a suspension — see `supabase_auth.refuse_unless_active`.
+    """
     with transaction() as cur:
-        cur.execute("SELECT timezone FROM app_user WHERE id = %s", (str(user_id),))
+        cur.execute("SELECT timezone, status FROM app_user WHERE id = %s", (str(user_id),))
         row = cur.fetchone()
-    return row[0] if row else None
+    if row is None:
+        return None
+    refuse_unless_active(user_id, row[1])
+    return row[0]
 
 
 def _legacy_shared_token(presented: str) -> bool:
@@ -88,16 +98,26 @@ def _sentinel_user() -> RequestUser:
 
     The timezone is read from the sentinel's `app_user` row rather than returned from
     the `SENTINEL_TZ` constant, so per-user timezone is real for this owner too — the
-    row is the source of truth and the constant is only the last-resort fallback for a
-    database whose sentinel row is missing, which is an anomaly worth logging.
+    row is the source of truth.
+
+    ## A missing sentinel row is a 401, not a fallback
+
+    It used to log "an anomaly worth logging" and then authorise the request as an owner
+    who does not exist. That is not hypothetical: it is the **documented post-condition
+    of `db/claim_sentinel.py`**, which re-keys the sentinel row to the owner's real
+    Supabase UUID, after which `SENTINEL_USER_ID` has no `app_user` row BY DESIGN.
+
+    The consequence was fail-closed-ish rather than dangerous — every tenant read
+    returns zero rows under RLS and every tenant write violates the `user_id` FK — but
+    neither of those reads to a person as "your credential is no longer valid". One
+    shows an empty life and the other is a 500. `ingest_user` fifteen lines below hits
+    the same condition and correctly raises 401 with the reasoning written out; this now
+    matches it. The legacy branch should die with the sentinel row, not outlive it.
     """
-    tz = _timezone_of(SENTINEL_USER_ID)
+    tz = _active_timezone_of(SENTINEL_USER_ID)
     if tz is None:
-        log.warning(
-            "sentinel app_user row is missing — falling back to the compiled-in timezone %s",
-            SENTINEL_TZ,
-        )
-        tz = SENTINEL_TZ
+        log.warning("the sentinel app_user row is absent — refusing the legacy shared token")
+        raise unauthorized("Invalid token")
     return RequestUser(id=SENTINEL_USER_ID, timezone=tz)
 
 
@@ -125,7 +145,7 @@ def ingest_user(authorization: str | None = Header(default=None)) -> RequestUser
     owner = resolve_device_token(raw)
     if owner is None:
         raise unauthorized("Invalid token")
-    tz = _timezone_of(owner)
+    tz = _active_timezone_of(owner)
     if tz is None:
         # The device_token → app_user FK makes this unreachable; if it ever happens the
         # owner is unknowable, so refuse rather than write the push under a guess.

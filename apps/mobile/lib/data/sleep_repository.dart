@@ -28,6 +28,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/api/api_client.dart';
+import 'package:healthee/data/api/cache_session.dart';
+import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_insight.dart';
 import 'package:healthee/data/models/sleep_page.dart';
@@ -50,7 +52,10 @@ const Duration kInsightTimeout = Duration(seconds: 60);
 /// Reads the Sleep tab's payloads, network-first with the local tier behind them.
 class SleepRepository {
   /// [dio] is the app's one client; [store] is the local 60-day tier.
-  const SleepRepository(this._dio, this._store);
+  const SleepRepository(this._dio, this._store, {this.credentials});
+
+  /// The account that owns every request and cached response.
+  final Credentials? credentials;
 
   final Dio _dio;
   final LocalStore _store;
@@ -90,7 +95,9 @@ class SleepRepository {
       );
       final body = response.data;
       if (body == null) {
-        throw const FormatException('GET /api/sleep/insight returned an empty body');
+        throw const FormatException(
+          'GET /api/sleep/insight returned an empty body',
+        );
       }
       return SleepInsight.fromJson(body);
     } on DioException catch (error, stackTrace) {
@@ -115,12 +122,11 @@ class SleepRepository {
     Duration? timeout,
   }) async {
     final at = now ?? DateTime.now();
+    final session = await CacheSession.capture(credentials);
     try {
       final response = await _dio.get<Map<String, Object?>>(
         path,
-        options: timeout == null
-            ? null
-            : Options(receiveTimeout: timeout, sendTimeout: timeout),
+        options: session.options(timeout: timeout),
       );
       final body = response.data;
       if (body == null) {
@@ -128,8 +134,10 @@ class SleepRepository {
       }
       // Parsed BEFORE it is stored, so a body we cannot read never becomes the
       // thing the app falls back to.
+      await session.ensureCurrent();
       final parsed = parse(body);
       await _store.write(
+        scope: session.scope,
         metric: metric,
         day: dayOf(parsed) ?? _isoDay(at),
         payload: jsonEncode(body),
@@ -138,7 +146,8 @@ class SleepRepository {
       return parsed;
     } on DioException catch (error, stackTrace) {
       AppLog.failure('sleep', 'fetching $path', error, stackTrace);
-      final cached = await _cached(metric, parse);
+      await session.ensureCurrent();
+      final cached = await _cached(metric, parse, session);
       if (cached == null) {
         rethrow;
       }
@@ -149,14 +158,19 @@ class SleepRepository {
   Future<T?> _cached<T extends Object>(
     String metric,
     T Function(Map<String, Object?> json) parse,
+    CacheSession session,
   ) async {
-    final row = await _store.readLatest(metric);
+    final row = await _store.readLatest(metric, scope: session.scope);
+    await session.ensureCurrent();
     if (row == null) {
       return null;
     }
     final decoded = jsonDecode(row.payload);
     if (decoded is! Map<String, Object?>) {
-      AppLog.info('sleep', 'cached $metric payload for ${row.day} is not an object');
+      AppLog.info(
+        'sleep',
+        'cached $metric payload for ${row.day} is not an object',
+      );
       return null;
     }
     return parse(decoded);
@@ -170,12 +184,16 @@ class SleepRepository {
 
 /// The app's [SleepRepository].
 @riverpod
-SleepRepository sleepRepository(Ref ref) =>
-    SleepRepository(ref.watch(apiClientProvider), ref.watch(localStoreProvider));
+SleepRepository sleepRepository(Ref ref) => SleepRepository(
+  ref.watch(apiClientProvider),
+  ref.watch(localStoreProvider),
+  credentials: ref.watch(credentialsProvider),
+);
 
 /// The nights and naps. Watch this from the Sleep screen.
 @riverpod
-Future<SleepPage> sleepPage(Ref ref) => ref.watch(sleepRepositoryProvider).page();
+Future<SleepPage> sleepPage(Ref ref) =>
+    ref.watch(sleepRepositoryProvider).page();
 
 /// Bedtime/wake regularity, the odd nights, and tonight's lever.
 @riverpod

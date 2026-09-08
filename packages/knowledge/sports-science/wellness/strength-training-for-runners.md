@@ -6,7 +6,7 @@ grade: Established
 summary: "Heavy lifting + plyometrics improve running economy ~2–8% with no bulk, and roughly halve overuse-injury risk — recommend to essentially every runner."
 population: runners
 aliases: ["strength-training-for-runners", "resistance training", "lifting for runners", "heavy strength", "plyometrics", "plyos", "weights", "gym work", "neuromuscular training", "strength and conditioning", "running economy strength", "injury prevention strength", "concurrent training", "S&C"]
-applies_to_metrics: ["strength_min_weekly"]
+applies_to_metrics: []
 applies_to_interventions: ["strength"]
 last_reviewed: 2026-06-29
 related: ["running-economy", "vo2max", "periodization", "individualization", "training-load-acwr", "polarized-training", "lactate-threshold", "strength_training_mortality", "strength_adherence_plan"]
@@ -407,8 +407,10 @@ properly dosed strength training does **not** harm body composition or VO₂max
   50(1), 133–150. https://doi.org/10.1007/s40279-019-01184-9
 
 ## Healthee implementation & honesty policy
-- **Backs the `strength_min_weekly` metric** (`applies_to_metrics: ["strength_min_weekly"]`)
-  and the `strength` intervention — the coach's strength *prescription*, not a lab
+- **Backs the weekly strength-minutes surface** (`read/fitness.py::strength_payload`)
+  and the `strength` intervention. *(Its `applies_to_metrics` named
+  `strength_min_weekly` until 2026-09-08 — a metric that exists nowhere; see
+  [[strength_training_mortality]] for what that cost in retrieval.)* — the coach's strength *prescription*, not a lab
   measurement. Daud does not measure 1RM, tendon stiffness, or lab running economy; strength
   dose (modality, %1RM band, sets×reps, sessions/week) is a literature-anchored recommendation
   generated from the runner's stage, phase, and injury history, refined from logged response

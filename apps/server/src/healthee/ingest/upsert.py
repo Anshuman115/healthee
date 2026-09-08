@@ -6,61 +6,68 @@ never create duplicates.
 
 Performance: the batch upserts are *pipelined*, not one-round-trip-per-row. The
 legacy push once did a separate `execute()` per sample and hit 180 s timeouts;
-`upsert_samples` uses `executemany` (psycopg3 pipelines it into ~one round-trip),
-and the expensive per-minute sleep-stage emission is gated to *fresh* sessions so
-re-pushing 80 nights of history doesn't re-emit 80 nights of minutes.
+`upsert_samples` uses `executemany` (psycopg3 pipelines it into ~one round-trip).
+The other half of that sentence named the per-minute sleep-stage emission, the most
+expensive statement a push ran — it is gone (`upsert_sleep`, write-path audit D1),
+so a re-push of 80 nights of history now costs 80 small upserts and nothing else.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from psycopg import Cursor
 from psycopg.rows import TupleRow
 
+from healthee.core.bounds import assert_plausible_weight_kg, event_instant
 from healthee.core.dob import parse_dob
+from healthee.core.logging import get_logger
 from healthee.ingest.models import (
     ALLOWED_METRICS,
-    DailyTotalIn,
     ProfileIn,
     SampleIn,
     SleepIn,
     WorkoutIn,
 )
+from healthee.ingest.profile_write import write_profile
 
 Cur = Cursor[TupleRow]
 
-# A ts above this is read as epoch-milliseconds; at/below it as epoch-seconds.
-# 10**12 ms after the epoch is 2001-09-09, so this guess is only sound for
-# instants AFTER 2001-09-09 — i.e. for EVENT timestamps (samples, sleep,
-# workouts), which the strap can only ever report as recent. It INVERTS for any
-# earlier date, whose ms value is small enough to look like seconds.
-_MS_THRESHOLD = 10**12
+log = get_logger(__name__)
 
-# A main-sleep session is "fresh" (worth the per-minute emit) if it is new or
-# within this many days of the batch's latest night. Re-emitting per-minute rows
-# for old, unchanged sessions on every push is pure waste (idempotent inserts
-# that already exist) and was a big chunk of the legacy push time.
+# A sleep session is "fresh" — worth DERIVING — if it is new or within this many days of
+# the batch's latest night. Re-deriving 80 unchanged historical nights on every push is
+# pure waste, and the derive pass is now the only consumer: this window was written for
+# the per-minute stage emission that D1 deleted, and it outlived it because
+# `ingest/service.py` was already gating derivation on the same predicate.
 FRESH_WINDOW_DAYS = 3
 
 
 def epoch_to_utc(ts: int) -> datetime:
-    """Event epoch milliseconds (or seconds) → aware UTC datetime.
+    """Event epoch milliseconds (or seconds) → aware UTC datetime, RANGE-CHECKED.
 
     EVENT TIMESTAMPS ONLY. The ms/seconds magnitude guess can only disambiguate
-    instants after 2001-09-09 (`_MS_THRESHOLD` ms after the epoch); below that it
-    silently reads milliseconds as seconds. That is safe for device events, which
-    are always recent, and WRONG for any historical date. NEVER call this on a
-    birth date — use `core.dob.parse_dob`, which parses the documented contract in
-    the OWNER's timezone (a birth date is a calendar date, and the app anchors it
-    at local midnight) and rejects implausible values instead of guessing.
+    instants after 2001-09-09; below that it silently reads milliseconds as seconds.
+    That is safe for device events, which are always recent, and WRONG for any
+    historical date. NEVER call this on a birth date — use `core.dob.parse_dob`, which
+    parses the documented contract in the OWNER's timezone (a birth date is a calendar
+    date, and the app anchors it at local midnight).
+
+    This is now a one-line delegation to `core.bounds.event_instant`, which is where
+    the conversion AND its range check live. It used to be the conversion alone, with
+    the docstring careful and correct about the ms/seconds ambiguity and silent about
+    range: a value outside the platform's `datetime` range raised out of an ingest
+    handler as a 500 (blaming the server for a client's number), and a value inside it
+    but far from now wrote a `sample` row dated centuries away that every window and
+    baseline downstream then had to cope with. Kept as a named function because it is
+    what the whole ingest layer already calls — moving the check under it is what makes
+    the guarantee structural instead of a rule five call sites have to remember.
     """
-    seconds = ts / 1000 if ts > _MS_THRESHOLD else ts
-    return datetime.fromtimestamp(seconds, tz=UTC)
+    return event_instant(ts)
 
 
 def local_date(ts: int, tz: str) -> date:
@@ -69,10 +76,15 @@ def local_date(ts: int, tz: str) -> date:
 
 
 def upsert_samples(cur: Cur, user_id: UUID, samples: list[SampleIn]) -> tuple[int, int]:
-    """Upsert raw time-series points. Returns (accepted, rejected).
+    """Upsert raw time-series points. Returns (stored, rejected).
 
     Unknown metrics are coerce-dropped and counted (not a hard error), matching
     the legacy contract so a newer app adding a metric never 422s its whole push.
+
+    The first number is rows STORED — new or not. Every row here is written; the
+    `ON CONFLICT` branch rewrites an existing sample with the identical value and it is
+    counted the same as a genuinely new one. `IngestSummary.samples_accepted` carries it
+    to the client under a name that reads stronger than it is, and says so (audit D4).
     """
     rows: list[tuple[UUID, datetime, str, float]] = []
     rejected = 0
@@ -90,37 +102,64 @@ def upsert_samples(cur: Cur, user_id: UUID, samples: list[SampleIn]) -> tuple[in
     return len(rows), rejected
 
 
-def emit_sleep_minutes(cur: Cur, user_id: UUID, stages: list[list[int]]) -> None:
-    """Materialize per-minute `asleep` (1) + `sleep_stage` (type) samples from a
-    session's hypnogram, so downstream SRI / stage reads have a per-minute
-    stream. `stages`: [[startMs, endMs, type], …]; type 7 = awake."""
-    for st in stages:
-        start = epoch_to_utc(st[0]).replace(second=0, microsecond=0)
-        end = epoch_to_utc(st[1])
-        if end <= start:
-            continue
-        last = end - timedelta(seconds=60)
-        cur.execute(
-            "INSERT INTO sample (user_id, ts, metric, value) "
-            "SELECT %s, g, 'sleep_stage', %s FROM generate_series(%s, %s, interval '1 minute') g "
-            "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
-            (user_id, float(st[2]), start, last),
-        )
-        if st[2] != 7:  # 7 = awake; only actual sleep marks `asleep`
-            cur.execute(
-                "INSERT INTO sample (user_id, ts, metric, value) "
-                "SELECT %s, g, 'asleep', 1 FROM generate_series(%s, %s, interval '1 minute') g "
-                "ON CONFLICT (user_id, metric, ts) DO NOTHING",
-                (user_id, start, last),
-            )
+def upsert_sleep(cur: Cur, user_id: UUID, sessions: list[SleepIn]) -> int:
+    """Upsert typed sleep sessions. The hypnogram is stored ONCE, as the session's own
+    `stages` JSONB, and read from there.
 
+    ## The per-minute emit is gone (write-path audit D1)
 
-def upsert_sleep(
-    cur: Cur, user_id: UUID, sessions: list[SleepIn], should_emit: Callable[[SleepIn], bool]
-) -> int:
-    """Upsert typed sleep sessions; emit per-minute rows only for fresh MAIN
-    sleep (`should_emit`). Naps never feed the per-minute stream — daytime
-    minutes must not pollute the night-only SRI/regularity reads."""
+    `emit_sleep_minutes` ran `generate_series(..., interval '1 minute')` per hypnogram
+    stage, writing a `sleep_stage` sample per minute and an `asleep` sample per non-awake
+    minute — up to ~2,880 rows in the `sample` hypertable per fresh night, and by far the
+    most expensive statement in a push. Its docstring said they existed "so downstream SRI
+    / stage reads have a per-minute stream".
+
+    **No such reader existed.** A repo-wide grep for both metric names returned the writer,
+    three assertions in `tests/integration/test_ingest_integration.py` that the write had
+    happened, one cluster-name list and one display-name map. SRI is computed from
+    `sleep_session.stages` (`derive/sleep_score._sri_grid`), and so is the sleep page;
+    `analytics/metrics.py` enumerates the daily metrics explicitly and neither name is in
+    it. Legacy had v1 compat views reading these rows and `db/schema.sql` records that
+    those views were deliberately dropped in the rebuild — the write outlived its consumer.
+
+    So it is DELETED rather than justified: standards, "Dead code" — delete, don't keep
+    just in case; git has it. Nothing about SRI, the sleep page or the score moves, which
+    `tests/derive/test_derive_parity.py` and `test_sri_scale.py` are the proof of.
+
+    Two consequences worth stating rather than discovering:
+
+    * **D2 goes with it.** The emit was not idempotent under a corrected hypnogram —
+      `sleep_stage` was `DO UPDATE` and `asleep` was `DO NOTHING`, and neither deleted
+      minutes the new hypnogram no longer covered, so a re-push that reclassified a block
+      left the old `asleep` rows standing and a shortened session left orphan minutes at
+      both ends forever. There is nothing left to be non-idempotent.
+    * **The payload bounds STAY, and are not freed by this.** `_MAX_STAGES` and
+      `_MAX_SESSION_STAGE_MINUTES` were written to bound this statement, but
+      `sleep_score._sri_minute_grid` walks the stored hypnogram a minute at a time in
+      Python, so a stage declaring a span of years is still an unbounded loop — now in the
+      derive layer instead of the database. The bound moved consumers; it did not expire.
+
+    ## Every optional measurement is COALESCEd, so a partial re-push cannot erase one
+
+    ## Every optional measurement is COALESCEd, so a partial re-push cannot erase one
+
+    The conflict branch was a plain `col = EXCLUDED.col` on every column. A re-push of an
+    existing key that omitted a field therefore replaced a measured value with the model's
+    default — which, before `0018`, was `0` for all four stage minutes. The shipped client
+    always sends complete records, so this was latent rather than live; it is fixed anyway
+    because `/ingest/helio` is reachable by any device token including an older app build,
+    and because it is the mechanism by which A5's zeros could overwrite a night that had
+    been recorded correctly.
+
+    The team had already identified and fixed this exact class one table over —
+    `upsert_profile` COALESCEs `srpa` "so a plain assignment would let the next routine
+    sync from an un-updated app NULL out an answer the owner had given" — and did not carry
+    it across. It is carried across now, here and in `upsert_workouts` and
+    `upsert_daily_totals`.
+
+    `end_ts` and `kind` are NOT coalesced: they are required on the model, so `EXCLUDED`
+    always carries a real value and coalescing would only hide a future mistake.
+    """
     for s in sessions:
         cur.execute(
             "INSERT INTO sleep_session "
@@ -128,10 +167,18 @@ def upsert_sleep(
             "wake_min, stages) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb) "
             "ON CONFLICT (user_id, start_ts) DO UPDATE SET "
-            "end_ts = EXCLUDED.end_ts, kind = EXCLUDED.kind, score = EXCLUDED.score, "
-            "avg_hr = EXCLUDED.avg_hr, rem_min = EXCLUDED.rem_min, "
-            "light_min = EXCLUDED.light_min, deep_min = EXCLUDED.deep_min, "
-            "wake_min = EXCLUDED.wake_min, stages = EXCLUDED.stages",
+            "end_ts = EXCLUDED.end_ts, kind = EXCLUDED.kind, "
+            "score = COALESCE(EXCLUDED.score, sleep_session.score), "
+            "avg_hr = COALESCE(EXCLUDED.avg_hr, sleep_session.avg_hr), "
+            "rem_min = COALESCE(EXCLUDED.rem_min, sleep_session.rem_min), "
+            "light_min = COALESCE(EXCLUDED.light_min, sleep_session.light_min), "
+            "deep_min = COALESCE(EXCLUDED.deep_min, sleep_session.deep_min), "
+            "wake_min = COALESCE(EXCLUDED.wake_min, sleep_session.wake_min), "
+            # The hypnogram is NOT NULL DEFAULT '[]', so an omitted `stages` arrives as an
+            # empty array rather than a null and COALESCE cannot see it. Tested for
+            # emptiness instead: a re-push carrying no hypnogram keeps the stored one.
+            "stages = CASE WHEN jsonb_array_length(EXCLUDED.stages) > 0 "
+            "THEN EXCLUDED.stages ELSE sleep_session.stages END",
             (
                 user_id,
                 epoch_to_utc(s.start_ts),
@@ -146,22 +193,54 @@ def upsert_sleep(
                 json.dumps(s.stages),
             ),
         )
-        if s.kind != "nap" and should_emit(s):
-            emit_sleep_minutes(cur, user_id, s.stages)
     return len(sessions)
 
 
 def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
-    """Upsert typed workouts with device-measured HR/calories/distance."""
+    """Upsert typed workouts with device-measured HR/calories/distance.
+
+    Every nullable measurement is COALESCEd for the reason `upsert_sleep` gives: a partial
+    re-push must not replace a recorded figure with the model's default.
+
+    ## `sport` and `duration_s` join them (write-path audit B4)
+
+    They defaulted to `0` on `WorkoutIn` — a default of zero on a MEASUREMENT, the same
+    class `0018` closed for the sleep stages — so they were indistinguishable from a
+    genuine zero and were plainly assigned. This docstring named that and declined to fix
+    it, on the correct ground that a COALESCE over a `0` default would pin the first value
+    ever pushed. What it did not do is price the consequence: a re-push omitting
+    `duration_s` replaced a recorded duration with zero, and a zeroed session **drops out
+    of three gates at once** — `read/fitness.py` and `challenges/series.py` both filter on
+    `COALESCE(duration_s, 0) >= min_duration_s`, and `energy._tee_met` stops removing the
+    session's minutes from the MET walk, so the day's calories move.
+
+    The model change is what fixes it: `sport` and `duration_s` are `int | None`, absence
+    survives the boundary, and the conflict branch COALESCEs them like every other
+    measurement. Nothing here pins a first value, because `None` now means "this push did
+    not say" rather than "this push said zero".
+
+    **The residual, stated rather than discovered.** The columns are `NOT NULL DEFAULT 0`
+    (`schema.sql`), so a FIRST insert of a workout carrying no duration still stores `0`:
+    the parameter is coalesced to the column default on the way in. Making that absence
+    representable too is a migration on `workout`, and it would hand `None` to six read
+    sites that currently type these as `int`. It is not free and it is not what B4 is
+    about — the erasure of a duration we already had is, and that is closed. Note also
+    that the passed value is bound TWICE: the insert branch must see the default, and the
+    conflict branch must see the raw `None`, and one placeholder cannot be both.
+    """
     for w in workouts:
         cur.execute(
             "INSERT INTO workout "
             "(user_id, start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "VALUES (%s, %s, COALESCE(%s::int, 0), COALESCE(%s::int, 0), %s, %s, %s, %s, %s) "
             "ON CONFLICT (user_id, start_ts) DO UPDATE SET "
-            "sport = EXCLUDED.sport, duration_s = EXCLUDED.duration_s, "
-            "calories = EXCLUDED.calories, distance_m = EXCLUDED.distance_m, "
-            "avg_hr = EXCLUDED.avg_hr, max_hr = EXCLUDED.max_hr, min_hr = EXCLUDED.min_hr",
+            "sport = COALESCE(%s::int, workout.sport), "
+            "duration_s = COALESCE(%s::int, workout.duration_s), "
+            "calories = COALESCE(EXCLUDED.calories, workout.calories), "
+            "distance_m = COALESCE(EXCLUDED.distance_m, workout.distance_m), "
+            "avg_hr = COALESCE(EXCLUDED.avg_hr, workout.avg_hr), "
+            "max_hr = COALESCE(EXCLUDED.max_hr, workout.max_hr), "
+            "min_hr = COALESCE(EXCLUDED.min_hr, workout.min_hr)",
             (
                 user_id,
                 epoch_to_utc(w.start_ts),
@@ -172,19 +251,27 @@ def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
                 w.avg_hr,
                 w.max_hr,
                 w.min_hr,
+                w.sport,
+                w.duration_s,
             ),
         )
     return len(workouts)
 
 
 def upsert_profile(cur: Cur, user_id: UUID, tz: str, profile: ProfileIn) -> None:
-    """Upsert `user_id`'s profile row. `name` is preserved when the push omits it.
+    """Upsert `user_id`'s profile row, preserving every field the push did not send.
 
-    The OWNER is the conflict target (0005 re-keyed the table to `user_id`), which is
-    what makes this write tenant-safe: the old target was `(id)` against the single
-    `id = 1` row, so any owner's push updated the demographics of whoever held that
-    row — B silently overwriting A's height/sex/dob while the row stayed owned by A.
-    Conflicting on the owner means a push can only ever reach that owner's own row.
+    ## What this used to do, and what it cost (audit B2)
+
+    `name` and `srpa` were COALESCEd; `height_cm`, `sex` and `dob` were plainly ASSIGNED.
+    Every field on `ProfileIn` defaults to `None`, so a push whose `profile` block omitted
+    a demographic **erased it** — and `profile` has no history table, so nothing anywhere
+    else holds the owner's date of birth. The docstring here claimed the opposite of what
+    the SQL did.
+
+    `ingest/profile_write.py` now owns the rule and both writers of this table go through
+    it, which is the half that mattered: the profile editor was already careful and the
+    sync could silently undo it.
 
     Weight is handled by `upsert_weight` (it is a time series, not a profile field).
 
@@ -197,20 +284,17 @@ def upsert_profile(cur: Cur, user_id: UUID, tz: str, profile: ProfileIn) -> None
     age); it is NOT `epoch_to_utc`, whose magnitude guess inverts for pre-2001
     birth dates.
     """
-    dob = parse_dob(profile.dob, tz) if profile.dob is not None else None
-    cur.execute(
-        "INSERT INTO profile (user_id, name, height_cm, sex, dob, srpa, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, now()) "
-        "ON CONFLICT (user_id) DO UPDATE SET "
-        "name = COALESCE(EXCLUDED.name, profile.name), height_cm = EXCLUDED.height_cm, "
-        # `srpa` is COALESCEd like `name`, not overwritten like the demographics (#108).
-        # Every existing client builds this payload without the field, so a plain
-        # assignment would let the next routine sync from an un-updated app NULL out an
-        # answer the owner had given — silently withdrawing their own VO₂max. Clearing it
-        # deliberately is not a thing any surface offers, so nothing loses by this.
-        "sex = EXCLUDED.sex, dob = EXCLUDED.dob, "
-        "srpa = COALESCE(EXCLUDED.srpa, profile.srpa), updated_at = now()",
-        (user_id, profile.name, profile.height_cm, profile.sex, dob, profile.srpa),
+    write_profile(
+        cur,
+        user_id,
+        values={
+            "name": profile.name,
+            "height_cm": profile.height_cm,
+            "sex": profile.sex,
+            "dob": parse_dob(profile.dob, tz) if profile.dob is not None else None,
+            "srpa": profile.srpa,
+        },
+        supplied=frozenset(profile.model_fields_set),
     )
 
 
@@ -245,7 +329,11 @@ def upsert_weight(cur: Cur, user_id: UUID, tz: str, weight_kg: float) -> None:
     errs toward refusing rather than toward a confident stale number, which is the
     direction this product errs on purpose.
     """
-    kg = float(weight_kg)
+    # Re-asserted here, not only on `ProfileIn`: this function is the ONE writer of
+    # `weight_log.kg` from the ingest path, and a non-HTTP caller that skipped the model
+    # must not be able to store a mass that is not one. Same argument `upsert_profile`
+    # makes for re-parsing `dob` canonically rather than trusting the boundary.
+    kg = assert_plausible_weight_kg(float(weight_kg))
     cur.execute(
         "SELECT ts, kg, (ts AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date "
         "FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1",
@@ -264,69 +352,37 @@ def upsert_weight(cur: Cur, user_id: UUID, tz: str, weight_kg: float) -> None:
         )
 
 
-def upsert_daily_totals(cur: Cur, user_id: UUID, totals: list[DailyTotalIn]) -> int:
-    """Store the strap's live 0x0016 daily totals RAW, as reported. Returns rows stored.
-
-    ## What this replaced, and why the replacement is a different KIND of thing (#121)
-
-    This used to be `apply_daily_totals`, which wrote the strap's counter straight into
-    `derived_daily.steps_total` (and `distance_m_daily`) and nowhere else, under a
-    docstring that said it "MUST run AFTER derive … the strap counter is authoritative".
-    Both halves of that were true and together they were the bug: `derived_daily` is
-    exactly what a derive pass REBUILDS, so the next derive over that day — a push
-    carrying one late sample, a `db/rederive` repair, a backfill — recomputed
-    `steps_total` from the per-minute sum and the device's own count was gone, with no
-    raw row anywhere to restore it from. Production held 142 days of the per-minute sum
-    and one day of the strap counter for exactly that reason.
-
-    So this function no longer produces a metric at all. It stores a measurement, in
-    `device_daily_total`, and `derive/device_totals.py` decides what `steps_total` is.
-    The ordering constraint is therefore gone rather than moved: this runs before derive
-    for the same reason `upsert_samples` does — raw first, then derivation — and if it
-    ever ran after, the next derive pass would pick the row up instead of the value being
-    destroyed. Correctness stopped depending on the order.
-
-    A later report for the same day REPLACES an earlier one: the counter is a live
-    since-midnight accumulator, so the newest reading is the most complete one. Rows that
-    carry no number at all are skipped — a payload entry with every field null is not a
-    measurement — but a report with only distance, or only calories, is stored: this
-    table's job is to hold what the device said, and the derivation reads each field
-    independently.
-    """
-    rows = [
-        (user_id, t.day, t.steps, t.distance_m, t.calories)
-        for t in totals
-        if t.steps is not None or t.distance_m is not None or t.calories is not None
-    ]
-    if rows:
-        cur.executemany(
-            "INSERT INTO device_daily_total "
-            "(user_id, day, steps, distance_m, calories, reported_at) "
-            "VALUES (%s, %s, %s, %s, %s, now()) "
-            "ON CONFLICT (user_id, day) DO UPDATE SET "
-            "steps = EXCLUDED.steps, distance_m = EXCLUDED.distance_m, "
-            "calories = EXCLUDED.calories, reported_at = EXCLUDED.reported_at",
-            rows,
-        )
-    return len(rows)
-
-
 def build_fresh_predicate(
     cur: Cur, user_id: UUID, sessions: list[SleepIn]
 ) -> Callable[[SleepIn], bool]:
     """A predicate that answers "is this session fresh?" — new, or within
     FRESH_WINDOW_DAYS of the batch's latest night. Captures the already-existing
-    starts up front (one query) so re-pushed history is cheap to gate."""
-    main_sleep = [s for s in sessions if s.kind != "nap"]
+    starts up front (one query) so re-pushed history is cheap to gate.
+
+    ## What "already existing" is asked about, and why naps joined it (audit B5)
+
+    The lookup covered MAIN sleep only, which was harmless while this predicate had one
+    consumer — the per-minute emit, which naps never reach. `ingest/service._marks_its_day`
+    is a second consumer and naps do reach it, so an unfiltered lookup would have made
+    every re-pushed nap permanently "new" and re-derived its day on every sync of history.
+    Every pushed session is now looked up, and a nap that is already on file is as stale as
+    a night that is.
+
+    The WINDOW still comes from main sleep alone: "within three days of the batch's latest
+    NIGHT" is the documented rule, and letting a nap move the cutoff would change what that
+    sentence means for the emit as well. A nap-only page therefore has no cutoff at all and
+    every session on it is fresh, which is the right answer — that page is exactly the one
+    whose day was previously derived by nothing.
+    """
     existing: set[datetime] = set()
-    if main_sleep:
-        starts = [epoch_to_utc(s.start_ts) for s in main_sleep]
+    if sessions:
+        starts = [epoch_to_utc(s.start_ts) for s in sessions]
         cur.execute(
             "SELECT start_ts FROM sleep_session WHERE user_id = %s AND start_ts = ANY(%s)",
             (user_id, starts),
         )
         existing = {r[0] for r in cur.fetchall()}
-    latest = max((epoch_to_utc(s.end_ts) for s in main_sleep), default=None)
+    latest = max((epoch_to_utc(s.end_ts) for s in sessions if s.kind != "nap"), default=None)
     cutoff = (latest - timedelta(days=FRESH_WINDOW_DAYS)) if latest else None
 
     def _fresh(s: SleepIn) -> bool:

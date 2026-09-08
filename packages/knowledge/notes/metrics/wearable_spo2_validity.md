@@ -4,7 +4,7 @@ name: "Wearable SpO2 — validity & limits"
 topic: Wrist optical SpO2 accuracy and limits
 category: metrics
 grade: Established
-summary: "Wrist optical SpO2 is trustworthy as a multi-night personal trend and for spotting clearly abnormal (<90%) values, but not for absolute precision (±2–3% RMSE), single low readings, sleep-apnea diagnosis, or across dark skin pigmentation (documented bias)."
+summary: "Wrist optical SpO2 is trustworthy as a multi-night personal trend and for spotting clearly abnormal (<90%) values, but not for absolute precision (the true error is unquantified and at least ±3.5% — see #98), single low readings, sleep-apnea diagnosis, or across dark skin pigmentation (documented bias)."
 aliases: ["spo2", "SpO2", "blood oxygen", "oxygen saturation", "pulse oximetry", "wrist oximetry", "ppg spo2", "methodology", "accuracy"]
 applies_to_metrics: ["spo2_overnight", "spo2_overnight_min"]
 applies_to_interventions: []
@@ -15,7 +15,7 @@ last_reviewed: 2026-07-15
 # Wearable SpO2 — validity & limits
 
 ## Summary
-Wrist SpO2 estimates blood-oxygen saturation optically at the skin. It can be **trusted as a personal trend across multiple nights**, for flagging **clearly abnormal** values (sustained <90%), and for **relative** comparisons against the user's own median — but **not** for absolute precision (consumer devices run ±2–3% RMSE vs arterial reference), single low readings, sleep-apnea diagnosis, or fairly across dark skin pigmentation, where a documented overestimation bias exists. Surface it as a multi-night trend that can prompt a clinical evaluation, never as a diagnosis.
+Wrist SpO2 estimates blood-oxygen saturation optically at the skin. It can be **trusted as a personal trend across multiple nights**, for flagging **clearly abnormal** values (sustained <90%), and for **relative** comparisons against the user's own median — but **not** for absolute precision (the Helio Strap's error against an arterial reference is **unquantified and at least ±3.5%** — it is not a cleared oximeter and has no published validation; see *The evidence* for why the familiar "±2–3% RMSE" was withdrawn in #98), single low readings, sleep-apnea diagnosis, or fairly across dark skin pigmentation, where a documented overestimation bias exists. Surface it as a multi-night trend that can prompt a clinical evaluation, never as a diagnosis.
 
 ## What it actually measures
 Wrist SpO2 uses **two-wavelength optical sensing** (red + infrared LEDs) at the skin to estimate the ratio of oxygenated to deoxygenated haemoglobin in capillary blood. Clinical pulse oximeters use the same principle but typically at the **fingertip**, where perfusion is higher and motion is lower — which is why finger devices are more accurate than a wrist sensor.
@@ -52,14 +52,14 @@ Healthee derives **`spo2_overnight`** (a bounded window mean of the overnight Sp
 ## Bottom line
 **Act on confidently:** SpO2 as a **multi-night personal trend**; flagging **clearly abnormal** sustained values (<90–92%) for clinical follow-up; relative comparison vs the user's own median.
 
-**Hold loosely:** any absolute value; any single reading; sub-2% differences; anything approaching a sleep-apnea diagnosis; accuracy across dark skin or below 92%.
+**Hold loosely:** any absolute value; any single reading; **any night-to-night difference smaller than the device's own error, which is unquantified and at least ±3.5%** (#98 — the "sub-2%" this line used to give was the withdrawn figure restated as a resolution); anything approaching a sleep-apnea diagnosis; accuracy across dark skin or below 92%.
 
 ## Coach Directives
 1. Surface SpO2 as a **trend over multiple nights**, never a single-reading alarm. *(confidence: high)*
 2. Flag a **sustained nightly-minimum drop below ~92% across several nights** and recommend a **clinical evaluation — not a diagnosis**. The ~92% figure is a **clinical convention** (the ~90% hypoxaemia line plus a caution margin), **not a wearable-validated cutoff** — none is sourced (#98). Present it as a reason to get checked, never as a measurement of the owner's oxygenation. *(high)*
 3. Never call out individual low-reading minutes (most are sensor artefacts). *(high)*
 4. Never present wrist SpO2 as a sleep-apnea diagnosis; at most surface a suspicion worth a clinical sleep study. *(high)*
-5. Acknowledge reduced reliability for single readings, sub-2% precision, and darker skin pigmentation. *(high)*
+5. Acknowledge reduced reliability for single readings and for darker skin pigmentation, and say that the device's absolute error is **unquantified and at least ±3.5%** rather than quoting a precision figure. **Never state "±2–3%" or "sub-2%"** — that was the cleared-medical-oximeter bar mis-attributed to this wearable, withdrawn in #98, and it makes the strap sound more precise than the evidence allows. *(high)*
 
 ## References
 - Sjoding MW, Dickson RP, Iwashyna TJ, Gay SE, Valley TS. (2020). *Racial bias in pulse oximetry measurement.* New England Journal of Medicine 383(25):2477–2478. https://doi.org/10.1056/NEJMc2029240
@@ -69,4 +69,4 @@ Healthee derives **`spo2_overnight`** (a bounded window mean of the overnight Sp
 ## Healthee implementation & honesty policy
 - **Derived fields: `spo2_overnight` and `spo2_overnight_min`** (%) in `derived_daily`. Provenance: `derive/hrv_spo2_resp.py::derive_night_vitals` computes a **bounded window mean** of the `spo2` samples over the sleep window via `_window_stat` bounded to a physiological **70–100%**, and additionally the window **MIN** as `spo2_overnight_min`. Out-of-range/sentinel samples are dropped and no row is written when the window has no valid SpO2 (so "no data" stays distinct from a real value). Ported **verbatim** from the legacy v2 `derive_night` blocks — science code, not to be "simplified" on refactor.
 - **Raw source:** the per-sample metric is `spo2` (in `ALLOWED_METRICS`), sampled across the night.
-- **Honesty rules (carry into UI + LLM):** report SpO2 as a multi-night personal trend and only flag sustained sub-~92% minimums for *clinical follow-up*; never diagnose sleep apnea; never alarm on a single minute; acknowledge the dark-skin bias and the ±2–3% absolute imprecision.
+- **Honesty rules (carry into UI + LLM):** report SpO2 as a multi-night personal trend and only flag sustained sub-~92% minimums for *clinical follow-up*; never diagnose sleep apnea; never alarm on a single minute; acknowledge the dark-skin bias and say that the absolute error is **unquantified and at least ±3.5%** (#98). This rule used to instruct the coach to state "±2–3%" — the withdrawn figure, in the one place that told the model to repeat it.

@@ -24,6 +24,7 @@ class Disclosure {
     this.term,
     this.asOfDate,
     this.ageDays,
+    this.terms = const <Disclosure>[],
   });
 
   /// Parses one server block.
@@ -42,6 +43,13 @@ class Disclosure {
       // because a UI only ever asks "what date is this sentence about".
       asOfDate: (json['last_as_of_date'] ?? json['as_of_date']) as String?,
       ageDays: (json['age_days'] as num?)?.toInt(),
+      terms: <Disclosure>[
+        for (final entry in (json['terms'] as List? ?? const <Object?>[]))
+          if (entry is Map<String, Object?> &&
+              entry['reason'] is String &&
+              entry['message'] is String)
+            Disclosure.fromJson(entry),
+      ],
     );
   }
 
@@ -65,6 +73,18 @@ class Disclosure {
   /// How far [asOfDate] is from the day in question, in days.
   final int? ageDays;
 
+  /// The named parts this sentence is about, when the server sent a composite.
+  ///
+  /// `analytics/biological_age.py` writes `withheld` as a `consequence` (why the
+  /// WHOLE number goes when any term does) plus a `terms` list naming every
+  /// absent lever with the input metric's own reason and remedy. Those are
+  /// genuinely sub-disclosures of one refusal, not siblings of it: flattening
+  /// them into the list would lose which sentence is the rule and which is the
+  /// action, and dropping them would lose the action entirely.
+  ///
+  /// Empty for every other block, which is every block that is not a composite.
+  final List<Disclosure> terms;
+
   @override
   bool operator ==(Object other) =>
       other is Disclosure &&
@@ -72,10 +92,30 @@ class Disclosure {
       other.message == message &&
       other.term == term &&
       other.asOfDate == asOfDate &&
-      other.ageDays == ageDays;
+      other.ageDays == ageDays &&
+      _sameTerms(other.terms, terms);
 
   @override
-  int get hashCode => Object.hash(reason, message, term, asOfDate, ageDays);
+  int get hashCode => Object.hash(
+    reason,
+    message,
+    term,
+    asOfDate,
+    ageDays,
+    Object.hashAll(terms),
+  );
+
+  static bool _sameTerms(List<Disclosure> a, List<Disclosure> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   @override
   String toString() => 'Disclosure($reason)';

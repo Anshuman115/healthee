@@ -31,6 +31,7 @@ from uuid import UUID
 
 from healthee.core.logging import get_logger
 from healthee.derive._common import Cur, _age, _load_profile, _upsert_daily
+from healthee.derive.body_mass import body_mass_index
 from healthee.derive.freshness import (
     NOT_DERIVED_YET,
     PROFILE_INCOMPLETE,
@@ -194,8 +195,17 @@ def out_of_range_inputs(age_years: float | None, bmi: float | None) -> list[dict
 
 
 def _flag(name: str, label: str, value: float, low: float, high: float) -> dict:
-    """One out-of-range input, machine-readable and self-explaining."""
+    """One out-of-range input, machine-readable and self-explaining.
+
+    ``reason`` + ``message`` are the honesty layer's OWN two required fields, not decoration:
+    ``derive/freshness.caveat_block`` writes exactly that pair, and the app's envelope
+    (``apps/mobile/lib/data/honesty/envelope.dart``) drops any block missing either — so a
+    disclosure without a ``reason`` is a disclosure that never reaches a screen. These blocks
+    shipped under a key of their own with no ``reason``, and the estimate rendered at full
+    confidence because of it. The extra keys below are additive and ignored by the envelope.
+    """
     return {
+        "reason": f"vo2max_{name}_out_of_validated_range",
         "input": name,
         "value": value,
         "validated_low": low,
@@ -275,7 +285,10 @@ def _profile_withhold_reason(prof: dict, day: date) -> str | None:
     surfaces of ``/api/today`` need in order to agree.
 
     Note what is NOT the argument: the numeric error is small (≈0.2 ml/kg/min per kg of
-    weight error, against Jurca's own 5.6 SEE). The reason to refuse is that the number
+    weight error, against Jurca's own SEE of :data:`_JURCA_SEE_ML_KG_MIN` — 5.075, not
+    the 5.6 this line used to give, which is the figure #108 withdrew as appearing
+    nowhere in the paper and which the same file corrects 220 lines above). The
+    computation never read it; a reader did. The reason to refuse is that the number
     is offered as a fact about this person's body TODAY and one of its inputs is not
     about today at all. A small wrong number presented confidently is still the lie.
     """
@@ -339,7 +352,7 @@ def derive_vo2max(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
     if reason := _profile_withhold_reason(prof, day):
         return _withheld(user_id, day, reason)
     age = _age(prof["dob"], day)
-    bmi = prof["weight_kg"] / ((prof["height_cm"] / 100) ** 2)
+    bmi = body_mass_index(prof["weight_kg"], prof["height_cm"])
     rhrs = rhr_week(cur, user_id, day)
     if reason := vo2max_withhold_reason(rhrs):
         return _withheld(user_id, day, reason)

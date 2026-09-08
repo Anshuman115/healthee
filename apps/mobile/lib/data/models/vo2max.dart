@@ -55,6 +55,51 @@ class Vo2maxInputs {
   final double? physicalActivityScore;
 }
 
+/// `vo2max.submax` — the fit behind a session-measured estimate.
+///
+/// **Not a second estimate.** `derive/vo2max_tier.py` writes ONE VO₂max, and
+/// this block describes the session the graded tier read it off: how well the
+/// heart-rate/workload line fitted, and the speed the fit was taken at. It is
+/// parsed so the fitness screen can answer *"which instrument produced it?"*
+/// with the fit's own numbers instead of restating the estimate.
+@immutable
+class Vo2maxSubmax {
+  /// Builds the block. Prefer [Vo2maxSubmax.maybe].
+  const Vo2maxSubmax({
+    required this.lastMethod,
+    required this.lastR2,
+    required this.lastSpeedKmh,
+    required this.asOfDate,
+  });
+
+  /// Parses `submax`, or null when it holds nothing worth drawing.
+  static Vo2maxSubmax? maybe(Map<String, Object?> json) {
+    final block = Vo2maxSubmax(
+      lastMethod: json['last_method'] as String?,
+      lastR2: (json['last_r2'] as num?)?.toDouble(),
+      lastSpeedKmh: (json['last_speed_kmh'] as num?)?.toDouble(),
+      asOfDate: json['as_of_date'] as String?,
+    );
+    return block.isEmpty ? null : block;
+  }
+
+  /// The instrument the last scoreable session was read with.
+  final String? lastMethod;
+
+  /// How well that session's heart-rate/workload line fitted, 0–1.
+  final double? lastR2;
+
+  /// The speed the fit was taken at.
+  final double? lastSpeedKmh;
+
+  /// The day that session was recorded.
+  final String? asOfDate;
+
+  /// Whether every field is absent — a block with nothing to say.
+  bool get isEmpty =>
+      lastMethod == null && lastR2 == null && lastSpeedKmh == null;
+}
+
 /// A reported VO₂max, with the instrument that read it and that instrument's error.
 @immutable
 class Vo2max {
@@ -66,6 +111,7 @@ class Vo2max {
     required this.standardErrorMlKgMin,
     required this.standardErrorSource,
     required this.asOfDate,
+    required this.measuredAsOf,
     required this.medianForAge,
     required this.deltaFromMedian,
     required this.sessionCount,
@@ -74,6 +120,7 @@ class Vo2max {
     required this.ageYears,
     required this.sex,
     required this.inputs,
+    this.submax,
   });
 
   /// Parses the payload when it carries a current estimate; null when it does not.
@@ -95,6 +142,7 @@ class Vo2max {
       standardErrorMlKgMin: (json['see_ml_kg_min'] as num?)?.toDouble(),
       standardErrorSource: json['see_source'] as String?,
       asOfDate: json['as_of_date'] as String?,
+      measuredAsOf: json['measured_as_of'] as String?,
       medianForAge: (json['median_for_age'] as num?)?.toDouble(),
       deltaFromMedian: (json['delta_from_median'] as num?)?.toDouble(),
       sessionCount: (json['n_sessions'] as num?)?.toInt(),
@@ -107,6 +155,9 @@ class Vo2max {
             ? json['inputs']! as Map<String, Object?>
             : const <String, Object?>{},
       ),
+      submax: json['submax'] is Map<String, Object?>
+          ? Vo2maxSubmax.maybe(json['submax']! as Map<String, Object?>)
+          : null,
     );
   }
 
@@ -150,6 +201,20 @@ class Vo2max {
   /// The day this estimate is a claim about, `YYYY-MM-DD`.
   final String? asOfDate;
 
+  /// The day the MEASUREMENT behind it was recorded, `YYYY-MM-DD`.
+  ///
+  /// A different fact from [asOfDate] and that is the whole reason it is here.
+  /// `derive/vo2max_tier.py` lets a graded session or a reserve inversion speak
+  /// for up to `MEASURED_VO2MAX_MAX_AGE_DAYS` = 14 days, and the freshness
+  /// argument that permits it (`derive/freshness.py`) rests on the owner being
+  /// told which day it was measured. This was on the wire and unparsed, so a card
+  /// read "as of today" over a run recorded a fortnight ago — the stale-as-current
+  /// lie reached through the client rather than the server, which is why the
+  /// server's own guard could not catch it.
+  ///
+  /// Rendered only when it DIFFERS from [asOfDate]; see [measuredEarlier].
+  final String? measuredAsOf;
+
   /// The population median for the owner's age and sex — a fact about the
   /// reference group, not a claim about them.
   final double? medianForAge;
@@ -165,6 +230,13 @@ class Vo2max {
   /// that ends before today is honest as long as nothing claims it ends now.
   final List<TrendPoint> trend90d;
 
+  /// The measurement day when it is NOT the day the estimate is offered for.
+  ///
+  /// Null when the two agree, so a screen that prints this prints nothing on the
+  /// ordinary day and names the gap on the day there is one.
+  String? get measuredEarlier =>
+      measuredAsOf != null && measuredAsOf != asOfDate ? measuredAsOf : null;
+
   /// The notes that license this number in front of the owner.
   final List<String> researchNotes;
 
@@ -177,11 +249,20 @@ class Vo2max {
 
   /// The four numbers Jurca's non-exercise model takes.
   ///
-  /// Every one of them can be null, and on this server three of them usually
-  /// are: `read/vo2max.py` maps `weekly_mvpa_min` to `None` outright (a
-  /// documented WP7 gap), and `bmi` / `rhr_med_7d` / `pa_score` only exist on a
-  /// row the Jurca tier wrote. A measured tier leaves all four empty.
+  /// Every one of them can be null, and `bmi` / `rhr_med_7d` / `pa_score` exist
+  /// only on a row the Jurca tier wrote.
+  ///
+  /// `weekly_mvpa_min` used to be null on EVERY row — `read/vo2max.py` mapped it
+  /// to `None` outright, beside a note saying v2 does not store it in the VO₂max
+  /// flags. That was true and it was not a reason: the number is computed twenty
+  /// lines away for `/api/activity.mvpa.week_min`, and both surfaces read it from
+  /// one place now (`docs/BACKEND_GAPS_FROM_UI.md` B3). It is null only when
+  /// there is genuinely no MVPA row to sum — never `0`, which would read as a
+  /// measured week of stillness.
   final Vo2maxInputs inputs;
+
+  /// The fit behind a session-measured estimate, when there was a session.
+  final Vo2maxSubmax? submax;
 
   static List<String> _strings(Object? raw) {
     if (raw is! List) {

@@ -150,17 +150,23 @@ now provisions the role on every run, but it only does so when
 `POSTGRES_APP_USER`/`POSTGRES_APP_PASSWORD` are set — the same vars the app pool
 reads. So:
 
-1. **Deploy once with the app vars UNSET.** The admin-cred fallback keeps the app
-   alive; provisioning is skipped; you get the `BYPASSES Row-Level Security`
-   warning. That is expected at this step.
+1. **Deploy once with the app vars blank and the fallback explicitly allowed.** The
+   admin-cred fallback keeps the app alive; provisioning is skipped; you get the
+   `BYPASSES Row-Level Security` warning. That is expected at this step — and the app
+   now refuses to boot on that fallback unless you ask for it, so step 1 needs the
+   opt-out in `infra/.env`:
+   ```sh
+   ALLOW_ADMIN_DB_FALLBACK=true
+   ```
    ```sh
    infra/deploy.sh
    ```
-2. **Set both** in `infra/.env`:
+2. **Set both, and remove the opt-out** in `infra/.env`:
    ```sh
    # openssl rand -base64 48 | tr -d '/+=' | head -c 32
    POSTGRES_APP_USER=healthee_app
    POSTGRES_APP_PASSWORD=<secret>
+   # delete ALLOW_ADMIN_DB_FALLBACK, or set it to false
    ```
 3. **Deploy again.** This run provisions the role (as the admin, password from
    the env) and then starts the app on it.

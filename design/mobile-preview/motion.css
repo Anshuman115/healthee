@@ -1,0 +1,34 @@
+/* Hallmark · macrostructure: Stat-Led · tone: atmospheric instruments · anchor hue: green
+ * Pre-emit critique: P4 H4 E4 S5 R4 V4. Motion decorates the instruments, never the readings. */
+:root {
+  --halo-core: oklch(88% .13 157); --halo-mist: oklch(65% .17 161); --halo-warm: oklch(88% .13 86);
+  --halo-surface: oklch(20% .018 157); --halo-ink: oklch(96% .014 157); --halo-rule: oklch(58% .105 157);
+}
+.bio-hero { --bio-background: var(--halo-surface); --bio-ink: var(--halo-ink); --bio-line: var(--halo-rule); }
+.bio-display { position: relative; isolation: isolate; width: 100%; max-width: 304px; aspect-ratio: 1; display: grid; place-items: center; margin: 0 auto; }
+.bio-hero .bio-art { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 1; z-index: -1; pointer-events: none; }
+.bio-hero .bio-atmosphere { opacity: .9; }
+.bio-hero .age-value { margin: 0; text-align: center; font-size: 84px; letter-spacing: -5px; }
+.bio-hero .age-value small { display: block; margin: 4px 0 0; font-size: 11px; letter-spacing: 1px; }
+.bio-hero .age-context { text-align: center; margin: 0 0 18px; }
+@media(max-width:359px) { .bio-hero .age-value { font-size: 72px; } }
+.bio-controls { display: flex; align-items: center; gap: 12px; }
+.motion-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.bio-controls .motion-toggle {
+  width: 32px; height: 32px; border-radius: 50%; color: var(--bio-ink);
+  border: 1px solid color-mix(in oklch, var(--bio-line) 40%, transparent);
+}
+.motion-symbol { display: block; width: 12px; height: 12px; fill: currentColor; }
+.motion-play { display: none; }
+[data-motion='off'] .motion-play { display: block; }
+[data-motion='off'] .motion-pause { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .summary-tile, .relationship-card { transition: transform 260ms var(--ease-out); }
+  .summary-tile:active, .relationship-card:active { transform: scale(.975); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .summary-tile:hover, .relationship-card:hover { transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) { .bio-art { animation: none !important; } }
+[data-motion='off'] .page-enter { animation: none; }
+[data-motion='off'] .summary-tile, [data-motion='off'] .relationship-card { transform: none; transition: none; }

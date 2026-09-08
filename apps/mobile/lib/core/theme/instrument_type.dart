@@ -1,4 +1,4 @@
-/// Legacy's five type roles, wearing Manrope.
+/// Legacy's five type roles, wearing Inter.
 ///
 /// **Ported from** `healthee-legacy/app/lib/ui/theme.dart`'s `HType`. Every size,
 /// weight, height and tracking coefficient below is legacy's, unchanged. The ONE
@@ -8,9 +8,9 @@
 /// ```text
 ///   legacy                          here
 ///   ────────────────────────────    ──────────────────
-///   Newsreader   (serif display)    Manrope
-///   Hanken Grotesk (UI sans)        Manrope
-///   Space Mono   (numerals, labels) Manrope
+///   Newsreader   (serif display)    Inter
+///   Hanken Grotesk (UI sans)        Inter
+///   Space Mono   (numerals, labels) Inter (tabular figures)
 /// ```
 ///
 /// Three faces became one, and one of the three was a **monospace**. That is not
@@ -23,7 +23,7 @@
 ///
 /// It keeps legacy's name so a ported screen reads the same as the legacy screen
 /// it came from, and it keeps legacy's metrics (23 px, weight 400, height 1.05,
-/// −0.01 em tracking). It renders in Manrope.
+/// −0.01 em tracking). It renders in Inter.
 ///
 /// ## The italic is GONE, and that is a finding rather than a deferral
 ///
@@ -34,12 +34,13 @@
 /// shape of a dead control, and invisible because the text still rendered
 /// perfectly.
 ///
-/// The previous revision of this file called that a vendoring job left for
-/// later. It is not one: **Manrope's variable font carries a single `wght` axis
-/// (200–800) and upstream publishes no italic companion** — measured off
-/// `Manrope[wght].ttf`'s `fvar` table, not remembered. There is no italic to
-/// vendor while the family is Manrope, so the app stopped asking for one and
-/// `test/core/typography_test.dart` fails if it starts again.
+/// An earlier revision of this file called that a vendoring job left for later.
+/// Under Manrope it was not one: that family published no italic companion at
+/// all, so there was nothing to vendor. **Under Inter it is a choice** — Inter
+/// ships an italic and it is deliberately not bundled, because nothing in the
+/// app sets one and a style nobody draws is weight in the APK that would start
+/// arriving by accident the moment it existed.
+/// `test/core/typography_test.dart` fails if the app starts asking for one.
 ///
 /// Nothing moved on screen: the two source lines were already distinguished by
 /// `ink3`, which is what was actually doing the work.
@@ -49,8 +50,8 @@
 /// [number] is legacy's `HType.num` and asks for **w700**. The pubspec vendored
 /// 400/500/600, so Flutter substituted 600 and every instrument readout in the
 /// app was a shade light — with no error, no warning, and nothing on screen to
-/// see. `Manrope-Bold.ttf` is now instanced at `wght=700` from the same variable
-/// font as the other three, and the typography test derives BOTH sides (the
+/// see. `Inter-Bold.ttf` is vendored at `wght=700` alongside the other three,
+/// and the typography test derives BOTH sides (the
 /// weights `lib/` names, and the weights `pubspec.yaml` declares) and compares
 /// them, so the next such gap fails a build instead of shipping.
 library;
@@ -98,7 +99,7 @@ abstract final class HType {
   /// The instrument readout. Legacy's `HType.num`: 27 px, weight 700, tabular,
   /// tracking −0.008 em.
   ///
-  /// The 700 is real now — `Manrope-Bold.ttf` is vendored. It was requested and
+  /// The 700 is real now — `Inter-Bold.ttf` is vendored. It was requested and
   /// silently served at 600 for the whole of the port; see the library
   /// docstring, and note that `weight` was never rewritten to `w600` to match
   /// the bundle, which is why vendoring the face fixed all 74 call sites at once.
@@ -149,6 +150,8 @@ abstract final class HType {
     fontFamilyFallback: healtheeFontFallback,
     fontSize: size,
     fontWeight: weight,
+    // Figtree is variable: drive the wght axis, not only the weight slot.
+    fontVariations: <FontVariation>[FontVariation('wght', weight.value.toDouble())],
     height: height,
     letterSpacing: tracking,
     color: color,

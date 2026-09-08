@@ -44,7 +44,7 @@ final class CoachControllerProvider
   }
 }
 
-String _$coachControllerHash() => r'cfc2acab7ec5e58b0afbf53d97a6e9e960dcbad6';
+String _$coachControllerHash() => r'a894cded446e686a75956544024c84a1a751e81d';
 
 /// The running conversation with the coach.
 

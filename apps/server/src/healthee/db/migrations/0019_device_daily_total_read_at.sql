@@ -1,0 +1,61 @@
+-- 0019_device_daily_total_read_at — the strap counter's READ INSTANT gets a durable
+-- home, and stops being invented from the arrival time (write-path audit A1).
+--
+-- ## The defect
+--
+-- The phone records WHEN IT ASKED the strap for its since-midnight counters, and keeps
+-- that instant deliberately: `apps/mobile/lib/data/store/tables.dart` calls it
+-- `readAtMs` and says why — *"a counter read at 09:00 is a claim about nine hours, not
+-- about a day"* — and `push_reader.dart` keys the pending marker on `(day, readAtMs)` so
+-- a newer reading that overlapped a push is not marked sent.
+--
+-- It was never sent. `DailyTotalIn` had no field for it, and `ingest/upsert.py` supplied
+-- `now()` for `reported_at`, which is the ARRIVAL instant. Two live consequences, both in
+-- the owner-facing disclosure `derive/device_totals.partial_day_caveats` builds:
+--
+-- 1. The caveat quoted the arrival instant as the moment the counter "stood at" its
+--    value. The function's own docstring called the test *"exact rather than heuristic"*.
+--    It was exact about the wrong quantity.
+-- 2. `reported_at >= day_end_utc` suppressed the caveat ENTIRELY whenever a push crossed
+--    the owner's local midnight — the normal case, because auto-sync fires on a
+--    foreground transition. `select_steps` prefers the device counter unconditionally, so
+--    a nine-hour prefix of a day then served as the whole day with `caveats: []`.
+--
+-- ## The shape
+--
+-- `read_at` is NULLABLE and stays nullable, because "we do not know when this counter was
+-- read" is a real state that must remain representable. It is the state of every row
+-- written before this migration, and the state of every row a client older than the
+-- matching app build will write. The alternative — a `NOT NULL DEFAULT now()` — would
+-- recreate the exact lie this migration exists to end, with a new mechanism.
+--
+-- `reported_at` is untouched and keeps meaning ARRIVAL. Two instants, two meanings, two
+-- columns; collapsing them is what the defect was.
+--
+-- ## ⛔ What is unrecoverable, stated plainly
+--
+-- **Every `device_daily_total` row already written carries an arrival instant and no read
+-- instant, and no code change and no re-derive can turn one into the other.** The phone's
+-- `readAtMs` for those days falls off its 60-day local horizon and is then gone; the
+-- strap keeps no history of when it was asked. This is `0017`'s loss one field to the
+-- left and it has the same answer: the column starts NULL for every existing row, nothing
+-- backfills it, and nothing invents it.
+--
+-- What those rows get instead is an honest caveat rather than a wrong one:
+-- `partial_day_caveats` now says the read time was not recorded, so we cannot say which
+-- part of the day the counter covers. That is worse to read and it is true, which is the
+-- trade this product makes on purpose. A day whose read instant is unknown must not
+-- silently lose its caveat either — that was the second half of the defect.
+--
+-- ## Cost
+--
+-- One nullable column on a table with one row per owner per day: ~150 rows per owner per
+-- year. `ADD COLUMN` with no default and no NOT NULL is a catalogue-only change in
+-- PostgreSQL 11+, so no table rewrite, no lock beyond the brief ACCESS EXCLUSIVE the
+-- catalogue update takes, and no existing reader moves. No index: every read of this
+-- table is already `(user_id, day)`, which the primary key serves.
+--
+-- Replay-safe (IF NOT EXISTS); `migrate._apply_one` runs the file plus its ledger row in
+-- ONE transaction.
+
+ALTER TABLE device_daily_total ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;

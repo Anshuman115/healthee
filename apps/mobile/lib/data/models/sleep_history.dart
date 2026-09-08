@@ -26,8 +26,13 @@ class SleepNightSummary {
   });
 
   /// Parses one entry of `sleep_history_7d`.
+  ///
+  /// Every stage field was `?? 0` with no honesty wrapper at all, which turned a
+  /// night the strap never staged into a night of measured zeros — and this is
+  /// the model the stacked chart paints, so those zeros were pixels. The server
+  /// sends null for an unstaged night since migration `0018`; null is kept.
   factory SleepNightSummary.fromJson(Map<String, Object?> json) {
-    int minutes(String key) => (json[key] as num?)?.toInt() ?? 0;
+    int? minutes(String key) => (json[key] as num?)?.toInt();
     return SleepNightSummary(
       date: json['date']! as String,
       durationMin: minutes('duration_min'),
@@ -42,20 +47,29 @@ class SleepNightSummary {
   /// Owner-local calendar date the night is filed under.
   final String date;
 
-  /// Total sleep time, minutes.
-  final int durationMin;
+  /// Total sleep time, minutes. Null when the night was not measured.
+  final int? durationMin;
 
-  /// Deep-sleep minutes.
-  final int deepMin;
+  /// Deep-sleep minutes. Null when the strap staged nothing.
+  final int? deepMin;
 
-  /// Light-sleep minutes.
-  final int lightMin;
+  /// Light-sleep minutes. Null when the strap staged nothing.
+  final int? lightMin;
 
-  /// REM minutes.
-  final int remMin;
+  /// REM minutes. Null when the strap staged nothing.
+  final int? remMin;
 
-  /// Awake-in-bed minutes.
-  final int awakeMin;
+  /// Awake-in-bed minutes. Null when the strap staged nothing.
+  final int? awakeMin;
+
+  /// Whether this night has a stage breakdown to draw at all.
+  ///
+  /// The chart's gate. A night with no breakdown is painted as a marked absence,
+  /// never as four zero-height segments — those are indistinguishable from a
+  /// night of literal zero sleep, which is the defect this field exists to make
+  /// unrepresentable.
+  bool get hasBreakdown =>
+      deepMin != null || lightMin != null || remMin != null || awakeMin != null;
 
   /// **The strap's own score**, not Healthee's judgement.
   final int? deviceScore;

@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/coach/widgets/coach_fab.dart';
+import 'package:healthee/shared/app_tab_bar.dart';
 
 import '_today_host.dart';
 
@@ -42,7 +43,13 @@ void main() {
       'Insights',
       'Actions',
     ]) {
-      expect(find.text(label), findsOneWidget, reason: '$label is a tab');
+      // Scoped to the bar: `Today` is also the screen's own h1 since the v02
+      // redesign, so an unscoped finder would be asking about the title.
+      expect(
+        find.descendant(of: find.byType(AppTabBar), matching: find.text(label)),
+        findsOneWidget,
+        reason: '$label is a tab',
+      );
     }
     expect(
       find.text('Coach'),

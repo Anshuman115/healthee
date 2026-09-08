@@ -21,6 +21,42 @@ METRIC_META: dict[str, dict] = {
     "weight_kg":          {"label": "Weight",           "unit": "kg",   "digits": 1},
 }  # fmt: skip
 
+
+def metric_label(metric: str) -> str:
+    """A metric's display name — the ONE definition of it.
+
+    Two callers now: ``notable`` puts it on a shift, and ``insights.surfaces`` puts it
+    in the per-metric prompt's task sentence. The prompt used to take a label as an
+    unvalidated query parameter instead, which put attacker-controllable text inside an
+    instruction and — because the label was not in the cache key — let one day's text be
+    served under a different name than the one that asked for it.
+
+    The fallback un-underscores the id rather than returning nothing: a metric this table
+    has not been taught still has a readable name, and a blank where a name belongs is
+    the one thing a sentence cannot survive.
+    """
+    return METRIC_META.get(metric, {}).get("label", metric.replace("_", " "))
+
+
+# The manifest note licensing each card, for the app's ⓘ sheet. MANIFEST IDS, never
+# aliases — an alias resolves to nothing in every consumer of a cited id, so a card citing
+# one opens an empty explainer (``read/activity.py``).
+#
+# The three calorie rows carried NO note id at all, unlike their VO2max, MVPA and strain
+# siblings, so ``energy_expenditure_derivation``'s own Directive 3 estimate label (the
+# ±15-20% individual error) had nowhere to render (audit C6). A metric absent from this
+# map ships ``note_id: None`` — an honest "we have not cited this one" rather than a
+# guessed id, which is the failure mode a default here would create.
+METRIC_NOTE_ID: dict[str, str] = {
+    "rhr_daily": "resting_heart_rate",
+    "steps_total": "steps_mortality",
+    "distance_m_daily": "distance_from_steps",
+    "active_calories": "energy_expenditure_derivation",
+    "total_calories": "energy_expenditure_derivation",
+    "basal_calories": "energy_expenditure_derivation",
+    "weight_kg": "weight_bmi_body_composition",
+}
+
 # Today's secondary cards — each slot is a list of candidate metrics, first with
 # data wins; order = display order. Ported from legacy TODAY_SECONDARY_METRICS
 # with the v1→v2 renames applied (``distance_m`` alias and ``floors_climbed_daily``

@@ -384,7 +384,7 @@
       "name": "Minimum exercise dose and mortality",
       "path": "notes/activity/exercise_mortality.md",
       "population": "general",
-      "summary": "As little as ~15 min/day (~90 min/week) of moderate activity meaningfully lowers all-cause mortality vs inactivity; benefit keeps accruing with diminishing returns above ~300 min/week moderate (or ~150 vigorous), and resistance training adds benefit beyond aerobic work."
+      "summary": "As little as ~15 min/day (~90 min/week) of moderate activity is associated with meaningfully lower all-cause mortality vs inactivity; benefit keeps accruing with diminishing returns above ~300 min/week moderate (or ~150 vigorous), and resistance training adds benefit beyond aerobic work."
     },
     {
       "aliases": [
@@ -671,7 +671,7 @@
         5,
         6
       ],
-      "summary": "The '8 glasses a day' rule has no scientific basis — a systematic search found 'no scientific studies in support of 8 x 8' (Valtin 2002) — and caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate."
+      "summary": "Caffeinated drinks count toward fluid intake, with a crossover trial showing coffee at 4 mg/kg/day matched water on total body water and urine volume (Killer 2014, n = 50 men). Published reference values (EFSA: 2.5 L/day men, 2.0 L/day women) are TOTAL water including the water in food, derived from observed intakes rather than a measured requirement. Dehydration past ~2% body-mass loss does measurably dent attention and executive function (pooled ES −0.28). Healthee measures no hydration at all — no fluid log, no urine marker, no sweat rate. The '8 glasses a day' question is a separate, Myth-graded topic and lives in [[hydration_8x8_rule]] — cite that note for it, never this one."
     },
     {
       "aliases": [
@@ -1421,7 +1421,7 @@
       "name": "Respiratory Rate (overnight)",
       "path": "notes/metrics/respiratory_rate_normal.md",
       "population": "general",
-      "summary": "Overnight respiratory rate is 12–20 br/min (most 12–16 in deep sleep) and personally very stable (<1 br/min night-to-night); a sustained ≥2 br/min rise over the personal baseline is a validated early illness signal, not a diagnosis."
+      "summary": "Overnight respiratory rate is 12–20 br/min (most 12–16 in deep sleep) and is personally stable enough that a deviation from someone's own baseline is informative — HOW stable is our own unsourced assumption, not a published figure; a sustained ≥2 br/min rise over the personal baseline is a validated early illness signal, not a diagnosis."
     },
     {
       "aliases": [
@@ -1561,7 +1561,7 @@
       "name": "Sedentary time and mortality",
       "path": "notes/activity/sedentary_mortality.md",
       "population": "general",
-      "summary": "Prolonged sedentary time independently raises all-cause mortality, but the harm is largely offset by physical activity and light-activity breaks — high activity nearly eliminates the excess risk of normal sitting; the message is 'break up sitting and stay generally active', not 'never sit'."
+      "summary": "Prolonged sedentary time independently tracks with higher all-cause mortality, but the harm is largely offset by physical activity and light-activity breaks — high activity nearly eliminates the excess risk of normal sitting; the message is 'break up sitting and stay generally active', not 'never sit'."
     },
     {
       "aliases": [
@@ -1654,7 +1654,7 @@
       "name": "Sleep timing consistency (day-to-day variability)",
       "path": "notes/sleep/sleep_consistency.md",
       "population": "general",
-      "summary": "Higher day-to-day variability in bedtime and sleep duration raises cardiometabolic and mortality risk independently of mean sleep duration; it is a chronic-pattern signal (track SD of bedtime over ~2 weeks, surface weekly), the behavioural sibling of the Sleep Regularity Index."
+      "summary": "Higher day-to-day variability in bedtime and sleep duration tracks with higher cardiometabolic and mortality risk independently of mean sleep duration; it is a chronic-pattern signal (track SD of bedtime over ~2 weeks, surface weekly), the behavioural sibling of the Sleep Regularity Index."
     },
     {
       "aliases": [
@@ -1818,7 +1818,7 @@
       "grade": "Probable",
       "id": "sleep_timing_chronotype",
       "last_reviewed": "2026-07-15",
-      "name": "Sleep timing, chronotype & the CVD-lowering bedtime",
+      "name": "Sleep timing, chronotype & the lowest-CVD-risk bedtime",
       "path": "notes/sleep/sleep_timing_chronotype.md",
       "population": "general",
       "summary": "Sleep onset ~10–11 PM with 7–8 h and a ~6:30–7 AM wake sits at the lowest-CVD-risk window (U-shaped; Nikbakhtian 2021), but consistency of timing matters more than the exact clock time, and for night owls a consistent wake time plus gradual morning-light shift beats a forced early bedtime."
@@ -1926,9 +1926,7 @@
       "applies_to_interventions": [
         "exercise"
       ],
-      "applies_to_metrics": [
-        "strength_min_weekly"
-      ],
+      "applies_to_metrics": [],
       "category": "activity",
       "collection": "legacy",
       "grade": "Probable",
@@ -1959,9 +1957,7 @@
       "applies_to_interventions": [
         "strength"
       ],
-      "applies_to_metrics": [
-        "strength_min_weekly"
-      ],
+      "applies_to_metrics": [],
       "category": "wellness",
       "collection": "sports_science",
       "grade": "Established",
@@ -1983,9 +1979,7 @@
       "applies_to_interventions": [
         "exercise"
       ],
-      "applies_to_metrics": [
-        "strength_min_weekly"
-      ],
+      "applies_to_metrics": [],
       "category": "activity",
       "collection": "legacy",
       "grade": "Established",
@@ -1994,7 +1988,7 @@
       "name": "Strength training and mortality",
       "path": "notes/activity/strength_training_mortality.md",
       "population": "general",
-      "summary": "Muscle-strengthening activity independently lowers all-cause mortality, separate from and additive to aerobic activity, with a J-shaped dose-response whose maximum risk reduction sits at ~30–60 min/week; above that the evidence is explicitly unclear, not a known harm. WHO recommends ≥2 days/week, and meeting both aerobic + strength targets carries the largest benefit."
+      "summary": "Muscle-strengthening activity is independently associated with lower all-cause mortality, separate from and additive to aerobic activity, with a J-shaped dose-response whose maximum risk reduction sits at ~30–60 min/week; above that the evidence is explicitly unclear, not a known harm. WHO recommends ≥2 days/week, and meeting both aerobic + strength targets carries the largest benefit."
     },
     {
       "aliases": [
@@ -2246,7 +2240,7 @@
       "name": "Wearable SpO2 — validity & limits",
       "path": "notes/metrics/wearable_spo2_validity.md",
       "population": "general",
-      "summary": "Wrist optical SpO2 is trustworthy as a multi-night personal trend and for spotting clearly abnormal (<90%) values, but not for absolute precision (±2–3% RMSE), single low readings, sleep-apnea diagnosis, or across dark skin pigmentation (documented bias)."
+      "summary": "Wrist optical SpO2 is trustworthy as a multi-night personal trend and for spotting clearly abnormal (<90%) values, but not for absolute precision (the true error is unquantified and at least ±3.5% — see #98), single low readings, sleep-apnea diagnosis, or across dark skin pigmentation (documented bias)."
     },
     {
       "aliases": [

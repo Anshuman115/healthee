@@ -42,8 +42,17 @@ class AnswerContext:
     any the prose records as having happened — this owner has no stored data for at all.
     Both are gathered by the surface, because only the surface knows its owner and its own
     payload; the RULE over them lives in ``personal_claims`` and runs in the registry.
-    Empty defaults are the truth for a surface with no claims contract, not a loophole:
-    nothing is being exempted, there is simply nothing declared to check.
+
+    An empty ``asserted`` is the truth for a surface with no claims contract: nothing is
+    being exempted, there is simply nothing declared to check. **An empty
+    ``without_data`` is not the same kind of statement**, and reading it as one was a
+    real hole. ``personal_claims.issues`` returns on its first line when it is empty, so
+    a surface that left it at its default disabled the TEXTUAL backstop too — and that
+    backstop was deliberately built to be independent of the declaration ("an answer that
+    fabricates a drink and declares nothing still gets its claim counted"). It was
+    computed by the coach alone, so on ``grounded_ask`` the gate was registered and inert.
+    Both entry points now compute it per attempt, and the default means "this candidate
+    was checked and named no subject the owner has no data for", never "nobody looked".
     """
 
     json_mode: bool = False

@@ -150,13 +150,22 @@ def test_a_second_profile_for_the_same_owner_conflicts(two_profiles: None) -> No
 
 
 def test_repeated_upsert_for_one_owner_updates_in_place(two_profiles: None) -> None:  # noqa: ARG001
-    """The upsert still UPDATEs its owner's row (and COALESCEs a missing name)."""
+    """The upsert still UPDATEs its owner's row, preserving a name the push OMITS.
+
+    "Name-less" here means the push does not carry the field, which is what the shipped
+    clients do. It used to be spelled `name=None` and asserted against a COALESCE; since
+    audit B2 gave this table one rule (`ingest/profile_write.py`), an explicit null is a
+    request to CLEAR and an omission is a request to preserve. The behaviour this test
+    names is unchanged; only the spelling of "name-less" is.
+    """
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         upsert_profile(
             cur,
             SENTINEL_USER_ID,
             SENTINEL_TZ,
-            ProfileIn(name=None, height_cm=180.0, sex="male", dob=_dob_ms(_A["dob"])),
+            ProfileIn.model_validate(
+                {"height_cm": 180.0, "sex": "male", "dob": _dob_ms(_A["dob"])}
+            ),
         )
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         cur.execute("SELECT name, height_cm FROM profile WHERE user_id = %s", (SENTINEL_USER_ID,))

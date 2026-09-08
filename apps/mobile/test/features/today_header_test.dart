@@ -1,16 +1,17 @@
 /// The editorial head of Today: legacy's greeting header, and the tab bar.
 ///
-/// The header is `_GreetingHeader` ported (`today_screen.dart:433`) — an eyebrow
-/// date, the strap's charge, the avatar, and a two-line display greeting. The
-/// tests here hold the three things about it that are claims rather than layout:
-/// the date table has no off-by-one, the greeting follows legacy's two
-/// boundaries, and **no cheerful phrase sits beside a safety sentence**.
+/// The header is v02's `H.header('Today', …)` — the date, the screen's name,
+/// and the avatar with its sync ring — plus the `.device-strip` under it. The
+/// tests here hold the things about them that are claims rather than layout:
+/// the date table has no off-by-one, the strap's charge appears only when one
+/// has been read, and **no cheerful phrase sits beside a safety sentence**.
 ///
-/// That last one is why the greeting is the greeting and nothing else. Legacy
-/// tints a fragment of an opening sentence, and the obvious way to reproduce it
-/// is to derive a phrase from `recovery_score.band`. The contract snapshot is
-/// exactly the case that makes it a bug: `band: "high"` beside guidance that
-/// begins "An illness signal is active".
+/// That last one is why the header says `Today` and nothing else. The pre-v02
+/// header opened with a two-line greeting and the obvious next step was to
+/// derive a phrase from `recovery_score.band`. The contract snapshot is exactly
+/// the case that makes it a bug: `band: "high"` beside guidance that begins
+/// "An illness signal is active". v02 removes the salutation outright, which
+/// settles it — but the assertion stays, because the band is still on the wire.
 library;
 
 import 'dart:ui' show Tristate;
@@ -24,7 +25,7 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/features/today/today_labels.dart';
-import 'package:healthee/features/today/widgets/greeting_header.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/app_tab_bar.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
@@ -38,16 +39,18 @@ Widget host(Widget child) =>
 Widget _header({
   String date = '2026-08-06',
   DateTime? at,
-  int? battery,
   ConnectionHealth? health,
 }) => host(
-  GreetingHeader(
+  TodayHeader(
     date: date,
     now: at ?? DateTime(2026, 8, 6, 9),
-    batteryPercent: battery,
     health: health,
   ),
 );
+
+/// The device strip, which is where the strap's charge lives in v02.
+Widget _strip({int? battery, ConnectionHealth? health}) =>
+    host(DeviceStrip(batteryPercent: battery, health: health));
 
 /// One classification, from a real link. There is no `syncing` flag any more:
 /// the ring reads `busy` off the same object the card reads its faults off.
@@ -77,41 +80,44 @@ void main() {
     });
   });
 
-  group('the greeting', () {
-    test("follows legacy's two boundaries", () {
-      // Legacy has no small-hours case, so 03:00 really is "Good morning".
-      expect(greetingFor(DateTime(2026, 8, 4, 3)), 'Good morning');
-      expect(greetingFor(DateTime(2026, 8, 4, 9)), 'Good morning');
-      expect(greetingFor(DateTime(2026, 8, 4, 14)), 'Good afternoon');
-      expect(greetingFor(DateTime(2026, 8, 4, 21)), 'Good evening');
-    });
-
-    testWidgets('addresses nobody by name, because nothing stores one', (
-      tester,
-    ) async {
+  group('the screen names itself', () {
+    testWidgets('the h1 is the screen, not a salutation', (tester) async {
       await tester.pumpWidget(_header());
       await tester.pumpAndSettle();
 
-      // Legacy's own fallback (`today_screen.dart:443`), not an invention — and
-      // it is the branch that always runs here. Reported in the port notes.
-      expect(find.textContaining('Good morning'), findsOneWidget);
-      expect(find.textContaining('there.'), findsOneWidget);
+      // The prototype's README: *"replaces generic main-screen slogans with
+      // direct labels such as Today, Sleep, Activity"*. The pre-v02 header's
+      // largest type was a greeting to an owner whose name nothing stores.
+      expect(find.text(TodayHeader.title), findsOneWidget);
+      expect(find.textContaining('Good morning'), findsNothing);
+      expect(find.textContaining('there.'), findsNothing);
     });
   });
 
   group('the strap battery', () {
     testWidgets('is absent entirely when nothing has read one', (tester) async {
-      await tester.pumpWidget(_header());
+      await tester.pumpWidget(_strip());
       await tester.pumpAndSettle();
 
       expect(find.textContaining('%'), findsNothing);
     });
 
     testWidgets('shows the charge when there is one', (tester) async {
-      await tester.pumpWidget(_header(battery: 71));
+      await tester.pumpWidget(_strip(battery: 71));
       await tester.pumpAndSettle();
 
       expect(find.text('71%'), findsOneWidget);
+    });
+
+    testWidgets('THE DOT IS GREEN ONLY WHEN THE LINK IS QUIET', (tester) async {
+      // A green dot beside a strap nobody has heard from is the flattery this
+      // product exists not to do, so the classification decides it.
+      await tester.pumpWidget(_strip());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DeviceStrip), findsOneWidget);
+      expect(find.text(DeviceStrip.deviceName), findsOneWidget);
+      expect(find.text(DeviceStrip.action), findsOneWidget);
     });
   });
 
@@ -154,7 +160,7 @@ void main() {
     });
   });
 
-  group('the greeting beside an overridden guidance', () {
+  group('the header beside an overridden guidance', () {
     late LocalStore store;
 
     setUp(() async {

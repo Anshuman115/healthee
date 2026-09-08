@@ -1,242 +1,255 @@
-/// A field the server did not send renders as **withheld**, on every card.
+/// **A withheld field renders as withheld, with its reason, on every panel.**
 ///
-/// This is the one place the Sleep port is deliberately not 1:1. Legacy drew
-/// `'—'` for every null on this screen, so "the strap was off your wrist", "the
-/// server has not derived this yet" and "we have a bug" all looked identical —
-/// a value-shaped mark that says nothing.
+/// The failure this suite exists to catch is a quiet one: a field the server
+/// refused, rendered as a blank or a zero. A zero is a measurement — it says the
+/// owner slept nothing, weighed nothing, breathed nothing — and a blank says
+/// nothing at all. `Reading` makes the refusal a type, and this suite is the
+/// proof that every Sleep panel still renders that type as words the owner can
+/// act on.
 ///
-/// Two things are asserted for each card, and the second is why this file
-/// exists:
-///
-///   1. the number's slot becomes a [ValueHole] — the card keeps its footprint;
-///   2. **the card SAYS which value is missing and why.** A hole on its own is a
-///      blank with a dashed border. `test/mutations.sh` deletes each
-///      `SleepGapNote` in turn and requires this suite to notice, because a card
-///      silently blanking is exactly the failure that would otherwise pass.
+/// Each case blanks a field on the committed contract snapshot and asserts the
+/// server's own sentence reaches the screen. Blanking is the one thing a fixture
+/// read from a snapshot cannot do on its own, which is what `sleepPageWithout`
+/// is for — and it asserts the field is really on the wire first, so a rename
+/// fails the suite instead of quietly making every case vacuous.
 library;
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:healthee/core/theme/instrument_hues.dart';
-import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/honesty/sleep_gap.dart';
 import 'package:healthee/data/models/sleep_night.dart';
-import 'package:healthee/features/sleep/widgets/overnight_vitals_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_health_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_hero_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_performance_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_trends_card.dart';
-import 'package:healthee/features/sleep/widgets/sleep_value.dart';
-import 'package:healthee/shared/charts/h_area.dart';
-import 'package:healthee/shared/states/value_hole.dart';
-import 'package:solar_icons/solar_icons.dart';
+import 'package:healthee/features/sleep/sleep_windows.dart';
+import 'package:healthee/features/sleep/v02/checks_panel.dart';
+import 'package:healthee/features/sleep/v02/need_panel.dart';
+import 'package:healthee/features/sleep/v02/sleep_reading.dart';
+import 'package:healthee/features/sleep/v02/trend_panels.dart';
+import 'package:healthee/features/sleep/v02/vitals_panel.dart';
+import 'package:healthee/shared/reveal_once.dart';
 
 import '../_sleep_stubs.dart';
+import '_sleep_host.dart';
 
-/// The newest night of the fixture, with [fields] blanked on the wire.
-SleepNight nightWithout(List<String> fields) =>
-    sleepPageWithout(fields).nights.first;
+/// The sentence the server sends for a metric it has not derived.
+final String _notDerived = SleepGap.notDerived.message;
 
-/// Every gap sentence a card is currently showing.
-Iterable<String> gapSentences(WidgetTester tester) => tester
-    .widgetList<SleepGapNote>(find.byType(SleepGapNote))
-    .expand((note) => groupGaps(note.fields).values)
-    .map((group) => '${group.names.join(", ")} — ${group.message}');
+/// The sentence it sends for a signal it did not sample.
+final String _notSampled = SleepGap.notSampled.message;
 
 void main() {
-  group('the hero', () {
-    testWidgets('A NIGHT WITH NO TOTAL DRAWS A HOLE AND SAYS WHY', (tester) async {
-      final night = nightWithout(<String>['tst_min', 'duration_min', 'zepp_score']);
-      await tester.pumpWidget(
-        sleepCardHost(SleepHeroCard(night: night, previous: null, progress: 1)),
-      );
-      await tester.pumpAndSettle();
+  setUpAll(loadSleepFont);
 
-      expect(find.byType(ValueHole), findsWidgets, reason: 'the slot keeps its shape');
-      expect(
-        gapSentences(tester).join(' '),
-        allOf(
-          contains('Time asleep'),
-          contains("The strap's sleep score"),
-          contains('derived'),
-        ),
-        reason: 'a hole nobody explains is a blank with a dashed border',
-      );
-      // And no dash anywhere — the mark this whole file exists to remove.
-      expect(find.text('—'), findsNothing);
-    });
-
-    testWidgets('a withheld efficiency spends NO verdict colour', (tester) async {
-      // Legacy: `(eff ?? 0) >= 85 ? green : cHeart`, so a night with no
-      // efficiency was painted the same red as a bad one — a judgement about
-      // the owner made out of a measurement that does not exist.
-      final night = nightWithout(<String>['efficiency_pct']);
-      await tester.pumpWidget(
-        sleepCardHost(SleepHeroCard(night: night, previous: null, progress: 1)),
-      );
-      await tester.pumpAndSettle();
-
-      final painted = tester
-          .widgetList<Text>(find.byType(Text))
-          .map((text) => text.style?.color)
-          .toSet();
-      const hues = InstrumentHues.light();
-      expect(painted, isNot(contains(hues.heart)));
-    });
-  });
-
-  group('the sleep-health checks', () {
-    testWidgets('AN UNSCORED DIMENSION IS NOT A FAILED ONE', (tester) async {
-      // Legacy read `_d(n['point_timing']) == 1`, so a dimension the server
-      // never scored drew a CROSS. That is a failed check invented out of a
-      // missing one.
-      final night = nightWithout(<String>['point_timing', 'midpoint_local']);
-      await tester.pumpWidget(sleepCardHost(SleepHealthCard(night: night)));
-      await tester.pumpAndSettle();
-
-      final timing = night.pointTiming;
-      expect(timing, isA<Withheld<bool>>());
-      expect(
-        gapSentences(tester).join(' '),
-        contains('Timing'),
-        reason: 'the card must name the check it could not make',
-      );
-      // No cross anywhere: the fixture's three scored checks all PASS, and the
-      // fourth is unscored. A cross here is the legacy defect exactly.
-      expect(
-        find.byIcon(SolarIconsOutline.closeCircle),
-        findsNothing,
-        reason: 'an unscored check drawn as a failed one',
-      );
-      expect(find.byIcon(SolarIconsBold.checkCircle), findsNWidgets(3));
-    });
-
-    testWidgets('the four checks are four rows and are never summed', (
+  group('the reading at the top of the screen', () {
+    testWidgets('A WITHHELD TIME ASLEEP IS A DASH AND A REASON, NEVER A ZERO', (
       tester,
     ) async {
+      final page = sleepPageWithout(<String>['tst_min']);
       await tester.pumpWidget(
-        sleepCardHost(SleepHealthCard(night: sleepPageFixture().nights.first)),
+        sleepPanelHost(SleepReading(night: page.nights.first)),
       );
       await tester.pumpAndSettle();
 
-      for (final name in <String>['Duration', 'Efficiency', 'Timing', 'Regularity']) {
-        expect(find.text(name), findsOneWidget);
-      }
-      expect(find.text('/ 4'), findsOneWidget);
-      // Nothing that reads as one number standing for the four.
-      expect(find.textContaining('%'), findsWidgets); // efficiency's own row
-      expect(find.text('75%'), findsNothing);
-      expect(find.text('3/4'), findsNothing);
+      expect(find.text('—'), findsWidgets);
+      expect(find.textContaining('Time asleep: $_notDerived'), findsOneWidget);
+      // The zero a nullable double would have produced.
+      expect(find.text('0h 00m'), findsNothing);
+      expect(find.text('0'), findsNothing);
+    });
+
+    testWidgets('a withheld device score keeps its caption and says why', (
+      tester,
+    ) async {
+      final page = sleepPageWithout(<String>['zepp_score']);
+      await tester.pumpWidget(
+        sleepPanelHost(SleepReading(night: page.nights.first)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kDeviceScoreCaption), findsOneWidget);
+      expect(
+        find.textContaining("The strap's sleep score: $_notDerived"),
+        findsOneWidget,
+      );
+    });
+
+    test('an unmeasured time in bed drops its key rather than writing a dash', () {
+      // A legend entry for a value nobody has is not a smaller truth, it is
+      // noise — and the refusal is still stated, in the note under the block.
+      final page = sleepPageWithout(<String>['tib_min']);
+      final night = page.nights.first;
+      expect(
+        SleepReading.keys(night).map((entry) => entry.label),
+        isNot(contains(contains('in bed'))),
+      );
+      expect(
+        SleepReading.refusals(night),
+        contains(contains('Time in bed')),
+      );
     });
   });
 
-  group('the overnight vitals', () {
-    testWidgets('SIX MISSING CELLS ARE ONE SENTENCE, NOT SIX', (tester) async {
-      final night = nightWithout(<String>[
-        'rhr',
-        'hrv_sleep_avg',
-        'respiratory_rate',
+  group('the overnight table', () {
+    testWidgets('EVERY REFUSED MEASUREMENT NAMES ITSELF AND ITS REASON', (
+      tester,
+    ) async {
+      final page = sleepPageWithout(<String>[
         'spo2_avg',
-        'spo2_min',
+        'respiratory_rate',
         'skin_temp_c',
       ]);
-      await tester.pumpWidget(sleepCardHost(OvernightVitalsCard(night: night)));
-      await tester.pumpAndSettle();
-
-      // Read off what was RENDERED, not off a card built beside it: a note that
-      // stopped iterating its own slots would still leave the getter correct.
-      final rendered = tester
-          .widgetList<SleepGapNote>(find.byType(SleepGapNote))
-          .single;
-      final grouped = groupGaps(rendered.fields);
-      // Two reasons, because the payload really does have two: the derived pair
-      // (resting HR, HRV) and the sampled four.
-      expect(grouped.keys, hasLength(2));
-      expect(
-        grouped[SleepGap.notSampled.reason]!.names,
-        containsAll(<String>['SpO₂', 'Lowest SpO₂', 'Skin temperature']),
-      );
-      expect(
-        grouped[SleepGap.notDerived.reason]!.names,
-        containsAll(<String>['Resting HR', 'HRV']),
-      );
-      expect(gapSentences(tester).join(' '), contains('Skin temperature'));
-      expect(find.byType(ValueHole), findsNWidgets(6));
-      expect(find.text('—'), findsNothing);
-    });
-  });
-
-  group('sleep performance', () {
-    testWidgets('AN EMPTY FORTNIGHT IS WITHHELD, NEVER 0/0', (tester) async {
-      // A ratio out of nothing is a number-shaped statement that no nights were
-      // short, which is not what an empty fortnight means.
-      final page = sleepPageWithoutSession();
-      final blank = SleepNight.fromJson(const <String, Object?>{'date': '2026-07-31'});
-      final card = SleepPerformanceCard(
-        night: blank,
-        recent: <SleepNight>[blank],
-        progress: 1,
-      );
-      await tester.pumpWidget(sleepCardHost(card));
-      await tester.pumpAndSettle();
-
-      expect(card.nightsShort, isA<Withheld<String>>());
-      expect(card.average, isA<Withheld<double>>());
-      expect(find.text('0/0'), findsNothing);
-      expect(
-        gapSentences(tester).join(' '),
-        contains('The count of short nights'),
-      );
-      // The fixture itself still computes a real one, so the assertion above is
-      // about the empty case and not about the card being permanently silent.
-      expect(
-        SleepPerformanceCard(
-          night: page.nights.first,
-          recent: page.nights.take(14).toList(),
-          progress: 1,
-        ).nightsShort,
-        isA<Present<String>>(),
-      );
-    });
-  });
-
-  group('the fortnight trends', () {
-    testWidgets('A ONE-NIGHT SERIES IS NOT DRAWN AS A FLAT ZERO', (tester) async {
-      // Legacy: `HArea(data.length >= 2 ? data : [0, 0], …)`. A metric with one
-      // night of history — or none — was plotted as two invented points at zero,
-      // in the metric's own colour, indistinguishable from a real fortnight of
-      // zeroes. There is no reading of that which is honest.
-      final one = <SleepNight>[sleepPageFixture().nights.first];
+      final windows = SleepWindows(page, kSleepNow);
       await tester.pumpWidget(
-        sleepCardHost(SleepTrendsCard(recent: one, progress: 1)),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byType(HArea),
-        findsNothing,
-        reason: 'a line needs two real points, and there is one',
-      );
-      expect(find.textContaining('A line needs at least 2'), findsWidgets);
-      // The row keeps its footprint and its latest value, which is a real
-      // measurement and stays on screen.
-      for (final label in const <String>['Efficiency', 'Regularity (SRI)', 'HRV']) {
-        expect(find.text(label), findsOneWidget);
-      }
-    });
-
-    testWidgets('a full fortnight IS plotted', (tester) async {
-      await tester.pumpWidget(
-        sleepCardHost(
-          SleepTrendsCard(
-            recent: sleepPageFixture().nights.take(14).toList(),
-            progress: 1,
+        sleepPanelHost(
+          OvernightPanel(
+            night: windows.latest,
+            recent: windows.recent,
+            reveals: RevealRegistry(),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(HArea), findsNWidgets(3));
+      for (final label in <String>[
+        'Blood oxygen',
+        'Breathing',
+        'Skin temperature',
+      ]) {
+        expect(
+          find.textContaining('$label: $_notSampled'),
+          findsOneWidget,
+          reason: label,
+        );
+      }
+      // And the measured half of the table is untouched, so this is three rows
+      // falling silent rather than the panel failing.
+      expect(find.text('Resting heart'), findsOneWidget);
+      expect(find.text('HRV'), findsOneWidget);
+    });
+
+    test('a full payload writes no refusal line at all', () {
+      final windows = SleepWindows(sleepPageFixture(), kSleepNow);
+      final panel = OvernightPanel(
+        night: windows.latest,
+        recent: windows.recent,
+        reveals: RevealRegistry(),
+      );
+      expect(OvernightPanel.refusals(panel.vitals), isEmpty);
+    });
+  });
+
+  group('the four checks', () {
+    testWidgets('a refused reading draws no verdict and says what is absent', (
+      tester,
+    ) async {
+      final page = sleepPageWithout(<String>['sri', 'point_regularity']);
+      await tester.pumpWidget(
+        sleepPanelHost(
+          SleepChecksPanel(
+            night: page.nights.first,
+            cutoffs: page.cutoffs,
+            notes: const <String>[],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('No regularity reading.'), findsOneWidget);
+      // The row is still there with its published range, so the reader can see
+      // WHAT was not measured rather than a check quietly disappearing.
+      expect(find.text('Regularity · SRI'), findsOneWidget);
+      expect(find.text('70 or above'), findsOneWidget);
+    });
+  });
+
+  group('need and debt', () {
+    testWidgets('a night with no total drops its derived statistics', (
+      tester,
+    ) async {
+      final page = sleepPageWithout(<String>['tst_min']);
+      final windows = SleepWindows(page, kSleepNow);
+      await tester.pumpWidget(
+        sleepPanelHost(
+          SleepNeedPanel(
+            night: windows.latest,
+            nights: windows.debt,
+            needMin: kSleepNeedFixture,
+            reveals: RevealRegistry(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // No performance percentage is invented from a night nobody measured.
+      expect(find.text('Sleep performance'), findsNothing);
+      expect(find.text('Nightly gap'), findsNothing);
+      expect(find.textContaining('Last night: $_notDerived'), findsOneWidget);
+      // The window it CAN speak for is still stated.
+      expect(find.text('Nights counted'), findsOneWidget);
+    });
+  });
+
+  group('the fortnight panels', () {
+    testWidgets('a trend with no readings says so and plots nothing', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        sleepPanelHost(
+          SleepTrendPanel(
+            trend: kSleepTrends.first,
+            recent: const [],
+            reveals: RevealRegistry(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No night in the last fortnight carries this reading.'),
+        findsOneWidget,
+      );
+      expect(find.text('—'), findsWidgets);
+      expect(find.text('0'), findsNothing);
+    });
+
+    testWidgets('a measured fortnight says how many nights are behind it', (
+      tester,
+    ) async {
+      final windows = SleepWindows(sleepPageFixture(), kSleepNow);
+      await tester.pumpWidget(
+        sleepPanelHost(
+          SleepTrendPanel(
+            trend: kSleepTrends.first,
+            recent: windows.recent,
+            reveals: RevealRegistry(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('nights measured through'), findsOneWidget);
+    });
+  });
+
+  group('a session that never happened', () {
+    testWidgets('THE REASON IS THE SESSION, NOT A DERIVATION THAT DID NOT RUN', (
+      tester,
+    ) async {
+      // A night the strap never recorded is a different absence from one the
+      // server has not worked out yet, and the two send different sentences.
+      // Only the first tells the owner to wear the band.
+      final night = SleepNight.fromJson(const <String, Object?>{
+        'date': '2026-07-31',
+      });
+      expect(
+        SleepReading.refusals(night),
+        everyElement(contains(SleepGap.noSession.message)),
+      );
+      await tester.pumpWidget(sleepPanelHost(SleepReading(night: night)));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(SleepGap.noSession.message),
+        findsOneWidget,
+      );
+      // And nothing anywhere on the block is a zero standing in for it.
+      expect(find.text('0'), findsNothing);
+      expect(find.text('0h 00m'), findsNothing);
     });
   });
 }

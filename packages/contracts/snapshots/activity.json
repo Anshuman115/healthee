@@ -3,6 +3,8 @@
     "as_of_date": "2026-07-31",
     "caveats": [],
     "metric": "active_calories",
+    "note_id": "energy_expenditure_derivation",
+    "provenance": {},
     "trend": [
       {
         "date": "2026-07-02",
@@ -125,23 +127,35 @@
         "value": 620.0
       }
     ],
-    "value": 620.0
+    "value": 620.0,
+    "withheld": null
   },
   "acwr": {
     "acute_7d": 55.0,
     "chronic_28d": 55.0,
+    "n_acute": 7,
+    "n_chronic": 28,
     "ratio": 1.0,
-    "state": "optimal"
+    "research_notes": [
+      "training_load_acwr"
+    ]
+  },
+  "as_of": {
+    "day": "2026-07-31",
+    "derived_at": "2026-07-31T02:14:07.512340+00:00",
+    "is_today": true
   },
   "cardio_load": {
     "as_of_date": "2026-07-31",
     "baseline_30d": 55.0,
+    "baseline_30d_min_n": 5,
+    "baseline_30d_n": 29,
     "edwards_tl": 120,
     "hr_minutes": 47,
     "hrmax": 185,
     "load": 55.0,
     "research_notes": [
-      "cardio_load_trimp"
+      "training_stress_score"
     ],
     "rhr": 55,
     "strain": 21.0,
@@ -276,10 +290,16 @@
       1
     ]
   },
+  "date": "2026-07-31",
   "distance": {
     "as_of_date": "2026-07-31",
     "caveats": [],
     "metric": "distance_m_daily",
+    "note_id": "distance_from_steps",
+    "provenance": {
+      "method": "stride",
+      "stride_m": 0.744
+    },
     "trend": [
       {
         "date": "2026-07-02",
@@ -402,13 +422,24 @@
         "value": 6100.0
       }
     ],
-    "value": 6100.0
+    "value": 6100.0,
+    "withheld": null
   },
   "fitness_plan": {
+    "caveats": [
+      {
+        "message": "An estimate of the typical response to this plan over 12 weeks, if it is followed — not a promise. Trainability is about 47% heritable and the same program has produced anything from near-zero to a very large gain, so no specific gain can be promised to any one person.",
+        "note_id": "vo2max",
+        "reason": "typical_response_not_a_promise"
+      }
+    ],
     "current": 41.5,
     "gain": 2.0,
+    "gain_cap": 5.0,
+    "gain_floor": 2.0,
+    "gain_gap_fraction": 0.4,
     "median_for_age": 39.7,
-    "note_id": "vo2max_training_program",
+    "note_id": "vo2max",
     "plan": {
       "vilpa_desc": "1 hard session — 4-5 × 1-min brisk-to-hard bursts (stairs / hill / fast walk)",
       "vilpa_done_min": 20,
@@ -421,126 +452,157 @@
     "trend_90d": [
       {
         "date": "2026-07-02",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-03",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-04",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-05",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-06",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-07",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-08",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-09",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-10",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-11",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-12",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-13",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-14",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-15",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-16",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-17",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-18",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-19",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-20",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-21",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-22",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-23",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-24",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-25",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-26",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-27",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-28",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-29",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-30",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-31",
+        "method": "gps_graded",
         "value": 41.5
       }
     ],
-    "weeks": 12
+    "weeks": 12,
+    "withheld": null
   },
   "mvpa": {
     "daily": [
@@ -605,14 +667,21 @@
     "week_vigorous_min": 20
   },
   "research_notes": [
-    "vo2max_fitness_mortality",
+    "vo2max",
     "mvpa_minutes_mortality",
-    "cardio_load_trimp"
+    "training_stress_score",
+    "training_load_acwr"
   ],
   "steps": {
     "as_of_date": "2026-07-31",
     "caveats": [],
     "metric": "steps_total",
+    "note_id": "steps_mortality",
+    "provenance": {
+      "sample_minutes": 612,
+      "source": "strap_0x16",
+      "steps_per_minute_sum": 8050
+    },
     "trend": [
       {
         "date": "2026-07-02",
@@ -735,12 +804,19 @@
         "value": 8200.0
       }
     ],
-    "value": 8200.0
+    "value": 8200.0,
+    "withheld": null
   },
   "total_calories": {
     "as_of_date": "2026-07-31",
     "caveats": [],
     "metric": "total_calories",
+    "note_id": "energy_expenditure_derivation",
+    "provenance": {
+      "bmr": 1730,
+      "pal": 1.36,
+      "workout_cal": 210
+    },
     "trend": [
       {
         "date": "2026-07-02",
@@ -863,11 +939,13 @@
         "value": 2350.0
       }
     ],
-    "value": 2350.0
+    "value": 2350.0,
+    "withheld": null
   },
   "vo2max": {
     "age_years": 35,
     "as_of_date": "2026-07-31",
+    "caveats": [],
     "data_confidence": "ok",
     "delta_from_median": 3.3,
     "estimate": 43.0,
@@ -882,9 +960,8 @@
     "method": "gps_graded",
     "method_caveat": "Measured from a recorded session, by how your heart rate tracked your workload across it — the most direct of the three methods we have, because it measures the relationship on you rather than assuming it. It comes from one session, not a run of them, so read it as that session rather than as a settled level.",
     "n_sessions": 1,
-    "out_of_range_inputs": [],
     "research_notes": [
-      "vo2max_fitness_mortality",
+      "vo2max",
       "submaximal_vo2max"
     ],
     "see_ml_kg_min": 2.95,
@@ -901,6 +978,7 @@
       "trend": [
         {
           "date": "2026-07-31",
+          "method": "gps_graded",
           "value": 43.0
         }
       ]
@@ -908,122 +986,152 @@
     "trend_90d": [
       {
         "date": "2026-07-02",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-03",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-04",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-05",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-06",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-07",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-08",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-09",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-10",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-11",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-12",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-13",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-14",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-15",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-16",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-17",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-18",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-19",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-20",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-21",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-22",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-23",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-24",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-25",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-26",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-27",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-28",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-29",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-30",
+        "method": "jurca_non_exercise",
         "value": 41.5
       },
       {
         "date": "2026-07-31",
+        "method": "gps_graded",
         "value": 43.0
       }
     ],

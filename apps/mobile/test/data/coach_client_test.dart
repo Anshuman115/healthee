@@ -66,7 +66,8 @@ CoachClient _clientWith(HttpClientAdapter adapter) {
       // The app's own client raises non-2xx as a DioException, which is what the
       // conversion under test keys on. A stub that swallowed statuses would be
       // testing a client this app does not have.
-      validateStatus: (status) => status != null && status >= 200 && status < 300,
+      validateStatus: (status) =>
+          status != null && status >= 200 && status < 300,
     ),
   )..httpClientAdapter = adapter;
   return CoachClient(dio);
@@ -107,7 +108,8 @@ void main() {
     expect(
       allowance.resetsAt,
       isNull,
-      reason: 'null while a slot is free — a reset instant beside "17 left" '
+      reason:
+          'null while a slot is free — a reset instant beside "17 left" '
           'would read as a countdown that is not running',
     );
   });
@@ -166,7 +168,11 @@ void main() {
       client.ask(const <CoachTurn>[CoachTurn(role: 'user', content: 'hi')]),
       throwsA(
         isA<CoachRefusal>()
-            .having((refusal) => refusal.message, 'message', contains('not included'))
+            .having(
+              (refusal) => refusal.message,
+              'message',
+              contains('not included'),
+            )
             .having((refusal) => refusal.resetsAt, 'resetsAt', isNull),
       ),
     );
@@ -179,8 +185,16 @@ void main() {
       client.ask(const <CoachTurn>[CoachTurn(role: 'user', content: 'hi')]),
       throwsA(
         isA<CoachUnreachable>()
-            .having((failure) => failure.message, 'message', contains('Sign in again'))
-            .having((failure) => failure.message, 'message', isNot(contains('401'))),
+            .having(
+              (failure) => failure.message,
+              'message',
+              contains('Sign in again'),
+            )
+            .having(
+              (failure) => failure.message,
+              'message',
+              isNot(contains('401')),
+            ),
       ),
     );
   });
@@ -202,28 +216,31 @@ void main() {
     );
   });
 
-  test('an answer keeps its grade floor, its citations and its flags', () async {
-    final client = _clientWith(
-      _OneReply(200, const <String, Object?>{
-        'reply': 'Sleep earlier [sleep_need_debt].',
-        'citations': <String>['sleep_need_debt'],
-        'grade_floor': 'Probable',
-        'personal_findings': <String>[],
-        'data_coverage': <String, Object?>{},
-        'tool_calls': 2,
-        'refused': false,
-        'validated': true,
-      }),
-    );
+  test(
+    'an answer keeps its grade floor, its citations and its flags',
+    () async {
+      final client = _clientWith(
+        _OneReply(200, const <String, Object?>{
+          'reply': 'Sleep earlier [sleep_need_debt].',
+          'citations': <String>['sleep_need_debt'],
+          'grade_floor': 'Probable',
+          'personal_findings': <String>[],
+          'data_coverage': <String, Object?>{},
+          'tool_calls': 2,
+          'refused': false,
+          'validated': true,
+        }),
+      );
 
-    final answer = await client.ask(
-      const <CoachTurn>[CoachTurn(role: 'user', content: 'hi')],
-    );
+      final answer = await client.ask(const <CoachTurn>[
+        CoachTurn(role: 'user', content: 'hi'),
+      ]);
 
-    expect(answer.gradeFloor, 'Probable');
-    expect(answer.citations, <String>['sleep_need_debt']);
-    expect(answer.wasRefunded, isFalse);
-  });
+      expect(answer.gradeFloor, 'Probable');
+      expect(answer.citations, <String>['sleep_need_debt']);
+      expect(answer.wasRefunded, isFalse);
+    },
+  );
 
   test('a null grade floor is not a weak grade', () async {
     // `null` means nothing gradeable was cited. Defaulting it to the weakest
@@ -238,15 +255,16 @@ void main() {
       }),
     );
 
-    final answer = await client.ask(
-      const <CoachTurn>[CoachTurn(role: 'user', content: 'hi')],
-    );
+    final answer = await client.ask(const <CoachTurn>[
+      CoachTurn(role: 'user', content: 'hi'),
+    ]);
 
     expect(answer.gradeFloor, isNull);
     expect(
       answer.wasRefunded,
       isTrue,
-      reason: 'the server refunds a refusal, so the app must not count it spent',
+      reason:
+          'the server refunds a refusal, so the app must not count it spent',
     );
   });
 }

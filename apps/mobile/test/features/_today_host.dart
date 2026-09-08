@@ -9,6 +9,7 @@
 /// Not a `*_test.dart` file, so it is never run as a suite.
 library;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,16 +17,30 @@ import 'package:healthee/app.dart';
 import 'package:healthee/ble/models/device_daily_totals.dart';
 import 'package:healthee/ble/models/strap_sample.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/data/api/account_api.dart';
+import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/api/server_snapshot.dart';
+import 'package:healthee/data/challenges/challenge_feed.dart';
+import 'package:healthee/data/challenges/commitment_repository.dart';
+import 'package:healthee/data/challenges/program_feed.dart';
+import 'package:healthee/data/gps/gps_recorder.dart';
+import 'package:healthee/data/gps/gps_recording_state.dart';
+import 'package:healthee/data/history/dated_history.dart';
+import 'package:healthee/data/honesty/last_known.dart';
+import 'package:healthee/data/insights/notable_event.dart';
 import 'package:healthee/data/models/sleep_consistency.dart';
 import 'package:healthee/data/models/sleep_insight.dart';
 import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/models/today_view.dart';
+import 'package:healthee/data/models/trend_point.dart';
+import 'package:healthee/data/notifications/notify_completions.dart';
 import 'package:healthee/data/pairing/paired_strap.dart';
 import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
+import 'package:healthee/data/store/view_date.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
@@ -55,6 +70,10 @@ final DateTime now = DateTime(2026, 8, 4, 9, 30);
 /// leaving it unpinned would make every "this section falls silent" assertion
 /// depend on a plugin channel that is not there.
 ///
+/// [reducedMotion] defaults to TRUE and almost every suite wants it — see the
+/// `MediaQuery` in the body. `today_hero_test.dart` is the one that turns it off,
+/// because the halo running is the thing it is about.
+///
 /// [home] is the screen under test and defaults to Today. Sleep, Activity, Coach
 /// and Diagnostics read the SAME two providers through the same shell
 /// (`shared/instrument_screen.dart`), so one host serves all five rather than
@@ -62,24 +81,43 @@ final DateTime now = DateTime(2026, 8, 4, 9, 30);
 Widget todayHost(
   LocalStore store, {
   StrapConnection? connection,
+  SyncController? sync,
   TodayView? server,
   bool serverUnreachable = false,
   ThemeData? themeOverride,
   bool signedIn = true,
+  bool reducedMotion = true,
   Widget? home,
   SleepPage? sleep,
   SleepConsistency? consistency,
+  LastKnown<double>? lastKnownBioAge,
+  DatedHistory? history,
 }) {
   return _scoped(
     store,
     connection: connection,
+    sync: sync,
     server: server,
     serverUnreachable: serverUnreachable,
     signedIn: signedIn,
     sleep: sleep,
     consistency: consistency,
+    lastKnownBioAge: lastKnownBioAge,
+    history: history,
     child: MaterialApp(
       theme: themeOverride ?? AppTheme.light,
+      // **Reduced motion, always.** Today's hero carries `BioHalo`, an ambient
+      // particle field on a 30 fps ticker — a screen containing a running one
+      // never becomes idle, so every `pumpAndSettle` in every suite that pumps
+      // this screen would time out. `bio_halo.dart` reads
+      // `MediaQuery.disableAnimations` and stops dead under it, which is the
+      // same path a phone with the accessibility setting on takes. The halo's
+      // own motion has its own suite (`test/shared/instruments/`), against a
+      // pumped clock rather than a settled tree.
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: reducedMotion),
+        child: child!,
+      ),
       home: home ?? TodayScreen(now: now),
     ),
   );
@@ -92,8 +130,21 @@ Widget todayHost(
 /// pairing summary is pinned to a paired strap because `buildRouter` redirects an
 /// unpaired app to `/pairing` — a test of the tab shell would otherwise never see
 /// a tab.
-Widget routedApp(LocalStore store) =>
-    _scoped(store, paired: true, child: const HealtheeApp());
+Widget routedApp(LocalStore store) {
+  // `HealtheeApp` builds its own `MaterialApp`, which installs
+  // `MediaQuery.fromView` and overrides anything wrapped around it — so the
+  // reduced-motion switch `todayHost` uses cannot be reached from out here.
+  // The platform dispatcher is where that `MediaQuery` reads the flag from, and
+  // the binding clears its test values after every test.
+  //
+  // Same reason as `todayHost`: Today's hero halo never lets a tree settle.
+  TestWidgetsFlutterBinding.ensureInitialized()
+      .platformDispatcher
+      .accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+    disableAnimations: true,
+  );
+  return _scoped(store, paired: true, child: const HealtheeApp());
+}
 
 /// The overrides that keep a widget test off the network and off the keystore,
 /// wrapped around [child].
@@ -108,19 +159,44 @@ Widget _scoped(
   LocalStore store, {
   required Widget child,
   StrapConnection? connection,
+  SyncController? sync,
   TodayView? server,
   bool serverUnreachable = false,
   bool signedIn = true,
   bool paired = false,
   SleepPage? sleep,
   SleepConsistency? consistency,
+  LastKnown<double>? lastKnownBioAge,
+  DatedHistory? history,
 }) {
   return ProviderScope(
     overrides: [
+      // ALWAYS overridden, defaulting to "this phone holds no earlier value".
+      // The real provider walks the cached-payload table through
+      // `TodayRepository`, which reaches `credentialsProvider` and the api
+      // client — a keystore and a socket a `flutter test` host does not have.
+      // The walk itself has its own suite against a memory store
+      // (`test/store/last_known_test.dart`).
+      lastKnownBiologicalAgeProvider.overrideWith((ref) async => lastKnownBioAge),
+      challengeFeedProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
+        const ChallengeFeed(active: [], suggested: [], recent: [], maxActive: 3),
+        fetchedAt: now,
+      ))),
+      programFeedProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
+        const ProgramFeed(active: null, suggested: [], recent: []), fetchedAt: now,
+      ))),
+      notifyCompletionsProvider().overrideWith((ref) async {}),
+      notableEventsProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
+        <NotableEvent>[], fetchedAt: now,
+      ))),
+      gpsRecorderProvider.overrideWith(FixedGps.new),
+      commitmentRepositoryProvider.overrideWith((ref) async => CommitmentRepository(
+        AccountApi(Dio(), await CacheSession.capture(null)),
+      )),
       localStoreProvider.overrideWithValue(store),
       todayProvider.overrideWithValue(todayDate),
       syncControllerProvider.overrideWith(
-        () => FixedConnection(connection ?? const Disconnected()),
+        () => sync ?? FixedConnection(connection ?? const Disconnected()),
       ),
       serverSessionProvider.overrideWith(
         (ref) async => signedIn
@@ -130,13 +206,43 @@ Widget _scoped(
               )
             : const ServerSessionStatus.signedOut(),
       ),
+      // **The override answers PER DAY, exactly as the endpoint does.** A fixed
+      // payload dated today would be no answer at all on a past day now — the
+      // shell drops a payload that is about a different day than the one being
+      // read — and the screen would sit on its loading card forever, which reads
+      // in a widget test as `pumpAndSettle timed out` and says nothing about why.
+      //
+      // A `server` handed in explicitly still wins whole: a test that built its
+      // own payload is asserting something about THAT payload.
       todaySnapshotProvider.overrideWith(
-        serverUnreachable ? todayUnreachable() : todayIs(server ?? todayView()),
+        serverUnreachable
+            ? todayUnreachable()
+            : (server != null
+                  ? todayIs(server)
+                  : (ref) async => todayViewFor(
+                      ref.watch(viewDateProvider),
+                      today: todayDate,
+                    )),
       ),
       // Settings is reachable from Today now, and its About row reads a platform
       // channel a test host never answers — which would leave that read's own
       // deadline pending after any test that navigated there.
       appVersionProvider.overrideWith((ref) async => null),
+      // The batched dated series, ALWAYS pinned. The real provider is only
+      // watched on a past day, but on a past day it reaches a socket — and an
+      // unpinned read there leaves a spinner running that `pumpAndSettle` waits
+      // on forever, which reads as a broken test rather than as a missing
+      // override. Empty by default: a suite about what a screen DECIDES does
+      // not need readings, and a suite about the panels passes its own.
+      datedHistoryProvider.overrideWith(
+        (ref) async => serverUnreachable
+            ? throw StateError('no server')
+            : history ??
+                  const DatedHistory(
+                    days: 90,
+                    series: <String, List<TrendPoint>>{},
+                  ),
+      ),
       // Sleep reads three payloads of its own — `/api/sleep`,
       // `/api/sleep/consistency` and `/api/sleep/insight`. All three are
       // pinned for the same reason the Today one is: an unpinned provider
@@ -216,7 +322,15 @@ Future<void> seedDevice(LocalStore store) async {
 /// Scrolls until [finder] is on screen. The list is a `ListView.builder`, so
 /// most of Today is not built until it is needed — which is the point of it.
 Future<void> reveal(WidgetTester tester, Finder finder) =>
-    tester.scrollUntilVisible(finder, 400);
+    tester.scrollUntilVisible(
+      finder,
+      400,
+      // The page's own list, explicitly. Today's chapter nav is a horizontal
+      // `SingleChildScrollView` inside it (`chapter.dart` says why), so the
+      // default `find.byType(Scrollable)` resolves two and throws before it
+      // scrolls anything. The outer list is an ancestor, so it is first.
+      scrollable: find.byType(Scrollable).first,
+    );
 
 /// Taps the tab named [label], **scoped to the bar**.
 ///
@@ -232,3 +346,9 @@ Future<void> tapTab(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+
+/// GPS acquisition has its own scripted suite; screen tests never open hardware.
+class FixedGps extends GpsRecorder {
+  @override
+  Future<GpsRecordingState> build() async => const GpsRecordingState();
+}

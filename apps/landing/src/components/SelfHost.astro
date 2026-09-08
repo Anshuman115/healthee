@@ -73,38 +73,13 @@ const promise = [
         <li class="flex gap-3"><span aria-hidden="true" class="mono shrink-0 text-accent-soft">✓</span> You sign in; we handle the rest</li>
         <li class="flex gap-3"><span aria-hidden="true" class="mono shrink-0 text-accent-soft">✓</span> Your data still separate, still yours</li>
       </ul>
-      <div class="mt-6 border-t border-line pt-4">
-        <p class="text-sm leading-relaxed text-ink-soft">
-          Sign-ups open when the app ships. Leave your email and we’ll tell you the moment they
-          do — nothing else, no newsletter.
-        </p>
-        <form method="post" action="/api/waitlist" class="mt-3" data-waitlist>
-          <div class="flex flex-wrap gap-2">
-            <label class="sr-only" for="waitlist-email">Your email</label>
-            <input
-              id="waitlist-email"
-              name="email"
-              type="email"
-              required
-              maxlength="254"
-              placeholder="you@example.com"
-              autocomplete="email"
-              class="min-w-0 flex-1 rounded-[6px] border border-line-strong bg-canvas px-3 py-2.5 text-[0.95rem] text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-accent"
-            />
-            <button type="submit" class="btn btn-primary shrink-0">Join the waitlist</button>
-          </div>
-          {/* honeypot — humans never see it; bots that fill it get a polite no-op */}
-          <input
-            type="text"
-            name="website"
-            tabindex="-1"
-            autocomplete="off"
-            aria-hidden="true"
-            style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;"
-          />
-          <p class="mono mt-2 min-h-[1.2em] text-xs text-ink-faint" data-waitlist-msg aria-live="polite"></p>
-        </form>
-      </div>
+      <p class="mt-6 border-t border-line pt-4 text-sm leading-relaxed text-ink-soft">
+        Sign-ups open when the app ships.
+        <a
+          class="text-ink underline decoration-line-strong underline-offset-2 hover:decoration-accent"
+          href="#waitlist">Join the waitlist</a
+        > and we’ll tell you the moment they do — nothing else, no newsletter.
+      </p>
     </div>
   </div>
 
@@ -141,33 +116,3 @@ const promise = [
   </div>
 </Section>
 
-<script>
-  // Progressive enhancement: without JS the form posts to /api/waitlist and the
-  // Worker answers with a plain page; with JS we stay on the page and speak in
-  // the product's voice. Same-origin call — the page still loads nothing external.
-  const form = document.querySelector<HTMLFormElement>('[data-waitlist]');
-  const msg = document.querySelector<HTMLElement>('[data-waitlist-msg]');
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!msg) return;
-    const data = new FormData(form);
-    msg.textContent = '…';
-    try {
-      const res = await fetch(form.action, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: data.get('email'), website: data.get('website') }),
-      });
-      const out = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
-      if (res.ok && out?.ok) {
-        form.querySelector('input[name="email"]')?.setAttribute('disabled', '');
-        form.querySelector('button')?.setAttribute('disabled', '');
-        msg.textContent = 'You’re on the list. We’ll only write when it’s ready.';
-      } else {
-        msg.textContent = out?.error ?? 'That didn’t go through — try again in a minute.';
-      }
-    } catch {
-      msg.textContent = 'That didn’t go through — try again in a minute.';
-    }
-  });
-</script>

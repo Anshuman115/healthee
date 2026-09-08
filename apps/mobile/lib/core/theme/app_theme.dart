@@ -10,6 +10,8 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/appearance_colors.dart';
+import 'package:healthee/core/theme/appearance_variant.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/shapes.dart';
@@ -19,19 +21,40 @@ import 'package:healthee/core/theme/typography.dart';
 /// The app's light and dark themes.
 abstract final class AppTheme {
   /// Light — the default.
-  static ThemeData get light =>
-      _build(const HealtheeColors.light(), const InstrumentHues.light(), Brightness.light);
+  static ThemeData get light => _build(
+    const HealtheeColors.light(),
+    const InstrumentHues.light(),
+    Brightness.light,
+  );
 
   /// Dark.
-  static ThemeData get dark =>
-      _build(const HealtheeColors.dark(), const InstrumentHues.dark(), Brightness.dark);
+  static ThemeData get dark => _build(
+    const HealtheeColors.dark(),
+    const InstrumentHues.dark(),
+    Brightness.dark,
+  );
+
+  static ThemeData customized(
+    Brightness brightness,
+    AppearanceVariant variant,
+  ) => _build(
+    appearanceColors(brightness, variant),
+    brightness == Brightness.dark
+        ? const InstrumentHues.dark()
+        : const InstrumentHues.light(),
+    brightness,
+  );
 
   static ThemeData _build(
     HealtheeColors colors,
     InstrumentHues hues,
     Brightness brightness,
   ) {
-    final text = healtheeTextTheme(ink: colors.ink, ink2: colors.ink2, ink3: colors.ink3);
+    final text = healtheeTextTheme(
+      ink: colors.ink,
+      ink2: colors.ink2,
+      ink3: colors.ink3,
+    );
     return ThemeData(
       brightness: brightness,
       useMaterial3: true,
@@ -80,7 +103,10 @@ abstract final class AppTheme {
         margin: EdgeInsets.zero,
         // The continuous-corner squircle legacy draws every card with, not a
         // circular-arc rounded rectangle. See shapes.dart.
-        shape: hSquircle(Radii.card, side: BorderSide(color: colors.line, width: hairline)),
+        shape: hSquircle(
+          Radii.card,
+          side: BorderSide(color: colors.line, width: hairline),
+        ),
       ),
       appBarTheme: AppBarTheme(
         // `chrome`, not `bg` — the app frame is its own surface in this design,
@@ -104,7 +130,9 @@ abstract final class AppTheme {
           backgroundColor: colors.accent,
           foregroundColor: colors.onAccent,
           textStyle: text.labelLarge,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.button),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -112,7 +140,9 @@ abstract final class AppTheme {
           foregroundColor: colors.ink,
           textStyle: text.labelLarge,
           side: BorderSide(color: colors.line, width: hairline),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.button),
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(

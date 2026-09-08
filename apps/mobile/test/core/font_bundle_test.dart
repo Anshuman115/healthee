@@ -18,18 +18,58 @@
 ///
 /// ## Both sides are derived, deliberately
 ///
-/// The weights the app asks for are read by scanning `lib/`; the weights it
-/// bundles are read out of `pubspec.yaml`. A hardcoded list on either side would
-/// have to be kept current by the same person who forgot to add the 700 — which
-/// is precisely how the gap opened, and why it stayed open through a full port.
+/// The weights the app asks for are read by scanning `lib/`; what the bundle can
+/// actually draw is read out of the font file. A hardcoded list on either side
+/// would have to be kept current by the same person who forgot to add the 700 —
+/// which is precisely how the gap opened, and why it stayed open through a port.
+///
+/// ## The bundle is now ONE variable file, and that changes what to assert
+///
+/// Figtree ships as a single variable `.ttf`, so "one file per weight" is no
+/// longer the question — `fvar`'s `wght` axis range is. A weight outside that
+/// range is the same silent substitution the 700 was, so the range is read out
+/// of the font's own `fvar` table and compared against what `lib/` asks for.
+///
+/// A second family, `HealtheeSymbols`, is bundled as the glyph fallback. It is
+/// deliberately NOT the theme's family and is excluded here by name.
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/typography.dart';
+
+/// The bundled fallback's file name. Not the theme's face; see the docstring.
+const String kFallbackFace = 'InterFallback.ttf';
+
+/// The `wght` axis range out of a variable font's own `fvar` table.
+(int, int) _wghtAxis(String path) {
+  final d = File(path).readAsBytesSync();
+  final view = ByteData.sublistView(d);
+  final tables = view.getUint16(4);
+  int? fvar;
+  for (var i = 0; i < tables; i++) {
+    final rec = 12 + i * 16;
+    final tag = String.fromCharCodes(d.sublist(rec, rec + 4));
+    if (tag == 'fvar') fvar = view.getUint32(rec + 8);
+  }
+  expect(fvar, isNotNull, reason: '$path is not a variable font');
+  final axesOffset = fvar! + view.getUint16(fvar + 4);
+  final axisCount = view.getUint16(fvar + 8);
+  for (var i = 0; i < axisCount; i++) {
+    final a = axesOffset + i * 20;
+    if (String.fromCharCodes(d.sublist(a, a + 4)) == 'wght') {
+      // Fixed 16.16: the integer part is the whole-number weight.
+      final min = view.getInt32(a + 4) >> 16;
+      final max = view.getInt32(a + 12) >> 16;
+      return (min, max);
+    }
+  }
+  fail('$path has no wght axis');
+}
 
 void main() {
   test('the bundled family is the one the theme names', () {
@@ -41,47 +81,52 @@ void main() {
         .toList();
 
     expect(vendored, isNotEmpty);
-    for (final face in vendored) {
+    // The fallback is bundled on purpose and is not the theme's face.
+    final faces = vendored.where((n) => n != kFallbackFace).toList();
+    for (final face in faces) {
       expect(
         face,
         startsWith(healtheeFontFamily),
         reason:
-            'two vendored families is two things a TextStyle can name and one '
-            'of them wrong — and the wrongness renders perfectly',
+            'two vendored text families is two things a TextStyle can name and '
+            'one of them wrong — and the wrongness renders perfectly',
       );
     }
     expect(
+      faces,
+      hasLength(1),
+      reason: 'Figtree is variable: one file, not one per weight',
+    );
+    expect(
       vendored,
-      hasLength(_declaredWeights().length),
-      reason: 'one .ttf per weight declared in pubspec.yaml, and no spares',
+      contains(kFallbackFace),
+      reason:
+          'the bundled fallback is load-bearing — Figtree has no U+2194, and a '
+          'platform face does not beat the colour emoji font',
     );
   });
 
-  test('EVERY WEIGHT THE APP ASKS FOR IS A WEIGHT THE BUNDLE HAS', () {
+  test('EVERY WEIGHT THE APP ASKS FOR IS INSIDE THE VARIABLE AXIS', () {
     final asked = _weightsAskedFor();
-    final vendored = _declaredWeights();
+    final (min, max) = _wghtAxis('assets/fonts/Figtree.ttf');
     expect(asked, isNotEmpty);
+    final outside = asked.where((w) => w < min || w > max).toList();
     expect(
-      asked.difference(vendored),
+      outside,
       isEmpty,
       reason:
-          'these weights are named in lib/ and not vendored, so Flutter is '
-          'silently substituting the nearest face for them',
-    );
-    expect(
-      vendored.difference(asked),
-      isEmpty,
-      reason: 'a vendored weight no style names is dead binary size',
+          'these weights are named in lib/ and lie outside the bundled fvar '
+          'wght axis ($min-$max), so Flutter silently substitutes the nearest',
     );
     // Named, because it is the one that was wrong: legacy's numerals are bold.
     expect(asked, contains(700));
-    expect(vendored, contains(700));
+    expect(700, inInclusiveRange(min, max));
   });
 
-  test('NOTHING ASKS FOR AN ITALIC — Manrope has no such face to give', () {
-    // Not a deferred vendoring job: Manrope's variable font carries a single
+  test('NOTHING ASKS FOR AN ITALIC — none is bundled to give', () {
+    // Not a deferred vendoring job. Figtree publishes an italic; it is left
     // `wght` axis (200–800) and upstream publishes no italic companion —
-    // measured off `Manrope[wght].ttf`'s `fvar` table, not remembered. So the
+    // measured off `Inter[wght].ttf`'s `fvar` table, not remembered. So the
     // app stopped asking, and this fails if it starts again.
     final asking = <String>[
       for (final file in _libSources())
@@ -102,7 +147,7 @@ void main() {
   });
 
   test('the whole text theme is one family, in the weights vendored', () {
-    final vendored = _declaredWeights();
+    final vendored = _drawableWeights();
     for (final style in _themeStyles()) {
       expect(style!.fontFamily, healtheeFontFamily);
       expect(
@@ -119,7 +164,7 @@ void main() {
   test('HType asks for exactly the five roles’ weights, and gets them', () {
     // The five roles ported from legacy's `HType`, at legacy's own weights.
     // `number` is the one that was broken.
-    final vendored = _declaredWeights();
+    final vendored = _drawableWeights();
     const ink = Color(0xFF000000);
     final roles = <String, TextStyle>{
       'serif': HType.serif(ink),
@@ -182,12 +227,18 @@ Set<int> _weightsAskedFor() {
 }
 
 /// Every weight `pubspec.yaml` declares under the one font family.
-Set<int> _declaredWeights() {
-  final pattern = RegExp(r'^\s+weight:\s*(\d{3})\s*$', multiLine: true);
-  final pubspec = File('pubspec.yaml').readAsStringSync();
-  final declared = <int>{
-    for (final match in pattern.allMatches(pubspec)) int.parse(match.group(1)!),
+/// What the bundle can actually draw.
+///
+/// It used to read `weight:` lines out of `pubspec.yaml`, which was right while
+/// four static instances were vendored. Figtree is variable and declares none,
+/// so the answer now comes from the font's own `fvar` wght axis — every whole
+/// hundred inside the range, which is what a `FontWeight` can name.
+Set<int> _drawableWeights() {
+  final (min, max) = _wghtAxis('assets/fonts/Figtree.ttf');
+  final drawable = <int>{
+    for (var w = 100; w <= 900; w += 100)
+      if (w >= min && w <= max) w,
   };
-  expect(declared, isNotEmpty, reason: 'pubspec.yaml declares no font weights');
-  return declared;
+  expect(drawable, isNotEmpty, reason: 'the bundled fvar wght axis is empty');
+  return drawable;
 }

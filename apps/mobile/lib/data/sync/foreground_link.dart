@@ -38,6 +38,7 @@ import 'package:healthee/ble/strap_session.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/pairing/pairing_exception.dart';
 import 'package:healthee/data/sync/connection_state.dart';
+import 'package:healthee/data/sync/device_lease.dart';
 import 'package:healthee/data/sync/preflight_scan.dart';
 import 'package:healthee/data/sync/reconnect_policy.dart';
 import 'package:healthee/data/sync/sync_failure.dart';
@@ -57,6 +58,7 @@ class ForegroundLink {
     required this.onState,
     this.policy = const ReconnectPolicy(),
     this.schedule = Timer.new,
+    this.lease,
   }) : _preflight = PreflightScan(pairing: client.pairing, scanner: scanner);
 
   /// The protocol layer this link opens sessions through.
@@ -77,6 +79,7 @@ class ForegroundLink {
   final DelayedCall schedule;
 
   final PreflightScan _preflight;
+  final DeviceLease? lease;
 
   StrapSession? _session;
   Timer? _retry;
@@ -136,6 +139,7 @@ class ForegroundLink {
 
   /// Releases everything. After this the link holds nothing and retries nothing.
   Future<void> dispose() async {
+    lease?.stopRenewing();
     _foreground = false;
     _retry?.cancel();
     _retry = null;
@@ -149,6 +153,11 @@ class ForegroundLink {
     }
     _connecting = true;
     try {
+      if (lease != null && !await lease!.acquire()) {
+        AppLog.info('sync', 'background sync owns the strap; retrying shortly');
+        _scheduleRetry();
+        return;
+      }
       final failure = await _openOnce();
       if (failure == null || !_foreground) {
         return;
@@ -166,6 +175,7 @@ class ForegroundLink {
       _scheduleRetry();
     } finally {
       _connecting = false;
+      if (held == null) await lease?.release();
     }
   }
 
@@ -249,9 +259,11 @@ class ForegroundLink {
     final session = _session;
     _session = null;
     if (session == null) {
+      if (!_connecting) await lease?.release();
       return;
     }
     AppLog.info('sync', 'releasing the strap — $why');
     await session.close();
+    await lease?.release();
   }
 }

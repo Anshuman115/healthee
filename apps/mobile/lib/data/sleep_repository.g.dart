@@ -53,7 +53,7 @@ final class SleepRepositoryProvider
   }
 }
 
-String _$sleepRepositoryHash() => r'3f09250e79cffc342291e46e881b8e350a218b4e';
+String _$sleepRepositoryHash() => r'76a4bbb4a549514b8a65bf65b0b750bb7e36a889';
 
 /// The nights and naps. Watch this from the Sleep screen.
 

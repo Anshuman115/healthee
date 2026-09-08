@@ -9,28 +9,61 @@ feed ``/api/today``; ``sleep_consistency`` feeds the consistency endpoint (its L
 from __future__ import annotations
 
 import statistics
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
-from healthee.core.tenancy import USER_TODAY_SQL, user_today
-from healthee.derive._common import Cur
+from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day, user_today
+from healthee.derive._common import Cur, _day_bounds_utc
 from healthee.derive.freshness import NOT_DERIVED_YET, withheld_block
 from healthee.derive.sleep_score import SRI_MESSAGES, sri_unavailable_reason
 from healthee.read.sleep_common import (
     SLEEP_CUTOFFS,
     SLEEP_RESEARCH_NOTES,
+    stage_sleep_min,
     stage_timeline,
     stage_totals,
 )
 
+# Nights required before this endpoint says anything about how tight the owner's bedtime
+# band is. [[sleep_regularity_index]] Directive 4 — "Do not compute or report SRI from <7
+# days of data" — and the band verdict is an answer to the SAME question the SRI answers,
+# so it takes the same floor rather than a lower one of its own. See `_consistency_payload`.
+REGULARITY_MIN_NIGHTS = 7
 
-def latest_main_session(cur: Cur, user_id: UUID) -> tuple | None:
-    """The most recent main sleep session (raw sleep_session row) or None."""
+# The onset-spread cut-points, in hours, against the ~1-hour behavioural target both
+# [[sleep_consistency]] and [[sleep_regularity_index]] state ("keep sleep and wake within a
+# ~1-hour band day to day, weekends included"). They were inline and unnamed; they are
+# coaching bands around a cited target, not validated thresholds, and the wording says so.
+_BAND_TIGHT_MAX_H = 1.5
+_BAND_MODERATE_MAX_H = 2.5
+
+# How far a night's onset must sit from the median before it is SURFACED as an odd one.
+# Two hours: an uncited practitioner cut, named here rather than left inline so a reader
+# can see it is a display threshold and not a finding.
+_IRREGULAR_NIGHT_DELTA_H = 2
+
+# Minutes past midnight before which a median bedtime is called "late" — i.e. the owner is
+# habitually going to bed after midnight and before 06:00. Named because inline it read as
+# an unexplained `< 360`, and because the boundary is worth seeing: at exactly 06:00 this
+# stops calling a bedtime late, which is the right edge for an anchor at 18:00 but is a
+# convention rather than a result. [[sleep_timing_chronotype]].
+_LATE_BEDTIME_BEFORE_MIN = 360
+
+
+def latest_main_session(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> tuple | None:
+    """The main sleep session the owner WOKE FROM on or before ``day``, or None.
+
+    Bounded on ``end_ts``, not ``start_ts``: a night is filed by the morning it ends on
+    everywhere else in this module (``sleep_history_7d`` and ``main_sessions`` both
+    bucket by ``end_ts``), and bounding the start instead would let the night that began
+    on the evening OF a past day — and ended the following morning — count as that day's
+    sleep on the Today page while counting as the next day's everywhere else.
+    """
     cur.execute(
         "SELECT start_ts, end_ts, light_min, deep_min, rem_min, wake_min, score, stages "
-        "FROM sleep_session WHERE user_id = %s AND kind='main' "
+        "FROM sleep_session WHERE user_id = %s AND kind='main' AND end_ts < %s "
         "ORDER BY start_ts DESC LIMIT 1",
-        (user_id,),
+        (user_id, _day_bounds_utc(reference_day(day, tz), tz)[1]),
     )
     return cur.fetchone()
 
@@ -43,7 +76,9 @@ def last_sleep(session: tuple | None) -> dict | None:
     return {
         "start_iso": start_ts.isoformat(),
         "end_iso": end_ts.isoformat(),
-        "duration_min": (light or 0) + (deep or 0) + (rem or 0),  # TST (v2: no summary blob)
+        # TST (v2: no summary blob), and NULL without a breakdown to sum — an unstaged
+        # night is not a night of zero sleep.
+        "duration_min": stage_sleep_min(light, deep, rem),
         "score": score,
         "avg_hr": None,  # v2 avg_hr lives on the session row; see last_sleep_extras
         "totals": stage_totals(light, deep, rem, wake),
@@ -52,12 +87,22 @@ def last_sleep(session: tuple | None) -> dict | None:
 
 
 def last_sleep_extras(cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datetime) -> dict:
-    """SpO2 / breathing / skin-temp / HRV averaged across the last-sleep window."""
+    """SpO2 / breathing / skin-temp / HRV averaged across the last-sleep window.
+
+    Skin temperature is filtered to plausible values (``> 25``), the same gate
+    ``read/sleep_page.py`` applies over the same metric. It was missing here until
+    2026-09-08, so an off-wrist or sentinel sample pulled "last night's" skin temperature
+    down on this surface and not on the other — one quantity, two answers, and the low
+    one is the limb ``skin_temp_signals`` names in the illness early-warning flag. The
+    note specified both call sites (*"`read/sleep_extras.py`, `read/sleep_page.py` —
+    AVG(skin_temp_c) over the night, filtered to plausible values, e.g. `value>25`"*);
+    the note was right and the code moved to meet it.
+    """
     cur.execute(
         "SELECT ROUND(AVG(CASE WHEN metric='spo2' THEN value END))::int, "
         "  MIN(CASE WHEN metric='spo2' THEN value END)::int, "
         "  ROUND(AVG(CASE WHEN metric='respiratory_rate' THEN value END))::int, "
-        "  ROUND(AVG(CASE WHEN metric='skin_temp_c' THEN value END)::numeric, 1), "
+        "  ROUND(AVG(CASE WHEN metric='skin_temp_c' AND value>25 THEN value END)::numeric, 1), "
         "  ROUND(AVG(CASE WHEN metric='hrv' THEN value END))::int "
         "FROM sample WHERE user_id = %s AND ts >= %s AND ts < %s",
         (user_id, start_ts, end_ts),
@@ -72,8 +117,9 @@ def last_sleep_extras(cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datet
     }
 
 
-def sleep_history_7d(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
-    """Last 7 nights of main sleep for the mini history bar."""
+def sleep_history_7d(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> list[dict]:
+    """The 7 nights ENDING at ``day``, for the mini history bar."""
+    as_of = reference_day(day, tz)
     # Local wake-date computed ONCE in a subquery — see main_sessions: repeating
     # `AT TIME ZONE %s` yields distinct bound parameters, which would break the
     # DISTINCT ON / ORDER BY expression match.
@@ -85,35 +131,41 @@ def sleep_history_7d(cur: Cur, user_id: UUID, tz: str) -> list[dict]:
         "    light_min, deep_min, rem_min, wake_min, score "
         "  FROM sleep_session WHERE user_id = %s AND kind='main'"
         ") s "
-        f"WHERE local_date > ({USER_TODAY_SQL} - 8) "
+        f"WHERE local_date > ({AS_OF_DAY_SQL} - 8) AND local_date <= {AS_OF_DAY_SQL} "
         "ORDER BY local_date, (end_ts - start_ts) DESC",
-        (tz, user_id, tz),
+        (tz, user_id, as_of, as_of),
     )
     rows = cur.fetchall()
     rows.sort(key=lambda r: r[0])
     return [
         {
             "date": d.isoformat(),
-            "duration_min": (light or 0) + (deep or 0) + (rem or 0),
+            "duration_min": stage_sleep_min(light, deep, rem),
             "score": score,
-            "light": light or 0,
-            "deep": deep or 0,
-            "rem": rem or 0,
-            "awake": wake or 0,
+            # Null rather than 0 for the same reason, and all the way down: the app's
+            # mini history bar reads these four directly, so a zero here paints a bar.
+            "light": light,
+            "deep": deep,
+            "rem": rem,
+            "awake": wake,
         }
         for d, light, deep, rem, wake, score in rows
     ]
 
 
-def sleep_health_today(cur: Cur, user_id: UUID) -> dict | None:
-    """Latest 4-dim sleep-health score + per-dimension breakdown for Today."""
+def sleep_health_today(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
+    """The newest 4-dim sleep-health score at or before ``day``, with its breakdown.
+
+    The dimensions are folded from whichever day ``latest_day`` turns out to be, so an
+    unbounded read on a past day would assemble a score out of rows filed after it.
+    """
     cur.execute(
         "SELECT day, metric, value, flags FROM derived_daily "
         "WHERE user_id = %s AND metric IN "
         "  ('sleep_health_score_4dim','sleep_dim_duration','sleep_dim_efficiency',"
         "  'sleep_dim_timing','sleep_dim_regularity','sleep_regularity_index') "
-        "ORDER BY day DESC LIMIT 100",
-        (user_id,),
+        "AND day <= %s ORDER BY day DESC LIMIT 100",
+        (user_id, reference_day(day, tz)),
     )
     rows = cur.fetchall()
     if not rows:
@@ -248,38 +300,75 @@ def _sri_block(cur: Cur, user_id: UUID, tz: str) -> dict:
 def _consistency_payload(  # noqa: PLR0913 — the regularity payload needs all its series
     sri: dict, days: int, rows: list, onset: list[int], wake: list[int]
 ) -> dict:
-    """Assemble the regularity numbers + surfaced odd nights + SRI (verbatim math)."""
+    """Assemble the regularity numbers + surfaced odd nights + SRI (verbatim math).
+
+    ## The band verdict needs the same seven nights the SRI does
+
+    ``_sri_block`` correctly withholds the Sleep Regularity Index under seven days —
+    [[sleep_regularity_index]] Directive 4, *"Do not compute or report SRI from <7 days of
+    data; the formula's variance is too high with fewer pairs of consecutive days"* — and
+    this payload then published an ungraded, uncited, home-made regularity verdict from
+    three nights in its place. The endpoint refused the cited statistic and substituted an
+    invented one, which is worse than either answer alone.
+
+    It is the same question, so it gets the same floor. Below it, ``onset_band`` and
+    ``onset_band_h`` are ``None``: a p90-minus-p10 "band" over three points is
+    ``sorted[2] - sorted[0]``, i.e. the full range reported as a percentile spread, and
+    ``onset_range_h_raw`` already ships the range under its own honest name. The plain
+    dispersions (``onset_sd_min``, ``wake_sd_min``) stay — a population SD of three points
+    is exactly what it says it is — and ``nights`` sits beside them.
+
+    ## "Top-quintile territory" is deleted
+
+    It was a claim about where this owner sits in a population distribution, with no
+    reference distribution read, no note cited, and no ``n`` beside it. The corpus has no
+    quintile for an onset band in hours; what it does have is the behavioural target — the
+    ~1-hour band, day to day, weekends included ([[sleep_consistency]],
+    [[sleep_regularity_index]]) — which the replacement wording states and the ``target``
+    field below has always carried.
+    """
     med_on = statistics.median(onset)
     on_band_h = (_pct(onset, 0.9) - _pct(onset, 0.1)) / 60.0
     irregular = []
     for (d, _s, _e), o in zip(rows, onset, strict=True):
         delta = (o - med_on) / 60.0
-        if abs(delta) > 2:
+        if abs(delta) > _IRREGULAR_NIGHT_DELTA_H:
             irregular.append(
                 {"date": d.isoformat(), "bedtime": _clk(1080 + o), "delta_h": round(delta, 1)}
             )
     irregular.sort(key=lambda x: -abs(x["delta_h"]))
     median_bed_min = (1080 + round(med_on)) % 1440
-    band = (
-        "tight — top-quintile territory (~1 h band)"
-        if on_band_h <= 1.5
-        else "moderate — pull it under ~1 h"
-        if on_band_h <= 2.5
-        else "loose (~3 h+) — your biggest lever"
-    )
+    banded = len(rows) >= REGULARITY_MIN_NIGHTS
     return {
         "days": days,
         "nights": len(rows),
+        # The floor on the wire, so a null band reads as "too few nights" rather than as
+        # a gap — the same pairing `baseline_30d_n` makes in `read/fitness.py`.
+        "band_min_nights": REGULARITY_MIN_NIGHTS,
         "median_bedtime": _clk(1080 + med_on),
         "mean_wake": _clk(statistics.mean(wake)),
         "onset_sd_min": round(statistics.pstdev(onset), 1),
-        "onset_band_h": round(on_band_h, 1),
+        "onset_band_h": round(on_band_h, 1) if banded else None,
         "onset_range_h_raw": round((max(onset) - min(onset)) / 60.0, 1),
         "wake_sd_min": round(statistics.pstdev(wake), 1),
         **sri,
-        "late": median_bed_min < 360,
-        "onset_band": band,
+        "late": median_bed_min < _LATE_BEDTIME_BEFORE_MIN if banded else None,
+        "onset_band": _band_verdict(on_band_h) if banded else None,
         "irregular_nights": irregular[:6],
         "irregular_count": len(irregular),
         "target": "keep sleep & wake within a ~1-hour band, weekends included",
     }
+
+
+def _band_verdict(on_band_h: float) -> str:
+    """The onset spread, said in words, against the ~1-hour behavioural target.
+
+    Every threshold below is a named constant with the note it comes from. They were
+    inline, unnamed and uncited, and the tightest of them claimed a population percentile
+    the corpus does not contain.
+    """
+    if on_band_h <= _BAND_TIGHT_MAX_H:
+        return "tight — inside the ~1 h band, near enough"
+    if on_band_h <= _BAND_MODERATE_MAX_H:
+        return "moderate — pull it under ~1 h"
+    return "loose (~3 h+) — your biggest lever"

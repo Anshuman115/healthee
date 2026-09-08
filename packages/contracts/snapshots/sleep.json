@@ -1,4 +1,9 @@
 {
+  "as_of": {
+    "day": "2026-07-31",
+    "derived_at": "2026-07-31T02:14:07.512340+00:00",
+    "is_today": true
+  },
   "cutoffs": {
     "duration_hours": [
       7.0,
@@ -11,9 +16,10 @@
       4
     ]
   },
+  "date": "2026-07-31",
   "findings": [
     {
-      "description_raw": "Caffeine \u2194 sleep",
+      "description_raw": "Caffeine ↔ sleep",
       "effect_metric": "rho",
       "effect_size": -0.42,
       "event_kind": null,
@@ -22,6 +28,130 @@
       "metric_a": "caffeine",
       "metric_b": "sleep_health_score_4dim",
       "n_samples": 24,
+      "points": [
+        {
+          "a": 40.0,
+          "b": 80.0,
+          "date": "2026-07-08"
+        },
+        {
+          "a": 41.0,
+          "b": 79.0,
+          "date": "2026-07-09"
+        },
+        {
+          "a": 42.0,
+          "b": 78.0,
+          "date": "2026-07-10"
+        },
+        {
+          "a": 43.0,
+          "b": 77.0,
+          "date": "2026-07-11"
+        },
+        {
+          "a": 44.0,
+          "b": 76.0,
+          "date": "2026-07-12"
+        },
+        {
+          "a": 45.0,
+          "b": 75.0,
+          "date": "2026-07-13"
+        },
+        {
+          "a": 46.0,
+          "b": 74.0,
+          "date": "2026-07-14"
+        },
+        {
+          "a": 47.0,
+          "b": 73.0,
+          "date": "2026-07-15"
+        },
+        {
+          "a": 48.0,
+          "b": 72.0,
+          "date": "2026-07-16"
+        },
+        {
+          "a": 49.0,
+          "b": 71.0,
+          "date": "2026-07-17"
+        },
+        {
+          "a": 50.0,
+          "b": 70.0,
+          "date": "2026-07-18"
+        },
+        {
+          "a": 51.0,
+          "b": 69.0,
+          "date": "2026-07-19"
+        },
+        {
+          "a": 52.0,
+          "b": 68.0,
+          "date": "2026-07-20"
+        },
+        {
+          "a": 53.0,
+          "b": 67.0,
+          "date": "2026-07-21"
+        },
+        {
+          "a": 54.0,
+          "b": 66.0,
+          "date": "2026-07-22"
+        },
+        {
+          "a": 55.0,
+          "b": 65.0,
+          "date": "2026-07-23"
+        },
+        {
+          "a": 56.0,
+          "b": 64.0,
+          "date": "2026-07-24"
+        },
+        {
+          "a": 57.0,
+          "b": 63.0,
+          "date": "2026-07-25"
+        },
+        {
+          "a": 58.0,
+          "b": 62.0,
+          "date": "2026-07-26"
+        },
+        {
+          "a": 59.0,
+          "b": 61.0,
+          "date": "2026-07-27"
+        },
+        {
+          "a": 60.0,
+          "b": 60.0,
+          "date": "2026-07-28"
+        },
+        {
+          "a": 61.0,
+          "b": 59.0,
+          "date": "2026-07-29"
+        },
+        {
+          "a": 62.0,
+          "b": 58.0,
+          "date": "2026-07-30"
+        },
+        {
+          "a": 63.0,
+          "b": 57.0,
+          "date": "2026-07-31"
+        }
+      ],
+      "points_n": 24,
+      "points_truncated": false,
       "q_value": 0.03,
       "research_note_ids": [
         "caffeine_sleep"
@@ -31,18 +161,37 @@
   "naps": [
     {
       "date": "2026-07-31",
-      "duration_min": 35,
       "end_iso": "2026-07-31T09:05:00+00:00",
       "midpoint_local": "14:17",
-      "source": "zepp_cloud",
-      "stages": [],
-      "start_iso": "2026-07-31T08:30:00+00:00"
+      "source": "strap_ble",
+      "stage_timeline": [
+        {
+          "duration_min": 30.0,
+          "end_offset_min": 30.0,
+          "stage": "light",
+          "start_offset_min": 0.0
+        },
+        {
+          "duration_min": 5.0,
+          "end_offset_min": 35.0,
+          "stage": "deep",
+          "start_offset_min": 30.0
+        }
+      ],
+      "stages": {
+        "awake": 0,
+        "deep": 5,
+        "light": 30,
+        "rem": 0
+      },
+      "start_iso": "2026-07-31T08:30:00+00:00",
+      "tib_min": 35,
+      "tst_min": 35
     }
   ],
   "nights": [
     {
       "date": "2026-07-31",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-31T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -54,7 +203,7 @@
       "respiratory_rate": 14.0,
       "rhr": 55.0,
       "score": 3,
-      "session_source": "zepp_cloud",
+      "session_source": "strap_ble",
       "skin_temp_c": 33.2,
       "spo2_avg": 97.0,
       "spo2_min": 97,
@@ -92,7 +241,6 @@
     },
     {
       "date": "2026-07-30",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-30T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -104,7 +252,7 @@
       "respiratory_rate": null,
       "rhr": 55.0,
       "score": 3,
-      "session_source": "zepp_cloud",
+      "session_source": "strap_ble",
       "skin_temp_c": null,
       "spo2_avg": null,
       "spo2_min": null,
@@ -142,7 +290,6 @@
     },
     {
       "date": "2026-07-29",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-29T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -154,7 +301,7 @@
       "respiratory_rate": null,
       "rhr": 55.0,
       "score": 3,
-      "session_source": "zepp_cloud",
+      "session_source": "strap_ble",
       "skin_temp_c": null,
       "spo2_avg": null,
       "spo2_min": null,
@@ -192,7 +339,6 @@
     },
     {
       "date": "2026-07-28",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-28T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -204,7 +350,7 @@
       "respiratory_rate": null,
       "rhr": 55.0,
       "score": 3,
-      "session_source": "zepp_cloud",
+      "session_source": "strap_ble",
       "skin_temp_c": null,
       "spo2_avg": null,
       "spo2_min": null,
@@ -242,7 +388,6 @@
     },
     {
       "date": "2026-07-27",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-27T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -254,7 +399,7 @@
       "respiratory_rate": null,
       "rhr": 55.0,
       "score": 3,
-      "session_source": "zepp_cloud",
+      "session_source": "strap_ble",
       "skin_temp_c": null,
       "spo2_avg": null,
       "spo2_min": null,
@@ -292,7 +437,6 @@
     },
     {
       "date": "2026-07-26",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-26T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -304,7 +448,7 @@
       "respiratory_rate": null,
       "rhr": 55.0,
       "score": 3,
-      "session_source": "zepp_cloud",
+      "session_source": "strap_ble",
       "skin_temp_c": null,
       "spo2_avg": null,
       "spo2_min": null,
@@ -342,7 +486,6 @@
     },
     {
       "date": "2026-07-25",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-25T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -354,7 +497,7 @@
       "respiratory_rate": null,
       "rhr": 55.0,
       "score": 3,
-      "session_source": "zepp_cloud",
+      "session_source": "strap_ble",
       "skin_temp_c": null,
       "spo2_avg": null,
       "spo2_min": null,
@@ -392,7 +535,6 @@
     },
     {
       "date": "2026-07-24",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -423,7 +565,6 @@
     },
     {
       "date": "2026-07-23",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -454,7 +595,6 @@
     },
     {
       "date": "2026-07-22",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -485,7 +625,6 @@
     },
     {
       "date": "2026-07-21",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -516,7 +655,6 @@
     },
     {
       "date": "2026-07-20",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -547,7 +685,6 @@
     },
     {
       "date": "2026-07-19",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -578,7 +715,6 @@
     },
     {
       "date": "2026-07-18",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -609,7 +745,6 @@
     },
     {
       "date": "2026-07-17",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -640,7 +775,6 @@
     },
     {
       "date": "2026-07-16",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -671,7 +805,6 @@
     },
     {
       "date": "2026-07-15",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -702,7 +835,6 @@
     },
     {
       "date": "2026-07-14",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -733,7 +865,6 @@
     },
     {
       "date": "2026-07-13",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -764,7 +895,6 @@
     },
     {
       "date": "2026-07-12",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -795,7 +925,6 @@
     },
     {
       "date": "2026-07-11",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -826,7 +955,6 @@
     },
     {
       "date": "2026-07-10",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -857,7 +985,6 @@
     },
     {
       "date": "2026-07-09",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -888,7 +1015,6 @@
     },
     {
       "date": "2026-07-08",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -919,7 +1045,6 @@
     },
     {
       "date": "2026-07-07",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -950,7 +1075,6 @@
     },
     {
       "date": "2026-07-06",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -981,7 +1105,6 @@
     },
     {
       "date": "2026-07-05",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1012,7 +1135,6 @@
     },
     {
       "date": "2026-07-04",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1043,7 +1165,6 @@
     },
     {
       "date": "2026-07-03",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1074,7 +1195,6 @@
     },
     {
       "date": "2026-07-02",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1109,5 +1229,25 @@
     "sleep_health_score_multidim",
     "sleep_duration_mortality",
     "sleep_regularity_index"
-  ]
+  ],
+  "sleep_debt": {
+    "as_of_date": "2026-09-08",
+    "avg_deficit_min": 100,
+    "avg_tst_min": 380,
+    "data_confidence": "ok",
+    "debt_min": 120,
+    "last_tst_as_of_date": "2026-09-08",
+    "last_tst_min": 380,
+    "last_tst_withheld": null,
+    "need_min": 480,
+    "nights": 14,
+    "nights_below": 12,
+    "performance_pct": 79,
+    "research_notes": [
+      "sleep_need_debt",
+      "sleep_duration_mortality"
+    ],
+    "window_nights": 14,
+    "withheld": null
+  }
 }

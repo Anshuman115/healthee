@@ -58,7 +58,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
-from healthee.derive._common import Cur, _age, _day_minutes, _scalar, _upsert_daily
+from healthee.derive._common import Cur, _age, _day_minutes, _upsert_daily
 from healthee.derive.freshness import (
     WEIGHT_MAX_AGE_DAYS,
     WEIGHT_STALE,
@@ -72,9 +72,20 @@ from healthee.derive.freshness import (
 # AND undercounts time up-and-about between strides (standing/light 1.5-1.8). So
 # each non-step waking minute is classified: near step activity (within
 # +/-NEAT_WINDOW min) => up & moving ~1.55; isolated => seated/resting ~1.3.
-AWAKE_SEDENTARY_MET = 1.3  # Compendium 07021 — sitting quietly
-AWAKE_ACTIVE_MET = 1.55  # standing / light household between steps
-NEAT_WINDOW = 7  # minutes either side to look for movement
+#
+# ⚠ Only ONE of the three is a research constant, and saying which is the point
+# (standards section 1 asks every research constant to cite its note; it does not ask a
+# product decision to invent one). `derive/hr_validity.py` is the reference for this
+# shape of comment. [[energy_expenditure_derivation]] carries the same split.
+AWAKE_SEDENTARY_MET = 1.3  # Compendium 07021 — sitting quietly. SOURCED.
+AWAKE_ACTIVE_MET = 1.55  # standing / light household between steps.
+# PRACTITIONER CHOICE, not a Compendium entry: it sits between standing-quiet (1.3) and
+# light household activity (~1.8) because a minute between strides is neither. No paper
+# is claimed and none should be invented.
+NEAT_WINDOW = 7  # minutes either side to look for movement.
+# PRODUCT DECISION with no literature behind it at all: how near a step has to be for a
+# still minute to read as up-and-about. Moving either of these two is a science change
+# and gets its own PR with the parity fixture re-baselined.
 SLEEP_MET = 0.95  # sleep is ~0.9-0.95 x RMR
 
 _WALK_RUN_SPEED_M_MIN = 134  # ACSM equation switch (m/min): walking vs running VO2
@@ -170,6 +181,52 @@ _WEIGHT_STALE_MESSAGE = (
 )
 
 
+# The reason id and sentence for a workout the strap logged with no calorie figure.
+#
+# `_tee_met` removes workout minutes from the MET walk "because they are counted via the
+# device's measured calories by the caller" — and the caller summed a NULLABLE column, so
+# a session with no calorie figure removed its minutes and added nothing back. A 60-minute
+# run subtracted an hour of at-least-sedentary METs and contributed zero. The direction is
+# conservative rather than flattering, which is the right side to be wrong on, but a wrong
+# number served with `caveats: []` in a payload built with a caveat vocabulary for exactly
+# this is silence, not modesty.
+#
+# A caveat rather than a model change: keeping those minutes in the MET walk would be a
+# behaviour change to science code, which is its own PR with its own known-value tests
+# (CLAUDE.md). This says what the number is missing; it does not bend the number.
+UNCOUNTED_WORKOUT = "workout_without_device_calories"
+_UNCOUNTED_WORKOUT_MESSAGE = (
+    "{n} recorded {sessions} on this day ({minutes} min in total) came from the strap with "
+    "no calorie figure. Workout minutes are counted from the strap's own measurement rather "
+    "than from the movement model, so those minutes contributed nothing and this total is "
+    "lower than the day actually was — by at least the resting energy of {minutes} minutes."
+)
+
+
+def uncounted_workout_caveats(sessions_n: int, minutes: int) -> list[dict]:
+    """The ``caveats`` entry for workouts the strap logged without calories, or ``[]``.
+
+    Not a date-bearing caveat: the disclosure is about THIS day's own sessions, so it uses
+    the day for both edges of :func:`caveat_block` and reports an ``age_days`` of 0. The
+    counts travel inside the block for the reason :func:`weight_caveats` gives — the size
+    of the lean is why a caveat was the right branch.
+    """
+    if sessions_n <= 0:
+        return []
+    return [
+        {
+            "reason": UNCOUNTED_WORKOUT,
+            "message": _UNCOUNTED_WORKOUT_MESSAGE.format(
+                n=sessions_n,
+                sessions="session" if sessions_n == 1 else "sessions",
+                minutes=minutes,
+            ),
+            "sessions": sessions_n,
+            "uncounted_minutes": minutes,
+        }
+    ]
+
+
 def weight_tilt_pct_per_kg(bmr: float) -> float:
     """Largest relative error, in %, that one kilogram of wrong mass puts on a calorie.
 
@@ -263,24 +320,33 @@ def derive_calories(
         + (5 if prof["sex"] == "male" else -161)
     )
     total = _tee_met(cur, user_id, start_utc, end_utc, bmr, stride_m)
+    # The uncounted sessions come back beside the sum, because a NULL in this column is
+    # not a zero: the caller's MET walk has already skipped these minutes.
     cur.execute(
-        "SELECT COALESCE(SUM(calories),0) FROM workout "
+        "SELECT COALESCE(SUM(calories),0), "
+        "COUNT(*) FILTER (WHERE calories IS NULL), "
+        "COALESCE(SUM(duration_s) FILTER (WHERE calories IS NULL), 0) FROM workout "
         "WHERE user_id = %s AND start_ts >= %s AND start_ts < %s",  # half-open bounds
         (user_id, start_utc, end_utc),
     )
-    workout_cal = _scalar(cur)
+    workout_cal, uncounted_n, uncounted_s = cur.fetchone() or (0.0, 0, 0)
+    workout_cal = float(workout_cal or 0.0)
     total += workout_cal
     active_total = max(0.0, total - bmr)
     weight = weight_flags(prof, day, bmr)
+    uncounted = uncounted_workout_caveats(int(uncounted_n or 0), round(int(uncounted_s or 0) / 60))
+    # Both disclosures ride the same list. `basal_calories` is untouched by the workout gap
+    # — it is BMR, which no session enters — so it keeps the weight caveats alone.
+    energy_caveats = {**weight, "caveats": [*weight["caveats"], *uncounted]}
     flags = {
         "bmr": round(bmr),
         "workout_cal": round(workout_cal),
         "stride_m": round(stride_m, 3),
         "pal": round(total / bmr, 2),
-        **weight,
+        **energy_caveats,
     }
     _upsert_daily(cur, user_id, day, "total_calories", total, flags)
-    _upsert_daily(cur, user_id, day, "active_calories", active_total, weight)
+    _upsert_daily(cur, user_id, day, "active_calories", active_total, energy_caveats)
     _upsert_daily(cur, user_id, day, "basal_calories", bmr, weight)
     return {
         "total_calories": round(total),

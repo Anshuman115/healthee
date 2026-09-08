@@ -103,6 +103,42 @@ PROFILE_INCOMPLETE = "profile_or_weight_missing"
 # distinguishable to the caller (standards §1).
 NO_NIGHTS_IN_WINDOW = "no_recorded_nights_in_window"
 
+# There is no age-and-sex reference distribution for this owner, because their date of
+# birth or sex was never recorded — so anything priced AGAINST the population (a median,
+# a percentile, a gap-scaled projection) has no reference to be priced against. One id,
+# because it is one condition: ``read/vo2max.py`` declines to name a ``median_for_age``,
+# and every consumer of that null is looking at the same absence. Distinct from
+# PROFILE_INCOMPLETE, which additionally wants a height and a logged weight — a metric
+# that needs only the demographics must not report the weight's absence as its reason.
+NO_AGE_MEDIAN = "no_age_sex_median"
+
+# No date of birth on the profile. Narrower than PROFILE_INCOMPLETE and deliberately its
+# own id: sleep need is a function of AGE alone (NSF 2015), so reporting it under an id
+# that names a height and a logged weight would tell the owner to do two things that
+# would not bring the number back. "One state, one id" cuts both ways — two states must
+# not share one id either.
+DOB_MISSING = "date_of_birth_missing"
+
+# A CAVEAT id, not a withhold: the strap's own daily counter was read while the day it
+# counts was still running, so the number is that day up to the moment it was read. The
+# value is served — it is a real measurement of a real interval — and this says which
+# interval. ``derive/device_totals.py``'s own comment made the point and nothing acted on
+# it: "a counter read at 09:00 is a statement about a partial day".
+COUNTER_MID_DAY = "device_counter_read_mid_day"
+
+# The other half of the same disclosure, and its own id because it is a DIFFERENT state:
+# the counter's reading carries no read instant at all, so we cannot say which interval it
+# covers. True of every ``device_daily_total`` row written before ``0019`` and of every row
+# an app build older than that writes.
+#
+# It is not COUNTER_MID_DAY with a missing field. "This counts the day up to 09:00" and
+# "we do not know what this counts" are different sentences about a person's day, and one
+# id for both would be the collapse this vocabulary exists to prevent — the same rule
+# DOB_MISSING states one screen up: two states must not share one id. The write-path
+# audit's A1 is precisely what happened when the third state, "unknown", was silently
+# folded into "read after the day closed": a true caveat vanished.
+COUNTER_READ_TIME_UNKNOWN = "device_counter_read_time_unknown"
+
 NOT_DERIVED_YET_MESSAGE = "Today's number has not been computed yet — sync the strap."
 
 # The most recent logged weight is too far from the day being computed for it to be a
@@ -208,6 +244,37 @@ WEIGHT_MAX_AGE_DAYS = 14
 # Two claims about two different quantities that happen to agree; one shared constant
 # would mean an edit justified by body-mass drift silently moving a fitness gate.
 MEASURED_VO2MAX_MAX_AGE_DAYS = 14
+
+
+# How far a measured ``rhr_daily`` may sit from the day it anchors an HR reserve for.
+#
+# ## Why this exists at all (audit C5, 2026-09-08)
+#
+# ``derive/cardio_load.py`` used to read "the most recent rhr_daily on or before the day"
+# with **no maximum age**, and to substitute a flat 60 bpm when there was none. Both
+# halves are gone: the fabricated 60 is the only place in ``derive/`` that invented an
+# input instead of withholding, and an unbounded lookback is the stale-as-current shape
+# ``_profile_withhold_reason`` was written to close for weight.
+#
+# ## Where 30 comes from, and what it is not
+#
+# It is the outer edge of the corpus's own baseline vocabulary, not a drift measurement.
+# ``resting-heart-rate.md`` D1 says RHR is read against "a ~7–30 day robust mean of
+# same-method readings", and its implementation section names two windows — ~7–30 nights
+# for the recovery/illness read, 30–90 days for the coarse health-marker read. A single
+# held reading older than 30 nights is outside the widest window the note is willing to
+# average a baseline over, so it is no longer a same-method reading about this stretch of
+# this person's life. There is **no published figure for how fast an individual's resting
+# HR drifts**, and none is claimed here; this is the note's window applied to a single
+# value rather than to a mean, and it is deliberately the generous end of it.
+#
+# Direction of the error, which is what decides a tie in this product: RHR falls with
+# training and rises with detraining, illness and alcohol. A stale LOW value inflates the
+# HR reserve and therefore inflates TRIMP, strain and ACWR — flattery of the effort. That
+# is the #108 shape, and it is why the bound is a bound rather than a caveat.
+#
+# Widening it needs evidence in this comment, exactly as the two horizons above do.
+RHR_MAX_AGE_DAYS = 30
 
 
 def measured_fitness_is_stale(as_of: date, on: date) -> bool:

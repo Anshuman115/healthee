@@ -52,7 +52,7 @@ alongside the bounds check — instructed AND enforced, the whole theme of this 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -81,9 +81,17 @@ _TIER_ORDER = (PERSONAL_FINDING, STEEP_GAP, GAP, AT_TARGET)
 # guess now. Two months is long enough that the re-offer is not the same conversation.
 ABANDON_COOLDOWN_DAYS = 60
 
-# How many frozen outcomes the history rules read back. The same tail `gen_context` shows
-# the model, one order of magnitude up: these two rules only care about the LATEST row per
-# metric, and there are nine metrics.
+# How many frozen outcomes the TIE-BREAK reads back. The same tail `gen_context` shows the
+# model, one order of magnitude up.
+#
+# It is a tail on purpose and only `_attempted_metrics` may use it: "has this owner ever
+# committed to this metric" is a heuristic that orders two otherwise equal offers, and a
+# heuristic reading a tail is honest about being one. `_recently_abandoned` used to share
+# it under the reason "these rules only care about the LATEST row per metric, and there
+# are nine metrics" — which is not what made 50 sufficient. What made it sufficient was an
+# unstated invariant (fewer than ~50 outcomes frozen in any 60 days) that the legal worst
+# case exceeds, so a 60-day RULE was resting on a row count that cannot express it. That
+# read is now bounded by the cooldown itself (`ledger.since`).
 _HISTORY_ROWS = 50
 
 
@@ -342,18 +350,46 @@ def _recently_abandoned(cur: Cur, user_id: UUID, tz: str, today: date) -> dict[s
     two are subtracted. A day either side would not change a 60-day cooldown, but this
     repo has shipped two live wrong numbers from exactly this shortcut and the rule here
     is that a calendar date and an instant never meet without a zone between them.
+
+    **Bounded by the cooldown, not by a row count.** The read starts at the first instant
+    of the local day ``ABANDON_COOLDOWN_DAYS`` back — the earliest ``ended_on`` that can
+    still satisfy the comparison below — so it is exactly as wide as the rule and no
+    wider. Nothing outside that span can change an answer: an abandonment older than the
+    window is out of cooldown by definition, and any outcome NEWER than a within-window
+    abandonment is itself within the window, so the "latest row per metric" reading is
+    unchanged. The previous 50-row tail could drop the latest row for a metric and report
+    it as never abandoned, re-offering something the owner had dropped.
+
+    **``decided`` is a second set, and it is not bookkeeping.** The rule is "the metric's
+    MOST RECENT outcome is an abandonment", and the loop used to mark a metric seen only
+    when it recorded an abandonment for it — so a later *completion* did not stop the walk
+    and the older abandonment was found underneath it. The docstring said one thing and the
+    code did another; the wider read above makes the gap easier to reach, so it is closed
+    here rather than left. A metric they walked away from and have since finished is a
+    metric they came back to, and the cooldown exists for the ones they did not.
     """
-    seen: dict[str, date] = {}
-    for outcome in ledger.recent(cur, user_id, limit=_HISTORY_ROWS):
+    abandoned: dict[str, date] = {}
+    decided: set[str] = set()
+    zone = ZoneInfo(tz)
+    window_opens = datetime.combine(
+        today - timedelta(days=ABANDON_COOLDOWN_DAYS), time.min, tzinfo=zone
+    )
+    for outcome in ledger.since(cur, user_id, window_opens):
         metric, ended = outcome["metric"], outcome["ended_at"]
-        if metric in seen or ended is None:
-            continue  # `recent` is newest-first, so the first row per metric is the latest
-        ended_on = ended.astimezone(ZoneInfo(tz)).date()
+        if metric in decided or ended is None:
+            continue  # newest-first, so the first row per metric is that metric's latest
+        decided.add(metric)
+        ended_on = ended.astimezone(zone).date()
         if outcome["status"] == "abandoned" and (today - ended_on).days <= ABANDON_COOLDOWN_DAYS:
-            seen[metric] = ended_on
-    return seen
+            abandoned[metric] = ended_on
+    return abandoned
 
 
 def _attempted_metrics(cur: Cur, user_id: UUID) -> set[str]:
-    """Metrics this owner has already committed to at least once (the tie-break)."""
+    """Metrics this owner has already committed to at least once (the tie-break).
+
+    A TAIL, deliberately, and the only remaining caller of ``_HISTORY_ROWS``: this orders
+    two otherwise equal offers and nothing turns on it, so "in the last fifty outcomes"
+    is an honest answer to an honest heuristic. It is not a rule with a time bound in it.
+    """
     return {outcome["metric"] for outcome in ledger.recent(cur, user_id, limit=_HISTORY_ROWS)}

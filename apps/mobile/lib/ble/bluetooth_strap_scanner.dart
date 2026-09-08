@@ -26,7 +26,8 @@ import 'package:permission_handler/permission_handler.dart';
 /// Confirms a strap is advertising, using the real radio.
 class BluetoothStrapScanner implements StrapScanner {
   /// The production scanner.
-  const BluetoothStrapScanner();
+  const BluetoothStrapScanner({this.requestPermissions = true});
+  final bool requestPermissions;
 
   @override
   Future<ScanOutcome> confirmInRange(
@@ -84,13 +85,21 @@ class BluetoothStrapScanner implements StrapScanner {
             !ours.contains(wanted),
       );
       if (held) {
-        AppLog.info('pairing', 'the strap is connected to another app on this phone');
+        AppLog.info(
+          'pairing',
+          'the strap is connected to another app on this phone',
+        );
       }
       return held;
     } on FlutterBluePlusException catch (error, stackTrace) {
       // Never fatal: this only ever upgrades a message. A platform that will not
       // answer leaves the owner with [StrapNotInRange], which is still true.
-      AppLog.failure('pairing', 'asking who holds the strap', error, stackTrace);
+      AppLog.failure(
+        'pairing',
+        'asking who holds the strap',
+        error,
+        stackTrace,
+      );
       return false;
     }
   }
@@ -111,7 +120,12 @@ class BluetoothStrapScanner implements StrapScanner {
         ? <Permission>[Permission.bluetoothScan, Permission.bluetoothConnect]
         : <Permission>[Permission.bluetooth];
 
-    final results = await wanted.request();
+    final results = requestPermissions
+        ? await wanted.request()
+        : {
+            for (final permission in wanted)
+              permission: await permission.status,
+          };
     final denied = results.entries.where((entry) => !entry.value.isGranted);
     if (denied.isEmpty) {
       return;
@@ -130,14 +144,19 @@ class BluetoothStrapScanner implements StrapScanner {
     // they have already done.
     final state = await FlutterBluePlus.adapterState
         .firstWhere((state) => state != BluetoothAdapterState.unknown)
-        .timeout(const Duration(seconds: 5), onTimeout: () => BluetoothAdapterState.unknown);
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => BluetoothAdapterState.unknown,
+        );
 
     switch (state) {
       case BluetoothAdapterState.on:
       case BluetoothAdapterState.turningOn:
         return;
       case BluetoothAdapterState.unauthorized:
-        throw const PairingException(BluetoothPermissionDenied(permanently: true));
+        throw const PairingException(
+          BluetoothPermissionDenied(permanently: true),
+        );
       case BluetoothAdapterState.unavailable:
         throw const PairingException(BluetoothUnavailable());
       case BluetoothAdapterState.off:
@@ -169,15 +188,23 @@ class BluetoothStrapScanner implements StrapScanner {
       await FlutterBluePlus.startScan(timeout: window);
       return await sighting.future.timeout(window + const Duration(seconds: 1));
     } on TimeoutException {
-      AppLog.info('pairing', 'strap did not advertise within ${window.inSeconds}s');
+      AppLog.info(
+        'pairing',
+        'strap did not advertise within ${window.inSeconds}s',
+      );
       throw PairingException(StrapNotInRange(seconds: window.inSeconds));
     } on FlutterBluePlusException catch (error) {
       // A scan that will not start is a permission problem far more often than
       // anything else — on Android 11 and below, the ACCESS_FINE_LOCATION case
       // described in [_requirePermission] lands exactly here. Reporting it as
       // "not in range" would blame the strap for something we did not ask for.
-      AppLog.warning('pairing', 'scan refused by the platform (${error.function})');
-      throw const PairingException(BluetoothPermissionDenied(permanently: false));
+      AppLog.warning(
+        'pairing',
+        'scan refused by the platform (${error.function})',
+      );
+      throw const PairingException(
+        BluetoothPermissionDenied(permanently: false),
+      );
     } finally {
       // Both run whichever way this ends: a scan left running drains the battery
       // of a phone whose owner has moved on to another screen.

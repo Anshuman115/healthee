@@ -148,7 +148,7 @@ from healthee.analytics.reference_scales import (
     self_reported_equivalent_h,
     vo2max_median_for,
 )
-from healthee.core.tenancy import USER_TODAY_SQL, user_today
+from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day
 from healthee.derive.freshness import NO_NIGHTS_IN_WINDOW
 from healthee.derive.vo2max import METHOD_JURCA, WITHHOLD_MESSAGES
 from healthee.derive.vo2max_tier import estimate_unavailable_reason
@@ -182,10 +182,22 @@ def hazard_delta_years(hr: float) -> float:
     return max(-TERM_CAP_YEARS, min(TERM_CAP_YEARS, math.log(hr) / b))
 
 
-def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
+def compute_biological_age(
+    cur: Cur, user_id: UUID, tz: str, day: date | None = None
+) -> dict | None:
     """Gompertz hazard→years over one combined fitness term (VO₂max) + sleep duration.
     Returns chronological/biological age + signed per-term year contributions
     (+ = older, − = younger), or None without a profile/inputs.
+
+    **The composite ``docs/AS_OF_DAY.md`` warns about by name.** It takes a "latest"
+    VO₂max, a 14-night sleep average, and a freshness horizon — three chances to leak the
+    future into ``day``, and all three are closed HERE rather than in the callers, because
+    a term that resolved its own anchor is a term that can disagree with the composite it
+    feeds. As of ``day``: the estimate is the newest with ``day <= day``, the 14 nights
+    are the fortnight ENDING on it, the chronological age is the owner's age on it, and
+    the horizon is measured from it. A VO₂max three days old on 29 July was fresh on 29
+    July and saying so is correct; one first measured in August must never reach a June
+    answer.
 
     The composite is withheld — ``biological_age``/``delta_years`` null, with a
     ``withheld`` block naming every absent term — when any term has no CURRENT input,
@@ -199,8 +211,8 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
     if not p or not p[0]:
         return None
     dob, sex = p[0], (p[1] or "male")
-    today = user_today(tz)
-    chrono = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    as_of = reference_day(day, tz)
+    chrono = as_of.year - dob.year - ((as_of.month, as_of.day) < (dob.month, dob.day))
 
     contribs: list[dict] = []
 
@@ -230,8 +242,8 @@ def compute_biological_age(cur: Cur, user_id: UUID, tz: str) -> dict | None:
 
     dage, missing_terms, fitness_method = 0.0, [], None
     for delta, missing, method in (
-        _fitness_term(cur, user_id, tz, today, chrono, sex, add),
-        _sleep_duration_term(cur, user_id, tz, add),
+        _fitness_term(cur, user_id, tz, as_of, chrono, sex, add),
+        _sleep_duration_term(cur, user_id, as_of, add),
     ):
         dage += delta
         fitness_method = method or fitness_method
@@ -288,11 +300,11 @@ def _estimate(
 
 
 def _fitness_term(
-    cur: Cur, user_id: UUID, tz: str, today: date, chrono: int, sex: str, add
+    cur: Cur, user_id: UUID, tz: str, as_of: date, chrono: int, sex: str, add
 ) -> tuple[float, Absent | None, str | None]:
     """VO₂max vs age/sex median — the one combined cardio term (0.85 per 3.5 ml).
 
-    Returns ``(delta_years, None, method)`` when TODAY has an estimate, else
+    Returns ``(delta_years, None, method)`` when ``as_of`` has an estimate, else
     ``(0.0, absent, None)``. The freshness rule is
     ``derive.vo2max_tier.estimate_unavailable_reason`` — the same one the VO₂max card
     applies — so the two surfaces of ``/api/today`` cannot disagree about whether this
@@ -304,13 +316,17 @@ def _fitness_term(
     from the same fortnight sat unread in ``vo2max_submax`` — refusing a number over an
     input we were holding a better version of.
     """
+    # `day <= %s` is the fitness half of the future leak: without it a June answer would
+    # read the newest estimate the owner has ever had, find it dated August, and — since
+    # the gate below only asks whether that row IS the reference day's — refuse for the
+    # wrong reason while a June row sat underneath it.
     cur.execute(
         "SELECT day, value, flags FROM derived_daily "
-        "WHERE user_id = %s AND metric='vo2max_estimate' ORDER BY day DESC LIMIT 1",
-        (user_id,),
+        "WHERE user_id = %s AND metric='vo2max_estimate' AND day <= %s ORDER BY day DESC LIMIT 1",
+        (user_id, as_of),
     )
     vr = cur.fetchone()
-    reason = estimate_unavailable_reason(cur, user_id, tz, today, vr[0] if vr else None)
+    reason = estimate_unavailable_reason(cur, user_id, tz, as_of, vr[0] if vr else None)
     if vr is None or reason is not None:
         return 0.0, absent(FITNESS_TERM, reason, WITHHOLD_MESSAGES), None
     # Rows written before #117 carry no ``method`` and are all Jurca.
@@ -328,21 +344,26 @@ def _fitness_term(
 
 
 def _sleep_duration_term(
-    cur: Cur, user_id: UUID, tz: str, add
+    cur: Cur, user_id: UUID, as_of: date, add
 ) -> tuple[float, Absent | None, str | None]:
-    """Recent 14-night average TST, U-shaped about Yin 2017's 7 h nadir.
+    """The 14-night average TST ENDING at ``as_of``, U-shaped about Yin 2017's 7 h nadir.
 
-    The window is already anchored to the owner's today, so this term cannot go STALE —
+    The window is anchored to the day being answered for, so this term cannot go STALE —
     only empty. Empty is still the ``HR = 1.0`` assertion ("you average 7 h/night"), so it
     withholds the composite exactly as a stale term does: one rule, three terms.
+
+    Both ends of the fortnight now move with the reference day. The closing end is the one
+    that was implicit and is now stated: a window that ran to the wall clock would average
+    a past day's fortnight together with every night since, so "your last 14 nights" on 29
+    July would silently mean "the 14 nights before today".
 
     The strap's average is read at its QUESTIONNAIRE equivalent, because Yin's exposure is
     self-reported and self-report runs long (#97, ``analytics/reference_scales.py``)."""
     cur.execute(
         "SELECT avg((flags->>'tst_min')::float) FROM derived_daily "
         "WHERE user_id = %s AND metric='sleep_health_score_4dim' AND flags ? 'tst_min' "
-        f"AND day >= ({USER_TODAY_SQL} - 14)",
-        (user_id, tz),
+        f"AND day >= ({AS_OF_DAY_SQL} - 14) AND day <= {AS_OF_DAY_SQL}",
+        (user_id, as_of, as_of),
     )
     sr = cur.fetchone()
     if not sr or not sr[0]:

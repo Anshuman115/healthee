@@ -17,8 +17,8 @@ import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/health_lines.dart';
 import 'package:healthee/data/sync/sync_failure.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/features/today/widgets/data_health_section.dart';
-import 'package:healthee/features/today/widgets/greeting_header.dart';
 
 import '_today_host.dart';
 
@@ -173,7 +173,7 @@ final List<ConnectionCase> unhealthyCases = <ConnectionCase>[
 Widget headerWith(ConnectionHealth? health) => MaterialApp(
   theme: AppTheme.light,
   home: Scaffold(
-    body: GreetingHeader(
+    body: TodayHeader(
       date: '2026-08-04',
       now: now,
       health: health,

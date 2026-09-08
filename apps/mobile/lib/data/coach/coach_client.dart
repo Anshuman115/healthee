@@ -25,6 +25,7 @@
 library;
 
 import 'package:dio/dio.dart';
+import 'package:healthee/core/env.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/api/api_client.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
@@ -50,14 +51,39 @@ class CoachRefusal implements Exception {
   String toString() => 'CoachRefusal($message)';
 }
 
+/// What this app can honestly say about the meter after a failure.
+///
+/// Two values, not three, because there is no third thing the client can know.
+/// The server charges the slot inside the gate *before* the handler starts, and
+/// it refunds inside the handler — so once a request has left the phone, whether
+/// it cost one of the owner's twenty is a fact only the server holds.
+///
+/// This replaced a `bool spent`. That flag could express the true statement and
+/// the false one but not the honest one, and it was worse than that: `spent:
+/// true` was **never constructed anywhere in the app**, so the "we could not say
+/// it wasn't" case its own docstring described was a value the code could not
+/// produce. Every failure therefore printed *"Nothing was counted for this"* —
+/// including a receive timeout on an answer the server had already delivered and
+/// charged for, directly above a meter showing one fewer.
+enum CoachCharge {
+  /// The request provably never reached the point where a slot is charged.
+  notCharged,
+
+  /// It left the phone and we did not see the outcome. It may have been counted.
+  unknown,
+}
+
 /// The request did not complete. Ours or the network's, never the owner's.
 @immutable
 class CoachUnreachable implements Exception {
-  /// [message] is already owner-facing.
-  const CoachUnreachable(this.message);
+  /// [message] is already owner-facing. [charge] is what we may claim about the meter.
+  const CoachUnreachable(this.message, this.charge);
 
   /// The sentence to show, with no status code and no exception type in it.
   final String message;
+
+  /// Whether this app is entitled to say nothing was counted.
+  final CoachCharge charge;
 
   @override
   String toString() => 'CoachUnreachable($message)';
@@ -78,12 +104,17 @@ class CoachClient {
       if (body == null) {
         throw const CoachUnreachable(
           'Your server answered the entitlement check with nothing at all.',
+          // Reading the meter never spends: `/api/entitlement` peeks.
+          CoachCharge.notCharged,
         );
       }
       return Entitlement.fromJson(body);
     } on DioException catch (error, stackTrace) {
       AppLog.failure('coach', 'reading /api/entitlement', error, stackTrace);
-      throw CoachUnreachable(_unreachableSentence(error));
+      throw CoachUnreachable(
+        _unreachableSentence(error),
+        CoachCharge.notCharged,
+      );
     }
   }
 
@@ -92,18 +123,44 @@ class CoachClient {
   /// **This is the call that spends a question.** Every caller must have shown the
   /// meter first; `features/coach/coach_controller.dart` is the only caller and
   /// its sheet cannot render an input without one.
-  Future<CoachAnswer> ask(List<CoachTurn> messages) async {
+  ///
+  /// [topic] is which screen the coach was opened from, when it was opened about
+  /// something. It is sent so the server can rank its context and its evidence on
+  /// the subject rather than inferring it from prose; it is not a claim, and
+  /// `insights/coach_thread.py` screens and fences it as one that is not.
+  ///
+  /// ## Why this call carries its own timeout
+  ///
+  /// The app's client defaults to [Env.requestTimeout] — ten seconds, which
+  /// `core/env.dart` derives from a *read* budget of p95 < 100 ms. This endpoint
+  /// runs a model, and up to 22 of them: `insights/coach.py`'s gathering
+  /// allowance plus the pipeline's reserved answer attempts, each bounded at the
+  /// server's own 60 s. It was the only generating call in the app left on the
+  /// read default — the insight GETs, `/api/notable` and challenge/program
+  /// generation all override — and the failure was not a spinner: **the gate
+  /// charges the slot before the handler starts**, so the socket closing at ten
+  /// seconds left the server producing an answer, charging for it, matching no
+  /// refund branch, and delivering it to nobody.
+  Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) async {
+    final subject = topic?.trim() ?? '';
     try {
       final response = await _dio.post<Map<String, Object?>>(
         '/api/coach',
         data: <String, Object?>{
           'messages': [for (final turn in messages) turn.toJson()],
+          if (subject.isNotEmpty) 'topic': subject,
         },
+        options: Options(
+          receiveTimeout: Env.coachTimeout,
+          sendTimeout: Env.coachTimeout,
+        ),
       );
       final body = response.data;
       if (body == null) {
         throw const CoachUnreachable(
           'Your server accepted the question and sent no answer back.',
+          // It accepted it, so the gate ran. We cannot say it was not counted.
+          CoachCharge.unknown,
         );
       }
       return CoachAnswer.fromJson(body);
@@ -113,8 +170,32 @@ class CoachClient {
       if (refusal != null) {
         throw refusal;
       }
-      throw CoachUnreachable(_unreachableSentence(error));
+      throw CoachUnreachable(_unreachableSentence(error), _chargeFrom(error));
     }
+  }
+
+  /// What may be claimed about the meter after [error] on the ASK.
+  ///
+  /// `notCharged` is a positive assertion about the owner's money, so it is made
+  /// only where the request demonstrably never reached the gate: the connection
+  /// was never established, the certificate was rejected, or the server answered
+  /// 401/403 from the auth dependency that runs before the gate.
+  ///
+  /// **Everything else is `unknown`, including a receive timeout**, which is the
+  /// case this whole taxonomy exists for: the request arrived, the gate charged
+  /// it, and the answer went to a socket nobody was reading. Saying "nothing was
+  /// spent" there is the product denying a charge it made.
+  static CoachCharge _chargeFrom(DioException error) {
+    final status = error.response?.statusCode;
+    if (status == 401 || status == 403) {
+      return CoachCharge.notCharged;
+    }
+    return switch (error.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.connectionError ||
+      DioExceptionType.badCertificate => CoachCharge.notCharged,
+      _ => CoachCharge.unknown,
+    };
   }
 
   /// The gate's 402 body, as this app's own refusal. Null for anything else.
@@ -147,11 +228,21 @@ class CoachClient {
   /// The status is deliberately not shown. A 401 and a dead socket need different
   /// words because they need different actions, and everything else is one
   /// sentence — which is the taxonomy `signin_failure.dart` already argues for.
+  ///
+  /// The **timeout** sentence is separate from the dead-socket one for the reason
+  /// [CoachCharge] exists: a request that never left says one true thing about
+  /// the owner's questions, and a request that timed out waiting for an answer
+  /// says a different one. Merging them is how "nothing was spent" ended up
+  /// printed over a charge.
   static String _unreachableSentence(DioException error) {
     final status = error.response?.statusCode;
     if (status == 401 || status == 403) {
       return 'Your server refused the sign-in this phone holds. Sign in again '
           'from Settings and the coach will work.';
+    }
+    if (_chargeFrom(error) == CoachCharge.unknown) {
+      return 'Your server did not finish answering in time. It may still be '
+          'working on this, and the question may already have been asked.';
     }
     return "Couldn't reach your server. Nothing was asked and nothing was "
         'spent — your questions are untouched.';

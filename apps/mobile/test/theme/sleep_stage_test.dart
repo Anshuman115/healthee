@@ -44,9 +44,9 @@ void main() {
       /// awake=cHeart). Those four metric hues still exist and still have those
       /// values; they are simply no longer what a stage is painted with.
       final borrowed = <String, Color>{
-        'deep': hues.steps,
-        'light': hues.spo2,
-        'core': hues.spo2,
+        'deep': hues.movement,
+        'light': hues.oxygen,
+        'core': hues.oxygen,
         'rem': hues.sleep,
         'awake': hues.heart,
       };
@@ -75,21 +75,27 @@ void main() {
         }
       });
 
-      test('THE METRIC HUES DID NOT MOVE — only the stages did', () {
-        // Restating the four legacy values here, independently of palette.dart,
+      test('THE FAMILIES ARE v02’s — only the stages are derived', () {
+        // Restating the four family values here, independently of palette.dart,
         // is what makes the assertion above safe: it could otherwise be
-        // satisfied by moving the METRIC hue instead of the stage.
+        // satisfied by moving the FAMILY instead of the stage.
+        //
+        // These are v02's, not legacy's. The four the stages used to borrow
+        // (`cSteps` · `cSpo2` · `cSleep` · `cHeart`) were replaced wholesale
+        // when the prototype became the specification; what survives is the
+        // structure — a family a card is *about*, and a stage ramp that is its
+        // own derived four.
         final expected = theme.key == 'dark'
             ? const <Color>[
-                Color(0xFFD9A84E), Color(0xFF7DA3C4),
-                Color(0xFF968EC9), Color(0xFFE07A5F),
+                Color(0xFFFABA59), Color(0xFF6EC6F7),
+                Color(0xFFC5A8FF), Color(0xFFFF9390),
               ]
             : const <Color>[
-                Color(0xFFB27F2C), Color(0xFF587A97),
-                Color(0xFF5B5483), Color(0xFFBF472E),
+                Color(0xFF774000), Color(0xFF005A8D),
+                Color(0xFF6B35B5), Color(0xFFA51D2B),
               ];
         expect(
-          <Color>[hues.steps, hues.spo2, hues.sleep, hues.heart],
+          <Color>[hues.movement, hues.oxygen, hues.sleep, hues.heart],
           expected,
         );
       });

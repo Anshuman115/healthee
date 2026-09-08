@@ -37,7 +37,15 @@ from tests.insights._coach_stub import (
 )
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights import coach, coach_tools, output_guard, pipeline, prompts
+from healthee.insights import (
+    coach,
+    coach_loop,
+    coach_thread,
+    coach_tools,
+    output_guard,
+    pipeline,
+    prompts,
+)
 
 # A candidate that fails its gates: a claim citing an id the manifest does not know.
 # Written through the answer contract (#128) so what is being measured is the RETRY
@@ -53,7 +61,16 @@ def _stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         coach,
         "_initial_messages",
-        lambda history, q, user_id, tz, days: [{"role": "user", "content": q}],
+        # Keeps the LAYOUT (a `system` turn, then the whole conversation) while
+        # skipping the DB-backed context/evidence build. It used to return only the
+        # last question, which discarded `history` — so no coach test exercised a
+        # multi-turn context, and the thread-wide refusal screen could not have been
+        # caught here however it behaved. The topic block rides along so a test can
+        # assert what a topic does and does not put in front of the model.
+        lambda history, q, user_id, tz, days, topic=None: [
+            {"role": "system", "content": f"CONTEXT{coach_thread.topic_block(topic)}"},
+            *history,
+        ],
     )
     monkeypatch.setattr(coach_tools, "execute_tool", lambda name, args, user_id, tz: {"ok": True})
 
@@ -142,7 +159,7 @@ def test_the_model_is_told_why_its_tools_disappeared_exactly_once() -> None:
     rounds = coach.GATHERING_ROUNDS
     stub, _ = _run([*_gather(rounds), _BAD, valid_turn()])
     final_convo = stub.messages_seen[-1]
-    said = [m for m in final_convo if m.get("content") == coach._ANSWER_NOW]
+    said = [m for m in final_convo if m.get("content") == coach_loop._ANSWER_NOW]
     assert len(said) == 1
 
 

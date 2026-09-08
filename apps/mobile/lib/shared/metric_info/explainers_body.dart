@@ -37,7 +37,8 @@ const Map<String, MetricInfo> kBodyExplainers = <String, MetricInfo>{
         'Calories you burned through movement, on top of what your body burns at '
         'rest just to stay alive (BMR). Your BMR is estimated from your height, age '
         'and the weight you last logged — it is not a fixed number and not '
-        'everyone’s.',
+        'everyone’s. If that logged weight is old, the BMR under this number is old '
+        'too, by about 0.6% per kilogram.',
     target:
         'No fixed target — it simply reflects how active your day was. The weekly '
         'trend matters more than any single day, and the figure is an estimate: '
@@ -48,9 +49,6 @@ const Map<String, MetricInfo> kBodyExplainers = <String, MetricInfo>{
         'sitting, stress or heat, and on a real free-living day it overcounts by '
         'two to three times.',
     notes: <String>['energy_expenditure_derivation', 'weight_bmi_body_composition'],
-    uncited:
-        'If your logged weight is old, the BMR under this number is old too — '
-        'about 0.6% per kilogram out of date.',
   ),
   'steps_total': MetricInfo(
     title: 'Steps',
@@ -81,10 +79,10 @@ const Map<String, MetricInfo> kBodyExplainers = <String, MetricInfo>{
         'practical simplification rather than a precise biological trade.',
     why:
         'The 150-minute target is WHO 2020. Pooled across 196 prospective studies, '
-        'reaching it tracks with roughly 22–31% lower all-cause mortality versus '
-        'none, and with less cardiovascular disease and cancer. Even short bursts '
-        'count — a few vigorous minutes a day, in one- and two-minute bouts, is a '
-        'real signal on its own.',
+        'more moderate-to-vigorous activity tracks with lower all-cause mortality — '
+        'steepest from nothing to 150 min/week, still improving to about 300, then '
+        'flattening (Garcia 2023). Even short bursts count — a few vigorous minutes '
+        'a day, in one- and two-minute bouts, is a real signal on its own.',
     notes: <String>[
       'mvpa_minutes_mortality',
       'mvpa_weekly_plan',
@@ -123,29 +121,33 @@ const Map<String, MetricInfo> kBodyExplainers = <String, MetricInfo>{
         'How well your body uses oxygen during hard effort — the strongest '
         'modifiable predictor of long-term mortality we know of. This is an '
         'ESTIMATE, not a lab test: individual error runs to several ml/kg/min, and '
-        'the card names which method produced it.',
+        'the card names which method produced it. When no measured session is fresh '
+        'enough to speak for today, it falls back to a questionnaire model whose '
+        'inputs include an activity level you told us — and the steps on that scale '
+        'are uneven, so one category is worth anywhere from about half a year to '
+        'about two and a half years of biological age.',
     target:
         'Higher is better. The line on the card is the 50th percentile of a '
         'published clinical treadmill reference (Kaminsky 2022) for your age and '
         'sex — a reference standard, which is not the same thing as the middle of '
         'the population.',
     why:
-        'In 122,007 adults given treadmill tests, the fittest had about 80% lower '
-        'all-cause mortality than the least fit, and low fitness carried more risk '
-        'than smoking, diabetes or high blood pressure did in that same population '
-        '(Mandsager 2018). It is one of three determinants of race performance and '
-        'usually the least discriminating of them among trained runners — this is a '
-        'health number more than a performance one.',
+        'Cardiorespiratory fitness is among the strongest known modifiable predictors '
+        'of long-term mortality — a stronger association than smoking, hypertension, '
+        'diabetes or high cholesterol taken individually. In 122,007 adults given '
+        'treadmill tests, low fitness carried a greater hazard than current smoking, '
+        'diabetes or end-stage renal disease modelled in that same population '
+        '(Mandsager 2018). That evidence comes from lab treadmill tests, which is why '
+        'it is a reason to raise this number and never a personal risk figure. It is '
+        'also one of three determinants of race performance and usually the least '
+        'discriminating of them among trained runners — a health number more than a '
+        'performance one.',
     notes: <String>[
       'vo2max',
       'non_exercise_vo2max',
       'submaximal_vo2max',
       'biological_age_estimate',
     ],
-    uncited:
-        'When no measured session is fresh, the estimate falls back to a '
-        'questionnaire model whose inputs include an activity level you told us. '
-        'One step on that scale is worth a couple of years of biological age.',
   ),
   'biological_age': MetricInfo(
     title: 'Biological age (estimate)',
@@ -164,17 +166,16 @@ const Map<String, MetricInfo> kBodyExplainers = <String, MetricInfo>{
         'The conversion is published actuarial maths and every hazard ratio going '
         'into it is meta-analytic. It is still a novel assembly rather than a '
         'validated clock, it leans on the VO₂max ESTIMATE, and it is a population '
-        'trend — never a clinical or diagnostic age.',
+        'trend — never a clinical or diagnostic age. Sleep REGULARITY is deliberately '
+        'not priced in, because no regularity score converts to a hazard across '
+        'scoring pipelines, so a change in it will not move this number. The sleep '
+        'hours are also converted to their questionnaire equivalent first, which '
+        'shifts the low-risk point below seven hours; do not read that as a '
+        'recommendation.',
     notes: <String>[
       'biological_age_estimate',
       'vo2max',
       'sleep_duration_mortality',
     ],
-    uncited:
-        'Sleep REGULARITY is deliberately not priced in here — no regularity score '
-        'converts to a hazard across scoring pipelines — so a change in it will not '
-        'move this number. The sleep hours are also converted to their '
-        'questionnaire equivalent first, which shifts the low-risk point below '
-        'seven hours; do not read that as a recommendation.',
   ),
 };

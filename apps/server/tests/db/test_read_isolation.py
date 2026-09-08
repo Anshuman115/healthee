@@ -34,7 +34,7 @@ from healthee.core.db import admin_connection, tenant_transaction, transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 from healthee.read.common import derived_series, latest_derived, latest_derived_many
-from healthee.read.recovery import data_health_payload
+from healthee.read.data_health import data_health_payload
 from healthee.read.sleep_extras import latest_main_session
 
 pytestmark = pytest.mark.integration
@@ -49,6 +49,13 @@ _A_RHR, _B_RHR = 55.0, 91.0
 _A_STEPS, _B_STEPS = 6000.0, 12000.0
 
 _DAYS = 10
+
+# The day these reads answer for. The seed is deliberately anchored in 2999 (see
+# `_days` / `_seed_owner`), so the OWNER's real today is centuries behind every seeded
+# row — and every read in this file now carries a `day <= as_of` bound, which would
+# exclude the whole fixture if the anchor were the wall clock. Scoping is what this
+# suite tests; the as-of bound is tested in `tests/read/test_as_of_day.py`.
+_AS_OF = date(2999, 6, 15)
 
 
 def _days() -> list[date]:
@@ -120,9 +127,9 @@ def two_owners(db: None) -> Iterator[None]:  # noqa: ARG001 — gates on DB reac
 def test_latest_derived_returns_only_the_asked_owner(two_owners: None) -> None:  # noqa: ARG001
     """The single-metric latest read must not see the other owner's newer row."""
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        a = latest_derived(cur, SENTINEL_USER_ID, "rhr_daily")
+        a = latest_derived(cur, SENTINEL_USER_ID, "rhr_daily", _AS_OF)
     with tenant_transaction(_OTHER_USER) as cur:
-        b = latest_derived(cur, _OTHER_USER, "rhr_daily")
+        b = latest_derived(cur, _OTHER_USER, "rhr_daily", _AS_OF)
     assert a is not None and b is not None
     assert _A_RHR <= a[1] < _B_RHR, f"owner A read {a[1]} — that is owner B's range"
     assert b[1] >= _B_RHR
@@ -131,9 +138,9 @@ def test_latest_derived_returns_only_the_asked_owner(two_owners: None) -> None: 
 def test_latest_derived_many_is_scoped(two_owners: None) -> None:  # noqa: ARG001
     """The batched DISTINCT ON loader must partition by owner, not collapse across."""
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        a = latest_derived_many(cur, SENTINEL_USER_ID, ["rhr_daily", "steps_total"])
+        a = latest_derived_many(cur, SENTINEL_USER_ID, ["rhr_daily", "steps_total"], _AS_OF)
     with tenant_transaction(_OTHER_USER) as cur:
-        b = latest_derived_many(cur, _OTHER_USER, ["rhr_daily", "steps_total"])
+        b = latest_derived_many(cur, _OTHER_USER, ["rhr_daily", "steps_total"], _AS_OF)
     assert a["steps_total"][1] == _A_STEPS
     assert b["steps_total"][1] == _B_STEPS
 
@@ -141,7 +148,7 @@ def test_latest_derived_many_is_scoped(two_owners: None) -> None:  # noqa: ARG00
 def test_derived_series_is_scoped(two_owners: None) -> None:  # noqa: ARG001
     """A series must contain the owner's OWN points only — not a merged 2×-length one."""
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        a = derived_series(cur, SENTINEL_USER_ID, SENTINEL_TZ, "steps_total", 400)
+        a = derived_series(cur, SENTINEL_USER_ID, "steps_total", 400, _AS_OF)
     assert a, "owner A must get their own series"
     values = {point["value"] for point in a}
     assert values == {_A_STEPS}, f"owner B's steps leaked into A's series: {values}"
@@ -175,9 +182,9 @@ def test_latest_value_is_scoped(two_owners: None) -> None:  # noqa: ARG001
 def test_latest_main_session_is_scoped(two_owners: None) -> None:  # noqa: ARG001
     """Both owners have a session at the SAME start_ts — only user_id separates them."""
     with tenant_transaction(SENTINEL_USER_ID) as cur:
-        a = latest_main_session(cur, SENTINEL_USER_ID)
+        a = latest_main_session(cur, SENTINEL_USER_ID, SENTINEL_TZ, _AS_OF + timedelta(days=1))
     with tenant_transaction(_OTHER_USER) as cur:
-        b = latest_main_session(cur, _OTHER_USER)
+        b = latest_main_session(cur, _OTHER_USER, SENTINEL_TZ, _AS_OF + timedelta(days=1))
     assert a is not None and b is not None
     assert a[6] == int(_A_RHR), "owner A got the other owner's sleep session"
     assert b[6] == int(_B_RHR)

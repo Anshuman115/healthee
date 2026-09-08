@@ -70,3 +70,16 @@ String durationLabel(int totalMinutes) {
   final minutes = totalMinutes % 60;
   return hours == 0 ? '${minutes}m' : '${hours}h ${minutes}m';
 }
+
+/// `6a` · `12p` · `11p` — legacy's short clock, from a real hour.
+///
+/// Legacy hard-codes the five captions under its 24-hour heart rate and lays
+/// them out `spaceBetween`, so on every partial day they describe hours the
+/// curve above them does not cover. This turns an actual hour into legacy's own
+/// format so the captions can be built from the series instead.
+String shortClock(int hour) {
+  final wrapped = hour % 24;
+  final suffix = wrapped < 12 ? 'a' : 'p';
+  final twelve = wrapped % 12 == 0 ? 12 : wrapped % 12;
+  return '$twelve$suffix';
+}

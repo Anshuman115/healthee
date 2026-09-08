@@ -14,6 +14,7 @@ library;
 
 import 'package:healthee/data/device/device_day.dart';
 import 'package:healthee/data/store/store_provider.dart';
+import 'package:healthee/data/store/view_date.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'device_repository.g.dart';
@@ -22,8 +23,14 @@ part 'device_repository.g.dart';
 ///
 /// Invalidated by `SyncController` after every sync attempt, so a pull that
 /// stored anything is on screen without the owner pulling to refresh.
+///
+/// **`viewDate`, not `today`.** The measured half is stored per calendar day and
+/// can answer for any day inside the retention window with no network at all, so
+/// it is the half that genuinely follows the date control. `view_date.dart` has
+/// the whole division; the short version is that a sync still writes under the
+/// wall clock, and only the reading follows the reader.
 @riverpod
 Future<DeviceDay> deviceDay(Ref ref) {
   final store = ref.watch(localStoreProvider);
-  return store.strapReader.day(ref.watch(todayProvider));
+  return store.strapReader.day(ref.watch(viewDateProvider));
 }

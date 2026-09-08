@@ -7,7 +7,7 @@ grade: Probable
 summary: "Tally weekly muscle-strengthening minutes from logged exercise (a strength-type classifier, with generic yoga counting half-credit only at ≥30 min) and show them against the 30–60 min/week sweet spot — a tiny card, no new derivation pipeline, framed as progress not deficit."
 aliases: ["strength minutes", "strength tally", "strength card", "weekly strength plan", "strength_adherence_plan"]
 tags: ["strength minutes", "strength tally", "strength card", "weekly strength plan", "strength_adherence_plan"]
-applies_to_metrics: ["strength_min_weekly"]
+applies_to_metrics: []
 applies_to_interventions: ["exercise"]
 population: general
 last_reviewed: 2026-07-15
@@ -118,11 +118,24 @@ is enough to surface the under-tracked half of activity, framed as progress.
 
 ## Healthee implementation & honesty policy
 
-- **Metric: `strength_min_weekly`** via `weekly_strength_minutes(end_date)` returning
-  `{minutes, target_low: 30, target_high: 60, sessions, types}`. Surfaced on `/api/today`
+- **Weekly strength minutes** via `read/fitness.py::strength_payload()` returning
+  `{week_min, target_low: 30, target_high: 60, sessions, types}`. Surfaced on `/api/today`
   next to `mvpa` as a `strength` object (`week_min`, `target_low`, `target_high`, `sessions`,
   `types`, `research_note`). Compact card: "Strength · this week", `{n} / 30–60 min` (band
   shaded green when in), session count, cite-chip → [[strength_training_mortality]].
+  ⚠ **`strength_min_weekly` is a NAME, not a metric** (corrected 2026-09-08). It exists
+  nowhere in `apps/server/src` or `apps/mobile/lib`, and neither does
+  `weekly_strength_minutes`. The real thing is `read/fitness.py::strength_payload()` —
+  **read-time only**, computed on request from `manual_entry` exercise logs plus
+  strength-coded device `workout` rows. It writes **no `derived_daily` row**, so there is
+  no daily series, nothing in `analytics/metrics.py::V2_DAILY_METRICS`, and no place for
+  it in correlations or baselines.
+  The live consequence was retrieval, not naming: `insights/retrieval.py:174` scores a
+  note by `metrics.intersection(note.applies_to_metrics)`, so a name no metric set can
+  contain scored **zero metric hits, permanently** — the three notes keyed to it ranked
+  on aliases and lexical overlap alone. It was the only unresolved name of the 31 the
+  manifest claims. `applies_to_metrics` is now empty on all three rather than carrying a
+  fiction; giving strength a real daily metric is a feature, not an audit fix.
 - **Honesty rules**: yoga half-credit is a heuristic; the card is only as good as logging
   (encourage the habit, don't assert a deficit); progress-not-deficit framing; no death-risk
   number.

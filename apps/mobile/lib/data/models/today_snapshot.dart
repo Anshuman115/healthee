@@ -25,6 +25,7 @@ library;
 import 'package:healthee/data/honesty/envelope.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/models/activity_today.dart';
+import 'package:healthee/data/models/as_of.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/data_health.dart';
 import 'package:healthee/data/models/finding.dart';
@@ -50,6 +51,7 @@ class TodaySnapshot {
   /// Builds a snapshot. Prefer [TodaySnapshot.fromJson].
   const TodaySnapshot({
     required this.date,
+    required this.asOf,
     required this.action,
     required this.recovery,
     required this.recoverySignals,
@@ -79,6 +81,7 @@ class TodaySnapshot {
   factory TodaySnapshot.fromJson(Map<String, Object?> json) {
     return TodaySnapshot(
       date: json['date']! as String,
+      asOf: AsOf.maybe(_block(json['as_of'])),
       action: json['action'] as String?,
       recovery: readingFrom(_block(json['recovery_score']), RecoveryScore.maybe),
       recoverySignals: readingFrom(_block(json['recovery']), RecoverySignals.maybe),
@@ -120,6 +123,15 @@ class TodaySnapshot {
 
   /// The owner-local calendar date this snapshot describes, `YYYY-MM-DD`.
   final String date;
+
+  /// Which day this answers for, and whether that is the owner's today.
+  ///
+  /// Null from a server that predates the block (`docs/AS_OF_DAY.md`), and read
+  /// in exactly one place — `ScreenData.snapshot` — which decides for every screen
+  /// whether this payload may be drawn under the day being read. A second reader
+  /// would be a second opinion about which day a payload is about.
+  final AsOf? asOf;
+
 
   /// The AI daily-action one-liner, or null until the nightly job has warmed it.
   ///

@@ -28,6 +28,8 @@ from typing import Self
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from healthee.core import config_guards as guards
+
 
 class Settings(BaseSettings):
     """Typed view of the process environment. Field names map case-insensitively
@@ -60,13 +62,17 @@ class Settings(BaseSettings):
     # Security unconditionally (`rolbypassrls`) — RLS policies added on top of a
     # superuser connection are decoration, not isolation.
     #
-    # Blank ⇒ the pool falls back to the admin creds above, i.e. exactly the
-    # pre-split behaviour, so this change is safe to deploy BEFORE the role is
-    # provisioned. The fallback is not silent: `core/db` logs a prominent WARNING
-    # naming the over-privileged role at pool open. Provision the role with
+    # Blank ⇒ the pool would fall back to the admin creds above. That fallback is a
+    # documented, deliberately-transitional step of the two-deploy bootstrap
+    # (`infra/DEPLOY.md` B2) — and it is also the state in which RLS isolates nothing,
+    # so since the auth audit it has to be ASKED FOR (`allow_admin_db_fallback` below)
+    # rather than reached by leaving a variable blank. Provision the role with
     # `python -m healthee.db.provision_app_role` (run as the admin), then set these.
     postgres_app_user: str = ""
     postgres_app_password: str = ""
+    # The opt-out that keeps the bootstrap deploy bootable. See
+    # `_refuse_an_unasked_for_rls_bypass` below for the whole argument.
+    allow_admin_db_fallback: bool = False
 
     # ── API auth (required in production; blank means "reject everything") ──
     # Bearer token expected on every /ingest/* and /api/* request.
@@ -185,6 +191,36 @@ class Settings(BaseSettings):
     # unvalidated text never ships at any value.
     llm_validation_retries: int = 2
 
+    # ── On-disk caches for public geodata (SRTM elevation + basemap tiles) ─
+    # Both hold PUBLIC data — squares of the world this server fetched, never an
+    # owner's coordinates. Config rather than constants for one reason each: the
+    # elevation cache defaulted to `/tmp/srtm` with no volume behind it, so every
+    # container restart re-downloaded what it had already paid for; and a basemap
+    # cache that does not persist hands the provider the same request rate as no
+    # proxy at all. `map_tile_cache_mb` is the eviction budget — tiles are fetched
+    # per z/x/y, and unbounded is tens of thousands of files.
+    srtm_cache_dir: str = "/var/cache/healthee/srtm"
+    map_tile_cache_dir: str = "/var/cache/healthee/tiles"
+    map_tile_cache_mb: int = 512
+
+    # ── Basemap (the tile proxy — core/map_tiles.py) ───────────────────────
+    # The upstream template is CONFIGURATION on purpose: the owner may repoint it
+    # at a commercial provider or their own rendering stack with no new build of
+    # the app, because the app only ever talks to this server. http(s), and it
+    # must carry {z}, {x} and {y}. The default is OpenStreetMap's own server —
+    # their policy asks applications not to point at it directly and does permit
+    # one cached server sending a real User-Agent, which is this module.
+    map_tile_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    # Who the basemap is credited to, on screen. It travels WITH the url because
+    # it is a fact about that url: an operator who repoints one and not the other
+    # would have the app crediting the wrong project, and the app cannot tell.
+    # `GET /api/map` serves it, and the app draws no basemap without it.
+    map_tile_attribution: str = "© OpenStreetMap contributors"
+    # The zoom range served. Outside it a request is refused here rather than
+    # forwarded — it is either a bug or someone using us as an open relay.
+    map_tile_min_zoom: int = 1
+    map_tile_max_zoom: int = 17
+
     # ── Telegram notifications (optional — job status + failures) ─────────
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -192,78 +228,53 @@ class Settings(BaseSettings):
     # ── Logging ───────────────────────────────────────────────────────────
     log_level: str = "INFO"
 
+    # ── The refusals ─────────────────────────────────────────────────────
+    #
+    # Each body — and the argument for it — lives in `core.config_guards`. They are
+    # thin here on purpose: this file answers "what does the environment hold", and
+    # that one answers "what combinations are not a deployment". The list below is
+    # meant to read as an inventory of the ambiguities this codebase refuses rather
+    # than interprets.
+
     @field_validator("postgres_password")
     @classmethod
     def _require_password(cls, value: str) -> str:
-        if not value:
-            raise ValueError("POSTGRES_PASSWORD must be set")
-        return value
+        return guards.require_password(value)
+
+    @field_validator("map_tile_url")
+    @classmethod
+    def _require_a_usable_tile_template(cls, value: str) -> str:
+        return guards.require_a_usable_tile_template(value)
 
     @model_validator(mode="after")
     def _require_app_creds_together(self) -> Self:
-        """App user and password are both-or-neither — never one alone.
+        guards.require_app_creds_together(self.postgres_app_user, self.postgres_app_password)
+        return self
 
-        Half-set creds are the dangerous case: the pool would either try a
-        passwordless login or connect as the ADMIN while the operator believes the
-        least-privilege role is in force. Both failure modes are silent, and the
-        second one is the exact security theatre this split exists to end. Refuse
-        the ambiguity instead of picking an interpretation.
-        """
-        if bool(self.postgres_app_user) != bool(self.postgres_app_password):
-            raise ValueError(
-                "POSTGRES_APP_USER and POSTGRES_APP_PASSWORD must be set together "
-                "(set both to use the least-privilege app role, or neither to fall "
-                "back to the admin creds)"
-            )
+    @model_validator(mode="after")
+    def _refuse_an_unasked_for_rls_bypass(self) -> Self:
+        guards.refuse_an_unasked_for_rls_bypass(
+            self.app_role_configured, self.allow_admin_db_fallback
+        )
+        return self
+
+    @model_validator(mode="after")
+    def _refuse_a_shared_token_beside_open_signups(self) -> Self:
+        guards.refuse_a_shared_token_beside_open_signups(
+            self.signups_open, self.realtime_ingest_token
+        )
         return self
 
     @model_validator(mode="after")
     def _require_model_ids_when_ai_key_is_set(self) -> Self:
-        """Refuse "configured for AI, but cannot do AI" — it is never a valid state.
+        guards.require_model_ids_when_ai_key_is_set(
+            self.openrouter_api_key, self.default_model, self.coach_model
+        )
+        return self
 
-        A blank model id is not a default, it is a dead subsystem: the id is forwarded
-        to OpenRouter verbatim and comes back **400 on every call** — insight cards,
-        the coach, and the nightly recs/briefing chain. Nothing in the deploy can see
-        it. `/healthz` is a liveness+DB probe, so it goes green; the LLM failures land
-        in Telegram and the scheduler log. Prod ran in exactly this state.
-
-        **Fail fast, not warn.** `core/db._warn_if_privileged` is the right precedent
-        for the *other* shape of problem — the admin-creds fallback is a documented,
-        deliberately-transitional step of a two-deploy bootstrap (`infra/DEPLOY.md`
-        §B2), so it must stay bootable. There is no deploy order, no bootstrap and no
-        migration in which "key set, model id blank" is correct, which makes it the
-        same shape as `_require_app_creds_together` above: an ambiguity to refuse, not
-        an interpretation to pick. Refusing turns it into a *deploy-time* failure, in
-        front of the operator, instead of a silence discovered weeks later.
-
-        Not running the AI layer stays a first-class, bootable configuration: leave
-        `OPENROUTER_API_KEY` blank and this never fires. The check only triggers on a
-        state the operator explicitly asked for and then half-configured.
-
-        Deliberately NOT mirrored into `/healthz`: with this validator the state cannot
-        exist in a live process, and a probe that 503s on a config problem would let
-        Docker's healthcheck restart the container into the same config forever —
-        trading a dead AI layer for a flapping read API, which is worse than the
-        disease. Config correctness belongs at boot; `/healthz` stays a signal an
-        orchestrator can act on.
-        """
-        if not self.openrouter_api_key:
-            return self
-        blank = [
-            name
-            for name, value in (
-                ("DEFAULT_MODEL", self.default_model),
-                ("COACH_MODEL", self.coach_model),
-            )
-            if not value.strip()
-        ]
-        if blank:
-            raise ValueError(
-                f"OPENROUTER_API_KEY is set but {' and '.join(blank)} is blank — a blank "
-                "model id reaches OpenRouter verbatim and every LLM call returns 400, "
-                "with nothing failing in /healthz. Set the model id(s), or unset "
-                "OPENROUTER_API_KEY to run without the AI layer."
-            )
+    @model_validator(mode="after")
+    def _require_an_ordered_zoom_range(self) -> Self:
+        guards.require_an_ordered_zoom_range(self.map_tile_min_zoom, self.map_tile_max_zoom)
         return self
 
     @property
@@ -299,7 +310,9 @@ class Settings(BaseSettings):
         """Conninfo for the APPLICATION pool (`core/db.get_pool`).
 
         The least-privilege role when configured, else the admin creds — the
-        backwards-compatible fallback, which `core/db` announces with a WARNING.
+        transitional fallback, which now requires `ALLOW_ADMIN_DB_FALLBACK=true`
+        (`_refuse_an_unasked_for_rls_bypass`) and which `core/db` announces with a
+        WARNING at pool open.
         """
         if self.app_role_configured:
             return self._conninfo(self.postgres_app_user, self.postgres_app_password)

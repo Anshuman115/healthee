@@ -29,6 +29,30 @@ sealed class StrapFailure {
   String get code;
 }
 
+/// A history stream stopped before its data was safely collected.
+final class StrapFetchFailed extends StrapFailure {
+  /// [reason] is protocol status, never frame bytes.
+  const StrapFetchFailed(this.type, this.reason);
+
+  /// Which stream failed.
+  final int type;
+
+  /// Why it stopped.
+  final String reason;
+
+  @override
+  String get headline =>
+      'Strap history sync stopped (0x${type.toRadixString(16)})';
+
+  @override
+  String get remedy =>
+      '$reason. Completed readings were kept. Reconnect and sync '
+      'again to collect the rest.';
+
+  @override
+  String get code => 'strap_fetch_failed';
+}
+
 /// There is no paired strap to talk to.
 ///
 /// Distinct from every connection failure below: nothing was attempted, because
