@@ -2952,7 +2952,166 @@ mutate 'a sourced claim goes back under the not-covered disclaimer' \
   "    notes: <String>['energy_expenditure_derivation', 'weight_bmi_body_composition']," \
   "    notes: <String>['energy_expenditure_derivation', 'weight_bmi_body_composition'],
     uncited: 'If your logged weight is old, the BMR under this number is old too — about 0.6% per kilogram out of date.',"
+# ── the four on the today.json wire (final audit A1-A4, C4-C6) ───────────────
+INSIGHTS=lib/features/today/widgets/insights_section.dart
+WORDING_BOTH=test/features/findings_wording_test.dart
+EFFECT_TEST=test/features/finding_effect_metric_test.dart
 
+# A2. THE defect, and the exact code that shipped: the one-metric branch falls
+# back to the server's raw debug string as the headline of the home screen.
+#
+# ⚠ The target is the wording test, and that is the point of this mutation. The
+# same test named only `shared/findings_section.dart` while THIS function went on
+# printing `description_raw`, so it went green against the live defect. If it is
+# ever re-aimed at one composer again, this survives.
+mutate 'the raw string is the home-screen headline again' "$WORDING_BOTH" "$INSIGHTS" \
+  '    return (headline: _oneMetricHeadline(a, finding.eventKind), context: context);' \
+  '    return (
+      headline: finding.description ?? '"'"'Pattern found in your data.'"'"',
+      context: context,
+    );'
+
+# A2, the other half: the event kind is ignored, so an event finding loses the
+# one structured field that says what it was compared against.
+mutate 'the event kind stops reaching the sentence' "$WORDING_BOTH" "$INSIGHTS" \
+  "  return eventKind == null" \
+  "  return true || eventKind == null"
+
+# A1. The letter goes back to being the client's, whatever statistic it is — a
+# Spearman rho drawn under the symbol for Pearson'"'"'s r.
+mutate 'every effect is labelled r again' "$EFFECT_TEST" "$INSIGHTS" \
+  "  final figure = metric == null ? effect : '\$metric \$effect';" \
+  "  final figure = 'r \$effect';"
+
+# A1, the withholding half: an absent metric name is filled in rather than left
+# out, so a number we cannot name is named anyway.
+mutate 'an unnamed effect is given a name anyway' "$EFFECT_TEST" "$INSIGHTS" \
+  "  final metric = finding.effectMetric;" \
+  "  final metric = finding.effectMetric ?? 'r';"
+
+# ── A4 · C4 — the illness banner ─────────────────────────────────────────────
+BANNER=lib/features/today/widgets/illness_banner.dart
+ILLNESS_TEST=test/features/illness_dating_test.dart
+
+# A4. The date is parsed and not drawn again, so a flag raised two days ago reads
+# as today'"'"'s under a present-tense sentence.
+mutate 'the illness flag stops naming the day it was raised' \
+  "$ILLNESS_TEST" "$BANNER" \
+  '          if (otherDay(flag.date, viewedDay) case final String day) ...[' \
+  '          if (null case final String day) ...['
+
+# A4, the other edge: every flag is captioned with a date, including today'"'"'s —
+# a caption that always fires says nothing, and contradicts a sentence that is
+# not wrong.
+mutate 'the banner captions every flag, including this day’s' \
+  "$ILLNESS_TEST" "$BANNER" \
+  '          if (otherDay(flag.date, viewedDay) case final String day) ...[' \
+  '          if (flag.date case final String day) ...['
+
+# C4. The client-side delta line comes back — the same numbers a second time,
+# with the 14-day window dropped, breaking the directive the server sentence
+# above it exists to satisfy.
+mutate 'the banner restates the deltas without their window' \
+  "$ILLNESS_TEST" "$BANNER" \
+  '          // The day the signal was RAISED, whenever that is not the day on screen.' \
+  '          if (flag.respiratoryRateDeltaBpm case final double rr) ...[
+            const SizedBox(height: Insets.sm),
+            Text(
+              '"'"'breathing rate +${rr.toStringAsFixed(1)} bpm vs your baseline.'"'"',
+              style: text.bodySmall?.copyWith(color: colors.ink2),
+            ),
+          ],
+          // The day the signal was RAISED, whenever that is not the day on screen.'
+
+# ── A3 — the recovery ladder’s three honesty fields ──────────────────────────
+RECOVERY_MODEL=lib/data/models/recovery_signals.dart
+RECOVERY_PANEL=lib/features/today/v02/recovery_detail_panels.dart
+HONESTY_TEST=test/features/recovery_honesty_fields_test.dart
+
+# The field is dropped at the boundary again — the state the audit found, where
+# the server did the honest work and the client filed it under a key nothing
+# reads.
+mutate 'direction_basis is dropped at the client boundary again' \
+  "$HONESTY_TEST" "$RECOVERY_MODEL" \
+  "      directionBasis: json['direction_basis'] as String?," \
+  "      directionBasis: null,"
+
+mutate 'the baseline count is dropped at the client boundary again' \
+  "$HONESTY_TEST" "$RECOVERY_MODEL" \
+  "      n: (json['n'] as num?)?.toInt()," \
+  "      n: null,"
+
+# The floor is parsed and not named, so "the population floor decided this" is a
+# claim the reader cannot weigh.
+mutate 'the population floor stops being named' "$HONESTY_TEST" "$RECOVERY_PANEL" \
+  "  final floor = signal.populationFloorMin;" \
+  "  final double? floor = null;"
+
+# The verdict'"'"'s limb stops reaching the surface: the note is composed and never
+# returned, which is precisely the shape the whole finding is about.
+mutate 'the limb sentence is composed and never shown' \
+  "$HONESTY_TEST" "$RECOVERY_PANEL" \
+  "  return lines.isEmpty ? null : lines.join(' ');" \
+  "  return null;"
+
+# The counts collapse into a range, which cannot say WHICH verdict to discount.
+mutate 'the baseline depths collapse into one number' \
+  "$HONESTY_TEST" "$RECOVERY_PANEL" \
+  "      if (signal.n case final int n) '\${signal.name} \$n'," \
+  "      if (signal.n case final int _) signal.name,"
+
+# ── C5 — one “from another day” decision, two surfaces ───────────────────────
+OTHER_DAY=lib/shared/format/other_day.dart
+ACTIONS_V02=test/features/actions_v02_test.dart
+SHARED_DAY_TEST=test/features/other_day_shared_test.dart
+
+# The v02 Actions screen goes back to relabelling a two-day-stale set as today'"'"'s.
+mutate 'the v02 actions set is relabelled as this day’s' "$ACTIONS_V02" \
+  lib/features/actions/actions_screen.dart \
+  '    if (recommendationsFromDay(recommendations, snapshot?.asOf?.day)
+        case final String day)' \
+  '    if (null case final String day)'
+
+# An undated block is filled in from the day on screen — "we do not know this
+# block'"'"'s day" quietly becomes "it is this day'"'"'s", which is the one claim
+# `other_day.dart` exists to refuse. It takes BOTH halves: dropping the null check
+# alone is a no-op (the function returns that null anyway) and adding the fallback
+# alone is unreachable behind the check — the first version of this mutation did one
+# of the two and survived.
+mutate 'an undated block is filled in from the day on screen' \
+  "$SHARED_DAY_TEST" "$OTHER_DAY" \
+  '  if (contentDay == null || viewedDay == null || contentDay == viewedDay) {
+    return null;
+  }
+  return contentDay;' \
+  '  if (viewedDay == null || contentDay == viewedDay) {
+    return null;
+  }
+  return contentDay ?? viewedDay;'
+
+# The two wordings merge, so a measured signal is described as authored advice
+# that a nightly job failed to write.
+mutate 'a raised signal is described as unwritten advice' \
+  "$SHARED_DAY_TEST" "$OTHER_DAY" \
+  "String raisedOnDay(String isoDay) => 'Raised on \${shortDate(isoDay)}, not on this day.';" \
+  "String raisedOnDay(String isoDay) => writtenForDay(isoDay);"
+
+# ── C6 — the journal panel follows the wire ──────────────────────────────────
+ROUTINE=lib/data/models/routine.dart
+JOURNAL_TEST=test/features/journal_logs_summary_test.dart
+
+# `logs_summary` stops reaching `isEmpty`, so a caffeine-only day renders no
+# journal panel while the payload reports the entry.
+mutate 'a caffeine-only day is empty again' "$JOURNAL_TEST" "$ROUTINE" \
+  '      openFast == null &&
+      otherLogs.isEmpty;' \
+  '      openFast == null;'
+
+# Meditation is drawn twice — once from its own field and once from the roll-up
+# that also counts it.
+mutate 'meditation is drawn from both of its carriers' "$JOURNAL_TEST" "$ROUTINE" \
+  "  static const Set<String> _ownBlock = <String>{'meditation', 'fasting'};" \
+  "  static const Set<String> _ownBlock = <String>{};"
 
 echo
 echo "caught $PASS, survived $FAIL"

@@ -10,6 +10,15 @@
 ///         two stats + load bars + note, 'activity','walk')
 /// ```
 ///
+/// ## The ladder carries the three honesty fields it used to drop
+///
+/// `recovery.signals[].n`, `.direction_basis` and `.population_floor_min` were on the
+/// wire, each added deliberately with its reason written beside it, and none of them was
+/// parsed. [directionBasisNote] and [baselineDepthNote] are where they reach the owner.
+/// They are NOTES rather than chart furniture on purpose: `signal_chart.dart` argues
+/// that a marker's position is where the number is and not where the reasoning is, and
+/// the same argument keeps a count and a limb out of a 56-pixel reading column.
+///
 /// ## The baseline ladder is the payload's, and a share is never assumed
 ///
 /// The prototype hard-codes three rows at dead centre and writes *"Sleep
@@ -45,6 +54,82 @@ import 'package:healthee/shared/v02/vitals_table.dart';
 /// What a baseline IS. True on every payload, including one with no summary.
 const String kBaselineNote =
     'A baseline is personal, not a population target.';
+
+/// How many days of the owner's own history each baseline rests on.
+///
+/// `recovery.signals[].n` was on the wire and parsed by nobody. It exists because the
+/// RHR and HRV signals once had **no count gate at all** — with two mornings the MAD is
+/// the half-distance, so a finite z shipped with a direction attached, a verdict on this
+/// owner's autonomic state from two days. `read/recovery_signals.py` added
+/// `_SIGNAL_MIN_DAYS = 5` and shipped the count *"so a reader can weigh a direction
+/// rather than take it"*. This is the reader being able to.
+///
+/// Per signal rather than as a range, because which marker is thin is the whole content:
+/// "7 to 30 days" tells nobody which verdict to discount. Null when no signal carried a
+/// count — an older server, and then the line is absent rather than invented.
+String? baselineDepthNote(RecoverySignals signals) {
+  final counted = <String>[
+    for (final signal in signals.signals)
+      if (signal.n case final int n) '${signal.name} $n',
+  ];
+  if (counted.isEmpty) {
+    return null;
+  }
+  return 'Days of your own history behind each baseline: ${counted.join(', ')}.';
+}
+
+/// WHICH limb produced an unfavourable verdict, said in a sentence.
+///
+/// `recovery.signals[].direction_basis` and `.population_floor_min` were both on the
+/// wire and both dropped, and this is the one that matters most **to this owner**. The
+/// sleep signal calls itself "vs personal usual" and then decides its direction from an
+/// absolute floor as well as from the personal z, so `read/recovery_signals.py` says
+/// plainly: *"for a chronic short sleeper the population floor decides every night and
+/// the personal number beside it cannot change the verdict."*
+///
+/// Without this the ladder draws a personal z beside a verdict that z did not produce.
+/// The chart is not the place to say so — a marker's position is where the number is,
+/// not where the reasoning is — so it is a note under it, in words.
+///
+/// Null when no signal carried a basis, which is every payload where nothing is
+/// unfavourable: only that branch has two independent limbs to disambiguate.
+String? directionBasisNote(RecoverySignals signals) {
+  final lines = <String>[
+    for (final signal in signals.signals)
+      if (_basisLine(signal) case final String line) line,
+  ];
+  return lines.isEmpty ? null : lines.join(' ');
+}
+
+String? _basisLine(RecoverySignal signal) {
+  final floor = _floor(signal);
+  return switch (signal.directionBasis) {
+    'population' =>
+      '${signal.name} is called unfavourable by $floor, not by your own '
+          'baseline beside it.',
+    'personal' =>
+      '${signal.name} is called unfavourable by your own baseline, not by $floor.',
+    'both' =>
+      '${signal.name} is called unfavourable by your own baseline and by '
+          '$floor alike.',
+    _ => null,
+  };
+}
+
+/// `the population floor of 300 min`, or the unqualified phrase when none was sent.
+String _floor(RecoverySignal signal) {
+  final floor = signal.populationFloorMin;
+  if (floor == null) {
+    return 'the population floor';
+  }
+  final figure = floor == floor.roundToDouble()
+      ? floor.round().toString()
+      : floor.toStringAsFixed(1);
+  final unit = signal.unit;
+  return unit == null
+      ? 'the population floor of $figure'
+      : 'the population floor of $figure $unit';
+}
 
 /// The prototype's own line under the capacity chart.
 const String kCapacityNote =
@@ -130,7 +215,11 @@ class BaselinePanel extends StatelessWidget {
         children: <Widget>[
           SignalChart(rows),
           if (signals.summary case final String summary) PanelNote(summary),
+          // Which limb produced the verdict, before what a baseline is: the first
+          // qualifies a judgement already on screen, the second is background.
+          if (directionBasisNote(signals) case final String basis) PanelNote(basis),
           const PanelNote(kBaselineNote),
+          if (baselineDepthNote(signals) case final String depth) PanelNote(depth),
         ],
       ),
     );

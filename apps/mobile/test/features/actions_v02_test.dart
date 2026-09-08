@@ -20,10 +20,12 @@ import 'package:healthee/features/actions/actions_screen.dart';
 import 'package:healthee/features/actions/v02/suggestion_card.dart';
 import 'package:healthee/features/actions/v02/working_on.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
+import 'package:healthee/shared/format/other_day.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/choices.dart';
 import 'package:healthee/shared/v02/journal_strip.dart';
+import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/screen_head.dart';
 import 'package:healthee/shared/v02/section_head.dart';
@@ -44,8 +46,19 @@ String _id(PageSection section) => switch (section.child) {
   JournalStrip() => 'journal-strip',
   RowCard() => 'rows',
   DataFooter() => 'footer',
+  PanelNote() => 'note',
   final Widget other => other.runtimeType.toString(),
 };
+
+/// The `logs_summary`-free recommendation set, re-dated to [day].
+Map<String, Object?> Function(Map<String, Object?>) _recsDated(String day) =>
+    (json) => <String, Object?>{
+      ...json,
+      'recommendations': <Object?>[
+        for (final row in json['recommendations']! as List<Object?>)
+          <String, Object?>{...row! as Map<String, Object?>, 'date': day},
+      ],
+    };
 
 void main() {
   late LocalStore store;
@@ -55,6 +68,52 @@ void main() {
     await seedDevice(store);
   });
   tearDown(() async => store.close());
+
+  group('C5 · THE SET NAMES ITS OWN DAY WHEN IT IS NOT THIS ONE', () {
+    // `read/today.py` reaches two days back for the newest recommendation set. Today's
+    // card has said "written for <day>" about that since A3; this screen relabelled the
+    // identical rows with the VIEWED day and its `SuggestionCard` never read `rec.date`.
+    // Same class as A4, third instance, and the fix was in the file next door.
+    test('a two-day-stale set is captioned, above the cards', () {
+      final sections = actionsSections(
+        screenData(server: todayView(mutate: _recsDated('2026-07-29'))),
+        const ActionsLinks(),
+      );
+
+      final ids = sections.map(_id).toList();
+      expect(ids.indexOf('note'), 1, reason: 'the caption qualifies the whole set');
+      expect(ids.indexOf('note'), lessThan(ids.indexOf('suggestion')));
+
+      final note = sections[1].child as PanelNote;
+      expect(note.text, writtenForDay('2026-07-29'));
+    });
+
+    test('a set written for the day on screen is captioned with nothing', () {
+      final ids = actionsSections(
+        screenData(server: todayView()),
+        const ActionsLinks(),
+      ).map(_id).toList();
+
+      expect(ids.contains('note'), isFalse);
+    });
+
+    test('an empty set has no day to name', () {
+      final ids = actionsSections(
+        screenData(
+          server: todayView(
+            mutate: (json) => <String, Object?>{
+              ...json,
+              'recommendations': const <Object?>[],
+            },
+          ),
+        ),
+        const ActionsLinks(),
+      ).map(_id).toList();
+
+      expect(ids.contains('note'), isFalse);
+      expect(ids[1], 'nothing-suggested');
+    });
+  });
 
   group('THE PROTOTYPE’S SECTIONS, IN THE PROTOTYPE’S ORDER', () {
     test('the five blocks of screens-actions.js, in order', () {

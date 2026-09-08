@@ -51,7 +51,7 @@ import 'package:healthee/core/theme/motion.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/models/recommendation.dart';
-import 'package:healthee/shared/format/date_labels.dart';
+import 'package:healthee/shared/format/other_day.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/instrument_module.dart';
@@ -65,9 +65,12 @@ const String kSuggestedActions = 'Suggested actions';
 
 /// What the block says when the actions were written for a different day.
 ///
-/// Public so a test can pin the wording rather than re-typing it.
-String actionsFromDay(String isoDay) =>
-    'Written for ${shortDate(isoDay)} — nothing was written for this day.';
+/// The wording moved to `shared/format/other_day.dart` when the v02 Actions screen and
+/// the illness banner turned out to need the same sentence and the same comparison
+/// (audit A4 / C5). Kept here as a re-export so every existing call site is unchanged
+/// and there is still exactly one definition — the same shape `date_labels.dart` took
+/// when it was extracted.
+String actionsFromDay(String isoDay) => writtenForDay(isoDay);
 
 /// The collapsible "Suggested actions" block.
 class ActionsSection extends StatefulWidget {
@@ -102,13 +105,8 @@ class ActionsSection extends StatefulWidget {
   /// there is one definition of "these are from another day". All rows in a set
   /// share a date (the server keeps only the newest date found), so the first
   /// row speaks for the set.
-  static String? otherDay(List<Recommendation> items, String? viewedDay) {
-    final String? day = items.isEmpty ? null : items.first.date;
-    if (day == null || viewedDay == null || day == viewedDay) {
-      return null;
-    }
-    return day;
-  }
+  static String? otherDay(List<Recommendation> items, String? viewedDay) =>
+      recommendationsFromDay(items, viewedDay);
 
   /// `/api/today`'s own top-level `action` — the model's one-line daily
   /// suggestion, **which no legacy file renders**. Legacy reads only

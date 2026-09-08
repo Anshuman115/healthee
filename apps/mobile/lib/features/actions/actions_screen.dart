@@ -31,6 +31,18 @@
 /// Every block is gated on what the payload carried. `EmptyState` survives in
 /// exactly one place — a server that answered with no recommendations at all —
 /// because that is a sentence about the day, not an absent section.
+///
+/// ## The set's own day, when it is not the day in the header
+///
+/// `read/today.py::_recommendations_for` reaches **two days back** for the newest
+/// set at or before the day being served. The header eyebrow here names the day the
+/// PAYLOAD is for, so a two-day-stale set was relabelled as today's — while the Today
+/// card next door said "written for &lt;day&gt;" about the identical rows. One surface
+/// fixed, one not, and the fix in the file next door: audit C5, the same class as A4
+/// and the third instance of it.
+///
+/// The decision now lives in `shared/format/other_day.dart` and both screens call it,
+/// so a fix cannot land on one of them again.
 library;
 
 import 'dart:async';
@@ -46,12 +58,14 @@ import 'package:healthee/features/actions/v02/suggestion_card.dart';
 import 'package:healthee/features/actions/v02/working_on.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
+import 'package:healthee/shared/format/other_day.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/journal_strip.dart';
+import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/screen_head.dart';
@@ -160,6 +174,14 @@ List<PageSection> actionsSections(ScreenData data, ActionsLinks links) {
     ],
 
     // ── the suggestions ────────────────────────────────────────────────────
+    // The set's own day, said in words, whenever it is not the day the payload
+    // answers for. Above the cards because it qualifies the whole set.
+    if (recommendationsFromDay(recommendations, snapshot?.asOf?.day)
+        case final String day)
+      PageSection(
+        PanelNote(writtenForDay(day)),
+        gap: PageSpacing.panel,
+      ),
     if (snapshot != null)
       if (recommendations.isEmpty)
         const PageSection(
