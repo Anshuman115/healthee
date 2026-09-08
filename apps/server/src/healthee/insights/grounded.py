@@ -9,6 +9,15 @@ refusal gate, the context and retrieval builders, the LLM transport, the hard ou
 guardrails, the blocking validator, the anti-hallucination gate, the nudge-then-fallback
 policy — is one code path shared by both.
 
+One stage needs a fact only a surface can supply, and this module supplies it: the
+personal-claims gate (#129) asks which owner-subjects a candidate talks about that the
+owner has no stored data for. ``personal_claims.subjects_without_data`` is computed per
+attempt in :func:`_complete_with_validation`. It used to be computed by the coach alone,
+which made ``personal_claims.issues`` return on its first line for every surface here —
+a registered gate that could not fire. The declared half of that gate stays coach-only
+(nothing here has a claims contract to declare with); the TEXTUAL backstop, which was
+built to be independent of the declaration, now runs on both.
+
 That is the fix for a real hazard, not a tidy-up. The coach used to re-implement this
 sequence from the same primitives: enforced-equivalent, not routed-through, so every new
 rule had to be mirrored by hand and one already had been (the output guardrail, written
@@ -33,7 +42,7 @@ from uuid import UUID
 
 from healthee.analytics import coverage
 from healthee.core.logging import get_logger
-from healthee.insights import pipeline, prompts
+from healthee.insights import personal_claims, pipeline, prompts
 from healthee.insights.client import LLMClient, get_client
 
 log = get_logger(__name__)
@@ -115,24 +124,54 @@ def grounded_ask(
 
     client = client or get_client()
     messages = _build_messages(question, user_id, tz, metrics or [], context_days)
-    result = _complete_with_validation(client, messages, model, response_format)
+    result = _complete_with_validation(client, messages, user_id, tz, model, response_format)
     # Over the metrics THIS surface declared, across the window it asked for — so the
     # coverage figure and the context the model saw describe the same days.
     result.data_coverage = coverage.measured_payload(user_id, tz, metrics or [], context_days)
     return result
 
 
+@dataclass
+class _Candidate:
+    """The per-attempt facts this surface owns, read by the gates at judgement time.
+
+    One field today: which owner-subjects the CURRENT candidate talks about that the
+    owner has no stored data for. It has to live across the two calls because the
+    pipeline's ``Loop`` produces the text in ``next_turn`` and judges it in
+    ``context()``, and the answer being judged is the one this was computed from.
+    """
+
+    without_data: frozenset[str] = frozenset()
+
+
 def _complete_with_validation(
-    client: LLMClient, messages: list[dict], model: str | None, response_format: str | None = None
+    client: LLMClient,
+    messages: list[dict],
+    user_id: UUID,
+    tz: str,
+    model: str | None,
+    response_format: str | None = None,
 ) -> GroundedResult:
     """Drive the shared pipeline with a one-completion turn, then shape the result."""
     json_mode = response_format == "json"
     client_format = {"type": "json_object"} if json_mode else None
+    candidate = _Candidate()
 
     def next_turn(_tools_allowed: bool) -> pipeline.Turn:
         # This surface has no tools, so it never spends a gathering round and the
         # driver's ``tools_allowed`` flag has nothing to vary: every turn is an answer.
         response = pipeline.complete(client, messages, model=model, response_format=client_format)
+        # Gathered here rather than in the gate because only the surface knows the owner
+        # (#129), and per attempt rather than once, because a nudged rewrite is a
+        # different answer that may talk about different subjects. `asserted` is empty:
+        # these surfaces declare no claims contract, so the DECLARED half has nothing to
+        # check and the TEXTUAL backstop is the whole of what runs here. That is a real
+        # guarantee rather than a partial one — `personal_claims._candidates` was built
+        # to be independent of the declaration, and leaving it uncomputed here was the
+        # early return that made the gate inert on every surface but the coach.
+        candidate.without_data = personal_claims.subjects_without_data(
+            user_id, tz, (), response.text or ""
+        )
         return pipeline.Turn(text=response.text)
 
     def nudge(text: str, issues: Sequence[str]) -> None:
@@ -143,7 +182,9 @@ def _complete_with_validation(
             next_turn=next_turn,
             nudge=nudge,
             label="grounded_ask",
-            context=lambda: pipeline.AnswerContext(json_mode=json_mode),
+            context=lambda: pipeline.AnswerContext(
+                json_mode=json_mode, without_data=candidate.without_data
+            ),
         )
     )
     return _result(outcome, json_mode)
