@@ -1,5 +1,4 @@
-"""Fitness metric payloads — cardio load (+ strain 0-21), MVPA, strength,
-and the VO2max-raising plan.
+"""Fitness metric payloads — cardio load (+ strain 0-21), MVPA and strength.
 
 Shared by ``/api/today`` and ``/api/activity``. v2-native: reads ``derived_daily``
 (never the ``metric_sample`` view, never a ``source=`` filter). ``moderate_min`` /
@@ -16,6 +15,12 @@ training-load concern (standards §1: a file has one reason to change).
 Contested and its evidence is still moving, which is a different reason to change from
 anything else here.
 
+``fitness_plan_payload`` moved to ``read/fitness_plan.py`` for the third time this has
+happened, and the same two reasons: naming and citing its constants (the audit's D-a) put
+this file back over the limit, and the plan's reason to change is the **trainability**
+literature — how much a 12-week block typically buys and what may be said about it —
+which is not a training-load concern either.
+
 The strain formula is ported VERBATIM — audit-verified science, cited inline.
 """
 
@@ -27,9 +32,9 @@ from uuid import UUID
 from healthee.core.tenancy import AS_OF_DAY_SQL, reference_day
 from healthee.derive._common import Cur, _day_bounds_utc
 from healthee.derive.freshness import NOT_DERIVED_YET_MESSAGE, unavailable_reason, withheld_block
-from healthee.read.common import derived_series, latest_derived, sport_name
-from healthee.read.mvpa_week import mvpa_week, weekly_mvpa_rows
-from healthee.read.vo2max import vo2max_payload
+from healthee.read.common import derived_series, latest_derived, provenance, sport_name
+from healthee.read.meta import METRIC_NOTE_ID
+from healthee.read.mvpa_week import mvpa_week
 
 # Auto-detected sub-10-min bouts are movement noise, not structured exercise
 # (WHO / US Activity Guidelines floor). Legacy ``_MIN_WORKOUT_S``.
@@ -39,7 +44,18 @@ _STRENGTH_TYPES = {
     "strength", "weights", "weightlifting", "lifting", "gym", "resistance",
     "calisthenics", "climbing", "bouldering", "powerlifting", "crossfit",
 }  # fmt: skip
-_YOGA_MIN_DURATION = 30  # generic yoga counts only if >=30 min, at 50% credit
+# Generic yoga counts toward weekly strength minutes only from this duration, and then
+# only at _YOGA_STRENGTH_CREDIT of its minutes. The coefficient was inline at the call
+# site while its meaning lived in this comment, which is the split the standards' "every
+# magic number is a named constant" rule is about — a reader of `_strength_manual` saw
+# `dur * 0.5` and no reason for it.
+#
+# NOT a research constant and labelled as one that is not: [[strength_training_mortality]]
+# scores resistance training, and generic yoga is a partial match to that exposure.
+# Half-credit is a practitioner reading, deliberately conservative in the direction that
+# UNDER-counts the owner's week.
+_YOGA_MIN_DURATION = 30
+_YOGA_STRENGTH_CREDIT = 0.5
 
 # The window ``baseline_30d`` and ``trend_30d`` are BOTH named after. It read
 # ``as_of - 35`` — thirty-SIX days behind two keys that say thirty — so the baseline a
@@ -221,7 +237,7 @@ def _strength_manual(
             minutes, sessions = minutes + dur, sessions + 1
             types.add(ex_type)
         elif ex_type == "yoga" and dur >= _YOGA_MIN_DURATION:
-            minutes, sessions = minutes + dur * 0.5, sessions + 1
+            minutes, sessions = minutes + dur * _YOGA_STRENGTH_CREDIT, sessions + 1
             types.add("yoga")
     return minutes, sessions, types
 
@@ -256,53 +272,6 @@ def _week_bounds_utc(monday: date, as_of: date, tz: str) -> tuple[datetime, date
     both ends (standards §Duplication).
     """
     return _day_bounds_utc(monday, tz)[0], _day_bounds_utc(as_of, tz)[1]
-
-
-def fitness_plan_payload(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> dict | None:
-    """VO2max-raising weekly Rx + a 12-week projected trajectory (an estimate of
-    typical response, bounded +2..+5 ml/kg/min, never a promise). [[vo2max]].
-
-    Every input is the reference day's: the estimate it starts from, and the
-    week-to-date it measures progress against.
-    """
-    as_of = reference_day(day, tz)
-    vo = vo2max_payload(cur, user_id, tz, as_of)
-    if not vo or vo.get("estimate") is None:
-        return None
-    cur_vo = float(vo["estimate"])
-    median_ref = float(vo.get("median_for_age") or 41)
-    gain = round(min(5.0, max(2.0, 0.4 * max(0.0, median_ref - cur_vo))), 1)
-    monday = as_of - timedelta(days=as_of.weekday())
-    # A day whose `mvpa_min` row carries no intensity breakdown makes the week's
-    # done-minutes unknowable rather than smaller — the same rule `mvpa_week` applies, and
-    # applied here rather than re-derived because progress against a plan is exactly where
-    # an understated total reads as "you have done less than you have".
-    week_mod: float | None = 0.0
-    week_vig: float | None = 0.0
-    for _d, mod, vig, _mv in weekly_mvpa_rows(cur, user_id, as_of, (as_of - monday).days + 1):
-        if mod is None or vig is None:
-            week_mod = week_vig = None
-        elif week_mod is not None and week_vig is not None:
-            week_mod, week_vig = week_mod + mod, week_vig + vig
-    return {
-        "current": round(cur_vo, 1),
-        "projected_12wk": round(cur_vo + gain, 1),
-        "gain": gain,
-        "median_for_age": round(median_ref, 1),
-        "weeks": 12,
-        "plan": {
-            "zone2_target_min": 90,
-            "zone2_done_min": None if week_mod is None else round(week_mod),
-            "zone2_desc": "3 × 30 min easy aerobic — Zone 2, conversational pace",
-            "vilpa_target_min": 15,
-            "vilpa_done_min": None if week_vig is None else round(week_vig),
-            "vilpa_desc": "1 hard session — 4-5 × 1-min brisk-to-hard bursts "
-            "(stairs / hill / fast walk)",
-        },
-        # ``vo2max_training_program`` is an ALIAS of ``vo2max`` — see ``read/activity.py``.
-        "note_id": "vo2max",
-        "trend_90d": vo.get("trend_90d") or [],
-    }
 
 
 def activity_metric(
@@ -340,6 +309,12 @@ def activity_metric(
                 "value": None if reason else round(value, 1),
                 "as_of_date": row_day.isoformat(),
                 "caveats": flags.get("caveats") or [],
+                # The same instrument record the Today card forwards, for the same reason
+                # it forwards ``caveats``: the Activity tab and the Today card render the
+                # same rows and must not differ on what is known about them. See
+                # ``read/common.provenance`` (audit C5, C6).
+                "provenance": provenance(flags),
+                "note_id": METRIC_NOTE_ID.get(cand),
                 "withheld": withheld_block(
                     reason, NOT_DERIVED_YET_MESSAGE, as_of, row_day, last_value=round(value, 1)
                 )

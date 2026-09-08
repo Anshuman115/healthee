@@ -15,10 +15,10 @@ from healthee.read.common import as_of_block
 from healthee.read.fitness import (
     activity_metric,
     cardio_load_payload,
-    fitness_plan_payload,
     mvpa_payload,
     workouts_list,
 )
+from healthee.read.fitness_plan import fitness_plan_payload
 from healthee.read.vo2max import vo2max_payload
 
 
@@ -54,7 +54,12 @@ def activity_snapshot(cur: Cur, user_id: UUID, tz: str, day: date | None = None)
         # (``manifest.by_id`` / ``note_ids`` / ``grade_of``, none of which read
         # ``aliases``), so those two named nothing and the app's ⓘ sheet opened empty.
         # ``tests/test_source_citations.py`` states the rule for ``[[id]]`` citations in
-        # source; ``test_wire_note_ids`` there now holds the wire to it too.
+        # source; the WIRE is held to it by ``tests/read/test_wire_honesty.py``'s
+        # ``test_every_note_id_on_the_wire_resolves_to_a_manifest_id``, which walks
+        # ``today_snapshot``, ``activity_snapshot`` and ``sleep_page``. This named a
+        # ``test_wire_note_ids`` that exists nowhere — the guard was real under another
+        # name, and the cost of the wrong name was paid during the audit: a reader who
+        # checks concludes the net is fictional (audit D-b).
         "research_notes": [
             "vo2max",
             "mvpa_minutes_mortality",

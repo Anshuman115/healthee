@@ -24,8 +24,8 @@ from healthee.derive.freshness import (
     withheld_block,
 )
 from healthee.derive.hr_validity import HR_VALID_BOUNDS, HR_VALID_SQL
-from healthee.read.common import TodayReads, derived_series_many, latest_derived
-from healthee.read.meta import METRIC_META, TODAY_SECONDARY_METRICS
+from healthee.read.common import TodayReads, derived_series_many, latest_derived, provenance
+from healthee.read.meta import METRIC_META, METRIC_NOTE_ID, TODAY_SECONDARY_METRICS
 
 # Why every intraday query below carries `_day_bounds_utc`'s half-open `ts` range
 # ALONGSIDE its `(ts AT TIME ZONE %s)::date = %s` filter: `sample` is a hypertable
@@ -144,6 +144,18 @@ def _derived_card(
         # stale-weight caveat for months and no reader would have rendered it, because
         # this function discarded `flags` outright.
         "caveats": flags.get("caveats") or [],
+        # WHICH instrument produced this number, and what it was assembled from — the
+        # derive layer's own record, forwarded rather than re-derived. `derive/
+        # device_totals.py` decides between two step instruments and stamps the answer in
+        # `flags.source`; `derive/energy.py` records how much of a day's calories came
+        # from the MET model and how much from the device's workout figure. Both stopped
+        # at the database until now (audit C5, C6), which is the same silence `caveats`
+        # above was added to end: a disclosure only the database can see is not a
+        # disclosure. See `read/common.provenance` for the allow-list and why it is one.
+        "provenance": provenance(flags),
+        # The note licensing the card, for the ⓘ sheet. None for a metric we have not
+        # cited, never a guessed id.
+        "note_id": METRIC_NOTE_ID.get(metric),
     }
 
 
@@ -196,6 +208,12 @@ def _weight_card(cur: Cur, user_id: UUID, tz: str, as_of: date) -> dict | None:
         "withheld": withheld_block(WEIGHT_STALE, WEIGHT_STALE_MESSAGE, as_of, logged_on, last_kg=kg)
         if stale
         else None,
+        # No `caveats`, no `provenance`: weight is TYPED IN rather than derived, so
+        # there is no derive-layer record of its making to forward, and its own absence is
+        # already answered by `withheld` above. The exception is pre-existing and pinned by
+        # `tests/derive/test_calorie_weight_staleness.py`; the audit did not raise it and
+        # this change does not reverse it.
+        "note_id": METRIC_NOTE_ID["weight_kg"],
     }
 
 
@@ -258,18 +276,44 @@ def hr_hourly(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> list
 
 
 def step_buckets(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> list[dict]:
-    """One local day's 15-minute step buckets (distance ≈ steps × 0.78 m stride)."""
+    """One local day's 15-minute step buckets — steps, and only steps.
+
+    ## The two fields this used to carry, and why neither could stay
+
+    **``distance_m`` was ``SUM(value) * 0.78``**, inline in the SQL, a second definition of
+    stride sitting beside the canonical one. ``derive/activity.py`` derives the stride from
+    the OWNER's height (``0.414 × height``, [[distance_from_steps]]) and
+    ``device_totals.select_distance`` returns ``None`` when there is no profile to take a
+    height from — the honest refusal. ``0.78`` implies a 188 cm owner, needs no profile, and
+    so could never refuse: at 175 cm the personal stride is 0.7245 m, making every bar
+    about 7.7% long and stopping the strip from summing to the ``distance_m_daily`` card
+    above it. Two definitions of one metric, and the uncited one was the one that never
+    said "I don't know" (audit B4).
+
+    **``calories`` was the literal ``0``** on every bucket — a hardcoded zero for a
+    quantity nobody computed, bypassing the MET-by-state model entirely. That is the
+    empty-collection failure ``read/today.py`` argues at length for ``anomalies`` ("an
+    empty list is indistinguishable from 'nothing was anomalous'"), repeated as a scalar
+    and worse, because a scalar zero reads as a measurement.
+
+    Both are REMOVED rather than nulled, because there is no per-bucket quantity behind
+    either name. Nothing renders them (``data/models/today_series.dart`` parses both and no
+    widget reads either), so nothing loses a number. If the chart ever wants distance the
+    derived ``stride_m`` gets passed in as a bound parameter and the field returns null
+    without a profile, matching ``derive/activity.py``; per-bucket energy would have to
+    come from the MET model, which is its own piece of work.
+    """
     day = reference_day(day, tz)
     ts_from, ts_to = _day_bounds_utc(day, tz)  # chunk pruning + the date filter; see above
     cur.execute(
         "SELECT (time_bucket('15 minutes', ts) AT TIME ZONE %s)::time AS local_t, "
-        "  SUM(value)::int AS steps, (SUM(value) * 0.78)::int AS dis_m, "
+        "  SUM(value)::int AS steps, "
         "  (EXTRACT(HOUR FROM time_bucket('15 minutes', ts) AT TIME ZONE %s)::int * 4 "
         "   + EXTRACT(MINUTE FROM time_bucket('15 minutes', ts) AT TIME ZONE %s)::int / 15)::int "
         "FROM sample WHERE user_id = %s AND metric='steps_per_minute' "
         "AND ts >= %s AND ts < %s "
         "AND (ts AT TIME ZONE %s)::date = %s "
-        "GROUP BY 1, 4 HAVING SUM(value) > 0 ORDER BY 1",
+        "GROUP BY 1, 3 HAVING SUM(value) > 0 ORDER BY 1",
         (tz, tz, tz, user_id, ts_from, ts_to, tz, day),
     )
     return [
@@ -277,10 +321,8 @@ def step_buckets(cur: Cur, user_id: UUID, tz: str, day: date | None = None) -> l
             "time": local_t.isoformat(timespec="minutes"),
             "bucket": bucket,
             "steps": steps,
-            "distance_m": dis_m,
-            "calories": 0,
         }
-        for local_t, steps, dis_m, bucket in cur.fetchall()
+        for local_t, steps, bucket in cur.fetchall()
     ]
 
 
