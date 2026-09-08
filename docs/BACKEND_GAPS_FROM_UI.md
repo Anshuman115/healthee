@@ -76,8 +76,9 @@ found **two more the report had not**: `read/recovery.py` shipped
 
 ## B. Thin — the screen works, but shows less than it should
 
-**B1, B2, B3, B4 and B6 are CLOSED. B5 stands**, and is left as it is because the
-Sleep page's shortfall is already honest about what it counts.
+**All six are CLOSED.** B5 was the last, and it was closed by the backend audit's
+C3 rather than here: what looked like a labelling problem was a second definition
+of sleep need.
 
 **B1. Findings carried summary statistics only — no paired values.** — **CLOSED.**
 
@@ -123,9 +124,20 @@ ship `baseline_sd`, the exact divisor their own `z` was computed with (including
 the sleep signal's *floored* form — the unfloored MAD would not reproduce its z),
 and the secondary cards ship `sd_30d` alongside `median_30d` for the same reason.
 
-**B5. `/api/sleep` sends no need and no debt.** Those live in Today's block, so
-Sleep computes a shortfall over measured nights and honestly labels the stat
-`Nights counted`, never `Modelled nights`.
+**B5. `/api/sleep` sent no need and no debt.** — **CLOSED**, and re-graded on the
+way: this was accepted here as a labelling problem, and `BACKEND_AUDIT.md` C3 shows
+it was a second definition of a metric. The Sleep tab's shortfall was honest about
+the WINDOW it counted and silent about the REFERENCE, which was
+`features/sleep/sleep_format.dart`'s `kSleepNeedMin = 480` — flat for every owner,
+while the server's need is age-selected (NSF 2015: 480 under 65, 450 at 65 and
+over) and the Today tab reported that one. Two tabs, two shortfalls, same nights.
+
+`/api/sleep` now carries `sleep_debt`, the SAME block Today carries, through the
+same function and from the same rows. The client constant is deleted rather than
+corrected — a better client constant is still a second definition — and where the
+server has no need (no date of birth on the profile) the panel withholds with the
+reason instead of drawing against an assumed eight hours. The stat still says
+`Nights counted`, because the window it sums over is still this screen's own.
 
 **B6. `/api/activity/workout` was the only payload with NO honesty envelope.** —
 **CLOSED.** `metrics_withheld` is `{metric: {reason, message}}` for every derived
