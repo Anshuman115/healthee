@@ -41,7 +41,7 @@ void main() {
     testWidgets('A WITHHELD TIME ASLEEP IS A DASH AND A REASON, NEVER A ZERO', (
       tester,
     ) async {
-      final page = sleepPageWithout(<String>['tst_min', 'duration_min']);
+      final page = sleepPageWithout(<String>['tst_min']);
       await tester.pumpWidget(
         sleepPanelHost(SleepReading(night: page.nights.first)),
       );
@@ -163,13 +163,14 @@ void main() {
     testWidgets('a night with no total drops its derived statistics', (
       tester,
     ) async {
-      final page = sleepPageWithout(<String>['tst_min', 'duration_min']);
+      final page = sleepPageWithout(<String>['tst_min']);
       final windows = SleepWindows(page, kSleepNow);
       await tester.pumpWidget(
         sleepPanelHost(
           SleepNeedPanel(
             night: windows.latest,
             nights: windows.debt,
+            needMin: kSleepNeedFixture,
             reveals: RevealRegistry(),
           ),
         ),

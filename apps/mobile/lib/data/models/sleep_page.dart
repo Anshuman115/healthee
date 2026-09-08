@@ -36,6 +36,7 @@ library;
 
 import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/data/models/last_sleep.dart';
+import 'package:healthee/data/models/sleep_debt.dart';
 import 'package:healthee/data/models/sleep_night.dart';
 import 'package:meta/meta.dart';
 
@@ -47,7 +48,8 @@ class SleepNap {
     required this.date,
     required this.start,
     required this.end,
-    required this.durationMin,
+    required this.tibMin,
+    required this.tstMin,
     required this.midpointLocal,
     required this.stages,
     required this.timeline,
@@ -59,7 +61,8 @@ class SleepNap {
       date: json['date'] as String?,
       start: _instant(json['start_iso']),
       end: _instant(json['end_iso']),
-      durationMin: (json['duration_min'] as num?)?.toDouble(),
+      tibMin: (json['tib_min'] as num?)?.toDouble(),
+      tstMin: (json['tst_min'] as num?)?.toDouble(),
       midpointLocal: json['midpoint_local'] as String?,
       stages: StageMinutes.maybe(json['stages']),
       timeline: <SleepStageSpan>[
@@ -79,8 +82,20 @@ class SleepNap {
   /// When it ended.
   final DateTime? end;
 
-  /// How long it lasted, minutes.
-  final double? durationMin;
+  /// Time in bed — the wall clock from start to end, minutes.
+  ///
+  /// **This was `durationMin`, parsed from `duration_min`, and that key meant
+  /// something ELSE on a night.** A night's `duration_min` was total sleep time
+  /// (wake excluded); a nap's was the whole span (wake included). One name, two
+  /// quantities, in one payload, with nothing on the wire saying which. The
+  /// server now sends both objects the same two named fields.
+  final double? tibMin;
+
+  /// Total sleep time — light + deep + REM, wake excluded, minutes.
+  ///
+  /// Null when the strap staged nothing: a nap with a known span and an unknown
+  /// sleep time, which is not a nap of zero sleep.
+  final double? tstMin;
 
   /// Its midpoint as the server formatted it, `HH:MM`.
   final String? midpointLocal;
@@ -165,6 +180,7 @@ class SleepPage {
     required this.nights,
     required this.naps,
     required this.cutoffs,
+    required this.sleepDebt,
     required this.findings,
     required this.researchNotes,
   });
@@ -182,6 +198,10 @@ class SleepPage {
         if (nap is Map<String, Object?>) SleepNap.fromJson(nap),
     ],
     cutoffs: SleepCutoffs.maybe(json['cutoffs']),
+    sleepDebt: switch (json['sleep_debt']) {
+      final Map<String, Object?> block => SleepDebt.maybe(block),
+      _ => null,
+    },
     findings: <Finding>[
       for (final entry
           in (json['findings'] as List<Object?>? ?? const <Object?>[]))
@@ -202,6 +222,15 @@ class SleepPage {
 
   /// The thresholds the four checks are scored against, or null.
   final SleepCutoffs? cutoffs;
+
+  /// The server's own sleep need and 14-night debt — THE SAME BLOCK the Today
+  /// page carries, from the same rows.
+  ///
+  /// `/api/sleep` used to send neither, so this screen measured its shortfall
+  /// against a client constant of 480 minutes flat while Today reported the
+  /// age-selected need. Two definitions of one metric, two tabs of one app,
+  /// and nothing saying which was which.
+  final SleepDebt? sleepDebt;
 
   /// Sleep-scoped correlations from this owner's own history. Often empty, and
   /// an empty list renders nothing at all — no heading, no zero-state.

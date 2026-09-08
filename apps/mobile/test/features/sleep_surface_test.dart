@@ -167,6 +167,7 @@ void main() {
             nights: page.nights,
             naps: page.naps,
             cutoffs: page.cutoffs,
+            sleepDebt: page.sleepDebt,
             findings: const [],
             researchNotes: page.researchNotes,
           ),

@@ -84,7 +84,7 @@ class NapsPanel extends StatelessWidget {
 
   /// Total minutes napped across [naps].
   double get totalMin =>
-      naps.fold<double>(0, (sum, nap) => sum + (nap.durationMin ?? 0));
+      naps.fold<double>(0, (sum, nap) => sum + (nap.tibMin ?? 0));
 
   /// Whether the strap staged none of the naps shown.
   ///
@@ -147,7 +147,7 @@ class NapsPanel extends StatelessWidget {
     return <String>[
       if (shortDate(nap.date) case final String date when date.isNotEmpty) date,
       if (start != null && end != null) napRange(start, end),
-      if (nap.durationMin case final double minutes) napDuration(minutes),
+      if (nap.tibMin case final double minutes) napDuration(minutes),
     ].join(' · ');
   }
 }

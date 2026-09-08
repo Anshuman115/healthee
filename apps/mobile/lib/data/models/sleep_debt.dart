@@ -16,6 +16,23 @@ library;
 import 'package:healthee/data/models/trend_point.dart';
 import 'package:meta/meta.dart';
 
+/// The reason id filed when the server has no sleep need for this owner.
+///
+/// ONE definition of the absence, beside the model that reports it, because two
+/// screens render it: the Today page's need-and-debt panel and the Sleep tab's.
+/// A sentence copied into both is how they start disagreeing about what the
+/// owner should do — the same rule that put the need itself on the server.
+const String kNoSleepNeedReason = 'no_sleep_need';
+
+/// The sentence that goes with it. It names the one thing that brings the
+/// figures back, because the reason is specific: the need band is selected from
+/// AGE (NSF 2015), so a profile with no date of birth has no need — and a
+/// shortfall, a performance percentage and a nightly gap are all ratios
+/// against one.
+const String kNoSleepNeed =
+    'No sleep need yet — add your date of birth in your profile and the '
+    'age-based need, and the figures measured against it, come back.';
+
 /// The debt, its window, and what it was measured against.
 @immutable
 class SleepDebt {
@@ -42,7 +59,7 @@ class SleepDebt {
     }
     return SleepDebt(
       debtMin: debt,
-      needMin: (json['need_min'] as num?)?.toInt() ?? 480,
+      needMin: (json['need_min'] as num?)?.toInt(),
       nights: (json['nights'] as num?)?.toInt() ?? 0,
       nightsBelow: (json['nights_below'] as num?)?.toInt() ?? 0,
       avgTstMin: (json['avg_tst_min'] as num?)?.toInt(),
@@ -61,8 +78,17 @@ class SleepDebt {
   /// The accumulated shortfall, minutes.
   final int debtMin;
 
-  /// The nightly need this is measured against — 480 = 8 h.
-  final int needMin;
+  /// The nightly need this is measured against, minutes — or null when the
+  /// server has none for this owner.
+  ///
+  /// **Nullable, and NOT defaulted to 480.** The parser coalesced a missing
+  /// `need_min` to a flat eight hours, which is a personal target invented for
+  /// somebody we have never been able to compute one for. The server's need is
+  /// age-selected (NSF 2015: 480 under 65, 450 at 65 and over), so for an older
+  /// owner the default was half an hour wrong and presented as theirs. Every
+  /// reader below withholds the figures that depend on it rather than assuming
+  /// one — "not enough data" beats an optimistic guess.
+  final int? needMin;
 
   /// How many nights the window covers.
   final int nights;

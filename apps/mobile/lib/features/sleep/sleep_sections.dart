@@ -213,7 +213,12 @@ List<PageSection> sleepSections({
     ..add(
       past
           ? const PastDayNotice(title: kSleepDebtPastTitle, body: kSleepDebtPast)
-          : SleepNeedPanel(night: night, nights: windows.debt, reveals: reveals),
+          : SleepNeedPanel(
+              night: night,
+              nights: windows.debt,
+              needMin: page.sleepDebt?.needMin,
+              reveals: reveals,
+            ),
     );
   if (windows.week.length >= SleepWindows.minimumNights) {
     sections
