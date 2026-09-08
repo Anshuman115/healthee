@@ -5,15 +5,18 @@ predicate, and the one-per-day weight de-dup.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+import pytest
+
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.ingest.daily_totals import upsert_daily_totals
 from healthee.ingest.models import DailyTotalIn, SampleIn, SleepIn
 from healthee.ingest.upsert import (
     build_fresh_predicate,
     epoch_to_utc,
-    upsert_daily_totals,
     upsert_samples,
     upsert_weight,
 )
@@ -27,13 +30,15 @@ class FakeCursor:
     ) -> None:
         self.executed: list[tuple[str, Any]] = []
         self.executemany_rows: list[Any] | None = None
+        self.executemany_sql: str | None = None
         self._fetchone = list(fetchone or [])
         self._fetchall = list(fetchall or [])
 
     def execute(self, sql: str, params: Any = None) -> None:
         self.executed.append((sql, params))
 
-    def executemany(self, sql: str, rows: Any) -> None:  # noqa: ARG002
+    def executemany(self, sql: str, rows: Any) -> None:
+        self.executemany_sql = sql
         self.executemany_rows = list(rows)
 
     def fetchone(self) -> Any:
@@ -179,8 +184,15 @@ def test_daily_totals_are_written_to_the_raw_table_not_a_derived_cell() -> None:
         [_total(steps=9264, distance_m=5081.0, calories=451.0)],
     )
     assert stored == 1
-    assert cur.executed == []  # no per-row execute; the batch is pipelined
-    assert cur.executemany_rows == [(SENTINEL_USER_ID, date(2026, 6, 16), 9264, 5081.0, 451.0)]
+    # One per-batch read (the regression check below), never one execute per row: the
+    # batch itself is pipelined.
+    assert [sql for sql, _ in cur.executed] == [
+        "SELECT day, steps FROM device_daily_total "
+        "WHERE user_id = %s AND day = ANY(%s) AND steps IS NOT NULL"
+    ]
+    assert cur.executemany_rows == [
+        (SENTINEL_USER_ID, date(2026, 6, 16), 9264, 5081.0, 451.0, None)
+    ]
 
 
 def test_a_report_with_no_numbers_at_all_is_not_stored() -> None:
@@ -196,4 +208,58 @@ def test_a_report_carrying_only_distance_is_still_stored() -> None:
     what the old `apply_daily_totals` did, skipping the whole entry."""
     cur = FakeCursor()
     assert upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(distance_m=5081.0)]) == 1  # type: ignore[arg-type]
-    assert cur.executemany_rows == [(SENTINEL_USER_ID, date(2026, 6, 16), None, 5081.0, None)]
+    assert cur.executemany_rows == [(SENTINEL_USER_ID, date(2026, 6, 16), None, 5081.0, None, None)]
+
+
+# --- A1: the READ instant travels, and absent means unknown -------------------
+
+
+def test_the_read_instant_reaches_the_column_as_the_phone_recorded_it() -> None:
+    """`readAtMs` is when the strap was ASKED. It had no field and no column until 0019."""
+    read_at = datetime(2026, 6, 16, 9, 0, tzinfo=UTC)
+    cur = FakeCursor()
+    upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(steps=9264, read_at=_ms(read_at))])  # type: ignore[arg-type]
+    assert cur.executemany_rows is not None
+    assert cur.executemany_rows[0][5] == read_at
+
+
+def test_a_client_that_sends_no_read_instant_stores_unknown_never_now() -> None:
+    """The A1 failure to avoid: recreating the same lie with a new mechanism.
+
+    An older app build sends no `read_at`. The column must then say nothing, because a
+    substituted instant is indistinguishable from a recorded one — which is exactly what
+    `reported_at` standing in for the reading was.
+    """
+    cur = FakeCursor()
+    upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(steps=9264)])  # type: ignore[arg-type]
+    assert cur.executemany_rows is not None
+    assert cur.executemany_rows[0][5] is None
+    sql = cur.executemany_sql or ""
+    assert "read_at = EXCLUDED.read_at" in sql
+    assert "COALESCE(EXCLUDED.read_at" not in sql
+
+
+def test_a_regressing_counter_is_logged_rather_than_swallowed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Audit B6 stays SUSPECTED, and stops being invisible.
+
+    The stored value is NOT guarded — the reason is in `upsert_daily_totals`' docstring —
+    but a lower reading replacing a higher one now names both numbers in a warning, so the
+    next occurrence is evidence instead of speculation.
+    """
+    cur = FakeCursor(fetchall=[[(date(2026, 6, 16), 9264)]])
+    with caplog.at_level(logging.WARNING):
+        upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(steps=112)])  # type: ignore[arg-type]
+    assert "device_daily_total counter regressed" in caplog.text
+    # And the lower reading is still what lands: this is the RAW table.
+    assert cur.executemany_rows is not None
+    assert cur.executemany_rows[0][2] == 112
+
+
+def test_a_rising_counter_says_nothing(caplog: pytest.LogCaptureFixture) -> None:
+    """A since-midnight accumulator climbing all day is the normal case, not an event."""
+    cur = FakeCursor(fetchall=[[(date(2026, 6, 16), 4200)]])
+    with caplog.at_level(logging.WARNING):
+        upsert_daily_totals(cur, SENTINEL_USER_ID, [_total(steps=9264)])  # type: ignore[arg-type]
+    assert "regressed" not in caplog.text

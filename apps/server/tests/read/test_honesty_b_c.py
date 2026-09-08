@@ -35,7 +35,7 @@ from tests.read._severity_a_seed import ZONE, daily, night, reset
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.derive.activity import derive_daily_activity
-from healthee.derive.freshness import COUNTER_MID_DAY, NO_AGE_MEDIAN
+from healthee.derive.freshness import COUNTER_MID_DAY, COUNTER_READ_TIME_UNKNOWN, NO_AGE_MEDIAN
 from healthee.read.fitness_plan import fitness_plan_payload, projected_gain
 from healthee.read.recovery_signals import recovery_signals
 from healthee.read.sleep_page import sleep_page
@@ -264,7 +264,7 @@ def test_a_counter_read_mid_day_says_so_on_the_card() -> None:
         reset(cur)
         cur.execute("DELETE FROM device_daily_total")
         cur.execute(
-            "INSERT INTO device_daily_total (user_id, day, steps, source, reported_at) "
+            "INSERT INTO device_daily_total (user_id, day, steps, source, read_at) "
             "VALUES (%s, %s, %s, 'strap_0x16', %s)",
             (SENTINEL_USER_ID, today, 4200, read_at),
         )
@@ -274,7 +274,35 @@ def test_a_counter_read_mid_day_says_so_on_the_card() -> None:
     steps = cards["steps_total"]
     assert steps["value"] == 4200
     assert [c["reason"] for c in steps["caveats"]] == [COUNTER_MID_DAY]
-    assert steps["provenance"]["reported_at"] == read_at.isoformat()
+    # The READ instant, all the way to the card. It used to be the arrival (audit A1).
+    assert steps["caveats"][0]["read_at"] == read_at.isoformat()
+    assert steps["provenance"]["read_at"] == read_at.isoformat()
+
+
+@pytest.mark.usefixtures("db")
+def test_a_counter_that_did_not_record_when_it_was_read_says_that_instead() -> None:
+    """The A1 rule for an older client: absent must mean unknown, and unknown must speak.
+
+    Before `0019` no row recorded a read instant, and the gate compared the ARRIVAL
+    against the day's end — so a counter read at 09:00 and pushed after midnight served as
+    the whole day with `caveats: []`. Unknown now gets its own id and its own sentence.
+    """
+    today = user_today(SENTINEL_TZ)
+    with tenant_transaction(SENTINEL_USER_ID) as cur:
+        reset(cur)
+        cur.execute("DELETE FROM device_daily_total")
+        cur.execute(
+            "INSERT INTO device_daily_total (user_id, day, steps, source, reported_at) "
+            "VALUES (%s, %s, %s, 'strap_0x16', now())",
+            (SENTINEL_USER_ID, today, 4200),
+        )
+        derive_daily_activity(cur, SENTINEL_USER_ID, SENTINEL_TZ, today)
+        cards = {c["metric"]: c for c in secondary_cards(cur, SENTINEL_USER_ID, SENTINEL_TZ)}
+
+    steps = cards["steps_total"]
+    assert steps["value"] == 4200
+    assert [c["reason"] for c in steps["caveats"]] == [COUNTER_READ_TIME_UNKNOWN]
+    assert steps["caveats"][0]["read_at"] is None
 
 
 # ── D-c. the sleep signal's two limbs ────────────────────────────────────────

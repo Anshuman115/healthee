@@ -224,7 +224,22 @@ class DailyTotalIn(BaseModel):
     This is a RAW measurement and since #121 it has a raw home: `upsert_daily_totals`
     stores it in `device_daily_total` and `derive/device_totals.py` decides what
     `steps_total` becomes from it. Before that it went from this model straight into a
-    derived cell and nowhere else, so the next derive pass over the day erased it."""
+    derived cell and nowhere else, so the next derive pass over the day erased it.
+
+    ## `read_at` — WHEN the counter was read, and why absent must stay absent
+
+    A since-midnight counter is a claim about the interval from local midnight to the
+    moment it was READ. The phone has always known that instant (`readAtMs`, and its own
+    table comment says why: *"a counter read at 09:00 is a claim about nine hours"*) and
+    this model had no field for it, so `ingest/upsert.py` supplied `now()` — the ARRIVAL
+    instant — and the owner-facing partial-day caveat quoted that. Worse, the caveat's
+    gate compared the arrival against the day's end, so a push crossing local midnight
+    suppressed a true caveat entirely (write-path audit A1).
+
+    It is OPTIONAL and must remain optional. An older app build does not send it, and the
+    honest reading of a missing `read_at` is **unknown**, never "now" and never "after the
+    day closed". `derive/device_totals.partial_day_caveats` says so on the wire rather
+    than guessing, which is the whole point of adding the field."""
 
     model_config = ConfigDict(extra="ignore", allow_inf_nan=False)
 
@@ -234,6 +249,16 @@ class DailyTotalIn(BaseModel):
     steps: int | None = Field(default=None, ge=0, le=MAX_MAGNITUDE)
     distance_m: float | None = Field(default=None, ge=0, le=MAX_MAGNITUDE)
     calories: float | None = Field(default=None, ge=0, le=MAX_MAGNITUDE)
+    # Epoch ms, range-checked by the one `event_instant` gate every other instant on this
+    # wire goes through. Absent = unknown; see the class docstring.
+    read_at: int | None = None
+
+    @field_validator("read_at")
+    @classmethod
+    def _read_at_is_a_plausible_event_instant(cls, ts: int | None) -> int | None:
+        if ts is not None:
+            event_instant(ts)  # raises MeasurementError (a ValueError) → pydantic 422
+        return ts
 
 
 class ProfileIn(BaseModel):

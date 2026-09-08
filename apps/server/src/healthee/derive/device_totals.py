@@ -57,7 +57,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from healthee.derive._common import Cur
-from healthee.derive.freshness import COUNTER_MID_DAY
+from healthee.derive.freshness import COUNTER_MID_DAY, COUNTER_READ_TIME_UNKNOWN
 
 # The per-minute sum's name on the wire, when it is the instrument that spoke. The
 # DEVICE's name is not a constant here — it is read off the row it came from
@@ -79,7 +79,12 @@ class DeviceDailyTotal:
     distance_m: float | None
     calories: float | None
     source: str
+    # When the report ARRIVED. Never the instant the counter is a claim about.
     reported_at: datetime
+    # When the phone ASKED the strap (0019), or ``None`` when the client did not say —
+    # every row written before 0019, and every row an older app build writes.
+    # ``None`` means UNKNOWN and is never filled in from anything else.
+    read_at: datetime | None
 
 
 @dataclass(frozen=True)
@@ -93,7 +98,7 @@ class DailyValue:
 def device_total(cur: Cur, user_id: UUID, day: date) -> DeviceDailyTotal | None:
     """The strap's own report for ``day``, or None when it never sent one."""
     cur.execute(
-        "SELECT day, steps, distance_m, calories, source, reported_at "
+        "SELECT day, steps, distance_m, calories, source, reported_at, read_at "
         "FROM device_daily_total WHERE user_id = %s AND day = %s",
         (user_id, day),
     )
@@ -107,6 +112,7 @@ def device_total(cur: Cur, user_id: UUID, day: date) -> DeviceDailyTotal | None:
         calories=None if row[3] is None else float(row[3]),
         source=str(row[4]),
         reported_at=row[5],
+        read_at=row[6],
     )
 
 
@@ -115,10 +121,12 @@ def select_steps(device: DeviceDailyTotal | None, per_minute_sum: float) -> Dail
 
     Pure and total, so the precedence can be tested without a database. Both numbers
     reach the row — the served one as the value, the other as
-    ``flags.steps_per_minute_sum`` — but only one of them IS the value. ``reported_at``
-    rides along because a counter read at 09:00 is a statement about a partial day, and a
-    reader comparing it against the per-minute sum needs to know that before concluding
-    the stream stalled.
+    ``flags.steps_per_minute_sum`` — but only one of them IS the value. Both instants ride
+    along: ``read_at`` because a counter read at 09:00 is a statement about a partial day,
+    and ``reported_at`` because a reader comparing this against the per-minute sum needs
+    to know how late the report landed before concluding the stream stalled. ``read_at``
+    is ``None`` on every row written before 0019 and stays ``None`` on the wire — the flag
+    says "not recorded", it does not fall back to the arrival.
     """
     if device is None or device.steps is None:
         return DailyValue(per_minute_sum, {"source": SOURCE_PER_MINUTE})
@@ -128,6 +136,7 @@ def select_steps(device: DeviceDailyTotal | None, per_minute_sum: float) -> Dail
             "source": device.source,
             "steps_per_minute_sum": round(per_minute_sum),
             "reported_at": device.reported_at.isoformat(),
+            "read_at": None if device.read_at is None else device.read_at.isoformat(),
         },
     )
 
@@ -135,39 +144,88 @@ def select_steps(device: DeviceDailyTotal | None, per_minute_sum: float) -> Dail
 def partial_day_caveats(
     device: DeviceDailyTotal | None, steps: DailyValue, day_end_utc: datetime
 ) -> list[dict]:
-    """The disclosure for a counter read BEFORE the day it counts had finished.
+    """The disclosure for a counter whose reading does not cover the whole day it is filed
+    under — or, when we cannot tell, for the fact that we cannot tell.
 
     ``select_steps`` prefers the strap's own accumulator, and this module's docstring says
     why — the per-minute stream drops whole stretches when the pager stalls, and a stalled
-    hour looks exactly like a quiet hour. It also says, and then did nothing about, the one
-    way the counter is the weaker instrument: *"a counter read at 09:00 is a statement
-    about a partial day"*. That is not a reason to prefer the other number; it is a reason
-    to say which interval this one covers, and the audit's C5 is that we said it in a
-    comment and not on the wire.
+    hour looks exactly like a quiet hour. It also says the one way the counter is the
+    weaker instrument: *"a counter read at 09:00 is a statement about a partial day"*. That
+    is not a reason to prefer the other number; it is a reason to say which interval this
+    one covers.
 
-    The test is exact rather than heuristic: ``reported_at`` before the local day's closing
-    instant means the day was still running when the strap was asked. A counter read after
-    that instant describes the whole day and carries nothing. There is no tolerance window,
-    for ``derive/freshness.py``'s reason — a tunable in an honesty gate is a place to hide.
+    ## The instant this asks about is ``read_at``, and it used to be the wrong one (A1)
+
+    This tested ``reported_at`` — when the push ARRIVED — against the day's closing
+    instant, and quoted it to the owner as the moment the counter "stood at" its value.
+    Two things were wrong at once, and the second is the worse of the pair:
+
+    * the quoted instant was the arrival, not the reading;
+    * ``reported_at >= day_end_utc`` **suppressed the caveat entirely** for any push that
+      crossed the owner's local midnight, which is the normal case — auto-sync fires on a
+      foreground transition. A nine-hour prefix then served as the whole day with
+      ``caveats: []``.
+
+    ``read_at`` (0019) is the instant the phone asked the strap, carried end to end from
+    the column the client already kept. The test against it is exact rather than heuristic
+    and there is no tolerance window, for ``derive/freshness.py``'s reason — a tunable in
+    an honesty gate is a place to hide.
+
+    ## An unknown read time gets its own caveat, never silence
+
+    Every row written before 0019, and every row an older app build writes, has no
+    ``read_at``. Treating that as "read after the day closed" is how the caveat went
+    missing in the first place, and treating it as "read now" is how the wrong instant got
+    quoted. So it is neither: the row says the read time was not recorded, and the owner is
+    told that we cannot say which part of the day this counts. It reads worse than silence
+    and it is true, which is the trade.
 
     Empty for the per-minute tier, which is a sum over samples and so covers whatever the
     day actually delivered rather than a prefix of it.
     """
-    if device is None or device.steps is None or device.reported_at >= day_end_utc:
+    if device is None or device.steps is None:
+        return []
+    if device.read_at is None:
+        return [_caveat(COUNTER_READ_TIME_UNKNOWN, _UNKNOWN_READ_MESSAGE, device, steps)]
+    if device.read_at >= day_end_utc:
         return []
     return [
-        {
-            "reason": COUNTER_MID_DAY,
-            "message": (
-                "This is the strap's own step counter as it stood at "
-                f"{device.reported_at.isoformat()}, while the day was still running — so "
-                "it counts the day up to then, not the whole of it. It will rise with the "
-                "next sync."
-            ),
-            "reported_at": device.reported_at.isoformat(),
-            "source": steps.flags["source"],
-        }
+        _caveat(
+            COUNTER_MID_DAY,
+            "This is the strap's own step counter as it stood at "
+            f"{device.read_at.isoformat()}, while the day was still running — so "
+            "it counts the day up to then, not the whole of it. It will rise with the "
+            "next sync.",
+            device,
+            steps,
+        )
     ]
+
+
+# What the owner is told when the row cannot say when its counter was read. Deliberately
+# not reassuring: an interval we cannot name is a real limit on the number beside it.
+_UNKNOWN_READ_MESSAGE = (
+    "This is the strap's own step counter, but this reading did not record when it was "
+    "taken — so we cannot say whether it counts the whole day or only part of it. "
+    "Readings taken from now on say when they were read."
+)
+
+
+def _caveat(reason: str, message: str, device: DeviceDailyTotal, steps: DailyValue) -> dict:
+    """One caveat block, with both instants beside it so a reader can check the claim.
+
+    ``read_at`` is ``None`` exactly when the reason is
+    :data:`freshness.COUNTER_READ_TIME_UNKNOWN`; it is carried as an explicit null rather
+    than omitted, because a key that appears only sometimes is a key a client learns to
+    ignore (``read/today_series.py`` makes the same argument for ``as_of_date``).
+    """
+    return {
+        "reason": reason,
+        "message": message,
+        "read_at": None if device.read_at is None else device.read_at.isoformat(),
+        "reported_at": device.reported_at.isoformat(),
+        "source": steps.flags["source"],
+    }
 
 
 def select_distance(

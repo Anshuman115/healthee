@@ -73,8 +73,15 @@ def derived_series(
 #                       #121 is the incident that made it the whole point. VO2max names
 #                       its instrument on the wire; steps went through the same reasoning
 #                       and the answer stopped at the database.
-#   reported_at         when the strap's own counter was read. Its own module's comment:
-#                       "a counter read at 09:00 is a statement about a partial day".
+#   reported_at         when the strap's counter reading ARRIVED at the server.
+#   read_at             when the strap was ASKED for it (0019) — the instant the counter
+#                       is actually a claim about: "a counter read at 09:00 is a statement
+#                       about a partial day". This key said `reported_at` and meant this,
+#                       which is write-path audit A1: the arrival was quoted to the owner
+#                       as the reading. Explicitly NULL — never absent — on a device-tier
+#                       row that did not record it, because "this reading does not say when
+#                       it was taken" is a fact about the number's making, not a missing
+#                       question. Every row written before 0019 is in that state.
 #   steps_per_minute_sum  the OTHER instrument's number, carried so a reader can see the
 #                       divergence without the served value having been blended from both.
 #   sample_minutes      how many minutes of the day the per-minute stream spoke for — the
@@ -91,6 +98,7 @@ def derived_series(
 _PROVENANCE_FLAGS = (
     "source",
     "reported_at",
+    "read_at",
     "steps_per_minute_sum",
     "sample_minutes",
     "method",

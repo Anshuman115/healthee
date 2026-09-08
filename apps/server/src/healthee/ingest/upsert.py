@@ -24,9 +24,9 @@ from psycopg.rows import TupleRow
 
 from healthee.core.bounds import assert_plausible_weight_kg, event_instant
 from healthee.core.dob import parse_dob
+from healthee.core.logging import get_logger
 from healthee.ingest.models import (
     ALLOWED_METRICS,
-    DailyTotalIn,
     ProfileIn,
     SampleIn,
     SleepIn,
@@ -34,6 +34,8 @@ from healthee.ingest.models import (
 )
 
 Cur = Cursor[TupleRow]
+
+log = get_logger(__name__)
 
 # A main-sleep session is "fresh" (worth the per-minute emit) if it is new or
 # within this many days of the batch's latest night. Re-emitting per-minute rows
@@ -306,60 +308,6 @@ def upsert_weight(cur: Cur, user_id: UUID, tz: str, weight_kg: float) -> None:
         cur.execute(
             "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, now(), %s)", (user_id, kg)
         )
-
-
-def upsert_daily_totals(cur: Cur, user_id: UUID, totals: list[DailyTotalIn]) -> int:
-    """Store the strap's live 0x0016 daily totals RAW, as reported. Returns rows stored.
-
-    ## What this replaced, and why the replacement is a different KIND of thing (#121)
-
-    This used to be `apply_daily_totals`, which wrote the strap's counter straight into
-    `derived_daily.steps_total` (and `distance_m_daily`) and nowhere else, under a
-    docstring that said it "MUST run AFTER derive … the strap counter is authoritative".
-    Both halves of that were true and together they were the bug: `derived_daily` is
-    exactly what a derive pass REBUILDS, so the next derive over that day — a push
-    carrying one late sample, a `db/rederive` repair, a backfill — recomputed
-    `steps_total` from the per-minute sum and the device's own count was gone, with no
-    raw row anywhere to restore it from. Production held 142 days of the per-minute sum
-    and one day of the strap counter for exactly that reason.
-
-    So this function no longer produces a metric at all. It stores a measurement, in
-    `device_daily_total`, and `derive/device_totals.py` decides what `steps_total` is.
-    The ordering constraint is therefore gone rather than moved: this runs before derive
-    for the same reason `upsert_samples` does — raw first, then derivation — and if it
-    ever ran after, the next derive pass would pick the row up instead of the value being
-    destroyed. Correctness stopped depending on the order.
-
-    A later report for the same day REPLACES an earlier one: the counter is a live
-    since-midnight accumulator, so the newest reading is the most complete one. Rows that
-    carry no number at all are skipped — a payload entry with every field null is not a
-    measurement — but a report with only distance, or only calories, is stored: this
-    table's job is to hold what the device said, and the derivation reads each field
-    independently.
-    """
-    rows = [
-        (user_id, t.day, t.steps, t.distance_m, t.calories)
-        for t in totals
-        if t.steps is not None or t.distance_m is not None or t.calories is not None
-    ]
-    if rows:
-        cur.executemany(
-            "INSERT INTO device_daily_total "
-            "(user_id, day, steps, distance_m, calories, reported_at) "
-            "VALUES (%s, %s, %s, %s, %s, now()) "
-            # COALESCEd per field: a report carrying only distance must not blank the
-            # step count the same day already had. The table's own docstring says "the
-            # derivation reads each field independently", and a plain assignment made
-            # that untrue on the write side. `reported_at` IS assigned — it dates this
-            # report, and the newest report is the one that arrived.
-            "ON CONFLICT (user_id, day) DO UPDATE SET "
-            "steps = COALESCE(EXCLUDED.steps, device_daily_total.steps), "
-            "distance_m = COALESCE(EXCLUDED.distance_m, device_daily_total.distance_m), "
-            "calories = COALESCE(EXCLUDED.calories, device_daily_total.calories), "
-            "reported_at = EXCLUDED.reported_at",
-            rows,
-        )
-    return len(rows)
 
 
 def build_fresh_predicate(

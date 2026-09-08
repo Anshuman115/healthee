@@ -57,8 +57,14 @@ def _steps(cur, day: date, minutes: int) -> None:
 
 
 def _counter(cur, day: date, steps: int | None, *, read_at: datetime) -> None:
+    """A stored counter reading. `read_at` is when the strap was ASKED (0019).
+
+    `reported_at` is left to its default (`now()`, the arrival) on purpose: after audit A1
+    the partial-day disclosure reads `read_at` alone, and a test that set both to the same
+    value could not tell the two apart.
+    """
     cur.execute(
-        "INSERT INTO device_daily_total (user_id, day, steps, source, reported_at) "
+        "INSERT INTO device_daily_total (user_id, day, steps, source, read_at) "
         "VALUES (%s, %s, %s, 'strap_0x16', %s)",
         (SENTINEL_USER_ID, day, steps, read_at),
     )

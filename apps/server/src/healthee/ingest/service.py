@@ -45,12 +45,12 @@ from pydantic import BaseModel
 from healthee.core.db import tenant_connection
 from healthee.core.logging import get_logger
 from healthee.ingest.affected_nights import sample_affected_nights
+from healthee.ingest.daily_totals import upsert_daily_totals
 from healthee.ingest.models import ALLOWED_METRICS, HelioPayload, SleepIn
 from healthee.ingest.upsert import (
     build_fresh_predicate,
     epoch_to_utc,
     local_date,
-    upsert_daily_totals,
     upsert_profile,
     upsert_samples,
     upsert_sleep,
