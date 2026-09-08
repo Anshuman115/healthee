@@ -1315,6 +1315,20 @@ mutate 'the withheld ladder stops naming which marker' \
   '            "markers": {u.name: u.reason for u in unplaced},' \
   '            "markers": {},'
 
+# ── L1 · PERF_AUDIT A1 ──────────────────────────────────────────────────────
+# The performance predicate and the reported metrics drift apart. `skin_temp_c`
+# is still averaged by its own CASE expression in the SELECT, so the query still
+# LOOKS right — it is simply never read, and a measured night ships
+# `skin_temp_c: null`, which this payload's own convention means "the strap did
+# not measure it". The narrowing that made the endpoint affordable is the same
+# narrowing that can silence a metric.
+PHYSIOLOGY=tests/read/test_sleep_physiology.py
+
+mutate 'the physiology read drops a metric it still reports' \
+  "$PHYSIOLOGY" src/healthee/read/sleep_page.py \
+  'PHYSIOLOGY_METRICS = ("spo2", "respiratory_rate", "skin_temp_c")' \
+  'PHYSIOLOGY_METRICS = ("spo2", "respiratory_rate")'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
