@@ -36,7 +36,7 @@ The bounds themselves live in `core.bounds`, one definition each, because
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -80,14 +80,23 @@ _MAX_DAILY_TOTALS = 400
 # A hypnogram is tens of segments; two thousand is far above any night and bounds the
 # `generate_series` LOOP. `_MAX_SESSION_STAGE_MINUTES` bounds what that loop can
 # EMIT — the two together are what turn "one request, tens of millions of rows" into
-# a number an operator can hold in their head.
+# a number an operator can hold in their head, and neither alone would: a cap on the
+# loop count says nothing about a single enormous stage, and a cap on the minutes says
+# nothing about ten thousand one-minute stages.
 _MAX_STAGES = 2_000
 _STAGE_ARITY = 3  # [startMs, endMs, type]
 
-# One stage cannot outlast a day, and one session's stages cannot sum to more than a
-# day of minutes. A long night is ~12 h and a nap is minutes, so both are roughly
-# double the largest real value and cannot refuse a recorded night.
-_MAX_STAGE_SPAN = timedelta(hours=24)
+# One session's stages may not sum to more than a day of per-minute rows. A long night
+# is ~12 h and a nap is minutes, so this is roughly double the largest real value and
+# cannot refuse a recorded night.
+#
+# ⚠ There WAS a second bound here — a 24 h cap on any single stage — and it was
+# removed as dead code, which is worth recording because it looked like defence in
+# depth and was not. A stage's own span is added to `emitted`, so a stage longer than a
+# day already pushes the session total past 1,440 on its own: the per-stage check could
+# not fire on any payload the session check would let through. Its mutation survived,
+# which is exactly what a guard that cannot fail looks like from the outside. One bound
+# that binds beats two where one is decoration (standards, "Dead code").
 _MAX_SESSION_STAGE_MINUTES = 1_440
 
 
@@ -137,9 +146,9 @@ class SleepIn(BaseModel):
     declaring a span of years materialised tens of millions of rows from one request.
     `read/gps_request.py` had already answered this exact shape for the phone's route
     upload — a capped list, and a validator requiring every point to lie inside the window
-    the caller declared. The same three checks are below: an arity check (so `stages:
-    [[]]` is a 422 naming the field rather than an `IndexError` → 500), a span cap per
-    stage, and a cap on the minutes one session may materialise in total.
+    the caller declared. Two checks do it here: an arity check (so `stages: [[]]` is a
+    422 naming the field rather than an `IndexError` → 500), and a cap on the minutes
+    one session may materialise in total.
     """
 
     model_config = ConfigDict(extra="ignore", allow_inf_nan=False)
@@ -172,13 +181,7 @@ class SleepIn(BaseModel):
             start, end = event_instant(stage[0]), event_instant(stage[1])
             if end <= start:
                 continue  # `emit_sleep_minutes` skips these; nothing is materialised
-            span = end - start
-            if span > _MAX_STAGE_SPAN:
-                raise MeasurementError(
-                    f"a sleep stage spanning {span} is not a stage of a night "
-                    f"(the limit is {_MAX_STAGE_SPAN})"
-                )
-            emitted += int(span.total_seconds() // 60)
+            emitted += int((end - start).total_seconds() // 60)
         if emitted > _MAX_SESSION_STAGE_MINUTES:
             raise MeasurementError(
                 f"this session's stages would materialise {emitted} per-minute rows, over "

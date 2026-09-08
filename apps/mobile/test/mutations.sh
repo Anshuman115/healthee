@@ -2832,6 +2832,29 @@ mutate 'the topic is dropped after the first turn' \
   "          if (subject.isNotEmpty) 'topic': subject," \
   "          if (subject.isNotEmpty && messages.length == 1) 'topic': subject,"
 
+# ── the redirect policy (AUTH_AUDIT.md A1) ───────────────────────────────────
+API_CLIENT=lib/data/api/api_client.dart
+PROBE=lib/data/api/server_probe.dart
+REDIRECT_TEST=test/data/redirect_policy_test.dart
+
+# The exact defect the audit found: the ONE client that carries the bearer token
+# follows a 3xx again, and `dart:io` replays the Authorization header at whatever
+# host the `Location` names. It is the only credential-egress path in the audit.
+mutate 'the app client follows redirects while carrying the token' \
+  "$REDIRECT_TEST" "$API_CLIENT" \
+  '      followRedirects: false,
+      maxRedirects: 0,' \
+  '      maxRedirects: 5,'
+
+# One client forgets and the other two remember — which is precisely the state the
+# audit found, and precisely what a per-instance check cannot notice. The source
+# scan is what makes the rule structural rather than remembered.
+mutate 'the sign-in probe forgets the rule the app client keeps' \
+  "$REDIRECT_TEST" "$PROBE" \
+  '        followRedirects: false,' \
+  '        maxRedirects: 5,'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

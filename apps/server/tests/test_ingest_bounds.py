@@ -138,7 +138,12 @@ def _sleep(stages: list[list[int]], span_ms: int = 8 * 3600 * 1000) -> dict:
 def test_a_stage_spanning_years_is_refused() -> None:
     """The amplifier. `emit_sleep_minutes` runs `generate_series(start, end, '1 minute')`
     on each stage with nothing between the payload's numbers and that statement — one
-    stage declaring a span of years materialised tens of millions of rows per request."""
+    stage declaring a span of years materialised tens of millions of rows per request.
+
+    Refused by the SESSION cap, not by a per-stage one. There used to be both; the
+    per-stage cap was removed as dead code, because a stage's own span is added to the
+    session total and so a stage longer than a day already blows that total on its own.
+    """
     years = 5 * 365 * 24 * 3600 * 1000
     with pytest.raises(ValidationError):
         SleepIn.model_validate(_sleep([[_NOW_MS, _NOW_MS + years, 2]]))
@@ -162,15 +167,37 @@ def test_a_real_nights_hypnogram_is_accepted() -> None:
 
 def test_a_malformed_stage_is_a_422_naming_the_field_not_an_indexerror() -> None:
     """`stages: [[]]` used to be an `IndexError` inside `emit_sleep_minutes` → 500, and
-    the inner list's arity was never validated because the type is `list[list[int]]`."""
+    the inner list's arity was never validated because the type is `list[list[int]]`.
+
+    The assertion is on the TYPE of what is raised, not merely that something is. Both
+    the defect and the fix stop the payload — one with a 500 that blames the server for
+    a client's shape, one with a 422 that names the field — so `pytest.raises` alone
+    would go green against the bug it exists to catch.
+    """
     for bad in ([[]], [[_NOW_MS]], [[_NOW_MS, _NOW_MS + _MINUTE_MS]], [[1, 2, 3, 4]]):
-        with pytest.raises(ValidationError):
+        with pytest.raises(Exception) as caught:  # noqa: B017, PT011 — the type IS the claim
             SleepIn.model_validate(_sleep(bad))
+        assert isinstance(caught.value, ValidationError), (
+            f"a stage of {len(bad[0])} value(s) raised "
+            f"{type(caught.value).__name__} — a 500, not a 422 naming the field"
+        )
 
 
 def test_the_stage_list_itself_is_capped() -> None:
+    """Zero-length stages, deliberately: they emit NOTHING, so the minutes cap cannot
+    see them and only the list cap can.
+
+    That is the whole reason both bounds exist. A stage with `end <= start` is skipped
+    by `emit_sleep_minutes` and contributes nothing to the session total, so a payload
+    made of them passes the minutes cap however long it is — while still being a list
+    the validator has to walk and the parser had to build. Testing this with real
+    one-minute stages would let the minutes cap answer, and the list cap would be a
+    bound nothing exercises.
+    """
+    empty_stage = [_NOW_MS, _NOW_MS, 2]
+    assert len(SleepIn.model_validate(_sleep([empty_stage] * 2_000)).stages) == 2_000
     with pytest.raises(ValidationError):
-        SleepIn.model_validate(_sleep([[_NOW_MS, _NOW_MS + _MINUTE_MS, 2]] * 2_001))
+        SleepIn.model_validate(_sleep([empty_stage] * 2_001))
 
 
 def test_the_sleep_workout_and_totals_lists_are_capped() -> None:
