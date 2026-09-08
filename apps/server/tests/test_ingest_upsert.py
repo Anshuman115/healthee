@@ -13,12 +13,13 @@ import pytest
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.ingest.daily_totals import upsert_daily_totals
-from healthee.ingest.models import DailyTotalIn, SampleIn, SleepIn
+from healthee.ingest.models import DailyTotalIn, SampleIn, SleepIn, WorkoutIn
 from healthee.ingest.upsert import (
     build_fresh_predicate,
     epoch_to_utc,
     upsert_samples,
     upsert_weight,
+    upsert_workouts,
 )
 
 
@@ -106,6 +107,75 @@ def test_fresh_predicate_all_new_when_table_empty() -> None:
     cur = FakeCursor(fetchall=[[]])  # nothing existing
     is_fresh = build_fresh_predicate(cur, SENTINEL_USER_ID, [a, b])  # type: ignore[arg-type]
     assert is_fresh(a) is True and is_fresh(b) is True
+
+
+def test_fresh_predicate_gates_an_old_existing_nap_too() -> None:
+    """Naps mark their day since audit B5, so they have to be gateable (audit B5).
+
+    The existing-starts lookup covered MAIN sleep only, which was harmless while the emit
+    was the only consumer — naps never reach it. With `_marks_its_day` as a second
+    consumer, an unfiltered lookup would make every re-pushed nap permanently "new" and
+    re-derive its day on every sync of history.
+    """
+    now = datetime(2026, 6, 20, 6, 0, tzinfo=UTC)
+    tonight = _session(now - timedelta(hours=8), now)
+    old_nap = _session(now - timedelta(days=10, hours=1), now - timedelta(days=10), kind="nap")
+    cur = FakeCursor(fetchall=[[(epoch_to_utc(old_nap.start_ts),)]])
+    is_fresh = build_fresh_predicate(cur, SENTINEL_USER_ID, [old_nap, tonight])  # type: ignore[arg-type]
+
+    assert is_fresh(old_nap) is False
+    assert is_fresh(tonight) is True
+
+
+def test_a_nap_only_page_is_fresh_because_it_carries_no_night_to_date_it_from() -> None:
+    """The page audit B5 is actually about: a session-only page with a nap and no night.
+
+    The window is "within three days of the batch's latest NIGHT", so a page with no night
+    has no cutoff — every session on it is fresh, and its day gets derived. That is the
+    right answer, and it stays right because the window still comes from main sleep alone.
+    """
+    now = datetime(2026, 6, 20, 14, 0, tzinfo=UTC)
+    nap = _session(now - timedelta(minutes=40), now, kind="nap")
+    cur = FakeCursor(fetchall=[[(epoch_to_utc(nap.start_ts),)]])  # already on file
+    is_fresh = build_fresh_predicate(cur, SENTINEL_USER_ID, [nap])  # type: ignore[arg-type]
+
+    assert is_fresh(nap) is True
+
+
+# --- B4: a re-push that omits a duration must not zero the one on file -------
+
+
+def _workout(**kwargs: Any) -> WorkoutIn:
+    return WorkoutIn.model_validate({"start_ts": 1_718_000_000_000, **kwargs})
+
+
+def test_an_omitted_duration_is_absent_at_the_boundary_not_zero() -> None:
+    """`0` was the model default, so "did not say" and "measured zero" were one value."""
+    assert _workout().duration_s is None
+    assert _workout().sport is None
+    assert _workout(duration_s=0).duration_s == 0
+
+
+def test_a_re_push_that_omits_a_duration_preserves_the_recorded_one() -> None:
+    """THE defect. A zeroed session drops out of three gates at once: `read/fitness.py`
+    and `challenges/series.py` filter on `>= min_duration_s`, and `energy._tee_met` stops
+    removing its minutes from the MET walk, so the day's calories move."""
+    cur = FakeCursor()
+    upsert_workouts(cur, SENTINEL_USER_ID, [_workout(calories=310)])  # type: ignore[arg-type]
+    sql, params = cur.executed[0]
+    assert "duration_s = COALESCE(%s::int, workout.duration_s)" in sql
+    assert "sport = COALESCE(%s::int, workout.sport)" in sql
+    assert params[-2:] == (None, None), "the conflict branch must see the raw absence"
+
+
+def test_a_first_insert_still_supplies_the_columns_not_null_default() -> None:
+    """The residual, pinned rather than assumed: `workout.duration_s` is NOT NULL
+    DEFAULT 0, so a first insert of a duration-less workout stores 0. Making that
+    absence representable is a migration on `workout` plus six read sites."""
+    cur = FakeCursor()
+    upsert_workouts(cur, SENTINEL_USER_ID, [_workout()])  # type: ignore[arg-type]
+    sql, _ = cur.executed[0]
+    assert "COALESCE(%s::int, 0), COALESCE(%s::int, 0)" in sql
 
 
 # The newest weight_log row as `upsert_weight` reads it: (ts, kg, is_today).

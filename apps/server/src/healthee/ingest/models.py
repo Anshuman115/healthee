@@ -193,15 +193,26 @@ class SleepIn(BaseModel):
 class WorkoutIn(BaseModel):
     """One typed workout with device-measured HR/calories. `distance_m` is
     optional — the app's push omits it (schema keeps the column for other
-    sources)."""
+    sources).
+
+    ## `sport` and `duration_s` default to None, not 0 (audit B4)
+
+    They defaulted to `0`, which is `SleepIn`'s defect one table over: a default of zero on
+    a MEASUREMENT is a claim the boundary makes on the device's behalf. It made "the push
+    did not say" indistinguishable from "the device measured zero", so `upsert_workouts`
+    had to assign them rather than COALESCE — and a re-push omitting `duration_s` replaced
+    a recorded duration with zero. A zeroed session then leaves `read/fitness.py`'s and
+    `challenges/series.py`'s `>= min_duration_s` filters and stops being removed from
+    `energy._tee_met`'s MET walk, so the day's calories move.
+
+    The bound stays on the number when there IS one: a workout cannot run for more than a
+    week and cannot run backwards, and the derive layer divides by this."""
 
     model_config = ConfigDict(extra="ignore", allow_inf_nan=False)
 
     start_ts: int
-    sport: int = 0
-    # A workout cannot run for more than a week, and cannot run backwards; the derive
-    # layer divides by this.
-    duration_s: int = Field(default=0, ge=0, le=7 * 24 * 3600)
+    sport: int | None = None
+    duration_s: int | None = Field(default=None, ge=0, le=7 * 24 * 3600)
     calories: int | None = None
     distance_m: float | None = Field(default=None, ge=0, le=MAX_MAGNITUDE)
     avg_hr: int | None = None

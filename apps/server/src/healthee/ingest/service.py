@@ -105,24 +105,48 @@ def _default_derive(conn: Connection[TupleRow], user_id: UUID, tz: str, plan: De
 
 
 def _is_derivable_night(session: SleepIn, is_fresh: Callable[[SleepIn], bool]) -> bool:
-    """Is this pushed session a night worth deriving? — the ONE rule, asked twice.
+    """Is this pushed session a NIGHT worth deriving?
 
     Naps never count: a nap is not a night, and `derive_night` writes overnight RHR /
     HRV / SpO2 / regularity rows keyed to a wake date. Stale re-pushed sessions do not
     count either, on the freshness predicate the per-minute emit already uses — which
     is what keeps a re-push of ~80 historical nights from re-deriving all 80.
 
-    Nights and days ask the same question because they answer it about the same
-    sessions; two spellings of "worth deriving" is how the two passes would drift apart.
+    This used to gate `_affected_days` as well, under a docstring saying the two passes
+    "ask the same question because they answer it about the same sessions". They do not,
+    and audit B5 is the cost: see `_marks_its_day`.
     """
     return session.kind != "nap" and is_fresh(session)
+
+
+def _marks_its_day(session: SleepIn, is_fresh: Callable[[SleepIn], bool]) -> bool:
+    """Does this pushed session change the DAY it falls in? — naps included (audit B5).
+
+    A nap is not a night, and it is not nothing either. `energy._tee_met` and
+    `cardio_load` both read
+
+        SELECT start_ts, end_ts FROM sleep_session WHERE ... end_ts>=%s AND start_ts<%s
+
+    with **no `kind` filter**, so every nap minute is scored at `SLEEP_MET = 0.95` instead
+    of NEAT and is excluded from the day's TRIMP as recovery rather than load. A push
+    carrying a nap and nothing else for that day used to mark no work at all, so both
+    numbers stayed computed as if the owner had been awake through it — until some
+    unrelated reason re-derived that day.
+
+    The night question and the day question are different questions and no longer share a
+    predicate. Freshness still applies: `build_fresh_predicate` now looks up existing NAP
+    starts too, so a re-push of months of history does not re-derive months of days, while
+    a nap-only page (which carries no main sleep, so the batch has no cutoff) is fresh by
+    construction and derives.
+    """
+    return is_fresh(session)
 
 
 def _affected_days(
     payload: HelioPayload, tz: str, is_fresh: Callable[[SleepIn], bool]
 ) -> list[date]:
     """The user-local dates this push touched — every day that got new samples,
-    a workout, a daily total, or a fresh night."""
+    a workout, a daily total, or a fresh sleep session of either kind."""
     days: set[date] = set()
     for sample in payload.samples:
         if sample.metric in ALLOWED_METRICS:
@@ -132,7 +156,7 @@ def _affected_days(
     for total in payload.daily_totals:
         days.add(total.day)
     for session in payload.sleep:
-        if _is_derivable_night(session, is_fresh):
+        if _marks_its_day(session, is_fresh):
             days.add(local_date(session.start_ts, tz))
             days.add(local_date(session.end_ts, tz))
     return sorted(days)

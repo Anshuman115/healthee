@@ -65,9 +65,30 @@ def test_a_stale_night_is_planned_as_neither() -> None:
     assert plan.days == []
 
 
-def test_a_nap_is_never_a_night() -> None:
-    """`derive_night` writes overnight vitals keyed to a wake date — a nap is not one."""
+def test_a_nap_is_never_a_night_but_it_does_mark_its_day() -> None:
+    """`derive_night` writes overnight vitals keyed to a wake date — a nap is not one.
+
+    The DAY is a different question, and the two used to share one predicate (audit B5).
+    `energy._tee_met` and `cardio_load` both select sleep sessions with no `kind` filter,
+    so every nap minute is scored at `SLEEP_MET = 0.95` rather than NEAT and is excluded
+    from the day's TRIMP. A push carrying a nap and nothing else for that day planned NO
+    work, and both numbers stayed computed as though the owner had been awake through it.
+    """
     plan = _derive_plan(_payload(sleep=[_night(19, kind="nap")]), _TZ, _always_fresh)
+
+    assert plan.nights == []
+    # 22:00 and 05:00 UTC are both 2026-06-20 in Asia/Kolkata (+05:30).
+    assert plan.days == [date(2026, 6, 20)]
+
+
+def test_a_stale_nap_is_planned_as_nothing() -> None:
+    """Naps mark their day, but freshness still gates them.
+
+    Without this, a re-push of months of history would re-derive a day per stored nap on
+    every sync — the cost `build_fresh_predicate` exists to avoid, arriving through the
+    door B5 opened.
+    """
+    plan = _derive_plan(_payload(sleep=[_night(19, kind="nap")]), _TZ, _never_fresh)
 
     assert plan.nights == []
     assert plan.days == []

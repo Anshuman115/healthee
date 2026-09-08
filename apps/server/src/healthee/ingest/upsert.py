@@ -188,18 +188,42 @@ def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
     """Upsert typed workouts with device-measured HR/calories/distance.
 
     Every nullable measurement is COALESCEd for the reason `upsert_sleep` gives: a partial
-    re-push must not replace a recorded figure with the model's default. `sport` and
-    `duration_s` default to `0` on `WorkoutIn` rather than to None, so they cannot be
-    distinguished from a genuine zero here and are assigned; the fix for that is a model
-    change, not a COALESCE that would silently pin the first value ever pushed.
+    re-push must not replace a recorded figure with the model's default.
+
+    ## `sport` and `duration_s` join them (write-path audit B4)
+
+    They defaulted to `0` on `WorkoutIn` — a default of zero on a MEASUREMENT, the same
+    class `0018` closed for the sleep stages — so they were indistinguishable from a
+    genuine zero and were plainly assigned. This docstring named that and declined to fix
+    it, on the correct ground that a COALESCE over a `0` default would pin the first value
+    ever pushed. What it did not do is price the consequence: a re-push omitting
+    `duration_s` replaced a recorded duration with zero, and a zeroed session **drops out
+    of three gates at once** — `read/fitness.py` and `challenges/series.py` both filter on
+    `COALESCE(duration_s, 0) >= min_duration_s`, and `energy._tee_met` stops removing the
+    session's minutes from the MET walk, so the day's calories move.
+
+    The model change is what fixes it: `sport` and `duration_s` are `int | None`, absence
+    survives the boundary, and the conflict branch COALESCEs them like every other
+    measurement. Nothing here pins a first value, because `None` now means "this push did
+    not say" rather than "this push said zero".
+
+    **The residual, stated rather than discovered.** The columns are `NOT NULL DEFAULT 0`
+    (`schema.sql`), so a FIRST insert of a workout carrying no duration still stores `0`:
+    the parameter is coalesced to the column default on the way in. Making that absence
+    representable too is a migration on `workout`, and it would hand `None` to six read
+    sites that currently type these as `int`. It is not free and it is not what B4 is
+    about — the erasure of a duration we already had is, and that is closed. Note also
+    that the passed value is bound TWICE: the insert branch must see the default, and the
+    conflict branch must see the raw `None`, and one placeholder cannot be both.
     """
     for w in workouts:
         cur.execute(
             "INSERT INTO workout "
             "(user_id, start_ts, sport, duration_s, calories, distance_m, avg_hr, max_hr, min_hr) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "VALUES (%s, %s, COALESCE(%s::int, 0), COALESCE(%s::int, 0), %s, %s, %s, %s, %s) "
             "ON CONFLICT (user_id, start_ts) DO UPDATE SET "
-            "sport = EXCLUDED.sport, duration_s = EXCLUDED.duration_s, "
+            "sport = COALESCE(%s::int, workout.sport), "
+            "duration_s = COALESCE(%s::int, workout.duration_s), "
             "calories = COALESCE(EXCLUDED.calories, workout.calories), "
             "distance_m = COALESCE(EXCLUDED.distance_m, workout.distance_m), "
             "avg_hr = COALESCE(EXCLUDED.avg_hr, workout.avg_hr), "
@@ -215,6 +239,8 @@ def upsert_workouts(cur: Cur, user_id: UUID, workouts: list[WorkoutIn]) -> int:
                 w.avg_hr,
                 w.max_hr,
                 w.min_hr,
+                w.sport,
+                w.duration_s,
             ),
         )
     return len(workouts)
@@ -319,17 +345,32 @@ def build_fresh_predicate(
 ) -> Callable[[SleepIn], bool]:
     """A predicate that answers "is this session fresh?" — new, or within
     FRESH_WINDOW_DAYS of the batch's latest night. Captures the already-existing
-    starts up front (one query) so re-pushed history is cheap to gate."""
-    main_sleep = [s for s in sessions if s.kind != "nap"]
+    starts up front (one query) so re-pushed history is cheap to gate.
+
+    ## What "already existing" is asked about, and why naps joined it (audit B5)
+
+    The lookup covered MAIN sleep only, which was harmless while this predicate had one
+    consumer — the per-minute emit, which naps never reach. `ingest/service._marks_its_day`
+    is a second consumer and naps do reach it, so an unfiltered lookup would have made
+    every re-pushed nap permanently "new" and re-derived its day on every sync of history.
+    Every pushed session is now looked up, and a nap that is already on file is as stale as
+    a night that is.
+
+    The WINDOW still comes from main sleep alone: "within three days of the batch's latest
+    NIGHT" is the documented rule, and letting a nap move the cutoff would change what that
+    sentence means for the emit as well. A nap-only page therefore has no cutoff at all and
+    every session on it is fresh, which is the right answer — that page is exactly the one
+    whose day was previously derived by nothing.
+    """
     existing: set[datetime] = set()
-    if main_sleep:
-        starts = [epoch_to_utc(s.start_ts) for s in main_sleep]
+    if sessions:
+        starts = [epoch_to_utc(s.start_ts) for s in sessions]
         cur.execute(
             "SELECT start_ts FROM sleep_session WHERE user_id = %s AND start_ts = ANY(%s)",
             (user_id, starts),
         )
         existing = {r[0] for r in cur.fetchall()}
-    latest = max((epoch_to_utc(s.end_ts) for s in main_sleep), default=None)
+    latest = max((epoch_to_utc(s.end_ts) for s in sessions if s.kind != "nap"), default=None)
     cutoff = (latest - timedelta(days=FRESH_WINDOW_DAYS)) if latest else None
 
     def _fresh(s: SleepIn) -> bool:
