@@ -45,12 +45,20 @@ suggestions somebody is looking at in another tab. With ``replace_feed=False`` n
 is deleted and the duplicate check widens to cover suggested metrics too, so the added
 row cannot shadow one already on the menu.
 
-## Not premium-gated, because 6.6 does not exist
+## Premium-gated, at the routes
 
-The whole challenges system is premium per PRICING §1a. There is no ``subscription``
-table and no ``require_ai_access`` (MULTI_USER.md §12), so this is reachable by any
-authenticated owner exactly like every other AI surface today. Noted rather than faked:
-a comment claiming a gate that is not there is worse than a missing gate.
+The whole challenges system is premium per PRICING §1a, and 6.6 landed: ``subscription``
+exists, ``api.gate.ChallengeUser`` is the gated identity, and every challenge and program
+route takes it — the three challenge actions, the two program actions, both list reads
+and **both** ``generate`` routes. ``tests/premium/test_ai_gate.py`` probes all ten and
+asserts the FEATURE NAME on each, so a swapped gated identity fails rather than passing
+quietly.
+
+> This paragraph said the opposite until the LLM audit, and had done since the gate
+> landed. It is the inverse of the note it replaced and costs exactly the same thing: an
+> auditor reads it and stops looking — in the direction that says "no gate here". The
+> original wording ("a comment claiming a gate that is not there is worse than a missing
+> gate") is still the rule; the way it fails is symmetric.
 
 ## Two transactions, not one
 

@@ -12,6 +12,22 @@ often as the cost limiter below allows. Only the coach carries an included-use c
 > owner needs on a day the chain has not run yet, and what a re-granted free taste would
 > need again. The metering machinery it was written against is intact underneath it.
 
+## ⚠ Reachable from the SERVER only — no client opens this door today
+
+``grep -rn "api/today/action" apps/mobile/lib/`` returns nothing. The premium owner named
+above has no control that calls it; on a day the chain has not run, ``/api/today`` sends
+``action: null`` and the app draws nothing rather than offering to write one. This is
+recorded rather than quietly true, because the paragraph above reads as a description of
+a shipped path and is not one.
+
+Putting a "write me today's action" control on the Today card is the fix and it is a
+DESIGN decision, not an implementation detail: ``design/mobile-preview/`` is the spec for
+that screen and draws no such control, and this repo's standing rule is that the
+prototype is not departed from without the owner asking. So the endpoint is deliberately
+kept (standards' "Dead code" says delete rather than keep just in case, and the argument
+above is why this one is kept) and its reachability is stated instead of implied. It is
+exercised by ``tests/`` and by nothing else.
+
 ## Why a POST at all — a reveal can have to mean "generate"
 
 ``/api/today`` reads the cache and never generates (standards §Performance: "generation

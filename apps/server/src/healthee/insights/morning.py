@@ -50,12 +50,18 @@ an **optimisation, never a dependency**:
 
 Cost then follows availability instead of the reverse, and the arithmetic says where the
 line is. Write *a* for "the merged candidate clears the gates first time", *F* for "it fails
-both attempts", and *s* for the same first-time rate on a single surface. A gate failure
-costs one nudged retry (``pipeline.MAX_VALIDATION_RETRIES = 1``), so:
+every attempt", and *s* for the same first-time rate on a single surface. A gate failure
+costs a NUDGED RETRY, and the budget is ``pipeline.validation_retries()`` — the setting
+``LLM_VALIDATION_RETRIES``, **default 2**. (This derivation was written against a
+constant that no longer exists, ``MAX_VALIDATION_RETRIES = 1``, retired when the retry
+budget became a setting and doubled. The number in the argument is now the number in the
+code.) Expected calls for one surface with two retries is
+*E(s) = s + 2s(1 − s) + 3(1 − s)² = 3 − 3s + s²*, so:
 
-    before = 2·(2 − s) calls          after = (2 − a) + F·2·(2 − s) calls
+    before = 2·E(s) calls             after = E(a) + F·2·E(s) calls
 
-With *a ≈ s* those are equal exactly at **F = 0.5**: the merge is cheaper whenever the
+With *a ≈ s* those are equal exactly at **F = 0.5** — E cancels, which is why doubling
+the retry budget moved the arithmetic and not the answer: the merge is cheaper whenever the
 merged call's total-failure rate is under half, and it degrades to *at most* the old spend
 plus the merged attempt otherwise. Measured fallback rates on this pipeline are **0 % on
 current main** (§9.3's before arm, 14/14) and **31 % at the 2026-08-01 baseline**, both far
