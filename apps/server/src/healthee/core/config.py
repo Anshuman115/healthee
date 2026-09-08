@@ -28,6 +28,8 @@ from typing import Self
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from healthee.core import config_guards as guards
+
 
 class Settings(BaseSettings):
     """Typed view of the process environment. Field names map case-insensitively
@@ -60,13 +62,17 @@ class Settings(BaseSettings):
     # Security unconditionally (`rolbypassrls`) — RLS policies added on top of a
     # superuser connection are decoration, not isolation.
     #
-    # Blank ⇒ the pool falls back to the admin creds above, i.e. exactly the
-    # pre-split behaviour, so this change is safe to deploy BEFORE the role is
-    # provisioned. The fallback is not silent: `core/db` logs a prominent WARNING
-    # naming the over-privileged role at pool open. Provision the role with
+    # Blank ⇒ the pool would fall back to the admin creds above. That fallback is a
+    # documented, deliberately-transitional step of the two-deploy bootstrap
+    # (`infra/DEPLOY.md` §B2) — and it is also the state in which RLS isolates nothing,
+    # so since the auth audit it has to be ASKED FOR (`allow_admin_db_fallback` below)
+    # rather than reached by leaving a variable blank. Provision the role with
     # `python -m healthee.db.provision_app_role` (run as the admin), then set these.
     postgres_app_user: str = ""
     postgres_app_password: str = ""
+    # The opt-out that keeps the bootstrap deploy bootable. See
+    # `_refuse_an_unasked_for_rls_bypass` below for the whole argument.
+    allow_admin_db_fallback: bool = False
 
     # ── API auth (required in production; blank means "reject everything") ──
     # Bearer token expected on every /ingest/* and /api/* request.
@@ -222,110 +228,53 @@ class Settings(BaseSettings):
     # ── Logging ───────────────────────────────────────────────────────────
     log_level: str = "INFO"
 
+    # ── The refusals ─────────────────────────────────────────────────────
+    #
+    # Each body — and the argument for it — lives in `core.config_guards`. They are
+    # thin here on purpose: this file answers "what does the environment hold", and
+    # that one answers "what combinations are not a deployment". The list below is
+    # meant to read as an inventory of the ambiguities this codebase refuses rather
+    # than interprets.
+
     @field_validator("postgres_password")
     @classmethod
     def _require_password(cls, value: str) -> str:
-        if not value:
-            raise ValueError("POSTGRES_PASSWORD must be set")
-        return value
-
-    @model_validator(mode="after")
-    def _require_app_creds_together(self) -> Self:
-        """App user and password are both-or-neither — never one alone.
-
-        Half-set creds are the dangerous case: the pool would either try a
-        passwordless login or connect as the ADMIN while the operator believes the
-        least-privilege role is in force. Both failure modes are silent, and the
-        second one is the exact security theatre this split exists to end. Refuse
-        the ambiguity instead of picking an interpretation.
-        """
-        if bool(self.postgres_app_user) != bool(self.postgres_app_password):
-            raise ValueError(
-                "POSTGRES_APP_USER and POSTGRES_APP_PASSWORD must be set together "
-                "(set both to use the least-privilege app role, or neither to fall "
-                "back to the admin creds)"
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _require_model_ids_when_ai_key_is_set(self) -> Self:
-        """Refuse "configured for AI, but cannot do AI" — it is never a valid state.
-
-        A blank model id is not a default, it is a dead subsystem: the id is forwarded
-        to OpenRouter verbatim and comes back **400 on every call** — insight cards,
-        the coach, and the nightly recs/briefing chain. Nothing in the deploy can see
-        it. `/healthz` is a liveness+DB probe, so it goes green; the LLM failures land
-        in Telegram and the scheduler log. Prod ran in exactly this state.
-
-        **Fail fast, not warn.** `core/db._warn_if_privileged` is the right precedent
-        for the *other* shape of problem — the admin-creds fallback is a documented,
-        deliberately-transitional step of a two-deploy bootstrap (`infra/DEPLOY.md`
-        §B2), so it must stay bootable. There is no deploy order, no bootstrap and no
-        migration in which "key set, model id blank" is correct, which makes it the
-        same shape as `_require_app_creds_together` above: an ambiguity to refuse, not
-        an interpretation to pick. Refusing turns it into a *deploy-time* failure, in
-        front of the operator, instead of a silence discovered weeks later.
-
-        Not running the AI layer stays a first-class, bootable configuration: leave
-        `OPENROUTER_API_KEY` blank and this never fires. The check only triggers on a
-        state the operator explicitly asked for and then half-configured.
-
-        Deliberately NOT mirrored into `/healthz`: with this validator the state cannot
-        exist in a live process, and a probe that 503s on a config problem would let
-        Docker's healthcheck restart the container into the same config forever —
-        trading a dead AI layer for a flapping read API, which is worse than the
-        disease. Config correctness belongs at boot; `/healthz` stays a signal an
-        orchestrator can act on.
-        """
-        if not self.openrouter_api_key:
-            return self
-        blank = [
-            name
-            for name, value in (
-                ("DEFAULT_MODEL", self.default_model),
-                ("COACH_MODEL", self.coach_model),
-            )
-            if not value.strip()
-        ]
-        if blank:
-            raise ValueError(
-                f"OPENROUTER_API_KEY is set but {' and '.join(blank)} is blank — a blank "
-                "model id reaches OpenRouter verbatim and every LLM call returns 400, "
-                "with nothing failing in /healthz. Set the model id(s), or unset "
-                "OPENROUTER_API_KEY to run without the AI layer."
-            )
-        return self
+        return guards.require_password(value)
 
     @field_validator("map_tile_url")
     @classmethod
     def _require_a_usable_tile_template(cls, value: str) -> str:
-        """Refuse a template this server cannot safely expand.
+        return guards.require_a_usable_tile_template(value)
 
-        Two failures, both silent without this. A template missing a placeholder
-        expands to the SAME url for every tile, so the cache fills with one image
-        and the whole basemap is one square of the world repeated — which looks
-        like a rendering bug in the app. And a non-http scheme reaches
-        `urllib.request.urlopen` verbatim: `file:///etc/passwd` would make the
-        tile route a file-read primitive with the z/x/y ignored.
-        """
-        if not value.startswith(("http://", "https://")):
-            raise ValueError(f"MAP_TILE_URL must be an http(s) url, not {value!r}")
-        missing = [token for token in ("{z}", "{x}", "{y}") if token not in value]
-        if missing:
-            raise ValueError(
-                f"MAP_TILE_URL is missing {' and '.join(missing)} — a template without "
-                f"them expands to one tile for every request"
-            )
-        return value
+    @model_validator(mode="after")
+    def _require_app_creds_together(self) -> Self:
+        guards.require_app_creds_together(self.postgres_app_user, self.postgres_app_password)
+        return self
+
+    @model_validator(mode="after")
+    def _refuse_an_unasked_for_rls_bypass(self) -> Self:
+        guards.refuse_an_unasked_for_rls_bypass(
+            self.app_role_configured, self.allow_admin_db_fallback
+        )
+        return self
+
+    @model_validator(mode="after")
+    def _refuse_a_shared_token_beside_open_signups(self) -> Self:
+        guards.refuse_a_shared_token_beside_open_signups(
+            self.signups_open, self.realtime_ingest_token
+        )
+        return self
+
+    @model_validator(mode="after")
+    def _require_model_ids_when_ai_key_is_set(self) -> Self:
+        guards.require_model_ids_when_ai_key_is_set(
+            self.openrouter_api_key, self.default_model, self.coach_model
+        )
+        return self
 
     @model_validator(mode="after")
     def _require_an_ordered_zoom_range(self) -> Self:
-        """An inverted range refuses every tile, which reads as "the map is broken"."""
-        if self.map_tile_min_zoom > self.map_tile_max_zoom:
-            raise ValueError(
-                f"MAP_TILE_MIN_ZOOM ({self.map_tile_min_zoom}) is above MAP_TILE_MAX_ZOOM "
-                f"({self.map_tile_max_zoom}) — no zoom would ever be servable"
-            )
+        guards.require_an_ordered_zoom_range(self.map_tile_min_zoom, self.map_tile_max_zoom)
         return self
 
     @property
@@ -361,7 +310,9 @@ class Settings(BaseSettings):
         """Conninfo for the APPLICATION pool (`core/db.get_pool`).
 
         The least-privilege role when configured, else the admin creds — the
-        backwards-compatible fallback, which `core/db` announces with a WARNING.
+        transitional fallback, which now requires `ALLOW_ADMIN_DB_FALLBACK=true`
+        (`_refuse_an_unasked_for_rls_bypass`) and which `core/db` announces with a
+        WARNING at pool open.
         """
         if self.app_role_configured:
             return self._conninfo(self.postgres_app_user, self.postgres_app_password)

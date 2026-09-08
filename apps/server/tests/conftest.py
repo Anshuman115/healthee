@@ -116,6 +116,39 @@ _DEFAULTED_ENV_VARS = (
 
 
 @pytest.fixture(scope="session", autouse=True)
+def _allow_the_bootstrap_to_build_settings() -> Iterator[None]:
+    """Let the suite's own bootstrap construct `Settings` before it has an app role.
+
+    `core.config` refuses to boot with blank `POSTGRES_APP_*` unless
+    `ALLOW_ADMIN_DB_FALLBACK=true` asks for the transitional state (the B1 fix). The
+    suite's bootstrap is exactly that state and only that state: `_db_reachable()` and
+    `app_role_pool` both build `Settings` to reach `admin_db_url` BEFORE the throwaway
+    role exists, and `app_role_pool` then sets `POSTGRES_APP_*` to the real role for
+    every test that follows.
+
+    ⚠ Without this the failure is silent and mis-reads as a code break:
+    `_db_reachable()` catches the refusal, returns False, and the whole integration
+    suite auto-skips — the exact "looks exactly like a code break and isn't" shape
+    CONTRIBUTING.md warns about for the `POSTGRES_*` vars themselves.
+
+    Session-scoped and autouse because `os.environ` is process-wide. It does NOT weaken
+    what is under test: `tests/db/test_rls.py::test_the_app_pool_is_never_privileged`
+    still asserts from `pg_roles` that the pool is on the least-privilege role, and
+    `tests/test_config.py` constructs `Settings` without this var to exercise the
+    refusal itself.
+    """
+    previous = os.environ.get("ALLOW_ADMIN_DB_FALLBACK")
+    os.environ["ALLOW_ADMIN_DB_FALLBACK"] = "true"
+    get_settings.cache_clear()
+    yield
+    if previous is None:
+        os.environ.pop("ALLOW_ADMIN_DB_FALLBACK", None)
+    else:
+        os.environ["ALLOW_ADMIN_DB_FALLBACK"] = previous
+    get_settings.cache_clear()
+
+
+@pytest.fixture(scope="session", autouse=True)
 def _geodata_caches_are_hermetic(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     """Point the SRTM and basemap caches at a throwaway directory for the run.
 

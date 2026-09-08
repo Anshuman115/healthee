@@ -57,30 +57,64 @@ def _db_reachable() -> bool:
     return True
 
 
-@pytest.fixture
-def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+def _serving_app() -> FastAPI:
     """One endpoint behind the real `CurrentUser` dependency, echoing who it resolved."""
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _LEGACY_TOKEN)
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", _SECRET)
-    monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
-    monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
-    # This file asks *who* a token resolves to, not *whether* a stranger may sign up
-    # (that is `tests/test_signup_gate.py`), so signups are open for its fixtures.
-    monkeypatch.setenv("SIGNUPS_OPEN", "true")
-    get_settings.cache_clear()
-    db_module.close_pool()
-    if not _db_reachable():
-        pytest.skip("no reachable TimescaleDB — auth integration test skipped")
-    migrate.apply_migrations()
     app = FastAPI()
 
     @app.get("/whoami")
     def _whoami(user: CurrentUser) -> dict[str, str]:
         return {"id": str(user.id), "timezone": user.timezone}
 
-    yield TestClient(app)
+    return app
+
+
+@pytest.fixture
+def _auth_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[pytest.MonkeyPatch]:
+    """Supabase verification configured against a real DB; the rest is per-deployment."""
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", _SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
+    monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
+    yield monkeypatch
     db_module.close_pool()
     get_settings.cache_clear()
+
+
+def _built(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    get_settings.cache_clear()
+    db_module.close_pool()
+    if not _db_reachable():
+        pytest.skip("no reachable TimescaleDB — auth integration test skipped")
+    migrate.apply_migrations()
+    return TestClient(_serving_app())
+
+
+# ── Two deployments, because the config now refuses to be both at once ────────
+#
+# `core.config._refuse_a_shared_token_beside_open_signups` refuses `SIGNUPS_OPEN=true`
+# alongside a non-blank `REALTIME_INGEST_TOKEN`: one never-expiring shared secret that
+# authenticates as a real tenant has no business in a deployment strangers can join.
+# This file used to set both in ONE fixture, which is exactly the combination the
+# design says must never exist — so the fixture is now two, and each test says which
+# deployment it is asking about. That is a better description of the system than the
+# single fixture was, not a workaround for the validator.
+
+
+@pytest.fixture
+def signup_client(_auth_env: pytest.MonkeyPatch) -> TestClient:
+    """The post-transition deployment: real Supabase logins, no legacy token."""
+    _auth_env.setenv("REALTIME_INGEST_TOKEN", "")
+    # This file asks *who* a token resolves to, not *whether* a stranger may sign up
+    # (that is `tests/test_signup_gate.py`), so signups are open here.
+    _auth_env.setenv("SIGNUPS_OPEN", "true")
+    return _built(_auth_env)
+
+
+@pytest.fixture
+def legacy_client(_auth_env: pytest.MonkeyPatch) -> TestClient:
+    """The transitional deployment: the shared token lives, signups are shut."""
+    _auth_env.setenv("REALTIME_INGEST_TOKEN", _LEGACY_TOKEN)
+    _auth_env.setenv("SIGNUPS_OPEN", "false")
+    return _built(_auth_env)
 
 
 def _whoami(client: TestClient, token: str) -> dict:
@@ -94,30 +128,32 @@ def _set_timezone(user_id: UUID, tz: str) -> None:
         cur.execute("UPDATE app_user SET timezone = %s WHERE id = %s", (tz, str(user_id)))
 
 
-def test_a_valid_jwt_resolves_to_that_user(client: TestClient) -> None:
+def test_a_valid_jwt_resolves_to_that_user(signup_client: TestClient) -> None:
     uid = uuid4()
-    body = _whoami(client, _token(uid))
+    body = _whoami(signup_client, _token(uid))
     assert body["id"] == str(uid)  # the real user, not the sentinel
     assert body["id"] != str(SENTINEL_USER_ID)
 
 
-def test_a_valid_jwt_jit_provisions_the_user(client: TestClient) -> None:
+def test_a_valid_jwt_jit_provisions_the_user(signup_client: TestClient) -> None:
     uid = uuid4()
-    _whoami(client, _token(uid))
+    _whoami(signup_client, _token(uid))
     with transaction() as cur:
         cur.execute("SELECT count(*) FROM app_user WHERE id = %s", (str(uid),))
         row = cur.fetchone()
     assert row is not None and row[0] == 1
 
 
-def test_the_legacy_shared_token_resolves_to_the_sentinel(client: TestClient) -> None:
+def test_the_legacy_shared_token_resolves_to_the_sentinel(legacy_client: TestClient) -> None:
     """The transition: today's app token keeps resolving exactly today's one tenant."""
-    body = _whoami(client, _LEGACY_TOKEN)
+    body = _whoami(legacy_client, _LEGACY_TOKEN)
     assert body["id"] == str(SENTINEL_USER_ID)
     assert body["timezone"] == SENTINEL_TZ  # the row 0003 seeds
 
 
-def test_the_sentinels_timezone_comes_from_its_row_not_the_constant(client: TestClient) -> None:
+def test_the_sentinels_timezone_comes_from_its_row_not_the_constant(
+    legacy_client: TestClient,
+) -> None:
     """Per-user timezone is real for the sentinel too — the `app_user` row is the source.
 
     Returning `SENTINEL_TZ` from the constant would make this owner's zone unchangeable
@@ -125,16 +161,24 @@ def test_the_sentinels_timezone_comes_from_its_row_not_the_constant(client: Test
     """
     _set_timezone(SENTINEL_USER_ID, "Pacific/Auckland")
     try:
-        assert _whoami(client, _LEGACY_TOKEN)["timezone"] == "Pacific/Auckland"
+        assert _whoami(legacy_client, _LEGACY_TOKEN)["timezone"] == "Pacific/Auckland"
     finally:
         _set_timezone(SENTINEL_USER_ID, SENTINEL_TZ)
-    assert _whoami(client, _LEGACY_TOKEN)["timezone"] == SENTINEL_TZ
+    assert _whoami(legacy_client, _LEGACY_TOKEN)["timezone"] == SENTINEL_TZ
 
 
-def test_a_users_timezone_comes_from_their_own_row(client: TestClient) -> None:
-    """Two owners, two zones, one dependency — neither sees the other's boundary."""
-    uid = uuid4()
-    _whoami(client, _token(uid))  # JIT-provisions at the column default
+def test_a_users_timezone_comes_from_their_own_row(signup_client: TestClient) -> None:
+    """Two owners, two zones, one dependency — neither sees the other's boundary.
+
+    The sentinel half of the original assertion moved to
+    `test_the_sentinels_timezone_comes_from_its_row_not_the_constant`, which owns it and
+    runs on the deployment where the legacy token exists. What is left here is the claim
+    this test was named for: an owner's zone is THEIR row's, and setting it moves only
+    theirs.
+    """
+    uid, other = uuid4(), uuid4()
+    _whoami(signup_client, _token(uid))  # JIT-provisions at the column default
+    _whoami(signup_client, _token(other))
     _set_timezone(uid, "America/Chicago")
-    assert _whoami(client, _token(uid))["timezone"] == "America/Chicago"
-    assert _whoami(client, _LEGACY_TOKEN)["timezone"] == SENTINEL_TZ  # unaffected
+    assert _whoami(signup_client, _token(uid))["timezone"] == "America/Chicago"
+    assert _whoami(signup_client, _token(other))["timezone"] == "UTC"  # unaffected

@@ -83,6 +83,19 @@ def gate(monkeypatch: pytest.MonkeyPatch, db: None) -> Iterator[pytest.MonkeyPat
     db_module.close_pool()
 
 
+def _open_signups(gate: pytest.MonkeyPatch) -> None:
+    """Open signups, and clear the legacy shared token — they cannot coexist.
+
+    `core.config._refuse_a_shared_token_beside_open_signups` refuses that pair: one
+    static, never-expiring secret that authenticates as a real tenant has no business
+    in a deployment strangers can join. So a test that opens the door has to describe a
+    deployment where the transitional branch is gone, which is what these three do.
+    """
+    gate.setenv("SIGNUPS_OPEN", "true")
+    gate.setenv("REALTIME_INGEST_TOKEN", "")
+    get_settings.cache_clear()
+
+
 def _client() -> TestClient:
     app = FastAPI()
 
@@ -170,8 +183,7 @@ def test_the_allowlist_is_case_insensitive_both_ways(gate: pytest.MonkeyPatch) -
 
 
 def test_open_signups_provision_anyone(gate: pytest.MonkeyPatch) -> None:
-    gate.setenv("SIGNUPS_OPEN", "true")
-    get_settings.cache_clear()
+    _open_signups(gate)
     uid = uuid4()
     try:
         assert _get(_token(uid, email=_STRANGER)).status_code == 200
@@ -182,8 +194,7 @@ def test_open_signups_provision_anyone(gate: pytest.MonkeyPatch) -> None:
 
 def test_open_signups_provision_a_token_with_no_email(gate: pytest.MonkeyPatch) -> None:
     """ "Open" means open — the email only matters when the allowlist is the gate."""
-    gate.setenv("SIGNUPS_OPEN", "true")
-    get_settings.cache_clear()
+    _open_signups(gate)
     uid = uuid4()
     try:
         assert _get(_token(uid, email=None)).status_code == 200
@@ -202,8 +213,7 @@ def test_an_existing_owner_passes_while_signups_are_closed(gate: pytest.MonkeyPa
     every user the moment an invite were revoked.
     """
     uid = uuid4()
-    gate.setenv("SIGNUPS_OPEN", "true")
-    get_settings.cache_clear()
+    _open_signups(gate)
     try:
         assert _get(_token(uid, email=_STRANGER)).status_code == 200
         gate.setenv("SIGNUPS_OPEN", "false")

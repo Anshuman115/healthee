@@ -94,12 +94,16 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     """Both owners seeded, Supabase verification configured, one real app."""
     monkeypatch.setenv("SUPABASE_JWT_SECRET", _SECRET)
     monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _LEGACY_TOKEN)
     monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
     # Isolation is what this file proves, not the signup gate (`tests/test_signup_gate.py`):
     # `test_a_brand_new_user_sees_no_one_elses_data` needs a brand-new owner to actually
     # get provisioned, so signups are open for its fixture.
     monkeypatch.setenv("SIGNUPS_OPEN", "true")
+    # Signups open ⇒ NO legacy shared token: `core.config` refuses that pair, because
+    # one never-expiring secret that authenticates as a real tenant must not exist in a
+    # deployment strangers can join. Cleared here rather than inherited from the shell,
+    # which is what a hosted deployment with open signups actually looks like.
+    monkeypatch.setenv("REALTIME_INGEST_TOKEN", "")
     get_settings.cache_clear()
     db_module.close_pool()
     if not _db_reachable():
