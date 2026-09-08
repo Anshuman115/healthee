@@ -20,8 +20,9 @@ from uuid import UUID
 
 from healthee.analytics.series import daily_series
 from healthee.core.db import tenant_transaction
-from healthee.insights.cache import get_cached, set_cached, today_iso
+from healthee.insights.cache import get_cached, get_stored, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
+from healthee.read.meta import metric_label
 
 _SLEEP_PROMPT = (
     "Analyse my recent SLEEP in 4–6 short lines using my real numbers: typical "
@@ -105,10 +106,15 @@ def activity_insight(user_id: UUID, tz: str, *, refresh: bool = False) -> dict:
     )
 
 
-def metric_insight(
-    user_id: UUID, tz: str, metric: str, label: str = "", *, refresh: bool = False
-) -> dict:
-    """Grounded 1–2 line interpretation of one of ``user_id``'s metrics; '' if too thin."""
+def metric_insight(user_id: UUID, tz: str, metric: str, *, refresh: bool = False) -> dict:
+    """Grounded 1–2 line interpretation of one of ``user_id``'s metrics; '' if too thin.
+
+    The metric's own display name comes from ``read.meta.metric_label`` — the same one
+    definition ``notable`` puts on a shift — rather than from the caller. A label supplied
+    by the caller was an unvalidated string inside the prompt's task sentence AND absent
+    from the cache key, so the day's cached text could disagree with the label that asked
+    for it.
+    """
     key = f"metric_insight:{metric}"
     if not refresh:
         cached = get_cached(user_id, tz, key)
@@ -118,7 +124,7 @@ def metric_insight(
     if numbers is None:
         return {"date": today_iso(tz), "metric": metric, "insight": "", "citations": []}
     prompt = (
-        f"In 1–2 short sentences, interpret my {label or metric} for me right now. "
+        f"In 1–2 short sentences, interpret my {metric_label(metric)} for me right now. "
         f"{numbers} If it's off my baseline, give the most likely cause from my recent "
         "context plus one evidence-based lever. Cite [note_id] for any health claim; if "
         "nothing fits, say the cause is unclear. n=1, honest, no diagnosis."
@@ -151,20 +157,46 @@ def _metric_numbers(user_id: UUID, metric: str) -> str | None:
 
 
 def workout_insight(user_id: UUID, tz: str, start: str, *, refresh: bool = False) -> dict:
-    """Grounded coach review of ONE of ``user_id``'s workouts, cached per workout."""
+    """Grounded coach review of ONE of ``user_id``'s workouts, stored per workout.
+
+    ## Why this one is stored rather than cached-per-day
+
+    The key was already the workout (``workout_insight:{start}``) but it was read
+    through ``get_cached``, which serves a payload only while its ``date`` is the
+    owner's today. So opening a three-week-old session regenerated its review every
+    day — each time against *this* week's context, while the session's own numbers
+    stayed the session's. One fixed past workout was getting a different verdict
+    depending on which day somebody scrolled past it, and paying for each one.
+    ``get_stored`` keys it to the subject instead, which is what the key already said.
+
+    ## The window is NAMED for what it covers, which is not the workout's week
+
+    ``context_days=7`` is seven days ending at the owner's **today**, and it cannot be
+    anything else: ``context.build_context`` takes no reference day, and that is a
+    property worth keeping — it is the whole reason ``docs/AS_OF_DAY.md`` §6's "the LLM
+    surfaces do not author past days" is structural here rather than remembered. So the
+    context is not bent to the workout; the PROMPT is told what it is instead, and told
+    to keep the two apart. A window named for a period it does not cover is the defect
+    (the last audit raised the same class twice); a window named accurately is not.
+    """
     numbers = _workout_numbers(user_id, start)
     if numbers is None:
         return {"insight": "", "citations": [], "error": "workout not found"}
     key = f"workout_insight:{start}"
     if not refresh:
-        cached = get_cached(user_id, tz, key)
-        if cached is not None:
-            return cached
+        stored = get_stored(user_id, key)
+        if stored is not None:
+            return stored
     prompt = (
         "Review THIS single workout like a coach in 4–6 short lines: what went well; "
         "what was off (intensity/duration/HR drift); how it fits my goal of raising a "
-        "low VO2max; and one concrete fix for the NEXT session. Cite [note_id] for "
-        f"health claims. No diagnosis.\n\nWORKOUT:\n{numbers}"
+        "low VO2max; and one concrete fix for the NEXT session of this kind. Cite "
+        "[note_id] for health claims. No diagnosis.\n\n"
+        "The WORKOUT below is the session under review, with its own numbers. The "
+        "CONTEXT block is my LAST 7 DAYS UP TO TODAY, which may be long after this "
+        "session — do not describe it as the week around this workout, and do not read "
+        "a trend in it as something this session caused or was caused by."
+        f"\n\nWORKOUT:\n{numbers}"
     )
     result = grounded_ask(
         prompt,
