@@ -97,10 +97,16 @@ def unscored_tracks(cur: Cur, user_id: UUID, tz: str, day: date) -> list[str]:
 def score_day_tracks(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
     """Score every not-yet-scored track of ``day`` — the seam ``derive_day`` calls.
 
-    Oldest first, so when a day holds more than one session the LATEST one owns the day's
-    single ``vo2max_submax`` row — the same session an upload-ordered day would have left
-    there. Returns ``{}`` when nothing was pending, so a day without GPS adds nothing to
-    the derive result and costs one indexed lookup.
+    Oldest first, and which session ends up owning the day's single ``vo2max_submax`` cell
+    is decided by ``derive/gps._store``, on the tier's own precedence rather than on
+    arrival order. This docstring used to say the LATEST session owns it and treated that
+    as harmless; write-path audit B1 is that it is not, because ``vo2max_tier`` reads the
+    measured tier out of those cells and nothing else, so a graded fit at 09:00 lost the
+    day to a reserve inversion at 18:00. Returns ``{}`` when nothing was pending, so a day
+    without GPS adds nothing to the derive result and costs one indexed lookup.
+
+    ``vo2max_submax`` in the returned dict is the LAST scored session's own estimate, which
+    is a report of what this pass did — not a claim about which value the day now carries.
     """
     pending = unscored_tracks(cur, user_id, tz, day)
     if not pending:
