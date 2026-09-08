@@ -27,7 +27,7 @@ import pytest
 from tests.insights._coach_stub import CoachStub, NoCallStub, valid_turn
 
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
-from healthee.insights import coach, coach_thread
+from healthee.insights import coach, coach_thread, pipeline
 
 # The domain #106 was built for, in the owner's own words.
 COLLAPSE = "During my long run yesterday I got confused and started vomiting, then collapsed."
@@ -165,6 +165,36 @@ def test_the_topic_reaches_retrieval() -> None:
     )
     assert coach_thread.retrieval_key("How am I doing?", None) == "How am I doing?"
     assert coach_thread.retrieval_key("How am I doing?", "   ") == "How am I doing?"
+
+
+def test_the_topic_changes_which_notes_the_model_is_shown() -> None:
+    """A topic that grounds nothing is a field that does nothing. This measures it.
+
+    ``retrieval.evidence_section`` embeds the top ``DEFAULT_TOP_N`` notes in FULL and
+    lists the rest as one-line summaries, and ``rank_notes`` ranks against the text it is
+    given. So joining the subject to the question changes which six notes the model reads
+    in full — which is the whole of what a topic is for, and the whole of what it may do.
+
+    Measured on the corpus as it stands: a bare "How am I doing?" embeds
+    ``alcohol_sleep, behavior_change_and_personalization, cadence_intensity,
+    caffeine_sleep, critical_speed, environmental_stress`` — six notes chosen by nothing
+    the owner was looking at. With the HRV topic the set becomes HRV-shaped
+    (``heart_rate_variability`` first). The assertion is the CHANGE and the presence of
+    the subject's own note, not the exact list, because the list moves with the corpus.
+
+    This is a ranking, not an assertion. Nothing in the topic is presented to the model as
+    true; it only decides what evidence is in front of it — which is the difference the
+    fence in :func:`coach_thread.topic_block` states in words.
+    """
+    question = "How am I doing?"
+    _, plain = pipeline.evidence(coach_thread.retrieval_key(question, None))
+    _, ranked = pipeline.evidence(
+        coach_thread.retrieval_key(question, "What should I notice in my overnight HRV trend?")
+    )
+
+    assert plain != ranked, "the topic was carried but changed nothing the model reads"
+    assert "heart_rate_variability" in ranked
+    assert "heart_rate_variability" not in plain
 
 
 def test_the_topic_arrives_fenced_as_a_label_and_not_as_a_finding() -> None:
