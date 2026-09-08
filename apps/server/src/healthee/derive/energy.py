@@ -72,9 +72,20 @@ from healthee.derive.freshness import (
 # AND undercounts time up-and-about between strides (standing/light 1.5-1.8). So
 # each non-step waking minute is classified: near step activity (within
 # +/-NEAT_WINDOW min) => up & moving ~1.55; isolated => seated/resting ~1.3.
-AWAKE_SEDENTARY_MET = 1.3  # Compendium 07021 — sitting quietly
-AWAKE_ACTIVE_MET = 1.55  # standing / light household between steps
-NEAT_WINDOW = 7  # minutes either side to look for movement
+#
+# ⚠ Only ONE of the three is a research constant, and saying which is the point
+# (standards section 1 asks every research constant to cite its note; it does not ask a
+# product decision to invent one). `derive/hr_validity.py` is the reference for this
+# shape of comment. [[energy_expenditure_derivation]] carries the same split.
+AWAKE_SEDENTARY_MET = 1.3  # Compendium 07021 — sitting quietly. SOURCED.
+AWAKE_ACTIVE_MET = 1.55  # standing / light household between steps.
+# PRACTITIONER CHOICE, not a Compendium entry: it sits between standing-quiet (1.3) and
+# light household activity (~1.8) because a minute between strides is neither. No paper
+# is claimed and none should be invented.
+NEAT_WINDOW = 7  # minutes either side to look for movement.
+# PRODUCT DECISION with no literature behind it at all: how near a step has to be for a
+# still minute to read as up-and-about. Moving either of these two is a science change
+# and gets its own PR with the parity fixture re-baselined.
 SLEEP_MET = 0.95  # sleep is ~0.9-0.95 x RMR
 
 _WALK_RUN_SPEED_M_MIN = 134  # ACSM equation switch (m/min): walking vs running VO2

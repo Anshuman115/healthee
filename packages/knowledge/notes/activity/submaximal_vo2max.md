@@ -108,6 +108,22 @@ steady-state sub-maximal segments of a workout, fit a per-session linear regress
   running. The gradient effect is applied as the **Minetti 2002 energy-cost ratio**, not
   the plain ACSM linear grade term — the linear term goes negative on descents, the
   Minetti polynomial is U-shaped and handles downhill correctly.
+- **The Minetti coefficients, written out here** (added 2026-09-08). They lived only
+  inline in `derive/vo2max_submax.py`, with **no copy anywhere in the corpus**, so nothing
+  in the repo could have caught a future transcription error in them — the exact shape of
+  the pre-#108 SEE defect, on twelve numbers instead of one. `Cw` is the energy cost of
+  transport in J·kg⁻¹·m⁻¹ as a quintic in gradient `i` (a fraction; 0.05 = 5%), valid over
+  `|i| ≤ 0.45`:
+
+  | | i⁵ | i⁴ | i³ | i² | i¹ | i⁰ (level cost) |
+  |---|---|---|---|---|---|---|
+  | **Running** | 155.4 | −30.4 | −43.3 | 46.3 | 19.5 | **3.6** |
+  | **Walking** | 280.5 | −58.7 | −76.8 | 51.9 | 19.6 | **2.5** |
+
+  The level VO₂ above is scaled by `Cw(i) / Cw(0)`, with `Cw` floored at 0.7 so a steep
+  descent cannot drive the cost ratio to zero. `tests/derive/test_minetti_coefficients.py`
+  asserts the code and this table agree term for term, so an edit to either alone fails
+  the build. Verified against the paper on 2026-09-08 and correct as written.
 - **Speed is measured, never inferred from cadence.** It comes from the GPS track
   (per-fix distance ÷ time, smoothed), and grade from an SRTM terrain DEM.
   `speed = cadence × step length` is a true kinematic identity, but a *fixed* step length
@@ -307,6 +323,20 @@ age-predicted HRmax error and HR-decoupling conditions.
   [[cadence_derived_speed]]; the single canonical step-length constant lives in
   [[distance_from_steps]] and is used for daily distance only. **This note introduces no
   step-length constant.**
+- **The fit gates, all of them** (added 2026-09-08 — `MIN_R2` and `SPEED_CV_MAX` were the
+  two this section documented every other gate but not). A session must supply
+  **≥ 6 steady windows** (`MIN_WINDOWS`), each of **≥ 3 intervals**, spanning
+  **≥ 15 bpm** (`MIN_HR_RANGE`) — a line fitted through a narrow HR range extrapolates to
+  HRmax on almost no leverage — with the first **180 s dropped** (`WARMUP_DROP_S`, HR lags
+  load at the start). A window counts as steady when its smoothed speed
+  **CV < 0.20** (`SPEED_CV_MAX`), and the regression must reach **R² ≥ 0.5** (`MIN_R2`).
+  The output is bounded to **20–85 mL/kg/min** and the gradient clamped to ±0.35 in this
+  path (inside Minetti's ±0.45 validity).
+  **Neither `MIN_R2 = 0.5` nor `SPEED_CV_MAX = 0.20` is a research constant** and neither
+  cites a paper: they are our fit-quality floors, chosen so a visibly bad line is refused
+  rather than published, and they are recorded here so a future reader can see they were
+  chosen rather than derived. Changing either changes which sessions produce a measured
+  VO₂max, so it is a science change with its own PR.
 - **Tiering contract**: submaximal is used when a recorded GPS session **inside the last
   14 days** supplies ≥~6 steady windows of running/brisk-walking; otherwise the derive
   pass falls back to the Jurca non-exercise model ([[non_exercise_vo2max]]). When the
