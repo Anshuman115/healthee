@@ -15,23 +15,29 @@
 ///    ${H.evidence('sleep_need_debt')}`, '', 'moon')
 /// ```
 ///
-/// ## Three deliberate differences from the prototype's numbers
+/// ## Two deliberate differences from the prototype's numbers
 ///
-/// **`/api/sleep` sends no need and no debt.** The prototype's `120 min` and its
-/// `14-night model` come from Today's `sleep_debt` block, which this endpoint
-/// does not carry. Rather than restate a number from another screen — the way
-/// two numbers start disagreeing — the figure here is the one this screen can
-/// compute from the nights it was sent: the total shortfall against the 8-hour
-/// reference across the measured nights of the last seven.
+/// **`/api/sleep` now sends the need and the debt** — the same `sleep_debt`
+/// block the Today page carries, from the same rows. It used to send neither,
+/// and this panel measured its shortfall against `kSleepNeedMin`, a client
+/// constant of 480 minutes flat. The server's need is age-selected (NSF 2015:
+/// 480 under 65, 450 at 65 and over), so for an older owner the two tabs
+/// reported different shortfalls for the same nights and neither said which was
+/// which. That is the second definition `CLAUDE.md`'s first hard rule is about,
+/// and the constant is deleted rather than corrected: a better client constant
+/// is still a second definition.
 ///
-/// So the third statistic says **`Nights counted`**, not `Modelled nights`, and
-/// carries the count this screen actually used. The note says the same thing in
-/// words. A `14` here would have been a label borrowed from a model that is not
-/// running behind it.
+/// **Where the server has no need, this panel says so and draws nothing.** The
+/// need band is selected from AGE, so a profile with no date of birth has none
+/// — and a shortfall, a performance percentage and a nightly gap are all
+/// ratios against it. Withheld with the reason, never computed against an
+/// assumed eight hours.
 ///
-/// **The reference is `kSleepNeedMin`,** the app's one sleep-need constant, and
-/// the note names it rather than leaving `79%` to look like a mark out of a
-/// hundred.
+/// The shortfall is still summed over the nights THIS SCREEN was sent, not over
+/// the server's fourteen, so the third statistic says **`Nights counted`** and
+/// carries the count actually used. A `14` here would be a label borrowed from
+/// a model that is not running behind it; the server's own 14-night debt is a
+/// different figure and lives on the Today page.
 ///
 /// ## The chart is `HDebtBars`, not a second one
 ///
@@ -44,7 +50,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tone.dart';
+import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
+import 'package:healthee/data/models/sleep_debt.dart';
 import 'package:healthee/data/models/sleep_night.dart';
 import 'package:healthee/features/sleep/sleep_format.dart';
 import 'package:healthee/features/sleep/sleep_windows.dart';
@@ -55,13 +63,16 @@ import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:healthee/shared/v02/withheld_panel.dart';
 
-/// `Sleep need & debt` — the seven-night shortfall against the 8-hour reference.
+/// `Sleep need & debt` — the seven-night shortfall against the server's need.
 class SleepNeedPanel extends StatelessWidget {
-  /// [night] is the latest session; [nights] the measured week, oldest first.
+  /// [night] is the latest session; [nights] the measured week, oldest first;
+  /// [needMin] the server's own sleep need, or null when it has none.
   const SleepNeedPanel({
     required this.night,
     required this.nights,
+    required this.needMin,
     required this.reveals,
     super.key,
   });
@@ -88,37 +99,64 @@ class SleepNeedPanel extends StatelessWidget {
   /// The measured nights of the last seven, oldest first.
   final List<DebtNight> nights;
 
+  /// The server's age-selected sleep need in minutes, or null when it has none
+  /// for this owner. Every figure below is a ratio against it, so null withholds
+  /// all of them rather than substituting a reference nobody computed.
+  final int? needMin;
+
   /// Where "already revealed" is remembered.
   final RevealRegistry reveals;
 
-  /// Total minutes short of the reference across [nights].
-  double get shortfallMin => nights.fold<double>(
-    0,
-    (sum, night) =>
-        sum + (kSleepNeedMin - night.totalMin).clamp(0.0, kSleepNeedMin),
-  );
-
-  /// Last night as a share of the reference, carrying its honesty state.
-  Reading<double> get performance =>
-      night.tstMin.map((minutes) => (100 * minutes / kSleepNeedMin).clamp(0, 100));
-
-  /// Last night's own shortfall, or null when the night was not measured.
-  double? get nightlyGapMin {
-    final minutes = night.tstMin.valueOrNull;
-    return minutes == null ? null : (kSleepNeedMin - minutes).clamp(0.0, kSleepNeedMin);
+  /// Total minutes short of the need across [nights], or null without a need.
+  double? get shortfallMin {
+    final need = needMin?.toDouble();
+    if (need == null || need <= 0) {
+      return null;
+    }
+    return nights.fold<double>(
+      0,
+      (sum, night) => sum + (need - night.totalMin).clamp(0.0, need),
+    );
   }
 
-  /// The note, naming the reference and the window it was applied over.
-  String get note =>
-      'Measured against a ${hoursMinutes(kSleepNeedMin)} reference, summed over '
-      'the ${nights.length} measured '
-      '${nights.length == 1 ? 'night' : 'nights'} of the last seven. This is '
-      'not a modelled sleep debt.';
+  /// Last night as a share of the need, carrying its honesty state.
+  Reading<double>? get performance {
+    final need = needMin?.toDouble();
+    if (need == null || need <= 0) {
+      return null;
+    }
+    return night.tstMin.map((minutes) => (100 * minutes / need).clamp(0, 100));
+  }
+
+  /// Last night's own shortfall, or null when the night or the need is missing.
+  double? get nightlyGapMin {
+    final need = needMin?.toDouble();
+    final minutes = night.tstMin.valueOrNull;
+    if (need == null || need <= 0 || minutes == null) {
+      return null;
+    }
+    return (need - minutes).clamp(0.0, need);
+  }
+
+  /// The note, naming the need and the window it was applied over.
+  String get note {
+    final need = needMin;
+    if (need == null || need <= 0) {
+      return kNoSleepNeed;
+    }
+    return 'Measured against your ${hoursMinutes(need)} age-based need, summed '
+        'over the ${nights.length} measured '
+        '${nights.length == 1 ? 'night' : 'nights'} of the last seven. This is '
+        'not the 14-night modelled debt.';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final percent = performance.valueOrNull;
+    final need = needMin;
+    final hasNeed = need != null && need > 0;
+    final percent = performance?.valueOrNull;
     final gap = nightlyGapMin;
+    final shortfall = shortfallMin;
     return Panel(
       tone: Tone.sleep,
       label: 'Sleep need · debt',
@@ -131,11 +169,20 @@ class SleepNeedPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          PanelValue(
-            hoursMinutes(shortfallMin),
-            unit: 'debt',
-            context_: '${hoursMinutes(kSleepNeedMin)} need',
-          ),
+          if (shortfall != null && hasNeed)
+            PanelValue(
+              hoursMinutes(shortfall),
+              unit: 'debt',
+              context_: '${hoursMinutes(need)} need',
+            )
+          else
+            const WithheldPanel(
+              disclosure: Disclosure(
+                reason: kNoSleepNeedReason,
+                message: kNoSleepNeed,
+              ),
+              label: 'Sleep need',
+            ),
           const SizedBox(height: statsGap),
           StatRow(<Stat>[
             if (percent != null)
@@ -148,10 +195,10 @@ class SleepNeedPanel extends StatelessWidget {
             ProgressTrack(fraction: percent / 100),
             const SizedBox(height: trackBottom),
           ],
-          // One bar is not a week. Below the floor the chart draws nothing and
-          // keeps its slot, and the note below already says how many nights are
-          // behind the figure.
-          if (nights.length < SleepWindows.minimumNights)
+          // One bar is not a week, and a need-versus-actual chart with no need
+          // is not a chart. Below either floor the slot is kept and drawn empty,
+          // and the note below says which floor it was.
+          if (!hasNeed || nights.length < SleepWindows.minimumNights)
             const ChartVoid(height: chartHeight)
           else
             RevealOnce(
@@ -162,17 +209,19 @@ class SleepNeedPanel extends StatelessWidget {
                 child: HDebtBars(
                   totalsMin: <double>[for (final n in nights) n.totalMin],
                   labels: <String>[for (final n in nights) n.label],
-                  needMin: kSleepNeedMin.round(),
+                  needMin: need,
                   progress: t,
                   height: chartHeight,
                 ),
               ),
             ),
-          const SizedBox(height: legendGap),
-          ColourKey(<ColourKeyEntry>[
-            ColourKeyEntry('Met ${hoursMinutes(kSleepNeedMin)}', tone: Tone.fitness),
-            const ColourKeyEntry('Short', tone: Tone.heart),
-          ]),
+          if (hasNeed) ...<Widget>[
+            const SizedBox(height: legendGap),
+            ColourKey(<ColourKeyEntry>[
+              ColourKeyEntry('Met ${hoursMinutes(need)}', tone: Tone.fitness),
+              const ColourKeyEntry('Short', tone: Tone.heart),
+            ]),
+          ],
           PanelNote(note),
           if (night.tstMin case Withheld<double>(:final disclosure))
             PanelNote('Last night: ${disclosure.message}'),

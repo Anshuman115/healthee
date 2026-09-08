@@ -29,7 +29,7 @@ from healthee.derive.vo2max import METHOD_JURCA
 from healthee.derive.vo2max_submax import METHOD_GRADED
 from healthee.read.findings import top_findings
 from healthee.read.fitness import mvpa_payload
-from healthee.read.recovery import recovery_signals
+from healthee.read.recovery_signals import recovery_signals
 from healthee.read.vo2max import vo2max_payload
 
 pytestmark = pytest.mark.integration

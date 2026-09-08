@@ -50,6 +50,23 @@ Map<String, Object?> loadJson(String path) {
 SleepPage sleepPageFixture() =>
     SleepPage.fromJson(loadJson(kSleepSnapshotPath));
 
+/// The sleep need the snapshot carries, for suites that build a panel directly.
+///
+/// Read off the same payload rather than typed here, so a suite cannot go green
+/// against a need the server does not send. A hardcoded 480 is exactly the
+/// second definition `kSleepNeedMin` was deleted for being.
+int get kSleepNeedFixture {
+  final need = sleepPageFixture().sleepDebt?.needMin;
+  expect(
+    need,
+    isNotNull,
+    reason:
+        'the snapshot no longer carries sleep_debt.need_min, so these panels '
+        'would be exercised against a need the wire does not send',
+  );
+  return need!;
+}
+
 /// The regularity block as the server really sends it.
 SleepConsistency consistencyFixture() =>
     SleepConsistency.fromJson(loadJson(kConsistencySnapshotPath));

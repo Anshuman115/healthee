@@ -2660,6 +2660,57 @@ mutate 'a missing intensity breakdown is read as measured zeros' \
   "      weekVigorousMin: (json['week_vigorous_min'] as num?)?.toInt()," \
   "      weekVigorousMin: (json['week_vigorous_min'] as num?)?.toInt() ?? 0,"
 
+# ── BACKEND_AUDIT.md sections B and C — the client half ──────────────────────
+#
+# C3 is the one CLAUDE.md's first hard rule names: the client computed its own,
+# age-blind sleep need while the server computed the real one. B4 and C2 are the
+# wire-shape halves of two server fixes.
+
+B_AND_C=test/data/honesty_b_c_test.dart
+SLEEP_DEBT_MODEL=lib/data/models/sleep_debt.dart
+NEED_PANEL=lib/features/sleep/v02/need_panel.dart
+BUCKET_MODEL=lib/data/models/today_series.dart
+NAP_MODEL=lib/data/models/sleep_page.dart
+
+# C3. The parser coalesces a missing need to a flat eight hours again — a
+# personal target invented for somebody we could not compute one for, and then
+# published back as theirs. The server's need is age-selected (450 at 65+).
+mutate 'the client invents a sleep need again' \
+  "$B_AND_C" "$SLEEP_DEBT_MODEL" \
+  "      needMin: (json['need_min'] as num?)?.toInt()," \
+  "      needMin: (json['need_min'] as num?)?.toInt() ?? 480,"
+
+# C3, one layer up. The Sleep tab measures against its own constant rather than
+# the need it was handed, so the two tabs disagree about the same nights again.
+mutate 'the sleep panel measures against its own constant again' \
+  "$B_AND_C" "$NEED_PANEL" \
+  '    final need = needMin?.toDouble();' \
+  '    final need = 480.0;'
+
+# C3, the withhold. With no need the panel draws its figures anyway, against
+# nothing — the "optimistic guess" the honesty contract is defined against.
+mutate 'the panel stops withholding when there is no need' \
+  "$B_AND_C" "$NEED_PANEL" \
+  '    final hasNeed = need != null && need > 0;' \
+  '    final hasNeed = true;'
+
+# C2. The nap reads its time in bed off the key a NIGHT uses for total sleep
+# time, so one name means two quantities in one payload again.
+mutate 'a nap reads time in bed off the night is sleep-time key' \
+  "$B_AND_C" "$NAP_MODEL" \
+  "      tibMin: (json['tib_min'] as num?)?.toDouble()," \
+  "      tibMin: (json['duration_min'] as num?)?.toDouble(),"
+
+# B4. The bucket parses a distance again — and the only distance it could parse
+# is the population-stride one the server stopped computing, so the field is a
+# measurement in name and nothing behind it.
+mutate 'a step bucket parses a distance nobody measured' \
+  "$B_AND_C" "$BUCKET_MODEL" \
+  "      steps: (json['steps'] as num?)?.toDouble() ?? 0," \
+  "      steps: (json['distance_m'] as num?)?.toDouble() ??
+          (json['steps'] as num?)?.toDouble() ??
+          0,"
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

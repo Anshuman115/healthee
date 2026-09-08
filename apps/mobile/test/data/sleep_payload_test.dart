@@ -38,7 +38,6 @@ void main() {
         'start_iso',
         'end_iso',
         'tst_min',
-        'duration_min',
         'spo2_avg',
       ]).nights.first;
       expect(night.start, isNull);

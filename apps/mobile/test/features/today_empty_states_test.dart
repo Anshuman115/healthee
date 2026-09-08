@@ -174,6 +174,7 @@ void main() {
           nights: <SleepNight>[page.nights.first],
           naps: const [],
           cutoffs: page.cutoffs,
+          sleepDebt: page.sleepDebt,
           findings: const [],
           researchNotes: page.researchNotes,
         ),

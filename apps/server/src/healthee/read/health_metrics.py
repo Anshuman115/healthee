@@ -60,9 +60,18 @@ def sleep_debt_payload(
         if reads
         else latest_derived(cur, user_id, "sleep_need_min", as_of)
     )
-    need = need_row[1] if need_row else 480.0
+    # NOT ``else 480.0``. That coalesce was a FOURTH definition of sleep need, found while
+    # converging the three the audit named (C3, C4 and ``derive/sleep_score.py``'s
+    # canonical pair): it published a flat eight hours as this owner's ``need_min`` — the
+    # very field the Sleep tab is now told to read instead of computing its own — and
+    # ``_last_night`` then divided their sleep by it to make a "performance" percentage.
+    # It is barely reachable (``derive_sleep_debt`` writes ``sleep_need_min`` and
+    # ``sleep_debt_min`` in the same call, so a debt row without a need row is a row from
+    # an older schema) and that is exactly why it had to go: an unreachable fabrication is
+    # a fabrication nobody will notice becoming reachable.
+    need = float(need_row[1]) if need_row else None
     return {
-        "need_min": round(need),
+        "need_min": None if need is None else round(need),
         "debt_min": None if withheld else round(debt_min),
         # The window stats describe the SAME fortnight the debt does, so they are dated
         # with it — a UI showing "avg 6.3 h/night" beside a withheld debt would restore
@@ -92,7 +101,7 @@ def _debt_withheld(
     )
 
 
-def _last_night(cur: Cur, user_id: UUID, as_of: date, need: float) -> dict:
+def _last_night(cur: Cur, user_id: UUID, as_of: date, need: float | None) -> dict:
     """The night ending on ``as_of``, and its Sleep Performance %, or a dated withhold.
 
     ``last_tst_min`` was the newest ``sleep_health_score_4dim`` row's TST with the day
@@ -126,9 +135,14 @@ def _last_night(cur: Cur, user_id: UUID, as_of: date, need: float) -> dict:
     }
 
 
-def sleep_performance_pct(last_tst: float | None, need: float) -> int | None:
+def sleep_performance_pct(last_tst: float | None, need: float | None) -> int | None:
     """Sleep Performance %: last night's actual sleep ÷ need, capped at 100% (one
-    honest ratio, not a composite). Ported VERBATIM. [[sleep_need_debt]]."""
+    honest ratio, not a composite). Ported VERBATIM. [[sleep_need_debt]].
+
+    ``None`` without a need as well as without a night: the ratio has two terms and it is
+    a claim about neither of them alone. The guard was already here and already correct —
+    what changed is that a missing need can now actually reach it (see
+    :func:`sleep_debt_payload`), instead of being coalesced to a flat 480 upstream."""
     if not (last_tst and need):
         return None
     return round(min(100.0, 100.0 * last_tst / need))

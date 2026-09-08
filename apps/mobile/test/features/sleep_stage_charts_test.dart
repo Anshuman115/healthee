@@ -135,6 +135,7 @@ void main() {
           SleepNeedPanel(
             night: night,
             nights: windows.debt,
+            needMin: kSleepNeedFixture,
             reveals: RevealRegistry(),
           ),
         ),
@@ -156,6 +157,7 @@ void main() {
           SleepNeedPanel(
             night: night,
             nights: <DebtNight>[windows.debt.first],
+            needMin: kSleepNeedFixture,
             reveals: RevealRegistry(),
           ),
         ),

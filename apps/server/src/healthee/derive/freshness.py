@@ -103,6 +103,29 @@ PROFILE_INCOMPLETE = "profile_or_weight_missing"
 # distinguishable to the caller (standards §1).
 NO_NIGHTS_IN_WINDOW = "no_recorded_nights_in_window"
 
+# There is no age-and-sex reference distribution for this owner, because their date of
+# birth or sex was never recorded — so anything priced AGAINST the population (a median,
+# a percentile, a gap-scaled projection) has no reference to be priced against. One id,
+# because it is one condition: ``read/vo2max.py`` declines to name a ``median_for_age``,
+# and every consumer of that null is looking at the same absence. Distinct from
+# PROFILE_INCOMPLETE, which additionally wants a height and a logged weight — a metric
+# that needs only the demographics must not report the weight's absence as its reason.
+NO_AGE_MEDIAN = "no_age_sex_median"
+
+# No date of birth on the profile. Narrower than PROFILE_INCOMPLETE and deliberately its
+# own id: sleep need is a function of AGE alone (NSF 2015), so reporting it under an id
+# that names a height and a logged weight would tell the owner to do two things that
+# would not bring the number back. "One state, one id" cuts both ways — two states must
+# not share one id either.
+DOB_MISSING = "date_of_birth_missing"
+
+# A CAVEAT id, not a withhold: the strap's own daily counter was read while the day it
+# counts was still running, so the number is that day up to the moment it was read. The
+# value is served — it is a real measurement of a real interval — and this says which
+# interval. ``derive/device_totals.py``'s own comment made the point and nothing acted on
+# it: "a counter read at 09:00 is a statement about a partial day".
+COUNTER_MID_DAY = "device_counter_read_mid_day"
+
 NOT_DERIVED_YET_MESSAGE = "Today's number has not been computed yet — sync the strap."
 
 # The most recent logged weight is too far from the day being computed for it to be a

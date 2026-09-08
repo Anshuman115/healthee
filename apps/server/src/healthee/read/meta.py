@@ -21,6 +21,25 @@ METRIC_META: dict[str, dict] = {
     "weight_kg":          {"label": "Weight",           "unit": "kg",   "digits": 1},
 }  # fmt: skip
 
+# The manifest note licensing each card, for the app's ⓘ sheet. MANIFEST IDS, never
+# aliases — an alias resolves to nothing in every consumer of a cited id, so a card citing
+# one opens an empty explainer (``read/activity.py``).
+#
+# The three calorie rows carried NO note id at all, unlike their VO2max, MVPA and strain
+# siblings, so ``energy_expenditure_derivation``'s own Directive 3 estimate label (the
+# ±15-20% individual error) had nowhere to render (audit C6). A metric absent from this
+# map ships ``note_id: None`` — an honest "we have not cited this one" rather than a
+# guessed id, which is the failure mode a default here would create.
+METRIC_NOTE_ID: dict[str, str] = {
+    "rhr_daily": "resting_heart_rate",
+    "steps_total": "steps_mortality",
+    "distance_m_daily": "distance_from_steps",
+    "active_calories": "energy_expenditure_derivation",
+    "total_calories": "energy_expenditure_derivation",
+    "basal_calories": "energy_expenditure_derivation",
+    "weight_kg": "weight_bmi_body_composition",
+}
+
 # Today's secondary cards — each slot is a list of candidate metrics, first with
 # data wins; order = display order. Ported from legacy TODAY_SECONDARY_METRICS
 # with the v1→v2 renames applied (``distance_m`` alias and ``floors_climbed_daily``

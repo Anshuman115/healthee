@@ -125,7 +125,7 @@ class SleepNight {
       start: _instant(json['start_iso']),
       end: _instant(json['end_iso']),
       deviceScore: sleepReading(number('zepp_score'), derived),
-      tstMin: sleepReading(number('tst_min') ?? number('duration_min'), derived),
+      tstMin: sleepReading(number('tst_min'), derived),
       tibMin: sleepReading(number('tib_min'), derived),
       efficiencyPct: sleepReading(number('efficiency_pct'), derived),
       healthScore: sleepReading(number('score'), derived),

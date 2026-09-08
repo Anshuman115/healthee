@@ -19,7 +19,24 @@ same as how wrong it is. Three of the worst-looking defects sit on payload block
 never parses; they are in section B with the reason stated, because that is the honest
 ordering and because they become section-A defects the day someone wires them up.
 
-Nothing was changed. This document recommends; it does not fix.
+Nothing was changed BY THE AUDIT. This document recommends; it does not fix.
+
+**Status: every finding is now resolved.** Severity A was fixed and merged first;
+sections B, C and D followed. Two findings needed no code — B1 had been closed by the A
+pass's `read/acwr.py`, and C1 by its `_stub_night` — and both are recorded as such below
+rather than ticked. The rest carry a **RESOLVED** line saying what was done, because the
+useful record is not that a box was ticked but which of the three honest moves was taken:
+serve the true value, withhold with a reason, or name the limit on the face.
+
+Two things were found while fixing, neither of them in this document:
+
+* **Sleep need had FIVE definitions, not the three C3 and C4 name.** A fourth sat in
+  `read/health_metrics.sleep_debt_payload` (`need = need_row[1] if need_row else 480.0`)
+  and a fifth in the client's `SleepDebt` parser (`?? 480`). Both were barely reachable,
+  which is the argument for removing them rather than against it.
+* **`distance_m_daily` shares C7's defect exactly.** The stride tier multiplies the step
+  count, so a day nobody counted produced a distance of 0.0 by the same route and entered
+  the distance baseline the same way. Fixed with it.
 
 ---
 
@@ -457,6 +474,13 @@ them section-A defects the same day.
 
 ### B1 — `acwr` ships a verdict the corpus grades Contested and forbids, cites the wrong note, and the corpus asserts a suppression rule the code does not have — CONFIRMED
 
+**RESOLVED — MOOT.** Closed in full by the severity-A pass before this section was
+worked, and verified rather than assumed: `read/acwr.py` deletes `state` outright (the
+argument for deleting rather than rewording is in that module, and rests on
+Dalen-Lorentsen 2021 — the only RCT, and null), implements the 28-day suppression its own
+note already claimed the product had, cites `training_load_acwr`, and ships `n_acute` and
+`n_chronic`. Two mutations in `tests/read/mutations.sh` hold all of it.
+
 `apps/server/src/healthee/read/fitness.py:213-238`
 
 ```python
@@ -510,6 +534,12 @@ note is currently the wrong one.
 
 ### B2 — `median_for_age` is fabricated when absent, under the name of a computed value — CONFIRMED
 
+**RESOLVED — withheld with a reason.** `read/fitness_plan.py` (moved out of
+`read/fitness.py`) takes `median_for_age` as it comes, null included. With no median there
+is no gap and no projection: `median_for_age`, `gain` and `projected_12wk` go null behind a
+`withheld` block naming the new `freshness.NO_AGE_MEDIAN` reason, and the weekly Rx, which
+needs no median, still ships.
+
 `apps/server/src/healthee/read/fitness.py:255,275`
 
 ```python
@@ -527,6 +557,23 @@ block and `median_for_age: 41.0` in another. `41` cites nothing.
 VO2max-raising plan whose target is unknown is a plan we cannot write.
 
 ### B3 — the 12-week projection cannot say "no gain" — CONFIRMED
+
+**RESOLVED — the bound and its provenance ship beside the number, and the code yielded to
+the corpus.** The primary sources were read before anything was deleted, because deleting
+the projection was the cheap move and would have been wrong: `[[vo2max]]`'s own
+implementation section specifies this formula — "bounded **+2 to +5 mL/kg/min**:
+`gain = clamp(0.4 × gap, 2, 5)`" — and sites it at the conservative end of Bacon 2013's
+meta-analysis, projecting about half of that study's +6.4 ml/kg/min in young untrained
+adults. The +2 floor is a claim about a training program's typical effect, which does not
+depend on the trainee starting below their age median.
+
+What the note DOES forbid is what the code was doing. D5, Established: *"Never promise a
+specific VO₂max gain — trainability is ~47% heritable and ranges from near-zero to
+>1 L/min for the same program"* [Bouchard 1999]; the number is licensed only "as an
+estimate of typical response, never a promise", shown "if you follow the plan". So the
+constants are named and cited, `gain_floor` / `gain_cap` / `gain_gap_fraction` ship beside
+the number so it reads as a range, and D5's conditional travels as a caveat the honesty
+envelope can see instead of living in a docstring.
 
 `apps/server/src/healthee/read/fitness.py:256`
 
@@ -550,6 +597,14 @@ bound and its provenance beside the number (`gain_floor`, `gain_cap`, `note_id`)
 can see it is a range, not a forecast.
 
 ### B4 — two definitions of stride, and the intraday one is a population constant — CONFIRMED
+
+**RESOLVED — both fields removed, on the wire and in the model.** There is no per-bucket
+quantity behind either name, so nulling them would have kept two keys that could only ever
+say nothing. `distance_m` was the second definition of stride and the only one that could
+never refuse; `calories` was a hardcoded zero. Neither is read by any widget, so nothing
+loses a number. The mobile guard is a DERIVED check rather than a listed one — the model's
+source is scanned for the two keys, because a field nothing reads is invisible to a widget
+test, which is exactly how both survived.
 
 Canonical, `derive/activity.py:22,58`:
 
@@ -591,6 +646,9 @@ model, which is a real piece of work to scope on its own.
 
 ### C1 — the blank night ships four zeroed stages — CONFIRMED (anchor 3)
 
+**RESOLVED — MOOT.** Taken by the severity-A sleep work and verified: `_stub_night` sends
+`"stages": None`, with the reasoning in place beside it.
+
 `read/sleep_page.py:152-179` (`_stub_night`), used at `:97`. **The brief's reading is
 confirmed exactly.** Every field is `None` — including `duration_min`, which is honest —
 except:
@@ -612,6 +670,14 @@ same object.
 
 ### C2 — a night's `duration_min` and a nap's `duration_min` are different quantities — CONFIRMED
 
+**RESOLVED — one name, one quantity.** Both objects now carry `tst_min` and `tib_min`,
+the vocabulary this payload already spoke. On a night this is a DE-DUPLICATION rather than
+a rename: `duration_min` held total sleep time while the derived pivot already wrote the
+identical quantity to `tst_min` from the same stage columns, so the key was dropped and
+`tst_min` is set from the session too (through the same `stage_sleep_min`, so the two
+writers cannot disagree). A nap gains `tst_min` from the stage minutes its row already
+carried.
+
 Night (`read/sleep_page.py:140-142`, `read/sleep_extras.py:53,105`): light + deep + REM —
 total sleep time, wake excluded. Nap (`read/sleep_page.py:257,270`): `EXTRACT(EPOCH FROM
 (end_ts - start_ts))/60` — wall-clock time in bed, wake included. Both keyed `duration_min`
@@ -623,6 +689,15 @@ nothing on the wire says so.
 this payload's vocabulary.
 
 ### C3 — the client computes a second, age-blind sleep need — CONFIRMED
+
+**RESOLVED — the server sends what the client was inventing.** `/api/sleep` carries
+`sleep_debt`, the same block the Today page carries, from the same rows through
+`sleep_debt_payload` itself — a second shaping would have had to re-decide the debt's
+freshness window, its withhold and `need_min`'s survival of one, and would have got one of
+them different. `kSleepNeedMin` is deleted rather than corrected. Where the server has no
+need, the panel withholds with the reason and draws no chart, no percentage and no gap:
+all four are ratios against a target we do not have. This also closes
+`docs/BACKEND_GAPS_FROM_UI.md` B5, which had accepted it as a labelling problem.
 
 `apps/mobile/lib/features/sleep/sleep_format.dart:25`: `const double kSleepNeedMin = 480;`,
 used through `apps/mobile/lib/features/sleep/v02/need_panel.dart:94-115,137,165,173` to
@@ -643,6 +718,11 @@ Today reads, and delete `kSleepNeedMin`. That closes B5, C3 and C4 together.
 
 ### C4 — the server's own recovery composite falls back to the same flat 480 — CONFIRMED
 
+**RESOLVED — withheld, not defaulted.** `_DEFAULT_NEED_MIN` is gone. With no
+`sleep_need_min` row the sleep factor is ABSENT rather than scored against an invented
+target and then published as this owner's own; `derive_recovery` already weights only the
+factors it has, so absence costs nothing except the fabrication.
+
 `derive/recovery.py:36,107`: `_DEFAULT_NEED_MIN = 480.0`, used as `need = float(nr[0]) if nr
 and nr[0] else _DEFAULT_NEED_MIN`. For an owner over 65 with no `sleep_need_min` row, the
 recovery score's sleep factor is scored against a need 30 minutes higher than the canonical
@@ -652,6 +732,14 @@ metric having three definitions (here, `derive/sleep_score.py`, and C3's client 
 the failure CLAUDE.md names first.
 
 ### C5 — the step count does not name its instrument on the wire — CONFIRMED
+
+**RESOLVED — served, with the instrument named.** `read/common.provenance` forwards an
+explicit allow-list of what the derive layer recorded — `source`, `reported_at`,
+`steps_per_minute_sum`, `sample_minutes`, and the distance and calorie fields — on both the
+Today card and the Activity tab, which render the same rows and must not differ about
+them. `reported_at` also grew teeth: a counter read while its own day was still running now
+carries a caveat saying so, through the disclosure channel the read layer already forwards,
+instead of being a comment in `device_totals.py` that nothing emitted.
 
 `derive/device_totals.py:113-127` records which of two instruments produced a day's steps
 (`flags.source`, plus `flags.steps_per_minute_sum` and `flags.reported_at` so a reader can
@@ -667,6 +755,13 @@ through the same reasoning at derive time and the read layer discards the answer
 
 ### C6 — the calorie split is recorded at derive time and dropped before the wire — CONFIRMED
 
+**RESOLVED — the mix and the citation both ship.** `provenance` carries `bmr`,
+`workout_cal` and `pal`, and `read/meta.METRIC_NOTE_ID` gives the three calorie rows the
+note id they had never had, so `energy_expenditure_derivation`'s own ±15-20% estimate label
+has somewhere to render. Keys a row does not carry are ABSENT rather than null: a null
+`workout_cal` on a step card would read as "no workout calories" rather than "not a
+question about steps".
+
 `derive/energy.py:266-282` stores `flags["workout_cal"]` beside the total, so the row knows
 how much of the day came from the MET-by-state model and how much from the device's own
 figure for workout windows. `read/fitness.py:283-325` (`activity_metric`) reads only
@@ -681,6 +776,36 @@ siblings, so the note's own Directive 3 estimate label (±15-20% individual erro
 to render.
 
 ### C7 — an unworn day is stored and baselined as zero steps — CONFIRMED
+
+**RESOLVED — decided at the source, and the limit of the evidence stated.**
+
+**Can coverage distinguish them? No, and it inherits the defect rather than solving it.**
+`analytics/coverage.py` counts days with a stored daily value via `Baseline.n`, which
+applies `METRIC_FILTERS`; `steps_total`'s filter is `value >= 0`, which admits the zero. So
+an unworn day counted as covered, and coverage would have called a 14/14 window excellent.
+
+**What does distinguish them, and what does not.** The strap's own parser emits a
+`steps_per_minute` sample only for a minute that recorded a step
+(`apps/mobile/lib/ble/parsers/activity_parser.dart`: `if (steps > 0 && steps != 0xFF)`), so
+counting the day's samples answers "how many minutes did the instrument speak for", and
+zero of them means it did not speak. That count is now taken and stored as
+`flags.sample_minutes`, and with no counter and no samples `derive_daily_activity` writes
+NO ROW. It does **not** distinguish an unworn day from a worn day on which the owner took
+no step in any minute of it — nothing in this server models wear, and building a wear
+signal out of the heart-rate stream would be a second definition of "worn" beside no first
+one. The claim made is the narrow one the data supports.
+
+The device tier is untouched: a strap reporting a counter of 0 has measured zero steps, and
+that row is written and kept. `distance_m_daily`'s stride tier inherits the silence, since
+it is the step count multiplied.
+
+**Priced (#118).** A narrowing derivation leaves any false zero already in `derived_daily`
+serving forever, because every write is an upsert and nothing deletes. **No migration
+reaches it** — the rows are per owner and per day, and no schema change identifies them —
+but the tool for exactly this already exists and needed no change:
+`db/stale_derived.py --purge-stale steps_total`, run inside a re-derive's own transaction,
+removes the rows this pass declined to rewrite, and `steps_total` is not in
+`GATED_METRICS` so the purge admits it. **Nothing was run against production.**
 
 `derive/activity.py:53-55` upserts `steps_total` unconditionally (*"0 is valid, so
 re-derivation overwrites stale rows"*), and `device_totals.select_steps` returns
@@ -698,6 +823,13 @@ three beats the current position, which is that nobody has decided.
 
 ### C8 — sleep need and debt are blocked by a weight they do not use — CONFIRMED
 
+**RESOLVED — the gate reads what the computation reads.** A new
+`derive/_common._date_of_birth` loads the one field NSF 2015 selects on, and sleep need and
+debt use it instead of `_load_profile`. The withhold reason narrows from
+`profile_or_weight_missing` to a new `DOB_MISSING`, because naming a weight would tell the
+owner to do something that would not bring the number back; `tz` leaves both signatures
+with the loader that wanted it.
+
 `derive/sleep_score.py:311-315` gates on `_load_profile`, and `derive/_common.py:186-188`
 returns `None` when `_weight_as_of` finds no logged weight. Sleep need is a function of `dob`
 alone. The message is honest (`SLEEP_DEBT_MESSAGES[PROFILE_INCOMPLETE]` names the weight), so
@@ -712,6 +844,14 @@ applied to weight.
 
 ### D-a — magic numbers in science-adjacent code, uncited — CONFIRMED
 
+**RESOLVED.** `read/today_series.py`'s `0.78` and `read/fitness.py`'s `41` died with B4
+and B2; `read/vo2max.py`'s `5.6` died with A1; `read/sleep_extras.py`'s three were already
+named. The rest are now named constants with their provenance beside them: the projection's
+`0.4 / 2.0 / 5.0` and the plan's `90 / 15` (in `read/fitness_plan.py`, quoted from
+`[[vo2max]]`), the yoga half-credit, the sleep signal's `360 / 300` floors and its
+`-0.5 / -1.0` personal limbs, and the autonomic signals' `0.3 / 0.5`. Where a number has no
+paper behind it the comment says so rather than dressing it as a citation.
+
 The standards require every magic number to be a named constant and every research-derived
 constant to cite its note. These do not: `read/today_series.py:266` (`0.78`);
 `read/fitness.py:255-256` (`41`, `0.4`, `2.0`, `5.0`); `read/fitness.py:270,275`
@@ -722,6 +862,8 @@ constant to cite its note. These do not: `read/today_series.py:266` (`0.78`);
 `2.5`, `360`); `read/vo2max.py:186` (`5.6`).
 
 ### D-b — a comment points an auditor at a guard that does not exist under that name — CONFIRMED, and a prior reading CORRECTED
+
+**RESOLVED.** The comment names the real test and the file it lives in.
 
 `read/activity.py:56-57` says: *"`tests/test_source_citations.py` states the rule for
 `[[id]]` citations in source; **`test_wire_note_ids`** there now holds the wire to it too."*
@@ -738,6 +880,12 @@ those two findings is exactly what this audit is for.
 
 ### D-c — the sleep signal's population floor overrides the personal baseline beside it — CONFIRMED
 
+**RESOLVED — the limit is named on the face.** The thresholds are cited and unchanged
+(moving a scoring cutoff is a science behaviour change owed its own PR with known-value
+tests), and the signal now ships `direction_basis` — `population`, `personal` or `both` —
+plus `population_floor_min`, so a reader can see that for a chronic short sleeper the
+absolute floor decided it and the personal number beside it could not have.
+
 `read/recovery.py:295-299` returns `"unfavorable"` when `today_dur < 300` **or** `z < -1`.
 For a chronic short sleeper the absolute floor is met every night, so the personal z the
 signal computes, ships and labels can never change the verdict. The signal presents itself as
@@ -747,12 +895,36 @@ the framing is what is wrong.
 
 ### D-d — `pace_min_per_km` uses elapsed time, not moving time — CONFIRMED
 
+**RESOLVED — the limit is named on the face, and the alternative was priced and refused.**
+`moving_s` exists only where a GPS track does, and it is reconstructed from every point of
+the track at read time rather than stored, so reaching for it from the workout payload
+would mean loading a whole track inside a p95 < 100 ms read on the chance one exists. The
+pace stays elapsed-based and ships `pace_basis: "elapsed"`; the GPS detail endpoint already
+publishes the moving-time pace for the sessions that have one.
+
 `read/workout.py:148-150` divides the device's `duration_s` by distance. The GPS path
 computes and reports `moving_s` separately (`derive/gps_detail.py:135`), so the concept
 exists in the repo and the workout payload does not use it. A paused session reports a slower
 pace than it was run at.
 
 ### D-e — carried and never drawn — CONFIRMED
+
+**NOT DONE, and deliberately.** This is the one item dropped as costing more than it
+returns, and the reason is that it is not one finding but three unrelated ones:
+
+* `vo2max.submax.{n_sessions, method_caveat, trend}` — unparsed by the client, but the
+  block they belong to is the tiered-estimator disclosure #117 exists to publish. Deleting
+  them would remove the evidence for a number the app already draws; the fix is client
+  work, on a screen not in this pass.
+* `StepBucket.distanceM` / `.calories` — **done**, with B4.
+* `/api/activity`'s `steps`, `distance`, `active_calories`, `total_calories`, `as_of` and
+  `research_notes` — fetched and discarded because
+  `workout_repository.dart` reads only `data['workouts']`. Removing them from the payload
+  would be a large contract change to blocks that are correct and that a wiring change
+  makes live; removing the FETCH instead is the same client work as the first item.
+
+`docs/BACKEND_GAPS_FROM_UI.md` E already records this debt on the client side, and it
+belongs there rather than being half-paid from the server end.
 
 Beyond B1-B4: `vo2max.submax.{n_sessions, method_caveat, trend}` are on the wire and unparsed
 (`apps/mobile/lib/data/models/vo2max.dart:66-101`); `StepBucket.distanceM` and `.calories` are

@@ -62,11 +62,22 @@ def seed_derived_day(cur, day: date, today: date) -> None:
             "nights_below": 12,
         },
     )
-    _dd(cur, day, "steps_total", 8200.0)
+    # The instrument flags are part of the CONTRACT, not diagnostics: `derive/
+    # device_totals.py` decides between two step instruments and `derive/energy.py`
+    # records the MET-model/device-workout calorie split, and both used to stop at the
+    # database (audit C5, C6). A snapshot seeded without them would pin `provenance: {}`
+    # and pass while the read layer forwarded nothing.
+    _dd(
+        cur,
+        day,
+        "steps_total",
+        8200.0,
+        {"source": "strap_0x16", "steps_per_minute_sum": 8050, "sample_minutes": 612},
+    )
     _dd(cur, day, "distance_m_daily", 6100.0, {"method": "stride", "stride_m": 0.744})
-    _dd(cur, day, "total_calories", 2350.0)
+    _dd(cur, day, "total_calories", 2350.0, {"bmr": 1730, "workout_cal": 210, "pal": 1.36})
     _dd(cur, day, "active_calories", 620.0)
-    _dd(cur, day, "basal_calories", 1730.0)
+    _dd(cur, day, "basal_calories", 1730.0, {"bmr": 1730})
     _dd(cur, day, "mvpa_min", 32.0, {"moderate": 24, "vigorous": 4})
     _dd(
         cur,

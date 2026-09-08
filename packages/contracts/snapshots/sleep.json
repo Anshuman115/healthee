@@ -161,7 +161,6 @@
   "naps": [
     {
       "date": "2026-07-31",
-      "duration_min": 35,
       "end_iso": "2026-07-31T09:05:00+00:00",
       "midpoint_local": "14:17",
       "source": "zepp_cloud",
@@ -185,13 +184,14 @@
         "light": 30,
         "rem": 0
       },
-      "start_iso": "2026-07-31T08:30:00+00:00"
+      "start_iso": "2026-07-31T08:30:00+00:00",
+      "tib_min": 35,
+      "tst_min": 35
     }
   ],
   "nights": [
     {
       "date": "2026-07-31",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-31T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -241,7 +241,6 @@
     },
     {
       "date": "2026-07-30",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-30T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -291,7 +290,6 @@
     },
     {
       "date": "2026-07-29",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-29T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -341,7 +339,6 @@
     },
     {
       "date": "2026-07-28",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-28T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -391,7 +388,6 @@
     },
     {
       "date": "2026-07-27",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-27T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -441,7 +437,6 @@
     },
     {
       "date": "2026-07-26",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-26T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -491,7 +486,6 @@
     },
     {
       "date": "2026-07-25",
-      "duration_min": 380,
       "efficiency_pct": 84.4,
       "end_iso": "2026-07-25T01:00:00+00:00",
       "hrv_sleep_avg": 45.0,
@@ -541,7 +535,6 @@
     },
     {
       "date": "2026-07-24",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -572,7 +565,6 @@
     },
     {
       "date": "2026-07-23",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -603,7 +595,6 @@
     },
     {
       "date": "2026-07-22",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -634,7 +625,6 @@
     },
     {
       "date": "2026-07-21",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -665,7 +655,6 @@
     },
     {
       "date": "2026-07-20",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -696,7 +685,6 @@
     },
     {
       "date": "2026-07-19",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -727,7 +715,6 @@
     },
     {
       "date": "2026-07-18",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -758,7 +745,6 @@
     },
     {
       "date": "2026-07-17",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -789,7 +775,6 @@
     },
     {
       "date": "2026-07-16",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -820,7 +805,6 @@
     },
     {
       "date": "2026-07-15",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -851,7 +835,6 @@
     },
     {
       "date": "2026-07-14",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -882,7 +865,6 @@
     },
     {
       "date": "2026-07-13",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -913,7 +895,6 @@
     },
     {
       "date": "2026-07-12",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -944,7 +925,6 @@
     },
     {
       "date": "2026-07-11",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -975,7 +955,6 @@
     },
     {
       "date": "2026-07-10",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1006,7 +985,6 @@
     },
     {
       "date": "2026-07-09",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1037,7 +1015,6 @@
     },
     {
       "date": "2026-07-08",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1068,7 +1045,6 @@
     },
     {
       "date": "2026-07-07",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1099,7 +1075,6 @@
     },
     {
       "date": "2026-07-06",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1130,7 +1105,6 @@
     },
     {
       "date": "2026-07-05",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1161,7 +1135,6 @@
     },
     {
       "date": "2026-07-04",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1192,7 +1165,6 @@
     },
     {
       "date": "2026-07-03",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1223,7 +1195,6 @@
     },
     {
       "date": "2026-07-02",
-      "duration_min": null,
       "efficiency_pct": 84.4,
       "end_iso": null,
       "hrv_sleep_avg": 45.0,
@@ -1258,5 +1229,25 @@
     "sleep_health_score_multidim",
     "sleep_duration_mortality",
     "sleep_regularity_index"
-  ]
+  ],
+  "sleep_debt": {
+    "as_of_date": "2026-09-08",
+    "avg_deficit_min": 100,
+    "avg_tst_min": 380,
+    "data_confidence": "ok",
+    "debt_min": 120,
+    "last_tst_as_of_date": "2026-09-08",
+    "last_tst_min": 380,
+    "last_tst_withheld": null,
+    "need_min": 480,
+    "nights": 14,
+    "nights_below": 12,
+    "performance_pct": 79,
+    "research_notes": [
+      "sleep_need_debt",
+      "sleep_duration_mortality"
+    ],
+    "window_nights": 14,
+    "withheld": null
+  }
 }

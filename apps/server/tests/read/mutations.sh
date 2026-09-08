@@ -92,6 +92,9 @@ WORKOUT_TEST=tests/read/test_workout_absence.py
 SEVERITY_A=tests/read/test_honesty_severity_a.py
 SEVERITY_A_SLEEP=tests/read/test_honesty_severity_a_sleep.py
 FORMULAS=tests/read/test_formulas.py
+B_AND_C=tests/read/test_honesty_b_c.py
+UNWORN=tests/derive/test_unworn_day.py
+SLEEP_NEED=tests/derive/test_sleep_need_inputs.py
 CALORIES=tests/derive/test_calorie_weight_staleness.py
 OUT_OF_RANGE=tests/derive/test_vo2max_out_of_range.py
 
@@ -186,7 +189,7 @@ mutate 'no mvpa rows becomes a measured zero' \
 # ── B4 ───────────────────────────────────────────────────────────────────────
 # The sleep signal ships the UNFLOORED spread, which no longer reproduces its z.
 mutate 'a signal ships a sigma that does not reproduce its own z' \
-  "$READ_THIN" src/healthee/read/recovery.py \
+  "$READ_THIN" src/healthee/read/recovery_signals.py \
   '        "baseline": b.median,
         "baseline_sd": b.robust_sd,' \
   '        "baseline": b.median,
@@ -311,15 +314,19 @@ mutate 'the 30-day window is 36 days again' \
 # Two mornings publish an autonomic verdict again. MAD over two points is the
 # half-distance, so the z is finite and everything downstream looks healthy.
 mutate 'two days of resting heart rate publish a direction' \
-  "$SEVERITY_A" src/healthee/read/recovery.py \
+  "$SEVERITY_A" src/healthee/read/recovery_signals.py \
   '    if b.median is None or not b.robust_sd or b.n < _SIGNAL_MIN_DAYS:
         return None
     z = (value - b.median) / b.robust_sd
-    direction = "favorable" if z < -0.3 else "unfavorable" if z > 0.5 else "neutral"' \
+    direction = (
+        "favorable"
+        if z < -_AUTONOMIC_FAVORABLE_Z' \
   '    if b.median is None or not b.robust_sd:
         return None
     z = (value - b.median) / b.robust_sd
-    direction = "favorable" if z < -0.3 else "unfavorable" if z > 0.5 else "neutral"'
+    direction = (
+        "favorable"
+        if z < -_AUTONOMIC_FAVORABLE_Z'
 
 # ── A9 ───────────────────────────────────────────────────────────────────────
 # The reference day is dropped, so the session borrows TODAY's resting heart
@@ -402,6 +409,130 @@ mutate 'acwr ships a categorical verdict again' \
   '        "n_acute": len(acute_vals),' \
   '        "state": "optimal" if 0.8 <= acute / chronic <= 1.3 else "caution",
         "n_acute": len(acute_vals),'
+
+# ── B2 ───────────────────────────────────────────────────────────────────────
+# The considered null comes back as a constant, under the same key name. `41`
+# cites nothing, and one response then says null in one block and 41.0 in
+# another.
+mutate 'the plan invents an age median again' \
+  "$B_AND_C" src/healthee/read/fitness_plan.py \
+  '    median_ref = None if raw_median is None else float(raw_median)' \
+  '    median_ref = float(raw_median or 41)'
+
+# ── B3 ───────────────────────────────────────────────────────────────────────
+# D5's conditional is dropped, so the projection ships bare again — a specific
+# gain, promised, from a note whose Established directive forbids exactly that.
+mutate 'the projection stops saying it is not a promise' \
+  "$B_AND_C" src/healthee/read/fitness_plan.py \
+  '        "caveats": [] if gain is None else [_PROJECTION_CAVEAT],' \
+  '        "caveats": [],'
+
+# The bound stops travelling with the number, so a reader cannot tell a bounded
+# typical response from a forecast.
+mutate 'the projection stops shipping the bound it was produced inside' \
+  "$B_AND_C" src/healthee/read/fitness_plan.py \
+  '        "gain_floor": _GAIN_FLOOR_ML_KG_MIN,' \
+  '        "gain_floor": None,'
+
+# ── B4 ───────────────────────────────────────────────────────────────────────
+# The population stride comes back into the SQL, under a key that has no
+# personal denominator behind it and can therefore never refuse.
+mutate 'a step bucket reports a population-stride distance again' \
+  "$B_AND_C" src/healthee/read/today_series.py \
+  '            "steps": steps,
+        }
+        for local_t, steps, bucket in cur.fetchall()' \
+  '            "steps": steps,
+            "distance_m": int(steps * 0.78),
+        }
+        for local_t, steps, bucket in cur.fetchall()'
+
+# ── C2 ───────────────────────────────────────────────────────────────────────
+# A nap goes back to reporting its wall-clock span under the key a NIGHT uses
+# for total sleep time — one name, two quantities, one payload.
+mutate 'a nap ships time in bed under the night is total-sleep-time name' \
+  "$B_AND_C" src/healthee/read/sleep_page.py \
+  '            "tib_min": int(dur),' \
+  '            "duration_min": int(dur),
+            "tib_min": int(dur),'
+
+# ── C3 ───────────────────────────────────────────────────────────────────────
+# /api/sleep stops carrying the need and the debt, so the Sleep tab is back to
+# having nothing to measure against but a constant of its own.
+mutate 'the sleep page stops sending the need it has' \
+  "$B_AND_C" src/healthee/read/sleep_page.py \
+  '        "sleep_debt": sleep_debt_payload(cur, user_id, tz, None, as_of),' \
+  '        "sleep_debt": None,'
+
+# ── C4 ───────────────────────────────────────────────────────────────────────
+# The flat 480 comes back as the recovery composite's fallback need, and is
+# published in flags.factors.sleep.need_min as this owner is own.
+mutate 'the recovery sleep factor invents a need again' \
+  "$SLEEP_NEED" src/healthee/derive/recovery.py \
+  '    if not (nr and nr[0]):
+        return
+    need = float(nr[0])' \
+  '    need = float(nr[0]) if nr and nr[0] else 480.0'
+
+# ── C5 ───────────────────────────────────────────────────────────────────────
+# The instrument stops reaching the wire: the derive layer still decides which
+# of two counted the day, and the read layer discards the answer again (#121).
+mutate 'the step card stops naming its instrument' \
+  "$B_AND_C" src/healthee/read/common.py \
+  '    return {key: flags[key] for key in _PROVENANCE_FLAGS if key in flags}' \
+  '    return {}'
+
+# The partial-day disclosure goes back to being a comment nobody emitted.
+mutate 'a counter read mid-day stops saying so' \
+  "$B_AND_C" src/healthee/derive/device_totals.py \
+  '    if device is None or device.steps is None or device.reported_at >= day_end_utc:
+        return []' \
+  '    if True:
+        return []'
+
+# ── C6 ───────────────────────────────────────────────────────────────────────
+# The calorie card loses its note id again, so the note is own +-15-20% estimate
+# label has nowhere to render.
+mutate 'the calorie card stops citing its note' \
+  "$B_AND_C" src/healthee/read/meta.py \
+  '    "total_calories": "energy_expenditure_derivation",' \
+  '    "total_calories_UNCITED": "energy_expenditure_derivation",'
+
+# ── C7 ───────────────────────────────────────────────────────────────────────
+# The unconditional upsert comes back, so a day no instrument counted is stored
+# and baselined as a measured zero.
+mutate 'an unworn day is written as zero steps again' \
+  "$UNWORN" src/healthee/derive/activity.py \
+  '    counted = (device is not None and device.steps is not None) or per_minute_n > 0' \
+  '    counted = True'
+
+# ── C8 ───────────────────────────────────────────────────────────────────────
+# Sleep need goes back to being gated on a logged weight it never reads.
+mutate 'sleep need is blocked by a weight again' \
+  "$SLEEP_NEED" src/healthee/derive/sleep_score.py \
+  '    dob = _date_of_birth(cur, user_id)
+    if dob is None:
+        return None' \
+  '    prof = _load_profile(cur, user_id, "UTC", day)
+    dob = None if not prof else prof["dob"]
+    if dob is None:
+        return None'
+
+# ── D-c ──────────────────────────────────────────────────────────────────────
+# The sleep signal stops saying which of its two limbs produced its verdict, so
+# a population threshold reads as a personal one again.
+mutate 'the sleep signal stops naming the limb that decided it' \
+  "$B_AND_C" src/healthee/read/recovery_signals.py \
+  '        "direction_basis": _direction_basis(direction, population, personal),' \
+  '        "direction_basis": None,'
+
+# ── D-d ──────────────────────────────────────────────────────────────────────
+# The pace stops naming its denominator, so a paused session reads as a slower
+# one with nothing on the wire to say why.
+mutate 'the workout pace stops naming its denominator' \
+  "$B_AND_C" src/healthee/read/workout.py \
+  '        m["pace_basis"] = "elapsed"' \
+  '        m["pace_basis"] = "moving"'
 
 echo
 echo "caught $PASS, survived $FAIL"

@@ -113,7 +113,21 @@ def _tag(value: Any) -> str:
 
 
 def _assert_against_samples(value: Any, samples: list, path: str) -> None:
-    """A field may take any (non-null) type seen for it across snapshot elements."""
+    """A field may take any (non-null) SHAPE seen for it across snapshot elements.
+
+    Structured values are checked against every same-typed sample and pass if ANY of them
+    conforms, rather than against the first one found. The union rule this function
+    implements was already the contract for the object list itself ("each field takes any
+    type observed for it"); it stopped one level short, and the first nested object whose
+    shape genuinely varies per element broke it.
+
+    That object is ``metrics[].provenance`` — WHICH instrument produced a card's number
+    and what it was assembled from. A step count names a source and a sample count, a
+    calorie total names its BMR and workout split, and a resting heart rate has nothing to
+    say. Those are different facts about different metrics, not one shape with holes, and
+    flattening them into a fixed key set with nulls would mean publishing "no workout
+    calories" on a step card. So the checker generalises instead.
+    """
     if value is None:
         return
     allowed = {_tag(s) for s in samples if s is not None}
@@ -121,8 +135,24 @@ def _assert_against_samples(value: Any, samples: list, path: str) -> None:
         return  # every snapshot value for this field was null → accept anything
     assert _tag(value) in allowed, f"{path}: type {_tag(value)} not in {sorted(allowed)}"
     if isinstance(value, dict | list):
-        representative = next(s for s in samples if _tag(s) == _tag(value))
-        assert_conforms(value, representative, path)
+        _assert_any_sample_conforms(value, samples, path)
+
+
+def _assert_any_sample_conforms(value: Any, samples: list, path: str) -> None:
+    """Pass if ``value`` conforms to at least one same-typed sample; else re-raise the
+    first failure, so the message names a real mismatch rather than "none of N matched"."""
+    first: AssertionError | None = None
+    for sample in samples:
+        if _tag(sample) != _tag(value):
+            continue
+        try:
+            assert_conforms(value, sample, path)
+        except AssertionError as exc:  # try the next sample; keep the first explanation
+            first = first or exc
+        else:
+            return
+    if first is not None:
+        raise first
 
 
 def _assert_scalar(live: Any, snap: Any, path: str) -> None:

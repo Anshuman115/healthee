@@ -15,11 +15,11 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from healthee.derive._common import Cur, _age, _load_profile, _upsert_daily
+from healthee.derive._common import Cur, _age, _date_of_birth, _upsert_daily
 from healthee.derive.freshness import (
+    DOB_MISSING,
     NO_NIGHTS_IN_WINDOW,
     NOT_DERIVED_YET,
-    PROFILE_INCOMPLETE,
     unavailable_reason,
 )
 
@@ -266,9 +266,11 @@ def _tst_window(cur: Cur, user_id: UUID, day: date) -> list[float]:
 # not "the debt, slightly out of date" — it describes a different fortnight. The Today
 # card presented `latest_derived('sleep_debt_min')` with no date key of any kind.
 SLEEP_DEBT_MESSAGES = {
-    PROFILE_INCOMPLETE: (
-        "We need your date of birth (and a logged weight) to set your age-based sleep "
-        "need before a debt can be tracked."
+    # Date of birth ALONE. This used to name a logged weight too, because the gate below
+    # ran the full `_load_profile`; the message was honest about the gate and the gate was
+    # wrong. NSF 2015 selects the need band from age (audit C8).
+    DOB_MISSING: (
+        "We need your date of birth to set your age-based sleep need before a debt can be tracked."
     ),
     NO_NIGHTS_IN_WINDOW: (
         "No sleep has been recorded in the last two weeks, so there is no window to "
@@ -278,41 +280,64 @@ SLEEP_DEBT_MESSAGES = {
 }
 
 
-def sleep_debt_withhold_reason_for_day(cur: Cur, user_id: UUID, tz: str, day: date) -> str | None:
+def sleep_debt_withhold_reason_for_day(cur: Cur, user_id: UUID, day: date) -> str | None:
     """Why ``day`` has no sleep debt, or None when its inputs CAN carry one.
 
     The same two checks :func:`derive_sleep_debt` makes, in the same order, over the same
     window, without writing — the ``derive/vo2max.py`` posture, and pinned by the same
     kind of writer/reader equivalence test. [[sleep_need_debt]].
+
+    Neither check reads a timezone, so neither does this (audit C8 removed the profile
+    loader that did).
     """
-    if not _load_profile(cur, user_id, tz, day):
-        return PROFILE_INCOMPLETE
+    if _date_of_birth(cur, user_id) is None:
+        return DOB_MISSING
     if not _tst_window(cur, user_id, day):
         return NO_NIGHTS_IN_WINDOW
     return None
 
 
 def sleep_debt_unavailable_reason(
-    cur: Cur, user_id: UUID, tz: str, today: date, last_day: date | None
+    cur: Cur,
+    user_id: UUID,
+    tz: str,  # noqa: ARG001 — the shared gate signature; see the docstring
+    today: date,
+    last_day: date | None,
 ) -> str | None:
-    """Why this owner has no sleep debt FOR TODAY, or ``None`` when ``last_day`` IS today."""
+    """Why this owner has no sleep debt FOR TODAY, or ``None`` when ``last_day`` IS today.
+
+    ``tz`` is unread and KEPT, which is the one place in this change it was right to keep
+    an unused parameter: ``insights/context_withheld._ReasonOf`` types every withhold gate
+    as one five-argument callable, and the other two gates in that registry do read a
+    timezone. Dropping it here would mean special-casing this gate in the registry, a
+    worse trade than an argument one implementation happens not to need. The two functions
+    it delegates to HAVE dropped theirs, which is where it mattered — a dependency that is
+    not a dependency is what audit C8 was about, and a type-level contract is a real one.
+    """
     return unavailable_reason(
-        today, last_day, lambda: sleep_debt_withhold_reason_for_day(cur, user_id, tz, today)
+        today, last_day, lambda: sleep_debt_withhold_reason_for_day(cur, user_id, today)
     )
 
 
-def derive_sleep_debt(cur: Cur, user_id: UUID, tz: str, day: date) -> dict | None:
+def derive_sleep_debt(cur: Cur, user_id: UUID, day: date) -> dict | None:
     """Age-based sleep need (NSF 2015) + rolling 14-night cumulative debt.
 
     Debt = shortfall minus half the surplus (partial recovery), over recorded
     nights only — no artificial cap, so a real chronic deficit shows in full.
-    Reads TST from the sleep-score flags. None without a profile or any recorded
+    Reads TST from the sleep-score flags. None without a DATE OF BIRTH or any recorded
     night. [[sleep_need_debt]].
+
+    The need is a function of ``dob`` and nothing else, so ``dob`` is the only profile
+    field read: this ran ``_load_profile``, which additionally requires a height, a sex
+    and a logged weight, and withheld the whole need-and-debt block for the want of a
+    weight no line of the computation touches (audit C8). ``tz`` went with it — the
+    profile loader was the only thing here that wanted a timezone, so keeping the
+    parameter would have advertised a dependency this function no longer has.
     """
-    prof = _load_profile(cur, user_id, tz, day)
-    if not prof:
+    dob = _date_of_birth(cur, user_id)
+    if dob is None:
         return None
-    age = _age(prof["dob"], day)
+    age = _age(dob, day)
     need = SLEEP_NEED_MIN_65P if age >= 65 else SLEEP_NEED_MIN_18_64
     tsts = _tst_window(cur, user_id, day)
     if not tsts:

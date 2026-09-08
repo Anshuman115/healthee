@@ -248,6 +248,11 @@ class SleepNeedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final asleep = debt.lastTstMin;
     final need = debt.needMin;
+    // A need of null is the server saying it has none for this owner (no date of
+    // birth on the profile). The debt itself still stands — it is an accumulated
+    // shortfall the server computed — so it is shown, and the comparison that
+    // needs a target is withheld with its reason instead of drawn against 8 h.
+    final hasNeed = need != null && need > 0;
     return Panel(
       tone: Tone.sleep,
       label: 'Sleep need · debt',
@@ -263,7 +268,7 @@ class SleepNeedPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           PanelValue(decimalHours(debt.debtMin), unit: 'debt'),
-          if (asleep != null && need > 0) ...<Widget>[
+          if (asleep != null && hasNeed) ...<Widget>[
             const SizedBox(height: comparisonGap),
             StatRow(<Stat>[Stat('Asleep', hoursMinutes(asleep))]),
             const SizedBox(height: trackGap),
@@ -272,8 +277,10 @@ class SleepNeedPanel extends StatelessWidget {
               '${hoursMinutes(need)} need · '
               '${hoursMinutes((need - asleep).clamp(0, need))} short',
             ),
-          ] else
-            PanelNote('${hoursMinutes(need)} need'),
+          ] else if (hasNeed)
+            PanelNote('${hoursMinutes(need)} need')
+          else
+            const PanelNote(kNoSleepNeed),
         ],
       ),
     );

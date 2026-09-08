@@ -30,7 +30,7 @@ from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.derive.recovery import _AUTONOMIC_MIN_SD, _recovery_baseline
 from healthee.derive.robust import MAD_TO_SD
-from healthee.read.recovery import _SLEEP_MIN_SD_MIN, _sleep_signal
+from healthee.read.recovery_signals import _SLEEP_MIN_SD_MIN, _sleep_signal
 
 # ── the autonomic baseline (derive/recovery.py) ──────────────────────────────
 #
