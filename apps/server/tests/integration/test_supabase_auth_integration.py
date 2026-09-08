@@ -62,6 +62,11 @@ def supabase_secret(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # device tokens, /api/me). Signups are open so the gate isn't the thing under
     # test here — the gate itself is owned by `tests/test_signup_gate.py`.
     monkeypatch.setenv("SIGNUPS_OPEN", "true")
+    # Signups open ⇒ NO legacy shared token: `core.config` refuses that pair, because
+    # one never-expiring secret that authenticates as a real tenant must not exist in a
+    # deployment strangers can join. Cleared here rather than inherited from the shell,
+    # which is what a hosted deployment with open signups actually looks like.
+    monkeypatch.setenv("REALTIME_INGEST_TOKEN", "")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -117,14 +122,18 @@ def test_device_token_mint_resolve_roundtrip_stores_only_hash(
     with transaction() as cur:  # FK requires the owner to exist
         cur.execute("INSERT INTO app_user (id) VALUES (%s)", (str(uid),))
 
-    raw = mint_device_token(uid, label="test strap")
+    raw, token_id = mint_device_token(uid, label="test strap")
     assert resolve_device_token(raw) == uid
     assert resolve_device_token("not-a-real-token") is None
 
     with transaction() as cur:
-        cur.execute("SELECT token_hash FROM device_token WHERE user_id = %s", (str(uid),))
+        cur.execute("SELECT token_hash, id FROM device_token WHERE user_id = %s", (str(uid),))
         row = cur.fetchone()
     assert row is not None
+    # The id the mint returned is the TOKEN's row, not the owner's — the thing a
+    # revocation endpoint would address, and what `DeviceTokenResponse.id` now carries.
+    assert row[1] == token_id
+    assert token_id != uid
     stored = row[0]
     assert stored != raw  # the raw token is never stored
     assert stored == hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -140,5 +149,12 @@ def test_post_device_endpoint_mints_resolvable_token(
     resp = _client().post("/api/device", headers=_bearer(token))
     assert resp.status_code == 200
     body = resp.json()
-    assert body["id"] == str(uid)
+    # `id` is the TOKEN's id, not the owner's — it used to be `user.id`, which is the
+    # wrong subject on a response about a token and is why a revocation endpoint had
+    # nothing to address one by.
+    assert body["id"] != str(uid)
+    with transaction() as cur:
+        cur.execute("SELECT user_id FROM device_token WHERE id = %s", (body["id"],))
+        row = cur.fetchone()
+    assert row is not None and row[0] == uid
     assert resolve_device_token(body["device_token"]) == uid
