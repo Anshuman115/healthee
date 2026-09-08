@@ -87,12 +87,22 @@ def last_sleep(session: tuple | None) -> dict | None:
 
 
 def last_sleep_extras(cur: Cur, user_id: UUID, start_ts: datetime, end_ts: datetime) -> dict:
-    """SpO2 / breathing / skin-temp / HRV averaged across the last-sleep window."""
+    """SpO2 / breathing / skin-temp / HRV averaged across the last-sleep window.
+
+    Skin temperature is filtered to plausible values (``> 25``), the same gate
+    ``read/sleep_page.py`` applies over the same metric. It was missing here until
+    2026-09-08, so an off-wrist or sentinel sample pulled "last night's" skin temperature
+    down on this surface and not on the other — one quantity, two answers, and the low
+    one is the limb ``skin_temp_signals`` names in the illness early-warning flag. The
+    note specified both call sites (*"`read/sleep_extras.py`, `read/sleep_page.py` —
+    AVG(skin_temp_c) over the night, filtered to plausible values, e.g. `value>25`"*);
+    the note was right and the code moved to meet it.
+    """
     cur.execute(
         "SELECT ROUND(AVG(CASE WHEN metric='spo2' THEN value END))::int, "
         "  MIN(CASE WHEN metric='spo2' THEN value END)::int, "
         "  ROUND(AVG(CASE WHEN metric='respiratory_rate' THEN value END))::int, "
-        "  ROUND(AVG(CASE WHEN metric='skin_temp_c' THEN value END)::numeric, 1), "
+        "  ROUND(AVG(CASE WHEN metric='skin_temp_c' AND value>25 THEN value END)::numeric, 1), "
         "  ROUND(AVG(CASE WHEN metric='hrv' THEN value END))::int "
         "FROM sample WHERE user_id = %s AND ts >= %s AND ts < %s",
         (user_id, start_ts, end_ts),

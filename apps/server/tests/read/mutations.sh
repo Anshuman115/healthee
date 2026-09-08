@@ -984,6 +984,64 @@ mutate 'the withdrawn Jurca SEE returns to the comparison table' \
   '| *Jurca 2005 (fallback baseline)* | r=0.81 overall, **SEE 1.45 METs = 5.075**' \
   '| *Jurca 2005 (fallback baseline)* | r≈0.78, **SEE≈5.6**'
 
+# ── H · the audit's four gate fixes ──────────────────────────────────────────
+
+MVPA_MET=tests/derive/test_mvpa_met_equivalent.py
+CARDIO_RHR=tests/derive/test_cardio_load_rhr.py
+SKIN_TEMP=tests/read/test_skin_temp_plausibility.py
+REGISTRY=tests/challenges/test_registry.py
+
+# ── H1 · audit C2 ────────────────────────────────────────────────────────────
+# `mvpa_min` goes back to a raw minute count, measured against a MET-equivalent
+# target of 150. The defect under-credits, which is why it survived every sweep.
+mutate 'MVPA stops counting a vigorous minute as two' \
+  "$MVPA_MET" src/healthee/derive/mvpa.py \
+  '    mvpa = moderate + _VIGOROUS_MET_WEIGHT * vigorous' \
+  '    mvpa = moderate + vigorous'
+
+# The weighting moves into the flags instead, so the halves stop being the raw
+# pair the weekly card's "moderate {m} + vigorous {v} x 2" subline needs.
+mutate 'the un-weighted halves are weighted in the flags instead' \
+  "$MVPA_MET" src/healthee/derive/mvpa.py \
+  '{"moderate": moderate, "vigorous": vigorous})' \
+  '{"moderate": moderate, "vigorous": _VIGOROUS_MET_WEIGHT * vigorous})'
+
+# ── H2 · audit C5 ────────────────────────────────────────────────────────────
+# The fabricated resting HR comes back — the one place in derive/ that invented
+# an input rather than withholding. The row it publishes looks measured.
+mutate 'cardio load invents a resting HR again' \
+  "$CARDIO_RHR" src/healthee/derive/cardio_load.py \
+  '    r = cur.fetchone()
+    return float(r[0]) if r and r[0] is not None else None' \
+  '    r = cur.fetchone()
+    return float(r[0]) if r and r[0] is not None else 60.0'
+
+# The freshness bound is dropped while the withhold stays, so a resting HR from a
+# year ago is silently used as today's. Stale-as-current, in the reserve anchor.
+mutate 'the resting-HR lookback goes back to unbounded' \
+  "$CARDIO_RHR" src/healthee/derive/cardio_load.py \
+  '        "AND day<=%s AND day>=%s ORDER BY day DESC LIMIT 1",
+        (user_id, day, cutoff),' \
+  '        "AND day<=%s AND day>=%s ORDER BY day DESC LIMIT 1",
+        (user_id, day, cutoff - timedelta(days=100000)),'
+
+# ── H3 · audit C7 ────────────────────────────────────────────────────────────
+# One surface loses the plausibility filter again, so an off-wrist sample drags
+# last night's skin temperature down here and not on the sleep page.
+mutate 'the skin-temp average takes sentinel samples again' \
+  "$SKIN_TEMP" src/healthee/read/sleep_extras.py \
+  "  ROUND(AVG(CASE WHEN metric='skin_temp_c' AND value>25 THEN value END)::numeric, 1), " \
+  "  ROUND(AVG(CASE WHEN metric='skin_temp_c' THEN value END)::numeric, 1), "
+
+# ── H4 · audit C1 ────────────────────────────────────────────────────────────
+# The challenge engine's sleep ceiling drops below the owner's own need again, so
+# a sleep-duration target can never be raised past 7.5 h.
+mutate 'the sleep ceiling drops back under the canonical need' \
+  "$REGISTRY" src/healthee/challenges/scales.py \
+  '    "tst_min": float(SLEEP_NEED_MIN_18_64),' \
+  '    "tst_min": 450.0,'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
