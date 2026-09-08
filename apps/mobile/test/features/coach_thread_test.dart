@@ -15,6 +15,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/features/coach/coach_conversation.dart';
 
 void main() {
@@ -39,7 +40,10 @@ void main() {
     const withTrouble = CoachConversation(
       entries: <CoachEntry>[
         OwnerQuestion('one'),
-        CoachTrouble(message: 'not answered', spent: false),
+        CoachTrouble(
+          message: 'not answered',
+          charge: CoachCharge.notCharged,
+        ),
       ],
     );
     expect(withTrouble.toWire().length, 1);

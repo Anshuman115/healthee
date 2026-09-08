@@ -71,7 +71,7 @@ class _ScriptedCoach implements CoachClient {
   }
 
   @override
-  Future<CoachAnswer> ask(List<CoachTurn> messages) async {
+  Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) async {
     asked.add(messages);
     return answer!;
   }

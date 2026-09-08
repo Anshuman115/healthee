@@ -16,7 +16,8 @@ class PendingCoach implements CoachClient {
   final answer = Completer<CoachAnswer>();
 
   @override
-  Future<CoachAnswer> ask(List<CoachTurn> messages) => answer.future;
+  Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) =>
+      answer.future;
 
   @override
   Future<Entitlement> entitlement() async => Entitlement.fromJson(const {});
