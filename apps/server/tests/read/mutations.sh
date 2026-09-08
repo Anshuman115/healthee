@@ -545,7 +545,7 @@ LLM_THREAD=tests/insights/test_thread_and_topic.py
 LLM_OWNER_TEXT=tests/insights/test_owner_text_in_prompts.py
 LLM_RECS_DAY=tests/read/test_as_of_day_recommendations.py
 
-# ── A2 ───────────────────────────────────────────────────────────────────────
+# ── LLM A2 ───────────────────────────────────────────────────────────────────────
 # `grounded_ask` stops computing `without_data`, so `personal_claims.issues`
 # returns on its first line again and the gate is inert on every surface but the
 # coach. THE defect: the daily action, the briefing, every insight card and recs
@@ -566,7 +566,7 @@ mutate 'the computed subjects never reach the gate' \
             ),' \
   '            context=lambda: pipeline.AnswerContext(json_mode=json_mode),'
 
-# ── A4 ───────────────────────────────────────────────────────────────────────
+# ── LLM A4 ───────────────────────────────────────────────────────────────────────
 # The owner's journal goes back into the prompt with nothing marking it as data.
 mutate 'the manual-entry block loses its data fence' \
   "$LLM_OWNER_TEXT" src/healthee/insights/context_sessions.py \
@@ -592,7 +592,7 @@ mutate 'the journal note is unbounded at the API boundary' \
   '    notes: str | None = Field(default=None, max_length=_NOTES_MAX)' \
   '    notes: str | None = None'
 
-# ── A5 ───────────────────────────────────────────────────────────────────────
+# ── LLM A5 ───────────────────────────────────────────────────────────────────────
 # The refusal gate reads the last message again while the whole thread is sent,
 # so a refused emergency re-enters the model's context on the next turn.
 mutate 'the refusal gate screens only the last message again' \
@@ -614,7 +614,7 @@ mutate 'the topic skips the refusal gate' \
   '    return pipeline.check_question(topic) if topic else None' \
   '    return None'
 
-# ── B1 ───────────────────────────────────────────────────────────────────────
+# ── LLM B1 ───────────────────────────────────────────────────────────────────────
 # The greeting claims to be an answered turn again, so the router's fourth refund
 # branch never fires and a question with no question in it charges one of twenty.
 mutate 'a canned greeting counts as an answer delivered' \
@@ -622,7 +622,7 @@ mutate 'a canned greeting counts as an answer delivered' \
   '        return CoachResult(reply=_GREETING, answered=False)' \
   '        return CoachResult(reply=_GREETING)'
 
-# ── B2 ───────────────────────────────────────────────────────────────────────
+# ── LLM B2 ───────────────────────────────────────────────────────────────────────
 # A past `day` is honoured again: today's judgement, from today's data, filed
 # under an older date and then served as that day's answer.
 mutate 'recs are dated a day their own inputs never answered for' \
@@ -632,7 +632,7 @@ mutate 'recs are dated a day their own inputs never answered for' \
   '    today = user_today(tz)
     if False:'
 
-# ── B3 ───────────────────────────────────────────────────────────────────────
+# ── LLM B3 ───────────────────────────────────────────────────────────────────────
 # The metric label comes from the caller again — unvalidated text in the task
 # sentence, and absent from the cache key.
 mutate 'the metric prompt takes its label from the caller again' \
@@ -640,7 +640,7 @@ mutate 'the metric prompt takes its label from the caller again' \
   '        f"In 1–2 short sentences, interpret my {metric_label(metric)} for me right now. "' \
   '        f"In 1–2 short sentences, interpret my {metric} for me right now. "'
 
-# ── C3 ───────────────────────────────────────────────────────────────────────
+# ── LLM C3 ───────────────────────────────────────────────────────────────────────
 # The workout review is read through the per-DAY cache again, so a fixed past
 # session is re-reviewed daily against a different week each time.
 mutate 'a fixed past workout is re-reviewed every day' \
@@ -662,7 +662,7 @@ mutate 'the workout prompt stops naming its real window' \
         "a trend in it as something this session caused or was caused by."' \
   '        ""'
 
-# ── C5 ───────────────────────────────────────────────────────────────────────
+# ── LLM C5 ───────────────────────────────────────────────────────────────────────
 # The validator's grade lookup fails OPEN again: an unrecognised grade ranks
 # Established, the least strict wording rule, inside the strictest module.
 mutate 'an unknown grade ranks Established in the validator again' \
@@ -675,7 +675,7 @@ mutate 'an unknown grade is ranked as the FIRMEST thing in the answer' \
   '        (manifest.GRADE_RANK.get(manifest.grade_of(i) or "", 0), manifest.grade_of(i))' \
   '        (manifest.GRADE_RANK.get(manifest.grade_of(i) or "", 3), manifest.grade_of(i))'
 
-# ── A3, the server half ──────────────────────────────────────────────────────
+# ── LLM A3, the server half ──────────────────────────────────────────────────────
 # The rec row stops carrying its own date, so a two-day-old action reaches the
 # app with nothing able to say which day it was written for.
 mutate 'a recommendation ships without the day it was written for' \
