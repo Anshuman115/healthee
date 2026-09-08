@@ -27,13 +27,22 @@ runner-specific — generalize on use, don't apply blindly. The original
 `README.md`'s "Maps to `@daud/core`" column refers to that project's compute
 layer; Healthee's equivalents live in `apps/server/src/healthee/derive`.
 
-## `notes/` — legacy Healthee corpus (to be upgraded)
+## `notes/` — the Healthee corpus
 
-The 55 notes carried over from the legacy repo (activity, sleep, hrv, metrics,
-recovery, intake, meditation, recs, protocol). Written to the older convention
-(numeric grades: 3 (★★★) → Established, 2 (★★) → Probable, 1 → Emerging; no Honesty/Directives sections
-yet). Phase 5 migrates these to the template above — until then they remain
-citable as-is.
+The notes carried over from the legacy repo and since unified (activity, sleep, hrv,
+metrics, recovery, intake, meditation, recs, protocol). **49 are citable**; the five
+under `notes/protocol/` carry no `id` and `gen_manifest.py` skips them as engineering
+reference rather than evidence.
+
+*(Corrected 2026-09-08. This section described a corpus that no longer exists: "55
+notes … written to the older convention (numeric grades: 3 (★★★) → Established …; **no
+Honesty/Directives sections yet**). Phase 5 migrates these to the template above."
+That migration happened. Every citable note now carries a string `grade`, a
+`## Honesty & uncertainty` section, a `## Coach Directives` block and a
+`## Healthee implementation & honesty policy` section — verified by structural scan.
+The numeric `evidence_grade` was removed in #83 and `make knowledge` rejects a note
+that reintroduces it. A README that tells a reader the Honesty sections do not exist
+is a README that tells them not to look for one.)*
 
 ## Unified frontmatter schema
 

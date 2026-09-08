@@ -53,8 +53,8 @@ its language and confidence accordingly.
    `gen_manifest.py` validates the marker against the directive's own text,
    `insights/guard_directives.py` compiles a blocking rule for it, and
    `tests/insights/test_guard_directives.py` asserts the two sets are equal in both
-   directions. **A directive is still not enforced by virtue of being written**, and
-   **no doc in this collection declares a marker**, so nothing here is enforced today.
+   directions. **A directive is still not enforced by virtue of being written** — but one doc in
+   this collection DOES declare a marker (corrected 2026-09-08): **Five directives across four notes are marked and compiled today** — `napping` D5, `hydration_everyday` D5 and D6, `late_eating_sleep` D5, and `environmental_stress` D12, the last of which IS in this collection (`wellness/environmental-stress.md` declares `safety_critical: [12]` in its frontmatter and `insights/guard_directives.py` compiles `environmental_stress_D12_exertional_red_flags_to_urgent_care` from it).
    The hand-compiled `output_guard._DOCUMENTED_RULES` table still exists alongside it,
    fed by doc lines rather than note markers; a new rule in either table needs a
    documented origin.*

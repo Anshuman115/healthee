@@ -51,9 +51,11 @@ and must be added from logged workouts, or it is invisible to step counting.
 ## How we compute it
 
 ### Data we have
-- `metric_sample(metric='steps_per_minute', source='gadgetbridge')` — per-minute step
-  counts from `HUAMI_EXTENDED_ACTIVITY_SAMPLE`.
-- `session(kind='workout')` — workout records with start/end and exercise type.
+- `sample(metric='steps_per_minute')` — per-minute step counts. **This is the only input
+  the shipped derivation reads** (v1 named the table `metric_sample` and carried a
+  `source` column; v2's `sample` is `(ts, metric, value, user_id)` and has neither).
+- ~~`session(kind='workout')`~~ — **there is no `session` table in `db/schema.sql`**, and
+  step 2 below is therefore planned, not shipped (2026-09-08).
 - The `derive` pipeline runs nightly.
 
 ### Derivation algorithm (per day, anchored 23:59 IST)
@@ -66,7 +68,9 @@ and must be added from logged workouts, or it is invisible to step counting.
      Stamatakis 2022 bout convention). Sum `moderate_min_cadence` and
      `vigorous_min_cadence`.
 
-2. **Workout-based minutes** (non-walking MVPA) — for each `session(kind='workout')` ending
+2. **Workout-based minutes** (non-walking MVPA) — ⚠ **PLANNED, NOT SHIPPED.** No table
+   backs this step; `derive/mvpa.py` implements steps 1 and 3 only. For each
+   `session(kind='workout')` ending
    today with `exercise_type ∉ {walking, walk, hiking}`:
    - `intensity == 'moderate'` → add duration to `moderate_min_workout`.
    - `'vigorous'` or `'high'` → add to `vigorous_min_workout`.
@@ -134,14 +138,28 @@ unlogged (under-count).
 
 ## Healthee implementation & honesty policy
 
-- **Metrics: `moderate_min`, `vigorous_min`, `mvpa_min`** (daily, `source='derived'`),
-  added to `DEFAULT_DAILY_METRICS` (so they appear in correlations) and `mvpa_min` to
-  `METRICS_HIGH_IS_GOOD`. Derived in the nightly `derive` pass from per-minute
-  `steps_per_minute` + `session(kind='workout')`.
+- **Metrics: `moderate_min`, `vigorous_min`, `mvpa_min`.** Only `mvpa_min` is a
+  `derived_daily` row; `moderate_min` and `vigorous_min` live inside its `flags` and are
+  registered as `analytics/metrics.py::FLAG_DERIVED_METRICS`. The correlation set is
+  `V2_DAILY_METRICS` and it carries **`mvpa_min` alone** — the other two are not
+  correlated. Derived in the nightly `derive` pass from per-minute `steps_per_minute`.
+  *(Corrected 2026-09-08: this bullet named `DEFAULT_DAILY_METRICS`, which is a v1 name,
+  put all three in the correlation set, and named `METRICS_HIGH_IS_GOOD`, which exists
+  nowhere in the repo. `derived_daily` has no `source` column either — only
+  `device_daily_total` does — so `source='derived'` described a column that does not
+  exist.)*
+- **Workouts are NOT counted, and that is the standing behaviour, not a lapse in
+  logging.** `derive/mvpa.py` reads `metric='steps_per_minute'` from `sample` and nothing
+  else; there is no workout join in the MVPA path and no `session` table in
+  `db/schema.sql`. So cycling, weights and swimming contribute zero MVPA minutes whether
+  or not they are logged. The design below still describes adding them and remains the
+  methodology of record — it is **planned, not shipped** (2026-09-08).
 - **`/api/today` payload** carries an `mvpa` object: `today_min`, `week_min` (current ISO
-  week so far), `week_target` (150), `moderate_min_week`, `vigorous_min_week`, and the
-  citing research note.
+  week so far), `week_target` (150), `week_moderate_min`, `week_vigorous_min`, and the
+  citing research note. *(The field names were given reversed here until 2026-09-08;
+  `read/fitness.py` ships the `week_`-prefixed spellings.)*
 - **Honesty rules**: cadence-based estimate footer; 150 is a lower bound; surface likely
-  under-count when workouts are unlogged.
+  under-count **because non-walking activity is not counted at all** — naming unlogged
+  workouts as the cause would name the wrong one, since logging one changes nothing.
 - **Out of scope**: HR-zone-based MVPA (PAI already does that); per-age recalibration of
   the 100-spm threshold (±10 spm by cohort — acceptable error for personal trending).

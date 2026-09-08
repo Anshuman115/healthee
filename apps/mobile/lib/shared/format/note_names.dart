@@ -127,7 +127,7 @@ const Map<String, String> kNoteNames = <String, String>{
   'sleep_need_debt': 'Sleep need & cumulative sleep debt',
   'sleep_regularity_index': 'Sleep Regularity Index (SRI)',
   'sleep_score_implementation_plan': '4-dimension sleep-health score (implementation plan)',
-  'sleep_timing_chronotype': 'Sleep timing, chronotype & the CVD-lowering bedtime',
+  'sleep_timing_chronotype': 'Sleep timing, chronotype & the lowest-CVD-risk bedtime',
   'slow_breathing_hrv_acute': 'Slow-paced breathing and acute HRV',
   'specificity_and_recovery': 'Specificity & Recovery',
   'steps_mortality': 'Daily steps and mortality',

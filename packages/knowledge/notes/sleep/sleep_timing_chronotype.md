@@ -1,7 +1,7 @@
 ---
 id: sleep_timing_chronotype
-name: "Sleep timing, chronotype & the CVD-lowering bedtime"
-topic: Sleep timing (when to sleep/wake), chronotype, and the bedtime that lowers CVD risk
+name: "Sleep timing, chronotype & the lowest-CVD-risk bedtime"
+topic: Sleep timing (when to sleep/wake), chronotype, and the bedtime window associated with the lowest CVD risk
 category: sleep
 grade: Probable
 summary: "Sleep onset ~10–11 PM with 7–8 h and a ~6:30–7 AM wake sits at the lowest-CVD-risk window (U-shaped; Nikbakhtian 2021), but consistency of timing matters more than the exact clock time, and for night owls a consistent wake time plus gradual morning-light shift beats a forced early bedtime."

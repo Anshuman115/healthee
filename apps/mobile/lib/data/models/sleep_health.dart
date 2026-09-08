@@ -138,7 +138,14 @@ class SleepHealth {
         passed: point('point_duration'),
         reading: '${tstMin ~/ 60}h ${tstMin % 60}m',
         cutoff: hours == null ? '7–9 h' : '${hours.first}–${hours.last} h',
-        source: 'AASM adult recommendation',
+        // NSF 2015's expert consensus, not AASM's (audit D13, 2026-09-08).
+        // `sleep_duration_mortality.md:146-151` attributes the 7-9 h band to NSF;
+        // AASM's own figure is a one-sided "at least 7 h"
+        // (`sleep_timing_chronotype.md:74`), so the label contradicted the band it
+        // sat under — and contradicted this app's own `sleep` explainer, which has
+        // said "National Sleep Foundation's 2015 expert consensus" since the
+        // grounding pass.
+        source: 'NSF 2015 consensus (18–64)',
       ),
       SleepDimension(
         name: 'Efficiency',
@@ -156,7 +163,12 @@ class SleepHealth {
         passed: point('point_regularity'),
         reading: sri?.toStringAsFixed(0),
         cutoff: sriMin == null ? '≥ 70' : '≥ ${sriMin.toStringAsFixed(0)}',
-        source: 'SRI over 14 nights',
+        // SEVEN nights, not fourteen: `derive/sleep_score.py:41` is `SRI_DAYS = 7`
+        // (Phillips 2017's minimum window). 14 is the SLEEP-DEBT window
+        // (`SLEEP_DEBT_WINDOW`), and the two were transposed here — a caption
+        // describing a different computation from the one that produced the number
+        // beside it (audit D13, 2026-09-08).
+        source: 'SRI over 7 nights',
       ),
       SleepDimension(
         name: 'Timing',

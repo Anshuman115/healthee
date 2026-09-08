@@ -176,8 +176,7 @@ note as a whole is Contested rather than resolved in this direction.
 ## How we compute it
 
 **We compute nothing, because we log nothing.** There is no meal, food or calorie
-entry anywhere in the product. `manual_entry` accepts arbitrary `kind` strings via
-`/api/logs`, but `analytics/metrics.py::EVENT_KINDS` — the fixed set the
+entry anywhere in the product. `manual_entry` is written through **`POST /api/log`** (singular — `api/routers/logs.py:18`), whose wire field is **`type`**, not `kind`, and whose value must be one of a **10-value allowlist** (`read/logs.py:20-23`: caffeine, alcohol, water, food, med, symptom, mood, habit, meditation, exercise) — not an arbitrary string. *(Corrected 2026-09-08: this said "arbitrary `kind` via `/api/logs`". The substance below is unaffected — both `water` and `food` are on the allowlist — but three details of the endpoint were wrong.)* But `analytics/metrics.py::EVENT_KINDS` — the fixed set the
 correlation and cutoff machinery evaluates — contains only alcohol, caffeine,
 meditation, exercise and fasting. There is no meal kind, so there is no meal
 correlation, no personal meal cutoff, and no way for the coach to know when this
@@ -317,8 +316,9 @@ applies to this owner, about whom we know nothing dietary.
 ## Healthee implementation & honesty policy
 
 - **No metric, no log kind, no correlation path.** There is no meal or food entry in
-  the product. `manual_entry` accepts an arbitrary `kind` through `/api/logs`, but
-  `analytics/metrics.py::EVENT_KINDS` evaluates only alcohol, caffeine, meditation,
+  the product. `manual_entry` is written through `POST /api/log`, whose wire
+  field is `type` and whose values are a 10-value allowlist that DOES include `food`
+  (`read/logs.py:20-23`) — but `analytics/metrics.py::EVENT_KINDS` evaluates only alcohol, caffeine, meditation,
   exercise and fasting — so a hand-written meal log would correlate against nothing
   and reach nothing but the coach's raw manual-entries table. `applies_to_metrics`
   lists `tst_min` and `sleep_health_score_4dim` because this note is what the coach

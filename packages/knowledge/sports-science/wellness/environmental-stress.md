@@ -502,12 +502,18 @@ phrase arrived with the upstream sports-science corpus import. The true position
   **mortality / cardiovascular** benefit in `sauna_cv_benefits` — same exposure (heat),
   different endpoint (performance-in-heat vs long-term CV/health). Do not conflate the two
   evidence bases.
-- **Safety-critical guardrails that WOULD be worth mirroring in
-  code (see *Safety bounds* for what is and is not enforced today — #87):**
+- **The safety-critical guardrails, and which of them is COMPILED** (see *Safety bounds*
+  for exactly what each does and does not catch — #87. Corrected 2026-09-08: this list
+  was headed "guardrails that WOULD be worth mirroring in code" while the first entry
+  had been mirrored for a month, two hundred lines below the frontmatter that declares
+  it):**
   - **Exertional heat illness is a medical emergency** — on red-flag symptoms (confusion,
     collapse, disorientation, vomiting, altered behavior) during/after hot exercise, **stop
     training advice and direct to immediate cooling + urgent medical care** (D12,
-    SAFETY-CRITICAL).
+    SAFETY-CRITICAL). **✅ ENFORCED**: this note declares `safety_critical: [12]` and
+    `insights/guard_directives.py` compiles
+    `environmental_stress_D12_exertional_red_flags_to_urgent_care`. The rest of this
+    list is NOT compiled and is for the coach to follow.
   - In **extreme heat/WBGT, scale back, move cooler, or postpone**, especially for
     unacclimatized runners (D11, SAFETY-CRITICAL); on **altitude-illness** symptoms
     (worsening headache, severe breathlessness, confusion, ataxia) advise **descent and

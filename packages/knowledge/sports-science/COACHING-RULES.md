@@ -19,8 +19,9 @@ How to read it:
 - **Confidence** tags mirror the source (Established / Probable / Emerging /
   Contested / Myth-corrected). The coach's phrasing must track this.
 - 🛑 **SAFETY-CRITICAL** marks rules that **ought to be** hard guardrails — the AI
-  must never override them. None of them is compiled into one yet (see the box below);
-  the marker is an intent, and the honesty of saying so is the point of #87. They are collected up front, then repeated in-theme for
+  must never override them. Most are an intent and not yet compiled; **one is compiled**
+  — rule 8's heat-illness stop-and-cool, via `environmental-stress` D12 (see the box
+  below). Saying which is which is the point of #87. They are collected up front, then repeated in-theme for
   context. Everything else is advisory and individualised.
 
 ---
@@ -38,9 +39,11 @@ How to read it:
 > declares a directive `safety_critical` in its frontmatter — with a test asserting
 > the markers and the rules match in both directions.
 >
-> **That does not change what is enforced below.** No sports-science doc declares a
-> marker, so **nothing in this section is automatically enforced by virtue of being
-> written here.** Read it as *what the guardrails must be*, and check
+> **That does not change most of what is enforced below** — but it is no longer true
+> that nothing here is (corrected 2026-09-08; this box said "**No sports-science doc
+> declares a marker**" while one in this very collection did, so the document denied
+> the existence of its own live guardrail). **Five directives across four notes are marked and compiled today** — `napping` D5, `hydration_everyday` D5 and D6, `late_eating_sleep` D5, and `environmental_stress` D12, the last of which IS in this collection (`wellness/environmental-stress.md` declares `safety_critical: [12]` in its frontmatter and `insights/guard_directives.py` compiles `environmental_stress_D12_exertional_red_flags_to_urgent_care` from it). Everything else here is still
+> *what the guardrails must be* rather than what they are: read it that way, and check
 > `output_guard.py` + `guard_directives.py` for what they *are*. A rule that is
 > genuinely load-bearing gets added there deliberately, with a documented origin —
 > and if its home is a note directive, by marking that directive and writing its
