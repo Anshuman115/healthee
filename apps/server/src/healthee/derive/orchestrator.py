@@ -71,17 +71,34 @@ def derive_night(cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: d
         (user_id, start_ts),
     )
     sr = cur.fetchone()
-    # A session with NO stage breakdown scores nothing. Three of the four dimensions —
-    # duration, efficiency, and the sleep debt that reads `tst_min` — are functions of the
-    # stage minutes, so scoring one without them would have to invent a total sleep time,
-    # and the only value available to invent is zero. That is A5's defect arriving in the
-    # derive layer instead of the read layer: a 0-of-4 sleep score, an efficiency of 0%,
-    # and a full night of sleep debt, all for a night nobody measured.
+    # A session without a COMPLETE stage breakdown scores nothing. Three of the four
+    # dimensions — duration, efficiency, and the sleep debt that reads `tst_min` — are
+    # functions of the stage minutes, so scoring one without them would have to invent a
+    # total sleep time, and the only value available to invent is zero. That is A5's defect
+    # arriving in the derive layer instead of the read layer: a 0-of-4 sleep score, an
+    # efficiency of 0%, and a full night of sleep debt, all for a night nobody measured.
     #
     # The columns became nullable in `0018`; before it they were `NOT NULL DEFAULT 0` and
     # this branch was unreachable, which is exactly how the zeros got through.
-    if sr and any(v is not None for v in sr):
-        rem, light, deep, wake = (int(v or 0) for v in sr)
+    #
+    # ## Why `all` and not `any` (write-path audit B3)
+    #
+    # The gate was `any(...)` over `int(v or 0)`, so a PARTIAL breakdown became zeros —
+    # the same fabrication one field at a time. The sharpest case is an absent `wake_min`:
+    # `_sleep_efficiency(tst, 0)` returns `min(1.0, tst/tst) == 1.0`, so the night scored
+    # `p_eff = 1` and stored `efficiency_pct = 100.0`. A fabricated PERFECT efficiency,
+    # scoring a real dimension point, from a measurement nobody made. An absent `rem_min`
+    # or `light_min` understates `tst_min` instead, which then feeds the 14-night sleep
+    # debt and the recovery sleep factor.
+    #
+    # Scoring the dimensions that CAN be measured was the other option and it is worse
+    # here: the 4-dim score is a SUM of 0/1 points, so "3, of which one was unmeasurable"
+    # and "3 of 4" are the same number on the wire. There is no representation for the
+    # difference, and inventing one would be a composite with no methodology (CLAUDE.md).
+    # Withholding the night is the only answer the storage layer can state honestly, and
+    # it is the answer this branch's own comment already argues for.
+    if sr and all(v is not None for v in sr):
+        rem, light, deep, wake = (int(v) for v in sr)
         out.update(
             derive_sleep_score(cur, user_id, tz, start_ts, end_ts, rem, light, deep, wake, day)
         )
@@ -101,8 +118,11 @@ def derive_day(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
     today is its PRIMARY input, so the scoring must come first. Reversed, a session
     recorded today would not reach the day's own estimate until the next push — the
     day-ordering defect of #107 in a smaller shape.
-    ``tests/derive/test_vo2max_tier.py::test_derive_day_scores_the_days_tracks_before_it_reads_them``
-    pins it by driving the whole pass.
+    ``tests/derive/test_vo2max_tier_surfaces.py::test_derive_day_scores_the_days_tracks_before_it_reads_them``
+    pins it by driving the whole pass. (The file name was wrong here — it said
+    ``test_vo2max_tier.py``, where the test does not live. A pointer a reader follows to
+    nothing is the failure ``docs/HOW_WE_VERIFY.md`` section 2 names, and a prior audit
+    was misled by exactly this one.)
     """
     out: dict = {}
     if m := derive_mvpa(cur, user_id, tz, day):
