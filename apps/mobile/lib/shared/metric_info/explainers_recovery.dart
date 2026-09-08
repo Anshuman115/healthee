@@ -43,7 +43,9 @@ const Map<String, MetricInfo> kRecoveryExplainers = <String, MetricInfo>{
         'Higher is better; the trend matters far more than any single day. '
         "It's shown with a per-factor breakdown so you see exactly what moved it — "
         'and a green morning never clears mounting fatigue, poor mood or pain. '
-        'Those are not in the number.',
+        'Those are not in the number. The way it falls through the day is our own '
+        'conservative model: no validated intraday “battery” formula exists to copy, '
+        'and the corpus says so.',
     why:
         'Each input is well-evidenced on its own. What does NOT exist is a '
         'peer-reviewed formula that combines HRV, resting HR and sleep into one '
@@ -57,9 +59,6 @@ const Map<String, MetricInfo> kRecoveryExplainers = <String, MetricInfo>{
       'respiratory_rate_normal',
       'sleep_need_debt',
     ],
-    uncited:
-        'The way readiness falls through the day is our own conservative model. '
-        'There is no validated intraday “battery” formula to copy.',
   ),
   'recovery': MetricInfo(
     title: 'Recovery signals',
@@ -140,6 +139,12 @@ const Map<String, MetricInfo> kRecoveryExplainers = <String, MetricInfo>{
       'wearable_hr_validity',
       'recovery_readiness',
     ],
+    uncited:
+        'The one-standard-deviation line is a practitioner convention, not a '
+        'published cutoff — the note that carries it says in as many words that no '
+        'source in it supports the band, and that the smallest worthwhile change in '
+        'HRV is unsettled. The 7-day rolling baseline it is measured against IS '
+        'sourced; the width of the band around it is not.',
   ),
   'resp': MetricInfo(
     title: 'Breathing rate',

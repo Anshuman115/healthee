@@ -86,9 +86,21 @@ class DetailGrounding extends StatelessWidget {
 
   /// The grade to show when the payload sent none.
   ///
-  /// Only ever the **explainer's** own, looked up from the corpus for prose
-  /// written in this repo against those notes (`shared/format/note_grades.dart`
-  /// argues the distinction). Never derived from an id the payload sent.
+  /// Looked up from the corpus, for a sheet whose prose was written in this repo
+  /// against those notes (`shared/format/note_grades.dart` argues the
+  /// distinction). It is computed over the **whole merged [noteIds] list**, not
+  /// the explainer's static half.
+  ///
+  /// That was the defect. The sheet lists the merged list as its sources, and
+  /// stamped a grade taken from the static half alone — so a card whose payload
+  /// ships a `Contested` id (`hr_reserve_vo2max` on the VO₂max reserve tier,
+  /// `training_load_acwr` on activity) named it as a source under a **Probable**
+  /// stamp. The server's own rule is the opposite and fail-closed:
+  /// `jobs/recs.py::_provable_grade` and `insights/validator._grade_floor` both
+  /// take the weakest cited grade as the ceiling.
+  ///
+  /// `weakestGrade` returns null for any id this build cannot resolve, so an app
+  /// older than the corpus shows no grade rather than a confident wrong one.
   final String? fallbackGrade;
 
   @override
@@ -337,9 +349,10 @@ class _MetricInfoSheet extends StatelessWidget {
             DetailGrounding(
               noteIds: _notes,
               detail: detail,
-              fallbackGrade: explainer == null
-                  ? null
-                  : weakestGrade(explainer.notes),
+              // Over the MERGED list, not the explainer's own. The stamp has to
+              // cover every source the row above it names, or it is a grade for
+              // a different set of citations than the one on screen.
+              fallbackGrade: explainer == null ? null : weakestGrade(_notes),
             ),
             if (explainer != null && explainer.uncited.isNotEmpty) ...<Widget>[
               const SizedBox(height: Insets.sm),

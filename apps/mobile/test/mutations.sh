@@ -2854,6 +2854,84 @@ mutate 'the sign-in probe forgets the rule the app client keeps' \
   '        followRedirects: false,' \
   '        maxRedirects: 5,'
 
+# ── The knowledge audit's screen findings (2026-09-08) ───────────────────────
+# The ⓘ explainers are the one interpretive channel in this app with no grade
+# gate on the way out: `insights/validator._grade_issue` calibrates the MODEL's
+# sentences against their cited notes' grades and cannot see a Dart string. So
+# these are the only claims in the product nothing checked, and the mutations
+# below are what now checks them.
+
+# The per-claim sentences; `UNCITED_TEST` holds the structural half of the same
+# grounding pass (what a citation row implies, and what `uncited` means).
+GROUNDING_TEST=test/shared/metric_info_claims_test.dart
+UNCITED_TEST=test/shared/metric_info_grounding_test.dart
+MERGED_GRADE_TEST=test/shared/metric_info_merged_grade_test.dart
+EXPLAINERS_BODY=lib/shared/metric_info/explainers_body.dart
+EXPLAINERS_SLEEP=lib/shared/metric_info/explainers_sleep.dart
+INFO_SHEET=lib/shared/metric_info/metric_info_sheet.dart
+
+# The MVPA card prints a mortality percentage again. Three of its four cited
+# notes forbid the sentence outright — `mvpa_minutes_mortality` D4 and its Safety
+# bounds, `exercise_mortality` D1, `mvpa_weekly_plan`'s Safety bounds — and
+# `output_guard.personal_death_risk_number` blocks the MODEL from writing it,
+# citing those same notes. The Dart string was the unguarded half of one claim.
+mutate 'the MVPA card prints a death-risk percentage again' \
+  "$GROUNDING_TEST" "$EXPLAINERS_BODY" \
+  "        'more moderate-to-vigorous activity tracks with lower all-cause mortality — '" \
+  "        'reaching it tracks with roughly 22–31% lower all-cause mortality versus none — '"
+
+# The VO₂max card does the same, against `non_exercise_vo2max` D4 — the directive
+# governing the Jurca tier this card actually shows for this owner.
+mutate 'the VO₂max card launders the estimate into a death-risk number' \
+  "$GROUNDING_TEST" "$EXPLAINERS_BODY" \
+  "        'treadmill tests, low fitness carried a greater hazard than current smoking, '" \
+  "        'treadmill tests, the fittest had about 80% lower all-cause mortality, '"
+
+# The comparator goes back to the splice: `vo2max.md:209-210` says the hazard of
+# low CRF exceeded smoking, diabetes and END-STAGE RENAL DISEASE in Mandsager's
+# modelled cohort. Hypertension belongs to the separate, non-cohort sentence.
+# This is the audit's clearest case of a citation that exists and does not
+# support the claim — the one shape worse than an absent citation.
+mutate 'Mandsager 2018 is credited with a comparator it does not make' \
+  "$GROUNDING_TEST" "$EXPLAINERS_BODY" \
+  "        'diabetes or end-stage renal disease modelled in that same population '" \
+  "        'diabetes or high blood pressure modelled in that same population '"
+
+# The sleep-health card glosses the MIDPOINT dimension as a bedtime again. Read
+# as a bedtime, 2–4 am is the window `sleep_timing_chronotype.md:54-57` scores
+# WORST — so the ⓘ told the owner the app wants him in bed between 2 and 4 am.
+mutate 'the sleep card calls a midpoint a bedtime' \
+  "$GROUNDING_TEST" "$EXPLAINERS_SLEEP" \
+  "        'Four qualities of a good night: enough hours, efficient sleep, sleep timing, '" \
+  "        'Four qualities of a good night: enough hours, efficient sleep, a healthy bedtime, '"
+
+# `sleep_regularity_index` D6: "Never convert an SRI into risk, years, or a
+# biological-age contribution — the published hazard figures belong to the
+# software that scored the SRI; ours is a third pipeline." The card printed one
+# three lines above its own disclaimer saying it could not.
+mutate 'the SRI card converts a regularity score into a risk figure' \
+  "$GROUNDING_TEST" "$EXPLAINERS_SLEEP" \
+  "        'improve it, and the steadiest sleepers carried the lower risk (Windred '" \
+  "        'improve it, and the steadiest sleepers sat around 30% lower risk (Windred '"
+
+# The grade stamp goes back to the explainer's STATIC notes, so a Contested id
+# the server sent is listed as a source under a Probable stamp. No amount of
+# prose care catches this one — it is the merge, not a sentence.
+mutate 'the grade stamp stops covering the sources beside it' \
+  "$MERGED_GRADE_TEST" "$INFO_SHEET" \
+  '              fallbackGrade: explainer == null ? null : weakestGrade(_notes),' \
+  '              fallbackGrade: explainer == null ? null : weakestGrade(explainer.notes),'
+
+# `uncited` renders as "Not covered by those sources: …". Putting a sourced claim
+# under it — this one is `energy_expenditure_derivation.md:132-133` verbatim —
+# teaches the reader that the label carries no information, which is worse than
+# having no label at all.
+mutate 'a sourced claim goes back under the not-covered disclaimer' \
+  "$UNCITED_TEST" "$EXPLAINERS_BODY" \
+  "    notes: <String>['energy_expenditure_derivation', 'weight_bmi_body_composition']," \
+  "    notes: <String>['energy_expenditure_derivation', 'weight_bmi_body_composition'],
+    uncited: 'If your logged weight is old, the BMR under this number is old too — about 0.6% per kilogram out of date.',"
+
 
 echo
 echo "caught $PASS, survived $FAIL"
