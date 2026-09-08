@@ -70,8 +70,9 @@ const Map<String, MetricInfo> kSleepExplainers = <String, MetricInfo>{
         'never scaled into a 0–100 score.',
     target:
         'Aim for 4 / 4 — the count is the score, and it always travels with the four '
-        'checks behind it rather than replacing them. Three of the four cut-offs come '
-        'from the literature; one we chose — see below.',
+        'checks behind it rather than replacing them. Two of the cut-offs come '
+        'straight from the literature, one is our pick inside a published range, and '
+        'one is ours outright — see below.',
     why:
         'No peer-reviewed composite 0–100 sleep score exists, and refusing to show '
         'one is the honest choice, so this is a count of checks passed and never a '
