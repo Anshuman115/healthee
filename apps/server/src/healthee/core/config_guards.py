@@ -77,7 +77,7 @@ def refuse_an_unasked_for_rls_bypass(app_role_configured: bool, allow_fallback: 
 
     ### And why there is an opt-out at all
 
-    The bootstrap really is two deploys (`infra/DEPLOY.md` §B2): the role cannot be
+    The bootstrap really is two deploys (`infra/DEPLOY.md` B2): the role cannot be
     provisioned before the deploy that provisions it, so step 1 MUST be bootable on
     the admin creds. Refusing outright would make the documented procedure
     impossible. `ALLOW_ADMIN_DB_FALLBACK=true` keeps step 1 working while turning
@@ -102,7 +102,7 @@ def refuse_a_shared_token_beside_open_signups(signups_open: bool, token: str) ->
 
     The legacy shared token resolves to ONE REAL TENANT (`core.request_auth`), it
     never expires, and it ships inside the APK. `request_auth`'s own module
-    docstring says it MUST NOT survive into public signups and `MULTI_USER.md` §4
+    docstring says it MUST NOT survive into public signups and `MULTI_USER.md` section 4
     says `signups_open=true` is "gated on that removal" — and nothing gated it: the
     two settings were independent fields with no validator between them, in a file
     that already refuses three other ambiguities. One static string that reads and

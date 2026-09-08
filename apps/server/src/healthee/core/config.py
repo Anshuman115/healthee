@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     #
     # Blank ⇒ the pool would fall back to the admin creds above. That fallback is a
     # documented, deliberately-transitional step of the two-deploy bootstrap
-    # (`infra/DEPLOY.md` §B2) — and it is also the state in which RLS isolates nothing,
+    # (`infra/DEPLOY.md` B2) — and it is also the state in which RLS isolates nothing,
     # so since the auth audit it has to be ASKED FOR (`allow_admin_db_fallback` below)
     # rather than reached by leaving a variable blank. Provision the role with
     # `python -m healthee.db.provision_app_role` (run as the admin), then set these.

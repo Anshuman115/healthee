@@ -113,7 +113,7 @@ def _refuse_if_privileged(pool: _Pool) -> None:
 
     `ALLOW_ADMIN_DB_FALLBACK=true` restores the warning, for the one deploy of the
     documented two-deploy bootstrap that has to run on the admin creds
-    (`infra/DEPLOY.md` §B2 step 1).
+    (`infra/DEPLOY.md` B2 step 1).
     """
     with pool.connection() as conn, conn.cursor() as cur:
         cur.execute(
