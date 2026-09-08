@@ -1329,6 +1329,34 @@ mutate 'the physiology read drops a metric it still reports' \
   'PHYSIOLOGY_METRICS = ("spo2", "respiratory_rate", "skin_temp_c")' \
   'PHYSIOLOGY_METRICS = ("spo2", "respiratory_rate")'
 
+# ── L2 · PERF_AUDIT B1 ──────────────────────────────────────────────────────
+# The 96-point trend comes back as a second copy on the same response. The
+# pointer stays, so the payload looks MORE complete than the fixed one — which
+# is why the guard compares VALUES rather than checking a key name.
+ACTIVITY_DUP=tests/read/test_activity_no_duplicate_trend.py
+
+mutate 'the fitness plan carries its own copy of the trend again' \
+  "$ACTIVITY_DUP" src/healthee/read/fitness_plan.py \
+  '        "trend_source": _TREND_SOURCE,' \
+  '        "trend_source": _TREND_SOURCE,
+        "trend_90d": vo.get("trend_90d") or [],'
+
+# The pointer names a key that is not there. It reads perfectly in a diff and
+# resolves to nothing — the alias failure A4 above is about, one block over.
+mutate 'the trend pointer names a key nothing publishes' \
+  "$ACTIVITY_DUP" src/healthee/read/fitness_plan.py \
+  '_TREND_SOURCE = "vo2max.trend_90d"' \
+  '_TREND_SOURCE = "vo2max.trend"'
+
+# The block is built a second time instead of taken from the caller — the defect
+# itself. Every value on the wire is identical, so only the statement count says.
+mutate 'the fitness plan rebuilds the vo2max block it was handed' \
+  "$ACTIVITY_DUP" src/healthee/read/fitness_plan.py \
+  '    vo = vo2max' \
+  '    from healthee.read.vo2max import vo2max_payload
+
+    vo = vo2max_payload(cur, user_id, tz, as_of)'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

@@ -40,6 +40,7 @@ from healthee.read.fitness_plan import fitness_plan_payload, projected_gain
 from healthee.read.recovery_signals import recovery_signals
 from healthee.read.sleep_page import sleep_page
 from healthee.read.today_series import secondary_cards, step_buckets
+from healthee.read.vo2max import vo2max_payload
 from healthee.read.workout import workout_detail
 
 pytestmark = pytest.mark.integration
@@ -64,7 +65,12 @@ def test_the_plan_withholds_its_projection_when_there_is_no_age_median() -> None
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         reset(cur)
         daily(cur, today, "vo2max_estimate", 38.0, {"see_ml_kg_min": 5.075})  # no age, no sex
-        plan = fitness_plan_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+        plan = fitness_plan_payload(
+            cur,
+            SENTINEL_USER_ID,
+            SENTINEL_TZ,
+            vo2max=vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ),
+        )
 
     assert plan is not None, "the weekly Rx does not depend on a median and must still ship"
     assert plan["median_for_age"] is None
@@ -90,7 +96,12 @@ def test_the_projection_ships_its_bound_and_refuses_to_promise() -> None:
     with tenant_transaction(SENTINEL_USER_ID) as cur:
         reset(cur)
         daily(cur, today, "vo2max_estimate", 30.0, _VO2MAX_FLAGS)
-        plan = fitness_plan_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ)
+        plan = fitness_plan_payload(
+            cur,
+            SENTINEL_USER_ID,
+            SENTINEL_TZ,
+            vo2max=vo2max_payload(cur, SENTINEL_USER_ID, SENTINEL_TZ),
+        )
 
     assert plan is not None
     assert plan["gain_floor"] == 2.0
