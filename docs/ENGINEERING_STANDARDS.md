@@ -204,11 +204,15 @@ tests/         unit + seeded-DB integration + contract tests + db/ (tenancy guar
 - **Responses are pydantic models for small, stable payloads** (`/api/challenges`,
   `/api/profile`, `/api/me`, …) — the model is cheap there and gives FastAPI a real
   OpenAPI schema plus a pyright-checked boundary.
-  **Large aggregates are the documented exception** (`/api/today` is ~20 KB of deeply
-  nested, largely-optional structure; `/api/sleep` similar): a model would duplicate
-  that shape in a second place and rot, so **the contract snapshot in
+  **Large aggregates are the documented exception** (`/api/today` measures **29.8 KB**
+  live at 200 days of history — 29,777 bytes minified, 6.3 KB gzipped — of deeply
+  nested, largely-optional structure; `/api/sleep` similar at 19.8 KB): a model would
+  duplicate that shape in a second place and rot, so **the contract snapshot in
   `packages/contracts` is the pin** and the handler returns `dict`. A new aggregate
   taking this exception says so in its router docstring.
+  > The figure was "~20 KB" until 2026-09-08, when `PERF_AUDIT.md` A2 measured it. It is
+  > not runaway and it compresses well, but the number a doc quotes has to be the number
+  > on the wire — `MAX_REPORTED_PAIRS`' own sizing argument is written against this one.
   > This rule was rewritten 2026-07-31 to state what we actually do and intend. It
   > previously read "API request/response bodies are pydantic models, not raw dicts"
   > — an absolute that 24 of 28 routers ignored, i.e. a MUST that taught readers the

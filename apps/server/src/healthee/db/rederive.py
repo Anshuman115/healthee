@@ -100,11 +100,12 @@ from healthee.core.db import close_pool, tenant_connection
 from healthee.core.logging import configure_logging, get_logger
 from healthee.core.tenancy import Tenant, active_users, user_today
 from healthee.db.stale_derived import (
-    GATED_METRICS,
+    PurgeRefusedError,
     describe,
     gated_off,
     open_gates,
     purge_stale,
+    refuse_gated,
     stale_counts,
 )
 from healthee.derive import derive_batch, stored_nights
@@ -192,19 +193,18 @@ def purge_metrics(
     that are perfectly current — the run simply never re-attempted them. That is the single
     way this feature could destroy correct data, so it is a refusal with the fix in the
     message, not a caveat in the docs.
+
+    The second is ONE function (``stale_derived.refuse_gated``), called here and again
+    inside ``purge_stale`` — because ``run`` and ``rederive_owner`` take ``purge=``
+    directly and never came through this door. This call fires first, before the
+    re-derive is paid for, which is why the CLI keeps one.
     """
     if applying and not metrics:
         raise RederiveRefusedError(
             "--apply does nothing without --purge-stale <metric …>. Name what may be "
             "removed; a run cannot ask to delete 'whatever it found'."
         )
-    for metric in metrics:
-        flag = GATED_METRICS.get(metric)
-        if flag is not None and flag not in gates:
-            raise RederiveRefusedError(
-                f"{metric} is scored once and this run did not re-attempt it, so its rows "
-                f"only LOOK stale. Re-run with {flag} to recompute them first, then purge."
-            )
+    refuse_gated(metrics, gates)
     return tuple(metrics)
 
 
@@ -245,9 +245,11 @@ def rederive_owner(
                 forgotten = forget_track_estimates(cur, tenant.id, tenant.tz, window)
         derive_batch(conn, tenant.id, tenant.tz, nights, window)
         with conn.cursor() as cur:
-            gated = gated_off(open_gates(rescore_tracks=rescore_tracks))
+            opened = open_gates(rescore_tracks=rescore_tracks)
+            gated = gated_off(opened)
             stale = stale_counts(cur, tenant.id, span, ignore=gated)
-            purged = purge_stale(cur, tenant.id, span, purge) if applying and purge else None
+            wanted = applying and purge
+            purged = purge_stale(cur, tenant.id, span, purge, gates=opened) if wanted else None
     return Rederived(
         tenant=tenant,
         nights=len(nights),
@@ -386,7 +388,7 @@ def main(argv: list[str] | None = None) -> int:
             purge=purge,
             applying=args.apply,
         )
-    except RederiveRefusedError as exc:
+    except (RederiveRefusedError, PurgeRefusedError) as exc:
         log.error("refused: %s", exc)
         return 2
     finally:

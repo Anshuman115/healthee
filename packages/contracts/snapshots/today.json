@@ -535,7 +535,8 @@
     ],
     "summary": "Recovery signals lean favorable",
     "total": 1,
-    "unfavorable": 0
+    "unfavorable": 0,
+    "withheld": null
   },
   "recovery_score": {
     "band": "high",

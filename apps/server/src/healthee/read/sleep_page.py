@@ -228,9 +228,28 @@ def _apply_physiology(
     `latest_derived_many` / `derived_series_many` on the Today page.
 
     The windows ride in as three parallel arrays and `unnest` back into rows, so each
-    night still aggregates over its OWN [start, end) — a LATERAL-free join that keeps
-    the per-window index seeks. A night with no samples still yields a row of NULLs
-    (LEFT JOIN), exactly as the per-night `fetchone()` did.
+    night still aggregates over its OWN [start, end). A night with no samples still
+    yields a row of NULLs (LEFT JOIN), exactly as the per-night `fetchone()` did.
+
+    ⚠ **The seeks are not the ones this comment used to claim.** It said the array form
+    "keeps the per-window index seeks"; `EXPLAIN (ANALYZE, BUFFERS)` says otherwise
+    (`docs/PERF_AUDIT.md` A1). The join carries **no `metric` predicate**, so each
+    per-night seek uses the hypertable's `ts`-only index, applies `user_id` as a filter,
+    and pulls every metric's samples inside the window before the four `CASE WHEN`
+    expressions discard the ones it does not want — 731 rows per night, 266,912 for 365
+    nights, of which under a quarter are wanted. `sample_user_idx (user_id, metric, ts
+    DESC)` cannot be used at all, because the predicate never names a metric.
+
+    Measured: 16.5 s at `days=365` on a year of nights, and ~125 ms at the app's default
+    `days=30` from 90 nights of history onward — over the p95 < 100 ms budget. The
+    statement is the whole cost; every other statement in the endpoint is under 3.1 ms.
+
+    The correction is left to its own change and is NOT made here: the fix is one added
+    line (`AND s.metric IN (…)`, measured at 47.5 ms for the same 365 windows) and it is
+    a behaviour-adjacent query change that belongs in a diff whose subject it is. What is
+    corrected here is the comment, because a comment that names a property the plan
+    contradicts is the class `BACKEND_AUDIT.md` D-b names: a reader who checks it stops
+    looking.
     """
     windows = [
         (local_date.isoformat(), start_ts, end_ts)

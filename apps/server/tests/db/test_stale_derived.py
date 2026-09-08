@@ -302,7 +302,9 @@ def test_the_owner_bound_is_the_predicate_not_only_rls(seeded: date) -> None:
     _plant(seeded, _WITHHELD_METRIC, 44.4, user_id=_OTHER_OWNER)
 
     with admin_connection() as conn, conn.cursor() as cur:
-        removed = purge_stale(cur, SENTINEL_USER_ID, (seeded, seeded), [_WITHHELD_METRIC])
+        removed = purge_stale(
+            cur, SENTINEL_USER_ID, (seeded, seeded), [_WITHHELD_METRIC], gates=frozenset()
+        )
 
     assert removed == {_WITHHELD_METRIC: 1}
     assert _rows(_OTHER_OWNER)[(seeded, _WITHHELD_METRIC)] == pytest.approx(44.4)
@@ -313,7 +315,7 @@ def test_an_empty_metric_list_removes_nothing(seeded: date) -> None:
     _plant(seeded, _WITHHELD_METRIC, 51.1)
 
     with admin_connection() as conn, conn.cursor() as cur:
-        removed = purge_stale(cur, SENTINEL_USER_ID, (seeded, seeded), [])
+        removed = purge_stale(cur, SENTINEL_USER_ID, (seeded, seeded), [], gates=frozenset())
 
     assert removed == {}
     assert (seeded, _WITHHELD_METRIC) in _rows()
@@ -334,7 +336,9 @@ def test_the_reported_counts_are_the_rows_that_went(seeded: date) -> None:
     before = len(_rows())
 
     with admin_connection() as conn, conn.cursor() as cur:
-        removed = purge_stale(cur, SENTINEL_USER_ID, (days[-1], days[0]), [_WITHHELD_METRIC])
+        removed = purge_stale(
+            cur, SENTINEL_USER_ID, (days[-1], days[0]), [_WITHHELD_METRIC], gates=frozenset()
+        )
 
     assert removed == {_WITHHELD_METRIC: 3}
     assert len(_rows()) == before - 3

@@ -1271,6 +1271,46 @@ mutate 'a later completion stops clearing the cooldown' \
   '        decided.add(metric)' \
   '        decided.discard(metric)'
 
+# ── K5 · D5 ─────────────────────────────────────────────────────────────────
+# The gated-metric refusal goes back to living only in the CLI, so `run` and
+# `rederive_owner` reach the DELETE with it — and every correctly GPS-scored
+# session's row is deleted as "stale".
+PURGE_GATE=tests/db/test_purge_gate.py
+
+mutate 'the gated-metric refusal leaves the delete again' \
+  "$PURGE_GATE" src/healthee/db/stale_derived.py \
+  '    refuse_gated(metrics, gates)
+    cur.execute(' \
+  '    cur.execute('
+
+# ── K6 · D6 ─────────────────────────────────────────────────────────────────
+# The row lock stops locking. `INSERT … ON CONFLICT DO NOTHING` still serializes
+# the FIRST use of a feature, which is exactly why this looks harmless: every
+# call after the row exists races freely.
+ALLOWANCE_LOCK=tests/premium/test_allowance_lock.py
+
+mutate 'the allowance spend stops locking its row' \
+  "$ALLOWANCE_LOCK" src/healthee/core/allowance.py \
+  '_LOCK_SQL = "SELECT value FROM kv WHERE user_id = %s AND key = %s FOR UPDATE"' \
+  '_LOCK_SQL = "SELECT value FROM kv WHERE user_id = %s AND key = %s"'
+
+# ── K7 · D10 ────────────────────────────────────────────────────────────────
+# The recovery ladder goes back to a bare absence, so "not enough of your data
+# yet" reaches the owner as "this is probably a bug on our side".
+SEVERITY_A_RECOVERY=tests/read/test_honesty_severity_a.py
+
+mutate 'the empty recovery ladder stops saying why' \
+  "$SEVERITY_A_RECOVERY" src/healthee/read/recovery_signals.py \
+  '        return _withheld([c for c in candidates if isinstance(c, Unplaced)])' \
+  '        return None'
+
+# The reason survives but stops being per marker, so "which of the three, and
+# why" becomes "something, somewhere".
+mutate 'the withheld ladder stops naming which marker' \
+  "$SEVERITY_A_RECOVERY" src/healthee/read/recovery_signals.py \
+  '            "markers": {u.name: u.reason for u in unplaced},' \
+  '            "markers": {},'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]
