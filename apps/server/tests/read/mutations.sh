@@ -1315,6 +1315,93 @@ mutate 'the withheld ladder stops naming which marker' \
   '            "markers": {u.name: u.reason for u in unplaced},' \
   '            "markers": {},'
 
+# ── the scheduler's arrival gate ────────────────────────────────────────────
+# Every mutation here restores some version of the defect the gate exists to end:
+# a daily chain firing on a clock, writing a briefing about a night no row
+# described, then marking the day done so the real data got no chain at all. None
+# of them raises. Each just makes the product confidently wrong at 10:30.
+#
+# Note what is NOT mutated: nothing here introduces a name the module does not
+# already import. A mutation that dies on NameError is caught for the wrong
+# reason and pins nothing — the "fictional mutation" this harness's header warns
+# about, which has been written four times in this repo already.
+GATE=tests/jobs/test_data_gate.py
+SWEEP=tests/jobs/test_scheduler_gate.py
+
+# The gate stops asking about THIS day and asks "has this owner any data, ever".
+# The strap has months of history, so that is open every morning of the year —
+# the original bug with a gate-shaped function standing in front of it.
+mutate 'the arrival gate loses its lower bound' \
+  "$GATE" src/healthee/jobs/data_gate.py \
+  'WHERE user_id = %s AND ts >= %s AND ts < %s)' \
+  'WHERE user_id = %s AND %s IS NOT NULL AND %s IS NOT NULL)'
+
+# The upper bound goes closed, so the first instant of tomorrow answers for today.
+mutate 'the day bracket stops being half-open' \
+  "$GATE" src/healthee/jobs/data_gate.py \
+  'WHERE user_id = %s AND end_ts >= %s AND end_ts < %s)' \
+  'WHERE user_id = %s AND end_ts >= %s AND end_ts <= %s)'
+
+# A night is judged by when it STARTED. An ordinary night starts on the previous
+# local day, so last night's sleep stops opening this morning's gate — the fix
+# failing shut, which is quieter than failing open and just as wrong.
+mutate 'the night is dated by when it started, not when it ended' \
+  "$GATE" src/healthee/jobs/data_gate.py \
+  'WHERE user_id = %s AND end_ts >= %s AND end_ts < %s)' \
+  'WHERE user_id = %s AND start_ts >= %s AND start_ts < %s)'
+
+# There is deliberately NO mutation for the "query returned no row" branch. It
+# raises, and it is unreachable — `SELECT EXISTS(...) OR EXISTS(...)` always
+# returns a row — so any mutation of it would be one no test could ever catch.
+# An earlier draft returned False there and the mutation flipping it to True
+# survived; the fix was to delete the dead branch, not to write a test that
+# reaches into psycopg to fake it. See the module docstring.
+
+# The sweep stops consulting the gate at all: back to firing on the clock alone.
+mutate 'the sweep stops consulting the arrival gate' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '            if not self._gate(tenant.id, day, tenant.tz):' \
+  '            if False:'
+
+# The gate is asked about YESTERDAY, which the strap always has — so it is open
+# every morning regardless of whether anything has arrived for today.
+mutate 'the gate is asked about the wrong day' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '            if not self._gate(tenant.id, day, tenant.tz):' \
+  '            if not self._gate(tenant.id, date.fromordinal(day.toordinal() - 1), tenant.tz):'
+
+# The owner's zone stops reaching the gate, so every owner's day is bracketed in
+# somebody else's — off by up to 25 hours at the edges.
+mutate 'the gate is asked in the wrong timezone' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '            if not self._gate(tenant.id, day, tenant.tz):' \
+  '            if not self._gate(tenant.id, day, "UTC"):'
+
+# A shut gate charges the retry budget, so an owner who syncs at lunchtime finds
+# their three attempts already spent on the morning they had not synced yet.
+mutate 'waiting for data counts as an attempt' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '                self._report_quiet_day(tenant, local, day)' \
+  '                self._spend(tenant, day)'
+
+# The quiet-day notice fires on every tick after 22:00 instead of once — ~24
+# identical alerts a day, which is how a health surface stops being read.
+mutate 'the quiet-day notice repeats every tick' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '        if key in self._quiet_reported:
+            return' \
+  '        if False:
+            return'
+
+# The notice never fires, so a strap that stopped syncing is indistinguishable
+# from a healthy one: no chain, no alert, no difference.
+mutate 'a day nothing arrived for is never reported' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '        if not is_due(local, self._quiet_notice):
+            return' \
+  '        if True:
+            return'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

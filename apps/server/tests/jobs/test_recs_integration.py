@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.conftest import entitle
 from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import StubLLM
 
@@ -122,6 +123,12 @@ def test_today_endpoint_returns_the_persisted_recommendations(
     db: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:  # noqa: ARG001
     _seed()
+    # `/api/today` OMITS the `recommendations` key for a non-premium owner (6.6a —
+    # they are LLM-authored, and the free tier has no AI). Without this the test
+    # passed only when an earlier file in the run had entitled the sentinel, because
+    # `subscription` survives the seed truncations — the order-dependent pass
+    # `conftest.entitle` documents, invisible until someone runs this file alone.
+    entitle(SENTINEL_USER_ID)
     monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
     get_settings.cache_clear()
     # Persist for today's real date so /api/today (which reads the latest day) sees them.
