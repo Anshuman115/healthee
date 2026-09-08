@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from healthee.derive._common import Cur
 
@@ -21,18 +21,41 @@ _INSTANT_KINDS = frozenset(
 )
 _DURATION_KINDS = frozenset({"meditation", "exercise"})
 
+# ── The bounds on owner-authored free text, and why they are HERE ─────────────
+#
+# ``name``, ``kind``, ``unit`` and ``notes`` are written straight to ``manual_entry``
+# and then rendered verbatim into EVERY prompt the product builds
+# (``insights/context_sessions.manual_entries_section`` → ``insights/context.build_context``
+# → both ``grounded_ask`` and the coach). Standards §2: "Request bodies are ALWAYS
+# pydantic models — validation at the boundary is what keeps a bad value out of the
+# science layer." These fields had no bound of any kind, so 200 rows of arbitrarily long
+# notes was the whole prompt budget — a denial-of-wallet against a $0.179-a-question
+# surface, and the budget the corpus is competing for (``insights/retrieval``: the
+# evidence block is "65–83 % of every prompt", and it is the part that gets squeezed).
+#
+# ⛔ A bound is the ONLY thing done to this text. It is not filtered, rewritten,
+# stripped or refused for its content — it is the owner's own journal and their own
+# record. What an instruction inside it can and cannot reach is handled where the
+# prompt is BUILT (the data fence in ``manual_entries_section``), never in storage.
+#
+# The numbers are chosen to be invisible to a person writing a journal and fatal to a
+# prompt-sized paste: 4,000 characters is roughly 700 words on one entry.
+_NOTES_MAX = 4000
+_NAME_MAX = 200
+_UNIT_MAX = 32
+
 
 class LogRequest(BaseModel):
     """Body of ``POST /api/log`` (mirrors the legacy ``_LogRequest``)."""
 
-    type: str
+    type: str = Field(max_length=_NAME_MAX)
     amount: float | None = None
-    name: str | None = None
-    unit: str | None = None
+    name: str | None = Field(default=None, max_length=_NAME_MAX)
+    unit: str | None = Field(default=None, max_length=_UNIT_MAX)
     minutes: int | None = None
-    kind: str | None = None
+    kind: str | None = Field(default=None, max_length=_NAME_MAX)
     at: int | None = None  # epoch ms; None = now
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=_NOTES_MAX)
 
 
 def record_log(cur: Cur, user_id: UUID, req: LogRequest) -> dict:
