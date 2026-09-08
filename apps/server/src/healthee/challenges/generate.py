@@ -47,7 +47,7 @@ row cannot shadow one already on the menu.
 
 ## Premium-gated, at the routes
 
-The whole challenges system is premium per PRICING §1a, and 6.6 landed: ``subscription``
+The whole challenges system is premium per PRICING section 1a, and 6.6 landed: ``subscription``
 exists, ``api.gate.ChallengeUser`` is the gated identity, and every challenge and program
 route takes it — the three challenge actions, the two program actions, both list reads
 and **both** ``generate`` routes. ``tests/premium/test_ai_gate.py`` probes all ten and

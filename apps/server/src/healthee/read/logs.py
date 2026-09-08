@@ -26,7 +26,7 @@ _DURATION_KINDS = frozenset({"meditation", "exercise"})
 # ``name``, ``kind``, ``unit`` and ``notes`` are written straight to ``manual_entry``
 # and then rendered verbatim into EVERY prompt the product builds
 # (``insights/context_sessions.manual_entries_section`` → ``insights/context.build_context``
-# → both ``grounded_ask`` and the coach). Standards §2: "Request bodies are ALWAYS
+# → both ``grounded_ask`` and the coach). Standards section 2: "Request bodies are ALWAYS
 # pydantic models — validation at the boundary is what keeps a bad value out of the
 # science layer." These fields had no bound of any kind, so 200 rows of arbitrarily long
 # notes was the whole prompt budget — a denial-of-wallet against a $0.179-a-question

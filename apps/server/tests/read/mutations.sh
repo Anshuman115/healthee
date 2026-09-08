@@ -534,6 +534,176 @@ mutate 'the workout pace stops naming its denominator' \
   '        m["pace_basis"] = "elapsed"' \
   '        m["pace_basis"] = "moving"'
 
+# ── the LLM audit ────────────────────────────────────────────────────────────
+#
+# Every guard below protects a SENTENCE rather than a number, which is why they
+# belong in this harness with more force than the read layer's: none of them
+# fails loudly, and a defect here is an unfounded claim in prose.
+
+LLM_GATES=tests/insights/test_grounded_surface_gates.py
+LLM_THREAD=tests/insights/test_thread_and_topic.py
+LLM_OWNER_TEXT=tests/insights/test_owner_text_in_prompts.py
+LLM_RECS_DAY=tests/read/test_as_of_day_recommendations.py
+
+# ── A2 ───────────────────────────────────────────────────────────────────────
+# `grounded_ask` stops computing `without_data`, so `personal_claims.issues`
+# returns on its first line again and the gate is inert on every surface but the
+# coach. THE defect: the daily action, the briefing, every insight card and recs
+# go back to having nothing check a claim about the owner's own data.
+mutate 'the personal-claims gate goes back to being coach-only' \
+  "$LLM_GATES" src/healthee/insights/grounded.py \
+  '        candidate.without_data = personal_claims.subjects_without_data(
+            user_id, tz, (), response.text or ""
+        )' \
+  '        candidate.without_data = frozenset()'
+
+# The gate is computed but not carried, which is the same hole one line later and
+# looks even more like working code.
+mutate 'the computed subjects never reach the gate' \
+  "$LLM_GATES" src/healthee/insights/grounded.py \
+  '            context=lambda: pipeline.AnswerContext(
+                json_mode=json_mode, without_data=candidate.without_data
+            ),' \
+  '            context=lambda: pipeline.AnswerContext(json_mode=json_mode),'
+
+# ── A4 ───────────────────────────────────────────────────────────────────────
+# The owner's journal goes back into the prompt with nothing marking it as data.
+mutate 'the manual-entry block loses its data fence' \
+  "$LLM_OWNER_TEXT" src/healthee/insights/context_sessions.py \
+  '    lines = [f"## Manual entries (last {days} days, {tz})", _DATA_FENCE]' \
+  '    lines = [f"## Manual entries (last {days} days, {tz})"]'
+
+# The owner's newline ends the bullet again and lifts the rest of their sentence
+# to the top level of the prompt — the fence with a hole cut in it.
+mutate 'owner text can break out of its own line again' \
+  "$LLM_OWNER_TEXT" src/healthee/insights/context_sessions.py \
+  '    return " ".join(value.split())' \
+  '    return value'
+
+# The character cap goes back to being a row cap, i.e. no bound at all.
+mutate 'the entry block is bounded by rows rather than characters' \
+  "$LLM_OWNER_TEXT" src/healthee/insights/context_sessions.py \
+  '        if used + len(line) > _MAX_ENTRY_CHARS and lines:' \
+  '        if False:'
+
+# `notes` loses its boundary bound, so 200 rows is the prompt budget again.
+mutate 'the journal note is unbounded at the API boundary' \
+  "$LLM_OWNER_TEXT" src/healthee/read/logs.py \
+  '    notes: str | None = Field(default=None, max_length=_NOTES_MAX)' \
+  '    notes: str | None = None'
+
+# ── A5 ───────────────────────────────────────────────────────────────────────
+# The refusal gate reads the last message again while the whole thread is sent,
+# so a refused emergency re-enters the model's context on the next turn.
+mutate 'the refusal gate screens only the last message again' \
+  "$LLM_THREAD" src/healthee/insights/coach_thread.py \
+  '    for message in history:
+        if message["role"] != "user":
+            continue
+        hit = pipeline.check_question(message["content"])
+        if hit is not None:
+            return hit
+    return pipeline.check_question(topic) if topic else None' \
+  '    hit = pipeline.check_question(last_user(history))
+    return hit if hit is not None else None'
+
+# Only the topic stops being screened — the half a "screen what is sent" fix is
+# most likely to forget.
+mutate 'the topic skips the refusal gate' \
+  "$LLM_THREAD" src/healthee/insights/coach_thread.py \
+  '    return pipeline.check_question(topic) if topic else None' \
+  '    return None'
+
+# ── B1 ───────────────────────────────────────────────────────────────────────
+# The greeting claims to be an answered turn again, so the router's fourth refund
+# branch never fires and a question with no question in it charges one of twenty.
+mutate 'a canned greeting counts as an answer delivered' \
+  "$LLM_THREAD" src/healthee/insights/coach.py \
+  '        return CoachResult(reply=_GREETING, answered=False)' \
+  '        return CoachResult(reply=_GREETING)'
+
+# ── B2 ───────────────────────────────────────────────────────────────────────
+# A past `day` is honoured again: today's judgement, from today's data, filed
+# under an older date and then served as that day's answer.
+mutate 'recs are dated a day their own inputs never answered for' \
+  tests/jobs/test_recs_day.py src/healthee/jobs/recs.py \
+  '    today = user_today(tz)
+    if day is not None and day != today:' \
+  '    today = user_today(tz)
+    if False:'
+
+# ── B3 ───────────────────────────────────────────────────────────────────────
+# The metric label comes from the caller again — unvalidated text in the task
+# sentence, and absent from the cache key.
+mutate 'the metric prompt takes its label from the caller again' \
+  "$LLM_GATES" src/healthee/insights/surfaces.py \
+  '        f"In 1–2 short sentences, interpret my {metric_label(metric)} for me right now. "' \
+  '        f"In 1–2 short sentences, interpret my {metric} for me right now. "'
+
+# ── C3 ───────────────────────────────────────────────────────────────────────
+# The workout review is read through the per-DAY cache again, so a fixed past
+# session is re-reviewed daily against a different week each time.
+mutate 'a fixed past workout is re-reviewed every day' \
+  "$LLM_GATES" src/healthee/insights/surfaces.py \
+  '        stored = get_stored(user_id, key)
+        if stored is not None:
+            return stored' \
+  '        stored = get_cached(user_id, tz, key)
+        if stored is not None:
+            return stored'
+
+# The prompt stops saying what its window covers, so it is named for a period it
+# does not cover — the class the last audit raised twice.
+mutate 'the workout prompt stops naming its real window' \
+  "$LLM_GATES" src/healthee/insights/surfaces.py \
+  '        "The WORKOUT below is the session under review, with its own numbers. The "
+        "CONTEXT block is my LAST 7 DAYS UP TO TODAY, which may be long after this "
+        "session — do not describe it as the week around this workout, and do not read "
+        "a trend in it as something this session caused or was caused by."' \
+  '        ""'
+
+# ── C5 ───────────────────────────────────────────────────────────────────────
+# The validator's grade lookup fails OPEN again: an unrecognised grade ranks
+# Established, the least strict wording rule, inside the strictest module.
+mutate 'an unknown grade ranks Established in the validator again' \
+  "$LLM_GATES" src/healthee/insights/validator.py \
+  '    ranks = [manifest.GRADE_RANK.get(g or "", 0) for g in grades if g]' \
+  '    ranks = [manifest.GRADE_RANK.get(g or "", 3) for g in grades if g]'
+
+mutate 'an unknown grade is ranked as the FIRMEST thing in the answer' \
+  "$LLM_GATES" src/healthee/insights/validator.py \
+  '        (manifest.GRADE_RANK.get(manifest.grade_of(i) or "", 0), manifest.grade_of(i))' \
+  '        (manifest.GRADE_RANK.get(manifest.grade_of(i) or "", 3), manifest.grade_of(i))'
+
+# ── A3, the server half ──────────────────────────────────────────────────────
+# The rec row stops carrying its own date, so a two-day-old action reaches the
+# app with nothing able to say which day it was written for.
+mutate 'a recommendation ships without the day it was written for' \
+  "$LLM_RECS_DAY" src/healthee/read/recommendations.py \
+  '            (row[0], row[1].isoformat(), *row[2:8], list(row[8] or []), row[9], row[10]),' \
+  '            (row[0], None, *row[2:8], list(row[8] or []), row[9], row[10]),'
+
+# The two-day reach becomes unbounded, so a set of any age is served as the day's.
+mutate 'the recommendation reach becomes unbounded' \
+  "$LLM_RECS_DAY" src/healthee/read/today.py \
+  '        (user_id, as_of - timedelta(days=2), as_of),' \
+  '        (user_id, as_of - timedelta(days=3650), as_of),'
+
+# ── the coach topic ──────────────────────────────────────────────────────────
+# The topic stops reaching retrieval, so the field is accepted and does nothing —
+# the gap it was added to close, wearing a fix's clothes.
+mutate 'the topic never reaches retrieval' \
+  "$LLM_THREAD" src/healthee/insights/coach_thread.py \
+  '    return f"{subject}\n{question}" if subject else question' \
+  '    return question'
+
+# The topic arrives as a bare subject with nothing saying it is not a finding —
+# context becoming a claim the model is invited to justify.
+mutate 'the topic arrives unfenced, as if it were evidence' \
+  "$LLM_THREAD" src/healthee/insights/coach_thread.py \
+  '    return f'"'"'\n\n# WHAT THIS CONVERSATION IS ABOUT\n\n{_TOPIC_FENCE}\n\n  "{subject}"'"'"'' \
+  '    return f'"'"'\n\n# WHAT THIS CONVERSATION IS ABOUT\n\n  "{subject}"'"'"''
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

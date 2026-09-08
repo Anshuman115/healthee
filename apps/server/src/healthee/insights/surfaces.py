@@ -173,7 +173,7 @@ def workout_insight(user_id: UUID, tz: str, start: str, *, refresh: bool = False
 
     ``context_days=7`` is seven days ending at the owner's **today**, and it cannot be
     anything else: ``context.build_context`` takes no reference day, and that is a
-    property worth keeping — it is the whole reason ``docs/AS_OF_DAY.md`` §6's "the LLM
+    property worth keeping — it is the whole reason ``docs/AS_OF_DAY.md`` section 6's "the LLM
     surfaces do not author past days" is structural here rather than remembered. So the
     context is not bent to the workout; the PROMPT is told what it is instead, and told
     to keep the two apart. A window named for a period it does not cover is the defect

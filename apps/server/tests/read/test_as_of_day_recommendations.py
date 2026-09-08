@@ -1,10 +1,10 @@
 """AS_OF_DAY, on the one LLM-AUTHORED block served for a past day (A3).
 
-``docs/AS_OF_DAY.md`` §6 puts the LLM surfaces out of scope for past days, and that
+``docs/AS_OF_DAY.md`` section 6 puts the LLM surfaces out of scope for past days, and that
 refusal is structural everywhere else: ``insights.context.build_context`` takes no day, so
 there is no parameter by which a generated surface could be asked about one.
 
-Stored recommendation rows are the exception the document itself makes in §7 — they "are
+Stored recommendation rows are the exception the document itself makes in section 7 — they "are
 already written and already dated", so serving one is a record rather than a new claim.
 ``read/today.py::_recommendations_for`` therefore reaches back TWO days for the newest set
 at or before the reference day.
@@ -73,7 +73,7 @@ def test_a_recommendation_set_carries_the_day_it_was_written_for(bed) -> None:
     ``read/today.py::_recommendations_for`` selects the newest set dated at or before the
     reference day, reaching back TWO days, and keeps only the newest date found. That
     reach is deliberate and stated — a rec row is already written and already dated, so
-    serving it is a record rather than a new claim (``docs/AS_OF_DAY.md`` §7) — but it
+    serving it is a record rather than a new claim (``docs/AS_OF_DAY.md`` section 7) — but it
     means the block on screen is not always the day's own.
 
     So the wire has to carry the row's date, and this asserts it does. The app then names
@@ -95,7 +95,7 @@ def test_a_recommendation_set_carries_the_day_it_was_written_for(bed) -> None:
 
 
 def test_a_recommendation_dated_after_the_day_never_reaches_it(bed) -> None:
-    """The future leak, on the block AS_OF_DAY's own §7 authorises serving."""
+    """The future leak, on the block AS_OF_DAY's own section 7 authorises serving."""
     _recommendation(bed, _as_of() - timedelta(days=1), "Walk 30 minutes.")
     _recommendation(bed, _as_of() + timedelta(days=1), "Run intervals.")
 

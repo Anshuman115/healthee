@@ -75,7 +75,7 @@ class CoachRequest(BaseModel):
     for it: it is screened by the pre-LLM refusal gate exactly like an owner's turn, it
     is rendered inside a fence that tells the model it is a label rather than a finding,
     and the answer that follows faces the same validator, guardrails and personal-claims
-    gate as any other. It is bounded here — the boundary standards §2 asks for — at
+    gate as any other. It is bounded here — the boundary standards section 2 asks for — at
     ``coach_thread.TOPIC_MAX_CHARS``; the app's own topics are one short sentence.
     """
 

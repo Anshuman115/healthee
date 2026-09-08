@@ -104,7 +104,7 @@ def test_an_entry_carrying_an_instruction_is_still_accepted(db: None) -> None:  
 
 
 def test_notes_and_name_are_bounded_at_the_api_boundary() -> None:
-    """Standards §2's boundary validation. 200 unbounded rows WAS the prompt budget."""
+    """Standards section 2's boundary validation. 200 unbounded rows WAS the prompt budget."""
     with pytest.raises(ValueError):
         logs.LogRequest(type="mood", notes="x" * (logs._NOTES_MAX + 1))
     with pytest.raises(ValueError):

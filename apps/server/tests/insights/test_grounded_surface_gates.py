@@ -243,12 +243,19 @@ def test_an_unrecognised_grade_ranks_strictest_in_the_validator() -> None:
 
     sentence = "Cold plunges raise metabolic rate [x]."
     unknown = {"unknown-grade-id"}
+    # TWO ids, and this is load-bearing: with one, `min` returns that id's grade
+    # whatever it ranked, so the assertion below would hold against the OLD default
+    # too. The floor has to be asked which of two grades is the weaker one.
+    mixed = {"unknown-grade-id", "known-established-id"}
+    grades = {"unknown-grade-id": "Speculative", "known-established-id": "Established"}
     original = manifest.grade_of
     try:
-        manifest.grade_of = lambda note_id: "Speculative"  # type: ignore[assignment]
+        manifest.grade_of = lambda note_id: grades.get(note_id)  # type: ignore[assignment]
         assert validator_mod._grade_issue(sentence, unknown) is not None, (
             "an unknown grade satisfied the plain-voice branch"
         )
-        assert validator_mod._grade_floor(unknown) == "Speculative"
+        assert validator_mod._grade_floor(mixed) == "Speculative", (
+            "a grade we cannot rank was ranked as the FIRMEST thing in the answer"
+        )
     finally:
         manifest.grade_of = original  # type: ignore[assignment]

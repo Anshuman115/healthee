@@ -137,7 +137,7 @@ def generate_recs(
     ``day`` defaults to the OWNER's local today (from their ``tz``), not a global one,
     and **it may not be any other day**. ``client`` is injectable so tests run a
     deterministic stub with no network. Errors propagate to the supervised chain runner
-    (never swallowed, standards §1).
+    (never swallowed, standards section 1).
 
     ## Why a past ``day`` is refused rather than honoured
 
@@ -150,11 +150,11 @@ def generate_recs(
 
     That is the stale-as-current lie in its worst position, because the row is then
     served as that day's answer: ``read/today.py::_recommendations_for`` serves stored rec
-    rows for a past day, and ``docs/AS_OF_DAY.md`` §7 authorises it precisely because
+    rows for a past day, and ``docs/AS_OF_DAY.md`` section 7 authorises it precisely because
     those rows "are already written and already dated" — which is only an argument if the
     dating is honest.
 
-    Making ``day`` bind the inputs instead is the other repair, and AS_OF_DAY §6 forbids
+    Making ``day`` bind the inputs instead is the other repair, and AS_OF_DAY section 6 forbids
     it: authoring a past day's analysis now is a new claim, not a record. So the
     comparison is the fix. It is loud rather than a silent clamp — ``jobs/chain.py``
     documents ``force=True`` as the back-fill escape hatch and argues only about the
@@ -171,7 +171,7 @@ def generate_recs(
             f"generate_recs cannot write recommendations dated {day}: every input it has "
             f"is {today}'s (build_recs_signals and build_context take no reference day), "
             "so the row would carry a date its own content never answered for. Serving a "
-            "stored past-day row is fine; authoring one is not (docs/AS_OF_DAY.md §6)."
+            "stored past-day row is fine; authoring one is not (docs/AS_OF_DAY.md section 6)."
         )
     day = today
     signals = build_recs_signals(user_id, tz)
