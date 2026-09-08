@@ -136,9 +136,12 @@ def _sleep(stages: list[list[int]], span_ms: int = 8 * 3600 * 1000) -> dict:
 
 
 def test_a_stage_spanning_years_is_refused() -> None:
-    """The amplifier. `emit_sleep_minutes` runs `generate_series(start, end, '1 minute')`
-    on each stage with nothing between the payload's numbers and that statement — one
-    stage declaring a span of years materialised tens of millions of rows per request.
+    """The amplifier. The bound was written when the ingest ran
+    `generate_series(start, end, '1 minute')` per stage — one stage declaring a span of
+    years materialised tens of millions of rows per request. That statement is gone
+    (audit D1) and this bound is not: `derive/sleep_score._sri_minute_grid` walks the
+    STORED hypnogram a minute at a time in Python, so the same span is the same unbounded
+    loop, one layer along.
 
     Refused by the SESSION cap, not by a per-stage one. There used to be both; the
     per-stage cap was removed as dead code, because a stage's own span is added to the
@@ -151,7 +154,7 @@ def test_a_stage_spanning_years_is_refused() -> None:
 
 def test_stages_that_together_exceed_a_day_of_minutes_are_refused() -> None:
     """The per-stage cap alone is not enough: 2,000 stages of 23 h each is the same
-    attack in pieces. What is bounded is what one session can MATERIALISE."""
+    attack in pieces. What is bounded is the total span one session's stages cover."""
     hour = 3600 * 1000
     many = [[_NOW_MS + i * hour, _NOW_MS + (i + 1) * hour, 2] for i in range(30)]
     with pytest.raises(ValidationError):
@@ -166,7 +169,7 @@ def test_a_real_nights_hypnogram_is_accepted() -> None:
 
 
 def test_a_malformed_stage_is_a_422_naming_the_field_not_an_indexerror() -> None:
-    """`stages: [[]]` used to be an `IndexError` inside `emit_sleep_minutes` → 500, and
+    """`stages: [[]]` used to be an `IndexError` inside the per-minute emit → 500, and
     the inner list's arity was never validated because the type is `list[list[int]]`.
 
     The assertion is on the TYPE of what is raised, not merely that something is. Both
@@ -188,7 +191,7 @@ def test_the_stage_list_itself_is_capped() -> None:
     see them and only the list cap can.
 
     That is the whole reason both bounds exist. A stage with `end <= start` is skipped
-    by `emit_sleep_minutes` and contributes nothing to the session total, so a payload
+    by every consumer and contributes nothing to the session total, so a payload
     made of them passes the minutes cap however long it is — while still being a list
     the validator has to walk and the parser had to build. Testing this with real
     one-minute stages would let the minutes cap answer, and the list cap would be a

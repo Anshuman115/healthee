@@ -1,9 +1,14 @@
 """Integration tests for the ingest service against a real TimescaleDB (CI
 service container; auto-skips locally when no DB is reachable).
 
-Covers: a push lands raw + typed rows; a second identical push is idempotent; the
-strap's daily totals get stored RAW and stored BEFORE derive (#121); and fresh-gating
-does not re-emit an old night's per-minute rows.
+Covers: a push lands raw + typed rows; a second identical push is idempotent; and the
+strap's daily totals get stored RAW and stored BEFORE derive (#121).
+
+It also covered fresh-gating "does not re-emit an old night's per-minute rows". Audit D1
+deleted the per-minute emit — nothing read the ~2,880 rows it wrote per night — so that
+test went with the statement it was about. Freshness itself is still gated and still
+tested: it now decides what gets DERIVED, and `tests/test_ingest_derive_plan.py` pins
+that (`test_a_stale_night_is_planned_as_neither`, `test_a_stale_nap_is_planned_as_nothing`).
 
 The derive step is a stub (the real chain is `test_ingest_derive_chain.py` and
 `test_device_daily_totals.py`) — one stub records what the raw table already held when
@@ -133,8 +138,12 @@ def test_push_lands_raw_and_typed_rows(db: None) -> None:  # noqa: ARG001
     assert _count("SELECT count(*) FROM sample WHERE metric = 'hr'") == 1
     assert _count("SELECT count(*) FROM sleep_session") == 1
     assert _count("SELECT count(*) FROM workout") == 1
-    # main sleep emitted per-minute stage rows
-    assert _count("SELECT count(*) FROM sample WHERE metric = 'sleep_stage'") > 0
+    # The hypnogram lands ONCE, on the session it belongs to. It used to be materialised
+    # again as ~2,880 per-minute `sample` rows per night that nothing read (audit D1);
+    # this asserts the row that IS read, and that the ones that were not are not written.
+    assert _count("SELECT count(*) FROM sample WHERE metric = 'sleep_stage'") == 0
+    assert _count("SELECT count(*) FROM sample WHERE metric = 'asleep'") == 0
+    assert _count("SELECT count(*) FROM sleep_session WHERE jsonb_array_length(stages) > 0") == 1
 
 
 def test_push_attributes_every_row_to_the_passed_owner(db: None) -> None:  # noqa: ARG001
@@ -226,60 +235,3 @@ def _totals_payload(*, steps: int = 9264) -> HelioPayload:
             ],
         }
     )
-
-
-def test_fresh_gating_skips_old_night_reemit(db: None) -> None:  # noqa: ARG001
-    _reset()
-    now = datetime.now(UTC).replace(microsecond=0)
-    old_start = now - timedelta(days=5, hours=8)
-    old = {
-        "start_ts": _ms(old_start),
-        "end_ts": _ms(old_start + timedelta(hours=7)),
-        "kind": "main",
-        "stages": [[_ms(old_start), _ms(old_start + timedelta(minutes=6)), 2]],
-    }
-    # Push A: only the old night → new → fresh → emits its per-minute rows.
-    ingest_helio(
-        HelioPayload.model_validate({"sleep": [old]}),
-        SENTINEL_USER_ID,
-        SENTINEL_TZ,
-        derive=_noop_derive,
-    )
-    old_lo, old_hi = old_start, old_start + timedelta(minutes=10)
-    emitted = _count(
-        "SELECT count(*) FROM sample WHERE metric = 'sleep_stage' AND ts BETWEEN %s AND %s",
-        (old_lo, old_hi),
-    )
-    assert emitted > 0
-
-    # Delete the emitted rows, then re-push the (now existing, stale) old night
-    # alongside a fresh tonight. The stale night must NOT be re-emitted.
-    with admin_connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            "DELETE FROM sample WHERE metric = 'sleep_stage' AND ts BETWEEN %s AND %s",
-            (old_lo, old_hi),
-        )
-    tonight_start = now - timedelta(hours=8)
-    tonight = {
-        "start_ts": _ms(tonight_start),
-        "end_ts": _ms(now),
-        "kind": "main",
-        "stages": [[_ms(tonight_start), _ms(tonight_start + timedelta(minutes=6)), 2]],
-    }
-    ingest_helio(
-        HelioPayload.model_validate({"sleep": [old, tonight]}),
-        SENTINEL_USER_ID,
-        SENTINEL_TZ,
-        derive=_noop_derive,
-    )
-
-    re_emitted = _count(
-        "SELECT count(*) FROM sample WHERE metric = 'sleep_stage' AND ts BETWEEN %s AND %s",
-        (old_lo, old_hi),
-    )
-    assert re_emitted == 0  # stale night gated out — not re-emitted
-    fresh_rows = _count(
-        "SELECT count(*) FROM sample WHERE metric = 'sleep_stage' AND ts BETWEEN %s AND %s",
-        (tonight_start, now),
-    )
-    assert fresh_rows > 0  # tonight is fresh → emitted

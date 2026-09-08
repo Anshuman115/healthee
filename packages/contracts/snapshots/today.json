@@ -651,7 +651,7 @@
       "sleep_regularity_index"
     ],
     "score": 3,
-    "session_source": "zepp_cloud",
+    "session_source": "strap_ble",
     "sri": 74.0,
     "tib_min": 450,
     "tst_min": 380

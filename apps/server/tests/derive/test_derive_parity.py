@@ -81,6 +81,15 @@ other row is byte-identical to legacy):
       and it can only move a day on which vigorous minutes were recorded. This owner has
       none, which is why the audit banded it C. `test_mvpa_met_equivalent.py` is the
       known-value test that pins it where a fixture cannot reach.
+  M6  sleep_*.flags.session_source — the legacy cloud's name → `strap_ble` on all six
+      rows a night produces (write-path audit C1, 2026-09-08). A PROVENANCE label and
+      nothing else: **no value moves and no other flag changes**, which is exactly why
+      it appears here as a re-baseline rather than as a science divergence. Legacy's
+      literal was true of legacy — sleep really did arrive from Zepp Cloud there. In
+      this repo the only writer of the sleep session table is the strap BLE push, so
+      the field named an instrument that did not take the reading. The one-writer
+      premise the rename rests on is asserted, not assumed, in
+      `test_session_source.py`.
 """
 
 from __future__ import annotations

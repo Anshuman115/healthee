@@ -110,7 +110,12 @@ CREATE TABLE IF NOT EXISTS device_daily_total (
   distance_m  DOUBLE PRECISION,
   calories    DOUBLE PRECISION,
   source      TEXT              NOT NULL DEFAULT 'strap_0x16',  -- the reporting instrument
-  reported_at TIMESTAMPTZ       NOT NULL DEFAULT now(),         -- when this reading arrived
+  reported_at TIMESTAMPTZ       NOT NULL DEFAULT now(),         -- when this reading ARRIVED
+  -- When the phone ASKED the strap for this counter (0019). NULLABLE and staying that
+  -- way: "we do not know when this was read" is the true state of every row written
+  -- before 0019 and of every row an older client writes, and `now()` in its place is the
+  -- lie 0019 exists to end. `partial_day_caveats` reads this one, never `reported_at`.
+  read_at     TIMESTAMPTZ,
   user_id     UUID              NOT NULL
                 REFERENCES app_user(id) ON UPDATE CASCADE ON DELETE CASCADE,
   PRIMARY KEY (user_id, day)  -- also the only index: every read is (user_id, day)

@@ -223,10 +223,15 @@ Two things are recorded rather than fixed, both server-side:
   sentence blaming the server went with the defect. **No stage bar came back**:
   the prototype draws nap rows as text and has no stage element on that panel,
   and the pre-v02 card is not the specification.
-- **`naps[].source` and `nights[].session_source` are the unconditional literal
-  `"zepp_cloud"`.** A "source" chip built on either could never say more than one
-  word, so neither is surfaced. (The `anomalies = []` this used to be compared
-  with is fixed; this one is not.)
+- ~~**`naps[].source` and `nights[].session_source` are the unconditional literal
+  `"zepp_cloud"`**~~ — **half FIXED on the server** (write-path audit C1). The
+  literal was a carry-over from legacy, where sleep really did arrive from Zepp
+  Cloud; in the rebuild the only writer of `sleep_session` is the strap BLE push,
+  so the field named an instrument that did not take the reading. It is
+  `"strap_ble"` now, from one constant, and a source-scan test asserts the
+  one-writer premise the constant rests on. **Still unconditional**, so a "source"
+  chip built on it would still say one word and still is not surfaced — the field
+  remains a presence sentinel here. What changed is that the one word is true.
 
 ### Six legacy behaviours the port shipped as-is — all six are now REPAIRED
 

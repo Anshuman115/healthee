@@ -126,6 +126,19 @@ DOB_MISSING = "date_of_birth_missing"
 # it: "a counter read at 09:00 is a statement about a partial day".
 COUNTER_MID_DAY = "device_counter_read_mid_day"
 
+# The other half of the same disclosure, and its own id because it is a DIFFERENT state:
+# the counter's reading carries no read instant at all, so we cannot say which interval it
+# covers. True of every ``device_daily_total`` row written before ``0019`` and of every row
+# an app build older than that writes.
+#
+# It is not COUNTER_MID_DAY with a missing field. "This counts the day up to 09:00" and
+# "we do not know what this counts" are different sentences about a person's day, and one
+# id for both would be the collapse this vocabulary exists to prevent — the same rule
+# DOB_MISSING states one screen up: two states must not share one id. The write-path
+# audit's A1 is precisely what happened when the third state, "unknown", was silently
+# folded into "read after the day closed": a true caveat vanished.
+COUNTER_READ_TIME_UNKNOWN = "device_counter_read_time_unknown"
+
 NOT_DERIVED_YET_MESSAGE = "Today's number has not been computed yet — sync the strap."
 
 # The most recent logged weight is too far from the day being computed for it to be a

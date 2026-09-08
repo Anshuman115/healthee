@@ -46,6 +46,7 @@ from healthee.derive.vo2max_submax import (
     steady_windows,
     vo2max_from_track,
 )
+from healthee.derive.vo2max_tier import outranks, submax_method_of
 
 Point = tuple[float, float, float, float | None]  # (ts_epoch_s, lat, lng, ele_m|None)
 HrAt = Callable[[float], float | None]  # ts_epoch_s -> interpolated strap HR
@@ -265,12 +266,59 @@ def _store(
     grade_source: str,
     dem_hits: int,
 ) -> dict:
-    """Write the winning estimate and echo it back with its method's diagnostics."""
+    """Write the winning estimate and echo it back with its method's diagnostics.
+
+    ## Inside one day, precedence — not recency (write-path audit B1)
+
+    ``derived_daily``'s key is ``(user_id, day, metric)``, so a day holds exactly ONE
+    ``vo2max_submax`` cell. ``gps_scoring.score_day_tracks`` scores a day's pending tracks
+    oldest-first and each call landed here, so **the last track of the day owned the cell**.
+    That made recency beat precedence inside a day — the exact ordering
+    ``vo2max_tier.select_measured_tier`` forbids across days, and which
+    ``tests/derive/test_vo2max_tier.py::test_precedence_is_not_recency`` exists to prevent.
+
+    Concretely: a graded fit at 09:00 and a reserve inversion at 18:00 left only the
+    reserve row, and the tier — whose whole point is that *"a graded fit three days older
+    than a reserve inversion still wins"* ([[hr_reserve_vo2max]] D2) — never saw the graded
+    value at all. Nor did a repair reach it: ``unscored_tracks`` skips a track that already
+    carries an estimate, and ``--rescore-tracks`` reproduces the same ordering.
+
+    So the cell obeys the tier's own order, through the tier's own function
+    (:func:`vo2max_tier.outranks`) rather than a second copy of it. Equal methods still
+    overwrite, because a re-score has to be able to move a value.
+
+    **What this does NOT fix, stated rather than implied.** Two sessions of the SAME
+    instrument in one day still leave one cell, so the tier's median counts days rather
+    than sessions there. Representing both would need a per-session home for the estimate
+    with its method — ``gps_track`` carries ``vo2max_submax`` and ``r2`` but no ``method``
+    or ``hrr_median`` — i.e. a schema change, for a case that costs precision rather than
+    correctness. The precedence violation is the one that made the tier read the wrong
+    instrument, and it is the one closed here.
+    """
     common = {
         "hrmax_tanaka": round(hrmax, 1),
         "track_id": str(track_id),
         "grade_source": grade_source,
         "dem_hits": dem_hits,
     }
-    _upsert_daily(cur, user_id, day, "vo2max_submax", vo2max, {**flags, **common})
+    if not _day_cell_outranks(cur, user_id, day, str(flags["method"])):
+        _upsert_daily(cur, user_id, day, "vo2max_submax", vo2max, {**flags, **common})
+    # The SESSION's own number is returned either way: it is what the upload endpoint
+    # answers with, and `gps_scoring._denormalise_summary` writes it onto the track row —
+    # which is also what closes the scoring gate, so declining the day cell must not make
+    # this track look unscored and be retried forever.
     return {"ok": True, "vo2max_submax": vo2max, "grade_source": grade_source, **flags}
+
+
+def _day_cell_outranks(cur: Cur, user_id: UUID, day: date, method: str) -> bool:
+    """Does the day's stored ``vo2max_submax`` come from a BETTER instrument than ``method``?
+
+    A day with no cell yet answers False, so the first session of a day always writes.
+    """
+    cur.execute(
+        "SELECT flags FROM derived_daily "
+        "WHERE user_id = %s AND day = %s AND metric = 'vo2max_submax'",
+        (user_id, day),
+    )
+    row = cur.fetchone()
+    return row is not None and outranks(submax_method_of(row[0]), method)

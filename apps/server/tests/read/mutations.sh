@@ -485,7 +485,7 @@ mutate 'the step card stops naming its instrument' \
 # The partial-day disclosure goes back to being a comment nobody emitted.
 mutate 'a counter read mid-day stops saying so' \
   "$B_AND_C" src/healthee/derive/device_totals.py \
-  '    if device is None or device.steps is None or device.reported_at >= day_end_utc:
+  '    if device is None or device.steps is None:
         return []' \
   '    if True:
         return []'
@@ -840,7 +840,7 @@ mutate 'the push lists become unbounded' \
   '    samples: list[SampleIn] = Field(default_factory=list, max_length=_MAX_SAMPLES)' \
   '    samples: list[SampleIn] = Field(default_factory=list)'
 
-# stages: [[]] is an IndexError inside emit_sleep_minutes again — a 500 for a
+# stages: [[]] is an IndexError inside the arity check again — a 500 for a
 # client's payload, and the arity the type annotation cannot express.
 mutate 'a malformed hypnogram stage stops being a 422' \
   "$INGEST_BOUNDS" src/healthee/ingest/models.py \
@@ -1070,6 +1070,130 @@ mutate 'the note-side Minetti table drifts from the code' \
   "$MINETTI" ../../packages/knowledge/notes/activity/submaximal_vo2max.md \
   '| **Walking** | 280.5 | −58.7 |' \
   '| **Walking** | 280.5 | −58.6 |'
+
+# ── J · the write path: where every value is born (WRITE_PATH_AUDIT) ─────────
+#
+# Everything above breaks a READ. These break a WRITE, which is the more expensive
+# kind: a value that is wrong on arrival is wrong everywhere downstream, forever,
+# and a re-derive does not heal it.
+
+DEVICE_TOTALS=tests/derive/test_device_totals.py
+COUNTER_CARD=tests/read/test_honesty_b_c.py
+UPSERT_UNIT=tests/test_ingest_upsert.py
+PROFILE_RULE=tests/test_profile_one_rule.py
+PARTIAL_STAGES=tests/derive/test_partial_stage_breakdown.py
+DAY_CELL=tests/derive/test_gps_day_cell_precedence.py
+DERIVE_PLAN=tests/test_ingest_derive_plan.py
+SOURCE_NAME=tests/derive/test_session_source.py
+FRAGMENTED=tests/derive/test_fragmented_night.py
+
+# ── J1 · A1 ─────────────────────────────────────────────────────────────────
+# THE defect, exactly as it shipped: the disclosure asks about the ARRIVAL instant
+# instead of the READ instant. It looks right — `reported_at` is a real column with
+# a real value — and it silences a true caveat on every push that crosses local
+# midnight, which is the normal case.
+mutate 'the partial-day caveat asks about the arrival again' \
+  "$DEVICE_TOTALS $COUNTER_CARD" src/healthee/derive/device_totals.py \
+  '    if device.read_at >= day_end_utc:' \
+  '    if device.reported_at >= day_end_utc:'
+
+# The other half, and the one the brief names as the failure to avoid: an unknown
+# read time is folded back into "read after the day closed". The row looks clean,
+# the caveat is gone, and nothing distinguishes it from a counter that really did
+# cover the whole day.
+mutate 'an unknown read time goes back to meaning "complete"' \
+  "$DEVICE_TOTALS $COUNTER_CARD" src/healthee/derive/device_totals.py \
+  '        return [_caveat(COUNTER_READ_TIME_UNKNOWN, _UNKNOWN_READ_MESSAGE, device, steps)]' \
+  '        return []'
+
+# And the write side: the column goes back to being invented rather than carried.
+mutate 'the read instant is substituted when the client did not send one' \
+  "$UPSERT_UNIT" src/healthee/ingest/daily_totals.py \
+  '    return None if total.read_at is None else epoch_to_utc(total.read_at)' \
+  '    return epoch_to_utc(total.read_at or 1_718_000_000_000)'
+
+# ── J2 · B2 ─────────────────────────────────────────────────────────────────
+# The profile write goes back to assigning what the push omitted. This is the one
+# that erases a date of birth nothing else holds.
+mutate 'an omitted demographic is assigned rather than preserved' \
+  "$PROFILE_RULE" src/healthee/ingest/profile_write.py \
+  'f"{col} = CASE WHEN %s THEN EXCLUDED.{col} ELSE profile.{col} END"' \
+  'f"{col} = CASE WHEN %s THEN EXCLUDED.{col} ELSE EXCLUDED.{col} END"'
+
+# ── J3 · B3 ─────────────────────────────────────────────────────────────────
+# The stage gate goes back to `any`, so a partial breakdown becomes zeros — and an
+# absent `wake_min` scores a fabricated 100% efficiency on a real dimension.
+mutate 'a partial stage breakdown scores as zeros again' \
+  "$PARTIAL_STAGES" src/healthee/derive/orchestrator.py \
+  '    if sr and all(v is not None for v in sr):
+        rem, light, deep, wake = (int(v) for v in sr)' \
+  '    if sr and any(v is not None for v in sr):
+        rem, light, deep, wake = (int(v or 0) for v in sr)'
+
+# ── J4 · B1 ─────────────────────────────────────────────────────────────────
+# Inside one day, recency beats precedence again: the later session takes the day's
+# single cell whatever instrument read it, and the tier reads the wrong one.
+mutate 'the later GPS session owns the day whatever measured it' \
+  "$DAY_CELL" src/healthee/derive/gps.py \
+  '    if not _day_cell_outranks(cur, user_id, day, str(flags["method"])):
+        _upsert_daily(cur, user_id, day, "vo2max_submax", vo2max, {**flags, **common})' \
+  '    _upsert_daily(cur, user_id, day, "vo2max_submax", vo2max, {**flags, **common})'
+
+# And the subtler direction: the guard fires on EQUAL rank too, so a re-score can
+# never move a value and `--rescore-tracks` silently does nothing.
+mutate 'the day cell refuses a re-score by its own instrument' \
+  "$DAY_CELL" src/healthee/derive/vo2max_tier.py \
+  '    return order.get(challenger, last) < order.get(incumbent, last)' \
+  '    return order.get(challenger, last) <= order.get(incumbent, last)'
+
+# ── J5 · B4 ─────────────────────────────────────────────────────────────────
+# A re-push that omits a duration zeroes the recorded one again, and the session
+# drops out of three gates at once.
+mutate 'a re-pushed workout zeroes its own duration' \
+  "$UPSERT_UNIT" src/healthee/ingest/upsert.py \
+  '"duration_s = COALESCE(%s::int, workout.duration_s), "' \
+  '"duration_s = EXCLUDED.duration_s, "'
+
+# ── J6 · B5 ─────────────────────────────────────────────────────────────────
+# Naps stop marking their day, so a nap-only page derives nothing — while the day's
+# calories and TRIMP still read every nap minute.
+mutate 'a nap stops marking the day it falls in' \
+  "$DERIVE_PLAN" src/healthee/ingest/service.py \
+  '        if _marks_its_day(session, is_fresh):' \
+  '        if _is_derivable_night(session, is_fresh):'
+
+# The cost side of the same change: naps stop being gateable, so a re-push of
+# history re-derives a day per stored nap on every sync.
+mutate 'a re-pushed nap is permanently new' \
+  "$UPSERT_UNIT" src/healthee/ingest/upsert.py \
+  '        starts = [epoch_to_utc(s.start_ts) for s in sessions]' \
+  '        starts = [epoch_to_utc(s.start_ts) for s in sessions if s.kind != "nap"]'
+
+# ── J7 · C1 ─────────────────────────────────────────────────────────────────
+# The rows go back to naming an instrument that took no reading. Nothing renders
+# the string, which is exactly why only a test can see this one.
+mutate 'the sleep rows name an instrument that did not read them' \
+  "$SOURCE_NAME" src/healthee/derive/sleep_score.py \
+  'SESSION_SOURCE = "strap_ble"' \
+  'SESSION_SOURCE = "zepp_cloud"'
+
+# ── J9 · B7 ─────────────────────────────────────────────────────────────────
+# The fragmented night goes back to being invisible. B7 stays SUSPECTED on purpose —
+# whether the strap produces the shape needs the device — so the only thing that can
+# be broken here is the detection, and the only thing that can regress is silence.
+mutate 'a wake date shared by two main sessions goes unrecorded' \
+  "$FRAGMENTED" src/healthee/derive/orchestrator.py \
+  '    if sessions > 1:' \
+  '    if sessions > 2:'
+
+# ── J8 · B6 ─────────────────────────────────────────────────────────────────
+# The regression check stops firing, so a counter that ran backwards is invisible
+# again — and the finding stays speculation forever because nothing records it.
+mutate 'a counter running backwards goes unrecorded' \
+  "$UPSERT_UNIT" src/healthee/ingest/daily_totals.py \
+  '        if incoming[day] < int(stored):' \
+  '        if incoming[day] < 0:'
+
 
 
 echo
