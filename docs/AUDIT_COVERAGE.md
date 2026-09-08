@@ -19,10 +19,9 @@ derived from the module tree rather than remembered, so the answer stops moving.
 
 ## Programme status — 2026-09-08
 
-**Seven of eight audited.** `read/` · `insights/`+`challenges/` · `api/` auth ·
+**ALL EIGHT AUDITED — the programme is complete.** `read/` · `insights/`+`challenges/` · `api/` auth ·
 `ingest/`+`derive/` · `packages/knowledge/` bodies · `db/`+`jobs/`+contracts+
-internals. **One left: performance against the budgets** — the only item never
-*measured* rather than never *read*.
+internals. Performance was the last, and the only one *measured* rather than read.
 
 Findings so far: **30 + 16 + 20 + 15 + 38 + 21 = 140**, of which 46 are fixed and
 merged (the read layer and the LLM layer). The rest await the fix pass.
