@@ -2745,7 +2745,7 @@ COACH_THREAD_W=lib/features/coach/widgets/coach_thread.dart
 COACH_CTRL=lib/features/coach/coach_controller.dart
 COACH_SCREEN=lib/features/coach/coach_screen.dart
 REC_MODEL=lib/data/models/recommendation.dart
-ACTIONS=lib/features/today/widgets/actions_section.dart
+SHARED_OTHER_DAY=lib/shared/format/other_day.dart
 GEN_INSIGHT=lib/data/insights/generated_insight.dart
 BUDGET_TEST=test/data/coach_ask_budget_test.dart
 CHARGE_TEST=test/features/coach_charge_honesty_test.dart
@@ -2805,21 +2805,27 @@ mutate 'a recommendation drops the day it was written for' \
 
 # The date is parsed and not drawn — a field that exists and changes nothing,
 # which reads exactly like a working fix.
+#
+# ⚠ The decision moved to `shared/format/other_day.dart` when the v02 Actions screen
+# and the illness banner turned out to need the same comparison (audit C5), so these
+# two now break the SHARED function and require the TODAY card's test to notice. That
+# pairing is the point: it is what proves the Today card really runs on the shared
+# rule rather than on a copy of it that happens to agree.
 mutate 'the actions block stops naming the day it is showing' \
-  "$DATING_TEST" "$ACTIONS" \
-  '    if (day == null || viewedDay == null || day == viewedDay) {
-      return null;
-    }
-    return day;' \
-  '    return null;'
+  "$DATING_TEST" "$SHARED_OTHER_DAY" \
+  '  if (contentDay == null || viewedDay == null || contentDay == viewedDay) {
+    return null;
+  }
+  return contentDay;' \
+  '  return null;'
 
 # The other direction, and the one that speaks: the block names a day whenever it
 # has one, so TODAY's own actions are announced as written for another day. A line
 # that appears on every day stops carrying the meaning it was added for.
 mutate 'the day is announced even when it is the day on screen' \
-  "$DATING_TEST" "$ACTIONS" \
-  '    if (day == null || viewedDay == null || day == viewedDay) {' \
-  '    if (day == null) {'
+  "$DATING_TEST" "$SHARED_OTHER_DAY" \
+  '  if (contentDay == null || viewedDay == null || contentDay == viewedDay) {' \
+  '  if (contentDay == null) {'
 
 # ── C2 ───────────────────────────────────────────────────────────────────────
 # The honest fallback is suppressed again and the card renders blank — the one

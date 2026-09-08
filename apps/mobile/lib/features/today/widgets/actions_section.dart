@@ -101,10 +101,11 @@ class ActionsSection extends StatefulWidget {
 
   /// The recommendations' own day when it is NOT [viewedDay], else null.
   ///
-  /// Static and pure so the decision is testable without a widget tree, and so
-  /// there is one definition of "these are from another day". All rows in a set
-  /// share a date (the server keeps only the newest date found), so the first
-  /// row speaks for the set.
+  /// **The decision moved to `shared/format/other_day.dart`.** This is a re-export so
+  /// no call site changed: the v02 Actions screen needed the identical answer about the
+  /// identical list and did not have it, and the illness banner needed the same
+  /// comparison about its own date. Three surfaces asking one question in three places
+  /// is how one of them stayed broken (audit C5).
   static String? otherDay(List<Recommendation> items, String? viewedDay) =>
       recommendationsFromDay(items, viewedDay);
 
