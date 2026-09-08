@@ -29,13 +29,18 @@
 /// "unknown". A screen that has not read the meter does not build this widget at
 /// all; see `coach_screen.dart`.
 ///
-/// ## [initialQuestion] is how a subject reaches the coach
+/// ## [initialQuestion] is how a subject reaches the OWNER
 ///
-/// `/api/coach` takes `messages` and nothing else, so the only place a topic can
-/// live is the first user turn. *Discuss this workout* and *Talk this through*
-/// therefore arrive as text already in this box — **written, not sent**. Sending
-/// it on arrival would spend one of twenty on a navigation, and the standing rule
-/// on this surface is that a spend follows a press.
+/// *Discuss this workout* and *Talk this through* arrive as text already in this
+/// box — **written, not sent**. Sending it on arrival would spend one of twenty
+/// on a navigation, and the standing rule on this surface is that a spend
+/// follows a press.
+///
+/// This is the owner-facing half of a topic and it stays exactly that: a
+/// sentence they can read, edit or delete before it costs anything. The server
+/// learns the subject separately, through `POST /api/coach`'s optional `topic`
+/// field (`coach_screen.dart`); this widget knows nothing about that and does
+/// not need to.
 library;
 
 import 'package:flutter/material.dart';

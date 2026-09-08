@@ -15,15 +15,23 @@
 /// with different back behaviour, which is the defect `router.dart` already
 /// records one level up.
 ///
-/// ## The topic is the OPENING MESSAGE, written client-side
+/// ## The topic is the OPENING MESSAGE, and now also a field
 ///
-/// `api/routers/coach.py:53` takes `messages` and nothing else — there is no
-/// subject field to fill in, and inventing one would be the app pretending the
-/// server knows more about this conversation than it does. So a caller's
-/// [topic] arrives as text already in the prototype's own `.coach-form`, and the
-/// owner sends it. It is **not** asked automatically: a question costs one of
-/// twenty per rolling thirty days, and a navigation that spent one on arrival
-/// would be a charge nobody pressed anything for.
+/// A caller's [topic] arrives as text already in the prototype's own
+/// `.coach-form`, and the owner sends it. It is **not** asked automatically: a
+/// question costs one of twenty per rolling thirty days, and a navigation that
+/// spent one on arrival would be a charge nobody pressed anything for. That
+/// half is unchanged, and it is the half the owner sees — the sentence is in
+/// their input, in their words, editable or deletable before anything is sent.
+///
+/// `POST /api/coach` also takes an optional `topic` now, and [CoachBody] sends
+/// it with every question asked from this screen. The two are different facts:
+/// the seeded sentence is what the owner is ASKING, and the field is what
+/// screen they came FROM, which the server could not otherwise know and which
+/// it uses to rank its context and evidence. It is context and nothing else —
+/// `insights/coach_thread.py` screens it with the refusal gate before any model
+/// call and fences it in the prompt as a label rather than a finding, so the
+/// app is not putting a claim in the server's mouth either.
 ///
 /// ## The input cannot exist without the meter
 ///
@@ -126,12 +134,7 @@ class CoachScreen extends ConsumerWidget {
 /// scripting a client to produce one.
 class CoachBody extends ConsumerWidget {
   /// [entitlement] is the freshly-read `/api/entitlement`.
-  const CoachBody({
-    required this.entitlement,
-    this.topic,
-    this.now,
-    super.key,
-  });
+  const CoachBody({required this.entitlement, this.topic, this.now, super.key});
 
   /// What the server says this owner holds.
   final Entitlement entitlement;
@@ -152,8 +155,17 @@ class CoachBody extends ConsumerWidget {
     // missing meter is good news rather than an empty one.
     final uncapped = entitlement.premium && allowance == null;
     final canAsk = uncapped || (allowance?.hasRemaining ?? false);
+    // [topic] rides with the question as well as seeding the input. Seeding it
+    // puts the subject in the owner's own words, which is what they see and can
+    // edit; SENDING it tells the server which screen this thread was opened
+    // from, which is a different fact and one it could not otherwise have. It
+    // goes on every ask from this screen, not only the first: the thread stays
+    // the thread that was opened about that workout even after the owner edits
+    // the opening sentence away. It is context and the server treats it as
+    // context — screened by the refusal gate and fenced as a label, never a
+    // claim (`insights/coach_thread.py`).
     void ask(String question) => unawaited(
-      ref.read(coachControllerProvider.notifier).ask(question),
+      ref.read(coachControllerProvider.notifier).ask(question, topic: topic),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -164,8 +176,12 @@ class CoachBody extends ConsumerWidget {
           child: CoachMeter(entitlement: entitlement, now: now),
         ),
         for (final entry in conversation.entries) CoachEntryView(entry: entry),
-        _tail(started: !conversation.isEmpty, asking: conversation.asking,
-            canAsk: canAsk, ask: ask),
+        _tail(
+          started: !conversation.isEmpty,
+          asking: conversation.asking,
+          canAsk: canAsk,
+          ask: ask,
+        ),
         if (canAsk) ...<Widget>[
           CoachComposer(
             asking: conversation.asking,

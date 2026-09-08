@@ -1,12 +1,20 @@
 /// The opening messages this app writes on the owner's behalf.
 ///
 /// Three surfaces link to the coach **about something** — `Ask about this
-/// trend`, `Discuss this workout`, `Talk this through` — and `/api/coach` takes
-/// `messages` and nothing else, so the subject can only travel as the first user
+/// trend`, `Discuss this workout`, `Talk this through` — and each opens the
+/// coach with the subject already written into the input as the first user
 /// turn. That turn is a sentence the app puts in the owner's mouth, which is why
 /// all three live in one file instead of being composed at their call sites:
 /// they are read as the owner's own words, and a claim smuggled into one of them
 /// would be this product asserting something in the owner's voice.
+///
+/// The same string is also sent to the server as `POST /api/coach`'s optional
+/// `topic`, where it is used to rank the context and the evidence. That makes
+/// the rule below stricter rather than looser: a sentence here is now read by a
+/// person AND by a retrieval ranker, and in neither place is it allowed to be a
+/// claim. The server enforces its own half — it screens the topic with the
+/// refusal gate and fences it as a label — but a topic that characterised
+/// instead of naming would still be this app asserting something.
 ///
 /// **They therefore name and never characterise.** Each one carries the thing
 /// the owner tapped — a metric's name, a session's sport and date, a finding's
