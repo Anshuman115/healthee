@@ -17,7 +17,17 @@ derived from the module tree rather than remembered, so the answer stops moving.
 | `analytics/` | 14 | partially, via both | — | correlations, baselines, bio-age covered |
 | `derive/` | 27 | partially | — | touched by fixes; **not audited as a layer** |
 
-## NOT audited — the remaining programme, in priority order
+## Programme status — 2026-09-08
+
+**Seven of eight audited.** `read/` · `insights/`+`challenges/` · `api/` auth ·
+`ingest/`+`derive/` · `packages/knowledge/` bodies · `db/`+`jobs/`+contracts+
+internals. **One left: performance against the budgets** — the only item never
+*measured* rather than never *read*.
+
+Findings so far: **30 + 16 + 20 + 15 + 38 + 21 = 140**, of which 46 are fixed and
+merged (the read layer and the LLM layer). The rest await the fix pass.
+
+## Originally not audited — the programme, in priority order
 
 **1. `api/` — auth, tenancy, RLS (26 modules).** The only unaudited area where a
 defect is worse than a wrong number: it is someone else's data. Neither audit
