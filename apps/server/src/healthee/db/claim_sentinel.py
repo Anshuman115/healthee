@@ -71,11 +71,30 @@ from healthee.core.tenancy import SENTINEL_USER_ID
 
 log = get_logger(__name__)
 
-# `device_token` references app_user but holds credentials, not health data: an owner
+# `device_token` references app_user but holds credentials, not owned data: an owner
 # who paired a device before claiming is not an "ambiguous merge", so it is excluded
-# from the owns-data refusal. It is NOT excluded from the post-check — nothing at all
-# may still reference the sentinel afterwards.
+# from the table list this tool REPORTS and counts. It is NOT excluded from the
+# post-check — nothing at all may still reference the sentinel afterwards.
 _NON_TENANT_TABLES = frozenset({"device_token"})
+
+# The narrower list: tenant tables that hold no HEALTH data, so a row in one of them
+# cannot make a claim an ambiguous merge. `subscription` is a tenant table and stays one
+# — the entitlement is the owner's and rides the re-key with everything else — but it is
+# not a reason to REFUSE, and treating it as one had a real cost.
+#
+# The sequence that reached it is the ordinary one: the owner signs in, the operator
+# comps them (`db/grant_premium.py` requires an `app_user` row, so a grant BEFORE the
+# claim is the natural order), and the claim was then refused permanently — `--revoke`
+# writes `status = 'canceled'` through the same upsert and nothing deletes from the
+# table, so there was no shipped way out and the operator was left hand-writing SQL. The
+# refusal was also the wrong DIAGNOSIS, which matters more than the inconvenience: it
+# told the operator their target owns health data when it owns none.
+#
+# Kept separate from `_NON_TENANT_TABLES` rather than folded into it, because the two
+# answer different questions: that one is "what does this tool move and report", this
+# one is "what makes two owners a merge". Folding them would have quietly dropped
+# `subscription` out of the plan's own counts.
+_NON_HEALTH_TABLES = _NON_TENANT_TABLES | {"subscription"}
 
 
 class ClaimRefusedError(Exception):
@@ -90,6 +109,9 @@ class ClaimPlan:
     email: str | None
     timezone: str
     counts: dict[str, int]  # tenant table → rows currently owned by the sentinel
+    # Whether the sentinel's own entitlement row is about to be replaced by the
+    # target's. Reported before `--apply`; see `_entitlement_superseded`.
+    entitlement_superseded: bool = False
 
     @property
     def total(self) -> int:
@@ -167,14 +189,45 @@ def plan(cur: Cursor[TupleRow], target: UUID) -> ClaimPlan | None:
         )
     tables = tenant_tables(cur)
     owned = _counts(cur, tables, target)
-    if owned:
+    health = {t: n for t, n in owned.items() if t not in _NON_HEALTH_TABLES}
+    if health:
         raise ClaimRefusedError(
-            f"{target} already owns data ({owned}) — this tool re-keys, it does not merge. "
+            f"{target} already owns data ({health}) — this tool re-keys, it does not merge. "
             "Merging two owners' health data is a judgement call about whose numbers are "
             "whose, and it is not this tool's to make."
         )
     counts = _counts(cur, tables, SENTINEL_USER_ID)
-    return ClaimPlan(target=target, email=identity[0], timezone=identity[1], counts=counts)
+    return ClaimPlan(
+        target=target,
+        email=identity[0],
+        timezone=identity[1],
+        counts=counts,
+        entitlement_superseded=_entitlement_superseded(cur, target),
+    )
+
+
+def _has_subscription(cur: Cursor[TupleRow], user_id: UUID) -> bool:
+    """Whether `user_id` holds an entitlement row. `subscription.user_id` is its PK."""
+    cur.execute("SELECT 1 FROM subscription WHERE user_id = %s", (user_id,))
+    return cur.fetchone() is not None
+
+
+def _entitlement_superseded(cur: Cursor[TupleRow], target: UUID) -> bool:
+    """Whether the sentinel's entitlement row is about to be replaced by the target's.
+
+    `subscription.user_id` is the PRIMARY KEY, so at most one row can survive per owner
+    and the two cannot be merged. The TARGET's wins, for the same reason step 3 of
+    `_rekey` stamps the target's real email and timezone over the sentinel's: entitlement
+    belongs to a person, the operator granted that row to a real identified owner after
+    they signed in, and the sentinel is the pre-identity placeholder that is about to
+    stop existing. Refusing instead would leave the operator hand-writing SQL, which is
+    the state this family of ops modules exists to replace — and the discarded row is
+    the one thing here that a committed tool CAN restore in one command
+    (`python -m healthee.db.grant_premium`), unlike any health row.
+
+    Never silent: `_report` prints this before `--apply` is asked for.
+    """
+    return _has_subscription(cur, target) and _has_subscription(cur, SENTINEL_USER_ID)
 
 
 def _report(claim_plan: ClaimPlan) -> None:
@@ -185,6 +238,12 @@ def _report(claim_plan: ClaimPlan) -> None:
     for table, count in sorted(claim_plan.counts.items()):
         log.info("  %-18s %8d rows", table, count)
     log.info("  %-18s %8d rows", "TOTAL", claim_plan.total)
+    if claim_plan.entitlement_superseded:
+        log.warning(
+            "  the target already holds a subscription row: THEIRS is kept and the "
+            "sentinel's is dropped (one row per owner — see _entitlement_superseded). "
+            "Re-grant with `python -m healthee.db.grant_premium` if that is the wrong one."
+        )
 
 
 def _rekey(cur: Cursor[TupleRow], claim_plan: ClaimPlan) -> None:
@@ -192,10 +251,14 @@ def _rekey(cur: Cursor[TupleRow], claim_plan: ClaimPlan) -> None:
 
     Order matters and is the whole trick:
 
-    1. park the target's device tokens on the sentinel, so nothing references the
-       target's row (they ride the cascade back in step 3 — the alternative, letting
-       step 2 cascade-delete them, would silently break a device the owner just
-       paired);
+    1. park the target's device tokens AND their entitlement row on the sentinel, so
+       nothing references the target's row (both ride the cascade back in step 3 — the
+       alternative, letting step 2 cascade-delete them, would silently break a device
+       the owner just paired and silently drop the subscription they were granted).
+       `subscription` carries `ON DELETE CASCADE` exactly like `device_token` and needs
+       the same treatment, with one extra move: its `user_id` is the PRIMARY KEY, so the
+       sentinel's own row is dropped first to make room (`_entitlement_superseded` argues
+       why the target's wins, and `_report` says so before `--apply`);
     2. delete the target's row, freeing the primary key the cascade needs;
     3. re-key the sentinel, stamping the target's REAL email + timezone onto the
        surviving row so the cascade doesn't leave it wearing `email = NULL` and the
@@ -205,6 +268,14 @@ def _rekey(cur: Cursor[TupleRow], claim_plan: ClaimPlan) -> None:
         "UPDATE device_token SET user_id = %s WHERE user_id = %s",
         (SENTINEL_USER_ID, claim_plan.target),
     )
+    if _has_subscription(cur, claim_plan.target):
+        # One row per owner, and the target's is the one that survives. The sentinel's
+        # is deleted FIRST so the park below cannot hit the primary key.
+        cur.execute("DELETE FROM subscription WHERE user_id = %s", (SENTINEL_USER_ID,))
+        cur.execute(
+            "UPDATE subscription SET user_id = %s WHERE user_id = %s",
+            (SENTINEL_USER_ID, claim_plan.target),
+        )
     cur.execute("DELETE FROM app_user WHERE id = %s", (claim_plan.target,))
     cur.execute(
         "UPDATE app_user SET id = %s, email = %s, timezone = %s WHERE id = %s",

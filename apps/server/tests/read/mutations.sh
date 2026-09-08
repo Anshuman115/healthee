@@ -1227,6 +1227,50 @@ mutate 'a skipped step counts as a failure' \
   '    return all(step.status != "failed" for step in steps)' \
   '    return all(step.status == "ok" for step in steps)'
 
+# ── K2 · C1 ─────────────────────────────────────────────────────────────────
+# An entitlement row makes the claim refuse again, with the wrong diagnosis: the
+# operator is told their target owns health data when it owns none.
+CLAIM_TEST=tests/db/test_claim_sentinel.py
+
+mutate 'an entitlement row is read as owned health data' \
+  "$CLAIM_TEST" src/healthee/db/claim_sentinel.py \
+  '_NON_HEALTH_TABLES = _NON_TENANT_TABLES | {"subscription"}' \
+  '_NON_HEALTH_TABLES = _NON_TENANT_TABLES | set()'
+
+# The target's entitlement stops being parked, so step 2's ON DELETE CASCADE
+# takes it — silently, exactly as it would have taken their device token.
+mutate 'the claim lets the cascade eat the target entitlement' \
+  "$CLAIM_TEST" src/healthee/db/claim_sentinel.py \
+  '    if _has_subscription(cur, claim_plan.target):' \
+  '    if not _has_subscription(cur, claim_plan.target):'
+
+# ── K3 · C2 ─────────────────────────────────────────────────────────────────
+# Today's briefing goes out stamped with whatever day it was handed — the
+# stale-as-current lie on the one channel with no other date beside it.
+BRIEFING_DAY=tests/jobs/test_briefing_day.py
+
+mutate 'the briefing stamps a day its content never answered for' \
+  "$BRIEFING_DAY" src/healthee/jobs/briefing.py \
+  '    if day is not None and day != today:' \
+  '    if day is not None and day == today:'
+
+# ── K4 · C3 ─────────────────────────────────────────────────────────────────
+# The 60-day cooldown goes back to reading a 50-row tail, so an abandonment under
+# deep history reads as never abandoned and the metric is re-offered.
+COOLDOWN=tests/challenges/test_abandon_cooldown_window.py
+
+mutate 'the abandon cooldown reads a row tail instead of its own window' \
+  "$COOLDOWN" src/healthee/challenges/levers.py \
+  '    for outcome in ledger.since(cur, user_id, window_opens):' \
+  '    for outcome in ledger.recent(cur, user_id, limit=_HISTORY_ROWS):'
+
+# The latest row per metric stops being the deciding one, so a completion after an
+# abandonment no longer clears it.
+mutate 'a later completion stops clearing the cooldown' \
+  "$COOLDOWN" src/healthee/challenges/levers.py \
+  '        decided.add(metric)' \
+  '        decided.discard(metric)'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

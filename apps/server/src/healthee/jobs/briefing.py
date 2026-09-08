@@ -48,8 +48,36 @@ def send_briefing(
     no model run here) or ``standalone`` (this step generated). It is on the status dict
     because "the briefing went out" and "the briefing cost a call" are two different
     facts, and the job health surface is where the second one is legible.
+
+    ## Why a past ``day`` is refused rather than honoured
+
+    ``day`` reaches exactly one thing: the ``healthee briefing — {day}`` header
+    ``_compose`` prints. Every input is unconditionally today's — ``cached_line`` is
+    keyed on the owner's own today and takes no day, and ``morning.generate_briefing``
+    anchors on ``user_today(tz)`` throughout. So a call with a past ``day`` sent
+    **today's judgement under an older date**, over the one channel where the reader
+    has no other date to check it against.
+
+    That is the stale-as-current lie ``docs/AS_OF_DAY.md`` section 3 names, and
+    ``jobs/recs.py`` already refuses its own version of it in thirty lines of argument.
+    This is the same refusal for the same reason: authoring a past day's judgement now
+    is a new claim, not a record (AS_OF_DAY section 6), so making ``day`` bind the inputs
+    is not the repair either. It is loud rather than a silent clamp — the only caller
+    that can reach it is a hand-run ``run_chain(..., force=True)``, and a back-fill that
+    would have mislabelled a message must fail where somebody can see it.
+
+    ``recs`` raises first on the same forced chain, so nothing that used to work stops
+    working; what changes is that the briefing can no longer go out mis-dated behind it.
     """
-    day = day or user_today(tz)
+    today = user_today(tz)
+    if day is not None and day != today:
+        raise ValueError(
+            f"send_briefing cannot stamp a briefing {day}: every input it has is "
+            f"{today}'s (cached_line and generate_briefing take no reference day), so "
+            "the message would carry a date its own content never answered for "
+            "(docs/AS_OF_DAY.md section 6)."
+        )
+    day = today
     warmed = coaching.cached_line(user_id, tz, coaching.MORNING_BRIEFING_KEY)
     body, status = _body(user_id, tz, warmed, client=client)
     sent = send_telegram(_compose(day, body))
