@@ -17,30 +17,37 @@ That is the stale-as-current lie in its scheduler form, and this module is the c
 that ends it: the chain for local day D does not start until something MEASURED on
 day D has arrived.
 
-## What counts as arrival, and why these two rows
+## What counts as arrival: the night, and only later anything else
 
-``sample`` carrying an instant inside day D, **or** a ``sleep_session`` that WOKE on
-day D. Either one means the phone has synced since the night: neither row can exist
-before an ingest wrote it.
+The gate opens on a ``sleep_session`` of kind ``main`` that **WOKE on day D**. That is
+the row the morning's analysis is actually about, and it cannot exist before an ingest
+wrote it, so its presence is proof the phone has synced since the night.
 
-The OR is not belt-and-braces, and each arm covers a real state the other misses:
+**An earlier version of this gate accepted any sample measured on day D, and that was
+wrong in a way this owner would have hit the same night it shipped.** A local day
+begins at midnight; a chronic short sleeper is awake then. Opening the app at 00:54
+syncs an hour of post-midnight heart rate — all of it stamped day D — and the gate
+opens on it. Sleep 02:00-06:00, don't reopen the app, and 10:30 computes the day
+without its night: the original defect, intact, wearing the fix as a hat. Data
+measured on a day is not the same fact as the day being answerable, and only the
+second one is this module's question.
 
-* **sleep alone is too narrow.** A night the strap was not worn produces no session at
-  all. Gating on sleep would mean an owner who takes the strap off for one night gets
-  no chain that day — and "you recorded no sleep last night" is a true and useful
-  thing for the day to say, not a reason to skip it.
-* **samples alone miss a known failure.** The per-minute stream demonstrably stalls
-  (see the pager-stall work): a sync can hand over a staged night and no per-minute
-  rows. The session is then the only evidence the sync happened.
+## The strap-off fallback, and why it is a caller's decision
 
-## What this deliberately does NOT establish
+Requiring the night flatly would mean an owner who took the strap off got no chain at
+all that day — and "you recorded no sleep last night" is a true and useful thing for a
+day to say, not a reason to skip it. So ``allow_without_night`` widens the gate to any
+sample measured on the day, and the scheduler turns it on at ``SLEEP_FALLBACK``
+(14:00 local), never earlier.
 
-It answers *"has day D's data arrived"*, not *"has ALL of day D's sleep arrived"*.
-An owner who opens the app at 06:00, syncs, and then sleeps 06:00-09:00 opens this
-gate on the pre-06:00 samples, and their 10:30 chain will not see that later sleep.
-Closing that would need the strap to tell us it had nothing further to hand over, and
-it does not. Named here rather than papered over: this gate removes the case where we
-had *nothing* for the day, which is the one that was actually firing every morning.
+The hour is a judgement, not a measurement, and is named as one: by early afternoon a
+night that was going to be handed over has been. It lives in ``scheduler.py`` as one
+constant beside the other fire times, because it is a policy about clocks and this
+module deliberately knows nothing about clocks — it is handed a day and a boolean.
+
+The cost of the split is one thing worth stating plainly: a strap-off day's chain now
+lands at 14:00 rather than 10:30. That is the trade — a few hours' latency on the days
+with no night, to stop fabricating on the days that have one.
 
 ## Why an unreadable gate raises rather than returning False
 
@@ -82,21 +89,32 @@ from uuid import UUID
 from healthee.core.db import tenant_transaction
 from healthee.derive._common import _day_bounds_utc
 
-# One round trip, and `OR` short-circuits: on an ordinary morning the first `EXISTS`
-# answers and the sleep table is never touched. Both arms carry `user_id` explicitly
-# even though RLS already scopes the connection — the policy is the security boundary,
-# the predicate is what lets the planner use `sample_user_idx` instead of scanning the
-# chunk. (`/api/sleep` breached its budget 165x on exactly this distinction.)
+# The NIGHT is the first arm and the only one that counts early in the day; the
+# second is the strap-off fallback and is switched off by the caller until then.
+# `OR` short-circuits, so a day whose night has landed never touches `sample`.
+#
+# Both arms carry `user_id` explicitly even though RLS already scopes the connection —
+# the policy is the security boundary, the predicate is what lets the planner use the
+# owner index instead of scanning the chunk. (`/api/sleep` breached its budget 165x on
+# exactly this distinction.)
+#
+# `kind = 'main'` and not any session: a 02:00 nap ends on day D and would otherwise
+# announce that D's night had arrived. Waiting for the real one is the whole point.
 _ARRIVED_SQL = """
-SELECT EXISTS (SELECT 1 FROM sample
-                WHERE user_id = %s AND ts >= %s AND ts < %s)
-    OR EXISTS (SELECT 1 FROM sleep_session
-                WHERE user_id = %s AND end_ts >= %s AND end_ts < %s)
+SELECT EXISTS (SELECT 1 FROM sleep_session
+                WHERE user_id = %s AND kind = 'main'
+                  AND end_ts >= %s AND end_ts < %s)
+    OR (%s AND EXISTS (SELECT 1 FROM sample
+                        WHERE user_id = %s AND ts >= %s AND ts < %s))
 """
 
 
-def day_data_arrived(user_id: UUID, day: date, tz: str) -> bool:
-    """True once anything measured on the owner's local ``day`` is in the database.
+def day_data_arrived(user_id: UUID, day: date, tz: str, allow_without_night: bool = False) -> bool:
+    """True once the owner's local ``day`` is ready to be answered for.
+
+    Ready means **the night that woke on ``day`` is in the database**. Only when
+    ``allow_without_night`` — which the scheduler turns on at ``SLEEP_FALLBACK``, not
+    before — does any sample measured on the day also count.
 
     The half-open bracket is ``_day_bounds_utc``'s, so a row timestamped at the next
     local midnight belongs to tomorrow and cannot open today's gate — and a
@@ -106,8 +124,11 @@ def day_data_arrived(user_id: UUID, day: date, tz: str) -> bool:
     """
     start_utc, end_utc = _day_bounds_utc(day, tz)
     with tenant_transaction(user_id) as cur:
-        cur.execute(_ARRIVED_SQL, (user_id, start_utc, end_utc, user_id, start_utc, end_utc))
+        cur.execute(
+            _ARRIVED_SQL,
+            (user_id, start_utc, end_utc, allow_without_night, user_id, start_utc, end_utc),
+        )
         row = cur.fetchone()
-    if row is None:  # unreachable; see below
+    if row is None:  # unreachable; see the module docstring
         raise RuntimeError("the arrival gate query returned no row")
     return bool(row[0])

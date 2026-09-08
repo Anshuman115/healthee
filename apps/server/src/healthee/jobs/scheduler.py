@@ -37,9 +37,17 @@ one timer anyway, so N owners already produced N chains in a burst.
 
 ``DAILY_FIRE`` (10:30) **in each owner's own timezone** is the earliest the chain may
 start, never the instant it does. Reaching it is one of two conditions; the other is
-``data_gate.day_data_arrived`` — something MEASURED on the owner's day is actually in
-the database. There is no global fire zone (the old ``TZ``): an owner's
+``data_gate.day_data_arrived`` — **the night that woke today** is actually in the
+database. There is no global fire zone (the old ``TZ``): an owner's
 ``app_user.timezone`` is the only zone in play for them.
+
+The gate asks for the night rather than for any of the day's data, and the difference
+is not academic: a local day starts at midnight, so an owner awake at 00:54 who opens
+the app syncs an hour of post-midnight heart rate stamped with today's date. A gate
+keyed on "any data" opens on that, and 10:30 then computes a day whose sleep has not
+happened yet — the very defect below, wearing the fix as a hat. At ``SLEEP_FALLBACK``
+(14:00) the gate widens to accept a day with samples and no session, so a strap-off
+night costs a few hours' latency rather than the whole day's chain.
 
 Until this gate existed, this docstring claimed 10:30 was chosen as "late morning,
 AFTER a typical late wake + app push, so recs/briefing don't compute on last night's
@@ -132,6 +140,21 @@ class FireTime:
 
 DAILY_FIRE = FireTime(hour=10, minute=30)
 
+# When the gate widens from "the night has arrived" to "anything from the day has".
+#
+# Before this hour the chain waits for the night that woke today, because that is what
+# the morning's analysis is about. After it, a day with samples but no session is
+# allowed through — otherwise an owner who took the strap off for one night would get
+# no chain at all, and "you recorded no sleep last night" is a true and useful thing
+# for a day to say.
+#
+# The hour is a JUDGEMENT and is written here rather than in `data_gate` so that it
+# sits beside the other fire times and so that module stays free of clocks: by early
+# afternoon, a night that was going to be handed over has been. Its cost is that a
+# strap-off day's chain lands at 14:00 instead of 10:30 — a few hours' latency on the
+# days with no night, in exchange for not fabricating on the days that have one.
+SLEEP_FALLBACK = FireTime(hour=14, minute=0)
+
 # When a day on which NOTHING has arrived is reported to the health surface. Late
 # enough that an owner who syncs in the evening has long since fired and been marked
 # done, so reaching this hour with the gate still shut means the day really is empty
@@ -168,7 +191,8 @@ class Sweeper:
         fire: FireTime = DAILY_FIRE,
         budget: int = _ATTEMPT_BUDGET,
         *,
-        gate: Callable[[UUID, date, str], bool] | None = None,
+        gate: Callable[[UUID, date, str, bool], bool] | None = None,
+        sleep_fallback: FireTime = SLEEP_FALLBACK,
         quiet_notice: FireTime = QUIET_DAY_NOTICE,
     ) -> None:
         self._fire = fire
@@ -184,6 +208,7 @@ class Sweeper:
         # every one of the loop's existing tests would open a database connection to
         # assert something about a clock.
         self._gate = gate if gate is not None else day_data_arrived
+        self._sleep_fallback = sleep_fallback
         self._quiet_notice = quiet_notice
         self._attempts: dict[tuple[UUID, date], int] = {}
         self._quiet_reported: set[tuple[UUID, date]] = set()
@@ -223,7 +248,10 @@ class Sweeper:
             day = local.date()
             if not is_due(local, self._fire):
                 return "waiting", day
-            if not self._gate(tenant.id, day, tenant.tz):
+            # Before `SLEEP_FALLBACK` only the night opens the gate; after it, any of
+            # the day's data does. See that constant for why the widening is timed.
+            without_night = is_due(local, self._sleep_fallback)
+            if not self._gate(tenant.id, day, tenant.tz, without_night):
                 self._report_quiet_day(tenant, local, day)
                 return "no data yet", day
             return self._attempt(tenant, day), day

@@ -77,10 +77,10 @@ class Gate:
 
     def __init__(self, *, open_: bool = False) -> None:
         self.open = open_
-        self.asked: list[tuple[UUID, date, str]] = []
+        self.asked: list[tuple[UUID, date, str, bool]] = []
 
-    def __call__(self, user_id: UUID, day: date, tz: str) -> bool:
-        self.asked.append((user_id, day, tz))
+    def __call__(self, user_id: UUID, day: date, tz: str, without_night: bool) -> bool:
+        self.asked.append((user_id, day, tz, without_night))
         return self.open
 
 

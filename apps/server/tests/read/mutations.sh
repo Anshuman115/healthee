@@ -1336,19 +1336,45 @@ mutate 'the arrival gate loses its lower bound' \
   'WHERE user_id = %s AND ts >= %s AND ts < %s)' \
   'WHERE user_id = %s AND %s IS NOT NULL AND %s IS NOT NULL)'
 
+# The strap-off fallback is always on, so any post-midnight sample answers for a
+# night that has not happened. THE 00:53 bug, restored inside the gate that fixed
+# it, and invisible to every test that only ever seeds a sleep session.
+mutate 'the night requirement is dropped — any of the day data will do' \
+  "$GATE" src/healthee/jobs/data_gate.py \
+  'OR (%s AND EXISTS (SELECT 1 FROM sample' \
+  'OR (%s IS NOT NULL AND EXISTS (SELECT 1 FROM sample'
+
+# A nap counts as the night.
+mutate 'a nap announces that the night has arrived' \
+  "$GATE" src/healthee/jobs/data_gate.py \
+  "WHERE user_id = %s AND kind = 'main'" \
+  'WHERE user_id = %s AND %s IS NOT NULL'
+
+# The sweep always allows the nightless fallback, so 10:30 never waits for sleep.
+mutate 'the sweep always allows the nightless fallback' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '            without_night = is_due(local, self._sleep_fallback)' \
+  '            without_night = True'
+
+# ...and the mirror: it never allows it, so a strap-off night costs the whole day.
+mutate 'the nightless fallback never opens' \
+  "$SWEEP" src/healthee/jobs/scheduler.py \
+  '            without_night = is_due(local, self._sleep_fallback)' \
+  '            without_night = False'
+
 # The upper bound goes closed, so the first instant of tomorrow answers for today.
 mutate 'the day bracket stops being half-open' \
   "$GATE" src/healthee/jobs/data_gate.py \
-  'WHERE user_id = %s AND end_ts >= %s AND end_ts < %s)' \
-  'WHERE user_id = %s AND end_ts >= %s AND end_ts <= %s)'
+  '                  AND end_ts >= %s AND end_ts < %s)' \
+  '                  AND end_ts >= %s AND end_ts <= %s)'
 
 # A night is judged by when it STARTED. An ordinary night starts on the previous
 # local day, so last night's sleep stops opening this morning's gate — the fix
 # failing shut, which is quieter than failing open and just as wrong.
 mutate 'the night is dated by when it started, not when it ended' \
   "$GATE" src/healthee/jobs/data_gate.py \
-  'WHERE user_id = %s AND end_ts >= %s AND end_ts < %s)' \
-  'WHERE user_id = %s AND start_ts >= %s AND start_ts < %s)'
+  '                  AND end_ts >= %s AND end_ts < %s)' \
+  '                  AND start_ts >= %s AND start_ts < %s)'
 
 # There is deliberately NO mutation for the "query returned no row" branch. It
 # raises, and it is unreachable — `SELECT EXISTS(...) OR EXISTS(...)` always
@@ -1360,22 +1386,22 @@ mutate 'the night is dated by when it started, not when it ended' \
 # The sweep stops consulting the gate at all: back to firing on the clock alone.
 mutate 'the sweep stops consulting the arrival gate' \
   "$SWEEP" src/healthee/jobs/scheduler.py \
-  '            if not self._gate(tenant.id, day, tenant.tz):' \
+  '            if not self._gate(tenant.id, day, tenant.tz, without_night):' \
   '            if False:'
 
 # The gate is asked about YESTERDAY, which the strap always has — so it is open
 # every morning regardless of whether anything has arrived for today.
 mutate 'the gate is asked about the wrong day' \
   "$SWEEP" src/healthee/jobs/scheduler.py \
-  '            if not self._gate(tenant.id, day, tenant.tz):' \
-  '            if not self._gate(tenant.id, date.fromordinal(day.toordinal() - 1), tenant.tz):'
+  '            if not self._gate(tenant.id, day, tenant.tz, without_night):' \
+  '            if not self._gate(tenant.id, date.fromordinal(day.toordinal() - 1), tenant.tz, without_night):'
 
 # The owner's zone stops reaching the gate, so every owner's day is bracketed in
 # somebody else's — off by up to 25 hours at the edges.
 mutate 'the gate is asked in the wrong timezone' \
   "$SWEEP" src/healthee/jobs/scheduler.py \
-  '            if not self._gate(tenant.id, day, tenant.tz):' \
-  '            if not self._gate(tenant.id, day, "UTC"):'
+  '            if not self._gate(tenant.id, day, tenant.tz, without_night):' \
+  '            if not self._gate(tenant.id, day, "UTC", without_night):'
 
 # A shut gate charges the retry budget, so an owner who syncs at lunchtime finds
 # their three attempts already spent on the morning they had not synced yet.

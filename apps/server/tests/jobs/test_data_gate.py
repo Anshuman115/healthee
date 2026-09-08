@@ -55,11 +55,15 @@ def _sample(ts: datetime, *, owner=_OWNER) -> None:
 
 
 def _night(start: datetime, end: datetime, *, owner=_OWNER) -> None:
+    _night_of_kind(start, end, kind="main", owner=owner)
+
+
+def _night_of_kind(start: datetime, end: datetime, *, kind: str, owner=_OWNER) -> None:
     with admin_connection() as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO sleep_session (user_id, start_ts, end_ts, kind) "
-            "VALUES (%s, %s, %s, 'main') ON CONFLICT DO NOTHING",
-            (owner, start, end),
+            "VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+            (owner, start, end, kind),
         )
 
 
@@ -76,10 +80,32 @@ def test_nothing_at_all_keeps_the_gate_shut() -> None:
     assert day_data_arrived(_OWNER, _DAY, _TZ) is False
 
 
-def test_a_sample_measured_on_the_day_opens_it() -> None:
-    _sample(_at(3, 0))  # 03:00 local — overnight heart rate
+def test_a_sample_alone_does_not_open_it_before_the_fallback() -> None:
+    """THE 00:53 case, and the reason this gate asks for the night.
 
-    assert day_data_arrived(_OWNER, _DAY, _TZ) is True
+    A local day begins at midnight and this owner is awake then. Opening the app at
+    00:54 syncs an hour of post-midnight heart rate, all of it stamped day D. A gate
+    keyed on "any data measured on the day" opens on exactly that — and then 10:30
+    computes a day whose sleep has not happened yet, which is the defect the gate was
+    built to end, surviving inside it.
+    """
+    _sample(_at(0, 54))
+
+    assert day_data_arrived(_OWNER, _DAY, _TZ) is False
+
+
+def test_a_sample_opens_it_once_the_fallback_is_allowed() -> None:
+    """Past `SLEEP_FALLBACK` a strap-off day still deserves its chain."""
+    _sample(_at(3, 0))
+
+    assert day_data_arrived(_OWNER, _DAY, _TZ, True) is True
+
+
+def test_a_nap_that_ended_today_is_not_the_night() -> None:
+    """`kind='main'` and not any session — otherwise a 02:00 nap announces the night."""
+    _night_of_kind(_at(1, 30), _at(2, 15), kind="nap")
+
+    assert day_data_arrived(_OWNER, _DAY, _TZ) is False
 
 
 def test_yesterdays_data_does_not_open_todays_gate() -> None:
@@ -96,6 +122,9 @@ def test_yesterdays_data_does_not_open_todays_gate() -> None:
     )
 
     assert day_data_arrived(_OWNER, _DAY, _TZ) is False
+    assert day_data_arrived(_OWNER, _DAY, _TZ, True) is False, (
+        "the fallback widens WHICH rows count, never WHICH DAY they belong to"
+    )
 
 
 def test_a_night_that_woke_on_the_day_opens_it_with_no_samples() -> None:
@@ -114,7 +143,7 @@ def test_tomorrows_data_does_not_open_todays_gate() -> None:
     """Nothing measured after day D may inform day D's answer (AS_OF_DAY)."""
     _sample(_at(9, 0, day=_DAY + timedelta(days=1)))
 
-    assert day_data_arrived(_OWNER, _DAY, _TZ) is False
+    assert day_data_arrived(_OWNER, _DAY, _TZ, True) is False
 
 
 def test_the_next_local_midnight_belongs_to_tomorrow() -> None:
@@ -126,7 +155,7 @@ def test_the_next_local_midnight_belongs_to_tomorrow() -> None:
     _, next_midnight_utc = _day_bounds_utc(_DAY, _TZ)
     _sample(next_midnight_utc)
 
-    assert day_data_arrived(_OWNER, _DAY, _TZ) is False
+    assert day_data_arrived(_OWNER, _DAY, _TZ, True) is False
 
 
 def test_the_last_instant_before_that_midnight_is_still_todays() -> None:
@@ -134,7 +163,7 @@ def test_the_last_instant_before_that_midnight_is_still_todays() -> None:
     _, next_midnight_utc = _day_bounds_utc(_DAY, _TZ)
     _sample(next_midnight_utc - timedelta(seconds=1))
 
-    assert day_data_arrived(_OWNER, _DAY, _TZ) is True
+    assert day_data_arrived(_OWNER, _DAY, _TZ, True) is True
 
 
 def test_a_night_ending_exactly_at_the_next_local_midnight_is_tomorrows() -> None:
@@ -173,5 +202,5 @@ def test_another_owners_sync_does_not_open_this_owners_gate(
     _clean()
     _sample(_at(3, 0), owner=OWNER_B)
 
-    assert day_data_arrived(_OWNER, _DAY, _TZ) is False
-    assert day_data_arrived(OWNER_B, _DAY, _TZ) is True
+    assert day_data_arrived(_OWNER, _DAY, _TZ, True) is False
+    assert day_data_arrived(OWNER_B, _DAY, _TZ, True) is True
