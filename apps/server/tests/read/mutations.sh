@@ -315,14 +315,18 @@ mutate 'the 30-day window is 36 days again' \
 # half-distance, so the z is finite and everything downstream looks healthy.
 mutate 'two days of resting heart rate publish a direction' \
   "$SEVERITY_A" src/healthee/read/recovery_signals.py \
-  '    if b.median is None or not b.robust_sd or b.n < _SIGNAL_MIN_DAYS:
-        return None
+  '    if b.median is None or b.n < _SIGNAL_MIN_DAYS:
+        return Unplaced(name, SHORT_HISTORY)
+    if not b.robust_sd:
+        return Unplaced(name, FLAT_HISTORY)
     z = (value - b.median) / b.robust_sd
     direction = (
         "favorable"
         if z < -_AUTONOMIC_FAVORABLE_Z' \
-  '    if b.median is None or not b.robust_sd:
-        return None
+  '    if b.median is None:
+        return Unplaced(name, SHORT_HISTORY)
+    if not b.robust_sd:
+        return Unplaced(name, FLAT_HISTORY)
     z = (value - b.median) / b.robust_sd
     direction = (
         "favorable"
