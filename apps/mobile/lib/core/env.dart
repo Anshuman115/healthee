@@ -93,6 +93,35 @@ abstract final class Env {
     seconds: int.fromEnvironment('HELIO_PUSH_TIMEOUT_S', defaultValue: 180),
   );
 
+  /// How long one `POST /api/coach` may take.
+  ///
+  /// The coach is the one call in this app that pays for its own latency. The
+  /// server's gate charges one of the owner's twenty included questions **before
+  /// the handler starts**, deliberately, so it cannot be raced — which means a
+  /// client that hangs up early does not cancel anything. It leaves the server
+  /// producing an answer, charging for it, matching none of the four refund
+  /// branches (a *delivered* answer is neither refused, nor unvalidated, nor an
+  /// exception, nor a greeting), and returning 200 to a socket nobody is reading.
+  /// The owner pays $0.179 and one of twenty, and sees a failure.
+  ///
+  /// [requestTimeout] is therefore the wrong budget for it, and not by a little:
+  /// ten seconds is derived from a p95 < 100 ms *read* target, while one coach
+  /// turn is bounded at `insights.coach.GATHERING_ROUNDS` (20) tool rounds plus
+  /// the pipeline's reserved answer attempts, each at the server's own 60 s
+  /// `llm_timeout_s`. That ceiling is not a spend — narrow questions were
+  /// measured converging in two rounds — so this is sized for the work that
+  /// actually happens, at the same 180 s the app's other three generating calls
+  /// already use ([pushTimeout], via `data/api/account_api.dart` and
+  /// `data/challenges/commitment_repository.dart`).
+  ///
+  /// It is its OWN knob rather than a reuse of [pushTimeout] because the two
+  /// numbers answer different questions — a multi-day sync backlog and a model
+  /// thinking — and a shared constant would make one of them silently follow the
+  /// other's next revision.
+  static const Duration coachTimeout = Duration(
+    seconds: int.fromEnvironment('HELIO_COACH_TIMEOUT_S', defaultValue: 180),
+  );
+
   /// Whether to log every HTTP request/response body.
   ///
   /// Off unless asked for, in every build type. Response bodies here are somebody's

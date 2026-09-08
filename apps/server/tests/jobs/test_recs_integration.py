@@ -26,7 +26,7 @@ from tests.insights._stub import StubLLM
 from healthee.api.app import create_app
 from healthee.core.config import get_settings
 from healthee.core.db import tenant_transaction
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
+from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.db import migrate
 from healthee.insights import pipeline
 from healthee.jobs import recs
@@ -39,7 +39,11 @@ pytestmark = pytest.mark.integration
 
 _TOKEN = "recs-test-token"
 _AUTH = {"Authorization": f"Bearer {_TOKEN}"}
-_DAY = date(2026, 7, 15)
+# The owner's OWN today. `generate_recs` refuses any other day, because every input
+# it has is today's and a row dated otherwise would carry a date its content never
+# answered for (B2). A fixed past date used to work here and was exactly the shape
+# of the mislabelling.
+_DAY = user_today(SENTINEL_TZ)
 
 # A response the choke point validates (inline cites a real Established note) with
 # TWO recs: the first is fully citable; the second cites an unknown note ONLY in

@@ -29,6 +29,9 @@ import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/shared/format/note_names.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 
+/// The client's own sentence for a request that never left the phone.
+const String kUnreachable = "Couldn't reach your server. Nothing was spent.";
+
 final DateTime _now = DateTime(2026, 8, 5, 9);
 
 /// A subscriber with [remaining] of 20 questions left.
@@ -91,7 +94,7 @@ class _ScriptedCoach implements CoachClient {
   }
 
   @override
-  Future<CoachAnswer> ask(List<CoachTurn> messages) async {
+  Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) async {
     asked.add(messages);
     if (throws case final Exception failure) {
       throw failure;
@@ -316,10 +319,7 @@ void main() {
           // The app's own taxonomy, which is what the controller catches. The
           // DioException → taxonomy mapping belongs to the client and is tested
           // at that seam, in `test/data/coach_client_test.dart`.
-          throws: const CoachUnreachable(
-            "Couldn't reach your server. Nothing was asked and nothing was "
-            'spent — your questions are untouched.',
-          ),
+          throws: const CoachUnreachable(kUnreachable, CoachCharge.notCharged),
         );
         await tester.pumpWidget(_screen(client));
         await tester.pumpAndSettle();
@@ -383,7 +383,7 @@ class _PendingEntitlement implements CoachClient {
   Future<Entitlement> entitlement() => Completer<Entitlement>().future;
 
   @override
-  Future<CoachAnswer> ask(List<CoachTurn> messages) async =>
+  Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) async =>
       throw StateError('a question must not be askable with no meter');
 }
 
@@ -392,9 +392,9 @@ class _PendingEntitlement implements CoachClient {
 class _FailingEntitlement implements CoachClient {
   @override
   Future<Entitlement> entitlement() async =>
-      throw const CoachUnreachable('the server did not answer');
+      throw const CoachUnreachable('no answer', CoachCharge.notCharged);
 
   @override
-  Future<CoachAnswer> ask(List<CoachTurn> messages) async =>
+  Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) async =>
       throw StateError('a question must not be askable with no meter');
 }

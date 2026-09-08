@@ -1664,6 +1664,8 @@ mutate 'the opening prompts stop being gated by the balance' \
   "$COMPOSER_TEST" "$COACH_SCREEN" \
   '            canAsk: canAsk, ask: ask),' \
   '            canAsk: true, ask: ask),'
+# (anchor re-cut when `ask` grew a `topic:` argument — a stale patch runs the
+#  UNMUTATED suite and reports a pass, which reads exactly like a working guard.)
 
 # `routers/coach.py` refunds three of five outcomes, so a local subtraction is
 # wrong — and wrong the flattering way round. THE METER IS RE-READ.
@@ -2248,10 +2250,10 @@ mutate 'a blank topic is carried into the route as one' "$TOPIC_TEST" "$ROUTES" 
 mutate 'arriving with a topic asks it immediately' "$TOPIC_TEST" \
   lib/features/coach/coach_screen.dart \
   '    void ask(String question) => unawaited(
-      ref.read(coachControllerProvider.notifier).ask(question),
+      ref.read(coachControllerProvider.notifier).ask(question, topic: topic),
     );' \
   '    void ask(String question) => unawaited(
-      ref.read(coachControllerProvider.notifier).ask(question),
+      ref.read(coachControllerProvider.notifier).ask(question, topic: topic),
     );
     if (topic != null && conversation.isEmpty && !conversation.asking) {
       WidgetsBinding.instance.addPostFrameCallback((_) => ask(topic!));
@@ -2710,6 +2712,125 @@ mutate 'a step bucket parses a distance nobody measured' \
   "      steps: (json['distance_m'] as num?)?.toDouble() ??
           (json['steps'] as num?)?.toDouble() ??
           0,"
+
+# ── the LLM audit ────────────────────────────────────────────────────────────
+#
+# Four of these protect a SENTENCE about the owner's money or the owner's data
+# rather than a number, which is the class this app has the least other cover
+# for: none of them fails loudly, and all four read as working code.
+
+COACH_CLIENT=lib/data/coach/coach_client.dart
+COACH_THREAD_W=lib/features/coach/widgets/coach_thread.dart
+COACH_CTRL=lib/features/coach/coach_controller.dart
+COACH_SCREEN=lib/features/coach/coach_screen.dart
+REC_MODEL=lib/data/models/recommendation.dart
+ACTIONS=lib/features/today/widgets/actions_section.dart
+GEN_INSIGHT=lib/data/insights/generated_insight.dart
+BUDGET_TEST=test/data/coach_ask_budget_test.dart
+CHARGE_TEST=test/features/coach_charge_honesty_test.dart
+DATING_TEST=test/features/actions_dating_test.dart
+FALLBACK_TEST=test/features/insight_fallback_test.dart
+TOPIC_TEST=test/features/coach_topic_test.dart
+
+# ── A1 ───────────────────────────────────────────────────────────────────────
+# The ask goes back to the app's 10-second READ default while one coach turn is
+# budgeted at up to 22 model calls. The server charges the slot before the
+# handler starts, so this is a charge for an answer nobody receives.
+mutate 'the coach ask goes back to the read timeout' \
+  "$BUDGET_TEST" "$COACH_CLIENT" \
+  '        options: Options(
+          receiveTimeout: Env.coachTimeout,
+          sendTimeout: Env.coachTimeout,
+        ),' \
+  '        options: Options(
+          receiveTimeout: Env.requestTimeout,
+          sendTimeout: Env.requestTimeout,
+        ),'
+
+# The timeout stays and the SENTENCE goes back to denying the charge — the half
+# a fix is most likely to stop at, and the half the owner actually reads.
+mutate 'a receive timeout claims nothing was charged again' \
+  "$BUDGET_TEST" "$COACH_CLIENT" \
+  '      DioExceptionType.badCertificate => CoachCharge.notCharged,
+      _ => CoachCharge.unknown,' \
+  '      DioExceptionType.badCertificate => CoachCharge.notCharged,
+      _ => CoachCharge.notCharged,'
+
+# The thread prints the denial for an unknown charge — the exact sentence that
+# shipped, over a meter showing one fewer.
+mutate 'the thread denies a charge it cannot see' \
+  "$CHARGE_TEST" "$COACH_THREAD_W" \
+  "            CoachCharge.unknown =>
+              'We could not confirm whether this was counted. The number '
+                  'above is the server’s own, re-read just now.'," \
+  "            CoachCharge.unknown =>
+              'Nothing was counted for this. The number above is the '
+                  'server’s own, re-read just now.',"
+
+# The controller flattens the client's verdict back to "not charged", which is
+# where the false sentence was actually produced.
+mutate 'the controller overrides what the client worked out' \
+  "$CHARGE_TEST" "$COACH_CTRL" \
+  '        _trouble(failure.message, charge: failure.charge);' \
+  '        _trouble(failure.message, charge: CoachCharge.notCharged);'
+
+# ── A3 ───────────────────────────────────────────────────────────────────────
+# The row's own date is dropped again, so a two-day-old action is drawn as the
+# day's own with nothing able to say otherwise.
+mutate 'a recommendation drops the day it was written for' \
+  "$DATING_TEST" "$REC_MODEL" \
+  "      date: json['date'] as String?," \
+  '      date: null,'
+
+# The date is parsed and not drawn — a field that exists and changes nothing,
+# which reads exactly like a working fix.
+mutate 'the actions block stops naming the day it is showing' \
+  "$DATING_TEST" "$ACTIONS" \
+  '    if (day == null || viewedDay == null || day == viewedDay) {
+      return null;
+    }
+    return day;' \
+  '    return null;'
+
+# The other direction, and the one that speaks: the block names a day whenever it
+# has one, so TODAY's own actions are announced as written for another day. A line
+# that appears on every day stops carrying the meaning it was added for.
+mutate 'the day is announced even when it is the day on screen' \
+  "$DATING_TEST" "$ACTIONS" \
+  '    if (day == null || viewedDay == null || day == viewedDay) {' \
+  '    if (day == null) {'
+
+# ── C2 ───────────────────────────────────────────────────────────────────────
+# The honest fallback is suppressed again and the card renders blank — the one
+# answer the whole honesty layer exists to be able to give, deleted.
+mutate 'the honest fallback is blanked again' \
+  "$FALLBACK_TEST" "$GEN_INSIGHT" \
+  '      text: parsed.text,' \
+  "      text: json['validated'] == true || json['refused'] == true
+          ? parsed.text
+          : '',"
+
+# The fallback is shown but not FRAMED, so "we could not ground this" reads as
+# an interpretation of the owner's data.
+mutate 'the fallback is shown as though it were a finding' \
+  "$FALLBACK_TEST" "$GEN_INSIGHT" \
+  "      validated: json['validated'] == true," \
+  '      validated: true,'
+
+# ── the coach topic ──────────────────────────────────────────────────────────
+# The subject stops reaching the server, so grounding is back to whatever the
+# model infers from prose — the gap the field was added to close.
+mutate 'the topic never leaves the phone' \
+  "$TOPIC_TEST" "$COACH_SCREEN" \
+  '      ref.read(coachControllerProvider.notifier).ask(question, topic: topic),' \
+  '      ref.read(coachControllerProvider.notifier).ask(question),'
+
+# The topic is sent on the first turn only, so a thread opened about a workout
+# stops being about it as soon as the owner asks a follow-up.
+mutate 'the topic is dropped after the first turn' \
+  "$BUDGET_TEST" "$COACH_CLIENT" \
+  "          if (subject.isNotEmpty) 'topic': subject," \
+  "          if (subject.isNotEmpty && messages.length == 1) 'topic': subject,"
 
 echo
 echo "caught $PASS, survived $FAIL"

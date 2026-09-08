@@ -128,6 +128,34 @@ question/task
       · banned-tone check (alarming/reassuring words need a citation)
       · personal findings cited as [personal_finding:…], clearly distinguished
         from population research
+      · an unrecognised grade string ranks 0 — the STRICTEST wording rule, the
+        same fail-closed default `jobs/recs._provable_grade` and
+        `challenges/screen._grade_issue` already used for the same lookup.
+        Unreachable today (`gen_manifest.py` pins the vocabulary and aborts on an
+        unknown grade); it decides which branch a seventh grade would fall into
+      **What this is NOT, said plainly.** Grounding here is CITATION-SHAPED and
+      grade-calibrated; it is not entailment-checked. The validator asks whether
+      a cited id exists in the manifest and whether the sentence's hedging
+      matches that id's grade. Nothing asks whether the note's CONTENT supports
+      the claim, and nothing can: there is no entailment step in the design, by
+      choice and for cost. `retrieval.evidence_section` embeds the top
+      `DEFAULT_TOP_N = 6` notes in full and lists the remaining 72 of 78 as a
+      one-line summary each, so most citable ids are cited from a summary plus
+      whatever the model already knows about that topic.
+      That is a real and unusually strong guarantee — *this claim carries a real
+      id, and its wording matches that id's grade* — and it is a DIFFERENT one
+      from "the cited note supports this claim". Both sentences are worth having
+      written down, because a reader of the first will otherwise go looking for
+      a check that was never built.
+      The three deterministic surfaces do better and are the contrast: a rec's
+      grade is PROVED down to what its citations support
+      (`jobs/recs._provable_grade`), a challenge must cite evidence proving at
+      least Probable (`challenges/screen._grade_issue`), and a ladder with no
+      citable population goal is refused (`challenges/program_screen.py`).
+      If an entailment check is ever wanted, the cheap version is to require at
+      least one cited id to come from the notes actually EMBEDDED in that prompt
+      — `evidence_section` already returns exactly that list as its second
+      element, and nothing consumes it today beyond a log line.
   → anti-hallucination: a first-person action claim ("I logged/adopted/created…")
     is an issue unless the tool that can make it true returned ok THIS turn. On a
     tool-less surface the set of successful tools is empty, so every such claim is

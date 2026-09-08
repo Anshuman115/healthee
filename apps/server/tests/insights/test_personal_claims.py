@@ -28,7 +28,7 @@ from tests.insights._ids import ESTABLISHED_ID
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID, user_today
 from healthee.db import migrate
-from healthee.insights import coach, personal_claims, prompts
+from healthee.insights import coach, coach_thread, personal_claims, prompts
 
 # THE CRUX. Both name `alcohol`; the owner has none of it.
 ABSENCE = "You have 0 logged alcohol entries in your history."
@@ -135,7 +135,16 @@ def _stub_context(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         coach,
         "_initial_messages",
-        lambda history, q, user_id, tz, days: [{"role": "user", "content": q}],
+        # Keeps the LAYOUT (a `system` turn, then the whole conversation) while
+        # skipping the DB-backed context/evidence build. It used to return only the
+        # last question, which discarded `history` — so no coach test exercised a
+        # multi-turn context, and the thread-wide refusal screen could not have been
+        # caught here however it behaved. The topic block rides along so a test can
+        # assert what a topic does and does not put in front of the model.
+        lambda history, q, user_id, tz, days, topic=None: [
+            {"role": "system", "content": f"CONTEXT{coach_thread.topic_block(topic)}"},
+            *history,
+        ],
     )
 
 

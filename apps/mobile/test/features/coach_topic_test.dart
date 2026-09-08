@@ -6,14 +6,21 @@
 /// `messages` and nothing else — so the topic can only be the conversation's
 /// **first user turn**, written client-side.
 ///
-/// That makes three things worth pinning, and they are the three groups here:
+/// `/api/coach` now takes an optional `topic` beside `messages`, so the subject
+/// travels twice and the two are different facts: the seeded first turn is what
+/// the owner is ASKING, in their own editable words, and the field is what
+/// screen they came FROM. Neither is a claim.
+///
+/// That makes four things worth pinning, and they are the four groups here:
 ///
 ///   1. `coachLocation` encodes a topic into the route and `coachTopicOf` reads
 ///      it back, and both drop a blank one;
 ///   2. the screen puts it in the input and **does not send it** — a navigation
 ///      that spent one of twenty on arrival is the silent spend this whole
 ///      surface is built to refuse;
-///   3. pressing the control sends exactly the seeded sentence, unaltered.
+///   3. pressing the control sends exactly the seeded sentence, unaltered, and
+///      the topic beside it — on every turn, not only the first;
+///   4. a screen opened with no topic sends none.
 ///
 /// The wording itself is `coach_topics.dart`'s, and is asserted for what it must
 /// never do: characterise. These sentences are read as the owner's own.
@@ -56,13 +63,15 @@ Entitlement _premium() => Entitlement.fromJson(const <String, Object?>{
 /// Records every question that actually reached the wire.
 class _RecordingCoach implements CoachClient {
   final List<List<CoachTurn>> asked = <List<CoachTurn>>[];
+  final List<String?> topics = <String?>[];
 
   @override
   Future<Entitlement> entitlement() async => _premium();
 
   @override
-  Future<CoachAnswer> ask(List<CoachTurn> messages) async {
+  Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) async {
     asked.add(messages);
+    topics.add(topic);
     return CoachAnswer.fromJson(const <String, Object?>{
       'reply': 'Steady effort for that distance.',
       'citations': <String>[],
@@ -166,6 +175,43 @@ void main() {
       expect(client.asked.single.single.content, _topic);
     });
 
+    testWidgets('THE SUBJECT ALSO GOES ON THE WIRE, AS A TOPIC', (
+      tester,
+    ) async {
+      // The gap this closes: `/api/coach` used to take `messages` only, so the
+      // server never learned what a question was about and grounding was
+      // whatever the model inferred from prose. The field is CONTEXT — the
+      // server screens it with the refusal gate and fences it as a label, and
+      // nothing downstream is relaxed for it.
+      final client = _RecordingCoach();
+      await tester.pumpWidget(_screen(client, topic: _topic));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.pumpAndSettle();
+
+      expect(client.topics, <String?>[_topic]);
+    });
+
+    testWidgets('the topic stays with the THREAD, not just the first turn', (
+      tester,
+    ) async {
+      // The thread is still the thread that was opened about that workout after
+      // the owner edits the opening sentence away, so the server's grounding
+      // must not stop knowing it on turn two.
+      final client = _RecordingCoach();
+      await tester.pumpWidget(_screen(client, topic: _topic));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'And the week after?');
+      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.pumpAndSettle();
+
+      expect(client.topics, <String?>[_topic, _topic]);
+    });
+
     testWidgets('WITHOUT A TOPIC THE INPUT IS EMPTY', (tester) async {
       // Today's card and the FAB ask nothing in particular, and a leftover
       // sentence from the last screen would be a question they did not raise.
@@ -175,6 +221,20 @@ void main() {
 
       expect(find.text(_topic), findsNothing);
       expect(client.asked, isEmpty);
+    });
+
+    testWidgets('A SCREEN OPENED ABOUT NOTHING SENDS NO TOPIC', (tester) async {
+      // Today's card and the FAB ask nothing in particular. A topic invented
+      // here would be the app telling the server a subject nobody chose.
+      final client = _RecordingCoach();
+      await tester.pumpWidget(_screen(client));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'How did I sleep?');
+      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.pumpAndSettle();
+
+      expect(client.topics, <String?>[null]);
     });
   });
 
@@ -187,10 +247,7 @@ void main() {
     });
 
     test('the workout opener names the session it was tapped from', () {
-      expect(
-        workoutTopic(sport: 'Running', date: '31 Jul'),
-        _topic,
-      );
+      expect(workoutTopic(sport: 'Running', date: '31 Jul'), _topic);
     });
 
     test('the finding opener trims the title’s own full stop', () {
@@ -198,8 +255,11 @@ void main() {
       // stop in the middle of it.
       final String topic = findingTopic('Caffeine & your sleep.');
 
-      expect(topic, 'Talk me through this pattern in my own data: '
-          'Caffeine & your sleep.');
+      expect(
+        topic,
+        'Talk me through this pattern in my own data: '
+        'Caffeine & your sleep.',
+      );
       expect(topic, isNot(contains('sleep..')));
     });
 
@@ -209,7 +269,7 @@ void main() {
       expect(
         findingTopic('A pattern in your own data.'),
         'Talk me through this pattern in my own data: '
-            'A pattern in your own data.',
+        'A pattern in your own data.',
       );
     });
 

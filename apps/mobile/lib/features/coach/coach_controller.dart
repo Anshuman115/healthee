@@ -45,7 +45,13 @@ class CoachController extends _$CoachController {
   /// Callers must have shown the meter first. That is not a convention here —
   /// `coach_screen.dart` cannot build an input without an [Entitlement] in hand,
   /// so there is no path from a screen to this method that skipped the number.
-  Future<void> ask(String question) async {
+  /// [topic] is the subject the screen was opened about, when it was opened
+  /// about one. It rides with every question asked from that screen rather than
+  /// only the first: the thread stays the thread that was opened about a
+  /// workout, and the server's grounding should not stop knowing that on turn
+  /// two. It is sent as CONTEXT, never as a claim — `insights/coach_thread.py`
+  /// screens it with the refusal gate and fences it in the prompt.
+  Future<void> ask(String question, {String? topic}) async {
     final text = question.trim();
     if (text.isEmpty || state.asking) {
       return;
@@ -56,18 +62,31 @@ class CoachController extends _$CoachController {
     );
     final generation = _generation;
     try {
-      final answer = await ref.read(coachClientProvider).ask(state.toWire());
+      final answer = await ref
+          .read(coachClientProvider)
+          .ask(state.toWire(), topic: topic);
       if (_isCurrent(generation)) {
         state = state.copyWith(entries: [...state.entries, CoachReply(answer)]);
       }
     } on CoachRefusal catch (refusal) {
       // The gate said no. It is an answer about the account, not a fault, and it
-      // carries the instant the window reopens.
+      // carries the instant the window reopens. A 402 is decided BEFORE the slot
+      // is charged, so this is one of the two places the app may state flatly
+      // that nothing was counted.
       if (_isCurrent(generation)) {
-        _trouble(refusal.message, spent: false, resetsAt: refusal.resetsAt);
+        _trouble(
+          refusal.message,
+          charge: CoachCharge.notCharged,
+          resetsAt: refusal.resetsAt,
+        );
       }
     } on CoachUnreachable catch (failure) {
-      if (_isCurrent(generation)) _trouble(failure.message, spent: false);
+      // Whatever the client worked out about the meter, unchanged. It used to
+      // pass `spent: false` here whatever had happened, which is how a receive
+      // timeout on a delivered, charged answer printed "nothing was spent".
+      if (_isCurrent(generation)) {
+        _trouble(failure.message, charge: failure.charge);
+      }
     } finally {
       // Whatever happened — including the two `on` clauses above and anything
       // they did not catch — the balance is re-read from the server rather than
@@ -100,12 +119,16 @@ class CoachController extends _$CoachController {
   /// persists, and the honesty layer is where that gets paid for.
   void newThread() => state = const CoachConversation();
 
-  void _trouble(String message, {required bool spent, DateTime? resetsAt}) {
+  void _trouble(
+    String message, {
+    required CoachCharge charge,
+    DateTime? resetsAt,
+  }) {
     AppLog.info('coach', 'question not answered: $message');
     state = state.copyWith(
       entries: [
         ...state.entries,
-        CoachTrouble(message: message, spent: spent, resetsAt: resetsAt),
+        CoachTrouble(message: message, charge: charge, resetsAt: resetsAt),
       ],
     );
   }

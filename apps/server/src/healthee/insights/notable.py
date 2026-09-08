@@ -15,13 +15,9 @@ from uuid import UUID
 from healthee.analytics.anomalies import Anomaly, detect
 from healthee.insights.cache import get_cached, set_cached, today_iso
 from healthee.insights.grounded import grounded_ask
-from healthee.read.meta import METRIC_META
+from healthee.read.meta import metric_label
 
 _MAX_SHIFTS = 8
-
-
-def _label(metric: str) -> str:
-    return METRIC_META.get(metric, {}).get("label", metric.replace("_", " "))
 
 
 def _dedupe(anomalies: list[Anomaly]) -> list[Anomaly]:
@@ -37,7 +33,7 @@ def _shift_item(a: Anomaly) -> dict:
     return {
         "date": a.when.isoformat(),
         "metric": a.metric,
-        "label": _label(a.metric),
+        "label": metric_label(a.metric),
         "value": round(a.value, 1),
         "median": round(a.baseline.median, 1) if a.baseline.median is not None else None,
         "z": round(a.z, 2),

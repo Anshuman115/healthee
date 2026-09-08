@@ -134,11 +134,46 @@ def generate_recs(
 ) -> dict:
     """Generate, validate, and persist ``user_id``'s recommendations. Returns a status dict.
 
-    ``day`` defaults to the OWNER's local today (from their ``tz``), not a global one.
-    ``client`` is injectable so tests run a deterministic stub with no network.
-    Errors propagate to the supervised chain runner (never swallowed, standards §1).
+    ``day`` defaults to the OWNER's local today (from their ``tz``), not a global one,
+    and **it may not be any other day**. ``client`` is injectable so tests run a
+    deterministic stub with no network. Errors propagate to the supervised chain runner
+    (never swallowed, standards section 1).
+
+    ## Why a past ``day`` is refused rather than honoured
+
+    ``day`` reached exactly two things: the persisted row's ``date`` column and a log
+    line. Every INPUT is unconditionally today's — ``build_recs_signals(user_id, tz)``
+    takes no day, and ``grounded_ask`` builds its context through
+    ``context.build_context``, which anchors on ``user_today(tz)`` throughout and accepts
+    no reference day. So a call with a past ``day`` wrote **today's judgement, from
+    today's data, under an older date**.
+
+    That is the stale-as-current lie in its worst position, because the row is then
+    served as that day's answer: ``read/today.py::_recommendations_for`` serves stored rec
+    rows for a past day, and ``docs/AS_OF_DAY.md`` section 7 authorises it precisely because
+    those rows "are already written and already dated" — which is only an argument if the
+    dating is honest.
+
+    Making ``day`` bind the inputs instead is the other repair, and AS_OF_DAY section 6 forbids
+    it: authoring a past day's analysis now is a new claim, not a record. So the
+    comparison is the fix. It is loud rather than a silent clamp — ``jobs/chain.py``
+    documents ``force=True`` as the back-fill escape hatch and argues only about the
+    dedup marker, never about what the back-filled CONTENT would be, so a back-fill that
+    would have mislabelled a row must fail where somebody can see it.
+
+    ⚠ This closes the hole going forward. Whether rows already in production carry a
+    date their inputs never matched is a question about the production database and is
+    not answered here.
     """
-    day = day or user_today(tz)
+    today = user_today(tz)
+    if day is not None and day != today:
+        raise ValueError(
+            f"generate_recs cannot write recommendations dated {day}: every input it has "
+            f"is {today}'s (build_recs_signals and build_context take no reference day), "
+            "so the row would carry a date its own content never answered for. Serving a "
+            "stored past-day row is fine; authoring one is not (docs/AS_OF_DAY.md section 6)."
+        )
+    day = today
     signals = build_recs_signals(user_id, tz)
     question = f"{RECS_TASK}\n\n# TODAY'S SIGNALS (anchor every action to these)\n\n{signals}"
 

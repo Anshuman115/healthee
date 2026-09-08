@@ -23,6 +23,28 @@ hopeful. Findings are ranked by **whether a bad claim reaches the owner today**.
 
 Nothing was changed by this audit. This document recommends; it does not fix.
 
+> **Resolved on `feat/llm-honesty`.** All sixteen findings were acted on. Fourteen
+> were fixed as recommended. Two took a stated departure, both about HOW rather
+> than whether:
+>
+> * **C3** — the workout review is now stored per workout and its prompt NAMES the
+>   window it actually has ("my last 7 days up to today, which may be long after
+>   this session"), rather than the context being bound to the seven days ending at
+>   the workout. Binding it would require `context.build_context` to take a
+>   reference day, and E10 names that signature as the reason AS_OF_DAY section 6's
+>   out-of-scope decision is structural here rather than remembered. Naming the
+>   window truthfully closes the finding without spending that guarantee.
+> * **C4** — the endpoint is kept and its reachability is now stated in the
+>   docstring rather than implied. Wiring a "write me today's action" control is a
+>   design decision on a screen whose spec is `design/mobile-preview/`, which draws
+>   no such control. **Open for the owner:** whether that control should exist.
+>
+> One thing this branch could not settle, and section F already said so: **whether
+> any production rec row already carries a date its inputs never answered for
+> (B2)**. `generate_recs` now refuses a day that is not the owner's today, so no
+> new row can be mislabelled. Whether a forced back-fill has ever run needs the
+> production database, which is out of scope here as it was for the audit.
+
 ---
 
 ## 0. Counts

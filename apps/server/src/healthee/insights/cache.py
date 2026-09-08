@@ -47,6 +47,36 @@ def get_cached(user_id: UUID, tz: str, key: str) -> dict | None:
     return payload if payload.get("date") == today_iso(tz) else None
 
 
+def get_stored(user_id: UUID, key: str) -> dict | None:
+    """Return ``user_id``'s stored payload for ``key`` WHATEVER day it was written on.
+
+    :func:`get_cached` is for text that is *about today* — a payload dated yesterday
+    would be yesterday's judgement served as today's, which is the stale-as-current lie
+    the date check exists to make impossible.
+
+    This one is for text about a FIXED PAST SUBJECT — a review of one workout that
+    finished at a known instant. Nothing about that session changes overnight, so a
+    review of it has no reason to change overnight either, and re-answering it every
+    day was doing something worse than wasting money: each regeneration was written
+    against a *different* week of surrounding context, so the same session got a
+    different verdict depending on when it was opened.
+
+    The payload still carries the day it was written (``date``) and the instant
+    (``generated_at``), so nothing here hides its own age. A malformed row is a miss,
+    logged, never returned as good — same rule as :func:`get_cached`.
+    """
+    with tenant_transaction(user_id) as cur:
+        cur.execute("SELECT value FROM kv WHERE user_id = %s AND key = %s", (user_id, key))
+        row = cur.fetchone()
+    if not row:
+        return None
+    try:
+        return json.loads(row[0])
+    except (json.JSONDecodeError, TypeError) as exc:
+        log.warning("kv store %s is unparseable (%s) — treating as a miss", key, exc)
+        return None
+
+
 def set_cached(user_id: UUID, key: str, value: dict) -> None:
     """Upsert ``user_id``'s generated payload under ``key`` (expects a ``date`` field).
 

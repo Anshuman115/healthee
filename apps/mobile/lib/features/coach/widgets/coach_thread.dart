@@ -38,6 +38,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
+import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/features/coach/coach_conversation.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
@@ -109,9 +110,7 @@ class _Bubble extends StatelessWidget {
           // is one. It says nothing about the owner's body, which is the only
           // thing `fav`/`unf`/`alert` are allowed to say.
           color: mine ? colors.accentSoft : colors.surface,
-          border: mine
-              ? null
-              : Border.all(color: colors.line, width: hairline),
+          border: mine ? null : Border.all(color: colors.line, width: hairline),
           borderRadius: BorderRadius.circular(CoachEntryView.radius),
         ),
         child: child,
@@ -187,12 +186,18 @@ class _Trouble extends StatelessWidget {
         Text(
           // Never silent about the meter. "A spend must never be silent" cuts
           // both ways: a question that was NOT charged has to say so too, or
-          // the owner is left counting their own.
-          trouble.spent
-              ? 'This question was counted. The number above is the server’s '
-                    'own, re-read just now.'
-              : 'Nothing was counted for this. The number above is the '
-                    'server’s own, re-read just now.',
+          // the owner is left counting their own. And the third thing it cuts
+          // against is the one that shipped — a denial the app could not know
+          // was true. The server charges inside the gate before the handler
+          // starts, so once the request has left, only the number is authority.
+          switch (trouble.charge) {
+            CoachCharge.notCharged =>
+              'Nothing was counted for this. The number above is the '
+                  'server’s own, re-read just now.',
+            CoachCharge.unknown =>
+              'We could not confirm whether this was counted. The number '
+                  'above is the server’s own, re-read just now.',
+          },
           style: TypeScale.tinyLabel.copyWith(color: colors.ink2),
         ),
       ],
