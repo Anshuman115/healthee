@@ -144,9 +144,22 @@ def _flatten(routes: Sequence[object]) -> list[APIRoute]:
 
 
 def _api_routes() -> list[APIRoute]:
-    """Every mounted route of ours — FastAPI's own /docs, /openapi.json etc. excluded."""
-    generated = {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
-    return [r for r in _flatten(create_app().routes) if r.path not in generated]
+    """Every mounted route. There is no exclusion list any more, and that is the point.
+
+    This used to drop ``{"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}``
+    by name. The exclusion was reasonable for a PAYWALL completeness check — a docs page
+    is not AI output — but it meant the only route-walking guard in the repo had a
+    hard-coded blind spot at exactly the four routes that were open by default and had
+    never been argued for. There were 44 routes of ours plus those four, and this test
+    reasoned about 44.
+
+    ``create_app()`` now passes ``docs_url=None, redoc_url=None, openapi_url=None``
+    (AUTH_AUDIT E1), so the routes are gone and the exclusion with them. If someone
+    re-enables the docs, they appear here — un-gated and un-allowlisted — and
+    ``test_every_mounted_route_is_gated_or_allowlisted`` names them. The blind spot
+    closed by deleting the thing it was blind to.
+    """
+    return _flatten(create_app().routes)
 
 
 def test_the_route_walk_actually_finds_routes() -> None:

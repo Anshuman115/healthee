@@ -26,11 +26,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from healthee.core.bounds import _MS_THRESHOLD
 from healthee.core.dob import DOB_MIN_DATE, date_to_dob_ms, parse_dob
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.derive._common import _age
 from healthee.ingest.models import ProfileIn
-from healthee.ingest.upsert import _MS_THRESHOLD, epoch_to_utc, upsert_profile
+from healthee.ingest.upsert import epoch_to_utc, upsert_profile
 
 _IST = "Asia/Kolkata"
 _NY = "America/New_York"

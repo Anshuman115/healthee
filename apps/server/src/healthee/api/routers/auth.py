@@ -39,7 +39,13 @@ class MeResponse(BaseModel):
 
 
 class DeviceTokenResponse(BaseModel):
-    """A freshly minted device ingest token — returned exactly once."""
+    """A freshly minted device ingest token — returned exactly once.
+
+    `id` is the TOKEN's id (`device_token.id`), not the owner's. It used to be
+    `user.id`: not wrong data, but the wrong subject on a response about a token, and
+    the reason a future `DELETE /api/device/{id}` had nothing to address a token by.
+    The owner's own id is what `GET /api/me` is for.
+    """
 
     device_token: str
     id: UUID
@@ -54,5 +60,5 @@ def get_me(user: SupabaseUser) -> MeResponse:
 @router.post("/device", response_model=DeviceTokenResponse)
 def post_device(user: SupabaseUser) -> DeviceTokenResponse:
     """Mint a long-lived device ingest token for the authenticated user (once)."""
-    raw = mint_device_token(user.id, label=None)
-    return DeviceTokenResponse(device_token=raw, id=user.id)
+    raw, token_id = mint_device_token(user.id, label=None)
+    return DeviceTokenResponse(device_token=raw, id=token_id)

@@ -120,7 +120,7 @@ def _post(client: TestClient, token: str, ts: datetime) -> Response:
 
 def test_a_device_token_push_is_written_under_that_tokens_owner(client: TestClient) -> None:
     ts = datetime.now(tz=UTC).replace(microsecond=0) - timedelta(hours=3)
-    resp = _post(client, mint_device_token(OWNER_B, label="b's strap"), ts)
+    resp = _post(client, mint_device_token(OWNER_B, label="b's strap")[0], ts)
     assert resp.status_code == 200
 
     owners = _owners_of_the_pushed_sample(ts)
@@ -143,7 +143,7 @@ def test_two_owners_pushes_at_the_same_instant_stay_separate(client: TestClient)
     """
     ts = datetime.now(tz=UTC).replace(microsecond=0) - timedelta(hours=5)
     assert _post(client, _LEGACY_TOKEN, ts).status_code == 200
-    assert _post(client, mint_device_token(OWNER_B, label="b's strap"), ts).status_code == 200
+    assert _post(client, mint_device_token(OWNER_B, label="b's strap")[0], ts).status_code == 200
     assert sorted(str(o) for o in _owners_of_the_pushed_sample(ts)) == sorted(
         [str(SENTINEL_USER_ID), str(OWNER_B)]
     )

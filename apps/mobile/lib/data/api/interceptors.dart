@@ -93,6 +93,17 @@ class ApiLogInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     // Logged, then passed on — never swallowed (Standards §1). The repository
     // above turns this into a typed failure the UI can render with a retry.
+    //
+    // ⚠ The raw `DioException` goes to the logger, and it is safe against the
+    // dio we pin: its `toString` emits `type`, `message` and `error` only, and
+    // no factory message quotes the URI or the headers. `pubspec.yaml` pins a
+    // CARET range, so a future minor could change that format without a change
+    // here — which means **the guard is the test, not the pin**.
+    // `test/signin/signin_secrecy_test.dart` drives this exact interceptor
+    // stack with `AppLog.sink` capturing, including a 401 whose body echoes the
+    // token, and fails if the credential appears anywhere in the transcript.
+    // It is what has to survive a dependency bump; do not delete it as
+    // redundant with this comment.
     AppLog.failure(
       'api',
       '${err.requestOptions.method} ${err.requestOptions.path} failed '

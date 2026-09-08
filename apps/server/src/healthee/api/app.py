@@ -39,6 +39,7 @@ from healthee.api.routers import (
     today,
     workouts,
 )
+from healthee.core.bounds import MeasurementError
 from healthee.core.db import close_pool
 from healthee.core.dob import DobError
 from healthee.core.entitlement import warn_if_self_host_unlocked
@@ -65,6 +66,20 @@ def _dob_error_is_a_client_error(_request: Request, exc: Exception) -> JSONRespo
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
+def _measurement_error_is_a_client_error(_request: Request, exc: Exception) -> JSONResponse:
+    """A value no measurement can have is a 422, wherever the refusal happened.
+
+    Same argument as `_dob_error_is_a_client_error` above, for the values that arrive
+    every minute rather than once. `core.bounds` is called from pydantic validators
+    (which already 422) AND from the upsert layer, which re-asserts the bound so a
+    non-HTTP caller cannot skip it. The second of those had no handler, so the check
+    that exists to stop a bad value would itself have produced a 500 blaming us for a
+    client's number.
+    """
+    log.info("rejected an implausible measurement", extra={"error": str(exc)})
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Startup/shutdown: configure logging on the way up, close the pool on the
@@ -85,8 +100,33 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     """Build the FastAPI app and mount routers. A factory so tests can construct
     isolated instances."""
-    app = FastAPI(title="Healthee", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="Healthee",
+        version="0.1.0",
+        lifespan=lifespan,
+        # ── The interactive docs are OFF, and that is a decision, not a default ──
+        #
+        # nginx proxies `/` wholesale, so with these left at their defaults a full
+        # machine-readable map of a health API — every route, every parameter, every
+        # model — was served to anybody who asked, unauthenticated. That was never
+        # argued for; it was FastAPI's default surviving into production, and two
+        # security reviews raised it.
+        #
+        # What is lost is a browsable page on the box. `create_app().openapi()` still
+        # builds the whole schema in-process, which is what the contract tests actually
+        # use, so nothing that verifies the API loses anything. An operator who wants
+        # the page runs the app locally.
+        #
+        # `tests/premium/test_ai_gate.py` used to exclude these four paths from its
+        # route walk BY NAME — the only route-walking guard in the repo, with a
+        # hard-coded blind spot at exactly the routes that were open by default. With
+        # the routes gone the exclusion is gone too, and the blind spot closes with it.
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
     app.add_exception_handler(DobError, _dob_error_is_a_client_error)
+    app.add_exception_handler(MeasurementError, _measurement_error_is_a_client_error)
     app.include_router(health.router)
     # …and the dependency-readiness probe beside it. Deliberately NOT the container
     # healthcheck: /healthz is what an orchestrator restarts on, /readyz reports the

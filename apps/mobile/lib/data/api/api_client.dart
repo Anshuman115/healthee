@@ -10,6 +10,27 @@
 /// `keepAlive` because a client is a connection pool: rebuilding it per screen
 /// would throw away keep-alive sockets and pay a TLS handshake on every tab
 /// switch, against a 60 fps budget (Standards §1).
+///
+/// ## Redirects are not followed, because this client carries the token
+///
+/// Dio's default is `followRedirects: true` with `maxRedirects: 5`, and the IO
+/// adapter hands both straight to `dart:io`'s `HttpClientRequest`, which replays
+/// the request headers — `Authorization` included — at whatever host the
+/// `Location` names. `ServerSessionInterceptor` attaches that header BEFORE the
+/// redirect happens, so every authenticated call in the app was in scope.
+///
+/// This rule was already written down, and already applied, in
+/// `server_probe.dart` — one request, made before the token is stored — and
+/// missed on the client that carries the token for the rest of the app's life.
+/// One client remembering is precisely what produced that, so
+/// `test/data/redirect_policy_test.dart` now reads `lib/` and fails if ANY dio
+/// instance is constructed without it.
+///
+/// The precondition is honest and narrow: over HTTPS a network attacker cannot
+/// inject the 3xx, and `server_url.dart` refuses `http://` for anything but
+/// loopback. The live shapes are a misconfigured reverse proxy and an owner
+/// signed into a hostile host — the server URL is a free-text field, so that is
+/// a supported flow, not an exotic one.
 library;
 
 import 'package:dio/dio.dart';
@@ -37,6 +58,11 @@ Dio apiClient(Ref ref) {
       sendTimeout: Env.requestTimeout,
       responseType: ResponseType.json,
       headers: const {'Accept': 'application/json'},
+      // A 3xx would re-send the Authorization header to whatever host the
+      // `Location` names. `maxRedirects: 0` beside it so the intent survives
+      // someone flipping the flag back without reading the docstring.
+      followRedirects: false,
+      maxRedirects: 0,
       // Non-2xx is raised as a DioException so a failure cannot be mistaken for
       // an empty body — "no data" and "operation failed" must stay distinguishable
       // (Standards §1).

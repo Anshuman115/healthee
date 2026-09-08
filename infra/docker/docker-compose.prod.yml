@@ -54,10 +54,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       # The least-privilege role the request pool uses (MULTI_USER.md §3.3).
-      # Blank ⇒ falls back to the admin creds + a loud startup WARNING that RLS
-      # cannot apply. Provision the role BEFORE setting these (infra/.env.example).
+      # Blank ⇒ the container REFUSES TO START, unless ALLOW_ADMIN_DB_FALLBACK asks
+      # for the transitional admin-cred fallback (bootstrap step 1 only). Provision
+      # the role BEFORE setting these (infra/.env.example, infra/DEPLOY.md B2).
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
+      ALLOW_ADMIN_DB_FALLBACK: ${ALLOW_ADMIN_DB_FALLBACK:-false}
       # API auth — the legacy shared token the un-rebuilt app still sends.
       REALTIME_INGEST_TOKEN: ${REALTIME_INGEST_TOKEN}
       # Supabase identity (MULTI_USER.md §4). The API only VERIFIES the JWT.
@@ -152,6 +154,7 @@ services:
       # the api (its nightly chain only reads/writes data tables).
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
+      ALLOW_ADMIN_DB_FALLBACK: ${ALLOW_ADMIN_DB_FALLBACK:-false}
       # Grounded recs + briefing go through the LLM choke point; Telegram carries
       # the morning briefing and every supervised step failure. Blank key ⇒ no-op.
       # The model ids are REQUIRED whenever the key is set — this container IS the

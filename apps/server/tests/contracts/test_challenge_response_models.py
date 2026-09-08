@@ -317,7 +317,18 @@ def _seed_weekly(active: bool) -> None:
 
 
 def test_the_app_still_builds_with_the_models_mounted() -> None:
-    """Guard against a model that only fails when FastAPI resolves the schema."""
-    assert isinstance(create_app(), object)
+    """Guard against a model that only fails when FastAPI resolves the schema.
+
+    Resolving the schema IN-PROCESS is the check; it used to be `GET /openapi.json`,
+    and that route is deliberately gone (`api/app.py` sets `openapi_url=None`, because
+    a machine-readable map of a health API was being served to anybody). `app.openapi()`
+    runs the same resolution — every response model, every reference — which is the
+    property this test is about, and it does not depend on the schema being PUBLISHED.
+    """
+    app = create_app()
+    schema = app.openapi()
+    assert schema["paths"], "the schema resolved to no paths at all"
+    # …and the routes that were serving it are not mounted any more.
     client = TestClient(create_app())
-    assert client.get("/openapi.json").status_code == 200
+    for generated in ("/openapi.json", "/docs", "/redoc"):
+        assert client.get(generated).status_code == 404, generated

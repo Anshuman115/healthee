@@ -704,6 +704,237 @@ mutate 'the topic arrives unfenced, as if it were evidence' \
   '    return f'"'"'\n\n# WHAT THIS CONVERSATION IS ABOUT\n\n{_TOPIC_FENCE}\n\n  "{subject}"'"'"'' \
   '    return f'"'"'\n\n# WHAT THIS CONVERSATION IS ABOUT\n\n  "{subject}"'"'"''
 
+# ══ the auth, tenancy and ingest hardening (AUTH_AUDIT.md) ═══════════════════
+#
+# Every mutation below restores exactly the defect the audit found, in the file
+# it found it in. Each is one sentence about one thing that must not come back.
+
+AUTH_CONFIG=tests/test_config_isolation_guards.py
+AUTH_SUSPEND=tests/integration/test_suspension.py
+AUTH_CALLERS=tests/db/test_admin_connection_callers.py
+AUTH_SCOPING=tests/db/test_tenant_read_scoping.py
+INGEST_BOUNDS=tests/test_ingest_bounds.py
+LOG_BOUNDS=tests/read/test_log_bounds.py
+REFRESH_BUDGET=tests/premium/test_refresh_budget.py
+COACH_BOUNDS=tests/test_coach_request_bounds.py
+AI_GATE=tests/premium/test_ai_gate.py
+CONTRACT_MODELS=tests/contracts/test_challenge_response_models.py
+
+# ── B1 ───────────────────────────────────────────────────────────────────────
+# The boot refusal becomes a warning again: blank POSTGRES_APP_* is accepted and
+# the pool connects as the admin, which bypasses every RLS policy 0008 creates.
+# This is the finding exactly — it is what "announced with only a log line" was.
+mutate 'a blank app role boots again, with RLS isolating nothing' \
+  "$AUTH_CONFIG" src/healthee/core/config_guards.py \
+  '    if app_role_configured or allow_fallback:
+        return' \
+  '    if app_role_configured or allow_fallback or True:
+        return'
+
+# The opt-out defaults to ON, so the refusal exists and never fires — a guard
+# that is present, passes review, and protects nothing.
+mutate 'the transitional opt-out becomes the default' \
+  "$AUTH_CONFIG" src/healthee/core/config.py \
+  '    allow_admin_db_fallback: bool = False' \
+  '    allow_admin_db_fallback: bool = True'
+
+# ── C3 ───────────────────────────────────────────────────────────────────────
+# One never-expiring shared secret that authenticates as a real tenant is allowed
+# to coexist with open signups again — the one combination the design says must
+# never happen, back to being prevented by a paragraph.
+mutate 'the shared token may live beside open signups again' \
+  "$AUTH_CONFIG" src/healthee/core/config_guards.py \
+  '    if signups_open and token:' \
+  '    if signups_open and token and False:'
+
+# ── B2 ───────────────────────────────────────────────────────────────────────
+# Suspension goes back to being a no-op on every request path: the column is read
+# and the answer is discarded, which is the shape the finding describes.
+mutate 'a suspended owner keeps full access' \
+  "$AUTH_SUSPEND" src/healthee/core/supabase_auth.py \
+  '    if status_value == ACTIVE_STATUS:
+        return' \
+  '    if status_value == ACTIVE_STATUS or True:
+        return'
+
+# The API path forgets to ask, so the JWT branch alone is unguarded — the half of
+# the finding a single-path test would miss.
+mutate 'the api path stops consulting status' \
+  "$AUTH_SUSPEND" src/healthee/core/request_auth.py \
+  '    refuse_unless_active(user_id, row[1])
+    return row[0]' \
+  '    return row[0]'
+
+# Any non-active word is interpreted as fine, so only the literal 'suspended'
+# refuses — a guard that a future 'deleted' walks straight past.
+mutate 'the status check becomes a denylist of one' \
+  "$AUTH_SUSPEND" src/healthee/core/supabase_auth.py \
+  '    if status_value == ACTIVE_STATUS:' \
+  '    if status_value != "suspended":'
+
+# ── F3 ───────────────────────────────────────────────────────────────────────
+# The legacy branch authenticates an owner who does not exist again — the
+# documented post-condition of claim_sentinel, wearing a fallback's clothes.
+mutate 'an absent sentinel row is invented rather than refused' \
+  "$AUTH_SUSPEND" src/healthee/core/request_auth.py \
+  '    if tz is None:
+        log.warning("the sentinel app_user row is absent — refusing the legacy shared token")
+        raise unauthorized("Invalid token")
+    return RequestUser(id=SENTINEL_USER_ID, timezone=tz)' \
+  '    if tz is None:
+        tz = "Asia/Kolkata"
+    return RequestUser(id=SENTINEL_USER_ID, timezone=tz)'
+
+# ── D1 ───────────────────────────────────────────────────────────────────────
+# `SampleIn` goes back to exactly what the audit found. The whole declaration, not
+# just `allow_inf_nan`: the magnitude range refuses NaN on its own (every comparison
+# against NaN is False), so mutating the flag alone SURVIVES — a mutation that proves
+# nothing, which is why this one restores the four original lines.
+mutate 'SampleIn goes back to accepting NaN, Infinity and 1e308' \
+  "$INGEST_BOUNDS" src/healthee/ingest/models.py \
+  '    model_config = ConfigDict(extra="ignore", allow_inf_nan=False)
+
+    metric: str = Field(max_length=64)
+    ts: int  # epoch milliseconds (seconds also tolerated downstream)
+    value: float = Field(ge=-MAX_MAGNITUDE, le=MAX_MAGNITUDE)' \
+  '    model_config = ConfigDict(extra="ignore")
+
+    metric: str
+    ts: int  # epoch milliseconds (seconds also tolerated downstream)
+    value: float'
+
+# A finite but absurd magnitude gets through, which allow_inf_nan alone would let
+# past — one such row dominates every mean it enters.
+mutate 'a 1e308 reading is accepted' \
+  "$INGEST_BOUNDS" src/healthee/ingest/models.py \
+  '    value: float = Field(ge=-MAX_MAGNITUDE, le=MAX_MAGNITUDE)' \
+  '    value: float'
+
+# ── D2 ───────────────────────────────────────────────────────────────────────
+# The range check comes off the one shared conversion, so an out-of-range epoch is
+# a 500 again and an in-range one writes a row dated centuries away.
+mutate 'the event instant loses its range check' \
+  "$INGEST_BOUNDS" src/healthee/core/bounds.py \
+  '    if when < EVENT_TS_MIN or when > ceiling:' \
+  '    if False:'
+
+# ── D3 ───────────────────────────────────────────────────────────────────────
+# The stage LIST loses its cap, so ten thousand one-minute stages is ten thousand
+# `generate_series` statements in one request — the half the minutes cap cannot see.
+mutate 'the hypnogram may hold unlimited stages' \
+  "$INGEST_BOUNDS" src/healthee/ingest/models.py \
+  '    stages: list[list[int]] = Field(default_factory=list, max_length=_MAX_STAGES)' \
+  '    stages: list[list[int]] = Field(default_factory=list)'
+
+# The per-stage cap survives and the total does not, which is the same attack in
+# pieces — and the reason the session cap exists beside the stage cap.
+mutate 'a session may materialise unlimited minutes in pieces' \
+  "$INGEST_BOUNDS" src/healthee/ingest/models.py \
+  '        if emitted > _MAX_SESSION_STAGE_MINUTES:' \
+  '        if False:'
+
+# The payload lists lose their caps, so one authenticated request is unbounded
+# work again.
+mutate 'the push lists become unbounded' \
+  "$INGEST_BOUNDS" src/healthee/ingest/models.py \
+  '    samples: list[SampleIn] = Field(default_factory=list, max_length=_MAX_SAMPLES)' \
+  '    samples: list[SampleIn] = Field(default_factory=list)'
+
+# stages: [[]] is an IndexError inside emit_sleep_minutes again — a 500 for a
+# client's payload, and the arity the type annotation cannot express.
+mutate 'a malformed hypnogram stage stops being a 422' \
+  "$INGEST_BOUNDS" src/healthee/ingest/models.py \
+  '            if len(stage) != _STAGE_ARITY:' \
+  '            if False:'
+
+# ── D4 ───────────────────────────────────────────────────────────────────────
+# A weight that is not a body mass reaches weight_log.kg — the numeric(5,2) column
+# that feeds BMI, VO2max and biological age.
+mutate 'an impossible weight is stored again' \
+  "$LOG_BOUNDS" src/healthee/core/bounds.py \
+  '    if not (MIN_WEIGHT_KG <= kg <= MAX_WEIGHT_KG):' \
+  '    if False:'
+
+# `or 0` comes back: a weight log with no amount stores 0 kg, dated now, so no
+# freshness gate can withhold it.
+mutate 'a weight log with no amount becomes zero kilograms' \
+  "$LOG_BOUNDS" src/healthee/read/logs.py \
+  '        if req.amount is None:
+            return {"ok": False, "error": "a weight log needs an amount in kilograms"}
+        cur.execute(
+            "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, %s, %s) "
+            "ON CONFLICT (user_id, ts) DO UPDATE SET kg = EXCLUDED.kg",
+            (user_id, ts, assert_plausible_weight_kg(float(req.amount))),
+        )' \
+  '        cur.execute(
+            "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, %s, %s) "
+            "ON CONFLICT (user_id, ts) DO UPDATE SET kg = EXCLUDED.kg",
+            (user_id, ts, float(req.amount or 0)),
+        )'
+
+# ── E1 ───────────────────────────────────────────────────────────────────────
+# The interactive docs come back: a full machine-readable map of a health API,
+# served unauthenticated because a framework default was left alone.
+mutate 'the openapi schema is published again' \
+  "$CONTRACT_MODELS" src/healthee/api/app.py \
+  '        openapi_url=None,' \
+  '        openapi_url="/openapi.json",'
+
+# ⚠ Two E1 mutations were WRITTEN AND DROPPED, because both survived and a mutation
+# that survives is a claim you cannot make:
+#
+#   * `docs_url="/docs"` alone — FastAPI mounts the Swagger route only when
+#     `openapi_url` is also set, so with the schema off the page cannot come back on
+#     its own. The mutation above is therefore the whole of E1's first half.
+#   * re-adding `test_ai_gate`'s `generated` exclusion — with the routes gone the
+#     exclusion is inert. That IS E1's second half: the blind spot was closed by
+#     deleting the thing it was blind to, which is the one kind of fix no mutation can
+#     be written for.
+
+# ── E4 ───────────────────────────────────────────────────────────────────────
+# A forced regeneration stops being metered, so polling ?refresh=true spends the
+# OpenRouter budget in a loop.
+mutate 'a forced insight refresh is free again' \
+  "$REFRESH_BUDGET" src/healthee/api/refresh_budget.py \
+  '    if not refresh:
+        return False' \
+  '    if True:
+        return refresh'
+
+# The limiter charges the CACHED read too — the worse bug in the other direction,
+# and the one a refusal-only test would never notice.
+mutate 'the limiter charges a cached read as well' \
+  "$REFRESH_BUDGET" src/healthee/api/refresh_budget.py \
+  '    if not refresh:' \
+  '    if False:'
+
+# The coach body loses its per-turn bound: the turn count stays bounded and the
+# size does not, which is what made the 600M limit the only real ceiling.
+mutate 'a coach turn becomes unbounded again' \
+  "$COACH_BOUNDS" src/healthee/api/routers/coach.py \
+  '    content: str = Field(max_length=_MAX_CONTENT)' \
+  '    content: str'
+
+# ── F1 ───────────────────────────────────────────────────────────────────────
+# The "complete list" of admin_connection callers loses an entry, which is the
+# defect: a list that claims completeness and is not.
+mutate 'the admin-connection caller list goes back to being incomplete' \
+  "$AUTH_CALLERS" src/healthee/core/db.py \
+  '    * `db/grant_premium.py` — writes `subscription`' \
+  '    * `db/grant_premium_NOT_LISTED.py` — writes `subscription`'
+
+# ── F2 ───────────────────────────────────────────────────────────────────────
+# The scoping guard goes back to a substring test, so `SELECT user_id, value FROM
+# sample WHERE metric = %s` — user_id projected, nothing scoped — passes it.
+mutate 'the tenant-scoping guard accepts user_id anywhere in the statement' \
+  "$AUTH_SCOPING" tests/db/test_tenant_read_scoping.py \
+  '_USER_ID_SCOPED = re.compile(
+    r"\buser_id\s*(?:::\w+\s*)?(?:=|<>|!=|\sIN\b)|[(,]\s*user_id\s*[,)]",
+    re.IGNORECASE,
+)' \
+  '_USER_ID_SCOPED = re.compile(r"user_id", re.IGNORECASE)'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

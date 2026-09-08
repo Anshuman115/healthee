@@ -66,6 +66,43 @@ def forbidden(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
+# `app_user.status`'s one permitted value for a request. The column is
+# `NOT NULL DEFAULT 'active'` (`0002_identity.sql`), and `core.tenancy.active_users`
+# already filters the nightly sweep on it — this constant is the same word, named
+# once, so the request path and the job path cannot drift apart about what "active"
+# is (CLAUDE.md: ONE canonical definition).
+ACTIVE_STATUS = "active"
+
+
+def refuse_unless_active(user_id: UUID, status_value: str) -> None:
+    """403 unless `status_value` is `active` — the request-path half of suspension.
+
+    ## What this closes
+
+    `app_user.status` existed, was documented as the kill switch, and was read by
+    EXACTLY ONE thing: `core.tenancy.active_users`, the scheduler sweep, whose
+    docstring says "Suspended/deleted owners are excluded by `status`, so their chains
+    stop without deleting their data." That sentence was true of the nightly LLM chain
+    and false of everything else. Setting `status='suspended'` stopped the chain and
+    left full `/api/*` read/write and full `/ingest/*` write access intact.
+
+    The consequence was that the ONLY working kill switch was `DELETE FROM app_user` —
+    and every FK to it is `ON DELETE CASCADE` (`0003_tenant_column.sql`), so the only
+    way to stop an owner was to destroy their entire health history. Destroying the
+    data is not a kill switch; it is the absence of one.
+
+    403 and not 401: the credential is valid and we know exactly who presented it.
+    401 would tell the client its login failed and invite it to retry the login it just
+    completed — the same argument `forbidden` already makes for a refused signup.
+    """
+    if status_value == ACTIVE_STATUS:
+        return
+    # The status word and the owner's id, both non-secret and both what an operator
+    # needs to see; never the token.
+    log.warning("refused a request from %s: app_user.status is %r", user_id, status_value)
+    raise forbidden("This account is not active")
+
+
 def _expected_issuer(project_ref: str) -> str | None:
     """The issuer Supabase stamps for a project, or None to skip the `iss` check."""
     if not project_ref:
@@ -166,9 +203,12 @@ def _provision_user(user_id: UUID, email: str | None) -> RequestUser:
     then read back the row's canonical timezone.
     """
     with transaction() as cur:
-        cur.execute("SELECT timezone FROM app_user WHERE id = %s", (str(user_id),))
+        # `status` travels with `timezone`, because an existing row is exactly where a
+        # suspension lives and this is one of the two places a request resolves an owner.
+        cur.execute("SELECT timezone, status FROM app_user WHERE id = %s", (str(user_id),))
         existing = cur.fetchone()
         if existing is not None:
+            refuse_unless_active(user_id, existing[1])
             return RequestUser(id=user_id, timezone=existing[0])
         _gate_new_owner(user_id, email)  # raises 403 before anything is written
         cur.execute(
@@ -193,18 +233,30 @@ def _hash_token(raw: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def mint_device_token(user_id: UUID, label: str | None) -> str:
+def mint_device_token(user_id: UUID, label: str | None) -> tuple[str, UUID]:
     """Mint a long-lived device ingest token for `user_id`; store only its hash.
 
-    Returns the raw token ONCE (it is never persisted and cannot be recovered).
+    Returns `(raw token, the TOKEN's row id)`. The raw value is returned ONCE — it is
+    never persisted and cannot be recovered.
+
+    The id is returned because it did not used to be, and `api/routers/auth.py` filled
+    the `id` field of its "device token" response with the **user's** id instead: not
+    wrong data, but the wrong subject, and the reason a revocation endpoint had nothing
+    to address a token by. `device_token.id` is a `gen_random_uuid()` primary key the
+    caller otherwise never learns.
     """
     raw = secrets.token_urlsafe(_DEVICE_TOKEN_BYTES)
     with transaction() as cur:
         cur.execute(
-            "INSERT INTO device_token (user_id, token_hash, label) VALUES (%s, %s, %s)",
+            "INSERT INTO device_token (user_id, token_hash, label) VALUES (%s, %s, %s) "
+            "RETURNING id",
             (str(user_id), _hash_token(raw), label),
         )
-    return raw
+        row = cur.fetchone()
+    if row is None:  # INSERT ... RETURNING always yields the row it just wrote
+        raise RuntimeError("device_token insert returned no id")
+    token_id = row[0] if isinstance(row[0], UUID) else UUID(str(row[0]))
+    return raw, token_id
 
 
 def resolve_device_token(raw: str) -> UUID | None:

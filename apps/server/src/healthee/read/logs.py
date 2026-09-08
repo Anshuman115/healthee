@@ -11,8 +11,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from healthee.core.bounds import MAX_MAGNITUDE, assert_plausible_weight_kg, event_instant
 from healthee.derive._common import Cur
 
 # Instant kinds (a point event with an amount) vs the two duration kinds.
@@ -44,31 +45,69 @@ _NOTES_MAX = 4000
 _NAME_MAX = 200
 _UNIT_MAX = 32
 
+# A logged duration is a person doing something, so a week is already absurd and it is
+# still four hundred times the longest meditation anyone records. The bound is here
+# because ``record_log`` computes ``ts - timedelta(minutes=mins)``, which raises
+# ``OverflowError`` — a 500 for a client's number — on a large enough value.
+_MINUTES_MAX = 7 * 24 * 60
+
 
 class LogRequest(BaseModel):
-    """Body of ``POST /api/log`` (mirrors the legacy ``_LogRequest``)."""
+    """Body of ``POST /api/log`` (mirrors the legacy ``_LogRequest``).
+
+    ## Every number here is bounded, and one of them is a weight
+
+    This model had ``max_length`` on its four strings (see the block above) and NOTHING
+    on its four numbers, while ``read/gps_request.py`` — a phone upload of the same
+    trust level, one directory over — bounds its payload to the millimetre. The sharp
+    one is ``type: "weight"``, which writes ``amount`` into ``weight_log.kg``: a
+    ``numeric(5,2)`` column, so an unbounded float was a database error before it was
+    anything else, and the value feeds BMI, VO2max and biological age. A NaN or a 1e308
+    weight was accepted by this endpoint.
+
+    The bounds come from ``core.bounds``, the same module ``ingest/models.py`` uses, so
+    the two routers that write ``weight_log`` cannot disagree about what a weight is.
+    """
+
+    model_config = ConfigDict(allow_inf_nan=False)
 
     type: str = Field(max_length=_NAME_MAX)
-    amount: float | None = None
+    amount: float | None = Field(default=None, ge=-MAX_MAGNITUDE, le=MAX_MAGNITUDE)
     name: str | None = Field(default=None, max_length=_NAME_MAX)
     unit: str | None = Field(default=None, max_length=_UNIT_MAX)
-    minutes: int | None = None
+    minutes: int | None = Field(default=None, ge=0, le=_MINUTES_MAX)
     kind: str | None = Field(default=None, max_length=_NAME_MAX)
     at: int | None = None  # epoch ms; None = now
     notes: str | None = Field(default=None, max_length=_NOTES_MAX)
+
+    @field_validator("at")
+    @classmethod
+    def _at_is_a_plausible_event_instant(cls, at: int | None) -> int | None:
+        if at is not None:
+            event_instant(at)  # raises MeasurementError (a ValueError) → pydantic 422
+        return at
 
 
 def record_log(cur: Cur, user_id: UUID, req: LogRequest) -> dict:
     """Write one manual log owned by ``user_id``. Returns ``{"ok": True}`` (with
     optional ``discarded``) or an explicit ``{"ok": False, "error": ...}`` for a
     rule outcome."""
-    ts = datetime.fromtimestamp(req.at / 1000, tz=UTC) if req.at else datetime.now(tz=UTC)
+    # ``event_instant`` is the ONE conversion, shared with the ingest path: it carries
+    # the ms/seconds rule and the range check, so an out-of-range ``at`` is a 422 naming
+    # the field rather than an ``OverflowError`` out of a handler.
+    ts = event_instant(req.at) if req.at else datetime.now(tz=UTC)
     t = req.type
     if t == "weight":
+        # A weight of "nothing given" is not a weight of zero. ``float(req.amount or 0)``
+        # stored 0 kg for a body-mass log that forgot its number, which then dated the
+        # owner's weight to now and fed BMI, VO2max and biological age an impossible
+        # value; the freshness gate cannot help, because the row IS fresh.
+        if req.amount is None:
+            return {"ok": False, "error": "a weight log needs an amount in kilograms"}
         cur.execute(
             "INSERT INTO weight_log (user_id, ts, kg) VALUES (%s, %s, %s) "
             "ON CONFLICT (user_id, ts) DO UPDATE SET kg = EXCLUDED.kg",
-            (user_id, ts, float(req.amount or 0)),
+            (user_id, ts, assert_plausible_weight_kg(float(req.amount))),
         )
     elif t in _INSTANT_KINDS:
         cur.execute(

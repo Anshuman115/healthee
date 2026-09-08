@@ -35,9 +35,12 @@ There are TWO credential sets, and the difference is a security boundary:
 
 The split is the prerequisite for RLS (6.5b-2), not a nicety: a superuser
 connection **bypasses Row-Level Security unconditionally**, so policies written
-over one are theatre — they test green and protect nothing. When the app creds are
-unset the pool falls back to the admin creds (pre-split behaviour, safe to deploy
-before the role exists) and `_warn_if_privileged` logs a loud WARNING saying so.
+over one are theatre — they test green and protect nothing. So the fallback to the
+admin creds is no longer something a blank variable produces: `config.py` refuses to
+BOOT without `POSTGRES_APP_*` unless `ALLOW_ADMIN_DB_FALLBACK=true` asks for the
+transitional state, and `_refuse_if_privileged` below asks `pg_roles` what the role
+actually is and refuses the pool if it bypasses RLS — the two catch different
+mistakes, which is why there are two.
 
 ## Row-Level Security (Phase 6.5b-2, MULTI_USER.md §3.3)
 
@@ -86,17 +89,31 @@ _pool: _Pool | None = None
 _OWNER_GUC = "healthee.user_id"
 
 
-def _warn_if_privileged(pool: _Pool) -> None:
-    """Log a loud WARNING when the app pool is connected as an over-privileged role.
+def _refuse_if_privileged(pool: _Pool) -> None:
+    """Refuse the pool when it is connected as a role that BYPASSES RLS.
 
     A role with `rolsuper` or `rolbypassrls` ignores Row-Level Security entirely —
-    `FORCE ROW LEVEL SECURITY` does not touch it either. This warning is the whole
-    reason the fallback to the admin creds is allowed to exist: it keeps a
-    transitional deploy working while making the missing half impossible to forget,
-    and it is how 6.5b-2 knows whether it can rely on RLS at all.
+    `FORCE ROW LEVEL SECURITY` does not touch it either. In a multi-tenant product that
+    makes RLS, the backstop under every explicit `AND user_id = %s`, decoration.
 
-    Asked of the database rather than inferred from config, because only the server
-    knows what the role actually is.
+    ### Why this is a refusal now, and why it is not the same check as `config.py`'s
+
+    `config.py::_refuse_an_unasked_for_rls_bypass` refuses at BOOT on the config —
+    blank `POSTGRES_APP_*`. It cannot see the other route into this state, which is a
+    `POSTGRES_APP_USER` that is set and names a privileged role (the admin itself, or a
+    role someone later `ALTER`ed). Only the database knows that, which is why this check
+    asks `pg_roles` rather than inferring from config, and why both layers exist rather
+    than one: they catch different mistakes.
+
+    The old behaviour was a WARNING and a pool that opened anyway — one log line, at the
+    moment the deployment stopped isolating its tenants. That is the "a comment claiming
+    a guard is not a guard" shape this repo's standards name. A refusal makes the API
+    unable to serve rather than able to serve without isolation, which is the direction
+    this product errs on purpose.
+
+    `ALLOW_ADMIN_DB_FALLBACK=true` restores the warning, for the one deploy of the
+    documented two-deploy bootstrap that has to run on the admin creds
+    (`infra/DEPLOY.md` B2 step 1).
     """
     with pool.connection() as conn, conn.cursor() as cur:
         cur.execute(
@@ -110,14 +127,17 @@ def _warn_if_privileged(pool: _Pool) -> None:
     if not (is_super or bypasses_rls):
         log.info("db pool connected as least-privilege role %r", role)
         return
-    log.warning(
-        "SECURITY: the app pool is connected as %r, which is %s — this role BYPASSES "
-        "Row-Level Security, so RLS policies cannot isolate tenants on it. Provision the "
-        "least-privilege role (python -m healthee.db.provision_app_role) and set "
-        "POSTGRES_APP_USER / POSTGRES_APP_PASSWORD.",
-        role,
-        "a SUPERUSER" if is_super else "marked BYPASSRLS",
+    privilege = "a SUPERUSER" if is_super else "marked BYPASSRLS"
+    message = (
+        f"the app pool is connected as {role!r}, which is {privilege} — this role "
+        f"BYPASSES Row-Level Security, so RLS policies cannot isolate tenants on it. "
+        f"Provision the least-privilege role (python -m healthee.db.provision_app_role) "
+        f"and set POSTGRES_APP_USER / POSTGRES_APP_PASSWORD."
     )
+    if get_settings().allow_admin_db_fallback:
+        log.warning("SECURITY: %s (allowed by ALLOW_ADMIN_DB_FALLBACK)", message)
+        return
+    raise RuntimeError(f"SECURITY: {message}")
 
 
 def get_pool() -> _Pool:
@@ -146,8 +166,16 @@ def get_pool() -> _Pool:
             _POOL_MIN_SIZE,
             _POOL_MAX_SIZE,
         )
+        # Checked BEFORE the singleton is published, and the pool is closed if it
+        # fails: assigning first would mean the second call to `get_pool()` returned
+        # the refused pool without re-running the check, so the refusal would apply
+        # to exactly one query.
+        try:
+            _refuse_if_privileged(pool)
+        except BaseException:
+            pool.close()
+            raise
         _pool = pool
-        _warn_if_privileged(pool)
     return _pool
 
 
@@ -247,6 +275,12 @@ def admin_connection() -> Iterator[Connection[TupleRow]]:
       reported as success. (The re-key's FK cascades would still work: cascades run
       as the referencing constraint, not under the caller's policies. It is the
       *verification* that would lie, which is the worse failure.)
+    * `db/grant_premium.py` — writes `subscription`, on which the app role holds
+      SELECT and nothing else BY DESIGN (`db/provision_app_role.py` `_READ_ONLY_TABLES`:
+      "a request path cannot mint entitlement"), so the grant tool has to be here.
+      This entry was missing while the list said "complete" — a list that claims
+      completeness and is not is exactly the artefact a future reader trusts instead
+      of grepping.
     * `tests/contracts/seed.py::reset` — `apply_migrations()` + `TRUNCATE`, which
       the app role deliberately cannot do.
 

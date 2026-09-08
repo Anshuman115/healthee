@@ -15,13 +15,14 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from psycopg import Cursor
 from psycopg.rows import TupleRow
 
+from healthee.core.bounds import assert_plausible_weight_kg, event_instant
 from healthee.core.dob import parse_dob
 from healthee.ingest.models import (
     ALLOWED_METRICS,
@@ -34,13 +35,6 @@ from healthee.ingest.models import (
 
 Cur = Cursor[TupleRow]
 
-# A ts above this is read as epoch-milliseconds; at/below it as epoch-seconds.
-# 10**12 ms after the epoch is 2001-09-09, so this guess is only sound for
-# instants AFTER 2001-09-09 — i.e. for EVENT timestamps (samples, sleep,
-# workouts), which the strap can only ever report as recent. It INVERTS for any
-# earlier date, whose ms value is small enough to look like seconds.
-_MS_THRESHOLD = 10**12
-
 # A main-sleep session is "fresh" (worth the per-minute emit) if it is new or
 # within this many days of the batch's latest night. Re-emitting per-minute rows
 # for old, unchanged sessions on every push is pure waste (idempotent inserts
@@ -49,18 +43,26 @@ FRESH_WINDOW_DAYS = 3
 
 
 def epoch_to_utc(ts: int) -> datetime:
-    """Event epoch milliseconds (or seconds) → aware UTC datetime.
+    """Event epoch milliseconds (or seconds) → aware UTC datetime, RANGE-CHECKED.
 
     EVENT TIMESTAMPS ONLY. The ms/seconds magnitude guess can only disambiguate
-    instants after 2001-09-09 (`_MS_THRESHOLD` ms after the epoch); below that it
-    silently reads milliseconds as seconds. That is safe for device events, which
-    are always recent, and WRONG for any historical date. NEVER call this on a
-    birth date — use `core.dob.parse_dob`, which parses the documented contract in
-    the OWNER's timezone (a birth date is a calendar date, and the app anchors it
-    at local midnight) and rejects implausible values instead of guessing.
+    instants after 2001-09-09; below that it silently reads milliseconds as seconds.
+    That is safe for device events, which are always recent, and WRONG for any
+    historical date. NEVER call this on a birth date — use `core.dob.parse_dob`, which
+    parses the documented contract in the OWNER's timezone (a birth date is a calendar
+    date, and the app anchors it at local midnight).
+
+    This is now a one-line delegation to `core.bounds.event_instant`, which is where
+    the conversion AND its range check live. It used to be the conversion alone, with
+    the docstring careful and correct about the ms/seconds ambiguity and silent about
+    range: a value outside the platform's `datetime` range raised out of an ingest
+    handler as a 500 (blaming the server for a client's number), and a value inside it
+    but far from now wrote a `sample` row dated centuries away that every window and
+    baseline downstream then had to cope with. Kept as a named function because it is
+    what the whole ingest layer already calls — moving the check under it is what makes
+    the guarantee structural instead of a rule five call sites have to remember.
     """
-    seconds = ts / 1000 if ts > _MS_THRESHOLD else ts
-    return datetime.fromtimestamp(seconds, tz=UTC)
+    return event_instant(ts)
 
 
 def local_date(ts: int, tz: str) -> date:
@@ -283,7 +285,11 @@ def upsert_weight(cur: Cur, user_id: UUID, tz: str, weight_kg: float) -> None:
     errs toward refusing rather than toward a confident stale number, which is the
     direction this product errs on purpose.
     """
-    kg = float(weight_kg)
+    # Re-asserted here, not only on `ProfileIn`: this function is the ONE writer of
+    # `weight_log.kg` from the ingest path, and a non-HTTP caller that skipped the model
+    # must not be able to store a mass that is not one. Same argument `upsert_profile`
+    # makes for re-parsing `dob` canonically rather than trusting the boundary.
+    kg = assert_plausible_weight_kg(float(weight_kg))
     cur.execute(
         "SELECT ts, kg, (ts AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date "
         "FROM weight_log WHERE user_id = %s ORDER BY ts DESC LIMIT 1",
