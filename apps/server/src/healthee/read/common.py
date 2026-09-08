@@ -60,6 +60,61 @@ def derived_series(
     return [{"date": r[0].isoformat(), "value": float(r[1])} for r in cur.fetchall()]
 
 
+# The flag keys a daily card forwards as ``provenance`` — WHICH instrument produced the
+# number and WHAT it was assembled from. An explicit allow-list rather than "everything
+# except caveats", so a new diagnostic flag cannot start appearing on a public payload by
+# accident; adding one here is a decision.
+#
+# Every entry is a fact the derive layer already computed and the read layer used to
+# throw away (audit C5 and C6):
+#
+#   source              which of two instruments counted the day's steps —
+#                       ``derive/device_totals.py`` exists entirely to decide this, and
+#                       #121 is the incident that made it the whole point. VO2max names
+#                       its instrument on the wire; steps went through the same reasoning
+#                       and the answer stopped at the database.
+#   reported_at         when the strap's own counter was read. Its own module's comment:
+#                       "a counter read at 09:00 is a statement about a partial day".
+#   steps_per_minute_sum  the OTHER instrument's number, carried so a reader can see the
+#                       divergence without the served value having been blended from both.
+#   sample_minutes      how many minutes of the day the per-minute stream spoke for — the
+#                       count behind the value, and the fact that decides whether a zero
+#                       is a measurement at all (audit C7).
+#   method / stride_m   how a distance was got: the device's metres, or steps × a stride
+#                       derived from the owner's height.
+#   bmr / workout_cal   the calorie split. ``derive/energy.py`` records how much of the
+#                       day came from the MET-by-state model and how much from the
+#                       device's own figure for workout windows (licensed by
+#                       [[energy_expenditure_derivation]] D2) — and the owner saw one
+#                       number with no indication of the mix.
+#   pal                 total ÷ BMR, the physical-activity level that number implies.
+_PROVENANCE_FLAGS = (
+    "source",
+    "reported_at",
+    "steps_per_minute_sum",
+    "sample_minutes",
+    "method",
+    "stride_m",
+    "bmr",
+    "workout_cal",
+    "pal",
+)
+
+
+def provenance(flags: dict) -> dict:
+    """How this value was produced, as the derive layer recorded it — never re-derived.
+
+    A pass-through of the keys in :data:`_PROVENANCE_FLAGS` that the row actually carries.
+    Keys the row does not carry are ABSENT rather than null: this block describes what is
+    known about a specific number's making, and a null ``workout_cal`` on a step count
+    would read as "no workout calories" instead of "not a question about steps".
+
+    Empty for a metric whose derivation recorded nothing about itself, which is an honest
+    empty — the same contract ``caveats`` holds beside it.
+    """
+    return {key: flags[key] for key in _PROVENANCE_FLAGS if key in flags}
+
+
 def latest_derived(
     cur: Cur, user_id: UUID, metric: str, on_or_before: date
 ) -> tuple[date, float, dict] | None:
