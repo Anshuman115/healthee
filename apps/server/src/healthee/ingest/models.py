@@ -70,25 +70,29 @@ ALLOWED_METRICS: frozenset[str] = frozenset(
 # refuse a push the app makes: `apps/mobile/lib/data/store/push_reader.dart` pages
 # samples at `kPushSampleLimit = 4000` and sends the other three unpaged because the
 # 60-day local horizon holds "a few dozen of each". The caps are multiples of that,
-# not guesses, and they exist because `HelioPayload`'s lists had no `max_length` at
-# all while `emit_sleep_minutes` materialises one ROW PER MINUTE from the hypnogram.
+# not guesses, and they exist because `HelioPayload`'s lists had no `max_length` at all.
 _MAX_SAMPLES = 20_000
 _MAX_SLEEP_SESSIONS = 200
 _MAX_WORKOUTS = 500
 _MAX_DAILY_TOTALS = 400
 
-# A hypnogram is tens of segments; two thousand is far above any night and bounds the
-# `generate_series` LOOP. `_MAX_SESSION_STAGE_MINUTES` bounds what that loop can
-# EMIT — the two together are what turn "one request, tens of millions of rows" into
-# a number an operator can hold in their head, and neither alone would: a cap on the
-# loop count says nothing about a single enormous stage, and a cap on the minutes says
-# nothing about ten thousand one-minute stages.
+# A hypnogram is tens of segments; two thousand is far above any night and bounds how many
+# spans one session can declare. `_MAX_SESSION_STAGE_MINUTES` bounds the total those spans
+# cover. Neither alone would do: a cap on the count says nothing about a single enormous
+# stage, and a cap on the minutes says nothing about ten thousand one-minute stages.
+#
+# ⚠ These were written to bound `emit_sleep_minutes`' `generate_series`, and audit D1
+# DELETED that statement — so it is worth saying plainly that they are NOT freed by it.
+# `derive/sleep_score._sri_minute_grid` walks the STORED hypnogram a minute at a time in
+# Python (`while minute < end: minute += timedelta(minutes=1)`), so a stage declaring a
+# span of years is still an unbounded loop; it just runs in the derive layer now instead
+# of in the database. The bound changed consumers, it did not expire.
 _MAX_STAGES = 2_000
 _STAGE_ARITY = 3  # [startMs, endMs, type]
 
-# One session's stages may not sum to more than a day of per-minute rows. A long night
-# is ~12 h and a nap is minutes, so this is roughly double the largest real value and
-# cannot refuse a recorded night.
+# One session's stages may not span more than a day in total. A long night is ~12 h and a
+# nap is minutes, so this is roughly double the largest real value and cannot refuse a
+# recorded night.
 #
 # ⚠ There WAS a second bound here — a 24 h cap on any single stage — and it was
 # removed as dead code, which is worth recording because it looked like defence in
@@ -123,8 +127,9 @@ class SampleIn(BaseModel):
 
 class SleepIn(BaseModel):
     """One sleep session. `stages` is the hypnogram [[startMs, endMs, type], …]
-    (type 7 = awake); the per-minute stage/asleep stream is materialized from it
-    for main sleep only.
+    (type 7 = awake), stored as the session's own JSONB and read from there — by
+    `derive/sleep_score` for SRI and by the sleep page for the stage timeline. It used to
+    be ALSO materialised as a per-minute sample stream, which nothing read (audit D1).
 
     ## The stage minutes default to None, not 0
 
@@ -141,14 +146,18 @@ class SleepIn(BaseModel):
 
     ## The hypnogram is bounded the way `GpsTrackIn` bounds a route
 
-    `ingest.upsert.emit_sleep_minutes` runs `generate_series(start, end, '1 minute')` on
-    each stage, with nothing between the payload's numbers and that statement: one stage
-    declaring a span of years materialised tens of millions of rows from one request.
+    The bound was written for `emit_sleep_minutes`, which ran `generate_series(start, end,
+    '1 minute')` per stage with nothing between the payload's numbers and that statement:
+    one stage declaring a span of years materialised tens of millions of rows from one
+    request. That statement is gone (audit D1) and **the bound is not**, because
+    `derive/sleep_score._sri_minute_grid` walks the stored hypnogram a minute at a time in
+    Python — the same unbounded span, one layer along.
+
     `read/gps_request.py` had already answered this exact shape for the phone's route
     upload — a capped list, and a validator requiring every point to lie inside the window
     the caller declared. Two checks do it here: an arity check (so `stages: [[]]` is a
-    422 naming the field rather than an `IndexError` → 500), and a cap on the minutes
-    one session may materialise in total.
+    422 naming the field rather than an `IndexError` → 500), and a cap on the total minutes
+    one session's stages may span.
     """
 
     model_config = ConfigDict(extra="ignore", allow_inf_nan=False)
@@ -180,7 +189,7 @@ class SleepIn(BaseModel):
                 )
             start, end = event_instant(stage[0]), event_instant(stage[1])
             if end <= start:
-                continue  # `emit_sleep_minutes` skips these; nothing is materialised
+                continue  # a backwards span covers no minutes; nothing to count
             emitted += int((end - start).total_seconds() // 60)
         if emitted > _MAX_SESSION_STAGE_MINUTES:
             raise MeasurementError(
@@ -333,10 +342,12 @@ class ProfileIn(BaseModel):
 class HelioPayload(BaseModel):
     """The full POST /ingest/helio body. Matches `helio_api.dart` push().
 
-    Every list is capped. They were not, and `emit_sleep_minutes` turns the `sleep`
-    list into one database row per minute per stage, so "no cap" meant one authenticated
-    request could spend unbounded disk and time. See the caps' own comment above for
-    where each number comes from — the client's real page sizes, not a guess.
+    Every list is capped. They were not, and the per-minute emit turned the `sleep` list
+    into one database row per minute per stage, so "no cap" meant one authenticated
+    request could spend unbounded disk and time. That statement is gone (audit D1) and the
+    caps stay: `SleepIn`'s own docstring says which consumer now depends on them. See the
+    caps' comment above for where each number comes from — the client's real page sizes,
+    not a guess.
     """
 
     model_config = ConfigDict(extra="ignore")

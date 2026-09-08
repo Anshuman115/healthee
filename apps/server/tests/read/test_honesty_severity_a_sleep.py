@@ -103,7 +103,7 @@ def test_a_repush_without_the_stage_breakdown_keeps_the_one_on_file() -> None:
             end_ts=int((start_utc + timedelta(hours=7)).timestamp() * 1000),
             kind="main",
         )
-        upsert_sleep(cur, SENTINEL_USER_ID, [partial], lambda _s: False)
+        upsert_sleep(cur, SENTINEL_USER_ID, [partial])
         cur.execute(
             "SELECT rem_min, light_min, deep_min, wake_min FROM sleep_session "
             "WHERE user_id = %s AND start_ts = %s",

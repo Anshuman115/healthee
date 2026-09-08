@@ -211,7 +211,7 @@ def ingest_helio(
         # Predicate must be built BEFORE upsert_sleep — it reads which nights
         # already existed so re-pushed history isn't re-emitted.
         is_fresh = build_fresh_predicate(cur, user_id, payload.sleep)
-        n_sleep = upsert_sleep(cur, user_id, payload.sleep, is_fresh)
+        n_sleep = upsert_sleep(cur, user_id, payload.sleep)
         n_workouts = upsert_workouts(cur, user_id, payload.workouts)
         if payload.profile is not None:
             upsert_profile(cur, user_id, tz, payload.profile)

@@ -6,9 +6,10 @@ never create duplicates.
 
 Performance: the batch upserts are *pipelined*, not one-round-trip-per-row. The
 legacy push once did a separate `execute()` per sample and hit 180 s timeouts;
-`upsert_samples` uses `executemany` (psycopg3 pipelines it into ~one round-trip),
-and the expensive per-minute sleep-stage emission is gated to *fresh* sessions so
-re-pushing 80 nights of history doesn't re-emit 80 nights of minutes.
+`upsert_samples` uses `executemany` (psycopg3 pipelines it into ~one round-trip).
+The other half of that sentence named the per-minute sleep-stage emission, the most
+expensive statement a push ran — it is gone (`upsert_sleep`, write-path audit D1),
+so a re-push of 80 nights of history now costs 80 small upserts and nothing else.
 """
 
 from __future__ import annotations
@@ -38,10 +39,11 @@ Cur = Cursor[TupleRow]
 
 log = get_logger(__name__)
 
-# A main-sleep session is "fresh" (worth the per-minute emit) if it is new or
-# within this many days of the batch's latest night. Re-emitting per-minute rows
-# for old, unchanged sessions on every push is pure waste (idempotent inserts
-# that already exist) and was a big chunk of the legacy push time.
+# A sleep session is "fresh" — worth DERIVING — if it is new or within this many days of
+# the batch's latest night. Re-deriving 80 unchanged historical nights on every push is
+# pure waste, and the derive pass is now the only consumer: this window was written for
+# the per-minute stage emission that D1 deleted, and it outlived it because
+# `ingest/service.py` was already gating derivation on the same predicate.
 FRESH_WINDOW_DAYS = 3
 
 
@@ -95,37 +97,44 @@ def upsert_samples(cur: Cur, user_id: UUID, samples: list[SampleIn]) -> tuple[in
     return len(rows), rejected
 
 
-def emit_sleep_minutes(cur: Cur, user_id: UUID, stages: list[list[int]]) -> None:
-    """Materialize per-minute `asleep` (1) + `sleep_stage` (type) samples from a
-    session's hypnogram, so downstream SRI / stage reads have a per-minute
-    stream. `stages`: [[startMs, endMs, type], …]; type 7 = awake."""
-    for st in stages:
-        start = epoch_to_utc(st[0]).replace(second=0, microsecond=0)
-        end = epoch_to_utc(st[1])
-        if end <= start:
-            continue
-        last = end - timedelta(seconds=60)
-        cur.execute(
-            "INSERT INTO sample (user_id, ts, metric, value) "
-            "SELECT %s, g, 'sleep_stage', %s FROM generate_series(%s, %s, interval '1 minute') g "
-            "ON CONFLICT (user_id, metric, ts) DO UPDATE SET value = EXCLUDED.value",
-            (user_id, float(st[2]), start, last),
-        )
-        if st[2] != 7:  # 7 = awake; only actual sleep marks `asleep`
-            cur.execute(
-                "INSERT INTO sample (user_id, ts, metric, value) "
-                "SELECT %s, g, 'asleep', 1 FROM generate_series(%s, %s, interval '1 minute') g "
-                "ON CONFLICT (user_id, metric, ts) DO NOTHING",
-                (user_id, start, last),
-            )
+def upsert_sleep(cur: Cur, user_id: UUID, sessions: list[SleepIn]) -> int:
+    """Upsert typed sleep sessions. The hypnogram is stored ONCE, as the session's own
+    `stages` JSONB, and read from there.
 
+    ## The per-minute emit is gone (write-path audit D1)
 
-def upsert_sleep(
-    cur: Cur, user_id: UUID, sessions: list[SleepIn], should_emit: Callable[[SleepIn], bool]
-) -> int:
-    """Upsert typed sleep sessions; emit per-minute rows only for fresh MAIN
-    sleep (`should_emit`). Naps never feed the per-minute stream — daytime
-    minutes must not pollute the night-only SRI/regularity reads.
+    `emit_sleep_minutes` ran `generate_series(..., interval '1 minute')` per hypnogram
+    stage, writing a `sleep_stage` sample per minute and an `asleep` sample per non-awake
+    minute — up to ~2,880 rows in the `sample` hypertable per fresh night, and by far the
+    most expensive statement in a push. Its docstring said they existed "so downstream SRI
+    / stage reads have a per-minute stream".
+
+    **No such reader existed.** A repo-wide grep for both metric names returned the writer,
+    three assertions in `tests/integration/test_ingest_integration.py` that the write had
+    happened, one cluster-name list and one display-name map. SRI is computed from
+    `sleep_session.stages` (`derive/sleep_score._sri_grid`), and so is the sleep page;
+    `analytics/metrics.py` enumerates the daily metrics explicitly and neither name is in
+    it. Legacy had v1 compat views reading these rows and `db/schema.sql` records that
+    those views were deliberately dropped in the rebuild — the write outlived its consumer.
+
+    So it is DELETED rather than justified: standards, "Dead code" — delete, don't keep
+    just in case; git has it. Nothing about SRI, the sleep page or the score moves, which
+    `tests/derive/test_derive_parity.py` and `test_sri_scale.py` are the proof of.
+
+    Two consequences worth stating rather than discovering:
+
+    * **D2 goes with it.** The emit was not idempotent under a corrected hypnogram —
+      `sleep_stage` was `DO UPDATE` and `asleep` was `DO NOTHING`, and neither deleted
+      minutes the new hypnogram no longer covered, so a re-push that reclassified a block
+      left the old `asleep` rows standing and a shortened session left orphan minutes at
+      both ends forever. There is nothing left to be non-idempotent.
+    * **The payload bounds STAY, and are not freed by this.** `_MAX_STAGES` and
+      `_MAX_SESSION_STAGE_MINUTES` were written to bound this statement, but
+      `sleep_score._sri_minute_grid` walks the stored hypnogram a minute at a time in
+      Python, so a stage declaring a span of years is still an unbounded loop — now in the
+      derive layer instead of the database. The bound moved consumers; it did not expire.
+
+    ## Every optional measurement is COALESCEd, so a partial re-push cannot erase one
 
     ## Every optional measurement is COALESCEd, so a partial re-push cannot erase one
 
@@ -179,8 +188,6 @@ def upsert_sleep(
                 json.dumps(s.stages),
             ),
         )
-        if s.kind != "nap" and should_emit(s):
-            emit_sleep_minutes(cur, user_id, s.stages)
     return len(sessions)
 
 

@@ -840,7 +840,7 @@ mutate 'the push lists become unbounded' \
   '    samples: list[SampleIn] = Field(default_factory=list, max_length=_MAX_SAMPLES)' \
   '    samples: list[SampleIn] = Field(default_factory=list)'
 
-# stages: [[]] is an IndexError inside emit_sleep_minutes again — a 500 for a
+# stages: [[]] is an IndexError inside the arity check again — a 500 for a
 # client's payload, and the arity the type annotation cannot express.
 mutate 'a malformed hypnogram stage stops being a 422' \
   "$INGEST_BOUNDS" src/healthee/ingest/models.py \
