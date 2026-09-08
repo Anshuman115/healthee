@@ -428,13 +428,24 @@ phrase arrived with the upstream sports-science corpus import. The true position
   red flags. See *Safety bounds* for what it does and does not catch. #100)
 - **D13:** On altitude-illness symptoms (worsening headache, severe breathlessness,
   confusion, ataxia), advise descent and medical care, not continued training. —
-  confidence: Established (SAFETY-CRITICAL; **enforced in code** by D12's rule, whose
-  symptom set includes ataxia, HAPE/HACE and altered consciousness — one rule, not two,
-  because the forbidden move is the same one)
+  confidence: Established (SAFETY-CRITICAL; **enforced in code** by D12's compiled rule
+  `environmental_stress_D12_exertional_red_flags_to_urgent_care`, whose symptom set
+  includes ataxia, HAPE/HACE and altered consciousness — one rule, not two, because the
+  forbidden move is the same one)
 - **D14:** Never advise drinking ahead of thirst even in heat (hyponatremia risk);
   defer hydration specifics to `fueling-and-hydration`. — confidence: Established
-  (SAFETY-CRITICAL; **enforced in code** via `[[hydration_everyday]]` D5, whose compiled
-  rule takes heat as one of its subject triggers)
+  (SAFETY-CRITICAL; **PARTLY enforced in code, and the part that is not is the part
+  this directive is about.** `[[hydration_everyday]]` D5's compiled rule does take heat
+  as a subject trigger, but its forbidden move is only a **numeric volume or rate**
+  instruction — "drink 500 ml every hour" is blocked, "stay ahead of your thirst" is
+  not; the compiled pattern does not contain the word *thirst*, verified by probing
+  every branch of it. Drinking-ahead-of-thirst as a **stance** is a paraphrasable
+  position, not a text pattern, and a regex broad enough to catch it would also catch
+  this corpus **correcting** it — `[[fueling-and-hydration]]:165` grades the phrase
+  **[Myth]**, so the coach's job includes saying it out loud in order to refute it. So
+  this directive is a rule for the coach to follow, backed by a deterministic floor
+  under its numeric half — not a guarantee. Corrected 2026-09-08; the line previously
+  claimed unqualified enforcement.)
 
 ## Key references
 

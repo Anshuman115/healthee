@@ -217,6 +217,51 @@ def test_a_blocked_answer_never_ships_its_text() -> None:
     assert "8pm" not in rule.response
 
 
+# ── 2b · the exact SCOPE of hydration D5, pinned in both directions ──────────
+#
+# Two other notes — `environmental-stress` D14 and `fueling-and-hydration` D8 — used to
+# claim this rule enforced their *"never advise drinking ahead of thirst"*. It does not:
+# every branch of `_FLUID_TARGET_RE` requires a NUMBER, and the pattern does not contain
+# the word "thirst". Both directive lines were corrected on 2026-09-08 to say what is
+# and is not caught. These two tables are what makes those corrected lines checkable:
+# widening the rule to catch a stance, or narrowing it below a numeric target, breaks a
+# test here and sends the author back to the two notes that describe it.
+#
+# The direction that must NOT be quietly fixed by widening the regex: the corpus's own
+# job includes *correcting* the phrase — `fueling-and-hydration.md:165` grades "you must
+# drink ahead of thirst" **[Myth]** — so a pattern broad enough to catch the prescription
+# would also eat the refutation. That is the over-broad-filter harm this module's
+# docstring names, and it is why the notes moved rather than the rule.
+_D5_NOT_CAUGHT: list[str] = [
+    "In the heat, stay ahead of your thirst — don't wait until you feel thirsty to drink.",
+    "When running in hot weather, drink before you get thirsty.",
+    "Keep drinking steadily through the hot run rather than waiting for thirst.",
+]
+
+_D5_CAUGHT: list[str] = [
+    "During your hot run, drink 500 ml every hour.",
+    "Sip 250 ml every 20 minutes while training in the heat.",
+]
+
+
+@pytest.mark.parametrize("text", _D5_NOT_CAUGHT)
+def test_hydration_d5_does_not_catch_an_ahead_of_thirst_stance(text: str) -> None:
+    """A stance with no number passes — which is exactly what the two notes now say."""
+    assert "thirst" not in guard_directives._FLUID_TARGET_RE.pattern
+    assert output_guard.check_output(text) is None, (
+        "the rule now catches a stance: `environmental-stress` D14 and "
+        "`fueling-and-hydration` D8 describe its scope and must be updated with it"
+    )
+
+
+@pytest.mark.parametrize("text", _D5_CAUGHT)
+def test_hydration_d5_catches_a_numeric_volume_or_rate(text: str) -> None:
+    """The half that IS deterministic. Losing this makes both notes overclaim again."""
+    rule = output_guard.check_output(text)
+    assert rule is not None, f"not blocked: {text!r}"
+    assert rule.name == "hydration_everyday_D5_no_exercise_fluid_target"
+
+
 # ── 3 · false positives: the notes' own substance must stay shippable ────────
 
 _ALLOWED: list[str] = [

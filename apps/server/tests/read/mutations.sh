@@ -934,6 +934,38 @@ mutate 'the tenant-scoping guard accepts user_id anywhere in the statement' \
 )' \
   '_USER_ID_SCOPED = re.compile(r"user_id", re.IGNORECASE)'
 
+# ── G · the knowledge audit (2026-09-08) ─────────────────────────────────────
+# These mutate the CORPUS, not the source, and that is the point: the corpus is an
+# interpretive channel with no calibration gate on its own prose (KNOWLEDGE_AUDIT.md
+# section 1.1), so the only thing that can stop a false sentence coming back is a test
+# that reads the note. Each one restores the exact sentence the audit found.
+
+CORPUS_ENFORCEMENT=tests/insights/test_corpus_enforcement_claims.py
+GUARD_DIRECTIVES=tests/insights/test_guard_directives.py
+
+# ── G1 ───────────────────────────────────────────────────────────────────────
+# The false safety claim comes back: D14 asserts unqualified enforcement of
+# "never advise drinking ahead of thirst", which the compiled rule cannot see.
+mutate 'a directive claims a guardrail for a move the rule cannot see' \
+  "$CORPUS_ENFORCEMENT" ../../packages/knowledge/sports-science/wellness/environmental-stress.md \
+  '  (SAFETY-CRITICAL; **PARTLY enforced in code, and the part that is not is the part' \
+  '  (SAFETY-CRITICAL; **enforced in code, fully and unqualified. The part that is not is the part'
+
+# ── G2 ───────────────────────────────────────────────────────────────────────
+# The same claim from the fuelling side, which is where it was first written.
+mutate 'the fuelling note re-asserts the unqualified hydration guardrail' \
+  "$CORPUS_ENFORCEMENT" ../../packages/knowledge/sports-science/wellness/fueling-and-hydration.md \
+  '  Established (SAFETY-CRITICAL; **PARTLY enforced in code.** `[[hydration_everyday]]`' \
+  '  Established (SAFETY-CRITICAL; **enforced in code.** `[[hydration_everyday]]`'
+
+# ── G3 ───────────────────────────────────────────────────────────────────────
+# The scope itself moves: the rule grows a "thirst" branch, so it now eats the
+# corpus CORRECTING the myth. Widening is as much a defect as the overclaim was,
+# and the two notes' prose stops being true either way.
+mutate 'the fluid rule widens to catch a stance rather than a number' \
+  "$GUARD_DIRECTIVES" src/healthee/insights/guard_directives.py \
+  '    r"\b(?:drink|sip|hydrate)\s+(?:every|each)\s+\d+\s*(?:min\w*|km|miles?|hours?)\b",' \
+  '    r"\b(?:ahead\s+of|before)\s+(?:your\s+)?thirst\b",'
 
 echo
 echo "caught $PASS, survived $FAIL"
