@@ -1195,6 +1195,37 @@ mutate 'a counter running backwards goes unrecorded' \
   '        if incoming[day] < 0:'
 
 
+# ── K1 · B1 ─────────────────────────────────────────────────────────────────
+# The nightly chain marks the day done on `correlate` alone again. This IS the
+# defect: `illness` fails, the day is recorded as run, and nothing retries it —
+# and `derive_illness_flag` is not in `derive_batch`, so `rederive` cannot get it
+# back. The mutation is deliberately the exact code that shipped.
+CHAIN_MARK=tests/jobs/test_chain_mark_on_failure.py
+
+mutate 'a failed step is marked done on correlate alone' \
+  "$CHAIN_MARK" src/healthee/jobs/chain.py \
+  '    if _nothing_failed(steps):
+        _mark_chain_done(user_id, day)' \
+  '    if correlate.status == "ok":
+        _mark_chain_done(user_id, day)'
+
+# The rule stays, but the mark moves back above the last step — so a briefing
+# failure becomes unretryable BY CONSTRUCTION, whatever the rule says.
+mutate 'the chain marks the day before its last step runs' \
+  "$CHAIN_MARK" src/healthee/jobs/chain.py \
+  '    steps.append(_briefing_step(day, user_id, tz, client=client, premium=premium))
+    # LAST, and only on a clean run.' \
+  '    if _nothing_failed(steps):
+        _mark_chain_done(user_id, day)
+    steps.append(_briefing_step(day, user_id, tz, client=client, premium=premium))
+    # LAST, and only on a clean run.'
+
+# A skip is read as a failure, so a free owner's chain never marks and re-enters
+# every five minutes for the rest of their day.
+mutate 'a skipped step counts as a failure' \
+  "$CHAIN_MARK" src/healthee/jobs/chain.py \
+  '    return all(step.status != "failed" for step in steps)' \
+  '    return all(step.status == "ok" for step in steps)'
 
 echo
 echo "caught $PASS, survived $FAIL"

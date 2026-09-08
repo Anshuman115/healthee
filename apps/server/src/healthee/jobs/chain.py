@@ -31,6 +31,9 @@ health surface"). The chain then applies dependency logic:
   * a ``briefing`` failure does NOT undo the recs already persisted;
   * a ``warm`` failure costs only the coaching lines — the chain continues.
 
+Non-fatal means "does not abort the run"; it does not mean "counts as done". Any
+failed step leaves the day unmarked so the next tick retries it (:func:`_nothing_failed`).
+
 ## Which steps a free owner gets (Phase 6.6a, MULTI_USER.md §12.3)
 
 Three of the six steps call a model, and generating output nobody is entitled to see
@@ -76,9 +79,11 @@ generates for itself exactly as it did before. The order of the two steps is unc
 still only ``warm`` → ``briefing``, which is the order that lets the second read what the
 first wrote.
 
-The chain is deduped per day via the ``kv`` table: once a day's chain has run its
-generating steps, a second ``run_chain`` for that day is a no-op (legacy deduped
-on last-night's sleep landing). That marker is what lets the scheduler tick
+The chain is deduped per day via the ``kv`` table: once a day's chain has run every
+step CLEANLY, a second ``run_chain`` for that day is a no-op (legacy deduped
+on last-night's sleep landing). The mark is written after the last step and only when
+nothing failed — :func:`_nothing_failed` argues why a partial chain marks not at all.
+That marker is what lets the scheduler tick
 repeatedly and still run each owner's chain exactly once per their local day
 (6.4c) — it is the whole idempotence story, so the scheduler owns no dedup of its
 own.
@@ -112,7 +117,7 @@ order — the property that lets both comparisons happen in SQL on a TEXT column
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
@@ -207,10 +212,12 @@ def run_chain(
 
     Dependency: a ``correlate`` failure skips ``recs`` and ``warm`` (both consume the
     findings it writes). A ``briefing`` failure never undoes persisted recs, and a
-    ``warm`` failure costs only the coaching lines. A second call for an already-run
-    day — or for any day at or before it — is a no-op unless ``force``, and the dedup
-    marker is per-owner (the folded ``kv`` PK), so one owner's chain can never dedup
-    another's. ``day`` defaults to the owner's own local today.
+    ``warm`` failure costs only the coaching lines. A second call for a day this owner's
+    chain completed CLEANLY — or for any day at or before it — is a no-op unless
+    ``force``; a day on which any step failed stays unmarked and is retried
+    (:func:`_nothing_failed`). The dedup marker is per-owner (the folded ``kv`` PK), so
+    one owner's chain can never dedup another's. ``day`` defaults to the owner's own
+    local today.
 
     Entitlement (§12.3): a non-premium owner gets the three DETERMINISTIC steps and none
     of the three that call a model. The lookup happens once, before any step, so a free
@@ -244,15 +251,55 @@ def run_chain(
 
     if correlate.status == "ok":
         steps.extend(_after_correlate(day, user_id, tz, client=client, premium=premium))
-        # Correlate succeeded → the generating steps had valid inputs and their chance
-        # to run; mark the day done so they aren't re-run. A correlate failure leaves it
-        # un-marked so a later fire/ingest retries the whole chain.
-        _mark_chain_done(user_id, day)
     else:
         steps.extend(_skipped_after_correlate())
 
     steps.append(_briefing_step(day, user_id, tz, client=client, premium=premium))
+    # LAST, and only on a clean run. See `_nothing_failed`: the marker is written after
+    # every step so no step can sit outside the rule it encodes.
+    if _nothing_failed(steps):
+        _mark_chain_done(user_id, day)
     return ChainResult(day=day, deduped=False, steps=steps)
+
+
+def _nothing_failed(steps: Sequence[StepOutcome]) -> bool:
+    """Whether this run may advance the dedup marker: **no step failed**.
+
+    ## A partial chain marks NOT AT ALL, and the shape is why
+
+    The marker is ONE high-water day per owner and `_chain_done` reads it as
+    ``value >= day`` — "the chain has run through D". That shape cannot say "steps 1
+    and 3 ran and step 2 did not", so there is no partial spelling available; inventing
+    one would mean a second definition of "done" that the read cannot see (CLAUDE.md:
+    one canonical definition). All or nothing is not the conservative choice here, it is
+    the only expressible one.
+
+    It used to advance on ``correlate`` alone, with a comment describing "the generating
+    steps" that silently annexed the two steps above it and the one below. So a failed
+    ``illness`` was recorded as done and never retried — and that is the failure worth
+    naming, because it is the one the ordinary tools cannot undo:
+    ``derive_illness_flag`` has a single production call site (``jobs/steps.py``) and is
+    NOT part of ``derive_batch``, so ``db/rederive.py`` cannot rebuild it. A transient DB
+    blip on step 1 with step 3 green cost that day its flag permanently.
+
+    A ``skipped`` step is deliberately NOT a failure. There are exactly two skips: the
+    free owner's three LLM steps, which are their entitlement and not a fault
+    (``test_a_free_owners_day_is_still_marked_done`` pins that); and ``recs``/``warm``
+    after a ``correlate`` failure, which can only happen when ``correlate`` itself
+    failed and therefore already blocks the mark.
+
+    **What this costs, stated rather than discovered.** A ``warm`` or ``briefing``
+    failure now leaves the day unmarked, so the next tick re-runs the whole chain —
+    re-spending ``recs`` and re-sending the briefing. That is not a new behaviour: a
+    ``correlate`` failure has always left the day unmarked and done exactly this, and
+    ``scheduler._ATTEMPT_BUDGET`` exists to bound it to three attempts per owner per
+    day. Every step in the chain is idempotent under a re-run (``illness`` upserts,
+    ``challenges`` reads stored statuses, ``correlate`` upserts on its key, ``recs``
+    is DELETE-then-INSERT for the day, ``warm`` rewrites a cache row); only the
+    briefing's Telegram message is repeated, and the budget is what caps it. Paying
+    three attempts for a day is the price of not silently dropping one.
+    """
+    return all(step.status != "failed" for step in steps)
 
 
 def _after_correlate(
