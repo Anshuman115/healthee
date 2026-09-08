@@ -141,6 +141,14 @@ def _entry_lines(rows: list) -> list[str]:
     COUNTED and said, because a silently shortened list is a list the model reads as
     complete — the omission-it-cannot-tell-from-absence failure ``context_provenance``
     is built around.
+
+    ``and lines`` is the one deliberate overrun: the newest entry is rendered whole
+    even if it alone exceeds the cap, because a block that could render ZERO entries
+    would drop the owner's most recent log without their most recent log being the
+    thing that made it too long. It is still bounded — by ``read/logs._NOTES_MAX``,
+    which is the boundary that stops one entry being arbitrarily large in the first
+    place. Truncating the owner's sentence mid-word instead was considered and is
+    worse: a half-quoted note reads as something they wrote.
     """
     lines: list[str] = []
     used = 0
