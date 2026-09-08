@@ -701,3 +701,44 @@ Ranked by recoverability, then by whether the wrong thing reaches a screen.
 `db/stale_derived.py --purge-stale` is the right tool for the rows B1 and B3 would orphan;
 `steps_total` and `sleep_health_score_4dim` are both outside `GATED_METRICS`, so the purge
 admits them. Nothing here should be run against production without the owner's word.
+
+---
+
+## 9. Disposition — what the fix pass did, 2026-09-08
+
+Added after the fact. **The findings above are left exactly as written**; this section
+records what happened to each, including the three that turned out to be already fixed
+when the fix pass opened the files.
+
+| # | disposition |
+|---|---|
+| **A1** | **Fixed end to end.** `0019` adds a NULLABLE `device_daily_total.read_at`; `DailyTotalIn.read_at` is optional and range-checked; `push_batch.dart` sends `readAtMs`; `partial_day_caveats` reads the read instant and nothing else. Absent stays absent all the way to the column. |
+| **B1** | **Fixed.** `derive/gps._store` asks `vo2max_tier.outranks` before overwriting the day's single cell, so precedence beats recency inside a day as it already did across days. Equal methods still overwrite (a re-score has to move a value). |
+| **B2** | **Fixed.** `ingest/profile_write.py` is the one statement both writers of `profile` go through: omitted preserves, explicit null clears. |
+| **B3** | **Fixed.** The gate is `all(v is not None …)`, so a partial breakdown scores nothing instead of becoming zeros. |
+| **B4** | **Fixed.** `WorkoutIn.sport`/`duration_s` are `int \| None` and COALESCEd on conflict. Residual, stated in the docstring: the columns are `NOT NULL DEFAULT 0`, so a FIRST insert of a duration-less workout still stores 0 — representable only by a migration on `workout` plus six read sites. |
+| **B5** | **Fixed.** `_marks_its_day` is a separate predicate from `_is_derivable_night`, and `build_fresh_predicate` looks up every pushed session so naps stay gateable. |
+| **B6** | **Recorded, not guarded — the decision, with its evidence.** A lower reading replacing a higher one is now a WARNING naming both values; the stored value is unchanged. `GREATEST` was rejected because `device_daily_total` is the RAW table and a maximum is a derivation (#121's lesson), it would pin a spurious high reading forever, and on a genuine reset it would keep the pre-reset prefix while `read_at` claims the later instant. The honest fix is a row per reading, i.e. a different primary key — a real migration for a condition nobody has observed. The warning is what makes it settleable. |
+| **B7** | **Detected, not fixed** — the audit's own recommendation. `derive_night` warns when a wake date carries more than one main session. Deriving the wake date's sessions as one window set is a science behaviour change and is owed evidence that the shape occurs. |
+| **C1** | **Fixed.** One `SESSION_SOURCE = "strap_ble"` constant, three sites, and `tests/derive/test_session_source.py` asserts the one-writer premise it rests on rather than trusting the grep. Contract snapshots and the legacy parity fixture carry the new value (parity divergence M6); no number moves. |
+| **C2** | ⚠ **ALREADY FIXED — the finding is stale.** `_RHR_FALLBACK` is gone; `cardio_load._measured_rhr` returns `None` and `derive_cardio_load` withholds the whole row. Landed in `02f586e` ("four gates the corpus already specified"), dated the same day as this audit. Nothing was done. |
+| **C3** | ⚠ **ALREADY FIXED — the finding is stale.** `_measured_rhr` is bounded by `freshness.RHR_MAX_AGE_DAYS = 30`, with the argument beside the constant. Same commit. Nothing was done. |
+| **C4** | ⚠ **ALREADY FIXED — the finding is stale.** `derive/vo2max.py`'s `_profile_withhold_reason` docstring already reads "against Jurca's own SEE of `_JURCA_SEE_ML_KG_MIN` — 5.075, not the 5.6 this line used to give". Nothing was done. |
+| **D1** | **Deleted.** `emit_sleep_minutes` is gone: no reader existed, and the v1 compat views that once read those rows were deliberately dropped in the rebuild. |
+| **D2** | **Gone with D1** — there is no longer a non-idempotent write to be non-idempotent. |
+| **D3** | **Fixed.** The docstring names `test_vo2max_tier_surfaces.py`, where the test lives. |
+| **D4** | **Fixed as a naming problem, not a counting one.** `samples_accepted` stays on the wire (the client parses it) and both ends now say it counts rows STORED, new or not; the client's receipt line reads `stored N`. Counting only new rows needs `RETURNING (xmax = 0)` per sample, which is not worth a returned row each on a path with a < 5 s budget, for a summary line. |
+
+**One bound that looked freed and is not.** `_MAX_STAGES` and `_MAX_SESSION_STAGE_MINUTES`
+were written to bound D1's `generate_series`. Deleting it does **not** retire them:
+`derive/sleep_score._sri_minute_grid` walks the STORED hypnogram a minute at a time in
+Python, so a stage declaring a span of years is still an unbounded loop — it moved from
+the database to the derive layer. Both comments now say so.
+
+**Neither good-news finding regressed.** `derived_daily` still has exactly one writer and
+no derive module writes a raw table (section 6.1-6.2 re-checked); the only change to the
+science-parity fixture is `session_source`, recorded as divergence M6 in
+`tests/derive/test_derive_parity.py` with no value moving.
+
+**Nothing was run against production.** No device, no production server, no production
+database, no token was touched by the fix pass either.

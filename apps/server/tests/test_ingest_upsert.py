@@ -123,6 +123,15 @@ def test_fresh_predicate_gates_an_old_existing_nap_too() -> None:
     cur = FakeCursor(fetchall=[[(epoch_to_utc(old_nap.start_ts),)]])
     is_fresh = build_fresh_predicate(cur, SENTINEL_USER_ID, [old_nap, tonight])  # type: ignore[arg-type]
 
+    # The LOOKUP is what the fix changed, so the lookup is what is asserted. Asserting
+    # only the predicate's answer passes against the bug: `FakeCursor` hands back its
+    # canned rows whatever the query asked for, so a filtered `starts` list still gets
+    # the nap back and still reads as stale. That is `HOW_WE_VERIFY.md`'s fourth way a
+    # mutation lies — a right mutation over a thin test — and it survived once here.
+    _, params = cur.executed[0]
+    assert epoch_to_utc(old_nap.start_ts) in params[1], (
+        "a nap that is already on file must be asked about, or it is permanently new"
+    )
     assert is_fresh(old_nap) is False
     assert is_fresh(tonight) is True
 

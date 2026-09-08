@@ -33,6 +33,7 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.rows import TupleRow
 
+from healthee.core.logging import get_logger
 from healthee.derive._common import Cur, _upsert_daily, _wake_date
 from healthee.derive.activity import derive_daily_activity
 from healthee.derive.cardio_load import derive_cardio_load
@@ -43,6 +44,8 @@ from healthee.derive.recovery import derive_recovery
 from healthee.derive.rhr import derive_rhr
 from healthee.derive.sleep_score import derive_sleep_debt, derive_sleep_score
 from healthee.derive.vo2max_tier import derive_vo2max_estimate
+
+log = get_logger(__name__)
 
 # One sleep session's window, as (start_ts, end_ts) in UTC — the unit ``derive_night``
 # consumes and the shape a batch's `nights` list carries.
@@ -56,6 +59,7 @@ def derive_night(cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: d
     into the derived_daily key; 6.3b scoped the reads), anchored on the owner's
     local `tz` wake date."""
     day = _wake_date(end_ts, tz)
+    _warn_if_the_wake_date_is_shared(cur, user_id, tz, day)
     out: dict = {}
 
     rhr, n = derive_rhr(cur, user_id, start_ts, end_ts)
@@ -103,6 +107,46 @@ def derive_night(cur: Cur, user_id: UUID, tz: str, start_ts: datetime, end_ts: d
             derive_sleep_score(cur, user_id, tz, start_ts, end_ts, rem, light, deep, wake, day)
         )
     return out
+
+
+def _warn_if_the_wake_date_is_shared(cur: Cur, user_id: UUID, tz: str, day: date) -> None:
+    """Log when more than one MAIN session ends on ``day`` (write-path audit B7).
+
+    Every metric :func:`derive_night` writes is keyed to the wake date, so two main
+    sessions ending on one local date both write ``rhr_daily``, ``hrv_sleep_avg``,
+    ``spo2_overnight``, ``respiratory_rate_sleep`` and ``sleep_health_score_4dim`` for that
+    date, and **the later one wins every cell**. ``flags.tst_min`` would then hold only the
+    second fragment's total sleep time, which ``sleep_score._tst_window`` reads into the
+    14-night debt and ``recovery._sleep_factor`` reads into readiness — so a fragmented
+    night reads as a short one, twice over.
+
+    Nothing prevents the shape: ``sleep_session``'s key is ``(user_id, start_ts)`` and the
+    client sends ``kind: night.isNap ? 'nap' : 'main'``. Whether the strap ever PRODUCES it
+    is a statement about firmware, and the audit could not settle it without the device —
+    plausible for a chronic short sleeper who wakes and re-sleeps, and unobserved.
+
+    So this DETECTS rather than fixes, which is the audit's own recommendation and the
+    honest order: deriving over the wake date's main sessions as one window set is a
+    science behaviour change, and it should be made against evidence that the shape occurs
+    rather than against the possibility that it might. The condition is invisible today;
+    after this it is a warning naming the date and the count.
+
+    Bounded by the wake date's own ``AT TIME ZONE`` cast — the same expression
+    :func:`stored_nights` uses, so "which night belongs to which day" has one spelling.
+    """
+    cur.execute(
+        "SELECT count(*) FROM sleep_session WHERE user_id = %s AND kind = 'main' "
+        "AND (end_ts AT TIME ZONE %s)::date = %s",
+        (user_id, tz, day),
+    )
+    row = cur.fetchone()
+    sessions = int(row[0]) if row else 0
+    if sessions > 1:
+        log.warning(
+            "more than one main sleep session ends on this wake date; the later one wins "
+            "every metric keyed to it",
+            extra={"user_id": str(user_id), "wake_date": str(day), "sessions": sessions},
+        )
 
 
 def derive_day(cur: Cur, user_id: UUID, tz: str, day: date) -> dict:
