@@ -57,6 +57,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from healthee.derive._common import Cur
+from healthee.derive.freshness import COUNTER_MID_DAY
 
 # The per-minute sum's name on the wire, when it is the instrument that spoke. The
 # DEVICE's name is not a constant here — it is read off the row it came from
@@ -129,6 +130,44 @@ def select_steps(device: DeviceDailyTotal | None, per_minute_sum: float) -> Dail
             "reported_at": device.reported_at.isoformat(),
         },
     )
+
+
+def partial_day_caveats(
+    device: DeviceDailyTotal | None, steps: DailyValue, day_end_utc: datetime
+) -> list[dict]:
+    """The disclosure for a counter read BEFORE the day it counts had finished.
+
+    ``select_steps`` prefers the strap's own accumulator, and this module's docstring says
+    why — the per-minute stream drops whole stretches when the pager stalls, and a stalled
+    hour looks exactly like a quiet hour. It also says, and then did nothing about, the one
+    way the counter is the weaker instrument: *"a counter read at 09:00 is a statement
+    about a partial day"*. That is not a reason to prefer the other number; it is a reason
+    to say which interval this one covers, and the audit's C5 is that we said it in a
+    comment and not on the wire.
+
+    The test is exact rather than heuristic: ``reported_at`` before the local day's closing
+    instant means the day was still running when the strap was asked. A counter read after
+    that instant describes the whole day and carries nothing. There is no tolerance window,
+    for ``derive/freshness.py``'s reason — a tunable in an honesty gate is a place to hide.
+
+    Empty for the per-minute tier, which is a sum over samples and so covers whatever the
+    day actually delivered rather than a prefix of it.
+    """
+    if device is None or device.steps is None or device.reported_at >= day_end_utc:
+        return []
+    return [
+        {
+            "reason": COUNTER_MID_DAY,
+            "message": (
+                "This is the strap's own step counter as it stood at "
+                f"{device.reported_at.isoformat()}, while the day was still running — so "
+                "it counts the day up to then, not the whole of it. It will rise with the "
+                "next sync."
+            ),
+            "reported_at": device.reported_at.isoformat(),
+            "source": steps.flags["source"],
+        }
+    ]
 
 
 def select_distance(
