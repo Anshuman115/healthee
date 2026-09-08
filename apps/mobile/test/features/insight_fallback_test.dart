@@ -48,6 +48,47 @@ Future<void> _open(WidgetTester tester, GeneratedInsight insight) async {
 }
 
 void main() {
+  // The PARSE, first. Two mutation survivors said why this belongs here rather
+  // than only in a contract test: every widget case below constructs a
+  // `GeneratedInsight` directly, so a defect reintroduced in `fromJson` — the
+  // exact suppression this finding is about — walked straight past them.
+  group('fromJson — where the suppression lived', () {
+    test('THE FALLBACK IS NOT BLANKED ON THE WAY IN', () {
+      final parsed = GeneratedInsight.fromJson(const <String, Object?>{
+        'insight': _fallbackText,
+        'validated': false,
+      });
+
+      expect(parsed.text, contains("can't ground that"));
+      expect(parsed.validated, isFalse);
+    });
+
+    test('a refusal keeps its text and is not claimed as validated', () {
+      final parsed = GeneratedInsight.fromJson(const <String, Object?>{
+        'insight': 'I cannot answer that.',
+        'refused': true,
+      });
+
+      expect(parsed.text, 'I cannot answer that.');
+      expect(
+        parsed.validated,
+        isFalse,
+        reason: 'an absent flag is not a claim that the validator passed it',
+      );
+    });
+
+    test('a validated insight says so', () {
+      final parsed = GeneratedInsight.fromJson(const <String, Object?>{
+        'insight': 'Your sleep is steady [sleep_need_debt].',
+        'validated': true,
+        'citations': <String>['sleep_need_debt'],
+      });
+
+      expect(parsed.validated, isTrue);
+      expect(parsed.citations, <String>['sleep_need_debt']);
+    });
+  });
+
   testWidgets('THE HONEST FALLBACK IS DRAWN, NOT BLANKED', (tester) async {
     await _open(
       tester,

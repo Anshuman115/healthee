@@ -243,4 +243,20 @@ void main() {
       reason: 'a blank topic is no topic, not an empty subject label',
     );
   });
+
+  test('THE TOPIC RIDES EVERY TURN OF THE THREAD, NOT JUST THE FIRST', () async {
+    // The thread is still the thread that was opened about that workout after
+    // the owner edits the opening sentence away, so the server's grounding must
+    // not stop knowing it on turn two.
+    final adapter = _Recording();
+    final client = _clientWith(adapter);
+
+    await client.ask(const <CoachTurn>[
+      CoachTurn(role: 'user', content: 'about that run?'),
+      CoachTurn(role: 'assistant', content: 'It was steady.'),
+      CoachTurn(role: 'user', content: 'and the week after?'),
+    ], topic: 'my Running session on 31 Jul');
+
+    expect(adapter.body, contains('my Running session on 31 Jul'));
+  });
 }

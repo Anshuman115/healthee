@@ -66,7 +66,7 @@ class Recommendation {
   /// reaches back **two days** for the newest set at or before the day being
   /// served. So a Monday action was drawn on Wednesday under a heading saying
   /// "today", with nothing on screen able to say otherwise. That is the
-  /// stale-as-current lie (`docs/HOW_WE_VERIFY.md` §3) in prose instead of in a
+  /// stale-as-current lie (`docs/HOW_WE_VERIFY.md` section 3) in prose instead of in a
   /// number, and this field is what lets `actions_section.dart` name the day
   /// instead of implying one.
   ///

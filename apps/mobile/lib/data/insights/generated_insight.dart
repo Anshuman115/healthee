@@ -15,7 +15,7 @@
 /// no fourth case. So the field this parsed was never carrying an ungrounded
 /// claim, and blanking it deleted the one answer the whole honesty layer exists
 /// to be able to give, leaving an empty card where a plain "not enough
-/// evidence" belonged. Standards §3 asks every async consumer to render loading,
+/// evidence" belonged. Standards section 3 asks every async consumer to render loading,
 /// error and empty; this was none of those — it was an answer.
 ///
 /// `validated` rides along so the card can *frame* the fallback rather than

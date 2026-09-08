@@ -20,11 +20,36 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
+import 'package:healthee/data/models/entitlement.dart';
+import 'package:healthee/features/coach/coach_controller.dart';
 import 'package:healthee/features/coach/coach_conversation.dart';
 import 'package:healthee/features/coach/widgets/coach_thread.dart';
+
+/// A client that always fails the ask with one scripted taxonomy value.
+class _Failing implements CoachClient {
+  _Failing(this.failure);
+
+  final CoachUnreachable failure;
+
+  @override
+  Future<Entitlement> entitlement() async => Entitlement.fromJson(
+    const <String, Object?>{
+      'premium': true,
+      'status': 'active',
+      'locked': <String>[],
+      'included': <Object?>[],
+    },
+  );
+
+  @override
+  Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) async =>
+      throw failure;
+}
 
 Widget _thread(CoachTrouble trouble) => MaterialApp(
   theme: AppTheme.light,
@@ -74,6 +99,20 @@ void main() {
     expect(find.textContaining('could not confirm'), findsNothing);
   });
 
+  test('THE CONTROLLER CARRIES THE CLIENT’S VERDICT, UNCHANGED', () async {
+    // It used to flatten every transport failure to "not charged", which is how
+    // a receive timeout on a delivered, charged answer printed a denial.
+    final unknown = await _troubleFrom(
+      const CoachUnreachable('took too long', CoachCharge.unknown),
+    );
+    expect(unknown.charge, CoachCharge.unknown);
+
+    final flat = await _troubleFrom(
+      const CoachUnreachable('never left', CoachCharge.notCharged),
+    );
+    expect(flat.charge, CoachCharge.notCharged);
+  });
+
   testWidgets('the meter sentence is always present, whichever it is', (
     tester,
   ) async {
@@ -90,6 +129,20 @@ void main() {
       );
     }
   });
+}
+
+/// The controller is the seam between the client's verdict and the thread's
+/// sentence, and it is where the false denial was actually produced: it passed
+/// `spent: false` on EVERY `CoachUnreachable`, whatever the client had worked
+/// out. A widget test cannot see that — it is handed the entry already built.
+Future<CoachTrouble> _troubleFrom(CoachUnreachable failure) async {
+  final container = ProviderContainer(
+    overrides: [coachClientProvider.overrideWithValue(_Failing(failure))],
+  );
+  addTearDown(container.dispose);
+  await container.read(coachControllerProvider.notifier).ask('anything?');
+  final entries = container.read(coachControllerProvider).entries;
+  return entries.whereType<CoachTrouble>().single;
 }
 
 extension on CoachTrouble {
