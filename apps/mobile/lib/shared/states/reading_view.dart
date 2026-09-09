@@ -79,7 +79,8 @@ class ReadingView<T extends Object> extends StatelessWidget {
   /// Overrides how caveats render. Default: [CaveatNote] beneath the value.
   ///
   /// Ignored under [CaveatCarrier.insideCard], where the card is the carrier.
-  final Widget Function(BuildContext context, List<Disclosure> caveats)? caveatBuilder;
+  final Widget Function(BuildContext context, List<Disclosure> caveats)?
+  caveatBuilder;
 
   /// Overrides how a refusal renders. Default: [WithheldCard].
   ///
@@ -91,7 +92,8 @@ class ReadingView<T extends Object> extends StatelessWidget {
   withheldBuilder;
 
   /// Overrides how a total exclusion renders. Default: [ExcludedNote].
-  final Widget Function(BuildContext context, List<Disclosure> exclusions)? excludedBuilder;
+  final Widget Function(BuildContext context, List<Disclosure> exclusions)?
+  excludedBuilder;
 
   /// Opens the longer explanation behind a [Withheld] value, when one exists.
   ///
@@ -106,22 +108,25 @@ class ReadingView<T extends Object> extends StatelessWidget {
     // that decides what a new honesty state looks like.
     return switch (reading) {
       Present<T>(:final value) => builder(context, value),
-      Caveated<T>(:final value, :final caveats) =>
-        caveatCarrier == CaveatCarrier.insideCard
-        ? CaveatScope(
-            caveats: caveats,
-            label: label,
-            child: builder(context, value),
-          )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              builder(context, value),
-              caveatBuilder?.call(context, caveats) ??
-                  CaveatNote(caveats: caveats, label: label),
-            ],
-          ),
+      Caveated<T>(:final value, :final caveats) => switch (caveatCarrier) {
+        // The card has taken them to its ⓘ; drawing them here would be the
+        // second telling, not the first.
+        CaveatCarrier.routedByCard => builder(context, value),
+        CaveatCarrier.insideCard => CaveatScope(
+          caveats: caveats,
+          label: label,
+          child: builder(context, value),
+        ),
+        CaveatCarrier.beneath => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            builder(context, value),
+            caveatBuilder?.call(context, caveats) ??
+                CaveatNote(caveats: caveats, label: label),
+          ],
+        ),
+      },
       Withheld<T>(:final disclosure) =>
         withheldBuilder?.call(context, disclosure) ??
             WithheldCard(

@@ -25,10 +25,12 @@ import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/v02/panel.dart';
+import 'package:healthee/shared/v02/panel_head.dart';
 
 void main() {
   group('the two carriers a card can be', () {
@@ -80,9 +82,20 @@ void main() {
       expect(find.text(caveatHeadline(1)), findsOneWidget);
     });
 
-    testWidgets('A V02 PANEL DRAWS THE NOTE IT WAS HANDED', (tester) async {
+    testWidgets('A V02 PANEL HANDS THE NOTE TO ITS OWN ⓘ', (tester) async {
+      // **The claim did not weaken, it moved.** A panel used to print the
+      // sentence under its content; it now publishes the same disclosures to
+      // its head, which folds them into the ⓘ's detail. What must still be
+      // impossible is a card that shows the value and drops the qualification —
+      // so this asserts the dot EXISTS and is carrying them, on a head given no
+      // explainer of its own.
       await tester.pumpWidget(
-        carrier(const Panel(child: Text('14'))),
+        carrier(
+          const Panel(
+            head: PanelHead(title: 'Overnight HRV'),
+            child: Text('14'),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -91,22 +104,43 @@ void main() {
           of: find.byType(Panel),
           matching: find.byType(CaveatNote),
         ),
-        findsOneWidget,
-        reason: "v02's carrier",
+        findsNothing,
+        reason: 'the sentence is in the sheet, not under the number',
+      );
+      final dot = find.descendant(
+        of: find.byType(Panel),
+        matching: find.byType(MetricInfoDot),
+      );
+      expect(dot, findsOneWidget, reason: "v02's carrier is the ⓘ");
+      expect(
+        tester.widget<MetricInfoDot>(dot).detail.disclosures,
+        isNotEmpty,
+        reason: 'a dot drawn with nothing behind it is the silent drop',
       );
     });
 
     testWidgets('A NESTED CARD DOES NOT DISCLOSE THE SAME THING TWICE', (
       tester,
     ) async {
-      // Each carrier shadows the scope for its own subtree.
+      // Each carrier shadows the scope for its own subtree, so the inner panel
+      // sees an empty one and its head has nothing to carry.
       await tester.pumpWidget(
-        carrier(const Panel(child: Panel(child: Text('14')))),
+        carrier(
+          const Panel(
+            head: PanelHead(title: 'Overnight HRV'),
+            child: Panel(
+              head: PanelHead(title: 'Inner'),
+              child: Text('14'),
+            ),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(CaveatNote), findsOneWidget);
+      final carrying = tester
+          .widgetList<MetricInfoDot>(find.byType(MetricInfoDot))
+          .where((dot) => dot.detail.disclosures.isNotEmpty);
+      expect(carrying, hasLength(1));
     });
   });
-
 }
