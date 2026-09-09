@@ -21,6 +21,7 @@ import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/coach/v02/coach_intro.dart';
+import 'package:healthee/features/coach/v02/coach_prompts.dart';
 
 final DateTime _now = DateTime(2026, 8, 5, 9);
 

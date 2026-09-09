@@ -21,7 +21,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
-import 'package:healthee/shared/v02/choices.dart';
 
 /// The prototype's own heading, its line break included.
 const String kCoachHeading = 'Let’s make sense\nof your day.';
@@ -31,17 +30,16 @@ const String kCoachIntroBody =
     'Your measurements tell part of the story. Start with something you’ve been '
     'wondering about.';
 
-/// The three openers, in the prototype's order and wording.
-const List<String> kCoachPrompts = <String>[
-  'What should I notice about my sleep?',
-  'How is activity affecting my recovery?',
-  'What does my HRV mean?',
-];
-
-/// The symbol, the heading, the sentence and the three prompts.
+/// The symbol, the heading and the sentence. The openers moved to [CoachPrompts].
+///
+/// They moved because the ASK BOX now comes before them. The primary action of a
+/// screen whose whole purpose is asking a question was sitting below three
+/// suggestion boxes and off the bottom of the owner's phone; the openers are the
+/// fallback for someone who has nothing in mind, and a fallback does not belong
+/// above the thing it is a fallback for.
 class CoachIntro extends StatelessWidget {
-  /// [onAsk] of null draws the prompts as **absent**, not disabled.
-  const CoachIntro({required this.onAsk, super.key});
+  /// Built only when the thread is empty; carries no controls of its own.
+  const CoachIntro({super.key});
 
   /// `.coach-intro { padding: 20px 0 }`.
   static const double verticalPadding = 20;
@@ -65,13 +63,9 @@ class CoachIntro extends StatelessWidget {
   /// `.coach-intro p { margin-top: 12px }`.
   static const double bodyGap = 12;
 
-  /// Asks one of [kCoachPrompts]. Null builds no prompt at all.
-  final void Function(String question)? onAsk;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final ask = onAsk;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: verticalPadding),
       child: Column(
@@ -121,9 +115,6 @@ class CoachIntro extends StatelessWidget {
             kCoachIntroBody,
             style: TypeScale.coachBody.copyWith(color: colors.ink2),
           ),
-          if (ask != null)
-            for (final prompt in kCoachPrompts)
-              PromptButton(prompt: prompt, onPressed: () => ask(prompt)),
         ],
       ),
     );

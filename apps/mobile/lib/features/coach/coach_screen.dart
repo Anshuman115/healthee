@@ -70,6 +70,7 @@ import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
 import 'package:healthee/features/coach/v02/coach_composer.dart';
 import 'package:healthee/features/coach/v02/coach_intro.dart';
+import 'package:healthee/features/coach/v02/coach_prompts.dart';
 import 'package:healthee/features/coach/v02/coach_waiting.dart';
 import 'package:healthee/features/coach/widgets/coach_meter.dart';
 import 'package:healthee/features/coach/widgets/coach_thread.dart';
@@ -177,14 +178,11 @@ class CoachBody extends ConsumerWidget {
           child: CoachMeter(entitlement: entitlement, now: now),
         ),
         for (final entry in conversation.entries) CoachEntryView(entry: entry),
-        // Kept on two lines exactly as it was: `test/mutations.sh` anchors a
-        // guard on this call's `canAsk: canAsk, ask: ask),` text, and a reflow
-        // silently un-anchors it — the stale patch then runs the UNMUTATED
-        // suite and reports a pass (HOW_WE_VERIFY section 2).
-        // dart format off
-        _tail(started: !conversation.isEmpty, asking: conversation.asking,
-            canAsk: canAsk, ask: ask),
-        // dart format on
+        _tail(
+          started: !conversation.isEmpty,
+          asking: conversation.asking,
+          canAsk: canAsk,
+        ),
         if (canAsk) ...<Widget>[
           CoachComposer(
             asking: conversation.asking,
@@ -195,6 +193,24 @@ class CoachBody extends ConsumerWidget {
             initialQuestion: conversation.isEmpty ? topic : null,
             onAsk: ask,
           ),
+        ],
+        // The openers come AFTER the ask box, and only into an empty thread.
+        // They are the fallback for an owner with nothing in mind, and a
+        // fallback above the thing it stands in for is what pushed this
+        // screen's actual purpose off the bottom of the phone.
+        //
+        // Kept on two lines exactly as it is: `test/mutations.sh` anchors a
+        // guard on this call's `canAsk ? ask : null),` text, and a reflow
+        // silently un-anchors it — the stale patch then runs the UNMUTATED
+        // suite and reports a pass (HOW_WE_VERIFY section 2).
+        if (conversation.isEmpty && !conversation.asking) ...<Widget>[
+          const SizedBox(height: Insets.xl),
+          // dart format off
+          CoachPrompts(onAsk:
+              canAsk ? ask : null),
+          // dart format on
+        ],
+        if (canAsk) ...<Widget>[
           const SizedBox(height: Insets.lg),
           Text(
             kCoachFormNote,
@@ -223,7 +239,6 @@ class CoachBody extends ConsumerWidget {
     required bool started,
     required bool asking,
     required bool canAsk,
-    required void Function(String question) ask,
   }) {
     if (asking) {
       // Not `LoadingState`: this wait was measured at 80-304 s, and a 16 px
@@ -243,10 +258,10 @@ class CoachBody extends ConsumerWidget {
     // No permitting balance, no prompts — the same rule as the input, and the
     // card that replaces them carries the reason rather than leaving a dead box.
     return canAsk
-        ? CoachIntro(onAsk: ask)
+        ? const CoachIntro()
         : const Column(
             children: <Widget>[
-              CoachIntro(onAsk: null),
+              CoachIntro(),
               EmptyState(
                 message: 'No questions can be asked right now',
                 hint:
