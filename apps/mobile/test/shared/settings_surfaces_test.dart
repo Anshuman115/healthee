@@ -116,7 +116,7 @@ void main() {
   });
 
   group('.list-row', () {
-    testWidgets('is at least 72px tall and inset 20 / 16', (tester) async {
+    testWidgets('is at least 60px tall and inset 16 / 11', (tester) async {
       await pumpV02(
         tester,
         ListRow(
@@ -130,10 +130,14 @@ void main() {
       expect(row.height, greaterThanOrEqualTo(ListRow.minHeight));
 
       final tile = tester.getRect(find.byIcon(SolarIconsOutline.refresh));
-      expect(tile.center.dx - row.left, closeTo(20 + 40 / 2, 0.5));
+      // 16 of padding, then a 34 tile — the compact row. The CSS's 20/40 sized
+      // a row whose subtitle wrapped to two lines; these rows carry a value
+      // opposite the title instead, and nine of them at 72 ran a section past
+      // the fold.
+      expect(tile.center.dx - row.left, closeTo(16 + 34 / 2, 0.5));
     });
 
-    testWidgets('THE TITLE TAKES THE ROW, and the subtitle wraps', (
+    testWidgets('THE TITLE TAKES THE ROW, and the subtitle stays on one line', (
       tester,
     ) async {
       // `Flexible` beside another flexible child splits the free space and
@@ -153,12 +157,15 @@ void main() {
 
       final row = tester.getRect(find.byType(ListRow));
       final subtitle = tester.getRect(find.textContaining('Every baseline'));
-      // 20 padding + 40 tile + 12 gap on the left; 12 gap + 16 chevron + 20 on
+      // 16 padding + 34 tile + 12 gap on the left; 12 gap + 16 chevron + 16 on
       // the right. The subtitle fills exactly what is left.
-      expect(subtitle.left - row.left, closeTo(20 + 40 + 12, 0.5));
-      expect(row.right - subtitle.right, closeTo(20 + 16 + 12, 0.5));
-      // It wrapped rather than truncating — `white-space: normal`.
-      expect(subtitle.height, greaterThan(20));
+      expect(subtitle.left - row.left, closeTo(16 + 34 + 12, 0.5));
+      expect(row.right - subtitle.right, closeTo(16 + 16 + 12, 0.5));
+      // **One line, and that is the change.** The CSS sets `white-space:
+      // normal` and the subtitle used to wrap; a sentence running to three
+      // lines made a row as tall as a card, which is what the compaction pass
+      // was about. A row is one row, and the sentence ellipses.
+      expect(subtitle.height, lessThan(24));
     });
 
     testWidgets('a row that leads nowhere draws NO chevron', (tester) async {
@@ -169,12 +176,14 @@ void main() {
       expect(find.byIcon(SolarIconsOutline.altArrowRight), findsNothing);
     });
 
-    testWidgets('the tile takes the FAMILY, and is never handed one', (
-      tester,
-    ) async {
+    testWidgets('a row that DECLARES a tone takes that family', (tester) async {
       await pumpV02(
         tester,
-        const ListRow(icon: SolarIconsOutline.moonSleep, title: 'Sleep'),
+        const ListRow(
+          icon: SolarIconsOutline.moonSleep,
+          title: 'Sleep',
+          tone: Tone.sleep,
+        ),
         tone: Tone.sleep,
       );
 
@@ -191,6 +200,37 @@ void main() {
       expect(
         tester.widget<Icon>(find.byIcon(SolarIconsOutline.moonSleep)).color,
         kHues.sleep,
+      );
+    });
+
+    testWidgets('A ROW THAT DECLARES NONE IS CHROME, IN THE OWNER’S ACCENT', (
+      tester,
+    ) async {
+      // **The reason `IconTile.chrome` exists.** A settings row is not a
+      // reading. With no tone of its own it resolved the enclosing scope — and
+      // outside one, `Tone.fitness`, the `:root` default — so every row on
+      // every settings screen wore the colour of recovery and VO₂max. A phone
+      // set to Amber showed an amber tab bar and twelve green settings rows.
+      await pumpV02(
+        tester,
+        const ListRow(icon: SolarIconsOutline.moonSleep, title: 'Sleep'),
+        tone: Tone.sleep,
+      );
+
+      final tile = boxOf(
+        tester,
+        find
+            .ancestor(
+              of: find.byIcon(SolarIconsOutline.moonSleep),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(groundOf(tile), isNot(kHues.sleepSoft));
+      expect(
+        tester.widget<Icon>(find.byIcon(SolarIconsOutline.moonSleep)).color,
+        isNot(kHues.sleep),
+        reason: 'chrome follows the accent, never the surrounding family',
       );
     });
   });

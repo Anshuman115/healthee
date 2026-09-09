@@ -66,7 +66,7 @@ class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
 
   /// The prototype's own h1.
-  static const String title = 'A quieter view.';
+  static const String title = 'Appearance';
 
   /// Its eyebrow.
   static const String eyebrow = 'Appearance';
@@ -127,6 +127,7 @@ class AppearanceScreen extends ConsumerWidget {
               HField(
                 label: 'Accent',
                 child: HSelect<int>(
+                  title: 'Accent',
                   value: variant.accent,
                   onChanged: (value) => _setVariant(
                     ref,
@@ -153,6 +154,7 @@ class AppearanceScreen extends ConsumerWidget {
                     'System follows your phone. Your choices are saved on '
                         'this phone.',
                 child: HSelect<BackgroundVariant>(
+                  title: 'Dark background',
                   value: variant.background,
                   onChanged: (value) => _setVariant(
                     ref,

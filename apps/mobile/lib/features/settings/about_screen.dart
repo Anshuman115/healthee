@@ -46,7 +46,7 @@ class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key});
 
   /// The prototype's own h1.
-  static const String title = 'Health, understood.';
+  static const String title = 'About Healthee';
 
   /// Its eyebrow.
   static const String eyebrow = 'About Healthee';

@@ -91,7 +91,10 @@ void main() {
     // unregistered path renders nothing and looks like a dead tap.
     tallViewport(tester);
     for (final (title, destination) in <(String, Type)>[
-      ('Your profile & measurements', ProfileScreen),
+      // The profile is the card at the top of the index now, not a row in a
+      // list — it says who you are rather than that a profile exists. Its
+      // heading is the owner's name, or these words when there is none.
+      ('Your profile', ProfileScreen),
       ('Amazfit Helio Strap', DeviceScreen),
       ('Data & sync', DataFreshnessScreen),
       ('Instruments', DiagnosticsScreen),
@@ -140,8 +143,15 @@ void main() {
     tallViewport(tester);
     await _openSettings(tester);
 
-    expect(find.textContaining('every stream this phone read'), findsOneWidget);
-    expect(find.textContaining('how it was measured'), findsOneWidget);
+    // The row is titled `Instruments` and its subtitle is what it opens. The
+    // subtitle is the assertion: a row whose only documentation is the screen
+    // behind it documents nothing.
+    expect(find.text('Instruments'), findsOneWidget);
+    expect(
+      find.textContaining('stream this phone read'),
+      findsOneWidget,
+      reason: 'the row must name what is behind it, not just where it goes',
+    );
   });
 
   test('every tab names a route, and every route is wired', () {

@@ -75,6 +75,7 @@ class ActivityLevelField extends StatelessWidget {
           ],
         ),
         child: HSelect<int>(
+          title: 'Usual activity',
           value: value,
           placeholder: 'Not answered',
           onChanged: enabled ? onChanged : null,

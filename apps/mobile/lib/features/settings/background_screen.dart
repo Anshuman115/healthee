@@ -51,7 +51,7 @@ class BackgroundScreen extends ConsumerWidget {
   const BackgroundScreen({super.key});
 
   /// The prototype's own h1.
-  static const String title = 'Connected, quietly.';
+  static const String title = 'Background sync';
 
   /// Its eyebrow.
   static const String eyebrow = 'Background sync';
@@ -182,6 +182,7 @@ class _EditorState extends State<_Editor> {
               HField(
                 label: 'Collection interval',
                 child: HSelect<int>(
+                  title: 'Collection interval',
                   value: _pull,
                   onChanged: (value) =>
                       setState(() => _pull = value ?? _pull),
@@ -194,6 +195,7 @@ class _EditorState extends State<_Editor> {
               HField(
                 label: 'Upload interval',
                 child: HSelect<int>(
+                  title: 'Upload interval',
                   value: _push,
                   onChanged: (value) =>
                       setState(() => _push = value ?? _push),
@@ -211,15 +213,18 @@ class _EditorState extends State<_Editor> {
         ServerActionButton(
           label: 'Save background settings',
           style: ActionButtonStyle.v02,
-          action: () => widget.save(
-            BackgroundPreferences(
-              enabled: _enabled,
-              pullMinutes: _pull,
-              pushMinutes: _push,
-              wifiOnly: _wifi,
-              chargingOnly: _charging,
-            ),
-          ),
+          action: () async {
+            await widget.save(
+              BackgroundPreferences(
+                enabled: _enabled,
+                pullMinutes: _pull,
+                pushMinutes: _push,
+                wifiOnly: _wifi,
+                chargingOnly: _charging,
+              ),
+            );
+            return null;
+          },
           onSaved: () {},
         ),
       ],
