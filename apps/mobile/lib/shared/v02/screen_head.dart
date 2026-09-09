@@ -95,6 +95,7 @@ class DetailHead extends StatelessWidget {
     required this.title,
     this.eyebrow,
     this.onBack,
+    this.actions = const <Widget>[],
     super.key,
   });
 
@@ -117,6 +118,21 @@ class DetailHead extends StatelessWidget {
   /// Goes back.
   final VoidCallback? onBack;
 
+  /// Controls on the SCREEN itself, at the trailing edge — a new conversation,
+  /// its history. Empty by default, so every screen that has none renders
+  /// exactly as it did.
+  ///
+  /// They belong to the shared head rather than to each screen's own row,
+  /// because that is what went wrong: `CoachPage` hand-rolled a raw `IconButton`
+  /// beside a `Column` and got a 48 pt Material target with its own padding next
+  /// to this 44 pt outdented one, so the coach's head sat a few pixels off from
+  /// every other screen in the app. Use [HeaderAction], which is built to the
+  /// back control's geometry.
+  final List<Widget> actions;
+
+  /// `.icon { width: 22px }`.
+  static const double iconSize = 22;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -134,9 +150,14 @@ class DetailHead extends StatelessWidget {
               child: SizedBox(
                 width: backSize,
                 height: backSize,
-                child: IconButton(
+                // A bare hit area and a glyph, NOT an `IconButton`: Material
+                // gives that one its own 48 pt constraints and internal padding
+                // inside this 44 pt box, so the arrow rendered a few pixels off
+                // its own square and off the title's baseline. That misalignment
+                // is what "the header looks weird" was.
+                child: _Glyph(
+                  icon: Icons.arrow_back,
                   onPressed: back,
-                  icon: const Icon(Icons.arrow_back),
                   color: colors.ink,
                   tooltip: 'Go back',
                 ),
@@ -161,8 +182,83 @@ class DetailHead extends StatelessWidget {
               ],
             ),
           ),
+          ...actions,
         ],
       ),
+    );
+  }
+}
+
+/// A 44 pt hit area around a 22 pt glyph — the head's one control geometry.
+///
+/// Both the back arrow and every [HeaderAction] are built from this, so a head
+/// with actions is the same height as one without and its two edges balance.
+class _Glyph extends StatelessWidget {
+  const _Glyph({
+    required this.icon,
+    required this.onPressed,
+    required this.color,
+    required this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final Color color;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: tooltip,
+    child: Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onPressed,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: DetailHead.backSize,
+          height: DetailHead.backSize,
+          child: Icon(icon, size: DetailHead.iconSize, color: color),
+        ),
+      ),
+    ),
+  );
+}
+
+/// A control on the screen itself, at the trailing edge of a [DetailHead].
+///
+/// Built to the back control's geometry so the head stays symmetrical. Null
+/// [onPressed] renders NOTHING rather than a greyed control: a screen offering an
+/// action it cannot perform is worse than one that does not offer it.
+class HeaderAction extends StatelessWidget {
+  /// [tooltip] is the accessible name as well as the tooltip.
+  const HeaderAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    super.key,
+  });
+
+  /// The glyph.
+  final IconData icon;
+
+  /// What it does, in words.
+  final String tooltip;
+
+  /// Does it. Null draws nothing.
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final press = onPressed;
+    if (press == null) {
+      return const SizedBox.shrink();
+    }
+    return _Glyph(
+      icon: icon,
+      onPressed: press,
+      color: context.colors.ink2,
+      tooltip: tooltip,
     );
   }
 }

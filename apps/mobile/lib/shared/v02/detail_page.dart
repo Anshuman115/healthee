@@ -39,6 +39,7 @@ class DetailPage extends StatelessWidget {
   const DetailPage({
     required this.title,
     required this.children,
+    this.actions = const <Widget>[],
     this.eyebrow,
     super.key,
   });
@@ -51,6 +52,10 @@ class DetailPage extends StatelessWidget {
 
   /// The body.
   final List<Widget> children;
+
+  /// Controls on the screen itself, at the head's trailing edge. Empty by
+  /// default, so every existing screen renders exactly as it did.
+  final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +93,7 @@ class DetailPage extends StatelessWidget {
                 title: title,
                 eyebrow: eyebrow,
                 onBack: canLeave ? () => leaveDetail(context) : null,
+                actions: actions,
               ),
               ...children,
             ],

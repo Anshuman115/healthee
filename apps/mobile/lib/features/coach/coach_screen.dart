@@ -82,6 +82,7 @@ import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/screen_head.dart';
 
 // The cost-carrying label lives with the control that prints it. Re-exported so
 // the screen stays the one import a caller — or a test pinning the wording —
@@ -143,10 +144,10 @@ class CoachScreen extends ConsumerWidget {
         // Only once there is a conversation to leave. An empty thread offering
         // to be replaced is a control that does nothing.
         if (!conversation.isEmpty && !conversation.asking)
-          IconButton(
-            onPressed: ref.read(coachControllerProvider.notifier).newThread,
-            icon: const Icon(Icons.edit_outlined),
+          HeaderAction(
+            icon: Icons.edit_outlined,
             tooltip: 'Start a new conversation',
+            onPressed: ref.read(coachControllerProvider.notifier).newThread,
           ),
       ],
       // THE RULE SURVIVES THE SPLIT. `CoachComposer` still takes a non-null

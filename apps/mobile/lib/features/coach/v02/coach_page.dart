@@ -30,9 +30,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/theme/dimensions.dart';
-import 'package:healthee/core/theme/tokens.dart';
-import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
+import 'package:healthee/shared/v02/screen_head.dart';
 
 /// A scrolling conversation over a pinned composer.
 class CoachPage extends StatelessWidget {
@@ -72,7 +71,6 @@ class CoachPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final bool stacked = Navigator.of(context).canPop();
     final bool canLeave = stacked || GoRouter.maybeOf(context) != null;
     return PopScope<Object?>(
@@ -94,38 +92,17 @@ class CoachPage extends StatelessWidget {
                   Insets.lg,
                   0,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: <Widget>[
-                    if (canLeave)
-                      IconButton(
-                        onPressed: () => leaveDetail(context),
-                        icon: const Icon(Icons.arrow_back),
-                        color: colors.ink,
-                        tooltip: 'Back',
-                      ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Text(
-                            eyebrow,
-                            style: TypeScale.pageDate.copyWith(
-                              color: colors.ink2,
-                            ),
-                          ),
-                          Text(
-                            title,
-                            style: TypeScale.pageTitle.copyWith(
-                              color: colors.ink,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ...actions,
-                  ],
+                // The SHARED head, not a hand-rolled row. The first version of
+                // this page built a raw `IconButton` beside a `Column`, which put
+                // a 48 pt Material target with its own padding next to the 44 pt
+                // outdented control every other screen uses — so the coach's head
+                // sat a few pixels off from the whole rest of the app, which is
+                // exactly how it read.
+                child: DetailHead(
+                  title: title,
+                  eyebrow: eyebrow,
+                  onBack: canLeave ? () => leaveDetail(context) : null,
+                  actions: actions,
                 ),
               ),
               Expanded(
