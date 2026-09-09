@@ -20,7 +20,6 @@ import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
-import 'package:healthee/features/coach/v02/coach_intro.dart';
 import 'package:healthee/features/coach/v02/coach_prompts.dart';
 
 final DateTime _now = DateTime(2026, 8, 5, 9);
@@ -96,19 +95,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(CoachIntro), findsOneWidget);
       for (final prompt in kCoachPrompts) {
         expect(find.text(prompt), findsOneWidget, reason: prompt);
       }
-      // `.coach-symbol { width:56px; height:56px }` and its 28 px glyph —
-      // painted, not merely present.
-      final symbol = tester.getRect(find.byKey(CoachIntro.symbolKey));
-      expect(symbol.width, CoachIntro.symbolSize);
-      expect(symbol.height, CoachIntro.symbolSize);
-      expect(
-        tester.getRect(find.byIcon(Icons.forum_outlined)).width,
-        CoachIntro.symbolIcon,
-      );
+      // The opening block is GONE, and its absence is the assertion. It was a
+      // 56 pt symbol, a two-line 26 pt headline and a paragraph — about a third
+      // of the screen — restating the route header underneath it. A screen whose
+      // purpose is asking a question should reach the input without scrolling.
+      expect(find.text('Let’s make sense\nof your day.'), findsNothing);
+      expect(find.byIcon(Icons.forum_outlined), findsNothing);
     });
 
     testWidgets('a SPENT window offers no prompt either — a prompt costs one', (

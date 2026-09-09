@@ -69,7 +69,6 @@ import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
 import 'package:healthee/features/coach/v02/coach_composer.dart';
-import 'package:healthee/features/coach/v02/coach_intro.dart';
 import 'package:healthee/features/coach/v02/coach_prompts.dart';
 import 'package:healthee/features/coach/v02/coach_waiting.dart';
 import 'package:healthee/features/coach/widgets/coach_meter.dart';
@@ -257,18 +256,28 @@ class CoachBody extends ConsumerWidget {
     }
     // No permitting balance, no prompts — the same rule as the input, and the
     // card that replaces them carries the reason rather than leaving a dead box.
+    // Nothing stands where the opening block used to.
+    //
+    // `.coach-intro` — a 56 pt symbol, "Let's make sense of your day." over two
+    // lines at 26 pt, and a two-line paragraph — occupied roughly the first
+    // THIRD of the owner's 2400 px screen and said nothing that screen did not
+    // already say. The route header above it reads "A conversation with context /
+    // Your coach."; the block under it repeated that in larger type and then
+    // explained the product to someone already inside it.
+    //
+    // The legacy coach (`healthee-legacy/design_reference/.../v2-coach.png`) has
+    // no such block: eyebrow, title, then CONTENT. It opens with something the
+    // coach has actually said. We cannot open with that yet — the warm line the
+    // nightly chain writes to `kv` is not served on any GET — and a headline is
+    // not a substitute for it. An empty screen that gets out of the way is more
+    // honest than filler that pretends to be content.
     return canAsk
-        ? const CoachIntro()
-        : const Column(
-            children: <Widget>[
-              CoachIntro(),
-              EmptyState(
-                message: 'No questions can be asked right now',
-                hint:
-                    'The line above is your server’s own answer about this '
-                    'account, read just now. Nothing here has been spent.',
-              ),
-            ],
+        ? const SizedBox.shrink()
+        : const EmptyState(
+            message: 'No questions can be asked right now',
+            hint:
+                'The line above is your server’s own answer about this '
+                'account, read just now. Nothing here has been spent.',
           );
   }
 }
