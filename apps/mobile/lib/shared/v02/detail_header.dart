@@ -101,23 +101,11 @@ class DetailHeader extends StatelessWidget {
                     ),
                   ),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        eyebrow,
-                        style: FormType.small.copyWith(
-                          color: colors.ink2,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: eyebrowGap),
-                      Text(
-                        title,
-                        style: FormType.detailTitle.copyWith(color: colors.ink),
-                      ),
-                    ],
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: FormType.detailTitle.copyWith(color: colors.ink),
                   ),
                 ),
               ],

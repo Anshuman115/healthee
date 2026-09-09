@@ -37,6 +37,8 @@ class Panel extends StatelessWidget {
     this.label,
     this.caveats = const <Disclosure>[],
     this.onOpen,
+    this.headSpacing,
+    this.padded,
     super.key,
   });
 
@@ -53,6 +55,25 @@ class Panel extends StatelessWidget {
   /// is why a panel that carries its own controls should NOT be given an
   /// `onOpen` rather than being given one and hoping.
   final VoidCallback? onOpen;
+
+  /// Overrides the space between the head and [child]. Null takes [headGap].
+  ///
+  /// **For a panel whose body folds away.** The gap is emitted here, outside
+  /// the child, so a body that collapses to nothing still leaves 12px of it
+  /// sitting above the card's own 18px of bottom padding — 30px of empty card
+  /// under the title, which is what a shut fold looked like. A folding panel
+  /// passes `0` and puts the gap inside its own fold, where it collapses with
+  /// the body instead of surviving it.
+  final double? headSpacing;
+
+  /// Overrides the card's own inset. Null takes [padding].
+  ///
+  /// **For a panel whose body folds away.** 18 all round is sized for a card
+  /// with a reading in it; a shut fold has only its head, and 36px of vertical
+  /// inset around one 28px row is most of the card. A folding panel tightens
+  /// the vertical inset while it is shut and takes the full one back when it
+  /// opens.
+  final EdgeInsets? padded;
 
   /// `padding: 18px`. `Container` adds the 1px border on top of this, which is
   /// what `box-sizing: border-box` does in the prototype.
@@ -105,7 +126,8 @@ class Panel extends StatelessWidget {
     // come from one field. See [PanelOpens].
     final Widget panel = Container(
       clipBehavior: Clip.antiAlias,
-      padding: EdgeInsets.all(compact ? compactPadding : padding),
+      padding:
+          padded ?? EdgeInsets.all(compact ? compactPadding : padding),
       decoration: ShapeDecoration(
         color: colors.surface,
         shape: hSquircle(
@@ -124,7 +146,9 @@ class Panel extends StatelessWidget {
               caveatsLabel: named,
               child: head!,
             ),
-            SizedBox(height: compact ? compactHeadGap : headGap),
+            SizedBox(
+              height: headSpacing ?? (compact ? compactHeadGap : headGap),
+            ),
           ],
           child,
           // **No `CaveatNote` here any more.** It printed a second block of

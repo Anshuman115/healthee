@@ -149,6 +149,16 @@ class MetricInfoDot extends StatelessWidget {
   /// Legacy's `Icon(..., size: 16)`.
   static const double _size = 16;
 
+  /// Whether a dot for [infoKey] and [detail] would draw anything at all.
+  ///
+  /// The same test [build] applies, exposed so a caller can decline to put the
+  /// widget in the tree rather than put an invisible one there. It matters
+  /// because "the first ⓘ on this surface" is how the grounding tests read a
+  /// card's provenance back: a shrunk dot with nothing behind it is still the
+  /// first one found, and it answers for a claim it is not carrying.
+  static bool draws(String? infoKey, MetricDetail detail) =>
+      (infoKey != null && kMetricInfo[infoKey] != null) || detail.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;

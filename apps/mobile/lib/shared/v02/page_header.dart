@@ -36,17 +36,22 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/shared/format/date_labels.dart';
-import 'package:healthee/shared/instrument/h_icon_badge.dart';
-import 'package:healthee/shared/instrument/h_tap.dart';
 
-/// The date, the screen's name, and the way out to settings.
+/// The date and the screen's name.
+///
+/// ## ⛔ No avatar here
+///
+/// It carried an `H` avatar opening settings, on Sleep, Activity and Insights.
+/// **Today already has one**, in its own one-row head, and settings is reachable
+/// from there and from the tab bar's own destination — so on three screens it
+/// was a fourth door to a room the reader was already standing next to, taking
+/// the top-right corner of every one of them. The single door is Today's.
 class V02PageHeader extends StatelessWidget {
   /// [date] is the payload's own `YYYY-MM-DD`; null prints no date line.
   const V02PageHeader({
     required this.title,
     this.date,
     this.status,
-    this.onOpenProfile,
     super.key,
   });
 
@@ -70,9 +75,6 @@ class V02PageHeader extends StatelessWidget {
   /// that promised the newest readings on a day that cannot have them is the
   /// whole failure `shared/v02/view_day.dart` is about.
   final String? status;
-
-  /// Opens the owner's own screen. Null draws the avatar without a tap.
-  final VoidCallback? onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -104,11 +106,6 @@ class V02PageHeader extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          HTap(
-            onTap: onOpenProfile,
-            semanticLabel: 'Settings',
-            child: const HAvatar('H'),
           ),
         ],
       ),

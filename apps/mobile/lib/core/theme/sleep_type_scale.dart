@@ -95,6 +95,14 @@ abstract final class SleepType {
   /// `.data-table th` and `td`.
   static final TextStyle tableCell = _style(11, FontWeight.w400, height: 1.5);
 
+  /// The stage duration on a share row — the number the reader came for, so it
+  /// is the largest thing on its line rather than one cell of a table.
+  static final TextStyle shareDuration = _style(
+    17,
+    FontWeight.w700,
+    height: 1.2,
+  );
+
   /// `.vital-row .vital-label`.
   static final TextStyle vitalLabel = _style(11, FontWeight.w400, height: 1.4);
 

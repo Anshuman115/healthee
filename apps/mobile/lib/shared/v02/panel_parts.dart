@@ -362,3 +362,35 @@ class ProgressTrack extends StatelessWidget {
     );
   }
 }
+
+/// The window a group of figures belongs to — `Last night`, `The measured week`.
+///
+/// **A panel that stacks two windows must name them.** `need_panel.dart`
+/// carried a seven-night debt, two last-night statistics and a seven-night
+/// chart in one column with nothing between them, and on the owner's own data
+/// the last-night gap landed eight minutes from the weekly mean nobody had
+/// computed — so the wrong reading was indistinguishable from the right one.
+/// The label costs one line and removes the ambiguity entirely.
+///
+/// Set in the family, not the accent: it describes a group of readings, and on
+/// a toned panel the family is what every other mark in that group already is.
+class WindowLabel extends StatelessWidget {
+  /// Names the window.
+  const WindowLabel(this.text, {super.key});
+
+  /// Uppercase, tracked — structure, not prose.
+  static const double tracking = 1.1;
+
+  /// The window's name.
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text.toUpperCase(),
+    style: TypeScale.tinyLabel.copyWith(
+      color: context.family,
+      letterSpacing: tracking,
+      fontWeight: FontWeight.w700,
+    ),
+  );
+}

@@ -49,6 +49,20 @@ List<Rect> rectsOf(List<RecordedInvocation> invocations) => <Rect>[
       (call.invocation.positionalArguments[0] as RRect).outerRect,
 ];
 
+/// Only the ROUNDED rects — the marks themselves, without the square frame,
+/// gridlines and connectors drawn around them.
+///
+/// [rectsOf] returns every rectangle a painter drew, which is the right probe
+/// for "nothing escapes the plot" and the wrong one for "one mark per datum":
+/// a chart that frames itself and joins its bands draws more rectangles than it
+/// has data. The marks in this app's charts are rounded and the furniture is
+/// not, so the shape is the distinction, and it is the painter's own.
+List<Rect> rrectsOf(List<RecordedInvocation> invocations) => <Rect>[
+  for (final call in invocations)
+    if (call.invocation.memberName == #drawRRect)
+      (call.invocation.positionalArguments[0] as RRect).outerRect,
+];
+
 /// Every text glyph a painter put on the canvas, as the rect it occupies.
 ///
 /// `drawParagraph` records the laid-out paragraph and the offset it was painted
