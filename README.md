@@ -264,6 +264,30 @@ So the coach is DeepSeek: **19× cheaper than `gemini-3.6-flash`, equally honest
 absence, one discordant pair in 72 (p = 1.000)**. It has no production history, which is
 the one thing standing against it and the reason the absence test now exists.
 
+### Re-tested 2026-09-09 against three challengers — DeepSeek held
+
+`glm-5.3-flash`, `muse-spark-1.3-contributor` and `gemini-3.8-flash`, on the same 10
+absence/data/knowledge questions × 2 repeats (n=20 per arm):
+
+| model | pass | warnings | cites | median latency | $/question |
+|---|---|---|---|---|---|
+| **deepseek-v4-flash-0731** | **20/20** | 0 | 2.65 | **27.6 s** | **$0.0063** |
+| gemini-3.8-flash | 20/20 | 0 | 2.05 | 36.9 s | $0.0938 |
+| glm-5.3-flash | 20/20 | **3** | 2.95 | **117 s** | $0.0089 |
+| muse-spark-1.3-contributor | 19/20 | 1 | 1.80 | 25.6 s | $0.0079 |
+
+**All four scored 8/8 on absence.** None invented data it did not have, so the eval
+cannot rank them on grounding — it can only catch a bad one, which is the same ceiling
+the original bake-off hit. Nothing justified a switch, and DeepSeek was additionally the
+fastest and the cheapest. glm truncated at `max_tokens` three times and took 4× as long.
+
+⚠ **Two things this run found about the harness itself**, both of which cost time here:
+its `SPEND` line reported **$10.46 for a run that actually cost $1.64** (its token counts
+are real, its rate table is not — budget from the `/api/v1/credits` delta), and
+`output_guard.py` truncates a blocked sentence to 120 characters, so muse's single
+failure — the hydration D5 rule blocking a VO2max answer — cannot be re-read to tell
+whether the guard was right.
+
 ⚠ **One gap both models share, so it is ours and not theirs.** Asked *"how has my stress
 been trending?"* against **zero `stress_daily_avg` rows**, both silently substituted HRV
 and RHR. Neither invented a number — HRV 45 ms and RHR 55 bpm are real — but neither said
