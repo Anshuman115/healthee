@@ -1601,10 +1601,13 @@ JOURNAL_TEST=test/journal/journal_screen_test.dart
 
 # A snake_case token on a health screen is a log line where a source belongs.
 mutate 'a raw signal id reaches the suggestion card' "$ACTIONS_TEST" "$SUGGESTION" \
-  "  return hasMetricName(signal)
-      ? 'Raised by your \${metricName(signal)}'
-      : 'Raised by a reading this build cannot name yet';" \
-  "  return 'Raised by \$signal';"
+  "  if (!hasMetricName(id)) {
+    return 'Raised by a reading with no name in this app';
+  }" \
+  "  if (false) {
+    return 'Raised by a reading with no name in this app';
+  }
+  return 'Raised by \$signal';"
 
 # Adoption records an INTENTION. Nothing in this app observes the doing.
 mutate 'the checkbox starts claiming the action was done' "$ACTIONS_TEST" "$SUGGESTION" \
