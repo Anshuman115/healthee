@@ -70,6 +70,7 @@ import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
 import 'package:healthee/features/coach/v02/coach_composer.dart';
 import 'package:healthee/features/coach/v02/coach_intro.dart';
+import 'package:healthee/features/coach/v02/coach_waiting.dart';
 import 'package:healthee/features/coach/widgets/coach_meter.dart';
 import 'package:healthee/features/coach/widgets/coach_thread.dart';
 import 'package:healthee/shared/states/async_view.dart';
@@ -225,9 +226,12 @@ class CoachBody extends ConsumerWidget {
     required void Function(String question) ask,
   }) {
     if (asking) {
+      // Not `LoadingState`: this wait was measured at 80-304 s, and a 16 px
+      // spinner held for four minutes reads as a hang. `CoachWaiting` counts the
+      // time it can actually see and says what it cannot. See that file.
       return const Padding(
         padding: EdgeInsets.only(top: Insets.md),
-        child: LoadingState(label: 'Asking your coach'),
+        child: CoachWaiting(),
       );
     }
     // The opening is what an EMPTY thread stands on. Once anything has been
