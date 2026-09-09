@@ -35,6 +35,7 @@ import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/coach/coach_topics.dart';
+import 'package:healthee/features/coach/v02/coach_openers.dart';
 
 import '_coach_overrides.dart';
 
@@ -211,6 +212,27 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(client.topics, <String?>[_topic, _topic]);
+    });
+
+    testWidgets('AND AN OPENING PROMPT CARRIES IT TOO', (tester) async {
+      // **The screen has two ways to ask**, and only one of them was covered.
+      // The composer's send button routes through `CoachComposer.onAsk`; a
+      // prompt chip routes through the screen's own `ask` helper. A thread
+      // opened about a workout and started from a chip is the same thread, so
+      // it must reach the server carrying the same subject — the mutation that
+      // drops `topic:` from that second call site survived this suite.
+      final client = _RecordingCoach();
+      await tester.pumpWidget(_screen(client, topic: _topic));
+      await tester.pumpAndSettle();
+
+      final chip = find.text(kGenericOpeners.last);
+      await tester.ensureVisible(chip);
+      await tester.pumpAndSettle();
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+
+      expect(client.asked.single.single.content, kGenericOpeners.last);
+      expect(client.topics, <String?>[_topic]);
     });
 
     testWidgets('WITHOUT A TOPIC THE INPUT IS EMPTY', (tester) async {
