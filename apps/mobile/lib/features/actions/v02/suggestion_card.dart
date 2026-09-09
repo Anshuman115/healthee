@@ -70,10 +70,11 @@ const String kAdoptLabel = 'I’ll try this';
 /// The same, once the intention is recorded.
 const String kAdoptedLabel = 'Added to your intentions';
 
-/// The line under the box, unticked.
-const String kAdoptNote = 'One manageable change to start with.';
-
 /// The line under the box, ticked. **Not** "completed".
+///
+/// There is no unticked counterpart. It used to be `One manageable change to
+/// start with.` under EVERY suggestion the app had ever drawn — the same
+/// sentence, on a line of its own, saying nothing about the card above it.
 const String kAdoptedNote = 'An intention, not a completed action.';
 
 /// `Raised by your recovery score (32)` — the reading behind a suggestion.
@@ -231,8 +232,7 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
               pressed: adopted,
               title: adopted ? kAdoptedLabel : kAdoptLabel,
               // Only once it IS adopted, where the line says something this
-              // card does not already: `kAdoptNote` was the same sentence
-              // under every suggestion the app has drawn.
+              // card does not already — see `kAdoptedNote`.
               note: adopted ? kAdoptedNote : null,
               onPressed: _busy ? null : () => unawaited(_toggle(id, adopted)),
             ),

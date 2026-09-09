@@ -30,17 +30,13 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
-import 'package:healthee/core/theme/sleep_type_scale.dart';
 import 'package:healthee/core/theme/stage_colors.dart';
-import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/models/sleep_night.dart';
-import 'package:healthee/features/sleep/sleep_format.dart';
+import 'package:healthee/features/sleep/v02/stage_shares.dart';
 import 'package:healthee/shared/charts/v02/chart_void.dart';
 import 'package:healthee/shared/charts/v02/v02_hypnogram.dart';
-import 'package:healthee/shared/charts/v02/v02_stage_strip.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/colour_key.dart';
@@ -78,7 +74,11 @@ class NightTimelinePanel extends StatelessWidget {
   static const String title = 'How your night unfolded';
 
   /// The plot's height, before the legend.
-  static const double chartHeight = 165;
+  ///
+  /// Four levels and a clock strip. At the old 165 the lanes were 34 apart and
+  /// the ribbon 14 thick, which read as a squashed sparkline rather than a
+  /// night with room in it.
+  static const double chartHeight = 196;
 
   /// The gap above the legend.
   static const double legendGap = 10;
@@ -119,8 +119,8 @@ class NightTimelinePanel extends StatelessWidget {
                 night.timeline,
                 progress: t,
                 height: chartHeight,
-                startLabel: night.start == null ? null : clock(night.start!),
-                endLabel: night.end == null ? null : clock(night.end!),
+                startAt: night.start,
+                endAt: night.end,
                 semanticLabel: 'Sleep stages through the night',
               ),
             )
@@ -196,144 +196,15 @@ class StageTablePanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                RevealOnce(
-                  id: 'sleep.stage-strip',
-                  registry: reveals,
-                  builder: (context, t) => V02StageStrip(
-                    minutes,
-                    progress: t,
-                    semanticLabel: 'Stage proportions for this night',
-                  ),
-                ),
-                const SizedBox(height: tableGap),
-                _StageTable(minutes: minutes, total: total),
+                // **The stacked strip is gone with the table.** It drew the
+                // same four proportions the rows below now carry, so the panel
+                // said everything twice — once as a strip nobody could read a
+                // number off, and once as a table of small type. One reading,
+                // one mark.
+                StageShares(minutes: minutes, total: total),
                 const PanelNote(kStageTotalsNote),
               ],
             ),
     );
   }
-}
-
-/// `.data-table` — Stage · Duration · Proportion.
-class _StageTable extends StatelessWidget {
-  const _StageTable({required this.minutes, required this.total});
-
-  final Map<String, double> minutes;
-  final double total;
-
-  /// `.data-table th { padding-block:8px }`.
-  static const double headPad = 8;
-
-  /// `.data-table td { padding-block:12px }`.
-  static const double cellPad = 12;
-
-  /// `.data-table .swatch { width:7px; height:7px; border-radius:2px }`.
-  static const double swatch = 7;
-
-  /// `margin-right:6px`.
-  static const double swatchGap = 6;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final hues = context.hues;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: headPad),
-          child: _Row(
-            stage: Text(
-              'Stage',
-              style: SleepType.tableCell.copyWith(color: colors.ink2),
-            ),
-            duration: Text(
-              'Duration',
-              style: SleepType.tableCell.copyWith(color: colors.ink2),
-            ),
-            proportion: Text(
-              'Proportion',
-              textAlign: TextAlign.right,
-              style: SleepType.tableCell.copyWith(color: colors.ink2),
-            ),
-          ),
-        ),
-        for (final stage in kSleepStages)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: colors.line, width: hairline),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: cellPad),
-              child: _Row(
-                stage: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Container(
-                      width: swatch,
-                      height: swatch,
-                      decoration: BoxDecoration(
-                        color: sleepStageColor(hues, stage),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: swatchGap),
-                    Flexible(
-                      child: Text(
-                        sleepStageLabel(stage),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: SleepType.tableCell.copyWith(color: colors.ink),
-                      ),
-                    ),
-                  ],
-                ),
-                duration: Text(
-                  hoursMinutes(minutes[stage] ?? 0),
-                  style: SleepType.tableCell.copyWith(color: colors.ink),
-                ),
-                proportion: Text(
-                  '${(100 * (minutes[stage] ?? 0) / total).toStringAsFixed(1)}%',
-                  textAlign: TextAlign.right,
-                  style: SleepType.tableCell.copyWith(color: colors.ink),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// One table row's three columns. The last is right-aligned, as the CSS is.
-class _Row extends StatelessWidget {
-  const _Row({
-    required this.stage,
-    required this.duration,
-    required this.proportion,
-  });
-
-  final Widget stage;
-  final Widget duration;
-  final Widget proportion;
-
-  /// The two measured columns, sized so the stage name keeps the rest.
-  static const double durationWidth = 74;
-  static const double proportionWidth = 74;
-  static const double gap = 8;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: <Widget>[
-      Expanded(child: stage),
-      const SizedBox(width: gap),
-      SizedBox(width: durationWidth, child: duration),
-      const SizedBox(width: gap),
-      SizedBox(width: proportionWidth, child: proportion),
-    ],
-  );
 }

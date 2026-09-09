@@ -37,13 +37,19 @@ import 'package:healthee/core/theme/type_scale_forms.dart';
 /// `.card` — a padded surface with a hairline edge.
 class PlainCard extends StatelessWidget {
   /// Wraps [child] in the card frame.
-  const PlainCard({required this.child, super.key});
+  const PlainCard({required this.child, this.inset, super.key});
 
   /// `padding: 20px` — `--space-xl`.
   static const double padding = 20;
 
   /// `border-radius: 22px`.
   static const double radius = 22;
+
+  /// Overrides the card's inset. Null takes [padding].
+  ///
+  /// 20 all round is sized for a card whose content is a reading. A row in a
+  /// list is not, and a list of them at 20 is mostly inset.
+  final double? inset;
 
   /// The card's contents.
   final Widget child;
@@ -53,7 +59,7 @@ class PlainCard extends StatelessWidget {
     final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
-      padding: const EdgeInsets.all(padding),
+      padding: EdgeInsets.all(inset ?? padding),
       decoration: ShapeDecoration(
         color: colors.surface,
         shape: hSquircle(

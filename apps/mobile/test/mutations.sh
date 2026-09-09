@@ -381,7 +381,8 @@ mutate 'the context bridge is drawn before the hero' "$ORDER_TEST" "$BODY" \
       onOpenActivity: extras.onOpenActivity,
     ),
   );
-  sections.gap(PageSpacing.block);
+  // No spacer: the bridge carries the gap itself so its rule can span it and
+  // reach the tiles above. See `ContextBridge.leadIn`.
   sections.add(
     ContextBridge.link(
       kAgeBridge,
@@ -637,7 +638,7 @@ BANDS=lib/features/sleep/v02/sleep_cutoffs.dart
 TIMING_CHART=lib/shared/charts/v02/v02_timing_chart.dart
 TIMING=lib/features/sleep/v02/timing_panel.dart
 NIGHT=lib/features/sleep/v02/night_panels.dart
-STRIP=lib/shared/charts/v02/v02_stage_strip.dart
+SHARES=lib/features/sleep/v02/stage_shares.dart
 
 mutate 'the night reading blanks its refusals' "$WITHHELD_TEST" "$READING" \
   '    for (final field in <String, Reading<double>>{
@@ -696,11 +697,12 @@ mutate 'a one-night timing chart is plotted anyway' "$CHARTS_TEST" "$TIMING" \
   '          if (bedtime.length < 2)' \
   '          if (bedtime.length < 0)'
 
-# A stage with no minutes drawn as a segment: a picture of sleep that did not
-# happen, and on a night with no staging at all, a whole bar of it.
-mutate 'the stage strip draws stages with no minutes' "$CHARTS_TEST" "$STRIP" \
-  '        if ((minutes[stage] ?? 0) > 0) stage,' \
-  '        stage,'
+# The bar's LENGTH is the share. Flatten it and a stage the owner never entered
+# is drawn as long as the one that took most of the night — the same lie the
+# stacked strip could tell with a one-pixel sliver, in the mark that replaced it.
+mutate 'the stage bars stop encoding the share' "$CHARTS_TEST" "$SHARES" \
+  '        final fill = _minFill + share.clamp(0.0, 1.0) * (allowance - _minFill);' \
+  '        final fill = allowance;'
 
 # ── Today: a refusal must never come back as a number ───────────────────────
 WITHHELD_TEST=test/features/today_withheld_test.dart
@@ -753,23 +755,10 @@ CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/shared/reading_vi
 # stop printing the bullet points" would have been if nobody replaced them, and
 # it is a one-line diff that makes the screen look better.
 mutate 'a caveated value renders as if it were Present' "$CAVEAT_TEST" "$VIEW" \
-  '      Caveated<T>(:final value, :final caveats) =>
-        caveatCarrier == CaveatCarrier.insideCard
-        ? CaveatScope(
-            caveats: caveats,
-            label: label,
-            child: builder(context, value),
-          )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              builder(context, value),
-              caveatBuilder?.call(context, caveats) ??
-                  CaveatNote(caveats: caveats, label: label),
-            ],
-          ),' \
-  '      Caveated<T>(:final value) => builder(context, value),'
+  '      Caveated<T>(:final value, :final caveats) => switch (caveatCarrier) {' \
+  '      Caveated<T>(:final value) => builder(context, value),
+      // ignore: dead_code
+      Caveated<T>(:final caveats) => switch (caveatCarrier) {'
 
 # The module ignoring what it was handed — same outcome, one layer down, and it
 # takes out the blood-oxygen module, the HRV module and every card a ReadingView
@@ -865,12 +854,12 @@ mutate 'the seven-night stack is drawn from no nights' "$SLEEP_CELL_TEST" \
 mutate 'an unscored recovery factor reads as zero' \
   test/features/today_screen_test.dart \
   lib/shared/v02/meters.dart \
-  '                    child: factor.fraction == null
-                        ? const SizedBox.shrink()
-                        : FractionallySizedBox(' \
-  '                    child: factor.fraction == 999
-                        ? const SizedBox.shrink()
-                        : FractionallySizedBox('
+  '                          child: factor.fraction == null
+                              ? const SizedBox.shrink()
+                              : FractionallySizedBox(' \
+  '                          child: factor.fraction == 999
+                              ? const SizedBox.shrink()
+                              : FractionallySizedBox('
 
 # The factor rows print the payload's own keys. `rr` under a bar on a health
 # screen is a log line where a name belongs.
@@ -1079,8 +1068,11 @@ mutate 'a measured zero stops marking its baseline' "$V02_COLUMNS" "$V02_COLUMN_
 # Both panes forced onto one axis: heart rate flattens into the bottom third and
 # the crossing point of the two traces starts looking like it means something.
 mutate 'the linked panes share one scale' "$V02_COLUMNS" "$V02_LINKED" \
-  '          ticks: ChartTicks.nice(pane.values.whereType<double>()),' \
-  '          ticks: ChartTicks.nice(panes.first.values.whereType<double>()),'
+  '          ticks: ChartTicks.nice(pane.values.whereType<double>(), target: 2),' \
+  '          ticks: ChartTicks.nice(
+            panes.first.values.whereType<double>(),
+            target: 2,
+          ),'
 
 # The lanes abut, and the second pane title sits on the first pane fill.
 mutate 'the linked lanes stop leaving air between them' "$V02_COLUMNS" "$V02_LINKED_PAINTER" \
@@ -1153,6 +1145,7 @@ mutate 'the error magnitude is called a confidence interval' "$FITNESS_TEST" "$R
 # ── the v02 Today: what a panel may not stop saying ─────────────────────────
 PANEL=lib/shared/v02/panel.dart
 HERO=lib/shared/v02/bio_hero.dart
+HERO_PARTS=lib/shared/v02/bio_hero_parts.dart
 MINI=lib/features/today/v02/mini_trend_panel.dart
 FITNESS=lib/features/today/v02/longer_panels.dart
 HERO_TEST=test/features/today_hero_test.dart
@@ -1162,19 +1155,17 @@ V02_CAVEAT_TEST="test/features/today_caveat_surface_test.dart test/features/cave
 # nothing itself under `CaveatCarrier.insideCard`, so this is the disclosure
 # vanishing in silence — the one failure worse than the essay it replaced.
 mutate 'the v02 panel drops the caveats it was handed' "$V02_CAVEAT_TEST" "$PANEL" \
-  '          if (disclosed.isNotEmpty)
-            CaveatNote(caveats: disclosed, label: named),' \
-  ''
+  '              caveats: disclosed,
+              caveatsLabel: named,' \
+  '              caveats: const <Disclosure>[],
+              caveatsLabel: named,'
 
 # The same, in the hero. It is not a `Panel`, so it needs its own block and its
 # own mutation: the biological-age block carries FOUR disclosures on the
 # committed payload and is the card the owner reported.
 mutate 'the hero drops the caveats it was handed' "$V02_CAVEAT_TEST" "$HERO" \
-  '    if (disclosed.isNotEmpty) ...<Widget>[
-      const SizedBox(height: modelGap),
-      _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
-    ],' \
-  ''
+  '        caveats: disclosed,' \
+  '        caveats: const <Disclosure>[],'
 
 # A half-width panel blanking on a refusal. It keeps its title, its slot and its
 # chart void, and stops saying why the number is missing — which reads as a
@@ -1210,11 +1201,8 @@ mutate "the method essay is printed on the card again" \
 # then reporting progress against it.
 mutate 'the movement tile invents a step target' "$HERO_TEST" \
   lib/features/today/v02/today_hero.dart \
-  '      value: commaGrouped(steps.round()),
-      meta: facts.medianFootFor(TodayMetricIds.steps).toLowerCase(),' \
-  '      value: commaGrouped(steps.round()),
-      fraction: steps / 10000,
-      meta: facts.medianFootFor(TodayMetricIds.steps).toLowerCase(),'
+  '      fraction: plateau == null ? null : steps / plateau,' \
+  '      fraction: steps / 10000,'
 
 # The halo placed outside the scroll it watches. It still animates, it still
 # looks right on the first screen, and it never pauses again.
@@ -1304,13 +1292,10 @@ mutate "the info sheet drops the card's citations" \
   '              noteIds: const <String>[],'
 
 # A reference pill back on a card's face.
-mutate 'the reference label returns to the sleep-health grid' \
-  "$PROVENANCE_TEST $SWEEP_TEST" "$NIGHT" \
-  '                dimension.reading ?? '"'"'—'"'"',
-              ),' \
-  '                dimension.reading ?? '"'"'—'"'"',
-                note: '"'"'Reference \${dimension.cutoff}'"'"',
-              ),'
+mutate 'an unscored dimension prints its cutoff as a reading' \
+  test/features/today_withheld_test.dart "$NIGHT" \
+  '            dimension.reading ?? '"'"'—'"'"',' \
+  '            dimension.reading ?? dimension.cutoff,'
 
 # Clinical routing swept away with the method text. A symptom outranks the score
 # above it, and that sentence is not clutter.
@@ -1431,6 +1416,7 @@ mutate 'the measured half stops following the selection' \
   '  return store.strapReader.day(ref.watch(todayProvider));'
 
 HERO=lib/shared/v02/bio_hero.dart
+HERO_PARTS=lib/shared/v02/bio_hero_parts.dart
 GEOMETRY_TEST=test/features/today_hero_geometry_test.dart
 FIELD_TEST=test/features/today_hero_field_test.dart
 
@@ -1438,26 +1424,26 @@ FIELD_TEST=test/features/today_hero_field_test.dart
 # THE DEFECT ITSELF: the field stops being a background layer and becomes a
 # sized child of the stack, so the card is as tall as the FIELD and the
 # contributions and the model label go off the bottom of the screen.
-mutate 'the field drives the card height' "$GEOMETRY_TEST" "$HERO" \
-  '    return Positioned.fill(
-      // The constraints here are the card'"'"'s finished size' \
-  '    return SizedBox.fromSize(
-      size: const Size(300, 900),
-      // The constraints here are the card'"'"'s finished size'
+mutate 'the field drives the card height' "$GEOMETRY_TEST" "$HERO_PARTS" \
+  '  return Positioned.fill(
+    // The constraints here are the card'"'"'s finished size' \
+  '  return SizedBox.fromSize(
+    size: const Size(300, 900),
+    // The constraints here are the card'"'"'s finished size'
 
 # The clip goes soft: `overflow: clip` over a 28px radius becomes a square
 # corner, and the field paints into the four corners the card does not have.
-mutate 'the card stops clipping to its rounded rect' "$FIELD_TEST" "$HERO" \
-  '        borderRadius: BorderRadius.circular(radius),' \
-  '        borderRadius: BorderRadius.zero,'
+mutate 'the card stops clipping to its rounded corner' "$FIELD_TEST" "$HERO" \
+  '      clipBehavior: Clip.antiAlias,' \
+  '      clipBehavior: Clip.none,'
 
 # The hole goes back to the middle of the CARD: the densest part of the field
 # crosses the figure, and the still centre lands on the sentence and the ruler.
-mutate 'the still centre leaves the figure' "$FIELD_TEST" "$HERO" \
-  '          stillCentre: centred
-              ? bioStillCentre(constraints.biggest)
-              : Alignment.center,' \
-  '          stillCentre: Alignment.center,'
+mutate 'the still centre leaves the figure' "$FIELD_TEST" "$HERO_PARTS" \
+  '        stillCentre: centred
+            ? bioStillCentre(constraints.biggest)
+            : Alignment.center,' \
+  '        stillCentre: Alignment.center,'
 
 # `motion.css` resets `.age-value { margin: 0 }`; richer.css'"'"'s 20 comes back
 # and the square no longer starts directly under the eyebrow.
@@ -1475,8 +1461,8 @@ mutate 'the divider gap is always the collapsed one' "$GEOMETRY_TEST" "$HERO" \
 # The eyebrow row stops being the control'"'"'s 32: the still centre'"'"'s arithmetic
 # is then wrong by the difference, and the square moves up.
 mutate 'the eyebrow row loses its pinned extent' "$GEOMETRY_TEST" "$HERO" \
-  '    constraints: BoxConstraints(minHeight: centred ? eyebrowExtent : 0),' \
-  '    constraints: const BoxConstraints(),'
+  '        minHeight: centred ? eyebrowExtent : 0,' \
+  '        minHeight: 0,'
 
 # The rim's dust handed the stream heads' glow — one line, and 1,120 grains
 # become solid balls six times too wide. This IS the defect the owner reported.
@@ -1541,18 +1527,16 @@ mutate 'the reference label returns to the intensity card' \
 mutate "Activity's sections leave the prototype's order" \
   "$ACT_ORDER_TEST" "$ACT_SECTIONS" \
   '  if (!past) {
-    sections.gap(PageSpacing.block);
-    sections.add(
-      const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'),
-    );
+    sections
+      ..add(const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'))
+      ..gap(PageSpacing.panel);
   }' \
   '  sections.gap(PageSpacing.block);
   sections.add(const DataFooter());
   if (!past) {
-    sections.gap(PageSpacing.block);
-    sections.add(
-      const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'),
-    );
+    sections
+      ..add(const InsightCard(scope: '"'"'activity'"'"', title: '"'"'Activity analysis'"'"'))
+      ..gap(PageSpacing.panel);
   }'
 
 # A heading over nothing. `insights_sections.dart` drops the head with the
@@ -1584,6 +1568,7 @@ mutate 'a trend sparkline is laid out at zero height' \
 # balance behind it, a prompt that spends a question the owner does not have.
 # Every one of those is invisible when it is right, so each is broken here.
 SUGGESTION=lib/features/actions/v02/suggestion_card.dart
+DECK_ITEM=lib/features/actions/v02/deck_item.dart
 CHALLENGE_CARD=lib/features/actions/v02/challenge_card.dart
 ACTIONS_SCREEN=lib/features/actions/actions_screen.dart
 OUTCOME_CARD=lib/shared/challenge_outcome_card.dart
@@ -1610,27 +1595,34 @@ mutate 'a raw signal id reaches the suggestion card' "$ACTIONS_TEST" "$SUGGESTIO
   return 'Raised by \$signal';"
 
 # Adoption records an INTENTION. Nothing in this app observes the doing.
-mutate 'the checkbox starts claiming the action was done' "$ACTIONS_TEST" "$SUGGESTION" \
-  "const String kAdoptNote = 'One manageable change to start with.';" \
-  "const String kAdoptNote = 'Marks it Done for today.';"
+mutate 'the adopted line starts claiming the action was done' \
+  "$CARDS_TEST" "$SUGGESTION" \
+  "const String kAdoptedNote = 'An intention, not a completed action.';" \
+  "const String kAdoptedNote = 'Done for today.';"
 
 # The family is the rec's own category. A card that picked one would be a hue
-# that can disagree with what the card is about.
-mutate 'the suggestion card ignores its category' "$ACTIONS_TEST" "$SUGGESTION" \
-  '      tone: toneForCategory(rec.category),' \
-  '      tone: Tone.fitness,'
+# that can disagree with what the card is about — and the hue is the control's
+# ground now, which is where the owner asked the category to speak.
+mutate 'the suggestion row ignores its category' "$ACTIONS_TEST" "$DECK_ITEM" \
+  '    tone: toneForCategory(rec.category),' \
+  '    tone: Tone.fitness,'
 
-# The eyebrow is the only thing that says which of the ranked set this is.
-mutate 'every suggestion claims to be the top one' "$ACTIONS_TEST" "$ACTIONS_SCREEN" \
-  '            SuggestionCard(recommendation: recommendations[i], first: i == 0),' \
-  '            SuggestionCard(recommendation: recommendations[i], first: true),'
+# The ranking is the server's claim about which suggestion matters most today.
+# A client that re-sorted it would be overruling that silently.
+mutate 'the client re-sorts the server’s ranking' "$ACTIONS_TEST" "$ACTIONS_SCREEN" \
+  '        SuggestionList(recommendations: recommendations),' \
+  '        SuggestionList(recommendations: recommendations.reversed.toList()),'
 
-# The prototype's order, moved by one.
+# The prototype's order, moved by one: the owner's own record climbs above the
+# suggestions, which are the screen's subject and the whole of its top half.
 mutate 'the Actions sections come out of order' "$ACTIONS_TEST" "$ACTIONS_SCREEN" \
-  '      const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),
-      const PageSection(WorkingOn(), gap: PageSpacing.block),' \
-  '      const PageSection(WorkingOn(), gap: PageSpacing.block),
-      const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),'
+  '    const PageSection(SectionHead(title: kRecordHeading), gap: 0),' \
+  '' \
+  '    if (snapshot != null)
+      PageSection(' \
+  '    const PageSection(SectionHead(title: kRecordHeading), gap: 0),
+    if (snapshot != null)
+      PageSection('
 
 # "Nothing observed yet" and "you are at zero" are different days.
 mutate 'a challenge with no progress draws a bar at zero' "$CARDS_TEST" "$CHALLENGE_CARD" \
@@ -1651,7 +1643,7 @@ mutate 'a suggested challenge is labelled as a running one' "$CARDS_TEST" "$CHAL
   "    return '\$window challenge';"
 
 # `.check-action .checkbox { width: 24px; height: 24px }`.
-mutate 'the adopt checkbox loses its box' "$ACTIONS_TEST" "$CHOICES" \
+mutate 'the adopt checkbox loses its box' "$CARDS_TEST" "$CHOICES" \
   '  static const double boxSize = 24;' \
   '  static const double boxSize = 20;'
 
@@ -1680,8 +1672,8 @@ mutate 'the outcome drops its "not a proven effect" sentence' \
 # not allowed to have.
 mutate 'the coach composer appears with no balance behind it' \
   "$COACH_TEST" "$COACH_SCREEN" \
-  '    final canAsk = uncapped || (allowance?.hasRemaining ?? false);' \
-  '    final canAsk = true;'
+  '  return uncapped || (allowance?.hasRemaining ?? false);' \
+  '  return true;'
 
 # A prompt button asks a question, so it costs one — same gate as the input.
 mutate 'the opening prompts stop being gated by the balance' \
@@ -1712,11 +1704,14 @@ mutate 'the cost comes off the ask button' "$COACH_TEST" "$COMPOSER" \
 
 # A cost label that squeezes the input off the page satisfies "the label is
 # present" and makes the surface unusable.
+# The width negotiation went with the full-width ask bar: the field is
+# `Expanded` beside a fixed send control, so an input that can be typed in is
+# structural rather than negotiated. What can still take the room away is the
+# control beside it growing — `Expanded` yields whatever is left, however
+# little that is.
 mutate 'the composer stops making room for its input' "$COMPOSER_TEST" "$COMPOSER" \
-  '  static bool fitsOneRow(double available, double wanted) =>
-      available - wanted - gap >= minFieldWidth;' \
-  '  static bool fitsOneRow(double available, double wanted) =>
-      available - wanted - gap >= 0;'
+  '  static const double sendSize = 44;' \
+  '  static const double sendSize = 240;'
 
 # ── the journal ────────────────────────────────────────────────────────────
 # Current fasting state is FETCHED, never inferred.
@@ -1732,10 +1727,10 @@ mutate 'the journal grid loses a column' "$JOURNAL_TEST" "$JOURNAL_GRID" \
 
 # `screens-actions.js::H.journalKinds`, in its order.
 mutate 'the journal kinds are reordered' "$JOURNAL_TEST" "$JOURNAL_GRID" \
-  "  JournalKindTile(Icons.water_drop_outlined, 'Water', LogKind.water),
-  JournalKindTile(Icons.sentiment_satisfied_outlined, 'Mood', LogKind.mood)," \
-  "  JournalKindTile(Icons.sentiment_satisfied_outlined, 'Mood', LogKind.mood),
-  JournalKindTile(Icons.water_drop_outlined, 'Water', LogKind.water),"
+  "  JournalKindTile(SolarIconsOutline.waterdrop, 'Water', LogKind.water),
+  JournalKindTile(SolarIconsOutline.smileCircle, 'Mood', LogKind.mood)," \
+  "  JournalKindTile(SolarIconsOutline.smileCircle, 'Mood', LogKind.mood),
+  JournalKindTile(SolarIconsOutline.waterdrop, 'Water', LogKind.water),"
 
 # An entry nobody acknowledged must not clear the form — the owner types a
 # weight once.
@@ -1815,13 +1810,13 @@ mutate 'the window ignores the selected day' "$WINDOW_TEST" "$WINDOW" \
 # twice, and the one that lands on two screens at once (Insights and Sleep).
 mutate 'a source chip returns to the findings card' \
   "$SWEEP_TEST" "$FINDINGS" \
-  '        ReasoningNote(
-          question: '"'"'The statistic behind this'"'"',
-          answer: findingStatistics(finding),
+  '        Text(
+          findingWindow(finding),
+          style: text.bodySmall?.copyWith(color: colors.ink2),
         ),' \
-  '        ReasoningNote(
-          question: '"'"'The statistic behind this'"'"',
-          answer: findingStatistics(finding),
+  '        Text(
+          findingWindow(finding),
+          style: text.bodySmall?.copyWith(color: colors.ink2),
         ),
         CitationRow(noteIds: finding.researchNoteIds),'
 
@@ -1831,9 +1826,10 @@ mutate "the findings ⓘ is emptied of the card's citations" \
   "$SWEEP_TEST" "$FINDINGS" \
   '              detail: MetricDetail(
                 title: headline,
-                notes: finding.researchNoteIds,
-              ),' \
-  '              detail: MetricDetail(title: headline),'
+                notes: finding.researchNoteIds,' \
+  '              detail: MetricDetail(
+                title: headline,
+                notes: const <String>[],'
 
 # The same emptying on the profile field, where the note behind five verbatim
 # science labels is the only thing licensing them.
@@ -2346,10 +2342,15 @@ EXPLORER=lib/features/history/metric_explorer_screen.dart
 
 # The device strip answers "is my strap current?". The settings index is a
 # screen about the app, and it opens, so nothing looks broken.
-mutate 'the device strip opens the settings index again' \
-  "$LINKS_TEST" "$TODAY_SCREEN" \
-  '          onOpenSync: () => unawaited(context.push(Routes.dataFreshness)),' \
-  '          onOpenSync: () => unawaited(context.push(Routes.settings)),'
+# The device strip is gone: `Data & sync` is a row INSIDE Settings now, so the
+# separate door was a second way to the same room. What has to hold is that the
+# room is still there, one tap on from the owner mark — `panel_links_test.dart`
+# taps through both. Pointed back at the index it is a screen about the app
+# rather than an answer to "is my strap current?".
+mutate 'the sync row opens the settings index again' \
+  "$LINKS_TEST" lib/features/settings/settings_screen.dart \
+  '              onTap: () => unawaited(context.push(Routes.dataFreshness)),' \
+  '              onTap: () => unawaited(context.push(Routes.settings)),'
 
 # A panel pointed at a metric other than the one it draws.
 mutate 'a panel Details opens a neighbouring metric' "$LINKS_TEST" "$TODAY_BODY" \
@@ -2965,7 +2966,9 @@ mutate 'a sourced claim goes back under the not-covered disclaimer' \
   "    notes: <String>['energy_expenditure_derivation', 'weight_bmi_body_composition'],
     uncited: 'If your logged weight is old, the BMR under this number is old too — about 0.6% per kilogram out of date.',"
 # ── the four on the today.json wire (final audit A1-A4, C4-C6) ───────────────
-INSIGHTS=lib/features/today/widgets/insights_section.dart
+# The prose moved out of `insights_section.dart` at the 400-line gate; the
+# sentences these four mutations are about live in `finding_prose.dart` now.
+INSIGHTS=lib/features/today/widgets/finding_prose.dart
 WORDING_BOTH=test/features/findings_wording_test.dart
 EFFECT_TEST=test/features/finding_effect_metric_test.dart
 
@@ -2977,7 +2980,10 @@ EFFECT_TEST=test/features/finding_effect_metric_test.dart
 # printing `description_raw`, so it went green against the live defect. If it is
 # ever re-aimed at one composer again, this survives.
 mutate 'the raw string is the home-screen headline again' "$WORDING_BOTH" "$INSIGHTS" \
-  '    return (headline: _oneMetricHeadline(a, finding.eventKind), context: context);' \
+  '    return (
+      headline: _oneMetricHeadline(a, finding.eventKind),
+      context: context,
+    );' \
   '    return (
       headline: finding.description ?? '"'"'Pattern found in your data.'"'"',
       context: context,

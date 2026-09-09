@@ -119,7 +119,6 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
       context.push('${Routes.history}?metric=${Uri.encodeComponent(metric)}'),
     ),
     onOpenJournal: () => unawaited(context.push(Routes.journal)),
-    onOpenActions: () => unawaited(context.push(Routes.actions)),
     onOpenHistory: () => unawaited(context.push(Routes.sleepHistory)),
     // `Routes.history` with no `metric` IS the directory — one route, two
     // screens, as `router.dart` records.

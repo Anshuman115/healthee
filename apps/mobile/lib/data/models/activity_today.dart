@@ -145,6 +145,7 @@ class CardioLoad {
     required this.strain,
     required this.strainMax,
     required this.zoneMinutes,
+    required this.hrmax,
     required this.trend30d,
     required this.asOfDate,
     required this.researchNotes,
@@ -164,6 +165,7 @@ class CardioLoad {
       edwardsTl: (json['edwards_tl'] as num?)?.toInt(),
       strain: (json['strain'] as num?)?.toDouble(),
       strainMax: (json['strain_max'] as num?)?.toDouble(),
+      hrmax: (json['hrmax'] as num?)?.toDouble(),
       zoneMinutes: [
         for (final entry in (json['zone_minutes'] as List? ?? const []))
           if (entry is num) entry.toInt(),
@@ -213,6 +215,14 @@ class CardioLoad {
 
   /// Minutes in each heart-rate zone, zone 1 first.
   final List<int> zoneMinutes;
+
+  /// The HRmax the zones were cut against — Tanaka 2001, `208 − 0.7 × age`.
+  ///
+  /// **Carried so a zone can be named in beats rather than only in percent.**
+  /// `50–60% of max` is a boundary the reader has to compute; `95–114 bpm` is
+  /// one they can recognise on a watch face. Null withholds the beats and keeps
+  /// the percentages, which are true without it.
+  final double? hrmax;
 
   /// Thirty days of load, oldest first.
   final List<TrendPoint> trend30d;

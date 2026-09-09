@@ -132,6 +132,7 @@ dependencies:
   shared_preferences: ^2.5.5
 
   crypto: any
+  refresh_rate: ^1.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

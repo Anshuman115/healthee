@@ -181,8 +181,15 @@ void main() {
       expect(find.text('Sleep performance'), findsNothing);
       expect(find.text('Nightly gap'), findsNothing);
       expect(find.textContaining('Last night: $_notDerived'), findsOneWidget);
-      // The window it CAN speak for is still stated.
-      expect(find.text('Nights counted'), findsOneWidget);
+      // **The window it CAN speak for is still stated**, in the note rather
+      // than as a third statistic. `Nights counted` and its bare track went
+      // together: the track drew one of three figures beside it with nothing
+      // saying which, and the count it repeated is in these words already.
+      expect(
+        find.textContaining('measured nights of the last seven'),
+        findsOneWidget,
+      );
+      expect(find.text('THE MEASURED WEEK'), findsOneWidget);
     });
   });
 

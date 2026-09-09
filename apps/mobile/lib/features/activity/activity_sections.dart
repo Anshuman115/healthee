@@ -55,9 +55,13 @@ import 'package:healthee/data/history/dated_history.dart';
 import 'package:healthee/data/history/history_metric.dart';
 import 'package:healthee/data/models/activity_today.dart';
 import 'package:healthee/data/models/biological_age.dart';
+import 'package:healthee/data/models/fitness_plan.dart';
 import 'package:healthee/data/models/vo2max.dart';
+import 'package:healthee/features/activity/activity_extras.dart';
+import 'package:healthee/features/activity/v02/fitness_plan_panel.dart';
 import 'package:healthee/features/activity/v02/movement_panels.dart';
 import 'package:healthee/features/activity/v02/training_panels.dart';
+import 'package:healthee/features/activity/v02/zones_panel.dart';
 import 'package:healthee/shared/format/time_labels.dart';
 import 'package:healthee/shared/insight_card.dart';
 import 'package:healthee/shared/instrument_screen.dart';
@@ -92,50 +96,6 @@ String ageBridge(double years) =>
 String _signed(double years) =>
     years < 0 ? '−${(-years).toStringAsFixed(1)}' : '+${years.toStringAsFixed(1)}';
 
-/// Everything Activity needs that is not on [ScreenData].
-@immutable
-class ActivityExtras {
-  /// The five places this screen can go. Any of them null draws the control
-  /// without its action rather than a control that leads nowhere.
-  const ActivityExtras({
-    this.onOpenProfile,
-    this.onOpenWorkouts,
-    this.onOpenWorkout,
-    this.onOpenRoutes,
-    this.onRecord,
-    this.onOpenMetric,
-    this.onOpenRecovery,
-    this.onOpenFitness,
-    this.onOpenBody,
-  });
-
-  /// Opens settings. The avatar's destination.
-  final VoidCallback? onOpenProfile;
-
-  /// Opens the recorded-workouts list.
-  final VoidCallback? onOpenWorkouts;
-
-  /// Opens one recorded session.
-  final void Function(DeviceWorkout workout)? onOpenWorkout;
-
-  /// Opens the saved routes.
-  final VoidCallback? onOpenRoutes;
-
-  /// Opens the GPS recording flow.
-  final VoidCallback? onRecord;
-
-  /// Opens one metric's own history. The panels' `Details` action.
-  final void Function(String metric)? onOpenMetric;
-
-  /// Opens the recovery detail — `H.bridge('movement', …, 'recovery', …)`.
-  final VoidCallback? onOpenRecovery;
-
-  /// Opens the fitness detail — the VO₂max panel's `Details`.
-  final VoidCallback? onOpenFitness;
-
-  /// Opens the age calculation — `H.bridge('fitness', …, 'body', …)`.
-  final VoidCallback? onOpenBody;
-}
 
 /// `history-screens.js::screens.activity` — `panels([…])`, in its order.
 ///
@@ -178,7 +138,6 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
         title: 'Activity',
         date: past ? data.view.day : (data.snapshot?.date ?? data.day.date),
         status: data.view.status,
-        onOpenProfile: extras.onOpenProfile,
       ),
     );
   // The dated panels stay on a past day, and they are not a duplicate of what
@@ -215,6 +174,60 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
   if (data.serverPending case final PageSection pending) {
     sections.addSection(pending);
     sections.gap(PageSpacing.panel);
+  }
+  // **The analysis opens the screen and VO₂max follows it**, which is legacy's
+  // order and not an aesthetic preference. That screen's eyebrow was *"Fitness
+  // · your longevity north-star"* — VO₂max IS the subject of this tab, and it
+  // had drifted to fourth, under the step count and the load chart, while the
+  // analysis sat last on a page that scrolls for three screens.
+  if (!past) {
+    sections
+      ..add(const InsightCard(scope: 'activity', title: 'Activity analysis'))
+      ..gap(PageSpacing.panel);
+  }
+  if (snapshot != null) {
+    sections.add(
+      ReadingView<Vo2max>(
+        reading: snapshot.vo2max,
+        label: 'VO₂max · estimate',
+        caveatCarrier: CaveatCarrier.insideCard,
+        withheldBuilder: (context, disclosure) =>
+            WithheldPanel(disclosure: disclosure, label: 'VO₂max · estimate'),
+        builder: (context, vo2max) => FitnessSourcePanel(
+          vo2max: vo2max,
+          reveals: reveals,
+          // `H.panel('Fitness with its source', …, 'fitness')` — the panel's
+          // Details opens the fitness screen, not the metric's dated series.
+          onDetails: extras.onOpenFitness,
+        ),
+      ),
+    );
+    // **The plan sits directly under the estimate it is a plan for.** It is
+    // the only thing on this tab the owner can act on, and it has been on the
+    // wire with no reader since the rebuild — see `data/models/fitness_plan.dart`.
+    //
+    // A pending or failed read draws NOTHING rather than a placeholder: the
+    // VO₂max card above it is complete on its own, and a spinner under it would
+    // claim a plan is coming when the request may simply have failed.
+    if (extras.plan?.value case final FitnessPlan plan) {
+      // The gap is not optional. `SectionList.add` places panels flush, and
+      // every other pair on this screen has an explicit `gap` between them —
+      // this one landed edge to edge against the estimate above it.
+      sections
+        ..gap(PageSpacing.panel)
+        ..add(FitnessPlanPanel(plan: plan));
+    }
+    if (fitnessContributionYears(snapshot.biologicalAge.valueOrNull)
+        case final double y) {
+      sections.add(
+        ContextBridge.link(
+          ageBridge(y),
+          label: 'See the calculation',
+          onOpen: extras.onOpenBody,
+        ),
+      );
+    }
+    sections.gap(PageSpacing.block);
   }
   sections.add(
     MovementPanel(
@@ -265,43 +278,25 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
         ),
       ),
     );
-  }
-  _sessions(sections, data, extras);
-  if (snapshot != null) {
-    sections.gap(PageSpacing.block);
-    sections.add(
-      ReadingView<Vo2max>(
-        reading: snapshot.vo2max,
-        label: 'VO₂max · estimate',
-        caveatCarrier: CaveatCarrier.insideCard,
-        withheldBuilder: (context, disclosure) =>
-            WithheldPanel(disclosure: disclosure, label: 'VO₂max · estimate'),
-        builder: (context, vo2max) => FitnessSourcePanel(
-          vo2max: vo2max,
-          reveals: reveals,
-          // `H.panel('Fitness with its source', …, 'fitness')` — the panel's
-          // Details opens the fitness screen, not the metric's dated series.
-          onDetails: extras.onOpenFitness,
-        ),
-      ),
-    );
-    if (fitnessContributionYears(snapshot.biologicalAge.valueOrNull)
-        case final double y) {
-      sections.add(
-        ContextBridge.link(
-          ageBridge(y),
-          label: 'See the calculation',
-          onOpen: extras.onOpenBody,
+    // The zones directly under the load they add up to. `zone_minutes` has been
+    // on the wire and parsed since the endpoint existed, drawn nowhere — the
+    // same shape the VO₂max plan was in. See `v02/zones_panel.dart`.
+    sections
+      ..gap(PageSpacing.panel)
+      ..add(
+        ReadingView<CardioLoad>(
+          reading: snapshot.cardioLoad,
+          label: 'Heart-rate zones',
+          caveatCarrier: CaveatCarrier.insideCard,
+          // The load card above already reports the withheld case for this
+          // exact reading; a second panel saying it again would be one refusal
+          // printed twice.
+          withheldBuilder: (context, disclosure) => const SizedBox.shrink(),
+          builder: (context, load) => ZonesPanel(load: load),
         ),
       );
-    }
   }
-  if (!past) {
-    sections.gap(PageSpacing.block);
-    sections.add(
-      const InsightCard(scope: 'activity', title: 'Activity analysis'),
-    );
-  }
+  _sessions(sections, data, extras);
   sections.gap(PageSpacing.block);
   sections.add(const DataFooter());
   return sections.build();

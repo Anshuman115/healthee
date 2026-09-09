@@ -32,7 +32,7 @@ class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   /// The prototype's own h1.
-  static const String title = 'Your profile.';
+  static const String title = 'Your profile';
 
   /// Its eyebrow.
   static const String eyebrow = 'A little context for your data';

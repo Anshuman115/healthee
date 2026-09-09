@@ -172,8 +172,12 @@ class ChallengeCard extends StatelessWidget {
                     style: TypeScale.challengeTitle.copyWith(color: colors.ink),
                   ),
                   const SizedBox(height: bodyGap),
-                  Text(
-                    challenge.why,
+                  // **`GroundedProse`, not `Text`.** The server writes `why`
+                  // with inline `[note_id]` markers, exactly as it writes the
+                  // title, and a plain `Text` printed them. The sources go to
+                  // the dot above via `challenge.grounding`.
+                  GroundedProse(
+                    text: challenge.why,
                     style: TypeScale.noticeBody.copyWith(color: colors.ink2),
                   ),
                   if (filled case final double value) ...<Widget>[

@@ -17,11 +17,10 @@ import 'package:healthee/data/models/sleep_night.dart';
 import 'package:healthee/features/sleep/sleep_windows.dart';
 import 'package:healthee/features/sleep/v02/need_panel.dart';
 import 'package:healthee/features/sleep/v02/night_panels.dart';
+import 'package:healthee/features/sleep/v02/stage_shares.dart';
 import 'package:healthee/features/sleep/v02/week_panel.dart';
 import 'package:healthee/shared/charts/h_debt_bars.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
-import 'package:healthee/shared/charts/v02/chart_void.dart';
-import 'package:healthee/shared/charts/v02/v02_stage_strip.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/panel.dart';
 
@@ -46,8 +45,8 @@ void main() {
     windows = SleepWindows(page, kSleepNow);
   });
 
-  group('the stage proportion strip', () {
-    testWidgets('ONE SEGMENT PER STAGE, EACH IN ITS OWN HUE', (tester) async {
+  group('the stage shares', () {
+    testWidgets('ONE BAR PER STAGE, EACH IN ITS OWN HUE', (tester) async {
       await tester.pumpWidget(
         sleepPanelHost(
           StageTablePanel(night: night, reveals: RevealRegistry()),
@@ -55,17 +54,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final strip = tester.getSize(find.byType(V02StageStrip));
-      expect(strip.height, 24);
-      expect(strip.width, _panelInnerWidth);
+      // **The stacked strip is gone**, and the table under it with it: the
+      // panel drew the same four proportions twice, once as a strip nobody
+      // could read a number off. Each stage is one bar now, as long as its
+      // share, with its percentage set inside the fill.
+      expect(tester.getSize(find.byType(StageShares)).width, _panelInnerWidth);
 
-      // The fixture stages all four, so all four are on the strip. A stage that
+      // The fixture stages all four, so all four are drawn. A stage that
       // rounded away would have vanished from the picture without vanishing
-      // from the rows beneath it.
+      // from the readings beside it.
       final boxes = tester
           .widgetList<DecoratedBox>(
             find.descendant(
-              of: find.byType(V02StageStrip),
+              of: find.byType(StageShares),
               matching: find.byType(DecoratedBox),
             ),
           )
@@ -84,7 +85,7 @@ void main() {
       expect(drawn, hasLength(4), reason: 'two stages sharing a hue');
     });
 
-    testWidgets('a night with no stage totals draws no strip at all', (
+    testWidgets('a night with no stage totals draws no bars at all', (
       tester,
     ) async {
       final page = sleepPageWithout(<String>['stages']);
@@ -94,7 +95,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(V02StageStrip), findsNothing);
+      expect(find.byType(StageShares), findsNothing);
       expect(find.text(kNoStagesNote), findsOneWidget);
     });
   });
@@ -172,66 +173,71 @@ void main() {
     });
   });
 
-  group('the strip itself, asked directly', () {
-    testWidgets('A STAGE WITH NO MINUTES IS ABSENT, NOT A SLIVER', (
+  group('the shares, asked directly', () {
+    testWidgets('A STAGE WITH NO MINUTES IS SAID TO BE ZERO, NOT OMITTED', (
       tester,
     ) async {
-      // The panel above never reaches this: it draws a note instead of a strip
-      // when NOTHING was staged, so the strip's own filter is only exercised
-      // when SOME stage is zero. A one-pixel segment for a stage the owner
-      // never entered is a picture of sleep that did not happen.
+      // **This is the reverse of what the stacked strip did**, and deliberately
+      // so. A strip drew a segment per stage, so a stage with no minutes had to
+      // be filtered out — a one-pixel sliver was a picture of sleep that did
+      // not happen. These are rows, and a row that says `REM · 0%` is a reading
+      // rather than a mark: the stage the owner never entered is now stated
+      // instead of silently missing from a picture of four.
       await tester.pumpWidget(
         sleepPanelHost(
-          const V02StageStrip(<String, double>{
-            'deep': 60,
-            'light': 200,
-            'rem': 0,
-            'awake': 20,
-          }, progress: 1),
+          const StageShares(
+            minutes: <String, double>{
+              'deep': 60,
+              'light': 200,
+              'rem': 0,
+              'awake': 20,
+            },
+            total: 280,
+          ),
         ),
       );
       await tester.pumpAndSettle();
 
-      final boxes = tester
-          .widgetList<DecoratedBox>(
-            find.descendant(
-              of: find.byType(V02StageStrip),
-              matching: find.byType(DecoratedBox),
-            ),
+      for (final stage in const <String>['Deep', 'Light', 'REM', 'Awake']) {
+        expect(find.text(stage), findsOneWidget, reason: stage);
+      }
+      expect(find.text('0%'), findsOneWidget, reason: 'REM ran for no minutes');
+
+      // And its bar is the shortest on the panel: the fill encodes the share,
+      // so the stage with none of the night must not be as long as one with
+      // most of it.
+      double barWidth(String stage) => tester
+          .getSize(
+            find
+                .descendant(
+                  of: find.byType(StageShares),
+                  matching: find.byType(DecoratedBox),
+                )
+                .at(kShareOrder.indexOf(stage)),
           )
-          .toList();
-      expect(boxes, hasLength(3), reason: 'REM has no minutes on this night');
-      final drawn = <int>{
-        for (final box in boxes) (groundOf(box.decoration)!).toARGB32(),
-      };
-      expect(drawn, isNot(contains(_hues.sleepStage('rem').toARGB32())));
+          .width;
+      expect(barWidth('rem'), lessThan(barWidth('awake')));
+      expect(barWidth('awake'), lessThan(barWidth('light')));
     });
 
-    testWidgets('a night with nothing staged draws no segment at all', (
+    testWidgets('a night with nothing staged never reaches the bars', (
       tester,
     ) async {
+      // `StageShares` takes its shares against a total its callers guarantee is
+      // above zero, and this is the guarantee: the panel draws the note instead
+      // of dividing a night by nothing.
       await tester.pumpWidget(
         sleepPanelHost(
-          const V02StageStrip(<String, double>{
-            'deep': 0,
-            'light': 0,
-            'rem': 0,
-            'awake': 0,
-          }, progress: 1),
+          StageTablePanel(
+            night: sleepPageWithout(<String>['stages']).nights.first,
+            reveals: RevealRegistry(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.descendant(
-          of: find.byType(V02StageStrip),
-          matching: find.byType(DecoratedBox),
-        ),
-        findsNothing,
-      );
-      // And the slot is kept, so a staged night and an unstaged one lay out at
-      // the same height.
-      expect(tester.getSize(find.byType(ChartVoid)).height, 24);
+      expect(find.byType(StageShares), findsNothing);
+      expect(find.text(kNoStagesNote), findsOneWidget);
     });
   });
 }

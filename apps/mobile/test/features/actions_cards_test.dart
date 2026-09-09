@@ -12,13 +12,17 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/challenges/challenge.dart';
 import 'package:healthee/data/challenges/challenge_outcome.dart';
 import 'package:healthee/data/challenges/challenge_progress.dart';
+import 'package:healthee/data/models/recommendation.dart';
 import 'package:healthee/features/actions/v02/challenge_card.dart';
+import 'package:healthee/features/actions/v02/suggestion_card.dart';
 import 'package:healthee/shared/challenge_outcome_card.dart';
+import 'package:healthee/shared/v02/choices.dart';
 import 'package:healthee/shared/v02/meters.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 
@@ -171,6 +175,96 @@ void main() {
       expect(find.byType(FactorBars), findsNothing);
       // The reading itself still shows: the missing end is the baseline.
       expect(find.text('8900'), findsOneWidget);
+    });
+  });
+
+  group('THE SUGGESTION CARD RECORDS AN INTENTION, NEVER A COMPLETION', () {
+    // Nothing in this app observes the doing. There is no completion signal on
+    // the wire, so every word on this control has to stay on the near side of
+    // that line — the card is still drawn by the challenge detail screen and
+    // the recommendation history, which is why it is asked directly here.
+    Widget host({required bool adopted}) => ProviderScope(
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ListView(
+            children: <Widget>[
+              SuggestionCard(
+                recommendation: Recommendation(
+                  id: 10344,
+                  date: '2026-09-09',
+                  action: 'Walk after dinner',
+                  rationale: null,
+                  expectedEffect: null,
+                  category: 'activity',
+                  evidenceGrade: 2,
+                  researchNoteIds: const <String>['steps_mortality'],
+                  signalSource: null,
+                  adopted: adopted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('the adopted line says intention, in those words', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(adopted: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text(kAdoptedLabel), findsOneWidget);
+      expect(find.text(kAdoptedNote), findsOneWidget);
+      for (final claim in <String>['Done', 'Completed', 'Finished']) {
+        expect(
+          find.textContaining(claim),
+          findsNothing,
+          reason: 'nothing here observed the action being taken',
+        );
+      }
+    });
+
+    testWidgets('and an untaken one carries no line under it at all', (
+      tester,
+    ) async {
+      // It used to read `One manageable change to start with.` under every
+      // suggestion the app had ever drawn — a subtitle that cannot differ
+      // between two cards is not telling the reader about either.
+      await tester.pumpWidget(host(adopted: false));
+      await tester.pumpAndSettle();
+
+      expect(find.text(kAdoptLabel), findsOneWidget);
+      expect(find.text(kAdoptedNote), findsNothing);
+      expect(find.textContaining('manageable change'), findsNothing);
+    });
+
+    testWidgets('THE BOX IS 24 × 24 — the prototype`s own control', (
+      tester,
+    ) async {
+      // Actions draws a colour-coded button now, but this card is still what
+      // the challenge detail and the recommendation history put in front of the
+      // owner, and the box is the control they tap. Measured, not found: two
+      // charts on this project shipped at zero height because their tests
+      // asserted only that a widget was there.
+      await tester.pumpWidget(host(adopted: false));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CheckAction), findsOneWidget);
+      final box = tester.getRect(
+        find
+            .descendant(
+              of: find.byType(CheckAction),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      // The literal, not the constant: an assertion that reads the number it
+      // is checking passes against any value the constant is given.
+      expect(box.width, 24);
+      expect(box.height, 24);
+      expect(CheckAction.boxSize, 24, reason: '.checkbox { width: 24px }');
     });
   });
 }

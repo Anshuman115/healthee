@@ -107,8 +107,6 @@ class CoachComposer extends StatefulWidget {
   /// The glyph inside it.
   static const double sendIcon = 20;
 
-  static const double minFieldWidth = 190;
-
   /// Whether a question is in flight.
   final bool asking;
 

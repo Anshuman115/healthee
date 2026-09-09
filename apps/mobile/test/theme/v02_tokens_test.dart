@@ -16,9 +16,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/core/theme/appearance_palette.dart';
 import 'package:healthee/core/theme/appearance_variant.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
-import 'package:healthee/core/theme/palette.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 

@@ -127,7 +127,12 @@ class _Recorder extends StatelessWidget {
             label: recording.recording
                 ? 'Stop, save and upload'
                 : 'Start recording',
-            action: recording.recording ? recorder.stopAndUpload : recorder.start,
+            action: () async {
+              await (recording.recording
+                  ? recorder.stopAndUpload()
+                  : recorder.start());
+              return null;
+            },
             onSaved: () => ref.invalidate(recordedRoutesProvider),
           ),
       ],

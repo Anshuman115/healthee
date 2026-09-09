@@ -26,7 +26,6 @@ import 'package:healthee/features/sleep/v02/week_panel.dart';
 import 'package:healthee/features/sleep/v02/withheld_night.dart';
 import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/page_section.dart';
-import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/chapter.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/page_header.dart';
@@ -55,6 +54,10 @@ void main() {
       final order = <int>[
         // `H.header('Sleep','')` — the date, the h1, the avatar.
         indexOfSection<V02PageHeader>(list),
+        // **This app's own, and FIRST.** The prototype has no box for the
+        // night's written reading, and the owner asked for it above the
+        // charts: it is the answer, and the panels under it are the working.
+        indexOfSection<SleepAnalysisPanel>(list),
         // `.sleep-reading` and the `.colour-key` under it.
         indexOfSection<SleepReading>(list),
         // `H.panel('How your night unfolded', …, 'sleep-history','moon')`.
@@ -79,10 +82,10 @@ void main() {
         _nthOf<SleepTrendPanel>(list, 2),
         // `H.panel('Naps & your day', …, 'journal','moon')`.
         indexOfSection<NapsPanel>(list),
-        // `H.link('Sleep recommendations','actions')`.
-        indexOfSection<HLinkButton>(list),
-        // This app's own, all of them after the last prototype panel.
-        indexOfSection<SleepAnalysisPanel>(list),
+        // ⛔ **No `H.link('Sleep recommendations','actions')`.** The prototype
+        // ends the screen with a call to action; the owner asked for it out.
+        // It sent the reader to a tab that had nothing sleep-specific waiting
+        // for them — a door labelled with a promise nothing behind it kept.
         indexOfSection<FindingsSection>(list),
         // `H.footer()`.
         indexOfSection<DataFooter>(list),
@@ -131,14 +134,23 @@ void main() {
         },
       });
       final list = sleepList(consistency: withLever);
-      final lastPrototypePanel = indexOfSection<HLinkButton>(list);
+      // `NapsPanel` is the prototype's last box now — the `Sleep
+      // recommendations` link that used to close the screen is gone.
+      final lastPrototypePanel = indexOfSection<NapsPanel>(list);
       for (final ours in <int>[
         indexOfSection<TonightPanel>(list),
-        indexOfSection<SleepAnalysisPanel>(list),
         indexOfSection<FindingsSection>(list),
       ]) {
         expect(ours, greaterThan(lastPrototypePanel));
       }
+      // **`SleepAnalysisPanel` is the stated exception**, the second after the
+      // stale banner: the owner asked for the night's written reading above the
+      // charts rather than under them. An exception that is written down and
+      // asserted is a decision; one that is merely true is a drift.
+      expect(
+        indexOfSection<SleepAnalysisPanel>(list),
+        lessThan(indexOfSection<SleepReading>(list)),
+      );
     });
 
     test('THE STALE BANNER IS THE ONE EXCEPTION, AND IT IS NEAR THE TOP', () {

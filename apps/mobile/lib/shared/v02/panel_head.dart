@@ -42,6 +42,8 @@ class PanelHead extends StatelessWidget {
     this.detail = MetricDetail.none,
     this.actionLabel,
     this.onAction,
+    this.collapsed,
+    this.onToggle,
     super.key,
   });
 
@@ -82,6 +84,20 @@ class PanelHead extends StatelessWidget {
 
   /// What the action does.
   final VoidCallback? onAction;
+
+  /// Whether the panel this heads is folded shut. Null draws no fold control.
+  ///
+  /// **A chevron, never the words.** `reasoning_note.dart` and
+  /// `insight_card.dart` both fold with a bare `altArrowUp`/`altArrowDown` and
+  /// no animation, and they were here first — a third panel inventing a
+  /// `Show`/`Hide` text button is a second idiom for one gesture.
+  final bool? collapsed;
+
+  /// Folds and unfolds it.
+  final VoidCallback? onToggle;
+
+  /// The fold chevron, sized with `reasoning_note.dart`'s.
+  static const double foldChevron = 16;
 
   /// `.twin-panels .panel-head .text-button .icon { width: 13px }`.
   static const double compactActionIcon = 13;
@@ -176,8 +192,30 @@ class PanelHead extends StatelessWidget {
             ],
           ),
         ),
-        MetricInfoDot(infoKey, detail: _detail(context), fallbackTitle: title),
+        if (_detail(context) case final MetricDetail detail
+            when MetricInfoDot.draws(infoKey, detail))
+          MetricInfoDot(infoKey, detail: detail, fallbackTitle: title),
         if (PanelOpens.opensOf(context)) _chevron(colors),
+        if (collapsed case final bool folded) ...<Widget>[
+          const SizedBox(width: gap),
+          IconButton(
+            onPressed: onToggle,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: actionMinHeight,
+              minHeight: actionMinHeight,
+            ),
+            tooltip: folded ? 'Show' : 'Hide',
+            icon: Icon(
+              folded
+                  ? SolarIconsOutline.altArrowDown
+                  : SolarIconsOutline.altArrowUp,
+              size: foldChevron,
+              color: family,
+            ),
+          ),
+        ],
         if (label != null) ...<Widget>[
           const SizedBox(width: gap),
           TextButton(
@@ -225,8 +263,30 @@ class PanelHead extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        MetricInfoDot(infoKey, detail: _detail(context), fallbackTitle: title),
+        if (_detail(context) case final MetricDetail detail
+            when MetricInfoDot.draws(infoKey, detail))
+          MetricInfoDot(infoKey, detail: detail, fallbackTitle: title),
         if (PanelOpens.opensOf(context)) _chevron(colors),
+        if (collapsed case final bool folded) ...<Widget>[
+          const SizedBox(width: gap),
+          IconButton(
+            onPressed: onToggle,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: actionMinHeight,
+              minHeight: actionMinHeight,
+            ),
+            tooltip: folded ? 'Show' : 'Hide',
+            icon: Icon(
+              folded
+                  ? SolarIconsOutline.altArrowDown
+                  : SolarIconsOutline.altArrowUp,
+              size: foldChevron,
+              color: family,
+            ),
+          ),
+        ],
         if (label != null) ...<Widget>[
           const SizedBox(width: compactActionGap),
           Semantics(

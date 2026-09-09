@@ -73,7 +73,6 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_bio.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
-import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/v02/bio_display.dart';
 import 'package:healthee/shared/v02/bio_hero_eyebrow.dart';
@@ -359,15 +358,18 @@ class BioHero extends StatelessWidget {
         const SizedBox(height: modelGap),
         _inset(BioModelLabel(label: label, icon: modelIcon, ink: ink)),
       ],
-    // The hero is a card, so the hero is a caveat carrier. A `ReadingView` with
-    // `CaveatCarrier.insideCard` hands its disclosures down a `CaveatScope` and
-    // draws nothing itself; a card that did not read it would drop the sentence
-    // silently, which is the one failure the honesty layer exists to prevent.
-    // `panel.dart` carries the same block for the same reason.
-    if (infoKey == null && disclosed.isNotEmpty) ...<Widget>[
-      const SizedBox(height: modelGap),
-      _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
-    ],
+    // **No `CaveatNote` under the card.** The hero is a caveat carrier — a
+    // `ReadingView` with `CaveatCarrier.insideCard` hands its disclosures down
+    // a `CaveatScope` and draws nothing itself, so a card that did not read it
+    // would drop the sentence silently, which is the one failure the honesty
+    // layer exists to prevent. It reads it into the EYEBROW's ⓘ above, and
+    // that is the only route: `panel.dart` made the same move for the same
+    // reason, and two routes is how a card shows the sentence twice or loses
+    // it in the seam between them.
+    //
+    // Losing it is not expressible either. `MetricDetail.isEmpty` counts
+    // disclosures, so an eyebrow with no explainer still draws its ⓘ when
+    // there is a caveat to reach.
   ];
 
   /// `.bio-art`, in whichever of its two boxes. Positioned either way.

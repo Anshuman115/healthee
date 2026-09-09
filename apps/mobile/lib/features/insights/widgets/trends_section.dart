@@ -84,9 +84,39 @@ class MetricTrend {
       metric: metric,
       series: series,
       latest: series.last.value,
-      delta: series.last.value - series.first.value,
+      delta: _robustDelta(series),
     );
   }
+
+  /// The change across the window: the newest third's mean against the oldest
+  /// third's.
+  ///
+  /// **It was `last − first`, and that is two arbitrary days.** On a smooth
+  /// series — resting heart rate, sleep regularity — the endpoints are a fair
+  /// proxy and the old arithmetic read fine. On a high-variance daily count it
+  /// is noise wearing a verdict: the owner's steps swing between 1.2k and 8k,
+  /// so a fortnight's "change" was whichever way those two particular days
+  /// happened to fall, printed in verdict green.
+  ///
+  /// Thirds rather than halves so the middle of the window is excluded from
+  /// both ends — a point next to the boundary should not pull the number both
+  /// ways. [_edge] is at least one, so a two-point series still reduces to
+  /// exactly the old subtraction and the shortest windows are unchanged.
+  static double _robustDelta(List<TrendPoint> series) {
+    final n = _edge(series.length);
+    var newest = 0.0;
+    var oldest = 0.0;
+    for (var i = 0; i < n; i++) {
+      newest += series[series.length - 1 - i].value;
+      oldest += series[i].value;
+    }
+    return (newest - oldest) / n;
+  }
+
+  /// How many points each end contributes. `2 * _edge(n) <= n` for every
+  /// `n >= 2`, so the two ends never overlap and never read the same point
+  /// twice.
+  static int _edge(int length) => length < 3 ? 1 : (length + 2) ~/ 3;
 
   /// The canonical metric id.
   final String metric;
@@ -97,7 +127,12 @@ class MetricTrend {
   /// The newest value in the window.
   final double latest;
 
-  /// Newest minus oldest. Legacy's arithmetic, unchanged.
+  /// The change across the window — see [_robustDelta].
+  ///
+  /// **No longer legacy's `last − first`.** Legacy compared two single days and
+  /// coloured the result; this compares the window's newest third with its
+  /// oldest, which is the same claim made out of enough measurement to support
+  /// it.
   final double delta;
 
   /// What that change means, if anything. Never inferred from the sign alone.

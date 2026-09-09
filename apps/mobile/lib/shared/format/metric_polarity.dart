@@ -97,6 +97,12 @@ const Map<String, MetricPolarity> _polarity = <String, MetricPolarity>{
   'sleep_score': MetricPolarity.higherIsBetter,
   'sleep_health_score_4dim': MetricPolarity.higherIsBetter,
   'total_calories': MetricPolarity.neutral,
+  // **A claim, and a graded one.** `steps_mortality` is Established and the
+  // relationship is monotonic upward over the range a person walks — more is
+  // better, with a plateau rather than a reversal. It is not `neutral` like
+  // `total_calories`, which mixes basal and active energy and moves with body
+  // mass as readily as with effort.
+  'steps_total': MetricPolarity.higherIsBetter,
 };
 
 /// The metrics a trends surface offers, in the order legacy listed them.
@@ -111,4 +117,10 @@ const List<String> kTrendMetrics = <String>[
   'sleep_score',
   'sleep_health_score_4dim',
   'total_calories',
+  // Added 2026-09-09, the day the server started sending the slot. Legacy's
+  // Activity screen had a `Steps 30d` trend row and the rebuild had nowhere to
+  // put one, because `read/today_series.py` had no `steps_total` sparkline —
+  // see that file's own comment. It does now, so the app's ONE trends surface
+  // gains the metric rather than Activity growing a second one.
+  'steps_total',
 ];

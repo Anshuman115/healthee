@@ -8,6 +8,51 @@ part of 'workout_repository.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// The whole `/api/activity` response, fetched once.
+
+@ProviderFor(activitySnapshot)
+final activitySnapshotProvider = ActivitySnapshotProvider._();
+
+/// The whole `/api/activity` response, fetched once.
+
+final class ActivitySnapshotProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<Map<String, Object?>>,
+          Map<String, Object?>,
+          FutureOr<Map<String, Object?>>
+        >
+    with
+        $FutureModifier<Map<String, Object?>>,
+        $FutureProvider<Map<String, Object?>> {
+  /// The whole `/api/activity` response, fetched once.
+  ActivitySnapshotProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'activitySnapshotProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$activitySnapshotHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<Map<String, Object?>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<Map<String, Object?>> create(Ref ref) {
+    return activitySnapshot(ref);
+  }
+}
+
+String _$activitySnapshotHash() => r'c5229b6c8e19331ec9c8d7802c57ae275c74812e';
 
 @ProviderFor(workoutHistory)
 final workoutHistoryProvider = WorkoutHistoryProvider._();
@@ -48,7 +93,51 @@ final class WorkoutHistoryProvider
   }
 }
 
-String _$workoutHistoryHash() => r'602b88921ebb8773e35ad13a4afe780213224166';
+String _$workoutHistoryHash() => r'e29cfe75520e39dec248b561152ca8982b824794';
+
+/// The VO₂max plan, or null when the server sent no block for it.
+
+@ProviderFor(fitnessPlan)
+final fitnessPlanProvider = FitnessPlanProvider._();
+
+/// The VO₂max plan, or null when the server sent no block for it.
+
+final class FitnessPlanProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<FitnessPlan?>,
+          FitnessPlan?,
+          FutureOr<FitnessPlan?>
+        >
+    with $FutureModifier<FitnessPlan?>, $FutureProvider<FitnessPlan?> {
+  /// The VO₂max plan, or null when the server sent no block for it.
+  FitnessPlanProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'fitnessPlanProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$fitnessPlanHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<FitnessPlan?> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<FitnessPlan?> create(Ref ref) {
+    return fitnessPlan(ref);
+  }
+}
+
+String _$fitnessPlanHash() => r'bcb76a3f8ae52f78400d2911acca89fdddb260f7';
 
 @ProviderFor(workoutDetail)
 final workoutDetailProvider = WorkoutDetailFamily._();

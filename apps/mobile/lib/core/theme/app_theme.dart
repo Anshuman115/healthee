@@ -64,6 +64,20 @@ abstract final class AppTheme {
       extensions: <ThemeExtension<Object?>>[colors, hues],
       scaffoldBackgroundColor: colors.bg,
       canvasColor: colors.bg,
+      // **No ink ripple, anywhere.** Material's splash expands a circle from
+      // the touch point across the whole tappable box, which on this app's
+      // cards means a pale disc sweeping over a chart. The app has its own
+      // press feedback and has had since v02 — `HTap`'s scale to 0.975 with a
+      // dip in opacity, legacy's own gesture — and the ripple was a second,
+      // louder answer to the same question, drawn by whichever widgets
+      // happened to be built on `InkWell`.
+      //
+      // Set here rather than at twenty call sites: this is one decision about
+      // how the app answers a touch, and it should not be re-taken per widget.
+      // The highlight is kept — a brief flat tint, so a control built on
+      // `InkWell` still acknowledges a press without animating a disc.
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
       dividerColor: colors.line,
       fontFamily: healtheeFontFamily,
       fontFamilyFallback: healtheeFontFallback,

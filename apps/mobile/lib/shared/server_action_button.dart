@@ -38,6 +38,7 @@ class ServerActionButton extends StatefulWidget {
   /// Builds the button. [action] runs once per tap, never twice concurrently.
   const ServerActionButton({
     required this.label,
+    this.busyNote,
     required this.action,
     required this.onSaved,
     this.style = ActionButtonStyle.legacy,
@@ -48,8 +49,21 @@ class ServerActionButton extends StatefulWidget {
   /// What the button says when idle.
   final String label;
 
+  /// What the wait is for, shown under the button while the action runs.
+  ///
+  /// **These actions are LLM calls and they take about ten seconds.** The only
+  /// feedback was the label changing to `Working…`, which on a screen that
+  /// otherwise responds instantly reads as a button that did nothing — the
+  /// owner's words were *"suggest a challenge and suggest a program does not
+  /// work"*, and it did work, every time. A moving bar says the wait is alive
+  /// and this sentence says what is being waited on.
+  final String? busyNote;
+
   /// The write.
-  final Future<void> Function() action;
+  /// Runs the action. A non-null string is **an outcome worth saying**: the
+  /// call succeeded and produced nothing, and this is why. Null means it did
+  /// what it said. Failures throw and land in [_error] instead.
+  final Future<String?> Function() action;
 
   /// Called after [action] completes without throwing.
   final VoidCallback onSaved;
@@ -66,8 +80,20 @@ class ServerActionButton extends StatefulWidget {
 }
 
 class _ServerActionButtonState extends State<ServerActionButton> {
+  /// The waiting bar.
+  static const double busyTrackHeight = 3;
+  static const double busyTrackRadius = 2;
+
   bool _busy = false;
   String? _error;
+
+  /// Set when the run SUCCEEDED and produced nothing.
+  ///
+  /// **Distinct from [_error] on purpose.** A refusal by the engine's own
+  /// evidence gates is not a failure — the request worked, the model's proposal
+  /// did not clear the rules, and the server says which rule in words. Drawn in
+  /// ordinary ink rather than the danger colour, because nothing is wrong.
+  String? _outcome;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -95,6 +121,46 @@ class _ServerActionButtonState extends State<ServerActionButton> {
                 ),
               ),
       },
+      if (_busy) ...<Widget>[
+        const SizedBox(height: Insets.sm),
+        Semantics(
+          liveRegion: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(busyTrackRadius),
+                child: LinearProgressIndicator(
+                  minHeight: busyTrackHeight,
+                  // Indeterminate on purpose: the server does not report
+                  // progress, and a bar that filled at a rate we invented
+                  // would be a claim about how long this takes.
+                  backgroundColor: context.colors.line,
+                  color: context.colors.accent,
+                ),
+              ),
+              if (widget.busyNote case final String note) ...<Widget>[
+                const SizedBox(height: Insets.xs),
+                Text(
+                  note,
+                  style: FormType.small.copyWith(color: context.colors.ink2),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+      if (_outcome case final String message) ...[
+        const SizedBox(height: Insets.sm),
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            message,
+            style: FormType.small.copyWith(color: context.colors.ink2),
+          ),
+        ),
+      ],
       if (_error case final String message) ...[
         const SizedBox(height: Insets.sm),
         Semantics(
@@ -116,10 +182,14 @@ class _ServerActionButtonState extends State<ServerActionButton> {
     setState(() {
       _busy = true;
       _error = null;
+      _outcome = null;
     });
     try {
-      await widget.action();
-      if (mounted) widget.onSaved();
+      final nothing = await widget.action();
+      if (mounted) {
+        setState(() => _outcome = nothing);
+        widget.onSaved();
+      }
     } on Exception catch (error, stack) {
       AppLog.failure('action', 'performing server action', error, stack);
       if (mounted) setState(() => _error = apiProblem(error));

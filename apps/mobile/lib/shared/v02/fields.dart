@@ -38,8 +38,10 @@ import 'package:flutter/services.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
+import 'package:healthee/shared/v02/choice_sheet.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 /// `.field` — the wrapper around one labelled control.
@@ -242,13 +244,20 @@ class HTextField extends StatelessWidget {
   );
 }
 
-/// `.field select` — a menu on the same box as [HTextField].
+/// `.field select` — a chooser on the same box as [HTextField].
+///
+/// **Tapping it opens a sheet, not Material's overlay menu.** See
+/// `choice_sheet.dart` for why: the menu covered the label of the field it
+/// belonged to, truncated the longest option, and was the last control in the
+/// app still painting a Material splash. The box, the border and the chevron
+/// are unchanged — only what happens when it is pressed.
 class HSelect<T> extends StatelessWidget {
-  /// Builds the menu. A null [value] shows [placeholder].
+  /// Builds the chooser. A null [value] shows [placeholder].
   const HSelect({
     required this.value,
     required this.items,
     required this.onChanged,
+    required this.title,
     this.placeholder,
     super.key,
   });
@@ -262,39 +271,77 @@ class HSelect<T> extends StatelessWidget {
   /// Sets it. Null disables the control.
   final ValueChanged<T?>? onChanged;
 
-  /// What an unanswered menu says. **Never a guessed default** — a
+  /// The sheet's heading — normally the enclosing [HField]'s own label, so the
+  /// sheet says which field it is answering.
+  final String title;
+
+  /// What an unanswered chooser says. **Never a guessed default** — a
   /// self-reported field the owner has not answered is unanswered.
   final String? placeholder;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return DropdownButtonFormField<T>(
-      initialValue: value,
-      isExpanded: true,
-      onChanged: onChanged,
-      icon: Icon(SolarIconsOutline.altArrowDown, color: colors.ink3),
-      dropdownColor: colors.surface,
-      style: FormType.fieldInput.copyWith(color: colors.ink),
-      hint: placeholder == null
-          ? null
-          : Text(
-              placeholder!,
-              style: FormType.fieldInput.copyWith(color: colors.ink3),
-            ),
-      decoration: FieldBox.decoration(context),
-      items: <DropdownMenuItem<T>>[
-        for (final (T option, String label) in items)
-          DropdownMenuItem<T>(
-            value: option,
+    final onChanged = this.onChanged;
+    final chosen = items
+        .where((entry) => entry.$1 == value)
+        .map((entry) => entry.$2)
+        .firstOrNull;
+    final box = Container(
+      constraints: const BoxConstraints(minHeight: FieldBox.minHeight),
+      padding: const EdgeInsets.symmetric(
+        horizontal: FieldBox.padding,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: onChanged == null ? colors.bg : colors.surface,
+        borderRadius: BorderRadius.circular(FieldBox.radius),
+        border: Border.all(
+          color: onChanged == null ? colors.line : colors.rule,
+          width: hairline,
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
             child: Text(
-              label,
+              chosen ?? placeholder ?? '',
+              // Two lines, not one: `Usual activity` is a self-report whose
+              // whole meaning is in the wording, and the field is where the
+              // answer has to stay readable once the sheet has closed.
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: FormType.fieldInput.copyWith(color: colors.ink),
+              style: FormType.fieldInput.copyWith(
+                color: chosen == null ? colors.ink3 : colors.ink,
+              ),
             ),
           ),
-      ],
+          const SizedBox(width: 8),
+          Icon(SolarIconsOutline.altArrowDown, color: colors.ink3),
+        ],
+      ),
+    );
+    if (onChanged == null) {
+      return box;
+    }
+    return Semantics(
+      button: true,
+      label: '$title · ${chosen ?? placeholder ?? ''}',
+      child: HTap(
+        onTap: () async {
+          final picked = await chooseInSheet<T>(
+            context: context,
+            title: title,
+            items: items,
+            value: value,
+          );
+          // Null is a DISMISSAL, not a choice of null — see `chooseInSheet`.
+          if (picked != null) {
+            onChanged(picked);
+          }
+        },
+        child: box,
+      ),
     );
   }
 }

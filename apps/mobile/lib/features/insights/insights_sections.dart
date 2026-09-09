@@ -160,7 +160,6 @@ List<PageSection> insightsSections(ScreenData data, InsightsExtras extras) {
         title: 'Insights',
         date: past ? data.view.day : (data.snapshot?.date ?? data.day.date),
         status: data.view.status,
-        onOpenProfile: extras.onOpenProfile,
       ),
     );
   if (past) {

@@ -20,7 +20,6 @@
 ///   Sleep regularity           the fortnight
 ///   Heart-rate variability     the fortnight
 ///   Naps & your day            the daytime sleep, and the journal
-///   Sleep recommendations      the one link out
 ///   footer
 /// ```
 ///
@@ -70,7 +69,6 @@ import 'package:healthee/shared/findings_section.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/section_list.dart';
-import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/chapter.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/page_header.dart';
@@ -110,7 +108,6 @@ class SleepExtras {
     this.onOpenProfile,
     this.onOpenMetric,
     this.onOpenJournal,
-    this.onOpenActions,
     this.onOpenHistory,
     this.onOpenAllMetrics,
   });
@@ -124,8 +121,6 @@ class SleepExtras {
   /// Opens the journal.
   final VoidCallback? onOpenJournal;
 
-  /// Opens the recommendations.
-  final VoidCallback? onOpenActions;
 
   /// Opens the sleep history.
   ///
@@ -164,9 +159,23 @@ List<PageSection> sleepSections({
         title: 'Sleep',
         date: night.date,
         status: view.status,
-        onOpenProfile: extras.onOpenProfile,
       ),
     );
+  // **The analysis opens the screen.** It was the last panel on a page that
+  // scrolls for four screens, so the one thing on Sleep written FOR the owner
+  // — a grounded reading of these nights, citation-validated — was the thing
+  // they were least likely to reach. It is collapsible precisely because it is
+  // first: several paragraphs in the opening slot would push last night's
+  // measurements below the fold for a reader who only wanted the numbers.
+  //
+  // Not on a past day: `sleepInsightProvider` reads the newest nights, and an
+  // analysis of this week under a date the owner navigated away to would be the
+  // stale-as-current lie at the top of the screen.
+  if (!past) {
+    sections
+      ..add(const SleepAnalysisPanel())
+      ..gap(PageSpacing.panel);
+  }
   // "No sleep last night" is a statement about the wall clock, so it belongs to
   // the newest night only. Under an older date it would be measuring a night
   // the reader chose against an instant they did not.
@@ -278,14 +287,10 @@ List<PageSection> sleepSections({
       )
       ..gap(PageSpacing.block);
   }
-  sections
-    ..add(
-      HLinkButton(
-        label: 'Sleep recommendations',
-        onPressed: extras.onOpenActions,
-      ),
-    )
-    ..gap(PageSpacing.block);
+  // **No `Sleep recommendations` link.** It sat between the naps card and the
+  // analysis, a bare link out to a destination the tab bar already carries as
+  // `Actions` — the reader is one tap from it from anywhere in the app, and a
+  // link to a tab is a control that answers a question nobody was asking here.
   if (past) {
     sections.add(
       const PastDayNotice(title: kSleepTonightPastTitle, body: kPastDayReason),
@@ -296,7 +301,6 @@ List<PageSection> sleepSections({
         ..add(TonightPanel(lever: lever))
         ..gap(PageSpacing.panel);
     }
-    sections.add(const SleepAnalysisPanel());
     // `/api/sleep`'s own sleep-scoped correlations, and only when there are any.
     if (page.findings.isNotEmpty) {
       sections
@@ -320,7 +324,6 @@ List<PageSection> _noNight(ViewDay view, SleepExtras extras) => <PageSection>[
       title: 'Sleep',
       date: view.day,
       status: view.status,
-      onOpenProfile: extras.onOpenProfile,
     ),
     gap: 0,
   ),

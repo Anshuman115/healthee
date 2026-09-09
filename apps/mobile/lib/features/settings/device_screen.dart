@@ -58,7 +58,7 @@ class DeviceScreen extends ConsumerWidget {
   const DeviceScreen({this.now, super.key});
 
   /// The prototype's own h1.
-  static const String title = 'Your Helio Strap.';
+  static const String title = 'Your Helio Strap';
 
   /// Its eyebrow.
   static const String eyebrow = 'Connected device';

@@ -14,10 +14,11 @@
 /// claims about different windows and neither substitutes for the other, which
 /// is why the two screens do not share a panel.
 ///
-/// **The payload has no `steps_total` sparkline** (`sparklines` carries eleven
-/// ids and that is not one of them), so on today's contract this chart draws
-/// `ChartVoid` — nothing, at full height. That is the correct render of a series
-/// the server did not send, and it is the reason nothing here pads a series to
+/// **The `steps_total` sparkline arrives now**, and for most of this project it
+/// did not: `read/today_series.py` had no slot for it, so this chart drew
+/// `ChartVoid` for every owner on every request. It still does whenever the
+/// series is absent — nothing, at full height, which is the correct render of a
+/// series the server did not send, and the reason nothing here pads a series to
 /// reach seven bars.
 ///
 /// ## What stays on the card
@@ -58,6 +59,15 @@ const String kMovementInstrumentNote =
 /// separately" is a definition of the strength number rather than a lesson.
 const String kIntensityNote =
     'Vigorous minutes count twice. Strength is recorded separately.';
+
+/// What the card says when the week behind today's count is empty.
+///
+/// Required by `ChartVoid`'s own contract: it holds the chart's height and
+/// paints nothing, so that an absent series reads as an absence rather than a
+/// shorter card — and it is the panel's job to say what the absence is.
+const String kNoStepWeekNote =
+    'No earlier days to chart yet — the week fills in as this phone collects '
+    'them.';
 
 /// `Today’s movement` — the day's steps, the week behind them, what it cost.
 class MovementPanel extends StatelessWidget {
@@ -120,10 +130,21 @@ class MovementPanel extends StatelessWidget {
             builder: (context, t) => V02BarChart(
               <double?>[for (final point in trend) point.value],
               progress: t,
-              labels: <String>[for (final point in trend) dayOfMonth(point.date)],
+              labels: <String>[
+                for (final point in trend) dayOfMonth(point.date),
+              ],
               semanticLabel: 'Steps over the recent days',
             ),
           ),
+          // **`ChartVoid` holds the slot and draws nothing on purpose**, and
+          // its contract is that the CARD supplies the words. This card did
+          // not, so an empty week was a blank band the height of the chart
+          // with nothing saying why — and it was empty for every owner on
+          // every request, because `read/today_series.py` had no `steps_total`
+          // sparkline slot at all. The slot exists now; this sentence covers
+          // the case that remains, which is a phone that has not collected a
+          // week yet.
+          if (trend.isEmpty) const PanelNote(kNoStepWeekNote),
           if (_energy() case final List<Stat> stats when stats.isNotEmpty)
             ...<Widget>[const SizedBox(height: statsGap), StatRow(stats)],
           const PanelNote(kMovementInstrumentNote),

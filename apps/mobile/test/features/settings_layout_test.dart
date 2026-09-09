@@ -119,8 +119,15 @@ void main() {
     ) async {
       await _pumpAt(tester, 390, Routes.settings);
       expectPaintedOrder(tester, <Finder>[
-        find.text('Profile & settings'),
-        find.text('Your profile & measurements'),
+        // **The eyebrow is gone from every detail head.** It drew a small line
+        // over a bigger title saying the same thing — `Profile & settings`
+        // above `Make it yours.` — so the head is now the screen's own name,
+        // once. `DetailHeader` keeps the parameter and ignores it.
+        find.text('Settings'),
+        // The profile row prints the owner's own figures — age, height, the
+        // latest weigh-in — and falls back to naming the destination only when
+        // none of them is known, which is this fixture.
+        find.text('Your measurements and self-reports'),
         find.text('Your connected device'),
         find.text('Amazfit Helio Strap'),
         find.text('Your experience'),
@@ -177,7 +184,7 @@ void main() {
     ) async {
       await _pumpAt(tester, 390, Routes.device);
       expectPaintedOrder(tester, <Finder>[
-        find.text('Connected device'),
+        find.text('Your Helio Strap'),
         find.text('Amazfit Helio Strap'),
         find.text('Last full sync'),
         find.text('Sync now'),
@@ -253,7 +260,7 @@ void main() {
       // holds instead of the flow, which is the point of `PairedSummary`.
       await _pumpAt(tester, 390, Routes.pairing, paired: false);
       expectPaintedOrder(tester, <Finder>[
-        find.text('Connect your strap'),
+        find.text('A quiet connection.'),
         find.text('Your health starts here.'),
         find.text('Find your strap'),
         find.text('Connect securely'),

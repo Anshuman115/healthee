@@ -11,9 +11,13 @@
 /// recorded a legibility defect faithfully and then objected to it being fixed.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/core/theme/appearance_palette.dart';
+import 'package:healthee/core/theme/appearance_variant.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/palette.dart';
 import 'package:healthee/core/theme/tokens.dart';
@@ -87,14 +91,64 @@ void main() {
       // including one chosen by accident. This names the exact regression the
       // per-theme pair exists to prevent: v02's light `--on-accent` measures
       // 1.66:1 on the dark accent. A one-line edit in palette.dart.
-      expect(
-        _contrast(DarkPalette.accent, LightPalette.onAccent),
-        lessThan(3),
-      );
+      expect(_contrast(DarkPalette.accent, LightPalette.onAccent), lessThan(3));
       expect(
         _contrast(LightPalette.accent, LightPalette.onAccent),
         greaterThanOrEqualTo(4.5),
       );
+    });
+
+    test('EVERY ACCENT THE OWNER CAN PICK CLEARS AA, IN BOTH THEMES', () {
+      // **The gap this closes.** `appearanceColors` overrides `accent` from the
+      // owner's choice and leaves `onAccent` alone, so each of the seven
+      // inherits ink chosen for the green — and only the green was ever
+      // measured. Three of the seven failed in light: Clay at 4.37:1, Amber at
+      // 3.51 and Coral at 3.83, on the label inside a filled button.
+      //
+      // The pair is per THEME, not per accent, so the light column has to be
+      // dark enough for near-white ink and the dark column light enough for
+      // near-black. Both directions are asserted, because an accent that
+      // failed only in the theme nobody screenshotted would ship.
+      for (var i = 0; i < AppearanceVariant.accentNames.length; i++) {
+        final name = AppearanceVariant.accentNames[i];
+        final pair = AppearancePalette.accents[i];
+        expect(
+          _contrast(pair[0], LightPalette.onAccent),
+          greaterThanOrEqualTo(4.5),
+          reason: '$name, light: the label inside a filled accent button',
+        );
+        expect(
+          _contrast(pair[1], DarkPalette.onAccent),
+          greaterThanOrEqualTo(4.5),
+          reason: '$name, dark',
+        );
+      }
+    });
+
+    test('THE SEVEN ARE SEVEN, NOT FIVE AND TWO NEAR-DUPLICATES', () {
+      // Clay and Coral were `#EC8568` and `#E8796C` — a few points apart, two
+      // warm reds with different names in a picker whose whole job is to look
+      // different. A minimum distance is not taste: two choices a reader cannot
+      // tell apart are one choice with two labels.
+      for (final dark in <bool>[false, true]) {
+        final seen = <int, String>{};
+        for (var i = 0; i < AppearanceVariant.accentNames.length; i++) {
+          final colour = AppearancePalette.accents[i][dark ? 1 : 0];
+          for (final entry in seen.entries) {
+            expect(
+              _distance(Color(entry.key), colour),
+              // 60, not more: the light column's warm range is cramped, since
+              // an accent dark enough for near-white ink is a brown. Clay and
+              // Amber sit at 61 and that is close to its ceiling.
+              greaterThan(60),
+              reason:
+                  '${AppearanceVariant.accentNames[i]} and ${entry.value} are '
+                  'the same colour with two names',
+            );
+          }
+          seen[colour.toARGB32()] = AppearanceVariant.accentNames[i];
+        }
+      }
     });
 
     test('onAccent is Material’s onError too, and clears AA there as well', () {
@@ -118,13 +172,16 @@ void main() {
       expect(AppTheme.dark.extension<InstrumentHues>(), darkHues);
     });
 
-    test('wire ColorScheme.error to alert rather than inventing a second red', () {
-      // Reserving alert for the illness flag is a rule about OUR cards.
-      // Material still needs an error colour, and leaving it at the M3 default
-      // would put a red nobody chose into form validation.
-      expect(AppTheme.light.colorScheme.error, light.alert);
-      expect(AppTheme.dark.colorScheme.error, dark.alert);
-    });
+    test(
+      'wire ColorScheme.error to alert rather than inventing a second red',
+      () {
+        // Reserving alert for the illness flag is a rule about OUR cards.
+        // Material still needs an error colour, and leaving it at the M3 default
+        // would put a red nobody chose into form validation.
+        expect(AppTheme.light.colorScheme.error, light.alert);
+        expect(AppTheme.dark.colorScheme.error, dark.alert);
+      },
+    );
 
     test('use chrome for the app bar, not the page background', () {
       expect(AppTheme.light.appBarTheme.backgroundColor, light.chrome);
@@ -134,7 +191,10 @@ void main() {
     });
 
     test('the primary IS the fitness family — richer.css’s --accent', () {
-      expect(AppTheme.light.colorScheme.primary, Tone.fitness.family(lightHues));
+      expect(
+        AppTheme.light.colorScheme.primary,
+        Tone.fitness.family(lightHues),
+      );
       expect(AppTheme.dark.colorScheme.primary, Tone.fitness.family(darkHues));
     });
 
@@ -163,4 +223,12 @@ void main() {
     expect(light.lerp(dark, 1), dark);
     expect(lightHues.lerp(darkHues, 1), darkHues);
   });
+}
+
+/// Plain RGB distance, which is enough to catch two names for one colour.
+double _distance(Color a, Color b) {
+  final dr = (a.r - b.r) * 255;
+  final dg = (a.g - b.g) * 255;
+  final db = (a.b - b.b) * 255;
+  return math.sqrt(dr * dr + dg * dg + db * db);
 }

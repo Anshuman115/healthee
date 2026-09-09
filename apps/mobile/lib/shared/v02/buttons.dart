@@ -39,6 +39,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -52,6 +53,21 @@ enum HButtonKind {
 
   /// `.button.soft` — accent-soft ground, accent label.
   soft,
+
+  /// The enclosing instrument family's own hue, with the accent's ink on it.
+  ///
+  /// **For a control that acts on ONE reading's subject**, where the accent
+  /// would say nothing about which. Four accept buttons down the Actions screen
+  /// in one colour lose the category the card spent a chip establishing.
+  ///
+  /// It resolves the family from the cascade rather than taking a colour, which
+  /// is the contract `icon_tile.dart` sets: a call site may declare a tone, it
+  /// may not hand in a hue.
+  ///
+  /// Every family clears WCAG AA against `onAccent` in both themes — the worst
+  /// is 7.14:1 against the 4.5 floor — and `theme_test.dart` measures it, the
+  /// same way it measures the seven selectable accents.
+  family,
 }
 
 /// `.button` — the one button shape in the product.
@@ -109,6 +125,7 @@ class HButton extends StatelessWidget {
       HButtonKind.primary => (colors.accent, colors.onAccent, null),
       HButtonKind.secondary => (colors.surface, colors.ink, colors.rule),
       HButtonKind.soft => (colors.accentSoft, colors.accent, null),
+      HButtonKind.family => (context.family, colors.onAccent, null),
     };
     final enabled = onPressed != null;
     final Widget button = Opacity(

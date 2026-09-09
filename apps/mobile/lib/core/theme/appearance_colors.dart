@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/appearance_palette.dart';
 import 'package:healthee/core/theme/appearance_variant.dart';
-import 'package:healthee/core/theme/palette.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
 HealtheeColors appearanceColors(

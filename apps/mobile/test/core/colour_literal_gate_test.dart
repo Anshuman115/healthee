@@ -21,6 +21,10 @@ import 'package:flutter_test/flutter_test.dart';
 const Set<String> _palettes = <String>{
   'lib/core/theme/palette.dart',
   'lib/core/theme/sleep_stage_palette.dart',
+  // The owner's seven accents and three grounds. Split out of `palette.dart`
+  // because it answers to WCAG and to being distinguishable, not to `tokens.css`
+  // — see its own library docstring.
+  'lib/core/theme/appearance_palette.dart',
 };
 
 /// What a colour literal looks like in Dart. `Colors.red` is caught too: the
@@ -36,7 +40,7 @@ final RegExp _literal = RegExp(
 );
 
 void main() {
-  test('no colour literal exists outside the two palette files', () {
+  test('no colour literal exists outside the palette files', () {
     final offenders = <String>[];
     for (final entity in Directory('lib').listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) {
@@ -81,7 +85,7 @@ void main() {
     expect(_literal.hasMatch('  backgroundColor: Colors.transparent,'), isFalse);
   });
 
-  test('both palette files exist — a rename must not silently widen the rule', () {
+  test('every palette file exists — a rename must not silently widen the rule', () {
     for (final path in _palettes) {
       expect(File(path).existsSync(), isTrue, reason: path);
     }

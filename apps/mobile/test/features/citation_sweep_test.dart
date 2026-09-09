@@ -232,11 +232,18 @@ void main() {
       });
     }
 
-    testWidgets('a finding citing nothing PAINTS no ⓘ at all', (tester) async {
-      // An ⓘ that opens an empty sheet is a control promising grounding there
-      // is none of. `MetricInfoDot` is still in the tree; what must be true is
-      // that it takes no space and draws no ink — which is why this is a rect
-      // and not a `findsNothing`.
+    testWidgets('a finding citing nothing STILL HAS A SHEET, AND NO SOURCES', (
+      tester,
+    ) async {
+      // **This reverses an older rule, on purpose.** It used to read *"a
+      // finding citing nothing PAINTS no ⓘ at all"* — an ⓘ that opens an empty
+      // sheet is a control promising grounding there is none of. The rule
+      // stands; the sheet is no longer empty. The arithmetic moved behind this
+      // dot, because five findings meant five inline `The statistic behind
+      // this` disclosures stacked down the card.
+      //
+      // So what must be true is the honest half: the dot is there, the method
+      // is behind it, and it names no source it does not have.
       await pumpAt(
         tester,
         360,
@@ -245,13 +252,24 @@ void main() {
 
       final dot = dotIn(find.byType(FindingsSection));
       expect(dot, findsOneWidget);
+      expect(tester.getRect(dot).isEmpty, isFalse);
+
+      await tester.tap(dot);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('rho = 0.40'), findsOneWidget);
       expect(
-        tester.getRect(dot).isEmpty,
-        isTrue,
-        reason:
-            'the dot occupies ${tester.getRect(dot)} with nothing behind it',
+        find.textContaining('not that either one caused the other'),
+        findsOneWidget,
       );
+      for (final id in kFinding.researchNoteIds) {
+        expect(
+          find.text(noteName(id) ?? id),
+          findsNothing,
+          reason: 'this finding cites nothing; its sheet must name nothing',
+        );
+      }
     });
+
   });
 
   group('the activity-level field: swept, and still reachable', () {

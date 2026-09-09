@@ -133,6 +133,7 @@ class _ProfileEditorState extends ConsumerState<ProfileEditor> {
                       label: 'Sex for estimates',
                       reserveHint: true,
                       child: HSelect<String>(
+                        title: 'Sex for estimates',
                         value: _sex,
                         placeholder: 'Not provided',
                         onChanged: _saving

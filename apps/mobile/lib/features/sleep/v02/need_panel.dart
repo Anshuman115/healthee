@@ -34,10 +34,27 @@
 /// assumed eight hours.
 ///
 /// The shortfall is still summed over the nights THIS SCREEN was sent, not over
-/// the server's fourteen, so the third statistic says **`Nights counted`** and
-/// carries the count actually used. A `14` here would be a label borrowed from
-/// a model that is not running behind it; the server's own 14-night debt is a
-/// different figure and lives on the Today page.
+/// the server's fourteen, so the note under the chart names the count actually
+/// used — *"the 7 measured nights of the last seven"*. A `14` here would be a
+/// label borrowed from a model that is not running behind it; the server's own
+/// 14-night debt is a different figure and lives on the Today page.
+///
+/// ## ⛔ TWO WINDOWS ON ONE CARD, AND THEY MUST SAY WHICH IS WHICH
+///
+/// The debt is summed over **the measured week** and the chart draws **those
+/// seven nights**. `Sleep performance` and `Nightly gap` are **last night** —
+/// `sleep_performance_pct` is `last_tst / need`, ported verbatim and cited to
+/// `sleep_need_debt`, and the explainer says so in words.
+///
+/// Stacked unlabelled, that reads as one window. Worse, it reads as the RIGHT
+/// one by coincidence: on the owner's own week the debt was `16h 04m` over 7
+/// nights — a mean of `2h 18m` — directly above a `Nightly gap` of `2h 26m`.
+/// Eight minutes apart, so the wrong reading is indistinguishable from the
+/// average nobody computed. **Never let these two sit together unlabelled.**
+///
+/// The fix is the label, never the arithmetic: making performance weekly here
+/// would be the second definition `CLAUDE.md`'s first hard rule forbids, and
+/// the server owns this one.
 ///
 /// ## The chart is `HDebtBars`, not a second one
 ///
@@ -49,6 +66,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/data/honesty/reading.dart';
@@ -87,9 +105,8 @@ class SleepNeedPanel extends StatelessWidget {
   /// The gap above the statistics row.
   static const double statsGap = 14;
 
-  /// `.progress-track { margin-block:16px 8px }`.
-  static const double trackTop = 16;
-  static const double trackBottom = 8;
+  /// The gap between a window label and what it labels.
+  static const double labelGap = 8;
 
   /// The gap above the legend.
   static const double legendGap = 10;
@@ -184,18 +201,27 @@ class SleepNeedPanel extends StatelessWidget {
               ),
               label: 'Sleep need',
             ),
-          const SizedBox(height: statsGap),
-          StatRow(<Stat>[
-            if (percent != null)
-              Stat('Sleep performance', '${percent.round()}', unit: '%'),
-            if (gap != null) Stat('Nightly gap', hoursMinutes(gap)),
-            Stat('Nights counted', '${nights.length}'),
-          ]),
-          if (percent != null) ...<Widget>[
-            const SizedBox(height: trackTop),
-            ProgressTrack(fraction: percent / 100),
-            const SizedBox(height: trackBottom),
+          if (percent != null || gap != null) ...<Widget>[
+            const SizedBox(height: statsGap),
+            // The window these two belong to, said once, above both. See the
+            // docstring: unlabelled they read as the week, and on this owner's
+            // data the wrong reading lands eight minutes from the right one.
+            const WindowLabel('Last night'),
+            const SizedBox(height: labelGap),
+            StatRow(<Stat>[
+              if (percent != null)
+                Stat('Sleep performance', '${percent.round()}', unit: '%'),
+              if (gap != null) Stat('Short of need', hoursMinutes(gap)),
+            ]),
           ],
+          // **`Nights counted` is gone and the bare track with it.** The count
+          // is repeated verbatim in the note below — "the 7 measured nights of
+          // the last seven" — and the track drew one of the three figures
+          // beside it, full width, with nothing saying which. A mark that
+          // carries no reading of its own does not belong on this surface.
+          const SizedBox(height: statsGap),
+          const WindowLabel('The measured week'),
+          const SizedBox(height: labelGap),
           // One bar is not a week, and a need-versus-actual chart with no need
           // is not a chart. Below either floor the slot is kept and drawn empty,
           // and the note below says which floor it was.
@@ -218,9 +244,17 @@ class SleepNeedPanel extends StatelessWidget {
             ),
           if (hasNeed) ...<Widget>[
             const SizedBox(height: legendGap),
+            // The ghost had NO legend entry, and it is the mark the card's own
+            // title is about. Three entries for three things the chart draws.
             ColourKey(<ColourKeyEntry>[
               ColourKeyEntry('Met ${hoursMinutes(need)}', tone: Tone.fitness),
-              const ColourKeyEntry('Short', tone: Tone.heart),
+              const ColourKeyEntry('Slept', tone: Tone.heart),
+              ColourKeyEntry(
+                'Still needed',
+                colour: context.colors.alert.withValues(
+                  alpha: HDebtBars.ghostAlpha,
+                ),
+              ),
             ]),
           ],
           PanelNote(note),

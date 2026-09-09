@@ -277,5 +277,46 @@ void main() {
       expect(stepsPlateauTop(60), kStepsPlateauTopFrom60);
       expect(stepsPlateauTop(59.9), kStepsPlateauTopUnder60);
     });
+
+    testWidgets('AND THE TILE ITSELF DRAWS NO BAR FOR AN OWNER WITH NO AGE', (
+      tester,
+    ) async {
+      // **The function's rule, asserted where it is spent.** The unit test
+      // above proves `stepsPlateauTop` refuses; this proves the tile asks it.
+      // A tile that hard-coded 10,000 would agree with the derived answer for
+      // every owner under 60 — including this suite's own fixture, who is 36 —
+      // so the only owner who can tell the two apart is one with no age at all.
+      tall(tester);
+      await tester.pumpWidget(
+        todayHost(
+          store,
+          server: todayView(
+            mutate: (json) => <String, Object?>{
+              ...json,
+              'biological_age': <String, Object?>{
+                ...json['biological_age']! as Map<String, Object?>,
+                'chronological_age': null,
+              },
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final movement = find.byWidgetPredicate(
+        (widget) => widget is SummaryTile && widget.title == 'Movement',
+      );
+      expect(movement, findsOneWidget);
+      expect(
+        find.descendant(of: movement, matching: find.byType(TileMeter)),
+        findsNothing,
+        reason: 'no band was published, so there is nothing to draw against',
+      );
+      expect(
+        find.descendant(of: movement, matching: find.textContaining('% of')),
+        findsNothing,
+        reason: 'and no percentage of a denominator nobody supplied',
+      );
+    });
   });
 }

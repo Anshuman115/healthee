@@ -86,7 +86,6 @@ import 'package:healthee/shared/format/metric_names.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/citation_row.dart';
-import 'package:healthee/shared/states/reasoning_note.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
 /// What the analytics layer found in the owner's own history.
@@ -143,7 +142,22 @@ class _FindingRow extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Expanded(child: Text(headline, style: text.titleSmall)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  // Which way they moved, as a mark rather than a clause
+                  // buried mid-sentence. Five of these read as five paragraphs
+                  // of near-identical prose; the chip is what makes the card
+                  // scannable without touching the wording, which IS the
+                  // honesty contract here.
+                  _DirectionChip(effect: finding.effectSize),
+                  const SizedBox(height: Insets.xs),
+                  Text(headline, style: text.titleSmall),
+                ],
+              ),
+            ),
             MetricInfoDot(
               // No explainer key: a correlation found in one person's history is
               // not a metric the corpus has an entry for. The detail IS the
@@ -152,6 +166,14 @@ class _FindingRow extends StatelessWidget {
               detail: MetricDetail(
                 title: headline,
                 notes: finding.researchNoteIds,
+                // **The arithmetic lives here, not on the face.** It was an
+                // inline `The statistic behind this ⌄` on every row — five
+                // findings meant five collapsed disclosures stacked down the
+                // card, each one a control the reader had to decide about
+                // before they could read the next headline. The ⓘ is where
+                // every other surface in this app keeps its method, and this
+                // dot was already open beside the row carrying the sources.
+                method: findingStatistics(finding).split('\n\n'),
               ),
               fallbackTitle: headline,
             ),
@@ -162,11 +184,51 @@ class _FindingRow extends StatelessWidget {
           findingWindow(finding),
           style: text.bodySmall?.copyWith(color: colors.ink2),
         ),
-        ReasoningNote(
-          question: 'The statistic behind this',
-          answer: findingStatistics(finding),
-        ),
       ],
+    );
+  }
+}
+
+/// `OPPOSITE` / `TOGETHER` — the direction, as a mark.
+class _DirectionChip extends StatelessWidget {
+  const _DirectionChip({required this.effect});
+
+  static const EdgeInsets padding = EdgeInsets.symmetric(
+    horizontal: 7,
+    vertical: 2,
+  );
+
+  /// Signed. Null draws nothing — a finding with no effect size has no
+  /// direction, and a chip guessing one would be the whole claim invented.
+  final double? effect;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = effect;
+    if (size == null) {
+      return const SizedBox.shrink();
+    }
+    final colors = context.colors;
+    final opposite = size < 0;
+    // `unf`/`fav` are the app's verdict pair and this is NOT a verdict — two
+    // metrics moving opposite is not bad news. The family carries it instead.
+    final hue = colors.accent;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: hue.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(Radii.pill),
+      ),
+      child: Padding(
+        padding: padding,
+        child: Text(
+          opposite ? 'OPPOSITE' : 'TOGETHER',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: hue,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ),
     );
   }
 }

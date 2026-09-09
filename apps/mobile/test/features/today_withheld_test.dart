@@ -22,7 +22,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/today/v02/night_panels.dart';
 import 'package:healthee/features/today/v02/today_hero_withheld.dart';
+import 'package:healthee/shared/v02/dimension_list.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
 import '../_today_stubs.dart';
@@ -138,6 +140,56 @@ void main() {
         expect(find.text(cases[key]!), findsNothing);
       });
     }
+  });
+
+  group('a dimension the server could not score', () {
+    testWidgets('PRINTS A DASH, NEVER THE CUT-OFF THAT WOULD HAVE JUDGED IT', (
+      tester,
+    ) async {
+      // **A whole block being withheld is the case above; this is one FIELD of
+      // one block.** `sleep_health` arrives, so the grid draws — but `sri` is
+      // absent, so Regularity has no reading. The cut-off sits on the same row
+      // and is a number of the same shape, which is exactly what makes it
+      // available to fall back to and exactly why it must not be: `≥ 70` where
+      // the reading goes reads as a regularity of 70, and it would sit beside a
+      // tick or a cross that judged something else entirely.
+      await pump(
+        tester,
+        (json) => <String, Object?>{
+          ...json,
+          'sleep_health': <String, Object?>{
+            ...json['sleep_health']! as Map<String, Object?>,
+            'sri': null,
+          },
+        },
+      );
+      await reveal(tester, find.byType(SleepHealthPanel));
+
+      final list = tester.widget<DimensionList>(
+        find.descendant(
+          of: find.byType(SleepHealthPanel),
+          matching: find.byType(DimensionList),
+        ),
+      );
+      final regularity = list.rows.firstWhere(
+        (row) => row.label == 'Regularity',
+      );
+      expect(regularity.value, '—');
+      // The cut-off is still ON the row — it is what the tick would have been
+      // measured against, and it is the payload's own string. What must not
+      // happen is it standing in for the reading.
+      expect(regularity.against, isNotNull);
+      expect(regularity.value, isNot(regularity.against));
+      // And the dash is painted, not merely held: a row that carried it and
+      // drew nothing would pass every assertion above.
+      expect(
+        find.descendant(
+          of: find.byType(SleepHealthPanel),
+          matching: find.text('—'),
+        ),
+        findsOneWidget,
+      );
+    });
   });
 
   group('a refusal is never a retry', () {

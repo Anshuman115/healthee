@@ -18,13 +18,14 @@ import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/actions/actions_screen.dart';
 import 'package:healthee/features/actions/v02/suggestion_card.dart';
+import 'package:healthee/features/actions/v02/suggestion_list.dart';
+import 'package:healthee/features/actions/v02/suggestion_row.dart';
 import 'package:healthee/features/actions/v02/working_on.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/format/other_day.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
-import 'package:healthee/shared/v02/choices.dart';
-import 'package:healthee/shared/v02/journal_strip.dart';
+import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/screen_head.dart';
@@ -39,12 +40,10 @@ import '_today_host.dart';
 /// A one-word name for each section, so the order reads as the prototype's.
 String _id(PageSection section) => switch (section.child) {
   ScreenHead() => 'head',
-  SuggestionCard() => 'suggestion',
-  EmptyState() => 'nothing-suggested',
+  SuggestionList() => 'suggestions',
   LoadingState() => 'pending',
   SectionHead(:final title) => 'section:$title',
   WorkingOn() => 'working-on',
-  JournalStrip() => 'journal-strip',
   RowCard() => 'rows',
   DataFooter() => 'footer',
   PanelNote() => 'note',
@@ -87,7 +86,7 @@ void main() {
         1,
         reason: 'the caption qualifies the whole set',
       );
-      expect(ids.indexOf('note'), lessThan(ids.indexOf('suggestion')));
+      expect(ids.indexOf('note'), lessThan(ids.indexOf('suggestions')));
 
       final note = sections[1].child as PanelNote;
       expect(note.text, writtenForDay('2026-07-29'));
@@ -116,7 +115,10 @@ void main() {
       ).map(_id).toList();
 
       expect(ids.contains('note'), isFalse);
-      expect(ids[1], 'nothing-suggested');
+      // The list is still built for an empty set: it draws the ring that counts
+      // the set — `0/0` — and says the day was quiet beside it. A screen that
+      // dropped the whole block would drop the count with it.
+      expect(ids[1], 'suggestions');
     });
   });
 
@@ -129,19 +131,19 @@ void main() {
 
       expect(ids, <String>[
         'head',
-        'suggestion',
-        'section:$kWorkingOnHeading',
+        'suggestions',
+        // No `SectionHead` above it: `WorkingOn` draws its own heading with its
+        // content, so a scope with nothing running takes its title with it
+        // rather than leaving a heading over an absence.
         'working-on',
-        'section:$kCheckInHeading',
-        'journal-strip',
-        'section:$kLookBackHeading',
+        'section:$kRecordHeading',
         'rows',
         'footer',
       ]);
     });
 
     test('a quiet day says so and still offers everything after it', () {
-      final ids = actionsSections(
+      final sections = actionsSections(
         screenData(
           server: todayView(
             mutate: (json) => <String, Object?>{
@@ -151,17 +153,26 @@ void main() {
           ),
         ),
         const ActionsLinks(),
-      ).map(_id).toList();
+      );
+      final ids = sections.map(_id).toList();
 
-      expect(ids.contains('suggestion'), isFalse);
-      expect(ids[1], 'nothing-suggested');
+      // The block stays and says the day was quiet — see `SuggestionList`.
+      expect(ids[1], 'suggestions');
+      expect(
+        sections[1].child,
+        isA<SuggestionList>().having(
+          (list) => list.recommendations,
+          'recommendations',
+          isEmpty,
+        ),
+      );
       // The rest of the screen is unchanged: an absent suggestion is not an
       // absent screen.
       expect(ids.last, 'footer');
       expect(ids.contains('working-on'), isTrue);
     });
 
-    test('a ranked set repeats the card and relabels only the eyebrow', () {
+    test('every rank the server sent reaches the list, in its order', () {
       final sections = actionsSections(
         screenData(
           server: todayView(
@@ -182,19 +193,29 @@ void main() {
         ),
         const ActionsLinks(),
       );
-      final cards = sections
+      // One `SuggestionList` holds the whole set now, where there was a
+      // `SuggestionCard` section per recommendation. What must not change is
+      // that the server's ORDER survives: the ranking is the server's claim
+      // about which suggestion matters most today, and a client that re-sorted
+      // it would be overruling that silently.
+      final lists = sections
           .map((section) => section.child)
-          .whereType<SuggestionCard>()
+          .whereType<SuggestionList>()
           .toList();
-      expect(cards.length, 2);
-      expect(cards.first.first, isTrue);
-      expect(cards.last.first, isFalse);
+      expect(lists.length, 1);
+      expect(
+        lists.single.recommendations.map((rec) => rec.action).toList(),
+        <String>[
+          screenData(server: todayView()).snapshot!.recommendations.first.action,
+          'Walk after dinner',
+        ],
+      );
     });
   });
 
   group('the suggestion card', () {
     testWidgets(
-      'ITS GROUND IS THE CATEGORY’S FAMILY, NOT A COLOUR IT WAS GIVEN',
+      'ITS COLOUR IS THE CATEGORY’S FAMILY, NOT A COLOUR IT WAS GIVEN',
       (tester) async {
         await tester.pumpWidget(
           todayHost(store, home: ActionsScreen(now: now)),
@@ -202,53 +223,42 @@ void main() {
         await tester.pumpAndSettle();
 
         const hues = InstrumentHues.light();
-        final container = tester.widget<Container>(
+        // The row's ground is the plain card surface now — the category speaks
+        // through the CONTROL instead, which is where the owner asked for it:
+        // "lets use color coded button please". So the assertion moved to the
+        // button, and it is still the same claim — the hue is derived from the
+        // category the server sent, never handed to the card by its caller.
+        final button = tester.widget<Container>(
           find
               .descendant(
-                of: find.byType(FocusCard),
+                of: find.byType(HButton).first,
                 matching: find.byType(Container),
               )
               .first,
         );
-        final decoration = container.decoration!;
         // The fixture's one recommendation is `category: sleep`.
-        expect(groundOf(decoration), Tone.sleep.familySoft(hues));
+        expect(groundOf(button.decoration!), Tone.sleep.family(hues));
         expect(
-          groundOf(decoration),
-          isNot(Tone.fitness.familySoft(hues)),
+          groundOf(button.decoration!),
+          isNot(Tone.fitness.family(hues)),
           reason: 'a card that ignored the category would be the root default',
         );
       },
     );
 
-    testWidgets('THE CHECKBOX IS 24 × 24 AND SAYS INTENTION, NOT COMPLETION', (
+    testWidgets('ITS CONTROL SAYS INTENTION, NEVER COMPLETION', (
       tester,
     ) async {
       await tester.pumpWidget(todayHost(store, home: ActionsScreen(now: now)));
       await tester.pumpAndSettle();
 
-      expect(find.byType(CheckAction), findsOneWidget);
-      final box = tester.getRect(
-        find
-            .descendant(
-              of: find.byType(CheckAction),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
-      // The literal, not the constant: an assertion that reads the number it
-      // is checking passes against any value the constant is given.
-      expect(box.width, 24);
-      expect(box.height, 24);
-      expect(CheckAction.boxSize, 24, reason: '.checkbox { width: 24px }');
+      // **The 24 × 24 checkbox is gone.** It read as a completion tick — the
+      // one thing this app cannot observe — and the owner asked for a
+      // colour-coded button in its place. The words are what carry the meaning
+      // now, so the words are what this pins.
+      expect(find.byType(HButton), findsWidgets);
+      expect(find.text('I’ll try this'), findsOneWidget);
 
-      expect(find.text(kAdoptLabel), findsOneWidget);
-      // **`kAdoptNote` is not drawn until the suggestion IS adopted.** It read
-      // `One manageable change to start with.` under every card the app has
-      // ever shown — the same sentence, on a line of its own, saying nothing
-      // about the suggestion above it. A subtitle that cannot differ between
-      // two cards is not telling the reader about either.
-      expect(find.text(kAdoptNote), findsNothing);
       for (final completion in <String>['Done', 'Completed', 'Finished']) {
         expect(
           find.textContaining(completion),
@@ -327,7 +337,7 @@ void main() {
         for (final finder in <Finder>[
           find.byType(FocusCard),
           find.byType(RowCard),
-          find.byType(JournalStrip),
+          find.byType(SuggestionRow),
         ]) {
           for (final element in finder.evaluate()) {
             final rect = tester.getRect(

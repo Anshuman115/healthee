@@ -66,19 +66,31 @@ void main() {
       expect(size.width, _panelInnerWidth);
 
       final painted = paintedBy(tester, find.byType(V02Hypnogram));
-      final bands = rectsOf(painted);
+      // The bands are the rounded marks. The night is drawn as ONE stepped
+      // ribbon now, so the painter also puts down its frame and a riser between
+      // each pair of spans — square, and neither of them a datum. Counting
+      // every rectangle would count the furniture.
+      final bands = rrectsOf(painted);
       expect(bands, hasLength(night.timeline.length));
       expect(bands, isNotEmpty, reason: 'a chart that painted nothing');
-      for (final band in bands) {
+      for (final band in rectsOf(painted)) {
         expect(band.height, greaterThan(1));
         expect(band.width, greaterThan(1));
-        // Nothing paints under the lane labels.
-        expect(band.left, greaterThanOrEqualTo(V02Hypnogram.laneGutter - 0.01));
+        expect(band.left, greaterThanOrEqualTo(-0.01));
         expect(band.right, lessThanOrEqualTo(size.width + 0.01));
       }
+      // **The 44px lane gutter is gone and the night has the width.** The
+      // labels that lived there repeated the colour key drawn directly under
+      // the chart, so the plot starts at the frame instead of after a column
+      // of text. A band starting 44px in would mean the gutter came back.
+      expect(
+        bands.map((band) => band.left).reduce((a, b) => a < b ? a : b),
+        lessThan(8),
+        reason: 'the plot must begin at the chart edge, not after a gutter',
+      );
     });
 
-    testWidgets('the four lane names are drawn, and so are the two clocks', (
+    testWidgets('the clock axis is drawn and stays inside the chart', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -90,19 +102,15 @@ void main() {
 
       final painted = paintedBy(tester, find.byType(V02Hypnogram));
       final labels = glyphRectsOf(painted);
-      // Four lanes plus the start and end clock.
-      expect(labels.length, greaterThanOrEqualTo(4));
+      // `V02Hypnogram.axisTicks` clocks along the foot. Two end labels were all
+      // this chart had; a nine-hour night labelled only at its ends gives no
+      // way to say WHEN the long wake happened.
+      expect(labels.length, greaterThanOrEqualTo(V02Hypnogram.axisTicks));
       final size = tester.getSize(find.byType(V02Hypnogram));
       for (final label in labels) {
+        expect(label.left, greaterThanOrEqualTo(-0.01));
         expect(label.right, lessThanOrEqualTo(size.width + 0.01));
         expect(label.bottom, lessThanOrEqualTo(size.height + 0.01));
-      }
-      // A lane label never overlaps the plot the bands are in.
-      final laneLabels = labels.where(
-        (rect) => rect.left < V02Hypnogram.laneGutter,
-      );
-      for (final label in laneLabels) {
-        expect(label.right, lessThanOrEqualTo(V02Hypnogram.laneGutter + 0.01));
       }
     });
 

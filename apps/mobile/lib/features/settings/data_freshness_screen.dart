@@ -65,7 +65,7 @@ class DataFreshnessScreen extends ConsumerWidget {
   const DataFreshnessScreen({this.now, super.key});
 
   /// The prototype's own h1.
-  static const String title = 'Your data, connected.';
+  static const String title = 'Data & sync';
 
   /// Its eyebrow.
   static const String eyebrow = 'Strap → phone → insights';

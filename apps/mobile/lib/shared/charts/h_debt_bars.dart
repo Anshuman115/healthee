@@ -51,6 +51,15 @@ class HDebtBars extends StatefulWidget {
   /// The nightly need, minutes. From the payload, never assumed.
   final int needMin;
 
+  /// How strongly the shortfall is drawn.
+  ///
+  /// **It was 0.16, against a docstring that calls it the point of the chart.**
+  /// At that alpha the missing piece read as empty card, so a week of seven
+  /// short nights looked like a week of seven ordinary bars and the debt above
+  /// it came from nowhere. It is the one mark on this chart the panel's own
+  /// title is about.
+  static const double ghostAlpha = 0.34;
+
   /// How far the bars have grown, 0–1.
   final double progress;
 
@@ -243,7 +252,7 @@ class _DebtPainter extends CustomPainter {
           topLeft: const Radius.circular(3),
           topRight: const Radius.circular(3),
         ),
-        Paint()..color = colors.alert.withValues(alpha: 0.16 * progress),
+        Paint()..color = colors.alert.withValues(alpha: HDebtBars.ghostAlpha * progress),
       );
     }
     if (label != null) {

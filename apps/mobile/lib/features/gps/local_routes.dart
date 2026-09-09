@@ -46,7 +46,10 @@ class LocalRoutes extends ConsumerWidget {
       if (row.status != 'recording' && row.status != 'uploaded')
         ServerActionButton(
           key: ValueKey(row.id), label: 'Upload',
-          action: () => repository.upload(row.id),
+          action: () async {
+            await repository.upload(row.id);
+            return null;
+          },
           onSaved: () => ref.invalidate(recordedRoutesProvider),
         ),
     ]));

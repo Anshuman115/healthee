@@ -48,7 +48,7 @@ class RemindersScreen extends ConsumerWidget {
   const RemindersScreen({super.key});
 
   /// The prototype's own h1.
-  static const String title = 'A nudge, when it helps.';
+  static const String title = 'Reminders';
 
   /// Its eyebrow.
   static const String eyebrow = 'Reminders';
@@ -179,15 +179,18 @@ class _EditorState extends State<_Editor> {
         ServerActionButton(
           label: 'Save reminders',
           style: ActionButtonStyle.v02,
-          action: () => widget.save(
-            ReminderPreferences(
-              daily: _daily,
-              bedtime: _bedtime,
-              completions: _completions,
-              dailyMinute: _dailyMinute,
-              bedtimeMinute: _bedtimeMinute,
-            ),
-          ),
+          action: () async {
+            await widget.save(
+              ReminderPreferences(
+                daily: _daily,
+                bedtime: _bedtime,
+                completions: _completions,
+                dailyMinute: _dailyMinute,
+                bedtimeMinute: _bedtimeMinute,
+              ),
+            );
+            return null;
+          },
           onSaved: () {},
         ),
       ],
