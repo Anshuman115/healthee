@@ -119,7 +119,6 @@ class TodayExtras {
     this.navigation,
     this.onSignIn,
     this.onOpenProfile,
-    this.onOpenSync,
     this.onAddLog,
     this.onOpenCoach,
     this.onOpenActions,
@@ -163,9 +162,6 @@ class TodayExtras {
 
   /// Opens settings. The avatar's destination.
   final VoidCallback? onOpenProfile;
-
-  /// Opens the sync surface, from the device strip.
-  final VoidCallback? onOpenSync;
 
   /// Opens the manual-entry log sheet, when there is one.
   final VoidCallback? onAddLog;

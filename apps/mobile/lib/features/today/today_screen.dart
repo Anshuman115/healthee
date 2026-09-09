@@ -107,10 +107,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           // location and leave the sign-in screen with nothing beneath it.
           onSignIn: () => unawaited(context.push(Routes.serverSignIn)),
           onOpenProfile: () => unawaited(context.push(Routes.settings)),
-          // `<a href="#sync">` — the DEVICE strip opens the sync surface, not
-          // the settings index. It was pointed at the index, which is a screen
-          // about the app rather than an answer to "is my strap current?".
-          onOpenSync: () => unawaited(context.push(Routes.dataFreshness)),
           // The coach is a route now — `app_shell.dart`'s FAB pushes the same
           // one, so the entry card and the FAB cannot drift apart. No topic:
           // this card asks nothing in particular.
