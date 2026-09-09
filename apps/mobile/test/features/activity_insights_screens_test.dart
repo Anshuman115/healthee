@@ -18,7 +18,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
+import 'package:healthee/shared/findings_section.dart';
 
+import '_citation_probe.dart';
 import '_today_host.dart';
 
 void main() {
@@ -132,12 +134,11 @@ void main() {
       );
     });
 
-    testWidgets('THE STATISTIC IS BEHIND A DISCLOSURE, NOT ON THE SURFACE', (
+    testWidgets('THE STATISTIC IS BEHIND THE ⓘ, NOT ON THE SURFACE', (
       tester,
     ) async {
       await tester.pumpWidget(todayHost(store, home: const InsightsScreen()));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('The statistic behind this'));
 
       // The server's `description_raw` is a log line. It reached the home screen
       // verbatim once, which is what this rewrite exists to undo.
@@ -145,11 +146,19 @@ void main() {
       expect(find.textContaining('rho '), findsNothing);
       expect(find.textContaining('q = '), findsNothing);
 
-      // And it IS reachable — one tap, no modal.
-      await tester.ensureVisible(find.text('The statistic behind this'));
+      // **It moved from an inline disclosure to the card's ⓘ.** Five findings
+      // meant five collapsed `The statistic behind this` controls stacked down
+      // the card, each one a decision the reader had to make before they could
+      // read the next headline. The ⓘ is where every other surface in this app
+      // keeps its method, and that dot was already beside the row carrying the
+      // sources.
+      await reveal(tester, find.byType(FindingsSection));
+      final dot = dotIn(find.byType(FindingsSection)).first;
+      await tester.ensureVisible(dot);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('The statistic behind this'));
+      await tester.tap(dot);
       await tester.pumpAndSettle();
+
       expect(find.textContaining('rho = -0.42'), findsOneWidget);
       expect(find.textContaining('q = 0.030'), findsOneWidget);
       expect(
