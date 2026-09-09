@@ -228,6 +228,14 @@ _SPARKLINE_METRICS: dict[str, str | None] = {
     "stress": None,
     "pai_total": None,
     "total_calories": "total_calories",
+    # **The app has asked for this since the v02 rebuild and never got it.**
+    # `movement_panels.dart` draws the week behind today's step count from
+    # `sparkline('steps_total')`; the key was absent here, so the lookup
+    # returned an empty list on every request, for every owner, and the chart
+    # reserved its height and painted nothing. `steps_total` is a real
+    # `derived_daily` metric (`derive/device_totals.py`) and needs no new query
+    # — `derived_series_many` batches it with the rest.
+    "steps_total": "steps_total",
     "respiratory_rate_sleep": "respiratory_rate_sleep",
     "spo2_overnight": "spo2_overnight",
     "spo2_overnight_min": "spo2_overnight_min",
