@@ -71,6 +71,7 @@ import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
 import 'package:healthee/features/coach/v02/coach_composer.dart';
 import 'package:healthee/features/coach/v02/coach_opening.dart';
+import 'package:healthee/features/coach/v02/coach_page.dart';
 import 'package:healthee/features/coach/v02/coach_prompts.dart';
 import 'package:healthee/features/coach/v02/coach_waiting.dart';
 import 'package:healthee/features/coach/widgets/coach_meter.dart';
@@ -80,7 +81,6 @@ import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
-import 'package:healthee/shared/v02/detail_page.dart';
 
 // The cost-carrying label lives with the control that prints it. Re-exported so
 // the screen stays the one import a caller — or a test pinning the wording —
@@ -99,6 +99,20 @@ const String kCoachFormNote =
     'Answers name the research notes behind them and the weakest grade among '
     'those notes. The coach says when it does not know.';
 
+/// Whether this entitlement permits a question right now.
+///
+/// One function, called by the screen (for the pinned composer) and by the body
+/// (for the prompts). Two copies of this rule could drift, and the direction that
+/// matters is an input appearing beside a meter that does not license it.
+bool _permits(Entitlement entitlement) {
+  final allowance = entitlement.allowanceFor(kCoachFeature);
+  // Uncapped means the feature is absent from PREMIUM_ALLOWANCE for a premium
+  // owner — `api/gate.py`'s documented asymmetry, and the one case where a
+  // missing meter is good news rather than an empty one.
+  final uncapped = entitlement.premium && allowance == null;
+  return uncapped || (allowance?.hasRemaining ?? false);
+}
+
 /// The coach conversation, its meter, and the input the meter licenses.
 class CoachScreen extends ConsumerWidget {
   /// [topic] is an opening question a caller wants asked about a specific
@@ -114,17 +128,52 @@ class CoachScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return DetailPage(
+    // The entitlement is watched TWICE and that is not a duplicate read: Riverpod
+    // serves one value to both. The body needs it resolved (it renders the meter
+    // and the thread), and the pinned composer needs it too — and the composer
+    // cannot live inside the `AsyncView`, because the whole point of pinning it
+    // is that it does not sit in the scrolling column.
+    final entitlement = ref.watch(coachEntitlementProvider);
+    final conversation = ref.watch(coachControllerProvider);
+    return CoachPage(
       title: kCoachTitle,
       eyebrow: kCoachEyebrow,
+      actions: <Widget>[
+        // Only once there is a conversation to leave. An empty thread offering
+        // to be replaced is a control that does nothing.
+        if (!conversation.isEmpty && !conversation.asking)
+          IconButton(
+            onPressed: ref.read(coachControllerProvider.notifier).newThread,
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Start a new conversation',
+          ),
+      ],
+      // THE RULE SURVIVES THE SPLIT. `CoachComposer` still takes a non-null
+      // meter, and here it is built only from a RESOLVED entitlement that
+      // permits a question. While the read is in flight or has failed there is
+      // no footer at all — not a disabled one — which is the same structural
+      // guarantee as before, expressed in the place the control now lives.
+      footer: switch (entitlement.value) {
+        final Entitlement e when _permits(e) => CoachComposer(
+          asking: conversation.asking,
+          remaining: e.allowanceFor(kCoachFeature)?.remaining,
+          initialQuestion: conversation.isEmpty ? topic : null,
+          onAsk: (question) => unawaited(
+            ref
+                .read(coachControllerProvider.notifier)
+                .ask(question, topic: topic),
+          ),
+        ),
+        _ => const SizedBox.shrink(),
+      },
       children: <Widget>[
         AsyncView<Entitlement>(
-          value: ref.watch(coachEntitlementProvider),
+          value: entitlement,
           loadingLabel: 'Checking what your account includes',
           errorMessage: "Couldn't read what your account includes",
           onRetry: () => ref.invalidate(coachEntitlementProvider),
-          builder: (context, entitlement) =>
-              CoachBody(entitlement: entitlement, topic: topic, now: now),
+          builder: (context, resolved) =>
+              CoachBody(entitlement: resolved, topic: topic, now: now),
         ),
         const DataFooter(),
       ],
@@ -153,12 +202,7 @@ class CoachBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final conversation = ref.watch(coachControllerProvider);
-    final allowance = entitlement.allowanceFor(kCoachFeature);
-    // Uncapped means the feature is absent from PREMIUM_ALLOWANCE for a premium
-    // owner — `api/gate.py`'s documented asymmetry, and the one case where a
-    // missing meter is good news rather than an empty one.
-    final uncapped = entitlement.premium && allowance == null;
-    final canAsk = uncapped || (allowance?.hasRemaining ?? false);
+    final canAsk = _permits(entitlement);
     // Today's coaching line, read from the snapshot the app already holds. A
     // `watch` rather than a fetch of its own: `/api/today` is cached locally and
     // every other screen reads it through this provider, so opening the coach
@@ -224,17 +268,10 @@ class CoachBody extends ConsumerWidget {
               canAsk ? ask : null),
           // dart format on
         ],
+        // The composer is PINNED by `CoachPage` and is not in this column. What
+        // stays here is the sentence about what an answer carries, which belongs
+        // with the conversation rather than under the control.
         if (canAsk) ...<Widget>[
-          const SizedBox(height: Insets.xl),
-          CoachComposer(
-            asking: conversation.asking,
-            remaining: allowance?.remaining,
-            // Only into an EMPTY thread. A topic re-seeded over a running
-            // conversation would overwrite whatever the owner had half-typed
-            // every time this screen rebuilt.
-            initialQuestion: conversation.isEmpty ? topic : null,
-            onAsk: ask,
-          ),
           const SizedBox(height: Insets.lg),
           Text(
             kCoachFormNote,
