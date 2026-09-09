@@ -1,6 +1,26 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- ⛔ THE RELEASE BUILD HAD NO NETWORK AT ALL WITHOUT THIS.
+
+         Flutter writes `INTERNET` into the generated `debug/` and `profile/`
+         manifests for its own tooling, and into neither `main/` nor `release/`.
+         So every debug build could reach the server and every RELEASE build
+         could not — DNS failed inside the process before a single request left
+         it.
+
+         It hid for as long as it did because a release build on a phone with a
+         warm 60-day local store still renders every screen: Today, sleep,
+         recovery, biological age, all of it, from cache. Only the writes were
+         gone. The visible symptom was a push that "could not be reached" and a
+         sign-in reporting that the host name "could not be looked up" — both
+         accurate, and both read as network or server faults for hours.
+
+         Diagnosed 2026-09-09 by `dumpsys package` listing ACCESS_NETWORK_STATE
+         and no INTERNET, while `adb shell curl` to the same host succeeded —
+         shell runs as the shell user, the app does not. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- Bluetooth LE, for the strap. Scanning is all this app does with the
          radio at pairing time; the protocol layer lands separately.
 
