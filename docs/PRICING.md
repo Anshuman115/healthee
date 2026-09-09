@@ -333,7 +333,16 @@ All LLM goes through OpenRouter.
 > **set a spend limit on the production key**, and **use a separate, small-limit key for
 > eval/dev work** — the harness at ~$3/arm is what drained it, and no amount of alerting
 > stops that from a key that is allowed to.
-> Two things were measured and are NOT levers: **implicit prompt caching fires on an
+> Three things were measured and are NOT levers: **capping the model's reasoning
+> truncates its answer** — `reasoning.max_tokens` at 1024 and 2048 on the coach tier
+> (grounding eval, 10 questions x 2 repeats, against the uncapped 20/20 control) both
+> scored **18/20**, and all four failures were truncation, not misjudgement
+> (*"no sentence terminator: '}'"*, *"truncated mid-citation (unclosed '['),"*, *"not the
+> JSON object this surface requires"*). Total output collapsed with it (max 3,451 / 2,397
+> against the control's 11,274), and 2048 lost **two ABSENCE questions** — the one
+> property that may never regress. It buys 7-25 % latency for a 10 % pass rate, so the
+> knob was written, measured and deleted rather than shipped defaulted-off. **Implicit
+> prompt caching fires on an
 > exact repeat of a whole payload, not on a shared prefix** (three A/B rounds: an owner
 > repeating themselves cached 40,925 of 42,132 tokens; two owners sharing 30k of
 > evidence cached nothing, in either message order) — so reordering the prompt to put
