@@ -30,9 +30,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.check-action` — the box, what taking it on says, and what it does not say.
 ///
@@ -187,7 +189,11 @@ class PromptButton extends StatelessWidget {
                     style: TypeScale.tinyLabel.copyWith(color: colors.ink),
                   ),
                 ),
-                Icon(Icons.arrow_forward, size: iconSize, color: colors.ink),
+                Icon(
+                  SolarIconsOutline.arrowRight,
+                  size: iconSize,
+                  color: colors.ink,
+                ),
               ],
             ),
           ),
@@ -245,9 +251,9 @@ class Segment<T> extends StatelessWidget {
     final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(padding),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: colors.surface2,
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(radius),
       ),
       child: Row(
         children: <Widget>[

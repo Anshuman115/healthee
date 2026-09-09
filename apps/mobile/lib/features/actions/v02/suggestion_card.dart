@@ -60,6 +60,7 @@ import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/choices.dart';
 import 'package:healthee/shared/v02/controls.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What the checkbox says before and after it is ticked. The prototype's own.
 const String kAdoptLabel = 'I’ll try this';
@@ -73,21 +74,53 @@ const String kAdoptNote = 'One manageable change to start with.';
 /// The line under the box, ticked. **Not** "completed".
 const String kAdoptedNote = 'An intention, not a completed action.';
 
-/// `Raised by your sleep debt` — the reading behind a suggestion, in words.
+/// `Raised by your recovery score (32)` — the reading behind a suggestion.
 ///
 /// **Never the raw id.** `metric_names.dart` argues that an unknown id should
 /// keep its id, and that is right where the id is the SUBJECT of a statistic a
 /// reader may want to look up. It is wrong here: this is a provenance line on a
-/// card, where `sleep_debt` is a log line and nothing else. `signal_source` is
-/// also not always a metric id, so an id this build cannot name is reported as
-/// exactly that rather than printed or prettified into a phrase nobody chose.
+/// card, where `recovery_score` is a log line and nothing else.
+///
+/// ## `signal_source` carries the value as well as the metric
+///
+/// The server sends `"recovery_score = 32"`, not `"recovery_score"` — the id AND
+/// what it read when the suggestion was raised. This looked the whole string up
+/// in the name table, found nothing, and fell back to *"Raised by a reading this
+/// build cannot name yet"*, which is what the owner actually saw on both cards
+/// of the Actions screen. A sentence about the build's limitations, printed to
+/// somebody who does not have one, about data that was nameable all along.
+///
+/// So the id and the value are split apart and both are used. The value is shown
+/// because it is the more useful half: "raised by your recovery score" says which
+/// dial, and "(32)" says what it read — which is the fact that makes the
+/// suggestion make sense.
+///
+/// The fallback survives for a signal that genuinely is not a metric, and says
+/// so plainly rather than printing an id or inventing a phrase.
 String? signalLabel(String? signal) {
   if (signal == null) {
     return null;
   }
-  return hasMetricName(signal)
-      ? 'Raised by your ${metricName(signal)}'
-      : 'Raised by a reading this build cannot name yet';
+  final (String id, String? reading) = _splitSignal(signal);
+  if (!hasMetricName(id)) {
+    return 'Raised by a reading with no name in this app';
+  }
+  final String named = 'Raised by your ${metricName(id)}';
+  return reading == null ? named : '$named ($reading)';
+}
+
+/// `"recovery_score = 32"` -> `("recovery_score", "32")`.
+///
+/// Split on the FIRST `=` only, so a value that contains one survives intact.
+/// A signal with no `=` is returned whole with no reading, which is the shape
+/// this function was written for before the server began sending both.
+(String, String?) _splitSignal(String signal) {
+  final int at = signal.indexOf('=');
+  if (at < 0) {
+    return (signal.trim(), null);
+  }
+  final String reading = signal.substring(at + 1).trim();
+  return (signal.substring(0, at).trim(), reading.isEmpty ? null : reading);
 }
 
 /// What the evidence link says. The prototype's own label.
@@ -118,12 +151,12 @@ Tone toneForCategory(String? category) => switch (category) {
 
 /// The glyph a category wears on the eyebrow row.
 IconData iconForCategory(String? category) => switch (category) {
-  'sleep' => Icons.bedtime_outlined,
-  'activity' || 'movement' || 'steps' => Icons.directions_walk,
-  'heart' => Icons.favorite_outline,
-  'breathing' || 'oxygen' => Icons.air,
-  'stress' => Icons.wb_sunny_outlined,
-  _ => Icons.eco_outlined,
+  'sleep' => SolarIconsOutline.moonSleep,
+  'activity' || 'movement' || 'steps' => SolarIconsOutline.walking,
+  'heart' => SolarIconsOutline.heart,
+  'breathing' || 'oxygen' => SolarIconsOutline.wind,
+  'stress' => SolarIconsOutline.sun,
+  _ => SolarIconsOutline.leaf,
 };
 
 /// One recommendation, in the prototype's focus card.
@@ -203,7 +236,7 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
               rec.gradeLabel != null)
             TextLink(
               label: kWhyLabel,
-              icon: Icons.info_outline,
+              icon: SolarIconsOutline.infoCircle,
               onPressed: () => showEvidenceSheet(
                 context,
                 title: kWhyTitle,

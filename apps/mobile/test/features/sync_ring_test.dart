@@ -45,19 +45,19 @@ ConnectionHealth _health(StrapConnection link, {bool signedIn = true}) =>
     );
 
 /// The four states, each from a real link the sync engine can publish.
-final Map<SyncRingState, ConnectionHealth> _states =
-    <SyncRingState, ConnectionHealth>{
-      SyncRingState.idle: _health(
-        Disconnected(lastCompleteSync: _now.subtract(const Duration(minutes: 4))),
-      ),
-      SyncRingState.connected: _health(Connected(since: _now)),
-      SyncRingState.syncing: _health(
-        const Syncing(
-          progress: StrapSyncProgress(step: 4, total: 13, label: 'heart rate'),
-        ),
-      ),
-      SyncRingState.needsAttention: _health(const ConnectionFailed(_bluetoothOff)),
-    };
+final Map<SyncRingState, ConnectionHealth>
+_states = <SyncRingState, ConnectionHealth>{
+  SyncRingState.idle: _health(
+    Disconnected(lastCompleteSync: _now.subtract(const Duration(minutes: 4))),
+  ),
+  SyncRingState.connected: _health(Connected(since: _now)),
+  SyncRingState.syncing: _health(
+    const Syncing(
+      progress: StrapSyncProgress(step: 4, total: 13, label: 'heart rate'),
+    ),
+  ),
+  SyncRingState.needsAttention: _health(const ConnectionFailed(_bluetoothOff)),
+};
 
 Widget _ring(ConnectionHealth? health, {VoidCallback? onTap}) => MaterialApp(
   theme: AppTheme.light,
@@ -75,10 +75,8 @@ Widget _ring(ConnectionHealth? health, {VoidCallback? onTap}) => MaterialApp(
   ),
 );
 
-CircularProgressIndicator _indicator(WidgetTester tester) =>
-    tester.widget<CircularProgressIndicator>(
-      find.byType(CircularProgressIndicator),
-    );
+CircularProgressIndicator _indicator(WidgetTester tester) => tester
+    .widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator));
 
 void main() {
   group('THE FOUR STATES ARE FOUR STATES', () {
@@ -209,7 +207,10 @@ void main() {
         lastStrapSync: _now,
       );
       expect(health.alerts.length, greaterThan(1));
-      expect(ringLabel(health), contains('and ${health.alerts.length - 1} more'));
+      expect(
+        ringLabel(health),
+        contains('and ${health.alerts.length - 1} more'),
+      );
     });
 
     testWidgets('the label reaches a screen reader', (tester) async {

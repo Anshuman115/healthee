@@ -101,6 +101,11 @@ class TodayBioHeroWithheld extends ConsumerWidget {
         infoKey,
         ink: ink,
         detail: MetricDetail(
+          // The model line goes here rather than under the card, exactly as the
+          // live hero routes its own. `BioHero.infoKey` cannot be used instead:
+          // these disclosures are the refusal and its exclusions, which the
+          // `CaveatScope` the hero reads does not carry.
+          source: kPopulationModelLabel,
           disclosures: <Disclosure>[
             withheld,
             ...exclusions,
@@ -115,8 +120,6 @@ class TodayBioHeroWithheld extends ConsumerWidget {
         asOf: held?.day,
       ),
       caption: caption(withheld, exclusions),
-      modelLabel: kPopulationModelLabel,
-      modelIcon: Icons.info_outline,
     );
   }
 

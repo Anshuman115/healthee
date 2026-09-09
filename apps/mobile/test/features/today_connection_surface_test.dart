@@ -64,7 +64,9 @@ void main() {
       );
     });
 
-    testWidgets('there is no Sync now button anywhere on Today', (tester) async {
+    testWidgets('there is no Sync now button anywhere on Today', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         todayHost(store, connection: const ConnectionFailed(kBluetoothOff)),
       );

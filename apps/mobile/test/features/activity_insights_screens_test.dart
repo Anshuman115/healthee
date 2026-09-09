@@ -35,7 +35,9 @@ void main() {
     // claims the pre-v02 cards made, re-asserted against the panels that
     // replaced them. A card that quietly lost its provenance sentence in the
     // redesign would otherwise pass a "does the screen render" test.
-    testWidgets('VO₂max names its instrument and its kind of error', (tester) async {
+    testWidgets('VO₂max names its instrument and its kind of error', (
+      tester,
+    ) async {
       await tester.pumpWidget(todayHost(store, home: const ActivityScreen()));
       await tester.pumpAndSettle();
       await reveal(tester, find.text('Fitness with its source'));
@@ -43,10 +45,7 @@ void main() {
       expect(find.text('43.0'), findsOneWidget);
       // [[hr_reserve_vo2max]] D4 — the instrument travels with the number, and
       // it is the method's NAME rather than its wire id.
-      expect(
-        find.textContaining('Read by a recorded session'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Read by a recorded session'), findsOneWidget);
       expect(find.textContaining('gps_graded'), findsNothing);
       // WHICH kind of error, on the card, beside the number it qualifies.
       expect(
@@ -70,10 +69,7 @@ void main() {
         find.textContaining('contributes −1.7 years to the age model'),
         findsOneWidget,
       );
-      expect(
-        find.textContaining('not a change in actual age'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('not a change in actual age'), findsOneWidget);
       expect(
         find.text('34.3'),
         findsNothing,
@@ -95,7 +91,9 @@ void main() {
       );
     });
 
-    testWidgets("the strap's calories are labelled as the strap's", (tester) async {
+    testWidgets("the strap's calories are labelled as the strap's", (
+      tester,
+    ) async {
       await tester.pumpWidget(todayHost(store, home: const ActivityScreen()));
       await tester.pumpAndSettle();
       await reveal(tester, find.textContaining("by the strap's own count"));
@@ -157,7 +155,8 @@ void main() {
       expect(
         find.textContaining('not that either one caused the other'),
         findsOneWidget,
-        reason: 'opening the arithmetic must not mean leaving the caveat behind',
+        reason:
+            'opening the arithmetic must not mean leaving the caveat behind',
       );
     });
 
@@ -175,5 +174,4 @@ void main() {
       expect(find.textContaining('cannot answer questions yet'), findsNothing);
     });
   });
-
 }

@@ -33,6 +33,7 @@ import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/shared/v02/icon_tile.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// One `.list-row`: a tile, a title over a sentence, and a trailing glyph.
 class ListRow extends StatelessWidget {
@@ -120,7 +121,7 @@ class ListRow extends StatelessWidget {
             ] else if (onTap != null) ...<Widget>[
               const SizedBox(width: gap),
               Icon(
-                Icons.chevron_right,
+                SolarIconsOutline.altArrowRight,
                 size: chevronSize,
                 color: colors.ink3,
               ),

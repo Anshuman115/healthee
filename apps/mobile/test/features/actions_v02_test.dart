@@ -32,6 +32,7 @@ import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
 
 import '../_today_stubs.dart';
+import '../shared/_decoration.dart';
 import '_screen_data.dart';
 import '_today_host.dart';
 
@@ -81,7 +82,11 @@ void main() {
       );
 
       final ids = sections.map(_id).toList();
-      expect(ids.indexOf('note'), 1, reason: 'the caption qualifies the whole set');
+      expect(
+        ids.indexOf('note'),
+        1,
+        reason: 'the caption qualifies the whole set',
+      );
       expect(ids.indexOf('note'), lessThan(ids.indexOf('suggestion')));
 
       final note = sections[1].child as PanelNote;
@@ -205,11 +210,11 @@ void main() {
               )
               .first,
         );
-        final decoration = container.decoration! as BoxDecoration;
+        final decoration = container.decoration!;
         // The fixture's one recommendation is `category: sleep`.
-        expect(decoration.color, Tone.sleep.familySoft(hues));
+        expect(groundOf(decoration), Tone.sleep.familySoft(hues));
         expect(
-          decoration.color,
+          groundOf(decoration),
           isNot(Tone.fitness.familySoft(hues)),
           reason: 'a card that ignored the category would be the root default',
         );
@@ -272,11 +277,31 @@ void main() {
       // owner-facing name for. It says so in words rather than printing the id
       // or prettifying it into a phrase nobody chose.
       expect(
-        find.text('Raised by a reading this build cannot name yet'),
+        find.text('Raised by a reading with no name in this app'),
         findsOneWidget,
       );
       expect(signalLabel('rhr_daily'), 'Raised by your resting heart rate');
       expect(signalLabel(null), isNull);
+
+      // THE regression, seen on the owner's device: the server sends the metric
+      // AND its reading — "recovery_score = 32" — and looking the whole string
+      // up in the name table found nothing, so BOTH cards on Actions printed
+      // "Raised by a reading this build cannot name yet". A sentence about the
+      // build's limitations, shown to somebody who does not have one, about data
+      // that was nameable all along.
+      // "recovery", not "recovery score" — the app's own name table decides
+      // what a metric is called, and this line must not invent a second name
+      // for it just because the id is longer.
+      expect(
+        signalLabel('recovery_score = 32'),
+        'Raised by your recovery (32)',
+      );
+      expect(
+        signalLabel('sleep_regularity_index = 62.1'),
+        'Raised by your sleep regularity (62.1)',
+      );
+      // A signal with no reading still names its metric.
+      expect(signalLabel('rhr_daily = '), 'Raised by your resting heart rate');
     });
   });
 

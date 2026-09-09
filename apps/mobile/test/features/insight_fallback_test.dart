@@ -27,10 +27,7 @@ const String _fallbackText =
 
 Widget _card(GeneratedInsight insight) => ProviderScope(
   overrides: [
-    generatedInsightProvider(
-      'sleep',
-      '',
-    ).overrideWith((ref) async => insight),
+    generatedInsightProvider('sleep', '').overrideWith((ref) async => insight),
   ],
   child: MaterialApp(
     theme: AppTheme.light,
@@ -145,6 +142,9 @@ void main() {
       const GeneratedInsight(text: '', citations: <String>[], validated: true),
     );
 
-    expect(find.textContaining('No grounded analysis available yet'), findsOneWidget);
+    expect(
+      find.textContaining('No grounded analysis available yet'),
+      findsOneWidget,
+    );
   });
 }

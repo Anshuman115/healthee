@@ -1601,10 +1601,13 @@ JOURNAL_TEST=test/journal/journal_screen_test.dart
 
 # A snake_case token on a health screen is a log line where a source belongs.
 mutate 'a raw signal id reaches the suggestion card' "$ACTIONS_TEST" "$SUGGESTION" \
-  "  return hasMetricName(signal)
-      ? 'Raised by your \${metricName(signal)}'
-      : 'Raised by a reading this build cannot name yet';" \
-  "  return 'Raised by \$signal';"
+  "  if (!hasMetricName(id)) {
+    return 'Raised by a reading with no name in this app';
+  }" \
+  "  if (false) {
+    return 'Raised by a reading with no name in this app';
+  }
+  return 'Raised by \$signal';"
 
 # Adoption records an INTENTION. Nothing in this app observes the doing.
 mutate 'the checkbox starts claiming the action was done' "$ACTIONS_TEST" "$SUGGESTION" \
@@ -1683,10 +1686,13 @@ mutate 'the coach composer appears with no balance behind it' \
 # A prompt button asks a question, so it costs one — same gate as the input.
 mutate 'the opening prompts stop being gated by the balance' \
   "$COMPOSER_TEST" "$COACH_SCREEN" \
-  '            canAsk: canAsk, ask: ask),' \
-  '            canAsk: true, ask: ask),'
-# (anchor re-cut when `ask` grew a `topic:` argument — a stale patch runs the
-#  UNMUTATED suite and reports a pass, which reads exactly like a working guard.)
+  '              canAsk ? ask : null),' \
+  '              ask),'
+# (anchor re-cut TWICE now: once when `ask` grew a `topic:` argument, and again
+#  when the openers moved out of `_tail` into `CoachPrompts` so the ask box could
+#  come before them. A stale patch runs the UNMUTATED suite and reports a pass,
+#  which reads exactly like a working guard — so every move of this call is a
+#  re-cut, not a hope.)
 
 # `routers/coach.py` refunds three of five outcomes, so a local subtraction is
 # wrong — and wrong the flattering way round. THE METER IS RE-READ.

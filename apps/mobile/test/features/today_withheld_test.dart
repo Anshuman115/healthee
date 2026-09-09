@@ -127,10 +127,7 @@ void main() {
         // a broken screen were the same picture.
         await pump(tester, (json) => _absent(json, key));
 
-        expect(
-          find.textContaining('the server did not say why'),
-          findsWidgets,
-        );
+        expect(find.textContaining('the server did not say why'), findsWidgets);
         expect(
           find.textContaining('Left out: regularity'),
           findsNothing,

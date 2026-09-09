@@ -71,6 +71,7 @@ import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/surface_cards.dart' show SmallProse;
 import 'package:healthee/shared/v02/view_day.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `H.screens.metrics`'s own opening line.
 const String kExplorerCaption =
@@ -140,14 +141,14 @@ class MetricExplorerScreen extends ConsumerWidget {
             // destination with nothing under it and this screen unreachable by
             // Back. `out_of_shell_navigation_test.dart` owns that rule.
             V02ListRow(
-              icon: Icons.bedtime_outlined,
+              icon: SolarIconsOutline.moonSleep,
               title: 'Sleep history',
               detail: 'Duration, stages and regularity',
               tone: Tone.sleep,
               onOpen: () => unawaited(context.push(Routes.sleepHistory)),
             ),
             V02ListRow(
-              icon: Icons.monitor_heart_outlined,
+              icon: SolarIconsOutline.heartPulse,
               title: 'Fitness estimates',
               detail: 'VO₂max and biological age',
               tone: Tone.fitness,

@@ -37,8 +37,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Which of the three button grounds a [HButton] wears.
 enum HButtonKind {
@@ -114,12 +116,14 @@ class HButton extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(minHeight: minHeight),
         padding: padding,
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: ground,
-          borderRadius: BorderRadius.circular(radius),
-          border: edge == null
-              ? null
-              : Border.all(color: edge, width: hairline),
+          shape: hSquircle(
+            radius,
+            side: edge == null
+                ? BorderSide.none
+                : BorderSide(color: edge, width: hairline),
+          ),
         ),
         child: Row(
           mainAxisSize: full ? MainAxisSize.max : MainAxisSize.min,
@@ -197,7 +201,11 @@ class HLinkButton extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: gap),
-                Icon(Icons.arrow_forward, size: iconSize, color: accent),
+                Icon(
+                  SolarIconsOutline.arrowRight,
+                  size: iconSize,
+                  color: accent,
+                ),
               ],
             ),
           ),

@@ -75,7 +75,10 @@ void main() {
       // date. Guessing either would put this app's assumption where a fact goes.
       expect(ActionsSection.otherDay([_rec(date: '2026-09-06')], null), isNull);
       expect(ActionsSection.otherDay([_rec()], '2026-09-08'), isNull);
-      expect(ActionsSection.otherDay(const <Recommendation>[], '2026-09-08'), isNull);
+      expect(
+        ActionsSection.otherDay(const <Recommendation>[], '2026-09-08'),
+        isNull,
+      );
     });
   });
 

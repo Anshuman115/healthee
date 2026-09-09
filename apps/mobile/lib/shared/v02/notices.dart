@@ -42,8 +42,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Which ground a [HNotice] wears.
 enum NoticeKind {
@@ -98,17 +100,26 @@ class HNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final (Color ground, Color mark, Color prose, Color? edge) = switch (kind) {
-      NoticeKind.plain => (colors.surface2, colors.ink, colors.ink2, colors.line),
+      NoticeKind.plain => (
+        colors.surface2,
+        colors.ink,
+        colors.ink2,
+        colors.line,
+      ),
       // `color: inherit` on the body — one colour for the whole banner.
       NoticeKind.error => (colors.alertSoft, colors.alert, colors.alert, null),
       NoticeKind.warm => (colors.unfSoft, colors.unf, colors.unf, null),
     };
     return Container(
       padding: const EdgeInsets.all(padding),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: ground,
-        borderRadius: BorderRadius.circular(radius),
-        border: edge == null ? null : Border.all(color: edge, width: hairline),
+        shape: hSquircle(
+          radius,
+          side: edge == null
+              ? BorderSide.none
+              : BorderSide(color: edge, width: hairline),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,8 +131,8 @@ class HNotice extends StatelessWidget {
               // otherwise — the glyph names the KIND of trouble, not its
               // severity.
               kind == NoticeKind.error
-                  ? Icons.cloud_off_outlined
-                  : Icons.info_outline,
+                  ? SolarIconsOutline.cloudCross
+                  : SolarIconsOutline.infoCircle,
               size: iconSize,
               color: mark,
             ),
@@ -132,15 +143,9 @@ class HNotice extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(
-                  title,
-                  style: FormType.noticeTitle.copyWith(color: mark),
-                ),
+                Text(title, style: FormType.noticeTitle.copyWith(color: mark)),
                 const SizedBox(height: bodyGap),
-                Text(
-                  body,
-                  style: FormType.noticeBody.copyWith(color: prose),
-                ),
+                Text(body, style: FormType.noticeBody.copyWith(color: prose)),
               ],
             ),
           ),
@@ -198,10 +203,7 @@ class HBadge extends StatelessWidget {
     };
     return Container(
       padding: padding,
-      decoration: BoxDecoration(
-        color: ground,
-        borderRadius: BorderRadius.circular(radius),
-      ),
+      decoration: ShapeDecoration(color: ground, shape: hSquircle(radius)),
       child: Text(
         label,
         maxLines: 1,

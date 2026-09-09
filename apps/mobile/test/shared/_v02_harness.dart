@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
@@ -50,9 +51,32 @@ Future<void> pumpV02(
 }
 
 /// The `BoxDecoration` of the [Container] that [finder] resolves to.
-BoxDecoration decorationOf(WidgetTester tester, Finder finder) =>
-    tester.widget<Container>(finder).decoration! as BoxDecoration;
+Decoration decorationOf(WidgetTester tester, Finder finder) =>
+    tester.widget<Container>(finder).decoration!;
 
-/// The radius of a `BorderRadius.circular` decoration.
-double radiusOf(BoxDecoration decoration) =>
-    (decoration.borderRadius! as BorderRadius).topLeft.x;
+/// The fill, whichever decoration painted it.
+///
+/// The app draws with BOTH kinds and which one is an implementation detail of
+/// the corner: anything using `hSquircle` needs a `ShapeBorder`, and only
+/// `ShapeDecoration` takes one. A test asking what colour a card is should not
+/// have to know that.
+Color? groundOf(Decoration decoration) => switch (decoration) {
+  BoxDecoration(:final Color? color) => color,
+  ShapeDecoration(:final Color? color) => color,
+  _ => null,
+};
+
+/// The nominal corner radius, from either decoration.
+double radiusOf(Decoration decoration) => switch (decoration) {
+  BoxDecoration(borderRadius: final BorderRadius r) => r.topLeft.x,
+  ShapeDecoration(shape: final HSquircleBorder s) => s.radius,
+  _ => throw StateError('no corner on \$decoration'),
+};
+
+/// The hairline edge, or null when the surface draws none.
+BorderSide? edgeOf(Decoration decoration) => switch (decoration) {
+  BoxDecoration(border: final Border b) => b.top,
+  ShapeDecoration(shape: final HSquircleBorder s) =>
+    s.side == BorderSide.none ? null : s.side,
+  _ => null,
+};

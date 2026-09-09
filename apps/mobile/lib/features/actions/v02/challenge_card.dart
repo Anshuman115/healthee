@@ -41,6 +41,7 @@ import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// One challenge in the prototype's card.
 class ChallengeCard extends StatelessWidget {
@@ -195,7 +196,7 @@ class ChallengeCard extends StatelessWidget {
                         ),
                       ),
                       Icon(
-                        Icons.arrow_forward,
+                        SolarIconsOutline.arrowRight,
                         size: arrowSize,
                         color: colors.ink3,
                       ),

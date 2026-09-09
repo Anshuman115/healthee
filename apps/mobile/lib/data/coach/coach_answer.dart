@@ -56,6 +56,22 @@ class CoachAnswer {
     );
   }
 
+  /// The wire shape, back out again — for `CoachHistoryStore`.
+  ///
+  /// The KEYS are the server's, not this class's field names, so a stored turn
+  /// round-trips through [CoachAnswer.fromJson] and there is exactly one parser
+  /// for a coach answer whether it arrived over HTTP or came off the disk. Two
+  /// parsers is how a stored answer starts differing from a fresh one in some
+  /// field nobody checks — its grade floor, say, which is the part that
+  /// qualifies every sentence above it.
+  Map<String, Object?> toJson() => <String, Object?>{
+    'reply': reply,
+    'citations': citations,
+    'grade_floor': gradeFloor,
+    'refused': refused,
+    'validated': validated,
+  };
+
   /// The answer, raw. Rendered through `GroundedProse`, never printed.
   final String reply;
 

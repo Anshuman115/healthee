@@ -48,6 +48,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/motion.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/models/recommendation.dart';
@@ -357,9 +358,9 @@ class _Expanded extends StatelessWidget {
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-            decoration: BoxDecoration(
+            decoration: ShapeDecoration(
               color: colors.surface2,
-              borderRadius: BorderRadius.circular(Radii.badge),
+              shape: hSquircle(Radii.badge),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

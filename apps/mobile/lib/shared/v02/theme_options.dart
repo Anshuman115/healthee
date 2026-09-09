@@ -28,6 +28,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 
@@ -143,13 +144,15 @@ class _Tile<T> extends StatelessWidget {
         onTap: onTap,
         child: Container(
           padding: ThemeOptions.padding,
-          decoration: BoxDecoration(
+          decoration: ShapeDecoration(
             color: chosen ? colors.accentSoft : null,
-            border: Border.all(
-              color: chosen ? colors.accent : colors.rule,
-              width: hairline,
+            shape: hSquircle(
+              ThemeOptions.radius,
+              side: BorderSide(
+                color: chosen ? colors.accent : colors.rule,
+                width: hairline,
+              ),
             ),
-            borderRadius: BorderRadius.circular(ThemeOptions.radius),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

@@ -64,10 +64,7 @@ void main() {
       final age = BiologicalAge.maybe(
         loadTodayJson()['biological_age']! as Map<String, Object?>,
       )!;
-      expect(
-        AgeLadderPanel.equation(age, 36),
-        contains('− 1.7 fitness'),
-      );
+      expect(AgeLadderPanel.equation(age, 36), contains('− 1.7 fitness'));
       // A term the model stopped sending stops appearing, because the sentence
       // is a fold over the list rather than a template with two slots.
       const bare = BiologicalAge(

@@ -45,6 +45,7 @@ import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's section heading over the timeline.
 const String kPathHeading = 'Your path';
@@ -161,7 +162,7 @@ class _Body extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextLink(
                 label: 'Why this program',
-                icon: Icons.info_outline,
+                icon: SolarIconsOutline.infoCircle,
                 onPressed: () => showEvidenceSheet(
                   context,
                   title: 'Behind this program',

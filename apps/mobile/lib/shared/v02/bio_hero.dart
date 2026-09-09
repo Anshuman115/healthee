@@ -73,10 +73,10 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_bio.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
-import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/v02/bio_display.dart';
+import 'package:healthee/shared/v02/bio_hero_eyebrow.dart';
 import 'package:healthee/shared/v02/bio_hero_parts.dart';
 
 /// The biological-age hero.
@@ -87,6 +87,7 @@ class BioHero extends StatelessWidget {
     required this.value,
     this.eyebrowIcon,
     this.eyebrowAction,
+    this.infoKey,
     this.onEyebrowTap,
     this.eyebrowSemantics,
     this.unit,
@@ -107,6 +108,15 @@ class BioHero extends StatelessWidget {
 
   /// `border-radius: 28px`.
   static const double radius = 28;
+
+  /// Which explainer the eyebrow's ⓘ opens, or null for a hero without one.
+  ///
+  /// **Setting it MOVES the model line and the caveats into that sheet** — the
+  /// hero stops printing either one under the contributions and builds the dot
+  /// from exactly the same two values instead. See `bioHeroInfoDot`. Nothing
+  /// here can drop a disclosure: the inline block and the dot are the two arms
+  /// of one `if`, reading the same fields.
+  final String? infoKey;
 
   /// `.bio-eyebrow .icon { width: 17px }`.
   static const double eyebrowIconSize = 17;
@@ -150,17 +160,17 @@ class BioHero extends StatelessWidget {
   /// The share of `bioLine` in the border and the rule — `color-mix … 35%`.
   static const double lineMix = 0.35;
 
-  /// `.bio-art` geometry, measured from the padding box.
-  static const Rect artRect = Rect.fromLTWH(0, 18, 300, 230);
+  /// `.bio-art` geometry, measured from the padding box. See `bioHeroArt`.
+  static const Rect artRect = kBioArtRect;
 
   /// `.bio-art { right: -60px }`.
-  static const double artRight = -60;
+  static const double artRight = kBioArtRight;
 
   /// `.bio-art { opacity: .6 }`.
-  static const double artOpacity = 0.6;
+  static const double artOpacity = kBioArtOpacity;
 
   /// `.bio-art { opacity: 1 }` with `.bio-atmosphere`'s own `.9` on top of it.
-  static const double fieldOpacity = 0.9;
+  static const double fieldOpacity = kBioFieldOpacity;
 
   /// The label row above the figure.
   final String eyebrow;
@@ -273,14 +283,7 @@ class BioHero extends StatelessWidget {
   ) {
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colors.bioBackground,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: Color.lerp(colors.bioLine, colors.surface, 1 - lineMix)!,
-          width: hairline,
-        ),
-      ),
+      decoration: bioHeroSkin(colors, radius: radius, lineMix: lineMix),
       child: Stack(
         children: <Widget>[
           // FIRST, so it paints behind the content, and POSITIONED, so the
@@ -305,12 +308,36 @@ class BioHero extends StatelessWidget {
     CaveatScope? scope,
     List<Disclosure> disclosed,
   ) => <Widget>[
-    _inset(_eyebrow(ink)),
+    _inset(
+      BioEyebrow(
+        label: eyebrow,
+        ink: ink,
+        minHeight: centred ? eyebrowExtent : 0,
+        action: eyebrowAction,
+        infoKey: infoKey,
+        modelLabel: modelLabel,
+        caveats: disclosed,
+        caveatsLabel: scope?.label,
+        icon: eyebrowIcon,
+        iconSize: eyebrowIconSize,
+        gap: controlsGap,
+        onIconTap: onEyebrowTap,
+        semanticLabel: eyebrowSemantics,
+      ),
+    ),
     if (!centred) const SizedBox(height: valueGap),
     _inset(figure ?? BioFigure(value: value, unit: unit, centred: centred)),
     if (caption case final String sentence) ...<Widget>[
       if (!centred) const SizedBox(height: captionGap),
-      _inset(Text(sentence, style: BioType.bioContext.copyWith(color: ink))),
+      _inset(
+        Text(
+          sentence,
+          // Centred with the figure it qualifies. Left-aligned under an 88px
+          // number centred on the card, it read as a caption for something else.
+          textAlign: centred ? TextAlign.center : TextAlign.start,
+          style: BioType.bioContext.copyWith(color: ink),
+        ),
+      ),
     ],
     if (instrument case final Widget scale) ...<Widget>[
       if (caption != null) const SizedBox(height: contextGap),
@@ -320,81 +347,35 @@ class BioHero extends StatelessWidget {
       SizedBox(
         height: caption != null && instrument == null ? ruleGap : dividerGap,
       ),
-      SizedBox(height: hairline, child: ColoredBox(color: rule)),
+      SizedBox(
+        height: hairline,
+        child: ColoredBox(color: rule),
+      ),
       const SizedBox(height: statsGap),
-      _inset(BioStatsRow(stats: stats, ink: ink)),
+      _inset(BioStatsRow(stats: stats, ink: ink, centred: centred)),
     ],
-    if (modelLabel case final String label) ...<Widget>[
-      const SizedBox(height: modelGap),
-      _inset(BioModelLabel(label: label, icon: modelIcon, ink: ink)),
-    ],
+    if (infoKey == null)
+      if (modelLabel case final String label) ...<Widget>[
+        const SizedBox(height: modelGap),
+        _inset(BioModelLabel(label: label, icon: modelIcon, ink: ink)),
+      ],
     // The hero is a card, so the hero is a caveat carrier. A `ReadingView` with
     // `CaveatCarrier.insideCard` hands its disclosures down a `CaveatScope` and
     // draws nothing itself; a card that did not read it would drop the sentence
     // silently, which is the one failure the honesty layer exists to prevent.
     // `panel.dart` carries the same block for the same reason.
-    if (disclosed.isNotEmpty) ...<Widget>[
+    if (infoKey == null && disclosed.isNotEmpty) ...<Widget>[
       const SizedBox(height: modelGap),
       _inset(CaveatNote(caveats: disclosed, label: scope?.label)),
     ],
   ];
 
   /// `.bio-art`, in whichever of its two boxes. Positioned either way.
-  Widget _art() {
-    if (!artFillsCard) {
-      return Positioned(
-        right: artRight,
-        top: artRect.top,
-        width: artRect.width,
-        height: artRect.height,
-        child: Opacity(opacity: artOpacity, child: art),
-      );
-    }
-    return Positioned.fill(
-      // The constraints here are the card's finished size — a positioned child
-      // is laid out against the stack, which is laid out against the content —
-      // so this is where the still centre can be worked out at all.
-      child: LayoutBuilder(
-        builder: (context, constraints) => BioDisplayScope(
-          stillCentre: centred
-              ? bioStillCentre(constraints.biggest)
-              : Alignment.center,
-          child: Opacity(opacity: fieldOpacity, child: art),
-        ),
-      ),
-    );
-  }
+  Widget _art() =>
+      bioHeroArt(art: art!, fillsCard: artFillsCard, centred: centred);
 
   Widget _inset(Widget child) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: padding),
     child: child,
-  );
-
-  Widget _eyebrow(Color ink) => ConstrainedBox(
-    // `.bio-controls .motion-toggle` is 32 px tall and it, not the 12 px label,
-    // sets this row's height in the motion layout. Pinned so the still centre
-    // is arithmetic rather than a measurement.
-    constraints: BoxConstraints(minHeight: centred ? eyebrowExtent : 0),
-    child: Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(
-            eyebrow,
-            style: BioType.bioEyebrow.copyWith(color: ink),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (eyebrowAction case final Widget action) action,
-        if (eyebrowAction != null && eyebrowIcon != null)
-          const SizedBox(width: controlsGap),
-        if (eyebrowIcon != null)
-          HTap(
-            onTap: onEyebrowTap,
-            semanticLabel: eyebrowSemantics ?? eyebrow,
-            child: Icon(eyebrowIcon, size: eyebrowIconSize, color: ink),
-          ),
-      ],
-    ),
   );
 }

@@ -9,6 +9,7 @@ import 'package:healthee/data/gps/route_repository.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/shared/server_action_button.dart';
 import 'package:healthee/shared/states/account_async_view.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 class LocalRoutes extends ConsumerWidget {
   const LocalRoutes({super.key});
@@ -37,8 +38,8 @@ class LocalRoutes extends ConsumerWidget {
         title: Text('${DateTime.fromMillisecondsSinceEpoch(row.startMs)}'),
         subtitle: Text('${row.status} · ${(row.distanceM / 1000).toStringAsFixed(2)} km'),
         trailing: row.status == 'uploaded'
-          ? const Icon(Icons.map_outlined, semanticLabel: 'View uploaded route')
-          : row.status == 'recording' ? const Icon(Icons.gps_fixed) : null,
+          ? const Icon(SolarIconsOutline.map, semanticLabel: 'View uploaded route')
+          : row.status == 'recording' ? const Icon(SolarIconsOutline.gps) : null,
         onTap: row.status == 'uploaded' ? () => unawaited(context.push(
           '${Routes.route}/${Uri.encodeComponent(row.id)}')) : null,
       ),

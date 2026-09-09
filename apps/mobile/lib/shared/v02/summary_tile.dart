@@ -28,6 +28,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
@@ -161,9 +162,9 @@ class SummaryTile extends StatelessWidget {
     return Container(
       clipBehavior: Clip.hardEdge,
       padding: padding,
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: context.familySoft,
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(radius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

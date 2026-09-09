@@ -144,10 +144,22 @@ void main() {
       // or the pattern is broken.
       expect(kChip.hasMatch('        CitationRow(noteIds: notes),'), isTrue);
       expect(kChip.hasMatch('      const CitationRow(noteIds: [id]),'), isTrue);
-      expect(kChip.hasMatch('/// resolved by `CitationRow` to a name.'), isFalse);
-      expect(kReferenceLabel.hasMatch(r"      note: 'Reference $cut',"), isTrue);
-      expect(kReferenceLabel.hasMatch('      label: "Reference: 150",'), isTrue);
-      expect(kReferenceLabel.hasMatch('    final references = detail;'), isFalse);
+      expect(
+        kChip.hasMatch('/// resolved by `CitationRow` to a name.'),
+        isFalse,
+      );
+      expect(
+        kReferenceLabel.hasMatch(r"      note: 'Reference $cut',"),
+        isTrue,
+      );
+      expect(
+        kReferenceLabel.hasMatch('      label: "Reference: 150",'),
+        isTrue,
+      );
+      expect(
+        kReferenceLabel.hasMatch('    final references = detail;'),
+        isFalse,
+      );
     });
 
     test('the files allowed to ground inline still ground something', () {
@@ -236,7 +248,8 @@ void main() {
       expect(
         tester.getRect(dot).isEmpty,
         isTrue,
-        reason: 'the dot occupies ${tester.getRect(dot)} with nothing behind it',
+        reason:
+            'the dot occupies ${tester.getRect(dot)} with nothing behind it',
       );
     });
   });
@@ -256,7 +269,9 @@ void main() {
         );
       });
 
-      testWidgets('${width.toInt()}px — ITS ⓘ CARRIES THE NOTE', (tester) async {
+      testWidgets('${width.toInt()}px — ITS ⓘ CARRIES THE NOTE', (
+        tester,
+      ) async {
         await pumpAt(tester, width, kField);
 
         final field = tester.getRect(find.byType(ActivityLevelField));
@@ -270,12 +285,9 @@ void main() {
         );
         expectDotSits(tester, dot, field);
 
-        await readIdsFromDot(
-          tester,
-          dot,
-          const <String>['non_exercise_vo2max'],
-          width,
-        );
+        await readIdsFromDot(tester, dot, const <String>[
+          'non_exercise_vo2max',
+        ], width);
       });
     }
   });
@@ -307,7 +319,11 @@ void main() {
               'sources belong in the ⓘ of the card that draws the sentence.',
         );
         for (final line in painted) {
-          expect(line, isNot(contains('[vo2max]')), reason: 'raw marker: $line');
+          expect(
+            line,
+            isNot(contains('[vo2max]')),
+            reason: 'raw marker: $line',
+          );
         }
       });
 
@@ -320,7 +336,10 @@ void main() {
           CaveatNote(caveats: const <Disclosure>[kCaveat]),
         );
 
-        final painted = wordsOn(tester, tester.getRect(find.byType(CaveatNote)));
+        final painted = wordsOn(
+          tester,
+          tester.getRect(find.byType(CaveatNote)),
+        );
         expect(painted, contains(caveatHeadline(1)));
         expect(
           painted,

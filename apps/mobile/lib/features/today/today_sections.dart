@@ -240,13 +240,8 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
       now: now,
       health: extras.health,
       navigation: extras.navigation,
-      onOpenProfile: extras.onOpenProfile,
-    ),
-  );
-  sections.add(
-    DeviceStrip(
-      health: extras.health,
       batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
+      onOpenProfile: extras.onOpenProfile,
       onOpenSync: extras.onOpenSync,
     ),
   );
@@ -293,14 +288,8 @@ List<PageSection> _freshInstall(ScreenData data, TodayExtras extras) {
         date: data.day.date,
         now: now,
         health: extras.health,
-        onOpenProfile: extras.onOpenProfile,
-      ),
-      gap: 0,
-    ),
-    PageSection(
-      DeviceStrip(
-        health: extras.health,
         batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
+        onOpenProfile: extras.onOpenProfile,
         onOpenSync: extras.onOpenSync,
       ),
       gap: 0,

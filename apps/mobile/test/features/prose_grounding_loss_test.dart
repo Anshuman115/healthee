@@ -94,11 +94,7 @@ void main() {
         'refused': false,
         'validated': true,
       });
-      await pumpAt(
-        tester,
-        390,
-        CoachEntryView(entry: CoachReply(ungraded)),
-      );
+      await pumpAt(tester, 390, CoachEntryView(entry: CoachReply(ungraded)));
 
       expect(detailIn(tester, find.byType(CoachEntryView)).grade, isNull);
       await tester.tap(dotIn(find.byType(CoachEntryView)));

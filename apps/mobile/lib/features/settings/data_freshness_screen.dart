@@ -57,6 +57,7 @@ import 'package:healthee/shared/v02/list_row.dart';
 import 'package:healthee/shared/v02/notices.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Which streams are current, from the strap to the server.
 class DataFreshnessScreen extends ConsumerWidget {
@@ -96,9 +97,9 @@ class DataFreshnessScreen extends ConsumerWidget {
       eyebrow: eyebrow,
       children: <Widget>[
         const SyncStages(<(IconData, String)>[
-          (Icons.watch_outlined, 'Helio Strap'),
-          (Icons.phone_iphone, 'On your phone'),
-          (Icons.cloud_outlined, 'Your server'),
+          (SolarIconsOutline.watchRound, 'Helio Strap'),
+          (SolarIconsOutline.smartphone, 'On your phone'),
+          (SolarIconsOutline.cloud, 'Your server'),
         ]),
         HNotice(
           title: alert?.headline ?? 'Everything here is current',
@@ -134,7 +135,7 @@ class DataFreshnessScreen extends ConsumerWidget {
         const SectionGap(),
         HButton(
           label: 'Sync now',
-          icon: Icons.sync,
+          icon: SolarIconsOutline.refresh,
           onPressed: link.isBusy
               ? null
               : () => unawaited(
@@ -145,7 +146,7 @@ class DataFreshnessScreen extends ConsumerWidget {
         FlushCard(
           children: <Widget>[
             ListRow(
-              icon: Icons.cloud_outlined,
+              icon: SolarIconsOutline.cloud,
               title: 'Background preferences',
               subtitle: 'How and when collection runs',
               onTap: () => unawaited(context.push(Routes.background)),

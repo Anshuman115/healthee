@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Opens one metric's own dated series — every panel's `Details` action.
 ///
@@ -20,10 +21,10 @@ class HistoryLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-    leading: const Icon(Icons.show_chart),
+    leading: const Icon(SolarIconsOutline.chart_2),
     title: const Text('Metric history'),
     subtitle: const Text('Explore 30 days to 5 years'),
-    trailing: const Icon(Icons.chevron_right),
+    trailing: const Icon(SolarIconsOutline.altArrowRight),
     onTap: () => unawaited(context.push(Routes.history)),
   );
 }

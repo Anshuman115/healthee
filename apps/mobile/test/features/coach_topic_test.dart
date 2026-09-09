@@ -27,7 +27,6 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/app_theme.dart';
@@ -36,6 +35,8 @@ import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/coach/coach_topics.dart';
+
+import '_coach_overrides.dart';
 
 final DateTime _now = DateTime(2026, 8, 5, 9);
 
@@ -80,8 +81,8 @@ class _RecordingCoach implements CoachClient {
   }
 }
 
-Widget _screen(CoachClient client, {String? topic}) => ProviderScope(
-  overrides: [coachClientProvider.overrideWithValue(client)],
+Widget _screen(CoachClient client, {String? topic}) => coachScope(
+  client: client,
   child: MaterialApp(
     theme: AppTheme.light,
     home: CoachScreen(topic: topic, now: _now),
@@ -167,7 +168,7 @@ void main() {
       await tester.pumpWidget(_screen(client, topic: _topic));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
 
       expect(client.asked, hasLength(1));
@@ -187,7 +188,7 @@ void main() {
       await tester.pumpWidget(_screen(client, topic: _topic));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
 
       expect(client.topics, <String?>[_topic]);
@@ -203,10 +204,10 @@ void main() {
       await tester.pumpWidget(_screen(client, topic: _topic));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'And the week after?');
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
 
       expect(client.topics, <String?>[_topic, _topic]);
@@ -231,7 +232,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'How did I sleep?');
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
 
       expect(client.topics, <String?>[null]);

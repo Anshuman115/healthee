@@ -65,7 +65,6 @@ Future<void> _pressBack(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-
 /// Pushes a detail route onto whichever branch navigator is showing.
 Future<void> _pushDetail(WidgetTester tester) async {
   final context = tester.element(find.byType(TodayScreen).first);
@@ -122,7 +121,8 @@ void main() {
     expect(
       find.byType(TodayScreen),
       findsOneWidget,
-      reason: 'a bottom bar implies a home, and back means up before it means out',
+      reason:
+          'a bottom bar implies a home, and back means up before it means out',
     );
     expect(
       platform,
@@ -141,7 +141,11 @@ void main() {
       await tapTab(tester, tab);
       await _pressBack(tester);
 
-      expect(find.byType(TodayScreen), findsOneWidget, reason: 'back from $tab');
+      expect(
+        find.byType(TodayScreen),
+        findsOneWidget,
+        reason: 'back from $tab',
+      );
     }
   });
 
@@ -174,7 +178,9 @@ void main() {
     );
   });
 
-  testWidgets('BACK ON TODAY WITH AN EMPTY STACK LEAVES THE APP', (tester) async {
+  testWidgets('BACK ON TODAY WITH AN EMPTY STACK LEAVES THE APP', (
+    tester,
+  ) async {
     // The deliberate end of the rule. `shared/app_shell.dart` argues it: the
     // platform contract, no unsaved state, and no "press back again" nag.
     final platform = _watchPlatformCalls(tester);

@@ -177,22 +177,40 @@ Widget _scoped(
       // client — a keystore and a socket a `flutter test` host does not have.
       // The walk itself has its own suite against a memory store
       // (`test/store/last_known_test.dart`).
-      lastKnownBiologicalAgeProvider.overrideWith((ref) async => lastKnownBioAge),
-      challengeFeedProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
-        const ChallengeFeed(active: [], suggested: [], recent: [], maxActive: 3),
-        fetchedAt: now,
-      ))),
-      programFeedProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
-        const ProgramFeed(active: null, suggested: [], recent: []), fetchedAt: now,
-      ))),
+      lastKnownBiologicalAgeProvider.overrideWith(
+        (ref) async => lastKnownBioAge,
+      ),
+      challengeFeedProvider.overrideWith(
+        (ref) => Stream.value(
+          ServerSnapshot(
+            const ChallengeFeed(
+              active: [],
+              suggested: [],
+              recent: [],
+              maxActive: 3,
+            ),
+            fetchedAt: now,
+          ),
+        ),
+      ),
+      programFeedProvider.overrideWith(
+        (ref) => Stream.value(
+          ServerSnapshot(
+            const ProgramFeed(active: null, suggested: [], recent: []),
+            fetchedAt: now,
+          ),
+        ),
+      ),
       notifyCompletionsProvider().overrideWith((ref) async {}),
-      notableEventsProvider.overrideWith((ref) => Stream.value(ServerSnapshot(
-        <NotableEvent>[], fetchedAt: now,
-      ))),
+      notableEventsProvider.overrideWith(
+        (ref) => Stream.value(ServerSnapshot(<NotableEvent>[], fetchedAt: now)),
+      ),
       gpsRecorderProvider.overrideWith(FixedGps.new),
-      commitmentRepositoryProvider.overrideWith((ref) async => CommitmentRepository(
-        AccountApi(Dio(), await CacheSession.capture(null)),
-      )),
+      commitmentRepositoryProvider.overrideWith(
+        (ref) async => CommitmentRepository(
+          AccountApi(Dio(), await CacheSession.capture(null)),
+        ),
+      ),
       localStoreProvider.overrideWithValue(store),
       todayProvider.overrideWithValue(todayDate),
       syncControllerProvider.overrideWith(
@@ -345,7 +363,6 @@ Future<void> tapTab(WidgetTester tester, String label) async {
   );
   await tester.pumpAndSettle();
 }
-
 
 /// GPS acquisition has its own scripted suite; screen tests never open hardware.
 class FixedGps extends GpsRecorder {

@@ -75,7 +75,9 @@ void main() {
       expect(tester.getSize(find.byType(HStackedSleep)).height, 108);
     });
 
-    testWidgets('THE HYPNOGRAM IS STILL ON SLEEP, AT FULL WIDTH', (tester) async {
+    testWidgets('THE HYPNOGRAM IS STILL ON SLEEP, AT FULL WIDTH', (
+      tester,
+    ) async {
       // The timeline is what that screen is for, and this change must not have
       // cost it: proportion answers "how did the night divide", never "when".
       await tester.pumpWidget(todayHost(store, home: const SleepScreen()));

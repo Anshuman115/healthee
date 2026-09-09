@@ -108,18 +108,36 @@ abstract final class Env {
   /// ten seconds is derived from a p95 < 100 ms *read* target, while one coach
   /// turn is bounded at `insights.coach.GATHERING_ROUNDS` (20) tool rounds plus
   /// the pipeline's reserved answer attempts, each at the server's own 60 s
-  /// `llm_timeout_s`. That ceiling is not a spend — narrow questions were
-  /// measured converging in two rounds — so this is sized for the work that
-  /// actually happens, at the same 180 s the app's other three generating calls
-  /// already use ([pushTimeout], via `data/api/account_api.dart` and
-  /// `data/challenges/commitment_repository.dart`).
+  /// `llm_timeout_s`.
+  ///
+  /// ## 180 s was measured against the wrong questions
+  ///
+  /// It was sized on "narrow questions were measured converging in two rounds",
+  /// which is true and was the wrong sample. Timed against the owner's own broad
+  /// question — *"What should I notice about my sleep?"* — on the live coach tier:
+  ///
+  ///     80.1s  82.4s  131.7s  169.3s  276.7s  304.1s
+  ///     median 169.3 s · max 304.1 s
+  ///
+  /// **Two of six exceeded 180 s and the median sat on the line.** A broad question
+  /// fans out into more gathering rounds than a narrow one, so the old budget threw
+  /// away roughly a third of the answers it had already paid for — the failure this
+  /// docstring's first paragraph describes, arriving through the number meant to
+  /// prevent it.
+  ///
+  /// 360 s clears the measured maximum with headroom. It is NOT a claim that six
+  /// minutes is acceptable to wait — it is the honest statement that the server can
+  /// take that long, and that hanging up costs the owner a question and delivers
+  /// nothing. Making the wait *short* is a server-side question (every cheap lever is
+  /// measured and closed in `docs/PRICING.md`); making it *legible* is the composer's
+  /// job. This constant's only duty is to not discard work that was charged for.
   ///
   /// It is its OWN knob rather than a reuse of [pushTimeout] because the two
   /// numbers answer different questions — a multi-day sync backlog and a model
   /// thinking — and a shared constant would make one of them silently follow the
-  /// other's next revision.
+  /// other's next revision. That divergence is now real: [pushTimeout] stays at 180 s.
   static const Duration coachTimeout = Duration(
-    seconds: int.fromEnvironment('HELIO_COACH_TIMEOUT_S', defaultValue: 180),
+    seconds: int.fromEnvironment('HELIO_COACH_TIMEOUT_S', defaultValue: 360),
   );
 
   /// Whether to log every HTTP request/response body.

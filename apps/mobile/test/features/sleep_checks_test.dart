@@ -22,10 +22,14 @@ import '../_sleep_stubs.dart';
 import '_sleep_host.dart';
 
 /// The four target strings the panel renders, in its own order.
-List<String> _targets(SleepChecksPanel panel) =>
-    <String>[for (final check in panel.checks) check.target];
+List<String> _targets(SleepChecksPanel panel) => <String>[
+  for (final check in panel.checks) check.target,
+];
 
-SleepChecksPanel _panel({SleepCutoffs? cutoffs, List<String> notes = const <String>[]}) {
+SleepChecksPanel _panel({
+  SleepCutoffs? cutoffs,
+  List<String> notes = const <String>[],
+}) {
   final page = sleepPageFixture();
   return SleepChecksPanel(
     night: page.nights.first,
@@ -80,7 +84,10 @@ void main() {
         bands.durationDetail(300),
         '60 minutes below the 6-hour lower reference.',
       );
-      expect(bands.durationDetail(600), '120 minutes above the 8-hour upper reference.');
+      expect(
+        bands.durationDetail(600),
+        '120 minutes above the 8-hour upper reference.',
+      );
       expect(bands.durationDetail(420), 'Within the duration reference.');
       expect(bands.durationDetail(null), 'No duration recorded.');
     });
@@ -88,7 +95,8 @@ void main() {
     test('the efficiency floor is read as a FRACTION, not a percentage', () {
       // The wire sends `0.85`. A server that ever sent `85` would be read as
       // 8500%, so the conversion is asserted against the committed snapshot.
-      final raw = loadJson(kSleepSnapshotPath)['cutoffs']! as Map<String, Object?>;
+      final raw =
+          loadJson(kSleepSnapshotPath)['cutoffs']! as Map<String, Object?>;
       expect((raw['efficiency_min']! as num).toDouble(), lessThanOrEqualTo(1));
       expect(SleepBands(sleepPageFixture().cutoffs).efficiencyMinPct, 85);
     });
@@ -133,7 +141,10 @@ void main() {
     test('MUTATION — the payload DOES carry a count, and it is refused', () {
       // Without this the test above passes for a screen that never had the
       // number to draw.
-      expect(sleepPageFixture().nights.first.healthScore.valueOrNull, isNotNull);
+      expect(
+        sleepPageFixture().nights.first.healthScore.valueOrNull,
+        isNotNull,
+      );
     });
   });
 
@@ -169,7 +180,11 @@ void main() {
 
     test('an unreadable midpoint draws a dash rather than echoing itself', () {
       final night = sleepPageWithout(<String>['midpoint_local']).nights.first;
-      final panel = SleepChecksPanel(night: night, cutoffs: null, notes: const <String>[]);
+      final panel = SleepChecksPanel(
+        night: night,
+        cutoffs: null,
+        notes: const <String>[],
+      );
       expect(panel.checks[3].reading, isNull);
       expect(panel.checks[3].detail, 'No midpoint recorded.');
     });
@@ -182,7 +197,9 @@ void main() {
       await loadSleepFont();
       final page = sleepPageFixture();
       expect(page.researchNotes, isNotEmpty);
-      await tester.pumpWidget(sleepPanelHost(_panel(notes: page.researchNotes)));
+      await tester.pumpWidget(
+        sleepPanelHost(_panel(notes: page.researchNotes)),
+      );
       await tester.pumpAndSettle();
 
       // The card has the door.
@@ -211,13 +228,18 @@ void main() {
     ) async {
       await loadSleepFont();
       final page = sleepPageFixture();
-      await tester.pumpWidget(sleepPanelHost(_panel(notes: page.researchNotes)));
+      await tester.pumpWidget(
+        sleepPanelHost(_panel(notes: page.researchNotes)),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byType(MetricInfoDot));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sleep duration and all-cause mortality'), findsOneWidget);
+      expect(
+        find.text('Sleep duration and all-cause mortality'),
+        findsOneWidget,
+      );
       expect(find.text('Sleep Regularity Index (SRI)'), findsOneWidget);
       // The id itself never reaches a surface, open or closed.
       expect(find.textContaining('sleep_duration_mortality'), findsNothing);
@@ -229,7 +251,10 @@ void main() {
       tester,
     ) async {
       await loadSleepFont();
-      final page = sleepPageWithout(<String>['efficiency_pct', 'point_efficiency']);
+      final page = sleepPageWithout(<String>[
+        'efficiency_pct',
+        'point_efficiency',
+      ]);
       await tester.pumpWidget(
         sleepPanelHost(
           SleepChecksPanel(

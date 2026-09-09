@@ -58,6 +58,7 @@ import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/view_day.dart';
 import 'package:healthee/shared/v02/vitals_table.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own title, full stop included.
 const String kRecoveryTitle = 'Recovery, in context.';
@@ -242,7 +243,7 @@ class RecoveryDetail extends StatelessWidget {
     Vital(
       label: 'Resting heart',
       tone: Tone.heart,
-      icon: Icons.favorite_border,
+      icon: SolarIconsOutline.heart,
       unit: 'bpm',
       reading: facts.restingHeartRate,
       series: _series(facts, TodayMetricIds.restingHeartRate),
@@ -251,7 +252,7 @@ class RecoveryDetail extends StatelessWidget {
     Vital(
       label: 'HRV',
       tone: Tone.fitness,
-      icon: Icons.show_chart,
+      icon: SolarIconsOutline.chart_2,
       unit: 'ms',
       reading: facts.heartRateVariability,
       series: _series(facts, TodayMetricIds.heartRateVariability),
@@ -260,7 +261,7 @@ class RecoveryDetail extends StatelessWidget {
     Vital(
       label: 'Blood oxygen',
       tone: Tone.oxygen,
-      icon: Icons.water_drop_outlined,
+      icon: SolarIconsOutline.waterdrop,
       unit: '%',
       reading: facts.bloodOxygen,
       series: _series(facts, TodayMetricIds.bloodOxygenMin),
@@ -270,7 +271,7 @@ class RecoveryDetail extends StatelessWidget {
     Vital(
       label: 'Breathing',
       tone: Tone.oxygen,
-      icon: Icons.air,
+      icon: SolarIconsOutline.wind,
       unit: '/min',
       reading: facts.respiratoryRate,
       series: _series(facts, TodayMetricIds.respiratoryRate),
@@ -279,7 +280,7 @@ class RecoveryDetail extends StatelessWidget {
     Vital(
       label: 'Skin temperature',
       tone: Tone.stress,
-      icon: Icons.wb_sunny_outlined,
+      icon: SolarIconsOutline.sun,
       unit: '°C',
       // `/api/today` carries no series for skin temperature and no refusal
       // block for it either, so an absent reading resolves the same

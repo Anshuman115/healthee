@@ -37,6 +37,7 @@ import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What the bucket chart is. Method, so it lives behind the ⓘ.
 const String kStepBucketNote =
@@ -89,7 +90,7 @@ class HeartStressPanel extends StatelessWidget {
       tone: Tone.heart,
       head: PanelHead(
         title: title,
-        icon: Icons.favorite_outline,
+        icon: SolarIconsOutline.heart,
         infoKey: 'stress',
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
@@ -166,7 +167,7 @@ class StepsEnergyPanel extends StatelessWidget {
       label: 'Steps',
       head: PanelHead(
         title: title,
-        icon: Icons.directions_walk,
+        icon: SolarIconsOutline.walking,
         infoKey: 'steps_total',
         detail: const MetricDetail(method: <String>[kStepBucketNote]),
         actionLabel: onDetails == null ? null : 'Details',

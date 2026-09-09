@@ -37,6 +37,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// One row of a `.data-table`: a label on the left, a figure on the right.
 @immutable
@@ -117,7 +118,7 @@ class _DatedReadingsState extends State<DatedReadings> {
                 child: Row(
                   children: <Widget>[
                     Icon(
-                      _open ? Icons.arrow_drop_down : Icons.arrow_right,
+                      _open ? SolarIconsOutline.altArrowDown : SolarIconsOutline.altArrowRight,
                       size: DatedReadings.markerSize,
                       color: colors.ink2,
                     ),

@@ -34,8 +34,7 @@ import 'package:healthee/shared/charts/v02/chart_ticks.dart';
 import 'package:healthee/shared/charts/v02/chart_void.dart';
 import 'package:healthee/shared/charts/v02/linked_painter.dart';
 
-export 'package:healthee/shared/charts/v02/linked_painter.dart'
-    show LinkedPane;
+export 'package:healthee/shared/charts/v02/linked_painter.dart' show LinkedPane;
 
 /// Two panes, one cursor, independent labelled scales.
 class V02LinkedChart extends StatelessWidget {
@@ -91,7 +90,19 @@ class V02LinkedChart extends StatelessWidget {
         LinkedLane(
           pane: pane,
           ink: ChartInk.tone(context, pane.tone),
-          ticks: ChartTicks.nice(pane.values.whereType<double>()),
+          // `target: 2`, not the default 4. This chart stacks TWO panes inside
+          // one `height`, so each lane gets about half the vertical room a
+          // single-pane chart's axis was tuned for. At the default the heart-rate
+          // lane picked a 2.5 step and drew SIX labels — 72.5 · 70.0 · 67.5 ·
+          // 65.0 · 62.5 · 60.0 — and the last two collided into each other on
+          // the owner's phone. Stress did the same with 20 and 10.
+          //
+          // `target` is a wish rather than a promise (`_niceStep` rounds it to
+          // 1/2/2.5/5 × a power of ten), so this asks for a coarser axis and
+          // lets the step stay round: heart rate becomes 60 · 65 · 70 · 75.
+          // Fewer labels on a half-height lane is not less information — six
+          // numbers you cannot read is less than four you can.
+          ticks: ChartTicks.nice(pane.values.whereType<double>(), target: 2),
         ),
     ];
     final chart = Column(
@@ -134,9 +145,7 @@ class V02LinkedChart extends StatelessWidget {
   /// The shortest pane decides, so no cursor lands on a sample a pane lacks.
   int get _sampleCount => panes.isEmpty
       ? 0
-      : panes
-            .map((pane) => pane.values.length)
-            .reduce((a, b) => a < b ? a : b);
+      : panes.map((pane) => pane.values.length).reduce((a, b) => a < b ? a : b);
 }
 
 /// Both readings and the instant, or the invitation to ask for them.
@@ -171,10 +180,7 @@ class _LinkedReadout extends StatelessWidget {
           const SizedBox(width: 12),
         ],
         if (time != null)
-          Text(
-            time!,
-            style: TypeScale.colourKey.copyWith(color: colors.ink3),
-          ),
+          Text(time!, style: TypeScale.colourKey.copyWith(color: colors.ink3)),
       ],
     );
   }

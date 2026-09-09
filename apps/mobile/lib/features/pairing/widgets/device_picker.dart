@@ -22,6 +22,7 @@ import 'package:healthee/shared/v02/notices.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Renders the device list from a Zepp account.
 class DevicePicker extends StatelessWidget {
@@ -54,7 +55,7 @@ class DevicePicker extends StatelessWidget {
           children: <Widget>[
             for (final ZeppDevice device in devices)
               ListRow(
-                icon: Icons.watch_outlined,
+                icon: SolarIconsOutline.watchRound,
                 title: device.label,
                 subtitle: device.hasVendorName
                     ? device.strap.mac

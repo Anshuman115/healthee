@@ -45,6 +45,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/shared/v02/chapter.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The three headings Today actually draws.
 const List<String> kChapterTitles = <String>[
@@ -81,7 +82,7 @@ void main() {
             padding: const EdgeInsets.symmetric(horizontal: kPagePadding),
             child: ChapterHeading(
               title: title,
-              icon: Icons.bedtime_outlined,
+              icon: SolarIconsOutline.moonSleep,
               tone: Tone.sleep,
             ),
           ),

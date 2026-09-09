@@ -22,11 +22,14 @@ void main() {
       expect(decimalHours(380), '6.3h');
     });
 
-    test('a median under 1000 is not grouped; 14-DAY TREND when there is none', () {
-      expect(medianFoot(55), 'MED 55');
-      expect(medianFoot(9264), 'MED 9,264');
-      expect(medianFoot(null), '14-DAY TREND');
-    });
+    test(
+      'a median under 1000 is not grouped; 14-DAY TREND when there is none',
+      () {
+        expect(medianFoot(55), 'MED 55');
+        expect(medianFoot(9264), 'MED 9,264');
+        expect(medianFoot(null), '14-DAY TREND');
+      },
+    );
   });
 
   group('the stage foot', () {
@@ -107,9 +110,12 @@ void main() {
   });
 
   group('the date eyebrow', () {
-    test('abbreviates, and keeps an unreadable date rather than blanking it', () {
-      expect(prettyDate('2026-08-04'), 'TUE · AUG 4');
-      expect(prettyDate('nonsense'), 'NONSENSE');
-    });
+    test(
+      'abbreviates, and keeps an unreadable date rather than blanking it',
+      () {
+        expect(prettyDate('2026-08-04'), 'TUE · AUG 4');
+        expect(prettyDate('nonsense'), 'NONSENSE');
+      },
+    );
   });
 }

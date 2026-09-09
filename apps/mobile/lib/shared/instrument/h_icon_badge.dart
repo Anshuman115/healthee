@@ -15,6 +15,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 
 /// An icon on a wash of its own colour.
@@ -50,9 +51,9 @@ class HIconBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: size,
     height: size,
-    decoration: BoxDecoration(
+    decoration: ShapeDecoration(
       color: color.withValues(alpha: _fillAlpha),
-      borderRadius: BorderRadius.circular(radius),
+      shape: hSquircle(radius),
     ),
     // Decorative: whatever this badge sits beside already names it.
     child: ExcludeSemantics(

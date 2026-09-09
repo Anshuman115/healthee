@@ -78,6 +78,7 @@ import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/view_day.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The four windows `H.segment` offers, in its order.
 const List<(int, String)> kHistoryPeriods = <(int, String)>[
@@ -140,14 +141,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         FlushCard(
           rows: <Widget>[
             V02ListRow(
-              icon: Icons.menu_book_outlined,
+              icon: SolarIconsOutline.book,
               title: 'Your journal',
               detail: 'See what was happening alongside the data',
               tone: Tone.sleep,
               onOpen: () => unawaited(context.push(Routes.journal)),
             ),
             V02ListRow(
-              icon: Icons.chat_bubble_outline,
+              icon: SolarIconsOutline.chatRound,
               title: 'Ask about this trend',
               detail: 'Explore the reading with your coach',
               tone: Tone.fitness,
@@ -167,7 +168,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           const SizedBox(height: HistoryPanel.sectionGap),
           TextLink(
             label: kEvidenceLabel,
-            icon: Icons.info_outline,
+            icon: SolarIconsOutline.infoCircle,
             iconLeading: true,
             onPressed: () => showMetricInfo(
               context,

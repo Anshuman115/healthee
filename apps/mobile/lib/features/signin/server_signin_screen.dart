@@ -55,6 +55,7 @@ import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/list_row.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Sign in to the Healthee server, or review the session already held.
 class ServerSignInScreen extends ConsumerWidget {
@@ -93,7 +94,7 @@ class ServerSignInScreen extends ConsumerWidget {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  Icon(Icons.shield_outlined, color: colors.accent),
+                  Icon(SolarIconsOutline.shieldCheck, color: colors.accent),
                   const SizedBox(width: rowGap),
                   Expanded(
                     child: Text(
@@ -121,13 +122,13 @@ class ServerSignInScreen extends ConsumerWidget {
         FlushCard(
           children: <Widget>[
             ListRow(
-              icon: Icons.person_outline,
+              icon: SolarIconsOutline.userCircle,
               title: 'How this app signs in',
               subtitle: 'Welcome and account connection',
               onTap: () => unawaited(context.push(Routes.welcome)),
             ),
             ListRow(
-              icon: Icons.shield_outlined,
+              icon: SolarIconsOutline.shieldCheck,
               title: 'Your data & privacy',
               subtitle: 'What stays local and what is uploaded',
               onTap: () => unawaited(context.push(Routes.about)),

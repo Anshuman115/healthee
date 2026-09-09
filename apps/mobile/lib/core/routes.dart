@@ -57,6 +57,13 @@ abstract final class Routes {
   /// the opening message rather than anything the server is told separately.
   static const String coach = '/coach';
 
+  /// Conversations already had, read back from this device.
+  ///
+  /// A child of [coach] rather than a sibling: it is reached from the coach's
+  /// own head and returns to it, and reopening a thread pops straight back into
+  /// the conversation it belongs to.
+  static const String coachHistory = '/coach/history';
+
   /// The biological-age estimate, opened up: the ladder, its two terms, and
   /// the lever it does not price.
   ///

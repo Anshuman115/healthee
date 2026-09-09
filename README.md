@@ -275,14 +275,28 @@ absence/data/knowledge questions × 2 repeats (n=20 per arm):
 | gemini-3.8-flash | 20/20 | 0 | 2.05 | 36.9 s | $0.0938 |
 | glm-5.3-flash | 20/20 | **3** | 2.95 | **117 s** | $0.0089 |
 | muse-spark-1.3-contributor | 19/20 | 1 | 1.80 | 25.6 s | $0.0079 |
+| openai/gpt-5.6-sol-pro | 19/20 | 1 | 1.65 | 29.7 s | **$0.2446** |
 
-**All four scored 8/8 on absence.** None invented data it did not have, so the eval
+**All five scored 8/8 on absence.** None invented data it did not have, so the eval
 cannot rank them on grounding — it can only catch a bad one, which is the same ceiling
 the original bake-off hit. Nothing justified a switch, and DeepSeek was additionally the
 fastest and the cheapest. glm truncated at `max_tokens` three times and took 4× as long.
 
+`gpt-5.6-sol-pro` was tested separately and rejected on all three axes: 19/20, slower
+than the incumbent, and **39× the cost** — $4.89/owner/month at the 20-question
+allowance, which with the nightly chain and cards leaves ~7 % margin on $6.99. Its one
+failure is the part worth keeping: not truncation, but *banned certainty language
+(caused by / definitely / always / never)* — an over-certain causal claim, caught by the
+validator and replaced with the honest fallback. A model inclined to over-claim
+causality is the wrong bet on a health surface at any price.
+
+⚠ **Cost must be read off the credits endpoint, never estimated from a partial run.**
+Both mid-run extrapolations for this arm were wrong in opposite directions ($0.315 then
+$0.099 against $0.2446 actual), because call counts per question are not uniform.
+
 ⚠ **Two things this run found about the harness itself**, both of which cost time here:
-its `SPEND` line reported **$10.46 for a run that actually cost $1.64** (its token counts
+its `SPEND` line reported **$10.46 for a run that actually cost $1.64** (and $8.32 for
+one that cost $4.89) (its token counts
 are real, its rate table is not — budget from the `/api/v1/credits` delta), and
 `output_guard.py` truncates a blocked sentence to 120 characters, so muse's single
 failure — the hydration D5 rule blocking a VO2max answer — cannot be re-read to tell

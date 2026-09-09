@@ -41,6 +41,7 @@ import 'package:healthee/shared/v02/meters.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The one thing the legend is there to say.
 const String kStageColourNote =
@@ -82,7 +83,7 @@ class SleepWeekPanel extends StatelessWidget {
       tone: Tone.sleep,
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
         // The legend's own sentence. It teaches — it says nothing about THIS
         // week's nights — so it went where the owner asked method text to live.
@@ -170,7 +171,7 @@ class SleepHealthPanel extends StatelessWidget {
       label: 'Sleep health',
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep_health',
         detail: MetricDetail(
           // The four "Reference …" pills the owner asked us to take off the
@@ -258,7 +259,7 @@ class SleepNeedPanel extends StatelessWidget {
       label: 'Sleep need · debt',
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep_debt',
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,

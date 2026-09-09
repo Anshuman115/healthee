@@ -33,6 +33,7 @@ import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/fields.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Collects the server address and the API token.
 class ServerSignInForm extends StatefulWidget {
@@ -131,8 +132,8 @@ class _ServerSignInFormState extends State<ServerSignInForm> {
                 tooltip: _revealed ? 'Hide the token' : 'Show the token',
                 icon: Icon(
                   _revealed
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
+                      ? SolarIconsOutline.eyeClosed
+                      : SolarIconsOutline.eye,
                   size: 18,
                   color: colors.ink3,
                 ),

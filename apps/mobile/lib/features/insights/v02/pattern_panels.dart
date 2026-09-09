@@ -57,6 +57,7 @@ import 'package:healthee/shared/v02/entry_card.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own line under the linked chart.
 const String kLinkedNote =
@@ -108,7 +109,7 @@ class EffortStressPanel extends StatelessWidget {
       tone: Tone.heart,
       head: const PanelHead(
         title: title,
-        icon: Icons.favorite_outline,
+        icon: SolarIconsOutline.heart,
         infoKey: 'stress',
       ),
       child: Column(
@@ -186,7 +187,7 @@ class CoachQuestionPanel extends StatelessWidget {
       tone: Tone.fitness,
       head: PanelHead(
         title: title,
-        icon: Icons.forum_outlined,
+        icon: SolarIconsOutline.chatRoundDots,
         actionLabel: onOpenCoach == null ? null : 'Details',
         onAction: onOpenCoach,
       ),
@@ -242,7 +243,7 @@ class FindingEntryCard extends StatelessWidget {
     return EntryCard(
       // Fixed, and not derived from the coefficient. See the library docstring.
       tone: Tone.sleep,
-      icon: Icons.insights_outlined,
+      icon: SolarIconsOutline.chartSquare,
       title: _pair(finding),
       body: samples == null
           ? 'Found in your own history.'
@@ -291,7 +292,7 @@ class AgeEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => EntryCard(
     tone: Tone.fitness,
-    icon: Icons.monitor_heart_outlined,
+    icon: SolarIconsOutline.heartPulse,
     title: 'Fitness → age',
     body: '${_signed(years)} years\nModel contribution',
     // `<span class="text-button">Understand ↗</span>` on the prototype's second

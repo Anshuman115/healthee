@@ -17,9 +17,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/shared/v02/controls.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own heading.
 const String kJournalStripTitle = 'There’s more to your day.';
@@ -49,10 +51,12 @@ class JournalStrip extends StatelessWidget {
     final colors = context.colors;
     return Container(
       padding: padding,
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: colors.surface,
-        border: Border.all(color: colors.line, width: hairline),
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(
+          radius,
+          side: BorderSide(color: colors.line, width: hairline),
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -74,7 +78,7 @@ class JournalStrip extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           FilledIconButton(
-            icon: Icons.add,
+            icon: SolarIconsOutline.addCircle,
             semanticLabel: 'Open journal',
             onPressed: onOpen,
           ),

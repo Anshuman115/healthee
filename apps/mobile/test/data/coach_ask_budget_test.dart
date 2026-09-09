@@ -217,6 +217,27 @@ void main() {
     );
   });
 
+  test('THE BUDGET CLEARS THE SLOWEST COACH TURN ACTUALLY MEASURED', () {
+    // 180 s was sized on narrow questions ("converging in two rounds") and was the
+    // wrong sample. Timed against the owner's own broad question on the live tier:
+    // 80.1 · 82.4 · 131.7 · 169.3 · 276.7 · 304.1 s — two of six over 180, median on
+    // the line. Every one of those overruns is an answer the server finished, charged
+    // a question for, and handed to a socket that had already closed.
+    //
+    // Pinned as a NUMBER, not as `Env.coachTimeout` against itself, because the thing
+    // worth protecting is the relationship to reality: a future edit that trims this
+    // back for tidiness has to argue with the measurement rather than a tautology.
+    const Duration slowestMeasured = Duration(milliseconds: 304100);
+
+    expect(
+      Env.coachTimeout,
+      greaterThan(slowestMeasured),
+      reason:
+          'a coach turn was measured at ${slowestMeasured.inSeconds}s; a budget under '
+          'that discards answers the owner has already been charged for',
+    );
+  });
+
   test('a topic rides with the question, and only when there is one', () async {
     final adapter = _Recording();
     final client = _clientWith(adapter);

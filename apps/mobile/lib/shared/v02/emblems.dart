@@ -44,8 +44,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.device-visual` — the strap, large, on a recessed ground.
 class DeviceVisual extends StatelessWidget {
@@ -78,12 +80,12 @@ class DeviceVisual extends StatelessWidget {
           width: width,
           height: height,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
+          decoration: ShapeDecoration(
             color: colors.surface2,
-            borderRadius: BorderRadius.circular(radius),
+            shape: hSquircle(radius),
           ),
           child: Icon(
-            Icons.watch_outlined,
+            SolarIconsOutline.watchRound,
             size: iconSize,
             color: colors.accent,
           ),
@@ -124,9 +126,9 @@ class CoachSymbol extends StatelessWidget {
           width: size,
           height: size,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
+          decoration: ShapeDecoration(
             color: colors.accentSoft,
-            borderRadius: BorderRadius.circular(radius),
+            shape: hSquircle(radius),
           ),
           child: Icon(icon, size: iconSize, color: colors.accent),
         ),
@@ -166,7 +168,11 @@ class SyncStages extends StatelessWidget {
         children: <Widget>[
           for (var i = 0; i < stages.length; i++) ...<Widget>[
             if (i > 0)
-              Icon(Icons.arrow_forward, size: arrowIcon, color: colors.rule),
+              Icon(
+                SolarIconsOutline.arrowRight,
+                size: arrowIcon,
+                color: colors.rule,
+              ),
             Flexible(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

@@ -16,12 +16,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/shared/v02/list_row.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '_settings_probe.dart';
 import '_v02_harness.dart';
 
 void main() {
-
   group('.card and .card.flush', () {
     testWidgets('a card is 22px round, surface, with one hairline', (
       tester,
@@ -30,8 +30,8 @@ void main() {
 
       final box = boxOf(tester, find.byType(Container).first);
       expect(radiusOf(box), PlainCard.radius);
-      expect(box.color, kColors.surface);
-      expect((box.border! as Border).top.width, 1);
+      expect(groundOf(box), kColors.surface);
+      expect(edgeOf(box)!.width, 1);
     });
 
     testWidgets('.card { padding: 20px } is what the child is inset by', (
@@ -119,13 +119,17 @@ void main() {
     testWidgets('is at least 72px tall and inset 20 / 16', (tester) async {
       await pumpV02(
         tester,
-        ListRow(icon: Icons.sync, title: 'Data & sync', onTap: () {}),
+        ListRow(
+          icon: SolarIconsOutline.refresh,
+          title: 'Data & sync',
+          onTap: () {},
+        ),
       );
 
       final row = tester.getRect(find.byType(ListRow));
       expect(row.height, greaterThanOrEqualTo(ListRow.minHeight));
 
-      final tile = tester.getRect(find.byIcon(Icons.sync));
+      final tile = tester.getRect(find.byIcon(SolarIconsOutline.refresh));
       expect(tile.center.dx - row.left, closeTo(20 + 40 / 2, 0.5));
     });
 
@@ -138,7 +142,7 @@ void main() {
       await pumpV02(
         tester,
         ListRow(
-          icon: Icons.insights_outlined,
+          icon: SolarIconsOutline.chartSquare,
           title: 'Instruments',
           subtitle:
               'Every baseline, and every stream this phone read — each saying '
@@ -160,9 +164,9 @@ void main() {
     testWidgets('a row that leads nowhere draws NO chevron', (tester) async {
       await pumpV02(
         tester,
-        const ListRow(icon: Icons.sync, title: 'Data & sync'),
+        const ListRow(icon: SolarIconsOutline.refresh, title: 'Data & sync'),
       );
-      expect(find.byIcon(Icons.chevron_right), findsNothing);
+      expect(find.byIcon(SolarIconsOutline.altArrowRight), findsNothing);
     });
 
     testWidgets('the tile takes the FAMILY, and is never handed one', (
@@ -170,7 +174,7 @@ void main() {
     ) async {
       await pumpV02(
         tester,
-        const ListRow(icon: Icons.bedtime_outlined, title: 'Sleep'),
+        const ListRow(icon: SolarIconsOutline.moonSleep, title: 'Sleep'),
         tone: Tone.sleep,
       );
 
@@ -178,14 +182,14 @@ void main() {
         tester,
         find
             .ancestor(
-              of: find.byIcon(Icons.bedtime_outlined),
+              of: find.byIcon(SolarIconsOutline.moonSleep),
               matching: find.byType(Container),
             )
             .first,
       );
-      expect(tile.color, kHues.sleepSoft);
+      expect(groundOf(tile), kHues.sleepSoft);
       expect(
-        tester.widget<Icon>(find.byIcon(Icons.bedtime_outlined)).color,
+        tester.widget<Icon>(find.byIcon(SolarIconsOutline.moonSleep)).color,
         kHues.sleep,
       );
     });

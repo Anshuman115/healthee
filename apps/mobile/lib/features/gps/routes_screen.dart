@@ -28,6 +28,7 @@ import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/full_button.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The screen's own h1 and eyebrow.
 const String kRoutesTitle = 'Your recorded routes.';
@@ -93,7 +94,7 @@ class _RouteRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final DateTime local = route.start.toLocal();
     return V02ListRow(
-      icon: Icons.route_outlined,
+      icon: SolarIconsOutline.routing,
       title: '${shortDate(local.toIso8601String())} · ${clockLabel(local)}',
       detail: _detail(),
       tone: Tone.movement,

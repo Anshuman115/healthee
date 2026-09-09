@@ -20,6 +20,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The closing line, centred under the last card.
 class DataFooter extends StatelessWidget {
@@ -46,7 +47,11 @@ class DataFooter extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Icon(Icons.shield_outlined, size: iconSize, color: colors.ink3),
+          Icon(
+            SolarIconsOutline.shieldCheck,
+            size: iconSize,
+            color: colors.ink3,
+          ),
           const SizedBox(width: iconGap),
           Flexible(
             child: Text(

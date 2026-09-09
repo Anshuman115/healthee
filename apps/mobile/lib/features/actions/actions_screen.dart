@@ -70,6 +70,7 @@ import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/screen_head.dart';
 import 'package:healthee/shared/v02/section_head.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own h1 for this screen, its line break included.
 const String kActionsTitle = 'Small steps.\nYour pace.';
@@ -223,14 +224,14 @@ List<PageSection> actionsSections(ScreenData data, ActionsLinks links) {
     PageSection(
       RowCard(<Widget>[
         ListRow(
-          icon: Icons.insights_outlined,
+          icon: SolarIconsOutline.chartSquare,
           title: 'What changed?',
           subtitle: 'Review outcomes without jumping to conclusions',
           tone: Tone.movement,
           onTap: links.onOpenOutcomes,
         ),
         ListRow(
-          icon: Icons.schedule,
+          icon: SolarIconsOutline.clockCircle,
           title: 'Previous suggestions',
           subtitle: 'Your intentions and action history',
           tone: Tone.fitness,

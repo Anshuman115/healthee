@@ -33,6 +33,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// A sub-screen's head: back, eyebrow, title.
 class DetailHeader extends StatelessWidget {
@@ -92,7 +93,7 @@ class DetailHeader extends StatelessWidget {
                         width: buttonSize,
                         height: buttonSize,
                         child: Icon(
-                          Icons.arrow_back,
+                          SolarIconsOutline.arrowLeft,
                           size: iconSize,
                           color: colors.ink,
                         ),

@@ -27,6 +27,7 @@ import 'package:healthee/shared/v02/panel.dart';
 
 import '../_sleep_stubs.dart';
 import '../shared/_chart_probe.dart';
+import '../shared/_decoration.dart';
 import '_sleep_host.dart';
 
 /// A 390 px panel, less 18 px of `Panel` padding and one hairline either side.
@@ -71,8 +72,7 @@ void main() {
           .toList();
       expect(boxes, hasLength(4));
       final drawn = <int>{
-        for (final box in boxes)
-          ((box.decoration as BoxDecoration).color!).toARGB32(),
+        for (final box in boxes) (groundOf(box.decoration)!).toARGB32(),
       };
       for (final stage in const <String>['deep', 'light', 'rem', 'awake']) {
         expect(
@@ -121,7 +121,11 @@ void main() {
       expect(bars, isNotEmpty, reason: 'a chart that painted nothing');
       final drawn = coloursOf(painted);
       for (final stage in const <String>['deep', 'light', 'rem', 'awake']) {
-        expect(drawn, contains(_hues.sleepStage(stage).toARGB32()), reason: stage);
+        expect(
+          drawn,
+          contains(_hues.sleepStage(stage).toARGB32()),
+          reason: stage,
+        );
       }
     });
   });
@@ -178,10 +182,12 @@ void main() {
       // never entered is a picture of sleep that did not happen.
       await tester.pumpWidget(
         sleepPanelHost(
-          const V02StageStrip(
-            <String, double>{'deep': 60, 'light': 200, 'rem': 0, 'awake': 20},
-            progress: 1,
-          ),
+          const V02StageStrip(<String, double>{
+            'deep': 60,
+            'light': 200,
+            'rem': 0,
+            'awake': 20,
+          }, progress: 1),
         ),
       );
       await tester.pumpAndSettle();
@@ -196,8 +202,7 @@ void main() {
           .toList();
       expect(boxes, hasLength(3), reason: 'REM has no minutes on this night');
       final drawn = <int>{
-        for (final box in boxes)
-          ((box.decoration as BoxDecoration).color!).toARGB32(),
+        for (final box in boxes) (groundOf(box.decoration)!).toARGB32(),
       };
       expect(drawn, isNot(contains(_hues.sleepStage('rem').toARGB32())));
     });
@@ -207,10 +212,12 @@ void main() {
     ) async {
       await tester.pumpWidget(
         sleepPanelHost(
-          const V02StageStrip(
-            <String, double>{'deep': 0, 'light': 0, 'rem': 0, 'awake': 0},
-            progress: 1,
-          ),
+          const V02StageStrip(<String, double>{
+            'deep': 0,
+            'light': 0,
+            'rem': 0,
+            'awake': 0,
+          }, progress: 1),
         ),
       );
       await tester.pumpAndSettle();

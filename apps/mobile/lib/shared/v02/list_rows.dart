@@ -28,12 +28,14 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/shared/v02/icon_tile.dart';
 import 'package:healthee/shared/v02/panel.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.card.flush` — a bordered container whose children reach its edges.
 class FlushCard extends StatelessWidget {
@@ -55,10 +57,12 @@ class FlushCard extends StatelessWidget {
     final colors = context.colors;
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: colors.surface,
-        border: Border.all(color: colors.line, width: hairline),
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(
+          radius,
+          side: BorderSide(color: colors.line, width: hairline),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,7 +70,11 @@ class FlushCard extends StatelessWidget {
         children: <Widget>[
           for (var i = 0; i < rows.length; i++) ...<Widget>[
             if (i > 0)
-              Divider(height: hairline, thickness: hairline, color: colors.line),
+              Divider(
+                height: hairline,
+                thickness: hairline,
+                color: colors.line,
+              ),
             rows[i],
           ],
         ],
@@ -155,7 +163,7 @@ class V02ListRow extends StatelessWidget {
             if (onOpen != null) ...<Widget>[
               const SizedBox(width: gap),
               Icon(
-                Icons.chevron_right,
+                SolarIconsOutline.altArrowRight,
                 size: chevronSize,
                 color: colors.ink3,
               ),

@@ -69,7 +69,11 @@ void main() {
       expect(children.length, 2);
 
       bool under(RenderObject ancestor, RenderObject box) {
-        for (RenderObject? node = box.parent; node != null; node = node.parent) {
+        for (
+          RenderObject? node = box.parent;
+          node != null;
+          node = node.parent
+        ) {
           if (identical(node, ancestor)) {
             return true;
           }

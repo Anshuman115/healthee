@@ -54,19 +54,28 @@ void main() {
       // From-the-strap, both labelled "resting heart rate", on one screen. They
       // are two instruments. Moving them apart would have hidden that; naming
       // them is what resolves it.
-      await tester.pumpWidget(todayHost(store, home: DiagnosticsScreen(now: now)));
+      await tester.pumpWidget(
+        todayHost(store, home: DiagnosticsScreen(now: now)),
+      );
       await tester.pumpAndSettle();
 
       await reveal(tester, find.text('How this one is measured'));
       await tester.tap(find.text('How this one is measured').first);
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('lowest 5-minute average heart rate inside your sleep'),
+        find.textContaining(
+          'lowest 5-minute average heart rate inside your sleep',
+        ),
         findsOneWidget,
       );
 
-      await reveal(tester, find.text('Why this differs from your resting heart rate above'));
-      await tester.tap(find.text('Why this differs from your resting heart rate above'));
+      await reveal(
+        tester,
+        find.text('Why this differs from your resting heart rate above'),
+      );
+      await tester.tap(
+        find.text('Why this differs from your resting heart rate above'),
+      );
       await tester.pumpAndSettle();
       expect(
         find.textContaining('usually taken awake'),
@@ -78,7 +87,9 @@ void main() {
     testWidgets('the baselines and the strap streams are both reachable', (
       tester,
     ) async {
-      await tester.pumpWidget(todayHost(store, home: DiagnosticsScreen(now: now)));
+      await tester.pumpWidget(
+        todayHost(store, home: DiagnosticsScreen(now: now)),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Against your own baseline'), findsOneWidget);
@@ -86,53 +97,52 @@ void main() {
       // now that headings render in sentence case, so the scroll target names
       // the widget as well as the words — v02's `SectionHead`, which is what
       // this screen's headings are drawn with now.
-      await reveal(
-        tester,
-        find.widgetWithText(SectionHead, 'From the strap'),
-      );
+      await reveal(tester, find.widgetWithText(SectionHead, 'From the strap'));
       expect(find.text('From the strap'), findsWidgets);
     });
 
-    testWidgets('A WITHHELD STREAM STILL REFUSES IN ITS OWN WORDS', (tester) async {
+    testWidgets('A WITHHELD STREAM STILL REFUSES IN ITS OWN WORDS', (
+      tester,
+    ) async {
       // The grid's bargain: a cell shows a bare hole because the screen behind
       // it carries the reason. If the reason vanished in the move, both halves
       // would be broken at once and nothing would say so.
-      await tester.pumpWidget(todayHost(store, home: DiagnosticsScreen(now: now)));
+      await tester.pumpWidget(
+        todayHost(store, home: DiagnosticsScreen(now: now)),
+      );
       await tester.pumpAndSettle();
       // The section heading and each metric strip both say 'From the strap'
       // now that headings render in sentence case, so the scroll target names
       // the widget as well as the words — v02's `SectionHead`, which is what
       // this screen's headings are drawn with now.
-      await reveal(
-        tester,
-        find.widgetWithText(SectionHead, 'From the strap'),
-      );
+      await reveal(tester, find.widgetWithText(SectionHead, 'From the strap'));
 
       expect(find.textContaining('The strap recorded no'), findsWidgets);
     });
   });
 
   group('a server that cannot be reached', () {
-    testWidgets('every tab collapses the derived half into ONE retryable card', (
-      tester,
-    ) async {
-      for (final screen in <Widget>[
-        const SleepScreen(),
-        const ActivityScreen(),
-        const InsightsScreen(),
-      ]) {
-        await tester.pumpWidget(
-          todayHost(store, serverUnreachable: true, home: screen),
-        );
-        await tester.pumpAndSettle();
+    testWidgets(
+      'every tab collapses the derived half into ONE retryable card',
+      (tester) async {
+        for (final screen in <Widget>[
+          const SleepScreen(),
+          const ActivityScreen(),
+          const InsightsScreen(),
+        ]) {
+          await tester.pumpWidget(
+            todayHost(store, serverUnreachable: true, home: screen),
+          );
+          await tester.pumpAndSettle();
 
-        expect(
-          find.textContaining("Couldn't reach your server"),
-          findsOneWidget,
-          reason: '$screen must say which half failed, once',
-        );
-        expect(find.text('Try again'), findsOneWidget);
-      }
-    });
+          expect(
+            find.textContaining("Couldn't reach your server"),
+            findsOneWidget,
+            reason: '$screen must say which half failed, once',
+          );
+          expect(find.text('Try again'), findsOneWidget);
+        }
+      },
+    );
   });
 }

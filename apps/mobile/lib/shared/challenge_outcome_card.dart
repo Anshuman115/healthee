@@ -31,6 +31,7 @@ import 'package:healthee/shared/sheets/app_sheet.dart';
 import 'package:healthee/shared/v02/meters.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The sentence under the comparison. Always drawn.
 const String kObservationNote =
@@ -156,21 +157,21 @@ class ChallengeOutcomeCard extends StatelessWidget {
   static List<Widget> _context(ChallengeOutcome outcome) => <Widget>[
     if (outcome.illnessDays case final int days when days > 0)
       ListRow(
-        icon: Icons.info_outline,
+        icon: SolarIconsOutline.infoCircle,
         title: '$days illness ${days == 1 ? 'day' : 'days'}',
         subtitle: 'May affect the comparison',
         tone: Tone.heart,
       ),
     if (outcome.concurrentChallenges case final int other when other > 0)
       ListRow(
-        icon: Icons.flag_outlined,
+        icon: SolarIconsOutline.flag,
         title: '$other concurrent ${other == 1 ? 'challenge' : 'challenges'}',
         subtitle: 'More than one thing changed at once',
         tone: Tone.movement,
       ),
     if (outcome.regressionRisk case final bool risk)
       ListRow(
-        icon: Icons.show_chart,
+        icon: SolarIconsOutline.chart_2,
         title: risk
             ? 'Regression to the mean may explain some change'
             : 'No regression-to-mean risk was flagged',
@@ -179,7 +180,7 @@ class ChallengeOutcomeCard extends StatelessWidget {
       ),
     if (outcome.coOccurrenceNote case final String note)
       ListRow(
-        icon: Icons.timeline,
+        icon: SolarIconsOutline.graph,
         title: 'Something else moved too',
         subtitle: note,
         tone: Tone.stress,

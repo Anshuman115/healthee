@@ -99,7 +99,8 @@ void main() {
       final list = sections();
       final heads = <String>[
         for (final section in list)
-          if (section.child is SectionHead) (section.child as SectionHead).title,
+          if (section.child is SectionHead)
+            (section.child as SectionHead).title,
       ];
       expect(heads, <String>['Your longer patterns', 'What changed together?']);
     });
@@ -132,7 +133,8 @@ void main() {
       expect(_indexOf<TrendsGrid>(none), -1);
       final heads = <String>[
         for (final section in none)
-          if (section.child is SectionHead) (section.child as SectionHead).title,
+          if (section.child is SectionHead)
+            (section.child as SectionHead).title,
       ];
       expect(heads, isNot(contains('Your longer patterns')));
       // And the block that follows is untouched: a silent section is not a
@@ -181,19 +183,22 @@ void main() {
       expect(_indexOf<FindingEntryCard>(none), -1);
     });
 
-    test('two hours is not a day, and the linked chart is not drawn for it', () {
-      final thin = sections(
-        mutate: (json) => <String, Object?>{
-          ...json,
-          'today_hr_series': const <Object?>[],
-          'today_stress_series': const <Object?>[],
-        },
-      );
-      expect(_indexOf<EffortStressPanel>(thin), -1);
-      // The bridge belongs to that panel and goes with it — a connective
-      // sentence between two things, one of which is not there, connects
-      // nothing.
-      expect(_indexOf<ContextBridge>(thin), -1);
-    });
+    test(
+      'two hours is not a day, and the linked chart is not drawn for it',
+      () {
+        final thin = sections(
+          mutate: (json) => <String, Object?>{
+            ...json,
+            'today_hr_series': const <Object?>[],
+            'today_stress_series': const <Object?>[],
+          },
+        );
+        expect(_indexOf<EffortStressPanel>(thin), -1);
+        // The bridge belongs to that panel and goes with it — a connective
+        // sentence between two things, one of which is not there, connects
+        // nothing.
+        expect(_indexOf<ContextBridge>(thin), -1);
+      },
+    );
   });
 }

@@ -37,7 +37,8 @@ ScreenData screenData({
     // watches `viewDateProvider`, so the two cannot disagree in the app and
     // must not be allowed to in a test either.
     view: ViewDay(day: measured.date, latest: latest),
-    server: serverState ??
+    server:
+        serverState ??
         (server == null
             ? const AsyncLoading<TodayView>()
             : AsyncData<TodayView>(server)),
@@ -46,7 +47,8 @@ ScreenData screenData({
     // does not name one gets `null` on the newest day and an empty answer on an
     // older one. Empty rather than loading, because a section list under test is
     // being asked what it DECIDES, and a permanent spinner decides nothing.
-    history: historyState ??
+    history:
+        historyState ??
         (past
             ? AsyncData<DatedHistory>(
                 history ??

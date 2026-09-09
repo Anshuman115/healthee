@@ -32,6 +32,7 @@ import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The lever for tonight, and how often it has been hit.
 class TonightPanel extends StatelessWidget {
@@ -62,7 +63,7 @@ class TonightPanel extends StatelessWidget {
       label: 'Tonight',
       head: PanelHead(
         title: lever.title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep_consistency',
         // The lever's prose is the server's, markers and all. Its sources go to
         // the ⓘ this head already carries, beside the explainer's own.
@@ -137,7 +138,7 @@ class SleepAnalysisPanel extends ConsumerWidget {
       label: title,
       head: PanelHead(
         title: title,
-        icon: Icons.auto_awesome,
+        icon: SolarIconsOutline.stars,
         infoKey: 'sleep',
         // The head reads the SAME analysis the body draws, so the sources in
         // the ⓘ are the sources of the paragraphs underneath it. A locked,

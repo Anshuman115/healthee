@@ -38,6 +38,7 @@ import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own caveat, said inside the card it is about.
 const String kWeekStageNote =
@@ -87,7 +88,7 @@ class StageWeekPanel extends StatelessWidget {
       label: 'Sleep stages · seven nights',
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
         detail: const MetricDetail(method: <String>[kWeekStageMethod]),
         actionLabel: onDetails == null ? null : 'Details',

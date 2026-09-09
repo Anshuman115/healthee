@@ -24,6 +24,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// A connective sentence, hung off a vertical rule.
 class ContextBridge extends StatelessWidget {
@@ -158,7 +159,7 @@ class _BridgeLink extends StatelessWidget {
                       ),
                     ),
                     Icon(
-                      Icons.arrow_forward,
+                      SolarIconsOutline.arrowRight,
                       size: arrowSize,
                       color: context.family,
                     ),

@@ -47,7 +47,9 @@ MetricTrend _trend(String metric, double delta) =>
 /// Every colour the widget under [finder] actually paints text in.
 Set<Color> _textColours(WidgetTester tester, Finder finder) {
   return tester
-      .widgetList<Text>(find.descendant(of: finder, matching: find.byType(Text)))
+      .widgetList<Text>(
+        find.descendant(of: finder, matching: find.byType(Text)),
+      )
       .map((text) => text.style?.color)
       .whereType<Color>()
       .toSet();
@@ -79,9 +81,15 @@ void main() {
     test('legacy\'s six polarities, ported verbatim', () {
       expect(polarityOf('hrv_sleep_avg'), MetricPolarity.higherIsBetter);
       expect(polarityOf('rhr_daily'), MetricPolarity.lowerIsBetter);
-      expect(polarityOf('sleep_regularity_index'), MetricPolarity.higherIsBetter);
+      expect(
+        polarityOf('sleep_regularity_index'),
+        MetricPolarity.higherIsBetter,
+      );
       expect(polarityOf('sleep_score'), MetricPolarity.higherIsBetter);
-      expect(polarityOf('sleep_health_score_4dim'), MetricPolarity.higherIsBetter);
+      expect(
+        polarityOf('sleep_health_score_4dim'),
+        MetricPolarity.higherIsBetter,
+      );
       expect(polarityOf('total_calories'), MetricPolarity.neutral);
     });
 
@@ -134,14 +142,20 @@ void main() {
       await tester.pumpWidget(_row(_trend('rhr_daily', 4)));
       await tester.pumpAndSettle();
 
-      expect(_textColours(tester, find.byType(TrendPanel)), contains(_verdicts().unf));
+      expect(
+        _textColours(tester, find.byType(TrendPanel)),
+        contains(_verdicts().unf),
+      );
     });
 
     testWidgets('a polarity -1 metric FALLING renders fav', (tester) async {
       await tester.pumpWidget(_row(_trend('rhr_daily', -4)));
       await tester.pumpAndSettle();
 
-      expect(_textColours(tester, find.byType(TrendPanel)), contains(_verdicts().fav));
+      expect(
+        _textColours(tester, find.byType(TrendPanel)),
+        contains(_verdicts().fav),
+      );
     });
 
     testWidgets('a polarity +1 metric rising renders fav, falling unf', (
@@ -149,11 +163,17 @@ void main() {
     ) async {
       await tester.pumpWidget(_row(_trend('hrv_sleep_avg', 4)));
       await tester.pumpAndSettle();
-      expect(_textColours(tester, find.byType(TrendPanel)), contains(_verdicts().fav));
+      expect(
+        _textColours(tester, find.byType(TrendPanel)),
+        contains(_verdicts().fav),
+      );
 
       await tester.pumpWidget(_row(_trend('hrv_sleep_avg', -4)));
       await tester.pumpAndSettle();
-      expect(_textColours(tester, find.byType(TrendPanel)), contains(_verdicts().unf));
+      expect(
+        _textColours(tester, find.byType(TrendPanel)),
+        contains(_verdicts().unf),
+      );
     });
 
     testWidgets('MUTATION: A POLARITY-0 METRIC RENDERS NO VERDICT COLOUR', (
@@ -247,9 +267,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: Scaffold(
-            body: FindingsSection(findings: <Finding>[finding]),
-          ),
+          home: Scaffold(body: FindingsSection(findings: <Finding>[finding])),
         ),
       );
       await tester.pumpAndSettle();
@@ -257,26 +275,41 @@ void main() {
     }
 
     for (final entry in kinds.entries) {
-      testWidgets('${entry.key} reads the same in both directions', (tester) async {
+      testWidgets('${entry.key} reads the same in both directions', (
+        tester,
+      ) async {
         final positive = await colours(
           tester,
-          Finding.fromJson(<String, Object?>{...entry.value, 'effect_size': 0.51}),
+          Finding.fromJson(<String, Object?>{
+            ...entry.value,
+            'effect_size': 0.51,
+          }),
         );
         final negative = await colours(
           tester,
-          Finding.fromJson(<String, Object?>{...entry.value, 'effect_size': -0.51}),
+          Finding.fromJson(<String, Object?>{
+            ...entry.value,
+            'effect_size': -0.51,
+          }),
         );
-        expect(positive, isNotEmpty, reason: '${entry.key} drew no text at all');
+        expect(
+          positive,
+          isNotEmpty,
+          reason: '${entry.key} drew no text at all',
+        );
         expect(
           negative,
           equals(positive),
-          reason: '${entry.key}: the sign of a coefficient is a direction, not a '
+          reason:
+              '${entry.key}: the sign of a coefficient is a direction, not a '
               'verdict, and nothing on the row may change colour with it',
         );
       });
     }
 
-    testWidgets('a finding with no effect size at all still draws', (tester) async {
+    testWidgets('a finding with no effect size at all still draws', (
+      tester,
+    ) async {
       final drawn = await colours(
         tester,
         Finding.fromJson(const <String, Object?>{

@@ -35,7 +35,9 @@ Widget _sectionHost({bool? signedIn, VoidCallback? onSignIn}) {
 
 void main() {
   group('the data-health section, on its own', () {
-    testWidgets('signed out: it says so, and offers the way in', (tester) async {
+    testWidgets('signed out: it says so, and offers the way in', (
+      tester,
+    ) async {
       var opened = 0;
       await tester.pumpWidget(
         _sectionHost(signedIn: false, onSignIn: () => opened++),

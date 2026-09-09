@@ -70,7 +70,10 @@ void _phone(WidgetTester tester) {
 bool hittable(WidgetTester tester, Finder finder) {
   final box = tester.renderObject<RenderBox>(finder);
   final centre = box.localToGlobal(box.size.center(Offset.zero));
-  return tester.hitTestOnBinding(centre).path.any((entry) => entry.target == box);
+  return tester
+      .hitTestOnBinding(centre)
+      .path
+      .any((entry) => entry.target == box);
 }
 
 /// The first ⓘ on screen that a real tap would land on, or null.
@@ -243,7 +246,10 @@ void main() {
         reason: 'the ⓘ must open the explainer, not whatever is on top of it',
       );
       final bar = tester.getRect(find.byType(AppTabBar));
-      expect(tester.getRect(find.byType(BottomSheet)).bottom, greaterThan(bar.top));
+      expect(
+        tester.getRect(find.byType(BottomSheet)).bottom,
+        greaterThan(bar.top),
+      );
     });
   });
 

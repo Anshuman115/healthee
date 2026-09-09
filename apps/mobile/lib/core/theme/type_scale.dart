@@ -58,6 +58,17 @@ abstract final class TypeScale {
   /// `.page-header .date` — the date above it.
   static final TextStyle pageDate = _style(11, FontWeight.w500);
 
+  /// The date when it IS the header — Today's one-row head.
+  ///
+  /// Between [pageDate] and [pageTitle] on purpose. It has to carry the row on
+  /// its own, and at 27 it leaves no width for the strap and the avatar beside
+  /// it at 320.
+  static final TextStyle pageDateStrong = _style(
+    17,
+    FontWeight.w600,
+    tracking: -0.4,
+  );
+
   /// `.section-head h2` — a section's name.
   static final TextStyle sectionTitle = _style(
     18,

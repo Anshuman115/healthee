@@ -40,6 +40,7 @@ import 'package:healthee/shared/v02/instruments/vo2max_rail.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's line under the fitness rail.
 const String kFitnessTermNote =
@@ -120,7 +121,7 @@ class AgeLadderPanel extends StatelessWidget {
     label: 'Biological age · calculation',
     head: const PanelHead(
       title: title,
-      icon: Icons.monitor_heart_outlined,
+      icon: SolarIconsOutline.heartPulse,
       infoKey: 'biological_age',
     ),
     child: Column(
@@ -200,7 +201,7 @@ class FitnessTermPanel extends StatelessWidget {
       label: 'Biological age · fitness term',
       head: PanelHead(
         title: title,
-        icon: Icons.trending_up,
+        icon: SolarIconsOutline.graphUp,
         infoKey: 'vo2max',
         detail: MetricDetail(notes: vo2max?.researchNotes ?? const <String>[]),
         actionLabel: onOpenFitness == null ? null : 'Details',
@@ -284,7 +285,7 @@ class SleepTermPanel extends StatelessWidget {
       label: 'Biological age · sleep term',
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
         actionLabel: onOpenSleep == null ? null : 'Details',
         onAction: onOpenSleep,

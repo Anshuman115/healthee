@@ -12,6 +12,7 @@ import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/notices.dart';
 import 'package:healthee/shared/v02/theme_options.dart';
 import 'package:healthee/shared/v02/toggle_row.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '_settings_probe.dart';
 import '_v02_harness.dart';
@@ -19,19 +20,16 @@ import '_v02_harness.dart';
 void main() {
   group('.button', () {
     testWidgets('is 48px tall, 16px round, on the accent', (tester) async {
-      await pumpV02(
-        tester,
-        HButton(label: 'Save profile', onPressed: () {}),
-      );
+      await pumpV02(tester, HButton(label: 'Save profile', onPressed: () {}));
 
       final box = boxOf(tester, find.byType(Container).first);
       expect(radiusOf(box), HButton.radius);
-      expect(box.color, kColors.accent);
+      expect(groundOf(box), kColors.accent);
       expect(
         tester.getRect(find.byType(HButton)).height,
         greaterThanOrEqualTo(HButton.minHeight),
       );
-      expect(box.border, isNull);
+      expect(edgeOf(box), isNull);
     });
 
     testWidgets('.secondary is surface on a --rule edge', (tester) async {
@@ -45,8 +43,8 @@ void main() {
       );
 
       final box = boxOf(tester, find.byType(Container).first);
-      expect(box.color, kColors.surface);
-      expect((box.border! as Border).top.color, kColors.rule);
+      expect(groundOf(box), kColors.surface);
+      expect(edgeOf(box)!.color, kColors.rule);
     });
 
     testWidgets('a disabled button dims the WHOLE control, not its label', (
@@ -67,7 +65,10 @@ void main() {
     ) async {
       // The failure this replaces: two labels in a `Row` were 110px wider than
       // a 420px phone, and every suite pumped 800 and saw nothing.
-      await pumpV02(tester, HButton(label: 'Use a different server', onPressed: () {}));
+      await pumpV02(
+        tester,
+        HButton(label: 'Use a different server', onPressed: () {}),
+      );
       expect(tester.getRect(find.byType(HButton)).width, kContentWidth);
     });
   });
@@ -134,8 +135,16 @@ void main() {
           selected: 1,
           onSelected: (_) {},
           options: const <ThemeOption<int>>[
-            ThemeOption<int>(value: 0, icon: Icons.wb_sunny_outlined, label: 'Light'),
-            ThemeOption<int>(value: 1, icon: Icons.nightlight_outlined, label: 'Dark'),
+            ThemeOption<int>(
+              value: 0,
+              icon: SolarIconsOutline.sun,
+              label: 'Light',
+            ),
+            ThemeOption<int>(
+              value: 1,
+              icon: SolarIconsOutline.moon,
+              label: 'Dark',
+            ),
           ],
         ),
       );
@@ -143,26 +152,20 @@ void main() {
       final chosen = boxOf(
         tester,
         find
-            .ancestor(
-              of: find.text('Dark'),
-              matching: find.byType(Container),
-            )
+            .ancestor(of: find.text('Dark'), matching: find.byType(Container))
             .first,
       );
-      expect(chosen.color, kColors.accentSoft);
-      expect((chosen.border! as Border).top.color, kColors.accent);
+      expect(groundOf(chosen), kColors.accentSoft);
+      expect(edgeOf(chosen)!.color, kColors.accent);
 
       final other = boxOf(
         tester,
         find
-            .ancestor(
-              of: find.text('Light'),
-              matching: find.byType(Container),
-            )
+            .ancestor(of: find.text('Light'), matching: find.byType(Container))
             .first,
       );
-      expect(other.color, isNull);
-      expect((other.border! as Border).top.color, kColors.rule);
+      expect(groundOf(other), isNull);
+      expect(edgeOf(other)!.color, kColors.rule);
     });
 
     testWidgets('the two tiles are equal thirds of the row', (tester) async {
@@ -172,9 +175,21 @@ void main() {
           selected: 0,
           onSelected: (_) {},
           options: const <ThemeOption<int>>[
-            ThemeOption<int>(value: 0, icon: Icons.wb_sunny_outlined, label: 'Light'),
-            ThemeOption<int>(value: 1, icon: Icons.nightlight_outlined, label: 'Dark'),
-            ThemeOption<int>(value: 2, icon: Icons.settings_outlined, label: 'System'),
+            ThemeOption<int>(
+              value: 0,
+              icon: SolarIconsOutline.sun,
+              label: 'Light',
+            ),
+            ThemeOption<int>(
+              value: 1,
+              icon: SolarIconsOutline.moon,
+              label: 'Dark',
+            ),
+            ThemeOption<int>(
+              value: 2,
+              icon: SolarIconsOutline.settings,
+              label: 'System',
+            ),
           ],
         ),
       );
@@ -211,8 +226,8 @@ void main() {
       );
 
       final box = boxOf(tester, find.byType(Container).first);
-      expect(box.color, kColors.surface2);
-      expect(box.color, isNot(kColors.alertSoft));
+      expect(groundOf(box), kColors.surface2);
+      expect(groundOf(box), isNot(kColors.alertSoft));
       expect(radiusOf(box), HNotice.radius);
     });
 
@@ -229,24 +244,21 @@ void main() {
       );
 
       final box = boxOf(tester, find.byType(Container).first);
-      expect(box.color, kColors.alertSoft);
-      expect(box.border, isNull);
+      expect(groundOf(box), kColors.alertSoft);
+      expect(edgeOf(box), isNull);
     });
 
     testWidgets('the badge pairs match the CSS classes', (tester) async {
-      for (final (BadgeKind kind, Color ground, Color mark) in <(
-        BadgeKind,
-        Color,
-        Color,
-      )>[
-        (BadgeKind.plain, kColors.surface2, kColors.ink2),
-        (BadgeKind.good, kColors.favSoft, kColors.fav),
-        (BadgeKind.warm, kColors.unfSoft, kColors.unf),
-        (BadgeKind.accent, kColors.accentSoft, kColors.accent),
-      ]) {
+      for (final (BadgeKind kind, Color ground, Color mark)
+          in <(BadgeKind, Color, Color)>[
+            (BadgeKind.plain, kColors.surface2, kColors.ink2),
+            (BadgeKind.good, kColors.favSoft, kColors.fav),
+            (BadgeKind.warm, kColors.unfSoft, kColors.unf),
+            (BadgeKind.accent, kColors.accentSoft, kColors.accent),
+          ]) {
         await pumpV02(tester, HBadge('Available', kind: kind), width: null);
         final box = boxOf(tester, find.byType(Container).first);
-        expect(box.color, ground, reason: '$kind ground');
+        expect(groundOf(box), ground, reason: '$kind ground');
         expect(radiusOf(box), HBadge.radius);
         expect(
           tester.widget<Text>(find.text('Available')).style!.color,

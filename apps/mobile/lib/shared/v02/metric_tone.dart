@@ -27,6 +27,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tone.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The family [metric] belongs to. Never depends on its value.
 Tone toneForMetric(String metric) => _tones[metric] ?? Tone.fitness;
@@ -37,12 +38,12 @@ Tone toneForMetric(String metric) => _tones[metric] ?? Tone.fitness;
 /// uses for the same families on Today — one glyph per family, so a metric
 /// cannot pick up an icon that disagrees with its colour.
 IconData iconForTone(Tone tone) => switch (tone) {
-  Tone.sleep => Icons.bedtime_outlined,
-  Tone.heart || Tone.load => Icons.favorite_outline,
-  Tone.movement || Tone.activity => Icons.directions_walk,
-  Tone.oxygen => Icons.water_drop_outlined,
-  Tone.stress => Icons.wb_sunny_outlined,
-  Tone.fitness || Tone.recovery => Icons.monitor_heart_outlined,
+  Tone.sleep => SolarIconsOutline.moonSleep,
+  Tone.heart || Tone.load => SolarIconsOutline.heart,
+  Tone.movement || Tone.activity => SolarIconsOutline.walking,
+  Tone.oxygen => SolarIconsOutline.waterdrop,
+  Tone.stress => SolarIconsOutline.sun,
+  Tone.fitness || Tone.recovery => SolarIconsOutline.heartPulse,
 };
 
 /// The server's canonical ids, in the prototype's families.

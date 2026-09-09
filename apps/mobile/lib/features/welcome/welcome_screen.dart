@@ -56,6 +56,7 @@ import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/list_row.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The first screen: what this app is, and the two ways to start it.
 class WelcomeScreen extends ConsumerWidget {
@@ -132,7 +133,7 @@ class WelcomeScreen extends ConsumerWidget {
         FlushCard(
           children: <Widget>[
             ListRow(
-              icon: Icons.watch_outlined,
+              icon: SolarIconsOutline.watchRound,
               title: 'Already have a Helio Strap?',
               subtitle: 'See the connection flow',
               onTap: () => unawaited(context.push(Routes.pairing)),
@@ -162,7 +163,7 @@ class _Brand extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: bottomGap),
       child: Row(
         children: <Widget>[
-          Icon(Icons.eco_outlined, size: markSize, color: colors.accent),
+          Icon(SolarIconsOutline.leaf, size: markSize, color: colors.accent),
           const SizedBox(width: gap),
           Expanded(
             child: Text(
@@ -217,7 +218,7 @@ class _Glimpse extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.show_chart, color: colors.accent),
+                Icon(SolarIconsOutline.chart_2, color: colors.accent),
               ],
             ),
             if (series.length >= 2) ...<Widget>[

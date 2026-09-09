@@ -42,6 +42,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
@@ -49,6 +50,7 @@ import 'package:healthee/core/theme/type_scale_dates.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/sheets/app_sheet.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The sheet's title.
 const String kDateCalendarTitle = 'Choose a day';
@@ -68,6 +70,10 @@ Future<void> openDateCalendar({
   context: context,
   builder: (context) => _DateCalendarSheet(date: date, navigation: navigation),
 );
+
+/// The corner on one day cell. Smaller than a card's, because a 40px square at
+/// the card radius is most of the way to a circle.
+const double _cellRadius = 12;
 
 class _DateCalendarSheet extends StatefulWidget {
   const _DateCalendarSheet({required this.date, required this.navigation});
@@ -167,7 +173,7 @@ class _DateCalendarSheetState extends State<_DateCalendarSheet> {
     final colors = context.colors;
     return Row(
       children: <Widget>[
-        _arrow(context, Icons.chevron_left, 'Previous month', -1),
+        _arrow(context, SolarIconsOutline.altArrowLeft, 'Previous month', -1),
         Expanded(
           child: Text(
             _monthName(_month),
@@ -175,7 +181,7 @@ class _DateCalendarSheetState extends State<_DateCalendarSheet> {
             style: DateType.calendarMonth.copyWith(color: colors.ink),
           ),
         ),
-        _arrow(context, Icons.chevron_right, 'Next month', 1),
+        _arrow(context, SolarIconsOutline.altArrowRight, 'Next month', 1),
         const SizedBox(width: 12),
         HTap(
           onTap: () => _choose(widget.navigation.latest),
@@ -244,10 +250,14 @@ class _DateCalendarSheetState extends State<_DateCalendarSheet> {
     final available = _inWindow(iso);
     final current = iso == widget.date;
     final cell = DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: current ? context.familySoft : null,
-        borderRadius: BorderRadius.circular(12),
-        border: current ? Border.all(color: family, width: hairline) : null,
+        shape: hSquircle(
+          _cellRadius,
+          side: current
+              ? BorderSide(color: family, width: hairline)
+              : BorderSide.none,
+        ),
       ),
       child: Stack(
         alignment: Alignment.center,

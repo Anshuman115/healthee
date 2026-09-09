@@ -45,6 +45,7 @@ import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/entry_card.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The bridge under the step chart: what today's effort does and does not move.
 const String kMovementBridge =
@@ -65,7 +66,7 @@ void todayDaySections(
     ChapterHeading(
       key: extras.chapters?.day,
       title: 'Movement → recovery',
-      icon: Icons.directions_walk,
+      icon: SolarIconsOutline.walking,
       tone: Tone.movement,
     ),
   );
@@ -176,7 +177,7 @@ void _longerChapter(
     ChapterHeading(
       key: extras.chapters?.longer,
       title: 'Patterns → small changes',
-      icon: Icons.insights_outlined,
+      icon: SolarIconsOutline.chartSquare,
       tone: Tone.fitness,
     ),
   );
@@ -225,7 +226,7 @@ void _longerChapter(
     EntryGrid(
       left: EntryCard(
         title: 'Ask your coach',
-        icon: Icons.forum_outlined,
+        icon: SolarIconsOutline.chatRoundDots,
         body: 'Follow the evidence and your own data, with the uncertainty '
             'kept in view.',
         actionLabel: 'Open the coach',
@@ -234,7 +235,7 @@ void _longerChapter(
       ),
       right: EntryCard(
         title: 'Your next step',
-        icon: Icons.flag_outlined,
+        icon: SolarIconsOutline.flag,
         body: 'Turn context into a small, measurable change.',
         actionLabel: 'Open your actions',
         onOpen: extras.onOpenActions,

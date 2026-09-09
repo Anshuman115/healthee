@@ -26,6 +26,9 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/instrument_module.dart';
+import 'package:solar_icons/solar_icons.dart';
+
+import '_v02_harness.dart';
 
 const HealtheeColors _light = HealtheeColors.light();
 const InstrumentHues _hues = InstrumentHues.light();
@@ -88,14 +91,13 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _tightHost(HIconBadge(Icons.bedtime_outlined, color: _hues.sleep)),
+        _tightHost(HIconBadge(SolarIconsOutline.moonSleep, color: _hues.sleep)),
       );
       await tester.pumpAndSettle();
 
       expect(tester.getSize(find.byType(HIconBadge)), const Size(40, 40));
       final box = tester.widget<Container>(find.byType(Container));
-      final decoration = box.decoration! as BoxDecoration;
-      expect(decoration.color!.a, closeTo(0.18, 0.005));
+      expect(groundOf(box.decoration!)!.a, closeTo(0.18, 0.005));
       expect(tester.widget<Icon>(find.byType(Icon)).size, 20);
     });
 

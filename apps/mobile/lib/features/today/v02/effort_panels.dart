@@ -27,6 +27,7 @@ import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `Effort in context` — today's load against the fortnight behind it.
 class EffortPanel extends StatelessWidget {
@@ -61,7 +62,7 @@ class EffortPanel extends StatelessWidget {
       label: 'Strain · cardio load',
       head: PanelHead(
         title: title,
-        icon: Icons.monitor_heart_outlined,
+        icon: SolarIconsOutline.heartPulse,
         infoKey: 'cardio_load',
         detail: MetricDetail(notes: load.researchNotes),
         actionLabel: onDetails == null ? null : 'Details',
@@ -152,7 +153,7 @@ class ActiveMinutesPanel extends StatelessWidget {
       label: 'Active minutes · MVPA',
       head: PanelHead(
         title: title,
-        icon: Icons.directions_walk,
+        icon: SolarIconsOutline.walking,
         infoKey: 'mvpa',
         detail: MetricDetail(
           references: <String>[
@@ -233,7 +234,7 @@ class StrengthPanel extends StatelessWidget {
       // from the panel's own name.
       head: PanelHead(
         title: title,
-        icon: Icons.fitness_center,
+        icon: SolarIconsOutline.dumbbell,
         detail: MetricDetail(
           title: title,
           references: <String>[

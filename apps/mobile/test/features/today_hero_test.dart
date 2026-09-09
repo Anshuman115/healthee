@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/today/v02/today_hero.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
 import 'package:healthee/shared/v02/bio_hero_parts.dart';
 import 'package:healthee/shared/v02/instruments/bio_halo.dart';
@@ -153,15 +154,21 @@ void main() {
         find.textContaining('below your chronological age of'),
         findsOneWidget,
       );
-      // The model label is always drawn: an estimate that does not say what
-      // made it is the failure the whole tier system exists to stop.
-      expect(
+      // The model line is ALWAYS reachable: an estimate that does not say what
+      // made it is the failure the whole tier system exists to stop. It moved
+      // off the card into the eyebrow's ⓘ, so this opens the ⓘ and reads it
+      // there — the claim is that the owner can get to the sentence, not that
+      // it is printed in nine-point grey under the contributions.
+      expect(find.byType(BioModelLabel), findsNothing);
+      final model = tester.widget<BioHero>(find.byType(BioHero)).modelLabel!;
+      await tester.tap(
         find.descendant(
           of: find.byType(BioHero),
-          matching: find.byType(BioModelLabel),
+          matching: find.byType(MetricInfoDot),
         ),
-        findsOneWidget,
       );
+      await tester.pumpAndSettle();
+      expect(find.textContaining(model), findsOneWidget);
     });
 
     testWidgets('NO DELTA MEANS NO SENTENCE ABOUT ONE', (tester) async {

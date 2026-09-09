@@ -20,17 +20,20 @@
 /// `RevealOnce` state objects, which is what decides whether a reveal is re-armed
 /// at all.
 ///
-/// The third test is about the bar as a surface rather than as navigation: the
-/// content must be laid out ABOVE it, not under it.
+/// The last two are about the bar as a surface rather than as navigation: the
+/// content must be laid out ABOVE it, not under it, and the tab you are standing
+/// on must be legible as such by SHAPE, not by brightness alone.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/core/tabs.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/shared/app_tab_bar.dart';
 import 'package:healthee/shared/reveal_once.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '_today_host.dart';
 
@@ -145,6 +148,35 @@ void main() {
           'the scroll must end where the bar begins — a card sliced mid-chart '
           'is a chart the owner cannot read',
     );
-    expect(bar.bottom, tester.view.physicalSize.height / tester.view.devicePixelRatio);
+    expect(
+      bar.bottom,
+      tester.view.physicalSize.height / tester.view.devicePixelRatio,
+    );
+  });
+
+  testWidgets('THE TAB YOU ARE ON IS FILLED, THE OTHERS ARE OUTLINED', (
+    tester,
+  ) async {
+    // The selected state used to be the accent and nothing else. At 20px a
+    // green outline and a grey outline are one shape at two brightnesses, and
+    // the two of them sit 60px apart on a bar read at a glance. Weight is the
+    // second channel.
+    await tester.pumpWidget(routedApp(store));
+    await tester.pumpAndSettle();
+
+    for (final AppTab tab in kAppTabs) {
+      expect(
+        tab.activeIcon,
+        isNot(tab.icon),
+        reason: 'a filled state identical to the resting one is not a state',
+      );
+    }
+
+    expect(find.byIcon(SolarIconsBold.sun), findsOneWidget);
+    expect(find.byIcon(SolarIconsOutline.sun), findsNothing);
+    for (final AppTab tab in kAppTabs.skip(1)) {
+      expect(find.byIcon(tab.icon), findsOneWidget, reason: tab.label);
+      expect(find.byIcon(tab.activeIcon), findsNothing, reason: tab.label);
+    }
   });
 }

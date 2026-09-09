@@ -13,9 +13,11 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/shared/v02/fields.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// A labelled time, opening the platform picker.
 class TimeField extends StatelessWidget {
@@ -59,10 +61,12 @@ class TimeField extends StatelessWidget {
           child: Container(
             constraints: const BoxConstraints(minHeight: FieldBox.minHeight),
             padding: const EdgeInsets.all(FieldBox.padding),
-            decoration: BoxDecoration(
+            decoration: ShapeDecoration(
               color: colors.surface,
-              borderRadius: BorderRadius.circular(FieldBox.radius),
-              border: Border.all(color: colors.rule),
+              shape: hSquircle(
+                FieldBox.radius,
+                side: BorderSide(color: colors.rule),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -71,7 +75,11 @@ class TimeField extends StatelessWidget {
                   time.format(context),
                   style: FormType.fieldInput.copyWith(color: colors.ink),
                 ),
-                Icon(Icons.schedule, size: 18, color: colors.ink3),
+                Icon(
+                  SolarIconsOutline.clockCircle,
+                  size: 18,
+                  color: colors.ink3,
+                ),
               ],
             ),
           ),

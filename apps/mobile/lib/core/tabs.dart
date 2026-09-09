@@ -42,6 +42,7 @@ import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// One tab: what it is called, its icon, its route, and the screen behind it.
 @immutable
@@ -51,6 +52,7 @@ class AppTab {
   const AppTab({
     required this.label,
     required this.icon,
+    required this.activeIcon,
     required this.route,
     required this.screen,
   });
@@ -60,6 +62,13 @@ class AppTab {
 
   /// The icon above it.
   final IconData icon;
+
+  /// The same icon FILLED, for the tab you are on.
+  ///
+  /// Colour alone carried the selected state, and at 20px on a dim bar an
+  /// accent outline and a grey outline are the same shape at two brightnesses.
+  /// Weight is the second channel: the tab you are standing on is solid.
+  final IconData activeIcon;
 
   /// The branch's root path. Deep links and `context.go` use it; the bar does
   /// not — it moves by branch index.
@@ -73,31 +82,36 @@ class AppTab {
 const List<AppTab> kAppTabs = <AppTab>[
   AppTab(
     label: 'Today',
-    icon: Icons.wb_sunny_outlined,
+    icon: SolarIconsOutline.sun,
+    activeIcon: SolarIconsBold.sun,
     route: Routes.today,
     screen: TodayScreen.new,
   ),
   AppTab(
     label: 'Sleep',
-    icon: Icons.nightlight_outlined,
+    icon: SolarIconsOutline.moon,
+    activeIcon: SolarIconsBold.moon,
     route: Routes.sleep,
     screen: SleepScreen.new,
   ),
   AppTab(
     label: 'Activity',
-    icon: Icons.show_chart,
+    icon: SolarIconsOutline.running,
+    activeIcon: SolarIconsBold.running,
     route: Routes.activity,
     screen: ActivityScreen.new,
   ),
   AppTab(
     label: 'Insights',
-    icon: Icons.insights_outlined,
+    icon: SolarIconsOutline.chartSquare,
+    activeIcon: SolarIconsBold.chartSquare,
     route: Routes.insights,
     screen: InsightsScreen.new,
   ),
   AppTab(
     label: 'Actions',
-    icon: Icons.checklist_outlined,
+    icon: SolarIconsOutline.checklist,
+    activeIcon: SolarIconsBold.checklist,
     route: Routes.actions,
     screen: ActionsScreen.new,
   ),

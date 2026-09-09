@@ -28,6 +28,7 @@ import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/v02/panel_density.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The head of a [Panel]: title (+ optional icon) left, optional action right.
 class PanelHead extends StatelessWidget {
@@ -172,7 +173,7 @@ class PanelHead extends StatelessWidget {
           child: GestureDetector(
             onTap: onAction,
             child: Icon(
-              Icons.arrow_forward,
+              SolarIconsOutline.arrowRight,
               size: compactActionIcon,
               color: family,
             ),

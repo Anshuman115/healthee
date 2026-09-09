@@ -21,6 +21,7 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 
 import '_today_host.dart';
 
@@ -31,7 +32,9 @@ String _location(WidgetTester tester) => GoRouter.of(
 
 /// Navigates the real router, the way a deep link or a notification does.
 Future<void> _go(WidgetTester tester, String location) async {
-  GoRouter.of(tester.element(find.byType(TodayScreen, skipOffstage: false).first)).go(location);
+  GoRouter.of(
+    tester.element(find.byType(TodayScreen, skipOffstage: false).first),
+  ).go(location);
   await tester.pumpAndSettle();
 }
 
@@ -41,8 +44,14 @@ void main() {
       // A link to the current day must stay the plain route, so it still means
       // "the newest readings" tomorrow. `H.setViewDate` deletes the parameter
       // for exactly this reason.
-      expect(dateLocation('/', '2026-07-29', '2026-08-04'), '/?date=2026-07-29');
-      expect(dateLocation('/?date=2026-07-29', '2026-08-04', '2026-08-04'), '/');
+      expect(
+        dateLocation('/', '2026-07-29', '2026-08-04'),
+        '/?date=2026-07-29',
+      );
+      expect(
+        dateLocation('/?date=2026-07-29', '2026-08-04', '2026-08-04'),
+        '/',
+      );
       expect(dateLocation('/sleep', '2026-08-04', '2026-08-04'), '/sleep');
     });
 
@@ -54,8 +63,11 @@ void main() {
         '/history?metric=hrv&date=2026-07-29',
       );
       expect(
-        dateLocation('/history?metric=hrv&date=2026-07-29', '2026-08-04',
-            '2026-08-04'),
+        dateLocation(
+          '/history?metric=hrv&date=2026-07-29',
+          '2026-08-04',
+          '2026-08-04',
+        ),
         '/history?metric=hrv',
       );
     });
@@ -158,7 +170,16 @@ void main() {
       await _go(tester, '/?date=1999-01-01');
 
       expect(_location(tester), Routes.today);
-      expect(find.text(prettyDate(todayDate)), findsOneWidget);
+      // The newest day the window reaches is called `Today`; see `dayTitle`.
+      // Scoped to the head, because the tab bar names this screen too — which
+      // is the whole reason the head no longer carries a 27px title of its own.
+      expect(
+        find.descendant(
+          of: find.byType(TodayHeader),
+          matching: find.text('Today'),
+        ),
+        findsOneWidget,
+      );
 
       // Tomorrow is refused the same way, and for a plainer reason: there are
       // no measurements from it.

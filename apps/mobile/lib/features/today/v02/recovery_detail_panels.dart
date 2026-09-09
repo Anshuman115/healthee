@@ -50,6 +50,7 @@ import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/signal_chart.dart';
 import 'package:healthee/shared/v02/vitals_table.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What a baseline IS. True on every payload, including one with no summary.
 const String kBaselineNote =
@@ -198,7 +199,7 @@ class BaselinePanel extends StatelessWidget {
       label: 'Recovery signals',
       head: PanelHead(
         title: title,
-        icon: Icons.monitor_heart_outlined,
+        icon: SolarIconsOutline.heartPulse,
         infoKey: 'recovery_score',
         detail: MetricDetail(
           notes: <String>[
@@ -262,7 +263,7 @@ class RecoveryVitalsPanel extends StatelessWidget {
     label: 'Overnight vitals',
     head: PanelHead(
       title: title,
-      icon: Icons.favorite_border,
+      icon: SolarIconsOutline.heart,
       infoKey: 'sleep',
       actionLabel: onDetails == null ? null : 'Details',
       onAction: onDetails,
@@ -323,7 +324,7 @@ class CapacityPanel extends StatelessWidget {
       label: 'Recovery · remaining readiness',
       head: PanelHead(
         title: title,
-        icon: Icons.directions_walk,
+        icon: SolarIconsOutline.walking,
         infoKey: 'recovery_score',
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,

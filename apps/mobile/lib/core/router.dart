@@ -65,6 +65,7 @@ import 'package:healthee/features/actions/outcomes_screen.dart';
 import 'package:healthee/features/actions/program_detail_screen.dart';
 import 'package:healthee/features/actions/recommendation_history_screen.dart';
 import 'package:healthee/features/activity/fitness_screen.dart';
+import 'package:healthee/features/coach/coach_history_screen.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/gps/gps_screen.dart';
 import 'package:healthee/features/gps/route_detail_screen.dart';
@@ -192,7 +193,14 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (context, state) =>
             CoachScreen(topic: coachTopicOf(state.uri)),
       ),
-      GoRoute(path: Routes.body, builder: (context, state) => const BodyScreen()),
+      GoRoute(
+        path: Routes.coachHistory,
+        builder: (context, state) => const CoachHistoryScreen(),
+      ),
+      GoRoute(
+        path: Routes.body,
+        builder: (context, state) => const BodyScreen(),
+      ),
       GoRoute(
         path: Routes.fitness,
         builder: (context, state) => const FitnessScreen(),
@@ -267,7 +275,6 @@ void leaveSetup(BuildContext context) {
     context.go(Routes.today);
   }
 }
-
 
 /// Lets [buildRouter] tell go_router that the pairing state moved.
 /// `notifyListeners` is protected, so poking a bare `ChangeNotifier` from
