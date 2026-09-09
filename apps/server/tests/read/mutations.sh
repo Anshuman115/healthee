@@ -1576,6 +1576,34 @@ mutate 'the note cache forgets the intervention it was asked about' \
   '    return list(_notes_for(tuple(metrics), tuple(interventions or ()), min_grade))' \
   '    return list(_notes_for(tuple(metrics), (), min_grade))'
 
+# ── coach-tier provider routing ─────────────────────────────────────────────
+CLIENT_T=tests/insights/test_client.py
+
+# The tier scope is dropped, so the preference reaches EVERY call. The tags
+# serve the coach model; the default tier is a different model most of them do
+# not host, so this routes recs, briefings and notable cards to providers that
+# cannot answer them. The nightly chain goes dark wearing a routing preference.
+mutate 'provider routing escapes the coach tier' \
+  "$CLIENT_T" src/healthee/insights/client.py \
+  '    if tier_of(model) != "coach":
+        return None' \
+  '    if False:
+        return None'
+
+# Fallbacks are turned off, so four busy providers become a failed question
+# rather than an answer from a fifth — the opposite of what was asked for.
+mutate 'the provider order stops allowing fallbacks' \
+  "$CLIENT_T" src/healthee/insights/client.py \
+  'return {"order": order, "allow_fallbacks": True} if order else None' \
+  'return {"order": order, "allow_fallbacks": False} if order else None'
+
+# An empty setting sends an empty order instead of nothing at all, which is a
+# request with a provider block that names no provider.
+mutate 'an unset provider order is still sent as an empty block' \
+  "$CLIENT_T" src/healthee/insights/client.py \
+  'return {"order": order, "allow_fallbacks": True} if order else None' \
+  'return {"order": order, "allow_fallbacks": True}'
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

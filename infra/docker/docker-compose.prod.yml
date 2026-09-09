@@ -91,6 +91,11 @@ services:
       # this container only has to agree with it about where "low" starts.
       LLM_LOW_BALANCE_USD: ${LLM_LOW_BALANCE_USD:-20}
       LLM_VALIDATION_RETRIES: ${LLM_VALIDATION_RETRIES:-2}
+      # Coach-tier provider preference; blank leaves OpenRouter's routing alone.
+      # It reaches BOTH containers because the scheduler's `warm` step is coach-tier
+      # too — routing configured in one and not the other would mean the same answer
+      # came from different providers depending on which process asked for it.
+      LLM_PROVIDER_ORDER: ${LLM_PROVIDER_ORDER:-}
       API_HOST: 0.0.0.0
       API_PORT: 8765
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -178,6 +183,11 @@ services:
       # to reach it or the API and the scheduler would disagree about how many
       # chances an answer gets on the same box.
       LLM_VALIDATION_RETRIES: ${LLM_VALIDATION_RETRIES:-2}
+      # Coach-tier provider preference; blank leaves OpenRouter's routing alone.
+      # It reaches BOTH containers because the scheduler's `warm` step is coach-tier
+      # too — routing configured in one and not the other would mean the same answer
+      # came from different providers depending on which process asked for it.
+      LLM_PROVIDER_ORDER: ${LLM_PROVIDER_ORDER:-}
       # The chain skips the LLM steps for a non-premium owner (§12.3), so this
       # container decides entitlement too — and without the flag a SELF-HOSTED
       # install would serve its owner the AI layer over HTTP while the nightly

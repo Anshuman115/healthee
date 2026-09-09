@@ -22,6 +22,7 @@ from typing import Any
 import pytest
 
 from healthee.core.config import get_settings
+from healthee.insights import client as client_module
 from healthee.insights import transport_health
 from healthee.insights.client import OpenRouterClient, tier_of
 
@@ -81,6 +82,75 @@ def test_response_format_absent_by_default_keeps_prose_path_unchanged() -> None:
     client.complete([{"role": "user", "content": "x"}])
     assert fake.chat.completions.kwargs is not None
     assert "response_format" not in fake.chat.completions.kwargs
+
+
+# ── coach-tier provider routing ──────────────────────────────────────────────
+
+
+@pytest.fixture
+def provider_order(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Set the provider order this client sees, without touching the settings cache.
+
+    `get_settings.cache_clear()` is NOT usable here — `tests/conftest.py` builds the
+    settings once at session start inside its own environment, so clearing the cache
+    surfaces `POSTGRES_PASSWORD must be set` in whatever test runs next.
+    """
+
+    def _set(order: str) -> None:
+        real = client_module.get_settings()
+        monkeypatch.setattr(
+            client_module,
+            "get_settings",
+            lambda: SimpleNamespace(
+                default_model=real.default_model,
+                coach_model=real.coach_model,
+                llm_provider_order=order,
+            ),
+        )
+
+    return _set
+
+
+def test_no_provider_block_is_sent_when_no_order_is_configured(
+    provider_order: Any, configured_models: None
+) -> None:  # noqa: ARG001 — the fixture is the environment
+    """Empty means "say nothing", so OpenRouter's own routing is untouched."""
+    provider_order("")
+    client, fake = _client_with_fake()
+    client.complete([{"role": "user", "content": "x"}], model=_SECRET_MODEL)
+    assert fake.chat.completions.kwargs is not None
+    assert "extra_body" not in fake.chat.completions.kwargs
+
+
+def test_the_coach_tier_gets_the_order_and_keeps_fallbacks(
+    provider_order: Any, configured_models: None
+) -> None:  # noqa: ARG001 — the fixture is the environment
+    """The owner asked for these providers "then fallback if none of them works"."""
+    provider_order("baidu/fp8, wafer/fast ,reka/fp4,fireworks")
+    client, fake = _client_with_fake()
+    client.complete([{"role": "user", "content": "x"}], model=_SECRET_MODEL)
+    assert fake.chat.completions.kwargs is not None
+    assert fake.chat.completions.kwargs["extra_body"] == {
+        "provider": {
+            "order": ["baidu/fp8", "wafer/fast", "reka/fp4", "fireworks"],
+            "allow_fallbacks": True,
+        }
+    }
+
+
+def test_the_DEFAULT_tier_is_never_routed(provider_order: Any, configured_models: None) -> None:  # noqa: ARG001, N802 — the fixture is the environment
+    """THE regression, and it is an outage rather than a degradation.
+
+    The configured tags serve the COACH model. The default tier is a different model
+    that most of them do not host, so a blanket order sends recs, briefings and notable
+    cards to providers that cannot answer them — the nightly chain going dark, wearing a
+    routing preference as a disguise.
+    """
+    provider_order("baidu/fp8,wafer/fast,reka/fp4,fireworks")
+    client, fake = _client_with_fake()
+    client.complete([{"role": "user", "content": "x"}], model="vendor-x/cheap-tier-1")
+    assert fake.chat.completions.kwargs is not None
+    assert "extra_body" not in fake.chat.completions.kwargs
 
 
 # ── the model id must not be discoverable from the logs ──────────────────────

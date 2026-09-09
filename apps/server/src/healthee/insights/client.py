@@ -204,6 +204,9 @@ class OpenRouterClient:
             kwargs["tools"] = tools
         if response_format is not None:
             kwargs["response_format"] = response_format
+        provider = _provider_routing(model)
+        if provider is not None:
+            kwargs["extra_body"] = {**kwargs.get("extra_body", {}), "provider": provider}
         sdk = self._client()
         try:
             raw = sdk.chat.completions.create(**kwargs)
@@ -222,6 +225,28 @@ class OpenRouterClient:
             tool_calls=getattr(message, "tool_calls", None),
             usage=_usage(raw),
         )
+
+
+def _provider_routing(model: str) -> dict[str, Any] | None:
+    """The ordered provider preference for the COACH tier, or None to say nothing.
+
+    Scoped by tier rather than applied globally, and that is the whole safety of it: the
+    configured tags serve the coach model at a chosen quantization, while the default
+    tier is a different model most of them do not host. Sent on every call, a preference
+    meant for the coach would route the nightly chain to providers that cannot answer it.
+
+    ``allow_fallbacks`` is True and is not configurable. The owner asked for these
+    providers "then fallback if none of them works", which is exactly this flag: the
+    order is walked first, and anything else that serves the model answers rather than
+    the request failing. A hard restriction is a different feature and would need its own
+    argument — a coach that 503s because four named providers were busy is a worse
+    outcome than an answer from a fifth.
+    """
+    if tier_of(model) != "coach":
+        return None
+    raw = get_settings().llm_provider_order
+    order = [tag.strip() for tag in raw.split(",") if tag.strip()]
+    return {"order": order, "allow_fallbacks": True} if order else None
 
 
 def _warn_if_truncated(choice: Any, model: str) -> None:
