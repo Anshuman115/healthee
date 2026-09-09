@@ -8,6 +8,8 @@ import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
+import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
 
 import '../pairing/_pairing_fakes.dart';
@@ -36,6 +38,15 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           credentialsProvider.overrideWithValue(credentials),
+          // The controller stores each turn as it lands, which opens the device
+          // database. This test is about session switching, not storage, so it
+          // gets an in-memory one — the write still really happens, it just does
+          // not reach for a file this test never set up.
+          localStoreProvider.overrideWith((ref) {
+            final store = LocalStore.memory();
+            ref.onDispose(store.close);
+            return store;
+          }),
           coachClientProvider.overrideWith((ref) {
             ref.watch(apiClientProvider);
             final client = PendingCoach();

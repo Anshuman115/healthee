@@ -101,10 +101,7 @@ void main() {
         findsOneWidget,
       );
       // A number-shaped hole where the figure would have been.
-      expect(
-        find.descendant(of: card, matching: find.text('—')),
-        findsWidgets,
-      );
+      expect(find.descendant(of: card, matching: find.text('—')), findsWidgets);
       expect(
         find.text('43.0'),
         findsNothing,
@@ -162,7 +159,10 @@ void main() {
         matching: find.byType(StateCard),
       );
       expect(
-        find.descendant(of: strip, matching: find.textContaining('wear the strap overnight')),
+        find.descendant(
+          of: strip,
+          matching: find.textContaining('wear the strap overnight'),
+        ),
         findsOneWidget,
       );
       expect(
@@ -172,24 +172,26 @@ void main() {
       expect(
         find.descendant(of: strip, matching: find.text('55')),
         findsNothing,
-        reason: 'the 30-day median is not a stand-in for a value we do not have',
+        reason:
+            'the 30-day median is not a stand-in for a value we do not have',
       );
     });
 
-    testWidgets('the strap and the server refuse in their own words', (tester) async {
+    testWidgets('the strap and the server refuse in their own words', (
+      tester,
+    ) async {
       await store.strapWriter.saveSync(
         resultWith(samples: [StrapSample(DateTime(2026, 8, 4, 9), 'hr', 68)]),
       );
-      await tester.pumpWidget(todayHost(store, home: DiagnosticsScreen(now: now)));
+      await tester.pumpWidget(
+        todayHost(store, home: DiagnosticsScreen(now: now)),
+      );
       await tester.pumpAndSettle();
       // The section heading and each metric strip both say 'From the strap'
       // now that headings render in sentence case, so the scroll target names
       // the widget as well as the words — v02's `SectionHead`, which is what
       // this screen's headings are drawn with now.
-      await reveal(
-        tester,
-        find.widgetWithText(SectionHead, 'From the strap'),
-      );
+      await reveal(tester, find.widgetWithText(SectionHead, 'From the strap'));
 
       // A stream the sensor did not write says "wear it". Collapsing that into
       // a server withhold would send the owner to the wrong place.
@@ -230,7 +232,9 @@ void main() {
       );
     });
 
-    testWidgets('a cached payload says it is cached, and dates itself', (tester) async {
+    testWidgets('a cached payload says it is cached, and dates itself', (
+      tester,
+    ) async {
       await seedDevice(store);
       await tester.pumpWidget(
         todayHost(
@@ -270,7 +274,8 @@ void main() {
       expect(
         find.textContaining('they go out on the next sync'),
         findsNothing,
-        reason: 'a STUCK backlog is not a waiting one — the next sync fails the '
+        reason:
+            'a STUCK backlog is not a waiting one — the next sync fails the '
             'same way, so promising it would be flattery about our own state',
       );
     });
@@ -290,8 +295,10 @@ void main() {
             'a different sentence on purpose — the strip is about the link, the '
             'card is about why the screen is empty',
       );
-      expect(find.textContaining('never — nothing has been pulled'), findsOneWidget);
+      expect(
+        find.textContaining('never — nothing has been pulled'),
+        findsOneWidget,
+      );
     });
   });
-
 }

@@ -48,7 +48,8 @@ import '_today_host.dart';
 Map<String, Object?> Function(Map<String, Object?>) without(
   String key,
   Object? value,
-) => (json) => <String, Object?>{...json, key: value};
+) =>
+    (json) => <String, Object?>{...json, key: value};
 
 void main() {
   late LocalStore store;
@@ -83,7 +84,8 @@ void main() {
       expect(
         find.text('Data health'),
         findsNothing,
-        reason: 'silence when all is well is what makes it worth reading when '
+        reason:
+            'silence when all is well is what makes it worth reading when '
             'it speaks',
       );
     });
@@ -125,8 +127,11 @@ void main() {
       // By type, not by text: `Today` is the screen's own h1 since the v02
       // redesign, so the old text finder would now be asking about the title
       // rather than about the card that is meant to be absent.
-      expect(find.byType(ActionsSection), findsNothing,
-          reason: 'no action card at all');
+      expect(
+        find.byType(ActionsSection),
+        findsNothing,
+        reason: 'no action card at all',
+      );
       // Scoped OUT of the header: the connection ring is a
       // `CircularProgressIndicator` in every state now, and it is chrome rather
       // than a section waiting for data. An unscoped finder would be asserting
@@ -208,29 +213,30 @@ void main() {
   });
 
   group('sections that refuse instead', () {
-    testWidgets('a block the server omitted refuses, and admits it cannot say why', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        todayHost(
-          store,
-          home: const ActivityScreen(),
-          server: todayView(mutate: without('cardio_load', null)),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await reveal(tester, find.text('Strain · cardio load'));
+    testWidgets(
+      'a block the server omitted refuses, and admits it cannot say why',
+      (tester) async {
+        await tester.pumpWidget(
+          todayHost(
+            store,
+            home: const ActivityScreen(),
+            server: todayView(mutate: without('cardio_load', null)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await reveal(tester, find.text('Strain · cardio load'));
 
-      // An absence we cannot explain is worse than one we can, and the copy
-      // does not hide that — it does not claim the owner did anything wrong.
-      expect(
-        find.textContaining('the server did not say why'),
-        findsOneWidget,
-      );
-      // v02's carrier for a refusal: the metric's name, a dashed hole and the
-      // reason, in the slot the panel would have taken (`withheld_panel.dart`).
-      expect(find.byType(WithheldPanel), findsWidgets);
-    });
+        // An absence we cannot explain is worse than one we can, and the copy
+        // does not hide that — it does not claim the owner did anything wrong.
+        expect(
+          find.textContaining('the server did not say why'),
+          findsOneWidget,
+        );
+        // v02's carrier for a refusal: the metric's name, a dashed hole and the
+        // reason, in the slot the panel would have taken (`withheld_panel.dart`).
+        expect(find.byType(WithheldPanel), findsWidgets);
+      },
+    );
 
     testWidgets('a refused block keeps its title and its footprint', (
       tester,

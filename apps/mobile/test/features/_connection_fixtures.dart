@@ -103,7 +103,9 @@ class ConnectionCase {
 /// A phone with nothing wrong: a sync finished four minutes ago, a session is
 /// held, the push is clear.
 ConnectionHealth healthyConnection() => connectionHealth(
-  link: Disconnected(lastCompleteSync: now.subtract(const Duration(minutes: 4))),
+  link: Disconnected(
+    lastCompleteSync: now.subtract(const Duration(minutes: 4)),
+  ),
   now: now,
   push: const PushStamp.never(),
   signedIn: true,
@@ -152,7 +154,9 @@ final List<ConnectionCase> unhealthyCases = <ConnectionCase>[
   ConnectionCase(
     name: 'the strap has gone unread past its horizon',
     cardText: 'Your strap was last read',
-    link: Disconnected(lastCompleteSync: now.subtract(kStrapHorizonWarning * 2)),
+    link: Disconnected(
+      lastCompleteSync: now.subtract(kStrapHorizonWarning * 2),
+    ),
     lastStrapSync: now.subtract(kStrapHorizonWarning * 2),
   ),
   ConnectionCase(

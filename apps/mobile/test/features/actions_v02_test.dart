@@ -81,7 +81,11 @@ void main() {
       );
 
       final ids = sections.map(_id).toList();
-      expect(ids.indexOf('note'), 1, reason: 'the caption qualifies the whole set');
+      expect(
+        ids.indexOf('note'),
+        1,
+        reason: 'the caption qualifies the whole set',
+      );
       expect(ids.indexOf('note'), lessThan(ids.indexOf('suggestion')));
 
       final note = sections[1].child as PanelNote;

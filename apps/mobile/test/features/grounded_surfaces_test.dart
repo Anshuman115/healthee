@@ -161,7 +161,11 @@ void main() {
 
     expect(find.text('Sleep need & cumulative sleep debt'), findsWidgets);
     for (final line in _rendered(tester)) {
-      expect(line, isNot('sleep_need_debt'), reason: 'a chip is a name, not an id');
+      expect(
+        line,
+        isNot('sleep_need_debt'),
+        reason: 'a chip is a name, not an id',
+      );
       expect(line, isNot('recovery_readiness'));
     }
   });
@@ -233,7 +237,8 @@ void main() {
     expect(
       find.text('Walk today [see the sleep tab].'),
       findsOneWidget,
-      reason: 'we cannot tell what it was meant to be, so we do not edit it out',
+      reason:
+          'we cannot tell what it was meant to be, so we do not edit it out',
     );
     // This payload carries no recommendations, so the only ⓘ in the block is
     // the head's — the one grounding the daily line under test.

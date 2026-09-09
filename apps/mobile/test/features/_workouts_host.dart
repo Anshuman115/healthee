@@ -88,9 +88,8 @@ Map<String, Object?> withoutSamples(Map<String, Object?> json) =>
 Map<String, Object?> Function(Map<String, Object?>) withoutMetric(String key) =>
     (json) => <String, Object?>{
       ...json,
-      'metrics': <String, Object?>{
-        ...json['metrics']! as Map<String, Object?>,
-      }..remove(key),
+      'metrics': <String, Object?>{...json['metrics']! as Map<String, Object?>}
+        ..remove(key),
     };
 
 /// Removes the minutes in `[from, to)` from `hr_series`, leaving a real hole.

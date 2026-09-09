@@ -182,24 +182,25 @@ void main() {
       }
     });
 
-    testWidgets('A SERIES THE SERVER DID NOT SEND DRAWS NOTHING, AT FULL HEIGHT', (
-      tester,
-    ) async {
-      // `sparklines` carries eleven ids and `steps_total` is not one of them, so
-      // the step week has nothing to draw. It must keep its slot and draw no
-      // bars: a chart that collapses makes every card below it jump when the
-      // data lands, and a chart that invents a flat line is the fabricated
-      // series `chart_void.dart` exists to refuse.
-      await open(tester, const ActivityScreen());
-      final chart = find.byType(V02BarChart).first;
-      await reveal(tester, chart);
+    testWidgets(
+      'A SERIES THE SERVER DID NOT SEND DRAWS NOTHING, AT FULL HEIGHT',
+      (tester) async {
+        // `sparklines` carries eleven ids and `steps_total` is not one of them, so
+        // the step week has nothing to draw. It must keep its slot and draw no
+        // bars: a chart that collapses makes every card below it jump when the
+        // data lands, and a chart that invents a flat line is the fabricated
+        // series `chart_void.dart` exists to refuse.
+        await open(tester, const ActivityScreen());
+        final chart = find.byType(V02BarChart).first;
+        await reveal(tester, chart);
 
-      expect(tester.getSize(chart).height, 150);
-      expect(
-        find.descendant(of: chart, matching: find.byType(CustomPaint)),
-        findsNothing,
-      );
-    });
+        expect(tester.getSize(chart).height, 150);
+        expect(
+          find.descendant(of: chart, matching: find.byType(CustomPaint)),
+          findsNothing,
+        );
+      },
+    );
 
     testWidgets('THE VO₂MAX RAIL PAINTS AT ITS LAID-OUT SIZE', (tester) async {
       await open(tester, const ActivityScreen());

@@ -138,7 +138,9 @@ void main() {
 
       // A day inside the window is a live control and choosing it moves the
       // screen; the sheet closes behind it.
-      await tester.tap(find.byKey(const ValueKey<String>('calendar.2026-08-01')));
+      await tester.tap(
+        find.byKey(const ValueKey<String>('calendar.2026-08-01')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text(kDateCalendarTitle), findsNothing);
@@ -206,7 +208,8 @@ void main() {
       expect(
         mid.any((section) => section.child is LoadingState),
         isTrue,
-        reason: 'and the screen says it is reading, rather than showing nothing',
+        reason:
+            'and the screen says it is reading, rather than showing nothing',
       );
     });
 

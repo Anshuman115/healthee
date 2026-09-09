@@ -62,7 +62,9 @@ Widget _host(LocalStore store, _RecordingSync sync, Widget home) =>
 /// decides whether the indicator arms, which makes the test's outcome depend on
 /// how long the screen's own list happens to be.
 Future<void> _pullDown(WidgetTester tester, Finder screen) async {
-  final list = find.descendant(of: screen, matching: find.byType(Scrollable)).first;
+  final list = find
+      .descendant(of: screen, matching: find.byType(Scrollable))
+      .first;
   final gesture = await tester.startGesture(tester.getCenter(list));
   for (var step = 0; step < 8; step++) {
     await gesture.moveBy(const Offset(0, 40));

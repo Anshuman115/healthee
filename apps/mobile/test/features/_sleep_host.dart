@@ -48,8 +48,9 @@ int indexOfSection<T>(List<PageSection> list) =>
     list.indexWhere((section) => section.child is T);
 
 /// Every section's child type, as a set.
-Set<Type> sectionTypes(List<PageSection> list) =>
-    <Type>{for (final section in list) section.child.runtimeType};
+Set<Type> sectionTypes(List<PageSection> list) => <Type>{
+  for (final section in list) section.child.runtimeType,
+};
 
 /// One panel on a phone-width host, in the light theme.
 ///
@@ -60,7 +61,9 @@ Widget sleepPanelHost(Widget panel, {double width = 390, ThemeData? theme}) =>
       theme: theme ?? AppTheme.light,
       home: Scaffold(
         body: SingleChildScrollView(
-          child: Center(child: SizedBox(width: width, child: panel)),
+          child: Center(
+            child: SizedBox(width: width, child: panel),
+          ),
         ),
       ),
     );

@@ -38,11 +38,7 @@ Future<void> _pump(
     ..devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    workoutsHost(
-      home,
-      width: width,
-      view: withToday ? todayView() : null,
-    ),
+    workoutsHost(home, width: width, view: withToday ? todayView() : null),
   );
   await tester.pumpAndSettle();
 }
@@ -128,10 +124,7 @@ void main() {
     testWidgets('SUMMARY · EFFORT · ZONES · DETAILS · COACH · FOOTER', (
       tester,
     ) async {
-      await _pump(
-        tester,
-        const WorkoutDetailScreen(start: kWorkoutStart),
-      );
+      await _pump(tester, const WorkoutDetailScreen(start: kWorkoutStart));
 
       _inOrder(textsOn(tester), <String>[
         '31 Jul · 07:00', // .page-header .date, above the title
@@ -162,10 +155,7 @@ void main() {
     testWidgets('the figures are the payload’s, in the prototype’s units', (
       tester,
     ) async {
-      await _pump(
-        tester,
-        const WorkoutDetailScreen(start: kWorkoutStart),
-      );
+      await _pump(tester, const WorkoutDetailScreen(start: kWorkoutStart));
       // `StatBlock` draws the figure and its unit as one rich span, so these
       // are the strings a reader actually sees rather than two boxes.
       final said = textsOn(tester);
@@ -186,10 +176,7 @@ void main() {
     testWidgets('the energy figure names the instrument it came from', (
       tester,
     ) async {
-      await _pump(
-        tester,
-        const WorkoutDetailScreen(start: kWorkoutStart),
-      );
+      await _pump(tester, const WorkoutDetailScreen(start: kWorkoutStart));
       // CLAUDE.md pins free-living energy to the MET-by-state model, and this
       // number is not it. Unnamed, an owner reads it as the model's.
       expect(find.text(kEnergyInstrument), findsOneWidget);

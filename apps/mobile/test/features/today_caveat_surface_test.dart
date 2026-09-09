@@ -73,8 +73,7 @@ void main() {
   test('THE PREMISE — the wire really does attach essays to a shown number', () {
     // If this fails, the server got shorter and this whole suite needs re-reading
     // rather than deleting: the carrier is still right, the pressure is gone.
-    final bio =
-        loadTodayJson()['biological_age']! as Map<String, Object?>;
+    final bio = loadTodayJson()['biological_age']! as Map<String, Object?>;
     final messages = _attachedMessages(bio);
 
     expect(bio['biological_age'], isNotNull, reason: 'a value IS reported');
@@ -116,7 +115,8 @@ void main() {
     expect(
       long,
       isEmpty,
-      reason: 'Today printed ${long.length} run(s) over $_essayLength chars, '
+      reason:
+          'Today printed ${long.length} run(s) over $_essayLength chars, '
           'the first being:\n${long.isEmpty ? '' : long.first}',
     );
   });

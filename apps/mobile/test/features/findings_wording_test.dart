@@ -50,7 +50,8 @@ const Finding _live = Finding(
   metricA: 'hrv_sleep_avg',
   metricB: 'recovery_score',
   eventKind: null,
-  description: 'Spearman(hrv_sleep_avg, recovery_score) = +0.72 over 105 days (p=0.000)',
+  description:
+      'Spearman(hrv_sleep_avg, recovery_score) = +0.72 over 105 days (p=0.000)',
   effectSize: 0.72,
   effectMetric: 'rho',
   qValue: 0.0004,
@@ -102,7 +103,10 @@ const Finding _lonely = Finding(
 /// THE SURFACE went green.
 final List<({String name, String Function(Finding) compose})> _surfaces =
     <({String name, String Function(Finding) compose})>[
-      (name: 'shared/findings_section.dart::findingHeadline', compose: findingHeadline),
+      (
+        name: 'shared/findings_section.dart::findingHeadline',
+        compose: findingHeadline,
+      ),
       (
         name: 'features/today/widgets/insights_section.dart::describeFinding',
         compose: (finding) => describeFinding(finding).headline,
@@ -173,7 +177,8 @@ void main() {
             expect(
               headline,
               isNot(contains(verb)),
-              reason: '"$verb" asserts a cause; this is an observational n-of-1',
+              reason:
+                  '"$verb" asserts a cause; this is an observational n-of-1',
             );
           }
         });
@@ -261,24 +266,27 @@ void main() {
       );
     });
 
-    test('an unnamed metric keeps its id rather than being invented into prose', () {
-      const unknown = Finding(
-        kind: 'pairwise_lag',
-        metricA: 'some_new_metric',
-        metricB: 'rhr_daily',
-        eventKind: null,
-        description: 'x',
-        effectSize: 0.5,
-        effectMetric: 'rho',
-        qValue: 0.01,
-        nSamples: 40,
-        lagDays: 0,
-        researchNoteIds: <String>[],
-      );
-      expect(findingHeadline(unknown), contains('some_new_metric'));
-      expect(hasMetricName('some_new_metric'), isFalse);
-      expect(metricName('rhr_daily'), 'resting heart rate');
-    });
+    test(
+      'an unnamed metric keeps its id rather than being invented into prose',
+      () {
+        const unknown = Finding(
+          kind: 'pairwise_lag',
+          metricA: 'some_new_metric',
+          metricB: 'rhr_daily',
+          eventKind: null,
+          description: 'x',
+          effectSize: 0.5,
+          effectMetric: 'rho',
+          qValue: 0.01,
+          nSamples: 40,
+          lagDays: 0,
+          researchNoteIds: <String>[],
+        );
+        expect(findingHeadline(unknown), contains('some_new_metric'));
+        expect(hasMetricName('some_new_metric'), isFalse);
+        expect(metricName('rhr_daily'), 'resting heart rate');
+      },
+    );
   });
 
   group('NO FINDING MAY ACQUIRE CAUSAL LANGUAGE', () {
@@ -293,8 +301,10 @@ void main() {
           // The disclosure's closing sentence is allowed to USE the word in a
           // denial — "not that either one caused the other" — and that is the
           // one exception, checked by its own assertion below.
-          final withoutDenial =
-              surface.replaceAll('not that either one caused the other', '');
+          final withoutDenial = surface.replaceAll(
+            'not that either one caused the other',
+            '',
+          );
           expect(
             withoutDenial.toLowerCase(),
             isNot(contains(verb)),
@@ -311,7 +321,10 @@ void main() {
         findingStatistics(_live),
         contains('not that either one caused the other'),
       );
-      expect(findingStatistics(_live), contains('One person, one stretch of time'));
+      expect(
+        findingStatistics(_live),
+        contains('One person, one stretch of time'),
+      );
     });
   });
 

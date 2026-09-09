@@ -145,6 +145,9 @@ void main() {
           'the scroll must end where the bar begins — a card sliced mid-chart '
           'is a chart the owner cannot read',
     );
-    expect(bar.bottom, tester.view.physicalSize.height / tester.view.devicePixelRatio);
+    expect(
+      bar.bottom,
+      tester.view.physicalSize.height / tester.view.devicePixelRatio,
+    );
   });
 }

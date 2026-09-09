@@ -33,19 +33,17 @@ import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import '_today_host.dart';
 
 /// One widget in the light theme.
-Widget host(Widget child) =>
-    MaterialApp(theme: AppTheme.light, home: Scaffold(body: child));
+Widget host(Widget child) => MaterialApp(
+  theme: AppTheme.light,
+  home: Scaffold(body: child),
+);
 
 Widget _header({
   String date = '2026-08-06',
   DateTime? at,
   ConnectionHealth? health,
 }) => host(
-  TodayHeader(
-    date: date,
-    now: at ?? DateTime(2026, 8, 6, 9),
-    health: health,
-  ),
+  TodayHeader(date: date, now: at ?? DateTime(2026, 8, 6, 9), health: health),
 );
 
 /// The device strip, which is where the strap's charge lives in v02.
@@ -59,7 +57,9 @@ ConnectionHealth _connection(StrapConnection link) =>
 
 void main() {
   group('the date eyebrow', () {
-    testWidgets("abbreviates the day and month, as legacy's does", (tester) async {
+    testWidgets("abbreviates the day and month, as legacy's does", (
+      tester,
+    ) async {
       await tester.pumpWidget(_header());
       await tester.pumpAndSettle();
 
@@ -133,7 +133,9 @@ void main() {
       expect(find.byType(HAvatar), findsOneWidget);
     });
 
-    testWidgets('draws the ring once there IS a classification', (tester) async {
+    testWidgets('draws the ring once there IS a classification', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _header(health: _connection(Connected(since: DateTime(2026, 8, 6, 9)))),
       );
@@ -178,7 +180,10 @@ void main() {
       // The fixture's band is `high` and its guidance is the illness override,
       // which the recovery card renders verbatim.
       await reveal(tester, find.textContaining('An illness signal is active'));
-      expect(find.textContaining('An illness signal is active'), findsOneWidget);
+      expect(
+        find.textContaining('An illness signal is active'),
+        findsOneWidget,
+      );
       for (final flattery in <String>[
         'Well recovered',
         'well recovered',
@@ -237,7 +242,11 @@ void main() {
         Routes.actions,
       };
       for (final tab in kAppTabs) {
-        expect(wired, contains(tab.route), reason: '${tab.label} is a live tab');
+        expect(
+          wired,
+          contains(tab.route),
+          reason: '${tab.label} is a live tab',
+        );
       }
     });
 
@@ -259,26 +268,27 @@ void main() {
       expect(pressed, <int>[2, 0]);
     });
 
-    testWidgets('every tab is a button to a screen reader, the active one selected', (
-      tester,
-    ) async {
-      final handle = tester.ensureSemantics();
-      await tester.pumpWidget(
-        host(AppTabBar(currentIndex: 1, onSelect: (_) {})),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'every tab is a button to a screen reader, the active one selected',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await tester.pumpWidget(
+          host(AppTabBar(currentIndex: 1, onSelect: (_) {})),
+        );
+        await tester.pumpAndSettle();
 
-      for (final tab in kAppTabs) {
-        expect(find.bySemanticsLabel(tab.label), findsOneWidget);
-      }
-      expect(
-        tester
-            .getSemantics(find.bySemanticsLabel('Sleep'))
-            .flagsCollection
-            .isSelected,
-        Tristate.isTrue,
-      );
-      handle.dispose();
-    });
+        for (final tab in kAppTabs) {
+          expect(find.bySemanticsLabel(tab.label), findsOneWidget);
+        }
+        expect(
+          tester
+              .getSemantics(find.bySemanticsLabel('Sleep'))
+              .flagsCollection
+              .isSelected,
+          Tristate.isTrue,
+        );
+        handle.dispose();
+      },
+    );
   });
 }

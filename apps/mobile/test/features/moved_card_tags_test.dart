@@ -39,13 +39,8 @@ import '_today_host.dart';
 const InstrumentHues _hues = InstrumentHues.light();
 const HealtheeColors _colors = HealtheeColors.light();
 
-
 /// Pumps [screen] on a viewport tall enough that every card is laid out.
-Future<void> _pump(
-  WidgetTester tester,
-  LocalStore store,
-  Widget screen,
-) async {
+Future<void> _pump(WidgetTester tester, LocalStore store, Widget screen) async {
   // Tall enough that the WHOLE screen lays out in one pass: Sleep is a
   // `ListView.builder`, so a card that is never scrolled to is a card that was
   // never built, and `widgetList` cannot see it.
@@ -113,14 +108,22 @@ void main() {
       // the ids those panels are about, so a colour invented at a call site
       // fails here rather than looking fine.
       await _pump(tester, store, const ActivityScreen());
-      expect(await panelTone(tester, MovementPanel.title),
-          toneForMetric('steps_total'));
-      expect(await panelTone(tester, IntensityPanel.title),
-          toneForMetric('mvpa_min'));
-      expect(await panelTone(tester, TrainingLoadPanel.title),
-          toneForMetric('cardio_load'));
-      expect(await panelTone(tester, FitnessSourcePanel.title),
-          toneForMetric('vo2max_estimate'));
+      expect(
+        await panelTone(tester, MovementPanel.title),
+        toneForMetric('steps_total'),
+      );
+      expect(
+        await panelTone(tester, IntensityPanel.title),
+        toneForMetric('mvpa_min'),
+      );
+      expect(
+        await panelTone(tester, TrainingLoadPanel.title),
+        toneForMetric('cardio_load'),
+      );
+      expect(
+        await panelTone(tester, FitnessSourcePanel.title),
+        toneForMetric('vo2max_estimate'),
+      );
     });
 
     test('THE FITNESS NUMBERS SHARE LEGACY’S READINESS HUE', () {
@@ -144,7 +147,10 @@ void main() {
       await reveal(tester, find.text(IntensityPanel.title));
 
       final panel = find
-          .ancestor(of: find.text(IntensityPanel.title), matching: find.byType(Panel))
+          .ancestor(
+            of: find.text(IntensityPanel.title),
+            matching: find.byType(Panel),
+          )
           .first;
       final painted = tester
           .widgetList<ColoredBox>(

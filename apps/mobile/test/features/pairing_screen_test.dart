@@ -35,18 +35,24 @@ void main() {
       expect(find.text('Checking what is already paired'), findsOneWidget);
     });
 
-    testWidgets('a keystore failure renders an error WITH a retry', (tester) async {
+    testWidgets('a keystore failure renders an error WITH a retry', (
+      tester,
+    ) async {
       await pumpPairing(
         tester,
         ProviderScope(
           overrides: [
             pairingSummaryProvider.overrideWith(
-              (ref) => Future<({PairedStrap? strap, bool zeppRemembered})>.error(
-                StateError('keystore unavailable'),
-              ),
+              (ref) =>
+                  Future<({PairedStrap? strap, bool zeppRemembered})>.error(
+                    StateError('keystore unavailable'),
+                  ),
             ),
           ],
-          child: MaterialApp(theme: AppTheme.light, home: const PairingScreen()),
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const PairingScreen(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -55,7 +61,9 @@ void main() {
       expect(find.text('Try again'), findsOneWidget);
     });
 
-    testWidgets('nothing paired renders the form, not a blank card', (tester) async {
+    testWidgets('nothing paired renders the form, not a blank card', (
+      tester,
+    ) async {
       await pumpPairing(tester, pairingHost(FakeSecretStore()));
       await tester.pumpAndSettle();
 
@@ -66,7 +74,9 @@ void main() {
   });
 
   group('the account route', () {
-    testWidgets('the promise about the password is ON the form', (tester) async {
+    testWidgets('the promise about the password is ON the form', (
+      tester,
+    ) async {
       await pumpPairing(tester, pairingHost(FakeSecretStore()));
       await tester.pumpAndSettle();
 
@@ -84,7 +94,10 @@ void main() {
       // `.toggle-row`; the opt-in default it carries is unchanged.
       final remember = tester.widget<ToggleRow>(find.byType(ToggleRow));
       expect(remember.value, isFalse);
-      expect(find.textContaining('Leave this off and nothing about'), findsOneWidget);
+      expect(
+        find.textContaining('Leave this off and nothing about'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('signing in lists the account devices, named where named', (
@@ -115,10 +128,15 @@ void main() {
       expect(find.text('Confirm this strap'), findsOneWidget);
       expect(find.text(kPairingMac), findsOneWidget);
       expect(find.textContaining(kPairingAuthKey), findsNothing);
-      expect(find.textContaining('not shown, and never sent anywhere'), findsOneWidget);
+      expect(
+        find.textContaining('not shown, and never sent anywhere'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('scan, then pair, and the summary says what was kept', (tester) async {
+    testWidgets('scan, then pair, and the summary says what was kept', (
+      tester,
+    ) async {
       final store = FakeSecretStore();
       await pumpPairing(tester, pairingHost(store));
       await tester.pumpAndSettle();
@@ -152,7 +170,9 @@ void main() {
       expect(find.text('Enter the pairing by hand'), findsOneWidget);
     });
 
-    testWidgets('a malformed key is refused before anything is stored', (tester) async {
+    testWidgets('a malformed key is refused before anything is stored', (
+      tester,
+    ) async {
       final store = FakeSecretStore();
       await pumpPairing(tester, pairingHost(store));
       await tester.pumpAndSettle();
@@ -169,7 +189,9 @@ void main() {
       expect(store.values, isEmpty);
     });
 
-    testWidgets('a good pairing typed by hand reaches the keystore', (tester) async {
+    testWidgets('a good pairing typed by hand reaches the keystore', (
+      tester,
+    ) async {
       final store = FakeSecretStore();
       await pumpPairing(tester, pairingHost(store));
       await tester.pumpAndSettle();
@@ -191,21 +213,22 @@ void main() {
   });
 
   group('an already-paired phone', () {
-    testWidgets('shows what is held rather than a form that would overwrite it', (
-      tester,
-    ) async {
-      final store = FakeSecretStore()
-        ..values['strap_mac'] = kPairingMac
-        ..values['strap_auth_key'] = kPairingAuthKey;
+    testWidgets(
+      'shows what is held rather than a form that would overwrite it',
+      (tester) async {
+        final store = FakeSecretStore()
+          ..values['strap_mac'] = kPairingMac
+          ..values['strap_auth_key'] = kPairingAuthKey;
 
-      await pumpPairing(tester, pairingHost(store));
-      await tester.pumpAndSettle();
+        await pumpPairing(tester, pairingHost(store));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Paired'), findsOneWidget);
-      expect(find.text(kPairingMac), findsOneWidget);
-      expect(find.text('Sign in to Zepp'), findsNothing);
-      expect(find.text('Unpair'), findsOneWidget);
-    });
+        expect(find.text('Paired'), findsOneWidget);
+        expect(find.text(kPairingMac), findsOneWidget);
+        expect(find.text('Sign in to Zepp'), findsNothing);
+        expect(find.text('Unpair'), findsOneWidget);
+      },
+    );
 
     testWidgets('unpairing clears the keystore and returns to the form', (
       tester,
@@ -235,7 +258,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('Your Zepp email and password are also in the keystore'),
+        find.textContaining(
+          'Your Zepp email and password are also in the keystore',
+        ),
         findsOneWidget,
       );
       // …and the password itself is nowhere on screen.

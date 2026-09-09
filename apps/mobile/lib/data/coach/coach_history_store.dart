@@ -74,9 +74,9 @@ class CoachHistoryStore {
     required DateTime at,
   }) async {
     await _store
-        .into(_store.coachThreads)
+        .into(_store.storedCoachThreads)
         .insertOnConflictUpdate(
-          CoachThreadsCompanion.insert(
+          StoredCoachThreadsCompanion.insert(
             scope: Value(scope),
             id: threadId,
             startedAt: at,
@@ -101,9 +101,9 @@ class CoachHistoryStore {
   }) async {
     await _store.transaction(() async {
       await _store
-          .into(_store.coachTurns)
+          .into(_store.storedCoachTurns)
           .insertOnConflictUpdate(
-            CoachTurnsCompanion.insert(
+            StoredCoachTurnsCompanion.insert(
               scope: Value(scope),
               threadId: threadId,
               seq: seq,
@@ -113,16 +113,16 @@ class CoachHistoryStore {
             ),
           );
       await (_store.update(
-        _store.coachThreads,
+        _store.storedCoachThreads,
       )..where((t) => t.scope.equals(scope) & t.id.equals(threadId))).write(
-        CoachThreadsCompanion(lastAt: Value(at), turns: Value(seq + 1)),
+        StoredCoachThreadsCompanion(lastAt: Value(at), turns: Value(seq + 1)),
       );
     });
   }
 
   /// Every conversation for [scope], most recently moved first.
   Future<List<CoachThreadSummary>> threads(String scope) async {
-    final query = _store.select(_store.coachThreads)
+    final query = _store.select(_store.storedCoachThreads)
       ..where((t) => t.scope.equals(scope))
       ..orderBy([(t) => OrderingTerm.desc(t.lastAt)]);
     final rows = await query.get();
@@ -148,7 +148,7 @@ class CoachHistoryStore {
     required String scope,
     required String threadId,
   }) async {
-    final query = _store.select(_store.coachTurns)
+    final query = _store.select(_store.storedCoachTurns)
       ..where((t) => t.scope.equals(scope) & t.threadId.equals(threadId))
       ..orderBy([(t) => OrderingTerm.asc(t.seq)]);
     final rows = await query.get();
@@ -161,11 +161,11 @@ class CoachHistoryStore {
   /// Forgets one conversation and everything in it.
   Future<void> forget({required String scope, required String threadId}) async {
     await _store.transaction(() async {
-      await (_store.delete(_store.coachTurns)
+      await (_store.delete(_store.storedCoachTurns)
             ..where((t) => t.scope.equals(scope) & t.threadId.equals(threadId)))
           .go();
       await (_store.delete(
-        _store.coachThreads,
+        _store.storedCoachThreads,
       )..where((t) => t.scope.equals(scope) & t.id.equals(threadId))).go();
     });
   }

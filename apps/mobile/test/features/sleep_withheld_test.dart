@@ -70,20 +70,20 @@ void main() {
       );
     });
 
-    test('an unmeasured time in bed drops its key rather than writing a dash', () {
-      // A legend entry for a value nobody has is not a smaller truth, it is
-      // noise — and the refusal is still stated, in the note under the block.
-      final page = sleepPageWithout(<String>['tib_min']);
-      final night = page.nights.first;
-      expect(
-        SleepReading.keys(night).map((entry) => entry.label),
-        isNot(contains(contains('in bed'))),
-      );
-      expect(
-        SleepReading.refusals(night),
-        contains(contains('Time in bed')),
-      );
-    });
+    test(
+      'an unmeasured time in bed drops its key rather than writing a dash',
+      () {
+        // A legend entry for a value nobody has is not a smaller truth, it is
+        // noise — and the refusal is still stated, in the note under the block.
+        final page = sleepPageWithout(<String>['tib_min']);
+        final night = page.nights.first;
+        expect(
+          SleepReading.keys(night).map((entry) => entry.label),
+          isNot(contains(contains('in bed'))),
+        );
+        expect(SleepReading.refusals(night), contains(contains('Time in bed')));
+      },
+    );
   });
 
   group('the overnight table', () {
@@ -228,28 +228,26 @@ void main() {
   });
 
   group('a session that never happened', () {
-    testWidgets('THE REASON IS THE SESSION, NOT A DERIVATION THAT DID NOT RUN', (
-      tester,
-    ) async {
-      // A night the strap never recorded is a different absence from one the
-      // server has not worked out yet, and the two send different sentences.
-      // Only the first tells the owner to wear the band.
-      final night = SleepNight.fromJson(const <String, Object?>{
-        'date': '2026-07-31',
-      });
-      expect(
-        SleepReading.refusals(night),
-        everyElement(contains(SleepGap.noSession.message)),
-      );
-      await tester.pumpWidget(sleepPanelHost(SleepReading(night: night)));
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining(SleepGap.noSession.message),
-        findsOneWidget,
-      );
-      // And nothing anywhere on the block is a zero standing in for it.
-      expect(find.text('0'), findsNothing);
-      expect(find.text('0h 00m'), findsNothing);
-    });
+    testWidgets(
+      'THE REASON IS THE SESSION, NOT A DERIVATION THAT DID NOT RUN',
+      (tester) async {
+        // A night the strap never recorded is a different absence from one the
+        // server has not worked out yet, and the two send different sentences.
+        // Only the first tells the owner to wear the band.
+        final night = SleepNight.fromJson(const <String, Object?>{
+          'date': '2026-07-31',
+        });
+        expect(
+          SleepReading.refusals(night),
+          everyElement(contains(SleepGap.noSession.message)),
+        );
+        await tester.pumpWidget(sleepPanelHost(SleepReading(night: night)));
+        await tester.pumpAndSettle();
+        expect(find.textContaining(SleepGap.noSession.message), findsOneWidget);
+        // And nothing anywhere on the block is a zero standing in for it.
+        expect(find.text('0'), findsNothing);
+        expect(find.text('0h 00m'), findsNothing);
+      },
+    );
   });
 }

@@ -121,7 +121,11 @@ void main() {
       expect(bars, isNotEmpty, reason: 'a chart that painted nothing');
       final drawn = coloursOf(painted);
       for (final stage in const <String>['deep', 'light', 'rem', 'awake']) {
-        expect(drawn, contains(_hues.sleepStage(stage).toARGB32()), reason: stage);
+        expect(
+          drawn,
+          contains(_hues.sleepStage(stage).toARGB32()),
+          reason: stage,
+        );
       }
     });
   });
@@ -178,10 +182,12 @@ void main() {
       // never entered is a picture of sleep that did not happen.
       await tester.pumpWidget(
         sleepPanelHost(
-          const V02StageStrip(
-            <String, double>{'deep': 60, 'light': 200, 'rem': 0, 'awake': 20},
-            progress: 1,
-          ),
+          const V02StageStrip(<String, double>{
+            'deep': 60,
+            'light': 200,
+            'rem': 0,
+            'awake': 20,
+          }, progress: 1),
         ),
       );
       await tester.pumpAndSettle();
@@ -207,10 +213,12 @@ void main() {
     ) async {
       await tester.pumpWidget(
         sleepPanelHost(
-          const V02StageStrip(
-            <String, double>{'deep': 0, 'light': 0, 'rem': 0, 'awake': 0},
-            progress: 1,
-          ),
+          const V02StageStrip(<String, double>{
+            'deep': 0,
+            'light': 0,
+            'rem': 0,
+            'awake': 0,
+          }, progress: 1),
         ),
       );
       await tester.pumpAndSettle();

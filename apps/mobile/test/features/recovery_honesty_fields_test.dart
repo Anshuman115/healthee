@@ -77,8 +77,9 @@ void main() {
     test('each is null when the server did not send it, never defaulted', () {
       // A count of zero would say "no days behind this baseline", which is a claim; a
       // basis of "personal" would be a guess about which limb spoke. Absent is absent.
-      final signal = _ladder(<Map<String, Object?>>[_signal(name: 'Resting HR')]).signals
-          .single;
+      final signal = _ladder(<Map<String, Object?>>[
+        _signal(name: 'Resting HR'),
+      ]).signals.single;
 
       expect(signal.n, isNull);
       expect(signal.directionBasis, isNull);
@@ -184,7 +185,9 @@ void main() {
       // ladder would be a sentence about a decision that was not made.
       expect(
         directionBasisNote(
-          _ladder(<Map<String, Object?>>[_signal(name: 'Sleep duration', n: 30)]),
+          _ladder(<Map<String, Object?>>[
+            _signal(name: 'Sleep duration', n: 30),
+          ]),
         ),
         isNull,
       );
@@ -218,12 +221,17 @@ void main() {
         ]),
       );
 
-      expect(note, 'Days of your own history behind each baseline: Resting HR 30.');
+      expect(
+        note,
+        'Days of your own history behind each baseline: Resting HR 30.',
+      );
     });
 
     test('an older server sending no counts at all draws no line', () {
       expect(
-        baselineDepthNote(_ladder(<Map<String, Object?>>[_signal(name: 'Resting HR')])),
+        baselineDepthNote(
+          _ladder(<Map<String, Object?>>[_signal(name: 'Resting HR')]),
+        ),
         isNull,
       );
     });

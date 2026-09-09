@@ -79,8 +79,12 @@ void main() {
       expect(tester.getSize(find.byType(DataHealthSection)), Size.zero);
     });
 
-    testWidgets('the ring is the whole of it, in the header row', (tester) async {
-      await tester.pumpWidget(todayHost(store, connection: Connected(since: now)));
+    testWidgets('the ring is the whole of it, in the header row', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        todayHost(store, connection: Connected(since: now)),
+      );
       await tester.pump();
 
       expect(find.byType(SyncRing), findsOneWidget);
@@ -134,7 +138,8 @@ void main() {
         expect(
           ringStateOf(entry.value),
           SyncRingState.needsAttention,
-          reason: '${entry.key}: and the ring follows `quiet` rather than guess',
+          reason:
+              '${entry.key}: and the ring follows `quiet` rather than guess',
         );
       }
     });

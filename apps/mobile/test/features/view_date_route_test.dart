@@ -31,7 +31,9 @@ String _location(WidgetTester tester) => GoRouter.of(
 
 /// Navigates the real router, the way a deep link or a notification does.
 Future<void> _go(WidgetTester tester, String location) async {
-  GoRouter.of(tester.element(find.byType(TodayScreen, skipOffstage: false).first)).go(location);
+  GoRouter.of(
+    tester.element(find.byType(TodayScreen, skipOffstage: false).first),
+  ).go(location);
   await tester.pumpAndSettle();
 }
 
@@ -41,8 +43,14 @@ void main() {
       // A link to the current day must stay the plain route, so it still means
       // "the newest readings" tomorrow. `H.setViewDate` deletes the parameter
       // for exactly this reason.
-      expect(dateLocation('/', '2026-07-29', '2026-08-04'), '/?date=2026-07-29');
-      expect(dateLocation('/?date=2026-07-29', '2026-08-04', '2026-08-04'), '/');
+      expect(
+        dateLocation('/', '2026-07-29', '2026-08-04'),
+        '/?date=2026-07-29',
+      );
+      expect(
+        dateLocation('/?date=2026-07-29', '2026-08-04', '2026-08-04'),
+        '/',
+      );
       expect(dateLocation('/sleep', '2026-08-04', '2026-08-04'), '/sleep');
     });
 
@@ -54,8 +62,11 @@ void main() {
         '/history?metric=hrv&date=2026-07-29',
       );
       expect(
-        dateLocation('/history?metric=hrv&date=2026-07-29', '2026-08-04',
-            '2026-08-04'),
+        dateLocation(
+          '/history?metric=hrv&date=2026-07-29',
+          '2026-08-04',
+          '2026-08-04',
+        ),
         '/history?metric=hrv',
       );
     });

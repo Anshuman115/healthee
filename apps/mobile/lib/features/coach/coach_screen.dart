@@ -62,6 +62,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:healthee/core/routes.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
@@ -70,6 +72,7 @@ import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
+import 'package:healthee/features/coach/coach_history_provider.dart';
 import 'package:healthee/features/coach/v02/coach_composer.dart';
 import 'package:healthee/features/coach/v02/coach_openers.dart';
 import 'package:healthee/features/coach/v02/coach_opening.dart';
@@ -135,9 +138,23 @@ class CoachScreen extends ConsumerWidget {
     // is that it does not sit in the scrolling column.
     final entitlement = ref.watch(coachEntitlementProvider);
     final conversation = ref.watch(coachControllerProvider);
+    // Whether there is anything to show. A loading or failed read yields false,
+    // so the control is absent rather than opening a screen that cannot answer.
+    final bool hasHistory =
+        ref.watch(coachThreadsProvider).value?.isNotEmpty ?? false;
     return CoachPage(
       title: kCoachTitle,
       actions: <Widget>[
+        // Only when there is something to look at. `HeaderAction` draws nothing
+        // for a null callback, so an owner who has never asked anything is not
+        // offered a door into an empty room.
+        HeaderAction(
+          icon: Icons.history,
+          tooltip: 'Past conversations',
+          onPressed: hasHistory
+              ? () => context.push(Routes.coachHistory)
+              : null,
+        ),
         // Only once there is a conversation to leave. An empty thread offering
         // to be replaced is a control that does nothing.
         if (!conversation.isEmpty && !conversation.asking)

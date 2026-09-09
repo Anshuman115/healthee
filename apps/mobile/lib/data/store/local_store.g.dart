@@ -2809,12 +2809,12 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaRow> {
   }
 }
 
-class $CoachThreadsTable extends CoachThreads
-    with TableInfo<$CoachThreadsTable, CoachThread> {
+class $StoredCoachThreadsTable extends StoredCoachThreads
+    with TableInfo<$StoredCoachThreadsTable, StoredCoachThread> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $CoachThreadsTable(this.attachedDatabase, [this._alias]);
+  $StoredCoachThreadsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _scopeMeta = const VerificationMeta('scope');
   @override
   late final GeneratedColumn<String> scope = GeneratedColumn<String>(
@@ -2888,10 +2888,10 @@ class $CoachThreadsTable extends CoachThreads
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'coach_threads';
+  static const String $name = 'stored_coach_threads';
   @override
   VerificationContext validateIntegrity(
-    Insertable<CoachThread> instance, {
+    Insertable<StoredCoachThread> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -2943,9 +2943,9 @@ class $CoachThreadsTable extends CoachThreads
   @override
   Set<GeneratedColumn> get $primaryKey => {scope, id};
   @override
-  CoachThread map(Map<String, dynamic> data, {String? tablePrefix}) {
+  StoredCoachThread map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return CoachThread(
+    return StoredCoachThread(
       scope: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}scope'],
@@ -2974,12 +2974,13 @@ class $CoachThreadsTable extends CoachThreads
   }
 
   @override
-  $CoachThreadsTable createAlias(String alias) {
-    return $CoachThreadsTable(attachedDatabase, alias);
+  $StoredCoachThreadsTable createAlias(String alias) {
+    return $StoredCoachThreadsTable(attachedDatabase, alias);
   }
 }
 
-class CoachThread extends DataClass implements Insertable<CoachThread> {
+class StoredCoachThread extends DataClass
+    implements Insertable<StoredCoachThread> {
   /// Opaque sign-in namespace. No token or personal identifier is stored here.
   final String scope;
 
@@ -3001,7 +3002,7 @@ class CoachThread extends DataClass implements Insertable<CoachThread> {
 
   /// How many turns it holds, for the same reason.
   final int turns;
-  const CoachThread({
+  const StoredCoachThread({
     required this.scope,
     required this.id,
     required this.startedAt,
@@ -3021,8 +3022,8 @@ class CoachThread extends DataClass implements Insertable<CoachThread> {
     return map;
   }
 
-  CoachThreadsCompanion toCompanion(bool nullToAbsent) {
-    return CoachThreadsCompanion(
+  StoredCoachThreadsCompanion toCompanion(bool nullToAbsent) {
+    return StoredCoachThreadsCompanion(
       scope: Value(scope),
       id: Value(id),
       startedAt: Value(startedAt),
@@ -3032,12 +3033,12 @@ class CoachThread extends DataClass implements Insertable<CoachThread> {
     );
   }
 
-  factory CoachThread.fromJson(
+  factory StoredCoachThread.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return CoachThread(
+    return StoredCoachThread(
       scope: serializer.fromJson<String>(json['scope']),
       id: serializer.fromJson<String>(json['id']),
       startedAt: serializer.fromJson<DateTime>(json['startedAt']),
@@ -3059,14 +3060,14 @@ class CoachThread extends DataClass implements Insertable<CoachThread> {
     };
   }
 
-  CoachThread copyWith({
+  StoredCoachThread copyWith({
     String? scope,
     String? id,
     DateTime? startedAt,
     DateTime? lastAt,
     String? opening,
     int? turns,
-  }) => CoachThread(
+  }) => StoredCoachThread(
     scope: scope ?? this.scope,
     id: id ?? this.id,
     startedAt: startedAt ?? this.startedAt,
@@ -3074,8 +3075,8 @@ class CoachThread extends DataClass implements Insertable<CoachThread> {
     opening: opening ?? this.opening,
     turns: turns ?? this.turns,
   );
-  CoachThread copyWithCompanion(CoachThreadsCompanion data) {
-    return CoachThread(
+  StoredCoachThread copyWithCompanion(StoredCoachThreadsCompanion data) {
+    return StoredCoachThread(
       scope: data.scope.present ? data.scope.value : this.scope,
       id: data.id.present ? data.id.value : this.id,
       startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
@@ -3087,7 +3088,7 @@ class CoachThread extends DataClass implements Insertable<CoachThread> {
 
   @override
   String toString() {
-    return (StringBuffer('CoachThread(')
+    return (StringBuffer('StoredCoachThread(')
           ..write('scope: $scope, ')
           ..write('id: $id, ')
           ..write('startedAt: $startedAt, ')
@@ -3103,7 +3104,7 @@ class CoachThread extends DataClass implements Insertable<CoachThread> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is CoachThread &&
+      (other is StoredCoachThread &&
           other.scope == this.scope &&
           other.id == this.id &&
           other.startedAt == this.startedAt &&
@@ -3112,7 +3113,7 @@ class CoachThread extends DataClass implements Insertable<CoachThread> {
           other.turns == this.turns);
 }
 
-class CoachThreadsCompanion extends UpdateCompanion<CoachThread> {
+class StoredCoachThreadsCompanion extends UpdateCompanion<StoredCoachThread> {
   final Value<String> scope;
   final Value<String> id;
   final Value<DateTime> startedAt;
@@ -3120,7 +3121,7 @@ class CoachThreadsCompanion extends UpdateCompanion<CoachThread> {
   final Value<String> opening;
   final Value<int> turns;
   final Value<int> rowid;
-  const CoachThreadsCompanion({
+  const StoredCoachThreadsCompanion({
     this.scope = const Value.absent(),
     this.id = const Value.absent(),
     this.startedAt = const Value.absent(),
@@ -3129,7 +3130,7 @@ class CoachThreadsCompanion extends UpdateCompanion<CoachThread> {
     this.turns = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  CoachThreadsCompanion.insert({
+  StoredCoachThreadsCompanion.insert({
     this.scope = const Value.absent(),
     required String id,
     required DateTime startedAt,
@@ -3141,7 +3142,7 @@ class CoachThreadsCompanion extends UpdateCompanion<CoachThread> {
        startedAt = Value(startedAt),
        lastAt = Value(lastAt),
        opening = Value(opening);
-  static Insertable<CoachThread> custom({
+  static Insertable<StoredCoachThread> custom({
     Expression<String>? scope,
     Expression<String>? id,
     Expression<DateTime>? startedAt,
@@ -3161,7 +3162,7 @@ class CoachThreadsCompanion extends UpdateCompanion<CoachThread> {
     });
   }
 
-  CoachThreadsCompanion copyWith({
+  StoredCoachThreadsCompanion copyWith({
     Value<String>? scope,
     Value<String>? id,
     Value<DateTime>? startedAt,
@@ -3170,7 +3171,7 @@ class CoachThreadsCompanion extends UpdateCompanion<CoachThread> {
     Value<int>? turns,
     Value<int>? rowid,
   }) {
-    return CoachThreadsCompanion(
+    return StoredCoachThreadsCompanion(
       scope: scope ?? this.scope,
       id: id ?? this.id,
       startedAt: startedAt ?? this.startedAt,
@@ -3210,7 +3211,7 @@ class CoachThreadsCompanion extends UpdateCompanion<CoachThread> {
 
   @override
   String toString() {
-    return (StringBuffer('CoachThreadsCompanion(')
+    return (StringBuffer('StoredCoachThreadsCompanion(')
           ..write('scope: $scope, ')
           ..write('id: $id, ')
           ..write('startedAt: $startedAt, ')
@@ -3223,12 +3224,12 @@ class CoachThreadsCompanion extends UpdateCompanion<CoachThread> {
   }
 }
 
-class $CoachTurnsTable extends CoachTurns
-    with TableInfo<$CoachTurnsTable, CoachTurn> {
+class $StoredCoachTurnsTable extends StoredCoachTurns
+    with TableInfo<$StoredCoachTurnsTable, StoredCoachTurn> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $CoachTurnsTable(this.attachedDatabase, [this._alias]);
+  $StoredCoachTurnsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _scopeMeta = const VerificationMeta('scope');
   @override
   late final GeneratedColumn<String> scope = GeneratedColumn<String>(
@@ -3301,10 +3302,10 @@ class $CoachTurnsTable extends CoachTurns
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'coach_turns';
+  static const String $name = 'stored_coach_turns';
   @override
   VerificationContext validateIntegrity(
-    Insertable<CoachTurn> instance, {
+    Insertable<StoredCoachTurn> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -3358,9 +3359,9 @@ class $CoachTurnsTable extends CoachTurns
   @override
   Set<GeneratedColumn> get $primaryKey => {scope, threadId, seq};
   @override
-  CoachTurn map(Map<String, dynamic> data, {String? tablePrefix}) {
+  StoredCoachTurn map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return CoachTurn(
+    return StoredCoachTurn(
       scope: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}scope'],
@@ -3389,12 +3390,12 @@ class $CoachTurnsTable extends CoachTurns
   }
 
   @override
-  $CoachTurnsTable createAlias(String alias) {
-    return $CoachTurnsTable(attachedDatabase, alias);
+  $StoredCoachTurnsTable createAlias(String alias) {
+    return $StoredCoachTurnsTable(attachedDatabase, alias);
   }
 }
 
-class CoachTurn extends DataClass implements Insertable<CoachTurn> {
+class StoredCoachTurn extends DataClass implements Insertable<StoredCoachTurn> {
   /// The sign-in that owns it.
   final String scope;
 
@@ -3419,7 +3420,7 @@ class CoachTurn extends DataClass implements Insertable<CoachTurn> {
 
   /// When it was added.
   final DateTime at;
-  const CoachTurn({
+  const StoredCoachTurn({
     required this.scope,
     required this.threadId,
     required this.seq,
@@ -3439,8 +3440,8 @@ class CoachTurn extends DataClass implements Insertable<CoachTurn> {
     return map;
   }
 
-  CoachTurnsCompanion toCompanion(bool nullToAbsent) {
-    return CoachTurnsCompanion(
+  StoredCoachTurnsCompanion toCompanion(bool nullToAbsent) {
+    return StoredCoachTurnsCompanion(
       scope: Value(scope),
       threadId: Value(threadId),
       seq: Value(seq),
@@ -3450,12 +3451,12 @@ class CoachTurn extends DataClass implements Insertable<CoachTurn> {
     );
   }
 
-  factory CoachTurn.fromJson(
+  factory StoredCoachTurn.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return CoachTurn(
+    return StoredCoachTurn(
       scope: serializer.fromJson<String>(json['scope']),
       threadId: serializer.fromJson<String>(json['threadId']),
       seq: serializer.fromJson<int>(json['seq']),
@@ -3477,14 +3478,14 @@ class CoachTurn extends DataClass implements Insertable<CoachTurn> {
     };
   }
 
-  CoachTurn copyWith({
+  StoredCoachTurn copyWith({
     String? scope,
     String? threadId,
     int? seq,
     String? kind,
     String? payload,
     DateTime? at,
-  }) => CoachTurn(
+  }) => StoredCoachTurn(
     scope: scope ?? this.scope,
     threadId: threadId ?? this.threadId,
     seq: seq ?? this.seq,
@@ -3492,8 +3493,8 @@ class CoachTurn extends DataClass implements Insertable<CoachTurn> {
     payload: payload ?? this.payload,
     at: at ?? this.at,
   );
-  CoachTurn copyWithCompanion(CoachTurnsCompanion data) {
-    return CoachTurn(
+  StoredCoachTurn copyWithCompanion(StoredCoachTurnsCompanion data) {
+    return StoredCoachTurn(
       scope: data.scope.present ? data.scope.value : this.scope,
       threadId: data.threadId.present ? data.threadId.value : this.threadId,
       seq: data.seq.present ? data.seq.value : this.seq,
@@ -3505,7 +3506,7 @@ class CoachTurn extends DataClass implements Insertable<CoachTurn> {
 
   @override
   String toString() {
-    return (StringBuffer('CoachTurn(')
+    return (StringBuffer('StoredCoachTurn(')
           ..write('scope: $scope, ')
           ..write('threadId: $threadId, ')
           ..write('seq: $seq, ')
@@ -3521,7 +3522,7 @@ class CoachTurn extends DataClass implements Insertable<CoachTurn> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is CoachTurn &&
+      (other is StoredCoachTurn &&
           other.scope == this.scope &&
           other.threadId == this.threadId &&
           other.seq == this.seq &&
@@ -3530,7 +3531,7 @@ class CoachTurn extends DataClass implements Insertable<CoachTurn> {
           other.at == this.at);
 }
 
-class CoachTurnsCompanion extends UpdateCompanion<CoachTurn> {
+class StoredCoachTurnsCompanion extends UpdateCompanion<StoredCoachTurn> {
   final Value<String> scope;
   final Value<String> threadId;
   final Value<int> seq;
@@ -3538,7 +3539,7 @@ class CoachTurnsCompanion extends UpdateCompanion<CoachTurn> {
   final Value<String> payload;
   final Value<DateTime> at;
   final Value<int> rowid;
-  const CoachTurnsCompanion({
+  const StoredCoachTurnsCompanion({
     this.scope = const Value.absent(),
     this.threadId = const Value.absent(),
     this.seq = const Value.absent(),
@@ -3547,7 +3548,7 @@ class CoachTurnsCompanion extends UpdateCompanion<CoachTurn> {
     this.at = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  CoachTurnsCompanion.insert({
+  StoredCoachTurnsCompanion.insert({
     this.scope = const Value.absent(),
     required String threadId,
     required int seq,
@@ -3560,7 +3561,7 @@ class CoachTurnsCompanion extends UpdateCompanion<CoachTurn> {
        kind = Value(kind),
        payload = Value(payload),
        at = Value(at);
-  static Insertable<CoachTurn> custom({
+  static Insertable<StoredCoachTurn> custom({
     Expression<String>? scope,
     Expression<String>? threadId,
     Expression<int>? seq,
@@ -3580,7 +3581,7 @@ class CoachTurnsCompanion extends UpdateCompanion<CoachTurn> {
     });
   }
 
-  CoachTurnsCompanion copyWith({
+  StoredCoachTurnsCompanion copyWith({
     Value<String>? scope,
     Value<String>? threadId,
     Value<int>? seq,
@@ -3589,7 +3590,7 @@ class CoachTurnsCompanion extends UpdateCompanion<CoachTurn> {
     Value<DateTime>? at,
     Value<int>? rowid,
   }) {
-    return CoachTurnsCompanion(
+    return StoredCoachTurnsCompanion(
       scope: scope ?? this.scope,
       threadId: threadId ?? this.threadId,
       seq: seq ?? this.seq,
@@ -3629,7 +3630,7 @@ class CoachTurnsCompanion extends UpdateCompanion<CoachTurn> {
 
   @override
   String toString() {
-    return (StringBuffer('CoachTurnsCompanion(')
+    return (StringBuffer('StoredCoachTurnsCompanion(')
           ..write('scope: $scope, ')
           ..write('threadId: $threadId, ')
           ..write('seq: $seq, ')
@@ -4472,8 +4473,11 @@ abstract class _$LocalStore extends GeneratedDatabase {
   late final $StoredWorkoutsTable storedWorkouts = $StoredWorkoutsTable(this);
   late final $DeviceTotalsTable deviceTotals = $DeviceTotalsTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
-  late final $CoachThreadsTable coachThreads = $CoachThreadsTable(this);
-  late final $CoachTurnsTable coachTurns = $CoachTurnsTable(this);
+  late final $StoredCoachThreadsTable storedCoachThreads =
+      $StoredCoachThreadsTable(this);
+  late final $StoredCoachTurnsTable storedCoachTurns = $StoredCoachTurnsTable(
+    this,
+  );
   late final $GpsRecordingsTable gpsRecordings = $GpsRecordingsTable(this);
   late final $GpsFixesTable gpsFixes = $GpsFixesTable(this);
   late final StrapWriter strapWriter = StrapWriter(this as LocalStore);
@@ -4491,8 +4495,8 @@ abstract class _$LocalStore extends GeneratedDatabase {
     storedWorkouts,
     deviceTotals,
     syncMeta,
-    coachThreads,
-    coachTurns,
+    storedCoachThreads,
+    storedCoachTurns,
     gpsRecordings,
     gpsFixes,
   ];
@@ -5893,8 +5897,8 @@ typedef $$SyncMetaTableProcessedTableManager =
       SyncMetaRow,
       PrefetchHooks Function()
     >;
-typedef $$CoachThreadsTableCreateCompanionBuilder =
-    CoachThreadsCompanion Function({
+typedef $$StoredCoachThreadsTableCreateCompanionBuilder =
+    StoredCoachThreadsCompanion Function({
       Value<String> scope,
       required String id,
       required DateTime startedAt,
@@ -5903,8 +5907,8 @@ typedef $$CoachThreadsTableCreateCompanionBuilder =
       Value<int> turns,
       Value<int> rowid,
     });
-typedef $$CoachThreadsTableUpdateCompanionBuilder =
-    CoachThreadsCompanion Function({
+typedef $$StoredCoachThreadsTableUpdateCompanionBuilder =
+    StoredCoachThreadsCompanion Function({
       Value<String> scope,
       Value<String> id,
       Value<DateTime> startedAt,
@@ -5914,9 +5918,9 @@ typedef $$CoachThreadsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
-class $$CoachThreadsTableFilterComposer
-    extends Composer<_$LocalStore, $CoachThreadsTable> {
-  $$CoachThreadsTableFilterComposer({
+class $$StoredCoachThreadsTableFilterComposer
+    extends Composer<_$LocalStore, $StoredCoachThreadsTable> {
+  $$StoredCoachThreadsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -5954,9 +5958,9 @@ class $$CoachThreadsTableFilterComposer
   );
 }
 
-class $$CoachThreadsTableOrderingComposer
-    extends Composer<_$LocalStore, $CoachThreadsTable> {
-  $$CoachThreadsTableOrderingComposer({
+class $$StoredCoachThreadsTableOrderingComposer
+    extends Composer<_$LocalStore, $StoredCoachThreadsTable> {
+  $$StoredCoachThreadsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -5994,9 +5998,9 @@ class $$CoachThreadsTableOrderingComposer
   );
 }
 
-class $$CoachThreadsTableAnnotationComposer
-    extends Composer<_$LocalStore, $CoachThreadsTable> {
-  $$CoachThreadsTableAnnotationComposer({
+class $$StoredCoachThreadsTableAnnotationComposer
+    extends Composer<_$LocalStore, $StoredCoachThreadsTable> {
+  $$StoredCoachThreadsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -6022,35 +6026,44 @@ class $$CoachThreadsTableAnnotationComposer
       $composableBuilder(column: $table.turns, builder: (column) => column);
 }
 
-class $$CoachThreadsTableTableManager
+class $$StoredCoachThreadsTableTableManager
     extends
         RootTableManager<
           _$LocalStore,
-          $CoachThreadsTable,
-          CoachThread,
-          $$CoachThreadsTableFilterComposer,
-          $$CoachThreadsTableOrderingComposer,
-          $$CoachThreadsTableAnnotationComposer,
-          $$CoachThreadsTableCreateCompanionBuilder,
-          $$CoachThreadsTableUpdateCompanionBuilder,
+          $StoredCoachThreadsTable,
+          StoredCoachThread,
+          $$StoredCoachThreadsTableFilterComposer,
+          $$StoredCoachThreadsTableOrderingComposer,
+          $$StoredCoachThreadsTableAnnotationComposer,
+          $$StoredCoachThreadsTableCreateCompanionBuilder,
+          $$StoredCoachThreadsTableUpdateCompanionBuilder,
           (
-            CoachThread,
-            BaseReferences<_$LocalStore, $CoachThreadsTable, CoachThread>,
+            StoredCoachThread,
+            BaseReferences<
+              _$LocalStore,
+              $StoredCoachThreadsTable,
+              StoredCoachThread
+            >,
           ),
-          CoachThread,
+          StoredCoachThread,
           PrefetchHooks Function()
         > {
-  $$CoachThreadsTableTableManager(_$LocalStore db, $CoachThreadsTable table)
-    : super(
+  $$StoredCoachThreadsTableTableManager(
+    _$LocalStore db,
+    $StoredCoachThreadsTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$CoachThreadsTableFilterComposer($db: db, $table: table),
+              $$StoredCoachThreadsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$CoachThreadsTableOrderingComposer($db: db, $table: table),
+              $$StoredCoachThreadsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$CoachThreadsTableAnnotationComposer($db: db, $table: table),
+              $$StoredCoachThreadsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
           updateCompanionCallback:
               ({
                 Value<String> scope = const Value.absent(),
@@ -6060,7 +6073,7 @@ class $$CoachThreadsTableTableManager
                 Value<String> opening = const Value.absent(),
                 Value<int> turns = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => CoachThreadsCompanion(
+              }) => StoredCoachThreadsCompanion(
                 scope: scope,
                 id: id,
                 startedAt: startedAt,
@@ -6078,7 +6091,7 @@ class $$CoachThreadsTableTableManager
                 required String opening,
                 Value<int> turns = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => CoachThreadsCompanion.insert(
+              }) => StoredCoachThreadsCompanion.insert(
                 scope: scope,
                 id: id,
                 startedAt: startedAt,
@@ -6095,25 +6108,29 @@ class $$CoachThreadsTableTableManager
       );
 }
 
-typedef $$CoachThreadsTableProcessedTableManager =
+typedef $$StoredCoachThreadsTableProcessedTableManager =
     ProcessedTableManager<
       _$LocalStore,
-      $CoachThreadsTable,
-      CoachThread,
-      $$CoachThreadsTableFilterComposer,
-      $$CoachThreadsTableOrderingComposer,
-      $$CoachThreadsTableAnnotationComposer,
-      $$CoachThreadsTableCreateCompanionBuilder,
-      $$CoachThreadsTableUpdateCompanionBuilder,
+      $StoredCoachThreadsTable,
+      StoredCoachThread,
+      $$StoredCoachThreadsTableFilterComposer,
+      $$StoredCoachThreadsTableOrderingComposer,
+      $$StoredCoachThreadsTableAnnotationComposer,
+      $$StoredCoachThreadsTableCreateCompanionBuilder,
+      $$StoredCoachThreadsTableUpdateCompanionBuilder,
       (
-        CoachThread,
-        BaseReferences<_$LocalStore, $CoachThreadsTable, CoachThread>,
+        StoredCoachThread,
+        BaseReferences<
+          _$LocalStore,
+          $StoredCoachThreadsTable,
+          StoredCoachThread
+        >,
       ),
-      CoachThread,
+      StoredCoachThread,
       PrefetchHooks Function()
     >;
-typedef $$CoachTurnsTableCreateCompanionBuilder =
-    CoachTurnsCompanion Function({
+typedef $$StoredCoachTurnsTableCreateCompanionBuilder =
+    StoredCoachTurnsCompanion Function({
       Value<String> scope,
       required String threadId,
       required int seq,
@@ -6122,8 +6139,8 @@ typedef $$CoachTurnsTableCreateCompanionBuilder =
       required DateTime at,
       Value<int> rowid,
     });
-typedef $$CoachTurnsTableUpdateCompanionBuilder =
-    CoachTurnsCompanion Function({
+typedef $$StoredCoachTurnsTableUpdateCompanionBuilder =
+    StoredCoachTurnsCompanion Function({
       Value<String> scope,
       Value<String> threadId,
       Value<int> seq,
@@ -6133,9 +6150,9 @@ typedef $$CoachTurnsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
-class $$CoachTurnsTableFilterComposer
-    extends Composer<_$LocalStore, $CoachTurnsTable> {
-  $$CoachTurnsTableFilterComposer({
+class $$StoredCoachTurnsTableFilterComposer
+    extends Composer<_$LocalStore, $StoredCoachTurnsTable> {
+  $$StoredCoachTurnsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -6173,9 +6190,9 @@ class $$CoachTurnsTableFilterComposer
   );
 }
 
-class $$CoachTurnsTableOrderingComposer
-    extends Composer<_$LocalStore, $CoachTurnsTable> {
-  $$CoachTurnsTableOrderingComposer({
+class $$StoredCoachTurnsTableOrderingComposer
+    extends Composer<_$LocalStore, $StoredCoachTurnsTable> {
+  $$StoredCoachTurnsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -6213,9 +6230,9 @@ class $$CoachTurnsTableOrderingComposer
   );
 }
 
-class $$CoachTurnsTableAnnotationComposer
-    extends Composer<_$LocalStore, $CoachTurnsTable> {
-  $$CoachTurnsTableAnnotationComposer({
+class $$StoredCoachTurnsTableAnnotationComposer
+    extends Composer<_$LocalStore, $StoredCoachTurnsTable> {
+  $$StoredCoachTurnsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -6241,35 +6258,41 @@ class $$CoachTurnsTableAnnotationComposer
       $composableBuilder(column: $table.at, builder: (column) => column);
 }
 
-class $$CoachTurnsTableTableManager
+class $$StoredCoachTurnsTableTableManager
     extends
         RootTableManager<
           _$LocalStore,
-          $CoachTurnsTable,
-          CoachTurn,
-          $$CoachTurnsTableFilterComposer,
-          $$CoachTurnsTableOrderingComposer,
-          $$CoachTurnsTableAnnotationComposer,
-          $$CoachTurnsTableCreateCompanionBuilder,
-          $$CoachTurnsTableUpdateCompanionBuilder,
+          $StoredCoachTurnsTable,
+          StoredCoachTurn,
+          $$StoredCoachTurnsTableFilterComposer,
+          $$StoredCoachTurnsTableOrderingComposer,
+          $$StoredCoachTurnsTableAnnotationComposer,
+          $$StoredCoachTurnsTableCreateCompanionBuilder,
+          $$StoredCoachTurnsTableUpdateCompanionBuilder,
           (
-            CoachTurn,
-            BaseReferences<_$LocalStore, $CoachTurnsTable, CoachTurn>,
+            StoredCoachTurn,
+            BaseReferences<
+              _$LocalStore,
+              $StoredCoachTurnsTable,
+              StoredCoachTurn
+            >,
           ),
-          CoachTurn,
+          StoredCoachTurn,
           PrefetchHooks Function()
         > {
-  $$CoachTurnsTableTableManager(_$LocalStore db, $CoachTurnsTable table)
-    : super(
+  $$StoredCoachTurnsTableTableManager(
+    _$LocalStore db,
+    $StoredCoachTurnsTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$CoachTurnsTableFilterComposer($db: db, $table: table),
+              $$StoredCoachTurnsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$CoachTurnsTableOrderingComposer($db: db, $table: table),
+              $$StoredCoachTurnsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$CoachTurnsTableAnnotationComposer($db: db, $table: table),
+              $$StoredCoachTurnsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<String> scope = const Value.absent(),
@@ -6279,7 +6302,7 @@ class $$CoachTurnsTableTableManager
                 Value<String> payload = const Value.absent(),
                 Value<DateTime> at = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => CoachTurnsCompanion(
+              }) => StoredCoachTurnsCompanion(
                 scope: scope,
                 threadId: threadId,
                 seq: seq,
@@ -6297,7 +6320,7 @@ class $$CoachTurnsTableTableManager
                 required String payload,
                 required DateTime at,
                 Value<int> rowid = const Value.absent(),
-              }) => CoachTurnsCompanion.insert(
+              }) => StoredCoachTurnsCompanion.insert(
                 scope: scope,
                 threadId: threadId,
                 seq: seq,
@@ -6314,18 +6337,21 @@ class $$CoachTurnsTableTableManager
       );
 }
 
-typedef $$CoachTurnsTableProcessedTableManager =
+typedef $$StoredCoachTurnsTableProcessedTableManager =
     ProcessedTableManager<
       _$LocalStore,
-      $CoachTurnsTable,
-      CoachTurn,
-      $$CoachTurnsTableFilterComposer,
-      $$CoachTurnsTableOrderingComposer,
-      $$CoachTurnsTableAnnotationComposer,
-      $$CoachTurnsTableCreateCompanionBuilder,
-      $$CoachTurnsTableUpdateCompanionBuilder,
-      (CoachTurn, BaseReferences<_$LocalStore, $CoachTurnsTable, CoachTurn>),
-      CoachTurn,
+      $StoredCoachTurnsTable,
+      StoredCoachTurn,
+      $$StoredCoachTurnsTableFilterComposer,
+      $$StoredCoachTurnsTableOrderingComposer,
+      $$StoredCoachTurnsTableAnnotationComposer,
+      $$StoredCoachTurnsTableCreateCompanionBuilder,
+      $$StoredCoachTurnsTableUpdateCompanionBuilder,
+      (
+        StoredCoachTurn,
+        BaseReferences<_$LocalStore, $StoredCoachTurnsTable, StoredCoachTurn>,
+      ),
+      StoredCoachTurn,
       PrefetchHooks Function()
     >;
 typedef $$GpsRecordingsTableCreateCompanionBuilder =
@@ -6778,10 +6804,10 @@ class $LocalStoreManager {
       $$DeviceTotalsTableTableManager(_db, _db.deviceTotals);
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
-  $$CoachThreadsTableTableManager get coachThreads =>
-      $$CoachThreadsTableTableManager(_db, _db.coachThreads);
-  $$CoachTurnsTableTableManager get coachTurns =>
-      $$CoachTurnsTableTableManager(_db, _db.coachTurns);
+  $$StoredCoachThreadsTableTableManager get storedCoachThreads =>
+      $$StoredCoachThreadsTableTableManager(_db, _db.storedCoachThreads);
+  $$StoredCoachTurnsTableTableManager get storedCoachTurns =>
+      $$StoredCoachTurnsTableTableManager(_db, _db.storedCoachTurns);
   $$GpsRecordingsTableTableManager get gpsRecordings =>
       $$GpsRecordingsTableTableManager(_db, _db.gpsRecordings);
   $$GpsFixesTableTableManager get gpsFixes =>

@@ -253,16 +253,19 @@ void main() {
       expect(_indexOf<SleepWeekPanel>(oneNight), -1);
     });
 
-    test('two hours is not a day, and the linked chart is not drawn for it', () {
-      final thin = sections(
-        mutate: (json) => {
-          ...json,
-          'today_hr_series': const <Object?>[],
-          'today_stress_series': const <Object?>[],
-        },
-      );
-      expect(_indexOf<HeartStressPanel>(thin), -1);
-    });
+    test(
+      'two hours is not a day, and the linked chart is not drawn for it',
+      () {
+        final thin = sections(
+          mutate: (json) => {
+            ...json,
+            'today_hr_series': const <Object?>[],
+            'today_stress_series': const <Object?>[],
+          },
+        );
+        expect(_indexOf<HeartStressPanel>(thin), -1);
+      },
+    );
 
     test('no recommendations means no suggested-actions block at all', () {
       final none = sections(
@@ -285,10 +288,7 @@ void main() {
 
     test('nothing logged means no journal panel', () {
       final none = sections(
-        mutate: (json) => {
-          ...json,
-          'routine': const <String, Object?>{},
-        },
+        mutate: (json) => {...json, 'routine': const <String, Object?>{}},
       );
       expect(_indexOf<JournalPanel>(none), -1);
     });

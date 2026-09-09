@@ -19,7 +19,6 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
@@ -28,6 +27,7 @@ import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/shared/format/note_names.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
+import '_coach_overrides.dart';
 
 /// The client's own sentence for a request that never left the phone.
 const String kUnreachable = "Couldn't reach your server. Nothing was spent.";
@@ -103,8 +103,8 @@ class _ScriptedCoach implements CoachClient {
   }
 }
 
-Widget _screen(CoachClient client, {String? topic}) => ProviderScope(
-  overrides: [coachClientProvider.overrideWithValue(client)],
+Widget _screen(CoachClient client, {String? topic}) => coachScope(
+  client: client,
   child: MaterialApp(
     theme: AppTheme.light,
     home: CoachScreen(topic: topic, now: _now),

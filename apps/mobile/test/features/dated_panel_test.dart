@@ -88,9 +88,7 @@ void main() {
   });
 
   testWidgets('one reading is a sample, not samples', (tester) async {
-    await tester.pumpWidget(
-      _host('rhr_daily', 'bpm', '2026-03-11', days: 1),
-    );
+    await tester.pumpWidget(_host('rhr_daily', 'bpm', '2026-03-11', days: 1));
     expect(find.text('1 dated sample through 11 Mar.'), findsOneWidget);
   });
 
@@ -154,16 +152,21 @@ void main() {
       expect(
         unservedBody(const <String>[kUnservedSleepEfficiency]),
         'Your sleep efficiency is measured on the night itself, but your '
-            'server keeps no day-by-day series for it, so there is nothing '
-            'dated to chart. Sleep holds this night’s own reading.',
+        'server keeps no day-by-day series for it, so there is nothing '
+        'dated to chart. Sleep holds this night’s own reading.',
       );
       final three = unservedBody(const <String>[
         kUnservedSleepDuration,
         kUnservedSleepEfficiency,
         kUnservedSkinTemperature,
       ]);
-      expect(three, contains('sleep duration, sleep efficiency and skin '
-          'temperature are measured'));
+      expect(
+        three,
+        contains(
+          'sleep duration, sleep efficiency and skin '
+          'temperature are measured',
+        ),
+      );
       expect(three, contains('for them'));
       expect(three, contains('own readings'));
     });
@@ -179,7 +182,10 @@ void main() {
     final window = HistoryWindow.endingOn(_holed, '2026-03-11', 5);
     expect(datedPanelNote(window, '2026-03-11'), contains('3 dated samples'));
     expect(
-      datedPanelNote(HistoryWindow.endingOn(_holed, '2026-03-01', 5), '2026-03-01'),
+      datedPanelNote(
+        HistoryWindow.endingOn(_holed, '2026-03-01', 5),
+        '2026-03-01',
+      ),
       'No dated samples through 1 Mar.',
     );
   });

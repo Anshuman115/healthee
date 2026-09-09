@@ -99,8 +99,16 @@ void main() {
         ),
         const ActivityExtras(),
       );
-      expect(_has<PastDayNotice>(past), isFalse, reason: 'nothing left to refuse');
-      expect(_has<ReadingView<Vo2max>>(past), isTrue, reason: 'VO₂max as of that day');
+      expect(
+        _has<PastDayNotice>(past),
+        isFalse,
+        reason: 'nothing left to refuse',
+      );
+      expect(
+        _has<ReadingView<Vo2max>>(past),
+        isTrue,
+        reason: 'VO₂max as of that day',
+      );
       // The strap's own counts are stored per calendar day, so they stay.
       expect(_has<MovementPanel>(past), isTrue);
     });
@@ -144,17 +152,18 @@ void main() {
       // runs to 4 August and the header says 1 August, so a window taken from the
       // newest reading would put three days of the reader's future on screen
       // under an older date — and the panel's own figure would be one of them.
-      final panel = activitySections(
-            screenData(
-              day: DeviceDay.empty(_past),
-              server: todayViewFor(_past, today: todayDate),
-              history: _spanning,
-            ),
-            const ActivityExtras(),
-          )
-          .map((section) => section.child)
-          .whereType<DatedPanel>()
-          .firstWhere((panel) => panel.metric == 'steps_total');
+      final panel =
+          activitySections(
+                screenData(
+                  day: DeviceDay.empty(_past),
+                  server: todayViewFor(_past, today: todayDate),
+                  history: _spanning,
+                ),
+                const ActivityExtras(),
+              )
+              .map((section) => section.child)
+              .whereType<DatedPanel>()
+              .firstWhere((panel) => panel.metric == 'steps_total');
 
       expect(panel.window.days.last, _past);
       expect(panel.window.on(_past), 5200);

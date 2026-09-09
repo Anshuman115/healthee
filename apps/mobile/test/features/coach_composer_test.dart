@@ -13,7 +13,6 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
@@ -21,6 +20,8 @@ import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/coach/v02/coach_openers.dart';
+
+import '_coach_overrides.dart';
 
 final DateTime _now = DateTime(2026, 8, 5, 9);
 
@@ -77,8 +78,8 @@ class _ScriptedCoach implements CoachClient {
   }
 }
 
-Widget _screen(CoachClient client, {String? topic}) => ProviderScope(
-  overrides: [coachClientProvider.overrideWithValue(client)],
+Widget _screen(CoachClient client, {String? topic}) => coachScope(
+  client: client,
   child: MaterialApp(
     theme: AppTheme.light,
     home: CoachScreen(topic: topic, now: _now),

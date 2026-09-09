@@ -43,27 +43,33 @@ TodayFacts _facts({
 }
 
 void main() {
-  test('THE PREMISE — the wire has the numbers and the metrics array has not', () {
-    // If this ever fails it is good news: the server started sending the cards.
-    final json = loadTodayJson();
-    final ids = <String>[
-      for (final card in json['metrics']! as List<Object?>)
-        (card! as Map<String, Object?>)['metric']! as String,
-    ];
-    expect(ids, isNot(contains('respiratory_rate_sleep')));
-    expect(ids, isNot(contains('spo2_overnight')));
-    expect(ids, isNot(contains('spo2_sleep_avg')));
+  test(
+    'THE PREMISE — the wire has the numbers and the metrics array has not',
+    () {
+      // If this ever fails it is good news: the server started sending the cards.
+      final json = loadTodayJson();
+      final ids = <String>[
+        for (final card in json['metrics']! as List<Object?>)
+          (card! as Map<String, Object?>)['metric']! as String,
+      ];
+      expect(ids, isNot(contains('respiratory_rate_sleep')));
+      expect(ids, isNot(contains('spo2_overnight')));
+      expect(ids, isNot(contains('spo2_sleep_avg')));
 
-    final extras = json['last_sleep_extras']! as Map<String, Object?>;
-    expect(extras['respiratory_rate'], isNotNull);
-    expect(extras['spo2_avg'], isNotNull);
-  });
+      final extras = json['last_sleep_extras']! as Map<String, Object?>;
+      expect(extras['respiratory_rate'], isNotNull);
+      expect(extras['spo2_avg'], isNotNull);
+    },
+  );
 
-  test('BOTH TILES CARRY A VALUE — they were withheld on this exact payload', () {
-    final facts = _facts();
-    expect(facts.respiratoryRate.valueOrNull, 14);
-    expect(facts.bloodOxygen.valueOrNull, 97);
-  });
+  test(
+    'BOTH TILES CARRY A VALUE — they were withheld on this exact payload',
+    () {
+      final facts = _facts();
+      expect(facts.respiratoryRate.valueOrNull, 14);
+      expect(facts.bloodOxygen.valueOrNull, 97);
+    },
+  );
 
   test('MUTATION — remove the overnight block and both go back to withheld', () {
     // This is the assertion that makes the one above mean something. Deleting

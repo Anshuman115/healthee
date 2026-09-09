@@ -20,7 +20,6 @@ import 'package:healthee/shared/app_tab_bar.dart';
 
 import '_today_host.dart';
 
-
 void main() {
   late LocalStore store;
 
@@ -54,7 +53,8 @@ void main() {
     expect(
       find.text('Coach'),
       findsNothing,
-      reason: 'it is a button on Today and a sheet behind it, not a destination',
+      reason:
+          'it is a button on Today and a sheet behind it, not a destination',
     );
   });
 

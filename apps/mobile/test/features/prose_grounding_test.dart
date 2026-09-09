@@ -166,7 +166,10 @@ void main() {
         analysis,
         alsoCites: const <String>['vo2max'],
       );
-      expect(detailIn(tester, find.byType(SleepAnalysisPanel)).grade, 'Probable');
+      expect(
+        detailIn(tester, find.byType(SleepAnalysisPanel)).grade,
+        'Probable',
+      );
     });
 
     testWidgets('Insights’ notable days', (tester) async {
@@ -178,20 +181,17 @@ void main() {
           overrides: [
             notableEventsProvider.overrideWith(
               (ref) => Stream<ServerSnapshot<List<NotableEvent>>>.value(
-                ServerSnapshot<List<NotableEvent>>(
-                  <NotableEvent>[
-                    const NotableEvent(
-                      day: '2026-08-05',
-                      metric: 'hrv_sleep_avg',
-                      label: 'Overnight HRV',
-                      value: 41,
-                      median: 55,
-                      meaning: meaning,
-                      notes: <String>['vo2max'],
-                    ),
-                  ],
-                  fetchedAt: DateTime(2026, 8, 5),
-                ),
+                ServerSnapshot<List<NotableEvent>>(<NotableEvent>[
+                  const NotableEvent(
+                    day: '2026-08-05',
+                    metric: 'hrv_sleep_avg',
+                    label: 'Overnight HRV',
+                    value: 41,
+                    median: 55,
+                    meaning: meaning,
+                    notes: <String>['vo2max'],
+                  ),
+                ], fetchedAt: DateTime(2026, 8, 5)),
               ),
             ),
           ],
@@ -240,11 +240,7 @@ void main() {
     });
 
     testWidgets('the coach bubble', (tester) async {
-      await pumpAt(
-        tester,
-        390,
-        CoachEntryView(entry: CoachReply(kAnswer)),
-      );
+      await pumpAt(tester, 390, CoachEntryView(entry: CoachReply(kAnswer)));
 
       expectGrounds(
         tester,

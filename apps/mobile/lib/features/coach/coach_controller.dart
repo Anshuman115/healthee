@@ -22,8 +22,15 @@
 /// app: the surface has a running cost attached to it.
 library;
 
+import 'dart:async';
+import 'dart:math';
+
 import 'package:healthee/core/logging.dart';
+import 'package:healthee/data/api/cache_session.dart';
+import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/coach/coach_client.dart';
+import 'package:healthee/data/coach/coach_history_store.dart';
+import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/features/coach/coach_conversation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -33,6 +40,13 @@ part 'coach_controller.g.dart';
 @Riverpod(keepAlive: true)
 class CoachController extends _$CoachController {
   int _generation = 0;
+
+  /// This conversation's id, minted when its first question is asked.
+  ///
+  /// Null until then, so an empty thread the owner opened and left writes no row
+  /// — a history of conversations nobody had is noise, and it would make "you
+  /// have 40 conversations" mean "you opened the screen 40 times".
+  String? _threadId;
   @override
   CoachConversation build() {
     ref.watch(coachClientProvider);
@@ -56,17 +70,28 @@ class CoachController extends _$CoachController {
     if (text.isEmpty || state.asking) {
       return;
     }
-    state = state.copyWith(
-      entries: [...state.entries, OwnerQuestion(text)],
-      asking: true,
-    );
+    final asked = OwnerQuestion(text);
+    state = state.copyWith(entries: [...state.entries, asked], asking: true);
     final generation = _generation;
+    // Written BEFORE the request, not after it. The process can end at any point
+    // — that is the whole reason this store exists — and a question recorded
+    // only on success would lose exactly the turns that went wrong, which are
+    // the ones the owner most needs a record of because they were charged for
+    // some of them.
+    // NOT awaited. The docstring on `_remember` says a storage fault must never
+    // cost the owner their answer, and awaiting it here would have made that
+    // false in the worst way: a slow or stuck write would hold the question
+    // itself. The sequence number is taken NOW rather than inside, so a write
+    // that lands late still lands in the right place.
+    unawaited(_remember(asked, seq: state.entries.length - 1, opening: text));
     try {
       final answer = await ref
           .read(coachClientProvider)
           .ask(state.toWire(), topic: topic);
       if (_isCurrent(generation)) {
-        state = state.copyWith(entries: [...state.entries, CoachReply(answer)]);
+        final reply = CoachReply(answer);
+        state = state.copyWith(entries: [...state.entries, reply]);
+        unawaited(_remember(reply, seq: state.entries.length - 1));
       }
     } on CoachRefusal catch (refusal) {
       // The gate said no. It is an answer about the account, not a fault, and it
@@ -117,7 +142,68 @@ class CoachController extends _$CoachController {
   /// The prototype's coach screen draws no such control, so this is a
   /// deliberate departure from it: the design never modelled a thread that
   /// persists, and the honesty layer is where that gets paid for.
-  void newThread() => state = const CoachConversation();
+  void newThread() {
+    _threadId = null;
+    state = const CoachConversation();
+  }
+
+  /// Replaces the live thread with a stored one, read back from this device.
+  ///
+  /// The reopened thread keeps its id, so continuing it appends rather than
+  /// forking: a conversation the owner returns to is the same conversation.
+  Future<void> reopen(String threadId) async {
+    final scope = await _scope();
+    final entries = await _history.entries(scope: scope, threadId: threadId);
+    _generation++;
+    _threadId = threadId;
+    state = CoachConversation(entries: entries);
+  }
+
+  CoachHistoryStore get _history =>
+      CoachHistoryStore(ref.read(localStoreProvider));
+
+  Future<String> _scope() async =>
+      (await CacheSession.capture(ref.read(credentialsProvider))).scope;
+
+  /// Stores one entry, and never lets a storage fault cost the owner the answer.
+  ///
+  /// The conversation on screen is the source of truth for this turn; the
+  /// database is a record of it. If the write fails the owner still has their
+  /// answer, so this logs and returns rather than throwing into `ask` — the
+  /// opposite trade would turn a full disk into a lost, already-paid-for reply.
+  Future<void> _remember(
+    CoachEntry entry, {
+    required int seq,
+    String? opening,
+  }) async {
+    try {
+      final scope = await _scope();
+      final id = _threadId ??= _mintThreadId();
+      if (opening != null) {
+        await _history.open(
+          scope: scope,
+          threadId: id,
+          opening: opening,
+          at: DateTime.now().toUtc(),
+        );
+      }
+      await _history.append(
+        scope: scope,
+        threadId: id,
+        seq: seq,
+        entry: entry,
+        at: DateTime.now().toUtc(),
+      );
+    } on Object catch (error) {
+      AppLog.info('coach', 'could not store this turn: $error');
+    }
+  }
+
+  static String _mintThreadId() {
+    final random = Random();
+    return '${DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(36)}'
+        '-${random.nextInt(1 << 32).toRadixString(36)}';
+  }
 
   void _trouble(
     String message, {
@@ -125,11 +211,12 @@ class CoachController extends _$CoachController {
     DateTime? resetsAt,
   }) {
     AppLog.info('coach', 'question not answered: $message');
-    state = state.copyWith(
-      entries: [
-        ...state.entries,
-        CoachTrouble(message: message, charge: charge, resetsAt: resetsAt),
-      ],
+    final trouble = CoachTrouble(
+      message: message,
+      charge: charge,
+      resetsAt: resetsAt,
     );
+    state = state.copyWith(entries: [...state.entries, trouble]);
+    unawaited(_remember(trouble, seq: state.entries.length - 1));
   }
 }

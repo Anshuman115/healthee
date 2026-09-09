@@ -40,10 +40,7 @@ void main() {
     const withTrouble = CoachConversation(
       entries: <CoachEntry>[
         OwnerQuestion('one'),
-        CoachTrouble(
-          message: 'not answered',
-          charge: CoachCharge.notCharged,
-        ),
+        CoachTrouble(message: 'not answered', charge: CoachCharge.notCharged),
       ],
     );
     expect(withTrouble.toWire().length, 1);

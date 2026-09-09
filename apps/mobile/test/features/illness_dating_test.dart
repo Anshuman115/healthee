@@ -31,16 +31,15 @@ const String _framing =
     'Possible early signal — consider lighter activity today. Breathing rate '
     '+2.4 bpm vs your 14-day baseline; skin temperature +0.35°C. Not a diagnosis.';
 
-IllnessFlag _flag({String? date}) =>
-    IllnessFlag.maybe(<String, Object?>{
-      'date': ?date,
-      'severity': 'moderate',
-      'sustained': false,
-      'framing': _framing,
-      'rr_delta_bpm': 2.4,
-      'temp_delta_c': 0.35,
-      'research_note_ids': const <String>['respiratory_rate_normal'],
-    })!;
+IllnessFlag _flag({String? date}) => IllnessFlag.maybe(<String, Object?>{
+  'date': ?date,
+  'severity': 'moderate',
+  'sustained': false,
+  'framing': _framing,
+  'rr_delta_bpm': 2.4,
+  'temp_delta_c': 0.35,
+  'research_note_ids': const <String>['respiratory_rate_normal'],
+})!;
 
 Widget _banner(IllnessFlag flag, {String? viewedDay}) => MaterialApp(
   theme: AppTheme.light,
@@ -85,7 +84,9 @@ void main() {
       expect(find.textContaining('Raised on'), findsNothing);
     });
 
-    testWidgets('a payload with no as_of claims nothing either', (tester) async {
+    testWidgets('a payload with no as_of claims nothing either', (
+      tester,
+    ) async {
       // An older server sends no `as_of`, so there is no day to compare against. The
       // banner must not reach for a device clock — `as_of.dart` makes that argument
       // about `isToday` and it holds here.
@@ -94,7 +95,9 @@ void main() {
       expect(find.textContaining('Raised on'), findsNothing);
     });
 
-    testWidgets('the calibrated sentence is still rendered verbatim', (tester) async {
+    testWidgets('the calibrated sentence is still rendered verbatim', (
+      tester,
+    ) async {
       // The date is added BESIDE the safety sentence, never woven into it. Re-wording a
       // calibrated safety statement in the UI layer is how a hedge becomes a diagnosis.
       await tester.pumpWidget(
@@ -109,7 +112,9 @@ void main() {
     testWidgets('the banner prints the numbers once, with their window', (
       tester,
     ) async {
-      await tester.pumpWidget(_banner(_flag(date: '2026-09-08'), viewedDay: '2026-09-08'));
+      await tester.pumpWidget(
+        _banner(_flag(date: '2026-09-08'), viewedDay: '2026-09-08'),
+      );
 
       // Once, inside the server's sentence, with "14-day" attached.
       expect(

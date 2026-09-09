@@ -76,10 +76,9 @@ void main() {
       });
 
       expect(routine.logs.length, 3);
-      expect(
-        routine.otherLogs.map((tally) => tally.kind).toList(),
-        <String>['caffeine'],
-      );
+      expect(routine.otherLogs.map((tally) => tally.kind).toList(), <String>[
+        'caffeine',
+      ]);
     });
 
     test('a meditation-only day is still empty of OTHER logs', () {

@@ -70,7 +70,10 @@ void main() {
     });
 
     test('an empty set has no day', () {
-      expect(recommendationsFromDay(const <Recommendation>[], '2026-09-08'), isNull);
+      expect(
+        recommendationsFromDay(const <Recommendation>[], '2026-09-08'),
+        isNull,
+      );
     });
 
     test('ActionsSection.otherDay IS the shared function, not a second copy', () {

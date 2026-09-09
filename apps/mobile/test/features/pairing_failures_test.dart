@@ -23,12 +23,16 @@ import '_pairing_host.dart';
 
 void main() {
   group('failures say which one, and offer the right way out', () {
-    testWidgets('a wrong password names itself and offers no retry', (tester) async {
+    testWidgets('a wrong password names itself and offers no retry', (
+      tester,
+    ) async {
       await pumpPairing(
         tester,
         pairingHost(
           FakeSecretStore(),
-          adapter: StubAdapter({'/v2/registrations/tokens': const StubReply(401)}),
+          adapter: StubAdapter({
+            '/v2/registrations/tokens': const StubReply(401),
+          }),
         ),
       );
       await tester.pumpAndSettle();
@@ -52,7 +56,10 @@ void main() {
             '/v2/registrations/tokens': StubReply.redirect(
               fixture('zepp_token_redirect.txt'),
             ),
-            '/v2/client/login': StubReply(200, body: fixture('zepp_login.json')),
+            '/v2/client/login': StubReply(
+              200,
+              body: fixture('zepp_login.json'),
+            ),
             '/devices': const StubReply(200, body: '{"items": []}'),
           }),
         ),
@@ -64,28 +71,39 @@ void main() {
         find.text('That Zepp account has no devices bound to it'),
         findsOneWidget,
       );
-      expect(find.textContaining('Pair the strap in the Zepp app once'), findsOneWidget);
+      expect(
+        find.textContaining('Pair the strap in the Zepp app once'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('a dead network is a retryable error, distinct from a bad password', (
+    testWidgets(
+      'a dead network is a retryable error, distinct from a bad password',
+      (tester) async {
+        await pumpPairing(
+          tester,
+          pairingHost(
+            FakeSecretStore(),
+            adapter: StubAdapter({
+              '/v2/registrations/tokens': const StubReply(503),
+            }),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await signInToZepp(tester);
+
+        expect(
+          find.textContaining('is not one this app understands'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('manual entry'), findsWidgets);
+        expect(find.text('Try again'), findsOneWidget);
+      },
+    );
+
+    testWidgets('Bluetooth off is named, and pairing stays possible', (
       tester,
     ) async {
-      await pumpPairing(
-        tester,
-        pairingHost(
-          FakeSecretStore(),
-          adapter: StubAdapter({'/v2/registrations/tokens': const StubReply(503)}),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await signInToZepp(tester);
-
-      expect(find.textContaining('is not one this app understands'), findsOneWidget);
-      expect(find.textContaining('manual entry'), findsWidgets);
-      expect(find.text('Try again'), findsOneWidget);
-    });
-
-    testWidgets('Bluetooth off is named, and pairing stays possible', (tester) async {
       await pumpPairing(
         tester,
         pairingHost(
@@ -106,26 +124,7 @@ void main() {
       expect(find.text('Pair'), findsOneWidget);
     });
 
-    testWidgets('a strap out of range says how long it listened', (tester) async {
-      await pumpPairing(
-        tester,
-        pairingHost(
-          FakeSecretStore(),
-          scanner: FakeStrapScanner(failure: const StrapNotInRange(seconds: 12)),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await signInToZepp(tester);
-      await tester.tap(find.text('Helio Strap'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Scan for it'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining("didn't advertise in 12 seconds"), findsOneWidget);
-      expect(find.textContaining('already connected elsewhere'), findsOneWidget);
-    });
-
-    testWidgets('a platform that hides MAC addresses says so, not "not in range"', (
+    testWidgets('a strap out of range says how long it listened', (
       tester,
     ) async {
       await pumpPairing(
@@ -133,7 +132,7 @@ void main() {
         pairingHost(
           FakeSecretStore(),
           scanner: FakeStrapScanner(
-            outcome: const ScanNotPossibleHere('iOS never exposes a MAC.'),
+            failure: const StrapNotInRange(seconds: 12),
           ),
         ),
       );
@@ -144,8 +143,38 @@ void main() {
       await tester.tap(find.text('Scan for it'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Cannot check here'), findsOneWidget);
-      expect(find.text('iOS never exposes a MAC.'), findsOneWidget);
+      expect(
+        find.textContaining("didn't advertise in 12 seconds"),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('already connected elsewhere'),
+        findsOneWidget,
+      );
     });
+
+    testWidgets(
+      'a platform that hides MAC addresses says so, not "not in range"',
+      (tester) async {
+        await pumpPairing(
+          tester,
+          pairingHost(
+            FakeSecretStore(),
+            scanner: FakeStrapScanner(
+              outcome: const ScanNotPossibleHere('iOS never exposes a MAC.'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await signInToZepp(tester);
+        await tester.tap(find.text('Helio Strap'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Scan for it'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Cannot check here'), findsOneWidget);
+        expect(find.text('iOS never exposes a MAC.'), findsOneWidget);
+      },
+    );
   });
 }

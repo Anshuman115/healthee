@@ -130,7 +130,8 @@ void main() {
         expect(
           bare,
           isEmpty,
-          reason: '${screen.key} rendered ${bare.length} unlabelled mark(s): '
+          reason:
+              '${screen.key} rendered ${bare.length} unlabelled mark(s): '
               '$bare',
         );
       });
@@ -167,7 +168,8 @@ void main() {
                   card.contains(carrier.bottomRight - const Offset(0.5, 0.5)),
             ),
             isTrue,
-            reason: 'a caveat carrier at $carrier is in the gutter between two '
+            reason:
+                'a caveat carrier at $carrier is in the gutter between two '
                 'cards, not inside the one whose number it qualifies',
           );
         }

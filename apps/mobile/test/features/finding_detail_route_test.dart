@@ -60,10 +60,7 @@ void main() {
     addTearDown(router.dispose);
 
     await tester.pumpWidget(
-      MaterialApp.router(
-        theme: AppTheme.dark,
-        routerConfig: router,
-      ),
+      MaterialApp.router(theme: AppTheme.dark, routerConfig: router),
     );
     await tester.pumpAndSettle();
 
@@ -88,9 +85,8 @@ void main() {
       routes: <RouteBase>[
         GoRoute(
           path: '${Routes.insight}/:key',
-          builder: (context, state) => FindingDetailScreen(
-            routeKey: state.pathParameters['key'] ?? '',
-          ),
+          builder: (context, state) =>
+              FindingDetailScreen(routeKey: state.pathParameters['key'] ?? ''),
         ),
       ],
     );
@@ -98,15 +94,15 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp.router(
-          theme: AppTheme.dark,
-          routerConfig: router,
-        ),
+        child: MaterialApp.router(theme: AppTheme.dark, routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('isn’t in your current results'), findsOneWidget);
+    expect(
+      find.textContaining('isn’t in your current results'),
+      findsOneWidget,
+    );
     // The path segment holds two names and a lag. It must not become a claim.
     expect(find.textContaining('0.'), findsNothing);
   });

@@ -111,8 +111,8 @@ class CachedPayloads extends Table {
     StoredWorkouts,
     DeviceTotals,
     SyncMeta,
-    CoachThreads,
-    CoachTurns,
+    StoredCoachThreads,
+    StoredCoachTurns,
     GpsRecordings,
     GpsFixes,
   ],
@@ -176,8 +176,8 @@ class LocalStore extends _$LocalStore {
         await m.createTable(gpsFixes);
       }
       if (from < 6) {
-        await m.createTable(coachThreads);
-        await m.createTable(coachTurns);
+        await m.createTable(storedCoachThreads);
+        await m.createTable(storedCoachTurns);
       }
     },
   );

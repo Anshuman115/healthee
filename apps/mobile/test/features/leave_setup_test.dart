@@ -71,18 +71,19 @@ void main() {
       );
     });
 
-    testWidgets('REDIRECTED INTO: done goes to Today, because nothing is under it', (
-      tester,
-    ) async {
-      final landed = <String>[];
-      await tester.pumpWidget(host(pushed: false, landed: landed));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'REDIRECTED INTO: done goes to Today, because nothing is under it',
+      (tester) async {
+        final landed = <String>[];
+        await tester.pumpWidget(host(pushed: false, landed: landed));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('done'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('done'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('today'), findsOneWidget);
-      expect(landed, <String>[Routes.today]);
-    });
+        expect(find.text('today'), findsOneWidget);
+        expect(landed, <String>[Routes.today]);
+      },
+    );
   });
 }

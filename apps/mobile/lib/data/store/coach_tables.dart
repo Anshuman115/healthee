@@ -29,7 +29,7 @@ library;
 import 'package:drift/drift.dart';
 
 /// One conversation, identified so its turns can find it.
-class CoachThreads extends Table {
+class StoredCoachThreads extends Table {
   /// Opaque sign-in namespace. No token or personal identifier is stored here.
   TextColumn get scope => text().withDefault(const Constant(''))();
 
@@ -57,7 +57,7 @@ class CoachThreads extends Table {
 }
 
 /// One turn in a conversation: what was asked, answered, or went wrong.
-class CoachTurns extends Table {
+class StoredCoachTurns extends Table {
   /// The sign-in that owns it.
   TextColumn get scope => text().withDefault(const Constant(''))();
 

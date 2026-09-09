@@ -43,7 +43,10 @@ void main() {
     );
 
     expect(find.textContaining("didn't finish"), findsNothing);
-    expect(find.textContaining('still going out to your server'), findsOneWidget);
+    expect(
+      find.textContaining('still going out to your server'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('and it is drawn quiet — secondary ink, small', (tester) async {
@@ -70,7 +73,8 @@ void main() {
     expect(
       _styleOf(tester, "didn't finish").color,
       const HealtheeColors.light().ink,
-      reason: 'loud is typography here, not colour — there is one red in this '
+      reason:
+          'loud is typography here, not colour — there is one red in this '
           'app and it is for illness',
     );
   });

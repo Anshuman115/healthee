@@ -37,14 +37,13 @@ class _Failing implements CoachClient {
   final CoachUnreachable failure;
 
   @override
-  Future<Entitlement> entitlement() async => Entitlement.fromJson(
-    const <String, Object?>{
-      'premium': true,
-      'status': 'active',
-      'locked': <String>[],
-      'included': <Object?>[],
-    },
-  );
+  Future<Entitlement> entitlement() async =>
+      Entitlement.fromJson(const <String, Object?>{
+        'premium': true,
+        'status': 'active',
+        'locked': <String>[],
+        'included': <Object?>[],
+      });
 
   @override
   Future<CoachAnswer> ask(List<CoachTurn> messages, {String? topic}) async =>
@@ -118,8 +117,12 @@ void main() {
   ) async {
     for (final charge in CoachCharge.values) {
       await tester.pumpWidget(
-        _thread(const CoachTrouble(message: 'x', charge: CoachCharge.unknown)
-            .copyForTest(charge)),
+        _thread(
+          const CoachTrouble(
+            message: 'x',
+            charge: CoachCharge.unknown,
+          ).copyForTest(charge),
+        ),
       );
       await tester.pump();
       expect(

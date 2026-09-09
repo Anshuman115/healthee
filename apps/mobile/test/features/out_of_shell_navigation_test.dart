@@ -268,7 +268,8 @@ void main() {
       expect(
         find.byType(DeviceScreen),
         findsOneWidget,
-        reason: 'hard-coding the redirect\'s answer throws away the screen '
+        reason:
+            'hard-coding the redirect\'s answer throws away the screen '
             'underneath, which looks correct until pairing is opened from here',
       );
       expect(find.byType(PairingScreen), findsNothing);

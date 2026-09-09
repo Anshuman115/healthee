@@ -26,32 +26,40 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/models/finding.dart';
 import 'package:healthee/features/today/widgets/insights_section.dart';
 
-Finding _finding({String? effectMetric, double effect = 0.72, int samples = 105}) =>
-    Finding(
-      kind: 'pairwise_lag',
-      metricA: 'hrv_sleep_avg',
-      metricB: 'recovery_score',
-      eventKind: null,
-      description: 'Spearman(hrv_sleep_avg, recovery_score) = +0.72 over 105 days',
-      effectSize: effect,
-      effectMetric: effectMetric,
-      qValue: 0.0004,
-      nSamples: samples,
-      lagDays: 0,
-      researchNoteIds: const <String>[],
-    );
+Finding _finding({
+  String? effectMetric,
+  double effect = 0.72,
+  int samples = 105,
+}) => Finding(
+  kind: 'pairwise_lag',
+  metricA: 'hrv_sleep_avg',
+  metricB: 'recovery_score',
+  eventKind: null,
+  description: 'Spearman(hrv_sleep_avg, recovery_score) = +0.72 over 105 days',
+  effectSize: effect,
+  effectMetric: effectMetric,
+  qValue: 0.0004,
+  nSamples: samples,
+  lagDays: 0,
+  researchNoteIds: const <String>[],
+);
 
 void main() {
   group('the effect is named by the server, never by this file', () {
     test('a Spearman rho is drawn as rho, not as r', () {
-      expect(findingFoot(_finding(effectMetric: 'rho')), 'rho 0.72 · 105 days of your data');
+      expect(
+        findingFoot(_finding(effectMetric: 'rho')),
+        'rho 0.72 · 105 days of your data',
+      );
     });
 
     test('a rank-biserial effect keeps its own name', () {
       // The event-finding statistic. It is not a correlation coefficient at all, and it
       // used to reach the screen under the same letter as one.
       expect(
-        findingFoot(_finding(effectMetric: 'rank_biserial', effect: -0.42, samples: 57)),
+        findingFoot(
+          _finding(effectMetric: 'rank_biserial', effect: -0.42, samples: 57),
+        ),
         'rank_biserial 0.42 · 57 days of your data',
       );
     });
@@ -79,7 +87,9 @@ void main() {
     test('the magnitude and the window are unchanged from legacy', () {
       // The only thing that moved is the label. Two decimals, the absolute value, and
       // the day count in the same order legacy printed them.
-      final foot = findingFoot(_finding(effectMetric: 'rho', effect: -0.618, samples: 61));
+      final foot = findingFoot(
+        _finding(effectMetric: 'rho', effect: -0.618, samples: 61),
+      );
       expect(foot, 'rho 0.62 · 61 days of your data');
     });
 

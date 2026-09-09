@@ -47,10 +47,7 @@ void main() {
       // in the accent is the one the app is in.
       final selected = tester.widget<Semantics>(
         find
-            .ancestor(
-              of: find.text('Dark'),
-              matching: find.byType(Semantics),
-            )
+            .ancestor(of: find.text('Dark'), matching: find.byType(Semantics))
             .first,
       );
       expect(selected.properties.selected, isTrue);
@@ -113,10 +110,7 @@ void main() {
 
     test('a phone with no finished sync does not call that a fault', () {
       // Freshly paired is this state for a minute and nothing is wrong with it.
-      final lines = strapLines(
-        DeviceDay.empty(settingsDate),
-        now: settingsNow,
-      );
+      final lines = strapLines(DeviceDay.empty(settingsDate), now: settingsNow);
 
       expect(lines.first, 'No sync has finished on this phone yet.');
       expect(lines.last, contains('has not reported its battery'));
@@ -208,12 +202,18 @@ void main() {
 
     test('the three version sentences stay distinct', () {
       // Kept as a plain test so all three can be pinned without pumping.
-      expect(versionLine(const AsyncData<String?>('1.2.0 (7)')), 'Version 1.2.0 (7)');
+      expect(
+        versionLine(const AsyncData<String?>('1.2.0 (7)')),
+        'Version 1.2.0 (7)',
+      );
       expect(
         versionLine(const AsyncData<String?>(null)),
         'Version unavailable on this device',
       );
-      expect(versionLine(const AsyncLoading<String?>()), 'Reading the version…');
+      expect(
+        versionLine(const AsyncLoading<String?>()),
+        'Reading the version…',
+      );
     });
   });
 

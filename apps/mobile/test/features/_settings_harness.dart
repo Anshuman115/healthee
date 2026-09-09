@@ -213,5 +213,5 @@ void tallViewport(WidgetTester tester, {double width = 420}) {
 }
 
 /// Scrolls [finder] into view inside the page's own list.
-Future<void> revealRow(WidgetTester tester, Finder finder) =>
-    tester.scrollUntilVisible(finder, 300, scrollable: find.byType(Scrollable).first);
+Future<void> revealRow(WidgetTester tester, Finder finder) => tester
+    .scrollUntilVisible(finder, 300, scrollable: find.byType(Scrollable).first);

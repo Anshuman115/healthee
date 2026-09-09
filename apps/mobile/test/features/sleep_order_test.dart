@@ -101,18 +101,22 @@ void main() {
       }
     });
 
-    test('the three trend panels are efficiency, regularity, HRV in that order', () {
-      final list = sleepList();
-      final titles = <String>[
-        for (final section in list)
-          if (section.child case final SleepTrendPanel panel) panel.trend.title,
-      ];
-      expect(titles, <String>[
-        'Sleep efficiency',
-        'Sleep regularity',
-        'Heart-rate variability',
-      ]);
-    });
+    test(
+      'the three trend panels are efficiency, regularity, HRV in that order',
+      () {
+        final list = sleepList();
+        final titles = <String>[
+          for (final section in list)
+            if (section.child case final SleepTrendPanel panel)
+              panel.trend.title,
+        ];
+        expect(titles, <String>[
+          'Sleep efficiency',
+          'Sleep regularity',
+          'Heart-rate variability',
+        ]);
+      },
+    );
 
     test('the surfaces the prototype has no box for all sit AFTER it', () {
       // The rule the Activity rebuild set: an app-only surface is kept, and it

@@ -56,10 +56,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         sleepPanelHost(
-          NightTimelinePanel(
-            night: night,
-            reveals: RevealRegistry(),
-          ),
+          NightTimelinePanel(night: night, reveals: RevealRegistry()),
         ),
       );
       await tester.pumpAndSettle();
@@ -187,9 +184,7 @@ void main() {
       final ticks = widget.ticks!;
       // The painter's own plot rectangle, so the bounds are compared in the
       // space the curve was actually drawn in.
-      final plot = ChartMetrics.series
-          .box(tester.getSize(chart))
-          .plot;
+      final plot = ChartMetrics.series.box(tester.getSize(chart)).plot;
       final painted = paintedBy(tester, chart);
       // In screen space a HIGHER value is a SMALLER y, so the measured maximum
       // is the top bound and the measured minimum the bottom one.
@@ -233,40 +228,43 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(V02TimingChart), findsNothing);
-      expect(
-        find.textContaining('no line to draw'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('no line to draw'), findsOneWidget);
     });
   });
 
-  group('every chart is drawn at four phone widths, and none of them is 800', () {
-    for (final width in kSleepWidths) {
-      testWidgets('the night panels lay out at $width', (tester) async {
-        tester.view
-          ..physicalSize = Size(width, 2400)
-          ..devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        await tester.pumpWidget(
-          sleepPanelHost(
-            Column(
-              children: <Widget>[
-                NightTimelinePanel(night: night, reveals: RevealRegistry()),
-                StageTablePanel(night: night, reveals: RevealRegistry()),
-                StageWeekPanel(
-                  nights: windows.week,
-                  span: windows.weekSpan,
-                  reveals: RevealRegistry(),
-                ),
-              ],
+  group(
+    'every chart is drawn at four phone widths, and none of them is 800',
+    () {
+      for (final width in kSleepWidths) {
+        testWidgets('the night panels lay out at $width', (tester) async {
+          tester.view
+            ..physicalSize = Size(width, 2400)
+            ..devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            sleepPanelHost(
+              Column(
+                children: <Widget>[
+                  NightTimelinePanel(night: night, reveals: RevealRegistry()),
+                  StageTablePanel(night: night, reveals: RevealRegistry()),
+                  StageWeekPanel(
+                    nights: windows.week,
+                    span: windows.weekSpan,
+                    reveals: RevealRegistry(),
+                  ),
+                ],
+              ),
+              width: width,
             ),
-            width: width,
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        expect(tester.getSize(find.byType(V02Hypnogram)).width, _inner(width));
-      });
-    }
-  });
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(
+            tester.getSize(find.byType(V02Hypnogram)).width,
+            _inner(width),
+          );
+        });
+      }
+    },
+  );
 }
