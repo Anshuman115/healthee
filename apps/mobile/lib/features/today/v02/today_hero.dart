@@ -89,6 +89,8 @@ class TodayBioHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return BioHero(
       eyebrow: eyebrow,
+      // The model line and any caveat go behind this, not under the figure.
+      infoKey: 'biological_age',
       eyebrowIcon: SolarIconsOutline.arrowRight,
       onEyebrowTap: onOpenBody,
       eyebrowSemantics: eyebrowSemantics,
@@ -119,7 +121,6 @@ class TodayBioHero extends StatelessWidget {
             ),
       ],
       modelLabel: age.disclaimer ?? kPopulationModelLabel,
-      modelIcon: SolarIconsOutline.infoCircle,
     );
   }
 

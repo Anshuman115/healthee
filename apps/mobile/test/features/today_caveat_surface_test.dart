@@ -27,7 +27,9 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/today/v02/mini_trend_panel.dart';
 import 'package:healthee/features/today/v02/night_panels.dart';
 import 'package:healthee/features/today/v02/today_hero.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/v02/bio_hero.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/summary_tile.dart';
 
@@ -138,22 +140,42 @@ void main() {
     // misattribution. This used to be an `expect(CaveatFoot, findsNothing)`;
     // the grid tile's carrier is deleted along with the grid, so the claim is
     // now structural rather than asserted.
-    expect(find.text(caveatHeadline(4)), findsOneWidget);
+    //
+    // The hero is the exception, and deliberately: two blocks of small grey
+    // prose under an 88px figure is where the eye stops going, so its four go
+    // into the eyebrow's ⓘ instead. Still four, still whole — the next test
+    // opens the sheet and reads every one.
+    expect(
+      tester
+          .widget<MetricInfoDot>(
+            find.descendant(
+              of: find.byType(BioHero),
+              matching: find.byType(MetricInfoDot),
+            ),
+          )
+          .detail
+          .disclosures,
+      hasLength(4),
+    );
   });
 
   testWidgets('BIOLOGICAL AGE — ALL FOUR DISCLOSURES ARE ONE TAP AWAY, IN FULL', (
     tester,
   ) async {
-    // The card the owner named. Its signpost has to open every one of them: a
-    // sheet that showed the first paragraph would be the same failure in a
-    // smaller box, and the count on the card would be lying about its contents.
+    // The card the owner named. Its ⓘ has to open every one of them: a sheet
+    // that showed the first paragraph would be the same failure in a smaller
+    // box, and a dot that opened nothing would be worse than the note it
+    // replaced.
     await openToday(tester);
-    await reveal(tester, find.text(caveatHeadline(4)));
+    final dot = find.descendant(
+      of: find.byType(BioHero),
+      matching: find.byType(MetricInfoDot),
+    );
+    await reveal(tester, dot);
 
-    await tester.tap(find.text(caveatHeadline(4)));
+    await tester.tap(dot);
     await tester.pumpAndSettle();
 
-    expect(find.text(kCaveatSheetTitle), findsOneWidget);
     final bio = loadTodayJson()['biological_age']! as Map<String, Object?>;
     final messages = _attachedMessages(bio);
     expect(messages, hasLength(4));

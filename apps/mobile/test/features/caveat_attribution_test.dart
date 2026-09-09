@@ -32,6 +32,7 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
@@ -185,6 +186,16 @@ void main() {
     // biological-age block of the committed snapshot carries four.
     await pump(tester, null);
     expect(_carriers(tester), isNotEmpty);
-    expect(find.text(caveatHeadline(4)), findsOneWidget);
+    // The hero's own four are no longer a note on the card — they are the ⓘ's
+    // payload — so the premise is read off the dot the hero built rather than
+    // off a headline it no longer prints. Same four disclosures, one tap away;
+    // `today_caveat_surface_test.dart` opens it and reads them in full.
+    final dot = tester.widget<MetricInfoDot>(
+      find.descendant(
+        of: find.byType(BioHero),
+        matching: find.byType(MetricInfoDot),
+      ),
+    );
+    expect(dot.detail.disclosures, hasLength(4));
   });
 }

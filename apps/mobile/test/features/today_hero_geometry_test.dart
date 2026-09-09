@@ -16,9 +16,11 @@
 /// laid out by the browser, with both canvases absolutely positioned inside and
 /// around it.
 ///
-/// Those four numbers are not asserted here, because this card carries content
-/// the prototype's does not: an honesty caveat, and a model label the server
-/// writes rather than the prototype's fixed string. What IS asserted is the
+/// Those four numbers are not asserted here, because this card's last block is
+/// the contributions row rather than the prototype's: the model line and the
+/// honesty caveat moved into the eyebrow's ⓘ, so they make no height at all —
+/// which is exactly why the assertion below no longer names them. What IS
+/// asserted is the
 /// thing that makes the number — **the card's height is the sum of its content
 /// blocks and the CSS gaps between them, and nothing else.** A field that drove
 /// the height would break that sum by exactly the amount it drove it.
@@ -31,6 +33,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/v02/bio_display.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
@@ -62,9 +65,16 @@ void main() {
 
         double heightOf(Finder finder) => tester.getRect(finder).height;
         final caption = find.textContaining('chronological age of');
-        final caveat = find.descendant(
-          of: find.byType(BioHero),
-          matching: find.byType(CaveatNote),
+        // Neither the model line nor the caveat is drawn on the card any more,
+        // so neither appears in this sum. If one came back, the card would be
+        // taller than the sum and this test would say so.
+        expect(find.byType(BioModelLabel), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byType(BioHero),
+            matching: find.byType(CaveatNote),
+          ),
+          findsNothing,
         );
 
         // Every gap is a literal restated from the CSS by hand — the method
@@ -82,10 +92,6 @@ void main() {
             hairline + // the rule itself
             14 + // .bio-divider { padding-top: 14px }
             heightOf(find.byType(BioStatsRow)) +
-            14 + // .model-label { margin-top: 14px }
-            heightOf(find.byType(BioModelLabel)) +
-            14 + // the caveat sits on the model label's own gap
-            heightOf(caveat) +
             22 + // padding-bottom
             hairline; // border-bottom
 
@@ -121,16 +127,22 @@ void main() {
         expect(square.top - hero.top, hairline + 22 + 32);
       });
 
-      testWidgets('$width — the contributions and the model label are INSIDE', (
+      testWidgets('$width — the contributions and the ⓘ are INSIDE', (
         tester,
       ) async {
         // The complaint this suite exists for: a card taller than its own
-        // content pushed both off the bottom of the screen.
+        // content pushed both off the bottom of the screen. The ⓘ replaces the
+        // model label here — it is now the thing carrying that sentence, and a
+        // disclosure the owner cannot reach is the same failure as one printed
+        // off the edge.
         await pumpHeroAt(tester, store, width);
         final hero = tester.getRect(find.byType(BioHero));
         final parts = <String, Finder>{
           'the contributions row': find.byType(BioStatsRow),
-          'the model label': find.byType(BioModelLabel),
+          'the eyebrow ⓘ': find.descendant(
+            of: find.byType(BioHero),
+            matching: find.byType(MetricInfoDot),
+          ),
         };
         for (final part in parts.entries) {
           final rect = tester.getRect(part.value);
