@@ -242,7 +242,6 @@ List<PageSection> todaySections(ScreenData data, TodayExtras extras) {
       navigation: extras.navigation,
       batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
       onOpenProfile: extras.onOpenProfile,
-      onOpenSync: extras.onOpenSync,
     ),
   );
   // The live-feed trust card is an age measured against right now, so it belongs
@@ -290,7 +289,6 @@ List<PageSection> _freshInstall(ScreenData data, TodayExtras extras) {
         health: extras.health,
         batteryPercent: extras.batteryPercent ?? data.day.batteryPercent,
         onOpenProfile: extras.onOpenProfile,
-        onOpenSync: extras.onOpenSync,
       ),
       gap: 0,
     ),

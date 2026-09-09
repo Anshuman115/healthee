@@ -168,7 +168,12 @@ class _DateCalendarSheetState extends State<_DateCalendarSheet> {
     );
   }
 
-  /// The month, its two arrows, and the way back to the newest day.
+  /// The month and its two arrows.
+  ///
+  /// **No `Latest` shortcut.** The grid already draws today, ringed, one tap
+  /// away in a month you reach with the same two arrows — a button whose whole
+  /// job is to select a cell that is visible next to it is a second way to do
+  /// the thing the sheet is for.
   Widget _heading(BuildContext context) {
     final colors = context.colors;
     return Row(
@@ -182,15 +187,6 @@ class _DateCalendarSheetState extends State<_DateCalendarSheet> {
           ),
         ),
         _arrow(context, SolarIconsOutline.altArrowRight, 'Next month', 1),
-        const SizedBox(width: 12),
-        HTap(
-          onTap: () => _choose(widget.navigation.latest),
-          semanticLabel: 'Show the latest day',
-          child: Text(
-            'Latest ↗',
-            style: TypeScale.textButton.copyWith(color: context.family),
-          ),
-        ),
       ],
     );
   }

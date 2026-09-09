@@ -249,9 +249,9 @@ void main() {
 
       expect(
         tester.getSize(find.byType(CircularProgressIndicator)),
-        const Size(SyncRing.diameter, SyncRing.diameter),
+        const Size(SyncRing.defaultDiameter, SyncRing.defaultDiameter),
       );
-      expect(_indicator(tester).strokeWidth, SyncRing.stroke);
+      expect(_indicator(tester).strokeWidth, SyncRing.defaultStroke);
     });
   });
 }

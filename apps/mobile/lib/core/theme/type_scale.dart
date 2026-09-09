@@ -63,9 +63,16 @@ abstract final class TypeScale {
   /// Between [pageDate] and [pageTitle] on purpose. It has to carry the row on
   /// its own, and at 27 it leaves no width for the strap and the avatar beside
   /// it at 320.
+  ///
+  /// **`height: 1.2`, not the scale's 1.6.** A 1.6 line box on 17px type is
+  /// 27px tall, and Figtree's glyphs do not sit centred in that much leading —
+  /// so a `Row` centring the BOXES correctly still left the word reading ~2dp
+  /// low against the strap mark beside it. The tighter box puts the ink where
+  /// the layout says it is. Measured on the device, not guessed.
   static final TextStyle pageDateStrong = _style(
     17,
     FontWeight.w600,
+    height: 1.2,
     tracking: -0.4,
   );
 
@@ -204,6 +211,19 @@ abstract final class TypeScale {
     FontWeight.w600,
     height: 1.3,
     tracking: -0.7,
+  );
+
+  /// The same reading in a LIST row rather than a grid cell.
+  ///
+  /// [dimensionValue]'s 22 is sized to be the hero of its own cell. On a row
+  /// beside a 13pt name and a reference under it, 22 stops being a figure and
+  /// becomes a headline — the owner's word was *"too big"*. The grid keeps its
+  /// own size; a list is not a smaller grid.
+  static final TextStyle dimensionReading = _style(
+    17,
+    FontWeight.w600,
+    height: 1.3,
+    tracking: -0.4,
   );
 
   /// `.dimension-cell small` — the reference under it.

@@ -46,7 +46,6 @@ import 'package:healthee/features/sleep/v02/timing_panel.dart';
 import 'package:healthee/features/today/body_screen.dart';
 import 'package:healthee/features/today/recovery_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
-import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/reading_view.dart';
@@ -333,7 +332,7 @@ void main() {
     Future<void> openPast(WidgetTester tester, String location) async {
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(DateControl.previousKey));
+      await chooseDay(tester, '2026-08-03');
       await tester.pumpAndSettle();
       GoRouter.of(
         tester.element(find.byType(TodayScreen, skipOffstage: false).first),
