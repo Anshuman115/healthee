@@ -29,6 +29,7 @@
 library;
 
 import 'package:drift/drift.dart';
+import 'package:healthee/data/store/coach_tables.dart';
 import 'package:healthee/data/store/connection.dart';
 import 'package:healthee/data/store/gps_tables.dart';
 import 'package:healthee/data/store/horizon_prune.dart';
@@ -110,6 +111,8 @@ class CachedPayloads extends Table {
     StoredWorkouts,
     DeviceTotals,
     SyncMeta,
+    CoachThreads,
+    CoachTurns,
     GpsRecordings,
     GpsFixes,
   ],
@@ -127,10 +130,15 @@ class LocalStore extends _$LocalStore {
   LocalStore.at(String path) : super(openFileAt(path));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   /// v1 → v2 added the five raw-strap tables beside the payload cache.
   /// v2 → v3 added the per-row push marker to the four measurement tables.
+  ///
+  /// v5 → v6 adds the coach's conversations. Purely additive: two new tables,
+  /// nothing existing touched, so an upgrade cannot lose a measurement. Threads
+  /// written before it simply do not exist — a conversation held only in memory
+  /// left no record to recover, which is the defect the tables exist to end.
   ///
   /// v3 → v4 scopes cached server responses to a sign-in. Old cache rows have
   /// no attributable owner and are discarded; every raw measurement and pending
@@ -166,6 +174,10 @@ class LocalStore extends _$LocalStore {
       if (from < 5) {
         await m.createTable(gpsRecordings);
         await m.createTable(gpsFixes);
+      }
+      if (from < 6) {
+        await m.createTable(coachThreads);
+        await m.createTable(coachTurns);
       }
     },
   );

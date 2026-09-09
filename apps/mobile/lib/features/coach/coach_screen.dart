@@ -153,15 +153,30 @@ class CoachScreen extends ConsumerWidget {
       // no footer at all — not a disabled one — which is the same structural
       // guarantee as before, expressed in the place the control now lives.
       footer: switch (entitlement.value) {
-        final Entitlement e when _permits(e) => CoachComposer(
-          asking: conversation.asking,
-          remaining: e.allowanceFor(kCoachFeature)?.remaining,
-          initialQuestion: conversation.isEmpty ? topic : null,
-          onAsk: (question) => unawaited(
-            ref
-                .read(coachControllerProvider.notifier)
-                .ask(question, topic: topic),
-          ),
+        final Entitlement e when _permits(e) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            // The note describes what an ANSWER carries, so it belongs beside
+            // the control that asks for one. Left in the scrolling column it
+            // ended a block of content with 600 pt of nothing beneath it, which
+            // is what "why is it floating" was about — and it was describing a
+            // thing the owner had to scroll away from it to trigger.
+            Text(
+              kCoachFormNote,
+              style: TypeScale.formNote.copyWith(color: context.colors.ink2),
+            ),
+            CoachComposer(
+              asking: conversation.asking,
+              remaining: e.allowanceFor(kCoachFeature)?.remaining,
+              initialQuestion: conversation.isEmpty ? topic : null,
+              onAsk: (question) => unawaited(
+                ref
+                    .read(coachControllerProvider.notifier)
+                    .ask(question, topic: topic),
+              ),
+            ),
+          ],
         ),
         _ => const SizedBox.shrink(),
       },
@@ -198,7 +213,6 @@ class CoachBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.colors;
     final conversation = ref.watch(coachControllerProvider);
     final canAsk = _permits(entitlement);
     // Today's coaching line, read from the snapshot the app already holds. A
@@ -267,16 +281,7 @@ class CoachBody extends ConsumerWidget {
               canAsk ? ask : null),
           // dart format on
         ],
-        // The composer is PINNED by `CoachPage` and is not in this column. What
-        // stays here is the sentence about what an answer carries, which belongs
-        // with the conversation rather than under the control.
-        if (canAsk) ...<Widget>[
-          const SizedBox(height: Insets.lg),
-          Text(
-            kCoachFormNote,
-            style: TypeScale.formNote.copyWith(color: colors.ink2),
-          ),
-        ],
+
         // Only once there is something to end. An empty thread offering to be
         // ended is a control that does nothing, and the prototype's coach opens
         // empty. See `CoachController.newThread` for why this exists at all.
