@@ -42,8 +42,41 @@ class CommitmentRepository {
     return _post('/api/programs/$id/$action');
   }
 
-  Future<void> generateChallenges() => _post('/api/challenges/generate');
-  Future<void> generateProgram() => _post('/api/programs/generate');
+  /// Asks for a fresh challenge feed. Returns what the run actually produced.
+  Future<GenerationOutcome> generateChallenges() =>
+      _generate('/api/challenges/generate');
+
+  /// Designs one ladder. Returns what the run actually produced.
+  Future<GenerationOutcome> generateProgram() =>
+      _generate('/api/programs/generate');
+
+  /// A generation run, and what came back.
+  ///
+  /// **The reasons were being thrown away.** `_post` read `ok` and returned
+  /// void, so a run that the shape gates rejected — a `200` carrying
+  /// `generated: 0` and a `rejected` list — was indistinguishable from one that
+  /// worked. The server's own docstring is explicit that these *"are different
+  /// answers"*, and on the owner's device the difference was a button that
+  /// appeared to do nothing, twice, with the explanation sitting in the
+  /// response the client dropped.
+  Future<GenerationOutcome> _generate(String path) async {
+    final result = await api.request(
+      path,
+      method: 'POST',
+      timeout: Env.pushTimeout,
+    );
+    if (result['ok'] == false) {
+      throw const FormatException('Server declined the action');
+    }
+    return GenerationOutcome(
+      generated: (result['generated'] as num?)?.toInt() ?? 0,
+      rejected: <String>[
+        for (final entry in (result['rejected'] as List? ?? const <Object?>[]))
+          if (entry is String) entry,
+      ],
+    );
+  }
+
   Future<void> _post(String path) async {
     final result = await api.request(
       path,
@@ -54,6 +87,21 @@ class CommitmentRepository {
       throw const FormatException('Server declined the action');
     }
   }
+}
+
+/// What one generation run produced, and why it produced nothing when it did.
+class GenerationOutcome {
+  /// Builds an outcome.
+  const GenerationOutcome({required this.generated, required this.rejected});
+
+  /// How many challenges or ladders were stored. Zero is a real answer.
+  final int generated;
+
+  /// The gates' own words for what it threw out — server-written, quotable.
+  final List<String> rejected;
+
+  /// Whether the run stored nothing.
+  bool get producedNothing => generated <= 0;
 }
 
 @riverpod

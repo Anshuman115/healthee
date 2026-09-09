@@ -242,11 +242,14 @@ class _Entry extends ConsumerWidget {
                 label: (adopted ?? false)
                     ? 'Remove intention'
                     : 'Adopt suggestion',
-                action: () => setRecommendationAdoption(
-                  api,
-                  id,
-                  (adopted ?? false) ? 'dismiss' : 'adopt',
-                ),
+                action: () async {
+                  await setRecommendationAdoption(
+                    api,
+                    id,
+                    (adopted ?? false) ? 'dismiss' : 'adopt',
+                  );
+                  return null;
+                },
                 onSaved: onChanged,
               ),
             ),

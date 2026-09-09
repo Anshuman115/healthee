@@ -32,92 +32,186 @@ import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/challenges/challenge.dart';
-import 'package:healthee/data/challenges/challenge_feed.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
 import 'package:healthee/data/challenges/health_program.dart';
 import 'package:healthee/data/challenges/program_feed.dart';
 import 'package:healthee/features/actions/v02/challenge_card.dart';
 import 'package:healthee/shared/server_action_button.dart';
 import 'package:healthee/shared/states/account_async_view.dart';
-import 'package:healthee/shared/states/cached_async_view.dart';
+import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/rows.dart';
-import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:healthee/shared/v02/section_head.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 /// `.stack { gap: var(--space-lg) }`.
 const double kStackGap = 16;
 
-/// What the section says when the feed holds nothing at all.
-const String kNoChallengeTitle = 'A little space for what’s next';
-
-/// And why. The server needs enough history to calibrate a target, which is a
-/// fact about the data rather than an encouragement.
+/// Why nothing is running — a fact about the data, not an encouragement.
+///
+/// **It used to carry a title too**, `A little space for what's next`, sitting
+/// directly under the section's own `What you're working on` heading. Two
+/// headings, one above the other, both saying that nothing is here; the card
+/// they made was as tall as a suggestion, for an absence. The sentence is the
+/// part worth keeping, and it stays on the face rather than behind a control:
+/// it says the server needs history to set a target, which is the reason the
+/// two buttons below might not do what the owner expects yet.
 const String kNoChallengeBody =
     'Nothing is running. A challenge needs enough of your own history behind '
     'it for the server to set a target you can actually meet.';
 
+/// What to say when a run cleared the server but produced nothing.
+///
+/// **The engine refusing is not the engine failing.** `program_generate` logs
+/// things like *"rung 3 asks for 180, past the evidence target of 150
+/// [mvpa_minutes_mortality]"* and *"a ladder has 3-6 rungs, and this one has
+/// 2"*, ships them in `rejected`, and returns `200`. Those are the honesty
+/// gates working. The owner saw a button that did nothing twice.
+///
+/// The gates' own wording is shown rather than a paraphrase: it names the rule
+/// and the note behind it, and a summary written here would be a second
+/// account of a decision this app did not make.
+String? _nothingMade(GenerationOutcome outcome, String noun) {
+  if (!outcome.producedNothing) {
+    return null;
+  }
+  final why = outcome.rejected.isEmpty
+      ? 'Nothing cleared the evidence rules this time.'
+      : outcome.rejected.first;
+  return 'No $noun this time — $why';
+}
+
+/// Which half of a commitment feed a section draws.
+///
+/// ## ⛔ The two are not one list
+///
+/// `_Challenges` used to build `[...feed.active, ...feed.suggested]` — one
+/// undifferentiated run of cards under the heading `What you're working on`.
+/// On the owner's own device that heading sat over two cards both badged
+/// `Suggested · 7-day`, for challenges nobody had adopted. **The heading was
+/// false**, and the screen was ordered by where the data came from — daily
+/// recommendations, then challenges, then programs — rather than by the only
+/// question a reader is asking: what am I already doing, and what else is on
+/// offer?
+///
+/// Both feeds carry `active`, `suggested` and `recent`. The screen now reads
+/// that distinction instead of flattening it.
+enum CommitmentScope {
+  /// Adopted challenges and the running ladder. Draws nothing when there are
+  /// none — an empty section is not a section, and the heading would lie again.
+  running,
+
+  /// Suggested challenges and ladders, plus the controls that ask for more.
+  /// Always drawn: the generate buttons are the only way to fill it.
+  offered,
+}
+
 /// The body of the `What you’re working on` section.
 class WorkingOn extends ConsumerWidget {
   /// Reads both feeds; each renders what it has and nothing when it has none.
-  const WorkingOn({super.key});
+  const WorkingOn({required this.scope, super.key});
+
+  /// Which half of the feeds to draw. See [CommitmentScope].
+  final CommitmentScope scope;
+
+  /// The heading this scope carries, drawn with the content so a section that
+  /// turns out to be empty takes its title with it.
+  String get heading => switch (scope) {
+    CommitmentScope.running => 'What you’re working on',
+    // Named against the suggestions ABOVE it, which are for today. This is the
+    // same decision at a longer horizon, and saying so is what makes two
+    // families of card on one screen legible as one idea.
+    CommitmentScope.offered => 'Beyond today',
+  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return AccountAsyncView<CommitmentRepository>(
       value: ref.watch(commitmentRepositoryProvider),
       onRetry: () => ref.invalidate(commitmentRepositoryProvider),
-      builder: (context, repository) => Column(
+      builder: (context, repository) => _Body(
         key: ObjectKey(repository),
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          CachedAsyncView<ChallengeFeed>(
-            value: ref.watch(challengeFeedProvider),
-            onRetry: () => ref.invalidate(challengeFeedProvider),
-            builder: (context, feed) => _Challenges(feed: feed),
-          ),
-          const SizedBox(height: kStackGap),
-          CachedAsyncView<ProgramFeed>(
-            value: ref.watch(programFeedProvider),
-            onRetry: () => ref.invalidate(programFeedProvider),
-            builder: (context, feed) => _Programs(feed: feed),
-          ),
-          _Generate(ref: ref, repository: repository),
-        ],
+        scope: scope,
+        heading: heading,
+        repository: repository,
+        outerRef: ref,
       ),
     );
   }
 }
 
-class _Challenges extends StatelessWidget {
-  const _Challenges({required this.feed});
+/// One scope's heading and content, or nothing at all.
+class _Body extends ConsumerWidget {
+  const _Body({
+    required this.scope,
+    required this.heading,
+    required this.repository,
+    required this.outerRef,
+    super.key,
+  });
 
-  final ChallengeFeed feed;
+  final CommitmentScope scope;
+  final String heading;
+  final CommitmentRepository repository;
+  final WidgetRef outerRef;
 
   @override
-  Widget build(BuildContext context) {
-    final entries = <Challenge>[...feed.active, ...feed.suggested];
-    if (entries.isEmpty) {
-      return const Notice(title: kNoChallengeTitle, body: kNoChallengeBody);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final challenges = ref.watch(challengeFeedProvider).value?.data;
+    final programs = ref.watch(programFeedProvider).value?.data;
+    final entries = <Challenge>[
+      ...?switch (scope) {
+        CommitmentScope.running => challenges?.active,
+        CommitmentScope.offered => challenges?.suggested,
+      },
+    ];
+    final program = switch (scope) {
+      CommitmentScope.running => programs?.active,
+      CommitmentScope.offered => programs?.suggested.firstOrNull,
+    };
+    final generate = scope == CommitmentScope.offered
+        ? Refill(ref: outerRef, repository: repository)
+        : const SizedBox.shrink();
+    // **A running section with nothing running is not drawn.** Its heading was
+    // the false one; see `CommitmentScope`.
+    if (scope == CommitmentScope.running &&
+        entries.isEmpty &&
+        program == null) {
+      return const SizedBox.shrink();
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        for (var i = 0; i < entries.length; i++) ...<Widget>[
-          if (i > 0) const SizedBox(height: kStackGap),
-          Builder(
-            builder: (context) => ChallengeCard(
-              challenge: entries[i],
-              onOpen: () => unawaited(
-                context.push('${Routes.challenge}/${entries[i].id}'),
+        SectionHead(title: heading),
+        if (entries.isEmpty && program == null)
+          const PanelNote(kNoChallengeBody)
+        else ...<Widget>[
+          for (var i = 0; i < entries.length; i++) ...<Widget>[
+            if (i > 0) const SizedBox(height: kStackGap),
+            ChallengeCard(challenge: entries[i], onOpen: () => _open(context, entries[i])),
+          ],
+          if (program case final HealthProgram running) ...<Widget>[
+            if (entries.isNotEmpty) const SizedBox(height: kStackGap),
+            RowCard(<Widget>[
+              ListRow(
+                icon: SolarIconsOutline.flag,
+                title: running.title,
+                subtitle: _Programs.subtitleFor(running),
+                tone: Tone.movement,
+                onTap: () => unawaited(
+                  context.push('${Routes.program}/${running.id}'),
+                ),
               ),
-            ),
-          ),
+            ]),
+          ],
         ],
+        generate,
       ],
     );
   }
+
+  void _open(BuildContext context, Challenge challenge) =>
+      unawaited(context.push('${Routes.challenge}/${challenge.id}'));
 }
 
 class _Programs extends StatelessWidget {
@@ -160,10 +254,20 @@ class _Programs extends StatelessWidget {
 }
 
 /// The way out of an empty feed. Absent whenever there is something to pick up.
-class _Generate extends ConsumerWidget {
-  const _Generate({required this.ref, required this.repository});
+/// The two controls that ask the server for more to decide.
+///
+/// Public because the deck owns them now: "nothing left to decide" and "ask for
+/// more" are one thought, and they were stranded at the bottom of a section
+/// that no longer exists.
+class Refill extends ConsumerWidget {
+  /// Builds them. [ref] is the caller's, so an invalidation lands on the
+  /// caller's providers rather than on this widget's own element.
+  const Refill({required this.ref, required this.repository, super.key});
 
+  /// The caller's ref.
   final WidgetRef ref;
+
+  /// The repository the buttons act through.
   final CommitmentRepository repository;
 
   @override
@@ -180,13 +284,19 @@ class _Generate extends ConsumerWidget {
       if (needsChallenge)
         ServerActionButton(
           label: 'Suggest a challenge',
-          action: repository.generateChallenges,
+          busyNote: 'Reading your recent history and writing a target you '
+              'could actually meet. This takes a few seconds.',
+          action: () async =>
+              _nothingMade(await repository.generateChallenges(), 'challenge'),
           onSaved: () => ref.invalidate(commitmentRepositoryProvider),
         ),
       if (needsProgram)
         ServerActionButton(
           label: 'Suggest a program',
-          action: repository.generateProgram,
+          busyNote: 'Building a multi-week plan from your own measurements. '
+              'This takes a few seconds.',
+          action: () async =>
+              _nothingMade(await repository.generateProgram(), 'plan'),
           onSaved: () => ref.invalidate(commitmentRepositoryProvider),
         ),
     ];

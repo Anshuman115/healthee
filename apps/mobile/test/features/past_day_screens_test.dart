@@ -31,8 +31,9 @@ import 'package:healthee/data/models/trend_point.dart';
 import 'package:healthee/data/models/vo2max.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/actions/actions_screen.dart';
-import 'package:healthee/features/actions/v02/suggestion_card.dart';
+import 'package:healthee/features/actions/v02/suggestion_list.dart';
 import 'package:healthee/features/actions/v02/working_on.dart';
+import 'package:healthee/features/activity/activity_extras.dart';
 import 'package:healthee/features/activity/activity_sections.dart';
 import 'package:healthee/features/activity/fitness_screen.dart';
 import 'package:healthee/features/activity/v02/movement_panels.dart';
@@ -220,7 +221,7 @@ void main() {
       );
       expect(_has<PastDayNotice>(past), isTrue);
       expect(
-        _has<SuggestionCard>(past),
+        _has<SuggestionList>(past),
         isFalse,
         reason: "today's suggestion is not what that day was told",
       );
@@ -237,7 +238,7 @@ void main() {
         const ActionsLinks(),
       );
       expect(_has<PastDayNotice>(today), isFalse);
-      expect(_has<SuggestionCard>(today), isTrue);
+      expect(_has<SuggestionList>(today), isTrue);
       expect(_has<WorkingOn>(today), isTrue);
     });
   });

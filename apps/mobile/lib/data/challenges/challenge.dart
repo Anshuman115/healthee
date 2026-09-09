@@ -67,12 +67,23 @@ class Challenge {
   final int? programId;
   final ChallengeOutcome? outcome;
 
-  /// Everything backing this challenge's server-written [title]: its inline
-  /// `[note_id]` markers merged with the [citations] the payload sent beside it.
+  /// Everything backing this challenge's server-written prose: the inline
+  /// `[note_id]` markers in **both** [title] and [why], merged with the
+  /// [citations] the payload sent beside them.
+  ///
+  /// **[why] used to be left out of this, and out of the card's rendering.**
+  /// The card drew it with a plain `Text`, so a challenge generated on the
+  /// device printed `…the population curve [sleep_duration_mortality].
+  /// Maintaining adequate rest aligns with consensus recommendations for
+  /// adults [sleep_need_debt].` — raw markers on the face, and the notes they
+  /// named reaching no ⓘ. `actions_v02_test.dart` has asserted for the
+  /// suggestion card that *"a citation marker is rendered as a source, never
+  /// printed"*; this widget was simply outside that gate.
   ///
   /// On the model rather than in a card because three surfaces draw a challenge
   /// — the v02 card, the pre-v02 card and Today's focus list — and one reader
   /// meeting the same commitment on two of them must not be shown two different
   /// sets of sources.
-  Grounding get grounding => groundingOf(title, alsoCites: citations);
+  Grounding get grounding =>
+      groundingOf('$title\n\n$why', alsoCites: citations);
 }

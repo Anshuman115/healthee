@@ -306,7 +306,10 @@ class _Controls extends StatelessWidget {
         label: label,
         full: full,
         style: ActionButtonStyle.v02,
-        action: () => repository.challengeAction(challenge.id, action),
+        action: () async {
+          await repository.challengeAction(challenge.id, action);
+          return null;
+        },
         onSaved: onChanged,
       );
 }

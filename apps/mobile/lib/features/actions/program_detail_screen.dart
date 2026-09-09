@@ -154,7 +154,10 @@ class _Body extends StatelessWidget {
           if (_control(program) case final (String, String) control)
             ServerActionButton(
               label: control.$1,
-              action: () => repository.programAction(program.id, control.$2),
+              action: () async {
+                await repository.programAction(program.id, control.$2);
+                return null;
+              },
               onSaved: onChanged,
             ),
           if (citations.isNotEmpty)

@@ -28,9 +28,10 @@
 ///
 /// ## A quiet day draws nothing rather than a heading over nothing
 ///
-/// Every block is gated on what the payload carried. `EmptyState` survives in
-/// exactly one place — a server that answered with no recommendations at all —
-/// because that is a sentence about the day, not an absent section.
+/// Every block is gated on what the payload carried. The one sentence about an
+/// empty day is drawn by `SuggestionList` itself, beside the ring that counts
+/// the set — a sentence about the day, not an absent section, and written where
+/// the count already lives so the two cannot disagree.
 ///
 /// ## The set's own day, when it is not the day in the header
 ///
@@ -54,17 +55,13 @@ import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
 import 'package:healthee/data/models/recommendation.dart';
-import 'package:healthee/features/actions/v02/suggestion_card.dart';
+import 'package:healthee/features/actions/v02/suggestion_list.dart';
 import 'package:healthee/features/actions/v02/working_on.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/format/other_day.dart';
-import 'package:healthee/shared/instrument/h_icon_badge.dart';
-import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/instrument_screen.dart';
 import 'package:healthee/shared/page_section.dart';
-import 'package:healthee/shared/states/state_scaffold.dart';
-import 'package:healthee/shared/v02/journal_strip.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/rows.dart';
@@ -73,19 +70,18 @@ import 'package:healthee/shared/v02/section_head.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own h1 for this screen, its line break included.
-const String kActionsTitle = 'Small steps.\nYour pace.';
+const String kActionsTitle = 'Actions';
 
 /// What Actions cannot date. `screens.actions`'s own past-day heading.
 const String kActionsPastTitle = 'No saved suggestion';
 
-/// The three section headings, in the prototype's words and its order.
-const String kWorkingOnHeading = 'What you’re working on';
-
-/// The second.
-const String kCheckInHeading = 'Your daily check-in';
-
-/// The third.
-const String kLookBackHeading = 'Look back, learn a little';
+/// The one heading over the owner's own record — the journal and its history.
+///
+/// It is the screen's ONLY section head now. `What you’re working on` moved
+/// into `WorkingOn`, which draws it with its content so an empty section takes
+/// its title with it; `Your daily check-in` and `Look back` collapsed into this
+/// one card of three rows.
+const String kRecordHeading = 'Your own record';
 
 /// The Actions tab.
 class ActionsScreen extends ConsumerWidget {
@@ -156,11 +152,6 @@ List<PageSection> actionsSections(ScreenData data, ActionsLinks links) {
                   ? null
                   : '${prettyDate(snapshot.date)} · ${data.view.status}'),
         title: kActionsTitle,
-        trailing: HTap(
-          onTap: links.onOpenProfile,
-          semanticLabel: 'Settings',
-          child: const HAvatar('H'),
-        ),
       ),
       gap: 0,
     ),
@@ -174,55 +165,72 @@ List<PageSection> actionsSections(ScreenData data, ActionsLinks links) {
       if (data.serverPending case final PageSection pending) pending,
     ],
 
-    // ── the suggestions ────────────────────────────────────────────────────
-    // The set's own day, said in words, whenever it is not the day the payload
-    // answers for. Above the cards because it qualifies the whole set.
+    // ── the set's own day ──────────────────────────────────────────────────
+    // Said in words whenever it is not the day the payload answers for. Above
+    // the cards because it qualifies the whole set.
     if (recommendationsFromDay(recommendations, snapshot?.asOf?.day)
         case final String day)
       PageSection(
         PanelNote(writtenForDay(day)),
         gap: PageSpacing.panel,
       ),
+    // ── the suggestions ────────────────────────────────────────────────────
+    //
+    // **The screen's subject, and the whole of its top half.** It replaces the
+    // stack of `SuggestionCard`s AND the suggested half of the commitments —
+    // one list showing every open question at once, because a daily
+    // recommendation and a 7-day challenge are the same decision at different
+    // horizons. A deck that marched through them one at a time was built and
+    // rejected: you cannot choose what to read if you cannot see what is on
+    // offer. See `v02/suggestion_list.dart`.
+    //
+    // On a past day there is nothing to decide: an intention recorded against a
+    // day the owner navigated away to is not a decision, it is a mistake.
+    //
+    // A quiet day is said INSIDE the list, beside the ring that counts the
+    // set — one place that knows how many suggestions there are, rather than a
+    // second empty state the screen would have to keep in step. `snapshot` is
+    // already null on a past day, so there is no second branch to reach.
     if (snapshot != null)
-      if (recommendations.isEmpty)
-        const PageSection(
-          EmptyState(
-            message: 'Nothing suggested for today',
-            hint:
-                'Actions are written overnight from the readings the server '
-                'has, and only where a reading actually raised one. A quiet day '
-                'is a day with nothing worth telling you to change.',
-          ),
-          gap: PageSpacing.block,
-        )
-      else
-        for (var i = 0; i < recommendations.length; i++)
-          PageSection(
-            SuggestionCard(recommendation: recommendations[i], first: i == 0),
-            gap: i == recommendations.length - 1
-                ? PageSpacing.block
-                : PageSpacing.panel,
-          ),
+      PageSection(
+        SuggestionList(recommendations: recommendations),
+        gap: PageSpacing.block,
+      ),
 
     // ── what you’re working on ─────────────────────────────────────────────
+    // Only what is RUNNING. What was merely on offer is in the deck above,
+    // where it is a question rather than a claim about the owner's week.
     // Absent on a past day: a challenge's progress and a program's week are
     // both "as of now", and `screens.actions`'s own past-day view drops them.
-    if (!past) ...<PageSection>[
-      const PageSection(SectionHead(title: kWorkingOnHeading), gap: 0),
-      const PageSection(WorkingOn(), gap: PageSpacing.block),
-    ],
+    if (!past)
+      const PageSection(
+        WorkingOn(scope: CommitmentScope.running),
+        gap: PageSpacing.block,
+      ),
 
     // ── your daily check-in ────────────────────────────────────────────────
-    const PageSection(SectionHead(title: kCheckInHeading), gap: 0),
-    PageSection(
-      JournalStrip(onOpen: links.onOpenJournal ?? () {}),
-      gap: PageSpacing.block,
-    ),
-
-    // ── look back, learn a little ──────────────────────────────────────────
-    const PageSection(SectionHead(title: kLookBackHeading), gap: 0),
+    // ── your own record ────────────────────────────────────────────────────
+    //
+    // **One section where there were two.** `Your daily check-in` was a heading
+    // over a single bespoke card, and `Look back, learn a little` a heading over
+    // two rows — two headings and two containers for three destinations, filling
+    // the bottom half of a screen whose subject is the suggestions at the top.
+    //
+    // They belong together: all three are the owner's own record of what they
+    // did, one to add to it and two to read it back. The journal keeps its `+`
+    // and leads, because adding is the only one of the three that is an action
+    // and this is the Actions tab.
+    const PageSection(SectionHead(title: kRecordHeading), gap: 0),
     PageSection(
       RowCard(<Widget>[
+        ListRow(
+          icon: SolarIconsOutline.notebook,
+          title: 'Add to your journal',
+          subtitle: 'Coffee, a walk, how you felt',
+          tone: Tone.sleep,
+          trailing: const Icon(SolarIconsOutline.addCircle, size: 20),
+          onTap: links.onOpenJournal,
+        ),
         ListRow(
           icon: SolarIconsOutline.chartSquare,
           title: 'What changed?',
