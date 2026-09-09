@@ -35,9 +35,8 @@ import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/shared/charts/h_stacked_sleep.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/reveal_once.dart';
-import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/v02/colour_key.dart';
-import 'package:healthee/shared/v02/meters.dart';
+import 'package:healthee/shared/v02/dimension_list.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
@@ -81,15 +80,16 @@ class SleepWeekPanel extends StatelessWidget {
     final hues = context.hues;
     return Panel(
       tone: Tone.sleep,
-      head: PanelHead(
+      // The card opens the metric; the head keeps only its ⓘ. See
+      // `Panel.onOpen`.
+      onOpen: onDetails,
+      head: const PanelHead(
         title: title,
         icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
         // The legend's own sentence. It teaches — it says nothing about THIS
         // week's nights — so it went where the owner asked method text to live.
-        detail: const MetricDetail(method: <String>[kStageColourNote]),
-        actionLabel: onDetails == null ? null : 'Details',
-        onAction: onDetails,
+        detail: MetricDetail(method: <String>[kStageColourNote]),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -106,7 +106,8 @@ class SleepWeekPanel extends StatelessWidget {
               final int minutes => hoursMinutes(minutes),
               null => '—',
             },
-            context_: 'Latest night\n${nights.first.date} → ${nights.last.date}',
+            context_:
+                'Latest night\n${nights.first.date} → ${nights.last.date}',
           ),
           RevealOnce(
             id: 'today.sleep-week',
@@ -168,6 +169,9 @@ class SleepHealthPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Panel(
       tone: Tone.sleep,
+      // The card opens the metric; the head keeps only its ⓘ. See
+      // `Panel.onOpen`.
+      onOpen: onDetails,
       label: 'Sleep health',
       head: PanelHead(
         title: title,
@@ -176,50 +180,45 @@ class SleepHealthPanel extends StatelessWidget {
         detail: MetricDetail(
           // The four "Reference …" pills the owner asked us to take off the
           // cards. Kept, not deleted: a published cutoff with no source is a
-          // number this app made up.
+          // number this app made up — and the bands are now DRAWN, so the
+          // figures here are what the drawing is measured against.
           references: <String>[
             for (final dimension in health.dimensions)
               '${dimension.name} — reference ${dimension.cutoff}',
           ],
           notes: health.researchNotes,
+          // The breathing reading's own caveat, moved off the card at the
+          // owner's request. It keeps its own label so it cannot be read as
+          // qualifying one of the four sleep dimensions — the two come from
+          // different places on the wire.
+          disclosures: breathing.caveatsOrEmpty,
+          disclosuresLabel: breathingLabel,
         ),
-        actionLabel: onDetails == null ? null : 'Details',
-        onAction: onDetails,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          DimensionGrid(<Dimension>[
-            for (final dimension in health.dimensions)
-              Dimension(
-                dimension.name,
-                // An unscored dimension prints a dash, never its cutoff dressed
-                // up as a reading.
-                dimension.reading ?? '—',
-              ),
-            Dimension(
-              'Breathing',
-              breathing.valueOrNull == null
-                  ? '—'
-                  : '${breathing.valueOrNull!.toStringAsFixed(1)} /min',
-              // KEPT. Not a lesson — it names the instrument behind the figure
-              // beside it, which is the one class of sentence that must stay on
-              // the card it is about.
-              note: 'Overnight average',
-            ),
-          ]),
-          // The breathing reading's own disclosure, under the grid it is in and
-          // named, so it cannot be read as qualifying a sleep dimension.
-          if (breathing.caveatsOrEmpty.isNotEmpty)
-            CaveatNote(
-              caveats: breathing.caveatsOrEmpty,
-              label: breathingLabel,
-            ),
-          if (breathing case Withheld<double>(:final disclosure))
-            PanelNote('Breathing: ${disclosure.message}'),
-        ],
-      ),
+      child: DimensionList(<DimensionRow>[
+        for (final dimension in health.dimensions)
+          DimensionRow(
+            dimension.name,
+            // An unscored dimension prints a dash, never its cutoff dressed up
+            // as a reading.
+            dimension.reading ?? '—',
+            // The published cutoff, ON the card. It used to live only in the ⓘ,
+            // which left four figures nobody could read without knowing four
+            // references by heart. It is the payload's own formatted string.
+            against: dimension.cutoff,
+            met: dimension.passed,
+          ),
+        // Breathing has no cutoff in `sleep_health`: no reference, no verdict.
+        // It keeps its row and names the instrument behind the figure, which is
+        // the one class of sentence that must stay on the card it is about.
+        DimensionRow(
+          SleepHealthPanel.breathingLabel,
+          breathing.valueOrNull == null
+              ? '—'
+              : '${breathing.valueOrNull!.toStringAsFixed(1)} /min',
+          against: 'Overnight average',
+        ),
+      ]),
     );
   }
 }
@@ -256,13 +255,14 @@ class SleepNeedPanel extends StatelessWidget {
     final hasNeed = need != null && need > 0;
     return Panel(
       tone: Tone.sleep,
+      // The card opens the metric; the head keeps only its ⓘ. See
+      // `Panel.onOpen`.
+      onOpen: onDetails,
       label: 'Sleep need · debt',
-      head: PanelHead(
+      head: const PanelHead(
         title: title,
         icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep_debt',
-        actionLabel: onDetails == null ? null : 'Details',
-        onAction: onDetails,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
