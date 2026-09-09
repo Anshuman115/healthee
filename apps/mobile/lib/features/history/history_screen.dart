@@ -112,6 +112,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       HistoryMetric.hrv;
   int _days = 90;
 
+  /// The height the body is held at while a new period loads.
+  ///
+  /// The hero, the chart and its figures — enough that nothing below moves
+  /// between one period and the next. It is a floor rather than a fixed height:
+  /// a long window with many dated readings is taller, and being taller than
+  /// the floor costs nothing.
+  static const double bodyFloor = 420;
+
   /// The screen's own registry, so a chart reveals once per visit and not once
   /// per scroll. `CLAUDE.md`: a scrollable chart screen either does this or
   /// replays every animation on the way back up.
@@ -130,11 +138,40 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       title: '${metricTitle(_metric.id)}.',
       eyebrow: day.line,
       children: <Widget>[
-        AsyncView<List<TrendPoint>>(
-          value: currentAccountValue(ref.watch(provider)),
-          onRetry: () => ref.invalidate(provider),
-          builder: (context, points) =>
-              _body(HistoryWindow(points).through(viewDate), past, viewDate),
+        // **The period control is OUTSIDE the async body it drives.** It used
+        // to live inside `_body`, under the `AsyncView` — so selecting a new
+        // period built a new `metricHistoryProvider(_metric, _days)` family
+        // member with no cached value, the view swapped to its loading state,
+        // and the segment the owner had just pressed was destroyed and rebuilt
+        // along with the hero, the chart and the markers. Every tap re-rendered
+        // the whole screen and the control vanished under the finger.
+        //
+        // Up here it depends on `_days` alone, which is local state, so it
+        // survives the fetch it starts.
+        Segment<int>(
+          options: kHistoryPeriods,
+          selected: _days,
+          onSelect: (days) => setState(() => _days = days),
+        ),
+        const SizedBox(height: HistoryPanel.sectionGap),
+        // **The slot is held while the new period loads.** Without the floor
+        // the body collapses to a one-line `Loading…`, and the context card,
+        // the evidence link and the analysis below it jump up half a screen
+        // and back down again — which is what made changing the period feel
+        // like the whole screen re-rendering rather than one chart changing.
+        //
+        // Same argument as `ChartVoid`'s, and the same refusal: the previous
+        // period's series is NOT held over under the new period's label. A
+        // 90-day line under `1 year` is stale-as-current, and the reader has
+        // no way to tell it from the real one.
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: bodyFloor),
+          child: AsyncView<List<TrendPoint>>(
+            value: currentAccountValue(ref.watch(provider)),
+            onRetry: () => ref.invalidate(provider),
+            builder: (context, points) =>
+                _body(HistoryWindow(points).through(viewDate), past, viewDate),
+          ),
         ),
         const SizedBox(height: HistoryPanel.sectionGap),
         const SectionHead(title: 'Put this in context'),
@@ -203,12 +240,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           value: reading == null ? null : decimalLabel(reading),
           unit: _metric.unit,
           context_: reading == null ? kNoReadingOnDay : null,
-        ),
-        const SizedBox(height: HistoryPanel.sectionGap),
-        Segment<int>(
-          options: kHistoryPeriods,
-          selected: _days,
-          onSelect: (days) => setState(() => _days = days),
         ),
         const SizedBox(height: HistoryPanel.sectionGap),
         HistoryPanel(

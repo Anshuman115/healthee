@@ -75,16 +75,25 @@ void main() {
   useRealFonts();
 
   group('the order is the prototype’s', () {
-    testWidgets('HERO · SEGMENT · CARD · CONTEXT · EVIDENCE · FOOTER', (
+    testWidgets('SEGMENT · HERO · CARD · CONTEXT · EVIDENCE · FOOTER', (
       tester,
     ) async {
       await _pump(tester);
       final texts = textsOn(tester);
-      // `screens-explore.js::H.screens.metric`, read top to bottom.
+      // `screens-explore.js::H.screens.metric`, read top to bottom — with ONE
+      // departure from the prototype, and it is load-bearing.
+      //
+      // **The segment sits above the hero, not below it.** The prototype puts
+      // it after, and this screen built it inside the `AsyncView` that renders
+      // the fetched window — so selecting a period built a new provider family
+      // member with no cached value, the view swapped to its loading state, and
+      // the control the owner had just pressed was destroyed and rebuilt along
+      // with everything under it. Above the fetch it depends only on local
+      // state and survives the request it starts.
       final order = <String>[
         'Overnight HRV.', // the detail head's h1
+        '30 days', // .segment — see above
         'Latest · 4 Aug', // .metric-hero p
-        '30 days', // .segment
         'Mean', // .three
         'Range', // H.note
         'See dated readings', // <details>
@@ -167,14 +176,24 @@ void main() {
     testWidgets('A POLARITY-UNKNOWN METRIC GETS NO VERDICT COLOUR', (
       tester,
     ) async {
-      // Steps is not in `metric_polarity.dart`, and rose over the window. The
-      // ordinary ink is the whole assertion: colouring by the sign of the delta
-      // would be the app finding good news in a number it cannot judge.
-      await _pump(tester, metric: HistoryMetric.steps, series: _steps);
+      // **Breathing rate is not in `metric_polarity.dart`.** Steps used to be
+      // the example here and no longer is: `steps_mortality` is Established and
+      // monotonic upward over the range a person walks, so the table now makes
+      // that claim and the trends grid colours it. Overnight respiratory rate
+      // has no such note, so it keeps the original point — the ordinary ink IS
+      // the assertion, because colouring by the sign of a delta would be the
+      // app finding good news in a number it cannot judge.
+      await _pump(
+        tester,
+        metric: HistoryMetric.breathing,
+        series: _steps,
+      );
       final change = tester.widget<Text>(
         find.descendant(of: find.byType(ChangeStat), matching: find.byType(Text)).last,
       );
-      expect(change.data, '+3300');
+      // One decimal: the metric decides its own resolution, and a breathing
+      // rate carries a tenth where a step count does not.
+      expect(change.data, '+3300.0');
       expect(change.style!.color, kColors.ink);
       expect(change.style!.color, isNot(kColors.fav));
       expect(change.style!.color, isNot(kColors.unf));
