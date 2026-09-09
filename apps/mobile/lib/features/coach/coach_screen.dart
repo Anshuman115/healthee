@@ -67,9 +67,11 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
+import 'package:healthee/data/models/today_snapshot.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/coach/coach_controller.dart';
 import 'package:healthee/features/coach/v02/coach_composer.dart';
+import 'package:healthee/features/coach/v02/coach_openers.dart';
 import 'package:healthee/features/coach/v02/coach_opening.dart';
 import 'package:healthee/features/coach/v02/coach_page.dart';
 import 'package:healthee/features/coach/v02/coach_prompts.dart';
@@ -209,9 +211,10 @@ class CoachBody extends ConsumerWidget {
     // costs no request. A loading or failed snapshot yields null, and null draws
     // nothing — this line is a bonus on the screen, never a reason to show an
     // error on it.
-    final String? openingLine = currentAccountValue(
+    final TodaySnapshot? snapshot = currentAccountValue(
       ref.watch(todaySnapshotProvider),
-    ).value?.snapshot.action;
+    ).value?.snapshot;
+    final String? openingLine = snapshot?.action;
     // [topic] rides with the question as well as seeding the input. Seeding it
     // puts the subject in the owner's own words, which is what they see and can
     // edit; SENDING it tells the server which screen this thread was opened
@@ -264,7 +267,7 @@ class CoachBody extends ConsumerWidget {
         if (conversation.isEmpty && !conversation.asking) ...<Widget>[
           const SizedBox(height: Insets.xl),
           // dart format off
-          CoachPrompts(onAsk:
+          CoachPrompts(prompts: coachOpeners(snapshot), onAsk:
               canAsk ? ask : null),
           // dart format on
         ],

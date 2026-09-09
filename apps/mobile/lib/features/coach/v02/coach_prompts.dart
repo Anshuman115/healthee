@@ -37,20 +37,18 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/shared/v02/labels.dart';
 
-/// The three openers, in the prototype's order and wording.
-const List<String> kCoachPrompts = <String>[
-  'What should I notice about my sleep?',
-  'How is activity affecting my recovery?',
-  'What does my HRV mean?',
-];
-
 /// The caption above them — legacy's `ASK YOUR COACH`, in this app's voice.
 const String kCoachPromptsLabel = 'OR ASK ONE OF THESE';
 
 /// The openers, or nothing at all when none may be spent.
 class CoachPrompts extends StatelessWidget {
-  /// [onAsk] of null draws no chips — absent, never disabled.
-  const CoachPrompts({required this.onAsk, super.key});
+  /// [onAsk] of null draws no chips — absent, never disabled. [prompts] are the
+  /// questions to offer, which `coach_openers.dart` builds from the owner's own
+  /// figures where it can and fills with the generic ones where it cannot.
+  const CoachPrompts({required this.prompts, required this.onAsk, super.key});
+
+  /// The questions offered, in order.
+  final List<String> prompts;
 
   /// `.chip { gap: 8px }` between chips, both axes.
   static const double gap = 8;
@@ -74,7 +72,7 @@ class CoachPrompts extends StatelessWidget {
           spacing: gap,
           runSpacing: gap,
           children: <Widget>[
-            for (final prompt in kCoachPrompts)
+            for (final prompt in prompts)
               _PromptChip(prompt: prompt, onPressed: () => ask(prompt)),
           ],
         ),

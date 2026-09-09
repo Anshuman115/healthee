@@ -20,7 +20,7 @@ import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
-import 'package:healthee/features/coach/v02/coach_prompts.dart';
+import 'package:healthee/features/coach/v02/coach_openers.dart';
 
 final DateTime _now = DateTime(2026, 8, 5, 9);
 
@@ -95,7 +95,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      for (final prompt in kCoachPrompts) {
+      for (final prompt in kGenericOpeners) {
         expect(find.text(prompt), findsOneWidget, reason: prompt);
       }
       // The opening block is GONE, and its absence is the assertion. It was a
@@ -114,7 +114,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      for (final prompt in kCoachPrompts) {
+      for (final prompt in kGenericOpeners) {
         expect(
           find.text(prompt),
           findsNothing,
@@ -128,7 +128,7 @@ void main() {
       await tester.pumpWidget(_screen(_ScriptedCoach(balances: [_free()])));
       await tester.pumpAndSettle();
 
-      for (final prompt in kCoachPrompts) {
+      for (final prompt in kGenericOpeners) {
         expect(find.text(prompt), findsNothing, reason: prompt);
       }
     });
@@ -148,10 +148,10 @@ void main() {
       );
       await tester.pumpWidget(_screen(client));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(kCoachPrompts.first));
+      await tester.tap(find.text(kGenericOpeners.first));
       await tester.pumpAndSettle();
 
-      expect(client.asked.single.single.content, kCoachPrompts.first);
+      expect(client.asked.single.single.content, kGenericOpeners.first);
       expect(find.textContaining('16 of 20 questions left'), findsOneWidget);
     });
   });
