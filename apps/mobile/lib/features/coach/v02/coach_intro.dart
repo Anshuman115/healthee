@@ -78,31 +78,43 @@ class CoachIntro extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // `Align`, because the Column stretches and a stretched box is no
-          // longer 56 wide. The symbol is a fixed square at the leading edge,
-          // which is what a `56px` block in normal flow is.
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Container(
-              key: symbolKey,
-              width: symbolSize,
-              height: symbolSize,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: colors.accentSoft,
-                borderRadius: BorderRadius.circular(symbolRadius),
+          // The symbol sits BESIDE the heading rather than stacked above it.
+          //
+          // The prototype stacks (`.coach-symbol { margin-bottom: 20px }`) and
+          // this app followed it, which cost 56 + 20 pt of column before the
+          // first word. Measured on the owner's own device that opening block —
+          // symbol, two-line heading, paragraph — ran to roughly a quarter of a
+          // 2400 px screen before anything could be tapped, and the owner asked
+          // for the screen to be cleaner. Beside it, the same two elements read
+          // as one masthead and the prompts come up the page.
+          //
+          // Every token is the prototype's; only the axis changed.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Container(
+                key: symbolKey,
+                width: symbolSize,
+                height: symbolSize,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colors.accentSoft,
+                  borderRadius: BorderRadius.circular(symbolRadius),
+                ),
+                child: Icon(
+                  Icons.forum_outlined,
+                  size: symbolIcon,
+                  color: colors.accent,
+                ),
               ),
-              child: Icon(
-                Icons.forum_outlined,
-                size: symbolIcon,
-                color: colors.accent,
+              const SizedBox(width: symbolGap),
+              Expanded(
+                child: Text(
+                  kCoachHeading,
+                  style: TypeScale.coachIntroTitle.copyWith(color: colors.ink),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: symbolGap),
-          Text(
-            kCoachHeading,
-            style: TypeScale.coachIntroTitle.copyWith(color: colors.ink),
+            ],
           ),
           const SizedBox(height: bodyGap),
           Text(
