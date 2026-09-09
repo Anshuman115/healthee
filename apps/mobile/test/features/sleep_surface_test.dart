@@ -14,7 +14,7 @@ import 'package:healthee/data/models/sleep_page.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/sleep/v02/naps_panel.dart';
-import 'package:healthee/shared/charts/v02/v02_stage_strip.dart';
+import 'package:healthee/features/sleep/v02/stage_shares.dart';
 import 'package:healthee/shared/findings_section.dart';
 
 import '../_sleep_stubs.dart';
@@ -123,7 +123,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(NapsPanel),
-          matching: find.byType(V02StageStrip),
+          matching: find.byType(StageShares),
         ),
         findsNothing,
       );

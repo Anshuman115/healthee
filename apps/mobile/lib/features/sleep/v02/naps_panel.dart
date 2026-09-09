@@ -34,9 +34,24 @@
 /// What replaces the sentence is the honest half of it: [kNapsUnstagedNote] says
 /// the *strap* recorded no stages, and only when that is true of every nap shown.
 /// That is a fact about the recording rather than a complaint about the wire.
+///
+/// ## The rows are a TABLE, not the prototype's sentences
+///
+/// The prototype joins each nap into one middot-separated line, and sixteen of
+/// those read as a paragraph: `6 Sep · 3:52 pm–4:58 pm · 1h 6m` eight times
+/// over, with the day, the clock and the length landing at a different x on
+/// every row because each one is a different number of characters wide. Nothing
+/// can be compared down a column because there are no columns.
+///
+/// Three fixed columns instead — day, when, how long — so a reader scanning for
+/// "which was the long one" reads one column instead of sixteen sentences. A
+/// cell with nothing recorded draws the app's own [kNoReading], not a gap: a
+/// blank cell in a table reads as a rendering fault, and dropping the field
+/// (which the sentence did) silently reflowed the row.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/type_scale.dart';
@@ -47,6 +62,14 @@ import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:solar_icons/solar_icons.dart';
+
+/// What a cell with nothing recorded draws.
+///
+/// The app's own mark for "no reading", the one `dated_panel.dart` uses. It is
+/// deliberately not a blank: an empty cell in a table reads as a rendering
+/// fault, and the sentence this table replaced simply dropped the field, which
+/// silently reflowed the row into a shorter one that looked complete.
+const String kNoReading = '—';
 
 /// `H.note('No nap record included for this day.')`.
 const String kNoNapsNote = 'No nap record included for this day.';
@@ -74,6 +97,18 @@ class NapsPanel extends StatelessWidget {
   /// The gap between two nap rows.
   static const double rowGap = 10;
 
+  /// The day column.
+  static const double dayWidth = 56;
+
+  /// The length column, right-aligned.
+  static const double lengthWidth = 62;
+
+  /// A table cell's own breathing room, top and bottom.
+  static const double cellPad = 9;
+
+  /// The gap above the header row.
+  static const double tableTop = 6;
+
   /// The gap above the journal link.
   static const double linkGap = 6;
 
@@ -97,7 +132,6 @@ class NapsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     return Panel(
       tone: Tone.sleep,
       label: 'Naps',
@@ -119,14 +153,9 @@ class NapsPanel extends StatelessWidget {
               hoursMinutes(totalMin),
               unit: naps.length == 1 ? 'in 1 nap' : 'in ${naps.length} naps',
             ),
-            for (final nap in naps.take(shown))
-              Padding(
-                padding: const EdgeInsets.only(bottom: rowGap),
-                child: Text(
-                  _line(nap),
-                  style: TypeScale.panelContext.copyWith(color: colors.ink),
-                ),
-              ),
+            const SizedBox(height: tableTop),
+            const _NapHead(),
+            for (final nap in naps.take(shown)) _NapRow(nap: nap),
             if (noneStaged) const PanelNote(kNapsUnstagedNote),
           ],
           if (onOpenJournal != null) ...<Widget>[
@@ -141,14 +170,111 @@ class NapsPanel extends StatelessWidget {
     );
   }
 
-  /// `31 Jul · 2:00p–2:35p · 35m`, dropping whatever was not recorded.
-  static String _line(SleepNap nap) {
+  /// The day, or [kNoReading] when the payload carried none.
+  static String day(SleepNap nap) {
+    final date = shortDate(nap.date);
+    return date.isEmpty ? kNoReading : date;
+  }
+
+  /// The clock range, or [kNoReading] when either end is missing. **Both or
+  /// neither** — a range drawn from one end is a half-measurement wearing a
+  /// full one's shape.
+  static String when(SleepNap nap) {
     final start = nap.start;
     final end = nap.end;
-    return <String>[
-      if (shortDate(nap.date) case final String date when date.isNotEmpty) date,
-      if (start != null && end != null) napRange(start, end),
-      if (nap.tibMin case final double minutes) napDuration(minutes),
-    ].join(' · ');
+    return start == null || end == null ? kNoReading : napRange(start, end);
+  }
+
+  /// How long it ran, or [kNoReading].
+  static String length(SleepNap nap) => switch (nap.tibMin) {
+    final double minutes => napDuration(minutes),
+    null => kNoReading,
+  };
+}
+
+/// The column names, once, above the rows.
+class _NapHead extends StatelessWidget {
+  const _NapHead();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final style = TypeScale.tinyLabel.copyWith(
+      color: colors.ink3,
+      letterSpacing: 0.9,
+      fontWeight: FontWeight.w700,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: NapsPanel.cellPad),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: NapsPanel.dayWidth,
+            child: Text('DAY', style: style),
+          ),
+          Expanded(child: Text('WHEN', style: style)),
+          SizedBox(
+            width: NapsPanel.lengthWidth,
+            child: Text('LENGTH', textAlign: TextAlign.right, style: style),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One nap, in three columns.
+class _NapRow extends StatelessWidget {
+  const _NapRow({required this.nap});
+
+  final SleepNap nap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final cell = TypeScale.panelContext.copyWith(color: colors.ink2);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.line, width: hairline)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: NapsPanel.cellPad),
+        child: Row(
+          children: <Widget>[
+            SizedBox(
+              width: NapsPanel.dayWidth,
+              child: Text(
+                NapsPanel.day(nap),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: cell,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                NapsPanel.when(nap),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: cell,
+              ),
+            ),
+            SizedBox(
+              width: NapsPanel.lengthWidth,
+              child: Text(
+                NapsPanel.length(nap),
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                // The one figure a reader scans this table FOR, so it is the
+                // one in full ink.
+                style: TypeScale.panelContext.copyWith(
+                  color: colors.ink,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
