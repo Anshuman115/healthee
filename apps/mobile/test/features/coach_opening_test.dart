@@ -1,0 +1,70 @@
+/// The opener is the coach speaking unasked, and the rules are about that.
+///
+/// It replaced a headline that took a third of the screen and said nothing. The
+/// risk in replacing filler with CONTENT is the opposite failure: content that
+/// invents itself when there is none, or that reads like an answer the owner paid
+/// for. These pin both.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/features/coach/v02/coach_opening.dart';
+
+Future<void> _pump(WidgetTester tester, String? line) => tester.pumpWidget(
+  MaterialApp(
+    theme: AppTheme.light,
+    home: Scaffold(
+      body: SingleChildScrollView(child: CoachOpening(line: line)),
+    ),
+  ),
+);
+
+void main() {
+  group('silence, never a placeholder', () {
+    testWidgets('null draws nothing at all', (tester) async {
+      // Null is the ordinary state on a free account (the AI gate strips the
+      // field), on any day but today (the cache is keyed to the owner's current
+      // day), and before the nightly chain has run. Inventing a line to fill the
+      // space is exactly what the block this replaced was guilty of.
+      await _pump(tester, null);
+
+      expect(find.text(kCoachOpeningLabel), findsNothing);
+      expect(find.byType(Container), findsNothing);
+    });
+
+    testWidgets('an empty or blank line draws nothing either', (tester) async {
+      await _pump(tester, '   ');
+
+      expect(find.text(kCoachOpeningLabel), findsNothing);
+    });
+  });
+
+  group('when there is a line', () {
+    const String line =
+        'Your recovery is 83 against a median of 58, and your sleep debt is '
+        'near 29 hours.';
+
+    testWidgets('it is shown verbatim under a caption naming whose it is', (
+      tester,
+    ) async {
+      await _pump(tester, line);
+
+      expect(find.text(line), findsOneWidget);
+      expect(find.text(kCoachOpeningLabel), findsOneWidget);
+    });
+
+    testWidgets('the caption dates it, so it cannot read as a fresh answer', (
+      tester,
+    ) async {
+      // The one thing this must never be mistaken for is a reply to a question
+      // the owner asked and was charged for. The caption says when it was said
+      // and that the coach said it, unprompted.
+      await _pump(tester, line);
+
+      expect(kCoachOpeningLabel.toUpperCase(), kCoachOpeningLabel);
+      expect(kCoachOpeningLabel, contains('THIS MORNING'));
+      expect(kCoachOpeningLabel, contains('COACH'));
+    });
+  });
+}
