@@ -94,8 +94,6 @@ export 'package:healthee/features/coach/v02/coach_composer.dart'
 const String kCoachTitle = 'Your coach.';
 
 /// Its eyebrow.
-const String kCoachEyebrow = 'A conversation with context';
-
 /// `.form-note` — what an answer carries, said before one arrives.
 const String kCoachFormNote =
     'Answers name the research notes behind them and the weakest grade among '
@@ -139,7 +137,6 @@ class CoachScreen extends ConsumerWidget {
     final conversation = ref.watch(coachControllerProvider);
     return CoachPage(
       title: kCoachTitle,
-      eyebrow: kCoachEyebrow,
       actions: <Widget>[
         // Only once there is a conversation to leave. An empty thread offering
         // to be replaced is a control that does nothing.

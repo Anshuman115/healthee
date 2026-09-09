@@ -38,7 +38,7 @@ class CoachPage extends StatelessWidget {
   /// [actions] sit at the trailing edge of the head. [footer] is pinned.
   const CoachPage({
     required this.title,
-    required this.eyebrow,
+    this.eyebrow,
     required this.children,
     required this.footer,
     this.actions = const <Widget>[],
@@ -57,8 +57,18 @@ class CoachPage extends StatelessWidget {
   /// `.page-title`.
   final String title;
 
-  /// The line above it.
-  final String eyebrow;
+  /// The line above the title, or null for a one-line head.
+  ///
+  /// Null on the coach, deliberately. It read "A conversation with context"
+  /// above a title reading "Your coach." — a tagline explaining a screen that had
+  /// already named itself, in a header that is then two lines tall on every
+  /// screen it appears on. Same failure as the opening block this screen lost
+  /// earlier, one element up.
+  ///
+  /// It stays available because some screens genuinely qualify their title —
+  /// a date, or which metric a detail is about — and that is information rather
+  /// than a slogan.
+  final String? eyebrow;
 
   /// The conversation, and whatever stands in for it while it is empty.
   final List<Widget> children;
