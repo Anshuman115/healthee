@@ -11,18 +11,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/features/coach/v02/coach_opening.dart';
 
-Future<void> _pump(WidgetTester tester, String? line) => tester.pumpWidget(
-  MaterialApp(
-    theme: AppTheme.light,
-    home: Scaffold(
-      body: SingleChildScrollView(child: CoachOpening(line: line)),
-    ),
-  ),
-);
+Future<void> _pump(WidgetTester tester, String? line, {bool pending = false}) =>
+    tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CoachOpening(line: line, pending: pending),
+          ),
+        ),
+      ),
+    );
 
 void main() {
   group('silence, never a placeholder', () {
-    testWidgets('null draws nothing at all', (tester) async {
+    testWidgets('null on a NON-entitled account draws nothing at all', (
+      tester,
+    ) async {
       // Null is the ordinary state on a free account (the AI gate strips the
       // field), on any day but today (the cache is keyed to the owner's current
       // day), and before the nightly chain has run. Inventing a line to fill the
@@ -30,7 +35,21 @@ void main() {
       await _pump(tester, null);
 
       expect(find.text(kCoachOpeningLabel), findsNothing);
-      expect(find.byType(Container), findsNothing);
+      expect(find.text(kCoachOpeningPending), findsNothing);
+    });
+
+    testWidgets('an entitled owner with no line yet is told WHEN, not sorry', (
+      tester,
+    ) async {
+      // Observed on the device at 08:20: the night had arrived, the chain fires
+      // at 10:30, and `kv` held yesterday's line — so the field was correctly
+      // null and the screen showed a blank band. Nothing was broken; it simply
+      // refused to explain itself.
+      await _pump(tester, null, pending: true);
+
+      expect(find.text(kCoachOpeningPending), findsOneWidget);
+      expect(kCoachOpeningPending, contains('each morning'));
+      expect(kCoachOpeningPending, contains('synced'));
     });
 
     testWidgets('an empty or blank line draws nothing either', (tester) async {

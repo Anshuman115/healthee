@@ -34,11 +34,21 @@
 /// this to everyone this morning" from "the coach said this to me because I
 /// asked", because only the second one was paid for.
 ///
-/// **Null is silence, never a placeholder.** It is null on a free account (the AI
-/// gate strips it), on any day but today (the cache is keyed to the owner's
-/// current day), and before the nightly chain has run. In each case this draws
-/// nothing at all — a line invented to fill the space would be the exact failure
-/// the block it replaced was guilty of.
+/// **Null is never filled with an invented line.** It is null on a free account
+/// (the AI gate strips it), on any day but today (the cache is keyed to the
+/// owner's current day), and before the nightly chain has run.
+///
+/// The last of those is ordinary rather than exceptional and deserves saying so.
+/// Observed on the owner's own device at 08:20: the night had arrived, the chain
+/// fires at 10:30 local, and `kv` held a line dated YESTERDAY — so `get_cached`
+/// correctly served null and the screen showed a blank band. Nothing was broken;
+/// the screen simply refused to explain itself.
+///
+/// So a premium owner with no line yet is told that one is written each morning
+/// and today's is not written yet. That is a statement about the schedule, not
+/// about their health, and it invents nothing. A non-premium owner is told
+/// nothing at all, because for them a line is not pending — it is not coming, and
+/// "not written yet" would be a promise this app does not keep.
 library;
 
 import 'package:flutter/material.dart';
@@ -50,10 +60,22 @@ import 'package:healthee/shared/v02/labels.dart';
 /// The caption above it.
 const String kCoachOpeningLabel = 'YOUR COACH, THIS MORNING';
 
+/// Shown to an entitled owner whose line for today has not been written yet.
+///
+/// It says WHEN rather than apologising, and it names the two conditions that
+/// actually govern it — your night having synced, and the morning run — because
+/// those are the two things the owner can recognise in their own day.
+const String kCoachOpeningPending =
+    'Today’s line isn’t written yet. Your coach writes one each morning, once '
+    'your night has synced.';
+
 /// Today's coaching line, in the coach's voice. Null draws nothing.
 class CoachOpening extends StatelessWidget {
   /// [line] is `TodaySnapshot.action` — already generated, already validated.
-  const CoachOpening({required this.line, super.key});
+  /// [pending] says a line is COMING when there is none: true only for an owner
+  /// entitled to one, so the waiting sentence is never shown to somebody who will
+  /// never receive it.
+  const CoachOpening({required this.line, required this.pending, super.key});
 
   /// `.card { border-radius: 22px; padding: 20px }`.
   static const double radius = 22;
@@ -64,10 +86,14 @@ class CoachOpening extends StatelessWidget {
   /// Today's line, or null when there is none to show.
   final String? line;
 
+  /// Whether this owner is entitled to a line at all.
+  final bool pending;
+
   @override
   Widget build(BuildContext context) {
     final said = line?.trim();
-    if (said == null || said.isEmpty) {
+    final bool hasLine = said != null && said.isNotEmpty;
+    if (!hasLine && !pending) {
       return const SizedBox.shrink();
     }
     final colors = context.colors;
@@ -88,8 +114,10 @@ class CoachOpening extends StatelessWidget {
             borderRadius: BorderRadius.circular(radius),
           ),
           child: Text(
-            said,
-            style: TypeScale.coachBody.copyWith(color: colors.ink),
+            hasLine ? said : kCoachOpeningPending,
+            style: TypeScale.coachBody.copyWith(
+              color: hasLine ? colors.ink : colors.ink2,
+            ),
           ),
         ),
       ],

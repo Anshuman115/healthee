@@ -193,8 +193,14 @@ class CoachBody extends ConsumerWidget {
         // asked something, their own conversation is the content and a standing
         // line above it would compete with the answers they paid for.
         if (conversation.isEmpty && !conversation.asking) ...<Widget>[
-          const SizedBox(height: Insets.lg),
-          CoachOpening(line: openingLine),
+          // The gap belongs to the opener, not to the screen. Rendered
+          // unconditionally it left a blank band above the chips on every
+          // morning before the chain had run — spacing for content that had
+          // decided not to exist.
+          if (openingLine != null || entitlement.premium) ...<Widget>[
+            const SizedBox(height: Insets.lg),
+            CoachOpening(line: openingLine, pending: entitlement.premium),
+          ],
         ],
         for (final entry in conversation.entries) CoachEntryView(entry: entry),
         _tail(
