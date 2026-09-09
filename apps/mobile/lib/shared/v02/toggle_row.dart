@@ -35,6 +35,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 
@@ -163,12 +164,14 @@ class HSwitch extends StatelessWidget {
         curve: kEaseOut,
         width: width,
         height: height,
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: value ? colors.accent : colors.rule,
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(
-            color: value ? colors.accent : colors.ink3,
-            width: hairline,
+          shape: hSquircle(
+            radius,
+            side: BorderSide(
+              color: value ? colors.accent : colors.ink3,
+              width: hairline,
+            ),
           ),
         ),
         child: Stack(

@@ -26,9 +26,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.button` — filled by default, `.secondary` outlined, `.full` stretched.
 class ActionButton extends StatelessWidget {
@@ -99,9 +101,7 @@ class ActionButton extends StatelessWidget {
         Size(full ? double.infinity : 0, minHeight),
       ),
       padding: const WidgetStatePropertyAll<EdgeInsets>(padding),
-      shape: WidgetStatePropertyAll<OutlinedBorder>(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
-      ),
+      shape: WidgetStatePropertyAll<OutlinedBorder>(hSquircle(radius)),
       textStyle: WidgetStatePropertyAll<TextStyle>(TypeScale.buttonLabel),
     );
     return secondary
@@ -133,7 +133,7 @@ class TextLink extends StatelessWidget {
   const TextLink({
     required this.label,
     required this.onPressed,
-    this.icon = Icons.arrow_forward,
+    this.icon = SolarIconsOutline.arrowRight,
     this.iconLeading = false,
     super.key,
   });

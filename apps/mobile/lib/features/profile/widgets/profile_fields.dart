@@ -22,9 +22,11 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/shared/v02/fields.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The two numbers and the gaps the profile form shares.
 abstract final class ProfileFields {
@@ -86,10 +88,12 @@ class BirthdayField extends StatelessWidget {
           child: Container(
             constraints: const BoxConstraints(minHeight: FieldBox.minHeight),
             padding: const EdgeInsets.all(FieldBox.padding),
-            decoration: BoxDecoration(
+            decoration: ShapeDecoration(
               color: colors.surface,
-              borderRadius: BorderRadius.circular(FieldBox.radius),
-              border: Border.all(color: colors.rule),
+              shape: hSquircle(
+                FieldBox.radius,
+                side: BorderSide(color: colors.rule),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -104,7 +108,7 @@ class BirthdayField extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(Icons.event_outlined, size: 18, color: colors.ink3),
+                Icon(SolarIconsOutline.calendarMark, size: 18, color: colors.ink3),
               ],
             ),
           ),

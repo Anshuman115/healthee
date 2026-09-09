@@ -16,6 +16,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 
 /// A 40 × 40 tile carrying one icon in the family colour.
@@ -44,9 +45,9 @@ class IconTile extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: context.familySoft,
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(radius),
       ),
       child: Icon(icon, size: iconSize, color: context.family),
     );

@@ -22,6 +22,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/journal/log_kind.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// One tile: a glyph, a word, and the kind it logs.
 @immutable
@@ -41,16 +42,20 @@ class JournalKindTile {
 
 /// The prototype's ten, in the prototype's order.
 const List<JournalKindTile> kJournalTiles = <JournalKindTile>[
-  JournalKindTile(Icons.local_cafe_outlined, 'Caffeine', LogKind.caffeine),
-  JournalKindTile(Icons.water_drop_outlined, 'Water', LogKind.water),
-  JournalKindTile(Icons.sentiment_satisfied_outlined, 'Mood', LogKind.mood),
-  JournalKindTile(Icons.spa_outlined, 'Meditation', LogKind.meditation),
-  JournalKindTile(Icons.directions_walk, 'Exercise', LogKind.exercise),
-  JournalKindTile(Icons.monitor_weight_outlined, 'Weight', LogKind.weight),
-  JournalKindTile(Icons.bedtime_outlined, 'Alcohol', LogKind.alcohol),
-  JournalKindTile(Icons.schedule, 'Fasting', null),
-  JournalKindTile(Icons.check, 'Habit', LogKind.habit),
-  JournalKindTile(Icons.favorite_outline, 'Symptom', LogKind.symptom),
+  JournalKindTile(SolarIconsOutline.cupHot, 'Caffeine', LogKind.caffeine),
+  JournalKindTile(SolarIconsOutline.waterdrop, 'Water', LogKind.water),
+  JournalKindTile(SolarIconsOutline.smileCircle, 'Mood', LogKind.mood),
+  JournalKindTile(
+    SolarIconsOutline.meditation,
+    'Meditation',
+    LogKind.meditation,
+  ),
+  JournalKindTile(SolarIconsOutline.walking, 'Exercise', LogKind.exercise),
+  JournalKindTile(SolarIconsOutline.weigher, 'Weight', LogKind.weight),
+  JournalKindTile(SolarIconsOutline.moonSleep, 'Alcohol', LogKind.alcohol),
+  JournalKindTile(SolarIconsOutline.clockCircle, 'Fasting', null),
+  JournalKindTile(SolarIconsOutline.checklist, 'Habit', LogKind.habit),
+  JournalKindTile(SolarIconsOutline.heart, 'Symptom', LogKind.symptom),
 ];
 
 /// The three-column grid of kinds.

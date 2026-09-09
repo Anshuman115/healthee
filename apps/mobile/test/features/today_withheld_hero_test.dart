@@ -33,6 +33,7 @@ import 'package:healthee/shared/v02/instruments/bio_halo.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
 
 import '../_today_stubs.dart';
+import '../shared/_v02_harness.dart';
 import '_today_host.dart';
 
 /// The consequence paragraph `analytics/biological_age.py` actually sends.
@@ -146,8 +147,8 @@ void main() {
       expect(refused.left, live.left);
       // The ground and the corner are the hero's identity in both themes.
       final ground = _ground(tester);
-      expect(ground.color, liveGround.color);
-      expect(ground.borderRadius, liveGround.borderRadius);
+      expect(groundOf(ground), groundOf(liveGround));
+      expect(radiusOf(ground), radiusOf(liveGround));
       // The eyebrow sits exactly where it sits on a hero with a number.
       expect(
         tester.getRect(find.text(TodayBioHero.eyebrow)).left,
@@ -362,13 +363,13 @@ void main() {
 }
 
 /// The card's ground and corner, as they were actually built.
-BoxDecoration _ground(WidgetTester tester) {
+Decoration _ground(WidgetTester tester) {
   final container = tester.widget<Container>(
     find
         .descendant(of: find.byType(BioHero), matching: find.byType(Container))
         .first,
   );
-  return container.decoration! as BoxDecoration;
+  return container.decoration!;
 }
 
 /// The composite block, as the envelope hands it to the hero.

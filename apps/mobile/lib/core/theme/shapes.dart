@@ -19,7 +19,7 @@ const double kSquircleSmoothness = 0.6;
 ///
 /// Verbatim from legacy: same smoothness, same parameter shape, same default of
 /// no border.
-ShapeBorder hSquircle(double radius, {BorderSide side = BorderSide.none}) =>
+HSquircleBorder hSquircle(double radius, {BorderSide side = BorderSide.none}) =>
     HSquircleBorder(
       SmoothRectangleBorder(
         smoothness: kSquircleSmoothness,
@@ -50,10 +50,17 @@ ShapeBorder hSquircle(double radius, {BorderSide side = BorderSide.none}) =>
 /// what is inside it, so the honest repair is here rather than in the
 /// expectations.
 ///
+/// ## Why it is an `OutlinedBorder`
+///
+/// Material's own `shape:` parameters — `ButtonStyle`, `FloatingActionButton`,
+/// `Card` — are typed `OutlinedBorder`, not `ShapeBorder`. A corner the app
+/// cannot hand to a button is a corner the app does not really own: the FAB and
+/// the two button themes kept Material's circular arc for exactly that reason.
+///
 /// Everything else delegates. This adds one fact the wrapped shape already knows
 /// and declines to report.
 @immutable
-class HSquircleBorder extends ShapeBorder {
+class HSquircleBorder extends OutlinedBorder {
   const HSquircleBorder(this._shape);
 
   final SmoothRectangleBorder _shape;
@@ -62,6 +69,7 @@ class HSquircleBorder extends ShapeBorder {
   double get radius => _shape.borderRadius.resolve(null).topLeft.x;
 
   /// The edge, or [BorderSide.none].
+  @override
   BorderSide get side => _shape.side;
 
   @override
@@ -80,8 +88,12 @@ class HSquircleBorder extends ShapeBorder {
       _shape.paint(canvas, rect, textDirection: textDirection);
 
   @override
-  ShapeBorder scale(double t) =>
+  HSquircleBorder scale(double t) =>
       HSquircleBorder(_shape.scale(t) as SmoothRectangleBorder);
+
+  @override
+  HSquircleBorder copyWith({BorderSide? side}) =>
+      side == null ? this : hSquircle(radius, side: side);
 
   @override
   bool operator ==(Object other) =>

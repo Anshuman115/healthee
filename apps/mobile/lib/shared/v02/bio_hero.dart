@@ -273,14 +273,7 @@ class BioHero extends StatelessWidget {
   ) {
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colors.bioBackground,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: Color.lerp(colors.bioLine, colors.surface, 1 - lineMix)!,
-          width: hairline,
-        ),
-      ),
+      decoration: bioHeroSkin(colors, radius: radius, lineMix: lineMix),
       child: Stack(
         children: <Widget>[
           // FIRST, so it paints behind the content, and POSITIONED, so the

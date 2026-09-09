@@ -167,9 +167,10 @@ void main() {
       final container = tester.widget<Container>(
         find.descendant(of: tile, matching: find.byType(Container)).first,
       );
-      final border = (container.decoration! as BoxDecoration).border!;
-      expect(border.isUniform, isTrue);
-      expect((border as Border).left.color, kColors.line);
+      // One `BorderSide` for all four edges, so "the family is only the top
+      // rule" is a claim about a rule drawn OVER a uniform edge, not about an
+      // edge that is family-coloured on one side.
+      expect(edgeOf(container.decoration!)!.color, kColors.line);
     });
 
     testWidgets('the two columns are equal at every phone width', (

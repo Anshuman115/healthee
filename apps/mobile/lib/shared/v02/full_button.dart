@@ -23,8 +23,10 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// A filled, full-width action with a trailing arrow.
 class V02FullButton extends StatelessWidget {
@@ -73,9 +75,7 @@ class V02FullButton extends StatelessWidget {
           padding: padding,
           minimumSize: const Size(0, minHeight),
           textStyle: TypeScale.panelTitle,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radius),
-          ),
+          shape: hSquircle(radius),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -85,7 +85,7 @@ class V02FullButton extends StatelessWidget {
               child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: gap),
-            const Icon(Icons.arrow_forward, size: iconSize),
+            const Icon(SolarIconsOutline.arrowRight, size: iconSize),
           ],
         ),
       ),

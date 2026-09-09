@@ -23,6 +23,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/core/theme/type_scale_bio.dart';
@@ -75,9 +76,9 @@ class WithheldPanel extends StatelessWidget {
           painter: _DashedEdge(colour: colors.rule),
           child: Container(
             padding: const EdgeInsets.all(padding),
-            decoration: BoxDecoration(
+            decoration: ShapeDecoration(
               color: colors.surface2,
-              borderRadius: BorderRadius.circular(radius),
+              shape: hSquircle(radius),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,

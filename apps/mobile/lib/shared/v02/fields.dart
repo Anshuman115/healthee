@@ -40,6 +40,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.field` — the wrapper around one labelled control.
 class HField extends StatelessWidget {
@@ -272,7 +273,7 @@ class HSelect<T> extends StatelessWidget {
       initialValue: value,
       isExpanded: true,
       onChanged: onChanged,
-      icon: Icon(Icons.expand_more, color: colors.ink3),
+      icon: Icon(SolarIconsOutline.altArrowDown, color: colors.ink3),
       dropdownColor: colors.surface,
       style: FormType.fieldInput.copyWith(color: colors.ink),
       hint: placeholder == null

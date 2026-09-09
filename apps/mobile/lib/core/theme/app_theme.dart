@@ -125,14 +125,23 @@ abstract final class AppTheme {
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),
+      // The coach button. Material's default is a 16px circular arc, and it was
+      // the one surface on Today still wearing somebody else's corner.
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colors.accent,
+        foregroundColor: colors.onAccent,
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        shape: hSquircle(Radii.card),
+      ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: colors.accent,
           foregroundColor: colors.onAccent,
           textStyle: text.labelLarge,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Radii.button),
-          ),
+          shape: hSquircle(Radii.button),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -140,9 +149,7 @@ abstract final class AppTheme {
           foregroundColor: colors.ink,
           textStyle: text.labelLarge,
           side: BorderSide(color: colors.line, width: hairline),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Radii.button),
-          ),
+          shape: hSquircle(Radii.button),
         ),
       ),
       textButtonTheme: TextButtonThemeData(

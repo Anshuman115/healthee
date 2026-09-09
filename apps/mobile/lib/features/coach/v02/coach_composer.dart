@@ -47,6 +47,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What the send control ANNOUNCES. Public so a test can pin the wording.
 ///
@@ -206,7 +207,7 @@ class _CoachComposerState extends State<CoachComposer> {
                   onTap: ready ? _send : null,
                   customBorder: const CircleBorder(),
                   child: Icon(
-                    Icons.arrow_upward,
+                    SolarIconsOutline.arrowUp,
                     size: CoachComposer.sendIcon,
                     color: ready ? colors.onAccent : colors.ink3,
                   ),

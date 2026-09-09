@@ -26,6 +26,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
@@ -95,12 +96,14 @@ class EntryCard extends StatelessWidget {
     final open = onOpen;
     final card = Container(
       padding: const EdgeInsets.all(padding),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: context.familySoft,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: Color.lerp(colors.line, family, edgeMix)!,
-          width: hairline,
+        shape: hSquircle(
+          radius,
+          side: BorderSide(
+            color: Color.lerp(colors.line, family, edgeMix)!,
+            width: hairline,
+          ),
         ),
       ),
       child: Column(

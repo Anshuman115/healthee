@@ -45,6 +45,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Which ground a [HNotice] wears.
 enum NoticeKind {
@@ -111,10 +112,14 @@ class HNotice extends StatelessWidget {
     };
     return Container(
       padding: const EdgeInsets.all(padding),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: ground,
-        borderRadius: BorderRadius.circular(radius),
-        border: edge == null ? null : Border.all(color: edge, width: hairline),
+        shape: hSquircle(
+          radius,
+          side: edge == null
+              ? BorderSide.none
+              : BorderSide(color: edge, width: hairline),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,8 +131,8 @@ class HNotice extends StatelessWidget {
               // otherwise — the glyph names the KIND of trouble, not its
               // severity.
               kind == NoticeKind.error
-                  ? Icons.cloud_off_outlined
-                  : Icons.info_outline,
+                  ? SolarIconsOutline.cloudCross
+                  : SolarIconsOutline.infoCircle,
               size: iconSize,
               color: mark,
             ),
