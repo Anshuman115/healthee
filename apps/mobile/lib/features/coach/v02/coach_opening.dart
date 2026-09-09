@@ -55,6 +55,10 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/data/honesty/citations.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
+import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
+import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/labels.dart';
 
 /// The caption above it.
@@ -68,6 +72,18 @@ const String kCoachOpeningLabel = 'YOUR COACH, THIS MORNING';
 const String kCoachOpeningPending =
     'Today’s line isn’t written yet. Your coach writes one each morning, once '
     'your night has synced.';
+
+/// What this line cites, read out of the line itself.
+///
+/// `TodaySnapshot.action` is a bare string — the payload carries no citation
+/// list beside it, unlike a coach reply — so the notes come from the inline
+/// markers the server wrote into the sentence. `groundingOf` is the one parser
+/// for those, shared with every other grounded surface.
+MetricDetail _sources(String line) =>
+    MetricDetail.grounded(groundingOf(line), title: kCoachOpeningSources);
+
+/// The sheet's heading.
+const String kCoachOpeningSources = 'Behind this line';
 
 /// Today's coaching line, in the coach's voice. Null draws nothing.
 class CoachOpening extends StatelessWidget {
@@ -113,11 +129,36 @@ class CoachOpening extends StatelessWidget {
             color: colors.surface2,
             borderRadius: BorderRadius.circular(radius),
           ),
-          child: Text(
-            hasLine ? said : kCoachOpeningPending,
-            style: TypeScale.coachBody.copyWith(
-              color: hasLine ? colors.ink : colors.ink2,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              // `GroundedProse`, not `Text`. The line arrives with the server's
+              // inline citation markers in it — the first build printed
+              // "[resting_heart_rate, recovery_readiness]" as literal brackets
+              // in the middle of a sentence, which is the raw wire format
+              // leaking onto the screen. Every other surface in this app renders
+              // these through the same widget, and so does the coach's own
+              // replies four lines away in `coach_thread.dart`.
+              if (hasLine)
+                GroundedProse(
+                  text: said,
+                  style: TypeScale.coachBody.copyWith(color: colors.ink),
+                )
+              else
+                Text(
+                  kCoachOpeningPending,
+                  style: TypeScale.coachBody.copyWith(color: colors.ink2),
+                ),
+              // And the sources behind it, one tap away — the same ⓘ a reply
+              // carries. A line that cites nothing draws no dot: an ⓘ opening an
+              // empty sheet is worse than none.
+              if (hasLine && _sources(said).isNotEmpty)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: MetricInfoDot(null, detail: _sources(said)),
+                ),
+            ],
           ),
         ),
       ],

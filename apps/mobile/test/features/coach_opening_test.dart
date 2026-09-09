@@ -73,6 +73,23 @@ void main() {
       expect(find.text(kCoachOpeningLabel), findsOneWidget);
     });
 
+    testWidgets('the note ids are rendered, never printed raw', (tester) async {
+      // THE regression. The first build used a plain `Text`, so the server's
+      // inline markers reached the screen as literal brackets in the middle of a
+      // sentence — "…signal under-recovery [resting_heart_rate,
+      // recovery_readiness]." — which is the wire format leaking into the UI.
+      // Every other grounded surface in this app renders these, including the
+      // coach's own replies.
+      await _pump(
+        tester,
+        'Keep today easy, as your resting heart rate is elevated '
+        '[resting_heart_rate, recovery_readiness].',
+      );
+
+      expect(find.textContaining('[resting_heart_rate'), findsNothing);
+      expect(find.textContaining('recovery_readiness]'), findsNothing);
+    });
+
     testWidgets('the caption dates it, so it cannot read as a fresh answer', (
       tester,
     ) async {
