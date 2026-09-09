@@ -198,6 +198,18 @@ class SummaryTile extends StatelessWidget {
             const SizedBox(height: meterGap),
             TileMeter(fraction: filled),
             const SizedBox(height: meterBottomGap - metaGap),
+          ]
+          // **The slot is KEPT when there is no fraction, and left empty.**
+          // A tile with nothing to measure against still has to share a
+          // baseline with the two beside it — Movement has no step target on
+          // the wire, and its meta line was landing where their meters are, so
+          // a row of three read as one broken tile rather than as one honest
+          // absence. Drawing an empty track instead would be worse: a 0%-filled
+          // bar is a claim about a denominator that does not exist.
+          else if (meta != null) ...<Widget>[
+            const SizedBox(height: meterGap),
+            const SizedBox(height: meterHeight),
+            const SizedBox(height: meterBottomGap - metaGap),
           ],
           if (meta != null) ...<Widget>[
             const SizedBox(height: metaGap),

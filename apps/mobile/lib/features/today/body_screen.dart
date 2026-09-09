@@ -190,7 +190,6 @@ class BodyDetail extends StatelessWidget {
           _ when age != null => TodayBioHero(age: age, reveals: reveals),
           _ => const SizedBox.shrink(),
         },
-        const SizedBox(height: blockGap),
         ContextBridge.text(kContributorsBridge),
         if (age != null) ..._calculation(context, age),
         if (exclusions.isNotEmpty) ...<Widget>[

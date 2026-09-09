@@ -39,6 +39,13 @@ import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 
+/// The dimension grid moved to `dimension_grid.dart` at the 400-line gate
+/// (Standards section 1): a grid of independently-judged readings is not a
+/// meter. Re-exported so every call site and its tests are unchanged and there
+/// is still one definition.
+export 'package:healthee/shared/v02/dimension_grid.dart'
+    show Dimension, DimensionGrid;
+
 /// One share of a [WeightStack].
 @immutable
 class WeightSegment {
@@ -76,7 +83,14 @@ class WeightStack extends StatelessWidget {
     }
     return SizedBox(
       height: height,
+      // **`stretch`, or this bar is invisible.** A `Row` hands its children
+      // LOOSE cross-axis constraints, and a `DecoratedBox` with no child takes
+      // the smallest size it is allowed — so every segment was 8px wide and
+      // ZERO high, and the stack reserved its space and painted nothing. The
+      // same failure as the two charts that shipped at zero height: the widget
+      // was in the tree the whole time.
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           for (var i = 0; i < segments.length; i++) ...<Widget>[
             if (i > 0) const SizedBox(width: gap),
@@ -105,7 +119,13 @@ class WeightStack extends StatelessWidget {
 @immutable
 class Factor {
   /// [fraction] of null draws an empty track and an em dash.
-  const Factor(this.label, this.fraction, {required this.tone, this.reading});
+  const Factor(
+    this.label,
+    this.fraction, {
+    required this.tone,
+    this.reading,
+    this.reference,
+  });
 
   /// The factor's name.
   final String label;
@@ -118,6 +138,21 @@ class Factor {
 
   /// The number in the right-hand column. Null prints an em dash.
   final String? reading;
+
+  /// Where this track's OWN zero-point sits, 0–1, or null when it has none.
+  ///
+  /// **A set of bars drawn identically claims they are one scale.** Recovery's
+  /// four are not: three score the night against the owner's trailing 42 days,
+  /// where the middle of the track is a normal night for them, and the fourth
+  /// is a plain percentage of stored sleep need, where the middle is half the
+  /// sleep they needed. So `Sleep 70` and `Resting heart 70` are unrelated news
+  /// and the drawing said they were the same.
+  ///
+  /// A tick at the reference is the smallest honest repair: the three bars that
+  /// HAVE a normal show where it is — fill past it reads as better than usual —
+  /// and the one that does not visibly lacks it. The words are behind the ⓘ;
+  /// this stops the picture asserting the thing the words have to deny.
+  final double? reference;
 }
 
 /// `.factor-bars` — the components behind one number, each in its own family.
@@ -142,6 +177,16 @@ class FactorBars extends StatelessWidget {
 
   /// Its radius, which is its height.
   static const double trackRadius = 6;
+
+  /// The reference tick's width. See [Factor.reference].
+  static const double referenceWidth = 2;
+
+  /// Identifies the FILL, so a test can count fills without counting ticks.
+  ///
+  /// Both are a `FractionallySizedBox`, and the claim one suite makes is that an
+  /// unscored factor draws no fill — which silently became "draws no fill and no
+  /// tick" the moment the tick existed, and passed for the wrong reason.
+  static const Key fillKey = ValueKey<String>('factor.fill');
 
   /// The factors, in the order the model lists them.
   final List<Factor> factors;
@@ -192,15 +237,41 @@ class _FactorRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(FactorBars.trackRadius),
                 child: SizedBox(
                   height: FactorBars.trackHeight,
-                  child: ColoredBox(
-                    color: colors.surface2,
-                    child: factor.fraction == null
-                        ? const SizedBox.shrink()
-                        : FractionallySizedBox(
+                  child: Stack(
+                    children: <Widget>[
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: colors.surface2,
+                          child: factor.fraction == null
+                              ? const SizedBox.shrink()
+                              : FractionallySizedBox(
+                                  key: FactorBars.fillKey,
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: factor.fraction!.clamp(0.0, 1.0),
+                                  child: ColoredBox(color: context.family),
+                                ),
+                        ),
+                      ),
+                      if (factor.reference case final double at)
+                        Positioned.fill(
+                          child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,
-                            widthFactor: factor.fraction!.clamp(0.0, 1.0),
-                            child: ColoredBox(color: context.family),
+                            widthFactor: at.clamp(0.0, 1.0),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              // Height stated, not inherited: `Align` gives
+                              // loose constraints and a childless `ColoredBox`
+                              // takes the smallest size allowed — which is how
+                              // the weight stack above spent months invisible.
+                              child: SizedBox(
+                                width: FactorBars.referenceWidth,
+                                height: FactorBars.trackHeight,
+                                child: ColoredBox(color: colors.ink),
+                              ),
+                            ),
                           ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -219,109 +290,6 @@ class _FactorRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// One cell of a [DimensionGrid].
-@immutable
-class Dimension {
-  /// [note] is the reference the reading is read against.
-  const Dimension(this.label, this.value, {this.note});
-
-  /// What is being measured.
-  final String label;
-
-  /// The reading, already formatted.
-  final String value;
-
-  /// The reference under it.
-  final String? note;
-}
-
-/// `.dimension-grid` — independent readings, two across, never summed.
-class DimensionGrid extends StatelessWidget {
-  /// Builds the grid. An empty [dimensions] draws nothing.
-  const DimensionGrid(this.dimensions, {super.key});
-
-  /// `.dimension-grid { gap: 20px 16px }` — the row half.
-  static const double rowGap = 20;
-
-  /// Its column half.
-  static const double columnGap = 16;
-
-  /// `.dimension-cell small { margin-top: 6px }`.
-  static const double noteGap = 6;
-
-  /// The readings, in payload order.
-  final List<Dimension> dimensions;
-
-  @override
-  Widget build(BuildContext context) {
-    if (dimensions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final rows = <List<Dimension>>[
-      for (var i = 0; i < dimensions.length; i += 2)
-        dimensions.sublist(i, (i + 2).clamp(0, dimensions.length)),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        for (var r = 0; r < rows.length; r++) ...<Widget>[
-          if (r > 0) const SizedBox(height: rowGap),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(child: _Cell(dimension: rows[r].first)),
-              const SizedBox(width: columnGap),
-              Expanded(
-                child: rows[r].length > 1
-                    ? _Cell(dimension: rows[r][1])
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _Cell extends StatelessWidget {
-  const _Cell({required this.dimension});
-
-  final Dimension dimension;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Text(
-          dimension.label,
-          style: TypeScale.dimensionLabel.copyWith(color: colors.ink2),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        Text(
-          dimension.value,
-          style: TypeScale.dimensionValue.copyWith(color: colors.ink),
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.clip,
-        ),
-        if (dimension.note case final String note) ...<Widget>[
-          const SizedBox(height: DimensionGrid.noteGap),
-          Text(
-            note,
-            style: TypeScale.dimensionNote.copyWith(color: colors.ink2),
-          ),
-        ],
-      ],
     );
   }
 }

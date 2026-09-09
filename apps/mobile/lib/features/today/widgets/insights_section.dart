@@ -41,8 +41,19 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/data/models/finding.dart';
+import 'package:healthee/features/today/widgets/finding_prose.dart';
+import 'package:healthee/shared/format/metric_names.dart';
 import 'package:healthee/shared/instrument_module.dart';
+import 'package:healthee/shared/v02/metric_tone.dart';
+import 'package:solar_icons/solar_icons.dart';
+
+/// The prose half moved to `finding_prose.dart` at the 400-line gate (Standards
+/// section 1). It is a clean seam rather than a cut: those are pure functions
+/// deciding WHAT a finding says, and what is left here decides how it looks.
+/// Re-exported so every call site and its tests are unchanged.
+export 'package:healthee/features/today/widgets/finding_prose.dart';
 
 /// At most four non-trivial patterns, or the sentence that says there are none.
 class InsightsSection extends StatelessWidget {
@@ -95,6 +106,12 @@ class InsightsSection extends StatelessWidget {
   }
 }
 
+/// The air inside a pattern card, tighter than a lone module's.
+const EdgeInsets _padding = EdgeInsets.symmetric(horizontal: 14, vertical: 11);
+
+/// Between the subjects, the sentence and the foot.
+const double _blockGap = 6;
+
 /// One pattern, its sentence and its arithmetic.
 class _FindingRow extends StatelessWidget {
   const _FindingRow({required this.finding});
@@ -105,177 +122,144 @@ class _FindingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final effect = (finding.effectSize ?? 0).abs();
+    // **No header row.** It carried the word `PATTERN` on every card, under a
+    // section head that already says `Your patterns` — the same word four times
+    // under its own title — and the strength chip opposite it. The strength is
+    // real and stays; it joins the foot, which is where the rest of this
+    // finding's provenance already is. One row saved on every card.
     return InstrumentModule(
-      label: 'Pattern',
       tag: colors.accent,
       minHeight: 0,
-      trailing: Text(
-        strengthLabel(effect).toUpperCase(),
-        style: HType.label(colors.accent, size: 8, tracking: 0.1),
-      ),
+      // Tighter than a module's default. These stack four deep under one
+      // heading, and the default padding is sized for a card that stands alone.
+      padding: _padding,
       children: [
+        // **The two metrics, as the card's subject.** A pattern is a
+        // relationship between two of the owner's own readings, and the card
+        // said so only inside a sentence — so four findings were four grey
+        // boxes of prose, scannable one at a time and never as a set.
+        if (_pair(finding) case final List<String> pair) ...<Widget>[
+          _Subjects(pair),
+          const SizedBox(height: _blockGap),
+        ],
         Text(
           describeFinding(finding).headline,
-          style: HType.serif(colors.ink, size: 16, height: 1.4),
+          // 15/1.3, not 16/1.4. Two lines of serif is most of one of these
+          // cards, so the leading is where the height is.
+          style: HType.serif(colors.ink, size: 15, height: 1.3),
         ),
-        const SizedBox(height: 8),
-        ModuleFoot(findingFoot(finding)),
+        const SizedBox(height: _blockGap),
+        Row(
+          children: <Widget>[
+            _Strength(effect),
+            const SizedBox(width: 8),
+            Expanded(child: ModuleFoot(findingFoot(finding))),
+          ],
+        ),
       ],
     );
   }
 }
 
-/// The foot line: the effect under **its own** instrument's name, and the window.
+/// The pair this finding relates, or null when it is not about two metrics.
 ///
-/// Legacy hard-coded the letter `r` here, and this file copied it. `effect_metric`
-/// has been on the wire since `read/findings.py` was written, is parsed by
-/// `Finding.effectMetric`, and was ignored — so a Spearman `rho` was drawn under
-/// the symbol for Pearson's *r*, and a Mann-Whitney rank-biserial statistic got the
-/// same letter for something else again. `finding.dart` states the rule on the
-/// field itself: *"WHICH statistic [effectSize] is … without it a number between
-/// −1 and 1 could be read as three different things."*
-///
-/// **The letter is withheld when the server did not send one**, the way `estimate`
-/// and `method` are paired on the VO₂max card: a bare number is a number we cannot
-/// name, and naming it wrong is worse than not naming it.
-String findingFoot(Finding finding) {
-  final effect = (finding.effectSize ?? 0).abs().toStringAsFixed(2);
-  final samples = finding.nSamples ?? 0;
-  final metric = finding.effectMetric;
-  final figure = metric == null ? effect : '$metric $effect';
-  return '$figure · $samples days of your data';
+/// Both must be NAMEABLE. A chip printing `rhr_daily` is a log line where a
+/// subject belongs, and the same rule already governs `signalLabel` on a
+/// suggestion card: an id the app has no owner-facing word for is not shown as
+/// though it were one.
+List<String>? _pair(Finding finding) {
+  final a = finding.metricA;
+  final b = finding.metricB;
+  if (a == null || b == null || !hasMetricName(a) || !hasMetricName(b)) {
+    return null;
+  }
+  return <String>[a, b];
 }
 
-/// The owner-facing name for a metric id. Legacy's `_metricFriendly` (1467).
+/// The two metrics, each in ITS OWN family colour.
 ///
-/// An id with no entry has its underscores replaced, which is legacy's own
-/// `m.replaceAll('_', ' ')`. That is a prettified id rather than a name, and
-/// `shared/format/metric_names.dart` argues against the practice in general — it
-/// is kept here because the sentence it lands in is legacy's and reads as prose,
-/// where an id with underscores would not read at all.
-String friendlyMetric(String? metric) {
-  if (metric == null) {
-    return '';
-  }
-  const names = <String, String>{
-    'rhr_daily': 'resting HR',
-    'hrv_sleep_avg': 'HRV',
-    'hrv_rmssd_ms': 'HRV',
-    'sleep_health_score_4dim': 'sleep health',
-    'sleep_regularity_index': 'sleep regularity',
-    'steps_total': 'steps',
-    'total_calories': 'calories',
-    'active_calories': 'active calories',
-    'mvpa_min': 'active minutes',
-    'spo2_overnight': 'blood oxygen',
-    'sleep_score': 'sleep score',
-    'respiratory_rate_sleep': 'breathing rate',
-    'vo2max_estimate': 'VO₂max',
-    'skin_temp_c': 'skin temp',
-  };
-  return names[metric] ?? metric.replaceAll('_', ' ');
-}
+/// **This is subject identity, not a verdict**, which is the only thing that
+/// makes it legal here. `apps/mobile/README.md` is explicit that a finding may
+/// not turn its sign into a verdict and that flipping the coefficient must
+/// change no colour — these hues say *which reading*, and they are identical
+/// whether the two moved together or opposite.
+class _Subjects extends StatelessWidget {
+  const _Subjects(this.pair);
 
-/// How consistent a pattern is, in words. Legacy's four bands.
-String strengthLabel(double absoluteEffect) {
-  if (absoluteEffect >= 0.7) {
-    return 'very consistent';
-  }
-  if (absoluteEffect >= 0.5) {
-    return 'consistent';
-  }
-  if (absoluteEffect >= 0.4) {
-    return 'fairly consistent';
-  }
-  return 'suggestive';
-}
+  final List<String> pair;
 
-/// The sentence and the context line for one finding. Legacy's `_describeFinding`.
-///
-/// ## The one-metric branch, and what it may NOT fall back to
-///
-/// `metricB` is null for every `event_effect` and `personal_cutoff` finding, and
-/// this branch used to return `finding.description` — the server's
-/// `description_raw`, whose own docstring (`data/models/finding.dart`) says *"do
-/// not render it"* and records that **it reached the home screen verbatim once**.
-/// It reached it again. For an event finding the string an owner would have read
-/// is `analytics/correlations.py`'s
-///
-/// > `caffeine days vs others (same day, sleep_health_score_4dim): rank-biserial
-/// > r=-0.42 (p=0.031, n_event=12, n_other=45)`
-///
-/// The structured field that answers the same question is [Finding.eventKind],
-/// which this file already parsed and never used, and `shared/findings_section.dart`
-/// has composed a sentence from it since the first rewrite. Both composers now do,
-/// and `test/features/findings_wording_test.dart` names **both** — a guard that
-/// covers one of two composers is half a guard, which is exactly how this shipped.
-({String headline, String context}) describeFinding(Finding finding) {
-  final a = friendlyMetric(finding.metricA);
-  final b = friendlyMetric(finding.metricB);
-  final effect = finding.effectSize ?? 0;
-  final samples = finding.nSamples ?? 0;
-  final lag = finding.lagDays ?? 0;
-  final context =
-      '${strengthLabel(effect.abs())} pattern · seen across $samples days';
-  if (finding.metricB == null || b.isEmpty) {
-    return (headline: _oneMetricHeadline(a, finding.eventKind), context: context);
-  }
-  final direction = effect > 0 ? 'higher' : 'lower';
-  final when = lag == 0
-      ? ''
-      : lag == 1
-      ? ' the next day'
-      : ' $lag days later';
-  return (
-    headline: 'When your $a is higher, your $b is usually $direction$when.',
-    context: context,
+  @override
+  Widget build(BuildContext context) => Row(
+    children: <Widget>[
+      Flexible(child: _Chip(pair.first)),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Icon(
+          SolarIconsOutline.arrowRight,
+          size: 11,
+          color: context.colors.ink3,
+        ),
+      ),
+      Flexible(child: _Chip(pair.last)),
+    ],
   );
 }
 
-/// The headline for a finding that carries ONE metric rather than a pair.
-///
-/// Built from the structured fields, never from `description_raw`. With an event
-/// kind it is the same sentence `shared/findings_section.dart` composes; without
-/// one there is nothing to name the comparison, so the sentence says only what is
-/// known. The last fallback — no metric at all — claims nothing whatsoever.
-String _oneMetricHeadline(String metric, String? eventKind) {
-  if (metric.isEmpty) {
-    return 'Pattern found in your data.';
-  }
-  return eventKind == null
-      ? 'Your $metric, on the days it was recorded.'
-      : 'Your $metric on $eventKind days, against your other days.';
+class _Chip extends StatelessWidget {
+  const _Chip(this.metric);
+
+  final String metric;
+
+  @override
+  Widget build(BuildContext context) => ToneScope(
+    tone: toneForMetric(metric),
+    child: Builder(
+      builder: (context) => Text(
+        metricName(metric).toUpperCase(),
+        style: HType.label(context.family, size: 9, tracking: 0.2),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  );
 }
 
-/// Whether a pair is definitionally derived rather than discovered.
+/// The strength as four steps, at the bands [strengthLabel] already uses.
 ///
-/// Legacy's `_trivialFinding`, unchanged including the 0.97 cut-off.
-bool isTrivialFinding(Finding finding) {
-  final a = finding.metricA;
-  final b = finding.metricB;
-  if (a == null || b == null) {
-    return false;
-  }
-  const activity = <String>{
-    'steps_total',
-    'distance_m_daily',
-    'mvpa_min',
-    'active_calories',
-    'total_calories',
+/// The word alone was the only thing separating a 0.79 from a 0.53, in grey, at
+/// the end of a foot line — so four findings ranked by strength looked identical
+/// to each other. **The bands are not a second scale**: this reads the same
+/// thresholds, so the mark and the word can never disagree.
+class _Strength extends StatelessWidget {
+  const _Strength(this.effect);
+
+  final double effect;
+
+  /// Filled steps, from [strengthLabel]'s own bands.
+  int get steps => switch (strengthLabel(effect)) {
+    'very consistent' => 4,
+    'consistent' => 3,
+    'fairly consistent' => 2,
+    _ => 1,
   };
-  if (activity.contains(a) && activity.contains(b)) {
-    return true;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        for (var i = 0; i < 4; i++) ...<Widget>[
+          if (i > 0) const SizedBox(width: 2),
+          SizedBox(
+            width: 6,
+            height: 3,
+            child: ColoredBox(
+              color: i < steps ? colors.accent : colors.surface2,
+            ),
+          ),
+        ],
+      ],
+    );
   }
-  for (final prefix in const ['sleep_dim_', 'sleep_health', 'sleep_regularity']) {
-    if (a.startsWith(prefix) && b.startsWith(prefix)) {
-      return true;
-    }
-  }
-  if ((a.startsWith('sleep_dim') && b.contains('regularity')) ||
-      (b.startsWith('sleep_dim') && a.contains('regularity'))) {
-    return true;
-  }
-  final effect = finding.effectSize;
-  // Near-perfect correlation is arithmetic, not a discovery.
-  return effect != null && effect.abs() >= 0.97;
 }

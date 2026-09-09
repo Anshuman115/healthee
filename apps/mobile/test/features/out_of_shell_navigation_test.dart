@@ -42,6 +42,7 @@ import 'package:healthee/features/settings/settings_screen.dart';
 import 'package:healthee/features/signin/server_signin_screen.dart';
 import 'package:healthee/features/today/body_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/v02/buttons.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -102,10 +103,15 @@ void main() {
   });
   tearDown(() async => store.close());
 
-  group('OUT OF THE SHELL — every door the avatar opens comes back', () {
-    /// Opens Settings the way the owner does: the person outline in the header.
+  group('OUT OF THE SHELL — every door the owner mark opens comes back', () {
+    /// Opens Settings the way the owner does: the mark in the header.
+    ///
+    /// By type, not by the semantics label. The label used to be the bare word
+    /// `Settings` on an avatar; the mark now carries the strap as well and says
+    /// `Helio Strap · Settings, data and sync`, and a test that pins the exact
+    /// wording of a label breaks every time the label is improved.
     Future<void> openSettings(WidgetTester tester) async {
-      await tester.tap(find.bySemanticsLabel('Settings'));
+      await tester.tap(find.byType(OwnerMark));
       await tester.pumpAndSettle();
     }
 

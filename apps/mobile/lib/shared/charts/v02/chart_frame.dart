@@ -234,6 +234,17 @@ void paintScrubBubble(
 }
 
 /// The dot on the newest sample, ringed in the surface so it reads on any fill.
+/// How far the last-point dot reaches from its centre, halo included.
+///
+/// Stated once because two files need it: `chart_frame.dart` draws it, and
+/// `series_painter.dart` has to leave the reveal wipe wide enough not to slice
+/// it. It was sliced — the wipe's right edge was `plot.right + strokeWidth`, the
+/// dot sits ON `plot.right`, and 3.3px of it went missing on every sparkline in
+/// the app. The halo hid the damage: it is painted in the surface colour, so its
+/// own cut edge is invisible against the card and only the coloured centre
+/// looked wrong.
+const double kLastPointDotOuter = 3.5 + 1.8;
+
 void paintLastPointDot(
   Canvas canvas,
   Offset point, {

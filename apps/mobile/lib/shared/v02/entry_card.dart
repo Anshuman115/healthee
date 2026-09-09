@@ -31,6 +31,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// One way out of the screen: an icon, a name, a sentence and an action.
 class EntryCard extends StatelessWidget {
@@ -57,6 +58,9 @@ class EntryCard extends StatelessWidget {
   /// The prototype's `.icon` default width.
   static const double iconSize = 22;
 
+  /// The disclosure mark, at the size `PanelHead` draws its own.
+  static const double chevronSize = 14;
+
   /// `p { margin-top: 8px }`.
   static const double bodyGap = 8;
 
@@ -72,7 +76,13 @@ class EntryCard extends StatelessWidget {
   /// The sentence under the title.
   final String? body;
 
-  /// The action's words. Null, or a null [onOpen], draws no action.
+  /// The action's words, for a screen reader only.
+  ///
+  /// **It is no longer printed.** The card has always been one tap target, and
+  /// it drew `Open the coach` under a title reading `Ask your coach` — the same
+  /// instruction twice, on a row of its own, on a half-width card. The chevron
+  /// beside the icon says the card opens; this says where, to anyone who cannot
+  /// see it.
   final String? actionLabel;
 
   /// What opening it does.
@@ -86,7 +96,10 @@ class EntryCard extends StatelessWidget {
     final tone = this.tone;
     return tone == null
         ? _body(context)
-        : ToneScope(tone: tone, child: Builder(builder: _body));
+        : ToneScope(
+            tone: tone,
+            child: Builder(builder: _body),
+          );
   }
 
   Widget _body(BuildContext context) {
@@ -97,7 +110,12 @@ class EntryCard extends StatelessWidget {
     final card = Container(
       padding: const EdgeInsets.all(padding),
       decoration: ShapeDecoration(
-        color: context.familySoft,
+        // **The app's surface, not the family's.** These two carried a
+        // full-bleed `familySoft` ground — the largest blocks of colour on
+        // Today, on its two least important cards, sitting under a screen of
+        // neutral ones. The family still marks them, on the glyph and in the
+        // border; it just does not flood them.
+        color: colors.surface,
         shape: hSquircle(
           radius,
           side: BorderSide(
@@ -110,24 +128,28 @@ class EntryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: iconSize, color: family),
-          const SizedBox(height: iconGap),
-          Text(
-            title,
-            style: TypeScale.entryTitle.copyWith(color: colors.ink),
+          // The glyph's row was an icon and a lot of empty width. The chevron
+          // takes the far end of it, so saying the card opens costs no height —
+          // the same mark `PanelHead` draws, for the same reason.
+          Row(
+            children: <Widget>[
+              Icon(icon, size: iconSize, color: family),
+              const Spacer(),
+              if (open != null)
+                Icon(
+                  SolarIconsOutline.altArrowRight,
+                  size: chevronSize,
+                  color: colors.ink3,
+                ),
+            ],
           ),
+          const SizedBox(height: iconGap),
+          Text(title, style: TypeScale.entryTitle.copyWith(color: colors.ink)),
           if (body case final String sentence) ...<Widget>[
             const SizedBox(height: bodyGap),
             Text(
               sentence,
               style: TypeScale.entryBody.copyWith(color: colors.ink2),
-            ),
-          ],
-          if (label != null && open != null) ...<Widget>[
-            const SizedBox(height: bodyGap),
-            Text(
-              label,
-              style: TypeScale.textButton.copyWith(color: family),
             ),
           ],
         ],
@@ -137,6 +159,7 @@ class EntryCard extends StatelessWidget {
         ? card
         : Semantics(
             button: true,
+            label: label == null ? title : '$title. $label',
             child: GestureDetector(onTap: open, child: card),
           );
   }

@@ -28,6 +28,7 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/fitness_screen.dart';
 import 'package:healthee/features/history/metric_explorer_screen.dart';
 import 'package:healthee/features/settings/data_freshness_screen.dart';
+import 'package:healthee/features/settings/settings_screen.dart';
 import 'package:healthee/features/sleep/sleep_history_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/today/recovery_screen.dart';
@@ -67,6 +68,11 @@ Future<void> tapPanelDetails(
     matching: find.byType(Panel),
   );
   expect(card, findsOneWidget, reason: 'no panel titled "$panel"');
+  // **The card IS the link.** A `Details` word inside it is the older shape,
+  // still drawn by the panels whose action goes somewhere the card is not
+  // about; where the destination is just more of the same reading, the whole
+  // card opens it and a chevron says so. Either way this taps what the owner
+  // taps.
   Finder details = find.descendant(of: card, matching: find.text('Details'));
   if (details.evaluate().isEmpty) {
     details = find.descendant(
@@ -74,7 +80,9 @@ Future<void> tapPanelDetails(
       matching: find.bySemanticsLabel('Details'),
     );
   }
-  expect(details, findsOneWidget, reason: '"$panel" draws no Details link');
+  if (details.evaluate().isEmpty) {
+    details = card;
+  }
   await tester.ensureVisible(details);
   await tester.pumpAndSettle();
   await tester.tap(details);
@@ -111,21 +119,29 @@ void main() {
   tearDown(() async => store.close());
 
   group("TODAY'S PANELS GO WHERE THE PROTOTYPE SENDS THEM", () {
-    testWidgets('THE DEVICE STRIP OPENS SYNC, NOT THE SETTINGS INDEX', (
+    testWidgets('THE OWNER MARK OPENS SETTINGS, WHICH HOLDS DATA & SYNC', (
       tester,
     ) async {
-      // `<a href="#sync">` on the strip. It was pointed at `#settings`, which
-      // is a screen about the app rather than an answer to "is my strap
-      // current?" — and both open something, so nothing looked broken. The
-      // strip is a chip in the head now and carries no words, so the route is
-      // asserted off the chip itself.
+      // **This claim moved with the design, it was not dropped.** The strip
+      // used to be a row of its own ending in `Data & sync ›`, and this test
+      // guarded it against being pointed at `#settings` — a screen about the
+      // app rather than an answer to "is my strap current?".
+      //
+      // The strip is gone: `Data & sync` is a row INSIDE Settings, so the
+      // separate door was a second way to the same room, and the strap folded
+      // onto the mark that already opened Settings. What has to hold now is
+      // that the room is still one tap further on, which is why this asserts
+      // the row is there rather than stopping at the screen.
       _tall(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(StrapChip));
+      await tester.tap(find.byType(OwnerMark));
       await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsOneWidget);
 
+      await tester.tap(find.text('Data & sync'));
+      await tester.pumpAndSettle();
       expect(find.byType(DataFreshnessScreen), findsOneWidget);
     });
 

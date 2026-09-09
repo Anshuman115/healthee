@@ -33,7 +33,6 @@ import 'package:healthee/features/activity/activity_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/shared/instrument_module.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
-import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
 import 'package:healthee/shared/v02/panel.dart';
@@ -57,11 +56,24 @@ bool isBareMark(String text) {
 /// A list of one since v02: `CaveatFoot` was the grid tile's carrier and both
 /// the grid and the foot are deleted. Kept as a loop because "one carrier" is a
 /// decision this file measures, not a fact about the language.
-List<Rect> _carriers(WidgetTester tester) => <Rect>[
-  for (final type in <Finder>[find.byType(CaveatNote)])
-    for (var i = 0; i < tester.widgetList(type).length; i++)
-      tester.getRect(type.at(i)),
-];
+List<Rect> _carriers(WidgetTester tester) {
+  // **The carrier is the ⓘ now, not a note under the number.** The sentence
+  // moved into the sheet, but the claim this file makes did not: a disclosure
+  // must be reachable from INSIDE the card whose reading it qualifies, because
+  // one rendered as a sibling lands in the gutter between two cards and stops
+  // naming which number it is about. A dot holding disclosures is that carrier,
+  // and it is still measured against the same card bounds below.
+  final dots = find.byType(MetricInfoDot);
+  return <Rect>[
+    for (var i = 0; i < tester.widgetList(dots).length; i++)
+      if (tester
+          .widget<MetricInfoDot>(dots.at(i))
+          .detail
+          .disclosures
+          .isNotEmpty)
+        tester.getRect(dots.at(i)),
+  ];
+}
 
 /// Every rect a CARD occupies — the bounds a carrier has to be inside.
 List<Rect> _cards(WidgetTester tester) => <Rect>[

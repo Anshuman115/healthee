@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/shared/page_section.dart';
 
 /// A section heading, with an optional trailing text action.
 class SectionHead extends StatelessWidget {
@@ -28,7 +29,7 @@ class SectionHead extends StatelessWidget {
   });
 
   /// `.section-head { margin-bottom: 12px }`.
-  static const double bottomGap = 12;
+  static const double bottomGap = PageSpacing.afterHeading;
 
   /// `.section-head { gap: 8px }`.
   static const double gap = 8;

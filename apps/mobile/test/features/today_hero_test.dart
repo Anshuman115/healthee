@@ -20,6 +20,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
+import 'package:healthee/features/today/steps_plateau.dart';
+import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/v02/today_hero.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
@@ -226,11 +228,21 @@ void main() {
       expect(find.byType(TodaySummaryTiles), findsOneWidget);
     });
 
-    testWidgets('NO TARGET MEANS NO METER — never a bar against a guess', (
+    testWidgets('THE STEP TARGET IS THE NOTE’S BAND, NEVER A GUESS', (
       tester,
     ) async {
-      // `/api/today` carries no step target, so the movement tile draws its
-      // number and nothing to read it against.
+      // **The claim inverted for a reason, and the reason is the note.**
+      // `/api/today` still carries no step target, and for as long as nothing
+      // supplied one this tile drew no meter — correctly, because a denominator
+      // the app invents is exactly how `~7,500/day` shipped in a `metric_info`
+      // string the citation validator cannot see, under-targeting this owner by
+      // 2,500 steps a day.
+      //
+      // `steps_plateau.dart` supplies one now, and it is DERIVED: the age-banded
+      // plateau `steps_mortality` publishes, whose top is 10,000 under 60 and
+      // 8,000 at or over it. The card may draw a bar because the band is the
+      // note's, and `steps_plateau_test.dart` asserts the transcription against
+      // the note file itself.
       tall(tester);
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
@@ -239,11 +251,31 @@ void main() {
         (widget) => widget is SummaryTile && widget.title == 'Movement',
       );
       expect(movement, findsOneWidget);
-      expect(tester.widget<SummaryTile>(movement).fraction, isNull);
       expect(
         find.descendant(of: movement, matching: find.byType(TileMeter)),
-        findsNothing,
+        findsOneWidget,
       );
+      // The fixture's owner is 32, so the band's top is the under-60 one.
+      expect(
+        find.descendant(
+          of: movement,
+          matching: find.textContaining('of ${commaGrouped(10000)}'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('AN UNKNOWN AGE MEANS NO BAND, AND SO NO METER', (
+      tester,
+    ) async {
+      // The half that keeps the above honest. An owner whose age nothing has
+      // read is not an owner who is under 60, so there is no band to draw
+      // against and the tile goes back to a number with no denominator.
+      expect(stepsPlateauTop(null), isNull);
+      expect(stepsPlateauTop(double.nan), isNull);
+      expect(stepsPlateauTop(32), kStepsPlateauTopUnder60);
+      expect(stepsPlateauTop(60), kStepsPlateauTopFrom60);
+      expect(stepsPlateauTop(59.9), kStepsPlateauTopUnder60);
     });
   });
 }

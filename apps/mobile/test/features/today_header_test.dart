@@ -21,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/tabs.dart';
 import 'package:healthee/core/theme/app_theme.dart';
+import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/connection_state.dart';
@@ -32,6 +33,9 @@ import 'package:healthee/shared/connection/sync_ring.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 
 import '_today_host.dart';
+
+/// The palette `host` puts the widget in.
+const HealtheeColors _light = HealtheeColors.light();
 
 /// One widget in the light theme.
 Widget host(Widget child) => MaterialApp(
@@ -47,9 +51,9 @@ Widget _header({
   TodayHeader(date: date, now: at ?? DateTime(2026, 8, 6, 9), health: health),
 );
 
-/// The strap chip, which is where the strap's charge lives in the one-row head.
+/// The owner's mark, which is where the strap's charge lives in the one-row head.
 Widget _strip({int? battery, ConnectionHealth? health}) =>
-    host(StrapChip(batteryPercent: battery, health: health));
+    host(OwnerMark(batteryPercent: battery, health: health));
 
 /// One classification, from a real link. There is no `syncing` flag any more:
 /// the ring reads `busy` off the same object the card reads its faults off.
@@ -101,7 +105,7 @@ void main() {
 
       // ONE row: the day, the strap and the avatar share a horizontal band.
       final day = tester.getRect(find.text(prettyDate('2026-08-06')));
-      final avatar = tester.getRect(find.byType(HAvatar));
+      final avatar = tester.getRect(find.byType(HStrapMark));
       expect(
         day.center.dy,
         moreOrLessEquals(avatar.center.dy, epsilon: 2),
@@ -161,21 +165,38 @@ void main() {
       expect(find.text('71%'), findsOneWidget);
     });
 
-    testWidgets('THE DOT IS GREEN ONLY WHEN THE LINK IS QUIET', (tester) async {
-      // A green dot beside a strap nobody has heard from is the flattery this
-      // product exists not to do, so the classification decides it.
-      await tester.pumpWidget(_strip());
+    testWidgets('THE CHARGE IS GREEN ONLY WHEN THE LINK IS QUIET', (
+      tester,
+    ) async {
+      // A green anything beside a strap nobody has heard from is the flattery
+      // this product exists not to do, so the classification decides it. The
+      // carrier moved — the watch glyph went inside the mark's circle and wears
+      // the accent there, so the charge beside it is the one element still free
+      // to hold a state — but the rule did not.
+      await tester.pumpWidget(_strip(battery: 71));
       await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.text('71%')).style!.color,
+        _light.ink3,
+        reason: 'nothing has classified a link, so nothing may read healthy',
+      );
 
-      expect(find.byType(StrapChip), findsOneWidget);
-      // The two words the chip dropped are in its semantics, not on the row —
+      await tester.pumpWidget(
+        _strip(
+          battery: 71,
+          health: _connection(Connected(since: DateTime(2026, 8, 6, 9))),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(OwnerMark), findsOneWidget);
+      // The two words the mark dropped are in its semantics, not on the row —
       // there is one strap, and its name spent a line saying so.
-      expect(find.text(StrapChip.deviceName), findsNothing);
-      expect(find.text(StrapChip.action), findsNothing);
+      expect(find.text(OwnerMark.deviceName), findsNothing);
+      expect(find.text(OwnerMark.action), findsNothing);
     });
   });
 
-  group('the avatar', () {
+  group('the owner mark', () {
     testWidgets('carries no ring when nothing has classified a link', (
       tester,
     ) async {
@@ -184,7 +205,7 @@ void main() {
 
       expect(find.byType(SyncRing), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.byType(HAvatar), findsOneWidget);
+      expect(find.byType(HStrapMark), findsOneWidget);
     });
 
     testWidgets('draws the ring once there IS a classification', (
@@ -196,7 +217,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(find.byType(HAvatar), findsOneWidget);
+      expect(find.byType(HStrapMark), findsOneWidget);
     });
 
     testWidgets('THE DATE ROW CARRIES NO SECOND MARK', (tester) async {

@@ -46,6 +46,7 @@ import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/settings/app_version.dart';
 import 'package:healthee/features/today/today_screen.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/app_tab_bar.dart';
 
 import '../_sleep_stubs.dart';
@@ -368,4 +369,24 @@ Future<void> tapTab(WidgetTester tester, String label) async {
 class FixedGps extends GpsRecorder {
   @override
   Future<GpsRecordingState> build() async => const GpsRecordingState();
+}
+
+/// Moves the screen to [iso] the way the owner now does.
+///
+/// **The two chevrons are gone.** The day is a pill that opens the month grid,
+/// and the grid is the control — `Latest`, the retention window and every day
+/// in it, in one place, instead of one day per press. Every test that used to
+/// press `date.previous` presses a cell here instead; the claim each was making
+/// is unchanged.
+Future<void> chooseDay(WidgetTester tester, String iso) async {
+  await tester.tap(find.byType(DayPill));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(ValueKey<String>('calendar.$iso')));
+  await tester.pumpAndSettle();
+}
+
+/// Opens the month grid and leaves it open.
+Future<void> openCalendar(WidgetTester tester) async {
+  await tester.tap(find.byType(DayPill));
+  await tester.pumpAndSettle();
 }

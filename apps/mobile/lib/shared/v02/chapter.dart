@@ -43,6 +43,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/shared/page_section.dart';
 import 'package:healthee/shared/v02/panel_density.dart';
 
 /// One entry in a [ChapterNav].
@@ -179,8 +180,17 @@ class ChapterHeading extends StatelessWidget {
     super.key,
   });
 
-  /// `.chapter-heading { margin-top: 28px; margin-bottom: 4px }`.
-  static const EdgeInsets margin = EdgeInsets.only(top: 28, bottom: 4);
+  /// `.chapter-heading { margin-top: 28px }`.
+  ///
+  /// **The bottom is `PageSpacing.afterHeading`, not the CSS's 4px.** The
+  /// prototype's 4 put the chapter title against the top of its first card
+  /// while every `SectionHead` on the same screen left 12, and the owner read
+  /// the difference as a bug rather than as two stylesheets. One heading gap,
+  /// shared, so they cannot drift again.
+  static const EdgeInsets margin = EdgeInsets.only(
+    top: 28,
+    bottom: PageSpacing.afterHeading,
+  );
 
   /// `.chapter-heading .icon { width: 18px }`, and its `gap: 8px`.
   static const double iconSize = 18;

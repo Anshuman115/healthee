@@ -172,4 +172,27 @@ class MetricDetail {
 
   /// The negation, for a call site that reads better positively.
   bool get isNotEmpty => !isEmpty;
+
+  /// This bundle with different disclosures.
+  ///
+  /// Only the two disclosure fields, because only they are merged: `Panel`
+  /// publishes the caveats of the reading a card is about, and its head folds
+  /// them into whatever the call site already gave. A general `copyWith` would
+  /// invite a card to rewrite its own grade or its own sources, which is the
+  /// one thing a bundle of provenance must not let a caller do.
+  MetricDetail withDisclosures(
+    List<Disclosure> disclosures, {
+    String? disclosuresLabel,
+  }) => MetricDetail(
+    title: title,
+    notes: notes,
+    personalFindings: personalFindings,
+    unresolved: unresolved,
+    grade: grade,
+    source: source,
+    references: references,
+    method: method,
+    disclosures: disclosures,
+    disclosuresLabel: disclosuresLabel ?? this.disclosuresLabel,
+  );
 }

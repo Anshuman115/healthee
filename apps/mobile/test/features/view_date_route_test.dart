@@ -20,7 +20,6 @@ import 'package:healthee/core/routes.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/today_screen.dart';
-import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 
 import '_today_host.dart';
@@ -126,8 +125,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(_location(tester), Routes.today);
 
-      await tester.tap(find.byKey(DateControl.previousKey));
-      await tester.pumpAndSettle();
+      await chooseDay(tester, '2026-08-03');
 
       expect(_location(tester), '/?date=2026-08-03');
     });
@@ -139,8 +137,7 @@ void main() {
       // and nowhere else.
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(DateControl.previousKey));
-      await tester.pumpAndSettle();
+      await chooseDay(tester, '2026-08-03');
 
       await tapTab(tester, 'Activity');
 

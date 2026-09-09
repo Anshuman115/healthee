@@ -36,6 +36,7 @@ import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/today_sections.dart';
 import 'package:healthee/features/today/v02/date_calendar_sheet.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/features/today/v02/today_hero.dart';
 import 'package:healthee/features/today/widgets/data_health_section.dart';
 import 'package:healthee/shared/page_section.dart';
@@ -93,47 +94,48 @@ void main() {
       // window reaches, so the head calls it `Today` (see `dayTitle`). Every
       // day stepped back to is named instead.
       expect(find.text(kTodayWord), findsOneWidget);
-      expect(
-        find.text(DateControl.latestLabel),
-        findsNothing,
-        reason: 'there is nowhere to come back from yet',
-      );
 
-      await tester.tap(find.byKey(DateControl.previousKey));
-      await tester.pumpAndSettle();
+      // Backwards, forwards, and back to the newest day — the same journey the
+      // two chevrons used to make one press at a time, now one tap each.
+      await chooseDay(tester, '2026-08-03');
       expect(find.text(prettyDate('2026-08-03')), findsOneWidget);
       expect(find.text(kTodayWord), findsNothing);
 
-      await tester.tap(find.byKey(DateControl.previousKey));
-      await tester.pumpAndSettle();
+      await chooseDay(tester, '2026-08-02');
       expect(find.text(prettyDate('2026-08-02')), findsOneWidget);
 
-      await tester.tap(find.byKey(DateControl.nextKey));
-      await tester.pumpAndSettle();
+      await chooseDay(tester, '2026-08-03');
       expect(find.text(prettyDate('2026-08-03')), findsOneWidget);
 
-      await tester.tap(find.byKey(DateControl.latestKey));
-      await tester.pumpAndSettle();
+      await chooseDay(tester, todayDate);
       expect(find.text(kTodayWord), findsOneWidget);
     });
 
     testWidgets('it cannot walk past the wall clock', (tester) async {
       // There are no measurements from tomorrow. A control that could ask for
-      // one would be offering a screen of withholds and calling it a day.
+      // one would be offering a screen of withholds and calling it a day. The
+      // grid draws tomorrow — a month has to — and refuses the tap.
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(DateControl.nextKey));
+      await openCalendar(tester);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('calendar.2026-08-05')),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text(kTodayWord), findsOneWidget);
+      expect(
+        find.text(kTodayWord),
+        findsOneWidget,
+        reason: 'a day past the wall clock must not become the day on screen',
+      );
     });
 
     testWidgets('TAPPING THE DATE OPENS THE CALENDAR', (tester) async {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(DateControl.triggerKey));
+      await tester.tap(find.byType(DayPill));
       await tester.pumpAndSettle();
 
       expect(find.text(kDateCalendarTitle), findsOneWidget);
@@ -241,8 +243,7 @@ void main() {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(DateControl.previousKey));
-      await tester.pumpAndSettle();
+      await chooseDay(tester, '2026-08-03');
 
       expect(find.text(prettyDate('2026-08-03')), findsOneWidget);
     });

@@ -30,6 +30,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/shared/charts/v02/v02_sparkline.dart';
+import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/states/reading_view.dart';
@@ -107,7 +108,14 @@ class MiniTrendPanel extends StatelessWidget {
     return ReadingView<double>(
       reading: reading,
       label: label ?? title,
-      caveatCarrier: CaveatCarrier.insideCard,
+      // **Routed, not hidden.** A caveat used to print on the
+      // card as `Caveated — one thing tilts this number · READ`, which is a
+      // second sentence of small grey prose under a figure and a chart, on a
+      // half-width card. It goes to the ⓘ instead — see `_panel` — and the
+      // carrier changes so `Panel` does not draw it a second time from the
+      // scope. Nothing is dropped: a card that showed neither would be the one
+      // failure the honesty layer exists to prevent.
+      caveatCarrier: CaveatCarrier.routedByCard,
       withheldBuilder: (context, disclosure) =>
           _panel(value: '—', note: disclosure.message),
       builder: (context, value) =>
@@ -118,12 +126,18 @@ class MiniTrendPanel extends StatelessWidget {
   Widget _panel({required String value, required String note}) => Panel(
     tone: tone,
     label: label ?? title,
+    // The card opens the metric; the head keeps only its ⓘ. See `Panel.onOpen`.
+    onOpen: onDetails,
     head: PanelHead(
       title: title,
       icon: icon,
       infoKey: infoKey,
-      actionLabel: onDetails == null ? null : 'Details',
-      onAction: onDetails,
+      detail: MetricDetail(
+        // The reading's own caveats, moved off the card. Labelled with this
+        // card's own name so the sheet cannot read as qualifying another.
+        disclosures: reading.caveatsOrEmpty,
+        disclosuresLabel: label ?? title,
+      ),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

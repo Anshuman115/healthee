@@ -207,8 +207,17 @@ void main() {
 
     test('a bridge is a block break, and two panels are a panel break', () {
       final list = sections();
-      // `.context-bridge` follows `.section`-spaced content in the prototype.
-      expect(list[_nthOf<ContextBridge>(list, 0) - 1].gap, PageSpacing.block);
+      // **The bridge OWNS that gap now.** `.context-bridge` still follows
+      // `.section`-spaced content, but the spacer section above it is gone: the
+      // rule the bridge draws has to span the gap in order to reach the card it
+      // hangs off, and a spacer between them made it start below the gap and
+      // connect to nothing. Same spacing on screen, carried by the widget —
+      // see `ContextBridge.leadIn`.
+      expect(list[_nthOf<ContextBridge>(list, 0) - 1].gap, 0);
+      expect(
+        (list[_nthOf<ContextBridge>(list, 0)].child as ContextBridge).leadIn,
+        PageSpacing.block,
+      );
       // `H.recoveryPanel()` then the twin pair: `.panel { margin-top: 12px }`.
       expect(
         list[_indexOf<ReadingView<RecoveryScore>>(list)].gap,

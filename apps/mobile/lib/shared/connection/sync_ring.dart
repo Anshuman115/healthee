@@ -118,7 +118,13 @@ class SyncRing extends StatelessWidget {
   /// [health] null draws no ring at all — a widget test pumping the header row
   /// on its own has classified nothing, and a reassuring ring over no
   /// classification is the one thing this surface may not do.
-  const SyncRing({required this.child, this.health, super.key});
+  const SyncRing({
+    required this.child,
+    this.health,
+    this.diameter = defaultDiameter,
+    this.stroke = defaultStroke,
+    super.key,
+  });
 
   /// The classified connection state, or null when nothing has classified one.
   final ConnectionHealth? health;
@@ -127,10 +133,24 @@ class SyncRing extends StatelessWidget {
   final Widget child;
 
   /// Legacy's `SizedBox(width: 46, height: 46)`.
-  static const double diameter = 46;
+  ///
+  /// A default rather than a fixed size: the ring has to clear whatever it is
+  /// wrapping, and Today's head draws a smaller mark than Actions does.
+  static const double defaultDiameter = 46;
+
+  /// This ring's outer size. It must exceed its child by twice the gap you
+  /// want, or the stroke lands on the child's own edge.
+  final double diameter;
 
   /// Legacy's `strokeWidth: 2`.
-  static const double stroke = 2;
+  ///
+  /// A default, like [defaultDiameter]: a ring drawn at two thirds the size
+  /// keeps two thirds of its weight, or the smaller mark reads as the heavier
+  /// one.
+  static const double defaultStroke = 2;
+
+  /// This ring's stroke.
+  final double stroke;
 
   @override
   Widget build(BuildContext context) {

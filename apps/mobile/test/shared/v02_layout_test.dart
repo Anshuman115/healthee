@@ -181,7 +181,13 @@ void main() {
     ) async {
       await pumpV02(
         tester,
-        ContextBridge.text('Your resting heart rate followed it down.'),
+        // `leadIn: 0` — this case measures the CSS geometry, and the default
+        // lead-in is blank height above the sentence that the rule spans so it
+        // reaches the card above. There is no card above it here.
+        ContextBridge.text(
+          'Your resting heart rate followed it down.',
+          leadIn: 0,
+        ),
         tone: Tone.heart,
       );
       final bridge = tester.getRect(find.byType(ContextBridge));
@@ -234,7 +240,7 @@ void main() {
     ) async {
       await pumpV02(
         tester,
-        ContextBridge.text('Sleep debt grew.'),
+        ContextBridge.text('Sleep debt grew.', leadIn: 0),
         tone: Tone.sleep,
       );
       final decoration =

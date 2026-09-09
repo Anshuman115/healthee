@@ -27,8 +27,8 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/today/v02/mini_trend_panel.dart';
 import 'package:healthee/features/today/v02/night_panels.dart';
 import 'package:healthee/features/today/v02/today_hero.dart';
+import 'package:healthee/shared/metric_info/metric_info_blocks.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
-import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/summary_tile.dart';
@@ -53,6 +53,16 @@ List<String> _attachedMessages(Map<String, Object?> block) => <String>[
 /// and everything it kept is far below, so a value in between would mean
 /// something new landed on the card and nobody looked.
 const int _essayLength = 300;
+
+/// The ⓘ inside [card], which is where that card's disclosures now live.
+///
+/// `Panel` publishes the caveats of the reading it is about to its own head,
+/// and the head folds them into the dot's detail. Every test below that used to
+/// look for a `CaveatNote` under a card looks for this instead: the sentence
+/// moved into the sheet, the guarantee that it is reachable FROM THIS CARD did
+/// not.
+Finder dotIn(Finder card) =>
+    find.descendant(of: card, matching: find.byType(MetricInfoDot));
 
 void main() {
   late LocalStore store;
@@ -130,11 +140,10 @@ void main() {
     // sentence naming the instrument.
     await openToday(tester);
 
-    expect(
-      find.byType(CaveatNote),
-      findsWidgets,
-      reason: 'the signpost under a card',
-    );
+    final carrying = tester
+        .widgetList<MetricInfoDot>(find.byType(MetricInfoDot))
+        .where((dot) => dot.detail.disclosures.isNotEmpty);
+    expect(carrying, isNotEmpty, reason: 'the signpost, now on the card’s ⓘ');
     // v02 has ONE carrier, the note inside the panel or the hero, and that is
     // the point — `caveat_scope.dart` records that the gutter version was a
     // misattribution. This used to be an `expect(CaveatFoot, findsNothing)`;
@@ -159,34 +168,35 @@ void main() {
     );
   });
 
-  testWidgets('BIOLOGICAL AGE — ALL FOUR DISCLOSURES ARE ONE TAP AWAY, IN FULL', (
-    tester,
-  ) async {
-    // The card the owner named. Its ⓘ has to open every one of them: a sheet
-    // that showed the first paragraph would be the same failure in a smaller
-    // box, and a dot that opened nothing would be worse than the note it
-    // replaced.
-    await openToday(tester);
-    final dot = find.descendant(
-      of: find.byType(BioHero),
-      matching: find.byType(MetricInfoDot),
-    );
-    await reveal(tester, dot);
-
-    await tester.tap(dot);
-    await tester.pumpAndSettle();
-
-    final bio = loadTodayJson()['biological_age']! as Map<String, Object?>;
-    final messages = _attachedMessages(bio);
-    expect(messages, hasLength(4));
-    for (final message in messages) {
-      expect(
-        find.text(message),
-        findsOneWidget,
-        reason: 'missing from the sheet:\n${message.substring(0, 70)}…',
+  testWidgets(
+    'BIOLOGICAL AGE — ALL FOUR DISCLOSURES ARE ONE TAP AWAY, IN FULL',
+    (tester) async {
+      // The card the owner named. Its ⓘ has to open every one of them: a sheet
+      // that showed the first paragraph would be the same failure in a smaller
+      // box, and a dot that opened nothing would be worse than the note it
+      // replaced.
+      await openToday(tester);
+      final dot = find.descendant(
+        of: find.byType(BioHero),
+        matching: find.byType(MetricInfoDot),
       );
-    }
-  });
+      await reveal(tester, dot);
+
+      await tester.tap(dot);
+      await tester.pumpAndSettle();
+
+      final bio = loadTodayJson()['biological_age']! as Map<String, Object?>;
+      final messages = _attachedMessages(bio);
+      expect(messages, hasLength(4));
+      for (final message in messages) {
+        expect(
+          find.text(message),
+          findsOneWidget,
+          reason: 'missing from the sheet:\n${message.substring(0, 70)}…',
+        );
+      }
+    },
+  );
 
   testWidgets('THE BREATHING READING DISCLOSES, AND THE PROSE OPENS FROM IT', (
     tester,
@@ -203,12 +213,18 @@ void main() {
       of: find.byType(SleepHealthPanel),
       matching: find.byType(Panel),
     );
-    final mark = find.descendant(
-      of: find.byType(SleepHealthPanel),
-      matching: find.byType(CaveatNote),
-    );
+    final mark = dotIn(find.byType(SleepHealthPanel));
     expect(panel, findsWidgets, reason: 'the grid lives in a v02 panel');
-    expect(mark, findsWidgets, reason: 'the card must say it is caveated');
+    expect(
+      mark,
+      findsWidgets,
+      reason: 'the card must be able to say it is caveated',
+    );
+    expect(
+      tester.widget<MetricInfoDot>(mark.first).detail.disclosures,
+      isNotEmpty,
+      reason: 'a dot with nothing behind it is the silent drop',
+    );
     // Visible, not merely mounted.
     expect(tester.getSize(mark.first).height, greaterThan(0));
     expect(tester.getSize(mark.first).width, greaterThan(0));
@@ -216,7 +232,16 @@ void main() {
     await tester.tap(mark.first);
     await tester.pumpAndSettle();
 
-    expect(find.text(kCaveatSheetTitle), findsOneWidget);
+    // The metric ⓘ's sheet, not the caveat sheet: the disclosures arrive as
+    // their own block, under the label the card gave them. Scoped to the block,
+    // because the card's own row carries the same words behind the sheet.
+    expect(
+      find.descendant(
+        of: find.byType(DisclosureBlock),
+        matching: find.text(SleepHealthPanel.breathingLabel),
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('plain average'), findsOneWidget);
     expect(find.textContaining('not today'), findsOneWidget);
   });
@@ -229,19 +254,17 @@ void main() {
     await openToday(tester);
     await reveal(tester, find.byType(SleepHealthPanel));
 
-    await tester.tap(
-      find
-          .descendant(
-            of: find.byType(SleepHealthPanel),
-            matching: find.byType(CaveatNote),
-          )
-          .first,
-    );
+    await tester.tap(dotIn(find.byType(SleepHealthPanel)).first);
     await tester.pumpAndSettle();
 
-    // The sheet sets its subtitle in caps (`caveat_disclosure.dart::_Eyebrow`).
+    // The block is labelled with the reading it is about, not the card's —
+    // this card carries two sources and one label for both would attach the
+    // wrong sentence to one of them.
     expect(
-      find.text(SleepHealthPanel.breathingLabel.toUpperCase()),
+      find.descendant(
+        of: find.byType(DisclosureBlock),
+        matching: find.text(SleepHealthPanel.breathingLabel),
+      ),
       findsOneWidget,
     );
   });
@@ -276,9 +299,12 @@ void main() {
     );
     await reveal(tester, oxygen);
 
+    final dot = dotIn(oxygen);
+    expect(dot, findsOneWidget);
     expect(
-      find.descendant(of: oxygen, matching: find.byType(CaveatNote)),
-      findsOneWidget,
+      tester.widget<MetricInfoDot>(dot).detail.disclosures,
+      isNotEmpty,
+      reason: 'the tilt on this number must be reachable from this card',
     );
   });
 }

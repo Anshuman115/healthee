@@ -204,15 +204,29 @@ void main() {
       });
     }
 
-    testWidgets('A CAVEATED VALUE STILL SAYS SO, IN WORDS, IN ITS OWN CARD', (
+    testWidgets('A CAVEATED VALUE STILL SAYS SO, IN ITS OWN CARD’S ⓘ', (
       tester,
     ) async {
       await pump(tester);
 
-      // `CaveatNote`'s counted signpost. Not an asterisk, not a colour — the
-      // owner could not read either.
-      expect(find.textContaining('Caveated —'), findsWidgets);
-      expect(find.text('READ'), findsWidgets);
+      // **In words, and reachable — the sentence moved, the guarantee did not.**
+      // It used to print under the value as `Caveated — …  READ`, which put a
+      // second block of small grey prose on every caveated card. `Panel` now
+      // publishes the disclosures to its own head and the ⓘ carries them.
+      //
+      // The failure this guards is a card that shows the value with the
+      // qualification silently dropped, so it is not enough that no note is
+      // drawn: at least one dot on this screen must actually be holding one.
+      expect(find.textContaining('Caveated —'), findsNothing);
+      final carrying = tester
+          .widgetList<MetricInfoDot>(find.byType(MetricInfoDot))
+          .where((dot) => dot.detail.disclosures.isNotEmpty);
+      expect(
+        carrying,
+        isNotEmpty,
+        reason:
+            'this payload carries caveated readings; nothing is holding them',
+      );
     });
   });
 }

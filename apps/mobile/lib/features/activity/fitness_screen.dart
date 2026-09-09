@@ -206,7 +206,6 @@ class FitnessDetail extends StatelessWidget {
           InstrumentPanel(vo2max: vo2max!, submax: submax),
         ],
         if (years != null) ...<Widget>[
-          const SizedBox(height: blockGap),
           // `H.bridge('fitness', …, 'body', 'Age contributions')` — the
           // sentence ends in the link, which is where the years it names are
           // worked out.

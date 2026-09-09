@@ -41,6 +41,10 @@ import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:solar_icons/solar_icons.dart';
 
+/// `HeroReading` moved to `hero_reading.dart` at the 400-line gate (Standards
+/// section 1). Re-exported so every call site and its tests are unchanged.
+export 'package:healthee/shared/v02/hero_reading.dart';
+
 /// `.card` — the plain surface container.
 class SurfaceCard extends StatelessWidget {
   /// Builds a card around [child]. [flush] is `.card.flush`: no padding, clipped,
@@ -214,6 +218,7 @@ class FocusCard extends StatelessWidget {
     this.eyebrow,
     required this.title,
     this.icon,
+    this.action,
     this.body,
     this.footer,
     this.tone,
@@ -249,6 +254,15 @@ class FocusCard extends StatelessWidget {
   /// The glyph on the eyebrow row, in the family colour.
   final IconData? icon;
 
+  /// A control on the eyebrow row, before [icon].
+  ///
+  /// **A whole row of card height, reclaimed.** `Why this suggestion ⓘ` used to
+  /// sit at the bottom of the footer as a labelled link — a line of its own plus
+  /// its gap, on a card that already ran to six blocks. Every other card in the
+  /// app puts "what backs this" as a dot on its head; this lets a focus card do
+  /// the same, and the eyebrow row was already drawn and half empty.
+  final Widget? action;
+
   /// The sentence under the title.
   final Widget? body;
 
@@ -260,6 +274,9 @@ class FocusCard extends StatelessWidget {
 
   /// `.focus-card .icon { width: 16px }` — `.icon.small`.
   static const double iconSize = 16;
+
+  /// Between the eyebrow's control and the card's glyph.
+  static const double actionGap = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -296,8 +313,11 @@ class FocusCard extends StatelessWidget {
                   )
                 else
                   const Spacer(),
-                if (icon case final IconData glyph)
+                if (action case final Widget control) control,
+                if (icon case final IconData glyph) ...<Widget>[
+                  if (action != null) const SizedBox(width: actionGap),
                   Icon(glyph, size: iconSize, color: family),
+                ],
               ],
             ),
             const SizedBox(height: titleGap),
@@ -328,68 +348,3 @@ class FocusCard extends StatelessWidget {
 ///                            letter-spacing:-4px; margin-block:20px 8px }
 /// .hero-number .duration-unit { font-size:30px; color:var(--muted);
 ///                               letter-spacing:-1px; margin-inline:2px 8px }
-/// ```
-class HeroReading extends StatelessWidget {
-  /// [label] sits above the figure and [context_] beneath it.
-  const HeroReading({
-    required this.label,
-    required this.value,
-    this.unit,
-    this.context_,
-    super.key,
-  });
-
-  /// `padding-block: 8px 24px`.
-  static const EdgeInsets padding = EdgeInsets.only(top: 8, bottom: 24);
-
-  /// `.hero-number { margin-block: 20px 8px }`.
-  static const double topGap = 20;
-
-  /// The same, below.
-  static const double bottomGap = 8;
-
-  /// What the number is.
-  final String label;
-
-  /// The number.
-  final String value;
-
-  /// Its unit, at `.duration-unit`'s size.
-  final String? unit;
-
-  /// The sentence under it.
-  final String? context_;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final small = TypeScale.small.copyWith(color: colors.ink2);
-    return Padding(
-      padding: padding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(label, style: small),
-          const SizedBox(height: topGap),
-          Text.rich(
-            TextSpan(
-              children: <InlineSpan>[
-                TextSpan(text: value),
-                if (unit case final String unit)
-                  TextSpan(
-                    text: unit,
-                    style: TypeScale.heroUnit.copyWith(color: colors.ink2),
-                  ),
-              ],
-            ),
-            style: TypeScale.heroNumber.copyWith(color: colors.ink),
-            maxLines: 1,
-          ),
-          const SizedBox(height: bottomGap),
-          if (context_ case final String sentence) Text(sentence, style: small),
-        ],
-      ),
-    );
-  }
-}

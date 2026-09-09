@@ -23,7 +23,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/data/honesty/disclosure.dart';
-import 'package:healthee/shared/states/caveat_disclosure.dart';
+import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/states/caveat_scope.dart';
 import 'package:healthee/shared/v02/panel_density.dart';
 
@@ -36,8 +36,23 @@ class Panel extends StatelessWidget {
     this.tone,
     this.label,
     this.caveats = const <Disclosure>[],
+    this.onOpen,
     super.key,
   });
+
+  /// Where the WHOLE card leads, or null for a panel that leads nowhere.
+  ///
+  /// **The card is the target, not an arrow in its corner.** `SummaryTile` has
+  /// worked this way since v02 and the three tiles at the top of Today have no
+  /// arrow at all; the panels under them carried a `Details →`, so one screen
+  /// asked for the same gesture in two ways. This is the tiles' way.
+  ///
+  /// The ⓘ keeps its own tap: `MetricInfoDot` is an opaque `GestureDetector`,
+  /// so it wins the hit test against this and explains the card instead of
+  /// leaving it. Anything else interactive inside [child] does the same — which
+  /// is why a panel that carries its own controls should NOT be given an
+  /// `onOpen` rather than being given one and hoping.
+  final VoidCallback? onOpen;
 
   /// `padding: 18px`. `Container` adds the 1px border on top of this, which is
   /// what `box-sizing: border-box` does in the prototype.
@@ -86,6 +101,8 @@ class Panel extends StatelessWidget {
     final scope = CaveatScope.of(context);
     final disclosed = <Disclosure>[...caveats, ...?scope?.caveats];
     final named = label ?? scope?.label;
+    // Announced to the head BEFORE the card is built, so the mark and the tap
+    // come from one field. See [PanelOpens].
     final Widget panel = Container(
       clipBehavior: Clip.antiAlias,
       padding: EdgeInsets.all(compact ? compactPadding : padding),
@@ -101,20 +118,75 @@ class Panel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           if (head != null) ...<Widget>[
-            head!,
+            PanelOpens(
+              opens: onOpen != null,
+              caveats: disclosed,
+              caveatsLabel: named,
+              child: head!,
+            ),
             SizedBox(height: compact ? compactHeadGap : headGap),
           ],
           child,
-          // Inside the panel's own padding, under the number it is about.
-          if (disclosed.isNotEmpty)
-            CaveatNote(caveats: disclosed, label: named),
+          // **No `CaveatNote` here any more.** It printed a second block of
+          // small grey prose under every caveated card — on the half-width
+          // ones it was taller than the reading it qualified. The head's ⓘ
+          // carries it now, and carries it BECAUSE this published it above:
+          // one field, so a card cannot show the sentence twice or lose it.
+          //
+          // Losing it is not expressible either. `MetricDetail.isEmpty` counts
+          // disclosures, so a head with no explainer at all still draws its ⓘ
+          // when there is a caveat to reach.
         ],
       ),
     );
+    final open = onOpen;
+    final tappable = open == null
+        ? panel
+        : HTap(onTap: open, semanticLabel: named ?? label, child: panel);
     final tone = this.tone;
-    final toned = tone == null ? panel : ToneScope(tone: tone, child: panel);
+    final toned = tone == null
+        ? tappable
+        : ToneScope(tone: tone, child: tappable);
     // Shadowed with an empty scope, so a panel nested inside another cannot
     // render the same disclosure a second time.
     return CaveatScope(caveats: const <Disclosure>[], child: toned);
   }
+}
+
+/// Whether the card around this head leads somewhere.
+///
+/// **The mark and the tap come from one field**, which is the whole point of an
+/// inherited flag rather than a second parameter on the head. A card that is
+/// tappable with nothing to say so makes the reader find it by accident; a
+/// chevron on a card that goes nowhere is a lie. Neither is expressible: the
+/// head reads this, and only `Panel.onOpen` sets it.
+class PanelOpens extends InheritedWidget {
+  /// Wraps [child] with the answers.
+  const PanelOpens({
+    required this.opens,
+    required super.child,
+    this.caveats = const <Disclosure>[],
+    this.caveatsLabel,
+    super.key,
+  });
+
+  /// Whether the enclosing card is a tap target.
+  final bool opens;
+
+  /// What tilts the reading this card is about, for its ⓘ to carry.
+  final List<Disclosure> caveats;
+
+  /// What that reading is called.
+  final String? caveatsLabel;
+
+  /// The nearest card, or null outside one.
+  static PanelOpens? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PanelOpens>();
+
+  /// Whether the nearest card leads somewhere, or false outside one.
+  static bool opensOf(BuildContext context) => of(context)?.opens ?? false;
+
+  @override
+  bool updateShouldNotify(PanelOpens old) =>
+      old.opens != opens || old.caveats != caveats;
 }

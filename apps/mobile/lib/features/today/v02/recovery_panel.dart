@@ -34,15 +34,64 @@ import 'package:healthee/data/models/recovery_score.dart';
 import 'package:healthee/shared/format/metric_names.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/v02/colour_key.dart';
+import 'package:healthee/shared/v02/labels.dart';
 import 'package:healthee/shared/v02/meters.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:solar_icons/solar_icons.dart';
 
+/// What the stacked bar is — how much each factor counts.
+///
+/// **The label is what makes the percentages safe to print.** Two numeric
+/// columns against the same four names is a collision: the key reads `HRV 42%`
+/// directly above a bar reading `HRV 30`, and nothing said that one is a fixed
+/// share of the model and the other is last night — they look like they should
+/// reconcile, and they cannot. Taking the percentages out fixed the collision
+/// and cost the reader the most useful fact on the card, which is WHICH factor
+/// is driving the number. Naming the two groups fixes it without that cost, so
+/// the shares are back: under this heading, `42%` can only mean the share.
+const String kRecoveryWeightsLabel = 'How much each counts';
+
+/// What the four bars are — last night, scored.
+const String kRecoveryScoresLabel = 'How each scored last night';
+
 /// What the four bars ARE. Method, so it lives behind the ⓘ.
 const String kRecoveryComponentsNote =
     'Model components, not four additional health scores.';
+
+/// What the stacked bar is, and what happens to a missing factor's share.
+///
+/// The weights are `derive/recovery.py`'s `RECOVERY_WEIGHTS`, transcribed. The
+/// renormalising clause is that file's `score = sum(w*sub)/tw` — `tw` is the sum
+/// of the weights actually PRESENT, so an absent reading is not scored zero.
+const String kRecoveryWeightsNote =
+    'The bar above them is how much each one counts: heart-rate variability '
+    '42%, resting heart 28%, sleep 20%, breathing 10%. Those shares are fixed. '
+    'When a reading is missing its share is spread across the others rather '
+    'than counted as a zero.';
+
+/// **The four bars are not on one scale**, and nothing else on the card says so.
+///
+/// Three are z-scores recentred on 50 against the owner's own trailing window
+/// (`_personal_factor`: `50 ± k*z`, k = 20 for HRV and RHR, 15 for breathing,
+/// over `_BASELINE_DAYS = 42`); the fourth is a plain percentage of stored sleep
+/// need (`_sleep_factor`: `100 * tst / need`). Drawn as four identical bars they
+/// invite a comparison the arithmetic does not support — the owner asked what
+/// they meant, which is the evidence that the drawing alone does not say.
+const String kRecoveryScalesNote =
+    'They are not on the same scale as each other. Heart-rate variability, '
+    'resting heart and breathing are scored against your own trailing 42 days, '
+    'where 50 is a normal night for you — one standard deviation away from that '
+    'moves the bar about 20 points, or 15 for breathing. Resting heart and '
+    'breathing are inverted, so a lower reading draws a higher bar.';
+
+/// The exception, named, with the comparison it makes unsafe.
+const String kRecoverySleepScaleNote =
+    'Sleep is the exception: a straight percentage of your own sleep need, so '
+    '100 means you met it. Sleep 70 and resting heart 70 are therefore not the '
+    'same news — one is 70% of the sleep you needed, the other is a night about '
+    'a standard deviation better than your usual.';
 
 /// KEPT ON THE CARD, deliberately.
 ///
@@ -53,6 +102,12 @@ const String kRecoveryComponentsNote =
 /// worse rather than tidier.
 const String kRecoveryPriorityNote =
     'How you feel and any illness signal take priority.';
+
+/// Whether this factor is the one measured against need rather than a baseline.
+///
+/// The wire names it `sleep` on `recovery_score.factors`; `factorLabel` renders
+/// it `Sleep`. Matched on either, for the same reason `recoveryFactorTone` is.
+bool _isSleep(String name) => name.toLowerCase().startsWith('sleep');
 
 /// The family a recovery factor or signal belongs to, from its id or its name.
 ///
@@ -94,6 +149,9 @@ class RecoveryPanel extends StatelessWidget {
   /// `.weight-stack { margin: 12px 0 }`.
   static const double stackGap = 12;
 
+  /// Between a group's label and the group.
+  static const double labelGap = 8;
+
   /// `.factor-bars { margin-block: 16px }`.
   static const double barsGap = 16;
 
@@ -117,7 +175,12 @@ class RecoveryPanel extends StatelessWidget {
         icon: SolarIconsOutline.heartPulse,
         infoKey: 'recovery_score',
         detail: MetricDetail(
-          method: const <String>[kRecoveryComponentsNote],
+          method: const <String>[
+            kRecoveryComponentsNote,
+            kRecoveryWeightsNote,
+            kRecoveryScalesNote,
+            kRecoverySleepScaleNote,
+          ],
           notes: <String>[if (score.noteId case final String id) id],
         ),
         actionLabel: onDetails == null ? null : 'Details',
@@ -127,13 +190,11 @@ class RecoveryPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          PanelValue(
-            '${score.recovery}',
-            unit: '/100',
-            context_: _side(score),
-          ),
+          PanelValue('${score.recovery}', unit: '/100', context_: _side(score)),
           if (weighted.isNotEmpty) ...<Widget>[
             const SizedBox(height: stackGap),
+            const TinyLabel(kRecoveryWeightsLabel),
+            const SizedBox(height: labelGap),
             WeightStack(<WeightSegment>[
               for (final factor in weighted)
                 WeightSegment(recoveryFactorTone(factor.name), factor.weight!),
@@ -149,6 +210,8 @@ class RecoveryPanel extends StatelessWidget {
           ],
           if (score.factors.isNotEmpty) ...<Widget>[
             const SizedBox(height: barsGap),
+            const TinyLabel(kRecoveryScoresLabel),
+            const SizedBox(height: labelGap),
             FactorBars(<Factor>[
               for (final factor in score.factors)
                 Factor(
@@ -156,6 +219,16 @@ class RecoveryPanel extends StatelessWidget {
                   factor.subScore == null ? null : factor.subScore! / 100,
                   tone: recoveryFactorTone(factor.name),
                   reading: factor.subScore?.toString(),
+                  // 50 is a normal night for the three personal-baseline
+                  // factors (`derive/recovery.py::_personal_factor`, `50 ± k*z`).
+                  // Sleep is a percentage of need and has no such midpoint, so
+                  // it gets no tick — see `Factor.reference`.
+                  // No reading, no reference: a tick on an empty track marks
+                  // where a normal night would sit for a night nothing scored,
+                  // which reads as a reading that is simply very low.
+                  reference: factor.subScore == null || _isSleep(factor.name)
+                      ? null
+                      : 0.5,
                 ),
             ]),
           ],
@@ -176,6 +249,8 @@ class RecoveryPanel extends StatelessWidget {
 
   /// `0.4` → `40%`. A weight the server sent as a percentage already is left
   /// alone: anything above 1 is read as one.
+
+  /// A weight as a percentage, whether the wire sent 0.42 or 42.
   static String _share(double weight) =>
       '${(weight <= 1 ? weight * 100 : weight).round()}%';
 }

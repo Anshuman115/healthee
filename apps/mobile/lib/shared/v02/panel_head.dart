@@ -25,8 +25,10 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/data/honesty/disclosure.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
+import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_density.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -87,6 +89,62 @@ class PanelHead extends StatelessWidget {
   /// `.twin-panels .panel-title { gap: 5px }`.
   static const double compactGap = 5;
 
+  /// Between the ⓘ and whatever follows it.
+  ///
+  /// Wider than [compactGap], which sets the icon-to-title distance. Five px
+  /// between two 16px glyphs reads as one crowded control rather than two.
+  static const double compactActionGap = 12;
+
+  /// This head's own detail, plus whatever the card around it published.
+  ///
+  /// The caveats come from `Panel`, not from the call site, so a card cannot
+  /// print the sentence and file it as well — and cannot drop it, because a
+  /// detail holding only a disclosure is still non-empty and still draws a dot.
+  /// A head given its own `detail.disclosures` keeps them: the two are merged
+  /// rather than one replacing the other.
+  MetricDetail _detail(BuildContext context) {
+    final card = PanelOpens.of(context);
+    if (card == null || card.caveats.isEmpty) {
+      return detail;
+    }
+    return detail.withDisclosures(<Disclosure>[
+      ...detail.disclosures,
+      ...card.caveats,
+    ], disclosuresLabel: detail.disclosuresLabel ?? card.caveatsLabel);
+  }
+
+  /// The disclosure chevron's size, and the air before it.
+  ///
+  /// Both smaller than the ⓘ's, and deliberately: this is a hint, not a control
+  /// beside a control. At [compactActionGap] and 16px it ate enough of the row
+  /// to ellipsize `Overnight HRV` on a half-width card — a mark that costs the
+  /// card its own name is not worth the affordance it buys.
+  static const double chevronSize = 14;
+
+  /// The gap before it.
+  static const double chevronGap = 6;
+
+  /// The mark that says the CARD leads somewhere.
+  ///
+  /// **Not a button, and that is the difference.** The `Details →` it replaces
+  /// was an accent-coloured control sitting beside the ⓘ, so the head carried
+  /// two things to press and they crowded each other. This has no gesture: the
+  /// card is the target (`Panel.onOpen`), and this is the standard disclosure
+  /// mark saying so — muted, because it is a property of the card rather than
+  /// an action offered by it.
+  ///
+  /// It cannot be forgotten and it cannot lie: `PanelOpens` carries the same
+  /// field that makes the card tappable, so a tappable card always draws it and
+  /// a card that goes nowhere never can.
+  Widget _chevron(HealtheeColors colors) => Padding(
+    padding: const EdgeInsets.only(left: chevronGap),
+    child: Icon(
+      SolarIconsOutline.altArrowRight,
+      size: chevronSize,
+      color: colors.ink3,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -118,7 +176,8 @@ class PanelHead extends StatelessWidget {
             ],
           ),
         ),
-        MetricInfoDot(infoKey, detail: detail, fallbackTitle: title),
+        MetricInfoDot(infoKey, detail: _detail(context), fallbackTitle: title),
+        if (PanelOpens.opensOf(context)) _chevron(colors),
         if (label != null) ...<Widget>[
           const SizedBox(width: gap),
           TextButton(
@@ -149,37 +208,41 @@ class PanelHead extends StatelessWidget {
     Color ink,
     Color family,
     String? label,
-  ) => Row(
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: <Widget>[
-      if (icon != null) ...<Widget>[
-        Icon(icon, size: iconSize, color: family),
-        const SizedBox(width: compactGap),
-      ],
-      Expanded(
-        child: Text(
-          title,
-          style: TypeScale.panelTitleCompact.copyWith(color: ink),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      MetricInfoDot(infoKey, detail: detail, fallbackTitle: title),
-      if (label != null) ...<Widget>[
-        const SizedBox(width: compactGap),
-        Semantics(
-          button: true,
-          label: label,
-          child: GestureDetector(
-            onTap: onAction,
-            child: Icon(
-              SolarIconsOutline.arrowRight,
-              size: compactActionIcon,
-              color: family,
-            ),
+  ) {
+    final colors = context.colors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        if (icon != null) ...<Widget>[
+          Icon(icon, size: iconSize, color: family),
+          const SizedBox(width: compactGap),
+        ],
+        Expanded(
+          child: Text(
+            title,
+            style: TypeScale.panelTitleCompact.copyWith(color: ink),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        MetricInfoDot(infoKey, detail: _detail(context), fallbackTitle: title),
+        if (PanelOpens.opensOf(context)) _chevron(colors),
+        if (label != null) ...<Widget>[
+          const SizedBox(width: compactActionGap),
+          Semantics(
+            button: true,
+            label: label,
+            child: GestureDetector(
+              onTap: onAction,
+              child: Icon(
+                SolarIconsOutline.arrowRight,
+                size: compactActionIcon,
+                color: family,
+              ),
+            ),
+          ),
+        ],
       ],
-    ],
-  );
+    );
+  }
 }

@@ -46,6 +46,19 @@ enum CaveatCarrier {
   /// Inside the card the builder returns — see the library docstring. The card
   /// must contain an `InstrumentModule`, which is what claims the scope.
   insideCard,
+
+  /// **The card routes them itself, so this draws nothing.**
+  ///
+  /// The only carrier that renders no sentence, and therefore the only one that
+  /// can lose a disclosure — so it exists as its own named value rather than as
+  /// a null or a flag. A card passing this is claiming to have put the caveats
+  /// somewhere a reader can reach, which today means its ⓘ
+  /// (`MetricDetail.disclosures`).
+  ///
+  /// Do not reach for it to quieten a card. `beneath` and `insideCard` both
+  /// SHOW the sentence; this one moves it, and moving it is only honest if it
+  /// arrives somewhere.
+  routedByCard,
 }
 
 /// Carries a caveated value's disclosures down to the card that shows it.

@@ -30,6 +30,7 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/models/biological_age.dart';
 import 'package:healthee/data/models/recovery_score.dart';
+import 'package:healthee/features/today/steps_plateau.dart';
 import 'package:healthee/features/today/today_facts.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/shared/reveal_once.dart';
@@ -258,18 +259,28 @@ class TodaySummaryTiles extends StatelessWidget {
     );
   }
 
-  /// Today's steps. No target on the wire, so no meter and no percentage.
+  /// Today's steps, against the age-banded plateau. See `steps_plateau.dart`
+  /// for why the denominator is derived from the note rather than picked.
   Widget _movement() {
     final steps = facts.steps.valueOrNull;
     if (steps == null) {
       return const _TileHole(title: 'Movement', tone: Tone.movement);
     }
+    final plateau = stepsPlateauTop(
+      facts.snapshot.biologicalAge.valueOrNull?.chronologicalAge,
+    );
     return SummaryTile(
       title: 'Movement',
       icon: SolarIconsOutline.walking,
       tone: Tone.movement,
       value: commaGrouped(steps.round()),
-      meta: facts.medianFootFor(TodayMetricIds.steps).toLowerCase(),
+      fraction: plateau == null ? null : steps / plateau,
+      // Worded like Sleep's — `70% of 8h 0m need` — because it is the same
+      // shape of claim: a measured figure over a stated denominator, with the
+      // denominator named so it can be argued with.
+      meta: plateau == null
+          ? facts.medianFootFor(TodayMetricIds.steps).toLowerCase()
+          : '${(steps / plateau * 100).round()}% of ${commaGrouped(plateau)}',
       onOpen: onOpenActivity,
     );
   }
