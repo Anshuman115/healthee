@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/activity_screen.dart';
+import 'package:healthee/features/activity/v02/movement_panels.dart';
 import 'package:healthee/features/insights/insights_screen.dart';
 import 'package:healthee/features/insights/widgets/trends_section.dart';
 import 'package:healthee/shared/charts/v02/v02_bar_chart.dart';
@@ -29,6 +30,7 @@ import 'package:healthee/shared/charts/v02/v02_linked_chart.dart';
 import 'package:healthee/shared/charts/v02/v02_sparkline.dart';
 import 'package:healthee/shared/v02/instruments/vo2max_rail.dart';
 
+import '../_today_stubs.dart';
 import '../shared/_chart_probe.dart';
 import '../shared/_v02_chart_probe.dart';
 import '_today_host.dart';
@@ -185,13 +187,47 @@ void main() {
     testWidgets(
       'A SERIES THE SERVER DID NOT SEND DRAWS NOTHING, AT FULL HEIGHT',
       (tester) async {
-        // `sparklines` carries eleven ids and `steps_total` is not one of them, so
-        // the step week has nothing to draw. It must keep its slot and draw no
-        // bars: a chart that collapses makes every card below it jump when the
-        // data lands, and a chart that invents a flat line is the fabricated
-        // series `chart_void.dart` exists to refuse.
-        await open(tester, const ActivityScreen());
-        final chart = find.byType(V02BarChart).first;
+        // The step week must keep its slot and draw no bars when the series is
+        // absent: a chart that collapses makes every card below it jump when
+        // the data lands, and a chart that invents a flat line is the
+        // fabricated series `chart_void.dart` exists to refuse.
+        //
+        // **The absence is now made, not found.** `steps_total` used to be
+        // missing from `sparklines` for every owner on every request, because
+        // `read/today_series.py` had no slot for it — so this assertion held by
+        // accident. The slot exists now, so the payload is stripped here
+        // instead: the state under test is a server that did not send a series,
+        // and that state must stay reachable after it stopped being the norm.
+        tester.view
+          ..physicalSize = const Size(390, 14000)
+          ..devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          todayHost(
+            store,
+            home: const ActivityScreen(),
+            server: todayView(
+              mutate: (json) => <String, Object?>{
+                ...json,
+                'sparklines': <String, Object?>{
+                  for (final entry
+                      in (json['sparklines']! as Map<String, Object?>).entries)
+                    if (entry.key != 'steps_total') entry.key: entry.value,
+                },
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // By its panel, not `.first`: Activity draws four bar charts now and
+        // the step week is no longer the top one. Not by semantics either — an
+        // empty chart draws no label to be found by, which is the very state
+        // this test is about.
+        final chart = find.descendant(
+          of: find.byType(MovementPanel),
+          matching: find.byType(V02BarChart),
+        );
         await reveal(tester, chart);
 
         expect(tester.getSize(chart).height, 150);
