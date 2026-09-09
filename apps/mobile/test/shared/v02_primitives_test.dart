@@ -206,7 +206,10 @@ void main() {
       final value = tester.getRect(find.text('8,214'));
       final meta = tester.getRect(find.text('goal 10,000'));
       expect(value.top - title.bottom, 10);
-      expect(meta.top - value.bottom, 4);
+      // 24, not 4: a tile with no fraction now KEEPS the meter's slot, so its
+      // meta sits on the same baseline as a tile that has one. Three tiles of
+      // different internal rhythm in one row read as three kinds of thing.
+      expect(meta.top - value.bottom, closeTo(24, 0.5));
       expect(tester.widget<Text>(find.text('8,214')).style!.fontSize, 24);
       expect(
         tester.widget<Text>(find.text('goal 10,000')).style!.fontSize,

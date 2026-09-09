@@ -138,7 +138,10 @@ void main() {
       final scored = rows.where((factor) => factor.fraction != null).length;
       expect(scored, rows.length - 1, reason: 'one factor lost its sub-score');
       expect(
-        find.descendant(of: bars, matching: find.byType(FractionallySizedBox)),
+        // By key, not by type: the reference tick is a `FractionallySizedBox`
+        // too, so counting the type counted ticks as fills and would have
+        // passed for the wrong reason.
+        find.descendant(of: bars, matching: find.byKey(FactorBars.fillKey)),
         findsNWidgets(scored),
         reason: 'an unscored factor drew a fill anyway',
       );

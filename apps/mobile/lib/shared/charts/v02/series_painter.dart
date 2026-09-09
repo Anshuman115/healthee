@@ -32,6 +32,8 @@
 /// the trace reaches it rather than pulsing at the far end of an empty plot.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:healthee/shared/charts/chart_reference.dart';
 import 'package:healthee/shared/charts/v02/chart_box.dart';
@@ -81,13 +83,18 @@ void paintSeriesInto(
       canvas.drawPath(body, Paint()..shader = shader);
     }
   }
+  // The wipe front has to clear whatever is drawn AT it. With a last-point dot
+  // that is the dot's own reach, not the stroke's — see `kLastPointDotOuter`.
+  final front = lastPointDot
+      ? math.max(strokeWidth, kLastPointDotOuter)
+      : strokeWidth;
   canvas
     ..save()
     ..clipRect(
       Rect.fromLTRB(
         0,
         box.plot.top - strokeWidth * 2,
-        box.plot.left + box.plot.width * progress.clamp(0.0, 1.0) + strokeWidth,
+        box.plot.left + box.plot.width * progress.clamp(0.0, 1.0) + front,
         box.plot.bottom + strokeWidth * 2,
       ),
     );
