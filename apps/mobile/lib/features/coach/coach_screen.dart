@@ -86,6 +86,7 @@ import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/screen_head.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 // The cost-carrying label lives with the control that prints it. Re-exported so
 // the screen stays the one import a caller — or a test pinning the wording —
@@ -149,7 +150,7 @@ class CoachScreen extends ConsumerWidget {
         // for a null callback, so an owner who has never asked anything is not
         // offered a door into an empty room.
         HeaderAction(
-          icon: Icons.history,
+          icon: SolarIconsOutline.history,
           tooltip: 'Past conversations',
           onPressed: hasHistory
               ? () => context.push(Routes.coachHistory)
@@ -159,7 +160,7 @@ class CoachScreen extends ConsumerWidget {
         // to be replaced is a control that does nothing.
         if (!conversation.isEmpty && !conversation.asking)
           HeaderAction(
-            icon: Icons.edit_outlined,
+            icon: SolarIconsOutline.pen,
             tooltip: 'Start a new conversation',
             onPressed: ref.read(coachControllerProvider.notifier).newThread,
           ),

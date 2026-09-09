@@ -47,6 +47,7 @@ import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `H.note('No stage timeline recorded for this night.')`.
 const String kNoTimelineNote = 'No stage timeline recorded for this night.';
@@ -100,7 +101,7 @@ class NightTimelinePanel extends StatelessWidget {
       label: 'Sleep stages',
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
         detail: const MetricDetail(method: <String>[kStageColourMethod]),
         actionLabel: onDetails == null ? null : 'Details',
@@ -186,7 +187,7 @@ class StageTablePanel extends StatelessWidget {
       label: 'Stage totals',
       head: const PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
       ),
       child: total <= 0

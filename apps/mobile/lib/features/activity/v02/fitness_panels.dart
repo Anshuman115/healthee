@@ -54,6 +54,7 @@ import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/surface_panels.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Shown only when the wire named no instrument on any point of the window.
 ///
@@ -136,7 +137,7 @@ class CardiorespiratoryPanel extends StatelessWidget {
       caveats: <Disclosure>[vo2max.methodDisclosure],
       head: PanelHead(
         title: title,
-        icon: Icons.monitor_heart_outlined,
+        icon: SolarIconsOutline.heartPulse,
         infoKey: 'vo2max',
         detail: MetricDetail(
           notes: vo2max.researchNotes,
@@ -236,7 +237,7 @@ class StoredHistoryPanel extends StatelessWidget {
     label: 'VO₂max · stored estimates',
     head: PanelHead(
       title: title,
-      icon: Icons.show_chart,
+      icon: SolarIconsOutline.chart_2,
       infoKey: 'vo2max',
       actionLabel: onDetails == null ? null : 'Details',
       onAction: onDetails,
@@ -300,7 +301,7 @@ class InstrumentPanel extends StatelessWidget {
       label: 'VO₂max · instrument',
       head: PanelHead(
         title: title,
-        icon: Icons.place_outlined,
+        icon: SolarIconsOutline.mapPoint,
         infoKey: 'vo2max',
         detail: MetricDetail(
           notes: vo2max.researchNotes,

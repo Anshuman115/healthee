@@ -18,6 +18,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The floating control that opens the coach sheet.
 class CoachFab extends StatelessWidget {
@@ -35,7 +36,7 @@ class CoachFab extends StatelessWidget {
       backgroundColor: colors.accent,
       foregroundColor: colors.onAccent,
       tooltip: 'Ask your coach',
-      child: const Icon(Icons.auto_awesome_outlined),
+      child: const Icon(SolarIconsOutline.chatRoundDots),
     );
   }
 }

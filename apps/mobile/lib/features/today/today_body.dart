@@ -47,6 +47,7 @@ import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/v02/chapter.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The bridge under the hero: what the estimate is, and what it is not.
 ///
@@ -139,7 +140,7 @@ void _nightChapter(
     ChapterHeading(
       key: extras.chapters?.night,
       title: 'Last night → today',
-      icon: Icons.bedtime_outlined,
+      icon: SolarIconsOutline.moonSleep,
       tone: Tone.sleep,
     ),
   );
@@ -165,7 +166,7 @@ void _nightChapter(
         title: 'Overnight HRV',
         label: 'HRV · overnight',
         infoKey: 'hrv',
-        icon: Icons.monitor_heart_outlined,
+        icon: SolarIconsOutline.heartPulse,
         tone: Tone.fitness,
         reading: facts.heartRateVariability,
         series: facts.spark(TodayMetricIds.heartRateVariability),
@@ -184,7 +185,7 @@ void _nightChapter(
         title: 'Resting heart',
         label: 'Resting heart rate',
         infoKey: 'rhr_daily',
-        icon: Icons.favorite_outline,
+        icon: SolarIconsOutline.heart,
         tone: Tone.heart,
         reading: facts.restingHeartRate,
         series: facts.spark(TodayMetricIds.restingHeartRate),
@@ -244,7 +245,7 @@ void _nightChapter(
         title: 'Blood oxygen',
         label: 'Blood oxygen · overnight',
         infoKey: 'spo2',
-        icon: Icons.water_drop_outlined,
+        icon: SolarIconsOutline.waterdrop,
         tone: Tone.oxygen,
         reading: facts.bloodOxygen,
         series: facts.spark(TodayMetricIds.bloodOxygenMin),

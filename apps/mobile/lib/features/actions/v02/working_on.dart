@@ -42,6 +42,7 @@ import 'package:healthee/shared/states/account_async_view.dart';
 import 'package:healthee/shared/states/cached_async_view.dart';
 import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.stack { gap: var(--space-lg) }`.
 const double kStackGap = 16;
@@ -133,7 +134,7 @@ class _Programs extends StatelessWidget {
     }
     return RowCard(<Widget>[
       ListRow(
-        icon: Icons.flag_outlined,
+        icon: SolarIconsOutline.flag,
         title: program.title,
         subtitle: subtitleFor(program),
         tone: Tone.movement,

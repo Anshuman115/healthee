@@ -38,6 +38,7 @@ import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/shared/v02/icon_tile.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// A settings row: an icon tile, a name, a sentence, and a chevron.
 class ListRow extends StatelessWidget {
@@ -136,7 +137,7 @@ class ListRow extends StatelessWidget {
             ] else if (onTap != null) ...<Widget>[
               const SizedBox(width: gap),
               Icon(
-                Icons.chevron_right,
+                SolarIconsOutline.altArrowRight,
                 size: chevronSize,
                 color: colors.ink3,
               ),

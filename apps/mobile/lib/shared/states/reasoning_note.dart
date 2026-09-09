@@ -36,6 +36,7 @@ import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// A one-line question that opens into its answer.
 class ReasoningNote extends StatefulWidget {
@@ -90,7 +91,7 @@ class _ReasoningNoteState extends State<ReasoningNote> {
                 ),
                 const SizedBox(width: Insets.xs),
                 Icon(
-                  _open ? Icons.expand_less : Icons.expand_more,
+                  _open ? SolarIconsOutline.altArrowUp : SolarIconsOutline.altArrowDown,
                   size: 16,
                   color: colors.accent,
                 ),

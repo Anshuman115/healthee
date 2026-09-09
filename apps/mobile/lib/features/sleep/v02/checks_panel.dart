@@ -56,6 +56,7 @@ import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's closing note, verbatim. Says the one thing that matters.
 const String kFourChecksNote =
@@ -161,7 +162,7 @@ class SleepChecksPanel extends StatelessWidget {
       label: 'Sleep checks',
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep_health',
         detail: MetricDetail(
           references: <String>[

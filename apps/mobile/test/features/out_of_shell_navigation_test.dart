@@ -29,7 +29,6 @@
 /// stack, and otherwise land on the tab the screen belongs under.
 library;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -44,6 +43,7 @@ import 'package:healthee/features/signin/server_signin_screen.dart';
 import 'package:healthee/features/today/body_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/shared/v02/buttons.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '_today_host.dart';
 
@@ -283,7 +283,7 @@ void main() {
       // affordance went missing together.
       //
       // v02 has no `AppBar` and so no `BackButton` to look for: the control is
-      // `DetailHeader`, which draws an `Icons.arrow_back` inside a
+      // `DetailHeader`, which draws an `SolarIconsOutline.arrowLeft` inside a
       // `Semantics(button: true, label: 'Go back')`. The glyph is the assertion
       // because it is the affordance — the thing that was missing.
       _tallViewport(tester);
@@ -291,7 +291,7 @@ void main() {
       await tester.pumpAndSettle();
       await openSettings(tester);
 
-      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      expect(find.byIcon(SolarIconsOutline.arrowLeft), findsOneWidget);
     });
   });
 
@@ -317,7 +317,7 @@ void main() {
 
       expect(find.byType(BodyScreen), findsOneWidget);
       expect(
-        find.byIcon(Icons.arrow_back),
+        find.byIcon(SolarIconsOutline.arrowLeft),
         findsOneWidget,
         reason: 'a restored detail screen has to offer a way off it',
       );
@@ -331,7 +331,7 @@ void main() {
       final platform = _watchPlatformCalls(tester);
       await deepLink(tester, Routes.body);
 
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byIcon(SolarIconsOutline.arrowLeft));
       await tester.pumpAndSettle();
 
       expect(find.byType(ActivityScreen), findsOneWidget);
@@ -365,7 +365,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(BodyScreen), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byIcon(SolarIconsOutline.arrowLeft));
       await tester.pumpAndSettle();
 
       expect(find.byType(TodayScreen), findsOneWidget);

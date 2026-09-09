@@ -42,6 +42,7 @@ import 'package:healthee/core/theme/type_scale_dates.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/v02/date_calendar_sheet.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The window a date control may move within, and where a choice is sent.
 ///
@@ -131,7 +132,7 @@ class DateControl extends StatelessWidget {
             _step(
               context,
               key: previousKey,
-              icon: Icons.chevron_left,
+              icon: SolarIconsOutline.altArrowLeft,
               label: 'Previous day',
               onTap: hasPrevious ? () => _move(-1) : null,
             ),
@@ -141,7 +142,7 @@ class DateControl extends StatelessWidget {
             _step(
               context,
               key: nextKey,
-              icon: Icons.chevron_right,
+              icon: SolarIconsOutline.altArrowRight,
               label: 'Next day',
               onTap: hasNext ? () => _move(1) : null,
             ),

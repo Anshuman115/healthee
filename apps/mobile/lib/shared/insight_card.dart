@@ -9,6 +9,7 @@ import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/states/account_async_view.dart';
 import 'package:healthee/shared/states/grounded_markdown.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What sits above an insight the server could not ground.
 ///
@@ -68,7 +69,11 @@ class _InsightCardState extends ConsumerState<InsightCard> {
                   ),
               ],
             ),
-            trailing: Icon(_open ? Icons.expand_less : Icons.expand_more),
+            trailing: Icon(
+              _open
+                  ? SolarIconsOutline.altArrowUp
+                  : SolarIconsOutline.altArrowDown,
+            ),
             onTap: () => setState(() => _open = !_open),
           ),
           if (insight != null)

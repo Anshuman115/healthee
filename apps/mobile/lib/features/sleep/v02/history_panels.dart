@@ -50,6 +50,7 @@ import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `Sleep duration` — the month of nightly totals.
 class SleepDurationPanel extends StatelessWidget {
@@ -107,7 +108,7 @@ class SleepDurationPanel extends StatelessWidget {
       label: 'Sleep duration',
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
@@ -178,7 +179,7 @@ class NightStagesPanel extends StatelessWidget {
       label: 'Sleep stages · seven nights',
       head: const PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
         detail: MetricDetail(
           method: <String>['Each stage keeps the same colour throughout the app.'],
@@ -289,7 +290,7 @@ class NightRow extends StatelessWidget {
           ),
           if (onOpen != null) ...<Widget>[
             const SizedBox(width: gap),
-            Icon(Icons.chevron_right, size: chevronSize, color: colors.ink3),
+            Icon(SolarIconsOutline.altArrowRight, size: chevronSize, color: colors.ink3),
           ],
         ],
       ),

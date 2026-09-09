@@ -20,6 +20,7 @@ import 'package:healthee/core/theme/instrument_hues.dart';
 import 'package:healthee/core/theme/instrument_type.dart';
 import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// "No sleep recorded last night", and which night the readings are from.
 class StaleSleepBanner extends StatelessWidget {
@@ -45,7 +46,7 @@ class StaleSleepBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.bedtime_outlined, size: 18, color: tint),
+          Icon(SolarIconsOutline.moonSleep, size: 18, color: tint),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

@@ -50,6 +50,7 @@ import 'package:healthee/shared/v02/list_row.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/stat_block.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The paired strap: what is held, what it last said, and the way to change it.
 class DeviceScreen extends ConsumerWidget {
@@ -139,7 +140,7 @@ class DeviceScreen extends ConsumerWidget {
         const SectionGap(),
         HButton(
           label: 'Sync now',
-          icon: Icons.sync,
+          icon: SolarIconsOutline.refresh,
           onPressed: syncing
               ? null
               : () => unawaited(
@@ -159,13 +160,13 @@ class DeviceScreen extends ConsumerWidget {
         FlushCard(
           children: <Widget>[
             ListRow(
-              icon: Icons.sync,
+              icon: SolarIconsOutline.refresh,
               title: 'Data & sync details',
               subtitle: 'See which streams are up to date',
               onTap: () => unawaited(context.push(Routes.dataFreshness)),
             ),
             ListRow(
-              icon: Icons.watch_outlined,
+              icon: SolarIconsOutline.watchRound,
               title: strap == null ? 'Connect a strap' : 'Pairing and unpair',
               subtitle: strap == null
                   ? 'Find your strap and confirm its key'

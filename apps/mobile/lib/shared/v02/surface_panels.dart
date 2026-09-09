@@ -39,6 +39,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.card` — the plain surface container.
 class SurfaceCard extends StatelessWidget {
@@ -173,7 +174,11 @@ class Notice extends StatelessWidget {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(Icons.info_outline, size: iconSize, color: colors.ink),
+            child: Icon(
+              SolarIconsOutline.infoCircle,
+              size: iconSize,
+              color: colors.ink,
+            ),
           ),
           const SizedBox(width: gap),
           Expanded(

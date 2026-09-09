@@ -34,6 +34,7 @@ import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/detail_page.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The screen's name.
 const String kCoachHistoryTitle = 'Your conversations.';
@@ -127,7 +128,11 @@ class _ThreadRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Insets.md),
-              Icon(Icons.chevron_right, size: 16, color: colors.ink3),
+              Icon(
+                SolarIconsOutline.altArrowRight,
+                size: 16,
+                color: colors.ink3,
+              ),
             ],
           ),
         ),

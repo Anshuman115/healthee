@@ -50,6 +50,7 @@ import 'package:healthee/shared/v02/labels.dart';
 import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/stat_block.dart';
 import 'package:healthee/shared/v02/surface_cards.dart' show PlainCard, SmallProse;
+import 'package:solar_icons/solar_icons.dart';
 
 /// `H.evidence(note)`'s default label.
 const String kHowWeKnow = 'How we know';
@@ -91,7 +92,7 @@ class WorkoutDayGroup extends StatelessWidget {
         rows: <Widget>[
           for (final session in sessions)
             V02ListRow(
-              icon: Icons.directions_run,
+              icon: SolarIconsOutline.running,
               title: session.sportName,
               detail: sessionLine(session),
               // `.workout-row .icon-tile` — see the library docstring.
@@ -152,7 +153,7 @@ class StrengthCard extends StatelessWidget {
           ),
           TextLink(
             label: kHowWeKnow,
-            icon: Icons.info_outline,
+            icon: SolarIconsOutline.infoCircle,
             iconLeading: true,
             onPressed: () => showMetricInfo(
               context,

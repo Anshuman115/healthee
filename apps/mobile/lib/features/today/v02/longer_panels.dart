@@ -39,6 +39,7 @@ import 'package:healthee/shared/v02/instruments/vo2max_rail.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `Cardiorespiratory fitness` — the estimate, its rail, and its instrument.
 class FitnessPanel extends StatelessWidget {
@@ -76,7 +77,7 @@ class FitnessPanel extends StatelessWidget {
       caveats: <Disclosure>[vo2max.methodDisclosure],
       head: PanelHead(
         title: title,
-        icon: Icons.trending_up,
+        icon: SolarIconsOutline.graphUp,
         infoKey: 'vo2max',
         detail: MetricDetail(
           references: <String>[
@@ -229,7 +230,7 @@ class JournalPanel extends StatelessWidget {
       tone: Tone.stress,
       head: PanelHead(
         title: title,
-        icon: Icons.menu_book_outlined,
+        icon: SolarIconsOutline.book,
         actionLabel: onAdd == null ? null : 'Add a moment',
         onAction: onAdd,
       ),

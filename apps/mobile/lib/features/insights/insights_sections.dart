@@ -79,6 +79,7 @@ import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/page_header.dart';
 import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/section_head.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What Insights cannot date. `screens.insights`'s own past-day heading.
 const String kInsightsPastTitle = 'Patterns for this day';
@@ -293,28 +294,28 @@ void _changedTogether(
     FlushCard(
       rows: <Widget>[
         V02ListRow(
-          icon: Icons.flag_outlined,
+          icon: SolarIconsOutline.flag,
           title: 'Challenge outcomes',
           detail: 'Progress, data coverage and what changed together',
           tone: Tone.movement,
           onOpen: extras.onOpenOutcomes,
         ),
         V02ListRow(
-          icon: Icons.menu_book_outlined,
+          icon: SolarIconsOutline.book,
           title: 'Notable moments',
           detail: 'Your caffeine, meditation and fasting context',
           tone: Tone.stress,
           onOpen: extras.onOpenJournal,
         ),
         V02ListRow(
-          icon: Icons.bedtime_outlined,
+          icon: SolarIconsOutline.moonSleep,
           title: 'Sleep history',
           detail: 'Every night in the window, and the way into one of them',
           tone: Tone.sleep,
           onOpen: extras.onOpenSleepHistory,
         ),
         V02ListRow(
-          icon: Icons.trending_up,
+          icon: SolarIconsOutline.graphUp,
           title: 'Fitness estimates',
           detail: 'VO₂max, the instrument behind it, and what it is stored as',
           tone: Tone.fitness,

@@ -39,6 +39,7 @@ import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// One of the three fortnight panels.
 @immutable
@@ -170,7 +171,7 @@ class SleepTrendPanel extends StatelessWidget {
       label: trend.title,
       head: PanelHead(
         title: trend.title,
-        icon: Icons.show_chart,
+        icon: SolarIconsOutline.chart_2,
         infoKey: trend.infoKey,
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails == null ? null : () => onDetails!(trend.metric),

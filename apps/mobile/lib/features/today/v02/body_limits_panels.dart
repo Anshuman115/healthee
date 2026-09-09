@@ -47,6 +47,7 @@ import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's line under the confidence heading.
 const String kConfidenceNote =
@@ -90,7 +91,7 @@ class ExcludedTermsPanel extends StatelessWidget {
     return Panel(
       tone: Tone.sleep,
       label: 'Biological age · excluded',
-      head: const PanelHead(title: title, icon: Icons.info_outline),
+      head: const PanelHead(title: title, icon: SolarIconsOutline.infoCircle),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -148,7 +149,7 @@ class AgeConfidencePanel extends StatelessWidget {
     caveats: caveats,
     head: PanelHead(
       title: title,
-      icon: Icons.shield_outlined,
+      icon: SolarIconsOutline.shieldCheck,
       infoKey: 'biological_age',
       detail: MetricDetail(notes: researchNotes),
     ),

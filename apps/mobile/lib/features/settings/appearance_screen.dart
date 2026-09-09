@@ -58,6 +58,7 @@ import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/stat_block.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
 import 'package:healthee/shared/v02/theme_options.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Light · Dark · System, the accent, and a preview of the result.
 class AppearanceScreen extends ConsumerWidget {
@@ -102,17 +103,17 @@ class AppearanceScreen extends ConsumerWidget {
           options: const <ThemeOption<ThemeMode>>[
             ThemeOption<ThemeMode>(
               value: ThemeMode.light,
-              icon: Icons.wb_sunny_outlined,
+              icon: SolarIconsOutline.sun,
               label: 'Light',
             ),
             ThemeOption<ThemeMode>(
               value: ThemeMode.dark,
-              icon: Icons.nightlight_outlined,
+              icon: SolarIconsOutline.moon,
               label: 'Dark',
             ),
             ThemeOption<ThemeMode>(
               value: ThemeMode.system,
-              icon: Icons.settings_outlined,
+              icon: SolarIconsOutline.settings,
               label: 'System',
             ),
           ],

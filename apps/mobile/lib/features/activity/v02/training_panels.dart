@@ -44,6 +44,7 @@ import 'package:healthee/shared/v02/instruments/vo2max_rail.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own line under the load bars.
 const String kLoadNote =
@@ -82,7 +83,7 @@ class TrainingLoadPanel extends StatelessWidget {
       label: 'Strain · cardio load',
       head: PanelHead(
         title: title,
-        icon: Icons.favorite_outline,
+        icon: SolarIconsOutline.heart,
         infoKey: 'cardio_load',
         detail: MetricDetail(notes: load.researchNotes),
         actionLabel: onDetails == null ? null : 'Details',
@@ -177,7 +178,7 @@ class FitnessSourcePanel extends StatelessWidget {
       caveats: <Disclosure>[vo2max.methodDisclosure],
       head: PanelHead(
         title: title,
-        icon: Icons.trending_up,
+        icon: SolarIconsOutline.graphUp,
         infoKey: 'vo2max',
         detail: MetricDetail(
           references: <String>[

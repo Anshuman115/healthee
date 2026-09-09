@@ -38,6 +38,7 @@ import 'package:healthee/shared/v02/emblems.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What this app is, and the notices it carries.
 class AboutScreen extends ConsumerWidget {
@@ -70,7 +71,7 @@ class AboutScreen extends ConsumerWidget {
       title: title,
       eyebrow: eyebrow,
       children: <Widget>[
-        const CoachSymbol(Icons.eco_outlined),
+        const CoachSymbol(SolarIconsOutline.leaf),
         Text(headline, style: FormType.heading2.copyWith(color: colors.ink)),
         const SizedBox(height: blockGap),
         const SmallProse(opening),

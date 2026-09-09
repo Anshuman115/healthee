@@ -55,6 +55,7 @@ import 'package:healthee/shared/v02/list_row.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The index: the owner, their device, their experience, their account.
 class SettingsScreen extends ConsumerWidget {
@@ -91,7 +92,7 @@ class SettingsScreen extends ConsumerWidget {
         FlushCard(
           children: <Widget>[
             ListRow(
-              icon: Icons.watch_outlined,
+              icon: SolarIconsOutline.watchRound,
               title: 'Amazfit Helio Strap',
               subtitle: paired
                   ? 'Your device, its charge and its last read'
@@ -99,13 +100,13 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => unawaited(context.push(Routes.device)),
             ),
             ListRow(
-              icon: Icons.sync,
+              icon: SolarIconsOutline.refresh,
               title: 'Data & sync',
               subtitle: 'From your strap to your personal insights',
               onTap: () => unawaited(context.push(Routes.dataFreshness)),
             ),
             ListRow(
-              icon: Icons.insights_outlined,
+              icon: SolarIconsOutline.chartSquare,
               title: 'Instruments',
               // Names what is behind it in the owner's words. "Diagnostics"
               // alone would be a control whose only documentation is the screen
@@ -121,25 +122,25 @@ class SettingsScreen extends ConsumerWidget {
         FlushCard(
           children: <Widget>[
             ListRow(
-              icon: Icons.wb_sunny_outlined,
+              icon: SolarIconsOutline.sun,
               title: 'Appearance',
               subtitle: 'Light, dark or follow your device',
               onTap: () => unawaited(context.push(Routes.appearance)),
             ),
             ListRow(
-              icon: Icons.notifications_none,
+              icon: SolarIconsOutline.bell,
               title: 'Reminders',
               subtitle: 'A gentle nudge, on your terms',
               onTap: () => unawaited(context.push(Routes.reminders)),
             ),
             ListRow(
-              icon: Icons.cloud_outlined,
+              icon: SolarIconsOutline.cloud,
               title: 'Background sync',
               subtitle: 'Collection, upload and network preferences',
               onTap: () => unawaited(context.push(Routes.background)),
             ),
             ListRow(
-              icon: Icons.edit_note,
+              icon: SolarIconsOutline.notes,
               title: 'Health journal',
               subtitle: 'The moments beyond your measurements',
               onTap: () => unawaited(context.push(Routes.journal)),
@@ -151,13 +152,13 @@ class SettingsScreen extends ConsumerWidget {
         FlushCard(
           children: <Widget>[
             ListRow(
-              icon: Icons.shield_outlined,
+              icon: SolarIconsOutline.shieldCheck,
               title: 'Account & server',
               subtitle: 'Your data, on your server',
               onTap: () => unawaited(context.push(Routes.serverSignIn)),
             ),
             ListRow(
-              icon: Icons.info_outline,
+              icon: SolarIconsOutline.infoCircle,
               title: 'About Healthee',
               subtitle: 'An honest health companion',
               onTap: () => unawaited(context.push(Routes.about)),
@@ -218,7 +219,7 @@ class _ProfileCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: colors.line),
                 ),
-                child: Icon(Icons.person_outline, color: colors.ink),
+                child: Icon(SolarIconsOutline.userCircle, color: colors.ink),
               ),
               const SizedBox(width: gap),
               Expanded(
@@ -241,7 +242,7 @@ class _ProfileCard extends StatelessWidget {
               ),
               const SizedBox(width: gap),
               Icon(
-                Icons.chevron_right,
+                SolarIconsOutline.altArrowRight,
                 size: chevronSize,
                 color: colors.ink3,
               ),

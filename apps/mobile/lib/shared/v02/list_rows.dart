@@ -35,6 +35,7 @@ import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/shared/v02/icon_tile.dart';
 import 'package:healthee/shared/v02/panel.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.card.flush` — a bordered container whose children reach its edges.
 class FlushCard extends StatelessWidget {
@@ -161,7 +162,11 @@ class V02ListRow extends StatelessWidget {
             ),
             if (onOpen != null) ...<Widget>[
               const SizedBox(width: gap),
-              Icon(Icons.chevron_right, size: chevronSize, color: colors.ink3),
+              Icon(
+                SolarIconsOutline.altArrowRight,
+                size: chevronSize,
+                color: colors.ink3,
+              ),
             ],
           ],
         ),

@@ -35,6 +35,7 @@ import 'package:healthee/data/journal/log_kind.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/shared/sheets/app_sheet.dart';
 import 'package:healthee/shared/v02/controls.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Opens the log for [kind].
 void showLogSheet(
@@ -190,7 +191,7 @@ class _LogSheetState extends ConsumerState<LogSheet> {
         alignment: Alignment.centerLeft,
         child: TextLink(
           label: _at == null ? 'When: now' : 'When: ${_at!.toLocal()}',
-          icon: Icons.schedule,
+          icon: SolarIconsOutline.clockCircle,
           onPressed: _busy ? null : () => unawaited(_pickTime()),
         ),
       ),

@@ -76,6 +76,7 @@ import 'package:healthee/shared/v02/data_footer.dart';
 import 'package:healthee/shared/v02/page_header.dart';
 import 'package:healthee/shared/v02/past_day.dart';
 import 'package:healthee/shared/v02/view_day.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `H.chapter('sleep-trends','Beyond a single night','sleep','insights')`.
 const String kSleepTrendsChapter = 'Beyond a single night';
@@ -251,7 +252,7 @@ List<PageSection> sleepSections({
     ..add(
       const ChapterHeading(
         title: kSleepTrendsChapter,
-        icon: Icons.insights_outlined,
+        icon: SolarIconsOutline.chartSquare,
       ),
     );
   for (final trend in kSleepTrends) {

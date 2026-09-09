@@ -22,6 +22,7 @@ import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/context_bridge.dart';
 import 'package:healthee/shared/v02/icon_tile.dart';
 import 'package:healthee/shared/v02/section_head.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '_v02_harness.dart';
 
@@ -259,7 +260,7 @@ void main() {
     testWidgets('the box, the corner and both colours', (tester) async {
       await pumpV02(
         tester,
-        const IconTile(Icons.air),
+        const IconTile(SolarIconsOutline.wind),
         tone: Tone.oxygen,
         width: null,
       );
@@ -275,14 +276,24 @@ void main() {
       );
       expect(groundOf(decoration), kHues.oxygenSoft);
       expect(radiusOf(decoration), 13);
-      expect(tester.widget<Icon>(find.byIcon(Icons.air)).color, kHues.oxygen);
+      expect(
+        tester.widget<Icon>(find.byIcon(SolarIconsOutline.wind)).color,
+        kHues.oxygen,
+      );
     });
 
     testWidgets('with no scope it takes fitness — richer.css :root', (
       tester,
     ) async {
-      await pumpV02(tester, const IconTile(Icons.air), width: null);
-      expect(tester.widget<Icon>(find.byIcon(Icons.air)).color, kHues.fitness);
+      await pumpV02(
+        tester,
+        const IconTile(SolarIconsOutline.wind),
+        width: null,
+      );
+      expect(
+        tester.widget<Icon>(find.byIcon(SolarIconsOutline.wind)).color,
+        kHues.fitness,
+      );
     });
   });
 }

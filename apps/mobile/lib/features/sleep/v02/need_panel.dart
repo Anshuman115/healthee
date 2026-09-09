@@ -64,6 +64,7 @@ import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `Sleep need & debt` — the seven-night shortfall against the server's need.
 class SleepNeedPanel extends StatelessWidget {
@@ -162,7 +163,7 @@ class SleepNeedPanel extends StatelessWidget {
       label: 'Sleep need · debt',
       head: const PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep_debt',
       ),
       child: Column(

@@ -53,6 +53,7 @@ import 'package:healthee/shared/v02/colour_key.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What a flat pair of lines means, and what a drifting pair means.
 const String kTimingNote =
@@ -106,7 +107,7 @@ class SleepTimingPanel extends StatelessWidget {
       label: 'Bedtime · wake-time · ${bedtime.length} nights',
       head: PanelHead(
         title: title,
-        icon: Icons.schedule,
+        icon: SolarIconsOutline.clockCircle,
         infoKey: 'sleep_consistency',
         // The server-authored action is the one string on this panel a model
         // wrote, so its sources join the explainer's in the head's ⓘ.

@@ -28,6 +28,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.tiny-label` — a caption over a group, in `--subtle`.
 class TinyLabel extends StatelessWidget {
@@ -73,7 +74,11 @@ class SourceNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Icon(Icons.shield_outlined, size: iconSize, color: colors.ink3),
+          Icon(
+            SolarIconsOutline.shieldCheck,
+            size: iconSize,
+            color: colors.ink3,
+          ),
           const SizedBox(width: gap),
           Flexible(
             child: Text(

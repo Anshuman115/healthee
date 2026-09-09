@@ -40,6 +40,7 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Which of the three button grounds a [HButton] wears.
 enum HButtonKind {
@@ -200,7 +201,11 @@ class HLinkButton extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: gap),
-                Icon(Icons.arrow_forward, size: iconSize, color: accent),
+                Icon(
+                  SolarIconsOutline.arrowRight,
+                  size: iconSize,
+                  color: accent,
+                ),
               ],
             ),
           ),

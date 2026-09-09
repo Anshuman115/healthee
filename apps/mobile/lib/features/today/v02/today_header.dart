@@ -45,6 +45,7 @@ import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
 import 'package:healthee/shared/instrument/h_icon_badge.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `DataFooter` moved to `shared/v02/` when Activity and Insights grew the same
 /// footer (Standards §1, second use). Re-exported so Today's call sites and its
@@ -183,7 +184,11 @@ class DeviceStrip extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: bottomGap),
       child: Row(
         children: <Widget>[
-          Icon(Icons.watch_outlined, size: iconSize, color: colors.ink3),
+          Icon(
+            SolarIconsOutline.watchRound,
+            size: iconSize,
+            color: colors.ink3,
+          ),
           const SizedBox(width: gap),
           Container(
             width: dotSize,
@@ -201,7 +206,11 @@ class DeviceStrip extends StatelessWidget {
           ],
           const Spacer(),
           Text(action, style: style),
-          Icon(Icons.chevron_right, size: iconSize, color: colors.ink3),
+          Icon(
+            SolarIconsOutline.altArrowRight,
+            size: iconSize,
+            color: colors.ink3,
+          ),
         ],
       ),
     );

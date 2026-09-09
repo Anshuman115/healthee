@@ -60,6 +60,7 @@ import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/choices.dart';
 import 'package:healthee/shared/v02/controls.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What the checkbox says before and after it is ticked. The prototype's own.
 const String kAdoptLabel = 'I’ll try this';
@@ -150,12 +151,12 @@ Tone toneForCategory(String? category) => switch (category) {
 
 /// The glyph a category wears on the eyebrow row.
 IconData iconForCategory(String? category) => switch (category) {
-  'sleep' => Icons.bedtime_outlined,
-  'activity' || 'movement' || 'steps' => Icons.directions_walk,
-  'heart' => Icons.favorite_outline,
-  'breathing' || 'oxygen' => Icons.air,
-  'stress' => Icons.wb_sunny_outlined,
-  _ => Icons.eco_outlined,
+  'sleep' => SolarIconsOutline.moonSleep,
+  'activity' || 'movement' || 'steps' => SolarIconsOutline.walking,
+  'heart' => SolarIconsOutline.heart,
+  'breathing' || 'oxygen' => SolarIconsOutline.wind,
+  'stress' => SolarIconsOutline.sun,
+  _ => SolarIconsOutline.leaf,
 };
 
 /// One recommendation, in the prototype's focus card.
@@ -235,7 +236,7 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
               rec.gradeLabel != null)
             TextLink(
               label: kWhyLabel,
-              icon: Icons.info_outline,
+              icon: SolarIconsOutline.infoCircle,
               onPressed: () => showEvidenceSheet(
                 context,
                 title: kWhyTitle,

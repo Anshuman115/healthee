@@ -46,6 +46,7 @@ import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's line under the load bars, minus the sample's own ratio.
 const String kWorkNote =
@@ -86,7 +87,7 @@ class WorkPanel extends StatelessWidget {
       label: 'Strain · cardio load',
       head: PanelHead(
         title: title,
-        icon: Icons.favorite_outline,
+        icon: SolarIconsOutline.heart,
         infoKey: 'cardio_load',
         detail: MetricDetail(notes: load.researchNotes),
         actionLabel: onDetails == null ? null : 'Details',
@@ -147,7 +148,7 @@ class RhythmPanel extends StatelessWidget {
   Widget build(BuildContext context) => Panel(
     tone: Tone.movement,
     label: 'Weekly rhythm',
-    head: const PanelHead(title: title, icon: Icons.flag_outlined),
+    head: const PanelHead(title: title, icon: SolarIconsOutline.flag),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,

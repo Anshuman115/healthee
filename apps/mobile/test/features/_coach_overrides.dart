@@ -13,11 +13,19 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/coach/coach_history_store.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/features/coach/coach_history_provider.dart';
+import 'package:solar_icons/solar_icons.dart';
+
+/// The composer's send button, named once.
+///
+/// Three suites reach for it and none of them is about which glyph it wears;
+/// the icon moved once already and the tap sites had to move with it.
+final Finder sendButton = find.byIcon(SolarIconsOutline.arrowUp);
 
 /// Wraps [child] in a scope with the coach's client and the device overrides.
 ///

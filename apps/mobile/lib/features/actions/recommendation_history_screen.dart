@@ -44,6 +44,7 @@ import 'package:healthee/shared/v02/rows.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
 import 'package:healthee/shared/v02/view_day.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own h1.
 const String kHistoryTitle = 'Your intentions.';
@@ -114,14 +115,14 @@ class _HistoryState extends ConsumerState<RecommendationHistoryScreen> {
         const SectionHead(title: kExploreHeading),
         RowCard(<Widget>[
           ListRow(
-            icon: Icons.flag_outlined,
+            icon: SolarIconsOutline.flag,
             title: 'Active challenges',
             subtitle: 'Turn an intention into a measured experiment',
             tone: Tone.movement,
             onTap: () => context.go(Routes.actions),
           ),
           ListRow(
-            icon: Icons.insights_outlined,
+            icon: SolarIconsOutline.chartSquare,
             title: 'Completed outcomes',
             subtitle: 'What happened during your changes',
             tone: Tone.fitness,
@@ -222,7 +223,7 @@ class _Entry extends ConsumerWidget {
               rec.gradeLabel != null)
             TextLink(
               label: 'How we know',
-              icon: Icons.info_outline,
+              icon: SolarIconsOutline.infoCircle,
               onPressed: () => showEvidenceSheet(
                 context,
                 title: kWhyTitle,
@@ -291,7 +292,7 @@ class _Paging extends StatelessWidget {
               children: <Widget>[
                 TextLink(
                   label: 'Previous',
-                  icon: Icons.arrow_back,
+                  icon: SolarIconsOutline.arrowLeft,
                   onPressed: page > 0 ? () => onPage(page - 1) : null,
                 ),
                 Text(

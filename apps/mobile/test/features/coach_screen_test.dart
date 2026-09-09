@@ -225,7 +225,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'How is my recovery?');
-      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
 
       expect(client.asked.single.single.content, 'How is my recovery?');
@@ -258,7 +258,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'What should I do?');
-      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Sleep earlier'), findsOneWidget);
@@ -301,7 +301,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Anything?');
-      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
 
       expect(find.textContaining('honest fallback'), findsOneWidget);
@@ -324,7 +324,7 @@ void main() {
         await tester.pumpWidget(_screen(client));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), 'Anything?');
-        await tester.tap(find.byIcon(Icons.arrow_upward));
+        await tester.tap(sendButton);
         await tester.pumpAndSettle();
 
         expect(
@@ -357,7 +357,7 @@ void main() {
       await tester.pumpWidget(_screen(client));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'One more?');
-      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.tap(sendButton);
       await tester.pumpAndSettle();
 
       expect(

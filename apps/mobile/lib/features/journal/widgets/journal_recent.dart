@@ -31,6 +31,7 @@ import 'package:healthee/shared/states/cached_async_view.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/rows.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The recent entries, and the running fast when there is one.
 class JournalRecent extends ConsumerWidget {
@@ -139,7 +140,7 @@ class _Feed extends StatelessWidget {
         return tile.icon;
       }
     }
-    return Icons.edit_note;
+    return SolarIconsOutline.notes;
   }
 
   /// The enum's own label, or the raw type when this build has never heard of

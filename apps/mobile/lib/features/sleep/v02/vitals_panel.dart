@@ -26,6 +26,7 @@ import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
 import 'package:healthee/shared/v02/vitals_table.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `Your body overnight` — the five overnight measurements.
 class OvernightPanel extends StatelessWidget {
@@ -68,7 +69,7 @@ class OvernightPanel extends StatelessWidget {
     Vital(
       label: 'Resting heart',
       tone: Tone.heart,
-      icon: Icons.favorite_border,
+      icon: SolarIconsOutline.heart,
       unit: 'bpm',
       reading: night.restingHr,
       series: _series((night) => night.restingHr.valueOrNull),
@@ -77,7 +78,7 @@ class OvernightPanel extends StatelessWidget {
     Vital(
       label: 'HRV',
       tone: Tone.fitness,
-      icon: Icons.show_chart,
+      icon: SolarIconsOutline.chart_2,
       unit: 'ms',
       reading: night.hrvSleepAvg,
       series: _series((night) => night.hrvSleepAvg.valueOrNull),
@@ -86,7 +87,7 @@ class OvernightPanel extends StatelessWidget {
     Vital(
       label: 'Blood oxygen',
       tone: Tone.oxygen,
-      icon: Icons.water_drop_outlined,
+      icon: SolarIconsOutline.waterdrop,
       unit: '%',
       reading: night.spo2Avg,
       series: _series((night) => night.spo2Avg.valueOrNull),
@@ -95,7 +96,7 @@ class OvernightPanel extends StatelessWidget {
     Vital(
       label: 'Breathing',
       tone: Tone.oxygen,
-      icon: Icons.air,
+      icon: SolarIconsOutline.wind,
       unit: '/min',
       reading: night.respiratoryRate,
       series: _series((night) => night.respiratoryRate.valueOrNull),
@@ -104,7 +105,7 @@ class OvernightPanel extends StatelessWidget {
     Vital(
       label: 'Skin temperature',
       tone: Tone.stress,
-      icon: Icons.wb_sunny_outlined,
+      icon: SolarIconsOutline.sun,
       unit: '°C',
       reading: night.skinTempC,
       series: _series((night) => night.skinTempC.valueOrNull),
@@ -128,7 +129,7 @@ class OvernightPanel extends StatelessWidget {
       label: 'Overnight vitals',
       head: PanelHead(
         title: title,
-        icon: Icons.favorite_border,
+        icon: SolarIconsOutline.heart,
         infoKey: 'sleep',
         actionLabel: onOpenAll == null ? null : 'Details',
         onAction: onOpenAll,

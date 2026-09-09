@@ -44,6 +44,7 @@ import 'package:healthee/shared/reveal_once.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Which step number this is, and that the kcal beside it are modelled.
 ///
@@ -99,7 +100,7 @@ class MovementPanel extends StatelessWidget {
       label: 'Steps',
       head: PanelHead(
         title: title,
-        icon: Icons.directions_walk,
+        icon: SolarIconsOutline.walking,
         infoKey: 'steps_total',
         actionLabel: onDetails == null ? null : 'Details',
         onAction: onDetails,
@@ -220,7 +221,7 @@ class IntensityPanel extends StatelessWidget {
       label: 'Active minutes · MVPA',
       head: PanelHead(
         title: title,
-        icon: Icons.directions_walk,
+        icon: SolarIconsOutline.walking,
         infoKey: 'mvpa',
         // The reference used to be a pill on the card's face. It is kept, one
         // tap away, rather than deleted: a cutoff with no source is a number

@@ -106,7 +106,7 @@ class _TabItem extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(tab.icon, size: 20, color: tint),
+                Icon(active ? tab.activeIcon : tab.icon, size: 20, color: tint),
                 const SizedBox(height: 3),
                 Text(
                   tab.label,

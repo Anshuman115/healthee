@@ -23,6 +23,7 @@ import 'package:healthee/shared/section_list.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What this phone measured, when the server cannot be reached.
 ///
@@ -39,7 +40,7 @@ void measuredOnlySections(SectionList sections, ScreenData data) {
     Panel(
       head: const PanelHead(
         title: 'From the strap',
-        icon: Icons.watch_outlined,
+        icon: SolarIconsOutline.watchRound,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

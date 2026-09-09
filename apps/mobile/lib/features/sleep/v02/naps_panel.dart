@@ -46,6 +46,7 @@ import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `H.note('No nap record included for this day.')`.
 const String kNoNapsNote = 'No nap record included for this day.';
@@ -102,7 +103,7 @@ class NapsPanel extends StatelessWidget {
       label: 'Naps',
       head: PanelHead(
         title: title,
-        icon: Icons.bedtime_outlined,
+        icon: SolarIconsOutline.moonSleep,
         infoKey: 'sleep',
         actionLabel: onOpenJournal == null ? null : 'Journal',
         onAction: onOpenJournal,

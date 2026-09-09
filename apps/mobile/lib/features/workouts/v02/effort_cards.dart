@@ -53,6 +53,7 @@ import 'package:healthee/shared/v02/meters.dart';
 import 'package:healthee/shared/v02/stat_block.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// The prototype's own line under the trace, without its fixture's disclaimer.
 ///
@@ -259,7 +260,7 @@ class ZonesCard extends StatelessWidget {
           SmallProse(_note()),
           TextLink(
             label: kZonesEvidenceLabel,
-            icon: Icons.info_outline,
+            icon: SolarIconsOutline.infoCircle,
             iconLeading: true,
             onPressed: () => showMetricInfo(
               context,

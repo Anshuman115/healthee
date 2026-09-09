@@ -73,6 +73,7 @@ import 'package:healthee/shared/v02/list_rows.dart';
 import 'package:healthee/shared/v02/page_header.dart';
 import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/withheld_panel.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `H.bridge('movement', …)` — what today's movement does and does not move.
 const String kActivityRecoveryBridge =
@@ -333,7 +334,7 @@ void _sessions(
       rows: <Widget>[
         for (final workout in workouts)
           V02ListRow(
-            icon: Icons.directions_run,
+            icon: SolarIconsOutline.running,
             title: workout.sportLabel,
             detail: _sessionDetail(workout),
             tone: Tone.heart,
@@ -342,7 +343,7 @@ void _sessions(
                 : () => extras.onOpenWorkout!(workout),
           ),
         V02ListRow(
-          icon: Icons.place_outlined,
+          icon: SolarIconsOutline.mapPoint,
           title: 'Saved routes',
           detail: 'Recorded GPS tracks · elevation and pace',
           tone: Tone.movement,

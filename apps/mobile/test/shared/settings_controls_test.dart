@@ -12,6 +12,7 @@ import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/notices.dart';
 import 'package:healthee/shared/v02/theme_options.dart';
 import 'package:healthee/shared/v02/toggle_row.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '_settings_probe.dart';
 import '_v02_harness.dart';
@@ -136,12 +137,12 @@ void main() {
           options: const <ThemeOption<int>>[
             ThemeOption<int>(
               value: 0,
-              icon: Icons.wb_sunny_outlined,
+              icon: SolarIconsOutline.sun,
               label: 'Light',
             ),
             ThemeOption<int>(
               value: 1,
-              icon: Icons.nightlight_outlined,
+              icon: SolarIconsOutline.moon,
               label: 'Dark',
             ),
           ],
@@ -176,17 +177,17 @@ void main() {
           options: const <ThemeOption<int>>[
             ThemeOption<int>(
               value: 0,
-              icon: Icons.wb_sunny_outlined,
+              icon: SolarIconsOutline.sun,
               label: 'Light',
             ),
             ThemeOption<int>(
               value: 1,
-              icon: Icons.nightlight_outlined,
+              icon: SolarIconsOutline.moon,
               label: 'Dark',
             ),
             ThemeOption<int>(
               value: 2,
-              icon: Icons.settings_outlined,
+              icon: SolarIconsOutline.settings,
               label: 'System',
             ),
           ],

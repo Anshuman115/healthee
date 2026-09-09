@@ -20,6 +20,7 @@ import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
 import 'package:healthee/features/coach/coach_screen.dart';
 import 'package:healthee/features/coach/v02/coach_openers.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '_coach_overrides.dart';
 
@@ -104,7 +105,7 @@ void main() {
       // of the screen — restating the route header underneath it. A screen whose
       // purpose is asking a question should reach the input without scrolling.
       expect(find.text('Let’s make sense\nof your day.'), findsNothing);
-      expect(find.byIcon(Icons.forum_outlined), findsNothing);
+      expect(find.byIcon(SolarIconsOutline.chatRoundDots), findsNothing);
     });
 
     testWidgets('a SPENT window offers no prompt either — a prompt costs one', (
@@ -171,7 +172,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final button = tester.getRect(find.byIcon(Icons.arrow_upward));
+        final button = tester.getRect(sendButton);
         final field = tester.getRect(find.byType(TextField));
         // The cost is not printed any more — it is the control's accessible
         // name, which is the only place a screen-reader user is told it.

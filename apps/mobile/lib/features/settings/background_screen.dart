@@ -43,6 +43,7 @@ import 'package:healthee/shared/v02/list_row.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
 import 'package:healthee/shared/v02/toggle_row.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Whether the phone works on its own, how often, and under what limits.
 class BackgroundScreen extends ConsumerWidget {
@@ -102,13 +103,13 @@ class BackgroundScreen extends ConsumerWidget {
           builder: (context, value) => FlushCard(
             children: <Widget>[
               ListRow(
-                icon: Icons.history,
+                icon: SolarIconsOutline.history,
                 title: 'Last background attempt',
                 // Not "never ran" phrased as a fault: a phone that has just
                 // been set up is in this state until the first window comes up.
                 subtitle: value ?? 'No background job has run yet.',
                 onTap: () => ref.invalidate(backgroundLastRunProvider),
-                trailing: const Icon(Icons.refresh, size: 16),
+                trailing: const Icon(SolarIconsOutline.refresh, size: 16),
               ),
             ],
           ),

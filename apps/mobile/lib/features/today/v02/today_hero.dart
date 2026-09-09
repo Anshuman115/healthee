@@ -38,6 +38,7 @@ import 'package:healthee/shared/v02/bio_hero_parts.dart';
 import 'package:healthee/shared/v02/instruments/age_scale.dart';
 import 'package:healthee/shared/v02/instruments/bio_halo.dart';
 import 'package:healthee/shared/v02/summary_tile.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What the prototype prints under the age when the server sent no disclaimer.
 const String kPopulationModelLabel =
@@ -88,7 +89,7 @@ class TodayBioHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return BioHero(
       eyebrow: eyebrow,
-      eyebrowIcon: Icons.arrow_forward,
+      eyebrowIcon: SolarIconsOutline.arrowRight,
       onEyebrowTap: onOpenBody,
       eyebrowSemantics: eyebrowSemantics,
       value: _figure(age.biologicalAge),
@@ -118,7 +119,7 @@ class TodayBioHero extends StatelessWidget {
             ),
       ],
       modelLabel: age.disclaimer ?? kPopulationModelLabel,
-      modelIcon: Icons.info_outline,
+      modelIcon: SolarIconsOutline.infoCircle,
     );
   }
 
@@ -224,7 +225,7 @@ class TodaySummaryTiles extends StatelessWidget {
     }
     return SummaryTile(
       title: 'Recovery',
-      icon: Icons.monitor_heart_outlined,
+      icon: SolarIconsOutline.heartPulse,
       tone: Tone.recovery,
       value: '${score.recovery}',
       fraction: score.recovery / 100,
@@ -245,7 +246,7 @@ class TodaySummaryTiles extends StatelessWidget {
     final need = facts.snapshot.sleepDebt.valueOrNull?.needMin;
     return SummaryTile(
       title: 'Sleep',
-      icon: Icons.bedtime_outlined,
+      icon: SolarIconsOutline.moonSleep,
       tone: Tone.sleep,
       value: hoursMinutes(minutes),
       fraction: need == null || need <= 0 ? null : minutes / need,
@@ -264,7 +265,7 @@ class TodaySummaryTiles extends StatelessWidget {
     }
     return SummaryTile(
       title: 'Movement',
-      icon: Icons.directions_walk,
+      icon: SolarIconsOutline.walking,
       tone: Tone.movement,
       value: commaGrouped(steps.round()),
       meta: facts.medianFootFor(TodayMetricIds.steps).toLowerCase(),

@@ -38,6 +38,7 @@ import 'package:healthee/shared/v02/meters.dart';
 import 'package:healthee/shared/v02/panel.dart';
 import 'package:healthee/shared/v02/panel_head.dart';
 import 'package:healthee/shared/v02/panel_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// What the four bars ARE. Method, so it lives behind the ⓘ.
 const String kRecoveryComponentsNote =
@@ -113,7 +114,7 @@ class RecoveryPanel extends StatelessWidget {
       label: 'Recovery',
       head: PanelHead(
         title: title,
-        icon: Icons.monitor_heart_outlined,
+        icon: SolarIconsOutline.heartPulse,
         infoKey: 'recovery_score',
         detail: MetricDetail(
           method: const <String>[kRecoveryComponentsNote],

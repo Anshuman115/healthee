@@ -23,6 +23,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// `.page-header` — a tab's head: eyebrow, title, and whatever sits at the end.
 class ScreenHead extends StatelessWidget {
@@ -156,7 +157,7 @@ class DetailHead extends StatelessWidget {
                 // its own square and off the title's baseline. That misalignment
                 // is what "the header looks weird" was.
                 child: _Glyph(
-                  icon: Icons.arrow_back,
+                  icon: SolarIconsOutline.arrowLeft,
                   onPressed: back,
                   color: colors.ink,
                   tooltip: 'Go back',

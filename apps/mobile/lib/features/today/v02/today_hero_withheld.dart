@@ -63,6 +63,7 @@ import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
 import 'package:healthee/shared/v02/bio_hero_parts.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 /// Where the reader is sent for the paragraphs that used to be printed inline.
 const String kWithheldPointer = 'Tap ⓘ for why, and what would bring it back.';
@@ -116,7 +117,7 @@ class TodayBioHeroWithheld extends ConsumerWidget {
       ),
       caption: caption(withheld, exclusions),
       modelLabel: kPopulationModelLabel,
-      modelIcon: Icons.info_outline,
+      modelIcon: SolarIconsOutline.infoCircle,
     );
   }
 
