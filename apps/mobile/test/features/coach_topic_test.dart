@@ -167,7 +167,7 @@ void main() {
       await tester.pumpWidget(_screen(client, topic: _topic));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
 
       expect(client.asked, hasLength(1));
@@ -187,7 +187,7 @@ void main() {
       await tester.pumpWidget(_screen(client, topic: _topic));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
 
       expect(client.topics, <String?>[_topic]);
@@ -203,10 +203,10 @@ void main() {
       await tester.pumpWidget(_screen(client, topic: _topic));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'And the week after?');
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
 
       expect(client.topics, <String?>[_topic, _topic]);
@@ -231,7 +231,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'How did I sleep?');
-      await tester.tap(find.textContaining('Ask — uses 1'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
 
       expect(client.topics, <String?>[null]);

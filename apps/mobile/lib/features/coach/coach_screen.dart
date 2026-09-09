@@ -82,7 +82,6 @@ import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 import 'package:healthee/shared/v02/buttons.dart';
-import 'package:healthee/shared/v02/data_footer.dart';
 
 // The cost-carrying label lives with the control that prints it. Re-exported so
 // the screen stays the one import a caller — or a test pinning the wording —
@@ -177,7 +176,6 @@ class CoachScreen extends ConsumerWidget {
           builder: (context, resolved) =>
               CoachBody(entitlement: resolved, topic: topic, now: now),
         ),
-        const DataFooter(),
       ],
     );
   }

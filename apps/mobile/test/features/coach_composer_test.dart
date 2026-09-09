@@ -156,9 +156,9 @@ void main() {
     });
   });
 
-  group('THE COMPOSER KEEPS THE COST VISIBLE AT EVERY PHONE WIDTH', () {
+  group('THE COMPOSER FITS, AND STILL SAYS WHAT A PRESS COSTS', () {
     for (final width in <double>[320, 360, 390, 414]) {
-      testWidgets('the label and a usable input both fit at $width', (
+      testWidgets('the send and a usable input both fit at $width', (
         tester,
       ) async {
         tester.view
@@ -170,56 +170,36 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final button = tester.getRect(find.text('Ask — uses 1 of your 17'));
+        final button = tester.getRect(find.byIcon(Icons.arrow_upward));
         final field = tester.getRect(find.byType(TextField));
+        // The cost is not printed any more — it is the control's accessible
+        // name, which is the only place a screen-reader user is told it.
+        expect(
+          find.bySemanticsLabel('Ask — uses 1 of your 17'),
+          findsOneWidget,
+          reason: '\$width: the press must still announce what it spends',
+        );
         // Painted geometry: neither runs off the page, and the input is wide
         // enough to be one.
         expect(button.right, lessThanOrEqualTo(width), reason: '\$width');
         expect(field.left, greaterThanOrEqualTo(0), reason: '\$width');
         expect(
           field.width,
-          greaterThanOrEqualTo(CoachComposer.minFieldWidth - 1),
+          // The field is `Expanded` beside a fixed 44 pt control, so what is
+          // being checked is that the remainder is genuinely usable rather than
+          // that a negotiation came out right — there is no longer a negotiation.
+          greaterThanOrEqualTo(160),
           reason: '\$width: an input this narrow is not one',
         );
       });
     }
   });
 
-  group('THE ROW WRAPS RATHER THAN SQUEEZING THE INPUT', () {
-    // Asked of the decision, not of the render: `flutter test` substitutes a
-    // fixed-width font that measures this button's label at about twice its real
-    // width, so every rendered case wraps whatever the branch decides. See
-    // `CoachComposer.fitsOneRow`.
-    test('a row survives only while a usable input survives with it', () {
-      const gap = CoachComposer.gap;
-      const floor = CoachComposer.minFieldWidth;
-      // A genuinely roomy case: a 200 pt button on a wide layout still leaves the
-      // input well over the floor. 390 pt used to be here and no longer qualifies —
-      // it leaves 182, which is the width at which the hint wrapped on the owner's
-      // own phone. That is the floor moving for a measured reason, not the test
-      // being loosened to fit it.
-      expect(CoachComposer.fitsOneRow(430, 200), isTrue);
-      // Exactly enough is enough.
-      expect(CoachComposer.fitsOneRow(200 + gap + floor, 200), isTrue);
-      // One pixel less is not.
-      expect(CoachComposer.fitsOneRow(200 + gap + floor - 1, 200), isFalse);
-      expect(
-        CoachComposer.fitsOneRow(272, 219),
-        isFalse,
-        reason: 'a 320 px phone with the full cost label has no room for both',
-      );
-    });
-
-    test('an input squeezed to nothing is never called a fit', () {
-      // The defect the branch exists to prevent: a row that keeps the label on
-      // screen by leaving the owner a box they cannot type in.
-      for (final width in <double>[320, 360, 390, 414]) {
-        expect(
-          CoachComposer.fitsOneRow(width, width - CoachComposer.gap),
-          isFalse,
-          reason: '$width',
-        );
-      }
-    });
-  });
+  // THE ROW WRAPS RATHER THAN SQUEEZING THE INPUT is gone with the control it
+  // described. `fitsOneRow`/`minFieldWidth` decided whether a full-width
+  // "Ask — uses 1 of your 16" bar could share a line with the input. That bar
+  // printed the fact the meter already states three lines above it, so it became
+  // a 44 pt circular send and there is no width left to negotiate. The rule those
+  // tests protected — an input is never squeezed to something you cannot type in
+  // — is now structural: the field is `Expanded` beside a fixed-width control.
 }

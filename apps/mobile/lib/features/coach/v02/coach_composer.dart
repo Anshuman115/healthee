@@ -47,9 +47,18 @@ import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
-import 'package:healthee/shared/v02/controls.dart';
 
-/// What the ask button says. Public so a test can pin the wording.
+/// What the send control ANNOUNCES. Public so a test can pin the wording.
+///
+/// It is no longer printed. The full-width "Ask — uses 1 of your 16" bar said the
+/// same thing the meter says three lines above it, and saying a fact twice is not
+/// twice as honest — it was redundancy wearing honesty's clothes, and it made the
+/// composer the loudest object on a screen it should sit quietly at the bottom of.
+///
+/// It survives as the control's accessible name, and that is not a downgrade: a
+/// screen reader reads controls rather than pages, so for anyone using one this
+/// string is the ONLY place the cost of a press is stated. Deleting it outright
+/// would have removed the cost for exactly the people who cannot see the meter.
 String askLabel(int? remaining) =>
     remaining == null ? 'Ask' : 'Ask — uses 1 of your $remaining';
 
@@ -91,20 +100,13 @@ class CoachComposer extends StatefulWidget {
   /// button carries the meter ("Ask — uses 1 of your 16") rather than the prototype's
   /// bare arrow, and a cost the owner is about to spend has earned its own full-width
   /// row.
-  static const double minFieldWidth = 190;
+  /// `.send { width: 44px; height: 44px }` — a circular control, legacy's shape.
+  static const double sendSize = 44;
 
-  /// Whether the prototype's single row survives with [wanted] px of button in
-  /// [available] px of composer.
-  ///
-  /// A pure function rather than an expression inside `build`, because the
-  /// rendered layout **cannot** be asked this in a widget test: `flutter test`
-  /// substitutes a fixed-width test font, which measures this button's label at
-  /// roughly twice its real width and so wraps at every phone size. A geometry
-  /// assertion would therefore be green whatever this decided. The rendered
-  /// invariant — the input is never narrower than [minFieldWidth] and the button
-  /// never leaves the page — is asserted separately and holds in both branches.
-  static bool fitsOneRow(double available, double wanted) =>
-      available - wanted - gap >= minFieldWidth;
+  /// The glyph inside it.
+  static const double sendIcon = 20;
+
+  static const double minFieldWidth = 190;
 
   /// Whether a question is in flight.
   final bool asking;
@@ -149,79 +151,71 @@ class _CoachComposerState extends State<CoachComposer> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final label = askLabel(widget.remaining);
-    final button = ActionButton(
-      label: label,
-      trailingIcon: Icons.arrow_forward,
-      onPressed: widget.asking ? null : _send,
-    );
-    final field = TextField(
-      controller: _controller,
-      enabled: !widget.asking,
-      minLines: 1,
-      maxLines: 4,
-      style: TypeScale.inputText.copyWith(color: colors.ink),
-      textCapitalization: TextCapitalization.sentences,
-      onSubmitted: (_) => _send(),
-      decoration: InputDecoration(
-        hintText: 'What’s on your mind?',
-        isDense: true,
-        contentPadding: const EdgeInsets.all(12),
-        constraints: const BoxConstraints(minHeight: CoachComposer.fieldHeight),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(CoachComposer.fieldRadius),
-          borderSide: BorderSide(color: colors.rule, width: hairline),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(CoachComposer.fieldRadius),
-          borderSide: BorderSide(color: colors.rule, width: hairline),
-        ),
-      ),
-    );
+    final bool ready = !widget.asking;
     return Padding(
       padding: const EdgeInsets.only(top: CoachComposer.topGap),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final wanted = _buttonWidth(context, label);
-          if (CoachComposer.fitsOneRow(constraints.maxWidth, wanted)) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(child: field),
-                const SizedBox(width: CoachComposer.gap),
-                button,
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              field,
-              const SizedBox(height: CoachComposer.gap),
-              ActionButton(
-                label: label,
-                trailingIcon: Icons.arrow_forward,
-                full: true,
-                onPressed: widget.asking ? null : _send,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: <Widget>[
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              enabled: ready,
+              minLines: 1,
+              maxLines: 4,
+              style: TypeScale.inputText.copyWith(color: colors.ink),
+              textCapitalization: TextCapitalization.sentences,
+              onSubmitted: (_) => _send(),
+              decoration: InputDecoration(
+                hintText: 'Ask your coach…',
+                isDense: true,
+                contentPadding: const EdgeInsets.all(12),
+                constraints: const BoxConstraints(
+                  minHeight: CoachComposer.fieldHeight,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(
+                    CoachComposer.fieldRadius,
+                  ),
+                  borderSide: BorderSide(color: colors.rule, width: hairline),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(
+                    CoachComposer.fieldRadius,
+                  ),
+                  borderSide: BorderSide(color: colors.rule, width: hairline),
+                ),
               ),
-            ],
-          );
-        },
+            ),
+          ),
+          const SizedBox(width: CoachComposer.gap),
+          Semantics(
+            // The cost is stated once, in the meter above. The BUTTON still has
+            // to carry it for anyone who cannot see the meter — a screen reader
+            // reads controls, not the whole page, and "send" alone would be the
+            // one place this app failed to say what a press costs.
+            label: askLabel(widget.remaining),
+            button: true,
+            child: SizedBox(
+              width: CoachComposer.sendSize,
+              height: CoachComposer.sendSize,
+              child: Material(
+                color: ready ? colors.accent : colors.surface2,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: ready ? _send : null,
+                  customBorder: const CircleBorder(),
+                  child: Icon(
+                    Icons.arrow_upward,
+                    size: CoachComposer.sendIcon,
+                    color: ready ? colors.onAccent : colors.ink3,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
-  }
-
-  /// How wide the button wants to be: its label, its padding, its gap, its icon.
-  static double _buttonWidth(BuildContext context, String label) {
-    final painter = TextPainter(
-      text: TextSpan(text: label, style: TypeScale.buttonLabel),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
-    return painter.width +
-        ActionButton.padding.horizontal +
-        ActionButton.gap +
-        Insets.lg;
   }
 }

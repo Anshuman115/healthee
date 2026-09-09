@@ -124,7 +124,7 @@ void main() {
       expect(find.textContaining('17 of 20 questions left'), findsOneWidget);
       expect(find.textContaining('over the last 30 days'), findsOneWidget);
       expect(
-        find.text('Ask — uses 1 of your 17'),
+        find.bySemanticsLabel('Ask — uses 1 of your 17'),
         findsOneWidget,
         reason: 'the cost is on the button, before the tap, in the number',
       );
@@ -203,7 +203,7 @@ void main() {
 
       expect(find.byType(TextField), findsOneWidget);
       expect(find.textContaining('no question limit'), findsOneWidget);
-      expect(find.text('Ask'), findsOneWidget);
+      expect(find.bySemanticsLabel('Ask'), findsOneWidget);
     });
   });
 
@@ -225,7 +225,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'How is my recovery?');
-      await tester.tap(find.textContaining('Ask —'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
 
       expect(client.asked.single.single.content, 'How is my recovery?');
@@ -258,7 +258,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'What should I do?');
-      await tester.tap(find.textContaining('Ask —'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Sleep earlier'), findsOneWidget);
@@ -301,7 +301,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Anything?');
-      await tester.tap(find.textContaining('Ask —'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('honest fallback'), findsOneWidget);
@@ -324,7 +324,7 @@ void main() {
         await tester.pumpWidget(_screen(client));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), 'Anything?');
-        await tester.tap(find.textContaining('Ask —'));
+        await tester.tap(find.byIcon(Icons.arrow_upward));
         await tester.pumpAndSettle();
 
         expect(
@@ -357,7 +357,7 @@ void main() {
       await tester.pumpWidget(_screen(client));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'One more?');
-      await tester.tap(find.textContaining('Ask —'));
+      await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pumpAndSettle();
 
       expect(
