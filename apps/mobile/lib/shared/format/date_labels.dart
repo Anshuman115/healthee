@@ -45,3 +45,13 @@ String shortDate(String iso) {
   ];
   return '${parsed.day} ${months[parsed.month - 1]}';
 }
+
+/// The word for a day when the day itself is the header.
+///
+/// `Today` on the newest day the window reaches, `WED · SEP 9` on any other.
+/// The screen's name used to be a fixed `Today` in 27px type over a separate
+/// date line; folding the two together is what makes the head one row, and it
+/// stops the largest word on the screen being one that is only true until
+/// midnight — on a day the owner has stepped back to, it now says which day.
+String dayTitle(String iso, {required String latest}) =>
+    iso == latest ? 'Today' : prettyDate(iso);

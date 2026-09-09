@@ -79,10 +79,9 @@ void main() {
     test('EVERY SECTION THE PROTOTYPE DRAWS IS DRAWN, AND IN ITS ORDER', () {
       final list = sections();
       final order = <int>[
-        // `H.header('Today', …)` — the date, the h1, the avatar.
+        // `H.header('Today', …)` and `<a class="device-strip">` under it, now
+        // one row: the day, the strap chip, the avatar.
         _indexOf<TodayHeader>(list),
-        // `<a class="device-strip">` immediately under it.
-        _indexOf<DeviceStrip>(list),
         // `H.scenarioNotice()`'s live equivalent — see `today_sections.dart`.
         _indexOf<DataHealthSection>(list),
         // `H.bioHero()` — the halo, the figure, the ruler, the two terms.

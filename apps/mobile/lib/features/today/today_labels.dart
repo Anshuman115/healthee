@@ -21,7 +21,7 @@ library;
 /// same header (Standards §1, second use; §3, no cross-feature imports). It is
 /// re-exported rather than copied, so there is still one definition and every
 /// call site that reads it from here is unchanged.
-export 'package:healthee/shared/format/date_labels.dart' show prettyDate;
+export 'package:healthee/shared/format/date_labels.dart' show dayTitle, prettyDate;
 
 /// `shortClock` moved to `shared/format/time_labels.dart` when Insights grew
 /// the same hour axis. Same reason, same re-export: one definition, and two

@@ -69,6 +69,9 @@ List<PageSection> _sectionsFor(String day, {DatedHistory? history}) =>
 bool _has<T>(List<PageSection> list) =>
     list.any((section) => section.child is T);
 
+/// What the head calls the newest day the window reaches.
+const String kTodayWord = 'Today';
+
 void main() {
   group('the control moves the day', () {
     late LocalStore store;
@@ -86,8 +89,10 @@ void main() {
       await tester.pumpWidget(todayHost(store));
       await tester.pumpAndSettle();
 
-      // The seeded day. `todayDate` is a Tuesday.
-      expect(find.text(prettyDate(todayDate)), findsOneWidget);
+      // The seeded day. `todayDate` is a Tuesday — and it is the newest day the
+      // window reaches, so the head calls it `Today` (see `dayTitle`). Every
+      // day stepped back to is named instead.
+      expect(find.text(kTodayWord), findsOneWidget);
       expect(
         find.text(DateControl.latestLabel),
         findsNothing,
@@ -97,7 +102,7 @@ void main() {
       await tester.tap(find.byKey(DateControl.previousKey));
       await tester.pumpAndSettle();
       expect(find.text(prettyDate('2026-08-03')), findsOneWidget);
-      expect(find.text(prettyDate(todayDate)), findsNothing);
+      expect(find.text(kTodayWord), findsNothing);
 
       await tester.tap(find.byKey(DateControl.previousKey));
       await tester.pumpAndSettle();
@@ -109,7 +114,7 @@ void main() {
 
       await tester.tap(find.byKey(DateControl.latestKey));
       await tester.pumpAndSettle();
-      expect(find.text(prettyDate(todayDate)), findsOneWidget);
+      expect(find.text(kTodayWord), findsOneWidget);
     });
 
     testWidgets('it cannot walk past the wall clock', (tester) async {
@@ -121,7 +126,7 @@ void main() {
       await tester.tap(find.byKey(DateControl.nextKey));
       await tester.pumpAndSettle();
 
-      expect(find.text(prettyDate(todayDate)), findsOneWidget);
+      expect(find.text(kTodayWord), findsOneWidget);
     });
 
     testWidgets('TAPPING THE DATE OPENS THE CALENDAR', (tester) async {

@@ -21,6 +21,7 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/today/today_labels.dart';
 import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/features/today/v02/date_control.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 
 import '_today_host.dart';
 
@@ -169,7 +170,16 @@ void main() {
       await _go(tester, '/?date=1999-01-01');
 
       expect(_location(tester), Routes.today);
-      expect(find.text(prettyDate(todayDate)), findsOneWidget);
+      // The newest day the window reaches is called `Today`; see `dayTitle`.
+      // Scoped to the head, because the tab bar names this screen too — which
+      // is the whole reason the head no longer carries a 27px title of its own.
+      expect(
+        find.descendant(
+          of: find.byType(TodayHeader),
+          matching: find.text('Today'),
+        ),
+        findsOneWidget,
+      );
 
       // Tomorrow is refused the same way, and for a plainer reason: there are
       // no measurements from it.

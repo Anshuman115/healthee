@@ -32,6 +32,7 @@ import 'package:healthee/features/sleep/sleep_history_screen.dart';
 import 'package:healthee/features/sleep/sleep_screen.dart';
 import 'package:healthee/features/today/recovery_screen.dart';
 import 'package:healthee/features/today/today_screen.dart';
+import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/v02/panel.dart';
 
 import '_today_host.dart';
@@ -115,12 +116,15 @@ void main() {
     ) async {
       // `<a href="#sync">` on the strip. It was pointed at `#settings`, which
       // is a screen about the app rather than an answer to "is my strap
-      // current?" — and both open something, so nothing looked broken.
+      // current?" — and both open something, so nothing looked broken. The
+      // strip is a chip in the head now and carries no words, so the route is
+      // asserted off the chip itself.
       _tall(tester);
       await tester.pumpWidget(routedApp(store));
       await tester.pumpAndSettle();
 
-      await tapText(tester, 'Data & sync');
+      await tester.tap(find.byType(StrapChip));
+      await tester.pumpAndSettle();
 
       expect(find.byType(DataFreshnessScreen), findsOneWidget);
     });

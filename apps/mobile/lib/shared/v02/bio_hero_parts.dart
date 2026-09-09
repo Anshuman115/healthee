@@ -29,6 +29,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_bio.dart';
 import 'package:healthee/data/honesty/last_known.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
+import 'package:healthee/shared/v02/bio_display.dart';
 
 /// One of the statistics under the hero's rule.
 @immutable
@@ -51,7 +52,12 @@ class BioStat {
 /// `.bio-bottom` — the model's terms, side by side.
 class BioStatsRow extends StatelessWidget {
   /// [ink] is the hero's own ink; see the library docstring.
-  const BioStatsRow({required this.stats, required this.ink, super.key});
+  const BioStatsRow({
+    required this.stats,
+    required this.ink,
+    this.centred = false,
+    super.key,
+  });
 
   /// `.bio-bottom { gap: 16px }`.
   static const double spacing = 16;
@@ -65,6 +71,16 @@ class BioStatsRow extends StatelessWidget {
   /// The hero's ink.
   final Color ink;
 
+  /// Whether the columns are centred, under a centred card.
+  ///
+  /// **The value is drawn ABOVE the label, which the prototype's `.bio-bottom`
+  /// does the other way round.** Two labels of different lengths — `Fitness
+  /// contribution` fits one line, `Sleep duration contribution` does not at
+  /// 320 — put the two figures on different baselines, which is the misalignment
+  /// this fixes. Above the label, the figures line up whatever the words do,
+  /// and the row reads as two small numbers under the big one.
+  final bool centred;
+
   @override
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,19 +92,36 @@ class BioStatsRow extends StatelessWidget {
             onTap: stats[i].onOpen,
             semanticLabel: '${stats[i].label} ${stats[i].value}',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: centred
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(
-                  stats[i].label,
-                  style: BioType.bioStatLabel.copyWith(
-                    color: ink.withValues(alpha: ink.a * labelOpacity),
+                if (centred) ...<Widget>[
+                  Text(
+                    stats[i].value,
+                    textAlign: TextAlign.center,
+                    style: BioType.bioStat.copyWith(color: ink),
                   ),
-                ),
-                Text(
-                  stats[i].value,
-                  style: BioType.bioStat.copyWith(color: ink),
-                ),
+                  Text(
+                    stats[i].label,
+                    textAlign: TextAlign.center,
+                    style: BioType.bioStatLabel.copyWith(
+                      color: ink.withValues(alpha: ink.a * labelOpacity),
+                    ),
+                  ),
+                ] else ...<Widget>[
+                  Text(
+                    stats[i].label,
+                    style: BioType.bioStatLabel.copyWith(
+                      color: ink.withValues(alpha: ink.a * labelOpacity),
+                    ),
+                  ),
+                  Text(
+                    stats[i].value,
+                    style: BioType.bioStat.copyWith(color: ink),
+                  ),
+                ],
               ],
             ),
           ),
@@ -311,3 +344,50 @@ ShapeDecoration bioHeroSkin(
     ),
   ),
 );
+
+/// `.bio-art` geometry, measured from the padding box.
+const Rect kBioArtRect = Rect.fromLTWH(0, 18, 300, 230);
+
+/// `.bio-art { right: -60px }`.
+const double kBioArtRight = -60;
+
+/// `.bio-art { opacity: .6 }`.
+const double kBioArtOpacity = 0.6;
+
+/// `.bio-art { opacity: 1 }` with `.bio-atmosphere`'s own `.9` on top of it.
+const double kBioFieldOpacity = 0.9;
+
+/// `.bio-art` — the halo, in whichever of its two boxes.
+///
+/// **Positioned either way, which is the whole point**: both `.bio-art` rules
+/// are `position: absolute`, so the field is sized BY the card and contributes
+/// nothing to it. `bio_hero.dart`'s docstring argues that at length; this is
+/// where it is drawn.
+Widget bioHeroArt({
+  required Widget art,
+  required bool fillsCard,
+  required bool centred,
+}) {
+  if (!fillsCard) {
+    return Positioned(
+      right: kBioArtRight,
+      top: kBioArtRect.top,
+      width: kBioArtRect.width,
+      height: kBioArtRect.height,
+      child: Opacity(opacity: kBioArtOpacity, child: art),
+    );
+  }
+  return Positioned.fill(
+    // The constraints here are the card's finished size — a positioned child is
+    // laid out against the stack, which is laid out against the content — so
+    // this is where the still centre can be worked out at all.
+    child: LayoutBuilder(
+      builder: (context, constraints) => BioDisplayScope(
+        stillCentre: centred
+            ? bioStillCentre(constraints.biggest)
+            : Alignment.center,
+        child: Opacity(opacity: kBioFieldOpacity, child: art),
+      ),
+    ),
+  );
+}

@@ -160,17 +160,17 @@ class BioHero extends StatelessWidget {
   /// The share of `bioLine` in the border and the rule — `color-mix … 35%`.
   static const double lineMix = 0.35;
 
-  /// `.bio-art` geometry, measured from the padding box.
-  static const Rect artRect = Rect.fromLTWH(0, 18, 300, 230);
+  /// `.bio-art` geometry, measured from the padding box. See `bioHeroArt`.
+  static const Rect artRect = kBioArtRect;
 
   /// `.bio-art { right: -60px }`.
-  static const double artRight = -60;
+  static const double artRight = kBioArtRight;
 
   /// `.bio-art { opacity: .6 }`.
-  static const double artOpacity = 0.6;
+  static const double artOpacity = kBioArtOpacity;
 
   /// `.bio-art { opacity: 1 }` with `.bio-atmosphere`'s own `.9` on top of it.
-  static const double fieldOpacity = 0.9;
+  static const double fieldOpacity = kBioFieldOpacity;
 
   /// The label row above the figure.
   final String eyebrow;
@@ -329,7 +329,15 @@ class BioHero extends StatelessWidget {
     _inset(figure ?? BioFigure(value: value, unit: unit, centred: centred)),
     if (caption case final String sentence) ...<Widget>[
       if (!centred) const SizedBox(height: captionGap),
-      _inset(Text(sentence, style: BioType.bioContext.copyWith(color: ink))),
+      _inset(
+        Text(
+          sentence,
+          // Centred with the figure it qualifies. Left-aligned under an 88px
+          // number centred on the card, it read as a caption for something else.
+          textAlign: centred ? TextAlign.center : TextAlign.start,
+          style: BioType.bioContext.copyWith(color: ink),
+        ),
+      ),
     ],
     if (instrument case final Widget scale) ...<Widget>[
       if (caption != null) const SizedBox(height: contextGap),
@@ -344,7 +352,7 @@ class BioHero extends StatelessWidget {
         child: ColoredBox(color: rule),
       ),
       const SizedBox(height: statsGap),
-      _inset(BioStatsRow(stats: stats, ink: ink)),
+      _inset(BioStatsRow(stats: stats, ink: ink, centred: centred)),
     ],
     if (infoKey == null)
       if (modelLabel case final String label) ...<Widget>[
@@ -363,30 +371,8 @@ class BioHero extends StatelessWidget {
   ];
 
   /// `.bio-art`, in whichever of its two boxes. Positioned either way.
-  Widget _art() {
-    if (!artFillsCard) {
-      return Positioned(
-        right: artRight,
-        top: artRect.top,
-        width: artRect.width,
-        height: artRect.height,
-        child: Opacity(opacity: artOpacity, child: art),
-      );
-    }
-    return Positioned.fill(
-      // The constraints here are the card's finished size — a positioned child
-      // is laid out against the stack, which is laid out against the content —
-      // so this is where the still centre can be worked out at all.
-      child: LayoutBuilder(
-        builder: (context, constraints) => BioDisplayScope(
-          stillCentre: centred
-              ? bioStillCentre(constraints.biggest)
-              : Alignment.center,
-          child: Opacity(opacity: fieldOpacity, child: art),
-        ),
-      ),
-    );
-  }
+  Widget _art() =>
+      bioHeroArt(art: art!, fillsCard: artFillsCard, centred: centred);
 
   Widget _inset(Widget child) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: padding),

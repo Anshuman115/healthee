@@ -84,38 +84,45 @@ class BioEyebrow extends StatelessWidget {
   /// Whether this row carries something to the right of the label.
   bool get _hasAction => action != null || infoKey != null;
 
+  /// The label. **Left, even on a centred card** — the owner asked for it back
+  /// there after seeing it centred, and it is the card's name rather than part
+  /// of the reading the halo is centred around.
+  Widget _label() => Text(
+    label,
+    style: BioType.bioEyebrow.copyWith(color: ink),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+  );
+
+  List<Widget> _actions() => <Widget>[
+    if (action case final Widget supplied)
+      supplied
+    else if (infoKey case final String key)
+      MetricInfoDot(
+        key,
+        ink: ink,
+        detail: MetricDetail(
+          source: modelLabel,
+          disclosures: caveats,
+          disclosuresLabel: caveatsLabel,
+        ),
+      ),
+    if (_hasAction && icon != null) SizedBox(width: gap),
+    if (icon case final IconData arrow)
+      HTap(
+        onTap: onIconTap,
+        semanticLabel: semanticLabel ?? label,
+        child: Icon(arrow, size: iconSize, color: ink),
+      ),
+  ];
+
   @override
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: BoxConstraints(minHeight: minHeight),
     child: Row(
       children: <Widget>[
-        Expanded(
-          child: Text(
-            label,
-            style: BioType.bioEyebrow.copyWith(color: ink),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (action case final Widget supplied)
-          supplied
-        else if (infoKey case final String key)
-          MetricInfoDot(
-            key,
-            ink: ink,
-            detail: MetricDetail(
-              source: modelLabel,
-              disclosures: caveats,
-              disclosuresLabel: caveatsLabel,
-            ),
-          ),
-        if (_hasAction && icon != null) SizedBox(width: gap),
-        if (icon case final IconData arrow)
-          HTap(
-            onTap: onIconTap,
-            semanticLabel: semanticLabel ?? label,
-            child: Icon(arrow, size: iconSize, color: ink),
-          ),
+        Expanded(child: _label()),
+        ..._actions(),
       ],
     ),
   );

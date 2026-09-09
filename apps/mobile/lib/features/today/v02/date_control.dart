@@ -72,7 +72,12 @@ class DateNavigation {
 /// The previous / date / next control, with a calendar behind the date.
 class DateControl extends StatelessWidget {
   /// [date] is the day currently on screen.
-  const DateControl({required this.date, required this.navigation, super.key});
+  const DateControl({
+    required this.date,
+    required this.navigation,
+    this.prominent = false,
+    super.key,
+  });
 
   /// `.date-navigation { gap: 2px }`.
   static const double gap = 2;
@@ -113,6 +118,13 @@ class DateControl extends StatelessWidget {
 
   /// Where it may go, and who to tell.
   final DateNavigation navigation;
+
+  /// Whether this control IS the header rather than a line above one.
+  ///
+  /// Today's head is one row, so the date carries it: `Today` on the newest day
+  /// and the dated form on any other, at [TypeScale.pageDateStrong]. Every other
+  /// screen still draws the small date under its own title.
+  final bool prominent;
 
   /// Whether there is an older day inside the window.
   bool get hasPrevious => date.compareTo(navigation.earliest) > 0;
@@ -222,20 +234,29 @@ class DateControl extends StatelessWidget {
         navigation: navigation,
       ),
       semanticLabel: 'Choose a day, ${prettyDate(date)}',
+      // No `alignment:` — a `Container` given one wraps its child in an `Align`,
+      // which expands to the widest constraint it is offered. Inside the header's
+      // `Expanded` that was the whole row, so the forward chevron ended up at the
+      // far side of the screen with a lake between it and the date.
       child: Container(
         constraints: BoxConstraints(minHeight: button.height),
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        alignment: Alignment.centerLeft,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Flexible(
               child: Text(
-                prettyDate(date),
+                prominent
+                    ? dayTitle(date, latest: navigation.latest)
+                    : prettyDate(date),
                 maxLines: 1,
                 softWrap: false,
                 overflow: TextOverflow.ellipsis,
-                style: TypeScale.pageDate.copyWith(color: colors.ink),
+                style:
+                    (prominent
+                            ? TypeScale.pageDateStrong
+                            : TypeScale.pageDate)
+                        .copyWith(color: colors.ink),
               ),
             ),
             const SizedBox(width: 6),

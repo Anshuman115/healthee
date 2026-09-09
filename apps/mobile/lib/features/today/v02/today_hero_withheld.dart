@@ -63,7 +63,6 @@ import 'package:healthee/shared/metric_info/metric_detail.dart';
 import 'package:healthee/shared/metric_info/metric_info_sheet.dart';
 import 'package:healthee/shared/v02/bio_hero.dart';
 import 'package:healthee/shared/v02/bio_hero_parts.dart';
-import 'package:solar_icons/solar_icons.dart';
 
 /// Where the reader is sent for the paragraphs that used to be printed inline.
 const String kWithheldPointer = 'Tap ⓘ for why, and what would bring it back.';
@@ -102,6 +101,11 @@ class TodayBioHeroWithheld extends ConsumerWidget {
         infoKey,
         ink: ink,
         detail: MetricDetail(
+          // The model line goes here rather than under the card, exactly as the
+          // live hero routes its own. `BioHero.infoKey` cannot be used instead:
+          // these disclosures are the refusal and its exclusions, which the
+          // `CaveatScope` the hero reads does not carry.
+          source: kPopulationModelLabel,
           disclosures: <Disclosure>[
             withheld,
             ...exclusions,
@@ -116,8 +120,6 @@ class TodayBioHeroWithheld extends ConsumerWidget {
         asOf: held?.day,
       ),
       caption: caption(withheld, exclusions),
-      modelLabel: kPopulationModelLabel,
-      modelIcon: SolarIconsOutline.infoCircle,
     );
   }
 

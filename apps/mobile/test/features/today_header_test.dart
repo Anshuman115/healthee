@@ -25,6 +25,7 @@ import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/sync/connection_health.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/features/today/today_labels.dart';
+import 'package:healthee/features/today/v02/date_control.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/app_tab_bar.dart';
 import 'package:healthee/shared/connection/sync_ring.dart';
@@ -46,9 +47,9 @@ Widget _header({
   TodayHeader(date: date, now: at ?? DateTime(2026, 8, 6, 9), health: health),
 );
 
-/// The device strip, which is where the strap's charge lives in v02.
+/// The strap chip, which is where the strap's charge lives in the one-row head.
 Widget _strip({int? battery, ConnectionHealth? health}) =>
-    host(DeviceStrip(batteryPercent: battery, health: health));
+    host(StrapChip(batteryPercent: battery, health: health));
 
 /// One classification, from a real link. There is no `syncing` flag any more:
 /// the ring reads `busy` off the same object the card reads its faults off.
@@ -81,16 +82,67 @@ void main() {
   });
 
   group('the screen names itself', () {
-    testWidgets('the h1 is the screen, not a salutation', (tester) async {
+    testWidgets('THE HEAD IS ONE ROW, AND THE DAY IS THE HEADLINE', (
+      tester,
+    ) async {
       await tester.pumpWidget(_header());
       await tester.pumpAndSettle();
 
       // The prototype's README: *"replaces generic main-screen slogans with
       // direct labels such as Today, Sleep, Activity"*. The pre-v02 header's
-      // largest type was a greeting to an owner whose name nothing stores.
-      expect(find.text(TodayHeader.title), findsOneWidget);
+      // largest type was a greeting to an owner whose name nothing stores; the
+      // v02 one was a 27px `Today` the tab bar already says, in the accent,
+      // with a filled glyph. The date has taken that line.
       expect(find.textContaining('Good morning'), findsNothing);
       expect(find.textContaining('there.'), findsNothing);
+      // With no navigation there is no window, so no day can be `Today` — the
+      // header names the day it is showing.
+      expect(find.text(prettyDate('2026-08-06')), findsOneWidget);
+
+      // ONE row: the day, the strap and the avatar share a horizontal band.
+      final day = tester.getRect(find.text(prettyDate('2026-08-06')));
+      final avatar = tester.getRect(find.byType(HAvatar));
+      expect(
+        day.center.dy,
+        moreOrLessEquals(avatar.center.dy, epsilon: 2),
+        reason: 'the day and the avatar are on separate lines',
+      );
+    });
+
+    testWidgets('the newest day is called Today, an older one is dated', (
+      tester,
+    ) async {
+      const window = DateNavigation(
+        earliest: '2026-07-01',
+        latest: '2026-08-06',
+        onSelect: _ignore,
+      );
+      await tester.pumpWidget(
+        host(
+          TodayHeader(
+            date: '2026-08-06',
+            now: DateTime(2026, 8, 6, 9),
+            navigation: window,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Today'), findsOneWidget);
+
+      await tester.pumpWidget(
+        host(
+          TodayHeader(
+            date: '2026-08-04',
+            now: DateTime(2026, 8, 6, 9),
+            navigation: window,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Not `Today` — the word would be a lie about the day on screen, which is
+      // the whole reason the title stopped being a constant.
+      expect(find.text('Today'), findsNothing);
+      expect(find.text(prettyDate('2026-08-04')), findsOneWidget);
     });
   });
 
@@ -115,9 +167,11 @@ void main() {
       await tester.pumpWidget(_strip());
       await tester.pumpAndSettle();
 
-      expect(find.byType(DeviceStrip), findsOneWidget);
-      expect(find.text(DeviceStrip.deviceName), findsOneWidget);
-      expect(find.text(DeviceStrip.action), findsOneWidget);
+      expect(find.byType(StrapChip), findsOneWidget);
+      // The two words the chip dropped are in its semantics, not on the row —
+      // there is one strap, and its name spent a line saying so.
+      expect(find.text(StrapChip.deviceName), findsNothing);
+      expect(find.text(StrapChip.action), findsNothing);
     });
   });
 
@@ -292,3 +346,6 @@ void main() {
     );
   });
 }
+
+/// A `DateNavigation` needs a callback and these cases never press anything.
+void _ignore(String _) {}
