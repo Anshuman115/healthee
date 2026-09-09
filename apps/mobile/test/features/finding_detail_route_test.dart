@@ -64,8 +64,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The affordance the prototype draws — `<span class="text-button">Explore`.
-    expect(find.text('Explore'), findsOneWidget);
+    // The affordance, which is now the chevron rather than the word. An
+    // `EntryCard` has always been one tap target and printed `Explore` under
+    // its own title as well; the mark says the card opens and costs no row.
+    // The word survives as the control's semantics, for a reader who cannot
+    // see the mark.
+    expect(find.text('Explore'), findsNothing);
+    expect(
+      find.bySemanticsLabel(RegExp('Explore')),
+      findsOneWidget,
+      reason: 'the destination must still be announced',
+    );
 
     await tester.tap(find.byType(FindingEntryCard));
     await tester.pumpAndSettle();

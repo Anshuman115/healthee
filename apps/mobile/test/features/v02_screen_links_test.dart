@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/features/activity/fitness_screen.dart';
+import 'package:healthee/features/insights/v02/pattern_panels.dart';
 import 'package:healthee/features/sleep/sleep_history_screen.dart';
 import 'package:healthee/features/today/body_screen.dart';
 import 'package:healthee/features/today/recovery_screen.dart';
@@ -140,7 +141,8 @@ void main() {
       await tester.pumpAndSettle();
       await tapTab(tester, 'Insights');
 
-      await _open(tester, find.text('Understand'));
+      // The card is the target; its word is in the semantics now.
+      await _open(tester, find.byType(AgeEntryCard));
       expect(find.byType(BodyScreen), findsOneWidget);
     });
 

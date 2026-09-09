@@ -243,7 +243,12 @@ void main() {
       expect(CheckAction.boxSize, 24, reason: '.checkbox { width: 24px }');
 
       expect(find.text(kAdoptLabel), findsOneWidget);
-      expect(find.text(kAdoptNote), findsOneWidget);
+      // **`kAdoptNote` is not drawn until the suggestion IS adopted.** It read
+      // `One manageable change to start with.` under every card the app has
+      // ever shown — the same sentence, on a line of its own, saying nothing
+      // about the suggestion above it. A subtitle that cannot differ between
+      // two cards is not telling the reader about either.
+      expect(find.text(kAdoptNote), findsNothing);
       for (final completion in <String>['Done', 'Completed', 'Finished']) {
         expect(
           find.textContaining(completion),

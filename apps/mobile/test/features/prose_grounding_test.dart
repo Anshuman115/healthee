@@ -58,7 +58,8 @@ void main() {
       );
       // This card's ⓘ is the prototype's own `H.evidence()` text button, so the
       // sheet is opened rather than read off a dot.
-      await tester.tap(find.text(kWhyLabel));
+      // The link became a dot on the eyebrow; the sheet behind it is unchanged.
+      await tester.tap(find.bySemanticsLabel(kWhyLabel));
       await tester.pumpAndSettle();
 
       for (final id in kRec.grounding.noteIds) {

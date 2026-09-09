@@ -48,17 +48,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
+import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/api/account_api.dart';
 import 'package:healthee/data/api/problem_message.dart';
+import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/models/recommendation.dart';
 import 'package:healthee/data/recommendations/recommendation_history.dart';
 import 'package:healthee/data/today_repository.dart';
 import 'package:healthee/features/actions/v02/evidence_sheet.dart';
 import 'package:healthee/shared/format/metric_names.dart';
+import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/states/grounded_text.dart';
 import 'package:healthee/shared/v02/choices.dart';
-import 'package:healthee/shared/v02/controls.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
 import 'package:solar_icons/solar_icons.dart';
 
@@ -192,6 +194,16 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
       tone: toneForCategory(rec.category),
       icon: iconForCategory(rec.category),
       eyebrow: widget.first ? kFirstEyebrow : kAlsoEyebrow,
+      // The evidence link, moved off the footer and onto the row the eyebrow
+      // already occupies. See `FocusCard.action`.
+      // Drawn for a rec with sources but no rationale too — the sources are
+      // the content in that case. With neither, nothing.
+      action:
+          rec.rationale != null ||
+              grounding.isNotEmpty ||
+              rec.gradeLabel != null
+          ? _why(context, rec, grounding)
+          : null,
       title: GroundedProse(
         text: rec.action,
         style: TypeScale.focusTitle.copyWith(color: colors.ink),
@@ -218,7 +230,10 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
             CheckAction(
               pressed: adopted,
               title: adopted ? kAdoptedLabel : kAdoptLabel,
-              note: adopted ? kAdoptedNote : kAdoptNote,
+              // Only once it IS adopted, where the line says something this
+              // card does not already: `kAdoptNote` was the same sentence
+              // under every suggestion the app has drawn.
+              note: adopted ? kAdoptedNote : null,
               onPressed: _busy ? null : () => unawaited(_toggle(id, adopted)),
             ),
           if (_trouble case final String message)
@@ -229,26 +244,34 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
                 style: TypeScale.tinyLabel.copyWith(color: colors.ink2),
               ),
             ),
-          // Drawn for a rec with sources but no rationale too — the sources are
-          // the content in that case. With neither, nothing.
-          if (rec.rationale != null ||
-              grounding.isNotEmpty ||
-              rec.gradeLabel != null)
-            TextLink(
-              label: kWhyLabel,
-              icon: SolarIconsOutline.infoCircle,
-              onPressed: () => showEvidenceSheet(
-                context,
-                title: kWhyTitle,
-                prose: rec.rationale ?? '',
-                grounding: grounding,
-                grade: rec.gradeLabel,
-              ),
-            ),
         ],
       ),
     );
   }
+
+  /// The evidence dot, in the eyebrow row rather than under the card.
+  ///
+  /// The sheet is unchanged — `showEvidenceSheet` with the rationale, the
+  /// grounding and the grade. What changed is that reaching it no longer costs
+  /// the card a labelled row of its own: `Why this suggestion ⓘ` was a line and
+  /// a gap on every suggestion, and the ⓘ is the app's word for that everywhere
+  /// else.
+  Widget _why(BuildContext context, Recommendation rec, Grounding grounding) =>
+      HTap(
+        onTap: () => showEvidenceSheet(
+          context,
+          title: kWhyTitle,
+          prose: rec.rationale ?? '',
+          grounding: grounding,
+          grade: rec.gradeLabel,
+        ),
+        semanticLabel: kWhyLabel,
+        child: Icon(
+          SolarIconsOutline.infoCircle,
+          size: FocusCard.iconSize,
+          color: context.family,
+        ),
+      );
 
   /// Writes the adoption, then re-reads. Never flips the box on its own: the
   /// tick has to mean "the server has this", not "the tap happened".

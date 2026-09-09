@@ -46,7 +46,7 @@ class CheckAction extends StatelessWidget {
   const CheckAction({
     required this.pressed,
     required this.title,
-    required this.note,
+    this.note,
     required this.onPressed,
     super.key,
   });
@@ -73,7 +73,13 @@ class CheckAction extends StatelessWidget {
   final String title;
 
   /// The `small` under it.
-  final String note;
+  /// The line under [title]. **Nullable, and usually null now.**
+  ///
+  /// It carried `One manageable change to start with.` on every suggestion the
+  /// app has ever drawn — the same sentence under every card, costing a line
+  /// and its gap each time. A subtitle that cannot differ between two cards is
+  /// not telling the reader about either of them.
+  final String? note;
 
   /// Toggles it. Null while a write is in flight.
   final VoidCallback? onPressed;
@@ -85,7 +91,7 @@ class CheckAction extends StatelessWidget {
     return Semantics(
       button: true,
       toggled: pressed,
-      label: '$title. $note',
+      label: note == null ? title : '$title. $note',
       child: ExcludeSemantics(
         child: InkWell(
           onTap: onPressed,
@@ -121,11 +127,15 @@ class CheckAction extends StatelessWidget {
                         title,
                         style: TypeScale.rowTitle.copyWith(color: colors.ink),
                       ),
-                      const SizedBox(height: noteGap),
-                      Text(
-                        note,
-                        style: TypeScale.tinyLabel.copyWith(color: colors.ink2),
-                      ),
+                      if (note case final String under) ...<Widget>[
+                        const SizedBox(height: noteGap),
+                        Text(
+                          under,
+                          style: TypeScale.tinyLabel.copyWith(
+                            color: colors.ink2,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
