@@ -185,7 +185,6 @@ class RecoveryDetail extends StatelessWidget {
             ),
           ],
         if (score != null) ...<Widget>[
-          const SizedBox(height: _Frame.blockGap),
           ContextBridge.link(
             sleepShareBridge(sleepWeight(score)),
             label: 'Explore your sleep',

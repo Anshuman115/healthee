@@ -216,7 +216,6 @@ List<PageSection> insightsSections(ScreenData data, InsightsExtras extras) {
         reveals: data.reveals,
       ),
     );
-    sections.gap(PageSpacing.block);
     sections.add(ContextBridge.text(kJournalBridge));
   }
   // A heading over no panels reads as breakage. The honest state is silence:

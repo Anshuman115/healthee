@@ -67,6 +67,16 @@ abstract final class PageSpacing {
 
   /// v02's `.section { margin-top: 24px }` — between two groups of panels.
   static const double block = 24;
+
+  /// Between ANY page-level heading and the thing it names.
+  ///
+  /// One constant because the two heading widgets had drifted: `SectionHead`
+  /// left 12 and `ChapterHeading` left 4 — the prototype's own
+  /// `.chapter-heading { margin-bottom: 4px }`, ported faithfully, which on a
+  /// device reads as a title stuck to its card while every other title has
+  /// room. A reader cannot see which widget drew a heading, so the two must not
+  /// be able to disagree about what follows one.
+  static const double afterHeading = 12;
 }
 
 /// How tall a pinned section is, measured in the context it will be drawn in.

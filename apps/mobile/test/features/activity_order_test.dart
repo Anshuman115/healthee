@@ -129,7 +129,13 @@ void main() {
 
     test('a bridge is a block break, and two panels are a panel break', () {
       final list = sections();
-      expect(list[_nthOf<ContextBridge>(list, 0) - 1].gap, PageSpacing.block);
+      // The bridge owns that gap now, so its rule can span it and reach the
+      // card above — see `ContextBridge.leadIn` and `today_order_test.dart`.
+      expect(list[_nthOf<ContextBridge>(list, 0) - 1].gap, 0);
+      expect(
+        (list[_nthOf<ContextBridge>(list, 0)].child as ContextBridge).leadIn,
+        PageSpacing.block,
+      );
       expect(list[_indexOf<ReadingView<Mvpa>>(list)].gap, PageSpacing.panel);
     });
   });

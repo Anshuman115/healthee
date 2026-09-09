@@ -224,7 +224,6 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
       onDetails: _metric(extras, 'steps_total'),
     ),
   );
-  sections.gap(PageSpacing.block);
   sections.add(
     ContextBridge.link(
       kActivityRecoveryBridge,
@@ -288,7 +287,6 @@ List<PageSection> activitySections(ScreenData data, ActivityExtras extras) {
     );
     if (fitnessContributionYears(snapshot.biologicalAge.valueOrNull)
         case final double y) {
-      sections.gap(PageSpacing.block);
       sections.add(
         ContextBridge.link(
           ageBridge(y),

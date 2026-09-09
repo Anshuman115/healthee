@@ -24,15 +24,16 @@ import 'package:healthee/core/theme/dimensions.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
+import 'package:healthee/shared/page_section.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 /// A connective sentence, hung off a vertical rule.
 class ContextBridge extends StatelessWidget {
   /// Builds a bridge around [child], usually a `Text`.
-  const ContextBridge({required this.child, super.key});
+  const ContextBridge({required this.child, this.leadIn = PageSpacing.block, super.key});
 
   /// Builds a bridge carrying one sentence, styled as `.context-bridge p`.
-  ContextBridge.text(String text, {super.key})
+  ContextBridge.text(String text, {this.leadIn = PageSpacing.block, super.key})
     : child = _BridgeText(text: text);
 
   /// `H.bridge(tone, copy, route, label)` — the sentence **and** the link that
@@ -49,10 +50,26 @@ class ContextBridge extends StatelessWidget {
     String text, {
     required String label,
     VoidCallback? onOpen,
+    this.leadIn = PageSpacing.block,
     super.key,
   }) : child = onOpen == null
            ? _BridgeText(text: text)
            : _BridgeLink(text: text, label: label, onOpen: onOpen);
+
+  /// Blank height above the sentence that the RULE still covers.
+  ///
+  /// **This is how the rule reaches the card above it**, and it is the DEFAULT
+  /// rather than a flag, because every bridge in the app sits under a card with
+  /// exactly this gap before it. When the gap was a separate spacer section the
+  /// rule began below it, so the connector connected to nothing — a line
+  /// hanging in the dark under a card. Fixing that per-site fixed one of eight;
+  /// owning the gap fixes the shape.
+  ///
+  /// Pass 0 for a bridge that opens a screen, where there is no card above to
+  /// reach and the rule would start in the margin.
+  ///
+  /// The dot moves with the text, not with the rule — it marks the sentence.
+  final double leadIn;
 
   /// `margin: 0 8px`.
   static const double margin = 8;
@@ -91,7 +108,7 @@ class ContextBridge extends StatelessWidget {
           ),
           Positioned(
             left: dotLeft,
-            top: dotTop,
+            top: dotTop + leadIn,
             width: dotSize,
             height: dotSize,
             child: DecoratedBox(
@@ -103,7 +120,7 @@ class ContextBridge extends StatelessWidget {
           ),
           Container(
             width: double.infinity,
-            padding: padding,
+            padding: padding.copyWith(top: padding.top + leadIn),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: colors.line, width: hairline),

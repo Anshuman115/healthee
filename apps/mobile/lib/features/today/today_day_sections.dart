@@ -95,7 +95,6 @@ void todayDaySections(
       onDetails: extras.onOpenActivity,
     ),
   );
-  sections.gap(PageSpacing.block);
   sections.add(
     // `H.bridge('movement', …, 'recovery', 'See the relationship')`.
     ContextBridge.link(

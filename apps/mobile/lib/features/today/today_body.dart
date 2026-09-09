@@ -108,7 +108,8 @@ void todayBody(
       onOpenActivity: extras.onOpenActivity,
     ),
   );
-  sections.gap(PageSpacing.block);
+  // No spacer: the bridge carries the gap itself so its rule can span it and
+  // reach the tiles above. See `ContextBridge.leadIn`.
   sections.add(
     ContextBridge.link(
       kAgeBridge,
@@ -228,7 +229,6 @@ void _nightChapter(
       ),
     ),
   );
-  sections.gap(PageSpacing.block);
   sections.add(
     // `H.bridge('sleep', …, 'sleep', 'Open your night')` — the label is the
     // prototype's, and it ends the sentence rather than sitting under it.
