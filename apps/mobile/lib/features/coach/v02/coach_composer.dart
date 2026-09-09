@@ -77,7 +77,21 @@ class CoachComposer extends StatefulWidget {
   static const double fieldRadius = 12;
 
   /// The narrowest an input may be and still be one — under this the row wraps.
-  static const double minFieldWidth = 132;
+  /// The narrowest the input may be and still be an input.
+  ///
+  /// Was 132, and 132 was measured against the wrong thing: it is wide enough to
+  /// *draw* a field, not wide enough to *read* one. On the owner's 360 pt phone the
+  /// row branch left the field at almost exactly 132, and after the field's own 12 pt
+  /// padding each side the hint had ~108 pt for text that wants ~140 — so
+  /// "What's on your mind?" wrapped onto two lines inside a one-line box and the
+  /// composer read as a broken label rather than somewhere to type.
+  ///
+  /// 190 is the hint on one line with its padding and a little slack. Below it the
+  /// column branch takes over, which is the better layout on a phone anyway: this
+  /// button carries the meter ("Ask — uses 1 of your 16") rather than the prototype's
+  /// bare arrow, and a cost the owner is about to spend has earned its own full-width
+  /// row.
+  static const double minFieldWidth = 190;
 
   /// Whether the prototype's single row survives with [wanted] px of button in
   /// [available] px of composer.

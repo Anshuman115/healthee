@@ -197,7 +197,12 @@ void main() {
     test('a row survives only while a usable input survives with it', () {
       const gap = CoachComposer.gap;
       const floor = CoachComposer.minFieldWidth;
-      expect(CoachComposer.fitsOneRow(390, 200), isTrue);
+      // A genuinely roomy case: a 200 pt button on a wide layout still leaves the
+      // input well over the floor. 390 pt used to be here and no longer qualifies —
+      // it leaves 182, which is the width at which the hint wrapped on the owner's
+      // own phone. That is the floor moving for a measured reason, not the test
+      // being loosened to fit it.
+      expect(CoachComposer.fitsOneRow(430, 200), isTrue);
       // Exactly enough is enough.
       expect(CoachComposer.fitsOneRow(200 + gap + floor, 200), isTrue);
       // One pixel less is not.
