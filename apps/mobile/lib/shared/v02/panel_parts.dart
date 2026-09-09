@@ -33,6 +33,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
 import 'package:healthee/core/theme/type_scale.dart';
@@ -229,9 +230,8 @@ class PanelNote extends StatelessWidget {
       padding: EdgeInsets.only(top: compact ? compactTopGap : topGap),
       child: Text(
         text,
-        style:
-            (compact ? TypeScale.panelNoteCompact : TypeScale.panelNote)
-                .copyWith(color: context.colors.ink2),
+        style: (compact ? TypeScale.panelNoteCompact : TypeScale.panelNote)
+            .copyWith(color: context.colors.ink2),
       ),
     );
   }
@@ -351,9 +351,9 @@ class ProgressTrack extends StatelessWidget {
             alignment: Alignment.centerLeft,
             widthFactor: filled,
             child: DecoratedBox(
-              decoration: BoxDecoration(
+              decoration: ShapeDecoration(
                 color: context.family,
-                borderRadius: BorderRadius.circular(radius),
+                shape: hSquircle(radius),
               ),
             ),
           ),

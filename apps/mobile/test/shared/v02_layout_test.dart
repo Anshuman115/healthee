@@ -41,7 +41,7 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      expect(decoration.color, kColors.bioBackground);
+      expect(groundOf(decoration), kColors.bioBackground);
       expect(radiusOf(decoration), 28);
       expect(
         tester.widget<Text>(find.text('Biological age')).style!.color,
@@ -143,8 +143,12 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      expect(decoration.color, kHues.sleep);
-      expect(decoration.shape, BoxShape.circle);
+      expect(groundOf(decoration), kHues.sleep);
+      // A dot is a circle and stays a `BoxDecoration` — `hSquircle` is for
+      // corners, and a superellipse of a circle is not one.
+      // A dot is a circle and stays a `BoxDecoration` — `hSquircle` is for
+      // corners, and a superellipse of a circle is not one.
+      expect((decoration as BoxDecoration).shape, BoxShape.circle);
       expect(tester.getRect(find.text('Deep')).left - dot.right, 5);
     });
 
@@ -165,8 +169,8 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      expect(decoration.color, kHues.stageDeep);
-      expect(decoration.color, isNot(kHues.sleep));
+      expect(groundOf(decoration), kHues.stageDeep);
+      expect(groundOf(decoration), isNot(kHues.sleep));
     });
   });
 
@@ -211,15 +215,15 @@ void main() {
       expect(dot.width, 5);
       expect(dot.height, 5);
       // `padding: 14px 4px 14px 26px`.
-      expect(
-        text.left - bridge.left,
-        8 + 26,
-      );
+      expect(text.left - bridge.left, 8 + 26);
       expect(text.top - bridge.top, 14);
       expect(
-        tester.widget<Text>(
-          find.text('Your resting heart rate followed it down.'),
-        ).style!.fontSize,
+        tester
+            .widget<Text>(
+              find.text('Your resting heart rate followed it down.'),
+            )
+            .style!
+            .fontSize,
         11,
       );
     });
@@ -244,14 +248,21 @@ void main() {
                   )
                   .decoration
               as BoxDecoration;
-      expect(decoration.color, kHues.sleep);
+      expect(groundOf(decoration), kHues.sleep);
+      // A dot is a circle and stays a `BoxDecoration` — `hSquircle` is for
+      // corners, and a superellipse of a circle is not one.
       expect(decoration.shape, BoxShape.circle);
     });
   });
 
   group('IconTile — 40 × 40 at radius 13, family on family-soft', () {
     testWidgets('the box, the corner and both colours', (tester) async {
-      await pumpV02(tester, const IconTile(Icons.air), tone: Tone.oxygen, width: null);
+      await pumpV02(
+        tester,
+        const IconTile(Icons.air),
+        tone: Tone.oxygen,
+        width: null,
+      );
       final rect = tester.getRect(find.byType(IconTile));
       expect(rect.width, 40);
       expect(rect.height, 40);
@@ -262,7 +273,7 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      expect(decoration.color, kHues.oxygenSoft);
+      expect(groundOf(decoration), kHues.oxygenSoft);
       expect(radiusOf(decoration), 13);
       expect(tester.widget<Icon>(find.byIcon(Icons.air)).color, kHues.oxygen);
     });

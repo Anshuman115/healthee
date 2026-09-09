@@ -53,6 +53,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/honesty/citations.dart';
@@ -122,12 +123,12 @@ class CoachOpening extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(padding),
-          decoration: BoxDecoration(
+          decoration: ShapeDecoration(
             // `--surface-soft`, not the accent ground an ANSWER uses. This line
             // was not asked for and did not cost a question; it must not wear the
             // styling of one that did.
             color: colors.surface2,
-            borderRadius: BorderRadius.circular(radius),
+            shape: hSquircle(radius),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

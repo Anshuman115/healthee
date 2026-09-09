@@ -27,6 +27,7 @@ import 'package:healthee/shared/v02/panel.dart';
 
 import '../_sleep_stubs.dart';
 import '../shared/_chart_probe.dart';
+import '../shared/_decoration.dart';
 import '_sleep_host.dart';
 
 /// A 390 px panel, less 18 px of `Panel` padding and one hairline either side.
@@ -71,8 +72,7 @@ void main() {
           .toList();
       expect(boxes, hasLength(4));
       final drawn = <int>{
-        for (final box in boxes)
-          ((box.decoration as BoxDecoration).color!).toARGB32(),
+        for (final box in boxes) (groundOf(box.decoration)!).toARGB32(),
       };
       for (final stage in const <String>['deep', 'light', 'rem', 'awake']) {
         expect(
@@ -202,8 +202,7 @@ void main() {
           .toList();
       expect(boxes, hasLength(3), reason: 'REM has no minutes on this night');
       final drawn = <int>{
-        for (final box in boxes)
-          ((box.decoration as BoxDecoration).color!).toARGB32(),
+        for (final box in boxes) (groundOf(box.decoration)!).toARGB32(),
       };
       expect(drawn, isNot(contains(_hues.sleepStage('rem').toARGB32())));
     });

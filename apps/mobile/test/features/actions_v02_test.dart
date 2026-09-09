@@ -32,6 +32,7 @@ import 'package:healthee/shared/v02/section_head.dart';
 import 'package:healthee/shared/v02/surfaces.dart';
 
 import '../_today_stubs.dart';
+import '../shared/_decoration.dart';
 import '_screen_data.dart';
 import '_today_host.dart';
 
@@ -209,11 +210,11 @@ void main() {
               )
               .first,
         );
-        final decoration = container.decoration! as BoxDecoration;
+        final decoration = container.decoration!;
         // The fixture's one recommendation is `category: sleep`.
-        expect(decoration.color, Tone.sleep.familySoft(hues));
+        expect(groundOf(decoration), Tone.sleep.familySoft(hues));
         expect(
-          decoration.color,
+          groundOf(decoration),
           isNot(Tone.fitness.familySoft(hues)),
           reason: 'a card that ignored the category would be the root default',
         );

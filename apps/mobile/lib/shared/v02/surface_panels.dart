@@ -34,6 +34,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/core/theme/tone_scope.dart';
@@ -71,10 +72,12 @@ class SurfaceCard extends StatelessWidget {
     final Widget card = Container(
       clipBehavior: Clip.antiAlias,
       padding: flush ? EdgeInsets.zero : const EdgeInsets.all(padding),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: colors.surface,
-        border: Border.all(color: colors.line, width: hairline),
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(
+          radius,
+          side: BorderSide(color: colors.line, width: hairline),
+        ),
       ),
       child: child,
     );
@@ -82,7 +85,6 @@ class SurfaceCard extends StatelessWidget {
     return tone == null ? card : ToneScope(tone: tone, child: card);
   }
 }
-
 
 /// `.badge` — a small stamp naming a state.
 ///
@@ -114,9 +116,9 @@ class StatusBadge extends StatelessWidget {
     final colors = context.colors;
     return Container(
       padding: padding,
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: accented ? colors.accentSoft : colors.surface2,
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(radius),
       ),
       child: Text(
         label,
@@ -159,10 +161,12 @@ class Notice extends StatelessWidget {
     final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(padding),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: colors.surface2,
-        border: Border.all(color: colors.line, width: hairline),
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(
+          radius,
+          side: BorderSide(color: colors.line, width: hairline),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,9 +271,9 @@ class FocusCard extends StatelessWidget {
     final family = context.family;
     return Container(
       padding: padding,
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: context.familySoft,
-        borderRadius: BorderRadius.circular(radius),
+        shape: hSquircle(radius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

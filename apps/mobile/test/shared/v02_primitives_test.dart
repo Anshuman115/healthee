@@ -31,7 +31,6 @@ import 'package:healthee/shared/v02/summary_tile.dart';
 import '_v02_harness.dart';
 
 void main() {
-
   group('Panel — 18px padding, 22px radius, 1px --line border', () {
     testWidgets('the content box is inset by padding PLUS the border', (
       tester,
@@ -66,10 +65,10 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      expect(decoration.color, kColors.surface);
+      expect(groundOf(decoration), kColors.surface);
       expect(radiusOf(decoration), 22);
-      expect(decoration.border!.top.color, kColors.line);
-      expect(decoration.border!.top.width, 1);
+      expect(edgeOf(decoration)!.color, kColors.line);
+      expect(edgeOf(decoration)!.width, 1);
     });
 
     testWidgets('a head sits exactly 12 above the body', (tester) async {
@@ -183,9 +182,12 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      expect(decoration.color, kHues.movementSoft);
+      expect(groundOf(decoration), kHues.movementSoft);
       expect(radiusOf(decoration), 18);
-      expect(tester.widget<Text>(find.text('Steps')).style!.color, kHues.movement);
+      expect(
+        tester.widget<Text>(find.text('Steps')).style!.color,
+        kHues.movement,
+      );
     });
 
     testWidgets('the value is 24px and the meta 8.5px, 10 and 4 apart', (
@@ -206,7 +208,10 @@ void main() {
       expect(value.top - title.bottom, 10);
       expect(meta.top - value.bottom, 4);
       expect(tester.widget<Text>(find.text('8,214')).style!.fontSize, 24);
-      expect(tester.widget<Text>(find.text('goal 10,000')).style!.fontSize, 8.5);
+      expect(
+        tester.widget<Text>(find.text('goal 10,000')).style!.fontSize,
+        8.5,
+      );
     });
 
     testWidgets('the micro-track is 5 high, 14 down, gapped 3, first 4 solid', (
@@ -250,9 +255,7 @@ void main() {
                 .color!;
         expect(
           fill.a,
-          i < 4
-              ? 1.0
-              : closeTo(0.45, 0.001),
+          i < 4 ? 1.0 : closeTo(0.45, 0.001),
           reason: 'segment $i',
         );
       }

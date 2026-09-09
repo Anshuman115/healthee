@@ -45,6 +45,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:healthee/core/theme/dimensions.dart';
+import 'package:healthee/core/theme/shapes.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 
@@ -97,10 +98,12 @@ class _CoachWaitingState extends State<CoachWaiting>
     final bool long = _elapsed >= _longAfter;
     return Container(
       padding: const EdgeInsets.all(Insets.xl),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: colors.surface,
-        border: Border.all(color: colors.line, width: hairline),
-        borderRadius: BorderRadius.circular(Radii.card),
+        shape: hSquircle(
+          Radii.card,
+          side: BorderSide(color: colors.line, width: hairline),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

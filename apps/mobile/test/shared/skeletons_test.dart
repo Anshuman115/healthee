@@ -18,6 +18,8 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/shared/skeletons/h_skeleton.dart';
 import 'package:healthee/shared/skeletons/sleep_skeleton.dart';
 
+import '_decoration.dart';
+
 const HealtheeColors _light = HealtheeColors.light();
 
 /// A host with NO width constraint, for a box that sizes itself.
@@ -51,38 +53,45 @@ void main() {
     testWidgets('a skeleton box fills at the recessed surface, and shimmers', (
       tester,
     ) async {
-      await _pumpSkeleton(tester, _tightHost(const HSkeleton(width: 80, height: 12)));
+      await _pumpSkeleton(
+        tester,
+        _tightHost(const HSkeleton(width: 80, height: 12)),
+      );
 
       // The Container, not the HSkeleton: `flutter_animate` wraps the box in a
       // shader mask whose bounds are not the box's.
       expect(tester.getSize(find.byType(Container)), const Size(80, 12));
       final box = tester.widget<Container>(find.byType(Container));
-      expect((box.decoration! as BoxDecoration).color, _light.surface2);
+      expect(groundOf(box.decoration), _light.surface2);
       // Legacy fills with a fourth paper tone the kept scaffolding does not
       // have; `surface2` is the substitution and it is recorded here so the
       // choice is visible rather than inferred.
       await _unmount(tester);
     });
 
-    testWidgets('sleep’s skeleton carries its two chart blocks at legacy’s sizes', (
-      tester,
-    ) async {
-      tester.view
-        ..physicalSize = const Size(420, 1600)
-        ..devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-      await _pumpSkeleton(
-        tester,
-        MaterialApp(theme: AppTheme.light, home: const Scaffold(body: SleepSkeleton())),
-      );
+    testWidgets(
+      'sleep’s skeleton carries its two chart blocks at legacy’s sizes',
+      (tester) async {
+        tester.view
+          ..physicalSize = const Size(420, 1600)
+          ..devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await _pumpSkeleton(
+          tester,
+          MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(body: SleepSkeleton()),
+          ),
+        );
 
-      final charts = tester
-          .widgetList<SkeletonRichCard>(find.byType(SkeletonRichCard))
-          .map((card) => card.chartHeight)
-          .toList();
-      expect(charts, <double>[36, 120]);
-      await _unmount(tester);
-    });
+        final charts = tester
+            .widgetList<SkeletonRichCard>(find.byType(SkeletonRichCard))
+            .map((card) => card.chartHeight)
+            .toList();
+        expect(charts, <double>[36, 120]);
+        await _unmount(tester);
+      },
+    );
 
     testWidgets('the sleep skeleton renders in dark mode too', (tester) async {
       tester.view
@@ -91,7 +100,10 @@ void main() {
       addTearDown(tester.view.reset);
       await _pumpSkeleton(
         tester,
-        MaterialApp(theme: AppTheme.dark, home: const Scaffold(body: SleepSkeleton())),
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: const Scaffold(body: SleepSkeleton()),
+        ),
       );
       expect(tester.takeException(), isNull);
       expect(find.byType(HSkeleton), findsWidgets);

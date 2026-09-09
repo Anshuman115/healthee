@@ -21,7 +21,6 @@ import '_settings_probe.dart';
 import '_v02_harness.dart';
 
 void main() {
-
   group('.card and .card.flush', () {
     testWidgets('a card is 22px round, surface, with one hairline', (
       tester,
@@ -30,8 +29,8 @@ void main() {
 
       final box = boxOf(tester, find.byType(Container).first);
       expect(radiusOf(box), PlainCard.radius);
-      expect(box.color, kColors.surface);
-      expect((box.border! as Border).top.width, 1);
+      expect(groundOf(box), kColors.surface);
+      expect(edgeOf(box)!.width, 1);
     });
 
     testWidgets('.card { padding: 20px } is what the child is inset by', (
@@ -183,7 +182,7 @@ void main() {
             )
             .first,
       );
-      expect(tile.color, kHues.sleepSoft);
+      expect(groundOf(tile), kHues.sleepSoft);
       expect(
         tester.widget<Icon>(find.byIcon(Icons.bedtime_outlined)).color,
         kHues.sleep,

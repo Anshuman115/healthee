@@ -8,6 +8,11 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The `BoxDecoration` of the [Container] that [finder] resolves to.
-BoxDecoration boxOf(WidgetTester tester, Finder finder) =>
-    tester.widget<Container>(finder).decoration! as BoxDecoration;
+/// The decoration of the [Container] that [finder] resolves to.
+///
+/// Returns `Decoration`, not `BoxDecoration`: a surface drawn with `hSquircle`
+/// needs a `ShapeBorder`, and only `ShapeDecoration` carries one. Read it with
+/// the `groundOf` / `radiusOf` / `edgeOf` helpers rather than casting, so a test
+/// about a colour is not coupled to a corner.
+Decoration boxOf(WidgetTester tester, Finder finder) =>
+    tester.widget<Container>(finder).decoration!;
