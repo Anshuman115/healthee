@@ -170,6 +170,27 @@ class Settings(BaseSettings):
     # 2 min while preserving recovery from a transient 429/5xx. The scheduler's own
     # `_ATTEMPT_BUDGET` and tomorrow's tick are the outer retries.
     llm_timeout_s: float = 60.0
+
+    # ── How long one grounded run may spend GATHERING before it must answer ──
+    #
+    # ⛔ The bound that was missing. `insights/coach.py` allows 20 tool rounds and
+    # nothing bounded how long they take, so a slow model turned a generous ceiling
+    # into a run longer than any caller waits. Production, 2026-09-10: ~103 s a
+    # round meant a worst case over half an hour against the app's own 360 s, and
+    # ZERO coach requests had ever completed — the server answered a closed socket
+    # every time.
+    #
+    # The number is arithmetic, not a round figure. The app waits 360 s
+    # (`core/env.dart`'s `coachTimeout`). After gathering stops, the run still has
+    # to ANSWER, and that is up to `validation_retries() + 1` more model calls —
+    # two, at the same ~100 s a round was measured taking. 360 − 200 = 160, so 150
+    # leaves the answer inside the caller's wait with a little room.
+    #
+    # ⚠ It is a safety net and not a fix. At ~100 s a round it buys ONE gathering
+    # round, which is thin for a question like "design me a training programme".
+    # The real lever is the ~30,000 tokens re-sent every round — 74% of it the
+    # evidence block — and that is measured work, not a constant to nudge.
+    gathering_deadline_s: float = 150.0
     llm_max_retries: int = 1
     # Dollars remaining on the OpenRouter account below which the scheduler's watcher
     # warns (`jobs.llm_watch`, read through `insights.credits.balance_state`). It is a

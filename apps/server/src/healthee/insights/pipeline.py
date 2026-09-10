@@ -43,10 +43,15 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from uuid import UUID
 
-from healthee.core.config import get_settings
 from healthee.core.logging import get_logger
 from healthee.insights import prompts
 from healthee.insights.action_claims import claim_issues
+from healthee.insights.budgets import (
+    _Progress,
+    gathering_deadline_s,
+    turn_budget,
+    validation_retries,
+)
 from healthee.insights.client import ChatResponse, LLMClient
 from healthee.insights.context import build_context
 
@@ -63,24 +68,6 @@ from healthee.insights.validator import ValidationResult, validate, validate_jso
 __all__ = ["AnswerContext", "AnswerGate", "Block", "GateOutcome", "Verdict"]
 
 log = get_logger(__name__)
-
-
-def validation_retries() -> int:
-    """How many NUDGED REWRITES one answer gets before the honest fallback ships.
-
-    It was the constant ``MAX_VALIDATION_RETRIES = 1``, set when a retry cost real money
-    on the tier we ran then; it is now ``LLM_VALIDATION_RETRIES`` (default **2**), and
-    ``core.config`` carries why that is one setting rather than a per-model price table.
-
-    A retry is what FIXES the failures this pipeline actually has — measured (INTELLIGENCE
-    §9.1, §9.5), ~80 % of everything the product paid for and never shipped failed on
-    citation or grade-calibration WORDING, which a nudge naming the exact issue repairs.
-    Only a candidate that already failed spends one, and the budget is RESERVED on top of
-    the gathering allowance (:func:`turn_budget`), never taken from it. Zero is legal and
-    means "one attempt, then the fallback"; no value reaches the floor, which is that
-    unvalidated text never ships.
-    """
-    return max(0, get_settings().llm_validation_retries)
 
 
 # ── Stage 1 · the question gate ──────────────────────────────────────────────
@@ -265,40 +252,6 @@ class Loop:
     context: Callable[[], AnswerContext] = field(default=AnswerContext)
 
 
-def turn_budget(loop: Loop) -> int:
-    """The hard ceiling on LLM calls for one run: gathering + the reserved answers.
-
-    A ceiling, not a spend. Nothing consumes a gathering round unless the model actually
-    asked for a tool, and the two answer attempts are the same two every surface gets.
-    """
-    return loop.max_gathering_turns + validation_retries() + 1
-
-
-@dataclass
-class _Progress:
-    """The driver's running state — how much gathering happened, how many retries, stalled."""
-
-    gathered: int = 0
-    retries: int = 0
-    stalled: bool = False
-
-    def may_gather(self, loop: Loop) -> bool:
-        """True while this run may still spend a round on tools instead of an answer."""
-        return not self.stalled and self.gathered < loop.max_gathering_turns
-
-    def note_round(self, loop: Loop, turn: Turn) -> None:
-        """Count one gathering round, and latch the stall when it added nothing new."""
-        self.gathered += 1
-        if turn.progressed:
-            return
-        self.stalled = True
-        log.info(
-            "%s: gathering round %d repeated an earlier call — forcing the answer",
-            loop.label,
-            self.gathered,
-        )
-
-
 def drive(loop: Loop) -> Outcome:
     """Run turns until one clears every gate, is blocked, or the honest fallback ships.
 
@@ -315,6 +268,13 @@ def drive(loop: Loop) -> Outcome:
     state = _Progress()
     for _turn_no in range(turn_budget(loop)):
         tools_allowed = state.may_gather(loop)
+        if not tools_allowed and state.gathered and state.out_of_time():
+            log.warning(
+                "%s: gathering hit its %.0fs deadline after %d round(s) — answering now",
+                loop.label,
+                gathering_deadline_s(),
+                state.gathered,
+            )
         turn = loop.next_turn(tools_allowed)
         if turn.text is None:
             if not tools_allowed:

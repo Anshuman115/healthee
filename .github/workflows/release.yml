@@ -1,0 +1,184 @@
+# Tag-driven release: `git tag v0.2.0 && git push --tags` publishes the APK.
+#
+# ## Why a release is gated, not just built
+#
+# The artefact people install through the in-app updater is the one thing nobody
+# reviews before it reaches a phone. So this runs the same analyze + test gates CI
+# runs, and a red gate means no release — a tag is a request to publish, not a
+# promise that it is publishable.
+#
+# ## The two ways an update silently fails to install, both checked here
+#
+# 1. **A different signing key.** Android refuses an update whose signature does
+#    not match the installed app. `-PrequireReleaseSigning` makes the build FAIL
+#    rather than fall back to the debug key, which is what it used to do — an APK
+#    that looks identical and can never update anybody.
+# 2. **A `versionCode` that did not increase.** Android treats an equal or lower
+#    one as a downgrade and refuses it. `pubspec.yaml`'s `+N` is that number, and
+#    the check below compares it against the last published release rather than
+#    trusting it was remembered.
+#
+# Both produce a refusal on the phone, hours after a green build, with an error
+# the owner cannot act on. They are cheap to check here and expensive to find there.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # creating the release and uploading the APK
+
+jobs:
+  release:
+    name: Build · gate · publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the notes are built from the log since the last tag
+
+      - name: The tag, pubspec and the last release must agree
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          raw="$(grep -m1 '^version:' apps/mobile/pubspec.yaml | awk '{print $2}')"
+          name="${raw%%+*}"
+          code="${raw##*+}"
+
+          # A tag that disagrees with the version inside the APK is how somebody
+          # ends up unable to say what they are running.
+          if [ "$tag" != "$name" ]; then
+            echo "::error::tag v$tag does not match pubspec version $name (from '$raw')"
+            exit 1
+          fi
+          if [ "$code" = "$raw" ]; then
+            echo "::error::pubspec version '$raw' has no +buildNumber; that number IS the Android versionCode"
+            exit 1
+          fi
+
+          previous="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
+          if [ -n "$previous" ]; then
+            prev_code="$(gh release view "$previous" --json body --jq '.body' \
+              | sed -n 's/^<!-- versionCode: \([0-9]*\) -->$/\1/p' | head -1)"
+            if [ -n "$prev_code" ] && [ "$code" -le "$prev_code" ]; then
+              echo "::error::versionCode $code is not greater than $previous's $prev_code — Android refuses that as a downgrade"
+              exit 1
+            fi
+          fi
+
+          echo "name=$name"  >> "$GITHUB_OUTPUT"
+          echo "code=$code"  >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          # PINNED to CI's version — the release must be built by the toolchain
+          # that gated it. `ci.yml` explains why this is not `stable`.
+          flutter-version: 3.44.7
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Analyze (zero warnings)
+        working-directory: apps/mobile
+        run: flutter analyze --fatal-warnings --fatal-infos
+
+      - name: Test
+        working-directory: apps/mobile
+        run: flutter test
+
+      - name: Restore the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.HEALTHEE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::HEALTHEE_KEYSTORE_BASE64 is not set. Without it this would build an APK nobody can update to."
+            exit 1
+          fi
+          # Outside the workspace so no step can archive it by accident.
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/healthee-release.jks"
+
+      - name: Build the signed APK
+        working-directory: apps/mobile
+        env:
+          HEALTHEE_KEYSTORE_PATH: ${{ runner.temp }}/healthee-release.jks
+          HEALTHEE_KEYSTORE_PASSWORD: ${{ secrets.HEALTHEE_KEYSTORE_PASSWORD }}
+          HEALTHEE_KEY_ALIAS: ${{ secrets.HEALTHEE_KEY_ALIAS }}
+          HEALTHEE_KEY_PASSWORD: ${{ secrets.HEALTHEE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # The build config, never a credential: these describe which server and
+          # which Supabase project, and the anon key is the one meant to ship in a
+          # client. `service_role` belongs on the server and is not referenced here.
+          flutter build apk --release \
+            -PrequireReleaseSigning \
+            --dart-define=HELIO_API='${{ secrets.HELIO_API }}' \
+            --dart-define=SUPABASE_URL='${{ secrets.SUPABASE_URL }}' \
+            --dart-define=SUPABASE_ANON_KEY='${{ secrets.SUPABASE_ANON_KEY }}'
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             "build/app/outputs/flutter-apk/healthee-${GITHUB_REF_NAME}.apk"
+
+      - name: Prove the APK is not debug-signed
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          apk="build/app/outputs/flutter-apk/healthee-${GITHUB_REF_NAME}.apk"
+          # The check that matters, made against the artefact itself rather than
+          # against the config that was supposed to produce it. The debug key's
+          # subject is always this; a release carrying it can never update a real
+          # install, and would be found only on somebody's phone.
+          signer="$(unzip -p "$apk" META-INF/*.RSA 2>/dev/null | keytool -printcert 2>/dev/null | sed -n 's/^Owner: //p' | head -1 || true)"
+          echo "signed by: ${signer:-<could not read>}"
+          case "$signer" in
+            *"CN=Android Debug"*)
+              echo "::error::this APK is DEBUG-signed and must not be published"
+              exit 1
+              ;;
+          esac
+
+      - name: Release notes
+        id: notes
+        env:
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+          CODE: ${{ steps.version.outputs.code }}
+        run: |
+          set -euo pipefail
+          {
+            # Read by the version check on the NEXT release. A machine-readable
+            # fact in a human document, so there is one place the build number
+            # lives rather than a second list to keep in step.
+            echo "<!-- versionCode: $CODE -->"
+            echo
+            echo "## What changed"
+            echo
+            if [ -n "$PREVIOUS" ]; then
+              git log --no-merges --pretty='- %s' "$PREVIOUS..${GITHUB_REF_NAME}"
+            else
+              git log --no-merges --pretty='- %s' -20
+            fi
+            echo
+            echo "---"
+            echo
+            echo "Install the APK below. Android will ask you to allow installs"
+            echo "from this source the first time; the app updates in place after"
+            echo "that, and your strap pairing and local data are kept."
+          } > "$RUNNER_TEMP/notes.md"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            "apps/mobile/build/app/outputs/flutter-apk/healthee-${GITHUB_REF_NAME}.apk"

@@ -1,0 +1,25 @@
+# Release signing — copy to `android/key.properties` and fill in.
+#
+# ⛔ NEVER COMMIT THE REAL FILE OR THE KEYSTORE. `.gitignore` already excludes
+# both; this example exists so the four names are documented somewhere public
+# without any value being.
+#
+# The signing key IS the update channel: Android refuses an update whose
+# signature does not match the installed app, so this key must not change once
+# anybody has installed a release built with it. Losing it means every user has
+# to uninstall and reinstall, which takes their keystore — strap pairing, session,
+# device token — with it. Back it up somewhere you would trust with a password
+# manager's own export.
+#
+# Create one with:
+#   keytool -genkey -v -keystore ~/healthee-release.jks -storetype JKS \
+#     -keyalg RSA -keysize 4096 -validity 10000 -alias healthee
+#
+# CI reads the same four values from the environment instead:
+#   HEALTHEE_KEYSTORE_PATH · HEALTHEE_KEYSTORE_PASSWORD
+#   HEALTHEE_KEY_ALIAS     · HEALTHEE_KEY_PASSWORD
+
+storeFile=/absolute/path/to/healthee-release.jks
+storePassword=
+keyAlias=healthee
+keyPassword=
