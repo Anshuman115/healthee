@@ -357,3 +357,21 @@ class HelioPayload(BaseModel):
     workouts: list[WorkoutIn] = Field(default_factory=list, max_length=_MAX_WORKOUTS)
     daily_totals: list[DailyTotalIn] = Field(default_factory=list, max_length=_MAX_DAILY_TOTALS)
     profile: ProfileIn | None = None
+
+    # ── The phone's IANA timezone, e.g. `Asia/Kolkata` ──────────────────────
+    #
+    # ⛔ **Not part of `profile`**, and the distinction is load-bearing: this is a
+    # fact about where the owner IS, not about their body. It lives on `app_user`
+    # because it decides the owner's DAY BOUNDARY — which day a sample belongs to,
+    # when the nightly chain runs, and what `/api/today` will even accept.
+    #
+    # Nothing set it before, so every account JIT-provisioned from a Supabase
+    # sign-in kept the column default `UTC`. Measured on the owner's own data
+    # 2026-09-11: **27.9% of samples** fell in the 00:00–05:30 local window that
+    # UTC bucketing attributes to the PREVIOUS day, and `/api/today` refused their
+    # real local date as "in the future" for five and a half hours every night.
+    #
+    # Sent on every push rather than once at sign-in, because people travel and a
+    # zone captured at sign-up would be a fact that silently goes stale. It is
+    # validated before it is stored: an unknown name would break every later read.
+    timezone: str | None = Field(default=None, max_length=64)

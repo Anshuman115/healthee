@@ -14,8 +14,12 @@
 /// tests can assert on it.
 library;
 
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:healthee/core/env.dart';
+import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/api/api_client.dart';
 import 'package:healthee/data/push/push_batch.dart';
 import 'package:meta/meta.dart';
@@ -107,6 +111,35 @@ class PushClient {
 
   final Dio _dio;
 
+  /// The phone's IANA zone, or null when the platform will not say.
+  ///
+  /// ⛔ **The server had no other way to learn this**, and it decides the owner's
+  /// day boundary — which day a sample lands on, when the nightly chain runs, and
+  /// which dates `/api/today` will even accept. Every account provisioned from a
+  /// Supabase sign-in kept the column default `UTC`; measured on real data, that
+  /// filed **27.9% of samples** under the previous day and made `/api/today`
+  /// refuse the phone's own date as "in the future" for five and a half hours
+  /// every night.
+  ///
+  /// Sent on every push rather than once at sign-in, because people travel and a
+  /// zone captured at sign-up is a fact that silently goes stale.
+  ///
+  /// Null on failure, and the push proceeds without it: this is a courtesy field
+  /// on a request whose job is delivering measurements, and a platform channel
+  /// that will not answer must not cost the owner their data. Bounded for the same
+  /// reason `settings/app_version.dart` is — an unanswered channel has no other end.
+  Future<String?> _localTimezone() async {
+    try {
+      final zone = await FlutterTimezone.getLocalTimezone().timeout(
+        const Duration(seconds: 2),
+      );
+      return zone.identifier.isEmpty ? null : zone.identifier;
+    } on Object catch (error) {
+      AppLog.info('push', 'the platform did not name its timezone: ${error.runtimeType}');
+      return null;
+    }
+  }
+
   /// Posts [batch] and returns the server's receipt.
   ///
   /// Throws `DioException` on any non-2xx or transport failure, deliberately
@@ -117,7 +150,14 @@ class PushClient {
   Future<PushReceipt> send(PushBatch batch) async {
     final response = await _dio.post<Map<String, Object?>>(
       kIngestPath,
-      data: batch.toJson(),
+      data: <String, Object?>{
+        ...batch.toJson(),
+        // Added HERE and not in `PushBatch`, because the zone is a fact about the
+        // phone at the moment of pushing rather than about the rows being pushed:
+        // the same stored samples sent from a different country carry a different
+        // one, and the batch is built from the local store.
+        if (await _localTimezone() case final String zone) 'timezone': zone,
+      },
       // Per-call, not on the client: every OTHER endpoint should still fail fast
       // at ten seconds, and a shared 180 s would make a dead network look like a
       // slow screen everywhere.

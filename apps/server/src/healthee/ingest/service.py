@@ -47,6 +47,7 @@ from healthee.core.logging import get_logger
 from healthee.ingest.affected_nights import sample_affected_nights
 from healthee.ingest.daily_totals import upsert_daily_totals
 from healthee.ingest.models import ALLOWED_METRICS, HelioPayload, SleepIn
+from healthee.ingest.timezone_write import adopt_timezone
 from healthee.ingest.upsert import (
     build_fresh_predicate,
     epoch_to_utc,
@@ -215,6 +216,11 @@ def ingest_helio(
     owner every raw, typed, and derived row is written under; the router supplies it
     (the sentinel today, the device token's real owner from 6.4 — MULTI_USER.md §7)."""
     with tenant_connection(user_id) as conn, conn.cursor() as cur:
+        # FIRST, because everything below buckets by it: which day a sample belongs
+        # to, which nights derive, which days follow. Adopting the zone after the
+        # push was applied would leave the first push from a new zone bucketed by
+        # the old one — the same failure, one push later.
+        tz = adopt_timezone(cur, user_id, payload.timezone, tz)
         accepted, rejected = upsert_samples(cur, user_id, payload.samples)
         # Before derive, with the other raw writes: `derive/activity.py` READS these to
         # decide `steps_total` (#121). Nothing overrides a derived cell after the fact.
