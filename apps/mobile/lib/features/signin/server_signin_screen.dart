@@ -154,6 +154,19 @@ class _SignInBody extends ConsumerStatefulWidget {
   ConsumerState<_SignInBody> createState() => _SignInBodyState();
 }
 
+/// What the address field starts with when nothing is stored.
+///
+/// ⛔ **Empty on a build with no server compiled in**, which since the app started
+/// discovering its identity provider is the normal case: a published APK is aimed
+/// at nobody. `Env.apiBaseUrl` then falls back to `http://127.0.0.1:8765`, and
+/// prefilling THAT is showing somebody an answer we do not have — a real-looking
+/// address that is wrong for everyone who did not build the app, sitting in a
+/// field above a button. An empty field with a hint asks the question instead.
+///
+/// A build that WAS given `HELIO_API` still prefills it: there the address is a
+/// fact about the build rather than a guess about the reader.
+String get _suggestedAddress => Env.isUsingFallbackApi ? '' : Env.apiBaseUrl;
+
 class _SignInBodyState extends ConsumerState<_SignInBody> {
   @override
   void initState() {
@@ -212,7 +225,7 @@ class _SignInBodyState extends ConsumerState<_SignInBody> {
         // compiled-in default.
         else if (_pastingToken || !hasIdentity)
           TokenSignInForm(
-            initialUrl: session.baseUrl ?? Env.apiBaseUrl,
+            initialUrl: session.baseUrl ?? _suggestedAddress,
             enabled: !state.isBusy,
             onEdited: controller.clearFailure,
             configured: hasIdentity,
@@ -224,7 +237,7 @@ class _SignInBodyState extends ConsumerState<_SignInBody> {
           )
         else
           ServerSignInForm(
-            initialUrl: session.baseUrl ?? Env.apiBaseUrl,
+            initialUrl: session.baseUrl ?? _suggestedAddress,
             enabled: !state.isBusy,
             onEdited: controller.clearFailure,
             onUseToken: () => setState(() => _pastingToken = true),

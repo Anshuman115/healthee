@@ -203,7 +203,7 @@ class _ServerSignInFormState extends State<ServerSignInForm> {
           const SizedBox(height: SectionGap.height),
           HField(
             label: 'Server address',
-            hint: 'https:// unless it is this phone itself',
+            hint: 'https://healthee.example.com — or this phone itself',
             child: HTextField(
               controller: _url,
               enabled: widget.enabled,
