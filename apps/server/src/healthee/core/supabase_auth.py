@@ -24,6 +24,7 @@ verification failure is logged.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 from uuid import UUID
 
@@ -37,10 +38,25 @@ from healthee.core.logging import get_logger
 log = get_logger(__name__)
 
 _BEARER_PREFIX = "Bearer "
-# Pin the accepted algorithm. Passing an explicit allow-list to jwt.decode is what
-# makes an `alg=none` (or RS256→HS256 key-confusion) token fail — "none" is never
-# in this list, so PyJWT raises InvalidAlgorithmError before any claim is trusted.
-_ALLOWED_ALGS = ["HS256"]
+
+# ── the two ways a Supabase project signs a token, and why the lists are apart ──
+#
+# Supabase has moved to ASYMMETRIC signing keys: a project publishes an EC or RSA
+# public key at `/auth/v1/.well-known/jwks.json` and signs access tokens with the
+# private half. Older projects still sign HS256 with the shared
+# `SUPABASE_JWT_SECRET`, and a self-hosted GoTrue can be either. Both have to
+# verify, so both are here — but never in the same list.
+#
+# ⛔ **A single allow-list of `["HS256", "ES256", "RS256"]` is the classic key
+# confusion hole.** With a public key available, an attacker signs `alg: HS256`
+# using that public key AS THE HMAC SECRET; a verifier that accepts both families
+# against whichever key it happens to hold will check the forgery against the
+# same bytes and pass it. The defence is that the KEY SOURCE picks the algorithm
+# and the token never does: a token resolved through JWKS is verified with
+# `_ASYMMETRIC_ALGS` and nothing else, and the shared secret is only ever used
+# with `_SHARED_SECRET_ALGS`.
+_SHARED_SECRET_ALGS = ["HS256"]
+_ASYMMETRIC_ALGS = ["ES256", "RS256"]
 
 
 @dataclass(frozen=True)
@@ -111,23 +127,93 @@ def _expected_issuer(project_ref: str) -> str | None:
     return f"https://{project_ref}.supabase.co/auth/v1"
 
 
-def verify_supabase_jwt(token: str) -> dict[str, Any]:
-    """Verify a Supabase access JWT (HS256) and return its claims.
+def _jwks_url(project_ref: str) -> str:
+    """Where a project publishes the public half of its signing keys."""
+    return f"https://{project_ref}.supabase.co/auth/v1/.well-known/jwks.json"
 
-    Enforces: HMAC signature against `SUPABASE_JWT_SECRET`, presence + validity of
-    `exp`, `aud == SUPABASE_JWT_AUD`, and — when `SUPABASE_PROJECT_REF` is set —
-    `iss == https://<ref>.supabase.co/auth/v1`. Raises 401 on any failure. Pinning
-    `algorithms=["HS256"]` rejects `alg=none` and algorithm-confusion tokens.
+
+@lru_cache(maxsize=4)
+def _jwk_client(url: str) -> jwt.PyJWKClient:
+    """A cached JWKS client for `url`.
+
+    Cached because it holds the fetched key set: without this every request would
+    make an outbound HTTPS call to Supabase before it could check a signature,
+    which is a network round trip on the hot path and an availability dependency
+    on somebody else's uptime for every read this API serves.
+
+    `PyJWKClient`'s own cache is what refetches when a `kid` is not known, so a
+    rotated key is picked up on the first token that uses it rather than needing
+    a restart. `lru_cache` keys on the URL, so a project ref change makes a new
+    client rather than reusing a stale one.
+    """
+    return jwt.PyJWKClient(url, cache_keys=True, lifespan=_JWKS_LIFESPAN_S)
+
+
+# How long a fetched key set is trusted before `PyJWKClient` refreshes it.
+# Twelve hours: Supabase key rotation is a deliberate, rare operator action, and
+# an unknown `kid` triggers a refetch regardless — this bound is for a key that
+# was REVOKED rather than rotated, which is the case nothing else notices.
+_JWKS_LIFESPAN_S = 43200
+
+
+def _signing_key(token: str, project_ref: str) -> Any | None:
+    """The public key this token names, or None when JWKS cannot supply one.
+
+    None means "fall back to the shared secret" and is the honest answer for a
+    self-hosted GoTrue with no JWKS endpoint, for a project still on HS256, and
+    for a deployment with no `SUPABASE_PROJECT_REF` to build a URL from.
+    """
+    if not project_ref:
+        return None
+    try:
+        return _jwk_client(_jwks_url(project_ref)).get_signing_key_from_jwt(token).key
+    except jwt.PyJWKClientError as exc:
+        # The key set does not name this token's `kid` — an HS256 token from a
+        # project that also publishes a JWKS reaches here, and so does a
+        # genuinely unknown key. Both fall through to the shared secret, which
+        # refuses anything it cannot verify.
+        log.info("jwks lookup did not resolve a key: %s", type(exc).__name__)
+        return None
+    except Exception as exc:  # noqa: BLE001 — network/parse; must not 500
+        # A JWKS fetch is an outbound call and it can fail. It must not take the
+        # API down, and it must not authorise anything either: fall through to
+        # the shared secret, which is a real check and not a bypass.
+        log.warning("jwks fetch failed: %s", type(exc).__name__)
+        return None
+
+
+def verify_supabase_jwt(token: str) -> dict[str, Any]:
+    """Verify a Supabase access JWT and return its claims.
+
+    Enforces: a signature, presence + validity of `exp` and `sub`,
+    `aud == SUPABASE_JWT_AUD`, and — when `SUPABASE_PROJECT_REF` is set —
+    `iss == https://<ref>.supabase.co/auth/v1`. Raises 401 on any failure.
+
+    ## Two signing schemes, one at a time
+
+    A project that publishes a JWKS is verified against the PUBLIC key its token
+    names, with only the asymmetric algorithms permitted. Anything else falls to
+    the legacy shared secret with only HS256 permitted. The key source decides
+    the algorithm; the token never does — see `_SHARED_SECRET_ALGS`.
+
+    This is what `InvalidAlgorithmError` in production was: Supabase migrated
+    projects to ES256 signing keys, this function pinned HS256, and every
+    correctly signed token was refused with a 401 that read to the owner as a
+    rejected credential.
     """
     settings = get_settings()
-    secret = settings.supabase_jwt_secret
-    if not secret:  # misconfiguration fails closed, never open
-        raise unauthorized("Supabase auth is not configured")
+    key = _signing_key(token, settings.supabase_project_ref)
+    algorithms = _ASYMMETRIC_ALGS
+    if key is None:
+        key = settings.supabase_jwt_secret
+        algorithms = _SHARED_SECRET_ALGS
+        if not key:  # misconfiguration fails closed, never open
+            raise unauthorized("Supabase auth is not configured")
     try:
         return jwt.decode(
             token,
-            secret,
-            algorithms=_ALLOWED_ALGS,
+            key,
+            algorithms=algorithms,
             audience=settings.supabase_jwt_aud,
             issuer=_expected_issuer(settings.supabase_project_ref),
             options={"require": ["exp", "sub"]},
