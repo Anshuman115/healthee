@@ -394,6 +394,17 @@ CLAUDE.md's "ONE canonical definition" applied to a recommendation rather than a
   (CHALLENGES.md §2.1 — a number you hand over is a number that can be attributed).
   *Still not present:* live progress, which `query_metric` can fetch and which the
   coach may never adapt anyway (CHALLENGES.md §5.2).
+- **Roadmap C1/C2 added the fourth and fifth blocks** (`coach_context`): the open
+  commitments they made to the coach, and — for the ones they said they kept — what
+  the named metric did either side (`insights/commitment_outcome.py`). That completes
+  the outcome ledger's three sources: correlations, challenges, commitments, all three
+  cited `[personal_finding:…]` and all three using the same estimator and the same
+  `ok`/`insufficient_data` words. The commitment source is the weakest claim of the
+  three, so it is held to the *strictest* reading: the challenge ledger's own
+  `MIN_COMPARISON_DAYS`, plus a gate that publishes nothing until the estimator's
+  trailing window clears the commitment date. **Nothing here observes adherence** —
+  `kept` is what the person said, and the prompt says so in the block itself so the
+  coach cannot infer a commitment was kept because a number moved.
 - **The pivot names the INSTRUMENT, not just the number (#120).** `context._recent_daily`'s
   compact per-day table handed the model `vo2max_estimate` as a bare number, so the coach
   could say "your fitness is *measured* at 39.6" about a value the Jurca questionnaire

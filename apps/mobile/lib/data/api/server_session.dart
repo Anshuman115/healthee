@@ -145,6 +145,47 @@ class ServerSessionRepository {
     required String email,
     required String password,
     String? deviceLabel,
+  }) => _connect(
+    url: url,
+    email: email,
+    password: password,
+    deviceLabel: deviceLabel,
+    create: false,
+  );
+
+  /// Creates the account, then does everything [signIn] does.
+  ///
+  /// The ONLY difference is the first call. Everything after it — the server
+  /// check that trips the invite gate, the mint, the write — is shared, because
+  /// a new owner and a returning one need exactly the same things to be true
+  /// before this phone can claim to be signed in.
+  ///
+  /// ⚠ Creating an account here does NOT mean this server will serve it. The
+  /// identity provider and the deployment are separate gates and the second one
+  /// is ours: an email that is not on `SIGNUP_ALLOWLIST` gets a real Supabase
+  /// account and a 403 from `/api/*`, reported as [ServerRefusedThisAccount].
+  /// That is the design — `MULTI_USER.md` section 4.4b — and not a bug to route
+  /// around: the server is the trust boundary, never a dashboard toggle.
+  Future<ServerUrl> createAccount({
+    required String url,
+    required String email,
+    required String password,
+    String? deviceLabel,
+  }) => _connect(
+    url: url,
+    email: email,
+    password: password,
+    deviceLabel: deviceLabel,
+    create: true,
+  );
+
+  /// Proves an identity — new or returning — and connects this phone to [url].
+  Future<ServerUrl> _connect({
+    required String url,
+    required String email,
+    required String password,
+    required String? deviceLabel,
+    required bool create,
   }) async {
     final address = ServerUrl.parse(url);
     final auth = identity;
@@ -152,7 +193,12 @@ class ServerSessionRepository {
     if (auth == null || minter == null) {
       throw const ServerSignInException(IdentityNotConfigured());
     }
-    await auth.signIn(email: email.trim(), password: password);
+    final trimmed = email.trim();
+    if (create) {
+      await auth.signUp(email: trimmed, password: password);
+    } else {
+      await auth.signIn(email: trimmed, password: password);
+    }
     final jwt = await auth.accessToken();
     if (jwt == null) {
       // Signing in and immediately having no token is not a credential problem;

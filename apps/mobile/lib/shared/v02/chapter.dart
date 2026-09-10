@@ -154,6 +154,9 @@ class _NavButton extends StatelessWidget {
       button: true,
       child: GestureDetector(
         onTap: target.onJump,
+        // Border only, no fill: without this the tappable part is the outline
+        // and the letters, with a hole through the middle of the control.
+        behavior: HitTestBehavior.opaque,
         child: Container(
           padding: ChapterNav.buttonPadding,
           decoration: BoxDecoration(

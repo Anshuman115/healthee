@@ -85,6 +85,7 @@ class BirthdayField extends StatelessWidget {
         label: 'Date of birth · $shown',
         child: GestureDetector(
           onTap: enabled ? () => _pick(context) : null,
+          behavior: HitTestBehavior.opaque,
           child: Container(
             constraints: const BoxConstraints(minHeight: FieldBox.minHeight),
             padding: const EdgeInsets.all(FieldBox.padding),

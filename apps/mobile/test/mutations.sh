@@ -14,14 +14,22 @@
 # it actually changed something — a patch that silently matched nothing runs the
 # unmutated suite and reports a pass, which reads exactly like a working guard.
 #
-# Usage:  bash test/mutations.sh          (from apps/mobile)
+# Usage:  bash test/mutations.sh              (from apps/mobile — every mutation)
+#         bash test/mutations.sh <substring>  (only the ones whose NAME matches)
+#
+# The filter is for iterating on a mutation you just wrote; CI runs the whole
+# file. It skips by name only — a filtered run reports what it skipped, because a
+# run that quietly did four of a hundred and forty-seven reads like a green suite.
+#
 # Exit 0  every mutation was caught.  Exit 1  at least one survived.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
+ONLY="${1:-}"
 PASS=0
 FAIL=0
+SKIPPED=0
 
 # patch <file> <old> <new> — replaces exactly once, or aborts.
 patch() {
@@ -41,6 +49,10 @@ PY
 mutate() {
   local name="$1" target="$2" file="$3"
   shift 3
+  if [ -n "$ONLY" ] && [[ "$name" != *"$ONLY"* ]]; then
+    SKIPPED=$((SKIPPED + 1))
+    return
+  fi
   echo "── $name"
   cp "$file" "$file.orig"
   while [ "$#" -ge 2 ]; do
@@ -3228,9 +3240,9 @@ mutate 'a rejected push signs the owner out of the app' "$GUARD_TEST" "$INTERCEP
 # without the owner's server ever being told there was an attempt.
 mutate 'the server is asked before the password is proved' \
   "$IDENTITY_TEST" "$IDENTITY_SESSION" \
-  '    await auth.signIn(email: email.trim(), password: password);' \
+  '    final trimmed = email.trim();' \
   '    await probe.verify(url: address, token: '"'"'unproven'"'"');
-    await auth.signIn(email: email.trim(), password: password);'
+    final trimmed = email.trim();'
 
 # A session held only in memory is an owner signed out by every restart.
 mutate 'the Supabase session is never persisted' "$IDENTITY_TEST" \
@@ -3242,6 +3254,59 @@ mutate 'the Supabase session is never persisted' "$IDENTITY_TEST" \
   ''
 
 
+# Signing in with an email that has no account, and creating one for an email
+# that already has one, are OPPOSITE mistakes with opposite remedies. One call
+# apart, and the wrong one leaves the owner retrying a create that can never
+# succeed instead of switching to sign in.
+mutate 'creating an account signs in instead' "$IDENTITY_TEST" "$IDENTITY_SESSION" \
+  '    if (create) {
+      await auth.signUp(email: trimmed, password: password);
+    } else {
+      await auth.signIn(email: trimmed, password: password);
+    }' \
+  '    await auth.signIn(email: trimmed, password: password);'
+
+# A project with email confirmation on returns a user and NO session. Treated as
+# success, the app stores nothing and claims to be signed in; treated as a
+# refusal, the owner resets a password that was just accepted.
+mutate 'an unconfirmed signup is reported as success' "$IDENTITY_TEST" \
+  lib/data/auth/identity_client.dart \
+  '    if (response.session == null) {
+      throw const ServerSignInException(IdentityNeedsConfirmation());
+    }' \
+  ''
+
+# ⛔ The Zepp password must never become the Healthee one. Two services, two
+# passwords — reuse means one breach opens both, which is what makes credential
+# stuffing work. The email is a convenience; the password is not offered at all.
+mutate 'the sign-in form is handed a password to prefill' \
+  test/signin/zepp_prefill_test.dart \
+  lib/features/signin/server_signin_screen.dart \
+  '    final email = await ref.read(credentialsProvider).zeppEmail();' \
+  '    final email = await ref.read(credentialsProvider).zeppPassword();'
+
+
+# ⛔ The 44 px is decoration without this line, and NOTHING about that is visible
+# — the box is the right size, the screenshot is right, and a widget test that
+# taps `find.text(...)` passes because tapping the text is what still worked. It
+# shipped four times before the owner reported the links as hard to press.
+mutate 'a link defers hit-testing to its painted pixels' \
+  test/core/tap_target_gate_test.dart lib/shared/v02/buttons.dart \
+  '        behavior: HitTestBehavior.opaque,
+        child: Opacity(' \
+  '        child: Opacity('
+
+# And the constraint itself, which is the other half: opaque over a 17 px box is
+# an honest tap target for a control that is too small.
+mutate 'the 44 px link constraint is dropped' \
+  test/core/tap_target_gate_test.dart lib/shared/v02/buttons.dart \
+  '  /// `.text-button { min-height: 44px }`.
+  static const double minHeight = 44;' \
+  '  /// `.text-button { min-height: 44px }`.
+  static const double minHeight = 0;'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
+[ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"
 [ "$FAIL" -eq 0 ]

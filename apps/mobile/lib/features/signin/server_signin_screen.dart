@@ -44,6 +44,7 @@ import 'package:healthee/core/env.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
+import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/auth/identity_providers.dart';
 import 'package:healthee/features/signin/server_signin_controller.dart';
@@ -154,9 +155,32 @@ class _SignInBody extends ConsumerStatefulWidget {
 }
 
 class _SignInBodyState extends ConsumerState<_SignInBody> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_readKnownEmail());
+  }
+
+  /// Fills [_knownEmail] from the keystore, if the strap has ever been paired.
+  Future<void> _readKnownEmail() async {
+    final email = await ref.read(credentialsProvider).zeppEmail();
+    if (!mounted || email == null || email.isEmpty) {
+      return;
+    }
+    setState(() => _knownEmail = email);
+  }
+
   /// True once the owner has asked to point at a different server, so the form
   /// replaces the summary without the session having been cleared first.
   bool _replacing = false;
+
+  /// The Zepp account's email, once read, so the form can prefill it.
+  ///
+  /// Read here rather than through `rememberedZeppAccount()`, which returns the
+  /// password beside it: this screen has no use for that password and pulling it
+  /// into memory to ignore it is how a secret ends up somewhere it was never
+  /// needed. One key, one read.
+  String? _knownEmail;
 
   /// True once the owner has asked for the ⛔ transitional pasted-token form.
   ///
@@ -204,8 +228,16 @@ class _SignInBodyState extends ConsumerState<_SignInBody> {
             enabled: !state.isBusy,
             onEdited: controller.clearFailure,
             onUseToken: () => setState(() => _pastingToken = true),
-            onSubmit: (url, email, password) => unawaited(
-              _submit(url: url, email: email, password: password),
+            // The Zepp email when the strap is paired — the owner typed it on
+            // this phone already. Never the Zepp password: see the form.
+            initialEmail: _knownEmail,
+            onSubmit: (url, email, password, {required create}) => unawaited(
+              _submit(
+                url: url,
+                email: email,
+                password: password,
+                create: create,
+              ),
             ),
           ),
         if (state.failure case final failure?) ...<Widget>[
@@ -225,10 +257,17 @@ class _SignInBodyState extends ConsumerState<_SignInBody> {
     required String url,
     required String email,
     required String password,
+    required bool create,
   }) async {
     final controller = ref.read(serverSignInControllerProvider.notifier);
     await _land(
-      await controller.signIn(url: url, email: email, password: password),
+      create
+          ? await controller.createAccount(
+              url: url,
+              email: email,
+              password: password,
+            )
+          : await controller.signIn(url: url, email: email, password: password),
     );
   }
 

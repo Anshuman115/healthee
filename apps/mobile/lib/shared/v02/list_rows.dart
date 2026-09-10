@@ -177,7 +177,11 @@ class V02ListRow extends StatelessWidget {
         : Semantics(
             button: true,
             label: detail == null ? title : '$title · $detail',
-            child: GestureDetector(onTap: onOpen, child: row),
+            child: GestureDetector(
+              onTap: onOpen,
+              behavior: HitTestBehavior.opaque,
+              child: row,
+            ),
           );
   }
 }

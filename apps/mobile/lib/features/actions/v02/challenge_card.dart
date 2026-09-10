@@ -137,6 +137,7 @@ class ChallengeCard extends StatelessWidget {
         child: ExcludeSemantics(
           child: GestureDetector(
             onTap: onOpen,
+            behavior: HitTestBehavior.opaque,
             child: SurfaceCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

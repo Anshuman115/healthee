@@ -44,6 +44,22 @@ class ServerSignInController extends _$ServerSignInController {
     });
   }
 
+  /// Creates an account with [email] and [password], then connects this phone.
+  ///
+  /// Separate from [signIn] rather than a flag on it, because the two produce
+  /// different failures and the screen has to say which: signing in with an
+  /// email that has no account, and creating one for an email that already has
+  /// one, are opposite mistakes with opposite remedies.
+  Future<bool> createAccount({
+    required String url,
+    required String email,
+    required String password,
+  }) async {
+    return _run('Creating your account…', (repository) async {
+      await repository.createAccount(url: url, email: email, password: password);
+    });
+  }
+
   /// ⛔ TRANSITIONAL — checks a PASTED [token] against [url] and stores it.
   ///
   /// The shared-token path. It goes when that secret does; see

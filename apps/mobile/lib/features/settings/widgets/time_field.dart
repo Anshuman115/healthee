@@ -58,6 +58,7 @@ class TimeField extends StatelessWidget {
         label: '$label · ${time.format(context)}',
         child: GestureDetector(
           onTap: change == null ? null : () => _pick(context, change),
+          behavior: HitTestBehavior.opaque,
           child: Container(
             constraints: const BoxConstraints(minHeight: FieldBox.minHeight),
             padding: const EdgeInsets.all(FieldBox.padding),
