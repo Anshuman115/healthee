@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/credentials.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/journal/journal_repository.dart';
 import 'package:healthee/data/journal/log_draft.dart';
 import 'package:healthee/data/journal/log_kind.dart';
@@ -33,6 +34,7 @@ void main() {
     await credentials.setServerSession(
       baseUrl: 'https://test.example',
       token: 'a',
+      kind: StoredCredentialKind.shared,
     );
     repository = JournalRepository(
       dio,
@@ -66,6 +68,7 @@ void main() {
     await credentials.setServerSession(
       baseUrl: 'https://test.example',
       token: 'b',
+      kind: StoredCredentialKind.shared,
     );
     await expectLater(
       repository.fasting(end: false),

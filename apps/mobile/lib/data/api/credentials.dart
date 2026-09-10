@@ -85,6 +85,9 @@ class Credentials {
       baseUrl: baseUrl,
       token: token,
       cacheScope: 'legacy',
+      // A pre-session-format phone can only be holding the shared token: the
+      // device-token mint did not exist when these keys were last written.
+      kind: StoredCredentialKind.shared,
     );
   }
 
@@ -98,8 +101,9 @@ class Credentials {
   Future<void> setServerSession({
     required String baseUrl,
     required String token,
+    required StoredCredentialKind kind,
   }) async {
-    final session = StoredServerSession.create(baseUrl, token);
+    final session = StoredServerSession.create(baseUrl, token, kind: kind);
     await _storage.write(key: _sessionKey, value: session.encode());
   }
 
@@ -164,17 +168,29 @@ class Credentials {
 }
 
 /// The app's one [Credentials] instance.
+/// The app's ONE keystore handle.
+///
+/// Its own provider because two things now write owner secrets — [Credentials]
+/// for the strap, the server session and the Zepp account, and
+/// `data/auth/identity_store.dart` for the Supabase session that `gotrue` owns.
+/// Two `FlutterSecureStorage` instances with different options is two different
+/// keychains on iOS, and a value written under one is simply absent under the
+/// other. One handle, one set of options, one place to change them.
 @Riverpod(keepAlive: true)
-Credentials credentials(Ref ref) {
-  return const Credentials(
-    KeystoreSecretStore(
-      FlutterSecureStorage(
-        // Android encrypts by default in v10 (the old `encryptedSharedPreferences`
-        // flag is deprecated and ignored). `first_unlock` on iOS so a background
-        // sync after a reboot can still read the token, without allowing access
-        // while the device is locked for the first time.
-        iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-      ),
+SecretStore secretStore(Ref ref) {
+  return const KeystoreSecretStore(
+    FlutterSecureStorage(
+      // Android encrypts by default in v10 (the old `encryptedSharedPreferences`
+      // flag is deprecated and ignored). `first_unlock` on iOS so a background
+      // sync after a reboot can still read the token, without allowing access
+      // while the device is locked for the first time.
+      iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
     ),
   );
+}
+
+/// The app's [Credentials], over the shared keystore.
+@Riverpod(keepAlive: true)
+Credentials credentials(Ref ref) {
+  return Credentials(ref.watch(secretStoreProvider));
 }

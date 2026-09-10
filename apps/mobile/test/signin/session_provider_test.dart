@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/api/api_client.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/coach/coach_answer.dart';
 import 'package:healthee/data/coach/coach_client.dart';
 import 'package:healthee/data/models/entitlement.dart';
@@ -33,6 +34,7 @@ void main() {
       await credentials.setServerSession(
         baseUrl: 'https://test.example',
         token: 'owner-a',
+        kind: StoredCredentialKind.shared,
       );
       final clients = <PendingCoach>[];
       final container = ProviderContainer(
@@ -69,6 +71,7 @@ void main() {
       await credentials.setServerSession(
         baseUrl: 'https://test.example',
         token: 'owner-b',
+        kind: StoredCredentialKind.shared,
       );
       container.invalidate(serverSessionProvider);
       await container.read(serverSessionProvider.future);

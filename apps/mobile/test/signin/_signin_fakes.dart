@@ -16,6 +16,8 @@ import 'package:dio/dio.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/server_probe.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/auth/device_token_client.dart';
+import 'package:healthee/data/auth/identity_client.dart';
 
 import '../pairing/_pairing_fakes.dart';
 
@@ -49,10 +51,23 @@ class ServerReply {
 /// A dio adapter that answers with one reply, and records every request.
 class ScriptedServer implements HttpClientAdapter {
   /// [reply] answers everything; [failWith] is thrown instead when set.
-  ScriptedServer({this.reply = const ServerReply.entitlement(), this.failWith});
+  ///
+  /// [replies] answers each request IN TURN, for a flow that makes more than one
+  /// — an identity sign-in verifies and then mints, and the case worth writing
+  /// is the one where the first succeeds and the second does not. The last entry
+  /// answers every request past the end of the list, so a script only has to
+  /// name the calls it cares about.
+  ScriptedServer({
+    this.reply = const ServerReply.entitlement(),
+    this.failWith,
+    this.replies,
+  });
 
   /// What to answer.
   ServerReply reply;
+
+  /// One answer per request, in order. Null uses [reply] for all of them.
+  final List<ServerReply>? replies;
 
   /// A transport failure to throw instead of answering.
   DioExceptionBuilder? failWith;
@@ -78,7 +93,24 @@ class ScriptedServer implements HttpClientAdapter {
     if (fail != null) {
       throw fail(options);
     }
-    return ResponseBody.fromString(reply.body, reply.status);
+    final scripted = replies;
+    if (scripted != null && scripted.isNotEmpty) {
+      reply = scripted[sent.length > scripted.length
+          ? scripted.length - 1
+          : sent.length - 1];
+    }
+    // **With its content type.** Without one dio's JSON transformer leaves the
+    // body a String, and a client that asks for `ResponseType.json` gets a
+    // String where it expects a Map — so every parse branch reports "a reply
+    // this app could not read" against a reply that was perfectly well formed.
+    // The probe never noticed because it asks for plain text on purpose.
+    return ResponseBody.fromString(
+      reply.body,
+      reply.status,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>[Headers.jsonContentType],
+      },
+    );
   }
 
   @override
@@ -92,13 +124,21 @@ ServerProbe probeWith(ScriptedServer server) {
 }
 
 /// A repository over a map-backed keystore and a scripted server.
+///
+/// [identity] and [devices] default to null — the shape of a build with no
+/// identity provider, which is exactly what the pasted-token path is for. The
+/// identity sign-in has its own fixtures in `identity_signin_test.dart`.
 ServerSessionRepository repositoryWith(
   FakeSecretStore store,
-  ScriptedServer server,
-) {
+  ScriptedServer server, {
+  IdentityClient? identity,
+  DeviceTokenClient? devices,
+}) {
   return ServerSessionRepository(
     credentials: Credentials(store),
     probe: probeWith(server),
+    identity: identity,
+    devices: devices,
   );
 }
 

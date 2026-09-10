@@ -49,6 +49,45 @@ abstract final class Env {
     defaultValue: 'http://127.0.0.1:8765',
   );
 
+  /// The owner's Supabase project URL, e.g. `https://abcd.supabase.co`.
+  ///
+  /// Supabase is this product's identity provider and **nothing else**: it signs
+  /// the access JWT, the server verifies it, and no part of this app ever talks
+  /// to Supabase's database, storage or realtime. That is why the dependency is
+  /// `gotrue` alone and not `supabase_flutter`, which brings twenty-four
+  /// packages to reach three endpoints.
+  ///
+  /// Blank — the default — means **this build has no sign-in**, and the sign-in
+  /// screen says so rather than offering a form that cannot work. A self-hoster
+  /// who has not created a Supabase project is in exactly that state, and it is
+  /// not a failure: they still pair a strap and read every screen from the local
+  /// store, which is the strap-only mode this app has always supported.
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+
+  /// The Supabase project's **anon** key. Publishable by design.
+  ///
+  /// ⚠ The `anon` key, never the `service_role` key. The anon key identifies the
+  /// project and authorises nothing on its own — it is meant to ship inside
+  /// clients, and Supabase's own docs say so. The service-role key bypasses
+  /// every policy and belongs only on a server; the backend keeps its own under
+  /// `SUPABASE_SERVICE_ROLE_KEY` and this app must never see it.
+  ///
+  /// This is the one place a `String.fromEnvironment` holds something that looks
+  /// like a secret and is not one, so it is worth the paragraph: the rule this
+  /// file opens with — a define may describe the build, never identify the owner
+  /// — still holds. The project is the build. The owner is the session, and the
+  /// session lives in the keystore.
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+  );
+
+  /// True when this build was given a Supabase project to sign in against.
+  ///
+  /// Both or neither: half a configuration is a form that submits into a 400,
+  /// and the screen would report the owner's password as the problem.
+  static bool get hasIdentityProvider =>
+      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
   /// Where basemap tiles come from, when that is not [apiBaseUrl].
   ///
   /// Blank — the default and the normal case — means the app asks its OWN

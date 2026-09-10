@@ -48,13 +48,13 @@ from fastapi import Depends, Header
 
 from healthee.core.config import get_settings
 from healthee.core.db import transaction
+from healthee.core.device_token import resolve_device_token
 from healthee.core.logging import get_logger
 from healthee.core.supabase_auth import (
     RequestUser,
     bearer_token,
     current_user,
     refuse_unless_active,
-    resolve_device_token,
     unauthorized,
 )
 from healthee.core.tenancy import SENTINEL_USER_ID

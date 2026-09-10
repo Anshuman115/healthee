@@ -133,6 +133,7 @@ dependencies:
 
   crypto: any
   refresh_rate: ^1.0.2
+  gotrue: ^2.27.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -152,6 +153,8 @@ dev_dependencies:
   # ── lints ────────────────────────────────────────────────────────────────
   flutter_lints: ^6.0.0
   shared_preferences_platform_interface: ^2.4.2
+  http: ^1.6.0
+  flutter_launcher_icons: ^0.14.4
   # Neither custom_lint nor riverpod_lint is here, and that is a reported
   # deviation from the brief rather than an omission.
   #
@@ -164,6 +167,30 @@ dev_dependencies:
   # measured, and does not work on Flutter 3.44.7 — `flutter analyze` silently
   # reports nothing from it and `dart analyze` hangs. analysis_options.yaml
   # documents the experiment and how to re-check it after an SDK bump.
+
+# ── the launcher icon ───────────────────────────────────────────────────────
+# Ported from the legacy app, which is where this mark was made: a lowercase `h`
+# whose bowl resolves into a heart, green→teal, on near-black. The DARK logo, on
+# purpose — it is the one that survives both launcher themes, because the ground
+# it sits on is part of the artwork rather than something the launcher supplies.
+#
+# `adaptive_icon_background` is the same near-black as the artwork's own ground
+# (`#0c0b0e`), so the Android 8+ mask cuts the shape out of one continuous
+# colour rather than revealing a seam where the square ends.
+#
+# ⚠ Regenerating is a MANUAL step, not part of the build: `dart run
+# flutter_launcher_icons` rewrites `android/app/src/main/res/mipmap-*` and those
+# files are committed. Run it only when the artwork changes.
+flutter_launcher_icons:
+  android: true
+  # iOS needs a 1024 square with no alpha and no rounded corners, and there is
+  # no iOS build of this app yet. Turning it on would generate an asset catalogue
+  # nothing consumes.
+  ios: false
+  image_path: "assets/icon/healthee.png"
+  adaptive_icon_background: "#0c0b0e"
+  adaptive_icon_foreground: "assets/icon/healthee.png"
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true

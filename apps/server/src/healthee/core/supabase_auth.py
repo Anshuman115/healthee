@@ -13,14 +13,16 @@ Phase 6.4b wired this to every `/api/*` router through `core.request_auth`, whic
 layers the transitional legacy-shared-token branch on top of `current_user`. The
 primitives here stay Supabase-only: this module never knows about the shared token.
 
-Security note: never log the raw JWT, the signing secret, or a raw device token —
-only the *type* of a verification failure is logged.
+The credential this server MINTS rather than verifies — the long-lived device
+token `/ingest/*` takes — is `core/device_token.py`. The two are deliberately
+apart: this module never issues anything, and that one never checks a signature.
+
+Security note: never log the raw JWT or the signing secret — only the *type* of a
+verification failure is logged.
 """
 
 from __future__ import annotations
 
-import hashlib
-import secrets
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -39,7 +41,6 @@ _BEARER_PREFIX = "Bearer "
 # makes an `alg=none` (or RS256→HS256 key-confusion) token fail — "none" is never
 # in this list, so PyJWT raises InvalidAlgorithmError before any claim is trusted.
 _ALLOWED_ALGS = ["HS256"]
-_DEVICE_TOKEN_BYTES = 32  # secrets.token_urlsafe entropy — ~43 url-safe chars
 
 
 @dataclass(frozen=True)
@@ -226,53 +227,3 @@ def current_user(authorization: str | None = Header(default=None)) -> RequestUse
     user_id = _claim_uuid(claims)
     email = claims.get("email")
     return _provision_user(user_id, email if isinstance(email, str) else None)
-
-
-def _hash_token(raw: str) -> str:
-    """SHA-256 hex of a device token — the only form we ever store or compare."""
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-def mint_device_token(user_id: UUID, label: str | None) -> tuple[str, UUID]:
-    """Mint a long-lived device ingest token for `user_id`; store only its hash.
-
-    Returns `(raw token, the TOKEN's row id)`. The raw value is returned ONCE — it is
-    never persisted and cannot be recovered.
-
-    The id is returned because it did not used to be, and `api/routers/auth.py` filled
-    the `id` field of its "device token" response with the **user's** id instead: not
-    wrong data, but the wrong subject, and the reason a revocation endpoint had nothing
-    to address a token by. `device_token.id` is a `gen_random_uuid()` primary key the
-    caller otherwise never learns.
-    """
-    raw = secrets.token_urlsafe(_DEVICE_TOKEN_BYTES)
-    with transaction() as cur:
-        cur.execute(
-            "INSERT INTO device_token (user_id, token_hash, label) VALUES (%s, %s, %s) "
-            "RETURNING id",
-            (str(user_id), _hash_token(raw), label),
-        )
-        row = cur.fetchone()
-    if row is None:  # INSERT ... RETURNING always yields the row it just wrote
-        raise RuntimeError("device_token insert returned no id")
-    token_id = row[0] if isinstance(row[0], UUID) else UUID(str(row[0]))
-    return raw, token_id
-
-
-def resolve_device_token(raw: str) -> UUID | None:
-    """Resolve a raw device token to its owner UUID, touching `last_seen`.
-
-    Returns None for an unknown/blank token — the caller distinguishes "no match"
-    (None) from a successful lookup (a UUID).
-    """
-    if not raw:
-        return None
-    with transaction() as cur:
-        cur.execute(
-            "UPDATE device_token SET last_seen = now() WHERE token_hash = %s RETURNING user_id",
-            (_hash_token(raw),),
-        )
-        row = cur.fetchone()
-    if row is None:
-        return None
-    return row[0] if isinstance(row[0], UUID) else UUID(str(row[0]))

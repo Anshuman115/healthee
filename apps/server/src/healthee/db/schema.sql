@@ -442,8 +442,13 @@ CREATE TABLE IF NOT EXISTS device_token (
   token_hash  TEXT         NOT NULL,                  -- SHA-256 hex of the raw token
   label       TEXT,
   last_seen   TIMESTAMPTZ,
+  -- NULL means live (0020). A revoked token keeps its row so `last_seen` can
+  -- answer "was it used after I revoked it?" — see the migration.
+  revoked_at  TIMESTAMPTZ,
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+-- Whole-table on purpose: uniqueness here is about SECRETS, not live credentials.
+-- Narrowed to un-revoked rows it would let a revoked hash be re-minted.
 CREATE UNIQUE INDEX IF NOT EXISTS device_token_hash_idx ON device_token (token_hash);
 
 -- ── subscription (0011_subscription) ───────────────────────────────────────

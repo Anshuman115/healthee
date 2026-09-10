@@ -3158,6 +3158,90 @@ mutate 'a thinned drawing stops saying it was thinned' "$ROUTE_TEST" "$ROUTE_SEC
   '  if (!route.pointsDecimated) {' \
   '  if (true) {'
 
+# ── the two credentials, and the 401 that ends a session ────────────────────
+#
+# The server accepts each of these on exactly ONE path — a Supabase JWT on
+# `/api/*`, a device token on `/ingest/*` — so a mis-route is not a style
+# question. Sending the device token to `/api/*` is a 401 the app would replay
+# with a credential that cannot work; sending the hour-long JWT to `/ingest/*`
+# is a background sync that stops overnight and blames the network.
+INTERCEPTORS=lib/data/api/interceptors.dart
+STORED_SESSION=lib/data/api/stored_server_session.dart
+IDENTITY_SESSION=lib/data/api/server_session.dart
+ROUTING_TEST=test/signin/credential_routing_test.dart
+GUARD_TEST=test/signin/session_guard_test.dart
+IDENTITY_TEST=test/signin/identity_signin_test.dart
+
+mutate 'the ingest push starts carrying the JWT' "$ROUTING_TEST" "$INTERCEPTORS" \
+  '    if (path.startsWith(ingestPrefix)) {
+      return session.token;
+    }' \
+  ''
+
+mutate 'a device token is sent to /api/*' "$ROUTING_TEST" "$INTERCEPTORS" \
+  '    return _identity?.accessToken();' \
+  '    return await _identity?.accessToken() ?? session.token;'
+
+# The transitional shape, dropped: an owner mid-migration is signed out of
+# `/api/*` by an upgrade, with nothing on screen saying why.
+mutate 'the shared token stops being accepted on /api/*' "$ROUTING_TEST" "$INTERCEPTORS" \
+  '    if (session.kind == StoredCredentialKind.shared) {
+      return session.token;
+    }' \
+  ''
+
+# A record written before `kind` existed can only hold the shared token — the
+# mint did not exist then. Read as a device token, those phones stop sending the
+# one credential they have.
+mutate 'a legacy stored session is read as a device token' \
+  "$ROUTING_TEST" "$STORED_SESSION" \
+  "      kind: data['kind'] == 'device'
+          ? StoredCredentialKind.device
+          : StoredCredentialKind.shared," \
+  '      kind: StoredCredentialKind.device,'
+
+mutate 'a minted device token is filed as the shared one' \
+  "$ROUTING_TEST" "$IDENTITY_SESSION" \
+  '      kind: StoredCredentialKind.device,' \
+  '      kind: StoredCredentialKind.shared,'
+
+# C4. A 401 that does not end the session is a dead credential replayed on every
+# screen load and every background sync, for ever, with no prompt to sign in.
+mutate 'a 401 stops ending the session' "$GUARD_TEST" "$INTERCEPTORS" \
+  '    if (status == 401 && !path.startsWith(ServerSessionInterceptor.ingestPrefix)) {' \
+  '    if (false) {'
+
+# 403 is an ANSWER — a suspension, or a paywall. Signing the owner out over it
+# replaces an accurate message with a login screen that changes nothing.
+mutate 'a 403 signs the owner out too' "$GUARD_TEST" "$INTERCEPTORS" \
+  '    if (status == 401 && !path.startsWith(ServerSessionInterceptor.ingestPrefix)) {' \
+  '    if ((status == 401 || status == 403) &&
+        !path.startsWith(ServerSessionInterceptor.ingestPrefix)) {'
+
+# A push runs headless in a background isolate: there is nobody to prompt, and a
+# revoked INGEST token must not sign the owner out of the app on that phone.
+mutate 'a rejected push signs the owner out of the app' "$GUARD_TEST" "$INTERCEPTORS" \
+  '    if (status == 401 && !path.startsWith(ServerSessionInterceptor.ingestPrefix)) {' \
+  '    if (status == 401) {'
+
+# The order is the design: the identity provider answers a wrong password
+# without the owner's server ever being told there was an attempt.
+mutate 'the server is asked before the password is proved' \
+  "$IDENTITY_TEST" "$IDENTITY_SESSION" \
+  '    await auth.signIn(email: email.trim(), password: password);' \
+  '    await probe.verify(url: address, token: '"'"'unproven'"'"');
+    await auth.signIn(email: email.trim(), password: password);'
+
+# A session held only in memory is an owner signed out by every restart.
+mutate 'the Supabase session is never persisted' "$IDENTITY_TEST" \
+  lib/data/auth/identity_client.dart \
+  '    await _secrets.write(
+      key: kIdentitySessionKey,
+      value: jsonEncode(session.toJson()),
+    );' \
+  ''
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$FAIL" -eq 0 ]

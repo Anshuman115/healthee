@@ -6,6 +6,7 @@ import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/api/account_api.dart';
 import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/credentials.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/profile/health_profile.dart';
 import 'package:healthee/data/profile/profile_repository.dart';
 import 'package:healthee/features/profile/profile_screen.dart';
@@ -24,6 +25,7 @@ void main() {
     await credentials.setServerSession(
       baseUrl: 'https://test.example',
       token: 'owner-a',
+      kind: StoredCredentialKind.shared,
     );
     dio = Dio(BaseOptions(baseUrl: 'https://test.example'));
     dio.interceptors.add(
@@ -70,6 +72,7 @@ void main() {
       await credentials.setServerSession(
         baseUrl: 'https://test.example',
         token: 'owner-b',
+        kind: StoredCredentialKind.shared,
       );
       await expectLater(
         repository.save(name: 'Owner A', heightCm: 176, sex: 'male'),

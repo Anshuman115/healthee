@@ -39,8 +39,8 @@ from healthee.core import db as db_module
 from healthee.core import request_auth
 from healthee.core.config import get_settings
 from healthee.core.db import transaction
+from healthee.core.device_token import mint_device_token
 from healthee.core.request_auth import CurrentUser, IngestUser
-from healthee.core.supabase_auth import mint_device_token
 from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 

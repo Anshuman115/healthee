@@ -5,12 +5,12 @@
 /// ServerSignInException` is the only catch and it always sets
 /// [ServerSignInState.failure], so "the button did nothing" is not reachable.
 ///
-/// ## The token passes through and is not kept
+/// ## The credentials pass through and are not kept
 ///
-/// [signIn] takes it as a parameter, hands it to the repository, and returns.
-/// It is never assigned to a field and never put in the state — see
-/// `server_signin_state.dart`. The repository is what decides whether it is
-/// stored, and it only stores one the server accepted.
+/// [signIn] takes the password as a parameter, hands it to the repository, and
+/// returns. It is never assigned to a field and never put in the state — see
+/// `server_signin_state.dart`. The repository decides what is stored, and it
+/// stores only a credential the server itself issued.
 library;
 
 import 'package:healthee/data/api/server_session.dart';
@@ -26,17 +26,45 @@ class ServerSignInController extends _$ServerSignInController {
   @override
   ServerSignInState build() => const ServerSignInState();
 
-  /// Checks [token] against [url] and, only if the server accepts it, stores it.
+  /// Signs in with an email and a password, and mints this device's token.
   ///
   /// Returns true when the sign-in landed, so the screen can leave without
   /// having to re-derive that from the state it just published.
-  Future<bool> signIn({required String url, required String token}) async {
-    state = state.working('Checking with your server…');
+  ///
+  /// The busy label names the step, because these are three network calls to two
+  /// different services and a single "Signing in…" over ten seconds tells the
+  /// owner nothing about which one is slow.
+  Future<bool> signIn({
+    required String url,
+    required String email,
+    required String password,
+  }) async {
+    return _run('Signing in…', (repository) async {
+      await repository.signIn(url: url, email: email, password: password);
+    });
+  }
+
+  /// ⛔ TRANSITIONAL — checks a PASTED [token] against [url] and stores it.
+  ///
+  /// The shared-token path. It goes when that secret does; see
+  /// `data/api/server_session.dart`.
+  Future<bool> signInWithToken({
+    required String url,
+    required String token,
+  }) async {
+    return _run('Checking with your server…', (repository) async {
+      await repository.signInWithToken(url: url, token: token);
+    });
+  }
+
+  /// The shape both sign-ins share: busy, one call, idle or a named failure.
+  Future<bool> _run(
+    String label,
+    Future<void> Function(ServerSessionRepository repository) call,
+  ) async {
+    state = state.working(label);
     try {
-      await ref.read(serverSessionRepositoryProvider).signIn(
-        url: url,
-        token: token,
-      );
+      await call(ref.read(serverSessionRepositoryProvider));
     } on ServerSignInException catch (error) {
       state = state.failing(error.failure);
       return false;

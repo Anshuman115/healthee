@@ -1,27 +1,29 @@
-/// The server address and the token — the only typing this screen asks for.
-///
-/// v02's `.field` geometry (`fields.dart`), the same two controls, the same
-/// promises, the same submit. Nothing about where the token goes changed; only
-/// what the boxes look like.
+/// The server address, an email and a password — the sign-in this app is for.
 ///
 /// ## What the form says, in the form
 ///
 /// The same discipline `zepp_sign_in_form.dart` uses: the promise about where a
 /// secret goes is on screen next to the field that collects it, because that is
-/// where the question gets asked. Here the promise is short — the token goes to
-/// the address above it and nowhere else, over HTTPS, and it is checked before
-/// it is kept.
+/// where the question gets asked. Here there are two promises and they are
+/// different, so both are made: the password goes to the identity provider and
+/// never to the Healthee server, and the credential this phone ends up holding
+/// is one the server minted for this phone alone.
+///
+/// ## Why the address is still a field
+///
+/// This product is self-hostable, and the owner's server is wherever they put
+/// it. The identity provider is fixed at build time (`core/env.dart`) and the
+/// server is not, so the address stays and the provider does not appear.
 ///
 /// ## The reveal toggle
 ///
-/// Obscured by default, with an eye. A token is long, opaque and usually pasted,
-/// and the single most common way to get it wrong is an invisible character at
-/// one end — so being able to look at what is in the field is a correctness
-/// feature, not a convenience. The whitespace that causes that is trimmed
-/// anyway (`data/api/server_session.dart`), which is the belt to this brace.
+/// Obscured by default, with an eye. Being able to look at what is in the field
+/// is a correctness feature rather than a convenience — a mistyped password and
+/// a wrong password are the same 400 from the provider, and only one of them is
+/// worth resetting an account over.
 ///
-/// **The token is never rendered anywhere but this field.** It is not put in
-/// the semantics label, not in a log line, and not in the state object — see
+/// **The password is never rendered anywhere but this field.** Not in the
+/// semantics label, not in a log line, and not in the state object — see
 /// `server_signin_state.dart`, and `test/signin/signin_secrecy_test.dart`,
 /// which executes the claim.
 library;
@@ -37,10 +39,13 @@ import 'package:solar_icons/solar_icons.dart';
 
 /// Collects the server address and the API token.
 class ServerSignInForm extends StatefulWidget {
-  /// [initialUrl] prefills the address; [onSubmit] receives both fields as typed.
+  /// [initialUrl] prefills the address; [onSubmit] receives the three fields as
+  /// typed. [onUseToken] opens the transitional pasted-token path, or is null
+  /// where that path should not be offered.
   const ServerSignInForm({
     required this.initialUrl,
     required this.onSubmit,
+    this.onUseToken,
     required this.onEdited,
     required this.enabled,
     super.key,
@@ -50,7 +55,10 @@ class ServerSignInForm extends StatefulWidget {
   final String initialUrl;
 
   /// Runs the check. Trimming is the data layer's job, in one place.
-  final void Function(String url, String token) onSubmit;
+  final void Function(String url, String email, String password) onSubmit;
+
+  /// Opens the ⛔ transitional token form. Null hides the way in entirely.
+  final VoidCallback? onUseToken;
 
   /// Called on the first edit after a failure, so stale copy can be cleared.
   final VoidCallback onEdited;
@@ -66,25 +74,30 @@ class _ServerSignInFormState extends State<ServerSignInForm> {
   late final TextEditingController _url = TextEditingController(
     text: widget.initialUrl,
   );
-  final TextEditingController _token = TextEditingController();
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
   bool _revealed = false;
 
   @override
   void dispose() {
-    // A controller holding a token is memory we can drop early, and must drop
-    // at all: leaking it would keep the string alive for the life of the isolate.
-    _token
+    // A controller holding a password is memory we can drop early, and must
+    // drop at all: leaking it would keep the string alive for the life of the
+    // isolate. Cleared before disposal, so the characters go with the widget.
+    _password
       ..clear()
       ..dispose();
+    _email.dispose();
     _url.dispose();
     super.dispose();
   }
 
   void _submit() {
-    if (_url.text.trim().isEmpty || _token.text.trim().isEmpty) {
+    if (_url.text.trim().isEmpty ||
+        _email.text.trim().isEmpty ||
+        _password.text.isEmpty) {
       return;
     }
-    widget.onSubmit(_url.text, _token.text);
+    widget.onSubmit(_url.text, _email.text, _password.text);
   }
 
   @override
@@ -103,7 +116,9 @@ class _ServerSignInFormState extends State<ServerSignInForm> {
           const SmallProse(
             'Healthee reads what your strap measured with no server at all. '
             'Signing in adds the half that is worked out on it — recovery, '
-            'sleep health, debt, VO₂max and biological age.',
+            'sleep health, debt, VO₂max and biological age — and it is what '
+            'keeps your readings yours: every request after this carries who '
+            'you are, and the server answers with your rows and nobody else’s.',
           ),
           const SizedBox(height: SectionGap.height),
           HField(
@@ -117,19 +132,27 @@ class _ServerSignInFormState extends State<ServerSignInForm> {
             ),
           ),
           HField(
-            label: 'API token',
-            hint: 'Checked against the server before it is saved',
+            label: 'Email',
+            hint: 'The account you sign in to Healthee with',
             child: HTextField(
-              controller: _token,
+              controller: _email,
+              enabled: widget.enabled,
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (_) => widget.onEdited(),
+            ),
+          ),
+          HField(
+            label: 'Password',
+            hint: 'Checked by your identity provider, never by this app',
+            child: HTextField(
+              controller: _password,
               enabled: widget.enabled,
               obscure: !_revealed,
               onSubmitted: (_) => _submit(),
               onChanged: (_) => widget.onEdited(),
-              // A token is pasted, and a smart keyboard capitalising the first
-              // character of an opaque secret is a 401 nobody can explain.
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _revealed = !_revealed),
-                tooltip: _revealed ? 'Hide the token' : 'Show the token',
+                tooltip: _revealed ? 'Hide the password' : 'Show the password',
                 icon: Icon(
                   _revealed
                       ? SolarIconsOutline.eyeClosed
@@ -141,16 +164,24 @@ class _ServerSignInFormState extends State<ServerSignInForm> {
             ),
           ),
           const SmallProse(
-            'The token is kept in this phone’s secure keystore — the same place '
-            'a password manager uses — and is sent only to the address above, '
-            'as an Authorization header. It is never written to a log and never '
-            'put in a web address.',
+            'Your password goes to the identity provider and never to the '
+            'Healthee server. What this phone keeps afterwards is a key the '
+            'server made for this phone alone — held in the secure keystore, '
+            'sent only to the address above, never written to a log, and '
+            'revocable from your account if you lose the device.',
           ),
           const SizedBox(height: SectionGap.height),
           HButton(
-            label: 'Check and sign in',
+            label: 'Sign in',
             onPressed: widget.enabled ? _submit : null,
           ),
+          if (widget.onUseToken case final VoidCallback open) ...<Widget>[
+            const SizedBox(height: SectionGap.height),
+            HLinkButton(
+              label: 'Sign in with an API token instead',
+              onPressed: widget.enabled ? open : null,
+            ),
+          ],
         ],
       ),
     );

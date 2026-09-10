@@ -104,7 +104,12 @@ FREE_PATHS: dict[str, str] = {
         "and paywalling it would leave a free owner's recorded track drawn on nothing"
     ),
     "/api/me": "identity",
-    "/api/device": "identity — device pairing",
+    "/api/device": "identity — device pairing, and the list of what is paired",
+    "/api/device/{token_id}": (
+        "identity — revoking a device credential. Taking back the key to your own "
+        "data is never behind a paywall: a lapsed subscriber who cannot revoke a "
+        "lost phone is worse off than one who never signed up."
+    ),
     "/api/entitlement": "the paywall's own status; a locked-out owner must be able to read it",
 }
 

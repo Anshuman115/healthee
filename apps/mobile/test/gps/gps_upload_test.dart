@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/api/account_api.dart';
 import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/credentials.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/gps/gps_fix.dart';
 import 'package:healthee/data/gps/gps_local_store.dart';
 import 'package:healthee/data/gps/gps_repository.dart';
@@ -16,7 +17,7 @@ void main() {
     final dio = Dio();
     addTearDown(() async { dio.close(); await database.close(); });
     final credentials = Credentials(FakeSecretStore());
-    await credentials.setServerSession(baseUrl: 'https://test.example', token: 'test');
+    await credentials.setServerSession(baseUrl: 'https://test.example', token: 'test', kind: StoredCredentialKind.shared);
     final local = GpsLocalStore(database, 'owner');
     final repository = GpsRepository(local: local,
       api: AccountApi(dio, await CacheSession.capture(credentials)));

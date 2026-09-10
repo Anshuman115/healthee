@@ -353,12 +353,26 @@ signature (Supabase JWKS / project JWT secret), `exp`/`aud`/`iss`, then take
 `sub` = the user **UUID** = our tenant id. No login/register/refresh endpoints on
 our side; those calls go straight to Supabase.
 
-### 4.3 Ingest uses our own device token
+### 4.3 Ingest uses our own device token — **SHIPPED**
 Supabase access tokens are short-lived (~1h) → unusable for background BLE sync.
-At device pairing (an authenticated `POST /api/device`), the backend mints a
-long-lived **device token**, stores only its hash (§3.1), returns it once; the app
-sends it on `/ingest/*`, mapping to one user UUID. This replaces today's single
-global `REALTIME_INGEST_TOKEN`.
+At sign-in (an authenticated `POST /api/device`), the backend mints a long-lived
+**device token**, stores only its hash (§3.1), returns it once; the app sends it
+on `/ingest/*`, mapping to one user UUID. This replaces the single global
+`REALTIME_INGEST_TOKEN`.
+
+**Lifecycle (auth audit C2, shipped).** A device token was previously valid from
+mint until somebody deleted the row by hand, and nothing deleted one — a lost
+phone kept write access for ever. Now: `revoked_at` filtered in the resolve,
+`GET /api/device` so an owner can see what is live, `DELETE /api/device/{id}`
+scoped by putting the owner in the WHERE clause, and a cap of ten live tokens per
+owner. Revoking frees a slot, so the 409 is actionable rather than terminal.
+
+**The client half.** `apps/mobile` routes by a RECORDED credential kind rather
+than by inference: `/ingest/*` takes the stored token whichever kind it is,
+`/api/*` takes the Supabase JWT unless the stored credential is the transitional
+shared one. A device token is never sent to `/api/*` — the server does not accept
+it there, so the honest thing when there is no live JWT is no header at all, and
+the 401 that follows ends the session (C4) instead of being replayed for ever.
 
 ### 4.4 The `current_user()` dependency
 1. `/api/*`: verify Supabase JWT → UUID. `/ingest/*`: look up device-token hash → UUID.
@@ -399,7 +413,15 @@ tenant's data today, so the legacy branch reproduces current behaviour byte-for-
 minting a long-lived credential, and accepting the shared secret there would let its
 holder forge a permanent per-user token that outlives the transition.
 
-**Removal condition:** the legacy branch goes when the Phase-2 app ships Supabase
+**Removal condition — the first half is now MET.** The app ships Supabase login,
+so what remains is the deployment step: clear `REALTIME_INGEST_TOKEN` from the
+environment (blank fails closed and authorises nobody), then delete the branch
+and its client-side counterparts. `infra/DEPLOY.md` B7 is the runbook, in the
+order that keeps every step before the last one reversible. Until that is done
+the secret still exists and still resolves to a whole tenant, which is why
+`core/config.py` refuses to boot with it set beside open signups.
+
+The original condition: the legacy branch goes when the Phase-2 app ships Supabase
 login, or at **6.5**, whichever is first. A shared token that maps to a real tenant
 MUST NOT survive into public signups (§12.7 — the server is the trust boundary).
 

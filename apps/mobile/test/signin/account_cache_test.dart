@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/interceptors.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/sleep_repository.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/today_repository.dart';
@@ -21,10 +22,11 @@ void main() {
     await credentials.setServerSession(
       baseUrl: 'https://test.example',
       token: 'owner-a',
+      kind: StoredCredentialKind.shared,
     );
     store = LocalStore.memory();
     dio = Dio(BaseOptions(baseUrl: 'https://test.example'));
-    dio.interceptors.add(ServerSessionInterceptor(credentials));
+    dio.interceptors.add(ServerSessionInterceptor(credentials, null));
   });
   tearDown(() async {
     dio.close();
@@ -67,6 +69,7 @@ void main() {
       await credentials.setServerSession(
         baseUrl: 'https://test.example',
         token: 'owner-b',
+        kind: StoredCredentialKind.shared,
       );
       await expectLater(repository.load(), throwsA(isA<DioException>()));
       await credentials.forgetServerSession();
@@ -82,6 +85,7 @@ void main() {
     await credentials.setServerSession(
       baseUrl: 'https://test.example',
       token: 'owner-b',
+      kind: StoredCredentialKind.shared,
     );
     await expectLater(repository.page(), throwsA(isA<DioException>()));
   });
@@ -106,6 +110,7 @@ void main() {
       await credentials.setServerSession(
         baseUrl: 'https://test.example',
         token: 'owner-b',
+        kind: StoredCredentialKind.shared,
       );
       handler.resolve(
         Response(

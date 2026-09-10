@@ -68,7 +68,7 @@ Dio _appClient(FakeSecretStore store, ScriptedServer server, {bool logBodies = f
     ),
   )..httpClientAdapter = server;
   dio.interceptors.addAll([
-    ServerSessionInterceptor(Credentials(store)),
+    ServerSessionInterceptor(Credentials(store), null),
     ApiLogInterceptor(logBodies: logBodies),
   ]);
   return dio;
@@ -92,7 +92,7 @@ void main() {
     test('an accepted token: the host is logged, the secret is not', () async {
       final store = FakeSecretStore();
       await repositoryWith(store, ScriptedServer())
-          .signIn(url: _url, token: kSentinelToken);
+          .signInWithToken(url: _url, token: kSentinelToken);
 
       // The flow really ran — otherwise "nothing leaked" would be vacuous.
       expect(_log, isNotEmpty);
@@ -110,7 +110,7 @@ void main() {
 
       await expectLater(
         repositoryWith(FakeSecretStore(), server)
-            .signIn(url: _url, token: kSentinelToken),
+            .signInWithToken(url: _url, token: kSentinelToken),
         throwsA(isA<ServerSignInException>()),
       );
 
@@ -123,7 +123,7 @@ void main() {
         repositoryWith(
           FakeSecretStore(),
           ScriptedServer(failWith: hostNotFound('healthee.example.com')),
-        ).signIn(url: _url, token: kSentinelToken),
+        ).signInWithToken(url: _url, token: kSentinelToken),
         throwsA(isA<ServerSignInException>()),
       );
 
@@ -140,7 +140,7 @@ void main() {
         repositoryWith(
           FakeSecretStore(),
           ScriptedServer(reply: const ServerReply(500, body: kSentinelToken)),
-        ).signIn(url: _url, token: kSentinelToken),
+        ).signInWithToken(url: _url, token: kSentinelToken),
         throwsA(isA<ServerSignInException>()),
       );
 
@@ -155,7 +155,7 @@ void main() {
       ]) {
         try {
           await repositoryWith(FakeSecretStore(), server)
-              .signIn(url: _url, token: kSentinelToken);
+              .signInWithToken(url: _url, token: kSentinelToken);
           fail('expected a failure');
         } on ServerSignInException catch (error) {
           expect(error.failure.headline, isNot(contains(kSentinelToken)));
@@ -225,7 +225,7 @@ void main() {
     test('no request the sign-in makes puts it in the address or the query', () async {
       final server = ScriptedServer();
       await repositoryWith(FakeSecretStore(), server)
-          .signIn(url: _url, token: kSentinelToken);
+          .signInWithToken(url: _url, token: kSentinelToken);
 
       for (final request in server.sent) {
         expect(request.uri.toString(), isNot(contains(kSentinelToken)));

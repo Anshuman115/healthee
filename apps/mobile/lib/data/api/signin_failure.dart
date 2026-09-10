@@ -34,6 +34,9 @@ library;
 
 import 'package:meta/meta.dart';
 
+// The identity provider's half of the taxonomy — see that file's own note.
+part 'identity_failure.dart';
+
 /// A named sign-in failure, with the copy the screen renders.
 @immutable
 sealed class ServerSignInFailure {

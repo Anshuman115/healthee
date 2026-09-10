@@ -4,6 +4,7 @@ import 'package:healthee/data/api/account_api.dart';
 import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/problem_message.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
 
 import '../pairing/_pairing_fakes.dart';
@@ -19,6 +20,7 @@ void main() {
     await credentials.setServerSession(
       baseUrl: 'https://test.example',
       token: 'a',
+      kind: StoredCredentialKind.shared,
     );
     dio = Dio(BaseOptions(baseUrl: 'https://test.example'));
     dio.interceptors.add(
@@ -67,6 +69,7 @@ void main() {
       await credentials.setServerSession(
         baseUrl: 'https://test.example',
         token: 'b',
+        kind: StoredCredentialKind.shared,
       );
       await expectLater(
         repository.generateChallenges(),

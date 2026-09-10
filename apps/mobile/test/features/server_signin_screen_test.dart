@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/core/theme/app_theme.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/auth/identity_providers.dart';
 import 'package:healthee/features/signin/server_signin_screen.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
 
@@ -25,10 +26,20 @@ import '../signin/_signin_fakes.dart';
 
 const String _url = 'https://healthee.example.com';
 
-Widget _host(FakeSecretStore store, ScriptedServer server) {
+/// The screen under a build with NO identity provider, which is what these
+/// cases are about: the transitional pasted-token path, and the three async
+/// states around it. `identityAvailableProvider` is overridden rather than left
+/// to `Env` so this is a decision the test makes, not one the absence of a
+/// dart-define makes for it.
+Widget _host(
+  FakeSecretStore store,
+  ScriptedServer server, {
+  bool identity = false,
+}) {
   return ProviderScope(
     overrides: [
       credentialsProvider.overrideWithValue(Credentials(store)),
+      identityAvailableProvider.overrideWithValue(identity),
       serverSessionRepositoryProvider.overrideWithValue(
         repositoryWith(store, server),
       ),
@@ -109,7 +120,7 @@ void main() {
       await _pump(tester, _host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign in to your server'), findsOneWidget);
+      expect(find.text('Sign in with an API token'), findsOneWidget);
       expect(find.byType(TextField), findsNWidgets(2));
       expect(find.text('Check and sign in'), findsOneWidget);
     });

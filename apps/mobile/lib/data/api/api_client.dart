@@ -38,6 +38,7 @@ import 'package:healthee/core/env.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/interceptors.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/auth/identity_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'api_client.g.dart';
@@ -72,7 +73,18 @@ Dio apiClient(Ref ref) {
   );
 
   dio.interceptors.addAll([
-    ServerSessionInterceptor(ref.watch(credentialsProvider)),
+    ServerSessionInterceptor(
+      ref.watch(credentialsProvider),
+      ref.watch(identityClientProvider),
+    ),
+    // A 401 ENDS the session rather than being replayed on every screen load
+    // and every background sync. `ref.read`, not `watch`: watching the
+    // repository here would rebuild this client — and its connection pool —
+    // every time the flag it sets changes.
+    SessionGuardInterceptor(() {
+      ref.read(serverSessionRepositoryProvider).rejected = true;
+      ref.invalidate(serverSessionProvider);
+    }),
     ApiLogInterceptor(logBodies: Env.logHttpBodies),
   ]);
 
