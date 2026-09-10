@@ -18,11 +18,13 @@ caveats that make it honest are structural and argued in that module.
 
 from __future__ import annotations
 
+from datetime import date
+from typing import Any
 from uuid import UUID
 
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import user_today
-from healthee.insights import commitments, pipeline
+from healthee.insights import commitment_outcome, commitments, pipeline
 from healthee.insights.challenge_context import challenge_section
 from healthee.read.recovery import (
     STALE_RECOVERY_DIRECTIVE,
@@ -52,7 +54,13 @@ def build_coach_context(
     with tenant_transaction(user_id) as cur:
         recovery = recovery_score_payload(cur, user_id, tz)
         challenges = challenge_section(cur, user_id)
-    parts = [context, _recovery_block(recovery, tz), challenges, _commitments_block(user_id, tz)]
+    parts = [
+        context,
+        _recovery_block(recovery, tz),
+        challenges,
+        _commitments_block(user_id, tz),
+        _kept_outcomes_block(user_id, tz),
+    ]
     return "\n\n".join(p for p in parts if p)
 
 
@@ -83,6 +91,56 @@ def _commitments_block(user_id: UUID, tz: str) -> str:
         "was kept because a number moved."
     )
     return "\n".join(lines)
+
+
+def _kept_outcomes_block(user_id: UUID, tz: str) -> str:
+    """What the metric did after a commitment they said they kept.
+
+    The third source of this person's OWN evidence, beside the correlations in
+    `context_sessions.findings_section` and the frozen challenge ledger in
+    `challenge_context.challenge_section`. All three are cited the same way and
+    carry their confidence, because a reader meeting them in one answer must not
+    have to learn three vocabularies.
+
+    ⛔ Co-occurring, never caused — and the confounds are printed rather than
+    summarised, because "a challenge was also running" is the sentence that stops
+    a delta being read as a result.
+    """
+    kept = commitments.kept_with_metric(user_id)
+    if not kept:
+        return ""
+    lines = ["# AFTER WHAT THEY SAID THEY DID", ""]
+    for c in kept:
+        if c.metric is None:  # `kept_with_metric` filters these out; belt and braces
+            continue
+        out = commitment_outcome.outcome_for(
+            user_id, tz, c.id, c.stated, c.metric, _as_date(c.created_at)
+        )
+        if out.confidence == commitment_outcome.INSUFFICIENT:
+            lines.append(
+                f'- `[personal_finding:commitment]` "{c.stated}" — not enough measured '
+                f"days either side to compare `{c.metric}` yet. Say that; do not reach "
+                "for a number."
+            )
+            continue
+        flags = ", ".join(f"{k}={v}" for k, v in sorted(out.confounds.items()) if v)
+        caveat = f" ⚠ also in this window: {flags}." if flags else ""
+        lines.append(
+            f'- `[personal_finding:commitment]` "{c.stated}" — `{c.metric}` went '
+            f"{out.before} → {out.after} ({out.delta:+}), {out.before_days} days before "
+            f"vs {out.after_days} after.{caveat}"
+        )
+    lines.append("")
+    lines.append(
+        "Single-subject and observational: these moved WITH the change, and nothing "
+        "here shows the change caused them. Say so, and name any confound above."
+    )
+    return "\n".join(lines)
+
+
+def _as_date(value: Any) -> date:
+    """`created_at` as a local date — the day the change starts."""
+    return value.date() if hasattr(value, "date") else value
 
 
 def _recovery_block(recovery: dict | None, tz: str) -> str:

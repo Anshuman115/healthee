@@ -12,7 +12,15 @@ The four compose: **memory** captures what was said and committed → the
 **proactive** delivers that evidence and nudges at the right moment → all of it
 serves the **goal**. Build order follows that dependency.
 
-## C1 — Memory & continuity
+## C1 — Memory & continuity — **SHIPPED 2026-09-10**
+Built as `insights/commitments.py` + migration `0021_coach_commitment.sql`, with
+`record_commitment`/`resolve_commitment` as coach tools and the open ones rendered
+into every turn (`coach_context._commitments_block`). Two departures from the plan
+below, both deliberate: there is no `coach_memory` summary table — the conversation
+transcript is already the memory and a second, LLM-written copy of it is a place for
+a number to drift — and a commitment resolves to `kept`/`missed`/`dropped` only on
+the person's own word, never inferred from a metric.
+
 The coach remembers past conversations, what it already told you, and what you
 committed to — no cold starts.
 - **Data:** `coach_memory` (per-conversation grounded summary + extracted
@@ -27,7 +35,28 @@ committed to — no cold starts.
   it can re-query, it re-queries.
 - **Depends on:** baseline coach.
 
-## C2 — Outcome ledger (it learns what works *for you*)
+## C2 — Outcome ledger (it learns what works *for you*) — **SHIPPED 2026-09-10**
+All three sources now reach the coach's context as `[personal_finding:…]`:
+correlations (`context_sessions.findings_section`), the frozen challenge ledger
+(`challenge_context.challenge_section`), and — new here —
+`insights/commitment_outcome.py`, the before→after of a kept commitment's metric.
+
+**No `personal_finding` table was built, on purpose.** Each source already stores
+its own evidence with its own confidence, and a fourth table would be a fourth copy
+of numbers that can be recomputed — a second definition of "the metric moved", which
+is the failure CLAUDE.md names. What C2 actually needed was one *vocabulary*, and
+that is what the three blocks now share: the same citation token, the same
+`ok`/`insufficient_data` words, the same estimator.
+
+The commitment source reuses `challenges.series.recent_window` and
+`MIN_COMPARISON_DAYS` rather than a softer rule of its own — a commitment
+before/after is the *weakest* of the three claims (no target, no adoption gate,
+self-reported adherence), so it must not be the most permissive. It adds one gate
+the challenge ledger does not need: the estimator averages a trailing
+`BASELINE_DAYS`, so no outcome exists until that many days have elapsed since the
+commitment, or the "after" window would still be reaching back over its own
+baseline.
+
 The coach tracks whether its advice actually moved your metrics and builds your
 personal cause-and-effect, cited as `[personal_finding:...]`.
 - **Data:** unify the existing signals into one personal-evidence store the coach

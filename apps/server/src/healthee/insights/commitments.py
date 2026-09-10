@@ -53,6 +53,13 @@ DEFAULT_HORIZON_DAYS = 14
 MAX_OPEN = 5
 
 OPEN = "open"
+KEPT = "kept"
+
+#: How many resolved-kept commitments are read back as evidence. A short panel,
+#: like every other evidence block: the newest few are the ones a conversation is
+#: plausibly about, and a wide net over one person's history is a machine for
+#: finding a coincidence.
+EVIDENCE_LIMIT = 3
 
 
 @dataclass(frozen=True)
@@ -161,3 +168,25 @@ def _clamp_horizon(days: int | None) -> int:
     except (TypeError, ValueError):
         return DEFAULT_HORIZON_DAYS
     return max(MIN_HORIZON_DAYS, min(asked, MAX_HORIZON_DAYS))
+
+
+def kept_with_metric(user_id: UUID, limit: int = EVIDENCE_LIMIT) -> list[Commitment]:
+    """Commitments the owner said they KEPT, that name a metric, newest first.
+
+    Both filters are the honest ones. `kept` because a missed or dropped
+    commitment is not a behaviour change and its metric moving says nothing; a
+    metric because a before/after needs something to compare, and the nullable
+    column is exactly where "I'll get to bed earlier" lives.
+
+    `created_at` orders them: the commitment's own date is when the change starts,
+    and it is what `commitment_outcome` anchors its windows on.
+    """
+    with tenant_transaction(user_id) as cur:
+        cur.execute(
+            "SELECT id, stated, metric, check_in_on, created_at FROM coach_commitment "
+            "WHERE user_id = %s AND status = %s AND metric IS NOT NULL "
+            "ORDER BY created_at DESC LIMIT %s",
+            (str(user_id), KEPT, limit),
+        )
+        rows = cur.fetchall()
+    return [Commitment(r[0], r[1], r[2], r[3], r[4]) for r in rows]
