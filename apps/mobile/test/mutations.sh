@@ -3408,6 +3408,43 @@ mutate 'a stripped citation leaves its backticks behind' \
   ''
 
 
+# ⛔ The discovery call decides where the next two lines send a PASSWORD. Skipping
+# it puts the app back to signing in against whatever was compiled in — which is
+# the whole thing auth-config exists to end.
+mutate 'sign-in skips asking the server who it trusts' \
+  test/auth/discovery_test.dart lib/data/api/server_session.dart \
+  '    await _discoverIdentity(address);
+' \
+  ''
+
+# A remembered provider from a server that could not serve one would point the
+# NEXT sign-in at it. Storing before the answer is checked is how that happens.
+mutate 'a server with no provider is remembered anyway' \
+  test/auth/discovery_test.dart lib/data/api/server_session.dart \
+  '      case AuthConfigNone():
+        throw const ServerSignInException(ServerHasNoIdentityProvider());' \
+  '      case AuthConfigNone():
+        return;'
+
+# "Configure this server" and "update this server" are different jobs for
+# different people. The 404 is how the server tells us which.
+mutate 'a too-old server is reported as an unconfigured one' \
+  test/auth/discovery_test.dart lib/data/api/server_session.dart \
+  '      case AuthConfigUnsupported():
+        throw const ServerSignInException(ServerTooOldForSignIn());' \
+  '      case AuthConfigUnsupported():
+        throw const ServerSignInException(ServerHasNoIdentityProvider());'
+
+# The stored provider is what makes a published APK point at the OWNER's project.
+# Preferring the compiled-in one would quietly restore the old behaviour.
+mutate 'the compiled-in provider wins over the discovered one' \
+  test/auth/discovery_test.dart lib/data/auth/identity_providers.dart \
+  'Future<AuthConfig?> resolveAuthConfig(Credentials credentials) async =>
+    await credentials.authConfig() ??' \
+  'Future<AuthConfig?> resolveAuthConfig(Credentials credentials) async =>
+    null ??'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"

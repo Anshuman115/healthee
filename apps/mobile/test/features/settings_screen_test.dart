@@ -136,10 +136,18 @@ void main() {
       await tester.pumpWidget(settingsApp(location: Routes.serverSignIn));
       await tester.pumpAndSettle();
 
-      // A test build carries no Supabase dart-defines, so this is the screen a
-      // self-hoster with no identity provider sees: the pasted-token form, which
-      // names itself rather than borrowing the password form's heading.
-      expect(find.text('Sign in with an API token'), findsOneWidget);
+      // The PASSWORD form, even though a test build carries no Supabase
+      // dart-defines. That changed when the server started naming its own
+      // identity provider (`GET /api/auth-config`): the app no longer decides at
+      // BUILD time whether it can sign in, because any server the owner types
+      // might name one. It finds out by asking, and reports
+      // `ServerHasNoIdentityProvider` if the answer is no.
+      //
+      // The pasted-token form is still reachable — by the link below, which is
+      // its own assertion further down — but it is no longer what a build
+      // without defines is stuck with.
+      expect(find.text('Sign in to your server'), findsOneWidget);
+      expect(find.text('Sign in with an API token instead'), findsOneWidget);
       expect(
         find.textContaining('with no server at all'),
         findsOneWidget,

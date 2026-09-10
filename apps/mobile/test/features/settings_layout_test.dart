@@ -217,11 +217,13 @@ void main() {
       await _pumpAt(tester, 390, Routes.serverSignIn);
       expectPaintedOrder(tester, <Finder>[
         find.text('A private connection'),
-        // The no-provider build's form; see `settings_screen_test.dart`.
-        find.text('Sign in with an API token'),
+        // The password form is what a build without defines shows now — the
+        // server names its provider at sign-in time, so there is nothing to
+        // decide at build time. `settings_screen_test.dart` argues it.
+        find.text('Sign in to your server'),
         find.text('Server address'),
-        find.text('API token'),
-        find.text('Check and sign in'),
+        find.text('Email'),
+        find.text('Sign in'),
         find.text('How this app signs in'),
         find.text('Your data & privacy'),
       ]);

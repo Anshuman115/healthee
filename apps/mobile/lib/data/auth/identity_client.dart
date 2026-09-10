@@ -42,6 +42,7 @@ import 'package:gotrue/gotrue.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/api/secret_store.dart';
 import 'package:healthee/data/api/signin_failure.dart';
+import 'package:healthee/data/auth/auth_config.dart';
 import 'package:healthee/data/auth/identity_failure_mapping.dart';
 import 'package:healthee/data/auth/identity_store.dart';
 
@@ -52,15 +53,45 @@ class IdentityClient {
   /// Positional and private, the same shape as `ServerSessionInterceptor`'s:
   /// making them public named fields would put `GoTrueClient` on this class's
   /// surface, and being the ONE place that touches it is the whole point.
-  IdentityClient(this._auth, this._secrets);
+  IdentityClient(GoTrueClient auth, SecretStore secrets)
+    : this._configured(auth, secrets, null, null);
 
-  final GoTrueClient _auth;
+  /// The lazily-configured form: the provider is discovered, not compiled in.
+  ///
+  /// ⛔ **This is what stops a published APK being the author's app.** The
+  /// alternative — a `GoTrueClient` built at construction from `--dart-define`s —
+  /// means one binary can only ever sign in against one Supabase project, so
+  /// installing the release points you at whoever built it. [resolve] returns
+  /// what the SERVER said (`data/auth/auth_config.dart`), so the owner types
+  /// their address and the app learns the rest.
+  ///
+  /// Resolution happens inside [restore], which everything already awaits, so
+  /// this stays synchronous to CONSTRUCT — every consumer of
+  /// `identityClientProvider` keeps working unchanged. `build` is injectable so a
+  /// test can hand back a scripted transport.
+  IdentityClient.deferred({
+    required Future<AuthConfig?> Function() resolve,
+    required GoTrueClient Function(AuthConfig) build,
+    required SecretStore secrets,
+  }) : this._configured(null, secrets, resolve, build);
+
+  /// The one real constructor the two above delegate to.
+  IdentityClient._configured(this._auth, this._secrets, this._resolve, this._build);
+
+
+  GoTrueClient? _auth;
+  final Future<AuthConfig?> Function()? _resolve;
+  final GoTrueClient Function(AuthConfig)? _build;
   final SecretStore _secrets;
   StreamSubscription<AuthState>? _watch;
   Future<void>? _ready;
 
+  /// True once a provider is known — after [restore], or immediately when one was
+  /// compiled in. A build with neither has no way to sign in and says so.
+  bool get isConfigured => _auth != null;
+
   /// The signed-in owner's Supabase UUID, or null when signed out.
-  String? get userId => _auth.currentSession?.user.id;
+  String? get userId => _auth?.currentSession?.user.id;
 
   /// True when a session is held — expired or not.
   ///
@@ -71,7 +102,7 @@ class IdentityClient {
   /// ⚠ Only meaningful after [restore] has completed. Call [accessToken] first,
   /// or await [restore] — on a cold start this reads false until the keystore
   /// has been consulted, which is a different claim from "signed out".
-  bool get isSignedIn => _auth.currentSession != null;
+  bool get isSignedIn => _auth?.currentSession != null;
 
   /// Reads the stored session back, once, and starts persisting future ones.
   ///
@@ -107,11 +138,17 @@ class IdentityClient {
   /// the memoised failure. The rule: **delete a credential only when the server
   /// has told us it is dead.** Not being able to ask is not an answer.
   Future<void> _restore() async {
-    _watch ??= _auth.onAuthStateChange.listen(_persist, onError: _noteStreamError);
+    final auth = await _resolved();
+    if (auth == null) {
+      // No provider: nothing to restore into, and nothing to sign in with. The
+      // screen reports it from `isConfigured` rather than this failing.
+      return;
+    }
+    _watch ??= auth.onAuthStateChange.listen(_persist, onError: _noteStreamError);
     final stored = await _secrets.read(key: kIdentitySessionKey);
     if (stored == null) return;
     try {
-      await _auth.recoverSession(stored);
+      await auth.recoverSession(stored);
     } on AuthRetryableFetchException catch (error) {
       // Kept, and deliberately not memoised: the session is probably fine and we
       // could not reach the one server that can say otherwise.
@@ -127,13 +164,48 @@ class IdentityClient {
     }
   }
 
+  /// The resolved client, or the named failure when this build has no provider.
+  ///
+  /// Reached only after [restore], so `_auth` is populated if it ever will be. The
+  /// throw is the same one a build with no `--dart-define`s produced, so the
+  /// screen's handling of it is unchanged.
+  GoTrueClient _requireConfigured() {
+    final auth = _auth;
+    if (auth == null) {
+      throw const ServerSignInException(IdentityNotConfigured());
+    }
+    return auth;
+  }
+
+  /// The `gotrue` client, discovering the provider on first use.
+  ///
+  /// Memoised through [_auth]: the config read is a keystore hit and the client
+  /// holds the in-memory session, so building a second one would silently lose
+  /// the first one's refresh timer.
+  Future<GoTrueClient?> _resolved() async {
+    if (_auth != null) {
+      return _auth;
+    }
+    final resolve = _resolve;
+    final build = _build;
+    if (resolve == null || build == null) {
+      return null;
+    }
+    final config = await resolve();
+    if (config == null) {
+      return null;
+    }
+    return _auth = build(config);
+  }
+
   /// Signs in with an email and a password. Throws [ServerSignInException].
   Future<void> signIn({required String email, required String password}) async {
     // Before anything else, so the auth-state listener is live and the session
     // this produces is persisted rather than held only in memory.
     await restore();
+    final auth = _requireConfigured();
     await _guarded(
-      () => _auth.signInWithPassword(email: email, password: password),
+      () => auth.signInWithPassword(email: email, password: password),
       creating: false,
     );
   }
@@ -145,8 +217,9 @@ class IdentityClient {
   /// account and a mail to open. [IdentityNeedsConfirmation] says exactly that.
   Future<void> signUp({required String email, required String password}) async {
     await restore();
+    final auth = _requireConfigured();
     final response = await _guarded(
-      () => _auth.signUp(email: email, password: password),
+      () => auth.signUp(email: email, password: password),
       creating: true,
     );
     if (response.session == null) {
@@ -162,8 +235,12 @@ class IdentityClient {
   /// rotated token for the three that lost.
   Future<String?> accessToken() async {
     await restore();
+    final auth = _auth;
+    if (auth == null) {
+      return null;
+    }
     try {
-      return (await _auth.getSession())?.accessToken;
+      return (await auth.getSession())?.accessToken;
     } on AuthRetryableFetchException catch (error) {
       // The same distinction [_restore] draws, at the other end of the session's
       // life: a refresh we could not send is not a refresh that was refused. The
@@ -186,7 +263,7 @@ class IdentityClient {
   /// deliberately is to revoke the device tokens, which is its own control.
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      await _auth?.signOut();
     } on AuthException catch (error) {
       // The server-side revoke can fail; the local session must still go. An
       // owner who pressed sign out and stayed signed in has been ignored.

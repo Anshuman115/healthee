@@ -53,6 +53,8 @@ import 'package:healthee/data/api/server_probe.dart';
 import 'package:healthee/data/api/server_url.dart';
 import 'package:healthee/data/api/signin_failure.dart';
 import 'package:healthee/data/api/stored_server_session.dart';
+import 'package:healthee/data/auth/auth_config.dart';
+import 'package:healthee/data/auth/auth_config_client.dart';
 import 'package:healthee/data/auth/device_token_client.dart';
 import 'package:healthee/data/auth/identity_client.dart';
 import 'package:healthee/data/auth/identity_providers.dart';
@@ -105,6 +107,7 @@ class ServerSessionRepository {
     required this.probe,
     required this.identity,
     required this.devices,
+    this.authConfigs,
   });
 
   /// Where the session is kept.
@@ -118,6 +121,10 @@ class ServerSessionRepository {
 
   /// Mints this phone's ingest credential. Null when [identity] is.
   final DeviceTokenClient? devices;
+
+  /// Asks a server which identity provider it expects. Null on a build compiled
+  /// against one, where there is nothing to discover.
+  final AuthConfigClient? authConfigs;
 
   /// Signs in with an email and a password, and mints this device's token.
   ///
@@ -179,6 +186,42 @@ class ServerSessionRepository {
     create: true,
   );
 
+  /// Learns which identity provider [address] expects, and remembers it.
+  ///
+  /// Each of the three unhappy answers is its own named failure because each has
+  /// a different remedy: configure the server, update the server, or check the
+  /// connection. Collapsing them would send the owner to the wrong person — and
+  /// "your password is wrong" for any of them would send them to change a
+  /// password that was never the problem, which is the distinction this whole
+  /// failure taxonomy exists to keep.
+  ///
+  /// A build with compiled-in defines and no `authConfigs` client keeps working:
+  /// discovery is skipped and `identity` falls back to `Env`.
+  Future<void> _discoverIdentity(ServerUrl address) async {
+    final client = authConfigs;
+    if (client == null) {
+      return;
+    }
+    switch (await client.forServer(address)) {
+      case AuthConfigFound(:final config):
+        await credentials.setAuthConfig(config);
+      case AuthConfigNone():
+        throw const ServerSignInException(ServerHasNoIdentityProvider());
+      case AuthConfigUnsupported():
+        throw const ServerSignInException(ServerTooOldForSignIn());
+      case AuthConfigUnreachable():
+        // The host, and the honest reason: we could not complete the call. The
+        // more specific transport reasons come from the probe a moment later;
+        // this one only knows that the question did not get an answer.
+        throw ServerSignInException(
+          ServerUnreachable(
+            reason: UnreachableReason.timedOut,
+            host: address.host,
+          ),
+        );
+    }
+  }
+
   /// Proves an identity — new or returning — and connects this phone to [url].
   Future<ServerUrl> _connect({
     required String url,
@@ -188,6 +231,16 @@ class ServerSessionRepository {
     required bool create,
   }) async {
     final address = ServerUrl.parse(url);
+    // ⛔ **Ask the server who it trusts BEFORE presenting a password to anybody.**
+    //
+    // The provider used to be compiled in, which meant a published APK signed in
+    // against whoever built it. Now the owner names a server and the server names
+    // its provider (`GET /api/auth-config`), so this call decides where the next
+    // two lines send a password. It carries no credential of ours — see
+    // `data/auth/auth_config_client.dart`.
+    //
+    // Stored on success, so a cold start needs no network to know how to sign in.
+    await _discoverIdentity(address);
     final auth = identity;
     final minter = devices;
     if (auth == null || minter == null) {
@@ -325,6 +378,9 @@ ServerSessionRepository serverSessionRepository(Ref ref) {
     credentials: ref.watch(credentialsProvider),
     probe: ServerProbe(ServerProbe.dioFor()),
     identity: identity,
+    // Always present: any server might name a provider, and that is the whole
+    // point — the app no longer decides at build time who it can sign in to.
+    authConfigs: AuthConfigClient(AuthConfigClient.dioFor()),
     // Together or neither: a mint has nothing to authenticate with when there
     // is no identity to sign in against.
     devices: identity == null
